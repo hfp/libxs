@@ -73,6 +73,7 @@
 #else
 # define LIBXS_ASSUME_ALIGNED(A, N)
 #endif
+#define LIBXS_ALIGN(A, ALIGNMENT) (-(-(A) & -(ALIGNMENT)))
 
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
 # include <mkl.h>
