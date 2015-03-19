@@ -72,7 +72,7 @@
 #else
 # define LIBXS_ASSUME_ALIGNED(A, N)
 #endif
-#define LIBXS_ALIGN_VALUE(DST_TYPE, SRC_TYPE, VALUE, ALIGNMENT) ((DST_TYPE)((-(-((intptr_t)(VALUE * sizeof(SRC_TYPE))) & -((intptr_t)(ALIGNMENT))))) / sizeof(SRC_TYPE))
+#define LIBXS_ALIGN_VALUE(DST_TYPE, SRC_TYPE, VALUE, ALIGNMENT) ((DST_TYPE)((-(-((intptr_t)(VALUE) * ((intptr_t)sizeof(SRC_TYPE))) & -((intptr_t)(ALIGNMENT)))) / sizeof(SRC_TYPE)))
 #define LIBXS_ALIGN(TYPE, PTR, ALIGNMENT) LIBXS_ALIGN_VALUE(TYPE, char, PTR, ALIGNMENT)
 
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
