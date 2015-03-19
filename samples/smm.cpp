@@ -31,6 +31,7 @@
 ******************************************************************************/
 #include <algorithm>
 #include <cstdlib>
+#include <cassert>
 #include <cstdio>
 #include <vector>
 #include <cmath>
@@ -71,32 +72,34 @@ int main(int argc, char* argv[])
     const int m = 1 < argc ? std::atoi(argv[1]) : 23;
     const int n = 2 < argc ? std::atoi(argv[2]) : m;
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
-#if (0 != LIBXS_ROW_MAJOR)
-# if (0 != LIBXS_ALIGNED_STORES)
+
+#if (0 != LIBXS_ALIGNED_STORES)
+# if (0 != LIBXS_ROW_MAJOR)
     const int ldc = LIBXS_ALIGN_VALUE(int, T, n, LIBXS_ALIGNED_STORES);
+    const int csize = m * ldc + (LIBXS_ALIGNED_STORES) / sizeof(T) - 1;
 # else
-    const int ldc = n;
+    const int ldc = LIBXS_ALIGN_VALUE(int, T, m, LIBXS_ALIGNED_STORES);
+    const int csize = n * ldc + (LIBXS_ALIGNED_STORES) / sizeof(T) - 1;
 # endif
 #else
-# if (0 != LIBXS_ALIGNED_STORES)
-    const int ldc = LIBXS_ALIGN_VALUE(int, T, m, LIBXS_ALIGNED_STORES);
+# if (0 != LIBXS_ROW_MAJOR)
+    const int ldc = n, csize = m * ldc;
 # else
-    const int ldc = m;
+    const int ldc = m, csize = n * ldc;
 # endif
 #endif
 
     const int asize = m * k, bsize = k * n;
-#if (0 != LIBXS_ROW_MAJOR)
-    const int csize = m * ldc;
-#else
-    const int csize = n * ldc;
-#endif
     std::vector<T> va(asize), vb(bsize);
     std::for_each(va.begin(), va.end(), nrand<T>);
     std::for_each(vb.begin(), vb.end(), nrand<T>);
-    std::vector<T> vresult(csize, 0.0), vexpect(csize, 0.0);
-    T *const result = &vresult[0], *const expect = &vexpect[0];
     const T *const a = &va[0], *const b = &vb[0];
+
+    std::vector<T> vresult(csize, 0.0), vexpect(csize, 0.0);
+    T *const result = LIBXS_ALIGN(T*, &vresult[0], LIBXS_ALIGNED_STORES);
+    assert(0 == (reinterpret_cast<uintptr_t>(result) % (LIBXS_ALIGNED_STORES)));
+    T *const expect = LIBXS_ALIGN(T*, &vexpect[0], LIBXS_ALIGNED_STORES);
+    assert(0 == (reinterpret_cast<uintptr_t>(expect) % (LIBXS_ALIGNED_STORES)));
 
     fprintf(stderr, "m=%i n=%i k=%i ldc=%i\n", m, n, k, ldc);
     const libxs_mm_dispatch<T> xmm(m, n, k);
@@ -145,8 +148,15 @@ int main(int argc, char* argv[])
     print(expect, m, n);
 # endif
     double diff = 0;
-    for (int i = 0; i < csize; ++i) {
-      diff = std::max(diff, std::abs(static_cast<double>(result[i]) - static_cast<double>(expect[i])));
+    for (int i = 0; i < m; ++i) {
+      for (int j = 0; j < n; ++j) {
+#if (0 != LIBXS_ROW_MAJOR)
+        const int k = i * ldc + j;
+#else
+        const int k = j * ldc + i;
+#endif
+        diff = std::max(diff, std::abs(static_cast<double>(result[k]) - static_cast<double>(expect[k])));
+      }
     }
     fprintf(stderr, "diff=%f\n", diff);
 #endif
