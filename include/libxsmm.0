@@ -32,6 +32,8 @@
 #ifndef LIBXS_H
 #define LIBXS_H
 
+#include <stdint.h>
+
 #define LIBXS_STRINGIFY(SYMBOL) #SYMBOL
 #define LIBXS_CONCATENATE(A, B) A##B
 #define LIBXS_FSYMBOL(SYMBOL) LIBXS_CONCATENATE(SYMBOL, _)
@@ -47,9 +49,8 @@
 #   define LIBXS_INLINE inline
 # else
 #   define LIBXS_INLINE static
-# endif // C99
-#endif // __cplusplus
-
+# endif /*C99*/
+#endif /*__cplusplus*/
 #if !defined(LIBXS_RESTRICT)
 # if ((defined(__GNUC__) && !defined(__CYGWIN32__)) || defined(__INTEL_COMPILER)) && !defined(_WIN32)
 #   define LIBXS_RESTRICT __restrict__
@@ -58,22 +59,21 @@
 # else
 #   define LIBXS_RESTRICT
 # endif
-#endif // LIBXS_RESTRICT
-
+#endif /*LIBXS_RESTRICT*/
 #if !defined(LIBXS_PRAGMA)
 # if defined(__INTEL_COMPILER) || defined(_MSC_VER)
 #   define LIBXS_PRAGMA(DIRECTIVE) __pragma(DIRECTIVE)
 # else
 #   define LIBXS_PRAGMA(DIRECTIVE)
 # endif
-#endif // LIBXS_PRAGMA
-
+#endif /*LIBXS_PRAGMA*/
 #if defined(__INTEL_COMPILER)
 # define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N)
 #else
 # define LIBXS_ASSUME_ALIGNED(A, N)
 #endif
-#define LIBXS_ALIGN(A, ALIGNMENT) ((uintptr_t)(-(-((intptr_t)A) & -((intptr_t)(ALIGNMENT)))))
+#define LIBXS_ALIGN_VALUE(DST_TYPE, SRC_TYPE, VALUE, ALIGNMENT) ((DST_TYPE)((-(-((intptr_t)(VALUE * sizeof(SRC_TYPE))) & -((intptr_t)(ALIGNMENT))))) / sizeof(SRC_TYPE))
+#define LIBXS_ALIGN(TYPE, PTR, ALIGNMENT) LIBXS_ALIGN_VALUE(TYPE, char, PTR, ALIGNMENT)
 
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
 # include <mkl.h>
