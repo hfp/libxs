@@ -97,9 +97,11 @@ int main(int argc, char* argv[])
 
     std::vector<T> vresult(csize, 0.0), vexpect(csize, 0.0);
     T *const result = LIBXS_ALIGN(T*, &vresult[0], LIBXS_ALIGNED_STORES);
-    assert(0 == (reinterpret_cast<uintptr_t>(result) % (LIBXS_ALIGNED_STORES)));
     T *const expect = LIBXS_ALIGN(T*, &vexpect[0], LIBXS_ALIGNED_STORES);
+#if (0 != LIBXS_ALIGNED_STORES)
+    assert(0 == (reinterpret_cast<uintptr_t>(result) % (LIBXS_ALIGNED_STORES)));
     assert(0 == (reinterpret_cast<uintptr_t>(expect) % (LIBXS_ALIGNED_STORES)));
+#endif
 
     fprintf(stderr, "m=%i n=%i k=%i ldc=%i\n", m, n, k, ldc);
     const libxs_mm_dispatch<T> xmm(m, n, k);
