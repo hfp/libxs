@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
       // specialized routine
       xmm(a, b, result);
     }
-    else if (LIBXS_MAX_MNK >= (m * n * k) {
+    else if (LIBXS_MAX_MNK >= (m * n * k)) {
       // inline an optimized implementation
       libxs_imm(m, n, k, a, b, result);
     }
