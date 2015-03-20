@@ -67,12 +67,23 @@
 #   define LIBXS_PRAGMA(DIRECTIVE)
 # endif
 #endif /*LIBXS_PRAGMA*/
+#define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
+#define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
+
 #if defined(__INTEL_COMPILER)
 # define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N)
+# define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION)
 #else
 # define LIBXS_ASSUME_ALIGNED(A, N)
+# if defined(_MSC_VER)
+#   define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION)
+# elif (40500 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+#   define LIBXS_ASSUME(EXPRESSION) do { if (!(EXPRESSION)) __builtin_unreachable(); } while(0)
+# endif
 #endif
-#define LIBXS_ALIGN_VALUE(DST_TYPE, SRC_TYPE, VALUE, ALIGNMENT) ((DST_TYPE)((-(-((intptr_t)(VALUE) * ((intptr_t)sizeof(SRC_TYPE))) & -((intptr_t)(ALIGNMENT)))) / sizeof(SRC_TYPE)))
+#define LIBXS_ALIGN_VALUE(DST_TYPE, SRC_TYPE, VALUE, ALIGNMENT) ((DST_TYPE)((-( \
+  -((intptr_t)(VALUE) * ((intptr_t)sizeof(SRC_TYPE))) & \
+  -((intptr_t)(LIBXS_MAX(ALIGNMENT, 1))))) / sizeof(SRC_TYPE)))
 #define LIBXS_ALIGN(TYPE, PTR, ALIGNMENT) LIBXS_ALIGN_VALUE(TYPE, char, PTR, ALIGNMENT)
 
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
