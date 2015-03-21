@@ -191,8 +191,8 @@ int main(int argc, char* argv[])
 #endif
       }
 
-      { // auto-dispatched
-        fprintf(stdout, "Dispatched...\n");
+      { // inline an optimized implementation
+        fprintf(stdout, "Inlined...\n");
         std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
@@ -202,7 +202,7 @@ int main(int argc, char* argv[])
           LIBXS_ALIGNED(T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
           for (int j = 0; j < csize; ++j) tmp[j] = 0; // clear
           for (int j = 0; j < LIBXS_MIN(t, s - i); ++j) {
-            libxs_mm(m, n, k, &a[0] + (i + j) * asize, &b[0] + (i + j) * bsize, tmp);
+            libxs_imm(m, n, k, &a[0] + (i + j) * asize, &b[0] + (i + j) * bsize, tmp);
           }
           add(c, tmp, m, n, ldc); // atomic
         }
@@ -218,8 +218,8 @@ int main(int argc, char* argv[])
 #endif
       }
 
-      { // inline an optimized implementation
-        fprintf(stdout, "Inlined...\n");
+      { // auto-dispatched
+        fprintf(stdout, "Dispatched...\n");
         std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
@@ -229,7 +229,7 @@ int main(int argc, char* argv[])
           LIBXS_ALIGNED(T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
           for (int j = 0; j < csize; ++j) tmp[j] = 0; // clear
           for (int j = 0; j < LIBXS_MIN(t, s - i); ++j) {
-            libxs_imm(m, n, k, &a[0] + (i + j) * asize, &b[0] + (i + j) * bsize, tmp);
+            libxs_mm(m, n, k, &a[0] + (i + j) * asize, &b[0] + (i + j) * bsize, tmp);
           }
           add(c, tmp, m, n, ldc); // atomic
         }
