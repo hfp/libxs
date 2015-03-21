@@ -30,13 +30,13 @@ INDICES ?= $(foreach m,$(INDICES_M),$(foreach n,$(INDICES_N),$(foreach k,$(INDIC
 ifneq ($(shell which icc 2> /dev/null),)
 	CC := icc
 	AR := xiar
-	CFLAGS := -std=c99 -mkl=sequential -O2 -fPIC -fno-alias -ansi-alias -xHost -offload-attribute-target=mic
-	CFLAGS_MIC := -std=c99 -mkl=sequential -O2 -fPIC -fno-alias -ansi-alias -mmic
+	CFLAGS := -Wall -std=c99 -mkl=sequential -O2 -fPIC -fno-alias -ansi-alias -xHost #-offload-attribute-target=mic
+	CFLAGS_MIC := -Wall -std=c99 -mkl=sequential -O2 -fPIC -fno-alias -ansi-alias -mmic
 else ifneq ($(shell which icpc 2> /dev/null),)
 	CC := icpc
 	AR := xiar
-	CFLAGS := -mkl=sequential -O2 -fPIC -fno-alias -ansi-alias -xHost -offload-attribute-target=mic
-	CFLAGS_MIC := -mkl=sequential -O2 -fPIC -fno-alias -ansi-alias -mmic
+	CFLAGS := -Wall -mkl=sequential -O2 -fPIC -fno-alias -ansi-alias -xHost #-offload-attribute-target=mic
+	CFLAGS_MIC := -Wall -mkl=sequential -O2 -fPIC -fno-alias -ansi-alias -mmic
 #else ifneq ($(shell which icl 2> /dev/null),)
 #	CC := icl
 #	AR := xilib
@@ -44,10 +44,10 @@ else ifneq ($(shell which icpc 2> /dev/null),)
 #	CC := cl
 else ifneq ($(shell which gcc 2> /dev/null),)
 	CC := gcc
-	CFLAGS := -std=c99 -O2 -march=native
+	CFLAGS := -Wall -std=c99 -O2 -march=native
 else ifneq ($(shell which g++ 2> /dev/null),)
 	CC := g++
-	CFLAGS := -O2 -march=native
+	CFLAGS := -Wall -O2 -march=native
 else ifneq ($(shell which pgc 2> /dev/null),)
 	CC := pgc
 else ifneq ($(shell which pgcpp 2> /dev/null),)
@@ -77,16 +77,16 @@ SRCFILES = $(patsubst %,mm_%.c,$(INDICES))
 OBJFILES_HST = $(patsubst %,$(OBJDIR)/intel64/mm_%.o,$(INDICES))
 OBJFILES_MIC = $(patsubst %,$(OBJDIR)/mic/mm_%.o,$(INDICES))
 
-LIB_HST  ?= $(LIBDIR)/intel64/libxs.a
-LIB_MIC  ?= $(LIBDIR)/mic/libxs.a
-INC_MIC   = $(INCDIR)/libxs.h
-MAIN  = $(SRCDIR)/libxs.c
+LIB_HST ?= $(LIBDIR)/intel64/libxs.a
+LIB_MIC ?= $(LIBDIR)/mic/libxs.a
+HEADER = $(INCDIR)/libxs.h
+MAIN = $(SRCDIR)/libxs.c
 
 
 lib_all: lib_hst lib_mic
 
-header_mic: $(INC_MIC)
-$(INC_MIC): $(INCDIR)/libxs.0 $(INCDIR)/libxs.1 $(INCDIR)/libxs.2
+header_mic: $(HEADER)
+$(HEADER): $(INCDIR)/libxs.0 $(INCDIR)/libxs.1 $(INCDIR)/libxs.2
 	@cat $(INCDIR)/libxs.0 > $@
 	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNED_STORES) $(ALIGNED_LOADS) $(ALIGNMENT) $(THRESHOLD) $(words $(INDICES_M)) $(words $(INDICES_N)) $(INDICES_M) $(INDICES_N) $(INDICES_K) >> $@
 	@echo >> $@
@@ -96,22 +96,20 @@ $(INC_MIC): $(INCDIR)/libxs.0 $(INCDIR)/libxs.1 $(INCDIR)/libxs.2
 	@cat $(INCDIR)/libxs.2 >> $@
 
 source_mic: $(addprefix $(SRCDIR)/,$(SRCFILES))
-$(SRCDIR)/%.c: $(INC_MIC)
-	@mkdir -p $(SRCDIR)
+$(SRCDIR)/%.c: $(HEADER)
 	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNED_STORES) $(ALIGNED_LOADS) $(ALIGNMENT) -1 `echo $* | awk -F_ '{ print $$2" "$$3" "$$4 }'` > $@
 
-main_mic: $(MAIN)
-$(MAIN): $(INC_MIC)
-	@mkdir -p $(SRCDIR)
+main: $(MAIN)
+$(MAIN): $(HEADER)
 	@python $(SCRDIR)/libxs_dispatch.py $(words $(INDICES_M)) $(words $(INDICES_N)) $(INDICES_M) $(INDICES_N) $(INDICES_K) > $@
 
 compile_mic: $(OBJFILES_MIC)
-$(OBJDIR)/mic/%.o: $(SRCDIR)/%.c $(INCDIR)/libxs_isa.h
+$(OBJDIR)/mic/%.o: $(SRCDIR)/%.c $(SRCDIR)/libxs_isa.h $(HEADER)
 	@mkdir -p $(OBJDIR)/mic
 	$(CC_MIC) -I$(INCDIR) -c $< -o $@
 
 compile_hst: $(OBJFILES_HST)
-$(OBJDIR)/intel64/%.o: $(SRCDIR)/%.c
+$(OBJDIR)/intel64/%.o: $(SRCDIR)/%.c $(SRCDIR)/libxs_isa.h $(HEADER)
 	@mkdir -p $(OBJDIR)/intel64
 	$(CC_HST) -I$(INCDIR) -c $< -o $@
 
@@ -134,9 +132,9 @@ endif
 	$(AR) -rs $@ $^
 
 clean:
-	rm -rf $(SRCDIR) $(OBJDIR) $(ROOTDIR)/*~ $(ROOTDIR)/*/*~
+	rm -rf $(ROOTDIR)/*~ $(ROOTDIR)/*/*~ $(SRCDIR)/*.c $(OBJDIR)
 
 realclean: clean
-	rm -rf $(LIBDIR) $(INC_MIC)
+	rm -rf $(LIBDIR) $(HEADER)
 
 install: lib_all clean
