@@ -143,25 +143,28 @@ int main(int argc, char* argv[])
 # endif
 #endif
 
+#if defined(_OPENMP)
+    const double gflops = (2ULL * s * m * n * k) * 1E-9;
+#endif
+    const int asize = m * k, bsize = k * n;
+    std::vector<T> va(s * asize), vb(s * bsize), vc(csize);
+    std::for_each(va.begin(), va.end(), nrand<T>);
+    std::for_each(vb.begin(), vb.end(), nrand<T>);
+    const T *const a = &va[0], *const b = &vb[0];
+    T */*const*/ c = &vc[0];
+
 #if defined(LIBXS_OFFLOAD)
-#   pragma offload target(mic)
+#   pragma offload target(mic) in(a: length(s * asize)) in(b: length(s * bsize)) out(c: length(csize))
 #endif
     {
-#if defined(_OPENMP)
-      const double gflops = (2ULL * s * m * n * k) * 1E-9;
-#endif
-      const int asize = m * k, bsize = k * n;
-      std::vector<T> a(s * asize), b(s * bsize), result(csize);
+      fprintf(stdout, "psize=%i batch=%i m=%i n=%i k=%i ldc=%i\n", s, t, m, n, k, ldc);
 #if defined(SMM_CHECK)
       std::vector<T> expect(csize);
 #endif
-      std::for_each(a.begin(), a.end(), nrand<T>);
-      std::for_each(b.begin(), b.end(), nrand<T>);
-      fprintf(stdout, "psize=%i batch=%i m=%i n=%i k=%i ldc=%i\n", s, t, m, n, k, ldc);
 
       { // LAPACK/BLAS3 (fallback)
         fprintf(stdout, "LAPACK/BLAS...\n");
-        std::fill(result.begin(), result.end(), 0);
+        std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
 #       pragma omp parallel for
@@ -172,7 +175,7 @@ int main(int argc, char* argv[])
           for (int j = 0; j < LIBXS_MIN(t, s - i); ++j) {
             libxs_blasmm(m, n, k, &a[0] + (i + j) * asize, &b[0] + (i + j) * bsize, tmp);
           }
-          add(&result[0], tmp, m, n, ldc); // atomic
+          add(c, tmp, m, n, ldc); // atomic
         }
 #if defined(_OPENMP)
         const double duration = omp_get_wtime() - start;
@@ -182,13 +185,13 @@ int main(int argc, char* argv[])
         fprintf(stdout, "\tduration: %.1f s\n", duration);
 #endif
 #if defined(SMM_CHECK)
-        std::copy(result.begin(), result.end(), expect.begin());
+        std::copy(c, c + csize, expect.begin());
 #endif
       }
 
       { // auto-dispatched
         fprintf(stdout, "Dispatched...\n");
-        std::fill(result.begin(), result.end(), 0);
+        std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
 #       pragma omp parallel for
@@ -199,7 +202,7 @@ int main(int argc, char* argv[])
           for (int j = 0; j < LIBXS_MIN(t, s - i); ++j) {
             libxs_mm(m, n, k, &a[0] + (i + j) * asize, &b[0] + (i + j) * bsize, tmp);
           }
-          add(&result[0], tmp, m, n, ldc); // atomic
+          add(c, tmp, m, n, ldc); // atomic
         }
 #if defined(_OPENMP)
         const double duration = omp_get_wtime() - start;
@@ -209,13 +212,13 @@ int main(int argc, char* argv[])
         fprintf(stdout, "\tduration: %.1f s\n", duration);
 #endif
 #if defined(SMM_CHECK)
-        fprintf(stdout, "\tdiff=%f\n", max_diff(&result[0], &expect[0], m, n, ldc));
+        fprintf(stdout, "\tdiff=%f\n", max_diff(c, &expect[0], m, n, ldc));
 #endif
       }
 
       { // inline an optimized implementation
         fprintf(stdout, "Inlined...\n");
-        std::fill(result.begin(), result.end(), 0);
+        std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
 #       pragma omp parallel for
@@ -226,7 +229,7 @@ int main(int argc, char* argv[])
           for (int j = 0; j < LIBXS_MIN(t, s - i); ++j) {
             libxs_imm(m, n, k, &a[0] + (i + j) * asize, &b[0] + (i + j) * bsize, tmp);
           }
-          add(&result[0], tmp, m, n, ldc); // atomic
+          add(c, tmp, m, n, ldc); // atomic
         }
 #if defined(_OPENMP)
         const double duration = omp_get_wtime() - start;
@@ -236,14 +239,14 @@ int main(int argc, char* argv[])
         fprintf(stdout, "\tduration: %.1f s\n", duration);
 #endif
 #if defined(SMM_CHECK)
-        fprintf(stdout, "\tdiff=%f\n", max_diff(&result[0], &expect[0], m, n, ldc));
+        fprintf(stdout, "\tdiff=%f\n", max_diff(c, &expect[0], m, n, ldc));
 #endif
       }
 
       const libxs_mm_dispatch<T> xmm(m, n, k);
       if (xmm) { // specialized routine
         fprintf(stdout, "Specialized...\n");
-        std::fill(result.begin(), result.end(), 0);
+        std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
 #       pragma omp parallel for
@@ -254,7 +257,7 @@ int main(int argc, char* argv[])
           for (int j = 0; j < LIBXS_MIN(t, s - i); ++j) {
             xmm(&a[0] + (i + j) * asize, &b[0] + (i + j) * bsize, tmp);
           }
-          add(&result[0], tmp, m, n, ldc); // atomic
+          add(c, tmp, m, n, ldc); // atomic
         }
 #if defined(_OPENMP)
         const double duration = omp_get_wtime() - start;
@@ -264,9 +267,11 @@ int main(int argc, char* argv[])
         fprintf(stdout, "\tduration: %.1f s\n", duration);
 #endif
 #if defined(SMM_CHECK)
-        fprintf(stdout, "\tdiff=%f\n", max_diff(&result[0], &expect[0], m, n, ldc));
+        fprintf(stdout, "\tdiff=%f\n", max_diff(c, &expect[0], m, n, ldc));
 #endif
       }
+
+      fprintf(stdout, "Finished\n");
     }
   }
   catch(const std::exception& e) {
