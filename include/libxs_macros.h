@@ -99,6 +99,9 @@
 #elif defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __attribute__((A))
 # define LIBXS_ALIGNED(DECL, N) DECL LIBXS_ATTRIBUTE(aligned(N))
+#else
+# define LIBXS_ATTRIBUTE(A)
+# define LIBXS_ALIGNED(DECL, N)
 #endif
 
 #if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
