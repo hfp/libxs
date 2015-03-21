@@ -26,6 +26,8 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#include <libxs.h>
+
 #if defined(LIBXS_OFFLOAD)
 # pragma offload_attribute(push,target(mic))
 #endif
@@ -45,8 +47,6 @@
 #if defined(LIBXS_OFFLOAD)
 # pragma offload_attribute(pop)
 #endif
-
-#include <libxs.h>
 
 // make sure that stacksize is covering the problem size
 #define SMM_MAX_PROBLEM_SIZE (5 * LIBXS_MAX_MNK)
