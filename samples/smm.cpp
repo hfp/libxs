@@ -48,15 +48,16 @@
 # pragma offload_attribute(pop)
 #endif
 
-// make sure that stacksize is covering the problem size
-#define SMM_MAX_PROBLEM_SIZE (5 * LIBXS_MAX_MNK)
-
 #if (0 < (LIBXS_ALIGNED_STORES))
 # define SMM_ALIGNMENT LIBXS_ALIGNED_STORES
 #else
 # define SMM_ALIGNMENT LIBXS_ALIGNMENT
 #endif
 
+// make sure that stacksize is covering the problem size
+#define SMM_MAX_PROBLEM_SIZE (5 * LIBXS_MAX_MNK)
+
+#define SMM_SCHEDULE dynamic
 #define SMM_CHECK
 
 
@@ -168,7 +169,7 @@ int main(int argc, char* argv[])
         std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
-#       pragma omp parallel for
+#       pragma omp parallel for schedule(SMM_SCHEDULE)
 #endif
         for (int i = 0; i < s; i += t) {
           LIBXS_ALIGNED(T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
@@ -195,7 +196,7 @@ int main(int argc, char* argv[])
         std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
-#       pragma omp parallel for
+#       pragma omp parallel for schedule(SMM_SCHEDULE)
 #endif
         for (int i = 0; i < s; i += t) {
           LIBXS_ALIGNED(T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
@@ -222,7 +223,7 @@ int main(int argc, char* argv[])
         std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
-#       pragma omp parallel for
+#       pragma omp parallel for schedule(SMM_SCHEDULE)
 #endif
         for (int i = 0; i < s; i += t) {
           LIBXS_ALIGNED(T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
@@ -250,7 +251,7 @@ int main(int argc, char* argv[])
         std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
-#       pragma omp parallel for
+#       pragma omp parallel for schedule(SMM_SCHEDULE)
 #endif
         for (int i = 0; i < s; i += t) {
           LIBXS_ALIGNED(T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
