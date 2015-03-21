@@ -31,11 +31,7 @@
 
 #define LIBXS_STRINGIFY(SYMBOL) #SYMBOL
 #define LIBXS_CONCATENATE(A, B) A##B
-#define LIBXS_FSYMBOL(SYMBOL) LIBXS_CONCATENATE(SYMBOL, _)
-
-#define LIBXS_BLASPREC(PREFIX, REAL, FUNCTION) LIBXS_BLASPREC_##REAL(PREFIX, FUNCTION)
-#define LIBXS_BLASPREC_double(PREFIX, FUNCTION) PREFIX##d##FUNCTION
-#define LIBXS_BLASPREC_float(PREFIX, FUNCTION) PREFIX##s##FUNCTION
+#define LIBXS_TOSTRING(SYMBOL) LIBSXMM_STRINGIFY(SYMBOL)
 
 #if defined(__cplusplus)
 # define LIBXS_EXTERN_C extern "C"
@@ -94,14 +90,6 @@
 # define LIBXS_ALIGNED(DECL, N)
 #endif
 
-#if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
-# define LIBXS_OFFLOAD 1
-# define LIBXS_TARGET(A) LIBXS_ATTRIBUTE(target(A))
-#else
-/*# define LIBXS_OFFLOAD 0*/
-# define LIBXS_TARGET(A)
-#endif
-
 #if defined(__INTEL_COMPILER)
 # define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N)
 # define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION)
@@ -117,6 +105,30 @@
   -((intptr_t)(VALUE) * ((intptr_t)sizeof(SRC_TYPE))) & \
   -((intptr_t)(LIBXS_MAX(ALIGNMENT, 1))))) / sizeof(SRC_TYPE)))
 #define LIBXS_ALIGN(TYPE, PTR, ALIGNMENT) LIBXS_ALIGN_VALUE(TYPE, char, PTR, ALIGNMENT)
+
+#if defined(_WIN32) && !defined(__GNUC__)
+# define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
+#elif defined(__GNUC__)
+# define LIBXS_TLS __thread
+#elif defined(LIBXS_STDFEATURES)
+# define LIBXS_TLS thread_local
+#endif
+#if !defined(LIBXS_TLS)
+# define LIBXS_TLS
+#endif
+
+#if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
+# define LIBXS_OFFLOAD 1
+# define LIBXS_TARGET(A) LIBXS_ATTRIBUTE(target(A))
+#else
+/*# define LIBXS_OFFLOAD 0*/
+# define LIBXS_TARGET(A)
+#endif
+
+#define LIBXS_FSYMBOL(SYMBOL) LIBXS_CONCATENATE(SYMBOL, _)
+#define LIBXS_BLASPREC(PREFIX, REAL, FUNCTION) LIBXS_BLASPREC_##REAL(PREFIX, FUNCTION)
+#define LIBXS_BLASPREC_double(PREFIX, FUNCTION) PREFIX##d##FUNCTION
+#define LIBXS_BLASPREC_float(PREFIX, FUNCTION) PREFIX##s##FUNCTION
 
 #if defined(LIBXMM_OFFLOAD)
 # pragma offload_attribute(push,target(mic))
