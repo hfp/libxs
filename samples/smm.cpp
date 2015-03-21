@@ -38,7 +38,6 @@
 #include <vector>
 #include <cmath>
 
-#include <libxs.h>
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
@@ -46,6 +45,8 @@
 #if defined(LIBXS_OFFLOAD)
 # pragma offload_attribute(pop)
 #endif
+
+#include <libxs.h>
 
 // make sure that stacksize is covering the problem size
 #define SMM_MAX_PROBLEM_SIZE (5 * LIBXS_MAX_MNK)

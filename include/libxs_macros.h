@@ -125,7 +125,7 @@
   -((intptr_t)(LIBXS_MAX(ALIGNMENT, 1))))) / sizeof(SRC_TYPE)))
 #define LIBXS_ALIGN(TYPE, PTR, ALIGNMENT) LIBXS_ALIGN_VALUE(TYPE, char, PTR, ALIGNMENT)
 
-#if defined(LIBXSTREAM_OFFLOAD)
+#if defined(LIBXMM_OFFLOAD)
 # pragma offload_attribute(push,target(mic))
 # include <stdint.h>
 # pragma offload_attribute(pop)
