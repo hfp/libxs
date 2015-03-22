@@ -1,7 +1,9 @@
 include/libxs.h
 src/libxs.c
 src/mm_*_*_*.c
-samples/smm-*
+samples/smm*
+*.zip
+*.pyc
 *.o
 *.a
 *.*~
