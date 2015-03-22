@@ -128,20 +128,20 @@ int main(int argc, char* argv[])
     const int n = 4 < argc ? std::atoi(argv[4]) : m;
     const int k = 5 < argc ? std::atoi(argv[5]) : m;
 
-#if (0 != LIBXS_ALIGNED_STORES)
-# if (0 != LIBXS_ROW_MAJOR)
+#if (0 != LIBXS_ROW_MAJOR)
+# if (0 < LIBXS_ALIGNED_STORES)
     const int ldc = LIBXS_ALIGN_VALUE(int, T, n, LIBXS_ALIGNED_STORES);
-    const int csize = m * ldc + (LIBXS_ALIGNED_STORES) / sizeof(T) - 1;
 # else
-    const int ldc = LIBXS_ALIGN_VALUE(int, T, m, LIBXS_ALIGNED_STORES);
-    const int csize = n * ldc + (LIBXS_ALIGNED_STORES) / sizeof(T) - 1;
+    const int ldc = n;
 # endif
+    const int csize = m * ldc;
 #else
-# if (0 != LIBXS_ROW_MAJOR)
-    const int ldc = n, csize = m * ldc;
+# if (0 < LIBXS_ALIGNED_STORES)
+    const int ldc = LIBXS_ALIGN_VALUE(int, T, m, LIBXS_ALIGNED_STORES);
 # else
-    const int ldc = m, csize = n * ldc;
+    const int ldc = m;
 # endif
+    const int csize = n * ldc;
 #endif
 
     const int asize = m * k, bsize = k * n;
