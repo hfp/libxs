@@ -2,10 +2,9 @@
 # Use ROW_MAJOR matrix representation if set to 1, COL_MAJOR otherwise 
 ROW_MAJOR ?= 1
 
-# M, N, K values of the generated matrices
-INDICES_M ?= $(shell seq 1 5)
-INDICES_N ?= $(shell seq 1 5)
-INDICES_K ?= $(shell seq 1 5)
+# M, N, K sets generate value combinations according to the loop nest M(N(K)))
+# with an empty set 
+M ?= $(shell seq 1 5)
 
 # Specify an alignment (Bytes)
 ALIGNMENT ?= 64
@@ -24,7 +23,7 @@ INCDIR = $(ROOTDIR)/include
 SRCDIR = $(ROOTDIR)/src
 LIBDIR = $(ROOTDIR)/lib
 
-INDICES ?= $(foreach m,$(INDICES_M),$(foreach n,$(INDICES_N),$(foreach k,$(INDICES_K),$m_$n_$k)))
+INDICES ?= $(shell python $(SCRDIR)/libxs_utilities.py $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 
 # prefer the Intel compiler and prefer a C compiler (over C++)
 ifneq ($(shell which icc 2> /dev/null),)
@@ -128,11 +127,11 @@ lib_all: lib_hst lib_mic
 header_mic: $(HEADER)
 $(HEADER): $(INCDIR)/libxs.0 $(INCDIR)/libxs.1 $(INCDIR)/libxs.2
 	@cat $(INCDIR)/libxs.0 > $@
-	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNED_STORES) $(ALIGNED_LOADS) $(ALIGNMENT) $(THRESHOLD) $(words $(INDICES_M)) $(words $(INDICES_N)) $(INDICES_M) $(INDICES_N) $(INDICES_K) >> $@
+	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNED_STORES) $(ALIGNED_LOADS) $(ALIGNMENT) $(THRESHOLD) $(words $(M)) $(words $(N)) $(M) $(N) $(K) >> $@
 	@echo >> $@
 	@cat $(INCDIR)/libxs.1 >> $@
 	@echo >> $@
-	@python $(SCRDIR)/libxs_interface.py $(ROW_MAJOR) $(words $(INDICES_M)) $(words $(INDICES_N)) $(INDICES_M) $(INDICES_N) $(INDICES_K) >> $@
+	@python $(SCRDIR)/libxs_interface.py $(words $(M)) $(words $(N)) $(M) $(N) $(K) >> $@
 	@cat $(INCDIR)/libxs.2 >> $@
 
 source_mic: $(addprefix $(SRCDIR)/,$(SRCFILES))
@@ -141,7 +140,7 @@ $(SRCDIR)/%.c: $(HEADER)
 
 main: $(MAIN)
 $(MAIN): $(HEADER)
-	@python $(SCRDIR)/libxs_dispatch.py $(words $(INDICES_M)) $(words $(INDICES_N)) $(INDICES_M) $(INDICES_N) $(INDICES_K) > $@
+	@python $(SCRDIR)/libxs_dispatch.py $(words $(M)) $(words $(N)) $(M) $(N) $(K) > $@
 
 compile_mic: $(OBJFILES_MIC)
 $(OBJDIR)/mic/%.o: $(SRCDIR)/%.c $(SRCDIR)/libxs_isa.h $(HEADER)
