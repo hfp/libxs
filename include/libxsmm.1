@@ -4,11 +4,11 @@
  * and reuse the function pointer (libxs_dmm_dispatch).
  */
 #define LIBXS_MM(REAL, M, N, K, A, B, C) \
-  if (LIBXS_MAX_MNK >= ((M) * (N) * (K))) { \
+  if ((LIBXS_MAX_MNK) >= ((M) * (N) * (K))) { \
     const LIBXS_BLASPREC(libxs_, REAL, mm_function) libxs_mm_function_ = \
       LIBXS_BLASPREC(libxs_, REAL, mm_dispatch)((M), (N), (K)); \
     if (libxs_mm_function_) { \
-      (*libxs_mm_function_)((A), (B), (C)); \
+      libxs_mm_function_((A), (B), (C)); \
     } \
     else { \
       LIBXS_IMM(REAL, int, M, N, K, A, B, C); \
