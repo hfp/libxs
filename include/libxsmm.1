@@ -1,7 +1,7 @@
 /**
- * Executes a generated function or falls back to the linked LAPACK implementation.
- * If M, N, and K does not change for multiple calls, it is more efficient to query
- * and reuse the function pointer (libxs_dmm_dispatch).
+ * Execute a generated function, inlined code, or fall back to the linked LAPACK implementation.
+ * If M, N, and K does not change for multiple calls, it is more efficient to query and reuse
+ * the function pointer (libxs_?mm_dispatch).
  */
 #define LIBXS_MM(REAL, M, N, K, A, B, C) \
   if ((LIBXS_MAX_MNK) >= ((M) * (N) * (K))) { \
@@ -18,21 +18,16 @@
     LIBXS_BLASMM(REAL, int, M, N, K, A, B, C); \
   }
 
+/** Library initialization routine (optional); speeding up the auto-dispatch. */
+LIBXS_EXTERN_C LIBXS_TARGET(mic) void libxs_init();
+
 /** Type of a function generated for a specific M, N, and K. */
 typedef LIBXS_TARGET(mic) void (*libxs_smm_function)(const float*, const float*, float*);
 typedef LIBXS_TARGET(mic) void (*libxs_dmm_function)(const double*, const double*, double*);
 
-/**
- * Returns the pointer of the generated function; zero if it does not exist.
- * Allows to amortize the cost of the dispatch over multiple calls.
- */
+/** Query the pointer of a generated function; zero if it does not exist. */
 LIBXS_EXTERN_C LIBXS_TARGET(mic) libxs_smm_function libxs_smm_dispatch(int m, int n, int k);
 LIBXS_EXTERN_C LIBXS_TARGET(mic) libxs_dmm_function libxs_dmm_dispatch(int m, int n, int k);
-
-/** For compatibility with earlier versions of LIBXS. */
-LIBXS_INLINE LIBXS_TARGET(mic) void dc_smm_dnn(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) {
-  LIBXS_MM(double, m, n, k, a, b, c);
-}
 
 /** Dispatched matrix-matrix multiplication; single-precision. */
 LIBXS_INLINE LIBXS_TARGET(mic) void libxs_smm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c) {
@@ -78,7 +73,7 @@ LIBXS_TARGET(mic) inline void libxs_imm(int m, int n, int k, const double *LIBXS
 LIBXS_TARGET(mic) inline void libxs_blasmm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c)    { libxs_sblasmm(m, n, k, a, b, c); }
 LIBXS_TARGET(mic) inline void libxs_blasmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) { libxs_dblasmm(m, n, k, a, b, c); }
 
-/** Calls libxs_smm_dispatch, or libxs_dmm_dispatch depending on the type of T. */
+/** Call libxs_smm_dispatch, or libxs_dmm_dispatch depending on T. */
 template<typename T> class LIBXS_TARGET(mic) libxs_mm_dispatch { typedef void function_type; };
 
 template<> class LIBXS_TARGET(mic) libxs_mm_dispatch<float> {
