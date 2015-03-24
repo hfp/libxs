@@ -164,7 +164,6 @@ int main(int argc, char* argv[])
       std::vector<T> expect(csize);
 #endif
       fprintf(stdout, "m=%i n=%i k=%i ldc=%i size=%i batch=%i memory=%.1f MB\n", m, n, k, ldc, s, t, mbytes);
-      libxs_init();
 
       { // LAPACK/BLAS3 (fallback)
         fprintf(stdout, "LAPACK/BLAS...\n");
