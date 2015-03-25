@@ -109,7 +109,7 @@ OBJFILES_MIC = $(patsubst %,$(OBJDIR)/mic/mm_%.o,$(INDICES))
 LIB_HST ?= $(LIBDIR)/intel64/libxs.a
 LIB_MIC ?= $(LIBDIR)/mic/libxs.a
 HEADER = $(INCDIR)/libxs.h
-MAIN = $(SRCDIR)/libxs.cpp
+MAIN = $(SRCDIR)/libxs.c
 
 
 lib_all: lib_hst lib_mic
