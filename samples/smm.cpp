@@ -55,7 +55,7 @@
 #endif
 
 // make sure that stacksize is covering the problem size
-#define SMM_MAX_PROBLEM_SIZE (5 * LIBXS_MAX_MNK)
+#define SMM_MAX_PROBLEM_SIZE (1 * LIBXS_MAX_MNK)
 
 #define SMM_SCHEDULE dynamic
 #define SMM_CHECK
@@ -128,6 +128,10 @@ int main(int argc, char* argv[])
     const int n = 4 < argc ? std::atoi(argv[4]) : m;
     const int k = 5 < argc ? std::atoi(argv[5]) : m;
 
+    if ((SMM_MAX_PROBLEM_SIZE) < (m * n * k)) {
+      throw std::runtime_error("The size M x N x K is exceeding SMM_MAX_PROBLEM_SIZE!");
+    }
+
 #if (0 != LIBXS_ROW_MAJOR)
 # if (0 < LIBXS_ALIGNED_STORES)
     const int ldc = LIBXS_ALIGN_VALUE(int, T, n, LIBXS_ALIGNED_STORES);
@@ -149,7 +153,7 @@ int main(int argc, char* argv[])
     std::for_each(va.begin(), va.end(), nrand<T>);
     std::for_each(vb.begin(), vb.end(), nrand<T>);
     const T *const a = &va[0], *const b = &vb[0];
-    T */*const*/ c = &vc[0];
+    T * /*const*/ c = &vc[0];
 
 #if defined(LIBXS_OFFLOAD)
 #   pragma offload target(mic) in(a: length(s * asize)) in(b: length(s * bsize)) out(c: length(csize))
