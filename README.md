@@ -43,4 +43,4 @@ Further, the preprocessor symbol LIBXS_MAX_MNK denotes the largest problem size 
 make THRESHOLD=$((24 * 24 * 24))
 ```
 
-The maximum of the given threshold and the largest requested specialization (according to INDICES_M, INDICES_N, and INDICES_K) defines the value of LIBXS_MAX_MNK.
+The maximum of the given threshold and the largest requested specialization defines the value of LIBXS_MAX_MNK.
