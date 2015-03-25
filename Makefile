@@ -126,7 +126,7 @@ $(HEADER): $(INCDIR)/libxs.0 $(INCDIR)/libxs.1 $(INCDIR)/libxs.2
 
 source: $(addprefix $(SRCDIR)/,$(SRCFILES))
 $(SRCDIR)/%.c: $(HEADER)
-	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNED_STORES) $(ALIGNED_LOADS) $(ALIGNMENT) -1 `echo $* | awk -F_ '{ print $$2" "$$3" "$$4 }'` > $@
+	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNED_STORES) $(ALIGNED_LOADS) $(ALIGNMENT) -2 `echo $* | awk -F_ '{ print $$2" "$$3" "$$4 }'` > $@
 
 main: $(MAIN)
 $(MAIN): $(HEADER)
