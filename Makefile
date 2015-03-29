@@ -142,6 +142,7 @@ $(HEADER): $(SRCDIR)/libxs.0.h $(SRCDIR)/libxs.1.h $(SRCDIR)/libxs.2.h
 	@python $(SCRDIR)/libxs_interface.py $(words $(M)) $(words $(N)) $(M) $(N) $(K) >> $@
 	@cat $(SRCDIR)/libxs.2.h >> $@
 
+ifneq ($(GENASM),0)
 compile_gen: $(SRCFILES_GEN)
 $(OBJDIR)/intel64/%.o: $(SRCDIR)/%.cpp
 	@mkdir -p $(OBJDIR)/intel64
@@ -150,6 +151,7 @@ $(OBJDIR)/intel64/%.o: $(SRCDIR)/%.cpp
 generator: $(OBJFILES_GEN)
 $(SCRDIR)/generator: $(OBJFILES_GEN)
 	$(CXX) $(OBJFILES_GEN) -o $@
+endif
 
 source: $(SRCFILES)
 ifeq ($(GENASM),0)
@@ -203,17 +205,18 @@ $(MAIN): $(HEADER)
 	@python $(SCRDIR)/libxs_dispatch.py $@ $(THRESHOLD) $(SPARSITY) $(words $(M)) $(words $(N)) $(M) $(N) $(K) > $@
 
 compile_mic: $(OBJFILES_MIC)
-$(OBJDIR)/mic/%.o: $(SRCDIR)/%.c $(SRCDIR)/libxs_isa.h $(HEADER)
+$(OBJDIR)/mic/%.o: $(SRCDIR)/%.c $(HEADER) $(SRCDIR)/libxs_isa.h
 	@mkdir -p $(OBJDIR)/mic
 	$(CC) $(CFLMIC) -I$(INCDIR) -c $< -o $@
-$(OBJDIR)/mic/%.o: $(SRCDIR)/%.cpp $(SRCDIR)/libxs_isa.h $(HEADER)
+$(OBJDIR)/mic/%.o: $(SRCDIR)/%.cpp $(HEADER) $(SRCDIR)/libxs_isa.h
+	@mkdir -p $(OBJDIR)/mic
 	$(CXX) $(CXXFLMIC) -I$(INCDIR) -c $< -o $@
 
 compile_hst: $(OBJFILES_HST)
-$(OBJDIR)/intel64/%.o: $(SRCDIR)/%.c $(SRCDIR)/libxs_isa.h $(HEADER)
+$(OBJDIR)/intel64/%.o: $(SRCDIR)/%.c $(HEADER) $(SRCDIR)/libxs_isa.h
 	@mkdir -p $(OBJDIR)/intel64
 	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
-$(OBJDIR)/intel64/%.o: $(SRCDIR)/%.cpp $(SRCDIR)/libxs_isa.h $(HEADER)
+$(OBJDIR)/intel64/%.o: $(SRCDIR)/%.cpp $(HEADER) $(SRCDIR)/libxs_isa.h
 	@mkdir -p $(OBJDIR)/intel64
 	$(CXX) $(CXXFLAGS) -I$(INCDIR) -c $< -o $@
 
