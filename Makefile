@@ -133,14 +133,14 @@ OBJFILES_MIC = $(patsubst %,$(OBJDIR)/mic/mm_%.o,$(INDICES))
 lib_all: lib_hst lib_mic
 
 header: $(HEADER)
-$(HEADER): $(INCDIR)/libxs.0 $(INCDIR)/libxs.1 $(INCDIR)/libxs.2
-	@cat $(INCDIR)/libxs.0 > $@
+$(HEADER): $(SRCDIR)/libxs.0.h $(SRCDIR)/libxs.1.h $(SRCDIR)/libxs.2.h
+	@cat $(SRCDIR)/libxs.0.h > $@
 	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNED_STORES) $(ALIGNED_LOADS) $(ALIGNMENT) $(THRESHOLD) $(words $(M)) $(words $(N)) $(M) $(N) $(K) >> $@
 	@echo >> $@
-	@cat $(INCDIR)/libxs.1 >> $@
+	@cat $(SRCDIR)/libxs.1.h >> $@
 	@echo >> $@
 	@python $(SCRDIR)/libxs_interface.py $(words $(M)) $(words $(N)) $(M) $(N) $(K) >> $@
-	@cat $(INCDIR)/libxs.2 >> $@
+	@cat $(SRCDIR)/libxs.2.h >> $@
 
 compile_gen: $(SRCFILES_GEN)
 $(OBJDIR)/intel64/%.o: $(SRCDIR)/%.cpp
