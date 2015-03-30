@@ -58,10 +58,9 @@
 // make sure that stacksize is covering the problem size
 #define SMM_MAX_PROBLEM_SIZE (1 * LIBXS_MAX_MNK)
 // ensures sufficient parallel slack
-#define SMM_MIN_NPARALLEL 210
+#define SMM_MIN_NPARALLEL 240
 // ensures amortized atomic overhead
-#define SMM_MIN_NLOCAL 150
-#define SMM_MAX_NLOCAL 250
+#define SMM_MIN_NLOCAL 160
 // OpenMP schedule policy (and chunk size)
 #define SMM_SCHEDULE static,1
 // enable result validation
@@ -124,7 +123,7 @@ int main(int argc, char* argv[])
 {
   try {
     typedef double T;
-    const int default_psize = (SMM_MIN_NPARALLEL) * (SMM_MIN_NLOCAL), default_batch = SMM_MAX_NLOCAL;
+    const int default_psize = (SMM_MIN_NPARALLEL) * (SMM_MIN_NLOCAL), default_batch = SMM_MIN_NLOCAL;
     const int m = 1 < argc ? std::atoi(argv[1]) : 23;
     const int s = 2 < argc ? (0 < std::atoi(argv[2]) ? std::atoi(argv[2]) : ('+' == *argv[2]
       ? (default_psize << std::strlen(argv[2])) : ('-' == *argv[2]
@@ -170,7 +169,7 @@ int main(int argc, char* argv[])
 #if defined(_OPENMP)
       const double nbytes = 1.0 * s * (csize) * sizeof(T) / (1024 * 1024);
       const double gflops = 2.0 * s * m * n * k * 1E-9;
-      const int u = 0 < t ? t : std::max(SMM_MIN_NLOCAL, std::min(SMM_MAX_NLOCAL, s / std::max(SMM_MIN_NPARALLEL, s / default_batch)));
+      const int u = 0 < t ? t : static_cast<int>(std::sqrt(static_cast<double>(s * SMM_MIN_NLOCAL) / SMM_MIN_NPARALLEL) + 0.5);
 #else
       const int u = t;
 #endif
@@ -237,7 +236,7 @@ int main(int argc, char* argv[])
 
       { // auto-dispatched
         fprintf(stdout, "Dispatched...\n");
-        libxs_mm(1, 1, 1, &a[0], &b[0], &c[0]); // warmup/workaround
+        //libxs_mm(1, 1, 1, &a[0], &b[0], &c[0]); // warmup/workaround
         std::fill_n(c, csize, 0);
 #if defined(_OPENMP)
         const double start = omp_get_wtime();
