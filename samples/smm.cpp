@@ -177,13 +177,13 @@ int main(int argc, char* argv[])
 #endif
 #if defined(SMM_THREADPRIVATE) && defined(_OPENMP)
 # if 1 == (SMM_THREADPRIVATE) // native OpenMP TLS
-      LIBXS_ALIGNED(static T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
+      LIBXS_TARGET(mic) LIBXS_ALIGNED(static T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
 #     pragma omp threadprivate(tmp)
 #else
-      LIBXS_ALIGNED(static LIBXS_TLS T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
+      LIBXS_TARGET(mic) LIBXS_ALIGNED(static LIBXS_TLS T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
 # endif
 #else // without OpenMP nothing needs to be thread-local due to a single-threaded program
-      LIBXS_ALIGNED(static T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
+      LIBXS_TARGET(mic) LIBXS_ALIGNED(static T tmp[SMM_MAX_PROBLEM_SIZE], SMM_ALIGNMENT);
 #endif
 #if defined(SMM_CHECK)
       std::vector<T> expect(csize);
