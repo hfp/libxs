@@ -6,6 +6,10 @@ ROW_MAJOR ?= 1
 # with an empty set 
 M ?= $(shell seq 1 5)
 
+# limit to certain code path(s)
+SSE ?= 0
+AVX ?= 0
+
 # Use assembly kernel generator
 GENASM ?= 0
 
@@ -22,7 +26,7 @@ THRESHOLD ?= $(shell echo $$((24 * 24 * 24)))
 # SPARSITY = (LIBXS_MAX_M * LIBXS_MAX_M * LIBXS_MAX_M) / LIBXS_MAX_MNK
 # Use binary search in auto-dispatch when SPARSITY exceeds the given value.
 # With SPARSITY < 1, the binary search is enabled by default (no threshold).
-SPARSITY ?= 0
+SPARSITY ?= 2
 
 ROOTDIR ?= .
 SCRDIR = $(ROOTDIR)/scripts
@@ -57,6 +61,9 @@ ifneq ($(shell which icc 2> /dev/null),)
 	else ifeq ($(AVX),3)
 		CFLAGS += -xCOMMON-AVX512
 		CXXFLAGS += -xCOMMON-AVX512
+	else ifneq ($(SSE),0)
+		CFLAGS += -xSSE3
+		CXXFLAGS += -xSSE3
 	else
 		CFLAGS += -xHost
 		CXXFLAGS += -xHost
@@ -78,6 +85,9 @@ else ifneq ($(shell which gcc 2> /dev/null),)
 	else ifeq ($(AVX),3)
 		CFLAGS += -mavx512f
 		CXXFLAGS += -mavx512f
+	else ifneq ($(SSE),0)
+		CFLAGS += -xSSE3
+		CXXFLAGS += -xSSE3
 	else
 		CFLAGS += -march=native
 		CXXFLAGS += -march=native
@@ -119,8 +129,10 @@ else ifeq ($(AVX),2)
 	GENTARGET := hsw
 else ifeq ($(AVX),3)
 	GENTARGET := knl
+else ifneq ($(SSE),0)
+	GENTARGET := wsm
 else
-	GENTARGET := knc
+	GENTARGET := noarch
 endif
 
 INDICES ?= $(shell python $(SCRDIR)/libxs_utilities.py 0 $(words $(M)) $(words $(N)) $(M) $(N) $(K))
@@ -183,22 +195,39 @@ else # column-major
 	$(eval SPLDC := $(MVALUE))
 endif
 endif
-	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@)) $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(DPLDC) 1 $(GENTARGET) nopf DP
+ifeq ($(GENTARGET),noarch)
+	@if [[ 0 == $$(($(NVALUE) % 3)) ]]; then \
+		echo "#define LIBXS_GENTARGET" >> $@; \
+		echo >> $@; \
+		echo >> $@; \
+		PS4=''; set -x; \
+		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_wsm $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(DPLDC) 1 wsm nopf DP; \
+		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_wsm $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(SPLDC) 1 wsm nopf SP; \
+		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_snb $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(DPLDC) 1 snb nopf DP; \
+		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_snb $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(SPLDC) 1 snb nopf SP; \
+		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(DPLDC) 1 hsw nopf DP; \
+		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(SPLDC) 1 hsw nopf SP; \
+	else \
+		echo >> $@; \
+		echo >> $@; \
+	fi
+else ifneq ($(GENTARGET),knc)
+	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(DPLDC) 1 $(GENTARGET) nopf DP
+	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(SPLDC) 1 $(GENTARGET) nopf SP
+endif
+	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(DPLDC) 1 knc nopf DP
+	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(SPLDC) 1 knc nopf SP
 	@sed -i \
+		-e '1i#include <libxs.h>' \
+		-e 's/void libxs_/LIBXS_INLINE LIBXS_TARGET(mic) void libxs_/' \
 		-e 's/double\* A, double\* B, double\* C/const double\* A, const double\* B, double\* C/' \
-		-e 's/#error No kernel was compiled, lacking support for current architecture?/    LIBXS_IMM(double, int, $(MVALUE), $(NVALUE), $(KVALUE), A, B, C);/' \
-		$@
-	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@)) $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(SPLDC) 1 $(GENTARGET) nopf SP
-	@sed -i \
 		-e 's/float\* A, float\* B, float\* C/const float\* A, const float\* B, float\* C/' \
-		-e 's/#error No kernel was compiled, lacking support for current architecture?/    LIBXS_IMM(float, int, $(MVALUE), $(NVALUE), $(KVALUE), A, B, C);/' \
-		$@
-	@sed -i \
-		-e '1i#include <libxs.h>\n\n' \
-		-e 's/void libxs_/LIBXS_EXTERN_C LIBXS_TARGET(mic) void libxs_/' \
-		-e '/#pragma message ("KERNEL COMPILATION ERROR in: " __FILE__)/d' \
 		-e 's/#ifndef NDEBUG/#ifdef LIBXS_NEVER_DEFINED/' \
+		-e '/#pragma message ("KERNEL COMPILATION ERROR in: " __FILE__)/d' \
+		-e '/#error No kernel was compiled, lacking support for current architecture?/d' \
+		-e '/#pragma message ("KERNEL COMPILATION WARNING: compiling .\+ code on .\+ or newer architecture: " __FILE__)/d' \
 		$@
+	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNED_STORES) $(ALIGNED_LOADS) $(ALIGNMENT) 0 $(MVALUE) $(NVALUE) $(KVALUE) >> $@
 endif
 
 main: $(MAIN)
