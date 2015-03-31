@@ -59,7 +59,7 @@ A future version of the library may support an auto-tuning stage when generating
 ## Applications and References
 **\[1] http://cp2k.org/**: Open Source Molecular Dynamics application. Beside of CP2K's own SMM module, LIBXS aims to provide highly-optimized assembly kernels.
 
-**\[2] http://www.seissol.org/**: SeisSol is one of the leading codes for earthquake scenarios, in particular for simulating dynamic rupture processes. LBXSMM provides highly-optimized assembly kernels which form the computational back-bone of SeisSol. The current usage of LIBXS in the context of SeisSol can be found [[here](https://github.com/TUM-I5/seissol_kernels/tree/lts_compressed)].
+**\[2] http://www.seissol.org/**: SeisSol is one of the leading codes for earthquake scenarios, in particular for simulating dynamic rupture processes. LIBXS provides highly-optimized assembly kernels which form the computational back-bone of SeisSol. The current usage of LIBXS in the context of SeisSol can be found [[here](https://github.com/TUM-I5/seissol_kernels/tree/lts_compressed)].
 
 **\[3] https://github.com/TUM-I5/GemmCodeGenerator**: Code generator for matrix-matrix multiplications. Due to LIBXS's roadmap, this is a related project.
 
