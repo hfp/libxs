@@ -215,8 +215,11 @@ else
 		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(SPLDC) 1 $(GENTARGET) nopf SP; \
 	fi
 endif
-	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(DPLDC) 1 knc nopf DP
-	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(SPLDC) 1 knc nopf SP
+	@if [[ 30 -ge $(NVALUE) ]]; then \
+		PS4=''; set -x; \
+		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(DPLDC) 1 knc nopf DP; \
+		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MVALUE) $(NVALUE) $(KVALUE) $(MVALUE) $(NVALUE) $(SPLDC) 1 knc nopf SP; \
+	fi
 	@sed -i \
 		-e '1i#include <libxs.h>' \
 		-e 's/void libxs_/LIBXS_INLINE LIBXS_TARGET(mic) void libxs_/' \
