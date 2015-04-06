@@ -156,11 +156,12 @@ int main(int argc, char* argv[])
     const int csize = n * ldc;
 #endif
 
-    const int asize = m * k, bsize = k * n;
-    std::vector<T> va(s * asize), vb(s * bsize), vc(csize);
+    const int asize = m * k, bsize = k * n, aspace = (LIBXS_ALIGNMENT) / sizeof(T);
+    std::vector<T> va(s * asize + aspace - 1), vb(s * bsize + aspace - 1), vc(csize);
     std::for_each(va.begin(), va.end(), nrand<T>);
     std::for_each(vb.begin(), vb.end(), nrand<T>);
-    const T *const a = &va[0], *const b = &vb[0];
+    const T *const a = LIBXS_ALIGN(const T*, &va[0], LIBXS_ALIGNMENT);
+    const T *const b = LIBXS_ALIGN(const T*, &vb[0], LIBXS_ALIGNMENT);
     T * /*const*/ c = &vc[0];
 
 #if defined(LIBXS_OFFLOAD)
