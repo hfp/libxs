@@ -241,6 +241,8 @@ endif
 	@sed -i \
 		-e '1i#include <libxs.h>' \
 		-e 's/void libxs_/LIBXS_INLINE LIBXS_TARGET(mic) void libxs_/' \
+		-e 's/double\* A, double\* B, double\* C/const double\* A, const double\* B, double\* C/' \
+		-e 's/float\* A, float\* B, float\* C/const float\* A, const float\* B, float\* C/' \
 		-e 's/#ifndef NDEBUG/#ifdef LIBXS_NEVER_DEFINED/' \
 		-e '/#pragma message ("KERNEL COMPILATION ERROR in: " __FILE__)/d' \
 		-e '/#error No kernel was compiled, lacking support for current architecture?/d' \
