@@ -219,30 +219,28 @@ else
 ifeq ($(GENTARGET),noarch)
 	@if [[ 0 == $$(($(NVALUE) % 3)) ]]; then \
 		PS4=''; set -x; \
-		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 wsm nopf DP; \
-		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 wsm nopf SP; \
-		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 snb nopf DP; \
-		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 snb nopf SP; \
-		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 hsw nopf DP; \
-		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 hsw nopf SP; \
+		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 wsm nopf DP; \
+		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 wsm nopf SP; \
+		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 snb nopf DP; \
+		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 snb nopf SP; \
+		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 hsw nopf DP; \
+		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 hsw nopf SP; \
 	fi
 else
 	@if [[ 0 == $$(($(NVALUE) % 3)) ]]; then \
 		PS4=''; set -x; \
-		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 $(GENTARGET) nopf DP; \
-		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 $(GENTARGET) nopf SP; \
+		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 $(GENTARGET) nopf DP; \
+		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 $(GENTARGET) nopf SP; \
 	fi
 endif
 	@if [[ 30 -ge $(NVALUE) ]]; then \
 		PS4=''; set -x; \
-		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 knc nopf DP; \
-		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 knc nopf SP; \
+		$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 knc nopf DP; \
+		$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 knc nopf SP; \
 	fi
 	@sed -i \
 		-e '1i#include <libxs.h>' \
 		-e 's/void libxs_/LIBXS_INLINE LIBXS_TARGET(mic) void libxs_/' \
-		-e 's/double\* A, double\* B, double\* C/const double\* A, const double\* B, double\* C/' \
-		-e 's/float\* A, float\* B, float\* C/const float\* A, const float\* B, float\* C/' \
 		-e 's/#ifndef NDEBUG/#ifdef LIBXS_NEVER_DEFINED/' \
 		-e '/#pragma message ("KERNEL COMPILATION ERROR in: " __FILE__)/d' \
 		-e '/#error No kernel was compiled, lacking support for current architecture?/d' \
