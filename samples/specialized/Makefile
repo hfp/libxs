@@ -1,15 +1,16 @@
 DBG := 0
 MIC := 0
 
+LIBXSROOT := ../..
 CXXFLAGS :=
 CFLAGS :=
 DFLAGS :=
-IFLAGS := -I../include
+IFLAGS := -I$(LIBXSROOT)/include
 
 ifeq ($(MIC),0)
-	LFLAGS := ../lib/intel64/libxs.a
+	LFLAGS := $(LIBXSROOT)/lib/intel64/libxs.a
 else
-	LFLAGS := ../lib/mic/libxs.a
+	LFLAGS := $(LIBXSROOT)/lib/mic/libxs.a
 endif
 
 ICPC := $(notdir $(shell which icpc 2> /dev/null))
@@ -119,9 +120,9 @@ ifneq ($(MKL_DIRECT),0)
 endif
 
 
-all: smm
+all: specialized
 
-smm: smm-cpp.o
+specialized: specialized-cpp.o
 
 %: %-c.o
 	$(LD) -o $@ $< $(LFLAGS)
@@ -147,6 +148,6 @@ clean:
 	rm -f *.o *.i *.ii *.s
 
 realclean: clean
-	rm -f smm smm.exe smm.exe.stackdump
+	rm -f specialized specialized.exe specialized.exe.stackdump
 
 install: all clean
