@@ -71,7 +71,7 @@
 
 #include <string>
 
-namespace seissolgen {
+namespace libxs {
 
   /**
    * FIXME add description

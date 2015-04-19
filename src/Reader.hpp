@@ -42,7 +42,7 @@
 
 #include <string>
 
-namespace seissolgen {
+namespace libxs {
 
   /**
    * Abstract definition of the a file Reader for Matrix Market format for CSC and CSR.

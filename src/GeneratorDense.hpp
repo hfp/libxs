@@ -71,7 +71,7 @@
 
 #include <string>
 
-namespace seissolgen {
+namespace libxs {
 
   /**
    * This class generates a dense matrix multiply kernel

@@ -42,7 +42,7 @@
 
 #include "Reader.hpp"
 
-namespace seissolgen {
+namespace libxs {
 
   /**
    * FIXME add description

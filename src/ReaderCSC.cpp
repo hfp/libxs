@@ -47,7 +47,7 @@
 
 #include "ReaderCSC.hpp"
 
-namespace seissolgen {
+namespace libxs {
 
   void ReaderCSC::parse_file(std::string tFilename, int*& ptr_rowidx, int*& ptr_colidx, double*& ptr_values, int& numRows, int& numCols, int& numElems) {
     std::ifstream file;
