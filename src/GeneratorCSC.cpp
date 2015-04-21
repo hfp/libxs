@@ -189,8 +189,16 @@ namespace libxs {
         || (tVec_.compare("wsm") == 0)
         || (tVec_.compare("snb") == 0)
         || (tVec_.compare("hsw") == 0) ) {
+      if (nM > 7) {
+        codestream << "#pragma simd vectorlength(8)" << std::endl;
+      }
+      else if (nM > 3) {
+        codestream << "#pragma simd vectorlength(4)" << std::endl;
+      }
+      else if (nM > 1) {
+        codestream << "#pragma simd vectorlength(2)" << std::endl;
+      }
       if (nM > 1) {
-        codestream << "#pragma simd vectorlength(2,4,8)" << std::endl;
         codestream << "#pragma vector aligned" << std::endl;   
       }
     }
