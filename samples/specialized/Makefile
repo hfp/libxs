@@ -1,3 +1,4 @@
+NAME := specialized
 DBG := 0
 MIC := 0
 
@@ -8,10 +9,11 @@ DFLAGS :=
 IFLAGS := -I$(LIBXSROOT)/include
 
 ifeq ($(MIC),0)
-	LFLAGS := $(LIBXSROOT)/lib/intel64/libxs.a
+	LIBXS := $(LIBXSROOT)/lib/intel64/libxs.a
 else
-	LFLAGS := $(LIBXSROOT)/lib/mic/libxs.a
+	LIBXS := $(LIBXSROOT)/lib/mic/libxs.a
 endif
+LFLAGS := $(LIBXS)
 
 ICPC := $(notdir $(shell which icpc 2> /dev/null))
 ICC := $(notdir $(shell which icc 2> /dev/null))
@@ -120,14 +122,14 @@ ifneq ($(MKL_DIRECT),0)
 endif
 
 
-all: specialized
+all: $(NAME)
 
-specialized: specialized-cpp.o
+$(NAME): $(NAME)-cpp.o
 
-%: %-c.o
+%: %-c.o $(LIBXS)
 	$(LD) -o $@ $< $(LFLAGS)
 
-%: %-cpp.o
+%: %-cpp.o $(LIBXS)
 	$(LD) -o $@ $< $(LFLAGS)
 
 
@@ -148,6 +150,6 @@ clean:
 	rm -f *.o *.i *.ii *.s
 
 realclean: clean
-	rm -f specialized specialized.exe specialized.exe.stackdump
+	rm -f $(NAME) $(NAME).exe $(NAME).exe.stackdump
 
 install: all clean
