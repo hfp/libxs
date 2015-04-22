@@ -227,6 +227,8 @@ else
 	@if [[ ( "kn?" != $(GENTARGET) ) || ( 30 -ge $(NVALUE) ) ]]; then \
 		echo "#define LIBXS_GENTARGET_$(GENTARGET)_dp" >> $@; \
 		#echo "#define LIBXS_GENTARGET_$(GENTARGET)_sp" >> $@; \
+		echo "#define LIBXS_GENTARGET_knc_dp" >> $@; \
+		echo "#define LIBXS_GENTARGET_knc_sp" >> $@; \
 	fi
 	@echo >> $@
 	@echo >> $@
