@@ -278,7 +278,7 @@ namespace libxs {
 
     if (    (this->tVec_.compare("knc") == 0)
        ) {  
-      if (N > 30) {
+      if ((N > 30) && (bSP_ == true)) {
         std::cout << " !!! ERROR, AVX-512 N is greater than 30!!! " << std::endl;
         exit(-1);    
       }
