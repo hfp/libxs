@@ -171,11 +171,6 @@ namespace libxs {
     /////////////////////////
 
     if ( this->tVec_.compare("snb") == 0 ) {
-      if ((N%3 != 0) && (bSP_ == true)) {
-        std::cout << " !!! ERROR, AVX N%3 is not 0!!! " << std::endl;
-        exit(-1);    
-      }
-
       if (bSP_ == false) {
         if (lda % 4 == 0)
           alignA = true;
@@ -224,11 +219,6 @@ namespace libxs {
     //////////////////////////
 
     if ( this->tVec_.compare("hsw") == 0 ) {
-      if ((N%3 != 0) && (bSP_ == true)) {
-        std::cout << " !!! ERROR, AVX2 N%3 is not 0!!! " << std::endl;
-        exit(-1);    
-      }
-
       if (bSP_ == false) {
         if (lda % 4 == 0)
           alignA = true;
