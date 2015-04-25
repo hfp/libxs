@@ -118,11 +118,6 @@ namespace libxs {
     //////////////////////////
 
     if ( this->tVec_.compare("wsm") == 0 ) {
-      if (N%3 != 0) {
-        std::cout << " !!! ERROR, SSE3 N%3 is not 0!!! " << std::endl;
-        exit(-1);    
-      }
-
       if (bSP_ == false) {
         if (lda % 2 == 0)
           alignA = true;

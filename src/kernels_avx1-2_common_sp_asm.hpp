@@ -27,7 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 
-void avx_load_24xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bool bAdd, int max_local_N, std::string tPrefetch) {
+void avx_load_24xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bool bAdd, int max_local_N) {
   if ( (max_local_N > 3) || (max_local_N < 1) ) {
     std::cout << " !!! ERROR, avx_load_24xN_sp_asm, N smaller 1 or larger 3!!! " << std::endl;
     exit(-1);
@@ -54,15 +54,9 @@ void avx_load_24xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, b
       codestream << "                         \"vxorps %%ymm" << 9 + (3*l_n) << ", %%ymm" << 9 + (3*l_n) << ", %%ymm" << 9 + (3*l_n) << "\\n\\t\"" << std::endl;
     }
   }
-  if ( (tPrefetch.compare("BL2viaC") == 0) || (tPrefetch.compare("AL2_BL2viaC") == 0) ) {
-    for (int l_n = 0; l_n < max_local_N; l_n++) {
-      codestream << "                         \"prefetcht1 " <<  (l_n * ldc)       * 4 << "(%%r12)\\n\\t\"" << std::endl;
-      codestream << "                         \"prefetcht1 " << ((l_n * ldc) + 16) * 4 << "(%%r12)\\n\\t\"" << std::endl;
-    }
-  }
 }
 
-void avx_load_16xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bool bAdd, int max_local_N, std::string tPrefetch) {
+void avx_load_16xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bool bAdd, int max_local_N) {
   if ( (max_local_N > 3) || (max_local_N < 1) ) {
     std::cout << " !!! ERROR, avx_load_16xN_sp_asm, N smaller 1 or larger 3!!! " << std::endl;
     exit(-1);
@@ -86,14 +80,9 @@ void avx_load_16xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, b
       codestream << "                         \"vxorps %%ymm" << 11 + (2*l_n) << ", %%ymm" << 11 + (2*l_n) << ", %%ymm" << 11 + (2*l_n) << "\\n\\t\"" << std::endl;
     }
   }
-  if ( (tPrefetch.compare("BL2viaC") == 0) || (tPrefetch.compare("AL2_BL2viaC") == 0) ) {
-    for (int l_n = 0; l_n < max_local_N; l_n++) {
-      codestream << "                         \"prefetcht1 " <<  (l_n * ldc)      * 4 << "(%%r12)\\n\\t\"" << std::endl;
-    }
-  }
 }
 
-void avx_load_8xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bool bAdd, int max_local_N, std::string tPrefetch) {
+void avx_load_8xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bool bAdd, int max_local_N) {
   if ( (max_local_N > 3) || (max_local_N < 1) ) {
     std::cout << " !!! ERROR, avx_load_8xN_sp_asm, N smaller 1 or larger 3!!! " << std::endl;
     exit(-1);
@@ -114,14 +103,9 @@ void avx_load_8xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bo
       codestream << "                         \"vxorps %%ymm" << 13 + l_n << ", %%ymm" << 13 + l_n << ", %%ymm" << 13 + l_n << "\\n\\t\"" << std::endl;
     }
   }
-  if ( (tPrefetch.compare("BL2viaC") == 0) || (tPrefetch.compare("AL2_BL2viaC") == 0) ) {
-    for (int l_n = 0; l_n < max_local_N; l_n++) {
-      codestream << "                         \"prefetcht1 " <<  (l_n * ldc)      * 4 << "(%%r12)\\n\\t\"" << std::endl;
-    }
-  }
 }
 
-void avx_load_4xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bool bAdd, int max_local_N, std::string tPrefetch) {
+void avx_load_4xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bool bAdd, int max_local_N) {
   if ( (max_local_N > 3) || (max_local_N < 1) ) {
     std::cout << " !!! ERROR, avx_load_4xN_sp_asm, N smaller 1 or larger 3!!! " << std::endl;
     exit(-1);
@@ -142,14 +126,9 @@ void avx_load_4xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bo
       codestream << "                         \"vxorps %%xmm" << 13 + l_n << ", %%xmm" << 13 + l_n << ", %%xmm" << 13 + l_n << "\\n\\t\"" << std::endl;
     }
   }
-  if ( (tPrefetch.compare("BL2viaC") == 0) || (tPrefetch.compare("AL2_BL2viaC") == 0) ) {
-    for (int l_n = 0; l_n < max_local_N; l_n++) {
-      codestream << "                         \"prefetcht1 " <<  (l_n * ldc)      * 4 << "(%%r12)\\n\\t\"" << std::endl;
-    }
-  }
 }
 
-void avx_load_1xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bool bAdd, int max_local_N, std::string tPrefetch) {
+void avx_load_1xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bool bAdd, int max_local_N) {
   if ( (max_local_N > 3) || (max_local_N < 1) ) {
     std::cout << " !!! ERROR, avx_load_1xN_sp_asm, N smaller 1 or larger 3!!! " << std::endl;
     exit(-1);
@@ -164,14 +143,9 @@ void avx_load_1xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, bo
       codestream << "                         \"vxorps %%xmm" << 13 + l_n << ", %%xmm" << 13 + l_n << ", %%xmm" << 13 + l_n << "\\n\\t\"" << std::endl;
     }
   }
-  if ( (tPrefetch.compare("BL2viaC") == 0) || (tPrefetch.compare("AL2_BL2viaC") == 0) ) {
-    for (int l_n = 0; l_n < max_local_N; l_n++) {
-      codestream << "                         \"prefetcht1 " <<  (l_n * ldc)      * 4 << "(%%r12)\\n\\t\"" << std::endl;
-    }
-  }
 }
 
-void avx_store_24xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, int max_local_N) {
+void avx_store_24xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, int max_local_N, std::string tPrefetch) {
   if ( (max_local_N > 3) || (max_local_N < 1) ) {
     std::cout << " !!! ERROR, avx_store_24xN_sp_asm, N smaller 1 or larger 3!!! " << std::endl;
     exit(-1);
@@ -190,9 +164,16 @@ void avx_store_24xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, 
       codestream << "                         \"vmovups %%ymm" << 9 + (3*l_n) << ", " <<  ((l_n * ldc) +16) * 4 << "(%%r10)\\n\\t\"" << std::endl;
     }
   }
+
+  if ( (tPrefetch.compare("BL2viaC") == 0) ) {
+    for (int l_n = 0; l_n < max_local_N; l_n++) {
+      codestream << "                         \"prefetcht1 " <<  (l_n * ldc)       * 4 << "(%%r12)\\n\\t\"" << std::endl;
+      codestream << "                         \"prefetcht1 " << ((l_n * ldc) + 16) * 4 << "(%%r12)\\n\\t\"" << std::endl;
+    }
+  }
 }
 
-void avx_store_16xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, int max_local_N) {
+void avx_store_16xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, int max_local_N, std::string tPrefetch) {
   if ( (max_local_N > 3) || (max_local_N < 1) ) {
     std::cout << " !!! ERROR, avx_store_16xN_sp_asm, N smaller 1 or larger 3!!! " << std::endl;
     exit(-1);
@@ -209,9 +190,15 @@ void avx_store_16xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, 
       codestream << "                         \"vmovups %%ymm" << 11 + (2*l_n) << ", " <<  ((l_n * ldc) + 8) * 4 << "(%%r10)\\n\\t\"" << std::endl;
     }
   }
+
+  if ( (tPrefetch.compare("BL2viaC") == 0) ) {
+    for (int l_n = 0; l_n < max_local_N; l_n++) {
+      codestream << "                         \"prefetcht1 " <<  (l_n * ldc)      * 4 << "(%%r12)\\n\\t\"" << std::endl;
+    }
+  }
 }
 
-void avx_store_8xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, int max_local_N) {
+void avx_store_8xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, int max_local_N, std::string tPrefetch) {
   if ( (max_local_N > 3) || (max_local_N < 1) ) {
     std::cout << " !!! ERROR, avx_store_8xN_sp_asm, N smaller 1 or larger 3!!! " << std::endl;
     exit(-1);
@@ -226,9 +213,15 @@ void avx_store_8xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, i
       codestream << "                         \"vmovups %%ymm" << 13 + l_n << ", " <<   (l_n * ldc)      * 4 << "(%%r10)\\n\\t\"" << std::endl;
     }
   }
+
+  if ( (tPrefetch.compare("BL2viaC") == 0) ) {
+    for (int l_n = 0; l_n < max_local_N; l_n++) {
+      codestream << "                         \"prefetcht1 " <<  (l_n * ldc)      * 4 << "(%%r12)\\n\\t\"" << std::endl;
+    }
+  }
 }
 
-void avx_store_4xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, int max_local_N) {
+void avx_store_4xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, int max_local_N, std::string tPrefetch) {
   if ( (max_local_N > 3) || (max_local_N < 1) ) {
     std::cout << " !!! ERROR, avx_store_4xN_sp_asm, N smaller 1 or larger 3!!! " << std::endl;
     exit(-1);
@@ -243,9 +236,15 @@ void avx_store_4xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, i
       codestream << "                         \"vmovups %%xmm" << 13 + l_n << ", " <<   (l_n * ldc)      * 4 << "(%%r10)\\n\\t\"" << std::endl;
     }
   }
+
+  if ( (tPrefetch.compare("BL2viaC") == 0) ) {
+    for (int l_n = 0; l_n < max_local_N; l_n++) {
+      codestream << "                         \"prefetcht1 " <<  (l_n * ldc)      * 4 << "(%%r12)\\n\\t\"" << std::endl;
+    }
+  }
 }
 
-void avx_store_1xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, int max_local_N) {
+void avx_store_1xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, int max_local_N, std::string tPrefetch) {
   if ( (max_local_N > 3) || (max_local_N < 1) ) {
     std::cout << " !!! ERROR, avx_store_1xN_sp_asm, N smaller 1 or larger 3!!! " << std::endl;
     exit(-1);
@@ -253,6 +252,12 @@ void avx_store_1xN_sp_asm(std::stringstream& codestream, int ldc, bool alignC, i
 
   for (int l_n = 0; l_n < max_local_N; l_n++) {
     codestream << "                         \"vmovss %%xmm" << 13 + l_n << ", " <<   (l_n * ldc)      * 4 << "(%%r10)\\n\\t\"" << std::endl;
+  }
+
+  if ( (tPrefetch.compare("BL2viaC") == 0) ) {
+    for (int l_n = 0; l_n < max_local_N; l_n++) {
+      codestream << "                         \"prefetcht1 " <<  (l_n * ldc)      * 4 << "(%%r12)\\n\\t\"" << std::endl;
+    }
   }
 }
 
