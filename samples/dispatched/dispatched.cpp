@@ -108,6 +108,7 @@ int main(int argc, char* argv[])
         fprintf(stdout, "Streaming...\n");
         std::fill_n(c, s * csize, 0);
 #if defined(_OPENMP)
+        omp_set_dynamic(0);
         const double start = omp_get_wtime();
 #       pragma omp parallel for
 #endif
@@ -127,6 +128,7 @@ int main(int argc, char* argv[])
       { // cached
         fprintf(stdout, "Cached...\n");
 #if defined(_OPENMP)
+        omp_set_dynamic(0);
         const double start = omp_get_wtime();
 #       pragma omp parallel for
 #endif
