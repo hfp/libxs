@@ -133,9 +133,9 @@ int main(int argc, char* argv[])
         for (int i = 0; i < s; ++i) {
           // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
 #if (0 < (LIBXS_ALIGNED_STORES))
-          LIBXS_ALIGNED(T tmp[1*(LIBXS_MAX_MNK)/*max. problemsize*/], LIBXS_ALIGNED_STORES);
+          LIBXS_ALIGNED(T tmp[LIBXS_MAX_M*LIBXS_MAX_N/*max. problemsize*/], LIBXS_ALIGNED_STORES);
 #else
-          LIBXS_ALIGNED(T tmp[1*(LIBXS_MAX_MNK)/*max. problemsize*/], LIBXS_ALIGNMENT);
+          LIBXS_ALIGNED(T tmp[LIBXS_MAX_M*LIBXS_MAX_N/*max. problemsize*/], LIBXS_ALIGNMENT);
 #endif
           // do nothing else with tmp; just a benchmark
           libxs_imm(m, n, k, a, b, tmp);
