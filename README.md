@@ -1,4 +1,11 @@
- Interface
+# LIBXS
+Library for small matrix-matrix multiplications targeting Intel Architecture (x86). The library generates code for the following instruction set extensions: Intel SSE3, Intel AVX, Intel AVX2, IMCI (KNCni) for Intel Xeon Phi coprocessors ("KNC"), and Intel AVX-512 as found in the Intel Xeon Phi processor family ("KNL") and future Intel Xeon processors. Historically the library was solely targeting the Intel Many Integrated Core Architecture "MIC") using intrinsic functions, however meanwhile optimized assembly code is generated for the fore mentioned instruction set extensions. [[pdf](https://github.com/hfp/libxs/raw/master/documentation/libxs.pdf)] [[src](https://github.com/hfp/libxs/archive/0.8.6.zip)]
+
+**What is a small matrix-matrix multiplication?** When characterizing the problem size using the M, N, and K parameters, a problem size suitable for LIBXS falls approximately within (M N K)^(1/3) <= 60 (which illustrates that non-square matrices or even "tall and skinny" shapes are covered as well). However the code generator only generates code up to the specified [threshold](#auto-dispatch). Raising the threshold may not only generate excessive amounts of code (due to unrolling), but also missing to implement a tiling scheme to effectively utilize the L1 cache. For problem sizes above the configurable threshold, LIBXS is falling back to BLAS.
+
+**How to determine whether an application can benefit from using LIBXS or not?** Given the application uses BLAS to carry out matrix multiplications, one may link against Intel MKL 11.2 (or higher), set the environment variable MKL_VERBOSE=1, and run the application using a representative workload (env MKL_VERBOSE=1 ./workload > verbose.txt). The collected output is the starting point for evaluating the problem sizes as imposed by the workload (grep -a "MKL_VERBOSE DGEMM" verbose.txt | cut -d, -f3-5).
+
+## Interface
 The interface of the library is *generated* according to the [Build Instructions](#build-instructions) (therefore the header file 'include/libxs.h' is **not** stored in the code repository). The generated interface also defines certain preprocessor symbols to store the properties the library was built for.
 
 To perform the matrix-matrix multiplication *c*<sub>*m* x *n*</sub> = *c*<sub>*m* x *n*</sub> + *a*<sub>*m* x *k*</sub> \* *b*<sub>*k* x *n*</sub>, one of the following interfaces can be used:
@@ -48,7 +55,7 @@ A binary search is implemented when a sparsity (calculated at construction time 
 ## Roadmap
 Although the library is under development, the published interface is rather stable and may only be extended in future revisions. The following issues are being addressed in upcoming revisions:
 
-* Extended Application Programming Interface (API) supporting sparse matrices and other cases
+* LAPACK/BLAS compliant xGEMM interface (API), and handle based support for sparse matrices
 * Runtime dynamic selection of the most suitable Instruction Set Architecture (ISA dispatch)
 * Just-in-Time (JIT) code generation as part of an application (JIT compiler)
 * Native FORTRAN interface
