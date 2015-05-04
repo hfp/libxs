@@ -126,11 +126,6 @@
 # define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
 #elif defined(__GNUC__)
 # define LIBXS_TLS __thread
-#elif defined(LIBXS_STDFEATURES)
-# define LIBXS_TLS thread_local
-#endif
-#if !defined(LIBXS_TLS)
-# define LIBXS_TLS
 #endif
 
 #if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
