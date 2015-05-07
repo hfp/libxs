@@ -239,24 +239,24 @@ ifeq ($(GENTARGET),noarch)
 	@true || echo "#define LIBXS_GENTARGET_wsm_sp" >> $@
 	@echo >> $@
 	@echo >> $@
-	@true || $(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 knl nopf DP > /dev/null
-	@true || $(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 knl nopf SP > /dev/null
-	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 hsw nopf DP > /dev/null
-	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 hsw nopf SP > /dev/null
-	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 snb nopf DP > /dev/null
-	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 snb nopf SP > /dev/null
-	@true || $(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 wsm nopf DP > /dev/null
-	@true || $(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 wsm nopf SP > /dev/null
+	@true || $(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 1 0 $(ALIGNED_STORES) knl nopf DP > /dev/null
+	@true || $(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 1 0 $(ALIGNED_STORES) knl nopf SP > /dev/null
+	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 1 0 $(ALIGNED_STORES) hsw nopf DP > /dev/null
+	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 1 0 $(ALIGNED_STORES) hsw nopf SP > /dev/null
+	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 1 0 $(ALIGNED_STORES) snb nopf DP > /dev/null
+	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 1 0 $(ALIGNED_STORES) snb nopf SP > /dev/null
+	@true || $(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 1 0 $(ALIGNED_STORES) wsm nopf DP > /dev/null
+	@true || $(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 1 0 $(ALIGNED_STORES) wsm nopf SP > /dev/null
 else
 	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_dp" >> $@
 	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_sp" >> $@
 	@echo >> $@
 	@echo >> $@
-	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 $(GENTARGET) nopf DP > /dev/null
-	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 $(GENTARGET) nopf SP > /dev/null
+	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 1 0 $(ALIGNED_STORES) $(GENTARGET) nopf DP > /dev/null
+	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 1 0 $(ALIGNED_STORES) $(GENTARGET) nopf SP > /dev/null
 endif
-	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 0 $(ALIGNED_STORES) 1 knc nopf DP > /dev/null
-	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 0 $(ALIGNED_STORES) 1 knc nopf SP > /dev/null
+	$(SCRDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 1 0 $(ALIGNED_STORES) knc nopf DP > /dev/null
+	$(SCRDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 1 0 $(ALIGNED_STORES) knc nopf SP > /dev/null
 	@sed -i'' \
 		-e 's/void libxs_/LIBXS_INLINE LIBXS_TARGET(mic) void libxs_/' \
 		-e 's/#ifndef NDEBUG/#ifdef LIBXS_NEVER_DEFINED/' \
