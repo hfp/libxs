@@ -95,6 +95,8 @@ namespace libxs {
 #include "kernels_avx1-2_common_sp_asm.hpp"
 #include "kernels_avx1_sp_asm.hpp"
 #include "kernels_avx2_sp_asm.hpp"
+#include "kernels_avx512_dp_asm.hpp"
+#include "kernels_avx512_sp_asm.hpp"
 #include "kernels_avx512knc_dp_asm.hpp"
 #include "kernels_avx512knc_sp_asm.hpp"
 
@@ -262,6 +264,8 @@ namespace libxs {
     ////////////////////////////
 
     if (    (this->tVec_.compare("knc") == 0)
+         || (this->tVec_.compare("knl") == 0)
+         || (this->tVec_.compare("skx") == 0)
        ) {  
       if (bSP_ == false) { 
         if (lda % 8 == 0)
@@ -289,12 +293,24 @@ namespace libxs {
       alignA = alignA && this->bAlignedA_;
       alignC = alignC && this->bAlignedC_;
       
+      if (this->tVec_.compare("knc") == 0) {
         codestream << "#ifdef __MIC__" << std::endl;
         if (bSP_ == false) { 
           avx512knc_generate_kernel_dp(codestream, lda, ldb, ldc, M, N, K, alignA, alignC, this->bAdd_);
         } else {
           avx512knc_generate_kernel_sp(codestream, lda, ldb, ldc, M, N, K, alignA, alignC, this->bAdd_);
         }
+      } else if ( (this->tVec_.compare("knl") == 0) || (this->tVec_.compare("skx") == 0) ) {
+        codestream << "#ifdef __AVX512F__" << std::endl;
+        if (bSP_ == false) {
+          avx512_generate_kernel_dp(codestream, lda, ldb, ldc, M, N, K, alignA, alignC, this->bAdd_, this->tPrefetch_);
+        } else {
+          avx512_generate_kernel_sp(codestream, lda, ldb, ldc, M, N, K, alignA, alignC, this->bAdd_, this->tPrefetch_);
+        }
+      } else {
+        std::cout << " !!! ERROR, AVX-512 !!! " << std::endl;
+        exit(-1);
+      }
      
       codestream << "#else" << std::endl;
       codestream << "#pragma message (\"KERNEL COMPILATION ERROR in: \" __FILE__)" << std::endl;
