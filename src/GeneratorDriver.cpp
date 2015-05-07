@@ -125,9 +125,13 @@ void generate_epilogue(std::ofstream& out) {
   out << "}" << std::endl << std::endl;
 }
 
-void generator_sparse(std::string tFileOut, std::string tRoutineName, std::string tFileIn, int nM, int nN, int nK, int nDenseLDA, int nDenseLDB, int nDenseLDC, bool bAdd, bool bSP, std::string tVec, std::string tPrefetch) {
+void generator_sparse(std::string tFileOut, std::string tRoutineName, std::string tFileIn, int nM, int nN, int nK, int nDenseLDA, int nDenseLDB, int nDenseLDC, int i_alpha, int i_beta, bool bSP, std::string tVec, std::string tPrefetch) {
   std::string generated_code;
   std::ofstream out;
+  bool bAdd = true;
+
+  if (i_beta == 0)
+    bAdd = false;
 
   out.open(tFileOut.c_str(), std::ios::app);
 
@@ -151,14 +155,14 @@ void generator_sparse(std::string tFileOut, std::string tRoutineName, std::strin
   out.close();
 }
 
-void generator_dense(std::string tFileOut, std::string tRoutineName, int nDenseM, int nDenseN, int nDenseK, int nDenseLDA, int nDenseLDB, int nDenseLDC, bool bAlignedA, bool bAlignedC, bool bAdd, std::string tVec, std::string tPrefetch, bool bSP) {
+void generator_dense(std::string tFileOut, std::string tRoutineName, int nDenseM, int nDenseN, int nDenseK, int nDenseLDA, int nDenseLDB, int nDenseLDC, int i_alpha, int i_beta, bool bAlignedA, bool bAlignedC, std::string tVec, std::string tPrefetch, bool bSP) {
   std::string generated_code;
   std::ofstream out;
-  libxs::GeneratorDense gen(bAlignedA, bAlignedC, bAdd, tVec, tPrefetch, bSP);
+  libxs::GeneratorDense gen(bAlignedA, bAlignedC, tVec, tPrefetch, bSP);
 
   out.open(tFileOut.c_str(), std::ios::app);
   // generate code
-  generated_code = gen.generate_dense(true, nDenseM, nDenseN, nDenseK, nDenseLDA, nDenseLDB, nDenseLDC);
+  generated_code = gen.generate_dense(true, nDenseM, nDenseN, nDenseK, nDenseLDA, nDenseLDB, nDenseLDC, i_alpha, i_beta);
 
   // generate code
   generate_custom_signature_dense(out, tRoutineName, bSP, tPrefetch);
@@ -191,9 +195,10 @@ void print_help() {
   std::cout << "    LDA" << std::endl;
   std::cout << "    LDB" << std::endl;
   std::cout << "    LDC" << std::endl;
+  std::cout << "    alpha: -1 or 1" << std::endl;
+  std::cout << "    beta: 0 or 1" << std::endl;
   std::cout << "    0: unaligned A, otherwise aligned (ignored for sparse)" << std::endl;
   std::cout << "    0: unaligned C, otherwise aligned (ignored for sparse)" << std::endl;
-  std::cout << "    0: no add, otherwise: add" << std::endl;
   std::cout << "    ARCH: noarch, wsm, snb, hsw, knc, skx, knl" << std::endl;
   std::cout << "    PREFETCH: nopf (none), pfsigonly, other dense options fall-back to pfsigonly" << std::endl;
   std::cout << "    PRECISION: SP, DP" << std::endl;
@@ -208,9 +213,10 @@ void print_help() {
   std::cout << "    LDA" << std::endl;
   std::cout << "    LDB" << std::endl;
   std::cout << "    LDC" << std::endl;
+  std::cout << "    alpha: -1 or 1" << std::endl;
+  std::cout << "    beta: 0 or 1" << std::endl;
   std::cout << "    0: unaligned A, otherwise aligned" << std::endl;
   std::cout << "    0: unaligned C, otherwise aligned" << std::endl;
-  std::cout << "    0: no add, otherwise: add" << std::endl;
   std::cout << "    ARCH: noarch, wsm, snb, hsw, knc, skx, knl" << std::endl;
   std::cout << "    PREFETCH: nopf (none), pfsigonly, BL2viaC, AL2, curAL2, AL2jpst, AL2_BL2viaC, curAL2_BL2viaC, AL2jpst_BL2viaC" << std::endl;
   std::cout << "    PRECISION: SP, DP" << std::endl;
@@ -220,7 +226,7 @@ void print_help() {
 
 int main(int argc, char* argv []) {
   // check argument count for a valid range
-  if (argc != 16 && argc != 17) {
+  if (argc != 17 && argc != 18) {
     print_help();
     return -1;
   }
@@ -239,7 +245,7 @@ int main(int argc, char* argv []) {
     print_help();
     return -1;
   }
-  if ( (tType == "sparse" && argc != 17) || (tType == "dense" && argc != 16) ) {
+  if ( (tType == "sparse" && argc != 18) || (tType == "dense" && argc != 17) ) {
     print_help();
     return -1;
   }
@@ -253,11 +259,11 @@ int main(int argc, char* argv []) {
     int nDenseLDC = 0;
     int nAlignedA = 0;
     int nAlignedC = 0;
-    int nAdd;
+    int l_alpha = 0;
+    int l_beta = 0;
     std::string tFileIn;
     bool bAlignedA = true;
     bool bAlignedC = true;
-    bool bAdd = true;
     bool bSP = false;
 
     tFileOut.assign(argv[2]);
@@ -269,12 +275,13 @@ int main(int argc, char* argv []) {
     nDenseLDA = atoi(argv[8]);
     nDenseLDB = atoi(argv[9]);
     nDenseLDC = atoi(argv[10]);
-    nAlignedA = atoi(argv[11]);
-    nAlignedC = atoi(argv[12]);
-    nAdd = atoi(argv[13]);
-    tVec.assign(argv[14]);
-    tPrefetch.assign(argv[15]);
-    tPrecision.assign(argv[16]);
+    l_alpha = atoi(argv[11]);
+    l_beta = atoi(argv[12]);
+    nAlignedA = atoi(argv[13]);
+    nAlignedC = atoi(argv[14]);
+    tVec.assign(argv[15]);
+    tPrefetch.assign(argv[16]);
+    tPrecision.assign(argv[17]);
 
     if ( (tVec.compare("wsm") != 0)        && 
          (tVec.compare("snb") != 0)        && 
@@ -319,8 +326,16 @@ int main(int argc, char* argv []) {
     bAlignedA = bAlignedC;
     bAlignedC = bAlignedA;
 
-    if (nAdd == 0)
-      bAdd = false;
+    if ((l_beta != 0) && (l_beta != 1)) {
+      print_help();
+      return -1;
+    }
+
+    if ((l_alpha != 1)) {
+    //if ((l_alpha != -1) && (l_alpha != 1)) {
+      print_help();
+      return -1;
+    }
 
     if (nDenseLDA < 1 && nDenseLDB < 1) {
       print_help();
@@ -332,7 +347,7 @@ int main(int argc, char* argv []) {
       return -1;
     }
 
-    generator_sparse(tFileOut, tRoutineName, tFileIn, nM, nN, nK, nDenseLDA, nDenseLDB, nDenseLDC, bAdd, bSP, tVec, tPrefetch);
+    generator_sparse(tFileOut, tRoutineName, tFileIn, nM, nN, nK, nDenseLDA, nDenseLDB, nDenseLDC, l_alpha, l_beta, bSP, tVec, tPrefetch);
   }
 
   if (tType == "dense") {
@@ -344,10 +359,10 @@ int main(int argc, char* argv []) {
     int nDenseLDC = 0;
     int nAlignedA = 0;
     int nAlignedC = 0;
-    int nAdd = 0;
+    int l_alpha = 0;
+    int l_beta = 0;
     bool bAlignedA = true;
     bool bAlignedC = true;
-    bool bAdd = true;
     bool bSP = false;
 
     tFileOut.assign(argv[2]);
@@ -358,12 +373,13 @@ int main(int argc, char* argv []) {
     nDenseLDA = atoi(argv[7]);
     nDenseLDB = atoi(argv[8]);
     nDenseLDC = atoi(argv[9]);
-    nAlignedA = atoi(argv[10]);
-    nAlignedC = atoi(argv[11]);
-    nAdd = atoi(argv[12]);
-    tVec.assign(argv[13]);
-    tPrefetch.assign(argv[14]);
-    tPrecision.assign(argv[15]);
+    l_alpha = atoi(argv[10]);
+    l_beta = atoi(argv[11]);
+    nAlignedA = atoi(argv[12]);
+    nAlignedC = atoi(argv[13]);
+    tVec.assign(argv[14]);
+    tPrefetch.assign(argv[15]);
+    tPrecision.assign(argv[16]);
 
     if ( (tVec.compare("wsm") != 0)        && 
          (tVec.compare("snb") != 0)        && 
@@ -404,10 +420,17 @@ int main(int argc, char* argv []) {
     if (nAlignedC == 0)
       bAlignedC = false;
 
-    if (nAdd == 0)
-      bAdd = false;
+    if ((l_beta != 0) && (l_beta != 1)) {
+      print_help();
+      return -1;
+    }
 
-    generator_dense(tFileOut, tRoutineName, nDenseM, nDenseN, nDenseK, nDenseLDA, nDenseLDB, nDenseLDC, bAlignedA, bAlignedC, bAdd, tVec, tPrefetch, bSP);
+    if ((l_alpha != -1) && (l_alpha != 1)) {
+      print_help();
+      return -1;
+    }
+
+    generator_dense(tFileOut, tRoutineName, nDenseM, nDenseN, nDenseK, nDenseLDA, nDenseLDB, nDenseLDC, l_alpha, l_beta, bAlignedA, bAlignedC, tVec, tPrefetch, bSP);
   }
 }
 

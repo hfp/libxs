@@ -80,7 +80,6 @@ namespace libxs {
     private:
       bool bAlignedA_;
       bool bAlignedC_;
-      bool bAdd_;
       std::string tVec_;
       std::string tPrefetch_;
       bool bSP_;
@@ -88,11 +87,11 @@ namespace libxs {
     public:
       GeneratorDense();
 
-      GeneratorDense(bool bAlignedA, bool bAlignedC, bool bAdd, std::string tVec, std::string tPrefetch, bool SP);
+      GeneratorDense(bool bAlignedA, bool bAlignedC, std::string tVec, std::string tPrefetch, bool SP);
 
       ~GeneratorDense();
 
-      std::string generate_dense(bool bIsColMajor, int M, int N, int K, int lda, int ldb, int ldc);
+      std::string generate_dense(bool bIsColMajor, int M, int N, int K, int lda, int ldb, int ldc, int i_alpha, int i_beta);
   };
 
 }
