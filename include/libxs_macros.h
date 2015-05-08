@@ -31,8 +31,10 @@
 
 #define LIBXS_STRINGIFY(SYMBOL) #SYMBOL
 #define LIBXS_TOSTRING(SYMBOL) LIBSXMM_STRINGIFY(SYMBOL)
-#define LIBXS_CONCATENATE(A, B) A##B
-#define LIBXS_FSYMBOL(SYMBOL) LIBXS_CONCATENATE(SYMBOL, _)
+#define LIBXS_CONCATENATE2(A, B) A##B
+#define LIBXS_CONCATENATE(A, B) LIBXS_CONCATENATE2(A, B)
+#define LIBXS_FSYMBOL(SYMBOL) LIBXS_CONCATENATE2(SYMBOL, _)
+#define LIBXS_UNIQUE(NAME) LIBXS_CONCATENATE(NAME, __LINE__)
 
 #if defined(__cplusplus)
 # define LIBXS_EXTERN_C extern "C"
@@ -124,8 +126,10 @@
 
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(__clang__)
 # define LIBXS_TLS __thread
+#elif defined(__cplusplus)
+# define LIBXS_TLS thread_local
 #endif
 
 #if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
