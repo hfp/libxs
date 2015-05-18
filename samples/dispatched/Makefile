@@ -8,12 +8,25 @@ CFLAGS :=
 DFLAGS :=
 IFLAGS := -I$(LIBXSROOT)/include
 
-ifeq ($(MIC),0)
-	LIBXS := $(LIBXSROOT)/lib/intel64/libxs.a
+ifeq ($(STATIC),0)
+	ifeq ($(MIC),0)
+		LIBXS := $(LIBXSROOT)/lib/intel64/libxs.so
+		LDFLAGS := -L$(LIBXSROOT)/lib/intel64 -lxsmm
+	else
+		LIBXS := $(LIBXSROOT)/lib/mic/libxs.so
+		LDFLAGS := -L$(LIBXSROOT)/lib/mic -lxsmm
+	endif
 else
-	LIBXS := $(LIBXSROOT)/lib/mic/libxs.a
+	ifeq ($(MIC),0)
+		LIBXS := $(LIBXSROOT)/lib/intel64/libxs.a
+	else
+		LIBXS := $(LIBXSROOT)/lib/mic/libxs.a
+	endif
+	ifneq ($(STATIC),)
+		LDFLAGS := -static
+	endif
+	LDFLAGS += $(LIBXS)
 endif
-LFLAGS := $(LIBXS)
 
 ICPC := $(notdir $(shell which icpc 2> /dev/null))
 ICC := $(notdir $(shell which icc 2> /dev/null))
@@ -45,7 +58,7 @@ ifneq (,$(filter $(CXX),icpc))
 			CXXFLAGS += -xCOMMON-AVX512
 		else ifneq ($(MIC),0)
 			CXXFLAGS += -mmic
-			LFLAGS += -mmic
+			LDFLAGS += -mmic
 		else
 			CXXFLAGS += -xHost
 		endif
@@ -59,7 +72,7 @@ ifneq (,$(filter $(CXX),icpc))
 	else ifeq ($(MIC),0)
 		CXXFLAGS += -offload-option,mic,compiler,"-O2 -opt-assume-safe-padding"
 	endif
-	LFLAGS += -openmp -mkl=sequential
+	LDFLAGS += -openmp -mkl=sequential
 else ifneq (,$(filter $(CC),icc))
 	ifeq (0,$(DBG))
 		CFLAGS += -Wall -fno-alias -ansi-alias -mkl=sequential -DNDEBUG -O3 -ipo -openmp
@@ -72,7 +85,7 @@ else ifneq (,$(filter $(CC),icc))
 			CFLAGS += -xCOMMON-AVX512
 		else ifneq ($(MIC),0)
 			CFLAGS += -mmic
-			LFLAGS += -mmic
+			LDFLAGS += -mmic
 		else
 			CFLAGS += -xHost
 		endif
@@ -86,7 +99,7 @@ else ifneq (,$(filter $(CC),icc))
 	else ifeq ($(MIC),0)
 		CFLAGS += -offload-option,mic,compiler,"-O2 -opt-assume-safe-padding"
 	endif
-	LFLAGS += -openmp -mkl=sequential
+	LDFLAGS += -openmp -mkl=sequential
 else # GCC assumed
 	ifeq (0,$(DBG))
 		CXXFLAGS += -Wall -O3 -fopenmp
@@ -105,7 +118,12 @@ else # GCC assumed
 	else
 		CXXFLAGS += -Wall -O0 -g -fopenmp
 	endif
-	LFLAGS += -fopenmp -llapack -lblas
+	ifneq ($(OS),Windows_NT)
+		LDFLAGS += -llapack -lblas
+	else
+		LDFLAGS += -llapack.dll -lblas.dll
+	endif
+	LDFLAGS += -lgfortran -fopenmp
 endif
 
 ifeq (,$(CXXFLAGS))
@@ -127,10 +145,10 @@ all: $(NAME)
 $(NAME): $(NAME)-cpp.o
 
 %: %-c.o $(LIBXS)
-	$(LD) -o $@ $< $(LFLAGS)
+	$(LD) -o $@ $< $(LDFLAGS)
 
 %: %-cpp.o $(LIBXS)
-	$(LD) -o $@ $< $(LFLAGS)
+	$(LD) -o $@ $< $(LDFLAGS)
 
 
 %-c.o: %.c
