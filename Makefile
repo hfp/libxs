@@ -189,7 +189,7 @@ install: all clean
 header: $(HEADER)
 $(HEADER): Makefile $(SRCDIR)/libxs.0.h $(SRCDIR)/libxs.1.h $(SRCDIR)/libxs.2.h
 	@cat $(SRCDIR)/libxs.0.h > $@
-	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNED_STORES) $(ALIGNED_LOADS) $(ALIGNMENT) $(THRESHOLD) $(INDICES) >> $@
+	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNED_STORES) $(ALIGNED_LOADS) $(ALIGNMENT) $(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(INDICES) >> $@
 	@echo >> $@
 	@cat $(SRCDIR)/libxs.1.h >> $@
 	@echo >> $@
