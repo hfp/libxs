@@ -70,27 +70,14 @@ int main(int argc, char* argv[])
     const int n = 2 < argc ? std::atoi(argv[2]) : m;
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
 
-#if defined(USE_MKL)
-    mkl_enable_instructions(MKL_ENABLE_AVX512_MIC);
-#endif
-
 #if (0 != LIBXS_ROW_MAJOR)
-# if (0 < LIBXS_ALIGNED_STORES)
     const int ldc = LIBXS_ALIGN_VALUE(int, T, n, LIBXS_ALIGNED_STORES);
-# else
-    const int ldc = n;
-# endif
     const int csize = m * ldc;
 #else
-# if (0 < LIBXS_ALIGNED_STORES)
     const int ldc = LIBXS_ALIGN_VALUE(int, T, m, LIBXS_ALIGNED_STORES);
-# else
-    const int ldc = m;
-# endif
     const int csize = n * ldc;
 #endif
-
-    const int asize = m * k, bsize = k * n, aspace = (LIBXS_ALIGNMENT) / sizeof(T);
+    const int asize = m * k, bsize = k * n, aspace = (LIBXS_ALIGNED_MAX) / sizeof(T);
     const int s = (3ULL << 30) / ((asize + bsize + csize) * sizeof(T)); // 3 GByte
     const double gbytes = 1.0 * s * (asize + bsize + csize) * sizeof(T) / (1 << 30);
 #if defined(_OPENMP)
@@ -102,14 +89,17 @@ int main(int argc, char* argv[])
     std::for_each(va.begin(), va.end(), nrand<T>);
     std::for_each(vb.begin(), vb.end(), nrand<T>);
 
-    const T *const a = LIBXS_ALIGN(const T*, &va[0], LIBXS_ALIGNMENT);
-    const T *const b = LIBXS_ALIGN(const T*, &vb[0], LIBXS_ALIGNMENT);
-    T * /*const*/ c = LIBXS_ALIGN(T*, &vc[0], LIBXS_ALIGNMENT);
+    const T *const a = LIBXS_ALIGN(const T*, &va[0], LIBXS_ALIGNED_MAX);
+    const T *const b = LIBXS_ALIGN(const T*, &vb[0], LIBXS_ALIGNED_MAX);
+    T * /*const*/ c = LIBXS_ALIGN(T*, &vc[0], LIBXS_ALIGNED_MAX);
 
 #if defined(LIBXS_OFFLOAD)
 #   pragma offload target(mic) in(a: length(s * asize)) in(b: length(s * bsize)) out(c: length(s * csize))
 #endif
     {
+#if defined(USE_MKL)
+      mkl_enable_instructions(MKL_ENABLE_AVX512_MIC);
+#endif
       fprintf(stdout, "m=%i n=%i k=%i ldc=%i (%s) size=%i memory=%.f MB\n\n",
         m, n, k, ldc, 0 != (LIBXS_ROW_MAJOR) ? "row-major" : "column-major", s, 1024 * gbytes);
 
@@ -159,11 +149,7 @@ int main(int argc, char* argv[])
 #endif
           for (int i = 0; i < s; ++i) {
             // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
-#if (0 < (LIBXS_ALIGNED_STORES))
-            LIBXS_ALIGNED(T tmp[LIBXS_MAX_M*LIBXS_MAX_N/*max. problemsize*/], LIBXS_ALIGNED_STORES);
-#else
-            LIBXS_ALIGNED(T tmp[LIBXS_MAX_M*LIBXS_MAX_N/*max. problemsize*/], LIBXS_ALIGNMENT);
-#endif
+            LIBXS_ALIGNED(T tmp[LIBXS_MAX_SIZE/*max. problemsize*/], LIBXS_ALIGNED_MAX);
             // do nothing else with tmp; just a benchmark
             xmm(a, b, tmp);
           }

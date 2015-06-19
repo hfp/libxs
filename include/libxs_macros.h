@@ -95,6 +95,8 @@
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
 #define LIBXS_MOD(A, B) ((A) & ((B) - 1)) /*B: pot!*/
+#define LIBXS_UP(A, B) ((((A) + (B) - 1) / (B)) * (B))
+
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __declspec(A)
 # define LIBXS_ALIGNED(DECL, N) LIBXS_ATTRIBUTE(align(N)) DECL
