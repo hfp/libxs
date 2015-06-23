@@ -44,7 +44,7 @@
 # if (199901L <= __STDC_VERSION__)
 #   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
 #   define LIBXS_RESTRICT restrict
-#   define LIBXS_INLINE inline
+#   define LIBXS_INLINE static inline
 # else
 #   define LIBXS_INLINE static
 # endif /*C99*/
