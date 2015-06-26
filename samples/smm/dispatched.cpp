@@ -41,7 +41,7 @@
 #include <vector>
 #include <cmath>
 
-#if defined(USE_MKL)
+#if defined(USE_MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
 # include <mkl_service.h>
 #endif
 
@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 #   pragma offload target(mic) in(a: length(s * asize)) in(b: length(s * bsize)) out(c: length(s * csize))
 #endif
     {
-#if defined(USE_MKL)
+#if defined(USE_MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
       mkl_enable_instructions(MKL_ENABLE_AVX512_MIC);
 #endif
       fprintf(stdout, "m=%i n=%i k=%i ldc=%i (%s) size=%i memory=%.f MB\n\n",
