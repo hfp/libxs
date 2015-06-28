@@ -5,10 +5,10 @@
 #endif
 #if (1 < LIBXS_ALIGNED_STORES)
 # define LIBXS_ASSUME_ALIGNED_STORES(A) LIBXS_ASSUME_ALIGNED(A, LIBXS_ALIGNED_STORES)
-# define LIBXS_LDC(REAL, UINT, M, N) LIBXS_ALIGN_VALUE(UINT, REAL, LIBXS_LD(N, M), LIBXS_ALIGNED_STORES)
+# define LIBXS_LDC(REAL, UINT, M, N) LIBXS_ALIGN_VALUE(UINT, REAL, LIBXS_LD(M, N), LIBXS_ALIGNED_STORES)
 #else
 # define LIBXS_ASSUME_ALIGNED_STORES(A)
-# define LIBXS_LDC(REAL, UINT, M, N) LIBXS_LD(N, M)
+# define LIBXS_LDC(REAL, UINT, M, N) LIBXS_LD(M, N)
 #endif
 #if (1 < LIBXS_ALIGNED_LOADS)
 # define LIBXS_ASSUME_ALIGNED_LOADS(A) LIBXS_ASSUME_ALIGNED(A, LIBXS_ALIGNED_LOADS)
@@ -28,8 +28,8 @@
   REAL libxs_alpha_ = 1, libxs_beta_ = 1; \
   char libxs_trans_ = 'N'; \
   LIBXS_FSYMBOL(LIBXS_BLASPREC(, REAL, gemm))(&libxs_trans_, &libxs_trans_, \
-    &libxs_n_, &libxs_m_, &libxs_k_, \
-    &libxs_alpha_, (REAL*)LIBXS_LD(B, A), &libxs_n_, (REAL*)LIBXS_LD(A, B), &libxs_k_, \
+    &libxs_m_, &libxs_n_, &libxs_k_, \
+    &libxs_alpha_, (REAL*)LIBXS_LD(A, B), &libxs_m_, (REAL*)LIBXS_LD(B, A), &libxs_k_, \
     &libxs_beta_, (C), &libxs_ldc_); \
 }
 
@@ -37,22 +37,23 @@
 # define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C) LIBXS_BLASMM(REAL, UINT, M, N, K, A, B, C)
 #else
 # define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C) { \
+    const REAL *const libxs_a_ = LIBXS_LD(B, A), *const libxs_b_ = LIBXS_LD(A, B); \
+    const UINT libxs_ldc_ = LIBXS_LDC(REAL, UINT, M, N); \
     UINT libxs_i_, libxs_j_, libxs_k_; \
-    const REAL *const libxs_a_ = LIBXS_LD(A, B), *const libxs_b_ = LIBXS_LD(B, A); \
     REAL *const libxs_c_ = (C); \
     LIBXS_ASSUME_ALIGNED_STORES(libxs_c_); \
     /*TODO: LIBXS_ASSUME_ALIGNED_LOADS(libxs_a_);*/ \
     /*TODO: LIBXS_ASSUME_ALIGNED_LOADS(libxs_b_);*/ \
     LIBXS_PRAGMA_SIMD_COLLAPSE(2) \
-    for (libxs_j_ = 0; libxs_j_ < LIBXS_LD(N, M); ++libxs_j_) { \
+    for (libxs_i_ = 0; libxs_i_ < LIBXS_LD(N, M); ++libxs_i_) { \
       LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_LD(LIBXS_MAX_M, LIBXS_MAX_N), LIBXS_LD(LIBXS_AVG_M, LIBXS_AVG_N)) \
-      for (libxs_i_ = 0; libxs_i_ < LIBXS_LD(M, N); ++libxs_i_) { \
-        const UINT libxs_index_ = libxs_i_ * LIBXS_LDC(REAL, UINT, M, N) + libxs_j_; \
+      for (libxs_j_ = 0; libxs_j_ < LIBXS_LD(M, N); ++libxs_j_) { \
+        const UINT libxs_index_ = libxs_i_ * libxs_ldc_ + libxs_j_; \
         REAL libxs_r_ = libxs_c_[libxs_index_]; \
         LIBXS_PRAGMA_SIMD_REDUCTION(+:libxs_r_) \
         LIBXS_PRAGMA_UNROLL \
         for (libxs_k_ = 0; libxs_k_ < (K); ++libxs_k_) { \
-          libxs_r_ += libxs_a_[libxs_i_*(K)+libxs_k_] * libxs_b_[libxs_k_*LIBXS_LD(N,M)+libxs_j_]; \
+          libxs_r_ += libxs_a_[libxs_i_*(K)+libxs_k_] * libxs_b_[libxs_k_*LIBXS_LD(M,N)+libxs_j_]; \
         } \
         libxs_c_[libxs_index_] = libxs_r_; \
       } \
