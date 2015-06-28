@@ -45,9 +45,9 @@
     /*TODO: LIBXS_ASSUME_ALIGNED_LOADS(libxs_a_);*/ \
     /*TODO: LIBXS_ASSUME_ALIGNED_LOADS(libxs_b_);*/ \
     LIBXS_PRAGMA_SIMD_COLLAPSE(2) \
-    for (libxs_i_ = 0; libxs_i_ < LIBXS_LD(N, M); ++libxs_i_) { \
-      LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_LD(LIBXS_MAX_M, LIBXS_MAX_N), LIBXS_LD(LIBXS_AVG_M, LIBXS_AVG_N)) \
-      for (libxs_j_ = 0; libxs_j_ < LIBXS_LD(M, N); ++libxs_j_) { \
+    for (libxs_j_ = 0; libxs_j_ < LIBXS_LD(M, N); ++libxs_j_) { \
+      LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_LD(LIBXS_MAX_N, LIBXS_MAX_M), LIBXS_LD(LIBXS_AVG_N, LIBXS_AVG_M)) \
+      for (libxs_i_ = 0; libxs_i_ < LIBXS_LD(N, M); ++libxs_i_) { \
         const UINT libxs_index_ = libxs_i_ * libxs_ldc_ + libxs_j_; \
         REAL libxs_r_ = libxs_c_[libxs_index_]; \
         LIBXS_PRAGMA_SIMD_REDUCTION(+:libxs_r_) \
