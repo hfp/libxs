@@ -56,12 +56,9 @@
 template<int Seed>
 struct LIBXS_TARGET(mic) init {
   template<typename T> init(T *LIBXS_RESTRICT dst, int m, int n, int ld = 0) {
-#if (0 == LIBXS_ROW_MAJOR)
-    std::swap(m, n);
-#endif
-    const int ldx = 0 == ld ? n : ld;
-    for (int i = 0; i < m; ++i) {
-      for (int j = 0; j < n; ++j) {
+    const int ldx = 0 == ld ? LIBXS_LD(m, n) : ld;
+    for (int i = 0; i < LIBXS_LD(n, m); ++i) {
+      for (int j = 0; j < LIBXS_LD(m, n); ++j) {
         // initialize similar to CP2K's (libsmm_acc) benchmark driver
         dst[i*ldx+j] = static_cast<T>(i * ldx + j + n + Seed);
       }
@@ -78,14 +75,8 @@ int main(int argc, char* argv[])
     const int n = 2 < argc ? std::atoi(argv[2]) : m;
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
 
-#if (0 != LIBXS_ROW_MAJOR)
-    const int ldc = LIBXS_ALIGN_VALUE(int, T, n, LIBXS_ALIGNED_STORES);
-    const int csize = m * ldc;
-#else
-    const int ldc = LIBXS_ALIGN_VALUE(int, T, m, LIBXS_ALIGNED_STORES);
-    const int csize = n * ldc;
-#endif
-    const int asize = m * k, bsize = k * n, aspace = (LIBXS_ALIGNED_MAX) / sizeof(T);
+    const int asize = m * k, bsize = k * n, aspace = (LIBXS_ALIGNMENT) / sizeof(T);
+    const int ldc = LIBXS_LDC(T, int, m, n), csize = LIBXS_LD(n, m) * ldc;
     const int s = (3ULL << 30) / ((asize + bsize + csize) * sizeof(T)); // 3 GByte
 #if defined(_OPENMP)
     const size_t bwsize = (asize/*load*/ + bsize/*load*/ + csize * 2/*load and store*/) * sizeof(T); // cached
@@ -93,15 +84,14 @@ int main(int argc, char* argv[])
 #endif
 
     struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
-      T *a, *b, *c;
+      T *a, *b;
       raii(int s, int asize, int bsize, int csize, int aspace)
-        : a(new T[s*asize+aspace-1]), b(new T[s*bsize+aspace-1]), c(new T[s*csize+aspace-1])
+        : a(new T[s*asize+aspace-1]), b(new T[s*bsize+aspace-1])
       {}
-      ~raii() { delete[] a; delete[] b; delete[] c; }
+      ~raii() { delete[] a; delete[] b; }
     } buffer(s, asize, bsize, csize, aspace);
     T *const a = LIBXS_ALIGN(T*, buffer.a, LIBXS_ALIGNED_MAX);
     T *const b = LIBXS_ALIGN(T*, buffer.b, LIBXS_ALIGNED_MAX);
-    T * /*const*/ c = LIBXS_ALIGN(T*, buffer.c, LIBXS_ALIGNED_MAX);
 
 #if defined(_OPENMP)
 #   pragma omp parallel for
@@ -112,7 +102,7 @@ int main(int argc, char* argv[])
     }
 
 #if defined(LIBXS_OFFLOAD)
-#   pragma offload target(mic) in(a: length(s * asize)) in(b: length(s * bsize)) out(c: length(s * csize))
+#   pragma offload target(mic) in(a: length(s * asize)) in(b: length(s * bsize))
 #endif
     {
 #if defined(USE_MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
@@ -123,8 +113,7 @@ int main(int argc, char* argv[])
         1.0 * (s * (asize + bsize + csize) * sizeof(T)) / (1 << 20));
 
       { // streaming
-        fprintf(stdout, "Streaming...\n");
-        std::fill_n(c, s * csize, 0);
+        fprintf(stdout, "Streamed...\n");
 #if defined(_OPENMP)
         double start = 0;
 #       pragma omp parallel
@@ -134,7 +123,9 @@ int main(int argc, char* argv[])
 #         pragma omp for
 #endif
           for (int i = 0; i < s; ++i) {
-            libxs_blasmm(m, n, k, a + i * asize, b + i * bsize, c + i * csize);
+            // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
+            LIBXS_ALIGNED(T tmp[LIBXS_MAX_SIZE/*max. problemsize*/], LIBXS_ALIGNED_MAX);
+            libxs_blasmm(m, n, k, a + i * asize, b + i * bsize, tmp);
           }
 #if defined(_OPENMP)
         }
