@@ -237,6 +237,7 @@ install: all clean
 header: $(INCDIR)/libxs.h
 $(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SRCDIR)/libxs.0.h $(SRCDIR)/libxs.1.h $(SRCDIR)/libxs.2.h
 	@mkdir -p $(dir $@)
+	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cat $(SRCDIR)/libxs.0.h > $@
 	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) \
 		$(shell echo $$((1!=$(ALIGNED_STORES)?$(ALIGNED_STORES):$(ALIGNMENT)))) \
@@ -496,5 +497,4 @@ endif
 	@rm -f $(INCDIR)/libxs.h
 
 install: all clean
-	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 
