@@ -20,9 +20,6 @@ AVX ?= 0
 # Embed InterProcedural Optimization information into libraries
 IPO ?= 0
 
-# Use assembly kernel generator
-GENASM ?= 1
-
 # Specify an alignment (Bytes)
 ALIGNMENT ?= 64
 
@@ -50,7 +47,7 @@ BINDIR = bin
 CXXFLAGS = $(NULL)
 CFLAGS = $(NULL)
 DFLAGS = -DLIBXSTREAM_EXPORTED
-IFLAGS = -I$(ROOTDIR)/include -I$(INCDIR) -I$(SRCDIR)
+IFLAGS = -I$(ROOTDIR)/include -I$(INCDIR)
 
 STATIC ?= 1
 OMP ?= 0
@@ -244,7 +241,6 @@ $(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SRCDIR)/libxs.template.h
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) \
 		$(INDICES) >> $@
 
-ifneq ($(GENASM),0)
 .PHONY: compile_gen
 compile_gen: $(SRCFILES_GEN)
 $(BLDDIR)/%.o: $(SRCDIR)/%.cpp $(ROOTDIR)/Makefile
@@ -255,15 +251,10 @@ generator: $(OBJFILES_GEN)
 $(BINDIR)/generator: $(OBJFILES_GEN) $(ROOTDIR)/Makefile
 	@mkdir -p $(dir $@)
 	$(CXX) $(OBJFILES_GEN) -o $@
-endif
 
 .PHONY: sources
 sources: $(SRCFILES)
-ifeq ($(GENASM),0)
-$(BLDDIR)/%.c: $(INCDIR)/libxs.h
-else
 $(BLDDIR)/%.c: $(INCDIR)/libxs.h $(BINDIR)/generator
-endif
 	$(eval MVALUE := $(shell echo $* | cut --output-delimiter=' ' -d_ -f2))
 	$(eval NVALUE := $(shell echo $* | cut --output-delimiter=' ' -d_ -f3))
 	$(eval KVALUE := $(shell echo $* | cut --output-delimiter=' ' -d_ -f4))
@@ -284,13 +275,8 @@ endif
 	$(eval LDA := $(MVALUE2))
 	$(eval LDB := $(KVALUE))
 	@mkdir -p $(dir $@)
-ifeq ($(GENASM),0)
-	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNMENT) \
-		$(shell echo $$((1!=$(ALIGNED_STORES)?$(ALIGNED_STORES):$(ALIGNMENT)))) \
-		$(shell echo $$((1!=$(ALIGNED_LOADS)?$(ALIGNED_LOADS):$(ALIGNMENT)))) \
-		-4 $(MVALUE) $(NVALUE) $(KVALUE) > $@
-else
 	@echo "#include <libxs.h>" > $@
+	@echo >> $@
 	@echo "#define LIBXS_GENTARGET_knc_dp" >> $@
 	@echo "#define LIBXS_GENTARGET_knc_sp" >> $@
 ifeq ($(GENTARGET),noarch)
@@ -341,11 +327,7 @@ endif
 		-e '/#error No kernel was compiled, lacking support for current architecture?/d' \
 		-e '/#pragma message ("KERNEL COMPILATION WARNING: compiling .\+ code on .\+ or newer architecture: " __FILE__)/d' \
 		$@
-	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(ALIGNMENT) \
-		$(shell echo $$((1!=$(ALIGNED_STORES)?$(ALIGNED_STORES):$(ALIGNMENT)))) \
-		$(shell echo $$((1!=$(ALIGNED_LOADS)?$(ALIGNED_LOADS):$(ALIGNMENT)))) \
-		-1 $(MVALUE) $(NVALUE) $(KVALUE) >> $@
-endif
+	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(MVALUE) $(NVALUE) $(KVALUE) >> $@
 
 .PHONY: main
 main: $(BLDDIR)/libxs.c
@@ -356,20 +338,20 @@ $(BLDDIR)/libxs.c: $(INCDIR)/libxs.h
 ifneq ($(MIC),0)
 .PHONY: compile_mic
 compile_mic: $(OBJFILES_MIC)
-$(BLDDIR)/mic/%.o: $(BLDDIR)/%.c $(INCDIR)/libxs.h $(SRCDIR)/libxs_isa.h
+$(BLDDIR)/mic/%.o: $(BLDDIR)/%.c $(INCDIR)/libxs.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $< -o $@
-$(BLDDIR)/mic/%.o: $(BLDDIR)/%.cpp $(INCDIR)/libxs.h $(SRCDIR)/libxs_isa.h
+$(BLDDIR)/mic/%.o: $(BLDDIR)/%.cpp $(INCDIR)/libxs.h
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $< -o $@
 endif
 
 .PHONY: compile_hst
 compile_hst: $(OBJFILES_HST)
-$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(INCDIR)/libxs.h $(SRCDIR)/libxs_isa.h
+$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(INCDIR)/libxs.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
-$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.cpp $(INCDIR)/libxs.h $(SRCDIR)/libxs_isa.h
+$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.cpp $(INCDIR)/libxs.h
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
 
