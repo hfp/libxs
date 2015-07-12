@@ -235,19 +235,14 @@ install: all clean
 
 .PHONY: header
 header: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SRCDIR)/libxs.0.h $(SRCDIR)/libxs.1.h $(SRCDIR)/libxs.2.h
+$(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SRCDIR)/libxs.template.h
 	@mkdir -p $(dir $@)
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
-	@cat $(SRCDIR)/libxs.0.h > $@
-	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) \
+	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(ROW_MAJOR) $(ALIGNMENT) \
 		$(shell echo $$((1!=$(ALIGNED_STORES)?$(ALIGNED_STORES):$(ALIGNMENT)))) \
 		$(shell echo $$((1!=$(ALIGNED_LOADS)?$(ALIGNED_LOADS):$(ALIGNMENT)))) \
-		$(ALIGNMENT) $(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(INDICES) >> $@
-	@echo >> $@
-	@cat $(SRCDIR)/libxs.1.h >> $@
-	@echo >> $@
-	@python $(SCRDIR)/libxs_interface.py $(INDICES) >> $@
-	@cat $(SRCDIR)/libxs.2.h >> $@
+		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) \
+		$(INDICES) >> $@
 
 ifneq ($(GENASM),0)
 .PHONY: compile_gen

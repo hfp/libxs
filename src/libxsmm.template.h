@@ -1,3 +1,70 @@
+/******************************************************************************
+** Copyright (c) 2013-2015, Intel Corporation                                **
+** All rights reserved.                                                      **
+**                                                                           **
+** Redistribution and use in source and binary forms, with or without        **
+** modification, are permitted provided that the following conditions        **
+** are met:                                                                  **
+** 1. Redistributions of source code must retain the above copyright         **
+**    notice, this list of conditions and the following disclaimer.          **
+** 2. Redistributions in binary form must reproduce the above copyright      **
+**    notice, this list of conditions and the following disclaimer in the    **
+**    documentation and/or other materials provided with the distribution.   **
+** 3. Neither the name of the copyright holder nor the names of its          **
+**    contributors may be used to endorse or promote products derived        **
+**    from this software without specific prior written permission.          **
+**                                                                           **
+** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
+** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
+** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
+** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
+** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
+** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
+** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
+** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
+** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
+** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
+** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
+******************************************************************************/
+#ifndef LIBXS_H
+#define LIBXS_H
+
+#include "libxs_macros.h"
+
+#if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
+# if defined(LIBXS_OFFLOAD)
+#   pragma offload_attribute(push,target(mic))
+#   include <mkl.h>
+#   pragma offload_attribute(pop)
+# else
+#   include <mkl.h>
+# endif
+#else
+LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(dgemm)(
+  const char*, const char*, const int*, const int*, const int*,
+  const double*, const double*, const int*, const double*, const int*,
+  const double*, double*, const int*);
+LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
+  const char*, const char*, const int*, const int*, const int*,
+  const float*, const float*, const int*, const float*, const int*,
+  const float*, float*, const int*);
+#endif
+
+/** Parameters the library was built for. */
+#define LIBXS_ALIGNMENT $ALIGNMENT
+#define LIBXS_ALIGNED_STORES $ALIGNED_STORES
+#define LIBXS_ALIGNED_LOADS $ALIGNED_LOADS
+#define LIBXS_ALIGNED_MAX $ALIGNED_MAX
+#define LIBXS_ROW_MAJOR $ROW_MAJOR
+#define LIBXS_COL_MAJOR $COL_MAJOR
+#define LIBXS_MAX_MNK $MAX_MNK
+#define LIBXS_MAX_M $MAX_M
+#define LIBXS_MAX_N $MAX_N
+#define LIBXS_MAX_K $MAX_K
+#define LIBXS_AVG_M $AVG_M
+#define LIBXS_AVG_N $AVG_N
+#define LIBXS_AVG_K $AVG_K
+
 #if (0 != LIBXS_ROW_MAJOR)
 # define LIBXS_LD(M, N) N
 #else
@@ -118,7 +185,7 @@ LIBXS_INLINE LIBXS_TARGET(mic) void libxs_sblasmm(int m, int n, int k, const flo
 LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dblasmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) {
   LIBXS_BLASMM(double, int, m, n, k, a, b, c);
 }
-
+$MNK_INTERFACE_LIST
 #if defined(__cplusplus)
 
 /** Dispatched matrix-matrix multiplication. */
@@ -155,3 +222,4 @@ public:
 };
 
 #endif /*__cplusplus*/
+#endif /*LIBXS_H*/
