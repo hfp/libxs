@@ -89,10 +89,10 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
   LIBXS_LD(LIBXS_MAX_K, LIBXS_MAX_N) * LIBXS_UP(LIBXS_LD(LIBXS_MAX_N, LIBXS_MAX_K), LIBXS_MAX_SIMD)), \
   LIBXS_LD(LIBXS_MAX_M, LIBXS_MAX_N) * LIBXS_UP(LIBXS_LD(LIBXS_MAX_N, LIBXS_MAX_M), LIBXS_MAX_SIMD))
 
-#define LIBXS_BLASMM(REAL, UINT, M, N, K, A, B, C) { \
-  UINT libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
-  UINT libxs_ldc_ = LIBXS_LDC(REAL, UINT, M, N); \
-  REAL libxs_alpha_ = 1, libxs_beta_ = 1; \
+#define LIBXS_BLASMM(REAL, M, N, K, A, B, C) { \
+  int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
+  int libxs_ldc_ = LIBXS_LDC(REAL, int, M, N); \
+  int libxs_alpha_ = 1, libxs_beta_ = 1; \
   char libxs_trans_ = 'N'; \
   LIBXS_FSYMBOL(LIBXS_BLASPREC(, REAL, gemm))(&libxs_trans_, &libxs_trans_, \
     &libxs_m_, &libxs_n_, &libxs_k_, \
@@ -101,7 +101,7 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 }
 
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-# define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C) LIBXS_BLASMM(REAL, UINT, M, N, K, A, B, C)
+# define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C) LIBXS_BLASMM(REAL, M, N, K, A, B, C)
 #else
 # define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C) { \
     const REAL *const libxs_a_ = LIBXS_LD(B, A), *const libxs_b_ = LIBXS_LD(A, B); \
@@ -145,7 +145,7 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
     } \
   } \
   else { \
-    LIBXS_BLASMM(REAL, int, M, N, K, A, B, C); \
+    LIBXS_BLASMM(REAL, M, N, K, A, B, C); \
   }
 
 /** Type of a function generated for a specific M, N, and K. */
@@ -178,12 +178,12 @@ LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dimm(int m, int n, int k, const double
 
 /** Non-dispatched matrix-matrix multiplication using BLAS; single-precision. */
 LIBXS_INLINE LIBXS_TARGET(mic) void libxs_sblasmm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c) {
-  LIBXS_BLASMM(float, int, m, n, k, a, b, c);
+  LIBXS_BLASMM(float, m, n, k, a, b, c);
 }
 
 /** Non-dispatched matrix-matrix multiplication using BLAS; double-precision. */
 LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dblasmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) {
-  LIBXS_BLASMM(double, int, m, n, k, a, b, c);
+  LIBXS_BLASMM(double, m, n, k, a, b, c);
 }
 $MNK_INTERFACE_LIST
 #if defined(__cplusplus)
