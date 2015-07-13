@@ -92,7 +92,7 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 #define LIBXS_BLASMM(REAL, M, N, K, A, B, C) { \
   int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
   int libxs_ldc_ = LIBXS_LDC(REAL, int, M, N); \
-  int libxs_alpha_ = 1, libxs_beta_ = 1; \
+  REAL libxs_alpha_ = 1, libxs_beta_ = 1; \
   char libxs_trans_ = 'N'; \
   LIBXS_FSYMBOL(LIBXS_BLASPREC(, REAL, gemm))(&libxs_trans_, &libxs_trans_, \
     &libxs_m_, &libxs_n_, &libxs_k_, \
