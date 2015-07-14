@@ -243,7 +243,7 @@ header: cheader fheader
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(ROOTDIR)/include/libxs_macros.h
+$(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.h $(ROOTDIR)/include/libxs_macros.h
 	@mkdir -p $(dir $@)
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(ROW_MAJOR) $(ALIGNMENT) \
@@ -254,7 +254,7 @@ $(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SRCDIR)/li
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f90
-$(INCDIR)/libxs.f90: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f90
+$(INCDIR)/libxs.f90: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.f90
 	@mkdir -p $(dir $@)
 	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f90 $(ROW_MAJOR) $(ALIGNMENT) \
 		$(shell echo $$((1!=$(ALIGNED_STORES)?$(ALIGNED_STORES):$(ALIGNMENT)))) \
