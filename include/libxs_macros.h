@@ -103,9 +103,11 @@
 
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
-#define LIBXS_MOD(A, B) ((A) & ((B) - 1)) /*B: pot!*/
-#define LIBXS_DIV(A, B) ((A) >> (LIBXS_NBITS(B) - 1)) /*B: pot!*/
-#define LIBXS_UP(A, B) ((((A) + (B) - 1) / (B)) * (B))
+#define LIBXS_MOD2(N, POT) ((N) & ((POT) - 1))
+#define LIBXS_MUL2(N, POT) ((N) << (LIBXS_NBITS(POT) - 1))
+#define LIBXS_DIV2(N, POT) ((N) >> (LIBXS_NBITS(POT) - 1))
+#define LIBXS_UP2(N, POT) LIBXS_MUL2(LIBXS_DIV2((N) + (POT) - 1, POT), POT)
+#define LIBXS_UP(N, UP) ((((N) + (UP) - 1) / (UP)) * (UP))
 
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __declspec(A)
