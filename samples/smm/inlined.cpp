@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
 
     const int asize = m * k, bsize = k * n, aspace = (LIBXS_ALIGNED_MAX) / sizeof(T);
-    const int ldc = LIBXS_LDC(T, m, n), csize = LIBXS_LD(n, m) * ldc;
+    const int ldc = LIBXS_LDC(m, n, sizeof(T)), csize = LIBXS_LD(n, m) * ldc;
     const int s = (3ULL << 30) / ((asize + bsize + csize) * sizeof(T)); // 3 GByte
     const double gbytes = 1.0 * s * (asize + bsize + csize) * sizeof(T) / (1 << 30);
 #if defined(_OPENMP)
