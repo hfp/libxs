@@ -117,12 +117,10 @@ CONTAINS
     REAL(LIBXS_SINGLE_PRECISION), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
     REAL(LIBXS_SINGLE_PRECISION), INTENT(INOUT) :: c($SHAPE_C)
     REAL(LIBXS_SINGLE_PRECISION), PARAMETER :: alpha = 1, beta = 1
-    INTEGER(LIBXS_INTEGER_TYPE) :: ldc
-    ldc = libxs_ldc(m, n, LIBXS_SINGLE_PRECISION)
-    CALL sgemm(m, n, k, alpha, &
+    CALL sgemm('N', 'N', MERGE(m, n, 0.NE.LIBXS_COL_MAJOR), MERGE(n, m, 0.NE.LIBXS_COL_MAJOR), k, alpha, &
       MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), MERGE(m, n, 0.NE.LIBXS_COL_MAJOR), &
       MERGE(b, a, 0.NE.LIBXS_COL_MAJOR), k, &
-      beta, c, ldc)
+      beta, c, libxs_ldc(m, n, LIBXS_SINGLE_PRECISION))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using BLAS; double-precision.
@@ -133,12 +131,10 @@ CONTAINS
     REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
     REAL(LIBXS_DOUBLE_PRECISION), INTENT(INOUT) :: c($SHAPE_C)
     REAL(LIBXS_DOUBLE_PRECISION), PARAMETER :: alpha = 1, beta = 1
-    INTEGER(LIBXS_INTEGER_TYPE) :: ldc
-    ldc = libxs_ldc(m, n, LIBXS_DOUBLE_PRECISION)
-    CALL dgemm(m, n, k, alpha, &
+    CALL dgemm('N', 'N', MERGE(m, n, 0.NE.LIBXS_COL_MAJOR), MERGE(n, m, 0.NE.LIBXS_COL_MAJOR), k, alpha, &
       MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), MERGE(m, n, 0.NE.LIBXS_COL_MAJOR), &
       MERGE(b, a, 0.NE.LIBXS_COL_MAJOR), k, &
-      beta, c, ldc)
+      beta, c, libxs_ldc(m, n, LIBXS_DOUBLE_PRECISION))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using inline code; single-precision.
