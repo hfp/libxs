@@ -69,18 +69,10 @@ MODULE LIBXS
   END INTERFACE
 
   ABSTRACT INTERFACE
-    ! Type of a function generated for a specific M, N, and K; single-precision.
-    PURE SUBROUTINE LIBXS_SMM_FUNCTION(a, b, c)
-      USE, INTRINSIC :: ISO_C_BINDING
-      REAL(C_FLOAT), INTENT(IN) :: a(:,:), b(:,:)
-      REAL(C_FLOAT), INTENT(INOUT) :: c(:,:)
-    END SUBROUTINE
-
     ! Type of a function generated for a specific M, N, and K; double-precision.
-    PURE SUBROUTINE LIBXS_DMM_FUNCTION(a, b, c)
-      USE, INTRINSIC :: ISO_C_BINDING
-      REAL(C_DOUBLE), INTENT(IN) :: a(:,:), b(:,:)
-      REAL(C_DOUBLE), INTENT(INOUT) :: c(:,:)
+    PURE SUBROUTINE LIBXS_XMM_FUNCTION(a, b, c) !BIND(C)
+      IMPORT :: C_PTR
+      TYPE(C_PTR), VALUE, INTENT(IN) :: a, b, c
     END SUBROUTINE
   END INTERFACE$MNK_INTERFACE_LIST
 
@@ -161,13 +153,13 @@ CONTAINS
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_dispatch
   !DIR$ ATTRIBUTES INLINE :: libxs_smm_dispatch
   FUNCTION libxs_smm_dispatch(m, n, k) RESULT(f)
-    PROCEDURE(LIBXS_SMM_FUNCTION), POINTER :: f
+    PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: f
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
     INTERFACE
       !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_dispatch_aux
       TYPE(C_FUNPTR) PURE FUNCTION libxs_smm_dispatch_aux(m, n, k) BIND(C, NAME="libxs_smm_dispatch")
-        USE, INTRINSIC :: ISO_C_BINDING
-        INTEGER(C_INT), INTENT(IN) :: m, n, k
+        IMPORT :: C_FUNPTR, C_INT
+        INTEGER(C_INT), VALUE, INTENT(IN) :: m, n, k
       END FUNCTION
     END INTERFACE
     CALL C_F_PROCPOINTER(libxs_smm_dispatch_aux(m, n, k), f)
@@ -177,13 +169,13 @@ CONTAINS
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm_dispatch
   !DIR$ ATTRIBUTES INLINE :: libxs_dmm_dispatch
   FUNCTION libxs_dmm_dispatch(m, n, k) RESULT(f)
-    PROCEDURE(LIBXS_DMM_FUNCTION), POINTER :: f
+    PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: f
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
     INTERFACE
       !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm_dispatch_aux
       TYPE(C_FUNPTR) PURE FUNCTION libxs_dmm_dispatch_aux(m, n, k) BIND(C, NAME="libxs_dmm_dispatch")
-        USE, INTRINSIC :: ISO_C_BINDING
-        INTEGER(C_INT), INTENT(IN) :: m, n, k
+        IMPORT :: C_FUNPTR, C_INT
+        INTEGER(C_INT), VALUE, INTENT(IN) :: m, n, k
       END FUNCTION
     END INTERFACE
     CALL C_F_PROCPOINTER(libxs_dmm_dispatch_aux(m, n, k), f)
@@ -194,13 +186,13 @@ CONTAINS
   !DIR$ ATTRIBUTES INLINE :: libxs_smm
   SUBROUTINE libxs_smm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(LIBXS_SINGLE_PRECISION), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(LIBXS_SINGLE_PRECISION), INTENT(INOUT) :: c($SHAPE_C)
-    PROCEDURE(LIBXS_SMM_FUNCTION), POINTER :: f
+    REAL(LIBXS_SINGLE_PRECISION), TARGET, INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
+    REAL(LIBXS_SINGLE_PRECISION), TARGET, INTENT(INOUT) :: c($SHAPE_C)
+    PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
     IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
-      f => libxs_smm_dispatch(m, n, k)
-      IF (ASSOCIATED(f)) THEN
-        CALL f(a, b, c)
+      xmm => libxs_smm_dispatch(m, n, k)
+      IF (ASSOCIATED(xmm)) THEN
+        CALL xmm(C_LOC(a), C_LOC(b), C_LOC(c))
       ELSE
         CALL libxs_simm(m, n, k, a, b, c)
       ENDIF
@@ -214,13 +206,13 @@ CONTAINS
   !DIR$ ATTRIBUTES INLINE :: libxs_dmm
   SUBROUTINE libxs_dmm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(LIBXS_DOUBLE_PRECISION), INTENT(INOUT) :: c($SHAPE_C)
-    PROCEDURE(LIBXS_DMM_FUNCTION), POINTER :: f
+    REAL(LIBXS_DOUBLE_PRECISION), TARGET, INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
+    REAL(LIBXS_DOUBLE_PRECISION), TARGET, INTENT(INOUT) :: c($SHAPE_C)
+    PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
     IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
-      f => libxs_dmm_dispatch(m, n, k)
-      IF (ASSOCIATED(f)) THEN
-        CALL f(a, b, c)
+      xmm => libxs_dmm_dispatch(m, n, k)
+      IF (ASSOCIATED(xmm)) THEN
+        CALL xmm(C_LOC(a), C_LOC(b), C_LOC(c))
       ELSE
         CALL libxs_dimm(m, n, k, a, b, c)
       ENDIF
