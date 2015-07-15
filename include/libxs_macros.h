@@ -133,10 +133,8 @@
 #   define LIBXS_ASSUME(EXPRESSION)
 # endif
 #endif
-#define LIBXS_ALIGN_VALUE(DST_TYPE, SRC_TYPE, VALUE, ALIGNMENT) ((DST_TYPE)((-( \
-  -((intptr_t)(VALUE) * ((intptr_t)sizeof(SRC_TYPE))) & \
-  -((intptr_t)(LIBXS_MAX(ALIGNMENT, 1))))) / sizeof(SRC_TYPE)))
-#define LIBXS_ALIGN(TYPE, PTR, ALIGNMENT) LIBXS_ALIGN_VALUE(TYPE, char, PTR, ALIGNMENT)
+#define LIBXS_ALIGN_VALUE(N, TYPESIZE, ALIGNMENT) LIBXS_DIV2(LIBXS_UP2((N) * (TYPESIZE), ALIGNMENT), TYPESIZE)
+#define LIBXS_ALIGN(POINTER, ALIGNMENT) ((POINTER) + (LIBXS_ALIGN_VALUE((uintptr_t)(POINTER), 1, ALIGNMENT) - ((uintptr_t)(POINTER))) / sizeof(*(POINTER)))
 
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_TLS LIBXS_ATTRIBUTE(thread)

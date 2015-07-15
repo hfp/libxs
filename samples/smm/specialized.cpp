@@ -75,14 +75,8 @@ int main(int argc, char* argv[])
     const int n = 2 < argc ? std::atoi(argv[2]) : m;
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
 
-#if (0 != LIBXS_ROW_MAJOR)
-    const int ldc = LIBXS_ALIGN_VALUE(int, T, n, LIBXS_ALIGNED_STORES);
-    const int csize = m * ldc;
-#else
-    const int ldc = LIBXS_ALIGN_VALUE(int, T, m, LIBXS_ALIGNED_STORES);
-    const int csize = n * ldc;
-#endif
     const int asize = m * k, bsize = k * n, aspace = (LIBXS_ALIGNED_MAX) / sizeof(T);
+    const int ldc = LIBXS_LDC(T, m, n), csize = LIBXS_LD(n, m) * ldc;
     const int s = (3ULL << 30) / ((asize + bsize + csize) * sizeof(T)); // 3 GByte
     const double gbytes = 1.0 * s * (asize + bsize + csize) * sizeof(T) / (1 << 30);
 #if defined(_OPENMP)
@@ -97,8 +91,8 @@ int main(int argc, char* argv[])
       {}
       ~raii() { delete[] a; delete[] b; }
     } buffer(s, asize, bsize, aspace);
-    T *const a = LIBXS_ALIGN(T*, buffer.a, LIBXS_ALIGNED_MAX);
-    T *const b = LIBXS_ALIGN(T*, buffer.b, LIBXS_ALIGNED_MAX);
+    T *const a = LIBXS_ALIGN(buffer.a, LIBXS_ALIGNED_MAX);
+    T *const b = LIBXS_ALIGN(buffer.b, LIBXS_ALIGNED_MAX);
 
 #if defined(_OPENMP)
 #   pragma omp parallel for

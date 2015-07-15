@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
 
     const int asize = m * k, bsize = k * n, aspace = (LIBXS_ALIGNMENT) / sizeof(T);
-    const int ldc = LIBXS_LDC(T, int, m, n), csize = LIBXS_LD(n, m) * ldc;
+    const int ldc = LIBXS_LDC(T, m, n), csize = LIBXS_LD(n, m) * ldc;
     const int s = (3ULL << 30) / ((asize + bsize + csize) * sizeof(T)); // 3 GByte
 #if defined(_OPENMP)
     const size_t bwsize = (asize/*load*/ + bsize/*load*/ + csize * 2/*load and store*/) * sizeof(T); // cached
@@ -90,8 +90,8 @@ int main(int argc, char* argv[])
       {}
       ~raii() { delete[] a; delete[] b; }
     } buffer(s, asize, bsize, aspace);
-    T *const a = LIBXS_ALIGN(T*, buffer.a, LIBXS_ALIGNED_MAX);
-    T *const b = LIBXS_ALIGN(T*, buffer.b, LIBXS_ALIGNED_MAX);
+    T *const a = LIBXS_ALIGN(buffer.a, LIBXS_ALIGNED_MAX);
+    T *const b = LIBXS_ALIGN(buffer.b, LIBXS_ALIGNED_MAX);
 
 #if defined(_OPENMP)
 #   pragma omp parallel for
