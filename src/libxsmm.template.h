@@ -95,8 +95,9 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
   REAL libxs_alpha_ = 1, libxs_beta_ = 1; \
   char libxs_trans_ = 'N'; \
   LIBXS_FSYMBOL(LIBXS_BLASPREC(, REAL, gemm))(&libxs_trans_, &libxs_trans_, \
-    &libxs_m_, &libxs_n_, &libxs_k_, \
-    &libxs_alpha_, (REAL*)LIBXS_LD(A, B), &libxs_m_, (REAL*)LIBXS_LD(B, A), &libxs_k_, \
+    &libxs_m_, &libxs_n_, &libxs_k_, &libxs_alpha_, \
+    (REAL*)LIBXS_LD(A, B), &libxs_m_, \
+    (REAL*)LIBXS_LD(B, A), &libxs_k_, \
     &libxs_beta_, (C), &libxs_ldc_); \
 }
 
