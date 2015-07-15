@@ -69,8 +69,8 @@ MODULE LIBXS
   END INTERFACE
 
   ABSTRACT INTERFACE
-    ! Type of a function generated for a specific M, N, and K; double-precision.
-    PURE SUBROUTINE LIBXS_XMM_FUNCTION(a, b, c) !BIND(C)
+    ! Type of a function generated for a specific M, N, and K
+    PURE SUBROUTINE LIBXS_XMM_FUNCTION(a, b, c)
       IMPORT :: C_PTR
       TYPE(C_PTR), VALUE, INTENT(IN) :: a, b, c
     END SUBROUTINE
