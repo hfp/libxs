@@ -113,10 +113,11 @@ CONTAINS
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_sblasmm
   !DIR$ ATTRIBUTES INLINE :: libxs_sblasmm
   SUBROUTINE libxs_sblasmm(m, n, k, a, b, c)
+    INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(LIBXS_SINGLE_PRECISION), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(LIBXS_SINGLE_PRECISION), INTENT(INOUT) :: c($SHAPE_C)
-    REAL(LIBXS_SINGLE_PRECISION), PARAMETER :: alpha = 1, beta = 1
+    REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
+    REAL(T), INTENT(INOUT) :: c($SHAPE_C)
+    REAL(T), PARAMETER :: alpha = 1, beta = 1
     INTERFACE
       SUBROUTINE sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
         IMPORT LIBXS_INTEGER_TYPE, LIBXS_SINGLE_PRECISION
@@ -130,17 +131,18 @@ CONTAINS
     CALL sgemm('N', 'N', libxs_ld(m, n), libxs_ld(n, m), k, alpha, &
       MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), libxs_ld(m, n), &
       MERGE(b, a, 0.NE.LIBXS_COL_MAJOR), k, &
-      beta, c, libxs_ldc(m, n, LIBXS_SINGLE_PRECISION))
+      beta, c, libxs_ldc(m, n, T))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using BLAS; double-precision.
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dblasmm
   !DIR$ ATTRIBUTES INLINE :: libxs_dblasmm
   SUBROUTINE libxs_dblasmm(m, n, k, a, b, c)
+    INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(LIBXS_DOUBLE_PRECISION), INTENT(INOUT) :: c($SHAPE_C)
-    REAL(LIBXS_DOUBLE_PRECISION), PARAMETER :: alpha = 1, beta = 1
+    REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
+    REAL(T), INTENT(INOUT) :: c($SHAPE_C)
+    REAL(T), PARAMETER :: alpha = 1, beta = 1
     INTERFACE
       SUBROUTINE dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
         IMPORT LIBXS_INTEGER_TYPE, LIBXS_DOUBLE_PRECISION
@@ -154,16 +156,17 @@ CONTAINS
     CALL dgemm('N', 'N', libxs_ld(m, n), libxs_ld(n, m), k, alpha, &
       MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), libxs_ld(m, n), &
       MERGE(b, a, 0.NE.LIBXS_COL_MAJOR), k, &
-      beta, c, libxs_ldc(m, n, LIBXS_DOUBLE_PRECISION))
+      beta, c, libxs_ldc(m, n, T))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using optimized code; single-precision.
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_simm
   !DIR$ ATTRIBUTES INLINE :: libxs_simm
   PURE SUBROUTINE libxs_simm(m, n, k, a, b, c)
+    INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(LIBXS_SINGLE_PRECISION), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(LIBXS_SINGLE_PRECISION), INTENT(INOUT) :: c($SHAPE_C)
+    REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
+    REAL(T), INTENT(INOUT) :: c($SHAPE_C)
     c = c + MERGE(MATMUL(a, b), RESHAPE(MATMUL(RESHAPE(b, (/n,k/)), RESHAPE(a, (/k,m/))), (/m,n/)), 0.NE.LIBXS_COL_MAJOR)
   END SUBROUTINE
 
@@ -171,9 +174,10 @@ CONTAINS
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dimm
   !DIR$ ATTRIBUTES INLINE :: libxs_dimm
   PURE SUBROUTINE libxs_dimm(m, n, k, a, b, c)
+    INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(LIBXS_DOUBLE_PRECISION), INTENT(INOUT) :: c($SHAPE_C)
+    REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
+    REAL(T), INTENT(INOUT) :: c($SHAPE_C)
     c = c + MERGE(MATMUL(a, b), RESHAPE(MATMUL(RESHAPE(b, (/n,k/)), RESHAPE(a, (/k,m/))), (/m,n/)), 0.NE.LIBXS_COL_MAJOR)
   END SUBROUTINE
 
@@ -217,9 +221,10 @@ CONTAINS
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm
   !DIR$ ATTRIBUTES INLINE :: libxs_smm
   SUBROUTINE libxs_smm(m, n, k, a, b, c)
+    INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(LIBXS_SINGLE_PRECISION), TARGET, INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(LIBXS_SINGLE_PRECISION), TARGET, INTENT(INOUT) :: c($SHAPE_C)
+    REAL(T), TARGET, INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
+    REAL(T), TARGET, INTENT(INOUT) :: c($SHAPE_C)
     !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
     PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
     TYPE(C_FUNPTR) :: f
@@ -242,9 +247,10 @@ CONTAINS
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm
   !DIR$ ATTRIBUTES INLINE :: libxs_dmm
   SUBROUTINE libxs_dmm(m, n, k, a, b, c)
+    INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(LIBXS_DOUBLE_PRECISION), TARGET, INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(LIBXS_DOUBLE_PRECISION), TARGET, INTENT(INOUT) :: c($SHAPE_C)
+    REAL(T), TARGET, INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
+    REAL(T), TARGET, INTENT(INOUT) :: c($SHAPE_C)
     !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
     PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
     TYPE(C_FUNPTR) :: f
