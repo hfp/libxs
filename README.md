@@ -27,15 +27,15 @@ With C++ and FORTRAN function overloading, the library allows to omit the 's' an
 
 # Performance
 ## Auto-dispatch
-The function 'libxs_?mm_dispatch' helps amortizing the cost of the dispatch when multiple calls with the same M, N, and K are needed. In contrast, the automatic code dispatch uses three levels:
+The function 'libxs_?mm_dispatch' helps amortizing the cost of the dispatch when multiple calls with the same M, N, and K are needed. In contrast, the automatic code dispatch is orchestrating three levels:
 
 1. Specialized routine (implemented in assembly code),
 2. Inlinable C/C++ code or optimized FORTRAN code, and
 3. BLAS library call.
 
-All three levels are accessible directly (see [Interface](#interface)) in order to allow a customized code dispatch. The level 2 and 3 may be supplied by the Intel Math Kernel Library (Intel MKL) 11.2 DIRECT CALL feature. Beside of the generic interface, one can call a specific kernel e.g., 'libxs_dmm_4_4_4' multiplying 4x4 matrices. For the latter, the code generator includes prototypes for all specialized functions into the generated interface (header file).
+All three levels are accessible directly (see [Interface](#interface)) allowing to customize the code dispatch. The level 2 and 3 may be supplied by the Intel Math Kernel Library (Intel MKL) 11.2 DIRECT CALL feature. Beside of the generic interface, one can also call a specific kernel e.g., 'libxs_dmm_4_4_4' multiplying 4x4 matrices. For the latter, the code generator generates prototypes for all specialized functions (interface).
 
-Further, a preprocessor symbol denotes the largest problem size (*M* x *N* x *K*) that belongs to level (1) and (2), and therefore determines if a matrix-matrix multiplication falls back to level (3) of calling the LAPACK/BLAS library linked with the LIBXS. This threshold can be configured using for example:
+Further, a preprocessor symbol denotes the largest problem size (*M* x *N* x *K*) that belongs to level (1) and (2), and therefore determines if a matrix multiplication falls back to level (3) of calling the LAPACK/BLAS library alongside of LIBXS. This threshold can be configured using for example:
 
 ```
 make THRESHOLD=$((24 * 24 * 24))
