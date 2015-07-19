@@ -74,7 +74,21 @@ MODULE LIBXS
       IMPORT :: C_PTR
       TYPE(C_PTR), VALUE, INTENT(IN) :: a, b, c
     END SUBROUTINE
-  END INTERFACE$MNK_INTERFACE_LIST
+  END INTERFACE
+
+  !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_dispatch, libxs_dmm_dispatch
+  INTERFACE
+    ! Query the pointer of a generated function; zero if it does not exist, single-precision.
+    TYPE(C_FUNPTR) PURE FUNCTION libxs_smm_dispatch(m, n, k) BIND(C)
+      IMPORT :: C_FUNPTR, C_INT
+      INTEGER(C_INT), VALUE, INTENT(IN) :: m, n, k
+    END FUNCTION
+    ! Query the pointer of a generated function; zero if it does not exist; double-precision.
+    TYPE(C_FUNPTR) PURE FUNCTION libxs_dmm_dispatch(m, n, k) BIND(C)
+      IMPORT :: C_FUNPTR, C_INT
+      INTEGER(C_INT), VALUE, INTENT(IN) :: m, n, k
+    END FUNCTION$MNK_INTERFACE_LIST
+  END INTERFACE
 
 CONTAINS
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_up
@@ -208,42 +222,6 @@ CONTAINS
   END SUBROUTINE
 
   ! Query the pointer of a generated function; zero if it does not exist.
-  !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_dispatch
-  !DIR$ ATTRIBUTES INLINE :: libxs_smm_dispatch
-  FUNCTION libxs_smm_dispatch(m, n, k) RESULT(f)
-    INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    !PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: f
-    TYPE(C_FUNPTR) :: f
-    INTERFACE
-      TYPE(C_FUNPTR) PURE FUNCTION libxs_smm_dispatch_aux(m, n, k) BIND(C, NAME="libxs_smm_dispatch")
-        IMPORT :: C_FUNPTR, C_INT
-        INTEGER(C_INT), VALUE, INTENT(IN) :: m, n, k
-      END FUNCTION
-    END INTERFACE
-    !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_dispatch_aux
-    !CALL C_F_PROCPOINTER(libxs_smm_dispatch_aux(m, n, k), f)
-    f = libxs_smm_dispatch_aux(m, n, k)
-  END FUNCTION
-
-  ! Query the pointer of a generated function; zero if it does not exist.
-  !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm_dispatch
-  !DIR$ ATTRIBUTES INLINE :: libxs_dmm_dispatch
-  FUNCTION libxs_dmm_dispatch(m, n, k) RESULT(f)
-    INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    !PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: f
-    TYPE(C_FUNPTR) :: f
-    INTERFACE
-      TYPE(C_FUNPTR) PURE FUNCTION libxs_dmm_dispatch_aux(m, n, k) BIND(C, NAME="libxs_dmm_dispatch")
-        IMPORT :: C_FUNPTR, C_INT
-        INTEGER(C_INT), VALUE, INTENT(IN) :: m, n, k
-      END FUNCTION
-    END INTERFACE
-    !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm_dispatch_aux
-    !CALL C_F_PROCPOINTER(libxs_dmm_dispatch_aux(m, n, k), f)
-    f = libxs_dmm_dispatch_aux(m, n, k)
-  END FUNCTION
-
-  ! Query the pointer of a generated function; zero if it does not exist.
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_mm_dispatch
   !DIR$ ATTRIBUTES INLINE :: libxs_mm_dispatch
   FUNCTION libxs_mm_dispatch(m, n, k, type) RESULT(f)
@@ -268,9 +246,7 @@ CONTAINS
     PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
     TYPE(C_FUNPTR) :: f
     IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
-      !xmm => libxs_smm_dispatch(m, n, k)
       f = libxs_smm_dispatch(m, n, k)
-      !IF (ASSOCIATED(xmm)) THEN
       IF (C_ASSOCIATED(f)) THEN
         CALL C_F_PROCPOINTER(f, xmm)
         CALL xmm(C_LOC(a), C_LOC(b), C_LOC(c))
@@ -294,9 +270,7 @@ CONTAINS
     PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
     TYPE(C_FUNPTR) :: f
     IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
-      !xmm => libxs_dmm_dispatch(m, n, k)
       f = libxs_dmm_dispatch(m, n, k)
-      !IF (ASSOCIATED(xmm)) THEN
       IF (C_ASSOCIATED(f)) THEN
         CALL C_F_PROCPOINTER(f, xmm)
         CALL xmm(C_LOC(a), C_LOC(b), C_LOC(c))
