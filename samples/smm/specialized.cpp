@@ -78,7 +78,6 @@ int main(int argc, char* argv[])
     const int asize = m * k, bsize = k * n, aspace = (LIBXS_ALIGNED_MAX) / sizeof(T);
     const int ldc = LIBXS_ALIGN_STORES(LIBXS_LD(m, n), sizeof(T)), csize = LIBXS_LD(n, m) * ldc;
     const int s = (2ULL << 30) / ((asize + bsize) * sizeof(T)); // 2 GByte
-    const double gbytes = 1.0 * s * (asize + bsize + csize) * sizeof(T) / (1 << 30);
 #if defined(_OPENMP)
     const size_t bwsize = (asize/*load*/ + bsize/*load*/ + csize * 2/*load and store*/) * sizeof(T); // cached
     const double gflops = 2.0 * s * m * n * k * 1E-9;
@@ -110,7 +109,8 @@ int main(int argc, char* argv[])
       mkl_enable_instructions(MKL_ENABLE_AVX512_MIC);
 #endif
       fprintf(stdout, "m=%i n=%i k=%i ldc=%i (%s) size=%i memory=%.f MB\n\n",
-        m, n, k, ldc, 0 != (LIBXS_ROW_MAJOR) ? "row-major" : "column-major", s, 1024 * gbytes);
+        m, n, k, ldc, 0 != (LIBXS_ROW_MAJOR) ? "row-major" : "column-major",
+        s, 1.0 * (s * (asize + bsize) * sizeof(T)) / (1 << 20));
 
       const libxs_mm_dispatch<T> xmm(m, n, k);
       if (!xmm) {
