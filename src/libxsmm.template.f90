@@ -144,7 +144,7 @@ CONTAINS
     CALL sgemm('N', 'N', mn, libxs_ld(n, m), k, alpha, &
       MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), mn, &
       MERGE(b, a, 0.NE.LIBXS_COL_MAJOR), k, &
-      beta, c, libxs_align_value(mn, T, LIBXS_ALIGNED_STORES))
+      beta, c, SIZE(c, 1))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using BLAS; double-precision.
@@ -161,7 +161,7 @@ CONTAINS
     CALL dgemm('N', 'N', mn, libxs_ld(n, m), k, alpha, &
       MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), mn, &
       MERGE(b, a, 0.NE.LIBXS_COL_MAJOR), k, &
-      beta, c, libxs_align_value(mn, T, LIBXS_ALIGNED_STORES))
+      beta, c, SIZE(c, 1))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using optimized code; single-precision.
