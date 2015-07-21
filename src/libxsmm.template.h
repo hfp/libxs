@@ -93,7 +93,7 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 
 #define LIBXS_BLASMM(REAL, M, N, K, A, B, C) { \
   int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
-  int libxs_ldc_ = LIBXS_ALIGN_STORES(N, sizeof(REAL)); \
+  int libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
   REAL libxs_alpha_ = 1, libxs_beta_ = 1; \
   char libxs_trans_ = 'N'; \
   LIBXS_FSYMBOL(LIBXS_BLASPREC(, REAL, gemm))(&libxs_trans_, &libxs_trans_, \
@@ -108,7 +108,7 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 #else
 # define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C) { \
     const REAL *const libxs_a_ = LIBXS_LD(B, A), *const libxs_b_ = LIBXS_LD(A, B); \
-    const UINT libxs_ldc_ = LIBXS_ALIGN_STORES(N, sizeof(REAL)); \
+    const UINT libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
     UINT libxs_i_, libxs_j_, libxs_k_; \
     REAL *const libxs_c_ = (C); \
     LIBXS_ASSUME_ALIGNED_STORES(libxs_c_); \

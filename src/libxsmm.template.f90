@@ -136,15 +136,15 @@ CONTAINS
   SUBROUTINE libxs_sblasmm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(T), INTENT(INOUT) :: c($SHAPE_C)
+    REAL(T), INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
+    REAL(T), INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
     REAL(T), PARAMETER :: alpha = 1, beta = 1
     INTEGER(LIBXS_INTEGER_TYPE) :: mn
     mn = libxs_ld(m, n)
     CALL sgemm('N', 'N', mn, libxs_ld(n, m), k, alpha, &
       MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), mn, &
       MERGE(b, a, 0.NE.LIBXS_COL_MAJOR), k, &
-      beta, c, libxs_align_value(m, T, LIBXS_ALIGNED_STORES))
+      beta, c, libxs_align_value(mn, T, LIBXS_ALIGNED_STORES))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using BLAS; double-precision.
@@ -153,15 +153,15 @@ CONTAINS
   SUBROUTINE libxs_dblasmm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(T), INTENT(INOUT) :: c($SHAPE_C)
+    REAL(T), INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
+    REAL(T), INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
     REAL(T), PARAMETER :: alpha = 1, beta = 1
     INTEGER(LIBXS_INTEGER_TYPE) :: mn
     mn = libxs_ld(m, n)
     CALL dgemm('N', 'N', mn, libxs_ld(n, m), k, alpha, &
       MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), mn, &
       MERGE(b, a, 0.NE.LIBXS_COL_MAJOR), k, &
-      beta, c, libxs_align_value(m, T, LIBXS_ALIGNED_STORES))
+      beta, c, libxs_align_value(mn, T, LIBXS_ALIGNED_STORES))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using optimized code; single-precision.
@@ -171,9 +171,9 @@ CONTAINS
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
     INTEGER(LIBXS_INTEGER_TYPE) :: i, j
-    REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(T), INTENT(INOUT) :: c($SHAPE_C)
-    REAL(T) :: x($SHAPE_AT), y($SHAPE_BT)
+    REAL(T), INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
+    REAL(T), INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
+    REAL(T) :: x($SHAPE_AT1,$SHAPE_AT2), y($SHAPE_BT1,$SHAPE_BT2)
     IF (0.NE.LIBXS_COL_MAJOR) THEN
       !DIR$ OMP SIMD COLLAPSE(2)
       DO j = LBOUND(b, 2), LBOUND(b, 2) + n - 1
@@ -202,9 +202,9 @@ CONTAINS
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
     INTEGER(LIBXS_INTEGER_TYPE) :: i, j
-    REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(T), INTENT(INOUT) :: c($SHAPE_C)
-    REAL(T) :: x($SHAPE_AT), y($SHAPE_BT)
+    REAL(T), INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
+    REAL(T), INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
+    REAL(T) :: x($SHAPE_AT1,$SHAPE_AT2), y($SHAPE_BT1,$SHAPE_BT2)
     IF (0.NE.LIBXS_COL_MAJOR) THEN
       !DIR$ OMP SIMD COLLAPSE(2)
       DO j = LBOUND(b, 2), LBOUND(b, 2) + n - 1
@@ -245,8 +245,8 @@ CONTAINS
   SUBROUTINE libxs_smm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(T), TARGET, INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(T), TARGET, INTENT(INOUT) :: c($SHAPE_C)
+    REAL(T), TARGET, INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
+    REAL(T), TARGET, INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
     !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
     PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
     TYPE(C_FUNPTR) :: f
@@ -269,8 +269,8 @@ CONTAINS
   SUBROUTINE libxs_dmm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(T), TARGET, INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
-    REAL(T), TARGET, INTENT(INOUT) :: c($SHAPE_C)
+    REAL(T), TARGET, INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
+    REAL(T), TARGET, INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
     !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
     PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
     TYPE(C_FUNPTR) :: f

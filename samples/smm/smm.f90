@@ -69,8 +69,8 @@ PROGRAM smm
 
   ALLOCATE(a(m,k))
   ALLOCATE(b(k,n))
-  ALLOCATE(c(libxs_align_value(m,T,LIBXS_ALIGNED_STORES),n))
-  ALLOCATE(d(libxs_align_value(m,T,LIBXS_ALIGNED_STORES),n))
+  ALLOCATE(c(libxs_align_value(libxs_ld(m,n),T,LIBXS_ALIGNED_STORES),libxs_ld(n,m)))
+  ALLOCATE(d(SIZE(c,1),SIZE(c,2)))
 
   ! Initialize matrices
   CALL init(42, a)
@@ -100,7 +100,7 @@ PROGRAM smm
     ENDIF
   END IF
 
-  ld = LBOUND(c, 1) + m - 1
+  ld = LBOUND(c, 1) + libxs_ld(m,n) - 1
   WRITE(*,*) "diff = ", MAXVAL(((c(:ld,:) - d(:ld,:)) * (c(:ld,:) - d(:ld,:))))
 
   DEALLOCATE(a)
