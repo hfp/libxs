@@ -56,9 +56,9 @@
 template<int Seed>
 struct LIBXS_TARGET(mic) init {
   template<typename T> init(T *LIBXS_RESTRICT dst, int nrows, int ncols, int n = 0, int ld = 0) {
-    const int ldx = 0 == ld ? LIBXS_LD(nrows, ncols) : ld;
-    for (int i = 0; i < LIBXS_LD(ncols, nrows); ++i) {
-      for (int j = 0; j < LIBXS_LD(nrows, ncols); ++j) {
+    const int ldx = 0 == ld ? ncols : ld;
+    for (int i = 0; i < nrows; ++i) {
+      for (int j = 0; j < ncols; ++j) {
         // initialize similar to CP2K's (libsmm_acc) benchmark driver
         dst[i*ldx+j] = static_cast<T>(i * ldx + j + n + Seed);
       }
@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
 
     const int asize = m * k, bsize = k * n, aspace = (LIBXS_ALIGNMENT) / sizeof(T);
-    const int ldc = LIBXS_LDC(m, n, sizeof(T)), csize = LIBXS_LD(n, m) * ldc;
+    const int ldc = LIBXS_ALIGN_STORES(n, sizeof(T)), csize = m * ldc;
     const int s = (3ULL << 30) / ((asize + bsize + csize) * sizeof(T)); // 3 GByte
 #if defined(_OPENMP)
     const size_t bwsize = (asize/*load*/ + bsize/*load*/ + csize * 2/*load and store*/) * sizeof(T); // cached

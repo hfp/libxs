@@ -66,21 +66,23 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 #define LIBXS_AVG_K $AVG_K
 
 #if (0 != LIBXS_ROW_MAJOR)
-# define LIBXS_LD(M, N) N
+# define LIBXS_LD(M, N) (N)
 #else
-# define LIBXS_LD(M, N) M
+# define LIBXS_LD(M, N) (M)
 #endif
 #if (1 < LIBXS_ALIGNED_STORES)
 # define LIBXS_ASSUME_ALIGNED_STORES(A) LIBXS_ASSUME_ALIGNED(A, LIBXS_ALIGNED_STORES)
-# define LIBXS_LDC(M, N, TYPESIZE) LIBXS_ALIGN_VALUE(LIBXS_LD(M, N), TYPESIZE, LIBXS_ALIGNED_STORES)
+# define LIBXS_ALIGN_STORES(N, TYPESIZE) LIBXS_ALIGN_VALUE(N, TYPESIZE, LIBXS_ALIGNED_STORES)
 #else
 # define LIBXS_ASSUME_ALIGNED_STORES(A)
-# define LIBXS_LDC(M, N, TYPESIZE) LIBXS_LD(M, N)
+# define LIBXS_ALIGN_STORES(N, TYPESIZE) (N)
 #endif
 #if (1 < LIBXS_ALIGNED_LOADS)
 # define LIBXS_ASSUME_ALIGNED_LOADS(A) LIBXS_ASSUME_ALIGNED(A, LIBXS_ALIGNED_LOADS)
+# define LIBXS_ALIGN_LOADS(N, TYPESIZE) LIBXS_ALIGN_VALUE(N, TYPESIZE, LIBXS_ALIGNED_LOADS)
 #else
 # define LIBXS_ASSUME_ALIGNED_LOADS(A)
+# define LIBXS_ALIGN_LOADS(N, TYPESIZE) (N)
 #endif
 
 #define LIBXS_MAX_SIMD LIBXS_MAX(LIBXS_DIV2(LIBXS_ALIGNED_MAX, sizeof(float)), 1)
@@ -91,7 +93,7 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 
 #define LIBXS_BLASMM(REAL, M, N, K, A, B, C) { \
   int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
-  int libxs_ldc_ = LIBXS_LDC(M, N, sizeof(REAL)); \
+  int libxs_ldc_ = LIBXS_ALIGN_STORES(N, sizeof(REAL)); \
   REAL libxs_alpha_ = 1, libxs_beta_ = 1; \
   char libxs_trans_ = 'N'; \
   LIBXS_FSYMBOL(LIBXS_BLASPREC(, REAL, gemm))(&libxs_trans_, &libxs_trans_, \
@@ -106,7 +108,7 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 #else
 # define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C) { \
     const REAL *const libxs_a_ = LIBXS_LD(B, A), *const libxs_b_ = LIBXS_LD(A, B); \
-    const UINT libxs_ldc_ = LIBXS_LDC(M, N, sizeof(REAL)); \
+    const UINT libxs_ldc_ = LIBXS_ALIGN_STORES(N, sizeof(REAL)); \
     UINT libxs_i_, libxs_j_, libxs_k_; \
     REAL *const libxs_c_ = (C); \
     LIBXS_ASSUME_ALIGNED_STORES(libxs_c_); \

@@ -76,8 +76,23 @@ MODULE LIBXS
     END SUBROUTINE
   END INTERFACE
 
-  !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_dispatch, libxs_dmm_dispatch
+  !DIR$ ATTRIBUTES OFFLOAD:MIC :: sgemm, dgemm, libxs_smm_dispatch, libxs_dmm_dispatch
   INTERFACE
+    SUBROUTINE sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
+      IMPORT LIBXS_INTEGER_TYPE, LIBXS_SINGLE_PRECISION
+      CHARACTER(1), INTENT(IN) :: transa, transb
+      INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k, lda, ldb, ldc
+      REAL(LIBXS_SINGLE_PRECISION), INTENT(IN) :: a(lda,*), b(ldb,*), alpha, beta
+      REAL(LIBXS_SINGLE_PRECISION), INTENT(INOUT) :: c(ldc,*)
+    END SUBROUTINE
+    SUBROUTINE dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
+      IMPORT LIBXS_INTEGER_TYPE, LIBXS_DOUBLE_PRECISION
+      CHARACTER(1), INTENT(IN) :: transa, transb
+      INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k, lda, ldb, ldc
+      REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: a(lda,*), b(ldb,*), alpha, beta
+      REAL(LIBXS_DOUBLE_PRECISION), INTENT(INOUT) :: c(ldc,*)
+    END SUBROUTINE
+
     ! Query the pointer of a generated function; zero if it does not exist, single-precision.
     TYPE(C_FUNPTR) PURE FUNCTION libxs_smm_dispatch(m, n, k) BIND(C)
       IMPORT :: C_FUNPTR, C_INT
@@ -115,14 +130,6 @@ CONTAINS
     ld = MERGE(m, n, 0.NE.LIBXS_COL_MAJOR)
   END FUNCTION
 
-  !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_ldc
-  !DIR$ ATTRIBUTES INLINE :: libxs_ldc
-  PURE FUNCTION libxs_ldc(m, n, typesize) RESULT(ldc)
-    INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, typesize
-    INTEGER(LIBXS_INTEGER_TYPE) :: ldc
-    ldc = libxs_align_value(libxs_ld(m, n), typesize, LIBXS_ALIGNED_STORES)
-  END FUNCTION
-
   ! Non-dispatched matrix-matrix multiplication using BLAS; single-precision.
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_sblasmm
   !DIR$ ATTRIBUTES INLINE :: libxs_sblasmm
@@ -132,20 +139,12 @@ CONTAINS
     REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
     REAL(T), INTENT(INOUT) :: c($SHAPE_C)
     REAL(T), PARAMETER :: alpha = 1, beta = 1
-    INTERFACE
-      SUBROUTINE sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
-        IMPORT LIBXS_INTEGER_TYPE, LIBXS_SINGLE_PRECISION
-        CHARACTER(1), INTENT(IN) :: transa, transb
-        INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k, lda, ldb, ldc
-        REAL(LIBXS_SINGLE_PRECISION), INTENT(IN) :: a(lda,*), b(ldb,*), alpha, beta
-        REAL(LIBXS_SINGLE_PRECISION), INTENT(INOUT) :: c(ldc,*)
-      END SUBROUTINE
-    END INTERFACE
-    !DIR$ ATTRIBUTES OFFLOAD:MIC :: sgemm
-    CALL sgemm('N', 'N', libxs_ld(m, n), libxs_ld(n, m), k, alpha, &
-      MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), libxs_ld(m, n), &
+    INTEGER(LIBXS_INTEGER_TYPE) :: mn
+    mn = libxs_ld(m, n)
+    CALL sgemm('N', 'N', mn, libxs_ld(n, m), k, alpha, &
+      MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), mn, &
       MERGE(b, a, 0.NE.LIBXS_COL_MAJOR), k, &
-      beta, c, libxs_ldc(m, n, T))
+      beta, c, libxs_align_value(m, T, LIBXS_ALIGNED_STORES))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using BLAS; double-precision.
@@ -157,20 +156,12 @@ CONTAINS
     REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
     REAL(T), INTENT(INOUT) :: c($SHAPE_C)
     REAL(T), PARAMETER :: alpha = 1, beta = 1
-    INTERFACE
-      SUBROUTINE dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
-        IMPORT LIBXS_INTEGER_TYPE, LIBXS_DOUBLE_PRECISION
-        CHARACTER(1), INTENT(IN) :: transa, transb
-        INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k, lda, ldb, ldc
-        REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: a(lda,*), b(ldb,*), alpha, beta
-        REAL(LIBXS_DOUBLE_PRECISION), INTENT(INOUT) :: c(ldc,*)
-      END SUBROUTINE
-    END INTERFACE
-    !DIR$ ATTRIBUTES OFFLOAD:MIC :: dgemm
-    CALL dgemm('N', 'N', libxs_ld(m, n), libxs_ld(n, m), k, alpha, &
-      MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), libxs_ld(m, n), &
+    INTEGER(LIBXS_INTEGER_TYPE) :: mn
+    mn = libxs_ld(m, n)
+    CALL dgemm('N', 'N', mn, libxs_ld(n, m), k, alpha, &
+      MERGE(a, b, 0.NE.LIBXS_COL_MAJOR), mn, &
       MERGE(b, a, 0.NE.LIBXS_COL_MAJOR), k, &
-      beta, c, libxs_ldc(m, n, T))
+      beta, c, libxs_align_value(m, T, LIBXS_ALIGNED_STORES))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using optimized code; single-precision.
@@ -179,22 +170,29 @@ CONTAINS
   SUBROUTINE libxs_simm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    INTEGER(LIBXS_INTEGER_TYPE) :: sa(2), sb(2)
-    REAL(T), INTENT(IN), TARGET :: a($SHAPE_A), b($SHAPE_B)
+    INTEGER(LIBXS_INTEGER_TYPE) :: i, j
+    REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
     REAL(T), INTENT(INOUT) :: c($SHAPE_C)
-    REAL(T), POINTER :: pa(:,:), pb(:,:)
-    sa = SHAPE(a)
-    sb = SHAPE(b)
+    REAL(T) :: x($SHAPE_AT), y($SHAPE_BT)
     IF (0.NE.LIBXS_COL_MAJOR) THEN
-      pa => a
-      pb => b
+      !DIR$ OMP SIMD COLLAPSE(2)
+      DO j = LBOUND(b, 2), LBOUND(b, 2) + n - 1
+        !DIR$ LOOP COUNT(1, LIBXS_MAX_M, LIBXS_AVG_M)
+        DO i = LBOUND(a, 1), LBOUND(a, 1) + m - 1
+          c(i,j) = c(i,j) + DOT_PRODUCT(a(i,:), b(:,j))
+        END DO
+      END DO
     ELSE
-      pa => b
-      pb => a
-      sa = sb((/2,1/))
-      sb = sa((/2,1/))
+      x = RESHAPE(b, SHAPE(x))
+      y = RESHAPE(a, SHAPE(y))
+      !DIR$ OMP SIMD COLLAPSE(2)
+      DO j = LBOUND(y, 2), LBOUND(y, 2) + m - 1
+        !DIR$ LOOP COUNT(1, LIBXS_MAX_N, LIBXS_AVG_N)
+        DO i = LBOUND(x, 1), LBOUND(x, 1) + n - 1
+          c(i,j) = c(i,j) + DOT_PRODUCT(x(i,:), y(:,j))
+        END DO
+      END DO
     ENDIF
-    c(1:sa(1),:) = c(1:sa(1),:) + MATMUL(RESHAPE(pa, sa), RESHAPE(pb, sb))
   END SUBROUTINE
 
   ! Non-dispatched matrix-matrix multiplication using optimized code; double-precision.
@@ -203,22 +201,29 @@ CONTAINS
   SUBROUTINE libxs_dimm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    INTEGER(LIBXS_INTEGER_TYPE) :: sa(2), sb(2)
-    REAL(T), INTENT(IN), TARGET :: a($SHAPE_A), b($SHAPE_B)
+    INTEGER(LIBXS_INTEGER_TYPE) :: i, j
+    REAL(T), INTENT(IN) :: a($SHAPE_A), b($SHAPE_B)
     REAL(T), INTENT(INOUT) :: c($SHAPE_C)
-    REAL(T), POINTER :: pa(:,:), pb(:,:)
-    sa = SHAPE(a)
-    sb = SHAPE(b)
+    REAL(T) :: x($SHAPE_AT), y($SHAPE_BT)
     IF (0.NE.LIBXS_COL_MAJOR) THEN
-      pa => a
-      pb => b
+      !DIR$ OMP SIMD COLLAPSE(2)
+      DO j = LBOUND(b, 2), LBOUND(b, 2) + n - 1
+        !DIR$ LOOP COUNT(1, LIBXS_MAX_M, LIBXS_AVG_M)
+        DO i = LBOUND(a, 1), LBOUND(a, 1) + m - 1
+          c(i,j) = c(i,j) + DOT_PRODUCT(a(i,:), b(:,j))
+        END DO
+      END DO
     ELSE
-      pa => b
-      pb => a
-      sa = sb((/2,1/))
-      sb = sa((/2,1/))
+      x = RESHAPE(b, SHAPE(x))
+      y = RESHAPE(a, SHAPE(y))
+      !DIR$ OMP SIMD COLLAPSE(2)
+      DO j = LBOUND(y, 2), LBOUND(y, 2) + m - 1
+        !DIR$ LOOP COUNT(1, LIBXS_MAX_N, LIBXS_AVG_N)
+        DO i = LBOUND(x, 1), LBOUND(x, 1) + n - 1
+          c(i,j) = c(i,j) + DOT_PRODUCT(x(i,:), y(:,j))
+        END DO
+      END DO
     ENDIF
-    c(1:sa(1),:) = c(1:sa(1),:) + MATMUL(RESHAPE(pa, sa), RESHAPE(pb, sb))
   END SUBROUTINE
 
   ! Query the pointer of a generated function; zero if it does not exist.
