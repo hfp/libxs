@@ -70,7 +70,7 @@ MODULE LIBXS
 
   ! Type of a function generated for a specific M, N, and K
   ABSTRACT INTERFACE
-    PURE SUBROUTINE LIBXS_XMM_FUNCTION(a, b, c)
+    PURE SUBROUTINE LIBXS_XMM_FUNCTION(a, b, c) BIND(C)
       IMPORT :: C_PTR
       TYPE(C_PTR), VALUE, INTENT(IN) :: a, b, c
     END SUBROUTINE
