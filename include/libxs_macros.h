@@ -30,7 +30,7 @@
 #define LIBXS_MACROS_H
 
 #define LIBXS_STRINGIFY(SYMBOL) #SYMBOL
-#define LIBXS_TOSTRING(SYMBOL) LIBSXMM_STRINGIFY(SYMBOL)
+#define LIBXS_TOSTRING(SYMBOL) LIBXS_STRINGIFY(SYMBOL)
 #define LIBXS_CONCATENATE2(A, B) A##B
 #define LIBXS_CONCATENATE(A, B) LIBXS_CONCATENATE2(A, B)
 #define LIBXS_FSYMBOL(SYMBOL) LIBXS_CONCATENATE2(SYMBOL, _)
@@ -103,10 +103,10 @@
 
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
-#define LIBXS_MOD2(N, POT) ((N) & ((POT) - 1))
-#define LIBXS_MUL2(N, POT) ((N) << (LIBXS_NBITS(POT) - 1))
-#define LIBXS_DIV2(N, POT) ((N) >> (LIBXS_NBITS(POT) - 1))
-#define LIBXS_UP2(N, POT) LIBXS_MUL2(LIBXS_DIV2((N) + (POT) - 1, POT), POT)
+#define LIBXS_MOD2(N, NPOT) ((N) & ((NPOT) - 1))
+#define LIBXS_MUL2(N, NPOT) ((N) << (LIBXS_NBITS(NPOT) - 1))
+#define LIBXS_DIV2(N, NPOT) ((N) >> (LIBXS_NBITS(NPOT) - 1))
+#define LIBXS_UP2(N, NPOT) LIBXS_MUL2(LIBXS_DIV2((N) + (NPOT) - 1, NPOT), NPOT)
 #define LIBXS_UP(N, UP) ((((N) + (UP) - 1) / (UP)) * (UP))
 
 #if defined(_WIN32) && !defined(__GNUC__)
@@ -135,6 +135,9 @@
 #endif
 #define LIBXS_ALIGN_VALUE(N, TYPESIZE, ALIGNMENT) (LIBXS_UP2((N) * (TYPESIZE), ALIGNMENT) / (TYPESIZE))
 #define LIBXS_ALIGN(POINTER, ALIGNMENT) ((POINTER) + (LIBXS_ALIGN_VALUE((uintptr_t)(POINTER), 1, ALIGNMENT) - ((uintptr_t)(POINTER))) / sizeof(*(POINTER)))
+
+#define LIBXS_HASH2_VALUE(N, NPOT) LIBXS_MOD2(((N ^ (N >> 12)) ^ ((N ^ (N >> 12)) << 25)) ^ (((N ^ (N >> 12)) ^ ((N ^ (N >> 12)) << 25)) >> 27), NPOT)
+#define LIBXS_HASH2(POINTER, ALIGNMENT, NPOT) LIBXS_HASH2_VALUE(LIBXS_DIV2((uintptr_t)(POINTER), ALIGNMENT), NPOT)
 
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_TLS LIBXS_ATTRIBUTE(thread)

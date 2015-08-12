@@ -43,6 +43,7 @@ INCDIR = include
 BLDDIR = build
 OUTDIR = lib
 BINDIR = bin
+DOCDIR = documentation
 
 CXXFLAGS = $(NULL)
 CFLAGS = $(NULL)
@@ -513,6 +514,63 @@ $(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/Makefile
 	@echo "done" >> $@
 	@echo >> $@
 	@chmod +x $@
+
+$(DOCDIR)/libxs.pdf: $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
+	@mkdir -p $(dir $@)
+	$(eval TEMPLATE := $(shell mktemp --tmpdir=. --suffix=.tex))
+	@pandoc -D latex > $(TEMPLATE)
+	@sed -i \
+		-e 's/\(\\documentclass\[.\+\]{.\+}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
+		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' \
+		$(TEMPLATE)
+	@sed \
+		-e 's/https:\/\/raw\.githubusercontent\.com\/hfp\/libxs\/master\///' \
+		-e 's/\[\[.\+\](.\+)\]//' \
+		-e '/!\[.\+\](.\+)/{n;d}' \
+		$(ROOTDIR)/documentation/cp2k.md | \
+	pandoc \
+		--latex-engine=xelatex \
+		--template=$(TEMPLATE) --listings \
+		-f markdown_github+implicit_figures \
+		-V documentclass=scrartcl \
+		-V title-meta="LIBXS Documentation" \
+		-V author-meta="Hans Pabst" \
+		-V classoption=DIV=45 \
+		-V linkcolor=black \
+		-V citecolor=black \
+		-V urlcolor=black \
+		-o $@
+	@rm $(TEMPLATE)
+
+$(DOCDIR)/cp2k.pdf: $(ROOTDIR)/Makefile $(ROOTDIR)/documentation/cp2k.md
+	@mkdir -p $(dir $@)
+	$(eval TEMPLATE := $(shell mktemp --tmpdir=. --suffix=.tex))
+	@pandoc -D latex > $(TEMPLATE)
+	@sed -i \
+		-e 's/\(\\documentclass\[.\+\]{.\+}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
+		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' \
+		$(TEMPLATE)
+	@sed \
+		-e 's/https:\/\/raw\.githubusercontent\.com\/hfp\/libxs\/master\///' \
+		-e 's/\[\[.\+\](.\+)\]//' \
+		-e '/!\[.\+\](.\+)/{n;d}' \
+		$(ROOTDIR)/documentation/cp2k.md | \
+	pandoc \
+		--latex-engine=xelatex \
+		--template=$(TEMPLATE) --listings \
+		-f markdown_github+implicit_figures \
+		-V documentclass=scrartcl \
+		-V title-meta="CP2K with LIBXS" \
+		-V author-meta="Hans Pabst" \
+		-V classoption=DIV=45 \
+		-V linkcolor=black \
+		-V citecolor=black \
+		-V urlcolor=black \
+		-o $@
+	@rm $(TEMPLATE)
+
+.PHONY: documentation
+documentation: $(DOCDIR)/libxs.pdf $(DOCDIR)/cp2k.pdf
 
 .PHONY: clean
 clean:
