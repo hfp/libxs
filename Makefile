@@ -510,7 +510,7 @@ $(SPLDIR)/cp2k/cp2k-perf.txt: $(SPLDIR)/cp2k/cp2k-perf.sh lib_all
 		$(MAKE) SYM=$(SYM) DBG=$(DBG) IPO=$(IPO)
 	@$(SPLDIR)/cp2k/cp2k-perf.sh $@
 
-$(DOCDIR)/libxs.pdf: $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
+$(DOCDIR)/libxs.pdf: $(ROOTDIR)/README.md
 	@mkdir -p $(dir $@)
 	$(eval TEMPLATE := $(shell mktemp --tmpdir=. --suffix=.tex))
 	@pandoc -D latex > $(TEMPLATE)
@@ -537,7 +537,7 @@ $(DOCDIR)/libxs.pdf: $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
 		-o $@
 	@rm $(TEMPLATE)
 
-$(DOCDIR)/cp2k.pdf: $(ROOTDIR)/Makefile $(ROOTDIR)/documentation/cp2k.md
+$(DOCDIR)/cp2k.pdf: $(ROOTDIR)/documentation/cp2k.md
 	@mkdir -p $(dir $@)
 	$(eval TEMPLATE := $(shell mktemp --tmpdir=. --suffix=.tex))
 	@pandoc -D latex > $(TEMPLATE)
