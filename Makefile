@@ -522,7 +522,7 @@ $(DOCDIR)/libxs.pdf: $(ROOTDIR)/README.md
 		-e 's/https:\/\/raw\.githubusercontent\.com\/hfp\/libxs\/master\///' \
 		-e 's/\[\[.\+\](.\+)\]//' \
 		-e '/!\[.\+\](.\+)/{n;d}' \
-		$(ROOTDIR)/documentation/cp2k.md | \
+		$(ROOTDIR)/README.md | \
 	pandoc \
 		--latex-engine=xelatex \
 		--template=$(TEMPLATE) --listings \
