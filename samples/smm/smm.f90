@@ -89,14 +89,19 @@ PROGRAM smm
 
   IF (0.GT.routine) THEN
     WRITE(*, "(A)") "Streamed... (auto-dispatched)"
-    !$ duration = -omp_get_wtime()
-    !$OMP PARALLEL PRIVATE(i) DEFAULT(NONE) SHARED(a, b, m, n, k)
+    !$OMP PARALLEL PRIVATE(i) DEFAULT(NONE) SHARED(duration, a, b, m, n, k)
     ALLOCATE(c(libxs_align_value(libxs_ld(m,n),T,LIBXS_ALIGNED_STORES),libxs_ld(n,m)))
     c(:,:) = 0
+    !$OMP MASTER
+    !$ duration = -omp_get_wtime()
+    !$OMP END MASTER
     !$OMP DO
     DO i = LBOUND(a, 1), UBOUND(a, 1)
       CALL libxs_mm(m, n, k, a(i,:,:), b(i,:,:), c)
     END DO
+    !$OMP MASTER
+    !$ duration = duration + omp_get_wtime()
+    !$OMP END MASTER
     ! Deallocate thread-local arrays
     DEALLOCATE(c)
     !$OMP END PARALLEL
@@ -105,14 +110,19 @@ PROGRAM smm
     IF (C_ASSOCIATED(f)) THEN
       CALL C_F_PROCPOINTER(f, xmm)
       WRITE(*, "(A)") "Streamed... (specialized)"
-      !$ duration = -omp_get_wtime()
-      !$OMP PARALLEL PRIVATE(i) !DEFAULT(NONE) SHARED(a, b, m, n, xmm)
+      !$OMP PARALLEL PRIVATE(i) !DEFAULT(NONE) SHARED(duration, a, b, m, n, xmm)
       ALLOCATE(c(libxs_align_value(libxs_ld(m,n),T,LIBXS_ALIGNED_STORES),libxs_ld(n,m)))
       c(:,:) = 0
+      !$OMP MASTER
+      !$ duration = -omp_get_wtime()
+      !$OMP END MASTER
       !$OMP DO
       DO i = LBOUND(a, 1), UBOUND(a, 1)
         CALL xmm(C_LOC(a(i,:,:)), C_LOC(b(i,:,:)), C_LOC(c))
       END DO
+      !$OMP MASTER
+      !$ duration = duration + omp_get_wtime()
+      !$OMP END MASTER
       ! Deallocate thread-local arrays
       DEALLOCATE(c)
       !$OMP END PARALLEL
@@ -122,21 +132,25 @@ PROGRAM smm
       ELSE
         WRITE(*, "(A)") "Streamed... (optimized)"
       ENDIF
-      !$ duration = -omp_get_wtime()
-      !$OMP PARALLEL PRIVATE(i) DEFAULT(NONE) SHARED(a, b, m, n, k)
+      !$OMP PARALLEL PRIVATE(i) DEFAULT(NONE) SHARED(duration, a, b, m, n, k)
       ALLOCATE(c(libxs_align_value(libxs_ld(m,n),T,LIBXS_ALIGNED_STORES),libxs_ld(n,m)))
       c(:,:) = 0
+      !$OMP MASTER
+      !$ duration = -omp_get_wtime()
+      !$OMP END MASTER
       !$OMP DO
       DO i = LBOUND(a, 1), UBOUND(a, 1)
         CALL libxs_imm(m, n, k, a(i,:,:), b(i,:,:), c)
       END DO
+      !$OMP MASTER
+      !$ duration = duration + omp_get_wtime()
+      !$OMP END MASTER
       ! Deallocate thread-local arrays
       DEALLOCATE(c)
       !$OMP END PARALLEL
     ENDIF
   END IF
 
-  !$ duration = duration + omp_get_wtime()
   IF (0.LT.duration) THEN
     WRITE(*, "(1A,A,F10.1,A)") CHAR(9), "performance:", &
       (2D0 * s * m * n * k * 1D-9 / duration), " GFLOPS/s"
