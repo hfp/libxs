@@ -136,8 +136,8 @@ CONTAINS
   SUBROUTINE libxs_sblasmm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(T), INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
-    REAL(T), INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
+    REAL(T), INTENT(IN) :: a(:,:), b(:,:)
+    REAL(T), INTENT(INOUT) :: c(:,:)
     REAL(T), PARAMETER :: alpha = 1, beta = 1
     IF (0.NE.LIBXS_COL_MAJOR) THEN
       CALL sgemm('N', 'N', m, n, k, alpha, a, m, b, k, beta, c, SIZE(c, 1))
@@ -152,8 +152,8 @@ CONTAINS
   SUBROUTINE libxs_dblasmm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(T), INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
-    REAL(T), INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
+    REAL(T), INTENT(IN) :: a(:,:), b(:,:)
+    REAL(T), INTENT(INOUT) :: c(:,:)
     REAL(T), PARAMETER :: alpha = 1, beta = 1
     IF (0.NE.LIBXS_COL_MAJOR) THEN
       CALL dgemm('N', 'N', m, n, k, alpha, a, m, b, k, beta, c, SIZE(c, 1))
@@ -169,9 +169,9 @@ CONTAINS
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
     INTEGER(LIBXS_INTEGER_TYPE) :: i, j
-    REAL(T), INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
+    REAL(T), INTENT(IN), TARGET, CONTIGUOUS :: a(:,:), b(:,:)
     REAL(T), INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
-    REAL(T) :: x($SHAPE_AT1,$SHAPE_AT2), y($SHAPE_BT1,$SHAPE_BT2)
+    REAL(T), POINTER :: x(:,:), y(:,:)
     IF (0.NE.LIBXS_COL_MAJOR) THEN
       !DIR$ OMP SIMD COLLAPSE(2)
       DO j = LBOUND(b, 2), LBOUND(b, 2) + n - 1
@@ -181,12 +181,12 @@ CONTAINS
         END DO
       END DO
     ELSE
-      x = RESHAPE(b, SHAPE(x))
-      y = RESHAPE(a, SHAPE(y))
+      x(1:$SHAPE_AT1,1:$SHAPE_AT2) => b(:,:)
+      y(1:$SHAPE_BT1,1:$SHAPE_BT2) => a(:,:)
       !DIR$ OMP SIMD COLLAPSE(2)
-      DO j = LBOUND(y, 2), LBOUND(y, 2) + m - 1
+      DO j = 1, m
         !DIR$ LOOP COUNT(1, LIBXS_MAX_N, LIBXS_AVG_N)
-        DO i = LBOUND(x, 1), LBOUND(x, 1) + n - 1
+        DO i = 1, n
           c(i,j) = c(i,j) + DOT_PRODUCT(x(i,:), y(:,j))
         END DO
       END DO
@@ -200,9 +200,9 @@ CONTAINS
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
     INTEGER(LIBXS_INTEGER_TYPE) :: i, j
-    REAL(T), INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
+    REAL(T), INTENT(IN), TARGET, CONTIGUOUS :: a(:,:), b(:,:)
     REAL(T), INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
-    REAL(T) :: x($SHAPE_AT1,$SHAPE_AT2), y($SHAPE_BT1,$SHAPE_BT2)
+    REAL(T), POINTER :: x(:,:), y(:,:)
     IF (0.NE.LIBXS_COL_MAJOR) THEN
       !DIR$ OMP SIMD COLLAPSE(2)
       DO j = LBOUND(b, 2), LBOUND(b, 2) + n - 1
@@ -212,12 +212,12 @@ CONTAINS
         END DO
       END DO
     ELSE
-      x = RESHAPE(b, SHAPE(x))
-      y = RESHAPE(a, SHAPE(y))
+      x(1:$SHAPE_AT1,1:$SHAPE_AT2) => b(:,:)
+      y(1:$SHAPE_BT1,1:$SHAPE_BT2) => a(:,:)
       !DIR$ OMP SIMD COLLAPSE(2)
-      DO j = LBOUND(y, 2), LBOUND(y, 2) + m - 1
+      DO j = 1, m
         !DIR$ LOOP COUNT(1, LIBXS_MAX_N, LIBXS_AVG_N)
-        DO i = LBOUND(x, 1), LBOUND(x, 1) + n - 1
+        DO i = 1, n
           c(i,j) = c(i,j) + DOT_PRODUCT(x(i,:), y(:,j))
         END DO
       END DO
@@ -243,8 +243,8 @@ CONTAINS
   SUBROUTINE libxs_smm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(T), TARGET, INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
-    REAL(T), TARGET, INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
+    REAL(T), TARGET, INTENT(IN) :: a(:,:), b(:,:)
+    REAL(T), TARGET, INTENT(INOUT) :: c(:,:)
     !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
     PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
     TYPE(C_FUNPTR) :: f
@@ -267,8 +267,8 @@ CONTAINS
   SUBROUTINE libxs_dmm(m, n, k, a, b, c)
     INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(T), TARGET, INTENT(IN) :: a($SHAPE_AS1,$SHAPE_AS2), b($SHAPE_BS1,$SHAPE_BS2)
-    REAL(T), TARGET, INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
+    REAL(T), TARGET, INTENT(IN) :: a(:,:), b(:,:)
+    REAL(T), TARGET, INTENT(INOUT) :: c(:,:)
     !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
     PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
     TYPE(C_FUNPTR) :: f
