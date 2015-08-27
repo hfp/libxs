@@ -86,10 +86,25 @@
 # define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG) LIBXS_PRAGMA(loop_count min(MIN) max(MAX) avg(AVG))
 # define LIBXS_PRAGMA_UNROLL_N(N) LIBXS_PRAGMA(unroll(N))
 # define LIBXS_PRAGMA_UNROLL LIBXS_PRAGMA(unroll)
+/*# define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))*/
 #else
 # define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG)
 # define LIBXS_PRAGMA_UNROLL_N(N)
 # define LIBXS_PRAGMA_UNROLL
+#endif
+
+#if !defined(LIBXS_UNUSED)
+# if (defined(__GNUC__) || defined(__clang__)) && !defined(__INTEL_COMPILER)
+#   define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(LIBXS_STRINGIFY(unused(VARIABLE)))
+# else
+#   define LIBXS_UNUSED(VARIABLE) (void)(VARIABLE)
+# endif
+#endif
+
+#if defined(__GNUC__) || (defined(__INTEL_COMPILER) && !defined(_WIN32))
+# define LIBXS_UNUSED_ARG LIBXS_ATTRIBUTE(unused)
+#else
+# define LIBXS_UNUSED_ARG
 #endif
 
 /*Based on Stackoverflow's NBITSx macro.*/

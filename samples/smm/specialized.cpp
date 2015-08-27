@@ -134,7 +134,8 @@ int main(int argc, char* argv[])
         for (int i = 0; i < s; ++i) {
           // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNED_MAX);
-          xmm(a + i * asize, b + i * bsize, tmp);
+          const T *const pa = a + i * asize, *const pb = b + i * bsize;
+          xmm(pa, pb, tmp LIBXS_PREFETCH_ARGA(pa + asize) LIBXS_PREFETCH_ARGB(pb + bsize) LIBXS_PREFETCH_ARGC(tmp));
         }
 #if defined(_OPENMP)
         duration += omp_get_wtime();
@@ -156,7 +157,7 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNED_MAX);
           // do nothing else with tmp; just a benchmark
-          xmm(a, b, tmp);
+          xmm(a, b, tmp LIBXS_PREFETCH_ARGA(a) LIBXS_PREFETCH_ARGB(b) LIBXS_PREFETCH_ARGC(tmp));
         }
 #if defined(_OPENMP)
         duration += omp_get_wtime();

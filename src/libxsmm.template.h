@@ -57,6 +57,10 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 #define LIBXS_ALIGNED_MAX $ALIGNED_MAX
 #define LIBXS_ROW_MAJOR $ROW_MAJOR
 #define LIBXS_COL_MAJOR $COL_MAJOR
+#define LIBXS_PREFETCH $PREFETCH
+#define LIBXS_PREFETCH_A $PREFETCH_A
+#define LIBXS_PREFETCH_B $PREFETCH_B
+#define LIBXS_PREFETCH_C $PREFETCH_C
 #define LIBXS_MAX_MNK $MAX_MNK
 #define LIBXS_MAX_M $MAX_M
 #define LIBXS_MAX_N $MAX_N
@@ -85,6 +89,53 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 # define LIBXS_ALIGN_LOADS(N, TYPESIZE) (N)
 #endif
 
+#if (0 != LIBXS_PREFETCH)
+# define LIBXS_PREFETCH_DECL(TYPE, ARG) , LIBXS_CONCATENATE2(LIBXS_UNUSED_, ARG) TYPE LIBXS_CONCATENATE2(LIBXS_PREFETCH_ARG_, ARG)
+# define LIBXS_USE(ARG) LIBXS_CONCATENATE2(LIBXS_USE_, ARG)
+# if (0 == LIBXS_PREFETCH_A)
+#   define LIBXS_PREFETCH_ARG_pa unused_pa
+#   define LIBXS_PREFETCH_ARGA(ARG) , 0
+#   define LIBXS_UNUSED_pa LIBXS_UNUSED_ARG
+#   define LIBXS_USE_pa LIBXS_UNUSED(unused_pa)
+# else
+#   define LIBXS_PREFETCH_ARG_pa pa
+#   define LIBXS_PREFETCH_ARGA(ARG) , ARG
+#   define LIBXS_UNUSED_pa
+#   define LIBXS_USE_pa
+# endif
+# if (0 == LIBXS_PREFETCH_B)
+#   define LIBXS_PREFETCH_ARG_pb unused_pb
+#   define LIBXS_PREFETCH_ARGB(ARG) , 0
+#   define LIBXS_UNUSED_pb LIBXS_UNUSED_ARG
+#   define LIBXS_USE_pb LIBXS_UNUSED(unused_pb)
+# else
+#   define LIBXS_PREFETCH_ARG_pb pb
+#   define LIBXS_PREFETCH_ARGB(ARG) , ARG
+#   define LIBXS_UNUSED_pb
+#   define LIBXS_USE_pb
+# endif
+# if (0 == LIBXS_PREFETCH_C)
+#   define LIBXS_PREFETCH_ARG_pc unused_pc
+#   define LIBXS_PREFETCH_ARGC(ARG) , 0
+#   define LIBXS_UNUSED_pc LIBXS_UNUSED_ARG
+#   define LIBXS_USE_pc LIBXS_UNUSED(unused_pc)
+# else
+#   define LIBXS_PREFETCH_ARG_pc pc
+#   define LIBXS_PREFETCH_ARGC(ARG) , ARG
+#   define LIBXS_UNUSED_pc
+#   define LIBXS_USE_pc
+# endif
+#else
+# define LIBXS_PREFETCH_DECL(TYPE, ARG)
+# define LIBXS_PREFETCH_ARGA(ARG)
+# define LIBXS_PREFETCH_ARGB(ARG)
+# define LIBXS_PREFETCH_ARGC(ARG)
+# define LIBXS_PREFETCH_ARG_pa 0
+# define LIBXS_PREFETCH_ARG_pb 0
+# define LIBXS_PREFETCH_ARG_pc 0
+# define LIBXS_USE(ARG)
+#endif
+
 #define LIBXS_BLASMM(REAL, M, N, K, A, B, C) { \
   int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
   int libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
@@ -98,13 +149,14 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 }
 
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-# define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C) LIBXS_BLASMM(REAL, M, N, K, A, B, C)
+# define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C, PA, PB, PC) LIBXS_BLASMM(REAL, M, N, K, A, B, C)
 #else
-# define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C) { \
+# define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C, PA, PB, PC) { \
     const REAL *const libxs_a_ = LIBXS_LD(B, A), *const libxs_b_ = LIBXS_LD(A, B); \
     const UINT libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
     UINT libxs_i_, libxs_j_, libxs_k_; \
     REAL *const libxs_c_ = (C); \
+    LIBXS_UNUSED(PA); LIBXS_UNUSED(PB); LIBXS_UNUSED(PC); /*TODO: prefetching*/ \
     LIBXS_ASSUME_ALIGNED_STORES(libxs_c_); \
     /*TODO: LIBXS_ASSUME_ALIGNED_LOADS(libxs_a_);*/ \
     /*TODO: LIBXS_ASSUME_ALIGNED_LOADS(libxs_b_);*/ \
@@ -130,47 +182,66 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
  * If M, N, and K does not change for multiple calls, it is more efficient to query and reuse
  * the function pointer (libxs_?mm_dispatch).
  */
-#define LIBXS_MM(REAL, M, N, K, A, B, C) \
+#define LIBXS_MM(REAL, M, N, K, A, B, C, PA, PB, PC) \
   if ((LIBXS_MAX_MNK) >= ((M) * (N) * (K))) { \
     const LIBXS_BLASPREC(libxs_, REAL, mm_function) libxs_mm_function_ = \
-      LIBXS_BLASPREC(libxs_, REAL, mm_dispatch)((M), (N), (K)); \
+      LIBXS_BLASPREC(libxs_, REAL, mm_dispatch)(M, N, K); \
     if (libxs_mm_function_) { \
-      libxs_mm_function_((A), (B), (C)); \
+      libxs_mm_function_(A, B, C LIBXS_PREFETCH_ARGA(PA) LIBXS_PREFETCH_ARGB(PB) LIBXS_PREFETCH_ARGC(PC)); \
     } \
     else { \
-      LIBXS_IMM(REAL, int, M, N, K, A, B, C); \
+      LIBXS_IMM(REAL, int, M, N, K, A, B, C, PA, PB, PC); \
     } \
   } \
   else { \
     LIBXS_BLASMM(REAL, M, N, K, A, B, C); \
   }
 
+
 /** Type of a function generated for a specific M, N, and K. */
-typedef LIBXS_TARGET(mic) void (*libxs_smm_function)(const float*, const float*, float*);
-typedef LIBXS_TARGET(mic) void (*libxs_dmm_function)(const double*, const double*, double*);
+typedef LIBXS_TARGET(mic) void (*libxs_smm_function)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
+                                    LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa)
+                                    LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb)
+                                    LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc));
+typedef LIBXS_TARGET(mic) void (*libxs_dmm_function)(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
+                                    LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pa)
+                                    LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pb)
+                                    LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pc));
 
 /** Query the pointer of a generated function; zero if it does not exist. */
 LIBXS_EXTERN_C LIBXS_TARGET(mic) libxs_smm_function libxs_smm_dispatch(int m, int n, int k);
 LIBXS_EXTERN_C LIBXS_TARGET(mic) libxs_dmm_function libxs_dmm_dispatch(int m, int n, int k);
 
 /** Dispatched matrix-matrix multiplication; single-precision. */
-LIBXS_INLINE LIBXS_TARGET(mic) void libxs_smm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c) {
-  LIBXS_MM(float, m, n, k, a, b, c);
+LIBXS_INLINE LIBXS_TARGET(mic) void libxs_smm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
+  LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc))
+{
+  LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
+  LIBXS_MM(float, m, n, k, a, b, c, LIBXS_PREFETCH_ARG_pa, LIBXS_PREFETCH_ARG_pb, LIBXS_PREFETCH_ARG_pc);
 }
 
 /** Dispatched matrix-matrix multiplication; double-precision. */
-LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) {
-  LIBXS_MM(double, m, n, k, a, b, c);
+LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
+  LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pc))
+{
+  LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
+  LIBXS_MM(double, m, n, k, a, b, c, LIBXS_PREFETCH_ARG_pa, LIBXS_PREFETCH_ARG_pb, LIBXS_PREFETCH_ARG_pc);
 }
 
 /** Non-dispatched matrix-matrix multiplication using inline code; single-precision. */
-LIBXS_INLINE LIBXS_TARGET(mic) void libxs_simm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c) {
-  LIBXS_IMM(float, int, m, n, k, a, b, c);
+LIBXS_INLINE LIBXS_TARGET(mic) void libxs_simm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
+  LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc))
+{
+  LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
+  LIBXS_IMM(float, int, m, n, k, a, b, c, LIBXS_PREFETCH_ARG_pa, LIBXS_PREFETCH_ARG_pb, LIBXS_PREFETCH_ARG_pc);
 }
 
 /** Non-dispatched matrix-matrix multiplication using inline code; double-precision. */
-LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dimm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) {
-  LIBXS_IMM(double, int, m, n, k, a, b, c);
+LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dimm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
+  LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pc))
+{
+  LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
+  LIBXS_IMM(double, int, m, n, k, a, b, c, LIBXS_PREFETCH_ARG_pa, LIBXS_PREFETCH_ARG_pb, LIBXS_PREFETCH_ARG_pc);
 }
 
 /** Non-dispatched matrix-matrix multiplication using BLAS; single-precision. */
@@ -186,16 +257,48 @@ $MNK_INTERFACE_LIST
 #if defined(__cplusplus)
 
 /** Dispatched matrix-matrix multiplication. */
-LIBXS_TARGET(mic) inline void libxs_mm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c)        { libxs_smm(m, n, k, a, b, c); }
-LIBXS_TARGET(mic) inline void libxs_mm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c)     { libxs_dmm(m, n, k, a, b, c); }
+LIBXS_TARGET(mic) inline void libxs_mm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
+  LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc))
+{
+  LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
+  libxs_smm(m, n, k, a, b, c LIBXS_PREFETCH_ARGA(pa) LIBXS_PREFETCH_ARGB(pb) LIBXS_PREFETCH_ARGC(pc));
+}
+
+/** Dispatched matrix-matrix multiplication. */
+LIBXS_TARGET(mic) inline void libxs_mm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
+  LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pc))
+{
+  LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
+  libxs_dmm(m, n, k, a, b, c LIBXS_PREFETCH_ARGA(pa) LIBXS_PREFETCH_ARGB(pb) LIBXS_PREFETCH_ARGC(pc));
+}
 
 /** Non-dispatched matrix-matrix multiplication using inline code. */
-LIBXS_TARGET(mic) inline void libxs_imm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c)       { libxs_simm(m, n, k, a, b, c); }
-LIBXS_TARGET(mic) inline void libxs_imm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c)    { libxs_dimm(m, n, k, a, b, c); }
+LIBXS_TARGET(mic) inline void libxs_imm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
+  LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc))
+{
+  LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
+  libxs_simm(m, n, k, a, b, c LIBXS_PREFETCH_ARGA(pa) LIBXS_PREFETCH_ARGB(pb) LIBXS_PREFETCH_ARGC(pc));
+}
+
+/** Non-dispatched matrix-matrix multiplication using inline code. */
+LIBXS_TARGET(mic) inline void libxs_imm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
+  LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pc))
+{
+  LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
+  libxs_dimm(m, n, k, a, b, c LIBXS_PREFETCH_ARGA(pa) LIBXS_PREFETCH_ARGB(pb) LIBXS_PREFETCH_ARGC(pc));
+}
 
 /** Non-dispatched matrix-matrix multiplication using BLAS. */
-LIBXS_TARGET(mic) inline void libxs_blasmm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c)    { libxs_sblasmm(m, n, k, a, b, c); }
-LIBXS_TARGET(mic) inline void libxs_blasmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) { libxs_dblasmm(m, n, k, a, b, c); }
+LIBXS_TARGET(mic) inline void libxs_blasmm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c)
+{
+  libxs_sblasmm(m, n, k, a, b, c);
+}
+
+/** Non-dispatched matrix-matrix multiplication using BLAS. */
+LIBXS_TARGET(mic) inline void libxs_blasmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c)
+{
+  libxs_dblasmm(m, n, k, a, b, c);
+}
 
 /** Call libxs_smm_dispatch, or libxs_dmm_dispatch depending on T. */
 template<typename T> class LIBXS_TARGET(mic) libxs_mm_dispatch { typedef void function_type; };
