@@ -32,19 +32,19 @@
 #include "libxs_macros.h"
 
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-# if defined(LIBXS_OFFLOAD)
-#   pragma offload_attribute(push,target(mic))
+# if defined(LIBXS_OFFLOAD_BUILD)
+#   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #   include <mkl.h>
 #   pragma offload_attribute(pop)
 # else
 #   include <mkl.h>
 # endif
 #else
-LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(dgemm)(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
   const char*, const char*, const int*, const int*, const int*,
   const double*, const double*, const int*, const double*, const int*,
   const double*, double*, const int*);
-LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   const char*, const char*, const int*, const int*, const int*,
   const float*, const float*, const int*, const float*, const int*,
   const float*, float*, const int*);
@@ -160,7 +160,7 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
     LIBXS_ASSUME_ALIGNED_STORES(libxs_c_); \
     /*TODO: LIBXS_ASSUME_ALIGNED_LOADS(libxs_a_);*/ \
     /*TODO: LIBXS_ASSUME_ALIGNED_LOADS(libxs_b_);*/ \
-    LIBXS_PRAGMA_SIMD_COLLAPSE(2) \
+    LIBXS_PRAGMA_SIMD/*_COLLAPSE(2)*/ \
     for (libxs_j_ = 0; libxs_j_ < LIBXS_LD(M, N); ++libxs_j_) { \
       LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_LD(LIBXS_MAX_N, LIBXS_MAX_M), LIBXS_LD(LIBXS_AVG_N, LIBXS_AVG_M)) \
       for (libxs_i_ = 0; libxs_i_ < LIBXS_LD(N, M); ++libxs_i_) { \
@@ -199,21 +199,21 @@ LIBXS_EXTERN_C LIBXS_TARGET(mic) void LIBXS_FSYMBOL(sgemm)(
 
 
 /** Type of a function generated for a specific M, N, and K. */
-typedef LIBXS_TARGET(mic) void (*libxs_smm_function)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
+typedef LIBXS_RETARGETABLE void (*libxs_smm_function)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
                                     LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa)
                                     LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb)
                                     LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc));
-typedef LIBXS_TARGET(mic) void (*libxs_dmm_function)(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
+typedef LIBXS_RETARGETABLE void (*libxs_dmm_function)(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
                                     LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pa)
                                     LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pb)
                                     LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pc));
 
 /** Query the pointer of a generated function; zero if it does not exist. */
-LIBXS_EXTERN_C LIBXS_TARGET(mic) libxs_smm_function libxs_smm_dispatch(int m, int n, int k);
-LIBXS_EXTERN_C LIBXS_TARGET(mic) libxs_dmm_function libxs_dmm_dispatch(int m, int n, int k);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_dispatch(int m, int n, int k);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_dispatch(int m, int n, int k);
 
 /** Dispatched matrix-matrix multiplication; single-precision. */
-LIBXS_INLINE LIBXS_TARGET(mic) void libxs_smm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
+LIBXS_INLINE LIBXS_RETARGETABLE void libxs_smm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
   LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc))
 {
   LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
@@ -221,7 +221,7 @@ LIBXS_INLINE LIBXS_TARGET(mic) void libxs_smm(int m, int n, int k, const float *
 }
 
 /** Dispatched matrix-matrix multiplication; double-precision. */
-LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
+LIBXS_INLINE LIBXS_RETARGETABLE void libxs_dmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
   LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pc))
 {
   LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
@@ -229,7 +229,7 @@ LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dmm(int m, int n, int k, const double 
 }
 
 /** Non-dispatched matrix-matrix multiplication using inline code; single-precision. */
-LIBXS_INLINE LIBXS_TARGET(mic) void libxs_simm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
+LIBXS_INLINE LIBXS_RETARGETABLE void libxs_simm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
   LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc))
 {
   LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
@@ -237,7 +237,7 @@ LIBXS_INLINE LIBXS_TARGET(mic) void libxs_simm(int m, int n, int k, const float 
 }
 
 /** Non-dispatched matrix-matrix multiplication using inline code; double-precision. */
-LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dimm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
+LIBXS_INLINE LIBXS_RETARGETABLE void libxs_dimm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
   LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pc))
 {
   LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
@@ -245,19 +245,19 @@ LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dimm(int m, int n, int k, const double
 }
 
 /** Non-dispatched matrix-matrix multiplication using BLAS; single-precision. */
-LIBXS_INLINE LIBXS_TARGET(mic) void libxs_sblasmm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c) {
+LIBXS_INLINE LIBXS_RETARGETABLE void libxs_sblasmm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c) {
   LIBXS_BLASMM(float, m, n, k, a, b, c);
 }
 
 /** Non-dispatched matrix-matrix multiplication using BLAS; double-precision. */
-LIBXS_INLINE LIBXS_TARGET(mic) void libxs_dblasmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) {
+LIBXS_INLINE LIBXS_RETARGETABLE void libxs_dblasmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) {
   LIBXS_BLASMM(double, m, n, k, a, b, c);
 }
 $MNK_INTERFACE_LIST
 #if defined(__cplusplus)
 
 /** Dispatched matrix-matrix multiplication. */
-LIBXS_TARGET(mic) inline void libxs_mm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
+LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
   LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc))
 {
   LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
@@ -265,7 +265,7 @@ LIBXS_TARGET(mic) inline void libxs_mm(int m, int n, int k, const float *LIBXS_R
 }
 
 /** Dispatched matrix-matrix multiplication. */
-LIBXS_TARGET(mic) inline void libxs_mm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
+LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
   LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pc))
 {
   LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
@@ -273,7 +273,7 @@ LIBXS_TARGET(mic) inline void libxs_mm(int m, int n, int k, const double *LIBXS_
 }
 
 /** Non-dispatched matrix-matrix multiplication using inline code. */
-LIBXS_TARGET(mic) inline void libxs_imm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
+LIBXS_RETARGETABLE inline void libxs_imm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
   LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc))
 {
   LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
@@ -281,7 +281,7 @@ LIBXS_TARGET(mic) inline void libxs_imm(int m, int n, int k, const float *LIBXS_
 }
 
 /** Non-dispatched matrix-matrix multiplication using inline code. */
-LIBXS_TARGET(mic) inline void libxs_imm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
+LIBXS_RETARGETABLE inline void libxs_imm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c
   LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const double *LIBXS_RESTRICT, pc))
 {
   LIBXS_USE(pa); LIBXS_USE(pb); LIBXS_USE(pc);
@@ -289,32 +289,32 @@ LIBXS_TARGET(mic) inline void libxs_imm(int m, int n, int k, const double *LIBXS
 }
 
 /** Non-dispatched matrix-matrix multiplication using BLAS. */
-LIBXS_TARGET(mic) inline void libxs_blasmm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c)
+LIBXS_RETARGETABLE inline void libxs_blasmm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c)
 {
   libxs_sblasmm(m, n, k, a, b, c);
 }
 
 /** Non-dispatched matrix-matrix multiplication using BLAS. */
-LIBXS_TARGET(mic) inline void libxs_blasmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c)
+LIBXS_RETARGETABLE inline void libxs_blasmm(int m, int n, int k, const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c)
 {
   libxs_dblasmm(m, n, k, a, b, c);
 }
 
 /** Call libxs_smm_dispatch, or libxs_dmm_dispatch depending on T. */
-template<typename T> class LIBXS_TARGET(mic) libxs_mm_dispatch { typedef void function_type; };
+template<typename T> class LIBXS_RETARGETABLE libxs_mm_dispatch { typedef void function_type; };
 
-template<> class LIBXS_TARGET(mic) libxs_mm_dispatch<float> {
+template<> class LIBXS_RETARGETABLE libxs_mm_dispatch<float> {
   typedef libxs_smm_function function_type;
-  mutable/*target:mic*/ function_type m_function;
+  mutable/*retargetable*/ function_type m_function;
 public:
   libxs_mm_dispatch(): m_function(0) {}
   libxs_mm_dispatch(int m, int n, int k): m_function(libxs_smm_dispatch(m, n, k)) {}
   operator function_type() const { return m_function; }
 };
 
-template<> class LIBXS_TARGET(mic) libxs_mm_dispatch<double> {
+template<> class LIBXS_RETARGETABLE libxs_mm_dispatch<double> {
   typedef libxs_dmm_function function_type;
-  mutable/*target:mic*/ function_type m_function;
+  mutable/*retargetable*/ function_type m_function;
 public:
   libxs_mm_dispatch(): m_function(0) {}
   libxs_mm_dispatch(int m, int n, int k): m_function(libxs_dmm_dispatch(m, n, k)) {}

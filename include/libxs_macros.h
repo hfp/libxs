@@ -39,8 +39,10 @@
 #if defined(__cplusplus)
 # define LIBXS_EXTERN_C extern "C"
 # define LIBXS_INLINE inline
+# define LIBXS_VARIADIC ...
 #else
 # define LIBXS_EXTERN_C
+# define LIBXS_VARIADIC
 # if (199901L <= __STDC_VERSION__)
 #   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
 #   define LIBXS_RESTRICT restrict
@@ -127,12 +129,15 @@
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __declspec(A)
 # define LIBXS_ALIGNED(DECL, N) LIBXS_ATTRIBUTE(align(N)) DECL
+# define LIBXS_CDECL __cdecl
 #elif defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __attribute__((A))
 # define LIBXS_ALIGNED(DECL, N) DECL LIBXS_ATTRIBUTE(aligned(N))
+# define LIBXS_CDECL LIBXS_ATTRIBUTE(cdecl)
 #else
 # define LIBXS_ATTRIBUTE(A)
 # define LIBXS_ALIGNED(DECL, N)
+# define LIBXS_CDECL
 #endif
 
 #if defined(__INTEL_COMPILER)
@@ -163,19 +168,21 @@
 #endif
 
 #if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
-# define LIBXS_OFFLOAD 1
-# define LIBXS_TARGET(A) LIBXS_ATTRIBUTE(target(A))
+# define LIBXS_OFFLOAD_BUILD 1
+# define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
 #else
-/*# define LIBXS_OFFLOAD 0*/
-# define LIBXS_TARGET(A)
+/*# define LIBXS_OFFLOAD_BUILD 0*/
+# define LIBXS_OFFLOAD(A)
 #endif
+#define LIBXS_OFFLOAD_TARGET mic
+#define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
 
 #define LIBXS_BLASPREC(PREFIX, REAL, FUNCTION) LIBXS_BLASPREC_##REAL(PREFIX, FUNCTION)
 #define LIBXS_BLASPREC_double(PREFIX, FUNCTION) PREFIX##d##FUNCTION
 #define LIBXS_BLASPREC_float(PREFIX, FUNCTION) PREFIX##s##FUNCTION
 
-#if defined(LIBXS_OFFLOAD)
-# pragma offload_attribute(push,target(mic))
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 # include <stdint.h>
 # pragma offload_attribute(pop)
 #else
