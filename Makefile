@@ -8,10 +8,9 @@ else ifneq (3.82,$(firstword $(sort $(MAKE_VERSION) 3.82)))
 endif
 
 # Use ROW_MAJOR matrix representation if set to 1, COL_MAJOR otherwise 
-# @TODO: ROW_MAJOR = 1 is currently not available
 ROW_MAJOR ?= 0
 ifeq (1,$(ROW_MAJOR))
-$(error ROW_MAJOR=1 is not support at this time)
+$(error ROW_MAJOR=1 is not supported at this time)
 endif
 
 # Generates M,N,K-combinations for each comma separated group e.g., "1, 2, 3" gnerates (1,1,1), (2,2,2),
@@ -385,9 +384,11 @@ endif
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.h $(ROOTDIR)/include/libxs_macros.h
+$(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.h $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_prefetch.h $(ROOTDIR)/include/libxs_fallback.h
 	@mkdir -p $(dir $@)
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_prefetch.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_fallback.h $(INCDIR) 2> /dev/null || true
 	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(ROW_MAJOR) $(ALIGNMENT) \
 		$(ALIGNED_ST) $(ALIGNED_LD) $(PREFETCH) $(PREFETCH_A) $(PREFETCH_B) $(PREFETCH_C) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(INDICES) > $@
