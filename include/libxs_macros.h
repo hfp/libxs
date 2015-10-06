@@ -167,7 +167,7 @@
 # define LIBXS_TLS thread_local
 #endif
 
-#if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
+#if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER)) && (LIBXS_OFFLOAD_ENABLED > 0)
 # define LIBXS_OFFLOAD_BUILD 1
 # define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
 #else

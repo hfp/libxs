@@ -387,16 +387,20 @@ $(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/li
 	@cp $(ROOTDIR)/include/libxs_prefetch.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_fallback.h $(INCDIR) 2> /dev/null || true
 	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(ROW_MAJOR) $(ALIGNMENT) \
-		$(ALIGNED_ST) $(ALIGNED_LD) $(PREFETCH) $(PREFETCH_A) $(PREFETCH_B) $(PREFETCH_C) \
-		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(INDICES) > $@
+		$(ALIGNED_ST) $(ALIGNED_LD) $(PREFETCH) $(PREFETCH_A) $(PREFETCH_B) $(PREFETCH_C) $(BETA) \
+		$(OFFLOAD) $(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(INDICES) > $@
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f90
 $(INCDIR)/libxs.f90: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.f90
 	@mkdir -p $(dir $@)
 	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f90 $(ROW_MAJOR) $(ALIGNMENT) \
-		$(ALIGNED_ST) $(ALIGNED_LD) $(PREFETCH) $(PREFETCH_A) $(PREFETCH_B) $(PREFETCH_C) \
-		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(INDICES) > $@
+		$(ALIGNED_ST) $(ALIGNED_LD) $(PREFETCH) $(PREFETCH_A) $(PREFETCH_B) $(PREFETCH_C) $(BETA) \
+		$(OFFLOAD) $(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(INDICES) > $@
+ifeq (0,$(OFFLOAD))
+	@sed -i '/ATTRIBUTES OFFLOAD:MIC/d' $@
+endif
+ 
 
 .PHONY: compile_generator_lib
 compile_generator_lib: $(SRCFILES_GEN_LIB)
@@ -448,8 +452,10 @@ endif
 	@mkdir -p $(dir $@)
 	@echo "#include <libxs.h>" > $@
 	@echo >> $@
+ifneq (0,$(MIC))
 	@echo "#define LIBXS_GENTARGET_knc_dp" >> $@
 	@echo "#define LIBXS_GENTARGET_knc_sp" >> $@
+endif
 ifeq (noarch,$(GENTARGET))
 	@echo "#define LIBXS_GENTARGET_knl_dp" >> $@
 	@echo "#define LIBXS_GENTARGET_knl_sp" >> $@
@@ -477,8 +483,10 @@ else
 	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 $(BETA) 0 $(ALIGNED_ST) $(GENTARGET) $(PREFETCH_SCHEME) DP
 	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 $(BETA) 0 $(ALIGNED_ST) $(GENTARGET) $(PREFETCH_SCHEME) SP
 endif
+ifneq (0,$(MIC))
 	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) 1 $(BETA) 0 $(ALIGNED_ST) knc $(PREFETCH_SCHEME) DP
 	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) 1 $(BETA) 0 $(ALIGNED_ST) knc $(PREFETCH_SCHEME) SP
+endif
 	@sed -i'' \
 		-e 's/void libxs_/LIBXS_INLINE LIBXS_RETARGETABLE void libxs_/' \
 		-e 's/#ifndef NDEBUG/#ifdef LIBXS_NEVER_DEFINED/' \

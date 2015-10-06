@@ -47,6 +47,7 @@
 #define LIBXS_AVG_M $AVG_M
 #define LIBXS_AVG_N $AVG_N
 #define LIBXS_AVG_K $AVG_K
+#define LIBXS_OFFLOAD_ENABLED $OFFLOAD
 
 #include "libxs_prefetch.h"
 #include "libxs_fallback.h"
