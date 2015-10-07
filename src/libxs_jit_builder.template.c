@@ -47,7 +47,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_jit_build(int m, 
   l_xgemm_desc.ldb = k;
   l_xgemm_desc.ldc = m;
   l_xgemm_desc.alpha = 1.0;
+#if LIBXS_BETA == 0
+  l_xgemm_desc.beta = 0.0;
+#else
   l_xgemm_desc.beta = 1.0;
+#endif
   l_xgemm_desc.trans_a = 'n';
   l_xgemm_desc.trans_b = 'n';
   l_xgemm_desc.aligned_a = 0;
@@ -129,7 +133,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_jit_build(int m, 
   l_xgemm_desc.ldb = k;
   l_xgemm_desc.ldc = m;
   l_xgemm_desc.alpha = 1.0;
+#if LIBXS_BETA == 0
+  l_xgemm_desc.beta = 0.0;
+#else
   l_xgemm_desc.beta = 1.0;
+#endif
   l_xgemm_desc.trans_a = 'n';
   l_xgemm_desc.trans_b = 'n';
   l_xgemm_desc.aligned_a = 0;
