@@ -67,6 +67,10 @@ typedef LIBXS_RETARGETABLE void (*libxs_dmm_function)(const double *LIBXS_RESTRI
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_dispatch(int m, int n, int k);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_dispatch(int m, int n, int k);
 
+/** JIT a function and return the pointer to the executable memory. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_jit_build(int m, int n, int k);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_jit_build(int m, int n, int k);
+
 /** Dispatched matrix-matrix multiplication; single-precision. */
 LIBXS_INLINE LIBXS_RETARGETABLE void libxs_smm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
   LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pb) LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pc))
