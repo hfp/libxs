@@ -53,7 +53,6 @@
 #include "libxs_prefetch.h"
 #include "libxs_fallback.h"
 
-
 /** Type of a function generated for a specific M, N, and K. */
 typedef LIBXS_RETARGETABLE void (*libxs_smm_function)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
                                     LIBXS_PREFETCH_DECL(const float *LIBXS_RESTRICT, pa)
