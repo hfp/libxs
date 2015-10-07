@@ -1,5 +1,6 @@
 include/libxs.f90
 include/libxs.h
+include/libxs_generator.h
 build/libxs.c
 build/mm_*_*_*.c
 bin/generator
