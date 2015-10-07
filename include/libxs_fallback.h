@@ -70,6 +70,50 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   const float*, float*, const int*);
 #endif
 
+/* BETA = 0 */
+#if LIBXS_BETA == 0
+#define LIBXS_BLASMM(REAL, M, N, K, A, B, C) { \
+  int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
+  int libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
+  REAL libxs_alpha_ = 1, libxs_beta_ = 0; \
+  char libxs_trans_ = 'N'; \
+  LIBXS_FSYMBOL(LIBXS_BLASPREC(, REAL, gemm))(&libxs_trans_, &libxs_trans_, \
+    &libxs_m_, &libxs_n_, &libxs_k_, &libxs_alpha_, \
+    (REAL*)LIBXS_LD(A, B), &libxs_m_, \
+    (REAL*)LIBXS_LD(B, A), &libxs_k_, \
+    &libxs_beta_, (C), &libxs_ldc_); \
+}
+
+#if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
+# define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C, PA, PB, PC) LIBXS_BLASMM(REAL, M, N, K, A, B, C)
+#else
+# define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C, PA, PB, PC) { \
+    const REAL *const libxs_a_ = LIBXS_LD(B, A), *const libxs_b_ = LIBXS_LD(A, B); \
+    const UINT libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
+    UINT libxs_i_, libxs_j_, libxs_k_; \
+    REAL *const libxs_c_ = (C); \
+    LIBXS_UNUSED(PA); LIBXS_UNUSED(PB); LIBXS_UNUSED(PC); /*TODO: prefetching*/ \
+    LIBXS_ASSUME_ALIGNED_STORES(libxs_c_); \
+    /*TODO: LIBXS_ASSUME_ALIGNED_LOADS(libxs_a_);*/ \
+    /*TODO: LIBXS_ASSUME_ALIGNED_LOADS(libxs_b_);*/ \
+    LIBXS_PRAGMA_SIMD/*_COLLAPSE(2)*/ \
+    for (libxs_j_ = 0; libxs_j_ < LIBXS_LD(M, N); ++libxs_j_) { \
+      LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_LD(LIBXS_MAX_N, LIBXS_MAX_M), LIBXS_LD(LIBXS_AVG_N, LIBXS_AVG_M)) \
+      for (libxs_i_ = 0; libxs_i_ < LIBXS_LD(N, M); ++libxs_i_) { \
+        const UINT libxs_index_ = libxs_i_ * libxs_ldc_ + libxs_j_; \
+        REAL libxs_r_ = (REAL)0.0; \
+        LIBXS_PRAGMA_SIMD_REDUCTION(+:libxs_r_) \
+        LIBXS_PRAGMA_UNROLL \
+        for (libxs_k_ = 0; libxs_k_ < (K); ++libxs_k_) { \
+          libxs_r_ += libxs_a_[libxs_i_*(K)+libxs_k_] * libxs_b_[libxs_k_*LIBXS_LD(M,N)+libxs_j_]; \
+        } \
+        libxs_c_[libxs_index_] = libxs_r_; \
+      } \
+    } \
+  }
+#endif
+/* BETA = 1 */
+#else
 #define LIBXS_BLASMM(REAL, M, N, K, A, B, C) { \
   int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
   int libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
@@ -109,6 +153,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
       } \
     } \
   }
+#endif
 #endif
 
 /**
