@@ -96,7 +96,7 @@
 #endif
 
 #if !defined(LIBXS_UNUSED)
-# if (defined(__GNUC__) || defined(__clang__)) && !defined(__INTEL_COMPILER)
+# if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
 #   define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(LIBXS_STRINGIFY(unused(VARIABLE)))
 # else
 #   define LIBXS_UNUSED(VARIABLE) (void)(VARIABLE)
