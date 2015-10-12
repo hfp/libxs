@@ -29,7 +29,16 @@
 #ifndef LIBXS_CRC32_H
 #define LIBXS_CRC32_H
 
+#include <libxs_macros.h>
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <stddef.h>
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(pop)
+#endif
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const char* data, size_t size, unsigned int init);
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, size_t size, unsigned int init);
 
 #endif /*LIBXS_CRC32_H*/

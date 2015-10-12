@@ -26,56 +26,22 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_PREFETCH_H
-#define LIBXS_PREFETCH_H
+#ifndef LIBXS_DISPATCH_H
+#define LIBXS_DISPATCH_H
 
-#include "libxs.h"
-
-#if (0 != LIBXS_PREFETCH)
-# define LIBXS_PREFETCH_DECL(TYPE, ARG) , LIBXS_CONCATENATE2(LIBXS_UNUSED_, ARG) TYPE LIBXS_CONCATENATE2(LIBXS_PREFETCH_ARG_, ARG)
-# define LIBXS_USE(ARG) LIBXS_CONCATENATE2(LIBXS_USE_, ARG)
-# if 0 != ((LIBXS_PREFETCH) & 2) || 0 != ((LIBXS_PREFETCH) & 4)
-#   define LIBXS_PREFETCH_ARG_pa unused_pa
-#   define LIBXS_PREFETCH_ARGA(ARG) , 0
-#   define LIBXS_UNUSED_pa LIBXS_UNUSED_ARG
-#   define LIBXS_USE_pa LIBXS_UNUSED(unused_pa)
-# else
-#   define LIBXS_PREFETCH_ARG_pa pa
-#   define LIBXS_PREFETCH_ARGA(ARG) , ARG
-#   define LIBXS_UNUSED_pa
-#   define LIBXS_USE_pa
-# endif
-# if 0 != ((LIBXS_PREFETCH) & 8)
-#   define LIBXS_PREFETCH_ARG_pb unused_pb
-#   define LIBXS_PREFETCH_ARGB(ARG) , 0
-#   define LIBXS_UNUSED_pb LIBXS_UNUSED_ARG
-#   define LIBXS_USE_pb LIBXS_UNUSED(unused_pb)
-# else
-#   define LIBXS_PREFETCH_ARG_pb pb
-#   define LIBXS_PREFETCH_ARGB(ARG) , ARG
-#   define LIBXS_UNUSED_pb
-#   define LIBXS_USE_pb
-# endif
-# if 1
-#   define LIBXS_PREFETCH_ARG_pc unused_pc
-#   define LIBXS_PREFETCH_ARGC(ARG) , 0
-#   define LIBXS_UNUSED_pc LIBXS_UNUSED_ARG
-#   define LIBXS_USE_pc LIBXS_UNUSED(unused_pc)
-# else
-#   define LIBXS_PREFETCH_ARG_pc pc
-#   define LIBXS_PREFETCH_ARGC(ARG) , ARG
-#   define LIBXS_UNUSED_pc
-#   define LIBXS_USE_pc
-# endif
-#else
-# define LIBXS_PREFETCH_DECL(TYPE, ARG)
-# define LIBXS_PREFETCH_ARGA(ARG)
-# define LIBXS_PREFETCH_ARGB(ARG)
-# define LIBXS_PREFETCH_ARGC(ARG)
-# define LIBXS_PREFETCH_ARG_pa 0
-# define LIBXS_PREFETCH_ARG_pb 0
-# define LIBXS_PREFETCH_ARG_pc 0
-# define LIBXS_USE(ARG)
+#include <libxs_macros.h>
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <stddef.h>
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(pop)
 #endif
 
-#endif /*LIBXS_PREFETCH_H*/
+
+typedef void (/*LIBXS_CDECL*/*libxs_function)(LIBXS_VARIADIC);
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_dispatch(const void* key, size_t key_size, size_t cache_id, libxs_function function);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_lookup(const void* key, size_t key_size, size_t cache_id);
+
+#endif /*LIBXS_DISPATCH_H*/

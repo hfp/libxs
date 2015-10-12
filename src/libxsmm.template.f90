@@ -26,7 +26,7 @@
 !* NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        *!
 !* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              *!
 !*****************************************************************************!
-!* Hans Pabst (Intel Corp.)                                                  *!
+!* Hans Pabst (Intel Corp.), Alexander Heinecke (Intel Corp.)                *!
 !*****************************************************************************!
 
 MODULE LIBXS
@@ -43,6 +43,7 @@ MODULE LIBXS
   INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_ALIGNED_STORES  = $ALIGNED_STORES
   INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_ALIGNED_LOADS   = $ALIGNED_LOADS
   INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_ALIGNED_MAX     = $ALIGNED_MAX
+  INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_PREFETCH        = $PREFETCH
   INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_ROW_MAJOR       = $ROW_MAJOR
   INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_COL_MAJOR       = $COL_MAJOR
   INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_MAX_MNK         = $MAX_MNK
@@ -53,6 +54,7 @@ MODULE LIBXS
   INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_AVG_N           = $AVG_N
   INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_AVG_K           = $AVG_K
   INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_BETA            = $BETA
+  INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: LIBXS_JIT             = $JIT
 
   ! Overloaded BLAS routines (single/double precision)
   INTERFACE libxs_blasmm
@@ -71,9 +73,25 @@ MODULE LIBXS
 
   ! Type of a function generated for a specific M, N, and K
   ABSTRACT INTERFACE
+    ! This interface requires the use of C_LOC in the user code 
+    ! on arrays which is not support in all FORTRAN compilers
     PURE SUBROUTINE LIBXS_XMM_FUNCTION(a, b, c) BIND(C)
       IMPORT :: C_PTR
       TYPE(C_PTR), VALUE, INTENT(IN) :: a, b, c
+    END SUBROUTINE
+
+    PURE SUBROUTINE LIBXS_SMM_FUNCTION(a, b, c) BIND(C)
+      IMPORT :: C_FLOAT
+      REAL(KIND=C_FLOAT), DIMENSION(*), INTENT(in)  :: a
+      REAL(KIND=C_FLOAT), DIMENSION(*), INTENT(in)  :: b
+      REAL(KIND=C_FLOAT), DIMENSION(*), INTENT(out) :: c
+    END SUBROUTINE
+
+    PURE SUBROUTINE LIBXS_DMM_FUNCTION(a, b, c) BIND(C)
+      IMPORT :: C_DOUBLE
+      REAL(KIND=C_DOUBLE), DIMENSION(*), INTENT(in)  :: a
+      REAL(KIND=C_DOUBLE), DIMENSION(*), INTENT(in)  :: b
+      REAL(KIND=C_DOUBLE), DIMENSION(*), INTENT(out) :: c
     END SUBROUTINE
   END INTERFACE
 
@@ -92,6 +110,16 @@ MODULE LIBXS
       INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k, lda, ldb, ldc
       REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: a(lda,*), b(ldb,*), alpha, beta
       REAL(LIBXS_DOUBLE_PRECISION), INTENT(INOUT) :: c(ldc,*)
+    END SUBROUTINE
+
+    ! Init the library
+    PURE SUBROUTINE libxs_build_static() BIND(C)
+    END SUBROUTINE
+ 
+    ! Build explicitly a kernel, do not rely on automatic JIT in dispatch
+    PURE SUBROUTINE libxs_build_jit(single_precision, m, n, k) BIND(C)
+      IMPORT :: C_FUNPTR, C_INT
+      INTEGER(C_INT), VALUE, INTENT(IN) :: single_precision, m, n, k
     END SUBROUTINE
 
     ! Query the pointer of a generated function; zero if it does not exist, single-precision.
@@ -282,14 +310,14 @@ CONTAINS
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
     REAL(T), TARGET, INTENT(IN) :: a(:,:), b(:,:)
     REAL(T), TARGET, INTENT(INOUT) :: c(:,:)
-    !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
-    PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
+    !DIR$ ATTRIBUTES OFFLOAD:MIC :: smm
+    PROCEDURE(LIBXS_SMM_FUNCTION), POINTER :: smm
     TYPE(C_FUNPTR) :: f
     IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
       f = libxs_smm_dispatch(m, n, k)
       IF (C_ASSOCIATED(f)) THEN
-        CALL C_F_PROCPOINTER(f, xmm)
-        CALL xmm(C_LOC(a), C_LOC(b), C_LOC(c))
+        CALL C_F_PROCPOINTER(f, smm)
+        CALL smm(a, b, c)
       ELSE
         CALL libxs_simm(m, n, k, a, b, c)
       ENDIF
@@ -306,14 +334,14 @@ CONTAINS
     INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
     REAL(T), TARGET, INTENT(IN) :: a(:,:), b(:,:)
     REAL(T), TARGET, INTENT(INOUT) :: c(:,:)
-    !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
-    PROCEDURE(LIBXS_XMM_FUNCTION), POINTER :: xmm
+    !DIR$ ATTRIBUTES OFFLOAD:MIC :: dmm
+    PROCEDURE(LIBXS_DMM_FUNCTION), POINTER :: dmm
     TYPE(C_FUNPTR) :: f
     IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
       f = libxs_dmm_dispatch(m, n, k)
       IF (C_ASSOCIATED(f)) THEN
-        CALL C_F_PROCPOINTER(f, xmm)
-        CALL xmm(C_LOC(a), C_LOC(b), C_LOC(c))
+        CALL C_F_PROCPOINTER(f, dmm)
+        CALL dmm(a, b, c)
       ELSE
         CALL libxs_dimm(m, n, k, a, b, c)
       ENDIF

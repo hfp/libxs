@@ -26,8 +26,9 @@ sed -i \
 # LIBXS documentation
 sed \
   -e 's/https:\/\/raw\.githubusercontent\.com\/hfp\/libxs\/master\///' \
+  -e 's/\[!\[.\+\](https:\/\/travis-ci.org\/hfp\/libxs.svg?branch=.\+)\](.\+)//' \
   -e 's/\[\[.\+\](.\+)\]//' \
-  -e '/!\[.\+\](.\+)/{n;d}' \
+  -e  '/!\[.\+\](.\+)/{n;d}' \
   README.md | tee >( \
 pandoc \
   --latex-engine=xelatex \
@@ -35,7 +36,7 @@ pandoc \
   -f markdown_github+implicit_figures \
   -V documentclass=scrartcl \
   -V title-meta="LIBXS Documentation" \
-  -V author-meta="Hans Pabst" \
+  -V author-meta="Hans Pabst, Alexander Heinecke" \
   -V classoption=DIV=45 \
   -V linkcolor=black \
   -V citecolor=black \

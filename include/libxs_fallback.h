@@ -29,7 +29,7 @@
 #ifndef LIBXS_FALLBACK_H
 #define LIBXS_FALLBACK_H
 
-#include "libxs_macros.h"
+#include "libxs.h"
 
 #if (0 != LIBXS_ROW_MAJOR)
 # define LIBXS_LD(M, N) (N)

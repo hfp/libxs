@@ -34,12 +34,9 @@
 #define LIBXS_ALIGNED_STORES $ALIGNED_STORES
 #define LIBXS_ALIGNED_LOADS $ALIGNED_LOADS
 #define LIBXS_ALIGNED_MAX $ALIGNED_MAX
+#define LIBXS_PREFETCH $PREFETCH
 #define LIBXS_ROW_MAJOR $ROW_MAJOR
 #define LIBXS_COL_MAJOR $COL_MAJOR
-#define LIBXS_PREFETCH $PREFETCH
-#define LIBXS_PREFETCH_A $PREFETCH_A
-#define LIBXS_PREFETCH_B $PREFETCH_B
-#define LIBXS_PREFETCH_C $PREFETCH_C
 #define LIBXS_MAX_MNK $MAX_MNK
 #define LIBXS_MAX_M $MAX_M
 #define LIBXS_MAX_N $MAX_N
@@ -48,10 +45,17 @@
 #define LIBXS_AVG_N $AVG_N
 #define LIBXS_AVG_K $AVG_K
 #define LIBXS_BETA $BETA
-#define LIBXS_OFFLOAD_ENABLED $OFFLOAD
+#define LIBXS_JIT $JIT
 
+#include "libxs_macros.h"
 #include "libxs_prefetch.h"
 #include "libxs_fallback.h"
+
+/** Explictly initializes the library; can be used to pay for setup cost at a specific point. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_build_static();
+
+/** JIT a function and make it available for later dispatch. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_build_jit(int single_precision, int m, int n, int k);
 
 /** Type of a function generated for a specific M, N, and K. */
 typedef LIBXS_RETARGETABLE void (*libxs_smm_function)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c
@@ -66,10 +70,6 @@ typedef LIBXS_RETARGETABLE void (*libxs_dmm_function)(const double *LIBXS_RESTRI
 /** Query the pointer of a generated function; zero if it does not exist. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_dispatch(int m, int n, int k);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_dispatch(int m, int n, int k);
-
-/** JIT a function and return the pointer to the executable memory. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_jit_build(int m, int n, int k);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_jit_build(int m, int n, int k);
 
 /** Dispatched matrix-matrix multiplication; single-precision. */
 LIBXS_INLINE LIBXS_RETARGETABLE void libxs_smm(int m, int n, int k, const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c

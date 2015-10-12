@@ -26,14 +26,21 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#include "libxs_crc32.h"
 #include <libxs.h>
+
+#if !defined(LIBXS_CRC32_FORCESW)
+/*# define LIBXS_CRC32_FORCESW*/
+#endif
+#if !defined(LIBXS_CRC32_ALIGNMENT)
+# define LIBXS_CRC32_ALIGNMENT LIBXS_ALIGNED_MAX
+#endif
 
 #if defined(LIBXS_OFFLOAD_BUILD)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#include <string.h>
 #include <limits.h>
-#if defined(__SSE4_2__)
+#if defined(__SSE4_2__) && !defined(LIBXS_CRC32_FORCESW)
 # include <nmmintrin.h>
 #endif
 #if defined(LIBXS_OFFLOAD_BUILD)
@@ -41,9 +48,9 @@
 #endif
 
 
-#if !defined(__SSE4_2__)
+#if !defined(__SSE4_2__) || defined(LIBXS_CRC32_FORCESW)
 /* table-based implementation taken from http://dpdk.org/. */
-static const uint32_t libxs_crc32_table[][256] = {
+LIBXS_RETARGETABLE const uint32_t libxs_crc32_table[][256] = {
   { /*table0*/
     0x00000000, 0xF26B8303, 0xE13B70F7, 0x1350F3F4, 0xC79A971F, 0x35F1141C, 0x26A1E7E8, 0xD4CA64EB,
     0x8AD958CF, 0x78B2DBCC, 0x6BE22838, 0x9989AB3B, 0x4D43CFD0, 0xBF284CD3, 0xAC78BF27, 0x5E133C24,
@@ -321,7 +328,7 @@ static const uint32_t libxs_crc32_table[][256] = {
 
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_crc32_u8(unsigned char value, unsigned int init)
 {
-#if defined(__SSE4_2__)
+#if defined(__SSE4_2__) && !defined(LIBXS_CRC32_FORCESW)
   init = _mm_crc32_u8(init, value);
 #else
   init = libxs_crc32_table[0][(init^value)&0xFF] ^ (init >> 8);
@@ -332,10 +339,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_crc32_u8(unsigned char value,
 
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_crc32_u16(unsigned short value, unsigned int init)
 {
-#if defined(__SSE4_2__)
+#if defined(__SSE4_2__) && !defined(LIBXS_CRC32_FORCESW)
   init = _mm_crc32_u16(init, value);
 #else
-  const union { uint16_t value; uint8_t half[2]; } split = { value };
+  union { uint16_t value; uint8_t half[2]; } split; split.value = value;
   init = libxs_crc32_u8(split.half[0], init);
   init = libxs_crc32_u8(split.half[1], init);
 #endif
@@ -345,7 +352,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_crc32_u16(unsigned short valu
 
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_crc32_u32(unsigned int value, unsigned int init)
 {
-#if defined(__SSE4_2__)
+#if defined(__SSE4_2__) && !defined(LIBXS_CRC32_FORCESW)
   init = _mm_crc32_u32(init, value);
 #else
   init ^= value;
@@ -356,12 +363,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_crc32_u32(unsigned int value,
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned long long libxs_crc32_u64(unsigned long long value, unsigned long long init)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_crc32_u64(unsigned long long value, unsigned int init)
 {
-#if defined(__SSE4_2__) && (64 == __WORDSIZE)
+#if defined(__SSE4_2__) && (64 == __WORDSIZE) && !defined(LIBXS_CRC32_FORCESW)
   init = _mm_crc32_u64(init, value);
 #else
-  const union { uint64_t value; uint32_t half[2]; } split = { value };
+  union { uint64_t value; uint32_t half[2]; } split; split.value = value;
   init = libxs_crc32_u32(split.half[0], init);
   init = libxs_crc32_u32(split.half[1], init);
 #endif
@@ -369,45 +376,47 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned long long libxs_crc32_u64(unsigned long
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const char* data, size_t size, unsigned int init)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, size_t size, unsigned int init)
 {
-  const char *const enda = LIBXS_ALIGN(data, LIBXS_ALIGNED_MAX);
-  const char *const endb = data + size;
+  const unsigned char *begin = (const unsigned char*)data, *next;
+  const unsigned char *const endb = begin + size;
 
-  if (size > (endb - enda)) {
-    for (; data < (enda - 7); data += 8) {
-      init = libxs_crc32_u64(*(const uint64_t*)data, init);
+#if defined(LIBXS_CRC32_ALIGNMENT) && 1 < (LIBXS_CRC32_ALIGNMENT)
+  const unsigned char *const enda = LIBXS_ALIGN(begin, LIBXS_CRC32_ALIGNMENT);
+  if (size > (size_t)(endb - enda)) {
+    for (; begin < (enda - 7); begin += 8) {
+      init = libxs_crc32_u64(*(const uint64_t*)begin, init);
     }
-    if (4 <= (enda - data)) {
-      init = libxs_crc32_u32(*(const uint32_t*)data, init);
-      data += 4;
+    next = begin + 4;
+    if (next <= enda) {
+      init = libxs_crc32_u32(*(const uint32_t*)begin, init);
+      begin = next;
     }
-    if (2 <= (enda - data)) {
-      init = libxs_crc32_u16(*(const uint16_t*)data, init);
-      data += 2;
+    next = begin + 2;
+    if (next <= enda) {
+      init = libxs_crc32_u16(*(const uint16_t*)begin, init);
+      begin = next;
     }
-    if (data < enda) {
-      init = libxs_crc32_u8(*(const uint8_t*)data, init);
-      data += 1;
+    if (begin < enda) {
+      init = libxs_crc32_u8(*begin, init);
+      ++begin;
     }
+  }
+  LIBXS_ASSUME_ALIGNED(begin, LIBXS_CRC32_ALIGNMENT);
+#endif /*LIBXS_CRC32_ALIGNMENT*/
+  for (; begin < (endb - 7); begin += 8) {
+    init = libxs_crc32_u64(*(const uint64_t*)begin, init);
+  }
+  next = begin + 4;
+  if (next <= endb) {
+    init = libxs_crc32_u32(*(const uint32_t*)begin, init);
+    begin = next;
+  }
+  next = begin + 2;
+  if (next <= endb) {
+    init = libxs_crc32_u16(*(const uint16_t*)begin, init);
+    begin = next;
   }
 
-  LIBXS_ASSUME_ALIGNED(data, LIBXS_ALIGNED_MAX);
-  for (; data < (endb - 7); data += 8) {
-    init = libxs_crc32_u64(*(const uint64_t*)data, init);
-  }
-  if (4 <= (endb - data)) {
-    init = libxs_crc32_u32(*(const uint32_t*)data, init);
-    data += 4;
-  }
-  if (2 <= (endb - data)) {
-    init = libxs_crc32_u16(*(const uint16_t*)data, init);
-    data += 2;
-  }
-  if (data < endb) {
-    init = libxs_crc32_u8(*(const uint8_t*)data, init);
-    /*data += 1;*/
-  }
-
-  return init;
+  return begin == endb ? init : libxs_crc32_u8(*begin, init);
 }
