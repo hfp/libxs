@@ -96,7 +96,7 @@
 #endif
 
 #if !defined(LIBXS_UNUSED)
-# if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
+# if 0 /*defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)*/
 #   define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(LIBXS_STRINGIFY(unused(VARIABLE)))
 # else
 #   define LIBXS_UNUSED(VARIABLE) (void)(VARIABLE)
@@ -214,6 +214,27 @@
 #   define LIBXS_FLOCK(FILE)
 #   define LIBXS_FUNLOCK(FILE)
 # endif
+#endif
+
+#if defined(__GNUC__)
+# if defined(LIBXS_OFFLOAD_BUILD)
+#   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#   include <pthread.h>
+#   pragma offload_attribute(pop)
+# else
+#   include <pthread.h>
+# endif
+# define LIBXS_LOCK_TYPE pthread_mutex_t
+# define LIBXS_LOCK_CONSTRUCT PTHREAD_MUTEX_INITIALIZER
+# define LIBXS_LOCK_DESTROY(LOCK) pthread_mutex_destroy(&(LOCK))
+# define LIBXS_LOCK_ACQUIRE(LOCK) pthread_mutex_lock(&(LOCK))
+# define LIBXS_LOCK_RELEASE(LOCK) pthread_mutex_unlock(&(LOCK))
+#else /*TODO: Windows*/
+# define LIBXS_LOCK_TYPE HANDLE
+# define LIBXS_LOCK_CONSTRUCT 0
+# define LIBXS_LOCK_DESTROY(LOCK) CloseHandle(LOCK)
+# define LIBXS_LOCK_ACQUIRE(LOCK) WaitForSingleObject(LOCK, INFINITE)
+# define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(LOCK)
 #endif
 
 #define LIBXS_BLASPREC(PREFIX, REAL, FUNCTION) LIBXS_BLASPREC_##REAL(PREFIX, FUNCTION)

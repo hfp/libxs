@@ -51,11 +51,15 @@
 #include "libxs_prefetch.h"
 #include "libxs_fallback.h"
 
+
 /** Explictly initializes the library; can be used to pay for setup cost at a specific point. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_build_static();
 
-/** JIT a function and make it available for later dispatch. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_build_jit(int single_precision, int m, int n, int k);
+/** Generic type of a function. */
+typedef LIBXS_RETARGETABLE void (*libxs_function)(LIBXS_VARIADIC);
+
+/** JIT-generate a function and make it available for later dispatch. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_precision, int m, int n, int k);
 
 /** Type of a function generated for a specific M, N, and K. */
 typedef LIBXS_RETARGETABLE void (*libxs_smm_function)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c

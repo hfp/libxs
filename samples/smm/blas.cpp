@@ -52,7 +52,7 @@
 # pragma offload_attribute(pop)
 #endif
 
-#define MAX_SIZE (64 * 64)
+#define MAX_SIZE (80 * 80)
 
 
 template<int Seed>
@@ -127,6 +127,15 @@ int main(int argc, char* argv[])
         m, n, k, ldc, 0 != (LIBXS_ROW_MAJOR) ? "row-major" : "column-major",
         s, 1.0 * (s * (asize + bsize + csize_act) * sizeof(T)) / (1 << 20));
 
+      { // warm-up for BLAS Lib
+#if defined(_OPENMP)
+#       pragma omp parallel for
+#endif
+        for (int i = 0; i < s; ++i) {
+          libxs_blasmm(m, n, k, a + i * asize, b + i * bsize, c + i * csize_act);
+        }
+      }
+
       { // batched
         fprintf(stdout, "Batched (A,B,C)...\n");
 #if defined(_OPENMP)
@@ -142,7 +151,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
         }
-        fprintf(stdout, "\tduration: %.1f ms\n", 1000.0 * duration);
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
 #endif
       }
 
@@ -163,7 +172,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
         }
-        fprintf(stdout, "\tduration: %.1f ms\n", 1000.0 * duration);
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
 #endif
       }
 
@@ -184,7 +193,7 @@ int main(int argc, char* argv[])
         if (0 < duration) {
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
         }
-        fprintf(stdout, "\tduration: %.1f ms\n", 1000.0 * duration);
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
 #endif
       }
 

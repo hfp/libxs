@@ -1,7 +1,7 @@
 include/libxs.f90
 include/libxs.h
 include/libxs_generator.h
-build/libxs.c
+build/libxs_build.h
 build/mm_*_*_*.c
 bin/generator
 ide/_vs2015-*.bat

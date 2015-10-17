@@ -376,14 +376,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_crc32_u64(unsigned long long 
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, size_t size, unsigned int init)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int init)
 {
   const unsigned char *begin = (const unsigned char*)data, *next;
   const unsigned char *const endb = begin + size;
 
 #if defined(LIBXS_CRC32_ALIGNMENT) && 1 < (LIBXS_CRC32_ALIGNMENT)
   const unsigned char *const enda = LIBXS_ALIGN(begin, LIBXS_CRC32_ALIGNMENT);
-  if (size > (size_t)(endb - enda)) {
+  if (size > (unsigned int)(endb - enda)) {
     for (; begin < (enda - 7); begin += 8) {
       init = libxs_crc32_u64(*(const uint64_t*)begin, init);
     }
