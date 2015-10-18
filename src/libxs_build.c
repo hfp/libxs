@@ -102,7 +102,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
 {
   libxs_function result = 0;
 
-  /* calling libxs_build_jit shall imply an early/explicit initialization of the library */
+  /* calling libxs_build_jit shall imply an early/explicit initialization of the library, this is lazy initialization */
   libxs_build_static();
 
 #if (0 != (LIBXS_JIT))
@@ -240,9 +240,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_dispatch(int m, int n, int k)
 {
-#if 0 != (LIBXS_JIT) && 1 >= (LIBXS_JIT) /* automatic JITting */
+#if LIBXS_JIT == 1 /* automatic JITting */
   return (libxs_smm_function)libxs_build_jit(1/*single precision*/, m, n, k);
-#else /* explicit JITting */
+#else /* explicit JITting and static code generation */
+  /* calling libxs_build_jit shall imply an early/explicit initialization of the librar, this is lazy initializationy */
+  libxs_build_static();
+
   libxs_xgemm_descriptor LIBXS_XGEMM_DESCRIPTOR(desc, 1/*single precision*/, LIBXS_PREFETCH,
     1 < (LIBXS_ALIGNED_LOADS) ? (LIBXS_ALIGNED_LOADS) : 0, 1 < (LIBXS_ALIGNED_STORES) ? (LIBXS_ALIGNED_STORES) : 0,
     'n', 'n', 1/*alpha*/, LIBXS_BETA, m, n, k, m, k, LIBXS_ALIGN_STORES(m, sizeof(float)));
@@ -255,9 +258,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_dispatch(int m, i
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_dispatch(int m, int n, int k)
 {
-#if 0 != (LIBXS_JIT) && 1 >= (LIBXS_JIT) /* automatic JITting */
+#if LIBXS_JIT == 1 /* automatic JITting */
   return (libxs_dmm_function)libxs_build_jit(0/*double precision*/, m, n, k);
-#else /* explicit JITting */
+#else /* explicit JITting and static code generation */
+  /* calling libxs_build_jit shall imply an early/explicit initialization of the library, this is lazy initialization */
+  libxs_build_static();
+
   libxs_xgemm_descriptor LIBXS_XGEMM_DESCRIPTOR(desc, 0/*double precision*/, LIBXS_PREFETCH,
     1 < (LIBXS_ALIGNED_LOADS) ? (LIBXS_ALIGNED_LOADS) : 0, 1 < (LIBXS_ALIGNED_STORES) ? (LIBXS_ALIGNED_STORES) : 0,
     'n', 'n', 1/*alpha*/, LIBXS_BETA, m, n, k, m, k, LIBXS_ALIGN_STORES(m, sizeof(double)));
