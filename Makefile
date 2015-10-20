@@ -331,8 +331,8 @@ SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,generator_common.c generator_dense.c
 SRCFILES_GEN_BIN = $(patsubst %,$(SRCDIR)/%,generator_driver.c)
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_GEN_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_BIN))))
-OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) $(BLDDIR)/intel64/libxs_crc32.o $(BLDDIR)/intel64/libxs_build.o
-OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) $(BLDDIR)/mic/libxs_crc32.o $(BLDDIR)/mic/libxs_build.o
+OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) $(BLDDIR)/intel64/libxs_crc32.o $(BLDDIR)/intel64/libxs_build.o $(BLDDIR)/intel64/libxs_timer.o
+OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) $(BLDDIR)/mic/libxs_crc32.o $(BLDDIR)/mic/libxs_build.o $(BLDDIR)/mic/libxs_timer.o
 
 .PHONY: lib_all
 ifeq (0,$(OFFLOAD))
@@ -425,6 +425,7 @@ $(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/li
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_prefetch.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_fallback.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_generator.h $(INCDIR) 2> /dev/null || true
 	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(ROW_MAJOR) $(ALIGNMENT) $(ALIGNED_ST) $(ALIGNED_LD) \
 		$(PREFETCH_TYPE) $(JIT) $(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(BETA) $(INDICES) > $@
 

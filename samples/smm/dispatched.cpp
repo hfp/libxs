@@ -27,6 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include <libxs.h>
+#include <libxs_timer.h>
 
 #if defined(LIBXS_OFFLOAD_BUILD)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -89,11 +90,9 @@ int main(int argc, char* argv[])
     const int ldc = LIBXS_ALIGN_STORES(LIBXS_LD(m, n), sizeof(T));
     const int csize_act = ldc*n;
     const int s = (2ULL << 30) / ((asize + bsize + csize_act) * sizeof(T)); // 2 GByte
-#if defined(_OPENMP)
     const size_t bwsize_batched = (asize/*load*/ + bsize/*load*/ + 2*csize_act /*RFO*/) * sizeof(T); // batched
     const size_t bwsize = (asize/*load*/ + bsize/*load*/) * sizeof(T); // streamed, we skip C as this just in cache
     const double gflops = 2.0 * s * m * n * k * 1E-9;
-#endif
 
     struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
       T *a, *b, *c;
@@ -129,8 +128,8 @@ int main(int argc, char* argv[])
 
       { // batched
         fprintf(stdout, "Batched (A,B,C)...\n");
+        const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
-        double duration = -omp_get_wtime();
 #       pragma omp parallel for
 #endif
         for (int i = 0; i < s; ++i) {
@@ -138,20 +137,18 @@ int main(int argc, char* argv[])
           T* pc = c + i * csize_act;
           libxs_mm(m, n, k, pa, pb, pc LIBXS_PREFETCH_ARGA(pa + asize) LIBXS_PREFETCH_ARGB(pb + bsize) LIBXS_PREFETCH_ARGC(pc + csize_act));
         }
-#if defined(_OPENMP)
-        duration += omp_get_wtime();
+        const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-#endif
       }
 
       { // streaming
         fprintf(stdout, "Streamed (A,B)...\n");
+        const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
-        double duration = -omp_get_wtime();
 #       pragma omp parallel for
 #endif
         for (int i = 0; i < s; ++i) {
@@ -160,20 +157,18 @@ int main(int argc, char* argv[])
           const T *const pa = a + i * asize, *const pb = b + i * bsize;
           libxs_mm(m, n, k, pa, pb, tmp LIBXS_PREFETCH_ARGA(pa + asize) LIBXS_PREFETCH_ARGB(pb + bsize) LIBXS_PREFETCH_ARGC(tmp));
         }
-#if defined(_OPENMP)
-        duration += omp_get_wtime();
+        const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-#endif
       }
 
       { // cached
         fprintf(stdout, "Cached...\n");
+        const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
-        double duration = -omp_get_wtime();
 #       pragma omp parallel for
 #endif
         for (int i = 0; i < s; ++i) {
@@ -182,13 +177,11 @@ int main(int argc, char* argv[])
           // do nothing else with tmp; just a benchmark
           libxs_mm(m, n, k, a, b, tmp LIBXS_PREFETCH_ARGA(a) LIBXS_PREFETCH_ARGB(b) LIBXS_PREFETCH_ARGC(tmp));
         }
-#if defined(_OPENMP)
-        duration += omp_get_wtime();
+        const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-#endif
       }
 
       fprintf(stdout, "Finished\n");
