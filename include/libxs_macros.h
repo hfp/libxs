@@ -205,7 +205,11 @@
 # define LIBXS_FUNLOCK(FILE) _unlock_file(FILE)
 #else
 # if defined(__GNUC__)
-#   define LIBXS_SNPRINTF(S, N, F, ...) snprintf(S, N, F, ##__VA_ARGS__)
+#   if (199901L <= __STDC_VERSION__)
+#     define LIBXS_SNPRINTF(S, N, F, ...) snprintf(S, N, F, ##__VA_ARGS__)
+#   else
+#     define LIBXS_SNPRINTF(S, N, F, ...) sprintf(S, F, ##__VA_ARGS__); LIBXS_UNUSED(N)
+#   endif
 # else
 #   define LIBXS_SNPRINTF(S, N, F, ...) snprintf(S, N, F, __VA_ARGS__)
 # endif

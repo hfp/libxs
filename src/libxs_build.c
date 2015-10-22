@@ -154,10 +154,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
         strcpy(l_arch, "knl");
 #endif
         /* allocate buffer for code */
-        unsigned char *const l_gen_code = (unsigned char*)malloc(131072 * sizeof(unsigned char));
         libxs_generated_code l_generated_code;
-        l_generated_code.generated_code = (void*)l_gen_code;
-        l_generated_code.buffer_size = 0 != l_gen_code ? 131072 : 0;
+        l_generated_code.generated_code = malloc(131072 * sizeof(unsigned char));
+        l_generated_code.buffer_size = 0 != l_generated_code.generated_code ? 131072 : 0;
         l_generated_code.code_size = 0;
         l_generated_code.code_type = 2;
         l_generated_code.last_error = 0;
@@ -170,7 +169,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
 #if !defined(NDEBUG) /* library code is usually expected to be mute */
           fprintf(stderr, "%s\n", libxs_strerror(l_generated_code.last_error));
 #endif
-          free(l_gen_code);
+          free(l_generated_code.generated_code);
           return 0;
         }
 
@@ -178,22 +177,22 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
         const int l_code_pages = (((l_generated_code.code_size-1)*sizeof(unsigned char))/(LIBXS_BUILD_PAGESIZE))+1;
         const int l_code_page_size = (LIBXS_BUILD_PAGESIZE)*l_code_pages;
         const int l_fd = open("/dev/zero", O_RDWR);
-        void *const p = mmap(0, l_code_page_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, l_fd, 0);
+        void *const l_code = mmap(0, l_code_page_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, l_fd, 0);
         close(l_fd);
-        /* explicitly disable THP for this memory region, kernel 2.6.38 or higher!, remove -c89 when compiling LIBXS 
-        madvise(p, l_code_page_size, MADV_NOHUGEPAGE); */
-        if (p == MAP_FAILED) {
+        /* explicitly disable THP for this memory region, kernel 2.6.38 or higher */
+#if defined(MADV_NOHUGEPAGE)
+        madvise(l_code, l_code_page_size, MADV_NOHUGEPAGE);
+#endif
+        if (l_code == MAP_FAILED) {
 #if !defined(NDEBUG) /* library code is usually expected to be mute */
           fprintf(stderr, "LIBXS: something bad happend in mmap, couldn't allocate code buffer!\n");
 #endif
-          free(l_gen_code);
+          free(l_generated_code.generated_code);
           return 0;
         }
 
-        unsigned char *const l_code = (unsigned char*)p;
-        /*memset( l_code, 0, l_code_page_size );*/
-        memcpy( l_code, l_gen_code, l_generated_code.code_size );
-        const int error = mprotect( (void*)l_code, l_code_page_size, PROT_EXEC | PROT_READ );
+        memcpy( l_code, l_generated_code.generated_code, l_generated_code.code_size );
+        const int error = mprotect( l_code, l_code_page_size, PROT_EXEC | PROT_READ );
         if (error == -1) {
 #if !defined(NDEBUG)
           int errsv = errno;
@@ -207,7 +206,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
             fprintf(stderr, "LIBXS: mprotect failed: Unknown Error!\n");
           }
 #endif
-          free(l_gen_code);
+          free(l_generated_code.generated_code);
           return 0;
         }
 
@@ -220,12 +219,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
                  l_xgemm_desc.trans_a, l_xgemm_desc.trans_b, l_xgemm_desc.prefetch ); 
         FILE *const l_byte_code = fopen( l_objdump_name, "wb");
         if ( l_byte_code != NULL ) {
-          fwrite( (const void*)l_gen_code, 1, l_generated_code.code_size, l_byte_code);
+          fwrite( l_generated_code.generated_code, 1, l_generated_code.code_size, l_byte_code);
           fclose( l_byte_code );
         }
 #endif
         /* free temporary buffer, and prepare return value */
-        free(l_gen_code);
+        free(l_generated_code.generated_code);
         result = (libxs_function)l_code;
 
         /* make function pointer available for dispatch */
