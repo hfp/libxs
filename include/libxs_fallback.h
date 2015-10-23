@@ -77,7 +77,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   int libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
   REAL libxs_alpha_ = 1, libxs_beta_ = 0; \
   char libxs_trans_ = 'N'; \
-  LIBXS_FSYMBOL(LIBXS_BLASPREC(, REAL, gemm))(&libxs_trans_, &libxs_trans_, \
+  LIBXS_FSYMBOL(LIBXS_BLASPREC(REAL, gemm))(&libxs_trans_, &libxs_trans_, \
     &libxs_m_, &libxs_n_, &libxs_k_, &libxs_alpha_, \
     (REAL*)LIBXS_LD(A, B), &libxs_m_, \
     (REAL*)LIBXS_LD(B, A), &libxs_k_, \
@@ -119,7 +119,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   int libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
   REAL libxs_alpha_ = 1, libxs_beta_ = 1; \
   char libxs_trans_ = 'N'; \
-  LIBXS_FSYMBOL(LIBXS_BLASPREC(, REAL, gemm))(&libxs_trans_, &libxs_trans_, \
+  LIBXS_FSYMBOL(LIBXS_BLASPREC(REAL, gemm))(&libxs_trans_, &libxs_trans_, \
     &libxs_m_, &libxs_n_, &libxs_k_, &libxs_alpha_, \
     (REAL*)LIBXS_LD(A, B), &libxs_m_, \
     (REAL*)LIBXS_LD(B, A), &libxs_k_, \
@@ -163,8 +163,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
  */
 #define LIBXS_MM(REAL, M, N, K, A, B, C, PA, PB, PC) \
   if ((LIBXS_MAX_MNK) >= ((M) * (N) * (K))) { \
-    const LIBXS_BLASPREC(libxs_, REAL, mm_function) libxs_mm_function_ = \
-      LIBXS_BLASPREC(libxs_, REAL, mm_dispatch)(M, N, K); \
+    const LIBXS_CONCATENATE(libxs_, LIBXS_BLASPREC(REAL, mm_function)) libxs_mm_function_ = \
+      LIBXS_CONCATENATE(libxs_, LIBXS_BLASPREC(REAL, mm_dispatch))(M, N, K); \
     if (libxs_mm_function_) { \
       libxs_mm_function_(A, B, C LIBXS_PREFETCH_ARGA(PA) LIBXS_PREFETCH_ARGB(PB) LIBXS_PREFETCH_ARGC(PC)); \
     } \
