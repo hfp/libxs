@@ -140,7 +140,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
           int l_code_pages, l_code_page_size, l_fd;
           libxs_generated_code l_generated_code;
           char l_arch[14]; /* set arch string */
-          void* l_code;
+          union { /* used to avoid conversion warning */
+            libxs_function pf;
+            void* pv;
+          } l_code;
 
 # ifdef __SSE3__
 #   ifndef __AVX__
@@ -182,14 +185,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
           l_code_pages = (((l_generated_code.code_size-1)*sizeof(unsigned char))/(LIBXS_BUILD_PAGESIZE))+1;
           l_code_page_size = (LIBXS_BUILD_PAGESIZE)*l_code_pages;
           l_fd = open("/dev/zero", O_RDWR);
-          l_code = mmap(0, l_code_page_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, l_fd, 0);
+          l_code.pv = mmap(0, l_code_page_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, l_fd, 0);
           close(l_fd);
 
           /* explicitly disable THP for this memory region, kernel 2.6.38 or higher */
 # if defined(MADV_NOHUGEPAGE)
-          madvise(l_code, l_code_page_size, MADV_NOHUGEPAGE);
+          madvise(l_code.pv, l_code_page_size, MADV_NOHUGEPAGE);
 # endif /*MADV_NOHUGEPAGE*/
-          if (l_code == MAP_FAILED) {
+          if (l_code.pv == MAP_FAILED) {
 # if !defined(NDEBUG) /* library code is usually expected to be mute */
             fprintf(stderr, "LIBXS: something bad happend in mmap, couldn't allocate code buffer!\n");
 # endif /*NDEBUG*/
@@ -197,8 +200,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
             return 0;
           }
 
-          memcpy( l_code, l_generated_code.generated_code, l_generated_code.code_size );
-          if (-1 == mprotect(l_code, l_code_page_size, PROT_EXEC | PROT_READ)) {
+          memcpy( l_code.pv, l_generated_code.generated_code, l_generated_code.code_size );
+          if (-1 == mprotect(l_code.pv, l_code_page_size, PROT_EXEC | PROT_READ)) {
 # if !defined(NDEBUG)
             int errsv = errno;
             if (errsv == EINVAL) {
@@ -230,7 +233,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
 # endif /*NDEBUG*/
           /* free temporary buffer, and prepare return value */
           free(l_generated_code.generated_code);
-          result = (libxs_function)l_code;
+          result = l_code.pf;
 
           /* make function pointer available for dispatch */
           cache[indx] = result;
