@@ -200,18 +200,14 @@
 # define NOMINMAX 1
 #endif
 #if defined(_WIN32)
-# define LIBXS_SNPRINTF(S, N, F, ...) _snprintf_s(S, N, _TRUNCATE, F, __VA_ARGS__)
+# define LIBXS_SNPRINTF(S, N, ...) _snprintf_s(S, N, _TRUNCATE, __VA_ARGS__)
 # define LIBXS_FLOCK(FILE) _lock_file(FILE)
 # define LIBXS_FUNLOCK(FILE) _unlock_file(FILE)
 #else
-# if defined(__GNUC__)
-#   if (199901L <= __STDC_VERSION__)
-#     define LIBXS_SNPRINTF(S, N, F, ...) snprintf(S, N, F, ##__VA_ARGS__)
-#   else
-#     define LIBXS_SNPRINTF(S, N, F, ...) sprintf(S, F, ##__VA_ARGS__); LIBXS_UNUSED(N)
-#   endif
+# if (199901L <= __STDC_VERSION__)
+#   define LIBXS_SNPRINTF(S, N, ...) snprintf(S, N, __VA_ARGS__)
 # else
-#   define LIBXS_SNPRINTF(S, N, F, ...) snprintf(S, N, F, __VA_ARGS__)
+#   define LIBXS_SNPRINTF(S, N, ...) sprintf(S, __VA_ARGS__); LIBXS_UNUSED(N)
 # endif
 # if !defined(__CYGWIN__)
 #   define LIBXS_FLOCK(FILE) flockfile(FILE)
