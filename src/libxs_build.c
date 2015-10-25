@@ -221,10 +221,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
 # if !defined(NDEBUG)
           /* write buffer for manual decode as binary to a file */
           char l_objdump_name[512];
-          sprintf( l_objdump_name, "kernel_prec%i_m%i_n%i_k%i_lda%i_ldb%i_ldc%i_a%i_b%i_ta%c_tb%c_pf%i.bin", 
+          sprintf( l_objdump_name, "kernel_prec%i_m%i_n%i_k%i_lda%i_ldb%i_ldc%i_a%i_b%i_ta%c_tb%c_pf%i.bin",
                    l_xgemm_desc.single_precision, l_xgemm_desc.m, l_xgemm_desc.n, l_xgemm_desc.k,
                    l_xgemm_desc.lda, l_xgemm_desc.ldb, l_xgemm_desc.ldc, l_xgemm_desc.alpha, l_xgemm_desc.beta,
-                   l_xgemm_desc.trans_a, l_xgemm_desc.trans_b, l_xgemm_desc.prefetch ); 
+                   l_xgemm_desc.trans_a, l_xgemm_desc.trans_b, l_xgemm_desc.prefetch );
           FILE *const l_byte_code = fopen( l_objdump_name, "wb");
           if ( l_byte_code != NULL ) {
             fwrite( l_generated_code.generated_code, 1, l_generated_code.code_size, l_byte_code);
