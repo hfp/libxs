@@ -74,7 +74,7 @@ LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_build_lock[] = {
 #endif
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_build_static()
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_build_static(void)
 {
   static int init = 0;
 
@@ -248,6 +248,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
 # endif /*_WIN32*/
     }
   }
+#else
+  LIBXS_UNUSED(single_precision); LIBXS_UNUSED(m); LIBXS_UNUSED(n); LIBXS_UNUSED(k);
 #endif /*LIBXS_JIT*/
   return result;
 }

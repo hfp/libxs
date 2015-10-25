@@ -53,7 +53,7 @@
 
 
 /** Explictly initializes the library; can be used to pay for setup cost at a specific point. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_build_static();
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_build_static(void);
 
 /** Generic type of a function. */
 typedef LIBXS_RETARGETABLE void (*libxs_function)(LIBXS_VARIADIC);

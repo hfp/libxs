@@ -42,7 +42,7 @@
 #endif
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned long long libxs_timer_tick()
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned long long libxs_timer_tick(void)
 {
 #if defined(_WIN32)
   LARGE_INTEGER t;

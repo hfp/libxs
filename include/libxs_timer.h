@@ -33,7 +33,7 @@
 
 
 /** Returns the current clock tick using a platform-specific resolution. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned long long libxs_timer_tick();
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned long long libxs_timer_tick(void);
 /** Returns the duration between two clock ticks (seconds). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE double libxs_timer_duration(unsigned long long tick0, unsigned long long tick1);
 
