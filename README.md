@@ -32,7 +32,32 @@ With C++ and FORTRAN function overloading, the library allows to omit the 's' an
 Note: Function overloading in FORTRAN is only recommended when using automatically dispatched calls. When querying function pointers, using a type-specific query function avoids to rely on using C_LOC for arrays (needed by the polymorphic version) which GNU Fortran (gfortran) refuses to digest (as it is not specified in the FORTRAN standard).
 
 # Performance
-## Auto-dispatch
+### Tuning
+By default all supported host code paths are generated (with the compiler picking the one according to the feature bits of the host). Specifying a particular code path will not only save some time when generating the static code ("printing"), but also enable cross-compilation for a target that is different from the compiler's host. The build system allows to conveniently select the target system when invoking 'make': SSE=3 (in fact SSE!=0), AVX=1, AVX=2 (with FMA), and AVX=3 are supported. The latter is targeting the Intel Knights Landing processor family ("KNL") and future Intel Xeon processors using foundational Intel AVX-512 instructions (AVX-512F):
+
+```
+make AVX=3
+```
+
+The library supports generating code using an "implicitly aligned leading dimension" for the destination matrix of a multiplication. The latter is enabling aligned store instructions, and also hints the inlinable C/C++ code accordingly. The client code may be arranged accordingly by checking the build parameters of the library (at compile-time using the preprocessor). Aligned store instructions imply a leading dimension which is a multiple of the default alignment:
+
+```
+make ALIGNED_STORES=1
+```
+
+The general alignment (ALIGNMENT=64) as well as an alignment specific for the store instructions (ALIGNED_STORES=n) can be specified when invoking 'make' (by default ALIGNED_STORES inherits ALIGNMENT when "enabled" using ALIGNED_STORES=1). The "implicitly aligned leading dimension" optimization is not expected to have a big impact due to the relatively low amount of store instructions in the mix. In contrast, supporting an "implicitly aligned leading dimension" for loading the input matrices is supposed to make a bigger impact, however this is not exposed by the build system because: (1) aligning a batch of input matrices implies usually larger code changes for the client code whereas accumulating into a local temporary destination matrix is a relatively minor change, and (2) today's Advanced Vector Extensions including the AVX-512 capable hardware supports unaligned load/store instructions.
+
+An extended interface can generated which allows to perform software prefetches. Prefetching data might be helpful when processing batches of matrix multiplications where the next operands are farther away or otherwise unpredictable in their memory location. The prefetch strategy can be specified similar as shown in the section [Directly invoking the generator backend](#directly-invoking-the-generator-backend) i.e., by either using the number of the shown enumeration, or by exactly using the name of the prefetch strategy. The only exception is PREFETCH=1 which is enabling a default strategy ("AL2_BL2viaC" rather than "nopf"). The following example is requesting the "AL2jpst" strategy:
+
+```
+make PREFETCH=8
+```
+
+The interface which is supporting software prefetches extends the signature of all kernels by three arguments (pa, pb, and pc) allowing the call-side to specify where to prefetch the operands of the "next" multiplication from (a, b, and c). There are [macros](https://github.com/hfp/libxs/blob/master/src/libxs_prefetch.h) available (C/C++ only) allowing to call the matrix multiplication functions in a prefetch-agnostic fashion (see [cp2k](https://github.com/hfp/libxs/blob/master/samples/cp2k/cp2k.cpp) or [smm](https://github.com/hfp/libxs/tree/master/samples/smm samples) code samples).
+
+Further, the generated interface of the library also encodes the parameters the library was built for (static information). This helps optimizing client code related to the library's functionality. For example, the LIBXS_MAX_* and LIBXS_AVG_* information can be used with the LIBXS_PRAGMA_LOOP_COUNT macro in order to hint loop trip counts when handling matrices related to the problem domain of LIBXS.
+
+### Auto-dispatch
 The function 'libxs_?mm_dispatch' helps amortizing the cost of the dispatch when multiple calls with the same M, N, and K are needed. In contrast, the automatic code dispatch is orchestrating three levels:
 
 1. Specialized routine (implemented in assembly code),
@@ -49,48 +74,61 @@ make THRESHOLD=$((60 * 60 * 60))
 
 The maximum of the given threshold and the largest requested specialization refines the value of the threshold. If a problem size is below the threshold, dispatching the code requires to figure out whether a specialized routine exists or not.
 
-### JIT Backend
-There might be situations in which it is up-front not clear which problem sizes will be needed when running an application. In order to leverage LIBXS's high-performance kernels, the library offers an experimental JIT (just-in-time) backend which generates the requested kernels on the fly. This is accomplished by emitting the corresponding byte-code directly into an executable buffer. As the JIT backend is still experimental, some limitations are in place:
-
-1. There is no support for SSE3 (Intel Xeon 5500/5600 series) and IMCI (Intel Xeon Phi coprocessor code-named Knights Corner) instruction set extensions
-2. LIBXS uses Pthread mutexes to guard updates of the JITted code cache (link line with -lpthread is required); building with OMP=1 employs an OpenMP critical section as an alternative locking mechanism.
-3. There is no support for the Windows calling convention.
-
-The JIT backend support in LIBXS can be enabled using:
+## Directly invoking the generator backend
+In rare situations it might be useful to directly incorporate generated C code (with inline assembly regions). This is accomplished by invoking a driver program (with certain command line arguments). The driver program is built as part of LIBXS's build process (when requesting static code generation), but also available via a separate build target:
 
 ```
-make JIT=1
+make generator
+bin/generator
 ```
 
-One can use the aforementioned THRESHOLD parameter to control the matrix sizes for which the JIT compilation will be automatically performed. However, explicitly requested kernels (by calling libxs_build_jit) are not subject to a problem size threshold. Moreover, building with JIT=2 (in fact, 1<JIT and JIT!=0) allows to solely rely on explicitly generating kernels at runtime. Of course, JIT code generation can be used to accompanying statically generated code.
+The code generator driver program accepts the following arguments:
 
-Note: Modern Linux kernels are supporting transparent huge pages (THP). LIBXS is sanitizing this feature when setting the permissions for pages holding the executable code. However, we measured up to 30%% slowdown when running JITted code in cases where THP decided to deliver a huge page. For systems with kernel 2.6.38 (or later) it is possible to disable THP for mmap'ed regions. Once can adjust [src/libxs_build.c](https://github.com/hfp/libxs/blob/master/src/libxs_build.c#L158), in order to prevent this problem (which also requires to remove the "-c89" flag when building LIBXS):
+1. dense/dense_asm/sparse (dense create C file, dense_asm creates ASM)
+2. Filename to append
+3. Routine name to be created in 2.
+4. M parameter
+5. N parameter
+6. K parameter
+7. LDA (0 when 1. is "sparse" indicates A is sparse)
+8. LDB (0 when 1. is "sparse" indicates B is sparse)
+9. LDC parameter
+10. alpha (currently only 1)
+11. beta (0 or 1)
+12. Alignment override for A (1 auto, 0 no alignment)
+13. Alignment override for C ( 1 auto, 0 no alignment)
+14. Prefetching mode (just dense & dense_asm, see next list)
+15. SP/DP single or double precision
+16. CSC file (just required when 1. is "sparse"). Matrix market format.
 
-```C
-int l_fd = open("/dev/zero", O_RDWR);
-void* p = mmap(0, l_code_page_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, l_fd, 0);
-close(l_fd);
-/* explicitly disable THP for this memory region */ 
-madvise(p, l_code_page_size, MADV_NOHUGEPAGE);
+The prefetch strategy can be:
+
+1. "nopf": no prefetching at all, just 3 inputs (\*A, \*B, \*C)
+2. "pfsigonly": just prefetching signature, 6 inputs (\*A, \*B, \*C, \*A’, \*B’, \*C’)
+3. "BL2viaC": uses accesses to \*C to prefetch \*B’
+4. "AL2": uses accesses to \*A to prefetch \*A’
+5. "curAL2": prefetches current \*A ahead in the kernel
+6. "AL2_BL2viaC": combines AL2 and BL2viaC
+7. "curAL2_BL2viaC": combines curAL2 and BL2viaC
+8. "AL2jpst": aggressive \*A’ prefetch of first rows without any structure
+9. "AL2jpst_BL2viaC": combines AL2jpst and BL2viaC
+
+Here are some examples of invoking the driver program:
+
+```
+bin/generator dense foo.c foo 16 16 16 32 32 32 1 1 1 1 hsw nopf DP
+bin/generator dense_asm foo.c foo 16 16 16 32 32 32 1 1 1 1 knl AL2_BL2viaC DP
+bin/generator sparse foo.c foo 16 16 16 32 0 32 1 1 1 1 hsw nopf DP bar.csc
 ```
 
-## Results
-The library does not claim to be "optimal" or "best-performing", and the presented results (figure 1-3) are modeling a certain application which might be not representative in general. Instead, information about how to reproduce the results is given.
+Please note, there are additional examples given in samples/generator and samples/seissol.
 
-![This plot shows the performance (based on LIBXS 1.0) for a dual-socket Intel Xeon E5-2699v3 ("Haswell") shows a "compact selection" (to make the plot visually more appealing) out of 386 specializations as useful for CP2K Open Source Molecular Dynamics [1]. The code has been generated and built by running "./[make.sh](https://github.com/hfp/libxs/blob/master/make.sh) -cp2k AVX=2 test -j". This and below plots were generated by running "cd samples/cp2k ; ./[cp2k-plot.sh](https://github.com/hfp/libxs/blob/master/samples/cp2k/cp2k-plot.sh) specialized cp2k-specialized.png -1". Please note, that larger problem sizes (MNK) carry a higher arithmetic intensity which usually leads to higher performance (less bottlenecked by memory bandwidth).](https://raw.githubusercontent.com/hfp/libxs/master/samples/cp2k/results/Xeon_E5-2699v3/1-cp2k-specialized.png)
-> This plot shows the performance (based on LIBXS 1.0) for a dual-socket Intel Xeon E5-2699v3 ("Haswell") shows a "compact selection" (to make the plot visually more appealing) out of 386 specializations as useful for CP2K Open Source Molecular Dynamics [1]. The code has been generated and built by running "./[make.sh](https://github.com/hfp/libxs/blob/master/make.sh) -cp2k AVX=2 test -j". This and below plots were generated by running "cd samples/cp2k ; ./[cp2k-plot.sh](https://github.com/hfp/libxs/blob/master/samples/cp2k/cp2k-plot.sh) specialized cp2k-specialized.png -1". Please note, that larger problem sizes (MNK) carry a higher arithmetic intensity which usually leads to higher performance (less bottlenecked by memory bandwidth).
+## Implementation
+## Roadmap
+Although the library is under development, the published interface is rather stable and may only be extended in future revisions. The following issues are being addressed in upcoming revisions:
 
-![This plot summarizes the performance (based on LIBXS 1.0) of the generated kernels by averaging the results over K (and therefore the bar on the right hand side may not show the same maximum when compared to other plots). The performance is well-tuned across the parameter space with no "cold islands", and the lower left "cold" corner is fairly limited. Please refer to the first figure on how to reproduce the results.](https://raw.githubusercontent.com/hfp/libxs/master/samples/cp2k/results/Xeon_E5-2699v3/2-cp2k-specialized.png)
-> This plot summarizes the performance (based on LIBXS 1.0) of the generated kernels by averaging the results over K (and therefore the bar on the right hand side may not show the same maximum when compared to other plots). The performance is well-tuned across the parameter space with no "cold islands", and the lower left "cold" corner is fairly limited. Please refer to the first figure on how to reproduce the results.
-
-![This plot shows the arithmetic average (non-sliding) of the performance (based on LIBXS 1.0) with respect to groups of problem sizes (MNK). The problem sizes are binned into three groups according to the shown intervals: "Small", "Medium", and "Larger" (notice that "larger" may still not be a large problem size). Please refer to the first figure on how to reproduce the results.](https://raw.githubusercontent.com/hfp/libxs/master/samples/cp2k/results/Xeon_E5-2699v3/3-cp2k-specialized.png)
-> This plot shows the arithmetic average (non-sliding) of the performance (based on LIBXS 1.0) with respect to groups of problem sizes (MNK). The problem sizes are binned into three groups according to the shown intervals: "Small", "Medium", and "Larger" (notice that "larger" may still not be a large problem size). Please refer to the first figure on how to reproduce the results.
-
-![In order to further summarize the previous plots, this graph shows the cumulative distribution function (CDF) of the performance (based on LIBXS 1.0) across all cases. Similar to the median value at 50%, one can read for example that 100% of the cases are yielding less or equal the largest discovered value. The value highlighted by the arrows is usually the median value, the [plot script](https://github.com/hfp/libxs/blob/master/samples/cp2k/cp2k-perf.plt) however attempts to highlight a single "fair performance value" representing all cases by linearly fitting the CDF, projecting onto the x-axis, and taking the midpoint of the projection (usually at 50%). Please note, that this diagram shows a statistical distribution and does not allow to identify any particular kernel. Moreover at any point of the x-axis ("Probability"), the "Compute Performance" and the "Memory Bandwidth" graph do not necessarily belong to the same kernel! Please refer to the first figure on how to reproduce the results.](https://raw.githubusercontent.com/hfp/libxs/master/samples/cp2k/results/Xeon_E5-2699v3/4-cp2k-specialized.png)
-> In order to further summarize the previous plots, this graph shows the cumulative distribution function (CDF) of the performance (based on LIBXS 1.0) across all cases. Similar to the median value at 50%, one can read for example that 100% of the cases are yielding less or equal the largest discovered value. The value highlighted by the arrows is usually the median value, the [plot script](https://github.com/hfp/libxs/blob/master/samples/cp2k/cp2k-perf.plt) however attempts to highlight a single "fair performance value" representing all cases by linearly fitting the CDF, projecting onto the x-axis, and taking the midpoint of the projection (usually at 50%). Please note, that this diagram shows a statistical distribution and does not allow to identify any particular kernel. Moreover at any point of the x-axis ("Probability"), the "Compute Performance" and the "Memory Bandwidth" graph do not necessarily belong to the same kernel! Please refer to the first figure on how to reproduce the results.
-
-# Limitations
-Beside of the inlinable C code or the optimized FORTRAN code path, the library is currently limited to a single code path which is selected at build time of the library (also true for JITted code). Without a specific flag (SSE=1, AVX=1|2|3), the static code generation emits code for all supported instruction set extensions. However, the compiler is picking only one of the generated code paths according to its code generation flags (or according to what is native with respect to the compiler-host). A future version of the library may be including all code paths at build time and allow for runtime-dynamic dispatch of the most suitable code path.
+* Full xGEMM interface, and extended code dispatcher
+* API supporting sparse matrices and other cases
 
 ## Applications and References
 **\[1] [http://cp2k.org/](http://cp2k.org/)**: Open Source Molecular Dynamics which (optionally) uses LIBXS. The application is generating batches of small matrix-matrix multiplications ("matrix stack") out of a problem-specific distributed block-sparse matrix (see https://github.com/hfp/libxs/raw/master/documentation/cp2k.pdf).
