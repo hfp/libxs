@@ -52,7 +52,7 @@
 # pragma offload_attribute(pop)
 #endif
 
-#define LIBXS_BUILD_CACHESIZE ((LIBXS_MAX_M) * (LIBXS_MAX_N) * (LIBXS_MAX_K) * 8)
+#define LIBXS_BUILD_CACHESIZE ((LIBXS_MAX_MNK) * 8)
 #if !defined(_WIN32)
 #define LIBXS_BUILD_PAGESIZE sysconf(_SC_PAGESIZE)
 #else
@@ -112,10 +112,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_function libxs_build_jit(int single_prec
     libxs_function *const cache = libxs_cache[single_precision&1];
     unsigned int hash, indx;
 
-    /* build xgemm descriptor */
-    libxs_xgemm_descriptor LIBXS_XGEMM_DESCRIPTOR(l_xgemm_desc, single_precision, LIBXS_PREFETCH,
-      1 < (LIBXS_ALIGNED_LOADS) ? (LIBXS_ALIGNED_LOADS) : 0, 1 < (LIBXS_ALIGNED_STORES) ? (LIBXS_ALIGNED_STORES) : 0,
-      'n', 'n', 1/*alpha*/, LIBXS_BETA, m, n, k, m, k, LIBXS_ALIGN_STORES(m, 0 != single_precision ? sizeof(float) : sizeof(double)));
+    /* build xgemm descriptor: LIBXS_XGEMM_DESCRIPTOR(DESCRIPTOR, M, N, K, LDA, LDB, LDC, PREFETCH, FLAGS, FALPHA, FBETA) */
+    LIBXS_XGEMM_DESCRIPTOR_TYPE(l_xgemm_desc,
+      m, n, k, m, k, LIBXS_ALIGN_STORES(m, 0 != single_precision ? sizeof(float) : sizeof(double)), LIBXS_PREFETCH,
+      (0 == single_precision ? 0 : LIBXS_XGEMM_FLAG_F32PREC)
+        | (1 < (LIBXS_ALIGNED_LOADS) ? LIBXS_XGEMM_FLAG_ALIGN_A : 0)
+        | (1 < (LIBXS_ALIGNED_STORES) ? LIBXS_XGEMM_FLAG_ALIGN_C : 0),
+      1/*alpha*/, LIBXS_BETA);
 
     /* check if the requested xGEMM is already JITted */
     LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
@@ -264,9 +267,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_dispatch(int m, i
   /* calling libxs_build_jit shall imply an early/explicit initialization of the librar, this is lazy initializationy */
   libxs_build_static();
   {
-    libxs_xgemm_descriptor LIBXS_XGEMM_DESCRIPTOR(desc, 1/*single precision*/, LIBXS_PREFETCH,
-      1 < (LIBXS_ALIGNED_LOADS) ? (LIBXS_ALIGNED_LOADS) : 0, 1 < (LIBXS_ALIGNED_STORES) ? (LIBXS_ALIGNED_STORES) : 0,
-      'n', 'n', 1/*alpha*/, LIBXS_BETA, m, n, k, m, k, LIBXS_ALIGN_STORES(m, sizeof(float)));
+    /* build xgemm descriptor: LIBXS_XGEMM_DESCRIPTOR(DESCRIPTOR, M, N, K, LDA, LDB, LDC, PREFETCH, FLAGS, FALPHA, FBETA) */
+    LIBXS_XGEMM_DESCRIPTOR_TYPE(desc,
+      m, n, k, m, k, LIBXS_ALIGN_STORES(m, sizeof(float)), LIBXS_PREFETCH, LIBXS_XGEMM_FLAG_F32PREC
+        | (1 < (LIBXS_ALIGNED_LOADS) ? LIBXS_XGEMM_FLAG_ALIGN_A : 0)
+        | (1 < (LIBXS_ALIGNED_STORES) ? LIBXS_XGEMM_FLAG_ALIGN_C : 0),
+      1/*alpha*/, LIBXS_BETA);
     LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
     hash = libxs_crc32(&desc, LIBXS_XGEMM_DESCRIPTOR_SIZE, LIBXS_BUILD_SEED);
     indx = hash % (LIBXS_BUILD_CACHESIZE);
@@ -285,9 +291,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_dispatch(int m, i
   /* calling libxs_build_jit shall imply an early/explicit initialization of the library, this is lazy initialization */
   libxs_build_static();
   {
-    libxs_xgemm_descriptor LIBXS_XGEMM_DESCRIPTOR(desc, 0/*double precision*/, LIBXS_PREFETCH,
-      1 < (LIBXS_ALIGNED_LOADS) ? (LIBXS_ALIGNED_LOADS) : 0, 1 < (LIBXS_ALIGNED_STORES) ? (LIBXS_ALIGNED_STORES) : 0,
-      'n', 'n', 1/*alpha*/, LIBXS_BETA, m, n, k, m, k, LIBXS_ALIGN_STORES(m, sizeof(double)));
+    /* build xgemm descriptor: LIBXS_XGEMM_DESCRIPTOR(DESCRIPTOR, M, N, K, LDA, LDB, LDC, PREFETCH, FLAGS, FALPHA, FBETA) */
+    LIBXS_XGEMM_DESCRIPTOR_TYPE(desc,
+      m, n, k, m, k, LIBXS_ALIGN_STORES(m, sizeof(double)), LIBXS_PREFETCH, 0/*double-precision*/
+        | (1 < (LIBXS_ALIGNED_LOADS) ? LIBXS_XGEMM_FLAG_ALIGN_A : 0)
+        | (1 < (LIBXS_ALIGNED_STORES) ? LIBXS_XGEMM_FLAG_ALIGN_C : 0),
+      1/*alpha*/, LIBXS_BETA);
     LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
     hash = libxs_crc32(&desc, LIBXS_XGEMM_DESCRIPTOR_SIZE, LIBXS_BUILD_SEED);
     indx = hash % (LIBXS_BUILD_CACHESIZE);
