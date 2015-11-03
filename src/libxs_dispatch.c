@@ -51,13 +51,13 @@
 # pragma offload_attribute(pop)
 #endif
 
-#define LIBXS_BUILD_CACHESIZE ((LIBXS_MAX_MNK) * 8)
+#define LIBXS_DISPATCH_CACHESIZE ((LIBXS_MAX_MNK) * 8)
 #if !defined(_WIN32)
-#define LIBXS_BUILD_PAGESIZE sysconf(_SC_PAGESIZE)
+#define LIBXS_DISPATCH_PAGESIZE sysconf(_SC_PAGESIZE)
 #else
-#define LIBXS_BUILD_PAGESIZE 4096
+#define LIBXS_DISPATCH_PAGESIZE 4096
 #endif
-#define LIBXS_BUILD_SEED 0
+#define LIBXS_DISPATCH_SEED 0
 
 
 /** Filled with zeros due to C language rule. */
@@ -66,10 +66,10 @@ typedef union LIBXS_RETARGETABLE libxs_cache_entry {
   libxs_dmm_function dmm;
   const void* pv;
 } libxs_cache_entry;
-LIBXS_RETARGETABLE libxs_cache_entry libxs_cache[(LIBXS_BUILD_CACHESIZE)];
+LIBXS_RETARGETABLE libxs_cache_entry libxs_cache[(LIBXS_DISPATCH_CACHESIZE)];
 
 #if !defined(_OPENMP)
-LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_build_lock[] = {
+LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
@@ -86,10 +86,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 #if !defined(_OPENMP)
     int i;
     for (i = 0; i < 0; ++i) {
-      LIBXS_LOCK_ACQUIRE(libxs_build_lock[i]);
+      LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[i]);
     }
 #else
-#   pragma omp critical(libxs_build_lock)
+#   pragma omp critical(libxs_dispatch_lock)
 #endif
     if (0 == init) {
 #     include <libxs_dispatch.h>
@@ -97,7 +97,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
     }
 #if !defined(_OPENMP)
     for (i = 0; i < 0; ++i) {
-      LIBXS_LOCK_RELEASE(libxs_build_lock[i]);
+      LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
     }
 #endif
   }
@@ -115,18 +115,18 @@ LIBXS_RETARGETABLE libxs_cache_entry libxs_build(const libxs_gemm_descriptor* de
 
   /* check if the requested xGEMM is already JITted */
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
-  hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_BUILD_SEED);
+  hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_DISPATCH_SEED);
 
-  indx = hash % (LIBXS_BUILD_CACHESIZE);
+  indx = hash % (LIBXS_DISPATCH_CACHESIZE);
   result = libxs_cache[indx]; /* TODO: handle collision */
 #if (0 != (LIBXS_JIT))
   if (0 == result.pv) {
 # if !defined(_WIN32)
 # if !defined(_OPENMP)
-    const unsigned int lock = LIBXS_MOD2(indx, sizeof(libxs_build_lock) / sizeof(*libxs_build_lock));
-    LIBXS_LOCK_ACQUIRE(libxs_build_lock[lock]);
+    const unsigned int lock = LIBXS_MOD2(indx, sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock));
+    LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[lock]);
 # else
-#   pragma omp critical(libxs_build_lock)
+#   pragma omp critical(libxs_dispatch_lock)
 # endif
     {
       result = libxs_cache[indx];
@@ -176,8 +176,8 @@ LIBXS_RETARGETABLE libxs_cache_entry libxs_build(const libxs_gemm_descriptor* de
         }
 
         /* create executable buffer */
-        l_code_pages = (((l_generated_code.code_size-1)*sizeof(unsigned char))/(LIBXS_BUILD_PAGESIZE))+1;
-        l_code_page_size = (LIBXS_BUILD_PAGESIZE)*l_code_pages;
+        l_code_pages = (((l_generated_code.code_size-1)*sizeof(unsigned char))/(LIBXS_DISPATCH_PAGESIZE))+1;
+        l_code_page_size = (LIBXS_DISPATCH_PAGESIZE)*l_code_pages;
         l_fd = open("/dev/zero", O_RDWR);
         l_code = mmap(0, l_code_page_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, l_fd, 0);
         close(l_fd);
@@ -241,7 +241,7 @@ LIBXS_RETARGETABLE libxs_cache_entry libxs_build(const libxs_gemm_descriptor* de
     }
 
 # if !defined(_OPENMP)
-    LIBXS_LOCK_RELEASE(libxs_build_lock[lock]);
+    LIBXS_LOCK_RELEASE(libxs_dispatch_lock[lock]);
 # endif
 # else
 #   error "LIBXS ERROR: JITTING IS NOT SUPPORTED ON WINDOWS RIGHT NOW!"
