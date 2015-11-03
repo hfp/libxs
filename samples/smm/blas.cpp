@@ -77,6 +77,7 @@ int main(int argc, char* argv[])
 {
   try {
     typedef double T;
+    const T alpha = 1, beta = 1;
     const int m = 1 < argc ? std::atoi(argv[1]) : 23;
     const int n = 2 < argc ? std::atoi(argv[2]) : m;
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
@@ -119,8 +120,8 @@ int main(int argc, char* argv[])
 #if defined(MKL_ENABLE_AVX512_MIC)
       mkl_enable_instructions(MKL_ENABLE_AVX512_MIC);
 #endif
-      /* Init LIBXS */
-      libxs_build_static();
+      // initialize LIBXS
+      libxs_init();
 
       fprintf(stdout, "m=%i n=%i k=%i ldc=%i (%s) size=%i memory=%.f MB\n\n",
         m, n, k, ldc, 0 != (LIBXS_ROW_MAJOR) ? "row-major" : "column-major",
@@ -131,7 +132,7 @@ int main(int argc, char* argv[])
 #       pragma omp parallel for
 #endif
         for (int i = 0; i < s; ++i) {
-          libxs_blasmm(m, n, k, a + i * asize, b + i * bsize, c + i * csize_act);
+          libxs_blasmm(alpha, beta, m, n, k, a + i * asize, b + i * bsize, c + i * csize_act);
         }
       }
 
@@ -142,7 +143,7 @@ int main(int argc, char* argv[])
 #       pragma omp parallel for
 #endif
         for (int i = 0; i < s; ++i) {
-          libxs_blasmm(m, n, k, a + i * asize, b + i * bsize, c + i * csize_act);
+          libxs_blasmm(alpha, beta, m, n, k, a + i * asize, b + i * bsize, c + i * csize_act);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -161,7 +162,7 @@ int main(int argc, char* argv[])
         for (int i = 0; i < s; ++i) {
           // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNED_MAX);
-          libxs_blasmm(m, n, k, a + i * asize, b + i * bsize, tmp);
+          libxs_blasmm(alpha, beta, m, n, k, a + i * asize, b + i * bsize, tmp);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -181,7 +182,7 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNED_MAX);
           // do nothing else with tmp; just a benchmark
-          libxs_blasmm(m, n, k, a, b, tmp);
+          libxs_blasmm(alpha, beta, m, n, k, a, b, tmp);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {

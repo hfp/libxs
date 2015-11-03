@@ -342,8 +342,8 @@ SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,generator_common.c generator_dense.c
 SRCFILES_GEN_BIN = $(patsubst %,$(SRCDIR)/%,generator_driver.c)
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_GEN_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_BIN))))
-OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) $(BLDDIR)/intel64/libxs_crc32.o $(BLDDIR)/intel64/libxs_build.o $(BLDDIR)/intel64/libxs_timer.o
-OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) $(BLDDIR)/mic/libxs_crc32.o $(BLDDIR)/mic/libxs_build.o $(BLDDIR)/mic/libxs_timer.o
+OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) $(BLDDIR)/intel64/libxs_crc32.o $(BLDDIR)/intel64/libxs_dispatch.o $(BLDDIR)/intel64/libxs_timer.o
+OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) $(BLDDIR)/mic/libxs_crc32.o $(BLDDIR)/mic/libxs_dispatch.o $(BLDDIR)/mic/libxs_timer.o
 
 .PHONY: lib_all
 ifeq (0,$(OFFLOAD))
@@ -436,9 +436,11 @@ cheader: $(INCDIR)/libxs.h
 $(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.h $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_prefetch.h $(ROOTDIR)/include/libxs_fallback.h
 	@mkdir -p $(dir $@)
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_prefetch.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_fallback.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_prefetch.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_generator.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
 	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(ROW_MAJOR) $(ALIGNMENT) $(ALIGNED_ST) $(ALIGNED_LD) \
 		$(PREFETCH_TYPE) $(JIT) $(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(BETA) $(INDICES) > $@
 
@@ -468,9 +470,6 @@ ifeq (0,$(STATIC))
 else
 	$(AR) -rs $@ $^
 endif
-	@cat $(SRCDIR)/generator_extern_typedefs.h > $(INCDIR)/libxs_generator.h
-	@cat $(SRCDIR)/generator_dense.h | grep -v "generator_extern_typedefs.h" >> $(INCDIR)/libxs_generator.h
-	@cat $(SRCDIR)/generator_sparse.h | grep -v "generator_extern_typedefs.h" >> $(INCDIR)/libxs_generator.h
 
 .PHONY: compile_generator
 compile_generator: $(OBJFILES_GEN_BIN)
@@ -555,8 +554,8 @@ endif
 	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(MVALUE) $(NVALUE) $(KVALUE) >> $@
 
 .PHONY: main
-main: $(BLDDIR)/libxs_build.h
-$(BLDDIR)/libxs_build.h: $(INCDIR)/libxs.h $(SCRDIR)/libxs_dispatch.py
+main: $(BLDDIR)/libxs_dispatch.h
+$(BLDDIR)/libxs_dispatch.h: $(INCDIR)/libxs.h $(SCRDIR)/libxs_dispatch.py
 	@mkdir -p $(dir $@)
 	@python $(SCRDIR)/libxs_dispatch.py $(THRESHOLD) $(INDICES) > $@
 
@@ -573,10 +572,10 @@ endif
 
 .PHONY: compile_hst
 compile_hst: $(OBJFILES_HST)
-$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(INCDIR)/libxs.h $(BLDDIR)/libxs_build.h
+$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
-$(BLDDIR)/intel64/%.o: $(SRCDIR)/%.c $(INCDIR)/libxs.h $(BLDDIR)/libxs_build.h
+$(BLDDIR)/intel64/%.o: $(SRCDIR)/%.c $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
 
@@ -811,10 +810,10 @@ ifneq ($(abspath $(BLDDIR)),$(ROOTDIR))
 ifneq ($(abspath $(BLDDIR)),$(abspath .))
 	@rm -rf $(BLDDIR) *.mod
 else
-	@rm -f $(OBJECTS) $(BLDDIR)/libxs_build.h $(BLDDIR)/*.mod
+	@rm -f $(OBJECTS) $(BLDDIR)/libxs_dispatch.h $(BLDDIR)/*.mod
 endif
 else
-	@rm -f $(OBJECTS) $(BLDDIR)/libxs_build.h $(BLDDIR)/*.mod
+	@rm -f $(OBJECTS) $(BLDDIR)/libxs_dispatch.h $(BLDDIR)/*.mod
 endif
 
 .PHONY: realclean
@@ -843,7 +842,6 @@ endif
 	@rm -f $(SPLDIR)/nek/stpm-perf.sh
 	@rm -f $(INCDIR)/libxs.f90
 	@rm -f $(INCDIR)/libxs.h
-	@rm -f $(INCDIR)/libxs_generator.h
 
 install: all clean
 

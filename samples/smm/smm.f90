@@ -95,7 +95,7 @@ PROGRAM smm
   WRITE (*, "(A,I3,A,I3,A,I3,A,I6)") "m=", m, " n=", n, " k=", k, " size=", UBOUND(a, 3) 
 
   ! Init LIBXS
-  CALL libxs_build_static()
+  CALL libxs_init()
 
   ! compute refernce solution
   CALL GETENV("CHECK", argv)

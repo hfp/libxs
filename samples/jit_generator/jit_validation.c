@@ -44,9 +44,7 @@
 /*#include <libxs_generator.h>*/
 /*@TODO remove:*/
 #define LIBXS_BUILD_PAGESIZE sysconf(_SC_PAGESIZE)
-#include <generator_extern_typedefs.h>
-#include <generator_dense.h>
-#include <generator_sparse.h>
+#include <libxs_generator.h>
 #include <generator_common.h>
 #include <generator_dense_instructions.h>
 
@@ -79,7 +77,7 @@ void init_double( double*                         io_a,
                   double*                         io_b,
                   double*                         io_c,
                   double*                         io_c_gold,
-                  const libxs_xgemm_descriptor* i_xgemm_desc ) {
+                  const libxs_gemm_descriptor* i_xgemm_desc ) {
   unsigned int l_i, l_j;
 
   // touch A
@@ -107,7 +105,7 @@ void init_float( float*                          io_a,
                  float*                          io_b,
                  float*                          io_c,
                  float*                          io_c_gold,
-                 const libxs_xgemm_descriptor* i_xgemm_desc ) {
+                 const libxs_gemm_descriptor* i_xgemm_desc ) {
   unsigned int l_i, l_j;
 
   // touch A
@@ -134,7 +132,7 @@ void init_float( float*                          io_a,
 void run_gold_double( const double*                   i_a,
                       const double*                   i_b,
                       double*                         o_c,
-                      const libxs_xgemm_descriptor* i_xgemm_desc ) {
+                      const libxs_gemm_descriptor* i_xgemm_desc ) {
   unsigned int l_m, l_n, l_k, l_t;
   double l_runtime = 0.0;
 
@@ -162,7 +160,7 @@ void run_gold_double( const double*                   i_a,
 void run_gold_float( const float*                   i_a,
                      const float*                   i_b,
                      float*                         o_c,
-                     const libxs_xgemm_descriptor* i_xgemm_desc ) {
+                     const libxs_gemm_descriptor* i_xgemm_desc ) {
   unsigned int l_m, l_n, l_k, l_t;
   double l_runtime = 0.0;
 
@@ -189,7 +187,7 @@ void run_gold_float( const float*                   i_a,
 void run_jit_double( const double*                   i_a,
                      const double*                   i_b,
                      double*                         o_c,
-                     const libxs_xgemm_descriptor* i_xgemm_desc,
+                     const libxs_gemm_descriptor* i_xgemm_desc,
                      const char*                     i_arch ) {
   struct timeval l_start, l_end;
 
@@ -305,7 +303,7 @@ void run_jit_double( const double*                   i_a,
 void run_jit_float( const float*                    i_a,
                     const float*                    i_b,
                     float*                          o_c,
-                    const libxs_xgemm_descriptor* i_xgemm_desc,
+                    const libxs_gemm_descriptor* i_xgemm_desc,
                     const char*                     i_arch ) {
   struct timeval l_start, l_end;
 
@@ -419,7 +417,7 @@ void run_jit_float( const float*                    i_a,
 
 void max_error_double( const double*                   i_c,
                        const double*                   i_c_gold,
-                       const libxs_xgemm_descriptor* i_xgemm_desc ) {
+                       const libxs_gemm_descriptor* i_xgemm_desc ) {
   unsigned int l_i, l_j;
   double l_max_error = 0.0;
 
@@ -438,7 +436,7 @@ void max_error_double( const double*                   i_c,
 
 void max_error_float( const float*                    i_c,
                       const float*                    i_c_gold,
-                      const libxs_xgemm_descriptor* i_xgemm_desc ) {
+                      const libxs_gemm_descriptor* i_xgemm_desc ) {
   unsigned int l_i, l_j;
   double l_max_error = 0.0;
 
@@ -559,7 +557,7 @@ int main(int argc, char* argv []) {
     return -1;
   }
 
-  libxs_xgemm_descriptor l_xgemm_desc;
+  libxs_gemm_descriptor l_xgemm_desc;
   if ( l_m < 0 ) { l_xgemm_desc.m = 0; } else {  l_xgemm_desc.m = l_m; }
   if ( l_n < 0 ) { l_xgemm_desc.n = 0; } else {  l_xgemm_desc.n = l_n; }
   if ( l_k < 0 ) { l_xgemm_desc.k = 0; } else {  l_xgemm_desc.k = l_k; }

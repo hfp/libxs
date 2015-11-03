@@ -77,6 +77,7 @@ int main(int argc, char* argv[])
 {
   try {
     typedef double T;
+    const T alpha = 1, beta = 1;
     const int m = 1 < argc ? std::atoi(argv[1]) : 23;
     const int n = 2 < argc ? std::atoi(argv[2]) : m;
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
@@ -119,14 +120,14 @@ int main(int argc, char* argv[])
 #if defined(MKL_ENABLE_AVX512_MIC)
       mkl_enable_instructions(MKL_ENABLE_AVX512_MIC);
 #endif
-      /* Init LIBXS */
-      libxs_build_static();
+      // initialize LIBXS
+      libxs_init();
 
       fprintf(stdout, "m=%i n=%i k=%i ldc=%i (%s) size=%i memory=%.f MB\n\n",
         m, n, k, ldc, 0 != (LIBXS_ROW_MAJOR) ? "row-major" : "column-major",
         s, 1.0 * (s * (asize + bsize + csize_act) * sizeof(T)) / (1 << 20));
 
-      const libxs_mm_dispatch<T> xmm(m, n, k);
+      const libxs_function<T>::type xmm = libxs_mm_dispatch(alpha, beta, m, n, k);
       if (!xmm) {
         throw std::runtime_error("no specialized routine found!");
       }
@@ -140,7 +141,7 @@ int main(int argc, char* argv[])
         for (int i = 0; i < s; ++i) {
           const T *const pa = a + i * asize, *const pb = b + i * bsize;
           T* pc = c + i * csize_act;
-          xmm(pa, pb, pc LIBXS_PREFETCH_ARGA(pa + asize) LIBXS_PREFETCH_ARGB(pb + bsize) LIBXS_PREFETCH_ARGC(pc + csize_act));
+          xmm(alpha, beta, pa, pb, pc LIBXS_PREFETCH_ARGA(pa + asize) LIBXS_PREFETCH_ARGB(pb + bsize) LIBXS_PREFETCH_ARGC(pc + csize_act));
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -160,7 +161,7 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNED_MAX);
           const T *const pa = a + i * asize, *const pb = b + i * bsize;
-          xmm(pa, pb, tmp LIBXS_PREFETCH_ARGA(pa + asize) LIBXS_PREFETCH_ARGB(pb + bsize) LIBXS_PREFETCH_ARGC(tmp));
+          xmm(alpha,beta, pa, pb, tmp LIBXS_PREFETCH_ARGA(pa + asize) LIBXS_PREFETCH_ARGB(pb + bsize) LIBXS_PREFETCH_ARGC(tmp));
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -180,7 +181,7 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNED_MAX);
           // do nothing else with tmp; just a benchmark
-          xmm(a, b, tmp LIBXS_PREFETCH_ARGA(a) LIBXS_PREFETCH_ARGB(b) LIBXS_PREFETCH_ARGC(tmp));
+          xmm(alpha, beta, a, b, tmp LIBXS_PREFETCH_ARGA(a) LIBXS_PREFETCH_ARGB(b) LIBXS_PREFETCH_ARGC(tmp));
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {

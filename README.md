@@ -12,7 +12,7 @@ The interface of the library is *generated* according to the [Build Instructions
 /** Initialization function to set up LIBXS's dispatching table. One may
     call this routine to avoid lazy initialization overhead in the first
     call to a LIBXS kernel routine */
-void libxs_build_static();
+void libxs_init();
 /** If non-zero function pointer is returned, call (*function)(M, N, K). */
 libxs_smm_function libxs_smm_dispatch(int m, int n, int k);
 libxs_dmm_function libxs_dmm_dispatch(int m, int n, int k);

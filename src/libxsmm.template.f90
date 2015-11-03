@@ -94,7 +94,7 @@ MODULE LIBXS
   END INTERFACE
 
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: sgemm, dgemm
-  !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_build_static, libxs_build_jit
+  !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_init, libxs_build_jit
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_dispatch, libxs_dmm_dispatch
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_tick, libxs_timer_duration
   INTERFACE
@@ -113,8 +113,8 @@ MODULE LIBXS
       REAL(LIBXS_DOUBLE_PRECISION), INTENT(INOUT) :: c(ldc,*)
     END SUBROUTINE
 
-    ! Init the library
-    PURE SUBROUTINE libxs_build_static() BIND(C)
+    ! Initialize the library
+    PURE SUBROUTINE libxs_init() BIND(C)
     END SUBROUTINE
 
     ! Build explicitly a kernel, do not rely on automatic JIT in dispatch
