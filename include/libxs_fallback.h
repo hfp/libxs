@@ -100,7 +100,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
       LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_LD(LIBXS_MAX_N, LIBXS_MAX_M), LIBXS_LD(LIBXS_AVG_N, LIBXS_AVG_M)) \
       for (libxs_i_ = 0; libxs_i_ < LIBXS_LD(N, M); ++libxs_i_) { \
         const UINT libxs_index_ = libxs_i_ * libxs_ldc_ + libxs_j_; \
-        REAL libxs_r_ = (REAL)(0 != (BETA) ? ((BETA) * libxs_c_[libxs_index_]) : 0); \
+        REAL libxs_r_ = (REAL)((0 < (BETA) || 0 > (BETA)) ? ((BETA) * libxs_c_[libxs_index_]) : 0); \
         LIBXS_PRAGMA_SIMD_REDUCTION(+:libxs_r_) \
         LIBXS_PRAGMA_UNROLL \
         for (libxs_k_ = 0; libxs_k_ < (K); ++libxs_k_) { \
