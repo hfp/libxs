@@ -67,7 +67,7 @@ typedef union LIBXS_RETARGETABLE libxs_cache_entry {
 } libxs_cache_entry;
 /** Filled with zeros due to C language rule. */
 LIBXS_RETARGETABLE libxs_cache_entry libxs_cache[(LIBXS_DISPATCH_CACHESIZE)];
-int libxs_init_check = 0;
+LIBXS_RETARGETABLE int libxs_init_check = 0;
 
 #if !defined(_OPENMP)
 LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
