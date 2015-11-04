@@ -82,25 +82,21 @@ LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 {
 #if !defined(_OPENMP)
+  const int nlocks = sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock);
+  int i;
+  /* acquire and release remaining locks to shortcut any lazy initialization later on */
+  for (i = 1; i < nlocks; ++i) {
+    LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[i]);
+    LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
+  }
   /* acquire one of the locks as the master lock */
   LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[0]);
 #else
 # pragma omp critical(libxs_dispatch_lock)
 #endif
   if (0 == libxs_init_check) {
-#if !defined(_OPENMP)
-    const int nlocks = sizeof(libxs_dispatch_lock) / sizeof(libxs_cache_entry);
-    int i;
-    /* acquire and release remaining locks to shortcut any lazy initialization later on */
-    for (i = 1; i < nlocks; ++i) {
-      LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[i]);
-      LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
-    }
-#endif
-    {
-      /* setup the dispatch table for the statically generated code */
-#     include <libxs_dispatch.h>
-    }
+    /* setup the dispatch table for the statically generated code */
+#   include <libxs_dispatch.h>
     libxs_init_check = 1;
   }
 #if !defined(_OPENMP)
