@@ -60,13 +60,14 @@
 #define LIBXS_DISPATCH_SEED 0
 
 
-/** Filled with zeros due to C language rule. */
 typedef union LIBXS_RETARGETABLE libxs_cache_entry {
   libxs_smm_function smm;
   libxs_dmm_function dmm;
   const void* pv;
 } libxs_cache_entry;
+/** Filled with zeros due to C language rule. */
 LIBXS_RETARGETABLE libxs_cache_entry libxs_cache[(LIBXS_DISPATCH_CACHESIZE)];
+int libxs_init_check = 0;
 
 #if !defined(_OPENMP)
 LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
@@ -78,40 +79,60 @@ LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
 #endif
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 {
-  static int init = 0;
-
-  if (0 == init) {
 #if !defined(_OPENMP)
+  /* acquire one of the locks as the master lock */
+  LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[0]);
+#else
+# pragma omp critical(libxs_dispatch_lock)
+#endif
+  if (0 == libxs_init_check) {
+#if !defined(_OPENMP)
+    const int nlocks = sizeof(libxs_dispatch_lock) / sizeof(libxs_cache_entry);
     int i;
-    for (i = 0; i < 0; ++i) {
+    /* acquire the rest of the locks to shortcut any lazy initialization later on */
+    for (i = 1; i < nlocks; ++i) {
       LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[i]);
     }
-#else
-#   pragma omp critical(libxs_dispatch_lock)
 #endif
-    if (0 == init) {
+    {
+      /* setup the dispatch table for the statically generated code */
 #     include <libxs_dispatch.h>
-      init = 1;
     }
+    libxs_init_check = 1;
 #if !defined(_OPENMP)
-    for (i = 0; i < 0; ++i) {
+    /* release the rest of the acquired locks */
+    for (i = 1; i < nlocks; ++i) {
       LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
     }
 #endif
   }
+#if !defined(_OPENMP)
+  /* release the master lock */
+  LIBXS_LOCK_RELEASE(libxs_dispatch_lock[0]);
+#endif
 }
 
 
-LIBXS_RETARGETABLE libxs_cache_entry libxs_build(const libxs_gemm_descriptor* desc)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
+{
+  if (0 == libxs_init_check) {
+    internal_init();
+  }
+}
+
+
+LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gemm_descriptor* desc)
 {
   libxs_cache_entry result;
   unsigned int hash, indx;
   assert(0 != desc);
 
   /* lazy initialization */
-  libxs_init();
+  if (0 == libxs_init_check) {
+    internal_init();
+  }
 
   /* check if the requested xGEMM is already JITted */
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
@@ -121,7 +142,7 @@ LIBXS_RETARGETABLE libxs_cache_entry libxs_build(const libxs_gemm_descriptor* de
   result = libxs_cache[indx]; /* TODO: handle collision */
 #if (0 != (LIBXS_JIT))
   if (0 == result.pv) {
-# if !defined(_WIN32)
+# if !defined(_WIN32) && !defined(__CYGWIN__)
 # if !defined(_OPENMP)
     const unsigned int lock = LIBXS_MOD2(indx, sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock));
     LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[lock]);
@@ -258,7 +279,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_dispatch(float al
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, alpha, beta, m, n, k, LIBXS_MAX(lda, LIBXS_LD(m, n)), LIBXS_MAX(ldb, k),
     LIBXS_MAX(ldc, LIBXS_ALIGN_STORES(LIBXS_LD(m, n), sizeof(double))),
     flags | LIBXS_GEMM_FLAG_F32PREC, prefetch);
-  return libxs_build(&desc).smm;
+  return internal_build(&desc).smm;
 }
 
 
@@ -268,5 +289,5 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_dispatch(double a
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, alpha, beta, m, n, k, LIBXS_MAX(lda, LIBXS_LD(m, n)), LIBXS_MAX(ldb, k),
     LIBXS_MAX(ldc, LIBXS_ALIGN_STORES(LIBXS_LD(m, n), sizeof(double))),
     flags, prefetch);
-  return libxs_build(&desc).dmm;
+  return internal_build(&desc).dmm;
 }
