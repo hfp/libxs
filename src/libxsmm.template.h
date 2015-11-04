@@ -44,6 +44,7 @@
 #define LIBXS_AVG_M $AVG_M
 #define LIBXS_AVG_N $AVG_N
 #define LIBXS_AVG_K $AVG_K
+#define LIBXS_ALPHA $ALPHA
 #define LIBXS_BETA $BETA
 #define LIBXS_JIT $JIT
 

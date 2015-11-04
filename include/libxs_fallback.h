@@ -51,6 +51,7 @@
 # define LIBXS_ALIGN_STORES(N, TYPESIZE) (N)
 #endif
 
+/** Flag representing the GEMM performed by the simplified interface. */
 #define LIBXS_GEMM_FLAG_DEFAULT ((1 < LIBXS_ALIGNED_LOADS  ? LIBXS_GEMM_FLAG_ALIGN_A : 0) \
                                  | (1 < LIBXS_ALIGNED_STORES ? LIBXS_GEMM_FLAG_ALIGN_C : 0))
 
