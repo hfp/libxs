@@ -52,13 +52,13 @@
 #include "libxs_fallback.h"
 
 
-/** Explicitly initializes the library; can be used to pay for setup cost at a specific point. */
+/** Initialize the library; pay for setup cost at a specific point. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
 
-/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not permitted (single-precision). */
+/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (single-precision). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_dispatch(float alpha, float beta, int m, int n, int k,
   int lda, int ldb, int ldc, int flags, int prefetch);
-/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not permitted (double-precision). */
+/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (double-precision). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_dispatch(double alpha, double beta, int m, int n, int k,
   int lda, int ldb, int ldc, int flags, int prefetch);
 
@@ -119,14 +119,14 @@ template<typename T> struct LIBXS_RETARGETABLE libxs_function { typedef void typ
 template<> struct LIBXS_RETARGETABLE libxs_function<float>    { typedef libxs_smm_function type; };
 template<> struct LIBXS_RETARGETABLE libxs_function<double>   { typedef libxs_dmm_function type; };
 
-/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not permitted. */
+/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported. */
 LIBXS_RETARGETABLE inline libxs_smm_function libxs_mm_dispatch(float alpha, float beta, int m, int n, int k,
   int lda = 0, int ldb = 0, int ldc = 0, int flags = LIBXS_GEMM_FLAG_DEFAULT, int prefetch = LIBXS_PREFETCH)
 {
   return libxs_smm_dispatch(alpha, beta, m, n, k, lda, ldb, ldc, flags, prefetch);
 }
 
-/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not permitted. */
+/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported. */
 LIBXS_RETARGETABLE inline libxs_dmm_function libxs_mm_dispatch(double alpha, double beta, int m, int n, int k,
   int lda = 0, int ldb = 0, int ldc = 0, int flags = LIBXS_GEMM_FLAG_DEFAULT, int prefetch = LIBXS_PREFETCH)
 {
