@@ -91,9 +91,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 #if !defined(_OPENMP)
     const int nlocks = sizeof(libxs_dispatch_lock) / sizeof(libxs_cache_entry);
     int i;
-    /* acquire the rest of the locks to shortcut any lazy initialization later on */
+    /* acquire and release remaining locks to shortcut any lazy initialization later on */
     for (i = 1; i < nlocks; ++i) {
       LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[i]);
+      LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
     }
 #endif
     {
@@ -101,12 +102,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 #     include <libxs_dispatch.h>
     }
     libxs_init_check = 1;
-#if !defined(_OPENMP)
-    /* release the rest of the acquired locks */
-    for (i = 1; i < nlocks; ++i) {
-      LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
-    }
-#endif
   }
 #if !defined(_OPENMP)
   /* release the master lock */
