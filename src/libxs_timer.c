@@ -62,7 +62,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned long long libxs_timer_tick(void)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE double libxs_timer_duration(unsigned long long tick0, unsigned long long tick1)
 {
-  const double d = (double)((tick0 < tick1 ? tick1 : tick0) - tick0);
+  const double d = (double)(LIBXS_MAX(tick1, tick0) - tick0);
 #if defined(_WIN32)
   LARGE_INTEGER frequency;
   QueryPerformanceFrequency(&frequency);
