@@ -91,6 +91,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 #else
 # define LIBXS_IMM(REAL, UINT, ALPHA, BETA, M, N, K, A, B, C) { \
     const REAL *const libxs_a_ = LIBXS_LD(B, A), *const libxs_b_ = LIBXS_LD(A, B); \
+    const REAL libxs_alpha_ = (REAL)((1 < (ALPHA) || 1 > (ALPHA)) ? (ALPHA) : 1); \
+    const REAL libxs_beta_ = (REAL)((0 < (BETA) || 0 > (BETA)) ? (BETA) : 0); \
     const UINT libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
     UINT libxs_i_, libxs_j_, libxs_k_; \
     REAL *const libxs_c_ = (C); \
@@ -101,11 +103,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
       LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_LD(LIBXS_MAX_N, LIBXS_MAX_M), LIBXS_LD(LIBXS_AVG_N, LIBXS_AVG_M)) \
       for (libxs_i_ = 0; libxs_i_ < LIBXS_LD(N, M); ++libxs_i_) { \
         const UINT libxs_index_ = libxs_i_ * libxs_ldc_ + libxs_j_; \
-        REAL libxs_r_ = (REAL)((0 < (BETA) || 0 > (BETA)) ? ((BETA) * libxs_c_[libxs_index_]) : 0); \
+        REAL libxs_r_ = libxs_c_[libxs_index_] * libxs_beta_; \
         LIBXS_PRAGMA_SIMD_REDUCTION(+:libxs_r_) \
         LIBXS_PRAGMA_UNROLL \
         for (libxs_k_ = 0; libxs_k_ < (K); ++libxs_k_) { \
-          libxs_r_ += ((REAL)(ALPHA)) * libxs_a_[libxs_i_*(K)+libxs_k_] \
+          libxs_r_ += libxs_a_[libxs_i_*(K)+libxs_k_] * libxs_alpha_ \
                       * libxs_b_[libxs_k_*LIBXS_LD(M,N)+libxs_j_]; \
         } \
         libxs_c_[libxs_index_] = libxs_r_; \
