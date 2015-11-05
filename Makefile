@@ -491,7 +491,7 @@ $(BINDIR)/generator: $(OBJFILES_GEN_BIN) $(OUTDIR)/intel64/libxsgen.$(LIBEXT) $(
 
 .PHONY: sources
 sources: $(SRCFILES)
-$(BLDDIR)/%.c: $(INCDIR)/libxs.h $(BINDIR)/generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_impl_mm.py
+$(BLDDIR)/%.c: $(INCDIR)/libxs.h $(BINDIR)/generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
 	$(eval MVALUE := $(shell echo $* | $(CUT) --output-delimiter=' ' -d_ -f2))
 	$(eval NVALUE := $(shell echo $* | $(CUT) --output-delimiter=' ' -d_ -f3))
 	$(eval KVALUE := $(shell echo $* | $(CUT) --output-delimiter=' ' -d_ -f4))
@@ -558,7 +558,7 @@ endif
 		-e '/#pragma message (".*KERNEL COMPILATION WARNING: compiling .\+ code on .\+ or newer architecture: " __FILE__)/d' \
 		$@
 	@rm -f ${TMPFILE}
-	@python $(SCRDIR)/libxs_impl_mm.py $(ROW_MAJOR) $(MVALUE) $(NVALUE) $(KVALUE) >> $@
+	@python $(SCRDIR)/libxs_specialized.py $(ROW_MAJOR) $(MVALUE) $(NVALUE) $(KVALUE) >> $@
 
 .PHONY: main
 main: $(BLDDIR)/libxs_dispatch.h

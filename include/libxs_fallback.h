@@ -119,16 +119,16 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 /**
  * Execute a generated function, inlined code, or fall back to the linked LAPACK implementation.
  * If M, N, and K does not change for multiple calls, it is more efficient to query and reuse
- * the function pointer (libxs_?mm_dispatch).
+ * the function pointer (libxs_?dispatch).
  */
 #define LIBXS_MM(REAL, ALPHA, BETA, M, N, K, A, B, C, PA, PB, PC) \
   if ((LIBXS_MAX_MNK) >= ((M) * (N) * (K))) { \
-    const LIBXS_CONCATENATE(libxs_, LIBXS_BLASPREC(REAL, mm_function)) libxs_mm_function_ = \
-      LIBXS_CONCATENATE(libxs_, LIBXS_BLASPREC(REAL, mm_dispatch))(ALPHA, BETA, M, N, K, \
+    const LIBXS_CONCATENATE(libxs_, LIBXS_BLASPREC(REAL, function)) libxs_function_ = \
+      LIBXS_CONCATENATE(libxs_, LIBXS_BLASPREC(REAL, dispatch))(ALPHA, BETA, M, N, K, \
       LIBXS_LD(M, N), K, LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)), \
       LIBXS_GEMM_FLAG_DEFAULT, LIBXS_PREFETCH); \
-    if (libxs_mm_function_) { \
-      libxs_mm_function_(ALPHA, BETA, A, B, C LIBXS_PREFETCH_ARGA(PA) LIBXS_PREFETCH_ARGB(PB) LIBXS_PREFETCH_ARGC(PC)); \
+    if (libxs_function_) { \
+      libxs_function_(ALPHA, BETA, A, B, C LIBXS_PREFETCH_ARGA(PA) LIBXS_PREFETCH_ARGB(PB) LIBXS_PREFETCH_ARGC(PC)); \
     } \
     else { \
       LIBXS_IMM(REAL, int, ALPHA, BETA, M, N, K, A, B, C); \

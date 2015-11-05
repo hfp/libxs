@@ -61,8 +61,8 @@
 
 
 typedef union LIBXS_RETARGETABLE libxs_cache_entry {
-  libxs_smm_function smm;
-  libxs_dmm_function dmm;
+  libxs_sfunction smm;
+  libxs_dfunction dmm;
   const void* pv;
 } libxs_cache_entry;
 /** Filled with zeros due to C language rule. */
@@ -264,7 +264,7 @@ LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gemm_descriptor*
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_dispatch(float alpha, float beta,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(float alpha, float beta,
   int m, int n, int k, int lda, int ldb, int ldc, int flags, int prefetch)
 {
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, alpha, beta, m, n, k, LIBXS_MAX(lda, LIBXS_LD(m, n)), LIBXS_MAX(ldb, k),
@@ -274,7 +274,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smm_function libxs_smm_dispatch(float al
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmm_function libxs_dmm_dispatch(double alpha, double beta,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(double alpha, double beta,
   int m, int n, int k, int lda, int ldb, int ldc, int flags, int prefetch)
 {
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, alpha, beta, m, n, k, LIBXS_MAX(lda, LIBXS_LD(m, n)), LIBXS_MAX(ldb, k),

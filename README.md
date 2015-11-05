@@ -14,8 +14,8 @@ The interface of the library is *generated* according to the [Build Instructions
     call to a LIBXS kernel routine */
 void libxs_init();
 /** If non-zero function pointer is returned, call (*function)(M, N, K). */
-libxs_smm_function libxs_smm_dispatch(int m, int n, int k);
-libxs_dmm_function libxs_dmm_dispatch(int m, int n, int k);
+libxs_sfunction libxs_sdispatch(int m, int n, int k);
+libxs_dfunction libxs_ddispatch(int m, int n, int k);
 /** Automatically dispatched matrix-matrix multiplication. */
 void libxs_smm(int m, int n, int k, const float* a, const float* b, float* c);
 void libxs_dmm(int m, int n, int k, const double* a, const double* b, double* c);
@@ -27,7 +27,7 @@ void libxs_sblasmm(int m, int n, int k, const float* a, const float* b, float* c
 void libxs_dblasmm(int m, int n, int k, const double* a, const double* b, double* c);
 ```
 
-With C++ and FORTRAN function overloading, the library allows to omit the 's' and 'd' prefixes denoting the numeric type in the above C interface. Further, in C++ a type 'libxs_mm_dispatch<*type*>' can be used to instantiate a functor rather than making a distinction for the numeric type in 'libxs_?mm_dispatch'.
+With C++ and FORTRAN function overloading, the library allows to omit the 's' and 'd' prefixes denoting the numeric type in the above C interface. Further, in C++ a type 'libxs_dispatch<*type*>' can be used to instantiate a functor rather than making a distinction for the numeric type in 'libxs_?dispatch'.
 
 Note: Function overloading in FORTRAN is only recommended when using automatically dispatched calls. When querying function pointers, using a type-specific query function avoids to rely on using C_LOC for arrays (needed by the polymorphic version) which GNU Fortran (gfortran) refuses to digest (as it is not specified in the FORTRAN standard).
 
@@ -58,7 +58,7 @@ The interface which is supporting software prefetches extends the signature of a
 Further, the generated interface of the library also encodes the parameters the library was built for (static information). This helps optimizing client code related to the library's functionality. For example, the LIBXS_MAX_* and LIBXS_AVG_* information can be used with the LIBXS_PRAGMA_LOOP_COUNT macro in order to hint loop trip counts when handling matrices related to the problem domain of LIBXS.
 
 ### Auto-dispatch
-The function 'libxs_?mm_dispatch' helps amortizing the cost of the dispatch when multiple calls with the same M, N, and K are needed. In contrast, the automatic code dispatch is orchestrating three levels:
+The function 'libxs_?dispatch' helps amortizing the cost of the dispatch when multiple calls with the same M, N, and K are needed. In contrast, the automatic code dispatch is orchestrating three levels:
 
 1. Specialized routine (implemented in assembly code),
 2. Inlinable C/C++ code or optimized FORTRAN code, and
