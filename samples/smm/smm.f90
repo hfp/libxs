@@ -35,7 +35,7 @@ PROGRAM smm
   IMPLICIT NONE
 
   INTEGER, PARAMETER :: T = LIBXS_DOUBLE_PRECISION
-  REAL(T), PARAMETER :: alpha = 1, beta = 1
+  REAL(T), PARAMETER :: alpha = LIBXS_ALPHA, beta = LIBXS_BETA
 
   REAL(T), ALLOCATABLE, TARGET :: a(:,:,:), b(:,:,:)
   REAL(T), ALLOCATABLE, TARGET :: c(:,:), d(:,:)

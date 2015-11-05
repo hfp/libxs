@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
 {
   try {
     typedef double T;
-    const T alpha = 1, beta = 1;
+    const T alpha = LIBXS_ALPHA, beta = LIBXS_BETA;
     const int m = 1 < argc ? std::atoi(argv[1]) : 23;
     const int n = 2 < argc ? std::atoi(argv[2]) : m;
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
