@@ -74,8 +74,8 @@ typedef struct libxs_dgemm_xargs {
 } libxs_dgemm_xargs;
 
 /** Generic type of a function. */
-typedef LIBXS_RETARGETABLE void (*libxs_sfunction)(const float a[], const float b[], float c[], const libxs_sgemm_xargs* xargs);
-typedef LIBXS_RETARGETABLE void (*libxs_dfunction)(const double a[], const double b[], double c[], const libxs_dgemm_xargs* xargs);
+typedef LIBXS_RETARGETABLE void (*libxs_sfunction)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c, const libxs_sgemm_xargs* xargs);
+typedef LIBXS_RETARGETABLE void (*libxs_dfunction)(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c, const libxs_dgemm_xargs* xargs);
 
 /** Initialize the library; pay for setup cost at a specific point. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
