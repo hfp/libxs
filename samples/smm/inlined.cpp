@@ -77,7 +77,6 @@ int main(int argc, char* argv[])
 {
   try {
     typedef double T;
-    const T alpha = LIBXS_ALPHA, beta = LIBXS_BETA;
     const int m = 1 < argc ? std::atoi(argv[1]) : 23;
     const int n = 2 < argc ? std::atoi(argv[2]) : m;
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
@@ -137,7 +136,7 @@ int main(int argc, char* argv[])
         for (int i = 0; i < s; ++i) {
           const T *const pa = a + i * asize, *const pb = b + i * bsize;
           T* pc = c + i * csize_act;
-          libxs_imm(alpha, beta, m, n, k, pa, pb, pc);
+          libxs_imm(m, n, k, pa, pb, pc);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -157,7 +156,7 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNED_MAX);
           const T *const pa = a + i * asize, *const pb = b + i * bsize;
-          libxs_imm(alpha, beta, m, n, k, pa, pb, tmp);
+          libxs_imm(m, n, k, pa, pb, tmp);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -177,7 +176,7 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size; tmp is zero-initialized by lang. rules
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNED_MAX);
           // do nothing else with tmp; just a benchmark
-          libxs_imm(alpha, beta, m, n, k, a, b, tmp);
+          libxs_imm(m, n, k, a, b, tmp);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {

@@ -74,10 +74,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   const float*, float*, const int*);
 #endif
 
-#define LIBXS_BLASMM(REAL, ALPHA, BETA, M, N, K, A, B, C) { \
+#define LIBXS_BLASMM(REAL, M, N, K, A, B, C, XARGS) { \
   int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
   int libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
-  REAL libxs_alpha_ = (REAL)(ALPHA), libxs_beta_ = (REAL)(BETA); \
+  REAL libxs_alpha_ = 0 == (XARGS) ? ((REAL)(LIBXS_ALPHA)) : (XARGS)->alpha; \
+  REAL libxs_beta_ = 0 == (XARGS) ? ((REAL)(LIBXS_BETA)) : (XARGS)->beta; \
   char libxs_trans_ = 'N'; \
   LIBXS_FSYMBOL(LIBXS_BLASPREC(REAL, gemm))(&libxs_trans_, &libxs_trans_, \
     &libxs_m_, &libxs_n_, &libxs_k_, &libxs_alpha_, \
@@ -87,12 +88,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 }
 
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-# define LIBXS_IMM(REAL, UINT, ALPHA, BETA, M, N, K, A, B, C) LIBXS_BLASMM(REAL, ALPHA, BETA, M, N, K, A, B, C)
+# define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C, XARGS) LIBXS_BLASMM(REAL, M, N, K, A, B, C, XARGS)
 #else
-# define LIBXS_IMM(REAL, UINT, ALPHA, BETA, M, N, K, A, B, C) { \
+# define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C, XARGS) { \
     const REAL *const libxs_a_ = LIBXS_LD(B, A), *const libxs_b_ = LIBXS_LD(A, B); \
-    const REAL libxs_alpha_ = (REAL)((1 < (ALPHA) || 1 > (ALPHA)) ? (ALPHA) : 1); \
-    const REAL libxs_beta_ = (REAL)((0 < (BETA) || 0 > (BETA)) ? (BETA) : 0); \
+    const REAL libxs_alpha_ = 0 == (XARGS) ? ((REAL)(LIBXS_ALPHA)) : (1 == (XARGS)->alpha ? 1 : (XARGS)->alpha); \
+    const REAL libxs_beta_ = 0 == (XARGS) ? ((REAL)(LIBXS_BETA)) : (1 == (XARGS)->beta ? 1 : (0 == (XARGS)->beta ? 0 : (XARGS)->beta)); \
     const UINT libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
     UINT libxs_i_, libxs_j_, libxs_k_; \
     REAL *const libxs_c_ = (C); \
@@ -121,21 +122,23 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
  * If M, N, and K does not change for multiple calls, it is more efficient to query and reuse
  * the function pointer (libxs_?dispatch).
  */
-#define LIBXS_MM(REAL, ALPHA, BETA, M, N, K, A, B, C, PA, PB, PC) \
+#define LIBXS_MM(REAL, M, N, K, A, B, C, XARGS) \
   if ((LIBXS_MAX_MNK) >= ((M) * (N) * (K))) { \
     const LIBXS_CONCATENATE(libxs_, LIBXS_BLASPREC(REAL, function)) libxs_function_ = \
-      LIBXS_CONCATENATE(libxs_, LIBXS_BLASPREC(REAL, dispatch))(ALPHA, BETA, M, N, K, \
+      LIBXS_CONCATENATE(libxs_, LIBXS_BLASPREC(REAL, dispatch))(M, N, K, \
+      0 == (XARGS) ? ((REAL)(LIBXS_ALPHA)) : (XARGS)->alpha, \
+      0 == (XARGS) ? ((REAL)(LIBXS_BETA)) : (XARGS)->beta, \
       LIBXS_LD(M, N), K, LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)), \
       LIBXS_GEMM_FLAG_DEFAULT, LIBXS_PREFETCH); \
-    if (libxs_function_) { \
-      libxs_function_(ALPHA, BETA, A, B, C LIBXS_PREFETCH_ARGA(PA) LIBXS_PREFETCH_ARGB(PB) LIBXS_PREFETCH_ARGC(PC)); \
+    if (0 != libxs_function_) { \
+      libxs_function_(A, B, C, XARGS); \
     } \
     else { \
-      LIBXS_IMM(REAL, int, ALPHA, BETA, M, N, K, A, B, C); \
+      LIBXS_IMM(REAL, int, M, N, K, A, B, C, XARGS); \
     } \
   } \
   else { \
-    LIBXS_BLASMM(REAL, ALPHA, BETA, M, N, K, A, B, C); \
+    LIBXS_BLASMM(REAL, M, N, K, A, B, C, XARGS); \
   }
 
 #endif /*LIBXS_FALLBACK_H*/

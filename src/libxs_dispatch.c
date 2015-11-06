@@ -259,21 +259,23 @@ LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gemm_descriptor*
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(float alpha, float beta,
-  int m, int n, int k, int lda, int ldb, int ldc, int flags, int prefetch)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int m, int n, int k,
+  float alpha, float beta, int lda, int ldb, int ldc, int flags, int prefetch)
 {
-  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, alpha, beta, m, n, k, LIBXS_MAX(lda, LIBXS_LD(m, n)), LIBXS_MAX(ldb, k),
-    LIBXS_MAX(ldc, LIBXS_ALIGN_STORES(LIBXS_LD(m, n), sizeof(double))),
+  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, m, n, k, alpha, beta,
+    0 == lda ? LIBXS_LD(m, n) : lda, 0 == ldb ? k : ldb,
+    0 == ldc ? LIBXS_ALIGN_STORES(LIBXS_LD(m, n), sizeof(float)) : ldc,
     flags | LIBXS_GEMM_FLAG_F32PREC, prefetch);
   return internal_build(&desc).smm;
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(double alpha, double beta,
-  int m, int n, int k, int lda, int ldb, int ldc, int flags, int prefetch)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(int m, int n, int k,
+  double alpha, double beta, int lda, int ldb, int ldc, int flags, int prefetch)
 {
-  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, alpha, beta, m, n, k, LIBXS_MAX(lda, LIBXS_LD(m, n)), LIBXS_MAX(ldb, k),
-    LIBXS_MAX(ldc, LIBXS_ALIGN_STORES(LIBXS_LD(m, n), sizeof(double))),
+  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, m, n, k, alpha, beta,
+    0 == lda ? LIBXS_LD(m, n) : lda, 0 == ldb ? k : ldb,
+    0 == ldc ? LIBXS_ALIGN_STORES(LIBXS_LD(m, n), sizeof(double)) : ldc,
     flags, prefetch);
   return internal_build(&desc).dmm;
 }

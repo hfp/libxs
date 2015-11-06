@@ -35,7 +35,6 @@ PROGRAM smm
   IMPLICIT NONE
 
   INTEGER, PARAMETER :: T = LIBXS_DOUBLE_PRECISION
-  REAL(T), PARAMETER :: alpha = LIBXS_ALPHA, beta = LIBXS_BETA
 
   REAL(T), ALLOCATABLE, TARGET :: a(:,:,:), b(:,:,:)
   REAL(T), ALLOCATABLE, TARGET :: c(:,:), d(:,:)
@@ -108,7 +107,7 @@ PROGRAM smm
     tmp(:,:) = 0
     !$OMP DO
     DO i = LBOUND(a, 3), UBOUND(a, 3)
-      CALL libxs_blasmm(alpha, beta, m, n, k, a(:,:,i), b(:,:,i), tmp)
+      CALL libxs_blasmm(m, n, k, a(:,:,i), b(:,:,i), tmp)
     END DO
     !$OMP CRITICAL
     d(:,:) = d(:,:) + tmp(:UBOUND(d,1),:)
@@ -127,7 +126,7 @@ PROGRAM smm
   !$OMP END MASTER
   !$OMP DO
   DO i = LBOUND(a, 3), UBOUND(a, 3)
-    CALL libxs_blasmm(alpha, beta, m, n, k, a(:,:,i), b(:,:,i), tmp)
+    CALL libxs_blasmm(m, n, k, a(:,:,i), b(:,:,i), tmp)
   END DO
   !$OMP MASTER
   duration = libxs_timer_duration(start, libxs_timer_tick())
@@ -149,7 +148,7 @@ PROGRAM smm
   !$OMP END MASTER
   !$OMP DO
   DO i = LBOUND(a, 3), UBOUND(a, 3)
-    CALL libxs_blasmm(alpha, beta, m, n, k, a(:,:,i), b(:,:,i), tmp)
+    CALL libxs_blasmm(m, n, k, a(:,:,i), b(:,:,i), tmp)
   END DO
   !$OMP MASTER
   duration = libxs_timer_duration(start, libxs_timer_tick())
@@ -175,7 +174,7 @@ PROGRAM smm
   !$OMP END MASTER
   !$OMP DO
   DO i = LBOUND(a, 3), UBOUND(a, 3)
-    CALL libxs_imm(alpha, beta, m, n, k, a(:,:,i), b(:,:,i), tmp)
+    CALL libxs_imm(m, n, k, a(:,:,i), b(:,:,i), tmp)
   END DO
   !$OMP MASTER
   duration = libxs_timer_duration(start, libxs_timer_tick())
@@ -201,7 +200,7 @@ PROGRAM smm
   !$OMP END MASTER
   !$OMP DO
   DO i = LBOUND(a, 3), UBOUND(a, 3)
-    CALL libxs_mm(alpha, beta, m, n, k, a(:,:,i), b(:,:,i), tmp)
+    CALL libxs_mm(m, n, k, a(:,:,i), b(:,:,i), tmp)
   END DO
   !$OMP MASTER
   duration = libxs_timer_duration(start, libxs_timer_tick())
@@ -218,7 +217,7 @@ PROGRAM smm
   END IF
   c(:,:) = 0
 
-  f = libxs_dispatch(alpha, beta, m, n, k)
+  f = libxs_dispatch(m, n, k, T)
   IF (C_ASSOCIATED(f)) THEN
     CALL C_F_PROCPOINTER(f, xmm)
     WRITE(*, "(A)") "Streamed... (specialized)"
@@ -230,7 +229,7 @@ PROGRAM smm
     !$OMP END MASTER
     !$OMP DO
     DO i = LBOUND(a, 3), UBOUND(a, 3)
-      CALL xmm(alpha, beta, a(:,:,i), b(:,:,i), tmp)
+      CALL xmm(a(:,:,i), b(:,:,i), tmp)
     END DO
     !$OMP MASTER
     duration = libxs_timer_duration(start, libxs_timer_tick())
