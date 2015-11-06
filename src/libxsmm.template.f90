@@ -91,9 +91,6 @@ MODULE LIBXS
     LIBXS_PREFETCH_AL2BL2_VIA_C_AHEAD = IOR(LIBXS_PREFETCH_BL2_VIA_C, &
                                               LIBXS_PREFETCH_AL2_AHEAD)
 
-  ! Default actual/extended argument set for an xGEMM call.
-  TYPE(C_PTR), POINTER :: LIBXS_GEMM_XARGS_DEFAULT => NULL()
-
   ! Structure providing the actual/extended arguments of an SGEMM call.
   TYPE, BIND(C) :: LIBXS_SGEMM_XARGS
     ! The Alpha and Beta arguments.
@@ -101,6 +98,10 @@ MODULE LIBXS
     ! The prefetch arguments.
     TYPE(C_PTR) :: pa, pb, pc
   END TYPE
+  ! Constructs an actual/extended argument set for an SGEMM call.
+  INTERFACE LIBXS_SGEMM_XARGS
+    MODULE PROCEDURE LIBXS_SGEMM_XARGS_CTOR
+  END INTERFACE
 
   ! Structure providing the actual/extended arguments of a DGEMM call.
   TYPE, BIND(C) :: LIBXS_DGEMM_XARGS
@@ -109,6 +110,10 @@ MODULE LIBXS
     ! The prefetch arguments.
     TYPE(C_PTR) :: pa, pb, pc
   END TYPE
+  ! Constructs an actual/extended argument set for an SGEMM call.
+  INTERFACE LIBXS_DGEMM_XARGS
+    MODULE PROCEDURE LIBXS_DGEMM_XARGS_CTOR
+  END INTERFACE
 
   ! Overloaded dispatch/JIT routines (single/double precision).
   INTERFACE libxs_dispatch
@@ -194,6 +199,30 @@ MODULE LIBXS
   END INTERFACE$MNK_INTERFACE_LIST
 
 CONTAINS
+  !DIR$ ATTRIBUTES OFFLOAD:MIC :: LIBXS_SGEMM_XARGS_CTOR
+  !DIR$ ATTRIBUTES INLINE :: LIBXS_SGEMM_XARGS_CTOR
+  TYPE(LIBXS_DGEMM_XARGS) PURE FUNCTION LIBXS_SGEMM_XARGS_CTOR(alpha, beta, pa, pb, pc)
+    REAL(LIBXS_SINGLE_PRECISION), INTENT(IN) :: alpha, beta
+    TYPE(C_PTR), INTENT(IN), OPTIONAL :: pa, pb, pc
+    LIBXS_SGEMM_XARGS_CTOR%alpha = alpha
+    LIBXS_SGEMM_XARGS_CTOR%beta = beta
+    LIBXS_SGEMM_XARGS_CTOR%pa = MERGE(C_NULL_PTR, pa, .NOT.PRESENT(pa))
+    LIBXS_SGEMM_XARGS_CTOR%pb = MERGE(C_NULL_PTR, pb, .NOT.PRESENT(pb))
+    LIBXS_SGEMM_XARGS_CTOR%pc = MERGE(C_NULL_PTR, pc, .NOT.PRESENT(pc))
+  END FUNCTION
+
+  !DIR$ ATTRIBUTES OFFLOAD:MIC :: LIBXS_DGEMM_XARGS_CTOR
+  !DIR$ ATTRIBUTES INLINE :: LIBXS_DGEMM_XARGS_CTOR
+  TYPE(LIBXS_DGEMM_XARGS) PURE FUNCTION LIBXS_DGEMM_XARGS_CTOR(alpha, beta, pa, pb, pc)
+    REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: alpha, beta
+    TYPE(C_PTR), INTENT(IN), OPTIONAL :: pa, pb, pc
+    LIBXS_DGEMM_XARGS_CTOR%alpha = alpha
+    LIBXS_DGEMM_XARGS_CTOR%beta = beta
+    LIBXS_DGEMM_XARGS_CTOR%pa = MERGE(C_NULL_PTR, pa, .NOT.PRESENT(pa))
+    LIBXS_DGEMM_XARGS_CTOR%pb = MERGE(C_NULL_PTR, pb, .NOT.PRESENT(pb))
+    LIBXS_DGEMM_XARGS_CTOR%pc = MERGE(C_NULL_PTR, pc, .NOT.PRESENT(pc))
+  END FUNCTION
+
   !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_up
   !DIR$ ATTRIBUTES INLINE :: libxs_up
   PURE FUNCTION libxs_up(n, up) RESULT(nup)
