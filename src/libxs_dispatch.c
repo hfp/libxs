@@ -262,12 +262,13 @@ LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gemm_descriptor*
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int m, int n, int k,
   float alpha, float beta, int lda, int ldb, int ldc, int flags, int prefetch)
 {
+  const int mn = LIBXS_LD(m, n);
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, m, n, k, alpha, beta,
-    0 == lda ? (0 == (LIBXS_GEMM_FLAG_ALIGN_A & flags) ? LIBXS_LD(m, n) :
-      LIBXS_ALIGN_VALUE(LIBXS_LD(m, n), sizeof(float), LIBXS_ALIGNED_LOADS)) : lda,
-    0 == ldb ? k : ldb,
-    0 == ldc ? (0 == (LIBXS_GEMM_FLAG_ALIGN_C & flags) ? LIBXS_LD(m, n) :
-      LIBXS_ALIGN_VALUE(LIBXS_LD(m, n), sizeof(float), LIBXS_ALIGNED_STORES)) : ldc,
+    0 == lda ? (0 == (LIBXS_GEMM_FLAG_ALIGN_A & flags) ? mn :
+      LIBXS_ALIGN_VALUE(mn, sizeof(float), LIBXS_ALIGNED_LOADS)) : LIBXS_MAX(lda, mn),
+    0 == ldb ? k : LIBXS_MAX(ldb, k),
+    0 == ldc ? (0 == (LIBXS_GEMM_FLAG_ALIGN_C & flags) ? mn :
+      LIBXS_ALIGN_VALUE(mn, sizeof(float), LIBXS_ALIGNED_STORES)) : LIBXS_MAX(ldc, mn),
     flags | LIBXS_GEMM_FLAG_F32PREC, prefetch);
   return internal_build(&desc).smm;
 }
@@ -276,12 +277,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int m, int n, 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(int m, int n, int k,
   double alpha, double beta, int lda, int ldb, int ldc, int flags, int prefetch)
 {
+  const int mn = LIBXS_LD(m, n);
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, m, n, k, alpha, beta,
-    0 == lda ? (0 == (LIBXS_GEMM_FLAG_ALIGN_A & flags) ? LIBXS_LD(m, n) :
-      LIBXS_ALIGN_VALUE(LIBXS_LD(m, n), sizeof(double), LIBXS_ALIGNED_LOADS)) : lda,
-    0 == ldb ? k : ldb,
-    0 == ldc ? (0 == (LIBXS_GEMM_FLAG_ALIGN_C & flags) ? LIBXS_LD(m, n) :
-      LIBXS_ALIGN_VALUE(LIBXS_LD(m, n), sizeof(double), LIBXS_ALIGNED_STORES)) : ldc,
+    0 == lda ? (0 == (LIBXS_GEMM_FLAG_ALIGN_A & flags) ? mn :
+      LIBXS_ALIGN_VALUE(mn, sizeof(double), LIBXS_ALIGNED_LOADS)) : LIBXS_MAX(lda, mn),
+    0 == ldb ? k : LIBXS_MAX(ldb, k),
+    0 == ldc ? (0 == (LIBXS_GEMM_FLAG_ALIGN_C & flags) ? mn :
+      LIBXS_ALIGN_VALUE(mn, sizeof(double), LIBXS_ALIGNED_STORES)) : LIBXS_MAX(ldc, mn),
     flags, prefetch);
   return internal_build(&desc).dmm;
 }
