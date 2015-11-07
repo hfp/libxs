@@ -195,7 +195,7 @@ PROGRAM smm
   IF (C_ASSOCIATED(f)) THEN
     CALL C_F_PROCPOINTER(f, xmm)
     WRITE(*, "(A)") "Streamed... (specialized)"
-    !$OMP PARALLEL PRIVATE(i, start) DEFAULT(NONE) SHARED(m, n, a, b, c, duration, xmm)
+    !$OMP PARALLEL PRIVATE(i, start) !DEFAULT(NONE) SHARED(m, n, a, b, c, duration, xmm)
     ALLOCATE(tmp(libxs_align_value(libxs_ld(m,n),T,LIBXS_ALIGNED_STORES),libxs_ld(n,m)))
     tmp(:,:) = 0
     !$OMP MASTER
