@@ -74,6 +74,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   const float*, float*, const int*);
 #endif
 
+/** BLAS based implementation with simplified interface. */
 #define LIBXS_BLASMM(REAL, M, N, K, A, B, C, XARGS) { \
   int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
   int libxs_ldc_ = LIBXS_ALIGN_STORES(LIBXS_LD(M, N), sizeof(REAL)); \
@@ -87,6 +88,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
     &libxs_beta_, (C), &libxs_ldc_); \
 }
 
+/** Inlinable implementation exercising the compiler's code generation (template). */
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
 # define LIBXS_IMM(REAL, UINT, M, N, K, A, B, C, XARGS) LIBXS_BLASMM(REAL, M, N, K, A, B, C, XARGS)
 #else
@@ -117,6 +119,36 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   }
 #endif
 
+/** Inlinable implementation exercising the compiler's code generation (single-precision). */
+#define LIBXS_SIMM(M, N, K, A, B, C, XARGS) \
+  LIBXS_IMM(float, int, M, N, K, A, B, C, (const libxs_sgemm_xargs*)XARGS)
+/** Inlinable implementation exercising the compiler's code generation (double-precision). */
+#define LIBXS_DIMM(M, N, K, A, B, C, XARGS) \
+  LIBXS_IMM(double, int, M, N, K, A, B, C, (const libxs_dgemm_xargs*)XARGS)
+/** Inlinable implementation exercising the compiler's code generation. */
+#define LIBXS_XIMM(M, N, K, A, B, C, XARGS) \
+  if (sizeof(double) == sizeof(*(A))) { \
+    LIBXS_DIMM(M, N, K, (const double*)A, (const double*)B, (double*)C, XARGS); \
+  } \
+  else {\
+    LIBXS_SIMM(M, N, K, (const float*)A, (const float*)B, (float*)C, XARGS); \
+  }
+
+/**
+ * Fallback code paths depending on threshold.
+ * LIBXS_FALLBACK0: below LIBXS_MAX_MNK
+ * LIBXS_FALLBACK1: above LIBXS_MAX_MNK
+ */
+#if defined(LIBXS_FALLBACK_IMM)
+# define LIBXS_FALLBACK0(REAL, M, N, K, A, B, C, XARGS) \
+    LIBXS_IMM(REAL, int, M, N, K, A, B, C, XARGS)
+#else
+# define LIBXS_FALLBACK0(REAL, M, N, K, A, B, C, XARGS) \
+    LIBXS_BLASMM(REAL, M, N, K, A, B, C, XARGS)
+#endif
+#define LIBXS_FALLBACK1(REAL, M, N, K, A, B, C, XARGS) \
+  LIBXS_BLASMM(REAL, M, N, K, A, B, C, XARGS)
+
 /**
  * Execute a generated function, inlined code, or fall back to the linked LAPACK implementation.
  * If M, N, and K does not change for multiple calls, it is more efficient to query and reuse
@@ -134,11 +166,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
       libxs_function_(A, B, C, XARGS); \
     } \
     else { \
-      LIBXS_IMM(REAL, int, M, N, K, A, B, C, XARGS); \
+      LIBXS_FALLBACK0(REAL, M, N, K, A, B, C, XARGS); \
     } \
   } \
   else { \
-    LIBXS_BLASMM(REAL, M, N, K, A, B, C, XARGS); \
+    LIBXS_FALLBACK1(REAL, M, N, K, A, B, C, XARGS); \
   }
 
 #endif /*LIBXS_FALLBACK_H*/

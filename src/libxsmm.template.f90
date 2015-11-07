@@ -125,11 +125,6 @@ MODULE LIBXS
     MODULE PROCEDURE libxs_sblasmm, libxs_dblasmm
   END INTERFACE
 
-  ! Overloaded optimized routines (single/double precision).
-  INTERFACE libxs_imm
-    MODULE PROCEDURE libxs_simm, libxs_dimm
-  END INTERFACE
-
   ! Overloaded auto-dispatch routines (single/double precision).
   INTERFACE libxs_mm
     MODULE PROCEDURE libxs_smm, libxs_dmm
@@ -260,12 +255,16 @@ CONTAINS
     TYPE(LIBXS_SGEMM_XARGS), INTENT(IN), OPTIONAL :: xargs
     IF (0.NE.LIBXS_COL_MAJOR) THEN
       CALL sgemm('N', 'N', m, n, k, &
-        MERGE(REAL(LIBXS_ALPHA, T), xargs%alpha, .NOT.PRESENT(xargs)), a, m, b, k, &
-        MERGE(REAL(LIBXS_BETA, T), xargs%beta, .NOT.PRESENT(xargs)), c, SIZE(c, 1))
+        MERGE(REAL(LIBXS_ALPHA, T), xargs%alpha, .NOT.PRESENT(xargs)), &
+        a, MAX(SIZE(a, 1), m), b, MAX(SIZE(b, 1), k), &
+        MERGE(REAL(LIBXS_BETA, T), xargs%beta, .NOT.PRESENT(xargs)), c, &
+        MAX(SIZE(c, 1), m))
     ELSE
       CALL sgemm('N', 'N', n, m, k, &
-        MERGE(REAL(LIBXS_ALPHA, T), xargs%alpha, .NOT.PRESENT(xargs)), b, n, a, k, &
-        MERGE(REAL(LIBXS_BETA, T), xargs%beta, .NOT.PRESENT(xargs)), c, SIZE(c, 1))
+        MERGE(REAL(LIBXS_ALPHA, T), xargs%alpha, .NOT.PRESENT(xargs)), &
+        b, MAX(SIZE(b, 2), n), a, MAX(SIZE(a, 2), k), &
+        MERGE(REAL(LIBXS_BETA, T), xargs%beta, .NOT.PRESENT(xargs)), c, &
+        MAX(SIZE(c, 1), n))
     ENDIF
   END SUBROUTINE
 
@@ -280,86 +279,16 @@ CONTAINS
     TYPE(LIBXS_DGEMM_XARGS), INTENT(IN), OPTIONAL :: xargs
     IF (0.NE.LIBXS_COL_MAJOR) THEN
       CALL dgemm('N', 'N', m, n, k, &
-        MERGE(REAL(LIBXS_ALPHA, T), xargs%alpha, .NOT.PRESENT(xargs)), a, m, b, k, &
-        MERGE(REAL(LIBXS_BETA, T), xargs%beta, .NOT.PRESENT(xargs)), c, SIZE(c, 1))
+        MERGE(REAL(LIBXS_ALPHA, T), xargs%alpha, .NOT.PRESENT(xargs)), &
+        a, MAX(SIZE(a, 1), m), b, MAX(SIZE(b, 1), k), &
+        MERGE(REAL(LIBXS_BETA, T), xargs%beta, .NOT.PRESENT(xargs)), c, &
+        MAX(SIZE(c, 1), m))
     ELSE
       CALL dgemm('N', 'N', n, m, k, &
-        MERGE(REAL(LIBXS_ALPHA, T), xargs%alpha, .NOT.PRESENT(xargs)), b, n, a, k, &
-        MERGE(REAL(LIBXS_BETA, T), xargs%beta, .NOT.PRESENT(xargs)), c, SIZE(c, 1))
-    ENDIF
-  END SUBROUTINE
-
-  ! Non-dispatched matrix-matrix multiplication using optimized code (single-precision).
-  !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_simm
-  !DIR$ ATTRIBUTES INLINE :: libxs_simm
-  SUBROUTINE libxs_simm(m, n, k, a, b, c, xargs)
-    INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_SINGLE_PRECISION
-    INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(T), INTENT(IN), TARGET, CONTIGUOUS :: a(:,:), b(:,:)
-    REAL(T), INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
-    TYPE(LIBXS_SGEMM_XARGS), INTENT(IN), OPTIONAL :: xargs
-    INTEGER(LIBXS_INTEGER_TYPE) :: i, j
-    REAL(T), POINTER :: x(:,:), y(:,:)
-    REAL(T) :: xalpha, xbeta
-    xalpha = MERGE(REAL(LIBXS_ALPHA, T), MERGE(REAL(1, T), xargs%alpha, 1.EQ.(xargs%alpha)), .NOT.PRESENT(xargs))
-    xbeta  = MERGE(REAL(LIBXS_BETA, T),  MERGE(REAL(1, T), &
-              MERGE(REAL(0, T), xargs%beta, 0.EQ.(xargs%beta)), 1.EQ.(xargs%beta)), .NOT.PRESENT(xargs))
-    IF (0.NE.LIBXS_COL_MAJOR) THEN
-      !DIR$ OMP SIMD COLLAPSE(2)
-      DO j = LBOUND(b, 2), LBOUND(b, 2) + n - 1
-        !DIR$ LOOP COUNT(1, LIBXS_MAX_M, LIBXS_AVG_M)
-        !DIR$ OMP SIMD
-        DO i = LBOUND(a, 1), LBOUND(a, 1) + m - 1
-          c(i,j) = xbeta * c(i,j) + xalpha * DOT_PRODUCT(a(i,:), b(:,j))
-        END DO
-      END DO
-    ELSE
-      x(1:$SHAPE_AT1,1:$SHAPE_AT2) => b(:,:)
-      y(1:$SHAPE_BT1,1:$SHAPE_BT2) => a(:,:)
-      !DIR$ OMP SIMD COLLAPSE(2)
-      DO j = 1, m
-        !DIR$ LOOP COUNT(1, LIBXS_MAX_N, LIBXS_AVG_N)
-        DO i = 1, n
-          c(i,j) = xbeta * c(i,j) + xalpha * DOT_PRODUCT(x(i,:), y(:,j))
-        END DO
-      END DO
-    ENDIF
-  END SUBROUTINE
-
-  ! Non-dispatched matrix-matrix multiplication using optimized code (double-precision).
-  !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dimm
-  !DIR$ ATTRIBUTES INLINE :: libxs_dimm
-  SUBROUTINE libxs_dimm(m, n, k, a, b, c, xargs)
-    INTEGER(LIBXS_INTEGER_TYPE), PARAMETER :: T = LIBXS_DOUBLE_PRECISION
-    INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-    REAL(T), INTENT(IN), TARGET, CONTIGUOUS :: a(:,:), b(:,:)
-    REAL(T), INTENT(INOUT) :: c($SHAPE_C1,$SHAPE_C2)
-    TYPE(LIBXS_DGEMM_XARGS), INTENT(IN), OPTIONAL :: xargs
-    INTEGER(LIBXS_INTEGER_TYPE) :: i, j
-    REAL(T), POINTER :: x(:,:), y(:,:)
-    REAL(T) :: xalpha, xbeta
-    xalpha = MERGE(REAL(LIBXS_ALPHA, T), MERGE(REAL(1, T), xargs%alpha, 1.EQ.(xargs%alpha)), .NOT.PRESENT(xargs))
-    xbeta  = MERGE(REAL(LIBXS_BETA, T),  MERGE(REAL(1, T), &
-              MERGE(REAL(0, T), xargs%beta, 0.EQ.(xargs%beta)), 1.EQ.(xargs%beta)), .NOT.PRESENT(xargs))
-    IF (0.NE.LIBXS_COL_MAJOR) THEN
-      !DIR$ OMP SIMD COLLAPSE(2)
-      DO j = LBOUND(b, 2), LBOUND(b, 2) + n - 1
-        !DIR$ LOOP COUNT(1, LIBXS_MAX_M, LIBXS_AVG_M)
-        !DIR$ OMP SIMD
-        DO i = LBOUND(a, 1), LBOUND(a, 1) + m - 1
-          c(i,j) = xbeta * c(i,j) + xalpha * DOT_PRODUCT(a(i,:), b(:,j))
-        END DO
-      END DO
-    ELSE
-      x(1:$SHAPE_AT1,1:$SHAPE_AT2) => b(:,:)
-      y(1:$SHAPE_BT1,1:$SHAPE_BT2) => a(:,:)
-      !DIR$ OMP SIMD COLLAPSE(2)
-      DO j = 1, m
-        !DIR$ LOOP COUNT(1, LIBXS_MAX_N, LIBXS_AVG_N)
-        DO i = 1, n
-          c(i,j) = xbeta * c(i,j) + xalpha * DOT_PRODUCT(x(i,:), y(:,j))
-        END DO
-      END DO
+        MERGE(REAL(LIBXS_ALPHA, T), xargs%alpha, .NOT.PRESENT(xargs)), &
+        b, MAX(SIZE(b, 2), n), a, MAX(SIZE(a, 2), k), &
+        MERGE(REAL(LIBXS_BETA, T), xargs%beta, .NOT.PRESENT(xargs)), c, &
+        MAX(SIZE(c, 1), n))
     ENDIF
   END SUBROUTINE
 
@@ -372,20 +301,22 @@ CONTAINS
     REAL(T), INTENT(IN) :: a(:,:), b(:,:)
     REAL(T), INTENT(INOUT) :: c(:,:)
     TYPE(LIBXS_SGEMM_XARGS), INTENT(IN), OPTIONAL :: xargs
-    !DIR$ ATTRIBUTES OFFLOAD:MIC :: smm
-    PROCEDURE(LIBXS_SMM_FUNCTION), POINTER :: smm
-    TYPE(C_FUNPTR) :: f
+    !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
+    PROCEDURE(LIBXS_SMM_FUNCTION), POINTER :: xmm
+    INTEGER(LIBXS_INTEGER_TYPE) :: mn
+    TYPE(C_FUNPTR) :: fn
     IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
-      f = libxs_sdispatch(m, n, k, &
+      mn = libxs_ld(m, n)
+      fn = libxs_sdispatch(m, n, k, &
             MERGE(REAL(LIBXS_ALPHA, T), xargs%alpha, .NOT.PRESENT(xargs)), &
             MERGE(REAL(LIBXS_BETA, T), xargs%beta, .NOT.PRESENT(xargs)), &
-            libxs_ld(m, n), k, libxs_align_value(libxs_ld(m, n), T, LIBXS_ALIGNED_STORES), &
+            mn, k, libxs_align_value(mn, T, LIBXS_ALIGNED_STORES), &
             LIBXS_GEMM_FLAG_DEFAULT, LIBXS_PREFETCH)
-      IF (C_ASSOCIATED(f)) THEN
-        CALL C_F_PROCPOINTER(f, smm)
-        CALL smm(a, b, c, xargs)
+      IF (C_ASSOCIATED(fn)) THEN
+        CALL C_F_PROCPOINTER(fn, xmm)
+        CALL xmm(a, b, c, xargs)
       ELSE
-        CALL libxs_simm(m, n, k, a, b, c, xargs)
+        CALL libxs_sblasmm(m, n, k, a, b, c, xargs)
       ENDIF
     ELSE
       CALL libxs_sblasmm(m, n, k, a, b, c, xargs)
@@ -401,20 +332,22 @@ CONTAINS
     REAL(T), INTENT(IN) :: a(:,:), b(:,:)
     REAL(T), INTENT(INOUT) :: c(:,:)
     TYPE(LIBXS_DGEMM_XARGS), INTENT(IN), OPTIONAL :: xargs
-    !DIR$ ATTRIBUTES OFFLOAD:MIC :: dmm
-    PROCEDURE(LIBXS_DMM_FUNCTION), POINTER :: dmm
-    TYPE(C_FUNPTR) :: f
+    !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
+    PROCEDURE(LIBXS_DMM_FUNCTION), POINTER :: xmm
+    INTEGER(LIBXS_INTEGER_TYPE) :: mn
+    TYPE(C_FUNPTR) :: fn
     IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
-      f = libxs_ddispatch(m, n, k, &
+      mn = libxs_ld(m, n)
+      fn = libxs_ddispatch(m, n, k, &
             MERGE(REAL(LIBXS_ALPHA, T), xargs%alpha, .NOT.PRESENT(xargs)), &
             MERGE(REAL(LIBXS_BETA, T), xargs%beta, .NOT.PRESENT(xargs)), &
-            libxs_ld(m, n), k, libxs_align_value(libxs_ld(m, n), T, LIBXS_ALIGNED_STORES), &
+            mn, k, libxs_align_value(mn, T, LIBXS_ALIGNED_STORES), &
             LIBXS_GEMM_FLAG_DEFAULT, LIBXS_PREFETCH)
-      IF (C_ASSOCIATED(f)) THEN
-        CALL C_F_PROCPOINTER(f, dmm)
-        CALL dmm(a, b, c, xargs)
+      IF (C_ASSOCIATED(fn)) THEN
+        CALL C_F_PROCPOINTER(fn, xmm)
+        CALL xmm(a, b, c, xargs)
       ELSE
-        CALL libxs_dimm(m, n, k, a, b, c, xargs)
+        CALL libxs_dblasmm(m, n, k, a, b, c, xargs)
       ENDIF
     ELSE
       CALL libxs_dblasmm(m, n, k, a, b, c, xargs)

@@ -103,22 +103,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void libxs_dmm(int m, int n, int k,
   LIBXS_MM(double, m, n, k, a, b, c, xargs);
 }
 
-/** Non-dispatched matrix-matrix multiplication using inline code (single-precision). */
-LIBXS_INLINE LIBXS_RETARGETABLE void libxs_simm(int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  const libxs_sgemm_xargs* xargs)
-{
-  LIBXS_IMM(float, int, m, n, k, a, b, c, xargs);
-}
-
-/** Non-dispatched matrix-matrix multiplication using inline code (double-precision). */
-LIBXS_INLINE LIBXS_RETARGETABLE void libxs_dimm(int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  const libxs_dgemm_xargs* xargs)
-{
-  LIBXS_IMM(double, int, m, n, k, a, b, c, xargs);
-}
-
 /** Non-dispatched matrix-matrix multiplication using BLAS (single-precision). */
 LIBXS_INLINE LIBXS_RETARGETABLE void libxs_sblasmm(int m, int n, int k,
   const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
@@ -199,22 +183,6 @@ LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k,
   const libxs_dgemm_xargs* xargs = 0)
 {
   libxs_dmm(m, n, k, a, b, c, xargs);
-}
-
-/** Non-dispatched matrix-matrix multiplication using inline code. */
-LIBXS_RETARGETABLE inline void libxs_imm(int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  const libxs_sgemm_xargs* xargs = 0)
-{
-  libxs_simm(m, n, k, a, b, c, xargs);
-}
-
-/** Non-dispatched matrix-matrix multiplication using inline code. */
-LIBXS_RETARGETABLE inline void libxs_imm(int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  const libxs_dgemm_xargs* xargs = 0)
-{
-  libxs_dimm(m, n, k, a, b, c, xargs);
 }
 
 /** Non-dispatched matrix-matrix multiplication using BLAS. */
