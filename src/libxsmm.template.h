@@ -127,7 +127,7 @@ template<> struct LIBXS_RETARGETABLE libxs_function<float>      { typedef libxs_
 template<> struct LIBXS_RETARGETABLE libxs_function<double>     { typedef libxs_dfunction type; };
 
 /** Extended argument type depending on T. */
-template<typename T> struct LIBXS_RETARGETABLE libxs_gemm_xargs { typedef void type; }
+template<typename T> struct LIBXS_RETARGETABLE libxs_gemm_xargs { typedef void type; };
 template<> struct LIBXS_RETARGETABLE libxs_gemm_xargs<float>    { typedef libxs_sgemm_xargs type; };
 template<> struct LIBXS_RETARGETABLE libxs_gemm_xargs<double>   { typedef libxs_dgemm_xargs type; };
 
