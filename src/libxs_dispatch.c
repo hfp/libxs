@@ -114,7 +114,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 }
 
 
-LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gemm_descriptor* desc)
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gemm_descriptor* desc)
 {
   libxs_cache_entry result;
   unsigned int hash, indx;
