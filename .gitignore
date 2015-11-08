@@ -1,4 +1,4 @@
-include/libxs.f90
+include/libxs.f
 include/libxs.h
 include/libxs_generator.h
 build/libxs_dispatch.h
