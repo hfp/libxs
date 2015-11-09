@@ -34,57 +34,60 @@
         IMPLICIT NONE
 
         ! Kind of types used to parameterize the implementation.
-        INTEGER, PARAMETER :: LIBXS_SINGLE_PRECISION  = 4 !KIND(1.0)
-        INTEGER, PARAMETER :: LIBXS_DOUBLE_PRECISION  = 8 !KIND(1D0)
-        INTEGER, PARAMETER :: LIBXS_INTEGER_TYPE      = KIND(1)
+        INTEGER, PARAMETER ::                                           &
+        ! Single-precision (FLS_KIND), and double-precision (FLD_KIND)
+     &    LIBXS_FLS_KIND = SELECTED_REAL_KIND( 6,  30),               &
+     &    LIBXS_FLD_KIND = SELECTED_REAL_KIND(14, 200),               &
+        ! LP64: 32-bit with integers, and ILP64: 64-bit integers
+     &    LIBXS_INT_KIND = $INTEGER_TYPE
 
         ! Parameters the library was built for.
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_ALIGNMENT = $ALIGNMENT
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_ALIGNED_STORES = $ALIGNED_STORES
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_ALIGNED_LOADS = $ALIGNED_LOADS
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_ALIGNED_MAX = $ALIGNED_MAX
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_PREFETCH = $PREFETCH
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_ROW_MAJOR = $ROW_MAJOR
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_COL_MAJOR = $COL_MAJOR
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_MAX_MNK = $MAX_MNK
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_MAX_M = $MAX_M
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_MAX_N = $MAX_N
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_MAX_K = $MAX_K
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_AVG_M = $AVG_M
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_AVG_N = $AVG_N
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_AVG_K = $AVG_K
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_JIT = $JIT
 
         ! Parameters representing the GEMM performed by the simplified interface.
-        REAL(LIBXS_DOUBLE_PRECISION), PARAMETER ::                    &
+        REAL(LIBXS_FLD_KIND), PARAMETER ::                            &
      &    LIBXS_ALPHA = $ALPHA
-        REAL(LIBXS_DOUBLE_PRECISION), PARAMETER ::                    &
+        REAL(LIBXS_FLD_KIND), PARAMETER ::                            &
      &    LIBXS_BETA = $BETA
 
         ! Flag enumeration which can be IORed.
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_GEMM_FLAG_TRANS_A = 1,                                &
      &    LIBXS_GEMM_FLAG_TRANS_B = 2,                                &
      &    LIBXS_GEMM_FLAG_ALIGN_A = 4,                                &
      &    LIBXS_GEMM_FLAG_ALIGN_C = 8
 
         ! Flag representing the GEMM performed by the simplified interface.
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_GEMM_FLAG_DEFAULT = IOR(                              &
      &        MERGE(LIBXS_GEMM_FLAG_ALIGN_A, 0,                       &
      &          1.LT.LIBXS_ALIGNED_LOADS),                            &
@@ -98,7 +101,7 @@
         !   LIBXS_PREFETCH_AL2_JPST:  Prefetch PA (aggressive).
         !   LIBXS_PREFETCH_BL2_VIA_C: Prefetch PB using accesses to C.
         !   LIBXS_PREFETCH_AL2_AHEAD: Prefetch A ahead.
-        INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                     &
+        INTEGER(LIBXS_INT_KIND), PARAMETER ::                         &
      &    LIBXS_PREFETCH_NONE       = 0,                              &
      &    LIBXS_PREFETCH_SIGNATURE  = 1,                              &
      &    LIBXS_PREFETCH_AL2        = 2,                              &
@@ -174,24 +177,23 @@
         INTERFACE
           SUBROUTINE sgemm(                                             &
      &    transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
-            IMPORT LIBXS_INTEGER_TYPE, LIBXS_SINGLE_PRECISION
+            IMPORT LIBXS_INT_KIND, LIBXS_FLS_KIND
             CHARACTER(1), INTENT(IN) :: transa, transb
-            INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: lda, ldb, ldc
-            REAL(LIBXS_SINGLE_PRECISION), INTENT(IN) :: alpha, beta
-            REAL(LIBXS_SINGLE_PRECISION), INTENT(IN) :: a(lda,*)
-            REAL(LIBXS_SINGLE_PRECISION), INTENT(IN) :: b(ldb,*)
-            REAL(LIBXS_SINGLE_PRECISION), INTENT(INOUT) :: c(ldc,*)
+            INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
+            INTEGER(LIBXS_INT_KIND), INTENT(IN) :: lda, ldb, ldc
+            REAL(LIBXS_FLS_KIND), INTENT(IN) :: alpha, beta
+            REAL(LIBXS_FLS_KIND), INTENT(IN) :: a(lda,*), b(ldb,*)
+            REAL(LIBXS_FLS_KIND), INTENT(INOUT) :: c(ldc,*)
           END SUBROUTINE
           SUBROUTINE dgemm(                                             &
      &    transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
-            IMPORT LIBXS_INTEGER_TYPE, LIBXS_DOUBLE_PRECISION
+            IMPORT LIBXS_INT_KIND, LIBXS_FLD_KIND
             CHARACTER(1), INTENT(IN) :: transa, transb
-            INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
-            INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: lda, ldb, ldc
-            REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: alpha, beta
-            REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: a(lda,*)
-            REAL(LIBXS_DOUBLE_PRECISION), INTENT(IN) :: b(ldb,*)
-            REAL(LIBXS_DOUBLE_PRECISION), INTENT(INOUT) :: c(ldc,*)
+            INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
+            INTEGER(LIBXS_INT_KIND), INTENT(IN) :: lda, ldb, ldc
+            REAL(LIBXS_FLD_KIND), INTENT(IN) :: alpha, beta
+            REAL(LIBXS_FLD_KIND), INTENT(IN) :: a(lda,*), b(ldb,*)
+            REAL(LIBXS_FLD_KIND), INTENT(INOUT) :: c(ldc,*)
           END SUBROUTINE
 
           ! Initialize the library; pay for setup cost at a specific point.
@@ -237,8 +239,7 @@
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: LIBXS_SGEMM_XARGS_CTOR
         TYPE(LIBXS_DGEMM_XARGS)                                       &
      &  PURE FUNCTION LIBXS_SGEMM_XARGS_CTOR(alpha, beta, pa, pb, pc)
-          INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                   &
-     &      T = LIBXS_SINGLE_PRECISION
+          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLS_KIND
           REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: pa, pb, pc
           LIBXS_SGEMM_XARGS_CTOR%alpha =                              &
@@ -256,8 +257,7 @@
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: LIBXS_DGEMM_XARGS_CTOR
         TYPE(LIBXS_DGEMM_XARGS)                                       &
      &  PURE FUNCTION LIBXS_DGEMM_XARGS_CTOR(alpha, beta, pa, pb, pc)
-          INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                   &
-     &      T = LIBXS_DOUBLE_PRECISION
+          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLD_KIND
           REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: pa, pb, pc
           LIBXS_DGEMM_XARGS_CTOR%alpha =                              &
@@ -273,33 +273,32 @@
         END FUNCTION
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_up
-        INTEGER(LIBXS_INTEGER_TYPE) PURE FUNCTION libxs_up(n, up)
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: n, up
+        INTEGER(LIBXS_INT_KIND) PURE FUNCTION libxs_up(n, up)
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: n, up
           libxs_up = ((n + up - 1) / up) * up
         END FUNCTION
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_align_value
-        INTEGER(LIBXS_INTEGER_TYPE) PURE FUNCTION libxs_align_value(&
+        INTEGER(LIBXS_INT_KIND) PURE FUNCTION libxs_align_value(    &
      &    n, typesize, alignment)
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: n
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: typesize
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: alignment
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: n
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: typesize
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: alignment
           libxs_align_value = libxs_up(n * typesize, alignment) /   &
      &      typesize
         END FUNCTION
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_ld
-        INTEGER(LIBXS_INTEGER_TYPE) PURE FUNCTION libxs_ld(m, n)
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n
+        INTEGER(LIBXS_INT_KIND) PURE FUNCTION libxs_ld(m, n)
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n
           libxs_ld = MERGE(m, n, 0.NE.LIBXS_COL_MAJOR)
         END FUNCTION
 
         ! Non-dispatched matrix-matrix multiplication using BLAS (single-precision).
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_sblasmm
         SUBROUTINE libxs_sblasmm(m, n, k, a, b, c, xargs)
-          INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                   &
-     &      T = LIBXS_SINGLE_PRECISION
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
+          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLS_KIND
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN) :: a(:,:), b(:,:)
           REAL(T), INTENT(INOUT) :: c(:,:)
           TYPE(LIBXS_SGEMM_XARGS), INTENT(IN), OPTIONAL :: xargs
@@ -325,9 +324,8 @@
         ! Non-dispatched matrix-matrix multiplication using BLAS (double-precision).
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dblasmm
         SUBROUTINE libxs_dblasmm(m, n, k, a, b, c, xargs)
-          INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                   &
-     &      T = LIBXS_DOUBLE_PRECISION
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
+          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLD_KIND
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN) :: a(:,:), b(:,:)
           REAL(T), INTENT(INOUT) :: c(:,:)
           TYPE(LIBXS_DGEMM_XARGS), INTENT(IN), OPTIONAL :: xargs
@@ -353,15 +351,14 @@
         ! Dispatched matrix-matrix multiplication (single-precision).
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm
         SUBROUTINE libxs_smm(m, n, k, a, b, c, xargs)
-          INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                   &
-     &      T = LIBXS_SINGLE_PRECISION
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
+          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLS_KIND
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN) :: a(:,:), b(:,:)
           REAL(T), INTENT(INOUT) :: c(:,:)
           TYPE(LIBXS_SGEMM_XARGS), INTENT(IN), OPTIONAL :: xargs
           !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
           PROCEDURE(LIBXS_SMM_FUNCTION), POINTER :: xmm
-          INTEGER(LIBXS_INTEGER_TYPE) :: mn
+          INTEGER(LIBXS_INT_KIND) :: mn
           TYPE(C_FUNPTR) :: fn
           IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
             mn = libxs_ld(m, n)
@@ -370,7 +367,9 @@
      &            .NOT.PRESENT(xargs)),                                 &
      &        MERGE(REAL(LIBXS_BETA, T), xargs%beta,                  &
      &            .NOT.PRESENT(xargs)),                                 &
-     &        mn, k, libxs_align_value(mn, T, LIBXS_ALIGNED_STORES),&
+     &        mn, k, libxs_align_value(mn,                            &
+     &            MERGE(4, 8, 14.GT.PRECISION(c)),                      &
+     &            LIBXS_ALIGNED_STORES),                              &
      &        LIBXS_GEMM_FLAG_DEFAULT, LIBXS_PREFETCH)
             IF (C_ASSOCIATED(fn)) THEN
               CALL C_F_PROCPOINTER(fn, xmm)
@@ -386,15 +385,14 @@
         ! Dispatched matrix-matrix multiplication (double-precision).
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm
         SUBROUTINE libxs_dmm(m, n, k, a, b, c, xargs)
-          INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                   &
-     &      T = LIBXS_DOUBLE_PRECISION
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
+          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLD_KIND
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN) :: a(:,:), b(:,:)
           REAL(T), INTENT(INOUT) :: c(:,:)
           TYPE(LIBXS_DGEMM_XARGS), INTENT(IN), OPTIONAL :: xargs
           !DIR$ ATTRIBUTES OFFLOAD:MIC :: xmm
           PROCEDURE(LIBXS_DMM_FUNCTION), POINTER :: xmm
-          INTEGER(LIBXS_INTEGER_TYPE) :: mn
+          INTEGER(LIBXS_INT_KIND) :: mn
           TYPE(C_FUNPTR) :: fn
           IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
             mn = libxs_ld(m, n)
@@ -403,7 +401,9 @@
      &            .NOT.PRESENT(xargs)),                                 &
      &        MERGE(REAL(LIBXS_BETA, T), xargs%beta,                  &
      &            .NOT.PRESENT(xargs)),                                 &
-     &        mn, k, libxs_align_value(mn, T, LIBXS_ALIGNED_STORES),&
+     &        mn, k, libxs_align_value(mn,                            &
+     &            MERGE(8, 4, 14.LE.PRECISION(c)),                      &
+     &            LIBXS_ALIGNED_STORES),                              &
      &        LIBXS_GEMM_FLAG_DEFAULT, LIBXS_PREFETCH)
             IF (C_ASSOCIATED(fn)) THEN
               CALL C_F_PROCPOINTER(fn, xmm)
@@ -419,22 +419,17 @@
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: sdispatch
         TYPE(C_FUNPTR) PURE FUNCTION sdispatch(                         &
      &  m, n, k, alpha, beta, lda, ldb, ldc, flags, prefetch)
-          INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                   &
-     &      T = LIBXS_SINGLE_PRECISION
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN), OPTIONAL ::        &
+          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLS_KIND
+          INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL ::            &
      &      lda, ldb, ldc, flags, prefetch
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN), OPTIONAL :: beta
           REAL(T), INTENT(IN) :: alpha
           sdispatch = libxs_sdispatch(m, n, k, alpha,                 &
-     &      MERGE(REAL(LIBXS_BETA, T), beta,                          &
-     &          .NOT.PRESENT(beta)),                                    &
-     &      MERGE(INT(0, LIBXS_INTEGER_TYPE), lda,                    &
-     &          .NOT.PRESENT(lda)),                                     &
-     &      MERGE(INT(0, LIBXS_INTEGER_TYPE), ldb,                    &
-     &          .NOT.PRESENT(ldb)),                                     &
-     &      MERGE(INT(0, LIBXS_INTEGER_TYPE), ldc,                    &
-     &          .NOT.PRESENT(ldc)),                                     &
+     &      MERGE(REAL(LIBXS_BETA, T), beta, .NOT.PRESENT(beta)),     &
+     &      MERGE(0, lda, .NOT.PRESENT(lda)),                           &
+     &      MERGE(0, ldb, .NOT.PRESENT(ldb)),                           &
+     &      MERGE(0, ldc, .NOT.PRESENT(ldc)),                           &
      &      MERGE(LIBXS_GEMM_FLAG_DEFAULT, flags,                     &
      &          .NOT.PRESENT(flags)),                                   &
      &      MERGE(LIBXS_PREFETCH, prefetch,                           &
@@ -444,22 +439,17 @@
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: ddispatch
         TYPE(C_FUNPTR) PURE FUNCTION ddispatch(                         &
      &  m, n, k, alpha, beta, lda, ldb, ldc, flags, prefetch)
-          INTEGER(LIBXS_INTEGER_TYPE), PARAMETER ::                   &
-     &      T = LIBXS_DOUBLE_PRECISION
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN), OPTIONAL ::        &
+          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLD_KIND
+          INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL ::            &
      &      lda, ldb, ldc, flags, prefetch
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN), OPTIONAL :: beta
           REAL(T), INTENT(IN) :: alpha
           ddispatch = libxs_ddispatch(m, n, k, alpha,                 &
-     &      MERGE(REAL(LIBXS_BETA, T), beta,                          &
-     &          .NOT.PRESENT(beta)),                                    &
-     &      MERGE(INT(0, LIBXS_INTEGER_TYPE), lda,                    &
-     &          .NOT.PRESENT(lda)),                                     &
-     &      MERGE(INT(0, LIBXS_INTEGER_TYPE), ldb,                    &
-     &          .NOT.PRESENT(ldb)),                                     &
-     &      MERGE(INT(0, LIBXS_INTEGER_TYPE), ldc,                    &
-     &          .NOT.PRESENT(ldc)),                                     &
+     &      MERGE(REAL(LIBXS_BETA, T), beta, .NOT.PRESENT(beta)),     &
+     &      MERGE(0, lda, .NOT.PRESENT(lda)),                           &
+     &      MERGE(0, ldb, .NOT.PRESENT(ldb)),                           &
+     &      MERGE(0, ldc, .NOT.PRESENT(ldc)),                           &
      &      MERGE(LIBXS_GEMM_FLAG_DEFAULT, flags,                     &
      &          .NOT.PRESENT(flags)),                                   &
      &      MERGE(LIBXS_PREFETCH, prefetch,                           &
@@ -467,14 +457,14 @@
         END FUNCTION
 
         TYPE(C_FUNPTR) PURE FUNCTION xdispatch(m, n, k, type)
-          INTEGER(LIBXS_INTEGER_TYPE), INTENT(IN) :: m, n, k, type
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k, type
           xdispatch = MERGE(                                            &
      &      libxs_dispatch(m, n, k,                                   &
-     &          REAL(LIBXS_ALPHA, LIBXS_DOUBLE_PRECISION),          &
-     &          REAL(LIBXS_BETA, LIBXS_DOUBLE_PRECISION)),          &
+     &          REAL(LIBXS_ALPHA, LIBXS_FLD_KIND),                  &
+     &          REAL(LIBXS_BETA, LIBXS_FLD_KIND)),                  &
      &      libxs_dispatch(m, n, k,                                   &
-     &          REAL(LIBXS_ALPHA, LIBXS_SINGLE_PRECISION),          &
-     &          REAL(LIBXS_BETA, LIBXS_SINGLE_PRECISION)),          &
-     &      LIBXS_DOUBLE_PRECISION.EQ.type)
+     &          REAL(LIBXS_ALPHA, LIBXS_FLS_KIND),                  &
+     &          REAL(LIBXS_BETA, LIBXS_FLS_KIND)),                  &
+     &      LIBXS_FLD_KIND.EQ.type)
         END FUNCTION
       END MODULE
