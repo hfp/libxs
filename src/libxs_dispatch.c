@@ -51,7 +51,7 @@
 # pragma offload_attribute(pop)
 #endif
 
-#define LIBXS_DISPATCH_CACHESIZE ((LIBXS_MAX_MNK) * 8)
+#define LIBXS_DISPATCH_CACHESIZE (LIBXS_MAX_MNK * 8)
 #if !defined(_WIN32)
 #define LIBXS_DISPATCH_PAGESIZE sysconf(_SC_PAGESIZE)
 #else
@@ -60,13 +60,15 @@
 #define LIBXS_DISPATCH_SEED 0
 
 
-typedef union LIBXS_RETARGETABLE libxs_cache_entry {
+typedef union LIBXS_RETARGETABLE libxs_dispatch_entry {
   libxs_sfunction smm;
   libxs_dfunction dmm;
+  libxs_sxfunction sxmm;
+  libxs_dxfunction dxmm;
   const void* pv;
-} libxs_cache_entry;
+} libxs_dispatch_entry;
 /** Filled with zeros due to C language rule. */
-LIBXS_RETARGETABLE libxs_cache_entry libxs_cache[(LIBXS_DISPATCH_CACHESIZE)];
+LIBXS_RETARGETABLE libxs_dispatch_entry libxs_dispatch_cache[(LIBXS_DISPATCH_CACHESIZE)];
 LIBXS_RETARGETABLE int libxs_init_check = 0;
 
 #if !defined(_OPENMP)
@@ -114,9 +116,15 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gemm_descriptor* desc)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
-  libxs_cache_entry result;
+  /* TODO: issue #44 */
+}
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_gemm_descriptor* desc)
+{
+  libxs_dispatch_entry result;
   unsigned int hash, indx;
   assert(0 != desc);
 
@@ -130,8 +138,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gem
   hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_DISPATCH_SEED);
 
   indx = hash % (LIBXS_DISPATCH_CACHESIZE);
-  result = libxs_cache[indx]; /* TODO: handle collision */
-#if (0 != (LIBXS_JIT))
+  result = libxs_dispatch_cache[indx]; /* TODO: handle collision */
+#if (0 != LIBXS_JIT)
   if (0 == result.pv) {
 # if !defined(_WIN32) && !defined(__CYGWIN__)
 # if !defined(_OPENMP)
@@ -141,7 +149,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gem
 #   pragma omp critical(libxs_dispatch_lock)
 # endif
     {
-      result = libxs_cache[indx];
+      result = libxs_dispatch_cache[indx];
 
       if (0 == result.pv) {
         char l_arch[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }; /* empty initial arch string */
@@ -240,7 +248,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gem
         free(l_generated_code.generated_code);
 
         /* make function pointer available for dispatch */
-        libxs_cache[indx].pv = l_code;
+        libxs_dispatch_cache[indx].pv = l_code;
         
         /* prepare return value */
         result.pv = l_code;
@@ -259,31 +267,41 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry internal_build(const libxs_gem
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int m, int n, int k,
-  float alpha, float beta, int lda, int ldb, int ldc, int flags, int prefetch)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(
+  int flags, int m, int n, int k, int lda, int ldb, int ldc,
+  const float* alpha, const float* beta)
 {
-  const int mn = LIBXS_LD(m, n);
-  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, m, n, k, alpha, beta,
-    0 == lda ? (0 == (LIBXS_GEMM_FLAG_ALIGN_A & flags) ? mn :
-      LIBXS_ALIGN_VALUE(mn, sizeof(float), LIBXS_ALIGNED_LOADS)) : LIBXS_MAX(lda, mn),
-    0 == ldb ? k : LIBXS_MAX(ldb, k),
-    0 == ldc ? (0 == (LIBXS_GEMM_FLAG_ALIGN_C & flags) ? mn :
-      LIBXS_ALIGN_VALUE(mn, sizeof(float), LIBXS_ALIGNED_STORES)) : LIBXS_MAX(ldc, mn),
-    flags | LIBXS_GEMM_FLAG_F32PREC, prefetch);
+  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, flags | LIBXS_GEMM_FLAG_F32PREC, m, n, k, lda, ldb, ldc,
+    0 == alpha ? LIBXS_ALPHA : *alpha, 0 == beta ? LIBXS_BETA : *beta, LIBXS_PREFETCH);
   return internal_build(&desc).smm;
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(int m, int n, int k,
-  double alpha, double beta, int lda, int ldb, int ldc, int flags, int prefetch)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(
+  int flags, int m, int n, int k, int lda, int ldb, int ldc,
+  const double* alpha, const double* beta)
 {
-  const int mn = LIBXS_LD(m, n);
-  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, m, n, k, alpha, beta,
-    0 == lda ? (0 == (LIBXS_GEMM_FLAG_ALIGN_A & flags) ? mn :
-      LIBXS_ALIGN_VALUE(mn, sizeof(double), LIBXS_ALIGNED_LOADS)) : LIBXS_MAX(lda, mn),
-    0 == ldb ? k : LIBXS_MAX(ldb, k),
-    0 == ldc ? (0 == (LIBXS_GEMM_FLAG_ALIGN_C & flags) ? mn :
-      LIBXS_ALIGN_VALUE(mn, sizeof(double), LIBXS_ALIGNED_STORES)) : LIBXS_MAX(ldc, mn),
-    flags, prefetch);
+  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, flags, m, n, k, lda, ldb, ldc,
+    0 == alpha ? LIBXS_ALPHA : *alpha, 0 == beta ? LIBXS_BETA : *beta, LIBXS_PREFETCH);
   return internal_build(&desc).dmm;
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sxfunction libxs_sxdispatch(
+  int flags, int m, int n, int k, int lda, int ldb, int ldc,
+  const float* alpha, const float* beta, int prefetch)
+{
+  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, flags | LIBXS_GEMM_FLAG_F32PREC, m, n, k, lda, ldb, ldc,
+    0 == alpha ? LIBXS_ALPHA : *alpha, 0 == beta ? LIBXS_BETA : *beta, prefetch);
+  return internal_build(&desc).sxmm;
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dxfunction libxs_dxdispatch(
+  int flags, int m, int n, int k, int lda, int ldb, int ldc,
+  const double* alpha, const double* beta, int prefetch)
+{
+  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, flags, m, n, k, lda, ldb, ldc,
+    0 == alpha ? LIBXS_ALPHA : *alpha, 0 == beta ? LIBXS_BETA : *beta, prefetch);
+  return internal_build(&desc).dxmm;
 }

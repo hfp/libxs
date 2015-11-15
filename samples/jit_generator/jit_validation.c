@@ -558,13 +558,12 @@ int main(int argc, char* argv []) {
     return -1;
   }
 
-  LIBXS_GEMM_DESCRIPTOR(l_xgemm_desc,
-    LIBXS_MAX(l_m, 0), LIBXS_MAX(l_n, 0), LIBXS_MAX(l_k, 0),
-    l_alpha, l_beta, l_lda, l_ldb, l_ldc,
+  LIBXS_GEMM_DESCRIPTOR(l_xgemm_desc, 1,
     (0 == l_single_precision ? 0 : LIBXS_GEMM_FLAG_F32PREC)
       | (0 != l_aligned_a ? LIBXS_GEMM_FLAG_ALIGN_A : 0)
       | (0 != l_aligned_c ? LIBXS_GEMM_FLAG_ALIGN_C : 0),
-    l_prefetch);
+    l_m, l_n, l_k, l_lda, l_ldb, l_ldc,
+    l_alpha, l_beta, l_prefetch);
 
   if ( l_single_precision == 0 ) {
     l_a_d = (double*)_mm_malloc(l_xgemm_desc.lda * l_xgemm_desc.k * sizeof(double), 64);

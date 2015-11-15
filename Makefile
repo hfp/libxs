@@ -29,15 +29,15 @@ MNK ?= 0
 # Specify an alignment (Bytes)
 ALIGNMENT ?= 64
 
-# Use aligned Store and/or aligned Load instructions
-ALIGNED_STORES ?= 0
-ALIGNED_LOADS ?= 0
-
 # Generate prefetches
 PREFETCH ?= 0
 
 # THRESHOLD problem size (M x N x K) determining when to use BLAS; can be zero
 THRESHOLD ?= $(shell echo $$((80 * 80 * 80)))
+
+# Use aligned Store and/or aligned Load instructions
+ALIGNED_STORES ?= 0
+ALIGNED_LOADS ?= 0
 
 # Alpha argument of GEMM
 # Supported: 1.0
@@ -185,9 +185,9 @@ install: all clean
 .PHONY: header
 header: cheader fheader
 
-# inherit from the common ALIGNMENT in case ALIGNED_*=1 is given
-ALIGNED_ST = $(shell echo $$((1!=$(ALIGNED_STORES)?$(ALIGNED_STORES):$(ALIGNMENT))))
-ALIGNED_LD = $(shell echo $$((1!=$(ALIGNED_LOADS)?$(ALIGNED_LOADS):$(ALIGNMENT))))
+PREFETCH_ID = 0
+PREFETCH_SCHEME = nopf
+PREFETCH_TYPE = 0
 
 ifneq (0,$(shell echo $$((2 <= $(PREFETCH) && $(PREFETCH) <= 9))))
 	PREFETCH_ID = $(PREFETCH)
@@ -209,10 +209,9 @@ else ifeq (AL2jpst,$(PREFETCH))
 	PREFETCH_ID = 8
 else ifeq (AL2jpst_BL2viaC,$(PREFETCH))
 	PREFETCH_ID = 9
-else # nopf
-	PREFETCH_ID = 0
 endif
 
+# Mapping build options to libxs_prefetch_type (see include/libxs_typedefs.h)
 ifeq (2,$(PREFETCH_ID))
 	PREFETCH_SCHEME = pfsigonly
 	PREFETCH_TYPE = 1
@@ -237,10 +236,10 @@ else ifeq (7,$(PREFETCH_ID))
 else ifeq (9,$(PREFETCH_ID))
 	PREFETCH_SCHEME = AL2jpst_BL2viaC
 	PREFETCH_TYPE = $(shell echo $$((8 | 4)))
-else
-	PREFETCH_SCHEME = nopf
-	PREFETCH_TYPE = 0
 endif
+
+# Mapping build options to libxs_gemm_flags (see include/libxs_typedefs.h)
+FLAGS = $(shell echo $$((((0!=$(ALIGNED_LOADS))*4) | ((0!=$(ALIGNED_STORES))*8))))
 
 SUPPRESS_UNUSED_VARIABLE_WARNINGS = LIBXS_UNUSED(A); LIBXS_UNUSED(B); LIBXS_UNUSED(C);
 ifneq (nopf,$(PREFETCH_SCHEME))
@@ -250,23 +249,22 @@ endif
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.h $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_prefetch.h $(ROOTDIR)/include/libxs_fallback.h
+$(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.h $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_frontend.h
 	@mkdir -p $(dir $@)
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_fallback.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_prefetch.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_generator.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
-	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(MAKE_ILP64) $(ROW_MAJOR) $(ALIGNMENT) $(ALIGNED_ST) $(ALIGNED_LD) \
-		$(PREFETCH_TYPE) $(JIT) $(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(ALPHA) $(BETA) $(INDICES) > $@
+	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
+		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
 $(INCDIR)/libxs.f: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.f
 	@mkdir -p $(dir $@)
-	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f $(MAKE_ILP64) $(ROW_MAJOR) $(ALIGNMENT) $(ALIGNED_ST) $(ALIGNED_LD) \
-		$(PREFETCH_TYPE) $(JIT) $(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(ALPHA) $(BETA) $(INDICES) > $@
+	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
+		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
 ifeq (0,$(OFFLOAD))
 	@TMPFILE=`mktemp`
 	@sed -i ${TMPFILE} '/ATTRIBUTES OFFLOAD:MIC/d' $@
@@ -312,52 +310,58 @@ else # column-major
 	$(eval MVALUE2 := $(MVALUE))
 	$(eval NVALUE2 := $(NVALUE))
 endif
-ifneq (0,$(ALIGNED_STORES)) # aligned stores
-	$(eval LDCDP := $(shell python $(SCRDIR)/libxs_utilities.py $(MVALUE2)  8 $(ALIGNED_ST)))
-	$(eval LDCSP := $(shell python $(SCRDIR)/libxs_utilities.py $(MVALUE2) 16 $(ALIGNED_ST)))
+ifneq (0,$(ALIGNED_LOADS)) # aligned loads
+	$(eval LDASP := $(shell python $(SCRDIR)/libxs_utilities.py $(MVALUE2) 16 $(ALIGNMENT)))
+	$(eval LDADP := $(shell python $(SCRDIR)/libxs_utilities.py $(MVALUE2)  8 $(ALIGNMENT)))
 else # unaligned stores
-	$(eval LDCDP := $(MVALUE2))
-	$(eval LDCSP := $(MVALUE2))
+	$(eval LDASP := $(MVALUE2))
+	$(eval LDADP := $(MVALUE2))
 endif
-	$(eval LDA := $(MVALUE2))
+ifneq (0,$(ALIGNED_STORES)) # aligned stores
+	$(eval LDCSP := $(shell python $(SCRDIR)/libxs_utilities.py $(MVALUE2) 16 $(ALIGNMENT)))
+	$(eval LDCDP := $(shell python $(SCRDIR)/libxs_utilities.py $(MVALUE2)  8 $(ALIGNMENT)))
+else # unaligned stores
+	$(eval LDCSP := $(MVALUE2))
+	$(eval LDCDP := $(MVALUE2))
+endif
 	$(eval LDB := $(KVALUE))
 	@mkdir -p $(dir $@)
 	@echo "#include <libxs.h>" > $@
 	@echo >> $@
 ifneq (0,$(MIC))
-	@echo "#define LIBXS_GENTARGET_knc_dp" >> $@
 	@echo "#define LIBXS_GENTARGET_knc_sp" >> $@
+	@echo "#define LIBXS_GENTARGET_knc_dp" >> $@
 endif
 ifeq (noarch,$(GENTARGET))
-	@echo "#define LIBXS_GENTARGET_knl_dp" >> $@
 	@echo "#define LIBXS_GENTARGET_knl_sp" >> $@
-	@echo "#define LIBXS_GENTARGET_hsw_dp" >> $@
+	@echo "#define LIBXS_GENTARGET_knl_dp" >> $@
 	@echo "#define LIBXS_GENTARGET_hsw_sp" >> $@
-	@echo "#define LIBXS_GENTARGET_snb_dp" >> $@
+	@echo "#define LIBXS_GENTARGET_hsw_dp" >> $@
 	@echo "#define LIBXS_GENTARGET_snb_sp" >> $@
-	@echo "#define LIBXS_GENTARGET_wsm_dp" >> $@
+	@echo "#define LIBXS_GENTARGET_snb_dp" >> $@
 	@echo "#define LIBXS_GENTARGET_wsm_sp" >> $@
+	@echo "#define LIBXS_GENTARGET_wsm_dp" >> $@
 	@echo >> $@
 	@echo >> $@
-	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knl $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) knl $(PREFETCH_SCHEME) DP
-	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knl $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) knl $(PREFETCH_SCHEME) SP
-	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) hsw $(PREFETCH_SCHEME) DP
-	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) hsw $(PREFETCH_SCHEME) SP
-	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) snb $(PREFETCH_SCHEME) DP
-	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) snb $(PREFETCH_SCHEME) SP
-	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) wsm $(PREFETCH_SCHEME) DP
-	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) wsm $(PREFETCH_SCHEME) SP
+	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knl $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDASP) $(LDB) $(LDCSP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) knl $(PREFETCH_SCHEME) SP
+	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knl $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDADP) $(LDB) $(LDCDP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) knl $(PREFETCH_SCHEME) DP
+	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDADP) $(LDB) $(LDCSP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) hsw $(PREFETCH_SCHEME) SP
+	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDADP) $(LDB) $(LDCDP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) hsw $(PREFETCH_SCHEME) DP
+	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDADP) $(LDB) $(LDCSP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) snb $(PREFETCH_SCHEME) SP
+	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_snb $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDADP) $(LDB) $(LDCDP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) snb $(PREFETCH_SCHEME) DP
+	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDASP) $(LDB) $(LDCSP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) wsm $(PREFETCH_SCHEME) SP
+	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_wsm $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDADP) $(LDB) $(LDCDP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) wsm $(PREFETCH_SCHEME) DP
 else
-	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_dp" >> $@
 	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_sp" >> $@
+	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_dp" >> $@
 	@echo >> $@
 	@echo >> $@
-	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) $(GENTARGET) $(PREFETCH_SCHEME) DP
-	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) $(GENTARGET) $(PREFETCH_SCHEME) SP
+	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDASP) $(LDB) $(LDCSP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) $(GENTARGET) $(PREFETCH_SCHEME) SP
+	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDADP) $(LDB) $(LDCDP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) $(GENTARGET) $(PREFETCH_SCHEME) DP
 endif
 ifneq (0,$(MIC))
-	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCDP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) knc $(PREFETCH_SCHEME) DP
-	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDA) $(LDB) $(LDCSP) $(ALPHA) $(BETA) 0 $(ALIGNED_ST) knc $(PREFETCH_SCHEME) SP
+	$(BINDIR)/generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDASP) $(LDB) $(LDCSP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) knc $(PREFETCH_SCHEME) SP
+	$(BINDIR)/generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MVALUE2) $(NVALUE2) $(KVALUE) $(LDADP) $(LDB) $(LDCDP) $(ALPHA) $(BETA) $(ALIGNED_LOADS) $(ALIGNED_STORES) knc $(PREFETCH_SCHEME) DP
 endif
 	@TMPFILE=`mktemp`
 	@sed -i ${TMPFILE} \
@@ -368,13 +372,13 @@ endif
 		-e '/#pragma message (".*KERNEL COMPILATION WARNING: compiling .\+ code on .\+ or newer architecture: " __FILE__)/d' \
 		$@
 	@rm -f ${TMPFILE}
-	@python $(SCRDIR)/libxs_specialized.py $(ROW_MAJOR) $(MVALUE) $(NVALUE) $(KVALUE) >> $@
+	@python $(SCRDIR)/libxs_specialized.py $(ROW_MAJOR) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >> $@
 
 .PHONY: main
 main: $(BLDDIR)/libxs_dispatch.h
 $(BLDDIR)/libxs_dispatch.h: $(INCDIR)/libxs.h $(SCRDIR)/libxs_dispatch.py
 	@mkdir -p $(dir $@)
-	@python $(SCRDIR)/libxs_dispatch.py $(THRESHOLD) $(INDICES) > $@
+	@python $(SCRDIR)/libxs_dispatch.py $(PREFETCH_TYPE) $(THRESHOLD) $(INDICES) > $@
 
 ifneq (0,$(MIC))
 .PHONY: compile_mic
