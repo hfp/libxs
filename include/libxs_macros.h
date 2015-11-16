@@ -47,6 +47,8 @@
 #   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
 #   define LIBXS_RESTRICT restrict
 #   define LIBXS_INLINE static inline
+# elif defined(_MSC_VER)
+#   define LIBXS_INLINE static __inline
 # else
 #   define LIBXS_INLINE static
 # endif /*C99*/
@@ -67,6 +69,14 @@
 #   define LIBXS_PRAGMA(DIRECTIVE)
 # endif
 #endif /*LIBXS_PRAGMA*/
+#if defined(_MSC_VER)
+# define LIBXS_MESSAGE(MSG) LIBXS_PRAGMA(message(MSG))
+#elif (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+# define LIBXS_MESSAGE(MSG) LIBXS_PRAGMA(message MSG)
+#else
+# define LIBXS_MESSAGE(MSG)
+#endif
+
 #if defined(__INTEL_COMPILER)
 # define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(simd reduction(EXPRESSION))
 # define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(simd collapse(N))
@@ -130,14 +140,21 @@
 
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __declspec(A)
+# if defined(__cplusplus)
+#   define LIBXS_INLINE_ALWAYS __forceinline
+# else
+#   define LIBXS_INLINE_ALWAYS static __forceinline
+# endif
 # define LIBXS_ALIGNED(DECL, N) LIBXS_ATTRIBUTE(align(N)) DECL
 # define LIBXS_CDECL __cdecl
 #elif defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __attribute__((A))
+# define LIBXS_INLINE_ALWAYS LIBXS_ATTRIBUTE(always_inline) LIBXS_INLINE
 # define LIBXS_ALIGNED(DECL, N) DECL LIBXS_ATTRIBUTE(aligned(N))
 # define LIBXS_CDECL LIBXS_ATTRIBUTE(cdecl)
 #else
 # define LIBXS_ATTRIBUTE(A)
+# define LIBXS_INLINE_ALWAYS LIBXS_INLINE
 # define LIBXS_ALIGNED(DECL, N)
 # define LIBXS_CDECL
 #endif

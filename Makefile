@@ -262,7 +262,7 @@ $(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/li
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
 $(INCDIR)/libxs.f: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.f
-	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $@) $(BLDDIR)
 	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
 ifeq (0,$(OFFLOAD))
@@ -270,6 +270,7 @@ ifeq (0,$(OFFLOAD))
 	@sed -i ${TMPFILE} '/ATTRIBUTES OFFLOAD:MIC/d' $@
 	@rm -f ${TMPFILE} 
 endif
+	$(FC) $(FCFLAGS) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $@ -o $(BLDDIR)/libxs-mod.o $(FMFLAGS) $(dir $@)
 
 .PHONY: compile_generator_lib
 compile_generator_lib: $(OBJFILES_GEN_LIB)

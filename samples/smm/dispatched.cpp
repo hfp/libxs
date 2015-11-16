@@ -135,7 +135,10 @@ int main(int argc, char* argv[])
           const T *const ai = a + i * asize, *const bi = b + i * bsize;
           T *const ci = c + i * ldcsize;
 #if (0 != LIBXS_PREFETCH)
-          libxs_mm(m, n, k, ai, bi, ci, ai + asize, bi + bsize, ci + ldcsize);
+          libxs_mm(m, n, k, ai, bi, ci,
+            LIBXS_PREFETCH_A(ai + asize),
+            LIBXS_PREFETCH_B(bi + bsize),
+            LIBXS_PREFETCH_C(ci + ldcsize));
 #else
           libxs_mm(m, n, k, ai, bi, ci);
 #endif
@@ -159,7 +162,10 @@ int main(int argc, char* argv[])
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNMENT);
           const T *const ai = a + i * asize, *const bi = b + i * bsize;
 #if (0 != LIBXS_PREFETCH)
-          libxs_mm(m, n, k, ai, bi, tmp, ai + asize, bi + bsize, tmp);
+          libxs_mm(m, n, k, ai, bi, tmp,
+            LIBXS_PREFETCH_A(ai + asize),
+            LIBXS_PREFETCH_B(bi + bsize),
+            LIBXS_PREFETCH_C(tmp));
 #else
           libxs_mm(m, n, k, ai, bi, tmp);
 #endif

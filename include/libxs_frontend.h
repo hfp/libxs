@@ -30,13 +30,36 @@
 #define LIBXS_FRONTEND_H
 
 #include "libxs.h"
+#include <assert.h>
 
+/** Helper macro for GEMM argument permutation depending on storage scheme. */
 #if (0 != LIBXS_ROW_MAJOR)
 # define LIBXS_LD(M, N) (N)
 #else
 # define LIBXS_LD(M, N) (M)
 #endif
 
+/** Helper macros for eliding prefetch address calculations depending on prefetch scheme. */
+#if 0 != ((LIBXS_PREFETCH) & 2) || 0 != ((LIBXS_PREFETCH) & 4)
+# define LIBXS_PREFETCH_A(EXPR) (EXPR)
+#endif
+#if 0 != ((LIBXS_PREFETCH) & 8)
+# define LIBXS_PREFETCH_B(EXPR) (EXPR)
+#endif
+#if 0/*no scheme yet using C*/
+# define LIBXS_PREFETCH_C(EXPR) (EXPR)
+#endif
+#if !defined(LIBXS_PREFETCH_A)
+# define LIBXS_PREFETCH_A(EXPR) 0
+#endif
+#if !defined(LIBXS_PREFETCH_B)
+# define LIBXS_PREFETCH_B(EXPR) 0
+#endif
+#if !defined(LIBXS_PREFETCH_C)
+# define LIBXS_PREFETCH_C(EXPR) 0
+#endif
+
+/** MKL_DIRECT_CALL requires to include the MKL interface. */
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
 # if defined(LIBXS_OFFLOAD_BUILD)
 #   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -46,6 +69,7 @@
 #   include <mkl.h>
 # endif
 #else
+/** Fallback prototype functions served by any compliant BLAS. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
   const char*, const char*, const int*, const int*, const int*,
   const double*, const double*, const int*, const double*, const int*,
@@ -80,8 +104,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 #else
 # define LIBXS_IMM(REAL, UINT, FLAGS, M, N, K, A, B, C, ALPHA, BETA) { \
   const REAL *const libxs_a_ = LIBXS_LD(B, A), *const libxs_b_ = LIBXS_LD(A, B); \
-  const REAL libxs_alpha_ = 0 == (ALPHA) ? ((REAL)LIBXS_ALPHA) : (((REAL)1) == *(ALPHA) ? ((REAL)1) : (((REAL)-1) == *(ALPHA) ? ((REAL)-1) : *(ALPHA))); \
-  const REAL libxs_beta_  = 0 == (BETA)  ? ((REAL)LIBXS_BETA)  : (((REAL)1) == *(BETA)  ? ((REAL)1) : (((REAL) 0) == *(BETA)  ? ((REAL) 0) : *(BETA))); \
+  const REAL libxs_alpha_ = 0 == (ALPHA) ? ((REAL)LIBXS_ALPHA) : (((REAL)1) == *((const REAL*)(ALPHA)) ? ((REAL)1) : (((REAL)-1) == *((const REAL*)(ALPHA)) ? ((REAL)-1) : *((const REAL*)(ALPHA)))); \
+  const REAL libxs_beta_  = 0 == (BETA)  ? ((REAL)LIBXS_BETA)  : (((REAL)1) == *((const REAL*)(BETA))  ? ((REAL)1) : (((REAL) 0) == *((const REAL*)(BETA))  ? ((REAL) 0) : *((const REAL*)(BETA)))); \
   const UINT libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M); \
   const UINT libxs_lda_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_A & (FLAGS)) ? libxs_m_ : \
     LIBXS_ALIGN_VALUE(libxs_m_, sizeof(REAL), LIBXS_ALIGNMENT); \
