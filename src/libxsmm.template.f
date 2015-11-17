@@ -164,9 +164,7 @@
         ! Overloaded auto-dispatch routines (single/double precision).
         INTERFACE libxs_mm
           MODULE PROCEDURE                                              &
-     &      libxs_smm, libxs_dmm,                                   &
-     &      libxs_smm_prf, libxs_dmm_prf,                           &
-     &      libxs_smm_abf, libxs_dmm_abf
+     &      libxs_smm, libxs_dmm, libxs_smm_abc, libxs_dmm_abc
         END INTERFACE
 
         ! Overloaded BLAS routines (single/double precision).
@@ -507,7 +505,7 @@
           TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
           REAL(T), INTENT(IN), TARGET :: a(*), b(*)
           REAL(T), INTENT(INOUT), TARGET :: c(*)
-          REAL(T), INTENT(IN), TARGET :: pa(*), pb(*), pc(*)
+          REAL(T), INTENT(IN), POINTER :: pa, pb, pc
           CALL libxs_scall_prx(fn, C_LOC(a), C_LOC(b), C_LOC(c),      &
      &      C_LOC(pa), C_LOC(pb), C_LOC(pc))
         END SUBROUTINE
@@ -518,7 +516,7 @@
           TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
           REAL(T), INTENT(IN), TARGET :: a(*), b(*)
           REAL(T), INTENT(INOUT), TARGET :: c(*)
-          REAL(T), INTENT(IN), TARGET :: pa(*), pb(*), pc(*)
+          REAL(T), INTENT(IN), POINTER :: pa, pb, pc
           CALL libxs_dcall_prx(fn, C_LOC(a), C_LOC(b), C_LOC(c),      &
      &      C_LOC(pa), C_LOC(pb), C_LOC(pc))
         END SUBROUTINE
@@ -674,34 +672,39 @@
           INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN) :: a(:,:), b(:,:)
           REAL(T), INTENT(INOUT) :: c(:,:)
-          REAL(T), INTENT(IN), OPTIONAL :: pa(*), pb(*), pc(*)
+          REAL(T), INTENT(IN), POINTER :: pa, pb, pc
           INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
           REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
           TYPE(LIBXS_SMM_FUNCTION) :: function
           INTEGER(LIBXS_INT_KIND) :: f
+          REAL(T) :: ralpha, rbeta
           f = MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags))
+          ralpha = MERGE(REAL(LIBXS_ALPHA, T), alpha,                 &
+     &      .NOT.PRESENT(alpha))
+          rbeta = MERGE(REAL(LIBXS_BETA, T), beta,                    &
+     &      .NOT.PRESENT(beta))
           IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
-            IF (PRESENT(pa).OR.PRESENT(pb).OR.PRESENT(pc)) THEN
+            IF (ASSOCIATED(pa).OR.ASSOCIATED(pb).OR.ASSOCIATED(pc)) THEN
               function = libxs_sfunction1(                            &
-     &          f, m, n, k, 0, 0, 0, alpha, beta,                       &
+     &          f, m, n, k, 0, 0, 0, ralpha, rbeta,                     &
      &          MERGE(LIBXS_PREFETCH, LIBXS_PREFETCH_SIGNATURE,     &
      &              LIBXS_PREFETCH_NONE.NE.LIBXS_PREFETCH))
               IF (ASSOCIATED(function%fn1)) THEN
                 CALL libxs_scall_prf(function, a, b, c, pa, pb, pc)
               ELSE
-                CALL libxs_sblasmm(m, n, k, a, b, c, f, alpha, beta)
+                CALL libxs_sblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
               END IF
             ELSE
               function = libxs_sfunction0(                            &
-     &          f, m, n, k, 0, 0, 0, alpha, beta)
+     &          f, m, n, k, 0, 0, 0, ralpha, rbeta)
               IF (ASSOCIATED(function%fn0)) THEN
                 CALL libxs_scall_abc(function, a, b, c)
               ELSE
-                CALL libxs_sblasmm(m, n, k, a, b, c, f, alpha, beta)
+                CALL libxs_sblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
               END IF
             END IF
           ELSE
-            CALL libxs_sblasmm(m, n, k, a, b, c, f, alpha, beta)
+            CALL libxs_sblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
           END IF
         END SUBROUTINE
 
@@ -713,96 +716,73 @@
           INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN) :: a(:,:), b(:,:)
           REAL(T), INTENT(INOUT) :: c(:,:)
-          REAL(T), INTENT(IN), OPTIONAL :: pa(*), pb(*), pc(*)
+          REAL(T), INTENT(IN), POINTER :: pa, pb, pc
           INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
           REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
           TYPE(LIBXS_DMM_FUNCTION) :: function
           INTEGER(LIBXS_INT_KIND) :: f
+          REAL(T) :: ralpha, rbeta
           f = MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags))
+          ralpha = MERGE(REAL(LIBXS_ALPHA, T), alpha,                 &
+     &      .NOT.PRESENT(alpha))
+          rbeta = MERGE(REAL(LIBXS_BETA, T), beta,                    &
+     &      .NOT.PRESENT(beta))
           IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
-            IF (PRESENT(pa).OR.PRESENT(pb).OR.PRESENT(pc)) THEN
+            IF (ASSOCIATED(pa).OR.ASSOCIATED(pb).OR.ASSOCIATED(pc)) THEN
               function = libxs_dfunction1(                            &
-     &          f, m, n, k, 0, 0, 0, alpha, beta,                       &
+     &          f, m, n, k, 0, 0, 0, ralpha, rbeta,                     &
      &          MERGE(LIBXS_PREFETCH, LIBXS_PREFETCH_SIGNATURE,     &
      &              LIBXS_PREFETCH_NONE.NE.LIBXS_PREFETCH))
               IF (ASSOCIATED(function%fn1)) THEN
                 CALL libxs_dcall_prf(function, a, b, c, pa, pb, pc)
               ELSE
-                CALL libxs_dblasmm(m, n, k, a, b, c, f, alpha, beta)
+                CALL libxs_dblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
               END IF
             ELSE
               function = libxs_dfunction0(                            &
-     &          f, m, n, k, 0, 0, 0, alpha, beta)
+     &          f, m, n, k, 0, 0, 0, ralpha, rbeta)
               IF (ASSOCIATED(function%fn0)) THEN
                 CALL libxs_dcall_abc(function, a, b, c)
               ELSE
-                CALL libxs_dblasmm(m, n, k, a, b, c, f, alpha, beta)
+                CALL libxs_dblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
               END IF
             END IF
           ELSE
-            CALL libxs_dblasmm(m, n, k, a, b, c, f, alpha, beta)
+            CALL libxs_dblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
           END IF
         END SUBROUTINE
 
         ! Dispatched matrix multiplication (single-precision).
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_prf
-        SUBROUTINE libxs_smm_prf(                                     &
-     &  m, n, k, a, b, c, pa, pb, pc, ralpha, rbeta, flags)
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_abc
+        SUBROUTINE libxs_smm_abc(                                     &
+     &  m, n, k, a, b, c, alpha, beta, flags)
           INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLS_KIND
           INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN) :: a(:,:), b(:,:)
           REAL(T), INTENT(INOUT) :: c(:,:)
-          REAL(T), INTENT(IN) :: pa(*), pb(*), pc(*)
-          REAL(T), INTENT(IN) :: ralpha, rbeta
+          REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
           INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
-          CALL libxs_smm(m, n, k, a, b, c, pa, pb, pc,                &
+          REAL(T), POINTER :: rnull => NULL()
+          CALL libxs_smm(m, n, k, a, b, c, rnull, rnull, rnull,       &
      &      MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags)),           &
-     &      ralpha, rbeta)
+     &      MERGE(REAL(LIBXS_ALPHA, T), alpha, .NOT.PRESENT(alpha)),  &
+     &      MERGE(REAL(LIBXS_BETA, T), beta, .NOT.PRESENT(beta)))
         END SUBROUTINE
 
         ! Dispatched matrix multiplication (double-precision).
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm_prf
-        SUBROUTINE libxs_dmm_prf(                                     &
-     &  m, n, k, a, b, c, pa, pb, pc, ralpha, rbeta, flags)
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm_abc
+        SUBROUTINE libxs_dmm_abc(                                     &
+     &  m, n, k, a, b, c, alpha, beta, flags)
           INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLD_KIND
           INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN) :: a(:,:), b(:,:)
           REAL(T), INTENT(INOUT) :: c(:,:)
-          REAL(T), INTENT(IN) :: pa(*), pb(*), pc(*)
-          REAL(T), INTENT(IN) :: ralpha, rbeta
+          REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
           INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
-          CALL libxs_dmm(m, n, k, a, b, c, pa, pb, pc,                &
+          REAL(T), POINTER :: rnull => NULL()
+          CALL libxs_dmm(m, n, k, a, b, c, rnull, rnull, rnull,       &
      &      MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags)),           &
-     &      ralpha, rbeta)
-        END SUBROUTINE
-
-        ! Dispatched matrix multiplication (single-precision).
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_abf
-        SUBROUTINE libxs_smm_abf(                                     &
-     &  m, n, k, a, b, c, ralpha, rbeta, flags)
-          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLS_KIND
-          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
-          REAL(T), INTENT(IN) :: a(:,:), b(:,:)
-          REAL(T), INTENT(INOUT) :: c(:,:)
-          REAL(T), INTENT(IN) :: ralpha, rbeta
-          INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
-          CALL libxs_smm(m, n, k, a, b, c,                            &
-     &      flags = MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags)),   &
-     &      alpha = ralpha, beta = rbeta)
-        END SUBROUTINE
-
-        ! Dispatched matrix multiplication (double-precision).
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm_abf
-        SUBROUTINE libxs_dmm_abf(                                     &
-     &  m, n, k, a, b, c, ralpha, rbeta, flags)
-          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLD_KIND
-          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
-          REAL(T), INTENT(IN) :: a(:,:), b(:,:)
-          REAL(T), INTENT(INOUT) :: c(:,:)
-          REAL(T), INTENT(IN) :: ralpha, rbeta
-          INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
-          CALL libxs_dmm(m, n, k, a, b, c,                            &
-     &      flags = MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags)),   &
-     &      alpha = ralpha, beta = rbeta)
+     &      MERGE(REAL(LIBXS_ALPHA, T), alpha, .NOT.PRESENT(alpha)),  &
+     &      MERGE(REAL(LIBXS_BETA, T), beta, .NOT.PRESENT(beta)))
         END SUBROUTINE
       END MODULE
