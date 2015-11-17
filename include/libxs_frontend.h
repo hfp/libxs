@@ -82,20 +82,20 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 
 /** BLAS based implementation with simplified interface. */
 #define LIBXS_BLASMM(REAL, FLAGS, M, N, K, A, B, C, ALPHA, BETA) { \
-  /*const*/char libxs_transa_ = 0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'; \
-  /*const*/char libxs_transb_ = 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'; \
+  /*const*/char libxs_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
+  /*const*/char libxs_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
   /*const*/int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
   /*const*/int libxs_lda_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_A & (FLAGS)) ? libxs_m_ : \
     LIBXS_ALIGN_VALUE(libxs_m_, sizeof(REAL), LIBXS_ALIGNMENT); \
   /*const*/int libxs_ldc_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_C & (FLAGS)) ? libxs_m_ : \
     LIBXS_ALIGN_VALUE(libxs_m_, sizeof(REAL), LIBXS_ALIGNMENT); \
-  /*const*/REAL libxs_alpha_ = 0 == (ALPHA) ? ((REAL)LIBXS_ALPHA) : *(ALPHA); \
-  /*const*/REAL libxs_beta_  = 0 == (BETA)  ? ((REAL)LIBXS_BETA)  : *(BETA); \
+  /*const*/REAL libxs_alpha_ = 0 == (ALPHA) ? ((REAL)LIBXS_ALPHA) : *((const REAL*)(ALPHA)); \
+  /*const*/REAL libxs_beta_  = 0 == (BETA)  ? ((REAL)LIBXS_BETA)  : *((const REAL*)(BETA)); \
   LIBXS_FSYMBOL(LIBXS_BLASPREC(REAL, gemm))(&libxs_transa_, &libxs_transb_, \
     &libxs_m_, &libxs_n_, &libxs_k_, &libxs_alpha_, \
     (REAL*)LIBXS_LD(A, B), &libxs_lda_, \
     (REAL*)LIBXS_LD(B, A), &libxs_k_, \
-    &libxs_beta_, (C), &libxs_ldc_); \
+    &libxs_beta_, C, &libxs_ldc_); \
 }
 
 /** Inlinable implementation exercising the compiler's code generation (template). */
