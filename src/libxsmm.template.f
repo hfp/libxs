@@ -175,10 +175,21 @@
      &      libxs_dcall_prx, libxs_dcall_prf
         END INTERFACE
 
-        ! Overloaded auto-dispatch routines (single/double precision).
+        ! Overloaded auto-dispatch routines (single precision).
+        INTERFACE libxs_smm
+          MODULE PROCEDURE libxs_smm_abc, libxs_smm_prf
+        END INTERFACE
+
+        ! Overloaded auto-dispatch routines (double precision).
+        INTERFACE libxs_dmm
+          MODULE PROCEDURE libxs_dmm_abc, libxs_dmm_prf
+        END INTERFACE
+
+        ! Overloaded auto-dispatch routines.
         INTERFACE libxs_mm
           MODULE PROCEDURE                                              &
-     &      libxs_smm, libxs_dmm, libxs_smm_abc, libxs_dmm_abc
+     &      libxs_smm_abc, libxs_smm_prf,                           &
+     &      libxs_dmm_abc, libxs_dmm_prf
         END INTERFACE
 
         ! Overloaded BLAS routines (single/double precision).
@@ -519,7 +530,7 @@
           TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
           REAL(T), INTENT(IN), TARGET :: a(*), b(*)
           REAL(T), INTENT(INOUT), TARGET :: c(*)
-          REAL(T), INTENT(IN), POINTER :: pa, pb, pc
+          REAL(T), INTENT(IN), TARGET :: pa(*), pb(*), pc(*)
           CALL libxs_scall_prx(fn, C_LOC(a), C_LOC(b), C_LOC(c),      &
      &      C_LOC(pa), C_LOC(pb), C_LOC(pc))
         END SUBROUTINE
@@ -530,7 +541,7 @@
           TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
           REAL(T), INTENT(IN), TARGET :: a(*), b(*)
           REAL(T), INTENT(INOUT), TARGET :: c(*)
-          REAL(T), INTENT(IN), POINTER :: pa, pb, pc
+          REAL(T), INTENT(IN), TARGET :: pa(*), pb(*), pc(*)
           CALL libxs_dcall_prx(fn, C_LOC(a), C_LOC(b), C_LOC(c),      &
      &      C_LOC(pa), C_LOC(pb), C_LOC(pc))
         END SUBROUTINE
@@ -679,124 +690,140 @@
         END SUBROUTINE
 
         ! Dispatched matrix multiplication (single-precision).
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm
-        SUBROUTINE libxs_smm(                                         &
-     &  m, n, k, a, b, c, pa, pb, pc, flags, alpha, beta)
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_abc
+        SUBROUTINE libxs_smm_abc(                                     &
+     &  m, n, k, a, b, c, flags, alpha, beta)
           INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLS_KIND
+          REAL(T), PARAMETER :: default_alpha = REAL(LIBXS_ALPHA, T)
+          REAL(T), PARAMETER :: default_beta = REAL(LIBXS_BETA, T)
           INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN) :: a(:,:), b(:,:)
           REAL(T), INTENT(INOUT) :: c(:,:)
-          REAL(T), INTENT(IN), POINTER :: pa, pb, pc
           INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
           REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
           TYPE(LIBXS_SMM_FUNCTION) :: function
-          INTEGER(LIBXS_INT_KIND) :: f
+          INTEGER(LIBXS_INT_KIND) :: iflags
           REAL(T) :: ralpha, rbeta
-          f = MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags))
-          ralpha = MERGE(REAL(LIBXS_ALPHA, T), alpha,                 &
-     &      .NOT.PRESENT(alpha))
-          rbeta = MERGE(REAL(LIBXS_BETA, T), beta,                    &
-     &      .NOT.PRESENT(beta))
+          iflags = MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags))
+          ralpha = MERGE(default_alpha, alpha, .NOT.PRESENT(alpha))
+          rbeta = MERGE(default_beta, beta, .NOT.PRESENT(beta))
           IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
-            IF (ASSOCIATED(pa).OR.ASSOCIATED(pb).OR.ASSOCIATED(pc)) THEN
-              function = libxs_sfunction1(                            &
-     &          f, m, n, k, 0, 0, 0, ralpha, rbeta,                     &
-     &          MERGE(LIBXS_PREFETCH, LIBXS_PREFETCH_SIGNATURE,     &
-     &              LIBXS_PREFETCH_NONE.NE.LIBXS_PREFETCH))
-              IF (ASSOCIATED(function%fn1)) THEN
-                CALL libxs_scall_prf(function, a, b, c, pa, pb, pc)
-              ELSE
-                CALL libxs_sblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
-              END IF
+            function = libxs_sfunction0(                              &
+     &        iflags, m, n, k, 0, 0, 0, ralpha, rbeta)
+            IF (ASSOCIATED(function%fn0)) THEN
+              CALL libxs_scall_abc(function, a, b, c)
             ELSE
-              function = libxs_sfunction0(                            &
-     &          f, m, n, k, 0, 0, 0, ralpha, rbeta)
-              IF (ASSOCIATED(function%fn0)) THEN
-                CALL libxs_scall_abc(function, a, b, c)
-              ELSE
-                CALL libxs_sblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
-              END IF
+              CALL libxs_sblasmm(m, n, k, a, b, c,                    &
+     &          iflags, ralpha, rbeta)
             END IF
           ELSE
-            CALL libxs_sblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
+            CALL libxs_sblasmm(m, n, k, a, b, c,                      &
+     &        iflags, ralpha, rbeta)
           END IF
-        END SUBROUTINE
-
-        ! Dispatched matrix multiplication (double-precision).
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm
-        SUBROUTINE libxs_dmm(                                         &
-     &  m, n, k, a, b, c, pa, pb, pc, flags, alpha, beta)
-          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLD_KIND
-          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
-          REAL(T), INTENT(IN) :: a(:,:), b(:,:)
-          REAL(T), INTENT(INOUT) :: c(:,:)
-          REAL(T), INTENT(IN), POINTER :: pa, pb, pc
-          INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
-          REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
-          TYPE(LIBXS_DMM_FUNCTION) :: function
-          INTEGER(LIBXS_INT_KIND) :: f
-          REAL(T) :: ralpha, rbeta
-          f = MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags))
-          ralpha = MERGE(REAL(LIBXS_ALPHA, T), alpha,                 &
-     &      .NOT.PRESENT(alpha))
-          rbeta = MERGE(REAL(LIBXS_BETA, T), beta,                    &
-     &      .NOT.PRESENT(beta))
-          IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
-            IF (ASSOCIATED(pa).OR.ASSOCIATED(pb).OR.ASSOCIATED(pc)) THEN
-              function = libxs_dfunction1(                            &
-     &          f, m, n, k, 0, 0, 0, ralpha, rbeta,                     &
-     &          MERGE(LIBXS_PREFETCH, LIBXS_PREFETCH_SIGNATURE,     &
-     &              LIBXS_PREFETCH_NONE.NE.LIBXS_PREFETCH))
-              IF (ASSOCIATED(function%fn1)) THEN
-                CALL libxs_dcall_prf(function, a, b, c, pa, pb, pc)
-              ELSE
-                CALL libxs_dblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
-              END IF
-            ELSE
-              function = libxs_dfunction0(                            &
-     &          f, m, n, k, 0, 0, 0, ralpha, rbeta)
-              IF (ASSOCIATED(function%fn0)) THEN
-                CALL libxs_dcall_abc(function, a, b, c)
-              ELSE
-                CALL libxs_dblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
-              END IF
-            END IF
-          ELSE
-            CALL libxs_dblasmm(m, n, k, a, b, c, f, ralpha, rbeta)
-          END IF
-        END SUBROUTINE
-
-        ! Dispatched matrix multiplication (single-precision).
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_abc
-        SUBROUTINE libxs_smm_abc(                                     &
-     &  m, n, k, a, b, c, alpha, beta, flags)
-          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLS_KIND
-          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
-          REAL(T), INTENT(IN) :: a(:,:), b(:,:)
-          REAL(T), INTENT(INOUT) :: c(:,:)
-          REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
-          INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
-          REAL(T), POINTER :: rnull => NULL()
-          CALL libxs_smm(m, n, k, a, b, c, rnull, rnull, rnull,       &
-     &      MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags)),           &
-     &      MERGE(REAL(LIBXS_ALPHA, T), alpha, .NOT.PRESENT(alpha)),  &
-     &      MERGE(REAL(LIBXS_BETA, T), beta, .NOT.PRESENT(beta)))
         END SUBROUTINE
 
         ! Dispatched matrix multiplication (double-precision).
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm_abc
         SUBROUTINE libxs_dmm_abc(                                     &
-     &  m, n, k, a, b, c, alpha, beta, flags)
+     &  m, n, k, a, b, c, flags, alpha, beta)
           INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLD_KIND
+          REAL(T), PARAMETER :: default_alpha = REAL(LIBXS_ALPHA, T)
+          REAL(T), PARAMETER :: default_beta = REAL(LIBXS_BETA, T)
           INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
           REAL(T), INTENT(IN) :: a(:,:), b(:,:)
           REAL(T), INTENT(INOUT) :: c(:,:)
-          REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
           INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
-          REAL(T), POINTER :: rnull => NULL()
-          CALL libxs_dmm(m, n, k, a, b, c, rnull, rnull, rnull,       &
-     &      MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags)),           &
-     &      MERGE(REAL(LIBXS_ALPHA, T), alpha, .NOT.PRESENT(alpha)),  &
-     &      MERGE(REAL(LIBXS_BETA, T), beta, .NOT.PRESENT(beta)))
+          REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
+          TYPE(LIBXS_DMM_FUNCTION) :: function
+          INTEGER(LIBXS_INT_KIND) :: iflags
+          REAL(T) :: ralpha, rbeta
+          iflags = MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags))
+          ralpha = MERGE(default_alpha, alpha, .NOT.PRESENT(alpha))
+          rbeta = MERGE(default_beta, beta, .NOT.PRESENT(beta))
+          IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
+            function = libxs_dfunction0(                              &
+     &        iflags, m, n, k, 0, 0, 0, ralpha, rbeta)
+            IF (ASSOCIATED(function%fn0)) THEN
+              CALL libxs_dcall_abc(function, a, b, c)
+            ELSE
+              CALL libxs_dblasmm(m, n, k, a, b, c,                    &
+     &          iflags, ralpha, rbeta)
+            END IF
+          ELSE
+            CALL libxs_dblasmm(m, n, k, a, b, c,                      &
+     &        iflags, ralpha, rbeta)
+          END IF
+        END SUBROUTINE
+
+        ! Dispatched matrix multiplication with prefetches (single-precision).
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smm_prf
+        SUBROUTINE libxs_smm_prf(                                     &
+     &  m, n, k, a, b, c, pa, pb, pc, flags, alpha, beta)
+          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLS_KIND
+          REAL(T), PARAMETER :: default_alpha = REAL(LIBXS_ALPHA, T)
+          REAL(T), PARAMETER :: default_beta = REAL(LIBXS_BETA, T)
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
+          REAL(T), INTENT(IN) :: a(:,:), b(:,:)
+          REAL(T), INTENT(INOUT) :: c(:,:)
+          REAL(T), INTENT(IN) :: pa(*), pb(*), pc(*)
+          INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
+          REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
+          TYPE(LIBXS_SMM_FUNCTION) :: function
+          INTEGER(LIBXS_INT_KIND) :: iflags
+          REAL(T) :: ralpha, rbeta
+          iflags = MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags))
+          ralpha = MERGE(default_alpha, alpha, .NOT.PRESENT(alpha))
+          rbeta = MERGE(default_beta, beta, .NOT.PRESENT(beta))
+          IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
+            function = libxs_sfunction1(                              &
+     &        iflags, m, n, k, 0, 0, 0, ralpha, rbeta,                  &
+     &        MERGE(LIBXS_PREFETCH, LIBXS_PREFETCH_SIGNATURE,       &
+     &            LIBXS_PREFETCH_NONE.NE.LIBXS_PREFETCH))
+            IF (ASSOCIATED(function%fn1)) THEN
+              CALL libxs_scall_prf(function, a, b, c, pa, pb, pc)
+            ELSE
+              CALL libxs_sblasmm(m, n, k, a, b, c,                    &
+     &          iflags, ralpha, rbeta)
+            END IF
+          ELSE
+            CALL libxs_sblasmm(m, n, k, a, b, c,                      &
+     &        iflags, ralpha, rbeta)
+          END IF
+        END SUBROUTINE
+
+        ! Dispatched matrix multiplication with prefetches (double-precision).
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmm_prf
+        SUBROUTINE libxs_dmm_prf(                                     &
+     &  m, n, k, a, b, c, pa, pb, pc, flags, alpha, beta)
+          INTEGER(LIBXS_INT_KIND), PARAMETER :: T = LIBXS_FLD_KIND
+          REAL(T), PARAMETER :: default_alpha = REAL(LIBXS_ALPHA, T)
+          REAL(T), PARAMETER :: default_beta = REAL(LIBXS_BETA, T)
+          INTEGER(LIBXS_INT_KIND), INTENT(IN) :: m, n, k
+          REAL(T), INTENT(IN) :: a(:,:), b(:,:)
+          REAL(T), INTENT(INOUT) :: c(:,:)
+          REAL(T), INTENT(IN) :: pa(*), pb(*), pc(*)
+          INTEGER(LIBXS_INT_KIND), INTENT(IN), OPTIONAL :: flags
+          REAL(T), INTENT(IN), OPTIONAL :: alpha, beta
+          TYPE(LIBXS_DMM_FUNCTION) :: function
+          INTEGER(LIBXS_INT_KIND) :: iflags
+          REAL(T) :: ralpha, rbeta
+          iflags = MERGE(LIBXS_FLAGS, flags, .NOT.PRESENT(flags))
+          ralpha = MERGE(default_alpha, alpha, .NOT.PRESENT(alpha))
+          rbeta = MERGE(default_beta, beta, .NOT.PRESENT(beta))
+          IF (LIBXS_MAX_MNK.GE.(m * n * k)) THEN
+            function = libxs_dfunction1(                              &
+     &        iflags, m, n, k, 0, 0, 0, ralpha, rbeta,                  &
+     &        MERGE(LIBXS_PREFETCH, LIBXS_PREFETCH_SIGNATURE,       &
+     &            LIBXS_PREFETCH_NONE.NE.LIBXS_PREFETCH))
+            IF (ASSOCIATED(function%fn1)) THEN
+              CALL libxs_dcall_prf(function, a, b, c, pa, pb, pc)
+            ELSE
+              CALL libxs_dblasmm(m, n, k, a, b, c,                    &
+     &          iflags, ralpha, rbeta)
+            END IF
+          ELSE
+            CALL libxs_dblasmm(m, n, k, a, b, c,                      &
+     &        iflags, ralpha, rbeta)
+          END IF
         END SUBROUTINE
       END MODULE
