@@ -170,7 +170,7 @@ PROGRAM smm
     !$OMP END MASTER
     !$OMP DO
     DO i = LBOUND(a, 3), UBOUND(a, 3)
-      CALL libxs_dcall_abc(xmm, a(:,:,i), b(:,:,i), tmp)
+      CALL libxs_call(xmm, C_LOC(a(:,:,i)), C_LOC(b(:,:,i)), C_LOC(tmp))
     END DO
     !$OMP MASTER
     duration = libxs_timer_duration(start, libxs_timer_tick())
