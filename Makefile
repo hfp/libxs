@@ -702,13 +702,14 @@ documentation: $(DOCDIR)/libxs.pdf $(DOCDIR)/cp2k.pdf
 clean:
 ifneq ($(abspath $(BLDDIR)),$(ROOTDIR))
 ifneq ($(abspath $(BLDDIR)),$(abspath .))
-	@rm -rf $(BLDDIR) *.mod
+	@rm -rf $(BLDDIR)
 else
 	@rm -f $(OBJECTS) $(BLDDIR)/libxs_dispatch.h $(BLDDIR)/*.mod
 endif
 else
 	@rm -f $(OBJECTS) $(BLDDIR)/libxs_dispatch.h $(BLDDIR)/*.mod
 endif
+	@rm -f $(SCRDIR)/libxs_utilities.pyc
 
 .PHONY: realclean
 realclean: clean
@@ -730,13 +731,11 @@ endif
 else
 	@rm -f $(BINDIR)/generator
 endif
-	@rm -f $(SCRDIR)/libxs_utilities.pyc
 	@rm -f $(SPLDIR)/cp2k/cp2k-perf.sh
 	@rm -f $(SPLDIR)/smm/smmf-perf.sh
 	@rm -f $(SPLDIR)/nek/grad-perf.sh
+	@rm -f $(INCDIR)/libxs.mod
 	@rm -f $(INCDIR)/libxs.f
 	@rm -f $(INCDIR)/libxs.h
 
 install: all clean
-
-
