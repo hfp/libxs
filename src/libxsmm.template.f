@@ -152,13 +152,27 @@
           MODULE PROCEDURE libxs_savailable, libxs_davailable
         END INTERFACE
 
+        ! Call a specialized function (single-precision).
+        INTERFACE libxs_scall
+          MODULE PROCEDURE                                              &
+     &      libxs_scall_abx, libxs_scall_abc,                       &
+     &      libxs_scall_prx, libxs_scall_prf
+        END INTERFACE
+
+        ! Call a specialized function (double-precision).
+        INTERFACE libxs_dcall
+          MODULE PROCEDURE                                              &
+     &      libxs_dcall_abx, libxs_dcall_abc,                       &
+     &      libxs_dcall_prx, libxs_dcall_prf
+        END INTERFACE
+
         ! Call a specialized function.
         INTERFACE libxs_call
           MODULE PROCEDURE                                              &
-     &      libxs_scall_abx, libxs_dcall_abx,                       &
-     &      libxs_scall_prx, libxs_dcall_prx,                       &
-     &      libxs_scall_abc, libxs_dcall_abc,                       &
-     &      libxs_scall_prf, libxs_dcall_prf
+     &      libxs_scall_abx, libxs_scall_abc,                       &
+     &      libxs_scall_prx, libxs_scall_prf,                       &
+     &      libxs_dcall_abx, libxs_dcall_abc,                       &
+     &      libxs_dcall_prx, libxs_dcall_prf
         END INTERFACE
 
         ! Overloaded auto-dispatch routines (single/double precision).
