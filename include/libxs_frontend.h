@@ -59,8 +59,15 @@
 # define LIBXS_PREFETCH_C(EXPR) 0
 #endif
 
+#if (defined(MKL_ILP64) && 0 == LIBXS_ILP64)
+# error "Inconsistent ILP64 configuration detected!"
+#endif
+
 /** MKL_DIRECT_CALL requires to include the MKL interface. */
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
+# if (0 != LIBXS_ILP64 && !defined(MKL_ILP64))
+#   error "Inconsistent ILP64 configuration detected!"
+# endif
 # if defined(LIBXS_OFFLOAD_BUILD)
 #   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #   include <mkl.h>
@@ -68,6 +75,16 @@
 # else
 #   include <mkl.h>
 # endif
+#elif (0 != LIBXS_ILP64)
+/** Fallback prototype functions served by any compliant BLAS. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
+  const char*, const char*, const long long*, const long long*, const long long*,
+  const double*, const double*, const long long*, const double*, const long long*,
+  const double*, double*, const long long*);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
+  const char*, const char*, const long long*, const long long*, const long long*,
+  const float*, const float*, const long long*, const float*, const long long*,
+  const float*, float*, const long long*);
 #else
 /** Fallback prototype functions served by any compliant BLAS. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
@@ -81,13 +98,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 #endif
 
 /** BLAS based implementation with simplified interface. */
-#define LIBXS_BLASMM(REAL, FLAGS, M, N, K, A, B, C, ALPHA, BETA) { \
+#define LIBXS_BLASMM(REAL, INT, FLAGS, M, N, K, A, B, C, ALPHA, BETA) { \
   /*const*/char libxs_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
   /*const*/char libxs_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
-  /*const*/int libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M), libxs_k_ = (K); \
-  /*const*/int libxs_lda_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_A & (FLAGS)) ? libxs_m_ : \
+  /*const*/INT libxs_m_ = (INT)LIBXS_LD(M, N), libxs_n_ = (INT)LIBXS_LD(N, M), libxs_k_ = (INT)(K); \
+  /*const*/INT libxs_lda_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_A & (FLAGS)) ? libxs_m_ : \
     LIBXS_ALIGN_VALUE(libxs_m_, sizeof(REAL), LIBXS_ALIGNMENT); \
-  /*const*/int libxs_ldc_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_C & (FLAGS)) ? libxs_m_ : \
+  /*const*/INT libxs_ldc_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_C & (FLAGS)) ? libxs_m_ : \
     LIBXS_ALIGN_VALUE(libxs_m_, sizeof(REAL), LIBXS_ALIGNMENT); \
   /*const*/REAL libxs_alpha_ = 0 == (ALPHA) ? ((REAL)LIBXS_ALPHA) : *((const REAL*)(ALPHA)); \
   /*const*/REAL libxs_beta_  = 0 == (BETA)  ? ((REAL)LIBXS_BETA)  : *((const REAL*)(BETA)); \
@@ -100,25 +117,25 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 
 /** Inlinable implementation exercising the compiler's code generation (template). */
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-# define LIBXS_IMM(REAL, UINT, FLAGS, M, N, K, A, B, C, ALPHA, BETA) LIBXS_BLASMM(REAL, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
+# define LIBXS_IMM(REAL, INT, FLAGS, M, N, K, A, B, C, ALPHA, BETA) LIBXS_BLASMM(REAL, libxs_int, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
 #else
-# define LIBXS_IMM(REAL, UINT, FLAGS, M, N, K, A, B, C, ALPHA, BETA) { \
+# define LIBXS_IMM(REAL, INT, FLAGS, M, N, K, A, B, C, ALPHA, BETA) { \
   const REAL *const libxs_a_ = LIBXS_LD(B, A), *const libxs_b_ = LIBXS_LD(A, B); \
   const REAL libxs_alpha_ = 0 == (ALPHA) ? ((REAL)LIBXS_ALPHA) : (((REAL)1) == *((const REAL*)(ALPHA)) ? ((REAL)1) : (((REAL)-1) == *((const REAL*)(ALPHA)) ? ((REAL)-1) : *((const REAL*)(ALPHA)))); \
   const REAL libxs_beta_  = 0 == (BETA)  ? ((REAL)LIBXS_BETA)  : (((REAL)1) == *((const REAL*)(BETA))  ? ((REAL)1) : (((REAL) 0) == *((const REAL*)(BETA))  ? ((REAL) 0) : *((const REAL*)(BETA)))); \
-  const UINT libxs_m_ = LIBXS_LD(M, N), libxs_n_ = LIBXS_LD(N, M); \
-  const UINT libxs_lda_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_A & (FLAGS)) ? libxs_m_ : \
+  const INT libxs_m_ = (INT)LIBXS_LD(M, N), libxs_n_ = (INT)LIBXS_LD(N, M); \
+  const INT libxs_lda_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_A & (FLAGS)) ? libxs_m_ : \
     LIBXS_ALIGN_VALUE(libxs_m_, sizeof(REAL), LIBXS_ALIGNMENT); \
-  const UINT libxs_ldc_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_C & (FLAGS)) ? libxs_m_ : \
+  const INT libxs_ldc_ = 0 == (LIBXS_GEMM_FLAG_ALIGN_C & (FLAGS)) ? libxs_m_ : \
     LIBXS_ALIGN_VALUE(libxs_m_, sizeof(REAL), LIBXS_ALIGNMENT); \
-  UINT libxs_i_, libxs_j_, libxs_k_; \
+  INT libxs_i_, libxs_j_, libxs_k_; \
   REAL *const libxs_c_ = (C); \
   assert(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS))/*not supported*/); \
   LIBXS_PRAGMA_SIMD/*_COLLAPSE(2)*/ \
   for (libxs_j_ = 0; libxs_j_ < libxs_m_; ++libxs_j_) { \
     LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_LD(LIBXS_MAX_N, LIBXS_MAX_M), LIBXS_LD(LIBXS_AVG_N, LIBXS_AVG_M)) \
     for (libxs_i_ = 0; libxs_i_ < libxs_n_; ++libxs_i_) { \
-      const UINT libxs_index_ = libxs_i_ * libxs_ldc_ + libxs_j_; \
+      const INT libxs_index_ = libxs_i_ * libxs_ldc_ + libxs_j_; \
       REAL libxs_r_ = libxs_c_[libxs_index_] * libxs_beta_; \
       LIBXS_PRAGMA_SIMD_REDUCTION(+:libxs_r_) \
       LIBXS_PRAGMA_UNROLL \
@@ -134,10 +151,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 
 /** Inlinable implementation exercising the compiler's code generation (single-precision). */
 #define LIBXS_SIMM(FLAGS, M, N, K, A, B, C, ALPHA, BETA) \
-  LIBXS_IMM(float, int, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
+  LIBXS_IMM(float, int/*no need for ILP64*/, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
 /** Inlinable implementation exercising the compiler's code generation (double-precision). */
 #define LIBXS_DIMM(FLAGS, M, N, K, A, B, C, ALPHA, BETA) \
-  LIBXS_IMM(double, int, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
+  LIBXS_IMM(double, int/*no need for ILP64*/, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
 /** Inlinable implementation exercising the compiler's code generation. */
 #define LIBXS_XIMM(FLAGS, M, N, K, A, B, C, ALPHA, BETA) { \
   if (sizeof(double) == sizeof(*(A))) { \
@@ -151,13 +168,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 /** Fallback code paths: LIBXS_FALLBACK0, and LIBXS_FALLBACK1. */
 #if defined(LIBXS_FALLBACK_IMM)
 # define LIBXS_FALLBACK0(REAL, FLAGS, M, N, K, A, B, C, ALPHA, BETA) \
-    LIBXS_IMM(REAL, int, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
+    LIBXS_IMM(REAL, int/*no need for ILP64*/, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
 #else
 # define LIBXS_FALLBACK0(REAL, FLAGS, M, N, K, A, B, C, ALPHA, BETA) \
-    LIBXS_BLASMM(REAL, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
+    LIBXS_BLASMM(REAL, libxs_blasint, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
 #endif
 #define LIBXS_FALLBACK1(REAL, FLAGS, M, N, K, A, B, C, ALPHA, BETA) \
-  LIBXS_BLASMM(REAL, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
+  LIBXS_BLASMM(REAL, libxs_blasint, FLAGS, M, N, K, A, B, C, ALPHA, BETA)
 
 /**
  * Execute a specialized function, or use a fallback code path depending on threshold.

@@ -42,6 +42,7 @@
 #define LIBXS_AVG_N $AVG_N
 #define LIBXS_AVG_K $AVG_K
 #define LIBXS_FLAGS $FLAGS
+#define LIBXS_ILP64 $ILP64
 #define LIBXS_ALPHA $ALPHA
 #define LIBXS_BETA $BETA
 #define LIBXS_JIT $JIT
@@ -49,6 +50,13 @@
 #include "libxs_typedefs.h"
 #include "libxs_frontend.h"
 
+
+/** Integer type impacting the BLAS interface (LP64: 32-bit, and ILP64: 64-bit). */
+#if (0 != LIBXS_ILP64)
+typedef long long libxs_blasint;
+#else
+typedef int libxs_blasint;
+#endif
 
 /** Specialized function with fused alpha and beta arguments (single-precision). */
 typedef LIBXS_RETARGETABLE void (*libxs_sfunction)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c);
@@ -102,7 +110,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void libxs_sblasmm(int flags, int m, int n, int 
   const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
   const float* alpha, const float* beta)
 {
-  LIBXS_BLASMM(float, flags, m, n, k, a, b, c, alpha, beta);
+  LIBXS_BLASMM(float, libxs_blasint, flags, m, n, k, a, b, c, alpha, beta);
 }
 
 /** Non-dispatched matrix multiplication using BLAS (double-precision). */
@@ -110,7 +118,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void libxs_dblasmm(int flags, int m, int n, int 
   const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
   const double* alpha, const double* beta)
 {
-  LIBXS_BLASMM(double, flags, m, n, k, a, b, c, alpha, beta);
+  LIBXS_BLASMM(double, libxs_blasint, flags, m, n, k, a, b, c, alpha, beta);
 }
 $MNK_INTERFACE_LIST
 #if defined(__cplusplus)
