@@ -51,7 +51,7 @@
 # pragma offload_attribute(pop)
 #endif
 
-#define LIBXS_DISPATCH_CACHESIZE (LIBXS_MAX_MNK * 8)
+#define LIBXS_DISPATCH_CACHESIZE (LIBXS_MAX_MNK * 16)
 #if !defined(_WIN32)
 #define LIBXS_DISPATCH_PAGESIZE sysconf(_SC_PAGESIZE)
 #else
@@ -67,9 +67,7 @@ typedef union LIBXS_RETARGETABLE libxs_dispatch_entry {
   libxs_dxfunction dxmm;
   const void* pv;
 } libxs_dispatch_entry;
-/** Filled with zeros due to C language rule. */
-LIBXS_RETARGETABLE libxs_dispatch_entry libxs_dispatch_cache[(LIBXS_DISPATCH_CACHESIZE)];
-LIBXS_RETARGETABLE int libxs_init_check = 0;
+LIBXS_RETARGETABLE libxs_dispatch_entry* libxs_dispatch_cache = 0;
 
 #if !defined(_OPENMP)
 LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
@@ -89,9 +87,18 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 #else
 # pragma omp critical(libxs_dispatch_lock)
 #endif
-  if (0 == libxs_init_check) {
+  if (0 == libxs_dispatch_cache) {
     const int nlocks = sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock);
     int i;
+#if !defined(__MIC__)
+    libxs_dispatch_entry *const buffer = (libxs_dispatch_entry*)malloc(
+      (LIBXS_DISPATCH_CACHESIZE) * sizeof(libxs_dispatch_entry));
+    for (i = 0; i < (LIBXS_DISPATCH_CACHESIZE); ++i) buffer[i].pv = 0;
+#else
+    /* filled with zeros due to C language rule */
+    LIBXS_RETARGETABLE static libxs_dispatch_entry buffer[(LIBXS_DISPATCH_CACHESIZE)];
+#endif
+    libxs_dispatch_cache = buffer;
     /* setup the dispatch table for the statically generated code */
 #   include <libxs_dispatch.h>
     /* acquire and release remaining locks to shortcut any lazy initialization later on */
@@ -99,7 +106,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
       LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[i]);
       LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
     }
-    libxs_init_check = 1;
   }
 #if !defined(_OPENMP)
   /* release the master lock */
@@ -110,7 +116,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 {
-  if (0 == libxs_init_check) {
+  if (0 == libxs_dispatch_cache) {
     internal_init();
   }
 }
@@ -118,7 +124,24 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
-  /* TODO: issue #44 */
+  if (0 != libxs_dispatch_cache) {
+#if !defined(_OPENMP)
+    /* acquire one of the locks as the master lock */
+    LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[0]);
+#else
+#   pragma omp critical(libxs_dispatch_lock)
+#endif
+    if (0 != libxs_dispatch_cache) {
+#if !defined(__MIC__)
+      free(libxs_dispatch_cache);
+#endif
+      libxs_dispatch_cache = 0;
+    }
+#if !defined(_OPENMP)
+    /* release the master lock */
+    LIBXS_LOCK_RELEASE(libxs_dispatch_lock[0]);
+#endif
+  }
 }
 
 
@@ -129,7 +152,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
   assert(0 != desc);
 
   /* lazy initialization */
-  if (0 == libxs_init_check) {
+  if (0 == libxs_dispatch_cache) {
     internal_init();
   }
 
