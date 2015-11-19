@@ -101,7 +101,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 #endif
     libxs_dispatch_cache = buffer;
     /* setup the dispatch table for the statically generated code */
-#   include <libxs_dispatch.h>
+    {
+#     include <libxs_dispatch.h>
+    }
     /* acquire and release remaining locks to shortcut any lazy initialization later on */
     for (i = 1; i < nlocks; ++i) {
       LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[i]);
