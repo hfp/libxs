@@ -51,7 +51,8 @@
 # pragma offload_attribute(pop)
 #endif
 
-#define LIBXS_DISPATCH_CACHESIZE (LIBXS_MAX_MNK * 16)
+/* rely on a "pseudo prime" number (Mersenne) to improve cache spread */
+#define LIBXS_DISPATCH_CACHESIZE ((2U << (LIBXS_NBITS(LIBXS_MAX_MNK * 3) + 1)) - 1)
 #if !defined(_WIN32)
 #define LIBXS_DISPATCH_PAGESIZE sysconf(_SC_PAGESIZE)
 #else
