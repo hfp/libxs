@@ -89,25 +89,30 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 # pragma omp critical(libxs_dispatch_lock)
 #endif
   if (0 == libxs_dispatch_cache) {
-    const int nlocks = sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock);
     int i;
 #if !defined(__MIC__)
     libxs_dispatch_entry *const buffer = (libxs_dispatch_entry*)malloc(
       (LIBXS_DISPATCH_CACHESIZE) * sizeof(libxs_dispatch_entry));
-    for (i = 0; i < (LIBXS_DISPATCH_CACHESIZE); ++i) buffer[i].pv = 0;
+    assert(buffer);
+    if (buffer)
+    {
+      for (i = 0; i < (LIBXS_DISPATCH_CACHESIZE); ++i) buffer[i].pv = 0;
 #else
     /* filled with zeros due to C language rule */
     LIBXS_RETARGETABLE static libxs_dispatch_entry buffer[(LIBXS_DISPATCH_CACHESIZE)];
-#endif
-    libxs_dispatch_cache = buffer;
-    /* setup the dispatch table for the statically generated code */
     {
-#     include <libxs_dispatch.h>
-    }
-    /* acquire and release remaining locks to shortcut any lazy initialization later on */
-    for (i = 1; i < nlocks; ++i) {
-      LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[i]);
-      LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
+#endif
+      libxs_dispatch_cache = buffer;
+      /* setup the dispatch table for the statically generated code */
+      {
+        const int nlocks = sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock);
+#       include <libxs_dispatch.h>
+        /* acquire and release remaining locks to shortcut any lazy initialization later on */
+        for (i = 1; i < nlocks; ++i) {
+          LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[i]);
+          LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
+        }
+      }
     }
   }
 #if !defined(_OPENMP)
