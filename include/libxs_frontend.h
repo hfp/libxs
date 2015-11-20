@@ -182,7 +182,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
  * LIBXS_FALLBACK1: above LIBXS_MAX_MNK
  */
 #define LIBXS_MM(REAL, FLAGS, M, N, K, A, B, C, PA, PB, PC, ALPHA, BETA) { \
-  if (LIBXS_MAX_MNK >= ((M) * (N) * (K))) { \
+  if (((unsigned long long)(LIBXS_MAX_MNK)) >= \
+    (((unsigned long long)(M)) * \
+     ((unsigned long long)(N)) * \
+     ((unsigned long long)(K)))) \
+  { \
     int libxs_fallback_ = 0; \
     if (0 != (PA) || 0 != (PB) || 0 != (PC)) { \
       const LIBXS_CONCATENATE(libxs_, LIBXS_BLASPREC(REAL, xfunction)) libxs_function_ = \
