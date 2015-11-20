@@ -251,7 +251,7 @@ endif
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.h $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_frontend.h
+$(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.h $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_frontend.h
 	@mkdir -p $(dir $@)
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
@@ -263,7 +263,7 @@ $(INCDIR)/libxs.h: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/li
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
-$(INCDIR)/libxs.f: $(ROOTDIR)/Makefile $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.f
+$(INCDIR)/libxs.f: $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py $(SRCDIR)/libxs.template.f
 	@mkdir -p $(dir $@) $(BLDDIR)
 	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
@@ -276,7 +276,7 @@ endif
 
 .PHONY: compile_generator_lib
 compile_generator_lib: $(OBJFILES_GEN_LIB)
-$(BLDDIR)/%.o: $(SRCDIR)/%.c $(ROOTDIR)/Makefile
+$(BLDDIR)/%.o: $(SRCDIR)/%.c $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -c $< -o $@
 .PHONY: build_generator_lib
@@ -291,12 +291,12 @@ endif
 
 .PHONY: compile_generator
 compile_generator: $(OBJFILES_GEN_BIN)
-$(BLDDIR)/%.o: $(SRCDIR)/%.c $(INCDIR)/libxs.h $(ROOTDIR)/Makefile
+$(BLDDIR)/%.o: $(SRCDIR)/%.c $(INCDIR)/libxs.h $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -c $< -o $@
 .PHONY: generator
 generator: $(BINDIR)/generator
-$(BINDIR)/generator: $(OBJFILES_GEN_BIN) $(OUTDIR)/intel64/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile
+$(BINDIR)/generator: $(OBJFILES_GEN_BIN) $(OUTDIR)/intel64/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@)
 	$(CC) $(LDFLAGS) $(CLDFLAGS) $(OBJFILES_GEN_BIN) -L$(OUTDIR)/intel64 -lxsmmgen -o $@
 
@@ -462,7 +462,7 @@ cp2k_mic: lib_mic
 
 .PHONY: drytest
 drytest: $(SPLDIR)/cp2k/cp2k-perf.sh $(SPLDIR)/smm/smmf-perf.sh $(SPLDIR)/nek/grad-perf.sh $(SPLDIR)/nek/axhm-perf.sh $(SPLDIR)/nek/rstr-perf.sh
-$(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/Makefile
+$(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@)
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
@@ -490,7 +490,7 @@ $(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/smm/smmf-perf.sh: $(ROOTDIR)/Makefile
+$(SPLDIR)/smm/smmf-perf.sh: $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@)
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
@@ -518,7 +518,7 @@ $(SPLDIR)/smm/smmf-perf.sh: $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/nek/grad-perf.sh: $(ROOTDIR)/Makefile
+$(SPLDIR)/nek/grad-perf.sh: $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@)
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
@@ -546,7 +546,7 @@ $(SPLDIR)/nek/grad-perf.sh: $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/nek/axhm-perf.sh: $(ROOTDIR)/Makefile
+$(SPLDIR)/nek/axhm-perf.sh: $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@)
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
@@ -574,7 +574,7 @@ $(SPLDIR)/nek/axhm-perf.sh: $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/nek/rstr-perf.sh: $(ROOTDIR)/Makefile
+$(SPLDIR)/nek/rstr-perf.sh: $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@)
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
