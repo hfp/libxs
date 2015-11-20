@@ -183,9 +183,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
  */
 #define LIBXS_MM(REAL, FLAGS, M, N, K, A, B, C, PA, PB, PC, ALPHA, BETA) { \
   if (((unsigned long long)(LIBXS_MAX_MNK)) >= \
-    (((unsigned long long)(M)) * \
-     ((unsigned long long)(N)) * \
-     ((unsigned long long)(K)))) \
+     (((unsigned long long)(M)) * \
+      ((unsigned long long)(N)) * \
+      ((unsigned long long)(K)))) \
   { \
     int libxs_fallback_ = 0; \
     if (0 != (PA) || 0 != (PB) || 0 != (PC)) { \
