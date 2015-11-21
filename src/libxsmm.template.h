@@ -29,6 +29,8 @@
 #ifndef LIBXS_H
 #define LIBXS_H
 
+#define LIBXS_VERSION "$VERSION"
+
 /** Parameters the library and static kernels were built for. */
 #define LIBXS_ALIGNMENT $ALIGNMENT
 #define LIBXS_ROW_MAJOR $ROW_MAJOR
