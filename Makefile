@@ -21,6 +21,9 @@ endif
 # CUT=/usr/local/Cellar/coreutils/8.24/libexec/gnubin/cut
 CUT ?= cut
 
+# Python interpreter
+PYTHON ?= python
+
 # Use ROW_MAJOR matrix representation if set to 1, COL_MAJOR otherwise
 ROW_MAJOR ?= 0
 
@@ -148,7 +151,7 @@ else
 	GENTARGET = noarch
 endif
 
-INDICES ?= $(shell python $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
+INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 NINDICES = $(words $(INDICES))
 
 SRCFILES = $(addprefix $(BLDDIR)/,$(patsubst %,mm_%.c,$(INDICES)))
@@ -270,7 +273,7 @@ $(INCDIR)/libxs.h: $(SRCDIR)/libxs.template.h $(ROOTDIR)/version.txt $(SCRDIR)/l
 	@cp $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_generator.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
-	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
+	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
 
 .PHONY: fheader
@@ -278,7 +281,7 @@ fheader: $(INCDIR)/libxs.f
 $(INCDIR)/libxs.f: $(SRCDIR)/libxs.template.f $(ROOTDIR)/version.txt $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@) $(BLDDIR)
-	@python $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
+	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
 ifeq (0,$(OFFLOAD))
 	@TMPFILE=`mktemp`
@@ -327,15 +330,15 @@ else # column-major
 	$(eval NVALUE2 := $(NVALUE))
 endif
 ifneq (0,$(ALIGNED_LOADS)) # aligned loads
-	$(eval LDASP := $(shell python $(SCRDIR)/libxs_utilities.py $(MVALUE2) 16 $(ALIGNMENT)))
-	$(eval LDADP := $(shell python $(SCRDIR)/libxs_utilities.py $(MVALUE2)  8 $(ALIGNMENT)))
+	$(eval LDASP := $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py $(MVALUE2) 16 $(ALIGNMENT)))
+	$(eval LDADP := $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py $(MVALUE2)  8 $(ALIGNMENT)))
 else # unaligned stores
 	$(eval LDASP := $(MVALUE2))
 	$(eval LDADP := $(MVALUE2))
 endif
 ifneq (0,$(ALIGNED_STORES)) # aligned stores
-	$(eval LDCSP := $(shell python $(SCRDIR)/libxs_utilities.py $(MVALUE2) 16 $(ALIGNMENT)))
-	$(eval LDCDP := $(shell python $(SCRDIR)/libxs_utilities.py $(MVALUE2)  8 $(ALIGNMENT)))
+	$(eval LDCSP := $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py $(MVALUE2) 16 $(ALIGNMENT)))
+	$(eval LDCDP := $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py $(MVALUE2)  8 $(ALIGNMENT)))
 else # unaligned stores
 	$(eval LDCSP := $(MVALUE2))
 	$(eval LDCDP := $(MVALUE2))
@@ -388,13 +391,13 @@ endif
 		-e '/#pragma message (".*KERNEL COMPILATION WARNING: compiling .\+ code on .\+ or newer architecture: " __FILE__)/d' \
 		$@
 	@rm -f ${TMPFILE}
-	@python $(SCRDIR)/libxs_specialized.py $(ROW_MAJOR) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >> $@
+	@$(PYTHON) $(SCRDIR)/libxs_specialized.py $(ROW_MAJOR) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >> $@
 
 .PHONY: main
 main: $(BLDDIR)/libxs_dispatch.h
 $(BLDDIR)/libxs_dispatch.h: $(INCDIR)/libxs.h $(SCRDIR)/libxs_dispatch.py
 	@mkdir -p $(dir $@)
-	@python $(SCRDIR)/libxs_dispatch.py $(PREFETCH_TYPE) $(THRESHOLD) $(INDICES) > $@
+	@$(PYTHON) $(SCRDIR)/libxs_dispatch.py $(PREFETCH_TYPE) $(THRESHOLD) $(INDICES) > $@
 
 ifneq (0,$(MIC))
 .PHONY: compile_mic
