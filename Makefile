@@ -255,19 +255,14 @@ ifneq (nopf,$(PREFETCH_SCHEME))
 	SUPPRESS_UNUSED_PREFETCH_WARNINGS = $(NULL)  LIBXS_UNUSED(C_prefetch);\n
 endif
 
-.PHONY: version
-version: $(ROOTDIR)/version.txt
-$(ROOTDIR)/version.txt: $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/Makefile
-	@$(ROOTDIR)/.hooks/install.sh
-	@touch $@
-
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(SRCDIR)/libxs.template.h $(ROOTDIR)/version.txt $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
+$(INCDIR)/libxs.h: $(SRCDIR)/libxs.template.h $(ROOTDIR)/.hooks/install.sh $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_typedefs.h $(ROOTDIR)/include/libxs_frontend.h \
                      $(ROOTDIR)/include/libxs_generator.h $(ROOTDIR)/include/libxs_timer.h \
                      $(ROOTDIR)/Makefile
 	@mkdir -p $(dir $@)
+	@$(ROOTDIR)/.hooks/install.sh
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2> /dev/null || true
@@ -278,9 +273,10 @@ $(INCDIR)/libxs.h: $(SRCDIR)/libxs.template.h $(ROOTDIR)/version.txt $(SCRDIR)/l
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
-$(INCDIR)/libxs.f: $(SRCDIR)/libxs.template.f $(ROOTDIR)/version.txt $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
+$(INCDIR)/libxs.f: $(SRCDIR)/libxs.template.f $(ROOTDIR)/.hooks/install.sh $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@) $(BLDDIR)
+	@$(ROOTDIR)/.hooks/install.sh
 	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
 ifeq (0,$(OFFLOAD))
