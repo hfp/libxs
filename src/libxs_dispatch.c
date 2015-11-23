@@ -63,7 +63,7 @@ typedef union LIBXS_RETARGETABLE libxs_dispatch_entry {
   libxs_dxfunction dxmm;
   const void* pv;
 } libxs_dispatch_entry;
-LIBXS_RETARGETABLE libxs_dispatch_entry* libxs_dispatch_cache = 0;
+LIBXS_RETARGETABLE volatile libxs_dispatch_entry *volatile libxs_dispatch_cache = 0;
 
 #if !defined(_OPENMP)
 LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
@@ -130,7 +130,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 #   pragma omp critical(libxs_dispatch_lock)
 #endif
     if (0 != libxs_dispatch_cache) {
-      void *const buffer = libxs_dispatch_cache;
+      void *const buffer = (void*)libxs_dispatch_cache;
       libxs_dispatch_cache = 0;
       free(buffer);
     }
