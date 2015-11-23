@@ -257,9 +257,10 @@ endif
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(SRCDIR)/libxs.template.h $(ROOTDIR)/.hooks/install.sh $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
+$(INCDIR)/libxs.h: $(SRCDIR)/libxs.template.h $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
                      $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_typedefs.h $(ROOTDIR)/include/libxs_frontend.h \
                      $(ROOTDIR)/include/libxs_generator.h $(ROOTDIR)/include/libxs_timer.h \
+                     $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile
 	@mkdir -p $(dir $@)
 	@$(ROOTDIR)/.hooks/install.sh
@@ -273,7 +274,8 @@ $(INCDIR)/libxs.h: $(SRCDIR)/libxs.template.h $(ROOTDIR)/.hooks/install.sh $(SCR
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
-$(INCDIR)/libxs.f: $(SRCDIR)/libxs.template.f $(ROOTDIR)/.hooks/install.sh $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
+$(INCDIR)/libxs.f: $(SRCDIR)/libxs.template.f $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
+                     $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@) $(BLDDIR)
 	@$(ROOTDIR)/.hooks/install.sh
