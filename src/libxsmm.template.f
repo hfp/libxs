@@ -115,15 +115,17 @@
         ! Generic function type constructing a procedure pointer
         ! associated with a backend function (single-precision).
         TYPE :: LIBXS_SMM_FUNCTION
-          PROCEDURE(LIBXS_FUNCTION),  NOPASS, POINTER :: fn0
-          PROCEDURE(LIBXS_XFUNCTION), NOPASS, POINTER :: fn1
+          PRIVATE
+            PROCEDURE(LIBXS_FUNCTION),  NOPASS, POINTER :: fn0
+            PROCEDURE(LIBXS_XFUNCTION), NOPASS, POINTER :: fn1
         END TYPE
 
         ! Generic function type constructing a procedure pointer
         ! associated with a backend function (double-precision).
         TYPE :: LIBXS_DMM_FUNCTION
-          PROCEDURE(LIBXS_FUNCTION),  NOPASS, POINTER :: fn0
-          PROCEDURE(LIBXS_XFUNCTION), NOPASS, POINTER :: fn1
+          PRIVATE
+            PROCEDURE(LIBXS_FUNCTION),  NOPASS, POINTER :: fn0
+            PROCEDURE(LIBXS_XFUNCTION), NOPASS, POINTER :: fn1
         END TYPE
 
         ! Construct procedure pointer depending on given argument set.
