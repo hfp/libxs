@@ -30,9 +30,11 @@
 #define LIBXS_H
 
 #define LIBXS_VERSION "$VERSION"
-#define LIBXS_VERSION_MAJOR $MAJOR
-#define LIBXS_VERSION_MINOR $MINOR
-#define LIBXS_VERSION_PATCH $PATCH
+#define LIBXS_BRANCH  "$BRANCH"
+#define LIBXS_VERSION_MAJOR   $MAJOR
+#define LIBXS_VERSION_MINOR   $MINOR
+#define LIBXS_VERSION_UPDATE  $UPDATE
+#define LIBXS_VERSION_PATCH   $PATCH
 
 /** Parameters the library and static kernels were built for. */
 #define LIBXS_ALIGNMENT $ALIGNMENT
