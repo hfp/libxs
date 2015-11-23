@@ -280,11 +280,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
         /* free temporary buffer */
         free(l_generated_code.generated_code);
 
-        /* make function pointer available for dispatch */
-        libxs_dispatch_cache[indx].pv = l_code;
-        
         /* prepare return value */
         result.pv = l_code;
+
+        /* make function pointer available for dispatch */
+        libxs_dispatch_cache[indx].pv = l_code;
       }
     }
 
