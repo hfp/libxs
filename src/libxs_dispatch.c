@@ -53,12 +53,7 @@
 
 /* rely on a "pseudo prime" number (Mersenne) to improve cache spread */
 #define LIBXS_DISPATCH_CACHESIZE ((2U << LIBXS_NBITS(LIBXS_MAX_MNK * (0 != LIBXS_JIT ? 2 : 5))) - 1)
-#if !defined(_WIN32)
-#define LIBXS_DISPATCH_PAGESIZE sysconf(_SC_PAGESIZE)
-#else
-#define LIBXS_DISPATCH_PAGESIZE 4096
-#endif
-#define LIBXS_DISPATCH_SEED 0
+#define LIBXS_DISPATCH_HASH_SEED 0
 
 
 typedef union LIBXS_RETARGETABLE libxs_dispatch_entry {
@@ -160,13 +155,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 
   /* check if the requested xGEMM is already JITted */
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
-  hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_DISPATCH_SEED);
+  hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_DISPATCH_HASH_SEED);
 
   indx = hash % LIBXS_DISPATCH_CACHESIZE;
   result = libxs_dispatch_cache[indx]; /* TODO: handle collision */
 #if (0 != LIBXS_JIT)
   if (0 == result.pv) {
-# if !defined(_WIN32) && !defined(__CYGWIN__)
+# if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*allow code coverage with Cygwin; fails at runtime!*/)
 # if !defined(_OPENMP)
     const unsigned int lock = LIBXS_MOD2(indx, sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock));
     LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[lock]);
@@ -178,7 +173,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 
       if (0 == result.pv) {
         char l_arch[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }; /* empty initial arch string */
-        int l_code_pages, l_code_page_size, l_fd;
         libxs_generated_code l_generated_code;
         void* l_code;
 
@@ -215,39 +209,51 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
           return result;
         }
 
-        /* create executable buffer */
-        l_code_pages = (((l_generated_code.code_size-1)*sizeof(unsigned char))/(LIBXS_DISPATCH_PAGESIZE))+1;
-        l_code_page_size = (LIBXS_DISPATCH_PAGESIZE)*l_code_pages;
-        l_fd = open("/dev/zero", O_RDWR);
-        l_code = mmap(0, l_code_page_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, l_fd, 0);
-        close(l_fd);
+        { /* create executable buffer */
+          const int l_fd = open("/dev/zero", O_RDWR);
+          l_code = mmap(0, l_generated_code.code_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, l_fd, 0);
+          close(l_fd);
+        }
 
-        /* explicitly disable THP for this memory region, kernel 2.6.38 or higher */
-# if defined(MADV_NOHUGEPAGE)
-        madvise(l_code, l_code_page_size, MADV_NOHUGEPAGE);
-# endif /*MADV_NOHUGEPAGE*/
         if (MAP_FAILED == l_code) {
 # if !defined(NDEBUG) /* library code is usually expected to be mute */
-          fprintf(stderr, "LIBXS: something bad happend in mmap, couldn't allocate code buffer!\n");
+          fprintf(stderr, "LIBXS: mapping memory failed!\n");
 # endif /*NDEBUG*/
           free(l_generated_code.generated_code);
           return result;
         }
 
-        memcpy( l_code, l_generated_code.generated_code, l_generated_code.code_size );
-        if (-1 == mprotect(l_code, l_code_page_size, PROT_EXEC | PROT_READ)) {
-# if !defined(NDEBUG)
-          int errsv = errno;
-          if (errsv == EINVAL) {
-            fprintf(stderr, "LIBXS: mprotect failed: addr is not a valid pointer, or not a multiple of the system page size!\n");
-          } else if (errsv == ENOMEM) {
-            fprintf(stderr, "LIBXS: mprotect failed: Internal kernel structures could not be allocated!\n");
-          } else if (errsv == EACCES) {
-            fprintf(stderr, "LIBXS: mprotect failed: The memory cannot be given the specified access!\n");
-          } else {
-            fprintf(stderr, "LIBXS: mprotect failed: Unknown Error!\n");
+        /* explicitly disable THP for this memory region, kernel 2.6.38 or higher */
+# if defined(MADV_NOHUGEPAGE)
+        { /* open new scope for variable declaration */
+#   if !defined(NDEBUG)
+          const int error =
+#   endif
+          madvise(l_code, l_generated_code.code_size, MADV_NOHUGEPAGE);
+#   if !defined(NDEBUG) /* library code is usually expected to be mute */
+          if (-1 == error) fprintf(stderr, "LIBXS: failed to advise page size!\n");
+#   endif
+        }
+# endif /*MADV_NOHUGEPAGE*/
+        memcpy(l_code, l_generated_code.generated_code, l_generated_code.code_size);
+        if (-1 == mprotect(l_code, l_generated_code.code_size, PROT_EXEC | PROT_READ)) {
+# if !defined(NDEBUG) /* library code is usually expected to be mute */
+          switch (errno) {
+            case EINVAL: fprintf(stderr, "LIBXS: protecting memory failed (invalid pointer)!\n"); break;
+            case ENOMEM: fprintf(stderr, "LIBXS: protecting memory failed (kernel out of memory)\n"); break;
+            case EACCES: fprintf(stderr, "LIBXS: protecting memory failed (permission denied)!\n"); break;
+            default: fprintf(stderr, "LIBXS: protecting memory failed: Unknown Error!\n");
           }
+          { /* open new scope for variable declaration */
+            const int error =
+# else
+          {
 # endif /*NDEBUG*/
+            munmap(l_code, l_generated_code.code_size);
+#   if !defined(NDEBUG) /* library code is usually expected to be mute */
+            if (-1 == error) fprintf(stderr, "LIBXS: failed to unmap memory!\n");
+#   endif
+          }
           free(l_generated_code.generated_code);
           return result;
         }
