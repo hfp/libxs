@@ -312,7 +312,7 @@ $(BLDDIR)/%.o: $(SRCDIR)/%.c $(INCDIR)/libxs.h $(ROOTDIR)/Makefile $(ROOTDIR)/Ma
 generator: $(BINDIR)/generator
 $(BINDIR)/generator: $(OBJFILES_GEN_BIN) $(OUTDIR)/intel64/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@mkdir -p $(dir $@)
-	$(CC) $(LDFLAGS) $(CLDFLAGS) $(OBJFILES_GEN_BIN) -L$(OUTDIR)/intel64 -lxsmmgen -o $@
+	$(CC) $(LDFLAGS) $(CLDFLAGS) -pie $(OBJFILES_GEN_BIN) -L$(OUTDIR)/intel64 -lxsmmgen -o $@
 
 .PHONY: sources
 sources: $(SRCFILES)
