@@ -716,10 +716,10 @@ ifneq ($(abspath $(BLDDIR)),$(ROOTDIR))
 ifneq ($(abspath $(BLDDIR)),$(abspath .))
 	@rm -rf $(BLDDIR)
 else
-	@rm -f $(OBJECTS) $(BLDDIR)/libxs_dispatch.h $(BLDDIR)/*.mod
+	@rm -f $(OBJECTS) $(BLDDIR)/libxs_dispatch.h $(BLDDIR)/*.mod $(BLDDIR)/*.modmic
 endif
 else
-	@rm -f $(OBJECTS) $(BLDDIR)/libxs_dispatch.h $(BLDDIR)/*.mod
+	@rm -f $(OBJECTS) $(BLDDIR)/libxs_dispatch.h $(BLDDIR)/*.mod $(BLDDIR)/*.modmic
 endif
 	@rm -rf $(SCRDIR)/__pycache__
 	@rm -f $(SCRDIR)/libxs_utilities.pyc
@@ -747,6 +747,7 @@ endif
 	@rm -f $(SPLDIR)/cp2k/cp2k-perf.sh
 	@rm -f $(SPLDIR)/smm/smmf-perf.sh
 	@rm -f $(SPLDIR)/nek/grad-perf.sh
+	@rm -f $(INCDIR)/libxs.modmic
 	@rm -f $(INCDIR)/libxs.mod
 	@rm -f $(INCDIR)/libxs.f
 	@rm -f $(INCDIR)/libxs.h
