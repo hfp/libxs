@@ -125,10 +125,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
   const volatile void* cache;
-#if (201107 <= _OPENMP)
+#if defined(_OPENMP)
+# if (201107 <= _OPENMP)
 # pragma omp atomic read
-#else
+# else
 # pragma omp flush(libxs_dispatch_cache)
+# endif
 #endif
   cache = libxs_dispatch_cache;
 
@@ -140,10 +142,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 #   pragma omp critical(libxs_dispatch_lock)
 #endif
     {
-#if (201107 <= _OPENMP)
+#if defined(_OPENMP)
+# if (201107 <= _OPENMP)
 #     pragma omp atomic read
-#else
+# else
 #     pragma omp flush(libxs_dispatch_cache)
+# endif
 #endif
       cache = libxs_dispatch_cache;
 
