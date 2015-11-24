@@ -153,11 +153,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 
       if (0 != cache) {
         void *const buffer = (void*)libxs_dispatch_cache;
-#if (201107 <= _OPENMP)
+#if defined(_OPENMP) && (201107 <= _OPENMP)
 #       pragma omp atomic write
 #endif
         libxs_dispatch_cache = 0;
-#if (201107 > _OPENMP)
+#if defined(_OPENMP) && (201107 > _OPENMP)
 #       pragma omp flush(libxs_dispatch_cache)
 #endif
         free(buffer);
