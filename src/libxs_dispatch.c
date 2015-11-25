@@ -152,7 +152,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
-  const volatile void* cache;
+  volatile libxs_dispatch_entry* cache = 0;
 #if defined(_OPENMP)
 # if (201107 <= _OPENMP)
 # pragma omp atomic read
@@ -180,7 +180,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
       cache = libxs_dispatch_cache;
 
       if (0 != cache) {
-        void *const buffer = (void*)libxs_dispatch_cache;
 #if defined(_OPENMP) && (201107 <= _OPENMP)
 #       pragma omp atomic write
 #endif
@@ -188,7 +187,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 #if defined(_OPENMP) && (201107 > _OPENMP)
 #       pragma omp flush(libxs_dispatch_cache)
 #endif
-        free(buffer);
+        free((void*)cache);
       }
     }
 #if !defined(_OPENMP)
@@ -202,11 +201,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_gemm_descriptor* desc)
 {
   libxs_dispatch_entry result;
-  const volatile void* cache;
+  volatile libxs_dispatch_entry* cache;
   unsigned int hash, indx;
   assert(0 != desc);
 
-  /* lazy initialization */
 #if defined(_OPENMP)
 # if (201107 <= _OPENMP)
 # pragma omp atomic read
@@ -216,16 +214,24 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 #endif
   cache = libxs_dispatch_cache;
 
+  /* lazy initialization */
   if (0 == cache) {
     internal_init();
+#if defined(_OPENMP)
+# if (201107 <= _OPENMP)
+# pragma omp atomic read
+# else
+# pragma omp flush(libxs_dispatch_cache)
+# endif
+#endif
+    cache = libxs_dispatch_cache;
   }
 
   /* check if the requested xGEMM is already JITted */
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
   hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_DISPATCH_HASH_SEED);
-
   indx = hash % LIBXS_DISPATCH_CACHESIZE;
-  result = libxs_dispatch_cache[indx]; /* TODO: handle collision */
+  result = cache[indx]; /* TODO: handle collision */
 #if (0 != LIBXS_JIT)
   if (0 == result.pv) {
 # if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*allow code coverage with Cygwin; fails at runtime!*/)
@@ -236,7 +242,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 #   pragma omp critical(libxs_dispatch_lock)
 # endif
     {
-      result = libxs_dispatch_cache[indx];
+      result = cache[indx];
 
       if (0 == result.pv) {
         char l_arch[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }; /* empty initial arch string */
@@ -256,7 +262,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 # else
 #       error "No instruction set extension found for JIT-code generation!"
 # endif
-
         /* allocate buffer for code */
         l_generated_code.generated_code = malloc(131072 * sizeof(unsigned char));
         l_generated_code.buffer_size = 0 != l_generated_code.generated_code ? 131072 : 0;
@@ -315,7 +320,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
               result.pv = l_code;
 
               /* make function pointer available for dispatch */
-              libxs_dispatch_cache[indx].pv = l_code;
+              cache[indx].pv = l_code;
             }
             else { /* there was an error with mprotect */
 # if !defined(NDEBUG) /* library code is usually expected to be mute */
