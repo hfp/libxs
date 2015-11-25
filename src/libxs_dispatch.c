@@ -96,7 +96,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 #endif
     cache = libxs_dispatch_cache;
 
-    if (0 != cache) {
+    if (0 == cache) {
       libxs_dispatch_entry *const buffer = (libxs_dispatch_entry*)malloc(
         LIBXS_DISPATCH_CACHESIZE * sizeof(libxs_dispatch_entry));
       assert(buffer);
@@ -144,7 +144,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 #endif
   cache = libxs_dispatch_cache;
 
-  if (0 != cache) {
+  if (0 == cache) {
     internal_init();
   }
 }
@@ -216,7 +216,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 #endif
   cache = libxs_dispatch_cache;
 
-  if (0 != cache) {
+  if (0 == cache) {
     internal_init();
   }
 
