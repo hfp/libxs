@@ -259,10 +259,6 @@
 # define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(LOCK)
 #endif
 
-#define LIBXS_BLASPREC(REAL, FUNCTION) LIBXS_BLASPREC_##REAL(FUNCTION)
-#define LIBXS_BLASPREC_double(FUNCTION) d##FUNCTION
-#define LIBXS_BLASPREC_float(FUNCTION) s##FUNCTION
-
 #if defined(LIBXS_OFFLOAD_BUILD)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 # include <stdint.h>

@@ -166,6 +166,7 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNMENT);
           const T *const ai = a + i * asize, *const bi = b + i * bsize;
+          // do nothing else with tmp; just a benchmark
 #if (0 != LIBXS_PREFETCH)
           xmm(ai, bi, tmp,
             LIBXS_PREFETCH_A(ai + asize),

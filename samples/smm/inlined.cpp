@@ -134,7 +134,9 @@ int main(int argc, char* argv[])
         for (int i = 0; i < s; ++i) {
           const T *const ai = a + i * asize, *const bi = b + i * bsize;
           T* ci = c + i * ldcsize;
-          LIBXS_XIMM(LIBXS_FLAGS, m, n, k, ai, bi, ci, 0, 0);
+          LIBXS_IGEMM(LIBXS_FLAGS, LIBXS_LD(m, n), LIBXS_LD(n, m), k,
+            LIBXS_ALPHA, LIBXS_LD(ai, bi), LIBXS_LD(m, n), LIBXS_LD(bi, ai), k,
+            LIBXS_BETA, ci, ldc);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -154,7 +156,10 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNMENT);
           const T *const ai = a + i * asize, *const bi = b + i * bsize;
-          LIBXS_XIMM(LIBXS_FLAGS, m, n, k, ai, bi, tmp, 0, 0);
+          // do nothing else with tmp; just a benchmark
+          LIBXS_IGEMM(LIBXS_FLAGS, LIBXS_LD(m, n), LIBXS_LD(n, m), k,
+            LIBXS_ALPHA, LIBXS_LD(ai, bi), LIBXS_LD(m, n), LIBXS_LD(bi, ai), k,
+            LIBXS_BETA, tmp, ldc);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -174,7 +179,9 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNMENT);
           // do nothing else with tmp; just a benchmark
-          LIBXS_XIMM(LIBXS_FLAGS, m, n, k, a, b, tmp, 0, 0);
+          LIBXS_IGEMM(LIBXS_FLAGS, LIBXS_LD(m, n), LIBXS_LD(n, m), k,
+            LIBXS_ALPHA, LIBXS_LD(a, b), LIBXS_LD(m, n), LIBXS_LD(b, a), k,
+            LIBXS_BETA, tmp, ldc);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {

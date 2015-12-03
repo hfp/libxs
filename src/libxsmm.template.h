@@ -58,24 +58,10 @@
 #include "libxs_frontend.h"
 
 
-/** Integer type impacting the BLAS interface (LP64: 32-bit, and ILP64: 64-bit). */
-#if (0 != LIBXS_ILP64)
-typedef long long libxs_blasint;
-#else
-typedef int libxs_blasint;
-#endif
-
-/** Specialized function with fused alpha and beta arguments (single-precision). */
-typedef LIBXS_RETARGETABLE void (*libxs_sfunction)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c);
-/** Specialized function with fused alpha and beta arguments (double-precision). */
-typedef LIBXS_RETARGETABLE void (*libxs_dfunction)(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c);
-
-/** Specialized function with alpha, beta, and prefetch arguments (single-precision). */
-typedef LIBXS_RETARGETABLE void (*libxs_sxfunction)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  const float* pa, const float* pb, const float* pc);
-/** Specialized function with alpha, beta, and prefetch arguments (double-precision). */
-typedef LIBXS_RETARGETABLE void (*libxs_dxfunction)(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  const double* pa, const double* pb, const double* pc);
+/** Specialized function with fused alpha and beta arguments, and optional prefetch locations (single-precision). */
+typedef LIBXS_RETARGETABLE void (*libxs_sfunction)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c, ...);
+/** Specialized function with fused alpha and beta arguments, and optional prefetch locations (double-precision). */
+typedef LIBXS_RETARGETABLE void (*libxs_dfunction)(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c, ...);
 
 /** Initialize the library; pay for setup cost at a specific point. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
@@ -83,50 +69,43 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void);
 
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (single-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int flags, int m, int n, int k, int lda, int ldb, int ldc,
-  const float* alpha, const float* beta);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int m, int n, int k,
+  const int* lda, const int* ldb, const int* ldc,
+  const float* alpha, const float* beta,
+  const int* flags, const int* prefetch);
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (double-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(int flags, int m, int n, int k, int lda, int ldb, int ldc,
-  const double* alpha, const double* beta);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(int m, int n, int k,
+  const int* lda, const int* ldb, const int* ldc,
+  const double* alpha, const double* beta,
+  const int* flags, const int* prefetch);
 
-/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (single-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sxfunction libxs_sxdispatch(int flags, int m, int n, int k, int lda, int ldb, int ldc,
-  const float* alpha, const float* beta, int prefetch);
-/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (double-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dxfunction libxs_dxdispatch(int flags, int m, int n, int k, int lda, int ldb, int ldc,
-  const double* alpha, const double* beta, int prefetch);
+/** Dispatched general dense matrix multiplication (single-precision). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_sgemm(const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda,
+  const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
+  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc);
 
-/** Dispatched dense matrix multiplication (single-precision). */
-LIBXS_INLINE LIBXS_RETARGETABLE void libxs_smm(int flags, int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  const float* pa, const float* pb, const float* pc, const float* alpha, const float* beta)
-{
-  LIBXS_MM(float, flags, m, n, k, a, b, c, pa, pb, pc, alpha, beta);
-}
+/** Dispatched general dense matrix multiplication (double-precision). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dgemm(const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda,
+  const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
+  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc);
 
-/** Dispatched dense matrix multiplication (double-precision). */
-LIBXS_INLINE LIBXS_RETARGETABLE void libxs_dmm(int flags, int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  const double* pa, const double* pb, const double* pc, const double* alpha, const double* beta)
-{
-  LIBXS_MM(double, flags, m, n, k, a, b, c, pa, pb, pc, alpha, beta);
-}
+/** General dense matrix multiplication based on LAPACK/BLAS (single-precision). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_sgemm(const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda,
+  const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
+  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc);
 
-/** Non-dispatched dense matrix multiplication using BLAS (single-precision). */
-LIBXS_INLINE LIBXS_RETARGETABLE void libxs_sblasmm(int flags, int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  const float* alpha, const float* beta)
-{
-  LIBXS_BLASMM(float, libxs_blasint, flags, m, n, k, a, b, c, alpha, beta);
-}
-
-/** Non-dispatched dense matrix multiplication using BLAS (double-precision). */
-LIBXS_INLINE LIBXS_RETARGETABLE void libxs_dblasmm(int flags, int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  const double* alpha, const double* beta)
-{
-  LIBXS_BLASMM(double, libxs_blasint, flags, m, n, k, a, b, c, alpha, beta);
-}
+/** General dense matrix multiplication based on LAPACK/BLAS (double-precision). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_dgemm(const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda,
+  const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
+  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc);
 $MNK_INTERFACE_LIST
 #if defined(__cplusplus)
 
@@ -135,48 +114,35 @@ template<typename T> class LIBXS_RETARGETABLE libxs_function {};
 
 /** Construct and execute a specialized function (single-precision). */
 template<> class LIBXS_RETARGETABLE libxs_function<float> {
-  typedef LIBXS_RETARGETABLE void (*type)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c, ...);
-  mutable/*retargetable*/ type m_function;
+  mutable/*retargetable*/ libxs_sfunction m_function;
 public:
   libxs_function(): m_function(0) {}
   libxs_function(int m, int n, int k, int flags = LIBXS_FLAGS)
-    : m_function(reinterpret_cast<type>(libxs_sdispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/)))
+    : m_function(libxs_sdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
   {}
   libxs_function(int m, int n, int k, int lda, int ldb, int ldc, int flags = LIBXS_FLAGS)
-    : m_function(reinterpret_cast<type>(libxs_sdispatch(flags, m, n, k, lda, ldb, ldc, 0/*alpha*/, 0/*beta*/)))
+    : m_function(libxs_sdispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
   {}
   libxs_function(int flags, int m, int n, int k, int prefetch)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_sxdispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, prefetch))
-      : reinterpret_cast<type>(libxs_sdispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/)))
+    : m_function(libxs_sdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
   {}
   libxs_function(int flags, int m, int n, int k, int lda, int ldb, int ldc, int prefetch = LIBXS_PREFETCH)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_sxdispatch(flags, m, n, k, lda, ldb, ldc, 0/*alpha*/, 0/*beta*/, prefetch))
-      : reinterpret_cast<type>(libxs_sdispatch(flags, m, n, k, lda, ldb, ldc, 0/*alpha*/, 0/*beta*/)))
+    : m_function(libxs_sdispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
   {}
   libxs_function(int m, int n, int k, float alpha, float beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_sxdispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, prefetch))
-      : reinterpret_cast<type>(libxs_sdispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta)))
+    : m_function(libxs_sdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
   {}
   libxs_function(int flags, int m, int n, int k, float alpha, float beta, int prefetch = LIBXS_PREFETCH)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_sxdispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, prefetch))
-      : reinterpret_cast<type>(libxs_sdispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta)))
+    : m_function(libxs_sdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
   {}
   libxs_function(int flags, int m, int n, int k, int lda, int ldb, int ldc, float alpha, float beta, int prefetch = LIBXS_PREFETCH)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_sxdispatch(flags, m, n, k, lda, ldb, ldc, &alpha, &beta, prefetch))
-      : reinterpret_cast<type>(libxs_sdispatch(flags, m, n, k, lda, ldb, ldc, &alpha, &beta)))
+    : m_function(libxs_sdispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
   {}
   libxs_function(int m, int n, int k, int lda, int ldb, int ldc, float alpha, float beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_sxdispatch(flags, m, n, k, lda, ldb, ldc, &alpha, &beta, prefetch))
-      : reinterpret_cast<type>(libxs_sdispatch(flags, m, n, k, lda, ldb, ldc, &alpha, &beta)))
+    : m_function(libxs_sdispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
   {}
 public:
-  operator type() const {
+  operator libxs_sfunction() const {
     return m_function;
   }
   void operator()(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c) const {
@@ -200,48 +166,35 @@ public:
 
 /** Construct and execute a specialized function (double-precision). */
 template<> class LIBXS_RETARGETABLE libxs_function<double> {
-  typedef LIBXS_RETARGETABLE void (*type)(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c, ...);
-  mutable/*retargetable*/ type m_function;
+  mutable/*retargetable*/ libxs_dfunction m_function;
 public:
   libxs_function(): m_function(0) {}
   libxs_function(int m, int n, int k, int flags = LIBXS_FLAGS)
-    : m_function(reinterpret_cast<type>(libxs_ddispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/)))
+    : m_function(libxs_ddispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
   {}
   libxs_function(int m, int n, int k, int lda, int ldb, int ldc, int flags = LIBXS_FLAGS)
-    : m_function(reinterpret_cast<type>(libxs_ddispatch(flags, m, n, k, lda, ldb, ldc, 0/*alpha*/, 0/*beta*/)))
+    : m_function(libxs_ddispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
   {}
   libxs_function(int flags, int m, int n, int k, int prefetch)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_dxdispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, prefetch))
-      : reinterpret_cast<type>(libxs_ddispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/)))
+    : m_function(libxs_ddispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
   {}
   libxs_function(int flags, int m, int n, int k, int lda, int ldb, int ldc, int prefetch = LIBXS_PREFETCH)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_dxdispatch(flags, m, n, k, lda, ldb, ldc, 0/*alpha*/, 0/*beta*/, prefetch))
-      : reinterpret_cast<type>(libxs_ddispatch(flags, m, n, k, lda, ldb, ldc, 0/*alpha*/, 0/*beta*/)))
+    : m_function(libxs_ddispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
   {}
   libxs_function(int m, int n, int k, double alpha, double beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_dxdispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, prefetch))
-      : reinterpret_cast<type>(libxs_ddispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta)))
+    : m_function(libxs_ddispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
   {}
   libxs_function(int flags, int m, int n, int k, double alpha, double beta, int prefetch = LIBXS_PREFETCH)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_dxdispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, prefetch))
-      : reinterpret_cast<type>(libxs_ddispatch(flags, m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta)))
+    : m_function(libxs_ddispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
   {}
   libxs_function(int flags, int m, int n, int k, int lda, int ldb, int ldc, double alpha, double beta, int prefetch = LIBXS_PREFETCH)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_dxdispatch(flags, m, n, k, lda, ldb, ldc, &alpha, &beta, prefetch))
-      : reinterpret_cast<type>(libxs_ddispatch(flags, m, n, k, lda, ldb, ldc, &alpha, &beta)))
+    : m_function(libxs_ddispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
   {}
   libxs_function(int m, int n, int k, int lda, int ldb, int ldc, double alpha, double beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
-    : m_function(LIBXS_PREFETCH_NONE != prefetch
-      ? reinterpret_cast<type>(libxs_dxdispatch(flags, m, n, k, lda, ldb, ldc, &alpha, &beta, prefetch))
-      : reinterpret_cast<type>(libxs_ddispatch(flags, m, n, k, lda, ldb, ldc, &alpha, &beta)))
+    : m_function(libxs_ddispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
   {}
 public:
-  operator type() const {
+  operator libxs_dfunction() const {
     return m_function;
   }
   void operator()(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) const {
@@ -263,198 +216,36 @@ public:
   }*/
 };
 
-/** Dispatched dense matrix multiplication (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  int flags = LIBXS_FLAGS)
+/** Dispatched general dense matrix multiplication (single-precision). */
+LIBXS_RETARGETABLE inline void libxs_gemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda, const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
+  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc)
 {
-  libxs_smm(flags, m, n, k, a, b, c, 0/*pa*/, 0/*pb*/, 0/*pc*/, 0/*alpha*/, 0/*beta*/);
+  libxs_sgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
-/** Dispatched dense matrix multiplication (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  int flags = LIBXS_FLAGS)
+/** Dispatched general dense matrix multiplication (double-precision). */
+LIBXS_RETARGETABLE inline void libxs_gemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda, const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
+  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc)
 {
-  libxs_dmm(flags, m, n, k, a, b, c, 0/*pa*/, 0/*pb*/, 0/*pc*/, 0/*alpha*/, 0/*beta*/);
+  libxs_dgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
-/** Dispatched dense matrix multiplication (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int flags, int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c)
+/** General dense matrix multiplication based on LAPACK/BLAS (single-precision). */
+LIBXS_RETARGETABLE inline void libxs_blas_gemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda, const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
+  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc)
 {
-  libxs_smm(flags, m, n, k, a, b, c, 0/*pa*/, 0/*pb*/, 0/*pc*/, 0/*alpha*/, 0/*beta*/);
+  libxs_blas_sgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
-/** Dispatched dense matrix multiplication (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int flags, int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c)
+/** General dense matrix multiplication based on LAPACK/BLAS (double-precision). */
+LIBXS_RETARGETABLE inline void libxs_blas_gemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda, const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
+  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc)
 {
-  libxs_dmm(flags, m, n, k, a, b, c, 0/*pa*/, 0/*pb*/, 0/*pc*/, 0/*alpha*/, 0/*beta*/);
-}
-
-/** Dispatched dense matrix multiplication (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  const float* pa, const float* pb, const float* pc,
-  int flags = LIBXS_FLAGS)
-{
-  libxs_smm(flags, m, n, k, a, b, c, pa, pb, pc, 0/*alpha*/, 0/*beta*/);
-}
-
-/** Dispatched dense matrix multiplication (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  const double* pa, const double* pb, const double* pc,
-  int flags = LIBXS_FLAGS)
-{
-  libxs_dmm(flags, m, n, k, a, b, c, pa, pb, pc, 0/*alpha*/, 0/*beta*/);
-}
-
-/** Dispatched dense matrix multiplication (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int flags, int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  const float* pa, const float* pb, const float* pc)
-{
-  libxs_smm(flags, m, n, k, a, b, c, pa, pb, pc, 0/*alpha*/, 0/*beta*/);
-}
-
-/** Dispatched dense matrix multiplication (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int flags, int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  const double* pa, const double* pb, const double* pc)
-{
-  libxs_dmm(flags, m, n, k, a, b, c, pa, pb, pc, 0/*alpha*/, 0/*beta*/);
-}
-
-/** Dispatched dense matrix multiplication (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  float alpha, float beta, int flags = LIBXS_FLAGS)
-{
-  libxs_smm(flags, m, n, k, a, b, c, 0/*pa*/, 0/*pb*/, 0/*pc*/, &alpha, &beta);
-}
-
-/** Dispatched dense matrix multiplication (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  double alpha, double beta, int flags = LIBXS_FLAGS)
-{
-  libxs_dmm(flags, m, n, k, a, b, c, 0/*pa*/, 0/*pb*/, 0/*pc*/, &alpha, &beta);
-}
-
-/** Dispatched dense matrix multiplication (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int flags, int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  float alpha, float beta)
-{
-  libxs_smm(flags, m, n, k, a, b, c, 0/*pa*/, 0/*pb*/, 0/*pc*/, &alpha, &beta);
-}
-
-/** Dispatched dense matrix multiplication (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int flags, int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  double alpha, double beta)
-{
-  libxs_dmm(flags, m, n, k, a, b, c, 0/*pa*/, 0/*pb*/, 0/*pc*/, &alpha, &beta);
-}
-
-/** Dispatched dense matrix multiplication (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  const float* pa, const float* pb, const float* pc,
-  float alpha, float beta, int flags = LIBXS_FLAGS)
-{
-  libxs_smm(flags, m, n, k, a, b, c, pa, pb, pc, &alpha, &beta);
-}
-
-/** Dispatched dense matrix multiplication (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  const double* pa, const double* pb, const double* pc,
-  double alpha, double beta, int flags = LIBXS_FLAGS)
-{
-  libxs_dmm(flags, m, n, k, a, b, c, pa, pb, pc, &alpha, &beta);
-}
-
-/** Dispatched dense matrix multiplication (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int flags, int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  const float* pa, const float* pb, const float* pc,
-  float alpha, float beta)
-{
-  libxs_smm(flags, m, n, k, a, b, c, pa, pb, pc, &alpha, &beta);
-}
-
-/** Dispatched dense matrix multiplication (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_mm(int flags, int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  const double* pa, const double* pb, const double* pc,
-  double alpha, double beta)
-{
-  libxs_dmm(flags, m, n, k, a, b, c, pa, pb, pc, &alpha, &beta);
-}
-
-/** Non-dispatched dense matrix multiplication using BLAS (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_blasmm(int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  int flags = LIBXS_FLAGS)
-{
-  libxs_sblasmm(flags, m, n, k, a, b, c, 0/*alpha*/, 0/*beta*/);
-}
-
-/** Non-dispatched dense matrix multiplication using BLAS (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_blasmm(int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  int flags = LIBXS_FLAGS)
-{
-  libxs_dblasmm(flags, m, n, k, a, b, c, 0/*alpha*/, 0/*beta*/);
-}
-
-/** Non-dispatched dense matrix multiplication using BLAS (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_blasmm(int flags, int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c)
-{
-  libxs_sblasmm(flags, m, n, k, a, b, c, 0/*alpha*/, 0/*beta*/);
-}
-
-/** Non-dispatched dense matrix multiplication using BLAS (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_blasmm(int flags, int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c)
-{
-  libxs_dblasmm(flags, m, n, k, a, b, c, 0/*alpha*/, 0/*beta*/);
-}
-
-/** Non-dispatched dense matrix multiplication using BLAS (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_blasmm(int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  float alpha, float beta, int flags = LIBXS_FLAGS)
-{
-  libxs_sblasmm(flags, m, n, k, a, b, c, &alpha, &beta);
-}
-
-/** Non-dispatched dense matrix multiplication using BLAS (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_blasmm(int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  double alpha, double beta, int flags = LIBXS_FLAGS)
-{
-  libxs_dblasmm(flags, m, n, k, a, b, c, &alpha, &beta);
-}
-
-/** Non-dispatched dense matrix multiplication using BLAS (single-precision). */
-LIBXS_RETARGETABLE inline void libxs_blasmm(int flags, int m, int n, int k,
-  const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
-  float alpha, float beta)
-{
-  libxs_sblasmm(flags, m, n, k, a, b, c, &alpha, &beta);
-}
-
-/** Non-dispatched dense matrix multiplication using BLAS (double-precision). */
-LIBXS_RETARGETABLE inline void libxs_blasmm(int flags, int m, int n, int k,
-  const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
-  double alpha, double beta)
-{
-  libxs_dblasmm(flags, m, n, k, a, b, c, &alpha, &beta);
+  libxs_blas_dgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 #endif /*__cplusplus*/

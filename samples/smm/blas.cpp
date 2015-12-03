@@ -125,12 +125,16 @@ int main(int argc, char* argv[])
         m, n, k, ldc, 0 != LIBXS_ROW_MAJOR ? "row-major" : "column-major",
         s, 1.0 * (s * (asize + bsize + ldcsize) * sizeof(T)) / (1 << 20));
 
-      { // warm-up for BLAS Lib
+      { // LAPACK/BLAS3 (warmup BLAS Library)
 #if defined(_OPENMP)
 #       pragma omp parallel for
 #endif
         for (int i = 0; i < s; ++i) {
-          libxs_blasmm(m, n, k, a + i * asize, b + i * bsize, c + i * ldcsize);
+          const T *const ai = a + i * asize, *const bi = b + i * bsize, *const ci = c + i * ldcsize;
+          // alternatively libxs_blas_gemm can be called instead of relying on a macro
+          LIBXS_BGEMM(LIBXS_FLAGS, LIBXS_LD(m, n), LIBXS_LD(n, m), k,
+            LIBXS_ALPHA, LIBXS_LD(ai, bi), LIBXS_LD(m, n), LIBXS_LD(bi, ai), k,
+            LIBXS_BETA, ci, ldc);
         }
       }
 
@@ -141,7 +145,11 @@ int main(int argc, char* argv[])
 #       pragma omp parallel for
 #endif
         for (int i = 0; i < s; ++i) {
-          libxs_blasmm(m, n, k, a + i * asize, b + i * bsize, c + i * ldcsize);
+          const T *const ai = a + i * asize, *const bi = b + i * bsize, *const ci = c + i * ldcsize;
+          // alternatively libxs_blas_gemm can be called instead of relying on a macro
+          LIBXS_BGEMM(LIBXS_FLAGS, LIBXS_LD(m, n), LIBXS_LD(n, m), k,
+            LIBXS_ALPHA, LIBXS_LD(ai, bi), LIBXS_LD(m, n), LIBXS_LD(bi, ai), k,
+            LIBXS_BETA, ci, ldc);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -160,7 +168,12 @@ int main(int argc, char* argv[])
         for (int i = 0; i < s; ++i) {
           // make sure that stacksize is covering the problem size
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNMENT);
-          libxs_blasmm(m, n, k, a + i * asize, b + i * bsize, tmp);
+          const T *const ai = a + i * asize, *const bi = b + i * bsize;
+          // do nothing else with tmp; just a benchmark
+          // alternatively libxs_blas_gemm can be called instead of relying on a macro
+          LIBXS_BGEMM(LIBXS_FLAGS, LIBXS_LD(m, n), LIBXS_LD(n, m), k,
+            LIBXS_ALPHA, LIBXS_LD(ai, bi), LIBXS_LD(m, n), LIBXS_LD(bi, ai), k,
+            LIBXS_BETA, tmp, ldc);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -180,7 +193,10 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNMENT);
           // do nothing else with tmp; just a benchmark
-          libxs_blasmm(m, n, k, a, b, tmp);
+          // alternatively libxs_blas_gemm can be called instead of relying on a macro
+          LIBXS_BGEMM(LIBXS_FLAGS, LIBXS_LD(m, n), LIBXS_LD(n, m), k,
+            LIBXS_ALPHA, LIBXS_LD(a, b), LIBXS_LD(m, n), LIBXS_LD(b, a), k,
+            LIBXS_BETA, tmp, ldc);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {

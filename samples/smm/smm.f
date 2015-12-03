@@ -99,12 +99,14 @@ PROGRAM smm
   ALLOCATE(d(m,n))
   d(:,:) = 0
   !$OMP PARALLEL REDUCTION(+:d) PRIVATE(i) &
-  !$OMP   DEFAULT(NONE) SHARED(m, n, k, ldc, nm, a, b)
+  !$OMP   DEFAULT(NONE) SHARED(mn, nm, k, ldc, a, b)
   ALLOCATE(tmp(ldc,nm))
   tmp(:,:) = 0
   !$OMP DO
   DO i = LBOUND(a, 3), UBOUND(a, 3)
-    CALL libxs_blasmm(m, n, k, a(:,:,i), b(:,:,i), tmp)
+    CALL libxs_blas_gemm('N', 'N', mn, nm, k, &
+      LIBXS_ALPHA, a(:,:,i), mn, b(:,:,i), k, &
+      LIBXS_BETA, tmp, ldc)
   END DO
   d(:,:) = d(:,:) + tmp(:UBOUND(d,1),:)
   ! Deallocate thread-local arrays
@@ -122,7 +124,7 @@ PROGRAM smm
   !$OMP END MASTER
   !$OMP DO
   DO i = LBOUND(a, 3), UBOUND(a, 3)
-    CALL libxs_blasmm(m, n, k, a(:,:,i), b(:,:,i), tmp)
+    CALL libxs_gemm(m=m, n=n, k=k, a=a(:,:,i), b=b(:,:,i), c=tmp)
   END DO
   !$OMP MASTER
   duration = libxs_timer_duration(start, libxs_timer_tick())
@@ -145,7 +147,7 @@ PROGRAM smm
   !$OMP END MASTER
   !$OMP DO
   DO i = LBOUND(a, 3), UBOUND(a, 3)
-    CALL libxs_mm(m, n, k, a(:,:,i), b(:,:,i), tmp)
+    CALL libxs_gemm(m=m, n=n, k=k, a=a(:,:,i), b=b(:,:,i), c=tmp)
   END DO
   !$OMP MASTER
   duration = libxs_timer_duration(start, libxs_timer_tick())
@@ -169,7 +171,7 @@ PROGRAM smm
     !$OMP END MASTER
     !$OMP DO
     DO i = LBOUND(a, 3), UBOUND(a, 3)
-      CALL libxs_call(xmm, C_LOC(a(:,:,i)), C_LOC(b(:,:,i)), C_LOC(tmp))
+      CALL libxs_call(xmm, a(:,:,i), b(:,:,i), tmp)
     END DO
     !$OMP MASTER
     duration = libxs_timer_duration(start, libxs_timer_tick())

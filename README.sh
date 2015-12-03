@@ -32,7 +32,7 @@ sed \
   README.md | tee >( \
 pandoc \
   --latex-engine=xelatex --template=${TEMPLATE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable \
+  -f markdown_github+implicit_figures+all_symbols_escapable+subscript \
   -V documentclass=scrartcl \
   -V title-meta="LIBXS Documentation" \
   -V author-meta="Hans Pabst, Alexander Heinecke" \
@@ -42,7 +42,7 @@ pandoc \
   -V urlcolor=black \
   -o ${DOCDIR}/libxs.pdf) | \
 pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable \
+  -f markdown_github+implicit_figures+all_symbols_escapable+subscript \
   -o ${DOCDIR}/libxs.docx
 
 # cleanup markup and pipe into pandoc using the template
@@ -55,7 +55,7 @@ sed \
   ${HERE}/documentation/cp2k.md | tee >( \
 pandoc \
   --latex-engine=xelatex --template=${TEMPLATE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable \
+  -f markdown_github+implicit_figures+all_symbols_escapable+subscript \
   -V documentclass=scrartcl \
   -V title-meta="CP2K with LIBXS" \
   -V author-meta="Hans Pabst" \
@@ -65,7 +65,7 @@ pandoc \
   -V urlcolor=black \
   -o ${DOCDIR}/cp2k.pdf) | \
 pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable \
+  -f markdown_github+implicit_figures+all_symbols_escapable+subscript \
   -o ${DOCDIR}/cp2k.docx
 
 # remove temporary file

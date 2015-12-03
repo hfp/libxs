@@ -132,16 +132,9 @@ int main(int argc, char* argv[])
 #       pragma omp parallel for
 #endif
         for (int i = 0; i < s; ++i) {
-          const T *const ai = a + i * asize, *const bi = b + i * bsize;
-          T *const ci = c + i * ldcsize;
-#if (0 != LIBXS_PREFETCH)
-          libxs_mm(m, n, k, ai, bi, ci,
-            LIBXS_PREFETCH_A(ai + asize),
-            LIBXS_PREFETCH_B(bi + bsize),
-            LIBXS_PREFETCH_C(ci + ldcsize));
-#else
-          libxs_mm(m, n, k, ai, bi, ci);
-#endif
+          libxs_gemm(0/*transa*/, 0/*transb*/, m, n, k,
+            0/*alpha*/, a + i * asize, 0/*lda*/, b + i * bsize, 0/*ldb*/,
+            0/*beta*/, c + i * ldcsize, &ldc);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -160,15 +153,10 @@ int main(int argc, char* argv[])
         for (int i = 0; i < s; ++i) {
           // make sure that stacksize is covering the problem size
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNMENT);
-          const T *const ai = a + i * asize, *const bi = b + i * bsize;
-#if (0 != LIBXS_PREFETCH)
-          libxs_mm(m, n, k, ai, bi, tmp,
-            LIBXS_PREFETCH_A(ai + asize),
-            LIBXS_PREFETCH_B(bi + bsize),
-            LIBXS_PREFETCH_C(tmp));
-#else
-          libxs_mm(m, n, k, ai, bi, tmp);
-#endif
+          // do nothing else with tmp; just a benchmark
+          libxs_gemm(0/*transa*/, 0/*transb*/, m, n, k,
+            0/*alpha*/, a + i * asize, 0/*lda*/, b + i * bsize, 0/*ldb*/,
+            0/*beta*/, tmp, &ldc);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -188,7 +176,9 @@ int main(int argc, char* argv[])
           // make sure that stacksize is covering the problem size
           LIBXS_ALIGNED(T tmp[MAX_SIZE], LIBXS_ALIGNMENT);
           // do nothing else with tmp; just a benchmark
-          libxs_mm(m, n, k, a, b, tmp);
+          libxs_gemm(0/*transa*/, 0/*transb*/, m, n, k,
+            0/*alpha*/, a, 0/*lda*/, b, 0/*ldb*/,
+            0/*beta*/, tmp, &ldc);
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
