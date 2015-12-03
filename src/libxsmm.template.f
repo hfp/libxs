@@ -207,6 +207,8 @@
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: lda, ldb, ldc
           REAL(C_FLOAT), INTENT(IN), OPTIONAL :: alpha, beta
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: flags, prefetch
+          PROCEDURE(LIBXS_FUNCTION0), POINTER :: fn0
+          PROCEDURE(LIBXS_FUNCTION1), POINTER :: fn1
           !DIR$ ATTRIBUTES OFFLOAD:MIC :: sdispatch
           INTERFACE
             TYPE(C_FUNPTR) PURE FUNCTION sdispatch(                     &
@@ -222,13 +224,15 @@
           IF (.NOT.PRESENT(prefetch)) THEN
             CALL C_F_PROCPOINTER(sdispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
-     &        libxs_sfunction%fn0)
+     &        fn0)
+            libxs_sfunction%fn0 => fn0
             libxs_sfunction%fn1 => NULL()
           ELSE
             CALL C_F_PROCPOINTER(sdispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
-     &        libxs_sfunction%fn1)
+     &        fn1)
             libxs_sfunction%fn0 => NULL()
+            libxs_sfunction%fn1 => fn1
           END IF
         END FUNCTION
 
@@ -239,6 +243,8 @@
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: lda, ldb, ldc
           REAL(C_DOUBLE), INTENT(IN), OPTIONAL :: alpha, beta
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: flags, prefetch
+          PROCEDURE(LIBXS_FUNCTION0), POINTER :: fn0
+          PROCEDURE(LIBXS_FUNCTION1), POINTER :: fn1
           !DIR$ ATTRIBUTES OFFLOAD:MIC :: ddispatch
           INTERFACE
             TYPE(C_FUNPTR) PURE FUNCTION ddispatch(                     &
@@ -254,13 +260,15 @@
           IF (.NOT.PRESENT(prefetch)) THEN
             CALL C_F_PROCPOINTER(ddispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
-     &        libxs_dfunction%fn0)
+     &        fn0)
+            libxs_dfunction%fn0 => fn0
             libxs_dfunction%fn1 => NULL()
           ELSE
             CALL C_F_PROCPOINTER(ddispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
-     &        libxs_dfunction%fn1)
+     &        fn1)
             libxs_dfunction%fn0 => NULL()
+            libxs_dfunction%fn1 => fn1
           END IF
         END FUNCTION
 
@@ -333,7 +341,10 @@
           TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
           REAL(C_FLOAT), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_FLOAT), INTENT(INOUT), TARGET :: c(:,:)
-          CALL libxs_scall_abx(fn, C_LOC(a), C_LOC(b), C_LOC(c))
+          CALL libxs_scall_abx(fn,                                    &
+     &      C_LOC(a(LBOUND(a,1),LBOUND(a,2))),                          &
+     &      C_LOC(a(LBOUND(b,1),LBOUND(b,2))),                          &
+     &      C_LOC(a(LBOUND(c,1),LBOUND(c,2))))
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dcall_abc
@@ -341,7 +352,10 @@
           TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
           REAL(C_DOUBLE), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_DOUBLE), INTENT(INOUT), TARGET :: c(:,:)
-          CALL libxs_dcall_abx(fn, C_LOC(a), C_LOC(b), C_LOC(c))
+          CALL libxs_dcall_abx(fn,                                    &
+     &      C_LOC(a(LBOUND(a,1),LBOUND(a,2))),                          &
+     &      C_LOC(a(LBOUND(b,1),LBOUND(b,2))),                          &
+     &      C_LOC(a(LBOUND(c,1),LBOUND(c,2))))
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_scall_prf
@@ -350,7 +364,10 @@
           REAL(C_FLOAT), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_FLOAT), INTENT(INOUT), TARGET :: c(:,:)
           REAL(C_FLOAT), INTENT(IN), TARGET :: pa(*), pb(*), pc(*)
-          CALL libxs_scall_prx(fn, C_LOC(a), C_LOC(b), C_LOC(c),      &
+          CALL libxs_scall_prx(fn,                                    &
+     &      C_LOC(a(LBOUND(a,1),LBOUND(a,2))),                          &
+     &      C_LOC(a(LBOUND(b,1),LBOUND(b,2))),                          &
+     &      C_LOC(a(LBOUND(c,1),LBOUND(c,2))),                          &
      &      C_LOC(pa), C_LOC(pb), C_LOC(pc))
         END SUBROUTINE
 
@@ -360,7 +377,10 @@
           REAL(C_DOUBLE), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_DOUBLE), INTENT(INOUT), TARGET :: c(:,:)
           REAL(C_DOUBLE), INTENT(IN), TARGET :: pa(*), pb(*), pc(*)
-          CALL libxs_dcall_prx(fn, C_LOC(a), C_LOC(b), C_LOC(c),      &
+          CALL libxs_dcall_prx(fn,                                    &
+     &      C_LOC(a(LBOUND(a,1),LBOUND(a,2))),                          &
+     &      C_LOC(a(LBOUND(b,1),LBOUND(b,2))),                          &
+     &      C_LOC(a(LBOUND(c,1),LBOUND(c,2))),                          &
      &      C_LOC(pa), C_LOC(pb), C_LOC(pc))
         END SUBROUTINE
 
@@ -415,7 +435,7 @@
           INTERFACE
             SUBROUTINE internal_gemm(transa, transb, m, n, k,           &
      &      alpha, a, lda, b, ldb, beta, c, ldc)                        &
-            BIND(C, NAME="libxs_sgemm")
+     &      BIND(C, NAME="libxs_sgemm")
               IMPORT LIBXS_BLASINT_KIND, C_FLOAT
               CHARACTER(1), INTENT(IN) :: transa, transb
               INTEGER(LIBXS_BLASINT_KIND), INTENT(IN) :: m, n, k
@@ -444,7 +464,7 @@
           INTERFACE
             SUBROUTINE internal_gemm(transa, transb, m, n, k,           &
      &      alpha, a, lda, b, ldb, beta, c, ldc)                        &
-            BIND(C, NAME="libxs_dgemm")
+     &      BIND(C, NAME="libxs_dgemm")
               IMPORT LIBXS_BLASINT_KIND, C_DOUBLE
               CHARACTER(1), INTENT(IN) :: transa, transb
               INTEGER(LIBXS_BLASINT_KIND), INTENT(IN) :: m, n, k
@@ -473,7 +493,7 @@
           INTERFACE
             SUBROUTINE internal_gemm(transa, transb, m, n, k,           &
      &      alpha, a, lda, b, ldb, beta, c, ldc)                        &
-            BIND(C, NAME="libxs_blas_sgemm")
+     &      BIND(C, NAME="libxs_blas_sgemm")
               IMPORT LIBXS_BLASINT_KIND, C_FLOAT
               CHARACTER(1), INTENT(IN) :: transa, transb
               INTEGER(LIBXS_BLASINT_KIND), INTENT(IN) :: m, n, k
@@ -502,7 +522,7 @@
           INTERFACE
             SUBROUTINE internal_gemm(transa, transb, m, n, k,           &
      &      alpha, a, lda, b, ldb, beta, c, ldc)                        &
-            BIND(C, NAME="libxs_blas_dgemm")
+     &      BIND(C, NAME="libxs_blas_dgemm")
               IMPORT LIBXS_BLASINT_KIND, C_DOUBLE
               CHARACTER(1), INTENT(IN) :: transa, transb
               INTEGER(LIBXS_BLASINT_KIND), INTENT(IN) :: m, n, k
