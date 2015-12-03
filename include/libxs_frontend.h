@@ -32,18 +32,11 @@
 #include "libxs.h"
 #include <assert.h>
 
-/** Integer type for LAPACK/BLAS (LP64: 32-bit, and ILP64: 64-bit). */
-#if (0 != LIBXS_ILP64)
-typedef long long libxs_blasint;
-#else
-typedef int libxs_blasint;
-#endif
-
 /** Helper macro for GEMM argument permutation depending on storage scheme. */
-#if (0 != LIBXS_ROW_MAJOR)
-# define LIBXS_LD(M, N) (N)
-#else
+#if (0 != LIBXS_COL_MAJOR)
 # define LIBXS_LD(M, N) (M)
+#else
+# define LIBXS_LD(M, N) (N)
 #endif
 
 /** Helper macros for eliding prefetch address calculations depending on prefetch scheme. */
@@ -88,180 +81,197 @@ typedef int libxs_blasint;
 # else
 #   include <mkl.h>
 # endif
-#else
-/** Fallback prototype functions served by any compliant LAPACK/BLAS. */
+#elif (0 != LIBXS_ILP64)
+/** Fallback prototype functions served by any compliant LAPACK/BLAS (ILP64). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
-  const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
-  const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
-  const double*, double*, const libxs_blasint*);
+  const char*, const char*, const long long*, const long long*, const long long*,
+  const double*, const double*, const long long*, const double*, const long long*,
+  const double*, double*, const long long*);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
-	const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
-	const float*, const float*, const libxs_blasint*, const float*, const libxs_blasint*,
-	const float*, float*, const libxs_blasint*);
+  const char*, const char*, const long long*, const long long*, const long long*,
+  const float*, const float*, const long long*, const float*, const long long*,
+  const float*, float*, const long long*);
+#else /*LP64*/
+/** Fallback prototype functions served by any compliant LAPACK/BLAS (LP64). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
+  const char*, const char*, const int*, const int*, const int*,
+  const double*, const double*, const int*, const double*, const int*,
+  const double*, double*, const int*);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
+  const char*, const char*, const int*, const int*, const int*,
+  const float*, const float*, const int*, const float*, const int*,
+  const float*, float*, const int*);
 #endif
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (template). */
-#define LIBXS_BXGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  const char libxs_bxgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
-  const char libxs_bxgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
-  const libxs_blasint libxs_bxgemm_m_ = (libxs_blasint)(M); \
-  const libxs_blasint libxs_bxgemm_n_ = (libxs_blasint)(N); \
-  const libxs_blasint libxs_bxgemm_k_ = (libxs_blasint)(K); \
-  const libxs_blasint libxs_bxgemm_lda_ = (libxs_blasint)(0 != (LDA) ? LIBXS_MAX/*BLAS-conformance*/(LDA, M) \
+#define LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+  const char libxs_blas_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
+  const char libxs_blas_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
+  const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)LIBXS_LD(M, N); \
+  const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)LIBXS_LD(N, M); \
+  const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(K); \
+  const libxs_blasint libxs_blas_xgemm_lda_ = (libxs_blasint)(0 != (LDA) ? (LDA) \
     /* if the value of LDA was zero: make LDA a multiple of LIBXS_ALIGNMENT */ \
-    : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)), libxs_bxgemm_ldb_ = (libxs_blasint)(LDB); \
-  const libxs_blasint libxs_bxgemm_ldc_ = (libxs_blasint)(0 != (LDC) ? LIBXS_MAX/*BLAS-conformance*/(LDC, M) \
+    : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
+  const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)(LDB); \
+  const libxs_blasint libxs_blas_xgemm_ldc_ = (libxs_blasint)(0 != (LDC) ? (LDC) \
     /* if the value of LDC was zero: make LDC a multiple of LIBXS_ALIGNMENT */ \
     : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
-  const REAL libxs_bxgemm_alpha_ = (REAL)(ALPHA), libxs_bxgemm_beta_ = (REAL)(BETA); \
-  LIBXS_FSYMBOL(LIBXS_TPREFIX(REAL, gemm))(&libxs_bxgemm_transa_, &libxs_bxgemm_transb_, \
-    &libxs_bxgemm_m_, &libxs_bxgemm_n_, &libxs_bxgemm_k_, \
-    &libxs_bxgemm_alpha_, A, &libxs_bxgemm_lda_, B, &libxs_bxgemm_ldb_, \
-    &libxs_bxgemm_beta_, C, &libxs_bxgemm_ldc_); \
+  const REAL libxs_blas_xgemm_alpha_ = (REAL)(ALPHA), libxs_blas_xgemm_beta_ = (REAL)(BETA); \
+  LIBXS_FSYMBOL(LIBXS_TPREFIX(REAL, gemm))(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
+    &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
+    &libxs_blas_xgemm_alpha_, (const REAL*)LIBXS_LD(A, B), &LIBXS_LD(libxs_blas_xgemm_lda_, libxs_blas_xgemm_ldb_), \
+                            (const REAL*)LIBXS_LD(B, A), &LIBXS_LD(libxs_blas_xgemm_ldb_, libxs_blas_xgemm_lda_), \
+    &libxs_blas_xgemm_beta_, (REAL*)(C), &libxs_blas_xgemm_ldc_); \
 }
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (single-precision). */
-#define LIBXS_BSGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_BXGEMM(float, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+#define LIBXS_BLAS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_BLAS_XGEMM(float, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (single-precision). */
-#define LIBXS_BDGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_BXGEMM(double, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+#define LIBXS_BLAS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_BLAS_XGEMM(double, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library. */
-#define LIBXS_BGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+#define LIBXS_BLAS_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   if (sizeof(double) == sizeof(*(A))) { \
-    LIBXS_BDGEMM(FLAGS, M, N, K, \
-      (double)(ALPHA), (const double*)(A), LDA, (const double*)(B), LDB, \
-      (double) (BETA), (double*)(C), LDC); \
+    LIBXS_BLAS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
   else {\
-    LIBXS_BSGEMM(FLAGS, M, N, K, \
-      (float)(ALPHA), (const float*)(A), LDA, (const float*)(B), LDB, \
-      (float) (BETA), (float*)(C), LDC); \
+    LIBXS_BLAS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
 }
 
 /** Inlinable GEMM exercising the compiler's code generation (template). */
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-# define LIBXS_IXGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_BXGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+# define LIBXS_INLINE_XGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #else
-# define LIBXS_IXGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  const REAL *const libxs_ixgemm_a_ = (const REAL*)(B), *const libxs_ixgemm_b_ = (const REAL*)(A); \
-  const INT libxs_ixgemm_m_ = (INT)(M), libxs_ixgemm_n_ = (INT)(N); \
-  const INT libxs_ixgemm_lda_ = (INT)(0 != (LDA) ? LIBXS_MAX/*BLAS-conformance*/(LDA, M) \
+# define LIBXS_INLINE_XGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+  const INT llibxs_inline_xgemm_lda_ = (INT)(0 != (LDA) ? (LDA) \
     /* if the value of LDA was zero: make LDA a multiple of LIBXS_ALIGNMENT */ \
     : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
-  const INT libxs_ixgemm_ldc_ = (INT)(0 != (LDC) ? LIBXS_MAX/*BLAS-conformance*/(LDC, M) \
+  const INT llibxs_inline_xgemm_ldc_ = (INT)(0 != (LDC) ? (LDC) \
     /* if the value of LDC was zero: make LDC a multiple of LIBXS_ALIGNMENT */ \
     : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
-  INT libxs_ixgemm_i_, libxs_ixgemm_j_, libxs_ixgemm_k_; \
-  REAL *const libxs_ixgemm_c_ = (C); \
+  INT llibxs_inline_xgemm_i_, llibxs_inline_xgemm_j_, llibxs_inline_xgemm_k_; \
   assert(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS))/*not supported*/); \
   LIBXS_PRAGMA_SIMD/*_COLLAPSE(2)*/ \
-  for (libxs_ixgemm_j_ = 0; libxs_ixgemm_j_ < libxs_ixgemm_m_; ++libxs_ixgemm_j_) { \
-    LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_LD(LIBXS_MAX_N, LIBXS_MAX_M), LIBXS_LD(LIBXS_AVG_N, LIBXS_AVG_M)) \
-    for (libxs_ixgemm_i_ = 0; libxs_ixgemm_i_ < libxs_ixgemm_n_; ++libxs_ixgemm_i_) { \
-      const INT libxs_ixgemm_index_ = libxs_ixgemm_i_ * libxs_ixgemm_ldc_ + libxs_ixgemm_j_; \
-      REAL libxs_ixgemm_r_ = libxs_ixgemm_c_[libxs_ixgemm_index_] * (BETA); \
-      LIBXS_PRAGMA_SIMD_REDUCTION(+:libxs_ixgemm_r_) \
+  for (llibxs_inline_xgemm_i_ = 0; llibxs_inline_xgemm_i_ < ((INT)LIBXS_LD(N, M)); ++llibxs_inline_xgemm_i_) { \
+    const REAL *const llibxs_inline_xgemm_bi_ = ((const REAL*)LIBXS_LD(B, A)) + llibxs_inline_xgemm_i_ * LIBXS_LD((INT)(LDB), llibxs_inline_xgemm_lda_); \
+    REAL *const llibxs_inline_xgemm_ci_ = ((REAL*)(C)) + llibxs_inline_xgemm_i_ * llibxs_inline_xgemm_ldc_; \
+    LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_MAX_K, LIBXS_AVG_K) \
+    for (llibxs_inline_xgemm_k_ = 0; llibxs_inline_xgemm_k_ < (K); ++llibxs_inline_xgemm_k_) { \
+      const REAL *const llibxs_inline_xgemm_ai_ = ((const REAL*)LIBXS_LD(A, B)) + llibxs_inline_xgemm_k_ * LIBXS_LD(llibxs_inline_xgemm_lda_, (INT)(LDB)); \
+      const REAL llibxs_inline_xgemm_bik_ = llibxs_inline_xgemm_bi_[llibxs_inline_xgemm_k_] * ((REAL)(ALPHA)); \
       LIBXS_PRAGMA_UNROLL \
-      for (libxs_ixgemm_k_ = 0; libxs_ixgemm_k_ < (K); ++libxs_ixgemm_k_) { \
-        libxs_ixgemm_r_ += libxs_ixgemm_a_[libxs_ixgemm_i_*(LDB)+libxs_ixgemm_k_] * (ALPHA) \
-                    * libxs_ixgemm_b_[libxs_ixgemm_k_*libxs_ixgemm_lda_+libxs_ixgemm_j_]; \
+      for (llibxs_inline_xgemm_j_ = 0; llibxs_inline_xgemm_j_ < ((INT)LIBXS_LD(M, N)); ++llibxs_inline_xgemm_j_) { \
+        llibxs_inline_xgemm_ci_[llibxs_inline_xgemm_j_] = llibxs_inline_xgemm_ai_[llibxs_inline_xgemm_j_] * llibxs_inline_xgemm_bik_ \
+                                              + llibxs_inline_xgemm_ci_[llibxs_inline_xgemm_j_] * ((REAL)(BETA)); \
       } \
-      libxs_ixgemm_c_[libxs_ixgemm_index_] = libxs_ixgemm_r_; \
     } \
   } \
 }
 #endif
 
 /** Inlinable GEMM exercising the compiler's code generation (single-precision). */
-#define LIBXS_ISGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_IXGEMM(float, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+#define LIBXS_INLINE_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_INLINE_XGEMM(float, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** Inlinable GEMM exercising the compiler's code generation (double-precision). */
-#define LIBXS_IDGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_IXGEMM(double, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+#define LIBXS_INLINE_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_INLINE_XGEMM(double, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** Inlinable GEMM exercising the compiler's code generation. */
-#define LIBXS_IGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+#define LIBXS_INLINE_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   if (sizeof(double) == sizeof(*(A))) { \
-    LIBXS_IDGEMM(FLAGS, M, N, K, \
-      (double)(ALPHA), (const double*)(A), LDA, (const double*)(B), LDB, \
-      (double) (BETA), (double*)(C), LDC); \
+    LIBXS_INLINE_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
   else {\
-    LIBXS_ISGEMM(FLAGS, M, N, K, \
-      (float)(ALPHA), (const float*)(A), LDA, (const float*)(B), LDB, \
-      (float) (BETA), (float*)(C), LDC); \
+    LIBXS_INLINE_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
 }
 
 /** Fallback code paths: LIBXS_FALLBACK0, and LIBXS_FALLBACK1 (template). */
-#if defined(LIBXS_FALLBACK_IGEMM)
+#if defined(LIBXS_FALLBACK_INLINE_GEMM)
 # define LIBXS_FALLBACK0(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_IXGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+    LIBXS_INLINE_XGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #else
 # define LIBXS_FALLBACK0(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_BXGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+    LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #endif
 #define LIBXS_FALLBACK1(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_BXGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+  LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
 /**
  * Execute a specialized function, or use a fallback code path depending on threshold (template).
  * LIBXS_FALLBACK0 or specialized function: below LIBXS_MAX_MNK
  * LIBXS_FALLBACK1: above LIBXS_MAX_MNK
  */
-#define LIBXS_GEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+#define LIBXS_XGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   if (((unsigned long long)(LIBXS_MAX_MNK)) >= \
      (((unsigned long long)(M)) * \
       ((unsigned long long)(N)) * \
       ((unsigned long long)(K)))) \
   { \
-    const int libxs_gemm_flags_ = (int)(FLAGS), libxs_gemm_ldb_ = (int)(LDB); \
-    const int libxs_gemm_lda_ = (int)(0 != (LDA) ? LIBXS_MAX/*BLAS-conformance*/(LDA, M) \
+    const int libxs_xgemm_flags_ = (int)(FLAGS), libxs_xgemm_ldb_ = (int)(LDB); \
+    const int libxs_xgemm_lda_ = (int)(0 != (LDA) ? (LDA) \
       /* if the value of LDA was zero: make LDA a multiple of LIBXS_ALIGNMENT */ \
       : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
-    const int libxs_gemm_ldc_ = (int)(0 != (LDC) ? LIBXS_MAX/*BLAS-conformance*/(LDC, M) \
+    const int libxs_xgemm_ldc_ = (int)(0 != (LDC) ? (LDC) \
       /* if the value of LDC was zero: make LDC a multiple of LIBXS_ALIGNMENT */ \
       : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
-    const REAL libxs_gemm_alpha_ = (REAL)(ALPHA), libxs_gemm_beta_ = (REAL)(BETA); \
-    int libxs_gemm_fallback_ = 0; \
+    const REAL libxs_xgemm_alpha_ = (REAL)(ALPHA), libxs_xgemm_beta_ = (REAL)(BETA); \
+    int libxs_xgemm_fallback_ = 0; \
     if (LIBXS_PREFETCH_NONE == LIBXS_PREFETCH) { \
-      const LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, function)) libxs_gemm_function_ = \
+      const LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, function)) libxs_xgemm_function_ = \
         LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, dispatch))((int)(M), (int)(N), (int)(K), \
-          &libxs_gemm_lda_, &libxs_gemm_ldb_, &libxs_gemm_ldc_, \
-          &libxs_gemm_alpha_, &libxs_gemm_beta_, \
-          &libxs_gemm_flags_, 0); \
-      if (0 != libxs_gemm_function_) { \
-        libxs_gemm_function_(A, B, C); \
+          &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
+          &libxs_xgemm_alpha_, &libxs_xgemm_beta_, \
+          &libxs_xgemm_flags_, 0); \
+      if (0 != libxs_xgemm_function_) { \
+        libxs_xgemm_function_(A, B, C); \
       } \
       else { \
-        libxs_gemm_fallback_ = 1; \
+        libxs_xgemm_fallback_ = 1; \
       } \
     } \
     else { \
-      const int libxs_gemm_prefetch_ = (LIBXS_PREFETCH); \
-      const LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, function)) libxs_gemm_function_ = \
+      const int libxs_xgemm_prefetch_ = (LIBXS_PREFETCH); \
+      const LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, function)) libxs_xgemm_function_ = \
         LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, dispatch))((int)(M), (int)(N), (int)(K), \
-          &libxs_gemm_lda_, &libxs_gemm_ldb_, &libxs_gemm_ldc_, \
-          &libxs_gemm_alpha_, &libxs_gemm_beta_, \
-          &libxs_gemm_flags_, &libxs_gemm_prefetch_); \
-      if (0 != libxs_gemm_function_) { \
-        libxs_gemm_function_(A, B, C, \
-          0 != LIBXS_PREFETCH_A(1) ? (((const REAL*)(A)) + (libxs_gemm_lda_) * (K)) : ((const REAL*)(A)), \
-          0 != LIBXS_PREFETCH_B(1) ? (((const REAL*)(B)) + (libxs_gemm_ldb_) * (N)) : ((const REAL*)(B)), \
-          0 != LIBXS_PREFETCH_C(1) ? (((const REAL*)(C)) + (libxs_gemm_ldc_) * (N)) : ((const REAL*)(C))); \
+          &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
+          &libxs_xgemm_alpha_, &libxs_xgemm_beta_, \
+          &libxs_xgemm_flags_, &libxs_xgemm_prefetch_); \
+      if (0 != libxs_xgemm_function_) { \
+        libxs_xgemm_function_(A, B, C, \
+          0 != LIBXS_PREFETCH_A(1) ? (((const REAL*)(A)) + (libxs_xgemm_lda_) * (K)) : ((const REAL*)(A)), \
+          0 != LIBXS_PREFETCH_B(1) ? (((const REAL*)(B)) + (libxs_xgemm_ldb_) * (N)) : ((const REAL*)(B)), \
+          0 != LIBXS_PREFETCH_C(1) ? (((const REAL*)(C)) + (libxs_xgemm_ldc_) * (N)) : ((const REAL*)(C))); \
       } \
       else { \
-        libxs_gemm_fallback_ = 1; \
+        libxs_xgemm_fallback_ = 1; \
       } \
     } \
-    if (0 != libxs_gemm_fallback_) { \
+    if (0 != libxs_xgemm_fallback_) { \
       LIBXS_FALLBACK0(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
     } \
   } \
   else { \
     LIBXS_FALLBACK1(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
+  } \
+}
+
+/** Dispatched general dense matrix multiplication (single-precision). */
+#define LIBXS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_XGEMM(float, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+/** Dispatched general dense matrix multiplication (double-precision). */
+#define LIBXS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_INLINE_XGEMM(double, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+/** Dispatched general dense matrix multiplication. */
+#define LIBXS_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+  if (sizeof(double) == sizeof(*(A))) { \
+    LIBXS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
+  } \
+  else {\
+    LIBXS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
 }
 
