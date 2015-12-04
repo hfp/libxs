@@ -36,6 +36,7 @@
      &                                    C_INT, C_FLOAT, C_DOUBLE,     &
      &                                    C_LONG_LONG, C_CHAR
         IMPLICIT NONE
+        PRIVATE :: libxs_srealptr, libxs_drealptr
 
         CHARACTER(*), PARAMETER :: LIBXS_VERSION = "$VERSION"
         CHARACTER(*), PARAMETER :: LIBXS_BRANCH  = "$BRANCH"
@@ -185,6 +186,20 @@
         END INTERFACE$MNK_INTERFACE_LIST
 
       CONTAINS
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_srealptr
+        FUNCTION libxs_srealptr(a) RESULT(p)
+          REAL(C_FLOAT), INTENT(IN), TARGET :: a(:,:)
+          REAL(C_FLOAT), POINTER :: p
+          p => a(LBOUND(a,1),LBOUND(a,2))
+        END FUNCTION
+
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_drealptr
+        FUNCTION libxs_drealptr(a) RESULT(p)
+          REAL(C_DOUBLE), INTENT(IN), TARGET :: a(:,:)
+          REAL(C_DOUBLE), POINTER :: p
+          p => a(LBOUND(a,1),LBOUND(a,2))
+        END FUNCTION
+
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_ld
         INTEGER(C_INT) PURE FUNCTION libxs_ld(m, n)
           INTEGER(C_INT), INTENT(IN) :: m, n
@@ -337,50 +352,50 @@
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_scall_abc
-        PURE SUBROUTINE libxs_scall_abc(fn, a, b, c)
+        SUBROUTINE libxs_scall_abc(fn, a, b, c)
           TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
           REAL(C_FLOAT), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_FLOAT), INTENT(INOUT), TARGET :: c(:,:)
           CALL libxs_scall_abx(fn,                                    &
-     &      C_LOC(a(LBOUND(a,1),LBOUND(a,2))),                          &
-     &      C_LOC(b(LBOUND(b,1),LBOUND(b,2))),                          &
-     &      C_LOC(c(LBOUND(c,1),LBOUND(c,2))))
+     &      C_LOC(libxs_srealptr(a)),                                 &
+     &      C_LOC(libxs_srealptr(b)),                                 &
+     &      C_LOC(libxs_srealptr(c)))
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dcall_abc
-        PURE SUBROUTINE libxs_dcall_abc(fn, a, b, c)
+        SUBROUTINE libxs_dcall_abc(fn, a, b, c)
           TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
           REAL(C_DOUBLE), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_DOUBLE), INTENT(INOUT), TARGET :: c(:,:)
           CALL libxs_dcall_abx(fn,                                    &
-     &      C_LOC(a(LBOUND(a,1),LBOUND(a,2))),                          &
-     &      C_LOC(b(LBOUND(b,1),LBOUND(b,2))),                          &
-     &      C_LOC(c(LBOUND(c,1),LBOUND(c,2))))
+     &      C_LOC(libxs_drealptr(a)),                                 &
+     &      C_LOC(libxs_drealptr(b)),                                 &
+     &      C_LOC(libxs_drealptr(c)))
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_scall_prf
-        PURE SUBROUTINE libxs_scall_prf(fn, a, b, c, pa, pb, pc)
+        SUBROUTINE libxs_scall_prf(fn, a, b, c, pa, pb, pc)
           TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
           REAL(C_FLOAT), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_FLOAT), INTENT(INOUT), TARGET :: c(:,:)
           REAL(C_FLOAT), INTENT(IN), TARGET :: pa(*), pb(*), pc(*)
           CALL libxs_scall_prx(fn,                                    &
-     &      C_LOC(a(LBOUND(a,1),LBOUND(a,2))),                          &
-     &      C_LOC(b(LBOUND(b,1),LBOUND(b,2))),                          &
-     &      C_LOC(c(LBOUND(c,1),LBOUND(c,2))),                          &
+     &      C_LOC(libxs_srealptr(a)),                                 &
+     &      C_LOC(libxs_srealptr(b)),                                 &
+     &      C_LOC(libxs_srealptr(c)),                                 &
      &      C_LOC(pa), C_LOC(pb), C_LOC(pc))
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dcall_prf
-        PURE SUBROUTINE libxs_dcall_prf(fn, a, b, c, pa, pb, pc)
+        SUBROUTINE libxs_dcall_prf(fn, a, b, c, pa, pb, pc)
           TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
           REAL(C_DOUBLE), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_DOUBLE), INTENT(INOUT), TARGET :: c(:,:)
           REAL(C_DOUBLE), INTENT(IN), TARGET :: pa(*), pb(*), pc(*)
           CALL libxs_dcall_prx(fn,                                    &
-     &      C_LOC(a(LBOUND(a,1),LBOUND(a,2))),                          &
-     &      C_LOC(b(LBOUND(b,1),LBOUND(b,2))),                          &
-     &      C_LOC(c(LBOUND(c,1),LBOUND(c,2))),                          &
+     &      C_LOC(libxs_drealptr(a)),                                 &
+     &      C_LOC(libxs_drealptr(b)),                                 &
+     &      C_LOC(libxs_drealptr(c)),                                 &
      &      C_LOC(pa), C_LOC(pb), C_LOC(pc))
         END SUBROUTINE
 
