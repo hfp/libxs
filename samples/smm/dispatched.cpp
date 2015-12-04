@@ -97,9 +97,9 @@ int main(int argc, char* argv[])
       raii(int asize, int bsize, int csize): a(new T[asize]), b(new T[bsize]), c(new T[csize]) {}
       ~raii() { delete[] a; delete[] b; delete[] c; }
     } buffer(s * asize + aspace - 1, s * bsize + aspace - 1, s * csize + aspace - 1);
-    T *const a = LIBXS_ALIGN(buffer.a, LIBXS_ALIGNMENT);
-    T *const b = LIBXS_ALIGN(buffer.b, LIBXS_ALIGNMENT);
-    T *c = LIBXS_ALIGN(buffer.c, LIBXS_ALIGNMENT);
+    T *const a = LIBXS_ALIGN2(buffer.a, LIBXS_ALIGNMENT);
+    T *const b = LIBXS_ALIGN2(buffer.b, LIBXS_ALIGNMENT);
+    T *c = LIBXS_ALIGN2(buffer.c, LIBXS_ALIGNMENT);
 
 #if defined(_OPENMP)
 #   pragma omp parallel for
@@ -152,7 +152,7 @@ int main(int argc, char* argv[])
         for (int i = 0; i < s; ++i) {
           // make sure that stacksize is covering the problem size
           T buffer[MAX_SIZE]; // LIBXS_ALIGNED does not apply to non-static local stack variables
-          T *const tmp = LIBXS_ALIGN(buffer, LIBXS_ALIGNMENT);
+          T *const tmp = LIBXS_ALIGN2(buffer, LIBXS_ALIGNMENT);
           // do nothing else with tmp; just a benchmark
           libxs_gemm(0/*transa*/, 0/*transb*/, m, n, k,
             0/*alpha*/, a + i * asize, 0/*lda*/, b + i * bsize, 0/*ldb*/,
@@ -175,7 +175,7 @@ int main(int argc, char* argv[])
         for (int i = 0; i < s; ++i) {
           // make sure that stacksize is covering the problem size
           T buffer[MAX_SIZE]; // LIBXS_ALIGNED does not apply to non-static local stack variables
-          T *const tmp = LIBXS_ALIGN(buffer, LIBXS_ALIGNMENT);
+          T *const tmp = LIBXS_ALIGN2(buffer, LIBXS_ALIGNMENT);
           // do nothing else with tmp; just a benchmark
           libxs_gemm(0/*transa*/, 0/*transb*/, m, n, k,
             0/*alpha*/, a, 0/*lda*/, b, 0/*ldb*/,
