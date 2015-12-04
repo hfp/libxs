@@ -107,21 +107,21 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 #define LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   const char libxs_blas_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
   const char libxs_blas_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
-  const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)LIBXS_LD(M, N); \
-  const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)LIBXS_LD(N, M); \
-  const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(K); \
+  const REAL libxs_blas_xgemm_alpha_ = (REAL)(ALPHA), libxs_blas_xgemm_beta_ = (REAL)(BETA); \
   const libxs_blasint libxs_blas_xgemm_lda_ = (libxs_blasint)(0 != (LDA) ? (LDA) \
     /* if the value of LDA was zero: make LDA a multiple of LIBXS_ALIGNMENT */ \
     : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
-  const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)(LDB); \
+  const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)LIBXS_LD(LDB, K); \
   const libxs_blasint libxs_blas_xgemm_ldc_ = (libxs_blasint)(0 != (LDC) ? (LDC) \
     /* if the value of LDC was zero: make LDC a multiple of LIBXS_ALIGNMENT */ \
     : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
-  const REAL libxs_blas_xgemm_alpha_ = (REAL)(ALPHA), libxs_blas_xgemm_beta_ = (REAL)(BETA); \
+  const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)LIBXS_LD(M, N); \
+  const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)LIBXS_LD(N, libxs_blas_xgemm_lda_); \
+  const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)LIBXS_LD(K, libxs_blas_xgemm_ldb_); \
   LIBXS_FSYMBOL(LIBXS_TPREFIX(REAL, gemm))(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
     &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
-    &libxs_blas_xgemm_alpha_, (const REAL*)LIBXS_LD(A, B), &LIBXS_LD(libxs_blas_xgemm_lda_, libxs_blas_xgemm_ldb_), \
-                            (const REAL*)LIBXS_LD(B, A), &LIBXS_LD(libxs_blas_xgemm_ldb_, libxs_blas_xgemm_lda_), \
+    &libxs_blas_xgemm_alpha_, (const REAL*)LIBXS_LD(A, B), &LIBXS_LD(libxs_blas_xgemm_lda_, libxs_blas_xgemm_m_), \
+                                (const REAL*)LIBXS_LD(B, A), &libxs_blas_xgemm_ldb_, \
     &libxs_blas_xgemm_beta_, (REAL*)(C), &libxs_blas_xgemm_ldc_); \
 }
 
@@ -147,26 +147,29 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #else
 # define LIBXS_INLINE_XGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  const INT llibxs_inline_xgemm_lda_ = (INT)(0 != (LDA) ? (LDA) \
+  const REAL libxs_inline_xgemm_alpha_ = (REAL)(1 == (ALPHA) ? 1 : (-1 == (ALPHA) ? -1 : (ALPHA))); \
+  const REAL libxs_inline_xgemm_beta_ = (REAL)(1 == (BETA) ? 1 : (0 == (BETA) ? 0 : (BETA))); \
+  const INT libxs_inline_xgemm_lda_ = (INT)LIBXS_LD(0 != (LDA) ? (LDA) \
     /* if the value of LDA was zero: make LDA a multiple of LIBXS_ALIGNMENT */ \
-    : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
-  const INT llibxs_inline_xgemm_ldc_ = (INT)(0 != (LDC) ? (LDC) \
+    : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT), N); \
+  const INT libxs_inline_xgemm_ldc_ = (INT)(0 != (LDC) ? (LDC) \
     /* if the value of LDC was zero: make LDC a multiple of LIBXS_ALIGNMENT */ \
     : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
-  INT llibxs_inline_xgemm_i_, llibxs_inline_xgemm_j_, llibxs_inline_xgemm_k_; \
+  INT libxs_inline_xgemm_i_, libxs_inline_xgemm_j_, libxs_inline_xgemm_k_; \
   assert(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS))/*not supported*/); \
   LIBXS_PRAGMA_SIMD/*_COLLAPSE(2)*/ \
-  for (llibxs_inline_xgemm_i_ = 0; llibxs_inline_xgemm_i_ < ((INT)LIBXS_LD(N, M)); ++llibxs_inline_xgemm_i_) { \
-    const REAL *const llibxs_inline_xgemm_bi_ = ((const REAL*)LIBXS_LD(B, A)) + llibxs_inline_xgemm_i_ * LIBXS_LD((INT)(LDB), llibxs_inline_xgemm_lda_); \
-    REAL *const llibxs_inline_xgemm_ci_ = ((REAL*)(C)) + llibxs_inline_xgemm_i_ * llibxs_inline_xgemm_ldc_; \
+  for (libxs_inline_xgemm_i_ = 0; libxs_inline_xgemm_i_ < ((INT)LIBXS_LD(N, M)); ++libxs_inline_xgemm_i_) { \
+    const REAL *const libxs_inline_xgemm_bi_ = ((const REAL*)LIBXS_LD(B, A)) + libxs_inline_xgemm_i_ * (INT)LIBXS_LD(LDB, K); \
+    REAL *const libxs_inline_xgemm_ci_ = ((REAL*)(C)) + libxs_inline_xgemm_i_ * libxs_inline_xgemm_ldc_; \
     LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_MAX_K, LIBXS_AVG_K) \
-    for (llibxs_inline_xgemm_k_ = 0; llibxs_inline_xgemm_k_ < (K); ++llibxs_inline_xgemm_k_) { \
-      const REAL *const llibxs_inline_xgemm_ai_ = ((const REAL*)LIBXS_LD(A, B)) + llibxs_inline_xgemm_k_ * LIBXS_LD(llibxs_inline_xgemm_lda_, (INT)(LDB)); \
-      const REAL llibxs_inline_xgemm_bik_ = llibxs_inline_xgemm_bi_[llibxs_inline_xgemm_k_] * ((REAL)(ALPHA)); \
+    for (libxs_inline_xgemm_k_ = 0; libxs_inline_xgemm_k_ < (K); ++libxs_inline_xgemm_k_) { \
+      const REAL *const libxs_inline_xgemm_ai_ = ((const REAL*)LIBXS_LD(A, B)) + \
+        libxs_inline_xgemm_k_ * libxs_inline_xgemm_lda_; \
+      const REAL libxs_inline_xgemm_bik_ = libxs_inline_xgemm_bi_[libxs_inline_xgemm_k_] * libxs_inline_xgemm_alpha_; \
       LIBXS_PRAGMA_UNROLL \
-      for (llibxs_inline_xgemm_j_ = 0; llibxs_inline_xgemm_j_ < ((INT)LIBXS_LD(M, N)); ++llibxs_inline_xgemm_j_) { \
-        llibxs_inline_xgemm_ci_[llibxs_inline_xgemm_j_] = llibxs_inline_xgemm_ai_[llibxs_inline_xgemm_j_] * llibxs_inline_xgemm_bik_ \
-                                              + llibxs_inline_xgemm_ci_[llibxs_inline_xgemm_j_] * ((REAL)(BETA)); \
+      for (libxs_inline_xgemm_j_ = 0; libxs_inline_xgemm_j_ < ((INT)LIBXS_LD(M, N)); ++libxs_inline_xgemm_j_) { \
+        libxs_inline_xgemm_ci_[libxs_inline_xgemm_j_] = libxs_inline_xgemm_ai_[libxs_inline_xgemm_j_] * libxs_inline_xgemm_bik_ \
+                                                          + libxs_inline_xgemm_ci_[libxs_inline_xgemm_j_] * libxs_inline_xgemm_beta_; \
       } \
     } \
   } \
