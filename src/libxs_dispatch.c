@@ -53,7 +53,7 @@
 #endif
 
 /* rely on a "pseudo prime" number (Mersenne) to improve cache spread */
-#define LIBXS_DISPATCH_CACHESIZE ((2U << LIBXS_NBITS(LIBXS_MAX_MNK * (0 != LIBXS_JIT ? 2 : 5))) - 1)
+#define LIBXS_DISPATCH_CACHESIZE ((2 << LIBXS_NBITS(LIBXS_MAX_MNK * (0 != LIBXS_JIT ? 2 : 5))) - 1)
 #define LIBXS_DISPATCH_HASH_SEED 0
 
 
