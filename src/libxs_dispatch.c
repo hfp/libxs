@@ -376,9 +376,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int m, int n, 
     /* if the value of lda was zero: make lda a multiple of LIBXS_ALIGNMENT */
     : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)));
   const int ildb = (0 == ldb ? k : *ldb);
-  const int ildc = (0 == ldc ? m : (0 != *ldc ? *ldc
+  const int ildc = (0 == ldc ? LIBXS_LD(m, n) : (0 != *ldc ? LIBXS_LD(*ldc, n)
     /* if the value of ldc was zero: make ldc a multiple of LIBXS_ALIGNMENT */
-    : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)));
+    : LIBXS_ALIGN_VALUE(LIBXS_LD(m, n), sizeof(*alpha), LIBXS_ALIGNMENT)));
 
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
     LIBXS_LD(m, n), LIBXS_LD(n, ilda), LIBXS_LD(k, ildb),
@@ -401,9 +401,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(int m, int n, 
     /* if the value of lda was zero: make lda a multiple of LIBXS_ALIGNMENT */
     : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)));
   const int ildb = (0 == ldb ? k : *ldb);
-  const int ildc = (0 == ldc ? m : (0 != *ldc ? *ldc
+  const int ildc = (0 == ldc ? LIBXS_LD(m, n) : (0 != *ldc ? LIBXS_LD(*ldc, n)
     /* if the value of ldc was zero: make ldc a multiple of LIBXS_ALIGNMENT */
-    : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)));
+    : LIBXS_ALIGN_VALUE(LIBXS_LD(m, n), sizeof(*alpha), LIBXS_ALIGNMENT)));
 
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
     LIBXS_LD(m, n), LIBXS_LD(n, ilda), LIBXS_LD(k, ildb),
