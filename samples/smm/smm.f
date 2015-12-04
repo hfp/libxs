@@ -124,7 +124,7 @@ PROGRAM smm
   !$OMP END MASTER
   !$OMP DO
   DO i = LBOUND(a, 3), UBOUND(a, 3)
-    CALL libxs_gemm(m=m, n=n, k=k, a=a(:,:,i), b=b(:,:,i), c=tmp)
+    CALL libxs_blas_gemm(m=m, n=n, k=k, a=a(:,:,i), b=b(:,:,i), c=tmp)
   END DO
   !$OMP MASTER
   duration = libxs_timer_duration(start, libxs_timer_tick())
