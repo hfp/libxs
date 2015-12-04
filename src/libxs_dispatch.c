@@ -372,17 +372,21 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int m, int n, 
   const int* flags, const int* prefetch)
 {
   const int iflags = (0 == flags ? LIBXS_FLAGS : (*flags)) | LIBXS_GEMM_FLAG_F32PREC;
-  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags, m, n, k,
-    0 == lda ? m : (0 != *lda ? *lda
+  const int ilda = (0 == lda ? m : (0 != *lda ? *lda
     /* if the value of lda was zero: make lda a multiple of LIBXS_ALIGNMENT */
-                 : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)),
-    0 == ldb ? k : *ldb,
-    0 == ldc ? m : (0 != *ldc ? *ldc
+    : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)));
+  const int ildb = (0 == ldb ? k : *ldb);
+  const int ildc = (0 == ldc ? m : (0 != *ldc ? *ldc
     /* if the value of ldc was zero: make ldc a multiple of LIBXS_ALIGNMENT */
-                 : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)),
+    : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)));
+
+  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
+    LIBXS_LD(m, n), LIBXS_LD(n, ilda), LIBXS_LD(k, ildb),
+    LIBXS_LD(ilda, n), LIBXS_LD(ildb, k), ildc,
     0 == alpha ? LIBXS_ALPHA : *alpha,
     0 == beta ? LIBXS_BETA : *beta,
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
+
   return internal_build(&desc).smm;
 }
 
@@ -393,16 +397,20 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(int m, int n, 
   const int* flags, const int* prefetch)
 {
   const int iflags = (0 == flags ? LIBXS_FLAGS : (*flags));
-  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags, m, n, k,
-    0 == lda ? m : (0 != *lda ? *lda
+  const int ilda = (0 == lda ? m : (0 != *lda ? *lda
     /* if the value of lda was zero: make lda a multiple of LIBXS_ALIGNMENT */
-                 : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)),
-    0 == ldb ? k : *ldb,
-    0 == ldc ? m : (0 != *ldc ? *ldc
+    : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)));
+  const int ildb = (0 == ldb ? k : *ldb);
+  const int ildc = (0 == ldc ? m : (0 != *ldc ? *ldc
     /* if the value of ldc was zero: make ldc a multiple of LIBXS_ALIGNMENT */
-                 : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)),
+    : LIBXS_ALIGN_VALUE(m, sizeof(*alpha), LIBXS_ALIGNMENT)));
+
+  LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
+    LIBXS_LD(m, n), LIBXS_LD(n, ilda), LIBXS_LD(k, ildb),
+    LIBXS_LD(ilda, n), LIBXS_LD(ildb, k), ildc,
     0 == alpha ? LIBXS_ALPHA : *alpha,
     0 == beta ? LIBXS_BETA : *beta,
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
+
   return internal_build(&desc).dmm;
 }

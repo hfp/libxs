@@ -230,7 +230,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
           &libxs_xgemm_alpha_, &libxs_xgemm_beta_, \
           &libxs_xgemm_flags_, 0); \
       if (0 != libxs_xgemm_function_) { \
-        libxs_xgemm_function_(A, B, C); \
+        libxs_xgemm_function_((const REAL*)LIBXS_LD(A, B), (const REAL*)LIBXS_LD(B, A), (REAL*)(C)); \
       } \
       else { \
         libxs_xgemm_fallback_ = 1; \
@@ -244,10 +244,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
           &libxs_xgemm_alpha_, &libxs_xgemm_beta_, \
           &libxs_xgemm_flags_, &libxs_xgemm_prefetch_); \
       if (0 != libxs_xgemm_function_) { \
-        libxs_xgemm_function_(A, B, C, \
-          0 != LIBXS_PREFETCH_A(1) ? (((const REAL*)(A)) + (libxs_xgemm_lda_) * (K)) : ((const REAL*)(A)), \
-          0 != LIBXS_PREFETCH_B(1) ? (((const REAL*)(B)) + (libxs_xgemm_ldb_) * (N)) : ((const REAL*)(B)), \
-          0 != LIBXS_PREFETCH_C(1) ? (((const REAL*)(C)) + (libxs_xgemm_ldc_) * (N)) : ((const REAL*)(C))); \
+        const REAL *const libxs_xgemm_a_ = (const REAL*)LIBXS_LD(A, B); \
+        const REAL *const libxs_xgemm_b_ = (const REAL*)LIBXS_LD(B, A); \
+        REAL *const libxs_xgemm_c_ = (REAL*)(C); \
+        libxs_xgemm_function_(libxs_xgemm_a_, libxs_xgemm_b_, (REAL*)(C), \
+          libxs_xgemm_a_ + LIBXS_PREFETCH_A(LIBXS_LD(libxs_xgemm_lda_ * (K), libxs_xgemm_ldb_ * (N))), \
+          libxs_xgemm_b_ + LIBXS_PREFETCH_B(LIBXS_LD(libxs_xgemm_ldb_ * (N), libxs_xgemm_lda_ * (K))), \
+          libxs_xgemm_c_ + LIBXS_PREFETCH_C(libxs_xgemm_ldc_ * (N))); \
       } \
       else { \
         libxs_xgemm_fallback_ = 1; \
@@ -267,7 +270,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   LIBXS_XGEMM(float, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** Dispatched general dense matrix multiplication (double-precision). */
 #define LIBXS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_INLINE_XGEMM(double, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+  LIBXS_XGEMM(double, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** Dispatched general dense matrix multiplication. */
 #define LIBXS_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   if (sizeof(double) == sizeof(*(A))) { \
