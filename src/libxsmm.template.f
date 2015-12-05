@@ -117,7 +117,7 @@
 
         ! Generic function type constructing a procedure pointer
         ! associated with a backend function (single-precision).
-        TYPE :: LIBXS_SMM_FUNCTION
+        TYPE :: LIBXS_SFUNCTION
           PRIVATE
             PROCEDURE(LIBXS_FUNCTION0), NOPASS, POINTER :: fn0
             PROCEDURE(LIBXS_FUNCTION1), NOPASS, POINTER :: fn1
@@ -125,7 +125,7 @@
 
         ! Generic function type constructing a procedure pointer
         ! associated with a backend function (double-precision).
-        TYPE :: LIBXS_DMM_FUNCTION
+        TYPE :: LIBXS_DFUNCTION
           PRIVATE
             PROCEDURE(LIBXS_FUNCTION0), NOPASS, POINTER :: fn0
             PROCEDURE(LIBXS_FUNCTION1), NOPASS, POINTER :: fn1
@@ -215,8 +215,8 @@
      &      alignment) * alignment) / typesize
         END FUNCTION
 
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_sfunction
-        TYPE(LIBXS_SMM_FUNCTION) FUNCTION libxs_sfunction(          &
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_construct_sfunction
+        TYPE(LIBXS_SFUNCTION) FUNCTION libxs_construct_sfunction(   &
      &  m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch)
           INTEGER(C_INT), INTENT(IN) :: m, n, k
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: lda, ldb, ldc
@@ -240,19 +240,19 @@
             CALL C_F_PROCPOINTER(sdispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
      &        fn0)
-            libxs_sfunction%fn0 => fn0
-            libxs_sfunction%fn1 => NULL()
+            libxs_construct_sfunction%fn0 => fn0
+            libxs_construct_sfunction%fn1 => NULL()
           ELSE
             CALL C_F_PROCPOINTER(sdispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
      &        fn1)
-            libxs_sfunction%fn0 => NULL()
-            libxs_sfunction%fn1 => fn1
+            libxs_construct_sfunction%fn0 => NULL()
+            libxs_construct_sfunction%fn1 => fn1
           END IF
         END FUNCTION
 
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dfunction
-        TYPE(LIBXS_DMM_FUNCTION) FUNCTION libxs_dfunction(          &
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_construct_dfunction
+        TYPE(LIBXS_DFUNCTION) FUNCTION libxs_construct_dfunction(   &
      &  m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch)
           INTEGER(C_INT), INTENT(IN) :: m, n, k
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: lda, ldb, ldc
@@ -276,84 +276,84 @@
             CALL C_F_PROCPOINTER(ddispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
      &        fn0)
-            libxs_dfunction%fn0 => fn0
-            libxs_dfunction%fn1 => NULL()
+            libxs_construct_dfunction%fn0 => fn0
+            libxs_construct_dfunction%fn1 => NULL()
           ELSE
             CALL C_F_PROCPOINTER(ddispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
      &        fn1)
-            libxs_dfunction%fn0 => NULL()
-            libxs_dfunction%fn1 => fn1
+            libxs_construct_dfunction%fn0 => NULL()
+            libxs_construct_dfunction%fn1 => fn1
           END IF
         END FUNCTION
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_sdispatch
         SUBROUTINE libxs_sdispatch(fn,                                &
      &  m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch)
-          TYPE(LIBXS_SMM_FUNCTION), INTENT(OUT) :: fn
+          TYPE(LIBXS_SFUNCTION), INTENT(OUT) :: fn
           INTEGER(C_INT), INTENT(IN) :: m, n, k
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: lda, ldb, ldc
           REAL(C_FLOAT), INTENT(IN), OPTIONAL :: alpha, beta
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: flags, prefetch
-          fn = libxs_sfunction(                                       &
+          fn = libxs_construct_sfunction(                             &
      &      m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch)
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_ddispatch
         SUBROUTINE libxs_ddispatch(fn,                                &
      &  m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch)
-          TYPE(LIBXS_DMM_FUNCTION), INTENT(OUT) :: fn
+          TYPE(LIBXS_DFUNCTION), INTENT(OUT) :: fn
           INTEGER(C_INT), INTENT(IN) :: m, n, k
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: lda, ldb, ldc
           REAL(C_DOUBLE), INTENT(IN), OPTIONAL :: alpha, beta
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: flags, prefetch
-          fn = libxs_dfunction(                                       &
+          fn = libxs_construct_dfunction(                             &
      &      m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch)
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_savailable
         LOGICAL PURE FUNCTION libxs_savailable(fn)
-          TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_SFUNCTION), INTENT(IN) :: fn
           libxs_savailable = ASSOCIATED(fn%fn0).OR.ASSOCIATED(fn%fn1)
         END FUNCTION
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_davailable
         LOGICAL PURE FUNCTION libxs_davailable(fn)
-          TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_DFUNCTION), INTENT(IN) :: fn
           libxs_davailable = ASSOCIATED(fn%fn0).OR.ASSOCIATED(fn%fn1)
         END FUNCTION
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_scall_abx
         PURE SUBROUTINE libxs_scall_abx(fn, a, b, c)
-          TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_SFUNCTION), INTENT(IN) :: fn
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b, c
           CALL fn%fn0(a, b, c)
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dcall_abx
         PURE SUBROUTINE libxs_dcall_abx(fn, a, b, c)
-          TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_DFUNCTION), INTENT(IN) :: fn
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b, c
           CALL fn%fn0(a, b, c)
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_scall_prx
         PURE SUBROUTINE libxs_scall_prx(fn, a, b, c, pa, pb, pc)
-          TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_SFUNCTION), INTENT(IN) :: fn
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b, c, pa, pb, pc
           CALL fn%fn1(a, b, c, pa, pb, pc)
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dcall_prx
         PURE SUBROUTINE libxs_dcall_prx(fn, a, b, c, pa, pb, pc)
-          TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_DFUNCTION), INTENT(IN) :: fn
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b, c, pa, pb, pc
           CALL fn%fn1(a, b, c, pa, pb, pc)
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_scall_abc
         SUBROUTINE libxs_scall_abc(fn, a, b, c)
-          TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_SFUNCTION), INTENT(IN) :: fn
           REAL(C_FLOAT), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_FLOAT), INTENT(INOUT), TARGET :: c(:,:)
           CALL libxs_scall_abx(fn,                                    &
@@ -364,7 +364,7 @@
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dcall_abc
         SUBROUTINE libxs_dcall_abc(fn, a, b, c)
-          TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_DFUNCTION), INTENT(IN) :: fn
           REAL(C_DOUBLE), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_DOUBLE), INTENT(INOUT), TARGET :: c(:,:)
           CALL libxs_dcall_abx(fn,                                    &
@@ -375,7 +375,7 @@
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_scall_prf
         SUBROUTINE libxs_scall_prf(fn, a, b, c, pa, pb, pc)
-          TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_SFUNCTION), INTENT(IN) :: fn
           REAL(C_FLOAT), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_FLOAT), INTENT(INOUT), TARGET :: c(:,:)
           REAL(C_FLOAT), INTENT(IN), TARGET :: pa(*), pb(*), pc(*)
@@ -388,7 +388,7 @@
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dcall_prf
         SUBROUTINE libxs_dcall_prf(fn, a, b, c, pa, pb, pc)
-          TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_DFUNCTION), INTENT(IN) :: fn
           REAL(C_DOUBLE), INTENT(IN), TARGET :: a(:,:), b(:,:)
           REAL(C_DOUBLE), INTENT(INOUT), TARGET :: c(:,:)
           REAL(C_DOUBLE), INTENT(IN), TARGET :: pa(*), pb(*), pc(*)
@@ -401,7 +401,7 @@
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_scall
         SUBROUTINE libxs_scall(fn, a, b, c, pa, pb, pc)
-          TYPE(LIBXS_SMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_SFUNCTION), INTENT(IN) :: fn
           REAL(C_FLOAT), INTENT(IN), TARGET :: a(*), b(*)
           REAL(C_FLOAT), INTENT(INOUT), TARGET :: c(*)
           REAL(C_FLOAT), INTENT(IN), TARGET, OPTIONAL :: pa(*)
@@ -419,7 +419,7 @@
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dcall
         SUBROUTINE libxs_dcall(fn, a, b, c, pa, pb, pc)
-          TYPE(LIBXS_DMM_FUNCTION), INTENT(IN) :: fn
+          TYPE(LIBXS_DFUNCTION), INTENT(IN) :: fn
           REAL(C_DOUBLE), INTENT(IN), TARGET :: a(*), b(*)
           REAL(C_DOUBLE), INTENT(INOUT), TARGET :: c(*)
           REAL(C_DOUBLE), INTENT(IN), TARGET, OPTIONAL :: pa(*)
