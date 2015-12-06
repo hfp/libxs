@@ -31,9 +31,9 @@
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda,
-  const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const float* alpha, const float* a, const libxs_blasint* lda,
+  const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
 {
   int flags = LIBXS_FLAGS;
   flags = (0 != transa
@@ -55,9 +55,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_sgemm(const char* transa, const cha
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda,
-  const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const double* alpha, const double* a, const libxs_blasint* lda,
+  const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
 {
   int flags = LIBXS_FLAGS;
   flags = (0 != transa
@@ -79,9 +79,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dgemm(const char* transa, const cha
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda,
-  const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const float* alpha, const float* a, const libxs_blasint* lda,
+  const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
 {
   int flags = LIBXS_FLAGS;
   flags = (0 != transa
@@ -103,9 +103,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_sgemm(const char* transa, cons
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda,
-  const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const double* alpha, const double* a, const libxs_blasint* lda,
+  const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
 {
   int flags = LIBXS_FLAGS;
   flags = (0 != transa
@@ -123,3 +123,63 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_dgemm(const char* transa, cons
     0 != beta ? *beta : ((double)LIBXS_BETA),
     c, *(ldc ? ldc : m));
 }
+
+
+#if defined(__STATIC) && defined(__GNUC__)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_sgemm)(const char*, const char*,
+  const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+  const float*, const float*, const libxs_blasint*,
+  const float* b, const libxs_blasint*,
+  const float* beta, float*, const libxs_blasint*);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__wrap_sgemm)(const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const float* alpha, const float* a, const libxs_blasint* lda,
+  const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
+{
+  int flags = LIBXS_FLAGS;
+  flags = (0 != transa
+      ? (('N' == *transa || 'n' == *transa) ? (flags & ~LIBXS_GEMM_FLAG_TRANS_A)
+                                            : (flags |  LIBXS_GEMM_FLAG_TRANS_A))
+      : flags);
+  flags = (0 != transb
+      ? (('N' == *transb || 'n' == *transb) ? (flags & ~LIBXS_GEMM_FLAG_TRANS_B)
+                                            : (flags |  LIBXS_GEMM_FLAG_TRANS_B))
+      : flags);
+  assert(m && n && k && a && b && c);
+  LIBXS_XGEMM(float, libxs_blasint, LIBXS_FSYMBOL(__real_sgemm), flags, *m, *n, *k,
+    0 != alpha ? *alpha : ((float)LIBXS_ALPHA),
+    a, *(lda ? lda : m), b, *(ldb ? ldb : k),
+    0 != beta ? *beta : ((float)LIBXS_BETA),
+    c, *(ldc ? ldc : m));
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_dgemm)(const char*, const char*,
+  const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+  const double*, const double*, const libxs_blasint*,
+  const double* b, const libxs_blasint*,
+  const double* beta, double*, const libxs_blasint*);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__wrap_dgemm)(const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const double* alpha, const double* a, const libxs_blasint* lda,
+  const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
+{
+  int flags = LIBXS_FLAGS;
+  flags = (0 != transa
+      ? (('N' == *transa || 'n' == *transa) ? (flags & ~LIBXS_GEMM_FLAG_TRANS_A)
+                                            : (flags |  LIBXS_GEMM_FLAG_TRANS_A))
+      : flags);
+  flags = (0 != transb
+      ? (('N' == *transb || 'n' == *transb) ? (flags & ~LIBXS_GEMM_FLAG_TRANS_B)
+                                            : (flags |  LIBXS_GEMM_FLAG_TRANS_B))
+      : flags);
+  assert(m && n && k && a && b && c);
+  LIBXS_XGEMM(double, libxs_blasint, LIBXS_FSYMBOL(__real_dgemm), flags, *m, *n, *k,
+    0 != alpha ? *alpha : ((double)LIBXS_ALPHA),
+    a, *(lda ? lda : m), b, *(ldb ? ldb : k),
+    0 != beta ? *beta : ((double)LIBXS_BETA),
+    c, *(ldc ? ldc : m));
+}
+#endif /*defined(__STATIC) && defined(__GNUC__)*/
