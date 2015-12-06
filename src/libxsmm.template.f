@@ -36,14 +36,23 @@
      &                                    C_INT, C_FLOAT, C_DOUBLE,     &
      &                                    C_LONG_LONG, C_CHAR
         IMPLICIT NONE
-        PRIVATE :: libxs_srealptr, libxs_drealptr
 
+        PRIVATE ::  libxs_construct_sfunction,                        &
+                    libxs_construct_dfunction,                        &
+                    libxs_srealptr, libxs_drealptr
+
+        ! Name of the version (stringized set of version numbers).
         CHARACTER(*), PARAMETER :: LIBXS_VERSION = "$VERSION"
-        CHARACTER(*), PARAMETER :: LIBXS_BRANCH  = "$BRANCH"
-        INTEGER(C_INT), PARAMETER :: LIBXS_VERSION_MAJOR  = $MAJOR
-        INTEGER(C_INT), PARAMETER :: LIBXS_VERSION_MINOR  = $MINOR
+        ! Name of the branch of which the version is derived from.
+        CHARACTER(*), PARAMETER :: LIBXS_BRANCH = "$BRANCH"
+        ! Major version based on the last reachable tag under RCS.
+        INTEGER(C_INT), PARAMETER :: LIBXS_VERSION_MAJOR = $MAJOR
+        ! Minor version based on the last reachable tag of the RCS.
+        INTEGER(C_INT), PARAMETER :: LIBXS_VERSION_MINOR = $MINOR
+        ! Update number based on the last reachable tag under RCS.
         INTEGER(C_INT), PARAMETER :: LIBXS_VERSION_UPDATE = $UPDATE
-        INTEGER(C_INT), PARAMETER :: LIBXS_VERSION_PATCH  = $PATCH
+        ! Patch number counting commits since the last version stamp.
+        INTEGER(C_INT), PARAMETER :: LIBXS_VERSION_PATCH = $PATCH
 
         ! Parameters the library and static kernels were built for.
         INTEGER(C_INT), PARAMETER :: LIBXS_ALIGNMENT = $ALIGNMENT

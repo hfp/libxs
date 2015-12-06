@@ -29,12 +29,18 @@
 #ifndef LIBXS_H
 #define LIBXS_H
 
+/** Name of the version (stringized set of version numbers). */
 #define LIBXS_VERSION "$VERSION"
+/** Name of the branch of which the version is derived from. */
 #define LIBXS_BRANCH  "$BRANCH"
-#define LIBXS_VERSION_MAJOR   $MAJOR
-#define LIBXS_VERSION_MINOR   $MINOR
-#define LIBXS_VERSION_UPDATE  $UPDATE
-#define LIBXS_VERSION_PATCH   $PATCH
+/** Major version based on the last reachable tag under RCS. */
+#define LIBXS_VERSION_MAJOR $MAJOR
+/** Minor version based on the last reachable tag of the RCS. */
+#define LIBXS_VERSION_MINOR $MINOR
+/** Update number based on the last reachable tag under RCS. */
+#define LIBXS_VERSION_UPDATE $UPDATE
+/** Patch number counting commits since the last version stamp. */
+#define LIBXS_VERSION_PATCH $PATCH
 
 /** Parameters the library and static kernels were built for. */
 #define LIBXS_ALIGNMENT $ALIGNMENT
@@ -66,9 +72,9 @@ typedef int libxs_blasint;
 #endif
 
 /** Specialized function with fused alpha and beta arguments, and optional prefetch locations (single-precision). */
-typedef LIBXS_RETARGETABLE void (*libxs_sfunction)(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c, ...);
+typedef LIBXS_RETARGETABLE void (*libxs_sfunction)(const float* a, const float* b, float* c, ...);
 /** Specialized function with fused alpha and beta arguments, and optional prefetch locations (double-precision). */
-typedef LIBXS_RETARGETABLE void (*libxs_dfunction)(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c, ...);
+typedef LIBXS_RETARGETABLE void (*libxs_dfunction)(const double* a, const double* b, double* c, ...);
 
 /** Initialize the library; pay for setup cost at a specific point. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
@@ -89,30 +95,30 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(int m, int n, 
 /** Dispatched general dense matrix multiplication (single-precision). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda,
-  const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc);
+  const float* alpha, const float* a, const libxs_blasint* lda,
+  const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc);
 
 /** Dispatched general dense matrix multiplication (double-precision). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda,
-  const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc);
+  const double* alpha, const double* a, const libxs_blasint* lda,
+  const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc);
 
 /** General dense matrix multiplication based on LAPACK/BLAS (single-precision). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda,
-  const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc);
+  const float* alpha, const float* a, const libxs_blasint* lda,
+  const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc);
 
 /** General dense matrix multiplication based on LAPACK/BLAS (double-precision). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda,
-  const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc);
+  const double* alpha, const double* a, const libxs_blasint* lda,
+  const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc);
 $MNK_INTERFACE_LIST
 #if defined(__cplusplus)
 
@@ -152,17 +158,17 @@ public:
   operator libxs_sfunction() const {
     return m_function;
   }
-  void operator()(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c) const {
+  void operator()(const float* a, const float* b, float* c) const {
     m_function(a, b, c);
   }
-  void operator()(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
+  void operator()(const float* a, const float* b, float* c,
     const float* pa, const float* pb, const float* pc) const
   {
     /* TODO: transition prefetch interface to xargs */
     m_function(a, b, c, pa, pb, pc);
   }
   /* TODO: support arbitrary Alpha and Beta in the backend
-  void operator()(const float *LIBXS_RESTRICT a, const float *LIBXS_RESTRICT b, float *LIBXS_RESTRICT c,
+  void operator()(const float* a, const float* b, float* c,
     const float* pa, const float* pb, const float* pc,
     float alpha, float beta) const
   {
@@ -204,17 +210,17 @@ public:
   operator libxs_dfunction() const {
     return m_function;
   }
-  void operator()(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c) const {
+  void operator()(const double* a, const double* b, double* c) const {
     m_function(a, b, c);
   }
-  void operator()(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
+  void operator()(const double* a, const double* b, double* c,
     const double* pa, const double* pb, const double* pc) const
   {
     /* TODO: transition prefetch interface to xargs */
     m_function(a, b, c, pa, pb, pc);
   }
   /* TODO: support arbitrary Alpha and Beta in the backend
-  void operator()(const double *LIBXS_RESTRICT a, const double *LIBXS_RESTRICT b, double *LIBXS_RESTRICT c,
+  void operator()(const double* a, const double* b, double* c,
     const double* pa, const double* pb, const double* pc,
     double alpha, double beta) const
   {
@@ -225,96 +231,96 @@ public:
 
 /** Dispatched general dense matrix multiplication (single-precision). */
 LIBXS_RETARGETABLE inline void libxs_gemm(const char* transa, const char* transb, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda, const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const float* alpha, const float* a, const libxs_blasint* lda, const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
 {
   libxs_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** Dispatched general dense matrix multiplication (double-precision). */
 LIBXS_RETARGETABLE inline void libxs_gemm(const char* transa, const char* transb, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda, const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const double* alpha, const double* a, const libxs_blasint* lda, const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
 {
   libxs_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** Dispatched general dense matrix multiplication (single-precision). */
 LIBXS_RETARGETABLE inline void libxs_sgemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda, const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const float* alpha, const float* a, const libxs_blasint* lda, const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
 {
   libxs_sgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** Dispatched general dense matrix multiplication (double-precision). */
 LIBXS_RETARGETABLE inline void libxs_dgemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda, const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const double* alpha, const double* a, const libxs_blasint* lda, const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
 {
   libxs_dgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** Dispatched general dense matrix multiplication (single-precision). */
 LIBXS_RETARGETABLE inline void libxs_gemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda, const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const float* alpha, const float* a, const libxs_blasint* lda, const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
 {
   libxs_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** Dispatched general dense matrix multiplication (double-precision). */
 LIBXS_RETARGETABLE inline void libxs_gemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda, const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const double* alpha, const double* a, const libxs_blasint* lda, const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
 {
   libxs_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** General dense matrix multiplication based on LAPACK/BLAS (single-precision). */
 LIBXS_RETARGETABLE inline void libxs_blas_gemm(const char* transa, const char* transb, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda, const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const float* alpha, const float* a, const libxs_blasint* lda, const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
 {
   libxs_blas_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** General dense matrix multiplication based on LAPACK/BLAS (double-precision). */
 LIBXS_RETARGETABLE inline void libxs_blas_gemm(const char* transa, const char* transb, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda, const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const double* alpha, const double* a, const libxs_blasint* lda, const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
 {
   libxs_blas_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** General dense matrix multiplication based on LAPACK/BLAS (single-precision). */
 LIBXS_RETARGETABLE inline void libxs_blas_sgemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda, const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const float* alpha, const float* a, const libxs_blasint* lda, const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
 {
   libxs_blas_sgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** General dense matrix multiplication based on LAPACK/BLAS (double-precision). */
 LIBXS_RETARGETABLE inline void libxs_blas_dgemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda, const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const double* alpha, const double* a, const libxs_blasint* lda, const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
 {
   libxs_blas_dgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** General dense matrix multiplication based on LAPACK/BLAS (single-precision). */
 LIBXS_RETARGETABLE inline void libxs_blas_gemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const float* alpha, const float *LIBXS_RESTRICT a, const libxs_blasint* lda, const float *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const float* beta, float *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const float* alpha, const float* a, const libxs_blasint* lda, const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
 {
   libxs_blas_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 /** General dense matrix multiplication based on LAPACK/BLAS (double-precision). */
 LIBXS_RETARGETABLE inline void libxs_blas_gemm(const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const double* alpha, const double *LIBXS_RESTRICT a, const libxs_blasint* lda, const double *LIBXS_RESTRICT b, const libxs_blasint* ldb,
-  const double* beta, double *LIBXS_RESTRICT c, const libxs_blasint* ldc)
+  const double* alpha, const double* a, const libxs_blasint* lda, const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
 {
   libxs_blas_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
