@@ -142,7 +142,7 @@
 #define LIBXS_UP(N, UP) ((((N) + (UP) - 1) / (UP)) * (UP))
 
 #if defined(_WIN32) && !defined(__GNUC__)
-# define LIBXS_ATTRIBUTE(A) __declspec(A)
+# define LIBXS_ATTRIBUTE(...) __declspec(__VA_ARGS__)
 # if defined(__cplusplus)
 #   define LIBXS_INLINE_ALWAYS __forceinline
 # else
@@ -151,12 +151,12 @@
 # define LIBXS_ALIGNED(DECL, N) LIBXS_ATTRIBUTE(align(N)) DECL
 # define LIBXS_CDECL __cdecl
 #elif defined(__GNUC__)
-# define LIBXS_ATTRIBUTE(A) __attribute__((A))
+# define LIBXS_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
 # define LIBXS_INLINE_ALWAYS LIBXS_ATTRIBUTE(always_inline) LIBXS_INLINE
 # define LIBXS_ALIGNED(DECL, N) DECL LIBXS_ATTRIBUTE(aligned(N))
 # define LIBXS_CDECL LIBXS_ATTRIBUTE(cdecl)
 #else
-# define LIBXS_ATTRIBUTE(A)
+# define LIBXS_ATTRIBUTE(...)
 # define LIBXS_INLINE_ALWAYS LIBXS_INLINE
 # define LIBXS_ALIGNED(DECL, N)
 # define LIBXS_CDECL
