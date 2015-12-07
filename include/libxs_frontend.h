@@ -164,19 +164,16 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
     : LIBXS_ALIGN_VALUE(LIBXS_LD(M, N), sizeof(REAL), LIBXS_ALIGNMENT)); \
   INT libxs_inline_xgemm_i_, libxs_inline_xgemm_j_, libxs_inline_xgemm_k_; \
   assert(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS))/*not supported*/); \
-  LIBXS_PRAGMA_SIMD/*_COLLAPSE(2)*/ \
-  for (libxs_inline_xgemm_i_ = 0; libxs_inline_xgemm_i_ < ((INT)LIBXS_LD(N, M)); ++libxs_inline_xgemm_i_) { \
-    const REAL *const libxs_inline_xgemm_bi_ = ((const REAL*)LIBXS_LD(B, A)) + libxs_inline_xgemm_i_ * (INT)LIBXS_LD(LDB, K); \
-    REAL *const libxs_inline_xgemm_ci_ = ((REAL*)(C)) + libxs_inline_xgemm_i_ * libxs_inline_xgemm_ldc_; \
+  LIBXS_PRAGMA_SIMD \
+  for (libxs_inline_xgemm_j_ = 0; libxs_inline_xgemm_j_ < ((INT)LIBXS_LD(M, N)); ++libxs_inline_xgemm_j_) { \
     LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_MAX_K, LIBXS_AVG_K) \
     for (libxs_inline_xgemm_k_ = 0; libxs_inline_xgemm_k_ < (K); ++libxs_inline_xgemm_k_) { \
-      const REAL *const libxs_inline_xgemm_ai_ = ((const REAL*)LIBXS_LD(A, B)) + \
-        libxs_inline_xgemm_k_ * libxs_inline_xgemm_lda_; \
-      const REAL libxs_inline_xgemm_bik_ = libxs_inline_xgemm_bi_[libxs_inline_xgemm_k_] * libxs_inline_xgemm_alpha_; \
       LIBXS_PRAGMA_UNROLL \
-      for (libxs_inline_xgemm_j_ = 0; libxs_inline_xgemm_j_ < ((INT)LIBXS_LD(M, N)); ++libxs_inline_xgemm_j_) { \
-        libxs_inline_xgemm_ci_[libxs_inline_xgemm_j_] = libxs_inline_xgemm_ai_[libxs_inline_xgemm_j_] * libxs_inline_xgemm_bik_ \
-                                                          + libxs_inline_xgemm_ci_[libxs_inline_xgemm_j_] * libxs_inline_xgemm_beta_; \
+      for (libxs_inline_xgemm_i_ = 0; libxs_inline_xgemm_i_ < ((INT)LIBXS_LD(N, M)); ++libxs_inline_xgemm_i_) { \
+        ((REAL*)(C))[libxs_inline_xgemm_i_*libxs_inline_xgemm_ldc_+libxs_inline_xgemm_j_] \
+          = ((const REAL*)LIBXS_LD(B, A))[libxs_inline_xgemm_i_*(INT)LIBXS_LD(LDB, K)+libxs_inline_xgemm_k_] * \
+           (((const REAL*)LIBXS_LD(A, B))[libxs_inline_xgemm_k_*libxs_inline_xgemm_lda_+libxs_inline_xgemm_j_] * libxs_inline_xgemm_alpha_) \
+          + ((const REAL*)(C))[libxs_inline_xgemm_i_*libxs_inline_xgemm_ldc_+libxs_inline_xgemm_j_] * libxs_inline_xgemm_beta_; \
       } \
     } \
   } \
