@@ -28,6 +28,10 @@
 ******************************************************************************/
 #include <libxs.h>
 
+#if !defined(LIBXS_WRAP_XGEMM) && defined(__STATIC) && defined(__GNUC__) && !defined(__CYGWIN__)
+# define LIBXS_WRAP_XGEMM
+#endif
+
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
@@ -125,13 +129,15 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_dgemm(const char* transa, cons
 }
 
 
-#if defined(__STATIC) && defined(__GNUC__)
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_sgemm)(const char*, const char*,
+#if defined(LIBXS_WRAP_XGEMM)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_sgemm)(
+  const char*, const char*,
   const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const float*, const float*, const libxs_blasint*,
   const float* b, const libxs_blasint*,
   const float* beta, float*, const libxs_blasint*);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__wrap_sgemm)(const char* transa, const char* transb,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__wrap_sgemm)(
+  const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
@@ -155,12 +161,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__wrap_sgemm)(const char* t
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_dgemm)(const char*, const char*,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_dgemm)(
+  const char*, const char*,
   const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const double*, const double*, const libxs_blasint*,
   const double* b, const libxs_blasint*,
   const double* beta, double*, const libxs_blasint*);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__wrap_dgemm)(const char* transa, const char* transb,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__wrap_dgemm)(
+  const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
   const double* b, const libxs_blasint* ldb,
@@ -182,4 +190,4 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__wrap_dgemm)(const char* t
     0 != beta ? *beta : ((double)LIBXS_BETA),
     c, *(ldc ? ldc : m));
 }
-#endif /*defined(__STATIC) && defined(__GNUC__)*/
+#endif /*defined(LIBXS_WRAP_XGEMM)*/
