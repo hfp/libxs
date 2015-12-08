@@ -157,6 +157,7 @@ int main(int argc, char* argv[])
           LIBXS_INLINE_GEMM(LIBXS_FLAGS, m, n, k,
             LIBXS_ALPHA, a + i * asize, m, b + i * bsize, k,
             LIBXS_BETA, tmp, m);
+          c[0] = tmp[0]; // prevents GCC from optimizing-away the entire benchmark
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -180,6 +181,7 @@ int main(int argc, char* argv[])
           LIBXS_INLINE_GEMM(LIBXS_FLAGS, m, n, k,
             LIBXS_ALPHA, a, m, b, k,
             LIBXS_BETA, tmp, m);
+          c[0] = tmp[0]; // prevents GCC from optimizing-away the entire benchmark
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
