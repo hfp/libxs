@@ -203,6 +203,34 @@
 #endif
 #define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
 
+/** Execute the CPUID, and receive results (EAX, EBX, ECX, EDX) for requested FUNCTION. */
+#if defined(__GNUC__)
+# define LIBXS_CPUID(FUNCTION, EAX, EBX, ECX, EDX) \
+    __asm__ __volatile__ ("cpuid" : "=a"(EAX), "=b"(EBX), "=c"(ECX), "=d"(EDX) : "a"(FUNCTION))
+#else
+# define LIBXS_CPUID(FUNCTION, EAX, EBX, ECX, EDX) { \
+    int libxs_cpuid_[4]; \
+    __cpuid(libxs_cpuid_, FUNCTION); \
+    EAX = libxs_cpuid_[0]; \
+    EBX = libxs_cpuid_[1]; \
+    ECX = libxs_cpuid_[2]; \
+    EDX = libxs_cpuid_[3]; \
+  }
+#endif
+
+/** Execute the XGETBV, and receive results (EAX, EDX) for req. eXtended Control Register (XCR). */
+#if defined(__GNUC__)
+# define LIBXS_XGETBV(XCR, EAX, EDX) __asm__ __volatile__( \
+    "xgetbv" : "=a"(EAX), "=d"(EDX) : "c"(XCR) \
+  )
+#else
+# define LIBXS_XGETBV(XCR, EAX, EDX) { \
+    unsigned long long libxs_xgetbv_ = _xgetbv(XCR); \
+    EAX = (int)libxs_xgetbv_; \
+    EDX = (int)(libxs_xgetbv_ >> 32); \
+  }
+#endif
+
 /**
  * Below group of preprocessor symbols are used to fixup some platform specifics.
  */
