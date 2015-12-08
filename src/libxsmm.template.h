@@ -203,13 +203,12 @@ public:
     return m_function;
   }
   void operator()(const double* a, const double* b, double* c) const {
-    m_function(LIBXS_LD(a, b), LIBXS_LD(b, a), c);
+    LIBXS_CALL_ABC(m_function, a, b, c);
   }
   void operator()(const double* a, const double* b, double* c,
     const double* pa, const double* pb, const double* pc) const
   {
-    m_function(LIBXS_LD(a, b), LIBXS_LD(b, a), c,
-      LIBXS_LD(pa, pb), LIBXS_LD(pb, pa), pc);
+    LIBXS_CALL_PRF(m_function, a, b, c, pa, pb, pc);
   }
 };
 
