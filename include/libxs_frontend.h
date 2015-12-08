@@ -207,6 +207,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 #define LIBXS_FALLBACK1(REAL, INT, SYMBOL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
   LIBXS_BLAS_XGEMM(REAL, SYMBOL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
+/** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
+#define LIBXS_CALL_ABC(FN, A, B, C) FN(LIBXS_LD(A, B), LIBXS_LD(B, A), C)
+#define LIBXS_CALL_PRF(FN, A, B, C, PA, PB, PC) FN(LIBXS_LD(A, B), LIBXS_LD(B, A), C, \
+  LIBXS_PREFETCH_A(LIBXS_LD(PA, PB)), LIBXS_PREFETCH_B(LIBXS_LD(PB, PA)), LIBXS_PREFETCH_C(PC))
+
 /**
  * Execute a specialized function, or use a fallback code path depending on threshold (template).
  * LIBXS_FALLBACK0 or specialized function: below LIBXS_MAX_MNK
@@ -234,7 +239,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
           &libxs_xgemm_alpha_, &libxs_xgemm_beta_, \
           &libxs_xgemm_flags_, 0); \
       if (0 != libxs_xgemm_function_) { \
-        libxs_xgemm_function_((const REAL*)LIBXS_LD(A, B), (const REAL*)LIBXS_LD(B, A), (REAL*)(C)); \
+        LIBXS_CALL_ABC(libxs_xgemm_function_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C)); \
       } \
       else { \
         libxs_xgemm_fallback_ = 1; \
@@ -248,10 +253,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
           &libxs_xgemm_alpha_, &libxs_xgemm_beta_, \
           &libxs_xgemm_flags_, &libxs_xgemm_prefetch_); \
       if (0 != libxs_xgemm_function_) { \
-        libxs_xgemm_function_((const REAL*)LIBXS_LD(A, B), (const REAL*)LIBXS_LD(B, A), (REAL*)(C), \
-          ((const REAL*)LIBXS_LD(A, B)) + LIBXS_PREFETCH_A(LIBXS_LD(libxs_xgemm_lda_ * (K), libxs_xgemm_ldb_ * (N))), \
-          ((const REAL*)LIBXS_LD(B, A)) + LIBXS_PREFETCH_B(LIBXS_LD(libxs_xgemm_ldb_ * (N), libxs_xgemm_lda_ * (K))), \
-          ((const REAL*)(C)) + LIBXS_PREFETCH_C(libxs_xgemm_ldc_ * (N))); \
+        LIBXS_CALL_PRF(libxs_xgemm_function_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C), \
+          ((const REAL*)(A)) + libxs_xgemm_lda_ * (K), ((const REAL*)(B)) + libxs_xgemm_ldb_ * (N), \
+          ((const REAL*)(C)) + libxs_xgemm_ldc_ * (N)); \
       } \
       else { \
         libxs_xgemm_fallback_ = 1; \
