@@ -56,13 +56,22 @@
 #if 0/*no scheme yet using C*/
 # define LIBXS_PREFETCH_C(EXPR) (EXPR)
 #endif
-#if !defined(LIBXS_PREFETCH_A)
+#if defined(LIBXS_PREFETCH_A)
+# define LIBXS_NOPREFETCH_A(EXPR) 0
+#else
+# define LIBXS_NOPREFETCH_A(EXPR) (EXPR)
 # define LIBXS_PREFETCH_A(EXPR) 0
 #endif
-#if !defined(LIBXS_PREFETCH_B)
+#if defined(LIBXS_PREFETCH_B)
+# define LIBXS_NOPREFETCH_B(EXPR) 0
+#else
+# define LIBXS_NOPREFETCH_B(EXPR) (EXPR)
 # define LIBXS_PREFETCH_B(EXPR) 0
 #endif
-#if !defined(LIBXS_PREFETCH_C)
+#if defined(LIBXS_PREFETCH_C)
+# define LIBXS_NOPREFETCH_C(EXPR) 0
+#else
+# define LIBXS_NOPREFETCH_C(EXPR) (EXPR)
 # define LIBXS_PREFETCH_C(EXPR) 0
 #endif
 
@@ -209,8 +218,15 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
 #define LIBXS_CALL_ABC(FN, A, B, C) FN(LIBXS_LD(A, B), LIBXS_LD(B, A), C)
-#define LIBXS_CALL_PRF(FN, A, B, C, PA, PB, PC) FN(LIBXS_LD(A, B), LIBXS_LD(B, A), C, \
-  LIBXS_PREFETCH_A(LIBXS_LD(PA, PB)), LIBXS_PREFETCH_B(LIBXS_LD(PB, PA)), LIBXS_PREFETCH_C(PC))
+#define LIBXS_CALL_PRF(FN, A, B, C, PA, PB, PC) { \
+  LIBXS_NOPREFETCH_A(LIBXS_UNUSED(LIBXS_LD(PA, PB))); \
+  LIBXS_NOPREFETCH_B(LIBXS_UNUSED(LIBXS_LD(PB, PA))); \
+  LIBXS_NOPREFETCH_C(LIBXS_UNUSED(PC)); \
+  FN(LIBXS_LD(A, B), LIBXS_LD(B, A), C, \
+    LIBXS_PREFETCH_A(LIBXS_LD(PA, PB)), \
+    LIBXS_PREFETCH_B(LIBXS_LD(PB, PA)), \
+    LIBXS_PREFETCH_C(PC)); \
+}
 
 /**
  * Execute a specialized function, or use a fallback code path depending on threshold (template).
