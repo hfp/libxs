@@ -62,7 +62,7 @@ typedef union LIBXS_RETARGETABLE libxs_dispatch_entry {
   libxs_dmmfunction dmm;
   const void* pv;
 } libxs_dispatch_entry;
-LIBXS_RETARGETABLE volatile libxs_dispatch_entry* libxs_dispatch_cache = 0;
+LIBXS_RETARGETABLE libxs_dispatch_entry* libxs_dispatch_cache = 0;
 
 #if !defined(_OPENMP)
 LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
@@ -84,7 +84,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 # pragma omp critical(libxs_dispatch_lock)
 #endif
   {
-    const volatile void* cache;
+    /*const*/void* cache;
 #if defined(_OPENMP)
 # if (201107 <= _OPENMP)
 #   pragma omp atomic read
@@ -93,7 +93,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 # endif
     cache = libxs_dispatch_cache;
 #elif defined(__GNUC__)
-    __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
+    __atomic_load((void**)&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
 #else
     cache = libxs_dispatch_cache;
 #endif
@@ -118,7 +118,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
           }
         }
 # if defined(__GNUC__)
-        __atomic_store(&libxs_dispatch_cache, &buffer, __ATOMIC_RELAXED);
+        __atomic_store(&libxs_dispatch_cache, (libxs_dispatch_entry**)&buffer, __ATOMIC_RELAXED);
 # else
         libxs_dispatch_cache = buffer;
 # endif
@@ -143,7 +143,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 {
-  const volatile void* cache;
+  /*const*/void* cache;
 #if defined(_OPENMP)
 # if (201107 <= _OPENMP)
 # pragma omp atomic read
@@ -152,7 +152,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 # endif
   cache = libxs_dispatch_cache;
 #elif defined(__GNUC__)
-  __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
+  __atomic_load((void**)&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
 #else
   cache = libxs_dispatch_cache;
 #endif
@@ -165,7 +165,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
-  volatile libxs_dispatch_entry* cache = 0;
+  libxs_dispatch_entry* cache = 0;
 #if defined(_OPENMP)
 # if (201107 <= _OPENMP)
 # pragma omp atomic read
@@ -210,7 +210,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 #       pragma omp flush(libxs_dispatch_cache)
 # endif
 #elif defined(__GNUC__)
-        const volatile libxs_dispatch_entry *const zero = 0;
+        /*const*/libxs_dispatch_entry* /*const*/zero = 0;
         __atomic_store(&libxs_dispatch_cache, &zero, __ATOMIC_RELAXED);
 #else
         libxs_dispatch_cache = 0;
@@ -269,8 +269,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_supply_archid(void)
 
 LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_gemm_descriptor* desc)
 {
-  libxs_dispatch_entry result;
-  volatile libxs_dispatch_entry* cache;
+  libxs_dispatch_entry result, *cache;
   unsigned int hash, indx;
   assert(0 != desc);
 
