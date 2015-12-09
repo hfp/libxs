@@ -40,10 +40,10 @@
 #if defined(_WIN32)
 # include <Windows.h>
 #else
-# include <fcntl.h>
-# include <errno.h>
-# include <unistd.h>
 # include <sys/mman.h>
+# include <stdlib.h>
+# include <unistd.h>
+# include <fcntl.h>
 #endif
 #if !defined(NDEBUG)
 #include <errno.h>
@@ -307,7 +307,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
   hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_DISPATCH_HASH_SEED);
   indx = hash % LIBXS_DISPATCH_CACHESIZE;
-  result = cache[indx]; /* TODO: handle collision */
+  cache += indx;
+  result = *cache; /* TODO: handle collision */
 #if (0 != LIBXS_JIT)
   if (0 == result.pv) {
 # if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*allow code coverage with Cygwin; fails at runtime!*/)
@@ -318,7 +319,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 #   pragma omp critical(libxs_dispatch_lock)
 # endif
     {
-      result = cache[indx];
+      result = *cache;
 
       if (0 == result.pv) {
         const char *const archid = internal_supply_archid();
@@ -384,7 +385,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
                 result.pv = l_code;
 
                 /* make function pointer available for dispatch */
-                cache[indx].pv = l_code;
+                cache->pv = l_code;
               }
               else { /* there was an error with mprotect */
 # if !defined(NDEBUG) /* library code is usually expected to be mute */
