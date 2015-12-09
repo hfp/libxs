@@ -52,6 +52,11 @@
 # pragma offload_attribute(pop)
 #endif
 
+#if !defined(LIBXS_DISPATCH_STDATOMIC) && defined(__GNUC__) && \
+  (40704 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+# define LIBXS_DISPATCH_STDATOMIC
+#endif
+
 /* rely on a "pseudo prime" number (Mersenne) to improve cache spread */
 #define LIBXS_DISPATCH_CACHESIZE ((2 << LIBXS_NBITS(LIBXS_MAX_MNK * (0 != LIBXS_JIT ? 2 : 5))) - 1)
 #define LIBXS_DISPATCH_HASH_SEED 0
@@ -92,7 +97,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 #   pragma omp flush(libxs_dispatch_cache)
 # endif
     cache = libxs_dispatch_cache;
-#elif defined(__GNUC__)
+#elif defined(LIBXS_DISPATCH_STDATOMIC)
     __atomic_load((void**)&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
 #else
     cache = libxs_dispatch_cache;
@@ -117,7 +122,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
             LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
           }
         }
-# if defined(__GNUC__)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
         __atomic_store(&libxs_dispatch_cache, (libxs_dispatch_entry**)&buffer, __ATOMIC_RELAXED);
 # else
         libxs_dispatch_cache = buffer;
@@ -151,7 +156,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 # pragma omp flush(libxs_dispatch_cache)
 # endif
   cache = libxs_dispatch_cache;
-#elif defined(__GNUC__)
+#elif defined(LIBXS_DISPATCH_STDATOMIC)
   __atomic_load((void**)&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
 #else
   cache = libxs_dispatch_cache;
@@ -173,7 +178,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 # pragma omp flush(libxs_dispatch_cache)
 # endif
   cache = libxs_dispatch_cache;
-#elif defined(__GNUC__)
+#elif defined(LIBXS_DISPATCH_STDATOMIC)
   __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
 #else
   cache = libxs_dispatch_cache;
@@ -194,7 +199,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 #     pragma omp flush(libxs_dispatch_cache)
 # endif
       cache = libxs_dispatch_cache;
-#elif defined(__GNUC__)
+#elif defined(LIBXS_DISPATCH_STDATOMIC)
       __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
 #else
       cache = libxs_dispatch_cache;
@@ -209,7 +214,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 # if (201107 > _OPENMP)
 #       pragma omp flush(libxs_dispatch_cache)
 # endif
-#elif defined(__GNUC__)
+#elif defined(LIBXS_DISPATCH_STDATOMIC)
         /*const*/libxs_dispatch_entry* /*const*/zero = 0;
         __atomic_store(&libxs_dispatch_cache, &zero, __ATOMIC_RELAXED);
 #else
@@ -280,7 +285,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 # pragma omp flush(libxs_dispatch_cache)
 # endif
   cache = libxs_dispatch_cache;
-#elif defined(__GNUC__)
+#elif defined(LIBXS_DISPATCH_STDATOMIC)
   __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
 #else
   cache = libxs_dispatch_cache;
@@ -296,7 +301,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 #   pragma omp flush(libxs_dispatch_cache)
 # endif
     cache = libxs_dispatch_cache;
-#elif defined(__GNUC__)
+#elif defined(LIBXS_DISPATCH_STDATOMIC)
     __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
 #else
     cache = libxs_dispatch_cache;
