@@ -37,8 +37,8 @@
      &                                    C_LONG_LONG, C_CHAR
         IMPLICIT NONE
 
-        PRIVATE ::  construct_sfunction,                                &
-     &              construct_dfunction,                                &
+        PRIVATE ::  construct_smmfunction,                              &
+     &              construct_dmmfunction,                              &
      &              srealptr, drealptr
 
         ! Name of the version (stringized set of version numbers).
@@ -145,9 +145,59 @@
           MODULE PROCEDURE libxs_smmdispatch, libxs_dmmdispatch
         END INTERFACE
 
-        ! Check if a function (LIBXS_?MM_FUNCTION_TYPE) is available.
+        ! Construct procedure pointer depending on given argument set.
+        INTERFACE libxs_sdispatch
+          MODULE PROCEDURE libxs_smmdispatch
+        END INTERFACE
+
+        ! Construct procedure pointer depending on given argument set.
+        INTERFACE libxs_ddispatch
+          MODULE PROCEDURE libxs_dmmdispatch
+        END INTERFACE
+
+        ! Construct procedure pointer depending on given argument set.
+        INTERFACE libxs_dispatch
+          MODULE PROCEDURE libxs_smmdispatch, libxs_dmmdispatch
+        END INTERFACE
+
+        ! Check if a function is available (LIBXS_?MMFUNCTION).
+        INTERFACE libxs_mmavailable
+          MODULE PROCEDURE libxs_smmavailable, libxs_dmmavailable
+        END INTERFACE
+
+        ! Check if a function is available (LIBXS_?MMFUNCTION).
+        INTERFACE libxs_savailable
+          MODULE PROCEDURE libxs_smmavailable
+        END INTERFACE
+
+        ! Check if a function is available (LIBXS_?MMFUNCTION).
+        INTERFACE libxs_davailable
+          MODULE PROCEDURE libxs_dmmavailable
+        END INTERFACE
+
+        ! Check if a function is available (LIBXS_?MMFUNCTION).
         INTERFACE libxs_available
-          MODULE PROCEDURE libxs_savailable, libxs_davailable
+          MODULE PROCEDURE libxs_smmavailable, libxs_dmmavailable
+        END INTERFACE
+
+        ! Call a specialized function.
+        INTERFACE libxs_mmcall
+          MODULE PROCEDURE libxs_smmcall_abx, libxs_smmcall_prx
+          MODULE PROCEDURE libxs_smmcall_abc, libxs_smmcall_prf
+          MODULE PROCEDURE libxs_dmmcall_abx, libxs_dmmcall_prx
+          MODULE PROCEDURE libxs_dmmcall_abc, libxs_dmmcall_prf
+        END INTERFACE
+
+        ! Call a specialized function.
+        INTERFACE libxs_scall
+          MODULE PROCEDURE libxs_smmcall_abx, libxs_smmcall_prx
+          MODULE PROCEDURE libxs_smmcall_abc, libxs_smmcall_prf
+        END INTERFACE
+
+        ! Call a specialized function.
+        INTERFACE libxs_dcall
+          MODULE PROCEDURE libxs_dmmcall_abx, libxs_dmmcall_prx
+          MODULE PROCEDURE libxs_dmmcall_abc, libxs_dmmcall_prf
         END INTERFACE
 
         ! Call a specialized function.
@@ -209,8 +259,8 @@
           p => a(LBOUND(a,1),LBOUND(a,2))
         END FUNCTION
 
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: construct_sfunction
-        TYPE(LIBXS_SMMFUNCTION) FUNCTION construct_sfunction(         &
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: construct_smmfunction
+        TYPE(LIBXS_SMMFUNCTION) FUNCTION construct_smmfunction(         &
      &  m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch)
           INTEGER(C_INT), INTENT(IN) :: m, n, k
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: lda, ldb, ldc
@@ -238,19 +288,19 @@
             CALL C_F_PROCPOINTER(sdispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
      &        fn0)
-            construct_sfunction%fn0 => fn0
-            construct_sfunction%fn1 => NULL()
+            construct_smmfunction%fn0 => fn0
+            construct_smmfunction%fn1 => NULL()
           ELSE
             CALL C_F_PROCPOINTER(sdispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
      &        fn1)
-            construct_sfunction%fn0 => NULL()
-            construct_sfunction%fn1 => fn1
+            construct_smmfunction%fn0 => NULL()
+            construct_smmfunction%fn1 => fn1
           END IF
         END FUNCTION
 
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: construct_dfunction
-        TYPE(LIBXS_DMMFUNCTION) FUNCTION construct_dfunction(         &
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: construct_dmmfunction
+        TYPE(LIBXS_DMMFUNCTION) FUNCTION construct_dmmfunction(         &
      &  m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch)
           INTEGER(C_INT), INTENT(IN) :: m, n, k
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: lda, ldb, ldc
@@ -278,14 +328,14 @@
             CALL C_F_PROCPOINTER(ddispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
      &        fn0)
-            construct_dfunction%fn0 => fn0
-            construct_dfunction%fn1 => NULL()
+            construct_dmmfunction%fn0 => fn0
+            construct_dmmfunction%fn1 => NULL()
           ELSE
             CALL C_F_PROCPOINTER(ddispatch(m, n, k,                     &
      &        lda, ldb, ldc, alpha, beta, flags, prefetch),             &
      &        fn1)
-            construct_dfunction%fn0 => NULL()
-            construct_dfunction%fn1 => fn1
+            construct_dmmfunction%fn0 => NULL()
+            construct_dmmfunction%fn1 => fn1
           END IF
         END FUNCTION
 
@@ -297,7 +347,7 @@
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: lda, ldb, ldc
           REAL(C_FLOAT), INTENT(IN), OPTIONAL :: alpha, beta
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: flags, prefetch
-          fn = construct_sfunction(                                     &
+          fn = construct_smmfunction(                                     &
      &      m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch)
         END SUBROUTINE
 
@@ -309,20 +359,20 @@
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: lda, ldb, ldc
           REAL(C_DOUBLE), INTENT(IN), OPTIONAL :: alpha, beta
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: flags, prefetch
-          fn = construct_dfunction(                                     &
+          fn = construct_dmmfunction(                                     &
      &      m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch)
         END SUBROUTINE
 
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_savailable
-        LOGICAL PURE FUNCTION libxs_savailable(fn)
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smmavailable
+        LOGICAL PURE FUNCTION libxs_smmavailable(fn)
           TYPE(LIBXS_SMMFUNCTION), INTENT(IN) :: fn
-          libxs_savailable = ASSOCIATED(fn%fn0).OR.ASSOCIATED(fn%fn1)
+          libxs_smmavailable = ASSOCIATED(fn%fn0).OR.ASSOCIATED(fn%fn1)
         END FUNCTION
 
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_davailable
-        LOGICAL PURE FUNCTION libxs_davailable(fn)
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmmavailable
+        LOGICAL PURE FUNCTION libxs_dmmavailable(fn)
           TYPE(LIBXS_DMMFUNCTION), INTENT(IN) :: fn
-          libxs_davailable = ASSOCIATED(fn%fn0).OR.ASSOCIATED(fn%fn1)
+          libxs_dmmavailable = ASSOCIATED(fn%fn0).OR.ASSOCIATED(fn%fn1)
         END FUNCTION
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smmcall_abx
@@ -409,8 +459,8 @@
      &      C_LOC(pa), C_LOC(pb), C_LOC(pc))
         END SUBROUTINE
 
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_scall
-        SUBROUTINE libxs_scall(fn, a, b, c, pa, pb, pc)
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smmcall
+        SUBROUTINE libxs_smmcall(fn, a, b, c, pa, pb, pc)
           TYPE(LIBXS_SMMFUNCTION), INTENT(IN) :: fn
           REAL(C_FLOAT), INTENT(IN), TARGET :: a(*), b(*)
           REAL(C_FLOAT), INTENT(INOUT), TARGET :: c(*)
@@ -427,8 +477,8 @@
           END IF
         END SUBROUTINE
 
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dcall
-        SUBROUTINE libxs_dcall(fn, a, b, c, pa, pb, pc)
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmmcall
+        SUBROUTINE libxs_dmmcall(fn, a, b, c, pa, pb, pc)
           TYPE(LIBXS_DMMFUNCTION), INTENT(IN) :: fn
           REAL(C_DOUBLE), INTENT(IN), TARGET :: a(*), b(*)
           REAL(C_DOUBLE), INTENT(INOUT), TARGET :: c(*)
