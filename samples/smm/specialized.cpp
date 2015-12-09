@@ -124,7 +124,7 @@ int main(int argc, char* argv[])
         0 != LIBXS_ROW_MAJOR ? "row-major" : "column-major", 8 == sizeof(T) ? "DP" : "SP",
         s, 1.0 * (s * (asize + bsize + csize) * sizeof(T)) / (1 << 20));
 
-      const libxs_function<T> xmm(m, n, k);
+      const libxs_mmfunction<T> xmm(m, n, k);
       if (!xmm) {
         throw std::runtime_error("no specialized routine found!");
       }

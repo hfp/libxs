@@ -217,8 +217,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   LIBXS_BLAS_XGEMM(REAL, SYMBOL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
-#define LIBXS_CALL_ABC(FN, A, B, C) FN(LIBXS_LD(A, B), LIBXS_LD(B, A), C)
-#define LIBXS_CALL_PRF(FN, A, B, C, PA, PB, PC) { \
+#define LIBXS_MMCALL_ABC(FN, A, B, C) FN(LIBXS_LD(A, B), LIBXS_LD(B, A), C)
+#define LIBXS_MMCALL_PRF(FN, A, B, C, PA, PB, PC) { \
   LIBXS_NOPREFETCH_A(LIBXS_UNUSED(LIBXS_LD(PA, PB))); \
   LIBXS_NOPREFETCH_B(LIBXS_UNUSED(LIBXS_LD(PB, PA))); \
   LIBXS_NOPREFETCH_C(LIBXS_UNUSED(PC)); \
@@ -249,13 +249,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
     const REAL libxs_xgemm_alpha_ = (REAL)(ALPHA), libxs_xgemm_beta_ = (REAL)(BETA); \
     int libxs_xgemm_fallback_ = 0; \
     if (LIBXS_PREFETCH_NONE == LIBXS_PREFETCH) { \
-      const LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, function)) libxs_xgemm_function_ = \
-        LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, dispatch))((int)(M), (int)(N), (int)(K), \
+      const LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmfunction)) libxs_xgemm_function_ = \
+        LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmdispatch))((int)(M), (int)(N), (int)(K), \
           &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
           &libxs_xgemm_alpha_, &libxs_xgemm_beta_, \
           &libxs_xgemm_flags_, 0); \
       if (0 != libxs_xgemm_function_) { \
-        LIBXS_CALL_ABC(libxs_xgemm_function_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C)); \
+        LIBXS_MMCALL_ABC(libxs_xgemm_function_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C)); \
       } \
       else { \
         libxs_xgemm_fallback_ = 1; \
@@ -263,13 +263,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
     } \
     else { \
       const int libxs_xgemm_prefetch_ = (LIBXS_PREFETCH); \
-      const LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, function)) libxs_xgemm_function_ = \
-        LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, dispatch))((int)(M), (int)(N), (int)(K), \
+      const LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmfunction)) libxs_xgemm_function_ = \
+        LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmdispatch))((int)(M), (int)(N), (int)(K), \
           &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
           &libxs_xgemm_alpha_, &libxs_xgemm_beta_, \
           &libxs_xgemm_flags_, &libxs_xgemm_prefetch_); \
       if (0 != libxs_xgemm_function_) { \
-        LIBXS_CALL_PRF(libxs_xgemm_function_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C), \
+        LIBXS_MMCALL_PRF(libxs_xgemm_function_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C), \
           ((const REAL*)(A)) + libxs_xgemm_lda_ * (K), ((const REAL*)(B)) + libxs_xgemm_ldb_ * (N), \
           ((const REAL*)(C)) + libxs_xgemm_ldc_ * (N)); \
       } \

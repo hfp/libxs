@@ -20,7 +20,7 @@ int main()
 #endif
   for (i = 0; i < 1000; ++i) {
     LIBXS_ALIGNED(float c[LIBXS_ALIGN_VALUE(23,sizeof(float),LIBXS_ALIGNMENT)*23], LIBXS_ALIGNMENT);
-    const libxs_sfunction f = libxs_sdispatch(
+    const libxs_smmfunction f = libxs_smmdispatch(
       LIBXS_FLAGS, 23, 23, 23,
       0/*lda*/, 0/*ldb*/, 0/*ldc*/,
       0/*alpha*/, 0/*beta*/);

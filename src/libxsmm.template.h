@@ -72,9 +72,9 @@ typedef int libxs_blasint;
 #endif
 
 /** Specialized function with fused alpha and beta arguments, and optional prefetch locations (single-precision). */
-typedef LIBXS_RETARGETABLE void (*libxs_sfunction)(const float* a, const float* b, float* c, ...);
+typedef LIBXS_RETARGETABLE void (*libxs_smmfunction)(const float* a, const float* b, float* c, ...);
 /** Specialized function with fused alpha and beta arguments, and optional prefetch locations (double-precision). */
-typedef LIBXS_RETARGETABLE void (*libxs_dfunction)(const double* a, const double* b, double* c, ...);
+typedef LIBXS_RETARGETABLE void (*libxs_dmmfunction)(const double* a, const double* b, double* c, ...);
 
 /** Initialize the library; pay for setup cost at a specific point. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
@@ -82,12 +82,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void);
 
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (single-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int m, int n, int k,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
   const float* alpha, const float* beta,
   const int* flags, const int* prefetch);
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (double-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(int m, int n, int k,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
   const double* alpha, const double* beta,
   const int* flags, const int* prefetch);
@@ -123,39 +123,39 @@ $MNK_INTERFACE_LIST
 #if defined(__cplusplus)
 
 /** Construct and execute a specialized function. */
-template<typename T> class LIBXS_RETARGETABLE libxs_function {};
+template<typename T> class LIBXS_RETARGETABLE libxs_mmfunction {};
 
 /** Construct and execute a specialized function (single-precision). */
-template<> class LIBXS_RETARGETABLE libxs_function<float> {
-  mutable/*retargetable*/ libxs_sfunction m_function;
+template<> class LIBXS_RETARGETABLE libxs_mmfunction<float> {
+  mutable/*retargetable*/ libxs_smmfunction m_function;
 public:
-  libxs_function(): m_function(0) {}
-  libxs_function(int m, int n, int k, int flags = LIBXS_FLAGS)
-    : m_function(libxs_sdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
+  libxs_mmfunction(): m_function(0) {}
+  libxs_mmfunction(int m, int n, int k, int flags = LIBXS_FLAGS)
+    : m_function(libxs_smmdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
   {}
-  libxs_function(int m, int n, int k, int lda, int ldb, int ldc, int flags = LIBXS_FLAGS)
-    : m_function(libxs_sdispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
+  libxs_mmfunction(int m, int n, int k, int lda, int ldb, int ldc, int flags = LIBXS_FLAGS)
+    : m_function(libxs_smmdispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
   {}
-  libxs_function(int flags, int m, int n, int k, int prefetch)
-    : m_function(libxs_sdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
+  libxs_mmfunction(int flags, int m, int n, int k, int prefetch)
+    : m_function(libxs_smmdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
   {}
-  libxs_function(int flags, int m, int n, int k, int lda, int ldb, int ldc, int prefetch = LIBXS_PREFETCH)
-    : m_function(libxs_sdispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
+  libxs_mmfunction(int flags, int m, int n, int k, int lda, int ldb, int ldc, int prefetch = LIBXS_PREFETCH)
+    : m_function(libxs_smmdispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
   {}
-  libxs_function(int m, int n, int k, float alpha, float beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
-    : m_function(libxs_sdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
+  libxs_mmfunction(int m, int n, int k, float alpha, float beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
+    : m_function(libxs_smmdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
   {}
-  libxs_function(int flags, int m, int n, int k, float alpha, float beta, int prefetch = LIBXS_PREFETCH)
-    : m_function(libxs_sdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
+  libxs_mmfunction(int flags, int m, int n, int k, float alpha, float beta, int prefetch = LIBXS_PREFETCH)
+    : m_function(libxs_smmdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
   {}
-  libxs_function(int flags, int m, int n, int k, int lda, int ldb, int ldc, float alpha, float beta, int prefetch = LIBXS_PREFETCH)
-    : m_function(libxs_sdispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
+  libxs_mmfunction(int flags, int m, int n, int k, int lda, int ldb, int ldc, float alpha, float beta, int prefetch = LIBXS_PREFETCH)
+    : m_function(libxs_smmdispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
   {}
-  libxs_function(int m, int n, int k, int lda, int ldb, int ldc, float alpha, float beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
-    : m_function(libxs_sdispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
+  libxs_mmfunction(int m, int n, int k, int lda, int ldb, int ldc, float alpha, float beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
+    : m_function(libxs_smmdispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
   {}
 public:
-  operator libxs_sfunction() const {
+  operator libxs_smmfunction() const {
     return m_function;
   }
   void operator()(const float* a, const float* b, float* c) const {
@@ -170,45 +170,45 @@ public:
 };
 
 /** Construct and execute a specialized function (double-precision). */
-template<> class LIBXS_RETARGETABLE libxs_function<double> {
-  mutable/*retargetable*/ libxs_dfunction m_function;
+template<> class LIBXS_RETARGETABLE libxs_mmfunction<double> {
+  mutable/*retargetable*/ libxs_dmmfunction m_function;
 public:
-  libxs_function(): m_function(0) {}
-  libxs_function(int m, int n, int k, int flags = LIBXS_FLAGS)
-    : m_function(libxs_ddispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
+  libxs_mmfunction(): m_function(0) {}
+  libxs_mmfunction(int m, int n, int k, int flags = LIBXS_FLAGS)
+    : m_function(libxs_dmmdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
   {}
-  libxs_function(int m, int n, int k, int lda, int ldb, int ldc, int flags = LIBXS_FLAGS)
-    : m_function(libxs_ddispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
+  libxs_mmfunction(int m, int n, int k, int lda, int ldb, int ldc, int flags = LIBXS_FLAGS)
+    : m_function(libxs_dmmdispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, 0/*prefetch*/))
   {}
-  libxs_function(int flags, int m, int n, int k, int prefetch)
-    : m_function(libxs_ddispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
+  libxs_mmfunction(int flags, int m, int n, int k, int prefetch)
+    : m_function(libxs_dmmdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
   {}
-  libxs_function(int flags, int m, int n, int k, int lda, int ldb, int ldc, int prefetch = LIBXS_PREFETCH)
-    : m_function(libxs_ddispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
+  libxs_mmfunction(int flags, int m, int n, int k, int lda, int ldb, int ldc, int prefetch = LIBXS_PREFETCH)
+    : m_function(libxs_dmmdispatch(m, n, k, &lda, &ldb, &ldc, 0/*alpha*/, 0/*beta*/, &flags, &prefetch))
   {}
-  libxs_function(int m, int n, int k, double alpha, double beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
-    : m_function(libxs_ddispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
+  libxs_mmfunction(int m, int n, int k, double alpha, double beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
+    : m_function(libxs_dmmdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
   {}
-  libxs_function(int flags, int m, int n, int k, double alpha, double beta, int prefetch = LIBXS_PREFETCH)
-    : m_function(libxs_ddispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
+  libxs_mmfunction(int flags, int m, int n, int k, double alpha, double beta, int prefetch = LIBXS_PREFETCH)
+    : m_function(libxs_dmmdispatch(m, n, k, 0/*lda*/, 0/*ldb*/, 0/*ldc*/, &alpha, &beta, &flags, &prefetch))
   {}
-  libxs_function(int flags, int m, int n, int k, int lda, int ldb, int ldc, double alpha, double beta, int prefetch = LIBXS_PREFETCH)
-    : m_function(libxs_ddispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
+  libxs_mmfunction(int flags, int m, int n, int k, int lda, int ldb, int ldc, double alpha, double beta, int prefetch = LIBXS_PREFETCH)
+    : m_function(libxs_dmmdispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
   {}
-  libxs_function(int m, int n, int k, int lda, int ldb, int ldc, double alpha, double beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
-    : m_function(libxs_ddispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
+  libxs_mmfunction(int m, int n, int k, int lda, int ldb, int ldc, double alpha, double beta, int flags = LIBXS_FLAGS, int prefetch = LIBXS_PREFETCH)
+    : m_function(libxs_dmmdispatch(m, n, k, &lda, &ldb, &ldc, &alpha, &beta, &flags, &prefetch))
   {}
 public:
-  operator libxs_dfunction() const {
+  operator libxs_dmmfunction() const {
     return m_function;
   }
   void operator()(const double* a, const double* b, double* c) const {
-    LIBXS_CALL_ABC(m_function, a, b, c);
+    LIBXS_MMCALL_ABC(m_function, a, b, c);
   }
   void operator()(const double* a, const double* b, double* c,
     const double* pa, const double* pb, const double* pc) const
   {
-    LIBXS_CALL_PRF(m_function, a, b, c, pa, pb, pc);
+    LIBXS_MMCALL_PRF(m_function, a, b, c, pa, pb, pc);
   }
 };
 

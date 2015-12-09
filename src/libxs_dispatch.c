@@ -57,15 +57,15 @@
 #define LIBXS_DISPATCH_HASH_SEED 0
 
 
-typedef union LIBXS_RETARGETABLE libxs_dispatch_entry {
-  libxs_sfunction smm;
-  libxs_dfunction dmm;
+typedef union LIBXS_RETARGETABLE libxs_mmdispatch_entry {
+  libxs_smmfunction smm;
+  libxs_dmmfunction dmm;
   const void* pv;
-} libxs_dispatch_entry;
-LIBXS_RETARGETABLE volatile libxs_dispatch_entry *volatile libxs_dispatch_cache = 0;
+} libxs_mmdispatch_entry;
+LIBXS_RETARGETABLE volatile libxs_mmdispatch_entry *volatile libxs_mmdispatch_cache = 0;
 
 #if !defined(_OPENMP)
-LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
+LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_mmdispatch_lock[] = {
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
@@ -79,9 +79,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 {
 #if !defined(_OPENMP)
   /* acquire one of the locks as the master lock */
-  LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[LIBXS_DISPATCH_LOCKMASTER]);
+  LIBXS_LOCK_ACQUIRE(libxs_mmdispatch_lock[LIBXS_DISPATCH_LOCKMASTER]);
 #else
-# pragma omp critical(libxs_dispatch_lock)
+# pragma omp critical(libxs_mmdispatch_lock)
 #endif
   {
     const volatile void* cache;
@@ -89,14 +89,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 # if (201107 <= _OPENMP)
 #   pragma omp atomic read
 # else
-#   pragma omp flush(libxs_dispatch_cache)
+#   pragma omp flush(libxs_mmdispatch_cache)
 # endif
 #endif
-    cache = libxs_dispatch_cache;
+    cache = libxs_mmdispatch_cache;
 
     if (0 == cache) {
-      libxs_dispatch_entry *const buffer = (libxs_dispatch_entry*)malloc(
-        LIBXS_DISPATCH_CACHESIZE * sizeof(libxs_dispatch_entry));
+      libxs_mmdispatch_entry *const buffer = (libxs_mmdispatch_entry*)malloc(
+        LIBXS_DISPATCH_CACHESIZE * sizeof(libxs_mmdispatch_entry));
       assert(buffer);
       if (buffer) {
         int i;
@@ -107,25 +107,25 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
         }
 #if !defined(_OPENMP)
         { /* acquire and release remaining locks to shortcut any lazy initialization later on */
-          const int nlocks = sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock);
+          const int nlocks = sizeof(libxs_mmdispatch_lock) / sizeof(*libxs_mmdispatch_lock);
           for (i = 1; i < nlocks; ++i) {
-            LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[i]);
-            LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
+            LIBXS_LOCK_ACQUIRE(libxs_mmdispatch_lock[i]);
+            LIBXS_LOCK_RELEASE(libxs_mmdispatch_lock[i]);
           }
         }
 #elif (201107 <= _OPENMP)
 #       pragma omp atomic write
 #endif
-        libxs_dispatch_cache = buffer;
+        libxs_mmdispatch_cache = buffer;
 #if defined(_OPENMP) && (201107 > _OPENMP)
-#       pragma omp flush(libxs_dispatch_cache)
+#       pragma omp flush(libxs_mmdispatch_cache)
 #endif
       }
     }
   }
 #if !defined(_OPENMP)
   /* release the master lock */
-  LIBXS_LOCK_RELEASE(libxs_dispatch_lock[LIBXS_DISPATCH_LOCKMASTER]);
+  LIBXS_LOCK_RELEASE(libxs_mmdispatch_lock[LIBXS_DISPATCH_LOCKMASTER]);
 #endif
 }
 
@@ -137,10 +137,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 # if (201107 <= _OPENMP)
 # pragma omp atomic read
 # else
-# pragma omp flush(libxs_dispatch_cache)
+# pragma omp flush(libxs_mmdispatch_cache)
 # endif
 #endif
-  cache = libxs_dispatch_cache;
+  cache = libxs_mmdispatch_cache;
 
   if (0 == cache) {
     internal_init();
@@ -150,47 +150,47 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
-  volatile libxs_dispatch_entry* cache = 0;
+  volatile libxs_mmdispatch_entry* cache = 0;
 #if defined(_OPENMP)
 # if (201107 <= _OPENMP)
 # pragma omp atomic read
 # else
-# pragma omp flush(libxs_dispatch_cache)
+# pragma omp flush(libxs_mmdispatch_cache)
 # endif
 #endif
-  cache = libxs_dispatch_cache;
+  cache = libxs_mmdispatch_cache;
 
   if (0 != cache) {
 #if !defined(_OPENMP)
     /* acquire one of the locks as the master lock */
-    LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[LIBXS_DISPATCH_LOCKMASTER]);
+    LIBXS_LOCK_ACQUIRE(libxs_mmdispatch_lock[LIBXS_DISPATCH_LOCKMASTER]);
 #else
-#   pragma omp critical(libxs_dispatch_lock)
+#   pragma omp critical(libxs_mmdispatch_lock)
 #endif
     {
 #if defined(_OPENMP)
 # if (201107 <= _OPENMP)
 #     pragma omp atomic read
 # else
-#     pragma omp flush(libxs_dispatch_cache)
+#     pragma omp flush(libxs_mmdispatch_cache)
 # endif
 #endif
-      cache = libxs_dispatch_cache;
+      cache = libxs_mmdispatch_cache;
 
       if (0 != cache) {
 #if defined(_OPENMP) && (201107 <= _OPENMP)
 #       pragma omp atomic write
 #endif
-        libxs_dispatch_cache = 0;
+        libxs_mmdispatch_cache = 0;
 #if defined(_OPENMP) && (201107 > _OPENMP)
-#       pragma omp flush(libxs_dispatch_cache)
+#       pragma omp flush(libxs_mmdispatch_cache)
 #endif
         free((void*)cache);
       }
     }
 #if !defined(_OPENMP)
     /* release the master lock */
-    LIBXS_LOCK_RELEASE(libxs_dispatch_lock[LIBXS_DISPATCH_LOCKMASTER]);
+    LIBXS_LOCK_RELEASE(libxs_mmdispatch_lock[LIBXS_DISPATCH_LOCKMASTER]);
 #endif
   }
 }
@@ -237,10 +237,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_supply_archid(void)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_gemm_descriptor* desc)
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_mmdispatch_entry internal_build(const libxs_gemm_descriptor* desc)
 {
-  libxs_dispatch_entry result;
-  volatile libxs_dispatch_entry* cache;
+  libxs_mmdispatch_entry result;
+  volatile libxs_mmdispatch_entry* cache;
   unsigned int hash, indx;
   assert(0 != desc);
 
@@ -248,10 +248,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 # if (201107 <= _OPENMP)
 # pragma omp atomic read
 # else
-# pragma omp flush(libxs_dispatch_cache)
+# pragma omp flush(libxs_mmdispatch_cache)
 # endif
 #endif
-  cache = libxs_dispatch_cache;
+  cache = libxs_mmdispatch_cache;
 
   /* lazy initialization */
   if (0 == cache) {
@@ -260,10 +260,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 # if (201107 <= _OPENMP)
 # pragma omp atomic read
 # else
-# pragma omp flush(libxs_dispatch_cache)
+# pragma omp flush(libxs_mmdispatch_cache)
 # endif
 #endif
-    cache = libxs_dispatch_cache;
+    cache = libxs_mmdispatch_cache;
   }
 
   /* check if the requested xGEMM is already JITted */
@@ -275,10 +275,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
   if (0 == result.pv) {
 # if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*allow code coverage with Cygwin; fails at runtime!*/)
 # if !defined(_OPENMP)
-    const unsigned int lock = LIBXS_MOD2(indx, sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock));
-    LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[lock]);
+    const unsigned int lock = LIBXS_MOD2(indx, sizeof(libxs_mmdispatch_lock) / sizeof(*libxs_mmdispatch_lock));
+    LIBXS_LOCK_ACQUIRE(libxs_mmdispatch_lock[lock]);
 # else
-#   pragma omp critical(libxs_dispatch_lock)
+#   pragma omp critical(libxs_mmdispatch_lock)
 # endif
     {
       result = cache[indx];
@@ -396,7 +396,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
     }
 
 # if !defined(_OPENMP)
-    LIBXS_LOCK_RELEASE(libxs_dispatch_lock[lock]);
+    LIBXS_LOCK_RELEASE(libxs_mmdispatch_lock[lock]);
 # endif
 # else
 #   error "LIBXS ERROR: JITTING IS NOT SUPPORTED ON WINDOWS RIGHT NOW!"
@@ -407,7 +407,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int m, int n, int k,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
   const float* alpha, const float* beta,
   const int* flags, const int* prefetch)
@@ -432,7 +432,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_sfunction libxs_sdispatch(int m, int n, 
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dfunction libxs_ddispatch(int m, int n, int k,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
   const double* alpha, const double* beta,
   const int* flags, const int* prefetch)

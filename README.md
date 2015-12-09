@@ -45,18 +45,18 @@ Successively calling a particular kernel (i.e., multiple times) allows for amort
 
 ```C
 /** If non-zero function pointer is returned, call (*function_ptr)(a, b, c). */
-libxs_sfunction libxs_sdispatch(int m, int n, int k,
+libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
                                     int lda, int ldb, int ldc,
                                     /* supply NULL as a default for alpha or beta */
                                     const float* alpha, const float* beta);
 /** If non-zero function pointer is returned, call (*function_ptr)(a, b, c). */
-libxs_dfunction libxs_ddispatch(int m, int n, int k,
+libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
                                     int lda, int ldb, int ldc,
                                     /* supply NULL as a default for alpha or beta */
                                     const double* alpha, const double* beta);
 ```
 
-A variety of overloaded function signatures is provided allowing to omit arguments not deviating from the configured defaults. Moreover, in C++ a type 'libxs_function<*type*>' can be used to instantiate a functor rather than making a distinction for the numeric type in 'libxs_?dispatch'. Similarly in Fortran, when calling the generic interface (libxs_dispatch) the given LIBXS_?FUNCTION is dispatched such that libxs_call can be used to actually perform the function call using the PROCEDURE POINTER wrapped by LIBXS_?FUNCTION. Beside of dispatching code, one can also call a specific kernel (e.g., 'libxs_dmm_4_4_4') using the prototype functions included for statically generated kernels.
+A variety of overloaded function signatures is provided allowing to omit arguments not deviating from the configured defaults. Moreover, in C++ a type 'libxs_mmfunction<*type*>' can be used to instantiate a functor rather than making a distinction for the numeric type in 'libxs_?mmdispatch'. Similarly in Fortran, when calling the generic interface (libxs_mmdispatch) the given LIBXS_?FUNCTION is dispatched such that libxs_call can be used to actually perform the function call using the PROCEDURE POINTER wrapped by LIBXS_?FUNCTION. Beside of dispatching code, one can also call a specific kernel (e.g., 'libxs_dmm_4_4_4') using the prototype functions included for statically generated kernels.
 
 # Performance
 ### Tuning
@@ -75,7 +75,7 @@ make PREFETCH=8
 The interface which is supporting software prefetches extends the signature of all kernels by three arguments (pa, pb, and pc) allowing the call-side to specify where to prefetch the operands of the "next" multiplication from (a, b, and c). There are [macros](https://github.com/hfp/libxs/blob/master/src/libxs_prefetch.h) available (C/C++ only) allowing to call the matrix multiplication functions in a prefetch-agnostic fashion (see [cp2k](https://github.com/hfp/libxs/blob/master/samples/cp2k/cp2k.cpp) or [smm](https://github.com/hfp/libxs/tree/master/samples/smm samples) code samples). Further, the generated interface of the library also encodes the parameters the library was built for (static information). This helps optimizing client code related to the library's functionality. For example, the LIBXS_MAX_* and LIBXS_AVG_* information can be used with the LIBXS_PRAGMA_LOOP_COUNT macro in order to hint loop trip counts when handling matrices related to the problem domain of LIBXS.
 
 ### Auto-dispatch
-The function 'libxs_?dispatch' helps amortizing the cost of the dispatch when multiple calls with the same M, N, and K are needed. The automatic code dispatch is orchestrating two levels:
+The function 'libxs_?mmdispatch' helps amortizing the cost of the dispatch when multiple calls with the same M, N, and K are needed. The automatic code dispatch is orchestrating two levels:
 
 1. Specialized routine (implemented in assembly code),
 3. LAPACK/BLAS library call (fallback).
