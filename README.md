@@ -137,9 +137,10 @@ Assuming the library is already built, one can install LIBXS into a certain loca
 
 ```
 make install PREFIX=/path/to/libxs-install
+make clean
 ```
 
-The `make install` is already a shortcut for `make; make clean` (no extra `make clean` needed).
+Performing `make install-all` is also installing the documentation under `PREFIX/share/libxs`.
 
 # Tuning
 By default all supported host code paths are generated (with the compiler picking the one according to the feature bits of the host). Specifying a particular code path will not only save some time when generating the static code ("printing"), but also enable cross-compilation for a target that is different from the compiler's host. The build system allows to conveniently select the target system when invoking 'make': SSE=3 (in fact SSE!=0), AVX=1, AVX=2 (with FMA), and AVX=3 are supported. The latter is targeting the Intel Knights Landing processor family ("KNL") and future Intel Xeon processors using foundational Intel AVX-512 instructions (AVX-512F):

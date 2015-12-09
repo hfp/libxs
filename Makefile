@@ -162,9 +162,6 @@ endif
 .PHONY: all
 all: lib_all samples
 
-.PHONY: install
-install: all clean
-
 .PHONY: header
 header: cheader fheader
 
@@ -734,4 +731,23 @@ endif
 	@rm -f $(INCDIR)/libxs.f
 	@rm -f $(INCDIR)/libxs.h
 
-install: all clean
+.PHONY: install
+install: lib_all
+ifneq ($(abspath $(PREFIX)),$(abspath .))
+	@mkdir -p $(PREFIX)
+	cp -r $(OUTDIR) $(PREFIX)
+	cp -r $(BINDIR) $(PREFIX)
+	@mkdir -p $(PREFIX)/$(INCDIR)
+	cp $(INCDIR)/libxs*.h $(PREFIX)/$(INCDIR)
+	cp $(INCDIR)/libxs.f $(PREFIX)/$(INCDIR)
+	cp $(INCDIR)/*.mod* $(PREFIX)/$(INCDIR)
+endif
+
+.PHONY: install-all
+install-all: install
+	@mkdir -p $(PREFIX)/share/libxs
+	cp $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/share/libxs
+	cp $(ROOTDIR)/$(DOCDIR)/*.pdf $(PREFIX)/share/libxs
+	cp $(ROOTDIR)/version.txt $(PREFIX)/share/libxs
+	cp $(ROOTDIR)/README.md $(PREFIX)/share/libxs
+	cp $(ROOTDIR)/LICENSE $(PREFIX)/share/libxs
