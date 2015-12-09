@@ -112,7 +112,7 @@
 
 #if !defined(LIBXS_UNUSED)
 # if 0 /*defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)*/
-#   define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(LIBXS_STRINGIFY(unused(VARIABLE)))
+#   define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))
 # else
 #   define LIBXS_UNUSED(VARIABLE) (void)(VARIABLE)
 # endif
