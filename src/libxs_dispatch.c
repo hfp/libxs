@@ -90,16 +90,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 #endif
   {
     /*const*/void* cache;
-#if defined(_OPENMP)
-# if (201107 <= _OPENMP)
-#   pragma omp atomic read
-# else
-#   pragma omp flush(libxs_dispatch_cache)
-# endif
-    cache = libxs_dispatch_cache;
-#elif defined(LIBXS_DISPATCH_STDATOMIC)
+#if !defined(_OPENMP) || (201107 > _OPENMP)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
     __atomic_load((void**)&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
+# else
+    cache = libxs_dispatch_cache;
+# endif
 #else
+#   pragma omp atomic read
     cache = libxs_dispatch_cache;
 #endif
 
@@ -122,19 +120,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
             LIBXS_LOCK_RELEASE(libxs_dispatch_lock[i]);
           }
         }
+#endif
+#if !defined(_OPENMP) || (201107 > _OPENMP)
 # if defined(LIBXS_DISPATCH_STDATOMIC)
         __atomic_store(&libxs_dispatch_cache, (libxs_dispatch_entry**)&buffer, __ATOMIC_RELAXED);
 # else
         libxs_dispatch_cache = buffer;
 # endif
 #else
-# if (201107 <= _OPENMP)
 #       pragma omp atomic write
-# endif
         libxs_dispatch_cache = buffer;
-# if (201107 > _OPENMP)
-#       pragma omp flush(libxs_dispatch_cache)
-# endif
 #endif
       }
     }
@@ -149,16 +144,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 {
   /*const*/void* cache;
-#if defined(_OPENMP)
-# if (201107 <= _OPENMP)
-# pragma omp atomic read
-# else
-# pragma omp flush(libxs_dispatch_cache)
-# endif
-  cache = libxs_dispatch_cache;
-#elif defined(LIBXS_DISPATCH_STDATOMIC)
+#if !defined(_OPENMP) || (201107 > _OPENMP)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
   __atomic_load((void**)&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
+# else
+  cache = libxs_dispatch_cache;
+# endif
 #else
+# pragma omp atomic read
   cache = libxs_dispatch_cache;
 #endif
 
@@ -171,16 +164,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
   libxs_dispatch_entry* cache = 0;
-#if defined(_OPENMP)
-# if (201107 <= _OPENMP)
-# pragma omp atomic read
-# else
-# pragma omp flush(libxs_dispatch_cache)
-# endif
-  cache = libxs_dispatch_cache;
-#elif defined(LIBXS_DISPATCH_STDATOMIC)
+#if !defined(_OPENMP) || (201107 > _OPENMP)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
   __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
+# else
+  cache = libxs_dispatch_cache;
+# endif
 #else
+# pragma omp atomic read
   cache = libxs_dispatch_cache;
 #endif
 
@@ -192,32 +183,27 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 #   pragma omp critical(libxs_dispatch_lock)
 #endif
     {
-#if defined(_OPENMP)
-# if (201107 <= _OPENMP)
-#     pragma omp atomic read
-# else
-#     pragma omp flush(libxs_dispatch_cache)
-# endif
-      cache = libxs_dispatch_cache;
-#elif defined(LIBXS_DISPATCH_STDATOMIC)
+#if !defined(_OPENMP) || (201107 > _OPENMP)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
       __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
+# else
+      cache = libxs_dispatch_cache;
+# endif
 #else
+#     pragma omp atomic read
       cache = libxs_dispatch_cache;
 #endif
 
       if (0 != cache) {
-#if defined(_OPENMP)
-# if (201107 <= _OPENMP)
-#       pragma omp atomic write
-# endif
-        libxs_dispatch_cache = 0;
-# if (201107 > _OPENMP)
-#       pragma omp flush(libxs_dispatch_cache)
-# endif
-#elif defined(LIBXS_DISPATCH_STDATOMIC)
+#if !defined(_OPENMP) || (201107 > _OPENMP)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
         /*const*/libxs_dispatch_entry* /*const*/zero = 0;
         __atomic_store(&libxs_dispatch_cache, &zero, __ATOMIC_RELAXED);
+# else
+        libxs_dispatch_cache = 0;
+# endif
 #else
+#       pragma omp atomic write
         libxs_dispatch_cache = 0;
 #endif
         free((void*)cache);
@@ -278,32 +264,28 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
   unsigned int hash, indx;
   assert(0 != desc);
 
-#if defined(_OPENMP)
-# if (201107 <= _OPENMP)
-# pragma omp atomic read
-# else
-# pragma omp flush(libxs_dispatch_cache)
-# endif
-  cache = libxs_dispatch_cache;
-#elif defined(LIBXS_DISPATCH_STDATOMIC)
+#if !defined(_OPENMP) || (201107 > _OPENMP)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
   __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
+# else
+  cache = libxs_dispatch_cache;
+# endif
 #else
+# pragma omp atomic read
   cache = libxs_dispatch_cache;
 #endif
 
   /* lazy initialization */
   if (0 == cache) {
     internal_init();
-#if defined(_OPENMP)
-# if (201107 <= _OPENMP)
-#   pragma omp atomic read
-# else
-#   pragma omp flush(libxs_dispatch_cache)
-# endif
-    cache = libxs_dispatch_cache;
-#elif defined(LIBXS_DISPATCH_STDATOMIC)
+#if !defined(_OPENMP) || (201107 > _OPENMP)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
     __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
+# else
+    cache = libxs_dispatch_cache;
+# endif
 #else
+#   pragma omp atomic read
     cache = libxs_dispatch_cache;
 #endif
   }
@@ -313,7 +295,19 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
   hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_DISPATCH_HASH_SEED);
   indx = hash % LIBXS_DISPATCH_CACHESIZE;
   cache += indx;
-  result = *cache; /* TODO: handle collision */
+
+  /* read cached code (TODO: handle collision) */
+#if !defined(_OPENMP) || (201107 > _OPENMP)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
+  __atomic_load(&result, cache, __ATOMIC_RELAXED);
+# else
+  result = *cache;
+# endif
+#else
+# pragma omp atomic read
+  result = *cache;
+#endif
+
 #if (0 != LIBXS_JIT)
   if (0 == result.pv) {
 # if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*allow code coverage with Cygwin; fails at runtime!*/)
@@ -324,7 +318,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
 #   pragma omp critical(libxs_dispatch_lock)
 # endif
     {
+#if !defined(_OPENMP) || (201107 > _OPENMP)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
+      __atomic_load(&result, cache, __ATOMIC_RELAXED);
+# else
       result = *cache;
+# endif
+#else
+#     pragma omp atomic read
+      result = *cache;
+#endif
 
       if (0 == result.pv) {
         const char *const archid = internal_supply_archid();
@@ -390,7 +393,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
                 result.pv = l_code;
 
                 /* make function pointer available for dispatch */
+#if !defined(_OPENMP) || (201107 > _OPENMP)
+# if defined(LIBXS_DISPATCH_STDATOMIC)
+                __atomic_store(&cache->pv, (const void**)&l_code, __ATOMIC_RELAXED);
+# else
                 cache->pv = l_code;
+# endif
+#else
+#               pragma omp atomic write
+                cache->pv = l_code;
+#endif
               }
               else { /* there was an error with mprotect */
 # if !defined(NDEBUG) /* library code is usually expected to be mute */
