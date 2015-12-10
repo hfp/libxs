@@ -58,11 +58,11 @@ else
 endif
 
 ifeq (0,$(MIC))
-	LIBNAME = $(DEPDIR)/lib/intel64/libxs
+	LIBNAME = $(DEPDIR)/lib/libxs
 else ifeq (0,$(OFFLOAD))
 	LIBNAME = $(DEPDIR)/lib/mic/libxs
 else
-	LIBNAME = $(DEPDIR)/lib/intel64/libxs
+	LIBNAME = $(DEPDIR)/lib/libxs
 endif
 
 ifneq (,$(wildcard $(LIBNAME).a))
@@ -186,7 +186,7 @@ endif
 	@rm -f $(OUTDIR)/.mkdir
 
 install: all clean
-	@cp $(DEPDIR)/lib/intel64/libxs.so $(OUTDIR) 2> /dev/null || true
+	@cp $(DEPDIR)/lib/libxs.so $(OUTDIR) 2> /dev/null || true
 ifeq (0,$(OFFLOAD))
 ifneq (0,$(MIC))
 	@cp $(DEPDIR)/lib/mic/libxs.so $(OUTDIR) 2> /dev/null || true
