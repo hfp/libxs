@@ -13,12 +13,10 @@ ifneq (3.82,$(firstword $(sort $(MAKE_VERSION) 3.82)))
 endif
 endif
 
-# Linux cut has features we use that do not work elsewhere
-# Mac, etc. users should install GNU coreutils and use cut from there.
-#
-# For example, if you use Homebrew, run "brew install coreutils" once
-# and then invoke the LIBXS make command with
-# CUT=/usr/local/Cellar/coreutils/8.24/libexec/gnubin/cut
+# Linux cut has features we use that do not work elsewhere. Mac, etc. users
+# should install GNU coreutils and use "cut" from there.
+# For example, if you use Homebrew, run "brew install coreutils" once and invoke:
+# $ make CUT=/usr/local/Cellar/coreutils/8.24/libexec/gnubin/cut
 CUT ?= cut
 
 # Python interpreter
@@ -78,6 +76,12 @@ OUTDIR = lib
 BINDIR = bin
 DOCDIR = documentation
 
+# subdirectories for prefix based installation
+PINCDIR = $(INCDIR)
+POUTDIR = $(OUTDIR)
+PBINDIR = $(BINDIR)
+PDOCDIR = share/libxs
+
 CXXFLAGS = $(NULL)
 CFLAGS = $(NULL)
 DFLAGS = -D__extern_always_inline=inline
@@ -111,9 +115,6 @@ endif
 
 # JIT backend is enabled by default
 JIT ?= 1
-
-# include common Makefile artifacts
-include $(ROOTDIR)/Makefile.inc
 
 ifneq (0,$(STATIC))
 	LIBEXT = a
@@ -232,12 +233,12 @@ endif
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(SRCDIR)/libxs.template.h $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
+$(INCDIR)/libxs.h: $(INCDIR)/.mkdir \
+                     $(SRCDIR)/libxs.template.h $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
                      $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_typedefs.h $(ROOTDIR)/include/libxs_frontend.h \
                      $(ROOTDIR)/include/libxs_generator.h $(ROOTDIR)/include/libxs_timer.h \
                      $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile
-	@mkdir -p $(dir $@)
 	@$(ROOTDIR)/.hooks/install.sh
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
@@ -261,10 +262,10 @@ endif
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
-$(INCDIR)/libxs.f: $(SRCDIR)/libxs.template.f $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
+$(INCDIR)/libxs.f: $(INCDIR)/.mkdir $(BLDDIR)/.mkdir \
+                     $(SRCDIR)/libxs.template.f $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
                      $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
-	@mkdir -p $(dir $@) $(BLDDIR)
 	@$(ROOTDIR)/.hooks/install.sh
 	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
@@ -277,36 +278,33 @@ endif
 
 .PHONY: compile_generator_lib
 compile_generator_lib: $(OBJFILES_GEN_LIB)
-$(BLDDIR)/%.o: $(SRCDIR)/%.c $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
-	@mkdir -p $(dir $@)
+$(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.mkdir $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -c $< -o $@
 .PHONY: build_generator_lib
 build_generator_lib: $(OUTDIR)/intel64/libxsgen.$(LIBEXT)
-$(OUTDIR)/intel64/libxsgen.$(LIBEXT): $(OBJFILES_GEN_LIB)
-	@mkdir -p $(dir $@)
+$(OUTDIR)/intel64/libxsgen.$(LIBEXT): $(OUTDIR)/intel64/.mkdir $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
-	$(LD) -o $@ $^ -shared $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
 else
-	$(AR) -rs $@ $^
+	$(AR) -rs $@ $(OBJFILES_GEN_LIB)
 endif
 
 .PHONY: compile_generator
 compile_generator: $(OBJFILES_GEN_BIN)
-$(BLDDIR)/%.o: $(SRCDIR)/%.c $(INCDIR)/libxs.h $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
-	@mkdir -p $(dir $@)
+$(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.mkdir $(INCDIR)/libxs.h $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -c $< -o $@
 .PHONY: generator
 generator: $(BINDIR)/libxs_generator
-$(BINDIR)/libxs_generator: $(OBJFILES_GEN_BIN) $(OUTDIR)/intel64/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
-	@mkdir -p $(dir $@)
+$(BINDIR)/libxs_generator: $(BINDIR)/.mkdir $(OBJFILES_GEN_BIN) $(OUTDIR)/intel64/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	$(CC) $(LDFLAGS) $(CLDFLAGS) $(ELDFLAGS) $(OBJFILES_GEN_BIN) -L$(OUTDIR)/intel64 -lxsmmgen -o $@
 
 .PHONY: sources
 sources: $(SRCFILES)
-$(BLDDIR)/%.c: $(INCDIR)/libxs.h $(BINDIR)/libxs_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
-	$(eval MVALUE := $(shell echo $* | $(CUT) --output-delimiter=' ' -d_ -f2))
-	$(eval NVALUE := $(shell echo $* | $(CUT) --output-delimiter=' ' -d_ -f3))
-	$(eval KVALUE := $(shell echo $* | $(CUT) --output-delimiter=' ' -d_ -f4))
+$(BLDDIR)/%.c: $(BLDDIR)/.mkdir $(INCDIR)/libxs.h $(BINDIR)/libxs_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
+ifneq (,$(SRCFILES))
+	$(eval MVALUE := $(shell echo $@ | $(CUT) --output-delimiter=' ' -d_ -f2))
+	$(eval NVALUE := $(shell echo $@ | $(CUT) --output-delimiter=' ' -d_ -f3))
+	$(eval KVALUE := $(shell echo $@ | $(CUT) --output-delimiter=' ' -d_ -f4))
 ifneq (0,$(ROW_MAJOR)) # row-major
 	$(eval MNVALUE := $(NVALUE))
 	$(eval NMVALUE := $(MVALUE))
@@ -318,7 +316,6 @@ endif
 	$(eval ASTDP := $(shell echo $$((0!=$(ALIGNED_STORES)&&0==($(MNVALUE)*8)%$(ALIGNMENT)))))
 	$(eval ALDSP := $(shell echo $$((0!=$(ALIGNED_LOADS)&&0==($(MNVALUE)*4)%$(ALIGNMENT)))))
 	$(eval ALDDP := $(shell echo $$((0!=$(ALIGNED_LOADS)&&0==($(MNVALUE)*8)%$(ALIGNMENT)))))
-	@mkdir -p $(dir $@)
 	@echo "#include <libxs.h>" > $@
 	@echo >> $@
 ifneq (0,$(MIC))
@@ -366,53 +363,43 @@ endif
 		$@
 	@rm -f ${TMPFILE}
 	@$(PYTHON) $(SCRDIR)/libxs_specialized.py $(ROW_MAJOR) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >> $@
+endif
 
 .PHONY: main
 main: $(BLDDIR)/libxs_dispatch.h
-$(BLDDIR)/libxs_dispatch.h: $(INCDIR)/libxs.h $(SCRDIR)/libxs_dispatch.py
-	@mkdir -p $(dir $@)
+$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.mkdir $(INCDIR)/libxs.h $(SCRDIR)/libxs_dispatch.py
 	@$(PYTHON) $(SCRDIR)/libxs_dispatch.py $(THRESHOLD) $(INDICES) > $@
 
 ifneq (0,$(MIC))
 .PHONY: compile_mic
 compile_mic: $(OBJFILES_MIC)
-$(BLDDIR)/mic/%.o: $(BLDDIR)/%.c $(INCDIR)/libxs.h
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $< -o $@
-$(BLDDIR)/mic/%.o: $(SRCDIR)/%.c $(INCDIR)/libxs.h
-	@mkdir -p $(dir $@)
+$(BLDDIR)/mic/%.o: $(SRCDIR)/%.c $(BLDDIR)/mic/.mkdir $(INCDIR)/libxs.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $< -o $@
 endif
 
 .PHONY: compile_hst
 compile_hst: $(OBJFILES_HST)
-$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
-$(BLDDIR)/intel64/%.o: $(SRCDIR)/%.c $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
-	@mkdir -p $(dir $@)
+$(BLDDIR)/intel64/%.o: $(SRCDIR)/%.c $(BLDDIR)/intel64/.mkdir $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
 
 ifneq (0,$(MIC))
 .PHONY: lib_mic
 lib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
-$(OUTDIR)/mic/libxs.$(LIBEXT): $(OBJFILES_MIC)
-	@mkdir -p $(dir $@)
+$(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.mkdir $(OBJFILES_MIC)
 ifeq (0,$(STATIC))
-	$(LD) -o $@ $^ -shared $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_MIC) -shared $(LDFLAGS) $(CLDFLAGS)
 else
-	$(AR) -rs $@ $^
+	$(AR) -rs $@ $(OBJFILES_MIC)
 endif
 endif
 
 .PHONY: lib_hst
 lib_hst: $(OUTDIR)/intel64/libxs.$(LIBEXT)
-$(OUTDIR)/intel64/libxs.$(LIBEXT): $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
-	@mkdir -p $(dir $@)
+$(OUTDIR)/intel64/libxs.$(LIBEXT): $(OUTDIR)/intel64/.mkdir $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
-	$(LD) -o $@ $^ -shared $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
 else
-	$(AR) -rs $@ $^
+	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
 endif
 ifneq (0,$(JIT))
 	$(info =========================================================================)
@@ -450,9 +437,8 @@ cp2k_mic: lib_mic
 	@cd $(SPLDIR)/cp2k && $(MAKE) clean && $(MAKE) SYM=$(SYM) DBG=$(DBG) IPO=$(IPO) MIC=$(MIC)
 
 .PHONY: drytest
-drytest: $(SPLDIR)/cp2k/cp2k-perf.sh $(SPLDIR)/smm/smmf-perf.sh $(SPLDIR)/nek/grad-perf.sh $(SPLDIR)/nek/axhm-perf.sh $(SPLDIR)/nek/rstr-perf.sh
+drytest: $(SPLDIR)/cp2k/cp2k-perf.sh $(SPLDIR)/cp2k/.mkdir $(SPLDIR)/smm/smmf-perf.sh $(SPLDIR)/nek/grad-perf.sh $(SPLDIR)/nek/axhm-perf.sh $(SPLDIR)/nek/rstr-perf.sh
 $(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/Makefile
-	@mkdir -p $(dir $@)
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
@@ -479,8 +465,7 @@ $(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/smm/smmf-perf.sh: $(ROOTDIR)/Makefile
-	@mkdir -p $(dir $@)
+$(SPLDIR)/smm/smmf-perf.sh: $(SPLDIR)/smm/.mkdir $(ROOTDIR)/Makefile
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
@@ -507,8 +492,7 @@ $(SPLDIR)/smm/smmf-perf.sh: $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/nek/grad-perf.sh: $(ROOTDIR)/Makefile
-	@mkdir -p $(dir $@)
+$(SPLDIR)/nek/grad-perf.sh: $(SPLDIR)/nek/.mkdir $(ROOTDIR)/Makefile
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
@@ -535,8 +519,7 @@ $(SPLDIR)/nek/grad-perf.sh: $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/nek/axhm-perf.sh: $(ROOTDIR)/Makefile
-	@mkdir -p $(dir $@)
+$(SPLDIR)/nek/axhm-perf.sh: $(SPLDIR)/nek/.mkdir $(ROOTDIR)/Makefile
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
@@ -563,8 +546,7 @@ $(SPLDIR)/nek/axhm-perf.sh: $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/nek/rstr-perf.sh: $(ROOTDIR)/Makefile
-	@mkdir -p $(dir $@)
+$(SPLDIR)/nek/rstr-perf.sh: $(SPLDIR)/nek/.mkdir $(ROOTDIR)/Makefile
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
@@ -626,8 +608,7 @@ $(SPLDIR)/nek/axhm-perf.txt: $(SPLDIR)/nek/axhm-perf.sh lib_all
 		$(MAKE) SYM=$(SYM) DBG=$(DBG) IPO=$(IPO)
 	@$(SPLDIR)/nek/axhm-perf.sh $@
 
-$(DOCDIR)/libxs.pdf: $(ROOTDIR)/README.md
-	@mkdir -p $(dir $@)
+$(DOCDIR)/libxs.pdf: $(DOCDIR)/.mkdir $(ROOTDIR)/README.md
 	$(eval TEMPLATE := $(shell mktemp --tmpdir=. --suffix=.tex))
 	@pandoc -D latex > $(TEMPLATE)
 	@TMPFILE=`mktemp`
@@ -656,8 +637,8 @@ $(DOCDIR)/libxs.pdf: $(ROOTDIR)/README.md
 		-o $@
 	@rm $(TEMPLATE)
 
-$(DOCDIR)/cp2k.pdf: $(ROOTDIR)/documentation/cp2k.md
-	@mkdir -p $(dir $@)
+$(DOCDIR)/cp2k.pdf: $(DOCDIR)/.mkdir $(ROOTDIR)/documentation/cp2k.md
+
 	$(eval TEMPLATE := $(shell mktemp --tmpdir=. --suffix=.tex))
 	@pandoc -D latex > $(TEMPLATE)
 	@TMPFILE=`mktemp`
@@ -731,23 +712,41 @@ endif
 	@rm -f $(INCDIR)/libxs.f
 	@rm -f $(INCDIR)/libxs.h
 
-.PHONY: install
-install: lib_all
+.PHONY: install-minimal
 ifneq ($(abspath $(PREFIX)),$(abspath .))
-	@mkdir -p $(PREFIX)
-	cp -r $(OUTDIR) $(PREFIX)
-	cp -r $(BINDIR) $(PREFIX)
-	@mkdir -p $(PREFIX)/$(INCDIR)
-	cp $(INCDIR)/libxs*.h $(PREFIX)/$(INCDIR)
-	cp $(INCDIR)/libxs.f $(PREFIX)/$(INCDIR)
-	cp $(INCDIR)/*.mod* $(PREFIX)/$(INCDIR)
+install-minimal: lib_all
+	@echo
+	@echo "LIBXS installing binaries..."
+	@mkdir -p $(PREFIX)/$(POUTDIR) $(PREFIX)/$(PBINDIR) $(PREFIX)/$(PINCDIR)
+	@cp -uv $(OUTDIR)/intel64/libxs.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -uv $(OUTDIR)/intel64/libxs.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@if [[ -e $(OUTDIR)/mic/libxs.so ]] ; then \
+		mkdir -p $(PREFIX)/$(POUTDIR)/mic ; \
+		cp -uv $(OUTDIR)/mic/libxs.so $(PREFIX)/$(POUTDIR)/mic ; \
+	fi
+	@if [[ -e $(OUTDIR)/mic/libxs.a ]] ; then \
+		mkdir -p $(PREFIX)/$(POUTDIR)/mic ; \
+		cp -uv $(OUTDIR)/mic/libxs.a $(PREFIX)/$(POUTDIR)/mic ; \
+	fi
+	@cp -uv $(BINDIR)/libxs_generator $(PREFIX)/$(PBINDIR) 2> /dev/null || true
+	@cp -uv $(INCDIR)/libxs*.h $(PREFIX)/$(PINCDIR)
+	@cp -uv $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR)
+	@cp -uv $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR)
+else
+install-minimal: lib_all
 endif
 
-.PHONY: install-all
-install-all: install
-	@mkdir -p $(PREFIX)/share/libxs
-	cp $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/share/libxs
-	cp $(ROOTDIR)/$(DOCDIR)/*.pdf $(PREFIX)/share/libxs
-	cp $(ROOTDIR)/version.txt $(PREFIX)/share/libxs
-	cp $(ROOTDIR)/README.md $(PREFIX)/share/libxs
-	cp $(ROOTDIR)/LICENSE $(PREFIX)/share/libxs
+.PHONY: install
+install: install-minimal
+	@echo
+	@echo "LIBXS installing documentation..."
+	@mkdir -p $(PREFIX)/$(PDOCDIR)
+	@cp -uv $(ROOTDIR)/$(DOCDIR)/*.pdf $(PREFIX)/$(PDOCDIR)
+	@cp -uv $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/$(PDOCDIR)
+	@cp -uv $(ROOTDIR)/version.txt $(PREFIX)/$(PDOCDIR)
+	@cp -uv $(ROOTDIR)/README.md $(PREFIX)/$(PDOCDIR)
+	@cp -uv $(ROOTDIR)/LICENSE $(PREFIX)/$(PDOCDIR)
+
+# include common Makefile artifacts
+include $(ROOTDIR)/Makefile.inc
+
