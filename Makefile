@@ -281,8 +281,8 @@ compile_generator_lib: $(OBJFILES_GEN_LIB)
 $(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.mkdir $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -c $< -o $@
 .PHONY: build_generator_lib
-build_generator_lib: $(OUTDIR)/intel64/libxsgen.$(LIBEXT)
-$(OUTDIR)/intel64/libxsgen.$(LIBEXT): $(OUTDIR)/intel64/.mkdir $(OBJFILES_GEN_LIB)
+build_generator_lib: $(OUTDIR)/libxsgen.$(LIBEXT)
+$(OUTDIR)/libxsgen.$(LIBEXT): $(OUTDIR)/.mkdir $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
 else
@@ -295,8 +295,8 @@ $(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.mkdir $(INCDIR)/libxs.h $(ROOTDIR)/Makef
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -c $< -o $@
 .PHONY: generator
 generator: $(BINDIR)/libxs_generator
-$(BINDIR)/libxs_generator: $(BINDIR)/.mkdir $(OBJFILES_GEN_BIN) $(OUTDIR)/intel64/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
-	$(CC) $(LDFLAGS) $(CLDFLAGS) $(ELDFLAGS) $(OBJFILES_GEN_BIN) -L$(OUTDIR)/intel64 -lxsmmgen -o $@
+$(BINDIR)/libxs_generator: $(BINDIR)/.mkdir $(OBJFILES_GEN_BIN) $(OUTDIR)/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
+	$(CC) $(LDFLAGS) $(CLDFLAGS) $(ELDFLAGS) $(OBJFILES_GEN_BIN) -L$(OUTDIR) -lxsmmgen -o $@
 
 .PHONY: sources
 sources: $(SRCFILES)
@@ -398,8 +398,8 @@ endif
 endif
 
 .PHONY: lib_hst
-lib_hst: $(OUTDIR)/intel64/libxs.$(LIBEXT)
-$(OUTDIR)/intel64/libxs.$(LIBEXT): $(OUTDIR)/intel64/.mkdir $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
+lib_hst: $(OUTDIR)/libxs.$(LIBEXT)
+$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.mkdir $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
 else
@@ -694,10 +694,10 @@ ifneq ($(abspath $(OUTDIR)),$(ROOTDIR))
 ifneq ($(abspath $(OUTDIR)),$(abspath .))
 	@rm -rf $(OUTDIR)
 else
-	@rm -f $(OUTDIR)/intel64/libxs.$(LIBEXT) $(OUTDIR)/mic/libxs.$(LIBEXT) $(OUTDIR)/intel64/libxsgen.$(LIBEXT)
+	@rm -f $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/mic/libxs.$(LIBEXT) $(OUTDIR)/libxsgen.$(LIBEXT)
 endif
 else
-	@rm -f $(OUTDIR)/intel64/libxs.$(LIBEXT) $(OUTDIR)/mic/libxs.$(LIBEXT) $(OUTDIR)/intel64/libxsgen.$(LIBEXT)
+	@rm -f $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/mic/libxs.$(LIBEXT) $(OUTDIR)/libxsgen.$(LIBEXT)
 endif
 ifneq ($(abspath $(BINDIR)),$(ROOTDIR))
 ifneq ($(abspath $(BINDIR)),$(abspath .))
@@ -722,8 +722,10 @@ install-minimal: lib_all
 	@echo
 	@echo "LIBXS installing binaries..."
 	@mkdir -p $(PREFIX)/$(POUTDIR) $(PREFIX)/$(PBINDIR) $(PREFIX)/$(PINCDIR)
-	@cp -uv $(OUTDIR)/intel64/libxs.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
-	@cp -uv $(OUTDIR)/intel64/libxs.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -uv $(OUTDIR)/libxsgen.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -uv $(OUTDIR)/libxsgen.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -uv $(OUTDIR)/libxs.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -uv $(OUTDIR)/libxs.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
 	@if [[ -e $(OUTDIR)/mic/libxs.so ]] ; then \
 		mkdir -p $(PREFIX)/$(POUTDIR)/mic ; \
 		cp -uv $(OUTDIR)/mic/libxs.so $(PREFIX)/$(POUTDIR)/mic ; \
