@@ -20,14 +20,14 @@ int main()
 #endif
   for (i = 0; i < 1000; ++i) {
     float c[23*23];
-    const libxs_smmfunction f = libxs_smmdispatch(23, 23, 23,
+    const libxs_smmfunction f = libxs_smmdispatch(23, 23, (i / 50) % 23 + 1,
       NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, NULL/*alpha*/, NULL/*beta*/,
       NULL/*flags*/, NULL/*prefetch*/);
     if (NULL != f) {
       LIBXS_MMCALL_ABC(f, a, b, c);
     }
     else {
-      const libxs_blasint m = 23, n = 23, k = 23;
+      const libxs_blasint m = 23, n = 23, k = (i / 50) % 23 + 1;
       libxs_sgemm(NULL/*transa*/, NULL/*transb*/, &m, &n, &k,
         NULL/*alpha*/, a, NULL/*lda*/, b, NULL/*ldb*/, 
         NULL/*beta*/, c, NULL/*ldc*/);
