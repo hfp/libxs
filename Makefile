@@ -295,7 +295,7 @@ $(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.mkdir $(INCDIR)/libxs.h $(ROOTDIR)/Makef
 .PHONY: generator
 generator: $(BINDIR)/libxs_generator
 $(BINDIR)/libxs_generator: $(BINDIR)/.mkdir $(OBJFILES_GEN_BIN) $(OUTDIR)/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
-	$(CC) $(LDFLAGS) $(CLDFLAGS) $(ELDFLAGS) $(OBJFILES_GEN_BIN) -L$(OUTDIR) -lxsmmgen -o $@
+	$(CC) $(OBJFILES_GEN_BIN) -L$(OUTDIR) -lxsmmgen $(LDFLAGS) $(CLDFLAGS) $(ELDFLAGS) -o $@
 
 .PHONY: sources
 sources: $(SRCFILES)
@@ -332,25 +332,25 @@ ifeq (noarch,$(GENTARGET))
 	@echo "#define LIBXS_GENTARGET_wsm_dp" >> $@
 	@echo >> $@
 	@echo >> $@
-	$(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_knl $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTSP) knl $(PREFETCH_SCHEME) SP
-	$(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_knl $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDDP) $(ASTDP) knl $(PREFETCH_SCHEME) DP
-	$(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTSP) hsw $(PREFETCH_SCHEME) SP
-	$(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDDP) $(ASTDP) hsw $(PREFETCH_SCHEME) DP
-	$(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_snb $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTSP) snb $(PREFETCH_SCHEME) SP
-	$(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_snb $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDDP) $(ASTDP) snb $(PREFETCH_SCHEME) DP
-	$(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_wsm $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTSP) wsm $(PREFETCH_SCHEME) SP
-	$(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_wsm $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDDP) $(ASTDP) wsm $(PREFETCH_SCHEME) DP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_knl $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTSP) knl $(PREFETCH_SCHEME) SP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_knl $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDDP) $(ASTDP) knl $(PREFETCH_SCHEME) DP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_hsw $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTSP) hsw $(PREFETCH_SCHEME) SP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_hsw $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDDP) $(ASTDP) hsw $(PREFETCH_SCHEME) DP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_snb $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTSP) snb $(PREFETCH_SCHEME) SP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_snb $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDDP) $(ASTDP) snb $(PREFETCH_SCHEME) DP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_wsm $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTSP) wsm $(PREFETCH_SCHEME) SP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_wsm $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDDP) $(ASTDP) wsm $(PREFETCH_SCHEME) DP
 else
 	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_sp" >> $@
 	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_dp" >> $@
 	@echo >> $@
 	@echo >> $@
-	$(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTSP) $(GENTARGET) $(PREFETCH_SCHEME) SP
-	$(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDDP) $(ASTDP) $(GENTARGET) $(PREFETCH_SCHEME) DP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTSP) $(GENTARGET) $(PREFETCH_SCHEME) SP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDDP) $(ASTDP) $(GENTARGET) $(PREFETCH_SCHEME) DP
 endif
 ifneq (0,$(MIC))
-	$(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTDP) knc $(PREFETCH_SCHEME) SP
-	$(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTDP) knc $(PREFETCH_SCHEME) DP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_s$(basename $(notdir $@))_knc $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTDP) knc $(PREFETCH_SCHEME) SP
+	env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator dense $@ libxs_d$(basename $(notdir $@))_knc $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) $(ALDSP) $(ASTDP) knc $(PREFETCH_SCHEME) DP
 endif
 	@TMPFILE=`mktemp`
 	@sed -i ${TMPFILE} \
@@ -390,7 +390,7 @@ ifneq (0,$(MIC))
 lib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
 $(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.mkdir $(OBJFILES_MIC)
 ifeq (0,$(STATIC))
-	$(LD) -o $@ $(OBJFILES_MIC) -shared $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_MIC) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
 else
 	$(AR) -rs $@ $(OBJFILES_MIC)
 endif
