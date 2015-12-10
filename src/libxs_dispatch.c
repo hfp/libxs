@@ -27,12 +27,14 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_crc32.h"
-#include <libxs_generator.h>
 #include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_BUILD)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+/* mute warning about target attribute; KNC/native plus JIT is disabled below! */
+#include <libxs_generator.h>
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -259,7 +261,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry internal_build(const libxs_
   result = *cache;
 #endif
 
-#if (0 != LIBXS_JIT)
+#if (0 != LIBXS_JIT) && !defined(__MIC__)
   if (0 == result.pv) {
 #if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*allow code coverage with Cygwin; fails at runtime!*/)
 # if !defined(_OPENMP)
