@@ -130,8 +130,8 @@
 #define LIBXS_NBITS08(N) (0 != ((N) & 0xF0/*0b11110000*/) ? (4 + LIBXS_NBITS04((N) >> 4)) : LIBXS_NBITS04(N))
 #define LIBXS_NBITS16(N) (0 != ((N) & 0xFF00) ? (8 + LIBXS_NBITS08((N) >> 8)) : LIBXS_NBITS08(N))
 #define LIBXS_NBITS32(N) (0 != ((N) & 0xFFFF0000) ? (16 + LIBXS_NBITS16((N) >> 16)) : LIBXS_NBITS16(N))
-#define LIBXS_NBITS64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 + LIBXS_NBITS32((uint64_t)(N) >> 32)) : LIBXS_NBITS32(N))
-#define LIBXS_NBITS(N) (0 != (N) ? (LIBXS_NBITS64(N) + 1) : 1)
+#define LIBXS_NBITS64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 + LIBXS_NBITS32((N) >> 32)) : LIBXS_NBITS32(N))
+#define LIBXS_NBITS(N) (0 != (N) ? (LIBXS_NBITS64((uint64_t)(N)) + 1) : 1)
 
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
