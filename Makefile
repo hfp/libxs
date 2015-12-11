@@ -240,7 +240,7 @@ endif
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(INCDIR)/.mkdir \
+$(INCDIR)/libxs.h: $(INCDIR)/.make \
                      $(SRCDIR)/libxs.template.h $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
                      $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_typedefs.h $(ROOTDIR)/include/libxs_frontend.h \
                      $(ROOTDIR)/include/libxs_generator.h $(ROOTDIR)/include/libxs_timer.h \
@@ -263,7 +263,7 @@ endif
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
-$(INCDIR)/libxs.f: $(INCDIR)/.mkdir $(BLDDIR)/.mkdir \
+$(INCDIR)/libxs.f: $(INCDIR)/.make $(BLDDIR)/.make \
                      $(SRCDIR)/libxs.template.f $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
                      $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
@@ -279,11 +279,11 @@ endif
 
 .PHONY: compile_generator_lib
 compile_generator_lib: $(OBJFILES_GEN_LIB)
-$(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.mkdir $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
+$(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -c $< -o $@
 .PHONY: build_generator_lib
 build_generator_lib: $(OUTDIR)/libxsgen.$(LIBEXT)
-$(OUTDIR)/libxsgen.$(LIBEXT): $(OUTDIR)/.mkdir $(OBJFILES_GEN_LIB)
+$(OUTDIR)/libxsgen.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
 else
@@ -292,16 +292,16 @@ endif
 
 .PHONY: compile_generator
 compile_generator: $(OBJFILES_GEN_BIN)
-$(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.mkdir $(INCDIR)/libxs.h $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
+$(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.make $(INCDIR)/libxs.h $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -c $< -o $@
 .PHONY: generator
 generator: $(BINDIR)/libxs_generator
-$(BINDIR)/libxs_generator: $(BINDIR)/.mkdir $(OBJFILES_GEN_BIN) $(OUTDIR)/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
+$(BINDIR)/libxs_generator: $(BINDIR)/.make $(OBJFILES_GEN_BIN) $(OUTDIR)/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	$(CC) $(OBJFILES_GEN_BIN) -L$(OUTDIR) -lxsmmgen $(LDFLAGS) $(CLDFLAGS) $(ELDFLAGS) -o $@
 
 .PHONY: sources
 sources: $(SRCFILES)
-$(BLDDIR)/%.c: $(BLDDIR)/.mkdir $(INCDIR)/libxs.h $(BINDIR)/libxs_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
+$(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
 ifneq (,$(SRCFILES))
 	$(eval MVALUE := $(shell echo $(basename $@) | $(CUT) --output-delimiter=' ' -d_ -f2))
 	$(eval NVALUE := $(shell echo $(basename $@) | $(CUT) --output-delimiter=' ' -d_ -f3))
@@ -368,29 +368,29 @@ endif
 
 .PHONY: main
 main: $(BLDDIR)/libxs_dispatch.h
-$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.mkdir $(INCDIR)/libxs.h $(SCRDIR)/libxs_dispatch.py
+$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(INCDIR)/libxs.h $(SCRDIR)/libxs_dispatch.py
 	@$(PYTHON) $(SCRDIR)/libxs_dispatch.py $(THRESHOLD) $(INDICES) > $@
 
 ifneq (0,$(MIC))
 .PHONY: compile_mic
 compile_mic: $(OBJFILES_MIC)
-$(BLDDIR)/mic/%.o: $(SRCDIR)/%.c $(BLDDIR)/mic/.mkdir $(INCDIR)/libxs.h
+$(BLDDIR)/mic/%.o: $(SRCDIR)/%.c $(BLDDIR)/mic/.make $(INCDIR)/libxs.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $< -o $@
-$(BLDDIR)/mic/%.o: $(BLDDIR)/%.c $(BLDDIR)/mic/.mkdir $(INCDIR)/libxs.h
+$(BLDDIR)/mic/%.o: $(BLDDIR)/%.c $(BLDDIR)/mic/.make $(INCDIR)/libxs.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $< -o $@
 endif
 
 .PHONY: compile_hst
 compile_hst: $(OBJFILES_HST)
-$(BLDDIR)/intel64/%.o: $(SRCDIR)/%.c $(BLDDIR)/intel64/.mkdir $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
+$(BLDDIR)/intel64/%.o: $(SRCDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
-$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.mkdir $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
+$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
 
 ifneq (0,$(MIC))
 .PHONY: lib_mic
 lib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
-$(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.mkdir $(OBJFILES_MIC)
+$(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC)
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_MIC) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
 else
@@ -400,7 +400,7 @@ endif
 
 .PHONY: lib_hst
 lib_hst: $(OUTDIR)/libxs.$(LIBEXT)
-$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.mkdir $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
+$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
 else
@@ -442,7 +442,7 @@ cp2k_mic: lib_mic
 	@cd $(SPLDIR)/cp2k && $(MAKE) clean && $(MAKE) SYM=$(SYM) DBG=$(DBG) IPO=$(IPO) MIC=$(MIC)
 
 .PHONY: drytest
-drytest: $(SPLDIR)/cp2k/cp2k-perf.sh $(SPLDIR)/cp2k/.mkdir $(SPLDIR)/smm/smmf-perf.sh $(SPLDIR)/nek/grad-perf.sh $(SPLDIR)/nek/axhm-perf.sh $(SPLDIR)/nek/rstr-perf.sh
+drytest: $(SPLDIR)/cp2k/cp2k-perf.sh $(SPLDIR)/cp2k/.make $(SPLDIR)/smm/smmf-perf.sh $(SPLDIR)/nek/grad-perf.sh $(SPLDIR)/nek/axhm-perf.sh $(SPLDIR)/nek/rstr-perf.sh
 $(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/Makefile
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
@@ -470,7 +470,7 @@ $(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/smm/smmf-perf.sh: $(SPLDIR)/smm/.mkdir $(ROOTDIR)/Makefile
+$(SPLDIR)/smm/smmf-perf.sh: $(SPLDIR)/smm/.make $(ROOTDIR)/Makefile
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
@@ -497,7 +497,7 @@ $(SPLDIR)/smm/smmf-perf.sh: $(SPLDIR)/smm/.mkdir $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/nek/grad-perf.sh: $(SPLDIR)/nek/.mkdir $(ROOTDIR)/Makefile
+$(SPLDIR)/nek/grad-perf.sh: $(SPLDIR)/nek/.make $(ROOTDIR)/Makefile
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
@@ -524,7 +524,7 @@ $(SPLDIR)/nek/grad-perf.sh: $(SPLDIR)/nek/.mkdir $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/nek/axhm-perf.sh: $(SPLDIR)/nek/.mkdir $(ROOTDIR)/Makefile
+$(SPLDIR)/nek/axhm-perf.sh: $(SPLDIR)/nek/.make $(ROOTDIR)/Makefile
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
@@ -551,7 +551,7 @@ $(SPLDIR)/nek/axhm-perf.sh: $(SPLDIR)/nek/.mkdir $(ROOTDIR)/Makefile
 	@echo >> $@
 	@chmod +x $@
 
-$(SPLDIR)/nek/rstr-perf.sh: $(SPLDIR)/nek/.mkdir $(ROOTDIR)/Makefile
+$(SPLDIR)/nek/rstr-perf.sh: $(SPLDIR)/nek/.make $(ROOTDIR)/Makefile
 	@echo "#!/bin/bash" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
@@ -613,7 +613,7 @@ $(SPLDIR)/nek/axhm-perf.txt: $(SPLDIR)/nek/axhm-perf.sh lib_all
 		$(MAKE) SYM=$(SYM) DBG=$(DBG) IPO=$(IPO)
 	@$(SPLDIR)/nek/axhm-perf.sh $@
 
-$(DOCDIR)/libxs.pdf: $(DOCDIR)/.mkdir $(ROOTDIR)/README.md
+$(DOCDIR)/libxs.pdf: $(DOCDIR)/.make $(ROOTDIR)/README.md
 	$(eval TEMPLATE := $(shell mktemp --tmpdir=. --suffix=.tex))
 	@pandoc -D latex > $(TEMPLATE)
 	@TMPFILE=`mktemp`
@@ -642,7 +642,7 @@ $(DOCDIR)/libxs.pdf: $(DOCDIR)/.mkdir $(ROOTDIR)/README.md
 		-o $@
 	@rm $(TEMPLATE)
 
-$(DOCDIR)/cp2k.pdf: $(DOCDIR)/.mkdir $(ROOTDIR)/documentation/cp2k.md
+$(DOCDIR)/cp2k.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/cp2k.md
 
 	$(eval TEMPLATE := $(shell mktemp --tmpdir=. --suffix=.tex))
 	@pandoc -D latex > $(TEMPLATE)
