@@ -59,20 +59,26 @@
 # define LIBXS_DISPATCH_STDATOMIC
 #endif
 
-/* rely on a "pseudo prime" number (Mersenne) to improve cache spread */
-#define LIBXS_DISPATCH_CACHESIZE ((2 << LIBXS_NBITS(LIBXS_MAX_MNK * (0 != LIBXS_JIT ? 2 : 5))) - 1)
-#define LIBXS_DISPATCH_HASH_SEED 0
-
+/* approximation of the dispatch space
+ * can be much larger when exercising more than one GEMM parameters per M,N,K-point
+ * can be also much smaller if never requesting many code versions
+ */
+#define LIBXS_DISPATCH_CACHESIZE_BASE (LIBXS_MAX_MNK * 2/*SP+DP*/)
+#define LIBXS_DISPATCH_CACHESIZE_FACTOR 2 /* oversize factor of cache size */
+/* size arranged to be (pseudo-)prime number (Mersenne) in order to improve cache spread */
+#define LIBXS_DISPATCH_CACHESIZE ((2 << LIBXS_NBITS(LIBXS_DISPATCH_CACHESIZE_BASE * LIBXS_DISPATCH_CACHESIZE_FACTOR)) - 1)
+/* flag fused into the memory address of a code version in case of collision */
+#define LIBXS_DISPATCH_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 1))
+#define LIBXS_DISPATCH_HASH_SEED 0 /* CRC32 seed */
 
 typedef union LIBXS_RETARGETABLE libxs_dispatch_code {
   libxs_smmfunction smm;
   libxs_dmmfunction dmm;
   /*const*/void* xmm;
+  uintptr_t imm;
 } libxs_dispatch_code;
 typedef struct LIBXS_RETARGETABLE libxs_dispatch_entry {
-#if 0 /* TODO: collision handling */
   libxs_gemm_descriptor descriptor;
-#endif
   libxs_dispatch_code code;
   /* needed to distinct statically generated code and for munmap */
   unsigned int code_size;
@@ -90,8 +96,10 @@ LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
 #endif
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
 {
+  /*const*/libxs_dispatch_entry* result;
+
 #if !defined(_OPENMP)
   /* acquire one of the locks as the master lock */
   LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[LIBXS_DISPATCH_LOCKMASTER]);
@@ -99,23 +107,19 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 # pragma omp critical(libxs_dispatch_lock)
 #endif
   {
-    /*const*/void* cache;
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-    __atomic_load((void**)&libxs_dispatch_cache, &cache, __ATOMIC_SEQ_CST);
+    __atomic_load(&libxs_dispatch_cache, &result, __ATOMIC_SEQ_CST);
 #else
-    cache = libxs_dispatch_cache;
+    result = libxs_dispatch_cache;
 #endif
 
-    if (0 == cache) {
+    if (0 == result) {
       libxs_dispatch_entry *const buffer = (libxs_dispatch_entry*)malloc(
         LIBXS_DISPATCH_CACHESIZE * sizeof(libxs_dispatch_entry));
       assert(buffer);
       if (buffer) {
         int i;
-        for (i = 0; i < LIBXS_DISPATCH_CACHESIZE; ++i) {
-          buffer[i].code.xmm = 0;
-          buffer[i].code_size = 0;
-        }
+        for (i = 0; i < LIBXS_DISPATCH_CACHESIZE; ++i) buffer[i].code.xmm = 0;
         { /* open scope for variable declarations */
           /* setup the dispatch table for the statically generated code */
 #         include <libxs_dispatch.h>
@@ -141,6 +145,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
   /* release the master lock */
   LIBXS_LOCK_RELEASE(libxs_dispatch_lock[LIBXS_DISPATCH_LOCKMASTER]);
 #endif
+
+  return result;
 }
 
 
@@ -214,6 +220,126 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 }
 
 
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc, const char* archid,
+  void** code, unsigned int* code_size)
+{
+  assert(0 != desc && 0 != code && 0 != code_size);
+  assert(0 == *code);
+
+  if (0 != archid) {
+    /* allocate buffer for code */
+    libxs_generated_code generated_code;
+    generated_code.generated_code = malloc(131072 * sizeof(unsigned char));
+    generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
+    generated_code.code_size = 0;
+    generated_code.code_type = 2;
+    generated_code.last_error = 0;
+
+    /* generate kernel */
+    libxs_generator_dense_kernel(&generated_code, desc, archid);
+
+    /* handle an eventual error in the else-branch */
+    if (0 == generated_code.last_error) {
+      /* create executable buffer */
+      const int fd = open("/dev/zero", O_RDWR);
+      /* must be a superset of what mprotect populates (see below) */
+      const int perms = PROT_READ | PROT_WRITE | PROT_EXEC;
+      *code = mmap(0, generated_code.code_size, perms, MAP_PRIVATE, fd, 0);
+      close(fd);
+
+      if (MAP_FAILED != *code) {
+        /* explicitly disable THP for this memory region, kernel 2.6.38 or higher */
+#if defined(MADV_NOHUGEPAGE)
+# if defined(NDEBUG)
+        madvise(*code, generated_code.code_size, MADV_NOHUGEPAGE);
+# else /* library code is usually expected to be mute */
+        /* proceed even in case of an error, we then just take what we got (THP) */
+        if (0 != madvise(*code, generated_code.code_size, MADV_NOHUGEPAGE)) {
+          fprintf(stderr, "LIBXS: %s (madvise)!\n", strerror(errno));
+        }
+# endif /*defined(NDEBUG)*/
+#endif /*MADV_NOHUGEPAGE*/
+        /* copy temporary buffer into the prepared executable buffer */
+        memcpy(*code, generated_code.generated_code, generated_code.code_size);
+
+        if (0/*ok*/ == mprotect(*code, generated_code.code_size, PROT_EXEC | PROT_READ)) {
+#if !defined(NDEBUG)
+          /* write buffer for manual decode as binary to a file */
+          char objdump_name[512];
+          FILE* byte_code;
+          sprintf(objdump_name, "kernel_prec%i_m%u_n%u_k%u_lda%u_ldb%u_ldc%u_a%i_b%i_ta%c_tb%c_pf%i.bin",
+            0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 0 : 1,
+            desc->m, desc->n, desc->k, desc->lda, desc->ldb, desc->ldc, desc->alpha, desc->beta,
+            0 == (LIBXS_GEMM_FLAG_TRANS_A & desc->flags) ? 'n' : 't',
+            0 == (LIBXS_GEMM_FLAG_TRANS_B & desc->flags) ? 'n' : 't',
+            desc->prefetch);
+          byte_code = fopen(objdump_name, "wb");
+          if (byte_code != NULL) {
+            fwrite(generated_code.generated_code, 1, generated_code.code_size, byte_code);
+            fclose(byte_code);
+          }
+#endif /*NDEBUG*/
+          /* free temporary/initial code buffer */
+          free(generated_code.generated_code);
+          /* finalize code generation */
+          *code_size = generated_code.code_size;
+        }
+        else { /* there was an error with mprotect */
+#if defined(NDEBUG)
+          munmap(*code, generated_code.code_size);
+#else /* library code is usually expected to be mute */
+          fprintf(stderr, "LIBXS: %s (mprotect)!\n", strerror(errno));
+          if (0 != munmap(*code, generated_code.code_size)) {
+            fprintf(stderr, "LIBXS: %s (munmap)!\n", strerror(errno));
+          }
+#endif
+          free(generated_code.generated_code);
+        }
+      }
+      else {
+#if !defined(NDEBUG) /* library code is usually expected to be mute */
+        fprintf(stderr, "LIBXS: %s (mmap)!\n", strerror(errno));
+#endif
+        free(generated_code.generated_code);
+      }
+    }
+    else {
+#if !defined(NDEBUG) /* library code is usually expected to be mute */
+      fprintf(stderr, "%s\n", libxs_strerror(generated_code.last_error));
+#endif
+      free(generated_code.generated_code);
+    }
+  }
+  else {
+#if !defined(NDEBUG) /* library code is usually expected to be mute */
+# if defined(__SSE3__)
+    fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
+# elif defined(__MIC__)
+    fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
+# else
+    fprintf(stderr, "LIBXS: no instruction set extension found for JIT-code generation!\n");
+# endif
+#endif
+  }
+}
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
+{
+  const unsigned *const ia = (const unsigned int*)a, *const ib = (const unsigned int*)b;
+  unsigned int result;
+  int i;
+  assert(0 != a && 0 != b && 0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(int)));
+
+  result = ia[0] ^ ib[0];
+  for (i = 1; i < LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(int)); ++i) {
+    result |= (ia[i] ^ ib[i]);
+  }
+
+  return result;
+}
+
+
 LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_supply_archid(void)
 {
   unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
@@ -255,11 +381,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_supply_archid(void)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_build(const libxs_gemm_descriptor* desc)
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const libxs_gemm_descriptor* desc)
 {
   libxs_dispatch_entry *cache_entry;
   libxs_dispatch_code result;
-  unsigned int hash, indx;
+  unsigned int hash, i, diff0 = 0, diff = 0;
   assert(0 != desc);
 
 #if defined(LIBXS_DISPATCH_STDATOMIC)
@@ -270,158 +396,120 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_build(const libxs_g
 
   /* lazy initialization */
   if (0 == cache_entry) {
-    internal_init();
-#if defined(LIBXS_DISPATCH_STDATOMIC)
-    __atomic_load(&libxs_dispatch_cache, &cache_entry, __ATOMIC_RELAXED);
-#else
-    cache_entry = libxs_dispatch_cache;
-#endif
+    /* use init's return value to refresh local representation */
+    cache_entry = internal_init();
   }
 
   /* check if the requested xGEMM is already JITted */
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
   hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_DISPATCH_HASH_SEED);
-  indx = hash % LIBXS_DISPATCH_CACHESIZE;
-  cache_entry += indx; /* actual entry */
-  /* read cached code */
+  i = hash % LIBXS_DISPATCH_CACHESIZE;
+  cache_entry += i; /* actual entry */
+  do {
+    /* read cached code */
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-  __atomic_load(&cache_entry->code, &result, __ATOMIC_SEQ_CST);
+    __atomic_load(&cache_entry->code, &result, __ATOMIC_SEQ_CST);
 #else
-  result = cache_entry->code;
+    result = cache_entry->code;
 #endif
 
+    if (0 != result.xmm) {
+      if (0 == diff0) {
+        if (0 == (LIBXS_DISPATCH_HASH_COLLISION & result.imm)) { /* check for no collision */
+          /* calculate bitwise difference (deep check) */
+          diff = internal_gemmdiff(desc, &cache_entry->descriptor);
+          if (0 != diff) { /* new collision discovered (but no code version yet) */
+            /* allow to fixup current entry */
+            result.xmm = 0;
+          }
+        }
+        else { /* collision discovered but code version exists */
+          const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_DISPATCH_CACHESIZE;
+          libxs_dispatch_entry *const cache = cache_entry - i; /* recalculate base address */
+          for (i = (index != i ? index : (index + 1));
+            0 != internal_gemmdiff(desc, &(cache_entry = cache + i % LIBXS_DISPATCH_CACHESIZE)->descriptor);
+            ++i);
+          /* found exact code version */
+          result = cache_entry->code;
+          /* clear the uppermost bit of the address */
+          result.imm &= ~LIBXS_DISPATCH_HASH_COLLISION;
+        }
+      }
+      else { /* new collision discovered (but no code version yet) */
+        result.xmm = 0;
+      }
+    }
+    else {
+      diff = 0;
+    }
+
 #if (0 != LIBXS_JIT) && !defined(__MIC__)
-  if (0 == result.xmm) {
+    if (0 == result.xmm) { /* check if code generation or fixup is needed */
+      /* attempt to lock the cache entry */
 #if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*allow code coverage with Cygwin; fails at runtime!*/)
 # if !defined(_OPENMP)
-    const unsigned int lock = LIBXS_MOD2(indx, sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock));
-    LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[lock]);
+      const unsigned int lock = LIBXS_MOD2(i, sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock));
+      LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[lock]);
 # else
-#   pragma omp critical(libxs_dispatch_lock)
+#     pragma omp critical(libxs_dispatch_lock)
 # endif
-    {
-      result = cache_entry->code;
+      {
+        /* re-read cache entry after acquiring the lock */
+        if (0 == diff) result = cache_entry->code;
 
-      if (0 == result.xmm) {
-        const char *const archid = internal_supply_archid();
-        libxs_generated_code generated_code;
-        void* code;
+        if (0 == result.xmm) { /* double-check after acquiring the lock */
+          if (0 == diff) {
+            /* found a conflict-free cache-slot, and attempt to build the kernel */
+            internal_build(desc, internal_supply_archid(), &result.xmm, &cache_entry->code_size);
 
-        if (0 != archid) {
-          /* allocate buffer for code */
-          generated_code.generated_code = malloc(131072 * sizeof(unsigned char));
-          generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
-          generated_code.code_size = 0;
-          generated_code.code_type = 2;
-          generated_code.last_error = 0;
-
-          /* generate kernel */
-          libxs_generator_dense_kernel(&generated_code, desc, archid);
-
-          /* handle an eventual error in the else-branch */
-          if (0 == generated_code.last_error) {
-            /* create executable buffer */
-            const int fd = open("/dev/zero", O_RDWR);
-            /* must be a superset of what mprotect populates (see below) */
-            const int perms = PROT_READ | PROT_WRITE | PROT_EXEC;
-            code = mmap(0, generated_code.code_size, perms, MAP_PRIVATE, fd, 0);
-            close(fd);
-
-            if (MAP_FAILED != code) {
-              /* explicitly disable THP for this memory region, kernel 2.6.38 or higher */
-# if defined(MADV_NOHUGEPAGE)
-#   if defined(NDEBUG)
-              madvise(code, generated_code.code_size, MADV_NOHUGEPAGE);
-#   else /* library code is usually expected to be mute */
-              /* proceed even in case of an error, we then just take what we got (THP) */
-              if (0 != madvise(code, generated_code.code_size, MADV_NOHUGEPAGE)) {
-                fprintf(stderr, "LIBXS: %s (madvise)!\n", strerror(errno));
-              }
-#   endif /*defined(NDEBUG)*/
-# endif /*MADV_NOHUGEPAGE*/
-              /* copy temporary buffer into the prepared executable buffer */
-              memcpy(code, generated_code.generated_code, generated_code.code_size);
-
-              if (0/*ok*/ == mprotect(code, generated_code.code_size, PROT_EXEC | PROT_READ)) {
-# if !defined(NDEBUG)
-                /* write buffer for manual decode as binary to a file */
-                char objdump_name[512];
-                FILE* byte_code;
-                sprintf(objdump_name, "kernel_prec%i_m%u_n%u_k%u_lda%u_ldb%u_ldc%u_a%i_b%i_ta%c_tb%c_pf%i.bin",
-                  0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 0 : 1,
-                  desc->m, desc->n, desc->k, desc->lda, desc->ldb, desc->ldc, desc->alpha, desc->beta,
-                  0 == (LIBXS_GEMM_FLAG_TRANS_A & desc->flags) ? 'n' : 't',
-                  0 == (LIBXS_GEMM_FLAG_TRANS_B & desc->flags) ? 'n' : 't',
-                  desc->prefetch);
-                byte_code = fopen(objdump_name, "wb");
-                if (byte_code != NULL) {
-                  fwrite(generated_code.generated_code, 1, generated_code.code_size, byte_code);
-                  fclose(byte_code);
-                }
-# endif /*NDEBUG*/
-                /* free temporary/initial code buffer */
-                free(generated_code.generated_code);
-
-                /* prepare result and cache entry (but omit touching code/sync entry!) */
-                /* TODO: cache_entry->descriptor = *desc; */
-                result.xmm = code;
-                cache_entry->code_size = generated_code.code_size;
-
-                /* make function pointer available for dispatch (synchronization) */
-# if defined(LIBXS_DISPATCH_STDATOMIC)
-                __atomic_store(&cache_entry->code.xmm, (const void**)&code, __ATOMIC_SEQ_CST);
-# else
-                cache_entry->code.xmm = code;
-# endif
-              }
-              else { /* there was an error with mprotect */
-# if defined(NDEBUG)
-                munmap(code, generated_code.code_size);
-# else /* library code is usually expected to be mute */
-                fprintf(stderr, "LIBXS: %s (mprotect)!\n", strerror(errno));
-                if (0 != munmap(code, generated_code.code_size)) {
-                  fprintf(stderr, "LIBXS: %s (munmap)!\n", strerror(errno));
-                }
-# endif
-                free(generated_code.generated_code);
-              }
-            }
-            else {
-# if !defined(NDEBUG) /* library code is usually expected to be mute */
-              fprintf(stderr, "LIBXS: %s (mmap)!\n", strerror(errno));
-# endif
-              free(generated_code.generated_code);
+            if (0 != result.xmm) { /* synchronize cache entry */
+              cache_entry->descriptor = *desc;
+#if defined(LIBXS_DISPATCH_STDATOMIC)
+              __atomic_store(&cache_entry->code.xmm, (const void**)&result.xmm, __ATOMIC_SEQ_CST);
+#else
+              cache_entry->code.xmm = result.xmm;
+#endif
             }
           }
           else {
-# if !defined(NDEBUG) /* library code is usually expected to be mute */
-            fprintf(stderr, "%s\n", libxs_strerror(generated_code.last_error));
-# endif
-            free(generated_code.generated_code);
+            const unsigned int base = i;
+
+            if (0 == diff0) {
+              /* flag existing entry as collision */
+              const void *const code = (const void*)(cache_entry->code.imm | LIBXS_DISPATCH_HASH_COLLISION);
+
+              /* find new slot to store the code version */
+              const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_DISPATCH_CACHESIZE;
+              i = (index != i ? index : ((index + 1) % LIBXS_DISPATCH_CACHESIZE));
+
+              /* fixup existing entry */
+#if defined(LIBXS_DISPATCH_STDATOMIC)
+              __atomic_store(&cache_entry->code.xmm, &code, __ATOMIC_SEQ_CST);
+#else
+              cache_entry->code.xmm = code;
+#endif
+              diff0 = diff; /* no more fixup */
+            }
+            else {
+              i = (i + 1) % LIBXS_DISPATCH_CACHESIZE;
+            }
+
+            cache_entry -= base; /* recalculate base address */
+            cache_entry += i;
           }
         }
-        else {
-# if !defined(NDEBUG) /* library code is usually expected to be mute */
-#   if defined(__SSE3__)
-          fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
-#   elif defined(__MIC__)
-          fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
-#   else
-          fprintf(stderr, "LIBXS: no instruction set extension found for JIT-code generation!\n");
-#   endif
-# endif
-        }
       }
-    }
-
 # if !defined(_OPENMP)
-    LIBXS_LOCK_RELEASE(libxs_dispatch_lock[lock]);
+      LIBXS_LOCK_RELEASE(libxs_dispatch_lock[lock]);
 # endif
 #else
-#   error "LIBXS ERROR: JITTING IS NOT SUPPORTED ON WINDOWS RIGHT NOW!"
+#     error "LIBXS ERROR: JITTING IS NOT SUPPORTED ON WINDOWS RIGHT NOW!"
 #endif /*_WIN32*/
-  }
+    }
 #endif /*LIBXS_JIT*/
+  }
+  while (0 != diff);
+
   return result;
 }
 
@@ -447,7 +535,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
     0 == beta ? LIBXS_BETA : *beta,
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
 
-  return internal_build(&desc).smm;
+  return internal_find_code(&desc).smm;
 }
 
 
@@ -472,5 +560,5 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
     0 == beta ? LIBXS_BETA : *beta,
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
 
-  return internal_build(&desc).dmm;
+  return internal_find_code(&desc).dmm;
 }
