@@ -187,8 +187,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
       if (0 != cache) {
         int i;
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-        /*const*/libxs_dispatch_entry* /*const*/zero = 0;
-        __atomic_store(&libxs_dispatch_cache, &zero, __ATOMIC_SEQ_CST);
+        __atomic_store_n(&libxs_dispatch_cache, 0, __ATOMIC_SEQ_CST);
 #else
         libxs_dispatch_cache = 0;
 #endif
@@ -464,7 +463,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
             if (0 != result.xmm) { /* synchronize cache entry */
               entry->descriptor = *desc;
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-              __atomic_store(&entry->code.xmm, (const void**)&result.xmm, __ATOMIC_SEQ_CST);
+              __atomic_store_n(&entry->code.xmm, result.xmm, __ATOMIC_SEQ_CST);
 #else
               entry->code.xmm = result.xmm;
 #endif
@@ -483,7 +482,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
 
               /* fixup existing entry */
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-              __atomic_store(&entry->code.xmm, &code, __ATOMIC_SEQ_CST);
+              __atomic_store_n(&entry->code.xmm, code, __ATOMIC_SEQ_CST);
 #else
               entry->code.xmm = code;
 #endif
