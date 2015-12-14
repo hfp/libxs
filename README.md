@@ -112,7 +112,9 @@ Each group of the above indexes is combined into all possible triplets generatin
 (3,2,2), (3,2,3), (3,3,2), (3,3,3), (23,23,23)
 ```
 
-Of course, both mechanisms (M/N/K and MNK based) can be combined using the same command line (make). Static optimization and JIT can also be combined (no need to turn off the JIT backend). Testing the generated cases can be accomplished by capturing the console output of the [cp2k](https://github.com/hfp/libxs/blob/master/samples/cp2k/cp2k.cpp) code sample:
+Of course, both mechanisms (M/N/K and MNK based) can be combined using the same command line (make). Static optimization and JIT can also be combined (no need to turn off the JIT backend).
+
+Testing the generated cases can be accomplished by capturing the console output of the [cp2k](https://github.com/hfp/libxs/blob/master/samples/cp2k/cp2k.cpp) code sample:
 
 ```
 make MNK="2 3, 23" test
@@ -174,6 +176,14 @@ make THRESHOLD=$((60 * 60 * 60))
 ```
 
 The maximum of the given threshold and the largest requested specialization refines the value of the threshold. If a problem size is below the threshold, dispatching the code requires to figure out whether a specialized routine exists or not.
+
+In order to minimize the probability of key collisions (code cache), the preferred precision of the statically generated code can be selected:
+
+```
+make PRECISION=2
+```
+
+The default preference is to generate both single-precision and double-precision, and hence to not save any space in the cache (PRECISION=0), whereas PRECISION=1 denotes to generate only single-precision code versions and PRECISION=2 denotes the preference for double precision.
 
 ## Generator driver
 In rare situations it might be useful to directly incorporate generated C code (with inline assembly regions). This is accomplished by invoking a driver program (with certain command line arguments). The driver program is built as part of LIBXS's build process (when requesting static code generation), but also available via a separate build target:
