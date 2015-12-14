@@ -108,7 +108,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
 #endif
   {
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-    __atomic_load(&libxs_dispatch_cache, &result, __ATOMIC_SEQ_CST);
+    result = __atomic_load_n(&libxs_dispatch_cache, __ATOMIC_SEQ_CST);
 #else
     result = libxs_dispatch_cache;
 #endif
@@ -134,7 +134,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
         }
 #endif
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-        __atomic_store(&libxs_dispatch_cache, (libxs_dispatch_entry**)&buffer, __ATOMIC_SEQ_CST);
+        __atomic_store_n(&libxs_dispatch_cache, buffer, __ATOMIC_SEQ_CST);
 #else
         libxs_dispatch_cache = buffer;
 #endif
@@ -154,7 +154,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 {
   /*const*/void* cache;
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-  __atomic_load((void**)&libxs_dispatch_cache, &cache, __ATOMIC_RELAXED);
+  cache = __atomic_load_n(&libxs_dispatch_cache, __ATOMIC_RELAXED);
 #else
   cache = libxs_dispatch_cache;
 #endif
@@ -169,7 +169,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
   libxs_dispatch_entry* cache = 0;
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-  __atomic_load(&libxs_dispatch_cache, &cache, __ATOMIC_SEQ_CST);
+  cache = __atomic_load_n(&libxs_dispatch_cache, __ATOMIC_SEQ_CST);
 #else
   cache = libxs_dispatch_cache;
 #endif
@@ -382,41 +382,41 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_supply_archid(void)
 
 LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const libxs_gemm_descriptor* desc)
 {
-  libxs_dispatch_entry *cache_entry;
+  libxs_dispatch_entry *entry;
   libxs_dispatch_code result;
   unsigned int hash, i, diff0 = 0, diff = 0;
   assert(0 != desc);
 
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-  __atomic_load(&libxs_dispatch_cache, &cache_entry, __ATOMIC_RELAXED);
+  entry = __atomic_load_n(&libxs_dispatch_cache, __ATOMIC_RELAXED);
 #else
-  cache_entry = libxs_dispatch_cache;
+  entry = libxs_dispatch_cache;
 #endif
 
   /* lazy initialization */
-  if (0 == cache_entry) {
+  if (0 == entry) {
     /* use init's return value to refresh local representation */
-    cache_entry = internal_init();
+    entry = internal_init();
   }
 
   /* check if the requested xGEMM is already JITted */
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
   hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_DISPATCH_HASH_SEED);
   i = hash % LIBXS_DISPATCH_CACHESIZE;
-  cache_entry += i; /* actual entry */
+  entry += i; /* actual entry */
   do {
     /* read cached code */
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-    __atomic_load(&cache_entry->code, &result, __ATOMIC_SEQ_CST);
+    result.xmm = __atomic_load_n(&entry->code.xmm, __ATOMIC_SEQ_CST);
 #else
-    result = cache_entry->code;
+    result = entry->code;
 #endif
 
     if (0 != result.xmm) {
       if (0 == diff0) {
         if (0 == (LIBXS_DISPATCH_HASH_COLLISION & result.imm)) { /* check for no collision */
           /* calculate bitwise difference (deep check) */
-          diff = internal_gemmdiff(desc, &cache_entry->descriptor);
+          diff = internal_gemmdiff(desc, &entry->descriptor);
           if (0 != diff) { /* new collision discovered (but no code version yet) */
             /* allow to fixup current entry */
             result.xmm = 0;
@@ -424,12 +424,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
         }
         else { /* collision discovered but code version exists */
           const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_DISPATCH_CACHESIZE;
-          libxs_dispatch_entry *const cache = cache_entry - i; /* recalculate base address */
+          libxs_dispatch_entry *const cache = entry - i; /* recalculate base address */
           for (i = (index != i ? index : (index + 1));
-            0 != internal_gemmdiff(desc, &(cache_entry = cache + i % LIBXS_DISPATCH_CACHESIZE)->descriptor);
+            0 != internal_gemmdiff(desc, &(entry = cache + i % LIBXS_DISPATCH_CACHESIZE)->descriptor);
             ++i);
           /* found exact code version */
-          result = cache_entry->code;
+          result = entry->code;
           /* clear the uppermost bit of the address */
           result.imm &= ~LIBXS_DISPATCH_HASH_COLLISION;
         }
@@ -454,19 +454,19 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
 # endif
       {
         /* re-read cache entry after acquiring the lock */
-        if (0 == diff) result = cache_entry->code;
+        if (0 == diff) result = entry->code;
 
         if (0 == result.xmm) { /* double-check after acquiring the lock */
           if (0 == diff) {
             /* found a conflict-free cache-slot, and attempt to build the kernel */
-            internal_build(desc, internal_supply_archid(), &result.xmm, &cache_entry->code_size);
+            internal_build(desc, internal_supply_archid(), &result.xmm, &entry->code_size);
 
             if (0 != result.xmm) { /* synchronize cache entry */
-              cache_entry->descriptor = *desc;
+              entry->descriptor = *desc;
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-              __atomic_store(&cache_entry->code.xmm, (const void**)&result.xmm, __ATOMIC_SEQ_CST);
+              __atomic_store(&entry->code.xmm, (const void**)&result.xmm, __ATOMIC_SEQ_CST);
 #else
-              cache_entry->code.xmm = result.xmm;
+              entry->code.xmm = result.xmm;
 #endif
             }
           }
@@ -475,7 +475,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
 
             if (0 == diff0) {
               /* flag existing entry as collision */
-              /*const*/ void * /*const*/ code = (void*)(cache_entry->code.imm | LIBXS_DISPATCH_HASH_COLLISION);
+              /*const*/ void * /*const*/ code = (void*)(entry->code.imm | LIBXS_DISPATCH_HASH_COLLISION);
 
               /* find new slot to store the code version */
               const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_DISPATCH_CACHESIZE;
@@ -483,9 +483,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
 
               /* fixup existing entry */
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-              __atomic_store(&cache_entry->code.xmm, &code, __ATOMIC_SEQ_CST);
+              __atomic_store(&entry->code.xmm, &code, __ATOMIC_SEQ_CST);
 #else
-              cache_entry->code.xmm = code;
+              entry->code.xmm = code;
 #endif
               diff0 = diff; /* no more fixup */
             }
@@ -493,8 +493,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
               i = (i + 1) % LIBXS_DISPATCH_CACHESIZE;
             }
 
-            cache_entry -= base; /* recalculate base address */
-            cache_entry += i;
+            entry -= base; /* recalculate base address */
+            entry += i;
           }
         }
       }
