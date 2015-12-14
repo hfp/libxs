@@ -6,6 +6,8 @@
 # include <mkl.h>
 #endif
 
+/*#define USE_LIBXS_BLAS*/
+/*#define USE_CBLAS*/
 #define REAL float
 
 
@@ -38,12 +40,15 @@ int main()
   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm))(&notrans, &notrans, &m, &n, &k,
     &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 
-#if defined(__MKL)
+#if defined(__MKL) || defined(USE_CBLAS)
   LIBXS_CONCATENATE(cblas_, LIBXS_TPREFIX(REAL, gemm))(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k,
     alpha, a, lda, b, ldb, beta, d, ldc);
-#else
+#elif defined(USE_LIBXS_BLAS)
   LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(REAL, gemm))(&notrans, &notrans, &m, &n, &k,
     &alpha, a, &lda, b, &ldb, &beta, d, &ldc);
+#else
+  LIBXS_FSYMBOL(LIBXS_TPREFIX(REAL, gemm))(&notrans, &notrans, &m, &n, &k,
+    &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 #endif
 
   double d2 = 0;
