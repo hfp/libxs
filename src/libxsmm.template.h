@@ -60,7 +60,6 @@
 #define LIBXS_BETA $BETA
 #define LIBXS_JIT $JIT
 
-#include "libxs_typedefs.h"
 #include "libxs_frontend.h"
 
 

@@ -327,12 +327,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
   const unsigned *const ia = (const unsigned int*)a, *const ib = (const unsigned int*)b;
-  unsigned int result;
-  int i;
-  assert(0 != a && 0 != b && 0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(int)));
+  unsigned int result, i;
+  assert(0 != a && 0 != b && 0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 
   result = ia[0] ^ ib[0];
-  for (i = 1; i < LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(int)); ++i) {
+  for (i = 1; i < LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)); ++i) {
     result |= (ia[i] ^ ib[i]);
   }
 
@@ -476,7 +475,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
 
             if (0 == diff0) {
               /* flag existing entry as collision */
-              const void *const code = (const void*)(cache_entry->code.imm | LIBXS_DISPATCH_HASH_COLLISION);
+              /*const*/ void * /*const*/ code = (void*)(cache_entry->code.imm | LIBXS_DISPATCH_HASH_COLLISION);
 
               /* find new slot to store the code version */
               const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_DISPATCH_CACHESIZE;
