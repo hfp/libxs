@@ -114,12 +114,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
 #endif
 
     if (0 == result) {
-      libxs_dispatch_entry *const buffer = (libxs_dispatch_entry*)malloc(
-        LIBXS_DISPATCH_CACHESIZE * sizeof(libxs_dispatch_entry));
-      assert(buffer);
-      if (buffer) {
+      result = (libxs_dispatch_entry*)malloc(LIBXS_DISPATCH_CACHESIZE * sizeof(libxs_dispatch_entry));
+      assert(result);
+      if (result) {
         int i;
-        for (i = 0; i < LIBXS_DISPATCH_CACHESIZE; ++i) buffer[i].code.xmm = 0;
+        for (i = 0; i < LIBXS_DISPATCH_CACHESIZE; ++i) result[i].code.xmm = 0;
         { /* open scope for variable declarations */
           /* setup the dispatch table for the statically generated code */
 #         include <libxs_dispatch.h>
@@ -134,9 +133,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
         }
 #endif
 #if defined(LIBXS_DISPATCH_STDATOMIC)
-        __atomic_store_n(&libxs_dispatch_cache, buffer, __ATOMIC_SEQ_CST);
+        __atomic_store_n(&libxs_dispatch_cache, result, __ATOMIC_SEQ_CST);
 #else
-        libxs_dispatch_cache = buffer;
+        libxs_dispatch_cache = result;
 #endif
       }
     }
