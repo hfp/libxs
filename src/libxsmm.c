@@ -51,9 +51,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_sgemm(const char* transa, const cha
   assert(m && n && k && a && b && c);
   LIBXS_SGEMM(flags, *m, *n, *k,
     0 != alpha ? *alpha : ((float)LIBXS_ALPHA),
-    a, *(lda ? lda : m), b, *(ldb ? ldb : k),
+    a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
     0 != beta ? *beta : ((float)LIBXS_BETA),
-    c, *(ldc ? ldc : m));
+    c, *(ldc ? ldc : LIBXS_LD(m, n)));
 }
 
 
@@ -75,9 +75,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dgemm(const char* transa, const cha
   assert(m && n && k && a && b && c);
   LIBXS_DGEMM(flags, *m, *n, *k,
     0 != alpha ? *alpha : ((double)LIBXS_ALPHA),
-    a, *(lda ? lda : m), b, *(ldb ? ldb : k),
+    a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
     0 != beta ? *beta : ((double)LIBXS_BETA),
-    c, *(ldc ? ldc : m));
+    c, *(ldc ? ldc : LIBXS_LD(m, n)));
 }
 
 
@@ -99,9 +99,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_sgemm(const char* transa, cons
   assert(m && n && k && a && b && c);
   LIBXS_BLAS_SGEMM(flags, *m, *n, *k,
     0 != alpha ? *alpha : ((float)LIBXS_ALPHA),
-    a, *(lda ? lda : m), b, *(ldb ? ldb : k),
+    a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
     0 != beta ? *beta : ((float)LIBXS_BETA),
-    c, *(ldc ? ldc : m));
+    c, *(ldc ? ldc : LIBXS_LD(m, n)));
 }
 
 
@@ -123,9 +123,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_dgemm(const char* transa, cons
   assert(m && n && k && a && b && c);
   LIBXS_BLAS_DGEMM(flags, *m, *n, *k,
     0 != alpha ? *alpha : ((double)LIBXS_ALPHA),
-    a, *(lda ? lda : m), b, *(ldb ? ldb : k),
+    a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
     0 != beta ? *beta : ((double)LIBXS_BETA),
-    c, *(ldc ? ldc : m));
+    c, *(ldc ? ldc : LIBXS_LD(m, n)));
 }
 
 
@@ -162,9 +162,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__wrap_sgemm)(
   assert(m && n && k && a && b && c);
   LIBXS_XGEMM(float, libxs_blasint, LIBXS_FSYMBOL(__real_sgemm), flags, *m, *n, *k,
     0 != alpha ? *alpha : ((float)LIBXS_ALPHA),
-    a, *(lda ? lda : m), b, *(ldb ? ldb : k),
+    a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
     0 != beta ? *beta : ((float)LIBXS_BETA),
-    c, *(ldc ? ldc : m));
+    c, *(ldc ? ldc : LIBXS_LD(m, n)));
 }
 
 
@@ -200,8 +200,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__wrap_dgemm)(
   assert(m && n && k && a && b && c);
   LIBXS_XGEMM(double, libxs_blasint, LIBXS_FSYMBOL(__real_dgemm), flags, *m, *n, *k,
     0 != alpha ? *alpha : ((double)LIBXS_ALPHA),
-    a, *(lda ? lda : m), b, *(ldb ? ldb : k),
+    a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
     0 != beta ? *beta : ((double)LIBXS_BETA),
-    c, *(ldc ? ldc : m));
+    c, *(ldc ? ldc : LIBXS_LD(m, n)));
 }
 #endif /*defined(LIBXS_WRAP_XGEMM)*/
