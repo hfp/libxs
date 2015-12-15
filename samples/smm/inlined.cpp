@@ -132,8 +132,8 @@ int main(int argc, char* argv[])
 #endif
         for (int i = 0; i < s; ++i) {
           LIBXS_INLINE_GEMM(LIBXS_FLAGS, m, n, k,
-            LIBXS_ALPHA, a + i * asize, m, b + i * bsize, k,
-            LIBXS_BETA, c + i * csize, m);
+            LIBXS_ALPHA, a + i * asize, LIBXS_LD(m, k), b + i * bsize, LIBXS_LD(k, n),
+            LIBXS_BETA, c + i * csize, LIBXS_LD(m, n));
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -155,8 +155,8 @@ int main(int argc, char* argv[])
           T *const tmp = LIBXS_ALIGN_LDST(tls);
           // do nothing else with tmp; just a benchmark
           LIBXS_INLINE_GEMM(LIBXS_FLAGS, m, n, k,
-            LIBXS_ALPHA, a + i * asize, m, b + i * bsize, k,
-            LIBXS_BETA, tmp, m);
+            LIBXS_ALPHA, a + i * asize, LIBXS_LD(m, k), b + i * bsize, LIBXS_LD(k, n),
+            LIBXS_BETA, tmp, LIBXS_LD(m, n));
           c[0] = tmp[0]; // prevents GCC from optimizing-away the entire benchmark
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
@@ -179,8 +179,8 @@ int main(int argc, char* argv[])
           T *const tmp = LIBXS_ALIGN_LDST(tls);
           // do nothing else with tmp; just a benchmark
           LIBXS_INLINE_GEMM(LIBXS_FLAGS, m, n, k,
-            LIBXS_ALPHA, a, m, b, k,
-            LIBXS_BETA, tmp, m);
+            LIBXS_ALPHA, a, LIBXS_LD(m, k), b, LIBXS_LD(k, n),
+            LIBXS_BETA, tmp, LIBXS_LD(m, n));
           c[0] = tmp[0]; // prevents GCC from optimizing-away the entire benchmark
         }
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
