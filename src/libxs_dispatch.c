@@ -84,6 +84,7 @@ typedef struct LIBXS_RETARGETABLE libxs_dispatch_entry {
   unsigned int code_size;
 } libxs_dispatch_entry;
 LIBXS_RETARGETABLE libxs_dispatch_entry* libxs_dispatch_cache = 0;
+LIBXS_RETARGETABLE const char* libxs_dispatch_archid = 0;
 
 #if !defined(_OPENMP)
 LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
@@ -94,6 +95,50 @@ LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_dispatch_lock[] = {
 };
 #define LIBXS_DISPATCH_LOCKMASTER 0
 #endif
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_archid(void)
+{
+  unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+  const char* archid = 0;
+
+  LIBXS_CPUID(0, eax, ebx, ecx, edx);
+  if (1 <= eax) { /* CPUID */
+    LIBXS_CPUID(1, eax, ebx, ecx, edx);
+
+    /* XSAVE/XGETBV(0x04000000), OSXSAVE(0x08000000) */
+    if (0x0C000000 == (0x0C000000 & ecx)) {
+      LIBXS_XGETBV(0, eax, edx);
+
+      if (0x00000006 == (0x00000006 & eax)) { /* OS XSAVE 256-bit */
+        if (0x000000E0 == (0x000000E0 & eax)) { /* OS XSAVE 512-bit */
+          LIBXS_CPUID(7, eax, ebx, ecx, edx);
+
+          /* AVX512F(0x00010000), AVX512CD(0x10000000), AVX512PF(0x04000000),
+             AVX512ER(0x08000000) */
+          if (0x1C010000 == (0x1C010000 & ebx)) {
+            archid = "knl";
+          }
+          /* AVX512F(0x00010000), AVX512CD(0x10000000), AVX512DQ(0x00020000),
+             AVX512BW(0x40000000), AVX512VL(0x80000000) */
+          else if (0xD0030000 == (0xD0030000 & ebx)) {
+            archid = "skx";
+          }
+        }
+        else if (0x10000000 == (0x10000000 & ecx)) { /* AVX(0x10000000) */
+          if (0x00001000 == (0x00001000 & ecx)) { /* FMA(0x00001000) */
+            archid = "hsw";
+          }
+          else {
+            archid = "snb";
+          }
+        }
+      }
+    }
+  }
+
+  return archid;
+}
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
@@ -132,6 +177,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
           }
         }
 #endif
+        libxs_dispatch_archid = internal_archid();
 #if defined(LIBXS_DISPATCH_STDATOMIC)
         __atomic_store_n(&libxs_dispatch_cache, result, __ATOMIC_SEQ_CST);
 #else
@@ -219,14 +265,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc, const char* archid,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc,
   void** code, unsigned int* code_size)
 {
   assert(0 != desc && 0 != code && 0 != code_size);
+  assert(0 != libxs_dispatch_archid);
   assert(0 == *code);
 
-  if (0 != archid) {
-#if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*allow code coverage with Cygwin; fails at runtime!*/)
+#if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
     /* allocate buffer for code */
     libxs_generated_code generated_code;
     generated_code.generated_code = malloc(131072 * sizeof(unsigned char));
@@ -236,7 +282,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
     generated_code.last_error = 0;
 
     /* generate kernel */
-    libxs_generator_dense_kernel(&generated_code, desc, archid);
+    libxs_generator_dense_kernel(&generated_code, desc, libxs_dispatch_archid);
 
     /* handle an eventual error in the else-branch */
     if (0 == generated_code.last_error) {
@@ -271,7 +317,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
           /* write buffer for manual decode as binary to a file */
           char objdump_name[512];
           FILE* byte_code;
-          sprintf(objdump_name, "kernel_%s_f%i_%c%c_m%u_n%u_k%u_lda%u_ldb%u_ldc%u_a%i_b%i_pf%i.bin", archid,
+          sprintf(objdump_name, "kernel_%s_f%i_%c%c_m%u_n%u_k%u_lda%u_ldb%u_ldc%u_a%i_b%i_pf%i.bin",
+            libxs_dispatch_archid /* best available/supported code path */,
             0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 64 : 32,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & desc->flags) ? 'n' : 't',
             0 == (LIBXS_GEMM_FLAG_TRANS_B & desc->flags) ? 'n' : 't',
@@ -319,18 +366,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
     LIBXS_MESSAGE("The JIT BACKEND is not supported on Windows right now!")
     LIBXS_MESSAGE("======================================================")
 #endif /*_WIN32*/
-  }
-  else {
-#if !defined(NDEBUG) /* library code is usually expected to be mute */
-# if defined(__SSE3__)
-    fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
-# elif defined(__MIC__)
-    fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
-# else
-    fprintf(stderr, "LIBXS: no instruction set extension found for JIT-code generation!\n");
-# endif
-#endif
-  }
 }
 
 
@@ -346,50 +381,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff(const libxs_gemm_
   }
 
   return result;
-}
-
-
-LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_supply_archid(void)
-{
-  unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
-  const char* archid = 0;
-
-  LIBXS_CPUID(0, eax, ebx, ecx, edx);
-  if (1 <= eax) { /* CPUID */
-    LIBXS_CPUID(1, eax, ebx, ecx, edx);
-
-    /* XSAVE/XGETBV(0x04000000), OSXSAVE(0x08000000) */
-    if (0x0C000000 == (0x0C000000 & ecx)) {
-      LIBXS_XGETBV(0, eax, edx);
-
-      if (0x00000006 == (0x00000006 & eax)) { /* OS XSAVE 256-bit */
-        if (0x000000E0 == (0x000000E0 & eax)) { /* OS XSAVE 512-bit */
-          LIBXS_CPUID(7, eax, ebx, ecx, edx);
-
-          /* AVX512F(0x00010000), AVX512CD(0x10000000), AVX512PF(0x04000000),
-             AVX512ER(0x08000000) */
-          if (0x1C010000 == (0x1C010000 & ebx)) {
-            archid = "knl";
-          }
-          /* AVX512F(0x00010000), AVX512CD(0x10000000), AVX512DQ(0x00020000),
-             AVX512BW(0x40000000), AVX512VL(0x80000000) */
-          else if (0xD0030000 == (0xD0030000 & ebx)) {
-            archid = "skx";
-          }
-        }
-        else if (0x10000000 == (0x10000000 & ecx)) { /* AVX(0x10000000) */
-          if (0x00001000 == (0x00001000 & ecx)) { /* FMA(0x00001000) */
-            archid = "hsw";
-          }
-          else {
-            archid = "snb";
-          }
-        }
-      }
-    }
-  }
-
-  return archid;
 }
 
 
@@ -424,6 +415,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
 #else
     result = entry->code;
 #endif
+
+# if (0 != LIBXS_JIT) && !defined(__MIC__)
+    /* entire block is conditional wrt LIBXS_JIT; static code currently does not have collisions */
     if (0 != result.xmm) {
       if (0 == diff0) {
         if (0 == (LIBXS_DISPATCH_HASH_COLLISION & result.imm)) { /* check for no collision */
@@ -454,8 +448,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
       diff = 0;
     }
 
-#if (0 != LIBXS_JIT) && !defined(__MIC__)
-    if (0 == result.xmm) { /* check if code generation or fixup is needed */
+    /* check if code generation or fixup is needed, also check whether JIT is supported (CPUID) */
+    if (0 == result.xmm && 0 != libxs_dispatch_archid) {
       /* attempt to lock the cache entry */
 # if !defined(_OPENMP)
       const unsigned int lock = LIBXS_MOD2(i, sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock));
@@ -470,7 +464,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
         if (0 == result.xmm) { /* double-check after acquiring the lock */
           if (0 == diff) {
             /* found a conflict-free cache-slot, and attempt to build the kernel */
-            internal_build(desc, internal_supply_archid(), &result.xmm, &entry->code_size);
+            internal_build(desc, &result.xmm, &entry->code_size);
 
             if (0 != result.xmm) { /* synchronize cache entry */
               entry->descriptor = *desc;
@@ -513,6 +507,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
       LIBXS_LOCK_RELEASE(libxs_dispatch_lock[lock]);
 # endif
     }
+# if !defined(NDEBUG) /* library code is usually expected to be mute */
+    else if (0 == libxs_dispatch_archid) {
+#   if defined(__SSE3__)
+      fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
+#   elif defined(__MIC__)
+      fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
+#   else
+      fprintf(stderr, "LIBXS: no instruction set extension found for JIT-code generation!\n");
+#   endif
+    }
+# endif
 #endif /*LIBXS_JIT*/
   }
   while (0 != diff);
