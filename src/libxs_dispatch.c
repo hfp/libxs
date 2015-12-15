@@ -192,6 +192,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 #endif
 #if defined(_WIN32)
         /* TODO: to be implemented */
+        LIBXS_UNUSED(i);
 #else
         for (i = 0; i < LIBXS_DISPATCH_CACHESIZE; ++i) {
           const unsigned int code_size = cache[i].code_size;
@@ -225,6 +226,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   assert(0 == *code);
 
   if (0 != archid) {
+#if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*allow code coverage with Cygwin; fails at runtime!*/)
     /* allocate buffer for code */
     libxs_generated_code generated_code;
     generated_code.generated_code = malloc(131072 * sizeof(unsigned char));
@@ -307,6 +309,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #endif
       free(generated_code.generated_code);
     }
+#else
+    LIBXS_UNUSED(desc); LIBXS_UNUSED(code); LIBXS_UNUSED(code_size);
+    LIBXS_MESSAGE("======================================================")
+    LIBXS_MESSAGE("The JIT BACKEND is not supported on Windows right now!")
+    LIBXS_MESSAGE("======================================================")
+#endif /*_WIN32*/
   }
   else {
 #if !defined(NDEBUG) /* library code is usually expected to be mute */
@@ -409,7 +417,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
 #else
     result = entry->code;
 #endif
-
     if (0 != result.xmm) {
       if (0 == diff0) {
         if (0 == (LIBXS_DISPATCH_HASH_COLLISION & result.imm)) { /* check for no collision */
@@ -443,7 +450,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
 #if (0 != LIBXS_JIT) && !defined(__MIC__)
     if (0 == result.xmm) { /* check if code generation or fixup is needed */
       /* attempt to lock the cache entry */
-#if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*allow code coverage with Cygwin; fails at runtime!*/)
 # if !defined(_OPENMP)
       const unsigned int lock = LIBXS_MOD2(i, sizeof(libxs_dispatch_lock) / sizeof(*libxs_dispatch_lock));
       LIBXS_LOCK_ACQUIRE(libxs_dispatch_lock[lock]);
@@ -499,9 +505,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
 # if !defined(_OPENMP)
       LIBXS_LOCK_RELEASE(libxs_dispatch_lock[lock]);
 # endif
-#else
-#     error "LIBXS ERROR: JITTING IS NOT SUPPORTED ON WINDOWS RIGHT NOW!"
-#endif /*_WIN32*/
     }
 #endif /*LIBXS_JIT*/
   }
