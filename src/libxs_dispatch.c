@@ -296,7 +296,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc,
   void** code, unsigned int* code_size)
 {
-#if !defined(_WIN32) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
+#if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   libxs_generated_code generated_code;
   assert(0 != desc && 0 != code && 0 != code_size);
   assert(0 != libxs_dispatch_archid);
