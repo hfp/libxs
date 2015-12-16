@@ -412,7 +412,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
 {
   libxs_dispatch_entry *entry;
   libxs_dispatch_code result;
-  unsigned int hash, i, diff0 = 0, diff = 0;
+  unsigned int hash, i, diff = 0;
+#if (0 != LIBXS_JIT) && !defined(__MIC__)
+  unsigned int diff0 = 0;
+#endif
   assert(0 != desc);
 
 #if defined(LIBXS_DISPATCH_STDATOMIC)
