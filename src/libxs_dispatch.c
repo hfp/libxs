@@ -418,7 +418,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
   libxs_dispatch_code result;
   unsigned int hash, i, diff = 0;
 #if (0 != LIBXS_JIT) && !defined(__MIC__)
-  unsigned int diff0 = 0;
+  unsigned int diff0 = 0, i0;
 #endif
   assert(0 != desc);
 
@@ -463,16 +463,22 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
         else if (0 != internal_gemmdiff(desc, &entry->descriptor)) {
           /* continue linearly searching code starting at re-hashed index position */
           const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_DISPATCH_CACHESIZE;
+          unsigned int next;
           libxs_dispatch_entry *const cache = entry - i; /* recalculate base address */
-          for (i = (index != i ? index : (index + 1));
-            /* skip any (still invalid) descriptor which corresponds to no code */
-            0 == (entry = cache + i % LIBXS_DISPATCH_CACHESIZE)->code.xmm ||
-            0 != internal_gemmdiff(desc, &entry->descriptor);
-            ++i);
-          /* found exact code version */
-          assert(0 != entry->code.xmm);
-          result = entry->code;
-          /* clear the uppermost bit of the address */
+          for (i0 = (index != i ? index : ((index + 1) % LIBXS_DISPATCH_CACHESIZE)),
+            i = i0, next = (i0 + 1) % LIBXS_DISPATCH_CACHESIZE; next != i0/*no code found*/ &&
+            /* skip any (still invalid) descriptor which corresponds to no code, or continue on diff */
+            (0 == (entry = cache + i)->code.xmm || 0 != (diff = internal_gemmdiff(desc, &entry->descriptor)));
+            i = next, next = (i + 1) % LIBXS_DISPATCH_CACHESIZE);
+          if (0 == diff) { /* found exact code version; continue with atomic load */
+            continue;
+          }
+          else { /* no code found */
+            result.xmm = 0;
+            break;
+          }
+        }
+        else { /* clear the uppermost bit of the address */
           result.imm &= ~LIBXS_DISPATCH_HASH_COLLISION;
         }
       }
@@ -521,7 +527,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
               /* find new slot to store the code version */
               const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_DISPATCH_CACHESIZE;
               i = (index != i ? index : ((index + 1) % LIBXS_DISPATCH_CACHESIZE));
-
+              i0 = i; /* keep starting point of free-slot-search in mind */
               /* fixup existing entry */
 #if defined(LIBXS_DISPATCH_STDATOMIC)
               __atomic_store_n(&entry->code.xmm, code, __ATOMIC_SEQ_CST);
@@ -531,7 +537,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
               diff0 = diff; /* no more fixup */
             }
             else {
-              i = (i + 1) % LIBXS_DISPATCH_CACHESIZE;
+              const unsigned int next = (i + 1) % LIBXS_DISPATCH_CACHESIZE;
+              if (next != i0) { /* linear search for free slot */
+                i = next;
+              }
+              else { /* out of cache capacity (no free slot found) */
+                diff = 0;
+              }
             }
 
             entry -= base; /* recalculate base address */
