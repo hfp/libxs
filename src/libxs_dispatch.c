@@ -182,16 +182,18 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
       if (result) {
         int i;
         for (i = 0; i < LIBXS_DISPATCH_CACHESIZE; ++i) result[i].code.xmm = 0;
-        libxs_dispatch_archid = internal_archid();
-        /* omit registering SSE code if JIT is enabled and an AVX-based ISA is available
-         * any kind of AVX code is registered even when a higher ISA is found!
-         */
+        { /* omit registering SSE code if JIT is enabled and an AVX-based ISA is available
+           * any kind of AVX code is registered even when a higher ISA is found!
+           */
 #if (0 != LIBXS_JIT) && !(defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__))
-        if (0 == libxs_dispatch_archid)
+          const char *const env = getenv("LIBXS_JIT");
+          libxs_dispatch_archid = (0 == env || 0 == *env || '1' == *env) ? internal_archid() : ('0' != *env ? env : 0);
+          if (0 == libxs_dispatch_archid)
 #endif
-        { /* open scope for variable declarations */
-          /* setup the dispatch table for the statically generated code */
-#         include <libxs_dispatch.h>
+          { /* open scope for variable declarations */
+            /* setup the dispatch table for the statically generated code */
+#           include <libxs_dispatch.h>
+          }
         }
 #if !defined(_OPENMP)
         { /* acquire and release remaining locks to shortcut any lazy initialization later on */
