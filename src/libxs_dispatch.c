@@ -457,13 +457,18 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
             result.xmm = 0;
           }
         }
-        else { /* collision discovered but code version exists */
+        /* collision discovered but code version exists; perform intial deep check */
+        else if (0 != internal_gemmdiff(desc, &entry->descriptor)) {
+          /* continue linearly searching code starting at re-hashed index position */
           const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_DISPATCH_CACHESIZE;
           libxs_dispatch_entry *const cache = entry - i; /* recalculate base address */
           for (i = (index != i ? index : (index + 1));
-            0 != internal_gemmdiff(desc, &(entry = cache + i % LIBXS_DISPATCH_CACHESIZE)->descriptor);
+            /* skip any (still invalid) descriptor which corresponds to no code */
+            0 == (entry = cache + i % LIBXS_DISPATCH_CACHESIZE)->code.xmm ||
+            0 != internal_gemmdiff(desc, &entry->descriptor);
             ++i);
           /* found exact code version */
+          assert(0 != entry->code.xmm);
           result = entry->code;
           /* clear the uppermost bit of the address */
           result.imm &= ~LIBXS_DISPATCH_HASH_COLLISION;
