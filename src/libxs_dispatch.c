@@ -127,15 +127,33 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_archid(void)
         }
         else if (0x10000000 == (0x10000000 & ecx)) { /* AVX(0x10000000) */
           if (0x00001000 == (0x00001000 & ecx)) { /* FMA(0x00001000) */
+#if defined(__AVX512F__)
+            assert(!"Failed to detect Intel AVX-512 extensions!");
+#endif
             archid = "hsw";
           }
           else {
+#if defined(__AVX2__)
+            assert(!"Failed to detect Intel AVX2 extensions!");
+#endif
             archid = "snb";
           }
         }
       }
     }
   }
+
+#if !defined(NDEBUG) /* library code is usually expected to be mute */
+  if (0 == archid) {
+# if defined(__SSE3__)
+    fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
+# elif defined(__MIC__)
+    fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
+# else
+    fprintf(stderr, "LIBXS: no instruction set extension found for JIT-code generation!\n");
+# endif
+  }
+#endif
 
   return archid;
 }
@@ -164,6 +182,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
       if (result) {
         int i;
         for (i = 0; i < LIBXS_DISPATCH_CACHESIZE; ++i) result[i].code.xmm = 0;
+        libxs_dispatch_archid = internal_archid();
+        /* omit registering SSE code if JIT is enabled and an AVX-based ISA is available
+         * any kind of AVX code is registered even when a higher ISA is found!
+         */
+#if (0 != LIBXS_JIT) && !(defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__))
+        if (0 == libxs_dispatch_archid)
+#endif
         { /* open scope for variable declarations */
           /* setup the dispatch table for the statically generated code */
 #         include <libxs_dispatch.h>
@@ -177,7 +202,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
           }
         }
 #endif
-        libxs_dispatch_archid = internal_archid();
 #if defined(LIBXS_DISPATCH_STDATOMIC)
         __atomic_store_n(&libxs_dispatch_cache, result, __ATOMIC_SEQ_CST);
 #else
@@ -507,17 +531,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
       LIBXS_LOCK_RELEASE(libxs_dispatch_lock[lock]);
 # endif
     }
-# if !defined(NDEBUG) /* library code is usually expected to be mute */
-    else if (0 == libxs_dispatch_archid) {
-#   if defined(__SSE3__)
-      fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
-#   elif defined(__MIC__)
-      fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
-#   else
-      fprintf(stderr, "LIBXS: no instruction set extension found for JIT-code generation!\n");
-#   endif
-    }
-# endif
 #endif /*LIBXS_JIT*/
   }
   while (0 != diff);
