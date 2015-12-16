@@ -127,7 +127,9 @@ grep "diff" samples/cp2k/cp2k-perf.txt | grep -v "diff=0.000"
 ```
 
 ## Installation
-Installing LIBXS makes the most sense if the [JIT backend](#jit-backend) has been enabled (default), because a statically specialized library is more application-specific as well as system-specific. Remember that statically specialized functions cannot be retargeted to a different instruction set extension! However, even a JIT-enabled library (in particular within a heterogeneous system environment) should be built using an applicable baseline code path: SSE=1, AVX=1|2|3. Remember, LIBXS is by default built using an "arch-native" approach where the system running the compiler is determining the baseline architecture. There are two main mechanisms to install LIBXS: (1) building the library in an out-of-tree fashion, and (2) installing the library into a certain location (both mechanisms can be combined). Building in an out-of-tree fashion looks like:
+Installing LIBXS makes the most sense if the [JIT backend](#jit-backend) (default) and the static SSE3 code path has been enabled (default is "arch-native" rather than SSE=1, or AVX=1|2|3!), because an only statically specialized library is more application-specific as well as system-specific. Statically specialized functions cannot be retargeted to a different instruction set extension. However, in particular the Intel SSE3 code path receives special treatment when the JIT backend is not disabled: SSE-code is only registered for dispatch if the CPUID is not showing support for any kind of Intel AVX. This way a reasonable compromise is possible when deploying into an unknown or heterogeneous system environment.
+
+There are two main mechanisms to install LIBXS: (1) building the library in an out-of-tree fashion, and (2) installing the library into a certain location (both mechanisms can be combined). Building in an out-of-tree fashion looks like:
 
 ```
 cd libxs-install
@@ -135,14 +137,14 @@ make -f /path/to/libxs/Makefile
 make clean
 ```
 
-Assuming the library is already built, one can install LIBXS into a certain location:
+For example, installing the library into a specific location (including some selection of statically generated Intel SSE3 kernels) looks like:
 
 ```
-make install PREFIX=/path/to/libxs-install
+make SSE=1 MNK="1 2 3 4 5" PREFIX=/path/to/libxs-install install
 make clean
 ```
 
-Performing `make install-minimal` omits to install the documentation under (`PREFIX/share/libxs`).
+Performing `make install-minimal` omits the documentation (`PREFIX/share/libxs`).
 
 # Tuning
 By default all supported host code paths are generated (with the compiler picking the one according to the feature bits of the host). Specifying a particular code path will not only save some time when generating the static code ("printing"), but also enable cross-compilation for a target that is different from the compiler's host. The build system allows to conveniently select the target system when invoking 'make': SSE=3 (in fact SSE!=0), AVX=1, AVX=2 (with FMA), and AVX=3 are supported. The latter is targeting the Intel Knights Landing processor family ("KNL") and future Intel Xeon processors using foundational Intel AVX-512 instructions (AVX-512F):
