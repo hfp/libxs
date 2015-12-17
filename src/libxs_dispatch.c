@@ -393,6 +393,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   LIBXS_MESSAGE("======================================================")
   LIBXS_MESSAGE("The JIT BACKEND is not supported on Windows right now!")
   LIBXS_MESSAGE("======================================================")
+#else
+  LIBXS_UNUSED(desc); LIBXS_UNUSED(code); LIBXS_UNUSED(code_size);
 #endif /*_WIN32*/
 }
 
