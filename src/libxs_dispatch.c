@@ -388,7 +388,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #endif
     free(generated_code.generated_code);
   }
-#else
+#elif !defined(__MIC__)
   LIBXS_UNUSED(desc); LIBXS_UNUSED(code); LIBXS_UNUSED(code_size);
   LIBXS_MESSAGE("======================================================")
   LIBXS_MESSAGE("The JIT BACKEND is not supported on Windows right now!")
@@ -417,9 +417,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
   libxs_dispatch_entry *entry;
   libxs_dispatch_code result;
   unsigned int hash, i, diff = 0;
-#if (0 != LIBXS_JIT) && !defined(__MIC__)
   unsigned int diff0 = 0, i0;
-#endif
   assert(0 != desc);
 
 #if defined(LIBXS_DISPATCH_STDATOMIC)
@@ -447,9 +445,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
     result = entry->code;
 #endif
 
-#if (0 != LIBXS_JIT) && !defined(__MIC__)
     /* entire block is conditional wrt LIBXS_JIT; static code currently does not have collisions */
-    if (0 != result.xmm && 0 != libxs_dispatch_archid/*check whether JIT is supported (CPUID)*/) {
+    if (0 != result.xmm) {
       if (0 == diff0) {
         if (0 == (LIBXS_DISPATCH_HASH_COLLISION & result.imm)) { /* check for no collision */
           /* calculate bitwise difference (deep check) */
@@ -485,9 +482,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
       else { /* new collision discovered (but no code version yet) */
         result.xmm = 0;
       }
-    }
-    else {
-      diff = 0;
     }
 
     /* check if code generation or fixup is needed, also check whether JIT is supported (CPUID) */
@@ -555,7 +549,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
       LIBXS_LOCK_RELEASE(libxs_dispatch_lock[lock]);
 # endif
     }
-#endif /*LIBXS_JIT*/
+    else {
+      diff = 0;
+    }
   }
   while (0 != diff);
 
