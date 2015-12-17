@@ -437,7 +437,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
   /* check if the requested xGEMM is already JITted */
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
   hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_DISPATCH_HASH_SEED);
-  i = hash % LIBXS_DISPATCH_CACHESIZE;
+  i = i0 = hash % LIBXS_DISPATCH_CACHESIZE;
   entry += i; /* actual entry */
   do {
     /* read cached code */
