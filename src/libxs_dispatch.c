@@ -559,7 +559,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_code internal_find_code(const lib
   }
   while (0 != diff);
 
-  assert(0 == result.xmm || 0 == internal_gemmdiff(desc, &entry->descriptor);
+  assert(0 == result.xmm || 0 == internal_gemmdiff(desc, &entry->descriptor));
   return result;
 }
 
