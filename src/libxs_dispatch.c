@@ -200,6 +200,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dispatch_entry* internal_init(void)
           }
         }
 #endif
+        atexit(libxs_finalize);
 #if defined(LIBXS_DISPATCH_STDATOMIC)
         __atomic_store_n(&libxs_dispatch_cache, result, __ATOMIC_SEQ_CST);
 #else
