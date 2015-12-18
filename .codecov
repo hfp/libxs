@@ -10,9 +10,12 @@ if [[ "${CXX}" == "g++" ]]; then
   fi
   FIND=$(which find)
   GCOV=$(which gcov)
-  export EFLAGS="--coverage" ELDFLAGS="--coverage" \
-    LIBXS_RUNGCOV="${FIND} ${TRAVIS_BUILD_DIR} -type f -name '*.gcno' -exec ${GCOV} -pb {} +" \
-    LIBXS_CODECOV="codecov"
+  export EFLAGS="--coverage" ELDFLAGS="--coverage"
+  export LIBXS_RUNGCOV="CWD=\${PWD}; for FILE in \$(${FIND} ${TRAVIS_BUILD_DIR} -type f -name '*.gcno') ; do \
+    cd \$(dirname \${FILE}); \
+    ${GCOV} -pb \$(basename \${FILE}) ; \
+    done; cd \${CWD}"
+  export LIBXS_CODECOV="codecov"
 else
   unset EFLAGS ELDFLAGS LIBXS_RUNGCOV LIBXS_CODECOV
 fi
