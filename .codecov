@@ -14,8 +14,6 @@ if [[ "${CXX}" == "g++" ]]; then
     LIBXS_RUNGCOV="${FIND} ${TRAVIS_BUILD_DIR} -type f -name '*.gcno' -exec ${GCOV} -pb {} +" \
     LIBXS_CODECOV="codecov"
 else
-  unset EFLAGS ELDFLAGS
-  export LIBXS_RUNGCOV=true
-  export LIBXS_CODECOV=true
+  unset EFLAGS ELDFLAGS LIBXS_RUNGCOV LIBXS_CODECOV
 fi
 
