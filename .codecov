@@ -8,8 +8,10 @@ if [[ "${CXX}" == "g++" ]]; then
   if [[ "${TRAVIS_BUILD_DIR}" == "" ]]; then
     TRAVIS_BUILD_DIR=.
   fi
+  FIND=$(which find)
+  GCOV=$(which gcov)
   export EFLAGS="--coverage" ELDFLAGS="--coverage" \
-    LIBXS_RUNGCOV="find ${TRAVIS_BUILD_DIR} -type f -name '*.gcno' -exec gcov -pb {} +" \
+    LIBXS_RUNGCOV="${FIND} ${TRAVIS_BUILD_DIR} -type f -name '*.gcno' -exec ${GCOV} -pb {} +" \
     LIBXS_CODECOV="codecov"
 else
   unset EFLAGS ELDFLAGS
