@@ -409,7 +409,7 @@ $(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $
 
 ifneq (0,$(MIC))
 .PHONY: lib_mic
-lib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
+lib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT) $(INCDIR)/libxs.f
 $(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC)
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_MIC) -mmic -shared $(LDFLAGS) $(CLDFLAGS) $(ELDFLAGS)
@@ -419,7 +419,7 @@ endif
 endif
 
 .PHONY: lib_hst
-lib_hst: $(OUTDIR)/libxs.$(LIBEXT)
+lib_hst: $(OUTDIR)/libxs.$(LIBEXT) $(INCDIR)/libxs.f
 $(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS) $(ELDFLAGS)
