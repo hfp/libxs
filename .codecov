@@ -20,11 +20,11 @@ if [[ "${CXX}" == "g++" ]]; then
     FILENAME=\$(basename \${FILE} .gcno).o; \
     FILEPATH=\$(echo \${FILE} | sed -e 's/\(.\+\)build.\+/\1/g'); \
     BUILD=\$(dirname \${FILE} | sed -e 's/^.\+\(build.*\)/\1/g'); \
-    cd \${CWD}; cd \${FILEPATH}; \
+    cd \${FILEPATH}; \
     ${GCOV} -o \${BUILD} -pb \${FILENAME}; \
-    done; cd \${CWD}; mkdir -p codecov/${LIBXS_COVID} && \
+    done; mkdir -p ${TRAVIS_BUILD_DIR}/codecov/${LIBXS_COVID} && \
     ${FIND} ${TRAVIS_BUILD_DIR} -not \( -path ${TRAVIS_BUILD_DIR}/codecov -prune \) -type f -name '*.gcov' \
-      -exec mv {} codecov/${LIBXS_COVID} \;"
+      -exec mv {} ${TRAVIS_BUILD_DIR}/codecov/${LIBXS_COVID} \;"
   export LIBXS_CODECOV="codecov"
 else
   unset EFLAGS ELDFLAGS LIBXS_RUNGCOV LIBXS_CODECOV
