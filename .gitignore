@@ -5,7 +5,7 @@ include/libxs.f
 include/libxs.h
 build/libxs_dispatch.h
 build/mm_*_*_*.c
-ide/_vs2015-*.bat
+ide/_vs*-*.bat
 ide/*.amplxeproj
 ide/build
 tmp
