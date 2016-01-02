@@ -117,6 +117,9 @@ int main(int argc, char* argv[])
       // initialize LIBXS
       libxs_init();
 
+      // eventually JIT-compile the requested kernel
+      libxs_mmfunction<T>(m, n, k);
+
       fprintf(stdout, "m=%i n=%i k=%i (%s, %s) size=%i memory=%.f MB\n\n", m, n, k,
         0 != LIBXS_ROW_MAJOR ? "row-major" : "column-major", 8 == sizeof(T) ? "DP" : "SP",
         s, 1.0 * (s * (asize + bsize + csize) * sizeof(T)) / (1 << 20));
