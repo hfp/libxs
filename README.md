@@ -127,7 +127,7 @@ grep "diff" samples/cp2k/cp2k-perf.txt | grep -v "diff=0.000"
 ```
 
 ## Installation
-Installing LIBXS makes the most sense if the [JIT backend](#jit-backend) (enabled by default) and the static SSE (default is "arch-native" rather than SSE=1, or AVX=1|2|3!) code path have been enabled, because an only statically specialized library is more application-specific as well as system-specific. Statically specialized functions cannot be retargeted to a different instruction set extension. However, in particular the Intel SSE code path receives special treatment when the JIT backend is not disabled: SSE-code is only registered for dispatch if the CPUID is not showing support for any kind of Intel AVX. This way a reasonable compromise is possible when deploying into an unknown or heterogeneous system environment.
+Installing LIBXS makes possibly the most sense when combining the [JIT backend](#jit-backend) (enabled by default) with a collection of statically generated SSE kernels. Remember, the library builds with an "arch-native" code path if not specified otherwise (SSE=1, or AVX=1|2|3)! If the JIT backend is not disabled, statically generated kernels are only registered for dispatch if the CPUID flags are not supporting a more specific instruction set extension (code path). However the JIT backend does not support or generate SSE code. Please note that SSE=1 actually selects an SSE 4.2 code path in order to accelerate code dispatch using CRC32 instructions.
 
 There are two main mechanisms to install LIBXS (both mechanisms can be combined): (1) building the library in an out-of-tree fashion, and (2) installing into a certain location. Building in an out-of-tree fashion looks like:
 
@@ -237,7 +237,6 @@ bin/libxs_generator sparse foo.c foo 16 16 16 32 0 32 1 1 1 1 hsw nopf DP bar.cs
 
 Please note, there are additional examples given in samples/generator and samples/seissol.
 
-## Implementation
 ## Applications
 **\[1] [http://cp2k.org/](http://cp2k.org/)**: Open Source Molecular Dynamics with its DBCSR component generating batches of small matrix multiplications ("matrix stacks") out of a problem-specific distributed block-sparse matrix. The idea and the interface of LIBXS is sharing some origin with CP2K's "libsmm" library which can be substituted by LIBXS (see https://github.com/hfp/libxs/raw/master/documentation/cp2k.pdf).
 
