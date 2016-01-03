@@ -137,14 +137,14 @@ make -f /path/to/libxs/Makefile
 make clean
 ```
 
-For example, installing the library into a specific location (including some selection of statically generated Intel SSE kernels) looks like:
+For example, installing into a specific location (incl. a selection of statically generated Intel SSE kernels) looks like:
 
 ```
 make MNK="1 2 3 4 5" PREFIX=/path/to/libxs-install install
 make clean
 ```
 
-Performing `make install-minimal` omits the documentation (`PREFIX/share/libxs`). Moreover, PINCDIR, POUTDIR, PBINDIR, and PDOCDIR (`share/libxs`) allow to customize the locations underneath of the PREFIX location.
+Performing `make install-minimal` omits the documentation (default: `PREFIX/share/libxs`). Moreover, PINCDIR, POUTDIR, PBINDIR, and PDOCDIR allow to customize the locations underneath of the PREFIX location.
 
 # Tuning
 Specifying a particular code path is not really necessary if the JIT backend is not disabled. However, disabling JIT compilation, statically generating a collection of kernels, and targeting a specific instruction set extension for the entire library looks like:
@@ -240,7 +240,7 @@ bin/libxs_generator sparse foo.c foo 16 16 16 32 0 32 1 1 1 1 hsw nopf DP bar.cs
 Please note, there are additional examples given in samples/generator and samples/seissol.
 
 ## Applications
-**\[1] [https://cp2k.org/](https://cp2k.org/)**: Open Source Molecular Dynamics with its DBCSR component processing batches of small matrix multiplications ("matrix stacks") out of a problem-specific distributed block-sparse matrix. Starting with [CP2K 3.0](https://www.cp2k.org/version_history), LIBXS can be used to substitute CP2K's "libsmm" library. Prior to version 3.0, only the [Intel branch of CP2K](https://github.com/cp2k/cp2k/tree/intel) allows using LIBXS (see https://github.com/hfp/libxs/raw/master/documentation/cp2k.pdf).
+**\[1] [https://cp2k.org/](https://cp2k.org/)**: Open Source Molecular Dynamics with its DBCSR component processing batches of small matrix multiplications ("matrix stacks") out of a problem-specific distributed block-sparse matrix. Starting with [CP2K 3.0](https://www.cp2k.org/version_history), LIBXS can be used to substitute CP2K's "libsmm" library. Prior to CP2K 3.0, only the [Intel branch of CP2K](https://github.com/cp2k/cp2k/tree/intel) was integrating LIBXS (see https://github.com/hfp/libxs/raw/master/documentation/cp2k.pdf).
 
 **\[2] [https://github.com/SeisSol/SeisSol/](https://github.com/SeisSol/SeisSol/)**: SeisSol is one of the leading codes for earthquake scenarios, in particular for simulating dynamic rupture processes. LIBXS provides highly optimized assembly kernels which form the computational back-bone of SeisSol (see https://github.com/TUM-I5/seissol_kernels/).
 
