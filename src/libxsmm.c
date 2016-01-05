@@ -165,6 +165,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_archid(int* is_static)
 }
 
 
+#if defined(__GNUC__)
+LIBXS_ATTRIBUTE(no_instrument_function)
+#endif
 LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 {
   /*const*/libxs_cache_entry* result;
@@ -227,6 +230,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 }
 
 
+#if defined(__GNUC__)
+LIBXS_ATTRIBUTE(constructor)
+LIBXS_ATTRIBUTE(no_instrument_function)
+#endif
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 {
   /*const*/void* cache;
@@ -242,6 +249,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 }
 
 
+#if defined(__GNUC__)
+LIBXS_ATTRIBUTE(destructor)
+LIBXS_ATTRIBUTE(no_instrument_function)
+#endif
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
   libxs_cache_entry* cache = 0;
@@ -264,6 +275,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
       cache = libxs_cache;
 
       if (0 != cache) {
+        i = libxs_trace_finalize();
+# if !defined(NDEBUG) /* library code is expected to be mute */
+        if (EXIT_SUCCESS != i) {
+          fprintf(stderr, "LIBXS: failed to finalize trace (%i)!\n", i);
+        }
+# endif
 #if defined(LIBXS_STDATOMIC)
         __atomic_store_n(&libxs_cache, 0, __ATOMIC_SEQ_CST);
 #else
@@ -288,13 +305,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
         }
 #endif /*defined(__GNUC__)*/
         free((void*)cache);
-
-        i = libxs_trace_finalize();
-# if !defined(NDEBUG) /* library code is expected to be mute */
-        if (EXIT_SUCCESS != i) {
-          fprintf(stderr, "LIBXS: failed to finalize trace (%i)!\n", i);
-        }
-# endif
       }
     }
 #if !defined(_OPENMP) /* release locks */
