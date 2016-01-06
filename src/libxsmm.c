@@ -27,8 +27,11 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_crc32.h"
-#include "libxs_trace.h"
 #include <libxs.h>
+
+#if defined(__TRACE)
+# include "libxs_trace.h"
+#endif
 
 #if defined(LIBXS_OFFLOAD_BUILD)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -184,7 +187,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
     result = libxs_cache;
 #endif
     if (0 == result) {
+#if defined(__TRACE)
       i = libxs_trace_init();
+#else
+      i = EXIT_SUCCESS;
+#endif
       if (EXIT_SUCCESS == i) {
         result = (libxs_cache_entry*)malloc(LIBXS_CACHESIZE * sizeof(libxs_cache_entry));
 
@@ -212,7 +219,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 #endif
         }
       }
-#if !defined(NDEBUG) /* library code is expected to be mute */
+#if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
       else {
         fprintf(stderr, "LIBXS: failed to initialize trace (%i)!\n", i);
       }
@@ -270,12 +277,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
       cache = libxs_cache;
 
       if (0 != cache) {
+#if defined(__TRACE)
         i = libxs_trace_finalize();
 # if !defined(NDEBUG) /* library code is expected to be mute */
         if (EXIT_SUCCESS != i) {
           fprintf(stderr, "LIBXS: failed to finalize trace (%i)!\n", i);
         }
 # endif
+#endif
 #if defined(LIBXS_STDATOMIC)
         __atomic_store_n(&libxs_cache, 0, __ATOMIC_SEQ_CST);
 #else
