@@ -165,9 +165,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_archid(int* is_static)
 }
 
 
-#if defined(__GNUC__)
-LIBXS_ATTRIBUTE(no_instrument_function)
-#endif
 LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 {
   /*const*/libxs_cache_entry* result;
@@ -232,7 +229,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 
 #if defined(__GNUC__)
 LIBXS_ATTRIBUTE(constructor)
-LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 {
@@ -251,7 +247,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 
 #if defined(__GNUC__)
 LIBXS_ATTRIBUTE(destructor)
-LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
