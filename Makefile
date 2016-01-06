@@ -148,13 +148,13 @@ INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(word
 NINDICES = $(words $(INDICES))
 
 SRCFILES = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
-SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) libxs_timer.c)
+SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) libxs_timer.c libxs_trace.c)
 SRCFILES_GEN_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_driver.c)
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_GEN_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_BIN))))
 OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) \
                $(BLDDIR)/intel64/libxs.o $(BLDDIR)/intel64/libxs_gemm.o \
-               $(BLDDIR)/intel64/libxs_crc32.o $(BLDDIR)/intel64/libxs_trace.o
+               $(BLDDIR)/intel64/libxs_crc32.o
 OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) \
                $(BLDDIR)/mic/libxs.o $(BLDDIR)/mic/libxs_gemm.o \
                $(BLDDIR)/mic/libxs_crc32.o $(BLDDIR)/mic/libxs_trace.o \
