@@ -188,7 +188,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 #endif
     if (0 == result) {
 #if defined(__TRACE)
-      i = libxs_trace_init();
+      const char *const env_trace_thread = getenv("LIBXS_TRACE");
+      i = (0 == env_trace_thread || 0 == *env_trace_thread) ? EXIT_SUCCESS : libxs_trace_init(-1, atoi(env_trace_thread));
 #else
       i = EXIT_SUCCESS;
 #endif
@@ -201,9 +202,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
              * any kind of AVX code is registered even when a higher ISA is found!
              */
 #if (0 != LIBXS_JIT)
-            const char *const env = getenv("LIBXS_JIT");
+            const char *const env_jit = getenv("LIBXS_JIT");
             int is_static = 0;
-            libxs_archid = (0 == env || 0 == *env || '1' == *env) ? internal_archid(&is_static) : ('0' != *env ? env : 0);
+            libxs_archid = (0 == env_jit || 0 == *env_jit || '1' == *env_jit) ? internal_archid(&is_static) : ('0' != *env_jit ? env_jit : 0);
             if (0 == libxs_archid || 0 != is_static)
 #endif
             { /* open scope for variable declarations */
