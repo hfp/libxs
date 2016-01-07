@@ -256,6 +256,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 
 #if defined(__GNUC__)
 LIBXS_ATTRIBUTE(destructor)
+LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
 {
