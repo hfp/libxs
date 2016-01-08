@@ -190,7 +190,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 #if defined(__TRACE)
       const char *const env_trace_init = getenv("LIBXS_TRACE");
       if (env_trace_init) {
-        int match[] = { 0, 0 }, filter_threadid = 0, filter_mindepth = 1, filter_maxdepth = -1;
+        int match[] = { 0, 0 }, filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = -1;
         char buffer[32];
 
         if (1 == sscanf(env_trace_init, "%32[^,],", buffer)) {
@@ -200,10 +200,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
           match[0] = sscanf(buffer, "%i", &filter_mindepth);
         }
         if (1 == sscanf(env_trace_init, "%*[^,],%*[^,],%32s", buffer)) {
-          match[1] = sscanf(buffer, "%i", &filter_maxdepth);
+          match[1] = sscanf(buffer, "%i", &filter_maxnsyms);
         }
         i = (0 == filter_threadid && 0 == match[0] && 0 == match[1]) ? EXIT_SUCCESS
-          : libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxdepth);
+          : libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
       }
       else
 #endif
