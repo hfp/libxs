@@ -252,10 +252,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 }
 
 
+LIBXS_EXTERN_C
 #if defined(__GNUC__)
 LIBXS_ATTRIBUTE(constructor)
 #endif
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
+LIBXS_RETARGETABLE void libxs_init(void)
 {
   /*const*/void* cache;
 #if defined(LIBXS_STDATOMIC)
@@ -270,11 +271,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void)
 }
 
 
+LIBXS_EXTERN_C
 #if defined(__GNUC__)
 LIBXS_ATTRIBUTE(destructor)
 LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void)
+LIBXS_RETARGETABLE void libxs_finalize(void)
 {
   libxs_cache_entry* cache = 0;
 #if defined(LIBXS_STDATOMIC)
