@@ -264,7 +264,6 @@ LIBXS_RETARGETABLE void libxs_init(void)
 #else
   cache = libxs_cache;
 #endif
-
   if (0 == cache) {
     internal_init();
   }
