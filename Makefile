@@ -152,13 +152,15 @@ SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) 
 SRCFILES_GEN_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_driver.c)
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_GEN_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_BIN))))
-OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) \
-               $(BLDDIR)/intel64/libxs.o $(BLDDIR)/intel64/libxs_gemm.o \
-               $(BLDDIR)/intel64/libxs_crc32.o
+OBJFILES_HST = $(patsubst %,$(BLDDIR)/mm_%.o,$(INDICES)) \
+               $(BLDDIR)/libxs.o $(BLDDIR)/libxs_gemm.o \
+               $(BLDDIR)/libxs_crc32.o
 OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) \
                $(BLDDIR)/mic/libxs.o $(BLDDIR)/mic/libxs_gemm.o \
                $(BLDDIR)/mic/libxs_crc32.o $(BLDDIR)/mic/libxs_trace.o \
                $(BLDDIR)/mic/libxs_timer.o
+# list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
+OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_BIN) $(OBJFILES_HST) $(OBJFILES_MIC)
 
 .PHONY: lib_all
 ifeq (0,$(OFFLOAD))
@@ -426,9 +428,9 @@ endif
 
 .PHONY: compile_hst
 compile_hst: $(OBJFILES_HST)
-$(BLDDIR)/intel64/%.o: $(SRCDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
+$(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
-$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
+$(BLDDIR)/%.o: $(BLDDIR)/%.c $(BLDDIR)/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
 
 ifneq (0,$(MIC))
@@ -798,8 +800,8 @@ $(DOCDIR)/cp2k.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/cp2k.md
 .PHONY: documentation
 documentation: $(DOCDIR)/libxs.pdf $(DOCDIR)/cp2k.pdf
 
-.PHONY: clean
-clean:
+.PHONY: clean-minimal
+clean-minimal:
 	@rm -f $(OBJECTS) $(SRCFILES) $(BLDDIR)/libxs_dispatch.h
 	@rm -f $(SCRDIR)/libxs_utilities.pyc
 	@rm -rf $(SCRDIR)/__pycache__
@@ -807,6 +809,11 @@ clean:
 	@touch $(SPLDIR)/smm/.make
 	@touch $(SPLDIR)/nek/.make
 	@touch $(INCDIR)/.make
+
+.PHONY: clean
+clean: clean-minimal
+	@rm -f $(BLDDIR)/mic/*.o
+	@rm -f $(BLDDIR)/*.o
 
 .PHONY: realclean
 realclean: clean
