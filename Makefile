@@ -319,7 +319,7 @@ $(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.make $(INCDIR)/libxs.h $(ROOTDIR)/Makefi
 .PHONY: generator
 generator: $(BINDIR)/libxs_generator
 $(BINDIR)/libxs_generator: $(BINDIR)/.make $(OBJFILES_GEN_BIN) $(OUTDIR)/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
-	$(CC) $(OBJFILES_GEN_BIN) -L$(OUTDIR) -lxsmmgen $(LDFLAGS) $(CLDFLAGS) -o $@
+	$(CC) $(OBJFILES_GEN_BIN) $(OUTDIR)/libxsgen.$(LIBEXT) $(LDFLAGS) $(CLDFLAGS) -o $@
 
 .PHONY: sources
 sources: $(SRCFILES)
