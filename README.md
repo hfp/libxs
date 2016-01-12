@@ -159,9 +159,9 @@ gcc [...] -Wl,--wrap=dgemm_ /path/to/libxs.a
 gcc [...] -Wl,--wrap=sgemm_,--wrap=dgemm_ /path/to/libxs.a
 ```
 
-Relinking the application is often done by copying, pasting, and modifying the linker command as shown when running the existing "make" (or similar build system), and then just re-invoking the modified link step. Please note that this first case is also working for an applications which is dynamically linked against LAPACK/BLAS.
+Relinking the application is often accomplished by copying, pasting, and modifying the linker command as shown when running "make" (or a similar build system), and then just re-invoking the modified link step. Please note that this first case is also working for an applications which is dynamically linked against LAPACK/BLAS.
 
-If an application is dynamically linked against LAPACK/BLAS, the unmodified application allows for intercepting these calls at startup time (runtime):
+If an application is dynamically linked against LAPACK/BLAS, the unmodified application allows for intercepting these calls at startup time (runtime) by using the LD_PRELOAD mechanism:
 
 ```
 LD_PRELOAD=/path/to/libxs.so ./myapplication
@@ -173,7 +173,7 @@ This case obviously requires to build a shared library of LIBXS:
 make STATIC=0
 ```
 
-Please note that calling SGEMM is more sensitive to dispatch overhead when compared to multiplying the same matrix sizes in double-precision. In case of single-precision, an approach of using the call wrapper is often not able to show an advantage if not regressing with respect to performance (therefore SGEMM is likely asking for making use of the LIBXS API). In contrast, the double-precision case can show up to two times the performance of a typical LAPACK/BLAS performance (without using the LIBXS API).
+Please note that calling SGEMM is more sensitive to dispatch-overhead when compared to multiplying the same matrix sizes in double-precision. In case of single-precision, an approach of using the call wrapper is often not able to show an advantage if not regressing with respect to performance (therefore SGEMM is likely asking for making use of the API). In contrast, the double-precision case can show up to two times the performance of a typical LAPACK/BLAS performance (and more when using the API for processing batches).
 
 ## Performance
 ### Tuning
