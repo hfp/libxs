@@ -149,23 +149,31 @@ Performing `make install-minimal` omits the documentation (default: `PREFIX/shar
 **NOTE**: the library is agnostic with respect to the threading-runtime, and enabling OpenMP (OMP=1) when building the library is a non-default option (untested). The library is also agnostic with respect to the selected LAPACK/BLAS library, and linking GEMM routines (BLAS=1|2) when building the library may prevent a user to decide at the time of linking the actual application.
 
 # Call Wrapper
-Since the library is binary compatible with existing GEMM calls (LAPACK/BLAS), these calls can be replaced at link-time or intercepted at runtime of an application such that LIBXS is used instead of the original LAPACK/BLAS. Currently this only works for the Linux OS (not validated under OS X), and it is also not sufficient to rely on a GNU tool chain under the Windows OS. Of course, using LIBXS's programming interface when performing the same multiplication multiple time in a consecutive fashion (batch-processing) allows to extract higher performance. However, using the call wrapper might motivate to make use of the LIBXS API.
+Since the library is binary compatible with existing GEMM calls (LAPACK/BLAS), these calls can be replaced at link-time or intercepted at runtime of an application such that LIBXS is used instead of the original LAPACK/BLAS. Currently this only works for the Linux OS (not validated under OS X), and it is also not sufficient to rely on a GNU tool chain under Microsoft Windows. Of course, using LIBXS's programming interface when performing the same multiplication multiple time in a consecutive fashion (batch-processing) allows to extract higher performance. However, using the call wrapper might motivate to make use of the LIBXS API.
 
-There are two cases to consider: (1) an application which is linking statically against LAPACK/BLAS, and (2) an application which is dynamically linked against LAPACK/BLAS. The first case requires making `-Wl,--wrap=dgemm_ /path/to/libxs.a` part of the link-line and then relinking the application. Relinking the application is often done by copying, pasting, and modifying the linker command as shown when running the existing "make" (or similar build system), and then just re-invoking the modified link step. Please note that this first case is also working for an applications which is dynamically linked against LAPACK/BLAS.
+There are two cases to consider: (1) an application which is linking statically against LAPACK/BLAS, and (2) an application which is dynamically linked against LAPACK/BLAS. The first case requires making `-Wl,--wrap=xgemm_ /path/to/libxs.a` part of the link-line and then relinking the application:
 
-The second case (already dynamically linked against LAPACK/BLAS) can be intercepted at startup time of the unmodified application:
+```
+gcc [...] -Wl,--wrap=sgemm_ /path/to/libxs.a
+gcc [...] -Wl,--wrap=dgemm_ /path/to/libxs.a
+gcc [...] -Wl,--wrap=sgemm_,--wrap=dgemm_ /path/to/libxs.a
+```
+
+Relinking the application is often done by copying, pasting, and modifying the linker command as shown when running the existing "make" (or similar build system), and then just re-invoking the modified link step. Please note that this first case is also working for an applications which is dynamically linked against LAPACK/BLAS.
+
+If an application is dynamically linked against LAPACK/BLAS, the unmodified application allows for intercepting these calls at startup time (runtime):
 
 ```
 LD_PRELOAD=/path/to/libxs.so ./myapplication
 ```
 
-The above case is obviously requiring to build the shared library of LIBXS:
+This case obviously requires to build a shared library of LIBXS:
 
 ```
 make STATIC=0
 ```
 
-Please note that calling SGEMM is more sensitive to dispatch overhead when compared to multiplying the same matrix sizes (shape) in double-precision. In case of single-precision, an approach of using the call wrapper is often not able to show an advantage if not regressing with respect to performance (therefore SGEMM is likely asking for making use of the LIBXS API). In contrast, the double-precision case can show up to two times the performance of a typical LAPACK/BLAS performance (without using the LIBXS API).
+Please note that calling SGEMM is more sensitive to dispatch overhead when compared to multiplying the same matrix sizes in double-precision. In case of single-precision, an approach of using the call wrapper is often not able to show an advantage if not regressing with respect to performance (therefore SGEMM is likely asking for making use of the LIBXS API). In contrast, the double-precision case can show up to two times the performance of a typical LAPACK/BLAS performance (without using the LIBXS API).
 
 ## Performance
 ### Tuning
