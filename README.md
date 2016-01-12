@@ -148,7 +148,27 @@ Performing `make install-minimal` omits the documentation (default: `PREFIX/shar
 
 **NOTE**: the library is agnostic with respect to the threading-runtime, and enabling OpenMP (OMP=1) when building the library is a non-default option (untested). The library is also agnostic with respect to the selected LAPACK/BLAS library, and linking GEMM routines (BLAS=1|2) when building the library may prevent a user to decide at the time of linking the actual application.
 
-# Tuning
+# Call Wrapper
+Since the library is binary compatible with existing GEMM calls (LAPACK/BLAS), these calls can be replaced at link-time or intercepted at runtime of an application such that LIBXS is used instead of the original LAPACK/BLAS. Currently this only works for the Linux OS (not validated under OS X), and it is also not sufficient to rely on a GNU tool chain under the Windows OS. Of course, using LIBXS's programming interface when performing the same multiplication multiple time in a consecutive fashion (batch-processing) allows to extract higher performance. However, using the call wrapper might motivate to make use of the LIBXS API.
+
+There are two cases to consider: (1) an application which is linking statically against LAPACK/BLAS, and (2) an application which is dynamically linked against LAPACK/BLAS. The first case requires making `-Wl,--wrap=dgemm_ /path/to/libxs.a` part of the link-line and then relinking the application. Relinking the application is often done by copying, pasting, and modifying the linker command as shown when running the existing "make" (or similar build system), and then just re-invoking the modified link step. Please note that this first case is also working for an applications which is dynamically linked against LAPACK/BLAS.
+
+The second case (already dynamically linked against LAPACK/BLAS) can be intercepted at startup time of the unmodified application:
+
+```
+LD_PRELOAD=/path/to/libxs.so ./myapplication
+```
+
+The above case is obviously requiring to build the shared library of LIBXS:
+
+```
+make STATIC=0
+```
+
+Please note that calling SGEMM is more sensitive to dispatch overhead when compared to multiplying the same matrix sizes (shape) in double-precision. In case of single-precision, an approach of using the call wrapper is often not able to show an advantage if not regressing with respect to performance (therefore SGEMM is likely asking for making use of the LIBXS API). In contrast, the double-precision case can show up to two times the performance of a typical LAPACK/BLAS performance (without using the LIBXS API).
+
+## Performance
+### Tuning
 Specifying a particular code path is not really necessary if the JIT backend is not disabled. However, disabling JIT compilation, statically generating a collection of kernels, and targeting a specific instruction set extension for the entire library looks like:
 
 ```
@@ -191,7 +211,7 @@ make PRECISION=2
 
 The default preference is to generate and register both single and double-precision code, and therefore no space in the dispatch table is saved (PRECISION=0). Specifying PRECISION=1|2 is only generating and registering either single-precision or double-precision code.
 
-## Generator driver
+## Generator Driver
 In rare situations it might be useful to directly incorporate generated C code (with inline assembly regions). This is accomplished by invoking a driver program (with certain command line arguments). The driver program is built as part of LIBXS's build process (when requesting static code generation), but also available via a separate build target:
 
 ```
