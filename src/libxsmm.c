@@ -56,10 +56,14 @@
 #if defined(LIBXS_OFFLOAD_BUILD)
 # pragma offload_attribute(pop)
 #endif
-
-#if !defined(LIBXS_STDATOMIC) && defined(__GNUC__) && \
-  (40704 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
-# define LIBXS_STDATOMIC
+#if defined(__GNUC__)
+# if !defined(LIBXS_GCCATOMICS)
+#   if (40704 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+#     define LIBXS_GCCATOMICS 1
+#   else
+#     define LIBXS_GCCATOMICS 0
+#   endif
+# endif
 #endif
 
 /* larger cache capacity lowers the probability of key collisions; should be a prime number */
@@ -181,8 +185,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 # pragma omp critical(libxs_cache_lock)
 #endif
   {
-#if defined(LIBXS_STDATOMIC)
+#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+# if (0 != LIBXS_GCCATOMICS)
     result = __atomic_load_n(&libxs_cache, __ATOMIC_SEQ_CST);
+# else
+    result = __sync_or_and_fetch(&libxs_cache, 0);
+# endif
+#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+    result = libxs_cache; /*TODO*/
 #else
     result = libxs_cache;
 #endif
@@ -230,8 +240,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
             }
           }
           atexit(libxs_finalize);
-#if defined(LIBXS_STDATOMIC)
+#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+# if (0 != LIBXS_GCCATOMICS)
           __atomic_store_n(&libxs_cache, result, __ATOMIC_SEQ_CST);
+# else
+          {
+            libxs_cache_entry* old = libxs_cache;
+            while (!__sync_bool_compare_and_swap(&libxs_cache, old, result)) old = libxs_cache;
+          }
+# endif
+#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+          libxs_cache = result; /*TODO*/
 #else
           libxs_cache = result;
 #endif
@@ -258,11 +277,16 @@ LIBXS_ATTRIBUTE(constructor)
 #endif
 LIBXS_RETARGETABLE void libxs_init(void)
 {
-  /*const*/void* cache;
-#if defined(LIBXS_STDATOMIC)
-  cache = __atomic_load_n(&libxs_cache, __ATOMIC_RELAXED);
+#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+# if (0 != LIBXS_GCCATOMICS)
+  const void *const cache = __atomic_load_n(&libxs_cache, __ATOMIC_RELAXED);
+# else
+  const void *const cache = __sync_or_and_fetch(&libxs_cache, 0);
+# endif
+#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+  const void *const cache = libxs_cache; /*TODO*/
 #else
-  cache = libxs_cache;
+  const void *const cache = libxs_cache;
 #endif
   if (0 == cache) {
     internal_init();
@@ -277,11 +301,16 @@ LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
 LIBXS_RETARGETABLE void libxs_finalize(void)
 {
-  libxs_cache_entry* cache = 0;
-#if defined(LIBXS_STDATOMIC)
-  cache = __atomic_load_n(&libxs_cache, __ATOMIC_SEQ_CST);
+#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+# if (0 != LIBXS_GCCATOMICS)
+  libxs_cache_entry* cache = __atomic_load_n(&libxs_cache, __ATOMIC_SEQ_CST);
+# else
+  libxs_cache_entry* cache = __sync_or_and_fetch(&libxs_cache, 0);
+# endif
+#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+  libxs_cache_entry* cache = libxs_cache; /*TODO*/
 #else
-  cache = libxs_cache;
+  libxs_cache_entry* cache = libxs_cache;
 #endif
 
   if (0 != cache) {
@@ -305,8 +334,14 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
         }
 # endif
 #endif
-#if defined(LIBXS_STDATOMIC)
+#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+# if (0 != LIBXS_GCCATOMICS)
         __atomic_store_n(&libxs_cache, 0, __ATOMIC_SEQ_CST);
+# else
+        __sync_and_and_fetch(&libxs_cache, 0);
+# endif
+#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+        libxs_cache = 0; /*TODO*/
 #else
         libxs_cache = 0;
 #endif
@@ -470,17 +505,22 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff(const libxs_gemm_
 
 LIBXS_INLINE LIBXS_RETARGETABLE libxs_code internal_find_code(const libxs_gemm_descriptor* desc)
 {
-  libxs_cache_entry *entry;
   libxs_code result;
   unsigned int hash, i, diff = 0;
   unsigned int diff0 = 0, i0;
-  assert(0 != desc);
 
-#if defined(LIBXS_STDATOMIC)
-  entry = __atomic_load_n(&libxs_cache, __ATOMIC_RELAXED);
+#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+# if (0 != LIBXS_GCCATOMICS)
+  libxs_cache_entry* entry = __atomic_load_n(&libxs_cache, __ATOMIC_RELAXED);
+# else
+  libxs_cache_entry* entry = __sync_or_and_fetch(&libxs_cache, 0);
+# endif
+#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+  libxs_cache_entry* entry = libxs_cache; /*TODO*/
 #else
-  entry = libxs_cache;
+  libxs_cache_entry* entry = libxs_cache;
 #endif
+  assert(0 != desc);
 
   /* lazy initialization */
   if (0 == entry) {
@@ -495,8 +535,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code internal_find_code(const libxs_gemm_d
   entry += i; /* actual entry */
   do {
     /* read cached code */
-#if defined(LIBXS_STDATOMIC)
+#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+# if (0 != LIBXS_GCCATOMICS)
     result.xmm = __atomic_load_n(&entry->code.xmm, __ATOMIC_SEQ_CST);
+# else
+    result.xmm = __sync_or_and_fetch(&entry->code.xmm, 0);
+# endif
+#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+    result = entry->code; /*TODO*/
 #else
     result = entry->code;
 #endif
@@ -560,8 +606,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code internal_find_code(const libxs_gemm_d
 
             if (0 != result.xmm) { /* synchronize cache entry */
               entry->descriptor = *desc;
-# if defined(LIBXS_STDATOMIC)
+# if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+#   if (0 != LIBXS_GCCATOMICS)
               __atomic_store_n(&entry->code.xmm, result.xmm, __ATOMIC_SEQ_CST);
+#   else
+              {
+                const void* old = result.xmm;
+                while (!__sync_bool_compare_and_swap(&entry->code.xmm, old, result.xmm)) old = result.xmm;
+              }
+#   endif
+# elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+              entry->code.xmm = result.xmm; /*TODO*/
 # else
               entry->code.xmm = result.xmm;
 # endif
@@ -579,8 +634,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code internal_find_code(const libxs_gemm_d
               i = (index != i ? index : ((index + 1) % LIBXS_CACHESIZE));
               i0 = i; /* keep starting point of free-slot-search in mind */
               /* fixup existing entry */
-# if defined(LIBXS_STDATOMIC)
+# if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+#   if (0 != LIBXS_GCCATOMICS)
               __atomic_store_n(&entry->code.xmm, code, __ATOMIC_SEQ_CST);
+#   else
+              {
+                const void* old = code;
+                while (!__sync_bool_compare_and_swap(&entry->code.xmm, old, code)) old = entry->code.xmm;
+              }
+#   endif
+# elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+              entry->code.xmm = code; /*TODO*/
 # else
               entry->code.xmm = code;
 # endif
