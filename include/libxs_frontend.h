@@ -141,7 +141,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)LIBXS_LD(M, N); \
   const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)LIBXS_LD(N, M); \
   const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(K); \
-  assert(SYMBOL); \
+  assert(0 != ((uintptr_t)SYMBOL)); \
   SYMBOL(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
     &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
     &libxs_blas_xgemm_alpha_, (const REAL*)LIBXS_LD(A, B), &libxs_blas_xgemm_lda_, \
@@ -168,7 +168,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
 /** Inlinable GEMM exercising the compiler's code generation (template). */
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
 # define LIBXS_INLINE_XGEMM(REAL, INT, SYMBOL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  assert(SYMBOL); \
+  assert(0 != ((uintptr_t)SYMBOL)); \
   LIBXS_BLAS_XGEMM(REAL, SYMBOL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #else
 # define LIBXS_INLINE_XGEMM(REAL, INT, SYMBOL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
