@@ -71,6 +71,9 @@
 /* flag fused into the memory address of a code version in case of collision */
 #define LIBXS_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 1))
 #define LIBXS_HASH_SEED 0 /* CRC32 seed */
+#if !defined(__SSE4_2__)
+LIBXS_RETARGETABLE libxs_crc32_function libxs_crc32_cpuid = 0;
+#endif
 
 typedef union LIBXS_RETARGETABLE libxs_code {
   libxs_smmfunction smm;
@@ -85,7 +88,7 @@ typedef struct LIBXS_RETARGETABLE libxs_cache_entry {
   unsigned int code_size;
 } libxs_cache_entry;
 LIBXS_RETARGETABLE libxs_cache_entry* libxs_cache = 0;
-LIBXS_RETARGETABLE const char* libxs_archid = 0;
+LIBXS_RETARGETABLE const char* libxs_jit = 0;
 
 #if !defined(_OPENMP)
 LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_cache_lock[] = {
@@ -224,21 +227,25 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
         result = (libxs_cache_entry*)malloc(LIBXS_CACHESIZE * sizeof(libxs_cache_entry));
 
         if (result) {
+          int is_static = 0;
+          const char *const archid = internal_archid(&is_static);
           for (i = 0; i < LIBXS_CACHESIZE; ++i) result[i].code.xmm = 0;
-          { /* omit registering SSE code if JIT is enabled and an AVX-based ISA is available
-             * any kind of AVX code is registered even when a higher ISA is found!
+          { /* omit registering code if JIT is enabled and if an ISA extension is found
+             * which is beyond the static code path used to compile the library
              */
 #if (0 != LIBXS_JIT)
             const char *const env_jit = getenv("LIBXS_JIT");
-            int is_static = 0;
-            libxs_archid = (0 == env_jit || 0 == *env_jit || '1' == *env_jit) ? internal_archid(&is_static) : ('0' != *env_jit ? env_jit : 0);
-            if (0 == libxs_archid || 0 != is_static)
+            libxs_jit = (0 == env_jit || 0 == *env_jit || '1' == *env_jit) ? archid : ('0' != *env_jit ? env_jit : 0);
+            if (0 == libxs_jit || 0 != is_static)
 #endif
             { /* open scope for variable declarations */
               /* setup the dispatch table for the statically generated code */
 #             include <libxs_dispatch.h>
             }
           }
+#if !defined(__SSE4_2__)
+          libxs_crc32_cpuid = libxs_crc32; /*TODO*/
+#endif
           atexit(libxs_finalize);
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
@@ -379,7 +386,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   libxs_generated_code generated_code;
   assert(0 != desc && 0 != code && 0 != code_size);
-  assert(0 != libxs_archid);
+  assert(0 != libxs_jit);
   assert(0 == *code);
 
   /* allocate temporary buffer which is large enough to cover the generated code */
@@ -390,7 +397,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   generated_code.last_error = 0;
 
   /* generate kernel */
-  libxs_generator_dense_kernel(&generated_code, desc, libxs_archid);
+  libxs_generator_dense_kernel(&generated_code, desc, libxs_jit);
 
   /* handle an eventual error in the else-branch */
   if (0 == generated_code.last_error) {
@@ -429,14 +436,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
           char objdump_name[512];
           FILE* byte_code;
           sprintf(objdump_name, "kernel_%s_f%i_%c%c_m%u_n%u_k%u_lda%u_ldb%u_ldc%u_a%i_b%i_pf%i.bin",
-            libxs_archid /* best available/supported code path */,
+            libxs_jit /* best available/supported code path */,
             0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 64 : 32,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & desc->flags) ? 'n' : 't',
             0 == (LIBXS_GEMM_FLAG_TRANS_B & desc->flags) ? 'n' : 't',
             desc->m, desc->n, desc->k, desc->lda, desc->ldb, desc->ldc,
             desc->alpha, desc->beta, desc->prefetch);
           byte_code = fopen(objdump_name, "wb");
-          if (byte_code != NULL) {
+          if (0 != byte_code) {
             fwrite(generated_code.generated_code, 1, generated_code.code_size, byte_code);
             fclose(byte_code);
           }
@@ -529,8 +536,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code internal_find_code(const libxs_gemm_d
   }
 
   /* check if the requested xGEMM is already JITted */
+#if defined(__SSE4_2__)
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
-  hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
+  hash = libxs_crc32_sse42(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
+#else
+  assert(libxs_crc32_cpuid);
+  LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
+  hash = libxs_crc32_cpuid(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
+#endif
   i = i0 = hash % LIBXS_CACHESIZE;
   entry += i; /* actual entry */
   do {
@@ -587,7 +600,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code internal_find_code(const libxs_gemm_d
     }
 
     /* check if code generation or fixup is needed, also check whether JIT is supported (CPUID) */
-    if (0 == result.xmm && 0 != libxs_archid) {
+    if (0 == result.xmm && 0 != libxs_jit) {
       /* attempt to lock the cache entry */
 # if !defined(_OPENMP)
       const unsigned int lock = LIBXS_MOD2(i, sizeof(libxs_cache_lock) / sizeof(*libxs_cache_lock));
