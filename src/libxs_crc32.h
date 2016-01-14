@@ -32,10 +32,10 @@
 #include <libxs_macros.h>
 
 
-/**
- * Calculate the CRC32 for a given quantity (size) of raw data
- * according to the seed (init. value).
- */
+/** Function type representing the CRC32 functionality. */
+typedef LIBXS_RETARGETABLE void (*libxs_crc32_function)(const void*, unsigned int, unsigned int);
+
+/** Calculate the CRC32 for a given quantity (size) of raw data according to the seed (init. value). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(
   const void* data, unsigned int size, unsigned int init);
 
