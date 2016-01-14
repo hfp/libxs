@@ -32,6 +32,7 @@
 #include <libxs_macros.h>
 
 
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int init);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int init);
 
 #endif /*LIBXS_CRC32_H*/
