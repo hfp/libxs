@@ -40,9 +40,7 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <limits.h>
-#if !defined(LIBXS_CRC32_FORCESW)
-# include <nmmintrin.h>
-#endif
+#include <nmmintrin.h>
 #if defined(LIBXS_OFFLOAD_BUILD)
 # pragma offload_attribute(pop)
 #endif
@@ -370,7 +368,7 @@ LIBXS_RETARGETABLE const uint32_t libxs_crc32_table[][256] = {
     return begin == endb ? (INIT) : FN8(INIT, *begin); \
   }
 #else
-# define LIBXS_CRC32(DATA, SIZE, INIT) { \
+# define LIBXS_CRC32(FN64, FN32, FN16, FN8, DATA, SIZE, INIT) { \
     const unsigned char *begin = (const unsigned char*)(DATA); \
     const unsigned char *const endb = begin + (SIZE); \
     LIBXS_CRC32_U64(FN64, INIT, begin, endb); \
