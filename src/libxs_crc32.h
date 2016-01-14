@@ -32,7 +32,15 @@
 #include <libxs_macros.h>
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int init);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int init);
+/**
+ * Calculate the CRC32 for a given quantity (size) of raw data
+ * according to the seed (init. value).
+ */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(
+  const void* data, unsigned int size, unsigned int init);
+
+/** Similar to libxs_crc32 (uses CRC32 instructions available since SSE4.2). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(
+  const void* data, unsigned int size, unsigned int init);
 
 #endif /*LIBXS_CRC32_H*/
