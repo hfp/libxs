@@ -444,6 +444,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* dat
   LIBXS_CRC32(libxs_crc32_u64, libxs_crc32_u32, libxs_crc32_u16, libxs_crc32_u8, data, size, init);
 #endif
 }
-#if (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+#if !defined(__SSE4_2__) && (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
 # pragma GCC pop_options
 #endif
