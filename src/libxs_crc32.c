@@ -36,15 +36,6 @@
 # define LIBXS_CRC32_ALIGNMENT LIBXS_ALIGNMENT
 #endif
 
-#if defined(LIBXS_OFFLOAD_BUILD)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <limits.h>
-#include <nmmintrin.h>
-#if defined(LIBXS_OFFLOAD_BUILD)
-# pragma offload_attribute(pop)
-#endif
-
 
 #if !defined(__SSE4_2__) || defined(LIBXS_CRC32_FORCESW)
 /* table-based implementation taken from http://dpdk.org/. */
@@ -378,14 +369,25 @@ LIBXS_RETARGETABLE const uint32_t libxs_crc32_table[][256] = {
   }
 #endif /*defined(LIBXS_CRC32_ALIGNMENT) && 1 < (LIBXS_CRC32_ALIGNMENT)*/
 
-LIBXS_EXTERN_C
-#if defined(__GNUC__)
-LIBXS_ATTRIBUTE(target("sse4.2"))
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int init)
+
+#if (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+# pragma GCC push_options
+# pragma GCC target("sse4.2")
+#include <nmmintrin.h>
+#endif
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(pop)
+#endif
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int init)
 {
   LIBXS_CRC32(_mm_crc32_u64, _mm_crc32_u32, _mm_crc32_u16, _mm_crc32_u8, data, size, init);
 }
+#if defined(__GNUC__)
+# pragma GCC pop_options
+#endif
 
 
 #if !defined(__SSE4_2__) || defined(LIBXS_CRC32_FORCESW)
