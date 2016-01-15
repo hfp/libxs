@@ -416,7 +416,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, uns
 #if defined(LIBXS_OFFLOAD_BUILD)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#if (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+#if defined(__SSE4_2__)
+# include <nmmintrin.h>
+# if !defined(LIBXS_CRC32_FORCEHW)
+#   define LIBXS_CRC32_FORCEHW
+# endif
+#elif (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
 # pragma GCC push_options
 # pragma GCC target("sse4.2")
 # include <nmmintrin.h>
