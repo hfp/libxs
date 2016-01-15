@@ -71,10 +71,6 @@
 /* flag fused into the memory address of a code version in case of collision */
 #define LIBXS_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 1))
 #define LIBXS_HASH_SEED 0 /* CRC32 seed */
-#if !defined(__SSE4_2__)
-LIBXS_RETARGETABLE libxs_crc32_function libxs_crc32_cpuid = 0;
-#endif
-
 typedef union LIBXS_RETARGETABLE libxs_code {
   libxs_smmfunction smm;
   libxs_dmmfunction dmm;
@@ -89,6 +85,7 @@ typedef struct LIBXS_RETARGETABLE libxs_cache_entry {
 } libxs_cache_entry;
 LIBXS_RETARGETABLE libxs_cache_entry* libxs_cache = 0;
 LIBXS_RETARGETABLE const char* libxs_jit = 0;
+LIBXS_RETARGETABLE int libxs_has_crc32 = 0;
 
 #if !defined(_OPENMP)
 LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_cache_lock[] = {
@@ -100,13 +97,12 @@ LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_cache_lock[] = {
 #endif
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_archid(int* is_static)
+LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_arch_name(int* is_static, int* has_crc32)
 {
   unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
-  const char* archid = 0;
+  const char* name = 0;
 
-  assert(is_static);
-  *is_static = 0;
+  if (is_static) *is_static = 0;
 
   LIBXS_CPUID(0, eax, ebx, ecx, edx);
   if (1 <= eax) { /* CPUID */
@@ -114,6 +110,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_archid(int* is_static)
 
     /* XSAVE/XGETBV(0x04000000), OSXSAVE(0x08000000) */
     if (0x0C000000 == (0x0C000000 & ecx)) {
+      /* Check for CRC32 (this is not a proper test for SSE 4.2 as a whole!) */
+      if (has_crc32) {
+        *has_crc32 = (0x00100000 == (0x00100000 & ecx) ? 1 : 0);
+#if defined(__SSE4_2__)
+        assert(0 != *has_crc32); /* failed to detect CRC32 instruction */
+#endif
+      }
       LIBXS_XGETBV(0, eax, edx);
 
       if (0x00000006 == (0x00000006 & eax)) { /* OS XSAVE 256-bit */
@@ -123,16 +126,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_archid(int* is_static)
           /* AVX512F(0x00010000), AVX512CD(0x10000000), AVX512PF(0x04000000),
              AVX512ER(0x08000000) */
           if (0x1C010000 == (0x1C010000 & ebx)) {
-            archid = "knl";
+            name = "knl";
           }
           /* AVX512F(0x00010000), AVX512CD(0x10000000), AVX512DQ(0x00020000),
              AVX512BW(0x40000000), AVX512VL(0x80000000) */
           else if (0xD0030000 == (0xD0030000 & ebx)) {
-            archid = "skx";
+            name = "skx";
           }
 
 #if defined(__AVX512F__)
-          *is_static = 1;
+          if (is_static) *is_static = 1;
 #endif
         }
         else if (0x10000000 == (0x10000000 & ecx)) { /* AVX(0x10000000) */
@@ -141,26 +144,29 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_archid(int* is_static)
             assert(!"Failed to detect Intel AVX-512 extensions!");
 #endif
 #if defined(__AVX2__)
-            *is_static = 1;
+            if (is_static) *is_static = 1;
 #endif
-            archid = "hsw";
+            name = "hsw";
           }
           else {
 #if defined(__AVX2__)
             assert(!"Failed to detect Intel AVX2 extensions!");
 #endif
 #if defined(__AVX__)
-            *is_static = 1;
+            if (is_static) *is_static = 1;
 #endif
-            archid = "snb";
+            name = "snb";
           }
         }
       }
     }
   }
+  else if (has_crc32) {
+    *has_crc32 = 0;
+  }
 
 #if !defined(NDEBUG)/* library code is expected to be mute */ && (0 != LIBXS_JIT)
-  if (0 == archid) {
+  if (0 == name) {
 # if defined(__SSE3__)
     fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
 # elif defined(__MIC__)
@@ -171,7 +177,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_archid(int* is_static)
   }
 #endif
 
-  return archid;
+  return name;
 }
 
 
@@ -228,14 +234,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 
         if (result) {
           int is_static = 0;
-          const char *const archid = internal_archid(&is_static);
+          /* decide using libxs_has_crc32 instead of relying on a libxs_crc32_function pointer
+           * to be able to inline the call instead of using an indirection (via fn. pointer)
+           */
+          const char *const arch_name = internal_arch_name(&is_static, &libxs_has_crc32);
           for (i = 0; i < LIBXS_CACHESIZE; ++i) result[i].code.xmm = 0;
           { /* omit registering code if JIT is enabled and if an ISA extension is found
              * which is beyond the static code path used to compile the library
              */
 #if (0 != LIBXS_JIT)
             const char *const env_jit = getenv("LIBXS_JIT");
-            libxs_jit = (0 == env_jit || 0 == *env_jit || '1' == *env_jit) ? archid : ('0' != *env_jit ? env_jit : 0);
+            libxs_jit = (0 == env_jit || 0 == *env_jit || '1' == *env_jit) ? arch_name : ('0' != *env_jit ? env_jit : 0);
             if (0 == libxs_jit || 0 != is_static)
 #endif
             { /* open scope for variable declarations */
@@ -243,9 +252,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_cache_entry* internal_init(void)
 #             include <libxs_dispatch.h>
             }
           }
-#if !defined(__SSE4_2__)
-          libxs_crc32_cpuid = libxs_crc32; /*TODO*/
-#endif
           atexit(libxs_finalize);
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
@@ -540,9 +546,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code internal_find_code(const libxs_gemm_d
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
   hash = libxs_crc32_sse42(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
 #else
-  assert(libxs_crc32_cpuid);
-  LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
-  hash = libxs_crc32_cpuid(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
+  if (0 != libxs_has_crc32) {
+    LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
+    hash = libxs_crc32_sse42(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
+  }
+  else {
+    LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
+    hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
+  }
 #endif
   i = i0 = hash % LIBXS_CACHESIZE;
   entry += i; /* actual entry */
