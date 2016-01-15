@@ -351,7 +351,8 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 # if (0 != LIBXS_GCCATOMICS)
         __atomic_store_n(&libxs_cache, 0, __ATOMIC_SEQ_CST);
 # else
-        __sync_and_and_fetch(&libxs_cache, 0);
+        /* use store side-effect of built-in (dummy assignment to mute warning) */
+        cache = __sync_and_and_fetch(&libxs_cache, 0);
 # endif
 #elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
         libxs_cache = 0; /*TODO*/
