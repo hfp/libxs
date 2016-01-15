@@ -369,27 +369,6 @@ LIBXS_RETARGETABLE const uint32_t libxs_crc32_table[][256] = {
   }
 #endif /*defined(LIBXS_CRC32_ALIGNMENT) && 1 < (LIBXS_CRC32_ALIGNMENT)*/
 
-#if defined(LIBXS_OFFLOAD_BUILD)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-
-#if (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
-# pragma GCC push_options
-# pragma GCC target("sse4.2")
-#include <nmmintrin.h>
-#endif
-#if defined(LIBXS_OFFLOAD_BUILD)
-# pragma offload_attribute(pop)
-#endif
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int init)
-{
-  LIBXS_CRC32(_mm_crc32_u64, _mm_crc32_u32, _mm_crc32_u16, _mm_crc32_u8, data, size, init);
-}
-#if defined(__GNUC__)
-# pragma GCC pop_options
-#endif
-
-
 #if !defined(__SSE4_2__) || defined(LIBXS_CRC32_FORCESW)
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_crc32_u8(unsigned int init, unsigned char value)
 {
@@ -433,3 +412,33 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, uns
 #endif
 }
 
+
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#if (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+# pragma GCC push_options
+# pragma GCC target("sse4.2")
+# include <nmmintrin.h>
+# if !defined(LIBXS_CRC32_FORCEHW)
+#   define LIBXS_CRC32_FORCEHW
+# endif
+#elif defined(_WIN32)
+# if !defined(LIBXS_CRC32_FORCEHW)
+#   define LIBXS_CRC32_FORCEHW
+# endif
+#endif
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(pop)
+#endif
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int init)
+{
+#if defined(LIBXS_CRC32_FORCEHW)
+  LIBXS_CRC32(_mm_crc32_u64, _mm_crc32_u32, _mm_crc32_u16, _mm_crc32_u8, data, size, init);
+#else
+  LIBXS_CRC32(libxs_crc32_u64, libxs_crc32_u32, libxs_crc32_u16, libxs_crc32_u8, data, size, init);
+#endif
+}
+#if (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+# pragma GCC pop_options
+#endif
