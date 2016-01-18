@@ -120,12 +120,12 @@ else
 	GENTARGET = noarch
 endif
 
-ifneq (0,$(STATIC))
-	GENERATOR = $(BINDIR)/libxs_generator
-	LIBEXT = a
-else
+ifeq (0,$(STATIC))
 	GENERATOR = env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator
 	LIBEXT = so
+else
+	GENERATOR = $(BINDIR)/libxs_generator
+	LIBEXT = a
 endif
 
 INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
@@ -146,25 +146,23 @@ OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) \
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
 OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_BIN) $(OBJFILES_HST) $(OBJFILES_MIC)
 
-.PHONY: lib_all
-ifeq (0,$(MPSS))
-lib_all: header drytest lib_hst
-else
-ifeq (0,$(MIC))
-lib_all: header drytest lib_hst
-else
-lib_all: header drytest lib_hst lib_mic
-endif
-endif
+.PHONY: lib
+lib: header drytest lib_hst lib_mic
 
 .PHONY: all
-all: lib_all samples
+all: lib samples
 
 .PHONY: header
 header: cheader fheader
 
 .PHONY: interface
 interface: header
+
+.PHONY: lib_mic
+lib_mic: clib_mic
+
+.PHONY: lib_hst
+lib_hst: clib_hst flib_hst
 
 PREFETCH_ID = 0
 PREFETCH_SCHEME = nopf
@@ -276,9 +274,6 @@ ifeq (0,$(OFFLOAD))
 	@TMPFILE=`mktemp`
 	@sed -i ${TMPFILE} '/ATTRIBUTES OFFLOAD:MIC/d' $@
 	@rm -f ${TMPFILE} 
-endif
-ifneq (,$(FC))
-	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $@ -o $(BLDDIR)/libxs-mod.o $(FMFLAGS) $(dir $@)
 endif
 
 .PHONY: compile_generator_lib
@@ -403,13 +398,11 @@ main: $(BLDDIR)/libxs_dispatch.h
 $(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(INCDIR)/libxs.h $(SCRDIR)/libxs_dispatch.py
 	@$(PYTHON) $(SCRDIR)/libxs_dispatch.py $(PRECISION) $(THRESHOLD) $(INDICES) > $@
 
+.PHONY: compile_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
-.PHONY: compile_mic
 compile_mic: $(OBJFILES_MIC)
 $(BLDDIR)/mic/%.o: $(SRCDIR)/%.c $(BLDDIR)/mic/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
-	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $< -o $@
-$(BLDDIR)/mic/%.o: $(BLDDIR)/%.c $(BLDDIR)/mic/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $< -o $@
 endif
 endif
@@ -418,29 +411,70 @@ endif
 compile_hst: $(OBJFILES_HST)
 $(BLDDIR)/intel64/%.o: $(SRCDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
-$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
-	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
 
+.PHONY: clib_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
-.PHONY: lib_mic
-lib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT) $(INCDIR)/libxs.f
+clib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
+ifneq (,$(FC))
+$(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(INCDIR)/mic/.make $(OBJFILES_MIC)
+	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $(BLDDIR)/mic/libxs-mod.o $(FMFLAGS) $(INCDIR)/mic
+else
 $(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC)
+endif
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_MIC) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
+else
+ifneq (,$(FC))
+	$(AR) -rs $@ $(OBJFILES_MIC) $(BLDDIR)/mic/libxs-mod.o
 else
 	$(AR) -rs $@ $(OBJFILES_MIC)
 endif
 endif
 endif
+endif
 
-.PHONY: lib_hst
-lib_hst: $(OUTDIR)/libxs.$(LIBEXT) $(INCDIR)/libxs.f
+.PHONY: flib_mic
+ifneq (0,$(MIC))
+ifneq (0,$(MPSS))
+ifneq (,$(FC))
+flib_hst: $(OUTDIR)/mic/libxsf.$(LIBEXT)
+$(OUTDIR)/mic/libxsf.$(LIBEXT): $(OUTDIR)/mic/.make $(OUTDIR)/mic/libxs.$(LIBEXT)
+ifeq (0,$(STATIC))
+	$(FC) -o $@ $(OUTDIR)/mic/libxs.$(LIBEXT) $(BLDDIR)/mic/libxs-mod.o -mmic -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+else
+	$(AR) -rs $@ $(OUTDIR)/mic/libxs.$(LIBEXT)
+endif
+endif
+endif
+endif
+
+.PHONY: clib_hst
+clib_hst: $(OUTDIR)/libxs.$(LIBEXT)
 $(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
+ifneq (,$(FC))
+	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $(INCDIR)/libxs.f -o $(BLDDIR)/intel64/libxs-mod.o $(FMFLAGS) $(INCDIR)
+endif
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
 else
+ifneq (,$(FC))
+	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(BLDDIR)/intel64/libxs-mod.o
+else
 	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
+endif
+endif
+
+
+.PHONY: flib_hst
+ifneq (,$(FC))
+flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
+$(OUTDIR)/libxsf.$(LIBEXT): $(OUTDIR)/.make $(OUTDIR)/libxs.$(LIBEXT)
+ifeq (0,$(STATIC))
+	$(FC) -o $@ $(OUTDIR)/libxs.$(LIBEXT) $(BLDDIR)/intel64/libxs-mod.o -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+else
+	$(AR) -rs $@ $(OUTDIR)/libxs.$(LIBEXT)
+endif
 endif
 
 .PHONY: samples
@@ -863,7 +897,7 @@ endif
 
 .PHONY: install-minimal
 ifneq ($(abspath $(PREFIX)),$(abspath .))
-install-minimal: lib_all
+install-minimal: lib generator
 	@echo
 	@echo "LIBXS installing binaries..."
 	@mkdir -p $(PREFIX)/$(POUTDIR) $(PREFIX)/$(PBINDIR) $(PREFIX)/$(PINCDIR)
@@ -871,6 +905,8 @@ install-minimal: lib_all
 	@cp -uv $(OUTDIR)/libxsgen.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
 	@cp -uv $(OUTDIR)/libxs.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
 	@cp -uv $(OUTDIR)/libxs.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -uv $(OUTDIR)/libxsf.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -uv $(OUTDIR)/libxsf.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
 	@if [[ -e $(OUTDIR)/mic/libxs.so ]] ; then \
 		mkdir -p $(PREFIX)/$(POUTDIR)/mic ; \
 		cp -uv $(OUTDIR)/mic/libxs.so $(PREFIX)/$(POUTDIR)/mic ; \
@@ -879,12 +915,20 @@ install-minimal: lib_all
 		mkdir -p $(PREFIX)/$(POUTDIR)/mic ; \
 		cp -uv $(OUTDIR)/mic/libxs.a $(PREFIX)/$(POUTDIR)/mic ; \
 	fi
+	@if [[ -e $(OUTDIR)/mic/libxsf.so ]] ; then \
+		mkdir -p $(PREFIX)/$(POUTDIR)/mic ; \
+		cp -uv $(OUTDIR)/mic/libxsf.so $(PREFIX)/$(POUTDIR)/mic ; \
+	fi
+	@if [[ -e $(OUTDIR)/mic/libxsf.a ]] ; then \
+		mkdir -p $(PREFIX)/$(POUTDIR)/mic ; \
+		cp -uv $(OUTDIR)/mic/libxsf.a $(PREFIX)/$(POUTDIR)/mic ; \
+	fi
 	@cp -uv $(BINDIR)/libxs_generator $(PREFIX)/$(PBINDIR) 2> /dev/null || true
 	@cp -uv $(INCDIR)/libxs*.h $(PREFIX)/$(PINCDIR)
 	@cp -uv $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR)
 	@cp -uv $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR)
 else
-install-minimal: lib_all
+install-minimal: lib
 endif
 
 .PHONY: install
