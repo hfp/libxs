@@ -7,7 +7,7 @@
 # MAKE_PARALLEL=1: enable explicitly
 ifeq (0,$(MAKE_PARALLEL))
 .NOTPARALLEL:
-else ifeq (,$(MAKE_PARALLEL))
+else ifeq (,$(strip $(MAKE_PARALLEL)))
 ifneq (3.82,$(firstword $(sort $(MAKE_VERSION) 3.82)))
 .NOTPARALLEL:
 endif
@@ -301,7 +301,7 @@ $(BINDIR)/libxs_generator: $(BINDIR)/.make $(OBJFILES_GEN_BIN) $(OUTDIR)/libxsge
 .PHONY: sources
 sources: $(SRCFILES)
 $(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
-ifneq (,$(SRCFILES))
+ifneq (,$(strip $(SRCFILES)))
 	$(eval MVALUE := $(shell echo $(basename $@) | $(CUT) --output-delimiter=' ' -d_ -f2))
 	$(eval NVALUE := $(shell echo $(basename $@) | $(CUT) --output-delimiter=' ' -d_ -f3))
 	$(eval KVALUE := $(shell echo $(basename $@) | $(CUT) --output-delimiter=' ' -d_ -f4))
@@ -420,7 +420,7 @@ $(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 clib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
-ifneq (,$(FC))
+ifneq (,$(strip $(FC)))
 $(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(INCDIR)/mic/.make $(OBJFILES_MIC)
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $(BLDDIR)/mic/libxs-mod.o $(FMFLAGS) $(INCDIR)/mic
 else
@@ -429,7 +429,7 @@ endif
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_MIC) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
 else
-ifneq (,$(FC))
+ifneq (,$(strip $(FC)))
 	$(AR) -rs $@ $(OBJFILES_MIC) $(BLDDIR)/mic/libxs-mod.o
 else
 	$(AR) -rs $@ $(OBJFILES_MIC)
@@ -441,7 +441,7 @@ endif
 .PHONY: flib_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
-ifneq (,$(FC))
+ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(OUTDIR)/mic/.make $(OUTDIR)/mic/libxs.$(LIBEXT)
 ifeq (0,$(STATIC))
@@ -456,13 +456,13 @@ endif
 .PHONY: clib_hst
 clib_hst: $(OUTDIR)/libxs.$(LIBEXT)
 $(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
-ifneq (,$(FC))
+ifneq (,$(strip $(FC)))
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $(INCDIR)/libxs.f -o $(BLDDIR)/intel64/libxs-mod.o $(FMFLAGS) $(INCDIR)
 endif
 ifeq (0,$(STATIC))
 	$(LD) -o $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
 else
-ifneq (,$(FC))
+ifneq (,$(strip $(FC)))
 	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(BLDDIR)/intel64/libxs-mod.o
 else
 	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
@@ -471,7 +471,7 @@ endif
 
 
 .PHONY: flib_hst
-ifneq (,$(FC))
+ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
 $(OUTDIR)/libxsf.$(LIBEXT): $(OUTDIR)/.make $(OUTDIR)/libxs.$(LIBEXT)
 ifeq (0,$(STATIC))
@@ -528,7 +528,7 @@ $(SPLDIR)/cp2k/cp2k-perf.sh: $(SPLDIR)/cp2k/.make $(ROOTDIR)/Makefile
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
 	@echo "FILE=cp2k-perf.txt" >> $@
-ifneq (,$(INDICES))
+ifneq (,$(strip $(INDICES)))
 	@echo "RUNS=\"$(INDICES)\"" >> $@
 else
 	@echo "RUNS=\"23_23_23\"" >> $@
@@ -572,7 +572,7 @@ $(SPLDIR)/smm/smmf-perf.sh: $(SPLDIR)/smm/.make $(ROOTDIR)/Makefile
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
 	@echo "FILE=\$${HERE}/smmf-perf.txt" >> $@
-ifneq (,$(INDICES))
+ifneq (,$(strip $(INDICES)))
 	@echo "RUNS=\"$(INDICES)\"" >> $@
 else
 	@echo "RUNS=\"23_23_23\"" >> $@
@@ -616,7 +616,7 @@ $(SPLDIR)/nek/grad-perf.sh: $(SPLDIR)/nek/.make $(ROOTDIR)/Makefile
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
 	@echo "FILE=\$${HERE}/grad-perf.txt" >> $@
-ifneq (,$(INDICES))
+ifneq (,$(strip $(INDICES)))
 	@echo "RUNS=\"$(INDICES)\"" >> $@
 else
 	@echo "RUNS=\"23_23_23\"" >> $@
@@ -654,7 +654,7 @@ $(SPLDIR)/nek/axhm-perf.sh: $(SPLDIR)/nek/.make $(ROOTDIR)/Makefile
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
 	@echo "FILE=\$${HERE}/axhm-perf.txt" >> $@
-ifneq (,$(INDICES))
+ifneq (,$(strip $(INDICES)))
 	@echo "RUNS=\"$(INDICES)\"" >> $@
 else
 	@echo "RUNS=\"23_23_23\"" >> $@
@@ -692,7 +692,7 @@ $(SPLDIR)/nek/rstr-perf.sh: $(SPLDIR)/nek/.make $(ROOTDIR)/Makefile
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
 	@echo "FILE=\$${HERE}/rstr-perf.txt" >> $@
-ifneq (,$(INDICES))
+ifneq (,$(strip $(INDICES)))
 	@echo "RUNS=\"$(INDICES)\"" >> $@
 	@echo "RUNT=\"$(INDICES)\"" >> $@
 else
