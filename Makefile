@@ -121,7 +121,10 @@ else
 endif
 
 ifeq (0,$(STATIC))
-	GENERATOR = env LD_LIBRARY_PATH=$(OUTDIR):$(LD_LIBRARY_PATH) $(BINDIR)/libxs_generator
+	GENERATOR = $(ENV) \
+		LD_LIBRARY_PATH="$(OUTDIR):$(LD_LIBRARY_PATH)" \
+		PATH="$(OUTDIR):$(PATH)" \
+	$(BINDIR)/libxs_generator
 	LIBEXT = so
 else
 	GENERATOR = $(BINDIR)/libxs_generator
