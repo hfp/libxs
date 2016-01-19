@@ -97,7 +97,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_cache_lock
 #endif
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_arch_name(int* is_static, int* has_crc32)
+LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_arch_name(int* is_static, int* has_crc32)
 {
   unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
   const char* name = 0;
@@ -181,7 +181,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_a
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_cache_entry* internal_init(void)
+LIBXS_INLINE LIBXS_RETARGETABLE internal_cache_entry* internal_init(void)
 {
   /*const*/internal_cache_entry* result;
   int i;
@@ -389,7 +389,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL void internal_build(const libxs_gemm_descriptor* desc,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc,
   void** code, unsigned int* code_size)
 {
 #if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
@@ -504,7 +504,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL void internal_build(co
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_gemmdiff(
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff(
   const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
   const unsigned *const ia = (const unsigned int*)a, *const ib = (const unsigned int*)b;
@@ -520,7 +520,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_code internal_find_code(const libxs_gemm_descriptor* desc)
+LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gemm_descriptor* desc)
 {
   internal_code result;
   unsigned int hash, i, diff = 0;
