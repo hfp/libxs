@@ -192,6 +192,14 @@
 # define LIBXS_TLS thread_local
 #endif
 
+#if defined(__GNUC__)
+# define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
+# define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
+#else
+# define LIBXS_VISIBILITY_HIDDEN
+# define LIBXS_VISIBILITY_INTERNAL
+#endif
+
 #if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
 # define LIBXS_OFFLOAD_BUILD 1
 # define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
