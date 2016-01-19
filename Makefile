@@ -447,7 +447,7 @@ $(OUTDIR)/mic/libxsf.$(LIBEXT): $(OUTDIR)/mic/.make $(OUTDIR)/mic/libxs.$(LIBEXT
 ifeq (0,$(STATIC))
 	$(FC) -o $@ $(OUTDIR)/mic/libxs.$(LIBEXT) $(BLDDIR)/mic/libxs-mod.o -mmic -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
-	$(AR) -rs $@ $(OUTDIR)/mic/libxs.$(LIBEXT)
+	$(AR) -rs $@ $(OBJFILES_MIC) $(BLDDIR)/mic/libxs-mod.o
 endif
 endif
 endif
@@ -477,7 +477,7 @@ $(OUTDIR)/libxsf.$(LIBEXT): $(OUTDIR)/.make $(OUTDIR)/libxs.$(LIBEXT)
 ifeq (0,$(STATIC))
 	$(FC) -o $@ $(OUTDIR)/libxs.$(LIBEXT) $(BLDDIR)/intel64/libxs-mod.o -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
-	$(AR) -rs $@ $(OUTDIR)/libxs.$(LIBEXT)
+	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(BLDDIR)/intel64/libxs-mod.o
 endif
 endif
 
