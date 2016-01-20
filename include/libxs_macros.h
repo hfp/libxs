@@ -201,10 +201,15 @@
 #endif
 
 #if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
+# if defined(LIBXS_OFFLOAD_BUILD)
+#   undef LIBXS_OFFLOAD_BUILD
+# endif
 # define LIBXS_OFFLOAD_BUILD 1
 # define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
 #else
-/*# define LIBXS_OFFLOAD_BUILD 0*/
+# if defined(LIBXS_OFFLOAD_BUILD)
+#   undef LIBXS_OFFLOAD_BUILD
+# endif
 # define LIBXS_OFFLOAD(A)
 #endif
 #if !defined(LIBXS_OFFLOAD_TARGET)
