@@ -96,9 +96,6 @@ ifneq (0,$(JIT))
 	SSE ?= 1
 endif
 
-# Produce separate Fortran library
-LIBXSF ?= 0
-
 BLAS_WARNING ?= 0
 ifeq (Windows_NT,$(OS))
 	ifeq (0,$(STATIC))
@@ -132,6 +129,9 @@ else
 	GENERATOR = $(BINDIR)/libxs_generator
 	LIBEXT = a
 endif
+
+# Produce separate Fortran library (internal option)
+LIBXSF ?= 1
 
 INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 NINDICES = $(words $(INDICES))
