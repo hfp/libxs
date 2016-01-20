@@ -245,6 +245,9 @@ $(INCDIR)/libxs.h: $(INCDIR)/.make \
 	@cp -u $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
 	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h $(PRECISION) $(MAKE_ILP64) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
+	$(info =======================================================================)
+	$(info $(INFO))
+	$(info =======================================================================)
 ifneq (0,$(OMP))
 	$(info ==========================================================)
 	$(info LIBXS is agnostic with respect to the threading runtime!)
