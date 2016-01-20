@@ -32,7 +32,14 @@
 #include "libxs_typedefs.h"
 #include "libxs_macros.h"
 #include "libxs.h"
+
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
 #include <assert.h>
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(pop)
+#endif
 
 /** Helper macro for GEMM argument permutation depending on storage scheme. */
 #if (0 != LIBXS_COL_MAJOR)
