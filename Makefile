@@ -96,6 +96,9 @@ ifneq (0,$(JIT))
 	SSE ?= 1
 endif
 
+# Produce separate Fortran library
+LIBXSF ?= 0
+
 BLAS_WARNING ?= 0
 ifeq (Windows_NT,$(OS))
 	ifeq (0,$(STATIC))
@@ -423,61 +426,95 @@ $(BLDDIR)/intel64/%.o: $(SRCDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $
 $(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
 
-.PHONY: clib_mic
+.PHONY: compile_mic_mod
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
-clib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
-$(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC)
-ifeq (0,$(STATIC))
-	$(LD) -o $@ $(OBJFILES_MIC) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
-else
-	$(AR) -rs $@ $(OBJFILES_MIC)
+ifneq (,$(strip $(FC)))
+compile_mic_mod: $(BLDDIR)/mic/libxs-mod.o
+$(BLDDIR)/mic/libxs-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
+	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $(BLDDIR)/mic/libxs-mod.o $(FMFLAGS) $(INCDIR)/mic
 endif
 endif
 endif
 
-.PHONY: flib_mic
+.PHONY: compile_hst_mod
+ifneq (,$(strip $(FC)))
+compile_hst_mod: $(BLDDIR)/intel64/libxs-mod.o
+$(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
+	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $(INCDIR)/libxs.f -o $(BLDDIR)/intel64/libxs-mod.o $(FMFLAGS) $(INCDIR)
+endif
+
+.PHONY: clib_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
+clib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
 ifneq (,$(strip $(FC)))
-flib_hst: $(OUTDIR)/mic/libxsf.$(LIBEXT)
-ifeq (0,$(STATIC))
-$(OUTDIR)/mic/libxsf.$(LIBEXT): $(OUTDIR)/mic/.make $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f $(OUTDIR)/mic/libxs.$(LIBEXT)
+$(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC) $(BLDDIR)/mic/libxs-mod.o
+ifeq (0,$(LIBXSF))
+	$(eval OBJFILES_MIC_MOD = $(OBJFILES_MIC) $(BLDDIR)/mic/libxs-mod.o)
 else
-$(OUTDIR)/mic/libxsf.$(LIBEXT): $(OUTDIR)/mic/.make $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
+	$(eval OBJFILES_MIC_MOD = $(OBJFILES_MIC))
 endif
-	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $(BLDDIR)/mic/libxs-mod.o $(FMFLAGS) $(INCDIR)/mic
-ifeq (0,$(STATIC))
-	$(FC) -o $@ $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/libxs.$(LIBEXT) -mmic -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
-	$(AR) -rs $@ $(BLDDIR)/mic/libxs-mod.o
+$(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC)
+	$(eval OBJFILES_MIC_MOD = $(OBJFILES_MIC))
 endif
+ifeq (0,$(STATIC))
+	$(LD) -o $@ $(OBJFILES_MIC_MOD) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
+else
+	$(AR) -rs $@ $(OBJFILES_MIC_MOD)
 endif
 endif
 endif
 
 .PHONY: clib_hst
 clib_hst: $(OUTDIR)/libxs.$(LIBEXT)
-$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
-ifeq (0,$(STATIC))
-	$(LD) -o $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
+ifneq (,$(strip $(FC)))
+$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(BLDDIR)/intel64/libxs-mod.o
+ifeq (0,$(LIBXSF))
+	$(eval OBJFILES_HST_MOD = $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(BLDDIR)/intel64/libxs-mod.o)
 else
-	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
+	$(eval OBJFILES_HST_MOD = $(OBJFILES_HST) $(OBJFILES_GEN_LIB))
+endif
+else
+$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
+	$(eval OBJFILES_HST_MOD = $(OBJFILES_HST) $(OBJFILES_GEN_LIB))
+endif
+ifeq (0,$(STATIC))
+	$(LD) -o $@ $(OBJFILES_HST_MOD) -shared $(LDFLAGS) $(CLDFLAGS)
+else
+	$(AR) -rs $@ $(OBJFILES_HST_MOD)
+endif
+
+.PHONY: flib_mic
+ifneq (0,$(MIC))
+ifneq (0,$(MPSS))
+ifneq (,$(strip $(FC)))
+ifneq (0,$(LIBXSF))
+flib_hst: $(OUTDIR)/mic/libxsf.$(LIBEXT)
+ifeq (0,$(STATIC))
+$(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/libxs.$(LIBEXT)
+	$(FC) -o $@ $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/libxs.$(LIBEXT) -mmic -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+else
+$(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/.make
+	$(AR) -rs $@ $(BLDDIR)/mic/libxs-mod.o
+endif
+endif
+endif
+endif
 endif
 
 .PHONY: flib_hst
 ifneq (,$(strip $(FC)))
+ifneq (0,$(LIBXSF))
 flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
-$(OUTDIR)/libxsf.$(LIBEXT): $(OUTDIR)/.make $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f $(OUTDIR)/libxs.$(LIBEXT)
-else
-$(OUTDIR)/libxsf.$(LIBEXT): $(OUTDIR)/.make $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
-endif
-	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $(INCDIR)/libxs.f -o $(BLDDIR)/intel64/libxs-mod.o $(FMFLAGS) $(INCDIR)
-ifeq (0,$(STATIC))
+$(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/libxs.$(LIBEXT)
 	$(FC) -o $@ $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/libxs.$(LIBEXT) -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
+$(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/.make
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
+endif
 endif
 endif
 
