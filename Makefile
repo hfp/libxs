@@ -936,6 +936,11 @@ endif
 	@rm -f $(INCDIR)/libxs.f
 	@rm -f $(INCDIR)/libxs.h
 
+# Dummy prefix
+ifeq (,$(strip $(PREFIX))
+	PREFIX ?= .
+endif
+
 .PHONY: install-minimal
 ifneq ($(abspath $(PREFIX)),$(abspath .))
 install-minimal: lib generator
