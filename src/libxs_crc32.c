@@ -41,7 +41,7 @@
 /*# define LIBXS_CRC32_FORCESW*/
 #endif
 #if !defined(LIBXS_CRC32_ALIGNMENT)
-# define LIBXS_CRC32_ALIGNMENT LIBXS_ALIGNMENT
+# define LIBXS_CRC32_ALIGNMENT 8
 #endif
 
 
@@ -349,13 +349,29 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table
   } \
 }
 
-#if defined(LIBXS_CRC32_ALIGNMENT) && 1 < (LIBXS_CRC32_ALIGNMENT)
+#if defined(LIBXS_CRC32_ALIGNMENT) && 8 < (LIBXS_CRC32_ALIGNMENT)
 # define LIBXS_CRC32(FN64, FN32, FN16, FN8, DATA, SIZE, INIT) { \
     const unsigned char *begin = (const unsigned char*)(DATA); \
     const unsigned char *const endb = begin + (SIZE); \
     const unsigned char *const enda = LIBXS_ALIGN2(begin, LIBXS_CRC32_ALIGNMENT); \
     if ((SIZE) > (unsigned int)(endb - enda)) { \
       LIBXS_CRC32_U64(FN64, INIT, begin, enda); \
+      LIBXS_CRC32_U32(FN32, INIT, begin, enda); \
+      LIBXS_CRC32_U16(FN16, INIT, begin, enda); \
+      LIBXS_CRC32_U8(FN8, INIT, begin, enda); \
+    } \
+    LIBXS_ASSUME_ALIGNED(begin, LIBXS_CRC32_ALIGNMENT); \
+    LIBXS_CRC32_U64(FN64, INIT, begin, endb); \
+    LIBXS_CRC32_U32(FN32, INIT, begin, endb); \
+    LIBXS_CRC32_U16(FN16, INIT, begin, endb); \
+    return begin == endb ? (INIT) : FN8(INIT, *begin); \
+  }
+#elif defined(LIBXS_CRC32_ALIGNMENT) && 1 < (LIBXS_CRC32_ALIGNMENT)
+# define LIBXS_CRC32(FN64, FN32, FN16, FN8, DATA, SIZE, INIT) { \
+    const unsigned char *begin = (const unsigned char*)(DATA); \
+    const unsigned char *const endb = begin + (SIZE); \
+    const unsigned char *const enda = LIBXS_ALIGN2(begin, LIBXS_CRC32_ALIGNMENT); \
+    if ((SIZE) > (unsigned int)(endb - enda)) { \
       LIBXS_CRC32_U32(FN32, INIT, begin, enda); \
       LIBXS_CRC32_U16(FN16, INIT, begin, enda); \
       LIBXS_CRC32_U8(FN8, INIT, begin, enda); \
