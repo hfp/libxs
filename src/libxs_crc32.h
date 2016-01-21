@@ -29,7 +29,7 @@
 #ifndef LIBXS_CRC32_H
 #define LIBXS_CRC32_H
 
-#include <libxs_macros.h>
+#include <libxs.h>
 
 
 /** Function type representing the CRC32 functionality. */

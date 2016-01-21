@@ -29,7 +29,7 @@
 #ifndef LIBXS_TIMER_H
 #define LIBXS_TIMER_H
 
-#include <libxs_macros.h>
+#include <libxs.h>
 
 
 /** Returns the current clock tick using a platform-specific resolution. */

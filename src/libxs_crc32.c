@@ -29,6 +29,14 @@
 #include "libxs_crc32.h"
 #include <libxs.h>
 
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <stdint.h>
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(pop)
+#endif
+
 #if !defined(LIBXS_CRC32_FORCESW)
 /*# define LIBXS_CRC32_FORCESW*/
 #endif

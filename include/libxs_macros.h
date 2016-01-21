@@ -132,7 +132,7 @@
 #define LIBXS_NBITS16(N) (0 != ((N) & 0xFF00) ? (8 + LIBXS_NBITS08((N) >> 8)) : LIBXS_NBITS08(N))
 #define LIBXS_NBITS32(N) (0 != ((N) & 0xFFFF0000) ? (16 + LIBXS_NBITS16((N) >> 16)) : LIBXS_NBITS16(N))
 #define LIBXS_NBITS64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 + LIBXS_NBITS32((N) >> 32)) : LIBXS_NBITS32(N))
-#define LIBXS_NBITS(N) (0 != (N) ? (LIBXS_NBITS64((uint64_t)(N)) + 1) : 1)
+#define LIBXS_NBITS(N) (0 != (N) ? (LIBXS_NBITS64((unsigned long long)(N)) + 1) : 1)
 
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
@@ -178,11 +178,11 @@
 #endif
 #define LIBXS_ALIGN_VALUE(N, TYPESIZE, ALIGNMENT/*POT*/) (LIBXS_UP2((N) * (TYPESIZE), ALIGNMENT) / (TYPESIZE))
 #define LIBXS_ALIGN_VALUE2(N, POTSIZE, ALIGNMENT/*POT*/) LIBXS_DIV2(LIBXS_UP2(LIBXS_MUL2(N, POTSIZE), ALIGNMENT), POTSIZE)
-#define LIBXS_ALIGN(POINTER, ALIGNMENT/*POT*/) ((POINTER) + (LIBXS_ALIGN_VALUE((uintptr_t)(POINTER), 1, ALIGNMENT) - ((uintptr_t)(POINTER))) / sizeof(*(POINTER)))
-#define LIBXS_ALIGN2(POINTPOT, ALIGNMENT/*POT*/) ((POINTPOT) + LIBXS_DIV2(LIBXS_ALIGN_VALUE2((uintptr_t)(POINTPOT), 1, ALIGNMENT) - ((uintptr_t)(POINTPOT)), sizeof(*(POINTPOT))))
+#define LIBXS_ALIGN(POINTER, ALIGNMENT/*POT*/) ((POINTER) + (LIBXS_ALIGN_VALUE((unsigned long long)(POINTER), 1, ALIGNMENT) - ((unsigned long long)(POINTER))) / sizeof(*(POINTER)))
+#define LIBXS_ALIGN2(POINTPOT, ALIGNMENT/*POT*/) ((POINTPOT) + LIBXS_DIV2(LIBXS_ALIGN_VALUE2((unsigned long long)(POINTPOT), 1, ALIGNMENT) - ((unsigned long long)(POINTPOT)), sizeof(*(POINTPOT))))
 
 #define LIBXS_HASH_VALUE(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
-#define LIBXS_HASH2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_HASH_VALUE(LIBXS_DIV2((uintptr_t)(POINTER), ALIGNMENT)), NPOT)
+#define LIBXS_HASH2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_HASH_VALUE(LIBXS_DIV2((unsigned long long)(POINTER), ALIGNMENT)), NPOT)
 
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
@@ -199,23 +199,6 @@
 # define LIBXS_VISIBILITY_HIDDEN
 # define LIBXS_VISIBILITY_INTERNAL
 #endif
-
-#if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
-# if defined(LIBXS_OFFLOAD_BUILD)
-#   undef LIBXS_OFFLOAD_BUILD
-# endif
-# define LIBXS_OFFLOAD_BUILD 1
-# define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
-#else
-# if defined(LIBXS_OFFLOAD_BUILD)
-#   undef LIBXS_OFFLOAD_BUILD
-# endif
-# define LIBXS_OFFLOAD(A)
-#endif
-#if !defined(LIBXS_OFFLOAD_TARGET)
-# define LIBXS_OFFLOAD_TARGET mic
-#endif
-#define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
 
 /** Execute the CPUID, and receive results (EAX, EBX, ECX, EDX) for requested FUNCTION. */
 #if defined(__GNUC__)
@@ -282,33 +265,18 @@
 # endif
 #endif
 
-#if defined(__GNUC__)
-# if defined(LIBXS_OFFLOAD_BUILD)
-#   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#   include <pthread.h>
-#   pragma offload_attribute(pop)
-# else
-#   include <pthread.h>
-# endif
-# define LIBXS_LOCK_TYPE pthread_mutex_t
-# define LIBXS_LOCK_CONSTRUCT PTHREAD_MUTEX_INITIALIZER
-# define LIBXS_LOCK_DESTROY(LOCK) pthread_mutex_destroy(&(LOCK))
-# define LIBXS_LOCK_ACQUIRE(LOCK) pthread_mutex_lock(&(LOCK))
-# define LIBXS_LOCK_RELEASE(LOCK) pthread_mutex_unlock(&(LOCK))
-#else /*TODO: Windows*/
+#if defined(_WIN32) /*TODO*/
 # define LIBXS_LOCK_TYPE HANDLE
 # define LIBXS_LOCK_CONSTRUCT 0
 # define LIBXS_LOCK_DESTROY(LOCK) CloseHandle(LOCK)
 # define LIBXS_LOCK_ACQUIRE(LOCK) WaitForSingleObject(LOCK, INFINITE)
 # define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(LOCK)
-#endif
-
-#if defined(LIBXS_OFFLOAD_BUILD)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-# include <stdint.h>
-# pragma offload_attribute(pop)
-#else
-# include <stdint.h>
+#else /* PThreads: include <pthread.h> */
+# define LIBXS_LOCK_TYPE pthread_mutex_t
+# define LIBXS_LOCK_CONSTRUCT PTHREAD_MUTEX_INITIALIZER
+# define LIBXS_LOCK_DESTROY(LOCK) pthread_mutex_destroy(&(LOCK))
+# define LIBXS_LOCK_ACQUIRE(LOCK) pthread_mutex_lock(&(LOCK))
+# define LIBXS_LOCK_RELEASE(LOCK) pthread_mutex_unlock(&(LOCK))
 #endif
 
 #endif /*LIBXS_MACROS_H*/
