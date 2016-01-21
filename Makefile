@@ -130,9 +130,6 @@ else
 	LIBEXT = a
 endif
 
-# Produce separate Fortran library (internal option)
-LIBXSF ?= 1
-
 INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 NINDICES = $(words $(INDICES))
 
@@ -450,49 +447,28 @@ endif
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 clib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
-ifneq (,$(strip $(FC)))
-$(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC) $(BLDDIR)/mic/libxs-mod.o
-ifeq (0,$(LIBXSF))
-	$(eval OBJFILES_MIC_MOD = $(OBJFILES_MIC) $(BLDDIR)/mic/libxs-mod.o)
-else
-	$(eval OBJFILES_MIC_MOD = $(OBJFILES_MIC))
-endif
-else
 $(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC)
-	$(eval OBJFILES_MIC_MOD = $(OBJFILES_MIC))
-endif
 ifeq (0,$(STATIC))
-	$(LD) -o $@ $(OBJFILES_MIC_MOD) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_MIC) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
 else
-	$(AR) -rs $@ $(OBJFILES_MIC_MOD)
+	$(AR) -rs $@ $(OBJFILES_MIC)
 endif
 endif
 endif
 
 .PHONY: clib_hst
 clib_hst: $(OUTDIR)/libxs.$(LIBEXT)
-ifneq (,$(strip $(FC)))
-$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(BLDDIR)/intel64/libxs-mod.o
-ifeq (0,$(LIBXSF))
-	$(eval OBJFILES_HST_MOD = $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(BLDDIR)/intel64/libxs-mod.o)
-else
-	$(eval OBJFILES_HST_MOD = $(OBJFILES_HST) $(OBJFILES_GEN_LIB))
-endif
-else
 $(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
-	$(eval OBJFILES_HST_MOD = $(OBJFILES_HST) $(OBJFILES_GEN_LIB))
-endif
 ifeq (0,$(STATIC))
-	$(LD) -o $@ $(OBJFILES_HST_MOD) -shared $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
 else
-	$(AR) -rs $@ $(OBJFILES_HST_MOD)
+	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB)
 endif
 
 .PHONY: flib_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ifneq (,$(strip $(FC)))
-ifneq (0,$(LIBXSF))
 flib_hst: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/libxs.$(LIBEXT)
@@ -504,11 +480,9 @@ endif
 endif
 endif
 endif
-endif
 
 .PHONY: flib_hst
 ifneq (,$(strip $(FC)))
-ifneq (0,$(LIBXSF))
 flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/libxs.$(LIBEXT)
@@ -516,7 +490,6 @@ $(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/libxs.$(LIBE
 else
 $(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/.make
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
-endif
 endif
 endif
 
