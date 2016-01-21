@@ -33,14 +33,6 @@
 #include "libxs_macros.h"
 #include "libxs.h"
 
-#if defined(LIBXS_OFFLOAD_BUILD)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <assert.h>
-#if defined(LIBXS_OFFLOAD_BUILD)
-# pragma offload_attribute(pop)
-#endif
-
 #if defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
 # if defined(LIBXS_OFFLOAD_BUILD)
 #   undef LIBXS_OFFLOAD_BUILD
@@ -57,6 +49,14 @@
 # define LIBXS_OFFLOAD_TARGET mic
 #endif
 #define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
+
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <assert.h>
+#if defined(LIBXS_OFFLOAD_BUILD)
+# pragma offload_attribute(pop)
+#endif
 
 /** Helper macro for GEMM argument permutation depending on storage scheme. */
 #if (0 != LIBXS_COL_MAJOR)
