@@ -28,7 +28,7 @@
 ******************************************************************************/
 #include <libxs_timer.h>
 
-#if defined(LIBXS_OFFLOAD_BUILD)
+#if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #if defined(_WIN32)
@@ -37,7 +37,7 @@
 # include <sys/time.h>
 # include <time.h>
 #endif
-#if defined(LIBXS_OFFLOAD_BUILD)
+#if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 

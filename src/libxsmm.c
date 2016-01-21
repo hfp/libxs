@@ -33,7 +33,7 @@
 # include "libxs_trace.h"
 #endif
 
-#if defined(LIBXS_OFFLOAD_BUILD)
+#if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 /* mute warning about target attribute; KNC/native plus JIT is disabled below! */
@@ -55,7 +55,7 @@
 #if !defined(NDEBUG)
 #include <errno.h>
 #endif
-#if defined(LIBXS_OFFLOAD_BUILD)
+#if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 #if defined(__GNUC__)

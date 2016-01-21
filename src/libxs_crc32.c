@@ -29,11 +29,11 @@
 #include "libxs_crc32.h"
 #include <libxs.h>
 
-#if defined(LIBXS_OFFLOAD_BUILD)
+#if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <stdint.h>
-#if defined(LIBXS_OFFLOAD_BUILD)
+#if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 
@@ -437,7 +437,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, uns
 }
 
 
-#if defined(LIBXS_OFFLOAD_BUILD)
+#if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #if defined(__SSE4_2__)
@@ -457,7 +457,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, uns
 #   define LIBXS_CRC32_FORCEHW
 # endif
 #endif
-#if defined(LIBXS_OFFLOAD_BUILD)
+#if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int init)
