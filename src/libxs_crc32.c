@@ -391,7 +391,8 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table
     LIBXS_CRC32_U16(FN16, INIT, begin, endb); \
     return begin == endb ? (INIT) : FN8(INIT, *begin); \
   }
-#endif /*defined(LIBXS_CRC32_ALIGNMENT) && 1 < (LIBXS_CRC32_ALIGNMENT)*/
+#endif
+
 
 #if !defined(__SSE4_2__) || defined(LIBXS_CRC32_FORCESW)
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u8(unsigned int init, unsigned char value)
