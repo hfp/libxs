@@ -167,18 +167,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_arch_name(int* is_static, i
     *has_crc32 = 0;
   }
 
-#if !defined(NDEBUG)/* library code is expected to be mute */ && (0 != LIBXS_JIT)
-  if (0 == name) {
-# if defined(__SSE3__)
-    fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
-# elif defined(__MIC__)
-    fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
-# else
-    fprintf(stderr, "LIBXS: no instruction set extension found for JIT-code generation!\n");
-# endif
-  }
-#endif
-
   return name;
 }
 
@@ -252,6 +240,18 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_cache_entry* internal_init(void)
             { /* open scope for variable declarations */
               /* setup the dispatch table for the statically generated code */
 #             include <libxs_dispatch.h>
+#if !defined(NDEBUG)/* library code is expected to be mute */ && (0 != LIBXS_JIT)
+              if (0 == arch_name && (0 == env_jit || 0 != *env_jit)) {
+# if defined(__SSE3__)
+                fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
+# elif defined(__MIC__)
+                fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
+# else
+                fprintf(stderr, "LIBXS: no instruction set extension found for JIT-code generation!\n");
+# endif
+              }
+#endif
+
             }
           }
           atexit(libxs_finalize);
