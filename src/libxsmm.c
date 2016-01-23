@@ -68,8 +68,6 @@
 # endif
 #endif
 
-/* memory-map the actual file descriptor for the open /dev/zero */
-/*#define LIBXS_MMAP_DEVZERO*/
 /* larger cache capacity lowers the probability of key collisions; should be a prime number */
 #define LIBXS_CACHESIZE 999979
 /* flag fused into the memory address of a code version in case of collision */
@@ -418,10 +416,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 
   /* handle an eventual error in the else-branch */
   if (0 == generated_code.last_error) {
-#if defined(LIBXS_MMAP_DEVZERO)
-    const int fd = open("/dev/zero", O_RDWR);
-#else
+#if defined(__APPLE__) && defined(__MACH__)
     const int fd = 0;
+#else
+    const int fd = open("/dev/zero", O_RDWR);
 #endif
     if (0 <= fd) {
       /* create executable buffer */
@@ -432,8 +430,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         MAP_ANON | MAP_PRIVATE, fd, 0);
 #else
         MAP_PRIVATE, fd, 0);
-#endif
-#if defined(LIBXS_MMAP_DEVZERO)
       close(fd);
 #endif
       if (MAP_FAILED != *code) {
