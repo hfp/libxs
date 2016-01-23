@@ -154,9 +154,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   const char libxs_blas_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
   const char libxs_blas_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
   const REAL libxs_blas_xgemm_alpha_ = (REAL)(ALPHA), libxs_blas_xgemm_beta_ = (REAL)(BETA); \
-  const libxs_blasint libxs_blas_xgemm_lda_ = (libxs_blasint)LIBXS_LD(LDA, LDB); \
-  const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)LIBXS_LD(LDB, LDA); \
-  const libxs_blasint libxs_blas_xgemm_ldc_ = (libxs_blasint)(LDC); \
+  const libxs_blasint libxs_blas_xgemm_lda_ = (libxs_blasint)LIBXS_MAX(LIBXS_LD(LDA, LDB), LIBXS_LD(M, N)); \
+  const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)LIBXS_MAX(LIBXS_LD(LDB, LDA), K); \
+  const libxs_blasint libxs_blas_xgemm_ldc_ = (libxs_blasint)LIBXS_MAX(LDC, LIBXS_LD(M, N)); \
   const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)LIBXS_LD(M, N); \
   const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)LIBXS_LD(N, M); \
   const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(K); \
