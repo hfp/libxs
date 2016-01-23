@@ -241,7 +241,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_cache_entry* internal_init(void)
               /* setup the dispatch table for the statically generated code */
 #             include <libxs_dispatch.h>
 #if !defined(NDEBUG)/* library code is expected to be mute */ && (0 != LIBXS_JIT)
-              if (0 == arch_name && (0 == env_jit || 0 != *env_jit)) {
+              if (0 == arch_name && (0 == env_jit || '1' == *env_jit)) {
 # if defined(__SSE3__)
                 fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
 # elif defined(__MIC__)
