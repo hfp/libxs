@@ -273,15 +273,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
       ((unsigned long long)(N)) * \
       ((unsigned long long)(K)))) \
   { \
-    const int libxs_xgemm_flags_ = (int)(FLAGS), libxs_xgemm_ldb_ = (int)(LDB); \
-    const int libxs_xgemm_lda_ = (int)(0 != (LDA) ? (LDA) \
-      /* if the value of LDA was zero: make LDA a multiple of LIBXS_ALIGNMENT */ \
-      : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
-    const int libxs_xgemm_ldc_ = (int)(0 != (LDC) ? (LDC) \
-      /* if the value of LDC was zero: make LDC a multiple of LIBXS_ALIGNMENT */ \
-      : LIBXS_ALIGN_VALUE(M, sizeof(REAL), LIBXS_ALIGNMENT)); \
+    const int libxs_xgemm_flags_ = (int)(FLAGS); \
+    const int libxs_xgemm_lda_ = (int)(LDA), libxs_xgemm_ldb_ = (int)(LDB), libxs_xgemm_ldc_ = (int)(LDC); \
     const REAL libxs_xgemm_alpha_ = (REAL)(ALPHA), libxs_xgemm_beta_ = (REAL)(BETA); \
     int libxs_xgemm_fallback_ = 0; \
+    assert((M) <= libxs_xgemm_lda_ && (K) <= libxs_xgemm_ldb_ && (M) <= libxs_xgemm_ldc_); \
     if (LIBXS_PREFETCH_NONE == LIBXS_PREFETCH) { \
       const LIBXS_MMFUNCTION_TYPE(REAL) libxs_mmfunction_ = \
         LIBXS_MMDISPATCH_SYMBOL(REAL)((int)(M), (int)(N), (int)(K), \
