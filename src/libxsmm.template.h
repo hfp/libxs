@@ -105,6 +105,20 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dgemm(const char* transa, const cha
   const double* b, const libxs_blasint* ldb,
   const double* beta, double* c, const libxs_blasint* ldc);
 
+/** Dispatched general dense matrix multiplication (single-precision), can be called from F77 codes. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_sgemm_(const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const float* alpha, const float* a, const libxs_blasint* lda,
+  const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc);
+
+/** Dispatched general dense matrix multiplication (double-precision), can be called from F77 codes. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dgemm_(const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const double* alpha, const double* a, const libxs_blasint* lda,
+  const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc);
+
 /** General dense matrix multiplication based on LAPACK/BLAS (single-precision). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
