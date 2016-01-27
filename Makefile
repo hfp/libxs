@@ -242,11 +242,11 @@ $(INCDIR)/libxs.h: $(INCDIR)/.make \
                      $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile
 	@$(ROOTDIR)/.hooks/install.sh
-	@cp -u $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
-	@cp -u $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
-	@cp -u $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2> /dev/null || true
-	@cp -u $(ROOTDIR)/include/libxs_generator.h $(INCDIR) 2> /dev/null || true
-	@cp -u $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_generator.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
 	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h \
 		$(PRECISION) $(MAKE_ILP64) $(OFFLOAD) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
@@ -959,12 +959,12 @@ install-minimal: lib generator
 	@echo
 	@echo "LIBXS installing binaries..."
 	@mkdir -p $(PREFIX)/$(POUTDIR) $(PREFIX)/$(PBINDIR) $(PREFIX)/$(PINCDIR)
-	@cp -uv $(OUTDIR)/libxsgen.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
-	@cp -uv $(OUTDIR)/libxsgen.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
-	@cp -uv $(OUTDIR)/libxs.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
-	@cp -uv $(OUTDIR)/libxs.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
-	@cp -uv $(OUTDIR)/libxsf.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
-	@cp -uv $(OUTDIR)/libxsf.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsgen.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsgen.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxs.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxs.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsf.so $(PREFIX)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsf.a $(PREFIX)/$(POUTDIR) 2> /dev/null || true
 	@if [ -e $(OUTDIR)/mic/libxs.so ]; then \
 		mkdir -p $(PREFIX)/$(POUTDIR)/mic ; \
 		cp -uv $(OUTDIR)/mic/libxs.so $(PREFIX)/$(POUTDIR)/mic ; \
@@ -981,10 +981,10 @@ install-minimal: lib generator
 		mkdir -p $(PREFIX)/$(POUTDIR)/mic ; \
 		cp -uv $(OUTDIR)/mic/libxsf.a $(PREFIX)/$(POUTDIR)/mic ; \
 	fi
-	@cp -uv $(BINDIR)/libxs_generator $(PREFIX)/$(PBINDIR) 2> /dev/null || true
-	@cp -uv $(INCDIR)/libxs*.h $(PREFIX)/$(PINCDIR)
-	@cp -uv $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR)
-	@cp -uv $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR)
+	@cp -v $(BINDIR)/libxs_generator $(PREFIX)/$(PBINDIR) 2> /dev/null || true
+	@cp -v $(INCDIR)/libxs*.h $(PREFIX)/$(PINCDIR)
+	@cp -v $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR)
+	@cp -v $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR)
 else
 install-minimal: lib generator
 endif
@@ -995,11 +995,11 @@ install: install-minimal
 	@echo
 	@echo "LIBXS installing documentation..."
 	@mkdir -p $(PREFIX)/$(PDOCDIR)
-	@cp -uv $(ROOTDIR)/$(DOCDIR)/*.pdf $(PREFIX)/$(PDOCDIR)
-	@cp -uv $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/$(PDOCDIR)
-	@cp -uv $(ROOTDIR)/version.txt $(PREFIX)/$(PDOCDIR)
-	@cp -uv $(ROOTDIR)/README.md $(PREFIX)/$(PDOCDIR)
-	@cp -uv $(ROOTDIR)/LICENSE $(PREFIX)/$(PDOCDIR)
+	@cp -v $(ROOTDIR)/$(DOCDIR)/*.pdf $(PREFIX)/$(PDOCDIR)
+	@cp -v $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/$(PDOCDIR)
+	@cp -v $(ROOTDIR)/version.txt $(PREFIX)/$(PDOCDIR)
+	@cp -v $(ROOTDIR)/README.md $(PREFIX)/$(PDOCDIR)
+	@cp -v $(ROOTDIR)/LICENSE $(PREFIX)/$(PDOCDIR)
 endif
 
 .PHONY: install-all
@@ -1007,13 +1007,13 @@ ifneq ($(abspath $(PREFIX)),$(abspath .))
 install-all: install samples
 	@echo
 	@echo "LIBXS installing samples..."
-	@cp -uv $(addprefix $(SPLDIR)/cp2k/,cp2k cp2k.exe cp2k.sh cp2k-perf* cp2k-plot.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
-	@cp -uv $(addprefix $(SPLDIR)/smm/,smm smm.exe smm.sh smm-perf* smm-plot.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
-	@cp -uv $(addprefix $(SPLDIR)/smm/,specialized specialized.exe specialized.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
-	@cp -uv $(addprefix $(SPLDIR)/smm/,dispatched dispatched.exe dispatched.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
-	@cp -uv $(addprefix $(SPLDIR)/smm/,inlined inlined.exe inlined.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
-	@cp -uv $(addprefix $(SPLDIR)/smm/,blas blas.exe blas.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
-	@cp -uv $(addprefix $(SPLDIR)/nek/,axhm axhm.exe grad grad.exe rstr rstr.exe *.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
+	@cp -v $(addprefix $(SPLDIR)/cp2k/,cp2k cp2k.exe cp2k.sh cp2k-perf* cp2k-plot.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
+	@cp -v $(addprefix $(SPLDIR)/smm/,smm smm.exe smm.sh smm-perf* smm-plot.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
+	@cp -v $(addprefix $(SPLDIR)/smm/,specialized specialized.exe specialized.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
+	@cp -v $(addprefix $(SPLDIR)/smm/,dispatched dispatched.exe dispatched.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
+	@cp -v $(addprefix $(SPLDIR)/smm/,inlined inlined.exe inlined.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
+	@cp -v $(addprefix $(SPLDIR)/smm/,blas blas.exe blas.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
+	@cp -v $(addprefix $(SPLDIR)/nek/,axhm axhm.exe grad grad.exe rstr rstr.exe *.sh) $(PREFIX)/$(PBINDIR) 2> /dev/null || true
 else
 install-all: samples
 endif
