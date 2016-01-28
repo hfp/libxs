@@ -133,10 +133,8 @@ ifeq (0,$(STATIC))
 		LD_LIBRARY_PATH="$(OUTDIR):$(LD_LIBRARY_PATH)" \
 		PATH="$(OUTDIR):$(PATH)" \
 	$(BINDIR)/libxs_generator
-	LIBEXT = so
 else
 	GENERATOR = $(BINDIR)/libxs_generator
-	LIBEXT = a
 endif
 
 INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
@@ -275,7 +273,7 @@ ifneq (0,$(BLAS_WARNING))
 	$(info no runtime resolution/search for weak symbols implemented for this OS.)
 endif
 ifneq (0,$(BLAS))
-ifneq (Windows_NT,$(OS))
+ifneq (Windows_NT,$(UNAME))
 	$(info LIBXS is link-time agnostic with respect to BLAS/GEMM!)
 	$(info Linking it now may prevent users to make an own decision.)
 endif
@@ -330,9 +328,9 @@ $(BINDIR)/libxs_generator: $(BINDIR)/.make $(OBJFILES_GEN_BIN) $(OUTDIR)/libxsge
 sources: $(SRCFILES)
 $(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
 ifneq (,$(strip $(SRCFILES)))
-	$(eval MVALUE := $(shell echo $(basename $@) | $(CUT) -d_ -f2))
-	$(eval NVALUE := $(shell echo $(basename $@) | $(CUT) -d_ -f3))
-	$(eval KVALUE := $(shell echo $(basename $@) | $(CUT) -d_ -f4))
+	$(eval MVALUE := $(shell echo $(basename $@) | cut -d_ -f2))
+	$(eval NVALUE := $(shell echo $(basename $@) | cut -d_ -f3))
+	$(eval KVALUE := $(shell echo $(basename $@) | cut -d_ -f4))
 ifneq (0,$(ROW_MAJOR)) # row-major
 	$(eval MNVALUE := $(NVALUE))
 	$(eval NMVALUE := $(MVALUE))
@@ -581,9 +579,9 @@ endif
 	@echo "NRUN=1" >> $@
 	@echo "NMAX=\$$(\$${ECHO} \$${RUNS} | wc -w)" >> $@
 	@echo "for RUN in \$${RUNS} ; do" >> $@
-	@echo "  MVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f1)" >> $@
-	@echo "  NVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f2)" >> $@
-	@echo "  KVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f3)" >> $@
+	@echo "  MVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f1)" >> $@
+	@echo "  NVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f2)" >> $@
+	@echo "  KVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f3)" >> $@
 	@echo "  >&2 \$\$${ECHO} -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >> $@
 	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/cp2k.sh \$${MVALUE} \$${SIZE} 0 \$${NVALUE} \$${KVALUE} >> \$${FILE}; } 2>&1)" >> $@
 	@echo "  RESULT=\$$?" >> $@
@@ -626,9 +624,9 @@ endif
 	@echo "NRUN=1" >> $@
 	@echo "NMAX=\$$(\$${ECHO} \$${RUNS} | wc -w)" >> $@
 	@echo "for RUN in \$${RUNS} ; do" >> $@
-	@echo "  MVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f1)" >> $@
-	@echo "  NVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f2)" >> $@
-	@echo "  KVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f3)" >> $@
+	@echo "  MVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f1)" >> $@
+	@echo "  NVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f2)" >> $@
+	@echo "  KVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f3)" >> $@
 	@echo "  >&2 \$\$${ECHO} -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >> $@
 	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/smm.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} \$${SIZE} >> \$${FILE}; } 2>&1)" >> $@
 	@echo "  RESULT=\$$?" >> $@
@@ -665,9 +663,9 @@ endif
 	@echo "NRUN=1" >> $@
 	@echo "NMAX=\$$(\$${ECHO} \$${RUNS} | wc -w)" >> $@
 	@echo "for RUN in \$${RUNS} ; do" >> $@
-	@echo "  MVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f1)" >> $@
-	@echo "  NVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f2)" >> $@
-	@echo "  KVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f3)" >> $@
+	@echo "  MVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f1)" >> $@
+	@echo "  NVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f2)" >> $@
+	@echo "  KVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f3)" >> $@
 	@echo "  >&2 \$\$${ECHO} -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >> $@
 	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/grad.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} >> \$${FILE}; } 2>&1)" >> $@
 	@echo "  RESULT=\$$?" >> $@
@@ -704,9 +702,9 @@ endif
 	@echo "NRUN=1" >> $@
 	@echo "NMAX=\$$(\$${ECHO} \$${RUNS} | wc -w)" >> $@
 	@echo "for RUN in \$${RUNS} ; do" >> $@
-	@echo "  MVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f1)" >> $@
-	@echo "  NVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f2)" >> $@
-	@echo "  KVALUE=\$$(\$${ECHO} \$${RUN} | $(CUT) -d_ -f3)" >> $@
+	@echo "  MVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f1)" >> $@
+	@echo "  NVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f2)" >> $@
+	@echo "  KVALUE=\$$(\$${ECHO} \$${RUN} | cut -d_ -f3)" >> $@
 	@echo "  >&2 \$\$${ECHO} -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >> $@
 	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/axhm.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} >> \$${FILE}; } 2>&1)" >> $@
 	@echo "  RESULT=\$$?" >> $@
@@ -748,12 +746,12 @@ endif
 	@echo "NMAX=\$$((NRUNS*NRUNT))" >> $@
 	@echo "for RUN1 in \$${RUNS} ; do" >> $@
 	@echo "  for RUN2 in \$${RUNT} ; do" >> $@
-	@echo "  MVALUE=\$$(\$${ECHO} \$${RUN1} | $(CUT) -d_ -f1)" >> $@
-	@echo "  NVALUE=\$$(\$${ECHO} \$${RUN1} | $(CUT) -d_ -f2)" >> $@
-	@echo "  KVALUE=\$$(\$${ECHO} \$${RUN1} | $(CUT) -d_ -f3)" >> $@
-	@echo "  MMVALUE=\$$(\$${ECHO} \$${RUN2} | $(CUT) -d_ -f1)" >> $@
-	@echo "  NNVALUE=\$$(\$${ECHO} \$${RUN2} | $(CUT) -d_ -f2)" >> $@
-	@echo "  KKVALUE=\$$(\$${ECHO} \$${RUN2} | $(CUT) -d_ -f3)" >> $@
+	@echo "  MVALUE=\$$(\$${ECHO} \$${RUN1} | cut -d_ -f1)" >> $@
+	@echo "  NVALUE=\$$(\$${ECHO} \$${RUN1} | cut -d_ -f2)" >> $@
+	@echo "  KVALUE=\$$(\$${ECHO} \$${RUN1} | cut -d_ -f3)" >> $@
+	@echo "  MMVALUE=\$$(\$${ECHO} \$${RUN2} | cut -d_ -f1)" >> $@
+	@echo "  NNVALUE=\$$(\$${ECHO} \$${RUN2} | cut -d_ -f2)" >> $@
+	@echo "  KKVALUE=\$$(\$${ECHO} \$${RUN2} | cut -d_ -f3)" >> $@
 	@echo "  >&2 \$\$${ECHO} -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >> $@
 	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/rstr.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} \$${MMVALUE} \$${NNVALUE} \$${KKVALUE} >> \$${FILE}; } 2>&1)" >> $@
 	@echo "  RESULT=\$$?" >> $@
@@ -984,27 +982,27 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo
 	@echo "LIBXS installing binaries..."
 	@mkdir -p $(INSTALL_ROOT)/$(POUTDIR) $(INSTALL_ROOT)/$(PBINDIR) $(INSTALL_ROOT)/$(PINCDIR)
-	@cp -v $(OUTDIR)/libxsgen.so $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsgen.a $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxs.so $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxs.a $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsf.so $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsf.a $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@if [ -e $(OUTDIR)/mic/libxs.so ]; then \
+	@cp -v $(OUTDIR)/libxsgen.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsgen.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxs.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsf.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsf.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@if [ -e $(OUTDIR)/mic/libxs.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -uv $(OUTDIR)/mic/libxs.so $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		cp -uv $(OUTDIR)/mic/libxs.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
-	@if [ -e $(OUTDIR)/mic/libxs.a ]; then \
+	@if [ -e $(OUTDIR)/mic/libxs.$(SLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -uv $(OUTDIR)/mic/libxs.a $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		cp -uv $(OUTDIR)/mic/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
-	@if [ -e $(OUTDIR)/mic/libxsf.so ]; then \
+	@if [ -e $(OUTDIR)/mic/libxsf.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -uv $(OUTDIR)/mic/libxsf.so $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		cp -uv $(OUTDIR)/mic/libxsf.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
-	@if [ -e $(OUTDIR)/mic/libxsf.a ]; then \
+	@if [ -e $(OUTDIR)/mic/libxsf.$(SLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -uv $(OUTDIR)/mic/libxsf.a $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		cp -uv $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
 	@cp -v $(BINDIR)/libxs_generator $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
 	@cp -v $(INCDIR)/libxs*.h $(INSTALL_ROOT)/$(PINCDIR)
