@@ -466,9 +466,17 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* dat
 #if defined(LIBXS_CRC32_FORCEHW)
   LIBXS_CRC32(_mm_crc32_u64, _mm_crc32_u32, _mm_crc32_u16, _mm_crc32_u8, data, size, init);
 #else
+# if !defined(NDEBUG) /* library code is expected to be mute */
+  static LIBXS_TLS int once = 0;
+  if (0 == once) {
+    fprintf(stderr, "LIBXS: unable to enter CRC32 intrinsic code path!\n");
+    once = 1;
+  }
+# endif
   LIBXS_CRC32(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, init);
 #endif
 }
 #if !defined(__SSE4_2__) && (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) && !defined(__MIC__)
 # pragma GCC pop_options
 #endif
+
