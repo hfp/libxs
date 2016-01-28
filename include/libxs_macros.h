@@ -184,12 +184,22 @@
 #define LIBXS_HASH_VALUE(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
 #define LIBXS_HASH2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_HASH_VALUE(LIBXS_DIV2((unsigned long long)(POINTER), ALIGNMENT)), NPOT)
 
-#if defined(_WIN32) && !defined(__GNUC__)
-# define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
-#elif defined(__GNUC__) || defined(__clang__)
-# define LIBXS_TLS __thread
-#elif defined(__cplusplus)
-# define LIBXS_TLS thread_local
+#if !defined(_REENTRANT) && !defined(LIBXS_NOSYNC)
+# define _REENTRANT
+#endif
+
+#if defined(_REENTRANT)
+# if defined(_WIN32) && !defined(__GNUC__)
+#   define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
+# elif defined(__GNUC__) || defined(__clang__)
+#   define LIBXS_TLS __thread
+# elif defined(__cplusplus)
+#   define LIBXS_TLS thread_local
+# else
+#   error Missing TLS support!
+# endif
+#else
+# define LIBXS_TLS
 #endif
 
 #if defined(__GNUC__)
