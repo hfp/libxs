@@ -33,6 +33,9 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <stdint.h>
+#if !defined(NDEBUG)
+# include <stdio.h>
+#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
