@@ -130,8 +130,8 @@ grep "diff" samples/cp2k/cp2k-perf.txt | grep -v "diff=0.000"
 
 **NOTE**: by default, a combination of a C/C++ and a Fortran compiler is needed (some sample code is written in C++). Beside of specifying the compilers (`make CXX=g++ CC=gcc FC=gfortran`), the need for a Fortran compiler can be relaxed (`make FC=`). The latter affects the availability of the MODule file and the corresponding 'libxsf' library (the interface 'libxs.f' is still generated). Fortran code can make use of LIBXS in three different ways:
 
-* By relying on the module file, and by linking against 'libxs' and 'libxsf',
-* By including the interface 'libxs.f', and by linking against 'libxs', or by
+* By relying on the module file, and by linking against 'libxsf' and 'libxs' (this order),
+* By including the interface 'libxs.f', and by linking solely against 'libxs', or by
 * Optionally declaring 'libxs_?gemm' (like BLAS), and by linking against 'libxs'.
 
 At the expense of a limited functionality (libxs_?gemm), the latter method also works with Fortran 77 (otherwise the Fortran 2003 standard is necessary).
