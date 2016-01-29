@@ -451,7 +451,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
           }
         }
 # endif /*defined(NDEBUG)*/
-#else
+#elif !(defined(__APPLE__) && defined(__MACH__))
         LIBXS_MESSAGE("====================================================================")
         LIBXS_MESSAGE("Adjusting THP is unavailable due to C89 or kernel older than 2.6.38!")
         LIBXS_MESSAGE("====================================================================")
