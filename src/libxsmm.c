@@ -233,7 +233,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
           { /* omit registering code if JIT is enabled and if an ISA extension is found
              * which is beyond the static code path used to compile the library
              */
-#if (0 != LIBXS_JIT)
+#if (0 != LIBXS_JIT) && !defined(__MIC__)
             const char *const env_jit = getenv("LIBXS_JIT");
             internal_jit = (0 == env_jit || 0 == *env_jit || '1' == *env_jit) ? arch_name : ('0' != *env_jit ? env_jit : 0);
             if (0 == internal_jit || 0 != is_static)
