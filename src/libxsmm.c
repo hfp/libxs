@@ -69,8 +69,8 @@
 # endif
 #endif
 
-/* larger cache capacity lowers the probability of key collisions; should be a prime number */
-#define LIBXS_CACHESIZE 999979
+/* larger capacity of the registry lowers the probability of key collisions; should be a prime number */
+#define LIBXS_REGSIZE 999979
 /* flag fused into the memory address of a code version in case of collision */
 #define LIBXS_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 1))
 #define LIBXS_HASH_SEED 0 /* CRC32 seed */
@@ -80,18 +80,18 @@ typedef union LIBXS_RETARGETABLE internal_code {
   /*const*/void* xmm;
   uintptr_t imm;
 } internal_code;
-typedef struct LIBXS_RETARGETABLE internal_cache_entry {
+typedef struct LIBXS_RETARGETABLE internal_regentry {
   libxs_gemm_descriptor descriptor;
   internal_code code;
   /* needed to distinct statically generated code and for munmap */
   unsigned int code_size;
-} internal_cache_entry;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_cache_entry* internal_cache = 0;
+} internal_regentry;
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regentry* internal_registry = 0;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_jit = 0;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_has_crc32 = 0;
 
 #if !defined(_OPENMP)
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_cache_lock[] = {
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] = {
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
@@ -172,29 +172,29 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_arch_name(int* is_static, i
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE internal_cache_entry* internal_init(void)
+LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 {
-  /*const*/internal_cache_entry* result;
+  /*const*/internal_regentry* result;
   int i;
 
 #if !defined(_OPENMP)
   /* acquire locks and thereby shortcut lazy initialization later on */
-  const int nlocks = sizeof(internal_cache_lock) / sizeof(*internal_cache_lock);
-  for (i = 0; i < nlocks; ++i) LIBXS_LOCK_ACQUIRE(internal_cache_lock[i]);
+  const int nlocks = sizeof(internal_reglock) / sizeof(*internal_reglock);
+  for (i = 0; i < nlocks; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock[i]);
 #else
-# pragma omp critical(internal_cache_lock)
+# pragma omp critical(internal_reglock)
 #endif
   {
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
-    result = __atomic_load_n(&internal_cache, __ATOMIC_SEQ_CST);
+    result = __atomic_load_n(&internal_registry, __ATOMIC_SEQ_CST);
 # else
-    result = __sync_or_and_fetch(&internal_cache, 0);
+    result = __sync_or_and_fetch(&internal_registry, 0);
 # endif
 #elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
-    result = internal_cache; /*TODO*/
+    result = internal_registry; /*TODO*/
 #else
-    result = internal_cache;
+    result = internal_registry;
 #endif
     if (0 == result) {
 #if defined(__TRACE)
@@ -221,7 +221,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_cache_entry* internal_init(void)
         i = EXIT_SUCCESS;
       }
       if (EXIT_SUCCESS == i) {
-        result = (internal_cache_entry*)malloc(LIBXS_CACHESIZE * sizeof(internal_cache_entry));
+        result = (internal_regentry*)malloc(LIBXS_REGSIZE * sizeof(internal_regentry));
 
         if (result) {
           int is_static = 0;
@@ -229,7 +229,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_cache_entry* internal_init(void)
            * to be able to inline the call instead of using an indirection (via fn. pointer)
            */
           const char *const arch_name = internal_arch_name(&is_static, &internal_has_crc32);
-          for (i = 0; i < LIBXS_CACHESIZE; ++i) result[i].code.xmm = 0;
+          for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].code.xmm = 0;
           { /* omit registering code if JIT is enabled and if an ISA extension is found
              * which is beyond the static code path used to compile the library
              */
@@ -262,17 +262,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_cache_entry* internal_init(void)
           atexit(libxs_finalize);
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
-          __atomic_store_n(&internal_cache, result, __ATOMIC_SEQ_CST);
+          __atomic_store_n(&internal_registry, result, __ATOMIC_SEQ_CST);
 # else
           {
-            internal_cache_entry* old = internal_cache;
-            while (!__sync_bool_compare_and_swap(&internal_cache, old, result)) old = internal_cache;
+            internal_regentry* old = internal_registry;
+            while (!__sync_bool_compare_and_swap(&internal_registry, old, result)) old = internal_registry;
           }
 # endif
 #elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
-          internal_cache = result; /*TODO*/
+          internal_registry = result; /*TODO*/
 #else
-          internal_cache = result;
+          internal_registry = result;
 #endif
         }
       }
@@ -284,7 +284,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_cache_entry* internal_init(void)
     }
   }
 #if !defined(_OPENMP) /* release locks */
-  for (i = 0; i < nlocks; ++i) LIBXS_LOCK_RELEASE(internal_cache_lock[i]);
+  for (i = 0; i < nlocks; ++i) LIBXS_LOCK_RELEASE(internal_reglock[i]);
 #endif
   assert(result);
   return result;
@@ -299,16 +299,16 @@ LIBXS_RETARGETABLE void libxs_init(void)
 {
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
-  const void *const cache = __atomic_load_n(&internal_cache, __ATOMIC_RELAXED);
+  const void *const registry = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED);
 # else
-  const void *const cache = __sync_or_and_fetch(&internal_cache, 0);
+  const void *const registry = __sync_or_and_fetch(&internal_registry, 0);
 # endif
 #elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
-  const void *const cache = internal_cache; /*TODO*/
+  const void *const registry = internal_registry; /*TODO*/
 #else
-  const void *const cache = internal_cache;
+  const void *const registry = internal_registry;
 #endif
-  if (0 == cache) {
+  if (0 == registry) {
     internal_init();
   }
 }
@@ -323,29 +323,29 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 {
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
-  internal_cache_entry* cache = __atomic_load_n(&internal_cache, __ATOMIC_SEQ_CST);
+  internal_regentry* registry = __atomic_load_n(&internal_registry, __ATOMIC_SEQ_CST);
 # else
-  internal_cache_entry* cache = __sync_or_and_fetch(&internal_cache, 0);
+  internal_regentry* registry = __sync_or_and_fetch(&internal_registry, 0);
 # endif
 #elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
-  internal_cache_entry* cache = internal_cache; /*TODO*/
+  internal_regentry* registry = internal_registry; /*TODO*/
 #else
-  internal_cache_entry* cache = internal_cache;
+  internal_regentry* registry = internal_registry;
 #endif
 
-  if (0 != cache) {
+  if (0 != registry) {
     int i;
 #if !defined(_OPENMP)
     /* acquire locks and thereby shortcut lazy initialization later on */
-    const int nlocks = sizeof(internal_cache_lock) / sizeof(*internal_cache_lock);
-    for (i = 0; i < nlocks; ++i) LIBXS_LOCK_ACQUIRE(internal_cache_lock[i]);
+    const int nlocks = sizeof(internal_reglock) / sizeof(*internal_reglock);
+    for (i = 0; i < nlocks; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock[i]);
 #else
-#   pragma omp critical(internal_cache_lock)
+#   pragma omp critical(internal_reglock)
 #endif
     {
-      cache = internal_cache;
+      registry = internal_registry;
 
-      if (0 != cache) {
+      if (0 != registry) {
 #if defined(__TRACE)
         i = libxs_trace_finalize();
 # if !defined(NDEBUG) /* library code is expected to be mute */
@@ -356,28 +356,28 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 #endif
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
-        __atomic_store_n(&internal_cache, 0, __ATOMIC_SEQ_CST);
+        __atomic_store_n(&internal_registry, 0, __ATOMIC_SEQ_CST);
 # else
         { /* use store side-effect of built-in (dummy assignment to mute warning) */
-          internal_cache_entry *const dummy = __sync_and_and_fetch(&internal_cache, 0);
+          internal_regentry *const dummy = __sync_and_and_fetch(&internal_registry, 0);
           LIBXS_UNUSED(dummy);
         }
 # endif
 #elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
-        internal_cache = 0; /*TODO*/
+        internal_registry = 0; /*TODO*/
 #else
-        internal_cache = 0;
+        internal_registry = 0;
 #endif
 #if defined(_WIN32)
         /* TODO: to be implemented */
         LIBXS_UNUSED(i);
 #else
-        for (i = 0; i < LIBXS_CACHESIZE; ++i) {
-          const unsigned int code_size = cache[i].code_size;
-          void *const code = cache[i].code.xmm;
+        for (i = 0; i < LIBXS_REGSIZE; ++i) {
+          const unsigned int code_size = registry[i].code_size;
+          void *const code = registry[i].code.xmm;
           if (0 != code/*allocated*/ && 0 != code_size/*JIT*/) {
 # if defined(NDEBUG)
-            munmap(code, cache[i].code_size);
+            munmap(code, registry[i].code_size);
 # else /* library code is expected to be mute */
             if (0 != munmap(code, code_size)) {
               static LIBXS_TLS int once = 0;
@@ -390,11 +390,11 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
           }
         }
 #endif /*defined(__GNUC__)*/
-        free((void*)cache);
+        free((void*)registry);
       }
     }
 #if !defined(_OPENMP) /* release locks */
-  for (i = 0; i < nlocks; ++i) LIBXS_LOCK_RELEASE(internal_cache_lock[i]);
+  for (i = 0; i < nlocks; ++i) LIBXS_LOCK_RELEASE(internal_reglock[i]);
 #endif
   }
 }
@@ -571,14 +571,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
 
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
-  internal_cache_entry* entry = __atomic_load_n(&internal_cache, __ATOMIC_RELAXED);
+  internal_regentry* entry = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED);
 # else
-  internal_cache_entry* entry = __sync_or_and_fetch(&internal_cache, 0);
+  internal_regentry* entry = __sync_or_and_fetch(&internal_registry, 0);
 # endif
 #elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
-  internal_cache_entry* entry = internal_cache; /*TODO*/
+  internal_regentry* entry = internal_registry; /*TODO*/
 #else
-  internal_cache_entry* entry = internal_cache;
+  internal_regentry* entry = internal_registry;
 #endif
   assert(0 != desc);
 
@@ -602,10 +602,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
     hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
   }
 #endif
-  i = i0 = hash % LIBXS_CACHESIZE;
+  i = i0 = hash % LIBXS_REGSIZE;
   entry += i; /* actual entry */
   do {
-    /* read cached code */
+    /* read regd code */
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
     result.xmm = __atomic_load_n(&entry->code.xmm, __ATOMIC_SEQ_CST);
@@ -632,14 +632,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
         /* collision discovered but code version exists; perform intial deep check */
         else if (0 != internal_gemmdiff(desc, &entry->descriptor)) {
           /* continue linearly searching code starting at re-hashed index position */
-          const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_CACHESIZE;
+          const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_REGSIZE;
           unsigned int next;
-          internal_cache_entry *const cache = entry - i; /* recalculate base address */
-          for (i0 = (index != i ? index : ((index + 1) % LIBXS_CACHESIZE)),
-            i = i0, next = (i0 + 1) % LIBXS_CACHESIZE; next != i0/*no code found*/ &&
+          internal_regentry *const registry = entry - i; /* recalculate base address */
+          for (i0 = (index != i ? index : ((index + 1) % LIBXS_REGSIZE)),
+            i = i0, next = (i0 + 1) % LIBXS_REGSIZE; next != i0/*no code found*/ &&
             /* skip any (still invalid) descriptor which corresponds to no code, or continue on diff */
-            (0 == (entry = cache + i)->code.xmm || 0 != (diff = internal_gemmdiff(desc, &entry->descriptor)));
-            i = next, next = (i + 1) % LIBXS_CACHESIZE);
+            (0 == (entry = registry + i)->code.xmm || 0 != (diff = internal_gemmdiff(desc, &entry->descriptor)));
+            i = next, next = (i + 1) % LIBXS_REGSIZE);
           if (0 == diff) { /* found exact code version; continue with atomic load */
             continue;
           }
@@ -659,23 +659,23 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
 
     /* check if code generation or fixup is needed, also check whether JIT is supported (CPUID) */
     if (0 == result.xmm && 0 != internal_jit) {
-      /* attempt to lock the cache entry */
+      /* attempt to lock the registry entry */
 # if !defined(_OPENMP)
-      const unsigned int lock = LIBXS_MOD2(i, sizeof(internal_cache_lock) / sizeof(*internal_cache_lock));
-      LIBXS_LOCK_ACQUIRE(internal_cache_lock[lock]);
+      const unsigned int lock = LIBXS_MOD2(i, sizeof(internal_reglock) / sizeof(*internal_reglock));
+      LIBXS_LOCK_ACQUIRE(internal_reglock[lock]);
 # else
-#     pragma omp critical(internal_cache_lock)
+#     pragma omp critical(internal_reglock)
 # endif
       {
-        /* re-read cache entry after acquiring the lock */
+        /* re-read registry entry after acquiring the lock */
         if (0 == diff) result = entry->code;
 
         if (0 == result.xmm) { /* double-check after acquiring the lock */
           if (0 == diff) {
-            /* found a conflict-free cache-slot, and attempt to build the kernel */
+            /* found a conflict-free registry-slot, and attempt to build the kernel */
             internal_build(desc, &result.xmm, &entry->code_size);
 
-            if (0 != result.xmm) { /* synchronize cache entry */
+            if (0 != result.xmm) { /* synchronize registry entry */
               entry->descriptor = *desc;
 # if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 #   if (0 != LIBXS_GCCATOMICS)
@@ -701,8 +701,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
               /*const*/ void * /*const*/ code = (void*)(entry->code.imm | LIBXS_HASH_COLLISION);
 
               /* find new slot to store the code version */
-              const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_CACHESIZE;
-              i = (index != i ? index : ((index + 1) % LIBXS_CACHESIZE));
+              const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_REGSIZE;
+              i = (index != i ? index : ((index + 1) % LIBXS_REGSIZE));
               i0 = i; /* keep starting point of free-slot-search in mind */
               /* fixup existing entry */
 # if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
@@ -722,11 +722,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
               diff0 = diff; /* no more fixup */
             }
             else {
-              const unsigned int next = (i + 1) % LIBXS_CACHESIZE;
+              const unsigned int next = (i + 1) % LIBXS_REGSIZE;
               if (next != i0) { /* linear search for free slot */
                 i = next;
               }
-              else { /* out of cache capacity (no free slot found) */
+              else { /* out of registry capacity (no free slot found) */
                 diff = 0;
               }
             }
@@ -737,7 +737,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
         }
       }
 # if !defined(_OPENMP)
-      LIBXS_LOCK_RELEASE(internal_cache_lock[lock]);
+      LIBXS_LOCK_RELEASE(internal_reglock[lock]);
 # endif
     }
     else {
