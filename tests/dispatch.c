@@ -9,7 +9,7 @@
 
 int main()
 {
-#if LIBXS_JIT
+#if 0 != LIBXS_JIT
   const int m[] = { 1, 2, 3, 4, 5, 6, 7, LIBXS_MAX_M - 1, LIBXS_MAX_M, LIBXS_MAX_M + 1 };
   const int n[] = { 1, 2, 3, 4, 5, 6, 7, LIBXS_MAX_N - 1, LIBXS_MAX_N, LIBXS_MAX_N + 1 };
   const int k[] = { 1, 2, 3, 4, 5, 6, 7, LIBXS_MAX_K - 1, LIBXS_MAX_K, LIBXS_MAX_K + 1 };
