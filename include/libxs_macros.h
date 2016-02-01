@@ -134,6 +134,7 @@
 #define LIBXS_NBITS64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 + LIBXS_NBITS32((N) >> 32)) : LIBXS_NBITS32(N))
 #define LIBXS_NBITS(N) (0 != (N) ? (LIBXS_NBITS64((unsigned long long)(N)) + 1) : 1)
 
+#define LIBXS_DEFAULT(DEFAULT, VALUE) (0 < (VALUE) ? (VALUE) : (DEFAULT))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
 #define LIBXS_MOD2(N, NPOT) ((N) & ((NPOT) - 1))
@@ -184,7 +185,9 @@
 #define LIBXS_HASH_VALUE(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
 #define LIBXS_HASH2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_HASH_VALUE(LIBXS_DIV2((unsigned long long)(POINTER), ALIGNMENT)), NPOT)
 
-#if !defined(_REENTRANT) && !defined(LIBXS_NOSYNC)
+#if defined(LIBXS_NOSYNC)
+# undef _REENTRANT
+#elif !defined(_REENTRANT)
 # define _REENTRANT
 #endif
 
