@@ -58,6 +58,7 @@
 #define LIBXS_ILP64 $ILP64
 #define LIBXS_ALPHA $ALPHA
 #define LIBXS_BETA $BETA
+#define LIBXS_SYNC $SYNC
 #define LIBXS_JIT $JIT
 $LIBXS_OFFLOAD_BUILD
 #include "libxs_frontend.h"
