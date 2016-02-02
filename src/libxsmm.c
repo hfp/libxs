@@ -73,11 +73,19 @@
 /*#define LIBXS_HASH_PRIME*/
 #if defined(LIBXS_HASH_PRIME)
 # define LIBXS_HASH_MOD(A, B) ((A) % (B))
-# define LIBXS_REGSIZE 999979
 #else
 # define LIBXS_HASH_MOD(A, B) LIBXS_MOD2(A, B)
-# define LIBXS_REGSIZE 1048576
 #endif
+
+/* allow external definition to enable testing */
+#if !defined(LIBXS_REGSIZE)
+# if defined(LIBXS_HASH_PRIME)
+#   define LIBXS_REGSIZE 999979
+# else
+#   define LIBXS_REGSIZE 1048576
+# endif
+#endif
+
 /* flag fused into the memory address of a code version in case of collision */
 #define LIBXS_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 1))
 #define LIBXS_HASH_SEED 0 /* CRC32 seed */
