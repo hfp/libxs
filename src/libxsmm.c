@@ -69,8 +69,18 @@
 # endif
 #endif
 
-/* larger capacity of the registry lowers the probability of key collisions; should be a prime number */
-#define LIBXS_REGSIZE 999979
+/* larger capacity of the registry lowers the probability of key collisions */
+/*#define LIBXS_HASH_PRIME*/
+#if defined(LIBXS_HASH_PRIME)
+# define LIBXS_HASH_MOD1(A, B) (A % B)
+# define LIBXS_HASH_MOD2(A, B) (A % B)
+# define LIBXS_REGSIZE 999979
+#else
+/* make the hash value an odd number to reduce the number of common factors */
+# define LIBXS_HASH_MOD1(A, B) LIBXS_MOD2((A) & 1, B)
+# define LIBXS_HASH_MOD2(A, B) LIBXS_MOD2(A, B)
+# define LIBXS_REGSIZE 1048576
+#endif
 /* flag fused into the memory address of a code version in case of collision */
 #define LIBXS_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 1))
 #define LIBXS_HASH_SEED 0 /* CRC32 seed */
@@ -602,7 +612,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
     hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
   }
 #endif
-  i = i0 = hash % LIBXS_REGSIZE;
+  i = i0 = LIBXS_HASH_MOD1(hash, LIBXS_REGSIZE);
   entry += i; /* actual entry */
   do {
     /* read regd code */
@@ -632,14 +642,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
         /* collision discovered but code version exists; perform intial deep check */
         else if (0 != internal_gemmdiff(desc, &entry->descriptor)) {
           /* continue linearly searching code starting at re-hashed index position */
-          const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_REGSIZE;
+          const unsigned int index = LIBXS_HASH_MOD1(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE);
           unsigned int next;
           internal_regentry *const registry = entry - i; /* recalculate base address */
-          for (i0 = (index != i ? index : ((index + 1) % LIBXS_REGSIZE)),
-            i = i0, next = (i0 + 1) % LIBXS_REGSIZE; next != i0/*no code found*/ &&
+          for (i0 = (index != i ? index : LIBXS_HASH_MOD2(index + 1, LIBXS_REGSIZE)),
+            i = i0, next = LIBXS_HASH_MOD2(i0 + 1, LIBXS_REGSIZE); next != i0/*no code found*/ &&
             /* skip any (still invalid) descriptor which corresponds to no code, or continue on diff */
             (0 == (entry = registry + i)->code.xmm || 0 != (diff = internal_gemmdiff(desc, &entry->descriptor)));
-            i = next, next = (i + 1) % LIBXS_REGSIZE);
+            i = next, next = LIBXS_HASH_MOD2(i + 1, LIBXS_REGSIZE));
           if (0 == diff) { /* found exact code version; continue with atomic load */
             continue;
           }
@@ -701,8 +711,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
               /*const*/ void * /*const*/ code = (void*)(entry->code.imm | LIBXS_HASH_COLLISION);
 
               /* find new slot to store the code version */
-              const unsigned int index = LIBXS_HASH_VALUE(hash) % LIBXS_REGSIZE;
-              i = (index != i ? index : ((index + 1) % LIBXS_REGSIZE));
+              const unsigned int index = LIBXS_HASH_MOD1(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE);
+              i = (index != i ? index : LIBXS_HASH_MOD2(index + 1, LIBXS_REGSIZE));
               i0 = i; /* keep starting point of free-slot-search in mind */
               /* fixup existing entry */
 # if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
@@ -722,7 +732,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
               diff0 = diff; /* no more fixup */
             }
             else {
-              const unsigned int next = (i + 1) % LIBXS_REGSIZE;
+              const unsigned int next = LIBXS_HASH_MOD2(i + 1, LIBXS_REGSIZE);
               if (next != i0) { /* linear search for free slot */
                 i = next;
               }
