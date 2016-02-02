@@ -627,7 +627,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
   i = i0 = LIBXS_HASH_MOD(hash, LIBXS_REGSIZE);
   entry += i; /* actual entry */
   do {
-    /* read regd code */
+    /* read registered code */
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
     result.xmm = __atomic_load_n(&entry->code.xmm, __ATOMIC_SEQ_CST);
