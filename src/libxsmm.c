@@ -266,6 +266,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
                 fprintf(stderr, "LIBXS: no instruction set extension found for JIT-code generation!\n");
 # endif
               }
+              if (0 < csp) {
+                fprintf(stderr, "LIBXS: %u SP-kernels are not registered due to hash key collisions!\n", csp);
+              }
+              if (0 < cdp) {
+                fprintf(stderr, "LIBXS: %u DP-kernels are not registered due to hash key collisions!\n", cdp);
+              }
 #endif
             }
           }
