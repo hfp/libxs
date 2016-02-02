@@ -72,7 +72,7 @@
 /* larger capacity of the registry lowers the probability of key collisions */
 /*#define LIBXS_HASH_PRIME*/
 #if defined(LIBXS_HASH_PRIME)
-# define LIBXS_HASH_MOD(A, B) (A % B)
+# define LIBXS_HASH_MOD(A, B) ((A) % (B))
 # define LIBXS_REGSIZE 999979
 #else
 # define LIBXS_HASH_MOD(A, B) LIBXS_MOD2(A, B)
