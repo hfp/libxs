@@ -405,7 +405,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 # else /* library code is expected to be mute */
             if (0 != munmap(code.xmm, code_size)) {
               fprintf(stderr, "LIBXS: %s (munmap error #%i at %p)!\n",
-                strerror(errno), errno, code);
+                strerror(errno), errno, code.xmm);
             }
 # endif
           }
