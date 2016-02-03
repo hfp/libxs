@@ -472,7 +472,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* dat
 # if !defined(NDEBUG) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter CRC32 intrinsic code path!\n");
+    fprintf(stderr, "LIBXS: unable to enter CRC32 instruction code path!\n");
     once = 1;
   }
 # endif
