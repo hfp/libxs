@@ -300,7 +300,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
       }
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
       else {
-        fprintf(stderr, "LIBXS: failed to initialize trace (%i)!\n", i);
+        fprintf(stderr, "LIBXS: failed to initialize trace (error #%i)!\n", i);
       }
 #endif
     }
@@ -372,7 +372,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
         i = libxs_trace_finalize();
 # if !defined(NDEBUG) /* library code is expected to be mute */
         if (EXIT_SUCCESS != i) {
-          fprintf(stderr, "LIBXS: failed to finalize trace (%i)!\n", i);
+          fprintf(stderr, "LIBXS: failed to finalize trace (error #%i)!\n", i);
         }
 # endif
 #endif
@@ -402,11 +402,8 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
             munmap(code, registry[i].code_size);
 # else /* library code is expected to be mute */
             if (0 != munmap(code, code_size)) {
-              static LIBXS_TLS int once = 0;
-              if (0 == once) {
-                fprintf(stderr, "LIBXS: %s (munmap error #%i)!\n", strerror(errno), errno);
-                once = 1;
-              }
+              fprintf(stderr, "LIBXS: %s (munmap error #%i with address %p)!\n",
+                strerror(errno), errno, code);
             }
 # endif
           }
@@ -469,7 +466,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         if (0 != madvise(*code, generated_code.code_size, MADV_NOHUGEPAGE)) {
           static LIBXS_TLS int once = 0;
           if (0 == once) {
-            fprintf(stderr, "LIBXS: %s (madvise error #%i)!\n", strerror(errno), errno);
+            fprintf(stderr, "LIBXS: %s (madvise error #%i with address %p)!\n",
+              strerror(errno), errno, *code);
             once = 1;
           }
         }
@@ -511,7 +509,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #else /* library code is expected to be mute */
           static LIBXS_TLS int once = 0;
           if (0 == once) {
-            fprintf(stderr, "LIBXS: %s (mprotect error #%i)!\n", strerror(errno), errno);
+            fprintf(stderr, "LIBXS: %s (mprotect error #%i with address %p)!\n",
+              strerror(errno), errno, *code);
             once = 1;
           }
           if (0 != munmap(*code, generated_code.code_size)) {
