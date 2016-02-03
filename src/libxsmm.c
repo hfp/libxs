@@ -260,7 +260,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #if !defined(NDEBUG) /* library code is expected to be mute */ && (0 != LIBXS_JIT)
               if (0 == arch_name && (0 == env_jit || '1' == *env_jit)) {
 # if defined(__SSE3__)
-                fprintf(stderr, "LIBXS: SSE3 instruction set extension is not supported for JIT-code generation!\n");
+                fprintf(stderr, "LIBXS: SSE instruction set extension is not supported for JIT-code generation!\n");
 # elif defined(__MIC__)
                 fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
 # else
@@ -396,13 +396,15 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 #else
         for (i = 0; i < LIBXS_REGSIZE; ++i) {
           const unsigned int code_size = registry[i].code_size;
-          void *const code = registry[i].code.xmm;
-          if (0 != code/*allocated*/ && 0 != code_size/*JIT*/) {
+          internal_code code = registry[i].code;
+          if (0 != code.xmm/*allocated*/ && 0 != code_size/*JIT*/) {
+            /* make address valid by clearing an eventual collision flag */
+            code.imm &= ~LIBXS_HASH_COLLISION;
 # if defined(NDEBUG)
-            munmap(code, registry[i].code_size);
+            munmap(code.xmm, registry[i].code_size);
 # else /* library code is expected to be mute */
-            if (0 != munmap(code, code_size)) {
-              fprintf(stderr, "LIBXS: %s (munmap error #%i with address %p)!\n",
+            if (0 != munmap(code.xmm, code_size)) {
+              fprintf(stderr, "LIBXS: %s (munmap error #%i at %p)!\n",
                 strerror(errno), errno, code);
             }
 # endif
@@ -466,7 +468,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         if (0 != madvise(*code, generated_code.code_size, MADV_NOHUGEPAGE)) {
           static LIBXS_TLS int once = 0;
           if (0 == once) {
-            fprintf(stderr, "LIBXS: %s (madvise error #%i with address %p)!\n",
+            fprintf(stderr, "LIBXS: %s (madvise error #%i at %p)!\n",
               strerror(errno), errno, *code);
             once = 1;
           }
@@ -509,14 +511,15 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #else /* library code is expected to be mute */
           static LIBXS_TLS int once = 0;
           if (0 == once) {
-            fprintf(stderr, "LIBXS: %s (mprotect error #%i with address %p)!\n",
+            fprintf(stderr, "LIBXS: %s (mprotect error #%i at %p)!\n",
               strerror(errno), errno, *code);
             once = 1;
           }
           if (0 != munmap(*code, generated_code.code_size)) {
             static LIBXS_TLS int once_mmap_error = 0;
             if (0 == once_mmap_error) {
-              fprintf(stderr, "LIBXS: %s (munmap error #%i)!\n", strerror(errno), errno);
+              fprintf(stderr, "LIBXS: %s (munmap error #%i at %p)!\n",
+                strerror(errno), errno, *code);
               once_mmap_error = 1;
             }
           }
