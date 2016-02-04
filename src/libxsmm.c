@@ -537,7 +537,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #if !defined(NDEBUG) /* library code is expected to be mute */
         static LIBXS_TLS int once = 0;
         if (0 == once) {
-          fprintf(stderr, "LIBXS: %s (mmap error #%i)!\n", strerror(errno), errno);
+          fprintf(stderr, "LIBXS: %s (mmap allocation error #%i)!\n",
+            strerror(errno), errno);
           once = 1;
         }
 #endif
