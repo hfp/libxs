@@ -481,9 +481,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         }
 # endif /*defined(NDEBUG)*/
 #elif !(defined(__APPLE__) && defined(__MACH__))
-        LIBXS_MESSAGE("====================================================================")
-        LIBXS_MESSAGE("Adjusting THP is unavailable due to C89 or kernel older than 2.6.38!")
-        LIBXS_MESSAGE("====================================================================")
+        LIBXS_MESSAGE("================================================================================")
+        LIBXS_MESSAGE("LIBXS: Adjusting THP is unavailable due to C89 or kernel older than 2.6.38!")
+        LIBXS_MESSAGE("================================================================================")
 #endif /*MADV_NOHUGEPAGE*/
         /* copy temporary buffer into the prepared executable buffer */
         memcpy(*code, generated_code.generated_code, generated_code.code_size);
@@ -568,9 +568,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   }
 #elif !defined(__MIC__)
   LIBXS_UNUSED(desc); LIBXS_UNUSED(code); LIBXS_UNUSED(code_size);
-  LIBXS_MESSAGE("======================================================")
-  LIBXS_MESSAGE("The JIT BACKEND is not supported on Windows right now!")
-  LIBXS_MESSAGE("======================================================")
+  LIBXS_MESSAGE("================================================================================")
+  LIBXS_MESSAGE("LIBXS: The JIT BACKEND is currently not supported on Microsoft Windows!")
+  LIBXS_MESSAGE("================================================================================")
 #else
   LIBXS_UNUSED(desc); LIBXS_UNUSED(code); LIBXS_UNUSED(code_size);
 #endif /*_WIN32*/
