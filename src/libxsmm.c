@@ -789,13 +789,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
 
 #if defined(__AVX512F__)
-  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42);
+  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42, internal_gemmdiff_avx512f);
 #elif defined(__AVX2__)
-  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42);
+  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42, internal_gemmdiff_avx2);
 #elif defined(__AVX__)
-  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42);
+  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42, internal_gemmdiff_avx);
 #elif defined(__SSE4_2__)
-  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42);
+  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42, internal_gemmdiff_sse);
 #else
   INTERNAL_FIND_CODE(desc, smm, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, (0 != internal_arch_name)
     ? ((/*knl*/'k' == *internal_arch_name || /*skx*/'k' == internal_arch_name[1]) ? internal_gemmdiff_avx512f :
@@ -825,13 +825,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
 
 #if defined(__AVX512F__)
-  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42);
+  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42, internal_gemmdiff_avx512f);
 #elif defined(__AVX2__)
-  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42);
+  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42, internal_gemmdiff_avx2);
 #elif defined(__AVX__)
-  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42);
+  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42, internal_gemmdiff_avx);
 #elif defined(__SSE4_2__)
-  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42);
+  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42, internal_gemmdiff_sse);
 #else
   INTERNAL_FIND_CODE(desc, dmm, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, (0 != internal_arch_name)
     ? ((/*knl*/'k' == *internal_arch_name || /*skx*/'k' == internal_arch_name[1]) ? internal_gemmdiff_avx512f :
