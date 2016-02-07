@@ -476,9 +476,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* dat
     once = 1;
   }
 # endif
+# if !defined(__MIC__)
   LIBXS_MESSAGE("================================================================================");
   LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using the CRC32 instruction!");
   LIBXS_MESSAGE("================================================================================");
+# endif
   LIBXS_CRC32(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, init);
 #endif
 }
