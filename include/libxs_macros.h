@@ -38,21 +38,28 @@
 #define LIBXS_UNIQUE(NAME) LIBXS_CONCATENATE(NAME, __LINE__)
 
 #if defined(__cplusplus)
-# define LIBXS_EXTERN_C extern "C"
-# define LIBXS_INLINE inline
 # define LIBXS_VARIADIC ...
+# define LIBXS_EXTERN_C extern "C"
+# define LIBXS_INLINE_KEYWORD inline
+# define LIBXS_INLINE LIBXS_INLINE_KEYWORD
 #else
-# define LIBXS_EXTERN_C
 # define LIBXS_VARIADIC
+# define LIBXS_EXTERN_C extern
 # if defined(__STDC_VERSION__) && (199901L <= (__STDC_VERSION__))
 #   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
 #   define LIBXS_RESTRICT restrict
-#   define LIBXS_INLINE static inline
+#   define LIBXS_INLINE_KEYWORD inline
 # elif defined(_MSC_VER)
-#   define LIBXS_INLINE static __inline
+#   define LIBXS_INLINE_KEYWORD __inline
 # else
-#   define LIBXS_INLINE static
+#   define LIBXS_INLINE_KEYWORD
 # endif /*C99*/
+# define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
+# if defined(LIBXS_BUILD)
+#   define LIBXS_INLINE_EXPORT LIBXS_EXTERN_C
+# else
+#   define LIBXS_INLINE_EXPORT LIBXS_INLINE
+# endif
 #endif /*__cplusplus*/
 #if !defined(LIBXS_RESTRICT)
 # if ((defined(__GNUC__) && !defined(__CYGWIN32__)) || defined(__INTEL_COMPILER)) && !defined(_WIN32)
