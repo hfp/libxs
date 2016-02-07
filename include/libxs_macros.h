@@ -107,7 +107,7 @@
 #endif
 
 #if defined(__INTEL_COMPILER)
-# define LIBXS_PRAGMA_FORCEINLINE LIBXS_PRAGMA(forceinline recursive)
+# define LIBXS_PRAGMA_FORCEINLINE LIBXS_PRAGMA(forceinline)
 # define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG) LIBXS_PRAGMA(loop_count min(MIN) max(MAX) avg(AVG))
 # define LIBXS_PRAGMA_UNROLL_N(N) LIBXS_PRAGMA(unroll(N))
 # define LIBXS_PRAGMA_UNROLL LIBXS_PRAGMA(unroll)
