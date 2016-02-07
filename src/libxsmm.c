@@ -255,7 +255,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
             if (0 == internal_jit || 0 != is_static)
 #endif
             { /* open scope for variable declarations */
-              LIBXS_DEBUG(unsigned int csp = 0, cdp = 0);
+              LIBXS_DEBUG(unsigned int csp = 0, cdp = 0;)
               /* setup the dispatch table for the statically generated code */
 #             include <libxs_dispatch.h>
 #if !defined(NDEBUG) /* library code is expected to be mute */ && (0 != LIBXS_JIT)
@@ -735,7 +735,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
               const unsigned int index = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE);
               i = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE));
               i0 = i; /* keep starting point of free-slot-search in mind */
-              LIBXS_DEBUG(++internal_ncollisions);
+              LIBXS_DEBUG(++internal_ncollisions;)
 
               /* fixup existing entry */
 # if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
