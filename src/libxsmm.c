@@ -115,6 +115,149 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 };
 #endif
 
+#if defined(__GNUC__)
+  /* libxs_init already executed via GCC constructor attribute */
+# define INTERNAL_FIND_CODE_INIT(VARIABLE) assert(0 != (VARIABLE))
+#else /* lazy initialization */
+  /* use return value of internal_init to refresh local representation */
+# define INTERNAL_FIND_CODE_INIT(VARIABLE) if (0 == (VARIABLE)) (VARIABLE) = internal_init()
+#endif
+
+#if defined(_OPENMP)
+# define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) LIBXS_PRAGMA(omp critical(internal_reglock)) { \
+# define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) }
+#else
+# define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
+    const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, sizeof(internal_reglock) / sizeof(*internal_reglock)); \
+    LIBXS_LOCK_ACQUIRE(internal_reglock[LOCKINDEX])
+# define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(internal_reglock[LOCKINDEX]); }
+#endif
+
+#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+# if (0 != LIBXS_GCCATOMICS)
+#   define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED)
+#   define INTERNAL_FIND_CODE_READ(ENTRY, DST) (DST) = __atomic_load_n(&((ENTRY)->code.xmm), __ATOMIC_SEQ_CST)
+#   define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) __atomic_store_n(&((ENTRY)->code.xmm), SRC, __ATOMIC_SEQ_CST)
+# else
+#   define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = __sync_or_and_fetch(&internal_registry, 0)
+#   define INTERNAL_FIND_CODE_READ(ENTRY, DST) (DST) = __sync_or_and_fetch(&((ENTRY)->code.xmm), 0)
+#   define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) { \
+      /*const*/void* old = (ENTRY)->code.xmm; \
+      while (!__sync_bool_compare_and_swap(&((ENTRY)->code.xmm), old, SRC) old = (ENTRY)->code.xmm; \
+    }
+# endif
+#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32) /*TODO*/
+# define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = internal_registry
+# define INTERNAL_FIND_CODE_READ(ENTRY, DST) (DST) = (ENTRY)->code.xmm
+# define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) (ENTRY)->code.xmm = (SRC)
+#else
+# define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = internal_registry
+# define INTERNAL_FIND_CODE_READ(ENTRY, DST) (DST) = (ENTRY)->code.xmm
+# define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) (ENTRY)->code.xmm = (SRC)
+#endif
+
+#define INTERNAL_FIND_CODE(DESCRIPTOR, SELECTOR/*smm or dmm*/, CRC32_FUNCTION) { \
+  unsigned int hash, diff = 0, diff0 = 0, i, i0; \
+  internal_code result; \
+  INTERNAL_FIND_CODE_DECLARE(entry); \
+  assert(0 != (CRC32_FUNCTION)); \
+  INTERNAL_FIND_CODE_INIT(entry); \
+  /* check if the requested xGEMM is already JITted */ \
+  LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
+  hash = (CRC32_FUNCTION)(&(DESCRIPTOR), LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED); \
+  i = i0 = LIBXS_HASH_MOD(hash, LIBXS_REGSIZE); \
+  entry += i; /* actual entry */ \
+  do { \
+    INTERNAL_FIND_CODE_READ(entry, result.xmm); /* read registered code */ \
+    /* entire block is conditional wrt LIBXS_JIT; static code currently does not have collisions */ \
+    if (0 != result.xmm) { \
+      if (0 == diff0) { \
+        if (0 == (LIBXS_HASH_COLLISION & result.imm)) { /* check for no collision */ \
+          /* calculate bitwise difference (deep check) */ \
+          diff = internal_gemmdiff(&(DESCRIPTOR), &entry->descriptor); \
+          if (0 != diff) { /* new collision discovered (but no code version yet) */ \
+            /* allow to fix-up current entry inside of the guarded/locked region */ \
+            result.xmm = 0; \
+          } \
+        } \
+        /* collision discovered but code version exists; perform initial deep check */ \
+        else if (0 != internal_gemmdiff(&(DESCRIPTOR), &entry->descriptor)) { \
+          /* continue linearly searching code starting at re-hashed index position */ \
+          const unsigned int index = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE); \
+          unsigned int next; \
+          internal_regentry *const registry = entry - i; /* recalculate base address */ \
+          for (i0 = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE)), \
+            i = i0, next = LIBXS_HASH_MOD(i0 + 1, LIBXS_REGSIZE); next != i0/*no code found*/ && \
+            /* skip any (still invalid) descriptor which corresponds to no code, or continue on difference */ \
+            (0 == (entry = registry + i)->code.xmm || 0 != (diff = internal_gemmdiff(&(DESCRIPTOR), &entry->descriptor))); \
+            i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE)); \
+          if (0 == diff) { /* found exact code version; continue with atomic load */ \
+            continue; \
+          } \
+          else { /* no code found */ \
+            result.xmm = 0; \
+            break; \
+          } \
+        } \
+        else { /* clear the uppermost bit of the address */ \
+          result.imm &= ~LIBXS_HASH_COLLISION; \
+        } \
+      } \
+      else { /* new collision discovered (but no code version yet) */ \
+        result.xmm = 0; \
+      } \
+    } \
+    /* check if code generation or fix-up is needed, also check whether JIT is supported (CPUID) */ \
+    if (0 == result.xmm && 0 != internal_jit) { \
+      INTERNAL_FIND_CODE_LOCK(lock, i); /* lock the registry entry */ \
+      /* re-read registry entry after acquiring the lock */ \
+      if (0 == diff) result = entry->code; \
+      if (0 == result.xmm) { /* double-check after acquiring the lock */ \
+        if (0 == diff) { \
+          /* found a conflict-free registry-slot, and attempt to build the kernel */ \
+          internal_build(&(DESCRIPTOR), &result.xmm, &entry->code_size); \
+          if (0 != result.xmm) { /* synchronize registry entry */ \
+            entry->descriptor = (DESCRIPTOR); \
+            INTERNAL_FIND_CODE_WRITE(entry, result.xmm); \
+          } \
+        } \
+        else { /* 0 != diff */ \
+          const unsigned int base = i; \
+          if (0 == diff0) { \
+            /* flag existing entry as collision */ \
+            /*const*/ void * /*const*/ code = (void*)(entry->code.imm | LIBXS_HASH_COLLISION); \
+            /* find new slot to store the code version */ \
+            const unsigned int index = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE); \
+            i = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE)); \
+            i0 = i; /* keep starting point of free-slot-search in mind */ \
+            LIBXS_DEBUG(++internal_ncollisions;) \
+            INTERNAL_FIND_CODE_WRITE(entry, code); /* fix-up existing entry */ \
+            diff0 = diff; /* no more fix-up */ \
+          } \
+          else { \
+            const unsigned int next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE); \
+            if (next != i0) { /* linear search for free slot */ \
+              i = next; \
+            } \
+            else { /* out of registry capacity (no free slot found) */ \
+              diff = 0; \
+            } \
+          } \
+          entry -= base; /* recalculate base address */ \
+          entry += i; \
+        } \
+      } \
+      INTERNAL_FIND_CODE_UNLOCK(lock); \
+    } \
+    else { \
+      diff = 0; \
+    } \
+  } \
+  while (0 != diff); \
+  assert(0 == result.xmm || 0 == internal_gemmdiff(&(DESCRIPTOR), &entry->descriptor)); \
+  return result.SELECTOR; \
+}
+
 
 LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_arch_name(int* is_static, int* has_crc32)
 {
@@ -599,200 +742,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gemm_descriptor* desc)
-{
-  internal_code result;
-  unsigned int hash, i, diff = 0;
-  unsigned int diff0 = 0, i0;
-
-#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
-# if (0 != LIBXS_GCCATOMICS)
-  internal_regentry* entry = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED);
-# else
-  internal_regentry* entry = __sync_or_and_fetch(&internal_registry, 0);
-# endif
-#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
-  internal_regentry* entry = internal_registry; /*TODO*/
-#else
-  internal_regentry* entry = internal_registry;
-#endif
-  assert(0 != desc);
-
-#if defined(__GNUC__)
-  /* libxs_init already executed via GCC constructor attribute */
-  assert(0 != entry);
-#else /* lazy initialization */
-  if (0 == entry) {
-    /* use init's return value to refresh local representation */
-    entry = internal_init();
-  }
-#endif
-
-  /* check if the requested xGEMM is already JITted */
-#if defined(__SSE4_2__)
-  LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
-  hash = libxs_crc32_sse42(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
-#else
-  if (0 != internal_has_crc32) {
-    LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
-    hash = libxs_crc32_sse42(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
-  }
-  else {
-    LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
-    hash = libxs_crc32(desc, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
-  }
-#endif
-  i = i0 = LIBXS_HASH_MOD(hash, LIBXS_REGSIZE);
-  entry += i; /* actual entry */
-  do {
-    /* read registered code */
-#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
-# if (0 != LIBXS_GCCATOMICS)
-    result.xmm = __atomic_load_n(&entry->code.xmm, __ATOMIC_SEQ_CST);
-# else
-    result.xmm = __sync_or_and_fetch(&entry->code.xmm, 0);
-# endif
-#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
-    result = entry->code; /*TODO*/
-#else
-    result = entry->code;
-#endif
-
-    /* entire block is conditional wrt LIBXS_JIT; static code currently does not have collisions */
-    if (0 != result.xmm) {
-      if (0 == diff0) {
-        if (0 == (LIBXS_HASH_COLLISION & result.imm)) { /* check for no collision */
-          /* calculate bitwise difference (deep check) */
-          diff = internal_gemmdiff(desc, &entry->descriptor);
-          if (0 != diff) { /* new collision discovered (but no code version yet) */
-            /* allow to fixup current entry inside of the guarded/locked region */
-            result.xmm = 0;
-          }
-        }
-        /* collision discovered but code version exists; perform intial deep check */
-        else if (0 != internal_gemmdiff(desc, &entry->descriptor)) {
-          /* continue linearly searching code starting at re-hashed index position */
-          const unsigned int index = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE);
-          unsigned int next;
-          internal_regentry *const registry = entry - i; /* recalculate base address */
-          for (i0 = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE)),
-            i = i0, next = LIBXS_HASH_MOD(i0 + 1, LIBXS_REGSIZE); next != i0/*no code found*/ &&
-            /* skip any (still invalid) descriptor which corresponds to no code, or continue on diff */
-            (0 == (entry = registry + i)->code.xmm || 0 != (diff = internal_gemmdiff(desc, &entry->descriptor)));
-            i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE));
-          if (0 == diff) { /* found exact code version; continue with atomic load */
-            continue;
-          }
-          else { /* no code found */
-            result.xmm = 0;
-            break;
-          }
-        }
-        else { /* clear the uppermost bit of the address */
-          result.imm &= ~LIBXS_HASH_COLLISION;
-        }
-      }
-      else { /* new collision discovered (but no code version yet) */
-        result.xmm = 0;
-      }
-    }
-
-    /* check if code generation or fixup is needed, also check whether JIT is supported (CPUID) */
-    if (0 == result.xmm && 0 != internal_jit) {
-      /* attempt to lock the registry entry */
-# if !defined(_OPENMP)
-      const unsigned int lock = LIBXS_MOD2(i, sizeof(internal_reglock) / sizeof(*internal_reglock));
-      LIBXS_LOCK_ACQUIRE(internal_reglock[lock]);
-# else
-#     pragma omp critical(internal_reglock)
-# endif
-      {
-        /* re-read registry entry after acquiring the lock */
-        if (0 == diff) result = entry->code;
-
-        if (0 == result.xmm) { /* double-check after acquiring the lock */
-          if (0 == diff) {
-            /* found a conflict-free registry-slot, and attempt to build the kernel */
-            internal_build(desc, &result.xmm, &entry->code_size);
-
-            if (0 != result.xmm) { /* synchronize registry entry */
-              entry->descriptor = *desc;
-# if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
-#   if (0 != LIBXS_GCCATOMICS)
-              __atomic_store_n(&entry->code.xmm, result.xmm, __ATOMIC_SEQ_CST);
-#   else
-              {
-                /*const*/void* old = entry->code.xmm;
-                while (!__sync_bool_compare_and_swap(&entry->code.xmm, old, result.xmm)) old = entry->code.xmm;
-              }
-#   endif
-# elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
-              entry->code.xmm = result.xmm; /*TODO*/
-# else
-              entry->code.xmm = result.xmm;
-# endif
-            }
-          }
-          else { /* 0 != diff */
-            const unsigned int base = i;
-
-            if (0 == diff0) {
-              /* flag existing entry as collision */
-              /*const*/ void * /*const*/ code = (void*)(entry->code.imm | LIBXS_HASH_COLLISION);
-
-              /* find new slot to store the code version */
-              const unsigned int index = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE);
-              i = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE));
-              i0 = i; /* keep starting point of free-slot-search in mind */
-              LIBXS_DEBUG(++internal_ncollisions;)
-
-              /* fixup existing entry */
-# if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
-#   if (0 != LIBXS_GCCATOMICS)
-              __atomic_store_n(&entry->code.xmm, code, __ATOMIC_SEQ_CST);
-#   else
-              {
-                /*const*/void* old = entry->code.xmm;
-                while (!__sync_bool_compare_and_swap(&entry->code.xmm, old, code)) old = entry->code.xmm;
-              }
-#   endif
-# elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
-              entry->code.xmm = code; /*TODO*/
-# else
-              entry->code.xmm = code;
-# endif
-              diff0 = diff; /* no more fixup */
-            }
-            else {
-              const unsigned int next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE);
-              if (next != i0) { /* linear search for free slot */
-                i = next;
-              }
-              else { /* out of registry capacity (no free slot found) */
-                diff = 0;
-              }
-            }
-
-            entry -= base; /* recalculate base address */
-            entry += i;
-          }
-        }
-      }
-# if !defined(_OPENMP)
-      LIBXS_LOCK_RELEASE(internal_reglock[lock]);
-# endif
-    }
-    else {
-      diff = 0;
-    }
-  }
-  while (0 != diff);
-
-  assert(0 == result.xmm || 0 == internal_gemmdiff(desc, &entry->descriptor));
-  return result;
-}
-
-
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
   const float* alpha, const float* beta,
@@ -802,7 +751,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
   const int ilda = (0 == lda ? LIBXS_LD(m, k) : *lda);
   const int ildb = (0 == ldb ? LIBXS_LD(k, n) : *ldb);
   const int ildc = (0 == ldc ? LIBXS_LD(m, n) : *ldc);
-  libxs_smmfunction result;
 
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
@@ -811,9 +759,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
     0 == beta ? LIBXS_BETA : *beta,
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
 
-  LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
-  result = internal_find_code(&desc).smm;
-  return result;
+#if defined(__SSE4_2__)
+  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42);
+#else
+  INTERNAL_FIND_CODE(desc, smm, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32);
+#endif
 }
 
 
@@ -826,7 +776,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
   const int ilda = (0 == lda ? LIBXS_LD(m, k) : *lda);
   const int ildb = (0 == ldb ? LIBXS_LD(k, n) : *ldb);
   const int ildc = (0 == ldc ? LIBXS_LD(m, n) : *ldc);
-  libxs_dmmfunction result;
 
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
@@ -835,8 +784,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
     0 == beta ? LIBXS_BETA : *beta,
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
 
-  LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */
-  result = internal_find_code(&desc).dmm;
-  return result;
+#if defined(__SSE4_2__)
+  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42);
+#else
+  INTERNAL_FIND_CODE(desc, dmm, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32);
+#endif
 }
 
