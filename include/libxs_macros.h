@@ -55,12 +55,13 @@
 #   define LIBXS_INLINE_KEYWORD
 # endif /*C99*/
 # define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
-# if defined(LIBXS_BUILD)
-#   define LIBXS_INLINE_EXPORT LIBXS_EXTERN_C
-# else
-#   define LIBXS_INLINE_EXPORT LIBXS_INLINE
-# endif
 #endif /*__cplusplus*/
+#if defined(LIBXS_BUILD)
+# define LIBXS_INLINE_EXPORT LIBXS_EXTERN_C
+#else
+# define LIBXS_INLINE_EXPORT LIBXS_INLINE
+#endif
+
 #if !defined(LIBXS_RESTRICT)
 # if ((defined(__GNUC__) && !defined(__CYGWIN32__)) || defined(__INTEL_COMPILER)) && !defined(_WIN32)
 #   define LIBXS_RESTRICT __restrict__
