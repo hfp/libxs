@@ -618,11 +618,15 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code internal_find_code(const libxs_gem
 #endif
   assert(0 != desc);
 
-  /* lazy initialization */
+#if defined(__GNUC__)
+  /* libxs_init already executed via GCC constructor attribute */
+  assert(0 != entry);
+#else /* lazy initialization */
   if (0 == entry) {
     /* use init's return value to refresh local representation */
     entry = internal_init();
   }
+#endif
 
   /* check if the requested xGEMM is already JITted */
 #if defined(__SSE4_2__)
