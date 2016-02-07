@@ -405,8 +405,9 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
             munmap(code.xmm, registry[i].code_size);
 # else /* library code is expected to be mute */
             if (0 != munmap(code.xmm, code_size)) {
+              const int error = errno;
               fprintf(stderr, "LIBXS: %s (munmap error #%i at %p)!\n",
-                strerror(errno), errno, code.xmm);
+                strerror(error), error, code.xmm);
             }
 # endif
           }
@@ -474,8 +475,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         if (0 != madvise(*code, generated_code.code_size, MADV_NOHUGEPAGE)) {
           static LIBXS_TLS int once = 0;
           if (0 == once) {
+            const int error = errno;
             fprintf(stderr, "LIBXS: %s (madvise error #%i at %p)!\n",
-              strerror(errno), errno, *code);
+              strerror(error), error, *code);
             once = 1;
           }
         }
@@ -517,15 +519,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #else /* library code is expected to be mute */
           static LIBXS_TLS int once = 0;
           if (0 == once) {
+            const int error = errno;
             fprintf(stderr, "LIBXS: %s (mprotect error #%i at %p)!\n",
-              strerror(errno), errno, *code);
+              strerror(error), error, *code);
             once = 1;
           }
           if (0 != munmap(*code, generated_code.code_size)) {
             static LIBXS_TLS int once_mmap_error = 0;
             if (0 == once_mmap_error) {
+              const int error = errno;
               fprintf(stderr, "LIBXS: %s (munmap error #%i at %p)!\n",
-                strerror(errno), errno, *code);
+                strerror(error), error, *code);
               once_mmap_error = 1;
             }
           }
@@ -537,8 +541,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #if !defined(NDEBUG) /* library code is expected to be mute */
         static LIBXS_TLS int once = 0;
         if (0 == once) {
+          const int error = errno;
           fprintf(stderr, "LIBXS: %s (mmap allocation error #%i)!\n",
-            strerror(errno), errno);
+            strerror(error), error);
           once = 1;
         }
 #endif
@@ -561,7 +566,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #if !defined(NDEBUG) /* library code is expected to be mute */
     static LIBXS_TLS int once = 0;
     if (0 == once) {
-      fprintf(stderr, "%s (error #%i)\n", libxs_strerror(generated_code.last_error), generated_code.last_error);
+      fprintf(stderr, "%s (error #%u)\n", libxs_strerror(generated_code.last_error), generated_code.last_error);
       once = 1;
     }
 #endif
