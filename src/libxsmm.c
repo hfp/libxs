@@ -798,7 +798,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
   const int ilda = (0 == lda ? LIBXS_LD(m, k) : *lda);
   const int ildb = (0 == ldb ? LIBXS_LD(k, n) : *ldb);
   const int ildc = (0 == ldc ? LIBXS_LD(m, n) : *ldc);
-  int result;
+  libxs_smmfunction result;
 
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
@@ -822,7 +822,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
   const int ilda = (0 == lda ? LIBXS_LD(m, k) : *lda);
   const int ildb = (0 == ldb ? LIBXS_LD(k, n) : *ldb);
   const int ildc = (0 == ldc ? LIBXS_LD(m, n) : *ldc);
-  int result;
+  libxs_dmmfunction result;
 
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
