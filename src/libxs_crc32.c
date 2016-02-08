@@ -443,21 +443,22 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, uns
 
 #if !defined(__MIC__)
 # if defined(__SSE4_2__)
-#   include <nmmintrin.h>
 #   if !defined(LIBXS_CRC32_FORCEHW)
 #     define LIBXS_CRC32_FORCEHW
 #   endif
 # elif (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) && !defined(__MIC__)
 #   pragma GCC push_options
 #   pragma GCC target("sse4.2")
-#   include <nmmintrin.h>
 #   if !defined(LIBXS_CRC32_FORCEHW)
 #     define LIBXS_CRC32_FORCEHW
 #   endif
-# elif defined(_WIN32)
+# elif defined(__INTEL_COMPILER) || defined(_WIN32)
 #   if !defined(LIBXS_CRC32_FORCEHW)
 #     define LIBXS_CRC32_FORCEHW
 #   endif
+# endif
+# if defined(LIBXS_CRC32_FORCEHW)
+#   include <immintrin.h>
 # endif
 #endif
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int init)
