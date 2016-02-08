@@ -160,7 +160,6 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
   unsigned int hash, diff = 0, diff0 = 0, i, i0; \
   internal_code result; \
   INTERNAL_FIND_CODE_DECLARE(entry); \
-  assert(0 != (CRC32_FUNCTION) && 0 != (DIFF_FUNCTION)); \
   INTERNAL_FIND_CODE_INIT(entry); \
   /* check if the requested xGEMM is already JITted */ \
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
