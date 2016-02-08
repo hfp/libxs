@@ -771,7 +771,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_imci(
 #   if !defined(LIBXS_AVX2)
 #     define LIBXS_AVX2
 #   endif
-# elif (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) && !defined(__MIC__)
+# elif (40700 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) && !defined(__MIC__)
 #   pragma GCC push_options
 #   pragma GCC target("avx2")
 #   include <immintrin.h>
@@ -815,7 +815,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_avx2(
   return internal_gemmdiff(a, b);
 #endif
 }
-#if !defined(__MIC__) && !defined(__AVX2__) && (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+#if !defined(__MIC__) && !defined(__AVX2__) && (40700 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
 # pragma GCC pop_options
 #endif
 
