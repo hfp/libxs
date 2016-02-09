@@ -67,6 +67,8 @@
 #   endif
 # endif
 #endif
+/* must be the last included header */
+#include "libxs_intrinsics.h"
 
 /* enable generic variant of internal_gemmdiff */
 #if !defined(LIBXS_GEMMDIFF_FORCESW)
@@ -405,7 +407,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #             include <libxs_dispatch.h>
 #if !defined(NDEBUG) /* library code is expected to be mute */ && (0 != LIBXS_JIT)
               if (0 == internal_arch_name && (0 == env_jit || '1' == *env_jit)) {
-# if defined(__SSE3__)
+# if defined(LIBXS_SSE) && (3 <= (LIBXS_SSE))
                 fprintf(stderr, "LIBXS: SSE instruction set extension is not supported for JIT-code generation!\n");
 # elif defined(__MIC__)
                 fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
@@ -746,108 +748,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff(
 }
 
 
-#if defined(__MIC__)
-# include <immintrin.h>
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_imci(
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_sse(
   const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
-  const __mmask16 mask = (0xFFFF >> (16 - LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4)));
-  __m512i ia, ib; /* we do not care about the initial state */
-  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(16 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
-  assert(0 != a && 0 != b);
-
-  ia = _mm512_mask_loadunpackhi_epi32(
-    _mm512_mask_loadunpacklo_epi32(ia/*some state*/, mask, a),
-    mask, ((const char*)a) + 32);
-  ib = _mm512_mask_loadunpackhi_epi32(
-    _mm512_mask_loadunpacklo_epi32(ib/*some state*/, mask, b),
-    mask, ((const char*)b) + 32);
-
-  return _mm512_mask_reduce_or_epi32(mask, _mm512_xor_si512(ia, ib));
-}
-#endif /*defined(__MIC__)*/
-
-#if !defined(__MIC__)
-# if defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
-#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
-#     define LIBXS_GEMMDIFF_FORCEHW
-#   endif
-# elif (40700 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) && !defined(__MIC__)
-#   pragma GCC push_options
-#   pragma GCC target("avx2")
-#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
-#     define LIBXS_GEMMDIFF_FORCEHW
-#   endif
-# elif defined(__INTEL_COMPILER) || defined(_WIN32)
-#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
-#     define LIBXS_GEMMDIFF_FORCEHW
-#   endif
-# endif
-# if defined(LIBXS_GEMMDIFF_FORCEHW)
-#   include <immintrin.h>
-# endif
-#endif
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_avx2(
-  const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
-{
-#if defined(LIBXS_GEMMDIFF_FORCEHW)
-  __m256i mask = _mm256_setzero_si256(), ia, ib;
-
-  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
-  assert(0 != a && 0 != b);
-
-  mask = _mm256_srai_epi32(mask, LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
-  ia = _mm256_maskload_epi32((const void*)a, mask);
-  ib = _mm256_maskload_epi32((const void*)b, mask);
-
-  return _mm256_testnzc_si256(ia, ib);
-#else
-# if !defined(NDEBUG) /* library code is expected to be mute */
-  static LIBXS_TLS int once = 0;
-  if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX2 instruction code path!\n");
-    once = 1;
-  }
-# endif
-# if !defined(__MIC__)
-  LIBXS_MESSAGE("================================================================================");
-  LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using AVX2 instructions!");
-  LIBXS_MESSAGE("================================================================================");
-# endif
   return internal_gemmdiff(a, b);
-#endif
 }
-#if !defined(__MIC__) && !(defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))) && (40700 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
-# pragma GCC pop_options
-#endif
 
 
-#if !defined(__MIC__)
-# if defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))
-#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
-#     define LIBXS_GEMMDIFF_FORCEHW
-#   endif
-# elif (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) && !defined(__MIC__)
-#   pragma GCC push_options
-#   pragma GCC target("avx")
-#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
-#     define LIBXS_GEMMDIFF_FORCEHW
-#   endif
-# elif defined(__INTEL_COMPILER) || defined(_WIN32)
-#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
-#     define LIBXS_GEMMDIFF_FORCEHW
-#   endif
-# endif
-# if defined(LIBXS_GEMMDIFF_FORCEHW)
-#   include <immintrin.h>
-# endif
-#endif
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_avx(
+LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int internal_gemmdiff_avx(
   const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
-#if defined(LIBXS_GEMMDIFF_FORCEHW)
+#if defined(LIBXS_AVX_MAX) && (1 <= (LIBXS_AVX_MAX))
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compilation error */
 #   if !defined(__CYGWIN__)
   const union { __m256i i32; } mask = { _mm256_set_epi32(0, -1, -1, -1, -1, -1, -1, -1) };
@@ -881,17 +792,61 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_avx(
   return internal_gemmdiff(a, b);
 #endif
 }
-#if !defined(__MIC__) && !(defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))) && (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
-# pragma GCC pop_options
-#endif
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_sse(
+LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int internal_gemmdiff_avx2(
   const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
+#if defined(LIBXS_AVX_MAX) && (2 <= (LIBXS_AVX_MAX))
+  __m256i mask = _mm256_setzero_si256(), ia, ib;
+
+  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
+  assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
+  assert(0 != a && 0 != b);
+
+  mask = _mm256_srai_epi32(mask, LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
+  ia = _mm256_maskload_epi32((const void*)a, mask);
+  ib = _mm256_maskload_epi32((const void*)b, mask);
+
+  return _mm256_testnzc_si256(ia, ib);
+#else
+# if !defined(NDEBUG) /* library code is expected to be mute */
+  static LIBXS_TLS int once = 0;
+  if (0 == once) {
+    fprintf(stderr, "LIBXS: unable to enter AVX2 instruction code path!\n");
+    once = 1;
+  }
+# endif
+# if !defined(__MIC__)
+  LIBXS_MESSAGE("================================================================================");
+  LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using AVX2 instructions!");
+  LIBXS_MESSAGE("================================================================================");
+# endif
   return internal_gemmdiff(a, b);
+#endif
 }
 
+
+#if defined(__MIC__)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_imci(
+  const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
+{
+  const __mmask16 mask = (0xFFFF >> (16 - LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4)));
+  __m512i ia, ib; /* we do not care about the initial state */
+  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
+  assert(16 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
+  assert(0 != a && 0 != b);
+
+  ia = _mm512_mask_loadunpackhi_epi32(
+    _mm512_mask_loadunpacklo_epi32(ia/*some state*/, mask, a),
+    mask, ((const char*)a) + 32);
+  ib = _mm512_mask_loadunpackhi_epi32(
+    _mm512_mask_loadunpacklo_epi32(ib/*some state*/, mask, b),
+    mask, ((const char*)b) + 32);
+
+  return _mm512_mask_reduce_or_epi32(mask, _mm512_xor_si512(ia, ib));
+}
+#endif /*defined(__MIC__)*/
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
