@@ -759,14 +759,15 @@ LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int internal_gemmdiff_
   const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
 #if defined(LIBXS_AVX_MAX) && (1 <= (LIBXS_AVX_MAX))
+  __m256 ia, ib;
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compilation error */
 #   if !defined(__CYGWIN__) && !(defined(__INTEL_COMPILER) && defined(_WIN32))
-  /*const*/ struct { __m256i i32; } mask = { _mm256_set_epi32(0, -1, -1, -1, -1, -1, -1, -1) };
+  struct { __m256i i32; } mask;
+  mask.i32 = _mm256_set_epi32(0, -1, -1, -1, -1, -1, -1, -1);
 #   else /* Cygwin/GCC: _mm256_set_epi32 causes an illegal instruction */
   const union { int32_t array[8]; __m256i i32; } mask = { { -1, -1, -1, -1, -1, -1, -1, 0 } };
 #   endif
 # endif
-  __m256 ia, ib;
 
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
@@ -859,14 +860,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
   const int ildc = (0 == ldc ? LIBXS_LD(m, n) : *ldc);
 
   INTERNAL_FIND_CODE_DECLARE(entry);
-  INTERNAL_FIND_CODE_INIT(entry);
-
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
     LIBXS_LD(ilda, ildb), LIBXS_LD(ildb, ilda), ildc,
     0 == alpha ? LIBXS_ALPHA : *alpha,
     0 == beta ? LIBXS_BETA : *beta,
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
+  INTERNAL_FIND_CODE_INIT(entry);
 
 #if defined(LIBXS_GEMMDIFF_FORCESW)
   INTERNAL_FIND_CODE(desc, smm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, internal_gemmdiff);
@@ -897,14 +897,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
   const int ildc = (0 == ldc ? LIBXS_LD(m, n) : *ldc);
 
   INTERNAL_FIND_CODE_DECLARE(entry);
-  INTERNAL_FIND_CODE_INIT(entry);
-
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
     LIBXS_LD(ilda, ildb), LIBXS_LD(ildb, ilda), ildc,
     0 == alpha ? LIBXS_ALPHA : *alpha,
     0 == beta ? LIBXS_BETA : *beta,
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
+  INTERNAL_FIND_CODE_INIT(entry);
 
 #if defined(LIBXS_GEMMDIFF_FORCESW)
   INTERNAL_FIND_CODE(desc, dmm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, internal_gemmdiff);
