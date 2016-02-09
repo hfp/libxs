@@ -90,5 +90,8 @@
 #   pragma GCC pop_options
 # endif
 #endif
+#if !defined(LIBXS_INTRINSICS)
+# define LIBXS_INTRINSICS
+#endif
 
 #endif /*LIBXS_INTRINSICS_H*/
