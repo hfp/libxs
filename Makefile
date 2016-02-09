@@ -140,6 +140,13 @@ endif
 INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 NINDICES = $(words $(INDICES))
 
+HEADERS = $(ROOTDIR)/include/libxs_frontend.h \
+          $(ROOTDIR)/include/libxs_generator.h \
+          $(ROOTDIR)/include/libxs_macros.h \
+          $(ROOTDIR)/include/libxs_timer.h \
+          $(ROOTDIR)/include/libxs_typedefs.h \
+          $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ")
+
 SRCFILES = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) libxs_timer.c libxs_trace.c)
 SRCFILES_GEN_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_driver.c)
@@ -240,12 +247,9 @@ endif
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(INCDIR)/.make \
-                     $(SRCDIR)/libxs.template.h $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
-                     $(ROOTDIR)/include/libxs_macros.h $(ROOTDIR)/include/libxs_typedefs.h $(ROOTDIR)/include/libxs_frontend.h \
-                     $(ROOTDIR)/include/libxs_generator.h $(ROOTDIR)/include/libxs_timer.h \
-                     $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
-                     $(ROOTDIR)/Makefile
+$(INCDIR)/libxs.h: $(INCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
+                     $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
+                     $(HEADERS)
 	@$(ROOTDIR)/.hooks/install.sh
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
