@@ -161,39 +161,37 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 # define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) (ENTRY)->code.xmm = (SRC)
 #endif
 
-#define INTERNAL_FIND_CODE(DESCRIPTOR, SELECTOR/*smm or dmm*/, CRC32_FUNCTION, DIFF_FUNCTION) { \
+#define INTERNAL_FIND_CODE(DESCRIPTOR, SELECTOR/*smm or dmm*/, ENTRY, CRC32_FUNCTION, DIFF_FUNCTION) { \
   unsigned int hash, diff = 0, diff0 = 0, i, i0; \
   internal_code result; \
-  INTERNAL_FIND_CODE_DECLARE(entry); \
-  INTERNAL_FIND_CODE_INIT(entry); \
   /* check if the requested xGEMM is already JITted */ \
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
   hash = (CRC32_FUNCTION)(&(DESCRIPTOR), LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED); \
   i = i0 = LIBXS_HASH_MOD(hash, LIBXS_REGSIZE); \
-  entry += i; /* actual entry */ \
+  (ENTRY) += i; /* actual entry */ \
   do { \
-    INTERNAL_FIND_CODE_READ(entry, result.xmm); /* read registered code */ \
+    INTERNAL_FIND_CODE_READ(ENTRY, result.xmm); /* read registered code */ \
     /* entire block is conditional wrt LIBXS_JIT; static code currently does not have collisions */ \
     if (0 != result.xmm) { \
       if (0 == diff0) { \
         if (0 == (LIBXS_HASH_COLLISION & result.imm)) { /* check for no collision */ \
           /* calculate bitwise difference (deep check) */ \
-          diff = (DIFF_FUNCTION)(&(DESCRIPTOR), &entry->descriptor); \
+          diff = (DIFF_FUNCTION)(&(DESCRIPTOR), &((ENTRY)->descriptor)); \
           if (0 != diff) { /* new collision discovered (but no code version yet) */ \
             /* allow to fix-up current entry inside of the guarded/locked region */ \
             result.xmm = 0; \
           } \
         } \
         /* collision discovered but code version exists; perform initial deep check */ \
-        else if (0 != (DIFF_FUNCTION)(&(DESCRIPTOR), &entry->descriptor)) { \
+        else if (0 != (DIFF_FUNCTION)(&(DESCRIPTOR), &((ENTRY)->descriptor))) { \
           /* continue linearly searching code starting at re-hashed index position */ \
           const unsigned int index = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE); \
           unsigned int next; \
-          internal_regentry *const registry = entry - i; /* recalculate base address */ \
+          internal_regentry *const registry = (ENTRY) - i; /* recalculate base address */ \
           for (i0 = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE)), \
             i = i0, next = LIBXS_HASH_MOD(i0 + 1, LIBXS_REGSIZE); next != i0/*no code found*/ && \
             /* skip any (still invalid) descriptor which corresponds to no code, or continue on difference */ \
-            (0 == (entry = registry + i)->code.xmm || 0 != (diff = (DIFF_FUNCTION)(&(DESCRIPTOR), &entry->descriptor))); \
+            (0 == ((ENTRY) = registry + i)->code.xmm || 0 != (diff = (DIFF_FUNCTION)(&(DESCRIPTOR), &((ENTRY)->descriptor)))); \
             i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE)); \
           if (0 == diff) { /* found exact code version; continue with atomic load */ \
             continue; \
@@ -215,27 +213,27 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
     if (0 == result.xmm && 0 != internal_jit) { \
       INTERNAL_FIND_CODE_LOCK(lock, i); /* lock the registry entry */ \
       /* re-read registry entry after acquiring the lock */ \
-      if (0 == diff) result = entry->code; \
+      if (0 == diff) result = (ENTRY)->code; \
       if (0 == result.xmm) { /* double-check after acquiring the lock */ \
         if (0 == diff) { \
           /* found a conflict-free registry-slot, and attempt to build the kernel */ \
-          internal_build(&(DESCRIPTOR), &result.xmm, &entry->code_size); \
+          internal_build(&(DESCRIPTOR), &result.xmm, &((ENTRY)->code_size)); \
           if (0 != result.xmm) { /* synchronize registry entry */ \
-            entry->descriptor = (DESCRIPTOR); \
-            INTERNAL_FIND_CODE_WRITE(entry, result.xmm); \
+            (ENTRY)->descriptor = (DESCRIPTOR); \
+            INTERNAL_FIND_CODE_WRITE(ENTRY, result.xmm); \
           } \
         } \
         else { /* 0 != diff */ \
           const unsigned int base = i; \
           if (0 == diff0) { \
             /* flag existing entry as collision */ \
-            /*const*/ void * /*const*/ code = (void*)(entry->code.imm | LIBXS_HASH_COLLISION); \
+            /*const*/ void * /*const*/ code = (void*)((ENTRY)->code.imm | LIBXS_HASH_COLLISION); \
             /* find new slot to store the code version */ \
             const unsigned int index = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE); \
             i = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE)); \
             i0 = i; /* keep starting point of free-slot-search in mind */ \
             LIBXS_DEBUG(++internal_ncollisions;) \
-            INTERNAL_FIND_CODE_WRITE(entry, code); /* fix-up existing entry */ \
+            INTERNAL_FIND_CODE_WRITE(ENTRY, code); /* fix-up existing entry */ \
             diff0 = diff; /* no more fix-up */ \
           } \
           else { \
@@ -247,8 +245,8 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
               diff = 0; \
             } \
           } \
-          entry -= base; /* recalculate base address */ \
-          entry += i; \
+          (ENTRY) -= base; /* recalculate base address */ \
+          (ENTRY) += i; \
         } \
       } \
       INTERNAL_FIND_CODE_UNLOCK(lock); \
@@ -258,7 +256,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
     } \
   } \
   while (0 != diff); \
-  assert(0 == result.xmm || 0 == (DIFF_FUNCTION)(&(DESCRIPTOR), &entry->descriptor)); \
+  assert(0 == result.xmm || 0 == (DIFF_FUNCTION)(&(DESCRIPTOR), &((ENTRY)->descriptor))); \
   return result.SELECTOR; \
 }
 
@@ -772,28 +770,29 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_imci(
 
 #if !defined(__MIC__)
 # if defined(__AVX2__)
-#   if !defined(LIBXS_AVX2)
-#     define LIBXS_AVX2
+#   define LIBXS_AVX2
+#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
+#     define LIBXS_GEMMDIFF_FORCEHW
 #   endif
 # elif (40700 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) && !defined(__MIC__)
 #   pragma GCC push_options
 #   pragma GCC target("avx2")
-#   if !defined(LIBXS_AVX2)
-#     define LIBXS_AVX2
+#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
+#     define LIBXS_GEMMDIFF_FORCEHW
 #   endif
 # elif defined(__INTEL_COMPILER) || defined(_WIN32)
-#   if !defined(LIBXS_AVX2)
-#     define LIBXS_AVX2
+#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
+#     define LIBXS_GEMMDIFF_FORCEHW
 #   endif
 # endif
-# if defined(LIBXS_AVX2)
+# if defined(LIBXS_GEMMDIFF_FORCEHW)
 #   include <immintrin.h>
 # endif
 #endif
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_avx2(
   const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
-#if defined(LIBXS_AVX2)
+#if defined(LIBXS_GEMMDIFF_FORCEHW)
   __m256i mask = _mm256_setzero_si256(), ia, ib;
 
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
@@ -828,30 +827,35 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_avx2(
 
 #if !defined(__MIC__)
 # if defined(__AVX__)
-#   if !defined(LIBXS_AVX)
-#     define LIBXS_AVX
+#   define LIBXS_AVX
+#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
+#     define LIBXS_GEMMDIFF_FORCEHW
 #   endif
 # elif (40400 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) && !defined(__MIC__)
 #   pragma GCC push_options
 #   pragma GCC target("avx")
-#   if !defined(LIBXS_AVX)
-#     define LIBXS_AVX
+#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
+#     define LIBXS_GEMMDIFF_FORCEHW
 #   endif
 # elif defined(__INTEL_COMPILER) || defined(_WIN32)
-#   if !defined(LIBXS_AVX)
-#     define LIBXS_AVX
+#   if !defined(LIBXS_GEMMDIFF_FORCEHW)
+#     define LIBXS_GEMMDIFF_FORCEHW
 #   endif
 # endif
-# if defined(LIBXS_AVX)
+# if defined(LIBXS_GEMMDIFF_FORCEHW)
 #   include <immintrin.h>
 # endif
 #endif
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_avx(
   const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
-#if defined(LIBXS_AVX)
+#if defined(LIBXS_GEMMDIFF_FORCEHW)
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compilation error */
-  const __m256i mask = _mm256_set_epi32(0, -1, -1, -1, -1, -1, -1, -1);
+#   if !defined(__CYGWIN__)
+  const union { __m256i i32; } mask = { _mm256_set_epi32(0, -1, -1, -1, -1, -1, -1, -1) };
+#   else /* Cygwin/GCC: _mm256_set_epi32 causes an illegal instruction */
+  const union { int array[8]; __m256i i32; } mask = { { -1, -1, -1, -1, -1, -1, -1, 0 } };
+#   endif
 # endif
   __m256 ia, ib;
 
@@ -859,8 +863,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_avx(
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
   assert(0 != a && 0 != b);
 
-  ia = _mm256_maskload_ps((const float*)a, mask);
-  ib = _mm256_maskload_ps((const float*)b, mask);
+  ia = _mm256_maskload_ps((const float*)a, mask.i32);
+  ib = _mm256_maskload_ps((const float*)b, mask.i32);
 
   return _mm256_testnzc_ps(ia, ib);
 #else
@@ -901,6 +905,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
   const int ildb = (0 == ldb ? LIBXS_LD(k, n) : *ldb);
   const int ildc = (0 == ldc ? LIBXS_LD(m, n) : *ldc);
 
+  INTERNAL_FIND_CODE_DECLARE(entry);
+  INTERNAL_FIND_CODE_INIT(entry);
+
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
     LIBXS_LD(ilda, ildb), LIBXS_LD(ildb, ilda), ildc,
@@ -909,17 +916,17 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
 
 #if defined(LIBXS_GEMMDIFF_FORCESW)
-  INTERNAL_FIND_CODE(desc, smm, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, internal_gemmdiff);
+  INTERNAL_FIND_CODE(desc, smm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, internal_gemmdiff);
 #elif defined(__MIC__)
-  INTERNAL_FIND_CODE(desc, smm, libxs_crc32, internal_gemmdiff_imci);
-#elif defined(__AVX2__)
-  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42, internal_gemmdiff_avx2);
-#elif defined(__AVX__)
-  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42, internal_gemmdiff_avx);
-#elif defined(__SSE4_2__)
-  INTERNAL_FIND_CODE(desc, smm, libxs_crc32_sse42, internal_gemmdiff_sse);
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32, internal_gemmdiff_imci);
+#elif defined(LIBXS_AVX2)
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, internal_gemmdiff_avx2);
+#elif defined(LIBXS_AVX)
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, internal_gemmdiff_avx);
+/*#elif defined(__SSE4_2__)
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, internal_gemmdiff_sse);*/
 #else
-  INTERNAL_FIND_CODE(desc, smm, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, 0 != internal_arch_name
+  INTERNAL_FIND_CODE(desc, smm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, 0 != internal_arch_name
     ? (/*snb*/'b' != internal_arch_name[2] ? internal_gemmdiff_avx2 : internal_gemmdiff_avx)
     : (0 != internal_has_crc32 ? internal_gemmdiff_sse : internal_gemmdiff));
 #endif
@@ -936,6 +943,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
   const int ildb = (0 == ldb ? LIBXS_LD(k, n) : *ldb);
   const int ildc = (0 == ldc ? LIBXS_LD(m, n) : *ldc);
 
+  INTERNAL_FIND_CODE_DECLARE(entry);
+  INTERNAL_FIND_CODE_INIT(entry);
+
   LIBXS_GEMM_DESCRIPTOR_TYPE(desc, LIBXS_ALIGNMENT, iflags,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
     LIBXS_LD(ilda, ildb), LIBXS_LD(ildb, ilda), ildc,
@@ -944,17 +954,17 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
     0 == prefetch ? LIBXS_PREFETCH : *prefetch);
 
 #if defined(LIBXS_GEMMDIFF_FORCESW)
-  INTERNAL_FIND_CODE(desc, dmm, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, internal_gemmdiff);
+  INTERNAL_FIND_CODE(desc, dmm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, internal_gemmdiff);
 #elif defined(__MIC__)
-  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32, internal_gemmdiff_imci);
-#elif defined(__AVX2__)
-  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42, internal_gemmdiff_avx2);
-#elif defined(__AVX__)
-  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42, internal_gemmdiff_avx);
-#elif defined(__SSE4_2__)
-  INTERNAL_FIND_CODE(desc, dmm, libxs_crc32_sse42, internal_gemmdiff_sse);
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32, internal_gemmdiff_imci);
+#elif defined(LIBXS_AVX2)
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, internal_gemmdiff_avx2);
+#elif defined(LIBXS_AVX)
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, internal_gemmdiff_avx);
+/*#elif defined(__SSE4_2__)
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, internal_gemmdiff_sse);*/
 #else
-  INTERNAL_FIND_CODE(desc, dmm, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, 0 != internal_arch_name
+  INTERNAL_FIND_CODE(desc, dmm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, 0 != internal_arch_name
     ? (/*snb*/'b' != internal_arch_name[2] ? internal_gemmdiff_avx2 : internal_gemmdiff_avx)
     : (0 != internal_has_crc32 ? internal_gemmdiff_sse : internal_gemmdiff));
 #endif
