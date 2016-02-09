@@ -255,6 +255,29 @@
   }
 #endif
 
+/** Backup of symbol state prior to an eventual manipulation (e.g., via GCC pragma target). */
+#if defined(__AVX512F__)
+# if !defined(LIBXS_AVX)
+#   define LIBXS_AVX 3
+# endif
+#elif defined(__AVX2__)
+# if !defined(LIBXS_AVX)
+#   define LIBXS_AVX 2
+# endif
+#elif defined(__AVX__)
+# if !defined(LIBXS_AVX)
+#   define LIBXS_AVX 1
+# endif
+#elif defined(__SSE4_2__)
+# if !defined(LIBXS_SSE)
+#   define LIBXS_SSE 4
+# endif
+#elif defined(__SSE3__)
+# if !defined(LIBXS_SSE)
+#   define LIBXS_SSE 3
+# endif
+#endif
+
 #if defined(_WIN32)
 # define LIBXS_SNPRINTF(S, N, ...) _snprintf_s(S, N, _TRUNCATE, __VA_ARGS__)
 # define LIBXS_FLOCK(FILE) _lock_file(FILE)
