@@ -40,6 +40,11 @@
 /* mute warning about target attribute; KNC/native plus JIT is disabled below! */
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#if !defined(NDEBUG)
+# include <assert.h>
+# include <errno.h>
+#endif
 #if defined(_WIN32)
 # include <Windows.h>
 #else
@@ -47,9 +52,6 @@
 # include <pthread.h>
 # include <unistd.h>
 # include <fcntl.h>
-#endif
-#if !defined(NDEBUG)
-# include <errno.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
