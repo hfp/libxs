@@ -437,7 +437,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u64(unsigned int ini
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(
   const void* data, unsigned int size, unsigned int init)
 {
-#if defined(LIBXS_SSE_MAX) && (4 <= (LIBXS_SSE_MAX))
+#if defined(LIBXS_SSE_MAX) && (4 <= (LIBXS_SSE_MAX)) && !defined(LIBXS_NO_CRC32)
   LIBXS_CRC32(_mm_crc32_u64, _mm_crc32_u32, _mm_crc32_u16, _mm_crc32_u8, data, size, init);
 #else
 # if !defined(NDEBUG) /* library code is expected to be mute */
@@ -460,7 +460,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse4
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int init)
 {
 #if defined(LIBXS_SSE) && (4 <= (LIBXS_SSE)) && !defined(LIBXS_CRC32_FORCESW)
-  LIBXS_CRC32(_mm_crc32_u64, _mm_crc32_u32, _mm_crc32_u16, _mm_crc32_u8, data, size, init);
+  return libxs_crc32_sse42(data, size, init);
 #else
   LIBXS_CRC32(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, init);
 #endif

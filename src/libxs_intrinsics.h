@@ -53,25 +53,42 @@
 #   define LIBXS_SSE_MAX 5
 #   include <immintrin.h>
 # elif defined(__clang__)
-#   if (LIBXS_VERSION3(3, 7, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
-#     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.2,avx,avx2"))
+#   if defined(__APPLE__) && defined(__MACH__) && \
+      (LIBXS_VERSION3(6, 1, 0) >= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+#     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
 #     define LIBXS_AVX_MAX 2
 #     define LIBXS_SSE_MAX 5
+#     define LIBXS_NO_CRC32
+#     define __AVX2__ 1
+#     if defined(__AVX__)
+#       include <immintrin.h>
+#     else
+#       define __AVX__ 1
+#       include <immintrin.h>
+#       undef __AVX__
+#     endif
+#     undef __AVX2__
+#   elif (LIBXS_VERSION3(3, 7, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+#     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
+#     define LIBXS_AVX_MAX 2
+#     define LIBXS_SSE_MAX 5
+#     include <immintrin.h>
+#   else
+#     include <immintrin.h>
 #   endif
-#   include <immintrin.h>
 # elif defined(__GNUC__)
 #   if (LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-#     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.2,avx,avx2"))
+#     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
 #     pragma GCC push_options
-#     pragma GCC target("sse3,sse4.2,avx,avx2")
+#     pragma GCC target("sse3,sse4.1,sse4.2,avx,avx2")
 #     include <immintrin.h>
 #     pragma GCC pop_options
 #     define LIBXS_AVX_MAX 2
 #     define LIBXS_SSE_MAX 5
 #   elif (LIBXS_VERSION3(4, 4, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-#     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.2,avx"))
+#     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx"))
 #     pragma GCC push_options
-#     pragma GCC target("sse3,sse4.2,avx")
+#     pragma GCC target("sse3,sse4.1,sse4.2,avx")
 #     include <immintrin.h>
 #     pragma GCC pop_options
 #     define LIBXS_AVX_MAX 1
