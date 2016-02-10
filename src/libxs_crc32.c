@@ -42,15 +42,15 @@
 /* must be the last included header */
 #include "libxs_intrinsics.h"
 
-#if !defined(LIBXS_CRC32_FORCESW)
-/*# define LIBXS_CRC32_FORCESW*/
+#if !defined(LIBXS_CRC32_SW)
+/*# define LIBXS_CRC32_SW*/
 #endif
 #if !defined(LIBXS_CRC32_ALIGNMENT)
 # define LIBXS_CRC32_ALIGNMENT 8
 #endif
 
 
-#if !(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_FORCESW)
+#if !(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_SW)
 /* table-based implementation taken from http://dpdk.org/. */
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table[][256] = {
   { /*table0*/
@@ -326,7 +326,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table
     0xE54C35A1, 0xAC704886, 0x7734CFEF, 0x3E08B2C8, 0xC451B7CC, 0x8D6DCAEB, 0x56294D82, 0x1F1530A5
   }
 };
-#endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_FORCESW)*/
+#endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_SW)*/
 
 #define LIBXS_CRC32_U64(FN, INIT, BEGIN, END) { \
   for (; (BEGIN) < ((END) - 7); (BEGIN) += 8) { \
@@ -399,7 +399,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table
 #endif
 
 
-#if !(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_FORCESW)
+#if !(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_SW)
 
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u8(unsigned int init, unsigned char value)
 {
@@ -432,7 +432,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u64(unsigned int ini
   init = internal_crc32_u32(init, split.half[1]);
   return init;
 }
-#endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_FORCESW)*/
+#endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_SW)*/
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(
   const void* data, unsigned int size, unsigned int init)
@@ -459,7 +459,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse4
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int init)
 {
-#if defined(LIBXS_SSE) && (4 <= (LIBXS_SSE)) && !defined(LIBXS_CRC32_FORCESW)
+#if defined(LIBXS_SSE) && (4 <= (LIBXS_SSE)) && !defined(LIBXS_CRC32_SW)
   return libxs_crc32_sse42(data, size, init);
 #else
   LIBXS_CRC32(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, init);
