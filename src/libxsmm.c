@@ -60,7 +60,7 @@
 #endif
 #if defined(__GNUC__)
 # if !defined(LIBXS_GCCATOMICS)
-#   if (40704 <= (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__))
+#   if (LIBXS_VERSION3(4, 7, 4) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 #     define LIBXS_GCCATOMICS 1
 #   else
 #     define LIBXS_GCCATOMICS 0
