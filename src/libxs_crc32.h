@@ -44,7 +44,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(
   const void* data, unsigned int size, unsigned int init);
 
 
-#if defined(LIBXS_BUILD)
+#if defined(LIBXS_BUILD) && !defined(LIBXS_CRC32_NOINLINE)
 # include "libxs_crc32.c"
 #endif
 

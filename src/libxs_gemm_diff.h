@@ -51,7 +51,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_imci(const libxs_
 #endif
 
 
-#if defined(LIBXS_BUILD)
+#if defined(LIBXS_BUILD) && !defined(LIBXS_GEMM_DIFF_NOINLINE)
 # include "libxs_gemm_diff.c"
 #endif
 

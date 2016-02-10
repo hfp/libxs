@@ -35,7 +35,7 @@
 LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_cpuid(int* is_static, int* has_crc32);
 
 
-#if defined(LIBXS_BUILD)
+#if defined(LIBXS_BUILD) && !defined(LIBXS_CPUID_NOINLINE)
 # include "libxs_cpuid.c"
 #endif
 
