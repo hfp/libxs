@@ -158,7 +158,7 @@ OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) \
                $(BLDDIR)/mic/libxs.o $(BLDDIR)/mic/libxs_gemm.o \
                $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o
 
-ifneq (Darwin,$(UNAME))
+ifeq (Darwin,$(UNAME))
 	ifneq (0,$(shell echo $$((3 > $(GCC)))))
 		OBJFILES_HST += $(BLDDIR)/intel64/libxs_gemm_diff.o
 		OBJFILES_MIC += $(BLDDIR)/mic/libxs_gemm_diff.o
