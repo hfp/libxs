@@ -26,8 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#include "libxs_gemm_diff.h"
 #include "libxs_crc32.h"
-#include <libxs.h>
+#include "libxs_cpuid.h"
 
 #if defined(__TRACE)
 # include "libxs_trace.h"
@@ -37,23 +38,18 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 /* mute warning about target attribute; KNC/native plus JIT is disabled below! */
-#include <libxs_generator.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
-#include <stdio.h>
 #if defined(_WIN32)
 # include <Windows.h>
 #else
 # include <sys/mman.h>
 # include <pthread.h>
-# include <stdlib.h>
 # include <unistd.h>
 # include <fcntl.h>
 #endif
 #if !defined(NDEBUG)
-#include <errno.h>
+# include <errno.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
@@ -66,13 +62,6 @@
 #     define LIBXS_GCCATOMICS 0
 #   endif
 # endif
-#endif
-/* must be the last included header */
-#include "libxs_intrinsics.h"
-
-/* enable generic variant of internal_gemmdiff */
-#if !defined(LIBXS_GEMMDIFF_FORCESW)
-# define LIBXS_GEMMDIFF_FORCESW
 #endif
 
 /* larger capacity of the registry lowers the probability of key collisions */
@@ -107,6 +96,7 @@ typedef struct LIBXS_RETARGETABLE internal_regentry {
   /* needed to distinct statically generated code and for munmap */
   unsigned int code_size;
 } internal_regentry;
+
 LIBXS_DEBUG(LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_ncollisions = 0;)
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regentry* internal_registry = 0;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_arch_name = 0;
@@ -263,78 +253,6 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_cpuid(int* is_static, int* has_crc32)
-{
-  unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
-  const char* name = 0;
-
-  if (is_static) *is_static = 0;
-
-  LIBXS_CPUID(0, eax, ebx, ecx, edx);
-  if (1 <= eax) { /* CPUID */
-    LIBXS_CPUID(1, eax, ebx, ecx, edx);
-
-    /* XSAVE/XGETBV(0x04000000), OSXSAVE(0x08000000) */
-    if (0x0C000000 == (0x0C000000 & ecx)) {
-      /* Check for CRC32 (this is not a proper test for SSE 4.2 as a whole!) */
-      if (has_crc32) {
-        *has_crc32 = (0x00100000 == (0x00100000 & ecx) ? 1 : 0);
-#if defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))
-        assert(0 != *has_crc32); /* failed to detect CRC32 instruction */
-#endif
-      }
-      LIBXS_XGETBV(0, eax, edx);
-
-      if (0x00000006 == (0x00000006 & eax)) { /* OS XSAVE 256-bit */
-        if (0x000000E0 == (0x000000E0 & eax)) { /* OS XSAVE 512-bit */
-          LIBXS_CPUID(7, eax, ebx, ecx, edx);
-
-          /* AVX512F(0x00010000), AVX512CD(0x10000000), AVX512PF(0x04000000),
-             AVX512ER(0x08000000) */
-          if (0x1C010000 == (0x1C010000 & ebx)) {
-            name = "knl";
-          }
-          /* AVX512F(0x00010000), AVX512CD(0x10000000), AVX512DQ(0x00020000),
-             AVX512BW(0x40000000), AVX512VL(0x80000000) */
-          else if (0xD0030000 == (0xD0030000 & ebx)) {
-            name = "skx";
-          }
-
-#if defined(LIBXS_AVX) && (3 == (LIBXS_AVX))
-          if (is_static) *is_static = 1;
-#endif
-        }
-        else if (0x10000000 == (0x10000000 & ecx)) { /* AVX(0x10000000) */
-          if (0x00001000 == (0x00001000 & ecx)) { /* FMA(0x00001000) */
-#if defined(LIBXS_AVX) && (3 <= (LIBXS_AVX))
-            assert(!"Failed to detect Intel AVX-512 extensions!");
-#endif
-#if defined(LIBXS_AVX) && (2 == (LIBXS_AVX))
-            if (is_static) *is_static = 1;
-#endif
-            name = "hsw";
-          }
-          else {
-#if defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
-            assert(!"Failed to detect Intel AVX2 extensions!");
-#endif
-#if defined(LIBXS_AVX) && (1 == (LIBXS_AVX))
-            if (is_static) *is_static = 1;
-#endif
-            name = "snb";
-          }
-        }
-      }
-    }
-  }
-  else if (has_crc32) {
-    *has_crc32 = 0;
-  }
-
-  return name;
-}
-
-
 LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 {
   /*const*/internal_regentry* result;
@@ -391,7 +309,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
           /* decide using internal_has_crc32 instead of relying on a libxs_crc32_function pointer
            * to be able to inline the call instead of using an indirection (via fn. pointer)
            */
-          internal_arch_name = internal_cpuid(&is_static, &internal_has_crc32);
+          internal_arch_name = libxs_cpuid(&is_static, &internal_has_crc32);
           for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].code.xmm = 0;
           { /* omit registering code if JIT is enabled and if an ISA extension is found
              * which is beyond the static code path used to compile the library
@@ -735,129 +653,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff(
-  const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
-{
-  const unsigned *const ia = (const unsigned int*)a, *const ib = (const unsigned int*)b;
-  unsigned int result, i;
-
-  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(0 != a && 0 != b);
-
-  result = ia[0] ^ ib[0];
-  for (i = 1; i < LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)); ++i) {
-    result |= (ia[i] ^ ib[i]);
-  }
-
-  return result;
-}
-
-
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_sse(
-  const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
-{
-  return internal_gemmdiff(a, b);
-}
-
-
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int internal_gemmdiff_avx(
-  const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
-{
-#if defined(LIBXS_AVX_MAX) && (1 <= (LIBXS_AVX_MAX))
-  __m256 ia, ib;
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compilation error */
-#   if !defined(__CYGWIN__) && !(defined(__INTEL_COMPILER) && defined(_WIN32))
-  struct { __m256i i32; } mask;
-  mask.i32 = _mm256_set_epi32(0, -1, -1, -1, -1, -1, -1, -1);
-#   else /* Cygwin/GCC: _mm256_set_epi32 causes an illegal instruction */
-  const union { int32_t array[8]; __m256i i32; } mask = { { -1, -1, -1, -1, -1, -1, -1, 0 } };
-#   endif
-# endif
-
-  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
-  assert(0 != a && 0 != b);
-
-  ia = _mm256_maskload_ps((const float*)a, mask.i32);
-  ib = _mm256_maskload_ps((const float*)b, mask.i32);
-
-  return _mm256_testnzc_ps(ia, ib);
-#else
-# if !defined(NDEBUG) /* library code is expected to be mute */
-  static LIBXS_TLS int once = 0;
-  if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX instruction code path!\n");
-    once = 1;
-  }
-# endif
-# if !defined(__MIC__)
-  LIBXS_MESSAGE("================================================================================");
-  LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using AVX instructions!");
-  LIBXS_MESSAGE("================================================================================");
-# endif
-  return internal_gemmdiff(a, b);
-#endif
-}
-
-
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int internal_gemmdiff_avx2(
-  const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
-{
-#if defined(LIBXS_AVX_MAX) && (2 <= (LIBXS_AVX_MAX))
-  __m256i mask = _mm256_setzero_si256(), ia, ib;
-
-  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
-  assert(0 != a && 0 != b);
-
-  mask = _mm256_srai_epi32(mask, LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
-  ia = _mm256_maskload_epi32((const void*)a, mask);
-  ib = _mm256_maskload_epi32((const void*)b, mask);
-
-  return _mm256_testnzc_si256(ia, ib);
-#else
-# if !defined(NDEBUG) /* library code is expected to be mute */
-  static LIBXS_TLS int once = 0;
-  if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX2 instruction code path!\n");
-    once = 1;
-  }
-# endif
-# if !defined(__MIC__)
-  LIBXS_MESSAGE("================================================================================");
-  LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using AVX2 instructions!");
-  LIBXS_MESSAGE("================================================================================");
-# endif
-  return internal_gemmdiff(a, b);
-#endif
-}
-
-
-#if defined(__MIC__)
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_gemmdiff_imci(
-  const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
-{
-  const __mmask16 mask = (0xFFFF >> (16 - LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4)));
-  __m512i ia, ib; /* we do not care about the initial state */
-  /* however, avoid warning about "variable is used before its value is set" */
-  ia = ib = _mm512_set1_epi32(0);
-
-  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(16 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
-  assert(0 != a && 0 != b);
-
-  ia = _mm512_mask_loadunpackhi_epi32(
-    _mm512_mask_loadunpacklo_epi32(ia/*some state*/, mask, a),
-    mask, ((const char*)a) + 32);
-  ib = _mm512_mask_loadunpackhi_epi32(
-    _mm512_mask_loadunpacklo_epi32(ib/*some state*/, mask, b),
-    mask, ((const char*)b) + 32);
-
-  /* mask not required here since ia and ib are zero-initialized */
-  return _mm512_reduce_or_epi32(_mm512_xor_si512(ia, ib));
-}
-#endif /*defined(__MIC__)*/
-
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
   const float* alpha, const float* beta,
@@ -878,19 +673,19 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
   INTERNAL_FIND_CODE_INIT(entry);
 
 #if defined(LIBXS_GEMMDIFF_FORCESW)
-  INTERNAL_FIND_CODE(desc, smm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, internal_gemmdiff);
+  INTERNAL_FIND_CODE(desc, smm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, libxs_gemm_diff);
 #elif defined(__MIC__)
-  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32, internal_gemmdiff_imci);
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32, libxs_gemm_diff_imci);
 #elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
-  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, internal_gemmdiff_avx2);
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, libxs_gemm_diff_avx2);
 #elif defined(LIBXS_AVX) && (1 == (LIBXS_AVX))
-  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, internal_gemmdiff_avx);
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, libxs_gemm_diff_avx);
 #elif defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))
-  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, internal_gemmdiff_sse);
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, libxs_gemm_diff_sse);
 #else
   INTERNAL_FIND_CODE(desc, smm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, 0 != internal_arch_name
-    ? (/*snb*/'b' != internal_arch_name[2] ? internal_gemmdiff_avx2 : internal_gemmdiff_avx)
-    : (0 != internal_has_crc32 ? internal_gemmdiff_sse : internal_gemmdiff));
+    ? (/*snb*/'b' != internal_arch_name[2] ? libxs_gemm_diff_avx2 : libxs_gemm_diff_avx)
+    : (0 != internal_has_crc32 ? libxs_gemm_diff_sse : libxs_gemm_diff));
 #endif
 }
 
@@ -915,19 +710,19 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
   INTERNAL_FIND_CODE_INIT(entry);
 
 #if defined(LIBXS_GEMMDIFF_FORCESW)
-  INTERNAL_FIND_CODE(desc, dmm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, internal_gemmdiff);
+  INTERNAL_FIND_CODE(desc, dmm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, libxs_gemm_diff);
 #elif defined(__MIC__)
-  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32, internal_gemmdiff_imci);
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32, libxs_gemm_diff_imci);
 #elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
-  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, internal_gemmdiff_avx2);
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, libxs_gemm_diff_avx2);
 #elif defined(LIBXS_AVX) && (1 == (LIBXS_AVX))
-  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, internal_gemmdiff_avx);
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, libxs_gemm_diff_avx);
 #elif defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))
-  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, internal_gemmdiff_sse);
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, libxs_gemm_diff_sse);
 #else
   INTERNAL_FIND_CODE(desc, dmm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, 0 != internal_arch_name
-    ? (/*snb*/'b' != internal_arch_name[2] ? internal_gemmdiff_avx2 : internal_gemmdiff_avx)
-    : (0 != internal_has_crc32 ? internal_gemmdiff_sse : internal_gemmdiff));
+    ? (/*snb*/'b' != internal_arch_name[2] ? libxs_gemm_diff_avx2 : libxs_gemm_diff_avx)
+    : (0 != internal_has_crc32 ? libxs_gemm_diff_sse : libxs_gemm_diff));
 #endif
 }
 

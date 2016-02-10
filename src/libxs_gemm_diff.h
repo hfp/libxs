@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2015-2016, Intel Corporation                                **
+** Copyright (c) 2016, Intel Corporation                                     **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -26,26 +26,33 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_CRC32_H
-#define LIBXS_CRC32_H
+#ifndef LIBXS_GEMM_DIFF_H
+#define LIBXS_GEMM_DIFF_H
 
 #include <libxs.h>
 
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <libxs_generator.h>
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
 
-/** Function type representing the CRC32 functionality. */
-typedef LIBXS_RETARGETABLE unsigned int (*libxs_crc32_function)(const void*, unsigned int, unsigned int);
 
-/** Calculate the CRC32 for a given quantity (size) of raw data according to the seed (init. value). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(
-  const void* data, unsigned int size, unsigned int init);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
 
-/** Similar to libxs_crc32 (uses CRC32 instructions available since SSE4.2). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(
-  const void* data, unsigned int size, unsigned int init);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
+
+#if defined(__MIC__)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
+#endif
 
 
 #if defined(LIBXS_BUILD)
-# include "libxs_crc32.c"
+# include "libxs_gemm_diff.c"
 #endif
 
-#endif /*LIBXS_CRC32_H*/
+#endif /*LIBXS_GEMM_DIFF_H*/

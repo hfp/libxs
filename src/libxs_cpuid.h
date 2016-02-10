@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2015-2016, Intel Corporation                                **
+** Copyright (c) 2016, Intel Corporation                                     **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -26,26 +26,17 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_CRC32_H
-#define LIBXS_CRC32_H
+#ifndef LIBXS_CPUID_H
+#define LIBXS_CPUID_H
 
 #include <libxs.h>
 
 
-/** Function type representing the CRC32 functionality. */
-typedef LIBXS_RETARGETABLE unsigned int (*libxs_crc32_function)(const void*, unsigned int, unsigned int);
-
-/** Calculate the CRC32 for a given quantity (size) of raw data according to the seed (init. value). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(
-  const void* data, unsigned int size, unsigned int init);
-
-/** Similar to libxs_crc32 (uses CRC32 instructions available since SSE4.2). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(
-  const void* data, unsigned int size, unsigned int init);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_cpuid(int* is_static, int* has_crc32);
 
 
 #if defined(LIBXS_BUILD)
-# include "libxs_crc32.c"
+# include "libxs_cpuid.c"
 #endif
 
-#endif /*LIBXS_CRC32_H*/
+#endif /*LIBXS_CPUID_H*/
