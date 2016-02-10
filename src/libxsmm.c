@@ -406,7 +406,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
               /* setup the dispatch table for the statically generated code */
 #             include <libxs_dispatch.h>
 #if !defined(NDEBUG) /* library code is expected to be mute */ && (0 != LIBXS_JIT)
-              if (0 == internal_arch_name && (0 == env_jit || '1' == *env_jit)) {
+# if defined(__MIC__)
+                if (0 == internal_arch_name)
+# else
+                if (0 == internal_arch_name && (0 == env_jit || '1' == *env_jit))
+# endif
+                {
 # if defined(LIBXS_SSE) && (3 <= (LIBXS_SSE))
                 fprintf(stderr, "LIBXS: SSE instruction set extension is not supported for JIT-code generation!\n");
 # elif defined(__MIC__)
