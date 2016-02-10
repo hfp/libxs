@@ -157,15 +157,6 @@ OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) \
 OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) \
                $(BLDDIR)/mic/libxs.o $(BLDDIR)/mic/libxs_gemm.o \
                $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o
-
-ifeq (Darwin,$(UNAME))
-	ifneq (0,$(shell echo $$((3 > $(GCC)))))
-		OBJFILES_HST += $(BLDDIR)/intel64/libxs_gemm_diff.o
-		OBJFILES_MIC += $(BLDDIR)/mic/libxs_gemm_diff.o
-		DFLAGS += -DLIBXS_GEMM_DIFF_NOINLINE
-	endif
-endif
-
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
 OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_BIN) $(OBJFILES_HST) $(OBJFILES_MIC)
 
