@@ -60,11 +60,25 @@
 #     define LIBXS_SSE_MAX 5
 #     define LIBXS_NO_CRC32
 #     define __AVX2__ 1
-#     if defined(__AVX__)
-#       include <immintrin.h>
-#     else
+#     if !defined(__AVX__)
 #       define __AVX__ 1
-#       include <immintrin.h>
+#     endif
+#     if !defined(__SSE4_1__) && !defined(__SSE4_2__)
+#       define __SSE4_1__ 1
+#       define __SSE4_2__ 1
+#     endif
+#     if !defined(__SSE3__)
+#       define __SSE3__ 1
+#     endif
+#     include <immintrin.h>
+#     if !defined(LIBXS_SSE) || (3 > (LIBXS_SSE))
+#       undef __SSE3__
+#     endif
+#     if !defined(LIBXS_SSE) || (4 > (LIBXS_SSE))
+#       undef __SSE4_1__
+#       undef __SSE4_2__
+#     endif
+#     if !defined(LIBXS_AVX)
 #       undef __AVX__
 #     endif
 #     undef __AVX2__
