@@ -29,6 +29,7 @@
 #include "libxs_gemm_diff.h"
 #include "libxs_crc32.h"
 #include "libxs_cpuid.h"
+#include "libxs_gemm.h"
 
 #if defined(__TRACE)
 # include "libxs_trace.h"
@@ -285,9 +286,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
     result = internal_registry;
 #endif
     if (0 == result) {
+      int init_code = libxs_gemm_init(0/*auto-discovered*/, 0/*auto-discovered*/);
 #if defined(__TRACE)
       const char *const env_trace_init = getenv("LIBXS_TRACE");
-      if (env_trace_init) {
+      if (EXIT_SUCCESS == init_code && 0 != env_trace_init) {
         int match[] = { 0, 0 }, filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = -1;
         char buffer[32];
 
@@ -300,15 +302,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
         if (1 == sscanf(env_trace_init, "%*[^,],%*[^,],%32s", buffer)) {
           match[1] = sscanf(buffer, "%i", &filter_maxnsyms);
         }
-        i = (0 == filter_threadid && 0 == match[0] && 0 == match[1]) ? EXIT_SUCCESS
+        init_code = (0 == filter_threadid && 0 == match[0] && 0 == match[1]) ? EXIT_SUCCESS
           : libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
       }
-      else
 #endif
-      {
-        i = EXIT_SUCCESS;
-      }
-      if (EXIT_SUCCESS == i) {
+      if (EXIT_SUCCESS == init_code) {
         result = (internal_regentry*)malloc((LIBXS_REGSIZE + 1/*padding*/) * sizeof(internal_regentry));
 
         if (result) {
@@ -378,7 +376,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
       }
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
       else {
-        fprintf(stderr, "LIBXS: failed to initialize trace (error #%i)!\n", i);
+        fprintf(stderr, "LIBXS: failed to initialize sub-component (error #%i)!\n", init_code);
       }
 #endif
     }
@@ -454,6 +452,12 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
         }
 # endif
 #endif
+        i = libxs_gemm_finalize();
+# if !defined(NDEBUG) /* library code is expected to be mute */
+        if (EXIT_SUCCESS != i) {
+          fprintf(stderr, "LIBXS: failed to finalize (error #%i)!\n", i);
+        }
+# endif
 #if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
         __atomic_store_n(&internal_registry, 0, __ATOMIC_SEQ_CST);
