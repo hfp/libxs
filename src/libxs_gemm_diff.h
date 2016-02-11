@@ -40,6 +40,9 @@
 #endif
 
 
+/** Function type representing the gemm_diff functionality. */
+typedef LIBXS_RETARGETABLE unsigned int (*libxs_gemm_diff_function)(const libxs_gemm_descriptor*, const libxs_gemm_descriptor*);
+
 /** Generic implementations only relying on high-level constructs. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
 
