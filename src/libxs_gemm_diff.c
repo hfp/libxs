@@ -78,12 +78,15 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gem
   assert(0 != a && 0 != b);
   {
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compile-time error */
-    const int32_t yes = 0x80000000, no = 0x0;
     int r0, r1;
     union { __m256 s; __m256i i; } a256, b256;
 #   if defined(__CYGWIN__) && !defined(NDEBUG) /* Cygwin/GCC: _mm256_set_epi32 may cause an illegal instruction */
-    const union { int32_t array[8]; __m256i m256i; } mask = { { yes, yes, yes, yes, yes, yes, yes, no } };
+    const union { int32_t array[8]; __m256i m256i; } mask = { /* use literal value rather than yes/no
+      in order to avoid warning about "initializer element is not computable at load time" */
+      { 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x0 }
+    };
 #   else
+    const int yes = 0x80000000, no = 0x0;
     struct { __m256i m256i; } mask;
     mask.m256i = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
 #   endif
