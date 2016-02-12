@@ -79,6 +79,7 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gem
   {
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compile-time error */
     const int32_t yes = 0x80000000, no = 0x0;
+    int r0, r1;
     union { __m256 s; __m256i i; } a256, b256;
 #   if defined(__CYGWIN__) && !defined(NDEBUG) /* Cygwin/GCC: _mm256_set_epi32 may cause an illegal instruction */
     const union { int32_t array[8]; __m256i m256i; } mask = { { yes, yes, yes, yes, yes, yes, yes, no } };
@@ -89,7 +90,9 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gem
 # endif
     a256.s = _mm256_maskload_ps((const float*)a, mask.m256i);
     b256.s = _mm256_maskload_ps((const float*)b, mask.m256i);
-    return _mm256_testnzc_si256(a256.i, b256.i) | _mm256_testnzc_si256(b256.i, a256.i);
+    r0 = _mm256_testnzc_si256(a256.i, b256.i);
+    r1 = _mm256_testnzc_si256(b256.i, a256.i);
+    return r0 | r1;
   }
 #else
 # if !defined(NDEBUG) /* library code is expected to be mute */
@@ -124,8 +127,11 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* a, const libxs_ge
     const __m256i mask = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
     const __m256i a256 = _mm256_maskload_epi32((const void*)a, mask);
     const __m256i b256 = _mm256_maskload_epi32((const void*)b, mask);
+    int r0, r1;
 # endif
-    return _mm256_testnzc_si256(a256, b256) | _mm256_testnzc_si256(b256, a256);
+    r0 = _mm256_testnzc_si256(a256, b256);
+    r1 = _mm256_testnzc_si256(b256, a256);
+    return r0 | r1;
   }
 #else
 # if !defined(NDEBUG) /* library code is expected to be mute */
