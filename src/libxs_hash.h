@@ -37,11 +37,17 @@ typedef LIBXS_RETARGETABLE unsigned int (*libxs_hash_function)(const void*, unsi
 
 /** Calculate the CRC32 for a given quantity (size) of raw data according to the seed (init. value). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(
-  const void* data, unsigned int size, unsigned int init);
+  const void* data, unsigned int size, unsigned int seed);
 
 /** Similar to libxs_crc32 (uses CRC32 instructions available since SSE4.2). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(
-  const void* data, unsigned int size, unsigned int init);
+  const void* data, unsigned int size, unsigned int seed);
+
+/** Calculate a hash value for a given quantity (size) of raw data according to the seed (init. value). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_hash(
+  const void* data, unsigned int size,
+  /** Upper bound of the result. */
+  unsigned int n);
 
 
 #if defined(LIBXS_BUILD) && !defined(LIBXS_HASH_NOINLINE)

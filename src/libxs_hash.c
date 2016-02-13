@@ -42,15 +42,15 @@
 /* must be the last included header */
 #include "libxs_intrinsics.h"
 
-#if !defined(LIBXS_CRC32_SW)
-/*# define LIBXS_CRC32_SW*/
+#if !defined(LIBXS_HASH_SW)
+/*# define LIBXS_HASH_SW*/
 #endif
-#if !defined(LIBXS_CRC32_ALIGNMENT)
-# define LIBXS_CRC32_ALIGNMENT 8
+#if !defined(LIBXS_HASH_ALIGNMENT)
+# define LIBXS_HASH_ALIGNMENT 8
 #endif
 
 
-#if !(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_SW)
+#if !(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_HASH_SW)
 /* table-based implementation taken from http://dpdk.org/. */
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table[][256] = {
   { /*table0*/
@@ -326,129 +326,136 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table
     0xE54C35A1, 0xAC704886, 0x7734CFEF, 0x3E08B2C8, 0xC451B7CC, 0x8D6DCAEB, 0x56294D82, 0x1F1530A5
   }
 };
-#endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_SW)*/
+#endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_HASH_SW)*/
 
-#define LIBXS_CRC32_U64(FN, INIT, BEGIN, END) { \
+#define LIBXS_HASH_U64(FN, SEED, N, BEGIN, END) { \
   for (; (BEGIN) < ((END) - 7); (BEGIN) += 8) { \
-    INIT = (uint32_t)FN(INIT, *(const uint64_t*)(BEGIN)); \
+    SEED = (uint32_t)FN(SEED, N, *(const uint64_t*)(BEGIN)); \
   } \
 }
-#define LIBXS_CRC32_U32(FN, INIT, BEGIN, END) { \
+#define LIBXS_HASH_U32(FN, SEED, N, BEGIN, END) { \
   const unsigned char *const next = (BEGIN) + 4; \
   if (next <= (END)) { \
-    INIT = FN(INIT, *(const uint32_t*)(BEGIN)); \
+    SEED = FN(SEED, N, *(const uint32_t*)(BEGIN)); \
     BEGIN = next; \
   } \
 }
-#define LIBXS_CRC32_U16(FN, INIT, BEGIN, END) { \
+#define LIBXS_HASH_U16(FN, SEED, N, BEGIN, END) { \
   const unsigned char *const next = (BEGIN) + 2; \
   if (next <= (END)) { \
-    INIT = FN(INIT, *(const uint16_t*)(BEGIN)); \
+    SEED = FN(SEED, N, *(const uint16_t*)(BEGIN)); \
     BEGIN = next; \
   } \
 }
-#define LIBXS_CRC32_U8(FN, INIT, BEGIN, END) { \
+#define LIBXS_HASH_U8(FN, SEED, N, BEGIN, END) { \
   if ((BEGIN) < (END)) { \
-    INIT = FN(INIT, *(BEGIN)); \
+    SEED = FN(SEED, N, *(BEGIN)); \
     ++(BEGIN); \
   } \
 }
 
-#if defined(LIBXS_CRC32_ALIGNMENT) && 8 < (LIBXS_CRC32_ALIGNMENT)
-# define LIBXS_CRC32(FN64, FN32, FN16, FN8, DATA, SIZE, INIT) { \
+#define LIBXS_HASH_UNBOUNDED 0
+#define LIBXS_HASH_CRC32_U8(SEED, N, VALUE) _mm_crc32_u8(SEED, VALUE)
+#define LIBXS_HASH_CRC32_U16(SEED, N, VALUE) _mm_crc32_u16(SEED, VALUE)
+#define LIBXS_HASH_CRC32_U32(SEED, N, VALUE) _mm_crc32_u32(SEED, VALUE)
+#define LIBXS_HASH_CRC32_U64(SEED, N, VALUE) _mm_crc32_u64(SEED, VALUE)
+#define LIBXS_HASH1(SEED, N, VALUE) LIBXS_MOD1((SEED << 5) + (VALUE) - 1, N)
+
+#if defined(LIBXS_HASH_ALIGNMENT) && 8 < (LIBXS_HASH_ALIGNMENT)
+# define LIBXS_HASH(FN64, FN32, FN16, FN8, DATA, SIZE, SEED, N) { \
     const unsigned char *begin = (const unsigned char*)(DATA); \
     const unsigned char *const endb = begin + (SIZE); \
-    const unsigned char *const enda = LIBXS_ALIGN2(begin, LIBXS_CRC32_ALIGNMENT); \
+    const unsigned char *const enda = LIBXS_ALIGN2(begin, LIBXS_HASH_ALIGNMENT); \
     if ((SIZE) > (unsigned int)(endb - enda)) { \
-      LIBXS_CRC32_U64(FN64, INIT, begin, enda); \
-      LIBXS_CRC32_U32(FN32, INIT, begin, enda); \
-      LIBXS_CRC32_U16(FN16, INIT, begin, enda); \
-      LIBXS_CRC32_U8(FN8, INIT, begin, enda); \
+      LIBXS_HASH_U64(FN64, SEED, N, begin, enda); \
+      LIBXS_HASH_U32(FN32, SEED, N, begin, enda); \
+      LIBXS_HASH_U16(FN16, SEED, N, begin, enda); \
+      LIBXS_HASH_U8(FN8, SEED, N, begin, enda); \
     } \
-    LIBXS_ASSUME_ALIGNED(begin, LIBXS_CRC32_ALIGNMENT); \
-    LIBXS_CRC32_U64(FN64, INIT, begin, endb); \
-    LIBXS_CRC32_U32(FN32, INIT, begin, endb); \
-    LIBXS_CRC32_U16(FN16, INIT, begin, endb); \
-    return begin == endb ? (INIT) : FN8(INIT, *begin); \
+    LIBXS_ASSUME_ALIGNED(begin, LIBXS_HASH_ALIGNMENT); \
+    LIBXS_HASH_U64(FN64, SEED, N, begin, endb); \
+    LIBXS_HASH_U32(FN32, SEED, N, begin, endb); \
+    LIBXS_HASH_U16(FN16, SEED, N, begin, endb); \
+    return begin == endb ? (SEED) : FN8(SEED, N, *begin); \
   }
-#elif defined(LIBXS_CRC32_ALIGNMENT) && 1 < (LIBXS_CRC32_ALIGNMENT)
-# define LIBXS_CRC32(FN64, FN32, FN16, FN8, DATA, SIZE, INIT) { \
+#elif defined(LIBXS_HASH_ALIGNMENT) && 1 < (LIBXS_HASH_ALIGNMENT)
+# define LIBXS_HASH(FN64, FN32, FN16, FN8, DATA, SIZE, SEED, N) { \
     const unsigned char *begin = (const unsigned char*)(DATA); \
     const unsigned char *const endb = begin + (SIZE); \
-    const unsigned char *const enda = LIBXS_ALIGN2(begin, LIBXS_CRC32_ALIGNMENT); \
+    const unsigned char *const enda = LIBXS_ALIGN2(begin, LIBXS_HASH_ALIGNMENT); \
     if ((SIZE) > (unsigned int)(endb - enda)) { \
-      LIBXS_CRC32_U32(FN32, INIT, begin, enda); \
-      LIBXS_CRC32_U16(FN16, INIT, begin, enda); \
-      LIBXS_CRC32_U8(FN8, INIT, begin, enda); \
+      LIBXS_HASH_U32(FN32, SEED, N, begin, enda); \
+      LIBXS_HASH_U16(FN16, SEED, N, begin, enda); \
+      LIBXS_HASH_U8(FN8, SEED, N, begin, enda); \
     } \
-    LIBXS_ASSUME_ALIGNED(begin, LIBXS_CRC32_ALIGNMENT); \
-    LIBXS_CRC32_U64(FN64, INIT, begin, endb); \
-    LIBXS_CRC32_U32(FN32, INIT, begin, endb); \
-    LIBXS_CRC32_U16(FN16, INIT, begin, endb); \
-    return begin == endb ? (INIT) : FN8(INIT, *begin); \
+    LIBXS_ASSUME_ALIGNED(begin, LIBXS_HASH_ALIGNMENT); \
+    LIBXS_HASH_U64(FN64, SEED, N, begin, endb); \
+    LIBXS_HASH_U32(FN32, SEED, N, begin, endb); \
+    LIBXS_HASH_U16(FN16, SEED, N, begin, endb); \
+    return begin == endb ? (SEED) : FN8(SEED, N, *begin); \
   }
 #else
-# define LIBXS_CRC32(FN64, FN32, FN16, FN8, DATA, SIZE, INIT) { \
+# define LIBXS_HASH(FN64, FN32, FN16, FN8, DATA, SIZE, SEED, N) { \
     const unsigned char *begin = (const unsigned char*)(DATA); \
     const unsigned char *const endb = begin + (SIZE); \
-    LIBXS_CRC32_U64(FN64, INIT, begin, endb); \
-    LIBXS_CRC32_U32(FN32, INIT, begin, endb); \
-    LIBXS_CRC32_U16(FN16, INIT, begin, endb); \
-    return begin == endb ? (INIT) : FN8(INIT, *begin); \
+    LIBXS_HASH_U64(FN64, SEED, N, begin, endb); \
+    LIBXS_HASH_U32(FN32, SEED, N, begin, endb); \
+    LIBXS_HASH_U16(FN16, SEED, N, begin, endb); \
+    return begin == endb ? (SEED) : FN8(SEED, N, *begin); \
   }
 #endif
 
 
-#if !(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_SW)
+#if !(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_HASH_SW)
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u8(unsigned int init, unsigned char value)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u8(unsigned int seed, unsigned int n, unsigned char value)
 {
-  return internal_crc32_table[0][(init^value)&0xFF] ^ (init >> 8);
+  return internal_crc32_table[0][(seed^value)&0xFF] ^ (seed >> 8);
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u16(unsigned int init, unsigned short value)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u16(unsigned int seed, unsigned int n, unsigned short value)
 {
   union { uint16_t value; uint8_t half[2]; } split; split.value = value;
-  init = internal_crc32_u8(init, split.half[0]);
-  init = internal_crc32_u8(init, split.half[1]);
-  return init;
+  seed = internal_crc32_u8(seed, n, split.half[0]);
+  seed = internal_crc32_u8(seed, n, split.half[1]);
+  return seed;
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u32(unsigned int init, unsigned int value)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u32(unsigned int seed, unsigned int n, unsigned int value)
 {
-  init ^= value;
-  init = (internal_crc32_table[0][(init>>24)&0xFF] ^ internal_crc32_table[1][(init>>16)&0xFF])
-       ^ (internal_crc32_table[2][(init>>8)&0xFF]  ^ internal_crc32_table[3][init&0xFF]);
-  return init;
+  seed ^= value;
+  seed = (internal_crc32_table[0][(seed>>24)&0xFF] ^ internal_crc32_table[1][(seed>>16)&0xFF])
+       ^ (internal_crc32_table[2][(seed>>8)&0xFF]  ^ internal_crc32_table[3][seed&0xFF]);
+  return seed;
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u64(unsigned int init, unsigned long long value)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u64(unsigned int seed, unsigned int n, unsigned long long value)
 {
   union { uint64_t value; uint32_t half[2]; } split; split.value = value;
-  init = internal_crc32_u32(init, split.half[0]);
-  init = internal_crc32_u32(init, split.half[1]);
-  return init;
+  seed = internal_crc32_u32(seed, n, split.half[0]);
+  seed = internal_crc32_u32(seed, n, split.half[1]);
+  return seed;
 }
-#endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_SW)*/
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int init)
+#endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_HASH_SW)*/
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int seed)
 {
-#if defined(LIBXS_SSE) && (4 <= (LIBXS_SSE)) && !defined(LIBXS_CRC32_SW)
-  return libxs_crc32_sse42(data, size, init);
+#if defined(LIBXS_SSE) && (4 <= (LIBXS_SSE)) && !defined(LIBXS_HASH_SW)
+  return libxs_crc32_sse42(data, size, seed);
 #else
-  LIBXS_CRC32(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, init);
+  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 #endif
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(
-  const void* data, unsigned int size, unsigned int init)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int seed)
 {
 #if defined(LIBXS_SSE_MAX) && (4 <= (LIBXS_SSE_MAX)) && !defined(LIBXS_NO_CRC32)
-  LIBXS_CRC32(_mm_crc32_u64, _mm_crc32_u32, _mm_crc32_u16, _mm_crc32_u8, data, size, init);
+  LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 #else
 # if !defined(NDEBUG) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
@@ -462,7 +469,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse4
   LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using the CRC32 instruction!");
   LIBXS_MESSAGE("================================================================================");
 # endif
-  LIBXS_CRC32(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, init);
+  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 #endif
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_hash(const void* data, unsigned int size, unsigned int n)
+{
+  LIBXS_HASH(LIBXS_HASH1, LIBXS_HASH1, LIBXS_HASH1, LIBXS_HASH1, data, size, size, n);
 }
 
