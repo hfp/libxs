@@ -26,7 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_crc32.h"
+#include "libxs_hash.h"
 #include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)

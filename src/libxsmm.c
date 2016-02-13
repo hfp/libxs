@@ -27,7 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_gemm_diff.h"
-#include "libxs_crc32.h"
+#include "libxs_hash.h"
 #include "libxs_cpuid.h"
 #include "libxs_gemm.h"
 
@@ -72,21 +72,12 @@
 # define LIBXS_GEMM_DIFF_SW
 #endif
 
-/* larger capacity of the registry lowers the probability of key collisions */
-/*#define LIBXS_HASH_PRIME*/
-#if defined(LIBXS_HASH_PRIME)
-# define LIBXS_HASH_MOD(A, B) ((A) % (B))
-#else
-# define LIBXS_HASH_MOD(A, B) LIBXS_MOD2(A, B)
-#endif
-
 /* allow external definition to enable testing */
 #if !defined(LIBXS_REGSIZE)
-# if defined(LIBXS_HASH_PRIME)
-#   define LIBXS_REGSIZE 999979
-# else
-#   define LIBXS_REGSIZE 1048576
-# endif
+# define LIBXS_HASH_MOD(N, MERSENNE) LIBXS_MOD1(N, MERSENNE)
+# define LIBXS_REGSIZE 524287 /* Mersenne Prime number */
+#else
+# define LIBXS_HASH_MOD(A, B) ((A) % (B))
 #endif
 
 /* flag fused into the memory address of a code version in case of collision */
@@ -311,7 +302,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 
         if (result) {
           int is_static = 0;
-          /* decide using internal_has_crc32 instead of relying on a libxs_crc32_function pointer
+          /* decide using internal_has_crc32 instead of relying on a libxs_hash_function pointer
            * to be able to inline the call instead of using an indirection (via fn. pointer)
            */
           internal_arch_name = libxs_cpuid(&is_static, &internal_has_crc32);

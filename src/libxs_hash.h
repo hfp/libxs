@@ -26,14 +26,14 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_CRC32_H
-#define LIBXS_CRC32_H
+#ifndef LIBXS_HASH_H
+#define LIBXS_HASH_H
 
 #include <libxs.h>
 
 
 /** Function type representing the CRC32 functionality. */
-typedef LIBXS_RETARGETABLE unsigned int (*libxs_crc32_function)(const void*, unsigned int, unsigned int);
+typedef LIBXS_RETARGETABLE unsigned int (*libxs_hash_function)(const void*, unsigned int, unsigned int);
 
 /** Calculate the CRC32 for a given quantity (size) of raw data according to the seed (init. value). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(
@@ -44,8 +44,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(
   const void* data, unsigned int size, unsigned int init);
 
 
-#if defined(LIBXS_BUILD) && !defined(LIBXS_CRC32_NOINLINE)
-# include "libxs_crc32.c"
+#if defined(LIBXS_BUILD) && !defined(LIBXS_HASH_NOINLINE)
+# include "libxs_hash.c"
 #endif
 
-#endif /*LIBXS_CRC32_H*/
+#endif /*LIBXS_HASH_H*/
