@@ -434,6 +434,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u64(unsigned int ini
 }
 #endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_CRC32_SW)*/
 
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int init)
+{
+#if defined(LIBXS_SSE) && (4 <= (LIBXS_SSE)) && !defined(LIBXS_CRC32_SW)
+  return libxs_crc32_sse42(data, size, init);
+#else
+  LIBXS_CRC32(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, init);
+#endif
+}
+
+
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(
   const void* data, unsigned int size, unsigned int init)
 {
@@ -452,16 +462,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse4
   LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using the CRC32 instruction!");
   LIBXS_MESSAGE("================================================================================");
 # endif
-  LIBXS_CRC32(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, init);
-#endif
-}
-
-
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int init)
-{
-#if defined(LIBXS_SSE) && (4 <= (LIBXS_SSE)) && !defined(LIBXS_CRC32_SW)
-  return libxs_crc32_sse42(data, size, init);
-#else
   LIBXS_CRC32(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, init);
 #endif
 }
