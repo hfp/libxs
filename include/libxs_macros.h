@@ -127,20 +127,6 @@
 # define LIBXS_PRAGMA_UNROLL
 #endif
 
-#if !defined(LIBXS_UNUSED)
-# if 0 /*defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)*/
-#   define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))
-# else
-#   define LIBXS_UNUSED(VARIABLE) (void)(VARIABLE)
-# endif
-#endif
-
-#if defined(__GNUC__) || (defined(__INTEL_COMPILER) && !defined(_WIN32))
-# define LIBXS_UNUSED_ARG LIBXS_ATTRIBUTE(unused)
-#else
-# define LIBXS_UNUSED_ARG
-#endif
-
 /*Based on Stackoverflow's NBITSx macro.*/
 #define LIBXS_NBITS02(N) (0 != ((N) & 2/*0b10*/) ? 1 : 0)
 #define LIBXS_NBITS04(N) (0 != ((N) & 0xC/*0b1100*/) ? (2 + LIBXS_NBITS02((N) >> 2)) : LIBXS_NBITS02(N))
@@ -201,6 +187,20 @@
 
 #define LIBXS_HASH_VALUE(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
 #define LIBXS_HASH2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_HASH_VALUE(LIBXS_DIV2((unsigned long long)(POINTER), ALIGNMENT)), NPOT)
+
+#if !defined(LIBXS_UNUSED)
+# if 0 /*defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)*/
+#   define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))
+# else
+#   define LIBXS_UNUSED(VARIABLE) (void)(VARIABLE)
+# endif
+#endif
+
+#if defined(__GNUC__) || (defined(__INTEL_COMPILER) && !defined(_WIN32))
+# define LIBXS_UNUSED_ARG LIBXS_ATTRIBUTE(unused)
+#else
+# define LIBXS_UNUSED_ARG
+#endif
 
 #if defined(LIBXS_NOSYNC)
 # undef _REENTRANT
