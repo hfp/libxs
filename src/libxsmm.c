@@ -72,17 +72,36 @@
 # define LIBXS_GEMM_DIFF_SW
 #endif
 
+/* enable using CRC32 function for hash values */
+#if !defined(LIBXS_HASH_CRC32)
+# define LIBXS_HASH_CRC32
+#endif
+
 /* allow external definition to enable testing */
 #if !defined(LIBXS_REGSIZE)
-# define LIBXS_HASH_MOD(N, MERSENNE) LIBXS_MOD1(N, MERSENNE)
 # define LIBXS_REGSIZE 524287 /* Mersenne Prime number */
+# if defined(LIBXS_HASH_CRC32)
+#   define LIBXS_HASH_MOD(N, MERSENNE) LIBXS_MOD1(N, MERSENNE)
+# else
+#   define LIBXS_HASH_MOD(N, MERSENNE) (N)
+# endif
 #else
-# define LIBXS_HASH_MOD(A, B) ((A) % (B))
+# if defined(LIBXS_HASH_CRC32)
+#   define LIBXS_HASH_MOD(N, M) ((N) % (M))
+# else
+#   define LIBXS_HASH_MOD(N, M) (N)
+# endif
+#endif
+
+#if defined(LIBXS_HASH_CRC32)
+# define LIBXS_HASH_SEED 25071975
+#else
+# define LIBXS_HASH_SEED LIBXS_REGSIZE
 #endif
 
 /* flag fused into the memory address of a code version in case of collision */
 #define LIBXS_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 1))
-#define LIBXS_HASH_SEED 0 /* CRC32 seed */
+
 typedef union LIBXS_RETARGETABLE internal_code {
   libxs_smmfunction smm;
   libxs_dmmfunction dmm;
@@ -152,12 +171,12 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 # define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) (ENTRY)->code.xmm = (SRC)
 #endif
 
-#define INTERNAL_FIND_CODE(DESCRIPTOR, SELECTOR/*smm or dmm*/, ENTRY, CRC32_FUNCTION, DIFF_FUNCTION) { \
+#define INTERNAL_FIND_CODE(DESCRIPTOR, SELECTOR/*smm or dmm*/, ENTRY, HASH_FUNCTION, DIFF_FUNCTION) { \
   unsigned int hash, diff = 0, diff0 = 0, i, i0; \
   internal_code result; \
   /* check if the requested xGEMM is already JITted */ \
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
-  hash = (CRC32_FUNCTION)(&(DESCRIPTOR), LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED); \
+  hash = (HASH_FUNCTION)(&(DESCRIPTOR), LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED); \
   i = i0 = LIBXS_HASH_MOD(hash, LIBXS_REGSIZE); \
   (ENTRY) += i; /* actual entry */ \
   do { \
@@ -303,7 +322,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
         if (result) {
           int is_static = 0;
           /* decide using internal_has_crc32 instead of relying on a libxs_hash_function pointer
-           * to be able to inline the call instead of using an indirection (via fn. pointer)
+           * which will allow to inline the call instead of using an indirection (via fn. pointer)
            */
           internal_arch_name = libxs_cpuid(&is_static, &internal_has_crc32);
           for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].code.xmm = 0;
@@ -343,7 +362,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #endif
             }
           }
-#if !defined(NDEBUG) && defined(__MIC__) /* library code is expected to be mute */ && (0 != LIBXS_JIT)
+#if !defined(NDEBUG) /* library code is expected to be mute */ && defined(LIBXS_HASH_CRC32) && !defined(__MIC__) && (0 != LIBXS_JIT)
           if (0 == internal_has_crc32) {
             fprintf(stderr, "LIBXS: CRC32 instructions are not available!\n");
           }
@@ -675,19 +694,45 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
   INTERNAL_FIND_CODE_INIT(entry);
 
 #if defined(LIBXS_GEMM_DIFF_SW)
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, smm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, libxs_gemm_diff);
+# else
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_hash, libxs_gemm_diff);
+# endif
 #elif defined(__MIC__)
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32, libxs_gemm_diff_imci);
+# else
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_hash, libxs_gemm_diff_imci);
+# endif
 #elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, libxs_gemm_diff_avx2);
+# else
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_hash, libxs_gemm_diff_avx2);
+# endif
 #elif defined(LIBXS_AVX) && (1 == (LIBXS_AVX))
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, libxs_gemm_diff_avx);
+# else
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_hash, libxs_gemm_diff_avx);
+# endif
 #elif defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, smm, entry, libxs_crc32_sse42, libxs_gemm_diff_sse);
+# else
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_hash, libxs_gemm_diff_sse);
+# endif
 #else
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, smm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, 0 != internal_arch_name
     ? (/*snb*/'b' != internal_arch_name[2] ? libxs_gemm_diff_avx2 : libxs_gemm_diff_avx)
     : (0 != internal_has_crc32 ? libxs_gemm_diff_sse : libxs_gemm_diff));
+# else
+  INTERNAL_FIND_CODE(desc, smm, entry, libxs_hash, 0 != internal_arch_name
+    ? (/*snb*/'b' != internal_arch_name[2] ? libxs_gemm_diff_avx2 : libxs_gemm_diff_avx)
+    : (0 != internal_has_crc32 ? libxs_gemm_diff_sse : libxs_gemm_diff));
+# endif
 #endif
 }
 
@@ -712,19 +757,45 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
   INTERNAL_FIND_CODE_INIT(entry);
 
 #if defined(LIBXS_GEMM_DIFF_SW)
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, dmm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, libxs_gemm_diff);
+# else
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_hash, libxs_gemm_diff);
+# endif
 #elif defined(__MIC__)
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32, libxs_gemm_diff_imci);
+# else
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_hash, libxs_gemm_diff_imci);
+# endif
 #elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, libxs_gemm_diff_avx2);
+# else
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_hash, libxs_gemm_diff_avx2);
+# endif
 #elif defined(LIBXS_AVX) && (1 == (LIBXS_AVX))
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, libxs_gemm_diff_avx);
+# else
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_hash, libxs_gemm_diff_avx);
+# endif
 #elif defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, dmm, entry, libxs_crc32_sse42, libxs_gemm_diff_sse);
+# else
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_hash, libxs_gemm_diff_sse);
+# endif
 #else
+# if defined(LIBXS_HASH_CRC32)
   INTERNAL_FIND_CODE(desc, dmm, entry, 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32, 0 != internal_arch_name
     ? (/*snb*/'b' != internal_arch_name[2] ? libxs_gemm_diff_avx2 : libxs_gemm_diff_avx)
     : (0 != internal_has_crc32 ? libxs_gemm_diff_sse : libxs_gemm_diff));
+# else
+  INTERNAL_FIND_CODE(desc, dmm, entry, libxs_hash, 0 != internal_arch_name
+    ? (/*snb*/'b' != internal_arch_name[2] ? libxs_gemm_diff_avx2 : libxs_gemm_diff_avx)
+    : (0 != internal_has_crc32 ? libxs_gemm_diff_sse : libxs_gemm_diff));
+# endif
 #endif
 }
 
