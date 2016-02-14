@@ -53,12 +53,11 @@
 #   define LIBXS_SSE_MAX 5
 #   include <immintrin.h>
 # elif defined(__clang__)
-#   if defined(__APPLE__) && defined(__MACH__) && \
-      (LIBXS_VERSION3(6, 1, 0) >= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+#   if (defined(__APPLE__) && defined(__MACH__) && (LIBXS_VERSION3(6, 2, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))) \
+    || (!(defined(__APPLE__) && defined(__MACH__)) && LIBXS_VERSION3(3, 7, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 #     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
 #     define LIBXS_AVX_MAX 2
 #     define LIBXS_SSE_MAX 5
-#     define LIBXS_NO_CRC32
 #     define __AVX2__ 1
 #     if !defined(__AVX__)
 #       define __AVX__ 1
@@ -67,12 +66,19 @@
 #       define __SSE4_1__ 1
 #       define __SSE4_2__ 1
 #     endif
+#     if !defined(__SSSE3__)
+#       define LIBXS_UNDEF_SSSE
+#       define __SSSE3__ 1
+#     endif
 #     if !defined(__SSE3__)
 #       define __SSE3__ 1
 #     endif
 #     include <immintrin.h>
 #     if !defined(LIBXS_SSE) || (3 > (LIBXS_SSE))
 #       undef __SSE3__
+#     endif
+#     if defined(LIBXS_UNDEF_SSSE)
+#       undef __SSSE3__
 #     endif
 #     if !defined(LIBXS_SSE) || (4 > (LIBXS_SSE))
 #       undef __SSE4_1__
@@ -82,11 +88,6 @@
 #       undef __AVX__
 #     endif
 #     undef __AVX2__
-#   elif (LIBXS_VERSION3(3, 7, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
-#     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
-#     define LIBXS_AVX_MAX 2
-#     define LIBXS_SSE_MAX 5
-#     include <immintrin.h>
 #   else
 #     include <immintrin.h>
 #   endif

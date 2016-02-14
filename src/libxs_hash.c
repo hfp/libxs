@@ -454,7 +454,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, uns
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int seed)
 {
-#if defined(LIBXS_SSE_MAX) && (4 <= (LIBXS_SSE_MAX)) && !defined(LIBXS_NO_CRC32)
+#if defined(LIBXS_SSE_MAX) && (4 <= (LIBXS_SSE_MAX))
   LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 #else
 # if !defined(NDEBUG) /* library code is expected to be mute */

@@ -70,9 +70,7 @@ unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* a, const libxs_gem
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
-#if defined(LIBXS_AVX_MAX) && (1 <= (LIBXS_AVX_MAX)) && !(defined(__APPLE__) && defined(__MACH__) && \
-  /* prevents fatal error (error in backend) apparently caused by _mm256_testnzc_ps */ \
-  LIBXS_VERSION3(6, 1, 0) >= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+#if defined(LIBXS_AVX_MAX) && (1 <= (LIBXS_AVX_MAX))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
   assert(0 != a && 0 != b);
@@ -118,9 +116,7 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gem
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
-#if defined(LIBXS_AVX_MAX) && (2 <= (LIBXS_AVX_MAX)) && !(defined(__APPLE__) && defined(__MACH__) && \
-  /* prevents fatal error (error in backend) apparently caused by _mm256_testnzc_si256 */ \
-  LIBXS_VERSION3(6, 1, 0) >= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+#if defined(LIBXS_AVX_MAX) && (2 <= (LIBXS_AVX_MAX))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
   assert(0 != a && 0 != b);
