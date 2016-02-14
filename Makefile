@@ -153,11 +153,11 @@ SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) 
 SRCFILES_GEN_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_driver.c)
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_GEN_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_BIN))))
-OBJFILES_HST = $(BLDDIR)/intel64/libxs.o $(BLDDIR)/intel64/libxs_gemm.o $(BLDDIR)/intel64/libxs_gemm_wrap.o \
-               $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
-OBJFILES_MIC = $(BLDDIR)/mic/libxs.o $(BLDDIR)/mic/libxs_gemm.o $(BLDDIR)/mic/libxs_gemm_wrap.o \
-               $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o \
-               $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
+OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) \
+               $(BLDDIR)/intel64/libxs.o $(BLDDIR)/intel64/libxs_gemm.o
+OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) \
+               $(BLDDIR)/mic/libxs.o $(BLDDIR)/mic/libxs_gemm.o \
+               $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
 OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_BIN) $(OBJFILES_HST) $(OBJFILES_MIC)
 
