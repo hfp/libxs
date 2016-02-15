@@ -221,7 +221,10 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
     if (0 == result.xmm && 0 != internal_jit) { \
       INTERNAL_FIND_CODE_LOCK(lock, i); /* lock the registry entry */ \
       /* re-read registry entry after acquiring the lock */ \
-      if (0 == diff) result = (ENTRY)->code; \
+      if (0 == diff) { \
+        result = (ENTRY)->code; \
+        result.imm &= ~LIBXS_HASH_COLLISION; \
+      } \
       if (0 == result.xmm) { /* double-check after acquiring the lock */ \
         if (0 == diff) { \
           /* found a conflict-free registry-slot, and attempt to build the kernel */ \
@@ -264,7 +267,6 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
     } \
   } \
   while (0 != diff); \
-  assert(0 == result.xmm || 0 == (DIFF_FUNCTION)(&(DESCRIPTOR), &((ENTRY)->descriptor))); \
   return result.SELECTOR; \
 }
 
