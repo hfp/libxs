@@ -30,6 +30,22 @@
 
 
 #if defined(LIBXS_GEMM_WRAP)
+#if !defined(__STATIC) /*avoid remark about external function definition with no prior declaration*/
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WRAP void LIBXS_GEMM_WRAP_SGEMM(
+  const char*, const char*,
+  const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+  const float*, const float*, const libxs_blasint*,
+  const float*, const libxs_blasint* ldb,
+  const float*, float*, const libxs_blasint*);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WRAP void LIBXS_GEMM_WRAP_DGEMM(
+  const char*, const char*,
+  const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+  const double*, const double*, const libxs_blasint*,
+  const double*, const libxs_blasint* ldb,
+  const double*, double*, const libxs_blasint*);
+#endif
+
+
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WRAP void LIBXS_GEMM_WRAP_SGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
