@@ -27,26 +27,73 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_gemm_wrap.h"
+#include "libxs_gemm.h"
 
 
 #if defined(LIBXS_GEMM_WRAP)
 #if !defined(__STATIC) /*avoid remark about external function definition with no prior declaration*/
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WRAP void LIBXS_GEMM_WRAP_SGEMM(
+# if defined(LIBXS_OFFLOAD_TARGET)
+#   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+# endif
+# include <stdlib.h>
+# include <dlfcn.h>
+# if defined(LIBXS_OFFLOAD_TARGET)
+#   pragma offload_attribute(pop)
+# endif
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_SGEMM(
   const char*, const char*,
   const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const float*, const float*, const libxs_blasint*,
   const float*, const libxs_blasint* ldb,
   const float*, float*, const libxs_blasint*);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WRAP void LIBXS_GEMM_WRAP_DGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
   const char*, const char*,
   const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const double*, const double*, const libxs_blasint*,
   const double*, const libxs_blasint* ldb,
   const double*, double*, const libxs_blasint*);
-#endif
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WRAP void LIBXS_GEMM_WRAP_SGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(
+  libxs_sgemm_function sgemm_function, libxs_dgemm_function dgemm_function)
+{
+  if (NULL == sgemm_function) {
+    union { const void* pv; libxs_sgemm_function pf; } internal = { NULL };
+    internal.pv = dlsym(RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(sgemm)));
+    if (NULL != internal.pv) {
+      libxs_internal_sgemm = internal.pf;
+    }
+  }
+  else {
+    libxs_internal_sgemm = sgemm_function;
+  }
+
+  if (NULL == dgemm_function) {
+    union { const void* pv; libxs_dgemm_function pf; } internal = { NULL };
+    internal.pv = dlsym(RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dgemm)));
+    if (NULL != internal.pv) {
+      libxs_internal_dgemm = internal.pf;
+    }
+  }
+  else {
+    libxs_internal_dgemm = dgemm_function;
+  }
+
+  return (NULL != libxs_internal_sgemm
+       && NULL != libxs_internal_dgemm)
+    ? EXIT_SUCCESS
+    : EXIT_FAILURE;
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_finalize(void)
+{
+  return EXIT_SUCCESS;
+}
+#endif /*!defined(__STATIC)*/
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_SGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
@@ -63,7 +110,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WRAP void LIBXS_GEMM_WRAP_SGEMM(
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WRAP void LIBXS_GEMM_WRAP_DGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,

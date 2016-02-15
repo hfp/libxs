@@ -76,9 +76,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
   const double*, const double*, const libxs_blasint*, const double* b, const libxs_blasint*,
   const double* beta, double*, const libxs_blasint*);
 # elif !defined(__CYGWIN__) /* LD_PRELOAD */
-#   define LIBXS_GEMM_WRAP /*LIBXS_ATTRIBUTE(weak)*/
+#   define LIBXS_GEMM_WRAP
+#   define LIBXS_GEMM_WEAK LIBXS_ATTRIBUTE(weak)
 #   define LIBXS_GEMM_WRAP_SGEMM LIBXS_FSYMBOL(sgemm)
 #   define LIBXS_GEMM_WRAP_DGEMM LIBXS_FSYMBOL(dgemm)
 # endif
 #endif /*defined(LIBXS_GEMM_WRAP)*/
+#if !defined(LIBXS_GEMM_WEAK)
+# define LIBXS_GEMM_WEAK
+#endif
+
 #endif /*LIBXS_GEMM_WRAP_H*/
