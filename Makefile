@@ -132,9 +132,9 @@ ifeq (0,$(STATIC))
 	GENERATOR = @$(ENV) \
 		LD_LIBRARY_PATH="$(OUTDIR):$(LD_LIBRARY_PATH)" \
 		PATH="$(OUTDIR):$(PATH)" \
-	$(BINDIR)/libxs_generator
+	$(BINDIR)/libxs_gemm_generator
 else
-	GENERATOR = $(BINDIR)/libxs_generator
+	GENERATOR = $(BINDIR)/libxs_gemm_generator
 endif
 
 INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
@@ -348,7 +348,7 @@ $(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(SCRDIR)/libxs_dispatch.py
 
 .PHONY: sources
 sources: $(SRCFILES) $(BLDDIR)/libxs_dispatch.h
-$(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
+$(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_gemm_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
 ifneq (,$(strip $(SRCFILES)))
 	$(eval MVALUE := $(shell echo $(basename $@) | cut -d_ -f2))
 	$(eval NVALUE := $(shell echo $(basename $@) | cut -d_ -f3))
@@ -996,7 +996,7 @@ ifneq (,$(wildcard $(OUTDIR)))
 	@rm -f $(OUTDIR)/libxsgen.$(LIBEXT)
 endif
 ifneq (,$(wildcard $(BINDIR)))
-	@rm -f $(BINDIR)/libxs_generator
+	@rm -f $(BINDIR)/libxs_gemm_generator
 endif
 	@rm -f *.gcno *.gcda *.gcov
 	@rm -f $(SPLDIR)/cp2k/cp2k-perf.sh
@@ -1074,7 +1074,7 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 		cp -uv $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
-	@cp -v $(BINDIR)/libxs_generator $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@cp -v $(BINDIR)/libxs_gemm_generator $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
 	@cp -v $(INCDIR)/libxs*.h $(INSTALL_ROOT)/$(PINCDIR)
 	@cp -v $(INCDIR)/libxs.f $(INSTALL_ROOT)/$(PINCDIR)
 	@cp -v $(INCDIR)/*.mod* $(INSTALL_ROOT)/$(PINCDIR)
