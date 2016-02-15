@@ -72,9 +72,11 @@
 # define LIBXS_GEMM_DIFF_SW
 #endif
 
-/* disable using CRC32 function for hash values */
+/* alternative hash algorithm (instead of CRC32) */
 #if !defined(LIBXS_HASH_BASIC)
-/*# define LIBXS_HASH_BASIC*/
+# if defined(__MIC__)
+#   define LIBXS_HASH_BASIC
+# endif
 #endif
 
 /* allow external definition to enable testing */
