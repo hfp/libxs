@@ -1,6 +1,6 @@
 #!/bin/sh
 
-LIBXS=../../lib/libxs.so
+LIBXS=../../lib/libxsld.so
 
 HERE=$(cd $(dirname $0); pwd -P)
 ECHO=$(which echo)

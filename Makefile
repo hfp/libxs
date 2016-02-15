@@ -158,29 +158,33 @@ OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) \
 OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) \
                $(BLDDIR)/mic/libxs.o $(BLDDIR)/mic/libxs_gemm.o \
                $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o
+WRAPOBJS_HST = $(BLDDIR)/intel64/libxs_gemm_wrap.o
+WRAPOBJS_MIC = $(BLDDIR)/mic/libxs_gemm_wrap.o
+
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
-OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_BIN) $(OBJFILES_HST) $(OBJFILES_MIC)
+OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) $(WRAPOBJS_HST) $(WRAPOBJS_MIC)
+FTNOBJS = $(BLDDIR)/intel64/libxs-mod.o $(BLDDIR)/mic/libxs-mod.o
 
 .PHONY: libxs
 libxs: lib
 
 .PHONY: lib
-lib: header drytest lib_hst lib_mic
+lib: headers drytest lib_hst lib_mic
 
 .PHONY: all
 all: lib samples
 
-.PHONY: header
-header: cheader fheader
+.PHONY: headers
+headers: cheader fheader
 
 .PHONY: interface
-interface: header
+interface: headers
 
 .PHONY: lib_mic
-lib_mic: clib_mic
+lib_mic: clib_mic flib_mic wrap_mic
 
 .PHONY: lib_hst
-lib_hst: clib_hst flib_hst
+lib_hst: clib_hst flib_hst wrap_hst
 
 PREFETCH_ID = 0
 PREFETCH_SCHEME = nopf
@@ -270,6 +274,12 @@ else
 endif
 	$(info ================================================================================)
 endif
+ifeq (Windows_NT,$(UNAME))
+ifeq (0,$(STATIC))
+	$(info The shared link-time wrapper (libxsld) is not supported under Windows/Cygwin!)
+	$(info ================================================================================)
+endif
+endif
 ifneq (0,$(OMP))
 	$(info LIBXS is agnostic with respect to the threading runtime!)
 	$(info Enabling OpenMP suppresses using OS primitives (PThreads).)
@@ -333,8 +343,11 @@ generator: $(BINDIR)/libxs_generator
 $(BINDIR)/libxs_generator: $(BINDIR)/.make $(OBJFILES_GEN_BIN) $(abspath $(OUTDIR)/libxsgen.$(LIBEXT)) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	$(CC) $(OBJFILES_GEN_BIN) $(abspath $(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS) -o $@
 
+$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(SCRDIR)/libxs_dispatch.py
+	@$(PYTHON) $(SCRDIR)/libxs_dispatch.py $(PRECISION) $(THRESHOLD) $(INDICES) > $@
+
 .PHONY: sources
-sources: $(SRCFILES)
+sources: $(SRCFILES) $(BLDDIR)/libxs_dispatch.h
 $(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
 ifneq (,$(strip $(SRCFILES)))
 	$(eval MVALUE := $(shell echo $(basename $@) | cut -d_ -f2))
@@ -428,11 +441,6 @@ endif
 	@mv $(TMPFILE) $@
 endif
 
-.PHONY: main
-main: $(BLDDIR)/libxs_dispatch.h
-$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(INCDIR)/libxs.h $(SCRDIR)/libxs_dispatch.py
-	@$(PYTHON) $(SCRDIR)/libxs_dispatch.py $(PRECISION) $(THRESHOLD) $(INDICES) > $@
-
 .PHONY: compile_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
@@ -517,6 +525,24 @@ else
 $(abspath $(OUTDIR)/libxsf.$(LIBEXT)): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/.make
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
 endif
+endif
+
+.PHONY: wrap_mic
+ifneq (0,$(MIC))
+ifneq (0,$(MPSS))
+ifeq (0,$(STATIC))
+wrap_mic: $(abspath $(OUTDIR)/mic/libxsld.$(DLIBEXT))
+$(abspath $(OUTDIR)/mic/libxsld.$(DLIBEXT)): $(OUTDIR)/mic/.make $(WRAPOBJS_MIC) $(abspath $(OUTDIR)/mic/libxs.$(DLIBEXT))
+	$(LD) -o $@ $(WRAPOBJS_MIC) $(abspath $(OUTDIR)/mic/libxs.$(DLIBEXT)) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
+endif
+endif
+endif
+
+.PHONY: wrap_hst
+ifeq (0,$(STATIC))
+wrap_hst: $(abspath $(OUTDIR)/libxsld.$(DLIBEXT))
+$(abspath $(OUTDIR)/libxsld.$(DLIBEXT)): $(OUTDIR)/.make $(WRAPOBJS_HST) $(abspath $(OUTDIR)/libxs.$(DLIBEXT))
+	$(LD) -o $@ $(WRAPOBJS_HST) $(abspath $(OUTDIR)/libxs.$(DLIBEXT)) -shared $(LDFLAGS) $(CLDFLAGS)
 endif
 
 .PHONY: samples
@@ -932,7 +958,6 @@ documentation: $(DOCDIR)/libxs.pdf $(DOCDIR)/cp2k.pdf
 
 .PHONY: clean-minimal
 clean-minimal:
-	@rm -f $(OBJECTS) $(SRCFILES) $(BLDDIR)/libxs_dispatch.h
 	@rm -f $(SCRDIR)/libxs_utilities.pyc
 	@rm -rf $(SCRDIR)/__pycache__
 	@touch $(SPLDIR)/cp2k/.make
@@ -942,8 +967,8 @@ clean-minimal:
 
 .PHONY: clean
 clean: clean-minimal
-	@rm -f $(BLDDIR)/intel64/*.o
-	@rm -f $(BLDDIR)/mic/*.o
+	@rm -f $(OBJECTS) $(FTNOBJS) $(SRCFILES)
+	@rm -f $(BLDDIR)/libxs_dispatch.h
 
 .PHONY: realclean
 realclean: clean
@@ -955,19 +980,20 @@ endif
 ifneq ($(abspath $(OUTDIR)),$(ROOTDIR))
 ifneq ($(abspath $(OUTDIR)),$(abspath .))
 	@rm -rf $(OUTDIR)
-else
-	@rm -f $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/mic/libxs.$(LIBEXT) $(OUTDIR)/libxsgen.$(LIBEXT)
 endif
-else
-	@rm -f $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/mic/libxs.$(LIBEXT) $(OUTDIR)/libxsgen.$(LIBEXT)
 endif
 ifneq ($(abspath $(BINDIR)),$(ROOTDIR))
 ifneq ($(abspath $(BINDIR)),$(abspath .))
 	@rm -rf $(BINDIR)
-else
-	@rm -f $(BINDIR)/libxs_generator
 endif
-else
+endif
+ifneq (,$(wildcard $(OUTDIR)))
+	@rm -f $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/mic/libxs.$(LIBEXT)
+	@rm -f $(OUTDIR)/libxsf.$(LIBEXT) $(OUTDIR)/mic/libxsf.$(LIBEXT)
+	@rm -f $(OUTDIR)/libxsld.$(LIBEXT) $(OUTDIR)/mic/libxsld.$(LIBEXT)
+	@rm -f $(OUTDIR)/libxsgen.$(LIBEXT)
+endif
+ifneq (,$(wildcard $(BINDIR)))
 	@rm -f $(BINDIR)/libxs_generator
 endif
 	@rm -f *.gcno *.gcda *.gcov
