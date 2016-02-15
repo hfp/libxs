@@ -150,9 +150,9 @@ HEADERS = $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
 
 SRCFILES = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) libxs_timer.c libxs_trace.c)
-SRCFILES_GEN_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_driver.c)
+SRCFILES_GEN_GEMM_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_dense_gemm_driver.c)
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
-OBJFILES_GEN_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_BIN))))
+OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
 OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) \
                $(BLDDIR)/intel64/libxs.o $(BLDDIR)/intel64/libxs_gemm.o
 OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) \
@@ -162,7 +162,7 @@ WRAPOBJS_HST = $(BLDDIR)/intel64/libxs_gemm_wrap.o
 WRAPOBJS_MIC = $(BLDDIR)/mic/libxs_gemm_wrap.o
 
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
-OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) $(WRAPOBJS_HST) $(WRAPOBJS_MIC)
+OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) $(WRAPOBJS_HST) $(WRAPOBJS_MIC)
 FTNOBJS = $(BLDDIR)/intel64/libxs-mod.o $(BLDDIR)/mic/libxs-mod.o
 
 .PHONY: libxs
@@ -334,14 +334,14 @@ else
 	$(AR) -rs $@ $(OBJFILES_GEN_LIB)
 endif
 
-.PHONY: compile_generator
-compile_generator: $(OBJFILES_GEN_BIN)
+.PHONY: compile_gemm_generator
+compile_gemm_generator: $(OBJFILES_GEN_GEMM_BIN)
 $(BLDDIR)/%.o: $(SRCDIR)/%.c $(BLDDIR)/.make $(INCDIR)/libxs.h $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -c $< -o $@
 .PHONY: generator
-generator: $(BINDIR)/libxs_generator
-$(BINDIR)/libxs_generator: $(BINDIR)/.make $(OBJFILES_GEN_BIN) $(OUTDIR)/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
-	$(CC) $(OBJFILES_GEN_BIN) $(call libdir,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS) -o $@
+generator: $(BINDIR)/libxs_gemm_generator
+$(BINDIR)/libxs_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsgen.$(LIBEXT) $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
+	$(CC) $(OBJFILES_GEN_GEMM_BIN) $(call libdir,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS) -o $@
 
 $(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(SCRDIR)/libxs_dispatch.py
 	@$(PYTHON) $(SCRDIR)/libxs_dispatch.py $(PRECISION) $(THRESHOLD) $(INDICES) > $@
