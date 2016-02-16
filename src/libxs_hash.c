@@ -361,6 +361,15 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table
 #define LIBXS_HASH_CRC32_U64(SEED, N, VALUE) _mm_crc32_u64(SEED, VALUE)
 #define LIBXS_HASH1(SEED, N, VALUE) LIBXS_MOD1((SEED << 5) + (VALUE) - 1, N)
 
+#define LIBXS_HASH_UNALIGNED(FN64, FN32, FN16, FN8, DATA, SIZE, SEED, N) { \
+  const unsigned char *begin = (const unsigned char*)(DATA); \
+  const unsigned char *const endb = begin + (SIZE); \
+  LIBXS_HASH_U64(FN64, SEED, N, begin, endb); \
+  LIBXS_HASH_U32(FN32, SEED, N, begin, endb); \
+  LIBXS_HASH_U16(FN16, SEED, N, begin, endb); \
+  return begin == endb ? (SEED) : FN8(SEED, N, *begin); \
+}
+
 #if defined(LIBXS_HASH_ALIGNMENT) && 8 < (LIBXS_HASH_ALIGNMENT)
 # define LIBXS_HASH(FN64, FN32, FN16, FN8, DATA, SIZE, SEED, N) { \
     const unsigned char *begin = (const unsigned char*)(DATA); \
@@ -395,14 +404,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table
     return begin == endb ? (SEED) : FN8(SEED, N, *begin); \
   }
 #else
-# define LIBXS_HASH(FN64, FN32, FN16, FN8, DATA, SIZE, SEED, N) { \
-    const unsigned char *begin = (const unsigned char*)(DATA); \
-    const unsigned char *const endb = begin + (SIZE); \
-    LIBXS_HASH_U64(FN64, SEED, N, begin, endb); \
-    LIBXS_HASH_U32(FN32, SEED, N, begin, endb); \
-    LIBXS_HASH_U16(FN16, SEED, N, begin, endb); \
-    return begin == endb ? (SEED) : FN8(SEED, N, *begin); \
-  }
+# define LIBXS_HASH LIBXS_HASH_UNALIGNED
 #endif
 
 
@@ -480,6 +482,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse4
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_hash(const void* data, unsigned int size, unsigned int n)
 {
-  LIBXS_HASH(LIBXS_HASH1, LIBXS_HASH1, LIBXS_HASH1, LIBXS_HASH1, data, size, size, n);
+  LIBXS_HASH_UNALIGNED(LIBXS_HASH1, LIBXS_HASH1, LIBXS_HASH1, LIBXS_HASH1, data, size, size, n);
 }
 
