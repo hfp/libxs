@@ -250,7 +250,8 @@ endif
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(INCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
+$(INCDIR)/libxs.h: .state $(INCDIR)/.make \
+                     $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
                      $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
                      $(HEADERS)
 	@$(ROOTDIR)/.hooks/install.sh
@@ -303,7 +304,7 @@ endif
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
-$(INCDIR)/libxs.f: $(INCDIR)/.make $(BLDDIR)/.make \
+$(INCDIR)/libxs.f: .state $(INCDIR)/.make $(BLDDIR)/.make \
                      $(SRCDIR)/libxs.template.f $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
                      $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
@@ -1008,6 +1009,9 @@ endif
 	@rm -f $(INCDIR)/libxs.mod
 	@rm -f $(INCDIR)/libxs.f
 	@rm -f $(INCDIR)/libxs.h
+	@rm -f $(INCDIR)/.make
+	@rm -f $(DOCDIR)/.make
+	@rm -f .state
 
 .PHONY: clean-all
 clean-all: clean
@@ -1117,4 +1121,8 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@mkdir -p $(INSTALL_ROOT)/$(PTSTDIR)
 	@cp -v $(basename $(shell ls -1 ${TSTDIR}/*.c 2> /dev/null | tr "\n" " ")) $(INSTALL_ROOT)/$(PTSTDIR) 2> /dev/null || true
 endif
+
+# enable tracking last build
+.PHONY: state
+state: .state
 
