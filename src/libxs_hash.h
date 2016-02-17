@@ -49,6 +49,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_hash(
   /** Upper bound of the result. */
   unsigned int n);
 
+/** Calculate a hash value for a given quantity (size) of raw data according to the seed (init. value). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_hash_npot(
+  const void* data, unsigned int size,
+  /** Upper bound of the result. */
+  unsigned int npot);
+
 
 #if defined(LIBXS_BUILD) && !defined(LIBXS_HASH_NOINLINE)
 # include "libxs_hash.c"

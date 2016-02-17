@@ -359,7 +359,8 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table
 #define LIBXS_HASH_CRC32_U16(SEED, N, VALUE) _mm_crc32_u16(SEED, VALUE)
 #define LIBXS_HASH_CRC32_U32(SEED, N, VALUE) _mm_crc32_u32(SEED, VALUE)
 #define LIBXS_HASH_CRC32_U64(SEED, N, VALUE) _mm_crc32_u64(SEED, VALUE)
-#define LIBXS_HASH1(SEED, N, VALUE) LIBXS_MOD1((SEED << 5) + (VALUE) - 1, N)
+#define LIBXS_HASH_NGEN(SEED, NGEN, VALUE) (((SEED << 5) + (VALUE) - 1) % NGEN)
+#define LIBXS_HASH_NPOT(SEED, NPOT, VALUE) LIBXS_MOD2((SEED << 5) + (VALUE) - 1, NPOT)
 
 #define LIBXS_HASH_UNALIGNED(FN64, FN32, FN16, FN8, DATA, SIZE, SEED, N) { \
   const unsigned char *begin = (const unsigned char*)(DATA); \
@@ -482,6 +483,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse4
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_hash(const void* data, unsigned int size, unsigned int n)
 {
-  LIBXS_HASH_UNALIGNED(LIBXS_HASH1, LIBXS_HASH1, LIBXS_HASH1, LIBXS_HASH1, data, size, size, n);
+  LIBXS_HASH_UNALIGNED(LIBXS_HASH_NGEN, LIBXS_HASH_NGEN, LIBXS_HASH_NGEN, LIBXS_HASH_NGEN, data, size, size, n);
 }
 
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_hash_npot(const void* data, unsigned int size, unsigned int npot)
+{
+  LIBXS_HASH_UNALIGNED(LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, data, size, size, npot);
+}
