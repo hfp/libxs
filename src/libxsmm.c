@@ -74,7 +74,7 @@
 
 /* alternative hash algorithm (instead of CRC32) */
 #if !defined(LIBXS_HASH_BASIC)
-# if defined(__MIC__)
+# if !defined(LIBXS_SSE_MAX) || (4 > (LIBXS_SSE_MAX))
 #   define LIBXS_HASH_BASIC
 # endif
 #endif
@@ -340,8 +340,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
             fprintf(stderr, "LIBXS: CRC32 instructions are not available!\n");
           }
 #endif
-
-
           for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].code.xmm = 0;
           { /* omit registering code if JIT is enabled and if an ISA extension is found
              * which is beyond the static code path used to compile the library
