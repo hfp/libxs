@@ -1088,9 +1088,9 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 		cp -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
 	@cp -v $(BINDIR)/libxs_gemm_generator $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@cp -v $(INCDIR)/*.mod* $(INSTALL_ROOT)/$(PINCDIR)2> /dev/null || true
 	@cp -v $(INCDIR)/libxs*.h $(INSTALL_ROOT)/$(PINCDIR)
 	@cp -v $(INCDIR)/libxs.f $(INSTALL_ROOT)/$(PINCDIR)
-	@cp -v $(INCDIR)/*.mod* $(INSTALL_ROOT)/$(PINCDIR)
 endif
 
 .PHONY: install
