@@ -65,6 +65,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__rea
   const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const double*, const double*, const libxs_blasint*, const double* b, const libxs_blasint*,
   const double* beta, double*, const libxs_blasint*);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_mkl_sgemm)(
+  const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+  const float*, const float*, const libxs_blasint*, const float* b, const libxs_blasint*,
+  const float* beta, float*, const libxs_blasint*);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_mkl_dgemm)(
+  const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+  const double*, const double*, const libxs_blasint*, const double* b, const libxs_blasint*,
+  const double* beta, double*, const libxs_blasint*);
 /* mute warning about external function definition with no prior declaration */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_SGEMM(
   const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
