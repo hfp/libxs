@@ -125,6 +125,7 @@ PROGRAM smm
   DO i = LBOUND(a, 3), UBOUND(a, 3)
     CALL libxs_blas_gemm(m=m, n=n, k=k, a=a(:,:,i), b=b(:,:,i), c=tmp)
   END DO
+  !$OMP BARRIER
   !$OMP MASTER
   duration = libxs_timer_duration(start, libxs_timer_tick())
   !$OMP END MASTER
@@ -147,6 +148,7 @@ PROGRAM smm
   DO i = LBOUND(a, 3), UBOUND(a, 3)
     CALL libxs_gemm(m=m, n=n, k=k, a=a(:,:,i), b=b(:,:,i), c=tmp)
   END DO
+  !$OMP BARRIER
   !$OMP MASTER
   duration = libxs_timer_duration(start, libxs_timer_tick())
   !$OMP END MASTER
@@ -172,6 +174,7 @@ PROGRAM smm
     DO i = LBOUND(a, 3), UBOUND(a, 3)
       CALL libxs_call(xmm, a(:,:,i), b(:,:,i), tmp)
     END DO
+    !$OMP BARRIER
     !$OMP MASTER
     duration = libxs_timer_duration(start, libxs_timer_tick())
     !$OMP END MASTER
