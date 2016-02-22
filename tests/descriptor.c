@@ -11,13 +11,14 @@
  */
 int main()
 {
-  int is_static, has_crc32, i;
+  int is_static, has_crc32;
   const char *const cpuid = libxs_cpuid(&is_static, &has_crc32);
   const libxs_gemm_diff_function diff = 0 != cpuid
     ? (/*snb*/'b' != cpuid[2] ? libxs_gemm_diff_avx2 : libxs_gemm_diff_avx)
     : (0 != has_crc32/*sse4.2*/ ? libxs_gemm_diff_sse : libxs_gemm_diff);
   const int m = 64, n = 239, k = 64, lda = 64, ldb = 240, ldc = 240;
   union { libxs_gemm_descriptor descriptor; char simd[32]; } a, b;
+  unsigned int i;
 
   LIBXS_GEMM_DESCRIPTOR(a.descriptor, LIBXS_ALIGNMENT, LIBXS_FLAGS,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
