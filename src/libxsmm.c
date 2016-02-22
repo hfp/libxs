@@ -68,7 +68,7 @@
 #endif
 
 /* enable generic variant of libxs_gemm_diff */
-#if !defined(LIBXS_GEMM_DIFF_SW) && defined(__MIC__)
+#if !defined(LIBXS_GEMM_DIFF_SW) /*&& defined(__MIC__)*/
 # define LIBXS_GEMM_DIFF_SW
 #endif
 
