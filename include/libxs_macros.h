@@ -127,6 +127,17 @@
 # define LIBXS_PRAGMA_UNROLL
 #endif
 
+#define LIBXS_REPEAT_1(A) A
+#define LIBXS_REPEAT_2(A) LIBXS_REPEAT_1(A); A
+#define LIBXS_REPEAT_3(A) LIBXS_REPEAT_2(A); A
+#define LIBXS_REPEAT_4(A) LIBXS_REPEAT_3(A); A
+#define LIBXS_REPEAT_5(A) LIBXS_REPEAT_4(A); A
+#define LIBXS_REPEAT_6(A) LIBXS_REPEAT_5(A); A
+#define LIBXS_REPEAT_7(A) LIBXS_REPEAT_6(A); A
+#define LIBXS_REPEAT_8(A) LIBXS_REPEAT_7(A); A
+#define LIBXS_REPEAT(N, A) LIBXS_CONCATENATE(LIBXS_REPEAT_, N)(A)
+
+#define LOOPN(n,a) LOOP##n(a)
 /*Based on Stackoverflow's NBITSx macro.*/
 #define LIBXS_NBITS02(N) (0 != ((N) & 2/*0b10*/) ? 1 : 0)
 #define LIBXS_NBITS04(N) (0 != ((N) & 0xC/*0b1100*/) ? (2 + LIBXS_NBITS02((N) >> 2)) : LIBXS_NBITS02(N))
