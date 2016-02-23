@@ -187,6 +187,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
       if (0 == diff0) { \
         if (0 == (LIBXS_HASH_COLLISION & result.imm)) { /* check for no collision */ \
           /* calculate bitwise difference (deep check) */ \
+          LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
           diff = (DIFF_FUNCTION)(&(DESCRIPTOR), &((ENTRY)->descriptor)); \
           if (0 != diff) { /* new collision discovered (but no code version yet) */ \
             /* allow to fix-up current entry inside of the guarded/locked region */ \

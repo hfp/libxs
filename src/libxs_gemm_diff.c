@@ -50,12 +50,10 @@ unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* a, const libxs_gemm_de
   unsigned int result, i;
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(0 != a && 0 != b);
-
   result = ia[0] ^ ib[0];
   for (i = 1; i < LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)); ++i) {
     result |= (ia[i] ^ ib[i]);
   }
-
   return result;
 }
 
