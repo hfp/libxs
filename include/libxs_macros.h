@@ -147,6 +147,7 @@
 #define LIBXS_NBITS(N) (0 != (N) ? (LIBXS_NBITS64((unsigned long long)(N)) + 1) : 1)
 
 #define LIBXS_DEFAULT(DEFAULT, VALUE) (0 < (VALUE) ? (VALUE) : (DEFAULT))
+#define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
 #define LIBXS_MOD2(N, NPOT) ((N) & ((NPOT) - 1))
