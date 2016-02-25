@@ -67,6 +67,14 @@
 # endif
 #endif
 
+/**
+ * LIBXS is agnostic with respect to the threading runtime!
+ * LIBXS_OPENMP suppresses using OS primitives (PThreads)
+ */
+#if defined(_OPENMP) && !defined(LIBXS_OPENMP)
+/*# define LIBXS_OPENMP*/
+#endif
+
 /* enable generic variant of libxs_gemm_diff */
 #if !defined(LIBXS_GEMM_DIFF_SW) /*&& defined(__MIC__)*/
 # define LIBXS_GEMM_DIFF_SW
@@ -122,7 +130,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_arch_name = 0;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_jit = 0;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_has_crc32 = 0;
 
-#if !defined(_OPENMP)
+#if !defined(LIBXS_OPENMP)
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] = {
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
   LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
@@ -139,7 +147,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 # define INTERNAL_FIND_CODE_INIT(VARIABLE) if (0 == (VARIABLE)) VARIABLE = internal_init()
 #endif
 
-#if defined(_OPENMP)
+#if defined(LIBXS_OPENMP)
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) LIBXS_PRAGMA(omp critical(internal_reglock)) { \
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) }
 #else
@@ -149,7 +157,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(internal_reglock[LOCKINDEX]); }
 #endif
 
-#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
 #   define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED)
 #   define INTERNAL_FIND_CODE_READ(ENTRY, DST) DST = __atomic_load_n(&((ENTRY)->code.xmm), __ATOMIC_SEQ_CST)
@@ -162,7 +170,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
       while (!__sync_bool_compare_and_swap(&((ENTRY)->code.xmm), old, SRC)) old = (ENTRY)->code.xmm; \
     }
 # endif
-#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32) /*TODO*/
+#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32) /*TODO*/
 # define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = internal_registry
 # define INTERNAL_FIND_CODE_READ(ENTRY, DST) DST = (ENTRY)->code.xmm
 # define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) (ENTRY)->code.xmm = (SRC)
@@ -310,7 +318,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
   /*const*/internal_regentry* result;
   int i;
 
-#if !defined(_OPENMP)
+#if !defined(LIBXS_OPENMP)
   /* acquire locks and thereby shortcut lazy initialization later on */
   const int nlocks = sizeof(internal_reglock) / sizeof(*internal_reglock);
   for (i = 0; i < nlocks; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock[i]);
@@ -318,13 +326,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 # pragma omp critical(internal_reglock)
 #endif
   {
-#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
     result = __atomic_load_n(&internal_registry, __ATOMIC_SEQ_CST);
 # else
     result = __sync_or_and_fetch(&internal_registry, 0);
 # endif
-#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
     result = internal_registry; /*TODO*/
 #else
     result = internal_registry;
@@ -410,7 +418,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
             }
           }
           atexit(libxs_finalize);
-#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
           __atomic_store_n(&internal_registry, result, __ATOMIC_SEQ_CST);
 # else
@@ -419,7 +427,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
             while (!__sync_bool_compare_and_swap(&internal_registry, old, result)) old = internal_registry;
           }
 # endif
-#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
           internal_registry = result; /*TODO*/
 #else
           internal_registry = result;
@@ -433,7 +441,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #endif
     }
   }
-#if !defined(_OPENMP) /* release locks */
+#if !defined(LIBXS_OPENMP) /* release locks */
   for (i = 0; i < nlocks; ++i) LIBXS_LOCK_RELEASE(internal_reglock[i]);
 #endif
   assert(result);
@@ -447,13 +455,13 @@ LIBXS_ATTRIBUTE(constructor)
 #endif
 LIBXS_RETARGETABLE void libxs_init(void)
 {
-#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
   const void *const registry = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED);
 # else
   const void *const registry = __sync_or_and_fetch(&internal_registry, 0);
 # endif
-#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
   const void *const registry = internal_registry; /*TODO*/
 #else
   const void *const registry = internal_registry;
@@ -471,13 +479,13 @@ LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
 LIBXS_RETARGETABLE void libxs_finalize(void)
 {
-#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
   internal_regentry* registry = __atomic_load_n(&internal_registry, __ATOMIC_SEQ_CST);
 # else
   internal_regentry* registry = __sync_or_and_fetch(&internal_registry, 0);
 # endif
-#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
   internal_regentry* registry = internal_registry; /*TODO*/
 #else
   internal_regentry* registry = internal_registry;
@@ -485,7 +493,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 
   if (0 != registry) {
     int i;
-#if !defined(_OPENMP)
+#if !defined(LIBXS_OPENMP)
     /* acquire locks and thereby shortcut lazy initialization later on */
     const int nlocks = sizeof(internal_reglock) / sizeof(*internal_reglock);
     for (i = 0; i < nlocks; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock[i]);
@@ -510,7 +518,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
           fprintf(stderr, "LIBXS: failed to finalize (error #%i)!\n", i);
         }
 # endif
-#if (defined(_REENTRANT) || defined(_OPENMP)) && defined(LIBXS_GCCATOMICS)
+#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
         __atomic_store_n(&internal_registry, 0, __ATOMIC_SEQ_CST);
 # else
@@ -519,7 +527,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
           LIBXS_UNUSED(dummy);
         }
 # endif
-#elif (defined(_REENTRANT) || defined(_OPENMP)) && defined(_WIN32)
+#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
         internal_registry = 0; /*TODO*/
 #else
         internal_registry = 0;
@@ -554,7 +562,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 #endif
       }
     }
-#if !defined(_OPENMP) /* release locks */
+#if !defined(LIBXS_OPENMP) /* release locks */
   for (i = 0; i < nlocks; ++i) LIBXS_LOCK_RELEASE(internal_reglock[i]);
 #endif
   }
