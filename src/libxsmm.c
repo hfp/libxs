@@ -240,7 +240,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
       if (0 == internal_find_code_result.pmm) { /* double-check after acquiring the lock */ \
         if (0 == diff) { \
           /* found a conflict-free registry-slot, and attempt to build the kernel */ \
-          internal_build(&(DESCRIPTOR), &internal_find_code_result.xmm, &((ENTRY)->code_size)); \
+          internal_build(&(DESCRIPTOR), &internal_find_code_result, &((ENTRY)->code_size)); \
           if (0 != internal_find_code_result.pmm) { /* synchronize registry entry */ \
             (ENTRY)->descriptor = (DESCRIPTOR); \
             INTERNAL_FIND_CODE_WRITE(ENTRY, internal_find_code_result.pmm); \
@@ -569,13 +569,13 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc, libxs_xmmfunction* code, unsigned int* code_size)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc, internal_code* code, unsigned int* code_size)
 {
 #if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   libxs_generated_code generated_code;
   assert(0 != desc && 0 != code && 0 != code_size);
   assert(0 != internal_jit);
-  assert(0 == *code);
+  assert(0 == code->pmm);
 
   /* allocate temporary buffer which is large enough to cover the generated code */
   generated_code.generated_code = malloc(131072 * sizeof(unsigned char));
@@ -596,7 +596,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #endif
     if (0 <= fd) {
       /* create executable buffer */
-      *code = mmap(0, generated_code.code_size,
+      code->pmm = mmap(0, generated_code.code_size,
         /* must be a superset of what mprotect populates (see below) */
         PROT_READ | PROT_WRITE | PROT_EXEC,
 #if defined(__APPLE__) && defined(__MACH__)
@@ -608,7 +608,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         MAP_PRIVATE, fd, 0);
       close(fd);
 #endif
-      if (MAP_FAILED != *code) {
+      if (MAP_FAILED != code->pmm) {
         /* explicitly disable THP for this memory region, kernel 2.6.38 or higher */
 #if defined(MADV_NOHUGEPAGE)
 # if defined(NDEBUG)
@@ -631,9 +631,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         LIBXS_MESSAGE("================================================================================")
 #endif /*MADV_NOHUGEPAGE*/
         /* copy temporary buffer into the prepared executable buffer */
-        memcpy(*code, generated_code.generated_code, generated_code.code_size);
+        memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
 
-        if (0/*ok*/ == mprotect(*code, generated_code.code_size, PROT_EXEC | PROT_READ)) {
+        if (0/*ok*/ == mprotect(code->pmm, generated_code.code_size, PROT_EXEC | PROT_READ)) {
 #if !defined(NDEBUG) && defined(_DEBUG)
           /* write buffer for manual decode as binary to a file */
           char objdump_name[512];
@@ -664,15 +664,15 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
           if (0 == once) {
             const int error = errno;
             fprintf(stderr, "LIBXS: %s (mprotect error #%i at %p+%u)!\n",
-              strerror(error), error, *code, generated_code.code_size);
+              strerror(error), error, code->pmm, generated_code.code_size);
             once = 1;
           }
-          if (0 != munmap(*code, generated_code.code_size)) {
+          if (0 != munmap(code->pmm, generated_code.code_size)) {
             static LIBXS_TLS int once_mmap_error = 0;
             if (0 == once_mmap_error) {
               const int error = errno;
               fprintf(stderr, "LIBXS: %s (munmap error #%i at %p+%u)!\n",
-                strerror(error), error, *code, generated_code.code_size);
+                strerror(error), error, code->pmm, generated_code.code_size);
               once_mmap_error = 1;
             }
           }
@@ -692,7 +692,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #endif
         free(generated_code.generated_code);
         /* clear MAP_FAILED value */
-        *code = 0;
+        code->pmm = 0;
       }
     }
 #if !defined(NDEBUG)/* library code is expected to be mute */
