@@ -104,11 +104,11 @@
 # define LIBXS_PREFETCH_C(EXPR) 0
 #endif
 
-/** Helper macro for GEMM function names (and similar functions). */
-#define LIBXS_TPREFIX_AUX(REAL, FUNCTION) LIBXS_TPREFIX_##REAL(FUNCTION)
-#define LIBXS_TPREFIX(REAL, FUNCTION) LIBXS_TPREFIX_AUX(REAL, FUNCTION)
-#define LIBXS_TPREFIX_double(FUNCTION) d##FUNCTION
-#define LIBXS_TPREFIX_float(FUNCTION) s##FUNCTION
+/** Helper macro for BLAS-style symbol names. */
+#define LIBXS_TPREFIX_NAME(REAL) LIBXS_CONCATENATE(LIBXS_TPREFIX_, REAL)
+#define LIBXS_TPREFIX(REAL, SYMBOL) LIBXS_CONCATENATE(LIBXS_TPREFIX_NAME(REAL), SYMBOL)
+#define LIBXS_TPREFIX_double d
+#define LIBXS_TPREFIX_float s
 
 /** Check ILP64 configuration for sanity. */
 #if (defined(MKL_ILP64) && 0 == LIBXS_ILP64)
