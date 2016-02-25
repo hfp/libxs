@@ -612,15 +612,15 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         /* explicitly disable THP for this memory region, kernel 2.6.38 or higher */
 #if defined(MADV_NOHUGEPAGE)
 # if defined(NDEBUG)
-        madvise(*code, generated_code.code_size, MADV_NOHUGEPAGE);
+        madvise(code->pmm, generated_code.code_size, MADV_NOHUGEPAGE);
 # else /* library code is expected to be mute */
         /* proceed even in case of an error, we then just take what we got (THP) */
-        if (0 != madvise(*code, generated_code.code_size, MADV_NOHUGEPAGE)) {
+        if (0 != madvise(code->pmm, generated_code.code_size, MADV_NOHUGEPAGE)) {
           static LIBXS_TLS int once = 0;
           if (0 == once) {
             const int error = errno;
             fprintf(stderr, "LIBXS: %s (madvise error #%i at %p)!\n",
-              strerror(error), error, *code);
+              strerror(error), error, code->pmm);
             once = 1;
           }
         }
@@ -658,7 +658,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         }
         else { /* there was an error with mprotect */
 #if defined(NDEBUG)
-          munmap(*code, generated_code.code_size);
+          munmap(code->pmm, generated_code.code_size);
 #else /* library code is expected to be mute */
           static LIBXS_TLS int once = 0;
           if (0 == once) {
