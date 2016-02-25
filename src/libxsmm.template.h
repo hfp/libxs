@@ -76,10 +76,19 @@ typedef LIBXS_RETARGETABLE void (*libxs_smmfunction)(const float* a, const float
 /** Specialized function with fused alpha and beta arguments, and optional prefetch locations (double-precision). */
 typedef LIBXS_RETARGETABLE void (*libxs_dmmfunction)(const double* a, const double* b, double* c, ...);
 
+/** Specialized function with fused alpha and beta arguments, and optional prefetch locations (weak-typed). */
+typedef union LIBXS_RETARGETABLE libxs_xmmfunction {
+  libxs_smmfunction smm;
+  libxs_dmmfunction dmm;
+} libxs_xmmfunction;
+
 /** Initialize the library; pay for setup cost at a specific point. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
 /** Uninitialize the library and free internal memory (optional). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void);
+
+/** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (descriptor form). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);
 
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (single-precision). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int n, int k,

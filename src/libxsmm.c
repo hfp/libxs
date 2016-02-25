@@ -112,9 +112,8 @@
 #define LIBXS_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 1))
 
 typedef union LIBXS_RETARGETABLE internal_code {
-  libxs_smmfunction smm;
-  libxs_dmmfunction dmm;
-  /*const*/void* xmm;
+  libxs_xmmfunction xmm;
+  /*const*/void* pmm;
   uintptr_t imm;
 } internal_code;
 typedef struct LIBXS_RETARGETABLE internal_regentry {
@@ -159,47 +158,48 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 
 #if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
-#   define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED)
-#   define INTERNAL_FIND_CODE_READ(ENTRY, DST) DST = __atomic_load_n(&((ENTRY)->code.xmm), __ATOMIC_SEQ_CST)
-#   define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) __atomic_store_n(&((ENTRY)->code.xmm), SRC, __ATOMIC_SEQ_CST)
+#   define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED); unsigned int i
+#   define INTERNAL_FIND_CODE_READ(ENTRY, DST) DST = __atomic_load_n(&((ENTRY)->code.pmm), __ATOMIC_SEQ_CST)
+#   define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) __atomic_store_n(&((ENTRY)->code.pmm), SRC, __ATOMIC_SEQ_CST)
 # else
-#   define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = __sync_or_and_fetch(&internal_registry, 0)
-#   define INTERNAL_FIND_CODE_READ(ENTRY, DST) DST = __sync_or_and_fetch(&((ENTRY)->code.xmm), 0)
+#   define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = __sync_or_and_fetch(&internal_registry, 0); unsigned int i
+#   define INTERNAL_FIND_CODE_READ(ENTRY, DST) DST = __sync_or_and_fetch(&((ENTRY)->code.pmm), 0)
 #   define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) { \
-      /*const*/void* old = (ENTRY)->code.xmm; \
-      while (!__sync_bool_compare_and_swap(&((ENTRY)->code.xmm), old, SRC)) old = (ENTRY)->code.xmm; \
+      /*const*/void* old = (ENTRY)->code.pmm; \
+      while (!__sync_bool_compare_and_swap(&((ENTRY)->code.pmm), old, SRC)) old = (ENTRY)->code.pmm; \
     }
 # endif
 #elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32) /*TODO*/
-# define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = internal_registry
-# define INTERNAL_FIND_CODE_READ(ENTRY, DST) DST = (ENTRY)->code.xmm
-# define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) (ENTRY)->code.xmm = (SRC)
+# define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = internal_registry; unsigned int i
+# define INTERNAL_FIND_CODE_READ(ENTRY, DST) DST = (ENTRY)->code.pmm
+# define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) (ENTRY)->code.pmm = (SRC)
 #else
-# define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = internal_registry
-# define INTERNAL_FIND_CODE_READ(ENTRY, DST) DST = (ENTRY)->code.xmm
-# define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) (ENTRY)->code.xmm = (SRC)
+# define INTERNAL_FIND_CODE_DECLARE(ENTRY) internal_regentry* ENTRY = internal_registry; unsigned int i
+# define INTERNAL_FIND_CODE_READ(ENTRY, DST) DST = (ENTRY)->code.pmm
+# define INTERNAL_FIND_CODE_WRITE(ENTRY, SRC) (ENTRY)->code.pmm = (SRC)
 #endif
 
-#define INTERNAL_FIND_CODE(DESCRIPTOR, SELECTOR/*smm or dmm*/, ENTRY, HASH_FUNCTION, DIFF_FUNCTION) { \
+#define INTERNAL_FIND_CODE(DESCRIPTOR, ENTRY, HASH_FUNCTION, DIFF_FUNCTION) \
+  internal_code internal_find_code_result; \
+{ \
   unsigned int hash, diff = 0, diff0 = 0, i0; \
-  internal_code result; \
   INTERNAL_FIND_CODE_INIT(ENTRY); \
   /* check if the requested xGEMM is already JITted */ \
   LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
   LIBXS_HASH_FUNCTION_CALL(hash, i = i0, HASH_FUNCTION, DESCRIPTOR); \
   (ENTRY) += i; /* actual entry */ \
   do { \
-    INTERNAL_FIND_CODE_READ(ENTRY, result.xmm); /* read registered code */ \
+    INTERNAL_FIND_CODE_READ(ENTRY, internal_find_code_result.pmm); /* read registered code */ \
     /* entire block is conditional wrt LIBXS_JIT; static code currently does not have collisions */ \
-    if (0 != result.xmm) { \
+    if (0 != internal_find_code_result.pmm) { \
       if (0 == diff0) { \
-        if (0 == (LIBXS_HASH_COLLISION & result.imm)) { /* check for no collision */ \
+        if (0 == (LIBXS_HASH_COLLISION & internal_find_code_result.imm)) { /* check for no collision */ \
           /* calculate bitwise difference (deep check) */ \
           LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
           diff = (DIFF_FUNCTION)(&(DESCRIPTOR), &((ENTRY)->descriptor)); \
           if (0 != diff) { /* new collision discovered (but no code version yet) */ \
             /* allow to fix-up current entry inside of the guarded/locked region */ \
-            result.xmm = 0; \
+            internal_find_code_result.pmm = 0; \
           } \
         } \
         /* collision discovered but code version exists; perform initial deep check */ \
@@ -211,39 +211,39 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
           for (i0 = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE)), \
             i = i0, next = LIBXS_HASH_MOD(i0 + 1, LIBXS_REGSIZE); next != i0/*no code found*/ && \
             /* skip any (still invalid) descriptor which corresponds to no code, or continue on difference */ \
-            (0 == (ENTRY = (registry + i))->code.xmm || 0 != (diff = (DIFF_FUNCTION)(&(DESCRIPTOR), &((ENTRY)->descriptor)))); \
+            (0 == (ENTRY = (registry + i))->code.pmm || 0 != (diff = (DIFF_FUNCTION)(&(DESCRIPTOR), &((ENTRY)->descriptor)))); \
             i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE)); \
           if (0 == diff) { /* found exact code version; continue with atomic load */ \
             continue; \
           } \
           else { /* no code found */ \
-            result.xmm = 0; \
+            internal_find_code_result.pmm = 0; \
             break; \
           } \
         } \
         else { /* clear the uppermost bit of the address */ \
-          result.imm &= ~LIBXS_HASH_COLLISION; \
+          internal_find_code_result.imm &= ~LIBXS_HASH_COLLISION; \
         } \
       } \
       else { /* new collision discovered (but no code version yet) */ \
-        result.xmm = 0; \
+        internal_find_code_result.pmm = 0; \
       } \
     } \
     /* check if code generation or fix-up is needed, also check whether JIT is supported (CPUID) */ \
-    if (0 == result.xmm && 0 != internal_jit) { \
+    if (0 == internal_find_code_result.pmm && 0 != internal_jit) { \
       INTERNAL_FIND_CODE_LOCK(lock, i); /* lock the registry entry */ \
       /* re-read registry entry after acquiring the lock */ \
       if (0 == diff) { \
-        result = (ENTRY)->code; \
-        result.imm &= ~LIBXS_HASH_COLLISION; \
+        internal_find_code_result = (ENTRY)->code; \
+        internal_find_code_result.imm &= ~LIBXS_HASH_COLLISION; \
       } \
-      if (0 == result.xmm) { /* double-check after acquiring the lock */ \
+      if (0 == internal_find_code_result.pmm) { /* double-check after acquiring the lock */ \
         if (0 == diff) { \
           /* found a conflict-free registry-slot, and attempt to build the kernel */ \
-          internal_build(&(DESCRIPTOR), &result.xmm, &((ENTRY)->code_size)); \
-          if (0 != result.xmm) { /* synchronize registry entry */ \
+          internal_build(&(DESCRIPTOR), &internal_find_code_result.xmm, &((ENTRY)->code_size)); \
+          if (0 != internal_find_code_result.pmm) { /* synchronize registry entry */ \
             (ENTRY)->descriptor = (DESCRIPTOR); \
-            INTERNAL_FIND_CODE_WRITE(ENTRY, result.xmm); \
+            INTERNAL_FIND_CODE_WRITE(ENTRY, internal_find_code_result.pmm); \
           } \
         } \
         else { /* 0 != diff */ \
@@ -279,14 +279,12 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
     } \
   } \
   while (0 != diff); \
-  return result.SELECTOR; \
-}
+} \
+return internal_find_code_result.xmm
 
-#define INTERNAL_DISPATCH(VECTOR_WIDTH, FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, \
-  SELECTOR/*smm or dmm*/, HASH_FUNCTION, DIFF_FUNCTION) \
-{ \
+#define INTERNAL_DISPATCH(VECTOR_WIDTH, FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/, HASH_FUNCTION, DIFF_FUNCTION) { \
   INTERNAL_FIND_CODE_DECLARE(entry); \
-  union { libxs_gemm_descriptor descriptor; char simd[0!=(VECTOR_WIDTH)?(VECTOR_WIDTH):(LIBXS_GEMM_DESCRIPTOR_SIZE)]; } simd_descriptor; unsigned int i; \
+  union { libxs_gemm_descriptor descriptor; char simd[0!=(VECTOR_WIDTH)?(VECTOR_WIDTH):(LIBXS_GEMM_DESCRIPTOR_SIZE)]; } simd_descriptor; \
   LIBXS_GEMM_DESCRIPTOR(simd_descriptor.descriptor, 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, FLAGS, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
     0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB), \
     0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA), \
@@ -295,7 +293,9 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
     0 == (PBETA) ? LIBXS_BETA : *(PBETA), \
     0 == (PREFETCH) ? LIBXS_PREFETCH : *(PREFETCH)); \
   for (i = LIBXS_GEMM_DESCRIPTOR_SIZE; i < sizeof(simd_descriptor.simd); ++i) simd_descriptor.simd[i] = 0; \
-  INTERNAL_FIND_CODE(simd_descriptor.descriptor, SELECTOR, entry, HASH_FUNCTION, DIFF_FUNCTION); \
+  { \
+    INTERNAL_FIND_CODE(simd_descriptor.descriptor, entry, HASH_FUNCTION, DIFF_FUNCTION).SELECTOR; \
+  } \
 }
 
 #define INTERNAL_SMMDISPATCH(VECTOR_WIDTH, PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, HASH_FUNCTION, DIFF_FUNCTION) \
@@ -380,7 +380,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
             fprintf(stderr, "LIBXS: CRC32 instructions are not available!\n");
           }
 #endif
-          for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].code.xmm = 0;
+          for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].code.pmm = 0;
           { /* omit registering code if JIT is enabled and if an ISA extension is found
              * which is beyond the static code path used to compile the library
              */
@@ -539,16 +539,16 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
         for (i = 0; i < LIBXS_REGSIZE; ++i) {
           const unsigned int code_size = registry[i].code_size;
           internal_code code = registry[i].code;
-          if (0 != code.xmm/*allocated*/ && 0 != code_size/*JIT*/) {
+          if (0 != code.pmm/*allocated*/ && 0 != code_size/*JIT*/) {
             /* make address valid by clearing an eventual collision flag */
             code.imm &= ~LIBXS_HASH_COLLISION;
 # if defined(NDEBUG)
-            munmap(code.xmm, code_size);
+            munmap(code.pmm, code_size);
 # else /* library code is expected to be mute */
-            if (0 != munmap(code.xmm, code_size)) {
+            if (0 != munmap(code.pmm, code_size)) {
               const int error = errno;
               fprintf(stderr, "LIBXS: %s (munmap error #%i at %p+%u)!\n",
-                strerror(error), error, code.xmm, code_size);
+                strerror(error), error, code.pmm, code_size);
             }
 # endif
           }
@@ -569,8 +569,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc,
-  void** code, unsigned int* code_size)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc, libxs_xmmfunction* code, unsigned int* code_size)
 {
 #if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   libxs_generated_code generated_code;
@@ -720,11 +719,69 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #elif !defined(__MIC__)
   LIBXS_UNUSED(desc); LIBXS_UNUSED(code); LIBXS_UNUSED(code_size);
   LIBXS_MESSAGE("================================================================================")
-  LIBXS_MESSAGE("LIBXS: The JIT BACKEND is currently not supported on Microsoft Windows!")
+  LIBXS_MESSAGE("LIBXS: The JIT BACKEND is currently not supported under Microsoft Windows!")
   LIBXS_MESSAGE("================================================================================")
 #else
   LIBXS_UNUSED(desc); LIBXS_UNUSED(code); LIBXS_UNUSED(code_size);
 #endif /*_WIN32*/
+}
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_xmmdispatch(const libxs_gemm_descriptor* descriptor)
+{
+  assert(descriptor);
+  {
+    INTERNAL_FIND_CODE_DECLARE(entry);
+    {
+#if defined(LIBXS_GEMM_DIFF_SW)
+# if defined(LIBXS_HASH_BASIC)
+      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff);
+# else
+      const libxs_hash_function crc32_fun = 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32;
+      INTERNAL_FIND_CODE(*descriptor, entry, crc32_fun, libxs_gemm_diff);
+# endif
+#elif defined(__MIC__)
+# if defined(LIBXS_HASH_BASIC)
+      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff_imci);
+# else
+      INTERNAL_FIND_CODE(*descriptor, entry, libxs_crc32, libxs_gemm_diff_imci);
+# endif
+#elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
+# if defined(LIBXS_HASH_BASIC)
+      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff_avx2);
+# else
+      INTERNAL_FIND_CODE(*descriptor, entry, libxs_crc32_sse42, libxs_gemm_diff_avx2);
+# endif
+#elif defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))
+# if defined(LIBXS_HASH_BASIC)
+      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff_avx);
+# else
+      INTERNAL_FIND_CODE(*descriptor, entry, libxs_crc32_sse42, libxs_gemm_diff_avx);
+# endif
+#elif defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))
+# if defined(LIBXS_HASH_BASIC)
+      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff_sse);
+# else
+      INTERNAL_FIND_CODE(*descriptor, entry, libxs_crc32_sse42, libxs_gemm_diff_sse);
+# endif
+#else
+      const libxs_gemm_diff_function diff_fun = 0 != internal_arch_name ? libxs_gemm_diff_avx : (0 != internal_has_crc32 ? libxs_gemm_diff_sse : libxs_gemm_diff);
+# if defined(LIBXS_HASH_BASIC)
+      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, diff_fun);
+# else
+      const libxs_hash_function crc32_fun = 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32;
+      INTERNAL_FIND_CODE(*descriptor, entry, crc32_fun, diff_fun);
+# endif
+#endif
+    }
+  }
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
+{
+  const libxs_xmmfunction null_mmfunction = { 0 };
+  return 0 != descriptor ? internal_xmmdispatch(descriptor) : null_mmfunction;
 }
 
 

@@ -29,7 +29,7 @@
 #ifndef LIBXS_FRONTEND_H
 #define LIBXS_FRONTEND_H
 
-#include "libxs_typedefs.h"
+#include "libxs_generator.h"
 #include "libxs_macros.h"
 #include "libxs.h"
 
