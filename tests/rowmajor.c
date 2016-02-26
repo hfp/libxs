@@ -48,7 +48,7 @@ int main()
     &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 
 #if defined(USE_LIBXS_BLAS)
-  LIBXS_XBLAS_GEMM_SYMBOL(REAL_TYPE)(&notrans, &notrans, &m, &n, &k,
+  LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&notrans, &notrans, &m, &n, &k,
     &alpha, a, &lda, b, &ldb, &beta, d, &ldc);
 #else
   LIBXS_BLAS_GEMM_SYMBOL(REAL_TYPE)(&notrans, &notrans, &n, &m, &k,
