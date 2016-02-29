@@ -338,7 +338,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
     result = internal_registry;
 #endif
     if (0 == result) {
-      int init_code = libxs_gemm_init(0/*auto-discovered*/, 0/*auto-discovered*/);
+      int is_static = 0;
+      /* decide using internal_has_crc32 instead of relying on a libxs_hash_function pointer
+       * which will allow to inline the call instead of using an indirection (via fn. pointer)
+       */
+      internal_arch_name = libxs_cpuid(&is_static, &internal_has_crc32);
+      int init_code = libxs_gemm_init(internal_arch_name, 0/*auto-discovered*/, 0/*auto-discovered*/);
 #if defined(__TRACE)
       const char *const env_trace_init = getenv("LIBXS_TRACE");
       if (EXIT_SUCCESS == init_code && 0 != env_trace_init) {
@@ -362,11 +367,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
         result = (internal_regentry*)malloc((LIBXS_REGSIZE + 1/*padding*/) * sizeof(internal_regentry));
 
         if (result) {
-          int is_static = 0;
-          /* decide using internal_has_crc32 instead of relying on a libxs_hash_function pointer
-           * which will allow to inline the call instead of using an indirection (via fn. pointer)
-           */
-          internal_arch_name = libxs_cpuid(&is_static, &internal_has_crc32);
           if (0 != internal_has_crc32) {
 #if !defined(LIBXS_SSE_MAX) || (4 > (LIBXS_SSE_MAX))
             internal_has_crc32 = 0;
