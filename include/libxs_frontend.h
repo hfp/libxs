@@ -276,6 +276,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*libxs_internal_dgemm)(
     LIBXS_PREFETCH_C(PC)); \
 }
 
+#if (LIBXS_PREFETCH_NONE == LIBXS_PREFETCH)
+# define LIBXS_MMCALL(FN, A, B, C, M, N, K, LDA, LDB, LDC) \
+  LIBXS_MMCALL_ABC(FN, A, B, C)
+#else
+# define LIBXS_MMCALL(FN, A, B, C, M, N, K, LDA, LDB, LDC) \
+  LIBXS_MMCALL_PRF(FN, A, B, C, (A) + (LDA) * (K), (B) + (LDB) * (N), (C) + (LDC) * (N))
+#endif
+
 /**
  * Execute a specialized function, or use a fallback code path depending on threshold (template).
  * LIBXS_FALLBACK0 or specialized function: below LIBXS_MAX_MNK
@@ -290,37 +298,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*libxs_internal_dgemm)(
     const int libxs_xgemm_flags_ = (int)(FLAGS); \
     const int libxs_xgemm_lda_ = (int)(LDA), libxs_xgemm_ldb_ = (int)(LDB), libxs_xgemm_ldc_ = (int)(LDC); \
     const REAL libxs_xgemm_alpha_ = (REAL)(ALPHA), libxs_xgemm_beta_ = (REAL)(BETA); \
-    int libxs_xgemm_fallback_ = 0; \
-    if (LIBXS_PREFETCH_NONE == LIBXS_PREFETCH) { \
-      const LIBXS_MMFUNCTION_TYPE(REAL) libxs_mmfunction_ = \
-        LIBXS_MMDISPATCH_SYMBOL(REAL)((int)(M), (int)(N), (int)(K), \
-          &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
-          &libxs_xgemm_alpha_, &libxs_xgemm_beta_, \
-          &libxs_xgemm_flags_, 0); \
-      if (0 != libxs_mmfunction_) { \
-        LIBXS_MMCALL_ABC(libxs_mmfunction_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C)); \
-      } \
-      else { \
-        libxs_xgemm_fallback_ = 1; \
-      } \
+    const LIBXS_MMFUNCTION_TYPE(REAL) libxs_mmfunction_ = LIBXS_MMDISPATCH_SYMBOL(REAL)( \
+      (int)(M), (int)(N), (int)(K), &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
+      &libxs_xgemm_alpha_, &libxs_xgemm_beta_, &libxs_xgemm_flags_, 0); \
+    if (0 != libxs_mmfunction_) { \
+      LIBXS_MMCALL(libxs_mmfunction_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C), M, N, K, LDA, LDB, LDC); \
     } \
     else { \
-      const int libxs_xgemm_prefetch_ = (LIBXS_PREFETCH); \
-      const LIBXS_MMFUNCTION_TYPE(REAL) libxs_mmfunction_ = \
-        LIBXS_MMDISPATCH_SYMBOL(REAL)((int)(M), (int)(N), (int)(K), \
-          &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
-          &libxs_xgemm_alpha_, &libxs_xgemm_beta_, \
-          &libxs_xgemm_flags_, &libxs_xgemm_prefetch_); \
-      if (0 != libxs_mmfunction_) { \
-        LIBXS_MMCALL_PRF(libxs_mmfunction_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C), \
-          ((const REAL*)(A)) + libxs_xgemm_lda_ * (K), ((const REAL*)(B)) + libxs_xgemm_ldb_ * (N), \
-          ((const REAL*)(C)) + libxs_xgemm_ldc_ * (N)); \
-      } \
-      else { \
-        libxs_xgemm_fallback_ = 1; \
-      } \
-    } \
-    if (0 != libxs_xgemm_fallback_) { \
       LIBXS_FALLBACK0(REAL, INT, SYMBOL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
     } \
   } \
