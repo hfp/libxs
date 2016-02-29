@@ -56,7 +56,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
   const double*, double*, const libxs_blasint*);
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid,
   libxs_sgemm_function sgemm_function, libxs_dgemm_function dgemm_function)
 {
   if (NULL == sgemm_function) {
