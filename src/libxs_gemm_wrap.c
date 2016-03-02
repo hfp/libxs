@@ -122,7 +122,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_SGEMM(
     } break;
     default: {
       LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
-      LIBXS_XGEMM(float, libxs_blasint, libxs_internal_sgemm, flags, *m, *n, *k,
+      LIBXS_XGEMM(float, libxs_blasint, flags, *m, *n, *k,
         0 != alpha ? *alpha : ((float)LIBXS_ALPHA),
         a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
         0 != beta ? *beta : ((float)LIBXS_BETA),
@@ -152,7 +152,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
     } break;
     default: {
       LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
-      LIBXS_XGEMM(double, libxs_blasint, libxs_internal_dgemm, flags, *m, *n, *k,
+      LIBXS_XGEMM(double, libxs_blasint, flags, *m, *n, *k,
         0 != alpha ? *alpha : ((double)LIBXS_ALPHA),
         a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
         0 != beta ? *beta : ((double)LIBXS_BETA),
