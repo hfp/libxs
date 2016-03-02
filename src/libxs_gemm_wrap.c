@@ -59,6 +59,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid,
   libxs_sgemm_function sgemm_function, libxs_dgemm_function dgemm_function)
 {
+  /* internal pre-initialization step */
+  libxs_gemm_configure(archid);
+
   if (NULL == sgemm_function) {
     union { const void* pv; libxs_sgemm_function pf; } internal = { NULL };
     internal.pv = dlsym(RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(sgemm)));

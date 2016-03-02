@@ -83,4 +83,8 @@
 # define LIBXS_GEMM_WEAK
 #endif
 
+
+/** INTERNAL pre-initialization step called by libxs_gemm_init, e.g. configures the tile sizes for multithreaded GEMM functions. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_configure(const char* archid);
+
 #endif /*LIBXS_GEMM_WRAP_H*/
