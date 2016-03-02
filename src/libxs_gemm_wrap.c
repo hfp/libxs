@@ -31,7 +31,7 @@
 
 
 #if defined(LIBXS_GEMM_WRAP)
-#if !defined(__STATIC) /*avoid remark about external function definition with no prior declaration*/
+#if !defined(__STATIC)
 # if defined(LIBXS_OFFLOAD_TARGET)
 #   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 # endif
@@ -42,12 +42,14 @@
 # endif
 
 
+/* avoid remark about external function definition with no prior declaration */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_SGEMM(
   const char*, const char*,
   const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const float*, const float*, const libxs_blasint*,
   const float*, const libxs_blasint* ldb,
   const float*, float*, const libxs_blasint*);
+/* avoid remark about external function definition with no prior declaration */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
   const char*, const char*,
   const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
@@ -56,11 +58,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
   const double*, double*, const libxs_blasint*);
 
 
+/* implementation variant for non-static linkage; overrides weak libxs_gemm_init in libxs_gemm.c */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid,
   libxs_sgemm_function sgemm_function, libxs_dgemm_function dgemm_function)
 {
   /* internal pre-initialization step */
-  libxs_gemm_configure(archid);
+  libxs_gemm_configure(archid, 0/*default gemm kind is small gemm*/);
 
   if (NULL == sgemm_function) {
     union { const void* pv; libxs_sgemm_function pf; } internal = { NULL };
@@ -106,13 +109,26 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_SGEMM(
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc)
 {
-  LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
   assert(LIBXS_GEMM_WRAP_SGEMM != libxs_internal_sgemm);
-  LIBXS_XGEMM(float, libxs_blasint, libxs_internal_sgemm, flags, *m, *n, *k,
-    0 != alpha ? *alpha : ((float)LIBXS_ALPHA),
-    a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
-    0 != beta ? *beta : ((float)LIBXS_BETA),
-    c, *(ldc ? ldc : LIBXS_LD(m, n)));
+  switch (libxs_internal_gemm) {
+    case 1: {
+      libxs_omps_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    } break;
+    case 2: {
+#if defined(_OPENMP)
+#     pragma omp parallel
+#endif
+      libxs_omps_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    } break;
+    default: {
+      LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
+      LIBXS_XGEMM(float, libxs_blasint, libxs_internal_sgemm, flags, *m, *n, *k,
+        0 != alpha ? *alpha : ((float)LIBXS_ALPHA),
+        a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
+        0 != beta ? *beta : ((float)LIBXS_BETA),
+        c, *(ldc ? ldc : LIBXS_LD(m, n)));
+    }
+  }
 }
 
 
@@ -123,13 +139,26 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
   const double* b, const libxs_blasint* ldb,
   const double* beta, double* c, const libxs_blasint* ldc)
 {
-  LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
   assert(LIBXS_GEMM_WRAP_DGEMM != libxs_internal_dgemm);
-  LIBXS_XGEMM(double, libxs_blasint, libxs_internal_dgemm, flags, *m, *n, *k,
-    0 != alpha ? *alpha : ((double)LIBXS_ALPHA),
-    a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
-    0 != beta ? *beta : ((double)LIBXS_BETA),
-    c, *(ldc ? ldc : LIBXS_LD(m, n)));
+  switch (libxs_internal_gemm) {
+    case 1: {
+      libxs_omps_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    } break;
+    case 2: {
+#if defined(_OPENMP)
+#     pragma omp parallel
+#endif
+      libxs_omps_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    } break;
+    default: {
+      LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
+      LIBXS_XGEMM(double, libxs_blasint, libxs_internal_dgemm, flags, *m, *n, *k,
+        0 != alpha ? *alpha : ((double)LIBXS_ALPHA),
+        a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
+        0 != beta ? *beta : ((double)LIBXS_BETA),
+        c, *(ldc ? ldc : LIBXS_LD(m, n)));
+    }
+  }
 }
 
 #endif /*defined(LIBXS_GEMM_WRAP)*/
