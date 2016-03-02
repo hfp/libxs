@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
     /* run non-inline function to measure call overhead of an "empty" function */
     start = libxs_timer_tick();
 #if defined(_OPENMP)
-#   pragma omp parallel for default(none) private(i) shared(size)
+#   pragma omp parallel for default(none) private(i)
 #endif
     for (i = 0; i < size; ++i) {
       libxs_init(); /* subsequent calls are not doing any work */
@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
 
     start = libxs_timer_tick();
 #if defined(_OPENMP)
-#   pragma omp parallel for default(none) private(i) shared(size)
+#   pragma omp parallel for default(none) private(i)
 #endif
     for (i = 0; i < size; ++i) {
       libxs_dmmdispatch(LIBXS_AVG_M, LIBXS_AVG_N, LIBXS_AVG_K,
