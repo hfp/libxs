@@ -117,6 +117,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_SGEMM(
     case 2: {
 #if defined(_OPENMP)
 #     pragma omp parallel
+#     pragma omp single
 #endif
       libxs_omps_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
     } break;
@@ -147,6 +148,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
     case 2: {
 #if defined(_OPENMP)
 #     pragma omp parallel
+#     pragma omp single
 #endif
       libxs_omps_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
     } break;
