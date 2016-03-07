@@ -100,7 +100,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_finalize(void)
 }
 
 
-#endif /*defined(__STATIC)*/
+#endif /*!defined(__STATIC)*/
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WEAK_DLIB void LIBXS_GEMM_EXTWRAP_SGEMM(
   const char* transa, const char* transb,
