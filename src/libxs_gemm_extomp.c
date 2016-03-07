@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2015-2016, Intel Corporation                                **
+** Copyright (c) 2016, Intel Corporation                                     **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -196,7 +196,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_dgemm(const char* transa, cons
 
 #if defined(LIBXS_GEMM_EXTWRAP)
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WEAK void LIBXS_GEMM_EXTWRAP_SGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
@@ -227,7 +227,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WEAK void LIBXS_GEMM_EXTWRAP_DGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
