@@ -44,6 +44,7 @@
   LIBXS_VERSION3(6, 1, 0) >= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) && !defined(__CYGWIN__)
 # if defined(__STATIC) /* -Wl,--wrap=xgemm_ */
 #   define LIBXS_GEMM_EXTWRAP
+#   define LIBXS_GEMM_WEAK_SLIB LIBXS_ATTRIBUTE(weak)
 #   define LIBXS_GEMM_EXTWRAP_SGEMM LIBXS_FSYMBOL(__wrap_sgemm)
 #   define LIBXS_GEMM_EXTWRAP_DGEMM LIBXS_FSYMBOL(__wrap_dgemm)
     LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_sgemm)(
@@ -74,13 +75,16 @@
       const double* beta, double*, const libxs_blasint*);
 # elif !defined(__CYGWIN__) /* LD_PRELOAD */
 #   define LIBXS_GEMM_EXTWRAP
-#   define LIBXS_GEMM_WEAK LIBXS_ATTRIBUTE(weak)
+#   define LIBXS_GEMM_WEAK_DLIB LIBXS_ATTRIBUTE(weak)
 #   define LIBXS_GEMM_EXTWRAP_SGEMM LIBXS_FSYMBOL(sgemm)
 #   define LIBXS_GEMM_EXTWRAP_DGEMM LIBXS_FSYMBOL(dgemm)
 # endif
 #endif /*defined(LIBXS_GEMM_EXTWRAP)*/
-#if !defined(LIBXS_GEMM_WEAK)
-# define LIBXS_GEMM_WEAK
+#if !defined(LIBXS_GEMM_WEAK_SLIB)
+# define LIBXS_GEMM_WEAK_SLIB
+#endif
+#if !defined(LIBXS_GEMM_WEAK_DLIB)
+# define LIBXS_GEMM_WEAK_DLIB
 #endif
 
 
