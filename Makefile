@@ -99,9 +99,9 @@ ifneq (0,$(JIT))
 	SSE ?= 1
 endif
 
-# OpenMP is enabled by default (more choice for "OMPS" routines)
-# (LIBXS is still agnostic wrt threading runtime)
-OMP ?= 1
+# OpenMP is disabled by default and LIBXS is
+# always agnostic wrt the threading runtime
+OMP ?= 0
 
 BLAS_WARNING ?= 0
 ifeq (0,$(STATIC))
@@ -162,11 +162,13 @@ OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES)) \
 OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES)) \
                $(BLDDIR)/mic/libxs.o $(BLDDIR)/mic/libxs_gemm.o \
                $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o
-WRAPOBJS_HST = $(BLDDIR)/intel64/libxs_gemm_wrap.o
-WRAPOBJS_MIC = $(BLDDIR)/mic/libxs_gemm_wrap.o
+WRAPOBJS_HST = $(BLDDIR)/intel64/libxs_gemm_extwrap.o
+WRAPOBJS_MIC = $(BLDDIR)/mic/libxs_gemm_extwrap.o
+EXTOBJS_HST = $(BLDDIR)/intel64/libxs_gemm_extomp.o
+EXTOBJS_MIC = $(BLDDIR)/mic/libxs_gemm_extomp.o
 
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
-OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) $(WRAPOBJS_HST) $(WRAPOBJS_MIC)
+OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) $(WRAPOBJS_HST) $(WRAPOBJS_MIC) $(EXTOBJS_HST) $(EXTOBJS_MIC)
 FTNOBJS = $(BLDDIR)/intel64/libxs-mod.o $(BLDDIR)/mic/libxs-mod.o
 
 .PHONY: libxs
@@ -185,10 +187,10 @@ headers: cheader fheader
 interface: headers
 
 .PHONY: lib_mic
-lib_mic: clib_mic flib_mic wrap_mic
+lib_mic: clib_mic flib_mic ext_mic
 
 .PHONY: lib_hst
-lib_hst: clib_hst flib_hst wrap_hst
+lib_hst: clib_hst flib_hst ext_hst
 
 PREFETCH_ID = 0
 PREFETCH_SCHEME = nopf
@@ -281,7 +283,7 @@ endif
 endif
 ifeq (0,$(STATIC))
 ifeq (Windows_NT,$(UNAME))
-	$(info The shared link-time wrapper (libxsld) is not supported under Windows/Cygwin!)
+	$(info The shared link-time wrapper (libxsext) is not supported under Windows/Cygwin!)
 	$(info ================================================================================)
 endif
 endif
@@ -503,7 +505,7 @@ endif
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ifneq (,$(strip $(FC)))
-flib_hst: $(OUTDIR)/mic/libxsf.$(LIBEXT)
+flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/libxs.$(LIBEXT)
 	$(FC) -o $@ $(BLDDIR)/mic/libxs-mod.o $(call libdir,$(OUTDIR)/mic/libxs.$(LIBEXT)) -mmic -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
@@ -527,24 +529,46 @@ $(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/.make
 endif
 endif
 
-.PHONY: wrap_mic
+ifeq (0,$(OMP))
+EXTOMPFLAG = $(OMPFLAG)
+endif
+
+.PHONY: compile_ext_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
+compile_ext_mic: $(EXTOBJS_MIC)
+$(BLDDIR)/mic/%.o: $(SRCDIR)/%.c $(BLDDIR)/mic/.make $(INCDIR)/libxs.h
+	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic $(EXTOMPFLAG) -c $< -o $@
+endif
+endif
+
+.PHONY: compile_ext_hst
+compile_ext_hst: $(EXTOBJS_HST)
+$(BLDDIR)/intel64/%.o: $(SRCDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h
+	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) $(EXTOMPFLAG) -c $< -o $@
+
+.PHONY: ext_mic
+ifneq (0,$(MIC))
+ifneq (0,$(MPSS))
+ext_mic: $(OUTDIR)/mic/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
-wrap_mic: $(OUTDIR)/mic/libxsld.$(DLIBEXT)
-$(OUTDIR)/mic/libxsld.$(DLIBEXT): $(OUTDIR)/mic/.make $(WRAPOBJS_MIC) $(OUTDIR)/mic/libxs.$(DLIBEXT)
-	$(LD) -o $@ $(WRAPOBJS_MIC) $(call libdir,$(OUTDIR)/mic/libxs.$(DLIBEXT)) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC) $(WRAPOBJS_MIC) $(OUTDIR)/mic/libxs.$(DLIBEXT)
+	$(LD) -o $@ $(EXTOBJS_MIC) $(WRAPOBJS_MIC) $(call libdir,$(OUTDIR)/mic/libxs.$(DLIBEXT)) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
+else
+$(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC)
+	$(AR) -rs $@ $(EXTOBJS_MIC)
 endif
 endif
 endif
 
-.PHONY: wrap_hst
+.PHONY: ext_hst
+ext_hst: $(OUTDIR)/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
-ifneq (Windows_NT,$(UNAME))
-wrap_hst: $(OUTDIR)/libxsld.$(DLIBEXT)
-$(OUTDIR)/libxsld.$(DLIBEXT): $(OUTDIR)/.make $(WRAPOBJS_HST) $(OUTDIR)/libxs.$(DLIBEXT)
-	$(LD) -o $@ $(WRAPOBJS_HST) $(call libdir,$(OUTDIR)/libxs.$(DLIBEXT)) -shared $(LDFLAGS) $(CLDFLAGS)
-endif
+$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST) $(WRAPOBJS_HST) $(OUTDIR)/libxs.$(DLIBEXT)
+	$(LD) -o $@ $(EXTOBJS_HST) $(WRAPOBJS_HST) $(call libdir,$(OUTDIR)/libxs.$(DLIBEXT)) -shared $(LDFLAGS) $(CLDFLAGS)
+else # static
+$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST)
+	$(AR) -rs $@ $(EXTOBJS_HST)
 endif
 
 .PHONY: samples
@@ -998,7 +1022,7 @@ endif
 ifneq (,$(wildcard $(OUTDIR)))
 	@rm -f $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/mic/libxs.$(LIBEXT)
 	@rm -f $(OUTDIR)/libxsf.$(LIBEXT) $(OUTDIR)/mic/libxsf.$(LIBEXT)
-	@rm -f $(OUTDIR)/libxsld.$(LIBEXT) $(OUTDIR)/mic/libxsld.$(LIBEXT)
+	@rm -f $(OUTDIR)/libxsext.$(LIBEXT) $(OUTDIR)/mic/libxsext.$(LIBEXT)
 	@rm -f $(OUTDIR)/libxsgen.$(LIBEXT)
 endif
 ifneq (,$(wildcard $(BINDIR)))
@@ -1051,14 +1075,14 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@mkdir -p $(INSTALL_ROOT)/$(POUTDIR) $(INSTALL_ROOT)/$(PBINDIR) $(INSTALL_ROOT)/$(PINCDIR)
 	@cp -v $(OUTDIR)/libxsgen.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxsgen.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsld.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsext.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxsf.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxsf.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxs.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@if [ -e $(OUTDIR)/mic/libxsld.$(DLIBEXT) ]; then \
+	@if [ -e $(OUTDIR)/mic/libxsext.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -v $(OUTDIR)/mic/libxsld.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		cp -v $(OUTDIR)/mic/libxsext.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsf.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \

@@ -26,11 +26,11 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_gemm_wrap.h"
+#include "libxs_gemm_ext.h"
 #include "libxs_gemm.h"
 
 
-#if defined(LIBXS_GEMM_WRAP)
+#if defined(LIBXS_GEMM_EXTWRAP)
 #if !defined(__STATIC)
 # if defined(LIBXS_OFFLOAD_TARGET)
 #   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -43,14 +43,14 @@
 
 
 /* avoid remark about external function definition with no prior declaration */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_SGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
   const char*, const char*,
   const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const float*, const float*, const libxs_blasint*,
   const float*, const libxs_blasint* ldb,
   const float*, float*, const libxs_blasint*);
 /* avoid remark about external function definition with no prior declaration */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
   const char*, const char*,
   const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const double*, const double*, const libxs_blasint*,
@@ -102,14 +102,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_finalize(void)
 
 #endif /*defined(__STATIC)*/
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_SGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc)
 {
-  assert(LIBXS_GEMM_WRAP_SGEMM != libxs_internal_sgemm);
+  assert(LIBXS_GEMM_EXTWRAP_SGEMM != libxs_internal_sgemm);
   switch (libxs_internal_gemm) {
     case 1: {
       libxs_omps_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
@@ -133,14 +133,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_SGEMM(
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
   const double* b, const libxs_blasint* ldb,
   const double* beta, double* c, const libxs_blasint* ldc)
 {
-  assert(LIBXS_GEMM_WRAP_DGEMM != libxs_internal_dgemm);
+  assert(LIBXS_GEMM_EXTWRAP_DGEMM != libxs_internal_dgemm);
   switch (libxs_internal_gemm) {
     case 1: {
       libxs_omps_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
@@ -163,4 +163,4 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_WRAP_DGEMM(
   }
 }
 
-#endif /*defined(LIBXS_GEMM_WRAP)*/
+#endif /*defined(LIBXS_GEMM_EXTWRAP)*/

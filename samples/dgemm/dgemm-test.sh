@@ -31,14 +31,14 @@ if [ -e ${HERE}/dgemm-blas ]; then
   fi
   ${ECHO}
 
-  if [ -e ${DEPDIR}/lib/libxsld.${LIBEXT} ]; then
+  if [ -e ${DEPDIR}/lib/libxsext.${LIBEXT} ]; then
     ${ECHO}
     ${ECHO} "============================="
     ${ECHO} "Running DGEMM (LD_PRELOAD)"
     ${ECHO} "============================="
     { time \
-      LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${DEPDIR}/lib/libxsld.${LIBEXT} \
-      DYLD_LIBRARY_PATH=${DEPDIR}/lib:${DYLD_LIBRARY_PATH} DYLD_INSERT_LIBRARIES=${DEPDIR}/lib/libxsld.${LIBEXT} \
+      LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${DEPDIR}/lib/libxsext.${LIBEXT} \
+      DYLD_LIBRARY_PATH=${DEPDIR}/lib:${DYLD_LIBRARY_PATH} DYLD_INSERT_LIBRARIES=${DEPDIR}/lib/libxsext.${LIBEXT} \
       ${HERE}/dgemm-blas.sh $* 2>${TMPF}; } 2>&1 | ${GREP} real
     RESULT=$?
     if [ 0 != ${RESULT} ]; then

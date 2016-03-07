@@ -185,7 +185,7 @@ ld [...] -Wl,--wrap=mkl_sgemm_,--wrap=mkl_dgemm_ /path/to/libxs.a
 If an application is dynamically linked against LAPACK/BLAS, the unmodified application allows for intercepting these calls at startup time (runtime) by using the LD_PRELOAD mechanism:
 
 ```
-LD_PRELOAD=/path/to/libxsld.so ./myapplication
+LD_PRELOAD=/path/to/libxsext.so ./myapplication
 ```
 
 This case obviously requires to build a shared library of LIBXS:
