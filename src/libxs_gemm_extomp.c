@@ -112,7 +112,7 @@
       tile_n = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_NBITS(tile_n * rn /*+ 0.5*/)),  8), N); \
       tile_k = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_NBITS(tile_k * rk /*+ 0.5*/)), 32), K); \
     } \
-    LIBXS_GEMM_DESCRIPTOR(desc, LIBXS_ALIGNMENT, FLAGS, tile_m, tile_n, tile_k, LDA, LDB, LDC, ALPHA, BETA, LIBXS_PREFETCH); \
+    LIBXS_GEMM_DESCRIPTOR(desc, LIBXS_ALIGNMENT, FLAGS, tile_m, tile_n, tile_k, LDA, LDB, LDC, ALPHA, BETA, LIBXS_PREFETCH_AL2_AHEAD); \
     xmm = libxs_xmmdispatch(&desc); \
   } \
   if (0 != xmm.dmm) { \
