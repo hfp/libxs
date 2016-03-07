@@ -193,3 +193,68 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_dgemm(const char* transa, cons
     c, *(ldc ? ldc : LIBXS_LD(m, n)));
 }
 
+
+#if defined(LIBXS_GEMM_EXTWRAP)
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
+  const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const float* alpha, const float* a, const libxs_blasint* lda,
+  const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
+{
+  assert(LIBXS_GEMM_EXTWRAP_SGEMM != libxs_internal_sgemm);
+  switch (libxs_internal_gemm) {
+    case 1: {
+      libxs_omps_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    } break;
+    case 2: {
+#if defined(_OPENMP)
+#     pragma omp parallel
+#     pragma omp single
+#endif
+      libxs_omps_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    } break;
+    default: {
+      LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
+      LIBXS_XGEMM(float, libxs_blasint, flags, *m, *n, *k,
+        0 != alpha ? *alpha : ((float)LIBXS_ALPHA),
+        a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
+        0 != beta ? *beta : ((float)LIBXS_BETA),
+        c, *(ldc ? ldc : LIBXS_LD(m, n)));
+    }
+  }
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
+  const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const double* alpha, const double* a, const libxs_blasint* lda,
+  const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
+{
+  assert(LIBXS_GEMM_EXTWRAP_DGEMM != libxs_internal_dgemm);
+  switch (libxs_internal_gemm) {
+    case 1: {
+      libxs_omps_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    } break;
+    case 2: {
+#if defined(_OPENMP)
+#     pragma omp parallel
+#     pragma omp single
+#endif
+      libxs_omps_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    } break;
+    default: {
+      LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
+      LIBXS_XGEMM(double, libxs_blasint, flags, *m, *n, *k,
+        0 != alpha ? *alpha : ((double)LIBXS_ALPHA),
+        a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
+        0 != beta ? *beta : ((double)LIBXS_BETA),
+        c, *(ldc ? ldc : LIBXS_LD(m, n)));
+    }
+  }
+}
+
+#endif /*defined(LIBXS_GEMM_EXTWRAP)*/
