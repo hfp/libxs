@@ -119,11 +119,11 @@
     LIBXS_GEMM_EXTOMP_START \
     { \
       const libxs_blasint max_j = ((K) / tile_k) * tile_k; \
-      libxs_blasint h = 0, i = 0; \
+      libxs_blasint h, i; \
       if ((LIBXS_GEMM_EXTOMP_OVERHEAD(NT)) <= num_k) { /* amortize overhead */ \
         LIBXS_GEMM_EXTOMP_FOR(2) \
-        for (; h < (M); h += tile_m) { \
-          for (; i < (N); i += tile_n) { \
+        for (h = 0; h < (M); h += tile_m) { \
+          for (i = 0; i < (N); i += tile_n) { \
             LIBXS_GEMM_EXTOMP_TASK(h, i) \
             LIBXS_GEMM_EXTOMP_XGEMM_TASK(REAL, FLAGS, h, i, tile_m, tile_n, tile_k, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
           } \
@@ -132,9 +132,9 @@
       } \
       else if (num_n <= num_m) { \
         LIBXS_GEMM_EXTOMP_FOR(2) \
-        for (; h < (M); h += tile_m) { \
+        for (h = 0; h < (M); h += tile_m) { \
           LIBXS_GEMM_EXTOMP_TASK(h) \
-          for (; i < (N); i += tile_n) { \
+          for (i = 0; i < (N); i += tile_n) { \
             LIBXS_GEMM_EXTOMP_XGEMM_TASK(REAL, FLAGS, h, i, tile_m, tile_n, tile_k, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
           } \
         } \
@@ -142,9 +142,9 @@
       } \
       else { \
         LIBXS_GEMM_EXTOMP_FOR(2) \
-        for (; i < (N); i += tile_n) { \
+        for (i = 0; i < (N); i += tile_n) { \
           LIBXS_GEMM_EXTOMP_TASK(i) \
-          for (; h < (M); h += tile_m) { \
+          for (h = 0; h < (M); h += tile_m) { \
             LIBXS_GEMM_EXTOMP_XGEMM_TASK(REAL, FLAGS, h, i, tile_m, tile_n, tile_k, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
           } \
         } \
@@ -194,7 +194,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_dgemm(const char* transa, cons
 }
 
 
-#if defined(LIBXS_GEMM_EXTWRAP) && 0
+#if defined(LIBXS_GEMM_EXTWRAP)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
   const char* transa, const char* transb,
