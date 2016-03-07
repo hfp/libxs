@@ -102,7 +102,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_finalize(void)
 
 #endif /*defined(__STATIC)*/
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_SGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WEAK_DLIB void LIBXS_GEMM_EXTWRAP_SGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
@@ -119,7 +119,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_DGEMM(
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_GEMM_WEAK_DLIB void LIBXS_GEMM_EXTWRAP_DGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
