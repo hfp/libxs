@@ -29,7 +29,6 @@
 #ifndef LIBXS_FRONTEND_H
 #define LIBXS_FRONTEND_H
 
-#include "libxs_generator.h"
 #include "libxs_macros.h"
 #include "libxs.h"
 
@@ -47,6 +46,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include "libxs_generator.h"
 #include <assert.h>
 #include <stdint.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
