@@ -110,7 +110,7 @@
       if (1.f < rk) { rm /= rk; rn /= rk; rk = 1.f; } \
       tile_m = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_NBITS(tile_m * rm /*+ 0.5*/)),  8), M); \
       tile_n = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_NBITS(tile_n * rn /*+ 0.5*/)),  8), N); \
-      tile_k = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_NBITS(tile_k * rk /*+ 0.5*/)), 32), K); \
+      tile_k = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_NBITS(tile_k * rk /*+ 0.5*/)), 16), K); \
     } \
     LIBXS_GEMM_DESCRIPTOR(desc, LIBXS_ALIGNMENT, FLAGS, tile_m, tile_n, tile_k, LDA, LDB, LDC, ALPHA, BETA, LIBXS_PREFETCH_AL2_AHEAD); \
     xmm = libxs_xmmdispatch(&desc); \
