@@ -150,7 +150,7 @@
 #define LIBXS_NBITS16(N) (0 != ((N) & 0xFF00) ? (8 + LIBXS_NBITS08((N) >> 8)) : LIBXS_NBITS08(N))
 #define LIBXS_NBITS32(N) (0 != ((N) & 0xFFFF0000) ? (16 + LIBXS_NBITS16((N) >> 16)) : LIBXS_NBITS16(N))
 #define LIBXS_NBITS64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 + LIBXS_NBITS32((N) >> 32)) : LIBXS_NBITS32(N))
-#define LIBXS_NBITS(N) (0 != (N) ? (LIBXS_NBITS64((unsigned long long)(N)) + 1) : 1)
+#define LIBXS_NBITS(N) (0 != ((unsigned long long)(N)) ? (LIBXS_NBITS64((unsigned long long)(N)) + 1) : 1)
 
 #define LIBXS_DEFAULT(DEFAULT, VALUE) (0 < (VALUE) ? (VALUE) : (DEFAULT))
 #define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
