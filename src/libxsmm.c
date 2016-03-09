@@ -286,7 +286,7 @@ return internal_find_code_result.xmm
   INTERNAL_FIND_CODE_DECLARE(entry); \
   union { libxs_gemm_descriptor descriptor; char simd[0!=(VECTOR_WIDTH)?(VECTOR_WIDTH):(LIBXS_GEMM_DESCRIPTOR_SIZE)]; } simd_descriptor; \
   const signed char scalpha = (signed char)(0 == (PALPHA) ? LIBXS_ALPHA : *(PALPHA)), scbeta = (signed char)(0 == (PBETA) ? LIBXS_BETA : *(PBETA)); \
-  if (0 == (FLAGS & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) && 1 == scalpha && (1 == scbeta || 0 == scbeta)) { \
+  if (0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) && 1 == scalpha && (1 == scbeta || 0 == scbeta)) { \
     LIBXS_GEMM_DESCRIPTOR(simd_descriptor.descriptor, 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, FLAGS, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
       0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB), \
       0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA), \
@@ -297,7 +297,7 @@ return internal_find_code_result.xmm
       INTERNAL_FIND_CODE(simd_descriptor.descriptor, entry, HASH_FUNCTION, DIFF_FUNCTION).SELECTOR; \
     } \
   } \
-  else { /* not supported (bypass) */ \
+  else { /* TODO: not supported (bypass) */ \
     return 0; \
   } \
 }
