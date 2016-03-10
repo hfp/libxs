@@ -202,7 +202,7 @@ void run_jit_double( const double*                   i_a,
   l_generated_code.last_error = 0;
 
   /* generate kernel */
-  libxs_generator_dense_kernel( &l_generated_code,
+  libxs_generator_gemm_kernel( &l_generated_code,
                                   i_xgemm_desc,
                                   i_arch );
 
@@ -322,7 +322,7 @@ void run_jit_float( const float*                    i_a,
   l_generated_code.last_error = 0;
 
   /* generate kernel */
-  libxs_generator_dense_kernel( &l_generated_code,
+  libxs_generator_gemm_kernel( &l_generated_code,
                                   i_xgemm_desc,
                                   i_arch );
 

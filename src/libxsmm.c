@@ -589,7 +589,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   generated_code.last_error = 0;
 
   /* generate kernel */
-  libxs_generator_dense_kernel(&generated_code, desc, internal_jit);
+  libxs_generator_gemm_kernel(&generated_code, desc, internal_jit);
 
   /* handle an eventual error in the else-branch */
   if (0 == generated_code.last_error) {
