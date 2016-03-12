@@ -345,6 +345,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
        * which will allow to inline the call instead of using an indirection (via fn. pointer)
        */
       internal_arch_name = libxs_cpuid(&is_static, &internal_has_crc32);
+      libxs_gemm_diff_init(internal_arch_name, internal_has_crc32);
       init_code = libxs_gemm_init(internal_arch_name, 0/*auto-discovered*/, 0/*auto-discovered*/);
 #if defined(__TRACE)
       const char *const env_trace_init = getenv("LIBXS_TRACE");
@@ -520,6 +521,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
           fprintf(stderr, "LIBXS: failed to finalize (error #%i)!\n", i);
         }
 # endif
+        libxs_gemm_diff_finalize();
 #if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
         __atomic_store_n(&internal_registry, 0, __ATOMIC_SEQ_CST);
