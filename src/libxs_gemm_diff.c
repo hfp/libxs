@@ -120,7 +120,7 @@ unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* a, const libxs_gemm
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
-  return libxs_gemm_diff(a, b); /*TODO: SSE based implementation*/
+  return libxs_gemm_diff_sw(a, b); /*TODO: SSE based implementation*/
 }
 
 
@@ -170,7 +170,7 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gem
   LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using AVX instructions!");
   LIBXS_MESSAGE("================================================================================");
 # endif
-  return libxs_gemm_diff(a, b);
+  return libxs_gemm_diff_sw(a, b);
 #endif
 }
 
@@ -211,7 +211,7 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* a, const libxs_ge
   LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using AVX2 instructions!");
   LIBXS_MESSAGE("================================================================================");
 # endif
-  return libxs_gemm_diff(a, b);
+  return libxs_gemm_diff_sw(a, b);
 #endif
 }
 
