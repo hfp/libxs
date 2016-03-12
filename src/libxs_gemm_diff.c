@@ -82,33 +82,45 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_finalize(void)
 
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
-unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
+unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
   /* attempt to rely on static code path avoids to rely on capability of inlining pointer-based function call */
 #if defined(LIBXS_GEMM_DIFF_SW)
-  return libxs_gemm_diff_sw(a, b);
+  return libxs_gemm_diff_sw(reference, desc);
 #elif defined(__MIC__)
-  return libxs_gemm_diff_imci(a, b);
+  return libxs_gemm_diff_imci(reference, desc);
 #elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
-  return libxs_gemm_diff_avx2(a, b);
+  return libxs_gemm_diff_avx2(reference, desc);
 #elif defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))
-  return libxs_gemm_diff_avx(a, b);
+  return libxs_gemm_diff_avx(reference, desc);
 #elif defined(LIBXS_SSE) && (3 <= (LIBXS_SSE))
-  return libxs_gemm_diff_sse(a, b);
+  return libxs_gemm_diff_sse(reference, desc);
 #else /* pointer based function call */
   assert(0 != internal_gemm_diff_function);
-  return (*internal_gemm_diff_function)(a, b);
+  return (*internal_gemm_diff_function)(reference, desc);
 #endif
 }
 
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
-unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
+unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference,
+  const libxs_gemm_descriptor* desc, unsigned int ndesc, unsigned int nbytes)
 {
-  const unsigned *const ia = (const unsigned int*)a, *const ib = (const unsigned int*)b;
+  unsigned int i;
+  for (i = 0; i != ndesc && 0 != libxs_gemm_diff(reference, desc); ++i) {
+    desc = (const libxs_gemm_descriptor*)(((char*)desc) + nbytes);
+  }
+  return i;
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE
+unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
+{
+  const unsigned *const ia = (const unsigned int*)reference, *const ib = (const unsigned int*)desc;
   unsigned int result, i;
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(0 != a && 0 != b);
+  assert(0 != reference && 0 != desc);
   result = ia[0] ^ ib[0];
   for (i = 1; i < LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)); ++i) {
     result |= (ia[i] ^ ib[i]);
@@ -118,19 +130,19 @@ unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* a, const libxs_gemm
 
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
-unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
+unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
-  return libxs_gemm_diff_sw(a, b); /*TODO: SSE based implementation*/
+  return libxs_gemm_diff_sw(reference, desc); /*TODO: SSE based implementation*/
 }
 
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
-unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
+unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
 #if defined(LIBXS_AVX_MAX) && (1 <= (LIBXS_AVX_MAX))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
-  assert(0 != a && 0 != b);
+  assert(0 != reference && 0 != desc);
   {
     int r0, r1;
     __m256i a256, b256;
@@ -147,12 +159,12 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gem
 #   endif
 # endif
 # if defined(LIBXS_GEMM_DIFF_MASK_A)
-    a256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)a, m256.i));
+    a256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)reference, m256.i));
 # else
-    /*a256 = _mm256_lddqu_si256((const __m256i*)a);*/
-    a256 = _mm256_loadu_si256((const __m256i*)a);
+    /*a256 = _mm256_lddqu_si256((const __m256i*)reference);*/
+    a256 = _mm256_loadu_si256((const __m256i*)reference);
 # endif /*defined(LIBXS_GEMM_DIFF_MASK_A)*/
-    b256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)b, m256.i));
+    b256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)desc, m256.i));
     r0 = _mm256_testnzc_si256(a256, b256);
     r1 = _mm256_testnzc_si256(b256, a256);
     return r0 | r1;
@@ -170,30 +182,30 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gem
   LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using AVX instructions!");
   LIBXS_MESSAGE("================================================================================");
 # endif
-  return libxs_gemm_diff_sw(a, b);
+  return libxs_gemm_diff_sw(reference, desc);
 #endif
 }
 
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
-unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
+unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
 #if defined(LIBXS_AVX_MAX) && (2 <= (LIBXS_AVX_MAX))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
-  assert(0 != a && 0 != b);
+  assert(0 != reference && 0 != desc);
   {
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compile-time error */
     const int yes = 0x80000000, no = 0x0;
     const __m256i m256 = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
 # endif
 # if defined(LIBXS_GEMM_DIFF_MASK_A)
-    const __m256i a256 = _mm256_maskload_epi32((const void*)a, m256);
+    const __m256i a256 = _mm256_maskload_epi32((const void*)reference, m256);
 # else
-    /*const __m256i a256 = _mm256_lddqu_si256((const __m256i*)a);*/
-    const __m256i a256 = _mm256_loadu_si256((const __m256i*)a);
+    /*const __m256i a256 = _mm256_lddqu_si256((const __m256i*)reference);*/
+    const __m256i a256 = _mm256_loadu_si256((const __m256i*)reference);
 # endif /*defined(LIBXS_GEMM_DIFF_MASK_A)*/
-    const __m256i b256 = _mm256_maskload_epi32((const void*)b, m256);
+    const __m256i b256 = _mm256_maskload_epi32((const void*)desc, m256);
     const int r0 = _mm256_testnzc_si256(a256, b256);
     const int r1 = _mm256_testnzc_si256(b256, a256);
     return r0 | r1;
@@ -211,26 +223,26 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* a, const libxs_ge
   LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using AVX2 instructions!");
   LIBXS_MESSAGE("================================================================================");
 # endif
-  return libxs_gemm_diff_sw(a, b);
+  return libxs_gemm_diff_sw(reference, desc);
 #endif
 }
 
 
 #if defined(__MIC__)
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
-unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
+unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(16 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
-  assert(0 != a && 0 != b);
+  assert(0 != reference && 0 != desc);
   {
     const __mmask16 mask = (0xFFFF >> (16 - LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4)));
     const __m512i a512 = _mm512_mask_loadunpackhi_epi32(
-      _mm512_mask_loadunpacklo_epi32(_mm512_set1_epi32(0), mask, a),
-      mask, ((const char*)a) + 32);
+      _mm512_mask_loadunpacklo_epi32(_mm512_set1_epi32(0), mask, reference),
+      mask, ((const char*)reference) + 32);
     const __m512i b512 = _mm512_mask_loadunpackhi_epi32(
-      _mm512_mask_loadunpacklo_epi32(_mm512_set1_epi32(0), mask, b),
-      mask, ((const char*)b) + 32);
+      _mm512_mask_loadunpacklo_epi32(_mm512_set1_epi32(0), mask, desc),
+      mask, ((const char*)desc) + 32);
     return _mm512_reduce_or_epi32(_mm512_xor_si512(a512, b512));
   }
 }

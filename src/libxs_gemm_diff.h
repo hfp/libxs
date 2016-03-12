@@ -56,19 +56,26 @@ typedef LIBXS_RETARGETABLE unsigned int (*libxs_gemm_diff_function)(const libxs_
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_gemm_diff_function libxs_gemm_diff_init(const char* archid, int has_sse);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_finalize(void);
 
-/** Generic implementation which is only relying on high-level constructs. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
-
 /** Dispatched implementation which may (or may not) use a SIMD extension. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
+
+/** Compare a number of descriptors (array) against a reference descriptor. Returns the index of the first match (or ndesc in case of no match). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference,
+  /** Array of descriptors with ndesc elements. */
+  const libxs_gemm_descriptor* desc, unsigned int ndesc,
+  /** Number of bytes until the next descriptor is reached (stride). */
+  unsigned int nbytes);
+
+/** Generic implementation which is only relying on high-level constructs. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
 
 /** Collection of implementations which are using specific instruction set extensions. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
 
 #if defined(__MIC__)
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
 #endif
 
 
