@@ -40,15 +40,29 @@
 #endif
 
 /** Enable/disable masked load of descriptor A */
-/*#define LIBXS_GEMM_DIFF_MASK_A*/
+#if !defined(LIBXS_GEMM_DIFF_MASK_A)
+/*# define LIBXS_GEMM_DIFF_MASK_A*/
+#endif
+/** Enable generic implementation */
+#if !defined(LIBXS_GEMM_DIFF_SW) /*&& defined(__MIC__)*/
+# define LIBXS_GEMM_DIFF_SW
+#endif
+
 
 /** Function type representing the gemm_diff functionality. */
 typedef LIBXS_RETARGETABLE unsigned int (*libxs_gemm_diff_function)(const libxs_gemm_descriptor*, const libxs_gemm_descriptor*);
 
-/** Generic implementations only relying on high-level constructs. */
+/** Initialize GEMM/DIFF module; not thread-safe. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_gemm_diff_function libxs_gemm_diff_init(const char* archid, int has_sse);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_finalize(void);
+
+/** Generic implementation which is only relying on high-level constructs. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
+
+/** Dispatched implementation which may (or may not) use a SIMD extension. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
 
-/** Implementations using specific instruction set extensions. */
+/** Collection of implementations which are using specific instruction set extensions. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b);

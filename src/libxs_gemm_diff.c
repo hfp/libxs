@@ -43,8 +43,67 @@
 #include "libxs_intrinsics.h"
 
 
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diff_function internal_gemm_diff_function = libxs_gemm_diff;
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_gemm_diff_function libxs_gemm_diff_init(const char* archid, int has_sse)
+{
+#if !defined(LIBXS_GEMM_DIFF_SW)
+# if defined(__MIC__)
+  internal_gemm_diff_function = libxs_gemm_diff_imci;
+# elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
+  internal_gemm_diff_function = libxs_gemm_diff_avx2;
+# elif defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))
+  internal_gemm_diff_function = libxs_gemm_diff_avx;
+# elif defined(LIBXS_SSE) && (3 <= (LIBXS_SSE))
+  internal_gemm_diff_function = libxs_gemm_diff_sse;
+# else
+  if (0 != archid) {
+    if ('h' == archid[0] && 's' == archid[1] && 'w' == archid[2]) {
+      internal_gemm_diff_function = libxs_gemm_diff_avx2;
+    }
+    /** 0 != archid is implying at least AVX capabilities */
+    else /*if ('s' == archid[0] && 'n' == archid[1] && 'b' == archid[2])*/ {
+      internal_gemm_diff_function = libxs_gemm_diff_avx;
+    }
+  }
+  else if (0 != has_sse) {
+    internal_gemm_diff_function = libxs_gemm_diff_sse;
+  }
+# endif
+#endif
+  return internal_gemm_diff_function;
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_finalize(void)
+{
+}
+
+
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
 unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
+{
+  /* attempt to rely on static code path avoids to rely on capability of inlining pointer-based function call */
+#if defined(LIBXS_GEMM_DIFF_SW)
+  return libxs_gemm_diff_sw(a, b);
+#elif defined(__MIC__)
+  return libxs_gemm_diff_imci(a, b);
+#elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
+  return libxs_gemm_diff_avx2(a, b);
+#elif defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))
+  return libxs_gemm_diff_avx(a, b);
+#elif defined(LIBXS_SSE) && (3 <= (LIBXS_SSE))
+  return libxs_gemm_diff_sse(a, b);
+#else /* pointer based function call */
+  assert(0 != internal_gemm_diff_function);
+  return (*internal_gemm_diff_function)(a, b);
+#endif
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE
+unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* a, const libxs_gemm_descriptor* b)
 {
   const unsigned *const ia = (const unsigned int*)a, *const ib = (const unsigned int*)b;
   unsigned int result, i;

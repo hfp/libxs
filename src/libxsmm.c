@@ -75,11 +75,6 @@
 /*# define LIBXS_OPENMP*/
 #endif
 
-/* enable generic variant of libxs_gemm_diff */
-#if !defined(LIBXS_GEMM_DIFF_SW) /*&& defined(__MIC__)*/
-# define LIBXS_GEMM_DIFF_SW
-#endif
-
 /* alternative hash algorithm (instead of CRC32) */
 #if !defined(LIBXS_HASH_BASIC) && !defined(LIBXS_REGSIZE)
 # if !defined(LIBXS_SSE_MAX) || (4 > (LIBXS_SSE_MAX))
