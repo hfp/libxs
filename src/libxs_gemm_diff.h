@@ -39,9 +39,9 @@
 # pragma offload_attribute(pop)
 #endif
 
-/** Enable/disable masked load of descriptor A */
+/** Enable masked load of reference (A) descriptor (disabled: descriptor must be SIMD-padded!) */
 #if !defined(LIBXS_GEMM_DIFF_MASK_A)
-/*# define LIBXS_GEMM_DIFF_MASK_A*/
+# define LIBXS_GEMM_DIFF_MASK_A
 #endif
 /** Enable generic implementation */
 #if !defined(LIBXS_GEMM_DIFF_SW) /*&& defined(__MIC__)*/
