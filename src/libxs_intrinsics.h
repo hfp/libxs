@@ -92,7 +92,15 @@
 #     include <immintrin.h>
 #   endif
 # elif defined(__GNUC__)
-#   if (LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#   if (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,avx512f"))
+#     pragma GCC push_options
+#     pragma GCC target("sse3,sse4.1,sse4.2,avx,avx2,avx512f")
+#     include <immintrin.h>
+#     pragma GCC pop_options
+#     define LIBXS_AVX_MAX 3
+#     define LIBXS_SSE_MAX 5
+#   elif (LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 #     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
 #     pragma GCC push_options
 #     pragma GCC target("sse3,sse4.1,sse4.2,avx,avx2")
