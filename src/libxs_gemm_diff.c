@@ -43,36 +43,44 @@
 #include "libxs_intrinsics.h"
 
 
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diff_function internal_gemm_diff_function = libxs_gemm_diff;
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diff_function internal_gemm_diff_function = libxs_gemm_diff_sw;
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diffn_function internal_gemm_diffn_function = libxs_gemm_diffn_sw;
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_gemm_diff_function libxs_gemm_diff_init(const char* archid, int has_sse)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_init(const char* archid, int has_sse)
 {
-#if !defined(LIBXS_GEMM_DIFF_SW)
-# if defined(__MIC__)
+#if defined(__MIC__)
   internal_gemm_diff_function = libxs_gemm_diff_imci;
-# elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
+  /* TODO: consider libxs_gemm_diffn_function for IMCI */
+#elif defined(LIBXS_AVX) && (3 <= (LIBXS_AVX))
   internal_gemm_diff_function = libxs_gemm_diff_avx2;
-# elif defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))
+  internal_gemm_diffn_function = libxs_gemm_diffn_avx512;
+#elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
+  internal_gemm_diff_function = libxs_gemm_diff_avx2;
+#elif defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))
   internal_gemm_diff_function = libxs_gemm_diff_avx;
-# elif defined(LIBXS_SSE) && (3 <= (LIBXS_SSE))
+#elif defined(LIBXS_SSE) && (3 <= (LIBXS_SSE))
   internal_gemm_diff_function = libxs_gemm_diff_sse;
-# else
+#else
   if (0 != archid) {
     if ('h' == archid[0] && 's' == archid[1] && 'w' == archid[2]) {
       internal_gemm_diff_function = libxs_gemm_diff_avx2;
     }
     /** 0 != archid is implying at least AVX capabilities */
-    else /*if ('s' == archid[0] && 'n' == archid[1] && 'b' == archid[2])*/ {
+    else {
       internal_gemm_diff_function = libxs_gemm_diff_avx;
+      if ('k' == archid[0] && 'n' == archid[1] && 'l' == archid[2]) {
+        internal_gemm_diffn_function = libxs_gemm_diffn_avx512;
+      }
+      else if ('s' == archid[0] && 'k' == archid[1] && 'x' == archid[2]) {
+        internal_gemm_diffn_function = libxs_gemm_diffn_avx512;
+      }
     }
   }
   else if (0 != has_sse) {
     internal_gemm_diff_function = libxs_gemm_diff_sse;
   }
-# endif
 #endif
-  return internal_gemm_diff_function;
 }
 
 
@@ -99,18 +107,6 @@ unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* reference, const libxs
   assert(0 != internal_gemm_diff_function);
   return (*internal_gemm_diff_function)(reference, desc);
 #endif
-}
-
-
-LIBXS_EXTERN_C LIBXS_RETARGETABLE
-unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference,
-  const libxs_gemm_descriptor* desc, unsigned int ndesc, unsigned int nbytes)
-{
-  unsigned int i;
-  for (i = 0; i != ndesc && 0 != libxs_gemm_diff(reference, desc); ++i) {
-    desc = (const libxs_gemm_descriptor*)(((char*)desc) + nbytes);
-  }
-  return i;
 }
 
 
@@ -247,3 +243,41 @@ unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const 
   }
 }
 #endif /*defined(__MIC__)*/
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE
+unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference,
+  const libxs_gemm_descriptor* desc, unsigned int ndesc, int nbytes)
+{
+#if defined(LIBXS_AVX) && (3 <= (LIBXS_AVX))
+  return internal_gemm_diffn_avx512(reference, desc, ndesc, nbytes);
+#else /* pointer based function call */
+  assert(0 != internal_gemm_diffn_function);
+  return (*internal_gemm_diffn_function)(reference, desc, ndesc, nbytes);
+#endif
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE
+unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor* reference,
+  const libxs_gemm_descriptor* desc, unsigned int ndesc, int nbytes)
+{
+  unsigned int i;
+  for (i = 0; i != ndesc && 0 != libxs_gemm_diff(reference, desc); ++i) {
+    desc = (const libxs_gemm_descriptor*)(((char*)desc) + nbytes);
+  }
+  return i;
+}
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS
+unsigned int internal_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
+  const libxs_gemm_descriptor* desc, unsigned int ndesc, int nbytes)
+{
+#if defined(LIBXS_AVX_MAX) && (3 <= (LIBXS_AVX_MAX))
+  /* TODO: intrinsc based implementation */
+  return libxs_gemm_diffn_sw(reference, desc, ndesc, nbytes);
+#else
+  return libxs_gemm_diffn_sw(reference, desc, ndesc, nbytes);
+#endif
+}
+
