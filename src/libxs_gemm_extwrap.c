@@ -94,11 +94,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid,
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_finalize(void)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_finalize(void)
 {
-  return EXIT_SUCCESS;
 }
-
 
 #endif /*!defined(__STATIC)*/
 
