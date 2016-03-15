@@ -26,9 +26,10 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#include "libxs_intrinsics_x86.h"
+#include "libxs_cpuid_x86.h"
 #include "libxs_gemm_diff.h"
 #include "libxs_hash.h"
-#include "libxs_cpuid.h"
 #include "libxs_gemm.h"
 
 #if defined(__TRACE)
@@ -77,7 +78,7 @@
 
 /* alternative hash algorithm (instead of CRC32) */
 #if !defined(LIBXS_HASH_BASIC) && !defined(LIBXS_REGSIZE)
-# if !defined(LIBXS_SSE_MAX) || (4 > (LIBXS_SSE_MAX))
+# if !defined(LIBXS_MAX_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4_2 > LIBXS_MAX_STATIC_TARGET_ARCH)
 #   define LIBXS_HASH_BASIC
 # endif
 #endif
@@ -120,9 +121,9 @@ typedef struct LIBXS_RETARGETABLE internal_regentry {
 
 LIBXS_DEBUG(LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_ncollisions = 0;)
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regentry* internal_registry = 0;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_arch_name = 0;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_jit = 0;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_has_crc32 = 0;
+
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_target_arch = LIBXS_TARGET_ARCH_GENERIC;
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_target_archid = 0;
 
 #if !defined(LIBXS_OPENMP)
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] = {
@@ -225,7 +226,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
       } \
     } \
     /* check if code generation or fix-up is needed, also check whether JIT is supported (CPUID) */ \
-    if (0 == internal_find_code_result.pmm && 0 != internal_jit) { \
+    if (0 == internal_find_code_result.pmm && LIBXS_X86_AVX <= internal_target_arch) { \
       INTERNAL_FIND_CODE_LOCK(lock, i); /* lock the registry entry */ \
       /* re-read registry entry after acquiring the lock */ \
       if (0 == diff) { \
@@ -340,13 +341,52 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
     result = internal_registry;
 #endif
     if (0 == result) {
-      int is_static = 0, init_code;
-      /* decide using internal_has_crc32 instead of relying on a libxs_hash_function pointer
-       * which will allow to inline the call instead of using an indirection (via fn. pointer)
-       */
-      internal_arch_name = libxs_cpuid(&is_static, &internal_has_crc32);
-      libxs_gemm_diff_init(internal_arch_name, internal_has_crc32);
-      init_code = libxs_gemm_init(internal_arch_name, 0/*auto-discovered*/, 0/*auto-discovered*/);
+      int init_code;
+      const char *const env_jit = getenv("LIBXS_JIT");
+      if (env_jit && *env_jit) {
+        const int jit = atoi(env_jit);
+        if (strcmp("0", env_jit)) { /* suppress running libxs_cpuid_x86 */
+          internal_target_archid = "generic";
+        }
+        else if (1 < jit) { /* suppress libxs_cpuid_x86 and override archid */
+          switch (LIBXS_X86_GENERIC + jit) {
+            case LIBXS_X86_AVX512: {
+              internal_target_arch = LIBXS_X86_AVX512;
+              internal_target_archid = "knl"; /* "skx" is fine too */
+            } break;
+            case LIBXS_X86_AVX2: {
+              internal_target_arch = LIBXS_X86_AVX2;
+              internal_target_archid = "hsw";
+            } break;
+            case LIBXS_X86_AVX: {
+              internal_target_arch = LIBXS_X86_AVX;
+              internal_target_archid = "snb";
+            } break;
+            default: if (LIBXS_X86_SSE3 <= (LIBXS_X86_GENERIC + jit)) {
+              internal_target_arch = LIBXS_X86_GENERIC + jit;
+              internal_target_archid = "sse";
+            }
+          }
+        }
+        else if (strcmp("knl", env_jit) || strcmp("skx", env_jit)) {
+          internal_target_arch = LIBXS_X86_AVX512;
+          internal_target_archid = env_jit;
+        }
+        else if (strcmp("hsw", env_jit)) {
+          internal_target_arch = LIBXS_X86_AVX2;
+          internal_target_archid = env_jit;
+        }
+        else if (strcmp("snb", env_jit)) {
+          internal_target_arch = LIBXS_X86_AVX;
+          internal_target_archid = env_jit;
+        }
+      }
+      if (0 == internal_target_archid) {
+        internal_target_arch = libxs_cpuid_x86(&internal_target_archid);
+      }
+      libxs_hash_init(internal_target_arch);
+      libxs_gemm_diff_init(internal_target_arch);
+      init_code = libxs_gemm_init(internal_target_archid, 0/*auto-discovered*/, 0/*auto-discovered*/);
 #if defined(__TRACE)
       const char *const env_trace_init = getenv("LIBXS_TRACE");
       if (EXIT_SUCCESS == init_code && 0 != env_trace_init) {
@@ -370,55 +410,25 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
         result = (internal_regentry*)malloc((LIBXS_REGSIZE + 1/*padding*/) * sizeof(internal_regentry));
 
         if (result) {
-          if (0 != internal_has_crc32) {
-#if !defined(LIBXS_SSE_MAX) || (4 > (LIBXS_SSE_MAX))
-            internal_has_crc32 = 0;
-# if !defined(NDEBUG) /* library code is expected to be mute */ && !defined(LIBXS_HASH_BASIC)
-            fprintf(stderr, "LIBXS: CRC32 instructions are not accessible due to the compiler used!\n");
-# endif
-#endif
-          }
-#if !defined(NDEBUG) /* library code is expected to be mute */ && !defined(LIBXS_HASH_BASIC)
-          else {
-            fprintf(stderr, "LIBXS: CRC32 instructions are not available!\n");
-          }
-#endif
           for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].code.pmm = 0;
-          { /* omit registering code if JIT is enabled and if an ISA extension is found
-             * which is beyond the static code path used to compile the library
-             */
+          /* omit registering code if JIT is enabled and if an ISA extension is found
+           * which is beyond the static code path used to compile the library
+           */
 #if (0 != LIBXS_JIT) && !defined(__MIC__)
-            const char *const env_jit = getenv("LIBXS_JIT");
-            internal_jit = (0 == env_jit || 0 == *env_jit || '1' == *env_jit) ? internal_arch_name : ('0' != *env_jit ? env_jit : 0);
-            if (0 == internal_jit || 0 != is_static)
+          if (LIBXS_STATIC_TARGET_ARCH >= internal_target_arch)
 #endif
-            { /* open scope for variable declarations */
-              LIBXS_DEBUG(unsigned int csp = 0, cdp = 0;)
-              /* setup the dispatch table for the statically generated code */
-#             include <libxs_dispatch.h>
-#if !defined(NDEBUG) /* library code is expected to be mute */ && (0 != LIBXS_JIT)
-# if defined(__MIC__)
-                if (0 == internal_arch_name)
-# else
-                if (0 == internal_arch_name && (0 == env_jit || '1' == *env_jit))
-# endif
-                {
-# if defined(LIBXS_SSE) && (3 <= (LIBXS_SSE))
-                fprintf(stderr, "LIBXS: SSE instruction set extension is not supported for JIT-code generation!\n");
-# elif defined(__MIC__)
-                fprintf(stderr, "LIBXS: IMCI architecture (Xeon Phi coprocessor) is not supported for JIT-code generation!\n");
-# else
-                fprintf(stderr, "LIBXS: no instruction set extension found for JIT-code generation!\n");
-# endif
-              }
-              if (0 < csp) {
-                fprintf(stderr, "LIBXS: %u SP-kernels are not registered due to hash key collisions!\n", csp);
-              }
-              if (0 < cdp) {
-                fprintf(stderr, "LIBXS: %u DP-kernels are not registered due to hash key collisions!\n", cdp);
-              }
-#endif
+          {
+            LIBXS_DEBUG(unsigned int csp = 0, cdp = 0;)
+            /* setup the dispatch table for the statically generated code */
+#           include <libxs_dispatch.h>
+#if !defined(NDEBUG) /* library code is expected to be mute */
+            if (0 < csp) {
+              fprintf(stderr, "LIBXS: %u SP-kernels are not registered due to hash key collisions!\n", csp);
             }
+            if (0 < cdp) {
+              fprintf(stderr, "LIBXS: %u DP-kernels are not registered due to hash key collisions!\n", cdp);
+            }
+#endif
           }
           atexit(libxs_finalize);
 #if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
@@ -515,13 +525,9 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
         }
 # endif
 #endif
-        i = libxs_gemm_finalize();
-# if !defined(NDEBUG) /* library code is expected to be mute */
-        if (EXIT_SUCCESS != i) {
-          fprintf(stderr, "LIBXS: failed to finalize (error #%i)!\n", i);
-        }
-# endif
+        libxs_gemm_finalize();
         libxs_gemm_diff_finalize();
+        libxs_hash_finalize();
 #if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
         __atomic_store_n(&internal_registry, 0, __ATOMIC_SEQ_CST);
@@ -573,12 +579,18 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 }
 
 
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_arch()
+{
+  return internal_target_arch;
+}
+
+
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc, internal_code* code, unsigned int* code_size)
 {
 #if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   libxs_generated_code generated_code;
   assert(0 != desc && 0 != code && 0 != code_size);
-  assert(0 != internal_jit);
+  assert(0 != internal_target_archid);
   assert(0 == code->pmm);
 
   /* allocate temporary buffer which is large enough to cover the generated code */
@@ -589,7 +601,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   generated_code.last_error = 0;
 
   /* generate kernel */
-  libxs_generator_gemm_kernel(&generated_code, desc, internal_jit);
+  libxs_generator_gemm_kernel(&generated_code, desc, internal_target_archid);
 
   /* handle an eventual error in the else-branch */
   if (0 == generated_code.last_error) {
@@ -643,7 +655,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
           char objdump_name[512];
           FILE* byte_code;
           sprintf(objdump_name, "kernel_%s_f%i_%c%c_m%u_n%u_k%u_lda%u_ldb%u_ldc%u_a%i_b%i_pf%i.bin",
-            internal_jit /* best available/supported code path */,
+            internal_target_archid /* best available/supported code path */,
             0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 64 : 32,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & desc->flags) ? 'n' : 't',
             0 == (LIBXS_GEMM_FLAG_TRANS_B & desc->flags) ? 'n' : 't',
@@ -733,51 +745,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 
 LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
+  INTERNAL_FIND_CODE_DECLARE(entry);
   assert(descriptor);
   {
-    INTERNAL_FIND_CODE_DECLARE(entry);
-    {
-#if defined(LIBXS_GEMM_DIFF_SW)
-# if defined(LIBXS_HASH_BASIC)
-      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff);
-# else
-      const libxs_hash_function crc32_fun = 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32;
-      INTERNAL_FIND_CODE(*descriptor, entry, crc32_fun, libxs_gemm_diff);
-# endif
-#elif defined(__MIC__)
-# if defined(LIBXS_HASH_BASIC)
-      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff_imci);
-# else
-      INTERNAL_FIND_CODE(*descriptor, entry, libxs_crc32, libxs_gemm_diff_imci);
-# endif
-#elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
-# if defined(LIBXS_HASH_BASIC)
-      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff_avx2);
-# else
-      INTERNAL_FIND_CODE(*descriptor, entry, libxs_crc32_sse42, libxs_gemm_diff_avx2);
-# endif
-#elif defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))
-# if defined(LIBXS_HASH_BASIC)
-      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff_avx);
-# else
-      INTERNAL_FIND_CODE(*descriptor, entry, libxs_crc32_sse42, libxs_gemm_diff_avx);
-# endif
-#elif defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))
-# if defined(LIBXS_HASH_BASIC)
-      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff_sse);
-# else
-      INTERNAL_FIND_CODE(*descriptor, entry, libxs_crc32_sse42, libxs_gemm_diff_sse);
-# endif
+#if defined(LIBXS_HASH_BASIC)
+    INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, libxs_gemm_diff);
 #else
-      const libxs_gemm_diff_function diff_fun = 0 != internal_arch_name ? libxs_gemm_diff_avx : (0 != internal_has_crc32 ? libxs_gemm_diff_sse : libxs_gemm_diff);
-# if defined(LIBXS_HASH_BASIC)
-      INTERNAL_FIND_CODE(*descriptor, entry, libxs_hash_npot, diff_fun);
-# else
-      const libxs_hash_function crc32_fun = 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32;
-      INTERNAL_FIND_CODE(*descriptor, entry, crc32_fun, diff_fun);
-# endif
+    INTERNAL_FIND_CODE(*descriptor, entry, libxs_crc32, libxs_gemm_diff);
 #endif
-    }
   }
 }
 
@@ -796,11 +771,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
 {
 #if defined(LIBXS_HASH_BASIC)
   INTERNAL_SMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, libxs_hash_npot, libxs_gemm_diff);
-#elif defined(LIBXS_AVX) || (defined(LIBXS_SSE) && (4 <= (LIBXS_SSE)))
-  INTERNAL_SMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, libxs_crc32_sse42, libxs_gemm_diff);
 #else
-  const libxs_hash_function crc32_fun = 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32;
-  INTERNAL_SMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, crc32_fun, libxs_gemm_diff);
+  INTERNAL_SMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, libxs_crc32, libxs_gemm_diff);
 #endif
 }
 
@@ -812,11 +784,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
 {
 #if defined(LIBXS_HASH_BASIC)
   INTERNAL_DMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, libxs_hash_npot, libxs_gemm_diff);
-#elif defined(LIBXS_AVX) || (defined(LIBXS_SSE) && (4 <= (LIBXS_SSE)))
-  INTERNAL_DMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, libxs_crc32_sse42, libxs_gemm_diff);
 #else
-  const libxs_hash_function crc32_fun = 0 != internal_has_crc32 ? libxs_crc32_sse42 : libxs_crc32;
-  INTERNAL_DMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, crc32_fun, libxs_gemm_diff);
+  INTERNAL_DMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, libxs_crc32, libxs_gemm_diff);
 #endif
 }
 

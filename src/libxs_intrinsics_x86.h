@@ -26,45 +26,51 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_INTRINSICS_H
-#define LIBXS_INTRINSICS_H
+#ifndef LIBXS_INTRINSICS_X86_H
+#define LIBXS_INTRINSICS_X86_H
 
 #include <libxs_macros.h>
 
 #if defined(__MIC__)
-# include <immintrin.h>
+# define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_IMCI
 #else
 # if defined(__AVX512F__)
-#   define LIBXS_AVX 3
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512
 # elif defined(__AVX2__)
-#   define LIBXS_AVX 2
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 # elif defined(__AVX__)
-#   define LIBXS_AVX 1
-# endif
-# if defined(LIBXS_AVX)
-#   define LIBXS_SSE 5
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX
 # elif defined(__SSE4_2__)
-#   define LIBXS_SSE 4
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_SSE4_2
+# elif defined(__SSE4_1__)
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_SSE4_1
 # elif defined(__SSE3__)
-#   define LIBXS_SSE 3
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_SSE3
+# else
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_GENERIC
 # endif
-# if defined(__AVX2__) || defined(__INTEL_COMPILER) || defined(_WIN32)
-#   define LIBXS_AVX_MAX 2
-#   define LIBXS_SSE_MAX 5
+# if defined(__INTEL_COMPILER) /*TODO: version check*/
+#   define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512
+#   include <immintrin.h>
+# elif defined(_MSC_VER) /*TODO: version check*/
+#   define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #   include <immintrin.h>
 # elif defined(__clang__)
 #   if (defined(__APPLE__) && defined(__MACH__) && (LIBXS_VERSION3(6, 2, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))) \
     || (!(defined(__APPLE__) && defined(__MACH__)) && LIBXS_VERSION3(3, 7, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 #     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
-#     define LIBXS_AVX_MAX 2
-#     define LIBXS_SSE_MAX 5
-#     define __AVX2__ 1
+#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     if !defined(__AVX2__)
+#       define __AVX2__ 1
+#     endif
 #     if !defined(__AVX__)
 #       define __AVX__ 1
 #     endif
-#     if !defined(__SSE4_1__) && !defined(__SSE4_2__)
-#       define __SSE4_1__ 1
+#     if !defined(__SSE4_2__)
 #       define __SSE4_2__ 1
+#     endif
+#     if !defined(__SSE4_1__)
+#       define __SSE4_1__ 1
 #     endif
 #     if !defined(__SSSE3__)
 #       define LIBXS_UNDEF_SSSE
@@ -74,67 +80,59 @@
 #       define __SSE3__ 1
 #     endif
 #     include <immintrin.h>
-#     if !defined(LIBXS_SSE) || (3 > (LIBXS_SSE))
+#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE3 > (LIBXS_STATIC_TARGET_ARCH))
 #       undef __SSE3__
 #     endif
 #     if defined(LIBXS_UNDEF_SSSE)
+#       undef LIBXS_UNDEF_SSSE
 #       undef __SSSE3__
 #     endif
-#     if !defined(LIBXS_SSE) || (4 > (LIBXS_SSE))
+#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4_1 > (LIBXS_STATIC_TARGET_ARCH))
 #       undef __SSE4_1__
+#     endif
+#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4_2 > (LIBXS_STATIC_TARGET_ARCH))
 #       undef __SSE4_2__
 #     endif
-#     if !defined(LIBXS_AVX)
+#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX > (LIBXS_STATIC_TARGET_ARCH))
 #       undef __AVX__
 #     endif
-#     undef __AVX2__
-#   else
-#     include <immintrin.h>
+#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX2 > (LIBXS_STATIC_TARGET_ARCH))
+#       undef __AVX2__
+#     endif
 #   endif
 # elif defined(__GNUC__)
 #   if (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 #     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,avx512f"))
+#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512
 #     pragma GCC push_options
 #     pragma GCC target("sse3,sse4.1,sse4.2,avx,avx2,avx512f")
 #     include <immintrin.h>
 #     pragma GCC pop_options
-#     define LIBXS_AVX_MAX 3
-#     define LIBXS_SSE_MAX 5
 #   elif (LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 #     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
+#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #     pragma GCC push_options
 #     pragma GCC target("sse3,sse4.1,sse4.2,avx,avx2")
 #     include <immintrin.h>
 #     pragma GCC pop_options
-#     define LIBXS_AVX_MAX 2
-#     define LIBXS_SSE_MAX 5
 #   elif (LIBXS_VERSION3(4, 4, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 #     define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx"))
+#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
 #     pragma GCC push_options
 #     pragma GCC target("sse3,sse4.1,sse4.2,avx")
 #     include <immintrin.h>
 #     pragma GCC pop_options
-#     define LIBXS_AVX_MAX 1
-#     define LIBXS_SSE_MAX 5
-#   else
-#     include <immintrin.h>
 #   endif
-# elif defined(__AVX__)
-#   define LIBXS_AVX_MAX 1
-#   define LIBXS_SSE_MAX 5
-#   include <immintrin.h>
-# elif defined(__SSE4_2__)
-#   define LIBXS_SSE_MAX 4
-#   include <immintrin.h>
-# elif defined(__SSE3__)
-#   define LIBXS_SSE_MAX 3
-#   include <immintrin.h>
-# else
-#   include <immintrin.h>
 # endif
 #endif
+
+#if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
+# define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
+# include <immintrin.h>
+#endif
+
 #if !defined(LIBXS_INTRINSICS)
 # define LIBXS_INTRINSICS
 #endif
 
-#endif /*LIBXS_INTRINSICS_H*/
+#endif /*LIBXS_INTRINSICS_X86_H*/

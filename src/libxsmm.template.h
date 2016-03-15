@@ -87,6 +87,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
 /** Uninitialize the library and free internal memory (optional). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void);
 
+/**
+ * Returns the architecture and instruction set extension as determined by the CPUID flags.
+ * If 0 != LIBXS_JIT and LIBXS_X86_AVX <= result, then this instruction set extension
+ * is targeted by the JIT code generator.
+ */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_arch();
+
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (descriptor form). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);
 

@@ -34,23 +34,21 @@
 #endif
 #include <stdint.h>
 #if !defined(NDEBUG)
+# include <assert.h>
 # include <stdio.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 /* must be the last included header */
-#include "libxs_intrinsics.h"
+#include "libxs_intrinsics_x86.h"
 
-#if !defined(LIBXS_HASH_SW)
-/*# define LIBXS_HASH_SW*/
-#endif
 #if !defined(LIBXS_HASH_ALIGNMENT)
 # define LIBXS_HASH_ALIGNMENT 8
 #endif
 
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_hash_function internal_hash_function = libxs_crc32_sw;
 
-#if !(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_HASH_SW)
 /* table-based implementation taken from http://dpdk.org/. */
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table[][256] = {
   { /*table0*/
@@ -326,7 +324,6 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table
     0xE54C35A1, 0xAC704886, 0x7734CFEF, 0x3E08B2C8, 0xC451B7CC, 0x8D6DCAEB, 0x56294D82, 0x1F1530A5
   }
 };
-#endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_HASH_SW)*/
 
 #define LIBXS_HASH_U64(FN, SEED, N, BEGIN, END) { \
   for (; (BEGIN) < ((END) - 7); (BEGIN) += 8) { \
@@ -409,8 +406,6 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t internal_crc32_table
 #endif
 
 
-#if !(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_HASH_SW)
-
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u8(unsigned int seed, unsigned int n, unsigned char value)
 {
   LIBXS_UNUSED(n);
@@ -447,36 +442,56 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u64(unsigned int see
   return seed;
 }
 
-#endif /*!(defined(LIBXS_SSE) && (4 <= (LIBXS_SSE))) || defined(LIBXS_HASH_SW)*/
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_hash_init(int target_arch)
+{
+#if defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH)
+  LIBXS_UNUSED(target_arch);
+#else
+  if (LIBXS_X86_SSE4_2 <= target_arch)
+#endif
+  {
+#if !defined(NDEBUG) && (!defined(LIBXS_MAX_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4_2 > LIBXS_MAX_STATIC_TARGET_ARCH))
+    fprintf(stderr, "LIBXS: CRC32 instructions are not accessible due to the compiler used!\n");
+#endif
+    internal_hash_function = libxs_crc32_sse42;
+  }
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_hash_finalize(void)
+{
+}
+
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int seed)
 {
-#if defined(LIBXS_SSE) && (4 <= (LIBXS_SSE)) && !defined(LIBXS_HASH_SW)
+#if defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
   return libxs_crc32_sse42(data, size, seed);
-#else
-  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, seed, LIBXS_HASH_UNBOUNDED);
+#else /* pointer based function call */
+  assert(0 != internal_hash_function);
+  return (*internal_hash_function)(data, size, seed);
 #endif
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sw(const void* data, unsigned int size, unsigned int seed)
+{
+  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 }
 
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int seed)
 {
-#if defined(LIBXS_SSE_MAX) && (4 <= (LIBXS_SSE_MAX))
+#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
   LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
-  static LIBXS_TLS int once = 0;
-  if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter CRC32 instruction code path!\n");
-    once = 1;
-  }
-# endif
 # if !defined(__MIC__)
   LIBXS_MESSAGE("================================================================================");
-  LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using the CRC32 instruction!");
+  LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using CRC32 instructions!");
   LIBXS_MESSAGE("================================================================================");
 # endif
-  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, seed, LIBXS_HASH_UNBOUNDED);
+  return libxs_crc32_sw(data, size, seed);
 #endif
 }
 
@@ -491,3 +506,4 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_hash_npot(const void* data,
 {
   LIBXS_HASH_UNALIGNED(LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, data, size, size, npot);
 }
+

@@ -32,15 +32,15 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <stdint.h>
-#include <stdio.h>
 #if !defined(NDEBUG)
 # include <assert.h>
+# include <stdio.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 /* must be the last included header */
-#include "libxs_intrinsics.h"
+#include "libxs_intrinsics_x86.h"
 
 
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diff_function internal_gemm_diff_function = libxs_gemm_diff_sw;
@@ -51,8 +51,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int internal_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
   const libxs_gemm_descriptor* desc, unsigned int ndesc, int nbytes)
 {
-#if defined(LIBXS_AVX_MAX) && (3 <= (LIBXS_AVX_MAX))
-  /* TODO: intrinsc based implementation */
+#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+  /* TODO: intrinsic based implementation */
   return libxs_gemm_diffn_sw(reference, desc, ndesc, nbytes);
 #else
   return libxs_gemm_diffn_sw(reference, desc, ndesc, nbytes);
@@ -60,37 +60,23 @@ unsigned int internal_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_init(const char* archid, int has_sse)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_init(int target_arch)
 {
 #if defined(__MIC__)
   internal_gemm_diff_function = libxs_gemm_diff_imci;
   /* TODO: consider libxs_gemm_diffn_function for IMCI */
-#elif defined(LIBXS_AVX) && (3 <= (LIBXS_AVX))
-  internal_gemm_diff_function = libxs_gemm_diff_avx2;
-  internal_gemm_diffn_function = internal_gemm_diffn_avx512;
-#elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
-  internal_gemm_diff_function = libxs_gemm_diff_avx2;
-#elif defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))
-  internal_gemm_diff_function = libxs_gemm_diff_avx;
-#elif defined(LIBXS_SSE) && (3 <= (LIBXS_SSE))
-  internal_gemm_diff_function = libxs_gemm_diff_sse;
 #else
-  if (0 != archid) {
-    if ('h' == archid[0] && 's' == archid[1] && 'w' == archid[2]) {
-      internal_gemm_diff_function = libxs_gemm_diff_avx2;
-    }
-    /** 0 != archid is implying at least AVX capabilities */
-    else {
-      internal_gemm_diff_function = libxs_gemm_diff_avx;
-      if ('k' == archid[0] && 'n' == archid[1] && 'l' == archid[2]) {
-        internal_gemm_diffn_function = internal_gemm_diffn_avx512;
-      }
-      else if ('s' == archid[0] && 'k' == archid[1] && 'x' == archid[2]) {
-        internal_gemm_diffn_function = internal_gemm_diffn_avx512;
-      }
-    }
+  if (LIBXS_X86_AVX512 <= target_arch) {
+    internal_gemm_diffn_function = internal_gemm_diffn_avx512;
+    internal_gemm_diff_function = libxs_gemm_diff_avx2;
   }
-  else if (0 != has_sse) {
+  else if (LIBXS_X86_AVX2 <= target_arch) {
+    internal_gemm_diff_function = libxs_gemm_diff_avx2;
+  }
+  else if (LIBXS_X86_AVX <= target_arch) {
+    internal_gemm_diff_function = libxs_gemm_diff_avx;
+  }
+  else if (LIBXS_X86_SSE3 <= target_arch) {
     internal_gemm_diff_function = libxs_gemm_diff_sse;
   }
 #endif
@@ -110,11 +96,11 @@ unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* reference, const libxs
   return libxs_gemm_diff_sw(reference, desc);
 #elif defined(__MIC__)
   return libxs_gemm_diff_imci(reference, desc);
-#elif defined(LIBXS_AVX) && (2 <= (LIBXS_AVX))
+#elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diff_avx2(reference, desc);
-#elif defined(LIBXS_AVX) && (1 <= (LIBXS_AVX))
+#elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diff_avx(reference, desc);
-#elif defined(LIBXS_SSE) && (3 <= (LIBXS_SSE))
+#elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diff_sse(reference, desc);
 #else /* pointer based function call */
   assert(0 != internal_gemm_diff_function);
@@ -141,14 +127,19 @@ unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* reference, const li
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
-  return libxs_gemm_diff_sw(reference, desc); /*TODO: SSE based implementation*/
+#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+  /* TODO: intrinsic based implementation */
+  return libxs_gemm_diff_sw(reference, desc);
+#else
+  return libxs_gemm_diff_sw(reference, desc);
+#endif
 }
 
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
-#if defined(LIBXS_AVX_MAX) && (1 <= (LIBXS_AVX_MAX))
+#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
   assert(0 != reference && 0 != desc);
@@ -199,7 +190,7 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
-#if defined(LIBXS_AVX_MAX) && (2 <= (LIBXS_AVX_MAX))
+#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, 4));
   assert(0 != reference && 0 != desc);
@@ -261,7 +252,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE
 unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference,
   const libxs_gemm_descriptor* desc, unsigned int ndesc, int nbytes)
 {
-#if defined(LIBXS_AVX) && (3 <= (LIBXS_AVX))
+#if defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
   return internal_gemm_diffn_avx512(reference, desc, ndesc, nbytes);
 #else /* pointer based function call */
   assert(0 != internal_gemm_diffn_function);

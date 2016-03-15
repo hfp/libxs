@@ -26,17 +26,22 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_CPUID_H
-#define LIBXS_CPUID_H
+#ifndef LIBXS_CPUID_X86_H
+#define LIBXS_CPUID_X86_H
 
 #include <libxs.h>
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_cpuid(int* is_static, int* has_crc32);
+/**
+ * Returns the target architecture and instruction set extension (code path),
+ * and thereby (via argument list) optionally returns an internal name of the
+ * target architecture.
+ */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_cpuid_x86(const char** archid);
 
 
-#if defined(LIBXS_BUILD) && !defined(LIBXS_CPUID_NOINLINE)
-# include "libxs_cpuid.c"
+#if defined(LIBXS_BUILD) && !defined(LIBXS_CPUID_X86_NOINLINE)
+# include "libxs_cpuid_x86.c"
 #endif
 
-#endif /*LIBXS_CPUID_H*/
+#endif /*LIBXS_CPUID_X86_H*/

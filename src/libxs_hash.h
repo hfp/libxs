@@ -31,15 +31,27 @@
 
 #include <libxs.h>
 
+#if !defined(LIBXS_HASH_SW)
+/*# define LIBXS_HASH_SW*/
+#endif
+
 
 /** Function type representing the CRC32 functionality. */
 typedef LIBXS_RETARGETABLE unsigned int (*libxs_hash_function)(const void*, unsigned int, unsigned int);
 
-/** Calculate the CRC32 for a given quantity (size) of raw data according to the seed (init. value). */
+/** Initialize hash function module; not thread-safe. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_hash_init(int target_arch);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_hash_finalize(void);
+
+/** Dispatched implementation which may (or may not) use a SIMD extension. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(
   const void* data, unsigned int size, unsigned int seed);
 
-/** Similar to libxs_crc32 (uses CRC32 instructions available since SSE4.2). */
+/** Calculate the CRC32 for a given quantity (size) of raw data according to the seed (init. value). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sw(
+  const void* data, unsigned int size, unsigned int seed);
+
+/** Similar to libxs_crc32_sw (uses CRC32 instructions available since SSE4.2). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(
   const void* data, unsigned int size, unsigned int seed);
 
