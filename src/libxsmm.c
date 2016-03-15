@@ -345,7 +345,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
       const char *const env_jit = getenv("LIBXS_JIT");
       if (env_jit && *env_jit) {
         const int jit = atoi(env_jit);
-        if (strcmp("0", env_jit)) { /* suppress running libxs_cpuid_x86 */
+        if (0 == strcmp("0", env_jit)) { /* suppress running libxs_cpuid_x86 */
           internal_target_archid = "generic";
         }
         else if (1 < jit) { /* suppress libxs_cpuid_x86 and override archid */
@@ -368,15 +368,15 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
             }
           }
         }
-        else if (strcmp("knl", env_jit) || strcmp("skx", env_jit)) {
+        else if (0 == strcmp("knl", env_jit) || 0 == strcmp("skx", env_jit)) {
           internal_target_arch = LIBXS_X86_AVX512;
           internal_target_archid = env_jit;
         }
-        else if (strcmp("hsw", env_jit)) {
+        else if (0 == strcmp("hsw", env_jit)) {
           internal_target_arch = LIBXS_X86_AVX2;
           internal_target_archid = env_jit;
         }
-        else if (strcmp("snb", env_jit)) {
+        else if (0 == strcmp("snb", env_jit)) {
           internal_target_arch = LIBXS_X86_AVX;
           internal_target_archid = env_jit;
         }
