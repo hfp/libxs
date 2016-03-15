@@ -27,6 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_hash.h"
+#include "libxs_intrinsics_x86.h"
 #include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -40,8 +41,6 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
-/* must be the last included header */
-#include "libxs_intrinsics_x86.h"
 
 #if !defined(LIBXS_HASH_ALIGNMENT)
 # define LIBXS_HASH_ALIGNMENT 8

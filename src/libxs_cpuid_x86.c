@@ -27,6 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_cpuid_x86.h"
+#include "libxs_intrinsics_x86.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -41,7 +42,7 @@
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_cpuid_x86(const char** archid)
 {
-  int target_arch = LIBXS_X86_GENERIC;
+  int target_arch = LIBXS_STATIC_TARGET_ARCH;
   unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
   if (archid) *archid = "x86";
 
