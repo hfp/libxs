@@ -542,34 +542,44 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 #else
         internal_registry = 0;
 #endif
+        { /* open scope to allocate variables */
+          LIBXS_DEBUG(unsigned int njit = 0, nstatic = 0;)
+          for (i = 0; i < LIBXS_REGSIZE; ++i) {
+            const unsigned int code_size = registry[i].code_size;
+            internal_code code = registry[i].code;
+            if (0 != code.pmm/*allocated*/) {
+              if (0 != code_size/*JIT*/) {
+                /* make address valid by clearing an eventual collision flag */
+                code.imm &= ~LIBXS_HASH_COLLISION;
 #if defined(_WIN32)
-        /* TODO: to be implemented */
-        LIBXS_UNUSED(i);
 #else
-        for (i = 0; i < LIBXS_REGSIZE; ++i) {
-          const unsigned int code_size = registry[i].code_size;
-          internal_code code = registry[i].code;
-          if (0 != code.pmm/*allocated*/ && 0 != code_size/*JIT*/) {
-            /* make address valid by clearing an eventual collision flag */
-            code.imm &= ~LIBXS_HASH_COLLISION;
 # if defined(NDEBUG)
-            munmap(code.pmm, code_size);
+                munmap(code.pmm, code_size);
 # else /* library code is expected to be mute */
-            if (0 != munmap(code.pmm, code_size)) {
-              const int error = errno;
-              fprintf(stderr, "LIBXS: %s (munmap error #%i at %p+%u)!\n",
-                strerror(error), error, code.pmm, code_size);
-            }
+                if (0 != munmap(code.pmm, code_size)) {
+                  const int error = errno;
+                  fprintf(stderr, "LIBXS: %s (munmap error #%i at %p+%u)!\n",
+                    strerror(error), error, code.pmm, code_size);
+                }
 # endif
-          }
-        }
-#endif /*defined(__GNUC__)*/
-        free((void*)registry);
-#if !defined(NDEBUG) /* library code is expected to be mute */
-        if (0 != internal_ncollisions) {
-          fprintf(stderr, "LIBXS: %u hash key collisions found in the registry!\n", internal_ncollisions);
-        }
 #endif
+                LIBXS_DEBUG(++njit;)
+              }
+              else {
+                LIBXS_DEBUG(++nstatic;)
+              }
+            }
+          }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+          fprintf(stderr, "LIBXS_JIT=%s NJIT=%u NSTATIC=%u\n",
+            0 != internal_target_archid ? internal_target_archid : "0", njit, nstatic);
+
+          if (0 != internal_ncollisions) {
+            fprintf(stderr, ": %u hash key collisions handled!\n", internal_ncollisions);
+          }
+#endif
+        }
+        free((void*)registry);
       }
     }
 #if !defined(LIBXS_OPENMP) /* release locks */
