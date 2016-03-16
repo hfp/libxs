@@ -108,6 +108,8 @@
      &    LIBXS_PREFETCH_AL2BL2_VIA_C_AHEAD = IOR(                    &
      &        LIBXS_PREFETCH_BL2_VIA_C, LIBXS_PREFETCH_AL2_AHEAD)
 
+        ! Enumerates the available target architectures and instruction
+        ! set extensions as returned by libxs_get_target_arch().
         INTEGER(C_INT), PARAMETER ::                                    &
      &    LIBXS_TARGET_ARCH_UNKNOWN = 0,                              &
      &    LIBXS_TARGET_ARCH_GENERIC = 1,                              &
