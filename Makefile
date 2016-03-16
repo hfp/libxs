@@ -491,23 +491,26 @@ compile_hst:
 $(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
 
-.PHONY: compile_mic_mod
+.PHONY: module_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ifneq (,$(strip $(FC)))
-compile_mic_mod: $(BLDDIR)/mic/libxs-mod.o
+module_mic: $(BLDDIR)/mic/libxs-mod.o
 $(BLDDIR)/mic/libxs-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $(BLDDIR)/mic/libxs-mod.o $(FMFLAGS) $(INCDIR)/mic
 endif
 endif
 endif
 
-.PHONY: compile_hst_mod
+.PHONY: module_hst
 ifneq (,$(strip $(FC)))
-compile_hst_mod: $(BLDDIR)/intel64/libxs-mod.o
+module_hst: $(BLDDIR)/intel64/libxs-mod.o
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $(INCDIR)/libxs.f -o $(BLDDIR)/intel64/libxs-mod.o $(FMFLAGS) $(INCDIR)
 endif
+
+.PHONY: module
+module: module_hst module_mic
 
 .PHONY: build_generator_lib
 build_generator_lib: $(OUTDIR)/libxsgen.$(LIBEXT)
