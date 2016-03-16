@@ -108,6 +108,18 @@
      &    LIBXS_PREFETCH_AL2BL2_VIA_C_AHEAD = IOR(                    &
      &        LIBXS_PREFETCH_BL2_VIA_C, LIBXS_PREFETCH_AL2_AHEAD)
 
+        INTEGER(C_INT), PARAMETER ::                                    &
+     &    LIBXS_TARGET_ARCH_UNKNOWN = 0,                              &
+     &    LIBXS_TARGET_ARCH_GENERIC = 1,                              &
+     &    LIBXS_X86_GENERIC      = 1000,                              &
+     &    LIBXS_X86_IMCI         = 1001,                              &
+     &    LIBXS_X86_SSE3         = 1002,                              &
+     &    LIBXS_X86_SSE4_1       = 1003,                              &
+     &    LIBXS_X86_SSE4_2       = 1004,                              &
+     &    LIBXS_X86_AVX          = 1005,                              &
+     &    LIBXS_X86_AVX2         = 1006,                              &
+     &    LIBXS_X86_AVX512       = 1007
+
         ! Type of a function specialized for a given parameter set.
         ABSTRACT INTERFACE
           ! Specialized function with fused alpha and beta arguments.
@@ -125,16 +137,16 @@
           END SUBROUTINE
         END INTERFACE
 
-        ! Generic function type constructing a procedure pointer
-        ! associated with a backend function (single-precision).
+        ! Generic function type which is representing either one of the
+        ! two wrapped backend procedure pointers (single-precision).
         TYPE :: LIBXS_SMMFUNCTION
           PRIVATE
             PROCEDURE(LIBXS_MMFUNCTION0), NOPASS, POINTER :: fn0
             PROCEDURE(LIBXS_MMFUNCTION1), NOPASS, POINTER :: fn1
         END TYPE
 
-        ! Generic function type constructing a procedure pointer
-        ! associated with a backend function (double-precision).
+        ! Generic function type which is representing either one of the
+        ! two wrapped backend procedure pointers (double-precision).
         TYPE :: LIBXS_DMMFUNCTION
           PRIVATE
             PROCEDURE(LIBXS_MMFUNCTION0), NOPASS, POINTER :: fn0
@@ -219,16 +231,24 @@
           MODULE PROCEDURE libxs_blas_sgemm, libxs_blas_dgemm
         END INTERFACE
 
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_init, libxs_finalize
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_tick
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_duration
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_init, libxs_finalize, libxs_get_target_arch
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_tick, libxs_timer_duration
         INTERFACE
           ! Initialize the library; pay for setup cost at a specific point.
           SUBROUTINE libxs_init() BIND(C)
           END SUBROUTINE
 
+          ! Uninitialize the library and free internal memory (optional).
           SUBROUTINE libxs_finalize() BIND(C)
           END SUBROUTINE
+
+          ! Returns the architecture and instruction set extension
+          ! as determined by the CPUID flags. 0 != LIBXS_JIT and
+          ! LIBXS_X86_AVX <= result, then this instruction set
+          ! extension is targeted by the JIT code generator.
+          INTEGER(C_INT) PURE FUNCTION libxs_get_target_arch() BIND(C)
+            IMPORT :: C_INT
+          END FUNCTION
 
           ! Non-pure function returning the current clock tick
           ! using a platform-specific resolution.
