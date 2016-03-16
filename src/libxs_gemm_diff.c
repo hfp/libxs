@@ -33,6 +33,7 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <stdint.h>
+#include <string.h>
 #if !defined(NDEBUG)
 # include <assert.h>
 # include <stdio.h>
@@ -112,6 +113,9 @@ unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* reference, const libxs
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
 unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
+#if defined(LIBXS_GEMM_DIFF_SW) && (2 == (LIBXS_GEMM_DIFF_SW))
+  return 0 != memcmp(reference, desc, LIBXS_GEMM_DESCRIPTOR_SIZE);
+#else
   const unsigned *const ia = (const unsigned int*)reference, *const ib = (const unsigned int*)desc;
   unsigned int result, i;
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
@@ -121,6 +125,7 @@ unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* reference, const li
     result |= (ia[i] ^ ib[i]);
   }
   return result;
+#endif
 }
 
 
