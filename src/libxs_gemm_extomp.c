@@ -115,9 +115,9 @@
       float rm = 1.f, rn = ((float)(N)) / M, rk = ((float)(K)) / M; \
       if (1.f < rn) { rm /= rn; rn = 1.f; rk /= rn; } \
       if (1.f < rk) { rm /= rk; rn /= rk; rk = 1.f; } \
-      tile_m = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(2 << LIBXS_LOG2(tile_m * rm /*+ 0.5*/)),  8), M); \
-      tile_n = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(2 << LIBXS_LOG2(tile_n * rn /*+ 0.5*/)),  8), N); \
-      tile_k = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(2 << LIBXS_LOG2(tile_k * rk /*+ 0.5*/)), 16), K); \
+      tile_m = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_m * rm /*+ 0.5*/)),  8), M); \
+      tile_n = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_n * rn /*+ 0.5*/)),  8), N); \
+      tile_k = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_k * rk /*+ 0.5*/)), 16), K); \
     } \
     LIBXS_GEMM_DESCRIPTOR(desc, LIBXS_ALIGNMENT, FLAGS, tile_m, tile_n, tile_k, LDA, LDB, LDC, scalpha, scbeta, LIBXS_PREFETCH_AL2_AHEAD); \
     xmm = libxs_xmmdispatch(&desc); \
