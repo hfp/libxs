@@ -92,7 +92,7 @@
 #endif
 
 #if !defined(LIBXS_CACHESIZE)
-# define LIBXS_CACHESIZE 4
+# define LIBXS_CACHESIZE 0
 #endif
 
 #if defined(LIBXS_HASH_BASIC)
