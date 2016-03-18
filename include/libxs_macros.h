@@ -148,8 +148,8 @@
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
 #define LIBXS_MOD2(N, NPOT) ((N) & ((NPOT) - 1))
-#define LIBXS_MUL2(N, NPOT) ((N) << (LIBXS_LOG2(NPOT) - 1))
-#define LIBXS_DIV2(N, NPOT) ((N) >> (LIBXS_LOG2(NPOT) - 1))
+#define LIBXS_MUL2(N, NPOT) ((N) << LIBXS_LOG2(NPOT))
+#define LIBXS_DIV2(N, NPOT) ((N) >> LIBXS_LOG2(NPOT))
 #define LIBXS_UP2(N, NPOT) LIBXS_MUL2(LIBXS_DIV2((N) + (NPOT) - 1, NPOT), NPOT)
 #define LIBXS_UP(N, UP) ((((N) + (UP) - 1) / (UP)) * (UP))
 
