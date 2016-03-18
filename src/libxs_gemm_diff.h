@@ -52,7 +52,7 @@
 /** Function type representing the gemm_diff functionality. */
 typedef LIBXS_RETARGETABLE unsigned int (*libxs_gemm_diff_function)(const libxs_gemm_descriptor*, const libxs_gemm_descriptor*);
 /** Function type representing the gemm_diffn functionality. */
-typedef LIBXS_RETARGETABLE unsigned int (*libxs_gemm_diffn_function)(const libxs_gemm_descriptor*, const libxs_gemm_descriptor*, unsigned int, int);
+typedef LIBXS_RETARGETABLE unsigned int (*libxs_gemm_diffn_function)(const libxs_gemm_descriptor*, const libxs_gemm_descriptor*, unsigned int, unsigned int, int);
 
 
 /** Initialize GEMM/DIFF module; not thread-safe. */
@@ -74,13 +74,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_imci(const libxs_
 /** Compare a number of descriptors (array) against a reference descriptor. Returns the index of the first match (or ndesc in case of no match). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference,
   /** Array of descriptors with ndesc elements. */
-  const libxs_gemm_descriptor* desc, unsigned int ndesc,
+  const libxs_gemm_descriptor* descs, unsigned int hint, unsigned int ndescs,
   /** Number of bytes until the next descriptor is reached (stride). */
   int nbytes);
 
 /** Generic implementation of libxs_gemm_diffn which is only relying on high-level constructs. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor* reference,
-  const libxs_gemm_descriptor* desc, unsigned int ndesc, int nbytes);
+  const libxs_gemm_descriptor* descs, unsigned int hint, unsigned int ndescs, int nbytes);
 
 #if defined(LIBXS_BUILD) && !defined(LIBXS_GEMM_DIFF_NOINLINE)
 # include "libxs_gemm_diff.c"

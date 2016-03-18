@@ -48,16 +48,16 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diffn_function internal_
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS
-unsigned int internal_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
-  const libxs_gemm_descriptor* desc, unsigned int ndesc, int nbytes)
+unsigned int internal_gemm_diffn_avx512(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
+  unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
   /* even avoid control flow in the production code (branching into a fallback) but at least manifest the precondition */
-  assert(0 == ndesc % 2 && LIBXS_GEMM_DESCRIPTOR_SIZE == nbytes);
+  assert(0 == (ndescs % 2) && LIBXS_GEMM_DESCRIPTOR_SIZE == nbytes);
   /* TODO: intrinsic based implementation */
-  return libxs_gemm_diffn_sw(reference, desc, ndesc, nbytes);
+  return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
 #else
-  return libxs_gemm_diffn_sw(reference, desc, ndesc, nbytes);
+  return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
 #endif
 }
 
@@ -256,26 +256,32 @@ unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const 
 #endif /*defined(__MIC__)*/
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
-unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference,
-  const libxs_gemm_descriptor* desc, unsigned int ndesc, int nbytes)
+unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
+  unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
-  return internal_gemm_diffn_avx512(reference, desc, ndesc, nbytes);
+  return internal_gemm_diffn_avx512(reference, descs, hint, ndescs, nbytes);
 #else /* pointer based function call */
   assert(0 != internal_gemm_diffn_function);
-  return (*internal_gemm_diffn_function)(reference, desc, ndesc, nbytes);
+  return (*internal_gemm_diffn_function)(reference, descs, hint, ndescs, nbytes);
 #endif
 }
 
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
-unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor* reference,
-  const libxs_gemm_descriptor* desc, unsigned int ndesc, int nbytes)
+unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
+  unsigned int hint, unsigned int ndescs, int nbytes)
 {
-  unsigned int i;
-  for (i = 0; i != ndesc && 0 != libxs_gemm_diff(reference, desc); ++i) {
-    desc = (const libxs_gemm_descriptor*)(((char*)desc) + nbytes);
+  if (0 != ndescs) {
+    const char* d = ((const char*)descs) + (hint % ndescs) * nbytes;
+    unsigned int i = 0;
+    for (; i != ndescs; ++i) {
+      if (0 == libxs_gemm_diff(reference, (const libxs_gemm_descriptor*)d)) {
+        return (i + hint) % ndescs;
+      }
+      d += nbytes;
+    }
   }
-  return i;
+  return ndescs;
 }
 
