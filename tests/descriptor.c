@@ -126,7 +126,10 @@ int main()
   }
 
   { /* testing diff-search */
-    libxs_gemm_descriptor descs[] = { a.descriptor, a.descriptor, b.descriptor, a.descriptor };
+    libxs_gemm_descriptor descs[4];
+    descs[0] = a.descriptor; descs[1] = a.descriptor;
+    descs[2] = b.descriptor; descs[3] = a.descriptor;
+
     if (0 != libxs_gemm_diffn(&a.descriptor, descs, 0/*hint*/,
       sizeof(descs) / sizeof(*descs), LIBXS_GEMM_DESCRIPTOR_SIZE))
     {
