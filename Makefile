@@ -145,7 +145,10 @@ INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(word
 NINDICES = $(words $(INDICES))
 
 HEADERS = $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
-          $(shell ls -1 $(SRCDIR)/*.c 2> /dev/null | tr "\n" " ") \
+          $(SRCDIR)/libxs_gemm_extwrap.c \
+          $(SRCDIR)/libxs_gemm_diff.c \
+          $(SRCDIR)/libxs_cpuid_x86.c \
+          $(SRCDIR)/libxs_hash.c \
           $(ROOTDIR)/include/libxs_frontend.h \
           $(ROOTDIR)/include/libxs_generator.h \
           $(ROOTDIR)/include/libxs_macros.h \
