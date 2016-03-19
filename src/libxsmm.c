@@ -200,7 +200,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
     cache_hit = i
 # else
 #   define INTERNAL_FIND_CODE_CACHE_FINALIZE(DESCRIPTOR, RESULT) \
-    i = LIBXS_MOD(cache_hit + LIBXS_CACHESIZE - 1, LIBXS_CACHESIZE); \
+    i = LIBXS_MOD2(cache_hit + LIBXS_CACHESIZE - 1, LIBXS_CACHESIZE); \
     cache_code[i] = internal_find_code_result; \
     cache_desc[i] = *(DESCRIPTOR); \
     cache_hit = i
