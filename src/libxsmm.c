@@ -185,7 +185,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
   static LIBXS_TLS internal_code cache_code[LIBXS_CACHESIZE]; \
   static LIBXS_TLS unsigned int cache_hit = LIBXS_CACHESIZE
 # define INTERNAL_FIND_CODE_CACHE_BEGIN(DESCRIPTOR, RESULT) \
-  assert(32 >= sizeof(libxs_gemm_descriptor)); \
+  assert(32 >= LIBXS_GEMM_DESCRIPTOR_SIZE); \
   /* search small cache starting with the last hit on record */ \
   i = libxs_gemm_diffn(DESCRIPTOR, &cache[0].desc, cache_hit, LIBXS_CACHESIZE, 32); \
   if (LIBXS_CACHESIZE > i) { /* cache hit */ \
@@ -647,7 +647,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   assert(0 == code->pmm);
 
   /* allocate temporary buffer which is large enough to cover the generated code */
-  generated_code.generated_code = malloc(131072 * sizeof(unsigned char));
+  generated_code.generated_code = malloc(131072);
   generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
   generated_code.code_size = 0;
   generated_code.code_type = 2;
