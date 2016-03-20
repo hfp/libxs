@@ -181,12 +181,13 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 
 #if defined(LIBXS_CACHESIZE) && (0 < LIBXS_CACHESIZE)
 # define INTERNAL_FIND_CODE_CACHE_DECL \
-  static LIBXS_TLS libxs_gemm_descriptor cache_desc[LIBXS_CACHESIZE+1/*padding*/]; \
+  static LIBXS_TLS union { libxs_gemm_descriptor desc; char padding[32]; } cache[LIBXS_CACHESIZE]; \
   static LIBXS_TLS internal_code cache_code[LIBXS_CACHESIZE]; \
   static LIBXS_TLS unsigned int cache_hit = LIBXS_CACHESIZE
 # define INTERNAL_FIND_CODE_CACHE_BEGIN(DESCRIPTOR, RESULT) \
+  assert(32 >= sizeof(libxs_gemm_descriptor)); \
   /* search small cache starting with the last hit on record */ \
-  i = libxs_gemm_diffn(DESCRIPTOR, cache_desc, cache_hit, LIBXS_CACHESIZE, LIBXS_GEMM_DESCRIPTOR_SIZE); \
+  i = libxs_gemm_diffn(DESCRIPTOR, &cache[0].desc, cache_hit, LIBXS_CACHESIZE, 32); \
   if (LIBXS_CACHESIZE > i) { /* cache hit */ \
     RESULT = cache_code[i]; \
     cache_hit = i; \
@@ -196,13 +197,14 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 #   define INTERNAL_FIND_CODE_CACHE_FINALIZE(DESCRIPTOR, RESULT) \
     i = (cache_hit + LIBXS_CACHESIZE - 1) % LIBXS_CACHESIZE; \
     cache_code[i] = internal_find_code_result; \
-    cache_desc[i] = *(DESCRIPTOR); \
+    cache[i].desc = *(DESCRIPTOR); \
     cache_hit = i
 # else
 #   define INTERNAL_FIND_CODE_CACHE_FINALIZE(DESCRIPTOR, RESULT) \
+    assert(/*is pot*/LIBXS_CACHESIZE == (1 << LIBXS_LOG2(LIBXS_CACHESIZE))); \
     i = LIBXS_MOD2(cache_hit + LIBXS_CACHESIZE - 1, LIBXS_CACHESIZE); \
     cache_code[i] = internal_find_code_result; \
-    cache_desc[i] = *(DESCRIPTOR); \
+    cache[i].desc = *(DESCRIPTOR); \
     cache_hit = i
 # endif
 #else
