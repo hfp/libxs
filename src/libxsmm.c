@@ -181,7 +181,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 
 #if defined(LIBXS_CACHESIZE) && (0 < LIBXS_CACHESIZE)
 # define INTERNAL_FIND_CODE_CACHE_DECL \
-  static LIBXS_TLS union { libxs_gemm_descriptor desc; char padding[32]; } cache[LIBXS_CACHESIZE]; \
+  static LIBXS_TLS union { char padding[32]; libxs_gemm_descriptor desc; } cache[LIBXS_CACHESIZE]; \
   static LIBXS_TLS internal_code cache_code[LIBXS_CACHESIZE]; \
   static LIBXS_TLS unsigned int cache_hit = LIBXS_CACHESIZE
 # define INTERNAL_FIND_CODE_CACHE_BEGIN(DESCRIPTOR, RESULT) \
