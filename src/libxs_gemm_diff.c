@@ -341,7 +341,7 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference, const
 #endif
     for (i = hint; i < end; ++i) {
       const unsigned int j = LIBXS_MOD2(i, ndescs); /* wrap around index */
-      const __m256i b256 = _mm256_loadu_si256((const __m256i*)(desc + j * nbytes));
+      const __m256i b256 = _mm256_maskload_epi32((const void*)(desc + j * nbytes), m256);
       if (0 == _mm256_testnzc_si256(a256, b256) && 0 == _mm256_testnzc_si256(b256, a256)) {
         return j;
       }
