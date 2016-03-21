@@ -136,12 +136,12 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
     m256.i = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
 #   endif
 # endif
-# if defined(LIBXS_GEMM_DIFF_MASK_A)
+# if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
     a256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)reference, m256.i));
 # else
     /*a256 = _mm256_lddqu_si256((const __m256i*)reference);*/
     a256 = _mm256_loadu_si256((const __m256i*)reference);
-# endif /*defined(LIBXS_GEMM_DIFF_MASK_A)*/
+# endif
     b256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)desc, m256.i));
     r0 = _mm256_testnzc_si256(a256, b256);
     r1 = _mm256_testnzc_si256(b256, a256);
@@ -172,12 +172,12 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
     const int yes = 0x80000000, no = 0x0;
     const __m256i m256 = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
 # endif
-# if defined(LIBXS_GEMM_DIFF_MASK_A)
+# if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
     const __m256i a256 = _mm256_maskload_epi32((const void*)reference, m256);
 # else
     /*const __m256i a256 = _mm256_lddqu_si256((const __m256i*)reference);*/
     const __m256i a256 = _mm256_loadu_si256((const __m256i*)reference);
-# endif /*defined(LIBXS_GEMM_DIFF_MASK_A)*/
+# endif
     const __m256i b256 = _mm256_maskload_epi32((const void*)desc, m256);
     const int r0 = _mm256_testnzc_si256(a256, b256);
     const int r1 = _mm256_testnzc_si256(b256, a256);
@@ -290,15 +290,19 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference, const 
     m256.i = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
 #   endif
 # endif
-# if defined(LIBXS_GEMM_DIFF_MASK_A)
+# if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
     a256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)reference, m256.i));
 # else
     /*a256 = _mm256_lddqu_si256((const __m256i*)reference);*/
     a256 = _mm256_loadu_si256((const __m256i*)reference);
-# endif /*defined(LIBXS_GEMM_DIFF_MASK_A)*/
+# endif
     for (i = hint; i < end; ++i) {
       const unsigned int j = LIBXS_MOD2(i, ndescs); /* wrap around index */
+#if defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
+      const __m256i b256 = _mm256_loadu_si256((const __m256i*)(desc + j * nbytes));
+#else
       const __m256i b256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)(desc + j * nbytes), m256.i));
+#endif
       if (0 == _mm256_testnzc_si256(a256, b256) && 0 == _mm256_testnzc_si256(b256, a256)) {
         return j;
       }
@@ -333,7 +337,7 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference, const
     const int yes = 0x80000000, no = 0x0;
     const __m256i m256 = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
 # endif
-# if defined(LIBXS_GEMM_DIFF_MASK_A)
+# if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
     const __m256i a256 = _mm256_maskload_epi32((const void*)reference, m256);
 # else
     /*const __m256i a256 = _mm256_lddqu_si256((const __m256i*)reference);*/
@@ -341,7 +345,11 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference, const
 #endif
     for (i = hint; i < end; ++i) {
       const unsigned int j = LIBXS_MOD2(i, ndescs); /* wrap around index */
+#if defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
+      const __m256i b256 = _mm256_loadu_si256((const __m256i*)(desc + j * nbytes));
+#else
       const __m256i b256 = _mm256_maskload_epi32((const void*)(desc + j * nbytes), m256);
+#endif
       if (0 == _mm256_testnzc_si256(a256, b256) && 0 == _mm256_testnzc_si256(b256, a256)) {
         return j;
       }
