@@ -76,10 +76,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx2(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
-#if defined(__MIC__)
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_imci(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
-#endif
 
 /**
  * Compare a number of descriptors (array) against a reference descriptor.
@@ -100,6 +98,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diffn_avx(const libxs_
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference,
   const libxs_gemm_descriptor* descs, unsigned int hint, unsigned int ndescs, int nbytes);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
+  const libxs_gemm_descriptor* descs, unsigned int hint, unsigned int ndescs, int nbytes);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descriptor* reference,
   const libxs_gemm_descriptor* descs, unsigned int hint, unsigned int ndescs, int nbytes);
 
 #if defined(LIBXS_BUILD) && !defined(LIBXS_GEMM_DIFF_NOINLINE)

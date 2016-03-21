@@ -51,8 +51,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_init(int target_arch)
 {
 #if defined(__MIC__)
   LIBXS_UNUSED(target_arch);
+  internal_gemm_diffn_function = libxs_gemm_diffn_imci;
   internal_gemm_diff_function = libxs_gemm_diff_imci;
-  /* TODO: consider libxs_gemm_diffn_function for IMCI */
 #else
   if (LIBXS_X86_AVX512 <= target_arch) {
     internal_gemm_diffn_function = libxs_gemm_diffn_avx512;
@@ -196,10 +196,10 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
 }
 
 
-#if defined(__MIC__)
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
 unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
+#if defined(__MIC__)
   assert(0 ==  LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(16 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(0 != reference && 0 != desc);
@@ -213,8 +213,11 @@ unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const 
       mask, ((const char*)desc) + 32);
     return _mm512_reduce_or_epi32(_mm512_xor_si512(a512, b512));
   }
+#else
+  return libxs_gemm_diff_sw(reference, desc);
+#endif
 }
-#endif /*defined(__MIC__)*/
+
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
 unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
@@ -414,6 +417,44 @@ unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference, con
   }
 # endif
   return libxs_gemm_diffn_avx2(reference, descs, hint, ndescs, nbytes);
+#endif
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE
+unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
+  unsigned int hint, unsigned int ndescs, int nbytes)
+{
+#if defined(__MIC__) && 0
+  assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
+  assert(32 == nbytes); /* padded descriptor array */
+  {
+    const unsigned int hint_even = (hint & 0xFFFFFFFE), end = hint_even + ndescs;
+    const char *const desc = (const char*)descs;
+    unsigned int i;
+# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compile-time error */
+    const __mmask16 mask_lo = 0x7F, mask_hi = 0x7F00;
+# endif
+    const __m512i h512 = _mm512_mask_loadunpackhi_epi32(
+      _mm512_mask_loadunpacklo_epi32(_mm512_set1_epi32(0), mask_lo, reference),
+      mask_lo, ((const char*)reference) + 32);
+    const __m512i a512 = _mm512_permute4f128_epi32(h512, 0x44);
+    for (i = hint_even; i < end; i += 2) {
+      const unsigned int j = LIBXS_MOD2(i, ndescs); /* wrap around index */
+      const char *const d = desc + j * nbytes;
+      const __m512i b512 = _mm512_loadunpackhi_epi32(_mm512_loadunpacklo_epi32(_mm512_set1_epi32(0), d), d + 32);
+      const __m512i c512 = _mm512_xor_si512(a512, b512);
+      if (0 == _mm512_mask_reduce_or_epi32(mask_lo, c512)) {
+        return j;
+      }
+      if (0 == _mm512_mask_reduce_or_epi32(mask_hi, c512)) {
+        return j + 1;
+      }
+    }
+  }
+  return ndescs;
+#else
+  return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
 #endif
 }
 
