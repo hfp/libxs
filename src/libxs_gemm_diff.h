@@ -44,7 +44,7 @@
 # define LIBXS_GEMM_DIFF_MASK_A
 #endif
 #if !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
-# define LIBXS_GEMM_DIFF_ZERO_PADDED
+/*# define LIBXS_GEMM_DIFF_ZERO_PADDED*/
 #endif
 /** Enable generic implementation (1: LIBXS, 2: memcmp) */
 #if !defined(LIBXS_GEMM_DIFF_SW) /*&& defined(__MIC__)*/
