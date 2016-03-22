@@ -233,8 +233,10 @@
           MODULE PROCEDURE libxs_blas_sgemm, libxs_blas_dgemm
         END INTERFACE
 
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_init, libxs_finalize, libxs_get_target_arch
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_tick, libxs_timer_duration
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_init, libxs_finalize
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_get_target_arch
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_duration
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_tick
         INTERFACE
           ! Initialize the library; pay for setup cost at a specific point.
           SUBROUTINE libxs_init() BIND(C)
