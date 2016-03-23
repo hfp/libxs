@@ -90,10 +90,10 @@
 
 /** INTERNAL: configuration table containing the tile sizes separate for DP and SP. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_tile_size[/*DP/SP*/][3/*TILE_M,TILE_N,TILE_K*/];
-
 /** INTERNAL: number of threads per core */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_num_nt;
-
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_gemm_nthreads_per_core;
+/** INTERNAL: prefetch strategy */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_gemm_prefetch;
 /** INTERNAL: kind of GEMM (0: small gemm, 1: sequential, 2: parallelized) */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_gemm;
 
@@ -101,6 +101,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_gemm;
  * INTERNAL pre-initialization step called by libxs_gemm_init,
  * e.g. configures the tile sizes for multithreaded GEMM functions.
  */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_configure(const char* archid, int gemm_kind);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_configure(const char* archid, int gemm_kind, int prefetch);
 
 #endif /*LIBXS_GEMM_EXT_H*/

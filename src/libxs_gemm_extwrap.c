@@ -59,11 +59,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
 
 
 /* implementation variant for non-static linkage; overrides weak libxs_gemm_init in libxs_gemm.c */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid, int prefetch,
   libxs_sgemm_function sgemm_function, libxs_dgemm_function dgemm_function)
 {
   /* internal pre-initialization step */
-  libxs_gemm_configure(archid, 0/*default gemm kind is small gemm*/);
+  libxs_gemm_configure(archid, 0/*default gemm kind is small gemm*/, prefetch);
 
   if (NULL == sgemm_function) {
     union { const void* pv; libxs_sgemm_function pf; } internal = { NULL };

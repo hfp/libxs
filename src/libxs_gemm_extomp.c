@@ -175,7 +175,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_sgemm(const char* transa, cons
   const float* beta, float* c, const libxs_blasint* ldc)
 {
   LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
-  LIBXS_GEMM_EXTOMP_XGEMM(float, flags | LIBXS_GEMM_FLAG_F32PREC, libxs_internal_num_nt,
+  LIBXS_GEMM_EXTOMP_XGEMM(float, flags | LIBXS_GEMM_FLAG_F32PREC, libxs_internal_gemm_nthreads_per_core,
     libxs_internal_tile_size[1/*SP*/][0/*M*/],
     libxs_internal_tile_size[1/*SP*/][1/*N*/],
     libxs_internal_tile_size[1/*SP*/][2/*K*/], *m, *n, *k,
@@ -193,7 +193,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_dgemm(const char* transa, cons
   const double* beta, double* c, const libxs_blasint* ldc)
 {
   LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
-  LIBXS_GEMM_EXTOMP_XGEMM(double, flags, libxs_internal_num_nt,
+  LIBXS_GEMM_EXTOMP_XGEMM(double, flags, libxs_internal_gemm_nthreads_per_core,
     libxs_internal_tile_size[0/*DP*/][0/*M*/],
     libxs_internal_tile_size[0/*DP*/][1/*N*/],
     libxs_internal_tile_size[0/*DP*/][2/*K*/], *m, *n, *k,
