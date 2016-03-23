@@ -126,6 +126,7 @@ typedef struct LIBXS_RETARGETABLE internal_regentry {
 LIBXS_DEBUG(LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_ncollisions = 0;)
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regentry* internal_registry = 0;
 
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_prefetch = LIBXS_MAX(LIBXS_PREFETCH, 0);
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_target_arch = LIBXS_TARGET_ARCH_GENERIC;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_target_archid = 0;
 
@@ -324,11 +325,12 @@ return internal_find_code_result.xmm
   INTERNAL_FIND_CODE_DECLARE(entry); \
   const signed char scalpha = (signed char)(0 == (PALPHA) ? LIBXS_ALPHA : *(PALPHA)), scbeta = (signed char)(0 == (PBETA) ? LIBXS_BETA : *(PBETA)); \
   if (0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) && 1 == scalpha && (1 == scbeta || 0 == scbeta)) { \
+    const int internal_dispatch_main_prefetch = (0 == (PREFETCH) ? LIBXS_PREFETCH : *(PREFETCH)); \
     DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, FLAGS, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
       0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB), \
       0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA), \
       0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC), scalpha, scbeta, \
-      0 == (PREFETCH) ? LIBXS_PREFETCH : *(PREFETCH)); \
+      0 > internal_dispatch_main_prefetch ? internal_prefetch : internal_dispatch_main_prefetch); \
     { \
       INTERNAL_FIND_CODE(DESC, entry, HASH_FUNCTION, DIFF_FUNCTION).SELECTOR; \
     } \
@@ -425,6 +427,18 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
       }
       if (0 == internal_target_archid) {
         internal_target_arch = libxs_cpuid_x86(&internal_target_archid);
+        assert(0 != internal_target_arch);
+      }
+      if (0 > LIBXS_PREFETCH) {
+        assert(0 != internal_target_arch);
+        internal_prefetch = 0 != strcmp("knl", internal_target_archid)
+#if defined(_WIN32) || defined(__CYGWIN__)
+          /* TODO: account for calling convention; avoid passing 6 arguments */
+          ? LIBXS_PREFETCH_NONE
+#else
+          ? LIBXS_PREFETCH_AL2
+#endif
+          : LIBXS_PREFETCH_AL2BL2_VIA_C;
       }
       libxs_hash_init(internal_target_arch);
       libxs_gemm_diff_init(internal_target_arch);
