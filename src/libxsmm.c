@@ -430,15 +430,31 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
         assert(0 != internal_target_arch);
       }
       if (0 > LIBXS_PREFETCH) {
-        assert(0 != internal_target_arch);
-        internal_prefetch = 0 != strcmp("knl", internal_target_archid)
+        const char *const env_prefetch = getenv("LIBXS_PREFETCH");
+        if (0 == env_prefetch || 0 == *env_prefetch) {
+          assert(0 != internal_target_arch);
+          internal_prefetch = 0 != strcmp("knl", internal_target_archid)
 #if defined(_WIN32) || defined(__CYGWIN__)
-          /* TODO: account for calling convention; avoid passing 6 arguments */
-          ? LIBXS_PREFETCH_NONE
+            /* TODO: account for calling convention; avoid passing 6 arguments */
+            ? LIBXS_PREFETCH_NONE
 #else
-          ? LIBXS_PREFETCH_AL2
+            ? LIBXS_PREFETCH_AL2
 #endif
-          : LIBXS_PREFETCH_AL2BL2_VIA_C;
+            : LIBXS_PREFETCH_AL2BL2_VIA_C;
+        }
+        else { /* user/runtime input */
+          switch (atoi(env_prefetch)) {
+            case 2: internal_prefetch = LIBXS_PREFETCH_SIGONLY; break;
+            case 3: internal_prefetch = LIBXS_PREFETCH_BL2_VIA_C; break;
+            case 4: internal_prefetch = LIBXS_PREFETCH_AL2; break;
+            case 5: internal_prefetch = LIBXS_PREFETCH_AL2_AHEAD; break;
+            case 6: internal_prefetch = LIBXS_PREFETCH_AL2BL2_VIA_C; break;
+            case 7: internal_prefetch = LIBXS_PREFETCH_AL2BL2_VIA_C_AHEAD; break;
+            case 8: internal_prefetch = LIBXS_PREFETCH_AL2_JPST; break;
+            case 9: internal_prefetch = LIBXS_PREFETCH_AL2BL2_VIA_C_JPST; break;
+            default: internal_prefetch = LIBXS_PREFETCH_NONE;
+          }
+        }
       }
       libxs_hash_init(internal_target_arch);
       libxs_gemm_diff_init(internal_target_arch);
