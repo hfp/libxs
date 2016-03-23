@@ -90,8 +90,10 @@
         INTEGER(C_INT), PARAMETER ::                                    &
           ! No prefetching and no prefetch function signature.
      &    LIBXS_PREFETCH_NONE       = 0,                              &
+          ! Automatically select strategy (frontend).
+     &    LIBXS_PREFETCH_AUTO       = -1,                             &
           ! Only function prefetch signature.
-     &    LIBXS_PREFETCH_SIGNATURE  = 1,                              &
+     &    LIBXS_PREFETCH_SIGONLY    = 1,                              &
           ! Prefetch PA using accesses to A.
      &    LIBXS_PREFETCH_AL2        = 2,                              &
           ! Prefetch PA (aggressive).
