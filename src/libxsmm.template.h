@@ -93,6 +93,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void);
  * is targeted by the JIT code generator.
  */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_arch();
+/** Returns a name for the target architecture as identified by libxs_get_target_arch(). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_archid();
 
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (descriptor form). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);

@@ -594,6 +594,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
                 /* make address valid by clearing an eventual collision flag */
                 code.imm &= ~LIBXS_HASH_COLLISION;
 #if defined(_WIN32)
+                /* TODO: executable memory buffer under Windows */
 #else
 # if defined(NDEBUG)
                 munmap(code.pmm, code_size);
@@ -634,7 +635,28 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_arch()
 {
+#if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   return internal_target_arch;
+#else /* no JIT support */
+  return LIBXS_TARGET_ARCH_GENERIC;
+#endif
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_archid()
+{
+  return internal_target_archid;
+}
+
+
+/* function serves as a helper for implementing the Fortran interface */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void get_target_archid(char* name, int length)
+{
+  const char* c = internal_target_archid ? internal_target_archid : "";
+  int i;
+  assert(0 != name); /* valid here since function is not in the public interface */
+  for (i = 0; i < length && 0 != *c; ++i, ++c) name[i] = *c;
+  for (; i < length; ++i) name[i] = ' ';
 }
 
 
@@ -785,13 +807,15 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #endif
     free(generated_code.generated_code);
   }
-#elif !defined(__MIC__)
-  LIBXS_UNUSED(desc); LIBXS_UNUSED(code); LIBXS_UNUSED(code_size);
+#else
+# if !defined(__MIC__)
   LIBXS_MESSAGE("================================================================================")
   LIBXS_MESSAGE("LIBXS: The JIT BACKEND is currently not supported under Microsoft Windows!")
   LIBXS_MESSAGE("================================================================================")
-#else
+# endif
   LIBXS_UNUSED(desc); LIBXS_UNUSED(code); LIBXS_UNUSED(code_size);
+  /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
+  assert(LIBXS_X86_AVX > libxs_get_target_arch());
 #endif /*_WIN32*/
 }
 
