@@ -119,7 +119,7 @@
       tile_n = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_n * rn /*+ 0.5*/)),  8), N); \
       tile_k = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_k * rk /*+ 0.5*/)), 16), K); \
     } \
-    LIBXS_GEMM_DESCRIPTOR(desc, LIBXS_ALIGNMENT, FLAGS, tile_m, tile_n, tile_k, LDA, LDB, LDC, scalpha, scbeta, LIBXS_PREFETCH_AL2_AHEAD); \
+    LIBXS_GEMM_DESCRIPTOR(desc, LIBXS_ALIGNMENT, FLAGS, tile_m, tile_n, tile_k, LDA, LDB, LDC, scalpha, scbeta, libxs_internal_gemm_prefetch); \
     xmm = libxs_xmmdispatch(&desc); \
   } \
   else { /* TODO: not supported (bypass) */ \
