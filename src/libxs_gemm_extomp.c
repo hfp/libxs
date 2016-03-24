@@ -49,33 +49,33 @@
 # endif
 # define LIBXS_GEMM_EXTOMP_MIN_NTASKS(NT) (40 * omp_get_num_threads() / (NT))
 # define LIBXS_GEMM_EXTOMP_OVERHEAD(NT) (4 * (NT))
-# define LIBXS_GEMM_EXTOMP_COLLAPSE 1
 # define LIBXS_GEMM_EXTOMP_FOR_INIT
-# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL(N) LIBXS_PRAGMA(omp parallel for schedule(dynamic,1) LIBXS_OPENMP_COLLAPSE(N))
-# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN(N) LIBXS_PRAGMA(omp for schedule(dynamic,1) LIBXS_OPENMP_COLLAPSE(N))
+# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL LIBXS_PRAGMA(omp parallel for schedule(dynamic,1) LIBXS_OPENMP_COLLAPSE(LIBXS_GEMM_EXTOMP_COLLAPSE))
+# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN LIBXS_PRAGMA(omp for schedule(dynamic,1) LIBXS_OPENMP_COLLAPSE(LIBXS_GEMM_EXTOMP_COLLAPSE))
 # define LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY(...)
 # define LIBXS_GEMM_EXTOMP_FOR_LOOP_END
 #else
 # define LIBXS_GEMM_EXTOMP_MIN_NTASKS(NT) 1
 # define LIBXS_GEMM_EXTOMP_OVERHEAD(NT) 0
-# define LIBXS_GEMM_EXTOMP_COLLAPSE 1
 # define LIBXS_GEMM_EXTOMP_FOR_INIT
-# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL(N)
-# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN(N)
+# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL
+# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN
 # define LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY(...)
 # define LIBXS_GEMM_EXTOMP_FOR_LOOP_END
 #endif
 
 #if defined(LIBXS_GEMM_EXTOMP_TASKS)
+# define LIBXS_GEMM_EXTOMP_COLLAPSE 2
 # define LIBXS_GEMM_EXTOMP_TSK_INIT LIBXS_PRAGMA(omp single nowait)
-# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN_PARALLEL(N) LIBXS_PRAGMA(omp parallel)
-# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN(N) /* nothing */
+# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN_PARALLEL LIBXS_PRAGMA(omp parallel)
+# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN /* nothing */
 # define LIBXS_GEMM_EXTOMP_TSK_LOOP_BODY(...) LIBXS_PRAGMA(omp task firstprivate(__VA_ARGS__))
 # define LIBXS_GEMM_EXTOMP_TSK_LOOP_END LIBXS_PRAGMA(omp taskwait)
 #else
+# define LIBXS_GEMM_EXTOMP_COLLAPSE 1
 # define LIBXS_GEMM_EXTOMP_TSK_INIT LIBXS_GEMM_EXTOMP_FOR_INIT
-# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN_PARALLEL(N) LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL(N)
-# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN(N) LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN(N)
+# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN_PARALLEL LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL
+# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN
 # define LIBXS_GEMM_EXTOMP_TSK_LOOP_BODY(...) LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY(...)
 # define LIBXS_GEMM_EXTOMP_TSK_LOOP_END LIBXS_GEMM_EXTOMP_FOR_LOOP_END
 #endif
@@ -149,7 +149,7 @@
       const libxs_blasint max_j = ((K) / tile_k) * tile_k; \
       libxs_blasint h = 0, i = 0; \
       if ((LIBXS_GEMM_EXTOMP_OVERHEAD(NT)) <= num_k) { /* amortize overhead */ \
-        LOOP_BEGIN(LIBXS_GEMM_EXTOMP_COLLAPSE) \
+        LOOP_BEGIN \
         for (h = 0; h < (M); h += tile_m) { \
           for (i = 0; i < (N); i += tile_n) { \
             LOOP_BODY(h, i) \
@@ -159,7 +159,7 @@
         LOOP_END \
       } \
       else if (num_n <= num_m) { \
-        LOOP_BEGIN(LIBXS_GEMM_EXTOMP_COLLAPSE) \
+        LOOP_BEGIN \
         for (h = 0; h < (M); h += tile_m) { \
           LOOP_BODY(h) \
           for (i = 0; i < (N); i += tile_n) { \
@@ -169,7 +169,7 @@
         LOOP_END \
       } \
       else { \
-        LOOP_BEGIN(LIBXS_GEMM_EXTOMP_COLLAPSE) \
+        LOOP_BEGIN \
         for (i = 0; i < (N); i += tile_n) { \
           LOOP_BODY(i) \
           for (h = 0; h < (M); h += tile_m) { \
@@ -189,11 +189,15 @@
 #if defined(LIBXS_GEMM_EXTWRAP) && !defined(__STATIC)
 
 /* implementation variant for non-static linkage; overrides weak libxs_gemm_init in libxs_gemm.c */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid, int prefetch,
-  libxs_sgemm_function sgemm_function, libxs_dgemm_function dgemm_function)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid, int prefetch)
 {
+  union { const void* pv; libxs_sgemm_function pf; } internal_sgemm = { NULL };
+  union { const void* pv; libxs_dgemm_function pf; } internal_dgemm = { NULL };
+  internal_sgemm.pv = dlsym(RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(sgemm)));
+  internal_dgemm.pv = dlsym(RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dgemm)));
+
   /* internal pre-initialization step */
-  libxs_gemm_configure(archid, prefetch, 0/*auto-discovered*/, 0/*auto-discovered*/);
+  libxs_gemm_configure(archid, prefetch, internal_sgemm.pf, internal_dgemm.pf);
 
 #if defined(LIBXS_GEMM_EXTOMP_TASKS)
   { /* consider user input about using (OpenMP-)tasks; this code must be here
@@ -205,28 +209,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid, int pr
     }
   }
 #endif
-
-  if (NULL == sgemm_function) {
-    union { const void* pv; libxs_sgemm_function pf; } internal = { NULL };
-    internal.pv = dlsym(RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(sgemm)));
-    if (NULL != internal.pv) {
-      libxs_internal_sgemm = internal.pf;
-    }
-  }
-  else {
-    libxs_internal_sgemm = sgemm_function;
-  }
-
-  if (NULL == dgemm_function) {
-    union { const void* pv; libxs_dgemm_function pf; } internal = { NULL };
-    internal.pv = dlsym(RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dgemm)));
-    if (NULL != internal.pv) {
-      libxs_internal_dgemm = internal.pf;
-    }
-  }
-  else {
-    libxs_internal_dgemm = dgemm_function;
-  }
 
   return (NULL != libxs_internal_sgemm
        && NULL != libxs_internal_dgemm)

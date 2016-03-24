@@ -27,78 +27,9 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_gemm_ext.h"
-#include "libxs_gemm.h"
 
 
 #if defined(LIBXS_GEMM_EXTWRAP)
-#if !defined(__STATIC)
-# if defined(LIBXS_OFFLOAD_TARGET)
-#   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-# endif
-# include <stdlib.h>
-# include <dlfcn.h>
-# if defined(LIBXS_OFFLOAD_TARGET)
-#   pragma offload_attribute(pop)
-# endif
-
-
-/* avoid remark about external function definition with no prior declaration */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
-  const char*, const char*,
-  const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
-  const float*, const float*, const libxs_blasint*,
-  const float*, const libxs_blasint* ldb,
-  const float*, float*, const libxs_blasint*);
-/* avoid remark about external function definition with no prior declaration */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
-  const char*, const char*,
-  const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
-  const double*, const double*, const libxs_blasint*,
-  const double*, const libxs_blasint* ldb,
-  const double*, double*, const libxs_blasint*);
-
-
-/* implementation variant for non-static linkage; overrides weak libxs_gemm_init in libxs_gemm.c */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid, int prefetch,
-  libxs_sgemm_function sgemm_function, libxs_dgemm_function dgemm_function)
-{
-  /* internal pre-initialization step */
-  libxs_gemm_configure(archid, prefetch);
-
-  if (NULL == sgemm_function) {
-    union { const void* pv; libxs_sgemm_function pf; } internal = { NULL };
-    internal.pv = dlsym(RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(sgemm)));
-    if (NULL != internal.pv) {
-      libxs_internal_sgemm = internal.pf;
-    }
-  }
-  else {
-    libxs_internal_sgemm = sgemm_function;
-  }
-
-  if (NULL == dgemm_function) {
-    union { const void* pv; libxs_dgemm_function pf; } internal = { NULL };
-    internal.pv = dlsym(RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dgemm)));
-    if (NULL != internal.pv) {
-      libxs_internal_dgemm = internal.pf;
-    }
-  }
-  else {
-    libxs_internal_dgemm = dgemm_function;
-  }
-
-  return (NULL != libxs_internal_sgemm
-       && NULL != libxs_internal_dgemm)
-    ? EXIT_SUCCESS
-    : EXIT_FAILURE;
-}
-
-
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_finalize(void)
-{
-}
-
-#endif /*!defined(__STATIC)*/
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_SGEMM(
   const char* transa, const char* transb,
