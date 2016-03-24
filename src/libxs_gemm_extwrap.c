@@ -63,7 +63,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid, int pr
   libxs_sgemm_function sgemm_function, libxs_dgemm_function dgemm_function)
 {
   /* internal pre-initialization step */
-  libxs_gemm_configure(archid, 0/*default gemm kind is small gemm*/, prefetch);
+  libxs_gemm_configure(archid, prefetch);
 
   if (NULL == sgemm_function) {
     union { const void* pv; libxs_sgemm_function pf; } internal = { NULL };
