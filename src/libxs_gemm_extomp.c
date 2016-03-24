@@ -47,19 +47,19 @@
 # if !defined(LIBXS_GEMM_EXTOMP_TASKS) && (200805 <= _OPENMP) /*OpenMP 3.0*/
 #   define LIBXS_GEMM_EXTOMP_TASKS
 # endif
-# define LIBXS_GEMM_EXTOMP_MIN_NTASKS(NT) (40 * omp_get_num_threads() / (NT))
+# define LIBXS_GEMM_EXTOMP_MIN_NTASKS(NT) (8 * omp_get_num_threads() / (NT))
 # define LIBXS_GEMM_EXTOMP_OVERHEAD(NT) (4 * (NT))
 # define LIBXS_GEMM_EXTOMP_FOR_INIT
-# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL LIBXS_PRAGMA(omp parallel for schedule(dynamic,1) LIBXS_OPENMP_COLLAPSE(LIBXS_GEMM_EXTOMP_COLLAPSE))
 # define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN LIBXS_PRAGMA(omp for schedule(dynamic,1) LIBXS_OPENMP_COLLAPSE(LIBXS_GEMM_EXTOMP_COLLAPSE))
+# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL LIBXS_PRAGMA(omp parallel for schedule(dynamic,1) LIBXS_OPENMP_COLLAPSE(LIBXS_GEMM_EXTOMP_COLLAPSE))
 # define LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY(...)
 # define LIBXS_GEMM_EXTOMP_FOR_LOOP_END
 #else
 # define LIBXS_GEMM_EXTOMP_MIN_NTASKS(NT) 1
 # define LIBXS_GEMM_EXTOMP_OVERHEAD(NT) 0
 # define LIBXS_GEMM_EXTOMP_FOR_INIT
-# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL
 # define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN
+# define LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL
 # define LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY(...)
 # define LIBXS_GEMM_EXTOMP_FOR_LOOP_END
 #endif
@@ -67,16 +67,16 @@
 #if defined(LIBXS_GEMM_EXTOMP_TASKS)
 # define LIBXS_GEMM_EXTOMP_COLLAPSE 2
 # define LIBXS_GEMM_EXTOMP_TSK_INIT LIBXS_PRAGMA(omp single nowait)
-# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN_PARALLEL LIBXS_PRAGMA(omp parallel)
-# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN /* nothing */
+# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN
+# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN_PARALLEL LIBXS_PRAGMA(omp parallel) LIBXS_PRAGMA(omp single nowait)
 # define LIBXS_GEMM_EXTOMP_TSK_LOOP_BODY(...) LIBXS_PRAGMA(omp task firstprivate(__VA_ARGS__))
 # define LIBXS_GEMM_EXTOMP_TSK_LOOP_END LIBXS_PRAGMA(omp taskwait)
 #else
 # define LIBXS_GEMM_EXTOMP_COLLAPSE 1
 # define LIBXS_GEMM_EXTOMP_TSK_INIT LIBXS_GEMM_EXTOMP_FOR_INIT
-# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN_PARALLEL LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL
 # define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN
-# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BODY(...) LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY(...)
+# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BEGIN_PARALLEL LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL
+# define LIBXS_GEMM_EXTOMP_TSK_LOOP_BODY LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY
 # define LIBXS_GEMM_EXTOMP_TSK_LOOP_END LIBXS_GEMM_EXTOMP_FOR_LOOP_END
 #endif
 
@@ -103,15 +103,14 @@
 }
 
 #define LIBXS_GEMM_EXTOMP_XGEMM(INIT, LOOP_BEGIN, LOOP_BODY, LOOP_END, \
-  REAL, FLAGS, NT, TILE_M, TILE_N, TILE_K, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  REAL, FLAGS, NT, TILE_M, TILE_N, TILE_K, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) INIT \
 { \
   libxs_blasint tile_m = LIBXS_MAX(TILE_M, 2), tile_n = LIBXS_MAX(TILE_N, 2), tile_k = LIBXS_MAX(TILE_K, 2); \
   const libxs_blasint num_m = ((M) + tile_m - 1) / tile_m, num_n = ((N) + tile_n - 1) / tile_n, num_k = ((K) + tile_k - 1) / tile_k; \
   const signed char scalpha = (signed char)(ALPHA), scbeta = (signed char)(BETA); \
   libxs_xmmfunction xmm; \
-  INIT \
   if (0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) && 1 == scalpha && (1 == scbeta || 0 == scbeta)) { \
-    const libxs_blasint num_t = (LIBXS_GEMM_EXTOMP_OVERHEAD(NT) && 1 < LIBXS_GEMM_EXTOMP_COLLAPSE) <= num_k \
+    const libxs_blasint num_t = (LIBXS_GEMM_EXTOMP_OVERHEAD(NT) <= num_k && 1 < LIBXS_GEMM_EXTOMP_COLLAPSE) \
       ? (num_m * num_n) : (num_n <= num_m ? num_m : num_n); \
     const libxs_blasint min_ntasks = LIBXS_GEMM_EXTOMP_MIN_NTASKS(NT); \
     libxs_gemm_descriptor desc; \
@@ -144,40 +143,37 @@
     xmm.dmm = 0; \
   } \
   if (0 != xmm.dmm) { \
-    INIT \
-    { \
-      const libxs_blasint max_j = ((K) / tile_k) * tile_k; \
-      libxs_blasint h = 0, i = 0; \
-      if ((LIBXS_GEMM_EXTOMP_OVERHEAD(NT)) <= num_k) { /* amortize overhead */ \
-        LOOP_BEGIN \
-        for (h = 0; h < (M); h += tile_m) { \
-          for (i = 0; i < (N); i += tile_n) { \
-            LOOP_BODY(h, i) \
-            LIBXS_GEMM_EXTOMP_KERNEL(REAL, FLAGS, h, i, tile_m, tile_n, tile_k, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
-          } \
-        } \
-        LOOP_END \
-      } \
-      else if (num_n <= num_m) { \
-        LOOP_BEGIN \
-        for (h = 0; h < (M); h += tile_m) { \
-          LOOP_BODY(h) \
-          for (i = 0; i < (N); i += tile_n) { \
-            LIBXS_GEMM_EXTOMP_KERNEL(REAL, FLAGS, h, i, tile_m, tile_n, tile_k, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
-          } \
-        } \
-        LOOP_END \
-      } \
-      else { \
-        LOOP_BEGIN \
+    const libxs_blasint max_j = ((K) / tile_k) * tile_k; \
+    libxs_blasint h = 0, i = 0; \
+    if ((LIBXS_GEMM_EXTOMP_OVERHEAD(NT)) <= num_k) { /* amortize overhead */ \
+      LOOP_BEGIN \
+      for (h = 0; h < (M); h += tile_m) { \
         for (i = 0; i < (N); i += tile_n) { \
-          LOOP_BODY(i) \
-          for (h = 0; h < (M); h += tile_m) { \
-            LIBXS_GEMM_EXTOMP_KERNEL(REAL, FLAGS, h, i, tile_m, tile_n, tile_k, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
-          } \
+          LOOP_BODY(h, i) \
+          LIBXS_GEMM_EXTOMP_KERNEL(REAL, FLAGS, h, i, tile_m, tile_n, tile_k, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
         } \
-        LOOP_END \
       } \
+      LOOP_END \
+    } \
+    else if (num_n <= num_m) { \
+      LOOP_BEGIN \
+      for (h = 0; h < (M); h += tile_m) { \
+        LOOP_BODY(h) \
+        for (i = 0; i < (N); i += tile_n) { \
+          LIBXS_GEMM_EXTOMP_KERNEL(REAL, FLAGS, h, i, tile_m, tile_n, tile_k, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
+        } \
+      } \
+      LOOP_END \
+    } \
+    else { \
+      LOOP_BEGIN \
+      for (i = 0; i < (N); i += tile_n) { \
+        LOOP_BODY(i) \
+        for (h = 0; h < (M); h += tile_m) { \
+          LIBXS_GEMM_EXTOMP_KERNEL(REAL, FLAGS, h, i, tile_m, tile_n, tile_k, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
+        } \
+      } \
+      LOOP_END \
     } \
   } \
   else { /* fallback */ \
@@ -291,8 +287,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_dgemm(const char* transa, cons
   const double* b, const libxs_blasint* ldb,
   const double* beta, double* c, const libxs_blasint* ldc)
 {
+  LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
   if (2 <= libxs_internal_gemm) { /* enable internal parallelization */
-    LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
     if (0 == libxs_internal_gemm_tasks) {
       LIBXS_GEMM_EXTOMP_XGEMM(LIBXS_GEMM_EXTOMP_FOR_INIT, LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL,
         LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY, LIBXS_GEMM_EXTOMP_FOR_LOOP_END,
@@ -319,7 +315,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_dgemm(const char* transa, cons
     }
   }
   else { /* default: potentially sequential or externally parallelized */
-    LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
     if (0 == libxs_internal_gemm_tasks) {
       LIBXS_GEMM_EXTOMP_XGEMM(LIBXS_GEMM_EXTOMP_FOR_INIT, LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN,
         LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY, LIBXS_GEMM_EXTOMP_FOR_LOOP_END,
