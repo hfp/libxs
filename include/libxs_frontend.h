@@ -154,7 +154,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*libxs_internal_dgemm)(
 #define LIBXS_MMDISPATCH_SYMBOL(REAL) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmdispatch))
 #define LIBXS_BLAS_GEMM_SYMBOL(REAL)  LIBXS_CONCATENATE(libxs_internal_, LIBXS_TPREFIX(REAL, gemm))
 #define LIBXS_XBLAS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(REAL, gemm))
-#define LIBXS_XOMPS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_omps_, LIBXS_TPREFIX(REAL, gemm))
+#define LIBXS_XOMPS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_omp_, LIBXS_TPREFIX(REAL, gemm))
 #define LIBXS_XGEMM_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm))
 
 /** Helper macro consolidating the applicable GEMM arguments into LIBXS's flags. */

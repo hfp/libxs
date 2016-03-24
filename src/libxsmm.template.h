@@ -147,14 +147,14 @@ LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_dgemm(const char* transa, cons
 #endif
 
 /** Threadable general dense matrix multiplication; requires linking libxsext (single-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_sgemm(const char* transa, const char* transb,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc);
 
 /** Threadable general dense matrix multiplication; requires linking libxsext (double-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_dgemm(const char* transa, const char* transb,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
   const double* b, const libxs_blasint* ldb,

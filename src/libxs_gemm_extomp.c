@@ -219,7 +219,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_finalize(void)
 
 #endif /*defined(LIBXS_GEMM_EXTWRAP) && !defined(__STATIC)*/
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_sgemm(const char* transa, const char* transb,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
@@ -281,7 +281,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_sgemm(const char* transa, cons
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omps_dgemm(const char* transa, const char* transb,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
   const double* b, const libxs_blasint* ldb,
@@ -363,7 +363,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
         c, *(ldc ? ldc : LIBXS_LD(m, n)));
     } break;
     default: { /* tiled xGEMM */
-      libxs_omps_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+      libxs_omp_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
     }
   }
 }
@@ -387,7 +387,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
         c, *(ldc ? ldc : LIBXS_LD(m, n)));
     } break;
     default: { /* tiled xGEMM */
-      libxs_omps_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+      libxs_omp_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
     }
   }
 }
