@@ -226,7 +226,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_sgemm(const char* transa, const
   const float* beta, float* c, const libxs_blasint* ldc)
 {
   LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
-  if (2 <= libxs_internal_gemm) { /* enable internal parallelization */
+  if (2 <= libxs_internal_gemm_omp) { /* enable internal parallelization */
     if (0 == libxs_internal_gemm_tasks) {
       LIBXS_GEMM_EXTOMP_XGEMM(LIBXS_GEMM_EXTOMP_FOR_INIT, LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL,
         LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY, LIBXS_GEMM_EXTOMP_FOR_LOOP_END,
@@ -288,7 +288,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_dgemm(const char* transa, const
   const double* beta, double* c, const libxs_blasint* ldc)
 {
   LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
-  if (2 <= libxs_internal_gemm) { /* enable internal parallelization */
+  if (2 <= libxs_internal_gemm_omp) { /* enable internal parallelization */
     if (0 == libxs_internal_gemm_tasks) {
       LIBXS_GEMM_EXTOMP_XGEMM(LIBXS_GEMM_EXTOMP_FOR_INIT, LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL,
         LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY, LIBXS_GEMM_EXTOMP_FOR_LOOP_END,
