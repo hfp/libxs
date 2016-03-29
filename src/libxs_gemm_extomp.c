@@ -43,6 +43,7 @@
 # pragma offload_attribute(pop)
 #endif
 
+#define LIBXS_GEMM_EXTOMP_SUFFICIENT_SIZE(M, N, K) (((LIBXS_MAX_M * 2/*arbitrary*/) < (M) || (LIBXS_MAX_N * 2/*arbitrary*/) < (N) || (LIBXS_MAX_K * 2/*arbitrary*/) < (K)) ? 1 : 0)
 #if defined(_OPENMP)
 # if !defined(LIBXS_GEMM_EXTOMP_TASKS) && (200805 <= _OPENMP) /*OpenMP 3.0*/
 #   define LIBXS_GEMM_EXTOMP_TASKS
@@ -105,42 +106,47 @@
 #define LIBXS_GEMM_EXTOMP_XGEMM(INIT, LOOP_BEGIN, LOOP_BODY, LOOP_END, \
   REAL, FLAGS, NT, TILE_M, TILE_N, TILE_K, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) INIT \
 { \
-  libxs_blasint tile_m = LIBXS_MAX(TILE_M, 2), tile_n = LIBXS_MAX(TILE_N, 2), tile_k = LIBXS_MAX(TILE_K, 2); \
-  const libxs_blasint num_m = ((M) + tile_m - 1) / tile_m, num_n = ((N) + tile_n - 1) / tile_n, num_k = ((K) + tile_k - 1) / tile_k; \
   const signed char scalpha = (signed char)(ALPHA), scbeta = (signed char)(BETA); \
-  libxs_xmmfunction xmm; \
-  if (0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) && 1 == scalpha && (1 == scbeta || 0 == scbeta)) { \
-    const libxs_blasint num_t = (LIBXS_GEMM_EXTOMP_OVERHEAD(NT) <= num_k && 1 < LIBXS_GEMM_EXTOMP_COLLAPSE) \
-      ? (num_m * num_n) : (num_n <= num_m ? num_m : num_n); \
-    const libxs_blasint min_ntasks = LIBXS_GEMM_EXTOMP_MIN_NTASKS(NT); \
-    libxs_gemm_descriptor desc; \
-    if (min_ntasks < num_t) { /* ensure enough parallel slack */ \
-      tile_m = (M) / num_m; tile_n = (N) / num_n; \
+  const int sufficient_size = LIBXS_GEMM_EXTOMP_SUFFICIENT_SIZE(M, N, K); \
+  libxs_blasint tile_m, tile_n, tile_k, num_m, num_n, num_k; \
+  libxs_xmmfunction xmm = { 0 }; \
+  if (0 != sufficient_size \
+    /*TODO: not supported*/&& 0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) \
+    /*TODO: not supported*/&& 1 == scalpha && (1 == scbeta || 0 == scbeta)) \
+  { \
+    tile_m = LIBXS_MAX(TILE_M, 2); tile_n = LIBXS_MAX(TILE_N, 2); tile_k = LIBXS_MAX(TILE_K, 2); \
+    num_m = ((M) + tile_m - 1) / tile_m; num_n = ((N) + tile_n - 1) / tile_n; num_k = ((K) + tile_k - 1) / tile_k; \
+    { /* opening scope for additional variable declarations */ \
+      const libxs_blasint num_t = (LIBXS_GEMM_EXTOMP_OVERHEAD(NT) <= num_k && 1 < LIBXS_GEMM_EXTOMP_COLLAPSE) \
+        ? (num_m * num_n) : (num_n <= num_m ? num_m : num_n); \
+      const libxs_blasint min_ntasks = LIBXS_GEMM_EXTOMP_MIN_NTASKS(NT); \
+      libxs_gemm_descriptor desc; \
+      if (min_ntasks < num_t) { /* ensure enough parallel slack */ \
+        tile_m = (M) / num_m; tile_n = (N) / num_n; \
+      } \
+      else if ((LIBXS_GEMM_EXTOMP_OVERHEAD(NT)) <= num_k) { \
+        const double ratio = sqrt(((double)min_ntasks) / num_t); \
+        tile_n = (int)(num_n * ratio /*+ 0.5*/); \
+        tile_m = (min_ntasks + tile_n - 1) / tile_n; \
+      } \
+      else if (num_n <= num_m) { \
+        tile_m = ((M) + min_ntasks - 1) / min_ntasks; \
+      } \
+      else { \
+        tile_n = ((N) + min_ntasks - 1) / min_ntasks; \
+      } \
+      { /* adjust for non-square operand shapes */ \
+        float rm = 1.f, rn = ((float)(N)) / M, rk = ((float)(K)) / M; \
+        if (1.f < rn) { rm /= rn; rn = 1.f; rk /= rn; } \
+        if (1.f < rk) { rm /= rk; rn /= rk; rk = 1.f; } \
+        tile_m = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_m * rm /*+ 0.5*/)), 8), M); \
+        tile_n = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_n * rn /*+ 0.5*/)), 8), N); \
+        tile_k = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_k * rk /*+ 0.5*/)), 8), K); \
+      } \
+      LIBXS_GEMM_DESCRIPTOR(desc, LIBXS_ALIGNMENT, FLAGS, tile_m, tile_n, tile_k, \
+        LDA, LDB, LDC, scalpha, scbeta, libxs_internal_gemm_prefetch); \
+      xmm = libxs_xmmdispatch(&desc); \
     } \
-    else if ((LIBXS_GEMM_EXTOMP_OVERHEAD(NT)) <= num_k) { \
-      const double ratio = sqrt(((double)min_ntasks) / num_t); \
-      tile_n = (int)(num_n * ratio /*+ 0.5*/); \
-      tile_m = (min_ntasks + tile_n - 1) / tile_n; \
-    } \
-    else if (num_n <= num_m) { \
-      tile_m = ((M) + min_ntasks - 1) / min_ntasks; \
-    } \
-    else { \
-      tile_n = ((N) + min_ntasks - 1) / min_ntasks; \
-    } \
-    { /* adjust for non-square operand shapes */ \
-      float rm = 1.f, rn = ((float)(N)) / M, rk = ((float)(K)) / M; \
-      if (1.f < rn) { rm /= rn; rn = 1.f; rk /= rn; } \
-      if (1.f < rk) { rm /= rk; rn /= rk; rk = 1.f; } \
-      tile_m = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_m * rm /*+ 0.5*/)),  8), M); \
-      tile_n = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_n * rn /*+ 0.5*/)),  8), N); \
-      tile_k = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_k * rk /*+ 0.5*/)), 16), K); \
-    } \
-    LIBXS_GEMM_DESCRIPTOR(desc, LIBXS_ALIGNMENT, FLAGS, tile_m, tile_n, tile_k, LDA, LDB, LDC, scalpha, scbeta, libxs_internal_gemm_prefetch); \
-    xmm = libxs_xmmdispatch(&desc); \
-  } \
-  else { /* TODO: not supported (bypass) */ \
-    xmm.dmm = 0; \
   } \
   if (0 != xmm.dmm) { \
     const libxs_blasint max_j = ((K) / tile_k) * tile_k; \
@@ -176,8 +182,11 @@
       LOOP_END \
     } \
   } \
-  else { /* fallback */ \
+  else if (0 != sufficient_size) { /* BLAS fallback */ \
     LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
+  } \
+  else { /* small problem size */ \
+    LIBXS_XGEMM(REAL, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
 }
 
