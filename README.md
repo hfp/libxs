@@ -306,7 +306,14 @@ The library does not claim to be "optimal" or "best-performing", and the present
 
 Please note that comparing performance results depends on whether or not streaming the operands of the matrix multiplication. For example, running a matrix multiplication code many time with all operands covered by the L1 cache may have an emphasis towards an implementation which actually performs worse for the real workload (if this real workload needs to stream some or all operands from the main memory).
 
-# References
+## Applications
+**\[1] [https://cp2k.org/](https://cp2k.org/)**: Open Source Molecular Dynamics with its DBCSR component processing batches of small matrix multiplications ("matrix stacks") out of a problem-specific distributed block-sparse matrix. Starting with [CP2K 3.0](https://www.cp2k.org/version_history), LIBXS can be used to substitute CP2K's 'libsmm' library. Prior to CP2K 3.0, only the [Intel-branch of CP2K](https://github.com/cp2k/cp2k/tree/intel) was integrating LIBXS (see https://github.com/hfp/libxs/raw/master/documentation/cp2k.pdf).
+
+**\[2] [https://github.com/SeisSol/SeisSol/](https://github.com/SeisSol/SeisSol/)**: SeisSol is one of the leading codes for earthquake scenarios, in particular for simulating dynamic rupture processes. LIBXS provides highly optimized assembly kernels which form the computational back-bone of SeisSol (see https://github.com/TUM-I5/seissol_kernels/).
+
+**\[3] [https://github.com/Nek5000/NekBox](https://github.com/Nek5000/NekBox)**: NekBox is a version of the highly scalable and portable spectral element [Nek5000](https://nek5000.mcs.anl.gov/) code which is specialized for box geometries, and intended for prototyping new methods as well as leveraging FORTRAN beyond the FORTRAN&#160;77 standard. LIBXS provides optimized kernels aiming to conveniently substitute the [MAXM_STD](https://github.com/Nek5000/NekBox/blob/box/mxm_std.F90) code.
+
+## References
 **\[1] [http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/tech_poster_pages/post137.html](http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/tech_poster_pages/post137.html)**: LIBXS: A High Performance Library for Small Matrix Multiplications (poster and two-page extended abstract). SC'15: The International Conference for High Performance Computing, Networking, Storage and Analysis, Austin (Texas).
 
 **\[2] [http://software.intel.com/xeonphicatalog](http://software.intel.com/xeonphicatalog)**: Intel&#160;Xeon&#160;Phi Applications and Solutions Catalog.
