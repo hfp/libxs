@@ -43,7 +43,7 @@
 # pragma offload_attribute(pop)
 #endif
 
-#define LIBXS_GEMM_EXTOMP_SUFFICIENT_SIZE(M, N, K) (((LIBXS_MAX_M * 2/*arbitrary*/) < (M) || (LIBXS_MAX_N * 2/*arbitrary*/) < (N) || (LIBXS_MAX_K * 2/*arbitrary*/) < (K)) ? 1 : 0)
+#define LIBXS_GEMM_EXTOMP_SUFFICIENT_SIZE(M, N, K) (((LIBXS_MAX_M < (M)) || (LIBXS_MAX_N < (N)) || (LIBXS_MAX_K < (K))) ? 1 : 0)
 #if defined(_OPENMP)
 # if !defined(LIBXS_GEMM_EXTOMP_TASKS) && (200805 <= _OPENMP) /*OpenMP 3.0*/
 #   define LIBXS_GEMM_EXTOMP_TASKS
