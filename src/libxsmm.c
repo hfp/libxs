@@ -50,6 +50,9 @@
 #if defined(_WIN32)
 # include <Windows.h>
 #else
+# if !defined(LIBXS_INTERNAL_MAP)
+#   define LIBXS_INTERNAL_MAP MAP_PRIVATE
+# endif
 # include <sys/mman.h>
 # include <pthread.h>
 # include <unistd.h>
@@ -733,12 +736,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         /* must be a superset of what mprotect populates (see below) */
         PROT_READ | PROT_WRITE | PROT_EXEC,
 #if defined(__APPLE__) && defined(__MACH__)
-        MAP_ANON | MAP_PRIVATE, fd, 0);
+        LIBXS_INTERNAL_MAP | MAP_ANON, fd, 0);
 #elif !defined(__CYGWIN__)
-        MAP_PRIVATE | MAP_32BIT, fd, 0);
+        LIBXS_INTERNAL_MAP | MAP_32BIT, fd, 0);
       close(fd);
 #else
-        MAP_PRIVATE, fd, 0);
+        LIBXS_INTERNAL_MAP, fd, 0);
       close(fd);
 #endif
       if (MAP_FAILED != code->pmm) {
