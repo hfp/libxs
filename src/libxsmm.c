@@ -126,7 +126,19 @@ typedef struct LIBXS_RETARGETABLE internal_regentry {
 LIBXS_DEBUG(LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_ncollisions = 0;)
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regentry* internal_registry = 0;
 
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_prefetch = LIBXS_MAX(LIBXS_PREFETCH, 0);
+/** Helper macro determining the default prefetch strategy which is used for statically generated kernels. */
+#if defined(_WIN32) || defined(__CYGWIN__) /*TODO: account for calling convention; avoid passing six arguments*/
+# define INTERNAL_PREFETCH LIBXS_PREFETCH_NONE
+#elif defined(__MIC__) && (0 > LIBXS_PREFETCH) /* auto-prefetch (frontend) */
+# define INTERNAL_PREFETCH LIBXS_PREFETCH_AL2BL2_VIA_C
+#elif (0 > LIBXS_PREFETCH) /* auto-prefetch (frontend) */
+# define INTERNAL_PREFETCH LIBXS_PREFETCH_SIGONLY
+#endif
+#if !defined(INTERNAL_PREFETCH)
+# define INTERNAL_PREFETCH LIBXS_PREFETCH
+#endif
+
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_prefetch = LIBXS_MAX(INTERNAL_PREFETCH, 0);
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_target_arch = LIBXS_TARGET_ARCH_GENERIC;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_target_archid = 0;
 
@@ -325,7 +337,7 @@ return internal_find_code_result.xmm
   INTERNAL_FIND_CODE_DECLARE(entry); \
   const signed char scalpha = (signed char)(0 == (PALPHA) ? LIBXS_ALPHA : *(PALPHA)), scbeta = (signed char)(0 == (PBETA) ? LIBXS_BETA : *(PBETA)); \
   if (0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) && 1 == scalpha && (1 == scbeta || 0 == scbeta)) { \
-    const int internal_dispatch_main_prefetch = (0 == (PREFETCH) ? LIBXS_PREFETCH : *(PREFETCH)); \
+    const int internal_dispatch_main_prefetch = (0 == (PREFETCH) ? INTERNAL_PREFETCH : *(PREFETCH)); \
     DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, FLAGS, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
       0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB), \
       0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA), \
