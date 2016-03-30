@@ -83,9 +83,13 @@
 # endif
 #endif
 
-/* allow external definition to enable testing */
+/* allow external definition to enable testing corner cases (exhausted registry space) */
 #if !defined(LIBXS_REGSIZE)
-# define LIBXS_REGSIZE 524288 /* 524287: Mersenne Prime number */
+# if defined(LIBXS_HASH_BASIC) /* consider larger registry to better deal with low-quality hash */
+#   define LIBXS_REGSIZE /*1048576*/524288 /* no Mersenne Prime number required, but POT number */
+# endif
+#   define LIBXS_REGSIZE 524288 /* 524287: Mersenne Prime number (2^19-1) */
+# endif
 # define LIBXS_HASH_MOD(N, NPOT) LIBXS_MOD2(N, NPOT)
 #else
 # define LIBXS_HASH_MOD(N, NGEN) ((N) % (NGEN))
