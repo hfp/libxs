@@ -90,7 +90,7 @@
 #if !defined(LIBXS_REGSIZE)
 # if defined(LIBXS_HASH_BASIC) /* consider larger registry to better deal with low-quality hash */
 #   define LIBXS_REGSIZE /*1048576*/524288 /* no Mersenne Prime number required, but POT number */
-# endif
+# else
 #   define LIBXS_REGSIZE 524288 /* 524287: Mersenne Prime number (2^19-1) */
 # endif
 # define LIBXS_HASH_MOD(N, NPOT) LIBXS_MOD2(N, NPOT)
@@ -380,6 +380,22 @@ return internal_find_code_result.xmm
   M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, dmm, HASH_FUNCTION, DIFF_FUNCTION)
 
 
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(
+  const libxs_gemm_descriptor* desc, libxs_xmmfunction src,
+  internal_regentry* dst, unsigned int* count)
+{
+  assert(0 != desc && 0 != src.dmm && 0 != dst && 0 != count);
+  if (0 == dst->code.pmm) { /* no further effort to handle collision */
+    dst->code.xmm = src;
+    dst->code_size = 0; /* statically generated code */
+    dst->descriptor = *desc;
+  }
+  else {
+    ++(*count);
+  }
+}
+
+
 LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 {
   /*const*/internal_regentry* result;
@@ -505,8 +521,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #if (0 != LIBXS_JIT) && !defined(__MIC__)
           if (LIBXS_STATIC_TARGET_ARCH >= internal_target_arch)
 #endif
-          {
-            LIBXS_DEBUG(unsigned int csp = 0, cdp = 0;)
+          { /* opening a scope for eventually declaring variables */
+            unsigned int csp = 0, cdp = 0;
             /* setup the dispatch table for the statically generated code */
 #           include <libxs_dispatch.h>
 #if !defined(NDEBUG) /* library code is expected to be mute */
