@@ -287,6 +287,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
       } \
       /* check if code generation or fix-up is needed, also check whether JIT is supported (CPUID) */ \
       if (0 == internal_find_code_result.pmm && LIBXS_X86_AVX <= internal_target_arch) { \
+        /* instead of blocking others, a try-lock would allow to let others to fallback to BLAS (return 0) during lock-time */ \
         INTERNAL_FIND_CODE_LOCK(lock, i); /* lock the registry entry */ \
         /* re-read registry entry after acquiring the lock */ \
         if (0 == diff) { \
