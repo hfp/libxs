@@ -392,7 +392,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(
     dst->descriptor = *desc;
     ++(*registered);
   }
-#if 1
+#if 0
   else if (0 == (dst->code.imm & LIBXS_HASH_COLLISION)) { /* current entry is not yet a collision */
     /* start at a re-hashed index position */
     const unsigned int start = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE);
