@@ -346,10 +346,12 @@ endif
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
 $(INCDIR)/libxs.f: .state $(INCDIR)/.make $(BLDDIR)/.make \
-                     $(SRCDIR)/libxs.template.f $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
+                     $(SRCDIR)/libxs.template.f $(ROOTDIR)/version.txt \
                      $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
-	@$(ROOTDIR)/.hooks/install.sh
+	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
+		$(ROOTDIR)/.hooks/install.sh ; \
+	fi
 ifeq (0,$(OFFLOAD))
 	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f \
 		$(PRECISION) $(MAKE_ILP64) $(OFFLOAD) $(ALIGNMENT) $(ROW_MAJOR) $(PREFETCH_TYPE) \
