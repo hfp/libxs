@@ -296,9 +296,11 @@ endif
 cheader: $(INCDIR)/libxs.h
 $(INCDIR)/libxs.h: .state $(INCDIR)/.make \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
-                     $(ROOTDIR)/.hooks/install.sh $(ROOTDIR)/version.txt \
+                     $(ROOTDIR)/version.txt \
                      $(HEADERS)
-	@$(ROOTDIR)/.hooks/install.sh
+	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
+		$(ROOTDIR)/.hooks/install.sh ; \
+	fi
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2> /dev/null || true
