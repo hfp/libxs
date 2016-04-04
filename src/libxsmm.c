@@ -555,6 +555,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
             if (cdp_reg < cdp_tot) {
               fprintf(stderr, "LIBXS: %u of %u DP-kernels are not registered due to hash key collisions!\n", cdp_tot - cdp_reg, cdp_tot);
             }
+#else
+            LIBXS_UNUSED(csp_tot); LIBXS_UNUSED(csp_reg); LIBXS_UNUSED(cdp_tot); LIBXS_UNUSED(cdp_reg);
 #endif
           }
           atexit(libxs_finalize);
