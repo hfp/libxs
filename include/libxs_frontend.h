@@ -286,12 +286,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*libxs_internal_dgemm)(
 }
 
 #if (0/*LIBXS_PREFETCH_NONE*/ == LIBXS_PREFETCH)
-# define LIBXS_MMCALL(FN, A, B, C, M, N, K, LDA, LDB, LDC) \
+# define LIBXS_MMCALL_LDX(FN, A, B, C, M, N, K, LDA, LDB, LDC) \
   LIBXS_MMCALL_ABC(FN, A, B, C)
 #else
-# define LIBXS_MMCALL(FN, A, B, C, M, N, K, LDA, LDB, LDC) \
+# define LIBXS_MMCALL_LDX(FN, A, B, C, M, N, K, LDA, LDB, LDC) \
   LIBXS_MMCALL_PRF(FN, A, B, C, (A) + (LDA) * (K), (B) + (LDB) * (N), (C) + (LDC) * (N))
 #endif
+#define LIBXS_MMCALL(FN, A, B, C, M, N, K) \
+  LIBXS_MMCALL_LDX(FN, A, B, C, M, N, K, LIBXS_LD(M, N), K, LIBXS_LD(M, N))
 
 /**
  * Execute a specialized function, or use a fallback code path depending on threshold (template).
@@ -311,7 +313,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*libxs_internal_dgemm)(
       (int)(M), (int)(N), (int)(K), &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
       &libxs_xgemm_alpha_, &libxs_xgemm_beta_, &libxs_xgemm_flags_, 0); \
     if (0 != libxs_mmfunction_) { \
-      LIBXS_MMCALL(libxs_mmfunction_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C), M, N, K, LDA, LDB, LDC); \
+      LIBXS_MMCALL_LDX(libxs_mmfunction_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C), M, N, K, LDA, LDB, LDC); \
     } \
     else { \
       LIBXS_FALLBACK0(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
