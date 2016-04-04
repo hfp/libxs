@@ -256,7 +256,7 @@ unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor* reference, const l
     }
   }
 #else /* slightly more optimized implementation */
-  assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
+  assert(/*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
   for (i = hint; i < end; ++i) {
     const unsigned int j = LIBXS_MOD2(i, ndescs); /* wrap around index */
     const char *const d = desc + j * nbytes;
@@ -274,7 +274,7 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference, const 
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
-  assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
+  assert(/*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
   assert(32 == nbytes); /* padded descriptor array */
   {
     const unsigned int end = hint + ndescs;
@@ -330,7 +330,7 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference, const
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
-  assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
+  assert(/*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
   assert(32 == nbytes); /* padded descriptor array */
   {
     const unsigned int end = hint + ndescs;
