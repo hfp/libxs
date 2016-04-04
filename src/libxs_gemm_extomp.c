@@ -108,7 +108,7 @@
 { \
   const signed char scalpha = (signed char)(ALPHA), scbeta = (signed char)(BETA); \
   const int sufficient_size = LIBXS_GEMM_EXTOMP_SUFFICIENT_SIZE(M, N, K); \
-  libxs_blasint tile_m, tile_n, tile_k, num_m, num_n, num_k; \
+  libxs_blasint tile_m = 0, tile_n = 0, tile_k = 0, num_m = 0, num_n = 0, num_k = 0; \
   libxs_xmmfunction xmm = { 0 }; \
   if (0 != sufficient_size \
     /*TODO: not supported*/&& 0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) \
