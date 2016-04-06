@@ -51,6 +51,10 @@
 # pragma offload_attribute(pop)
 #endif
 
+#if !defined(REAL_TYPE)
+# define REAL_TYPE double
+#endif
+
 #define MAX_SIZE (80 * 80)
 
 
@@ -75,10 +79,12 @@ int main(int argc, char* argv[])
 {
   int result = EXIT_SUCCESS;
   try {
-    typedef double T;
+    typedef REAL_TYPE T;
     const int m = 1 < argc ? std::atoi(argv[1]) : 23;
     const int n = 2 < argc ? std::atoi(argv[2]) : m;
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
+    const unsigned long size = LIBXS_DEFAULT(2048/*default: 2 GByte*/,
+      4 < argc ? std::strtoul(argv[4], 0, 10) : 0) << 20;
 
     const int csize = m * n;
     if ((MAX_SIZE) < csize) {
@@ -86,10 +92,10 @@ int main(int argc, char* argv[])
     }
 
     const int asize = m * k, bsize = k * n, aspace = LIBXS_ALIGNMENT / sizeof(T);
-    const int s = (2ULL << 30) / ((asize + bsize + csize) * sizeof(T)); // 2 GByte
+    const int s = LIBXS_MAX(size / ((asize + bsize + csize) * sizeof(T)), 1);
     const size_t bwsize_batched = (asize/*load*/ + bsize/*load*/ + 2 * csize/*RFO*/) * sizeof(T); // batched
     const size_t bwsize = (asize/*load*/ + bsize/*load*/) * sizeof(T); // streamed, skipping C since it is just in cache
-    const double gflops = 2.0 * s * m * n * k * 1E-9, scale = 1.0 / s;
+    const double gflops = 2.0 * s * m * n * k * 1E-9, scale = 1.0;
 
     struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
 #if defined(__MKL) && (2 == __MKL)
@@ -174,17 +180,24 @@ int main(int argc, char* argv[])
 #if defined(__MKL) && (2 == __MKL)
       { // MKL-batched
         fprintf(stdout, "MKL-Batched (A,B,C)...\n");
-        const char transa_array[] = 0 == (LIBXS_FLAGS & LIBXS_GEMM_FLAG_TRANS_A) ? "N" : "T";
-        const char transb_array[] = 0 == (LIBXS_FLAGS & LIBXS_GEMM_FLAG_TRANS_B) ? "N" : "T";
-        std::vector<int> lda_array(s, m), ldb_array(s, k), ldc_array(s, m);
-        const T alpha_array = LIBXS_ALPHA, beta_array = LIBXS_BETA;
-        std::vector<T*> a_array(s, a), b_array(s, b), c_array(s, d);
+        const char transa_array[] = { 0 == (LIBXS_FLAGS & LIBXS_GEMM_FLAG_TRANS_A) ? 'N' : 'T' };
+        const char transb_array[] = { 0 == (LIBXS_FLAGS & LIBXS_GEMM_FLAG_TRANS_B) ? 'N' : 'T' };
+        const T alpha_array[] = { LIBXS_ALPHA }, beta_array[] = { LIBXS_BETA };
+        std::vector<const T*> a_array(s), b_array(s); std::vector<T*> c_array(s);
         const int group_count = 1;
+        for (int i = 0; i < s; ++i) {
+          a_array[i] = a + i * asize; b_array[i] = b + i * bsize; c_array[i] = d + i * csize;
+        }
+        // additional warm-up
+        LIBXS_TPREFIX(REAL_TYPE,gemm_batch)(transa_array, transb_array, &m, &n, &k,
+          alpha_array, &a_array[0], &m, &b_array[0], &k,
+           beta_array, &c_array[0], &m, &group_count, &s);
+        // reset the destination after warm-up
+        for (int i = 0; i < s; ++i) c_array[i] = d + i * csize;
         const unsigned long long start = libxs_timer_tick();
-        dgemm_batch(transa_array, transb_array, &m, &n, &k,
-          &alpha_array, const_cast<const T**>(&a_array[0]), &lda_array[0],
-                        const_cast<const T**>(&b_array[0]), &ldb_array[0],
-           &beta_array, static_cast<T**>(&c_array[0]), &ldc_array[0], &group_count, &s);
+        LIBXS_TPREFIX(REAL_TYPE,gemm_batch)(transa_array, transb_array, &m, &n, &k,
+          alpha_array, &a_array[0], &m, &b_array[0], &k,
+           beta_array, &c_array[0], &m, &group_count, &s);
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
@@ -192,14 +205,17 @@ int main(int argc, char* argv[])
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
         double d2 = 0;
-        for (int i = 0; i < m; ++i) {
-          for (int j = 0; j < n; ++j) {
-            const int k = i * n + j;
-            const double d1 = static_cast<double>(c[k] - d[k]);
-            d2 = std::max(d2, d1 * d1);
+        for (int h = 0; h < s; ++h) {
+          const T *const x = c + h * csize, *const y = c_array[h];
+          for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+              const int k = i * n + j;
+              const double d1 = static_cast<double>(x[k] - y[k]);
+              d2 += d1 * d1;
+            }
           }
         }
-        fprintf(stdout, "\tdiff=%f\n", d2);
+        fprintf(stdout, "\tdiff=%f\n", d2 / s);
       }
 #endif
 
