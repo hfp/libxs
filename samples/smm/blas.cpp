@@ -92,13 +92,22 @@ int main(int argc, char* argv[])
     const double gflops = 2.0 * s * m * n * k * 1E-9, scale = 1.0 / s;
 
     struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
+#if defined(__MKL) && (2 == __MKL)
+      T *a, *b, *c, *d;
+      raii(int asize, int bsize, int csize): a(new T[asize]), b(new T[bsize]), c(new T[csize]), d(new T[csize]) {}
+      ~raii() { delete[] a; delete[] b; delete[] c; delete[] d; }
+#else
       T *a, *b, *c;
       raii(int asize, int bsize, int csize): a(new T[asize]), b(new T[bsize]), c(new T[csize]) {}
       ~raii() { delete[] a; delete[] b; delete[] c; }
+#endif
     } buffer(s * asize + aspace - 1, s * bsize + aspace - 1, s * csize + aspace - 1);
     T *const a = LIBXS_ALIGN2(buffer.a, LIBXS_ALIGNMENT);
     T *const b = LIBXS_ALIGN2(buffer.b, LIBXS_ALIGNMENT);
     T *c = LIBXS_ALIGN2(buffer.c, LIBXS_ALIGNMENT);
+#if defined(__MKL) && (2 == __MKL)
+    T *d = LIBXS_ALIGN2(buffer.c, LIBXS_ALIGNMENT);
+#endif
 
 #if defined(_OPENMP)
 #   pragma omp parallel for
@@ -107,10 +116,17 @@ int main(int argc, char* argv[])
       init<42>(a + i * asize, scale, m, k, i);
       init<24>(b + i * bsize, scale, k, n, i);
       init<22>(c + i * csize, scale, m, n, i);
+#if defined(__MKL) && (2 == __MKL)
+      init<22>(d + i * csize, scale, m, n, i);
+#endif
     }
 
 #if defined(LIBXS_OFFLOAD_TARGET)
+# if defined(__MKL) && (2 == __MKL)
+#   pragma offload target(LIBXS_OFFLOAD_TARGET) in(a: length(s * asize)) in(b: length(s * bsize)) inout(c: length(s * csize)) inout(d: length(s * csize))
+# else
 #   pragma offload target(LIBXS_OFFLOAD_TARGET) in(a: length(s * asize)) in(b: length(s * bsize)) inout(c: length(s * csize))
+# endif
 #endif
     {
 #if defined(MKL_ENABLE_AVX512_MIC)
@@ -162,7 +178,7 @@ int main(int argc, char* argv[])
         const char transb_array[] = 0 == (LIBXS_FLAGS & LIBXS_GEMM_FLAG_TRANS_B) ? "N" : "T";
         std::vector<int> lda_array(s, m), ldb_array(s, k), ldc_array(s, m);
         const T alpha_array = LIBXS_ALPHA, beta_array = LIBXS_BETA;
-        std::vector<T*> a_array(s, a), b_array(s, b), c_array(s, c);
+        std::vector<T*> a_array(s, a), b_array(s, b), c_array(s, d);
         const int group_count = 1;
         const unsigned long long start = libxs_timer_tick();
         dgemm_batch(transa_array, transb_array, &m, &n, &k,
@@ -175,6 +191,15 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        double d2 = 0;
+        for (int i = 0; i < m; ++i) {
+          for (int j = 0; j < n; ++j) {
+            const int k = i * n + j;
+            const double d1 = static_cast<double>(c[k] - d[k]);
+            d2 = std::max(d2, d1 * d1);
+          }
+        }
+        fprintf(stdout, "\tdiff=%f\n", d2);
       }
 #endif
 
