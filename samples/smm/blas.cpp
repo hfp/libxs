@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
     const double gflops = 2.0 * s * m * n * k * 1E-9, scale = 1.0;
 
     struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
-#if defined(__MKL) && (2 == __MKL)
+#if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
       T *a, *b, *c, *d;
       raii(int asize, int bsize, int csize): a(new T[asize]), b(new T[bsize]), c(new T[csize]), d(new T[csize]) {}
       ~raii() { delete[] a; delete[] b; delete[] c; delete[] d; }
@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
     T *const a = LIBXS_ALIGN2(buffer.a, LIBXS_ALIGNMENT);
     T *const b = LIBXS_ALIGN2(buffer.b, LIBXS_ALIGNMENT);
     T *c = LIBXS_ALIGN2(buffer.c, LIBXS_ALIGNMENT);
-#if defined(__MKL) && (2 == __MKL)
+#if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
     T *d = LIBXS_ALIGN2(buffer.c, LIBXS_ALIGNMENT);
 #endif
 
@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
       init<42>(a + i * asize, scale, m, k, i);
       init<24>(b + i * bsize, scale, k, n, i);
       init<22>(c + i * csize, scale, m, n, i);
-#if defined(__MKL) && (2 == __MKL)
+#if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
       init<22>(d + i * csize, scale, m, n, i);
 #endif
     }
@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       }
 
-#if defined(__MKL) && (2 == __MKL)
+#if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
       { // MKL-batched
         fprintf(stdout, "MKL-Batched (A,B,C)...\n");
         const char transa_array[] = { 0 == (LIBXS_FLAGS & LIBXS_GEMM_FLAG_TRANS_A) ? 'N' : 'T' };
