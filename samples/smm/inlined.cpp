@@ -78,12 +78,7 @@ int main(int argc, char* argv[])
     const int n = 2 < argc ? std::atoi(argv[2]) : m;
     const int k = 3 < argc ? std::atoi(argv[3]) : m;
 
-    const int csize = m * n;
-    if ((MAX_SIZE) < csize) {
-      throw std::runtime_error("The size M x N is exceeding MAX_SIZE!");
-    }
-
-    const int asize = m * k, bsize = k * n, aspace = LIBXS_ALIGNMENT / sizeof(T);
+    const int asize = m * k, bsize = k * n, csize = m * n, aspace = LIBXS_ALIGNMENT / sizeof(T);
     const int s = (2ULL << 30) / ((asize + bsize + csize) * sizeof(T)); // 2 GByte
     const size_t bwsize_batched = (asize/*load*/ + bsize/*load*/ + 2 * csize/*RFO*/) * sizeof(T); // batched
     const size_t bwsize = (asize/*load*/ + bsize/*load*/) * sizeof(T); // streamed, skipping C since it is just in cache
@@ -140,51 +135,56 @@ int main(int argc, char* argv[])
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       }
 
-      { // streaming
-        fprintf(stdout, "Streamed (A,B)...\n");
-        const unsigned long long start = libxs_timer_tick();
+      if ((MAX_SIZE) >= csize) {
+        { // streaming
+          fprintf(stdout, "Streamed (A,B)...\n");
+          const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
-#       pragma omp parallel for
+#         pragma omp parallel for
 #endif
-        for (int i = 0; i < s; ++i) {
-          // make sure that stacksize is covering the problem size
-          T tls[MAX_SIZE]; // LIBXS_ALIGNED does not apply to non-static local stack variables
-          T *const tmp = LIBXS_ALIGN_LDST(tls);
-          // do nothing else with tmp; just a benchmark
-          LIBXS_INLINE_GEMM(LIBXS_FLAGS, m, n, k,
-            LIBXS_ALPHA, a + i * asize, LIBXS_LD(m, k), b + i * bsize, LIBXS_LD(k, n),
-            LIBXS_BETA, tmp, LIBXS_LD(m, n));
-          c[0] = tmp[0]; // prevents GCC from optimizing-away the entire benchmark
+          for (int i = 0; i < s; ++i) {
+            // make sure that stacksize is covering the problem size
+            T tls[MAX_SIZE]; // LIBXS_ALIGNED does not apply to non-static local stack variables
+            T *const tmp = LIBXS_ALIGN_LDST(tls);
+            // do nothing else with tmp; just a benchmark
+            LIBXS_INLINE_GEMM(LIBXS_FLAGS, m, n, k,
+              LIBXS_ALPHA, a + i * asize, LIBXS_LD(m, k), b + i * bsize, LIBXS_LD(k, n),
+              LIBXS_BETA, tmp, LIBXS_LD(m, n));
+            c[0] = tmp[0]; // prevents GCC from optimizing-away the entire benchmark
+          }
+          const double duration = libxs_timer_duration(start, libxs_timer_tick());
+          if (0 < duration) {
+            fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+            fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+          }
+          fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
         }
-        const double duration = libxs_timer_duration(start, libxs_timer_tick());
-        if (0 < duration) {
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
-        }
-        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      }
 
-      { // cached
-        fprintf(stdout, "Cached...\n");
-        const unsigned long long start = libxs_timer_tick();
+        { // cached
+          fprintf(stdout, "Cached...\n");
+          const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
-#       pragma omp parallel for
+#         pragma omp parallel for
 #endif
-        for (int i = 0; i < s; ++i) {
-          // make sure that stacksize is covering the problem size
-          T tls[MAX_SIZE]; // LIBXS_ALIGNED does not apply to non-static local stack variables
-          T *const tmp = LIBXS_ALIGN_LDST(tls);
-          // do nothing else with tmp; just a benchmark
-          LIBXS_INLINE_GEMM(LIBXS_FLAGS, m, n, k,
-            LIBXS_ALPHA, a, LIBXS_LD(m, k), b, LIBXS_LD(k, n),
-            LIBXS_BETA, tmp, LIBXS_LD(m, n));
-          c[0] = tmp[0]; // prevents GCC from optimizing-away the entire benchmark
+          for (int i = 0; i < s; ++i) {
+            // make sure that stacksize is covering the problem size
+            T tls[MAX_SIZE]; // LIBXS_ALIGNED does not apply to non-static local stack variables
+            T *const tmp = LIBXS_ALIGN_LDST(tls);
+            // do nothing else with tmp; just a benchmark
+            LIBXS_INLINE_GEMM(LIBXS_FLAGS, m, n, k,
+              LIBXS_ALPHA, a, LIBXS_LD(m, k), b, LIBXS_LD(k, n),
+              LIBXS_BETA, tmp, LIBXS_LD(m, n));
+            c[0] = tmp[0]; // prevents GCC from optimizing-away the entire benchmark
+          }
+          const double duration = libxs_timer_duration(start, libxs_timer_tick());
+          if (0 < duration) {
+            fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          }
+          fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
         }
-        const double duration = libxs_timer_duration(start, libxs_timer_tick());
-        if (0 < duration) {
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-        }
-        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+      }
+      else {
+        fprintf(stderr, "Warning: size M x N is exceeding MAX_SIZE!\n");
       }
 
       // finalize LIBXS
