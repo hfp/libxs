@@ -42,6 +42,16 @@
 # pragma offload_attribute(pop)
 #endif
 
+#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE /*|| any other implemented size*/)
+# if (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   define LIBXS_GEMM_DIFF_AVX512
+# elif (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   define LIBXS_GEMM_DIFF_AVX2
+# elif (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   define LIBXS_GEMM_DIFF_AVX
+# endif
+#endif
+
 
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diff_function internal_gemm_diff_function = libxs_gemm_diff_sw;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diffn_function internal_gemm_diffn_function = libxs_gemm_diffn_sw;
@@ -117,14 +127,14 @@ unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* reference, const li
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
-#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_GEMM_DIFF_AVX)
+# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(0 != reference && 0 != desc);
   {
     int r0, r1;
     __m256i a256, b256;
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compile-time error */
 #   if defined(__CYGWIN__) && !defined(NDEBUG) /* Cygwin/GCC: _mm256_set_epi32 may cause an illegal instruction */
     const union { int32_t array[8]; __m256i i; } m256 = { /* use literal value rather than yes/no
       in order to avoid warning about "initializer element is not computable at load time" */
@@ -135,18 +145,18 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
     struct { __m256i i; } m256;
     m256.i = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
 #   endif
-# endif
-# if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
+#   if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
     a256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)reference, m256.i));
-# else
+#   else
     /*a256 = _mm256_lddqu_si256((const __m256i*)reference);*/
     a256 = _mm256_loadu_si256((const __m256i*)reference);
-# endif
+#   endif
     b256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)desc, m256.i));
     r0 = _mm256_testnzc_si256(a256, b256);
     r1 = _mm256_testnzc_si256(b256, a256);
     return r0 | r1;
   }
+# endif
 #else
 # if !defined(NDEBUG) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
@@ -163,26 +173,26 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
-#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_GEMM_DIFF_AVX2)
+# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(0 != reference && 0 != desc);
   {
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compile-time error */
     const int yes = 0x80000000, no = 0x0;
     const __m256i m256 = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
-# endif
-# if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
+#   if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
     const __m256i a256 = _mm256_maskload_epi32((const void*)reference, m256);
-# else
+#   else
     /*const __m256i a256 = _mm256_lddqu_si256((const __m256i*)reference);*/
     const __m256i a256 = _mm256_loadu_si256((const __m256i*)reference);
-# endif
+#   endif
     const __m256i b256 = _mm256_maskload_epi32((const void*)desc, m256);
     const int r0 = _mm256_testnzc_si256(a256, b256);
     const int r1 = _mm256_testnzc_si256(b256, a256);
     return r0 | r1;
   }
+# endif
 #else
 # if !defined(NDEBUG) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
@@ -199,7 +209,7 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
 unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
-#if defined(__MIC__)
+#if defined(__MIC__) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(0 ==  LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(16 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(0 != reference && 0 != desc);
@@ -273,7 +283,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_GEMM_DIFF_AVX)
+# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(/*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
   assert(32 == nbytes); /* padded descriptor array */
   {
@@ -281,7 +292,6 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference, const 
     const char *const desc = (const char*)descs;
     __m256i a256;
     unsigned int i;
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compile-time error */
 #   if defined(__CYGWIN__) && !defined(NDEBUG) /* Cygwin/GCC: _mm256_set_epi32 may cause an illegal instruction */
     const union { int32_t array[8]; __m256i i; } m256 = { /* use literal value rather than yes/no
       in order to avoid warning about "initializer element is not computable at load time" */
@@ -292,26 +302,26 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference, const 
     struct { __m256i i; } m256;
     m256.i = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
 #   endif
-# endif
-# if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
+#   if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
     a256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)reference, m256.i));
-# else
+#   else
     /*a256 = _mm256_lddqu_si256((const __m256i*)reference);*/
     a256 = _mm256_loadu_si256((const __m256i*)reference);
-# endif
+#   endif
     for (i = hint; i < end; ++i) {
       const unsigned int j = LIBXS_MOD2(i, ndescs); /* wrap around index */
-#if defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
+#   if defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
       const __m256i b256 = _mm256_loadu_si256((const __m256i*)(desc + j * nbytes));
-#else
+#   else
       const __m256i b256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)(desc + j * nbytes), m256.i));
-#endif
+#   endif
       if (0 == _mm256_testnzc_si256(a256, b256) && 0 == _mm256_testnzc_si256(b256, a256)) {
         return j;
       }
     }
   }
   return ndescs;
+# endif
 #else
 # if !defined(NDEBUG) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
@@ -329,36 +339,36 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_GEMM_DIFF_AVX2)
+# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(/*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
   assert(32 == nbytes); /* padded descriptor array */
   {
     const unsigned int end = hint + ndescs;
     const char *const desc = (const char*)descs;
     unsigned int i;
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compile-time error */
     const int yes = 0x80000000, no = 0x0;
     const __m256i m256 = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
-# endif
-# if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
+#   if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
     const __m256i a256 = _mm256_maskload_epi32((const void*)reference, m256);
-# else
+#   else
     /*const __m256i a256 = _mm256_lddqu_si256((const __m256i*)reference);*/
     const __m256i a256 = _mm256_loadu_si256((const __m256i*)reference);
-#endif
+#   endif
     for (i = hint; i < end; ++i) {
       const unsigned int j = LIBXS_MOD2(i, ndescs); /* wrap around index */
-#if defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
+#   if defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
       const __m256i b256 = _mm256_loadu_si256((const __m256i*)(desc + j * nbytes));
-#else
+#   else
       const __m256i b256 = _mm256_maskload_epi32((const void*)(desc + j * nbytes), m256);
-#endif
+#   endif
       if (0 == _mm256_testnzc_si256(a256, b256) && 0 == _mm256_testnzc_si256(b256, a256)) {
         return j;
       }
     }
   }
   return ndescs;
+# endif
 #else
 # if !defined(NDEBUG) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
@@ -376,24 +386,23 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_GEMM_DIFF_AVX512)
+# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
   assert(32 == nbytes); /* padded descriptor array */
   {
     const unsigned int hint_even = (hint & 0xFFFFFFFE), end = hint_even + ndescs;
     const char *const desc = (const char*)descs;
     unsigned int i;
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compile-time error */
     const __mmask16 mask_lo = 0x7F, mask_hi = 0x7F00;
     const int yes = 0x80000000, no = 0x0;
     const __m256i m256 = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
-# endif
-# if defined(LIBXS_GEMM_DIFF_MASK_A)
+#   if defined(LIBXS_GEMM_DIFF_MASK_A)
     const __m256i a256 = _mm256_maskload_epi32((const void*)reference, m256);
-# else
+#   else
     /* SKX: consider _mm256_maskz_expandloadu_epi32 */
     const __m256i a256 = _mm256_loadu_si256((const __m256i*)reference);
-#endif
+#   endif
     const __m512i a512 = _mm512_broadcast_i64x4(a256);
     for (i = hint_even; i < end; i += 2) {
       const unsigned int j = LIBXS_MOD2(i, ndescs); /* wrap around index */
@@ -408,6 +417,7 @@ unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference, con
     }
   }
   return ndescs;
+# endif
 #else
 # if !defined(NDEBUG) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
@@ -432,7 +442,7 @@ unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descriptor* reference, const
     const unsigned int hint_even = (hint & 0xFFFFFFFE), end = hint_even + ndescs;
     const char *const desc = (const char*)descs;
     unsigned int i;
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE) /* otherwise generate a compile-time error */
+# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
     const __mmask16 mask_lo = 0x7F, mask_hi = 0x7F00;
 # endif
     const __m512i h512 = _mm512_mask_loadunpackhi_epi32(
