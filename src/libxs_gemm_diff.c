@@ -49,6 +49,8 @@
 #   define LIBXS_GEMM_DIFF_AVX2
 # elif (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
 #   define LIBXS_GEMM_DIFF_AVX
+# else
+#   define LIBXS_GEMM_DIFF_NOWARNING
 # endif
 #endif
 
@@ -158,7 +160,7 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
 # endif
   }
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
     fprintf(stderr, "LIBXS: unable to enter AVX instruction code path!\n");
@@ -194,7 +196,7 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
 # endif
   }
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
     fprintf(stderr, "LIBXS: unable to enter AVX2 instruction code path!\n");
@@ -323,7 +325,7 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference, const 
   }
   return ndescs;
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
     fprintf(stderr, "LIBXS: unable to enter AVX instruction code path!\n");
@@ -370,7 +372,7 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference, const
   }
   return ndescs;
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
     fprintf(stderr, "LIBXS: unable to enter AVX2 instruction code path!\n");
@@ -419,7 +421,7 @@ unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference, con
   }
   return ndescs;
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
     fprintf(stderr, "LIBXS: unable to enter AVX-512 instruction code path!\n");
