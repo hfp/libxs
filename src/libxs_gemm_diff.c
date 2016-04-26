@@ -163,7 +163,7 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
 # if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX instruction code path!\n");
+    fprintf(stderr, "LIBXS: unable to enter AVX code path!\n");
     once = 1;
   }
 # endif
@@ -199,7 +199,7 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
 # if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX2 instruction code path!\n");
+    fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
     once = 1;
   }
 # endif
@@ -328,7 +328,7 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference, const 
 # if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX instruction code path!\n");
+    fprintf(stderr, "LIBXS: unable to enter AVX code path!\n");
     once = 1;
   }
 # endif
@@ -375,7 +375,7 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference, const
 # if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX2 instruction code path!\n");
+    fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
     once = 1;
   }
 # endif
@@ -424,7 +424,7 @@ unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference, con
 # if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
   static LIBXS_TLS int once = 0;
   if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX-512 instruction code path!\n");
+    fprintf(stderr, "LIBXS: unable to enter AVX-512 code path!\n");
     once = 1;
   }
 # endif
