@@ -549,7 +549,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
         result = (internal_regentry*)malloc(LIBXS_REGSIZE * sizeof(internal_regentry));
         internal_registry_keys = (internal_regkey*)malloc(LIBXS_REGSIZE * sizeof(internal_regkey));
 
-        if (result) {
+        if (result && internal_registry_keys) {
           for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].function.pmm = 0;
           /* omit registering code if JIT is enabled and if an ISA extension is found
            * which is beyond the static code path used to compile the library
@@ -587,6 +587,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #else
           internal_registry = result;
 #endif
+        }
+        else {
+#if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
+          fprintf(stderr, "LIBXS: failed to allocate code registry!\n");
+#endif
+          free(internal_registry_keys);
+          free(result);
         }
       }
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
@@ -659,6 +666,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
       registry = internal_registry;
 
       if (0 != registry) {
+        void *const registry_keys = internal_registry_keys;
 #if defined(__TRACE)
         i = libxs_trace_finalize();
 # if !defined(NDEBUG) /* library code is expected to be mute */
@@ -684,6 +692,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 #else
         internal_registry = 0;
 #endif
+        internal_registry_keys = 0;
         { /* open scope to allocate variables */
           LIBXS_DEBUG(unsigned int njit = 0, nstatic = 0;)
           for (i = 0; i < LIBXS_REGSIZE; ++i) {
@@ -723,6 +732,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 #endif
         }
         free((void*)registry);
+        free(registry_keys);
       }
     }
 #if !defined(LIBXS_OPENMP) /* release locks */
