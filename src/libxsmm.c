@@ -184,14 +184,14 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 # if (0 != LIBXS_GCCATOMICS)
 #   define INTERNAL_FIND_CODE_DECLARE(CODE) internal_regentry* CODE = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED); unsigned int i
 #   define INTERNAL_FIND_CODE_READ(CODE, DST) DST = __atomic_load_n(&((CODE)->function.pmm), __ATOMIC_SEQ_CST)
-#   define INTERNAL_FIND_CODE_WRITE(CODE, SRC) __atomic_store_n(&((internal_regentry*)(CODE))->function.pmm, SRC, __ATOMIC_SEQ_CST);
+#   define INTERNAL_FIND_CODE_WRITE(CODE, SRC) __atomic_store_n(&(CODE)->function.pmm, SRC, __ATOMIC_SEQ_CST);
 # else
 #   define INTERNAL_FIND_CODE_DECLARE(CODE) internal_regentry* CODE = __sync_or_and_fetch(&internal_registry, 0); unsigned int i
 #   define INTERNAL_FIND_CODE_READ(CODE, DST) DST = __sync_or_and_fetch(&((CODE)->function.pmm), 0)
 #   define INTERNAL_FIND_CODE_WRITE(CODE, SRC) { \
-      /*const*/void* old = ((internal_regentry*)(CODE))->function.pmm; \
-      while (!__sync_bool_compare_and_swap(&((internal_regentry*)(CODE))->function.pmm, old, SRC)) { \
-        old = ((internal_regentry*)(CODE))->function.pmm; \
+      /*const*/void* old = (CODE)->function.pmm; \
+      while (!__sync_bool_compare_and_swap(&(CODE)->function.pmm, old, SRC)) { \
+        old = (CODE)->function.pmm; \
       } \
     }
 # endif
@@ -263,14 +263,13 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
       else { /* 0 != diff */ \
         if (0 == diff0) { \
           /* flag existing entry as collision */ \
-          const uintptr_t ipointer = (CODE)->function.imm | LIBXS_HASH_COLLISION; \
-          /*const*/ void * /*const*/ code = (void*)ipointer; \
+          /*const*/ void * /*const*/ collision = (void*)((CODE)->function.imm | LIBXS_HASH_COLLISION); \
           /* find new slot to store the code version */ \
           const unsigned int index = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE); \
           i = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE)); \
           i0 = i; /* keep starting point of free-slot-search in mind */ \
           LIBXS_DEBUG(++internal_ncollisions;) \
-          INTERNAL_FIND_CODE_WRITE(CODE, code); /* fix-up existing entry */ \
+          INTERNAL_FIND_CODE_WRITE(CODE, collision); /* fix-up existing entry */ \
           diff0 = diff; /* no more fix-up */ \
         } \
         else { \
