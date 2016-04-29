@@ -262,8 +262,7 @@ unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor* reference, const l
   for (i = hint; i < end; ++i) {
     const unsigned int j = i % ndescs; /* wrap around index */
     /* negative stride runs backwards */
-    const char *const d = desc + j * nbytes;
-    if (0 == libxs_gemm_diff(reference, (const libxs_gemm_descriptor*)d)) {
+    if (0 == libxs_gemm_diff(reference, (const libxs_gemm_descriptor*)(desc + j * nbytes))) {
       return j;
     }
   }
@@ -271,8 +270,7 @@ unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor* reference, const l
   assert(/*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
   for (i = hint; i < end; ++i) {
     const unsigned int j = LIBXS_MOD2(i, ndescs); /* wrap around index */
-    const char *const d = desc + j * nbytes;
-    if (0 == libxs_gemm_diff(reference, (const libxs_gemm_descriptor*)d)) {
+    if (0 == libxs_gemm_diff(reference, (const libxs_gemm_descriptor*)(desc + j * nbytes))) {
       return j;
     }
   }
