@@ -136,7 +136,7 @@ typedef struct LIBXS_RETARGETABLE internal_regentry {
 LIBXS_DEBUG(LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_ncollisions = 0;)
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regkey* internal_registry_keys = 0;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regentry* internal_registry = 0;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_init_count = 0;
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_teardown = 0;
 
 /** Helper macro determining the default prefetch strategy which is used for statically generated kernels. */
 #if defined(_WIN32) || defined(__CYGWIN__) /*TODO: account for calling convention; avoid passing six arguments*/
@@ -216,16 +216,16 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
   assert(32 >= LIBXS_GEMM_DESCRIPTOR_SIZE); \
   /* search small cache starting with the last hit on record */ \
   i = libxs_gemm_diffn(DESCRIPTOR, &(CACHE_KEYS)->desc, CACHE_HIT, LIBXS_CACHESIZE, 32); \
-  if ((LIBXS_CACHESIZE) > i && (CACHE_ID) == internal_init_count) { /* cache hit, and valid */ \
+  if ((LIBXS_CACHESIZE) > i && (CACHE_ID) == internal_teardown) { /* cache hit, and valid */ \
     (RESULT).function.xmm = (CACHE)[i]; \
     CACHE_HIT = i; \
   } \
   else
 # if defined(LIBXS_GEMM_DIFF_SW) && (2 == (LIBXS_GEMM_DIFF_SW)) /* most general implementation */
 #   define INTERNAL_FIND_CODE_CACHE_FINALIZE(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT, RESULT, DESCRIPTOR) \
-    if ((CACHE_ID) != internal_init_count) { \
+    if ((CACHE_ID) != internal_teardown) { \
       memset(CACHE_KEYS, 0, sizeof(CACHE_KEYS)); \
-      CACHE_ID = internal_init_count; \
+      CACHE_ID = internal_teardown; \
     } \
     i = ((CACHE_HIT) + ((LIBXS_CACHESIZE) - 1)) % (LIBXS_CACHESIZE); \
     ((CACHE_KEYS)[i]).desc = *(DESCRIPTOR); \
@@ -234,9 +234,9 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 # else
 #   define INTERNAL_FIND_CODE_CACHE_FINALIZE(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT, RESULT, DESCRIPTOR) \
     assert(/*is pot*/(LIBXS_CACHESIZE) == (1 << LIBXS_LOG2(LIBXS_CACHESIZE))); \
-    if ((CACHE_ID) != internal_init_count) { \
+    if ((CACHE_ID) != internal_teardown) { \
       memset(CACHE_KEYS, 0, sizeof(CACHE_KEYS)); \
-      CACHE_ID = internal_init_count; \
+      CACHE_ID = internal_teardown; \
     } \
     i = LIBXS_MOD2((CACHE_HIT) + ((LIBXS_CACHESIZE) - 1), LIBXS_CACHESIZE); \
     (CACHE_KEYS)[i].desc = *(DESCRIPTOR); \
@@ -584,8 +584,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #endif
           }
           atexit(libxs_finalize);
-          /* serves as an id to invalidate the thread-local cache; never decremented */
-          ++internal_init_count;
 #if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
           __atomic_store_n(&internal_registry, result, __ATOMIC_SEQ_CST);
@@ -706,6 +704,8 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
         internal_registry = 0;
 #endif
         internal_registry_keys = 0;
+        /* serves as an id to invalidate the thread-local cache; never decremented */
+        ++internal_teardown;
         { /* open scope to allocate variables */
           LIBXS_DEBUG(unsigned int njit = 0, nstatic = 0;)
           for (i = 0; i < LIBXS_REGSIZE; ++i) {
