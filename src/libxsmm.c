@@ -678,6 +678,8 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 
       if (0 != registry) {
         void *const registry_keys = internal_registry_keys;
+        /* serves as an id to invalidate the thread-local cache; never decremented */
+        ++internal_teardown;
 #if defined(__TRACE)
         i = libxs_trace_finalize();
 # if !defined(NDEBUG) /* library code is expected to be mute */
@@ -704,8 +706,6 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
         internal_registry = 0;
 #endif
         internal_registry_keys = 0;
-        /* serves as an id to invalidate the thread-local cache; never decremented */
-        ++internal_teardown;
         { /* open scope to allocate variables */
           LIBXS_DEBUG(unsigned int njit = 0, nstatic = 0;)
           for (i = 0; i < LIBXS_REGSIZE; ++i) {
