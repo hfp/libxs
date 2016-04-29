@@ -136,6 +136,7 @@ typedef struct LIBXS_RETARGETABLE internal_regentry {
 LIBXS_DEBUG(LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_ncollisions = 0;)
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regkey* internal_registry_keys = 0;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regentry* internal_registry = 0;
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_init_count = 0;
 
 /** Helper macro determining the default prefetch strategy which is used for statically generated kernels. */
 #if defined(_WIN32) || defined(__CYGWIN__) /*TODO: account for calling convention; avoid passing six arguments*/
@@ -183,11 +184,11 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 #if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
 #   define INTERNAL_FIND_CODE_DECLARE(CODE) internal_regentry* CODE = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED); unsigned int i
-#   define INTERNAL_FIND_CODE_READ(CODE, DST) DST = __atomic_load_n(&((CODE)->function.pmm), __ATOMIC_SEQ_CST)
+#   define INTERNAL_FIND_CODE_READ(CODE, DST) DST = __atomic_load_n(&(CODE)->function.pmm, __ATOMIC_SEQ_CST)
 #   define INTERNAL_FIND_CODE_WRITE(CODE, SRC) __atomic_store_n(&(CODE)->function.pmm, SRC, __ATOMIC_SEQ_CST);
 # else
 #   define INTERNAL_FIND_CODE_DECLARE(CODE) internal_regentry* CODE = __sync_or_and_fetch(&internal_registry, 0); unsigned int i
-#   define INTERNAL_FIND_CODE_READ(CODE, DST) DST = __sync_or_and_fetch(&((CODE)->function.pmm), 0)
+#   define INTERNAL_FIND_CODE_READ(CODE, DST) DST = __sync_or_and_fetch(&(CODE)->function.pmm, 0)
 #   define INTERNAL_FIND_CODE_WRITE(CODE, SRC) { \
       /*const*/void* old = (CODE)->function.pmm; \
       while (!__sync_bool_compare_and_swap(&(CODE)->function.pmm, old, SRC)) { \
@@ -205,38 +206,47 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 # define INTERNAL_FIND_CODE_WRITE(CODE, SRC) (CODE)->function.pmm = (SRC)
 #endif
 
-#if defined(LIBXS_CACHESIZE) && (0 < LIBXS_CACHESIZE)
-# define INTERNAL_FIND_CODE_CACHE_DECL(CACHE_KEYS, CACHE) \
-  static LIBXS_TLS union { char padding[32]; libxs_gemm_descriptor desc; } CACHE_KEYS[LIBXS_CACHESIZE]; \
+#if defined(LIBXS_CACHESIZE) && (0 < (LIBXS_CACHESIZE))
+# define INTERNAL_FIND_CODE_CACHE_DECL(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT) \
+  static LIBXS_TLS union { libxs_gemm_descriptor desc; char padding[32]; } CACHE_KEYS[LIBXS_CACHESIZE]; \
   static LIBXS_TLS libxs_xmmfunction CACHE[LIBXS_CACHESIZE]; \
-  static LIBXS_TLS unsigned int cache_hit = LIBXS_CACHESIZE
-# define INTERNAL_FIND_CODE_CACHE_BEGIN(DESCRIPTOR, CACHE_KEYS, CACHE, RESULT) \
+  static LIBXS_TLS unsigned int CACHE_ID = (unsigned int)(-1); \
+  static LIBXS_TLS unsigned int CACHE_HIT = LIBXS_CACHESIZE
+# define INTERNAL_FIND_CODE_CACHE_BEGIN(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT, RESULT, DESCRIPTOR) \
   assert(32 >= LIBXS_GEMM_DESCRIPTOR_SIZE); \
   /* search small cache starting with the last hit on record */ \
-  i = libxs_gemm_diffn(DESCRIPTOR, &((CACHE_KEYS)->desc), cache_hit, LIBXS_CACHESIZE, 32); \
-  if (LIBXS_CACHESIZE > i) { /* cache hit */ \
+  i = libxs_gemm_diffn(DESCRIPTOR, &(CACHE_KEYS)->desc, CACHE_HIT, LIBXS_CACHESIZE, 32); \
+  if ((LIBXS_CACHESIZE) > i && (CACHE_ID) == internal_init_count) { /* cache hit, and valid */ \
     (RESULT).function.xmm = (CACHE)[i]; \
-    cache_hit = i; \
+    CACHE_HIT = i; \
   } \
   else
 # if defined(LIBXS_GEMM_DIFF_SW) && (2 == (LIBXS_GEMM_DIFF_SW)) /* most general implementation */
-#   define INTERNAL_FIND_CODE_CACHE_FINALIZE(DESCRIPTOR, CACHE_KEYS, CACHE, RESULT) \
-    i = (cache_hit + LIBXS_CACHESIZE - 1) % LIBXS_CACHESIZE; \
+#   define INTERNAL_FIND_CODE_CACHE_FINALIZE(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT, RESULT, DESCRIPTOR) \
+    if ((CACHE_ID) != internal_init_count) { \
+      memset(CACHE_KEYS, 0, sizeof(CACHE_KEYS)); \
+      CACHE_ID = internal_init_count; \
+    } \
+    i = ((CACHE_HIT) + ((LIBXS_CACHESIZE) - 1)) % (LIBXS_CACHESIZE); \
     ((CACHE_KEYS)[i]).desc = *(DESCRIPTOR); \
     (CACHE)[i] = (RESULT).function.xmm; \
-    cache_hit = i
+    CACHE_HIT = i
 # else
-#   define INTERNAL_FIND_CODE_CACHE_FINALIZE(DESCRIPTOR, CACHE_KEYS, CACHE, RESULT) \
-    assert(/*is pot*/LIBXS_CACHESIZE == (1 << LIBXS_LOG2(LIBXS_CACHESIZE))); \
-    i = LIBXS_MOD2(cache_hit + LIBXS_CACHESIZE - 1, LIBXS_CACHESIZE); \
+#   define INTERNAL_FIND_CODE_CACHE_FINALIZE(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT, RESULT, DESCRIPTOR) \
+    assert(/*is pot*/(LIBXS_CACHESIZE) == (1 << LIBXS_LOG2(LIBXS_CACHESIZE))); \
+    if ((CACHE_ID) != internal_init_count) { \
+      memset(CACHE_KEYS, 0, sizeof(CACHE_KEYS)); \
+      CACHE_ID = internal_init_count; \
+    } \
+    i = LIBXS_MOD2((CACHE_HIT) + ((LIBXS_CACHESIZE) - 1), LIBXS_CACHESIZE); \
     (CACHE_KEYS)[i].desc = *(DESCRIPTOR); \
     (CACHE)[i] = (RESULT).function.xmm; \
-    cache_hit = i
+    CACHE_HIT = i
 # endif
 #else
-# define INTERNAL_FIND_CODE_CACHE_DECL(CACHE_KEYS, CACHE)
-# define INTERNAL_FIND_CODE_CACHE_BEGIN(DESCRIPTOR, CACHE_KEYS, CACHE, RESULT)
-# define INTERNAL_FIND_CODE_CACHE_FINALIZE(DESCRIPTOR, CACHE_KEYS, CACHE, RESULT)
+# define INTERNAL_FIND_CODE_CACHE_DECL(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT)
+# define INTERNAL_FIND_CODE_CACHE_BEGIN(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT, RESULT, DESCRIPTOR)
+# define INTERNAL_FIND_CODE_CACHE_FINALIZE(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT, RESULT, DESCRIPTOR)
 #endif
 
 #if (0 != LIBXS_JIT)
@@ -294,10 +304,10 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 #define INTERNAL_FIND_CODE(DESCRIPTOR, CODE, HASH_FUNCTION, DIFF_FUNCTION) \
   internal_regentry flux_entry; \
 { \
-  INTERNAL_FIND_CODE_CACHE_DECL(cache_keys, cache); \
+  INTERNAL_FIND_CODE_CACHE_DECL(cache_id, cache_keys, cache, cache_hit); \
   unsigned int hash, diff = 0, diff0 = 0, i0; \
   INTERNAL_FIND_CODE_INIT(CODE); \
-  INTERNAL_FIND_CODE_CACHE_BEGIN(DESCRIPTOR, cache_keys, cache, flux_entry) { \
+  INTERNAL_FIND_CODE_CACHE_BEGIN(cache_id, cache_keys, cache, cache_hit, flux_entry, DESCRIPTOR) { \
     /* check if the requested xGEMM is already JITted */ \
     LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
     LIBXS_HASH_FUNCTION_CALL(hash, i = i0, HASH_FUNCTION, *(DESCRIPTOR)); \
@@ -352,7 +362,8 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
       } \
     } \
     while (0 != diff); \
-    INTERNAL_FIND_CODE_CACHE_FINALIZE(DESCRIPTOR, cache_keys, cache, flux_entry); \
+    assert(0 == diff || 0 == flux_entry.function.pmm); \
+    INTERNAL_FIND_CODE_CACHE_FINALIZE(cache_id, cache_keys, cache, cache_hit, flux_entry, DESCRIPTOR); \
   } \
 } \
 return flux_entry.function.xmm
@@ -573,6 +584,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #endif
           }
           atexit(libxs_finalize);
+          /* serves as an id to invalidate the thread-local cache; never decremented */
+          ++internal_init_count;
 #if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
           __atomic_store_n(&internal_registry, result, __ATOMIC_SEQ_CST);
