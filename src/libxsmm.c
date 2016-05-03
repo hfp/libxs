@@ -82,7 +82,7 @@
 /* alternative hash algorithm (instead of CRC32) */
 #if !defined(LIBXS_HASH_BASIC) && !defined(LIBXS_REGSIZE)
 # if !defined(LIBXS_MAX_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4_2 > LIBXS_MAX_STATIC_TARGET_ARCH)
-#   define LIBXS_HASH_BASIC
+/*#   define LIBXS_HASH_BASIC*/
 # endif
 #endif
 
@@ -103,15 +103,13 @@
 #endif
 
 #if defined(LIBXS_HASH_BASIC)
-# define LIBXS_HASH_FUNCTION libxs_hash_npot
-# define LIBXS_HASH_FUNCTION_CALL(HASH, INDX, HASH_FUNCTION, DESCRIPTOR) \
-    HASH = (HASH_FUNCTION)(&(DESCRIPTOR), LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_REGSIZE); \
+# define LIBXS_HASH_FUNCTION_CALL(HASH, INDX, DESCRIPTOR) \
+    HASH = libxs_hash_npot(&(DESCRIPTOR), LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_REGSIZE); \
     assert((LIBXS_REGSIZE) > (HASH)); \
     INDX = (HASH)
 #else
-# define LIBXS_HASH_FUNCTION libxs_crc32
-# define LIBXS_HASH_FUNCTION_CALL(HASH, INDX, HASH_FUNCTION, DESCRIPTOR) \
-    HASH = (HASH_FUNCTION)(&(DESCRIPTOR), LIBXS_GEMM_DESCRIPTOR_SIZE, 25071975/*seed*/); \
+# define LIBXS_HASH_FUNCTION_CALL(HASH, INDX, DESCRIPTOR) \
+    HASH = libxs_crc32(&(DESCRIPTOR), LIBXS_GEMM_DESCRIPTOR_SIZE, 25071975/*seed*/); \
     INDX = LIBXS_HASH_MOD(HASH, LIBXS_REGSIZE)
 #endif
 
@@ -301,7 +299,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 # define INTERNAL_FIND_CODE_JIT(DESCRIPTOR, CODE, RESULT)
 #endif
 
-#define INTERNAL_FIND_CODE(DESCRIPTOR, CODE, HASH_FUNCTION, DIFF_FUNCTION) \
+#define INTERNAL_FIND_CODE(DESCRIPTOR, CODE) \
   internal_regentry flux_entry; \
 { \
   INTERNAL_FIND_CODE_CACHE_DECL(cache_id, cache_keys, cache, cache_hit); \
@@ -310,7 +308,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
   INTERNAL_FIND_CODE_CACHE_BEGIN(cache_id, cache_keys, cache, cache_hit, flux_entry, DESCRIPTOR) { \
     /* check if the requested xGEMM is already JITted */ \
     LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
-    LIBXS_HASH_FUNCTION_CALL(hash, i = i0, HASH_FUNCTION, *(DESCRIPTOR)); \
+    LIBXS_HASH_FUNCTION_CALL(hash, i = i0, *(DESCRIPTOR)); \
     (CODE) += i; /* actual entry */ \
     do { \
       INTERNAL_FIND_CODE_READ(CODE, flux_entry.function.pmm); /* read registered code */ \
@@ -319,14 +317,14 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
           if (0 == (LIBXS_HASH_COLLISION & flux_entry.function.imm)) { /* check for no collision */ \
             /* calculate bitwise difference (deep check) */ \
             LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
-            diff = (DIFF_FUNCTION)(DESCRIPTOR, &internal_registry_keys[i].descriptor); \
+            diff = libxs_gemm_diff(DESCRIPTOR, &internal_registry_keys[i].descriptor); \
             if (0 != diff) { /* new collision discovered (but no code version yet) */ \
               /* allow to fix-up current entry inside of the guarded/locked region */ \
               flux_entry.function.pmm = 0; \
             } \
           } \
           /* collision discovered but code version exists; perform deep check */ \
-          else if (0 != (DIFF_FUNCTION)(DESCRIPTOR, &internal_registry_keys[i].descriptor)) { \
+          else if (0 != libxs_gemm_diff(DESCRIPTOR, &internal_registry_keys[i].descriptor)) { \
             /* continue linearly searching code starting at re-hashed index position */ \
             const unsigned int index = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE); \
             unsigned int next; \
@@ -334,7 +332,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
               i = i0, next = LIBXS_HASH_MOD(i0 + 1, LIBXS_REGSIZE); \
               /* skip any (still invalid) descriptor which corresponds to no code, or continue on difference */ \
               (0 == (CODE = (internal_registry + i))->function.pmm || \
-                0 != (diff = (DIFF_FUNCTION)(DESCRIPTOR, &internal_registry_keys[i].descriptor))) \
+                0 != (diff = libxs_gemm_diff(DESCRIPTOR, &internal_registry_keys[i].descriptor))) \
                 /* entire registry was searched and no code version was found */ \
                 && next != i0; \
               i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE)); \
@@ -368,7 +366,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 } \
 return flux_entry.function.xmm
 
-#define INTERNAL_DISPATCH_MAIN(DESCRIPTOR_DECL, DESC, FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/, HASH_FUNCTION, DIFF_FUNCTION) { \
+#define INTERNAL_DISPATCH_MAIN(DESCRIPTOR_DECL, DESC, FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/) { \
   INTERNAL_FIND_CODE_DECLARE(code); \
   const signed char scalpha = (signed char)(0 == (PALPHA) ? LIBXS_ALPHA : *(PALPHA)), scbeta = (signed char)(0 == (PBETA) ? LIBXS_BETA : *(PBETA)); \
   if (0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) && 1 == scalpha && (1 == scbeta || 0 == scbeta)) { \
@@ -379,7 +377,7 @@ return flux_entry.function.xmm
       0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC), scalpha, scbeta, \
       0 > internal_dispatch_main_prefetch ? internal_prefetch : internal_dispatch_main_prefetch); \
     { \
-      INTERNAL_FIND_CODE(DESC, code, HASH_FUNCTION, DIFF_FUNCTION).SELECTOR; \
+      INTERNAL_FIND_CODE(DESC, code).SELECTOR; \
     } \
   } \
   else { /* TODO: not supported (bypass) */ \
@@ -388,52 +386,52 @@ return flux_entry.function.xmm
 }
 
 #if defined(LIBXS_GEMM_DIFF_MASK_A) /* no padding i.e., LIBXS_GEMM_DESCRIPTOR_SIZE */
-# define INTERNAL_DISPATCH(FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/, HASH_FUNCTION, DIFF_FUNCTION) \
+# define INTERNAL_DISPATCH(FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/) \
     INTERNAL_DISPATCH_MAIN(libxs_gemm_descriptor descriptor, &descriptor, \
-    FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/, HASH_FUNCTION, DIFF_FUNCTION)
+    FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/)
 #else /* padding: LIBXS_GEMM_DESCRIPTOR_SIZE -> LIBXS_ALIGNMENT */
-# define INTERNAL_DISPATCH(FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/, HASH_FUNCTION, DIFF_FUNCTION) { \
+# define INTERNAL_DISPATCH(FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/) { \
     INTERNAL_DISPATCH_MAIN(union { libxs_gemm_descriptor desc; char simd[LIBXS_ALIGNMENT]; } simd_descriptor; \
       for (i = LIBXS_GEMM_DESCRIPTOR_SIZE; i < sizeof(simd_descriptor.simd); ++i) simd_descriptor.simd[i] = 0, &simd_descriptor.desc, \
-    FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/, HASH_FUNCTION, DIFF_FUNCTION)
+    FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/)
 #endif
 
-#define INTERNAL_SMMDISPATCH(PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, HASH_FUNCTION, DIFF_FUNCTION) \
+#define INTERNAL_SMMDISPATCH(PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) \
   INTERNAL_DISPATCH((0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)) | LIBXS_GEMM_FLAG_F32PREC, \
-  M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, smm, HASH_FUNCTION, DIFF_FUNCTION)
-
-#define INTERNAL_DMMDISPATCH(PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, HASH_FUNCTION, DIFF_FUNCTION) \
+  M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, smm)
+#define INTERNAL_DMMDISPATCH(PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) \
   INTERNAL_DISPATCH((0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)), \
-  M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, dmm, HASH_FUNCTION, DIFF_FUNCTION)
+  M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, dmm)
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(
   const libxs_gemm_descriptor* desc, unsigned int index, unsigned int hash, libxs_xmmfunction src,
-  internal_regentry* dst_entries, unsigned int* registered, unsigned int* total)
+  internal_regentry* registry, unsigned int* registered, unsigned int* total)
 {
-  internal_regkey* dst_keys = internal_registry_keys;
-  assert(0 != desc && 0 != src.dmm && 0 != dst_keys && 0 != dst_entries && 0 != registered && 0 != total);
+  internal_regkey* dst_key = internal_registry_keys + index;
+  internal_regentry* dst_entry = registry + index;
+  assert(0 != desc && 0 != src.dmm && 0 != dst_key && 0 != registry && 0 != registered && 0 != total);
 
-  if (0 != dst_entries->function.pmm) { /* collision? */
+  if (0 != dst_entry->function.pmm) { /* collision? */
     /* start at a re-hashed index position */
     const unsigned int start = LIBXS_HASH_MOD(LIBXS_HASH_VALUE(hash), LIBXS_REGSIZE);
-    internal_regentry *const registry = dst_entries - index; /* recalculate base address */
     unsigned int i0, i, next;
 
     /* mark current entry as a collision (this might be already the case) */
-    dst_entries->function.imm |= LIBXS_HASH_COLLISION;
+    dst_entry->function.imm |= LIBXS_HASH_COLLISION;
 
     /* start linearly searching for an available slot */
     for (i = (start != index) ? start : LIBXS_HASH_MOD(start + 1, LIBXS_REGSIZE), i0 = i, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE);
-      0 != (dst_entries = registry + i)->function.pmm && next != i0; i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE));
+      0 != (dst_entry = registry + i)->function.pmm && next != i0; i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE));
 
-    dst_keys += i;
+    /* corresponding key position */
+    dst_key = internal_registry_keys + i;
   }
 
-  if (0 == dst_entries->function.pmm) { /* registry not (yet) exhausted */
-    dst_entries->function.xmm = src;
-    dst_entries->size = 0; /* statically generated code */
-    dst_keys->descriptor = *desc;
+  if (0 == dst_entry->function.pmm) { /* registry not (yet) exhausted */
+    dst_entry->function.xmm = src;
+    dst_entry->size = 0; /* statically generated code */
+    dst_key->descriptor = *desc;
     ++(*registered);
   }
 
@@ -949,11 +947,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_xmmdispatch(const lib
   INTERNAL_FIND_CODE_DECLARE(code);
   assert(descriptor);
   {
-#if defined(LIBXS_HASH_BASIC)
-    INTERNAL_FIND_CODE(descriptor, code, libxs_hash_npot, libxs_gemm_diff);
-#else
-    INTERNAL_FIND_CODE(descriptor, code, libxs_crc32, libxs_gemm_diff);
-#endif
+    INTERNAL_FIND_CODE(descriptor, code);
   }
 }
 
@@ -970,11 +964,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
   const float* alpha, const float* beta,
   const int* flags, const int* prefetch)
 {
-#if defined(LIBXS_HASH_BASIC)
-  INTERNAL_SMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, libxs_hash_npot, libxs_gemm_diff);
-#else
-  INTERNAL_SMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, libxs_crc32, libxs_gemm_diff);
-#endif
+  INTERNAL_SMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
 
@@ -983,10 +973,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
   const double* alpha, const double* beta,
   const int* flags, const int* prefetch)
 {
-#if defined(LIBXS_HASH_BASIC)
-  INTERNAL_DMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, libxs_hash_npot, libxs_gemm_diff);
-#else
-  INTERNAL_DMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch, libxs_crc32, libxs_gemm_diff);
-#endif
+  INTERNAL_DMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
