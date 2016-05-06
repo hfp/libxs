@@ -162,9 +162,11 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 #endif
 
 #if defined(__GNUC__)
+# define LIBXS_INIT
   /* libxs_init already executed via GCC constructor attribute */
 # define INTERNAL_FIND_CODE_INIT(VARIABLE) assert(0 != (VARIABLE))
 #else /* lazy initialization */
+# define LIBXS_INIT libxs_init();
   /* use return value of internal_init to refresh local representation */
 # define INTERNAL_FIND_CODE_INIT(VARIABLE) if (0 == (VARIABLE)) VARIABLE = internal_init()
 #endif
@@ -755,6 +757,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_arch()
 {
+  LIBXS_INIT
 #if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   return internal_target_arch;
 #else /* no JIT support */
@@ -763,8 +766,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_arch()
 }
 
 
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_arch(int archid)
+{
+}
+
+
 LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_archid()
 {
+  LIBXS_INIT
   return internal_target_archid;
 }
 
@@ -772,11 +781,17 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_archid()
 /* function serves as a helper for implementing the Fortran interface */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void get_target_archid(char* name, int length)
 {
-  const char* c = internal_target_archid ? internal_target_archid : "";
+  const char *const archid = libxs_get_target_archid();
+  const char* c = archid ? archid : "";
   int i;
   assert(0 != name); /* valid here since function is not in the public interface */
   for (i = 0; i < length && 0 != *c; ++i, ++c) name[i] = *c;
   for (; i < length; ++i) name[i] = ' ';
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(const char* name)
+{
 }
 
 

@@ -237,6 +237,8 @@
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_init, libxs_finalize
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_get_target_arch
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_set_target_arch
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_set_target_archid
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_duration
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_tick
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_omp_sgemm
@@ -257,6 +259,22 @@
           INTEGER(C_INT) PURE FUNCTION libxs_get_target_arch() BIND(C)
             IMPORT :: C_INT
           END FUNCTION
+
+          ! Set target architecture (archid: see PARAMETER enumeration)
+          ! for subsequent code generation (JIT); ignores CPUID flags.
+          ! TODO: finalize documentation
+          SUBROUTINE libxs_set_target_arch(archid) BIND(C)
+            IMPORT :: C_INT
+            INTEGER(C_INT), INTENT(IN), VALUE :: archid
+          END SUBROUTINE
+
+          ! Set target architecture (id=0|wsm|snb|hsw|knl|skx, 0/NULL: CPUID)
+          ! for subsequent code generation (JIT); ignores CPUID flags.
+          ! TODO: finalize documentation
+          SUBROUTINE libxs_set_target_archid(name) BIND(C)
+            IMPORT :: C_CHAR
+            CHARACTER(C_CHAR), INTENT(IN) :: name(*)
+          END SUBROUTINE
 
           ! Non-pure function returning the current clock tick
           ! using a platform-specific resolution.
