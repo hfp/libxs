@@ -58,6 +58,9 @@
 # include <unistd.h>
 # include <fcntl.h>
 #endif
+#if defined(LIBXS_VTUNE)
+# include <jitprofiling.h>
+#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
