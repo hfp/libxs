@@ -536,19 +536,23 @@ $(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $
 .PHONY: module_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
-ifneq (,$(strip $(FC)))
+ifneq (0,$(FORTRAN))
 module_mic: $(BLDDIR)/mic/libxs-mod.o
 $(BLDDIR)/mic/libxs-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
-	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $(BLDDIR)/mic/libxs-mod.o $(FMFLAGS) $(INCDIR)/mic
+	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)/mic
+else
+.PHONY: $(BLDDIR)/mic/libxs-mod.o
 endif
 endif
 endif
 
 .PHONY: module_hst
-ifneq (,$(strip $(FC)))
+ifneq (0,$(FORTRAN))
 module_hst: $(BLDDIR)/intel64/libxs-mod.o
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
-	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $(INCDIR)/libxs.f -o $(BLDDIR)/intel64/libxs-mod.o $(FMFLAGS) $(INCDIR)
+	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
+else
+.PHONY: $(BLDDIR)/intel64/libxs-mod.o
 endif
 
 .PHONY: module
@@ -612,7 +616,7 @@ endif
 .PHONY: flib_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
-ifneq (,$(strip $(FC)))
+ifneq (0,$(FORTRAN))
 flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/libxs.$(LIBEXT)
@@ -626,7 +630,7 @@ endif
 endif
 
 .PHONY: flib_hst
-ifneq (,$(strip $(FC)))
+ifneq (0,$(FORTRAN))
 flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/libxs.$(LIBEXT)
