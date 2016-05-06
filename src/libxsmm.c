@@ -194,7 +194,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 #   define INTERNAL_FIND_CODE_READ(CODE, DST) DST = __sync_or_and_fetch(&(CODE)->function.pmm, 0)
 #   define INTERNAL_FIND_CODE_WRITE(CODE, SRC) { \
       /*const*/void* old = (CODE)->function.pmm; \
-      while (!__sync_bool_compare_and_swap(&(CODE)->function.pmm, (uintptr_t)old, (uintptr_t)(SRC))) { \
+      while (!__sync_bool_compare_and_swap(&(CODE)->function.pmm, (unsigned long)old, (unsigned long)(SRC))) { \
         old = (CODE)->function.pmm; \
       } \
     }
@@ -593,7 +593,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 # else
           {
             internal_regentry* old = internal_registry;
-            while (!__sync_bool_compare_and_swap(&internal_registry, (uintptr_t)old, (uintptr_t)result)) old = internal_registry;
+            while (!__sync_bool_compare_and_swap(&internal_registry, (unsigned long)old, (unsigned long)result)) old = internal_registry;
           }
 # endif
 #elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
