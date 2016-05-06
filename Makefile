@@ -281,6 +281,7 @@ else ifeq (9,$(PREFETCH_ID))
 endif
 ifeq (,$(PREFETCH_SCHEME_MIC))
   PREFETCH_SCHEME_MIC = $(PREFETCH_SCHEME)
+  PREFETCH_TYPE = -1
 endif
 
 # Mapping build options to libxs_gemm_flags (see include/libxs_typedefs.h)
