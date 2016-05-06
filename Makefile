@@ -549,7 +549,6 @@ endif
 endif
 
 .PHONY: module_hst
-
 ifneq (,$(strip $(FC)))
 module_hst: $(BLDDIR)/intel64/libxs-mod.o
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
@@ -628,6 +627,7 @@ else
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/.make
 	$(AR) -rs $@ $(BLDDIR)/mic/libxs-mod.o
 endif
+else
 .PHONY: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 endif
 endif
@@ -643,7 +643,6 @@ else
 $(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/.make
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
 endif
-else
 .PHONY: $(OUTDIR)/libxsf.$(LIBEXT)
 endif
 
