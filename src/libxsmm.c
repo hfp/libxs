@@ -132,6 +132,9 @@ typedef struct LIBXS_RETARGETABLE internal_regentry {
   } function;
   /* statically generated code (=0), dynamically generated code (>0). */
   unsigned int size;
+#if defined(LIBXS_VTUNE)
+  unsigned int id;
+#endif
 } internal_regentry;
 
 LIBXS_DEBUG(LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_ncollisions = 0;)
@@ -444,6 +447,36 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(
 }
 
 
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_code_name(const char* archid,
+  const libxs_gemm_descriptor* desc, unsigned int buffer_size, char* name)
+{
+  assert((0 != desc && 0 != name) || 0 == buffer_size);
+  snprintf(name, buffer_size, "libxs_%s_%c%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.jit",
+    archid /* code path name */,
+    0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 'd' : 's',
+    0 == (LIBXS_GEMM_FLAG_TRANS_A & desc->flags) ? 'n' : 't',
+    0 == (LIBXS_GEMM_FLAG_TRANS_B & desc->flags) ? 'n' : 't',
+    desc->m, desc->n, desc->k, desc->lda, desc->ldb, desc->ldc,
+    desc->alpha, desc->beta, desc->prefetch);
+}
+
+
+#if defined(LIBXS_VTUNE)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_vtune_jitdesc(const internal_regentry* code, const char* name, iJIT_Method_Load* desc)
+{
+  assert(0 != code && 0 != code->id && 0 != code->size && 0 != desc);
+  desc->method_id = code->id;
+  desc->method_name = name;
+  desc->method_load_address = code->function.pmm;
+  desc->method_size = code->size;
+  desc->line_number_size = 0;
+  desc->line_number_table = NULL;
+  desc->class_file_name = NULL;
+  desc->source_file_name = NULL;
+}
+#endif
+
+
 LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 {
   /*const*/internal_regentry* result;
@@ -717,6 +750,16 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
               if (0 != code.size/*JIT: actually allocated*/) {
                 /* make address valid by clearing an eventual collision flag */
                 code.function.imm &= ~LIBXS_HASH_COLLISION;
+#if defined(LIBXS_VTUNE)
+                if (0 != code.id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
+                  char jit_code_name[256];
+                  iJIT_Method_Load vtune_jit_desc;
+                  internal_get_code_name(internal_target_archid, internal_registry_keys + i,
+                    sizeof(jit_code_name), jit_code_name);
+                  internal_get_vtune_jitdesc(&code, jit_code_name, &vtune_jit_desc);
+                  iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_UNLOAD_START, &vtune_jit_desc);
+                }
+#endif
 #if defined(_WIN32)
                 /* TODO: executable memory buffer under Windows */
 #else
@@ -865,42 +908,33 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 
         if (0/*ok*/ == mprotect(code->function.pmm, generated_code.code_size, PROT_EXEC | PROT_READ)) {
 # if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
-          char jit_code_name[512];
-          sprintf(jit_code_name, "libxs_%s_f%i_%c%c_%u_%u_%u_ld%u_%u_%u_a%i_b%i_pf%i.jit",
-            internal_target_archid /* code path name */,
-            0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 64 : 32,
-            0 == (LIBXS_GEMM_FLAG_TRANS_A & desc->flags) ? 'n' : 't',
-            0 == (LIBXS_GEMM_FLAG_TRANS_B & desc->flags) ? 'n' : 't',
-            desc->m, desc->n, desc->k, desc->lda, desc->ldb, desc->ldc,
-            desc->alpha, desc->beta, desc->prefetch);
+          char jit_code_name[256];
+          internal_get_code_name(internal_target_archid, desc, sizeof(jit_code_name), jit_code_name);
 # endif
+          /* finalize code generation */
+          code->size = generated_code.code_size;
+          /* free temporary/initial code buffer */
+          free(generated_code.generated_code);
 # if !defined(NDEBUG) && defined(_DEBUG)
           { /* dump byte-code into file */
             FILE *const byte_code = fopen(jit_code_name, "wb");
             if (0 != byte_code) {
-              fwrite(generated_code.generated_code, 1, generated_code.code_size, byte_code);
+              fwrite(code->function.pmm, 1, code->size, byte_code);
               fclose(byte_code);
             }
           }
 # endif /*!defined(NDEBUG) && defined(_DEBUG)*/
 # if defined(LIBXS_VTUNE)
           if (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
-            iJIT_Method_Load vtune_jit_method;
-            vtune_jit_method.method_id = iJIT_GetNewMethodID();
-            vtune_jit_method.method_name = jit_code_name;
-            vtune_jit_method.method_load_address = code->function.pmm;
-            vtune_jit_method.method_size = generated_code.code_size;
-            vtune_jit_method.line_number_size = 0;
-            vtune_jit_method.line_number_table = NULL;
-            vtune_jit_method.class_file_name = NULL;
-            vtune_jit_method.source_file_name = NULL;
-            iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &vtune_jit_method);
+            iJIT_Method_Load vtune_jit_desc;
+            code->id = iJIT_GetNewMethodID();
+            internal_get_vtune_jitdesc(code, jit_code_name, &vtune_jit_desc);
+            iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &vtune_jit_desc);
+          }
+          else {
+            code->id = 0;
           }
 # endif
-          /* free temporary/initial code buffer */
-          free(generated_code.generated_code);
-          /* finalize code generation */
-          code->size = generated_code.code_size;
         }
         else { /* there was an error with mprotect */
 # if defined(NDEBUG)
