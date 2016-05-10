@@ -29,8 +29,8 @@
 #include "libxs_intrinsics_x86.h"
 #include "libxs_cpuid_x86.h"
 #include "libxs_gemm_diff.h"
+#include "libxs_gemm_ext.h"
 #include "libxs_hash.h"
-#include "libxs_gemm.h"
 
 #if defined(__TRACE)
 # include "libxs_trace.h"
@@ -1074,3 +1074,42 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
   INTERNAL_DMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
+
+#if defined(LIBXS_GEMM_EXTWRAP)
+#if defined(__STATIC)
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_sgemm)(
+  const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const float* alpha, const float* a, const libxs_blasint* lda,
+  const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc)
+{
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  static LIBXS_TLS int once = 0;
+  if (0 == once) {
+    fprintf(stderr, "LIBXS: __real_sgemm should be never called!\n");
+    once = 1;
+  }
+#endif
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_dgemm)(
+  const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const double* alpha, const double* a, const libxs_blasint* lda,
+  const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc)
+{
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  static LIBXS_TLS int once = 0;
+  if (0 == once) {
+    fprintf(stderr, "LIBXS: __real_dgemm should be never called!\n");
+    once = 1;
+  }
+#endif
+}
+
+#endif /*defined(__STATIC)*/
+#endif /*defined(LIBXS_GEMM_EXTWRAP)*/

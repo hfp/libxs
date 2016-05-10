@@ -38,38 +38,28 @@
 #   define LIBXS_GEMM_WEAK_SLIB LIBXS_ATTRIBUTE(weak)
 #   define LIBXS_GEMM_EXTWRAP_SGEMM LIBXS_FSYMBOL(__wrap_sgemm)
 #   define LIBXS_GEMM_EXTWRAP_DGEMM LIBXS_FSYMBOL(__wrap_dgemm)
-    LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_sgemm)(
+    LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_sgemm)(
       const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
       const float*, const float*, const libxs_blasint*, const float* b, const libxs_blasint*,
-      const float* beta, float*, const libxs_blasint*);
-    LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_dgemm)(
+      const float*, float*, const libxs_blasint*);
+    LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_dgemm)(
       const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
       const double*, const double*, const libxs_blasint*, const double* b, const libxs_blasint*,
-      const double* beta, double*, const libxs_blasint*);
-    LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_mkl_sgemm)(
-      const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
-      const float*, const float*, const libxs_blasint*, const float* b, const libxs_blasint*,
-      const float* beta, float*, const libxs_blasint*);
-    LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_FSYMBOL(__real_mkl_dgemm)(
-      const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
-      const double*, const double*, const libxs_blasint*, const double* b, const libxs_blasint*,
-      const double* beta, double*, const libxs_blasint*);
+      const double*, double*, const libxs_blasint*);
 # elif !defined(__CYGWIN__) /* LD_PRELOAD */
 #   define LIBXS_GEMM_EXTWRAP
 #   define LIBXS_GEMM_WEAK_DLIB LIBXS_ATTRIBUTE(weak)
 #   define LIBXS_GEMM_EXTWRAP_SGEMM LIBXS_FSYMBOL(sgemm)
 #   define LIBXS_GEMM_EXTWRAP_DGEMM LIBXS_FSYMBOL(dgemm)
 # endif
-  /* avoid remark about external function definition with no prior declaration */
   LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
     const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
     const float*, const float*, const libxs_blasint*, const float* b, const libxs_blasint*,
-    const float* beta, float*, const libxs_blasint*);
-  /* avoid remark about external function definition with no prior declaration */
+    const float*, float*, const libxs_blasint*);
   LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
     const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
     const double*, const double*, const libxs_blasint*, const double* b, const libxs_blasint*,
-    const double* beta, double*, const libxs_blasint*);
+    const double*, double*, const libxs_blasint*);
 #endif /*defined(LIBXS_GEMM_EXTWRAP)*/
 #if !defined(LIBXS_GEMM_WEAK_SLIB)
 # define LIBXS_GEMM_WEAK_SLIB
