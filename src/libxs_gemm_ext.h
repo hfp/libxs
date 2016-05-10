@@ -69,6 +69,16 @@
 #endif
 
 
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
+  const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+  const float*, const float*, const libxs_blasint*, const float*, const libxs_blasint*,
+  const float*, float*, const libxs_blasint*);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
+  const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+  const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
+  const double*, double*, const libxs_blasint*);
+
+
 /** INTERNAL: configuration table containing the tile sizes separate for DP and SP. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_tile_size[/*DP/SP*/][3/*TILE_M,TILE_N,TILE_K*/];
 /** INTERNAL: number of threads per core */
