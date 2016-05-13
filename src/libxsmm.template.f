@@ -763,26 +763,38 @@
           IF (('N'.EQ.otransa).OR.('n'.EQ.otransa)) THEN
             IF (('N'.EQ.otransb).OR.('n'.EQ.otransb)) THEN
               CALL libxs_sgemm('N', 'N',                              &
-     &          SIZE(c, 1), SIZE(c, 2), SIZE(a, 2),                     &
-     &          alpha, a, SIZE(a, 1),                                   &
-     &          b, SIZE(b, 1), beta, c, SIZE(c, 1))
+     &          SIZE(c, 1, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(c, 2, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(a, 2, LIBXS_BLASINT_KIND),                       &
+     &          alpha, a, SIZE(a, 1, LIBXS_BLASINT_KIND),             &
+     &                 b, SIZE(b, 1, LIBXS_BLASINT_KIND),             &
+     &           beta, c, SIZE(c, 1, LIBXS_BLASINT_KIND))
             ELSE ! A x B^T
               CALL libxs_sgemm('N', 'N',                              &
-     &          SIZE(c, 1), SIZE(c, 2), SIZE(a, 2),                     &
-     &          alpha, a, SIZE(a, 1),                                   &
-     &          TRANSPOSE(b), SIZE(b, 2), beta, c, SIZE(c, 1))
+     &          SIZE(c, 1, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(c, 2, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(a, 2, LIBXS_BLASINT_KIND),                       &
+     &          alpha, a, SIZE(a, 1, LIBXS_BLASINT_KIND),             &
+     &          TRANSPOSE(b), SIZE(b, 2, LIBXS_BLASINT_KIND),         &
+     &          beta, c, SIZE(c, 1, LIBXS_BLASINT_KIND))
             END IF
           ELSE ! A^T
             IF (('N'.EQ.otransb).OR.('n'.EQ.otransb)) THEN
               CALL libxs_sgemm('N', 'N',                              &
-     &          SIZE(c, 1), SIZE(c, 2), SIZE(a, 1),                     &
-     &          alpha, TRANSPOSE(a), SIZE(a, 2),                        &
-     &          b, SIZE(b, 1), beta, c, SIZE(c, 1))
+     &          SIZE(c, 1, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(c, 2, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(a, 1, LIBXS_BLASINT_KIND),                       &
+     &          alpha, TRANSPOSE(a), SIZE(a, 2, LIBXS_BLASINT_KIND),  &
+     &                 b, SIZE(b, 1, LIBXS_BLASINT_KIND),             &
+     &           beta, c, SIZE(c, 1, LIBXS_BLASINT_KIND))
             ELSE ! A^T x B^T -> C = (B x A)^T
               CALL libxs_sgemm('N', 'N',                              &
-     &          SIZE(c, 1), SIZE(c, 2), SIZE(a, 1),                     &
-     &          alpha, b, SIZE(b, 1),                                   &
-     &          a, SIZE(a, 1), beta, c, SIZE(c, 1))
+     &          SIZE(c, 1, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(c, 2, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(a, 1, LIBXS_BLASINT_KIND),                       &
+     &          alpha, b, SIZE(b, 1, LIBXS_BLASINT_KIND),             &
+     &                 a, SIZE(a, 1, LIBXS_BLASINT_KIND),             &
+     &           beta, c, SIZE(c, 1, LIBXS_BLASINT_KIND))
               c = TRANSPOSE(RESHAPE(c, (/ SIZE(c, 2), SIZE(c, 1) /)))
             END IF
           END IF
@@ -809,26 +821,38 @@
           IF (('N'.EQ.otransa).OR.('n'.EQ.otransa)) THEN
             IF (('N'.EQ.otransb).OR.('n'.EQ.otransb)) THEN
               CALL libxs_dgemm('N', 'N',                              &
-     &          SIZE(c, 1), SIZE(c, 2), SIZE(a, 2),                     &
-     &          alpha, a, SIZE(a, 1),                                   &
-     &          b, SIZE(b, 1), beta, c, SIZE(c, 1))
+     &          SIZE(c, 1, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(c, 2, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(a, 2, LIBXS_BLASINT_KIND),                       &
+     &          alpha, a, SIZE(a, 1, LIBXS_BLASINT_KIND),             &
+     &                 b, SIZE(b, 1, LIBXS_BLASINT_KIND),             &
+     &           beta, c, SIZE(c, 1, LIBXS_BLASINT_KIND))
             ELSE ! A x B^T
               CALL libxs_dgemm('N', 'N',                              &
-     &          SIZE(c, 1), SIZE(c, 2), SIZE(a, 2),                     &
-     &          alpha, a, SIZE(a, 1),                                   &
-     &          TRANSPOSE(b), SIZE(b, 2), beta, c, SIZE(c, 1))
+     &          SIZE(c, 1, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(c, 2, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(a, 2, LIBXS_BLASINT_KIND),                       &
+     &          alpha, a, SIZE(a, 1, LIBXS_BLASINT_KIND),             &
+     &          TRANSPOSE(b), SIZE(b, 2, LIBXS_BLASINT_KIND),         &
+     &          beta, c, SIZE(c, 1, LIBXS_BLASINT_KIND))
             END IF
           ELSE ! A^T
             IF (('N'.EQ.otransb).OR.('n'.EQ.otransb)) THEN
               CALL libxs_dgemm('N', 'N',                              &
-     &          SIZE(c, 1), SIZE(c, 2), SIZE(a, 1),                     &
-     &          alpha, TRANSPOSE(a), SIZE(a, 2),                        &
-     &          b, SIZE(b, 1), beta, c, SIZE(c, 1))
+     &          SIZE(c, 1, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(c, 2, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(a, 1, LIBXS_BLASINT_KIND),                       &
+     &          alpha, TRANSPOSE(a), SIZE(a, 2, LIBXS_BLASINT_KIND),  &
+     &                 b, SIZE(b, 1, LIBXS_BLASINT_KIND),             &
+     &           beta, c, SIZE(c, 1, LIBXS_BLASINT_KIND))
             ELSE ! A^T x B^T -> C = (B x A)^T
               CALL libxs_dgemm('N', 'N',                              &
-     &          SIZE(c, 1), SIZE(c, 2), SIZE(a, 1),                     &
-     &          alpha, b, SIZE(b, 1),                                   &
-     &          a, SIZE(a, 1), beta, c, SIZE(c, 1))
+     &          SIZE(c, 1, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(c, 2, LIBXS_BLASINT_KIND),                       &
+     &          SIZE(a, 1, LIBXS_BLASINT_KIND),                       &
+     &          alpha, b, SIZE(b, 1, LIBXS_BLASINT_KIND),             &
+     &                 a, SIZE(a, 1, LIBXS_BLASINT_KIND),             &
+     &           beta, c, SIZE(c, 1, LIBXS_BLASINT_KIND))
               c = TRANSPOSE(RESHAPE(c, (/ SIZE(c, 2), SIZE(c, 1) /)))
             END IF
           END IF
