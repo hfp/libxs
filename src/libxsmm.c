@@ -513,7 +513,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_vtune_jitdesc(const internal_r
   desc->class_file_name = NULL;
   desc->source_file_name = NULL;
 # if (2 == LIBXS_VTUNE_JITVERSION)
-  desc->module_name = "LIBXS";
+  desc->module_name = "libxs.jit";
 # endif
 }
 #endif
