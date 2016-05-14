@@ -920,6 +920,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(const char* name)
       internal_target_arch = LIBXS_X86_SSE3;
       internal_target_archid = name;
     }
+    else if (0 == strcmp("x86", name)) {
+      internal_target_arch = LIBXS_X86_GENERIC;
+      internal_target_archid = name;
+    }
+    else if (0 == strcmp("generic", name)) {
+      internal_target_arch = LIBXS_TARGET_ARCH_GENERIC;
+      internal_target_archid = name;
+    }
   }
   if (0 == internal_target_archid) {
     internal_target_arch = libxs_cpuid_x86(&internal_target_archid);
