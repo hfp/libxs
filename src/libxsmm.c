@@ -928,7 +928,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(const char* name)
   else if (1 >= jit) {
     const char* archid = internal_target_archid;
     if (libxs_cpuid_x86(&archid) < internal_target_arch) {
-      fprintf(stderr, "LIBXS: \"%s\"-code will fail to run on \"%s\"!\n", internal_target_archid, archid);
+      fprintf(stderr, "LIBXS: \"%s\" code will fail to run on \"%s\"!\n", internal_target_archid, archid);
     }
   }
 #endif
