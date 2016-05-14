@@ -321,7 +321,8 @@
         ! by libxs_get_target_arch().
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_get_target_archid
         PURE FUNCTION libxs_get_target_archid() RESULT(name)
-          CHARACTER(LEN=3) :: name
+          CHARACTER(LEN=:), ALLOCATABLE :: name
+          CHARACTER(LEN=16) :: tmp
           !DIR$ ATTRIBUTES OFFLOAD:MIC :: get_target_archid
           INTERFACE
             PURE SUBROUTINE get_target_archid(name, length) BIND(C)
@@ -330,7 +331,8 @@
               INTEGER(C_INT), VALUE, INTENT(IN) :: length
             END SUBROUTINE
           END INTERFACE
-          CALL get_target_archid(name, LEN(name))
+          CALL get_target_archid(tmp, LEN(tmp))
+          name = TRIM(tmp)
         END FUNCTION
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: srealptr
