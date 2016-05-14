@@ -320,7 +320,7 @@
         ! Returns a name for the target architecture as identified
         ! by libxs_get_target_arch().
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_get_target_archid
-        PURE FUNCTION libxs_get_target_archid() RESULT(name)
+        FUNCTION libxs_get_target_archid() RESULT(name)
           CHARACTER(LEN=:), ALLOCATABLE :: name
           CHARACTER(LEN=16) :: tmp
           !DIR$ ATTRIBUTES OFFLOAD:MIC :: get_target_archid
