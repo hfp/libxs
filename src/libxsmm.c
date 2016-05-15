@@ -686,7 +686,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
         assert(0 == internal_registry_keys && 0 == internal_registry/*should never happen*/);
         result = (internal_regentry*)malloc(LIBXS_REGSIZE * sizeof(internal_regentry));
         internal_registry_keys = (internal_regkey*)malloc(LIBXS_REGSIZE * sizeof(internal_regkey));
-
         if (result && internal_registry_keys) {
           const char *const env_verbose = getenv("LIBXS_VERBOSE");
           internal_statistic_mnk = (unsigned int)(pow((double)(LIBXS_MAX_MNK), 0.3333333333333333) + 0.5);
@@ -704,7 +703,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
            * which is beyond the static code path used to compile the library
            */
 #if (0 != LIBXS_JIT) && !defined(__MIC__)
-          if (LIBXS_STATIC_TARGET_ARCH >= internal_target_arch)
+          if (LIBXS_X86_AVX > internal_target_arch)
 #endif
           { /* opening a scope for eventually declaring variables */
             /* setup the dispatch table for the statically generated code */
