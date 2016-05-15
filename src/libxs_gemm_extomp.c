@@ -194,7 +194,7 @@
 #if defined(LIBXS_GEMM_EXTWRAP) && !defined(__STATIC)
 
 /* implementation variant for non-static linkage; overrides weak libxs_gemm_init in libxs_gemm.c */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(const char* archid, int prefetch)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(int archid, int prefetch)
 {
   union { const void* pv; libxs_sgemm_function pf; } internal_sgemm = { NULL };
   union { const void* pv; libxs_dgemm_function pf; } internal_dgemm = { NULL };

@@ -160,7 +160,7 @@ int main()
         result = 26;
       }
     }
-    if (EXIT_SUCCESS == result && LIBXS_X86_AVX512 <= cpuid) {
+    if (EXIT_SUCCESS == result && LIBXS_X86_AVX512_MIC/*incl. LIBXS_X86_AVX512_CORE*/) {
       if (1 != libxs_gemm_diffn_avx512(&a.descriptor, &descs[0].desc, 0/*hint*/,
         sizeof(descs) / sizeof(*descs), sizeof(*descs)))
       {

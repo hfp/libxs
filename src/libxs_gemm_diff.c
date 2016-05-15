@@ -43,8 +43,10 @@
 #endif
 
 #if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE /*|| any other implemented size*/)
-# if (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#   define LIBXS_GEMM_DIFF_AVX512
+# if (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   define LIBXS_GEMM_DIFF_AVX512_CORE
+# elif (LIBXS_X86_AVX512_MIC <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   define LIBXS_GEMM_DIFF_AVX512_MIC
 # elif (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 #   define LIBXS_GEMM_DIFF_AVX2
 # elif (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
@@ -66,7 +68,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_init(int target_arch)
   internal_gemm_diffn_function = libxs_gemm_diffn_imci;
   internal_gemm_diff_function = libxs_gemm_diff_imci;
 #else
-  if (LIBXS_X86_AVX512 <= target_arch) {
+  if (LIBXS_X86_AVX512_CORE <= target_arch) {
+    internal_gemm_diffn_function = libxs_gemm_diffn_avx512;
+    internal_gemm_diff_function = libxs_gemm_diff_avx2;
+  }
+  else if (LIBXS_X86_AVX512_MIC <= target_arch) {
     internal_gemm_diffn_function = libxs_gemm_diffn_avx512;
     internal_gemm_diff_function = libxs_gemm_diff_avx2;
   }
@@ -238,7 +244,9 @@ unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference, const libx
   /* attempt to rely on static code path avoids to rely on capability of inlining pointer-based function call */
 #if defined(LIBXS_GEMM_DIFF_SW) && (0 != LIBXS_GEMM_DIFF_SW)
   return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
-#elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+#elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
+  return libxs_gemm_diffn_avx512(reference, descs, hint, ndescs, nbytes);
+#elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512_MIC <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diffn_avx512(reference, descs, hint, ndescs, nbytes);
 #elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diffn_avx2(reference, descs, hint, ndescs, nbytes);

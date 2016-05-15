@@ -571,7 +571,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
       }
       libxs_hash_init(internal_target_arch);
       libxs_gemm_diff_init(internal_target_arch);
-      init_code = libxs_gemm_init(internal_target_archid, internal_prefetch);
+      init_code = libxs_gemm_init(internal_target_arch, internal_prefetch);
 #if defined(__TRACE)
       const char *const env_trace_init = getenv("LIBXS_TRACE");
       if (EXIT_SUCCESS == init_code && 0 != env_trace_init) {
@@ -815,37 +815,41 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_arch()
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_arch(int archid)
 {
   switch (archid) {
-    case LIBXS_X86_AVX512: {
-      internal_target_arch = LIBXS_X86_AVX512;
-      internal_target_archid = "knl"; /* "skx" is fine too */
+    case LIBXS_X86_AVX512_CORE: {
+      internal_target_arch = archid;
+      internal_target_archid = "skx";
+    } break;
+    case LIBXS_X86_AVX512_MIC: {
+      internal_target_arch = archid;
+      internal_target_archid = "knl";
     } break;
     case LIBXS_X86_AVX2: {
-      internal_target_arch = LIBXS_X86_AVX2;
+      internal_target_arch = archid;
       internal_target_archid = "hsw";
     } break;
     case LIBXS_X86_AVX: {
-      internal_target_arch = LIBXS_X86_AVX;
+      internal_target_arch = archid;
       internal_target_archid = "snb";
     } break;
     case LIBXS_X86_SSE4_2: {
-      internal_target_arch = LIBXS_X86_SSE4_2;
+      internal_target_arch = archid;
       internal_target_archid = "wsm";
     } break;
     case LIBXS_X86_SSE4_1: {
-      internal_target_arch = LIBXS_X86_SSE4_2;
-      internal_target_archid = "sse4_1";
+      internal_target_arch = archid;
+      internal_target_archid = "sse4";
     } break;
     case LIBXS_X86_SSE3: {
-      internal_target_arch = LIBXS_X86_SSE3;
+      internal_target_arch = archid;
       internal_target_archid = "sse3";
+    } break;
+    case LIBXS_TARGET_ARCH_GENERIC: {
+      internal_target_arch = archid;
+      internal_target_archid = "generic";
     } break;
     default: if (LIBXS_X86_GENERIC <= archid) {
       internal_target_arch = LIBXS_X86_GENERIC;
       internal_target_archid = "x86";
-    }
-    else if (LIBXS_TARGET_ARCH_GENERIC == 1) {
-      internal_target_arch = LIBXS_TARGET_ARCH_GENERIC;
-      internal_target_archid = "generic";
     }
     else {
       internal_target_arch = LIBXS_TARGET_ARCH_UNKNOWN;
@@ -896,9 +900,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(const char* name)
     else if (1 < jit) { /* suppress libxs_cpuid_x86 and override archid */
       libxs_set_target_arch(LIBXS_X86_GENERIC + jit);
     }
-    else if (0 == strcmp("knl", name) || 0 == strcmp("skx", name) || 0 == strcmp("avx3", name) || 0 == strcmp("avx512", name) || 0 == strcmp("avx-512", name)) {
-      internal_target_arch = LIBXS_X86_AVX512;
-      internal_target_archid = name;
+    else if (0 == strcmp("skx", name) || 0 == strcmp("avx3", name) || 0 == strcmp("avx512", name)) {
+      internal_target_arch = LIBXS_X86_AVX512_CORE;
+      internal_target_archid = "skx";
+    }
+    else if (0 == strcmp("knl", name) || 0 == strcmp("mic2", name)) {
+      internal_target_arch = LIBXS_X86_AVX512_MIC;
+      internal_target_archid = "knl";
     }
     else if (0 == strcmp("hsw", name) || 0 == strcmp("avx2", name)) {
       internal_target_arch = LIBXS_X86_AVX2;
@@ -914,19 +922,19 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(const char* name)
     }
     else if (0 == strcmp("sse4_1", name)) {
       internal_target_arch = LIBXS_X86_SSE4_1;
-      internal_target_archid = name;
+      internal_target_archid = "sse4";
     }
     else if (0 == strcmp("sse3", name)) {
       internal_target_arch = LIBXS_X86_SSE3;
-      internal_target_archid = name;
+      internal_target_archid = "sse3";
     }
     else if (0 == strcmp("x86", name)) {
       internal_target_arch = LIBXS_X86_GENERIC;
-      internal_target_archid = name;
+      internal_target_archid = "x86";
     }
     else if (0 == strcmp("generic", name)) {
       internal_target_arch = LIBXS_TARGET_ARCH_GENERIC;
-      internal_target_archid = name;
+      internal_target_archid = "generic";
     }
   }
   if (0 == internal_target_archid) {
