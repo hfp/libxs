@@ -693,7 +693,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
         if (result && internal_registry_keys) {
           const char *const env_verbose = getenv("LIBXS_VERBOSE");
           internal_statistic_mnk = (unsigned int)(pow((double)(LIBXS_MAX_MNK), 0.3333333333333333) + 0.5);
-          if (0 == env_verbose || 0 == *env_verbose) {
+          if (0 != env_verbose && 0 != *env_verbose) {
             internal_verbose = atoi(env_verbose);
           }
           for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].function.pmm = 0;
