@@ -159,11 +159,15 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL struct LIBXS_RETARGETABLE {
   unsigned int ntry, ncol, njit, nsta;
 } internal_statistic[2/*DP/SP*/][3/*sml/med/big*/];
 
-/** initialized during internal_init */
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_mnk = 0;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_sml = 0;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_med = 0;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_verbose = 0;
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_sml = 13;
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_med = 23;
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_mnk = LIBXS_MAX_M;
+
+#if defined(NDEBUG)
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_verbose = 0; /* quiet */
+#else
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_verbose = 1; /* verbose */
+#endif
 
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regkey* internal_registry_keys = 0;
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regentry* internal_registry = 0;
@@ -689,15 +693,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
         if (result && internal_registry_keys) {
           const char *const env_verbose = getenv("LIBXS_VERBOSE");
           internal_statistic_mnk = (unsigned int)(pow((double)(LIBXS_MAX_MNK), 0.3333333333333333) + 0.5);
-          internal_statistic_sml = (unsigned int)(0.1625 * internal_statistic_mnk + 0.5);
-          internal_statistic_med = (unsigned int)(0.2875 * internal_statistic_mnk + 0.5);
-          internal_verbose = (0 == env_verbose || 0 == *env_verbose)
-#if defined(NDEBUG)
-            ? 0 /* quiet */
-#else
-            ? 1 /* verbose */
-#endif
-            : atoi(env_verbose);
+          if (0 == env_verbose || 0 == *env_verbose) {
+            internal_verbose = atoi(env_verbose);
+          }
           for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].function.pmm = 0;
           /* omit registering code if JIT is enabled and if an ISA extension is found
            * which is beyond the static code path used to compile the library
