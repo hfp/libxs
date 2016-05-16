@@ -488,7 +488,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_statistic(FILE* ostr
   {
     char title[256], sml[256], med[256], big[256];
 
-    LIBXS_SNPRINTF(sml, sizeof(sml), "%u..%u",                      0, internal_statistic_sml);
+    LIBXS_SNPRINTF(sml, sizeof(sml), "%u..%u",                     0u, internal_statistic_sml);
     LIBXS_SNPRINTF(med, sizeof(sml), "%u..%u", internal_statistic_sml, internal_statistic_med);
     LIBXS_SNPRINTF(big, sizeof(sml), "%u..%u", internal_statistic_med, internal_statistic_mnk);
     {
@@ -496,23 +496,23 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_statistic(FILE* ostr
       assert(0 != internal_target_archid);
       for (n = 0; 0 != internal_target_archid[n] && n < sizeof(title); ++n) { /* toupper */
         const char c = internal_target_archid[n];
-        title[n] = ('a' <= c || c <= 'z') ? (c - 32) : c;
+        title[n] = (char)(('a' <= c || c <= 'z') ? (c - 32) : c);
       }
       LIBXS_SNPRINTF(title + n, sizeof(title) - n, "/%s", 0 == precision ? "DP" : "SP");
       for (n = 0; n < linebreaks; ++n) fprintf(ostream, "\n");
     }
-    fprintf(ostream, "%*s%-10s %6s %6s %6s %6s\n", indent, "", title, "TRY" ,"JIT", "STA", "COL");
-    fprintf(ostream,  "%*s%10s %6u %6u %6u %6u\n", indent, "", sml,
+    fprintf(ostream, "%*s%-10s %6s %6s %6s %6s\n", (int)indent, "", title, "TRY" ,"JIT", "STA", "COL");
+    fprintf(ostream,  "%*s%10s %6u %6u %6u %6u\n", (int)indent, "", sml,
       internal_statistic[precision][0/*SML*/].ntry,
       internal_statistic[precision][0/*SML*/].njit,
       internal_statistic[precision][0/*SML*/].nsta,
       internal_statistic[precision][0/*SML*/].ncol);
-    fprintf(ostream, "%*s%10s %6u %6u %6u %6u\n", indent, "", med,
+    fprintf(ostream,  "%*s%10s %6u %6u %6u %6u\n", (int)indent, "", med,
       internal_statistic[precision][1/*MED*/].ntry,
       internal_statistic[precision][1/*MED*/].njit,
       internal_statistic[precision][1/*MED*/].nsta,
       internal_statistic[precision][1/*MED*/].ncol);
-    fprintf(ostream, "%*s%10s %6u %6u %6u %6u\n", indent, "", big,
+    fprintf(ostream,  "%*s%10s %6u %6u %6u %6u\n", (int)indent, "", big,
       internal_statistic[precision][2/*BIG*/].ntry,
       internal_statistic[precision][2/*BIG*/].njit,
       internal_statistic[precision][2/*BIG*/].nsta,
