@@ -32,12 +32,8 @@
 #include <libxs.h>
 
 
-/**
- * Returns the target architecture and instruction set extension (code path),
- * and thereby (via argument list) optionally returns an internal name of the
- * target architecture.
- */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_cpuid_x86(const char** archid);
+/** Returns the target architecture and instruction set extension (code path). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_cpuid_x86(void);
 
 
 #if defined(LIBXS_BUILD) && !defined(LIBXS_CPUID_X86_NOINLINE)

@@ -186,8 +186,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_teardown = 0;
 #endif
 
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_prefetch = LIBXS_MAX(INTERNAL_PREFETCH, 0);
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_target_arch = LIBXS_TARGET_ARCH_GENERIC;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const char* internal_target_archid = 0;
+LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_target_archid = LIBXS_TARGET_ARCH_GENERIC;
 
 #if !defined(LIBXS_OPENMP)
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] = {
@@ -289,7 +288,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 #if (0 != LIBXS_JIT)
 # define INTERNAL_FIND_CODE_JIT(DESCRIPTOR, CODE, RESULT) \
   /* check if code generation or fix-up is needed, also check whether JIT is supported (CPUID) */ \
-  if (0 == (RESULT).function.pmm /* code version does not exist */ && LIBXS_X86_AVX <= internal_target_arch) { \
+  if (0 == (RESULT).function.pmm /* code version does not exist */ && LIBXS_X86_AVX <= internal_target_archid) { \
     /* instead of blocking others, a try-lock would allow to let others to fallback to BLAS (return 0) during lock-time */ \
     INTERNAL_FIND_CODE_LOCK(lock, i); /* lock the registry entry */ \
     /* re-read registry entry after acquiring the lock */ \
@@ -467,10 +466,52 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_update_statistic(const libxs_gemm_
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_statistic(FILE* ostream, int precision, unsigned int linebreaks, unsigned int indent)
+LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_get_target_arch(int archid);
+LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_get_target_arch(int archid)
+{
+  const char* target_arch = 0;
+  switch (archid) {
+    case LIBXS_X86_AVX512_CORE: {
+      target_arch = "skx";
+    } break;
+    case LIBXS_X86_AVX512_MIC: {
+      target_arch = "knl";
+    } break;
+    case LIBXS_X86_AVX2: {
+      target_arch = "hsw";
+    } break;
+    case LIBXS_X86_AVX: {
+      target_arch = "snb";
+    } break;
+    case LIBXS_X86_SSE4_2: {
+      target_arch = "wsm";
+    } break;
+    case LIBXS_X86_SSE4_1: {
+      target_arch = "sse4";
+    } break;
+    case LIBXS_X86_SSE3: {
+      target_arch = "sse3";
+    } break;
+    case LIBXS_TARGET_ARCH_GENERIC: {
+      target_arch = "generic";
+    } break;
+    default: if (LIBXS_X86_GENERIC <= archid) {
+      target_arch = "x86";
+    }
+    else {
+      target_arch = "unknown";
+    }
+  }
+
+  assert(0 != target_arch);
+  return target_arch;
+}
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_statistic(FILE* ostream, const char* target_arch, int precision, unsigned int linebreaks, unsigned int indent)
 {
   int printed = 0;
-  assert(0 <= precision && precision < 2);
+  assert(0 != ostream && 0 != target_arch && (0 <= precision && precision < 2));
 
   if (/* omit to print anything if it is superfluous */
     0 != internal_statistic[precision][0/*SML*/].ntry ||
@@ -493,9 +534,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_statistic(FILE* ostr
     LIBXS_SNPRINTF(big, sizeof(sml), "%u..%u", internal_statistic_med, internal_statistic_mnk);
     {
       unsigned int n = 0;
-      assert(0 != internal_target_archid);
-      for (n = 0; 0 != internal_target_archid[n] && n < sizeof(title); ++n) { /* toupper */
-        const char c = internal_target_archid[n];
+      for (n = 0; 0 != target_arch[n] && n < sizeof(title); ++n) { /* toupper */
+        const char c = target_arch[n];
         title[n] = (char)(('a' <= c && c <= 'z') ? (c - 32) : c);
       }
       LIBXS_SNPRINTF(title + n, sizeof(title) - n, "/%s", 0 == precision ? "DP" : "SP");
@@ -579,12 +619,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE int internal_get_prefetch(const libxs_gemm_descr
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_code_name(const char* archid,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_code_name(const char* target_arch,
   const libxs_gemm_descriptor* desc, unsigned int buffer_size, char* name)
 {
   assert((0 != desc && 0 != name) || 0 == buffer_size);
   LIBXS_SNPRINTF(name, buffer_size, "libxs_%s_%c%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.jit",
-    archid /* code path name */,
+    target_arch /* code path name */,
     0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 'd' : 's',
     0 == (LIBXS_GEMM_FLAG_TRANS_A & desc->flags) ? 'n' : 't',
     0 == (LIBXS_GEMM_FLAG_TRANS_B & desc->flags) ? 'n' : 't',
@@ -640,13 +680,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #endif
     if (0 == result) {
       int init_code;
-      libxs_set_target_archid(getenv("LIBXS_JIT"));
+      /* set internal_target_archid */
+      libxs_set_target_arch(getenv("LIBXS_JIT"));
       { /* select prefetch strategy for JIT */
         const char *const env_prefetch = getenv("LIBXS_PREFETCH");
         if (0 == env_prefetch || 0 == *env_prefetch) {
           if (0 > LIBXS_PREFETCH) { /* permitted by LIBXS_PREFETCH_AUTO */
-            assert(0 != internal_target_archid);
-            internal_prefetch = 0 != strcmp("knl", internal_target_archid)
+            internal_prefetch = LIBXS_X86_AVX512_MIC != internal_target_archid
               ? LIBXS_PREFETCH_NONE : LIBXS_PREFETCH_AL2BL2_VIA_C;
           }
         }
@@ -664,9 +704,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
           }
         }
       }
-      libxs_hash_init(internal_target_arch);
-      libxs_gemm_diff_init(internal_target_arch);
-      init_code = libxs_gemm_init(internal_target_arch, internal_prefetch);
+      libxs_hash_init(internal_target_archid);
+      libxs_gemm_diff_init(internal_target_archid);
+      init_code = libxs_gemm_init(internal_target_archid, internal_prefetch);
 #if defined(__TRACE)
       const char *const env_trace_init = getenv("LIBXS_TRACE");
       if (EXIT_SUCCESS == init_code && 0 != env_trace_init) {
@@ -701,7 +741,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
            * which is beyond the static code path used to compile the library
            */
 #if (0 != LIBXS_JIT) && !defined(__MIC__)
-          if (LIBXS_X86_AVX > internal_target_arch)
+          if (LIBXS_X86_AVX > internal_target_archid)
 #endif
           { /* opening a scope for eventually declaring variables */
             /* setup the dispatch table for the statically generated code */
@@ -802,6 +842,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 
       if (0 != registry) {
         internal_regkey *const registry_keys = internal_registry_keys;
+        const char *const target_arch = internal_get_target_arch(internal_target_archid);
         /* serves as an id to invalidate the thread-local cache; never decremented */
         ++internal_teardown;
 #if defined(__TRACE)
@@ -850,7 +891,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
               if (0 != code.id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
                 char jit_code_name[256];
                 LIBXS_VTUNE_JIT_DESC_TYPE vtune_jit_desc;
-                internal_get_code_name(internal_target_archid, desc,
+                internal_get_code_name(target_arch, desc,
                   sizeof(jit_code_name), jit_code_name);
                 internal_get_vtune_jitdesc(&code, jit_code_name, &vtune_jit_desc);
                 iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &vtune_jit_desc);
@@ -879,10 +920,9 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
         if (0 != internal_verbose) { /* print statistic on termination */
           fflush(stdout); /* synchronize with standard output */
           {
-            const unsigned int linebreak = 0 == internal_print_statistic(stderr, 1/*SP*/, 1, 0) ? 1 : 0;
-            if (0 == internal_print_statistic(stderr, 0/*DP*/, linebreak, 0) && 0 != linebreak) {
-              assert(0 != internal_target_archid && 0 != *internal_target_archid);
-              fprintf(stderr, "LIBXS_JIT=%s\n", internal_target_archid);
+            const unsigned int linebreak = 0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0) ? 1 : 0;
+            if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak) {
+              fprintf(stderr, "LIBXS_JIT=%s\n", target_arch);
             }
           }
         }
@@ -897,154 +937,124 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_arch()
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_archid(void)
 {
   LIBXS_INIT
 #if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
-  return internal_target_arch;
+  return internal_target_archid;
 #else /* no JIT support */
   return LIBXS_TARGET_ARCH_GENERIC;
 #endif
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_arch(int archid)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(int archid)
 {
   switch (archid) {
-    case LIBXS_X86_AVX512_CORE: {
-      internal_target_arch = archid;
-      internal_target_archid = "skx";
-    } break;
-    case LIBXS_X86_AVX512_MIC: {
-      internal_target_arch = archid;
-      internal_target_archid = "knl";
-    } break;
-    case LIBXS_X86_AVX2: {
-      internal_target_arch = archid;
-      internal_target_archid = "hsw";
-    } break;
-    case LIBXS_X86_AVX: {
-      internal_target_arch = archid;
-      internal_target_archid = "snb";
-    } break;
-    case LIBXS_X86_SSE4_2: {
-      internal_target_arch = archid;
-      internal_target_archid = "wsm";
-    } break;
-    case LIBXS_X86_SSE4_1: {
-      internal_target_arch = archid;
-      internal_target_archid = "sse4";
-    } break;
-    case LIBXS_X86_SSE3: {
-      internal_target_arch = archid;
-      internal_target_archid = "sse3";
-    } break;
+    case LIBXS_X86_AVX512_CORE:
+    case LIBXS_X86_AVX512_MIC:
+    case LIBXS_X86_AVX2:
+    case LIBXS_X86_AVX:
+    case LIBXS_X86_SSE4_2:
+    case LIBXS_X86_SSE4_1:
+    case LIBXS_X86_SSE3:
     case LIBXS_TARGET_ARCH_GENERIC: {
-      internal_target_arch = archid;
-      internal_target_archid = "generic";
+      internal_target_archid = archid;
     } break;
     default: if (LIBXS_X86_GENERIC <= archid) {
-      internal_target_arch = LIBXS_X86_GENERIC;
-      internal_target_archid = "x86";
+      internal_target_archid = LIBXS_X86_GENERIC;
     }
     else {
-      internal_target_arch = LIBXS_TARGET_ARCH_UNKNOWN;
-      internal_target_archid = "unknown";
+      internal_target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
     }
   }
 
 #if !defined(NDEBUG) /* library code is expected to be mute */
   {
-    const char* name = internal_target_archid;
-    if (libxs_cpuid_x86(&name) < internal_target_arch) {
-      fprintf(stderr, "LIBXS: \"%s\" code will fail to run on \"%s\"!\n", internal_target_archid, name);
+    const int cpuid_archid = libxs_cpuid_x86();
+    if (cpuid_archid < internal_target_archid) {
+      fprintf(stderr, "LIBXS: \"%s\" code will fail to run on \"%s\"!\n",
+        internal_get_target_arch(internal_target_archid),
+        internal_get_target_arch(cpuid_archid));
     }
   }
 #endif
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_archid()
+LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_arch(void)
 {
   LIBXS_INIT
-  return internal_target_archid;
+  return internal_get_target_arch(internal_target_archid);
 }
 
 
 /* function serves as a helper for implementing the Fortran interface */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void get_target_archid(char* name, int length);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void get_target_archid(char* name, int length)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void get_target_arch(char* target_arch, int length);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void get_target_arch(char* target_arch, int length)
 {
-  const char *const archid = libxs_get_target_archid();
-  const char* c = archid ? archid : "";
+  const char* c = libxs_get_target_arch();
   int i;
-  assert(0 != name); /* valid here since function is not in the public interface */
-  for (i = 0; i < length && 0 != *c; ++i, ++c) name[i] = *c;
-  for (; i < length; ++i) name[i] = ' ';
+  assert(0 != target_arch); /* valid here since function is not in the public interface */
+  for (i = 0; i < length && 0 != *c; ++i, ++c) target_arch[i] = *c;
+  for (; i < length; ++i) target_arch[i] = ' ';
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(const char* name)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_arch(const char* name)
 {
-  int jit = 0;
+  int target_archid = LIBXS_TARGET_ARCH_UNKNOWN, jit = 0;
   if (name && *name) {
     jit = atoi(name);
     if (0 == strcmp("0", name)) { /* suppress running libxs_cpuid_x86 */
-      internal_target_arch = LIBXS_TARGET_ARCH_GENERIC;
-      internal_target_archid = "generic";
+      target_archid = LIBXS_TARGET_ARCH_GENERIC;
     }
     else if (1 < jit) { /* suppress libxs_cpuid_x86 and override archid */
-      libxs_set_target_arch(LIBXS_X86_GENERIC + jit);
+      target_archid = LIBXS_X86_GENERIC + jit;
     }
     else if (0 == strcmp("skx", name) || 0 == strcmp("avx3", name) || 0 == strcmp("avx512", name)) {
-      internal_target_arch = LIBXS_X86_AVX512_CORE;
-      internal_target_archid = "skx";
+      target_archid = LIBXS_X86_AVX512_CORE;
     }
     else if (0 == strcmp("knl", name) || 0 == strcmp("mic2", name)) {
-      internal_target_arch = LIBXS_X86_AVX512_MIC;
-      internal_target_archid = "knl";
+      target_archid = LIBXS_X86_AVX512_MIC;
     }
     else if (0 == strcmp("hsw", name) || 0 == strcmp("avx2", name)) {
-      internal_target_arch = LIBXS_X86_AVX2;
-      internal_target_archid = "hsw";
+      target_archid = LIBXS_X86_AVX2;
     }
     else if (0 == strcmp("snb", name) || 0 == strcmp("avx", name)) {
-      internal_target_arch = LIBXS_X86_AVX;
-      internal_target_archid = "snb";
+      target_archid = LIBXS_X86_AVX;
     }
     else if (0 == strcmp("wsm", name) || 0 == strcmp("nhm", name) || 0 == strcmp("sse4_2", name)) {
-      internal_target_arch = LIBXS_X86_SSE4_2;
-      internal_target_archid = "wsm";
+      target_archid = LIBXS_X86_SSE4_2;
     }
     else if (0 == strcmp("sse4_1", name)) {
-      internal_target_arch = LIBXS_X86_SSE4_1;
-      internal_target_archid = "sse4";
+      target_archid = LIBXS_X86_SSE4_1;
     }
     else if (0 == strcmp("sse3", name)) {
-      internal_target_arch = LIBXS_X86_SSE3;
-      internal_target_archid = "sse3";
+      target_archid = LIBXS_X86_SSE3;
     }
     else if (0 == strcmp("x86", name)) {
-      internal_target_arch = LIBXS_X86_GENERIC;
-      internal_target_archid = "x86";
+      target_archid = LIBXS_X86_GENERIC;
     }
     else if (0 == strcmp("generic", name)) {
-      internal_target_arch = LIBXS_TARGET_ARCH_GENERIC;
-      internal_target_archid = "generic";
+      target_archid = LIBXS_TARGET_ARCH_GENERIC;
     }
   }
-  if (0 == internal_target_archid) {
-    internal_target_arch = libxs_cpuid_x86(&internal_target_archid);
+
+  if (LIBXS_TARGET_ARCH_UNKNOWN == target_archid || LIBXS_X86_AVX512_CORE < target_archid) {
+    target_archid = libxs_cpuid_x86();
   }
 #if !defined(NDEBUG) /* library code is expected to be mute */
-  else if (1 >= jit) {
-    const char* archid = internal_target_archid;
-    if (libxs_cpuid_x86(&archid) < internal_target_arch) {
-      fprintf(stderr, "LIBXS: \"%s\" code will fail to run on \"%s\"!\n", internal_target_archid, archid);
+  else {
+    const int cpuid_archid = libxs_cpuid_x86();
+    if (cpuid_archid < target_archid) {
+      fprintf(stderr, "LIBXS: \"%s\" code will fail to run on \"%s\"!\n",
+        internal_get_target_arch(target_archid),
+        internal_get_target_arch(cpuid_archid));
     }
   }
 #endif
-  assert(0 != internal_target_archid);
+  internal_target_archid = target_archid;
 }
 
 
@@ -1065,7 +1075,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   generated_code.last_error = 0;
 
   /* generate kernel */
-  libxs_generator_gemm_kernel(&generated_code, desc, internal_target_archid);
+  libxs_generator_gemm_kernel(&generated_code, desc, internal_get_target_arch(internal_target_archid));
 
   /* handle an eventual error in the else-branch */
   if (0 == generated_code.last_error) {
@@ -1211,7 +1221,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #   endif
   LIBXS_UNUSED(desc); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
-  assert(LIBXS_X86_AVX > internal_target_arch);
+  assert(LIBXS_X86_AVX > internal_target_archid);
 # endif /*_WIN32*/
 #endif /*LIBXS_JIT*/
 }

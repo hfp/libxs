@@ -32,7 +32,7 @@ int main()
   if (size != nerrors) {
     return size == i ? EXIT_SUCCESS : (i + 1)/*EXIT_FAILURE*/;
   }
-  else if (LIBXS_X86_AVX > libxs_get_target_arch()) {
+  else if (LIBXS_X86_AVX > libxs_get_target_archid()) {
     /* potentially unsupported platforms due to not supporting AVX, due to calling convention,
      * or due to the environment variable LIBXS_JIT being set to zero.
      */

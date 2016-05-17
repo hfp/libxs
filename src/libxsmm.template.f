@@ -111,7 +111,7 @@
      &        LIBXS_PREFETCH_BL2_VIA_C, LIBXS_PREFETCH_AL2_AHEAD)
 
         ! Enumerates the available target architectures and instruction
-        ! set extensions as returned by libxs_get_target_arch().
+        ! set extensions as returned by libxs_get_target_archid().
         INTEGER(C_INT), PARAMETER ::                                    &
      &    LIBXS_TARGET_ARCH_UNKNOWN = 0,                              &
      &    LIBXS_TARGET_ARCH_GENERIC = 1,                              &
@@ -242,9 +242,9 @@
         END INTERFACE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_init, libxs_finalize
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_get_target_arch
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_set_target_arch
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_get_target_archid
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_set_target_archid
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_set_target_arch
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_duration
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_tick
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_omp_sgemm
@@ -262,20 +262,20 @@
           ! as determined by the CPUID flags. 0 != LIBXS_JIT and
           ! LIBXS_X86_AVX <= result, then this instruction set
           ! extension is targeted by the JIT code generator.
-          INTEGER(C_INT) PURE FUNCTION libxs_get_target_arch() BIND(C)
+          INTEGER(C_INT) PURE FUNCTION libxs_get_target_archid() BIND(C)
             IMPORT :: C_INT
           END FUNCTION
 
           ! Set target architecture (archid: see PARAMETER enumeration)
           ! for subsequent code generation (JIT).
-          SUBROUTINE libxs_set_target_arch(archid) BIND(C)
+          SUBROUTINE libxs_set_target_archid(archid) BIND(C)
             IMPORT :: C_INT
             INTEGER(C_INT), INTENT(IN), VALUE :: archid
           END SUBROUTINE
 
           ! Set target architecture (id=0|wsm|snb|hsw|knl|skx, 0/NULL: CPUID)
           ! for subsequent code generation (JIT).
-          SUBROUTINE libxs_set_target_archid(name) BIND(C)
+          SUBROUTINE libxs_set_target_arch(name) BIND(C)
             IMPORT :: C_CHAR
             CHARACTER(C_CHAR), INTENT(IN) :: name(*)
           END SUBROUTINE
@@ -320,19 +320,19 @@
       CONTAINS
         ! Returns a name for the target architecture as identified
         ! by libxs_get_target_arch().
-        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_get_target_archid
-        FUNCTION libxs_get_target_archid() RESULT(name)
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_get_target_arch
+        FUNCTION libxs_get_target_arch() RESULT(name)
           CHARACTER(LEN=:), ALLOCATABLE :: name
           CHARACTER(LEN=16) :: tmp
-          !DIR$ ATTRIBUTES OFFLOAD:MIC :: get_target_archid
+          !DIR$ ATTRIBUTES OFFLOAD:MIC :: get_target_arch
           INTERFACE
-            PURE SUBROUTINE get_target_archid(name, length) BIND(C)
+            PURE SUBROUTINE get_target_arch(name, length) BIND(C)
               IMPORT :: C_CHAR, C_INT
               CHARACTER(C_CHAR), INTENT(OUT) :: name(*)
               INTEGER(C_INT), VALUE, INTENT(IN) :: length
             END SUBROUTINE
           END INTERFACE
-          CALL get_target_archid(tmp, LEN(tmp))
+          CALL get_target_arch(tmp, LEN(tmp))
           name = TRIM(tmp)
         END FUNCTION
 
