@@ -88,18 +88,20 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void);
 
 /**
- * Returns the architecture and instruction set extension as determined by the CPUID flags.
- * If 0 != LIBXS_JIT and LIBXS_X86_AVX <= result, then this instruction set extension
- * is targeted by the JIT code generator.
+ * Returns the architecture and instruction set extension as determined by the CPUID flags, as set
+ * by the libxs_get_target_arch* functions, or as set by the LIBXS_TARGET environment variable.
  */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_archid(void);
-/** Set target architecture (archid: see libxs_typedefs.h) for subsequent code generation (JIT). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(int archid);
+/** Set target architecture (id: see libxs_typedefs.h) for subsequent code generation (JIT). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(int id);
 
-/** Returns a name for the target architecture as identified by libxs_get_target_archid(). */
+/**
+ * Returns the name of the target architecture as determined by the CPUID flags, as set by the
+ * libxs_get_target_arch* functions, or as set by the LIBXS_TARGET environment variable.
+ */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_arch(void);
-/** Set target architecture (name=0|wsm|snb|hsw|knl|skx, 0/NULL: CPUID) for subsequent code generation (JIT). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_arch(const char* name);
+/** Set target architecture (arch="0|sse|snb|hsw|knl|skx", NULL/"0": CPUID) for subsequent code generation (JIT). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_arch(const char* arch);
 
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (descriptor form). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);

@@ -42,10 +42,8 @@ int main(int argc, char* argv[])
     1 >= nthreads ? "" : "s");
 
 #if 0 != LIBXS_JIT
-  { const char *const jit = getenv("LIBXS_JIT");
-    if (0 != jit && '0' == *jit) {
-      fprintf(stderr, "\tWarning: JIT support has been disabled at runtime!\n");
-    }
+  if (LIBXS_X86_AVX > libxs_get_target_archid()) {
+    fprintf(stderr, "\tWarning: JIT support is not available at runtime!\n");
   }
 #else
   fprintf(stderr, "\tWarning: JIT support has been disabled at build time!\n");
