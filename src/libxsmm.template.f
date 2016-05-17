@@ -261,8 +261,9 @@
           ! Returns the architecture and instruction set extension as determined
           ! by the CPUID flags, as set by the libxs_get_target_arch* functions,
           ! or as set by the LIBXS_TARGET environment variable.
-          INTEGER(C_INT) PURE FUNCTION libxs_get_target_archid() BIND(C)
+          PURE FUNCTION libxs_get_target_archid() RESULT(id) BIND(C)
             IMPORT :: C_INT
+            INTEGER(C_INT) :: id
           END FUNCTION
 
           ! Set target architecture (id: see PARAMETER enumeration)
