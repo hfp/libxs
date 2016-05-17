@@ -643,6 +643,7 @@ else
 $(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/.make
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
 endif
+else
 .PHONY: $(OUTDIR)/libxsf.$(LIBEXT)
 endif
 
