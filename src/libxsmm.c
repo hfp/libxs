@@ -918,6 +918,8 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
           }
         }
         if (0 != internal_verbose) { /* print statistic on termination */
+          LIBXS_FLOCK(stderr);
+          LIBXS_FLOCK(stdout);
           fflush(stdout); /* synchronize with standard output */
           {
             const unsigned int linebreak = 0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0) ? 1 : 0;
@@ -925,6 +927,8 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
               fprintf(stderr, "LIBXS_TARGET=%s\n", target_arch);
             }
           }
+          LIBXS_FUNLOCK(stdout);
+          LIBXS_FUNLOCK(stderr);
         }
         free((void*)registry_keys);
         free((void*)registry);
