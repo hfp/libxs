@@ -1067,6 +1067,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 {
 #if (0 != LIBXS_JIT)
 # if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
+  const char *const target_arch = internal_get_target_arch(internal_target_archid);
   libxs_generated_code generated_code;
   assert(0 != desc && 0 != code);
   assert(0 != internal_target_archid);
@@ -1080,7 +1081,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   generated_code.last_error = 0;
 
   /* generate kernel */
-  libxs_generator_gemm_kernel(&generated_code, desc, internal_get_target_arch(internal_target_archid));
+  libxs_generator_gemm_kernel(&generated_code, desc, target_arch);
 
   /* handle an eventual error in the else-branch */
   if (0 == generated_code.last_error) {
@@ -1131,7 +1132,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         if (0/*ok*/ == mprotect(code->function.pmm, generated_code.code_size, PROT_EXEC | PROT_READ)) {
 # if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
           char jit_code_name[256];
-          internal_get_code_name(internal_target_archid, desc, sizeof(jit_code_name), jit_code_name);
+          internal_get_code_name(target_arch, desc, sizeof(jit_code_name), jit_code_name);
 # endif
           /* finalize code generation */
           code->size = generated_code.code_size;
