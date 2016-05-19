@@ -541,9 +541,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_statistic(FILE* ostr
   {
     char title[256], sml[256], med[256], big[256];
 
-    LIBXS_SNPRINTF(sml, sizeof(sml), "%u..%u",                     0u, internal_statistic_sml);
-    LIBXS_SNPRINTF(med, sizeof(sml), "%u..%u", internal_statistic_sml, internal_statistic_med);
-    LIBXS_SNPRINTF(big, sizeof(sml), "%u..%u", internal_statistic_med, internal_statistic_mnk);
+    LIBXS_SNPRINTF(sml, sizeof(sml), "%u..%u",                          0u, internal_statistic_sml);
+    LIBXS_SNPRINTF(med, sizeof(sml), "%u..%u", internal_statistic_sml + 1u, internal_statistic_med);
+    LIBXS_SNPRINTF(big, sizeof(sml), "%u..%u", internal_statistic_med + 1u, internal_statistic_mnk);
     {
       unsigned int n = 0;
       for (n = 0; 0 != target_arch[n] && n < sizeof(title); ++n) { /* toupper */
