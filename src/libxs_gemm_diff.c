@@ -48,6 +48,7 @@
 # define LIBXS_GEMM_DIFF_AVX512_MIC
 # define LIBXS_GEMM_DIFF_AVX2
 # define LIBXS_GEMM_DIFF_AVX
+# define LIBXS_GEMM_DIFF_SSE
 /*# define LIBXS_GEMM_DIFF_KNC*/
 #endif
 
@@ -79,6 +80,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_init(int target_arch)
     internal_gemm_diffn_function = libxs_gemm_diffn_avx;
     internal_gemm_diff_function = libxs_gemm_diff_avx;
   }
+  else if (LIBXS_X86_SSE3 <= target_arch) {
+    internal_gemm_diff_function = libxs_gemm_diff_sse;
+  }
 #endif
 }
 
@@ -102,6 +106,8 @@ unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* reference, const libxs
   return libxs_gemm_diff_avx2(reference, desc);
 #elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diff_avx(reference, desc);
+#elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
+  return libxs_gemm_diff_sse(reference, desc);
 #else /* pointer based function call */
   assert(0 != internal_gemm_diff_function);
   return (*internal_gemm_diff_function)(reference, desc);
@@ -125,6 +131,37 @@ unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* reference, const li
     result |= (ia[i] ^ ib[i]);
   }
   return result;
+#endif
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
+unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
+{
+  assert(0 != reference && 0 != desc);
+#if defined(LIBXS_GEMM_DIFF_SSE) && (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
+  assert(4 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
+# if (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  {
+    const __m128i a128 = _mm_lddqu_si128((const __m128i*)reference);
+    const __m128i b128 = _mm_lddqu_si128((const __m128i*)desc);
+    const __m128i c128 = _mm_cmpeq_epi8(a128, b128);
+    return 0xFFFF != _mm_movemask_epi8(c128);
+  }
+# else
+  return libxs_gemm_diff_sw(reference, desc);
+# endif
+#else
+# if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_SSE) /* library code is expected to be mute */
+  { static LIBXS_TLS int once = 0;
+    if (0 == once) {
+      fprintf(stderr, "LIBXS: unable to enter SSE code path!\n");
+      once = 1;
+    }
+  }
+# endif
+  return libxs_gemm_diff_sw(reference, desc);
 #endif
 }
 
@@ -162,22 +199,10 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
     r1 = _mm256_testnzc_si256(b256, a256);
     return r0 | r1;
   }
-# elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
-  {
-#   if 0
-    const __m256i a256 = _mm256_lddqu_si256((const __m256i*)reference);
-    const __m256i b256 = _mm256_lddqu_si256((const __m256i*)desc);
-#   else
-    const __m256i a256 = _mm256_loadu_si256((const __m256i*)reference);
-    const __m256i b256 = _mm256_loadu_si256((const __m256i*)desc);
-#   endif
-    /* avoid warning about eval. in unspecified order: r0, r1 */
-    const int r0 = _mm256_testnzc_si256(a256, b256);
-    const int r1 = _mm256_testnzc_si256(b256, a256);
-    return r0 | r1;
-  }
 # else
-  return libxs_gemm_diff_sw(reference, desc);
+  { /* no difference between SSE and AVX based implementation */
+    return libxs_gemm_diff_sse(reference, desc);
+  }
 # endif
 #else
 # if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX) /* library code is expected to be mute */
@@ -188,7 +213,7 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
     }
   }
 # endif
-  return libxs_gemm_diff_sw(reference, desc);
+  return libxs_gemm_diff_sse(reference, desc);
 #endif
 }
 
@@ -253,10 +278,6 @@ unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const 
       _mm512_mask_loadunpacklo_epi32(_mm512_set1_epi32(0), mask, desc),
       mask, ((const char*)desc) + 32);
     return _mm512_reduce_or_epi32(_mm512_xor_si512(a512, b512));
-  }
-#elif defined(__MIC__) && (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
-  { /* TODO: implement for 16 Byte descriptor */
-    return libxs_gemm_diff_sw(reference, desc);
   }
 #else
   return libxs_gemm_diff_sw(reference, desc);

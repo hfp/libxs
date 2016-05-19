@@ -72,6 +72,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff(
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_sw(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
 /** Collection of implementations which are using specific instruction set extensions. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_sse(
+  const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gemm_diff_avx2(
