@@ -196,7 +196,7 @@ int main()
 #if defined(LIBXS_OFFLOAD_TARGET)
 #   pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
-    {
+    if (EXIT_SUCCESS == result) {
 #if defined(LIBXS_GENERATOR_BIGDESC)
       union { libxs_gemm_descriptor desc; char padding[32]; } local[8];
 #else
