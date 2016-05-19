@@ -138,6 +138,7 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   {
+    int r0, r1;
     __m256i a256, b256;
 #   if defined(__CYGWIN__) && !defined(NDEBUG) /* Cygwin/GCC: _mm256_set_epi32 may cause an illegal instruction */
     const union { int32_t array[8]; __m256i i; } m256 = { /* use literal value rather than yes/no
@@ -156,7 +157,10 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
     a256 = _mm256_loadu_si256((const __m256i*)reference);
 #   endif
     b256 = _mm256_castps_si256(_mm256_maskload_ps((const float*)desc, m256.i));
-    return _mm256_testnzc_si256(a256, b256) | _mm256_testnzc_si256(b256, a256);
+    /* avoid warning about eval. in unspecified order: r0, r1 */
+    r0 = _mm256_testnzc_si256(a256, b256);
+    r1 = _mm256_testnzc_si256(b256, a256);
+    return r0 | r1;
   }
 # elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   {
@@ -167,7 +171,10 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
     const __m256i a256 = _mm256_loadu_si256((const __m256i*)reference);
     const __m256i b256 = _mm256_loadu_si256((const __m256i*)desc);
 #   endif
-    return _mm256_testnzc_si256(a256, b256) | _mm256_testnzc_si256(b256, a256);
+    /* avoid warning about eval. in unspecified order: r0, r1 */
+    const int r0 = _mm256_testnzc_si256(a256, b256);
+    const int r1 = _mm256_testnzc_si256(b256, a256);
+    return r0 | r1;
   }
 # else
   return libxs_gemm_diff_sw(reference, desc);
@@ -204,7 +211,10 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
     const __m256i a256 = _mm256_loadu_si256((const __m256i*)reference);
 #   endif
     const __m256i b256 = _mm256_maskload_epi32((const void*)desc, m256);
-    return _mm256_testnzc_si256(a256, b256) | _mm256_testnzc_si256(b256, a256);
+    /* avoid warning about eval. in unspecified order: r0, r1 */
+    const int r0 = _mm256_testnzc_si256(a256, b256);
+    const int r1 = _mm256_testnzc_si256(b256, a256);
+    return r0 | r1;
   }
 # elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   { /* no difference between AVX and AVX2 based implementation */
