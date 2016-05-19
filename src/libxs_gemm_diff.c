@@ -42,20 +42,13 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE /*|| any other implemented size*/)
-# if (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#   define LIBXS_GEMM_DIFF_AVX512_CORE
-# elif (LIBXS_X86_AVX512_MIC <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#   define LIBXS_GEMM_DIFF_AVX512_MIC
-# elif (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#   define LIBXS_GEMM_DIFF_AVX2
-# elif (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#   define LIBXS_GEMM_DIFF_AVX
-# else
-#   define LIBXS_GEMM_DIFF_NOWARNING
-# endif
-#else /* remove as soon as LIBXS_GEMM_DESCRIPTOR_SIZE=16 is supported */
-# define LIBXS_GEMM_DIFF_NOWARNING
+/* individually enable intrinsic code paths */
+#if defined(LIBXS_MAX_STATIC_TARGET_ARCH)
+# define LIBXS_GEMM_DIFF_AVX512_CORE
+# define LIBXS_GEMM_DIFF_AVX512_MIC
+# define LIBXS_GEMM_DIFF_AVX2
+# define LIBXS_GEMM_DIFF_AVX
+/*# define LIBXS_GEMM_DIFF_KNC*/
 #endif
 
 
@@ -92,6 +85,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_init(int target_arch)
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_diff_finalize(void)
 {
+  internal_gemm_diff_function = libxs_gemm_diff_sw;
+  internal_gemm_diffn_function = libxs_gemm_diffn_sw;
 }
 
 
@@ -137,12 +132,12 @@ unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* reference, const li
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
-#if defined(LIBXS_GEMM_DIFF_AVX)
+  assert(0 != reference && 0 != desc);
+#if defined(LIBXS_GEMM_DIFF_AVX) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(0 != reference && 0 != desc);
-  {
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  {
     int r0, r1;
     __m256i a256, b256;
 #   if defined(__CYGWIN__) && !defined(NDEBUG) /* Cygwin/GCC: _mm256_set_epi32 may cause an illegal instruction */
@@ -165,14 +160,21 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
     r0 = _mm256_testnzc_si256(a256, b256);
     r1 = _mm256_testnzc_si256(b256, a256);
     return r0 | r1;
-# endif
   }
+# elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  { /* TODO: implement for 16 Byte descriptor */
+    return libxs_gemm_diff_sw(reference, desc);
+  }
+# else
+  return libxs_gemm_diff_sw(reference, desc);
+# endif
 #else
-# if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
-  static LIBXS_TLS int once = 0;
-  if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX code path!\n");
-    once = 1;
+# if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX) /* library code is expected to be mute */
+  { static LIBXS_TLS int once = 0;
+    if (0 == once) {
+      fprintf(stderr, "LIBXS: unable to enter AVX code path!\n");
+      once = 1;
+    }
   }
 # endif
   return libxs_gemm_diff_sw(reference, desc);
@@ -183,12 +185,12 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
-#if defined(LIBXS_GEMM_DIFF_AVX2)
+  assert(0 != reference && 0 != desc);
+#if defined(LIBXS_GEMM_DIFF_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(0 != reference && 0 != desc);
-  {
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  {
     const int yes = 0x80000000, no = 0x0;
     const __m256i m256 = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
 #   if defined(LIBXS_GEMM_DIFF_MASK_A) || !defined(LIBXS_GEMM_DIFF_ZERO_PADDED)
@@ -201,14 +203,21 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
     const int r0 = _mm256_testnzc_si256(a256, b256);
     const int r1 = _mm256_testnzc_si256(b256, a256);
     return r0 | r1;
-# endif
   }
+# elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  { /* TODO: implement for 16 Byte descriptor */
+    return libxs_gemm_diff_avx(reference, desc);
+  }
+# else
+  return libxs_gemm_diff_avx(reference, desc);
+# endif
 #else
-# if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
-  static LIBXS_TLS int once = 0;
-  if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
-    once = 1;
+# if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX2) /* library code is expected to be mute */
+  { static LIBXS_TLS int once = 0;
+    if (0 == once) {
+      fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
+      once = 1;
+    }
   }
 # endif
   return libxs_gemm_diff_avx(reference, desc);
@@ -219,10 +228,10 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE
 unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
-#if defined(__MIC__) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE/*|| any other implemented size*/)
+  assert(0 != reference && 0 != desc);
+#if defined(__MIC__) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(0 ==  LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(16 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(0 != reference && 0 != desc);
   {
     const __mmask16 mask = (0xFFFF >> (16 - (LIBXS_GEMM_DESCRIPTOR_SIZE >> 2/*LOG2(sizeof(int))*/)));
     const __m512i a512 = _mm512_mask_loadunpackhi_epi32(
@@ -232,6 +241,10 @@ unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const 
       _mm512_mask_loadunpacklo_epi32(_mm512_set1_epi32(0), mask, desc),
       mask, ((const char*)desc) + 32);
     return _mm512_reduce_or_epi32(_mm512_xor_si512(a512, b512));
+  }
+#elif defined(__MIC__) && (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  { /* TODO: implement for 16 Byte descriptor */
+    return libxs_gemm_diff_sw(reference, desc);
   }
 #else
   return libxs_gemm_diff_sw(reference, desc);
@@ -293,11 +306,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if defined(LIBXS_GEMM_DIFF_AVX)
+#if defined(LIBXS_GEMM_DIFF_AVX) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(/*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
+# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
   {
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
     const unsigned int end = hint + ndescs;
     const char *const desc = (const char*)descs;
     __m256i a256;
@@ -329,15 +342,23 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference, const 
         return j;
       }
     }
-# endif
+    return ndescs;
   }
-  return ndescs;
+# elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  assert(16 == nbytes); /* padded descriptor array */
+  { /* TODO: implement for 16 Byte descriptor */
+    return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
+  }
+# else
+  return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
+# endif
 #else
-# if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
-  static LIBXS_TLS int once = 0;
-  if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX code path!\n");
-    once = 1;
+# if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX) /* library code is expected to be mute */
+  { static LIBXS_TLS int once = 0;
+    if (0 == once) {
+      fprintf(stderr, "LIBXS: unable to enter AVX code path!\n");
+      once = 1;
+    }
   }
 # endif
   return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
@@ -349,11 +370,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if defined(LIBXS_GEMM_DIFF_AVX2)
+#if defined(LIBXS_GEMM_DIFF_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(/*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
+# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
   {
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
     const unsigned int end = hint + ndescs;
     const char *const desc = (const char*)descs;
     unsigned int i;
@@ -376,15 +397,23 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference, const
         return j;
       }
     }
-# endif
+    return ndescs;
   }
-  return ndescs;
+# elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  assert(16 == nbytes); /* padded descriptor array */
+  { /* TODO: implement for 16 Byte descriptor */
+    return libxs_gemm_diffn_avx(reference, descs, hint, ndescs, nbytes);
+  }
+# else
+  return libxs_gemm_diffn_avx(reference, descs, hint, ndescs, nbytes);
+# endif
 #else
-# if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
-  static LIBXS_TLS int once = 0;
-  if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
-    once = 1;
+# if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX2) /* library code is expected to be mute */
+  { static LIBXS_TLS int once = 0;
+    if (0 == once) {
+      fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
+      once = 1;
+    }
   }
 # endif
   return libxs_gemm_diffn_avx(reference, descs, hint, ndescs, nbytes);
@@ -396,11 +425,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INTRINSICS
 unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if defined(LIBXS_GEMM_DIFF_AVX512)
+#if (defined(LIBXS_GEMM_DIFF_AVX512_MIC)  && LIBXS_X86_AVX512_MIC  <= LIBXS_MAX_STATIC_TARGET_ARCH) || \
+    (defined(LIBXS_GEMM_DIFF_AVX512_CORE) && LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
+# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
   {
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
     const unsigned int hint_even = (hint & 0xFFFFFFFE), end = hint_even + ndescs;
     const char *const desc = (const char*)descs;
     unsigned int i;
@@ -425,15 +455,23 @@ unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference, con
         return j + 1;
       }
     }
-# endif
+    return ndescs;
   }
-  return ndescs;
+# elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  assert(16 == nbytes); /* padded descriptor array */
+  { /* TODO: implement for 16 Byte descriptor */
+    return libxs_gemm_diffn_avx2(reference, descs, hint, ndescs, nbytes);
+  }
+# else
+  return libxs_gemm_diffn_avx2(reference, descs, hint, ndescs, nbytes);
+# endif
 #else
-# if !defined(NDEBUG) && !defined(LIBXS_GEMM_DIFF_NOWARNING) /* library code is expected to be mute */
-  static LIBXS_TLS int once = 0;
-  if (0 == once) {
-    fprintf(stderr, "LIBXS: unable to enter AVX-512 code path!\n");
-    once = 1;
+# if !defined(NDEBUG) && (defined(LIBXS_GEMM_DIFF_AVX512_MIC) || defined(LIBXS_GEMM_DIFF_AVX512_CORE))
+  { static LIBXS_TLS int once = 0;
+    if (0 == once) {
+      fprintf(stderr, "LIBXS: unable to enter AVX-512 code path!\n");
+      once = 1;
+    }
   }
 # endif
   return libxs_gemm_diffn_avx2(reference, descs, hint, ndescs, nbytes);
@@ -445,7 +483,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE
 unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if defined(__MIC__) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE/*|| any other implemented size*/) && 0/*disabled*/
+#if defined(LIBXS_GEMM_DIFF_KNC) && defined(__MIC__) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
   assert(32 == nbytes); /* padded descriptor array */
   {
@@ -469,8 +507,14 @@ unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descriptor* reference, const
         return j + 1;
       }
     }
+    return ndescs;
   }
-  return ndescs;
+#elif defined(LIBXS_GEMM_DIFF_KNC) && defined(__MIC__) && (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
+  assert(16 == nbytes); /* padded descriptor array */
+  { /* TODO: implement for 16 Byte descriptor */
+    return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
+  }
 #else
   return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
 #endif
