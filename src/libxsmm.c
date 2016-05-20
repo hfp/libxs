@@ -247,7 +247,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
   static LIBXS_TLS union { libxs_gemm_descriptor desc; char padding[LIBXS_GEMM_DESCRIPTOR_SIMD_SIZE]; } CACHE_KEYS[LIBXS_CACHESIZE]; \
   static LIBXS_TLS libxs_xmmfunction CACHE[LIBXS_CACHESIZE]; \
   static LIBXS_TLS unsigned int CACHE_ID = (unsigned int)(-1); \
-  static LIBXS_TLS unsigned int CACHE_HIT = LIBXS_CACHESIZE
+  static LIBXS_TLS unsigned int CACHE_HIT = LIBXS_CACHESIZE;
 # define INTERNAL_FIND_CODE_CACHE_BEGIN(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT, RESULT, DESCRIPTOR) \
   assert(LIBXS_GEMM_DESCRIPTOR_SIMD_SIZE >= LIBXS_GEMM_DESCRIPTOR_SIZE); \
   /* search small cache starting with the last hit on record */ \
@@ -341,7 +341,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 #define INTERNAL_FIND_CODE(DESCRIPTOR, CODE) \
   internal_regentry flux_entry; \
 { \
-  INTERNAL_FIND_CODE_CACHE_DECL(cache_id, cache_keys, cache, cache_hit); \
+  INTERNAL_FIND_CODE_CACHE_DECL(cache_id, cache_keys, cache, cache_hit) \
   unsigned int hash, diff = 0, diff0 = 0, i0; \
   INTERNAL_FIND_CODE_INIT(CODE); \
   INTERNAL_FIND_CODE_CACHE_BEGIN(cache_id, cache_keys, cache, cache_hit, flux_entry, DESCRIPTOR) { \
