@@ -668,22 +668,24 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
       libxs_gemm_diff_init(internal_target_archid);
       init_code = libxs_gemm_init(internal_target_archid, internal_prefetch);
 #if defined(__TRACE)
-      const char *const env_trace_init = getenv("LIBXS_TRACE");
-      if (EXIT_SUCCESS == init_code && 0 != env_trace_init) {
-        int match[] = { 0, 0 }, filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = -1;
-        char buffer[32];
+      {
+        const char *const env_trace_init = getenv("LIBXS_TRACE");
+        if (EXIT_SUCCESS == init_code && 0 != env_trace_init) {
+          int match[] = { 0, 0 }, filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = -1;
+          char buffer[32];
 
-        if (1 == sscanf(env_trace_init, "%32[^,],", buffer)) {
-          sscanf(buffer, "%i", &filter_threadid);
+          if (1 == sscanf(env_trace_init, "%32[^,],", buffer)) {
+            sscanf(buffer, "%i", &filter_threadid);
+          }
+          if (1 == sscanf(env_trace_init, "%*[^,],%32[^,],", buffer)) {
+            match[0] = sscanf(buffer, "%i", &filter_mindepth);
+          }
+          if (1 == sscanf(env_trace_init, "%*[^,],%*[^,],%32s", buffer)) {
+            match[1] = sscanf(buffer, "%i", &filter_maxnsyms);
+          }
+          init_code = (0 == filter_threadid && 0 == match[0] && 0 == match[1]) ? EXIT_SUCCESS
+            : libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
         }
-        if (1 == sscanf(env_trace_init, "%*[^,],%32[^,],", buffer)) {
-          match[0] = sscanf(buffer, "%i", &filter_mindepth);
-        }
-        if (1 == sscanf(env_trace_init, "%*[^,],%*[^,],%32s", buffer)) {
-          match[1] = sscanf(buffer, "%i", &filter_maxnsyms);
-        }
-        init_code = (0 == filter_threadid && 0 == match[0] && 0 == match[1]) ? EXIT_SUCCESS
-          : libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
       }
 #endif
       if (EXIT_SUCCESS == init_code) {
