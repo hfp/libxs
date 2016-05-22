@@ -31,6 +31,7 @@
 #include "libxs_gemm_diff.h"
 #include "libxs_gemm_ext.h"
 #include "libxs_hash.h"
+#include "libxs_sync.h"
 
 #if defined(__TRACE)
 # include "libxs_trace.h"
@@ -73,15 +74,6 @@
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
-#endif
-#if defined(__GNUC__)
-# if !defined(LIBXS_GCCATOMICS)
-#   if (LIBXS_VERSION3(4, 7, 4) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-#     define LIBXS_GCCATOMICS 1
-#   else
-#     define LIBXS_GCCATOMICS 0
-#   endif
-# endif
 #endif
 
 /**
@@ -217,30 +209,9 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(internal_reglock[LOCKINDEX]); }
 #endif
 
-#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
-# if (0 != LIBXS_GCCATOMICS)
-#   define INTERNAL_FIND_CODE_DECLARE(CODE) internal_regentry* CODE = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED); unsigned int i
-#   define INTERNAL_FIND_CODE_READ(CODE, DST) DST = __atomic_load_n(&(CODE)->function.pmm, __ATOMIC_SEQ_CST)
-#   define INTERNAL_FIND_CODE_WRITE(CODE, SRC) __atomic_store_n(&(CODE)->function.pmm, SRC, __ATOMIC_SEQ_CST);
-# else
-#   define INTERNAL_FIND_CODE_DECLARE(CODE) internal_regentry* CODE = __sync_or_and_fetch(&internal_registry, 0); unsigned int i
-#   define INTERNAL_FIND_CODE_READ(CODE, DST) DST = __sync_or_and_fetch(&(CODE)->function.pmm, 0)
-#   define INTERNAL_FIND_CODE_WRITE(CODE, SRC) { \
-      /*const*/void* old = (CODE)->function.pmm; \
-      while (!__sync_bool_compare_and_swap(&(CODE)->function.pmm, old, SRC)) { \
-        old = (CODE)->function.pmm; \
-      } \
-    }
-# endif
-#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32) /*TODO*/
-# define INTERNAL_FIND_CODE_DECLARE(CODE) internal_regentry* CODE = internal_registry; unsigned int i
-# define INTERNAL_FIND_CODE_READ(CODE, DST) DST = (CODE)->function.pmm
-# define INTERNAL_FIND_CODE_WRITE(CODE, SRC) (CODE)->function.pmm = (SRC)
-#else
-# define INTERNAL_FIND_CODE_DECLARE(CODE) internal_regentry* CODE = internal_registry; unsigned int i
-# define INTERNAL_FIND_CODE_READ(CODE, DST) DST = (CODE)->function.pmm
-# define INTERNAL_FIND_CODE_WRITE(CODE, SRC) (CODE)->function.pmm = (SRC)
-#endif
+#define INTERNAL_FIND_CODE_DECLARE(CODE) internal_regentry* CODE = LIBXS_ATOMIC_LOAD(internal_registry, LIBXS_ATOMIC_RELAXED); unsigned int i
+#define INTERNAL_FIND_CODE_READ(CODE, DST) DST = LIBXS_ATOMIC_LOAD((CODE)->function.pmm, LIBXS_ATOMIC_SEQ_CST)
+#define INTERNAL_FIND_CODE_WRITE(CODE, SRC) LIBXS_ATOMIC_STORE((CODE)->function.pmm, SRC, LIBXS_ATOMIC_SEQ_CST)
 
 #if defined(LIBXS_CACHESIZE) && (0 < (LIBXS_CACHESIZE))
 # define INTERNAL_FIND_CODE_CACHE_DECL(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT) \
@@ -459,21 +430,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_update_statistic(const libxs_gemm_
       bucket = 1;
     }
 
-#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
-# if (0 != LIBXS_GCCATOMICS)
-    /*dst =*/ __atomic_add_fetch(&internal_statistic[precision][bucket].ntry, ntry, __ATOMIC_RELAXED);
-    /*dst =*/ __atomic_add_fetch(&internal_statistic[precision][bucket].ncol, ncol, __ATOMIC_RELAXED);
-# else
-    /*dst =*/ __sync_add_and_fetch(&internal_statistic[precision][bucket].ntry, ntry);
-    /*dst =*/ __sync_add_and_fetch(&internal_statistic[precision][bucket].ncol, ncol);
-# endif
-#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32) /*TODO*/
-    internal_statistic[precision][bucket].ntry += ntry;
-    internal_statistic[precision][bucket].ncol += ncol;
-#else
-    internal_statistic[precision][bucket].ntry += ntry;
-    internal_statistic[precision][bucket].ncol += ncol;
-#endif
+    LIBXS_ATOMIC_ADD_FETCH(internal_statistic[precision][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
+    LIBXS_ATOMIC_ADD_FETCH(internal_statistic[precision][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
   }
 }
 
@@ -679,17 +637,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 # pragma omp critical(internal_reglock)
 #endif
   {
-#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
-# if (0 != LIBXS_GCCATOMICS)
-    result = __atomic_load_n(&internal_registry, __ATOMIC_SEQ_CST);
-# else
-    result = __sync_or_and_fetch(&internal_registry, 0);
-# endif
-#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
-    result = internal_registry; /*TODO*/
-#else
-    result = internal_registry;
-#endif
+    result = LIBXS_ATOMIC_LOAD(internal_registry, LIBXS_ATOMIC_SEQ_CST);
     if (0 == result) {
       int init_code;
       /* set internal_target_archid */
@@ -760,20 +708,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #           include <libxs_dispatch.h>
           }
           atexit(libxs_finalize);
-#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
-# if (0 != LIBXS_GCCATOMICS)
-          __atomic_store_n(&internal_registry, result, __ATOMIC_SEQ_CST);
-# else
-          {
-            internal_regentry* old = internal_registry;
-            while (!__sync_bool_compare_and_swap(&internal_registry, old, result)) old = internal_registry;
-          }
-# endif
-#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
-          internal_registry = result; /*TODO*/
-#else
-          internal_registry = result;
-#endif
+          LIBXS_ATOMIC_STORE(internal_registry, result, LIBXS_ATOMIC_SEQ_CST);
         }
         else {
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
@@ -804,17 +739,7 @@ LIBXS_ATTRIBUTE(constructor)
 #endif
 LIBXS_RETARGETABLE void libxs_init(void)
 {
-#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
-# if (0 != LIBXS_GCCATOMICS)
-  const void *const registry = __atomic_load_n(&internal_registry, __ATOMIC_RELAXED);
-# else
-  const void *const registry = __sync_or_and_fetch(&internal_registry, 0);
-# endif
-#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
-  const void *const registry = internal_registry; /*TODO*/
-#else
-  const void *const registry = internal_registry;
-#endif
+  const void *const registry = LIBXS_ATOMIC_LOAD(internal_registry, LIBXS_ATOMIC_RELAXED);
   if (0 == registry) {
     internal_init();
   }
@@ -828,17 +753,7 @@ LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
 LIBXS_RETARGETABLE void libxs_finalize(void)
 {
-#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
-# if (0 != LIBXS_GCCATOMICS)
-  internal_regentry* registry = __atomic_load_n(&internal_registry, __ATOMIC_SEQ_CST);
-# else
-  internal_regentry* registry = __sync_or_and_fetch(&internal_registry, 0);
-# endif
-#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
-  internal_regentry* registry = internal_registry; /*TODO*/
-#else
-  internal_regentry* registry = internal_registry;
-#endif
+  internal_regentry* registry = LIBXS_ATOMIC_LOAD(internal_registry, LIBXS_ATOMIC_SEQ_CST);
 
   if (0 != registry) {
     int i;
@@ -868,21 +783,10 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
         libxs_gemm_finalize();
         libxs_gemm_diff_finalize();
         libxs_hash_finalize();
-#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
-# if (0 != LIBXS_GCCATOMICS)
-        __atomic_store_n(&internal_registry, 0, __ATOMIC_SEQ_CST);
-# else
-        { /* use store side-effect of built-in (dummy assignment to mute warning) */
-          internal_regentry *const dummy = __sync_and_and_fetch(&internal_registry, 0);
-          LIBXS_UNUSED(dummy);
-        }
-# endif
-#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32)
-        internal_registry = 0; /*TODO*/
-#else
-        internal_registry = 0;
-#endif
+
+        LIBXS_ATOMIC_STORE_ZERO(internal_registry, LIBXS_ATOMIC_SEQ_CST);
         internal_registry_keys = 0;
+
         for (i = 0; i < LIBXS_REGSIZE; ++i) {
           internal_regentry code = registry[i];
           if (0 != code.function.pmm/*potentially allocated*/) {

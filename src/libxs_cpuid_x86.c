@@ -39,6 +39,34 @@
 # pragma offload_attribute(pop)
 #endif
 
+/** Execute the CPUID, and receive results (EAX, EBX, ECX, EDX) for requested FUNCTION. */
+#if defined(__GNUC__)
+# define LIBXS_CPUID_X86(FUNCTION, EAX, EBX, ECX, EDX) \
+    __asm__ __volatile__ ("cpuid" : "=a"(EAX), "=b"(EBX), "=c"(ECX), "=d"(EDX) : "a"(FUNCTION))
+#else
+# define LIBXS_CPUID_X86(FUNCTION, EAX, EBX, ECX, EDX) { \
+    int libxs_cpuid_x86_[4]; \
+    __cpuid(libxs_cpuid_x86_, FUNCTION); \
+    EAX = libxs_cpuid_x86_[0]; \
+    EBX = libxs_cpuid_x86_[1]; \
+    ECX = libxs_cpuid_x86_[2]; \
+    EDX = libxs_cpuid_x86_[3]; \
+  }
+#endif
+
+/** Execute the XGETBV (x86), and receive results (EAX, EDX) for req. eXtended Control Register (XCR). */
+#if defined(__GNUC__)
+# define LIBXS_XGETBV(XCR, EAX, EDX) __asm__ __volatile__( \
+    ".byte 0x0f, 0x01, 0xd0" /*xgetbv*/ : "=a"(EAX), "=d"(EDX) : "c"(XCR) \
+  )
+#else
+# define LIBXS_XGETBV(XCR, EAX, EDX) { \
+    unsigned long long libxs_xgetbv_ = _xgetbv(XCR); \
+    EAX = (int)libxs_xgetbv_; \
+    EDX = (int)(libxs_xgetbv_ >> 32); \
+  }
+#endif
+
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_cpuid_x86(void)
 {

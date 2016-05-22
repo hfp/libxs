@@ -215,26 +215,6 @@
 # define LIBXS_UNUSED_ARG
 #endif
 
-#if defined(LIBXS_NOSYNC)
-# undef _REENTRANT
-#elif !defined(_REENTRANT)
-# define _REENTRANT
-#endif
-
-#if defined(_REENTRANT)
-# if (defined(_WIN32) && !defined(__GNUC__))
-#   define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
-# elif defined(__GNUC__)
-#   define LIBXS_TLS __thread
-# elif defined(__cplusplus)
-#   define LIBXS_TLS thread_local
-# else
-#   error Missing TLS support!
-# endif
-#else
-# define LIBXS_TLS
-#endif
-
 #if defined(__GNUC__)
 # define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
 # define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
@@ -248,34 +228,6 @@
 # define LIBXS_DEBUG(...)
 #else
 # define LIBXS_DEBUG(...) __VA_ARGS__
-#endif
-
-/** Execute the CPUID, and receive results (EAX, EBX, ECX, EDX) for requested FUNCTION. */
-#if defined(__GNUC__)
-# define LIBXS_CPUID_X86(FUNCTION, EAX, EBX, ECX, EDX) \
-    __asm__ __volatile__ ("cpuid" : "=a"(EAX), "=b"(EBX), "=c"(ECX), "=d"(EDX) : "a"(FUNCTION))
-#else
-# define LIBXS_CPUID_X86(FUNCTION, EAX, EBX, ECX, EDX) { \
-    int libxs_cpuid_x86_[4]; \
-    __cpuid(libxs_cpuid_x86_, FUNCTION); \
-    EAX = libxs_cpuid_x86_[0]; \
-    EBX = libxs_cpuid_x86_[1]; \
-    ECX = libxs_cpuid_x86_[2]; \
-    EDX = libxs_cpuid_x86_[3]; \
-  }
-#endif
-
-/** Execute the XGETBV (x86), and receive results (EAX, EDX) for req. eXtended Control Register (XCR). */
-#if defined(__GNUC__)
-# define LIBXS_XGETBV(XCR, EAX, EDX) __asm__ __volatile__( \
-    ".byte 0x0f, 0x01, 0xd0" /*xgetbv*/ : "=a"(EAX), "=d"(EDX) : "c"(XCR) \
-  )
-#else
-# define LIBXS_XGETBV(XCR, EAX, EDX) { \
-    unsigned long long libxs_xgetbv_ = _xgetbv(XCR); \
-    EAX = (int)libxs_xgetbv_; \
-    EDX = (int)(libxs_xgetbv_ >> 32); \
-  }
 #endif
 
 #if defined(_WIN32)
@@ -295,20 +247,6 @@
 #   define LIBXS_FLOCK(FILE)
 #   define LIBXS_FUNLOCK(FILE)
 # endif
-#endif
-
-#if defined(_WIN32) /*TODO*/
-# define LIBXS_LOCK_TYPE HANDLE
-# define LIBXS_LOCK_CONSTRUCT 0
-# define LIBXS_LOCK_DESTROY(LOCK) CloseHandle(LOCK)
-# define LIBXS_LOCK_ACQUIRE(LOCK) WaitForSingleObject(LOCK, INFINITE)
-# define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(LOCK)
-#else /* PThreads: include <pthread.h> */
-# define LIBXS_LOCK_TYPE pthread_mutex_t
-# define LIBXS_LOCK_CONSTRUCT PTHREAD_MUTEX_INITIALIZER
-# define LIBXS_LOCK_DESTROY(LOCK) pthread_mutex_destroy(&(LOCK))
-# define LIBXS_LOCK_ACQUIRE(LOCK) pthread_mutex_lock(&(LOCK))
-# define LIBXS_LOCK_RELEASE(LOCK) pthread_mutex_unlock(&(LOCK))
 #endif
 
 /** Below group is to fixup some platform/compiler specifics. */
