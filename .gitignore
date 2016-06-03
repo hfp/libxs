@@ -6,6 +6,7 @@ include/libxs.f
 include/libxs.h
 build/libxs_dispatch.h
 build/mm_*_*_*.c
+lib/libxs*
 ide/_vs*-*.bat
 ide/*.amplxeproj
 ide/build

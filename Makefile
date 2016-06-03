@@ -13,8 +13,36 @@ ifneq (3.82,$(firstword $(sort $(MAKE_VERSION) 3.82)))
 endif
 endif
 
+ROOTDIR = $(abspath $(dir $(firstword $(MAKEFILE_LIST))))
+SPLDIR = $(ROOTDIR)/samples
+SCRDIR = $(ROOTDIR)/scripts
+TSTDIR = $(ROOTDIR)/tests
+SRCDIR = $(ROOTDIR)/src
+INCDIR = include
+BLDDIR = build
+OUTDIR = lib
+BINDIR = bin
+DOCDIR = documentation
+
+# subdirectories for prefix based installation
+PINCDIR = $(INCDIR)
+POUTDIR = $(OUTDIR)
+PBINDIR = $(BINDIR)
+PTSTDIR = tests
+PDOCDIR = share/libxs
+
+# initial default flags
+CXXFLAGS = $(NULL)
+CFLAGS = $(NULL)
+DFLAGS = -DLIBXS_BUILD
+IFLAGS = -I$(INCDIR) -I$(BLDDIR) -I$(SRCDIR)
+
 # Python interpreter
 PYTHON ?= python
+
+# Version numbers according to interface (version.txt)
+VERSION_MAJOR ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py 1)
+VERSION_MINOR ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py 2)
 
 # THRESHOLD problem size (M x N x K) determining when to use BLAS; can be zero
 THRESHOLD ?= $(shell echo $$((80 * 80 * 80)))
@@ -81,29 +109,6 @@ ifneq (1,$(BETA))
   $(error BETA needs to be eiter 0 or 1)
 endif
 endif
-
-ROOTDIR = $(abspath $(dir $(firstword $(MAKEFILE_LIST))))
-SPLDIR = $(ROOTDIR)/samples
-SCRDIR = $(ROOTDIR)/scripts
-TSTDIR = $(ROOTDIR)/tests
-SRCDIR = $(ROOTDIR)/src
-INCDIR = include
-BLDDIR = build
-OUTDIR = lib
-BINDIR = bin
-DOCDIR = documentation
-
-# subdirectories for prefix based installation
-PINCDIR = $(INCDIR)
-POUTDIR = $(OUTDIR)
-PBINDIR = $(BINDIR)
-PTSTDIR = tests
-PDOCDIR = share/libxs
-
-CXXFLAGS = $(NULL)
-CFLAGS = $(NULL)
-DFLAGS = -DLIBXS_BUILD
-IFLAGS = -I$(INCDIR) -I$(BLDDIR) -I$(SRCDIR)
 
 PTHREAD ?= 1
 STATIC ?= 1
@@ -583,7 +588,9 @@ module: module_hst module_mic
 build_generator_lib: $(OUTDIR)/libxsgen.$(LIBEXT)
 $(OUTDIR)/libxsgen.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
-	$(LD) -o $@ $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_GEN_LIB) -shared $(LDFLAGS) $(CLDFLAGS) $(call soname,$@ $(VERSION_MAJOR))
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
 	$(AR) -rs $@ $(OBJFILES_GEN_LIB)
 endif
@@ -599,7 +606,9 @@ ifneq (0,$(MPSS))
 clib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
 $(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC) $(KERNELOBJS_MIC)
 ifeq (0,$(STATIC))
-	$(LD) -o $@ $(OBJFILES_MIC) $(KERNELOBJS_MIC) -mmic -shared $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_MIC) $(KERNELOBJS_MIC) -mmic -shared $(LDFLAGS) $(CLDFLAGS) $(call soname,$@ $(VERSION_MAJOR))
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
 	$(AR) -rs $@ $(OBJFILES_MIC) $(KERNELOBJS_MIC)
 endif
@@ -610,7 +619,9 @@ endif
 clib_hst: $(OUTDIR)/libxs.$(LIBEXT)
 $(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KERNELOBJS_HST) $(LIBJITPROFILING)
 ifeq (0,$(STATIC))
-	$(LD) -o $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KERNELOBJS_HST) $(LIBJITPROFILING) -shared $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KERNELOBJS_HST) $(LIBJITPROFILING) -shared $(LDFLAGS) $(CLDFLAGS) $(call soname,$@ $(VERSION_MAJOR))
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
 	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KERNELOBJS_HST) $(OBJJITPROFILING)
 endif
@@ -622,7 +633,9 @@ ifneq (,$(strip $(FC)))
 flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/libxs.$(LIBEXT)
-	$(FC) -o $@ $(BLDDIR)/mic/libxs-mod.o $(call libdir,$(OUTDIR)/mic/libxs.$(LIBEXT)) -mmic -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+	$(FC) -o $@ $(BLDDIR)/mic/libxs-mod.o $(call libdir,$(OUTDIR)/mic/libxs.$(LIBEXT)) -mmic -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(call soname,$@ $(VERSION_MAJOR))
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/.make
 	$(AR) -rs $@ $(BLDDIR)/mic/libxs-mod.o
@@ -638,7 +651,9 @@ ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/libxs.$(LIBEXT)
-	$(FC) -o $@ $(BLDDIR)/intel64/libxs-mod.o $(call libdir,$(OUTDIR)/libxs.$(LIBEXT)) -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+	$(FC) -o $@ $(BLDDIR)/intel64/libxs-mod.o $(call libdir,$(OUTDIR)/libxs.$(LIBEXT)) -shared $(FCMTFLAGS) $(LDFLAGS) $(FLDFLAGS) $(call soname,$@ $(VERSION_MAJOR))
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
 $(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/.make
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
@@ -653,7 +668,9 @@ ifneq (0,$(MPSS))
 ext_mic: $(OUTDIR)/mic/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC) $(WRAPOBJS_MIC) $(OUTDIR)/mic/libxs.$(DLIBEXT)
-	$(LD) -o $@ $(EXTOBJS_MIC) $(WRAPOBJS_MIC) $(call libdir,$(OUTDIR)/mic/libxs.$(DLIBEXT)) -mmic -shared $(EXTOMPFLAG) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(EXTOBJS_MIC) $(WRAPOBJS_MIC) $(call libdir,$(OUTDIR)/mic/libxs.$(DLIBEXT)) -mmic -shared $(EXTOMPFLAG) $(LDFLAGS) $(CLDFLAGS) $(call soname,$@ $(VERSION_MAJOR))
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
 $(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC)
 	$(AR) -rs $@ $(EXTOBJS_MIC)
@@ -666,7 +683,9 @@ ext_hst: $(OUTDIR)/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST) $(WRAPOBJS_HST) $(OUTDIR)/libxs.$(DLIBEXT)
 ifneq (Darwin,$(UNAME))
-	$(LD) -o $@ $(EXTOBJS_HST) $(WRAPOBJS_HST) $(call libdir,$(OUTDIR)/libxs.$(DLIBEXT)) -shared $(EXTOMPFLAG) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(EXTOBJS_HST) $(WRAPOBJS_HST) $(call libdir,$(OUTDIR)/libxs.$(DLIBEXT)) -shared $(EXTOMPFLAG) $(LDFLAGS) $(CLDFLAGS) $(call soname,$@ $(VERSION_MAJOR))
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
+	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
 	$(LD) -o $@ $(EXTOBJS_HST) $(WRAPOBJS_HST) $(call libdir,$(OUTDIR)/libxs.$(DLIBEXT)) -shared $(LDFLAGS) $(CLDFLAGS)
 endif
@@ -1044,18 +1063,19 @@ endif
 $(DOCDIR)/libxs.pdf: $(DOCDIR)/.make $(ROOTDIR)/README.md
 	$(eval TMPFILE = $(shell mktemp fileXXXXXX))
 	@mv $(TMPFILE) $(TMPFILE).tex
-	@pandoc -D latex | sed \
+	@pandoc -D latex \
+	| sed \
 		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
 		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' > \
 		$(TMPFILE).tex
-	@sed \
+	@iconv -t utf-8 $(ROOTDIR)/README.md \
+	| sed \
 		-e 's/https:\/\/raw\.githubusercontent\.com\/hfp\/libxs\/master\///' \
 		-e 's/\[!\[..*\](https:\/\/travis-ci.org\/hfp\/libxs.svg?branch=..*)\](..*)//' \
 		-e 's/\[\[..*\](..*)\]//' -e '/!\[..*\](..*)/{n;d}' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-		$(ROOTDIR)/README.md | \
-	pandoc \
+	| pandoc \
 		--latex-engine=xelatex --template=$(TMPFILE).tex --listings \
 		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
 		-V documentclass=scrartcl \
@@ -1071,18 +1091,19 @@ $(DOCDIR)/libxs.pdf: $(DOCDIR)/.make $(ROOTDIR)/README.md
 $(DOCDIR)/cp2k.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/cp2k.md
 	$(eval TMPFILE = $(shell mktemp fileXXXXXX))
 	@mv $(TMPFILE) $(TMPFILE).tex
-	@pandoc -D latex | sed \
+	@pandoc -D latex \
+	| sed \
 		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
 		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' > \
 		$(TMPFILE).tex
-	@sed \
+	@iconv -t utf-8 $(ROOTDIR)/documentation/cp2k.md \
+	| sed \
 		-e 's/https:\/\/raw\.githubusercontent\.com\/hfp\/libxs\/master\///' \
 		-e 's/\[!\[..*\](https:\/\/travis-ci.org\/hfp\/libxs.svg?branch=..*)\](..*)//' \
 		-e 's/\[\[..*\](..*)\]//' -e '/!\[..*\](..*)/{n;d}' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-		$(ROOTDIR)/documentation/cp2k.md | \
-	pandoc \
+	| pandoc \
 		--latex-engine=xelatex --template=$(TMPFILE).tex --listings \
 		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
 		-V documentclass=scrartcl \
@@ -1183,29 +1204,33 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo
 	@echo "LIBXS installing binaries..."
 	@mkdir -p $(INSTALL_ROOT)/$(POUTDIR) $(INSTALL_ROOT)/$(PBINDIR) $(INSTALL_ROOT)/$(PINCDIR)
-	@cp -v $(OUTDIR)/libxsgen.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsgen.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsext.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsf.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsf.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxs.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsgen.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsgen.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsext.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsf.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsf.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxs.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@if [ -e $(OUTDIR)/mic/libxsext.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -v $(OUTDIR)/mic/libxsext.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		cp -v $(OUTDIR)/mic/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+	fi
+	@if [ -e $(OUTDIR)/mic/libxsext.$(SLIBEXT) ]; then \
+		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		cp -v $(OUTDIR)/mic/libxsext.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsf.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -v $(OUTDIR)/mic/libxsf.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		cp -v $(OUTDIR)/mic/libxsf.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsf.$(SLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 		cp -v $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
-
 	@if [ -e $(OUTDIR)/mic/libxs.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -v $(OUTDIR)/mic/libxs.$(DLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		cp -v $(OUTDIR)/mic/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxs.$(SLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \

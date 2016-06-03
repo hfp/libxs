@@ -205,7 +205,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 #else
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
     const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, sizeof(internal_reglock) / sizeof(*internal_reglock)); \
-    LIBXS_LOCK_ACQUIRE(internal_reglock[LOCKINDEX])
+    LIBXS_LOCK_TRYLOCK(internal_reglock[LOCKINDEX])
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(internal_reglock[LOCKINDEX]); }
 #endif
 
@@ -260,7 +260,7 @@ LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] 
 # define INTERNAL_FIND_CODE_JIT(DESCRIPTOR, CODE, RESULT) \
   /* check if code generation or fix-up is needed, also check whether JIT is supported (CPUID) */ \
   if (0 == (RESULT).function.pmm /* code version does not exist */ && LIBXS_X86_AVX <= internal_target_archid) { \
-    /* instead of blocking others, a try-lock would allow to let others to fallback to BLAS (return 0) during lock-time */ \
+    /* instead of blocking others, a try-lock allows to let other threads fallback to BLAS during lock-duration */ \
     INTERNAL_FIND_CODE_LOCK(lock, i); /* lock the registry entry */ \
     /* re-read registry entry after acquiring the lock */ \
     if (0 == diff) { \
@@ -772,6 +772,8 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
       if (0 != registry) {
         internal_regkey *const registry_keys = internal_registry_keys;
         const char *const target_arch = internal_get_target_arch(internal_target_archid);
+        unsigned int heapmem = (LIBXS_REGSIZE) * (sizeof(internal_regentry) + sizeof(internal_regkey));
+
         /* serves as an id to invalidate the thread-local cache; never decremented */
         ++internal_teardown;
 #if defined(__TRACE)
@@ -829,6 +831,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 # endif
 #endif
               ++internal_statistic[precision][bucket].njit;
+              heapmem += code.size;
             }
             else {
               ++internal_statistic[precision][bucket].nsta;
@@ -842,8 +845,9 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
           {
             const unsigned int linebreak = 0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0) ? 1 : 0;
             if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak) {
-              fprintf(stderr, "LIBXS_TARGET=%s\n", target_arch);
+              fprintf(stderr, "LIBXS_TARGET=%s ", target_arch);
             }
+            fprintf(stderr, "HEAP: %.f MB\n", 1.0 * heapmem / (1 << 20));
           }
           LIBXS_FUNLOCK(stdout);
           LIBXS_FUNLOCK(stderr);
@@ -912,14 +916,14 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_arch(void)
 
 
 /* function serves as a helper for implementing the Fortran interface */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void get_target_arch(char* arch, int length);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void get_target_arch(char* arch, int length)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* get_target_arch(int* length);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* get_target_arch(int* length)
 {
-  const char* c = libxs_get_target_arch();
-  int i;
-  assert(0 != arch); /* valid here since function is not in the public interface */
-  for (i = 0; i < length && 0 != *c; ++i, ++c) arch[i] = *c;
-  for (; i < length; ++i) arch[i] = ' ';
+  const char *const arch = libxs_get_target_arch();
+  /* valid here since function is not in the public interface */
+  assert(0 != arch && 0 != length);
+  *length = strlen(arch);
+  return arch;
 }
 
 

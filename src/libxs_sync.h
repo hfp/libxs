@@ -54,12 +54,14 @@
 # define LIBXS_LOCK_CONSTRUCT 0
 # define LIBXS_LOCK_DESTROY(LOCK) CloseHandle(LOCK)
 # define LIBXS_LOCK_ACQUIRE(LOCK) WaitForSingleObject(LOCK, INFINITE)
+# define LIBXS_LOCK_TRYLOCK(LOCK) WaitForSingleObject(LOCK, 0)
 # define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(LOCK)
 #else /* PThreads: include <pthread.h> */
 # define LIBXS_LOCK_TYPE pthread_mutex_t
 # define LIBXS_LOCK_CONSTRUCT PTHREAD_MUTEX_INITIALIZER
 # define LIBXS_LOCK_DESTROY(LOCK) pthread_mutex_destroy(&(LOCK))
 # define LIBXS_LOCK_ACQUIRE(LOCK) pthread_mutex_lock(&(LOCK))
+# define LIBXS_LOCK_TRYLOCK(LOCK) pthread_mutex_trylock(&(LOCK))
 # define LIBXS_LOCK_RELEASE(LOCK) pthread_mutex_unlock(&(LOCK))
 #endif
 
