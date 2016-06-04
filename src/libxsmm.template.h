@@ -76,6 +76,15 @@ typedef LIBXS_RETARGETABLE void (*libxs_smmfunction)(const float* a, const float
 /** Specialized function with fused alpha and beta arguments, and optional prefetch locations (double-precision). */
 typedef LIBXS_RETARGETABLE void (*libxs_dmmfunction)(const double* a, const double* b, double* c, ...);
 
+/** Code generation routine for CSR format which multiplies a dense SOA matrices (each element holds a 
+    SIMD-width wide vector) with a sparse matrix 
+    There is no code cache, so user code has to manage the code pointers. Additionally, code memory 
+    cannot be freed! */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_jit_dcsr_soa( const               libxs_gemm_descriptor* descriptor,
+                                                                                const unsigned int* i_row_ptr,
+                                                                                const unsigned int* i_column_idx,
+                                                                                const double*       i_values );
+
 /** Specialized function with fused alpha and beta arguments, and optional prefetch locations (weak-typed). */
 typedef union LIBXS_RETARGETABLE libxs_xmmfunction {
   libxs_smmfunction smm;

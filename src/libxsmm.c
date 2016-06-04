@@ -1216,3 +1216,99 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_dgemm)(
 
 #endif /*defined(__STATIC)*/
 #endif /*defined(LIBXS_GEMM_EXTWRAP)*/
+/* @TODO for now we assume debug always as we integrate in to new code */
+# include <assert.h>
+# include <errno.h>
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_jit_dcsr_soa( const               libxs_gemm_descriptor* descriptor,
+                                                                                const unsigned int* i_row_ptr,
+                                                                                const unsigned int* i_column_idx,
+                                                                                const double*       i_values )
+{
+  const char *const target_arch = internal_get_target_arch(internal_target_archid);
+  libxs_xmmfunction l_jit;
+  void* l_code = NULL;
+  libxs_generated_code l_generated_code;
+
+  /* some checks */
+  assert(0 != descriptor);
+  assert(0 != target_arch);
+
+  /* allocate temporary buffer which is large enough to cover the generated code */
+  l_generated_code.generated_code = malloc(131072 * sizeof(unsigned char));
+  l_generated_code.buffer_size = 0 != l_generated_code.generated_code ? 131072 : 0;
+  l_generated_code.code_size = 0;
+  l_generated_code.code_type = 2;
+  l_generated_code.last_error = 0;
+
+  /* generate kernel */
+  libxs_generator_spgemm_csr_soa_kernel( &l_generated_code, descriptor, target_arch,
+                                            i_row_ptr, i_column_idx, i_values );
+
+  /* handle an eventual error in the else-branch */
+  if (0 == l_generated_code.last_error) {
+    const int fd = open("/dev/zero", O_RDWR);
+
+    if (0 <= fd) {
+      /* create executable buffer */
+      l_code = mmap(0, l_generated_code.code_size,
+        /* must be a superset of what mprotect populates (see below) */
+        PROT_READ | PROT_WRITE | PROT_EXEC,
+        MAP_PRIVATE | MAP_32BIT, fd, 0);
+      close(fd);
+
+      if (MAP_FAILED != l_code) {
+        /* explicitly disable THP for this memory region, kernel 2.6.38 or higher */
+#if defined(MADV_NOHUGEPAGE)
+        /* proceed even in case of an error, we then just take what we got (THP) */
+        if (0 != madvise(l_code, l_generated_code.code_size, MADV_NOHUGEPAGE)) {
+          fprintf(stderr, "LIBXS: %s (madvise)!\n", strerror(errno));
+        }
+#else
+        LIBXS_MESSAGE("====================================================================")
+        LIBXS_MESSAGE("Adjusting THP is unavailable due to C89 or kernel older than 2.6.38!")
+        LIBXS_MESSAGE("====================================================================")
+#endif /*MADV_NOHUGEPAGE*/
+        /* copy temporary buffer into the prepared executable buffer */
+        memcpy(l_code, l_generated_code.generated_code, l_generated_code.code_size);
+
+        if (0/*ok*/ == mprotect(l_code, l_generated_code.code_size, PROT_EXEC | PROT_READ)) {
+          /* write buffer for manual decode as binary to a file */
+          char l_objdump_name[512];
+          FILE* l_byte_code;
+          sprintf(l_objdump_name, "kernel_dcsr_soa_%s_%u.bin",
+            target_arch, l_generated_code.code_size );
+          l_byte_code = fopen(l_objdump_name, "wb");
+          if (l_byte_code != NULL) {
+            fwrite(l_generated_code.generated_code, 1, l_generated_code.code_size, l_byte_code);
+            fclose(l_byte_code);
+          }
+          /* free temporary/initial code buffer */
+          free(l_generated_code.generated_code);
+        }
+        else { /* there was an error with mprotect */
+          fprintf(stderr, "LIBXS: %s (mprotect)!\n", strerror(errno));
+          if (0 != munmap(l_code, l_generated_code.code_size)) {
+            fprintf(stderr, "LIBXS: %s (munmap)!\n", strerror(errno));
+          }
+          free(l_generated_code.generated_code);
+        }
+      }
+      else {
+        fprintf(stderr, "LIBXS: %s (mmap)!\n", strerror(errno));
+        free(l_generated_code.generated_code);
+      }
+    }
+    else {
+      fprintf(stderr, "LIBXS: invalid file descriptor (%i)\n", fd);
+    }
+  }
+  else {
+    fprintf(stderr, "%s\n", libxs_strerror(l_generated_code.last_error));
+    free(l_generated_code.generated_code);
+  }
+
+  l_jit.dmm = (libxs_dmmfunction)l_code;
+  return l_jit.dmm; 
+}
+
