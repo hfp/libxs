@@ -1227,7 +1227,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_create_dcsr_soa(const 
   union {
     libxs_xmmfunction xmm;
     /*const*/void* pmm;
-  } l_code = { 0 };
+  } l_code = { {0} };
   libxs_generated_code l_generated_code;
 
   /* some checks */
