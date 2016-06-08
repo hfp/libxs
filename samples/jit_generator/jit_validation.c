@@ -37,7 +37,7 @@
 
 #include <immintrin.h>
 
-#define REPS 100000
+static unsigned int g_jit_code_reps = 0;
 
 void print_help() {
   printf("\n\n");
@@ -55,6 +55,7 @@ void print_help() {
   printf("    ARCH: snb, hsw, knl, skx\n");
   printf("    PREFETCH: nopf (none), pfsigonly, BL2viaC, AL2, curAL2, AL2jpst, AL2_BL2viaC, curAL2_BL2viaC, AL2jpst_BL2viaC\n");
   printf("    PRECISION: SP, DP\n");
+  printf("    #repetitions\n");
   printf("\n\n");
 }
 
@@ -123,7 +124,7 @@ void run_gold_double( const double*                   i_a,
 
   const unsigned long long l_start = libxs_timer_tick();
 
-  for ( l_t = 0; l_t < REPS; l_t++  ) {
+  for ( l_t = 0; l_t < g_jit_code_reps; l_t++  ) {
     for ( l_n = 0; l_n < i_xgemm_desc->n; l_n++  ) {
       for ( l_k = 0; l_k < i_xgemm_desc->k; l_k++  ) {
         for ( l_m = 0; l_m < i_xgemm_desc->m; l_m++ ) {
@@ -136,7 +137,7 @@ void run_gold_double( const double*                   i_a,
   l_runtime = libxs_timer_duration(l_start, libxs_timer_tick());
 
   printf("%fs for C\n", l_runtime);
-  printf("%f GFLOPS for C\n", ((double)((double)REPS * (double)i_xgemm_desc->m * (double)i_xgemm_desc->n * (double)i_xgemm_desc->k) * 2.0) / (l_runtime * 1.0e9));
+  printf("%f GFLOPS for C\n", ((double)((double)g_jit_code_reps * (double)i_xgemm_desc->m * (double)i_xgemm_desc->n * (double)i_xgemm_desc->k) * 2.0) / (l_runtime * 1.0e9));
 }
 
 
@@ -149,7 +150,7 @@ void run_gold_float( const float*                   i_a,
 
   const unsigned long long l_start = libxs_timer_tick();
 
-  for ( l_t = 0; l_t < REPS; l_t++  ) {
+  for ( l_t = 0; l_t < g_jit_code_reps; l_t++  ) {
     for ( l_n = 0; l_n < i_xgemm_desc->n; l_n++  ) {
       for ( l_k = 0; l_k < i_xgemm_desc->k; l_k++  ) {
         for ( l_m = 0; l_m < i_xgemm_desc->m; l_m++ ) {
@@ -162,7 +163,7 @@ void run_gold_float( const float*                   i_a,
   l_runtime = libxs_timer_duration(l_start, libxs_timer_tick());
 
   printf("%fs for C\n", l_runtime);
-  printf("%f GFLOPS for C\n", ((double)((double)REPS * (double)i_xgemm_desc->m * (double)i_xgemm_desc->n * (double)i_xgemm_desc->k) * 2.0) / (l_runtime * 1.0e9));
+  printf("%f GFLOPS for C\n", ((double)((double)g_jit_code_reps * (double)i_xgemm_desc->m * (double)i_xgemm_desc->n * (double)i_xgemm_desc->k) * 2.0) / (l_runtime * 1.0e9));
 }
 
 void run_jit_double( const double*               i_a,
@@ -193,26 +194,26 @@ void run_jit_double( const double*               i_a,
 
   l_start = libxs_timer_tick();
   l_test_jit = libxs_dmmdispatch(i_M, i_N, i_K, &i_M, &i_K, &i_M, &l_alpha, &l_beta, NULL, &i_prefetch );
-  l_jittime = libxs_timer_duration(l_start, libxs_timer_tick());  
+  l_jittime = libxs_timer_duration(l_start, libxs_timer_tick());
+  printf("function pointer address: %llx\n", (size_t)l_test_jit);
 
   l_start = libxs_timer_tick();
 
   if ( i_prefetch == LIBXS_PREFETCH_NONE ) {
-    for ( l_t = 0; l_t < REPS; l_t++ ) {
+    for ( l_t = 0; l_t < g_jit_code_reps; l_t++ ) {
       l_test_jit(i_a, i_b, o_c);
     }
   } else {
-    for ( l_t = 0; l_t < REPS; l_t++ ) {
+    for ( l_t = 0; l_t < g_jit_code_reps; l_t++ ) {
       l_test_jit(i_a, i_b, o_c, i_a, i_b, o_c);
     }
   }
 
   l_runtime = libxs_timer_duration(l_start, libxs_timer_tick());
 
-  printf("function pointer address: %llx\n", (size_t)l_test_jit);
   printf("%fs for creating jit\n", l_jittime);
   printf("%fs for executing jit\n", l_runtime);
-  printf("%f GFLOPS for jit\n", ((double)((double)REPS * (double)i_M * (double)i_N * (double)i_K) * 2.0) / (l_runtime * 1.0e9));
+  printf("%f GFLOPS for jit\n", ((double)((double)g_jit_code_reps * (double)i_M * (double)i_N * (double)i_K) * 2.0) / (l_runtime * 1.0e9));
 }
 
 void run_jit_float( const float*               i_a,
@@ -244,25 +245,25 @@ void run_jit_float( const float*               i_a,
   l_start = libxs_timer_tick();
   l_test_jit = libxs_smmdispatch(i_M, i_N, i_K, &i_M, &i_K, &i_M, &l_alpha, &l_beta, NULL, &i_prefetch );
   l_jittime = libxs_timer_duration(l_start, libxs_timer_tick());  
+  printf("function pointer address: %llx\n", (size_t)l_test_jit);
 
   l_start = libxs_timer_tick();
 
   if ( i_prefetch == LIBXS_PREFETCH_NONE ) {
-    for ( l_t = 0; l_t < REPS; l_t++ ) {
+    for ( l_t = 0; l_t < g_jit_code_reps; l_t++ ) {
       l_test_jit(i_a, i_b, o_c);
     }
   } else {
-    for ( l_t = 0; l_t < REPS; l_t++ ) {
+    for ( l_t = 0; l_t < g_jit_code_reps; l_t++ ) {
       l_test_jit(i_a, i_b, o_c, i_a, i_b, o_c);
     }
   }
 
   l_runtime = libxs_timer_duration(l_start, libxs_timer_tick());
 
-  printf("function pointer address: %llx\n", (size_t)l_test_jit);
   printf("%fs for creating jit\n", l_jittime);
   printf("%fs for executing jit\n", l_runtime);
-  printf("%f GFLOPS for jit\n", ((double)((double)REPS * (double)i_M * (double)i_N * (double)i_K) * 2.0) / (l_runtime * 1.0e9));
+  printf("%f GFLOPS for jit\n", ((double)((double)g_jit_code_reps * (double)i_M * (double)i_N * (double)i_K) * 2.0) / (l_runtime * 1.0e9));
 }
 
 void max_error_double( const double*                   i_c,
@@ -331,7 +332,7 @@ int main(int argc, char* argv []) {
   float* l_c_gold_f;
 
   /* check argument count for a valid range */
-  if ( argc != 14 ) {
+  if ( argc != 15 ) {
     print_help();
     return -1;
   }
@@ -353,6 +354,7 @@ int main(int argc, char* argv []) {
   /* arch specific stuff */
   l_arch = argv[11];
   l_precision = argv[13];
+  g_jit_code_reps = atoi(argv[14]);
 
   /* set value of prefetch flag */
   if (strcmp("nopf", argv[12]) == 0) {
