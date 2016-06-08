@@ -1220,10 +1220,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_dgemm)(
 # include <assert.h>
 # include <errno.h>
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_jit_dcsr_soa( const               libxs_gemm_descriptor* descriptor,
-                                                                                const unsigned int* i_row_ptr,
-                                                                                const unsigned int* i_column_idx,
-                                                                                const double*       i_values )
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* descriptor,
+  const unsigned int* row_ptr, const unsigned int* column_idx, const double* values)
 {
   const char *const target_arch = internal_get_target_arch(internal_target_archid);
   union {
@@ -1245,7 +1243,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_jit_dcsr_soa( const   
 
   /* generate kernel */
   libxs_generator_spgemm_csr_soa_kernel( &l_generated_code, descriptor, target_arch,
-                                            i_row_ptr, i_column_idx, i_values );
+                                            row_ptr, column_idx, values );
 
   /* handle an eventual error in the else-branch */
   if (0 == l_generated_code.last_error) {
@@ -1321,5 +1319,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_jit_dcsr_soa( const   
   }
 
   return l_code.xmm.dmm;
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_destroy(const void* jit_code)
+{
+  LIBXS_UNUSED(jit_code);
 }
 
