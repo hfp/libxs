@@ -987,8 +987,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_arch(const char* arch)
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* desc, internal_regentry* code)
 {
-#if (0 != LIBXS_JIT)
-# if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
+#if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   const char *const target_arch = internal_get_target_arch(internal_target_archid);
   libxs_generated_code generated_code;
   assert(0 != desc && 0 != code);
@@ -1007,31 +1006,31 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 
   /* handle an eventual error in the else-branch */
   if (0 == generated_code.last_error) {
-# if defined(__APPLE__) && defined(__MACH__)
+#if defined(__APPLE__) && defined(__MACH__)
     const int fd = 0;
-# else
+#else
     const int fd = open("/dev/zero", O_RDWR);
-# endif
+#endif
     if (0 <= fd) {
       /* create executable buffer */
       code->function.pmm = mmap(0, generated_code.code_size,
         /* must be a superset of what mprotect populates (see below) */
         PROT_READ | PROT_WRITE | PROT_EXEC,
-# if defined(__APPLE__) && defined(__MACH__)
+#if defined(__APPLE__) && defined(__MACH__)
         LIBXS_INTERNAL_MAP | MAP_ANON, fd, 0);
-# elif !defined(__CYGWIN__)
+#elif !defined(__CYGWIN__)
         LIBXS_INTERNAL_MAP | MAP_32BIT, fd, 0);
       close(fd);
-# else
+#else
         LIBXS_INTERNAL_MAP, fd, 0);
       close(fd);
-# endif
+#endif
       if (MAP_FAILED != code->function.pmm) {
         /* explicitly disable THP for this memory region, kernel 2.6.38 or higher */
-# if defined(MADV_NOHUGEPAGE)
-#  if defined(NDEBUG)
+#if defined(MADV_NOHUGEPAGE)
+# if defined(NDEBUG)
         madvise(code->function.pmm, generated_code.code_size, MADV_NOHUGEPAGE);
-#  else /* library code is expected to be mute */
+# else /* library code is expected to be mute */
         /* proceed even in case of an error, we then just take what we got (THP) */
         if (0 != madvise(code->function.pmm, generated_code.code_size, MADV_NOHUGEPAGE)) {
           static LIBXS_TLS int once = 0;
@@ -1042,25 +1041,25 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
             once = 1;
           }
         }
-#  endif /*defined(NDEBUG)*/
-# elif !(defined(__APPLE__) && defined(__MACH__)) && !defined(__CYGWIN__)
+# endif /*defined(NDEBUG)*/
+#elif !(defined(__APPLE__) && defined(__MACH__)) && !defined(__CYGWIN__)
         LIBXS_MESSAGE("================================================================================")
         LIBXS_MESSAGE("LIBXS: Adjusting THP is unavailable due to C89 or kernel older than 2.6.38!")
         LIBXS_MESSAGE("================================================================================")
-# endif /*MADV_NOHUGEPAGE*/
+#endif /*MADV_NOHUGEPAGE*/
         /* copy temporary buffer into the prepared executable buffer */
         memcpy(code->function.pmm, generated_code.generated_code, generated_code.code_size);
 
         if (0/*ok*/ == mprotect(code->function.pmm, generated_code.code_size, PROT_EXEC | PROT_READ)) {
-# if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
+#if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
           char jit_code_name[256];
           internal_get_code_name(target_arch, desc, sizeof(jit_code_name), jit_code_name);
-# endif
+#endif
           /* finalize code generation */
           code->size = generated_code.code_size;
           /* free temporary/initial code buffer */
           free(generated_code.generated_code);
-# if !defined(NDEBUG) && defined(_DEBUG)
+#if !defined(NDEBUG) && defined(_DEBUG)
           { /* dump byte-code into file */
             FILE *const byte_code = fopen(jit_code_name, "wb");
             if (0 != byte_code) {
@@ -1068,8 +1067,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
               fclose(byte_code);
             }
           }
-# endif /*!defined(NDEBUG) && defined(_DEBUG)*/
-# if defined(LIBXS_VTUNE)
+#endif /*!defined(NDEBUG) && defined(_DEBUG)*/
+#if defined(LIBXS_VTUNE)
           if (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
             LIBXS_VTUNE_JIT_DESC_TYPE vtune_jit_desc;
             code->id = iJIT_GetNewMethodID();
@@ -1079,12 +1078,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
           else {
             code->id = 0;
           }
-# endif
+#endif
         }
         else { /* there was an error with mprotect */
-# if defined(NDEBUG)
+#if defined(NDEBUG)
           munmap(code->function.pmm, generated_code.code_size);
-# else /* library code is expected to be mute */
+#else /* library code is expected to be mute */
           static LIBXS_TLS int once = 0;
           if (0 == once) {
             const int error = errno;
@@ -1101,12 +1100,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
               once_mmap_error = 1;
             }
           }
-# endif
+#endif
           free(generated_code.generated_code);
         }
       }
       else {
-# if !defined(NDEBUG) /* library code is expected to be mute */
+#if !defined(NDEBUG) /* library code is expected to be mute */
         static LIBXS_TLS int once = 0;
         if (0 == once) {
           const int error = errno;
@@ -1114,13 +1113,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
             strerror(error), error);
           once = 1;
         }
-# endif
+#endif
         free(generated_code.generated_code);
         /* clear MAP_FAILED value */
         code->function.pmm = 0;
       }
     }
-# if !defined(NDEBUG)/* library code is expected to be mute */
+#if !defined(NDEBUG)/* library code is expected to be mute */
     else {
       static LIBXS_TLS int once = 0;
       if (0 == once) {
@@ -1128,30 +1127,29 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
         once = 1;
       }
     }
-# endif
+#endif
   }
   else {
-# if !defined(NDEBUG) /* library code is expected to be mute */
+#if !defined(NDEBUG) /* library code is expected to be mute */
     static LIBXS_TLS int once = 0;
     if (0 == once) {
       fprintf(stderr, "%s (error #%u)\n", libxs_strerror(generated_code.last_error),
         generated_code.last_error);
       once = 1;
     }
-# endif
+#endif
     free(generated_code.generated_code);
   }
-# else
-#   if !defined(__MIC__)
+#else /* unsupported platform */
+# if !defined(__MIC__)
   LIBXS_MESSAGE("================================================================================")
   LIBXS_MESSAGE("LIBXS: The JIT BACKEND is currently not supported under Microsoft Windows!")
   LIBXS_MESSAGE("================================================================================")
-#   endif
+# endif
   LIBXS_UNUSED(desc); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
   assert(LIBXS_X86_AVX > internal_target_archid);
-# endif /*_WIN32*/
-#endif /*LIBXS_JIT*/
+#endif
 }
 
 
