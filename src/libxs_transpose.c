@@ -118,13 +118,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
 #if !defined(NDEBUG) /* library code is expected to be mute */
-  if (ld < LIBXS_LD(m, n) && ldo < LIBXS_LD(n, m)) {
+  if (ld < m && ldo < n) {
     fprintf(stderr, "LIBXS: the leading dimensions of the transpose are too small!\n");
   }
-  else if (ld < LIBXS_LD(m, n)) {
+  else if (ld < m) {
     fprintf(stderr, "LIBXS: the leading dimension of the transpose input is too small!\n");
   }
-  else if (ldo < LIBXS_LD(n, m)) {
+  else if (ldo < n) {
     fprintf(stderr, "LIBXS: the leading dimension of the transpose output is too small!\n");
   }
 #endif
