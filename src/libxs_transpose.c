@@ -132,6 +132,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void
     fprintf(stderr, "LIBXS: the leading dimension of the transpose output is too small!\n");
   }
 #endif
-  inernal_transpose_oop(out, in, typesize, 0, m, 0, n, ld, ldo);
+  inernal_transpose_oop(out, in, typesize, 0, LIBXS_LD(m, n), 0, LIBXS_LD(n, m), ld, ldo);
 }
 
