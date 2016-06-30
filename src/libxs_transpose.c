@@ -130,10 +130,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void
 #endif
 #if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
   if (8 == typesize) {
-    mkl_domatcopy)('C', 'T', m, n, 1, (const double*)in, ld, (double*)out, ldo);
+    mkl_domatcopy('C', 'T', m, n, 1, (const double*)in, ld, (double*)out, ldo);
   }
   else if (4 == typesize) {
-    mkl_somatcopy)('C', 'T', m, n, 1, (const float*)in, ld, (float*)out, ldo);
+    mkl_somatcopy('C', 'T', m, n, 1, (const float*)in, ld, (float*)out, ldo);
   }
   else
 #endif
