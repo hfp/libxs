@@ -3,10 +3,13 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <stdio.h>
 #if !defined(NDEBUG)
 # include <assert.h>
 #endif
-#include <stdio.h>
+#if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
+# include <mkl_trans.h>
+#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -125,6 +128,17 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void
     fprintf(stderr, "LIBXS: the leading dimension of the transpose output is too small!\n");
   }
 #endif
-  inernal_transpose_oop(out, in, typesize, 0, LIBXS_LD(m, n), 0, LIBXS_LD(n, m), ld, ldo);
+#if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
+  if (8 == typesize) {
+    mkl_domatcopy)(LIBXS_LD('R', 'C'), 'T', m, n, 1, (const double*)in, lda, (double*)out, ldb);
+  }
+  else if (4 == typesize) {
+    mkl_somatcopy)(LIBXS_LD('R', 'C'), 'T', m, n, 1, (const float*)in, lda, (float*)out, ldb);
+  }
+  else
+#endif
+  {
+    inernal_transpose_oop(out, in, typesize, 0, LIBXS_LD(m, n), 0, LIBXS_LD(n, m), ld, ldo);
+  }
 }
 
