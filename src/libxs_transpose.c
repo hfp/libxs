@@ -142,3 +142,17 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void
   }
 }
 
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_stranspose_oop(float* out, const float* in,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
+{
+  libxs_transpose_oop(out, in, sizeof(float), m, n, ld, ldo);
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dtranspose_oop(double* out, const double* in,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
+{
+  libxs_transpose_oop(out, in, sizeof(double), m, n, ld, ldo);
+}
+
