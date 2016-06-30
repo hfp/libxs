@@ -182,11 +182,11 @@
 
 #if defined(__INTEL_COMPILER)
 # define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N)
-# define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION)
+# define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION);
 #else
 # define LIBXS_ASSUME_ALIGNED(A, N)
 # if defined(_MSC_VER)
-#   define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION)
+#   define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION);
 # elif (LIBXS_VERSION3(4, 5, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 #   define LIBXS_ASSUME(EXPRESSION) do { if (!(EXPRESSION)) __builtin_unreachable(); } while(0);
 # else
