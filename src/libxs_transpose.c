@@ -118,27 +118,27 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
 #if !defined(NDEBUG) /* library code is expected to be mute */
-  if (ld < LIBXS_LD(n, m) && ldo < LIBXS_LD(m, n)) {
+  if (ld < LIBXS_LD(m, n) && ldo < LIBXS_LD(n, m)) {
     fprintf(stderr, "LIBXS: the leading dimensions of the transpose are too small!\n");
   }
-  else if (ld < LIBXS_LD(n, m)) {
+  else if (ld < LIBXS_LD(m, n)) {
     fprintf(stderr, "LIBXS: the leading dimension of the transpose input is too small!\n");
   }
-  else if (ldo < LIBXS_LD(m, n)) {
+  else if (ldo < LIBXS_LD(n, m)) {
     fprintf(stderr, "LIBXS: the leading dimension of the transpose output is too small!\n");
   }
 #endif
 #if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
   if (8 == typesize) {
-    mkl_domatcopy)(LIBXS_LD('R', 'C'), 'T', m, n, 1, (const double*)in, lda, (double*)out, ldb);
+    mkl_domatcopy)('C', 'T', m, n, 1, (const double*)in, ld, (double*)out, ldo);
   }
   else if (4 == typesize) {
-    mkl_somatcopy)(LIBXS_LD('R', 'C'), 'T', m, n, 1, (const float*)in, lda, (float*)out, ldb);
+    mkl_somatcopy)('C', 'T', m, n, 1, (const float*)in, ld, (float*)out, ldo);
   }
   else
 #endif
   {
-    inernal_transpose_oop(out, in, typesize, 0, LIBXS_LD(m, n), 0, LIBXS_LD(n, m), ld, ldo);
+    inernal_transpose_oop(out, in, typesize, 0, n, 0, m, ld, ldo);
   }
 }
 
