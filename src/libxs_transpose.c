@@ -15,7 +15,7 @@
 # define LIBXS_TRANSPOSE_CACHESIZE 32768
 #endif
 #if !defined(LIBXS_TRANSPOSE_N)
-# define LIBXS_TRANSPOSE_N 24
+# define LIBXS_TRANSPOSE_N 32
 #endif
 
 
@@ -27,12 +27,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void* out, const void
   const libxs_blasint m = m1 - m0, n = n1 - n0;
   libxs_blasint i, j;
 
-#if 0 < LIBXS_TRANSPOSE_N
-  if (m * n * typesize <= (LIBXS_TRANSPOSE_CACHESIZE / 2) && m <= LIBXS_TRANSPOSE_N)
-#else
-  if (m * n * typesize <= (LIBXS_TRANSPOSE_CACHESIZE / 2))
-#endif
-  {
+  if (m * n * typesize <= (LIBXS_TRANSPOSE_CACHESIZE / 2)) {
     switch(typesize) {
       case 1: {
         const char *const a = (const char*)in;
@@ -100,20 +95,18 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void* out, const void
   }
   else {
 #if 0 < LIBXS_TRANSPOSE_N
-    if ((2 * LIBXS_TRANSPOSE_N) < m)
+    if (LIBXS_TRANSPOSE_N < m) {
+      const libxs_blasint mi = m0 + LIBXS_TRANSPOSE_N;
+      inernal_transpose_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
+      inernal_transpose_oop(out, in, typesize, mi, m1, n0, n1, ld, ldo);
+    }
+    else
 #endif
     {
       const libxs_blasint mi = (m0 + m1) / 2;
       inernal_transpose_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
       inernal_transpose_oop(out, in, typesize, mi, m1, n0, n1, ld, ldo);
     }
-#if 0 < LIBXS_TRANSPOSE_N
-    else {
-      const libxs_blasint mi = m0 + LIBXS_TRANSPOSE_N;
-      inernal_transpose_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
-      if (mi < m1) inernal_transpose_oop(out, in, typesize, mi, m1, n0, n1, ld, ldo);
-    }
-#endif
   }
 }
 
