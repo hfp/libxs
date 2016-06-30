@@ -44,8 +44,6 @@
 
 /** Parameters the library and static kernels were built for. */
 #define LIBXS_ALIGNMENT $ALIGNMENT
-#define LIBXS_ROW_MAJOR $ROW_MAJOR
-#define LIBXS_COL_MAJOR $COL_MAJOR
 #define LIBXS_PREFETCH $PREFETCH
 #define LIBXS_MAX_MNK $MAX_MNK
 #define LIBXS_MAX_M $MAX_M

@@ -55,8 +55,6 @@
 
         ! Parameters the library and static kernels were built for.
         INTEGER(C_INT), PARAMETER :: LIBXS_ALIGNMENT = $ALIGNMENT
-        INTEGER(C_INT), PARAMETER :: LIBXS_ROW_MAJOR = $ROW_MAJOR
-        INTEGER(C_INT), PARAMETER :: LIBXS_COL_MAJOR = $COL_MAJOR
         INTEGER(C_INT), PARAMETER :: LIBXS_PREFETCH = $PREFETCH
         INTEGER(C_INT), PARAMETER :: LIBXS_MAX_MNK = $MAX_MNK
         INTEGER(C_INT), PARAMETER :: LIBXS_MAX_M = $MAX_M
@@ -515,44 +513,28 @@
         PURE SUBROUTINE libxs_smmcall_abx(fn, a, b, c)
           TYPE(LIBXS_SMMFUNCTION), INTENT(IN) :: fn
           TYPE(C_PTR), INTENT(IN) :: a, b, c
-          IF (0.NE.LIBXS_COL_MAJOR) THEN
-            CALL fn%fn0(a, b, c)
-          ELSE
-            CALL fn%fn0(b, a, c)
-          END IF
+          CALL fn%fn0(a, b, c)
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmmcall_abx
         PURE SUBROUTINE libxs_dmmcall_abx(fn, a, b, c)
           TYPE(LIBXS_DMMFUNCTION), INTENT(IN) :: fn
           TYPE(C_PTR), INTENT(IN) :: a, b, c
-          IF (0.NE.LIBXS_COL_MAJOR) THEN
-            CALL fn%fn0(a, b, c)
-          ELSE
-            CALL fn%fn0(b, a, c)
-          END IF
+          CALL fn%fn0(a, b, c)
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smmcall_prx
         PURE SUBROUTINE libxs_smmcall_prx(fn, a, b, c, pa, pb, pc)
           TYPE(LIBXS_SMMFUNCTION), INTENT(IN) :: fn
           TYPE(C_PTR), INTENT(IN) :: a, b, c, pa, pb, pc
-          IF (0.NE.LIBXS_COL_MAJOR) THEN
-            CALL fn%fn1(a, b, c, pa, pb, pc)
-          ELSE
-            CALL fn%fn1(b, a, c, pb, pa, pc)
-          END IF
+          CALL fn%fn1(a, b, c, pa, pb, pc)
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_dmmcall_prx
         PURE SUBROUTINE libxs_dmmcall_prx(fn, a, b, c, pa, pb, pc)
           TYPE(LIBXS_DMMFUNCTION), INTENT(IN) :: fn
           TYPE(C_PTR), INTENT(IN) :: a, b, c, pa, pb, pc
-          IF (0.NE.LIBXS_COL_MAJOR) THEN
-            CALL fn%fn1(a, b, c, pa, pb, pc)
-          ELSE
-            CALL fn%fn1(b, a, c, pb, pa, pc)
-          END IF
+          CALL fn%fn1(a, b, c, pa, pb, pc)
         END SUBROUTINE
 
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_smmcall_abc

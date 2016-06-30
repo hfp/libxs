@@ -17,7 +17,6 @@
 
 int main()
 {
-#if 0 != LIBXS_ROW_MAJOR
   const libxs_blasint m = M, n = N, k = K, lda = LDA, ldb = LDB, ldc = LDC;
   REAL_TYPE a[K*LDA], b[N*LDB], c[N*LDC], d[N*LDC];
   const REAL_TYPE alpha = 1, beta = 1;
@@ -51,8 +50,8 @@ int main()
   LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&notrans, &notrans, &m, &n, &k,
     &alpha, a, &lda, b, &ldb, &beta, d, &ldc);
 #else
-  LIBXS_BLAS_GEMM_SYMBOL(REAL_TYPE)(&notrans, &notrans, &n, &m, &k,
-    &alpha, b, &ldb, a, &lda, &beta, d, &ldc);
+  LIBXS_BLAS_GEMM_SYMBOL(REAL_TYPE)(&notrans, &notrans, &m, &n, &k,
+    &alpha, a, &lda, b, &ldb, &beta, d, &ldc);
 #endif
 
   for (i = 0; i < m; ++i) {
@@ -64,9 +63,5 @@ int main()
   }
 
   return 0.001 > d2 ? EXIT_SUCCESS : EXIT_FAILURE;
-#else
-  fprintf(stderr, "Please rebuild LIBXS with ROW_MAJOR=1\n");
-  return EXIT_SUCCESS;
-#endif
 }
 
