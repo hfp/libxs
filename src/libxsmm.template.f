@@ -279,13 +279,44 @@
             CHARACTER(C_CHAR), INTENT(IN) :: arch(*)
           END SUBROUTINE
 
-          ! Non-pure function returning the current clock tick
+          ! Transpose a matrix (out-of-place form).
+          PURE SUBROUTINE libxs_transpose_oop(output,                 &
+     &    input, typesize, m, n, ld, ldo) BIND(C)
+            IMPORT LIBXS_BLASINT_KIND, C_PTR, C_INT
+            TYPE(C_PTR), INTENT(OUT) :: output
+            TYPE(C_PTR), INTENT(IN), VALUE :: input
+            INTEGER(C_INT), INTENT(IN), VALUE :: typesize
+            INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: m, n
+            INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: ld, ldo
+          END SUBROUTINE
+
+          ! Transpose a matrix (out-of-place form, single-precision).
+          PURE SUBROUTINE libxs_stranspose_oop(output,                &
+     &    input, m, n, ld, ldo) BIND(C)
+            IMPORT LIBXS_BLASINT_KIND, C_FLOAT
+            INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: ld, ldo
+            INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: m, n
+            REAL(C_FLOAT), INTENT(OUT) :: output(ldo,*)
+            REAL(C_FLOAT), INTENT(IN) :: input(ld,*)
+          END SUBROUTINE
+
+          ! Transpose a matrix (out-of-place form, double-precision).
+          PURE SUBROUTINE libxs_dtranspose_oop(output,                &
+     &    input, m, n, ld, ldo) BIND(C)
+            IMPORT LIBXS_BLASINT_KIND, C_DOUBLE
+            INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: ld, ldo
+            INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: m, n
+            REAL(C_DOUBLE), INTENT(OUT) :: output(ldo,*)
+            REAL(C_DOUBLE), INTENT(IN) :: input(ld,*)
+          END SUBROUTINE
+
+          ! Impure function returning the current clock tick
           ! using a platform-specific resolution.
           INTEGER(C_LONG_LONG) FUNCTION libxs_timer_tick() BIND(C)
             IMPORT :: C_LONG_LONG
           END FUNCTION
 
-          ! Non-pure function (timer freq. may vary) returning
+          ! Impure function (timer freq. may vary) returning
           ! the duration between two ticks (seconds).
           REAL(C_DOUBLE) FUNCTION libxs_timer_duration(               &
      &    tick0, tick1) BIND(C)

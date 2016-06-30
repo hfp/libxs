@@ -128,11 +128,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_create_dcsr_soa(const 
 /** Deallocates the JIT'ted code as returned by libxs_create_* function. TODO: this is a no-op at the moment. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_destroy(const void* jit_code);
 
-/** Transpose a matrix explicitly (out-of-place form). */
+/** Transpose a matrix (out-of-place form). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
 
-/** Transpose a matrix explicitly (out-of-place form; single-precision). */
+/** Transpose a matrix (out-of-place form, single-precision). */
 LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_stranspose_oop(float* out, const float* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 #if defined(LIBXS_BUILD)
@@ -141,7 +141,7 @@ LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_stranspose_oop(float* out, con
 { libxs_transpose_oop(out, in, sizeof(float), m, n, ld, ldo); }
 #endif
 
-/** Transpose a matrix explicitly (out-of-place form; double-precision). */
+/** Transpose a matrix (out-of-place form, double-precision). */
 LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_dtranspose_oop(double* out, const double* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 #if defined(LIBXS_BUILD)
@@ -306,7 +306,7 @@ public:
   }
 };
 
-/** Transpose a matrix explicitly (out-of-place form). */
+/** Transpose a matrix (out-of-place form). */
 template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_transpose(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo) {
   libxs_transpose_oop(out, in, sizeof(T), m, n, ld, ldo);
 }
