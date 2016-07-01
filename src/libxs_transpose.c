@@ -36,8 +36,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
         const char *const a = (const char*)in;
         char *const b = (char*)out;
         for (i = n0; i < n1; ++i) {
-#if 0 < LIBXS_TRANSPOSE_N
+#if (0 < LIBXS_TRANSPOSE_N)
           LIBXS_ASSUME(m <= LIBXS_TRANSPOSE_N)
+          LIBXS_PRAGMA_NONTEMPORAL
           LIBXS_PRAGMA_LOOP_COUNT(LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N)
 #endif
           for (j = 0; j < m; ++j) {
@@ -50,8 +51,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
         const short *const a = (const short*)in;
         short *const b = (short*)out;
         for (i = n0; i < n1; ++i) {
-#if 0 < LIBXS_TRANSPOSE_N
+#if (0 < LIBXS_TRANSPOSE_N)
           LIBXS_ASSUME(m <= LIBXS_TRANSPOSE_N)
+          LIBXS_PRAGMA_NONTEMPORAL
           LIBXS_PRAGMA_LOOP_COUNT(LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N)
 #endif
           for (j = 0; j < m; ++j) {
@@ -64,8 +66,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
         const float *const a = (const float*)in;
         float *const b = (float*)out;
         for (i = n0; i < n1; ++i) {
-#if 0 < LIBXS_TRANSPOSE_N
+#if (0 < LIBXS_TRANSPOSE_N)
           LIBXS_ASSUME(m <= LIBXS_TRANSPOSE_N)
+          LIBXS_PRAGMA_NONTEMPORAL
           LIBXS_PRAGMA_LOOP_COUNT(LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N)
 #endif
           for (j = 0; j < m; ++j) {
@@ -78,8 +81,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
         const double *const a = (const double*)in;
         double *const b = (double*)out;
         for (i = n0; i < n1; ++i) {
-#if 0 < LIBXS_TRANSPOSE_N
+#if (0 < LIBXS_TRANSPOSE_N)
           LIBXS_ASSUME(m <= LIBXS_TRANSPOSE_N)
+          LIBXS_PRAGMA_NONTEMPORAL
           LIBXS_PRAGMA_LOOP_COUNT(LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N)
 #endif
           for (j = 0; j < m; ++j) {
@@ -97,7 +101,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
     inernal_transpose_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
   }
   else {
-#if 0 < LIBXS_TRANSPOSE_N
+#if (0 < LIBXS_TRANSPOSE_N)
     if (LIBXS_TRANSPOSE_N < m) {
       const libxs_blasint mi = m0 + LIBXS_TRANSPOSE_N;
       inernal_transpose_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
