@@ -65,7 +65,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
       case 8: {
         INTERNAL_TRANSPOSE_OOP(double, out, in, m0, m1, n0, n1);
       } break;
-      default: assert(0);
+      case 16: {
+        typedef struct dvec2_t { double value[2]; } dvec2_t;
+        INTERNAL_TRANSPOSE_OOP(dvec2_t, out, in, m0, m1, n0, n1);
+      } break;
+      default: {
+#if !defined(NDEBUG) /* library code is expected to be mute */
+        fprintf(stderr, "LIBXS: unsupported element type in transpose!\n");
+#endif
+        assert(0);
+      }
     }
   }
   else if (n >= m) {
