@@ -121,6 +121,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void
   else if (4 == typesize) {
     mkl_somatcopy('C', 'T', m, n, 1, (const float*)in, ld, (float*)out, ldo);
   }
+  else if (16 == typesize) {
+    mkl_zomatcopy('C', 'T', m, n, 1, (const MKL_Complex16*)in, ld, (MKL_Complex16*)out, ldo);
+  }
   else
 #endif
   {
