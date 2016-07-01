@@ -185,7 +185,7 @@
 #endif
 
 #if defined(__INTEL_COMPILER)
-# define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N)
+# define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N);
 # define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION);
 #else
 # define LIBXS_ASSUME_ALIGNED(A, N)
