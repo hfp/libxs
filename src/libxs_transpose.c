@@ -17,9 +17,31 @@
 #if !defined(LIBXS_TRANSPOSE_CACHESIZE)
 # define LIBXS_TRANSPOSE_CACHESIZE 32768
 #endif
-#if !defined(LIBXS_TRANSPOSE_N)
-# define LIBXS_TRANSPOSE_N 32
+#if !defined(LIBXS_TRANSPOSE_CHUNK)
+# define LIBXS_TRANSPOSE_CHUNK 32
 #endif
+
+#define INTERNAL_TRANSPOSE_OOP(TYPE, OUT, IN, M0, M1, N0, N1) { \
+  const TYPE *const a = (const TYPE*)IN; \
+  TYPE *const b = (TYPE*)OUT; \
+  libxs_blasint i, j; \
+  if (LIBXS_TRANSPOSE_CHUNK == m) { \
+    for (i = N0; i < N1; ++i) { \
+      LIBXS_PRAGMA_NONTEMPORAL \
+      for (j = M0; j < M0 + LIBXS_TRANSPOSE_CHUNK; ++j) { \
+        b[i*ldo+j/*consecutive*/] = a[j*ld+i/*strided*/]; \
+      } \
+    } \
+  } \
+  else { \
+    for (i = N0; i < N1; ++i) { \
+      LIBXS_PRAGMA_NONTEMPORAL \
+      for (j = M0; j < M1; ++j) { \
+        b[i*ldo+j/*consecutive*/] = a[j*ld+i/*strided*/]; \
+      } \
+    } \
+  } \
+}
 
 
 /* Based on cache-oblivious scheme as published by Frigo et.al. */
@@ -28,65 +50,20 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
   libxs_blasint ld, libxs_blasint ldo)
 {
   const libxs_blasint m = m1 - m0, n = n1 - n0;
-  libxs_blasint i, j;
 
   if (m * n * typesize <= (LIBXS_TRANSPOSE_CACHESIZE / 2)) {
     switch(typesize) {
       case 1: {
-        const char *const a = (const char*)in;
-        char *const b = (char*)out;
-        for (i = n0; i < n1; ++i) {
-#if (0 < LIBXS_TRANSPOSE_N)
-          LIBXS_PRAGMA_NONTEMPORAL
-          LIBXS_PRAGMA_LOOP_COUNT(LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N)
-#endif
-          for (j = 0; j < m; ++j) {
-            const libxs_blasint k = j + m0;
-            b[i*ldo+k/*consecutive*/] = a[k*ld+i/*strided*/];
-          }
-        }
+        INTERNAL_TRANSPOSE_OOP(char, out, in, m0, m1, n0, n1);
       } break;
       case 2: {
-        const short *const a = (const short*)in;
-        short *const b = (short*)out;
-        for (i = n0; i < n1; ++i) {
-#if (0 < LIBXS_TRANSPOSE_N)
-          LIBXS_PRAGMA_NONTEMPORAL
-          LIBXS_PRAGMA_LOOP_COUNT(LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N)
-#endif
-          for (j = 0; j < m; ++j) {
-            const libxs_blasint k = j + m0;
-            b[i*ldo+k/*consecutive*/] = a[k*ld+i/*strided*/];
-          }
-        }
+        INTERNAL_TRANSPOSE_OOP(short, out, in, m0, m1, n0, n1);
       } break;
       case 4: {
-        const float *const a = (const float*)in;
-        float *const b = (float*)out;
-        for (i = n0; i < n1; ++i) {
-#if (0 < LIBXS_TRANSPOSE_N)
-          LIBXS_PRAGMA_NONTEMPORAL
-          LIBXS_PRAGMA_LOOP_COUNT(LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N)
-#endif
-          for (j = 0; j < m; ++j) {
-            const libxs_blasint k = j + m0;
-            b[i*ldo+k/*consecutive*/] = a[k*ld+i/*strided*/];
-          }
-        }
+        INTERNAL_TRANSPOSE_OOP(float, out, in, m0, m1, n0, n1);
       } break;
       case 8: {
-        const double *const a = (const double*)in;
-        double *const b = (double*)out;
-        for (i = n0; i < n1; ++i) {
-#if (0 < LIBXS_TRANSPOSE_N)
-          LIBXS_PRAGMA_NONTEMPORAL
-          LIBXS_PRAGMA_LOOP_COUNT(LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N, LIBXS_TRANSPOSE_N)
-#endif
-          for (j = 0; j < m; ++j) {
-            const libxs_blasint k = j + m0;
-            b[i*ldo+k/*consecutive*/] = a[k*ld+i/*strided*/];
-          }
-        }
+        INTERNAL_TRANSPOSE_OOP(double, out, in, m0, m1, n0, n1);
       } break;
       default: assert(0);
     }
@@ -97,9 +74,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
     inernal_transpose_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
   }
   else {
-#if (0 < LIBXS_TRANSPOSE_N)
-    if (LIBXS_TRANSPOSE_N < m) {
-      const libxs_blasint mi = m0 + LIBXS_TRANSPOSE_N;
+#if (0 < LIBXS_TRANSPOSE_CHUNK)
+    if (LIBXS_TRANSPOSE_CHUNK < m) {
+      const libxs_blasint mi = m0 + LIBXS_TRANSPOSE_CHUNK;
       inernal_transpose_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
       inernal_transpose_oop(out, in, typesize, mi, m1, n0, n1, ld, ldo);
     }
