@@ -21,22 +21,22 @@
 # define LIBXS_TRANSPOSE_CHUNK 32
 #endif
 
-#define INTERNAL_TRANSPOSE_OOP(TYPE, OUT, IN, M0, M1, N0, N1) { \
+#define INTERNAL_TRANSPOSE_OOP(TYPE, OUT, IN, M0, M1, N0, N1, N) { \
   const TYPE *const a = (const TYPE*)IN; \
   TYPE *const b = (TYPE*)OUT; \
   libxs_blasint i, j; \
-  if (LIBXS_TRANSPOSE_CHUNK == m) { \
-    for (i = N0; i < N1; ++i) { \
+  if (LIBXS_TRANSPOSE_CHUNK == N) { \
+    for (i = M0; i < M1; ++i) { \
       LIBXS_PRAGMA_NONTEMPORAL \
-      for (j = M0; j < M0 + LIBXS_TRANSPOSE_CHUNK; ++j) { \
+      for (j = N0; j < N0 + LIBXS_TRANSPOSE_CHUNK; ++j) { \
         b[i*ldo+j/*consecutive*/] = a[j*ld+i/*strided*/]; \
       } \
     } \
   } \
   else { \
-    for (i = N0; i < N1; ++i) { \
+    for (i = M0; i < M1; ++i) { \
       LIBXS_PRAGMA_NONTEMPORAL \
-      for (j = M0; j < M1; ++j) { \
+      for (j = N0; j < N1; ++j) { \
         b[i*ldo+j/*consecutive*/] = a[j*ld+i/*strided*/]; \
       } \
     } \
@@ -54,20 +54,20 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
   if (m * n * typesize <= (LIBXS_TRANSPOSE_CACHESIZE / 2)) {
     switch(typesize) {
       case 1: {
-        INTERNAL_TRANSPOSE_OOP(char, out, in, m0, m1, n0, n1);
+        INTERNAL_TRANSPOSE_OOP(char, out, in, m0, m1, n0, n1, n);
       } break;
       case 2: {
-        INTERNAL_TRANSPOSE_OOP(short, out, in, m0, m1, n0, n1);
+        INTERNAL_TRANSPOSE_OOP(short, out, in, m0, m1, n0, n1, n);
       } break;
       case 4: {
-        INTERNAL_TRANSPOSE_OOP(float, out, in, m0, m1, n0, n1);
+        INTERNAL_TRANSPOSE_OOP(float, out, in, m0, m1, n0, n1, n);
       } break;
       case 8: {
-        INTERNAL_TRANSPOSE_OOP(double, out, in, m0, m1, n0, n1);
+        INTERNAL_TRANSPOSE_OOP(double, out, in, m0, m1, n0, n1, n);
       } break;
       case 16: {
         typedef struct dvec2_t { double value[2]; } dvec2_t;
-        INTERNAL_TRANSPOSE_OOP(dvec2_t, out, in, m0, m1, n0, n1);
+        INTERNAL_TRANSPOSE_OOP(dvec2_t, out, in, m0, m1, n0, n1, n);
       } break;
       default: {
 #if !defined(NDEBUG) /* library code is expected to be mute */
@@ -77,24 +77,24 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
       }
     }
   }
-  else if (n >= m) {
-    const libxs_blasint ni = (n0 + n1) / 2;
-    inernal_transpose_oop(out, in, typesize, m0, m1, n0, ni, ld, ldo);
-    inernal_transpose_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
+  else if (m >= n) {
+    const libxs_blasint mi = (m0 + m1) / 2;
+    inernal_transpose_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
+    inernal_transpose_oop(out, in, typesize, mi, m1, n0, n1, ld, ldo);
   }
   else {
 #if (0 < LIBXS_TRANSPOSE_CHUNK)
-    if (LIBXS_TRANSPOSE_CHUNK < m) {
-      const libxs_blasint mi = m0 + LIBXS_TRANSPOSE_CHUNK;
-      inernal_transpose_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
-      inernal_transpose_oop(out, in, typesize, mi, m1, n0, n1, ld, ldo);
+    if (LIBXS_TRANSPOSE_CHUNK < n) {
+      const libxs_blasint ni = n0 + LIBXS_TRANSPOSE_CHUNK;
+      inernal_transpose_oop(out, in, typesize, m0, m1, n0, ni, ld, ldo);
+      inernal_transpose_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
     }
     else
 #endif
     {
-      const libxs_blasint mi = (m0 + m1) / 2;
-      inernal_transpose_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
-      inernal_transpose_oop(out, in, typesize, mi, m1, n0, n1, ld, ldo);
+      const libxs_blasint ni = (n0 + n1) / 2;
+      inernal_transpose_oop(out, in, typesize, m0, m1, n0, ni, ld, ldo);
+      inernal_transpose_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
     }
   }
 }
@@ -127,7 +127,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void
   else
 #endif
   {
-    inernal_transpose_oop(out, in, typesize, 0, n, 0, m, ld, ldo);
+    inernal_transpose_oop(out, in, typesize, 0, m, 0, n, ld, ldo);
   }
 }
 
@@ -149,13 +149,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dtranspose_oop(double* out, const d
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_stranspose_inp(float* inp,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
-  libxs_transpose_inp(inp, sizeof(float), m, n, ld);
+  /*libxs_transpose_inp(inp, sizeof(float), m, n, ld);*/
 }
 
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dtranspose_inp(double* inp,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
-  libxs_transpose_inp(inp, sizeof(double), m, n, ld);
+  /*libxs_transpose_inp(inp, sizeof(double), m, n, ld);*/
 }
 
