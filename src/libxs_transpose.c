@@ -44,7 +44,7 @@
 }
 
 
-/* Based on cache-oblivious scheme as published by Frigo et.al. */
+/* Based on cache-oblivious scheme as published by Frigo et.al. Further optimization for compile-time bounded loops. */
 LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT out, const void *LIBXS_RESTRICT in,
   unsigned int typesize, libxs_blasint m0, libxs_blasint m1, libxs_blasint n0, libxs_blasint n1,
   libxs_blasint ld, libxs_blasint ldo)
@@ -143,5 +143,19 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dtranspose_oop(double* out, const d
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
   libxs_transpose_oop(out, in, sizeof(double), m, n, ld, ldo);
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_stranspose_inp(float* inp,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld)
+{
+  libxs_transpose_inp(inp, sizeof(float), m, n, ld);
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dtranspose_inp(double* inp,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld)
+{
+  libxs_transpose_inp(inp, sizeof(double), m, n, ld);
 }
 
