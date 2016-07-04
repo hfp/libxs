@@ -150,7 +150,7 @@ LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_dtranspose_oop(double* out, co
 
 /** Transpose a matrix (in-place form). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_inp(void* inp, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld);
 
 /** Transpose a matrix (in-place form, single-precision). */
 LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_stranspose_inp(float* inp,
