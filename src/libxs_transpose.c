@@ -146,16 +146,24 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dtranspose_oop(double* out, const d
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_stranspose_inp(float* inp,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_inp(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
-  /*libxs_transpose_inp(inp, sizeof(float), m, n, ld);*/
+  LIBXS_UNUSED(inout); LIBXS_UNUSED(typesize); LIBXS_UNUSED(m); LIBXS_UNUSED(n); LIBXS_UNUSED(ld);
+  assert(0/*Not yet implemented!*/);
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dtranspose_inp(double* inp,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_stranspose_inp(float* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
-  /*libxs_transpose_inp(inp, sizeof(double), m, n, ld);*/
+  libxs_transpose_inp(inout, sizeof(float), m, n, ld);
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dtranspose_inp(double* inout,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld)
+{
+  libxs_transpose_inp(inout, sizeof(double), m, n, ld);
 }
 
