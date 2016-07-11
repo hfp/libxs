@@ -35,7 +35,11 @@
 typedef enum libxs_alloc_flags {
   LIBXS_ALLOC_FLAG_R = 1,
   LIBXS_ALLOC_FLAG_W = 2,
-  LIBXS_ALLOC_FLAG_X = 4
+  LIBXS_ALLOC_FLAG_X = 4,
+  LIBXS_ALLOC_FLAG_RWX = LIBXS_ALLOC_FLAG_R | LIBXS_ALLOC_FLAG_W | LIBXS_ALLOC_FLAG_X,
+  LIBXS_ALLOC_FLAG_RW  = LIBXS_ALLOC_FLAG_R | LIBXS_ALLOC_FLAG_W,
+  /** LIBXS_ALLOC_FLAG_DEFAULT is an alias for setting no flag bits. */
+  LIBXS_ALLOC_FLAG_DEFAULT = LIBXS_ALLOC_FLAG_RW
 } libxs_alloc_flags;
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gcd(unsigned int a, unsigned int b);
@@ -46,7 +50,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_alignment(unsigned int size
 int libxs_alloc_info(const void* memory, unsigned int* size, void** extra);
 
 /** Allocate memory of the requested size, which is aligned according to the given alignment. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int size, unsigned int alignment,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int size, unsigned int alignment, int flags,
   /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
   const void* extra, unsigned int extra_size);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory);
@@ -56,7 +60,10 @@ LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void* libxs_malloc(unsigned int size)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ void* result = 0; return 0 == libxs_allocate(&result, size, 0, 0/*extra*/, 0/*extra_size*/) ? result : 0; }
+{ void* result = 0;
+  return 0 == libxs_allocate(&result, size, 0/*auto*/, LIBXS_ALLOC_FLAG_DEFAULT,
+    0/*extra*/, 0/*extra_size*/) ? result : 0;
+}
 #endif
 
 /** Deallocate memory (malloc/free interface). */
