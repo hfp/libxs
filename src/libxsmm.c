@@ -141,7 +141,6 @@ typedef struct LIBXS_RETARGETABLE internal_regentry {
     /*const*/void* pmm;
     uintptr_t imm;
   } function;
-  /* statically generated code (=0), dynamically generated code (>0). */
   unsigned int size;
 #if defined(LIBXS_VTUNE)
   unsigned int id;
@@ -562,8 +561,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(const libxs_g
 
   if (0 == dst_entry->function.pmm) { /* registry not (yet) exhausted */
     dst_entry->function.xmm = src;
-    dst_entry->size = 0; /* statically generated code */
     dst_key->descriptor = *desc;
+    dst_key->descriptor.flags |= LIBXS_GEMM_FLAG_STATIC;
   }
 
   internal_update_statistic(desc, 1, 0);
@@ -805,7 +804,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
             else if (LIBXS_MNK_SIZE(internal_statistic_med, internal_statistic_med, internal_statistic_med) >= size) {
               bucket = 1;
             }
-            if (0 != code.size/*JIT: actually allocated*/) {
+            if (0 == (LIBXS_GEMM_FLAG_STATIC & desc->flags)/*JIT: actually allocated*/) {
               /* make address valid by clearing an eventual collision flag */
               code.function.imm &= ~LIBXS_HASH_COLLISION;
 #if defined(LIBXS_VTUNE)
