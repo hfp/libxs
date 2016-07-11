@@ -163,10 +163,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int
 #endif
         if (0 < extra_size && 0 != extra) {
           const char *const src = (const char*)extra;
+          unsigned int i;
 #if (1900 <= _MSC_VER)
 #         pragma warning(suppress: 6386)
 #endif
-          for (unsigned int i = 0; i < extra_size; ++i) buffer[i] = src[i];
+          for (i = 0; i < extra_size; ++i) buffer[i] = src[i];
         }
 #if !defined(NDEBUG)
         else if (0 == extra && 0 != size) {
