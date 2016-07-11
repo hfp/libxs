@@ -717,8 +717,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_regentry* internal_init(void)
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
           fprintf(stderr, "LIBXS: failed to allocate code registry!\n");
 #endif
-          free(internal_registry_keys);
-          free(result);
+          libxs_free(internal_registry_keys);
+          libxs_free(result);
         }
       }
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
@@ -853,8 +853,8 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
           LIBXS_FUNLOCK(stdout);
           LIBXS_FUNLOCK(stderr);
         }
-        free((void*)registry_keys);
-        free((void*)registry);
+        libxs_free(registry_keys);
+        libxs_free(registry);
       }
     }
 #if !defined(LIBXS_OPENMP) /* release locks */

@@ -170,7 +170,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int
           for (i = 0; i < extra_size; ++i) buffer[i] = src[i];
         }
 #if !defined(NDEBUG)
-        else if (0 == extra && 0 != size) {
+        else if (0 == extra && 0 != extra_size) {
           result = EXIT_FAILURE;
         }
 #endif
