@@ -19,13 +19,11 @@ int main()
   LIBXS_GEMM_DESCRIPTOR(a.descriptor, LIBXS_ALIGNMENT, LIBXS_FLAGS,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
     LIBXS_LD(lda, ldb), LIBXS_LD(ldb, lda), ldc,
-    LIBXS_ALPHA, LIBXS_BETA,
-    LIBXS_PREFETCH_NONE);
+    1, 0.0, LIBXS_PREFETCH_NONE);
   LIBXS_GEMM_DESCRIPTOR(b.descriptor, LIBXS_ALIGNMENT, LIBXS_FLAGS,
     LIBXS_LD(m, n), LIBXS_LD(n, m), k,
     LIBXS_LD(lda, ldb), LIBXS_LD(ldb, lda), ldc,
-    LIBXS_ALPHA, LIBXS_BETA,
-    LIBXS_PREFETCH_BL2_VIA_C);
+    1.0, 0, LIBXS_PREFETCH_BL2_VIA_C);
 
 #if defined(LIBXS_GEMM_DIFF_MASK_A)
   for (i = LIBXS_GEMM_DESCRIPTOR_SIZE; i < sizeof(a.simd); ++i) {
