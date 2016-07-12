@@ -1042,7 +1042,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* descriptor,
   const unsigned int* row_ptr, const unsigned int* column_idx, const double* values)
 {
-  internal_code_type code = { 0 };
+  internal_code_type code = { {0} };
   internal_desc_extra_type desc_extra;
   memset(&desc_extra, 0, sizeof(desc_extra));
   desc_extra.row_ptr = row_ptr;
