@@ -46,8 +46,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gcd(unsigned int a, unsigne
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_lcm(unsigned int a, unsigned int b);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_alignment(unsigned int size, unsigned int alignment);
 
-/** Receive the size or the extra attachment of the given buffer. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, unsigned int* size, void** extra);
+/** Receive the size, the flags, or the extra attachment of the given buffer. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, unsigned int* size, int* flags, void** extra);
 
 /** Allocate memory of the requested size, which is aligned according to the given alignment. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int size, unsigned int alignment, int flags,
@@ -55,8 +55,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int
   const void* extra, unsigned int extra_size);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory);
 
-/** Revoke memory protection flags; the given flags given flags will be revoked. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_revoke(const void* memory, int flags);
+/** Attribute memory allocation such as to revoke protection flags. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_attribute(const void* memory, int flags, const char* name);
 
 /** Allocate memory (malloc/free interface). */
 LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void* libxs_malloc(unsigned int size)

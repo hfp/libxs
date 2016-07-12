@@ -43,6 +43,18 @@
 # include <sys/mman.h>
 # include <errno.h>
 #endif
+#if defined(LIBXS_VTUNE)
+# include <jitprofiling.h>
+# define LIBXS_VTUNE_JITVERSION 2
+# if (2 == LIBXS_VTUNE_JITVERSION)
+#   define LIBXS_VTUNE_JIT_DESC_TYPE iJIT_Method_Load_V2
+#   define LIBXS_VTUNE_JIT_LOAD iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED_V2
+# else
+#   define LIBXS_VTUNE_JIT_DESC_TYPE iJIT_Method_Load
+#   define LIBXS_VTUNE_JIT_LOAD iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED
+# endif
+# define LIBXS_VTUNE_JIT_UNLOAD iJVM_EVENT_TYPE_METHOD_UNLOAD_START
+#endif /*defined(LIBXS_VTUNE)*/
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -58,12 +70,20 @@
 #endif
 
 
+typedef struct LIBXS_RETARGETABLE internal_alloc_extra_type {
+#if defined(LIBXS_VTUNE)
+  unsigned int code_id;
+#else /* avoid warning about empty struct */
+  int dummy;
+#endif
+} internal_alloc_extra_type;
+
+
 typedef struct LIBXS_RETARGETABLE internal_alloc_info_type {
   void* pointer;
   unsigned int size;
-#if !defined(LIBXS_ALLOC_MMAP)
   int flags;
-#endif
+  internal_alloc_extra_type internal;
 } internal_alloc_info_type;
 
 
@@ -102,7 +122,30 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_alignment(unsigned int size
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, unsigned int* size, void** extra, int* flags)
+#if defined(LIBXS_VTUNE)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_vtune_jitdesc(const void* code,
+  unsigned int code_id, unsigned int code_size, const char* code_name,
+  LIBXS_VTUNE_JIT_DESC_TYPE* desc)
+{
+  assert(0 != code && 0 != code_id && 0 != code_size && 0 != desc);
+  desc->method_id = code_id;
+  /* incorrect constness (method_name) */
+  desc->method_name = (char*)code_name;
+  desc->method_load_address = code;
+  desc->method_size = code_size;
+  desc->line_number_size = 0;
+  desc->line_number_table = NULL;
+  desc->class_file_name = NULL;
+  desc->source_file_name = NULL;
+# if (2 == LIBXS_VTUNE_JITVERSION)
+  desc->module_name = "libxs.jit";
+# endif
+}
+#endif
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, unsigned int* size, int* flags,
+  void** extra, internal_alloc_extra_type** internal)
 {
   int result = EXIT_SUCCESS;
 #if !defined(NDEBUG)
@@ -110,19 +153,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, unsi
 #endif
   {
     if (0 != memory) {
-      const internal_alloc_info_type *const info = (const internal_alloc_info_type*)(((const char*)memory) - sizeof(internal_alloc_info_type));
+      internal_alloc_info_type *const info = (internal_alloc_info_type*)(((const char*)memory) - sizeof(internal_alloc_info_type));
       if (size) *size = info->size;
-      if (extra) *extra = info->pointer;
-#if defined(LIBXS_ALLOC_MMAP)
-      if (flags) *flags = 0;
-#else
       if (flags) *flags = info->flags;
-#endif
+      if (extra) *extra = info->pointer;
+      if (internal) *internal = &info->internal;
     }
     else {
       if (size) *size = 0;
-      if (extra) *extra = 0;
       if (flags) *flags = 0;
+      if (extra) *extra = 0;
+      if (internal) *internal = 0;
     }
   }
 #if !defined(NDEBUG)
@@ -140,9 +181,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, unsi
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, unsigned int* size, void** extra)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, unsigned int* size, int* flags, void** extra)
 {
-  return internal_alloc_info(memory, size, extra, 0/*flags*/);
+  return internal_alloc_info(memory, size, flags, extra, 0/*internal*/);
 }
 
 
@@ -234,12 +275,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int
 #endif
         info->pointer = buffer;
         info->size = size;
-#if !defined(LIBXS_ALLOC_MMAP)
         info->flags = (0 == flags ? LIBXS_ALLOC_FLAG_DEFAULT : (0 != (LIBXS_ALLOC_FLAG_X & flags)
           /* normalize given flags */
           ? LIBXS_ALLOC_FLAG_RWX
           : LIBXS_ALLOC_FLAG_RW));
-#endif
         *memory = aligned;
       }
       else {
@@ -270,17 +309,16 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
 {
   int result = EXIT_SUCCESS;
   if (memory) {
+    internal_alloc_extra_type* internal;
     unsigned int size = 0;
     void* buffer = 0;
-#if !defined(LIBXS_ALLOC_MMAP)
     int flags = 0;
-    result = internal_alloc_info(memory, &size, &buffer, &flags);
+    result = internal_alloc_info(memory, &size, &flags, &buffer, &internal);
+#if !defined(LIBXS_ALLOC_MMAP)
     if (LIBXS_ALLOC_FLAG_DEFAULT == flags && EXIT_SUCCESS == result) {
       free(buffer);
     }
     else
-#else
-    result = internal_alloc_info(memory, &size, &buffer, 0/*flags*/);
 #endif
     if (EXIT_SUCCESS == result) {
 #if defined(_WIN32)
@@ -299,6 +337,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
         result = EXIT_FAILURE;
       }
 #endif
+#if defined(LIBXS_VTUNE)
+      assert(0 != internal);
+      if (0 != (LIBXS_ALLOC_FLAG_X & flags) && 0 != internal->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
+        iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &internal->code_id);
+      }
+#endif
     }
   }
   assert(EXIT_SUCCESS == result);
@@ -306,34 +350,58 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_revoke(const void* memory, int flags)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_attribute(const void* memory, int flags, const char* name)
 {
   void* buffer = 0;
   unsigned int size = 0;
-  int result = internal_alloc_info(memory, &size, &buffer, 0/*flags*/);
+#if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
+  int alloc_flags = 0;
+  int result = internal_alloc_info(memory, &size, &alloc_flags, &buffer, 0/*internal*/);
+#else
+  int result = internal_alloc_info(memory, &size, 0/*flags*/, &buffer, 0/*internal*/);
+#endif
 #if !defined(NDEBUG)
   static LIBXS_TLS int revoke_error = 0;
 #endif
   if (0 != buffer && EXIT_SUCCESS == result) {
 #if defined(_WIN32) /*TODO: implementation for Microsoft Windows*/
-    LIBXS_UNUSED(memory); LIBXS_UNUSED(flags);
+    LIBXS_UNUSED(memory); LIBXS_UNUSED(flags); LIBXS_UNUSED(name);
 #else
+    const unsigned int alloc_size = ((const char*)memory) - ((const char*)buffer);
     int xflags = PROT_READ | PROT_WRITE | PROT_EXEC;
-    if (0 != (LIBXS_ALLOC_FLAG_W & flags)) {
-      xflags &= ~PROT_WRITE;
-    }
-    if (0 != (LIBXS_ALLOC_FLAG_X & flags)) {
-      xflags &= ~PROT_EXEC;
-    }
-    if (0/*ok*/ != mprotect(buffer, size, xflags)) {
+    if (0 != (LIBXS_ALLOC_FLAG_W & flags)) xflags &= ~PROT_WRITE;
+    if (0 != (LIBXS_ALLOC_FLAG_X & flags)) xflags &= ~PROT_EXEC;
+    if (0/*ok*/ != mprotect(buffer, alloc_size/*entire memory region*/, xflags)) {
 # if !defined(NDEBUG) /* library code is expected to be mute */
       if (0 == revoke_error) {
         fprintf(stderr, "LIBXS: %s (mprotect error #%i for range %p+%u with flags=%i)!\n",
-          strerror(errno), errno, buffer, size, xflags);
+          strerror(errno), errno, buffer, alloc_size, xflags);
         revoke_error = 1;
       }
 # endif
       result = EXIT_FAILURE;
+    }
+#endif
+#if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
+    if (0 != (LIBXS_ALLOC_FLAG_X & alloc_flags) && EXIT_SUCCESS == result && name && *name) {
+# if !defined(NDEBUG) && defined(_DEBUG) /* dump byte-code into a file */
+      FILE *const code_file = fopen(name, "wb");
+      if (0 != code_file) {
+        fwrite(memory, 1, size, code_file);
+        fclose(code_file);
+      }
+# endif
+# if defined(LIBXS_VTUNE)
+      if (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
+        LIBXS_VTUNE_JIT_DESC_TYPE vtune_jit_desc;
+        const unsigned int code_id = iJIT_GetNewMethodID();
+        internal_get_vtune_jitdesc(code, code_id, size, name, &vtune_jit_desc);
+        iJIT_NotifyEvent(LIBXS_VTUNE_JIT_LOAD, &vtune_jit_desc);
+      }
+      else {
+        code->id = 0;
+      }
+# endif
     }
 #endif
   }
