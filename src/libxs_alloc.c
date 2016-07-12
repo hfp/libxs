@@ -104,6 +104,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_alignment(unsigned int size
 
 LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, unsigned int* size, void** extra, int* flags)
 {
+  int result = EXIT_SUCCESS;
 #if !defined(NDEBUG)
   if (0 != size || 0 != extra)
 #endif
@@ -126,10 +127,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, unsi
   }
 #if !defined(NDEBUG)
   else {
-    return EXIT_FAILURE;
+    static LIBXS_TLS int info_error = 0;
+    if (0 == info_error) {
+      fprintf(stderr, "LIBXS: attachment error for memory buffer %p!\n", memory);
+      info_error = 1;
+    }
+    result = EXIT_FAILURE;
   }
 #endif
-  return EXIT_SUCCESS;
+  assert(EXIT_SUCCESS == result);
+  return result;
 }
 
 
@@ -160,62 +167,49 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int
 #endif
       {
 #if defined(_WIN32)
-        switch (flags) {
-          case LIBXS_ALLOC_FLAG_RW:
-          case 0: {
-            buffer = (char*)VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-          } break;
-          case LIBXS_ALLOC_FLAG_RWX: {
-            buffer = (char*)VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
-          } break;
-        }
+        const int xflags = (0 != (LIBXS_ALLOC_FLAG_X & flags) ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE);
+        buffer = (char*)VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT, xflags);
 #else
-        const int xflags = (LIBXS_ALLOC_FLAG_RW == flags || 0 == flags) ? (PROT_READ | PROT_WRITE)
-          : (LIBXS_ALLOC_FLAG_RWX == flags ? (PROT_READ | PROT_WRITE | PROT_EXEC) : PROT_NONE);
+        const int xflags = (0 != (LIBXS_ALLOC_FLAG_X & flags) ? (PROT_READ | PROT_WRITE | PROT_EXEC) : (PROT_READ | PROT_WRITE));
         alloc_failed = MAP_FAILED;
-        if (PROT_NONE != xflags) {
-          buffer = (char*)mmap(0, alloc_size, xflags,
+        buffer = (char*)mmap(0, alloc_size, xflags,
 # if defined(__APPLE__) && defined(__MACH__)
-            MAP_ANON,
+          MAP_ANON,
 # elif !defined(__CYGWIN__)
-            MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT,
+          MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT,
 # else
-            MAP_ANONYMOUS | MAP_PRIVATE,
+          MAP_ANONYMOUS | MAP_PRIVATE,
 # endif
-            -1, 0);
+          -1, 0);
 # if defined(MADV_NOHUGEPAGE)
-          /* disable THP for smaller allocations; req. Linux kernel 2.6.38 (or higher) */
-          if (LIBXS_ALLOC_ALIGNMAX > alloc_size && alloc_failed != buffer) {
+        /* disable THP for smaller allocations; req. Linux kernel 2.6.38 (or higher) */
+        if (LIBXS_ALLOC_ALIGNMAX > alloc_size && alloc_failed != buffer) {
 #   if defined(NDEBUG)
-            /* proceed even in case of an error, we then just take what we got (THP) */
-            madvise(buffer, alloc_size, MADV_NOHUGEPAGE);
+          /* proceed even in case of an error, we then just take what we got (THP) */
+          madvise(buffer, alloc_size, MADV_NOHUGEPAGE);
 #   else /* library code is expected to be mute */
-            if (0 != madvise(buffer, alloc_size, MADV_NOHUGEPAGE)) {
-              static LIBXS_TLS int madvise_error = 0;
-              if (0 == madvise_error) {
-                fprintf(stderr, "LIBXS: %s (madvise error #%i for range %p+%u)!\n",
-                  strerror(errno), errno, buffer, alloc_size);
-                madvise_error = 1;
-              }
+          if (0 != madvise(buffer, alloc_size, MADV_NOHUGEPAGE)) {
+            static LIBXS_TLS int madvise_error = 0;
+            if (0 == madvise_error) {
+              fprintf(stderr, "LIBXS: %s (madvise error #%i for range %p+%u)!\n",
+                strerror(errno), errno, buffer, alloc_size);
+              madvise_error = 1;
             }
+          }
 #   endif /*defined(NDEBUG)*/
-          }
+        }
 #   if !defined(NDEBUG) /* library code is expected to be mute */
-          else if (alloc_failed == buffer && 0 == alloc_error) {
-            fprintf(stderr, "LIBXS: %s (mmap error #%i for size %u with flags=%i)!\n",
-              strerror(errno), errno, alloc_size, xflags);
-            alloc_error = 1;
-          }
+        else if (alloc_failed == buffer && 0 == alloc_error) {
+          fprintf(stderr, "LIBXS: %s (mmap error #%i for size %u with flags=%i)!\n",
+            strerror(errno), errno, alloc_size, xflags);
+          alloc_error = 1;
+        }
 #   endif
 # elif !(defined(__APPLE__) && defined(__MACH__)) && !defined(__CYGWIN__)
-          LIBXS_MESSAGE("================================================================================")
-          LIBXS_MESSAGE("LIBXS: Adjusting THP is unavailable due to C89 or kernel older than 2.6.38!")
-          LIBXS_MESSAGE("================================================================================")
+        LIBXS_MESSAGE("================================================================================")
+        LIBXS_MESSAGE("LIBXS: Adjusting THP is unavailable due to C89 or kernel older than 2.6.38!")
+        LIBXS_MESSAGE("================================================================================")
 # endif /*MADV_NOHUGEPAGE*/
-        }
-        else {
-          buffer = alloc_failed;
-        }
 #endif
       }
       if (alloc_failed != buffer) {
@@ -241,7 +235,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int
         info->pointer = buffer;
         info->size = size;
 #if !defined(LIBXS_ALLOC_MMAP)
-        info->flags = 0 == flags ? LIBXS_ALLOC_FLAG_DEFAULT : flags;
+        info->flags = (0 == flags ? LIBXS_ALLOC_FLAG_DEFAULT : (0 != (LIBXS_ALLOC_FLAG_X & flags)
+          /* normalize given flags */
+          ? LIBXS_ALLOC_FLAG_RWX
+          : LIBXS_ALLOC_FLAG_RW));
 #endif
         *memory = aligned;
       }
@@ -277,15 +274,15 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
     void* buffer = 0;
 #if !defined(LIBXS_ALLOC_MMAP)
     int flags = 0;
-    internal_alloc_info(memory, &size, &buffer, &flags);
-    if (LIBXS_ALLOC_FLAG_DEFAULT == flags) {
+    result = internal_alloc_info(memory, &size, &buffer, &flags);
+    if (LIBXS_ALLOC_FLAG_DEFAULT == flags && EXIT_SUCCESS == result) {
       free(buffer);
     }
     else
 #else
-    internal_alloc_info(memory, &size, &buffer, 0/*flags*/);
+    result = internal_alloc_info(memory, &size, &buffer, 0/*flags*/);
 #endif
-    {
+    if (EXIT_SUCCESS == result) {
 #if defined(_WIN32)
       result = FALSE != VirtualFree(buffer, 0, MEM_RELEASE) ? EXIT_SUCCESS : EXIT_FAILURE;
 #else
@@ -303,6 +300,42 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
       }
 #endif
     }
+  }
+  assert(EXIT_SUCCESS == result);
+  return result;
+}
+
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_revoke(const void* memory, int flags)
+{
+  void* buffer = 0;
+  unsigned int size = 0;
+  int result = internal_alloc_info(memory, &size, &buffer, 0/*flags*/);
+#if !defined(NDEBUG)
+  static LIBXS_TLS int revoke_error = 0;
+#endif
+  if (0 != buffer && EXIT_SUCCESS == result) {
+#if defined(_WIN32) /*TODO: implementation for Microsoft Windows*/
+    LIBXS_UNUSED(memory); LIBXS_UNUSED(flags);
+#else
+    int xflags = PROT_READ | PROT_WRITE | PROT_EXEC;
+    if (0 != (LIBXS_ALLOC_FLAG_W & flags)) {
+      xflags &= ~PROT_WRITE;
+    }
+    if (0 != (LIBXS_ALLOC_FLAG_X & flags)) {
+      xflags &= ~PROT_EXEC;
+    }
+    if (0/*ok*/ != mprotect(buffer, size, xflags)) {
+# if !defined(NDEBUG) /* library code is expected to be mute */
+      if (0 == revoke_error) {
+        fprintf(stderr, "LIBXS: %s (mprotect error #%i for range %p+%u with flags=%i)!\n",
+          strerror(errno), errno, buffer, size, xflags);
+        revoke_error = 1;
+      }
+# endif
+      result = EXIT_FAILURE;
+    }
+#endif
   }
   assert(EXIT_SUCCESS == result);
   return result;

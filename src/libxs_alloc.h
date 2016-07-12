@@ -47,13 +47,16 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_lcm(unsigned int a, unsigne
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_alignment(unsigned int size, unsigned int alignment);
 
 /** Receive the size or the extra attachment of the given buffer. */
-int libxs_alloc_info(const void* memory, unsigned int* size, void** extra);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, unsigned int* size, void** extra);
 
 /** Allocate memory of the requested size, which is aligned according to the given alignment. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int size, unsigned int alignment, int flags,
   /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
   const void* extra, unsigned int extra_size);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory);
+
+/** Revoke memory protection flags; the given flags given flags will be revoked. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_revoke(const void* memory, int flags);
 
 /** Allocate memory (malloc/free interface). */
 LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void* libxs_malloc(unsigned int size)
