@@ -27,6 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_alloc.h"
+#include "libxs_sync.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -34,29 +35,36 @@
 #include <stdlib.h>
 #if !defined(NDEBUG)
 # include <string.h>
+# include <stdio.h>
 #endif
 #if defined(_WIN32)
 # include <windows.h>
 #else
 # include <sys/mman.h>
+# include <errno.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(LIBXS_MAX_ALIGN)
-# define LIBXS_MAX_ALIGN (2 * 1024 *1024)
+#if !defined(LIBXS_ALLOC_ALIGNMAX)
+# define LIBXS_ALLOC_ALIGNMAX (2 * 1024 *1024)
 #endif
-
+#if !defined(LIBXS_ALLOC_ALIGNFCT)
+# define LIBXS_ALLOC_ALIGNFCT 2
+#endif
 #if !defined(LIBXS_ALLOC_MMAP)
 /*# define LIBXS_ALLOC_MMAP*/
 #endif
 
 
-typedef struct LIBXS_RETARGETABLE internal_alloc_info {
+typedef struct LIBXS_RETARGETABLE internal_alloc_info_type {
   void* pointer;
   unsigned int size;
-} internal_alloc_info;
+#if !defined(LIBXS_ALLOC_MMAP)
+  int flags;
+#endif
+} internal_alloc_info_type;
 
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gcd(unsigned int a, unsigned int b)
@@ -79,11 +87,11 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_lcm(unsigned int a, unsigne
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_alignment(unsigned int size, unsigned int alignment)
 {
   unsigned int result = sizeof(void*);
-  if ((LIBXS_MAX_ALIGN) <= size) {
-    result = libxs_lcm(0 == alignment ? (LIBXS_ALIGNMENT) : libxs_lcm(alignment, LIBXS_ALIGNMENT), LIBXS_MAX_ALIGN);
+  if ((LIBXS_ALLOC_ALIGNFCT * LIBXS_ALLOC_ALIGNMAX) <= size) {
+    result = libxs_lcm(0 == alignment ? (LIBXS_ALIGNMENT) : libxs_lcm(alignment, LIBXS_ALIGNMENT), LIBXS_ALLOC_ALIGNMAX);
   }
   else {
-    if ((LIBXS_ALIGNMENT) <= size) {
+    if ((LIBXS_ALLOC_ALIGNFCT * LIBXS_ALIGNMENT) <= size) {
       result = (0 == alignment ? (LIBXS_ALIGNMENT) : libxs_lcm(alignment, LIBXS_ALIGNMENT));
     }
     else if (0 != alignment) {
@@ -94,20 +102,26 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_alignment(unsigned int size
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, unsigned int* size, void** extra)
+LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, unsigned int* size, void** extra, int* flags)
 {
 #if !defined(NDEBUG)
   if (0 != size || 0 != extra)
 #endif
   {
     if (0 != memory) {
-      const internal_alloc_info *const info = (const internal_alloc_info*)(((const char*)memory) - sizeof(internal_alloc_info));
+      const internal_alloc_info_type *const info = (const internal_alloc_info_type*)(((const char*)memory) - sizeof(internal_alloc_info_type));
       if (size) *size = info->size;
       if (extra) *extra = info->pointer;
+#if defined(LIBXS_ALLOC_MMAP)
+      if (flags) *flags = 0;
+#else
+      if (flags) *flags = info->flags;
+#endif
     }
     else {
       if (size) *size = 0;
       if (extra) *extra = 0;
+      if (flags) *flags = 0;
     }
   }
 #if !defined(NDEBUG)
@@ -119,6 +133,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, unsig
 }
 
 
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, unsigned int* size, void** extra)
+{
+  return internal_alloc_info(memory, size, extra, 0/*flags*/);
+}
+
+
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int size, unsigned int alignment,
   int flags, const void* extra, unsigned int extra_size)
 {
@@ -126,7 +146,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int
   if (memory) {
     if (0 < size) {
       const unsigned int auto_alignment = libxs_alignment(size, alignment);
-      const unsigned int alloc_size = size + extra_size + sizeof(internal_alloc_info) + auto_alignment - 1;
+      const unsigned int alloc_size = size + extra_size + sizeof(internal_alloc_info_type) + auto_alignment - 1;
       void* alloc_failed = 0;
       char* buffer = 0;
 #if !defined(LIBXS_ALLOC_MMAP)
@@ -160,6 +180,28 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int
             MAP_ANONYMOUS | MAP_PRIVATE,
 # endif
             -1, 0);
+# if defined(MADV_NOHUGEPAGE)
+          /* disable THP for smaller allocations; req. Linux kernel 2.6.38 (or higher) */
+          if (LIBXS_ALLOC_ALIGNMAX > alloc_size) {
+#   if defined(NDEBUG)
+            /* proceed even in case of an error, we then just take what we got (THP) */
+            madvise(buffer, alloc_size, MADV_NOHUGEPAGE);
+#   else /* library code is expected to be mute */
+            if (0 != madvise(buffer, alloc_size, MADV_NOHUGEPAGE)) {
+              static LIBXS_TLS int madvise_error = 0;
+              if (0 == madvise_error) {
+                fprintf(stderr, "LIBXS: %s (madvise error #%i for range %p+%u)!\n",
+                  strerror(errno), errno, buffer, alloc_size);
+                madvise_error = 1;
+              }
+            }
+#   endif /*defined(NDEBUG)*/
+          }
+# elif !(defined(__APPLE__) && defined(__MACH__)) && !defined(__CYGWIN__)
+          LIBXS_MESSAGE("================================================================================")
+          LIBXS_MESSAGE("LIBXS: Adjusting THP is unavailable due to C89 or kernel older than 2.6.38!")
+          LIBXS_MESSAGE("================================================================================")
+# endif /*MADV_NOHUGEPAGE*/
         }
         else {
           buffer = alloc_failed;
@@ -167,8 +209,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int
 #endif
       }
       if (alloc_failed != buffer) {
-        char *const aligned = LIBXS_ALIGN(buffer + extra_size + sizeof(internal_alloc_info), auto_alignment);
-        internal_alloc_info *const info = (internal_alloc_info*)(aligned - sizeof(internal_alloc_info));
+        char *const aligned = LIBXS_ALIGN(buffer + extra_size + sizeof(internal_alloc_info_type), auto_alignment);
+        internal_alloc_info_type *const info = (internal_alloc_info_type*)(aligned - sizeof(internal_alloc_info_type));
         assert((aligned + size) <= (buffer + alloc_size));
 #if !defined(NDEBUG)
         memset(buffer, 0, alloc_size);
@@ -188,6 +230,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int
 #endif
         info->pointer = buffer;
         info->size = size;
+#if !defined(LIBXS_ALLOC_MMAP)
+        info->flags = 0 == flags ? LIBXS_ALLOC_FLAG_DEFAULT : flags;
+#endif
         *memory = aligned;
       }
       else {
@@ -212,20 +257,36 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
 {
   int result = EXIT_SUCCESS;
   if (memory) {
-    void* buffer = 0;
-#if defined(LIBXS_ALLOC_MMAP)
-# if defined(_WIN32)
-    libxs_alloc_info(memory, 0, &buffer);
-    result = FALSE != VirtualFree(buffer, 0, MEM_RELEASE) ? EXIT_SUCCESS : EXIT_FAILURE;
-# else
     unsigned int size = 0;
-    libxs_alloc_info(memory, &size, &buffer);
-    result = 0 == munmap(buffer, size + (((const char*)memory) - ((char*)buffer))) ? EXIT_SUCCESS : EXIT_FAILURE;
-# endif
+    void* buffer = 0;
+#if !defined(LIBXS_ALLOC_MMAP)
+    int flags = 0;
+    internal_alloc_info(memory, &size, &buffer, &flags);
+    if (LIBXS_ALLOC_FLAG_DEFAULT == flags) {
+      free(buffer);
+    }
+    else
 #else
-    libxs_alloc_info(memory, 0, &buffer);
-    free(buffer);
+    internal_alloc_info(memory, &size, &buffer, 0/*flags*/);
 #endif
+    {
+#if defined(_WIN32)
+      result = FALSE != VirtualFree(buffer, 0, MEM_RELEASE) ? EXIT_SUCCESS : EXIT_FAILURE;
+#else
+      const unsigned int alloc_size = size + (((const char*)memory) - ((const char*)buffer));
+      if (0 != munmap(buffer, alloc_size)) {
+# if !defined(NDEBUG) /* library code is expected to be mute */
+        static LIBXS_TLS int munmap_error = 0;
+        if (0 == munmap_error) {
+          fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%u)!\n",
+            strerror(errno), errno, buffer, alloc_size);
+          munmap_error = 1;
+        }
+# endif
+        result = EXIT_FAILURE;
+      }
+#endif
+    }
   }
   assert(EXIT_SUCCESS == result);
   return result;
