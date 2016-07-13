@@ -778,7 +778,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
               libxs_deallocate(code.pmm);
               if (EXIT_SUCCESS == result) {
                 ++internal_statistic[precision][bucket].njit;
-                heapmem += size + (((char*)code.pmm) - (char*)buffer);
+                heapmem += (unsigned int)(size + (((char*)code.pmm) - (char*)buffer));
               }
             }
             else {
@@ -870,7 +870,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* get_target_arch(int* length)
   const char *const arch = libxs_get_target_arch();
   /* valid here since function is not in the public interface */
   assert(0 != arch && 0 != length);
-  *length = strlen(arch);
+  *length = (int)strlen(arch);
   return arch;
 }
 
@@ -936,7 +936,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_arch(const char* arch)
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor* descriptor,
   const internal_desc_extra_type* desc_extra, internal_code_type* code)
 {
-#if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
+#if !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   const char *const target_arch = internal_get_target_arch(internal_target_archid);
   libxs_generated_code generated_code;
   assert(0 != descriptor && 0 != code);
@@ -974,7 +974,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
       /* copy temporary buffer into the prepared executable buffer */
       memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
       free(generated_code.generated_code); /* free temporary/initial code buffer */
-      /* revoke unneccessary memory protection flags; continue on error */
+      /* revoke unnecessary memory protection flags; continue on error */
       libxs_alloc_attribute(code->pmm, LIBXS_ALLOC_FLAG_RW, jit_code_name);
     }
     else {
@@ -998,7 +998,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   LIBXS_MESSAGE("LIBXS: The JIT BACKEND is currently not supported under Microsoft Windows!")
   LIBXS_MESSAGE("================================================================================")
 # endif
-  LIBXS_UNUSED(descriptor); LIBXS_UNUSED(code);
+  LIBXS_UNUSED(descriptor); LIBXS_UNUSED(desc_extra);  LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
   assert(LIBXS_X86_AVX > internal_target_archid);
 #endif
