@@ -322,6 +322,12 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
     else
 #endif
     if (EXIT_SUCCESS == result) {
+#if defined(LIBXS_VTUNE)
+      assert(0 != internal);
+      if (0 != (LIBXS_ALLOC_FLAG_X & flags) && 0 != internal->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
+        iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &internal->code_id);
+      }
+#endif
 #if defined(_WIN32)
       result = FALSE != VirtualFree(buffer, 0, MEM_RELEASE) ? EXIT_SUCCESS : EXIT_FAILURE;
 #else
@@ -336,12 +342,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
         }
 # endif
         result = EXIT_FAILURE;
-      }
-#endif
-#if defined(LIBXS_VTUNE)
-      assert(0 != internal);
-      if (0 != (LIBXS_ALLOC_FLAG_X & flags) && 0 != internal->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
-        iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &internal->code_id);
       }
 #endif
     }
