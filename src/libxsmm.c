@@ -610,10 +610,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
       { /* select prefetch strategy for JIT */
         const char *const env_prefetch = getenv("LIBXS_PREFETCH");
         if (0 == env_prefetch || 0 == *env_prefetch) {
-          if (0 > LIBXS_PREFETCH) { /* permitted by LIBXS_PREFETCH_AUTO */
-            internal_prefetch = LIBXS_X86_AVX512_MIC != internal_target_archid
-              ? LIBXS_PREFETCH_NONE : LIBXS_PREFETCH_AL2BL2_VIA_C;
-          }
+#if (0 > LIBXS_PREFETCH) /* permitted by LIBXS_PREFETCH_AUTO */
+          internal_prefetch = LIBXS_X86_AVX512_MIC != internal_target_archid
+            ? LIBXS_PREFETCH_NONE : LIBXS_PREFETCH_AL2BL2_VIA_C;
+#endif
         }
         else { /* user input considered even if LIBXS_PREFETCH_AUTO is disabled */
           switch (atoi(env_prefetch)) {
