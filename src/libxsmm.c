@@ -814,7 +814,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_archid(void)
 {
   LIBXS_INIT
-#if !defined(_WIN32) && !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
+#if !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   return internal_target_archid;
 #else /* no JIT support */
   return LIBXS_MIN(internal_target_archid, LIBXS_X86_SSE4_2);
@@ -969,8 +969,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
       LIBXS_ALLOC_FLAG_RWX,
       0/*extra*/, 0/*extra_size*/))
     {
+#if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
       char jit_code_name[256];
       internal_get_code_name(target_arch, descriptor, sizeof(jit_code_name), jit_code_name);
+#else
+      const char *const jit_code_name = 0;
+#endif
       /* copy temporary buffer into the prepared executable buffer */
       memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
       free(generated_code.generated_code); /* free temporary/initial code buffer */
