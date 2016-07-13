@@ -71,6 +71,7 @@
 #endif
 
 /** Helper macros for eliding prefetch address calculations depending on prefetch scheme. */
+#if !defined(_WIN32) /* disable prefetch due to issues with the calling convention */
 #if 0 != ((LIBXS_PREFETCH) & 2/*AL2*/) || 0 != ((LIBXS_PREFETCH) & 4/*AL2_JPST*/)
 # define LIBXS_PREFETCH_A(EXPR) (EXPR)
 #endif
@@ -79,6 +80,7 @@
 #endif
 #if 0/*no scheme yet using C*/
 # define LIBXS_PREFETCH_C(EXPR) (EXPR)
+#endif
 #endif
 /** Secondary helper macros derived from the above group. */
 #if defined(LIBXS_PREFETCH_A)
