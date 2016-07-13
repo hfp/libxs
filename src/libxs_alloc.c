@@ -366,26 +366,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_attribute(const void* memory, 
   static LIBXS_TLS int revoke_error = 0;
 #endif
   if (0 != buffer && EXIT_SUCCESS == result) {
-#if defined(_WIN32) /*TODO: implementation for Microsoft Windows*/
-    LIBXS_UNUSED(memory); LIBXS_UNUSED(flags); LIBXS_UNUSED(name);
-#else
-    const unsigned int alloc_size = size + (((const char*)memory) - ((const char*)buffer));
-    int xflags = PROT_READ | PROT_WRITE | PROT_EXEC;
-    if (0 != (LIBXS_ALLOC_FLAG_W & flags)) xflags &= ~PROT_WRITE;
-    if (0 != (LIBXS_ALLOC_FLAG_X & flags)) xflags &= ~PROT_EXEC;
-    if (0/*ok*/ != mprotect(buffer, alloc_size/*entire memory region*/, xflags)) {
-# if !defined(NDEBUG) /* library code is expected to be mute */
-      if (0 == revoke_error) {
-        fprintf(stderr, "LIBXS: %s (mprotect error #%i for range %p+%u with flags=%i)!\n",
-          strerror(errno), errno, buffer, alloc_size, xflags);
-        revoke_error = 1;
-      }
-# endif
-      result = EXIT_FAILURE;
-    }
-#endif
 #if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
-    if (0 != (LIBXS_ALLOC_FLAG_X & alloc_flags) && EXIT_SUCCESS == result && name && *name) {
+    if (0 != (LIBXS_ALLOC_FLAG_X & alloc_flags) && name && *name) {
 # if !defined(NDEBUG) && defined(_DEBUG) /* dump byte-code into a file */
       FILE *const code_file = fopen(name, "wb");
       if (0 != code_file) {
@@ -406,6 +388,26 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_attribute(const void* memory, 
         internal->code_id = 0;
       }
 # endif
+    }
+#else
+    LIBXS_UNUSED(name);
+#endif
+#if defined(_WIN32) /*TODO: implementation for Microsoft Windows*/
+    LIBXS_UNUSED(memory); LIBXS_UNUSED(flags); LIBXS_UNUSED(name);
+#else
+    const unsigned int alloc_size = size + (((const char*)memory) - ((const char*)buffer));
+    int xflags = PROT_READ | PROT_WRITE | PROT_EXEC;
+    if (0 != (LIBXS_ALLOC_FLAG_W & flags)) xflags &= ~PROT_WRITE;
+    if (0 != (LIBXS_ALLOC_FLAG_X & flags)) xflags &= ~PROT_EXEC;
+    if (0/*ok*/ != mprotect(buffer, alloc_size/*entire memory region*/, xflags)) {
+# if !defined(NDEBUG) /* library code is expected to be mute */
+      if (0 == revoke_error) {
+        fprintf(stderr, "LIBXS: %s (mprotect error #%i for range %p+%u with flags=%i)!\n",
+          strerror(errno), errno, buffer, alloc_size, xflags);
+        revoke_error = 1;
+      }
+# endif
+      result = EXIT_FAILURE;
     }
 #endif
   }
