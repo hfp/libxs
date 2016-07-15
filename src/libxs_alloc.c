@@ -246,7 +246,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, size_t size,
         }
 # if !defined(NDEBUG) /* library code is expected to be mute */
         if (alloc_failed == buffer && 0 == alloc_error) { /* OS-specific error message */
-          fprintf(stderr, "LIBXS: VirtualAlloc error #%i for size %llu with flags=%i!\n", GetLastError(), alloc_size, xflags);
+          fprintf(stderr, "LIBXS: VirtualAlloc error #%lu for size %llu with flags=%i!\n",
+            (unsigned long)GetLastError(), (unsigned long long)alloc_size, xflags);
           alloc_error = 1;
         }
 # endif
@@ -326,7 +327,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, size_t size,
       else {
 #if !defined(NDEBUG) /* library code is expected to be mute */
         if (0 == alloc_error) {
-          fprintf(stderr, "LIBXS: memory allocation error for size %llu with flags=%i!\n", alloc_size, flags);
+          fprintf(stderr, "LIBXS: memory allocation error for size %llu with flags=%i!\n",
+            (unsigned long long)alloc_size, flags);
           alloc_error = 1;
         }
 #endif
