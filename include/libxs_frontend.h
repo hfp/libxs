@@ -48,6 +48,7 @@
 #endif
 #include "libxs_generator.h"
 #include <assert.h>
+#include <stddef.h>
 #include <stdint.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)

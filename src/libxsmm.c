@@ -773,7 +773,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
             code.imm &= ~LIBXS_HASH_COLLISION;
             if (0 == (LIBXS_GEMM_FLAG_STATIC & desc->flags)/*dynamically allocated/generated (JIT)*/) {
               void* buffer = 0;
-              unsigned int size = 0;
+              size_t size = 0;
               const int result = libxs_alloc_info(code.pmm, &size, 0/*flags*/, &buffer);
               libxs_deallocate(code.pmm);
               if (EXIT_SUCCESS == result) {

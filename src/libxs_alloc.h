@@ -42,24 +42,24 @@ typedef enum libxs_alloc_flags {
   LIBXS_ALLOC_FLAG_DEFAULT = LIBXS_ALLOC_FLAG_RW
 } libxs_alloc_flags;
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_gcd(unsigned int a, unsigned int b);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_lcm(unsigned int a, unsigned int b);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_alignment(unsigned int size, unsigned int alignment);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t libxs_gcd(size_t a, size_t b);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t libxs_lcm(size_t a, size_t b);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t libxs_alignment(size_t size, size_t alignment);
 
 /** Receive the size, the flags, or the extra attachment of the given buffer. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, unsigned int* size, int* flags, void** extra);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, size_t* size, int* flags, void** extra);
 
 /** Allocate memory of the requested size, which is aligned according to the given alignment. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, unsigned int size, unsigned int alignment, int flags,
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, size_t size, size_t alignment, int flags,
   /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
-  const void* extra, unsigned int extra_size);
+  const void* extra, size_t extra_size);
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory);
 
 /** Attribute memory allocation such as to revoke protection flags. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_attribute(const void* memory, int flags, const char* name);
 
 /** Allocate memory (malloc/free interface). */
-LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void* libxs_malloc(unsigned int size)
+LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void* libxs_malloc(size_t size)
 #if defined(LIBXS_BUILD)
 ;
 #else
