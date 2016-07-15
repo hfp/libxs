@@ -275,8 +275,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, size_t size,
           if (0 != madvise(buffer, alloc_size, MADV_NOHUGEPAGE)) {
             static LIBXS_TLS int madvise_error = 0;
             if (0 == madvise_error) {
-              fprintf(stderr, "LIBXS: %s (madvise error #%i for range %p+%u)!\n",
-                strerror(errno), errno, buffer, alloc_size);
+              fprintf(stderr, "LIBXS: %s (madvise error #%i for range %p+%llu)!\n",
+                strerror(errno), errno, buffer, (unsigned long long)alloc_size);
               madvise_error = 1;
             }
           }
@@ -284,8 +284,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, size_t size,
         }
 #   if !defined(NDEBUG) /* library code is expected to be mute */
         else if (alloc_failed == buffer && 0 == alloc_error) {
-          fprintf(stderr, "LIBXS: %s (mmap error #%i for size %u with flags=%i)!\n",
-            strerror(errno), errno, alloc_size, xflags);
+          fprintf(stderr, "LIBXS: %s (mmap error #%i for size %llu with flags=%i)!\n",
+            strerror(errno), errno, (unsigned long long)alloc_size, xflags);
           alloc_error = 1;
         }
 #   endif
@@ -379,8 +379,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
 # if !defined(NDEBUG) /* library code is expected to be mute */
         static LIBXS_TLS int munmap_error = 0;
         if (0 == munmap_error) {
-          fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%u)!\n",
-            strerror(errno), errno, buffer, alloc_size);
+          fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
+            strerror(errno), errno, buffer, (unsigned long long)alloc_size);
           munmap_error = 1;
         }
 # endif
@@ -446,8 +446,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_attribute(const void* memory, 
       if (0/*ok*/ != mprotect(buffer, alloc_size/*entire memory region*/, xflags)) {
 # if !defined(NDEBUG) /* library code is expected to be mute */
         if (0 == revoke_error) {
-          fprintf(stderr, "LIBXS: %s (mprotect error #%i for range %p+%u with flags=%i)!\n",
-            strerror(errno), errno, buffer, alloc_size, xflags);
+          fprintf(stderr, "LIBXS: %s (mprotect error #%i for range %p+%llu with flags=%i)!\n",
+            strerror(errno), errno, buffer, (unsigned long long)alloc_size, xflags);
           revoke_error = 1;
         }
 # endif
