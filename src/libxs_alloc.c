@@ -66,7 +66,7 @@
 # define LIBXS_ALLOC_ALIGNFCT 8
 #endif
 #if !defined(LIBXS_ALLOC_MMAP)
-# define LIBXS_ALLOC_MMAP
+/*# define LIBXS_ALLOC_MMAP*/
 #endif
 
 
@@ -258,16 +258,23 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, size_t size,
         alloc_failed = MAP_FAILED;
         buffer = (char*)mmap(0, alloc_size, xflags,
 # if defined(__APPLE__) && defined(__MACH__)
-          MAP_ANON | MAP_PRIVATE,
-# elif !defined(__CYGWIN__)
-          MAP_ANONYMOUS | MAP_PRIVATE | MAP_32BIT,
+          MAP_PRIVATE | MAP_ANON
 # else
-          MAP_ANONYMOUS | MAP_PRIVATE,
+          MAP_PRIVATE | MAP_ANONYMOUS
 # endif
-          -1, 0);
+# if defined(MAP_NORESERVE)
+          | MAP_NORESERVE
+# endif
+# if defined(MAP_HUGETLB)
+          | ((LIBXS_ALLOC_ALIGNMAX * LIBXS_ALLOC_ALIGNFCT) > size ? 0 : MAP_HUGETLB)
+# endif
+# if defined(MAP_32BIT)
+          | MAP_32BIT
+# endif
+          , -1, 0);
 # if defined(MADV_NOHUGEPAGE)
         /* disable THP for smaller allocations; requires Linux kernel 2.6.38 (or higher) */
-        if (LIBXS_ALLOC_ALIGNMAX > size && alloc_failed != buffer) {
+        if ((LIBXS_ALLOC_ALIGNMAX * LIBXS_ALLOC_ALIGNFCT) > size && alloc_failed != buffer) {
 #   if defined(NDEBUG)
           /* proceed even in case of an error, we then just take what we got (THP) */
           madvise(buffer, alloc_size, MADV_NOHUGEPAGE);
