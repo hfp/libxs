@@ -288,6 +288,9 @@
 # if !defined(__extern_always_inline)
 #   define __extern_always_inline LIBXS_INLINE_KEYWORD
 # endif
+# if !defined(__cplusplus) && (199901L > (__STDC_VERSION__))
+#   define inline LIBXS_INLINE_KEYWORD
+# endif
 #endif
 
 #endif /*LIBXS_MACROS_H*/
