@@ -126,23 +126,32 @@ typedef union LIBXS_RETARGETABLE internal_code_type {
   uintptr_t imm;
 } internal_code_type;
 
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL struct LIBXS_RETARGETABLE {
+typedef struct LIBXS_RETARGETABLE internal_statistic_type {
   unsigned int ntry, ncol, njit, nsta;
-} internal_statistic[2/*DP/SP*/][3/*sml/med/big*/];
+} internal_statistic_type;
 
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_sml = 13;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_med = 23;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_mnk = LIBXS_MAX_M;
+LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_statistic_type internal_statistic[2/*DP/SP*/][3/*sml/med/big*/];
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_statistic_type internal_statistic[2/*DP/SP*/][3/*sml/med/big*/];
+LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_sml;
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_sml = 13;
+LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_med;
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_med = 23;
+LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_mnk;
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_statistic_mnk = LIBXS_MAX_M;
 
+LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_verbose;
 #if defined(NDEBUG)
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_verbose = 0; /* quiet */
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_verbose = 0; /* quiet */
 #else
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_verbose = 1; /* verbose */
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_verbose = 1; /* verbose */
 #endif
 
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regkey_type* internal_registry_keys = 0;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_code_type* internal_registry = 0;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_teardown = 0;
+LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regkey_type* internal_registry_keys;
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regkey_type* internal_registry_keys = 0;
+LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_code_type* internal_registry;
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_code_type* internal_registry = 0;
+LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_teardown;
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int internal_teardown = 0;
 
 typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
   const unsigned int* row_ptr;
@@ -162,8 +171,10 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
 # define INTERNAL_PREFETCH LIBXS_PREFETCH
 #endif
 
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_prefetch = LIBXS_MAX(INTERNAL_PREFETCH, 0);
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_target_archid = LIBXS_TARGET_ARCH_GENERIC;
+LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_prefetch;
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_prefetch = LIBXS_MAX(INTERNAL_PREFETCH, 0);
+LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_target_archid;
+               LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int internal_target_archid = LIBXS_TARGET_ARCH_GENERIC;
 
 #if !defined(LIBXS_OPENMP)
 LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock[] = {
@@ -668,13 +679,15 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
           /* omit registering code if JIT is enabled and if an ISA extension is found
            * which is beyond the static code path used to compile the library
            */
-#if (0 != LIBXS_JIT) && !defined(__MIC__)
+#if defined(LIBXS_BUILD)
+# if (0 != LIBXS_JIT) && !defined(__MIC__)
           if (LIBXS_STATIC_TARGET_ARCH <= internal_target_archid && LIBXS_X86_AVX > internal_target_archid)
-#endif
+# endif
           { /* opening a scope for eventually declaring variables */
             /* setup the dispatch table for the statically generated code */
 #           include <libxs_dispatch.h>
           }
+#endif
           atexit(libxs_finalize);
           LIBXS_ATOMIC_STORE(internal_registry, result, LIBXS_ATOMIC_SEQ_CST);
         }
@@ -958,8 +971,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   else if (0 != desc_extra->row_ptr && 0 != desc_extra->column_idx &&
     0 != desc_extra->values)
   { /* currently only one additional kernel kind */
+    assert(0 == (LIBXS_GEMM_FLAG_F32PREC & (descriptor->flags)));
     libxs_generator_spgemm_csr_soa_kernel(&generated_code, descriptor, target_arch,
-      desc_extra->row_ptr, desc_extra->column_idx, desc_extra->values);
+      desc_extra->row_ptr, desc_extra->column_idx, (const double*)desc_extra->values);
   }
 
   /* handle an eventual error in the else-branch */
