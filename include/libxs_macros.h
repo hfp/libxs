@@ -58,11 +58,7 @@
 # if !defined(LIBXS_INLINE_KEYWORD)
 #   define LIBXS_INLINE_KEYWORD
 # endif
-# if defined(LIBXS_BUILD)
-#   define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
-# else
-#   define LIBXS_INLINE LIBXS_INLINE_KEYWORD
-# endif
+# define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
 #endif /*__cplusplus*/
 #if !defined(LIBXS_API)
 # define LIBXS_API LIBXS_EXTERN LIBXS_RETARGETABLE

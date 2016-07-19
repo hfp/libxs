@@ -145,9 +145,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_vtune_jitdesc(const void* code
 #endif
 
 
-#if !defined(LIBXS_BUILD)
-static/*TODO: fix static variable usage*/
-#endif
 LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, size_t* size, int* flags,
   void** extra, internal_alloc_extra_type** internal)
 {
