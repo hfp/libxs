@@ -100,7 +100,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void* in, unsigned int typesize,
+LIBXS_API_DEFINITION void libxs_transpose_oop(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
 #if !defined(NDEBUG) /* library code is expected to be mute */
@@ -132,21 +132,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_stranspose_oop(float* out, const float* in,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
-{
-  libxs_transpose_oop(out, in, sizeof(float), m, n, ld, ldo);
-}
-
-
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dtranspose_oop(double* out, const double* in,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
-{
-  libxs_transpose_oop(out, in, sizeof(double), m, n, ld, ldo);
-}
-
-
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_inp(void* inout, unsigned int typesize,
+LIBXS_API_DEFINITION void libxs_transpose_inp(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
   LIBXS_UNUSED(inout); LIBXS_UNUSED(typesize); LIBXS_UNUSED(m); LIBXS_UNUSED(n); LIBXS_UNUSED(ld);
@@ -154,16 +140,33 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_inp(void* inout, unsigned
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_stranspose_inp(float* inout,
+#if defined(LIBXS_BUILD)
+
+LIBXS_API_DEFINITION void libxs_stranspose_oop(float* out, const float* in,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
+{
+  libxs_transpose_oop(out, in, sizeof(float), m, n, ld, ldo);
+}
+
+
+LIBXS_API_DEFINITION void libxs_dtranspose_oop(double* out, const double* in,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
+{
+  libxs_transpose_oop(out, in, sizeof(double), m, n, ld, ldo);
+}
+
+
+LIBXS_API_DEFINITION void libxs_stranspose_inp(float* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
   libxs_transpose_inp(inout, sizeof(float), m, n, ld);
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_dtranspose_inp(double* inout,
+LIBXS_API_DEFINITION void libxs_dtranspose_inp(double* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
   libxs_transpose_inp(inout, sizeof(double), m, n, ld);
 }
 
+#endif /*defined(LIBXS_BUILD)*/

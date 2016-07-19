@@ -194,7 +194,7 @@
 #if defined(LIBXS_GEMM_EXTWRAP) && !defined(__STATIC)
 
 /* implementation variant for non-static linkage; overrides weak libxs_gemm_init in libxs_gemm.c */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(int archid, int prefetch)
+LIBXS_API_DEFINITION int libxs_gemm_init(int archid, int prefetch)
 {
   union { const void* pv; libxs_sgemm_function pf; } internal_sgemm = { NULL };
   union { const void* pv; libxs_dgemm_function pf; } internal_dgemm = { NULL };
@@ -222,13 +222,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_init(int archid, int prefetch)
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_gemm_finalize(void)
+LIBXS_API_DEFINITION void libxs_gemm_finalize(void)
 {
 }
 
 #endif /*defined(LIBXS_GEMM_EXTWRAP) && !defined(__STATIC)*/
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_sgemm(const char* transa, const char* transb,
+LIBXS_API_DEFINITION void libxs_omp_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
@@ -290,7 +290,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_sgemm(const char* transa, const
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_dgemm(const char* transa, const char* transb,
+LIBXS_API_DEFINITION void libxs_omp_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
   const double* b, const libxs_blasint* ldb,
@@ -354,7 +354,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_dgemm(const char* transa, const
 
 #if defined(LIBXS_GEMM_EXTWRAP)
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
+LIBXS_API_DEFINITION void LIBXS_GEMM_EXTWRAP_SGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
@@ -378,7 +378,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
+LIBXS_API_DEFINITION void LIBXS_GEMM_EXTWRAP_DGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,

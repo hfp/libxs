@@ -68,7 +68,7 @@
 #endif
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_cpuid_x86(void)
+LIBXS_API_DEFINITION int libxs_cpuid_x86(void)
 {
   int target_arch = LIBXS_STATIC_TARGET_ARCH;
   unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;

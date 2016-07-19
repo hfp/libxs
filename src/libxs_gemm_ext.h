@@ -38,11 +38,11 @@
 #   define LIBXS_GEMM_WEAK_SLIB LIBXS_ATTRIBUTE(weak)
 #   define LIBXS_GEMM_EXTWRAP_SGEMM LIBXS_FSYMBOL(__wrap_sgemm)
 #   define LIBXS_GEMM_EXTWRAP_DGEMM LIBXS_FSYMBOL(__wrap_dgemm)
-    LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_sgemm)(
+    LIBXS_API void LIBXS_FSYMBOL(__real_sgemm)(
       const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
       const float*, const float*, const libxs_blasint*, const float* b, const libxs_blasint*,
       const float*, float*, const libxs_blasint*);
-    LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_dgemm)(
+    LIBXS_API void LIBXS_FSYMBOL(__real_dgemm)(
       const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
       const double*, const double*, const libxs_blasint*, const double* b, const libxs_blasint*,
       const double*, double*, const libxs_blasint*);
@@ -52,11 +52,11 @@
 #   define LIBXS_GEMM_EXTWRAP_SGEMM LIBXS_FSYMBOL(sgemm)
 #   define LIBXS_GEMM_EXTWRAP_DGEMM LIBXS_FSYMBOL(dgemm)
 # endif
-  LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
+  LIBXS_API void LIBXS_GEMM_EXTWRAP_SGEMM(
     const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
     const float*, const float*, const libxs_blasint*, const float* b, const libxs_blasint*,
     const float*, float*, const libxs_blasint*);
-  LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
+  LIBXS_API void LIBXS_GEMM_EXTWRAP_DGEMM(
     const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
     const double*, const double*, const libxs_blasint*, const double* b, const libxs_blasint*,
     const double*, double*, const libxs_blasint*);
@@ -69,27 +69,27 @@
 #endif
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
+LIBXS_API void LIBXS_FSYMBOL(sgemm)(
   const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const float*, const float*, const libxs_blasint*, const float*, const libxs_blasint*,
   const float*, float*, const libxs_blasint*);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
+LIBXS_API void LIBXS_FSYMBOL(dgemm)(
   const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
   const double*, double*, const libxs_blasint*);
 
 
 /** INTERNAL: configuration table containing the tile sizes separate for DP and SP. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_tile_size[/*DP/SP*/][3/*TILE_M,TILE_N,TILE_K*/];
+LIBXS_EXTERN LIBXS_RETARGETABLE int libxs_internal_tile_size[/*DP/SP*/][3/*TILE_M,TILE_N,TILE_K*/];
 /** INTERNAL: number of threads per core */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_gemm_nthreads_per_core;
+LIBXS_EXTERN LIBXS_RETARGETABLE int libxs_internal_gemm_nthreads_per_core;
 /** INTERNAL: prefetch strategy */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_gemm_prefetch;
+LIBXS_EXTERN LIBXS_RETARGETABLE int libxs_internal_gemm_prefetch;
 /** INTERNAL: determines whether (OpenMP-)tasks are preferred over thread-style parallelization */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_gemm_tasks;
+LIBXS_EXTERN LIBXS_RETARGETABLE int libxs_internal_gemm_tasks;
 /** INTERNAL: kind of OMP-based ?GEMM (1: sequential, 2: parallelized) */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_gemm_omp;
+LIBXS_EXTERN LIBXS_RETARGETABLE int libxs_internal_gemm_omp;
 /** INTERNAL: kind of LD_PRELOAD ?GEMM (0: small gemm, 1: sequential, 2: parallelized) */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_internal_gemm;
+LIBXS_EXTERN LIBXS_RETARGETABLE int libxs_internal_gemm;
 
 #endif /*LIBXS_GEMM_EXT_H*/

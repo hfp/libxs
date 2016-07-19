@@ -87,7 +87,7 @@ typedef struct LIBXS_RETARGETABLE internal_alloc_info_type {
 } internal_alloc_info_type;
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t libxs_gcd(size_t a, size_t b)
+LIBXS_API_DEFINITION size_t libxs_gcd(size_t a, size_t b)
 {
   while (0 != b) {
     const size_t r = a % b;
@@ -98,13 +98,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t libxs_gcd(size_t a, size_t b)
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t libxs_lcm(size_t a, size_t b)
+LIBXS_API_DEFINITION size_t libxs_lcm(size_t a, size_t b)
 {
   return (a * b) / libxs_gcd(a, b);
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t libxs_alignment(size_t size, size_t alignment)
+LIBXS_API_DEFINITION size_t libxs_alignment(size_t size, size_t alignment)
 {
   size_t result = sizeof(void*);
   if ((LIBXS_ALLOC_ALIGNFCT * LIBXS_ALLOC_ALIGNMAX) <= size) {
@@ -145,6 +145,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_vtune_jitdesc(const void* code
 #endif
 
 
+#if !defined(LIBXS_BUILD)
+static/*TODO: fix static variable usage*/
+#endif
 LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, size_t* size, int* flags,
   void** extra, internal_alloc_extra_type** internal)
 {
@@ -182,13 +185,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, size
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_info(const void* memory, size_t* size, int* flags, void** extra)
+LIBXS_API_DEFINITION int libxs_alloc_info(const void* memory, size_t* size, int* flags, void** extra)
 {
   return internal_alloc_info(memory, size, flags, extra, 0/*internal*/);
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, size_t size, size_t alignment,
+LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t alignment,
   int flags, const void* extra, size_t extra_size)
 {
   int result = EXIT_SUCCESS;
@@ -205,7 +208,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, size_t size,
       if (0 == flags || LIBXS_ALLOC_FLAG_DEFAULT == flags) {
         alloc_alignment = libxs_alignment(size, alignment);
         alloc_size = internal_size + alloc_alignment - 1;
-        buffer = malloc(alloc_size);
+        buffer = (char*)malloc(alloc_size);
       }
       else
 #endif
@@ -365,7 +368,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_allocate(void** memory, size_t size,
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
+LIBXS_API_DEFINITION int libxs_deallocate(const void* memory)
 {
   int result = EXIT_SUCCESS;
   if (memory) {
@@ -410,7 +413,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_deallocate(const void* memory)
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_attribute(const void* memory, int flags, const char* name)
+LIBXS_API_DEFINITION int libxs_alloc_attribute(const void* memory, int flags, const char* name)
 {
   void* buffer = 0;
   size_t size = 0;
@@ -477,7 +480,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_alloc_attribute(const void* memory, 
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_malloc(size_t size)
+#if defined(LIBXS_BUILD)
+
+LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 {
   void* result = 0;
   return 0 == libxs_allocate(&result, size, 0/*auto*/, LIBXS_ALLOC_FLAG_DEFAULT,
@@ -485,8 +490,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_malloc(size_t size)
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_free(const void* memory)
+LIBXS_API_DEFINITION void libxs_free(const void* memory)
 {
   libxs_deallocate(memory);
 }
 
+#endif /*defined(LIBXS_BUILD)*/

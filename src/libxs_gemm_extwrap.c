@@ -31,7 +31,7 @@
 
 #if defined(LIBXS_GEMM_EXTWRAP)
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_SGEMM(
+LIBXS_API LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_SGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
@@ -48,7 +48,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_DGEMM(
+LIBXS_API LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_DGEMM(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,

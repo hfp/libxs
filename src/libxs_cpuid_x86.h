@@ -33,7 +33,7 @@
 
 
 /** Returns the target architecture and instruction set extension (code path). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_cpuid_x86(void);
+LIBXS_API int libxs_cpuid_x86(void);
 
 
 #if defined(LIBXS_BUILD) && !defined(LIBXS_CPUID_X86_NOINLINE)

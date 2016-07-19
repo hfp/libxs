@@ -40,29 +40,29 @@
 typedef LIBXS_RETARGETABLE unsigned int (*libxs_hash_function)(const void*, unsigned int, unsigned int);
 
 /** Initialize hash function module; not thread-safe. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_hash_init(int target_arch);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_hash_finalize(void);
+LIBXS_API void libxs_hash_init(int target_arch);
+LIBXS_API void libxs_hash_finalize(void);
 
 /** Dispatched implementation which may (or may not) use a SIMD extension. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32(
+LIBXS_API unsigned int libxs_crc32(
   const void* data, unsigned int size, unsigned int seed);
 
 /** Calculate the CRC32 for a given quantity (size) of raw data according to the seed (init. value). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sw(
+LIBXS_API unsigned int libxs_crc32_sw(
   const void* data, unsigned int size, unsigned int seed);
 
 /** Similar to libxs_crc32_sw (uses CRC32 instructions available since SSE4.2). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_crc32_sse42(
+LIBXS_API unsigned int libxs_crc32_sse42(
   const void* data, unsigned int size, unsigned int seed);
 
 /** Calculate a hash value for a given quantity (size) of raw data according to the seed (init. value). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_hash(
+LIBXS_API unsigned int libxs_hash(
   const void* data, unsigned int size,
   /** Upper bound of the result. */
   unsigned int n);
 
 /** Calculate a hash value for a given quantity (size) of raw data according to the seed (init. value). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_hash_npot(
+LIBXS_API unsigned int libxs_hash_npot(
   const void* data, unsigned int size,
   /** Upper bound of the result. */
   unsigned int npot);

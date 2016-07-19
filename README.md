@@ -17,7 +17,7 @@ In order to initialize the dispatch-table or other internal resources, one may c
 ```C
 /** Initialize the library; pay for setup cost at a specific point. */
 void libxs_init(void);
-/** Uninitialize the library and free internal memory (optional). */
+/** De-initialize the library and free internal memory (optional). */
 void libxs_finalize(void);
 ```
 

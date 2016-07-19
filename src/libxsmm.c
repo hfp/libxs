@@ -701,7 +701,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
 }
 
 
-LIBXS_EXTERN_C
+LIBXS_API_DEFINITION
 #if defined(__GNUC__)
 LIBXS_ATTRIBUTE(constructor)
 #endif
@@ -714,7 +714,7 @@ LIBXS_RETARGETABLE void libxs_init(void)
 }
 
 
-LIBXS_EXTERN_C
+LIBXS_API_DEFINITION
 #if defined(__GNUC__)
 LIBXS_ATTRIBUTE(destructor)
 LIBXS_ATTRIBUTE(no_instrument_function)
@@ -812,7 +812,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_archid(void)
+LIBXS_API_DEFINITION int libxs_get_target_archid(void)
 {
   LIBXS_INIT
 #if !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
@@ -823,7 +823,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_archid(void)
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(int id)
+LIBXS_API_DEFINITION void libxs_set_target_archid(int id)
 {
   switch (id) {
     case LIBXS_X86_AVX512_CORE:
@@ -857,7 +857,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(int id)
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_arch(void)
+LIBXS_API_DEFINITION const char* libxs_get_target_arch(void)
 {
   LIBXS_INIT
   return internal_get_target_arch(internal_target_archid);
@@ -865,8 +865,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_arch(void)
 
 
 /* function serves as a helper for implementing the Fortran interface */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* get_target_arch(int* length);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* get_target_arch(int* length)
+LIBXS_API const char* get_target_arch(int* length);
+LIBXS_API_DEFINITION const char* get_target_arch(int* length)
 {
   const char *const arch = libxs_get_target_arch();
   /* valid here since function is not in the public interface */
@@ -876,7 +876,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* get_target_arch(int* length)
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_arch(const char* arch)
+LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
 {
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
 
@@ -1020,14 +1020,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_xmmdispatch(const lib
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
+LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   const libxs_xmmfunction null_mmfunction = { 0 };
   return 0 != descriptor ? internal_xmmdispatch(descriptor) : null_mmfunction;
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
+LIBXS_API_DEFINITION libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
   const float* alpha, const float* beta,
   const int* flags, const int* prefetch)
@@ -1036,7 +1036,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
+LIBXS_API_DEFINITION libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
   const double* alpha, const double* beta,
   const int* flags, const int* prefetch)
@@ -1045,7 +1045,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* descriptor,
+LIBXS_API_DEFINITION libxs_dmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* descriptor,
   const unsigned int* row_ptr, const unsigned int* column_idx, const double* values)
 {
   internal_code_type code = { {0} };
@@ -1059,7 +1059,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_create_dcsr_soa(const 
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_destroy(const void* jit_code)
+LIBXS_API_DEFINITION void libxs_destroy(const void* jit_code)
 {
   libxs_deallocate(jit_code);
 }
@@ -1068,7 +1068,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_destroy(const void* jit_code)
 #if defined(LIBXS_GEMM_EXTWRAP)
 #if defined(__STATIC)
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_sgemm)(
+LIBXS_API_DEFINITION void LIBXS_FSYMBOL(__real_sgemm)(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
@@ -1079,7 +1079,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_sgemm)(
 }
 
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void LIBXS_FSYMBOL(__real_dgemm)(
+LIBXS_API_DEFINITION void LIBXS_FSYMBOL(__real_dgemm)(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,

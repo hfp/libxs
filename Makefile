@@ -219,7 +219,7 @@ lib: headers drytest lib_hst lib_mic
 all: lib samples
 
 .PHONY: headers
-headers: cheader fheader
+headers: cheader cheader_only fheader
 
 .PHONY: interface
 interface: headers
@@ -355,6 +355,11 @@ ifeq (1,$(BLAS))
 endif
 	$(info ================================================================================)
 endif
+
+.PHONY: cheader_only
+cheader_only: $(INCDIR)/libxs_source.h
+$(INCDIR)/libxs_source.h: $(INCDIR)/libxs.h $(SCRDIR)/libxs_source.sh
+	@$(SCRDIR)/libxs_source.sh > $@
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
@@ -1171,6 +1176,7 @@ endif
 	@rm -f $(SPLDIR)/nek/grad-perf.sh
 	@rm -f $(SPLDIR)/nek/axhm-perf.sh
 	@rm -f $(SPLDIR)/nek/rstr-perf.sh
+	@rm -f $(INCDIR)/libxs_source.h
 	@rm -f $(INCDIR)/libxs.modmic
 	@rm -f $(INCDIR)/libxs.mod
 	@rm -f $(INCDIR)/libxs.f
@@ -1242,6 +1248,8 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 		cp -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
 	fi
+	@echo
+	@echo "LIBXS installing interface..."
 	@cp -v $(BINDIR)/libxs_gemm_generator $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
 	@cp -v $(INCDIR)/*.mod* $(INSTALL_ROOT)/$(PINCDIR) 2> /dev/null || true
 	@cp -v $(INCDIR)/libxs*.h $(INSTALL_ROOT)/$(PINCDIR)

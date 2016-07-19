@@ -2,6 +2,7 @@
 My Amplifier*
 bin/libxs_generator
 include/stream_update_kernels.f
+include/libxs_source.h
 include/libxs.f
 include/libxs.h
 build/libxs_dispatch.h
@@ -43,6 +44,9 @@ _*.txt
 *.lib
 *.mod
 *.bin
+*.jit
+*.smm
+*.soa
 *.dll
 *.so
 *.o

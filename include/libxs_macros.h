@@ -42,12 +42,12 @@
 
 #if defined(__cplusplus)
 # define LIBXS_VARIADIC ...
-# define LIBXS_EXTERN_C extern "C"
+# define LIBXS_EXTERN extern "C"
 # define LIBXS_INLINE_KEYWORD inline
 # define LIBXS_INLINE LIBXS_INLINE_KEYWORD
 #else
 # define LIBXS_VARIADIC
-# define LIBXS_EXTERN_C extern
+# define LIBXS_EXTERN extern
 # if defined(__STDC_VERSION__) && (199901L <= (__STDC_VERSION__)) /*C99*/
 #   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
 #   define LIBXS_RESTRICT restrict
@@ -58,12 +58,23 @@
 # if !defined(LIBXS_INLINE_KEYWORD)
 #   define LIBXS_INLINE_KEYWORD
 # endif
-# define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
+# if defined(LIBXS_BUILD)
+#   define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
+# else
+#   define LIBXS_INLINE LIBXS_INLINE_KEYWORD
+# endif
 #endif /*__cplusplus*/
+#if !defined(LIBXS_API)
+# define LIBXS_API LIBXS_EXTERN LIBXS_RETARGETABLE
+#endif
+#if !defined(LIBXS_API_DEFINITION)
+# define LIBXS_API_DEFINITION LIBXS_API
+#endif
+
 #if defined(LIBXS_BUILD)
-# define LIBXS_INLINE_EXPORT LIBXS_EXTERN_C
+# define LIBXS_API_INLINE LIBXS_API
 #else
-# define LIBXS_INLINE_EXPORT LIBXS_INLINE
+# define LIBXS_API_INLINE LIBXS_INLINE LIBXS_RETARGETABLE
 #endif
 
 #if !defined(LIBXS_RESTRICT)
@@ -219,7 +230,7 @@
 # define LIBXS_UNUSED_ARG
 #endif
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) && defined(LIBXS_BUILD)
 # define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
 # define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
 #else

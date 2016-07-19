@@ -81,36 +81,36 @@ typedef union LIBXS_RETARGETABLE libxs_xmmfunction {
 } libxs_xmmfunction;
 
 /** Initialize the library; pay for setup cost at a specific point. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_init(void);
-/** Uninitialize the library and free internal memory (optional). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_finalize(void);
+LIBXS_API void libxs_init(void);
+/** De-initialize the library and free internal memory (optional). */
+LIBXS_API void libxs_finalize(void);
 
 /**
  * Returns the architecture and instruction set extension as determined by the CPUID flags, as set
  * by the libxs_get_target_arch* functions, or as set by the LIBXS_TARGET environment variable.
  */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_get_target_archid(void);
+LIBXS_API int libxs_get_target_archid(void);
 /** Set target architecture (id: see libxs_typedefs.h) for subsequent code generation (JIT). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_archid(int id);
+LIBXS_API void libxs_set_target_archid(int id);
 
 /**
  * Returns the name of the target architecture as determined by the CPUID flags, as set by the
  * libxs_get_target_arch* functions, or as set by the LIBXS_TARGET environment variable.
  */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE const char* libxs_get_target_arch(void);
+LIBXS_API const char* libxs_get_target_arch(void);
 /** Set target architecture (arch="0|sse|snb|hsw|knl|skx", NULL/"0": CPUID) for subsequent code generation (JIT). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_set_target_arch(const char* arch);
+LIBXS_API void libxs_set_target_arch(const char* arch);
 
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (descriptor form). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);
+LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);
 
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (single-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
+LIBXS_API libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
   const float* alpha, const float* beta,
   const int* flags, const int* prefetch);
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (double-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
+LIBXS_API libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
   const double* alpha, const double* beta,
   const int* flags, const int* prefetch);
@@ -120,18 +120,18 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_dmmdispatch(int m, int
  * wide vector) and a sparse matrix. There is no code cache, and user code has to manage the code pointers.
  * Call libxs_destroy in order to deallocate the JIT'ted code.
  */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_dmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* descriptor,
+LIBXS_API libxs_dmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* descriptor,
    const unsigned int* row_ptr, const unsigned int* column_idx, const double* values);
 
 /** Deallocates the JIT'ted code as returned by libxs_create_* function. TODO: this is a no-op at the moment. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_destroy(const void* jit_code);
+LIBXS_API void libxs_destroy(const void* jit_code);
 
 /** Transpose a matrix (out-of-place form). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_oop(void* out, const void* in, unsigned int typesize,
+LIBXS_API void libxs_transpose_oop(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
 
 /** Transpose a matrix (out-of-place form, single-precision). */
-LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_stranspose_oop(float* out, const float* in,
+LIBXS_API_INLINE void libxs_stranspose_oop(float* out, const float* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 #if defined(LIBXS_BUILD)
 ;
@@ -140,7 +140,7 @@ LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_stranspose_oop(float* out, con
 #endif
 
 /** Transpose a matrix (out-of-place form, double-precision). */
-LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_dtranspose_oop(double* out, const double* in,
+LIBXS_API_INLINE void libxs_dtranspose_oop(double* out, const double* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 #if defined(LIBXS_BUILD)
 ;
@@ -149,11 +149,11 @@ LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_dtranspose_oop(double* out, co
 #endif
 
 /** Transpose a matrix (in-place form). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_transpose_inp(void* inout, unsigned int typesize,
+LIBXS_API void libxs_transpose_inp(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld);
 
 /** Transpose a matrix (in-place form, single-precision). */
-LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_stranspose_inp(float* inout,
+LIBXS_API_INLINE void libxs_stranspose_inp(float* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 #if defined(LIBXS_BUILD)
 ;
@@ -162,7 +162,7 @@ LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_stranspose_inp(float* inout,
 #endif
 
 /** Transpose a matrix (in-place form, double-precision). */
-LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_dtranspose_inp(double* inout,
+LIBXS_API_INLINE void libxs_dtranspose_inp(double* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 #if defined(LIBXS_BUILD)
 ;
@@ -171,7 +171,7 @@ LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_dtranspose_inp(double* inout,
 #endif
 
 /** Dispatched general dense matrix multiplication (single-precision); can be called from F77 code. */
-LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_sgemm(const char* transa, const char* transb,
+LIBXS_API_INLINE void libxs_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
@@ -189,7 +189,7 @@ LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_sgemm(const char* transa, cons
 #endif
 
 /** Dispatched general dense matrix multiplication (double-precision); can be called from F77 code. */
-LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_dgemm(const char* transa, const char* transb,
+LIBXS_API_INLINE void libxs_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
   const double* b, const libxs_blasint* ldb,
@@ -207,28 +207,28 @@ LIBXS_INLINE_EXPORT LIBXS_RETARGETABLE void libxs_dgemm(const char* transa, cons
 #endif
 
 /** Threadable general dense matrix multiplication; requires linking libxsext (single-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_sgemm(const char* transa, const char* transb,
+LIBXS_API void libxs_omp_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc);
 
 /** Threadable general dense matrix multiplication; requires linking libxsext (double-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_omp_dgemm(const char* transa, const char* transb,
+LIBXS_API void libxs_omp_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
   const double* b, const libxs_blasint* ldb,
   const double* beta, double* c, const libxs_blasint* ldc);
 
 /** General dense matrix multiplication based on LAPACK/BLAS (single-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_sgemm(const char* transa, const char* transb,
+LIBXS_API void libxs_blas_sgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc);
 
 /** General dense matrix multiplication based on LAPACK/BLAS (double-precision). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void libxs_blas_dgemm(const char* transa, const char* transb,
+LIBXS_API void libxs_blas_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
   const double* b, const libxs_blasint* ldb,
