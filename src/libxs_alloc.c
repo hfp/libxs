@@ -322,7 +322,7 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
         if (0 < extra_size && 0 != extra) {
           const char *const src = (const char*)extra;
           size_t i;
-#if (1900 <= _MSC_VER)
+#if defined(_MSC_VER) && (1900 <= _MSC_VER)
 #         pragma warning(suppress: 6386)
 #endif
           for (i = 0; i < extra_size; ++i) buffer[i] = src[i];

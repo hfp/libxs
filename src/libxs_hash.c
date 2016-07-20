@@ -442,11 +442,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u16(unsigned int see
 
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u32(unsigned int seed, unsigned int n, unsigned int value)
 {
+  const unsigned int s = seed ^ value;
+  const uint32_t c0 = internal_crc32_table(0)[(s>>24)&0xFF];
+  const uint32_t c1 = internal_crc32_table(1)[(s>>16)&0xFF];
+  const uint32_t c2 = internal_crc32_table(2)[(s>>8)&0xFF];
+  const uint32_t c3 = internal_crc32_table(3)[s&0xFF];
   LIBXS_UNUSED(n);
-  seed ^= value;
-  seed = (internal_crc32_table(0)[(seed>>24)&0xFF] ^ internal_crc32_table(1)[(seed>>16)&0xFF])
-       ^ (internal_crc32_table(2)[(seed>>8)&0xFF]  ^ internal_crc32_table(3)[seed&0xFF]);
-  return seed;
+  return (c0 ^ c1) ^ (c2 ^ c3);
 }
 
 
