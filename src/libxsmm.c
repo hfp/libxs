@@ -168,9 +168,8 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(internal_reglock(LOCKINDEX)); }
 #endif
 
-#define INTERNAL_FIND_CODE_DECLARE(CODE) internal_code_type* CODE = LIBXS_ATOMIC_LOAD(*internal_registry(), LIBXS_ATOMIC_RELAXED); unsigned int i
-#define INTERNAL_FIND_CODE_READ(CODE, DST) DST = LIBXS_ATOMIC_LOAD((CODE)->pmm, LIBXS_ATOMIC_SEQ_CST)
-#define INTERNAL_FIND_CODE_WRITE(CODE, SRC) LIBXS_ATOMIC_STORE((CODE)->pmm, SRC, LIBXS_ATOMIC_SEQ_CST)
+#define INTERNAL_FIND_CODE_DECLARE(CODE) internal_code_type* CODE = \
+  LIBXS_ATOMIC_LOAD(*internal_registry(), LIBXS_ATOMIC_RELAXED); unsigned int i
 
 #if defined(LIBXS_CACHESIZE) && (0 < (LIBXS_CACHESIZE))
 # define INTERNAL_FIND_CODE_CACHE_DECL(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT) \
@@ -234,7 +233,7 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
         if (0 != (RESULT).pmm) { /* synchronize registry entry */ \
           (*internal_registry_keys())[i].descriptor = *(DESCRIPTOR); \
           *(CODE) = RESULT; \
-          INTERNAL_FIND_CODE_WRITE(CODE, (RESULT).pmm); \
+          LIBXS_ATOMIC_STORE((CODE)->pmm, (RESULT).pmm, LIBXS_ATOMIC_SEQ_CST); \
         } \
       } \
       else { /* 0 != diff */ \
@@ -247,7 +246,7 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
           i = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE)); \
           i0 = i; /* keep starting point of free-slot-search in mind */ \
           internal_update_statistic(DESCRIPTOR, 0, 1); \
-          INTERNAL_FIND_CODE_WRITE(CODE, collision.pmm); /* fix-up existing entry */ \
+          LIBXS_ATOMIC_STORE((CODE)->pmm, collision.pmm, LIBXS_ATOMIC_SEQ_CST); /* fix-up existing entry */ \
           diff0 = diff; /* no more fix-up */ \
         } \
         else { \
@@ -281,7 +280,7 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
     LIBXS_HASH_FUNCTION_CALL(hash, i = i0, *(DESCRIPTOR)); \
     (CODE) += i; /* actual entry */ \
     do { \
-      INTERNAL_FIND_CODE_READ(CODE, flux_entry.pmm); /* read registered code */ \
+      flux_entry.pmm = LIBXS_ATOMIC_LOAD((CODE)->pmm, LIBXS_ATOMIC_SEQ_CST); /* read registered code */ \
       if (0 != flux_entry.pmm) { /* code version exists */ \
         if (0 == diff0) { \
           if (0 == (LIBXS_HASH_COLLISION & flux_entry.imm)) { /* check for no collision */ \
