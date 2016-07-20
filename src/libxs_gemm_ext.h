@@ -46,17 +46,17 @@
       const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
       const double*, const double*, const libxs_blasint*, const double* b, const libxs_blasint*,
       const double*, double*, const libxs_blasint*);
-# elif !defined(__CYGWIN__) /* LD_PRELOAD */
+# elif defined(LIBXS_BUILD) && !defined(__CYGWIN__) /* LD_PRELOAD */
 #   define LIBXS_GEMM_EXTWRAP
 #   define LIBXS_GEMM_WEAK_DLIB LIBXS_ATTRIBUTE(weak)
 #   define LIBXS_GEMM_EXTWRAP_SGEMM LIBXS_FSYMBOL(sgemm)
 #   define LIBXS_GEMM_EXTWRAP_DGEMM LIBXS_FSYMBOL(dgemm)
 # endif
-  LIBXS_API void LIBXS_GEMM_EXTWRAP_SGEMM(
+  LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_SGEMM(
     const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
     const float*, const float*, const libxs_blasint*, const float* b, const libxs_blasint*,
     const float*, float*, const libxs_blasint*);
-  LIBXS_API void LIBXS_GEMM_EXTWRAP_DGEMM(
+  LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_GEMM_EXTWRAP_DGEMM(
     const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
     const double*, const double*, const libxs_blasint*, const double* b, const libxs_blasint*,
     const double*, double*, const libxs_blasint*);
@@ -69,15 +69,14 @@
 #endif
 
 
-LIBXS_API void LIBXS_FSYMBOL(sgemm)(
+LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
   const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const float*, const float*, const libxs_blasint*, const float*, const libxs_blasint*,
   const float*, float*, const libxs_blasint*);
-LIBXS_API void LIBXS_FSYMBOL(dgemm)(
+LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
   const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
   const double*, double*, const libxs_blasint*);
-
 
 /** INTERNAL: configuration table containing the tile sizes separate for DP and SP. */
 LIBXS_EXTERN LIBXS_RETARGETABLE int libxs_internal_tile_size[/*DP/SP*/][3/*TILE_M,TILE_N,TILE_K*/];
