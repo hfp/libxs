@@ -375,7 +375,7 @@ return flux_entry.xmm
 
 #if !defined(LIBXS_OPENMP)
 # define INTERNAL_REGLOCK_COUNT 16
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reglock(int i)
+static LIBXS_RETARGETABLE LIBXS_LOCK_TYPE internal_reglock(int i)
 {
   static LIBXS_RETARGETABLE LIBXS_LOCK_TYPE instance[] = {
     LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT, LIBXS_LOCK_CONSTRUCT,
@@ -389,21 +389,21 @@ static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL LIBXS_LOCK_TYPE internal_reg
 #endif
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_regkey_type** internal_registry_keys(void)
+static LIBXS_RETARGETABLE internal_regkey_type** internal_registry_keys(void)
 {
   static LIBXS_RETARGETABLE internal_regkey_type* instance = 0;
   return &instance;
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_code_type** internal_registry(void)
+static LIBXS_RETARGETABLE internal_code_type** internal_registry(void)
 {
   static LIBXS_RETARGETABLE internal_code_type* instance = 0;
   return &instance;
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_statistic_type* internal_statistic(int precision)
+static LIBXS_RETARGETABLE internal_statistic_type* internal_statistic(int precision)
 {
   static LIBXS_RETARGETABLE internal_statistic_type instance[2/*DP/SP*/][3/*sml/med/big*/];
   assert(0 <= precision && precision < 2);
@@ -411,42 +411,42 @@ static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL internal_statistic_type* int
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int* internal_statistic_sml(void)
+static LIBXS_RETARGETABLE unsigned int* internal_statistic_sml(void)
 {
   static LIBXS_RETARGETABLE unsigned int instance = 13;
   return &instance;
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int* internal_statistic_med(void)
+static LIBXS_RETARGETABLE unsigned int* internal_statistic_med(void)
 {
   static LIBXS_RETARGETABLE unsigned int instance = 23;
   return &instance;
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int* internal_statistic_mnk(void)
+static LIBXS_RETARGETABLE unsigned int* internal_statistic_mnk(void)
 {
   static LIBXS_RETARGETABLE unsigned int instance = LIBXS_MAX_M;
   return &instance;
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL unsigned int* internal_teardown(void)
+static LIBXS_RETARGETABLE unsigned int* internal_teardown(void)
 {
   static LIBXS_RETARGETABLE unsigned int instance = 0;
   return &instance;
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int* internal_target_archid(void)
+static LIBXS_RETARGETABLE int* internal_target_archid(void)
 {
   static LIBXS_RETARGETABLE int instance = LIBXS_TARGET_ARCH_GENERIC;
   return &instance;
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int* internal_verbose(void)
+static LIBXS_RETARGETABLE int* internal_verbose(void)
 {
 #if defined(NDEBUG)
   static LIBXS_RETARGETABLE int instance = 0; /* quiet */
@@ -457,7 +457,7 @@ static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int* internal_verbose(void)
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL int* internal_prefetch(void)
+static LIBXS_RETARGETABLE int* internal_prefetch(void)
 {
   static LIBXS_RETARGETABLE int instance = LIBXS_MAX(INTERNAL_PREFETCH, 0);
   return &instance;

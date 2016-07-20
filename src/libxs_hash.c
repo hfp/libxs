@@ -135,7 +135,7 @@
 #endif
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_hash_function* internal_hash_function(void)
+static LIBXS_RETARGETABLE libxs_hash_function* internal_hash_function(void)
 {
   static LIBXS_RETARGETABLE libxs_hash_function instance = libxs_crc32_sw;
   assert(0 != instance);
@@ -143,7 +143,7 @@ static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_hash_function* interna
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL const uint32_t* internal_crc32_table(int i)
+static LIBXS_RETARGETABLE const uint32_t* internal_crc32_table(int i)
 {
   /* table-based implementation taken from http://dpdk.org/. */
   static const LIBXS_RETARGETABLE uint32_t instance[][256] = {

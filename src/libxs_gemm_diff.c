@@ -54,7 +54,7 @@
 #endif
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diff_function* internal_gemm_diff_fn(void)
+static LIBXS_RETARGETABLE libxs_gemm_diff_function* internal_gemm_diff_fn(void)
 {
   static LIBXS_RETARGETABLE libxs_gemm_diff_function instance = libxs_gemm_diff_sw;
   assert(0 != instance);
@@ -62,7 +62,7 @@ static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diff_function* in
 }
 
 
-static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diffn_function* internal_gemm_diffn_fn(void)
+static LIBXS_RETARGETABLE libxs_gemm_diffn_function* internal_gemm_diffn_fn(void)
 {
   static LIBXS_RETARGETABLE libxs_gemm_diffn_function instance = libxs_gemm_diffn_sw;
   assert(0 != instance);
