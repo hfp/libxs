@@ -54,35 +54,47 @@
 #endif
 
 
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diff_function internal_gemm_diff_fn = libxs_gemm_diff_sw;
-LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diffn_function internal_gemm_diffn_fn = libxs_gemm_diffn_sw;
+static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diff_function* internal_gemm_diff_fn(void)
+{
+  static LIBXS_RETARGETABLE libxs_gemm_diff_function instance = libxs_gemm_diff_sw;
+  assert(0 != instance);
+  return &instance;
+}
+
+
+static LIBXS_RETARGETABLE LIBXS_VISIBILITY_INTERNAL libxs_gemm_diffn_function* internal_gemm_diffn_fn(void)
+{
+  static LIBXS_RETARGETABLE libxs_gemm_diffn_function instance = libxs_gemm_diffn_sw;
+  assert(0 != instance);
+  return &instance;
+}
 
 
 LIBXS_API_DEFINITION void libxs_gemm_diff_init(int target_arch)
 {
 #if defined(__MIC__)
   LIBXS_UNUSED(target_arch);
-  internal_gemm_diffn_fn = libxs_gemm_diffn_imci;
-  internal_gemm_diff_fn = libxs_gemm_diff_imci;
+  *internal_gemm_diffn_fn() = libxs_gemm_diffn_imci;
+  *internal_gemm_diff_fn() = libxs_gemm_diff_imci;
 #else
   if (LIBXS_X86_AVX512_CORE <= target_arch) {
-    internal_gemm_diffn_fn = libxs_gemm_diffn_avx512;
-    internal_gemm_diff_fn = libxs_gemm_diff_avx2;
+    *internal_gemm_diffn_fn() = libxs_gemm_diffn_avx512;
+    *internal_gemm_diff_fn() = libxs_gemm_diff_avx2;
   }
   else if (LIBXS_X86_AVX512_MIC <= target_arch) {
-    internal_gemm_diffn_fn = libxs_gemm_diffn_avx512;
-    internal_gemm_diff_fn = libxs_gemm_diff_avx2;
+    *internal_gemm_diffn_fn() = libxs_gemm_diffn_avx512;
+    *internal_gemm_diff_fn() = libxs_gemm_diff_avx2;
   }
   else if (LIBXS_X86_AVX2 <= target_arch) {
-    internal_gemm_diffn_fn = libxs_gemm_diffn_avx2;
-    internal_gemm_diff_fn = libxs_gemm_diff_avx2;
+    *internal_gemm_diffn_fn() = libxs_gemm_diffn_avx2;
+    *internal_gemm_diff_fn() = libxs_gemm_diff_avx2;
   }
   else if (LIBXS_X86_AVX <= target_arch) {
-    internal_gemm_diffn_fn = libxs_gemm_diffn_avx;
-    internal_gemm_diff_fn = libxs_gemm_diff_avx;
+    *internal_gemm_diffn_fn() = libxs_gemm_diffn_avx;
+    *internal_gemm_diff_fn() = libxs_gemm_diff_avx;
   }
   else if (LIBXS_X86_SSE3 <= target_arch) {
-    internal_gemm_diff_fn = libxs_gemm_diff_sse;
+    *internal_gemm_diff_fn() = libxs_gemm_diff_sse;
   }
 #endif
 }
@@ -90,8 +102,8 @@ LIBXS_API_DEFINITION void libxs_gemm_diff_init(int target_arch)
 
 LIBXS_API_DEFINITION void libxs_gemm_diff_finalize(void)
 {
-  internal_gemm_diff_fn = libxs_gemm_diff_sw;
-  internal_gemm_diffn_fn = libxs_gemm_diffn_sw;
+  *internal_gemm_diff_fn() = libxs_gemm_diff_sw;
+  *internal_gemm_diffn_fn() = libxs_gemm_diffn_sw;
 }
 
 
@@ -109,8 +121,7 @@ LIBXS_API_DEFINITION unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* r
 #elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diff_sse(reference, desc);
 #else /* pointer based function call */
-  assert(0 != internal_gemm_diff_fn);
-  return (*internal_gemm_diff_fn)(reference, desc);
+  return (*internal_gemm_diff_fn())(reference, desc);
 #endif
 }
 
@@ -297,8 +308,7 @@ LIBXS_API_DEFINITION unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* 
 #elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diffn_avx(reference, descs, hint, ndescs, nbytes);
 #else /* pointer based function call */
-  assert(0 != internal_gemm_diffn_fn);
-  return (*internal_gemm_diffn_fn)(reference, descs, hint, ndescs, nbytes);
+  return (*internal_gemm_diffn_fn())(reference, descs, hint, ndescs, nbytes);
 #endif
 }
 

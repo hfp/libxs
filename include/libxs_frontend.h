@@ -128,33 +128,37 @@
 # endif
 #elif (0 != LIBXS_ILP64)
 /** Fallback prototype functions served by any compliant LAPACK/BLAS (ILP64). */
-LIBXS_EXTERN LIBXS_RETARGETABLE void (*libxs_internal_sgemm)(
+typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
   const char*, const char*, const long long*, const long long*, const long long*,
   const float*, const float*, const long long*, const float*, const long long*,
   const float*, float*, const long long*);
-LIBXS_EXTERN LIBXS_RETARGETABLE void (*libxs_internal_dgemm)(
+typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
   const char*, const char*, const long long*, const long long*, const long long*,
   const double*, const double*, const long long*, const double*, const long long*,
   const double*, double*, const long long*);
 # else /*LP64*/
 /** Fallback prototype functions served by any compliant LAPACK/BLAS (LP64). */
-LIBXS_EXTERN LIBXS_RETARGETABLE void (*libxs_internal_sgemm)(
+typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
   const char*, const char*, const int*, const int*, const int*,
   const float*, const float*, const int*, const float*, const int*,
   const float*, float*, const int*);
-LIBXS_EXTERN LIBXS_RETARGETABLE void (*libxs_internal_dgemm)(
+typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
   const char*, const char*, const int*, const int*, const int*,
   const double*, const double*, const int*, const double*, const int*,
   const double*, double*, const int*);
 #endif
 
+/** Get the original GEMM function. */
+LIBXS_API libxs_sgemm_function* libxs_original_sgemm(void);
+LIBXS_API libxs_dgemm_function* libxs_original_dgemm(void);
+
 /** Construct symbol name from a given real type name (float or double). */
-#define LIBXS_MMFUNCTION_TYPE(REAL)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmfunction))
-#define LIBXS_MMDISPATCH_SYMBOL(REAL) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmdispatch))
-#define LIBXS_BLAS_GEMM_SYMBOL(REAL)  LIBXS_CONCATENATE(libxs_internal_, LIBXS_TPREFIX(REAL, gemm))
-#define LIBXS_XBLAS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(REAL, gemm))
-#define LIBXS_XOMPS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_omp_, LIBXS_TPREFIX(REAL, gemm))
-#define LIBXS_XGEMM_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm))
+#define LIBXS_MMFUNCTION_TYPE(REAL)    LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmfunction))
+#define LIBXS_MMDISPATCH_SYMBOL(REAL)  LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmdispatch))
+#define LIBXS_BLAS_GEMM_SYMBOL(REAL) (*LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(REAL, gemm))())
+#define LIBXS_XBLAS_SYMBOL(REAL)       LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(REAL, gemm))
+#define LIBXS_XOMPS_SYMBOL(REAL)       LIBXS_CONCATENATE(libxs_omp_, LIBXS_TPREFIX(REAL, gemm))
+#define LIBXS_XGEMM_SYMBOL(REAL)       LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm))
 
 /** Helper macro consolidating the applicable GEMM arguments into LIBXS's flags. */
 #define LIBXS_GEMM_DECLARE_FLAGS(FLAGS, TRANSA, TRANSB, M, N, K, A, B, C) \

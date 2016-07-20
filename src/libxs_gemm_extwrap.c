@@ -39,7 +39,7 @@ LIBXS_API LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_SGEMM(
   const float* beta, float* c, const libxs_blasint* ldc)
 {
   LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
-  assert(LIBXS_GEMM_EXTWRAP_SGEMM != libxs_internal_sgemm);
+  assert(LIBXS_GEMM_EXTWRAP_SGEMM != *libxs_original_sgemm());
   LIBXS_XGEMM(float, libxs_blasint, flags, *m, *n, *k,
     0 != alpha ? *alpha : ((float)LIBXS_ALPHA),
     a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
@@ -56,7 +56,7 @@ LIBXS_API LIBXS_ATTRIBUTE(weak) void LIBXS_GEMM_EXTWRAP_DGEMM(
   const double* beta, double* c, const libxs_blasint* ldc)
 {
   LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
-  assert(LIBXS_GEMM_EXTWRAP_DGEMM != libxs_internal_dgemm);
+  assert(LIBXS_GEMM_EXTWRAP_DGEMM != *libxs_original_dgemm());
   LIBXS_XGEMM(double, libxs_blasint, flags, *m, *n, *k,
     0 != alpha ? *alpha : ((double)LIBXS_ALPHA),
     a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
