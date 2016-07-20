@@ -274,7 +274,7 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
           , -1, 0);
         if (alloc_failed != buffer) {
 # if !defined(NDEBUG)
-          if (0 != 
+          if (0 !=
 # endif
           /* proceed after failed madvise (even in case of an error; take what we got from mmap) */
           madvise(buffer, alloc_size, MADV_RANDOM
