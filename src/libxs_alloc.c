@@ -289,9 +289,9 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
           /* library code is expected to be mute */) {
             static LIBXS_TLS int madvise_error = 0;
             if (0 == madvise_error) {
+              madvise_error = errno;
               fprintf(stderr, "LIBXS: %s (madvise error #%i for range %p+%llu)!\n",
-                strerror(errno), errno, buffer, (unsigned long long)alloc_size);
-              madvise_error = 1;
+                strerror(madvise_error), madvise_error, buffer, (unsigned long long)alloc_size);
             }
           }
 # else
@@ -300,9 +300,9 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
         }
 # if !defined(NDEBUG) /* library code is expected to be mute */
         else if (alloc_failed == buffer && 0 == alloc_error) {
+          alloc_error = errno;
           fprintf(stderr, "LIBXS: %s (mmap error #%i for size %llu with flags=%i)!\n",
-            strerror(errno), errno, (unsigned long long)alloc_size, xflags);
-          alloc_error = 1;
+            strerror(alloc_error), alloc_error, (unsigned long long)alloc_size, xflags);
         }
 # endif
 # if !defined(MADV_NOHUGEPAGE) && !(defined(__APPLE__) && defined(__MACH__)) && !defined(__CYGWIN__)
@@ -395,9 +395,9 @@ LIBXS_API_DEFINITION int libxs_deallocate(const void* memory)
 # if !defined(NDEBUG) /* library code is expected to be mute */
         static LIBXS_TLS int munmap_error = 0;
         if (0 == munmap_error) {
+          munmap_error = errno;
           fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
-            strerror(errno), errno, buffer, (unsigned long long)alloc_size);
-          munmap_error = 1;
+            strerror(munmap_error), munmap_error, buffer, (unsigned long long)alloc_size);
         }
 # endif
         result = EXIT_FAILURE;
@@ -462,9 +462,9 @@ LIBXS_API_DEFINITION int libxs_alloc_attribute(const void* memory, int flags, co
       if (0/*ok*/ != mprotect(buffer, alloc_size/*entire memory region*/, xflags)) {
 # if !defined(NDEBUG) /* library code is expected to be mute */
         if (0 == revoke_error) {
+          revoke_error = errno;
           fprintf(stderr, "LIBXS: %s (mprotect error #%i for range %p+%llu with flags=%i)!\n",
-            strerror(errno), errno, buffer, (unsigned long long)alloc_size, xflags);
-          revoke_error = 1;
+            strerror(revoke_error), revoke_error, buffer, (unsigned long long)alloc_size, xflags);
         }
 # endif
         result = EXIT_FAILURE;
