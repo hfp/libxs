@@ -1,5 +1,4 @@
-#include <libxs_gemm_diff.h>
-#include <libxs_cpuid_x86.h>
+#include <libxs_source.h>
 #include <stdlib.h>
 #include <stdio.h>
 
