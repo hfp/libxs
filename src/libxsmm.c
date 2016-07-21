@@ -335,12 +335,17 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
 } \
 return flux_entry.xmm
 
+#define INTERNAL_DISPATCH_BYPASS_CHECK(FLAGS, ALPHA, BETA) ( \
+  0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) && \
+  1 == (ALPHA) && (1 == (BETA) || 0 == (BETA)))
+
 #define INTERNAL_DISPATCH_MAIN(DESCRIPTOR_DECL, DESC, FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/) { \
   INTERNAL_FIND_CODE_DECLARE(code); \
   const signed char scalpha = (signed char)(0 == (PALPHA) ? LIBXS_ALPHA : *(PALPHA)), scbeta = (signed char)(0 == (PBETA) ? LIBXS_BETA : *(PBETA)); \
-  if (0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) && 1 == scalpha && (1 == scbeta || 0 == scbeta)) { \
+  if (INTERNAL_DISPATCH_BYPASS_CHECK(FLAGS, scalpha, scbeta)) { \
     const int internal_dispatch_main_prefetch = (0 == (PREFETCH) ? INTERNAL_PREFETCH : *(PREFETCH)); \
-    DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, FLAGS, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
+    DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, \
+      (FLAGS) | *internal_desc_flagmask(), LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
       0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB), \
       0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA), \
       0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC), scalpha, scbeta, \
@@ -461,6 +466,13 @@ static LIBXS_RETARGETABLE int* internal_verbose(void)
 static LIBXS_RETARGETABLE int* internal_prefetch(void)
 {
   static LIBXS_RETARGETABLE int instance = LIBXS_MAX(INTERNAL_PREFETCH, 0);
+  return &instance;
+}
+
+
+static LIBXS_RETARGETABLE int* internal_desc_flagmask(void)
+{
+  static LIBXS_RETARGETABLE int instance = 0;
   return &instance;
 }
 
@@ -731,6 +743,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
           { /* opening a scope for eventually declaring variables */
             /* setup the dispatch table for the statically generated code */
 #           include <libxs_dispatch.h>
+            *internal_desc_flagmask() = LIBXS_GEMM_FLAG_STATIC;
           }
 #endif
           atexit(libxs_finalize);
@@ -1074,20 +1087,31 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_xmmdispatch(const libxs_gemm_descriptor* descriptor)
-{
-  INTERNAL_FIND_CODE_DECLARE(code);
-  assert(descriptor);
-  {
-    INTERNAL_FIND_CODE(descriptor, code);
-  }
-}
-
-
 LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   const libxs_xmmfunction null_mmfunction = { 0 };
-  return 0 != descriptor ? internal_xmmdispatch(descriptor) : null_mmfunction;
+  if (0 != descriptor && INTERNAL_DISPATCH_BYPASS_CHECK(descriptor->flags, descriptor->alpha, descriptor->beta)) {
+    const int flagmask = *internal_desc_flagmask();
+    libxs_gemm_descriptor backend_descriptor;
+
+    if (0 > descriptor->prefetch || 0 != flagmask) {
+      backend_descriptor = *descriptor;
+      if (0 > descriptor->prefetch) {
+        backend_descriptor.prefetch = *internal_prefetch();
+      }
+      if (0 != flagmask) {
+        backend_descriptor.flags |= flagmask;
+      }
+      descriptor = &backend_descriptor;
+    }
+    {
+      INTERNAL_FIND_CODE_DECLARE(code);
+      INTERNAL_FIND_CODE(descriptor, code);
+    }
+  }
+  else { /* TODO: not supported (bypass) */
+    return null_mmfunction;
+  }
 }
 
 
