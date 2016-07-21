@@ -1091,9 +1091,9 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
   if (0 != descriptor && INTERNAL_DISPATCH_BYPASS_CHECK(descriptor->flags, descriptor->alpha, descriptor->beta)) {
     libxs_gemm_descriptor backend_descriptor;
 
-    if (0 > descriptor->prefetch) {
+    if (0 > (int)descriptor->prefetch) {
       backend_descriptor = *descriptor;
-      backend_descriptor.prefetch = *internal_prefetch();
+      backend_descriptor.prefetch = (unsigned char)(*internal_prefetch());
       descriptor = &backend_descriptor;
     }
     {
