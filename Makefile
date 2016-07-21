@@ -515,20 +515,20 @@ ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 $(foreach OBJ,$(OBJFILES_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h, \
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
   -mmic)))
 $(foreach OBJ,$(KERNELOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h, \
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   -mmic)))
 $(foreach OBJ,$(EXTOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h, \
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   -mmic $(EXTOMPFLAG))))
 ifeq (0,$(STATIC))
 $(foreach OBJ,$(WRAPOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h, \
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   -mmic)))
 endif
 endif
@@ -536,38 +536,38 @@ endif
 
 $(foreach OBJ,$(OBJFILES_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h, $(TARGET))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, $(TARGET))))
 $(foreach OBJ,$(KERNELOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h, $(TARGET))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(TARGET))))
 $(foreach OBJ,$(EXTOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h, $(TARGET) $(EXTOMPFLAG))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(TARGET) $(EXTOMPFLAG))))
 $(foreach OBJ,$(OBJFILES_GEN_LIB),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h, $(NULL))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(NULL))))
 $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h, $(NULL))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(NULL))))
 
 ifeq (0,$(STATIC))
 $(foreach OBJ,$(WRAPOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h, $(TARGET))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(TARGET))))
 endif
 
 .PHONY: compile_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 compile_mic:
-$(BLDDIR)/mic/%.o: $(BLDDIR)/%.c $(BLDDIR)/mic/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
+$(BLDDIR)/mic/%.o: $(BLDDIR)/%.c $(BLDDIR)/mic/.make $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $< -o $@
 endif
 endif
 
 .PHONY: compile_hst
 compile_hst:
-$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(BLDDIR)/libxs_dispatch.h
+$(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h
 	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
 
 .PHONY: module_mic
