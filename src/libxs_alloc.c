@@ -291,7 +291,8 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
             if (0 == madvise_error) {
               madvise_error = errno;
               fprintf(stderr, "LIBXS: %s (madvise error #%i for range %p+%llu)!\n",
-                strerror(madvise_error), madvise_error, buffer, (unsigned long long)alloc_size);
+                strerror(madvise_error), madvise_error, (const void*)buffer,
+                (unsigned long long)alloc_size);
             }
           }
 # else
