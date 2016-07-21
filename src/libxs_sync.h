@@ -85,15 +85,9 @@
 #   define LIBXS_ATOMIC_ADD_FETCH(DST, VALUE, KIND) /*DST = */__atomic_add_fetch(&(DST), VALUE, KIND)
 # else
 #   define LIBXS_ATOMIC_LOAD(SRC, KIND) __sync_or_and_fetch(&(SRC), 0)
-#   define LIBXS_ATOMIC_STORE(DST, VALUE, KIND) { \
-      /*const*/void* old = DST; \
-      while (!__sync_bool_compare_and_swap(&(DST), old, VALUE)) old = DST; \
-    }
-#   define LIBXS_ATOMIC_STORE_ZERO(DST, KIND) { \
-      /* use store side-effect of built-in (dummy assignment to mute warning) */ \
-      void *const dummy = __sync_and_and_fetch(&(DST), 0); \
-      LIBXS_UNUSED(dummy); \
-    }
+#   define LIBXS_ATOMIC_STORE(DST, VALUE, KIND) while (!__sync_bool_compare_and_swap(&(DST), DST, VALUE))
+    /* use store side-effect of built-in (dummy assignment to mute warning) */
+#   define LIBXS_ATOMIC_STORE_ZERO(DST, KIND) __sync_and_and_fetch(&(DST), 0)
 #   define LIBXS_ATOMIC_ADD_FETCH(DST, VALUE, KIND) /*DST = */__sync_add_and_fetch(&(DST), VALUE)
 # endif
 #elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32) /*TODO*/
