@@ -106,6 +106,8 @@
 
 /* flag fused into the memory address of a code version in case of collision */
 #define LIBXS_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 1))
+/* flag fused into the memory address of a code version in case of non-JIT */
+#define LIBXS_CODE_STATIC (1ULL << (8 * sizeof(void*) - 2))
 
 #if 16 >= (LIBXS_GEMM_DESCRIPTOR_SIZE)
 # define LIBXS_GEMM_DESCRIPTOR_SIMD_SIZE 16
@@ -217,15 +219,16 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
 #if (0 != LIBXS_JIT)
 # define INTERNAL_FIND_CODE_JIT(DESCRIPTOR, CODE, RESULT) \
   /* check if code generation or fix-up is needed, also check whether JIT is supported (CPUID) */ \
-  if (0 == (RESULT).pmm /* code version does not exist */ && LIBXS_X86_AVX <= *internal_target_archid()) { \
+  if (0 == (RESULT).pmm/*code version does not exist*/ && LIBXS_X86_AVX <= *internal_target_archid()) { \
     /* instead of blocking others, a try-lock allows to let other threads fallback to BLAS during lock-duration */ \
     INTERNAL_FIND_CODE_LOCK(lock, i); /* lock the registry entry */ \
-    /* re-read registry entry after acquiring the lock */ \
     if (0 == diff) { \
-      RESULT = *(CODE); \
+      RESULT = *(CODE); /* deliver code */ \
+      /* clear collision flag; can be never static code */ \
+      assert(0 == (LIBXS_CODE_STATIC & (RESULT).imm)); \
       (RESULT).imm &= ~LIBXS_HASH_COLLISION; \
     } \
-    if (0 == (RESULT).pmm) { /* double-check after acquiring the lock */ \
+    if (0 == (RESULT).pmm) { /* double-check (re-read registry entry) after acquiring the lock */ \
       if (0 == diff) { \
         /* found a conflict-free registry-slot, and attempt to build the kernel */ \
         internal_build(DESCRIPTOR, "smm", 0/*extra desc*/, &(RESULT)); \
@@ -307,16 +310,16 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
               i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE)); \
             if (0 == diff) { /* found exact code version; continue with atomic load */ \
               flux_entry.pmm = (CODE)->pmm; \
-              /* clear the uppermost bit of the address */ \
-              flux_entry.imm &= ~LIBXS_HASH_COLLISION; \
+              /* clear the collision and the non-JIT flag */ \
+              flux_entry.imm &= ~(LIBXS_HASH_COLLISION | LIBXS_CODE_STATIC); \
             } \
             else { /* no code found */ \
               flux_entry.pmm = 0; \
             } \
             break; \
           } \
-          else { /* clear the uppermost bit of the address */ \
-            flux_entry.imm &= ~LIBXS_HASH_COLLISION; \
+          else { /* clear the collision and the non-JIT flag */ \
+            flux_entry.imm &= ~(LIBXS_HASH_COLLISION | LIBXS_CODE_STATIC); \
           } \
         } \
         else { /* new collision discovered (but no code version yet) */ \
@@ -345,7 +348,7 @@ return flux_entry.xmm
   if (INTERNAL_DISPATCH_BYPASS_CHECK(FLAGS, scalpha, scbeta)) { \
     const int internal_dispatch_main_prefetch = (0 == (PREFETCH) ? INTERNAL_PREFETCH : *(PREFETCH)); \
     DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, \
-      (FLAGS) | *internal_desc_flagmask(), LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
+      FLAGS, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
       0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB), \
       0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA), \
       0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC), scalpha, scbeta, \
@@ -466,13 +469,6 @@ static LIBXS_RETARGETABLE int* internal_verbose(void)
 static LIBXS_RETARGETABLE int* internal_prefetch(void)
 {
   static LIBXS_RETARGETABLE int instance = LIBXS_MAX(INTERNAL_PREFETCH, 0);
-  return &instance;
-}
-
-
-static LIBXS_RETARGETABLE int* internal_desc_flagmask(void)
-{
-  static LIBXS_RETARGETABLE int instance = 0;
   return &instance;
 }
 
@@ -612,9 +608,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(const libxs_g
   }
 
   if (0 == dst_entry->pmm) { /* registry not (yet) exhausted */
-    dst_entry->xmm = src;
     dst_key->descriptor = *desc;
-    dst_key->descriptor.flags |= LIBXS_GEMM_FLAG_STATIC;
+    dst_entry->xmm = src;
+    /* mark current entry as a static (non-JIT) */
+    dst_entry->imm |= LIBXS_CODE_STATIC;
   }
 
   internal_update_statistic(desc, 1, 0);
@@ -743,7 +740,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
           { /* opening a scope for eventually declaring variables */
             /* setup the dispatch table for the statically generated code */
 #           include <libxs_dispatch.h>
-            *internal_desc_flagmask() = LIBXS_GEMM_FLAG_STATIC;
           }
 #endif
           atexit(libxs_finalize);
@@ -844,14 +840,13 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
                 bucket = 1;
               }
             }
-            /* make address valid by eventually clearing the collision flag */
-            code.imm &= ~LIBXS_HASH_COLLISION;
-            if (0 == (LIBXS_GEMM_FLAG_STATIC & desc->flags)/*dynamically allocated/generated (JIT)*/) {
+            if (0 == (LIBXS_CODE_STATIC & code.imm)/*check non-JIT flag (dynamically allocated/generated*/) {
               void* buffer = 0;
               size_t size = 0;
-              const int result = libxs_alloc_info(code.pmm, &size, 0/*flags*/, &buffer);
-              libxs_deallocate(code.pmm);
-              if (EXIT_SUCCESS == result) {
+              /* make address valid by clearing the collision flag */
+              code.imm &= ~LIBXS_HASH_COLLISION;
+              if (EXIT_SUCCESS == libxs_alloc_info(code.pmm, &size, 0/*flags*/, &buffer)) {
+                libxs_deallocate(code.pmm);
                 ++internal_statistic(precision)[bucket].njit;
                 heapmem += (unsigned int)(size + (((char*)code.pmm) - (char*)buffer));
               }
@@ -1091,17 +1086,11 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
 {
   const libxs_xmmfunction null_mmfunction = { 0 };
   if (0 != descriptor && INTERNAL_DISPATCH_BYPASS_CHECK(descriptor->flags, descriptor->alpha, descriptor->beta)) {
-    const int flagmask = *internal_desc_flagmask();
     libxs_gemm_descriptor backend_descriptor;
 
-    if (0 > descriptor->prefetch || 0 != flagmask) {
+    if (0 > descriptor->prefetch) {
       backend_descriptor = *descriptor;
-      if (0 > descriptor->prefetch) {
-        backend_descriptor.prefetch = *internal_prefetch();
-      }
-      if (0 != flagmask) {
-        backend_descriptor.flags |= flagmask;
-      }
+      backend_descriptor.prefetch = *internal_prefetch();
       descriptor = &backend_descriptor;
     }
     {
