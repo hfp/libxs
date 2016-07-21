@@ -234,11 +234,14 @@ LIBXS_API_DEFINITION void libxs_omp_sgemm(const char* transa, const char* transb
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc)
 {
-  const int nt = *internal_gemm_nt();
   const int tm = internal_gemm_tile(1/*SP*/)[0/*M*/];
   const int tn = internal_gemm_tile(1/*SP*/)[1/*N*/];
   const int tk = internal_gemm_tile(1/*SP*/)[2/*K*/];
+  const int nt = *internal_gemm_nt();
   LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
+#if !defined(_OPENMP)
+  LIBXS_UNUSED(nt);
+#endif
   if (2 <= *internal_gemm_omp()) { /* enable internal parallelization */
     if (0 == *internal_gemm_tasks()) {
       LIBXS_GEMM_EXTOMP_XGEMM(LIBXS_GEMM_EXTOMP_FOR_INIT, LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL,
@@ -288,11 +291,14 @@ LIBXS_API_DEFINITION void libxs_omp_dgemm(const char* transa, const char* transb
   const double* b, const libxs_blasint* ldb,
   const double* beta, double* c, const libxs_blasint* ldc)
 {
-  const int nt = *internal_gemm_nt();
   const int tm = internal_gemm_tile(0/*DP*/)[0/*M*/];
   const int tn = internal_gemm_tile(0/*DP*/)[1/*N*/];
   const int tk = internal_gemm_tile(0/*DP*/)[2/*K*/];
+  const int nt = *internal_gemm_nt();
   LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
+#if !defined(_OPENMP)
+  LIBXS_UNUSED(nt);
+#endif
   if (2 <= *internal_gemm_omp()) { /* enable internal parallelization */
     if (0 == *internal_gemm_tasks()) {
       LIBXS_GEMM_EXTOMP_XGEMM(LIBXS_GEMM_EXTOMP_FOR_INIT, LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL,
