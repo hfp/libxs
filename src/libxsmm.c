@@ -1038,6 +1038,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
       internal_get_code_name(target_arch, jit_kind, descriptor, sizeof(jit_code_name), jit_code_name);
 #else
       const char *const jit_code_name = 0;
+      LIBXS_UNUSED(jit_kind);
 #endif
       /* copy temporary buffer into the prepared executable buffer */
       memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
@@ -1066,7 +1067,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
   LIBXS_MESSAGE("LIBXS: The JIT BACKEND is currently not supported under Microsoft Windows!")
   LIBXS_MESSAGE("================================================================================")
 # endif
-  LIBXS_UNUSED(descriptor); LIBXS_UNUSED(desc_extra);  LIBXS_UNUSED(code);
+  LIBXS_UNUSED(descriptor); LIBXS_UNUSED(jit_kind); LIBXS_UNUSED(desc_extra);  LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
   assert(LIBXS_X86_AVX > *internal_target_archid());
 #endif
