@@ -80,28 +80,28 @@
 
 #if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
-#   define LIBXS_ATOMIC_LOAD(SRC, KIND) __atomic_load_n(&(SRC), KIND)
-#   define LIBXS_ATOMIC_STORE(DST, VALUE, KIND) __atomic_store_n(&(DST), VALUE, KIND)
-#   define LIBXS_ATOMIC_ADD_FETCH(DST, VALUE, KIND) /*DST = */__atomic_add_fetch(&(DST), VALUE, KIND)
+#   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __atomic_load_n(SRC_PTR, KIND)
+#   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) __atomic_store_n(DST_PTR, VALUE, KIND)
+#   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) =*/ __atomic_add_fetch(DST_PTR, VALUE, KIND)
 # else
-#   define LIBXS_ATOMIC_LOAD(SRC, KIND) __sync_or_and_fetch(&(SRC), 0)
-#   define LIBXS_ATOMIC_STORE(DST, VALUE, KIND) while (!__sync_bool_compare_and_swap(&(DST), DST, VALUE))
+#   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __sync_or_and_fetch(SRC_PTR, 0)
+#   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) while (!__sync_bool_compare_and_swap(DST_PTR, *(DST_PTR), VALUE))
     /* use store side-effect of built-in (dummy assignment to mute warning) */
-#   define LIBXS_ATOMIC_STORE_ZERO(DST, KIND) __sync_and_and_fetch(&(DST), 0)
-#   define LIBXS_ATOMIC_ADD_FETCH(DST, VALUE, KIND) /*DST = */__sync_add_and_fetch(&(DST), VALUE)
+#   define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) __sync_and_and_fetch(DST_PTR, 0)
+#   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_add_and_fetch(DST_PTR, VALUE)
 # endif
 #elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32) /*TODO*/
-#   define LIBXS_ATOMIC_LOAD(SRC, KIND) SRC
-#   define LIBXS_ATOMIC_STORE(DST, VALUE, KIND) DST = VALUE
-#   define LIBXS_ATOMIC_ADD_FETCH(DST, VALUE, KIND) DST += VALUE
+#   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) *(SRC_PTR)
+#   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) *(DST_PTR) = VALUE
+#   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) *(DST_PTR) += VALUE
 #else
-#   define LIBXS_ATOMIC_LOAD(SRC, KIND) SRC
-#   define LIBXS_ATOMIC_STORE(DST, VALUE, KIND) DST = VALUE
-#   define LIBXS_ATOMIC_ADD_FETCH(DST, VALUE, KIND) DST += VALUE
+#   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) *(SRC_PTR)
+#   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) *(DST_PTR) = VALUE
+#   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) *(DST_PTR) += VALUE
 #endif
 
 #if !defined(LIBXS_ATOMIC_STORE_ZERO)
-# define LIBXS_ATOMIC_STORE_ZERO(DST, KIND) LIBXS_ATOMIC_STORE(DST, 0, KIND)
+# define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) LIBXS_ATOMIC_STORE(DST_PTR, 0, KIND)
 #endif
 
 #endif /*LIBXS_SYNC_H*/

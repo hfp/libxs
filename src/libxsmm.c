@@ -169,7 +169,7 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
 #endif
 
 #define INTERNAL_FIND_CODE_DECLARE(CODE) internal_code_type* CODE = \
-  LIBXS_ATOMIC_LOAD(*internal_registry(), LIBXS_ATOMIC_RELAXED); unsigned int i
+  LIBXS_ATOMIC_LOAD(internal_registry(), LIBXS_ATOMIC_RELAXED); unsigned int i
 
 #if defined(LIBXS_CACHESIZE) && (0 < (LIBXS_CACHESIZE))
 # define INTERNAL_FIND_CODE_CACHE_DECL(CACHE_ID, CACHE_KEYS, CACHE, CACHE_HIT) \
@@ -233,7 +233,7 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
         if (0 != (RESULT).pmm) { /* synchronize registry entry */ \
           (*internal_registry_keys())[i].descriptor = *(DESCRIPTOR); \
           *(CODE) = RESULT; \
-          LIBXS_ATOMIC_STORE((CODE)->pmm, (RESULT).pmm, LIBXS_ATOMIC_SEQ_CST); \
+          LIBXS_ATOMIC_STORE(&(CODE)->pmm, (RESULT).pmm, LIBXS_ATOMIC_SEQ_CST); \
         } \
       } \
       else { /* 0 != diff */ \
@@ -246,7 +246,7 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
           i = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE)); \
           i0 = i; /* keep starting point of free-slot-search in mind */ \
           internal_update_statistic(DESCRIPTOR, 0, 1); \
-          LIBXS_ATOMIC_STORE((CODE)->pmm, collision.pmm, LIBXS_ATOMIC_SEQ_CST); /* fix-up existing entry */ \
+          LIBXS_ATOMIC_STORE(&(CODE)->pmm, collision.pmm, LIBXS_ATOMIC_SEQ_CST); /* fix-up existing entry */ \
           diff0 = diff; /* no more fix-up */ \
         } \
         else { \
@@ -280,7 +280,7 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
     LIBXS_HASH_FUNCTION_CALL(hash, i = i0, *(DESCRIPTOR)); \
     (CODE) += i; /* actual entry */ \
     do { \
-      flux_entry.pmm = LIBXS_ATOMIC_LOAD((CODE)->pmm, LIBXS_ATOMIC_SEQ_CST); /* read registered code */ \
+      flux_entry.pmm = LIBXS_ATOMIC_LOAD(&(CODE)->pmm, LIBXS_ATOMIC_SEQ_CST); /* read registered code */ \
       if (0 != flux_entry.pmm) { /* code version exists */ \
         if (0 == diff0) { \
           if (0 == (LIBXS_HASH_COLLISION & flux_entry.imm)) { /* check for no collision */ \
@@ -485,8 +485,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_update_statistic(const libxs_gemm_
       }
     }
 
-    LIBXS_ATOMIC_ADD_FETCH(internal_statistic(precision)[bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
-    LIBXS_ATOMIC_ADD_FETCH(internal_statistic(precision)[bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
+    LIBXS_ATOMIC_ADD_FETCH(&internal_statistic(precision)[bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
+    LIBXS_ATOMIC_ADD_FETCH(&internal_statistic(precision)[bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
   }
 }
 
@@ -657,7 +657,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
 # pragma omp critical(internal_reglock)
 #endif
   {
-    result = LIBXS_ATOMIC_LOAD(*internal_registry(), LIBXS_ATOMIC_SEQ_CST);
+    result = LIBXS_ATOMIC_LOAD(internal_registry(), LIBXS_ATOMIC_SEQ_CST);
     if (0 == result) {
       int target_archid = LIBXS_TARGET_ARCH_GENERIC;
       int init_code;
@@ -734,7 +734,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
           }
 #endif
           atexit(libxs_finalize);
-          LIBXS_ATOMIC_STORE(*internal_registry(), result, LIBXS_ATOMIC_SEQ_CST);
+          LIBXS_ATOMIC_STORE(internal_registry(), result, LIBXS_ATOMIC_SEQ_CST);
         }
         else {
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
@@ -765,7 +765,7 @@ LIBXS_ATTRIBUTE(constructor)
 #endif
 LIBXS_RETARGETABLE void libxs_init(void)
 {
-  const void *const registry = LIBXS_ATOMIC_LOAD(*internal_registry(), LIBXS_ATOMIC_RELAXED);
+  const void *const registry = LIBXS_ATOMIC_LOAD(internal_registry(), LIBXS_ATOMIC_RELAXED);
   if (0 == registry) {
     internal_init();
   }
@@ -779,7 +779,7 @@ LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
 LIBXS_RETARGETABLE void libxs_finalize(void)
 {
-  internal_code_type* registry = LIBXS_ATOMIC_LOAD(*internal_registry(), LIBXS_ATOMIC_SEQ_CST);
+  internal_code_type* registry = LIBXS_ATOMIC_LOAD(internal_registry(), LIBXS_ATOMIC_SEQ_CST);
 
   if (0 != registry) {
     int i;
@@ -811,7 +811,7 @@ LIBXS_RETARGETABLE void libxs_finalize(void)
         libxs_gemm_diff_finalize();
         libxs_hash_finalize();
 
-        LIBXS_ATOMIC_STORE_ZERO(*internal_registry(), LIBXS_ATOMIC_SEQ_CST);
+        LIBXS_ATOMIC_STORE_ZERO(internal_registry(), LIBXS_ATOMIC_SEQ_CST);
         *internal_registry_keys() = 0;
 
         for (i = 0; i < LIBXS_REGSIZE; ++i) {
