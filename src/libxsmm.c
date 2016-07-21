@@ -294,6 +294,9 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
               /* allow to fix-up current entry inside of the guarded/locked region */ \
               flux_entry.pmm = 0; \
             } \
+            else { \
+              flux_entry.imm &= ~LIBXS_CODE_STATIC; \
+            } \
           } \
           /* collision discovered but code version exists; perform deep check */ \
           else if (0 != libxs_gemm_diff(DESCRIPTOR, &(*internal_registry_keys())[i].descriptor)) { \
