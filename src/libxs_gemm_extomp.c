@@ -144,7 +144,7 @@
         tile_k = LIBXS_MIN(LIBXS_MAX((libxs_blasint)(1 << LIBXS_LOG2(tile_k * rk /*+ 0.5*/)), 8), K); \
       } \
       LIBXS_GEMM_DESCRIPTOR(desc, LIBXS_ALIGNMENT, FLAGS, tile_m, tile_n, tile_k, \
-        LDA, LDB, LDC, scalpha, scbeta, *internal_gemm_prefetch()); \
+        LDA, LDB, LDC, scalpha, scbeta, internal_gemm_prefetch); \
       xmm = libxs_xmmdispatch(&desc); \
     } \
   } \
@@ -210,7 +210,7 @@ LIBXS_API_DEFINITION int libxs_gemm_init(int archid, int prefetch)
     */
     const char *const env_tasks = getenv("LIBXS_TASKS");
     if (0 != env_tasks && 0 != *env_tasks) {
-      *internal_gemm_tasks() = atoi(env_tasks);
+      internal_gemm_tasks = atoi(env_tasks);
     }
   }
 #endif
@@ -234,16 +234,16 @@ LIBXS_API_DEFINITION void libxs_omp_sgemm(const char* transa, const char* transb
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc)
 {
-  const int tm = internal_gemm_tile(1/*SP*/)[0/*M*/];
-  const int tn = internal_gemm_tile(1/*SP*/)[1/*N*/];
-  const int tk = internal_gemm_tile(1/*SP*/)[2/*K*/];
-  const int nt = *internal_gemm_nt();
+  const int tm = internal_gemm_tile[1/*SP*/][0/*M*/];
+  const int tn = internal_gemm_tile[1/*SP*/][1/*N*/];
+  const int tk = internal_gemm_tile[1/*SP*/][2/*K*/];
+  const int nt = internal_gemm_nt;
   LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
 #if !defined(_OPENMP)
   LIBXS_UNUSED(nt);
 #endif
-  if (2 <= *internal_gemm_omp()) { /* enable internal parallelization */
-    if (0 == *internal_gemm_tasks()) {
+  if (2 <= internal_gemm_omp) { /* enable internal parallelization */
+    if (0 == internal_gemm_tasks) {
       LIBXS_GEMM_EXTOMP_XGEMM(LIBXS_GEMM_EXTOMP_FOR_INIT, LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL,
         LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY, LIBXS_GEMM_EXTOMP_FOR_LOOP_END,
         float, flags | LIBXS_GEMM_FLAG_F32PREC, nt, tm, tn, tk, *m, *n, *k,
@@ -263,7 +263,7 @@ LIBXS_API_DEFINITION void libxs_omp_sgemm(const char* transa, const char* transb
     }
   }
   else { /* default: potentially sequential or externally parallelized */
-    if (0 == *internal_gemm_tasks()) {
+    if (0 == internal_gemm_tasks) {
       LIBXS_GEMM_EXTOMP_XGEMM(LIBXS_GEMM_EXTOMP_FOR_INIT, LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN,
         LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY, LIBXS_GEMM_EXTOMP_FOR_LOOP_END,
         float, flags | LIBXS_GEMM_FLAG_F32PREC, nt, tm, tn, tk, *m, *n, *k,
@@ -291,16 +291,16 @@ LIBXS_API_DEFINITION void libxs_omp_dgemm(const char* transa, const char* transb
   const double* b, const libxs_blasint* ldb,
   const double* beta, double* c, const libxs_blasint* ldc)
 {
-  const int tm = internal_gemm_tile(0/*DP*/)[0/*M*/];
-  const int tn = internal_gemm_tile(0/*DP*/)[1/*N*/];
-  const int tk = internal_gemm_tile(0/*DP*/)[2/*K*/];
-  const int nt = *internal_gemm_nt();
+  const int tm = internal_gemm_tile[0/*DP*/][0/*M*/];
+  const int tn = internal_gemm_tile[0/*DP*/][1/*N*/];
+  const int tk = internal_gemm_tile[0/*DP*/][2/*K*/];
+  const int nt = internal_gemm_nt;
   LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
 #if !defined(_OPENMP)
   LIBXS_UNUSED(nt);
 #endif
-  if (2 <= *internal_gemm_omp()) { /* enable internal parallelization */
-    if (0 == *internal_gemm_tasks()) {
+  if (2 <= internal_gemm_omp) { /* enable internal parallelization */
+    if (0 == internal_gemm_tasks) {
       LIBXS_GEMM_EXTOMP_XGEMM(LIBXS_GEMM_EXTOMP_FOR_INIT, LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN_PARALLEL,
         LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY, LIBXS_GEMM_EXTOMP_FOR_LOOP_END,
         double, flags, nt, tm, tn, tk, *m, *n, *k,
@@ -320,7 +320,7 @@ LIBXS_API_DEFINITION void libxs_omp_dgemm(const char* transa, const char* transb
     }
   }
   else { /* default: potentially sequential or externally parallelized */
-    if (0 == *internal_gemm_tasks()) {
+    if (0 == internal_gemm_tasks) {
       LIBXS_GEMM_EXTOMP_XGEMM(LIBXS_GEMM_EXTOMP_FOR_INIT, LIBXS_GEMM_EXTOMP_FOR_LOOP_BEGIN,
         LIBXS_GEMM_EXTOMP_FOR_LOOP_BODY, LIBXS_GEMM_EXTOMP_FOR_LOOP_END,
         double, flags, nt, tm, tn, tk, *m, *n, *k,
@@ -352,7 +352,7 @@ LIBXS_API_DEFINITION void LIBXS_GEMM_EXTWRAP_SGEMM(
   const float* beta, float* c, const libxs_blasint* ldc)
 {
   assert(LIBXS_GEMM_EXTWRAP_SGEMM != *libxs_original_sgemm());
-  switch (*internal_gemm()) {
+  switch (internal_gemm) {
     case 0: { /* below-THRESHOLD xGEMM */
       LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
       LIBXS_XGEMM(float, libxs_blasint, flags, *m, *n, *k,
@@ -376,7 +376,7 @@ LIBXS_API_DEFINITION void LIBXS_GEMM_EXTWRAP_DGEMM(
   const double* beta, double* c, const libxs_blasint* ldc)
 {
   assert(LIBXS_GEMM_EXTWRAP_DGEMM != *libxs_original_dgemm());
-  switch (*internal_gemm()) {
+  switch (internal_gemm) {
     case 0: { /* below-THRESHOLD xGEMM */
       LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
       LIBXS_XGEMM(double, libxs_blasint, flags, *m, *n, *k,

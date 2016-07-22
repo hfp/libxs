@@ -79,16 +79,16 @@ LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
   const double*, double*, const libxs_blasint*);
 
 /** INTERNAL: configuration table containing the tile sizes separate for DP and SP. */
-LIBXS_API int* internal_gemm_tile(int precision);
+LIBXS_RETARGETABLE int internal_gemm_tile[2/*DP/SP*/][3/*TILE_M,TILE_N,TILE_K*/];
 /** INTERNAL: number of threads per core */
-LIBXS_API int* internal_gemm_nt(void);
+LIBXS_RETARGETABLE int internal_gemm_nt /*= 2*/;
 /** INTERNAL: prefetch strategy */
-LIBXS_API int* internal_gemm_prefetch(void);
+LIBXS_RETARGETABLE int internal_gemm_prefetch /*= LIBXS_MAX(LIBXS_PREFETCH, 0)*/;
 /** INTERNAL: determines whether (OpenMP-)tasks are preferred over thread-style parallelization */
-LIBXS_API int* internal_gemm_tasks(void);
+LIBXS_RETARGETABLE int internal_gemm_tasks /*= 0*/;
 /** INTERNAL: kind of OMP-based ?GEMM (1: sequential, 2: parallelized) */
-LIBXS_API int* internal_gemm_omp(void);
+LIBXS_RETARGETABLE int internal_gemm_omp /*= 2*/;
 /** INTERNAL: kind of LD_PRELOAD ?GEMM (0: small gemm, 1: sequential, 2: parallelized) */
-LIBXS_API int* internal_gemm(void);
+LIBXS_RETARGETABLE int internal_gemm /*= 0*/;
 
 #endif /*LIBXS_GEMM_EXT_H*/
