@@ -641,23 +641,24 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
       init_code = libxs_gemm_init(target_archid, internal_prefetch);
 #if defined(__TRACE)
       {
+        int filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = 0;
         const char *const env_trace_init = getenv("LIBXS_TRACE");
-        if (EXIT_SUCCESS == init_code && 0 != env_trace_init) {
-          int match[] = { 0, 0 }, filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = -1;
+        if (EXIT_SUCCESS == init_code && 0 != env_trace_init && 0 != *env_trace_init) {
           char buffer[32];
-
           if (1 == sscanf(env_trace_init, "%32[^,],", buffer)) {
             sscanf(buffer, "%i", &filter_threadid);
           }
           if (1 == sscanf(env_trace_init, "%*[^,],%32[^,],", buffer)) {
-            match[0] = sscanf(buffer, "%i", &filter_mindepth);
+            sscanf(buffer, "%i", &filter_mindepth);
           }
           if (1 == sscanf(env_trace_init, "%*[^,],%*[^,],%32s", buffer)) {
-            match[1] = sscanf(buffer, "%i", &filter_maxnsyms);
+            sscanf(buffer, "%i", &filter_maxnsyms);
           }
-          init_code = (0 == filter_threadid && 0 == match[0] && 0 == match[1]) ? EXIT_SUCCESS
-            : libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
+          else {
+            filter_maxnsyms = -1; /* all */
+          }
         }
+        init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
       }
 #endif
       if (EXIT_SUCCESS == init_code) {
@@ -719,7 +720,7 @@ LIBXS_API_DEFINITION
 #if defined(__GNUC__)
 LIBXS_ATTRIBUTE(constructor)
 #endif
-LIBXS_RETARGETABLE void libxs_init(void)
+void libxs_init(void)
 {
   const void *const registry = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED);
   if (0 == registry) {
@@ -728,12 +729,17 @@ LIBXS_RETARGETABLE void libxs_init(void)
 }
 
 
+LIBXS_API
+#if defined(__GNUC__)
+LIBXS_ATTRIBUTE(no_instrument_function)
+#endif
+void libxs_finalize(void);
+
 LIBXS_API_DEFINITION
 #if defined(__GNUC__)
 LIBXS_ATTRIBUTE(destructor)
-LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
-LIBXS_RETARGETABLE void libxs_finalize(void)
+void libxs_finalize(void)
 {
   internal_code_type* registry = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
 
