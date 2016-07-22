@@ -590,7 +590,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(const libxs_g
 {
   internal_regkey_type* dst_key = *internal_registry_keys() + index;
   internal_code_type* dst_entry = registry + index;
-  assert(0 != desc && 0 != src.dmm && 0 != dst_key && 0 != registry);
+#if !defined(NDEBUG)
+  internal_code_type code; code.xmm = src;
+  assert(0 != desc && 0 != code.pmm && 0 != dst_key && 0 != registry);
+  assert(0 == ((LIBXS_HASH_COLLISION | LIBXS_CODE_STATIC) & code.imm));
+#endif
 
   if (0 != dst_entry->pmm) { /* collision? */
     /* start at a re-hashed index position */
@@ -1051,6 +1055,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
       const char *const jit_code_name = 0;
       LIBXS_UNUSED(jit_kind);
 #endif
+      assert(0 == ((LIBXS_HASH_COLLISION | LIBXS_CODE_STATIC) & code->imm));
       /* copy temporary buffer into the prepared executable buffer */
       memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
       free(generated_code.generated_code); /* free temporary/initial code buffer */
