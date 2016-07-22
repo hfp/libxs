@@ -47,7 +47,7 @@ LIBXS_API void libxs_hash_finalize(void);
 LIBXS_API unsigned int libxs_crc32(
   const void* data, unsigned int size, unsigned int seed);
 
-/** Calculate the CRC32 for a given quantity (size) of raw data according to the seed (init. value). */
+/** Calculate the CRC32 for a given quantity (size) of raw data according to the seed. */
 LIBXS_API unsigned int libxs_crc32_sw(
   const void* data, unsigned int size, unsigned int seed);
 
@@ -55,13 +55,13 @@ LIBXS_API unsigned int libxs_crc32_sw(
 LIBXS_API unsigned int libxs_crc32_sse42(
   const void* data, unsigned int size, unsigned int seed);
 
-/** Calculate a hash value for a given quantity (size) of raw data according to the seed (init. value). */
+/** Calculate a hash value for a given quantity (size) of raw data according to the seed. */
 LIBXS_API unsigned int libxs_hash(
   const void* data, unsigned int size,
   /** Upper bound of the result. */
   unsigned int n);
 
-/** Calculate a hash value for a given quantity (size) of raw data according to the seed (init. value). */
+/** Calculate a hash value for a given quantity (size) of raw data according to the seed. */
 LIBXS_API unsigned int libxs_hash_npot(
   const void* data, unsigned int size,
   /** Upper bound of the result. */
