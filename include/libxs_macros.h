@@ -76,6 +76,11 @@
 #define LIBXS_API_DEFINITION LIBXS_INTERNAL_API_DEFINITION LIBXS_RETARGETABLE
 #define LIBXS_API_INLINE LIBXS_INTERNAL_API_INLINE LIBXS_RETARGETABLE
 
+/* Some definitions kept for compatibility with earlier versions */
+#if !defined(LIBXS_EXTERN_C)
+# define LIBXS_EXTERN_C LIBXS_EXTERN
+#endif
+
 #if !defined(LIBXS_RESTRICT)
 # if ((defined(__GNUC__) && !defined(__CYGWIN32__)) || defined(__INTEL_COMPILER)) && !defined(_WIN32)
 #   define LIBXS_RESTRICT __restrict__
