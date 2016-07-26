@@ -93,10 +93,6 @@
 # define LIBXS_CACHESIZE 4
 #endif
 
-#if !defined(LIBXS_TRYLOCK)
-/*# define LIBXS_TRYLOCK*/
-#endif
-
 #if defined(LIBXS_HASH_BASIC)
 # define LIBXS_HASH_FUNCTION_CALL(HASH, INDX, DESCRIPTOR) \
     HASH = libxs_hash_npot(&(DESCRIPTOR), LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_REGSIZE); \
@@ -395,6 +391,9 @@ return flux_entry.xmm
   INTERNAL_DISPATCH((0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)), \
   M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, dmm)
 
+#if !defined(LIBXS_TRYLOCK)
+/*# define LIBXS_TRYLOCK*/
+#endif
 
 #if !defined(LIBXS_OPENMP)
 # define INTERNAL_REGLOCK_COUNT 16
@@ -620,16 +619,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
   {
     result = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
     if (0 == result) {
-      int target_archid = LIBXS_TARGET_ARCH_GENERIC;
       int init_code;
       /* set internal_target_archid */
       libxs_set_target_arch(getenv("LIBXS_TARGET"));
-      target_archid = internal_target_archid;
       { /* select prefetch strategy for JIT */
         const char *const env_prefetch = getenv("LIBXS_PREFETCH");
         if (0 == env_prefetch || 0 == *env_prefetch) {
 #if (0 > LIBXS_PREFETCH) /* permitted by LIBXS_PREFETCH_AUTO */
-          internal_prefetch = (LIBXS_X86_AVX512_MIC != target_archid
+          internal_prefetch = (LIBXS_X86_AVX512_MIC != internal_target_archid
             ? LIBXS_PREFETCH_NONE : LIBXS_PREFETCH_AL2BL2_VIA_C);
 #else
           internal_prefetch = LIBXS_MAX(INTERNAL_PREFETCH, 0);
@@ -649,9 +646,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
           }
         }
       }
-      libxs_hash_init(target_archid);
-      libxs_gemm_diff_init(target_archid);
-      init_code = libxs_gemm_init(target_archid, internal_prefetch);
+      libxs_hash_init(internal_target_archid);
+      libxs_gemm_diff_init(internal_target_archid);
+      init_code = libxs_gemm_init(internal_target_archid, internal_prefetch);
 #if defined(__TRACE)
       {
         int filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = 0;
@@ -696,7 +693,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
            */
 #if defined(LIBXS_BUILD)
 # if (0 != LIBXS_JIT) && !defined(__MIC__)
-          if (LIBXS_STATIC_TARGET_ARCH <= target_archid && LIBXS_X86_AVX > target_archid)
+          if (LIBXS_STATIC_TARGET_ARCH <= internal_target_archid && LIBXS_X86_AVX > internal_target_archid)
 # endif
           { /* opening a scope for eventually declaring variables */
             /* setup the dispatch table for the statically generated code */
