@@ -94,7 +94,7 @@
 #endif
 
 #if !defined(LIBXS_TRYLOCK)
-# define LIBXS_TRYLOCK
+/*# define LIBXS_TRYLOCK*/
 #endif
 
 #if defined(LIBXS_HASH_BASIC)
