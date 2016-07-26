@@ -591,15 +591,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
   /*const*/internal_code_type* result;
   int i;
 #if !defined(LIBXS_OPENMP)
-  static int internal_reglock_check = 0; /* setup the locks in a thread-safe fashion */
+  static int internal_reglock_check = 1; /* setup the locks in a thread-safe fashion */
   assert(sizeof(internal_reglock) == (INTERNAL_REGLOCK_COUNT * sizeof(*internal_reglock)));
-  if (0 == LIBXS_ATOMIC_LOAD(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST)) {
+  if (1 == LIBXS_ATOMIC_LOAD(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST)) {
     LIBXS_ATOMIC_ADD_FETCH(&internal_reglock_check, 1, LIBXS_ATOMIC_SEQ_CST);
-    if (1 == internal_reglock_check) {
+    if (2 == internal_reglock_check) {
       for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_INIT(internal_reglock + i);
+      LIBXS_ATOMIC_STORE_ZERO(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST);
     }
   }
-  /* acquire locks and thereby shortcut lazy initialization later on */
+  while (0 != internal_reglock_check); /* wait until locks are initialized */
   for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
 #else
 # pragma omp critical(internal_reglock)
