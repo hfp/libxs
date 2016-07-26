@@ -167,7 +167,7 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
 #if defined(LIBXS_OPENMP)
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) LIBXS_PRAGMA(omp critical(internal_reglock)) { \
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) }
-#else
+#elif !defined(LIBXS_NOSYNC)
 # if defined(LIBXS_TRYLOCK)
 #   define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
       const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, INTERNAL_REGLOCK_COUNT); \
@@ -180,6 +180,9 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
       LIBXS_LOCK_ACQUIRE(internal_reglock + (LOCKINDEX))
 # endif
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(internal_reglock + (LOCKINDEX)); }
+#else
+# define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX)
+# define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX)
 #endif
 
 #define INTERNAL_FIND_CODE_DECLARE(CODE) internal_code_type* CODE = \
@@ -395,7 +398,7 @@ return flux_entry.xmm
   INTERNAL_DISPATCH((0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)), \
   M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, dmm)
 
-#if !defined(LIBXS_OPENMP)
+#if !defined(LIBXS_OPENMP) && !defined(LIBXS_NOSYNC)
 # define INTERNAL_REGLOCK_COUNT 16
 LIBXS_RETARGETABLE LIBXS_LOCK_TYPE internal_reglock[INTERNAL_REGLOCK_COUNT];
 #endif
@@ -602,6 +605,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
   /*const*/internal_code_type* result;
   int i;
 #if !defined(LIBXS_OPENMP)
+# if !defined(LIBXS_NOSYNC)
   static int internal_reglock_check = 1; /* setup the locks in a thread-safe fashion */
   assert(sizeof(internal_reglock) == (INTERNAL_REGLOCK_COUNT * sizeof(*internal_reglock)));
   if (1 == LIBXS_ATOMIC_LOAD(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST)) {
@@ -613,6 +617,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
   }
   while (0 != internal_reglock_check); /* wait until locks are initialized */
   for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
+# endif
 #else
 # pragma omp critical(internal_reglock)
 #endif
@@ -718,7 +723,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
 #endif
     }
   }
-#if !defined(LIBXS_OPENMP) /* release locks */
+#if !defined(LIBXS_OPENMP) && !defined(LIBXS_NOSYNC) /* release locks */
   for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
 #endif
   assert(result);
@@ -756,8 +761,10 @@ void libxs_finalize(void)
   if (0 != registry) {
     int i;
 #if !defined(LIBXS_OPENMP)
+# if !defined(LIBXS_NOSYNC)
     /* acquire locks and thereby shortcut lazy initialization later on */
     for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
+# endif
 #else
 #   pragma omp critical(internal_reglock)
 #endif
@@ -838,8 +845,8 @@ void libxs_finalize(void)
         libxs_free(registry);
       }
     }
-#if !defined(LIBXS_OPENMP) /* release locks */
-  for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
+#if !defined(LIBXS_OPENMP) && !defined(LIBXS_NOSYNC) /* release locks */
+    for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
 #endif
   }
 }

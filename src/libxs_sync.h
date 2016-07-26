@@ -29,6 +29,8 @@
 #ifndef LIBXS_SYNC_H
 #define LIBXS_SYNC_H
 
+#include <libxs_macros.h>
+
 #if defined(LIBXS_NOSYNC)
 # undef _REENTRANT
 #elif !defined(_REENTRANT)
@@ -87,29 +89,39 @@
 #   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) *(DST_PTR) = VALUE
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) *(DST_PTR) += VALUE
 #endif
-
 #if !defined(LIBXS_ATOMIC_STORE_ZERO)
 # define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) LIBXS_ATOMIC_STORE(DST_PTR, 0, KIND)
 #endif
 
-#if defined(_WIN32) /*TODO*/
-# define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
-# define LIBXS_LOCK_TYPE HANDLE
-# define LIBXS_LOCK_CONSTRUCT 0
-# define LIBXS_LOCK_INIT(LOCK) /*TODO*/
-# define LIBXS_LOCK_DESTROY(LOCK) CloseHandle(LOCK)
-# define LIBXS_LOCK_ACQUIRE(LOCK) WaitForSingleObject(LOCK, INFINITE)
-# define LIBXS_LOCK_TRYLOCK(LOCK) WaitForSingleObject(LOCK, 0)
-# define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(LOCK)
-#else /* PThreads: include <pthread.h> */
+#if defined(_REENTRANT)
+# if defined(_WIN32) /*TODO*/
+#   define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
+#   define LIBXS_LOCK_TYPE HANDLE
+#   define LIBXS_LOCK_CONSTRUCT 0
+#   define LIBXS_LOCK_INIT(LOCK) /*TODO*/
+#   define LIBXS_LOCK_DESTROY(LOCK) CloseHandle(LOCK)
+#   define LIBXS_LOCK_ACQUIRE(LOCK) WaitForSingleObject(LOCK, INFINITE)
+#   define LIBXS_LOCK_TRYLOCK(LOCK) WaitForSingleObject(LOCK, 0)
+#   define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(LOCK)
+# else /* PThreads: include <pthread.h> */
+#   define LIBXS_LOCK_ACQUIRED 0
+#   define LIBXS_LOCK_TYPE pthread_mutex_t
+#   define LIBXS_LOCK_CONSTRUCT PTHREAD_MUTEX_INITIALIZER
+#   define LIBXS_LOCK_INIT(LOCK) pthread_mutex_init(LOCK, 0)
+#   define LIBXS_LOCK_DESTROY(LOCK) pthread_mutex_destroy(LOCK)
+#   define LIBXS_LOCK_ACQUIRE(LOCK) pthread_mutex_lock(LOCK)
+#   define LIBXS_LOCK_TRYLOCK(LOCK) pthread_mutex_trylock(LOCK)
+#   define LIBXS_LOCK_RELEASE(LOCK) pthread_mutex_unlock(LOCK)
+# endif
+#else
 # define LIBXS_LOCK_ACQUIRED 0
-# define LIBXS_LOCK_TYPE pthread_mutex_t
-# define LIBXS_LOCK_CONSTRUCT PTHREAD_MUTEX_INITIALIZER
-# define LIBXS_LOCK_INIT(LOCK) pthread_mutex_init(LOCK, 0)
-# define LIBXS_LOCK_DESTROY(LOCK) pthread_mutex_destroy(LOCK)
-# define LIBXS_LOCK_ACQUIRE(LOCK) pthread_mutex_lock(LOCK)
-# define LIBXS_LOCK_TRYLOCK(LOCK) pthread_mutex_trylock(LOCK)
-# define LIBXS_LOCK_RELEASE(LOCK) pthread_mutex_unlock(LOCK)
+# define LIBXS_LOCK_TYPE const void*
+# define LIBXS_LOCK_CONSTRUCT 0
+# define LIBXS_LOCK_INIT(LOCK) LIBXS_UNUSED(LOCK)
+# define LIBXS_LOCK_DESTROY(LOCK) LIBXS_UNUSED(LOCK)
+# define LIBXS_LOCK_ACQUIRE(LOCK) LIBXS_UNUSED(LOCK)
+# define LIBXS_LOCK_TRYLOCK(LOCK) LIBXS_UNUSED(LOCK)
+# define LIBXS_LOCK_RELEASE(LOCK) LIBXS_UNUSED(LOCK)
 #endif
 
 #endif /*LIBXS_SYNC_H*/
