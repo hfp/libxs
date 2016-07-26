@@ -783,10 +783,8 @@ void libxs_finalize(void)
         libxs_gemm_diff_finalize();
         libxs_hash_finalize();
 
-        { /* make internal registry globally unavailable */
-          const internal_code_type const* zero = LIBXS_ATOMIC_STORE_ZERO(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
-          LIBXS_UNUSED(zero);
-        }
+        /* make internal registry globally unavailable */
+        LIBXS_ATOMIC_STORE_ZERO(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
         internal_registry_keys = 0;
 
         for (i = 0; i < LIBXS_REGSIZE; ++i) {
