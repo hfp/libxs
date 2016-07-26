@@ -90,6 +90,7 @@
 #endif
 
 #if defined(_WIN32) /*TODO*/
+# define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
 # define LIBXS_LOCK_TYPE HANDLE
 # define LIBXS_LOCK_CONSTRUCT 0
 # define LIBXS_LOCK_INIT(LOCK) /*TODO*/
@@ -98,6 +99,7 @@
 # define LIBXS_LOCK_TRYLOCK(LOCK) WaitForSingleObject(LOCK, 0)
 # define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(LOCK)
 #else /* PThreads: include <pthread.h> */
+# define LIBXS_LOCK_ACQUIRED 0
 # define LIBXS_LOCK_TYPE pthread_mutex_t
 # define LIBXS_LOCK_CONSTRUCT PTHREAD_MUTEX_INITIALIZER
 # define LIBXS_LOCK_INIT(LOCK) pthread_mutex_init(LOCK, 0)
