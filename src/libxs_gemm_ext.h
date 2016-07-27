@@ -87,8 +87,6 @@ LIBXS_RETARGETABLE int internal_gemm_nt /*= 2*/;
 LIBXS_RETARGETABLE int internal_gemm_prefetch /*= LIBXS_MAX(LIBXS_PREFETCH, 0)*/;
 /** INTERNAL: determines whether (OpenMP-)tasks are preferred over thread-style parallelization */
 LIBXS_RETARGETABLE int internal_gemm_tasks /*= 0*/;
-/** INTERNAL: kind of OMP-based ?GEMM (1: sequential, 2: parallelized) */
-LIBXS_RETARGETABLE int internal_gemm_omp /*= 2*/;
 /** INTERNAL: kind of LD_PRELOAD ?GEMM (0: small gemm, 1: sequential, 2: parallelized) */
 LIBXS_RETARGETABLE int internal_gemm /*= 0*/;
 
