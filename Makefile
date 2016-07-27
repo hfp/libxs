@@ -316,7 +316,7 @@ $(INCDIR)/libxs.h: .state $(INCDIR)/.make \
                      $(ROOTDIR)/version.txt \
                      $(HEADERS)
 	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
-		$(ROOTDIR)/.hooks/install.sh ; \
+		$(ROOTDIR)/.hooks/install.sh; \
 	fi
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
@@ -372,7 +372,7 @@ $(INCDIR)/libxs.f: .state $(INCDIR)/.make $(BLDDIR)/.make \
                      $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
-		$(ROOTDIR)/.hooks/install.sh ; \
+		$(ROOTDIR)/.hooks/install.sh; \
 	fi
 ifeq (0,$(OFFLOAD))
 	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f \
@@ -1151,6 +1151,9 @@ clean-minimal:
 clean: clean-minimal
 	@rm -f $(OBJECTS) $(FTNOBJS) $(SRCFILES_KERNELS)
 	@rm -f $(BLDDIR)/libxs_dispatch.h
+	@if [ "" = $(find build -type f -not -name .make) ]; then \
+		rm -rf $(BLDDIR); \
+	fi
 
 .PHONY: realclean
 realclean: clean
@@ -1233,28 +1236,28 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@cp -v $(OUTDIR)/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxs.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@if [ -e $(OUTDIR)/mic/libxsext.$(DLIBEXT) ]; then \
-		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -v $(OUTDIR)/mic/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		cp -v $(OUTDIR)/mic/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsext.$(SLIBEXT) ]; then \
-		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -v $(OUTDIR)/mic/libxsext.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		cp -v $(OUTDIR)/mic/libxsext.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsf.$(DLIBEXT) ]; then \
-		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -v $(OUTDIR)/mic/libxsf.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		cp -v $(OUTDIR)/mic/libxsf.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsf.$(SLIBEXT) ]; then \
-		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -v $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		cp -v $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxs.$(DLIBEXT) ]; then \
-		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -v $(OUTDIR)/mic/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		cp -v $(OUTDIR)/mic/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxs.$(SLIBEXT) ]; then \
-		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
-		cp -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic ; \
+		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		cp -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@echo
 	@echo "LIBXS installing interface..."
