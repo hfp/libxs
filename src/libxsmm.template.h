@@ -119,8 +119,9 @@ LIBXS_API libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
  * Code generation routine for the CSR format which multiplies a dense SOA matrix (each element holds a SIMD-width
  * wide vector) and a sparse matrix. There is no code cache, and user code has to manage the code pointers.
  * Call libxs_destroy in order to deallocate the JIT'ted code.
+ * @TODO: This is not great, probably need to declare values as void pointer
  */
-LIBXS_API libxs_dmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* descriptor,
+LIBXS_API libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* descriptor,
    const unsigned int* row_ptr, const unsigned int* column_idx, const double* values);
 
 /** Deallocates the JIT'ted code as returned by libxs_create_* function. TODO: this is a no-op at the moment. */
