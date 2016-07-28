@@ -26,42 +26,71 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_gemm_ext.h"
+#include "libxs_gemm.h"
+#include "libxs_ext_gemm.h"
+#include "libxs_sync.h"
+
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#if !defined(NDEBUG)
+# include <stdio.h>
+#endif
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
 
 
-#if defined(LIBXS_GEMM_EXTWRAP)
-
-LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_ATTRIBUTE_WEAK void LIBXS_GEMM_EXTWRAP_SGEMM(
+/* must be located in a different translation unit than libxs_original_sgemm */
+LIBXS_API_DEFINITION void LIBXS_FSYMBOL(__real_sgemm)(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc)
 {
-  LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
-  assert(LIBXS_GEMM_EXTWRAP_SGEMM != *libxs_original_sgemm());
-  LIBXS_XGEMM(float, libxs_blasint, flags, *m, *n, *k,
-    0 != alpha ? *alpha : ((float)LIBXS_ALPHA),
-    a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
-    0 != beta ? *beta : ((float)LIBXS_BETA),
-    c, *(ldc ? ldc : LIBXS_LD(m, n)));
+  static const LIBXS_RETARGETABLE libxs_sgemm_function instance = LIBXS_FSYMBOL(sgemm);
+#if !defined(NDEBUG)
+  if (0 != instance)
+#endif
+  {
+    instance(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  else {
+    static LIBXS_TLS int error_blas = 0;
+    if (0 == error_blas) {
+      fprintf(stderr, "LIBXS: application must be linked against a LAPACK/BLAS implementation!\n");
+      error_blas = 1;
+    }
+  }
+#endif
 }
 
 
-LIBXS_EXTERN LIBXS_RETARGETABLE LIBXS_ATTRIBUTE_WEAK void LIBXS_GEMM_EXTWRAP_DGEMM(
+/* must be located in a different translation unit than libxs_original_dgemm */
+LIBXS_API_DEFINITION void LIBXS_FSYMBOL(__real_dgemm)(
   const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
   const double* b, const libxs_blasint* ldb,
   const double* beta, double* c, const libxs_blasint* ldc)
 {
-  LIBXS_GEMM_DECLARE_FLAGS(flags, transa, transb, m, n, k, a, b, c);
-  assert(LIBXS_GEMM_EXTWRAP_DGEMM != *libxs_original_dgemm());
-  LIBXS_XGEMM(double, libxs_blasint, flags, *m, *n, *k,
-    0 != alpha ? *alpha : ((double)LIBXS_ALPHA),
-    a, *(lda ? lda : LIBXS_LD(m, k)), b, *(ldb ? ldb : LIBXS_LD(k, n)),
-    0 != beta ? *beta : ((double)LIBXS_BETA),
-    c, *(ldc ? ldc : LIBXS_LD(m, n)));
+  static const LIBXS_RETARGETABLE libxs_dgemm_function instance = LIBXS_FSYMBOL(dgemm);
+#if !defined(NDEBUG)
+  if (0 != instance)
+#endif
+  {
+    instance(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  else {
+    static LIBXS_TLS int error_blas = 0;
+    if (0 == error_blas) {
+      fprintf(stderr, "LIBXS: application must be linked against a LAPACK/BLAS implementation!\n");
+      error_blas = 1;
+    }
+  }
+#endif
 }
 
-#endif /*defined(LIBXS_GEMM_EXTWRAP)*/
