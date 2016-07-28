@@ -1124,7 +1124,22 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(__real_sgemm)(
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc)
 {
-  sgemm_(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  static LIBXS_RETARGETABLE libxs_sgemm_function instance = LIBXS_FSYMBOL(sgemm);
+#if !defined(NDEBUG)
+  if (0 != instance)
+#endif
+  {
+    instance(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  else {
+    static LIBXS_TLS int error_blas = 0;
+    if (0 == error_blas) {
+      fprintf(stderr, "LIBXS: application must be linked against a LAPACK/BLAS implementation!\n");
+      error_blas = 1;
+    }
+  }
+#endif
 }
 
 
@@ -1135,7 +1150,22 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(__real_dgemm)(
   const double* b, const libxs_blasint* ldb,
   const double* beta, double* c, const libxs_blasint* ldc)
 {
-  dgemm_(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  static LIBXS_RETARGETABLE libxs_dgemm_function instance = LIBXS_FSYMBOL(dgemm);
+#if !defined(NDEBUG)
+  if (0 != instance)
+#endif
+  {
+    instance(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  else {
+    static LIBXS_TLS int error_blas = 0;
+    if (0 == error_blas) {
+      fprintf(stderr, "LIBXS: application must be linked against a LAPACK/BLAS implementation!\n");
+      error_blas = 1;
+    }
+  }
+#endif
 }
 
 #endif /*defined(__STATIC)*/
