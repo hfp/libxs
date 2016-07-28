@@ -31,12 +31,15 @@
 
 #include "libxs_gemm.h"
 
-#if !defined(LIBXS_GEMM_EXTWRAP) && defined(LIBXS_BUILD) && \
+#if defined(__BLAS) && (0 == __BLAS) /* no fallback */
+# define LIBXS_GEMM_EXTWRAP_SGEMM LIBXS_FSYMBOL(sgemm)
+# define LIBXS_GEMM_EXTWRAP_DGEMM LIBXS_FSYMBOL(dgemm)
+#elif !defined(LIBXS_GEMM_EXTWRAP) && defined(LIBXS_BUILD) && \
   defined(__GNUC__) && !defined(_WIN32) && !(defined(__APPLE__) && defined(__MACH__) && \
   LIBXS_VERSION3(6, 1, 0) >= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 # if defined(__STATIC) /* -Wl,--wrap=xgemm_ */
 #   define LIBXS_GEMM_EXTWRAP
-#   define LIBXS_GEMM_WEAK_SLIB LIBXS_ATTRIBUTE(weak)
+#   define LIBXS_GEMM_WEAK_SLIB LIBXS_ATTRIBUTE_WEAK
 #   define LIBXS_GEMM_EXTWRAP_SGEMM LIBXS_FSYMBOL(__wrap_sgemm)
 #   define LIBXS_GEMM_EXTWRAP_DGEMM LIBXS_FSYMBOL(__wrap_dgemm)
     LIBXS_API void LIBXS_FSYMBOL(__real_sgemm)(
@@ -49,7 +52,7 @@
       const double*, double*, const libxs_blasint*);
 # elif defined(LIBXS_BUILD) && !defined(__CYGWIN__) /* LD_PRELOAD */
 #   define LIBXS_GEMM_EXTWRAP
-#   define LIBXS_GEMM_WEAK_DLIB LIBXS_ATTRIBUTE(weak)
+#   define LIBXS_GEMM_WEAK_DLIB LIBXS_ATTRIBUTE_WEAK
 #   define LIBXS_GEMM_EXTWRAP_SGEMM LIBXS_FSYMBOL(sgemm)
 #   define LIBXS_GEMM_EXTWRAP_DGEMM LIBXS_FSYMBOL(dgemm)
 # endif
