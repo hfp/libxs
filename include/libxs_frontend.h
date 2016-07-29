@@ -152,10 +152,21 @@ typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
 LIBXS_RETARGETABLE libxs_sgemm_function libxs_original_sgemm;
 LIBXS_RETARGETABLE libxs_dgemm_function libxs_original_dgemm;
 
+#if !defined(LIBXS_ORIGINAL_GEMM_INDIRECT) && !defined(__STATIC) && defined(__CYGWIN__)
+# define LIBXS_ORIGINAL_GEMM_INDIRECT
+#endif
+
+#if defined(LIBXS_ORIGINAL_GEMM_INDIRECT)
+LIBXS_API const libxs_sgemm_function* libxs_original_sgemm_ptr(void);
+LIBXS_API const libxs_dgemm_function* libxs_original_dgemm_ptr(void);
+# define LIBXS_BLAS_GEMM_SYMBOL(REAL) (*LIBXS_CONCATENATE(LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(REAL, gemm)), _ptr)())
+#else
+# define LIBXS_BLAS_GEMM_SYMBOL(REAL) LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(REAL, gemm))
+#endif
+
 /** Construct symbol name from a given real type name (float or double). */
 #define LIBXS_MMFUNCTION_TYPE(REAL)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmfunction))
 #define LIBXS_MMDISPATCH_SYMBOL(REAL) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmdispatch))
-#define LIBXS_BLAS_GEMM_SYMBOL(REAL)  LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(REAL, gemm))
 #define LIBXS_XBLAS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(REAL, gemm))
 #define LIBXS_XOMPS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_omp_, LIBXS_TPREFIX(REAL, gemm))
 #define LIBXS_XGEMM_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm))
