@@ -152,7 +152,7 @@ typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
 LIBXS_RETARGETABLE libxs_sgemm_function libxs_original_sgemm;
 LIBXS_RETARGETABLE libxs_dgemm_function libxs_original_dgemm;
 
-#if !defined(LIBXS_ORIGINAL_GEMM_INDIRECT) && defined(__CYGWIN__)
+#if !defined(LIBXS_ORIGINAL_GEMM_INDIRECT) /*&& defined(__CYGWIN__)*/
 # define LIBXS_ORIGINAL_GEMM_INDIRECT
 #endif
 
