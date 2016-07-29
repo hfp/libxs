@@ -242,10 +242,12 @@
 # define LIBXS_VISIBILITY_INTERNAL
 #endif
 
-#if (defined(__GNUC__) || defined(__clang__)) && !defined(__CYGWIN__)
-# define LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE(weak)
+#if (defined(__GNUC__) || defined(__clang__))
+# define LIBXS_ATTRIBUTE_WEAK_EXPORT LIBXS_ATTRIBUTE(weak)
+# define LIBXS_ATTRIBUTE_WEAK_IMPORT LIBXS_ATTRIBUTE(weak_import)
 #else
-# define LIBXS_ATTRIBUTE_WEAK
+# define LIBXS_ATTRIBUTE_WEAK_EXPORT
+# define LIBXS_ATTRIBUTE_WEAK_IMPORT
 #endif
 
 #if defined(NDEBUG)
