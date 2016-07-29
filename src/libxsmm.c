@@ -1024,19 +1024,24 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
       LIBXS_ALLOC_FLAG_RWX,
       0/*extra*/, 0/*extra_size*/))
     {
+      char jit_code_name[256];
 # if !defined(LIBXS_VTUNE)
       LIBXS_UNUSED(jit_kind);
       if (0 > internal_verbose_mode)
 # endif
       {
-        char jit_code_name[256];
         internal_get_code_name(target_arch, jit_kind, descriptor, sizeof(jit_code_name), jit_code_name);
-        assert(0 == ((LIBXS_HASH_COLLISION | LIBXS_CODE_STATIC) & code->imm));
-        /* copy temporary buffer into the prepared executable buffer */
-        memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
-        /* revoke unnecessary memory protection flags; continue on error */
-        libxs_alloc_attribute(code->pmm, LIBXS_ALLOC_FLAG_RW, jit_code_name);
       }
+# if !defined(LIBXS_VTUNE)
+      else {
+        jit_code_name[0] = 0;
+      }
+# endif
+      assert(0 == ((LIBXS_HASH_COLLISION | LIBXS_CODE_STATIC) & code->imm));
+      /* copy temporary buffer into the prepared executable buffer */
+      memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
+      /* revoke unnecessary memory protection flags; continue on error */
+      libxs_alloc_attribute(code->pmm, LIBXS_ALLOC_FLAG_RW, jit_code_name);
     }
   }
 # if !defined(NDEBUG) /* library code is expected to be mute */
