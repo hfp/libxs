@@ -171,6 +171,13 @@ LIBXS_API const libxs_dgemm_function* libxs_original_dgemm_ptr(void);
 #define LIBXS_XOMPS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_omp_, LIBXS_TPREFIX(REAL, gemm))
 #define LIBXS_XGEMM_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm))
 
+/** Helper macro to account for libxs_init being already executed via GCC constructor attribute */
+#if defined(__GNUC__)
+# define LIBXS_INIT
+#else /* lazy initialization */
+# define LIBXS_INIT libxs_init();
+#endif
+
 /** Helper macro consolidating the applicable GEMM arguments into LIBXS's flags. */
 #define LIBXS_GEMM_DECLARE_FLAGS(FLAGS, TRANSA, TRANSB, M, N, K, A, B, C) \
   int FLAGS = (0 != (TRANSA) \

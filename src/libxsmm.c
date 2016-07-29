@@ -155,11 +155,9 @@ typedef struct LIBXS_RETARGETABLE internal_desc_extra_type {
 #endif
 
 #if defined(__GNUC__)
-# define LIBXS_INIT
 /* libxs_init already executed via GCC constructor attribute */
 # define INTERNAL_FIND_CODE_INIT(VARIABLE) assert(0 != (VARIABLE))
 #else /* lazy initialization */
-# define LIBXS_INIT libxs_init();
 /* use return value of internal_init to refresh local representation */
 # define INTERNAL_FIND_CODE_INIT(VARIABLE) if (0 == (VARIABLE)) VARIABLE = internal_init()
 #endif
@@ -920,7 +918,6 @@ LIBXS_API_DEFINITION const char* get_target_arch(int* length)
 LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
 {
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
-
   if (0 != arch && 0 != *arch) {
     const int jit = atoi(arch);
     if (0 == strcmp("0", arch)) {
@@ -977,12 +974,14 @@ LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
 
 LIBXS_API_DEFINITION int libxs_get_verbose_mode(void)
 {
+  LIBXS_INIT
   return internal_verbose_mode;
 }
 
 
 LIBXS_API_DEFINITION void libxs_set_verbose_mode(int mode)
 {
+  LIBXS_INIT
   internal_verbose_mode = mode;
 }
 
@@ -1071,9 +1070,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   const libxs_xmmfunction null_mmfunction = { 0 };
+  LIBXS_INIT
   if (0 != descriptor && INTERNAL_DISPATCH_BYPASS_CHECK(descriptor->flags, descriptor->alpha, descriptor->beta)) {
     libxs_gemm_descriptor backend_descriptor;
-
     if (0 > (int)descriptor->prefetch) {
       backend_descriptor = *descriptor;
       backend_descriptor.prefetch = (unsigned char)internal_prefetch;
@@ -1095,6 +1094,7 @@ LIBXS_API_DEFINITION libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const float* alpha, const float* beta,
   const int* flags, const int* prefetch)
 {
+  LIBXS_INIT
   INTERNAL_SMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
@@ -1104,6 +1104,7 @@ LIBXS_API_DEFINITION libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
   const double* alpha, const double* beta,
   const int* flags, const int* prefetch)
 {
+  LIBXS_INIT
   INTERNAL_DMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
@@ -1113,6 +1114,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_de
 {
   internal_code_type code = { {0} };
   internal_desc_extra_type desc_extra;
+  LIBXS_INIT
   memset(&desc_extra, 0, sizeof(desc_extra));
   desc_extra.row_ptr = row_ptr;
   desc_extra.column_idx = column_idx;
@@ -1124,6 +1126,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_de
 
 LIBXS_API_DEFINITION void libxs_destroy(const void* jit_code)
 {
+  LIBXS_INIT
   libxs_deallocate(jit_code);
 }
 
