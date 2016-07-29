@@ -77,8 +77,10 @@
 #define LIBXS_API_INLINE LIBXS_INTERNAL_API_INLINE LIBXS_RETARGETABLE
 
 /* Some definitions kept for compatibility with earlier versions */
-#if !defined(LIBXS_EXTERN_C)
+#if !defined(LIBXS_EXTERN_C) && defined(__cplusplus)
 # define LIBXS_EXTERN_C LIBXS_EXTERN
+#else
+# define LIBXS_EXTERN_C
 #endif
 
 #if !defined(LIBXS_RESTRICT)
