@@ -101,6 +101,14 @@ LIBXS_API const char* libxs_get_target_arch(void);
 /** Set target architecture (arch="0|sse|snb|hsw|knl|skx", NULL/"0": CPUID) for subsequent code generation (JIT). */
 LIBXS_API void libxs_set_target_arch(const char* arch);
 
+/** Get the level of verbosity. */
+LIBXS_API int libxs_get_verbose_mode(void);
+/**
+ * Set the level of verbosity (0: off, positive value: verbosity level,
+ * negative value: maximum verbosity, which also dumps JIT-code)
+ */
+LIBXS_API void libxs_set_verbose_mode(int mode);
+
 /** Query or JIT-generate a function; return zero if it does not exist or if JIT is not supported (descriptor form). */
 LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);
 

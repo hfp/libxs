@@ -33,9 +33,9 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <stdlib.h>
+#include <stdio.h>
 #if !defined(NDEBUG)
 # include <string.h>
-# include <stdio.h>
 #endif
 #if defined(_WIN32)
 # include <windows.h>
@@ -413,28 +413,25 @@ LIBXS_API_DEFINITION int libxs_deallocate(const void* memory)
 
 LIBXS_API_DEFINITION int libxs_alloc_attribute(const void* memory, int flags, const char* name)
 {
+  int alloc_flags = 0;
   void* buffer = 0;
   size_t size = 0;
 #if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
-  int alloc_flags = 0;
   internal_alloc_extra_type* internal = 0;
   int result = internal_alloc_info(memory, &size, &alloc_flags, &buffer, &internal);
 #else
-  int result = internal_alloc_info(memory, &size, 0/*flags*/, &buffer, 0/*internal*/);
+  int result = internal_alloc_info(memory, &size, &alloc_flags, &buffer, 0/*internal*/);
 #endif
 #if !defined(NDEBUG)
   static LIBXS_TLS int revoke_error = 0;
 #endif
   if (0 != buffer && EXIT_SUCCESS == result) {
-#if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
     if (0 != (LIBXS_ALLOC_FLAG_X & alloc_flags) && name && *name) {
-# if !defined(NDEBUG) && defined(_DEBUG) /* dump byte-code into a file */
-      FILE *const code_file = fopen(name, "wb");
-      if (0 != code_file) {
+      FILE *const code_file = (0 > libxs_get_verbose_mode() ? fopen(name, "wb") : 0);
+      if (0 != code_file) { /* dump byte-code into a file */
         fwrite(memory, 1, size, code_file);
         fclose(code_file);
       }
-# endif
 # if defined(LIBXS_VTUNE)
       assert(0 != internal);
       if (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
@@ -449,9 +446,6 @@ LIBXS_API_DEFINITION int libxs_alloc_attribute(const void* memory, int flags, co
       }
 # endif
     }
-#else /* no VTune JIT Profiling and no debug code */
-    LIBXS_UNUSED(name);
-#endif
     { /* protect memory region according to the requested flags */
 #if defined(_WIN32) /*TODO: implementation for Microsoft Windows*/
       LIBXS_UNUSED(memory); LIBXS_UNUSED(flags); LIBXS_UNUSED(name);

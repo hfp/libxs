@@ -246,6 +246,8 @@
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_get_target_archid
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_set_target_archid
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_set_target_arch
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_get_verbose_mode
+        !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_set_verbose_mode
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_duration
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_timer_tick
         !DIR$ ATTRIBUTES OFFLOAD:MIC :: libxs_omp_sgemm
@@ -279,6 +281,19 @@
           SUBROUTINE libxs_set_target_arch(arch) BIND(C)
             IMPORT :: C_CHAR
             CHARACTER(C_CHAR), INTENT(IN) :: arch(*)
+          END SUBROUTINE
+
+          ! Get the level of verbosity.
+          PURE FUNCTION libxs_get_verbose_mode() BIND(C)
+            IMPORT :: C_INT
+            INTEGER(C_INT) :: libxs_get_verbose_mode
+          END FUNCTION
+
+          ! Set the level of verbosity (0: off, positive value: verbosity level,
+          ! negative value: maximum verbosity, which also dumps JIT-code).
+          SUBROUTINE libxs_set_verbose_mode(mode) BIND(C)
+            IMPORT :: C_INT
+            INTEGER(C_INT), INTENT(IN), VALUE :: mode
           END SUBROUTINE
 
           ! Transpose a matrix (out-of-place form).
