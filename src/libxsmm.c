@@ -992,9 +992,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_build(const libxs_gemm_descriptor*
 #if !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   const char *const target_arch = internal_get_target_arch(internal_target_archid);
   libxs_generated_code generated_code;
-  assert(0 != descriptor && 0 != code);
+  assert(0 != descriptor && 0 < descriptor->m && 0 < descriptor->n && 0 < descriptor->k);
+  assert(0 < descriptor->lda && 0 < descriptor->lda && 0 < descriptor->ldc);
   assert(0 != internal_target_archid);
-  assert(0 == code->pmm);
+  assert(0 != code && 0 == code->pmm);
 
   /* allocate temporary buffer which is large enough to cover the generated code */
   generated_code.generated_code = malloc(131072);
