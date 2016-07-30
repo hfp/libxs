@@ -45,7 +45,7 @@
 
 
 /* Based on cache-oblivious scheme as published by Frigo et.al. Further optimization for compile-time bounded loops. */
-LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT out, const void *LIBXS_RESTRICT in,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_transpose_oop(void *LIBXS_RESTRICT out, const void *LIBXS_RESTRICT in,
   unsigned int typesize, libxs_blasint m0, libxs_blasint m1, libxs_blasint n0, libxs_blasint n1,
   libxs_blasint ld, libxs_blasint ldo)
 {
@@ -79,22 +79,22 @@ LIBXS_INLINE LIBXS_RETARGETABLE void inernal_transpose_oop(void *LIBXS_RESTRICT 
   }
   else if (m >= n) {
     const libxs_blasint mi = (m0 + m1) / 2;
-    inernal_transpose_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
-    inernal_transpose_oop(out, in, typesize, mi, m1, n0, n1, ld, ldo);
+    internal_transpose_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
+    internal_transpose_oop(out, in, typesize, mi, m1, n0, n1, ld, ldo);
   }
   else {
 #if (0 < LIBXS_TRANSPOSE_CHUNK)
     if (LIBXS_TRANSPOSE_CHUNK < n) {
       const libxs_blasint ni = n0 + LIBXS_TRANSPOSE_CHUNK;
-      inernal_transpose_oop(out, in, typesize, m0, m1, n0, ni, ld, ldo);
-      inernal_transpose_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
+      internal_transpose_oop(out, in, typesize, m0, m1, n0, ni, ld, ldo);
+      internal_transpose_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
     }
     else
 #endif
     {
       const libxs_blasint ni = (n0 + n1) / 2;
-      inernal_transpose_oop(out, in, typesize, m0, m1, n0, ni, ld, ldo);
-      inernal_transpose_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
+      internal_transpose_oop(out, in, typesize, m0, m1, n0, ni, ld, ldo);
+      internal_transpose_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
     }
   }
 }
@@ -128,7 +128,7 @@ LIBXS_API_DEFINITION void libxs_transpose_oop(void* out, const void* in, unsigne
   else
 #endif
   {
-    inernal_transpose_oop(out, in, typesize, 0, m, 0, n, ld, ldo);
+    internal_transpose_oop(out, in, typesize, 0, m, 0, n, ld, ldo);
   }
 }
 
