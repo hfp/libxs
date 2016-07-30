@@ -263,10 +263,13 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
           MAP_PRIVATE | MAP_ANONYMOUS
 # endif
 # if defined(MAP_NORESERVE)
-          | MAP_NORESERVE
+          | ((LIBXS_ALLOC_ALIGNMAX * LIBXS_ALLOC_ALIGNFCT) > size ? MAP_NORESERVE : 0)
 # endif
 # if defined(MAP_HUGETLB)
           | ((LIBXS_ALLOC_ALIGNMAX * LIBXS_ALLOC_ALIGNFCT) > size ? 0 : MAP_HUGETLB)
+# endif
+# if defined(MAP_LOCKED) && 0
+          | MAP_LOCKED
 # endif
 # if defined(MAP_32BIT)
           | MAP_32BIT
