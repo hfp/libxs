@@ -34,7 +34,7 @@
 # define INTERNAL_TRANSPOSE_INDEX_LOAD(I, J, LD) (I * LD + J)
 #endif
 
-#define INTERNAL_TRANSPOSE_OOP(TYPE, OUT, IN, M0, M1, N0, N1, N) { \
+#define INTERNAL_TRANSPOSE_OOP(TYPE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
   const TYPE *const a = (const TYPE*)IN; \
   TYPE *const b = (TYPE*)OUT; \
   libxs_blasint i, j; \
@@ -43,7 +43,7 @@
       LIBXS_PRAGMA_VALIGNED_VARS(b) \
       LIBXS_PRAGMA_NONTEMPORAL \
       for (j = N0; j < N0 + LIBXS_TRANSPOSE_CHUNK; ++j) { \
-        b[INTERNAL_TRANSPOSE_INDEX_STORE(i,j,ldo)] = a[INTERNAL_TRANSPOSE_INDEX_LOAD(i,j,ld)]; \
+        b[INTERNAL_TRANSPOSE_INDEX_STORE(i,j,LDO)] = a[INTERNAL_TRANSPOSE_INDEX_LOAD(i,j,LD)]; \
       } \
     } \
   } \
@@ -51,7 +51,7 @@
     for (i = M0; i < M1; ++i) { \
       LIBXS_PRAGMA_NONTEMPORAL \
       for (j = N0; j < N1; ++j) { \
-        b[INTERNAL_TRANSPOSE_INDEX_STORE(i,j,ldo)] = a[INTERNAL_TRANSPOSE_INDEX_LOAD(i,j,ld)]; \
+        b[INTERNAL_TRANSPOSE_INDEX_STORE(i,j,LDO)] = a[INTERNAL_TRANSPOSE_INDEX_LOAD(i,j,LD)]; \
       } \
     } \
   } \
@@ -68,20 +68,20 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_transpose_oop(void *LIBXS_RESTRICT
   if (m * n * typesize <= (LIBXS_TRANSPOSE_CACHESIZE / 2)) {
     switch(typesize) {
       case 1: {
-        INTERNAL_TRANSPOSE_OOP(char, out, in, m0, m1, n0, n1, n);
+        INTERNAL_TRANSPOSE_OOP(char, out, in, m0, m1, n0, n1, n, ld, ldo);
       } break;
       case 2: {
-        INTERNAL_TRANSPOSE_OOP(short, out, in, m0, m1, n0, n1, n);
+        INTERNAL_TRANSPOSE_OOP(short, out, in, m0, m1, n0, n1, n, ld, ldo);
       } break;
       case 4: {
-        INTERNAL_TRANSPOSE_OOP(float, out, in, m0, m1, n0, n1, n);
+        INTERNAL_TRANSPOSE_OOP(float, out, in, m0, m1, n0, n1, n, ld, ldo);
       } break;
       case 8: {
-        INTERNAL_TRANSPOSE_OOP(double, out, in, m0, m1, n0, n1, n);
+        INTERNAL_TRANSPOSE_OOP(double, out, in, m0, m1, n0, n1, n, ld, ldo);
       } break;
       case 16: {
         typedef struct dvec2_t { double value[2]; } dvec2_t;
-        INTERNAL_TRANSPOSE_OOP(dvec2_t, out, in, m0, m1, n0, n1, n);
+        INTERNAL_TRANSPOSE_OOP(dvec2_t, out, in, m0, m1, n0, n1, n, ld, ldo);
       } break;
       default: {
 #if !defined(NDEBUG) /* library code is expected to be mute */
