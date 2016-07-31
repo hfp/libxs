@@ -836,7 +836,7 @@ void libxs_finalize(void)
             if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak) {
               fprintf(stderr, "LIBXS_TARGET=%s ", target_arch);
             }
-            fprintf(stderr, "HEAP: %.1f MB\n", 1.0 * heapmem / (1 << 20));
+            fprintf(stderr, "HEAP: %.f MB\n", 1.0 * heapmem / (1 << 20));
           }
           LIBXS_FUNLOCK(stdout);
           LIBXS_FUNLOCK(stderr);
