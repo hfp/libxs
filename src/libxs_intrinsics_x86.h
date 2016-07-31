@@ -29,6 +29,7 @@
 #ifndef LIBXS_INTRINSICS_X86_H
 #define LIBXS_INTRINSICS_X86_H
 
+#include <libxs_typedefs.h>
 #include <libxs_macros.h>
 
 #if defined(__MIC__)
