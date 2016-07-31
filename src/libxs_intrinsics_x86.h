@@ -34,7 +34,6 @@
 
 #if defined(__MIC__)
 # define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_IMCI
-# define LIBXS_STATIC_SIMD_WIDTH 64
 #else
 # if  defined(__AVX512F__)  && defined(__AVX512CD__) \
    && defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__)
@@ -139,18 +138,6 @@
 
 #if !defined(LIBXS_STATIC_TARGET_ARCH)
 # define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_GENERIC
-#endif
-
-#if !defined(LIBXS_STATIC_SIMD_WIDTH)
-# if (LIBXS_STATIC_TARGET_ARCH <= LIBXS_X86_GENERIC)
-#   define LIBXS_STATIC_SIMD_WIDTH 1
-# elif (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX)
-#   define LIBXS_STATIC_SIMD_WIDTH 16
-# elif (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX512_MIC)
-#   define LIBXS_STATIC_SIMD_WIDTH 32
-# else
-#   define LIBXS_STATIC_SIMD_WIDTH 64
-# endif
 #endif
 
 #if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
