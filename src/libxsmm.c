@@ -398,19 +398,19 @@ return flux_entry.xmm
 
 #if !defined(LIBXS_OPENMP) && !defined(LIBXS_NOSYNC)
 # define INTERNAL_REGLOCK_COUNT 16
-LIBXS_RETARGETABLE LIBXS_LOCK_TYPE internal_reglock[INTERNAL_REGLOCK_COUNT];
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_LOCK_TYPE internal_reglock[INTERNAL_REGLOCK_COUNT];
 #endif
 
-LIBXS_RETARGETABLE internal_regkey_type* internal_registry_keys /*= 0*/;
-LIBXS_RETARGETABLE internal_code_type* internal_registry /*= 0*/;
-LIBXS_RETARGETABLE internal_statistic_type internal_statistic[2/*DP/SP*/][3/*sml/med/big*/];
-LIBXS_RETARGETABLE unsigned int internal_statistic_sml /*= 13*/;
-LIBXS_RETARGETABLE unsigned int internal_statistic_med /*= 23*/;
-LIBXS_RETARGETABLE unsigned int internal_statistic_mnk /*= LIBXS_MAX_M*/;
-LIBXS_RETARGETABLE unsigned int internal_teardown /*= 0*/;
-LIBXS_RETARGETABLE int internal_target_archid /*= LIBXS_TARGET_ARCH_GENERIC*/;
-LIBXS_RETARGETABLE int internal_verbose_mode /*= 0*/;
-LIBXS_RETARGETABLE int internal_prefetch /*= LIBXS_MAX(INTERNAL_PREFETCH, 0)*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE internal_regkey_type* internal_registry_keys /*= 0*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE internal_code_type* internal_registry /*= 0*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE internal_statistic_type internal_statistic[2/*DP/SP*/][3/*sml/med/big*/];
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_sml /*= 13*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_med /*= 23*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_mnk /*= LIBXS_MAX_M*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_teardown /*= 0*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_target_archid /*= LIBXS_TARGET_ARCH_GENERIC*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_verbose_mode /*= 0*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_prefetch /*= LIBXS_MAX(INTERNAL_PREFETCH, 0)*/;
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_update_statistic(const libxs_gemm_descriptor* desc,

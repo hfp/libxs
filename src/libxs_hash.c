@@ -135,9 +135,9 @@
 #endif
 
 typedef uint32_t internal_crc32_entry_type[256];
-const LIBXS_RETARGETABLE internal_crc32_entry_type* internal_crc32_table;
+LIBXS_EXTERN_C const LIBXS_RETARGETABLE internal_crc32_entry_type* internal_crc32_table;
 
-LIBXS_RETARGETABLE libxs_hash_function internal_hash_function /*= libxs_crc32_sw*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_hash_function internal_hash_function /*= libxs_crc32_sw*/;
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u8(unsigned int seed, unsigned int n, unsigned char value)
