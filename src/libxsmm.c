@@ -696,7 +696,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_code_type* internal_init(void)
            */
 #if defined(LIBXS_BUILD)
 # if (0 != LIBXS_JIT) && !defined(__MIC__)
-          if (LIBXS_STATIC_TARGET_ARCH <= internal_target_archid && LIBXS_X86_AVX > internal_target_archid)
+          if (LIBXS_X86_AVX > internal_target_archid/* jit not available */
+           /* Condition allows to avoid JIT if static code is good enough. */
+           || LIBXS_STATIC_TARGET_ARCH == internal_target_archid)
 # endif
           { /* opening a scope for eventually declaring variables */
             /* setup the dispatch table for the statically generated code */
