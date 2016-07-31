@@ -1,4 +1,5 @@
 #include <libxs.h>
+#include "libxs_intrinsics_x86.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -37,8 +38,9 @@
   const TYPE *const a = (const TYPE*)IN; \
   TYPE *const b = (TYPE*)OUT; \
   libxs_blasint i, j; \
-  if (LIBXS_TRANSPOSE_CHUNK == N) { \
+  if (LIBXS_TRANSPOSE_CHUNK == N && 0 == LIBXS_MOD2((uintptr_t)b, LIBXS_STATIC_SIMD_WIDTH)) { \
     for (i = M0; i < M1; ++i) { \
+      LIBXS_PRAGMA_VALIGNED_VARS(b) \
       LIBXS_PRAGMA_NONTEMPORAL \
       for (j = N0; j < N0 + LIBXS_TRANSPOSE_CHUNK; ++j) { \
         b[INTERNAL_TRANSPOSE_INDEX_STORE(i,j,ldo)] = a[INTERNAL_TRANSPOSE_INDEX_LOAD(i,j,ld)]; \
