@@ -1,5 +1,5 @@
 # LIBXS
-LIBXS is a library for small dense and small sparse matrix-matrix multiplications targeting Intel Architecture (x86). The library is generating code for the following instruction set extensions: Intel&#160;SSE, Intel&#160;AVX, Intel&#160;AVX2, IMCI (KNCni) for Intel&#160;Xeon&#160;Phi coprocessors ("KNC"), and Intel&#160;AVX&#8209;512 as found in the [Intel&#160;Xeon&#160;Phi processor family&#160;("KNL")](https://software.intel.com/en-us/articles/what-disclosures-has-intel-made-about-knights-landing) and future Intel&#160;Xeon processors. Historically the library was solely targeting the Intel&#160;Many Integrated Core Architecture "MIC") using intrinsic functions, meanwhile optimized assembly code is targeting all aforementioned instruction set extensions (static code generation), and Just&#8209;In&#8209;Time (JIT) code generation is targeting Intel&#160;AVX and beyond. [[pdf](https://github.com/hfp/libxs/raw/master/documentation/libxs.pdf)] [[src](https://github.com/hfp/libxs/archive/1.4.4.zip)] [![cistatus](https://travis-ci.org/hfp/libxs.svg?branch=master "Master branch build status")](https://github.com/hfp/libxs/archive/master.zip)
+LIBXS is a library for small dense and small sparse matrix-matrix multiplications and small convolutions (as need for deep learning applications) targeting Intel Architecture (x86). The library is generating code for the following instruction set extensions: Intel&#160;SSE, Intel&#160;AVX, Intel&#160;AVX2, IMCI (KNCni) for Intel&#160;Xeon&#160;Phi coprocessors ("KNC"), and Intel&#160;AVX&#8209;512 as found in the [Intel&#160;Xeon&#160;Phi processor family&#160;("KNL")](https://software.intel.com/en-us/articles/what-disclosures-has-intel-made-about-knights-landing) and future Intel&#160;Xeon processors. Small convolutions are currently only optimzed for Intel&#160;AVX&#8209;512. Historically the library was solely targeting the Intel&#160;Many Integrated Core Architecture "MIC") using intrinsic functions, meanwhile optimized assembly code is targeting all aforementioned instruction set extensions (static code generation), and Just&#8209;In&#8209;Time (JIT) code generation is targeting Intel&#160;AVX and beyond. [[pdf](https://github.com/hfp/libxs/raw/master/documentation/libxs.pdf)] [[src](https://github.com/hfp/libxs/archive/1.4.4.zip)] [![cistatus](https://travis-ci.org/hfp/libxs.svg?branch=master "Master branch build status")](https://github.com/hfp/libxs/archive/master.zip)
 
 **What is the background of the name "LIBXS"?** The "MM" stands for Matrix Multiplication, and the "S" clarifies the working domain i.e., Small Matrix Multiplication. The latter also means the name is neither a variation of "MXM" nor an eXtreme Small Matrix Multiplication but rather about Intel Architecture (x86) - and no, the library is 64&#8209;bit (only). The spelling of the name might follow the syllables of libx\\/smm, libx'smm, or libx&#8209;smm.
 
@@ -9,7 +9,10 @@ LIBXS is a library for small dense and small sparse matrix-matrix multiplication
 
 **How to determine whether an application can benefit from using LIBXS or not?** Given the application uses BLAS to carry out matrix multiplications, one may link against [Intel&#160;MKL&#160;11.2](https://registrationcenter.intel.com/en/forms/?productid=2558) (or higher), set the environment variable MKL_VERBOSE=1, and run the application using a representative workload (`env MKL_VERBOSE=1 ./workload > verbose.txt`). The collected output is the starting point for evaluating the problem sizes as imposed by the workload (`grep -a "MKL_VERBOSE DGEMM(N,N" verbose.txt | cut -d'(' -f2 | cut -d, -f3-5"`).
 
-## Interface
+**What is a small convolution?** In last two years new emerging workload, deep learning and more specifically convolutional neural networks (CNN), are pushing to the limits of today's hardware. The most expensive kernel is a small convolution with kernels sizes of often 3,5,7 such that calculations in frequency space might not be efficient if
+direct convolutions are ran higly efficient. LIBXS current convolution support aims at an easy to use invocation of small (direct) convolutions intended for CNN training and classification applications. Currently, the convolution support in LIBXS is ramping up and increasing functionality quickly to be of general use as described in the [Interface](#Interface-for-convolutions).
+
+## Interface for matrix multiplication
 The interface of the library is *generated* according to the [Build Instructions](#build-instructions), and it is therefore **not** stored in the code repository. Instead, one may have a look at the code generation template files for [C/C++](https://github.com/hfp/libxs/blob/master/src/libxs.template.h) and [FORTRAN](https://github.com/hfp/libxs/blob/master/src/libxs.template.f).
 
 In order to initialize the dispatch-table or other internal resources, one may call an explicit initialization routine in order to avoid lazy initialization overhead when calling LIBXS for the first time. The library deallocates internal resources at program exit, but also provides a companion to the aforementioned initialization (finalize).
@@ -78,6 +81,101 @@ libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
 
 A variety of overloaded function signatures is provided allowing to omit arguments not deviating from the configured defaults. In C++, a type `libxs_mmfunction<type>` can be used to instantiate a functor rather than making a distinction for the numeric type in `libxs_?mmdispatch`. Similarly in FORTRAN, when calling the generic interface (`libxs_mmdispatch`) the given `LIBXS_?MMFUNCTION` is dispatched such that `libxs_call` can be used to actually perform the function call using the PROCEDURE POINTER wrapped by `LIBXS_?MMFUNCTION`. Beside of dispatching code, one can also call a specific kernel (e.g., `libxs_dmm_4_4_4`) using the prototype functions included for statically generated kernels.
 
+## Interface for Convolutions
+In order to achive best small convolution performance for CNN on SIMD architectures a specific datalayout has to be used. As this layout depends on several 
+architectural parameters, the goal of LIBXS interface is to hide this complexity from the user by providing copy-in and copy-out routines. These
+happen on custom datatype which themselves are later bound to a convolution operation. The interface is available for C.
+
+The main concept in LIBXS's frontend is that everything is circle around `libxs_conv_handle` which will define all properties of a layer operation. A handle can
+be created by describing the convolutional layer and calling a create function:
+```C
+/** simplified LIBXS types which are needed to create a handle*/
+/** struct which holds description of convolution */
+typedef struct libxs_conv_desc {
+  int N;           /* number of images in minibatch */
+  int C;           /* number of input feature maps */
+  int H;           /* height of input image */
+  int W;           /* width of input image */
+  int K;           /* number of output feature maps */
+  int R;           /* height of filter kernel */
+  int S;           /* width of filter kernel */
+  int u;           /* vertical stride */
+  int v;           /* horizontal stride */
+  int pad_h;       /* height of zero-padding */
+  int pad_w;       /* width of zero-padding */
+  int splits;      /* number of splits */
+} libxs_conv_desc;
+
+/** typo of algorithm used for convolutions */
+typedef enum libxs_conv_algo {
+  /** direct convolution. */
+  LIBXS_CONV_ALGO_DIRECT
+} libxs_conv_algo;
+
+/** Denotes the element/pixel type of an image/channel. */
+typedef enum libxs_conv_datatype {
+  LIBXS_CONV_DATATYPE_FP32
+} libxs_conv_datatype;
+
+LIBXS_API libxs_conv_handle* libxs_conv_create_handle_check(
+  libxs_conv_desc     conv_desc,
+  libxs_conv_datatype conv_datatype,
+  libxs_conv_algo     conv_algo,
+  libxs_conv_err_t*   status );
+```
+
+Therefore a sample call would be:
+```C
+  /** macro for error checking */
+  #define CHKERR_LIBXS_CONV(A) if ( A != LIBXS_CONV_SUCCESS ) fprintf(stderr, "%s\n", libxs_conv_get_error(A) );
+  /* declare LIBXS variables */
+  libxs_conv_desc conv_desc;
+  libxs_conv_err_t status;
+  libxs_conv_handle* libxs_handle;
+  /** setting conv_desc values.... */
+  conv_desc.N = ...
+  /* create handle */
+  libxs_handle = libxs_conv_create_handle_check( conv_desc, LIBXS_CONV_DATATYPE_FP32, LIBXS_CONV_ALGO_DIRECT, &status );
+  CHKERR_LIBXS_CONV( status );
+```
+
+Next layers need to be created, initialized and bound to the handle. Afterwards the convolution could be execuded by 
+a threading enviroment of choice:
+```C
+  libxs_conv_layer* libxs_input;
+  libxs_conv_layer* libxs_output;
+  libxs_conv_filter* libxs_filter;
+
+  /* setup LIBXS layers */
+  libxs_input = libxs_conv_create_input_layer_check( libxs_handle, &status );
+  CHKERR_LIBXS_CONV( status );
+  libxs_output = libxs_conv_create_output_layer_check( libxs_handle, &status );
+  CHKERR_LIBXS_CONV( status );
+  libxs_filter = libxs_conv_create_filter_check( libxs_handle, &status );
+  CHKERR_LIBXS_CONV( status );
+
+  /* copy in data to LIBXS format */
+  /* naive format is (minibatch)(splits)(number-featuremaps)(featuremap-height)(featuremap-width) for layers */
+  /* naive format is (splits)(number-output-featuremaps)(number-input-featuremaps)(kernel-height)(kernel-width) for filters */
+  CHKERR_LIBXS_CONV( libxs_conv_copyin_layer( libxs_input, (void*)naive_input ) );
+  CHKERR_LIBXS_CONV( libxs_conv_zero_layer( libxs_output ) );
+  CHKERR_LIBXS_CONV( libxs_conv_copyin_filter( libxs_filter, (void*)naive_filter ) );
+
+  /* bind layer to handle */
+  CHKERR_LIBXS_CONV( libxs_conv_bind_input_layer( libxs_handle, libxs_input ) );
+  CHKERR_LIBXS_CONV( libxs_conv_bind_output_layer( libxs_handle, libxs_output ) );
+  CHKERR_LIBXS_CONV( libxs_conv_bind_filter( libxs_handle, libxs_filter ) );
+
+  /* run the convolution */
+  #pragma omp parallel
+  {
+    CHKERR_LIBXS_CONV( libxs_convolve_st( libxs_handle, LIBXS_CONV_KIND_FWD, 0, omp_get_thread_num(), omp_get_num_threads() ) );
+  }
+
+  /* copy out data */
+  CHKERR_LIBXS_CONV( libxs_conv_copyout_layer( libxs_output, (void*)naive_libxs_output ) );
+```
+
 ## Build Instructions
 The build system relies on GNU Make (typically associated with the `make` command, but e.g. FreeBSD is calling it `gmake`). The build can be customized by using key&#8209;value pairs. Key&#8209;value pairs can be supplied in two ways: (1)&#160;after the "make" command, or (2)&#160;prior to the "make" command (`env`) which is effectively the same as exporting the key&#8209;value pair as an environment variable (`export`, or `setenv`). Of course both methods can be mixed, however the second method may require to supply the `-e` flag. Please note that the CXX, CC, and FC keys are handled such that they are taken into account in any case.
 
@@ -96,7 +194,7 @@ make clean
 make realclean
 ```
 
-By default, LIBXS uses the [JIT backend](#jit-backend) which is automatically building optimized code. However, one can also statically specialize for particular matrix sizes (M, N, and K values):
+By default, LIBXS uses the [JIT backend](#jit-backend) which is automatically building optimized code. However, one can also statically specialize for particular matrix sizes (M, N, and K values), for convolutions the options below can be ignored:
 
 ```
 make M="2 4" N="1" K="$(echo $(seq 2 5))"

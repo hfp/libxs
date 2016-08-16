@@ -433,7 +433,8 @@ LIBXS_API_DEFINITION int libxs_alloc_attribute(const void* memory, int flags, co
   if (0 != buffer && EXIT_SUCCESS == result) {
     if (0 != (LIBXS_ALLOC_FLAG_X & alloc_flags) && name && *name) {
       FILE *const code_file = (0 > libxs_get_verbose_mode() ? fopen(name, "wb") : 0);
-      if (0 != code_file) { /* dump byte-code into a file */
+      if (0 != code_file) { /* dump byte-code into a file and print func-pointer/filename pair */
+        fprintf(stderr, "LIBXS-JIT-DUMP(ptr:file) %p : %s\n", memory, name);
         fwrite(memory, 1, size, code_file);
         fclose(code_file);
       }

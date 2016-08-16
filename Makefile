@@ -177,6 +177,7 @@ HEADERS = $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
           $(SRCDIR)/libxs_gemm_diff.c \
           $(SRCDIR)/libxs_cpuid_x86.c \
           $(SRCDIR)/libxs_hash.c \
+          $(ROOTDIR)/include/libxs_conv.h \
           $(ROOTDIR)/include/libxs_frontend.h \
           $(ROOTDIR)/include/libxs_generator.h \
           $(ROOTDIR)/include/libxs_macros.h \
@@ -186,12 +187,14 @@ HEADERS = $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
 SRCFILES_KERNELS = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) libxs_timer.c libxs_trace.c)
 SRCFILES_GEN_GEMM_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_gemm_driver.c)
+SRCFILES_GEN_CONV_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_convolution_driver.c)
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
-OBJFILES_HST = $(BLDDIR)/intel64/libxs.o $(BLDDIR)/intel64/libxs_alloc.o \
-               $(BLDDIR)/intel64/libxs_transpose.o $(BLDDIR)/intel64/libxs_gemm.o
-OBJFILES_MIC = $(BLDDIR)/mic/libxs.o $(BLDDIR)/mic/libxs_alloc.o \
-               $(BLDDIR)/mic/libxs_transpose.o $(BLDDIR)/mic/libxs_gemm.o \
+OBJFILES_GEN_CONV_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_CONV_BIN))))
+OBJFILES_HST = $(BLDDIR)/intel64/libxs_main.o $(BLDDIR)/intel64/libxs_alloc.o $(BLDDIR)/intel64/libxs_gemm.o \
+               $(BLDDIR)/intel64/libxs_transpose.o $(BLDDIR)/intel64/libxs_conv.o $(BLDDIR)/intel64/libxs_conv_fwd.o
+OBJFILES_MIC = $(BLDDIR)/mic/libxs_main.o $(BLDDIR)/mic/libxs_alloc.o $(BLDDIR)/mic/libxs_gemm.o \
+               $(BLDDIR)/mic/libxs_transpose.o $(BLDDIR)/mic/libxs_conv.o $(BLDDIR)/mic/libxs_conv_fwd.o \
                $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o
 KERNELOBJS_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
 KERNELOBJS_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
@@ -199,7 +202,7 @@ EXTOBJS_HST = $(BLDDIR)/intel64/libxs_ext_gemm.o
 EXTOBJS_MIC = $(BLDDIR)/mic/libxs_ext_gemm.o
 
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
-OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) \
+OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_GEN_CONV_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) \
           $(KERNELOBJS_HST) $(KERNELOBJS_MIC) $(EXTOBJS_HST) $(EXTOBJS_MIC)
 ifneq (,$(strip $(FC)))
   FTNOBJS = $(BLDDIR)/intel64/libxs-mod.o $(BLDDIR)/mic/libxs-mod.o
@@ -252,7 +255,7 @@ else ifeq (AL2jpst_BL2viaC,$(PREFETCH))
   PREFETCH_ID = 9
 endif
 
-# Mapping build options to libxs_prefetch_type (see include/libxs_typedefs.h)
+# Mapping build options to libxs_gemm_prefetch_type (see include/libxs_typedefs.h)
 ifeq (1,$(PREFETCH_ID))
   # Prefetch "auto" is a pseudo-strategy introduced by the frontend;
   # keep even the prefetch-signature disabled under Windows
@@ -526,7 +529,7 @@ $(foreach OBJ,$(OBJFILES_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
 $(foreach OBJ,$(KERNELOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
-  -mmic)))
+  -mmic $(CPEDANTIC))))
 $(foreach OBJ,$(EXTOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
@@ -539,14 +542,17 @@ $(foreach OBJ,$(OBJFILES_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, $(TARGET))))
 $(foreach OBJ,$(KERNELOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(TARGET))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(CPEDANTIC) $(TARGET))))
 $(foreach OBJ,$(EXTOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(TARGET) $(EXTCFLAGS))))
 $(foreach OBJ,$(OBJFILES_GEN_LIB),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(NULL))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(CPEDANTIC))))
 $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
+  $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(NULL))))
+$(foreach OBJ,$(OBJFILES_GEN_CONV_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(NULL))))
 
@@ -605,9 +611,11 @@ else
 endif
 
 .PHONY: generator
-generator: $(BINDIR)/libxs_gemm_generator
+generator: $(BINDIR)/libxs_gemm_generator $(BINDIR)/libxs_conv_generator
 $(BINDIR)/libxs_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
 	$(CC) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call libdir,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+$(BINDIR)/libxs_conv_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONV_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
+	$(CC) -o $@ $(OBJFILES_GEN_CONV_BIN) $(call libdir,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 
 .PHONY: clib_mic
 ifneq (0,$(MIC))

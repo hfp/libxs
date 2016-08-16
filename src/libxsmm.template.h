@@ -61,7 +61,6 @@
 $LIBXS_OFFLOAD_BUILD
 #include "libxs_frontend.h"
 
-
 /** Integer type for LAPACK/BLAS (LP64: 32-bit, and ILP64: 64-bit). */
 #if (0 != LIBXS_ILP64)
 typedef long long libxs_blasint;
@@ -73,12 +72,8 @@ typedef int libxs_blasint;
 typedef LIBXS_RETARGETABLE void (*libxs_smmfunction)(const float* a, const float* b, float* c, ...);
 /** Specialized function with fused alpha and beta arguments, and optional prefetch locations (double-precision). */
 typedef LIBXS_RETARGETABLE void (*libxs_dmmfunction)(const double* a, const double* b, double* c, ...);
-
-/** Specialized function with fused alpha and beta arguments, and optional prefetch locations (weak-typed). */
-typedef union LIBXS_RETARGETABLE libxs_xmmfunction {
-  libxs_smmfunction smm;
-  libxs_dmmfunction dmm;
-} libxs_xmmfunction;
+/** Function type which is either libxs_smmfunction or libxs_dmmfunction (weak-typed). */
+typedef union LIBXS_RETARGETABLE libxs_xmmfunction { libxs_smmfunction smm; libxs_dmmfunction dmm; } libxs_xmmfunction;
 
 /** Initialize the library; pay for setup cost at a specific point. */
 LIBXS_API void libxs_init(void);
@@ -126,14 +121,14 @@ LIBXS_API libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
 /**
  * Code generation routine for the CSR format which multiplies a dense SOA matrix (each element holds a SIMD-width
  * wide vector) and a sparse matrix. There is no code cache, and user code has to manage the code pointers.
- * Call libxs_destroy in order to deallocate the JIT'ted code.
+ * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  * @TODO: This is not great, probably need to declare values as void pointer
  */
 LIBXS_API libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* descriptor,
    const unsigned int* row_ptr, const unsigned int* column_idx, const double* values);
 
 /** Deallocates the JIT'ted code as returned by libxs_create_* function. TODO: this is a no-op at the moment. */
-LIBXS_API void libxs_destroy(const void* jit_code);
+LIBXS_API void libxs_release_kernel(const void* jit_code);
 
 /** Transpose a matrix (out-of-place form). */
 LIBXS_API void libxs_transpose_oop(void* out, const void* in, unsigned int typesize,
