@@ -30,14 +30,18 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
-#include <sys/time.h>
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
-#include <libxs.h>
+#include <libxs_timer.h>
+
+#if defined(_WIN32)
+/* note: later on, this leads to (correct but) different than expected norm-values */
+# define drand48() ((double)rand() / RAND_MAX)
+# define srand48 srand
+#endif
 
 #define CHKERR_LIBXS_CONV(A) if ( A != LIBXS_CONV_SUCCESS ) fprintf(stderr, "%s\n", libxs_conv_get_error(A) );
-
 
 typedef struct {
   int nImg;
@@ -66,27 +70,23 @@ typedef struct {
   double one_norm_test;
 } correctness_t;
 
-static double sec(struct timeval start, struct timeval end) {
-  return ((double)(((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec)))) / 1.0e6;
-}
-
-void zero_buf(float *buf, long size) {
+LIBXS_INLINE void zero_buf(float* buf, long size) {
   int i;
-  for(i = 0; i < size; i++) {
+  for (i = 0; i < size; ++i) {
     buf[i] = 0.0f;
   }
 }
 
-void init_buf(float *buf, long size, int initPos, int initOne)
+LIBXS_INLINE void init_buf(float* buf, long size, int initPos, int initOne)
 {
   int i;
   zero_buf(buf, size);
-  for(i = 0; i < size; i++) {
-    buf[i] = (initOne != 0) ? 1.0 : ((initPos != 0) ? drand48() : (0.5 - drand48()));
+  for (i = 0; i < size; ++i) {
+    buf[i] = (float)((initOne != 0) ? 1.0 : ((initPos != 0) ? drand48() : (0.5 - drand48())));
   }
 }
 
-void compare_buf(float* ref, float* test, long size, correctness_t* norms)
+LIBXS_INLINE void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 {
   int i;
   double diff, rel_err;
@@ -97,7 +97,7 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
   norms->one_norm_ref = 0.;
   norms->one_norm_test = 0.;
 
-  for(i = 0; i < size; i++) {
+  for (i = 0; i < size; ++i) {
     norms->one_norm_ref += (double)ref[i];
     norms->one_norm_test += (double)test[i];
     diff = fabs((double)ref[i] - (double)test[i]);
@@ -120,7 +120,7 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
   norms->l2_rel_err = sqrt(norms->l2_rel_err);
 }
 
-void naive_conv_fp(naive_conv_t *param, float *input, float *output, float *filter)
+LIBXS_INLINE void naive_conv_fp(naive_conv_t* param, const float* input, float* output, const float* filter)
 {
   int nImg  = param->nImg;
   int nIfm = param->nIfm;
@@ -140,42 +140,55 @@ void naive_conv_fp(naive_conv_t *param, float *input, float *output, float *filt
   int nSplits   = param->nSplits;
   /* loop counters */
   int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
-
-#if defined(LIBXS_VLA)
-  typedef float (*input_type)[nImg][nIfm][ifhp][ifwp];
-  typedef float (*output_type)[nImg][nOfm][ofhp][ofwp];
-  typedef float (*filter_type)[nOfm][nIfm][kh][kw];
-  const input_type  input_t =  (input_type)input;
-  const output_type output_t = (output_type)(output + (pad_w * ofwp + pad_h));
+#if defined(__INTEL_COMPILER)
+  float (*LIBXS_RESTRICT  input_t)[nIfm][ifhp][ifwp] = (float(*)[*][*][*])input;
+  float (*LIBXS_RESTRICT filter_t)[nIfm][kh][kw]     = (float(*)[*][*][*])filter;
+  float (*LIBXS_RESTRICT output_t)[nOfm][ofhp][ofwp] = (float(*)[*][*][*])(output + (pad_w * ofwp + pad_h));
+#elif defined(LIBXS_VLA)
+  typedef float (*LIBXS_RESTRICT  input_type)[nIfm][ifhp][ifwp];
+  typedef float (*LIBXS_RESTRICT filter_type)[nIfm][kh][kw];
+  typedef float (*LIBXS_RESTRICT output_type)[nOfm][ofhp][ofwp];
+  const input_type   input_t =  (input_type)input;
   const filter_type filter_t = (filter_type)filter;
+  const output_type output_t = (output_type)(output + (pad_w * ofwp + pad_h));
 #else
-# warning "relying on Intel Compiler Vector notation"
-  float (* __restrict input_t )[nIfm][ifhp][ifwp] = (float (*)[*][*][*])input;
-  float (* __restrict output_t)[nOfm][ofhp][ofwp] = (float (*)[*][*][*])(output + (pad_w * ofwp + pad_h));
-  float (* __restrict filter_t)[nIfm][kh][kw]     = (float (*)[*][*][*])filter;
+  unsigned int ishape[4], fshape[4], oshape[4], indexi[4], indexf[4], indexo[4];
+  const float *LIBXS_RESTRICT  input_t = (const float*)input;
+  const float *LIBXS_RESTRICT filter_t = (const float*)filter;
+  float *LIBXS_RESTRICT output_t = (float*)(output + (pad_w * ofwp + pad_h));
+  ishape[0] = ifwp; ishape[1] = ifhp; ishape[2] = nIfm; ishape[3] = nImg;
+  fshape[0] =   kw; fshape[1] =   kh; fshape[2] = nIfm; fshape[3] = nOfm;
+  oshape[0] = ofwp; oshape[1] = ofhp; oshape[2] = nOfm; oshape[3] = nImg;
 #endif
 
-  if(nSplits != 1) {
+  if (nSplits != 1) {
     printf("nSplits != 1 not supported yet for naive code!\n");
     exit(1);
   }
 
-#ifdef _OPENMP
-# pragma omp parallel for collapse (2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
+#if defined(_OPENMP)
+# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) /*private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)*/
 #endif
-  for(img=0; img < nImg; img++) {
-    for(ofm=0; ofm < nOfm; ofm++) {
-      for(ifm=0; ifm < nIfm; ifm++) {
-        for(oj=0; oj < ofh; oj++) {
+  for (img = 0; img < nImg; ++img) {
+    for (ofm = 0; ofm < nOfm; ++ofm) {
+      for (ifm = 0; ifm < nIfm; ++ifm) {
+        for (oj = 0; oj < ofh; ++oj) {
           ij = oj * stride_h;
-          for(oi=0; oi < ofw; oi++) {
+          for (oi = 0; oi < ofw; ++oi) {
             ii = oi * stride_w;
-            for(kj=0; kj < kh; kj++) {
-              for(ki=0; ki < kw; ki++) {
-#if defined(LIBXS_VLA)
-                (*output_t)[img][ofm][oj][oi] += (*input_t)[img][ifm][ij+kj][ii+ki] * (*filter_t)[ofm][ifm][kj][ki];
-#else
+            for (kj = 0; kj < kh; ++kj) {
+              for (ki = 0; ki < kw; ++ki) {
+#if defined(__INTEL_COMPILER) || defined(LIBXS_VLA)
                 output_t[img][ofm][oj][oi] += input_t[img][ifm][ij+kj][ii+ki] * filter_t[ofm][ifm][kj][ki];
+#else
+                size_t i, f, o;
+                indexi[0] = ii + ki; indexi[1] = ij + kj; indexi[2] = ifm; indexi[3] = img;
+                indexf[0] = ki; indexf[1] = kj; indexf[2] = ifm; indexf[3] = ofm;
+                indexo[0] = oi; indexo[1] = oj; indexo[2] = ofm; indexo[3] = img;
+                LIBXS_CALC_INDEX1(size_t, i, 4, indexi, ishape);
+                LIBXS_CALC_INDEX1(size_t, f, 4, indexf, fshape);
+                LIBXS_CALC_INDEX1(size_t, o, 4, indexo, oshape);
+                output_t[o] += input_t[i] * filter_t[f];
 #endif
               }
             }
@@ -186,7 +199,7 @@ void naive_conv_fp(naive_conv_t *param, float *input, float *output, float *filt
   }
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
   float *naive_input, *naive_output, *naive_filter, *naive_libxs_output;
   int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
@@ -194,25 +207,25 @@ int main(int argc, char *argv[])
   naive_conv_t naive_param;
   correctness_t norms;
 
-  /* some paramaters we can overwrite via cli,
+  /* some parameters we can overwrite via cli,
      default is some inner layer of overfeat */
-  int iters = 10;          /* repetitions of benchmark */
-  int ifw = 14;            /* input width, "W" */
-  int ifh = 14;            /* input height, "H" */
-  int nImg = 1;         /* minibatch size, "N" */
+  int iters = 10;         /* repetitions of benchmark */
+  int ifw = 14;           /* input width, "W" */
+  int ifh = 14;           /* input height, "H" */
+  int nImg = 1;           /* mini-batch size, "N" */
   int nIfm = 256;         /* number of input feature maps, "C" */
   int nOfm = 512;         /* number of output feature maps, "K" */
   int kh = 3;             /* filter height, "R" */
-  int kw = 3;             /* filter widht, "S" */
+  int kw = 3;             /* filter width, "S" */
   int pad = 1;            /* padding in output */
   int stride = 1;         /* stride when accessing inputs */
   int nSplits = 1;        /* splits */
-  struct timeval l_start, l_end;
+  unsigned long long l_start, l_end;
   double l_total = 0.0;
   double flops = 0.0;
   int i;
 
-#ifdef _OPENMP
+#if defined(_OPENMP)
   int nThreads = omp_get_max_threads();
 #else
   int nThreads = 1;
@@ -225,7 +238,7 @@ int main(int argc, char *argv[])
   libxs_conv_filter* libxs_filter;
   libxs_conv_err_t status;
 
-  if(argc > 1 && !strncmp(argv[1], "-h", 3)) {
+  if (argc > 1 && !strncmp(argv[1], "-h", 3)) {
     printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride splits\n", argv[0]);
     return 0;
   }
@@ -233,17 +246,17 @@ int main(int argc, char *argv[])
 
   /* reading new values from cli */
   i=1;
-  if(argc > i) iters      = atoi(argv[i++]);
-  if(argc > i) ifw        = atoi(argv[i++]);
-  if(argc > i) ifh        = atoi(argv[i++]);
-  if(argc > i) nImg       = atoi(argv[i++]);
-  if(argc > i) nIfm       = atoi(argv[i++]);
-  if(argc > i) nOfm       = atoi(argv[i++]);
-  if(argc > i) kw         = atoi(argv[i++]);
-  if(argc > i) kh         = atoi(argv[i++]);
-  if(argc > i) pad        = atoi(argv[i++]);
-  if(argc > i) stride     = atoi(argv[i++]);
-  if(argc > i) nSplits    = atoi(argv[i++]);
+  if (argc > i) iters      = atoi(argv[i++]);
+  if (argc > i) ifw        = atoi(argv[i++]);
+  if (argc > i) ifh        = atoi(argv[i++]);
+  if (argc > i) nImg       = atoi(argv[i++]);
+  if (argc > i) nIfm       = atoi(argv[i++]);
+  if (argc > i) nOfm       = atoi(argv[i++]);
+  if (argc > i) kw         = atoi(argv[i++]);
+  if (argc > i) kh         = atoi(argv[i++]);
+  if (argc > i) pad        = atoi(argv[i++]);
+  if (argc > i) stride     = atoi(argv[i++]);
+  if (argc > i) nSplits    = atoi(argv[i++]);
 
   stride_w = stride;
   stride_h = stride;
@@ -341,10 +354,11 @@ int main(int argc, char *argv[])
   printf("##########################################\n");
   /* run naive convolution */
   naive_conv_fp(&naive_param, naive_input, naive_output, naive_filter);
-  /* run LIBXS convolutoins */
+  /* run LIBXS convolutions */
 # pragma omp parallel
   {
-    CHKERR_LIBXS_CONV( libxs_convolve_st( libxs_handle, LIBXS_CONV_KIND_FWD, 0, omp_get_thread_num(), omp_get_num_threads() ) );
+    const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+    CHKERR_LIBXS_CONV( libxs_convolve_st( libxs_handle, LIBXS_CONV_KIND_FWD, 0, tid, nthreads ) );
   }
   /* copy out data */
   CHKERR_LIBXS_CONV( libxs_conv_copyout_layer( libxs_output, (void*)naive_libxs_output ) );
@@ -360,15 +374,16 @@ int main(int argc, char *argv[])
   printf("#            Performance Run             #\n");
   printf("##########################################\n");
   /* run LIBXS convolution for performance */
-  gettimeofday(&l_start, NULL);
-  for(i = 0; i < iters; i++) {
+  l_start = libxs_timer_tick();
+  for (i = 0; i < iters; ++i) {
 #   pragma omp parallel
     {
-      libxs_convolve_st( libxs_handle, LIBXS_CONV_KIND_FWD, 0, omp_get_thread_num(), omp_get_num_threads() );
+      const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+      libxs_convolve_st( libxs_handle, LIBXS_CONV_KIND_FWD, 0, tid, nthreads );
     }
   }
-  gettimeofday(&l_end, NULL);
-  l_total = sec(l_start, l_end);
+  l_end = libxs_timer_tick();
+  l_total = libxs_timer_duration(l_start, l_end);
   flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
   printf("GFLOP  = %.5g\n", flops*1e-9);

@@ -77,7 +77,7 @@ typedef enum libxs_conv_kind {
   LIBXS_CONV_KIND_UPD_BIAS
 } libxs_conv_kind;
 
-/** typo of algorithm used for convolutions */
+/** Typ of algorithm used for convolutions. */
 typedef enum libxs_conv_algo {
   /** direct convolution. */
   LIBXS_CONV_ALGO_DIRECT
@@ -93,7 +93,7 @@ typedef enum libxs_conv_datatype {
 
 /** struct which holds description of convolution */
 typedef struct LIBXS_RETARGETABLE libxs_conv_desc {
-  int N;           /* number of images in minibatch */
+  int N;           /* number of images in mini-batch */
   int C;           /* number of input feature maps */
   int H;           /* height of input image */
   int W;           /* width of input image */
@@ -175,8 +175,8 @@ LIBXS_API libxs_conv_err_t libxs_conv_copyout_filter(const libxs_conv_filter* fi
 LIBXS_API void libxs_convolve(libxs_conv_handle* handle, libxs_conv_kind kind);
 
 /** Run the convolution identified by the handle; takes a thread id. */
-LIBXS_API libxs_conv_err_t libxs_convolve_st(libxs_conv_handle* handle, libxs_conv_kind kind, 
-                                     /*unsigned*/int start_thread, /*unsigned*/int tid, /*unsigned*/int num_threads);
+LIBXS_API libxs_conv_err_t libxs_convolve_st(libxs_conv_handle* handle, libxs_conv_kind kind,
+  /*unsigned*/int start_thread, /*unsigned*/int tid, /*unsigned*/int num_threads);
 
 #if defined(LIBXS_BUILD) || defined(LIBXS_CONV_INTERNAL_API) /* Internal API */
 /** Function type used for convolutions (single-precision); the actual signature depends on the kind of convolution. */

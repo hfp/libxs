@@ -7,7 +7,7 @@
 #endif
 
 
-int main()
+int main(void)
 {
 #if 0 != LIBXS_JIT
   const int m[] = { 1, 2, 3, 4, 5, 6, 7, LIBXS_MAX_M - 1, LIBXS_MAX_M, LIBXS_MAX_M + 1 };

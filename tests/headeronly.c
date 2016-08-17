@@ -6,7 +6,7 @@
 LIBXS_EXTERN libxs_dmmfunction dmmdispatch(int m, int n, int k);
 
 
-int main()
+int main(void)
 {
   const int m = LIBXS_MAX_M, n = LIBXS_MAX_N, k = LIBXS_MAX_K;
   const libxs_dmmfunction fa = libxs_dmmdispatch(m, n, k,

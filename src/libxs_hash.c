@@ -26,6 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#ifndef LIBXS_HASH_C
+#define LIBXS_HASH_C
+
 #include "libxs_hash.h"
 #include "libxs_intrinsics_x86.h"
 #include <libxs.h>
@@ -386,3 +389,4 @@ LIBXS_API_DEFINITION unsigned int libxs_hash_npot(const void* data, unsigned int
   LIBXS_HASH_UNALIGNED(LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, data, size, size, npot);
 }
 
+#endif /* LIBXS_HASH_C */

@@ -26,6 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#ifndef LIBXS_CPUID_X86_C
+#define LIBXS_CPUID_X86_C
+
 #include "libxs_cpuid_x86.h"
 #include "libxs_intrinsics_x86.h"
 
@@ -120,3 +123,4 @@ LIBXS_API_DEFINITION int libxs_cpuid_x86(void)
   return target_arch;
 }
 
+#endif /* LIBXS_CPUID_X86_C */

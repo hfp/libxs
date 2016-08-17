@@ -26,6 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#ifndef LIBXS_GEMM_DIFF_C
+#define LIBXS_GEMM_DIFF_C
+
 #include "libxs_gemm_diff.h"
 #include "libxs_intrinsics_x86.h"
 #include "libxs_sync.h"
@@ -542,3 +545,4 @@ LIBXS_API_DEFINITION unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descrip
 #endif
 }
 
+#endif /*LIBXS_GEMM_DIFF_C*/

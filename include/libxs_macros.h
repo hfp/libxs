@@ -233,6 +233,24 @@
 #define LIBXS_HASH_VALUE(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
 #define LIBXS_HASH2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_HASH_VALUE(LIBXS_DIV2((unsigned long long)(POINTER), ALIGNMENT)), NPOT)
 
+#define LIBXS_CALC_SIZE1(TYPE, VARIABLE, NDIMS, SHAPE, INIT) { \
+  unsigned int libxs_calc_size1_i_ = 0; \
+  VARIABLE = LIBXS_MAX(INIT, 1); \
+  LIBXS_REPEAT(NDIMS, \
+    VARIABLE *= (TYPE)((SHAPE)[libxs_calc_size1_i_]); \
+    ++libxs_calc_size1_i_;) \
+}
+/* TODO: LIBXS_CALC_INDEX1 plus PITCH */
+#define LIBXS_CALC_INDEX1(TYPE, VARIABLE, NDIMS, INDEXN, SHAPE) { \
+  unsigned int libxs_calc_index1_i_ = 0; \
+  TYPE libxs_calc_index1_size_ = 1; \
+  VARIABLE = 0; \
+  LIBXS_REPEAT(NDIMS, \
+    VARIABLE += libxs_calc_index1_size_ * ((TYPE)(INDEXN)[libxs_calc_index1_i_]); \
+    libxs_calc_index1_size_ *= (TYPE)((SHAPE)[libxs_calc_index1_i_]); \
+    ++libxs_calc_index1_i_;) \
+}
+
 #if !defined(LIBXS_UNUSED)
 # if 0 /*defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)*/
 #   define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))

@@ -36,23 +36,6 @@
 # define LIBXS_REGSIZE 524288 /* 524287: Mersenne Prime number (2^19-1) */
 #endif
 
-#define LIBXS_DEFINE_SIZE1(TYPE, NAME, NDIMS, SHAPE, INIT) \
-  TYPE NAME = LIBXS_MAX(INIT, 1); { unsigned int libxs_define_size1_i_ = 0; \
-  LIBXS_REPEAT(NDIMS, \
-    NAME *= (TYPE)((SHAPE)[libxs_define_size1_i_]); \
-    ++libxs_define_size1_i_); \
-  }
-/* TODO: LIBXS_DEFINE_INDEX1 plus PITCH */
-#define LIBXS_DEFINE_INDEX1(TYPE, NAME, NDIMS, INDEXN, SHAPE) \
-  TYPE NAME = 0; { TYPE libxs_define_index1_size_ = 1; unsigned int libxs_define_index1_i_ = 0; \
-  LIBXS_REPEAT(NDIMS, \
-    NAME += libxs_define_index1_size_ * ((TYPE)(INDEXN)[libxs_define_index1_i_]); \
-    libxs_define_index1_size_ *= (TYPE)((SHAPE)[libxs_define_index1_i_]); \
-    ++libxs_define_index1_i_); \
-  }
-#define LIBXS_DEFINE_SOMETYPE(NAME, TYPESIZE) \
-  typedef struct LIBXS_RETARGETABLE NAME { char byte[TYPESIZE]; } NAME
-
 
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
 #if defined(LIBXS_BUILD) || defined(LIBXS_CONV_INTERNAL_API)
@@ -72,14 +55,14 @@ typedef struct LIBXS_RETARGETABLE libxs_csr_soa_descriptor {
 
 /** struct which holds description of a layer */
 struct LIBXS_RETARGETABLE libxs_conv_layer {
-  int N;                            /* number of images in minibatch */
+  int N;                            /* number of images in mini-batch */
   int splits;                       /* number of splits */
   int fmb;                          /* number of feature map blocks */
   int bfm;                          /* sized of blocked feature maps, in a block */
   int H;                            /* height of image */
   int W;                            /* width of image */
   libxs_conv_datatype datatype;   /* data type */
-  void* data;                       /* pointer to data */  
+  void* data;                       /* pointer to data */
 };
 
 /** struct which holds description of a bias */
@@ -88,7 +71,7 @@ struct LIBXS_RETARGETABLE libxs_conv_bias {
   int fmb;                          /* number of feature map blocks */
   int bfm;                          /* sized of blocked feature maps, in a block */
   libxs_conv_datatype datatype;   /* data type */
-  void* data;                       /* pointer to data */  
+  void* data;                       /* pointer to data */
 };
 
 /** struct which holds description of a filter */
@@ -97,11 +80,11 @@ struct LIBXS_RETARGETABLE libxs_conv_filter {
   int ifmb;                         /* number of feature map blocks */
   int bifm;                         /* sized of blocked feature maps, in a block */
   int ofmb;                         /* number of feature map blocks */
-  int bofm;                         /* sized of blocked feature maps, in a block */  
+  int bofm;                         /* sized of blocked feature maps, in a block */
   int R;                            /* height of filter kernel */
   int S;                            /* width of filter kernel */
   libxs_conv_datatype datatype;   /* data type */
-  void* data;                       /* pointer to data */ 
+  void* data;                       /* pointer to data */
 };
 
 struct LIBXS_RETARGETABLE libxs_conv_handle {
@@ -122,7 +105,7 @@ struct LIBXS_RETARGETABLE libxs_conv_handle {
   int blocksofm;
   int fwd_ofw_rb;
   int fwd_ofh_rb;
-  
+
   /* internal data representation */
   libxs_conv_layer* input;
   libxs_conv_layer* output;
