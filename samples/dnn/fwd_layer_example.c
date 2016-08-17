@@ -391,8 +391,8 @@ int main(int argc, char* argv[])
   printf("GFLOPS  = %.5g\n", (flops*1e-9)/l_total);
 
   printf("PERFDUMP,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-     ifw, ifh, kw, kh, stride, pad, nSplits, ((double)(l_total/iters)), flops/l_total,
-     flops/l_total, norms.max_rel_err, norms.max_abs_err, norms.l2_rel_err, norms.one_norm_ref, norms.one_norm_test );
+     ifw, ifh, kw, kh, stride, pad, nSplits, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+     (flops*1e-9)/l_total, norms.max_rel_err, norms.max_abs_err, norms.l2_rel_err, norms.one_norm_ref, norms.one_norm_test );
 
   /* clean-up */
   CHKERR_LIBXS_CONV( libxs_conv_destroy_layer( libxs_input ) );
