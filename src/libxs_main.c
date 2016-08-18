@@ -1158,7 +1158,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
   LIBXS_MESSAGE("LIBXS: The JIT BACKEND is currently not supported under Microsoft Windows!")
   LIBXS_MESSAGE("================================================================================")
 # endif
-  LIBXS_UNUSED(request); LIBXS_UNUSED(code);
+  LIBXS_UNUSED(request); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
   assert(LIBXS_X86_AVX > internal_target_archid);
 #endif
