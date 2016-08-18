@@ -108,7 +108,7 @@ typedef struct LIBXS_RETARGETABLE libxs_conv_desc {
 } libxs_conv_desc;
 
 /** get string of error code */
-LIBXS_API char* libxs_conv_get_error(libxs_conv_err_t code);
+LIBXS_API const char* libxs_conv_get_error(libxs_conv_err_t code);
 
 /** Create a handle (non-NULL if successful), and pre-build all JIT-code versions. */
 LIBXS_API libxs_conv_handle* libxs_conv_create_handle(

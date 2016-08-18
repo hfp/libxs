@@ -44,7 +44,7 @@
 #endif
 
 
-LIBXS_API_DEFINITION char* libxs_conv_get_error(libxs_conv_err_t code)
+LIBXS_API_DEFINITION const char* libxs_conv_get_error(libxs_conv_err_t code)
 {
   switch (code) {
     case LIBXS_CONV_SUCCESS:
