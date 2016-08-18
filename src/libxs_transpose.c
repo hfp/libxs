@@ -85,7 +85,7 @@
 }
 
 
-/* Based on cache-oblivious scheme as published by Frigo et.al. Further optimization for compile-time bounded loops. */
+/* Based on cache-oblivious scheme as published by Frigo et.al. Further optimization for loop with bounds known at compile-time. */
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_transpose_oop(void *LIBXS_RESTRICT out, const void *LIBXS_RESTRICT in,
   unsigned int typesize, libxs_blasint m0, libxs_blasint m1, libxs_blasint n0, libxs_blasint n1,
   libxs_blasint ld, libxs_blasint ldo)
