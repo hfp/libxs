@@ -35,7 +35,7 @@
 #endif
 #include <libxs_timer.h>
 
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__CYGWIN__)
 /* note: later on, this leads to (correct but) different than expected norm-values */
 # define drand48() ((double)rand() / RAND_MAX)
 # define srand48 srand
@@ -355,9 +355,15 @@ int main(int argc, char* argv[])
   /* run naive convolution */
   naive_conv_fp(&naive_param, naive_input, naive_output, naive_filter);
   /* run LIBXS convolutions */
+#if defined(_OPENMP)
 # pragma omp parallel
+#endif
   {
+#if defined(_OPENMP)
     const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+#else
+    const int tid = 0, nthreads = 1;
+#endif
     CHKERR_LIBXS_CONV( libxs_convolve_st( libxs_handle, LIBXS_CONV_KIND_FWD, 0, tid, nthreads ) );
   }
   /* copy out data */
@@ -376,9 +382,15 @@ int main(int argc, char* argv[])
   /* run LIBXS convolution for performance */
   l_start = libxs_timer_tick();
   for (i = 0; i < iters; ++i) {
+#if defined(_OPENMP)
 #   pragma omp parallel
+#endif
     {
+#if defined(_OPENMP)
       const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+#else
+      const int tid = 0, nthreads = 1;
+#endif
       libxs_convolve_st( libxs_handle, LIBXS_CONV_KIND_FWD, 0, tid, nthreads );
     }
   }
