@@ -192,9 +192,9 @@ OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN
 OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
 OBJFILES_GEN_CONV_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_CONV_BIN))))
 OBJFILES_HST = $(BLDDIR)/intel64/libxs_main.o $(BLDDIR)/intel64/libxs_alloc.o $(BLDDIR)/intel64/libxs_gemm.o \
-               $(BLDDIR)/intel64/libxs_transpose.o $(BLDDIR)/intel64/libxs_conv.o $(BLDDIR)/intel64/libxs_conv_fwd.o
+               $(BLDDIR)/intel64/libxs_trans.o $(BLDDIR)/intel64/libxs_conv.o $(BLDDIR)/intel64/libxs_conv_fwd.o
 OBJFILES_MIC = $(BLDDIR)/mic/libxs_main.o $(BLDDIR)/mic/libxs_alloc.o $(BLDDIR)/mic/libxs_gemm.o \
-               $(BLDDIR)/mic/libxs_transpose.o $(BLDDIR)/mic/libxs_conv.o $(BLDDIR)/mic/libxs_conv_fwd.o \
+               $(BLDDIR)/mic/libxs_trans.o $(BLDDIR)/mic/libxs_conv.o $(BLDDIR)/mic/libxs_conv_fwd.o \
                $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o
 KERNELOBJS_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
 KERNELOBJS_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
