@@ -172,6 +172,15 @@
 #define LIBXS_REPEAT_8(A) LIBXS_REPEAT_7(A); A
 #define LIBXS_REPEAT(N, A) LIBXS_CONCATENATE(LIBXS_REPEAT_, N)(A)
 
+/*Based on Stackoverflow's NBITSx macro.*/
+#define LIBXS_LOG2_02(N) (0 != ((N) & 2/*0b10*/) ? 1 : 0)
+#define LIBXS_LOG2_04(N) (0 != ((N) & 0xC/*0b1100*/) ? (2 + LIBXS_LOG2_02((N) >> 2)) : LIBXS_LOG2_02(N))
+#define LIBXS_LOG2_08(N) (0 != ((N) & 0xF0/*0b11110000*/) ? (4 + LIBXS_LOG2_04((N) >> 4)) : LIBXS_LOG2_04(N))
+#define LIBXS_LOG2_16(N) (0 != ((N) & 0xFF00) ? (8 + LIBXS_LOG2_08((N) >> 8)) : LIBXS_LOG2_08(N))
+#define LIBXS_LOG2_32(N) (0 != ((N) & 0xFFFF0000) ? (16 + LIBXS_LOG2_16((N) >> 16)) : LIBXS_LOG2_16(N))
+#define LIBXS_LOG2_64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 + LIBXS_LOG2_32((N) >> 32)) : LIBXS_LOG2_32(N))
+#define LIBXS_LOG2(N) LIBXS_MAX(LIBXS_LOG2_64((unsigned long long)(N)), 1)
+
 #define LIBXS_DEFAULT(DEFAULT, VALUE) (0 < (VALUE) ? (VALUE) : (DEFAULT))
 #define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
@@ -181,15 +190,6 @@
 #define LIBXS_DIV2(N, NPOT) ((N) >> LIBXS_LOG2(NPOT))
 #define LIBXS_UP2(N, NPOT) LIBXS_MUL2(LIBXS_DIV2((N) + (NPOT) - 1, NPOT), NPOT)
 #define LIBXS_UP(N, UP) ((((N) + (UP) - 1) / (UP)) * (UP))
-
-/*Based on Stackoverflow's NBITSx macro.*/
-#define LIBXS_LOG2_02(N) (0 != ((N) & 2/*0b10*/) ? 1 : 0)
-#define LIBXS_LOG2_04(N) (0 != ((N) & 0xC/*0b1100*/) ? (2 + LIBXS_LOG2_02((N) >> 2)) : LIBXS_LOG2_02(N))
-#define LIBXS_LOG2_08(N) (0 != ((N) & 0xF0/*0b11110000*/) ? (4 + LIBXS_LOG2_04((N) >> 4)) : LIBXS_LOG2_04(N))
-#define LIBXS_LOG2_16(N) (0 != ((N) & 0xFF00) ? (8 + LIBXS_LOG2_08((N) >> 8)) : LIBXS_LOG2_08(N))
-#define LIBXS_LOG2_32(N) (0 != ((N) & 0xFFFF0000) ? (16 + LIBXS_LOG2_16((N) >> 16)) : LIBXS_LOG2_16(N))
-#define LIBXS_LOG2_64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 + LIBXS_LOG2_32((N) >> 32)) : LIBXS_LOG2_32(N))
-#define LIBXS_LOG2(N) LIBXS_MAX(LIBXS_LOG2_64((unsigned long long)(N)), 1)
 
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(...) __declspec(__VA_ARGS__)
