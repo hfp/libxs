@@ -29,7 +29,7 @@
 #include <libxs.h>
 
 /* external implementation, if a supported library is enabled at build-time */
-#if !defined(LIBXS_TRANSPOSE_EXTERNAL) &&
+#if !defined(LIBXS_TRANSPOSE_EXTERNAL) && \
    ((defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) \
   || defined(__OPENBLAS))
 /*# define LIBXS_TRANSPOSE_EXTERNAL*/
