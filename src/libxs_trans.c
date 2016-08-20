@@ -49,6 +49,9 @@
 #   define LIBXS_TRANS_CHUNKSIZE 32
 # endif
 #endif
+#if !defined(LIBXS_TRANS_TYPEOPT)
+# define LIBXS_TRANS_TYPEOPT
+#endif
 
 
 /* Based on the cache-oblivious transpose by Frigo et.al. with optimization for a loop with bounds which are known at compile-time. */
@@ -58,6 +61,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_trans_oop(void *LIBXS_RESTRICT out
 {
   const libxs_blasint m = m1 - m0, n = n1 - n0;
   if (m * n * typesize <= ((LIBXS_TRANS_CACHESIZE) / 2)) {
+#if defined(LIBXS_TRANS_TYPEOPT)
     switch(typesize) {
       case 1: {
         LIBXS_TRANS_OOP(char, LIBXS_TRANS_CHUNKSIZE, out, in, m0, m1, n0, n1, n, ld, ldo);
@@ -75,11 +79,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_trans_oop(void *LIBXS_RESTRICT out
         typedef struct dvec2_t { double value[2]; } dvec2_t;
         LIBXS_TRANS_OOP(dvec2_t, LIBXS_TRANS_CHUNKSIZE, out, in, m0, m1, n0, n1, n, ld, ldo);
       } break;
-      default: {
-#if !defined(NDEBUG) /* library code is expected to be mute */
-        fprintf(stderr, "LIBXS: unsupported element type in transpose!\n");
+      default:
+#else
+    { /* fall-back code path which is generic with respect to the typesize */
 #endif
-        assert(0);
+      {
+        LIBXS_TRANS_OOP_GENERIC(typesize, out, in, m0, m1, n0, n1, n, ld, ldo);
       }
     }
   }
