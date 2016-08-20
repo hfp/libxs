@@ -57,8 +57,8 @@
 #if !defined(LIBXS_FOR_SYNC)
 # define LIBXS_FOR_SYNC
 #endif
-#if !defined(LIBXS_JOIN)
-# define LIBXS_JOIN
+#if !defined(LIBXS_SINGLE)
+# define LIBXS_SINGLE
 #endif
 #if !defined(LIBXS_NOOP)
 # define LIBXS_NOOP
