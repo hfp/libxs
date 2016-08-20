@@ -107,7 +107,7 @@
  * optimization such as using a loop with bounds which are known at compile-time
  * due to splitting up tiles with one fixed-size extent (chunk).
  */
-#define LIBXS_OTRANS_MAIN(KERNEL_START, FN, OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, LD, LDO) { \
+#define LIBXS_OTRANS_MAIN(KERNEL_START, SYNC, FN, OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, LD, LDO) { \
   const libxs_blasint m = (M1) - (M0), n = (N1) - (N0); \
   if (m * n * (TYPESIZE) <= ((LIBXS_CPU_DCACHESIZE) / 2)) { \
     LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, n, LD, LDO) \
@@ -139,6 +139,7 @@
       (FN)(OUT, IN, TYPESIZE, M0, M1, ni, N1, LD, LDO); \
     } \
   } \
+  SYNC \
 }
 
 #endif /*LIBXS_TRANS_H*/
