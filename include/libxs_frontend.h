@@ -169,8 +169,8 @@ LIBXS_API const libxs_dgemm_function* libxs_original_dgemm_ptr(void);
 #define LIBXS_MMFUNCTION_TYPE(REAL)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmfunction))
 #define LIBXS_MMDISPATCH_SYMBOL(REAL) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmdispatch))
 #define LIBXS_XBLAS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(REAL, gemm))
-#define LIBXS_XOMPS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_omp_, LIBXS_TPREFIX(REAL, gemm))
 #define LIBXS_XGEMM_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm))
+#define LIBXS_YGEMM_SYMBOL(REAL)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(REAL), _omp)
 
 /** Helper macro to account for libxs_init being already executed via GCC constructor attribute */
 #if defined(__GNUC__)
@@ -269,12 +269,6 @@ LIBXS_API const libxs_dgemm_function* libxs_original_dgemm_ptr(void);
     LIBXS_INLINE_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
 }
-
-#define LIBXS_OMPS_GEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_XOMPS_SYMBOL(REAL)( \
-    0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T', \
-    0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T', \
-    M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
 /** Fallback code paths: LIBXS_FALLBACK0, and LIBXS_FALLBACK1 (template). */
 #if defined(LIBXS_FALLBACK_INLINE_GEMM)

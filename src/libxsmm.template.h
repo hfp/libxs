@@ -130,48 +130,70 @@ LIBXS_API libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* d
 /** Deallocates the JIT'ted code as returned by libxs_create_* function. TODO: this is a no-op at the moment. */
 LIBXS_API void libxs_release_kernel(const void* jit_code);
 
-/** Transpose a matrix (out-of-place form). */
-LIBXS_API void libxs_transpose_oop(void* out, const void* in, unsigned int typesize,
+/** Matrix transposition (out-of-place form). */
+LIBXS_API void libxs_otrans(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
 
-/** Transpose a matrix (out-of-place form, single-precision). */
-LIBXS_API_INLINE void libxs_stranspose_oop(float* out, const float* in,
+/** Matrix transposition (out-of-place form, single-precision). */
+LIBXS_API_INLINE void libxs_sotrans(float* out, const float* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ libxs_transpose_oop(out, in, sizeof(float), m, n, ld, ldo); }
+{ libxs_otrans(out, in, sizeof(float), m, n, ld, ldo); }
 #endif
 
-/** Transpose a matrix (out-of-place form, double-precision). */
-LIBXS_API_INLINE void libxs_dtranspose_oop(double* out, const double* in,
+/** Matrix transposition (out-of-place form, double-precision). */
+LIBXS_API_INLINE void libxs_dotrans(double* out, const double* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ libxs_transpose_oop(out, in, sizeof(double), m, n, ld, ldo); }
+{ libxs_otrans(out, in, sizeof(double), m, n, ld, ldo); }
 #endif
 
-/** Transpose a matrix (in-place form). */
-LIBXS_API void libxs_transpose_inp(void* inout, unsigned int typesize,
+/** Matrix transposition, which is multi-threadable using libxsext (out-of-place form). */
+LIBXS_API void libxs_otrans_omp(void* out, const void* in, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
+
+/** Matrix transposition, which is multi-threadable (out-of-place form, single-precision). */
+LIBXS_API_INLINE void libxs_sotrans_omp(float* out, const float* in,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
+#if defined(LIBXS_BUILD)
+;
+#else
+{ libxs_otrans_omp(out, in, sizeof(float), m, n, ld, ldo); }
+#endif
+
+/** Matrix transposition, which is multi-threadable (out-of-place form, double-precision). */
+LIBXS_API_INLINE void libxs_dotrans_omp(double* out, const double* in,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
+#if defined(LIBXS_BUILD)
+;
+#else
+{ libxs_otrans_omp(out, in, sizeof(double), m, n, ld, ldo); }
+#endif
+
+/** Matrix transposition (in-place form). */
+LIBXS_API void libxs_itrans(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld);
 
-/** Transpose a matrix (in-place form, single-precision). */
-LIBXS_API_INLINE void libxs_stranspose_inp(float* inout,
+/** Matrix transposition (in-place form, single-precision). */
+LIBXS_API_INLINE void libxs_sitrans(float* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ libxs_transpose_inp(inout, sizeof(float), m, n, ld); }
+{ libxs_itrans(inout, sizeof(float), m, n, ld); }
 #endif
 
-/** Transpose a matrix (in-place form, double-precision). */
-LIBXS_API_INLINE void libxs_dtranspose_inp(double* inout,
+/** Matrix transposition (in-place form, double-precision). */
+LIBXS_API_INLINE void libxs_ditrans(double* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ libxs_transpose_inp(inout, sizeof(double), m, n, ld); }
+{ libxs_itrans(inout, sizeof(double), m, n, ld); }
 #endif
 
 /** Dispatched general dense matrix multiplication (single-precision); can be called from F77 code. */
@@ -210,15 +232,15 @@ LIBXS_API_INLINE void libxs_dgemm(const char* transa, const char* transb,
 }
 #endif
 
-/** Threadable general dense matrix multiplication; requires linking libxsext (single-precision). */
-LIBXS_API void libxs_omp_sgemm(const char* transa, const char* transb,
+/** Multi-threadable general dense matrix multiplication; requires linking libxsext (single-precision). */
+LIBXS_API void libxs_sgemm_omp(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc);
 
-/** Threadable general dense matrix multiplication; requires linking libxsext (double-precision). */
-LIBXS_API void libxs_omp_dgemm(const char* transa, const char* transb,
+/** Multi-threadable general dense matrix multiplication; requires linking libxsext (double-precision). */
+LIBXS_API void libxs_dgemm_omp(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
   const double* b, const libxs_blasint* ldb,
@@ -330,29 +352,43 @@ public:
   }
 };
 
-/** Transpose a matrix (out-of-place form). */
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_transpose(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo) {
-  libxs_transpose_oop(out, in, sizeof(T), m, n, ld, ldo);
+/** Matrix transposition (out-of-place form). */
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo) {
+  libxs_otrans(out, in, sizeof(T), m, n, ld, ldo);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_transpose(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
-  libxs_transpose(out, in, m, n, ld, ld);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
+  libxs_trans(out, in, m, n, ld, ld);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_transpose(T* out, const T* in, libxs_blasint m, libxs_blasint n) {
-  libxs_transpose(out, in, m, n, m);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* out, const T* in, libxs_blasint m, libxs_blasint n) {
+  libxs_trans(out, in, m, n, m);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_transpose(T* out, const T* in, libxs_blasint n) {
-  libxs_transpose(out, in, n, n);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* out, const T* in, libxs_blasint n) {
+  libxs_trans(out, in, n, n);
 }
 
-/** Transpose a matrix (in-place form). */
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_transpose(T* inout, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
-  libxs_transpose_inp(inout, sizeof(T), m, n, ld);
+/** Matrix transposition, which is multi-threadable (out-of-place form). */
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans_omp(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo) {
+  libxs_otrans(out, in, sizeof(T), m, n, ld, ldo);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_transpose(T* inout, libxs_blasint m, libxs_blasint n) {
-  libxs_transpose(inout, m, n, m);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans_omp(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
+  libxs_trans_omp(out, in, m, n, ld, ld);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_transpose(T* inout, libxs_blasint n) {
-  libxs_transpose(inout, n, n);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans_omp(T* out, const T* in, libxs_blasint m, libxs_blasint n) {
+  libxs_trans_omp(out, in, m, n, m);
+}
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans_omp(T* out, const T* in, libxs_blasint n) {
+  libxs_trans_omp(out, in, n, n);
+}
+
+/** Matrix transposition (in-place form). */
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* inout, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
+  libxs_itrans(inout, sizeof(T), m, n, ld);
+}
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* inout, libxs_blasint m, libxs_blasint n) {
+  libxs_trans(inout, m, n, m);
+}
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* inout, libxs_blasint n) {
+  libxs_trans(inout, n, n);
 }
 
 /** Dispatched general dense matrix multiplication (single-precision). */

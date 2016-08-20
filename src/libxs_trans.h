@@ -31,11 +31,18 @@
 
 #include <libxs.h>
 
+#if !defined(LIBXS_TRANS_CHUNKSIZE)
+# if defined(__MIC__)
+#   define LIBXS_TRANS_CHUNKSIZE 8
+# else
+#   define LIBXS_TRANS_CHUNKSIZE 32
+# endif
+#endif
 #if !defined(LIBXS_TRANS_TYPEOPT)
 # define LIBXS_TRANS_TYPEOPT
 #endif
 
-#define LIBXS_TRANS_OOP_GENERIC(TYPESIZE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
+#define LIBXS_OTRANS_GENERIC(TYPESIZE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
   const char *const a = (const char*)(IN); \
   char *const b = (char*)(OUT); \
   libxs_blasint i, j, k; \
@@ -51,7 +58,7 @@
   } \
 }
 
-#define LIBXS_TRANS_OOP(TYPE, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
+#define LIBXS_OTRANS(TYPE, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
   if (CHUNKSIZE == (N) && 0 == LIBXS_MOD2((uintptr_t)(IN), LIBXS_ALIGNMENT)) { \
     const TYPE *const a = (const TYPE*)(IN); \
     TYPE *const b = (TYPE*)(OUT); \
@@ -66,49 +73,47 @@
     } \
   } \
   else { \
-    LIBXS_TRANS_OOP_GENERIC(sizeof(TYPE), OUT, IN, M0, M1, N0, N1, N, LD, LDO); \
+    LIBXS_OTRANS_GENERIC(sizeof(TYPE), OUT, IN, M0, M1, N0, N1, N, LD, LDO); \
   } \
 }
 
 #if defined(LIBXS_TRANS_TYPEOPT)
-# define LIBXS_TRANS_OOP_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, N, LD, LDO) \
+# define LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, N, LD, LDO) \
     switch(TYPESIZE) { \
       case 1: { \
-        LIBXS_TRANS_OOP(char, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(char, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
       } break; \
       case 2: { \
-        LIBXS_TRANS_OOP(short, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(short, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
       } break; \
       case 4: { \
-        LIBXS_TRANS_OOP(float, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(float, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
       } break; \
       case 8: { \
-        LIBXS_TRANS_OOP(double, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(double, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
       } break; \
       case 16: { \
         typedef struct dvec2_t { double value[2]; } dvec2_t; \
-        LIBXS_TRANS_OOP(dvec2_t, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(dvec2_t, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
       } break; \
       default:
 #else
-# define LIBXS_TRANS_OOP_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, N, LD, LDO) {
+# define LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, N, LD, LDO) {
 #endif
-#define LIBXS_TRANS_OOP_TYPEOPT_END }
+#define LIBXS_OTRANS_TYPEOPT_END }
 
 /**
  * Based on the cache-oblivious transpose by Frigo et.al. with some additional
  * optimization such as using a loop with bounds which are known at compile-time
  * due to splitting up tiles with one fixed-size extent (chunk).
  */
-#define LIBXS_TRANS_OOP_MAIN(PARALLEL, JOIN, KERNEL_START, SYNC, \
-  FN, OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, LD, LDO) \
-PARALLEL JOIN { \
+#define LIBXS_OTRANS_MAIN(KERNEL_START, SYNC, FN, OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, LD, LDO) { \
   const libxs_blasint m = (M1) - (M0), n = (N1) - (N0); \
-  if (m * n * (TYPESIZE) <= ((LIBXS_TRANS_CACHESIZE) / 2)) { \
-    LIBXS_TRANS_OOP_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, n, LD, LDO) \
+  if (m * n * (TYPESIZE) <= ((LIBXS_CPU_DCACHESIZE) / 2)) { \
+    LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, n, LD, LDO) \
     /* fall-back code path which is generic with respect to the typesize */ \
-    LIBXS_TRANS_OOP_GENERIC(TYPESIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
-    LIBXS_TRANS_OOP_TYPEOPT_END \
+    LIBXS_OTRANS_GENERIC(TYPESIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+    LIBXS_OTRANS_TYPEOPT_END \
   } \
   else if (m >= n) { \
     const libxs_blasint mi = ((M0) + (M1)) / 2; \

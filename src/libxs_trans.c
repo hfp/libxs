@@ -32,36 +32,25 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#include <stdio.h>
 #if !defined(NDEBUG)
 # include <assert.h>
+# include <stdio.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(LIBXS_TRANS_CACHESIZE)
-# define LIBXS_TRANS_CACHESIZE 32768
-#endif
-#if !defined(LIBXS_TRANS_CHUNKSIZE)
-# if defined(__MIC__)
-#   define LIBXS_TRANS_CHUNKSIZE 8
-# else
-#   define LIBXS_TRANS_CHUNKSIZE 32
-# endif
-#endif
 
-
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_trans_oop(void *LIBXS_RESTRICT out, const void *LIBXS_RESTRICT in,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_otrans(void *LIBXS_RESTRICT out, const void *LIBXS_RESTRICT in,
   unsigned int typesize, libxs_blasint m0, libxs_blasint m1, libxs_blasint n0, libxs_blasint n1,
   libxs_blasint ld, libxs_blasint ldo)
 {
-  LIBXS_TRANS_OOP_MAIN(LIBXS_SEQUENTIAL, LIBXS_JOIN, LIBXS_NOOP, LIBXS_NOOP,
-    internal_trans_oop, out, in, typesize, LIBXS_TRANS_CHUNKSIZE, m0, m1, n0, n1, ld, ldo);
+  LIBXS_OTRANS_MAIN(LIBXS_NOOP, LIBXS_NOOP, internal_otrans,
+    out, in, typesize, LIBXS_TRANS_CHUNKSIZE, m0, m1, n0, n1, ld, ldo);
 }
 
 
-LIBXS_API_DEFINITION void libxs_transpose_oop(void* out, const void* in, unsigned int typesize,
+LIBXS_API_DEFINITION void libxs_otrans(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
 #if !defined(NDEBUG) /* library code is expected to be mute */
@@ -75,11 +64,11 @@ LIBXS_API_DEFINITION void libxs_transpose_oop(void* out, const void* in, unsigne
     fprintf(stderr, "LIBXS: the leading dimension of the transpose output is too small!\n");
   }
 #endif
-  internal_trans_oop(out, in, typesize, 0, m, 0, n, ld, ldo);
+  internal_otrans(out, in, typesize, 0, m, 0, n, ld, ldo);
 }
 
 
-LIBXS_API_DEFINITION void libxs_transpose_inp(void* inout, unsigned int typesize,
+LIBXS_API_DEFINITION void libxs_itrans(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
   LIBXS_UNUSED(inout); LIBXS_UNUSED(typesize); LIBXS_UNUSED(m); LIBXS_UNUSED(n); LIBXS_UNUSED(ld);
@@ -89,31 +78,31 @@ LIBXS_API_DEFINITION void libxs_transpose_inp(void* inout, unsigned int typesize
 
 #if defined(LIBXS_BUILD)
 
-LIBXS_API_DEFINITION void libxs_stranspose_oop(float* out, const float* in,
+LIBXS_API_DEFINITION void libxs_sotrans(float* out, const float* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
-  libxs_transpose_oop(out, in, sizeof(float), m, n, ld, ldo);
+  libxs_otrans(out, in, sizeof(float), m, n, ld, ldo);
 }
 
 
-LIBXS_API_DEFINITION void libxs_dtranspose_oop(double* out, const double* in,
+LIBXS_API_DEFINITION void libxs_dotrans(double* out, const double* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
-  libxs_transpose_oop(out, in, sizeof(double), m, n, ld, ldo);
+  libxs_otrans(out, in, sizeof(double), m, n, ld, ldo);
 }
 
 
-LIBXS_API_DEFINITION void libxs_stranspose_inp(float* inout,
+LIBXS_API_DEFINITION void libxs_sitrans(float* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
-  libxs_transpose_inp(inout, sizeof(float), m, n, ld);
+  libxs_itrans(inout, sizeof(float), m, n, ld);
 }
 
 
-LIBXS_API_DEFINITION void libxs_dtranspose_inp(double* inout,
+LIBXS_API_DEFINITION void libxs_ditrans(double* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
-  libxs_transpose_inp(inout, sizeof(double), m, n, ld);
+  libxs_itrans(inout, sizeof(double), m, n, ld);
 }
 
 #endif /*defined(LIBXS_BUILD)*/
