@@ -36,6 +36,28 @@
 # define LIBXS_REGSIZE 524288 /* 524287: Mersenne Prime number (2^19-1) */
 #endif
 
+#if !defined(LIBXS_SEQUENTIAL)
+# define LIBXS_SEQUENTIAL
+#endif
+#if !defined(LIBXS_EXT_MIN_NTASKS)
+# define LIBXS_MIN_NTASKS(NT) 1
+#endif
+#if !defined(LIBXS_OVERHEAD)
+# define LIBXS_OVERHEAD(NT) 0
+#endif
+#if !defined(LIBXS_FOR_LOOP)
+# define LIBXS_FOR_LOOP(COLLAPSE)
+#endif
+#if !defined(LIBXS_FOR_KERNEL)
+# define LIBXS_FOR_KERNEL(...)
+#endif
+#if !defined(LIBXS_FOR_SYNC)
+# define LIBXS_FOR_SYNC
+#endif
+#if !defined(LIBXS_JOIN)
+# define LIBXS_JOIN
+#endif
+
 
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
 #if defined(LIBXS_BUILD) || defined(LIBXS_CONV_INTERNAL_API)
@@ -146,5 +168,10 @@ typedef struct LIBXS_RETARGETABLE libxs_build_request {
 
 
 LIBXS_API void libxs_build(const libxs_build_request* request, unsigned regindex, libxs_code_pointer* code);
+
+/** Determines whether (OpenMP-)tasks are preferred over thread-style parallelization. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_tasks /*= 0*/;
+/** Kind of parallel support (0: none, 1: sequential, 2: parallelized). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_mp /*= 0*/;
 
 #endif /*LIBXS_MAIN_H*/
