@@ -39,26 +39,14 @@
 # define LIBXS_CPU_DCACHESIZE 32768
 #endif
 
-#if !defined(LIBXS_SEQUENTIAL)
-# define LIBXS_SEQUENTIAL
-#endif
 #if !defined(LIBXS_EXT_MIN_NTASKS)
 # define LIBXS_MIN_NTASKS(NT) 1
 #endif
 #if !defined(LIBXS_OVERHEAD)
 # define LIBXS_OVERHEAD(NT) 0
 #endif
-#if !defined(LIBXS_FOR_LOOP)
-# define LIBXS_FOR_LOOP(COLLAPSE)
-#endif
-#if !defined(LIBXS_FOR_KERNEL)
-# define LIBXS_FOR_KERNEL(...)
-#endif
-#if !defined(LIBXS_FOR_SYNC)
-# define LIBXS_FOR_SYNC
-#endif
-#if !defined(LIBXS_SINGLE)
-# define LIBXS_SINGLE
+#if !defined(LIBXS_NOOP_ARGS)
+# define LIBXS_NOOP_ARGS(...)
 #endif
 #if !defined(LIBXS_NOOP)
 # define LIBXS_NOOP
