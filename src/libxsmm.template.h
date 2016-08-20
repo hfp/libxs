@@ -157,22 +157,12 @@ LIBXS_API void libxs_otrans_omp(void* out, const void* in, unsigned int typesize
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
 
 /** Matrix transposition, which is multi-threadable (out-of-place form, single-precision). */
-LIBXS_API_INLINE void libxs_sotrans_omp(float* out, const float* in,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
-#if defined(LIBXS_BUILD)
-;
-#else
-{ libxs_otrans_omp(out, in, sizeof(float), m, n, ld, ldo); }
-#endif
+LIBXS_API void libxs_sotrans_omp(float* out, const float* in,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
 
 /** Matrix transposition, which is multi-threadable (out-of-place form, double-precision). */
-LIBXS_API_INLINE void libxs_dotrans_omp(double* out, const double* in,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
-#if defined(LIBXS_BUILD)
-;
-#else
-{ libxs_otrans_omp(out, in, sizeof(double), m, n, ld, ldo); }
-#endif
+LIBXS_API void libxs_dotrans_omp(double* out, const double* in,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
 
 /** Matrix transposition (in-place form). */
 LIBXS_API void libxs_itrans(void* inout, unsigned int typesize,
