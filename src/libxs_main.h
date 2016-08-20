@@ -54,11 +54,11 @@
 #if !defined(LIBXS_FOR_SYNC)
 # define LIBXS_FOR_SYNC
 #endif
-#if !defined(LIBXS_NO_SYNC)
-# define LIBXS_NO_SYNC
-#endif
 #if !defined(LIBXS_JOIN)
 # define LIBXS_JOIN
+#endif
+#if !defined(LIBXS_NOOP)
+# define LIBXS_NOOP
 #endif
 
 

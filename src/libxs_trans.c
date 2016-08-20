@@ -27,6 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_trans.h"
+#include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -55,7 +56,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_trans_oop(void *LIBXS_RESTRICT out
   unsigned int typesize, libxs_blasint m0, libxs_blasint m1, libxs_blasint n0, libxs_blasint n1,
   libxs_blasint ld, libxs_blasint ldo)
 {
-  LIBXS_TRANS_OOP_MAIN(internal_trans_oop, out, in, typesize, LIBXS_TRANS_CHUNKSIZE, m0, m1, n0, n1, ld, ldo);
+  LIBXS_TRANS_OOP_MAIN(LIBXS_SEQUENTIAL, LIBXS_JOIN, LIBXS_NOOP, LIBXS_NOOP,
+    internal_trans_oop, out, in, typesize, LIBXS_TRANS_CHUNKSIZE, m0, m1, n0, n1, ld, ldo);
 }
 
 
