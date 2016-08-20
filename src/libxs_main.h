@@ -173,5 +173,7 @@ LIBXS_API void libxs_build(const libxs_build_request* request, unsigned regindex
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_tasks /*= 0*/;
 /** Kind of parallel support (0: none, 1: sequential, 2: parallelized). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_mp /*= 0*/;
+/** Number of threads per core. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_nt /*= 2*/;
 
 #endif /*LIBXS_MAIN_H*/
