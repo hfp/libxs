@@ -31,6 +31,10 @@
 
 #include <libxs.h>
 
+#if !defined(LIBXS_TRANS_TYPEOPT)
+# define LIBXS_TRANS_TYPEOPT
+#endif
+
 #define LIBXS_TRANS_OOP_GENERIC(TYPESIZE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
   const char *const a = (const char*)(IN); \
   char *const b = (char*)(OUT); \
@@ -63,6 +67,64 @@
   } \
   else { \
     LIBXS_TRANS_OOP_GENERIC(sizeof(TYPE), OUT, IN, M0, M1, N0, N1, N, LD, LDO); \
+  } \
+}
+
+#if defined(LIBXS_TRANS_TYPEOPT)
+# define LIBXS_TRANS_OOP_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, N, LD, LDO) \
+    switch(TYPESIZE) { \
+      case 1: { \
+        LIBXS_TRANS_OOP(char, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+      } break; \
+      case 2: { \
+        LIBXS_TRANS_OOP(short, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+      } break; \
+      case 4: { \
+        LIBXS_TRANS_OOP(float, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+      } break; \
+      case 8: { \
+        LIBXS_TRANS_OOP(double, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+      } break; \
+      case 16: { \
+        typedef struct dvec2_t { double value[2]; } dvec2_t; \
+        LIBXS_TRANS_OOP(dvec2_t, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+      } break; \
+      default:
+#else
+# define LIBXS_TRANS_OOP_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, N, LD, LDO) {
+#endif
+#define LIBXS_TRANS_OOP_TYPEOPT_END }
+
+/**
+ * Based on the cache-oblivious transpose by Frigo et.al. with some additional
+ * optimization such as using a loop with bounds which are known at compile-time
+ * due to splitting up tiles with one fixed-size extent (chunk).
+ */
+#define LIBXS_TRANS_OOP_MAIN(FN, OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, LD, LDO) { \
+  const libxs_blasint m = (M1) - (M0), n = (N1) - (N0); \
+  if (m * n * (TYPESIZE) <= ((LIBXS_TRANS_CACHESIZE) / 2)) { \
+    LIBXS_TRANS_OOP_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, n, LD, LDO) \
+    /* fall-back code path which is generic with respect to the typesize */ \
+    LIBXS_TRANS_OOP_GENERIC(TYPESIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+    LIBXS_TRANS_OOP_TYPEOPT_END \
+  } \
+  else if (m >= n) { \
+    const libxs_blasint mi = ((M0) + (M1)) / 2; \
+    (FN)(OUT, IN, TYPESIZE, M0, mi, N0, N1, LD, LDO); \
+    (FN)(OUT, IN, TYPESIZE, mi, M1, N0, N1, LD, LDO); \
+  } \
+  else { \
+    if ((CHUNKSIZE) < n) { \
+      const libxs_blasint ni = (N0) + (CHUNKSIZE); \
+      (FN)(OUT, IN, TYPESIZE, M0, M1, N0, ni, LD, LDO); \
+      (FN)(OUT, IN, TYPESIZE, M0, M1, ni, N1, LD, LDO); \
+    } \
+    else \
+    { \
+      const libxs_blasint ni = ((N0) + (N1)) / 2; \
+      (FN)(OUT, IN, TYPESIZE, M0, M1, N0, ni, LD, LDO); \
+      (FN)(OUT, IN, TYPESIZE, M0, M1, ni, N1, LD, LDO); \
+    } \
   } \
 }
 

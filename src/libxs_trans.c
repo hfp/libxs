@@ -49,65 +49,13 @@
 #   define LIBXS_TRANS_CHUNKSIZE 32
 # endif
 #endif
-#if !defined(LIBXS_TRANS_TYPEOPT)
-# define LIBXS_TRANS_TYPEOPT
-#endif
 
 
-/* Based on the cache-oblivious transpose by Frigo et.al. with optimization for a loop with bounds which are known at compile-time. */
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_trans_oop(void *LIBXS_RESTRICT out, const void *LIBXS_RESTRICT in,
   unsigned int typesize, libxs_blasint m0, libxs_blasint m1, libxs_blasint n0, libxs_blasint n1,
   libxs_blasint ld, libxs_blasint ldo)
 {
-  const libxs_blasint m = m1 - m0, n = n1 - n0;
-  if (m * n * typesize <= ((LIBXS_TRANS_CACHESIZE) / 2)) {
-#if defined(LIBXS_TRANS_TYPEOPT)
-    switch(typesize) {
-      case 1: {
-        LIBXS_TRANS_OOP(char, LIBXS_TRANS_CHUNKSIZE, out, in, m0, m1, n0, n1, n, ld, ldo);
-      } break;
-      case 2: {
-        LIBXS_TRANS_OOP(short, LIBXS_TRANS_CHUNKSIZE, out, in, m0, m1, n0, n1, n, ld, ldo);
-      } break;
-      case 4: {
-        LIBXS_TRANS_OOP(float, LIBXS_TRANS_CHUNKSIZE, out, in, m0, m1, n0, n1, n, ld, ldo);
-      } break;
-      case 8: {
-        LIBXS_TRANS_OOP(double, LIBXS_TRANS_CHUNKSIZE, out, in, m0, m1, n0, n1, n, ld, ldo);
-      } break;
-      case 16: {
-        typedef struct dvec2_t { double value[2]; } dvec2_t;
-        LIBXS_TRANS_OOP(dvec2_t, LIBXS_TRANS_CHUNKSIZE, out, in, m0, m1, n0, n1, n, ld, ldo);
-      } break;
-      default:
-#else
-    { /* fall-back code path which is generic with respect to the typesize */
-#endif
-      {
-        LIBXS_TRANS_OOP_GENERIC(typesize, out, in, m0, m1, n0, n1, n, ld, ldo);
-      }
-    }
-  }
-  else if (m >= n) {
-    const libxs_blasint mi = (m0 + m1) / 2;
-    internal_trans_oop(out, in, typesize, m0, mi, n0, n1, ld, ldo);
-    internal_trans_oop(out, in, typesize, mi, m1, n0, n1, ld, ldo);
-  }
-  else {
-#if (0 < LIBXS_TRANS_CHUNKSIZE)
-    if (LIBXS_TRANS_CHUNKSIZE < n) {
-      const libxs_blasint ni = n0 + LIBXS_TRANS_CHUNKSIZE;
-      internal_trans_oop(out, in, typesize, m0, m1, n0, ni, ld, ldo);
-      internal_trans_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
-    }
-    else
-#endif
-    {
-      const libxs_blasint ni = (n0 + n1) / 2;
-      internal_trans_oop(out, in, typesize, m0, m1, n0, ni, ld, ldo);
-      internal_trans_oop(out, in, typesize, m0, m1, ni, n1, ld, ldo);
-    }
-  }
+  LIBXS_TRANS_OOP_MAIN(internal_trans_oop, out, in, typesize, LIBXS_TRANS_CHUNKSIZE, m0, m1, n0, n1, ld, ldo);
 }
 
 
