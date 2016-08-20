@@ -31,13 +31,6 @@
 
 #include <libxs.h>
 
-/* external implementation, if a supported library is enabled at build-time */
-#if !defined(LIBXS_TRANS_EXTERNAL) && \
-   ((defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) \
-  || defined(__OPENBLAS))
-/*# define LIBXS_TRANS_EXTERNAL*/
-#endif
-
 #define LIBXS_TRANS_OOP(TYPE, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
   const TYPE *const a = (const TYPE*)(IN); \
   TYPE *const b = (TYPE*)(OUT); \
