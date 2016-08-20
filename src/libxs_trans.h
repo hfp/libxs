@@ -45,7 +45,8 @@
 #define LIBXS_OTRANS_GENERIC(TYPESIZE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
   const char *const a = (const char*)(IN); \
   char *const b = (char*)(OUT); \
-  libxs_blasint i, j, k; \
+  libxs_blasint i, j; \
+  unsigned int k; \
   for (i = M0; i < (M1); ++i) { \
     LIBXS_PRAGMA_NONTEMPORAL \
     for (j = N0; j < (N1); ++j) { \
