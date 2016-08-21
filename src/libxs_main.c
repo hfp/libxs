@@ -595,8 +595,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       /* set internal_target_archid */
       libxs_set_target_arch(getenv("LIBXS_TARGET"));
       { /* select prefetch strategy for JIT */
-        const char *const env_prefetch = getenv("LIBXS_PREFETCH");
-        if (0 == env_prefetch || 0 == *env_prefetch) {
+        const char *const env = getenv("LIBXS_PREFETCH");
+        if (0 == env || 0 == *env) {
 #if (0 > LIBXS_PREFETCH) /* permitted by LIBXS_PREFETCH_AUTO */
           internal_prefetch = (LIBXS_X86_AVX512_MIC != internal_target_archid
             ? LIBXS_PREFETCH_NONE : LIBXS_PREFETCH_AL2BL2_VIA_C);
@@ -605,7 +605,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
 #endif
         }
         else { /* user input considered even if LIBXS_PREFETCH_AUTO is disabled */
-          switch (atoi(env_prefetch)) {
+          switch (atoi(env)) {
             case 2:  internal_prefetch = LIBXS_PREFETCH_SIGONLY; break;
             case 3:  internal_prefetch = LIBXS_PREFETCH_BL2_VIA_C; break;
             case 4:  internal_prefetch = LIBXS_PREFETCH_AL2; break;
@@ -618,22 +618,57 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
           }
         }
       }
-      libxs_hash_init(internal_target_archid);
-      libxs_gemm_diff_init(internal_target_archid);
-      init_code = libxs_gemm_init(internal_target_archid, internal_prefetch);
+      libxs_mp = 2;
+      {
+        /* behaviour of parallelized routines which are located in libxsext library
+         * 0: sequential below-threshold routine (no OpenMP); may fall-back to BLAS,
+         * 1: (OpenMP-)parallelized but without internal parallel region,
+         * 2: (OpenMP-)parallelized with internal parallel region"
+         */
+        const char *const env = getenv("LIBXS_MP");
+        if (0 != env && 0 != *env) {
+          libxs_mp = atoi(env);
+        }
+      }
+      { 
+        const char *const env = getenv("LIBXS_TASKS");
+        if (0 != env && 0 != *env) {
+          libxs_tasks = atoi(env);
+        }
+      }
+      libxs_nt = 2;
+#if !defined(__MIC__)
+      if (LIBXS_X86_AVX512_MIC == internal_target_archid)
+#endif
+      {
+        libxs_nt = 4;
+      }
+      {
+        const char *const env = getenv("LIBXS_VERBOSE");
+        internal_statistic_mnk = (unsigned int)(pow((double)(LIBXS_MAX_MNK), 0.3333333333333333) + 0.5);
+        internal_statistic_sml = 13; internal_statistic_med = 23;
+        if (0 != env && 0 != *env) {
+          internal_verbose_mode = atoi(env);
+        }
+#if !defined(NDEBUG)
+        else {
+          internal_verbose_mode = 1; /* quiet -> verbose */
+        }
+#endif
+      }
 #if defined(__TRACE)
       {
         int filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = 0;
-        const char *const env_trace_init = getenv("LIBXS_TRACE");
-        if (EXIT_SUCCESS == init_code && 0 != env_trace_init && 0 != *env_trace_init) {
+        const char *const env = getenv("LIBXS_TRACE");
+        if (0 != env && 0 != *env) {
           char buffer[32];
-          if (1 == sscanf(env_trace_init, "%32[^,],", buffer)) {
+          if (1 == sscanf(env, "%32[^,],", buffer)) {
             sscanf(buffer, "%i", &filter_threadid);
           }
-          if (1 == sscanf(env_trace_init, "%*[^,],%32[^,],", buffer)) {
+          if (1 == sscanf(env, "%*[^,],%32[^,],", buffer)) {
             sscanf(buffer, "%i", &filter_mindepth);
           }
-          if (1 == sscanf(env_trace_init, "%*[^,],%*[^,],%32s", buffer)) {
+          if (1 == sscanf(env, "%*[^,],%*[^,],%32s", buffer)) {
             sscanf(buffer, "%i", &filter_maxnsyms);
           }
           else {
@@ -642,23 +677,18 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
         }
         init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
       }
+      if (EXIT_SUCCESS == init_code)
 #endif
+      {
+        init_code = libxs_gemm_init(internal_target_archid, internal_prefetch);
+      }
       if (EXIT_SUCCESS == init_code) {
+        libxs_hash_init(internal_target_archid);
+        libxs_gemm_diff_init(internal_target_archid);
         assert(0 == internal_registry_keys && 0 == internal_registry); /* should never happen */
         result = (libxs_code_pointer*)libxs_malloc(LIBXS_REGSIZE * sizeof(libxs_code_pointer));
         internal_registry_keys = (internal_regkey_type*)libxs_malloc(LIBXS_REGSIZE * sizeof(internal_regkey_type));
         if (0 != result && 0 != internal_registry_keys) {
-          const char *const env_verbose = getenv("LIBXS_VERBOSE");
-          internal_statistic_mnk = (unsigned int)(pow((double)(LIBXS_MAX_MNK), 0.3333333333333333) + 0.5);
-          internal_statistic_sml = 13; internal_statistic_med = 23;
-          if (0 != env_verbose && 0 != *env_verbose) {
-            internal_verbose_mode = atoi(env_verbose);
-          }
-#if !defined(NDEBUG)
-          else {
-            internal_verbose_mode = 1; /* quiet -> verbose */
-          }
-#endif
           for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].pmm = 0;
           /* omit registering code if JIT is enabled and if an ISA extension is found
            * which is beyond the static code path used to compile the library
