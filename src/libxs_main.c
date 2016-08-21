@@ -1260,7 +1260,6 @@ LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
 {
   void* extra = 0;
   LIBXS_INIT
-
   if (EXIT_SUCCESS == libxs_alloc_info(jit_code, 0/*size*/, 0/*flags*/, &extra) && 0 != extra) {
     const unsigned int regindex = *((const unsigned int*)extra);
     if (LIBXS_REGSIZE <= regindex) {
