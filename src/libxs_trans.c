@@ -41,12 +41,29 @@
 #endif
 
 
+LIBXS_API_DEFINITION void libxs_trans_init(int archid)
+{
+  libxs_trans_chunksize = LIBXS_TRANS_MAX_CHUNKSIZE;
+#if !defined(__MIC__)
+  if (LIBXS_X86_AVX512_MIC == archid)
+#endif
+  {
+    libxs_trans_chunksize = LIBXS_TRANS_MIN_CHUNKSIZE;
+  }
+}
+
+
+LIBXS_API_DEFINITION void libxs_gemm_finalize(void)
+{
+}
+
+
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_otrans(void *LIBXS_RESTRICT out, const void *LIBXS_RESTRICT in,
   unsigned int typesize, libxs_blasint m0, libxs_blasint m1, libxs_blasint n0, libxs_blasint n1,
   libxs_blasint ld, libxs_blasint ldo)
 {
   LIBXS_OTRANS_MAIN(LIBXS_NOOP, LIBXS_NOOP, internal_otrans,
-    out, in, typesize, LIBXS_TRANS_CHUNKSIZE, m0, m1, n0, n1, ld, ldo);
+    out, in, typesize, m0, m1, n0, n1, ld, ldo);
 }
 
 

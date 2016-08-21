@@ -31,12 +31,11 @@
 
 #include <libxs.h>
 
-#if !defined(LIBXS_TRANS_CHUNKSIZE)
-# if defined(__MIC__)
-#   define LIBXS_TRANS_CHUNKSIZE 8
-# else
-#   define LIBXS_TRANS_CHUNKSIZE 32
-# endif
+#if !defined(LIBXS_TRANS_MIN_CHUNKSIZE)
+# define LIBXS_TRANS_MIN_CHUNKSIZE 8
+#endif
+#if !defined(LIBXS_TRANS_MAX_CHUNKSIZE)
+# define LIBXS_TRANS_MAX_CHUNKSIZE 32
 #endif
 #if !defined(LIBXS_TRANS_TYPEOPT)
 # define LIBXS_TRANS_TYPEOPT
@@ -59,15 +58,16 @@
   } \
 }
 
-#define LIBXS_OTRANS(TYPE, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
-  if (CHUNKSIZE == (N) && 0 == LIBXS_MOD2((uintptr_t)(IN), LIBXS_ALIGNMENT)) { \
+#define LIBXS_OTRANS(TYPE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
+  if (libxs_trans_chunksize == (N) && 0 == LIBXS_MOD2((uintptr_t)(IN), LIBXS_ALIGNMENT)) { \
     const TYPE *const a = (const TYPE*)(IN); \
     TYPE *const b = (TYPE*)(OUT); \
     libxs_blasint i, j; \
     for (i = M0; i < (M1); ++i) { \
-      LIBXS_PRAGMA_VALIGNED_VARS(b) \
       LIBXS_PRAGMA_NONTEMPORAL \
-      for (j = N0; j < (N0) + (CHUNKSIZE); ++j) { \
+      LIBXS_PRAGMA_VALIGNED_VARS(b) \
+      LIBXS_PRAGMA_LOOP_COUNT(LIBXS_TRANS_MIN_CHUNKSIZE, LIBXS_TRANS_MAX_CHUNKSIZE, LIBXS_TRANS_MIN_CHUNKSIZE) \
+      for (j = N0; j < (N0) + libxs_trans_chunksize; ++j) { \
         /* use consecutive stores and strided loads */ \
         b[i*(LDO)+j] = a[j*(LD)+i]; \
       } \
@@ -79,27 +79,27 @@
 }
 
 #if defined(LIBXS_TRANS_TYPEOPT)
-# define LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, N, LD, LDO) \
+# define LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, M0, M1, N0, N1, N, LD, LDO) \
     switch(TYPESIZE) { \
       case 1: { \
-        LIBXS_OTRANS(char, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(char, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
       } break; \
       case 2: { \
-        LIBXS_OTRANS(short, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(short, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
       } break; \
       case 4: { \
-        LIBXS_OTRANS(float, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(float, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
       } break; \
       case 8: { \
-        LIBXS_OTRANS(double, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(double, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
       } break; \
       case 16: { \
         typedef struct dvec2_t { double value[2]; } dvec2_t; \
-        LIBXS_OTRANS(dvec2_t, CHUNKSIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(dvec2_t, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
       } break; \
       default:
 #else
-# define LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, N, LD, LDO) {
+# define LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, M0, M1, N0, N1, N, LD, LDO) {
 #endif
 #define LIBXS_OTRANS_TYPEOPT_END }
 
@@ -108,10 +108,10 @@
  * optimization such as using a loop with bounds which are known at compile-time
  * due to splitting up tiles with one fixed-size extent (chunk).
  */
-#define LIBXS_OTRANS_MAIN(KERNEL_START, SYNC, FN, OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, LD, LDO) { \
+#define LIBXS_OTRANS_MAIN(KERNEL_START, SYNC, FN, OUT, IN, TYPESIZE, M0, M1, N0, N1, LD, LDO) { \
   const libxs_blasint m = (M1) - (M0), n = (N1) - (N0); \
   if (m * n * (TYPESIZE) <= ((LIBXS_CPU_DCACHESIZE) / 2)) { \
-    LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, CHUNKSIZE, M0, M1, N0, N1, n, LD, LDO) \
+    LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, M0, M1, N0, N1, n, LD, LDO) \
     /* fall-back code path which is generic with respect to the typesize */ \
     LIBXS_OTRANS_GENERIC(TYPESIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
     LIBXS_OTRANS_TYPEOPT_END \
@@ -124,8 +124,8 @@
     (FN)(OUT, IN, TYPESIZE, mi, M1, N0, N1, LD, LDO); \
   } \
   else { \
-    if ((CHUNKSIZE) < n) { \
-      const libxs_blasint ni = (N0) + (CHUNKSIZE); \
+    if (libxs_trans_chunksize < n) { \
+      const libxs_blasint ni = (N0) + libxs_trans_chunksize; \
       KERNEL_START \
       (FN)(OUT, IN, TYPESIZE, M0, M1, N0, ni, LD, LDO); \
       KERNEL_START \
@@ -142,5 +142,16 @@
   } \
   SYNC \
 }
+
+
+/** Initializes the tranpose functionality; NOT thread-safe. */
+LIBXS_API void libxs_trans_init(int archid);
+
+/** Finalizes the transpose functionality; NOT thread-safe. */
+LIBXS_API void libxs_gemm_finalize(void);
+
+
+/** Size of peeled chunks during transposing inner tiles. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_trans_chunksize;
 
 #endif /*LIBXS_TRANS_H*/

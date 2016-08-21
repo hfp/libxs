@@ -30,6 +30,7 @@
 #include "libxs_cpuid_x86.h"
 #include "libxs_gemm_diff.h"
 #include "libxs_alloc.h"
+#include "libxs_trans.h"
 #include "libxs_gemm.h"
 #include "libxs_hash.h"
 #include "libxs_sync.h"
@@ -683,8 +684,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
         init_code = libxs_gemm_init(internal_target_archid, internal_prefetch);
       }
       if (EXIT_SUCCESS == init_code) {
-        libxs_hash_init(internal_target_archid);
         libxs_gemm_diff_init(internal_target_archid);
+        libxs_trans_init(internal_target_archid);
+        libxs_hash_init(internal_target_archid);
         assert(0 == internal_registry_keys && 0 == internal_registry); /* should never happen */
         result = (libxs_code_pointer*)libxs_malloc(LIBXS_REGSIZE * sizeof(libxs_code_pointer));
         internal_registry_keys = (internal_regkey_type*)libxs_malloc(LIBXS_REGSIZE * sizeof(internal_regkey_type));
