@@ -50,9 +50,7 @@
 #include "libxs_conv.h"
 #include <stddef.h>
 #include <stdint.h>
-#if !defined(NDEBUG)
-# include <assert.h>
-#endif
+#include <assert.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
