@@ -53,7 +53,7 @@ LIBXS_API_DEFINITION void libxs_trans_init(int archid)
 }
 
 
-LIBXS_API_DEFINITION void libxs_gemm_finalize(void)
+LIBXS_API_DEFINITION void libxs_trans_finalize(void)
 {
 }
 
