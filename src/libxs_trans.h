@@ -63,17 +63,29 @@
     const TYPE *const a = (const TYPE*)(IN); \
     TYPE *const b = (TYPE*)(OUT); \
     libxs_blasint i, j; \
-    for (i = M0; i < (M1); ++i) { \
-      LIBXS_PRAGMA_NONTEMPORAL \
-      LIBXS_PRAGMA_VALIGNED_VARS(b) \
-      LIBXS_PRAGMA_LOOP_COUNT(LIBXS_TRANS_MIN_CHUNKSIZE, LIBXS_TRANS_MAX_CHUNKSIZE, LIBXS_TRANS_MIN_CHUNKSIZE) \
-      for (j = N0; j < (N0) + libxs_trans_chunksize; ++j) { \
-        /* use consecutive stores and strided loads */ \
-        b[i*(LDO)+j] = a[j*(LD)+i]; \
+    if (LIBXS_TRANS_MAX_CHUNKSIZE == (N)) { \
+      for (i = M0; i < (M1); ++i) { \
+        LIBXS_PRAGMA_NONTEMPORAL \
+        LIBXS_PRAGMA_VALIGNED_VARS(b) \
+        for (j = N0; j < (N0) + (LIBXS_TRANS_MAX_CHUNKSIZE); ++j) { \
+          /* use consecutive stores and strided loads */ \
+          b[i*(LDO)+j] = a[j*(LD)+i]; \
+        } \
+      } \
+    } \
+    else { \
+      assert(LIBXS_TRANS_MIN_CHUNKSIZE == (N)); \
+      for (i = M0; i < (M1); ++i) { \
+        LIBXS_PRAGMA_NONTEMPORAL \
+        LIBXS_PRAGMA_VALIGNED_VARS(b) \
+        for (j = N0; j < (N0) + (LIBXS_TRANS_MIN_CHUNKSIZE); ++j) { \
+          /* use consecutive stores and strided loads */ \
+          b[i*(LDO)+j] = a[j*(LD)+i]; \
+        } \
       } \
     } \
   } \
-  else { \
+  else { /* remainder tile */ \
     LIBXS_OTRANS_GENERIC(sizeof(TYPE), OUT, IN, M0, M1, N0, N1, N, LD, LDO); \
   } \
 }
