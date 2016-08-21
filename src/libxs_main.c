@@ -637,7 +637,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
         }
       }
       libxs_nt = 2;
-#if !defined(__MIC__)
+#if !defined(__MIC__) && (LIBXS_X86_AVX512_MIC != LIBXS_STATIC_TARGET_ARCH)
       if (LIBXS_X86_AVX512_MIC == internal_target_archid)
 #endif
       {
