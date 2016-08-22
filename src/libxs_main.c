@@ -596,7 +596,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
   {
     result = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
     if (0 == result) {
-      int init_code;
+      int init_code = EXIT_FAILURE;
       libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set internal_target_archid */
       { /* select prefetch strategy for JIT */
         const char *const env = getenv("LIBXS_PREFETCH");
@@ -724,7 +724,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       }
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
       else {
-        fprintf(stderr, "LIBXS: failed to initialize sub-component (error #%i)!\n", init_code);
+        fprintf(stderr, "LIBXS: failed to initialize TRACE (error #%i)!\n", init_code);
       }
 #endif
     }

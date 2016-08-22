@@ -156,7 +156,7 @@
 LIBXS_API void libxs_trans_init(int archid);
 
 /** Finalizes the transpose functionality; NOT thread-safe. */
-LIBXS_API void libxs_gemm_finalize(void);
+LIBXS_API void libxs_trans_finalize(void);
 
 
 /** Size of peeled chunks during transposing inner tiles. */
