@@ -596,9 +596,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
   {
     result = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
     if (0 == result) {
-      int init_code;
-      /* set internal_target_archid */
-      libxs_set_target_arch(getenv("LIBXS_TARGET"));
+      int filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = 0;
+      libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set internal_target_archid */
       { /* select prefetch strategy for JIT */
         const char *const env = getenv("LIBXS_PREFETCH");
         if (0 == env || 0 == *env) {
@@ -661,9 +660,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
         }
 #endif
       }
-#if defined(__TRACE)
+#if !defined(__TRACE)
+      LIBXS_UNUSED(filter_threadid); LIBXS_UNUSED(filter_mindepth); LIBXS_UNUSED(filter_maxnsyms);
+#else
       {
-        int filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = 0;
         const char *const env = getenv("LIBXS_TRACE");
         if (0 != env && 0 != *env) {
           char buffer[32];
@@ -680,14 +680,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
             filter_maxnsyms = -1; /* all */
           }
         }
-        init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
       }
-      if (EXIT_SUCCESS == init_code)
+      if (EXIT_SUCCESS == libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms))
 #endif
       {
-        init_code = libxs_gemm_init(internal_target_archid, internal_prefetch);
-      }
-      if (EXIT_SUCCESS == init_code) {
+        libxs_gemm_init(internal_target_archid, internal_prefetch);
         libxs_gemm_diff_init(internal_target_archid);
         libxs_trans_init(internal_target_archid);
         libxs_hash_init(internal_target_archid);
