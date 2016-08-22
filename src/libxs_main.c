@@ -596,7 +596,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
   {
     result = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
     if (0 == result) {
-      int filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = 0;
+      int init_code;
       libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set internal_target_archid */
       { /* select prefetch strategy for JIT */
         const char *const env = getenv("LIBXS_PREFETCH");
@@ -661,9 +661,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
 #endif
       }
 #if !defined(__TRACE)
-      LIBXS_UNUSED(filter_threadid); LIBXS_UNUSED(filter_mindepth); LIBXS_UNUSED(filter_maxnsyms);
+      LIBXS_UNUSED(init_code);
 #else
       {
+        int filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = 0;
         const char *const env = getenv("LIBXS_TRACE");
         if (0 != env && 0 != *env) {
           char buffer[32];
@@ -680,8 +681,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
             filter_maxnsyms = -1; /* all */
           }
         }
+        init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
       }
-      if (EXIT_SUCCESS == libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms))
+      if (EXIT_SUCCESS == init_code)
 #endif
       {
         libxs_gemm_init(internal_target_archid, internal_prefetch);
