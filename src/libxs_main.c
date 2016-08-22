@@ -340,23 +340,20 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 } \
 return flux_entry.xmm
 
-#define INTERNAL_DISPATCH_BYPASS_CHECK(FLAGS, ALPHA, BETA) ( \
-  0 == ((FLAGS) & (LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B)) && \
-  1 == (ALPHA) && (1 == (BETA) || 0 == (BETA)))
-
-#define INTERNAL_DISPATCH_MAIN(DESCRIPTOR_DECL, DESC, FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/) { \
+#define INTERNAL_DISPATCH_MAIN(TYPE, DESCRIPTOR_DECL, DESC, PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) { \
   INTERNAL_FIND_CODE_DECLARE(code); \
-  const signed char scalpha = (signed char)(0 == (PALPHA) ? LIBXS_ALPHA : *(PALPHA)), scbeta = (signed char)(0 == (PBETA) ? LIBXS_BETA : *(PBETA)); \
-  if (INTERNAL_DISPATCH_BYPASS_CHECK(FLAGS, scalpha, scbeta)) { \
+  const int iflags = (0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)) | LIBXS_CONCATENATE(LIBXS_TPOSTFIX(TYPE, LIBXS_GEMM_FLAG_), PREC); \
+  const TYPE talpha = (0 == (PALPHA) ? ((TYPE)LIBXS_ALPHA) : *(PALPHA)), tbeta = (0 == (PBETA) ? ((TYPE)LIBXS_BETA) : *(PBETA)); \
+  if (LIBXS_GEMM_NO_BYPASS(iflags, talpha, tbeta)) { \
     const int internal_dispatch_main_prefetch = (0 == (PREFETCH) ? INTERNAL_PREFETCH : *(PREFETCH)); \
     DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, \
-      FLAGS, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
+      iflags, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
       0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB), \
       0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA), \
-      0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC), scalpha, scbeta, \
+      0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC), (signed char)(talpha), (signed char)(tbeta), \
       0 > internal_dispatch_main_prefetch ? internal_prefetch : internal_dispatch_main_prefetch); \
     { \
-      INTERNAL_FIND_CODE(DESC, code).SELECTOR; \
+      INTERNAL_FIND_CODE(DESC, code).LIBXS_TPREFIX(TYPE, mm); \
     } \
   } \
   else { /* TODO: not supported (bypass) */ \
@@ -365,22 +362,15 @@ return flux_entry.xmm
 }
 
 #if defined(LIBXS_GEMM_DIFF_MASK_A) /* no padding i.e., LIBXS_GEMM_DESCRIPTOR_SIZE */
-# define INTERNAL_DISPATCH(FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/) \
-    INTERNAL_DISPATCH_MAIN(libxs_gemm_descriptor descriptor, &descriptor, \
-    FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/)
+# define INTERNAL_DISPATCH(TYPE, PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) \
+    INTERNAL_DISPATCH_MAIN(TYPE, libxs_gemm_descriptor descriptor, &descriptor, \
+    PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH)
 #else /* padding: LIBXS_GEMM_DESCRIPTOR_SIZE -> LIBXS_ALIGNMENT */
-# define INTERNAL_DISPATCH(FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/) { \
-    INTERNAL_DISPATCH_MAIN(union { libxs_gemm_descriptor desc; char simd[LIBXS_ALIGNMENT]; } simd_descriptor; \
+# define INTERNAL_DISPATCH(TYPE, PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) { \
+    INTERNAL_DISPATCH_MAIN(TYPE, union { libxs_gemm_descriptor desc; char simd[LIBXS_ALIGNMENT]; } simd_descriptor; \
       for (i = LIBXS_GEMM_DESCRIPTOR_SIZE; i < sizeof(simd_descriptor.simd); ++i) simd_descriptor.simd[i] = 0, &simd_descriptor.desc, \
-    FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, SELECTOR/*smm or dmm*/)
+    PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH)
 #endif
-
-#define INTERNAL_SMMDISPATCH(PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) \
-  INTERNAL_DISPATCH((0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)) | LIBXS_GEMM_FLAG_F32PREC, \
-  M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, smm)
-#define INTERNAL_DMMDISPATCH(PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) \
-  INTERNAL_DISPATCH((0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)), \
-  M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH, dmm)
 
 #if !defined(LIBXS_OPENMP) && !defined(LIBXS_NOSYNC)
 # define INTERNAL_REGLOCK_COUNT 16
@@ -1204,7 +1194,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
 {
   const libxs_xmmfunction null_mmfunction = { 0 };
   LIBXS_INIT
-  if (0 != descriptor && INTERNAL_DISPATCH_BYPASS_CHECK(descriptor->flags, descriptor->alpha, descriptor->beta)) {
+  if (0 != descriptor && LIBXS_GEMM_NO_BYPASS(descriptor->flags, descriptor->alpha, descriptor->beta)) {
     libxs_gemm_descriptor backend_descriptor;
     if (0 > (int)descriptor->prefetch) {
       backend_descriptor = *descriptor;
@@ -1228,7 +1218,7 @@ LIBXS_API_DEFINITION libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const int* flags, const int* prefetch)
 {
   LIBXS_INIT
-  INTERNAL_SMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
+  INTERNAL_DISPATCH(float, flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
 
@@ -1238,7 +1228,7 @@ LIBXS_API_DEFINITION libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
   const int* flags, const int* prefetch)
 {
   LIBXS_INIT
-  INTERNAL_DMMDISPATCH(flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
+  INTERNAL_DISPATCH(double, flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
 
