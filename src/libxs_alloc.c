@@ -480,11 +480,23 @@ LIBXS_API_DEFINITION int libxs_alloc_attribute(const void* memory, int flags, co
 
 #if defined(LIBXS_BUILD)
 
-LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
+LIBXS_API_DEFINITION void* libxs_aligned_malloc(size_t size, size_t alignment)
 {
   void* result = 0;
-  return 0 == libxs_allocate(&result, size, 0/*auto*/, LIBXS_ALLOC_FLAG_DEFAULT,
+  return 0 == libxs_allocate(&result, size, alignment, LIBXS_ALLOC_FLAG_DEFAULT,
     0/*extra*/, 0/*extra_size*/) ? result : 0;
+}
+
+
+LIBXS_API_DEFINITION void libxs_aligned_free(const void* memory)
+{
+  libxs_deallocate(memory);
+}
+
+
+LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
+{
+  return libxs_aligned_malloc(size, 0/*auto*/);
 }
 
 

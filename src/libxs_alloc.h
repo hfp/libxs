@@ -58,15 +58,31 @@ LIBXS_API int libxs_deallocate(const void* memory);
 /** Attribute memory allocation such as to revoke protection flags. */
 LIBXS_API int libxs_alloc_attribute(const void* memory, int flags, const char* name);
 
+/** Allocate aligned memory (malloc/free interface). */
+LIBXS_API_INLINE void* libxs_aligned_malloc(size_t size, size_t alignment)
+#if defined(LIBXS_BUILD)
+;
+#else
+{ void* result = 0;
+  return 0 == libxs_allocate(&result, size, alignment, LIBXS_ALLOC_FLAG_DEFAULT,
+    0/*extra*/, 0/*extra_size*/) ? result : 0;
+}
+#endif
+
+/** Deallocate memory (malloc/free interface). */
+LIBXS_API_INLINE void libxs_aligned_free(const void* memory)
+#if defined(LIBXS_BUILD)
+;
+#else
+{ libxs_deallocate(memory); }
+#endif
+
 /** Allocate memory (malloc/free interface). */
 LIBXS_API_INLINE void* libxs_malloc(size_t size)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ void* result = 0;
-  return 0 == libxs_allocate(&result, size, 0/*auto*/, LIBXS_ALLOC_FLAG_DEFAULT,
-    0/*extra*/, 0/*extra_size*/) ? result : 0;
-}
+{ return libxs_aligned_malloc(size, 0/*auto*/); }
 #endif
 
 /** Deallocate memory (malloc/free interface). */
@@ -74,7 +90,7 @@ LIBXS_API_INLINE void libxs_free(const void* memory)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ libxs_deallocate(memory); }
+{ libxs_aligned_free(memory); }
 #endif
 
 #endif /*LIBXS_ALLOC_H*/
