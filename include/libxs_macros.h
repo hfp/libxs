@@ -190,6 +190,8 @@
 #define LIBXS_DIV2(N, NPOT) ((N) >> LIBXS_LOG2(NPOT))
 #define LIBXS_UP2(N, NPOT) LIBXS_MUL2(LIBXS_DIV2((N) + (NPOT) - 1, NPOT), NPOT)
 #define LIBXS_UP(N, UP) ((((N) + (UP) - 1) / (UP)) * (UP))
+/* compares floating point values but avoids warning about unreliable comparison */
+#define LIBXS_FEQ(A, B) (!((A) < (B) || (A) > (B)))
 
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(...) __declspec(__VA_ARGS__)
