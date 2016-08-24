@@ -128,6 +128,12 @@
 # define LIBXS_LOCK_RELEASE(LOCK) LIBXS_UNUSED(LOCK)
 #endif
 
+#if defined(__MIC__)
+# define LIBXS_SYNC_PAUSE(DELAY) _mm_delay_32(DELAY)
+#else
+# define LIBXS_SYNC_PAUSE(DELAY) _mm_pause()
+#endif
+
 
 /** Opaque type which represents a barrier. */
 typedef struct LIBXS_RETARGETABLE libxs_barrier libxs_barrier;
