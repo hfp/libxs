@@ -34,6 +34,7 @@
 
 #if defined(__MIC__)
 # define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_IMCI
+# define LIBXS_INTRINSICS
 #else
 # if  defined(__AVX512F__)  && defined(__AVX512CD__) \
    && defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__)
@@ -57,9 +58,11 @@
 # endif
 # if defined(__INTEL_COMPILER) /*TODO: version check*/
 #   define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#   define LIBXS_INTRINSICS
 #   include <immintrin.h>
 # elif defined(_MSC_VER) /*TODO: version check*/
 #   define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#   define LIBXS_INTRINSICS
 #   include <immintrin.h>
 # else
 #   if !defined(__SSE3__)
@@ -145,11 +148,13 @@
 # include <immintrin.h>
 #endif
 
-#if !defined(LIBXS_INTRINSICS)
-# define LIBXS_INTRINSICS
+/** Include basic x86 intrinsics such as __rdtsc. */
+#if defined(LIBXS_INTRINSICS)
+# if defined(_WIN32)
+#   include <intrin.h>
+# else
+#   include <x86intrin.h>
+# endif
 #endif
-
-/** Include basic x86 intrinsics such as _rdtsc. */
-#include <x86intrin.h>
 
 #endif /*LIBXS_INTRINSICS_X86_H*/

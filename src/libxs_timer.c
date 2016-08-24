@@ -78,6 +78,13 @@ LIBXS_API_DEFINITION double libxs_timer_duration(unsigned long long tick0, unsig
 
 LIBXS_API_DEFINITION /*LIBXS_INTRINSICS*/ unsigned long long libxs_timer_cycle(void)
 {
-  return _rdtsc();
+#if defined(_rdtsc) || defined(_MSC_VER)
+  return __rdtsc();
+#else
+  LIBXS_MESSAGE("================================================================================")
+  LIBXS_MESSAGE("LIBXS: Support for the RDTSC intrinsic appears to be unavailable!")
+  LIBXS_MESSAGE("================================================================================")
+  return libxs_timer_tick();
+#endif
 }
 
