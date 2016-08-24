@@ -36,6 +36,7 @@
 # include <omp.h>
 #endif
 
+
 int main(int argc, char* argv[])
 {
   int num_cores, threads_per_core, num_threads, num_iterations = 50000;

@@ -178,7 +178,7 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS void libxs_barrier_wait(libxs_barrier* bar
     /* wait for the core's remaining threads */
     for (i = 1; i < barrier->nthreads_per_core; ++i) {
       uint8_t core_sense = core->core_sense, thread_sense = core->thread_senses[i];
-      while (core_sense == thread_sense) { /* avoid evaluation in unspecified order*/
+      while (core_sense == thread_sense) { /* avoid evaluation in unspecified order */
         _mm_pause();
         core_sense = core->core_sense;
         thread_sense = core->thread_senses[i];
@@ -224,7 +224,7 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS void libxs_barrier_wait(libxs_barrier* bar
   }
   else { /* other threads wait for cross-core sync to complete */
     uint8_t core_sense = core->core_sense, thread_sense = core->thread_senses[thread->core_tid];
-    while (core_sense != thread_sense) { /* avoid evaluation in unspecified order*/
+    while (core_sense != thread_sense) { /* avoid evaluation in unspecified order */
       _mm_pause();
       core_sense = core->core_sense;
       thread_sense = core->thread_senses[thread->core_tid];
