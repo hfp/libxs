@@ -42,8 +42,10 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(_rdtsc)
-LIBXS_EXTERN LIBXS_RETARGETABLE unsigned long long __rdtsc(void);
+#if defined(_rdtsc) || !defined(__clang__)
+# define LIBXS_TIMER_RDTSC(CYCLE) (CYCLE = __rdtsc())
+#elif defined(__GNUC__) || defined(__INTEL_COMPILER)
+# define LIBXS_TIMER_RDTSC(CYCLE) __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE))
 #endif
 
 
@@ -82,6 +84,15 @@ LIBXS_API_DEFINITION double libxs_timer_duration(unsigned long long tick0, unsig
 
 LIBXS_API_DEFINITION /*LIBXS_INTRINSICS*/ unsigned long long libxs_timer_cycle(void)
 {
-  return __rdtsc();
+  unsigned long long result;
+#if defined(LIBXS_TIMER_RDTSC)
+  LIBXS_TIMER_RDTSC(result);
+#else
+  LIBXS_MESSAGE("================================================================================")
+  LIBXS_MESSAGE("LIBXS: Support for the RDTSC intrinsic appears to be unavailable!")
+  LIBXS_MESSAGE("================================================================================")
+  result = libxs_timer_tick();
+#endif
+  return result;
 }
 
