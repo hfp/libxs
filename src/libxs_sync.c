@@ -107,7 +107,7 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
   if (0 == thread->core_tid) {
     core = (internal_sync_core_tag*)libxs_aligned_malloc(
       sizeof(internal_sync_core_tag), -(LIBXS_SYNC_CACHELINE_SIZE));
-    core->id = cid;
+    core->id = (uint8_t)cid;
     core->core_sense = 1;
 
     core->thread_senses = (uint8_t*)libxs_aligned_malloc(
