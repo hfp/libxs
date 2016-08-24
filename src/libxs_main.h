@@ -161,6 +161,36 @@ typedef struct LIBXS_RETARGETABLE libxs_build_request {
 } libxs_build_request;
 
 
+typedef enum libxs_malloc_flags {
+  LIBXS_MALLOC_FLAG_R = 1,
+  LIBXS_MALLOC_FLAG_W = 2,
+  LIBXS_MALLOC_FLAG_X = 4,
+  LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_R | LIBXS_MALLOC_FLAG_W | LIBXS_MALLOC_FLAG_X,
+  LIBXS_MALLOC_FLAG_RW  = LIBXS_MALLOC_FLAG_R | LIBXS_MALLOC_FLAG_W,
+  /** LIBXS_MALLOC_FLAG_DEFAULT is an alias for setting no flag bits. */
+  LIBXS_MALLOC_FLAG_DEFAULT = LIBXS_MALLOC_FLAG_RW
+} libxs_malloc_flags;
+
+/** Greatest common divisor. */ 
+LIBXS_API size_t libxs_gcd(size_t a, size_t b);
+/** Least common multiple. */ 
+LIBXS_API size_t libxs_lcm(size_t a, size_t b);
+/** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */ 
+LIBXS_API size_t libxs_alignment(size_t size, size_t alignment);
+
+/** Receive the size, the flags, or the extra attachment of the given buffer. */
+LIBXS_API int libxs_malloc_info(const void* memory, size_t* size, int* flags, void** extra);
+
+/** Allocate memory of the requested size, which is aligned according to the given alignment. */
+LIBXS_API int libxs_xmalloc(void** memory, size_t size, int alignment, int flags,
+  /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
+  const void* extra, size_t extra_size);
+LIBXS_API int libxs_xfree(const volatile void* memory);
+
+/** Attribute memory allocation such as to revoke protection flags. */
+LIBXS_API int libxs_malloc_attrib(const volatile void* memory, int flags, const char* name);
+
+/** Services a build request, and (optionally) registers the code (use regindex=LIBXS_REGSIZE for unmanaged code). */
 LIBXS_API void libxs_build(const libxs_build_request* request, unsigned regindex, libxs_code_pointer* code);
 
 /** Determines whether (OpenMP-)tasks are preferred over thread-style parallelization. */

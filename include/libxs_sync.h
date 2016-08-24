@@ -29,7 +29,7 @@
 #ifndef LIBXS_SYNC_H
 #define LIBXS_SYNC_H
 
-#include <libxs_macros.h>
+#include <libxs.h>
 
 #if defined(LIBXS_NOSYNC)
 # undef _REENTRANT
@@ -69,6 +69,7 @@
 #   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __atomic_load_n(SRC_PTR, KIND)
 #   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) __atomic_store_n(DST_PTR, VALUE, KIND)
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) =*/ __atomic_add_fetch(DST_PTR, VALUE, KIND)
+#   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) =*/ __atomic_sub_fetch(DST_PTR, VALUE, KIND)
 # else
 #   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __sync_or_and_fetch(SRC_PTR, 0)
 #   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) *(DST_PTR) = VALUE; \
@@ -79,15 +80,18 @@
       LIBXS_UNUSED(libxs_store_zero_); \
     }
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_add_and_fetch(DST_PTR, VALUE)
+#   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_sub_and_fetch(DST_PTR, VALUE)
 # endif
 #elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32) /*TODO*/
 #   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) *(SRC_PTR)
 #   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) *(DST_PTR) = VALUE
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) *(DST_PTR) += VALUE
+#   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) *(DST_PTR) -= VALUE
 #else
 #   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) *(SRC_PTR)
 #   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) *(DST_PTR) = VALUE
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) *(DST_PTR) += VALUE
+#   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) *(DST_PTR) -= VALUE
 #endif
 #if !defined(LIBXS_ATOMIC_STORE_ZERO)
 # define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) LIBXS_ATOMIC_STORE(DST_PTR, 0, KIND)
@@ -123,5 +127,18 @@
 # define LIBXS_LOCK_TRYLOCK(LOCK) LIBXS_UNUSED(LOCK)
 # define LIBXS_LOCK_RELEASE(LOCK) LIBXS_UNUSED(LOCK)
 #endif
+
+
+/** Opaque type which represents a barrier. */
+typedef struct LIBXS_RETARGETABLE libxs_barrier libxs_barrier;
+
+/** Create barrier from one of the threads. */
+LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core);
+/** Initialize the barrier from each thread of the team. */
+LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid);
+/** Wait for the entire team to arrive. */
+LIBXS_API void libxs_barrier_wait(libxs_barrier* barrier, int tid);
+/** Release the resources associated with this barrier. */
+LIBXS_API void libxs_barrier_release(const libxs_barrier* barrier);
 
 #endif /*LIBXS_SYNC_H*/

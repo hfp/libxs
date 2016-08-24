@@ -29,16 +29,16 @@
 #include "libxs_intrinsics_x86.h"
 #include "libxs_cpuid_x86.h"
 #include "libxs_gemm_diff.h"
-#include "libxs_alloc.h"
 #include "libxs_trans.h"
 #include "libxs_gemm.h"
 #include "libxs_hash.h"
-#include "libxs_sync.h"
 #include "libxs_main.h"
-
 #if defined(__TRACE)
 # include "libxs_trace.h"
 #endif
+
+#include <libxs_malloc.h>
+#include <libxs_sync.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -812,8 +812,8 @@ void libxs_finalize(void)
               void* buffer = 0;
               size_t size = 0;
               code.imm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
-              if (EXIT_SUCCESS == libxs_alloc_info(code.pmm, &size, 0/*flags*/, &buffer)) {
-                libxs_deallocate(code.pmm);
+              if (EXIT_SUCCESS == libxs_malloc_info(code.pmm, &size, 0/*flags*/, &buffer)) {
+                libxs_xfree(code.pmm);
                 ++internal_statistic[precision][bucket].njit;
                 heapmem += (unsigned int)(size + (((char*)code.pmm) - (char*)buffer));
               }
@@ -1155,15 +1155,15 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
   if (0 == generated_code.last_error) {
     /* attempt to create executable buffer, and check for success */
     if (0 < generated_code.code_size && /* check for previous match (build kind) */
-      0 == libxs_allocate(&code->pmm, generated_code.code_size, 0/*auto*/,
-      /* flag must be a superset of what's populated by libxs_alloc_attribute */
-      LIBXS_ALLOC_FLAG_RWX, &regindex, sizeof(regindex)))
+      0 == libxs_xmalloc(&code->pmm, generated_code.code_size, 0/*auto*/,
+      /* flag must be a superset of what's populated by libxs_malloc_attrib */
+      LIBXS_MALLOC_FLAG_RWX, &regindex, sizeof(regindex)))
     {
       assert(0 == ((LIBXS_HASH_COLLISION | LIBXS_CODE_STATIC) & code->imm));
       /* copy temporary buffer into the prepared executable buffer */
       memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
       /* revoke unnecessary memory protection flags; continue on error */
-      libxs_alloc_attribute(code->pmm, LIBXS_ALLOC_FLAG_RW, jit_name);
+      libxs_malloc_attrib(code->pmm, LIBXS_MALLOC_FLAG_RW, jit_name);
     }
   }
 # if !defined(NDEBUG) /* library code is expected to be mute */
@@ -1254,10 +1254,10 @@ LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
 {
   void* extra = 0;
   LIBXS_INIT
-  if (EXIT_SUCCESS == libxs_alloc_info(jit_code, 0/*size*/, 0/*flags*/, &extra) && 0 != extra) {
+  if (EXIT_SUCCESS == libxs_malloc_info(jit_code, 0/*size*/, 0/*flags*/, &extra) && 0 != extra) {
     const unsigned int regindex = *((const unsigned int*)extra);
     if (LIBXS_REGSIZE <= regindex) {
-      libxs_deallocate(jit_code);
+      libxs_xfree(jit_code);
     }
     /* TODO: implement to unregister GEMM kernels */
   }

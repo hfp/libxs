@@ -26,8 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_alloc.h"
-#include "libxs_sync.h"
+#include <libxs_malloc.h>
+#include <libxs_sync.h>
+#include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -59,34 +60,34 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(LIBXS_ALLOC_ALIGNMAX)
-# define LIBXS_ALLOC_ALIGNMAX (2 * 1024 *1024)
+#if !defined(LIBXS_MALLOC_ALIGNMAX)
+# define LIBXS_MALLOC_ALIGNMAX (2 * 1024 *1024)
 #endif
-#if !defined(LIBXS_ALLOC_ALIGNFCT)
-# define LIBXS_ALLOC_ALIGNFCT 8
+#if !defined(LIBXS_MALLOC_ALIGNFCT)
+# define LIBXS_MALLOC_ALIGNFCT 8
 #endif
 
 /* perform low-level allocation even for small non-executable buffers */
-#if !defined(LIBXS_ALLOC_MMAP)
-/*# define LIBXS_ALLOC_MMAP*/
+#if !defined(LIBXS_MALLOC_MMAP)
+/*# define LIBXS_MALLOC_MMAP*/
 #endif
 
 
-typedef struct LIBXS_RETARGETABLE internal_alloc_extra_type {
+typedef struct LIBXS_RETARGETABLE internal_malloc_extra_type {
 #if defined(LIBXS_VTUNE)
   unsigned int code_id;
 #else /* avoid warning about empty structure */
   int dummy;
 #endif
-} internal_alloc_extra_type;
+} internal_malloc_extra_type;
 
 
-typedef struct LIBXS_RETARGETABLE internal_alloc_info_type {
+typedef struct LIBXS_RETARGETABLE internal_malloc_info_type {
   void* pointer;
   size_t size;
   int flags;
-  internal_alloc_extra_type internal;
-} internal_alloc_info_type;
+  internal_malloc_extra_type internal;
+} internal_malloc_info_type;
 
 
 LIBXS_API_DEFINITION size_t libxs_gcd(size_t a, size_t b)
@@ -109,11 +110,11 @@ LIBXS_API_DEFINITION size_t libxs_lcm(size_t a, size_t b)
 LIBXS_API_DEFINITION size_t libxs_alignment(size_t size, size_t alignment)
 {
   size_t result = sizeof(void*);
-  if ((LIBXS_ALLOC_ALIGNFCT * LIBXS_ALLOC_ALIGNMAX) <= size) {
-    result = libxs_lcm(0 == alignment ? (LIBXS_ALIGNMENT) : libxs_lcm(alignment, LIBXS_ALIGNMENT), LIBXS_ALLOC_ALIGNMAX);
+  if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_MALLOC_ALIGNMAX) <= size) {
+    result = libxs_lcm(0 == alignment ? (LIBXS_ALIGNMENT) : libxs_lcm(alignment, LIBXS_ALIGNMENT), LIBXS_MALLOC_ALIGNMAX);
   }
   else {
-    if ((LIBXS_ALLOC_ALIGNFCT * LIBXS_ALIGNMENT) <= size) {
+    if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_ALIGNMENT) <= size) {
       result = (0 == alignment ? (LIBXS_ALIGNMENT) : libxs_lcm(alignment, LIBXS_ALIGNMENT));
     }
     else if (0 != alignment) {
@@ -147,8 +148,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_vtune_jitdesc(const void* code
 #endif
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, size_t* size, int* flags,
-  void** extra, internal_alloc_extra_type** internal)
+LIBXS_INLINE LIBXS_RETARGETABLE int internal_malloc_info(const volatile void* memory, size_t* size, int* flags,
+  void** extra, internal_malloc_extra_type** internal)
 {
   int result = EXIT_SUCCESS;
 #if !defined(NDEBUG)
@@ -156,7 +157,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, size
 #endif
   {
     if (0 != memory) {
-      internal_alloc_info_type *const info = (internal_alloc_info_type*)(((const char*)memory) - sizeof(internal_alloc_info_type));
+      internal_malloc_info_type *const info = (internal_malloc_info_type*)(((const char*)memory) - sizeof(internal_malloc_info_type));
       if (size) *size = info->size;
       if (flags) *flags = info->flags;
       if (extra) *extra = info->pointer;
@@ -184,28 +185,28 @@ LIBXS_INLINE LIBXS_RETARGETABLE int internal_alloc_info(const void* memory, size
 }
 
 
-LIBXS_API_DEFINITION int libxs_alloc_info(const void* memory, size_t* size, int* flags, void** extra)
+LIBXS_API_DEFINITION int libxs_malloc_info(const void* memory, size_t* size, int* flags, void** extra)
 {
-  return internal_alloc_info(memory, size, flags, extra, 0/*internal*/);
+  return internal_malloc_info(memory, size, flags, extra, 0/*internal*/);
 }
 
 
-LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t alignment,
+LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment,
   int flags, const void* extra, size_t extra_size)
 {
   int result = EXIT_SUCCESS;
   if (memory) {
     if (0 < size) {
-      const size_t internal_size = size + extra_size + sizeof(internal_alloc_info_type);
+      const size_t internal_size = size + extra_size + sizeof(internal_malloc_info_type);
       size_t alloc_alignment = 0, alloc_size = 0;
       void* alloc_failed = 0;
       char* buffer = 0;
 #if !defined(NDEBUG)
       static LIBXS_TLS int alloc_error = 0;
 #endif
-#if !defined(LIBXS_ALLOC_MMAP)
-      if (0 == flags || LIBXS_ALLOC_FLAG_DEFAULT == flags) {
-        alloc_alignment = libxs_alignment(size, alignment);
+#if !defined(LIBXS_MALLOC_MMAP)
+      if (0 == flags || LIBXS_MALLOC_FLAG_DEFAULT == flags) {
+        alloc_alignment = 0 <= alignment ? libxs_alignment(size, (size_t)alignment) : ((size_t)(-alignment));
         alloc_size = internal_size + alloc_alignment - 1;
         buffer = (char*)malloc(alloc_size);
       }
@@ -213,9 +214,9 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
 #endif
       {
 #if defined(_WIN32)
-        const int xflags = (0 != (LIBXS_ALLOC_FLAG_X & flags) ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE);
-        if ((LIBXS_ALLOC_ALIGNMAX * LIBXS_ALLOC_ALIGNFCT) > size) {
-          alloc_alignment = libxs_alignment(size, alignment);
+        const int xflags = (0 != (LIBXS_MALLOC_FLAG_X & flags) ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE);
+        if ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size) {
+          alloc_alignment = 0 <= alignment ? libxs_alignment(size, (size_t)alignment) : ((size_t)(-alignment));
           alloc_size = internal_size + alloc_alignment - 1;
           buffer = (char*)VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT, xflags);
         }
@@ -223,7 +224,7 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
           HANDLE process_token;
           const SIZE_T alloc_alignmax = GetLargePageMinimum();
           /* respect user-requested alignment */
-          alloc_alignment = 0 == alignment ? alloc_alignmax : libxs_lcm(alignment, alloc_alignmax);
+          alloc_alignment = 0 == alignment ? alloc_alignmax : libxs_lcm((size_t)LIBXS_ABS(alignment), alloc_alignmax);
           alloc_size = LIBXS_UP2(internal_size, alloc_alignment); /* assume that alloc_alignment is POT */
           if (TRUE == OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &process_token)) {
             TOKEN_PRIVILEGES tp;
@@ -241,7 +242,7 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
           }
 
           if (alloc_failed == buffer) { /* retry allocation with regular page size */
-            alloc_alignment = libxs_alignment(size, alignment);
+            alloc_alignment = 0 <= alignment ? libxs_alignment(size, (size_t)alignment) : ((size_t)(-alignment));
             alloc_size = internal_size + alloc_alignment - 1;
             buffer = (char*)VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT, xflags);
           }
@@ -254,8 +255,8 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
         }
 # endif
 #else
-        const int xflags = (0 != (LIBXS_ALLOC_FLAG_X & flags) ? (PROT_READ | PROT_WRITE | PROT_EXEC) : (PROT_READ | PROT_WRITE));
-        alloc_alignment = libxs_alignment(size, alignment);
+        const int xflags = (0 != (LIBXS_MALLOC_FLAG_X & flags) ? (PROT_READ | PROT_WRITE | PROT_EXEC) : (PROT_READ | PROT_WRITE));
+        alloc_alignment = 0 <= alignment ? libxs_alignment(size, (size_t)alignment) : ((size_t)(-alignment));
         alloc_size = internal_size + alloc_alignment - 1;
         alloc_failed = MAP_FAILED;
         buffer = (char*)mmap(0, alloc_size, xflags,
@@ -265,10 +266,10 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
           MAP_PRIVATE | MAP_ANONYMOUS
 # endif
 # if defined(MAP_NORESERVE)
-          | ((LIBXS_ALLOC_ALIGNMAX * LIBXS_ALLOC_ALIGNFCT) > size ? MAP_NORESERVE : 0)
+          | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? MAP_NORESERVE : 0)
 # endif
 # if defined(MAP_HUGETLB)
-          | ((LIBXS_ALLOC_ALIGNMAX * LIBXS_ALLOC_ALIGNFCT) > size ? 0 : MAP_HUGETLB)
+          | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? 0 : MAP_HUGETLB)
 # endif
 # if defined(MAP_LOCKED) && 0
           | MAP_LOCKED
@@ -284,10 +285,10 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
           /* proceed after failed madvise (even in case of an error; take what we got from mmap) */
           madvise(buffer, alloc_size, MADV_RANDOM
 #   if defined(MADV_NOHUGEPAGE) /* if not available, we then take what we got (THP) */
-            | ((LIBXS_ALLOC_ALIGNMAX * LIBXS_ALLOC_ALIGNFCT) > size ? MADV_NOHUGEPAGE : 0)
+            | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? MADV_NOHUGEPAGE : 0)
 #   endif
 #   if defined(MADV_DONTDUMP)
-            | ((LIBXS_ALLOC_ALIGNMAX * LIBXS_ALLOC_ALIGNFCT) > size ? 0 : MADV_DONTDUMP)
+            | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? 0 : MADV_DONTDUMP)
 #   endif
           )
 # if !defined(NDEBUG)
@@ -319,8 +320,8 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
 #endif
       }
       if (alloc_failed != buffer) {
-        char *const aligned = LIBXS_ALIGN(buffer + extra_size + sizeof(internal_alloc_info_type), alloc_alignment);
-        internal_alloc_info_type *const info = (internal_alloc_info_type*)(aligned - sizeof(internal_alloc_info_type));
+        char *const aligned = LIBXS_ALIGN(buffer + extra_size + sizeof(internal_malloc_info_type), alloc_alignment);
+        internal_malloc_info_type *const info = (internal_malloc_info_type*)(aligned - sizeof(internal_malloc_info_type));
         assert((aligned + size) <= (buffer + alloc_size));
 #if !defined(NDEBUG) && !defined(_WIN32)
         memset(buffer, 0, alloc_size);
@@ -340,10 +341,10 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
 #endif
         info->pointer = buffer;
         info->size = size;
-        info->flags = (0 == flags ? LIBXS_ALLOC_FLAG_DEFAULT : (0 != (LIBXS_ALLOC_FLAG_X & flags)
+        info->flags = (0 == flags ? LIBXS_MALLOC_FLAG_DEFAULT : (0 != (LIBXS_MALLOC_FLAG_X & flags)
           /* normalize given flags */
-          ? LIBXS_ALLOC_FLAG_RWX
-          : LIBXS_ALLOC_FLAG_RW));
+          ? LIBXS_MALLOC_FLAG_RWX
+          : LIBXS_MALLOC_FLAG_RW));
         *memory = aligned;
       }
       else {
@@ -371,17 +372,17 @@ LIBXS_API_DEFINITION int libxs_allocate(void** memory, size_t size, size_t align
 }
 
 
-LIBXS_API_DEFINITION int libxs_deallocate(const void* memory)
+LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
 {
   int result = EXIT_SUCCESS;
   if (memory) {
-    internal_alloc_extra_type* internal = 0;
+    internal_malloc_extra_type* internal = 0;
     size_t size = 0;
     void* buffer = 0;
     int flags = 0;
-    result = internal_alloc_info(memory, &size, &flags, &buffer, &internal);
-#if !defined(LIBXS_ALLOC_MMAP)
-    if (LIBXS_ALLOC_FLAG_DEFAULT == flags && EXIT_SUCCESS == result) {
+    result = internal_malloc_info(memory, &size, &flags, &buffer, &internal);
+#if !defined(LIBXS_MALLOC_MMAP)
+    if (LIBXS_MALLOC_FLAG_DEFAULT == flags && EXIT_SUCCESS == result) {
       free(buffer);
     }
     else
@@ -389,7 +390,7 @@ LIBXS_API_DEFINITION int libxs_deallocate(const void* memory)
     if (EXIT_SUCCESS == result) {
 #if defined(LIBXS_VTUNE)
       assert(0 != internal);
-      if (0 != (LIBXS_ALLOC_FLAG_X & flags) && 0 != internal->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
+      if (0 != (LIBXS_MALLOC_FLAG_X & flags) && 0 != internal->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
         iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &internal->code_id);
       }
 #endif
@@ -416,26 +417,26 @@ LIBXS_API_DEFINITION int libxs_deallocate(const void* memory)
 }
 
 
-LIBXS_API_DEFINITION int libxs_alloc_attribute(const void* memory, int flags, const char* name)
+LIBXS_API_DEFINITION int libxs_malloc_attrib(const volatile void* memory, int flags, const char* name)
 {
   int alloc_flags = 0;
   void* buffer = 0;
   size_t size = 0;
 #if (!defined(NDEBUG) && defined(_DEBUG)) || defined(LIBXS_VTUNE)
-  internal_alloc_extra_type* internal = 0;
-  int result = internal_alloc_info(memory, &size, &alloc_flags, &buffer, &internal);
+  internal_malloc_extra_type* internal = 0;
+  int result = internal_malloc_info(memory, &size, &alloc_flags, &buffer, &internal);
 #else
-  int result = internal_alloc_info(memory, &size, &alloc_flags, &buffer, 0/*internal*/);
+  int result = internal_malloc_info(memory, &size, &alloc_flags, &buffer, 0/*internal*/);
 #endif
 #if !defined(NDEBUG)
   static LIBXS_TLS int revoke_error = 0;
 #endif
   if (0 != buffer && EXIT_SUCCESS == result) {
-    if (0 != (LIBXS_ALLOC_FLAG_X & alloc_flags) && name && *name) {
+    if (0 != (LIBXS_MALLOC_FLAG_X & alloc_flags) && name && *name) {
       FILE *const code_file = (0 > libxs_get_verbose_mode() ? fopen(name, "wb") : 0);
       if (0 != code_file) { /* dump byte-code into a file and print func-pointer/filename pair */
         fprintf(stderr, "LIBXS-JIT-DUMP(ptr:file) %p : %s\n", memory, name);
-        fwrite(memory, 1, size, code_file);
+        fwrite((const void*)memory, 1, size, code_file);
         fclose(code_file);
       }
 # if defined(LIBXS_VTUNE)
@@ -458,8 +459,8 @@ LIBXS_API_DEFINITION int libxs_alloc_attribute(const void* memory, int flags, co
 #else
       const size_t alloc_size = size + (((const char*)memory) - ((const char*)buffer));
       int xflags = PROT_READ | PROT_WRITE | PROT_EXEC;
-      if (0 != (LIBXS_ALLOC_FLAG_W & flags)) xflags &= ~PROT_WRITE;
-      if (0 != (LIBXS_ALLOC_FLAG_X & flags)) xflags &= ~PROT_EXEC;
+      if (0 != (LIBXS_MALLOC_FLAG_W & flags)) xflags &= ~PROT_WRITE;
+      if (0 != (LIBXS_MALLOC_FLAG_X & flags)) xflags &= ~PROT_EXEC;
       if (0/*ok*/ != mprotect(buffer, alloc_size/*entire memory region*/, xflags)) {
 # if !defined(NDEBUG) /* library code is expected to be mute */
         if (0 == revoke_error) {
@@ -478,19 +479,11 @@ LIBXS_API_DEFINITION int libxs_alloc_attribute(const void* memory, int flags, co
 }
 
 
-#if defined(LIBXS_BUILD)
-
-LIBXS_API_DEFINITION void* libxs_aligned_malloc(size_t size, size_t alignment)
+LIBXS_API_DEFINITION void* libxs_aligned_malloc(size_t size, int alignment)
 {
   void* result = 0;
-  return 0 == libxs_allocate(&result, size, alignment, LIBXS_ALLOC_FLAG_DEFAULT,
+  return 0 == libxs_xmalloc(&result, size, alignment, LIBXS_MALLOC_FLAG_DEFAULT,
     0/*extra*/, 0/*extra_size*/) ? result : 0;
-}
-
-
-LIBXS_API_DEFINITION void libxs_aligned_free(const void* memory)
-{
-  libxs_deallocate(memory);
 }
 
 
@@ -500,9 +493,8 @@ LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 }
 
 
-LIBXS_API_DEFINITION void libxs_free(const void* memory)
+LIBXS_API_DEFINITION void libxs_free(const volatile void* memory)
 {
-  libxs_deallocate(memory);
+  libxs_xfree(memory);
 }
 
-#endif /*defined(LIBXS_BUILD)*/

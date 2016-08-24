@@ -26,10 +26,10 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_alloc.h"
 #include "libxs_main.h"
-#include "libxs_sync.h"
 #include "libxs_conv_fwd.h"
+#include <libxs_malloc.h>
+#include <libxs_sync.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -271,10 +271,10 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_destroy_handle(const libxs_conv
     /* TODO */
     /* deallocate code known to be not registered; no index attached */
     /* do not use libxs_release_kernel here! */
-    libxs_deallocate(handle->code_fwd[0].pmm);
-    libxs_deallocate(handle->code_fwd[1].pmm);
-    libxs_deallocate(handle->code_fwd[2].pmm);
-    libxs_deallocate(handle->code_fwd[3].pmm);
+    libxs_xfree(handle->code_fwd[0].pmm);
+    libxs_xfree(handle->code_fwd[1].pmm);
+    libxs_xfree(handle->code_fwd[2].pmm);
+    libxs_xfree(handle->code_fwd[3].pmm);
     /* TODO Backward path */
     /* TODO weight update path */
     /* deallocate handle structure */
@@ -324,9 +324,9 @@ LIBXS_API_DEFINITION libxs_conv_layer* libxs_conv_create_input_layer_check(const
     layer->W = handle->ifwp;
     layer->datatype = handle->datatype;
     /* allocate raw data */
-    result = libxs_allocate(&layer->data,
+    result = libxs_xmalloc(&layer->data,
         layer->N * layer->splits * layer->fmb * layer->bfm * layer->H * layer->W * internal_conv_typesize(layer->datatype),
-        LIBXS_ALIGNMENT, LIBXS_ALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
+        LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
     *status = LIBXS_CONV_ERR_CREATE_LAYER;
@@ -371,9 +371,9 @@ LIBXS_API_DEFINITION libxs_conv_layer* libxs_conv_create_output_layer_check(cons
       layer->datatype = LIBXS_CONV_DATATYPE_INT32;
     }
     /* allocate raw data, we always have a 4 byte wide type!! */
-    result = libxs_allocate(&layer->data,
+    result = libxs_xmalloc(&layer->data,
         layer->N * layer->splits * layer->fmb * layer->bfm * layer->H * layer->W * internal_conv_typesize(layer->datatype),
-        LIBXS_ALIGNMENT, LIBXS_ALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
+        LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
     *status = LIBXS_CONV_ERR_CREATE_LAYER;
@@ -396,7 +396,7 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_destroy_layer(const libxs_conv_
 
   if (0 != layer) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
-    libxs_deallocate(layer->data);
+    libxs_xfree(layer->data);
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_conv_layer*)layer);
   }
@@ -432,9 +432,9 @@ LIBXS_API_DEFINITION libxs_conv_filter* libxs_conv_create_filter_check(const lib
     filter->S = handle->desc.S;
     filter->datatype = handle->datatype;
     /* allocate raw data */
-    result = libxs_allocate(&filter->data,
+    result = libxs_xmalloc(&filter->data,
         filter->splits * filter->ifmb * filter->bifm * filter->ofmb * filter->bofm * filter->R * filter->S * internal_conv_typesize(filter->datatype),
-        LIBXS_ALIGNMENT, LIBXS_ALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
+        LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
     *status = LIBXS_CONV_ERR_CREATE_FILTER;
@@ -457,7 +457,7 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_destroy_filter(const libxs_conv
 
   if (0 != filter) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
-    libxs_deallocate(filter->data);
+    libxs_xfree(filter->data);
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_conv_filter*)filter);
   }
@@ -489,9 +489,9 @@ LIBXS_API_DEFINITION libxs_conv_bias* libxs_conv_create_bias_check(const libxs_c
     bias->bfm = handle->ifmblock;
     bias->datatype = handle->datatype;
     /* allocate raw data, we always have a 4 byte wide type!! */
-    result = libxs_allocate(&bias->data,
+    result = libxs_xmalloc(&bias->data,
         bias->splits * bias->fmb * bias->bfm * internal_conv_typesize(bias->datatype),
-        LIBXS_ALIGNMENT, LIBXS_ALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
+        LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
     *status = LIBXS_CONV_ERR_CREATE_BIAS;
@@ -514,7 +514,7 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_destroy_bias(const libxs_conv_b
 
   if (0 != bias) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
-    libxs_deallocate(bias->data);
+    libxs_xfree(bias->data);
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_conv_bias*)bias);
   }
