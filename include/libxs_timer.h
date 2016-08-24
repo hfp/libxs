@@ -32,9 +32,12 @@
 #include <libxs.h>
 
 
-/** Returns the current clock tick using a platform-specific resolution. */
+/** Returns the current (monotonic) clock tick by using a platform-specific resolution. */
 LIBXS_API unsigned long long libxs_timer_tick(void);
 /** Returns the duration between two clock ticks (seconds). */
 LIBXS_API double libxs_timer_duration(unsigned long long tick0, unsigned long long tick1);
+
+/** Returns the current count of a platform-specific cycle-counter. */
+LIBXS_API unsigned long long libxs_timer_cycle(void);
 
 #endif /*LIBXS_TIMER_H*/

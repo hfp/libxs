@@ -27,6 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include <libxs_timer.h>
+#include "libxs_intrinsics_x86.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -73,3 +74,10 @@ LIBXS_API_DEFINITION double libxs_timer_duration(unsigned long long tick0, unsig
   return d * 1E-6;
 #endif
 }
+
+
+LIBXS_API_DEFINITION /*LIBXS_INTRINSICS*/ unsigned long long libxs_timer_cycle(void)
+{
+  return _rdtsc();
+}
+

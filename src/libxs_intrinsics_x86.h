@@ -149,4 +149,7 @@
 # define LIBXS_INTRINSICS
 #endif
 
+/* basic x86 intrinsics such as _rdtsc */
+#include <intrin.h>
+
 #endif /*LIBXS_INTRINSICS_X86_H*/
