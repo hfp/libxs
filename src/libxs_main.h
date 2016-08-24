@@ -188,7 +188,9 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, int alignment, int flags
 LIBXS_API int libxs_xfree(const volatile void* memory);
 
 /** Attribute memory allocation such as to revoke protection flags. */
-LIBXS_API int libxs_malloc_attrib(const volatile void* memory, int flags, const char* name);
+LIBXS_API int libxs_malloc_attrib(const volatile void* memory, int flags,
+  /** If a name is given, an executable buffer will be dumped into a file. */
+  const char* name);
 
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_REGSIZE for unmanaged code). */
 LIBXS_API void libxs_build(const libxs_build_request* request, unsigned regindex, libxs_code_pointer* code);
