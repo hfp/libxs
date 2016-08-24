@@ -43,7 +43,9 @@
 LIBXS_API_DEFINITION void libxs_trans_init(int archid)
 {
   libxs_trans_chunksize = LIBXS_TRANS_MAX_CHUNKSIZE;
-#if !defined(__MIC__)
+#if defined(__MIC__)
+  LIBXS_UNUSED(archid);
+#else
   if (LIBXS_X86_AVX512_MIC == archid)
 #endif
   {
