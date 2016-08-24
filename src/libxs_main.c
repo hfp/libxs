@@ -36,6 +36,9 @@
 #if defined(__TRACE)
 # include "libxs_trace.h"
 #endif
+#if defined(LIBXS_PERF)
+# include "libxs_perf.h"
+#endif
 
 #include <libxs_malloc.h>
 #include <libxs_sync.h>
@@ -680,6 +683,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
         libxs_gemm_diff_init(internal_target_archid);
         libxs_trans_init(internal_target_archid);
         libxs_hash_init(internal_target_archid);
+#if defined(LIBXS_PERF)
+        libxs_perf_init();
+#endif
         assert(0 == internal_registry_keys && 0 == internal_registry); /* should never happen */
         result = (libxs_code_pointer*)libxs_malloc(LIBXS_REGSIZE * sizeof(libxs_code_pointer));
         internal_registry_keys = (internal_regkey_type*)libxs_malloc(LIBXS_REGSIZE * sizeof(internal_regkey_type));
@@ -785,6 +791,9 @@ void libxs_finalize(void)
         libxs_gemm_finalize();
         libxs_gemm_diff_finalize();
         libxs_hash_finalize();
+#if defined(LIBXS_PERF)
+        libxs_perf_finalize();
+#endif
 
         /* make internal registry globally unavailable */
         LIBXS_ATOMIC_STORE_ZERO(&internal_registry, LIBXS_ATOMIC_SEQ_CST);

@@ -59,6 +59,9 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
+#if defined(LIBXS_PERF)
+# include "libxs_perf.h"
+#endif
 
 #if !defined(LIBXS_MALLOC_ALIGNMAX)
 # define LIBXS_MALLOC_ALIGNMAX (2 * 1024 *1024)
@@ -473,6 +476,15 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(const volatile void* memory, int fl
       }
 #endif
     }
+# if defined(LIBXS_PERF)
+    /* If jitting and in verbose mode emit information for perf. In jitdump
+     * case this needs to be done after mprotect as it gets overwritten
+     * otherwise. */
+    if (0 != (LIBXS_MALLOC_FLAG_X & alloc_flags) && name && *name &&
+        0 != libxs_get_verbose_mode()) {
+      libxs_perf_write_code(memory, size, name);
+    }
+# endif
   }
   assert(EXIT_SUCCESS == result);
   return result;
