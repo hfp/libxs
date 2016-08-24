@@ -32,6 +32,10 @@
 #include <libxs_typedefs.h>
 #include <libxs_macros.h>
 
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+
 #if defined(__MIC__)
 # define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_IMCI
 # define LIBXS_INTRINSICS
@@ -155,6 +159,10 @@
 # else
 #   include <x86intrin.h>
 # endif
+#endif
+
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
 #endif
 
 #endif /*LIBXS_INTRINSICS_X86_H*/
