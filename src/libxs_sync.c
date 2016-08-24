@@ -129,12 +129,12 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
   }
 
   /* barrier to let all the allocations complete */
-  if (0 == LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting.counter, 1, LIBXS_ATOMIC_RELAXED)) {
+  if (0 != LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting.counter, 1, LIBXS_ATOMIC_RELAXED)) {
     LIBXS_SYNC_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
     barrier->init_done = 1;
   }
   else {
-    while (0 != barrier->init_done);
+    while (0 == barrier->init_done);
   }
 
   /* set required per-thread information */
@@ -154,12 +154,12 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
   }
 
   /* barrier to let initialization complete */
-  if (0 == LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting.counter, 1, LIBXS_ATOMIC_RELAXED)) {
+  if (0 != LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting.counter, 1, LIBXS_ATOMIC_RELAXED)) {
     LIBXS_SYNC_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
     barrier->init_done = 0;
   }
   else {
-    while (0 == barrier->init_done);
+    while (0 != barrier->init_done);
   }
 }
 
