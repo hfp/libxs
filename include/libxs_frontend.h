@@ -169,7 +169,11 @@ LIBXS_API libxs_dgemm_function libxs_original_dgemm(void);
 
 /** Helper macro to account for libxs_init being already executed via GCC constructor attribute */
 #if defined(LIBXS_CTOR)
-# define LIBXS_INIT
+# if defined(LIBXS_BUILD_EXT) && defined(__STATIC)
+#   define LIBXS_INIT libxs_ext_init/*dummy*/ = libxs_init;
+# else
+#   define LIBXS_INIT
+# endif
 #else /* lazy initialization */
 # define LIBXS_INIT libxs_init();
 #endif
