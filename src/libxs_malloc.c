@@ -476,15 +476,14 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(const volatile void* memory, int fl
       }
 #endif
     }
-# if defined(LIBXS_PERF)
-    /* If jitting and in verbose mode emit information for perf. In jitdump
-     * case this needs to be done after mprotect as it gets overwritten
+#if defined(LIBXS_PERF)
+    /* If jitting is enabled and a valid name is given, emit information for perf.
+     * In jitdump case this needs to be done after mprotect as it gets overwritten
      * otherwise. */
-    if (0 != (LIBXS_MALLOC_FLAG_X & alloc_flags) && name && *name &&
-        0 != libxs_get_verbose_mode()) {
+    if (0 != (LIBXS_MALLOC_FLAG_X & alloc_flags) && name && *name) {
       libxs_perf_write_code(memory, size, name);
     }
-# endif
+#endif
   }
   assert(EXIT_SUCCESS == result);
   return result;
