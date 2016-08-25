@@ -37,7 +37,7 @@ LIBXS_API unsigned long long libxs_timer_tick(void);
 /** Returns the duration between two clock ticks (seconds). */
 LIBXS_API double libxs_timer_duration(unsigned long long tick0, unsigned long long tick1);
 
-/** Returns the current count of a platform-specific cycle-counter. */
+/** Returns the current tick of a (monotonic) counter; not necessarily CPU cycles. */
 LIBXS_API unsigned long long libxs_timer_cycle(void);
 
 #endif /*LIBXS_TIMER_H*/
