@@ -168,7 +168,7 @@ LIBXS_API libxs_dgemm_function libxs_original_dgemm(void);
 #define LIBXS_YGEMM_SYMBOL(REAL)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(REAL), _omp)
 
 /** Helper macro to account for libxs_init being already executed via GCC constructor attribute */
-#if defined(__GNUC__)
+#if defined(LIBXS_CTOR)
 # define LIBXS_INIT
 #else /* lazy initialization */
 # define LIBXS_INIT libxs_init();

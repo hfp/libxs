@@ -138,7 +138,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 /*# define LIBXS_TRYLOCK*/
 #endif
 
-#if defined(__GNUC__)
+#if defined(LIBXS_CTOR)
 /* libxs_init already executed via GCC constructor attribute */
 # define INTERNAL_FIND_CODE_INIT(VARIABLE) assert(0 != (VARIABLE))
 #else /* lazy initialization */
@@ -733,11 +733,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
 }
 
 
-LIBXS_API_DEFINITION
-#if defined(__GNUC__)
-LIBXS_ATTRIBUTE(constructor)
-#endif
-void libxs_init(void)
+LIBXS_API_DEFINITION LIBXS_CTOR_ATTRIBUTE void libxs_init(void)
 {
   const void *const registry = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED);
   if (0 == registry) {
@@ -752,11 +748,7 @@ LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
 void libxs_finalize(void);
 
-LIBXS_API_DEFINITION
-#if defined(__GNUC__)
-LIBXS_ATTRIBUTE(destructor)
-#endif
-void libxs_finalize(void)
+LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
 {
   libxs_code_pointer* registry = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
 
