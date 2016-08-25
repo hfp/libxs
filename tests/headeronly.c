@@ -28,7 +28,9 @@
 ******************************************************************************/
 #include <libxs_source.h>
 #include <stdlib.h>
-#include <stdio.h>
+#if defined(_DEBUG)
+# include <stdio.h>
+#endif
 
 
 LIBXS_EXTERN libxs_dmmfunction dmmdispatch(int m, int n, int k);

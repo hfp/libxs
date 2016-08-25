@@ -28,7 +28,9 @@
 ******************************************************************************/
 #include <libxs.h>
 #include <stdlib.h>
-#include <stdio.h>
+#if defined(_DEBUG)
+# include <stdio.h>
+#endif
 
 #if !defined(REAL_TYPE)
 # define REAL_TYPE float
