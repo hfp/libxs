@@ -790,6 +790,7 @@ void libxs_finalize(void)
 #endif
         libxs_gemm_finalize();
         libxs_gemm_diff_finalize();
+        libxs_trans_finalize();
         libxs_hash_finalize();
 #if defined(LIBXS_PERF)
         libxs_perf_finalize();
