@@ -49,8 +49,8 @@ int main(void)
 {
   const libxs_blasint m = M, n = N, k = K, lda = LDA, ldb = LDB, ldc = LDC;
   REAL_TYPE a[K*LDA], b[N*LDB], c[N*LDC], d[N*LDC];
+  const char transa = 'N', transb = 'N';
   const REAL_TYPE alpha = 1, beta = 1;
-  const char notrans = 'N';
   double d2 = 0;
   int i, j;
 
@@ -74,14 +74,14 @@ int main(void)
   }
 
 #if !defined(__BLAS) || (0 != __BLAS)
-  LIBXS_XGEMM_SYMBOL(REAL_TYPE)(&notrans, &notrans, &m, &n, &k,
+  LIBXS_XGEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
     &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 
 # if defined(USE_LIBXS_BLAS)
-  LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&notrans, &notrans, &m, &n, &k,
+  LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
     &alpha, a, &lda, b, &ldb, &beta, d, &ldc);
 # else
-  LIBXS_BLAS_GEMM_SYMBOL(REAL_TYPE)(&notrans, &notrans, &m, &n, &k,
+  LIBXS_BLAS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
     &alpha, a, &lda, b, &ldb, &beta, d, &ldc);
 # endif
 
@@ -95,6 +95,10 @@ int main(void)
 
   return 0.001 > d2 ? EXIT_SUCCESS : EXIT_FAILURE;
 #else
+  LIBXS_UNUSED(a); LIBXS_UNUSED(b); LIBXS_UNUSED(c);
+  LIBXS_UNUSED(transa); LIBXS_UNUSED(transb);
+  LIBXS_UNUSED(alpha); LIBXS_UNUSED(beta);
+  LIBXS_UNUSED(d2);
 # if defined(_DEBUG)
   fprintf(stderr, "Warning: skipped the actual test due to missing BLAS support!\n");
 # endif
