@@ -70,6 +70,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_otrans(void *LIBXS_RESTRICT out, c
 LIBXS_API_DEFINITION void libxs_otrans(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
+  LIBXS_INIT
 #if !defined(NDEBUG) /* library code is expected to be mute */
   if (ld < m && ldo < n) {
     fprintf(stderr, "LIBXS: the leading dimensions of the transpose are too small!\n");
@@ -90,6 +91,7 @@ LIBXS_API_DEFINITION void libxs_itrans(void* inout, unsigned int typesize,
 {
   LIBXS_UNUSED(inout); LIBXS_UNUSED(typesize); LIBXS_UNUSED(m); LIBXS_UNUSED(n); LIBXS_UNUSED(ld);
   assert(0/*Not yet implemented!*/);
+  LIBXS_INIT
 }
 
 
