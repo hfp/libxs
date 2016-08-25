@@ -70,6 +70,21 @@ LIBXS_API_DEFINITION unsigned long long libxs_timer_tick(void)
 }
 
 
+LIBXS_API_DEFINITION /*LIBXS_INTRINSICS*/ unsigned long long libxs_timer_xtick(void)
+{
+  unsigned long long result;
+#if defined(LIBXS_TIMER_RDTSC)
+  LIBXS_TIMER_RDTSC(result);
+#else
+  LIBXS_MESSAGE("================================================================================")
+  LIBXS_MESSAGE("LIBXS: Support for the RDTSC intrinsic appears to be unavailable!")
+  LIBXS_MESSAGE("================================================================================")
+  result = libxs_timer_tick();
+#endif
+  return result;
+}
+
+
 LIBXS_API_DEFINITION double libxs_timer_duration(unsigned long long tick0, unsigned long long tick1)
 {
   const double d = (double)(LIBXS_MAX(tick1, tick0) - tick0);
@@ -82,20 +97,5 @@ LIBXS_API_DEFINITION double libxs_timer_duration(unsigned long long tick0, unsig
 #else
   return d * 1E-6;
 #endif
-}
-
-
-LIBXS_API_DEFINITION /*LIBXS_INTRINSICS*/ unsigned long long libxs_timer_cycle(void)
-{
-  unsigned long long result;
-#if defined(LIBXS_TIMER_RDTSC)
-  LIBXS_TIMER_RDTSC(result);
-#else
-  LIBXS_MESSAGE("================================================================================")
-  LIBXS_MESSAGE("LIBXS: Support for the RDTSC intrinsic appears to be unavailable!")
-  LIBXS_MESSAGE("================================================================================")
-  result = libxs_timer_tick();
-#endif
-  return result;
 }
 
