@@ -40,7 +40,7 @@
   MAX = LIBXS_MAX(MAX, (VALUE)[I])
 
 #if !defined(REAL_TYPE)
-# define REAL_TYPE float
+# define REAL_TYPE double
 #endif
 
 /*#define USE_LIBXS_BLAS*/
