@@ -397,17 +397,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_update_statistic(const libxs_gemm_
 {
   assert(0 != desc);
   {
-    const unsigned long long size = LIBXS_MNK_SIZE(desc->m, desc->n, desc->k);
+    const unsigned long long kernel_size = LIBXS_MNK_SIZE(desc->m, desc->n, desc->k);
     const int precision = (0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 0 : 1);
     int bucket = 3/*huge*/;
 
-    if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= size) {
+    if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= kernel_size) {
       bucket = 0;
     }
-    else if (LIBXS_MNK_SIZE(internal_statistic_med, internal_statistic_med, internal_statistic_med) >= size) {
+    else if (LIBXS_MNK_SIZE(internal_statistic_med, internal_statistic_med, internal_statistic_med) >= kernel_size) {
       bucket = 1;
     }
-    else if (LIBXS_MNK_SIZE(internal_statistic_mnk, internal_statistic_mnk, internal_statistic_mnk) >= size) {
+    else if (LIBXS_MNK_SIZE(internal_statistic_mnk, internal_statistic_mnk, internal_statistic_mnk) >= kernel_size) {
       bucket = 2;
     }
 
@@ -798,17 +798,16 @@ LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
             const libxs_gemm_descriptor *const desc = &registry_keys[i].descriptor;
             const unsigned long long kernel_size = LIBXS_MNK_SIZE(desc->m, desc->n, desc->k);
             const int precision = (0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 0 : 1);
-            const unsigned int statistic_sml = internal_statistic_sml;
-            int bucket = 2;
+            int bucket = 3/*huge*/;
             assert((LIBXS_HASH_COLLISION | LIBXS_CODE_STATIC) != code.imm);
-            if (LIBXS_MNK_SIZE(statistic_sml, statistic_sml, statistic_sml) >= kernel_size) {
+            if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= kernel_size) {
               bucket = 0;
             }
-            else {
-              const unsigned int statistic_med = internal_statistic_med;
-              if (LIBXS_MNK_SIZE(statistic_med, statistic_med, statistic_med) >= kernel_size) {
-                bucket = 1;
-              }
+            else if (LIBXS_MNK_SIZE(internal_statistic_med, internal_statistic_med, internal_statistic_med) >= kernel_size) {
+              bucket = 1;
+            }
+            else if (LIBXS_MNK_SIZE(internal_statistic_mnk, internal_statistic_mnk, internal_statistic_mnk) >= kernel_size) {
+              bucket = 2;
             }
             if (0 == (LIBXS_CODE_STATIC & code.imm)) { /* check for allocated/generated JIT-code */
               void* buffer = 0;
