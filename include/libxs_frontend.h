@@ -46,11 +46,11 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <assert.h> /* intentionally here */
 #include "libxs_generator.h"
 #include "libxs_conv.h"
 #include <stddef.h>
 #include <stdint.h>
-#include <assert.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif

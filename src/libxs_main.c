@@ -345,16 +345,18 @@ return flux_entry.xmm
 
 #define INTERNAL_DISPATCH_MAIN(TYPE, DESCRIPTOR_DECL, DESC, PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) { \
   INTERNAL_FIND_CODE_DECLARE(code); \
-  const int iflags = (0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)) | LIBXS_CONCATENATE(LIBXS_TPOSTFIX(TYPE, LIBXS_GEMM_FLAG_), PREC); \
+  const int internal_dispatch_main_flags_ = (0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)) | LIBXS_CONCATENATE(LIBXS_TPOSTFIX(TYPE, LIBXS_GEMM_FLAG_), PREC); \
+  const int internal_dispatch_main_lda_ = (0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB)); \
+  const int internal_dispatch_main_ldb_ = (0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA)); \
+  const int internal_dispatch_main_ldc_ = (0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC)); \
   const TYPE talpha = (0 == (PALPHA) ? ((TYPE)LIBXS_ALPHA) : *(PALPHA)), tbeta = (0 == (PBETA) ? ((TYPE)LIBXS_BETA) : *(PBETA)); \
-  if (LIBXS_GEMM_NO_BYPASS(iflags, talpha, tbeta) && LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K)) { \
+  if (LIBXS_GEMM_NO_BYPASS(internal_dispatch_main_flags_, talpha, tbeta) && LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) && \
+    LIBXS_GEMM_NO_BYPASS_DIMS(internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_)) \
+  { \
     const int internal_dispatch_main_prefetch = (0 == (PREFETCH) ? INTERNAL_PREFETCH : *(PREFETCH)); \
     DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, \
-      iflags, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
-      0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB), \
-      0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA), \
-      0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC), (signed char)(talpha), (signed char)(tbeta), \
-      0 > internal_dispatch_main_prefetch ? internal_prefetch : internal_dispatch_main_prefetch); \
+      internal_dispatch_main_flags_, LIBXS_LD(M, N), LIBXS_LD(N, M), K, internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_, \
+      (signed char)(talpha), (signed char)(tbeta), (0 > internal_dispatch_main_prefetch ? internal_prefetch : internal_dispatch_main_prefetch)); \
     { \
       INTERNAL_FIND_CODE(DESC, code).LIBXS_TPREFIX(TYPE, mm); \
     } \
