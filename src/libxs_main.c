@@ -349,14 +349,16 @@ return flux_entry.xmm
   const int internal_dispatch_main_lda_ = (0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB)); \
   const int internal_dispatch_main_ldb_ = (0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA)); \
   const int internal_dispatch_main_ldc_ = (0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC)); \
-  const TYPE talpha = (0 == (PALPHA) ? ((TYPE)LIBXS_ALPHA) : *(PALPHA)), tbeta = (0 == (PBETA) ? ((TYPE)LIBXS_BETA) : *(PBETA)); \
-  if (LIBXS_GEMM_NO_BYPASS(internal_dispatch_main_flags_, talpha, tbeta) && LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) && \
+  const TYPE internal_dispatch_main_alpha_ = (0 == (PALPHA) ? ((TYPE)LIBXS_ALPHA) : *(PALPHA)); \
+  const TYPE internal_dispatch_main_beta_ = (0 == (PBETA) ? ((TYPE)LIBXS_BETA) : *(PBETA)); \
+  if (LIBXS_GEMM_NO_BYPASS(internal_dispatch_main_flags_, internal_dispatch_main_alpha_, internal_dispatch_main_beta_) && LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) && \
     LIBXS_GEMM_NO_BYPASS_DIMS(internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_)) \
   { \
-    const int internal_dispatch_main_prefetch = (0 == (PREFETCH) ? INTERNAL_PREFETCH : *(PREFETCH)); \
+    const int internal_dispatch_main_prefetch_ = (0 == (PREFETCH) ? INTERNAL_PREFETCH : *(PREFETCH)); \
     DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, \
       internal_dispatch_main_flags_, LIBXS_LD(M, N), LIBXS_LD(N, M), K, internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_, \
-      (signed char)(talpha), (signed char)(tbeta), (0 > internal_dispatch_main_prefetch ? internal_prefetch : internal_dispatch_main_prefetch)); \
+      (signed char)(internal_dispatch_main_alpha_), (signed char)(internal_dispatch_main_beta_), \
+      (0 > internal_dispatch_main_prefetch_ ? internal_prefetch : internal_dispatch_main_prefetch_)); \
     { \
       INTERNAL_FIND_CODE(DESC, code).LIBXS_TPREFIX(TYPE, mm); \
     } \
