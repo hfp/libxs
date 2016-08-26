@@ -330,7 +330,7 @@ endif
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: .state $(INCDIR)/.make \
+$(INCDIR)/libxs.h: .state $(INCDIR)/.make $(SCRDIR)/libxs_interface.py \
                      $(SRCDIR)/libxs.template.h $(ROOTDIR)/version.txt \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
                      $(HEADERS)
