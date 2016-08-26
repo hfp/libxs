@@ -347,7 +347,7 @@ return flux_entry.xmm
   INTERNAL_FIND_CODE_DECLARE(code); \
   const int iflags = (0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)) | LIBXS_CONCATENATE(LIBXS_TPOSTFIX(TYPE, LIBXS_GEMM_FLAG_), PREC); \
   const TYPE talpha = (0 == (PALPHA) ? ((TYPE)LIBXS_ALPHA) : *(PALPHA)), tbeta = (0 == (PBETA) ? ((TYPE)LIBXS_BETA) : *(PBETA)); \
-  if (LIBXS_GEMM_NO_BYPASS(iflags, talpha, tbeta)) { \
+  if (LIBXS_GEMM_NO_BYPASS(iflags, talpha, tbeta) && LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K)) { \
     const int internal_dispatch_main_prefetch = (0 == (PREFETCH) ? INTERNAL_PREFETCH : *(PREFETCH)); \
     DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, \
       iflags, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
