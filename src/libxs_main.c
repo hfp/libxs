@@ -1196,9 +1196,9 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
 LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   const libxs_xmmfunction null_mmfunction = { 0 };
-  LIBXS_INIT
   if (0 != descriptor && LIBXS_GEMM_NO_BYPASS(descriptor->flags, descriptor->alpha, descriptor->beta)) {
     libxs_gemm_descriptor backend_descriptor;
+    LIBXS_INIT
     if (0 > (int)descriptor->prefetch) {
       backend_descriptor = *descriptor;
       backend_descriptor.prefetch = (unsigned char)internal_prefetch;
