@@ -133,7 +133,8 @@
 # else
 #   include <mkl.h>
 # endif
-#elif (0 != LIBXS_ILP64)
+#endif
+#if (0 != LIBXS_ILP64)
 /** Fallback prototype functions served by any compliant LAPACK/BLAS (ILP64). */
 typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
   const char*, const char*, const long long*, const long long*, const long long*,
