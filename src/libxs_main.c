@@ -123,14 +123,13 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 } internal_statistic_type;
 
 /** Helper macro determining the default prefetch strategy which is used for statically generated kernels. */
-#if defined(_WIN32) || defined(__CYGWIN__) /*TODO: account for calling convention; avoid passing six arguments*/
-# define INTERNAL_PREFETCH LIBXS_PREFETCH_NONE
-#elif defined(__MIC__) && (0 > LIBXS_PREFETCH) /* auto-prefetch (frontend) */
-# define INTERNAL_PREFETCH LIBXS_PREFETCH_AL2BL2_VIA_C
-#elif (0 > LIBXS_PREFETCH) /* auto-prefetch (frontend) */
-# define INTERNAL_PREFETCH LIBXS_PREFETCH_SIGONLY
-#endif
-#if !defined(INTERNAL_PREFETCH)
+#if (0 > LIBXS_PREFETCH) /* auto-prefetch (frontend) */
+# if defined(__MIC__) || (LIBXS_X86_AVX512_MIC == LIBXS_STATIC_TARGET_ARCH)
+#   define INTERNAL_PREFETCH LIBXS_PREFETCH_AL2BL2_VIA_C
+# elif (0 > LIBXS_PREFETCH) /* auto-prefetch (frontend) */
+#   define INTERNAL_PREFETCH LIBXS_PREFETCH_SIGONLY
+# endif
+#else
 # define INTERNAL_PREFETCH LIBXS_PREFETCH
 #endif
 
@@ -354,11 +353,11 @@ return flux_entry.xmm
   if (LIBXS_GEMM_NO_BYPASS(internal_dispatch_main_flags_, internal_dispatch_main_alpha_, internal_dispatch_main_beta_) && LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) && \
     LIBXS_GEMM_NO_BYPASS_DIMS(internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_)) \
   { \
-    const int internal_dispatch_main_prefetch_ = (0 == (PREFETCH) ? INTERNAL_PREFETCH : *(PREFETCH)); \
+    const int internal_dispatch_main_prefetch_ = (0 == (PREFETCH) ? LIBXS_PREFETCH/*adopted from FE-option*/ : *(PREFETCH)); \
     DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, \
       internal_dispatch_main_flags_, LIBXS_LD(M, N), LIBXS_LD(N, M), K, internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_, \
       (signed char)(internal_dispatch_main_alpha_), (signed char)(internal_dispatch_main_beta_), \
-      (0 > internal_dispatch_main_prefetch_ ? internal_prefetch : internal_dispatch_main_prefetch_)); \
+      (0 > internal_dispatch_main_prefetch_ ? internal_prefetch/*auto-dispatched*/ : internal_dispatch_main_prefetch_)); \
     { \
       INTERNAL_FIND_CODE(DESC, code).LIBXS_TPREFIX(TYPE, mm); \
     } \
@@ -393,7 +392,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_mnk /*= LIBXS_
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_teardown /*= 0*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_target_archid /*= LIBXS_TARGET_ARCH_GENERIC*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_verbose_mode /*= 0*/;
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_prefetch /*= LIBXS_MAX(INTERNAL_PREFETCH, 0)*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_prefetch;
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_update_statistic(const libxs_gemm_descriptor* desc,
@@ -598,12 +597,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       { /* select prefetch strategy for JIT */
         const char *const env = getenv("LIBXS_PREFETCH");
         if (0 == env || 0 == *env) {
-#if (0 > LIBXS_PREFETCH) /* permitted by LIBXS_PREFETCH_AUTO */
           internal_prefetch = (LIBXS_X86_AVX512_MIC != internal_target_archid
-            ? LIBXS_PREFETCH_NONE : LIBXS_PREFETCH_AL2BL2_VIA_C);
-#else
-          internal_prefetch = LIBXS_MAX(INTERNAL_PREFETCH, 0);
-#endif
+            ? INTERNAL_PREFETCH : LIBXS_PREFETCH_AL2BL2_VIA_C);
         }
         else { /* user input considered even if LIBXS_PREFETCH_AUTO is disabled */
           switch (atoi(env)) {
