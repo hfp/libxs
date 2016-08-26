@@ -597,7 +597,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       { /* select prefetch strategy for JIT */
         const char *const env = getenv("LIBXS_PREFETCH");
         internal_prefetch = (LIBXS_X86_AVX512_MIC != internal_target_archid ? INTERNAL_PREFETCH : LIBXS_PREFETCH_AL2BL2_VIA_C);
-        if (0 != env && 0 != *env) { /* user input is alwayd considered */
+        if (0 != env && 0 <= *env) { /* user input beyond auto-prefetch is always considered */
           switch (atoi(env)) {
             case 2:  internal_prefetch = LIBXS_PREFETCH_SIGONLY; break;
             case 3:  internal_prefetch = LIBXS_PREFETCH_BL2_VIA_C; break;
