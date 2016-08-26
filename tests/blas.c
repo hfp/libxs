@@ -48,14 +48,14 @@
 int main(void)
 {
   const char transa = 'N', transb = 'N';
-  libxs_blasint m[]     = {  64,    16 };
-  libxs_blasint n[]     = { 239, 65792 };
-  libxs_blasint k[]     = {  64,    16 };
-  libxs_blasint lda[]   = {  64,    16 };
-  libxs_blasint ldb[]   = { 240,    16 };
-  libxs_blasint ldc[]   = { 240,    16 };
-  const REAL_TYPE alpha[] = {   1,     1 };
-  const REAL_TYPE beta[]  = {   1,     0 };
+  libxs_blasint m[]     = { 1, 2, 3, LIBXS_AVG_M,  64,    16 };
+  libxs_blasint n[]     = { 1, 2, 3, LIBXS_AVG_N, 239, 65792 };
+  libxs_blasint k[]     = { 1, 2, 3, LIBXS_AVG_K,  64,    16 };
+  libxs_blasint lda[]   = { 1, 2, 3, LIBXS_AVG_M,  64,    16 };
+  libxs_blasint ldb[]   = { 1, 2, 3, LIBXS_AVG_K, 240,    16 };
+  libxs_blasint ldc[]   = { 1, 2, 3, LIBXS_AVG_M, 240,    16 };
+  const REAL_TYPE alpha[] = { 1, 1, 1,             1,   1,     1 };
+  const REAL_TYPE beta[]  = { 1, 1, 1,             1,   1,     0 };
   const int ntests = sizeof(m) / sizeof(*m);
   libxs_blasint maxm = 0, maxn = 0, maxk = 0, maxa = 0, maxb = 0, maxc = 0;
   REAL_TYPE *a = 0, *b = 0, *c = 0, *d = 0;
