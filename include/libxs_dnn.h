@@ -178,7 +178,7 @@ LIBXS_API void libxs_dnn_convolve(libxs_dnn_conv_handle* handle, libxs_dnn_conv_
 LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid, /*unsigned*/int num_threads);
 
-#if defined(LIBXS_BUILD) || defined(LIBXS_CONV_INTERNAL_API) /* Internal API */
+#if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API) /* Internal API */
 /** Function type used for convolutions (single-precision); the actual signature depends on the kind of convolution. */
 typedef LIBXS_RETARGETABLE void (*libxs_sconvfunction)(const float* input1, const float* input2, float* output,
                                                            const float* ipf1, const float* ipf2, const float* opf);

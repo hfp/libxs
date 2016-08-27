@@ -54,7 +54,7 @@
 
 
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
-#if defined(LIBXS_BUILD) || defined(LIBXS_CONV_INTERNAL_API)
+#if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
   libxs_sconvfunction sconv;
 #endif
   libxs_xmmfunction xmm;
