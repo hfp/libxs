@@ -41,7 +41,7 @@
 # define srand48 srand
 #endif
 
-#define CHKERR_LIBXS_CONV(A) if ( A != LIBXS_CONV_SUCCESS ) fprintf(stderr, "%s\n", libxs_conv_get_error(A) );
+#define CHKERR_LIBXS_DNN(A) if ( A != LIBXS_DNN_SUCCESS ) fprintf(stderr, "%s\n", libxs_dnn_get_error(A) );
 
 typedef struct {
   int nImg;
@@ -231,12 +231,12 @@ int main(int argc, char* argv[])
   int nThreads = 1;
 #endif
 
-  libxs_conv_desc conv_desc;
-  libxs_conv_handle* libxs_handle;
-  libxs_conv_layer* libxs_input;
-  libxs_conv_layer* libxs_output;
-  libxs_conv_filter* libxs_filter;
-  libxs_conv_err_t status;
+  libxs_dnn_conv_desc conv_desc;
+  libxs_dnn_conv_handle* libxs_handle;
+  libxs_dnn_activation* libxs_input;
+  libxs_dnn_activation* libxs_output;
+  libxs_dnn_filter* libxs_filter;
+  libxs_dnn_err_t status;
 
   if (argc > 1 && !strncmp(argv[1], "-h", 3)) {
     printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride splits\n", argv[0]);
@@ -325,29 +325,30 @@ int main(int argc, char* argv[])
   conv_desc.S = kw;
   conv_desc.u = stride_h;
   conv_desc.v = stride_w;
+  /* @TODO we need to change the interface to provide intut and output padding! */
   conv_desc.pad_h = pad_h;
-  conv_desc.pad_w = pad_h;
+  conv_desc.pad_w = pad_w;
   conv_desc.splits = nSplits;
-  libxs_handle = libxs_conv_create_handle_check( conv_desc, LIBXS_CONV_DATATYPE_FP32, LIBXS_CONV_ALGO_DIRECT, &status );
-  CHKERR_LIBXS_CONV( status );
+  libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, LIBXS_DNN_DATATYPE_FP32, LIBXS_DNN_CONV_ALGO_DIRECT, &status );
+  CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS layers */
-  libxs_input = libxs_conv_create_input_layer_check( libxs_handle, &status );
-  CHKERR_LIBXS_CONV( status );
-  libxs_output = libxs_conv_create_output_layer_check( libxs_handle, &status );
-  CHKERR_LIBXS_CONV( status );
-  libxs_filter = libxs_conv_create_filter_check( libxs_handle, &status );
-  CHKERR_LIBXS_CONV( status );
+  libxs_input = libxs_dnn_create_input_activation_check( libxs_handle, &status );
+  CHKERR_LIBXS_DNN( status );
+  libxs_output = libxs_dnn_create_output_activation_check( libxs_handle, &status );
+  CHKERR_LIBXS_DNN( status );
+  libxs_filter = libxs_dnn_create_filter_check( libxs_handle, &status );
+  CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
-  CHKERR_LIBXS_CONV( libxs_conv_copyin_layer( libxs_input, (void*)naive_input ) );
-  CHKERR_LIBXS_CONV( libxs_conv_zero_layer( libxs_output ) );
-  CHKERR_LIBXS_CONV( libxs_conv_copyin_filter( libxs_filter, (void*)naive_filter ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_copyin_activation( libxs_input, (void*)naive_input ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_zero_activation( libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter ) );
 
   /* bind layer to handle */
-  CHKERR_LIBXS_CONV( libxs_conv_bind_input_layer( libxs_handle, libxs_input ) );
-  CHKERR_LIBXS_CONV( libxs_conv_bind_output_layer( libxs_handle, libxs_output ) );
-  CHKERR_LIBXS_CONV( libxs_conv_bind_filter( libxs_handle, libxs_filter ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_input_activation( libxs_handle, libxs_input ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_output_activation( libxs_handle, libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
 
   printf("##########################################\n");
   printf("#           Check Correctness            #\n");
@@ -364,10 +365,10 @@ int main(int argc, char* argv[])
 #else
     const int tid = 0, nthreads = 1;
 #endif
-    CHKERR_LIBXS_CONV( libxs_convolve_st( libxs_handle, LIBXS_CONV_KIND_FWD, 0, tid, nthreads ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads ) );
   }
   /* copy out data */
-  CHKERR_LIBXS_CONV( libxs_conv_copyout_layer( libxs_output, (void*)naive_libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_copyout_activation( libxs_output, (void*)naive_libxs_output ) );
 
   /* compare */
   compare_buf(naive_output, naive_libxs_output, nImg*nOfm*ofhp*ofwp, &norms);
@@ -391,7 +392,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0, nthreads = 1;
 #endif
-      libxs_convolve_st( libxs_handle, LIBXS_CONV_KIND_FWD, 0, tid, nthreads );
+      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads );
     }
   }
   l_end = libxs_timer_tick();
@@ -407,10 +408,10 @@ int main(int argc, char* argv[])
      (flops*1e-9)/l_total, norms.max_rel_err, norms.max_abs_err, norms.l2_rel_err, norms.one_norm_ref, norms.one_norm_test );
 
   /* clean-up */
-  CHKERR_LIBXS_CONV( libxs_conv_destroy_layer( libxs_input ) );
-  CHKERR_LIBXS_CONV( libxs_conv_destroy_layer( libxs_output ) );
-  CHKERR_LIBXS_CONV( libxs_conv_destroy_filter( libxs_filter ) );
-  CHKERR_LIBXS_CONV( libxs_conv_destroy_handle( libxs_handle ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_activation( libxs_input ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_activation( libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_handle( libxs_handle ) );
 
   return 0;
 }

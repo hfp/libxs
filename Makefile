@@ -189,7 +189,7 @@ HEADERS = $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
           $(SRCDIR)/libxs_gemm_diff.c \
           $(SRCDIR)/libxs_cpuid_x86.c \
           $(SRCDIR)/libxs_hash.c \
-          $(ROOTDIR)/include/libxs_conv.h \
+          $(ROOTDIR)/include/libxs_dnn.h \
           $(ROOTDIR)/include/libxs_frontend.h \
           $(ROOTDIR)/include/libxs_generator.h \
           $(ROOTDIR)/include/libxs_macros.h \
@@ -208,10 +208,10 @@ OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILE
 OBJFILES_GEN_CONV_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_CONV_BIN))))
 OBJFILES_HST = $(BLDDIR)/intel64/libxs_main.o \
                $(BLDDIR)/intel64/libxs_gemm.o $(BLDDIR)/intel64/libxs_trans.o \
-               $(BLDDIR)/intel64/libxs_conv.o $(BLDDIR)/intel64/libxs_conv_fwd.o
+               $(BLDDIR)/intel64/libxs_dnn.o $(BLDDIR)/intel64/libxs_dnn_conv_fwd.o
 OBJFILES_MIC = $(BLDDIR)/mic/libxs_main.o \
                $(BLDDIR)/mic/libxs_gemm.o $(BLDDIR)/mic/libxs_trans.o \
-               $(BLDDIR)/mic/libxs_conv.o $(BLDDIR)/mic/libxs_conv_fwd.o \
+               $(BLDDIR)/mic/libxs_dnn.o $(BLDDIR)/mic/libxs_dnn_conv_fwd.o \
                $(BLDDIR)/mic/libxs_malloc.o $(BLDDIR)/mic/libxs_sync.o \
                $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o
 KERNELOBJS_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
@@ -334,7 +334,7 @@ $(INCDIR)/libxs.h: .state $(INCDIR)/.make $(SCRDIR)/libxs_interface.py \
 	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
 		$(ROOTDIR)/.hooks/install.sh; \
 	fi
-	@cp $(ROOTDIR)/include/libxs_conv.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_dnn.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_generator.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true

@@ -48,7 +48,7 @@
 #endif
 #include <assert.h> /* intentionally here */
 #include "libxs_generator.h"
-#include "libxs_conv.h"
+#include "libxs_dnn.h"
 #include <stddef.h>
 #include <stdint.h>
 #if defined(LIBXS_OFFLOAD_TARGET)

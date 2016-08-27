@@ -27,7 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_main.h"
-#include "libxs_conv_fwd.h"
+#include "libxs_dnn_conv_fwd.h"
 #include <libxs_malloc.h>
 #include <libxs_sync.h>
 
@@ -44,73 +44,73 @@
 #endif
 
 
-LIBXS_API_DEFINITION const char* libxs_conv_get_error(libxs_conv_err_t code)
+LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
 {
   switch (code) {
-    case LIBXS_CONV_SUCCESS:
-      return "LIBXS CONV Success!";
-    case LIBXS_CONV_WARN_FALLBACK:
-      return "LIBXS CONV Warning: Falling back to naive code as target is currently not supported by LIBXS!";
-    case LIBXS_CONV_ERR_GENERAL:
-      return "LIBXS CONV Error: General error occured!";
-    case LIBXS_CONV_ERR_CREATE_HANDLE:
-      return "LIBXS CONV Error: Handle creation failed!";
-    case LIBXS_CONV_ERR_UNSUPPORTED_DATATYPE:
-      return "LIBXS CONV Error: Requested datatype is not available!";
-    case LIBXS_CONV_ERR_INVALID_BLOCKING:
-      return "LIBXS CONV Error: Requested Input/Output layer size cannot be blocked!";
-    case LIBXS_CONV_ERR_INVALID_HANDLE:
-      return "LIBXS CONV Error: An invalid handle was proivded!";
-    case LIBXS_CONV_ERR_DATA_NOT_BOUND:
-      return "LIBXS CONV Error: Not all required sources and destinations have been bound to convolution!";
-    case LIBXS_CONV_ERR_CREATE_LAYER:
-      return "LIBXS CONV Error: Layer creation failed!";
-    case LIBXS_CONV_ERR_INVALID_LAYER:
-      return "LIBXS CONV Error: Invalid layer was specified!";
-    case LIBXS_CONV_ERR_CREATE_FILTER:
-      return "LIBXS CONV Error: Filter creation failed!";
-    case LIBXS_CONV_ERR_INVALID_FILTER:
-      return "LIBXS CONV Error: Invalid filter was specified!";
-    case LIBXS_CONV_ERR_CREATE_BIAS:
-      return "LIBXS CONV Error: Bias creation failed!";
-    case LIBXS_CONV_ERR_INVALID_BIAS:
-      return "LIBXS CONV Error: Invalid Bias was specified";
-    case LIBXS_CONV_ERR_MISMATCH_LAYER:
-      return "LIBXS CONV Error: Layer doesn't match handle it should be bind to!";
-    case LIBXS_CONV_ERR_INVALID_HANDLE_LAYER:
-      return "LIBXS CONV Error: Invalid hanlde or layer!";
-    case LIBXS_CONV_ERR_MISMATCH_FILTER:
-      return "LIBXS CONV Error: Filter doens't match handle it should be bind to!";
-    case LIBXS_CONV_ERR_INVALID_HANDLE_FILTER:
-      return "LIBXS CONV Error: Invalid handle or filter!";
-    case LIBXS_CONV_ERR_INVALID_KIND:
-      return "LIBXS CONV Error: Invalid convolution kind!";
+    case LIBXS_DNN_SUCCESS:
+      return "LIBXS DNN Success!";
+    case LIBXS_DNN_WARN_FALLBACK:
+      return "LIBXS DNN Warning: Falling back to naive code as target is currently not supported by LIBXS!";
+    case LIBXS_DNN_ERR_GENERAL:
+      return "LIBXS DNN Error: General error occured!";
+    case LIBXS_DNN_ERR_CREATE_HANDLE:
+      return "LIBXS DNN Error: Handle creation failed!";
+    case LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE:
+      return "LIBXS DNN Error: Requested datatype is not available!";
+    case LIBXS_DNN_ERR_INVALID_BLOCKING:
+      return "LIBXS DNN Error: Requested Input/Output activation size cannot be blocked!";
+    case LIBXS_DNN_ERR_INVALID_HANDLE:
+      return "LIBXS DNN Error: An invalid handle was proivded!";
+    case LIBXS_DNN_ERR_DATA_NOT_BOUND:
+      return "LIBXS DNN Error: Not all required sources and destinations have been bound to convolution!";
+    case LIBXS_DNN_ERR_CREATE_LAYER:
+      return "LIBXS DNN Error: Layer creation failed!";
+    case LIBXS_DNN_ERR_INVALID_LAYER:
+      return "LIBXS DNN Error: Invalid activation was specified!";
+    case LIBXS_DNN_ERR_CREATE_FILTER:
+      return "LIBXS DNN Error: Filter creation failed!";
+    case LIBXS_DNN_ERR_INVALID_FILTER:
+      return "LIBXS DNN Error: Invalid filter was specified!";
+    case LIBXS_DNN_ERR_CREATE_BIAS:
+      return "LIBXS DNN Error: Bias creation failed!";
+    case LIBXS_DNN_ERR_INVALID_BIAS:
+      return "LIBXS DNN Error: Invalid Bias was specified";
+    case LIBXS_DNN_ERR_MISMATCH_LAYER:
+      return "LIBXS DNN Error: Layer doesn't match handle it should be bind to!";
+    case LIBXS_DNN_ERR_INVALID_HANDLE_LAYER:
+      return "LIBXS DNN Error: Invalid hanlde or activation!";
+    case LIBXS_DNN_ERR_MISMATCH_FILTER:
+      return "LIBXS DNN Error: Filter doens't match handle it should be bind to!";
+    case LIBXS_DNN_ERR_INVALID_HANDLE_FILTER:
+      return "LIBXS DNN Error: Invalid handle or filter!";
+    case LIBXS_DNN_ERR_INVALID_KIND:
+      return "LIBXS DNN Error: Invalid convolution kind!";
     default:
-      return "LIBXS CONV Error: Unknown error or warning occured!";
+      return "LIBXS DNN Error: Unknown error or warning occured!";
   }
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_handle* libxs_conv_create_handle(
-  libxs_conv_desc     conv_desc,
-  libxs_conv_datatype conv_datatype,
-  libxs_conv_algo     conv_algo)
+LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle(
+  libxs_dnn_conv_desc     conv_desc,
+  libxs_dnn_datatype      conv_datatype,
+  libxs_dnn_conv_algo     conv_algo)
 {
-  libxs_conv_err_t status;
-  return libxs_conv_create_handle_check( conv_desc, conv_datatype, conv_algo, &status);
+  libxs_dnn_err_t status;
+  return libxs_dnn_create_conv_handle_check( conv_desc, conv_datatype, conv_algo, &status);
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_handle* libxs_conv_create_handle_check(
-  libxs_conv_desc     conv_desc,
-  libxs_conv_datatype conv_datatype,
-  libxs_conv_algo     conv_algo,
-  libxs_conv_err_t*   status)
+LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
+  libxs_dnn_conv_desc     conv_desc,
+  libxs_dnn_datatype      conv_datatype,
+  libxs_dnn_conv_algo     conv_algo,
+  libxs_dnn_err_t*        status)
 {
-  libxs_conv_handle* handle = (libxs_conv_handle*)malloc(sizeof(libxs_conv_handle));
+  libxs_dnn_conv_handle* handle = (libxs_dnn_conv_handle*)malloc(sizeof(libxs_dnn_conv_handle));
   int noarch = 1;
   int i = 0;
-  *status = LIBXS_CONV_SUCCESS;
+  *status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
@@ -151,27 +151,27 @@ LIBXS_API_DEFINITION libxs_conv_handle* libxs_conv_create_handle_check(
       }
 #endif
 
-      if (handle->datatype == LIBXS_CONV_DATATYPE_FP32) {
+      if (handle->datatype == LIBXS_DNN_DATATYPE_FP32) {
         handle->ifmblock = (conv_desc.C >=16) ? 16 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
       }
-      else if (handle->datatype == LIBXS_CONV_DATATYPE_INT16) {
+      else if (handle->datatype == LIBXS_DNN_DATATYPE_INT16) {
         handle->ifmblock = (conv_desc.C >=32) ? 32 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
       }
-      else if (handle->datatype == LIBXS_CONV_DATATYPE_INT8) {
+      else if (handle->datatype == LIBXS_DNN_DATATYPE_INT8) {
         handle->ifmblock = (conv_desc.C >=64) ? 64 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
       }
       else {
-        *status = LIBXS_CONV_ERR_UNSUPPORTED_DATATYPE;
+        *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
         free(handle);
         handle = 0;
         return handle;
       }
     }
     else {
-      *status = LIBXS_CONV_WARN_FALLBACK;
+      *status = LIBXS_DNN_WARN_FALLBACK;
       handle->ifmblock = (conv_desc.C >=8) ? 8 : conv_desc.C;
       handle->ofmblock = (conv_desc.K >=8) ? 8 : conv_desc.K;
     }
@@ -182,7 +182,7 @@ LIBXS_API_DEFINITION libxs_conv_handle* libxs_conv_create_handle_check(
     if (conv_desc.C % handle->ifmblock != 0 ||
         conv_desc.K % handle->ofmblock != 0)
     {
-      *status = LIBXS_CONV_ERR_INVALID_BLOCKING;
+      *status = LIBXS_DNN_ERR_INVALID_BLOCKING;
       free(handle);
       handle = 0;
       return handle;
@@ -256,15 +256,15 @@ LIBXS_API_DEFINITION libxs_conv_handle* libxs_conv_create_handle_check(
     }
   }
   else {
-    *status = LIBXS_CONV_ERR_CREATE_HANDLE;
+    *status = LIBXS_DNN_ERR_CREATE_HANDLE;
   }
   return handle;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_destroy_handle(const libxs_conv_handle* handle)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_dnn_conv_handle* handle)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
@@ -278,151 +278,151 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_destroy_handle(const libxs_conv
     /* TODO Backward path */
     /* TODO weight update path */
     /* deallocate handle structure */
-    free(/*remove constness*/(libxs_conv_handle*)handle);
+    free(/*remove constness*/(libxs_dnn_conv_handle*)handle);
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_HANDLE;
+    status = LIBXS_DNN_ERR_INVALID_HANDLE;
   }
 
   return status;
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE size_t internal_conv_typesize(libxs_conv_datatype datatype)
+LIBXS_INLINE LIBXS_RETARGETABLE size_t internal_dnn_typesize(libxs_dnn_datatype datatype)
 {
   switch (datatype) {
-    case LIBXS_CONV_DATATYPE_FP32:  return 4;
-    case LIBXS_CONV_DATATYPE_INT32: return 4;
-    case LIBXS_CONV_DATATYPE_INT16: return 2;
-    case LIBXS_CONV_DATATYPE_INT8:  return 1;
+    case LIBXS_DNN_DATATYPE_FP32:  return 4;
+    case LIBXS_DNN_DATATYPE_INT32: return 4;
+    case LIBXS_DNN_DATATYPE_INT16: return 2;
+    case LIBXS_DNN_DATATYPE_INT8:  return 1;
     /* no error expected as enumeration really arrives at an enum; compiler-checked */
     default: return 1;
   }
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_layer* libxs_conv_create_input_layer(const libxs_conv_handle* handle)
+LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_input_activation(const libxs_dnn_conv_handle* handle)
 {
-  libxs_conv_err_t status;
-  return libxs_conv_create_input_layer_check(handle, &status);
+  libxs_dnn_err_t status;
+  return libxs_dnn_create_input_activation_check(handle, &status);
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_layer* libxs_conv_create_input_layer_check(const libxs_conv_handle* handle, libxs_conv_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_input_activation_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
 {
-  libxs_conv_layer* layer = (libxs_conv_layer*)malloc(sizeof(libxs_conv_layer));
+  libxs_dnn_activation* activation = (libxs_dnn_activation*)malloc(sizeof(libxs_dnn_activation));
   int result = EXIT_SUCCESS;
-  *status = LIBXS_CONV_SUCCESS;
+  *status = LIBXS_DNN_SUCCESS;
 
-  if (handle != 0 && layer != 0) {
-    /* set properties of the layer according to convolution handle */
-    layer->N = handle->desc.N;
-    layer->splits = handle->desc.splits;
-    layer->fmb = handle->blocksifm;
-    layer->bfm = handle->ifmblock;
-    layer->H = handle->ifhp;
-    layer->W = handle->ifwp;
-    layer->datatype = handle->datatype;
+  if (handle != 0 && activation != 0) {
+    /* set properties of the activation according to convolution handle */
+    activation->N = handle->desc.N;
+    activation->splits = handle->desc.splits;
+    activation->fmb = handle->blocksifm;
+    activation->bfm = handle->ifmblock;
+    activation->H = handle->ifhp;
+    activation->W = handle->ifwp;
+    activation->datatype = handle->datatype;
     /* allocate raw data */
-    result = libxs_xmalloc(&layer->data,
-        layer->N * layer->splits * layer->fmb * layer->bfm * layer->H * layer->W * internal_conv_typesize(layer->datatype),
+    result = libxs_xmalloc(&activation->data,
+        activation->N * activation->splits * activation->fmb * activation->bfm * activation->H * activation->W * internal_dnn_typesize(activation->datatype),
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
-    *status = LIBXS_CONV_ERR_CREATE_LAYER;
-    layer = 0;
+    *status = LIBXS_DNN_ERR_CREATE_LAYER;
+    activation = 0;
   }
 
   if (result != EXIT_SUCCESS) {
-    *status = LIBXS_CONV_ERR_CREATE_LAYER;
-    free((libxs_conv_layer*)layer);
-    layer = 0;
+    *status = LIBXS_DNN_ERR_CREATE_LAYER;
+    free((libxs_dnn_activation*)activation);
+    activation = 0;
   }
 
-  return layer;
+  return activation;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_layer* libxs_conv_create_output_layer(const libxs_conv_handle* handle)
+LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_output_activation(const libxs_dnn_conv_handle* handle)
 {
-  libxs_conv_err_t status;
-  return libxs_conv_create_output_layer_check(handle, &status);
+  libxs_dnn_err_t status;
+  return libxs_dnn_create_output_activation_check(handle, &status);
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_layer* libxs_conv_create_output_layer_check(const libxs_conv_handle* handle, libxs_conv_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_output_activation_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
 {
-  libxs_conv_layer* layer = (libxs_conv_layer*)malloc(sizeof(libxs_conv_layer));
+  libxs_dnn_activation* activation = (libxs_dnn_activation*)malloc(sizeof(libxs_dnn_activation));
   int result = EXIT_SUCCESS;
-  *status = LIBXS_CONV_SUCCESS;
+  *status = LIBXS_DNN_SUCCESS;
 
-  if (handle != 0 && layer != 0) {
-    /* set properties of the layer according to convolution handle */
-    layer->N = handle->desc.N;
-    layer->splits = handle->desc.splits;
-    layer->fmb = handle->blocksofm;
-    layer->bfm = handle->ofmblock;
-    layer->H = handle->ofhp;
-    layer->W = handle->ofwp;
-    if (handle->datatype == LIBXS_CONV_DATATYPE_FP32) {
-      layer->datatype = handle->datatype;
+  if (handle != 0 && activation != 0) {
+    /* set properties of the activation according to convolution handle */
+    activation->N = handle->desc.N;
+    activation->splits = handle->desc.splits;
+    activation->fmb = handle->blocksofm;
+    activation->bfm = handle->ofmblock;
+    activation->H = handle->ofhp;
+    activation->W = handle->ofwp;
+    if (handle->datatype == LIBXS_DNN_DATATYPE_FP32) {
+      activation->datatype = handle->datatype;
     }
     else {
-      layer->datatype = LIBXS_CONV_DATATYPE_INT32;
+      activation->datatype = LIBXS_DNN_DATATYPE_INT32;
     }
     /* allocate raw data, we always have a 4 byte wide type!! */
-    result = libxs_xmalloc(&layer->data,
-        layer->N * layer->splits * layer->fmb * layer->bfm * layer->H * layer->W * internal_conv_typesize(layer->datatype),
+    result = libxs_xmalloc(&activation->data,
+        activation->N * activation->splits * activation->fmb * activation->bfm * activation->H * activation->W * internal_dnn_typesize(activation->datatype),
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
-    *status = LIBXS_CONV_ERR_CREATE_LAYER;
-    layer = 0;
+    *status = LIBXS_DNN_ERR_CREATE_LAYER;
+    activation = 0;
   }
 
   if (result != EXIT_SUCCESS) {
-    *status = LIBXS_CONV_ERR_CREATE_LAYER;
-    free((libxs_conv_layer*)layer);
-    layer = 0;
+    *status = LIBXS_DNN_ERR_CREATE_LAYER;
+    free((libxs_dnn_activation*)activation);
+    activation = 0;
   }
 
-  return layer;
+  return activation;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_destroy_layer(const libxs_conv_layer* layer)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_activation(const libxs_dnn_activation* activation)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (0 != layer) { /* it is not an error attempting to destroy a NULL-handle */
+  if (0 != activation) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
-    libxs_xfree(layer->data);
+    libxs_xfree(activation->data);
     /* deallocate handle structure */
-    free(/*remove constness*/(libxs_conv_layer*)layer);
+    free(/*remove constness*/(libxs_dnn_activation*)activation);
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_LAYER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_filter* libxs_conv_create_filter(const libxs_conv_handle* handle)
+LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_create_filter(const libxs_dnn_conv_handle* handle)
 {
-  libxs_conv_err_t status;
-  return libxs_conv_create_filter_check(handle, &status);
+  libxs_dnn_err_t status;
+  return libxs_dnn_create_filter_check(handle, &status);
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_filter* libxs_conv_create_filter_check(const libxs_conv_handle* handle, libxs_conv_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_create_filter_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
 {
-  libxs_conv_filter* filter = (libxs_conv_filter*)malloc(sizeof(libxs_conv_filter));
+  libxs_dnn_filter* filter = (libxs_dnn_filter*)malloc(sizeof(libxs_dnn_filter));
   int result = EXIT_SUCCESS;
-  *status = LIBXS_CONV_SUCCESS;
+  *status = LIBXS_DNN_SUCCESS;
 
   if (handle != 0 && filter != 0) {
-    /* set properties of the layer according to convolution handle */
+    /* set properties of the activation according to convolution handle */
     filter->splits = handle->desc.splits;
     filter->ifmb = handle->blocksifm;
     filter->bifm = handle->ifmblock;
@@ -433,17 +433,17 @@ LIBXS_API_DEFINITION libxs_conv_filter* libxs_conv_create_filter_check(const lib
     filter->datatype = handle->datatype;
     /* allocate raw data */
     result = libxs_xmalloc(&filter->data,
-        filter->splits * filter->ifmb * filter->bifm * filter->ofmb * filter->bofm * filter->R * filter->S * internal_conv_typesize(filter->datatype),
+        filter->splits * filter->ifmb * filter->bifm * filter->ofmb * filter->bofm * filter->R * filter->S * internal_dnn_typesize(filter->datatype),
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
-    *status = LIBXS_CONV_ERR_CREATE_FILTER;
+    *status = LIBXS_DNN_ERR_CREATE_FILTER;
     filter = 0;
   }
 
   if (result != EXIT_SUCCESS) {
-    *status = LIBXS_CONV_ERR_CREATE_FILTER;
-    free((libxs_conv_filter*)filter);
+    *status = LIBXS_DNN_ERR_CREATE_FILTER;
+    free((libxs_dnn_filter*)filter);
     filter = 0;
   }
 
@@ -451,56 +451,56 @@ LIBXS_API_DEFINITION libxs_conv_filter* libxs_conv_create_filter_check(const lib
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_destroy_filter(const libxs_conv_filter* filter)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_filter(const libxs_dnn_filter* filter)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != filter) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
     libxs_xfree(filter->data);
     /* deallocate handle structure */
-    free(/*remove constness*/(libxs_conv_filter*)filter);
+    free(/*remove constness*/(libxs_dnn_filter*)filter);
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_FILTER;
+    status = LIBXS_DNN_ERR_INVALID_FILTER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_bias* libxs_conv_create_bias(const libxs_conv_handle* handle)
+LIBXS_API_DEFINITION libxs_dnn_bias* libxs_dnn_create_bias(const libxs_dnn_conv_handle* handle)
 {
-  libxs_conv_err_t status;
-  return libxs_conv_create_bias_check(handle, &status);
+  libxs_dnn_err_t status;
+  return libxs_dnn_create_bias_check(handle, &status);
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_bias* libxs_conv_create_bias_check(const libxs_conv_handle* handle, libxs_conv_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_bias* libxs_dnn_create_bias_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
 {
-  libxs_conv_bias* bias = (libxs_conv_bias*)malloc(sizeof(libxs_conv_bias));
+  libxs_dnn_bias* bias = (libxs_dnn_bias*)malloc(sizeof(libxs_dnn_bias));
   int result = EXIT_SUCCESS;
-  *status = LIBXS_CONV_SUCCESS;
+  *status = LIBXS_DNN_SUCCESS;
 
   if (handle != 0 && bias != 0) {
-    /* set properties of the layer according to convolution handle */
+    /* set properties of the activation according to convolution handle */
     bias->splits = handle->desc.splits;
     bias->fmb = handle->blocksifm;
     bias->bfm = handle->ifmblock;
     bias->datatype = handle->datatype;
     /* allocate raw data, we always have a 4 byte wide type!! */
     result = libxs_xmalloc(&bias->data,
-        bias->splits * bias->fmb * bias->bfm * internal_conv_typesize(bias->datatype),
+        bias->splits * bias->fmb * bias->bfm * internal_dnn_typesize(bias->datatype),
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
-    *status = LIBXS_CONV_ERR_CREATE_BIAS;
+    *status = LIBXS_DNN_ERR_CREATE_BIAS;
     bias = 0;
   }
 
   if (result != EXIT_SUCCESS) {
-    *status = LIBXS_CONV_ERR_CREATE_BIAS;
-    free((libxs_conv_bias*)bias);
+    *status = LIBXS_DNN_ERR_CREATE_BIAS;
+    free((libxs_dnn_bias*)bias);
     bias = 0;
   }
 
@@ -508,47 +508,47 @@ LIBXS_API_DEFINITION libxs_conv_bias* libxs_conv_create_bias_check(const libxs_c
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_destroy_bias(const libxs_conv_bias* bias)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias* bias)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != bias) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
     libxs_xfree(bias->data);
     /* deallocate handle structure */
-    free(/*remove constness*/(libxs_conv_bias*)bias);
+    free(/*remove constness*/(libxs_dnn_bias*)bias);
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_BIAS;
+    status = LIBXS_DNN_ERR_INVALID_BIAS;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyin_layer(const libxs_conv_layer* layer, const void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_activation(const libxs_dnn_activation* activation, const void* data)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (0 != layer) {
+  if (0 != activation) {
     /* we do for-loops such that we could potentially leverage NUMA in future */
-    switch (layer->datatype) {
-      case LIBXS_CONV_DATATYPE_FP32: {
+    switch (activation->datatype) {
+      case LIBXS_DNN_DATATYPE_FP32: {
         typedef float element_type;
         int i1, i2, i3, i4, i5, i6;
-        int N = layer->N;
-        int splits = layer->splits;
-        int fmb = layer->fmb;
-        int bfm = layer->bfm;
-        int H = layer->H;
-        int W = layer->W;
+        int N = activation->N;
+        int splits = activation->splits;
+        int fmb = activation->fmb;
+        int bfm = activation->bfm;
+        int H = activation->H;
+        int W = activation->W;
 #if defined(LIBXS_VLA)
         typedef element_type (*LIBXS_RESTRICT handle_data_type)[splits][fmb][H][W][bfm];
         typedef element_type (*LIBXS_RESTRICT user_data_type)[splits][fmb*bfm][H][W];
-        const handle_data_type handle_data = (handle_data_type)layer->data;
+        const handle_data_type handle_data = (handle_data_type)activation->data;
         const user_data_type user_data = (user_data_type)data;
 #else
-        element_type *const handle_data = (element_type*)layer->data;
+        element_type *const handle_data = (element_type*)activation->data;
         const element_type *const user_data = (const element_type*)data;
         unsigned int hindexn[6], uindexn[5];
         unsigned int hshape[6], ushape[5];
@@ -581,80 +581,80 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyin_layer(const libxs_conv_l
         }
       } break;
       default: {
-        status = LIBXS_CONV_ERR_UNSUPPORTED_DATATYPE;
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       }
     }
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_LAYER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_zero_layer(const libxs_conv_layer* layer)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_activation(const libxs_dnn_activation* activation)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
-  const size_t size = (size_t)layer->N * (size_t)layer->splits * (size_t)layer->fmb
-                    * (size_t)layer->bfm * (size_t)layer->H * (size_t)layer->W;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  const size_t size = (size_t)activation->N * (size_t)activation->splits * (size_t)activation->fmb
+                    * (size_t)activation->bfm * (size_t)activation->H * (size_t)activation->W;
   size_t i;
 
-  if (0 != layer) {
+  if (0 != activation) {
     /* we do for-loops such that we could potentially leverage NUMA in future */
-    switch (layer->datatype) {
-      case LIBXS_CONV_DATATYPE_FP32: {
-        float* fp32_data = (float*)layer->data;
+    switch (activation->datatype) {
+      case LIBXS_DNN_DATATYPE_FP32: {
+        float* fp32_data = (float*)activation->data;
         for (i = 0; i < size; ++i) fp32_data[i] = 0.0f;
       } break;
-      case LIBXS_CONV_DATATYPE_INT32: {
-        int* int32_data = (int*)layer->data;
+      case LIBXS_DNN_DATATYPE_INT32: {
+        int* int32_data = (int*)activation->data;
         for (i = 0; i < size; ++i) int32_data[i] = 0;
       } break;
-      case LIBXS_CONV_DATATYPE_INT16: {
-        short* int16_data = (short*)layer->data;
+      case LIBXS_DNN_DATATYPE_INT16: {
+        short* int16_data = (short*)activation->data;
         for (i = 0; i < size; ++i) int16_data[i] = 0;
       } break;
-      case LIBXS_CONV_DATATYPE_INT8: {
-        char* int8_data = (char*)layer->data;
+      case LIBXS_DNN_DATATYPE_INT8: {
+        char* int8_data = (char*)activation->data;
         for (i = 0; i < size; ++i) int8_data[i] = 0;
       } break;
       default: {
-        status = LIBXS_CONV_ERR_UNSUPPORTED_DATATYPE;
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       }
     }
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_LAYER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyout_layer(const libxs_conv_layer* layer, void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_activation(const libxs_dnn_activation* activation, void* data)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (0 != layer) {
+  if (0 != activation) {
     /* we do for-loops such that we could potentially leverage NUMA in future */
-    switch (layer->datatype) {
-      case LIBXS_CONV_DATATYPE_FP32: {
+    switch (activation->datatype) {
+      case LIBXS_DNN_DATATYPE_FP32: {
         typedef float element_type;
         int i1, i2, i3, i4, i5, i6;
-        int N = layer->N;
-        int splits = layer->splits;
-        int fmb = layer->fmb;
-        int bfm = layer->bfm;
-        int H = layer->H;
-        int W = layer->W;
+        int N = activation->N;
+        int splits = activation->splits;
+        int fmb = activation->fmb;
+        int bfm = activation->bfm;
+        int H = activation->H;
+        int W = activation->W;
 #if defined(LIBXS_VLA)
         typedef element_type (*LIBXS_RESTRICT handle_data_type)[splits][fmb][H][W][bfm];
         typedef element_type (*LIBXS_RESTRICT user_data_type)[splits][fmb*bfm][H][W];
-        const handle_data_type handle_data = (handle_data_type)layer->data;
+        const handle_data_type handle_data = (handle_data_type)activation->data;
         const user_data_type user_data = (user_data_type)data;
 #else
-        const element_type *const handle_data = (const element_type*)layer->data;
+        const element_type *const handle_data = (const element_type*)activation->data;
         element_type *const user_data = (element_type*)data;
         unsigned int hindexn[6], uindexn[5];
         unsigned int hshape[6], ushape[5];
@@ -687,26 +687,26 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyout_layer(const libxs_conv_
         }
       } break;
       default: {
-        status = LIBXS_CONV_ERR_UNSUPPORTED_DATATYPE;
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       }
     }
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_LAYER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyin_filter(const libxs_conv_filter* filter, const void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter, const void* data)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != filter) {
     /* we do for-loops such that we could potentially leverage NUMA in future */
     switch (filter->datatype) {
-      case LIBXS_CONV_DATATYPE_FP32: {
+      case LIBXS_DNN_DATATYPE_FP32: {
         typedef float element_type;
         int i1, i2, i3, i4, i5, i6, i7;
         int splits = filter->splits;
@@ -757,26 +757,26 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyin_filter(const libxs_conv_
         }
       } break;
       default: {
-        status = LIBXS_CONV_ERR_UNSUPPORTED_DATATYPE;
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       }
     }
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_FILTER;
+    status = LIBXS_DNN_ERR_INVALID_FILTER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyout_filter(const libxs_conv_filter* filter, void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filter, void* data)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != filter) {
     /* we do for-loops such that we could potentially leverage NUMA in future */
     switch (filter->datatype) {
-      case LIBXS_CONV_DATATYPE_FP32: {
+      case LIBXS_DNN_DATATYPE_FP32: {
         typedef float element_type;
         int i1, i2, i3, i4, i5, i6, i7;
         int splits = filter->splits;
@@ -827,12 +827,12 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyout_filter(const libxs_conv
         }
       } break;
       default: {
-        status = LIBXS_CONV_ERR_UNSUPPORTED_DATATYPE;
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       }
     }
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_FILTER;
+    status = LIBXS_DNN_ERR_INVALID_FILTER;
   }
 
   return status;
@@ -840,79 +840,79 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyout_filter(const libxs_conv
 
 
 #if 0
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyin_bias(const libxs_conv_bias* bias, const void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_bias(const libxs_dnn_bias* bias, const void* data)
 {
-  LIBXS_UNUSED(bias); LIBXS_UNUSED(data); /* TODO: libxs_conv_copyin_input */
+  LIBXS_UNUSED(bias); LIBXS_UNUSED(data); /* TODO: libxs_dnn_copyin_input */
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_copyout_bias(const libxs_conv_bias* bias, void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_bias(const libxs_dnn_bias* bias, void* data)
 {
-  LIBXS_UNUSED(bias); LIBXS_UNUSED(data); /* TODO: libxs_conv_copyin_input */
+  LIBXS_UNUSED(bias); LIBXS_UNUSED(data); /* TODO: libxs_dnn_copyin_input */
 }
 #endif
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_bind_input_layer(libxs_conv_handle* handle, const libxs_conv_layer* layer)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_input_activation(libxs_dnn_conv_handle* handle, const libxs_dnn_activation* activation)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (handle != 0 && layer != 0) {
+  if (handle != 0 && activation != 0) {
     /* check if format matches */
-    if ( handle->desc.N == layer->N
-      && handle->desc.splits == layer->splits
-      && handle->ifwp == layer->W
-      && handle->ifhp == layer->H
-      && handle->ifmblock == layer->bfm
-      && handle->blocksifm == layer->fmb
-      && handle->datatype == layer->datatype)
+    if ( handle->desc.N == activation->N
+      && handle->desc.splits == activation->splits
+      && handle->ifwp == activation->W
+      && handle->ifhp == activation->H
+      && handle->ifmblock == activation->bfm
+      && handle->blocksifm == activation->fmb
+      && handle->datatype == activation->datatype)
     {
-      handle->input = (libxs_conv_layer*)layer;
+      handle->input = (libxs_dnn_activation*)activation;
     }
     else {
-      status = LIBXS_CONV_ERR_MISMATCH_LAYER;
+      status = LIBXS_DNN_ERR_MISMATCH_LAYER;
     }
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_HANDLE_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_LAYER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_bind_output_layer(libxs_conv_handle* handle, const libxs_conv_layer* layer)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_output_activation(libxs_dnn_conv_handle* handle, const libxs_dnn_activation* activation)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (handle != 0 && layer != 0) {
+  if (handle != 0 && activation != 0) {
     /* check if format matches */
-    if ( handle->desc.N == layer->N
-      && handle->desc.splits == layer->splits
-      && handle->ofwp == layer->W
-      && handle->ofhp == layer->H
-      && handle->ofmblock == layer->bfm
-      && handle->blocksofm == layer->fmb
-      && ((handle->datatype == LIBXS_CONV_DATATYPE_FP32 && layer->datatype == LIBXS_CONV_DATATYPE_FP32)
-        || (layer->datatype == LIBXS_CONV_DATATYPE_INT32)))
+    if ( handle->desc.N == activation->N
+      && handle->desc.splits == activation->splits
+      && handle->ofwp == activation->W
+      && handle->ofhp == activation->H
+      && handle->ofmblock == activation->bfm
+      && handle->blocksofm == activation->fmb
+      && ((handle->datatype == LIBXS_DNN_DATATYPE_FP32 && activation->datatype == LIBXS_DNN_DATATYPE_FP32)
+        || (activation->datatype == LIBXS_DNN_DATATYPE_INT32)))
     {
-      handle->output = (libxs_conv_layer*)layer;
+      handle->output = (libxs_dnn_activation*)activation;
     }
     else {
-      status = LIBXS_CONV_ERR_MISMATCH_LAYER;
+      status = LIBXS_DNN_ERR_MISMATCH_LAYER;
     }
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_HANDLE_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_LAYER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_bind_filter(libxs_conv_handle* handle, const libxs_conv_filter* filter)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_conv_handle* handle, const libxs_dnn_filter* filter)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (handle != 0 && filter != 0) {
     /* check if format matches */
@@ -925,37 +925,37 @@ LIBXS_API_DEFINITION libxs_conv_err_t libxs_conv_bind_filter(libxs_conv_handle* 
       && handle->blocksofm == filter->ofmb
       && handle->datatype == filter->datatype)
     {
-      handle->filter = (libxs_conv_filter*)filter;
+      handle->filter = (libxs_dnn_filter*)filter;
     }
     else {
-      status = LIBXS_CONV_ERR_MISMATCH_FILTER;
+      status = LIBXS_DNN_ERR_MISMATCH_FILTER;
     }
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_HANDLE_FILTER;
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_FILTER;
   }
 
   return status;
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_conv_err_t internal_convolve_st(libxs_conv_handle* handle,
-  libxs_conv_kind kind, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_conv_handle* handle,
+  libxs_dnn_conv_kind kind, int start_thread, int tid, int num_threads)
 {
-  libxs_conv_err_t status = LIBXS_CONV_SUCCESS;
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
     switch (kind) {
-      case LIBXS_CONV_KIND_FWD: {
-        libxs_convolve_st_fwd(handle, start_thread, tid, num_threads);
+      case LIBXS_DNN_CONV_KIND_FWD: {
+        libxs_dnn_convolve_st_fwd(handle, start_thread, tid, num_threads);
       } break;
       default: {
-        status = LIBXS_CONV_ERR_INVALID_KIND;
+        status = LIBXS_DNN_ERR_INVALID_KIND;
       }
     }
   }
   else {
-    status = LIBXS_CONV_ERR_INVALID_HANDLE;
+    status = LIBXS_DNN_ERR_INVALID_HANDLE;
   }
 
   return status;
@@ -965,21 +965,21 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_conv_err_t internal_convolve_st(libxs_conv
     /* TODO: implement support for bias */
     LIBXS_UNUSED(bias);
     switch (kind) {
-      case LIBXS_CONV_KIND_FWD: if (
+      case LIBXS_DNN_KIND_FWD: if (
            0 != handle->data_input
         && 0 != handle->data_weight
         && 0 != handle->data_output)
       {
         convolution = handle->code_fwd.sconv;
       } break;
-      case LIBXS_CONV_KIND_BWD: if (
+      case LIBXS_DNN_KIND_BWD: if (
            0 != handle->data_input
         && 0 != handle->data_weight
         && 0 != handle->data_output)
       {
         convolution = handle->code_bwd.sconv;
       } break;
-      case LIBXS_CONV_KIND_UPD: if (
+      case LIBXS_DNN_KIND_UPD: if (
            0 != handle->data_input
         && 0 != handle->data_weight
         && 0 != handle->data_output)
@@ -1010,7 +1010,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_conv_err_t internal_convolve_st(libxs_conv
 }
 
 
-LIBXS_API_DEFINITION void libxs_convolve(libxs_conv_handle* handle, libxs_conv_kind kind)
+LIBXS_API_DEFINITION void libxs_dnn_convolve(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind)
 {
 #if defined(_OPENMP)
 # pragma omp parallel
@@ -1024,14 +1024,14 @@ LIBXS_API_DEFINITION void libxs_convolve(libxs_conv_handle* handle, libxs_conv_k
 }
 
 
-LIBXS_API_DEFINITION libxs_conv_err_t libxs_convolve_st(libxs_conv_handle* handle,
-  libxs_conv_kind kind, /*unsigned*/int start_thread, /*unsigned*/int tid, /*unsigned*/int num_threads)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st(libxs_dnn_conv_handle* handle,
+  libxs_dnn_conv_kind kind, /*unsigned*/int start_thread, /*unsigned*/int tid, /*unsigned*/int num_threads)
 {
   return internal_convolve_st(handle, kind, start_thread, tid, num_threads);
 }
 
 
-#if defined(LIBXS_BUILD) || defined(LIBXS_CONV_INTERNAL_API)
+#if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
 
 LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_forward(
   const libxs_convolution_forward_descriptor* descriptor)
@@ -1104,4 +1104,4 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_update_weights(
   return code.sconv;
 }
 
-#endif /*defined(LIBXS_BUILD) || defined(LIBXS_CONV_INTERNAL_API)*/
+#endif /*defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)*/

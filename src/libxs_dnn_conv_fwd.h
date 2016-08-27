@@ -26,12 +26,11 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_CONV_FWD_H
-#define LIBXS_CONV_FWD_H
+#ifndef LIBXS_DNN_CONV_FWD_H
+#define LIBXS_DNN_CONV_FWD_H
 
 #include "libxs_main.h"
 
+LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_fwd(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads);
 
-LIBXS_API libxs_conv_err_t libxs_convolve_st_fwd(libxs_conv_handle* handle, int start_thread, int tid, int num_threads);
-
-#endif /* LIBXS_CONV_FWD_H */
+#endif /* LIBXS_DNN_CONV_FWD_H */

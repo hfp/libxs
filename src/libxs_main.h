@@ -29,7 +29,7 @@
 #ifndef LIBXS_MAIN_H
 #define LIBXS_MAIN_H
 
-#include <libxs_conv.h>
+#include <libxs_dnn.h>
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
 #if !defined(LIBXS_REGSIZE) /* must be POT */
@@ -69,29 +69,29 @@ typedef struct LIBXS_RETARGETABLE libxs_csr_soa_descriptor {
   const void* values;
 } libxs_csr_soa_descriptor;
 
-/** struct which holds description of a layer */
-struct LIBXS_RETARGETABLE libxs_conv_layer {
+/** struct which holds description of an activation layer */
+struct LIBXS_RETARGETABLE libxs_dnn_activation {
   int N;                            /* number of images in mini-batch */
   int splits;                       /* number of splits */
   int fmb;                          /* number of feature map blocks */
   int bfm;                          /* sized of blocked feature maps, in a block */
   int H;                            /* height of image */
   int W;                            /* width of image */
-  libxs_conv_datatype datatype;   /* data type */
+  libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
 };
 
 /** struct which holds description of a bias */
-struct LIBXS_RETARGETABLE libxs_conv_bias {
+struct LIBXS_RETARGETABLE libxs_dnn_bias {
   int splits;                       /* number of splits */
   int fmb;                          /* number of feature map blocks */
   int bfm;                          /* sized of blocked feature maps, in a block */
-  libxs_conv_datatype datatype;   /* data type */
+  libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
 };
 
 /** struct which holds description of a filter */
-struct LIBXS_RETARGETABLE libxs_conv_filter {
+struct LIBXS_RETARGETABLE libxs_dnn_filter {
   int splits;                       /* number of splits */
   int ifmb;                         /* number of feature map blocks */
   int bifm;                         /* sized of blocked feature maps, in a block */
@@ -99,14 +99,14 @@ struct LIBXS_RETARGETABLE libxs_conv_filter {
   int bofm;                         /* sized of blocked feature maps, in a block */
   int R;                            /* height of filter kernel */
   int S;                            /* width of filter kernel */
-  libxs_conv_datatype datatype;   /* data type */
+  libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
 };
 
-struct LIBXS_RETARGETABLE libxs_conv_handle {
-  libxs_conv_datatype datatype;
-  libxs_conv_desc desc;
-  libxs_conv_algo algo;
+struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
+  libxs_dnn_datatype datatype;
+  libxs_dnn_conv_desc desc;
+  libxs_dnn_conv_algo algo;
 
   /* additional size for iternal data types */
   int ifhp;
@@ -123,11 +123,11 @@ struct LIBXS_RETARGETABLE libxs_conv_handle {
   int fwd_ofh_rb;
 
   /* internal data representation */
-  libxs_conv_layer* input;
-  libxs_conv_layer* output;
-  libxs_conv_layer* input_relu;
-  libxs_conv_filter* filter;
-  libxs_conv_bias* bias;
+  libxs_dnn_activation* input;
+  libxs_dnn_activation* output;
+  libxs_dnn_activation* input_relu;
+  libxs_dnn_filter* filter;
+  libxs_dnn_bias* bias;
   void* scratch;
 
   /* JIT-generated convolution code */

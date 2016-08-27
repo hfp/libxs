@@ -83,12 +83,12 @@ A variety of overloaded function signatures is provided allowing to omit argumen
 ## Interface for Convolutions
 In order to achieve best performance with small convolutions for CNN on SIMD architectures, a specific data layout has to be used. As this layout depends on several architectural parameters, the goal of LIBXS interface is to hide this complexity from the user by providing copy-in and copy-out routines. These happen on custom datatype which themselves are later bound to a convolution operation. The interface is available for C.
 
-The main concept in LIBXS's frontend is that everything is circled around `libxs_conv_handle` which will define all properties of a layer operation. A handle can be created by describing the convolutional layer and calling a create function:
+The main concept in LIBXS's frontend is that everything is circled around `libxs_dnn_conv_handle` which will define all properties of a layer operation. A handle can be created by describing the convolutional layer and calling a create function:
 
 ```C
 /** simplified LIBXS types which are needed to create a handle*/
 /** struct which holds description of convolution */
-typedef struct libxs_conv_desc {
+typedef struct libxs_dnn_conv_desc {
   int N;           /* number of images in mini-batch */
   int C;           /* number of input feature maps */
   int H;           /* height of input image */
@@ -101,82 +101,82 @@ typedef struct libxs_conv_desc {
   int pad_h;       /* height of zero-padding */
   int pad_w;       /* width of zero-padding */
   int splits;      /* number of splits */
-} libxs_conv_desc;
+} libxs_dnn_conv_desc;
 
 /** Typ of algorithm used for convolutions. */
 typedef enum libxs_conv_algo {
   /** direct convolution. */
-  LIBXS_CONV_ALGO_DIRECT
-} libxs_conv_algo;
+  LIBXS_DNN_CONV_ALGO_DIRECT
+} libxs_dnn_conv_algo;
 
 /** Denotes the element/pixel type of an image/channel. */
 typedef enum libxs_conv_datatype {
-  LIBXS_CONV_DATATYPE_FP32
-} libxs_conv_datatype;
+  LIBXS_DNN_DATATYPE_FP32
+} libxs_dnn_datatype;
 
-LIBXS_API libxs_conv_handle* libxs_conv_create_handle_check(
-  libxs_conv_desc     conv_desc,
-  libxs_conv_datatype conv_datatype,
-  libxs_conv_algo     conv_algo,
-  libxs_conv_err_t*   status);
+LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
+  libxs_dnn_conv_desc   conv_desc,
+  libxs_dnn_datatype    conv_datatype,
+  libxs_dnn_conv_algo   conv_algo,
+  libxs_dnn_err_t*      status);
 ```
 
 Therefore, a sample call looks like:
 ```C
 /** macro for error checking */
-#define CHKERR_LIBXS_CONV(A) if (A != LIBXS_CONV_SUCCESS) \
-  fprintf(stderr, "%s\n", libxs_conv_get_error(A));
+#define CHKERR_LIBXS_DNN(A) if (A != LIBXS_DNN_SUCCESS) \
+  fprintf(stderr, "%s\n", libxs_dnn_get_error(A));
 /* declare LIBXS variables */
-libxs_conv_desc conv_desc;
-libxs_conv_err_t status;
-libxs_conv_handle* libxs_handle;
+libxs_dnn_conv_desc conv_desc;
+libxs_dnn_err_t status;
+libxs_dnn_conv_handle* libxs_handle;
 /* setting conv_desc values.... */
 conv_desc.N = ...
 /* create handle */
-libxs_handle = libxs_conv_create_handle_check(conv_desc,
-  LIBXS_CONV_DATATYPE_FP32,
-  LIBXS_CONV_ALGO_DIRECT,
+libxs_handle = libxs_dnn_create_conv_handle_check(conv_desc,
+  LIBXS_DNN_DATATYPE_FP32,
+  LIBXS_DNN_CONV_ALGO_DIRECT,
   &status);
-CHKERR_LIBXS_CONV(status);
+CHKERR_LIBXS_DNN(status);
 ```
 
-Next layers need to be created, initialized and bound to the handle. Afterwards the convolution could be executed by a threading environment of choice:
+Next activation and filter buffers need to be created, initialized and bound to the handle. Afterwards the convolution could be executed by a threading environment of choice:
 
 ```C
-libxs_conv_layer* libxs_input;
-libxs_conv_layer* libxs_output;
-libxs_conv_filter* libxs_filter;
+libxs_dnn_activation* libxs_input;
+libxs_dnn_activation* libxs_output;
+libxs_dnn_filter* libxs_filter;
 
-/* setup LIBXS layers */
-libxs_input = libxs_conv_create_input_layer_check(libxs_handle, &status);
-CHKERR_LIBXS_CONV(status);
-libxs_output = libxs_conv_create_output_layer_check(libxs_handle, &status);
-CHKERR_LIBXS_CONV(status);
-libxs_filter = libxs_conv_create_filter_check(libxs_handle, &status);
-CHKERR_LIBXS_CONV(status);
+/* setup LIBXS layer information */
+libxs_input = libxs_dnn_create_input_activation_check(libxs_handle, &status);
+CHKERR_LIBXS_DNN(status);
+libxs_output = libxs_dnn_create_output_activation_check(libxs_handle, &status);
+CHKERR_LIBXS_DNN(status);
+libxs_filter = libxs_dnn_create_filter_check(libxs_handle, &status);
+CHKERR_LIBXS_DNN(status);
 
 /* copy in data to LIBXS format: naive format is: */
 /* (mini-batch)(splits)(number-featuremaps)(featuremap-height)(featuremap-width) for layers, */
 /* and the naive format for filters is: */
 /* (splits)(number-output-featuremaps)(number-input-featuremaps)(kernel-height)(kernel-width) */
-CHKERR_LIBXS_CONV(libxs_conv_copyin_layer(libxs_input, (void*)naive_input));
-CHKERR_LIBXS_CONV(libxs_conv_zero_layer(libxs_output));
-CHKERR_LIBXS_CONV(libxs_conv_copyin_filter(libxs_filter, (void*)naive_filter));
+CHKERR_LIBXS_DNN(libxs_dnn_copyin_activation(libxs_input, (void*)naive_input));
+CHKERR_LIBXS_DNN(libxs_dnn_zero_activation(libxs_output));
+CHKERR_LIBXS_DNN(libxs_dnn_copyin_filter(libxs_filter, (void*)naive_filter));
 
 /* bind layer to handle */
-CHKERR_LIBXS_CONV(libxs_conv_bind_input_layer(libxs_handle, libxs_input));
-CHKERR_LIBXS_CONV(libxs_conv_bind_output_layer(libxs_handle, libxs_output));
-CHKERR_LIBXS_CONV(libxs_conv_bind_filter(libxs_handle, libxs_filter));
+CHKERR_LIBXS_DNN(libxs_conv_bind_input_activation(libxs_handle, libxs_input));
+CHKERR_LIBXS_DNN(libxs_conv_bind_output_activation(libxs_handle, libxs_output));
+CHKERR_LIBXS_DNN(libxs_conv_bind_filter(libxs_handle, libxs_filter));
 
 /* run the convolution */
 #pragma omp parallel
 {
-  CHKERR_LIBXS_CONV(libxs_convolve_st(libxs_handle, LIBXS_CONV_KIND_FWD, 0,
+  CHKERR_LIBXS_DNN(libxs_dnn_convolve_st(libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0,
     omp_get_thread_num(), omp_get_num_threads()));
 }
 
 /* copy out data */
-CHKERR_LIBXS_CONV(libxs_conv_copyout_layer(libxs_output, (void*)naive_libxs_output));
+CHKERR_LIBXS_DNN(libxs_dnn_copyout_activation(libxs_output, (void*)naive_libxs_output));
 ```
 
 ## Build Instructions
