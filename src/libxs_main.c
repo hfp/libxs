@@ -1165,8 +1165,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
       /* copy temporary buffer into the prepared executable buffer */
       memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
       /* revoke unnecessary memory protection flags; continue on error */
-      libxs_malloc_attrib(code->pmm, LIBXS_MALLOC_FLAG_RW,
-        0 > internal_verbose_mode ? jit_name : 0);
+      libxs_malloc_attrib(code->pmm, LIBXS_MALLOC_FLAG_RW, jit_name);
     }
   }
 # if !defined(NDEBUG) /* library code is expected to be mute */
