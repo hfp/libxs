@@ -319,15 +319,15 @@ The TRY counter represents all attempts to register statically generated kernels
 **NOTE**: setting LIBXS_VERBOSE to a negative value will dump each generated JIT kernel to a file with each file being named similar to the function name shown in [Intel&#160;VTune](#profiling).
 
 ## Performance
-### Profiling
-To analyze which kind of kernels have been called, and from where these kernels have been invoked (call stack), the library allows profiling its JIT code as supported by Intel&#160;VTune&#160;Amplifier. To enable this support, VTune's root directory needs to be set at build-time of the library. Enabling symbols (SYM=1 or DBG=1) triggers using VTune's JIT Profiling API:
+## Intel&#160;VTune&#160;Amplifier
+To analyze which kind of kernels have been called, and from where these kernels have been invoked (call stack), the library allows profiling its JIT code using Intel&#160;VTune&#160;Amplifier. To enable this support, VTune's root directory needs to be set at build-time of the library. Enabling symbols (SYM=1 or DBG=1) incorporates VTune's JIT Profiling API:
 
 ```
 source /path/to/vtune_amplifier/amplxe-vars.sh
 make SYM=1
 ```
 
-The root directory is automatically determined from an environment variable (VTUNE_AMPLIFIER_\*_DIR), which is present after source'ing the Intel&#160;VTune environment but it can be manually provided as well (`make VTUNEROOT=/path/to/vtune_amplifier`). Symbols are actually not required to display kernel names for the dynamically generated code, however enabling symbols makes the analysis much more useful for the rest of the (static) code, and hence it has been made a prerequisite. For example, when "call stacks" are collected it is possible to find out where the JIT code has been invoked by the application:
+In the above example, the root directory is automatically determined from an environment variable (VTUNE_AMPLIFIER_\*_DIR), which is present after source'ing the Intel&#160;VTune environment, but it can be manually provided as well (`make VTUNEROOT=/path/to/vtune_amplifier`). Symbols are actually not required to display kernel names for the dynamically generated code, however enabling symbols makes the analysis much more useful for the rest of the (static) code, and hence it has been made a prerequisite. For example, when "call stacks" are collected it is possible to find out where the JIT code has been invoked by the application:
 
 ```
 amplxe-cl -r result-directory -data-limit 0 -collect advanced-hotspots \
