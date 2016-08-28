@@ -47,8 +47,8 @@
 # define LIBXS_SYNC_MALLOC(SIZE, ALIGNMENT) _mm_malloc(SIZE, ALIGNMENT)
 # define LIBXS_SYNC_FREE(BUFFER) _mm_free((void*)(BUFFER))
 #else
-# define LIBXS_SYNC_MALLOC(SIZE, ALIGNMENT) libxs_aligned_malloc(SIZE, ALIGNMENT)
-# define LIBXS_SYNC_FREE libxs_free(BUFFER)
+# define LIBXS_SYNC_MALLOC(SIZE, ALIGNMENT) libxs_aligned_malloc(SIZE, -(ALIGNMENT))
+# define LIBXS_SYNC_FREE(BUFFER) libxs_free(BUFFER)
 #endif
 
 
@@ -86,16 +86,16 @@ struct LIBXS_RETARGETABLE libxs_barrier {
 LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
 {
   libxs_barrier *const barrier = (libxs_barrier*)LIBXS_SYNC_MALLOC(
-    sizeof(libxs_barrier), -(LIBXS_SYNC_CACHELINE_SIZE));
+    sizeof(libxs_barrier), LIBXS_SYNC_CACHELINE_SIZE);
   barrier->ncores = ncores;
   barrier->ncores_log2 = (int)ceil(log2(ncores));
   barrier->nthreads_per_core = nthreads_per_core;
   barrier->nthreads = ncores * nthreads_per_core;
 
   barrier->threads = (internal_sync_thread_tag**)LIBXS_SYNC_MALLOC(
-    barrier->nthreads * sizeof(internal_sync_thread_tag*), -(LIBXS_SYNC_CACHELINE_SIZE));
+    barrier->nthreads * sizeof(internal_sync_thread_tag*), LIBXS_SYNC_CACHELINE_SIZE);
   barrier->cores = (internal_sync_core_tag**)LIBXS_SYNC_MALLOC(
-    barrier->ncores * sizeof(internal_sync_core_tag*), -(LIBXS_SYNC_CACHELINE_SIZE));
+    barrier->ncores * sizeof(internal_sync_core_tag*), LIBXS_SYNC_CACHELINE_SIZE);
 
   LIBXS_SYNC_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
   barrier->init_done = 0;
@@ -112,27 +112,27 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
 
   /* allocate per-thread structure */
   internal_sync_thread_tag *const thread = (internal_sync_thread_tag*)LIBXS_SYNC_MALLOC(
-    sizeof(internal_sync_thread_tag), -(LIBXS_SYNC_CACHELINE_SIZE));
+    sizeof(internal_sync_thread_tag), LIBXS_SYNC_CACHELINE_SIZE);
   barrier->threads[tid] = thread;
   thread->core_tid = tid - (barrier->nthreads_per_core * cid); /* mod */
   /* each core's thread 0 does all the allocations */
   if (0 == thread->core_tid) {
     core = (internal_sync_core_tag*)LIBXS_SYNC_MALLOC(
-      sizeof(internal_sync_core_tag), -(LIBXS_SYNC_CACHELINE_SIZE));
+      sizeof(internal_sync_core_tag), LIBXS_SYNC_CACHELINE_SIZE);
     core->id = (uint8_t)cid;
     core->core_sense = 1;
 
     core->thread_senses = (uint8_t*)LIBXS_SYNC_MALLOC(
-      barrier->nthreads_per_core * sizeof(uint8_t), -(LIBXS_SYNC_CACHELINE_SIZE));
+      barrier->nthreads_per_core * sizeof(uint8_t), LIBXS_SYNC_CACHELINE_SIZE);
     for (i = 0; i < barrier->nthreads_per_core; ++i) core->thread_senses[i] = 1;
 
     for (i = 0; i < 2;  ++i) {
       core->my_flags[i] = (uint8_t*)LIBXS_SYNC_MALLOC(
         barrier->ncores_log2 * sizeof(uint8_t) * LIBXS_SYNC_CACHELINE_SIZE,
-        -(LIBXS_SYNC_CACHELINE_SIZE));
+        LIBXS_SYNC_CACHELINE_SIZE);
       core->partner_flags[i] = (uint8_t**)LIBXS_SYNC_MALLOC(
         barrier->ncores_log2 * sizeof(uint8_t*),
-        -(LIBXS_SYNC_CACHELINE_SIZE));
+        LIBXS_SYNC_CACHELINE_SIZE);
     }
 
     core->parity = 0;
