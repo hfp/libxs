@@ -1,5 +1,5 @@
 # LIBXS
-LIBXS is a library for small dense and small sparse matrix-matrix multiplications as well as for deep learning primitivies such as small convolutions targeting Intel Architecture (x86). The library is generating code for the following instruction set extensions: Intel&#160;SSE, Intel&#160;AVX, Intel&#160;AVX2, IMCI (KNCni) for Intel&#160;Xeon&#160;Phi coprocessors ("KNC"), and Intel&#160;AVX&#8209;512 as found in the [Intel&#160;Xeon&#160;Phi processor family&#160;("KNL")](https://software.intel.com/en-us/articles/what-disclosures-has-intel-made-about-knights-landing) and future Intel&#160;Xeon processors. Small convolutions are currently only optimized for Intel&#160;AVX&#8209;512. Historically the library was solely targeting the Intel&#160;Many Integrated Core Architecture "MIC") using intrinsic functions, meanwhile optimized assembly code is targeting all aforementioned instruction set extensions (static code generation), and Just&#8209;In&#8209;Time (JIT) code generation is targeting Intel&#160;AVX and beyond. [[pdf](https://github.com/hfp/libxs/raw/master/documentation/libxs.pdf)] [[src](https://github.com/hfp/libxs/archive/1.4.4.zip)] [![cistatus](https://travis-ci.org/hfp/libxs.svg?branch=master "Master branch build status")](https://github.com/hfp/libxs/archive/master.zip) [![License](https://img.shields.io/badge/license-BSD-blue.svg)](LICENSE)
+LIBXS is a library for small dense and small sparse matrix-matrix multiplications as well as for deep learning primitives such as small convolutions targeting Intel Architecture (x86). The library is generating code for the following instruction set extensions: Intel&#160;SSE, Intel&#160;AVX, Intel&#160;AVX2, IMCI (KNCni) for Intel&#160;Xeon&#160;Phi coprocessors ("KNC"), and Intel&#160;AVX&#8209;512 as found in the [Intel&#160;Xeon&#160;Phi processor family&#160;("KNL")](https://software.intel.com/en-us/articles/what-disclosures-has-intel-made-about-knights-landing) and future Intel&#160;Xeon processors. Small convolutions are currently only optimized for Intel&#160;AVX&#8209;512. Historically the library was solely targeting the Intel&#160;Many Integrated Core Architecture "MIC") using intrinsic functions, meanwhile optimized assembly code is targeting all aforementioned instruction set extensions (static code generation), and Just&#8209;In&#8209;Time (JIT) code generation is targeting Intel&#160;AVX and beyond. [[pdf](https://github.com/hfp/libxs/raw/master/documentation/libxs.pdf)] [[src](https://github.com/hfp/libxs/archive/1.4.4.zip)] [![cistatus](https://travis-ci.org/hfp/libxs.svg?branch=master "Master branch build status")](https://github.com/hfp/libxs/archive/master.zip) [![License](https://img.shields.io/badge/license-BSD-blue.svg)](LICENSE)
 
 **What is the background of the name "LIBXS"?** The "MM" stands for Matrix Multiplication, and the "S" clarifies the working domain i.e., Small Matrix Multiplication. The latter also means the name is neither a variation of "MXM" nor an eXtreme Small Matrix Multiplication but rather about Intel Architecture (x86) - and no, the library is 64&#8209;bit (only). The spelling of the name might follow the syllables of libx\\/smm, libx'smm, or libx&#8209;smm.
 
@@ -87,7 +87,7 @@ The main concept in LIBXS's frontend is that everything is circled around `libxs
 
 ```C
 /** simplified LIBXS types which are needed to create a handle*/
-/** struct which holds description of convolution */
+/** Structure which describes the input and output of data (DNN). */
 typedef struct libxs_dnn_conv_desc {
   int N;           /* number of images in mini-batch */
   int C;           /* number of input feature maps */
@@ -103,7 +103,7 @@ typedef struct libxs_dnn_conv_desc {
   int splits;      /* number of splits */
 } libxs_dnn_conv_desc;
 
-/** Typ of algorithm used for convolutions. */
+/** Type of algorithm used for convolutions. */
 typedef enum libxs_dnn_conv_algo {
   /** direct convolution. */
   LIBXS_DNN_CONV_ALGO_DIRECT
@@ -123,7 +123,7 @@ LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
 
 Therefore, a sample call looks like:
 ```C
-/** macro for error checking */
+/** Macro to check for an error. */
 #define CHKERR_LIBXS_DNN(A) if (A != LIBXS_DNN_SUCCESS) \
   fprintf(stderr, "%s\n", libxs_dnn_get_error(A));
 /* declare LIBXS variables */

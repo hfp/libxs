@@ -77,7 +77,7 @@ typedef enum libxs_dnn_conv_kind {
   LIBXS_DNN_CONV_KIND_UPD_BIAS
 } libxs_dnn_conv_kind;
 
-/** Typ of algorithm used for convolutions. */
+/** Type of algorithm used for convolutions. */
 typedef enum libxs_dnn_conv_algo {
   /** direct convolution. */
   LIBXS_DNN_CONV_ALGO_DIRECT
@@ -91,8 +91,8 @@ typedef enum libxs_dnn_datatype {
   LIBXS_DNN_DATATYPE_INT8
 } libxs_dnn_datatype;
 
-/** struct which holds description of convolution */
-typedef struct LIBXS_RETARGETABLE libxs_conv_desc {
+/** Structure which describes the input and output of data (DNN). */
+typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   int N;           /* number of images in mini-batch */
   int C;           /* number of input feature maps */
   int H;           /* height of input image */
