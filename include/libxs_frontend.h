@@ -162,6 +162,7 @@ LIBXS_API libxs_dgemm_function libxs_original_dgemm(void);
 
 /** Construct symbol name from a given real type name (float or double). */
 #define LIBXS_BLAS_GEMM_SYMBOL(REAL)  LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(REAL, gemm))()
+#define LIBXS_GEMMFUNCTION_TYPE(REAL) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm_function))
 #define LIBXS_MMFUNCTION_TYPE(REAL)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmfunction))
 #define LIBXS_MMDISPATCH_SYMBOL(REAL) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmdispatch))
 #define LIBXS_XBLAS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(REAL, gemm))
