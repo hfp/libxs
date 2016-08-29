@@ -362,8 +362,8 @@ LIBXS_API_DEFINITION unsigned int libxs_crc32_sw(const void* data, unsigned int 
 LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int seed)
 {
 #if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_MAX_STATIC_TARGET_ARCH) && \
-  /* prevents backend error in Clang when attempting to select CRC32 instr. (despite of the LIBXS_INTRINSICS attribute) */ \
-  (!defined(__clang__) || defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH))
+  /* prevents backend error under OSX when attempting to select below intrinsic (despite of the LIBXS_INTRINSICS attribute) */ \
+  (!defined(__MACH__) || defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH))
   LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 #else
 # if !defined(__MIC__)

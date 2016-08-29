@@ -138,8 +138,8 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diff_sse(const lib
 {
   assert(0 != reference && 0 != desc);
 #if defined(LIBXS_GEMM_DIFF_SSE) && (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH) && \
-  /* prevents backend error in Clang when attempting to select CRC32 instr. (despite of the LIBXS_INTRINSICS attribute) */ \
-  (!defined(__clang__) || defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH))
+  /* prevents backend error under OSX when attempting to select below intrinsic (despite of the LIBXS_INTRINSICS attribute) */ \
+  (!defined(__MACH__) || defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(4 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
