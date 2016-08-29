@@ -87,6 +87,7 @@ LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthread
 {
   libxs_barrier *const barrier = (libxs_barrier*)LIBXS_SYNC_MALLOC(
     sizeof(libxs_barrier), LIBXS_SYNC_CACHELINE_SIZE);
+#if defined(_REENTRANT)
   barrier->ncores = ncores;
   barrier->ncores_log2 = (int)ceil(log2(ncores));
   barrier->nthreads_per_core = nthreads_per_core;
@@ -99,13 +100,16 @@ LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthread
 
   LIBXS_SYNC_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
   barrier->init_done = 0;
-
+#else
+  LIBXS_UNUSED(ncores); LIBXS_UNUSED(nthreads_per_core);
+#endif
   return barrier;
 }
 
 
 LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
 {
+#if defined(_REENTRANT)
   const int cid = tid / barrier->nthreads_per_core; /* this thread's core ID */
   internal_sync_core_tag* core = 0;
   int i;
@@ -173,11 +177,15 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
   else {
     while (0 != barrier->init_done);
   }
+#else
+  LIBXS_UNUSED(barrier); LIBXS_UNUSED(tid);
+#endif
 }
 
 
 LIBXS_API_DEFINITION LIBXS_INTRINSICS void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 {
+#if defined(_REENTRANT)
   internal_sync_thread_tag *const thread = barrier->threads[tid];
   internal_sync_core_tag *const core = thread->core;
 
@@ -242,11 +250,15 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS void libxs_barrier_wait(libxs_barrier* bar
       thread_sense = core->thread_senses[thread->core_tid];
     }
   }
+#else
+  LIBXS_UNUSED(barrier); LIBXS_UNUSED(tid);
+#endif
 }
 
 
 LIBXS_API_DEFINITION void libxs_barrier_release(const libxs_barrier* barrier)
 {
+#if defined(_REENTRANT)
   int i;
   for (i = 0; i < barrier->ncores; ++i) {
     int j;
@@ -262,6 +274,7 @@ LIBXS_API_DEFINITION void libxs_barrier_release(const libxs_barrier* barrier)
     LIBXS_SYNC_FREE(barrier->threads[i]);
   }
   LIBXS_SYNC_FREE(barrier->threads);
+#endif
   LIBXS_SYNC_FREE(barrier);
 }
 
