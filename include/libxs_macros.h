@@ -45,20 +45,26 @@
 # define LIBXS_EXTERN extern "C"
 # define LIBXS_INLINE_KEYWORD inline
 # define LIBXS_INLINE LIBXS_INLINE_KEYWORD
+# define LIBXS_CALLER __FUNCTION__
 #else
 # define LIBXS_VARIADIC
 # define LIBXS_EXTERN extern
 # if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
 #   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
+#   define LIBXS_CALLER __func__
 #   define LIBXS_RESTRICT restrict
 #   define LIBXS_INLINE_KEYWORD inline
 # elif defined(_MSC_VER)
+#   define LIBXS_CALLER __FUNCTION__
 #   define LIBXS_INLINE_KEYWORD __inline
 #   define LIBXS_INLINE_FIXUP
 # endif
 # if !defined(LIBXS_INLINE_KEYWORD)
 #   define LIBXS_INLINE_KEYWORD
 #   define LIBXS_INLINE_FIXUP
+# endif
+# if !defined(LIBXS_CALLER)
+#   define LIBXS_CALLER 0
 # endif
 # define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
 #endif /*__cplusplus*/

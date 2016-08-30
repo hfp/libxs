@@ -157,11 +157,11 @@ typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
 #endif
 
 /** The original GEMM functions (SGEMM and DGEMM). */
-LIBXS_API libxs_sgemm_function libxs_original_sgemm(void);
-LIBXS_API libxs_dgemm_function libxs_original_dgemm(void);
+LIBXS_API libxs_sgemm_function libxs_original_sgemm(const void* caller);
+LIBXS_API libxs_dgemm_function libxs_original_dgemm(const void* caller);
 
 /** Construct symbol name from a given real type name (float or double). */
-#define LIBXS_BLAS_GEMM_SYMBOL(REAL)  LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(REAL, gemm))()
+#define LIBXS_BLAS_GEMM_SYMBOL(REAL)  LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(REAL, gemm))(LIBXS_CALLER)
 #define LIBXS_GEMMFUNCTION_TYPE(REAL) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm_function))
 #define LIBXS_MMFUNCTION_TYPE(REAL)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmfunction))
 #define LIBXS_MMDISPATCH_SYMBOL(REAL) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmdispatch))
