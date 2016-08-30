@@ -161,15 +161,15 @@ EXCLUDE_STATE = BLAS_WARNING PREFIX
 include $(ROOTDIR)/Makefile.inc
 
 ifeq (1,$(AVX))
-  GENTARGET = snb
+  GENCTARGET = snb
 else ifeq (2,$(AVX))
-  GENTARGET = hsw
+  GENCTARGET = hsw
 else ifeq (3,$(AVX))
-  GENTARGET = knl
+  GENCTARGET = knl
 else ifneq (0,$(SSE))
-  GENTARGET = wsm
+  GENCTARGET = wsm
 else
-  GENTARGET = noarch
+  GENCTARGET = noarch
 endif
 
 ifeq (0,$(STATIC))
@@ -355,7 +355,7 @@ $(INCDIR)/libxs.h: .state $(INCDIR)/.make $(SCRDIR)/libxs_interface.py \
 	$(info LIBXS $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py))
 	$(info --------------------------------------------------------------------------------)
 	$(info $(INFO))
-	$(info TARGET: $(TARGET))
+	$(info TARGET: $(CTARGET))
 	$(info ================================================================================)
 ifeq (,$(strip $(FC)))
 ifeq (,$(strip $(FC_VERSION_STRING)))
@@ -443,7 +443,7 @@ endif
 endif
 endif
 ifeq (noarch,$(GENTARGET))
-ifneq (,$(TARGET))
+ifneq (,$(CTARGET))
 ifneq (2,$(PRECISION))
 	@echo "#define LIBXS_GENTARGET_knl_sp" >> $@
 	@echo "#define LIBXS_GENTARGET_hsw_sp" >> $@
@@ -570,13 +570,13 @@ endif
 
 $(foreach OBJ,$(OBJFILES_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, $(TARGET))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, $(CTARGET))))
 $(foreach OBJ,$(KERNELOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(CPEDANTIC) $(TARGET))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(CPEDANTIC) $(CTARGET))))
 $(foreach OBJ,$(EXTOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(TARGET) $(EXTCFLAGS))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(CTARGET) $(EXTCFLAGS))))
 $(foreach OBJ,$(OBJFILES_GEN_LIB),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(CPEDANTIC))))
@@ -599,7 +599,7 @@ endif
 .PHONY: compile_hst
 compile_hst:
 $(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h
-	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $< -o $@
+	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(CTARGET) -c $< -o $@
 
 .PHONY: module_mic
 ifneq (0,$(MIC))
@@ -618,7 +618,7 @@ endif
 ifneq (,$(strip $(FC)))
 module_hst: $(BLDDIR)/intel64/libxs-mod.o
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
-	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(TARGET) -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
+	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(FTARGET) -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
 else
 .PHONY: $(BLDDIR)/intel64/libxs-mod.o
 endif
