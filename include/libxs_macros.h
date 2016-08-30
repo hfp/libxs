@@ -54,9 +54,11 @@
 #   define LIBXS_INLINE_KEYWORD inline
 # elif defined(_MSC_VER)
 #   define LIBXS_INLINE_KEYWORD __inline
+#   define LIBXS_INLINE_FIXUP
 # endif
 # if !defined(LIBXS_INLINE_KEYWORD)
 #   define LIBXS_INLINE_KEYWORD
+#   define LIBXS_INLINE_FIXUP
 # endif
 # define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
 #endif /*__cplusplus*/
@@ -352,8 +354,8 @@
 #if defined(__clang__) && !defined(__extern_always_inline)
 # define __extern_always_inline LIBXS_INLINE
 #endif
-#if !defined(__cplusplus) && !defined(inline)
-# define inline LIBXS_INLINE
+#if defined(LIBXS_INLINE_FIXUP) && !defined(inline)
+# define inline LIBXS_INLINE_KEYWORD
 #endif
 
 #endif /*LIBXS_MACROS_H*/
