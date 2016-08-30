@@ -352,7 +352,10 @@ $(INCDIR)/libxs.h: .state $(INCDIR)/.make $(SCRDIR)/libxs_interface.py \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(shell echo $$(($(THREADS)+$(OMP)))) \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
 	$(info ================================================================================)
+	$(info LIBXS $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py))
+	$(info --------------------------------------------------------------------------------)
 	$(info $(INFO))
+	$(info TARGET: $(TARGET))
 	$(info ================================================================================)
 ifeq (,$(strip $(FC)))
 ifeq (,$(strip $(FC_VERSION_STRING)))
