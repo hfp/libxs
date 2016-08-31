@@ -151,6 +151,34 @@ LIBXS_INLINE void naive_copy_NCHW_to_NHWC(const float* nchw, float* nhwc, int N,
 }
 
 
+LIBXS_INLINE void naive_copy_NHWC_to_NCHW(const float* nhwc, float* nchw, int N, int H, int W, int C)
+{
+  int n, h, w, c;
+#if defined(LIBXS_VLA)
+  typedef float (*LIBXS_RESTRICT  output_type)[C][H][W];
+  typedef float (*LIBXS_RESTRICT  input_type)[H][W][C];
+
+  const input_type   input_t =  (input_type)nhwc;
+  const output_type output_t = (output_type)nchw;
+#else
+#error VLA is needed to run the convolution example
+#endif
+  for ( n = 0; n < N; n++ ) {
+    for ( h = 0; h < H; h++ ) {
+      for ( w = 0; w < W; w++ ) {
+        for ( c = 0; c < C; c++ ) {
+#if defined(LIBXS_VLA)
+          output_t[n][c][h][w] = input_t[n][h][w][c];
+#else
+#error VLA is needed to run the convolution example
+#endif
+        }
+      }
+    }
+  }
+}
+
+
 LIBXS_INLINE void naive_copy_KCRS_to_RSCK(const float* kcrs, float* rsck, int R, int S, int C, int K) 
 {
   int r, s, c, k;
@@ -414,7 +442,7 @@ int main(int argc, char* argv[])
   libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
 
-  /* setup LIBXS layers */
+  /* setup LIBXS buffers and filter */
   libxs_input = libxs_dnn_create_input_buffer_check( libxs_handle, &status );
   CHKERR_LIBXS_DNN( status );
   libxs_output = libxs_dnn_create_output_buffer_check( libxs_handle, &status );
@@ -427,7 +455,7 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter ) );
 
-  /* bind layer to handle */
+  /* bind buffers and filter to handle */
   CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
@@ -500,16 +528,105 @@ int main(int argc, char* argv[])
   printf("#    Setting Up   (NHWC/RSCK-Storage)    #\n");
   printf("##########################################\n");
 
+  /* setup LIBXS handle */
+  conv_desc.N = nImg;
+  conv_desc.C = nIfm;
+  conv_desc.H = ifh;
+  conv_desc.W = ifw;
+  conv_desc.K = nOfm;
+  conv_desc.R = kh;
+  conv_desc.S = kw;
+  conv_desc.u = stride_h;
+  conv_desc.v = stride_w;
+  /* @TODO we need to change the interface to provide CAFFE compatible padding! */
+  conv_desc.pad_h_in = 0;
+  conv_desc.pad_w_in = 0;
+  conv_desc.pad_h_out = pad_h_out;
+  conv_desc.pad_w_out = pad_w_out;
+  conv_desc.splits = nSplits;
+  conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
+  conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_NHWC;
+  conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_RSCK;
+  conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+  conv_desc.datatype = LIBXS_DNN_DATATYPE_FP32;
+
+  libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
+  CHKERR_LIBXS_DNN( status );
+
+  /* setup LIBXS buffers and filter */
+  libxs_input = libxs_dnn_link_input_buffer_check( libxs_handle, input_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
+  CHKERR_LIBXS_DNN( status );
+  libxs_output = libxs_dnn_link_output_buffer_check( libxs_handle, output_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
+  CHKERR_LIBXS_DNN( status );
+  libxs_filter = libxs_dnn_link_filter_check( libxs_handle, filter_rsck, LIBXS_DNN_CONV_FORMAT_RSCK_PTR, &status );
+  CHKERR_LIBXS_DNN( status );
+
+  /* bind buffers and filter to handle */
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
 
   printf("##########################################\n");
   printf("# Check Correctness  (NHWC/RSCK-Storage) #\n");
   printf("##########################################\n");
+  /* run LIBXS convolutions */
+#if defined(_OPENMP)
+# pragma omp parallel
+#endif
+  {
+#if defined(_OPENMP)
+    const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+#else
+    const int tid = 0, nthreads = 1;
+#endif
+    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads ) );
+  }
+  /* copy output data into NCHW storage in user code */
+  naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
 
+  /* compare */
+  compare_buf(naive_output, naive_output_nhwc, nImg*nOfm*ofhp*ofwp, &norms);
+  printf("             1-norm of reference: %f\n", norms.one_norm_ref);
+  printf("              1-norm of JIT-code: %f\n", norms.one_norm_test);
+  printf("       L2-error-norm of JIT-code: %f\n", norms.l2_rel_err);
+  printf("    inf-norm of comp. rel. error: %f\n", norms.max_rel_err);
+  printf("    inf-norm of comp. abs. error: %f\n", norms.max_abs_err);
 
   printf("##########################################\n");
   printf("#  Performance Run  (NHWC/RSCK-Storage)  #\n");
   printf("##########################################\n");
+  /* run LIBXS convolution for performance */
+  l_start = libxs_timer_tick();
+  for (i = 0; i < iters; ++i) {
+#if defined(_OPENMP)
+#   pragma omp parallel
+#endif
+    {
+#if defined(_OPENMP)
+      const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+#else
+      const int tid = 0, nthreads = 1;
+#endif
+      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads );
+    }
+  }
+  l_end = libxs_timer_tick();
+  l_total = libxs_timer_duration(l_start, l_end);
+  flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
+  printf("GFLOP (NHWC)  = %.5g\n", flops*1e-9);
+  printf("fp time (NHWC) = %.5g\n", ((double)(l_total/iters)));
+  printf("GFLOPS (NHWC) = %.5g\n", (flops*1e-9)/l_total);
+
+  printf("PERFDUMP-NHWC,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+     ifw, ifh, kw, kh, stride, pad, nSplits, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+     (flops*1e-9)/l_total, norms.max_rel_err, norms.max_abs_err, norms.l2_rel_err, norms.one_norm_ref, norms.one_norm_test );
+
+  /* clean-up */
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_handle( libxs_handle ) );
 
   return 0;
 }

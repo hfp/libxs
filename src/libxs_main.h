@@ -100,6 +100,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_filter {
   int bofm;                         /* sized of blocked feature maps, in a block */
   int R;                            /* height of filter kernel */
   int S;                            /* width of filter kernel */
+  libxs_dnn_conv_format format;   /* format of filter buffer */
   libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
 };
