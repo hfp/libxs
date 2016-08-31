@@ -367,6 +367,48 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_input_buffer_check(const
 }
 
 
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format)
+{
+  libxs_dnn_err_t status;
+  return libxs_dnn_link_input_buffer_check( handle, data, in_format, &status );
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
+{
+  libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (handle != 0 && buffer != 0 && data != 0) {
+    /* set properties of the buffer according to convolution handle */
+    buffer->N = handle->desc.N;
+    buffer->splits = handle->desc.splits;
+    buffer->fmb = handle->blocksifm;
+    buffer->bfm = handle->ifmblock;
+    buffer->H = handle->ifhp;
+    buffer->W = handle->ifwp;
+    buffer->format = in_format;
+    buffer->datatype = handle->datatype;
+    if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_NHWC ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
+      buffer->data = (void*)data;
+    } else {
+      *status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+    }
+  }
+  else {
+    *status = LIBXS_DNN_ERR_CREATE_BUFFER;
+    buffer = 0;
+  }
+
+  if (*status != LIBXS_DNN_SUCCESS) {
+    free((libxs_dnn_buffer*)buffer);
+    buffer = 0;
+  }
+
+  return buffer;
+}
+
+
 LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_output_buffer(const libxs_dnn_conv_handle* handle)
 {
   libxs_dnn_err_t status;
@@ -415,13 +457,57 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_output_buffer_check(cons
 }
 
 
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format)
+{
+  libxs_dnn_err_t status;
+  return libxs_dnn_link_output_buffer_check( handle, data, in_format, &status );
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
+{
+  libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (handle != 0 && buffer != 0 && data != 0) {
+    /* set properties of the buffer according to convolution handle */
+    buffer->N = handle->desc.N;
+    buffer->splits = handle->desc.splits;
+    buffer->fmb = handle->blocksofm;
+    buffer->bfm = handle->ofmblock;
+    buffer->H = handle->ofhp;
+    buffer->W = handle->ofwp;
+    buffer->format = in_format;
+    buffer->datatype = handle->datatype;
+    if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_NHWC ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
+      buffer->data = (void*)data;
+    } else {
+      *status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+    }
+  }
+  else {
+    *status = LIBXS_DNN_ERR_CREATE_BUFFER;
+    buffer = 0;
+  }
+
+  if (*status != LIBXS_DNN_SUCCESS) {
+    free((libxs_dnn_buffer*)buffer);
+    buffer = 0;
+  }
+
+  return buffer;
+}
+
+
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_buffer* buffer)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != buffer) { /* it is not an error attempting to destroy a NULL-handle */
-    /* deallocate data components; not an error to deallocate a NULL-pointer */
-    libxs_xfree(buffer->data);
+    /* deallocate data components; not an error to deallocate a NULL-pointer, just deallocate if it's LIBXS private data */
+    if ( (buffer->format & LIBXS_DNN_CONV_FORMAT_PTR) == 0 ) {
+      libxs_xfree(buffer->data);
+    }
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_buffer*)buffer);
   }
@@ -455,6 +541,7 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_create_filter_check(const libxs
     filter->bofm = handle->ofmblock;
     filter->R = handle->desc.R;
     filter->S = handle->desc.S;
+    filter->format = handle->filter_format;
     filter->datatype = handle->datatype;
     /* allocate raw data */
     result = libxs_xmalloc(&filter->data,
@@ -476,13 +563,59 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_create_filter_check(const libxs
 }
 
 
+LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format)
+{
+  libxs_dnn_err_t status;
+  return libxs_dnn_link_filter_check(handle, data, in_format, &status);
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
+{
+  libxs_dnn_filter* filter = (libxs_dnn_filter*)malloc(sizeof(libxs_dnn_filter));
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (handle != 0 && filter != 0 && data != 0) {
+    /* set properties of the buffer according to convolution handle */
+    filter->splits = handle->desc.splits;
+    filter->ifmb = handle->blocksifm;
+    filter->bifm = handle->ifmblock;
+    filter->ofmb = handle->blocksofm;
+    filter->bofm = handle->ofmblock;
+    filter->R = handle->desc.R;
+    filter->S = handle->desc.S;
+    filter->format = in_format;
+    filter->datatype = handle->datatype;
+    if ( ((handle->filter_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_RSCK ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
+      filter->data = (void*)data;
+    } else {
+      *status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+    }
+  }
+  else {
+    *status = LIBXS_DNN_ERR_CREATE_FILTER;
+    filter = 0;
+  }
+
+  if (*status != LIBXS_DNN_SUCCESS) {
+    *status = LIBXS_DNN_ERR_CREATE_FILTER;
+    free((libxs_dnn_filter*)filter);
+    filter = 0;
+  }
+
+  return filter;
+}
+
+
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_filter(const libxs_dnn_filter* filter)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != filter) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
-    libxs_xfree(filter->data);
+    if ( (filter->format & LIBXS_DNN_CONV_FORMAT_PTR) == 0 ) {
+      libxs_xfree(filter->data);
+    }
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_filter*)filter);
   }
@@ -919,7 +1052,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_input_buffer(libxs_dnn_conv_
       && handle->ifmblock == buffer->bfm
       && handle->blocksifm == buffer->fmb
       && handle->datatype == buffer->datatype
-      && handle->buffer_format == buffer->format )
+      && ((handle->buffer_format & buffer->format) > 0) )
     {
       handle->input = (libxs_dnn_buffer*)buffer;
     }
@@ -947,7 +1080,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_output_buffer(libxs_dnn_conv
       && handle->ofhp == buffer->H
       && handle->ofmblock == buffer->bfm
       && handle->blocksofm == buffer->fmb
-      && handle->buffer_format == buffer->format
+      && ((handle->buffer_format & buffer->format) > 0)
       && ((handle->datatype == LIBXS_DNN_DATATYPE_FP32 && buffer->datatype == LIBXS_DNN_DATATYPE_FP32)
         || (buffer->datatype == LIBXS_DNN_DATATYPE_INT32)))
     {
@@ -978,6 +1111,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_conv_handle
       && handle->blocksifm == filter->ifmb
       && handle->ofmblock == filter->bofm
       && handle->blocksofm == filter->ofmb
+      && ((handle->filter_format & filter->format) > 0)
       && handle->datatype == filter->datatype)
     {
       handle->filter = (libxs_dnn_filter*)filter;
