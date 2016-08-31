@@ -70,7 +70,7 @@ typedef struct LIBXS_RETARGETABLE libxs_csr_soa_descriptor {
 } libxs_csr_soa_descriptor;
 
 /** Structure which describes an activation layer. */
-struct LIBXS_RETARGETABLE libxs_dnn_activation {
+struct LIBXS_RETARGETABLE libxs_dnn_buffer {
   int N;                            /* number of images in mini-batch */
   int splits;                       /* number of splits */
   int fmb;                          /* number of feature map blocks */
@@ -108,7 +108,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
   libxs_dnn_datatype datatype;
   libxs_dnn_conv_desc desc;
   libxs_dnn_conv_algo algo;
-  libxs_dnn_conv_format format;
+  libxs_dnn_conv_format buffer_format;
+  libxs_dnn_conv_format filter_format;
   libxs_dnn_conv_fuse_ops fuse_ops;
 
   /* additional size for iternal data types */
@@ -126,9 +127,9 @@ struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
   int fwd_ofh_rb;
 
   /* internal data representation */
-  libxs_dnn_activation* input;
-  libxs_dnn_activation* output;
-  libxs_dnn_activation* input_relu;
+  libxs_dnn_buffer* input;
+  libxs_dnn_buffer* output;
+  libxs_dnn_buffer* input_relu;
   libxs_dnn_filter* filter;
   libxs_dnn_bias* bias;
   void* scratch;

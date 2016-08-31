@@ -28,6 +28,7 @@
 ******************************************************************************/
 #include "libxs_main.h"
 #include "libxs_dnn_conv_fwd_custom.h"
+#include "libxs_dnn_conv_fwd_nhwc_rsck.h"
 #include <libxs_malloc.h>
 #include <libxs_sync.h>
 
@@ -58,15 +59,15 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
     case LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE:
       return "LIBXS DNN Error: Requested datatype is not available!";
     case LIBXS_DNN_ERR_INVALID_BLOCKING:
-      return "LIBXS DNN Error: Requested Input/Output activation size cannot be blocked!";
+      return "LIBXS DNN Error: Requested Input/Output buffer size cannot be blocked!";
     case LIBXS_DNN_ERR_INVALID_HANDLE:
       return "LIBXS DNN Error: An invalid handle was proivded!";
     case LIBXS_DNN_ERR_DATA_NOT_BOUND:
       return "LIBXS DNN Error: Not all required sources and destinations have been bound to convolution!";
-    case LIBXS_DNN_ERR_CREATE_ACTIVATION:
+    case LIBXS_DNN_ERR_CREATE_BUFFER:
       return "LIBXS DNN Error: Layer creation failed!";
-    case LIBXS_DNN_ERR_INVALID_ACTIVATION:
-      return "LIBXS DNN Error: Invalid activation was specified!";
+    case LIBXS_DNN_ERR_INVALID_BUFFER:
+      return "LIBXS DNN Error: Invalid buffer was specified!";
     case LIBXS_DNN_ERR_CREATE_FILTER:
       return "LIBXS DNN Error: Filter creation failed!";
     case LIBXS_DNN_ERR_INVALID_FILTER:
@@ -75,10 +76,10 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: Bias creation failed!";
     case LIBXS_DNN_ERR_INVALID_BIAS:
       return "LIBXS DNN Error: Invalid Bias was specified";
-    case LIBXS_DNN_ERR_MISMATCH_ACTIVATION:
+    case LIBXS_DNN_ERR_MISMATCH_BUFFER:
       return "LIBXS DNN Error: Layer doesn't match handle it should be bind to!";
-    case LIBXS_DNN_ERR_INVALID_HANDLE_ACTIVATION:
-      return "LIBXS DNN Error: Invalid hanlde or activation!";
+    case LIBXS_DNN_ERR_INVALID_HANDLE_BUFFER:
+      return "LIBXS DNN Error: Invalid hanlde or buffer!";
     case LIBXS_DNN_ERR_MISMATCH_FILTER:
       return "LIBXS DNN Error: Filter doens't match handle it should be bind to!";
     case LIBXS_DNN_ERR_INVALID_HANDLE_FILTER:
@@ -93,6 +94,8 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: Unsupported source format when copying data!";
     case LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE:
       return "LIBXS DNN Error: Unsupported format when requesting a convolution!";
+    case LIBXS_DNN_ERR_INVALID_FORMAT_KCRS:
+      return "LIBXS DNN Error: KCRS format is currently not natively supported by LIBXS!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occured!";
   }
@@ -117,8 +120,13 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
   *status = LIBXS_DNN_SUCCESS;
 
   /* currently we don't support NCHW */
-  if ( (conv_desc.format & LIBXS_DNN_CONV_FORMAT_NCHW) > 0 ) {
+  if ( (conv_desc.buffer_format & LIBXS_DNN_CONV_FORMAT_NCHW) > 0 ) {
     *status = LIBXS_DNN_ERR_INVALID_FORMAT_NCHW;
+    return 0;
+  }
+  /* currently we don'r support KCRS */
+  if ( (conv_desc.buffer_format & LIBXS_DNN_CONV_FORMAT_KCRS) > 0 ) {
+    *status = LIBXS_DNN_ERR_INVALID_FORMAT_KCRS;
     return 0;
   }
 
@@ -133,7 +141,8 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
     handle->desc.splits = (conv_desc.splits <= 1) ? 1 : conv_desc.splits;
     handle->datatype = conv_desc.datatype;
     handle->algo = LIBXS_DNN_CONV_ALGO_DIRECT;
-    handle->format = conv_desc.format;
+    handle->buffer_format = conv_desc.buffer_format;
+    handle->filter_format = conv_desc.filter_format;
     handle->fuse_ops = conv_desc.fuse_ops;
     /* derive additional values */
     handle->ifhp = conv_desc.H;
@@ -315,109 +324,109 @@ LIBXS_INLINE LIBXS_RETARGETABLE size_t internal_dnn_typesize(libxs_dnn_datatype 
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_input_activation(const libxs_dnn_conv_handle* handle)
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_input_buffer(const libxs_dnn_conv_handle* handle)
 {
   libxs_dnn_err_t status;
-  return libxs_dnn_create_input_activation_check(handle, &status);
+  return libxs_dnn_create_input_buffer_check(handle, &status);
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_input_activation_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_input_buffer_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
 {
-  libxs_dnn_activation* activation = (libxs_dnn_activation*)malloc(sizeof(libxs_dnn_activation));
+  libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
   int result = EXIT_SUCCESS;
   *status = LIBXS_DNN_SUCCESS;
 
-  if (handle != 0 && activation != 0) {
-    /* set properties of the activation according to convolution handle */
-    activation->N = handle->desc.N;
-    activation->splits = handle->desc.splits;
-    activation->fmb = handle->blocksifm;
-    activation->bfm = handle->ifmblock;
-    activation->H = handle->ifhp;
-    activation->W = handle->ifwp;
-    activation->format = handle->format;
-    activation->datatype = handle->datatype;
+  if (handle != 0 && buffer != 0) {
+    /* set properties of the buffer according to convolution handle */
+    buffer->N = handle->desc.N;
+    buffer->splits = handle->desc.splits;
+    buffer->fmb = handle->blocksifm;
+    buffer->bfm = handle->ifmblock;
+    buffer->H = handle->ifhp;
+    buffer->W = handle->ifwp;
+    buffer->format = handle->buffer_format;
+    buffer->datatype = handle->datatype;
     /* allocate raw data */
-    result = libxs_xmalloc(&activation->data,
-        activation->N * activation->splits * activation->fmb * activation->bfm * activation->H * activation->W * internal_dnn_typesize(activation->datatype),
+    result = libxs_xmalloc(&buffer->data,
+        buffer->N * buffer->splits * buffer->fmb * buffer->bfm * buffer->H * buffer->W * internal_dnn_typesize(buffer->datatype),
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
-    *status = LIBXS_DNN_ERR_CREATE_ACTIVATION;
-    activation = 0;
+    *status = LIBXS_DNN_ERR_CREATE_BUFFER;
+    buffer = 0;
   }
 
   if (result != EXIT_SUCCESS) {
-    *status = LIBXS_DNN_ERR_CREATE_ACTIVATION;
-    free((libxs_dnn_activation*)activation);
-    activation = 0;
+    *status = LIBXS_DNN_ERR_CREATE_BUFFER;
+    free((libxs_dnn_buffer*)buffer);
+    buffer = 0;
   }
 
-  return activation;
+  return buffer;
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_output_activation(const libxs_dnn_conv_handle* handle)
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_output_buffer(const libxs_dnn_conv_handle* handle)
 {
   libxs_dnn_err_t status;
-  return libxs_dnn_create_output_activation_check(handle, &status);
+  return libxs_dnn_create_output_buffer_check(handle, &status);
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_output_activation_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_output_buffer_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
 {
-  libxs_dnn_activation* activation = (libxs_dnn_activation*)malloc(sizeof(libxs_dnn_activation));
+  libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
   int result = EXIT_SUCCESS;
   *status = LIBXS_DNN_SUCCESS;
 
-  if (handle != 0 && activation != 0) {
-    /* set properties of the activation according to convolution handle */
-    activation->N = handle->desc.N;
-    activation->splits = handle->desc.splits;
-    activation->fmb = handle->blocksofm;
-    activation->bfm = handle->ofmblock;
-    activation->H = handle->ofhp;
-    activation->W = handle->ofwp;
-    activation->format = handle->format;
+  if (handle != 0 && buffer != 0) {
+    /* set properties of the buffer according to convolution handle */
+    buffer->N = handle->desc.N;
+    buffer->splits = handle->desc.splits;
+    buffer->fmb = handle->blocksofm;
+    buffer->bfm = handle->ofmblock;
+    buffer->H = handle->ofhp;
+    buffer->W = handle->ofwp;
+    buffer->format = handle->buffer_format;
     if (handle->datatype == LIBXS_DNN_DATATYPE_FP32) {
-      activation->datatype = handle->datatype;
+      buffer->datatype = handle->datatype;
     }
     else {
-      activation->datatype = LIBXS_DNN_DATATYPE_INT32;
+      buffer->datatype = LIBXS_DNN_DATATYPE_INT32;
     }
     /* allocate raw data, we always have a 4 byte wide type!! */
-    result = libxs_xmalloc(&activation->data,
-        activation->N * activation->splits * activation->fmb * activation->bfm * activation->H * activation->W * internal_dnn_typesize(activation->datatype),
+    result = libxs_xmalloc(&buffer->data,
+        buffer->N * buffer->splits * buffer->fmb * buffer->bfm * buffer->H * buffer->W * internal_dnn_typesize(buffer->datatype),
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
-    *status = LIBXS_DNN_ERR_CREATE_ACTIVATION;
-    activation = 0;
+    *status = LIBXS_DNN_ERR_CREATE_BUFFER;
+    buffer = 0;
   }
 
   if (result != EXIT_SUCCESS) {
-    *status = LIBXS_DNN_ERR_CREATE_ACTIVATION;
-    free((libxs_dnn_activation*)activation);
-    activation = 0;
+    *status = LIBXS_DNN_ERR_CREATE_BUFFER;
+    free((libxs_dnn_buffer*)buffer);
+    buffer = 0;
   }
 
-  return activation;
+  return buffer;
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_activation(const libxs_dnn_activation* activation)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_buffer* buffer)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (0 != activation) { /* it is not an error attempting to destroy a NULL-handle */
+  if (0 != buffer) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
-    libxs_xfree(activation->data);
+    libxs_xfree(buffer->data);
     /* deallocate handle structure */
-    free(/*remove constness*/(libxs_dnn_activation*)activation);
+    free(/*remove constness*/(libxs_dnn_buffer*)buffer);
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_ACTIVATION;
+    status = LIBXS_DNN_ERR_INVALID_BUFFER;
   }
 
   return status;
@@ -438,7 +447,7 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_create_filter_check(const libxs
   *status = LIBXS_DNN_SUCCESS;
 
   if (handle != 0 && filter != 0) {
-    /* set properties of the activation according to convolution handle */
+    /* set properties of the buffer according to convolution handle */
     filter->splits = handle->desc.splits;
     filter->ifmb = handle->blocksifm;
     filter->bifm = handle->ifmblock;
@@ -499,7 +508,7 @@ LIBXS_API_DEFINITION libxs_dnn_bias* libxs_dnn_create_bias_check(const libxs_dnn
   *status = LIBXS_DNN_SUCCESS;
 
   if (handle != 0 && bias != 0) {
-    /* set properties of the activation according to convolution handle */
+    /* set properties of the buffer according to convolution handle */
     bias->splits = handle->desc.splits;
     bias->fmb = handle->blocksifm;
     bias->bfm = handle->ifmblock;
@@ -542,33 +551,33 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_activation(const libxs_dnn_activation* activation, const void* data, libxs_dnn_conv_format in_format)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buffer* buffer, const void* data, libxs_dnn_conv_format in_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (0 != activation) {
+  if (0 != buffer) {
     /* we do for-loops such that we could potentially leverage NUMA in future */
-    switch (activation->datatype) {
+    switch (buffer->datatype) {
       case LIBXS_DNN_DATATYPE_FP32: {
         switch (in_format) {
           case LIBXS_DNN_CONV_FORMAT_NCHW: {
-            switch (activation->format) {
+            switch (buffer->format) {
               case LIBXS_DNN_CONV_FORMAT_LIBXS: {
                 typedef float element_type;
                 int i1, i2, i3, i4, i5, i6;
-                int N = activation->N;
-                int splits = activation->splits;
-                int fmb = activation->fmb;
-                int bfm = activation->bfm;
-                int H = activation->H;
-                int W = activation->W;
+                int N = buffer->N;
+                int splits = buffer->splits;
+                int fmb = buffer->fmb;
+                int bfm = buffer->bfm;
+                int H = buffer->H;
+                int W = buffer->W;
 #if defined(LIBXS_VLA)
                 typedef element_type (*LIBXS_RESTRICT handle_data_type)[splits][fmb][H][W][bfm];
                 typedef element_type (*LIBXS_RESTRICT user_data_type)[splits][fmb*bfm][H][W];
-                const handle_data_type handle_data = (handle_data_type)activation->data;
+                const handle_data_type handle_data = (handle_data_type)buffer->data;
                 const user_data_type user_data = (user_data_type)data;
 #else
-                element_type *const handle_data = (element_type*)activation->data;
+                element_type *const handle_data = (element_type*)buffer->data;
                 const element_type *const user_data = (const element_type*)data;
                 unsigned int hindexn[6], uindexn[5];
                 unsigned int hshape[6], ushape[5];
@@ -616,37 +625,37 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_activation(const libxs_dnn
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_ACTIVATION;
+    status = LIBXS_DNN_ERR_INVALID_BUFFER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_activation(const libxs_dnn_activation* activation)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffer* buffer)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  const size_t size = (size_t)activation->N * (size_t)activation->splits * (size_t)activation->fmb
-                    * (size_t)activation->bfm * (size_t)activation->H * (size_t)activation->W;
+  const size_t size = (size_t)buffer->N * (size_t)buffer->splits * (size_t)buffer->fmb
+                    * (size_t)buffer->bfm * (size_t)buffer->H * (size_t)buffer->W;
   size_t i;
 
-  if (0 != activation) {
+  if (0 != buffer) {
     /* we do for-loops such that we could potentially leverage NUMA in future */
-    switch (activation->datatype) {
+    switch (buffer->datatype) {
       case LIBXS_DNN_DATATYPE_FP32: {
-        float* fp32_data = (float*)activation->data;
+        float* fp32_data = (float*)buffer->data;
         for (i = 0; i < size; ++i) fp32_data[i] = 0.0f;
       } break;
       case LIBXS_DNN_DATATYPE_INT32: {
-        int* int32_data = (int*)activation->data;
+        int* int32_data = (int*)buffer->data;
         for (i = 0; i < size; ++i) int32_data[i] = 0;
       } break;
       case LIBXS_DNN_DATATYPE_INT16: {
-        short* int16_data = (short*)activation->data;
+        short* int16_data = (short*)buffer->data;
         for (i = 0; i < size; ++i) int16_data[i] = 0;
       } break;
       case LIBXS_DNN_DATATYPE_INT8: {
-        char* int8_data = (char*)activation->data;
+        char* int8_data = (char*)buffer->data;
         for (i = 0; i < size; ++i) int8_data[i] = 0;
       } break;
       default: {
@@ -655,40 +664,40 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_activation(const libxs_dnn_a
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_ACTIVATION;
+    status = LIBXS_DNN_ERR_INVALID_BUFFER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_activation(const libxs_dnn_activation* activation, void* data, libxs_dnn_conv_format out_format)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_buffer* buffer, void* data, libxs_dnn_conv_format out_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (0 != activation) {
+  if (0 != buffer) {
     /* we do for-loops such that we could potentially leverage NUMA in future */
-    switch (activation->datatype) {
+    switch (buffer->datatype) {
       case LIBXS_DNN_DATATYPE_FP32: {
         switch (out_format) {
           case LIBXS_DNN_CONV_FORMAT_NCHW: {
-            switch (activation->format) {
+            switch (buffer->format) {
               case LIBXS_DNN_CONV_FORMAT_LIBXS: {
                 typedef float element_type;
                 int i1, i2, i3, i4, i5, i6;
-                int N = activation->N;
-                int splits = activation->splits;
-                int fmb = activation->fmb;
-                int bfm = activation->bfm;
-                int H = activation->H;
-                int W = activation->W;
+                int N = buffer->N;
+                int splits = buffer->splits;
+                int fmb = buffer->fmb;
+                int bfm = buffer->bfm;
+                int H = buffer->H;
+                int W = buffer->W;
 #if defined(LIBXS_VLA)
                 typedef element_type (*LIBXS_RESTRICT handle_data_type)[splits][fmb][H][W][bfm];
                 typedef element_type (*LIBXS_RESTRICT user_data_type)[splits][fmb*bfm][H][W];
-                const handle_data_type handle_data = (handle_data_type)activation->data;
+                const handle_data_type handle_data = (handle_data_type)buffer->data;
                 const user_data_type user_data = (user_data_type)data;
 #else
-                const element_type *const handle_data = (const element_type*)activation->data;
+                const element_type *const handle_data = (const element_type*)buffer->data;
                 element_type *const user_data = (element_type*)data;
                 unsigned int hindexn[6], uindexn[5];
                 unsigned int hshape[6], ushape[5];
@@ -736,7 +745,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_activation(const libxs_dn
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_ACTIVATION;
+    status = LIBXS_DNN_ERR_INVALID_BUFFER;
   }
 
   return status;
@@ -897,58 +906,59 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_bias(const libxs_dnn_bias
 #endif
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_input_activation(libxs_dnn_conv_handle* handle, const libxs_dnn_activation* activation)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_input_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* buffer)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (handle != 0 && activation != 0) {
+  if (handle != 0 && buffer != 0) {
     /* check if format matches */
-    if ( handle->desc.N == activation->N
-      && handle->desc.splits == activation->splits
-      && handle->ifwp == activation->W
-      && handle->ifhp == activation->H
-      && handle->ifmblock == activation->bfm
-      && handle->blocksifm == activation->fmb
-      && handle->datatype == activation->datatype
-      && handle->format == activation->format )
+    if ( handle->desc.N == buffer->N
+      && handle->desc.splits == buffer->splits
+      && handle->ifwp == buffer->W
+      && handle->ifhp == buffer->H
+      && handle->ifmblock == buffer->bfm
+      && handle->blocksifm == buffer->fmb
+      && handle->datatype == buffer->datatype
+      && handle->buffer_format == buffer->format )
     {
-      handle->input = (libxs_dnn_activation*)activation;
+      handle->input = (libxs_dnn_buffer*)buffer;
     }
     else {
-      status = LIBXS_DNN_ERR_MISMATCH_ACTIVATION;
+      status = LIBXS_DNN_ERR_MISMATCH_BUFFER;
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_HANDLE_ACTIVATION;
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_BUFFER;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_output_activation(libxs_dnn_conv_handle* handle, const libxs_dnn_activation* activation)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_output_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* buffer)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (handle != 0 && activation != 0) {
+  if (handle != 0 && buffer != 0) {
     /* check if format matches */
-    if ( handle->desc.N == activation->N
-      && handle->desc.splits == activation->splits
-      && handle->ofwp == activation->W
-      && handle->ofhp == activation->H
-      && handle->ofmblock == activation->bfm
-      && handle->blocksofm == activation->fmb
-      && ((handle->datatype == LIBXS_DNN_DATATYPE_FP32 && activation->datatype == LIBXS_DNN_DATATYPE_FP32)
-        || (activation->datatype == LIBXS_DNN_DATATYPE_INT32)))
+    if ( handle->desc.N == buffer->N
+      && handle->desc.splits == buffer->splits
+      && handle->ofwp == buffer->W
+      && handle->ofhp == buffer->H
+      && handle->ofmblock == buffer->bfm
+      && handle->blocksofm == buffer->fmb
+      && handle->buffer_format == buffer->format
+      && ((handle->datatype == LIBXS_DNN_DATATYPE_FP32 && buffer->datatype == LIBXS_DNN_DATATYPE_FP32)
+        || (buffer->datatype == LIBXS_DNN_DATATYPE_INT32)))
     {
-      handle->output = (libxs_dnn_activation*)activation;
+      handle->output = (libxs_dnn_buffer*)buffer;
     }
     else {
-      status = LIBXS_DNN_ERR_MISMATCH_ACTIVATION;
+      status = LIBXS_DNN_ERR_MISMATCH_BUFFER;
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_HANDLE_ACTIVATION;
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_BUFFER;
   }
 
   return status;
@@ -992,9 +1002,26 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_CONV_KIND_FWD: {
-        switch (handle->format) {
+        switch (handle->buffer_format) {
           case LIBXS_DNN_CONV_FORMAT_LIBXS: {
-            libxs_dnn_convolve_st_fwd_custom(handle, start_thread, tid, num_threads);
+            switch (handle->filter_format) {
+              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+                libxs_dnn_convolve_st_fwd_custom(handle, start_thread, tid, num_threads);
+              } break;
+              default: {
+                status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+              }            
+            }
+          } break;
+          case LIBXS_DNN_CONV_FORMAT_NHWC: {
+            switch (handle->filter_format) {
+              case LIBXS_DNN_CONV_FORMAT_RSCK: {
+                libxs_dnn_convolve_st_fwd_nhwc_rsck(handle, start_thread, tid, num_threads);
+              } break;
+              default: {
+                status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+              }
+            }
           } break;
           default: {
             status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
