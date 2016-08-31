@@ -77,6 +77,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_activation {
   int bfm;                          /* sized of blocked feature maps, in a block */
   int H;                            /* height of image */
   int W;                            /* width of image */
+  libxs_dnn_conv_format format;   /* format of activation buffer */
   libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
 };
@@ -107,6 +108,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
   libxs_dnn_datatype datatype;
   libxs_dnn_conv_desc desc;
   libxs_dnn_conv_algo algo;
+  libxs_dnn_conv_format format;
+  libxs_dnn_conv_fuse_ops fuse_ops;
 
   /* additional size for iternal data types */
   int ifhp;
