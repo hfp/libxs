@@ -123,8 +123,9 @@
      &    LIBXS_X86_SSE4_2       = 1004,                              &
      &    LIBXS_X86_AVX          = 1005,                              &
      &    LIBXS_X86_AVX2         = 1006,                              &
-     &    LIBXS_X86_AVX512_MIC   = 1007,                              &
-     &    LIBXS_X86_AVX512_CORE  = 1008
+     &    LIBXS_X86_AVX512       = 1007,                              &
+     &    LIBXS_X86_AVX512_MIC   = 1008,                              &
+     &    LIBXS_X86_AVX512_CORE  = 1009
 
         ! Type of a function specialized for a given parameter set.
         ABSTRACT INTERFACE

@@ -46,9 +46,8 @@
 # elif defined(__AVX512F__) && defined(__AVX512CD__) \
    && defined(__AVX512PF__) && defined(__AVX512ER__)
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
-# elif defined(__AVX512F__)
-    /* TODO: adjust this definition if we go beyond AVX-512F */
-#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
+# elif defined(__AVX512F__) && defined(__AVX512CD__)
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512
 # elif defined(__AVX2__)
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 # elif defined(__AVX__)

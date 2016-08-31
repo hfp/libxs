@@ -80,7 +80,7 @@
 #if 0 != ((LIBXS_PREFETCH) & 8/*BL2_VIA_C*/)
 # define LIBXS_PREFETCH_B(EXPR) (EXPR)
 #endif
-#if 0/*no scheme yet using C*/
+#if 0 != ((LIBXS_PREFETCH) & 32/*CL2*/)
 # define LIBXS_PREFETCH_C(EXPR) (EXPR)
 #endif
 #endif
