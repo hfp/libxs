@@ -63,9 +63,9 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: An invalid handle was proivded!";
     case LIBXS_DNN_ERR_DATA_NOT_BOUND:
       return "LIBXS DNN Error: Not all required sources and destinations have been bound to convolution!";
-    case LIBXS_DNN_ERR_CREATE_LAYER:
+    case LIBXS_DNN_ERR_CREATE_ACTIVATION:
       return "LIBXS DNN Error: Layer creation failed!";
-    case LIBXS_DNN_ERR_INVALID_LAYER:
+    case LIBXS_DNN_ERR_INVALID_ACTIVATION:
       return "LIBXS DNN Error: Invalid activation was specified!";
     case LIBXS_DNN_ERR_CREATE_FILTER:
       return "LIBXS DNN Error: Filter creation failed!";
@@ -75,9 +75,9 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: Bias creation failed!";
     case LIBXS_DNN_ERR_INVALID_BIAS:
       return "LIBXS DNN Error: Invalid Bias was specified";
-    case LIBXS_DNN_ERR_MISMATCH_LAYER:
+    case LIBXS_DNN_ERR_MISMATCH_ACTIVATION:
       return "LIBXS DNN Error: Layer doesn't match handle it should be bind to!";
-    case LIBXS_DNN_ERR_INVALID_HANDLE_LAYER:
+    case LIBXS_DNN_ERR_INVALID_HANDLE_ACTIVATION:
       return "LIBXS DNN Error: Invalid hanlde or activation!";
     case LIBXS_DNN_ERR_MISMATCH_FILTER:
       return "LIBXS DNN Error: Filter doens't match handle it should be bind to!";
@@ -85,6 +85,12 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: Invalid handle or filter!";
     case LIBXS_DNN_ERR_INVALID_KIND:
       return "LIBXS DNN Error: Invalid convolution kind!";
+    case LIBXS_DNN_ERR_INVALID_FORMAT_NCHW:
+      return "LIBXS DNN Error: NCHW format is currently not natively supported by LIBXS!";
+    case LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT:
+      return "LIBXS DNN Error: Unsupported destination format when copying data!";
+    case LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT:
+      return "LIBXS DNN Error: Unsupported source format when copying data!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occured!";
   }
@@ -92,25 +98,29 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
 
 
 LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle(
-  libxs_dnn_conv_desc     conv_desc,
-  libxs_dnn_datatype      conv_datatype,
-  libxs_dnn_conv_algo     conv_algo)
+  libxs_dnn_conv_desc     conv_desc)
 {
   libxs_dnn_err_t status;
-  return libxs_dnn_create_conv_handle_check( conv_desc, conv_datatype, conv_algo, &status);
+  return libxs_dnn_create_conv_handle_check( conv_desc, &status);
 }
 
 
 LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
   libxs_dnn_conv_desc     conv_desc,
-  libxs_dnn_datatype      conv_datatype,
-  libxs_dnn_conv_algo     conv_algo,
   libxs_dnn_err_t*        status)
 {
-  libxs_dnn_conv_handle* handle = (libxs_dnn_conv_handle*)malloc(sizeof(libxs_dnn_conv_handle));
+  libxs_dnn_conv_handle* handle = 0;
   int noarch = 1;
   int i = 0;
   *status = LIBXS_DNN_SUCCESS;
+
+  /* currently we don't support NCHW */
+  if ( (conv_desc.format & LIBXS_DNN_CONV_FORMAT_NCHW) > 0 ) {
+    *status = LIBXS_DNN_ERR_INVALID_FORMAT_NCHW;
+    return 0;
+  }
+
+  handle = (libxs_dnn_conv_handle*)malloc(sizeof(libxs_dnn_conv_handle));  
 
   if (0 != handle) {
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
@@ -119,15 +129,17 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
     handle->desc = conv_desc;
     /* at min. we have 1 split */
     handle->desc.splits = (conv_desc.splits <= 1) ? 1 : conv_desc.splits;
-    handle->datatype = conv_datatype;
-    handle->algo = conv_algo;
+    handle->datatype = conv_desc.datatype;
+    handle->algo = conv_desc.algo;
+    handle->format = conv_desc.format;
+    handle->fuse_ops = conv_desc.fuse_ops;
     /* derive additional values */
     handle->ifhp = conv_desc.H;
     handle->ifwp = conv_desc.W;
     handle->ofh = (conv_desc.H - conv_desc.R) / conv_desc.u + 1;
     handle->ofw = (conv_desc.W - conv_desc.S) / conv_desc.v + 1;
-    handle->ofhp = handle->ofh + 2*conv_desc.pad_h;
-    handle->ofwp = handle->ofw + 2*conv_desc.pad_w;
+    handle->ofhp = handle->ofh + 2*conv_desc.pad_h_out;
+    handle->ofwp = handle->ofw + 2*conv_desc.pad_w_out;
 
     /* now architecture specific */
     if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
@@ -322,6 +334,7 @@ LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_input_activation_che
     activation->bfm = handle->ifmblock;
     activation->H = handle->ifhp;
     activation->W = handle->ifwp;
+    activation->format = handle->format;
     activation->datatype = handle->datatype;
     /* allocate raw data */
     result = libxs_xmalloc(&activation->data,
@@ -329,12 +342,12 @@ LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_input_activation_che
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
-    *status = LIBXS_DNN_ERR_CREATE_LAYER;
+    *status = LIBXS_DNN_ERR_CREATE_ACTIVATION;
     activation = 0;
   }
 
   if (result != EXIT_SUCCESS) {
-    *status = LIBXS_DNN_ERR_CREATE_LAYER;
+    *status = LIBXS_DNN_ERR_CREATE_ACTIVATION;
     free((libxs_dnn_activation*)activation);
     activation = 0;
   }
@@ -364,6 +377,7 @@ LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_output_activation_ch
     activation->bfm = handle->ofmblock;
     activation->H = handle->ofhp;
     activation->W = handle->ofwp;
+    activation->format = handle->format;
     if (handle->datatype == LIBXS_DNN_DATATYPE_FP32) {
       activation->datatype = handle->datatype;
     }
@@ -376,12 +390,12 @@ LIBXS_API_DEFINITION libxs_dnn_activation* libxs_dnn_create_output_activation_ch
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
-    *status = LIBXS_DNN_ERR_CREATE_LAYER;
+    *status = LIBXS_DNN_ERR_CREATE_ACTIVATION;
     activation = 0;
   }
 
   if (result != EXIT_SUCCESS) {
-    *status = LIBXS_DNN_ERR_CREATE_LAYER;
+    *status = LIBXS_DNN_ERR_CREATE_ACTIVATION;
     free((libxs_dnn_activation*)activation);
     activation = 0;
   }
@@ -401,7 +415,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_activation(const libxs_dn
     free(/*remove constness*/(libxs_dnn_activation*)activation);
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_ACTIVATION;
   }
 
   return status;
@@ -526,7 +540,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_activation(const libxs_dnn_activation* activation, const void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_activation(const libxs_dnn_activation* activation, const void* data, libxs_dnn_conv_format in_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -534,49 +548,63 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_activation(const libxs_dnn
     /* we do for-loops such that we could potentially leverage NUMA in future */
     switch (activation->datatype) {
       case LIBXS_DNN_DATATYPE_FP32: {
-        typedef float element_type;
-        int i1, i2, i3, i4, i5, i6;
-        int N = activation->N;
-        int splits = activation->splits;
-        int fmb = activation->fmb;
-        int bfm = activation->bfm;
-        int H = activation->H;
-        int W = activation->W;
+        switch (in_format) {
+          case LIBXS_DNN_CONV_FORMAT_NCHW: {
+            switch (activation->format) {
+              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+                typedef float element_type;
+                int i1, i2, i3, i4, i5, i6;
+                int N = activation->N;
+                int splits = activation->splits;
+                int fmb = activation->fmb;
+                int bfm = activation->bfm;
+                int H = activation->H;
+                int W = activation->W;
 #if defined(LIBXS_VLA)
-        typedef element_type (*LIBXS_RESTRICT handle_data_type)[splits][fmb][H][W][bfm];
-        typedef element_type (*LIBXS_RESTRICT user_data_type)[splits][fmb*bfm][H][W];
-        const handle_data_type handle_data = (handle_data_type)activation->data;
-        const user_data_type user_data = (user_data_type)data;
+                typedef element_type (*LIBXS_RESTRICT handle_data_type)[splits][fmb][H][W][bfm];
+                typedef element_type (*LIBXS_RESTRICT user_data_type)[splits][fmb*bfm][H][W];
+                const handle_data_type handle_data = (handle_data_type)activation->data;
+                const user_data_type user_data = (user_data_type)data;
 #else
-        element_type *const handle_data = (element_type*)activation->data;
-        const element_type *const user_data = (const element_type*)data;
-        unsigned int hindexn[6], uindexn[5];
-        unsigned int hshape[6], ushape[5];
-        /* arrays must be initialized separately to avoid warning about values not computable at init.-time */
-        hshape[0] = bfm; hshape[1] = W; hshape[2] = H; hshape[3] = fmb; hshape[4] = splits; hshape[5] = N;
-        ushape[0] = W; ushape[1] = H; ushape[2] = fmb * bfm; ushape[3] = splits; ushape[4] = N;
+                element_type *const handle_data = (element_type*)activation->data;
+                const element_type *const user_data = (const element_type*)data;
+                unsigned int hindexn[6], uindexn[5];
+                unsigned int hshape[6], ushape[5];
+                /* arrays must be initialized separately to avoid warning about values not computable at init.-time */
+                hshape[0] = bfm; hshape[1] = W; hshape[2] = H; hshape[3] = fmb; hshape[4] = splits; hshape[5] = N;
+                ushape[0] = W; ushape[1] = H; ushape[2] = fmb * bfm; ushape[3] = splits; ushape[4] = N;
 #endif
-        for (i1 = 0; i1 < N; ++i1) {
-          for (i2 = 0; i2 < splits; ++i2) {
-            for (i3 = 0; i3 < fmb; ++i3) {
-              for (i4 = 0; i4 < H; ++i4) {
-                for (i5 = 0; i5 < W; ++i5) {
-                  for (i6 = 0; i6 < bfm; ++i6) {
+                for (i1 = 0; i1 < N; ++i1) {
+                  for (i2 = 0; i2 < splits; ++i2) {
+                    for (i3 = 0; i3 < fmb; ++i3) {
+                      for (i4 = 0; i4 < H; ++i4) {
+                        for (i5 = 0; i5 < W; ++i5) {
+                          for (i6 = 0; i6 < bfm; ++i6) {
 #if defined(LIBXS_VLA)
-                    handle_data[i1][i2][i3][i4][i5][i6] = user_data[i1][i2][i3*bfm+i6][i4][i5];
+                            handle_data[i1][i2][i3][i4][i5][i6] = user_data[i1][i2][i3*bfm+i6][i4][i5];
 #else
-                    size_t h, u;
-                    /* arrays must be initialized separately to avoid warning about values not computable at init.-time */
-                    hindexn[0] = i6; hindexn[1] = i5; hindexn[2] = i4; hindexn[3] = i3; hindexn[4] = i2; hindexn[5] = i1;
-                    uindexn[0] = i5; uindexn[1] = i4; uindexn[2] = i3 * bfm + i6; uindexn[3] = i2; uindexn[4] = i1;
-                    LIBXS_CALC_INDEX1(size_t, h, 6, hindexn, hshape);
-                    LIBXS_CALC_INDEX1(size_t, u, 5, uindexn, ushape);
-                    handle_data[h] = user_data[u];
+                            size_t h, u;
+                            /* arrays must be initialized separately to avoid warning about values not computable at init.-time */
+                            hindexn[0] = i6; hindexn[1] = i5; hindexn[2] = i4; hindexn[3] = i3; hindexn[4] = i2; hindexn[5] = i1;
+                            uindexn[0] = i5; uindexn[1] = i4; uindexn[2] = i3 * bfm + i6; uindexn[3] = i2; uindexn[4] = i1;
+                            LIBXS_CALC_INDEX1(size_t, h, 6, hindexn, hshape);
+                            LIBXS_CALC_INDEX1(size_t, u, 5, uindexn, ushape);
+                            handle_data[h] = user_data[u];
 #endif
+                          }
+                        }
+                      }
+                    }
                   }
                 }
+              } break;
+              default: {
+                status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
               }
             }
+          } break;
+          default: {
+            status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
           }
         }
       } break;
@@ -586,7 +614,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_activation(const libxs_dnn
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_ACTIVATION;
   }
 
   return status;
@@ -625,14 +653,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_activation(const libxs_dnn_a
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_ACTIVATION;
   }
 
   return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_activation(const libxs_dnn_activation* activation, void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_activation(const libxs_dnn_activation* activation, void* data, libxs_dnn_conv_format out_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -640,49 +668,63 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_activation(const libxs_dn
     /* we do for-loops such that we could potentially leverage NUMA in future */
     switch (activation->datatype) {
       case LIBXS_DNN_DATATYPE_FP32: {
-        typedef float element_type;
-        int i1, i2, i3, i4, i5, i6;
-        int N = activation->N;
-        int splits = activation->splits;
-        int fmb = activation->fmb;
-        int bfm = activation->bfm;
-        int H = activation->H;
-        int W = activation->W;
+        switch (out_format) {
+          case LIBXS_DNN_CONV_FORMAT_NCHW: {
+            switch (activation->format) {
+              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+                typedef float element_type;
+                int i1, i2, i3, i4, i5, i6;
+                int N = activation->N;
+                int splits = activation->splits;
+                int fmb = activation->fmb;
+                int bfm = activation->bfm;
+                int H = activation->H;
+                int W = activation->W;
 #if defined(LIBXS_VLA)
-        typedef element_type (*LIBXS_RESTRICT handle_data_type)[splits][fmb][H][W][bfm];
-        typedef element_type (*LIBXS_RESTRICT user_data_type)[splits][fmb*bfm][H][W];
-        const handle_data_type handle_data = (handle_data_type)activation->data;
-        const user_data_type user_data = (user_data_type)data;
+                typedef element_type (*LIBXS_RESTRICT handle_data_type)[splits][fmb][H][W][bfm];
+                typedef element_type (*LIBXS_RESTRICT user_data_type)[splits][fmb*bfm][H][W];
+                const handle_data_type handle_data = (handle_data_type)activation->data;
+                const user_data_type user_data = (user_data_type)data;
 #else
-        const element_type *const handle_data = (const element_type*)activation->data;
-        element_type *const user_data = (element_type*)data;
-        unsigned int hindexn[6], uindexn[5];
-        unsigned int hshape[6], ushape[5];
-        /* arrays must be initialized separately to avoid warning about values not computable at init.-time */
-        hshape[0] = bfm; hshape[1] = W; hshape[2] = H; hshape[3] = fmb; hshape[4] = splits; hshape[5] = N;
-        ushape[0] = W; ushape[1] = H; ushape[2] = fmb * bfm; ushape[3] = splits; ushape[4] = N;
+                const element_type *const handle_data = (const element_type*)activation->data;
+                element_type *const user_data = (element_type*)data;
+                unsigned int hindexn[6], uindexn[5];
+                unsigned int hshape[6], ushape[5];
+                /* arrays must be initialized separately to avoid warning about values not computable at init.-time */
+                hshape[0] = bfm; hshape[1] = W; hshape[2] = H; hshape[3] = fmb; hshape[4] = splits; hshape[5] = N;
+                ushape[0] = W; ushape[1] = H; ushape[2] = fmb * bfm; ushape[3] = splits; ushape[4] = N;
 #endif
-        for (i1 = 0; i1 < N; ++i1) {
-          for (i2 = 0; i2 < splits; ++i2) {
-            for (i3 = 0; i3 < fmb; ++i3) {
-              for (i4 = 0; i4 < H; ++i4) {
-                for (i5 = 0; i5 < W; ++i5) {
-                  for (i6 = 0; i6 < bfm; ++i6) {
+                for (i1 = 0; i1 < N; ++i1) {
+                  for (i2 = 0; i2 < splits; ++i2) {
+                    for (i3 = 0; i3 < fmb; ++i3) {
+                      for (i4 = 0; i4 < H; ++i4) {
+                        for (i5 = 0; i5 < W; ++i5) {
+                          for (i6 = 0; i6 < bfm; ++i6) {
 #if defined(LIBXS_VLA)
-                    user_data[i1][i2][i3*bfm+i6][i4][i5] = handle_data[i1][i2][i3][i4][i5][i6];
+                            user_data[i1][i2][i3*bfm+i6][i4][i5] = handle_data[i1][i2][i3][i4][i5][i6];
 #else
-                    size_t h, u;
-                    /* arrays must be initialized separately to avoid warning about values not computable at init.-time */
-                    hindexn[0] = i6; hindexn[1] = i5; hindexn[2] = i4; hindexn[3] = i3; hindexn[4] = i2; hindexn[5] = i1;
-                    uindexn[0] = i5; uindexn[1] = i4; uindexn[2] = i3 * bfm + i6; uindexn[3] = i2; uindexn[4] = i1;
-                    LIBXS_CALC_INDEX1(size_t, h, 6, hindexn, hshape);
-                    LIBXS_CALC_INDEX1(size_t, u, 5, uindexn, ushape);
-                    user_data[u] = handle_data[h];
+                            size_t h, u;
+                            /* arrays must be initialized separately to avoid warning about values not computable at init.-time */
+                            hindexn[0] = i6; hindexn[1] = i5; hindexn[2] = i4; hindexn[3] = i3; hindexn[4] = i2; hindexn[5] = i1;
+                            uindexn[0] = i5; uindexn[1] = i4; uindexn[2] = i3 * bfm + i6; uindexn[3] = i2; uindexn[4] = i1;
+                            LIBXS_CALC_INDEX1(size_t, h, 6, hindexn, hshape);
+                            LIBXS_CALC_INDEX1(size_t, u, 5, uindexn, ushape);
+                            user_data[u] = handle_data[h];
 #endif
+                          }
+                        }
+                      }
+                    }
                   }
                 }
+              } break;
+              default: {
+                status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
               }
             }
+          } break;
+          default: {
+            status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
           }
         }
       } break;
@@ -692,7 +734,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_activation(const libxs_dn
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_ACTIVATION;
   }
 
   return status;
@@ -865,16 +907,17 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_input_activation(libxs_dnn_c
       && handle->ifhp == activation->H
       && handle->ifmblock == activation->bfm
       && handle->blocksifm == activation->fmb
-      && handle->datatype == activation->datatype)
+      && handle->datatype == activation->datatype
+      && handle->format == activation->format )
     {
       handle->input = (libxs_dnn_activation*)activation;
     }
     else {
-      status = LIBXS_DNN_ERR_MISMATCH_LAYER;
+      status = LIBXS_DNN_ERR_MISMATCH_ACTIVATION;
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_HANDLE_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_ACTIVATION;
   }
 
   return status;
@@ -899,11 +942,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_output_activation(libxs_dnn_
       handle->output = (libxs_dnn_activation*)activation;
     }
     else {
-      status = LIBXS_DNN_ERR_MISMATCH_LAYER;
+      status = LIBXS_DNN_ERR_MISMATCH_ACTIVATION;
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_HANDLE_LAYER;
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_ACTIVATION;
   }
 
   return status;

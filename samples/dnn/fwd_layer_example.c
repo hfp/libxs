@@ -53,8 +53,10 @@ typedef struct {
   int ofwp;
   int ofh;
   int ofw;
-  int pad_h;
-  int pad_w;
+  int pad_h_in;
+  int pad_w_in;
+  int pad_h_out;
+  int pad_w_out;
   int kh;
   int kw;
   int stride_h;
@@ -122,19 +124,19 @@ LIBXS_INLINE void compare_buf(float* ref, float* test, long size, correctness_t*
 
 LIBXS_INLINE void naive_conv_fp(naive_conv_t* param, const float* input, float* output, const float* filter)
 {
-  int nImg  = param->nImg;
-  int nIfm = param->nIfm;
-  int nOfm = param->nOfm;
-  int ifhp  = param->ifhp;
-  int ifwp  = param->ifwp;
-  int ofhp  = param->ofhp;
-  int ofwp  = param->ofwp;
-  int ofh   = param->ofh;
-  int ofw   = param->ofw;
-  int pad_h = param->pad_h;
-  int pad_w = param->pad_w;
-  int kh    = param->kh;
-  int kw    = param->kw;
+  int nImg      = param->nImg;
+  int nIfm      = param->nIfm;
+  int nOfm      = param->nOfm;
+  int ifhp      = param->ifhp;
+  int ifwp      = param->ifwp;
+  int ofhp      = param->ofhp;
+  int ofwp      = param->ofwp;
+  int ofh       = param->ofh;
+  int ofw       = param->ofw;
+  int pad_h_out = param->pad_h_out;
+  int pad_w_out = param->pad_w_out;
+  int kh        = param->kh;
+  int kw        = param->kw;
   int stride_h  = param->stride_h;
   int stride_w  = param->stride_w;
   int nSplits   = param->nSplits;
@@ -143,7 +145,7 @@ LIBXS_INLINE void naive_conv_fp(naive_conv_t* param, const float* input, float* 
 #if defined(__INTEL_COMPILER)
   float (*LIBXS_RESTRICT  input_t)[nIfm][ifhp][ifwp] = (float(*)[*][*][*])input;
   float (*LIBXS_RESTRICT filter_t)[nIfm][kh][kw]     = (float(*)[*][*][*])filter;
-  float (*LIBXS_RESTRICT output_t)[nOfm][ofhp][ofwp] = (float(*)[*][*][*])(output + (pad_w * ofwp + pad_h));
+  float (*LIBXS_RESTRICT output_t)[nOfm][ofhp][ofwp] = (float(*)[*][*][*])(output + (pad_w_out * ofwp + pad_h_out));
 #elif defined(LIBXS_VLA)
   typedef float (*LIBXS_RESTRICT  input_type)[nIfm][ifhp][ifwp];
   typedef float (*LIBXS_RESTRICT filter_type)[nIfm][kh][kw];
@@ -203,7 +205,7 @@ int main(int argc, char* argv[])
 {
   float *naive_input, *naive_output, *naive_filter, *naive_libxs_output;
   int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
-  int stride_h, stride_w, pad_h, pad_w;
+  int stride_h, stride_w, pad_h_out, pad_w_out;
   naive_conv_t naive_param;
   correctness_t norms;
 
@@ -260,16 +262,16 @@ int main(int argc, char* argv[])
 
   stride_w = stride;
   stride_h = stride;
-  pad_h = pad;
-  pad_w = pad;
+  pad_h_out = pad;
+  pad_w_out = pad;
 
   /* deriving some values for naive code */
   ofh = (ifh - kh) / stride_h + 1;
   ofw = (ifw - kw) / stride_w + 1;
   ifhp = ifh;
   ifwp = ifw;
-  ofhp = ofh + 2 * pad_h;
-  ofwp = ofw + 2 * pad_w;
+  ofhp = ofh + 2 * pad_h_out;
+  ofwp = ofw + 2 * pad_w_out;
 
   /* set struct for naive convolution */
   naive_param.nImg = nImg;
@@ -281,8 +283,10 @@ int main(int argc, char* argv[])
   naive_param.ofwp = ofwp;
   naive_param.ofh = ofh;
   naive_param.ofw = ofw;
-  naive_param.pad_h = pad_h;
-  naive_param.pad_w = pad_w;
+  naive_param.pad_h_in = 0;
+  naive_param.pad_w_in = 0; 
+  naive_param.pad_h_out = pad_h_out;
+  naive_param.pad_w_out = pad_w_out;
   naive_param.kh = kh;
   naive_param.kw = kw;
   naive_param.stride_h = stride_h;
@@ -325,11 +329,18 @@ int main(int argc, char* argv[])
   conv_desc.S = kw;
   conv_desc.u = stride_h;
   conv_desc.v = stride_w;
-  /* @TODO we need to change the interface to provide intut and output padding! */
-  conv_desc.pad_h = pad_h;
-  conv_desc.pad_w = pad_w;
+  /* @TODO we need to change the interface to provide CAFFE compatible padding! */
+  conv_desc.pad_h_in = 0;
+  conv_desc.pad_w_in = 0;
+  conv_desc.pad_h_out = pad_h_out;
+  conv_desc.pad_w_out = pad_w_out;
   conv_desc.splits = nSplits;
-  libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, LIBXS_DNN_DATATYPE_FP32, LIBXS_DNN_CONV_ALGO_DIRECT, &status );
+  conv_desc.algo = LIBXS_DNN_CONV_ALGO_DIRECT;
+  conv_desc.format = LIBXS_DNN_CONV_FORMAT_LIBXS;
+  conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+  conv_desc.datatype = LIBXS_DNN_DATATYPE_FP32;
+
+  libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS layers */
@@ -341,7 +352,7 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
-  CHKERR_LIBXS_DNN( libxs_dnn_copyin_activation( libxs_input, (void*)naive_input ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_copyin_activation( libxs_input, (void*)naive_input, LIBXS_DNN_CONV_FORMAT_NCHW ) );
   CHKERR_LIBXS_DNN( libxs_dnn_zero_activation( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter ) );
 
@@ -368,7 +379,7 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads ) );
   }
   /* copy out data */
-  CHKERR_LIBXS_DNN( libxs_dnn_copyout_activation( libxs_output, (void*)naive_libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_copyout_activation( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_CONV_FORMAT_NCHW ) );
 
   /* compare */
   compare_buf(naive_output, naive_libxs_output, nImg*nOfm*ofhp*ofwp, &norms);
