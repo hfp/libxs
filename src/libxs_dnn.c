@@ -27,7 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_main.h"
-#include "libxs_dnn_conv_fwd.h"
+#include "libxs_dnn_conv_fwd_custom.h"
 #include <libxs_malloc.h>
 #include <libxs_sync.h>
 

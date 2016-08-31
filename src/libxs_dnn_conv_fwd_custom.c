@@ -26,7 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_dnn_conv_fwd.h"
+#include "libxs_dnn_conv_fwd_custom.h"
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_fp32_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {

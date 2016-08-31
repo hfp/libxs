@@ -208,10 +208,10 @@ OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILE
 OBJFILES_GEN_CONV_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_CONV_BIN))))
 OBJFILES_HST = $(BLDDIR)/intel64/libxs_main.o \
                $(BLDDIR)/intel64/libxs_gemm.o $(BLDDIR)/intel64/libxs_trans.o \
-               $(BLDDIR)/intel64/libxs_dnn.o $(BLDDIR)/intel64/libxs_dnn_conv_fwd.o
+               $(BLDDIR)/intel64/libxs_dnn.o $(BLDDIR)/intel64/libxs_dnn_conv_fwd_custom.o
 OBJFILES_MIC = $(BLDDIR)/mic/libxs_main.o \
                $(BLDDIR)/mic/libxs_gemm.o $(BLDDIR)/mic/libxs_trans.o \
-               $(BLDDIR)/mic/libxs_dnn.o $(BLDDIR)/mic/libxs_dnn_conv_fwd.o \
+               $(BLDDIR)/mic/libxs_dnn.o $(BLDDIR)/mic/libxs_dnn_conv_fwd_custom.o \
                $(BLDDIR)/mic/libxs_malloc.o $(BLDDIR)/mic/libxs_sync.o \
                $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o
 KERNELOBJS_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
