@@ -316,6 +316,8 @@ The tables are distinct between single-precision and double-precision, but eithe
 
 The TRY counter represents all attempts to register statically generated kernels and all attempts to dynamically generate and register kernels. The JIT and STA counters distinct the aforementioned event into dynamically (JIT) and statically (STA) generated code but also count only actually registered kernels. In case the capacity (O(*n*)&#160;=&#160;10<sup>5</sup>) of the code registry is exhausted, no more kernels can be registered although further attempts are not prevented. Registering many kernels (O(*n*)&#160;=&#160;10<sup>3</sup>) may ramp the number of hash key collisions (COL), which can degrade performance. The latter is prevented if the small thread-local cache is effectively utilized.
 
+Since explicitly JIT-generated code (`libxs_?mmdispatch`) does not fall under the THRESHOLD, the above table may be extended by one line if large kernels have been requested. This a sign of abusing the library since such kernel code may not be cache-blocked, and it might be better to implement a threshold-criterion (customized dispatch) or to look at "medium-sized" GEMM routines (`libxs_?gemm_omp`) already performing a tiled multiplication.
+
 **NOTE**: setting LIBXS_VERBOSE to a negative value will dump each generated JIT kernel to a file with each file being named similar to the function name shown in [Intel&#160;VTune](#profiling).
 
 ## Performance
@@ -327,7 +329,7 @@ source /path/to/vtune_amplifier/amplxe-vars.sh
 make SYM=1
 ```
 
-In the above example, the root directory is automatically determined from an environment variable (VTUNE_AMPLIFIER_\*_DIR), which is present after source'ing the Intel&#160;VTune environment, but it can be manually provided as well (`make VTUNEROOT=/path/to/vtune_amplifier`). Symbols are actually not required to display kernel names for the dynamically generated code, however enabling symbols makes the analysis much more useful for the rest of the (static) code, and hence it has been made a prerequisite. For example, when "call stacks" are collected it is possible to find out where the JIT code has been invoked by the application:
+Above, the root directory is automatically determined from the environment (VTUNE_AMPLIFIER_\*_DIR). This variable is present after source'ing the Intel&#160;VTune environment, but it can be manually provided as well (`make VTUNEROOT=/path/to/vtune_amplifier`). Symbols are actually not required to display kernel names for the dynamically generated code, however enabling symbols makes the analysis much more useful for the rest of the (static) code, and hence it has been made a prerequisite. For example, when "call stacks" are collected it is possible to find out where the JIT code has been invoked by the application:
 
 ```
 amplxe-cl -r result-directory -data-limit 0 -collect advanced-hotspots \
