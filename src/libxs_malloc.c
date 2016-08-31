@@ -259,10 +259,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
 # endif
 #else
         const int xflags = (0 != (LIBXS_MALLOC_FLAG_X & flags) ? (PROT_READ | PROT_WRITE | PROT_EXEC) : (PROT_READ | PROT_WRITE));
-        alloc_alignment = 0 <= alignment ? libxs_alignment(size, (size_t)alignment) : ((size_t)(-alignment));
-        alloc_size = internal_size + alloc_alignment - 1;
-        alloc_failed = MAP_FAILED;
-        buffer = (char*)mmap(0, alloc_size, xflags,
+        const int mflags =
 # if defined(__APPLE__) && defined(__MACH__)
           MAP_PRIVATE | MAP_ANON
 # else
@@ -274,13 +271,17 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
 # if defined(MAP_HUGETLB)
           | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? 0 : MAP_HUGETLB)
 # endif
+# if defined(MAP_32BIT)
+          | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? MAP_32BIT : 0)
+# endif
 # if defined(MAP_LOCKED) && 0
           | MAP_LOCKED
 # endif
-# if defined(MAP_32BIT)
-          | MAP_32BIT
-# endif
-          , -1, 0);
+        ;
+        alloc_alignment = 0 <= alignment ? libxs_alignment(size, (size_t)alignment) : ((size_t)(-alignment));
+        alloc_size = internal_size + alloc_alignment - 1;
+        alloc_failed = MAP_FAILED;
+        buffer = (char*)mmap(0, alloc_size, xflags, mflags, -1, 0);
         if (alloc_failed != buffer) {
 # if !defined(NDEBUG)
           if (0 !=
