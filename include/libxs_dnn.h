@@ -86,24 +86,6 @@ typedef enum libxs_dnn_conv_fuse_ops {
 #endif
 } libxs_dnn_conv_fuse_ops;
 
-typedef enum libxs_dnn_conv_format{
-  /* use LIBXS internal format, we need to copy data into that */
-  LIBXS_DNN_CONV_FORMAT_LIBXS = 1,
-  /* use NHWC format internally, this allows no-copy operations */
-  LIBXS_DNN_CONV_FORMAT_NHWC = 2,
-  /* use NCHW format internally, this will include shadow copies, not preferred */
-  LIBXS_DNN_CONV_FORMAT_NCHW = 4,
-  /* use RSCK format internally, this allows no-copy operations  */
-  LIBXS_DNN_CONV_FORMAT_RSCK = 8,
-  /* use KCRS format internally, this will include shadow copies, not preferred */
-  LIBXS_DNN_CONV_FORMAT_KCRS = 16,
-  /* use ptr copy when copying in -> no copy takes place, this is just an additional option */
-  LIBXS_DNN_CONV_FORMAT_PTR = 32,
-  /* now some combinded types */
-  LIBXS_DNN_CONV_FORMAT_NHWC_PTR = LIBXS_DNN_CONV_FORMAT_NHWC | LIBXS_DNN_CONV_FORMAT_PTR,
-  LIBXS_DNN_CONV_FORMAT_RSCK_PTR = LIBXS_DNN_CONV_FORMAT_RSCK | LIBXS_DNN_CONV_FORMAT_PTR
-} libxs_dnn_conv_format;
-
 /** Type of algorithm used for convolutions. */
 typedef enum libxs_dnn_conv_algo {
   /** let the library decide */
