@@ -91,6 +91,8 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: Unsupported destination format when copying data!";
     case LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT:
       return "LIBXS DNN Error: Unsupported source format when copying data!";
+    case LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE:
+      return "LIBXS DNN Error: Unsupported format when requesting a convolution!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occured!";
   }
@@ -130,7 +132,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
     /* at min. we have 1 split */
     handle->desc.splits = (conv_desc.splits <= 1) ? 1 : conv_desc.splits;
     handle->datatype = conv_desc.datatype;
-    handle->algo = conv_desc.algo;
+    handle->algo = LIBXS_DNN_CONV_ALGO_DIRECT;
     handle->format = conv_desc.format;
     handle->fuse_ops = conv_desc.fuse_ops;
     /* derive additional values */
@@ -990,7 +992,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_CONV_KIND_FWD: {
-        libxs_dnn_convolve_st_fwd(handle, start_thread, tid, num_threads);
+        switch (handle->format) {
+          case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+            libxs_dnn_convolve_st_fwd_custom(handle, start_thread, tid, num_threads);
+          } break;
+          default: {
+            status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+          }
+        }
       } break;
       default: {
         status = LIBXS_DNN_ERR_INVALID_KIND;
