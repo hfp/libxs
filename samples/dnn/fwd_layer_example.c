@@ -235,8 +235,8 @@ int main(int argc, char* argv[])
 
   libxs_dnn_conv_desc conv_desc;
   libxs_dnn_conv_handle* libxs_handle;
-  libxs_dnn_activation* libxs_input;
-  libxs_dnn_activation* libxs_output;
+  libxs_dnn_buffer* libxs_input;
+  libxs_dnn_buffer* libxs_output;
   libxs_dnn_filter* libxs_filter;
   libxs_dnn_err_t status;
 
@@ -336,7 +336,8 @@ int main(int argc, char* argv[])
   conv_desc.pad_w_out = pad_w_out;
   conv_desc.splits = nSplits;
   conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
-  conv_desc.format = LIBXS_DNN_CONV_FORMAT_LIBXS;
+  conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
+  conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
   conv_desc.datatype = LIBXS_DNN_DATATYPE_FP32;
 
@@ -344,21 +345,21 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS layers */
-  libxs_input = libxs_dnn_create_input_activation_check( libxs_handle, &status );
+  libxs_input = libxs_dnn_create_input_buffer_check( libxs_handle, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_create_output_activation_check( libxs_handle, &status );
+  libxs_output = libxs_dnn_create_output_buffer_check( libxs_handle, &status );
   CHKERR_LIBXS_DNN( status );
   libxs_filter = libxs_dnn_create_filter_check( libxs_handle, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
-  CHKERR_LIBXS_DNN( libxs_dnn_copyin_activation( libxs_input, (void*)naive_input, LIBXS_DNN_CONV_FORMAT_NCHW ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_zero_activation( libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_input, (void*)naive_input, LIBXS_DNN_CONV_FORMAT_NCHW ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter ) );
 
   /* bind layer to handle */
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_input_activation( libxs_handle, libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_output_activation( libxs_handle, libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
 
   printf("##########################################\n");
@@ -379,7 +380,7 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads ) );
   }
   /* copy out data */
-  CHKERR_LIBXS_DNN( libxs_dnn_copyout_activation( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_CONV_FORMAT_NCHW ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_CONV_FORMAT_NCHW ) );
 
   /* compare */
   compare_buf(naive_output, naive_libxs_output, nImg*nOfm*ofhp*ofwp, &norms);
@@ -419,8 +420,8 @@ int main(int argc, char* argv[])
      (flops*1e-9)/l_total, norms.max_rel_err, norms.max_abs_err, norms.l2_rel_err, norms.one_norm_ref, norms.one_norm_test );
 
   /* clean-up */
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_activation( libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_activation( libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_handle( libxs_handle ) );
 

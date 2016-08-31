@@ -33,7 +33,7 @@
 
 /** Opaque handles which represents convolutions and LIBXS datatypes */
 typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_handle libxs_dnn_conv_handle;
-typedef struct LIBXS_RETARGETABLE libxs_dnn_activation libxs_dnn_activation;
+typedef struct LIBXS_RETARGETABLE libxs_dnn_buffer libxs_dnn_buffer;
 typedef struct LIBXS_RETARGETABLE libxs_dnn_bias libxs_dnn_bias;
 typedef struct LIBXS_RETARGETABLE libxs_dnn_filter libxs_dnn_filter;
 typedef unsigned int libxs_dnn_err_t;
@@ -47,14 +47,14 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_INVALID_BLOCKING           100003
 #define LIBXS_DNN_ERR_INVALID_HANDLE             100004
 #define LIBXS_DNN_ERR_DATA_NOT_BOUND             100005
-#define LIBXS_DNN_ERR_CREATE_ACTIVATION          100006
-#define LIBXS_DNN_ERR_INVALID_ACTIVATION         100007
+#define LIBXS_DNN_ERR_CREATE_BUFFER              100006
+#define LIBXS_DNN_ERR_INVALID_BUFFER             100007
 #define LIBXS_DNN_ERR_CREATE_FILTER              100008
 #define LIBXS_DNN_ERR_INVALID_FILTER             100009
 #define LIBXS_DNN_ERR_CREATE_BIAS                100010
 #define LIBXS_DNN_ERR_INVALID_BIAS               100011
-#define LIBXS_DNN_ERR_MISMATCH_ACTIVATION        100012
-#define LIBXS_DNN_ERR_INVALID_HANDLE_ACTIVATION  100013
+#define LIBXS_DNN_ERR_MISMATCH_BUFFER            100012
+#define LIBXS_DNN_ERR_INVALID_HANDLE_BUFFER      100013
 #define LIBXS_DNN_ERR_MISMATCH_FILTER            100014
 #define LIBXS_DNN_ERR_INVALID_HANDLE_FILTER      100015
 #define LIBXS_DNN_ERR_INVALID_KIND               100016
@@ -62,6 +62,7 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT     100018
 #define LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT     100019
 #define LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE    100020
+#define LIBXS_DNN_ERR_INVALID_FORMAT_KCRS        100021
 
 /** Kinds of supported convolution operations. */
 typedef enum libxs_dnn_conv_kind {
@@ -92,8 +93,12 @@ typedef enum libxs_dnn_conv_format{
   LIBXS_DNN_CONV_FORMAT_NHWC = 2,
   /* use NCHW format internally, this will include shadow copies, not preferred */
   LIBXS_DNN_CONV_FORMAT_NCHW = 4,
+  /* use RSCK format internally, this allows no-copy operations  */
+  LIBXS_DNN_CONV_FORMAT_RSCK = 8,
+  /* use KCRS format internally, this will include shadow copies, not preferred */
+  LIBXS_DNN_CONV_FORMAT_KCRS = 16,
   /* use ptr copy when copying in -> no copy takes place, this is just an additional option */
-  LIBXS_DNN_CONV_FORMAT_PTR = 8
+  LIBXS_DNN_CONV_FORMAT_PTR = 32
 } libxs_dnn_conv_format;
 
 /** Type of algorithm used for convolutions. */
@@ -114,24 +119,25 @@ typedef enum libxs_dnn_datatype {
 
 /** Structure which describes the input and output of data (DNN). */
 typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
-  int N;                                /* number of images in mini-batch */
-  int C;                                /* number of input feature maps */
-  int H;                                /* height of input image */
-  int W;                                /* width of input image */
-  int K;                                /* number of output feature maps */
-  int R;                                /* height of filter kernel */
-  int S;                                /* width of filter kernel */
-  int u;                                /* vertical stride */
-  int v;                                /* horizontal stride */
-  int pad_h_in;                         /* height of zero-padding in input activation */
-  int pad_w_in;                         /* width of zero-padding in input activation */
-  int pad_h_out;                        /* height of zero-padding in output activation */
-  int pad_w_out;                        /* width of zero-padding in output activation */
-  int splits;                           /* number of splits */
-  libxs_dnn_conv_algo algo;           /* convolution algorithm used */
-  libxs_dnn_conv_format format;       /* format which is for activation buffers */
-  libxs_dnn_conv_fuse_ops fuse_ops;   /* used ops into convolutoions */
-  libxs_dnn_datatype datatype;        /* dataytpes use for all buffers */
+  int N;                                       /* number of images in mini-batch */
+  int C;                                       /* number of input feature maps */
+  int H;                                       /* height of input image */
+  int W;                                       /* width of input image */
+  int K;                                       /* number of output feature maps */
+  int R;                                       /* height of filter kernel */
+  int S;                                       /* width of filter kernel */
+  int u;                                       /* vertical stride */
+  int v;                                       /* horizontal stride */
+  int pad_h_in;                                /* height of zero-padding in input buffer */
+  int pad_w_in;                                /* width of zero-padding in input buffer */
+  int pad_h_out;                               /* height of zero-padding in output buffer */
+  int pad_w_out;                               /* width of zero-padding in output buffer */
+  int splits;                                  /* number of splits */
+  libxs_dnn_conv_algo algo;                  /* convolution algorithm used */
+  libxs_dnn_conv_format buffer_format;       /* format which is for buffer buffers */
+  libxs_dnn_conv_format filter_format;       /* format which is for filter buffers */
+  libxs_dnn_conv_fuse_ops fuse_ops;          /* used ops into convolutoions */
+  libxs_dnn_datatype datatype;               /* dataytpes use for all buffers */
 } libxs_dnn_conv_desc;
 
 /** get string of error code */
@@ -148,35 +154,35 @@ LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
 /** Release the given convolution handle. */
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_dnn_conv_handle* handle);
 
-/** Create activations, filters and bias (non-NULL if successful) */
-LIBXS_API libxs_dnn_activation* libxs_dnn_create_input_activation(const libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_activation* libxs_dnn_create_output_activation(const libxs_dnn_conv_handle* handle);
+/** Create buffers, filters and bias (non-NULL if successful) */
+LIBXS_API libxs_dnn_buffer* libxs_dnn_create_input_buffer(const libxs_dnn_conv_handle* handle);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_create_output_buffer(const libxs_dnn_conv_handle* handle);
 LIBXS_API libxs_dnn_filter* libxs_dnn_create_filter(const libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_bias* libxs_dnn_create_bias(const libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_activation* libxs_dnn_link_input_activation(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format);
-LIBXS_API libxs_dnn_activation* libxs_dnn_link_output_activation(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format);
+LIBXS_API libxs_dnn_bias*   libxs_dnn_create_bias(const libxs_dnn_conv_handle* handle);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format);
 
-LIBXS_API libxs_dnn_activation* libxs_dnn_create_input_activation_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_activation* libxs_dnn_create_output_activation_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_create_input_buffer_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_create_output_buffer_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_filter* libxs_dnn_create_filter_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_bias* libxs_dnn_create_bias_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_activation* libxs_dnn_link_input_activation_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_activation* libxs_dnn_link_output_activation_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_bias*   libxs_dnn_create_bias_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
 
 /** Bind layers, filters and bias to convolutions operation */
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_input_activation(libxs_dnn_conv_handle* handle, const libxs_dnn_activation* input);
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_output_activation(libxs_dnn_conv_handle* handle, const libxs_dnn_activation* output);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_input_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* input);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_output_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* output);
 LIBXS_API libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_conv_handle* handle, const libxs_dnn_filter* filter);
 
 /** Release layers, filters and bias from convolutions operation */
 #if 0
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_input_activation(libxs_dnn_conv_handle* handle, const libxs_dnn_activation* input);
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_output_activation(libxs_dnn_conv_handle* handle, const libxs_dnn_activation* output);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_input_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* input);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_output_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* output);
 LIBXS_API libxs_dnn_err_t libxs_dnn_release_filter(libxs_dnn_conv_handle* handle, const libxs_dnn_filter* filter
 #endif
 
 /** Release the given layer, filters, bias handle. */
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_activation(const libxs_dnn_activation* activation);
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_buffer* buffer);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_filter(const libxs_dnn_filter* filter);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias* bias);
 
@@ -185,17 +191,17 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias* bias);
  * The index specifies the actual channel number, and an eventual
  * padding is defined by the handle (pitch/stride).
  */
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_activation(const libxs_dnn_activation* activation, const void* data, libxs_dnn_conv_format in_format);
+LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buffer* buffer, const void* data, libxs_dnn_conv_format in_format);
 LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter, const void* data);
 /*LIBXS_API libxs_dnn_err_t libxs_conv_copyin_bias(const libxs_dnn_bias* bias, const void* data);*/
-LIBXS_API libxs_dnn_err_t libxs_dnn_zero_activation(const libxs_dnn_activation* layer);
+LIBXS_API libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffer* layer);
 
 /**
  * Copy-out into a plain format such as output := [img][splits][ofm][ifm].
  * The index specifies the actual channel number, and an eventual
  * padding is defined by the handle (pitch/stride).
  */
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_activation(const libxs_dnn_activation* activation, void* data, libxs_dnn_conv_format out_format);
+LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_buffer* buffer, void* data, libxs_dnn_conv_format out_format);
 LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filter, void* data);
 /*LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_bias(const libxs_dnn_bias* bias, void* data);*/
 /** Run the convolution identified by the handle; may use threads internally. */
