@@ -32,6 +32,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <stdlib.h>
 #if !defined(NDEBUG)
 # include <stdio.h>
 #endif
@@ -67,61 +68,92 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_otrans(void *LIBXS_RESTRICT out, c
 }
 
 
-LIBXS_API_DEFINITION void libxs_otrans(void* out, const void* in, unsigned int typesize,
+LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
-  LIBXS_INIT
+  int result = EXIT_SUCCESS;
 #if !defined(NDEBUG) /* library code is expected to be mute */
-  if (ld < m && ldo < n) {
-    fprintf(stderr, "LIBXS: the leading dimensions of the transpose are too small!\n");
-  }
-  else if (ld < m) {
-    fprintf(stderr, "LIBXS: the leading dimension of the transpose input is too small!\n");
-  }
-  else if (ldo < n) {
-    fprintf(stderr, "LIBXS: the leading dimension of the transpose output is too small!\n");
-  }
+  static LIBXS_TLS int trans_error = 0;
 #endif
-  internal_otrans(out, in, typesize, 0, m, 0, n, ld, ldo);
+  LIBXS_INIT
+
+  if (ld >= m && ldo >= n) {
+    if (out != in) {
+      internal_otrans(out, in, typesize, 0, m, 0, n, ld, ldo);
+    }
+    else if (ld == ldo) {
+      libxs_itrans(out, typesize, m, n, ld);
+    }
+    else {
+#if !defined(NDEBUG) /* library code is expected to be mute */
+      if (0 == trans_error) {
+        fprintf(stderr, "LIBXS: output location of the transpose must be different from the input!\n");
+        trans_error = 1;
+      }
+#endif
+      result = EXIT_FAILURE;
+    }
+  }
+  else {
+#if !defined(NDEBUG) /* library code is expected to be mute */
+    if (0 == trans_error) {
+      if (ld < m && ldo < n) {
+        fprintf(stderr, "LIBXS: the leading dimensions of the transpose are too small!\n");
+      }
+      else if (ld < m) {
+        fprintf(stderr, "LIBXS: the leading dimension of the transpose input is too small!\n");
+      }
+      else {
+        assert(ldo < n);
+        fprintf(stderr, "LIBXS: the leading dimension of the transpose output is too small!\n");
+      }
+      trans_error = 1;
+    }
+#endif
+    result = EXIT_FAILURE;
+  }
+
+  return result;
 }
 
 
-LIBXS_API_DEFINITION void libxs_itrans(void* inout, unsigned int typesize,
+LIBXS_API_DEFINITION int libxs_itrans(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
   LIBXS_UNUSED(inout); LIBXS_UNUSED(typesize); LIBXS_UNUSED(m); LIBXS_UNUSED(n); LIBXS_UNUSED(ld);
-  assert(0/*Not yet implemented!*/);
+  assert(0/*TODO: not yet implemented!*/);
   LIBXS_INIT
+  return EXIT_FAILURE;
 }
 
 
 #if defined(LIBXS_BUILD)
 
-LIBXS_API_DEFINITION void libxs_sotrans(float* out, const float* in,
+LIBXS_API_DEFINITION int libxs_sotrans(float* out, const float* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
-  libxs_otrans(out, in, sizeof(float), m, n, ld, ldo);
+  return libxs_otrans(out, in, sizeof(float), m, n, ld, ldo);
 }
 
 
-LIBXS_API_DEFINITION void libxs_dotrans(double* out, const double* in,
+LIBXS_API_DEFINITION int libxs_dotrans(double* out, const double* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
-  libxs_otrans(out, in, sizeof(double), m, n, ld, ldo);
+  return libxs_otrans(out, in, sizeof(double), m, n, ld, ldo);
 }
 
 
-LIBXS_API_DEFINITION void libxs_sitrans(float* inout,
+LIBXS_API_DEFINITION int libxs_sitrans(float* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
-  libxs_itrans(inout, sizeof(float), m, n, ld);
+  return libxs_itrans(inout, sizeof(float), m, n, ld);
 }
 
 
-LIBXS_API_DEFINITION void libxs_ditrans(double* inout,
+LIBXS_API_DEFINITION int libxs_ditrans(double* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
-  libxs_itrans(inout, sizeof(double), m, n, ld);
+  return libxs_itrans(inout, sizeof(double), m, n, ld);
 }
 
 #endif /*defined(LIBXS_BUILD)*/

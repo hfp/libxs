@@ -132,59 +132,59 @@ LIBXS_API libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* d
 LIBXS_API void libxs_release_kernel(const void* jit_code);
 
 /** Matrix transposition (out-of-place form). */
-LIBXS_API void libxs_otrans(void* out, const void* in, unsigned int typesize,
+LIBXS_API int libxs_otrans(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
 
 /** Matrix transposition (out-of-place form, single-precision). */
-LIBXS_API_INLINE void libxs_sotrans(float* out, const float* in,
+LIBXS_API_INLINE int libxs_sotrans(float* out, const float* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ libxs_otrans(out, in, sizeof(float), m, n, ld, ldo); }
+{ return libxs_otrans(out, in, sizeof(float), m, n, ld, ldo); }
 #endif
 
 /** Matrix transposition (out-of-place form, double-precision). */
-LIBXS_API_INLINE void libxs_dotrans(double* out, const double* in,
+LIBXS_API_INLINE int libxs_dotrans(double* out, const double* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ libxs_otrans(out, in, sizeof(double), m, n, ld, ldo); }
+{ return libxs_otrans(out, in, sizeof(double), m, n, ld, ldo); }
 #endif
 
 /** Matrix transposition, which is multi-threadable using libxsext (out-of-place form). */
-LIBXS_API void libxs_otrans_omp(void* out, const void* in, unsigned int typesize,
+LIBXS_API int libxs_otrans_omp(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
 
 /** Matrix transposition, which is multi-threadable (out-of-place form, single-precision). */
-LIBXS_API void libxs_sotrans_omp(float* out, const float* in,
+LIBXS_API int libxs_sotrans_omp(float* out, const float* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
 
 /** Matrix transposition, which is multi-threadable (out-of-place form, double-precision). */
-LIBXS_API void libxs_dotrans_omp(double* out, const double* in,
+LIBXS_API int libxs_dotrans_omp(double* out, const double* in,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo);
 
 /** Matrix transposition (in-place form). */
-LIBXS_API void libxs_itrans(void* inout, unsigned int typesize,
+LIBXS_API int libxs_itrans(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld);
 
 /** Matrix transposition (in-place form, single-precision). */
-LIBXS_API_INLINE void libxs_sitrans(float* inout,
+LIBXS_API_INLINE int libxs_sitrans(float* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ libxs_itrans(inout, sizeof(float), m, n, ld); }
+{ return libxs_itrans(inout, sizeof(float), m, n, ld); }
 #endif
 
 /** Matrix transposition (in-place form, double-precision). */
-LIBXS_API_INLINE void libxs_ditrans(double* inout,
+LIBXS_API_INLINE int libxs_ditrans(double* inout,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 #if defined(LIBXS_BUILD)
 ;
 #else
-{ libxs_itrans(inout, sizeof(double), m, n, ld); }
+{ return libxs_itrans(inout, sizeof(double), m, n, ld); }
 #endif
 
 /** Dispatched general dense matrix multiplication (single-precision); can be called from F77 code. */
@@ -344,42 +344,42 @@ public:
 };
 
 /** Matrix transposition (out-of-place form). */
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo) {
-  libxs_otrans(out, in, sizeof(T), m, n, ld, ldo);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo) {
+  return libxs_otrans(out, in, sizeof(T), m, n, ld, ldo);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
-  libxs_trans(out, in, m, n, ld, ld);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
+  return libxs_trans(out, in, m, n, ld, ld);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* out, const T* in, libxs_blasint m, libxs_blasint n) {
-  libxs_trans(out, in, m, n, m);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans(T* out, const T* in, libxs_blasint m, libxs_blasint n) {
+  return libxs_trans(out, in, m, n, m);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* out, const T* in, libxs_blasint n) {
-  libxs_trans(out, in, n, n);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans(T* out, const T* in, libxs_blasint n) {
+  return libxs_trans(out, in, n, n);
 }
 
 /** Matrix transposition, which is multi-threadable (out-of-place form). */
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans_omp(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo) {
-  libxs_otrans(out, in, sizeof(T), m, n, ld, ldo);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans_omp(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo) {
+  return libxs_otrans(out, in, sizeof(T), m, n, ld, ldo);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans_omp(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
-  libxs_trans_omp(out, in, m, n, ld, ld);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans_omp(T* out, const T* in, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
+  return libxs_trans_omp(out, in, m, n, ld, ld);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans_omp(T* out, const T* in, libxs_blasint m, libxs_blasint n) {
-  libxs_trans_omp(out, in, m, n, m);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans_omp(T* out, const T* in, libxs_blasint m, libxs_blasint n) {
+  return libxs_trans_omp(out, in, m, n, m);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans_omp(T* out, const T* in, libxs_blasint n) {
-  libxs_trans_omp(out, in, n, n);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans_omp(T* out, const T* in, libxs_blasint n) {
+  return libxs_trans_omp(out, in, n, n);
 }
 
 /** Matrix transposition (in-place form). */
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* inout, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
-  libxs_itrans(inout, sizeof(T), m, n, ld);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans(T* inout, libxs_blasint m, libxs_blasint n, libxs_blasint ld) {
+  return libxs_itrans(inout, sizeof(T), m, n, ld);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* inout, libxs_blasint m, libxs_blasint n) {
-  libxs_trans(inout, m, n, m);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans(T* inout, libxs_blasint m, libxs_blasint n) {
+  return libxs_trans(inout, m, n, m);
 }
-template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE void libxs_trans(T* inout, libxs_blasint n) {
-  libxs_trans(inout, n, n);
+template<typename T> inline/*superfluous*/ LIBXS_RETARGETABLE int libxs_trans(T* inout, libxs_blasint n) {
+  return libxs_trans(inout, n, n);
 }
 
 /** Dispatched general dense matrix multiplication (single-precision). */
