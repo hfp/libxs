@@ -237,7 +237,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         descriptor.ofw_padded = handle->ofwp;
         descriptor.ofh_rb = handle->fwd_ofh_rb;
         descriptor.ofw_rb = handle->fwd_ofw_rb;
-        descriptor.format = handle->buffer_format & handle->filter_format;
+        descriptor.format = (libxs_dnn_conv_format)(handle->buffer_format & handle->filter_format);
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
         /* TODO check JIT errors */
         handle->code_fwd[0].sconv = libxs_create_sconv_forward(&descriptor);
