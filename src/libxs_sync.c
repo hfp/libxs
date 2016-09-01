@@ -29,7 +29,14 @@
 #include <libxs_sync.h>
 #include <libxs_malloc.h>
 #include "libxs_intrinsics_x86.h"
+
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
 #include <math.h>
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
 
 #if !defined(LIBXS_SYNC_CACHELINE_SIZE)
 # define LIBXS_SYNC_CACHELINE_SIZE 64
