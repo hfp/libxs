@@ -218,7 +218,7 @@ OBJFILES_HST = $(BLDDIR)/intel64/libxs_main.o \
 OBJFILES_MIC = $(BLDDIR)/mic/libxs_main.o \
                $(BLDDIR)/mic/libxs_gemm.o $(BLDDIR)/mic/libxs_trans.o \
                $(BLDDIR)/mic/libxs_dnn.o $(BLDDIR)/mic/libxs_dnn_conv_fwd_custom.o \
-               $(BLDDIR)/mic/libxs_dnn_conv_fwd_nhwk_rsck.o \
+               $(BLDDIR)/mic/libxs_dnn_conv_fwd_nhwc_rsck.o \
                $(BLDDIR)/mic/libxs_malloc.o $(BLDDIR)/mic/libxs_sync.o \
                $(BLDDIR)/mic/libxs_trace.o $(BLDDIR)/mic/libxs_timer.o
 KERNELOBJS_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
