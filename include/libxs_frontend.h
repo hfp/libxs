@@ -156,11 +156,16 @@ typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
   const double*, double*, const int*);
 #endif
 
-#if defined(LIBXS_BUILD_EXT)
-# define LIBXS_GEMM_WEAK
-# define LIBXS_EXT_GEMM_WEAK LIBXS_ATTRIBUTE_WEAK
+#if defined(LIBXS_BUILD) && defined(__STATIC) && defined(LIBXS_GEMM_WRAP)
+# if defined(LIBXS_BUILD_EXT)
+#   define LIBXS_GEMM_WEAK
+#   define LIBXS_EXT_GEMM_WEAK LIBXS_ATTRIBUTE_WEAK
+# else
+#   define LIBXS_GEMM_WEAK LIBXS_ATTRIBUTE_WEAK
+#   define LIBXS_EXT_GEMM_WEAK
+# endif
 #else
-# define LIBXS_GEMM_WEAK LIBXS_ATTRIBUTE_WEAK
+# define LIBXS_GEMM_WEAK
 # define LIBXS_EXT_GEMM_WEAK
 #endif
 
