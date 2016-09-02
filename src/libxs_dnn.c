@@ -28,6 +28,7 @@
 ******************************************************************************/
 #include "libxs_main.h"
 #include "libxs_dnn_conv_fwd_custom_custom.h"
+#include "libxs_dnn_conv_fwd_nhwc_custom.h"
 #include "libxs_dnn_conv_fwd_nhwc_rsck.h"
 #include <libxs_malloc.h>
 #include <libxs_sync.h>
