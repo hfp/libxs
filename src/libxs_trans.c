@@ -134,7 +134,7 @@ LIBXS_API void libxsf_otrans(void*, const void*, unsigned int, libxs_blasint, li
 LIBXS_API_DEFINITION void libxsf_otrans(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ldo)
 {
-  libxsf_otrans(out, in, typesize, m, n, ld, ldo);
+  libxs_otrans(out, in, typesize, m, n, ld, ldo);
 }
 
 
