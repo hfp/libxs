@@ -303,37 +303,37 @@
           END SUBROUTINE
 
           ! Transpose a matrix (out-of-place form).
-          PURE FUNCTION libxs_otrans(output,                          &
-     &    input, typesize, m, n, ld, ldo) BIND(C)
+          PURE SUBROUTINE libxs_otrans(output,                        &
+     &    input, typesize, m, n, ld, ldo)                               &
+     &    BIND(C, NAME="libxsf_otrans")
             IMPORT LIBXS_BLASINT_KIND, C_PTR, C_INT
             INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: ld, ldo
             INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: m, n
             TYPE(C_PTR), INTENT(IN), VALUE :: output, input
             INTEGER(C_INT), INTENT(IN), VALUE :: typesize
-            INTEGER(C_INT) :: libxs_otrans
-          END FUNCTION
+          END SUBROUTINE
 
           ! Transpose a matrix (out-of-place form, single-precision).
-          FUNCTION libxs_sotrans(output,                              &
-     &    input, m, n, ld, ldo) BIND(C)
-            IMPORT LIBXS_BLASINT_KIND, C_FLOAT, C_INT
+          PURE SUBROUTINE libxs_sotrans(output,                       &
+     &    input, m, n, ld, ldo)                                         &
+     &    BIND(C, NAME="libxsf_sotrans")
+            IMPORT LIBXS_BLASINT_KIND, C_FLOAT
             INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: ld, ldo
             INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: m, n
             REAL(C_FLOAT), INTENT(OUT) :: output(ldo,*)
             REAL(C_FLOAT), INTENT(IN) :: input(ld,*)
-            INTEGER(C_INT) :: libxs_sotrans
-          END FUNCTION
+          END SUBROUTINE
 
           ! Transpose a matrix (out-of-place form, double-precision).
-          FUNCTION libxs_dotrans(output,                              &
-     &    input, m, n, ld, ldo) BIND(C)
-            IMPORT LIBXS_BLASINT_KIND, C_DOUBLE, C_INT
+          PURE SUBROUTINE libxs_dotrans(output,                       &
+     &    input, m, n, ld, ldo)                                         &
+     &    BIND(C, NAME="libxsf_dotrans")
+            IMPORT LIBXS_BLASINT_KIND, C_DOUBLE
             INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: ld, ldo
             INTEGER(LIBXS_BLASINT_KIND), INTENT(IN), VALUE :: m, n
             REAL(C_DOUBLE), INTENT(OUT) :: output(ldo,*)
             REAL(C_DOUBLE), INTENT(IN) :: input(ld,*)
-            INTEGER(C_INT) :: libxs_dotrans
-          END FUNCTION
+          END SUBROUTINE
 
           ! Impure function which returns the current clock tick of a
           ! monotonic timer source; uses a platform-specific resolution.
