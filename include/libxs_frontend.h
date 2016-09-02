@@ -116,6 +116,11 @@
 #define LIBXS_TPOSTFIX_double F64
 #define LIBXS_TPOSTFIX_float F32
 
+/** Helper macro for comparing types. */
+#define LIBXS_EQUAL(T1, T2, R) LIBXS_CONCATENATE(LIBXS_CONCATENATE(LIBXS_EQUAL_, T1), T2)(R)
+#define LIBXS_EQUAL_doubledouble(R) R
+#define LIBXS_EQUAL_floatfloat(R) R
+
 /** Check ILP64 configuration for sanity. */
 #if (defined(MKL_ILP64) && 0 == LIBXS_ILP64)
 # error "Inconsistent ILP64 configuration detected!"
@@ -133,6 +138,15 @@
 # else
 #   include <mkl.h>
 # endif
+  /** Undefine (disarm) MKL's DIRECT_CALL macros. */
+# if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
+#   if defined(sgemm_)
+#     undef sgemm_
+#   endif
+#   if defined(dgemm_)
+#     undef dgemm_
+#   endif
+# endif
 #endif
 #if (0 != LIBXS_ILP64)
 /** Fallback prototype functions served by any compliant LAPACK/BLAS (ILP64). */
@@ -141,6 +155,14 @@ typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
   const float*, const float*, const long long*, const float*, const long long*,
   const float*, float*, const long long*);
 typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
+  const char*, const char*, const long long*, const long long*, const long long*,
+  const double*, const double*, const long long*, const double*, const long long*,
+  const double*, double*, const long long*);
+LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
+  const char*, const char*, const long long*, const long long*, const long long*,
+  const float*, const float*, const long long*, const float*, const long long*,
+  const float*, float*, const long long*);
+LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
   const char*, const char*, const long long*, const long long*, const long long*,
   const double*, const double*, const long long*, const double*, const long long*,
   const double*, double*, const long long*);
@@ -154,33 +176,48 @@ typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
   const char*, const char*, const int*, const int*, const int*,
   const double*, const double*, const int*, const double*, const int*,
   const double*, double*, const int*);
+LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
+  const char*, const char*, const int*, const int*, const int*,
+  const float*, const float*, const int*, const float*, const int*,
+  const float*, float*, const int*);
+LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
+  const char*, const char*, const int*, const int*, const int*,
+  const double*, const double*, const int*, const double*, const int*,
+  const double*, double*, const int*);
 #endif
 
-#if defined(LIBXS_BUILD) && defined(__STATIC) && defined(LIBXS_GEMM_WRAP)
-# if defined(LIBXS_BUILD_EXT)
-#   define LIBXS_GEMM_WEAK
-#   define LIBXS_EXT_GEMM_WEAK LIBXS_ATTRIBUTE_WEAK
-# else
-#   define LIBXS_GEMM_WEAK LIBXS_ATTRIBUTE_WEAK
-#   define LIBXS_EXT_GEMM_WEAK
-# endif
+#if defined(LIBXS_BUILD_EXT)
+# define LIBXS_WEAK
+# define LIBXS_EXT_WEAK LIBXS_ATTRIBUTE_WEAK
+#else
+# define LIBXS_WEAK LIBXS_ATTRIBUTE_WEAK
+# define LIBXS_EXT_WEAK
+#endif
+#if defined(LIBXS_BUILD) && defined(__STATIC) /*&& defined(LIBXS_GEMM_WRAP)*/
+# define LIBXS_GEMM_WEAK LIBXS_WEAK
+# define LIBXS_EXT_GEMM_WEAK LIBXS_EXT_WEAK
 #else
 # define LIBXS_GEMM_WEAK
 # define LIBXS_EXT_GEMM_WEAK
 #endif
 
 /** The original GEMM functions (SGEMM and DGEMM). */
-LIBXS_API LIBXS_GEMM_WEAK libxs_sgemm_function libxs_original_sgemm(const void* caller);
-LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* caller);
+LIBXS_API LIBXS_GEMM_WEAK libxs_sgemm_function libxs_original_sgemm(const void* caller, libxs_sgemm_function gemm);
+LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* caller, libxs_dgemm_function gemm);
 
 /** Construct symbol name from a given real type name (float or double). */
-#define LIBXS_BLAS_GEMM_SYMBOL(REAL)  LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(REAL, gemm))(LIBXS_CALLER)
-#define LIBXS_GEMMFUNCTION_TYPE(REAL) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm_function))
-#define LIBXS_MMFUNCTION_TYPE(REAL)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmfunction))
-#define LIBXS_MMDISPATCH_SYMBOL(REAL) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, mmdispatch))
-#define LIBXS_XBLAS_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(REAL, gemm))
-#define LIBXS_XGEMM_SYMBOL(REAL)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(REAL, gemm))
-#define LIBXS_YGEMM_SYMBOL(REAL)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(REAL), _omp)
+#define LIBXS_ORIGINAL_GEMM(TYPE) LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemm))
+#if (!defined(__BLAS) || (0 != __BLAS)) && !defined(LIBXS_BUILD) && !defined(LIBXS_BUILD_EXT)
+# define LIBXS_BLAS_GEMM_SYMBOL(TYPE) LIBXS_ORIGINAL_GEMM(TYPE)(LIBXS_CALLER, LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemm)))
+#else
+# define LIBXS_BLAS_GEMM_SYMBOL(TYPE) LIBXS_ORIGINAL_GEMM(TYPE)(LIBXS_CALLER, 0)
+#endif
+#define LIBXS_GEMMFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm_function))
+#define LIBXS_MMFUNCTION_TYPE(TYPE)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmfunction))
+#define LIBXS_MMDISPATCH_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmdispatch))
+#define LIBXS_XBLAS_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(TYPE, gemm))
+#define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
+#define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
 
 /** Helper macro to account for libxs_init being already executed via GCC constructor attribute */
 #if defined(LIBXS_CTOR)
@@ -206,22 +243,22 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
   assert(0 != (M) && 0 != (N) && 0 != (K) && 0 != (A) && 0 != (B) && 0 != (C))
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (template). */
-#define LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+#define LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   const char libxs_blas_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
   const char libxs_blas_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
-  const REAL libxs_blas_xgemm_alpha_ = (REAL)(ALPHA), libxs_blas_xgemm_beta_ = (REAL)(BETA); \
+  const TYPE libxs_blas_xgemm_alpha_ = (TYPE)(ALPHA), libxs_blas_xgemm_beta_ = (TYPE)(BETA); \
   const libxs_blasint libxs_blas_xgemm_lda_ = (libxs_blasint)LIBXS_MAX2(LIBXS_LD(LDA, LDB), LIBXS_LD(M, N)); \
   const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)LIBXS_MAX2(LIBXS_LD(LDB, LDA), K); \
   const libxs_blasint libxs_blas_xgemm_ldc_ = (libxs_blasint)LIBXS_MAX2(LDC, LIBXS_LD(M, N)); \
   const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)LIBXS_LD(M, N); \
   const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)LIBXS_LD(N, M); \
   const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(K); \
-  assert(0 != ((uintptr_t)LIBXS_BLAS_GEMM_SYMBOL(REAL))); \
-  LIBXS_BLAS_GEMM_SYMBOL(REAL)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
+  assert(0 != ((uintptr_t)LIBXS_BLAS_GEMM_SYMBOL(TYPE))); \
+  LIBXS_BLAS_GEMM_SYMBOL(TYPE)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
     &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
-    &libxs_blas_xgemm_alpha_, (const REAL*)LIBXS_LD(A, B), &libxs_blas_xgemm_lda_, \
-                                (const REAL*)LIBXS_LD(B, A), &libxs_blas_xgemm_ldb_, \
-    &libxs_blas_xgemm_beta_, (REAL*)(C), &libxs_blas_xgemm_ldc_); \
+    &libxs_blas_xgemm_alpha_, (const TYPE*)LIBXS_LD(A, B), &libxs_blas_xgemm_lda_, \
+                                (const TYPE*)LIBXS_LD(B, A), &libxs_blas_xgemm_ldb_, \
+    &libxs_blas_xgemm_beta_, (TYPE*)(C), &libxs_blas_xgemm_ldc_); \
 }
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (single-precision). */
@@ -242,12 +279,12 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 
 /** Inlinable GEMM exercising the compiler's code generation (template). */
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-# define LIBXS_INLINE_XGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+# define LIBXS_INLINE_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #else
-# define LIBXS_INLINE_XGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  const REAL libxs_inline_xgemm_alpha_ = (REAL)(1 == (ALPHA) ? 1 : (-1 == (ALPHA) ? -1 : (ALPHA))); \
-  const REAL libxs_inline_xgemm_beta_ = (REAL)(1 == (BETA) ? 1 : (0 == (BETA) ? 0 : (BETA))); \
+# define LIBXS_INLINE_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+  const TYPE libxs_inline_xgemm_alpha_ = (TYPE)(1 == (ALPHA) ? 1 : (-1 == (ALPHA) ? -1 : (ALPHA))); \
+  const TYPE libxs_inline_xgemm_beta_ = (TYPE)(1 == (BETA) ? 1 : (0 == (BETA) ? 0 : (BETA))); \
   INT libxs_inline_xgemm_i_, libxs_inline_xgemm_j_, libxs_inline_xgemm_k_; \
   assert(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS))/*not supported*/); \
   /* TODO: remove/adjust precondition if anything other than NN is supported */ \
@@ -258,10 +295,10 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
     for (libxs_inline_xgemm_k_ = 0; libxs_inline_xgemm_k_ < (K); ++libxs_inline_xgemm_k_) { \
       LIBXS_PRAGMA_UNROLL \
       for (libxs_inline_xgemm_i_ = 0; libxs_inline_xgemm_i_ < ((INT)LIBXS_LD(N, M)); ++libxs_inline_xgemm_i_) { \
-        ((REAL*)(C))[libxs_inline_xgemm_i_*((INT)(LDC))+libxs_inline_xgemm_j_] \
-          = ((const REAL*)LIBXS_LD(B, A))[libxs_inline_xgemm_i_*((INT)LIBXS_LD(LDB, LDA))+libxs_inline_xgemm_k_] * \
-           (((const REAL*)LIBXS_LD(A, B))[libxs_inline_xgemm_k_*((INT)LIBXS_LD(LDA, LDB))+libxs_inline_xgemm_j_] * libxs_inline_xgemm_alpha_) \
-          + ((const REAL*)(C))[libxs_inline_xgemm_i_*((INT)(LDC))+libxs_inline_xgemm_j_] * libxs_inline_xgemm_beta_; \
+        ((TYPE*)(C))[libxs_inline_xgemm_i_*((INT)(LDC))+libxs_inline_xgemm_j_] \
+          = ((const TYPE*)LIBXS_LD(B, A))[libxs_inline_xgemm_i_*((INT)LIBXS_LD(LDB, LDA))+libxs_inline_xgemm_k_] * \
+           (((const TYPE*)LIBXS_LD(A, B))[libxs_inline_xgemm_k_*((INT)LIBXS_LD(LDA, LDB))+libxs_inline_xgemm_j_] * libxs_inline_xgemm_alpha_) \
+          + ((const TYPE*)(C))[libxs_inline_xgemm_i_*((INT)(LDC))+libxs_inline_xgemm_j_] * libxs_inline_xgemm_beta_; \
       } \
     } \
   } \
@@ -286,21 +323,21 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 
 /** Fallback code paths: LIBXS_FALLBACK0, and LIBXS_FALLBACK1 (template). */
 #if defined(LIBXS_FALLBACK_INLINE_GEMM)
-# define LIBXS_FALLBACK0(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_INLINE_XGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+# define LIBXS_FALLBACK0(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+    LIBXS_INLINE_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #elif defined(LIBXS_FALLBACK_OMPS)
-# define LIBXS_FALLBACK0(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_OMPS_GEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+# define LIBXS_FALLBACK0(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+    LIBXS_OMPS_GEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #else
-# define LIBXS_FALLBACK0(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+# define LIBXS_FALLBACK0(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+    LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #endif
 #if defined(LIBXS_FALLBACK_OMPS)
-# define LIBXS_FALLBACK1(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_OMPS_GEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+# define LIBXS_FALLBACK1(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+    LIBXS_OMPS_GEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #else
-# define LIBXS_FALLBACK1(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_BLAS_XGEMM(REAL, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+# define LIBXS_FALLBACK1(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+    LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #endif
 
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
@@ -333,23 +370,23 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
  * LIBXS_FALLBACK0 or specialized function: below LIBXS_MAX_MNK
  * LIBXS_FALLBACK1: above LIBXS_MAX_MNK
  */
-#define LIBXS_XGEMM(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+#define LIBXS_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   if (((unsigned long long)(LIBXS_MAX_MNK)) >= LIBXS_MNK_SIZE(M, N, K)) { \
     const int libxs_xgemm_flags_ = (int)(FLAGS); \
     const int libxs_xgemm_lda_ = (int)(LDA), libxs_xgemm_ldb_ = (int)(LDB), libxs_xgemm_ldc_ = (int)(LDC); \
-    const REAL libxs_xgemm_alpha_ = (REAL)(ALPHA), libxs_xgemm_beta_ = (REAL)(BETA); \
-    const LIBXS_MMFUNCTION_TYPE(REAL) libxs_mmfunction_ = LIBXS_MMDISPATCH_SYMBOL(REAL)( \
+    const TYPE libxs_xgemm_alpha_ = (TYPE)(ALPHA), libxs_xgemm_beta_ = (TYPE)(BETA); \
+    const LIBXS_MMFUNCTION_TYPE(TYPE) libxs_mmfunction_ = LIBXS_MMDISPATCH_SYMBOL(TYPE)( \
       (int)(M), (int)(N), (int)(K), &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
       &libxs_xgemm_alpha_, &libxs_xgemm_beta_, &libxs_xgemm_flags_, 0); \
     if (0 != libxs_mmfunction_) { \
-      LIBXS_MMCALL_LDX(libxs_mmfunction_, (const REAL*)(A), (const REAL*)(B), (REAL*)(C), M, N, K, LDA, LDB, LDC); \
+      LIBXS_MMCALL_LDX(libxs_mmfunction_, (const TYPE*)(A), (const TYPE*)(B), (TYPE*)(C), M, N, K, LDA, LDB, LDC); \
     } \
     else { \
-      LIBXS_FALLBACK0(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
+      LIBXS_FALLBACK0(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
     } \
   } \
   else { \
-    LIBXS_FALLBACK1(REAL, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
+    LIBXS_FALLBACK1(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
 }
 
