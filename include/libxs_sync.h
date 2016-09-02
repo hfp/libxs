@@ -53,7 +53,8 @@
 
 #if defined(__GNUC__)
 # if !defined(LIBXS_GCCATOMICS)
-#   if (LIBXS_VERSION3(4, 7, 4) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#   if (LIBXS_VERSION3(4, 7, 4) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) || \
+        /*TODO: version check*/defined(__clang__)
 #     define LIBXS_GCCATOMICS 1
 #   else
 #     define LIBXS_GCCATOMICS 0
