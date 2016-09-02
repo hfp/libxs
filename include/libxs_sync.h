@@ -77,10 +77,12 @@
 #   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) *(DST_PTR) = VALUE; \
       while (0/*false*/ == __sync_bool_compare_and_swap(DST_PTR, VALUE, VALUE))
     /* use store side-effect of built-in (dummy assignment to mute warning) */
+#   if 0 /* disabled as it appears to hang on some systems; fallback impl. is below */
 #   define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) { \
       const int libxs_store_zero_ = (0 != __sync_and_and_fetch(DST_PTR, 0)) ? 1 : 0; \
       LIBXS_UNUSED(libxs_store_zero_); \
     }
+#   endif
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_add_and_fetch(DST_PTR, VALUE)
 #   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_sub_and_fetch(DST_PTR, VALUE)
 # endif
