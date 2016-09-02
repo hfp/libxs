@@ -84,8 +84,15 @@ if [ "Windows_NT" != "${OS}" ]; then
   CWD=${PWD}
   cd ${HERE}/build
   for TEST in ${NOBLAS}; do
-    make -f ${HERE}/Makefile ${WORKAROUND} BLAS=0 STATIC=1 ${TEST}
-    make -f ${HERE}/Makefile ${WORKAROUND} BLAS=0 STATIC=0 ${TEST}
+    if [ -e ${HERE}/../lib/libxs.a ] && [ -e ${HERE}/../lib/libxsext.a ]; then
+      make -f ${HERE}/Makefile ${WORKAROUND} BLAS=0 STATIC=1 ${TEST}
+    fi
+    if [ -e ${HERE}/../lib/libxs.so ] && [ -e ${HERE}/../lib/libxsext.so ]; then
+      make -f ${HERE}/Makefile ${WORKAROUND} BLAS=0 STATIC=0 ${TEST}
+    fi
+    if [ -e ${HERE}/../lib/libxs.dylib ] && [ -e ${HERE}/../lib/libxsext.dylib ]; then
+      make -f ${HERE}/Makefile ${WORKAROUND} BLAS=0 STATIC=0 ${TEST}
+    fi
   done
   cd ${CWD}
 fi
