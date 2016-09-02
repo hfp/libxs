@@ -26,9 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_dnn_conv_fwd_nhwc_rsck.h"
+#include "libxs_dnn_conv_fwd_nhwc_custom.h"
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_custom_fp32_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {
   typedef float element_type;
   const element_type *const inp = ((const element_type*)handle->input->data), *const wtp = ((element_type*)handle->filter->data);
@@ -45,7 +45,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_fal
   const int thr_end = ((ltid + 1) * chunksize < work) ? ((ltid + 1) * chunksize) : work;
 #if defined(LIBXS_VLA)
   typedef element_type (*LIBXS_RESTRICT input_data_type)[handle->ifhp][handle->ifwp][handle->blocksifm][handle->ifmblock];
-  typedef element_type (*LIBXS_RESTRICT weight_data_type)[handle->desc.S][handle->blocksifm][handle->ifmblock][handle->blocksofm][handle->ofmblock];
+  typedef element_type (*LIBXS_RESTRICT weight_data_type)[handle->blocksifm][handle->desc.R][handle->desc.S][handle->ifmblock][handle->ofmblock];
   typedef element_type (*LIBXS_RESTRICT output_data_type)[handle->ofhp][handle->ofwp][handle->blocksofm][handle->ofmblock];
   const input_data_type input = (input_data_type)inp;
   const weight_data_type weight = (weight_data_type)wtp;
@@ -79,7 +79,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_fal
               for (ifm2 = 0; ifm2 < handle->ifmblock; ++ifm2) {
                 for (ofm2 = 0; ofm2 < handle->ofmblock; ++ofm2) {
 #if defined(LIBXS_VLA)
-                  output[img][oj][oi][ofm1][ofm2] += input[img][ij+kj][ii+ki][ifm1][ifm2] * weight[kj][ki][ifm1][ifm2][ofm1][ofm2];
+                  output[img][oj][oi][ofm1][ofm2] += input[img][ij+kj][ii+ki][ifm1][ifm2] * weight[ofm1][ifm1][kj][ki][ifm2][ofm2];
 #else /* index arrays must be initialized separately to avoid warning about values not computable at init.-time */
 # if defined(_MSC_VER)
                   assert(0/*TODO*/);
@@ -106,7 +106,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_fal
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_custom_fp32_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {
   typedef float element_type;
   const element_type *const inp = ((const element_type*)handle->input->data), *const wtp = ((const element_type*)handle->filter->data);
@@ -131,7 +131,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_opt
   element_type* l_output;
 #if defined(LIBXS_VLA)
   typedef element_type (*LIBXS_RESTRICT input_data_type)[handle->ifhp][handle->ifwp][handle->blocksifm][handle->ifmblock];
-  typedef element_type (*LIBXS_RESTRICT weight_data_type)[handle->desc.S][handle->blocksifm][handle->ifmblock][handle->blocksofm][handle->ofmblock];
+  typedef element_type (*LIBXS_RESTRICT weight_data_type)[handle->blocksifm][handle->desc.R][handle->desc.S][handle->ifmblock][handle->ofmblock];
   typedef element_type (*LIBXS_RESTRICT output_data_type)[handle->ofhp][handle->ofwp][handle->blocksofm][handle->ofmblock];
   const input_data_type input = (input_data_type)inp;
   const weight_data_type weight = (weight_data_type)wtp;
@@ -162,7 +162,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_opt
           ii = oi * handle->desc.v;
 #if defined(LIBXS_VLA)
           l_input = &(input[img][ij][ii][ifm1][0]);
-          l_wt = &(weight[0][0][ifm1][0][ofm1][0]);
+          l_wt = &(weight[ofm1][ifm1][0][0][0][0]);
           l_output = &(output[img][oj][oi][ofm1][0]);
 #else /* index arrays must be initialized separately to avoid warning about values not computable at init.-time */
 # if defined(_MSC_VER)
@@ -228,7 +228,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_opt
               if ((ifm1+1 == handle->blocksifm)) {
 # if defined(LIBXS_VLA)
                 jitted_sconv_fp_weight_pf(l_input, l_wt, l_output,
-                  &(input[img][0][0][0][0]), &(weight[0][0][0][0][ofm1+1][0]), &(output[img][0][0][ofm1+1][0]));
+                  &(input[img][0][0][0][0]), &(weight[ofm1+1][0][0][0][0][0]), &(output[img][0][0][ofm1+1][0]));
 # else
 #   if defined(_MSC_VER)
                 assert(0/*TODO*/);
@@ -248,7 +248,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_opt
               else {
 # if defined(LIBXS_VLA)
                 jitted_sconv_fp_weight_pf(l_input, l_wt, l_output,
-                  &(input[img][0][0][ifm1+1][0]), &(weight[0][0][ifm1+1][0][ofm1][0]), &(output[img][0][0][ofm1][0]));
+                  &(input[img][0][0][ifm1+1][0]), &(weight[ofm1][ifm1+1][0][0][0][0]), &(output[img][0][0][ofm1][0]));
 # else
 #   if defined(_MSC_VER)
                 assert(0/*TODO*/);
@@ -277,7 +277,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_opt
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_img_parallel_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_custom_fp32_img_parallel_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {
   typedef float element_type;
   const element_type *const inp = ((element_type*)handle->input->data), *const wtp = ((element_type*)handle->filter->data);
@@ -309,7 +309,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_img
   element_type* l_output;
 #if defined(LIBXS_VLA)
   typedef element_type (*LIBXS_RESTRICT input_data_type)[handle->ifhp][handle->ifwp][handle->blocksifm][handle->ifmblock];
-  typedef element_type (*LIBXS_RESTRICT weight_data_type)[handle->desc.S][handle->blocksifm][handle->ifmblock][handle->blocksofm][handle->ofmblock];
+  typedef element_type (*LIBXS_RESTRICT weight_data_type)[handle->blocksifm][handle->desc.R][handle->desc.S][handle->ifmblock][handle->ofmblock];
   typedef element_type (*LIBXS_RESTRICT output_data_type)[handle->ofhp][handle->ofwp][handle->blocksofm][handle->ofmblock];
   const input_data_type input = (input_data_type)inp;
   const weight_data_type weight = (weight_data_type)wtp;
@@ -339,7 +339,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_img
         ii = oi * handle->desc.v;
 #if defined(LIBXS_VLA)
         l_input = &(input[img][ij][ii][ifm1][0]);
-        l_wt = &(weight[0][0][ifm1][0][ofm1][0]);
+        l_wt = &(weight[ofm1][ifm1][0][0][0][0]);
         l_output = &(output[img][oj][oi][ofm1][0]);
 #else /* index arrays must be initialized separately to avoid warning about values not computable at init.-time */
 # if defined(_MSC_VER)
@@ -401,7 +401,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_img
           else {
 # if defined(LIBXS_VLA)
             jitted_sconv_fp_weight_pf(l_input, l_wt, l_output,
-              &(input[img][0][0][ifm1+1][0]), &(weight[0][0][ifm1+1][0][ofm1][0]), &(output[img][0][0][ofm1][0]));
+              &(input[img][0][0][ifm1+1][0]), &(weight[ofm1][ifm1+1][0][0][0][0]), &(output[img][0][0][ofm1][0]));
 # else
 #   if defined(_MSC_VER)
             assert(0/*TODO*/);
@@ -428,7 +428,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_rsck_fp32_img
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -443,7 +443,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_d
     switch (handle->datatype) {
       case LIBXS_DNN_DATATYPE_FP32: {
         if (1 == handle->desc.splits) {
-          internal_convolve_st_fwd_nhwc_rsck_fp32_fallback(handle, start_thread, tid, num_threads);
+          internal_convolve_st_fwd_nhwc_custom_fp32_fallback(handle, start_thread, tid, num_threads);
         }
         else {
           status = LIBXS_DNN_ERR_GENERAL;
@@ -460,10 +460,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_d
       case LIBXS_DNN_DATATYPE_FP32: {
         if (1 == handle->desc.splits) {
           if (handle->desc.N*handle->blocksofm >= num_threads) {
-            internal_convolve_st_fwd_nhwc_rsck_fp32_opt(handle, start_thread, tid, num_threads);
+            internal_convolve_st_fwd_nhwc_custom_fp32_opt(handle, start_thread, tid, num_threads);
           }
           else {
-            internal_convolve_st_fwd_nhwc_rsck_fp32_img_parallel_opt(handle, start_thread, tid, num_threads);
+            internal_convolve_st_fwd_nhwc_custom_fp32_img_parallel_opt(handle, start_thread, tid, num_threads);
           }
         }
         else {
