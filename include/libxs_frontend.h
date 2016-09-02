@@ -207,7 +207,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 
 /** Construct symbol name from a given real type name (float or double). */
 #define LIBXS_ORIGINAL_GEMM(TYPE) LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemm))
-#if (!defined(__BLAS) || (0 != __BLAS)) && !defined(LIBXS_BUILD) && !defined(LIBXS_BUILD_EXT)
+#if (!defined(__BLAS) || (0 != __BLAS))
 # define LIBXS_BLAS_GEMM_SYMBOL(TYPE) LIBXS_ORIGINAL_GEMM(TYPE)(LIBXS_CALLER, LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemm)))
 #else
 # define LIBXS_BLAS_GEMM_SYMBOL(TYPE) LIBXS_ORIGINAL_GEMM(TYPE)(LIBXS_CALLER, 0)
