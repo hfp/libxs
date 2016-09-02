@@ -26,9 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_dnn_conv_fwd_custom.h"
+#include "libxs_dnn_conv_fwd_custom_custom.h"
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_fp32_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {
   typedef float element_type;
   const element_type *const inp = ((const element_type*)handle->input->data), *const wtp = ((element_type*)handle->filter->data);
@@ -96,7 +96,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_fp32_fallba
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_fp32_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {
   typedef float element_type;
   const element_type *const inp = ((const element_type*)handle->input->data), *const wtp = ((const element_type*)handle->filter->data);
@@ -237,7 +237,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_fp32_opt(li
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_fp32_img_parallel_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_img_parallel_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {
   typedef float element_type;
   const element_type *const inp = ((element_type*)handle->input->data), *const wtp = ((element_type*)handle->filter->data);
@@ -363,7 +363,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_fp32_img_pa
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -378,7 +378,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom(libxs_dnn_
     switch (handle->datatype) {
       case LIBXS_DNN_DATATYPE_FP32: {
         if (1 == handle->desc.splits) {
-          internal_convolve_st_fwd_custom_fp32_fallback(handle, start_thread, tid, num_threads);
+          internal_convolve_st_fwd_custom_custom_fp32_fallback(handle, start_thread, tid, num_threads);
         }
         else {
           status = LIBXS_DNN_ERR_GENERAL;
@@ -396,10 +396,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom(libxs_dnn_
       case LIBXS_DNN_DATATYPE_FP32: {
         if (1 == handle->desc.splits) {
           if (handle->desc.N*handle->blocksofm >= num_threads) {
-            internal_convolve_st_fwd_custom_fp32_opt(handle, start_thread, tid, num_threads);
+            internal_convolve_st_fwd_custom_custom_fp32_opt(handle, start_thread, tid, num_threads);
           }
           else {
-            internal_convolve_st_fwd_custom_fp32_img_parallel_opt(handle, start_thread, tid, num_threads);
+            internal_convolve_st_fwd_custom_custom_fp32_img_parallel_opt(handle, start_thread, tid, num_threads);
           }
         }
         else {
