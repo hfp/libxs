@@ -297,15 +297,6 @@
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT
 #endif
 
-#if !defined(LIBXS_CTOR) && defined(__GNUC__) && !(defined(__INTEL_COMPILER) && (1300 > __INTEL_COMPILER))
-# define LIBXS_CTOR_ATTRIBUTE LIBXS_ATTRIBUTE(constructor)
-# define LIBXS_DTOR_ATTRIBUTE LIBXS_ATTRIBUTE(destructor)
-# define LIBXS_CTOR
-#else 
-# define LIBXS_CTOR_ATTRIBUTE
-# define LIBXS_DTOR_ATTRIBUTE
-#endif
-
 #if defined(NDEBUG)
 # define LIBXS_NDEBUG NDEBUG
 # define LIBXS_DEBUG(...)

@@ -190,17 +190,6 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 #define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
 
-/** Helper macro to account for libxs_init being already executed via GCC constructor attribute */
-#if defined(LIBXS_CTOR)
-# if defined(LIBXS_BUILD_EXT) && defined(__STATIC)
-#   define LIBXS_INIT libxs_ext_init/*dummy*/ = libxs_init;
-# else
-#   define LIBXS_INIT
-# endif
-#else /* lazy initialization */
-# define LIBXS_INIT libxs_init();
-#endif
-
 /** Helper macro consolidating the applicable GEMM arguments into LIBXS's flags. */
 #define LIBXS_GEMM_DECLARE_FLAGS(FLAGS, TRANSA, TRANSB, M, N, K, A, B, C) \
   int FLAGS = (0 != (TRANSA) \
