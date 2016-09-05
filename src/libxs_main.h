@@ -39,6 +39,28 @@
 # define LIBXS_CPU_DCACHESIZE 32768
 #endif
 
+/** Helper macro to account for libxs_init being already executed via GCC constructor attribute */
+#if !defined(LIBXS_CTOR) && defined(__GNUC__) && !(defined(__INTEL_COMPILER) && !defined(LIBXS_BUILD))
+# if defined(LIBXS_BUILD_EXT) && defined(__STATIC)
+#   define LIBXS_INIT libxs_ext_init/*dummy*/ = libxs_init;
+    /**
+     * Global (dummy-)variable which is touched via LIBXS_INIT macro
+     * in order to keep the libxs_init/libxs_finalize symbols
+     * even when linking statically (or only linking libxsext).
+     */
+    LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*libxs_ext_init)(void);
+# else
+#   define LIBXS_INIT
+# endif
+# define LIBXS_CTOR_ATTRIBUTE LIBXS_ATTRIBUTE(constructor)
+# define LIBXS_DTOR_ATTRIBUTE LIBXS_ATTRIBUTE(destructor)
+# define LIBXS_CTOR
+#else /* lazy initialization */
+# define LIBXS_INIT libxs_init();
+# define LIBXS_CTOR_ATTRIBUTE
+# define LIBXS_DTOR_ATTRIBUTE
+#endif
+
 #if !defined(LIBXS_EXT_MIN_NTASKS)
 # define LIBXS_MIN_NTASKS(NT) 1
 #endif
