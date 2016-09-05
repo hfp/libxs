@@ -48,14 +48,14 @@
 int main(void)
 {
   const char transa = 'N', transb = 'N';
-  libxs_blasint m[]     = { 1, 2, 3, LIBXS_AVG_M,  64,    16 };
-  libxs_blasint n[]     = { 1, 2, 3, LIBXS_AVG_N, 239, 65792 };
-  libxs_blasint k[]     = { 1, 2, 3, LIBXS_AVG_K,  64,    16 };
-  libxs_blasint lda[]   = { 1, 2, 3, LIBXS_AVG_M,  64,    16 };
-  libxs_blasint ldb[]   = { 1, 2, 3, LIBXS_AVG_K, 240,    16 };
-  libxs_blasint ldc[]   = { 1, 2, 3, LIBXS_AVG_M, 240,    16 };
-  const REAL_TYPE alpha[] = { 1, 1, 1,             1,   1,     1 };
-  const REAL_TYPE beta[]  = { 1, 1, 1,             1,   1,     0 };
+  libxs_blasint m[]     = { 1, 3,  64,    16,  30,  30,  30,  30,  30,  30,  30,  30,  30,  5,  64,  64,  64,  64,  64,  64,  64,  64,  64 };
+  libxs_blasint n[]     = { 1, 3, 239, 65792,   1,   1,   1,   1,   4,   8,   8,   8,   8, 13,   1,   1,   1,   1,   4,   8,   8,   8,   8 };
+  libxs_blasint k[]     = { 1, 3,  64,    16,   1,   2,   3,   8,   4,   2,   3,   4,   8, 70,   1,   2,   3,   8,   4,   2,   3,   4,   8 };
+  libxs_blasint lda[]   = { 1, 3,  64,    16, 350, 350, 350, 350, 350, 350, 350, 350, 350,  5, 350, 350, 350, 350, 350, 350, 350, 350, 350 };
+  libxs_blasint ldb[]   = { 1, 3, 240,    16,  35,  35,  35,  35,  35,  35,  35,  35,  35, 70,  35,  35,  35,  35,  35,  35,  35,  35,  35 };
+  libxs_blasint ldc[]   = { 1, 3, 240,    16, 350, 350, 350, 350, 350, 350, 350, 350, 350,  5, 350, 350, 350, 350, 350, 350, 350, 350, 350 };
+  const REAL_TYPE alpha[] = { 1, 1,   1,     1,   1,   1,   1,   1,   1,   1,   1,   1,   1,  1,   1,   1,   1,   1,   1,   1,   1,   1,   1 };
+  const REAL_TYPE beta[]  = { 1, 1,   1,     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0 };
   const int ntests = sizeof(m) / sizeof(*m);
   libxs_blasint maxm = 0, maxn = 0, maxk = 0, maxa = 0, maxb = 0, maxc = 0;
   REAL_TYPE *a = 0, *b = 0, *c = 0, *d = 0;
