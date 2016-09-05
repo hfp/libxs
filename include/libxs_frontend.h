@@ -138,15 +138,6 @@
 # else
 #   include <mkl.h>
 # endif
-  /** Undefine (disarm) MKL's DIRECT_CALL macros. */
-# if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-#   if defined(sgemm_)
-#     undef sgemm_
-#   endif
-#   if defined(dgemm_)
-#     undef dgemm_
-#   endif
-# endif
 #endif
 #if (0 != LIBXS_ILP64)
 /** Fallback prototype functions served by any compliant LAPACK/BLAS (ILP64). */
@@ -158,14 +149,6 @@ typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
   const char*, const char*, const long long*, const long long*, const long long*,
   const double*, const double*, const long long*, const double*, const long long*,
   const double*, double*, const long long*);
-LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
-  const char*, const char*, const long long*, const long long*, const long long*,
-  const float*, const float*, const long long*, const float*, const long long*,
-  const float*, float*, const long long*);
-LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
-  const char*, const char*, const long long*, const long long*, const long long*,
-  const double*, const double*, const long long*, const double*, const long long*,
-  const double*, double*, const long long*);
 # else /*LP64*/
 /** Fallback prototype functions served by any compliant LAPACK/BLAS (LP64). */
 typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
@@ -173,14 +156,6 @@ typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
   const float*, const float*, const int*, const float*, const int*,
   const float*, float*, const int*);
 typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
-  const char*, const char*, const int*, const int*, const int*,
-  const double*, const double*, const int*, const double*, const int*,
-  const double*, double*, const int*);
-LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(sgemm)(
-  const char*, const char*, const int*, const int*, const int*,
-  const float*, const float*, const int*, const float*, const int*,
-  const float*, float*, const int*);
-LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
   const char*, const char*, const int*, const int*, const int*,
   const double*, const double*, const int*, const double*, const int*,
   const double*, double*, const int*);
@@ -202,16 +177,12 @@ LIBXS_EXTERN LIBXS_RETARGETABLE void LIBXS_FSYMBOL(dgemm)(
 #endif
 
 /** The original GEMM functions (SGEMM and DGEMM). */
-LIBXS_API LIBXS_GEMM_WEAK libxs_sgemm_function libxs_original_sgemm(const void* caller, libxs_sgemm_function gemm);
-LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* caller, libxs_dgemm_function gemm);
+LIBXS_API LIBXS_GEMM_WEAK libxs_sgemm_function libxs_original_sgemm(const void* caller);
+LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* caller);
 
 /** Construct symbol name from a given real type name (float or double). */
-#define LIBXS_ORIGINAL_GEMM(TYPE) LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemm))
-#if (!defined(__BLAS) || (0 != __BLAS))
-# define LIBXS_BLAS_GEMM_SYMBOL(TYPE) LIBXS_ORIGINAL_GEMM(TYPE)(LIBXS_CALLER, LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemm)))
-#else
-# define LIBXS_BLAS_GEMM_SYMBOL(TYPE) LIBXS_ORIGINAL_GEMM(TYPE)(LIBXS_CALLER, 0)
-#endif
+#define LIBXS_ORIGINAL_GEMM(TYPE)     LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemm))
+#define LIBXS_BLAS_GEMM_SYMBOL(TYPE)  LIBXS_ORIGINAL_GEMM(TYPE)(LIBXS_CALLER)
 #define LIBXS_GEMMFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm_function))
 #define LIBXS_MMFUNCTION_TYPE(TYPE)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmfunction))
 #define LIBXS_MMDISPATCH_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmdispatch))
