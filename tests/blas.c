@@ -47,15 +47,16 @@
 
 int main(void)
 {
+#if !defined(__BLAS) || (0 != __BLAS)
   const char transa = 'N', transb = 'N';
-  libxs_blasint m[]     = { 1, 3,  64,    16,  30,  30,  30,  30,  30,  30,  30,  30,  30,  5,  64,  64,  64,  64,  64,  64,  64,  64,  64 };
-  libxs_blasint n[]     = { 1, 3, 239, 65792,   1,   1,   1,   1,   4,   8,   8,   8,   8, 13,   1,   1,   1,   1,   4,   8,   8,   8,   8 };
-  libxs_blasint k[]     = { 1, 3,  64,    16,   1,   2,   3,   8,   4,   2,   3,   4,   8, 70,   1,   2,   3,   8,   4,   2,   3,   4,   8 };
-  libxs_blasint lda[]   = { 1, 3,  64,    16, 350, 350, 350, 350, 350, 350, 350, 350, 350,  5, 350, 350, 350, 350, 350, 350, 350, 350, 350 };
-  libxs_blasint ldb[]   = { 1, 3, 240,    16,  35,  35,  35,  35,  35,  35,  35,  35,  35, 70,  35,  35,  35,  35,  35,  35,  35,  35,  35 };
-  libxs_blasint ldc[]   = { 1, 3, 240,    16, 350, 350, 350, 350, 350, 350, 350, 350, 350,  5, 350, 350, 350, 350, 350, 350, 350, 350, 350 };
-  const REAL_TYPE alpha[] = { 1, 1,   1,     1,   1,   1,   1,   1,   1,   1,   1,   1,   1,  1,   1,   1,   1,   1,   1,   1,   1,   1,   1 };
-  const REAL_TYPE beta[]  = { 1, 1,   1,     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0 };
+  libxs_blasint m[]     = { 1, 3,  64,    16, 350, 350, 350, 350, 350,  5 };
+  libxs_blasint n[]     = { 1, 3, 239, 65792,  16,   1,  25,   4,   9, 13 };
+  libxs_blasint k[]     = { 1, 3,  64,    16,  20,   1,  35,   4,  10, 70 };
+  libxs_blasint lda[]   = { 1, 3,  64,    16, 350, 350, 350, 350, 350,  5 };
+  libxs_blasint ldb[]   = { 1, 3, 240,    16,  35,  35,  35,  35,  35, 70 };
+  libxs_blasint ldc[]   = { 1, 3, 240,    16, 350, 350, 350, 350, 350,  5 };
+  const REAL_TYPE alpha[] = { 1, 1,   1,     1,   1,   1,   1,   1,   1,  1 };
+  const REAL_TYPE beta[]  = { 1, 1,   1,     0,   0,   0,   0,   0,   0,  0 };
   const int ntests = sizeof(m) / sizeof(*m);
   libxs_blasint maxm = 0, maxn = 0, maxk = 0, maxa = 0, maxb = 0, maxc = 0;
   REAL_TYPE *a = 0, *b = 0, *c = 0, *d = 0;
@@ -104,7 +105,6 @@ int main(void)
 
   for (test = 0; test < ntests; ++test) {
     double dtest = 0;
-#if !defined(__BLAS) || (0 != __BLAS)
     LIBXS_XGEMM_SYMBOL(REAL_TYPE)(&transa, &transb, m + test, n + test, k + test,
       alpha + test, a, lda + test, b, ldb + test, beta + test, c, ldc + test);
 
@@ -132,10 +132,6 @@ int main(void)
 
   return 0.001 > d2 ? EXIT_SUCCESS : EXIT_FAILURE;
 #else
-  LIBXS_UNUSED(a); LIBXS_UNUSED(b); LIBXS_UNUSED(c);
-  LIBXS_UNUSED(transa); LIBXS_UNUSED(transb);
-  LIBXS_UNUSED(alpha); LIBXS_UNUSED(beta);
-  LIBXS_UNUSED(d2);
 # if defined(_DEBUG)
   fprintf(stderr, "Warning: skipped the actual test due to missing BLAS support!\n");
 # endif
