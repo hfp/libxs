@@ -222,6 +222,9 @@ LIBXS_API int libxs_malloc_attrib(const volatile void* memory, int flags,
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_REGSIZE for unmanaged code). */
 LIBXS_API void libxs_build(const libxs_build_request* request, unsigned regindex, libxs_code_pointer* code);
 
+LIBXS_API int libxs_prefetch2uid(int prefetch);
+LIBXS_API int libxs_uid2prefetch2(int uid);
+
 /** Determines whether (OpenMP-)tasks are preferred over thread-style parallelization. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_tasks /*= 0*/;
 /** Kind of parallel support (0: none, 1: sequential, 2: parallelized). */
