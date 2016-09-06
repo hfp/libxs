@@ -228,8 +228,8 @@ LIBXS_API int libxs_uid2prefetch2(int uid);
 /** Determines whether (OpenMP-)tasks are preferred over thread-style parallelization. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_tasks /*= 0*/;
 /** Kind of parallel support (0: none, 1: sequential, 2: parallelized). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_mp /*= 0*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_mt;
 /** Number of threads per core. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_nt /*= 2*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_nt;
 
 #endif /*LIBXS_MAIN_H*/
