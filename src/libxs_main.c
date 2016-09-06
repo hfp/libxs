@@ -622,16 +622,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
           }
         }
       }
-      libxs_mp = 2;
+      libxs_mt = 2;
       {
         /* behaviour of parallelized routines which are located in libxsext library
          * 0: sequential below-threshold routine (no OpenMP); may fall-back to BLAS,
          * 1: (OpenMP-)parallelized but without internal parallel region,
          * 2: (OpenMP-)parallelized with internal parallel region"
          */
-        const char *const env = getenv("LIBXS_MP");
+        const char *const env = getenv("LIBXS_MT");
         if (0 != env && 0 != *env) {
-          libxs_mp = atoi(env);
+          libxs_mt = atoi(env);
         }
       }
       { 
