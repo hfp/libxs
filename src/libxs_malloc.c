@@ -268,13 +268,13 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
 # if defined(MAP_NORESERVE)
           | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? MAP_NORESERVE : 0)
 # endif
-# if defined(MAP_HUGETLB)
-          | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? 0 : MAP_HUGETLB)
-# endif
 # if defined(MAP_32BIT)
           | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? MAP_32BIT : 0)
 # endif
-# if defined(MAP_LOCKED) && 0
+# if defined(MAP_HUGETLB) && 0/*may be failing depending on system settings*/
+          | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? 0 : MAP_HUGETLB)
+# endif
+# if defined(MAP_LOCKED) && 0/*disadvantage*/
           | MAP_LOCKED
 # endif
         ;
