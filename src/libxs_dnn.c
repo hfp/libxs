@@ -215,7 +215,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         handle = 0;
         return handle;
       }
-
+#if 0
       /* enable fallback if we are not using LIBXS format */
       if ( (conv_desc.buffer_format != LIBXS_DNN_CONV_FORMAT_LIBXS) ||
            (conv_desc.filter_format != LIBXS_DNN_CONV_FORMAT_LIBXS)     ) {
@@ -226,6 +226,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         handle->fwd_ofw_rb = 1;
         handle->fwd_ofh_rb = 1;  
       }
+#endif
     } else {
       *status = LIBXS_DNN_WARN_FALLBACK;
       handle->ifmblock = (conv_desc.C >=8) ? 8 : conv_desc.C;
@@ -285,6 +286,8 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
           handle->code_fwd[3].sconv = libxs_create_sconv_forward(&descriptor);
         } else if (libxs_get_target_archid() == LIBXS_X86_AVX2) {
           /* we don't do prefetching for AVX2 */
+          descriptor.unroll_kh = 0;
+          descriptor.unroll_kw = 0;
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
           handle->code_fwd[0].sconv = libxs_create_sconv_forward(&descriptor);
           handle->code_fwd[1].sconv = handle->code_fwd[0].sconv;
