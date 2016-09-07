@@ -46,8 +46,7 @@
 
 /* individually enable intrinsic code paths */
 #if defined(LIBXS_MAX_STATIC_TARGET_ARCH)
-# define LIBXS_GEMM_DIFF_AVX512_CORE
-# define LIBXS_GEMM_DIFF_AVX512_MIC
+# define LIBXS_GEMM_DIFF_AVX512
 # define LIBXS_GEMM_DIFF_AVX2
 # define LIBXS_GEMM_DIFF_AVX
 # define LIBXS_GEMM_DIFF_SSE
@@ -68,11 +67,7 @@ LIBXS_API_DEFINITION void libxs_gemm_diff_init(int target_arch)
   internal_gemm_diffn_fn = libxs_gemm_diffn_imci;
   internal_gemm_diff_fn = libxs_gemm_diff_imci;
 #else
-  if (LIBXS_X86_AVX512_CORE <= target_arch) {
-    internal_gemm_diffn_fn = libxs_gemm_diffn_avx512;
-    internal_gemm_diff_fn = libxs_gemm_diff_avx2;
-  }
-  else if (LIBXS_X86_AVX512_MIC <= target_arch) {
+  if (LIBXS_X86_AVX512 <= target_arch) {
     internal_gemm_diffn_fn = libxs_gemm_diffn_avx512;
     internal_gemm_diff_fn = libxs_gemm_diff_avx2;
   }
@@ -288,9 +283,7 @@ LIBXS_API_DEFINITION unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* 
   /* attempt to rely on static code path avoids to rely on capability of inlining pointer-based function call */
 #if defined(LIBXS_GEMM_DIFF_SW) && (0 != LIBXS_GEMM_DIFF_SW)
   return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
-#elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
-  return libxs_gemm_diffn_avx512(reference, descs, hint, ndescs, nbytes);
-#elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512_MIC <= LIBXS_STATIC_TARGET_ARCH)
+#elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diffn_avx512(reference, descs, hint, ndescs, nbytes);
 #elif defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diffn_avx2(reference, descs, hint, ndescs, nbytes);
@@ -449,8 +442,7 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diffn_avx2(const l
 LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if (defined(LIBXS_GEMM_DIFF_AVX512_MIC)  && LIBXS_X86_AVX512_MIC  <= LIBXS_MAX_STATIC_TARGET_ARCH) || \
-    (defined(LIBXS_GEMM_DIFF_AVX512_CORE) && LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_GEMM_DIFF_AVX512) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
@@ -490,7 +482,7 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diffn_avx512(const
   return libxs_gemm_diffn_avx2(reference, descs, hint, ndescs, nbytes);
 # endif
 #else
-# if !defined(NDEBUG) && (defined(LIBXS_GEMM_DIFF_AVX512_MIC) || defined(LIBXS_GEMM_DIFF_AVX512_CORE))
+# if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX512)
   { static LIBXS_TLS int once = 0;
     if (0 == once) {
       fprintf(stderr, "LIBXS: unable to enter AVX-512 code path!\n");
