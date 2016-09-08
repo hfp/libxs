@@ -364,13 +364,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_d
     /* TODO */
     /* deallocate code known to be not registered; no index attached */
     /* do not use libxs_release_kernel here! */
-    if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
-        libxs_get_target_archid() == LIBXS_X86_AVX512_CORE) {
+    if ( (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
+          libxs_get_target_archid() == LIBXS_X86_AVX512_CORE    ) /*&& (handle->avx2fallback == 0)*/ ) {
       libxs_xfree(handle->code_fwd[0].pmm);
       libxs_xfree(handle->code_fwd[1].pmm);
       libxs_xfree(handle->code_fwd[2].pmm);
       libxs_xfree(handle->code_fwd[3].pmm);
-    } else if (libxs_get_target_archid() == LIBXS_X86_AVX2) {
+    } else if ( (libxs_get_target_archid() == LIBXS_X86_AVX2) /*|| (handle->avx2fallback != 0)*/ ) {
       libxs_xfree(handle->code_fwd[0].pmm);
     } else {
       /* no kernel was JITed */
