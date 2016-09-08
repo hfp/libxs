@@ -145,14 +145,14 @@ CHKERR_LIBXS_DNN(status);
 Next activation and filter buffers need to be created, initialized and bound to the handle. Afterwards the convolution could be executed by a threading environment of choice:
 
 ```C
-libxs_dnn_activation* libxs_input;
-libxs_dnn_activation* libxs_output;
+libxs_dnn_buffer* libxs_input;
+libxs_dnn_buffer* libxs_output;
 libxs_dnn_filter* libxs_filter;
 
 /* setup LIBXS layer information */
-libxs_input = libxs_dnn_create_input_activation_check(libxs_handle, &status);
+libxs_input = libxs_dnn_create_input_buffer_check(libxs_handle, &status);
 CHKERR_LIBXS_DNN(status);
-libxs_output = libxs_dnn_create_output_activation_check(libxs_handle, &status);
+libxs_output = libxs_dnn_create_output_buffer_check(libxs_handle, &status);
 CHKERR_LIBXS_DNN(status);
 libxs_filter = libxs_dnn_create_filter_check(libxs_handle, &status);
 CHKERR_LIBXS_DNN(status);
@@ -161,13 +161,13 @@ CHKERR_LIBXS_DNN(status);
 /* (mini-batch)(splits)(number-featuremaps)(featuremap-height)(featuremap-width) for layers, */
 /* and the naive format for filters is: */
 /* (splits)(number-output-featuremaps)(number-input-featuremaps)(kernel-height)(kernel-width) */
-CHKERR_LIBXS_DNN(libxs_dnn_copyin_activation(libxs_input, (void*)naive_input));
-CHKERR_LIBXS_DNN(libxs_dnn_zero_activation(libxs_output));
+CHKERR_LIBXS_DNN(libxs_dnn_copyin_buffer(libxs_input, (void*)naive_input));
+CHKERR_LIBXS_DNN(libxs_dnn_zero_buffer(libxs_output));
 CHKERR_LIBXS_DNN(libxs_dnn_copyin_filter(libxs_filter, (void*)naive_filter));
 
 /* bind layer to handle */
-CHKERR_LIBXS_DNN(libxs_dnn_bind_input_activation(libxs_handle, libxs_input));
-CHKERR_LIBXS_DNN(libxs_dnn_bind_output_activation(libxs_handle, libxs_output));
+CHKERR_LIBXS_DNN(libxs_dnn_bind_input_buffer(libxs_handle, libxs_input));
+CHKERR_LIBXS_DNN(libxs_dnn_bind_output_buffer(libxs_handle, libxs_output));
 CHKERR_LIBXS_DNN(libxs_dnn_bind_filter(libxs_handle, libxs_filter));
 
 /* run the convolution */
@@ -178,7 +178,7 @@ CHKERR_LIBXS_DNN(libxs_dnn_bind_filter(libxs_handle, libxs_filter));
 }
 
 /* copy out data */
-CHKERR_LIBXS_DNN(libxs_dnn_copyout_activation(libxs_output, (void*)naive_libxs_output));
+CHKERR_LIBXS_DNN(libxs_dnn_copyout_buffer(libxs_output, (void*)naive_libxs_output));
 ```
 
 ## Build Instructions
