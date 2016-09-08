@@ -163,6 +163,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
   libxs_convolution_forward_descriptor       bwd_desc;
   libxs_convolution_weight_update_descriptor wu_desc;
   */
+  int avx512avx2fallback;
   libxs_code_pointer code_fwd[4];
   libxs_code_pointer code_bwd[8];
   libxs_code_pointer code_upd[4];
