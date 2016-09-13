@@ -206,16 +206,20 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
     if (0 < size) {
       const size_t internal_size = size + extra_size + sizeof(internal_malloc_info_type);
       size_t alloc_alignment = 0, alloc_size = 0;
-      void* alloc_failed = 0;
-      char* buffer = 0;
+      void *alloc_failed = 0, *buffer = 0;
 #if !defined(NDEBUG)
       static LIBXS_TLS int alloc_error = 0;
 #endif
+      flags |= LIBXS_MALLOC_FLAG_RW; /* normalize given flags since flags=0 is accepted as well */
+      /* executable buffers based on regular memory allocation are not supported */
+      if (0 != (LIBXS_MALLOC_FLAG_X & flags)) {
+        flags |= LIBXS_MALLOC_FLAG_MMAP;
+      }
 #if !defined(LIBXS_MALLOC_MMAP)
-      if (0 == flags || LIBXS_MALLOC_FLAG_DEFAULT == flags) {
+      if (0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) {
         alloc_alignment = 0 <= alignment ? libxs_alignment(size, (size_t)alignment) : ((size_t)(-alignment));
         alloc_size = internal_size + alloc_alignment - 1;
-        buffer = (char*)malloc(alloc_size);
+        buffer = malloc(alloc_size);
       }
       else
 #endif
@@ -225,7 +229,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
         if ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size) {
           alloc_alignment = 0 <= alignment ? libxs_alignment(size, (size_t)alignment) : ((size_t)(-alignment));
           alloc_size = internal_size + alloc_alignment - 1;
-          buffer = (char*)VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT, xflags);
+          buffer = VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT, xflags);
         }
         else {
           HANDLE process_token;
@@ -240,19 +244,24 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
               if ( TRUE == AdjustTokenPrivileges(process_token, FALSE, &tp, 0, (PTOKEN_PRIVILEGES)NULL, 0)
                 && ERROR_SUCCESS == GetLastError()/*may has failed (regardless of TRUE)*/)
               {
-                buffer = (char*)VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT | MEM_LARGE_PAGES, xflags);
+                buffer = VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT | MEM_LARGE_PAGES, xflags);
               }
               tp.Privileges[0].Attributes = 0; /* disable privilege */
               AdjustTokenPrivileges(process_token, FALSE, &tp, 0, (PTOKEN_PRIVILEGES)NULL, 0);
             }
             CloseHandle(process_token);
           }
-
           if (alloc_failed == buffer) { /* retry allocation with regular page size */
             alloc_alignment = 0 <= alignment ? libxs_alignment(size, (size_t)alignment) : ((size_t)(-alignment));
             alloc_size = internal_size + alloc_alignment - 1;
-            buffer = (char*)VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT, xflags);
+            buffer = VirtualAlloc(0, alloc_size, MEM_RESERVE | MEM_COMMIT, xflags);
           }
+        }
+        if (alloc_failed != buffer) {
+          flags |= LIBXS_MALLOC_FLAG_MMAP; /* select the corresponding deallocation */
+        }
+        else if (0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) { /* fall-back allocation */
+          buffer = malloc(alloc_size);
         }
 # if !defined(NDEBUG) /* library code is expected to be mute */
         if (alloc_failed == buffer && 0 == alloc_error) { /* OS-specific error message */
@@ -275,13 +284,13 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
 # if defined(MAP_32BIT)
           | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? MAP_32BIT : 0)
 # endif
-# if defined(MAP_HUGETLB) && 0/*may be failing depending on system settings*/
+# if defined(MAP_HUGETLB) /* may fail depending on system settings */
           | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? 0 : MAP_HUGETLB)
 # endif
-# if defined(MAP_UNINITIALIZED) /*unlikely to be available*/
+# if defined(MAP_UNINITIALIZED) /* unlikely to be available */
           | MAP_UNINITIALIZED
 # endif
-# if defined(MAP_LOCKED) && 0/*disadvantage*/
+# if defined(MAP_LOCKED) && /*disadvantage*/0
           | MAP_LOCKED
 # endif
         ;
@@ -301,10 +310,16 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
         alloc_alignment = 0 <= alignment ? libxs_alignment(size, (size_t)alignment) : ((size_t)(-alignment));
         alloc_size = internal_size + alloc_alignment - 1;
         alloc_failed = MAP_FAILED;
-        buffer = (char*)mmap(0, alloc_size, xflags, mflags, -1, 0);
+        buffer = mmap(0, alloc_size, xflags, mflags, -1, 0);
+        if (alloc_failed != buffer) {
+          flags |= LIBXS_MALLOC_FLAG_MMAP; /* select the corresponding deallocation */
+        }
+        else if (0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) { /* fall-back allocation */
+          buffer = malloc(alloc_size);
+        }
         if (alloc_failed != buffer) {
 # if !defined(NDEBUG)
-          if (0 !=
+          if (0 != (LIBXS_MALLOC_FLAG_MMAP & flags) && 0 !=
 # endif
           /* proceed after failed madvise (even in case of an error; take what we got from mmap) */
           madvise(buffer, alloc_size, MADV_RANDOM
@@ -321,7 +336,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
             if (0 == madvise_error) {
               madvise_error = errno;
               fprintf(stderr, "LIBXS: %s (madvise error #%i for range %p+%llu)!\n",
-                strerror(madvise_error), madvise_error, (const void*)buffer,
+                strerror(madvise_error), madvise_error, buffer,
                 (unsigned long long)alloc_size);
             }
           }
@@ -344,19 +359,20 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
 #endif
       }
       if (alloc_failed != buffer) {
-        char *const aligned = LIBXS_ALIGN(buffer + extra_size + sizeof(internal_malloc_info_type), alloc_alignment);
+        char *const aligned = LIBXS_ALIGN(((char*)buffer) + extra_size + sizeof(internal_malloc_info_type), alloc_alignment);
         internal_malloc_info_type *const info = (internal_malloc_info_type*)(aligned - sizeof(internal_malloc_info_type));
-        assert((aligned + size) <= (buffer + alloc_size));
+        assert((aligned + size) <= (((char*)buffer) + alloc_size));
 #if !defined(NDEBUG) && !defined(_WIN32)
         memset(buffer, 0, alloc_size);
 #endif
         if (0 < extra_size && 0 != extra) {
           const char *const src = (const char*)extra;
+          char *const dst = (char*)buffer;
           size_t i;
 #if defined(_MSC_VER) && (1900 <= _MSC_VER)
 #         pragma warning(suppress: 6386)
 #endif
-          for (i = 0; i < extra_size; ++i) buffer[i] = src[i];
+          for (i = 0; i < extra_size; ++i) dst[i] = src[i];
         }
 #if !defined(NDEBUG)
         else if (0 == extra && 0 != extra_size) {
@@ -365,10 +381,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
 #endif
         info->pointer = buffer;
         info->size = size;
-        info->flags = (0 == flags ? LIBXS_MALLOC_FLAG_DEFAULT : (0 != (LIBXS_MALLOC_FLAG_X & flags)
-          /* normalize given flags */
-          ? LIBXS_MALLOC_FLAG_RWX
-          : LIBXS_MALLOC_FLAG_RW));
+        info->flags = flags;
         *memory = aligned;
       }
       else {
@@ -405,35 +418,34 @@ LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
     void* buffer = 0;
     int flags = 0;
     result = internal_malloc_info(memory, &size, &flags, &buffer, &internal);
-#if !defined(LIBXS_MALLOC_MMAP)
-    if (LIBXS_MALLOC_FLAG_DEFAULT == flags && EXIT_SUCCESS == result) {
-      free(buffer);
-    }
-    else
-#endif
-    if (EXIT_SUCCESS == result) {
-#if defined(LIBXS_VTUNE)
-      assert(0 != internal);
-      if (0 != (LIBXS_MALLOC_FLAG_X & flags) && 0 != internal->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
-        iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &internal->code_id);
+    if (EXIT_SUCCESS == result) { /* rely on correct memory information */
+      if (0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) {
+        free(buffer);
       }
+      else {
+#if defined(LIBXS_VTUNE)
+        assert(0 != internal);
+        if (0 != (LIBXS_MALLOC_FLAG_X & flags) && 0 != internal->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
+          iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &internal->code_id);
+        }
 #endif
 #if defined(_WIN32)
-      result = FALSE != VirtualFree(buffer, 0, MEM_RELEASE) ? EXIT_SUCCESS : EXIT_FAILURE;
+        result = FALSE != VirtualFree(buffer, 0, MEM_RELEASE) ? EXIT_SUCCESS : EXIT_FAILURE;
 #else
-      const size_t alloc_size = size + (((const char*)memory) - ((const char*)buffer));
-      if (0 != munmap(buffer, alloc_size)) {
+        const size_t alloc_size = size + (((const char*)memory) - ((const char*)buffer));
+        if (0 != munmap(buffer, alloc_size)) {
 # if !defined(NDEBUG) /* library code is expected to be mute */
-        static LIBXS_TLS int munmap_error = 0;
-        if (0 == munmap_error) {
-          munmap_error = errno;
-          fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
-            strerror(munmap_error), munmap_error, buffer, (unsigned long long)alloc_size);
-        }
+          static LIBXS_TLS int munmap_error = 0;
+          if (0 == munmap_error) {
+            munmap_error = errno;
+            fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
+              strerror(munmap_error), munmap_error, buffer, (unsigned long long)alloc_size);
+          }
 # endif
-        result = EXIT_FAILURE;
-      }
+          result = EXIT_FAILURE;
+        }
 #endif
+      }
     }
   }
   assert(EXIT_SUCCESS == result);
