@@ -65,7 +65,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_otrans(void *LIBXS_RESTRICT out, c
   unsigned int typesize, libxs_blasint m0, libxs_blasint m1, libxs_blasint n0, libxs_blasint n1,
   libxs_blasint ld, libxs_blasint ldo)
 {
-  LIBXS_OTRANS_MAIN(LIBXS_NOOP, internal_otrans, out, in, typesize, m0, m1, n0, n1, ld, ldo);
+  LIBXS_OTRANS_MAIN(LIBXS_NOOP_ARGS, internal_otrans, out, in, typesize, m0, m1, n0, n1, ld, ldo);
 }
 
 
