@@ -39,7 +39,7 @@
 
 typedef float real;
 
-typedef struct libxs_blk_gemm_handle {
+typedef struct libxs_blkgemm_handle {
   int m;
   int n;
   int k;
@@ -50,11 +50,11 @@ typedef struct libxs_blk_gemm_handle {
   int nb;
   int kb;
   libxs_smmfunction kernel;
-} libxs_blk_gemm_handle;
+} libxs_blkgemm_handle;
 
-void init_a( libxs_blk_gemm_handle* handle,
-             real* libxs_mat_dst,
-             real* colmaj_mat_src ) {
+void libxs_blksgemm_init_a( libxs_blkgemm_handle* handle,
+                              float* libxs_mat_dst,
+                              float* colmaj_mat_src ) {
   int mb, kb, bm, bk;
 #if defined(LIBXS_VLA)
   typedef float (*LIBXS_RESTRICT dst_type)[handle->mb][handle->bk][handle->bm];
@@ -76,9 +76,9 @@ void init_a( libxs_blk_gemm_handle* handle,
 #endif
 }
 
-void init_b( libxs_blk_gemm_handle* handle,
-             real* libxs_mat_dst,
-             real* colmaj_mat_src ) {
+void libxs_blksgemm_init_b( libxs_blkgemm_handle* handle,
+                              float* libxs_mat_dst,
+                              float* colmaj_mat_src ) {
   int kb, nb, bk, bn;
 #if defined(LIBXS_VLA)
   typedef float (*LIBXS_RESTRICT dst_type)[handle->kb][handle->bn][handle->bk];
@@ -100,9 +100,9 @@ void init_b( libxs_blk_gemm_handle* handle,
 #endif
 }
 
-void init_c( libxs_blk_gemm_handle* handle,
-             real* libxs_mat_dst,
-             real* colmaj_mat_src ) {
+void libxs_blksgemm_init_c( libxs_blkgemm_handle* handle,
+                              float* libxs_mat_dst,
+                              float* colmaj_mat_src ) {
   int mb, nb, bm, bn;
 #if defined(LIBXS_VLA)
   typedef float (*LIBXS_RESTRICT dst_type)[handle->mb][handle->bn][handle->bm];
@@ -124,9 +124,9 @@ void init_c( libxs_blk_gemm_handle* handle,
 #endif
 }
 
-void compare_c( libxs_blk_gemm_handle* handle,
-                real* libxs_mat_dst,
-                real* colmaj_mat_src ) {
+void libxs_blksgemm_check_c( libxs_blkgemm_handle* handle,
+                               real* libxs_mat_dst,
+                               real* colmaj_mat_src ) {
   int mb, nb, bm, bn;
   double max_error = 0.0;
   double src_norm = 0.0;
@@ -157,15 +157,15 @@ void compare_c( libxs_blk_gemm_handle* handle,
   printf(" max error: %f, sum BLAS: %f, sum LIBXS: %f \n", max_error, src_norm, dst_norm );
 }
 
-void libxs_blk_sgemm( const libxs_blk_gemm_handle* handle, 
-                        const char transA, 
-                        const char transB, 
-                        const float* alpha, 
-                        const float* a, 
-                        const float* b, 
-                        const float* beta, 
-                        float* c ) {
-  int mb, nb, kb;
+void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle, 
+                            const char transA, 
+                            const char transB, 
+                            const float* alpha, 
+                            const float* a, 
+                            const float* b, 
+                            const float* beta, 
+                            float* c ) {
+  int mb, nb, kb, mb2, nb2, kb2;
 #if defined(LIBXS_VLA)
   typedef float (*LIBXS_RESTRICT a_type)[handle->mb][handle->bk][handle->bm];
   typedef float (*LIBXS_RESTRICT b_type)[handle->kb][handle->bn][handle->bk];
@@ -175,10 +175,36 @@ void libxs_blk_sgemm( const libxs_blk_gemm_handle* handle,
   const b_type b_t = (b_type)b;
   const c_type c_t = (c_type)c;
 
-  for ( nb = 0; nb < handle->nb; nb++ ) {
-    for ( mb = 0; mb < handle->mb; mb++ ) {
-      for ( kb = 0; kb < handle->kb; kb++ ) {
-        handle->kernel( &(a_t[kb][mb][0][0]), &(b_t[nb][kb][0][0]), &(c_t[nb][mb][0][0]) );
+  int mr = 8;
+  int nr = 8;
+  int kr = 4;
+
+  if ( (handle->mb % mr == 0) && (handle->nb % nr == 0) && (handle->kb % kr == 0) ) {
+#if 0
+    #pragma omp parallel for collapse(2) private(mb, nb, kb, mb2, nb2, kb2)
+#endif
+    for ( nb = 0; nb < handle->nb; nb+=nr ) {
+      for ( mb = 0; mb < handle->mb; mb+=mr ) {
+        for ( kb = 0; kb < handle->kb; kb+=kr ) {
+          for ( nb2 = nb; nb2 < nb+nr; nb2++ ) {
+            for ( mb2 = mb; mb2 < mb+mr; mb2++ ) {
+              for ( kb2 = kb; kb2 < kb+kr; kb2++ ) {
+                handle->kernel( &(a_t[kb2][mb2][0][0]), &(b_t[nb2][kb2][0][0]), &(c_t[nb2][mb2][0][0]) );
+              }
+            }
+          }
+        }
+      }
+    }
+  } else {
+#if 0
+    #pragma omp parallel for collapse(2) private(mb, nb, kb)
+#endif
+    for ( nb = 0; nb < handle->nb; nb++ ) {
+      for ( mb = 0; mb < handle->mb; mb++ ) {
+        for ( kb = 0; kb < handle->kb; kb++ ) {
+          handle->kernel( &(a_t[kb][mb][0][0]), &(b_t[nb][kb][0][0]), &(c_t[nb][mb][0][0]) );
+        }
       }
     }
   }
@@ -196,7 +222,7 @@ int main(int argc, char* argv []) {
   int i, reps;
   size_t l;
   char trans;
-  libxs_blk_gemm_handle handle;
+  libxs_blkgemm_handle handle;
 
   /* init */
 /*
@@ -301,16 +327,16 @@ int main(int argc, char* argv []) {
   for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
     c[l]      = (real)0.0;
   }
-  init_a( &handle, a, a_gold );
-  init_b( &handle, b, b_gold );
+  libxs_blksgemm_init_a( &handle, a, a_gold );
+  libxs_blksgemm_init_b( &handle, b, b_gold );
 
   /* check result */
   /* run LIBXSEMM, trans, alpha and beta are ignored */
-  libxs_blk_sgemm( &handle, trans, trans, &alpha, a, b, &beta, c );
+  libxs_blksgemm_exec( &handle, trans, trans, &alpha, a, b, &beta, c );
   /* run BLAS */
   sgemm(&trans, &trans, &M, &N, &K, &alpha, a_gold, &LDA, b_gold, &LDB, &beta, c_gold, &LDC);
   /* compare result */
-  compare_c( &handle, c, c_gold );
+  libxs_blksgemm_check_c( &handle, c, c_gold );
 
   /* time BLAS */
   start = libxs_timer_tick();
@@ -324,7 +350,7 @@ int main(int argc, char* argv []) {
   /* time libxs */
   start = libxs_timer_tick();
   for ( i = 0; i < reps; i++ ) {
-    libxs_blk_sgemm( &handle, trans, trans, &alpha, a, b, &beta, c );
+    libxs_blksgemm_exec( &handle, trans, trans, &alpha, a, b, &beta, c );
   }
   end = libxs_timer_tick();
   total = libxs_timer_duration(start, end);
