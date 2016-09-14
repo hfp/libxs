@@ -59,6 +59,9 @@
 #define LIBXS_SYNC $SYNC
 #define LIBXS_JIT $JIT
 $LIBXS_OFFLOAD_BUILD
+#include "libxs_macros.h"
+#include "libxs_typedefs.h"
+#include "libxs_generator.h"
 #include "libxs_frontend.h"
 
 /** Integer type for LAPACK/BLAS (LP64: 32-bit, and ILP64: 64-bit). */
@@ -67,13 +70,6 @@ typedef long long libxs_blasint;
 #else
 typedef int libxs_blasint;
 #endif
-
-/** Specialized function with fused alpha and beta arguments, and optional prefetch locations (single-precision). */
-typedef LIBXS_RETARGETABLE void (*libxs_smmfunction)(const float* a, const float* b, float* c, ...);
-/** Specialized function with fused alpha and beta arguments, and optional prefetch locations (double-precision). */
-typedef LIBXS_RETARGETABLE void (*libxs_dmmfunction)(const double* a, const double* b, double* c, ...);
-/** Function type which is either libxs_smmfunction or libxs_dmmfunction (weak-typed). */
-typedef union LIBXS_RETARGETABLE libxs_xmmfunction { libxs_smmfunction smm; libxs_dmmfunction dmm; } libxs_xmmfunction;
 
 /** Initialize the library; pay for setup cost at a specific point. */
 LIBXS_API void libxs_init(void);

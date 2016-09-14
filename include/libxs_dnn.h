@@ -29,7 +29,8 @@
 #ifndef LIBXS_DNN_H
 #define LIBXS_DNN_H
 
-#include <libxs.h>
+#include "libxs_macros.h"
+#include "libxs_typedefs.h"
 
 /** Opaque handles which represents convolutions and LIBXS datatypes */
 typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_handle libxs_dnn_conv_handle;

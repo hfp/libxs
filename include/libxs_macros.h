@@ -363,4 +363,15 @@
 # define inline LIBXS_INLINE_KEYWORD
 #endif
 
+#if defined(LIBXS_OFFLOAD_BUILD) && \
+  defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
+# define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
+# if !defined(LIBXS_OFFLOAD_TARGET)
+#   define LIBXS_OFFLOAD_TARGET mic
+# endif
+#else
+# define LIBXS_OFFLOAD(A)
+#endif
+#define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
+
 #endif /*LIBXS_MACROS_H*/
