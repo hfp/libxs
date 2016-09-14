@@ -46,6 +46,9 @@ typedef struct libxs_blk_gemm_handle {
   int bm;
   int bn;
   int bk;
+  int mb;
+  int nb;
+  int kb;
   libxs_smmfunction kernel;
 } libxs_blk_gemm_handle;
 
@@ -54,13 +57,13 @@ void init_a( libxs_blk_gemm_handle* handle,
              real* colmaj_mat_src ) {
   int mb, kb, bm, bk;
 #if defined(LIBXS_VLA)
-  typedef float (*LIBXS_RESTRICT dst_type)[(handle->m)/(handle->bm)][handle->bk][handle->bm];
+  typedef float (*LIBXS_RESTRICT dst_type)[handle->mb][handle->bk][handle->bm];
   typedef float (*LIBXS_RESTRICT src_type)[handle->m];
   const dst_type dst = (dst_type)libxs_mat_dst;
   const src_type src = (src_type)colmaj_mat_src;
 
-  for ( kb = 0; kb < (handle->k)/(handle->bk); kb++ ) {
-    for ( mb = 0; mb < (handle->m)/(handle->bm); mb++ ) {
+  for ( kb = 0; kb < handle->kb; kb++ ) {
+    for ( mb = 0; mb < handle->mb; mb++ ) {
       for ( bk = 0; bk < handle->bk; bk++ ) {
         for ( bm = 0; bm < handle->bm; bm++ ) {
           dst[kb][mb][bk][bm] = src[(kb*handle->bk)+bk][(mb*handle->bm)+bm];
@@ -78,13 +81,13 @@ void init_b( libxs_blk_gemm_handle* handle,
              real* colmaj_mat_src ) {
   int kb, nb, bk, bn;
 #if defined(LIBXS_VLA)
-  typedef float (*LIBXS_RESTRICT dst_type)[(handle->k)/(handle->bk)][handle->bn][handle->bk];
+  typedef float (*LIBXS_RESTRICT dst_type)[handle->kb][handle->bn][handle->bk];
   typedef float (*LIBXS_RESTRICT src_type)[handle->k];
   const dst_type dst = (dst_type)libxs_mat_dst;
   const src_type src = (src_type)colmaj_mat_src;
 
-  for ( nb = 0; nb < (handle->n)/(handle->bn); nb++ ) {
-    for ( kb = 0; kb < (handle->k)/(handle->bk); kb++ ) {
+  for ( nb = 0; nb < handle->nb; nb++ ) {
+    for ( kb = 0; kb < handle->kb; kb++ ) {
       for ( bn = 0; bn < handle->bn; bn++ ) {
         for ( bk = 0; bk < handle->bk; bk++ ) {
           dst[nb][kb][bn][bk] = src[(nb*handle->bn)+bn][(kb*handle->bk)+bk];
@@ -102,13 +105,13 @@ void init_c( libxs_blk_gemm_handle* handle,
              real* colmaj_mat_src ) {
   int mb, nb, bm, bn;
 #if defined(LIBXS_VLA)
-  typedef float (*LIBXS_RESTRICT dst_type)[(handle->m)/(handle->bm)][handle->bn][handle->bm];
+  typedef float (*LIBXS_RESTRICT dst_type)[handle->mb][handle->bn][handle->bm];
   typedef float (*LIBXS_RESTRICT src_type)[handle->m];
   const dst_type dst = (dst_type)libxs_mat_dst;
   const src_type src = (src_type)colmaj_mat_src;
 
-  for ( nb = 0; nb < (handle->n)/(handle->bn); nb++ ) {
-    for ( mb = 0; mb < (handle->m)/(handle->bm); mb++ ) {
+  for ( nb = 0; nb < handle->nb; nb++ ) {
+    for ( mb = 0; mb < handle->mb; mb++ ) {
       for ( bn = 0; bn < handle->bn; bn++ ) {
         for ( bm = 0; bm < handle->bm; bm++ ) {
           dst[nb][mb][bn][bm] = src[(nb*handle->bn)+bn][(mb*handle->bm)+bm];
@@ -129,13 +132,13 @@ void compare_c( libxs_blk_gemm_handle* handle,
   double src_norm = 0.0;
   double dst_norm = 0.0;
 #if defined(LIBXS_VLA)
-  typedef float (*LIBXS_RESTRICT dst_type)[(handle->m)/(handle->bm)][handle->bn][handle->bm];
+  typedef float (*LIBXS_RESTRICT dst_type)[handle->mb][handle->bn][handle->bm];
   typedef float (*LIBXS_RESTRICT src_type)[handle->m];
   const dst_type dst = (dst_type)libxs_mat_dst;
   const src_type src = (src_type)colmaj_mat_src;
 
-  for ( nb = 0; nb < (handle->n)/(handle->bn); nb++ ) {
-    for ( mb = 0; mb < (handle->m)/(handle->bm); mb++ ) {
+  for ( nb = 0; nb < handle->nb; nb++ ) {
+    for ( mb = 0; mb < handle->mb; mb++ ) {
       for ( bn = 0; bn < handle->bn; bn++ ) {
         for ( bm = 0; bm < handle->bm; bm++ ) {
           double local_error = fabs((double)dst[nb][mb][bn][bm] - (double)src[(nb*handle->bn)+bn][(mb*handle->bm)+bm]);
@@ -164,17 +167,17 @@ void libxs_blk_sgemm( const libxs_blk_gemm_handle* handle,
                         float* c ) {
   int mb, nb, kb;
 #if defined(LIBXS_VLA)
-  typedef float (*LIBXS_RESTRICT a_type)[(handle->m)/(handle->bm)][handle->bk][handle->bm];
-  typedef float (*LIBXS_RESTRICT b_type)[(handle->k)/(handle->bk)][handle->bn][handle->bk];
-  typedef float (*LIBXS_RESTRICT c_type)[(handle->m)/(handle->bm)][handle->bn][handle->bm];
+  typedef float (*LIBXS_RESTRICT a_type)[handle->mb][handle->bk][handle->bm];
+  typedef float (*LIBXS_RESTRICT b_type)[handle->kb][handle->bn][handle->bk];
+  typedef float (*LIBXS_RESTRICT c_type)[handle->mb][handle->bn][handle->bm];
 
   const a_type a_t = (a_type)a;
   const b_type b_t = (b_type)b;
   const c_type c_t = (c_type)c;
 
-  for ( nb = 0; nb < (handle->n)/(handle->bn); nb++ ) {
-    for ( mb = 0; mb < (handle->m)/(handle->bm); mb++ ) {
-      for ( kb = 0; kb < (handle->k)/(handle->bk); kb++ ) {
+  for ( nb = 0; nb < handle->nb; nb++ ) {
+    for ( mb = 0; mb < handle->mb; mb++ ) {
+      for ( kb = 0; kb < handle->kb; kb++ ) {
         handle->kernel( &(a_t[kb][mb][0][0]), &(b_t[nb][kb][0][0]), &(c_t[nb][mb][0][0]) );
       }
     }
@@ -268,6 +271,9 @@ int main(int argc, char* argv []) {
     printf( " K needs to be a multiple of bk... exiting!\n" );
     return -3;
   }
+  handle.mb = handle.m / handle.bm;
+  handle.nb = handle.n / handle.bn;
+  handle.kb = handle.k / handle.bk;
   handle.kernel = libxs_smmdispatch(handle.bm, handle.bn, handle.bk, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
   /* init random seed and print some info */
