@@ -30,18 +30,6 @@
 #define LIBXS_FRONTEND_H
 
 #include "libxs_macros.h"
-#include "libxs.h"
-
-#if defined(LIBXS_OFFLOAD_BUILD) && \
-  defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
-# define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
-# if !defined(LIBXS_OFFLOAD_TARGET)
-#   define LIBXS_OFFLOAD_TARGET mic
-# endif
-#else
-# define LIBXS_OFFLOAD(A)
-#endif
-#define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
