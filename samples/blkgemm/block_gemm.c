@@ -48,6 +48,111 @@ typedef struct libxs_blk_gemm_handle {
   int bk;
 } libxs_blk_gemm_handle;
 
+void init_a( libxs_blk_gemm_handle* handle,
+             real* libxs_mat_dst,
+             real* colmaj_mat_src ) {
+  int mb, kb, bm, bk;
+#if defined(LIBXS_VLA)
+  typedef float (*LIBXS_RESTRICT dst_type)[(handle->m)/(handle->bm)][handle->bk][handle->bm];
+  typedef float (*LIBXS_RESTRICT src_type)[handle->m];
+  const dst_type dst = (dst_type)libxs_mat_dst;
+  const src_type src = (src_type)colmaj_mat_src;
+
+  for ( kb = 0; kb < (handle->k)/(handle->bk); kb++ ) {
+    for ( mb = 0; mb < (handle->m)/(handle->bm); mb++ ) {
+      for ( bk = 0; bk < handle->bk; bk++ ) {
+        for ( bm = 0; bm < handle->bm; bm++ ) {
+          dst[kb][mb][bk][bm] = src[(kb*handle->bk)+bk][(mb*handle->bm)+bm];
+        }
+      }
+    }
+  }
+#else
+#error this code only works with LIBXS_VLA being available.
+#endif
+}
+
+void init_b( libxs_blk_gemm_handle* handle,
+             real* libxs_mat_dst,
+             real* colmaj_mat_src ) {
+  int kb, nb, bk, bn;
+#if defined(LIBXS_VLA)
+  typedef float (*LIBXS_RESTRICT dst_type)[(handle->k)/(handle->bk)][handle->bn][handle->bk];
+  typedef float (*LIBXS_RESTRICT src_type)[handle->k];
+  const dst_type dst = (dst_type)libxs_mat_dst;
+  const src_type src = (src_type)colmaj_mat_src;
+
+  for ( nb = 0; nb < (handle->n)/(handle->bn); nb++ ) {
+    for ( kb = 0; kb < (handle->k)/(handle->bk); kb++ ) {
+      for ( bn = 0; bn < handle->bn; bn++ ) {
+        for ( bk = 0; bk < handle->bk; bk++ ) {
+          dst[nb][kb][bn][bk] = src[(nb*handle->bn)+bn][(kb*handle->bk)+bk];
+        }
+      }
+    }
+  }
+#else
+#error this code only works with LIBXS_VLA being available.
+#endif
+}
+
+void init_c( libxs_blk_gemm_handle* handle,
+             real* libxs_mat_dst,
+             real* colmaj_mat_src ) {
+  int mb, nb, bm, bn;
+#if defined(LIBXS_VLA)
+  typedef float (*LIBXS_RESTRICT dst_type)[(handle->m)/(handle->bm)][handle->bn][handle->bm];
+  typedef float (*LIBXS_RESTRICT src_type)[handle->m];
+  const dst_type dst = (dst_type)libxs_mat_dst;
+  const src_type src = (src_type)colmaj_mat_src;
+
+  for ( nb = 0; nb < (handle->n)/(handle->bn); nb++ ) {
+    for ( mb = 0; mb < (handle->m)/(handle->bm); mb++ ) {
+      for ( bn = 0; bn < handle->bn; bn++ ) {
+        for ( bm = 0; bm < handle->bm; bm++ ) {
+          dst[nb][mb][bn][bm] = src[(nb*handle->bn)+bn][(mb*handle->bm)+bm];
+        }
+      }
+    }
+  }
+#else
+#error this code only works with LIBXS_VLA being available.
+#endif
+}
+
+void compare_c( libxs_blk_gemm_handle* handle,
+                real* libxs_mat_dst,
+                real* colmaj_mat_src ) {
+  int mb, nb, bm, bn;
+  double max_error = 0.0;
+  double src_norm = 0.0;
+  double dst_norm = 0.0;
+#if defined(LIBXS_VLA)
+  typedef float (*LIBXS_RESTRICT dst_type)[(handle->m)/(handle->bm)][handle->bn][handle->bm];
+  typedef float (*LIBXS_RESTRICT src_type)[handle->m];
+  const dst_type dst = (dst_type)libxs_mat_dst;
+  const src_type src = (src_type)colmaj_mat_src;
+
+  for ( nb = 0; nb < (handle->n)/(handle->bn); nb++ ) {
+    for ( mb = 0; mb < (handle->m)/(handle->bm); mb++ ) {
+      for ( bn = 0; bn < handle->bn; bn++ ) {
+        for ( bm = 0; bm < handle->bm; bm++ ) {
+          double local_error = fabs((double)dst[nb][mb][bn][bm] - (double)src[(nb*handle->bn)+bn][(mb*handle->bm)+bm]);
+          if (local_error > max_error) {
+            max_error = local_error;
+          }
+          src_norm += (double)src[(nb*handle->bn)+bn][(mb*handle->bm)+bm];
+          dst_norm += (double)dst[nb][mb][bn][bm];
+        }
+      }
+    }
+  }
+#else
+#error this code only works with LIBXS_VLA being available.
+#endif
+  printf(" max error: %f, sum BLAS: %f, sum LIBXS: %f \n", max_error, src_norm, dst_norm );
+}
+
 int main(int argc, char* argv []) {
   real *a, *b, *c, *a_gold, *b_gold, *c_gold;
   int M, N, K, LDA, LDB, LDC;
@@ -144,9 +249,19 @@ int main(int argc, char* argv []) {
   for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
     c[l]      = (real)drand48();
   }
+  init_a( &handle, a, a_gold );
+  init_b( &handle, b, b_gold );
 
   /* check result */
+  /* run LIBXSEMM, trans, alpha and beta are ignored */
+#if 0
+  libxs_blk_sgemm( &handle, &trans, &trans, &alpha, a, b, &beta, c );
+#endif
+  /* run BLAS */
   sgemm(&trans, &trans, &M, &N, &K, &alpha, a_gold, &LDA, b_gold, &LDB, &beta, c_gold, &LDC);
+  /* compare result */
+  init_c( &handle, c, c_gold );
+  compare_c( &handle, c, c_gold );
 
   /* time BLAS */
   start = libxs_timer_tick();
@@ -155,7 +270,18 @@ int main(int argc, char* argv []) {
   }
   end = libxs_timer_tick();
   total = libxs_timer_duration(start, end);
-  printf("GFLOPS  (BLAS) = %.5g\n", (flops*1e-9)/total);
+  printf("GFLOPS  (BLAS)    = %.5g\n", (flops*1e-9)/total);
+
+  /* time libxs */
+  start = libxs_timer_tick();
+  for ( i = 0; i < reps; i++ ) {
+#if 0
+    libxs_blk_sgemm( &handle, &trans, &trans, &alpha, a, b, &beta, c );
+#endif
+  }
+  end = libxs_timer_tick();
+  total = libxs_timer_duration(start, end);
+  printf("GFLOPS  (LIBXS) = %.5g\n", (flops*1e-9)/total);
 
   /* free data */
   libxs_free( a );
