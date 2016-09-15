@@ -58,7 +58,7 @@
 #   define LIBXS_CALLER __FUNCTION__
 #   define LIBXS_INLINE_KEYWORD __inline
 #   define LIBXS_INLINE_FIXUP
-# elif defined(__GNUC__)
+# elif defined(__GNUC__) && !defined(__STRICT_ANSI__)
 #   define LIBXS_CALLER __FUNCTION__
 # endif
 # if !defined(LIBXS_INLINE_KEYWORD)
