@@ -182,12 +182,14 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
       }
       else if (handle->datatype == LIBXS_DNN_DATATYPE_INT16) {
+#if 0
         handle->ifmblock = (conv_desc.C >=32) ? 32 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
-      }
-      else if (handle->datatype == LIBXS_DNN_DATATYPE_INT8) {
-        handle->ifmblock = (conv_desc.C >=64) ? 64 : conv_desc.C;
-        handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
+#endif
+        *status = LIBXS_DNN_WARN_FALLBACK;
+        handle->ifmblock = 1;
+        handle->ofmblock = 1;
+        noarch = 1;
       }
       else {
         *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -236,6 +238,12 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
             handle->ofmblock = 1; 
           }
         }
+      }
+      else if (handle->datatype == LIBXS_DNN_DATATYPE_INT16) {
+        *status = LIBXS_DNN_WARN_FALLBACK;
+        handle->ifmblock = 1;
+        handle->ofmblock = 1;
+        noarch = 1;
       }
       else {
         *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -1109,7 +1117,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
           case LIBXS_DNN_CONV_FORMAT_LIBXS: {
             switch (handle->filter_format) {
               case LIBXS_DNN_CONV_FORMAT_LIBXS: {
-                libxs_dnn_convolve_st_fwd_custom_custom(handle, start_thread, tid, num_threads);
+                status = libxs_dnn_convolve_st_fwd_custom_custom(handle, start_thread, tid, num_threads);
               } break;
               default: {
                 status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
@@ -1119,10 +1127,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
           case LIBXS_DNN_CONV_FORMAT_NHWC: {
             switch (handle->filter_format) {
               case LIBXS_DNN_CONV_FORMAT_RSCK: {
-                libxs_dnn_convolve_st_fwd_nhwc_rsck(handle, start_thread, tid, num_threads);
+                status = libxs_dnn_convolve_st_fwd_nhwc_rsck(handle, start_thread, tid, num_threads);
               } break;
               case LIBXS_DNN_CONV_FORMAT_LIBXS: {
-                libxs_dnn_convolve_st_fwd_nhwc_custom(handle, start_thread, tid, num_threads);
+                status = libxs_dnn_convolve_st_fwd_nhwc_custom(handle, start_thread, tid, num_threads);
               } break;
               default: {
                 status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
