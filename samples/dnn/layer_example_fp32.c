@@ -479,7 +479,7 @@ int main(int argc, char* argv[])
   /* copy in data to LIBXS format */
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_input, (void*)naive_input, LIBXS_DNN_CONV_FORMAT_NCHW ) );
   CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_CONV_FORMAT_KCRS ) );
 
   /* bind buffers and filter to handle */
   CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
@@ -696,7 +696,7 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
-  CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_CONV_FORMAT_KCRS ) );
 
   /* bind buffers and filter to handle */
   CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );

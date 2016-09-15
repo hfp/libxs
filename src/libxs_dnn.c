@@ -768,7 +768,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buf
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != buffer) {
-    /* we do for-loops such that we could potentially leverage NUMA in future */
     switch (in_format) {
       case LIBXS_DNN_CONV_FORMAT_NCHW: {
         switch (buffer->format) {
@@ -857,7 +856,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_bu
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != buffer) {
-    /* we do for-loops such that we could potentially leverage NUMA in future */
     switch (out_format) {
       case LIBXS_DNN_CONV_FORMAT_NCHW: {
         switch (buffer->format) {
@@ -902,27 +900,40 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_bu
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter, const void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter, const void* data, libxs_dnn_conv_format in_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != filter) {
-    /* we do for-loops such that we could potentially leverage NUMA in future */
-    switch (filter->datatype) {
-      case LIBXS_DNN_DATATYPE_FP32: {
-        typedef float element_type;
-        #include <template/libxs_dnn_filter_copy_in_kcrs.tpl.c>
-      } break;
-      case LIBXS_DNN_DATATYPE_INT16: {
-        typedef short element_type;
-        #include <template/libxs_dnn_filter_copy_in_kcrs.tpl.c>
-      } break;
-      case LIBXS_DNN_DATATYPE_INT8: {
-        typedef char element_type;
-        #include <template/libxs_dnn_filter_copy_in_kcrs.tpl.c>
+    switch (in_format) {
+      case LIBXS_DNN_CONV_FORMAT_KCRS: {
+        switch (filter->format) {
+          case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+            switch (filter->datatype) {
+              case LIBXS_DNN_DATATYPE_FP32: {
+                typedef float element_type;
+                #include <template/libxs_dnn_filter_copy_in_kcrs.tpl.c>
+              } break;
+              case LIBXS_DNN_DATATYPE_INT16: {
+                typedef short element_type;
+                #include <template/libxs_dnn_filter_copy_in_kcrs.tpl.c>
+              } break;
+              case LIBXS_DNN_DATATYPE_INT8: {
+                typedef char element_type;
+                #include <template/libxs_dnn_filter_copy_in_kcrs.tpl.c>
+              } break;
+              default: {
+                status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+              }  
+            }
+          } break;
+          default: {
+            status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
+          }
+        }
       } break;
       default: {
-        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+        status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
       }
     }
   }
@@ -934,31 +945,44 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_fil
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filter, void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filter, void* data, libxs_dnn_conv_format out_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != filter) {
-    /* we do for-loops such that we could potentially leverage NUMA in future */
-    switch (filter->datatype) {
-      case LIBXS_DNN_DATATYPE_FP32: {
-        typedef float element_type;
-        #include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
-      } break;
-      case LIBXS_DNN_DATATYPE_INT32: {
-        typedef int element_type;
-        #include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
-      } break;
-      case LIBXS_DNN_DATATYPE_INT16: {
-        typedef short element_type;
-        #include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
-      } break;
-      case LIBXS_DNN_DATATYPE_INT8: {
-        typedef char element_type;
-        #include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
+    switch (out_format) {
+      case LIBXS_DNN_CONV_FORMAT_KCRS: {
+        switch (filter->format) {
+          case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+            switch (filter->datatype) {
+              case LIBXS_DNN_DATATYPE_FP32: {
+                typedef float element_type;
+                #include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
+              } break;
+              case LIBXS_DNN_DATATYPE_INT32: {
+                typedef int element_type;
+                #include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
+              } break;
+              case LIBXS_DNN_DATATYPE_INT16: {
+                typedef short element_type;
+                #include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
+              } break;
+              case LIBXS_DNN_DATATYPE_INT8: {
+                typedef char element_type;
+                #include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
+              } break;
+              default: {
+                status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+              }
+            }
+          } break;
+          default: {
+            status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+          }
+        }
       } break;
       default: {
-        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
       }
     }
   }
