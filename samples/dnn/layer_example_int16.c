@@ -295,7 +295,7 @@ LIBXS_INLINE void naive_conv_int16(naive_conv_t* param, const short* input, int*
             for (kj = 0; kj < kh; ++kj) {
               for (ki = 0; ki < kw; ++ki) {
 #if defined(__INTEL_COMPILER) || defined(LIBXS_VLA)
-                output_t[img][ofm][oj][oi] += (int)((short)(input_t[img][ifm][ij+kj][ii+ki] * filter_t[ofm][ifm][kj][ki]));
+                output_t[img][ofm][oj][oi] += (int)(input_t[img][ifm][ij+kj][ii+ki] * filter_t[ofm][ifm][kj][ki]);
 #else
                 size_t i, f, o;
                 indexi[0] = ii + ki; indexi[1] = ij + kj; indexi[2] = ifm; indexi[3] = img;
@@ -304,7 +304,7 @@ LIBXS_INLINE void naive_conv_int16(naive_conv_t* param, const short* input, int*
                 LIBXS_CALC_INDEX1(size_t, i, 4, indexi, ishape);
                 LIBXS_CALC_INDEX1(size_t, f, 4, indexf, fshape);
                 LIBXS_CALC_INDEX1(size_t, o, 4, indexo, oshape);
-                output_t[o] += (int)((short)(input_t[i] * filter_t[f]));
+                output_t[o] += (int)(input_t[i] * filter_t[f]);
 #endif
               }
             }
@@ -474,7 +474,7 @@ int main(int argc, char* argv[])
   conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
   conv_desc.datatype = LIBXS_DNN_DATATYPE_INT16;
-#if 0
+
   libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
 
@@ -495,7 +495,6 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
-#endif
 
   printf("##########################################\n");
   printf("#  Check Correctness   (custom-Storage)  #\n");
@@ -512,14 +511,10 @@ int main(int argc, char* argv[])
 #else
     const int tid = 0, nthreads = 1;
 #endif
-#if 0
     CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads ) );
-#endif
   }
   /* copy out data */
-#if 0
   CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_CONV_FORMAT_NCHW ) );
-#endif
 
   /* compare */
   compare_buf_int32(naive_output, naive_libxs_output, nImg*nOfm*ofhp*ofwp, &norms);
@@ -543,9 +538,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0, nthreads = 1;
 #endif
-#if 0
       libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads );
-#endif
     }
   }
   l_end = libxs_timer_tick();
