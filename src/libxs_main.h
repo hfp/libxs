@@ -32,9 +32,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "libxs_macros.h"
-#include "libxs_typedefs.h"
-#include "libxs_generator.h"
+#include <libxs_macros.h>
+#include <libxs_typedefs.h>
+#include <libxs_generator.h>
 #include <libxs_dnn.h>
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
