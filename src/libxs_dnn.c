@@ -783,19 +783,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buf
             switch (buffer->datatype) {
               case LIBXS_DNN_DATATYPE_FP32: {
                 typedef float element_type;
-#               include <template/libxs_dnn_buffer_copy_in_nchw.tpl.c>
+#               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT32: {
                 typedef int element_type;
-#               include <template/libxs_dnn_buffer_copy_in_nchw.tpl.c>
+#               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT16: {
                 typedef short element_type;
-#               include <template/libxs_dnn_buffer_copy_in_nchw.tpl.c>
+#               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT8: {
                 typedef char element_type;
-#               include <template/libxs_dnn_buffer_copy_in_nchw.tpl.c>
+#               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
               } break;
               default: {
                 status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -871,19 +871,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_bu
             switch (buffer->datatype) {
               case LIBXS_DNN_DATATYPE_FP32: {
                 typedef float element_type;
-#               include <template/libxs_dnn_buffer_copy_out_nchw.tpl.c>
+#               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT32: {
                 typedef int element_type;
-#               include <template/libxs_dnn_buffer_copy_out_nchw.tpl.c>
+#               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT16: {
                 typedef short element_type;
-#               include <template/libxs_dnn_buffer_copy_out_nchw.tpl.c>
+#               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT8: {
                 typedef char element_type;
-#               include <template/libxs_dnn_buffer_copy_out_nchw.tpl.c>
+#               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
               } break;
               default: {
                 status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -920,15 +920,15 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_fil
             switch (filter->datatype) {
               case LIBXS_DNN_DATATYPE_FP32: {
                 typedef float element_type;
-#               include <template/libxs_dnn_filter_copy_in_kcrs.tpl.c>
+#               include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT16: {
                 typedef short element_type;
-#               include <template/libxs_dnn_filter_copy_in_kcrs.tpl.c>
+#               include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT8: {
                 typedef char element_type;
-#               include <template/libxs_dnn_filter_copy_in_kcrs.tpl.c>
+#               include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
               } break;
               default: {
                 status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -965,19 +965,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_fi
             switch (filter->datatype) {
               case LIBXS_DNN_DATATYPE_FP32: {
                 typedef float element_type;
-#               include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
+#               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT32: {
                 typedef int element_type;
-#               include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
+#               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT16: {
                 typedef short element_type;
-#               include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
+#               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
               } break;
               case LIBXS_DNN_DATATYPE_INT8: {
                 typedef char element_type;
-#               include <template/libxs_dnn_filter_copy_out_kcrs.tpl.c>
+#               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
               } break;
               default: {
                 status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;

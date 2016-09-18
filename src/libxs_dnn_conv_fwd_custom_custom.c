@@ -33,7 +33,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32
   typedef float element_input_type;
   typedef float element_output_type;
   typedef float element_filter_type;
-# include <template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c>
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
 }
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int16_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
@@ -41,7 +41,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int1
   typedef short element_input_type;
   typedef int element_output_type;
   typedef short element_filter_type;
-# include <template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c>
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
 }
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
