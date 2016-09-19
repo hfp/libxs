@@ -31,7 +31,7 @@
 
 #include <libxs.h>
 
-#if defined(LIBXS_NOSYNC)
+#if defined(LIBXS_NO_SYNC)
 # undef _REENTRANT
 #elif !defined(_REENTRANT)
 # define _REENTRANT

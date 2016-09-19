@@ -148,7 +148,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 #if defined(LIBXS_OPENMP)
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) LIBXS_PRAGMA(omp critical(internal_reglock)) { \
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) }
-#elif !defined(LIBXS_NOSYNC)
+#elif !defined(LIBXS_NO_SYNC)
 # if defined(LIBXS_TRYLOCK)
 #   define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
       const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, INTERNAL_REGLOCK_COUNT); \
@@ -378,7 +378,7 @@ return flux_entry.xmm
     PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH)
 #endif
 
-#if !defined(LIBXS_OPENMP) && !defined(LIBXS_NOSYNC)
+#if !defined(LIBXS_OPENMP) && !defined(LIBXS_NO_SYNC)
 # define INTERNAL_REGLOCK_COUNT 16
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_LOCK_TYPE internal_reglock[INTERNAL_REGLOCK_COUNT];
 #endif
@@ -595,7 +595,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
   /*const*/libxs_code_pointer* result;
   int i;
 #if !defined(LIBXS_OPENMP)
-# if !defined(LIBXS_NOSYNC)
+# if !defined(LIBXS_NO_SYNC)
   static int internal_reglock_check = 1; /* setup the locks in a thread-safe fashion */
   assert(sizeof(internal_reglock) == (INTERNAL_REGLOCK_COUNT * sizeof(*internal_reglock)));
   if (1 == LIBXS_ATOMIC_LOAD(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST)) {
@@ -736,7 +736,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
 #endif
     }
   }
-#if !defined(LIBXS_OPENMP) && !defined(LIBXS_NOSYNC) /* release locks */
+#if !defined(LIBXS_OPENMP) && !defined(LIBXS_NO_SYNC) /* release locks */
   for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
 #endif
   assert(result);
@@ -766,7 +766,7 @@ LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
   if (0 != registry) {
     int i;
 #if !defined(LIBXS_OPENMP)
-# if !defined(LIBXS_NOSYNC)
+# if !defined(LIBXS_NO_SYNC)
     /* acquire locks and thereby shortcut lazy initialization later on */
     for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
 # endif
@@ -853,7 +853,7 @@ LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
         libxs_free(registry);
       }
     }
-#if !defined(LIBXS_OPENMP) && !defined(LIBXS_NOSYNC) /* release locks */
+#if !defined(LIBXS_OPENMP) && !defined(LIBXS_NO_SYNC) /* release locks */
     for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
 #endif
   }
