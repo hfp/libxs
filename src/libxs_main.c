@@ -573,7 +573,7 @@ LIBXS_API_DEFINITION int libxs_prefetch2uid(int prefetch)
 }
 
 
-LIBXS_API_DEFINITION int libxs_uid2prefetch2(int uid)
+LIBXS_API_DEFINITION int libxs_uid2prefetch(int uid)
 {
   switch (uid) {
     case  2: return LIBXS_PREFETCH_SIGONLY;
@@ -622,7 +622,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
         if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
           const int uid = atoi(env);
           if (0 <= uid) {
-            internal_prefetch = libxs_uid2prefetch2(uid);
+            internal_prefetch = libxs_uid2prefetch(uid);
           }
         }
       }
