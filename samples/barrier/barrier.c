@@ -26,8 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include <libxs_sync.h>
-#include <libxs_timer.h>
+#include <libxs.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
