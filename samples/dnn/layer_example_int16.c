@@ -26,6 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#include <libxs.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -33,8 +34,6 @@
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
-#include <libxs_malloc.h>
-#include <libxs_timer.h>
 
 #define CHKERR_LIBXS_DNN(A) if ( A != LIBXS_DNN_SUCCESS ) fprintf(stderr, "%s\n", libxs_dnn_get_error(A) );
 
