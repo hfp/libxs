@@ -719,7 +719,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
           }
 #endif
           atexit(libxs_finalize);
-          LIBXS_ATOMIC_STORE(&internal_registry, result, LIBXS_ATOMIC_SEQ_CST);
+          LIBXS_ATOMIC_STORE((void**)&internal_registry, (void*)result, LIBXS_ATOMIC_SEQ_CST);
         }
         else {
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
