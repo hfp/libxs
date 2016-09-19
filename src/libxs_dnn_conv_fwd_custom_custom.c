@@ -46,9 +46,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int1
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {
-  typedef float element_type;
-  const element_type *const inp = ((const element_type*)handle->input->data), *const wtp = ((const element_type*)handle->filter->data);
-  element_type *const outp = ((element_type*)handle->output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock;
   int imgofm1, img, ofm1, ifm1, oj, ij, oi, ii;
   /* computing first logical thread */
   const int ltid = tid-start_thread;
@@ -65,12 +62,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32
 #if defined(LIBXS_CONV_NO_PREFETCH)
   libxs_sconvfunction jitted_sconv_fp_no_pf = handle->code_fwd[0].sconv;
 #endif
-  const element_type *l_input, *l_wt;
-  element_type* l_output;
+  const float *l_input, *l_wt;
+  float* l_output;
 
-  LIBXS_VLA_DECL(5, element_type, input, inp, handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock);
-  LIBXS_VLA_DECL(6, element_type, weight, wtp, handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock);
-  LIBXS_VLA_DECL(5, element_type, output, outp, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock);
+  float *const out = ((float*)handle->output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock;
+  LIBXS_VLA_DECL(5, float, output, out, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock);
+  LIBXS_VLA_DECL(5, const float, input, (float*)handle->input->data, handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock);
+  LIBXS_VLA_DECL(6, const float, weight, (float*)handle->filter->data, handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock);
 
   for (imgofm1 = thr_begin; imgofm1 < thr_end; ++imgofm1) {
     img = imgofm1/handle->blocksofm;
@@ -138,9 +136,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_img_parallel_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
 {
-  typedef float element_type;
-  const element_type *const inp = ((element_type*)handle->input->data), *const wtp = ((element_type*)handle->filter->data);
-  element_type *const outp = ((element_type*)handle->output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock;
   int ifm1, oj, ij, oi, ii;
   /* calculate local thread ids */
   const int ltid = tid - start_thread;
@@ -164,12 +159,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32
 #if defined(LIBXS_CONV_NO_PREFETCH)
   libxs_sconvfunction jitted_sconv_fp_no_pf = handle->code_fwd[0].sconv;
 #endif
-  const element_type *l_input, *l_wt;
-  element_type* l_output;
+  const float *l_input, *l_wt;
+  float* l_output;
 
-  LIBXS_VLA_DECL(5, element_type, input, inp, handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock);
-  LIBXS_VLA_DECL(6, element_type, weight, wtp, handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock);
-  LIBXS_VLA_DECL(5, element_type, output, outp, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock);
+  float *const out = ((float*)handle->output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock;
+  LIBXS_VLA_DECL(5, float, output, out, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock);
+  LIBXS_VLA_DECL(5, const float, input, (float*)handle->input->data, handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock);
+  LIBXS_VLA_DECL(6, const float, weight, (float*)handle->filter->data, handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock);
 
   /* avoid ouf of bounds (dirty) */
   start_ofh = (img < handle->desc.N && ofm1 < handle->blocksofm) ? start_ofh : handle->ofh;

@@ -248,7 +248,7 @@
 # define LIBXS_VLA
 #endif
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) /* account for incorrect handling of __VA_ARGS__ */
 # define LIBXS_SELECT_ELEMENT(INDEX1/*one-based*/, .../*elements*/) LIBXS_CONCATENATE(LIBXS_SELECT_ELEMENT_, INDEX1)LIBXS_EXPAND((__VA_ARGS__))
 #else
 # define LIBXS_SELECT_ELEMENT(INDEX1/*one-based*/, .../*elements*/) LIBXS_CONCATENATE(LIBXS_SELECT_ELEMENT_, INDEX1)(__VA_ARGS__)
@@ -263,7 +263,7 @@
 #define LIBXS_SELECT_ELEMENT_8(E0, E1, E2, E3, E4, E5, E6, E7) E7
 
 /* TODO: support leading dimension (pitch/stride) */
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) /* account for incorrect handling of __VA_ARGS__ */
 # define LIBXS_INDEX1(NDIMS, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)LIBXS_EXPAND((__VA_ARGS__))
 #else
 # define LIBXS_INDEX1(NDIMS, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)(__VA_ARGS__)
@@ -294,7 +294,7 @@
 #else /* calculate linear index */
 # define LIBXS_VLA_ACCESS(NDIMS, ARRAY, ...) ((ARRAY)[LIBXS_INDEX1(NDIMS, __VA_ARGS__)])
 # define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, VARIABLE_NAME, INIT_VALUE, .../*bounds*/) \
-    ELEMENT_TYPE *LIBXS_RESTRICT VARIABLE_NAME = (ELEMENT_TYPE *LIBXS_RESTRICT)(INIT_VALUE)
+    ELEMENT_TYPE *LIBXS_RESTRICT VARIABLE_NAME = /*(ELEMENT_TYPE *LIBXS_RESTRICT)*/(INIT_VALUE)
 #endif
 
 #if !defined(LIBXS_UNUSED)
