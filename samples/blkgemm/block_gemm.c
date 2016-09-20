@@ -149,13 +149,13 @@ void libxs_blksgemm_check_c( libxs_blkgemm_handle* handle,
   printf(" max error: %f, sum BLAS: %f, sum LIBXS: %f \n", max_error, src_norm, dst_norm );
 }
 
-void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle, 
-                            const char transA, 
-                            const char transB, 
-                            const real* alpha, 
-                            const real* a, 
-                            const real* b, 
-                            const real* beta, 
+void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
+                            const char transA,
+                            const char transB,
+                            const real* alpha,
+                            const real* a,
+                            const real* b,
+                            const real* beta,
                             real* c ) {
   LIBXS_VLA_DECL(4, const real, a_t, a, handle->mb, handle->bk, handle->bm);
   LIBXS_VLA_DECL(4, const real, b_t, b, handle->kb, handle->bn, handle->bk);
@@ -293,9 +293,9 @@ int main(int argc, char* argv []) {
 
   /* init random seed and print some info */
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, reps=%i\n", M, N, K, handle.bm, handle.bn, handle.bk, reps );
-  printf(" working set size: A: %f, B: %f, C: %f, Total: %f in MiB\n", ((double)(M*K*sizeof(real)))/(1024.0*1024.0), 
-                                                                       ((double)(K*N*sizeof(real)))/(1024.0*1024.0), 
-                                                                       ((double)(M*N*sizeof(real)))/(1024.0*1024.0), 
+  printf(" working set size: A: %f, B: %f, C: %f, Total: %f in MiB\n", ((double)(M*K*sizeof(real)))/(1024.0*1024.0),
+                                                                       ((double)(K*N*sizeof(real)))/(1024.0*1024.0),
+                                                                       ((double)(M*N*sizeof(real)))/(1024.0*1024.0),
                                                                        ((double)(M*N*sizeof(real)+M*K*sizeof(real)+N*K*sizeof(real)))/(1024.0*1024.0) );
   srand48(1);
 
