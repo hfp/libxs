@@ -213,7 +213,7 @@ LIBXS_INLINE void naive_conv_int16(naive_conv_t* param, const short* input, int*
   }
 
 #if defined(_OPENMP)
-# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) /*private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)*/
+# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
 #endif
   for (img = 0; img < nImg; ++img) {
     for (ofm = 0; ofm < nOfm; ++ofm) {
