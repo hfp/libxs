@@ -182,14 +182,14 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
       }
       else if (handle->datatype == LIBXS_DNN_DATATYPE_INT16) {
-#if 0
         handle->ifmblock = (conv_desc.C >=32) ? 32 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
-#endif
-        *status = LIBXS_DNN_WARN_FALLBACK;
-        handle->ifmblock = 1;
-        handle->ofmblock = 1;
-        noarch = 1;
+        if ( libxs_get_target_archid() == LIBXS_X86_AVX512_MIC ) {
+          *status = LIBXS_DNN_WARN_FALLBACK;
+          handle->ifmblock = 1;
+          handle->ofmblock = 1;
+          noarch = 1;
+        }
       }
       else {
         *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -305,22 +305,22 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
             libxs_get_target_archid() == LIBXS_X86_AVX512_CORE)
         {
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
-          handle->code_fwd[0].sconv = libxs_create_sconv_forward(&descriptor);
+          handle->code_fwd[0].pmm = libxs_create_xconv_forward(&descriptor);
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT;
-          handle->code_fwd[1].sconv = libxs_create_sconv_forward(&descriptor);
+          handle->code_fwd[1].pmm = libxs_create_xconv_forward(&descriptor);
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
-          handle->code_fwd[2].sconv = libxs_create_sconv_forward(&descriptor);
+          handle->code_fwd[2].pmm = libxs_create_xconv_forward(&descriptor);
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT;
-          handle->code_fwd[3].sconv = libxs_create_sconv_forward(&descriptor);
+          handle->code_fwd[3].pmm = libxs_create_xconv_forward(&descriptor);
         } else if (libxs_get_target_archid() == LIBXS_X86_AVX2) {
           /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
           descriptor.unroll_kh = 0;
           descriptor.unroll_kw = 0;
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
-          handle->code_fwd[0].sconv = libxs_create_sconv_forward(&descriptor);
-          handle->code_fwd[1].sconv = handle->code_fwd[0].sconv;
-          handle->code_fwd[2].sconv = handle->code_fwd[0].sconv;
-          handle->code_fwd[3].sconv = handle->code_fwd[0].sconv;
+          handle->code_fwd[0].pmm = libxs_create_xconv_forward(&descriptor);
+          handle->code_fwd[1].pmm = handle->code_fwd[0].pmm;
+          handle->code_fwd[2].pmm = handle->code_fwd[0].pmm;
+          handle->code_fwd[3].pmm = handle->code_fwd[0].pmm;
         } else {
           /* shouldn't happend */
         }
@@ -335,7 +335,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         descriptor.kh = handle->kh;
         descriptor.stride_w = handle->stridew;
         descriptor.stride_h = handle->strideh;
-        handle->code_bwd.sconv = libxs_create_sconv_backward(&descriptor);
+        handle->code_bwd.xconv = libxs_create_sconv_backward(&descriptor);
       }
       /* TODO weight update path */
       { libxs_convolution_weight_update_descriptor descriptor;
@@ -345,15 +345,15 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         /*descriptor.kh = handle->kh;*/
         descriptor.stride_w = handle->stridew;
         descriptor.stride_h = handle->strideh;
-        handle->code_upd.sconv = libxs_create_sconv_update_weights(&descriptor);
+        handle->code_upd.xconv = libxs_create_sconv_update_weights(&descriptor);
       }
 #endif
     }
     else {
-      handle->code_fwd[0].sconv = 0;
-      handle->code_fwd[1].sconv = 0;
-      handle->code_fwd[2].sconv = 0;
-      handle->code_fwd[3].sconv = 0;
+      handle->code_fwd[0].xconv.sconv = 0;
+      handle->code_fwd[1].xconv.sconv = 0;
+      handle->code_fwd[2].xconv.sconv = 0;
+      handle->code_fwd[3].xconv.sconv = 0;
       /* TODO Backward path */
       /* TODO weight update path */
     }
@@ -1163,21 +1163,21 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
         && 0 != handle->data_weight
         && 0 != handle->data_output)
       {
-        convolution = handle->code_fwd.sconv;
+        convolution = handle->code_fwd.xconv;
       } break;
       case LIBXS_DNN_KIND_BWD: if (
            0 != handle->data_input
         && 0 != handle->data_weight
         && 0 != handle->data_output)
       {
-        convolution = handle->code_bwd.sconv;
+        convolution = handle->code_bwd.xconv;
       } break;
       case LIBXS_DNN_KIND_UPD: if (
            0 != handle->data_input
         && 0 != handle->data_weight
         && 0 != handle->data_output)
       {
-        convolution = handle->code_upd.sconv;
+        convolution = handle->code_upd.xconv;
       } break;
     }
   }
@@ -1246,7 +1246,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_forward(
     }
   }
 #endif
-  return code.sconv;
+  return code.xconv.sconv;
 }
 
 
@@ -1270,7 +1270,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_backward(
     }
   }
 #endif
-  return code.sconv;
+  return code.xconv.sconv;
 }
 
 
@@ -1294,7 +1294,78 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_update_weights(
     }
   }
 #endif
-  return code.sconv;
+  return code.xconv.sconv;
+}
+
+LIBXS_API_DEFINITION void* libxs_create_xconv_forward(
+  const libxs_convolution_forward_descriptor* descriptor)
+{
+  libxs_code_pointer code = { 0 };
+  LIBXS_INIT
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cfwd = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CFWD;
+    libxs_build(&request, LIBXS_REGSIZE/*not managed*/, &code);
+  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  else {
+    static LIBXS_TLS int error_desc = 0;
+    if (0 == error_desc) {
+      fprintf(stderr, "LIBXS: invalid descriptor (forward convolution)!\n");
+      error_desc = 1;
+    }
+  }
+#endif
+  return code.pmm;
+}
+
+
+LIBXS_API_DEFINITION void* libxs_create_xconv_backward(
+  const libxs_convolution_backward_descriptor* descriptor)
+{
+  libxs_code_pointer code = { 0 };
+  LIBXS_INIT
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cbwd = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CBWD;
+    libxs_build(&request, LIBXS_REGSIZE/*not managed*/, &code);
+  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  else {
+    static LIBXS_TLS int error_desc = 0;
+    if (0 == error_desc) {
+      fprintf(stderr, "LIBXS: invalid descriptor (backward convolution)!\n");
+      error_desc = 1;
+    }
+  }
+#endif
+  return code.pmm;
+}
+
+
+LIBXS_API_DEFINITION void* libxs_create_xconv_update_weights(
+  const libxs_convolution_weight_update_descriptor* descriptor)
+{
+  libxs_code_pointer code = { 0 };
+  LIBXS_INIT
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cupd = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CUPD;
+    libxs_build(&request, LIBXS_REGSIZE/*not managed*/, &code);
+  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  else {
+    static LIBXS_TLS int error_desc = 0;
+    if (0 == error_desc) {
+      fprintf(stderr, "LIBXS: invalid convolution descriptor (weight update)!\n");
+      error_desc = 1;
+    }
+  }
+#endif
+  return code.pmm;
 }
 
 #endif /*defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)*/

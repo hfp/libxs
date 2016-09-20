@@ -84,11 +84,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_custom_fp32_o
   /* compute thr_begin and thr_end */
   const int thr_begin = (ltid * chunksize < work) ? (ltid * chunksize) : work;
   const int thr_end = ((ltid + 1) * chunksize < work) ? ((ltid + 1) * chunksize) : work;
-  libxs_sconvfunction jitted_sconv_fp_noweight_pf = handle->code_fwd[1].sconv;
-  libxs_sconvfunction jitted_sconv_fp_weight_pf = handle->code_fwd[2].sconv;
-  /*libxs_sconvfunction jitted_sconv_fp_weightnooutput_pf = handle->code_fwd[3].sconv;*/
+  libxs_sconvfunction jitted_sconv_fp_noweight_pf = handle->code_fwd[1].xconv.sconv;
+  libxs_sconvfunction jitted_sconv_fp_weight_pf = handle->code_fwd[2].xconv.sconv;
+  /*libxs_sconvfunction jitted_sconv_fp_weightnooutput_pf = handle->code_fwd[3].xconv.sconv;*/
 #if defined(LIBXS_CONV_NO_PREFETCH)
-  libxs_sconvfunction jitted_sconv_fp_no_pf = handle->code_fwd[0].sconv;
+  libxs_sconvfunction jitted_sconv_fp_no_pf = handle->code_fwd[0].xconv.sconv;
 #endif
   const float *l_input, *l_wt;
   float* l_output;
@@ -167,11 +167,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_custom_fp32_i
   const int ofm1 = l_tidgroup % handle->blocksofm;
   int start_ofh = l_l2_ts * (ltid % l_l1_gs);
   const int end_ofh = ((start_ofh + l_l2_ts) <= handle->ofh) ? (start_ofh + l_l2_ts) : handle->ofh;
-  libxs_sconvfunction jitted_sconv_fp_noweight_pf = handle->code_fwd[1].sconv;
-  libxs_sconvfunction jitted_sconv_fp_weight_pf = handle->code_fwd[2].sconv;
-  /*libxs_sconvfunction jitted_sconv_fp_weightnooutput_pf = handle->code_fwd[3].sconv;*/
+  libxs_sconvfunction jitted_sconv_fp_noweight_pf = handle->code_fwd[1].xconv.sconv;
+  libxs_sconvfunction jitted_sconv_fp_weight_pf = handle->code_fwd[2].xconv.sconv;
+  /*libxs_sconvfunction jitted_sconv_fp_weightnooutput_pf = handle->code_fwd[3].xconv.sconv;*/
 #if defined(LIBXS_CONV_NO_PREFETCH)
-  libxs_sconvfunction jitted_sconv_fp_no_pf = handle->code_fwd[0].sconv;
+  libxs_sconvfunction jitted_sconv_fp_no_pf = handle->code_fwd[0].xconv.sconv;
 #endif
   const float *l_input, *l_wt;
   float* l_output;
@@ -232,7 +232,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs
   }
 
   /* check if we have a kernel JITed */
-  if (handle->code_fwd[0].sconv == 0) {
+  if (handle->code_fwd[0].xconv.sconv == 0) {
     switch (handle->datatype) {
       case LIBXS_DNN_DATATYPE_FP32: {
         if (1 == handle->desc.splits) {
