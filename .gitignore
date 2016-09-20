@@ -1,7 +1,7 @@
 .hooks/.commit
 My Amplifier*
 bin/libxs_generator
-include/stream_update_kernels.f
+include/libxs_config.h
 include/libxs_source.h
 include/libxs.f
 include/libxs.h

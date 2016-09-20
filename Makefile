@@ -346,12 +346,11 @@ ifneq (nopf,$(PREFETCH_SCHEME))
   SUPPRESS_UNUSED_PREFETCH_WARNINGS = $(NULL)  LIBXS_UNUSED(A_prefetch); LIBXS_UNUSED(B_prefetch); LIBXS_UNUSED(C_prefetch);~
 endif
 
-.PHONY: cheader
-cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: .state $(INCDIR)/.make $(SCRDIR)/libxs_interface.py \
-                     $(SRCDIR)/libxs.template.h $(ROOTDIR)/version.txt \
-                     $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
-                     $(HEADERS)
+.PHONY: config
+config: $(INCDIR)/libxs_config.h
+$(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config.h \
+                            $(SCRDIR)/libxs_config.py $(SCRDIR)/libxs_utilities.py \
+                            $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
 		$(ROOTDIR)/.hooks/install.sh; \
 	fi
@@ -363,9 +362,10 @@ $(INCDIR)/libxs.h: .state $(INCDIR)/.make $(SCRDIR)/libxs_interface.py \
 	@cp $(ROOTDIR)/include/libxs_sync.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
-	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.h \
-		$(PRECISION) $(MAKE_ILP64) $(OFFLOAD) $(ALIGNMENT) $(PREFETCH_TYPE) \
-		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(shell echo $$(($(THREADS)+$(OMP)))) \
+	@$(PYTHON) $(SCRDIR)/libxs_config.py $(SRCDIR)/template/libxs_config.h \
+		$(MAKE_ILP64) $(OFFLOAD) $(ALIGNMENT) $(PREFETCH_TYPE) \
+		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) \
+		$(shell echo $$(($(THREADS)+$(OMP)))) \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
 	$(info ================================================================================)
 	$(info LIBXS $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py))
@@ -406,6 +406,14 @@ endif
 	$(info ================================================================================)
 endif
 
+.PHONY: cheader
+cheader: $(INCDIR)/libxs.h
+$(INCDIR)/libxs.h: $(SCRDIR)/libxs_interface.py \
+                     $(SRCDIR)/template/libxs.h $(ROOTDIR)/version.txt \
+                     $(INCDIR)/libxs_config.h $(HEADERS)
+	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/template/libxs.h \
+		$(PRECISION) $(MAKE_ILP64) $(PREFETCH_TYPE) $(INDICES) > $@
+
 .PHONY: cheader_only
 cheader_only: $(INCDIR)/libxs_source.h
 $(INCDIR)/libxs_source.h: $(INCDIR)/libxs.h $(SCRDIR)/libxs_source.sh
@@ -413,25 +421,18 @@ $(INCDIR)/libxs_source.h: $(INCDIR)/libxs.h $(SCRDIR)/libxs_source.sh
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
-$(INCDIR)/libxs.f: .state $(INCDIR)/.make $(BLDDIR)/.make \
-                     $(SRCDIR)/libxs.template.f $(ROOTDIR)/version.txt \
-                     $(SCRDIR)/libxs_interface.py $(SCRDIR)/libxs_utilities.py \
+$(INCDIR)/libxs.f: $(INCDIR)/.make $(BLDDIR)/.make .state \
+                     $(ROOTDIR)/version.txt $(INCDIR)/libxs_config.h \
+                     $(SRCDIR)/template/libxs.f $(SCRDIR)/libxs_interface.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
-	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
-		$(ROOTDIR)/.hooks/install.sh; \
-	fi
-ifeq (0,$(OFFLOAD))
-	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f \
-		$(PRECISION) $(MAKE_ILP64) $(OFFLOAD) $(ALIGNMENT) $(PREFETCH_TYPE) \
-		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(shell echo $$(($(THREADS)+$(OMP)))) \
+	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/template/libxs.f \
+		$(PRECISION) $(MAKE_ILP64) $(PREFETCH_TYPE) $(INDICES) | \
+	$(PYTHON) $(SCRDIR)/libxs_config.py /dev/stdin \
+		$(MAKE_ILP64) $(OFFLOAD) $(ALIGNMENT) $(PREFETCH_TYPE) \
+		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) \
+		$(shell echo $$(($(THREADS)+$(OMP)))) \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) | \
 	sed '/ATTRIBUTES OFFLOAD:MIC/d' > $@
-else
-	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/libxs.template.f \
-		$(PRECISION) $(MAKE_ILP64) $(OFFLOAD) $(ALIGNMENT) $(PREFETCH_TYPE) \
-		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) $(shell echo $$(($(THREADS)+$(OMP)))) \
-		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
-endif
 
 .PHONY: sources
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
