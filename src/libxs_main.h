@@ -82,12 +82,12 @@
 
 
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
-#if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
-  libxs_sconvfunction sconv;
-#endif
-  libxs_xmmfunction xmm;
   /*const*/void* pmm;
   uintptr_t imm;
+#if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
+  libxs_xconvfunction xconv;
+#endif
+  libxs_xmmfunction xmm;
 } libxs_code_pointer;
 
 typedef struct LIBXS_RETARGETABLE libxs_csr_soa_descriptor {

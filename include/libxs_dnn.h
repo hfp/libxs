@@ -196,6 +196,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st(libxs_dnn_conv_handle* handle, l
 typedef LIBXS_RETARGETABLE void (*libxs_sconvfunction)(const float* input1, const float* input2, float* output,
                                                            const float* ipf1, const float* ipf2, const float* opf);
 
+typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction)(const short* input1, const short* input2, int* output,
+                                                           const short* ipf1, const short* ipf2, const int* opf);
+
+/** Function type which is either libxs_sconvfunction or libxs_wconvfunction (weak-typed). */
+typedef union LIBXS_RETARGETABLE libxs_xconvfunction { libxs_sconvfunction sconv; libxs_wconvfunction wconv; } libxs_xconvfunction;
+
 /** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
 LIBXS_API libxs_sconvfunction libxs_create_sconv_forward(const libxs_convolution_forward_descriptor* descriptor);
 
@@ -204,6 +210,15 @@ LIBXS_API libxs_sconvfunction libxs_create_sconv_backward(const libxs_convolutio
 
 /** Code generation routine for a convolution kernel as specified by descriptor. */
 LIBXS_API libxs_sconvfunction libxs_create_sconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor);
+
+/** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
+LIBXS_API void* libxs_create_xconv_forward(const libxs_convolution_forward_descriptor* descriptor);
+
+/** Code generation routine for a backward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
+LIBXS_API void* libxs_create_xconv_backward(const libxs_convolution_backward_descriptor* descriptor);
+
+/** Code generation routine for a convolution kernel as specified by descriptor. */
+LIBXS_API void* libxs_create_xconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor);
 
 #endif
 #endif /*LIBXS_DNN_H*/
