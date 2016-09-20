@@ -558,10 +558,10 @@ LIBXS_API_DEFINITION int libxs_prefetch2uid(int prefetch)
   switch (prefetch) {
     case LIBXS_PREFETCH_SIGONLY:            return 2;
     case LIBXS_PREFETCH_BL2_VIA_C:          return 3;
-    case LIBXS_PREFETCH_AL2:                return 4;
-    case LIBXS_PREFETCH_AL2BL2_VIA_C:       return 5;
-    case LIBXS_PREFETCH_AL2_AHEAD:          return 6;
-    case LIBXS_PREFETCH_AL2BL2_VIA_C_AHEAD: return 7;
+    case LIBXS_PREFETCH_AL2_AHEAD:          return 4;
+    case LIBXS_PREFETCH_AL2BL2_VIA_C_AHEAD: return 5;
+    case LIBXS_PREFETCH_AL2:                return 6;
+    case LIBXS_PREFETCH_AL2BL2_VIA_C:       return 7;
     case LIBXS_PREFETCH_AL2_JPST:           return 8;
     case LIBXS_PREFETCH_AL2BL2_VIA_C_JPST:  return 9;
     case LIBXS_PREFETCH_AL2CL2BL2_VIA_C:    return 10;
@@ -576,15 +576,15 @@ LIBXS_API_DEFINITION int libxs_prefetch2uid(int prefetch)
 LIBXS_API_DEFINITION int libxs_uid2prefetch(int uid)
 {
   switch (uid) {
-    case  2: return LIBXS_PREFETCH_SIGONLY;
-    case  3: return LIBXS_PREFETCH_BL2_VIA_C;
-    case  4: return LIBXS_PREFETCH_AL2_AHEAD;
-    case  5: return LIBXS_PREFETCH_AL2BL2_VIA_C_AHEAD;
-    case  6: return LIBXS_PREFETCH_AL2;
-    case  7: return LIBXS_PREFETCH_AL2BL2_VIA_C;
-    case  8: return LIBXS_PREFETCH_AL2_JPST;
-    case  9: return LIBXS_PREFETCH_AL2BL2_VIA_C_JPST;
-    case 10: return LIBXS_PREFETCH_AL2CL2BL2_VIA_C;
+    case  2: return LIBXS_PREFETCH_SIGONLY;             /* pfsigonly */
+    case  3: return LIBXS_PREFETCH_BL2_VIA_C;           /* BL2viaC */
+    case  4: return LIBXS_PREFETCH_AL2_AHEAD;           /* curAL2 */
+    case  5: return LIBXS_PREFETCH_AL2BL2_VIA_C_AHEAD;  /* curAL2_BL2viaC */
+    case  6: return LIBXS_PREFETCH_AL2;                 /* AL2 */
+    case  7: return LIBXS_PREFETCH_AL2BL2_VIA_C;        /* AL2_BL2viaC */
+    case  8: return LIBXS_PREFETCH_AL2_JPST;            /* AL2jpst */
+    case  9: return LIBXS_PREFETCH_AL2BL2_VIA_C_JPST;   /* AL2jpst_BL2viaC */
+    case 10: return LIBXS_PREFETCH_AL2CL2BL2_VIA_C;     /* AL2_BL2viaC_CL2 */
     default: return LIBXS_PREFETCH_NONE;
   }
 }
