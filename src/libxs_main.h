@@ -206,11 +206,11 @@ typedef enum libxs_malloc_flags {
   LIBXS_MALLOC_FLAG_DEFAULT = LIBXS_MALLOC_FLAG_RW
 } libxs_malloc_flags;
 
-/** Greatest common divisor. */ 
+/** Greatest common divisor. */
 LIBXS_API size_t libxs_gcd(size_t a, size_t b);
-/** Least common multiple. */ 
+/** Least common multiple. */
 LIBXS_API size_t libxs_lcm(size_t a, size_t b);
-/** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */ 
+/** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */
 LIBXS_API size_t libxs_alignment(size_t size, size_t alignment);
 
 /** Receive the size, the flags, or the extra attachment of the given buffer. */

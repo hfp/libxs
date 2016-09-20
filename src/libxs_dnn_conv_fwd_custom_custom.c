@@ -94,10 +94,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
   if (handle->code_fwd[0].xconv.sconv == 0) {
     if (1 == handle->desc.splits) {
       switch (handle->datatype) {
-        case LIBXS_DNN_DATATYPE_FP32: { 
+        case LIBXS_DNN_DATATYPE_FP32: {
           internal_convolve_st_fwd_custom_custom_fp32_fallback(handle, start_thread, tid, num_threads);
         } break;
-        case LIBXS_DNN_DATATYPE_INT16: { 
+        case LIBXS_DNN_DATATYPE_INT16: {
           internal_convolve_st_fwd_custom_custom_int16_fallback(handle, start_thread, tid, num_threads);
         } break;
         default: {

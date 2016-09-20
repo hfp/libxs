@@ -638,7 +638,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
           libxs_mt = atoi(env);
         }
       }
-      { 
+      {
         const char *const env = getenv("LIBXS_TASKS");
         if (0 != env && 0 != *env) {
           libxs_tasks = atoi(env);

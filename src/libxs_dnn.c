@@ -131,7 +131,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
     return 0;
   }
 
-  handle = (libxs_dnn_conv_handle*)malloc(sizeof(libxs_dnn_conv_handle));  
+  handle = (libxs_dnn_conv_handle*)malloc(sizeof(libxs_dnn_conv_handle));
 
   if (0 != handle) {
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
@@ -222,7 +222,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
             noarch = 1;
             *status = LIBXS_DNN_WARN_FALLBACK;
             handle->ifmblock = 1;
-            handle->ofmblock = 1; 
+            handle->ofmblock = 1;
           }
         }
 
@@ -235,7 +235,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
             noarch = 1;
             *status = LIBXS_DNN_WARN_FALLBACK;
             handle->ifmblock = 1;
-            handle->ofmblock = 1; 
+            handle->ofmblock = 1;
           }
         }
       }
@@ -932,7 +932,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_fil
               } break;
               default: {
                 status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-              }  
+              }
             }
           } break;
           default: {
