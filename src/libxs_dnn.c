@@ -184,12 +184,12 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
 #endif
 
       /* calculate blockings */
-      if (handle->datatype == LIBXS_DNN_DATATYPE_FP32) {
+      if (handle->datatype == LIBXS_DNN_DATATYPE_F32) {
         handle->ifmblock = (conv_desc.C >=16) ? 16 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
         handle->ifm_lp_block = 1;
       }
-      else if (handle->datatype == LIBXS_DNN_DATATYPE_INT16) {
+      else if (handle->datatype == LIBXS_DNN_DATATYPE_I16) {
         handle->ifmblock = (conv_desc.C >=16) ? 16 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
         handle->ifm_lp_block = 2;
@@ -218,7 +218,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
       handle->fwd_ofh_rb = 1;
 
       /* calculate blockings */
-      if (handle->datatype == LIBXS_DNN_DATATYPE_FP32) {
+      if (handle->datatype == LIBXS_DNN_DATATYPE_F32) {
         handle->ifmblock = (conv_desc.C >=32) ? 32 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=32) ? 32 : conv_desc.K;
         handle->ifm_lp_block = 1;
@@ -250,7 +250,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
           }
         }
       }
-      else if (handle->datatype == LIBXS_DNN_DATATYPE_INT16) {
+      else if (handle->datatype == LIBXS_DNN_DATATYPE_I16) {
         *status = LIBXS_DNN_WARN_FALLBACK;
         handle->ifmblock = 1;
         handle->ofmblock = 1;
@@ -482,10 +482,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_d
 LIBXS_INLINE LIBXS_RETARGETABLE size_t internal_dnn_typesize(libxs_dnn_datatype datatype)
 {
   switch (datatype) {
-    case LIBXS_DNN_DATATYPE_FP32:  return 4;
-    case LIBXS_DNN_DATATYPE_INT32: return 4;
-    case LIBXS_DNN_DATATYPE_INT16: return 2;
-    case LIBXS_DNN_DATATYPE_INT8:  return 1;
+    case LIBXS_DNN_DATATYPE_F32:  return 4;
+    case LIBXS_DNN_DATATYPE_I32: return 4;
+    case LIBXS_DNN_DATATYPE_I16: return 2;
+    case LIBXS_DNN_DATATYPE_I8:  return 1;
     /* no error expected as enumeration really arrives at an enum; compiler-checked */
     default: return 1;
   }
@@ -602,11 +602,11 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_output_buffer_check(cons
     buffer->W = handle->ofwp;
     buffer->format = handle->buffer_format;
     buffer->lpb = 1;
-    if (handle->datatype == LIBXS_DNN_DATATYPE_FP32) {
+    if (handle->datatype == LIBXS_DNN_DATATYPE_F32) {
       buffer->datatype = handle->datatype;
     }
     else {
-      buffer->datatype = LIBXS_DNN_DATATYPE_INT32;
+      buffer->datatype = LIBXS_DNN_DATATYPE_I32;
     }
     /* allocate raw data, we always have a 4 byte wide type!! */
     result = libxs_xmalloc(&buffer->data,
@@ -869,19 +869,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buf
         switch (buffer->format) {
           case LIBXS_DNN_CONV_FORMAT_LIBXS: {
             switch (buffer->datatype) {
-              case LIBXS_DNN_DATATYPE_FP32: {
+              case LIBXS_DNN_DATATYPE_F32: {
                 typedef float element_type;
 #               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT32: {
+              case LIBXS_DNN_DATATYPE_I32: {
                 typedef int element_type;
 #               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT16: {
+              case LIBXS_DNN_DATATYPE_I16: {
                 typedef short element_type;
 #               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT8: {
+              case LIBXS_DNN_DATATYPE_I8: {
                 typedef char element_type;
 #               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
               } break;
@@ -918,19 +918,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffe
   if (0 != buffer) {
     /* use for-loops to potentially leverage NUMA in the future */
     switch (buffer->datatype) {
-      case LIBXS_DNN_DATATYPE_FP32: {
+      case LIBXS_DNN_DATATYPE_F32: {
         float* fp32_data = (float*)buffer->data;
         for (i = 0; i < size; ++i) fp32_data[i] = 0.0f;
       } break;
-      case LIBXS_DNN_DATATYPE_INT32: {
+      case LIBXS_DNN_DATATYPE_I32: {
         int* int32_data = (int*)buffer->data;
         for (i = 0; i < size; ++i) int32_data[i] = 0;
       } break;
-      case LIBXS_DNN_DATATYPE_INT16: {
+      case LIBXS_DNN_DATATYPE_I16: {
         short* int16_data = (short*)buffer->data;
         for (i = 0; i < size; ++i) int16_data[i] = 0;
       } break;
-      case LIBXS_DNN_DATATYPE_INT8: {
+      case LIBXS_DNN_DATATYPE_I8: {
         char* int8_data = (char*)buffer->data;
         for (i = 0; i < size; ++i) int8_data[i] = 0;
       } break;
@@ -957,19 +957,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_bu
         switch (buffer->format) {
           case LIBXS_DNN_CONV_FORMAT_LIBXS: {
             switch (buffer->datatype) {
-              case LIBXS_DNN_DATATYPE_FP32: {
+              case LIBXS_DNN_DATATYPE_F32: {
                 typedef float element_type;
 #               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT32: {
+              case LIBXS_DNN_DATATYPE_I32: {
                 typedef int element_type;
 #               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT16: {
+              case LIBXS_DNN_DATATYPE_I16: {
                 typedef short element_type;
 #               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT8: {
+              case LIBXS_DNN_DATATYPE_I8: {
                 typedef char element_type;
 #               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
               } break;
@@ -1006,15 +1006,15 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_fil
         switch (filter->format) {
           case LIBXS_DNN_CONV_FORMAT_LIBXS: {
             switch (filter->datatype) {
-              case LIBXS_DNN_DATATYPE_FP32: {
+              case LIBXS_DNN_DATATYPE_F32: {
                 typedef float element_type;
 #               include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT16: {
+              case LIBXS_DNN_DATATYPE_I16: {
                 typedef short element_type;
 #               include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT8: {
+              case LIBXS_DNN_DATATYPE_I8: {
                 typedef char element_type;
 #               include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
               } break;
@@ -1051,19 +1051,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_fi
         switch (filter->format) {
           case LIBXS_DNN_CONV_FORMAT_LIBXS: {
             switch (filter->datatype) {
-              case LIBXS_DNN_DATATYPE_FP32: {
+              case LIBXS_DNN_DATATYPE_F32: {
                 typedef float element_type;
 #               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT32: {
+              case LIBXS_DNN_DATATYPE_I32: {
                 typedef int element_type;
 #               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT16: {
+              case LIBXS_DNN_DATATYPE_I16: {
                 typedef short element_type;
 #               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
               } break;
-              case LIBXS_DNN_DATATYPE_INT8: {
+              case LIBXS_DNN_DATATYPE_I8: {
                 typedef char element_type;
 #               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
               } break;
@@ -1148,8 +1148,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_output_buffer(libxs_dnn_conv
       && handle->blocksofm == buffer->fmb
       && buffer->lpb == 1
       && ((handle->buffer_format & buffer->format) > 0)
-      && ((handle->datatype == LIBXS_DNN_DATATYPE_FP32 && buffer->datatype == LIBXS_DNN_DATATYPE_FP32)
-        || (buffer->datatype == LIBXS_DNN_DATATYPE_INT32)))
+      && ((handle->datatype == LIBXS_DNN_DATATYPE_F32 && buffer->datatype == LIBXS_DNN_DATATYPE_F32)
+        || (buffer->datatype == LIBXS_DNN_DATATYPE_I32)))
     {
       handle->output = (libxs_dnn_buffer*)buffer;
     }

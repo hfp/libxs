@@ -233,7 +233,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_d
   /* check if we have a kernel JITed */
   if (handle->code_fwd[0].xconv.sconv == 0) {
     switch (handle->datatype) {
-      case LIBXS_DNN_DATATYPE_FP32: {
+      case LIBXS_DNN_DATATYPE_F32: {
         if (1 == handle->desc.splits) {
           internal_convolve_st_fwd_nhwc_rsck_fp32_fallback(handle, start_thread, tid, num_threads);
         }
@@ -249,7 +249,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_d
     }
   } else {
     switch (handle->datatype) {
-      case LIBXS_DNN_DATATYPE_FP32: {
+      case LIBXS_DNN_DATATYPE_F32: {
         if (1 == handle->desc.splits) {
           if (handle->desc.N*handle->blocksofm >= num_threads) {
             internal_convolve_st_fwd_nhwc_rsck_fp32_opt(handle, start_thread, tid, num_threads);

@@ -394,7 +394,7 @@ int main(int argc, char* argv[])
   conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
   conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-  conv_desc.datatype = LIBXS_DNN_DATATYPE_INT16;
+  conv_desc.datatype = LIBXS_DNN_DATATYPE_I16;
 
   libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
@@ -508,7 +508,7 @@ int main(int argc, char* argv[])
   conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_NHWC;
   conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_RSCK;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-  conv_desc.datatype = LIBXS_DNN_DATATYPE_FP32;
+  conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
 
   libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
@@ -613,7 +613,7 @@ int main(int argc, char* argv[])
   conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_NHWC;
   conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-  conv_desc.datatype = LIBXS_DNN_DATATYPE_FP32;
+  conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
 
   libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
