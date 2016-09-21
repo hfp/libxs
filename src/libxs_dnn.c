@@ -32,6 +32,11 @@
 #include "libxs_dnn_conv_fwd_nhwc_custom.h"
 #include "libxs_dnn_conv_fwd_nhwc_rsck.h"
 
+//#define STATIC_AVX512BW
+#ifdef STATIC_AVX512BW
+#include <conv_asm.h>
+#endif
+
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
@@ -182,14 +187,17 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
       if (handle->datatype == LIBXS_DNN_DATATYPE_FP32) {
         handle->ifmblock = (conv_desc.C >=16) ? 16 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
+        handle->ifm_lp_block = 1;
       }
       else if (handle->datatype == LIBXS_DNN_DATATYPE_INT16) {
-        handle->ifmblock = (conv_desc.C >=32) ? 32 : conv_desc.C;
+        handle->ifmblock = (conv_desc.C >=16) ? 16 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
+        handle->ifm_lp_block = 2;
         if ( libxs_get_target_archid() == LIBXS_X86_AVX512_MIC ) {
           *status = LIBXS_DNN_WARN_FALLBACK;
           handle->ifmblock = 1;
           handle->ofmblock = 1;
+          handle->ifm_lp_block = 1;
           noarch = 1;
         }
       }
@@ -213,6 +221,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
       if (handle->datatype == LIBXS_DNN_DATATYPE_FP32) {
         handle->ifmblock = (conv_desc.C >=32) ? 32 : conv_desc.C;
         handle->ofmblock = (conv_desc.K >=32) ? 32 : conv_desc.K;
+        handle->ifm_lp_block = 1;
 
         /* let's find out if we need a smaller blocking */
         if ( conv_desc.C % handle->ifmblock != 0 ) {
@@ -245,6 +254,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         *status = LIBXS_DNN_WARN_FALLBACK;
         handle->ifmblock = 1;
         handle->ofmblock = 1;
+        handle->ifm_lp_block = 1;
         noarch = 1;
       }
       else {
@@ -257,19 +267,21 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
       *status = LIBXS_DNN_WARN_FALLBACK;
       handle->ifmblock = 1;
       handle->ofmblock = 1;
+      handle->ifm_lp_block = 1;
     }
 
     /* Let's calculate how many blocks we need */
-    handle->blocksifm = conv_desc.C / handle->ifmblock;
+    handle->blocksifm = conv_desc.C / (handle->ifmblock * handle->ifm_lp_block);
     handle->blocksofm = conv_desc.K / handle->ofmblock;
 
     /* Let's check that we can actually block */
-    if (conv_desc.C % handle->ifmblock != 0 ||
+    if (conv_desc.C % (handle->ifmblock * handle->ifm_lp_block) != 0 ||
         conv_desc.K % handle->ofmblock != 0)
     {
       *status = LIBXS_DNN_WARN_FALLBACK;
       handle->ifmblock = 1;
       handle->ofmblock = 1;
+      handle->ifm_lp_block = 1;
       handle->blocksifm = conv_desc.C / handle->ifmblock;
       handle->blocksofm = conv_desc.K / handle->ofmblock;
     }
@@ -306,6 +318,12 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
             libxs_get_target_archid() == LIBXS_X86_AVX512_CORE)
         {
+#ifdef STATIC_AVX512BW
+          handle->code_fwd[0].pmm = testconvkernel;
+          handle->code_fwd[1].pmm = testconvkernel;
+          handle->code_fwd[2].pmm = testconvkernel;
+          handle->code_fwd[3].pmm = testconvkernel;
+#else
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
           handle->code_fwd[0].pmm = libxs_create_xconv_forward(&descriptor);
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT;
@@ -314,6 +332,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
           handle->code_fwd[2].pmm = libxs_create_xconv_forward(&descriptor);
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT;
           handle->code_fwd[3].pmm = libxs_create_xconv_forward(&descriptor);
+#endif
         } else if (libxs_get_target_archid() == LIBXS_X86_AVX2) {
           /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
           descriptor.unroll_kh = 0;
@@ -326,6 +345,66 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         } else {
           /* shouldn't happend */
         }
+      }
+#if 0
+      { libxs_convolution_backward_descriptor descriptor;
+        descriptor.ifh_padded = conv_desc.H;
+        descriptor.ifw_padded = conv_desc.W;
+        descriptor.kh = conv_desc.R;
+        descriptor.kw = conv_desc.S;
+        descriptor.stride_h = conv_desc.u;
+        descriptor.stride_w = conv_desc.v;
+        descriptor.ofh_padded = handle->ofhp;
+        descriptor.ofw_padded = handle->ofwp;
+
+        descriptor.ofh_rb = handle->bwd_ofh_rb;
+        descriptor.ofw_rb = handle->bwd_ofw_rb;
+
+        descriptor.blocks_ofm = handle->blocksofm;
+        descriptor.blocks_ifm = handle->blocksifm;
+
+        descriptor.ofm_block = handle->ofmblock;
+        descriptor.ifm_block = handle->ifmblock;
+
+        descriptor.datatype = handle->datatype;
+        descriptor.format = (libxs_dnn_conv_format)(handle->buffer_format | handle->filter_format);
+
+        if (conv_desc.R == 1 && conv_desc.S == 1) {
+          descriptor.unroll_kh = 1;
+          descriptor.unroll_kw = 1;
+        }
+        else {
+          descriptor.unroll_kh = 0;
+          descriptor.unroll_kw = 1;
+        }
+        /* TODO check JIT errors */
+        if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
+            libxs_get_target_archid() == LIBXS_X86_AVX512_CORE)
+        {
+          descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
+          handle->code_fwd[0].sconv = libxs_create_sconv_forward(&descriptor);
+          descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT;
+          handle->code_fwd[1].sconv = libxs_create_sconv_forward(&descriptor);
+          descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+          handle->code_fwd[2].sconv = libxs_create_sconv_forward(&descriptor);
+          descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT;
+          handle->code_fwd[3].sconv = libxs_create_sconv_forward(&descriptor);
+        } else if (libxs_get_target_archid() == LIBXS_X86_AVX2) {
+          /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
+          descriptor.unroll_kh = 0;
+          descriptor.unroll_kw = 0;
+          descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
+          handle->code_fwd[0].sconv = libxs_create_sconv_forward(&descriptor);
+          handle->code_fwd[1].sconv = handle->code_fwd[0].sconv;
+          handle->code_fwd[2].sconv = handle->code_fwd[0].sconv;
+          handle->code_fwd[3].sconv = handle->code_fwd[0].sconv;
+        } else {
+          /* shouldn't happend */
+        }
+      }
+#endif
+      {
+
       }
 #if 0
       /* TODO Backward path */
@@ -436,9 +515,10 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_input_buffer_check(const
     buffer->W = handle->ifwp;
     buffer->format = handle->buffer_format;
     buffer->datatype = handle->datatype;
+    buffer->lpb = handle->ifm_lp_block;
     /* allocate raw data */
     result = libxs_xmalloc(&buffer->data,
-        buffer->N * buffer->splits * buffer->fmb * buffer->bfm * buffer->H * buffer->W * internal_dnn_typesize(buffer->datatype),
+        buffer->N * buffer->splits * buffer->fmb * buffer->bfm * buffer->H * buffer->W * buffer->lpb * internal_dnn_typesize(buffer->datatype),
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
@@ -478,6 +558,7 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer_check(const l
     buffer->W = handle->ifwp;
     buffer->format = in_format;
     buffer->datatype = handle->datatype;
+    buffer->lpb = handle->ifm_lp_block;
     if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_NHWC ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
       buffer->data = (void*)data;
     } else {
@@ -520,6 +601,7 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_output_buffer_check(cons
     buffer->H = handle->ofhp;
     buffer->W = handle->ofwp;
     buffer->format = handle->buffer_format;
+    buffer->lpb = 1;
     if (handle->datatype == LIBXS_DNN_DATATYPE_FP32) {
       buffer->datatype = handle->datatype;
     }
@@ -528,7 +610,7 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_output_buffer_check(cons
     }
     /* allocate raw data, we always have a 4 byte wide type!! */
     result = libxs_xmalloc(&buffer->data,
-        buffer->N * buffer->splits * buffer->fmb * buffer->bfm * buffer->H * buffer->W * internal_dnn_typesize(buffer->datatype),
+        buffer->N * buffer->splits * buffer->fmb * buffer->bfm * buffer->H * buffer->W * buffer->lpb * internal_dnn_typesize(buffer->datatype),
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
@@ -568,6 +650,7 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer_check(const 
     buffer->W = handle->ofwp;
     buffer->format = in_format;
     buffer->datatype = handle->datatype;
+    buffer->lpb = 1;
     if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_NHWC ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
       buffer->data = (void*)data;
     } else {
@@ -632,9 +715,10 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_create_filter_check(const libxs
     filter->S = handle->desc.S;
     filter->format = handle->filter_format;
     filter->datatype = handle->datatype;
+    filter->lpb = handle->ifm_lp_block;
     /* allocate raw data */
     result = libxs_xmalloc(&filter->data,
-        filter->splits * filter->ifmb * filter->bifm * filter->ofmb * filter->bofm * filter->R * filter->S * internal_dnn_typesize(filter->datatype),
+        filter->splits * filter->ifmb * filter->bifm * filter->ofmb * filter->bofm * filter->R * filter->S * filter->lpb * internal_dnn_typesize(filter->datatype),
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
@@ -675,6 +759,7 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter_check(const libxs_d
     filter->S = handle->desc.S;
     filter->format = in_format;
     filter->datatype = handle->datatype;
+    filter->lpb = handle->ifm_lp_block;
     if ( ((handle->filter_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_RSCK ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
       filter->data = (void*)data;
     } else {
@@ -735,9 +820,10 @@ LIBXS_API_DEFINITION libxs_dnn_bias* libxs_dnn_create_bias_check(const libxs_dnn
     bias->fmb = handle->blocksifm;
     bias->bfm = handle->ifmblock;
     bias->datatype = handle->datatype;
+    bias->lpb = handle->ifm_lp_block;
     /* allocate raw data, we always have a 4 byte wide type!! */
     result = libxs_xmalloc(&bias->data,
-        bias->splits * bias->fmb * bias->bfm * internal_dnn_typesize(bias->datatype),
+        bias->splits * bias->fmb * bias->bfm * bias->lpb * internal_dnn_typesize(bias->datatype),
         LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
   }
   else {
@@ -1031,6 +1117,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_input_buffer(libxs_dnn_conv_
       && handle->ifmblock == buffer->bfm
       && handle->blocksifm == buffer->fmb
       && handle->datatype == buffer->datatype
+      && handle->ifm_lp_block == buffer->lpb
       && ((handle->buffer_format & buffer->format) > 0) )
     {
       handle->input = (libxs_dnn_buffer*)buffer;
@@ -1059,6 +1146,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_output_buffer(libxs_dnn_conv
       && handle->ofhp == buffer->H
       && handle->ofmblock == buffer->bfm
       && handle->blocksofm == buffer->fmb
+      && buffer->lpb == 1
       && ((handle->buffer_format & buffer->format) > 0)
       && ((handle->datatype == LIBXS_DNN_DATATYPE_FP32 && buffer->datatype == LIBXS_DNN_DATATYPE_FP32)
         || (buffer->datatype == LIBXS_DNN_DATATYPE_INT32)))
@@ -1090,6 +1178,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_conv_handle
       && handle->blocksifm == filter->ifmb
       && handle->ofmblock == filter->bofm
       && handle->blocksofm == filter->ofmb
+      && handle->ifm_lp_block == filter->lpb
       && ((handle->filter_format & filter->format) > 0)
       && handle->datatype == filter->datatype)
     {
