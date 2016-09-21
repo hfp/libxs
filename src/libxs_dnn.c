@@ -32,9 +32,9 @@
 #include "libxs_dnn_conv_fwd_nhwc_custom.h"
 #include "libxs_dnn_conv_fwd_nhwc_rsck.h"
 
-//#define STATIC_AVX512BW
+/*#define STATIC_AVX512BW*/
 #ifdef STATIC_AVX512BW
-#include <conv_asm.h>
+# include <conv_asm.h>
 #endif
 
 #if defined(LIBXS_OFFLOAD_TARGET)
