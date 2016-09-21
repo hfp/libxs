@@ -26,18 +26,20 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#include <libxs.h>
 #include "libxs_main.h"
 #include "libxs_dnn_conv_fwd_custom_custom.h"
 #include "libxs_dnn_conv_fwd_nhwc_custom.h"
 #include "libxs_dnn_conv_fwd_nhwc_rsck.h"
-#include <libxs_malloc.h>
-#include <libxs_sync.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <stdlib.h>
 #include <string.h>
+#if defined(_OPENMP)
+# include <omp.h>
+#endif
 #if !defined(NDEBUG)
 # include <stdio.h>
 #endif

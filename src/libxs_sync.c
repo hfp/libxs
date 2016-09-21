@@ -27,7 +27,6 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include <libxs_sync.h>
-#include <libxs_malloc.h>
 #include "libxs_intrinsics_x86.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
