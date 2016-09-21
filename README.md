@@ -113,7 +113,7 @@ typedef enum libxs_dnn_conv_algo {
 
 /** Denotes the element/pixel type of an image/channel. */
 typedef enum libxs_dnn_conv_datatype {
-  LIBXS_DNN_DATATYPE_FP32
+  LIBXS_DNN_DATATYPE_F32
 } libxs_dnn_datatype;
 
 LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
@@ -136,7 +136,7 @@ libxs_dnn_conv_handle* libxs_handle;
 conv_desc.N = ...
 /* create handle */
 libxs_handle = libxs_dnn_create_conv_handle_check(conv_desc,
-  LIBXS_DNN_DATATYPE_FP32,
+  LIBXS_DNN_DATATYPE_F32,
   LIBXS_DNN_CONV_ALGO_DIRECT,
   &status);
 CHKERR_LIBXS_DNN(status);

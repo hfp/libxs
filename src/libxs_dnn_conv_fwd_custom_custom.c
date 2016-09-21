@@ -94,10 +94,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
   if (handle->code_fwd[0].xconv.sconv == 0) {
     if (1 == handle->desc.splits) {
       switch (handle->datatype) {
-        case LIBXS_DNN_DATATYPE_FP32: {
+        case LIBXS_DNN_DATATYPE_F32: {
           internal_convolve_st_fwd_custom_custom_fp32_fallback(handle, start_thread, tid, num_threads);
         } break;
-        case LIBXS_DNN_DATATYPE_INT16: {
+        case LIBXS_DNN_DATATYPE_I16: {
           internal_convolve_st_fwd_custom_custom_int16_fallback(handle, start_thread, tid, num_threads);
         } break;
         default: {
@@ -113,7 +113,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
   else {
     if (1 == handle->desc.splits) {
       switch (handle->datatype) {
-        case LIBXS_DNN_DATATYPE_FP32: {
+        case LIBXS_DNN_DATATYPE_F32: {
           if (handle->desc.N*handle->blocksofm >= num_threads) {
             internal_convolve_st_fwd_custom_custom_fp32_opt(handle, start_thread, tid, num_threads);
           }
@@ -121,7 +121,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
             internal_convolve_st_fwd_custom_custom_fp32_opt_img_par(handle, start_thread, tid, num_threads);
           }
         } break;
-        case LIBXS_DNN_DATATYPE_INT16: {
+        case LIBXS_DNN_DATATYPE_I16: {
           if (handle->desc.N*handle->blocksofm >= num_threads) {
             internal_convolve_st_fwd_custom_custom_int16_opt(handle, start_thread, tid, num_threads);
           }
