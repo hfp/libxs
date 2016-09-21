@@ -31,7 +31,6 @@
 
 #include "libxs_gemm_diff.h"
 #include "libxs_intrinsics_x86.h"
-#include <libxs_sync.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
