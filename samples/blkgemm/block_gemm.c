@@ -165,6 +165,7 @@ void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
   int nr = 8;
   int kr = 4;
 
+#if 0
   if ( (handle->mb % mr == 0) && (handle->nb % nr == 0) && (handle->kb % kr == 0) ) {
 #if defined(_OPENMP)
 #   pragma omp parallel for collapse(2) private(mb, nb, kb, mb2, nb2, kb2)
@@ -186,20 +187,36 @@ void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
       }
     }
   } else {
+#endif
 #if defined(_OPENMP)
 #   pragma omp parallel for collapse(2) private(mb, nb, kb)
 #endif
     for ( nb = 0; nb < handle->nb; nb++ ) {
       for ( mb = 0; mb < handle->mb; mb++ ) {
         for ( kb = 0; kb < handle->kb; kb++ ) {
+          if ( kb < handle->kb-1 ) {
           handle->kernel(
             &LIBXS_VLA_ACCESS(4, a_t, kb, mb, 0, 0, handle->mb, handle->bk, handle->bm),
             &LIBXS_VLA_ACCESS(4, b_t, nb, kb, 0, 0, handle->kb, handle->bn, handle->bk),
-            &LIBXS_VLA_ACCESS(4, c_t, nb, mb, 0, 0, handle->mb, handle->bn, handle->bm));
+            &LIBXS_VLA_ACCESS(4, c_t, nb, mb, 0, 0, handle->mb, handle->bn, handle->bm),
+            &LIBXS_VLA_ACCESS(4, a_t, kb+1, mb, 0, 0, handle->mb, handle->bk, handle->bm),
+            &LIBXS_VLA_ACCESS(4, b_t, nb, kb+1, 0, 0, handle->kb, handle->bn, handle->bk),
+            NULL);
+          } else {
+          handle->kernel(
+            &LIBXS_VLA_ACCESS(4, a_t, kb, mb, 0, 0, handle->mb, handle->bk, handle->bm),
+            &LIBXS_VLA_ACCESS(4, b_t, nb, kb, 0, 0, handle->kb, handle->bn, handle->bk),
+            &LIBXS_VLA_ACCESS(4, c_t, nb, mb, 0, 0, handle->mb, handle->bn, handle->bm),
+            &LIBXS_VLA_ACCESS(4, a_t, 0, (mb+1)%handle->mb, 0, 0, handle->mb, handle->bk, handle->bm),
+            &LIBXS_VLA_ACCESS(4, b_t, nb, 0, 0, 0, handle->kb, handle->bn, handle->bk),
+            NULL);
+          }
         }
       }
     }
+#if 0
   }
+#endif
 }
 
 int main(int argc, char* argv []) {
@@ -289,7 +306,8 @@ int main(int argc, char* argv []) {
   handle.mb = handle.m / handle.bm;
   handle.nb = handle.n / handle.bn;
   handle.kb = handle.k / handle.bk;
-  handle.kernel = libxs_smmdispatch(handle.bm, handle.bn, handle.bk, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+  libxs_gemm_prefetch_type mypf = LIBXS_PREFETCH_AL2BL2_VIA_C;
+  handle.kernel = libxs_smmdispatch(handle.bm, handle.bn, handle.bk, NULL, NULL, NULL, NULL, NULL, NULL, &mypf);
 
   /* init random seed and print some info */
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, reps=%i\n", M, N, K, handle.bm, handle.bn, handle.bk, reps );
