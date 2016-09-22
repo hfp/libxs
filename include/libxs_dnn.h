@@ -106,8 +106,8 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   int S;                                       /* width of filter kernel */
   int u;                                       /* vertical stride */
   int v;                                       /* horizontal stride */
-  int pad_h_in;                                /* height of zero-padding in input buffer */
-  int pad_w_in;                                /* width of zero-padding in input buffer */
+  int pad_h_in;                                /* height of zero-padding in input buffer, ignored */
+  int pad_w_in;                                /* width of zero-padding in input buffer, ignored */
   int pad_h_out;                               /* height of zero-padding in output buffer */
   int pad_w_out;                               /* width of zero-padding in output buffer */
   int splits;                                  /* number of splits */
