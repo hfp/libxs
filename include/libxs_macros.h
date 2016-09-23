@@ -343,11 +343,7 @@
 
 #if (defined(__GNUC__) || defined(__clang__))
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT LIBXS_ATTRIBUTE(weak_import)
-# if defined(__CYGWIN__)
-#   define LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE(weakref)
-#else
-#   define LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE(weak)
-# endif
+# define LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE(weak)
 #else
 # define LIBXS_ATTRIBUTE_WEAK
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT
