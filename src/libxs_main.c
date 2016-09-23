@@ -1025,6 +1025,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         if (0 > internal_verbose_mode)
 # endif
         {
+          const int uid = libxs_prefetch2uid(request->descriptor.gemm->prefetch);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%c%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.smxm", target_arch/*code path name*/,
             0 == (LIBXS_GEMM_FLAG_F32PREC & request->descriptor.gemm->flags) ? 'd' : 's',
@@ -1032,7 +1033,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't',
             (unsigned int)request->descriptor.gemm->m,   (unsigned int)request->descriptor.gemm->n,   (unsigned int)request->descriptor.gemm->k,
             (unsigned int)request->descriptor.gemm->lda, (unsigned int)request->descriptor.gemm->ldb, (unsigned int)request->descriptor.gemm->ldc,
-            request->descriptor.gemm->alpha, request->descriptor.gemm->beta, libxs_prefetch2uid(request->descriptor.gemm->prefetch));
+            request->descriptor.gemm->alpha, request->descriptor.gemm->beta, uid);
         }
       }
       else { /* this case is not an actual error */
@@ -1052,6 +1053,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         if (0 > internal_verbose_mode)
 # endif
         {
+          const int uid = libxs_prefetch2uid(request->descriptor.ssoa->gemm->prefetch);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%c%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.ssoa", target_arch/*code path name*/,
             0 == (LIBXS_GEMM_FLAG_F32PREC & request->descriptor.ssoa->gemm->flags) ? 'd' : 's',
@@ -1059,7 +1061,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.ssoa->gemm->flags) ? 'n' : 't',
             (unsigned int)request->descriptor.ssoa->gemm->m,   (unsigned int)request->descriptor.ssoa->gemm->n,   (unsigned int)request->descriptor.ssoa->gemm->k,
             (unsigned int)request->descriptor.ssoa->gemm->lda, (unsigned int)request->descriptor.ssoa->gemm->ldb, (unsigned int)request->descriptor.ssoa->gemm->ldc,
-            request->descriptor.ssoa->gemm->alpha, request->descriptor.ssoa->gemm->beta, libxs_prefetch2uid(request->descriptor.ssoa->gemm->prefetch));
+            request->descriptor.ssoa->gemm->alpha, request->descriptor.ssoa->gemm->beta, uid);
         }
       }
       else { /* this case is not an actual error */
