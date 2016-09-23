@@ -306,8 +306,8 @@ int main(int argc, char* argv []) {
   handle.mb = handle.m / handle.bm;
   handle.nb = handle.n / handle.bn;
   handle.kb = handle.k / handle.bk;
-  libxs_gemm_prefetch_type mypf = LIBXS_PREFETCH_AL2BL2_VIA_C;
-  handle.kernel = libxs_smmdispatch(handle.bm, handle.bn, handle.bk, NULL, NULL, NULL, NULL, NULL, NULL, &mypf);
+  libxs_gemm_prefetch_type mypf = LIBXS_PREFETCH_AL2;
+  handle.kernel = libxs_smmdispatch(handle.bm, handle.bn, handle.bk, NULL, NULL, NULL, NULL, NULL, NULL, NULL /*&mypf*/);
 
   /* init random seed and print some info */
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, reps=%i\n", M, N, K, handle.bm, handle.bn, handle.bk, reps );
