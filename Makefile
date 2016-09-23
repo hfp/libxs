@@ -673,9 +673,9 @@ endif
 .PHONY: generator
 generator: $(BINDIR)/libxs_gemm_generator $(BINDIR)/libxs_conv_generator
 $(BINDIR)/libxs_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
-	$(CC) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call libdir,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(CC) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 $(BINDIR)/libxs_conv_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONV_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
-	$(CC) -o $@ $(OBJFILES_GEN_CONV_BIN) $(call libdir,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(CC) -o $@ $(OBJFILES_GEN_CONV_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 
 .PHONY: clib_mic
 ifneq (0,$(MIC))
@@ -710,7 +710,7 @@ ifneq (,$(strip $(FC)))
 flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/libxs.$(LIBEXT)
-	$(FC) -o $@ -mmic -shared $(FCMTFLAGS) $(call soname,$@ $(VERSION_MAJOR)) $(BLDDIR)/mic/libxs-mod.o $(call libdir,$(OUTDIR)/mic/libxs.$(LIBEXT)) $(LDFLAGS) $(FLDFLAGS)
+	$(FC) -o $@ -mmic -shared $(FCMTFLAGS) $(call soname,$@ $(VERSION_MAJOR)) $(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(LIBEXT)) $(LDFLAGS) $(FLDFLAGS)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
@@ -728,7 +728,7 @@ ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/libxs.$(LIBEXT)
-	$(FC) -o $@ -shared $(FCMTFLAGS) $(call soname,$@ $(VERSION_MAJOR)) $(BLDDIR)/intel64/libxs-mod.o $(call libdir,$(OUTDIR)/libxs.$(LIBEXT)) $(LDFLAGS) $(FLDFLAGS)
+	$(FC) -o $@ -shared $(FCMTFLAGS) $(call soname,$@ $(VERSION_MAJOR)) $(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(LIBEXT)) $(LDFLAGS) $(FLDFLAGS)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
@@ -745,7 +745,7 @@ ifneq (0,$(MPSS))
 ext_mic: $(OUTDIR)/mic/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(DLIBEXT)
-	$(LD) -o $@ -mmic -shared $(EXTLDFLAGS) $(call soname,$@ $(VERSION_MAJOR)) $(EXTOBJS_MIC) $(call libdir,$(OUTDIR)/mic/libxs.$(DLIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ -mmic -shared $(EXTLDFLAGS) $(call soname,$@ $(VERSION_MAJOR)) $(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(DLIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
@@ -760,9 +760,9 @@ ext_hst: $(OUTDIR)/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST) $(OUTDIR)/libxs.$(DLIBEXT)
 ifeq (Darwin,$(UNAME))
-	$(LD) -o $@ -shared $(call soname,$@ $(VERSION_MAJOR)) $(EXTOBJS_HST) $(call libdir,$(OUTDIR)/libxs.$(DLIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ -shared $(call soname,$@ $(VERSION_MAJOR)) $(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(DLIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 else
-	$(LD) -o $@ -shared $(EXTLDFLAGS) $(call soname,$@ $(VERSION_MAJOR)) $(EXTOBJS_HST) $(call libdir,$(OUTDIR)/libxs.$(DLIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ -shared $(EXTLDFLAGS) $(call soname,$@ $(VERSION_MAJOR)) $(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(DLIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 endif
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
