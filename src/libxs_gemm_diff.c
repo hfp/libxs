@@ -138,8 +138,8 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diff_sse(const lib
   assert(4 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   {
-    const __m128i a128 = _mm_lddqu_si128((const __m128i*)reference);
-    const __m128i b128 = _mm_lddqu_si128((const __m128i*)desc);
+    const __m128i a128 = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)reference);
+    const __m128i b128 = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)desc);
     const __m128i c128 = _mm_cmpeq_epi8(a128, b128);
     return 0xFFFF != _mm_movemask_epi8(c128);
   }
