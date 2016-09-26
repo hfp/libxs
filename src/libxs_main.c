@@ -717,9 +717,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
 #endif
           atexit(libxs_finalize);
           {
-            void *const pv_registry = &internal_registry, *pa_registry[] = { 0 };
-            pa_registry[0] = pv_registry;
-            LIBXS_ATOMIC_STORE(pa_registry, (void*)result, LIBXS_ATOMIC_SEQ_CST);
+            void *const pv_registry = &internal_registry;
+            LIBXS_ATOMIC_STORE((void**)pv_registry, (void*)result, LIBXS_ATOMIC_SEQ_CST);
           }
         }
         else {
