@@ -433,7 +433,7 @@ $(INCDIR)/libxs.f: $(INCDIR)/.make $(BLDDIR)/.make .state \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) \
 		$(shell echo $$(($(THREADS)+$(OMP)))) \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) | \
-	sed '/ATTRIBUTES OFFLOAD:MIC/d' > $@
+	sed "/ATTRIBUTES OFFLOAD:MIC/d" > $@
 
 .PHONY: sources
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
@@ -520,12 +520,12 @@ endif
 endif
 	$(eval TMPFILE = $(shell mktemp /tmp/fileXXXXXX))
 	@cat $@ | sed \
-		-e 's/void libxs_/LIBXS_INLINE LIBXS_RETARGETABLE void libxs_/' \
-		-e 's/#ifndef NDEBUG/$(SUPPRESS_UNUSED_PREFETCH_WARNINGS)#ifdef LIBXS_NEVER_DEFINED/' \
-		-e 's/#pragma message (".*KERNEL COMPILATION ERROR in: " __FILE__)/  $(SUPPRESS_UNUSED_VARIABLE_WARNINGS)/' \
-		-e '/#error No kernel was compiled, lacking support for current architecture?/d' \
-		-e '/#pragma message (".*KERNEL COMPILATION WARNING: compiling ..* code on ..* or newer architecture: " __FILE__)/d' \
-		| tr '~' '\n' > $(TMPFILE)
+		-e "s/void libxs_/LIBXS_INLINE LIBXS_RETARGETABLE void libxs_/" \
+		-e "s/#ifndef NDEBUG/$(SUPPRESS_UNUSED_PREFETCH_WARNINGS)#ifdef LIBXS_NEVER_DEFINED/" \
+		-e "s/#pragma message (\".*KERNEL COMPILATION ERROR in: \" __FILE__)/  $(SUPPRESS_UNUSED_VARIABLE_WARNINGS)/" \
+		-e "/#error No kernel was compiled, lacking support for current architecture?/d" \
+		-e "/#pragma message (\".*KERNEL COMPILATION WARNING: compiling ..* code on ..* or newer architecture: \" __FILE__)/d" \
+		| tr "~" "\n" > $(TMPFILE)
 	@$(PYTHON) $(SCRDIR)/libxs_specialized.py $(PRECISION) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >> $(TMPFILE)
 	@mv $(TMPFILE) $@
 endif
@@ -1153,16 +1153,16 @@ $(DOCDIR)/libxs.pdf: $(DOCDIR)/.make $(ROOTDIR)/README.md
 	@mv $(TMPFILE) $(TMPFILE).tex
 	@pandoc -D latex \
 	| sed \
-		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
-		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' > \
+		-e "s/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/" \
+		-e "s/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/" > \
 		$(TMPFILE).tex
 	@iconv -t utf-8 $(ROOTDIR)/README.md \
 	| sed \
-		-e 's/\[\[..*\](..*)\]//g' \
-		-e 's/\[!\[..*\](..*)\](..*)//g' \
-		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-		-e 's/----*//g' \
+		-e "s/\[\[..*\](..*)\]//g" \
+		-e "s/\[!\[..*\](..*)\](..*)//g" \
+		-e "s/<sub>/~/g" -e "s/<\/sub>/~/g" \
+		-e "s/<sup>/^/g" -e "s/<\/sup>/^/g" \
+		-e "s/----*//g" \
 	| pandoc \
 		--latex-engine=xelatex --template=$(TMPFILE).tex --listings \
 		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
@@ -1181,16 +1181,16 @@ $(DOCDIR)/cp2k.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/cp2k.md
 	@mv $(TMPFILE) $(TMPFILE).tex
 	@pandoc -D latex \
 	| sed \
-		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
-		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' > \
+		-e "s/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/" \
+		-e "s/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/" > \
 		$(TMPFILE).tex
 	@iconv -t utf-8 $(ROOTDIR)/documentation/cp2k.md \
 	| sed \
-		-e 's/\[\[..*\](..*)\]//g' \
-		-e 's/\[!\[..*\](..*)\](..*)//g' \
-		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-		-e 's/----*//g' \
+		-e "s/\[\[..*\](..*)\]//g" \
+		-e "s/\[!\[..*\](..*)\](..*)//g" \
+		-e "s/<sub>/~/g" -e "s/<\/sub>/~/g" \
+		-e "s/<sup>/^/g" -e "s/<\/sup>/^/g" \
+		-e "s/----*//g" \
 	| pandoc \
 		--latex-engine=xelatex --template=$(TMPFILE).tex --listings \
 		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
