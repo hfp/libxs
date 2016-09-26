@@ -42,13 +42,13 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if defined(_rdtsc) || defined(_WIN32)
-# define LIBXS_TIMER_RDTSC(CYCLE) (CYCLE = __rdtsc())
-#elif defined(__GNUC__) || defined(__INTEL_COMPILER)
-# define LIBXS_TIMER_RDTSC(CYCLE) { unsigned long libxs_timer_rdtsc_hi_; \
+#if defined(__GNUC__) || defined(__INTEL_COMPILER)
+# define LIBXS_TIMER_RDTSC(CYCLE) { unsigned long long libxs_timer_rdtsc_hi_; \
     __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
     CYCLE |= libxs_timer_rdtsc_hi_ << 32; \
   }
+#elif defined(_rdtsc) || defined(_WIN32)
+# define LIBXS_TIMER_RDTSC(CYCLE) (CYCLE = __rdtsc())
 #endif
 
 
