@@ -131,7 +131,9 @@ LIBXS_API_DEFINITION unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor
 LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
   assert(0 != reference && 0 != desc);
-#if defined(LIBXS_GEMM_DIFF_SSE) && (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_GEMM_DIFF_SSE) && (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH) && \
+  /* Cygwin/Clang: below code section causes an illegal instruction (Cygwin's GDB not able to determine further [ni/si]) */ \
+  !(defined(__CYGWIN__) && defined(__clang__))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(4 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
