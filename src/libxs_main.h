@@ -233,6 +233,7 @@ LIBXS_API int libxs_malloc_attrib(const volatile void* memory, int flags,
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_REGSIZE for unmanaged code). */
 LIBXS_API void libxs_build(const libxs_build_request* request, unsigned regindex, libxs_code_pointer* code);
 
+LIBXS_API void libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol);
 LIBXS_API int libxs_prefetch2uid(int prefetch);
 LIBXS_API int libxs_uid2prefetch(int uid);
 

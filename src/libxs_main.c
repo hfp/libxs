@@ -227,7 +227,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
         request.descriptor.gemm = DESCRIPTOR; request.kind = LIBXS_BUILD_KIND_GEMM; \
         /* found a conflict-free registry-slot, and attempt to build the kernel */ \
         libxs_build(&request, i, &(RESULT)); \
-        internal_update_statistic(DESCRIPTOR, 1, 0); \
+        internal_update_mmstatistic(DESCRIPTOR, 1, 0); \
         if (0 != (RESULT).pmm) { /* synchronize registry entry */ \
           internal_registry_keys[i].descriptor = *(DESCRIPTOR); \
           *(CODE) = RESULT; \
@@ -243,7 +243,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
           collision.imm = (CODE)->imm | LIBXS_HASH_COLLISION; \
           i = (index != i ? index : LIBXS_HASH_MOD(index + 1, LIBXS_REGSIZE)); \
           i0 = i; /* keep starting point of free-slot-search in mind */ \
-          internal_update_statistic(DESCRIPTOR, 0, 1); \
+          internal_update_mmstatistic(DESCRIPTOR, 0, 1); \
           LIBXS_ATOMIC_STORE(&(CODE)->pmm, collision.pmm, LIBXS_ATOMIC_SEQ_CST); /* fix-up existing entry */ \
           diff0 = diff; /* no more fix-up */ \
         } \
@@ -359,7 +359,8 @@ return flux_entry.xmm
       INTERNAL_FIND_CODE(DESC, code).LIBXS_TPREFIX(TYPE, mm); \
     } \
   } \
-  else { /* TODO: not supported (bypass) */ \
+  else { /* bypass (not supported) */ \
+    libxs_update_mmstatistic(internal_dispatch_main_flags_, LIBXS_LD(M, N), LIBXS_LD(N, M), K, 1, 0); \
     return 0; \
   } \
 }
@@ -392,28 +393,32 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_verbose_mode /*= 0*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_prefetch;
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_update_statistic(const libxs_gemm_descriptor* desc,
-  unsigned ntry, unsigned ncol)
+LIBXS_API_DEFINITION void libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol)
+{
+  const unsigned long long kernel_size = LIBXS_MNK_SIZE(m, n, k);
+  const int precision = (0 == (LIBXS_GEMM_FLAG_F32PREC & flags) ? 0 : 1);
+  int bucket = 3/*huge*/;
+
+  if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= kernel_size) {
+    bucket = 0;
+  }
+  else if (LIBXS_MNK_SIZE(internal_statistic_med, internal_statistic_med, internal_statistic_med) >= kernel_size) {
+    bucket = 1;
+  }
+  else if (LIBXS_MNK_SIZE(internal_statistic_mnk, internal_statistic_mnk, internal_statistic_mnk) >= kernel_size) {
+    bucket = 2;
+  }
+
+  LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[precision][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[precision][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
+}
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_update_mmstatistic(const libxs_gemm_descriptor* desc,
+  unsigned int ntry, unsigned int ncol)
 {
   assert(0 != desc);
-  {
-    const unsigned long long kernel_size = LIBXS_MNK_SIZE(desc->m, desc->n, desc->k);
-    const int precision = (0 == (LIBXS_GEMM_FLAG_F32PREC & desc->flags) ? 0 : 1);
-    int bucket = 3/*huge*/;
-
-    if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= kernel_size) {
-      bucket = 0;
-    }
-    else if (LIBXS_MNK_SIZE(internal_statistic_med, internal_statistic_med, internal_statistic_med) >= kernel_size) {
-      bucket = 1;
-    }
-    else if (LIBXS_MNK_SIZE(internal_statistic_mnk, internal_statistic_mnk, internal_statistic_mnk) >= kernel_size) {
-      bucket = 2;
-    }
-
-    LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[precision][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
-    LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[precision][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
-  }
+  libxs_update_mmstatistic(desc->flags, desc->m, desc->n, desc->k, ntry, ncol);
 }
 
 
@@ -462,7 +467,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_get_target_arch(int id)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_statistic(FILE* ostream, const char* target_arch, int precision, unsigned int linebreaks, unsigned int indent)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_statistic(FILE* ostream,
+  const char* target_arch, int precision, unsigned int linebreaks, unsigned int indent)
 {
   const internal_statistic_type statistic_sml = internal_statistic[precision][0/*SML*/];
   const internal_statistic_type statistic_med = internal_statistic[precision][1/*MED*/];
@@ -536,7 +542,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(const libxs_g
     /* corresponding key position */
     dst_key = internal_registry_keys + i;
 
-    internal_update_statistic(desc, 0, 1);
+    internal_update_mmstatistic(desc, 0, 1);
   }
 
   if (0 == dst_entry->pmm) { /* registry not (yet) exhausted */
@@ -546,7 +552,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(const libxs_g
     dst_entry->imm |= LIBXS_CODE_STATIC;
   }
 
-  internal_update_statistic(desc, 1, 0);
+  internal_update_mmstatistic(desc, 1, 0);
 }
 
 
@@ -1209,6 +1215,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
 LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   const libxs_xmmfunction null_mmfunction = { 0 };
+  /* there is no need to check LIBXS_GEMM_NO_BYPASS_DIMS (M, N, K, LDx) since we already got a descriptor */
   if (0 != descriptor && LIBXS_GEMM_NO_BYPASS(descriptor->flags, descriptor->alpha, descriptor->beta)) {
     libxs_gemm_descriptor backend_descriptor;
     LIBXS_INIT
@@ -1222,7 +1229,8 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
       INTERNAL_FIND_CODE(descriptor, code);
     }
   }
-  else { /* TODO: not supported (bypass) */
+  else { /* bypass (not supported) */
+    internal_update_mmstatistic(descriptor, 1, 0);
     return null_mmfunction;
   }
 }
