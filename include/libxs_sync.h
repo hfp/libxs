@@ -63,6 +63,7 @@
 
 #if defined(__GNUC__)
 # if !defined(LIBXS_GCCATOMICS)
+    /* note: the following version check does *not* prevent non-GNU compilers to adopt GCC's atomics */
 #   if (LIBXS_VERSION3(4, 7, 4) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 #     define LIBXS_GCCATOMICS 1
 #   else
