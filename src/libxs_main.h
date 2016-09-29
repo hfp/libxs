@@ -233,12 +233,20 @@ LIBXS_API int libxs_malloc_attrib(const volatile void* memory, int flags,
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_REGSIZE for unmanaged code). */
 LIBXS_API void libxs_build(const libxs_build_request* request, unsigned regindex, libxs_code_pointer* code);
 
-LIBXS_API void libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol);
+/** Updates counters of the statistic, which is shown at program termination. */
+LIBXS_API unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol);
+
 LIBXS_API int libxs_prefetch2uid(int prefetch);
 LIBXS_API int libxs_uid2prefetch(int uid);
 
-/** Determines whether (OpenMP-)tasks are preferred over thread-style parallelization. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_tasks /*= 0*/;
+/** Stores the verbosity level (libxs_get_verbosity, libxs_set_verbosity). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_verbosity;
+/** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_target_archid;
+/** Determines the prefetch strategy, which is used in case of LIBXS_PREFETCH_AUTO. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_prefetch;
+/** Determines if (OpenMP-)tasks are preferred over thread-style parallelization. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_tasks;
 /** Kind of parallel support (0: none, 1: sequential, 2: parallelized). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_mt;
 /** Number of threads per core. */

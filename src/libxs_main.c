@@ -212,7 +212,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 #if (0 != LIBXS_JIT)
 # define INTERNAL_FIND_CODE_JIT(DESCRIPTOR, CODE, RESULT) \
   /* check if code generation or fix-up is needed, also check whether JIT is supported (CPUID) */ \
-  if (0 == (RESULT).pmm/*code version does not exist*/ && LIBXS_X86_AVX <= internal_target_archid) { \
+  if (0 == (RESULT).pmm/*code version does not exist*/ && LIBXS_X86_AVX <= libxs_target_archid) { \
     /* instead of blocking others, a try-lock allows to let other threads fallback to BLAS during lock-duration */ \
     INTERNAL_FIND_CODE_LOCK(lock, i); /* lock the registry entry */ \
     if (0 == diff) { \
@@ -341,7 +341,7 @@ return flux_entry.xmm
 
 #define INTERNAL_DISPATCH_MAIN(TYPE, DESCRIPTOR_DECL, DESC, PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) { \
   INTERNAL_FIND_CODE_DECLARE(code); \
-  const int internal_dispatch_main_flags_ = (0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)) | LIBXS_CONCATENATE(LIBXS_TPOSTFIX(TYPE, LIBXS_GEMM_FLAG_), PREC); \
+  const int internal_dispatch_main_flags_ = (0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)) | LIBXS_GEMM_TYPEFLAG(TYPE); \
   const int internal_dispatch_main_lda_ = (0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB)); \
   const int internal_dispatch_main_ldb_ = (0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA)); \
   const int internal_dispatch_main_ldc_ = (0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC)); \
@@ -354,12 +354,13 @@ return flux_entry.xmm
     DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, \
       internal_dispatch_main_flags_, LIBXS_LD(M, N), LIBXS_LD(N, M), K, internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_, \
       (signed char)(internal_dispatch_main_alpha_), (signed char)(internal_dispatch_main_beta_), \
-      (0 > internal_dispatch_main_prefetch_ ? internal_prefetch/*auto-dispatched*/ : internal_dispatch_main_prefetch_)); \
+      (0 > internal_dispatch_main_prefetch_ ? libxs_prefetch/*auto-dispatched*/ : internal_dispatch_main_prefetch_)); \
     { \
       INTERNAL_FIND_CODE(DESC, code).LIBXS_TPREFIX(TYPE, mm); \
     } \
   } \
   else { /* bypass (not supported) */ \
+    /* libxs_gemm_print is not suitable here since A, B, and C are unknown at this point */ \
     libxs_update_mmstatistic(internal_dispatch_main_flags_, LIBXS_LD(M, N), LIBXS_LD(N, M), K, 1, 0); \
     return 0; \
   } \
@@ -388,12 +389,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_sml /*= 13*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_med /*= 23*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_mnk /*= LIBXS_MAX_M*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_teardown /*= 0*/;
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_target_archid /*= LIBXS_TARGET_ARCH_GENERIC*/;
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_verbose_mode /*= 0*/;
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_prefetch;
 
 
-LIBXS_API_DEFINITION void libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol)
+LIBXS_API_DEFINITION unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol)
 {
   const unsigned long long kernel_size = LIBXS_MNK_SIZE(m, n, k);
   const int precision = (0 == (LIBXS_GEMM_FLAG_F32PREC & flags) ? 0 : 1);
@@ -409,16 +407,16 @@ LIBXS_API_DEFINITION void libxs_update_mmstatistic(int flags, int m, int n, int 
     bucket = 2;
   }
 
-  LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[precision][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
   LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[precision][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
+  return LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[precision][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_update_mmstatistic(const libxs_gemm_descriptor* desc,
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_update_mmstatistic(const libxs_gemm_descriptor* desc,
   unsigned int ntry, unsigned int ncol)
 {
   assert(0 != desc);
-  libxs_update_mmstatistic(desc->flags, desc->m, desc->n, desc->k, ntry, ncol);
+  return libxs_update_mmstatistic(desc->flags, desc->m, desc->n, desc->k, ntry, ncol);
 }
 
 
@@ -472,12 +470,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_number(unsigned int 
   unsigned int number = n;
   assert(0 != unit);
   *unit = default_unit;
-  if ((1000 * 1000) <= n) {
-    number = n / (1000 * 1000);
+  if ((1000000) <= n) {
+    number = (n + 500000) / 1000000;
     *unit = 'm';
   }
   else if (9999 < n) {
-    number = n / 1000;
+    number = (n + 500) / 1000;
     *unit = 'k';
   }
   return number;
@@ -652,14 +650,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
     result = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
     if (0 == result) {
       int init_code = EXIT_FAILURE;
-      libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set internal_target_archid */
+      libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
       { /* select prefetch strategy for JIT */
         const char *const env = getenv("LIBXS_PREFETCH");
-        internal_prefetch = (LIBXS_X86_AVX512_MIC != internal_target_archid ? INTERNAL_PREFETCH : LIBXS_PREFETCH_AL2BL2_VIA_C);
+        libxs_prefetch = (LIBXS_X86_AVX512_MIC != libxs_target_archid ? INTERNAL_PREFETCH : LIBXS_PREFETCH_AL2BL2_VIA_C);
         if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
           const int uid = atoi(env);
           if (0 <= uid) {
-            internal_prefetch = libxs_uid2prefetch(uid);
+            libxs_prefetch = libxs_uid2prefetch(uid);
           }
         }
       }
@@ -683,7 +681,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       }
       libxs_nt = 2;
 #if !defined(__MIC__) && (LIBXS_X86_AVX512_MIC != LIBXS_STATIC_TARGET_ARCH)
-      if (LIBXS_X86_AVX512_MIC == internal_target_archid)
+      if (LIBXS_X86_AVX512_MIC == libxs_target_archid)
 #endif
       {
         libxs_nt = 4;
@@ -693,11 +691,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
         internal_statistic_mnk = (unsigned int)(pow((double)(LIBXS_MAX_MNK), 0.3333333333333333) + 0.5);
         internal_statistic_sml = 13; internal_statistic_med = 23;
         if (0 != env && 0 != *env) {
-          internal_verbose_mode = atoi(env);
+          libxs_verbosity = atoi(env);
         }
 #if !defined(NDEBUG)
         else {
-          internal_verbose_mode = 1; /* quiet -> verbose */
+          libxs_verbosity = 1; /* quiet -> verbose */
         }
 #endif
       }
@@ -727,10 +725,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       if (EXIT_SUCCESS == init_code)
 #endif
       {
-        libxs_gemm_init(internal_target_archid, internal_prefetch);
-        libxs_gemm_diff_init(internal_target_archid);
-        libxs_trans_init(internal_target_archid);
-        libxs_hash_init(internal_target_archid);
+        libxs_gemm_init(libxs_target_archid, libxs_prefetch);
+        libxs_gemm_diff_init(libxs_target_archid);
+        libxs_trans_init(libxs_target_archid);
+        libxs_hash_init(libxs_target_archid);
 #if defined(LIBXS_PERF)
         libxs_perf_init();
 #endif
@@ -745,10 +743,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
 #if defined(LIBXS_BUILD)
 # if (0 != LIBXS_JIT) && !defined(__MIC__)
           /* check if target arch. permits execution (arch. may be overridden) */
-          if (LIBXS_STATIC_TARGET_ARCH <= internal_target_archid &&
-             (LIBXS_X86_AVX > internal_target_archid /* jit is not available */
+          if (LIBXS_STATIC_TARGET_ARCH <= libxs_target_archid &&
+             (LIBXS_X86_AVX > libxs_target_archid /* jit is not available */
               /* condition allows to avoid JIT (if static code is good enough) */
-           || LIBXS_STATIC_TARGET_ARCH == internal_target_archid))
+           || LIBXS_STATIC_TARGET_ARCH == libxs_target_archid))
 # endif
           { /* opening a scope for eventually declaring variables */
             /* setup the dispatch table for the statically generated code */
@@ -818,7 +816,7 @@ LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
 
       if (0 != registry) {
         internal_regkey_type *const registry_keys = internal_registry_keys;
-        const char *const target_arch = internal_get_target_arch(internal_target_archid);
+        const char *const target_arch = internal_get_target_arch(libxs_target_archid);
         unsigned int heapmem = (LIBXS_REGSIZE) * (sizeof(libxs_code_pointer) + sizeof(internal_regkey_type));
 
         /* serves as an id to invalidate the thread-local cache; never decremented */
@@ -875,12 +873,12 @@ LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
             }
           }
         }
-        if (0 != internal_verbose_mode) { /* print statistic on termination */
+        if (0 != libxs_verbosity) { /* print statistic on termination */
           LIBXS_FLOCK(stderr);
           LIBXS_FLOCK(stdout);
           fflush(stdout); /* synchronize with standard output */
           {
-            const unsigned int linebreak = 0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0) ? 1 : 0;
+            const unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
             if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak) {
               fprintf(stderr, "LIBXS_TARGET=%s ", target_arch);
             }
@@ -904,9 +902,9 @@ LIBXS_API_DEFINITION int libxs_get_target_archid(void)
 {
   LIBXS_INIT
 #if !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
-  return internal_target_archid;
+  return libxs_target_archid;
 #else /* no JIT support */
-  return LIBXS_MIN(internal_target_archid, LIBXS_X86_SSE4_2);
+  return LIBXS_MIN(libxs_target_archid, LIBXS_X86_SSE4_2);
 #endif
 }
 
@@ -923,19 +921,19 @@ LIBXS_API_DEFINITION void libxs_set_target_archid(int id)
     case LIBXS_X86_SSE4_1:
     case LIBXS_X86_SSE3:
     case LIBXS_TARGET_ARCH_GENERIC: {
-      internal_target_archid = id;
+      libxs_target_archid = id;
     } break;
     default: if (LIBXS_X86_GENERIC <= id) {
-      internal_target_archid = LIBXS_X86_GENERIC;
+      libxs_target_archid = LIBXS_X86_GENERIC;
     }
     else {
-      internal_target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
+      libxs_target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
     }
   }
 
 #if !defined(NDEBUG) /* library code is expected to be mute */
   {
-    const int target_archid = internal_target_archid;
+    const int target_archid = libxs_target_archid;
     const int cpuid = libxs_cpuid_x86();
     if (cpuid < target_archid) {
       const char *const target_arch = internal_get_target_arch(target_archid);
@@ -950,7 +948,7 @@ LIBXS_API_DEFINITION void libxs_set_target_archid(int id)
 LIBXS_API_DEFINITION const char* libxs_get_target_arch(void)
 {
   LIBXS_INIT
-  return internal_get_target_arch(internal_target_archid);
+  return internal_get_target_arch(libxs_target_archid);
 }
 
 
@@ -1022,32 +1020,32 @@ LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
     }
   }
 #endif
-  internal_target_archid = target_archid;
+  libxs_target_archid = target_archid;
 }
 
 
-LIBXS_API_DEFINITION int libxs_get_verbose_mode(void)
+LIBXS_API_DEFINITION int libxs_get_verbosity(void)
 {
   LIBXS_INIT
-  return internal_verbose_mode;
+  return libxs_verbosity;
 }
 
 
-LIBXS_API_DEFINITION void libxs_set_verbose_mode(int mode)
+LIBXS_API_DEFINITION void libxs_set_verbosity(int level)
 {
   LIBXS_INIT
-  internal_verbose_mode = mode;
+  libxs_verbosity = level;
 }
 
 
 LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code)
 {
 #if !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
-  const char *const target_arch = internal_get_target_arch(internal_target_archid);
+  const char *const target_arch = internal_get_target_arch(libxs_target_archid);
   libxs_generated_code generated_code;
   char jit_name[256] = { 0 };
 
-  assert(0 != request && 0 != internal_target_archid);
+  assert(0 != request && 0 != libxs_target_archid);
   assert(0 != code && 0 == code->pmm);
   /* some shared setup for code generation */
   memset(&generated_code, 0, sizeof(generated_code));
@@ -1065,7 +1063,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(libxs_generator_gemm_kernel, &generated_code, request->descriptor.gemm, target_arch);
 # if !defined(LIBXS_VTUNE)
-        if (0 > internal_verbose_mode)
+        if (0 > libxs_verbosity)
 # endif
         {
           const int uid = libxs_prefetch2uid(request->descriptor.gemm->prefetch);
@@ -1093,7 +1091,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
           request->descriptor.ssoa->row_ptr, request->descriptor.ssoa->column_idx,
           (const double*)request->descriptor.ssoa->values);
 # if !defined(LIBXS_VTUNE)
-        if (0 > internal_verbose_mode)
+        if (0 > libxs_verbosity)
 # endif
         {
           const int uid = libxs_prefetch2uid(request->descriptor.ssoa->gemm->prefetch);
@@ -1120,7 +1118,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(libxs_generator_convolution_forward_kernel, &generated_code, request->descriptor.cfwd, target_arch);
 # if !defined(LIBXS_VTUNE)
-        if (0 > internal_verbose_mode)
+        if (0 > libxs_verbosity)
 # endif
         {
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
@@ -1149,7 +1147,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(libxs_generator_convolution_backward_kernel, &generated_code, request->descriptor.cbwd, target_arch);
 # if !defined(LIBXS_VTUNE)
-        if (0 > internal_verbose_mode)
+        if (0 > libxs_verbosity)
 # endif
         {
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
@@ -1179,7 +1177,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(libxs_generator_convolution_weight_update_kernel, &generated_code, request->descriptor.cupd, target_arch);
 # if !defined(LIBXS_VTUNE)
-        if (0 > internal_verbose_mode)
+        if (0 > libxs_verbosity)
 # endif
         {
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
@@ -1241,7 +1239,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
 #else /* unsupported platform */
   LIBXS_UNUSED(request); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
-  assert(LIBXS_X86_AVX > internal_target_archid);
+  assert(LIBXS_X86_AVX > libxs_target_archid);
 #endif
 }
 
@@ -1255,7 +1253,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
     LIBXS_INIT
     if (0 > (int)descriptor->prefetch) {
       backend_descriptor = *descriptor;
-      backend_descriptor.prefetch = (unsigned char)internal_prefetch;
+      backend_descriptor.prefetch = (unsigned char)libxs_prefetch;
       descriptor = &backend_descriptor;
     }
     {
