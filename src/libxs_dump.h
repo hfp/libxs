@@ -54,7 +54,7 @@ LIBXS_API const char* libxs_meta_image_typeinfo(libxs_mhd_elemtype elemtype, siz
 
 /**
  * Save a file using an extended data format, which is compatible with
- * the Meta Image Format. The file may be suitable for visual inspection
+ * the Meta Image Format. The file is suitable for visual inspection
  * using e.g., ITK-SNAP or ParaView.
  */
 LIBXS_API int libxs_meta_image_write(const char* filename,
