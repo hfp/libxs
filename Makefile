@@ -258,7 +258,7 @@ all: lib samples
 headers: cheader cheader_only fheader
 
 .PHONY: interface
-interface: headers
+interface: headers module
 
 .PHONY: lib_mic
 lib_mic: clib_mic flib_mic ext_mic
@@ -437,7 +437,8 @@ $(INCDIR)/libxs.f: $(INCDIR)/.make $(BLDDIR)/.make .state \
 
 .PHONY: sources
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
-$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(SCRDIR)/libxs_dispatch.py $(SRCFILES_KERNELS) $(INCDIR)/libxs.h
+$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(SCRDIR)/libxs_dispatch.py $(SRCFILES_KERNELS) \
+                              $(INCDIR)/libxs.h $(INCDIR)/libxs.mod $(INCDIR)/mic/libxs.mod
 	@$(PYTHON) $(SCRDIR)/libxs_dispatch.py $(PRECISION) $(THRESHOLD) $(INDICES) > $@
 
 $(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_gemm_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
@@ -634,22 +635,36 @@ $(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ifneq (,$(strip $(FC)))
-module_mic: $(BLDDIR)/mic/libxs-mod.o
+module_mic: $(BLDDIR)/mic/libxs-mod.o $(INCDIR)/mic/libxs.mod
 $(BLDDIR)/mic/libxs-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)/mic
+$(INCDIR)/mic/libxs.mod: $(BLDDIR)/mic/libxs-mod.o
+	@cp $(BLDDIR)/mic/libxs.mod $@ 2> /dev/null || true
+	@cp $(BLDDIR)/mic/LIBXS.mod $@ 2> /dev/null || true
 else
 .PHONY: $(BLDDIR)/mic/libxs-mod.o
+.PHONY: $(INCDIR)/mic/libxs.mod
 endif
+else
+.PHONY: $(BLDDIR)/mic/libxs-mod.o
+.PHONY: $(INCDIR)/mic/libxs.mod
 endif
+else
+.PHONY: $(BLDDIR)/mic/libxs-mod.o
+.PHONY: $(INCDIR)/mic/libxs.mod
 endif
 
 .PHONY: module_hst
 ifneq (,$(strip $(FC)))
-module_hst: $(BLDDIR)/intel64/libxs-mod.o
+module_hst: $(BLDDIR)/intel64/libxs-mod.o $(INCDIR)/libxs.mod
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(FTARGET) -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
+$(INCDIR)/libxs.mod: $(BLDDIR)/intel64/libxs-mod.o
+	@cp $(BLDDIR)/intel64/libxs.mod $@ 2> /dev/null || true
+	@cp $(BLDDIR)/intel64/LIBXS.mod $@ 2> /dev/null || true
 else
 .PHONY: $(BLDDIR)/intel64/libxs-mod.o
+.PHONY: $(INCDIR)/libxs.mod
 endif
 
 .PHONY: module
