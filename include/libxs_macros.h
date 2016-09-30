@@ -349,7 +349,7 @@
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT
 #endif
 
-#if (defined(__GNUC__)
+#if defined(__GNUC__)
 # define LIBXS_MAY_ALIAS LIBXS_ATTRIBUTE(__may_alias__)
 #else
 # define LIBXS_MAY_ALIAS

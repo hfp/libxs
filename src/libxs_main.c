@@ -1038,9 +1038,11 @@ LIBXS_API_DEFINITION void libxs_set_verbosity(int level)
 }
 
 
-LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code)
+LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request_in, unsigned int regindex, libxs_code_pointer* code)
 {
 #if !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
+  typedef libxs_build_request LIBXS_MAY_ALIAS request_type;
+  const request_type *const request = (const request_type*)request_in;
   const char *const target_arch = internal_get_target_arch(libxs_target_archid);
   libxs_generated_code generated_code;
   char jit_name[256] = { 0 };
@@ -1237,7 +1239,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
 # endif
   free(generated_code.generated_code); /* free temporary/initial code buffer */
 #else /* unsupported platform */
-  LIBXS_UNUSED(request); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
+  LIBXS_UNUSED(request_in); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
   assert(LIBXS_X86_AVX > libxs_target_archid);
 #endif
