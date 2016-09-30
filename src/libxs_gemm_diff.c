@@ -114,7 +114,8 @@ LIBXS_API_DEFINITION unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor
 #if defined(LIBXS_GEMM_DIFF_SW) && (2 == (LIBXS_GEMM_DIFF_SW))
   return 0 != memcmp(reference, desc, LIBXS_GEMM_DESCRIPTOR_SIZE);
 #else
-  const unsigned *const ia = (const unsigned int*)reference, *const ib = (const unsigned int*)desc;
+  typedef unsigned int LIBXS_MAY_ALIAS uia_type;
+  const uia_type *const ia = (const uia_type*)reference, *const ib = (const uia_type*)desc;
   const unsigned int end = (LIBXS_GEMM_DESCRIPTOR_SIZE >> 2/*LOG2(sizeof(int))*/);
   unsigned int result, i;
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
