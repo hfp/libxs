@@ -639,7 +639,7 @@ module_mic: $(BLDDIR)/mic/libxs-mod.o $(INCDIR)/mic/libxs.mod
 $(BLDDIR)/mic/libxs-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)/mic
 $(INCDIR)/mic/libxs.mod: $(BLDDIR)/mic/libxs-mod.o
-	@cp $(BLDDIR)/mic/libxs.mod $@ 2> /dev/null || true
+	@cp $(BLDDIR)/mic/libxs.mod $@ 2> /dev/null || \
 	@cp $(BLDDIR)/mic/LIBXS.mod $@ 2> /dev/null || true
 else
 .PHONY: $(BLDDIR)/mic/libxs-mod.o
@@ -660,7 +660,7 @@ module_hst: $(BLDDIR)/intel64/libxs-mod.o $(INCDIR)/libxs.mod
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(FTARGET) -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
 $(INCDIR)/libxs.mod: $(BLDDIR)/intel64/libxs-mod.o
-	@cp $(BLDDIR)/intel64/libxs.mod $@ 2> /dev/null || true
+	@cp $(BLDDIR)/intel64/libxs.mod $@ 2> /dev/null || \
 	@cp $(BLDDIR)/intel64/LIBXS.mod $@ 2> /dev/null || true
 else
 .PHONY: $(BLDDIR)/intel64/libxs-mod.o
