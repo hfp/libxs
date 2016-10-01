@@ -836,7 +836,6 @@ LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
 #if defined(LIBXS_PERF)
         libxs_perf_finalize();
 #endif
-
         /* make internal registry globally unavailable */
         LIBXS_ATOMIC_STORE_ZERO(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
         internal_registry_keys = 0;
