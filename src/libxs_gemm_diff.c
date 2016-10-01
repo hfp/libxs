@@ -149,10 +149,9 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diff_sse(const lib
 # endif
 #else
 # if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_SSE) /* library code is expected to be mute */
-  { static LIBXS_TLS int once = 0;
-    if (0 == once) {
+  { static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter SSE code path!\n");
-      once = 1;
     }
   }
 # endif
@@ -200,10 +199,9 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diff_avx(const lib
 # endif
 #else
 # if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX) /* library code is expected to be mute */
-  { static LIBXS_TLS int once = 0;
-    if (0 == once) {
+  { static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX code path!\n");
-      once = 1;
     }
   }
 # endif
@@ -243,10 +241,9 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diff_avx2(const li
 # endif
 #else
 # if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX2) /* library code is expected to be mute */
-  { static LIBXS_TLS int once = 0;
-    if (0 == once) {
+  { static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
-      once = 1;
     }
   }
 # endif
@@ -373,10 +370,9 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diffn_avx(const li
 # endif
 #else
 # if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX) /* library code is expected to be mute */
-  { static LIBXS_TLS int once = 0;
-    if (0 == once) {
+  { static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX code path!\n");
-      once = 1;
     }
   }
 # endif
@@ -427,10 +423,9 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diffn_avx2(const l
 # endif
 #else
 # if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX2) /* library code is expected to be mute */
-  { static LIBXS_TLS int once = 0;
-    if (0 == once) {
+  { static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
-      once = 1;
     }
   }
 # endif
@@ -483,10 +478,9 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diffn_avx512(const
 # endif
 #else
 # if !defined(NDEBUG) && defined(LIBXS_GEMM_DIFF_AVX512)
-  { static LIBXS_TLS int once = 0;
-    if (0 == once) {
+  { static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX-512 code path!\n");
-      once = 1;
     }
   }
 # endif
