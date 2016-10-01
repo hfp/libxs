@@ -1226,10 +1226,9 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
     } break;
 # if !defined(NDEBUG) /* library code is expected to be mute */
     default: { /* unknown kind */
-      static LIBXS_TLS int error_kind = 0;
-      if (0 == error_kind) {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
         fprintf(stderr, "LIBXS: invalid build request discovered!\n");
-        error_kind = 1;
       }
     }
 # endif
@@ -1252,11 +1251,9 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
   }
 # if !defined(NDEBUG) /* library code is expected to be mute */
   else {
-    static LIBXS_TLS int error_jit = 0;
-    if (0 == error_jit) {
-      fprintf(stderr, "%s (error #%u)\n", libxs_strerror(generated_code.last_error),
-        generated_code.last_error);
-      error_jit = 1;
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "%s (error #%u)\n", libxs_strerror(generated_code.last_error), generated_code.last_error);
     }
   }
 # endif
@@ -1344,10 +1341,9 @@ LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
   }
 #if !defined(NDEBUG) /* library code is expected to be mute */
   else {
-    static LIBXS_TLS int error_release = 0;
-    if (0 == error_release) {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: failed to release kernel!\n");
-      error_release = 1;
     }
   }
 #endif

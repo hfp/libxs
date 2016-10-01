@@ -73,7 +73,7 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
 {
   int result = EXIT_SUCCESS;
 #if !defined(NDEBUG) /* library code is expected to be mute */
-  static LIBXS_TLS int trans_error = 0;
+  static int error_once = 0;
 #endif
   LIBXS_INIT
 
@@ -86,9 +86,8 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
     }
     else {
 #if !defined(NDEBUG) /* library code is expected to be mute */
-      if (0 == trans_error) {
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
         fprintf(stderr, "LIBXS: output location of the transpose must be different from the input!\n");
-        trans_error = 1;
       }
 #endif
       result = EXIT_FAILURE;
@@ -96,7 +95,7 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
   }
   else {
 #if !defined(NDEBUG) /* library code is expected to be mute */
-    if (0 == trans_error) {
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       if (ld < m && ldo < n) {
         fprintf(stderr, "LIBXS: the leading dimensions of the transpose are too small!\n");
       }
@@ -107,7 +106,6 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
         assert(ldo < n);
         fprintf(stderr, "LIBXS: the leading dimension of the transpose output is too small!\n");
       }
-      trans_error = 1;
     }
 #endif
     result = EXIT_FAILURE;
