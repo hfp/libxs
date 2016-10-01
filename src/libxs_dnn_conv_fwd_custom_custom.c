@@ -28,7 +28,7 @@
 ******************************************************************************/
 #include "libxs_dnn_conv_fwd_custom_custom.h"
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
   typedef float element_input_type;
   typedef float element_output_type;
@@ -36,7 +36,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
 }
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int16_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int16_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
   typedef short element_input_type;
   typedef int element_output_type;
@@ -44,7 +44,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int1
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
 }
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
   typedef float element_input_type;
   typedef float element_output_type;
@@ -53,7 +53,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_opt.tpl.c"
 }
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int16_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int16_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
   typedef short element_input_type;
   typedef int element_output_type;
@@ -62,7 +62,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int1
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_opt.tpl.c"
 }
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_opt_img_par(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32_opt_img_par(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
   typedef float element_input_type;
   typedef float element_output_type;
@@ -71,7 +71,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_fp32
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_opt_img_par.tpl.c"
 }
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int16_opt_img_par(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int16_opt_img_par(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
   typedef short element_input_type;
   typedef int element_output_type;
@@ -80,7 +80,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_custom_custom_int1
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_opt_img_par.tpl.c"
 }
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -95,10 +95,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
     if (1 == handle->desc.splits) {
       switch (handle->datatype) {
         case LIBXS_DNN_DATATYPE_F32: {
-          internal_convolve_st_fwd_custom_custom_fp32_fallback(handle, start_thread, tid, num_threads);
+          internal_convolve_st_fwd_custom_custom_fp32_fallback(handle, start_thread, tid);
         } break;
         case LIBXS_DNN_DATATYPE_I16: {
-          internal_convolve_st_fwd_custom_custom_int16_fallback(handle, start_thread, tid, num_threads);
+          internal_convolve_st_fwd_custom_custom_int16_fallback(handle, start_thread, tid);
         } break;
         default: {
           status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -114,19 +114,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
     if (1 == handle->desc.splits) {
       switch (handle->datatype) {
         case LIBXS_DNN_DATATYPE_F32: {
-          if (handle->desc.N*handle->blocksofm >= num_threads) {
-            internal_convolve_st_fwd_custom_custom_fp32_opt(handle, start_thread, tid, num_threads);
+          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+            internal_convolve_st_fwd_custom_custom_fp32_opt(handle, start_thread, tid);
           }
           else {
-            internal_convolve_st_fwd_custom_custom_fp32_opt_img_par(handle, start_thread, tid, num_threads);
+            internal_convolve_st_fwd_custom_custom_fp32_opt_img_par(handle, start_thread, tid);
           }
         } break;
         case LIBXS_DNN_DATATYPE_I16: {
-          if (handle->desc.N*handle->blocksofm >= num_threads) {
-            internal_convolve_st_fwd_custom_custom_int16_opt(handle, start_thread, tid, num_threads);
+          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+            internal_convolve_st_fwd_custom_custom_int16_opt(handle, start_thread, tid);
           }
           else {
-            internal_convolve_st_fwd_custom_custom_int16_opt_img_par(handle, start_thread, tid, num_threads);
+            internal_convolve_st_fwd_custom_custom_int16_opt_img_par(handle, start_thread, tid);
           }
         } break;
         default: {

@@ -142,7 +142,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
   libxs_dnn_conv_algo algo;
   libxs_dnn_conv_format buffer_format;
   libxs_dnn_conv_format filter_format;
-  libxs_dnn_conv_fuse_ops fuse_ops;
+  libxs_dnn_conv_fuse_op fuse_ops;
+  libxs_dnn_conv_option options;
 
   /* additional size for iternal data types */
   int ifhp;

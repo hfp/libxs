@@ -147,6 +147,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
     handle->buffer_format = conv_desc.buffer_format;
     handle->filter_format = conv_desc.filter_format;
     handle->fuse_ops = conv_desc.fuse_ops;
+    handle->options = conv_desc.options;
     /* derive additional values */
     handle->ifhp = conv_desc.H;
     handle->ifwp = conv_desc.W;
@@ -292,6 +293,12 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         else {
           descriptor.unroll_kh = 0;
           descriptor.unroll_kw = 1;
+        }
+        if (handle->datatype == LIBXS_DNN_DATATYPE_I16 && 
+            libxs_get_target_archid() == LIBXS_X86_AVX512_CORE ) {
+          /* we need 3 instrad of 1 instruction for FMA -> do not perform any unrolling in kh/kw to control code size */
+          descriptor.unroll_kh = 0;
+          descriptor.unroll_kw = 0;
         }
         descriptor.ifh_padded = conv_desc.H;
         descriptor.ifw_padded = conv_desc.W;
@@ -1186,7 +1193,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_conv_handle
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_conv_handle* handle,
-  libxs_dnn_conv_kind kind, int start_thread, int tid, int num_threads)
+  libxs_dnn_conv_kind kind, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -1197,7 +1204,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
           case LIBXS_DNN_CONV_FORMAT_LIBXS: {
             switch (handle->filter_format) {
               case LIBXS_DNN_CONV_FORMAT_LIBXS: {
-                status = libxs_dnn_convolve_st_fwd_custom_custom(handle, start_thread, tid, num_threads);
+                status = libxs_dnn_convolve_st_fwd_custom_custom(handle, start_thread, tid);
               } break;
               default: {
                 status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
@@ -1207,10 +1214,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
           case LIBXS_DNN_CONV_FORMAT_NHWC: {
             switch (handle->filter_format) {
               case LIBXS_DNN_CONV_FORMAT_RSCK: {
-                status = libxs_dnn_convolve_st_fwd_nhwc_rsck(handle, start_thread, tid, num_threads);
+                status = libxs_dnn_convolve_st_fwd_nhwc_rsck(handle, start_thread, tid);
               } break;
               case LIBXS_DNN_CONV_FORMAT_LIBXS: {
-                status = libxs_dnn_convolve_st_fwd_nhwc_custom(handle, start_thread, tid, num_threads);
+                status = libxs_dnn_convolve_st_fwd_nhwc_custom(handle, start_thread, tid);
               } break;
               default: {
                 status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
@@ -1286,21 +1293,21 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
 LIBXS_API_DEFINITION void libxs_dnn_convolve(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind)
 {
 #if defined(_OPENMP)
-# pragma omp parallel
+# pragma omp parallel num_threads(handle.conv_desc.threads)
   {
-    const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
-    internal_convolve_st(handle, kind, 0, tid, nthreads);
+    const int tid = omp_get_thread_num();
+    internal_convolve_st(handle, kind, 0, tid);
   }
 #else
-  internal_convolve_st(handle, kind, 0/*start_thread*/, 0/*tid*/, 1/*num_threads*/);
+  internal_convolve_st(handle, kind, 0/*start_thread*/, 0/*tid*/);
 #endif
 }
 
 
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st(libxs_dnn_conv_handle* handle,
-  libxs_dnn_conv_kind kind, /*unsigned*/int start_thread, /*unsigned*/int tid, /*unsigned*/int num_threads)
+  libxs_dnn_conv_kind kind, /*unsigned*/int start_thread, /*unsigned*/int tid)
 {
-  return internal_convolve_st(handle, kind, start_thread, tid, num_threads);
+  return internal_convolve_st(handle, kind, start_thread, tid);
 }
 
 

@@ -256,16 +256,16 @@ int main(int argc, char* argv[])
   int pad = 1;            /* padding in output */
   int stride = 1;         /* stride when accessing inputs */
   int nSplits = 1;        /* splits */
+#if defined(_OPENMP)
+  int nThreads = omp_get_max_threads();       /* number of threads */
+#else
+  int nThreads = 1;       /* number of threads */
+#endif
+
   unsigned long long l_start, l_end;
   double l_total = 0.0;
   double flops = 0.0;
   int i;
-
-#if defined(_OPENMP)
-  int nThreads = omp_get_max_threads();
-#else
-  int nThreads = 1;
-#endif
 
   libxs_dnn_conv_desc conv_desc;
   libxs_dnn_conv_handle* libxs_handle;
@@ -382,10 +382,12 @@ int main(int argc, char* argv[])
   conv_desc.pad_h_out = pad_h_out;
   conv_desc.pad_w_out = pad_w_out;
   conv_desc.splits = nSplits;
+  conv_desc.threads = nThreads;
   conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
   conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
   conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+  conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
   conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
 
   libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
@@ -420,11 +422,11 @@ int main(int argc, char* argv[])
 #endif
   {
 #if defined(_OPENMP)
-    const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+    const int tid = omp_get_thread_num();
 #else
-    const int tid = 0, nthreads = 1;
+    const int tid = 0;
 #endif
-    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid ) );
   }
   /* copy out data */
   CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_CONV_FORMAT_NCHW ) );
@@ -447,11 +449,11 @@ int main(int argc, char* argv[])
 #endif
     {
 #if defined(_OPENMP)
-      const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+      const int tid = omp_get_thread_num();
 #else
-      const int tid = 0, nthreads = 1;
+      const int tid = 0;
 #endif
-      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads );
+      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid );
     }
   }
   l_end = libxs_timer_tick();
@@ -493,10 +495,12 @@ int main(int argc, char* argv[])
   conv_desc.pad_h_out = pad_h_out;
   conv_desc.pad_w_out = pad_w_out;
   conv_desc.splits = nSplits;
+  conv_desc.threads = nThreads;
   conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
   conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_NHWC;
   conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_RSCK;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+  conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
   conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
 
   libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
@@ -524,11 +528,11 @@ int main(int argc, char* argv[])
 #endif
   {
 #if defined(_OPENMP)
-    const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+    const int tid = omp_get_thread_num();
 #else
-    const int tid = 0, nthreads = 1;
+    const int tid = 0;
 #endif
-    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid ) );
   }
   /* copy output data into NCHW storage in user code */
   naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
@@ -552,11 +556,11 @@ int main(int argc, char* argv[])
 #endif
     {
 #if defined(_OPENMP)
-      const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+      const int tid = omp_get_thread_num();
 #else
-      const int tid = 0, nthreads = 1;
+      const int tid = 0;
 #endif
-      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads );
+      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid );
     }
   }
   l_end = libxs_timer_tick();
@@ -598,10 +602,12 @@ int main(int argc, char* argv[])
   conv_desc.pad_h_out = pad_h_out;
   conv_desc.pad_w_out = pad_w_out;
   conv_desc.splits = nSplits;
+  conv_desc.threads = nThreads;
   conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
   conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_NHWC;
   conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+  conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
   conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
 
   libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
@@ -635,11 +641,11 @@ int main(int argc, char* argv[])
 #endif
   {
 #if defined(_OPENMP)
-    const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+    const int tid = omp_get_thread_num();
 #else
-    const int tid = 0, nthreads = 1;
+    const int tid = 0;
 #endif
-    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid ) );
   }
   /* copy output data into NCHW storage in user code */
   naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
@@ -663,11 +669,11 @@ int main(int argc, char* argv[])
 #endif
     {
 #if defined(_OPENMP)
-      const int tid = omp_get_thread_num(), nthreads = omp_get_num_threads();
+      const int tid = omp_get_thread_num();
 #else
-      const int tid = 0, nthreads = 1;
+      const int tid = 0;
 #endif
-      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid, nthreads );
+      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid );
     }
   }
   l_end = libxs_timer_tick();

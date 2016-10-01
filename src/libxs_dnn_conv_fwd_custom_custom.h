@@ -31,6 +31,6 @@
 
 #include "libxs_main.h"
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid, int num_threads);
+LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid);
 
 #endif /* LIBXS_DNN_CONV_FWD_CUSTOM_CUSTOM_H */
