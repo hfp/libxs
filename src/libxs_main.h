@@ -186,17 +186,18 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_CUPD
 } libxs_build_kind;
 
+typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
+  const libxs_gemm_descriptor* gemm;
+  const libxs_csr_soa_descriptor* ssoa;
+  const libxs_convolution_forward_descriptor* cfwd;
+  const libxs_convolution_backward_descriptor* cbwd;
+  const libxs_convolution_weight_update_descriptor* cupd;
+} libxs_build_descriptor;
+
 typedef struct LIBXS_RETARGETABLE libxs_build_request {
-  union LIBXS_RETARGETABLE {
-    const libxs_gemm_descriptor* gemm;
-    const libxs_csr_soa_descriptor* ssoa;
-    const libxs_convolution_forward_descriptor* cfwd;
-    const libxs_convolution_backward_descriptor* cbwd;
-    const libxs_convolution_weight_update_descriptor* cupd;
-  } descriptor;
+  libxs_build_descriptor descriptor;
   libxs_build_kind kind;
 } libxs_build_request;
-
 
 typedef enum libxs_malloc_flags {
   LIBXS_MALLOC_FLAG_R = 1,
