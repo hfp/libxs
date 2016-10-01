@@ -1037,7 +1037,7 @@ LIBXS_API_DEFINITION void libxs_set_verbosity(int level)
 }
 
 
-LIBXS_API_DEFINITION char* libxs_get_precision_string(libxs_dnn_datatype datatype)
+LIBXS_INLINE LIBXS_RETARGETABLE const char* libxs_get_precision_string(libxs_dnn_datatype datatype)
 {
   switch (datatype) {
     case LIBXS_DNN_DATATYPE_F32:
