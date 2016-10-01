@@ -75,7 +75,7 @@ typedef enum libxs_dnn_conv_kind {
   LIBXS_DNN_CONV_KIND_UPD
 } libxs_dnn_conv_kind;
 
-typedef enum libxs_dnn_conv_fuse_ops {
+typedef enum libxs_dnn_conv_fuse_op {
   /* we fuse nothing into convolution */
   LIBXS_DNN_CONV_FUSE_NONE = 0
 #if 0
@@ -85,7 +85,12 @@ typedef enum libxs_dnn_conv_fuse_ops {
   /* we fase fase ReLU calculation into convolution Op */
   LIBXS_DNN_CONV_FUSE_RELU = 2
 #endif
-} libxs_dnn_conv_fuse_ops;
+} libxs_dnn_conv_fuse_op;
+
+typedef enum libxs_dnn_conv_option {
+  /* we get default settings */
+  LIBXS_DNN_CONV_OPTION_NONE = 0
+} libxs_dnn_conv_option;
 
 /** Type of algorithm used for convolutions. */
 typedef enum libxs_dnn_conv_algo {
@@ -111,10 +116,12 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   int pad_h_out;                               /* height of zero-padding in output buffer */
   int pad_w_out;                               /* width of zero-padding in output buffer */
   int splits;                                  /* number of splits */
+  int threads;                                 /* number of threads to use when running convolution */
   libxs_dnn_conv_algo algo;                  /* convolution algorithm used */
   libxs_dnn_conv_format buffer_format;       /* format which is for buffer buffers */
   libxs_dnn_conv_format filter_format;       /* format which is for filter buffers */
-  libxs_dnn_conv_fuse_ops fuse_ops;          /* used ops into convolutoions */
+  libxs_dnn_conv_fuse_op fuse_ops;           /* used ops into convolutoions */
+  libxs_dnn_conv_option options;             /* additional options */
   libxs_dnn_datatype datatype;               /* dataytpes use for all buffers */
 } libxs_dnn_conv_desc;
 
@@ -189,7 +196,7 @@ LIBXS_API void libxs_dnn_convolve(libxs_dnn_conv_handle* handle, libxs_dnn_conv_
 
 /** Run the convolution identified by the handle; takes a thread id. */
 LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind,
-  /*unsigned*/int start_thread, /*unsigned*/int tid, /*unsigned*/int num_threads);
+  /*unsigned*/int start_thread, /*unsigned*/int tid );
 
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API) /* Internal API */
 /** Function type used for convolutions (single-precision); the actual signature depends on the kind of convolution. */
