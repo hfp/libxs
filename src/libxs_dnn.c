@@ -1292,7 +1292,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
 LIBXS_API_DEFINITION void libxs_dnn_convolve(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind)
 {
 #if defined(_OPENMP)
-# pragma omp parallel num_threads(handle.conv_desc.threads)
+# pragma omp parallel num_threads(handle->desc.threads)
   {
     const int tid = omp_get_thread_num();
     internal_convolve_st(handle, kind, 0, tid);
