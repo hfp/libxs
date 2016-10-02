@@ -1327,7 +1327,7 @@ LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
   if (EXIT_SUCCESS == libxs_malloc_info(jit_code, 0/*size*/, 0/*flags*/, &extra) && 0 != extra) {
     const unsigned int regindex = *((const unsigned int*)extra);
     if (LIBXS_REGSIZE <= regindex) {
-      libxs_xfree(jit_code);
+      libxs_xfree((const volatile void*)jit_code);
     }
     /* TODO: implement to unregister GEMM kernels */
   }

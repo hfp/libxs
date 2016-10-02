@@ -180,8 +180,8 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
 
 /** Helper macro consolidating the applicable GEMM arguments into LIBXS's flags. */
-#define LIBXS_GEMM_DECLARE_FLAGS(FLAGS, TRANSA, TRANSB, M, N, K, A, B, C) \
-  int FLAGS = (0 != (TRANSA) \
+#define LIBXS_GEMM_DECLARE_FLAGS(FLAGS, TRANSA, TRANSB, MM, NN, KK, A, B, C) \
+  int FLAGS = (0 != (TRANSA) /* use NN, etc. rather than N due to below char. constant */ \
     ? (('N' == *(TRANSA) || 'n' == *(TRANSA)) ? (LIBXS_FLAGS & ~LIBXS_GEMM_FLAG_TRANS_A) \
                                               : (LIBXS_FLAGS |  LIBXS_GEMM_FLAG_TRANS_A)) \
     : LIBXS_FLAGS); \
@@ -189,20 +189,20 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
     ? (('N' == *(TRANSB) || 'n' == *(TRANSB)) ? ((FLAGS) & ~LIBXS_GEMM_FLAG_TRANS_B) \
                                               : ((FLAGS) |  LIBXS_GEMM_FLAG_TRANS_B)) \
     : (FLAGS)); \
-  assert(0 != (M) && 0 != (N) && 0 != (K) && 0 != (A) && 0 != (B) && 0 != (C))
+  assert(0 != (MM) && 0 != (NN) && 0 != (KK) && 0 != (A) && 0 != (B) && 0 != (C))
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (template). */
 #if !defined(__BLAS) || (0 != __BLAS)
-# define LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+# define LIBXS_BLAS_XGEMM(TYPE, FLAGS, MM, NN, KK, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
     const char libxs_blas_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
     const char libxs_blas_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
     const TYPE libxs_blas_xgemm_alpha_ = (TYPE)(ALPHA), libxs_blas_xgemm_beta_ = (TYPE)(BETA); \
-    const libxs_blasint libxs_blas_xgemm_lda_ = (libxs_blasint)LIBXS_MAX2(LIBXS_LD(LDA, LDB), LIBXS_LD(M, N)); \
-    const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)LIBXS_MAX2(LIBXS_LD(LDB, LDA), K); \
-    const libxs_blasint libxs_blas_xgemm_ldc_ = (libxs_blasint)LIBXS_MAX2(LDC, LIBXS_LD(M, N)); \
-    const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)LIBXS_LD(M, N); \
-    const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)LIBXS_LD(N, M); \
-    const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(K); \
+    const libxs_blasint libxs_blas_xgemm_lda_ = (libxs_blasint)LIBXS_MAX2(LIBXS_LD(LDA, LDB), LIBXS_LD(MM, NN)); \
+    const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)LIBXS_MAX2(LIBXS_LD(LDB, LDA), KK); \
+    const libxs_blasint libxs_blas_xgemm_ldc_ = (libxs_blasint)LIBXS_MAX2(LDC, LIBXS_LD(MM, NN)); \
+    const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)LIBXS_LD(MM, NN); \
+    const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)LIBXS_LD(NN, MM); \
+    const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(KK); \
     assert(0 != ((uintptr_t)LIBXS_BLAS_GEMM_SYMBOL(TYPE))); \
     LIBXS_BLAS_GEMM_SYMBOL(TYPE)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
       &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \

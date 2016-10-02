@@ -219,7 +219,7 @@ LIBXS_API size_t libxs_lcm(size_t a, size_t b);
 LIBXS_API size_t libxs_alignment(size_t size, size_t alignment);
 
 /** Receive the size, the flags, or the extra attachment of the given buffer. */
-LIBXS_API int libxs_malloc_info(const void* memory, size_t* size, int* flags, void** extra);
+LIBXS_API int libxs_malloc_info(const volatile void* memory, size_t* size, int* flags, void** extra);
 
 /** Allocate memory of the requested size, which is aligned according to the given alignment. */
 LIBXS_API int libxs_xmalloc(void** memory, size_t size, int alignment, int flags,
