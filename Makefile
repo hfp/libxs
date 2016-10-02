@@ -420,12 +420,12 @@ $(INCDIR)/libxs.h: $(SCRDIR)/libxs_interface.py \
 
 .PHONY: cheader_only
 cheader_only: $(INCDIR)/libxs_source.h
-$(INCDIR)/libxs_source.h: $(INCDIR)/libxs.h $(SCRDIR)/libxs_source.sh
+$(INCDIR)/libxs_source.h: $(SCRDIR)/libxs_source.sh
 	@$(SCRDIR)/libxs_source.sh > $@
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
-$(INCDIR)/libxs.f: $(INCDIR)/.make $(BLDDIR)/.make .state \
+$(INCDIR)/libxs.f: $(BLDDIR)/.make \
                      $(ROOTDIR)/version.txt $(INCDIR)/libxs_config.h \
                      $(SRCDIR)/template/libxs.f $(SCRDIR)/libxs_interface.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
@@ -441,7 +441,7 @@ $(INCDIR)/libxs.f: $(INCDIR)/.make $(BLDDIR)/.make .state \
 .PHONY: sources
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
 $(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(SCRDIR)/libxs_dispatch.py $(SRCFILES_KERNELS) \
-                              $(INCDIR)/libxs.h $(INCDIR)/libxs.mod $(INCDIR)/mic/libxs.mod
+                              $(INCDIR)/libxs.h
 	@$(PYTHON) $(SCRDIR)/libxs_dispatch.py $(PRECISION) $(THRESHOLD) $(INDICES) > $@
 
 $(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_gemm_generator $(SCRDIR)/libxs_utilities.py $(SCRDIR)/libxs_specialized.py
@@ -638,12 +638,13 @@ $(BLDDIR)/intel64/%.o: $(BLDDIR)/%.c $(BLDDIR)/intel64/.make $(INCDIR)/libxs.h $
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ifneq (,$(strip $(FC)))
-module_mic: $(BLDDIR)/mic/libxs-mod.o $(INCDIR)/mic/libxs.mod
+module_mic: $(INCDIR)/mic/libxs.mod
 $(BLDDIR)/mic/libxs-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)/mic
 $(INCDIR)/mic/libxs.mod: $(BLDDIR)/mic/libxs-mod.o
-	@cp $(BLDDIR)/mic/libxs.mod $@ 2> /dev/null || true
-	@cp $(BLDDIR)/mic/LIBXS.mod $@ 2> /dev/null || true
+	@if [ -e $(BLDDIR)/mic/libxs.mod ]; then cp $(BLDDIR)/mic/libxs.mod $@; fi
+	@if [ -e $(BLDDIR)/mic/LIBXS.mod ]; then cp $(BLDDIR)/mic/libxs.mod $@; fi
+	@touch $@
 else
 .PHONY: $(BLDDIR)/mic/libxs-mod.o
 .PHONY: $(INCDIR)/mic/libxs.mod
@@ -659,12 +660,13 @@ endif
 
 .PHONY: module_hst
 ifneq (,$(strip $(FC)))
-module_hst: $(BLDDIR)/intel64/libxs-mod.o $(INCDIR)/libxs.mod
+module_hst: $(INCDIR)/libxs.mod
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(FTARGET) -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
 $(INCDIR)/libxs.mod: $(BLDDIR)/intel64/libxs-mod.o
-	@cp $(BLDDIR)/intel64/libxs.mod $@ 2> /dev/null || true
-	@cp $(BLDDIR)/intel64/LIBXS.mod $@ 2> /dev/null || true
+	@if [ -e $(BLDDIR)/intel64/libxs.mod ]; then cp $(BLDDIR)/intel64/libxs.mod $@; fi
+	@if [ -e $(BLDDIR)/intel64/LIBXS.mod ]; then cp $(BLDDIR)/intel64/libxs.mod $@; fi
+	@touch $@
 else
 .PHONY: $(BLDDIR)/intel64/libxs-mod.o
 .PHONY: $(INCDIR)/libxs.mod
@@ -727,12 +729,12 @@ ifneq (0,$(MPSS))
 ifneq (,$(strip $(FC)))
 flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
-$(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/libxs.$(LIBEXT)
+$(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/libxs.$(LIBEXT)
 	$(FC) -o $@ -mmic -shared $(FCMTFLAGS) $(call soname,$@ $(VERSION_MAJOR)) $(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(LIBEXT)) $(LDFLAGS) $(FLDFLAGS)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
-$(OUTDIR)/mic/libxsf.$(LIBEXT): $(BLDDIR)/mic/libxs-mod.o $(OUTDIR)/mic/.make
+$(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/.make
 	$(AR) -rs $@ $(BLDDIR)/mic/libxs-mod.o
 endif
 else
@@ -745,12 +747,12 @@ endif
 ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
-$(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/libxs.$(LIBEXT)
+$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
 	$(FC) -o $@ -shared $(FCMTFLAGS) $(call soname,$@ $(VERSION_MAJOR)) $(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(LIBEXT)) $(LDFLAGS) $(FLDFLAGS)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR).$(VERSION_MINOR)
 	@ln -fs $(notdir $@) $@.$(VERSION_MAJOR)
 else
-$(OUTDIR)/libxsf.$(LIBEXT): $(BLDDIR)/intel64/libxs-mod.o $(OUTDIR)/.make
+$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/.make
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
 endif
 else
