@@ -43,7 +43,7 @@
 #     define LIBXS_NO_TLS
 #     define LIBXS_TLS
 #   else
-#     if (defined(_WIN32) && !defined(__GNUC__))
+#     if (defined(_WIN32) && !defined(__GNUC__)) || defined(__pgnu_vsn)
 #       define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
 #     elif defined(__GNUC__)
 #       define LIBXS_TLS __thread

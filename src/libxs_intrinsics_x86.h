@@ -229,6 +229,12 @@
 # define LIBXS_INTRINSICS
 #endif
 
+#if defined(_WIN32) || defined(__INTEL_COMPILER)
+# include <malloc.h>
+#else
+# include <mm_malloc.h>
+#endif
+
 /** Intrinsic-specifc fixups */
 #if defined(__clang__)
 # define LIBXS_INTRINSICS_LDDQU_SI128 _mm_loadu_si128
