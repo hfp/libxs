@@ -569,7 +569,7 @@ endif
 
 define DEFINE_COMPILE_RULE
 $(1): $(2) $(3) $(dir $(1))/.make
-	$(CC) $(CFLAGS) $(DFLAGS) $(IFLAGS) $(4) -c $(2) -o $(1)
+	$(CC) $(4) -c $(2) -o $(1)
 endef
 
 EXTCFLAGS = -DLIBXS_BUILD_EXT
@@ -591,41 +591,46 @@ ifneq (0,$(MPSS))
 $(foreach OBJ,$(OBJFILES_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
-  -mmic)))
+  $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic)))
 $(foreach OBJ,$(KRNOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
-  -mmic $(CPEDANTIC))))
+  $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic $(CPEDANTIC))))
 $(foreach OBJ,$(EXTOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
-  -mmic $(EXTCFLAGS))))
-$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_HST),$(SRCDIR)/libxs_ext.c, \
-  $(INCDIR)/libxs.h, \
-  -mmic $(DNOBLAS)))
+  $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic $(EXTCFLAGS))))
+$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_HST),$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
+  $(NOBLAS_CFLAGS) $(NOBLAS_DFLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS) -mmic))
 endif
 endif
 
 $(foreach OBJ,$(OBJFILES_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, $(CTARGET))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
+  $(CFLAGS) $(DFLAGS) $(IFLAGS) $(CTARGET))))
 $(foreach OBJ,$(KRNOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(CPEDANTIC) $(CTARGET))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
+  $(CFLAGS) $(DFLAGS) $(IFLAGS) $(CPEDANTIC) $(CTARGET))))
 $(foreach OBJ,$(EXTOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(CTARGET) $(EXTCFLAGS))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
+  $(CFLAGS) $(DFLAGS) $(IFLAGS) $(CTARGET) $(EXTCFLAGS))))
 $(foreach OBJ,$(OBJFILES_GEN_LIB),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(CPEDANTIC))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
+  $(CFLAGS) $(DFLAGS) $(IFLAGS) $(CPEDANTIC))))
 $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(NULL))))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
+  $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(foreach OBJ,$(OBJFILES_GEN_CONV_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, $(NULL))))
-$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_HST),$(SRCDIR)/libxs_ext.c, \
-  $(INCDIR)/libxs.h, $(CTARGET) $(DNOBLAS)))
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
+  $(CFLAGS) $(DFLAGS) $(IFLAGS))))
+$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_HST),$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
+  $(NOBLAS_CFLAGS) $(NOBLAS_DFLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS) $(CTARGET)))
 
 .PHONY: compile_mic
 ifneq (0,$(MIC))
@@ -1304,6 +1309,7 @@ ifneq (,$(wildcard $(OUTDIR)))
 	@rm -f $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/mic/libxs.$(LIBEXT)
 	@rm -f $(OUTDIR)/libxsf.$(LIBEXT) $(OUTDIR)/mic/libxsf.$(LIBEXT)
 	@rm -f $(OUTDIR)/libxsext.$(LIBEXT) $(OUTDIR)/mic/libxsext.$(LIBEXT)
+	@rm -f $(OUTDIR)/libxsnoblas.$(LIBEXT) $(OUTDIR)/mic/libxsnoblas.$(LIBEXT)
 	@rm -f $(OUTDIR)/libxsgen.$(LIBEXT)
 endif
 ifneq (,$(wildcard $(BINDIR)))
@@ -1355,6 +1361,8 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo
 	@echo "LIBXS installing binaries..."
 	@mkdir -p $(INSTALL_ROOT)/$(POUTDIR) $(INSTALL_ROOT)/$(PBINDIR) $(INSTALL_ROOT)/$(PINCDIR)
+	@cp -v $(OUTDIR)/libxsnoblas.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@cp -v $(OUTDIR)/libxsnoblas.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxsgen.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxsgen.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
@@ -1363,6 +1371,14 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@cp -v $(OUTDIR)/libxsf.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@cp -v $(OUTDIR)/libxs.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@if [ -e $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT) ]; then \
+		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		cp -v $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+	fi
+	@if [ -e $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) ]; then \
+		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		cp -v $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+	fi
 	@if [ -e $(OUTDIR)/mic/libxsext.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 		cp -v $(OUTDIR)/mic/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
