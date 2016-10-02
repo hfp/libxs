@@ -1040,21 +1040,11 @@ LIBXS_API_DEFINITION void libxs_set_verbosity(int level)
 LIBXS_INLINE LIBXS_RETARGETABLE const char* libxs_get_precision_string(libxs_dnn_datatype datatype)
 {
   switch (datatype) {
-    case LIBXS_DNN_DATATYPE_F32:
-      return "f32";
-      break;
-    case LIBXS_DNN_DATATYPE_I32:
-      return "i32";
-      break;
-    case LIBXS_DNN_DATATYPE_I16:
-      return "i16";
-      break;
-    case LIBXS_DNN_DATATYPE_I8:
-      return "i8";
-      break;
-    default:
-      return "unk";
-      break;
+    case LIBXS_DNN_DATATYPE_F32: return "f32";
+    case LIBXS_DNN_DATATYPE_I32: return "i32";
+    case LIBXS_DNN_DATATYPE_I16: return "i16";
+    case LIBXS_DNN_DATATYPE_I8:  return "i8";
+    default: return "unk"; /* unknown */
   }
 }
 
