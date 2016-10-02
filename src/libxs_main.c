@@ -1324,7 +1324,7 @@ LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
 {
   void* extra = 0;
   LIBXS_INIT
-  if (EXIT_SUCCESS == libxs_malloc_info(jit_code, 0/*size*/, 0/*flags*/, &extra) && 0 != extra) {
+  if (EXIT_SUCCESS == libxs_malloc_info((const volatile void*)jit_code, 0/*size*/, 0/*flags*/, &extra) && 0 != extra) {
     const unsigned int regindex = *((const unsigned int*)extra);
     if (LIBXS_REGSIZE <= regindex) {
       libxs_xfree((const volatile void*)jit_code);
