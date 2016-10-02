@@ -1142,10 +1142,10 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         if (0 > libxs_verbosity)
 # endif
         {
-
+          const char *const precision = libxs_get_precision_string(request->descriptor.cfwd->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_fwd_%s_%ux%u_%ux%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_p%i_f%i.conv", 
-            libxs_get_precision_string(request->descriptor.cfwd->datatype)/*precision*/, target_arch/*code path name*/,
+            precision, target_arch/*code path name*/,
             (unsigned int)request->descriptor.cfwd->kw/*kernel width*/, (unsigned int)request->descriptor.cfwd->kh/*kernel height*/,
             (unsigned int)request->descriptor.cfwd->unroll_kw/*width*/, (unsigned int)request->descriptor.cfwd->unroll_kh/*height*/,
             (int)request->descriptor.cfwd->stride_w/*input offset*/, (int)request->descriptor.cfwd->stride_h/*output offsets*/,
@@ -1173,9 +1173,10 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         if (0 > libxs_verbosity)
 # endif
         {
+          const char *const precision = libxs_get_precision_string(request->descriptor.cbwd->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_bwd_%s_%ux%u_%ux%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_of%uu%u_v%u_pa%u_p%i.conv", 
-            libxs_get_precision_string(request->descriptor.cbwd->datatype)/*precision*/, target_arch/*code path name*/,
+            precision, target_arch/*code path name*/,
             (unsigned int)request->descriptor.cbwd->kw/*kernel width*/, (unsigned int)request->descriptor.cbwd->kh/*kernel height*/,
             (unsigned int)request->descriptor.cbwd->unroll_kw/*width*/, (unsigned int)request->descriptor.cbwd->unroll_kh/*height*/,
             (int)request->descriptor.cbwd->stride_w/*input offset*/, (int)request->descriptor.cbwd->stride_h/*output offsets*/,
@@ -1204,9 +1205,10 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         if (0 > libxs_verbosity)
 # endif
         {
+          const char *const precision = libxs_get_precision_string(request->descriptor.cupd->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_upd_%s_%ux%u_%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_of%uu%ux%uu%u_if%uu_t%u_p%i.conv", 
-            libxs_get_precision_string(request->descriptor.cupd->datatype)/*precision*/, target_arch/*code path name*/,
+            precision, target_arch/*code path name*/,
             (unsigned int)request->descriptor.cupd->kw/*kernel width*/, (unsigned int)request->descriptor.cupd->kh/*kernel height*/,
             (unsigned int)request->descriptor.cupd->unroll_kw/*width*/,
             (int)request->descriptor.cupd->stride_w/*input offset*/, (int)request->descriptor.cupd->stride_h/*output offsets*/,
