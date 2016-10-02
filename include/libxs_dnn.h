@@ -120,9 +120,9 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   libxs_dnn_conv_algo algo;                  /* convolution algorithm used */
   libxs_dnn_conv_format buffer_format;       /* format which is for buffer buffers */
   libxs_dnn_conv_format filter_format;       /* format which is for filter buffers */
-  libxs_dnn_conv_fuse_op fuse_ops;           /* used ops into convolutoions */
+  libxs_dnn_conv_fuse_op fuse_ops;           /* used ops into convolutions */
   libxs_dnn_conv_option options;             /* additional options */
-  libxs_dnn_datatype datatype;               /* dataytpes use for all buffers */
+  libxs_dnn_datatype datatype;               /* datatypes use for all buffers */
 } libxs_dnn_conv_desc;
 
 /** get string of error code */
