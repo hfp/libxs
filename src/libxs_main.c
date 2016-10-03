@@ -1037,7 +1037,7 @@ LIBXS_API_DEFINITION void libxs_set_verbosity(int level)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE const char* libxs_get_precision_string(libxs_dnn_datatype datatype)
+LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_get_precision_string(libxs_dnn_datatype datatype)
 {
   switch (datatype) {
     case LIBXS_DNN_DATATYPE_F32: return "f32";
@@ -1132,7 +1132,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const precision = libxs_get_precision_string(request->descriptor.cfwd->datatype);
+          const char *const precision = internal_get_precision_string(request->descriptor.cfwd->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_fwd_%s_%ux%u_%ux%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_p%i_f%i.conv", 
             precision, target_arch/*code path name*/,
@@ -1163,7 +1163,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const precision = libxs_get_precision_string(request->descriptor.cbwd->datatype);
+          const char *const precision = internal_get_precision_string(request->descriptor.cbwd->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_bwd_%s_%ux%u_%ux%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_of%uu%u_v%u_pa%u_p%i.conv", 
             precision, target_arch/*code path name*/,
@@ -1195,7 +1195,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const precision = libxs_get_precision_string(request->descriptor.cupd->datatype);
+          const char *const precision = internal_get_precision_string(request->descriptor.cupd->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_upd_%s_%ux%u_%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_of%uu%ux%uu%u_if%uu_t%u_p%i.conv", 
             precision, target_arch/*code path name*/,
