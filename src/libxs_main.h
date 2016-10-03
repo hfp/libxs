@@ -90,7 +90,7 @@ typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   libxs_xmmfunction xmm;
 } libxs_code_pointer;
 
-typedef struct LIBXS_RETARGETABLE libxs_csr_soa_descriptor {
+typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
   const unsigned int* column_idx;
