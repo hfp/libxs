@@ -180,8 +180,8 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
 
 /** Helper macro consolidating the applicable GEMM arguments into LIBXS's flags. */
-#define LIBXS_GEMM_DECLARE_FLAGS(FLAGS, TRANSA, TRANSB, MM, NN, KK, A, B, C) \
-  int FLAGS = (0 != (TRANSA) /* use NN, etc. rather than N due to below char. constant */ \
+#define LIBXS_GEMM_DECLARE_FLAGS(FLAGS, TRANSA, TRANSB) \
+  int FLAGS = (0 != (TRANSA) \
     ? (('N' == *(TRANSA) || 'n' == *(TRANSA)) ? (LIBXS_FLAGS & ~LIBXS_GEMM_FLAG_TRANS_A) \
                                               : (LIBXS_FLAGS |  LIBXS_GEMM_FLAG_TRANS_A)) \
     : LIBXS_FLAGS); \
@@ -189,7 +189,6 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
     ? (('N' == *(TRANSB) || 'n' == *(TRANSB)) ? ((FLAGS) & ~LIBXS_GEMM_FLAG_TRANS_B) \
                                               : ((FLAGS) |  LIBXS_GEMM_FLAG_TRANS_B)) \
     : (FLAGS)); \
-  assert(0 != (MM) && 0 != (NN) && 0 != (KK) && 0 != (A) && 0 != (B) && 0 != (C))
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (template). */
 #if !defined(__BLAS) || (0 != __BLAS)
