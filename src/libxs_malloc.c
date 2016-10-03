@@ -325,11 +325,11 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
           )
 # if !defined(NDEBUG)
           /* library code is expected to be mute */)
-          { static int error_once = 0;
+          {
             if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+              const char *const error_message = strerror(errno);
               fprintf(stderr, "LIBXS: %s (madvise error #%i for range %p+%llu)!\n",
-                strerror(errno), errno, buffer,
-                (unsigned long long)alloc_size);
+                error_message, errno, buffer, (unsigned long long)alloc_size);
             }
           }
 # else
@@ -338,8 +338,9 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
         }
 # if !defined(NDEBUG) /* library code is expected to be mute */
         else if (alloc_failed == buffer && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+          const char *const error_message = strerror(errno);
           fprintf(stderr, "LIBXS: %s (mmap error #%i for size %llu with flags=%i)!\n",
-            strerror(errno), errno, (unsigned long long)alloc_size, xflags);
+            error_message, errno, (unsigned long long)alloc_size, xflags);
         }
 # endif
 # if !defined(MADV_NOHUGEPAGE) && !(defined(__APPLE__) && defined(__MACH__)) && !defined(__CYGWIN__)
@@ -427,8 +428,9 @@ LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
 # if !defined(NDEBUG) /* library code is expected to be mute */
           static int error_once = 0;
           if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+            const char *const error_message = strerror(errno);
             fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
-              strerror(errno), errno, buffer, (unsigned long long)alloc_size);
+              error_message, errno, buffer, (unsigned long long)alloc_size);
           }
 # endif
           result = EXIT_FAILURE;
@@ -492,8 +494,9 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(const volatile void* memory, int fl
       if (0/*ok*/ != mprotect(buffer, alloc_size/*entire memory region*/, xflags)
        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
+        const char *const error_message = strerror(errno);
         fprintf(stderr, "LIBXS: %s (mprotect warning #%i for range %p+%llu with flags=%i)!\n",
-          strerror(errno), errno, buffer, (unsigned long long)alloc_size, xflags);
+          error_message, errno, buffer, (unsigned long long)alloc_size, xflags);
       }
 # endif
 #endif
