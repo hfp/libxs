@@ -600,7 +600,7 @@ $(foreach OBJ,$(EXTOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic $(EXTCFLAGS))))
-$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_HST),$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
+$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_MIC),$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
   $(NOBLAS_CFLAGS) $(NOBLAS_DFLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS) -mmic))
 endif
 endif
