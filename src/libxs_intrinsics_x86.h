@@ -229,7 +229,7 @@
 # define LIBXS_INTRINSICS
 #endif
 
-#if defined(_WIN32) || defined(__INTEL_COMPILER)
+#if defined(_WIN32)
 # include <malloc.h>
 #else
 # include <mm_malloc.h>
