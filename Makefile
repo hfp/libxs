@@ -595,32 +595,32 @@ $(foreach OBJ,$(OBJFILES_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
 $(foreach OBJ,$(KRNOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
-  $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic $(CPEDANTIC))))
+  -mmic $(CSTD) $(CPEDANTIC) $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(foreach OBJ,$(EXTOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
-  $(CFLAGS) $(DFLAGS) $(IFLAGS) -mmic $(EXTCFLAGS))))
+  -mmic $(EXTCFLAGS) $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_MIC),$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
-  $(NOBLAS_CFLAGS) $(NOBLAS_DFLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS) -mmic))
+  -mmic $(NOBLAS_CFLAGS) $(NOBLAS_DFLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
 endif
 endif
 
 $(foreach OBJ,$(OBJFILES_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
-  $(CFLAGS) $(DFLAGS) $(IFLAGS) $(CTARGET))))
+  $(CTARGET) $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(foreach OBJ,$(KRNOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
-  $(CFLAGS) $(DFLAGS) $(IFLAGS) $(CPEDANTIC) $(CTARGET))))
+  $(CTARGET) $(CSTD) $(CPEDANTIC) $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(foreach OBJ,$(EXTOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
-  $(CFLAGS) $(DFLAGS) $(IFLAGS) $(CTARGET) $(EXTCFLAGS))))
+  $(CTARGET) $(EXTCFLAGS) $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(foreach OBJ,$(OBJFILES_GEN_LIB),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
-  $(CFLAGS) $(DFLAGS) $(IFLAGS) $(CPEDANTIC))))
+  $(CSTD) $(CPEDANTIC) $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
@@ -630,7 +630,7 @@ $(foreach OBJ,$(OBJFILES_GEN_CONV_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_HST),$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
-  $(NOBLAS_CFLAGS) $(NOBLAS_DFLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS) $(CTARGET)))
+  $(CTARGET) $(NOBLAS_CFLAGS) $(NOBLAS_DFLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
 
 .PHONY: compile_mic
 ifneq (0,$(MIC))
