@@ -26,7 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_dnn_conv_fwd_custom_custom.h"
+#include "libxs_dnn_convolution_forward.h"
 
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
@@ -112,3 +112,134 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
 
   return status;
 }
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  /* check if we have input, output and filter */
+  if (handle->input == 0 || handle->output == 0 || handle->filter == 0) {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
+  }
+
+  /* check if we have a kernel JITed */
+  if (handle->code_fwd[0].xconv.sconv == 0) {
+    switch (handle->datatype) {
+      case LIBXS_DNN_DATATYPE_F32: {
+        if (1 == handle->desc.splits) {
+          typedef float element_input_type;
+          typedef float element_output_type;
+          typedef float element_filter_type;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_fallback.tpl.c"
+        }
+        else {
+          status = LIBXS_DNN_ERR_GENERAL;
+          return status;
+        }
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+        return status;
+      }
+    }
+  } else {
+    switch (handle->datatype) {
+      case LIBXS_DNN_DATATYPE_F32: {
+        if (1 == handle->desc.splits) {
+          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+            typedef float element_input_type;
+            typedef float element_output_type;
+            typedef float element_filter_type;
+            typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_opt.tpl.c"
+          }
+          else {
+            typedef float element_input_type;
+            typedef float element_output_type;
+            typedef float element_filter_type;
+            typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_opt_img_par.tpl.c"
+          }
+        }
+        else {
+          status = LIBXS_DNN_ERR_GENERAL;
+          return status;
+        }
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+        return status;
+      }
+    }
+  }
+
+  return status;
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_dnn_conv_handle* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  /* check if we have input, output and filter */
+  if (handle->input == 0 || handle->output == 0 || handle->filter == 0) {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
+  }
+
+  /* check if we have a kernel JITed */
+  if (handle->code_fwd[0].xconv.sconv == 0) {
+    switch (handle->datatype) {
+      case LIBXS_DNN_DATATYPE_F32: {
+        if (1 == handle->desc.splits) {
+          typedef float element_input_type;
+          typedef float element_output_type;
+          typedef float element_filter_type;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_fallback.tpl.c"
+        }
+        else {
+          status = LIBXS_DNN_ERR_GENERAL;
+          return status;
+        }
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+        return status;
+      }
+    }
+  } else {
+    switch (handle->datatype) {
+      case LIBXS_DNN_DATATYPE_F32: {
+        if (1 == handle->desc.splits) {
+          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+            typedef float element_input_type;
+            typedef float element_output_type;
+            typedef float element_filter_type;
+            typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_opt.tpl.c"
+          }
+          else {
+            typedef float element_input_type;
+            typedef float element_output_type;
+            typedef float element_filter_type;
+            typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_opt_img_par.tpl.c"
+          }
+        }
+        else {
+          status = LIBXS_DNN_ERR_GENERAL;
+          return status;
+        }
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+        return status;
+      }
+    }
+  }
+
+  return status;
+}
+
