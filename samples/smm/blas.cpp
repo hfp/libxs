@@ -57,21 +57,22 @@
 #define MAX_SIZE (80 * 80)
 
 
-template<int Seed>
-struct LIBXS_RETARGETABLE init {
-  template<typename T> init(T *LIBXS_RESTRICT dst, double scale, int nrows, int ncols, int n = 0, int ld = 0) {
-    const int ldx = 0 == ld ? ncols : ld;
-    const int minval = n + Seed, addval = (nrows - 1) * ldx + (ncols - 1);
-    const int maxval = std::max(std::abs(minval), addval);
-    const double norm = 0 != maxval ? (scale / maxval) : scale;
-    for (int i = 0; i < nrows; ++i) {
-      for (int j = 0; j < ncols; ++j) {
-        const double value = static_cast<double>(i * ldx + j + minval);
-        dst[i*ldx+j] = static_cast<T>(norm * (value - 0.5 * addval));
-      }
+LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT dst,
+  libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld)
+{
+  const double seed1 = seed + 1;
+  libxs_blasint i;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i)
+#endif
+  for (i = 0; i < ncols; ++i) {
+    libxs_blasint j;
+    for (j = 0; j < nrows; ++j) {
+      const libxs_blasint k = i * ld + j;
+      dst[k] = (REAL_TYPE)(seed1 / (k + 1));
     }
   }
-};
+}
 
 
 int main(int argc, char* argv[])
@@ -89,12 +90,12 @@ int main(int argc, char* argv[])
     const int s = LIBXS_MAX(size / ((asize + bsize + csize) * sizeof(T)), 1);
     const size_t bwsize_batched = (asize/*load*/ + bsize/*load*/ + 2 * csize/*RFO*/) * sizeof(T); // batched
     const size_t bwsize = (asize/*load*/ + bsize/*load*/) * sizeof(T); // streamed, skipping C since it is just in cache
-    const double gflops = 2.0 * s * m * n * k * 1E-9, scale = 1.0;
+    const double gflops = 2.0 * s * m * n * k * 1E-9;
 
     struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
 #if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
       T *a, *b, *c, *d;
-      raii(int asize, int bsize, int csize): a(new T[asize]), b(new T[bsize]), c(new T[csize]), d(new T[csize]) {}
+      raii(int asize_, int bsize_, int csize_): a(new T[asize_]), b(new T[bsize_]), c(new T[csize_]), d(new T[csize_]) {}
       ~raii() { delete[] a; delete[] b; delete[] c; delete[] d; }
 #else
       T *a, *b, *c;
@@ -113,11 +114,11 @@ int main(int argc, char* argv[])
 #   pragma omp parallel for
 #endif
     for (int i = 0; i < s; ++i) {
-      init<42>(a + i * asize, scale, m, k, i);
-      init<24>(b + i * bsize, scale, k, n, i);
-      init<22>(c + i * csize, scale, m, n, i);
+      init(42 + i, a + i * asize, m, k, m);
+      init(24 + i, b + i * bsize, k, n, k);
+      init(22 + i, c + i * csize, m, n, m);
 #if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-      init<22>(d + i * csize, scale, m, n, i);
+      init(22 + i, d + i * csize, m, n, m);
 #endif
     }
 
@@ -176,7 +177,10 @@ int main(int argc, char* argv[])
         const char transa_array[] = { 0 == (LIBXS_FLAGS & LIBXS_GEMM_FLAG_TRANS_A) ? 'N' : 'T' };
         const char transb_array[] = { 0 == (LIBXS_FLAGS & LIBXS_GEMM_FLAG_TRANS_B) ? 'N' : 'T' };
         const T alpha_array[] = { LIBXS_ALPHA }, beta_array[] = { LIBXS_BETA };
-        std::vector<const T*> a_array(s), b_array(s); std::vector<T*> c_array(s);
+        std::vector<const T*> va_array(s), vb_array(s); std::vector<T*> vc_array(s);
+        const T* *const a_array = &va_array[0];
+        const T* *const b_array = &vb_array[0];
+        T* *const c_array = &vc_array[0];
         const int group_count = 1;
         for (int i = 0; i < s; ++i) {
           a_array[i] = a + i * asize; b_array[i] = b + i * bsize; c_array[i] = d + i * csize;
