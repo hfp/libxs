@@ -28,9 +28,7 @@
 ******************************************************************************/
 #include <libxs.h>
 #include "libxs_main.h"
-#include "libxs_dnn_conv_fwd_custom_custom.h"
-#include "libxs_dnn_conv_fwd_nhwc_custom.h"
-#include "libxs_dnn_conv_fwd_nhwc_rsck.h"
+#include "libxs_dnn_convolution_forward.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
