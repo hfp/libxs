@@ -28,35 +28,6 @@
 ******************************************************************************/
 #include "libxs_dnn_conv_fwd_nhwc_custom.h"
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_custom_fp32_fallback(libxs_dnn_conv_handle* handle, int start_thread, int tid)
-{
-  typedef float element_input_type;
-  typedef float element_output_type;
-  typedef float element_filter_type;
-# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_fallback.tpl.c"
-}
-
-
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_custom_fp32_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid)
-{
-  typedef float element_input_type;
-  typedef float element_output_type;
-  typedef float element_filter_type;
-  typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_opt.tpl.c"
-}
-
-
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_convolve_st_fwd_nhwc_custom_fp32_img_parallel_opt(libxs_dnn_conv_handle* handle, int start_thread, int tid)
-{
-  typedef float element_input_type;
-  typedef float element_output_type;
-  typedef float element_filter_type;
-  typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_opt_img_par.tpl.c"
-}
-
-
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -72,7 +43,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs
     switch (handle->datatype) {
       case LIBXS_DNN_DATATYPE_F32: {
         if (1 == handle->desc.splits) {
-          internal_convolve_st_fwd_nhwc_custom_fp32_fallback(handle, start_thread, tid);
+          typedef float element_input_type;
+          typedef float element_output_type;
+          typedef float element_filter_type;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_fallback.tpl.c"
         }
         else {
           status = LIBXS_DNN_ERR_GENERAL;
@@ -89,10 +63,18 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs
       case LIBXS_DNN_DATATYPE_F32: {
         if (1 == handle->desc.splits) {
           if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
-            internal_convolve_st_fwd_nhwc_custom_fp32_opt(handle, start_thread, tid);
+            typedef float element_input_type;
+            typedef float element_output_type;
+            typedef float element_filter_type;
+            typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_opt.tpl.c"
           }
           else {
-            internal_convolve_st_fwd_nhwc_custom_fp32_img_parallel_opt(handle, start_thread, tid);
+            typedef float element_input_type;
+            typedef float element_output_type;
+            typedef float element_filter_type;
+            typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_opt_img_par.tpl.c"
           }
         }
         else {
