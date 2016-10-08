@@ -184,7 +184,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
         handle->fm_lp_block = 1;
       }
       else if (handle->datatype == LIBXS_DNN_DATATYPE_I16) {
-        handle->ifmblock = (conv_desc.C >=16) ? 16 : conv_desc.C;
+        handle->ifmblock = (conv_desc.C >=16) ? 16 : conv_desc.C/2;
         handle->ofmblock = (conv_desc.K >=16) ? 16 : conv_desc.K;
         handle->fm_lp_block = 2;
         if ( libxs_get_target_archid() == LIBXS_X86_AVX512_MIC ) {
