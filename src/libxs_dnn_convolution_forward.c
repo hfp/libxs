@@ -69,9 +69,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
             typedef float element_filter_type;
             typedef libxs_sconvfunction libxs_convfunction;
             if (handle->desc.u == 1 && handle->desc.v == 1) {
-#define LIBXS_DNN_INTERNAL_STRIDE_ONE
+#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#undef LIBXS_DNN_INTERNAL_STRIDE_ONE
+#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
             } else {
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
             }
@@ -82,9 +82,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
             typedef float element_filter_type;
             typedef libxs_sconvfunction libxs_convfunction;
             if (handle->desc.u == 1 && handle->desc.v == 1) {
-#define LIBXS_DNN_INTERNAL_STRIDE_ONE
+#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
-#undef LIBXS_DNN_INTERNAL_STRIDE_ONE
+#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
             } else {
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
             }
@@ -97,9 +97,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
             typedef short element_filter_type;
             typedef libxs_wconvfunction libxs_convfunction;
             if (handle->desc.u == 1 && handle->desc.v == 1) {
-#define LIBXS_DNN_INTERNAL_STRIDE_ONE
+#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#undef LIBXS_DNN_INTERNAL_STRIDE_ONE
+#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
             } else {
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
             }
@@ -110,9 +110,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
             typedef short element_filter_type;
             typedef libxs_wconvfunction libxs_convfunction;
             if (handle->desc.u == 1 && handle->desc.v == 1) {
-#define LIBXS_DNN_INTERNAL_STRIDE_ONE
+#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
-#undef LIBXS_DNN_INTERNAL_STRIDE_ONE
+#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
             } else {
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
             }
