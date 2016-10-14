@@ -40,63 +40,82 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
 
   /* check if we have a kernel JITed */
   if (handle->code_fwd[0].xconv.sconv == 0) {
-    if (1 == handle->desc.splits) {
-      switch (handle->datatype) {
-        case LIBXS_DNN_DATATYPE_F32: {
-          typedef float element_input_type;
-          typedef float element_output_type;
-          typedef float element_filter_type;
+    switch (handle->datatype) {
+      case LIBXS_DNN_DATATYPE_F32: {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
-        } break;
-        case LIBXS_DNN_DATATYPE_I16: {
-          typedef short element_input_type;
-          typedef int element_output_type;
-          typedef short element_filter_type;
+      } break;
+      case LIBXS_DNN_DATATYPE_I16: {
+        typedef short element_input_type;
+        typedef int element_output_type;
+        typedef short element_filter_type;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
-        } break;
-        default: {
-          status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-          return status;
-        }
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+        return status;
       }
-    } else {
-      status = LIBXS_DNN_ERR_GENERAL;
-      return status;
     }
   }
   else {
     if (1 == handle->desc.splits) {
       switch (handle->datatype) {
         case LIBXS_DNN_DATATYPE_F32: {
-          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+          if (handle->desc.N*handle->blocksofm*handle->desc.splits >= handle->desc.threads) {
             typedef float element_input_type;
             typedef float element_output_type;
             typedef float element_filter_type;
             typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_opt.tpl.c"
+            if (handle->desc.u == 1 && handle->desc.v == 1) {
+#define LIBXS_DNN_INTERNAL_STRIDE_ONE
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
+#undef LIBXS_DNN_INTERNAL_STRIDE_ONE
+            } else {
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
+            }
           }
           else {
             typedef float element_input_type;
             typedef float element_output_type;
             typedef float element_filter_type;
             typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_opt_img_par.tpl.c"
+            if (handle->desc.u == 1 && handle->desc.v == 1) {
+#define LIBXS_DNN_INTERNAL_STRIDE_ONE
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
+#undef LIBXS_DNN_INTERNAL_STRIDE_ONE
+            } else {
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
+            }
           }
         } break;
         case LIBXS_DNN_DATATYPE_I16: {
-          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+          if (handle->desc.N*handle->blocksofm*handle->desc.splits >= handle->desc.threads) {
             typedef short element_input_type;
             typedef int element_output_type;
             typedef short element_filter_type;
             typedef libxs_wconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_opt.tpl.c"
+            if (handle->desc.u == 1 && handle->desc.v == 1) {
+#define LIBXS_DNN_INTERNAL_STRIDE_ONE
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
+#undef LIBXS_DNN_INTERNAL_STRIDE_ONE
+            } else {
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
+            }
           }
           else {
             typedef short element_input_type;
             typedef int element_output_type;
             typedef short element_filter_type;
             typedef libxs_wconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_opt_img_par.tpl.c"
+            if (handle->desc.u == 1 && handle->desc.v == 1) {
+#define LIBXS_DNN_INTERNAL_STRIDE_ONE
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
+#undef LIBXS_DNN_INTERNAL_STRIDE_ONE
+            } else {
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
+            }
           }
         } break;
         default: {
@@ -153,14 +172,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs
             typedef float element_output_type;
             typedef float element_filter_type;
             typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_opt.tpl.c"
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom.tpl.c"
           }
           else {
             typedef float element_input_type;
             typedef float element_output_type;
             typedef float element_filter_type;
             typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_opt_img_par.tpl.c"
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_img_par.tpl.c"
           }
         }
         else {
@@ -218,14 +237,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_d
             typedef float element_output_type;
             typedef float element_filter_type;
             typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_opt.tpl.c"
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck.tpl.c"
           }
           else {
             typedef float element_input_type;
             typedef float element_output_type;
             typedef float element_filter_type;
             typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_opt_img_par.tpl.c"
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_img_par.tpl.c"
           }
         }
         else {
