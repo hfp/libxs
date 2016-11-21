@@ -27,6 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_dnn_convolution_forward.h"
+#include <libxs.h>
 
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
@@ -40,154 +41,143 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
 
   /* check if we have a kernel JITed */
   if (handle->code_fwd[0].xconv.sconv == 0) {
-    switch (handle->datatype) {
-      case LIBXS_DNN_DATATYPE_F32: {
-        typedef float element_input_type;
-        typedef float element_output_type;
-        typedef float element_filter_type;
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
-      } break;
-      case LIBXS_DNN_DATATYPE_I16: {
-        typedef short element_input_type;
-        typedef int element_output_type;
-        typedef short element_filter_type;
+    } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) {
+      typedef short element_input_type;
+      typedef int element_output_type;
+      typedef short element_filter_type;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
-      } break;
-      default: {
-        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-        return status;
-      }
+    } else if (handle->datatype_in ==  LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I16 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
+      typedef unsigned char element_input_type;
+      typedef short element_output_type;
+      typedef char element_filter_type;
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
+    } else if (handle->datatype_in ==  LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
+      typedef unsigned char element_input_type;
+      typedef int element_output_type;
+      typedef char element_filter_type;
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
     }
   }
   else {
-    if (1 == handle->desc.splits) {
-      switch (handle->datatype) {
-        case LIBXS_DNN_DATATYPE_F32: {
-          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
-            typedef float element_input_type;
-            typedef float element_output_type;
-            typedef float element_filter_type;
-            typedef libxs_sconvfunction libxs_convfunction;
-            if (handle->desc.u == 1 && handle->desc.v == 1) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
+        if (handle->desc.u == 1 && handle->desc.v == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
 #undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-            } else {
+        } else {
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-            }
-          }
-          else {
-            typedef float element_input_type;
-            typedef float element_output_type;
-            typedef float element_filter_type;
-            typedef libxs_sconvfunction libxs_convfunction;
-            if (handle->desc.u == 1 && handle->desc.v == 1) {
+        }
+      }
+      else {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
+        if (handle->desc.u == 1 && handle->desc.v == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
 #undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-            } else {
+        } else {
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
-            }
-          }
-        } break;
-        case LIBXS_DNN_DATATYPE_I16: {
-          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
-            typedef short element_input_type;
-            typedef int element_output_type;
-            typedef short element_filter_type;
-            typedef libxs_wconvfunction libxs_convfunction;
-            if (handle->desc.u == 1 && handle->desc.v == 1) {
+        }
+      }
+    } else if (handle->datatype_in ==  LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) {
+      if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+        typedef short element_input_type;
+        typedef int element_output_type;
+        typedef short element_filter_type;
+        typedef libxs_wconvfunction libxs_convfunction;
+        if (handle->desc.u == 1 && handle->desc.v == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
 #undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-            } else {
+        } else {
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-            }
-          }
-          else {
-            typedef short element_input_type;
-            typedef int element_output_type;
-            typedef short element_filter_type;
-            typedef libxs_wconvfunction libxs_convfunction;
-            if (handle->desc.u == 1 && handle->desc.v == 1) {
+        }
+      }
+      else {
+        typedef short element_input_type;
+        typedef int element_output_type;
+        typedef short element_filter_type;
+        typedef libxs_wconvfunction libxs_convfunction;
+        if (handle->desc.u == 1 && handle->desc.v == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
 #undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-            } else {
+        } else {
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
-            }
-          }
-        } break;
-        default: {
-          status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-          return status;
+        }
+      }
+    } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I16 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
+      if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+        typedef unsigned char element_input_type;
+        typedef short element_output_type;
+        typedef char element_filter_type;
+        typedef libxs_busconvfunction libxs_convfunction;
+        if (handle->desc.u == 1 && handle->desc.v == 1) {
+#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
+#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+        } else {
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
+        }
+      }
+      else {
+        typedef unsigned char element_input_type;
+        typedef short element_output_type;
+        typedef char element_filter_type;
+        typedef libxs_busconvfunction libxs_convfunction;
+        if (handle->desc.u == 1 && handle->desc.v == 1) {
+#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
+#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+        } else {
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
+        }
+      }
+    } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
+      if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+        typedef unsigned char element_input_type;
+        typedef int element_output_type;
+        typedef char element_filter_type;
+        typedef libxs_budconvfunction libxs_convfunction;
+        if (handle->desc.u == 1 && handle->desc.v == 1) {
+#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
+#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+        } else {
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
+        }
+      }
+      else {
+        typedef unsigned char element_input_type;
+        typedef int element_output_type;
+        typedef char element_filter_type;
+        typedef libxs_budconvfunction libxs_convfunction;
+        if (handle->desc.u == 1 && handle->desc.v == 1) {
+#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
+#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+        } else {
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
         }
       }
     } else {
-#define LIBXS_DNN_CONV_FWD_INTERNAL_SPLITS
-      switch (handle->datatype) {
-        case LIBXS_DNN_DATATYPE_F32: {
-          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
-            typedef float element_input_type;
-            typedef float element_output_type;
-            typedef float element_filter_type;
-            typedef libxs_sconvfunction libxs_convfunction;
-            if (handle->desc.u == 1 && handle->desc.v == 1) {
-#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-            } else {
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-            }
-          }
-          else {
-            typedef float element_input_type;
-            typedef float element_output_type;
-            typedef float element_filter_type;
-            typedef libxs_sconvfunction libxs_convfunction;
-            if (handle->desc.u == 1 && handle->desc.v == 1) {
-#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
-#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-            } else {
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
-            }
-          }
-        } break;
-        case LIBXS_DNN_DATATYPE_I16: {
-          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
-            typedef short element_input_type;
-            typedef int element_output_type;
-            typedef short element_filter_type;
-            typedef libxs_wconvfunction libxs_convfunction;
-            if (handle->desc.u == 1 && handle->desc.v == 1) {
-#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-            } else {
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-            }
-          }
-          else {
-            typedef short element_input_type;
-            typedef int element_output_type;
-            typedef short element_filter_type;
-            typedef libxs_wconvfunction libxs_convfunction;
-            if (handle->desc.u == 1 && handle->desc.v == 1) {
-#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
-#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
-            } else {
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
-            }
-          }
-        } break;
-        default: {
-          status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-          return status;
-        }
-      }
-#undef LIBXS_DNN_CONV_FWD_INTERNAL_SPLITS
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
     }
   }
 
@@ -207,52 +197,34 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs
 
   /* check if we have a kernel JITed */
   if (handle->code_fwd[0].xconv.sconv == 0) {
-    switch (handle->datatype) {
-      case LIBXS_DNN_DATATYPE_F32: {
-        if (1 == handle->desc.splits) {
-          typedef float element_input_type;
-          typedef float element_output_type;
-          typedef float element_filter_type;
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
 # include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_fallback.tpl.c"
-        }
-        else {
-          status = LIBXS_DNN_ERR_GENERAL;
-          return status;
-        }
-      } break;
-      default: {
-        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-        return status;
-      }
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
     }
   } else {
-    switch (handle->datatype) {
-      case LIBXS_DNN_DATATYPE_F32: {
-        if (1 == handle->desc.splits) {
-          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
-            typedef float element_input_type;
-            typedef float element_output_type;
-            typedef float element_filter_type;
-            typedef libxs_sconvfunction libxs_convfunction;
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
 # include "template/libxs_dnn_convolve_st_fwd_nhwc_custom.tpl.c"
-          }
-          else {
-            typedef float element_input_type;
-            typedef float element_output_type;
-            typedef float element_filter_type;
-            typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_img_par.tpl.c"
-          }
-        }
-        else {
-          status = LIBXS_DNN_ERR_GENERAL;
-          return status;
-        }
-      } break;
-      default: {
-        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-        return status;
       }
+      else {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_img_par.tpl.c"
+      }
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
     }
   }
 
@@ -272,52 +244,34 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_d
 
   /* check if we have a kernel JITed */
   if (handle->code_fwd[0].xconv.sconv == 0) {
-    switch (handle->datatype) {
-      case LIBXS_DNN_DATATYPE_F32: {
-        if (1 == handle->desc.splits) {
-          typedef float element_input_type;
-          typedef float element_output_type;
-          typedef float element_filter_type;
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
 # include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_fallback.tpl.c"
-        }
-        else {
-          status = LIBXS_DNN_ERR_GENERAL;
-          return status;
-        }
-      } break;
-      default: {
-        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-        return status;
-      }
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
     }
   } else {
-    switch (handle->datatype) {
-      case LIBXS_DNN_DATATYPE_F32: {
-        if (1 == handle->desc.splits) {
-          if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
-            typedef float element_input_type;
-            typedef float element_output_type;
-            typedef float element_filter_type;
-            typedef libxs_sconvfunction libxs_convfunction;
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
 # include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck.tpl.c"
-          }
-          else {
-            typedef float element_input_type;
-            typedef float element_output_type;
-            typedef float element_filter_type;
-            typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_img_par.tpl.c"
-          }
-        }
-        else {
-          status = LIBXS_DNN_ERR_GENERAL;
-          return status;
-        }
-      } break;
-      default: {
-        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-        return status;
       }
+      else {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_img_par.tpl.c"
+      }
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
     }
   }
 

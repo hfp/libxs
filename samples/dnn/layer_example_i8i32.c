@@ -55,7 +55,6 @@ typedef struct {
   int kw;
   int stride_h;
   int stride_w;
-  int nSplits;
 } naive_conv_t;
 
 typedef struct {
@@ -73,19 +72,35 @@ LIBXS_INLINE void zero_buf_int32(int* buf, long size) {
   }
 }
 
-LIBXS_INLINE void zero_buf_int16(short* buf, long size) {
+LIBXS_INLINE void zero_buf_int8(char* buf, long size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
   }
 }
 
-LIBXS_INLINE void init_buf_int16(short* buf, long size, int initPos, int initOne)
+LIBXS_INLINE void zero_buf_uint8(unsigned char* buf, long size) {
+  int i;
+  for (i = 0; i < size; ++i) {
+    buf[i] = 0;
+  }
+}
+
+LIBXS_INLINE void init_buf_int8(char* buf, long size, int initPos, int initOne)
 {
   int i;
-  zero_buf_int16(buf, size);
+  zero_buf_int8(buf, size);
   for (i = 0; i < size; ++i) {
-    buf[i] = (initOne != 0) ? 1 : ((initPos != 0) ? (rand()%7) : (rand()%7)-3 );
+    buf[i] = (char)((initOne != 0) ? 1 : ((initPos != 0) ? (rand()%3) : (rand()%3)-1));
+  }
+}
+
+LIBXS_INLINE void init_buf_uint8(unsigned char* buf, long size, int initPos, int initOne)
+{
+  int i;
+  zero_buf_uint8(buf, size);
+  for (i = 0; i < size; ++i) {
+    buf[i] = (unsigned char)((initOne != 0) ? 1 : (rand()%3));
   }
 }
 
@@ -182,7 +197,7 @@ LIBXS_INLINE void naive_copy_KCRS_to_RSCK(const float* kcrs, float* rsck, int R,
 #endif
 
 
-LIBXS_INLINE void naive_conv_int16(naive_conv_t* param, const short* input, int* output, const short* filter)
+LIBXS_INLINE void naive_conv_int8(naive_conv_t* param, const unsigned char* input, int* output, const char* filter)
 {
   int nImg      = param->nImg;
   int nIfm      = param->nIfm;
@@ -199,18 +214,12 @@ LIBXS_INLINE void naive_conv_int16(naive_conv_t* param, const short* input, int*
   int kw        = param->kw;
   int stride_h  = param->stride_h;
   int stride_w  = param->stride_w;
-  int nSplits   = param->nSplits;
   /* loop counters */
   int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
 
-  LIBXS_VLA_DECL(4,         int, output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
-  LIBXS_VLA_DECL(4, const short,  input_t,  input, nIfm, ifhp, ifwp);
-  LIBXS_VLA_DECL(4, const short, filter_t, filter, nIfm, kh, kw);
-
-  if (nSplits != 1) {
-    printf("nSplits != 1 not supported yet for naive code!\n");
-    exit(1);
-  }
+  LIBXS_VLA_DECL(4,                 int, output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
+  LIBXS_VLA_DECL(4, const unsigned char,  input_t,  input, nIfm, ifhp, ifwp);
+  LIBXS_VLA_DECL(4, const          char, filter_t, filter, nIfm, kh, kw);
 
 #if defined(_OPENMP)
 # pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
@@ -238,8 +247,10 @@ LIBXS_INLINE void naive_conv_int16(naive_conv_t* param, const short* input, int*
 
 int main(int argc, char* argv[])
 {
-  short *naive_input, *naive_filter;
-  short *input_nhwc, *filter_rsck;
+  unsigned char *naive_input; 
+  char *naive_filter;
+  unsigned char *input_nhwc;
+  char *filter_rsck;
   int *naive_output, *naive_libxs_output;
   int *output_nhwc, *naive_output_nhwc;
   int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
@@ -259,7 +270,6 @@ int main(int argc, char* argv[])
   int kw = 3;             /* filter width, "S" */
   int pad = 1;            /* padding in output */
   int stride = 1;         /* stride when accessing inputs */
-  int nSplits = 1;        /* splits */
 #if defined(_OPENMP)
   int nThreads = omp_get_max_threads();       /* number of threads */
 #else
@@ -279,7 +289,7 @@ int main(int argc, char* argv[])
   libxs_dnn_err_t status;
 
   if (argc > 1 && !strncmp(argv[1], "-h", 3)) {
-    printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride splits\n", argv[0]);
+    printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride\n", argv[0]);
     return 0;
   }
   srand(1);
@@ -296,7 +306,6 @@ int main(int argc, char* argv[])
   if (argc > i) kh         = atoi(argv[i++]);
   if (argc > i) pad        = atoi(argv[i++]);
   if (argc > i) stride     = atoi(argv[i++]);
-  if (argc > i) nSplits    = atoi(argv[i++]);
 
   stride_w = stride;
   stride_h = stride;
@@ -329,7 +338,6 @@ int main(int argc, char* argv[])
   naive_param.kw = kw;
   naive_param.stride_h = stride_h;
   naive_param.stride_w = stride_w;
-  naive_param.nSplits = nSplits;
 
   /* print some summary */
   printf("##########################################\n");
@@ -339,29 +347,29 @@ int main(int argc, char* argv[])
   printf("PARAMS: ITERS:%d  Threads:%d\n", iters, nThreads);
   printf(" InImg %dx%d Padded (%dx%d)\n", ifh, ifw, ifhp, ifwp);
   printf("OutImg %dx%d Padded (%dx%d)\n", ofh, ofw, ofhp, ofwp);
-  printf("SIZE Input  (MB): %10.2f MiB\n", (double)(nImg*nIfm*ifhp*ifwp*sizeof(short))/(1024.0*1024.0) );
+  printf("SIZE Input  (MB): %10.2f MiB\n", (double)(nImg*nIfm*ifhp*ifwp*sizeof(unsigned char))/(1024.0*1024.0) );
   printf("SIZE Output (MB): %10.2f MiB\n", (double)(nImg*nOfm*ofhp*ofwp*sizeof(int))/(1024.0*1024.0) );
-  printf("SIZE Input   (1): %10.2f MiB\n", (double)(1*nIfm*ifhp*ifwp*   sizeof(short))/(1024.0*1024.0) );
-  printf("SIZE Output  (1): %10.2f MiB\n", (double)(1*nOfm*ofhp*ofwp*   sizeof(int))/(1024.0*1024.0) );
-  printf("SIZE Weight     : %10.2f MiB\n", (double)(nIfm*nOfm*kw*kh*    sizeof(short))/(1024.0*1024.0) );
+  printf("SIZE Input   (1): %10.2f MiB\n", (double)(1*nIfm*ifhp*ifwp*   sizeof(unsigned char))/(1024.0*1024.0) );
+  printf("SIZE Output  (1): %10.2f MiB\n", (double)(1*nOfm*ofhp*ofwp*   sizeof(short))/(1024.0*1024.0) );
+  printf("SIZE Weight     : %10.2f MiB\n", (double)(nIfm*nOfm*kw*kh*    sizeof(int))/(1024.0*1024.0) );
 
   /* allocate data */
-  naive_input           = (short*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(short), 2097152);
+  naive_input           = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
   naive_output          = (int*)  libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(int),   2097152);
   naive_libxs_output  = (int*)  libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(int),   2097152);
-  naive_filter          = (short*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(short), 2097152);
+  naive_filter          = (char*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char), 2097152);
 #if 0
-  input_nhwc            = (short*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(short), 2097152);
-  output_nhwc           = (int*)  libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(int),   2097152);
-  naive_output_nhwc     = (int*)  libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(int),   2097152);
-  filter_rsck           = (short*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(short), 2097152);
+  input_nhwc            = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
+  output_nhwc           = (short*)  libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(short),   2097152);
+  naive_output_nhwc     = (short*)  libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(short),   2097152);
+  filter_rsck           = (char*)   libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char), 2097152);
 #endif
 
   /* initialize data */
-  init_buf_int16(naive_input,          nImg*nIfm*ifhp*ifwp, 0, 0);
+  init_buf_uint8(naive_input,          nImg*nIfm*ifhp*ifwp, 0, 0);
   zero_buf_int32(naive_output,         nImg*nOfm*ofhp*ofwp);
   zero_buf_int32(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
-  init_buf_int16(naive_filter,         nOfm*nIfm*kh*kw, 0, 0);
+  init_buf_int8 (naive_filter,         nOfm*nIfm*kh*kw, 0, 0);
 #if 0
   naive_copy_NCHW_to_NHWC(naive_input, input_nhwc, nImg, ifhp, ifwp, nIfm);
   zero_buf(output_nhwc,          nImg*nOfm*ofhp*ofwp);
@@ -389,14 +397,14 @@ int main(int argc, char* argv[])
   conv_desc.pad_w_in = 0;
   conv_desc.pad_h_out = pad_h_out;
   conv_desc.pad_w_out = pad_w_out;
-  conv_desc.splits = nSplits;
   conv_desc.threads = nThreads;
   conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
   conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
   conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-  conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
-  conv_desc.datatype = LIBXS_DNN_DATATYPE_I16;
+  conv_desc.options = LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED;
+  conv_desc.datatype_in = LIBXS_DNN_DATATYPE_I8;
+  conv_desc.datatype_out = LIBXS_DNN_DATATYPE_I32;
 
   libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
@@ -423,7 +431,7 @@ int main(int argc, char* argv[])
   printf("#  Check Correctness   (custom-Storage)  #\n");
   printf("##########################################\n");
   /* run naive convolution */
-  naive_conv_int16(&naive_param, naive_input, naive_output, naive_filter);
+  naive_conv_int8(&naive_param, naive_input, naive_output, naive_filter);
   /* run LIBXS convolutions */
 #if defined(_OPENMP)
 # pragma omp parallel
@@ -472,239 +480,15 @@ int main(int argc, char* argv[])
   printf("fp time = %.5g\n", ((double)(l_total/iters)));
   printf("GOPS  = %.5g\n", (flops*1e-9)/l_total);
 
-  printf("PERFDUMP,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-     ifw, ifh, kw, kh, stride, pad, nSplits, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-     (flops*1e-9)/l_total, norms.max_rel_err, norms.max_abs_err, norms.l2_rel_err, norms.one_norm_ref, norms.one_norm_test );
-
-  /* clean-up */
-#if 0
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_handle( libxs_handle ) );
-#endif
-
-#if 0
-  printf("\n");
-  printf("##########################################\n");
-  printf("#    Setting Up   (NHWC/RSCK-Storage)    #\n");
-  printf("##########################################\n");
-
-  /* setup LIBXS handle */
-  conv_desc.N = nImg;
-  conv_desc.C = nIfm;
-  conv_desc.H = ifh;
-  conv_desc.W = ifw;
-  conv_desc.K = nOfm;
-  conv_desc.R = kh;
-  conv_desc.S = kw;
-  conv_desc.u = stride_h;
-  conv_desc.v = stride_w;
-  /* @TODO we need to change the interface to provide CAFFE compatible padding! */
-  conv_desc.pad_h_in = 0;
-  conv_desc.pad_w_in = 0;
-  conv_desc.pad_h_out = pad_h_out;
-  conv_desc.pad_w_out = pad_w_out;
-  conv_desc.splits = nSplits;
-  conv_desc.threads = nThreads;
-  conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
-  conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_NHWC;
-  conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_RSCK;
-  conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-  conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
-  conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
-
-  libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
-  CHKERR_LIBXS_DNN( status );
-
-  /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_input_buffer_check( libxs_handle, input_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_output_buffer_check( libxs_handle, output_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter_check( libxs_handle, filter_rsck, LIBXS_DNN_CONV_FORMAT_RSCK_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-
-  /* bind buffers and filter to handle */
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
-
-  printf("##########################################\n");
-  printf("# Check Correctness  (NHWC/RSCK-Storage) #\n");
-  printf("##########################################\n");
-  /* run LIBXS convolutions */
-#if defined(_OPENMP)
-# pragma omp parallel
-#endif
-  {
-#if defined(_OPENMP)
-    const int tid = omp_get_thread_num();
-#else
-    const int tid = 0;
-#endif
-    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid ) );
-  }
-  /* copy output data into NCHW storage in user code */
-  naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
-
-  /* compare */
-  compare_buf(naive_output, naive_output_nhwc, nImg*nOfm*ofhp*ofwp, &norms);
-  printf("             1-norm of reference: %f\n", norms.one_norm_ref);
-  printf("              1-norm of JIT-code: %f\n", norms.one_norm_test);
-  printf("       L2-error-norm of JIT-code: %f\n", norms.l2_rel_err);
-  printf("    inf-norm of comp. rel. error: %f\n", norms.max_rel_err);
-  printf("    inf-norm of comp. abs. error: %f\n", norms.max_abs_err);
-
-  printf("##########################################\n");
-  printf("#  Performance Run  (NHWC/RSCK-Storage)  #\n");
-  printf("##########################################\n");
-  /* run LIBXS convolution for performance */
-  l_start = libxs_timer_tick();
-  for (i = 0; i < iters; ++i) {
-#if defined(_OPENMP)
-#   pragma omp parallel
-#endif
-    {
-#if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
-#else
-      const int tid = 0;
-#endif
-      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid );
-    }
-  }
-  l_end = libxs_timer_tick();
-  l_total = libxs_timer_duration(l_start, l_end);
-  flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
-
-  printf("GOP (NHWC,RSCK)  = %.5g\n", flops*1e-9/(double)iters);
-  printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
-  printf("GOPS (NHWC,RSCK) = %.5g\n", (flops*1e-9)/l_total);
-
-  printf("PERFDUMP-NHWC-RSCK,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-     ifw, ifh, kw, kh, stride, pad, nSplits, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-     (flops*1e-9)/l_total, norms.max_rel_err, norms.max_abs_err, norms.l2_rel_err, norms.one_norm_ref, norms.one_norm_test );
+  printf("PERFDUMP,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+     ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+     norms.max_rel_err, norms.max_abs_err, norms.l2_rel_err, norms.one_norm_ref, norms.one_norm_test );
 
   /* clean-up */
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_handle( libxs_handle ) );
-
-  printf("\n");
-  printf("##########################################\n");
-  printf("#    Setting Up (NHWC/custom-Storage)    #\n");
-  printf("##########################################\n");
-
-  /* setup LIBXS handle */
-  conv_desc.N = nImg;
-  conv_desc.C = nIfm;
-  conv_desc.H = ifh;
-  conv_desc.W = ifw;
-  conv_desc.K = nOfm;
-  conv_desc.R = kh;
-  conv_desc.S = kw;
-  conv_desc.u = stride_h;
-  conv_desc.v = stride_w;
-  /* @TODO we need to change the interface to provide CAFFE compatible padding! */
-  conv_desc.pad_h_in = 0;
-  conv_desc.pad_w_in = 0;
-  conv_desc.pad_h_out = pad_h_out;
-  conv_desc.pad_w_out = pad_w_out;
-  conv_desc.splits = nSplits;
-  conv_desc.threads = nThreads;
-  conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
-  conv_desc.buffer_format = LIBXS_DNN_CONV_FORMAT_NHWC;
-  conv_desc.filter_format = LIBXS_DNN_CONV_FORMAT_LIBXS;
-  conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-  conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
-  conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
-
-  libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
-  CHKERR_LIBXS_DNN( status );
-
-  /* zero output buffer again */
-  zero_buf(output_nhwc,          nImg*nOfm*ofhp*ofwp);
-
-  /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_input_buffer_check( libxs_handle, input_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_output_buffer_check( libxs_handle, output_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_create_filter_check( libxs_handle, &status );
-  CHKERR_LIBXS_DNN( status );
-
-  /* copy in data to LIBXS format */
-  CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_CONV_FORMAT_KCRS ) );
-
-  /* bind buffers and filter to handle */
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
-
-  printf("##########################################\n");
-  printf("# Check Correctness(NHWC/custom-Storage) #\n");
-  printf("##########################################\n");
-  /* run LIBXS convolutions */
-#if defined(_OPENMP)
-# pragma omp parallel
-#endif
-  {
-#if defined(_OPENMP)
-    const int tid = omp_get_thread_num();
-#else
-    const int tid = 0;
-#endif
-    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid ) );
-  }
-  /* copy output data into NCHW storage in user code */
-  naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
-
-  /* compare */
-  compare_buf(naive_output, naive_output_nhwc, nImg*nOfm*ofhp*ofwp, &norms);
-  printf("             1-norm of reference: %f\n", norms.one_norm_ref);
-  printf("              1-norm of JIT-code: %f\n", norms.one_norm_test);
-  printf("       L2-error-norm of JIT-code: %f\n", norms.l2_rel_err);
-  printf("    inf-norm of comp. rel. error: %f\n", norms.max_rel_err);
-  printf("    inf-norm of comp. abs. error: %f\n", norms.max_abs_err);
-
-  printf("##########################################\n");
-  printf("#  Performance Run(NHWC/custom-Storage)  #\n");
-  printf("##########################################\n");
-  /* run LIBXS convolution for performance */
-  l_start = libxs_timer_tick();
-  for (i = 0; i < iters; ++i) {
-#if defined(_OPENMP)
-#   pragma omp parallel
-#endif
-    {
-#if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
-#else
-      const int tid = 0;
-#endif
-      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0, tid );
-    }
-  }
-  l_end = libxs_timer_tick();
-  l_total = libxs_timer_duration(l_start, l_end);
-  flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
-
-  printf("GOP (NHWC,custom)  = %.5g\n", flops*1e-9/(double)iters);
-  printf("fp time (NHWC,custom) = %.5g\n", ((double)(l_total/iters)));
-  printf("GOPS (NHWC,custom) = %.5g\n", (flops*1e-9)/l_total);
-
-  printf("PERFDUMP-NHWC-custom,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-     ifw, ifh, kw, kh, stride, pad, nSplits, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-     (flops*1e-9)/l_total, norms.max_rel_err, norms.max_abs_err, norms.l2_rel_err, norms.one_norm_ref, norms.one_norm_test );
-
-  /* clean-up */
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_handle( libxs_handle ) );
-#endif
 
   /* deallocate data */
   libxs_free(naive_input);

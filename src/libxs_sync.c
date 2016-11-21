@@ -27,12 +27,22 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include <libxs_sync.h>
-#include "libxs_intrinsics_x86.h"
+#include <libxs_intrinsics_x86.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <assert.h>
+#include <stdint.h>
 #include <math.h>
+#if defined(__linux__)
+# include <syscall.h>
+#endif
+#if defined(_WIN32)
+# include <process.h>
+#else
+# include <unistd.h>
+#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -55,6 +65,13 @@
 #else
 # define LIBXS_SYNC_MALLOC(SIZE, ALIGNMENT) libxs_aligned_malloc(SIZE, -(ALIGNMENT))
 # define LIBXS_SYNC_FREE(BUFFER) libxs_free(BUFFER)
+#endif
+#if defined(__MIC__)
+# define LIBXS_SYNC_PAUSE(DELAY) _mm_delay_32(DELAY)
+#elif !defined(LIBXS_INTRINSICS_NONE)
+# define LIBXS_SYNC_PAUSE(DELAY) _mm_pause()
+#else
+# define LIBXS_SYNC_PAUSE(DELAY)
 #endif
 
 
@@ -119,9 +136,15 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
   const int cid = tid / barrier->nthreads_per_core; /* this thread's core ID */
   internal_sync_core_tag* core = 0;
   int i;
+  internal_sync_thread_tag* thread;
+
+  /* we only initialize the barrier once */
+  if (barrier->init_done == 2) {
+    return;
+  }
 
   /* allocate per-thread structure */
-  internal_sync_thread_tag *const thread = (internal_sync_thread_tag*)LIBXS_SYNC_MALLOC(
+  thread = (internal_sync_thread_tag*)LIBXS_SYNC_MALLOC(
     sizeof(internal_sync_thread_tag), LIBXS_SYNC_CACHELINE_SIZE);
   barrier->threads[tid] = thread;
   thread->core_tid = tid - (barrier->nthreads_per_core * cid); /* mod */
@@ -178,10 +201,10 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
   /* barrier to let initialization complete */
   if (0 == LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting.counter, 1, LIBXS_ATOMIC_RELAXED)) {
     LIBXS_SYNC_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
-    barrier->init_done = 0;
+    barrier->init_done = 2;
   }
   else {
-    while (0 != barrier->init_done);
+    while (2 != barrier->init_done);
   }
 #else
   LIBXS_UNUSED(barrier); LIBXS_UNUSED(tid);
@@ -266,21 +289,48 @@ LIBXS_API_DEFINITION void libxs_barrier_release(const libxs_barrier* barrier)
 {
 #if defined(_REENTRANT)
   int i;
-  for (i = 0; i < barrier->ncores; ++i) {
-    int j;
-    LIBXS_SYNC_FREE(barrier->cores[i]->thread_senses);
-    for (j = 0; j < 2; ++j) {
-      LIBXS_SYNC_FREE(barrier->cores[i]->partner_flags[j]);
-      LIBXS_SYNC_FREE(barrier->cores[i]->my_flags[j]);
+  if ( barrier->init_done == 2 ) {
+    for (i = 0; i < barrier->ncores; ++i) {
+      int j;
+      LIBXS_SYNC_FREE(barrier->cores[i]->thread_senses);
+      for (j = 0; j < 2; ++j) {
+        LIBXS_SYNC_FREE(barrier->cores[i]->partner_flags[j]);
+        LIBXS_SYNC_FREE(barrier->cores[i]->my_flags[j]);
+      }
+      LIBXS_SYNC_FREE(barrier->cores[i]);
     }
-    LIBXS_SYNC_FREE(barrier->cores[i]);
+    for (i = 0; i < barrier->nthreads; ++i) {
+      LIBXS_SYNC_FREE(barrier->threads[i]);
+    }
   }
   LIBXS_SYNC_FREE(barrier->cores);
-  for (i = 0; i < barrier->nthreads; ++i) {
-    LIBXS_SYNC_FREE(barrier->threads[i]);
-  }
   LIBXS_SYNC_FREE(barrier->threads);
 #endif
   LIBXS_SYNC_FREE(barrier);
+}
+
+
+LIBXS_API_DEFINITION unsigned int libxs_get_pid(void)
+{
+#if defined(_WIN32)
+  return (unsigned int)_getpid();
+#else
+  return (unsigned int)getpid();
+#endif
+}
+
+
+LIBXS_API_DEFINITION unsigned int libxs_get_tid(void)
+{
+#if defined(__linux__)
+  return (unsigned int)syscall(__NR_gettid);
+#else /* fallback */
+  static LIBXS_TLS unsigned int tid = (unsigned int)(-1);
+  if ((unsigned int)(-1) == tid) {
+    static unsigned int tc = 0; tid = tc;
+    LIBXS_ATOMIC_ADD_FETCH(&tc, 1, LIBXS_ATOMIC_RELAXED);
+  }
+  return tid;
+#endif
 }
 

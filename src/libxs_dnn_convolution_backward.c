@@ -26,34 +26,56 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include <libxs_source.h>
-#include <stdlib.h>
-#if defined(_DEBUG)
-# include <stdio.h>
-#endif
+#include "libxs_dnn_convolution_backward.h"
+#include <libxs.h>
 
-
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int initialized /*= 0*/;
-
-
-LIBXS_API void init(void); /* declaration */
-LIBXS_API_DEFINITION LIBXS_CTOR_ATTRIBUTE void init(void)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid)
 {
-  initialized = 1;
-}
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-
-int main(void)
-{
-#if defined(LIBXS_CTOR)
-  return 0 != initialized ? EXIT_SUCCESS : EXIT_FAILURE;
-#else
-# if defined(_DEBUG)
-  if (0 != initialized) {
-    fprintf(stderr, "Warning: c'tor attribute works, but macro support does not expose it!\n");
+  /* check if we have input, output and filter */
+  if (handle->input == 0 || handle->output == 0 || handle->filter == 0) {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
   }
-# endif
-  return EXIT_SUCCESS;
-#endif
-}
 
+  /* check if we have a kernel JITed */
+  if (handle->code_bwd[0].xconv.sconv == 0) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
+# include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  }
+  else {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+#if 0
+      if (handle->desc.N*handle->blocksifm >= handle->desc.threads) {
+#endif
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_bwd_custom_custom.tpl.c"
+#if 0
+      }
+      else {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_bwd_custom_custom_img_par.tpl.c"
+      }
+#endif
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  }
+
+  return status;
+}

@@ -40,7 +40,8 @@
 #define LIBXS_UNIQUE(NAME) LIBXS_CONCATENATE(NAME, __LINE__)
 #define LIBXS_EXPAND(A) A
 
-#define LIBXS_VERSION3(MAJOR, MINOR, UPDATE) ((MAJOR) * 10000 + (MINOR) * 100 + (UPDATE))
+#define LIBXS_VERSION2(MAJOR, MINOR) ((MAJOR) * 10000 + (MINOR) * 100)
+#define LIBXS_VERSION3(MAJOR, MINOR, UPDATE) (LIBXS_VERSION2(MAJOR, MINOR) + (UPDATE))
 #define LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH) ((MAJOR) * 100000000 + (MINOR) * 1000000 + (UPDATE) * 10000 + (PATCH))
 
 #if defined(__cplusplus)
@@ -191,7 +192,7 @@
 #define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
-#define LIBXS_CLMP(VALUE, LO, HI) ((LO) < (VALUE) ? ((HI) > (VALUE) ? (VALUE) : (HI)) : (LO))
+#define LIBXS_CLMP(VALUE, LO, HI) ((LO) < (VALUE) ? ((HI) > (VALUE) ? (VALUE) : LIBXS_MAX(HI, VALUE)) : LIBXS_MIN(LO, VALUE))
 #define LIBXS_MOD2(N, NPOT) ((N) & ((NPOT) - 1))
 #define LIBXS_MUL2(N, NPOT) ((N) << LIBXS_LOG2(NPOT))
 #define LIBXS_DIV2(N, NPOT) ((N) >> LIBXS_LOG2(NPOT))
@@ -237,11 +238,11 @@
 #endif
 #define LIBXS_ALIGN_VALUE(N, TYPESIZE, ALIGNMENT/*POT*/) (LIBXS_UP2((N) * (TYPESIZE), ALIGNMENT) / (TYPESIZE))
 #define LIBXS_ALIGN_VALUE2(N, POTSIZE, ALIGNMENT/*POT*/) LIBXS_DIV2(LIBXS_UP2(LIBXS_MUL2(N, POTSIZE), ALIGNMENT), POTSIZE)
-#define LIBXS_ALIGN(POINTER, ALIGNMENT/*POT*/) ((POINTER) + (LIBXS_ALIGN_VALUE((unsigned long long)(POINTER), 1, ALIGNMENT) - ((unsigned long long)(POINTER))) / sizeof(*(POINTER)))
-#define LIBXS_ALIGN2(POINTPOT, ALIGNMENT/*POT*/) ((POINTPOT) + LIBXS_DIV2(LIBXS_ALIGN_VALUE2((unsigned long long)(POINTPOT), 1, ALIGNMENT) - ((unsigned long long)(POINTPOT)), sizeof(*(POINTPOT))))
+#define LIBXS_ALIGN(POINTER, ALIGNMENT/*POT*/) ((POINTER) + (LIBXS_ALIGN_VALUE((uintptr_t)(POINTER), 1, ALIGNMENT) - ((uintptr_t)(POINTER))) / sizeof(*(POINTER)))
+#define LIBXS_ALIGN2(POINTPOT, ALIGNMENT/*POT*/) ((POINTPOT) + LIBXS_DIV2(LIBXS_ALIGN_VALUE2((uintptr_t)(POINTPOT), 1, ALIGNMENT) - ((uintptr_t)(POINTPOT)), sizeof(*(POINTPOT))))
 
 #define LIBXS_HASH_VALUE(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
-#define LIBXS_HASH2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_HASH_VALUE(LIBXS_DIV2((unsigned long long)(POINTER), ALIGNMENT)), NPOT)
+#define LIBXS_HASH2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_HASH_VALUE(LIBXS_DIV2((uintptr_t)(POINTER), ALIGNMENT)), NPOT)
 
 #if defined(_MSC_VER) /* account for incorrect handling of __VA_ARGS__ */
 # define LIBXS_SELECT_ELEMENT(INDEX1/*one-based*/, .../*elements*/) LIBXS_CONCATENATE(LIBXS_SELECT_ELEMENT_, INDEX1)LIBXS_EXPAND((__VA_ARGS__))
@@ -422,13 +423,13 @@
 #if defined(LIBXS_OFFLOAD_BUILD) && \
   defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
 # define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
-# define LIBXS_NO_OFFLOAD(FN, ...) ((void (*)(LIBXS_VARIADIC))(FN))(__VA_ARGS__)
+# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) ((RTYPE (*)(LIBXS_VARIADIC))(FN))(__VA_ARGS__)
 # if !defined(LIBXS_OFFLOAD_TARGET)
 #   define LIBXS_OFFLOAD_TARGET mic
 # endif
 #else
 # define LIBXS_OFFLOAD(A)
-# define LIBXS_NO_OFFLOAD(FN, ...) (FN)(__VA_ARGS__)
+# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) (FN)(__VA_ARGS__)
 #endif
 #define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
 

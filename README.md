@@ -1,22 +1,22 @@
 # [LIBXS](https://github.com/hfp/libxs/raw/master/documentation/libxs.pdf)
-[![License](https://img.shields.io/badge/license-BSD-blue.svg)](LICENSE) [![cistatus](https://travis-ci.org/hfp/libxs.svg?branch=master "Master branch build status")](https://github.com/hfp/libxs/archive/master.zip)
+[![License](https://img.shields.io/badge/license-BSD3-blue.svg)](LICENSE) [![Travis CI](https://travis-ci.org/hfp/libxs.svg?branch=master "Master branch build status")](https://github.com/hfp/libxs/archive/master.zip) [![Travis Mirror](https://badge.buildkite.com/63b5dc4095f460f1c011ae782f8e67ec0b8a6a9732d8abe3c7.svg)](https://buildkite.com/intel/intel-2017 "Build status")
 
-LIBXS is a library for small dense and small sparse matrix-matrix multiplications as well as for deep learning primitives such as small convolutions targeting Intel Architecture (x86). The library is generating code for the following instruction set extensions: Intel&#160;SSE, Intel&#160;AVX, Intel&#160;AVX2, IMCI (KNCni) for Intel&#160;Xeon&#160;Phi coprocessors ("KNC"), and Intel&#160;AVX&#8209;512 as found in the [Intel&#160;Xeon&#160;Phi processor family&#160;("KNL")](https://software.intel.com/en-us/articles/what-disclosures-has-intel-made-about-knights-landing) and future Intel&#160;Xeon processors. Small convolutions are currently only optimized for Intel&#160;AVX&#8209;512. Historically the library was solely targeting the Intel&#160;Many Integrated Core Architecture "MIC") using intrinsic functions, meanwhile optimized assembly code is targeting all aforementioned instruction set extensions (static code generation), and Just&#8209;In&#8209;Time (JIT) code generation is targeting Intel&#160;AVX and beyond.
+LIBXS is a library for small dense and small sparse matrix-matrix multiplications as well as for deep learning primitives such as small convolutions targeting Intel Architecture (x86). The library is generating code for the following instruction set extensions: Intel&#160;SSE, Intel&#160;AVX, Intel&#160;AVX2, IMCI (KNCni) for Intel&#160;Xeon&#160;Phi coprocessors ("KNC"), and Intel&#160;AVX&#8209;512 as found in the [Intel&#160;Xeon&#160;Phi processor family&#160;("KNL")](https://software.intel.com/en-us/articles/what-disclosures-has-intel-made-about-knights-landing) and Intel&#160;Xeon processors (Skylake-EP "SKX"). Small convolutions are currently only optimized for Intel&#160;AVX&#8209;512. Historically the library was solely targeting the Intel&#160;Many Integrated Core Architecture "MIC") using intrinsic functions, meanwhile optimized assembly code is targeting all aforementioned instruction set extensions (static code generation), and Just&#8209;In&#8209;Time (JIT) code generation is targeting Intel&#160;AVX and beyond.
 
-**What is the background of the name "LIBXS"?** The "MM" stands for Matrix Multiplication, and the "S" clarifies the working domain i.e., Small Matrix Multiplication. The latter also means the name is neither a variation of "MXM" nor an eXtreme Small Matrix Multiplication but rather about Intel Architecture (x86) - and no, the library is 64&#8209;bit (only). The spelling of the name might follow the syllables of libx\\/smm, libx'smm, or libx&#8209;smm.
+**What is the background of the name "LIBXS"?** The "MM" stands for Matrix Multiplication, and the "S" clarifies the working domain i.e., Small Matrix Multiplication. The latter also means the name is neither a variation of "MXM" nor an eXtreme Small Matrix Multiplication but rather about Intel Architecture (x86) - and no, the library is [64&#8209;bit only](https://github.com/hfp/libxs/issues/103#issuecomment-256887962). The spelling of the name might follow the syllables of libx\\/smm, libx'smm, or libx&#8209;smm.
 
-**What is a small matrix multiplication?** When characterizing the problem size using the M, N, and K parameters, a problem size suitable for LIBXS falls approximately within (M&#160;N&#160;K)<sup>1/3</sup>&#160;\<=&#160;80 (which illustrates that non-square matrices or even "tall and skinny" shapes are covered as well). However, the code generator only generates code up to the specified [threshold](#auto-dispatch). Raising the threshold may not only generate excessive amounts of code (due to unrolling in M and K dimension), but also miss to implement a tiling scheme to effectively utilize the cache hierarchy. For problem sizes above the configurable threshold, LIBXS is falling back to BLAS.
+**What is a small matrix multiplication?** When characterizing the problem size using the M, N, and K parameters, a problem size suitable for LIBXS falls approximately within (M&#160;N&#160;K)<sup>1/3</sup>&#160;\<=&#160;80 (which illustrates that non-square matrices or even "tall and skinny" shapes are covered as well). The library is typically used to generate code up to the specified [threshold](#auto-dispatch). Raising the threshold may not only generate excessive amounts of code (due to unrolling in M and K dimension), but also miss to implement a tiling scheme to effectively utilize the cache hierarchy. For auto-dispatched problem sizes above the configurable threshold, LIBXS is falling back to BLAS.
 
-**What about "medium-sized" matrix multiplication?** A more recent addition are GEMM routines which are parallelized using OpenMP (`libxs_?gemm_omp`). These routines are leveraging the same specialized kernel routines as the small matrix multiplications, in-memory code generation (JIT), and automatic code/parameter dispatch but implementing a tile-based multiplication scheme i.e., a scheme suitable for larger problem sizes.
+**What about "medium-sized" matrix multiplication?** A more recent addition are GEMM routines which are parallelized using OpenMP (`libxs_?gemm_omp`). These routines leverage the same specialized kernel routines as the small matrix multiplications, in-memory code generation (JIT), and automatic code/parameter dispatch but they are implementing a tile-based multiplication scheme i.e., a scheme suitable for larger problem sizes.
 
-**How to determine whether an application can benefit from using LIBXS or not?** Given the application uses BLAS to carry out matrix multiplications, one may link against [Intel&#160;MKL&#160;11.2](https://registrationcenter.intel.com/en/forms/?productid=2558) (or higher), set the environment variable MKL_VERBOSE=1, and run the application using a representative workload (`env MKL_VERBOSE=1 ./workload > verbose.txt`). The collected output is the starting point for evaluating the problem sizes as imposed by the workload (`grep -a "MKL_VERBOSE DGEMM(N,N" verbose.txt | cut -d'(' -f2 | cut -d, -f3-5"`).
+**How to determine whether an application can benefit from using LIBXS or not?** Given the application uses BLAS to carry out matrix multiplications, one may use the [Call Wrapper](#call-wrapper), and measure the application performance e.g., time to solution. However, the latter can significantly improve when using LIBXS's API directly. To check whether there are applicable GEMM-calls, the [Verbose Mode](#verbose-mode) can help to collect an insight. Further, when an application uses [Intel&#160;MKL&#160;11.2](https://registrationcenter.intel.com/en/forms/?productid=2558) (or higher), then running the application with the environment variable MKL_VERBOSE=1 (`env MKL_VERBOSE=1 ./workload > verbose.txt`) can collect a similar insight (`grep -a "MKL_VERBOSE DGEMM(N,N" verbose.txt | cut -d'(' -f2 | cut -d, -f3-5"`).
 
-**What is a small convolution?** In the last years, new workloads such as deep learning and more specifically convolutional neural networks (CNN) emerged, and are pushing the limits of today's hardware. One of the expensive kernels is a small convolution with certain kernel sizes (3, 5, or 7) such that calculations in the frequency space is not the most efficient method when compared with direct convolutions. LIBXS's current support for convolutions aims for an easy to use invocation of small (direct) convolutions, which are intended for CNN training and classification. The [Interface](#interface-for-convolutions) is currently ramping up, and the functionality increases quickly towards a more general use.
+**What is a small convolution?** In the last years, new workloads such as deep learning and more specifically convolutional neural networks (CNN) emerged, and are pushing the limits of today's hardware. One of the expensive kernels is a small convolution with certain kernel sizes (3, 5, or 7) such that calculations in the frequency space is not the most efficient method when compared with direct convolutions. LIBXS's current support for convolutions aims for an easy to use invocation of small (direct) convolutions, which are intended for CNN training and classification. The [Interface](#interface-for-convolutions) is currently ramping up, and the functionality increases quickly towards a broader set of use cases.
 
 ## Interface for Matrix Multiplication
 The interface of the library is *generated* according to the [Build Instructions](#build-instructions), and it is therefore **not** stored in the code repository. Instead, one may have a look at the code generation template files for [C/C++](https://github.com/hfp/libxs/blob/master/src/template/libxs.h) and [FORTRAN](https://github.com/hfp/libxs/blob/master/src/template/libxs.f).
 
-In order to initialize the dispatch-table or other internal resources, one may call an explicit initialization routine in order to avoid lazy initialization overhead when calling LIBXS for the first time. The library deallocates internal resources at program exit, but also provides a companion to the aforementioned initialization (finalize).
+In order to initialize the dispatch-table or other internal resources, an explicit initialization routine helps to avoid lazy initialization overhead when calling LIBXS for the first time. The library deallocates internal resources at program exit, but also provides a companion to the aforementioned initialization (finalize).
 
 ```C
 /** Initialize the library; pay for setup cost at a specific point. */
@@ -104,7 +104,6 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   int pad_w_in;                                /* width of zero-padding in input buffer, ignored */
   int pad_h_out;                               /* height of zero-padding in output buffer */
   int pad_w_out;                               /* width of zero-padding in output buffer */
-  int splits;                                  /* number of splits */
   libxs_dnn_conv_algo algo;                  /* convolution algorithm used */
   libxs_dnn_conv_format buffer_format;       /* format which is for buffer buffers */
   libxs_dnn_conv_format filter_format;       /* format which is for filter buffers */
@@ -123,7 +122,7 @@ typedef enum libxs_dnn_conv_datatype {
   LIBXS_DNN_DATATYPE_F32
 } libxs_dnn_datatype;
 
-LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
+libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
   libxs_dnn_conv_desc   conv_desc,
   libxs_dnn_datatype    conv_datatype,
   libxs_dnn_conv_algo   conv_algo,
@@ -162,9 +161,9 @@ libxs_filter = libxs_dnn_create_filter_check(libxs_handle, &status);
 CHKERR_LIBXS_DNN(status);
 
 /* copy in data to LIBXS format: naive format is: */
-/* (mini-batch)(splits)(number-featuremaps)(featuremap-height)(featuremap-width) for layers, */
+/* (mini-batch)(number-featuremaps)(featuremap-height)(featuremap-width) for layers, */
 /* and the naive format for filters is: */
-/* (splits)(number-output-featuremaps)(number-input-featuremaps)(kernel-height)(kernel-width) */
+/* (number-output-featuremaps)(number-input-featuremaps)(kernel-height)(kernel-width) */
 CHKERR_LIBXS_DNN(libxs_dnn_copyin_buffer(libxs_input, (void*)naive_input));
 CHKERR_LIBXS_DNN(libxs_dnn_zero_buffer(libxs_output));
 CHKERR_LIBXS_DNN(libxs_dnn_copyin_filter(libxs_filter, (void*)naive_filter));
@@ -183,6 +182,27 @@ CHKERR_LIBXS_DNN(libxs_dnn_bind_filter(libxs_handle, libxs_filter));
 
 /* copy out data */
 CHKERR_LIBXS_DNN(libxs_dnn_copyout_buffer(libxs_output, (void*)naive_libxs_output));
+```
+
+## Service Functions
+For convenient operation of the library and to ease integration, a number of service routines are available. They do not exactly belong to the core functionality of LIBXS (SMM or DNN domain), but users are encouraged to rely on these routines of the API. There are two categories: (1)&#160;routines which are available for C and Fortran, and (2)&#160;routines which are only available with the C interface.
+
+## Getting and Setting the Verbosity
+The [Verbose Mode](#verbose-mode) (level of verbosity) can be controlled using the C or Fortran API, and there is an environment variable which corresponds to `libxs_set_verbosity` (LIBXS_VERBOSE).
+
+```C
+int libxs_get_verbosity(void);
+void libxs_set_verbosity(int level);
+```
+
+## Memory Allocation
+Without further claims on the properties of the memory allocation (e.g., thread scalability), there are C functions that allocate aligned memory one of which allows to specify the alignment (or to specify an automatically chosen alignment). The automatic alignment is also exposed by a `malloc` compatible signature. The size of the automatic alignment depends on a heuristic, which uses the size of the requested buffer.  
+**NOTE**: `libxs_free` must be used to deallocate the memory.
+
+```C
+void* libxs_aligned_malloc(size_t size, int alignment);
+void* libxs_malloc(size_t size);
+void libxs_free(const volatile void* memory);
 ```
 
 ## Build Instructions
@@ -245,7 +265,7 @@ Of course, both mechanisms (M/N/K and MNK based) can be combined using the same 
 
 Functionality of LIBXS, which is unrelated to GEMM can be used without introducing a dependency to LAPACK/BLAS. This can be achieved in two ways: (1)&#160;building a special library with `make BLAS=0`, or (2)&#160;linking the application against the 'libxsnoblas' library. Some care must be taken with any matrix multiplication which does not appear to require BLAS for the given test arguments. However, it may fall back to BLAS (at runtime of the application), if an unforeseen input is given (problem size, or unsupported GEMM arguments).
 
-**NOTE**: by default, a combination of a C/C++ and a FORTRAN compiler is needed (some sample code is written in C++). Beside of specifying the compilers (`make CXX=g++ CC=gcc FC=gfortran` and maybe `AR=ar`), the need for a FORTRAN compiler can be relaxed (`make FC=` or `make FORTRAN=0`). The latter affects the availability of the MODule file and the corresponding 'libxsf' library (the interface 'libxs.f' is still generated). FORTRAN code can make use of LIBXS in three different ways:
+**NOTE**: by default, a C/C++ and a FORTRAN compiler is needed (some sample code is written in C++). Beside of specifying the compilers (`make CXX=g++ CC=gcc FC=gfortran` and maybe `AR=ar`), the need for a FORTRAN compiler can be relaxed (`make FC=` or `make FORTRAN=0`). The latter affects the availability of the MODule file and the corresponding 'libxsf' library (the interface 'libxs.f' is still generated). FORTRAN code can make use of LIBXS in three different ways:
 
 * By relying on the module file, and by linking against 'libxsf', 'libxs', and (optionally) 'libxsext',
 * By including the interface 'libxs.f' and linking against 'libxs', and (optionally) 'libxsext', or
@@ -311,7 +331,7 @@ HSW/SP        TRY    JIT    STA    COL
 
 The tables are distinct between single-precision and double-precision, but either table is pruned if all counters are zero. If both tables are pruned, the library shows the code path which would have been used for JIT'ting the code: `LIBXS_TARGET=hsw` (otherwise the code path is shown in the table's header). The actual counters are collected for three buckets: small kernels (MNK<sup>1/3</sup>&#160;\<=&#160;13), medium-sized kernels (13&#160;\<&#160;MNK<sup>1/3</sup>&#160;\<=&#160;23), and larger kernels (23&#160;\<&#160;MNK<sup>1/3</sup>&#160;\<=&#160;80; the actual upper bound depends on LIBXS_MAX_MNK as selected at compile-time). Keep in mind, that "larger" is supposedly still fairly small in terms of arithmetic intensity (which grows linearly with the kernel size). Unfortunately, the arithmetic intensity depends on the way a kernel is used (which operands are loaded/stored into main memory) and it is not performance-neutral to collect this information.
 
-The TRY counter represents all attempts to register statically generated kernels, and all attempts to dynamically generate and register kernels. The TRY counter includes rejected JIT requested due to unsupported GEMM arguments. The JIT and STA counters distinct the successful cases of the aforementioned event (TRY) into dynamically (JIT) and statically (STA) generated code. In case the capacity (O(*n*)&#160;=&#160;10<sup>5</sup>) of the code registry is exhausted, no more kernels can be registered although further attempts are not prevented. Registering many kernels (O(*n*)&#160;=&#160;10<sup>3</sup>) may ramp the number of hash key collisions (COL), which can degrade performance. The latter is prevented if the small thread-local cache is effectively utilized.
+The TRY counter represents all attempts to register statically generated kernels, and all attempts to dynamically generate and register kernels. The TRY counter includes rejected JIT requests due to unsupported GEMM arguments. The JIT and STA counters distinct the successful cases of the aforementioned event (TRY) into dynamically (JIT) and statically (STA) generated code. In case the capacity (O(*n*)&#160;=&#160;10<sup>5</sup>) of the code registry is exhausted, no more kernels can be registered although further attempts are not prevented. Registering many kernels (O(*n*)&#160;=&#160;10<sup>3</sup>) may ramp the number of hash key collisions (COL), which can degrade performance. The latter is prevented if the small thread-local cache is utilized effectively.
 
 Since explicitly JIT-generated code (`libxs_?mmdispatch`) does not fall under the THRESHOLD criterion, the above table is extended by one line if large kernels have been requested. This indicates a missing threshold-criterion (customized dispatch), or asks for cache-blocking the matrix multiplication. The latter is already implemented by LIBXS's "medium-sized" GEMM routines (`libxs_?gemm_omp`), which perform a tiled multiplication.
 
@@ -340,9 +360,9 @@ In case of an MPI-parallelized application, it might be useful to only collect r
                   -knob collection-detail=stack-sampling:4=exclusive'
 ```
 
-to the `mpirun` command line. Please notice the `:4=exclusive` which is unrelated to VTune's command line syntax but related to mpirun's gtool arguments; these arguments need to appear at the end of the gtool-string. For instance, the shown command line selects the 4th rank (otherwise all ranks are sampled) along with "exclusive" usage of the performance monitoring unit (PMU) such that only one event-collector runs for all ranks.
+to the `mpirun` command line. Please notice the `:4=exclusive` (unrelated to VTune's command line syntax), which is related to mpirun's gtool arguments; these arguments need to appear at the end of the gtool-string. For instance, the shown command line selects the 4th rank (otherwise all ranks are sampled) along with "exclusive" usage of the performance monitoring unit (PMU) such that only one event-collector runs for all ranks.
 
-Intel&#160;VTune&#160;Amplifier presents invoked JIT code like functions, which belong to a module named "libxs.jit". The function name as well as the module name are supplied by LIBXS using the aforementioned JIT Profiling API. For instance "libxs_hsw_dnn_23x23x23_23_23_23_a1_b1_p0::smxm" encodes an Intel&#160;AVX2 ("hsw") double-precision kernel ("d") for small dense matrix multiplications which is multiplying matrices without transposing them ("nn"). The rest of the name encodes M=N=K=LDA=LDB=LDC=23, Alpha=Beta=1.0 (all similar to GEMM), and no prefetch strategy ("p0").
+Intel&#160;VTune&#160;Amplifier presents invoked JIT code like functions, which belong to a module named "libxs.jit". The function name as well as the module name are supplied by LIBXS using the aforementioned JIT Profiling API. For instance "libxs_hsw_dnn_23x23x23_23_23_23_a1_b1_p0::smxm" encodes an Intel&#160;AVX2 ("hsw") double-precision kernel ("d") for small dense matrix multiplications ("smxm") which is multiplying matrices without transposing them ("nn"). The rest of the name encodes M=N=K=LDA=LDB=LDC=23, Alpha=Beta=1.0 (all similar to GEMM), and no prefetch strategy ("p0").
 
 ### Tuning
 Specifying a particular code path is not really necessary if the JIT backend is not disabled. However, disabling JIT compilation, statically generating a collection of kernels, and targeting a specific instruction set extension for the entire library looks like:
@@ -418,15 +438,17 @@ The LIBXS repository provides an orphaned branch "results" which is collecting c
 Please note that comparing performance results depends on whether or not streaming the operands of the matrix multiplication. For example, running a matrix multiplication code many time with all operands covered by the L1 cache may have an emphasis towards an implementation which actually performs worse for the real workload (if this real workload needs to stream some or all operands from the main memory).
 
 # Applications
-**\[1] [https://cp2k.org/](https://cp2k.org/)**: Open Source Molecular Dynamics with its DBCSR component processing batches of small matrix multiplications ("matrix stacks") out of a problem-specific distributed block-sparse matrix. Starting with [CP2K 3.0](https://www.cp2k.org/version_history), LIBXS can be used to substitute CP2K's 'libsmm' library. Prior to CP2K 3.0, only the [Intel-branch of CP2K](https://github.com/cp2k/cp2k/tree/intel) was integrating LIBXS (see https://github.com/hfp/libxs/raw/master/documentation/cp2k.pdf).
+**\[1]&#160;[https://cp2k.org/](https://cp2k.org/)**: Open Source Molecular Dynamics with its DBCSR component processing batches of small matrix multiplications ("matrix stacks") out of a problem-specific distributed block-sparse matrix. Starting with [CP2K 3.0](https://www.cp2k.org/version_history), LIBXS can be used to substitute CP2K's 'libsmm' library. Prior to CP2K 3.0, only the [Intel-branch of CP2K](https://github.com/cp2k/cp2k/tree/intel) was integrating LIBXS (see https://github.com/hfp/libxs/raw/master/documentation/cp2k.pdf).
 
-**\[2] [https://github.com/SeisSol/SeisSol/](https://github.com/SeisSol/SeisSol/)**: SeisSol is one of the leading codes for earthquake scenarios, in particular for simulating dynamic rupture processes. LIBXS provides highly optimized assembly kernels which form the computational back-bone of SeisSol (see https://github.com/TUM-I5/seissol_kernels/).
+**\[2]&#160;[https://github.com/SeisSol/SeisSol/](https://github.com/SeisSol/SeisSol/)**: SeisSol is one of the leading codes for earthquake scenarios, in particular for simulating dynamic rupture processes. LIBXS provides highly optimized assembly kernels which form the computational back-bone of SeisSol (see https://github.com/TUM-I5/seissol_kernels/).
 
-**\[3] [https://github.com/Nek5000/NekBox](https://github.com/Nek5000/NekBox)**: NekBox is a version of the highly scalable and portable spectral element [Nek5000](https://nek5000.mcs.anl.gov/) code which is specialized for box geometries, and intended for prototyping new methods as well as leveraging FORTRAN beyond the FORTRAN&#160;77 standard. LIBXS provides optimized kernels aiming to conveniently substitute the [MXM_STD](https://github.com/Nek5000/NekBox/blob/box/mxm_std.F90) code.
+**\[3]&#160;[https://github.com/Nek5000/NekBox](https://github.com/Nek5000/NekBox)**: NekBox is a version of the highly scalable and portable spectral element [Nek5000](https://nek5000.mcs.anl.gov/) code which is specialized for box geometries, and intended for prototyping new methods as well as leveraging FORTRAN beyond the FORTRAN&#160;77 standard. LIBXS provides optimized kernels aiming to conveniently substitute the [MXM_STD](https://github.com/Nek5000/NekBox/blob/box/mxm_std.F90) code.
 
-**\[4] [https://github.com/Nek5000/Nek5000](https://github.com/Nek5000/Nek5000)**: Nek5000 is the open-source, highly-scalable, always-portable spectral element code from [https://nek5000.mcs.anl.gov/](https://nek5000.mcs.anl.gov/). The development branch of the Nek5000 code now [incorporates](https://github.com/Nek5000/Nek5000/blob/develop/core/mxm_wrapper.f) LIBXS.
+**\[4]&#160;[https://github.com/Nek5000/Nek5000](https://github.com/Nek5000/Nek5000)**: Nek5000 is the open-source, highly-scalable, always-portable spectral element code from [https://nek5000.mcs.anl.gov/](https://nek5000.mcs.anl.gov/). The development branch of the Nek5000 code now [incorporates](https://github.com/Nek5000/Nek5000/blob/develop/core/mxm_wrapper.f) LIBXS.
+
+**\[5]&#160;[https://software.intel.com/en-us/articles/intel-xeon-phi-delivers-competitive-performance-for-deep-learning-and-getting-better-fast](https://software.intel.com/en-us/articles/intel-xeon-phi-delivers-competitive-performance-for-deep-learning-and-getting-better-fast)**: Intel Xeon Phi Delivers Competitive Performance For Deep Learning - And Getting Better Fast. Article mentioning LIBXS's performance of convolution kernels with DeepBench. Intel Corporation, 2016.
 
 ## References
-**\[1] [http://sc16.supercomputing.org](http://sc16.supercomputing.org)**: LIBXS: Accelerating Small Matrix Multiplications by Runtime Code Generation (accepted full paper, not yet published). SC'16: The International Conference for High Performance Computing, Networking, Storage and Analysis, Salt Lake City (Utah).
+**\[1]&#160;[http://sc16.supercomputing.org/presentation/?id=pap364&sess=sess153](http://sc16.supercomputing.org/presentation/?id=pap364&sess=sess153)**: LIBXS: Accelerating Small Matrix Multiplications by Runtime Code Generation ([paper](http://www.computer.org/csdl/proceedings/sc/2016/8815/00/8815a981.pdf)). SC'16: The International Conference for High Performance Computing, Networking, Storage and Analysis, Salt Lake City (Utah).
 
-**\[2] [http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/tech_poster_pages/post137.html](http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/tech_poster_pages/post137.html)**: LIBXS: A High Performance Library for Small Matrix Multiplications (poster and two-page extended abstract). SC'15: The International Conference for High Performance Computing, Networking, Storage and Analysis, Austin (Texas).
+**\[2]&#160;[http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/tech_poster_pages/post137.html](http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/tech_poster_pages/post137.html)**: LIBXS: A High Performance Library for Small Matrix Multiplications ([poster](http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/poster_files/post137s2-file2.pdf) and [abstract](http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/poster_files/post137s2-file3.pdf)). SC'15: The International Conference for High Performance Computing, Networking, Storage and Analysis, Austin (Texas).

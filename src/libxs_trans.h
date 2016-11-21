@@ -41,112 +41,125 @@
 # define LIBXS_TRANS_TYPEOPT
 #endif
 
-#define LIBXS_OTRANS_GENERIC(TYPESIZE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
-  const char *const a = (const char*)(IN); \
-  char *const b = (char*)(OUT); \
-  libxs_blasint i, j; \
-  unsigned int k; \
-  for (i = M0; i < (M1); ++i) { \
-    LIBXS_PRAGMA_NONTEMPORAL \
-    for (j = N0; j < (N1); ++j) { \
-      const char *const aji = a + (TYPESIZE) * (j * (LD) + i); \
-      char *const bij = b + (TYPESIZE) * (i * (LDO) + j); \
-      for (k = 0; k < (TYPESIZE); ++k) { \
-        bij[k] = aji[k]; \
-      } \
+#define LIBXS_OTRANS_KERNEL(TYPE, TYPESIZE, INDEX_I, INDEX_J, OUT, IN, LDI, LDO) \
+  (OUT)[(INDEX_I)*(LDO)+(INDEX_J)] = (IN)[(INDEX_J)*(LDI)+(INDEX_I)]
+
+#define LIBXS_OTRANS_KERNEL_GENERIC(TYPE, TYPESIZE, INDEX_I, INDEX_J, OUT, IN, LDI, LDO) { \
+  const TYPE *const libxs_otrans_kernel_generic_a_ = (IN) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I)); \
+  TYPE *const libxs_otrans_kernel_generic_b_ = (OUT) + (TYPESIZE) * ((INDEX_I) * (LDO) + (INDEX_J)); \
+  unsigned int libxs_otrans_kernel_generic_k_; \
+  for (libxs_otrans_kernel_generic_k_ = 0; libxs_otrans_kernel_generic_k_ < (TYPESIZE); ++libxs_otrans_kernel_generic_k_) { \
+    libxs_otrans_kernel_generic_b_[libxs_otrans_kernel_generic_k_] = libxs_otrans_kernel_generic_a_[libxs_otrans_kernel_generic_k_]; \
+  } \
+}
+
+#define LIBXS_OTRANS_LOOP_UNALIGNED(...)
+#define LIBXS_OTRANS_LOOP(TYPE, TYPESIZE, KERNEL, HINT_ALIGNED, OUT, IN, M0, M1, N0, N1, NCHUNK, LDI, LDO) { \
+  const TYPE *const libxs_otrans_loop_a_ = (const TYPE*)(IN); \
+  TYPE *const libxs_otrans_loop_b_ = (TYPE*)(OUT); \
+  libxs_blasint libxs_otrans_loop_i_, libxs_otrans_loop_j_; \
+  for (libxs_otrans_loop_i_ = M0; libxs_otrans_loop_i_ < (M1); ++libxs_otrans_loop_i_) { \
+    LIBXS_PRAGMA_NONTEMPORAL HINT_ALIGNED(libxs_otrans_loop_b_) \
+    for (libxs_otrans_loop_j_ = N0; libxs_otrans_loop_j_ < ((N0) + (NCHUNK)); ++libxs_otrans_loop_j_) { \
+      /* kernel uses consecutive stores and strided loads */ \
+      KERNEL(TYPE, TYPESIZE, libxs_otrans_loop_i_, libxs_otrans_loop_j_, \
+        libxs_otrans_loop_b_, libxs_otrans_loop_a_, LDI, LDO); \
     } \
   } \
 }
 
-#define LIBXS_OTRANS(TYPE, OUT, IN, M0, M1, N0, N1, N, LD, LDO) { \
-  if (libxs_trans_chunksize == (N) && 0 == LIBXS_MOD2((uintptr_t)(IN), LIBXS_ALIGNMENT)) { \
-    const TYPE *const a = (const TYPE*)(IN); \
-    TYPE *const b = (TYPE*)(OUT); \
-    libxs_blasint i, j; \
-    if (LIBXS_TRANS_MAX_CHUNKSIZE == (N)) { \
-      for (i = M0; i < (M1); ++i) { \
-        LIBXS_PRAGMA_NONTEMPORAL \
-        LIBXS_PRAGMA_VALIGNED_VARS(b) \
-        for (j = N0; j < (N0) + (LIBXS_TRANS_MAX_CHUNKSIZE); ++j) { \
-          /* use consecutive stores and strided loads */ \
-          b[i*(LDO)+j] = a[j*(LD)+i]; \
-        } \
+#define LIBXS_OTRANS(TYPE, OUT, IN, M0, M1, N0, N1, N, LDI, LDO) { \
+  if (LIBXS_MAX(libxs_trans_chunksize, LIBXS_TRANS_MIN_CHUNKSIZE) == (N)) { \
+    if (0 == LIBXS_MOD2((LDO) * sizeof(TYPE), LIBXS_ALIGNMENT) \
+     && 0 == LIBXS_MOD2((uintptr_t)(OUT), LIBXS_ALIGNMENT)) \
+    { \
+      if (LIBXS_TRANS_MAX_CHUNKSIZE == (N)) { \
+        LIBXS_OTRANS_LOOP(TYPE, sizeof(TYPE), LIBXS_OTRANS_KERNEL, LIBXS_PRAGMA_VALIGNED_VARS, \
+          OUT, IN, M0, M1, N0, N1, LIBXS_TRANS_MAX_CHUNKSIZE, LDI, LDO); \
+      } \
+      else { \
+        assert(LIBXS_TRANS_MIN_CHUNKSIZE == (N)); \
+        LIBXS_OTRANS_LOOP(TYPE, sizeof(TYPE), LIBXS_OTRANS_KERNEL, LIBXS_PRAGMA_VALIGNED_VARS, \
+          OUT, IN, M0, M1, N0, N1, LIBXS_TRANS_MIN_CHUNKSIZE, LDI, LDO); \
       } \
     } \
-    else { \
-      assert(LIBXS_TRANS_MIN_CHUNKSIZE == (N)); \
-      for (i = M0; i < (M1); ++i) { \
-        LIBXS_PRAGMA_NONTEMPORAL \
-        LIBXS_PRAGMA_VALIGNED_VARS(b) \
-        for (j = N0; j < (N0) + (LIBXS_TRANS_MIN_CHUNKSIZE); ++j) { \
-          /* use consecutive stores and strided loads */ \
-          b[i*(LDO)+j] = a[j*(LD)+i]; \
-        } \
+    else { /* unaligned store */ \
+      if (LIBXS_TRANS_MAX_CHUNKSIZE == (N)) { \
+        LIBXS_OTRANS_LOOP(TYPE, sizeof(TYPE), LIBXS_OTRANS_KERNEL, LIBXS_OTRANS_LOOP_UNALIGNED, \
+          OUT, IN, M0, M1, N0, N1, LIBXS_TRANS_MAX_CHUNKSIZE, LDI, LDO); \
+      } \
+      else { \
+        assert(LIBXS_TRANS_MIN_CHUNKSIZE == (N)); \
+        LIBXS_OTRANS_LOOP(TYPE, sizeof(TYPE), LIBXS_OTRANS_KERNEL, LIBXS_OTRANS_LOOP_UNALIGNED, \
+          OUT, IN, M0, M1, N0, N1, LIBXS_TRANS_MIN_CHUNKSIZE, LDI, LDO); \
       } \
     } \
   } \
   else { /* remainder tile */ \
-    LIBXS_OTRANS_GENERIC(sizeof(TYPE), OUT, IN, M0, M1, N0, N1, N, LD, LDO); \
+    LIBXS_OTRANS_LOOP(char, sizeof(TYPE), LIBXS_OTRANS_KERNEL_GENERIC, LIBXS_OTRANS_LOOP_UNALIGNED, \
+      OUT, IN, M0, M1, N0, N1, N, LDI, LDO); \
   } \
 }
 
 #if defined(LIBXS_TRANS_TYPEOPT)
-# define LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, M0, M1, N0, N1, N, LD, LDO) \
+# define LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, M0, M1, N0, N1, N, LDI, LDO) \
     switch(TYPESIZE) { \
       case 1: { \
-        LIBXS_OTRANS(char, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(char, OUT, IN, M0, M1, N0, N1, N, LDI, LDO); \
       } break; \
       case 2: { \
-        LIBXS_OTRANS(short, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(short, OUT, IN, M0, M1, N0, N1, N, LDI, LDO); \
       } break; \
       case 4: { \
-        LIBXS_OTRANS(float, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(float, OUT, IN, M0, M1, N0, N1, N, LDI, LDO); \
       } break; \
       case 8: { \
-        LIBXS_OTRANS(double, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(double, OUT, IN, M0, M1, N0, N1, N, LDI, LDO); \
       } break; \
       case 16: { \
         typedef struct dvec2_t { double value[2]; } dvec2_t; \
-        LIBXS_OTRANS(dvec2_t, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+        LIBXS_OTRANS(dvec2_t, OUT, IN, M0, M1, N0, N1, N, LDI, LDO); \
       } break; \
       default:
 #else
-# define LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, M0, M1, N0, N1, N, LD, LDO) {
+# define LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, M0, M1, N0, N1, N, LDI, LDO) {
 #endif
 #define LIBXS_OTRANS_TYPEOPT_END }
 
 /**
  * Based on the cache-oblivious transpose by Frigo et.al. with some additional
- * optimization such as using a loop with bounds which are known at compile-time
+ * optimization such as using a loop with bounds, which are known at compile-time
  * due to splitting up tiles with one fixed-size extent (chunk).
  */
-#define LIBXS_OTRANS_MAIN(KERNEL_START, FN, OUT, IN, TYPESIZE, M0, M1, N0, N1, LD, LDO) { \
-  /*const*/ libxs_blasint m = (M1) - (M0), n = (N1) - (N0); \
-  if (m * n * (TYPESIZE) <= ((LIBXS_CPU_DCACHESIZE) / 2)) { \
-    KERNEL_START(n) \
+#define LIBXS_OTRANS_MAIN(KERNEL_START, FN, OUT, IN, TYPESIZE, M0, M1, N0, N1, LDI, LDO) { \
+  /*const*/ libxs_blasint libxs_otrans_main_m_ = (M1) - (M0), libxs_otrans_main_n_ = (N1) - (N0); \
+  if (libxs_otrans_main_m_ * libxs_otrans_main_n_ * (TYPESIZE) <= ((LIBXS_CPU_DCACHESIZE) / 2)) { \
+    KERNEL_START(libxs_otrans_main_n_) \
     { \
-      LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, M0, M1, N0, N1, n, LD, LDO) \
-      /* fall-back code path which is generic with respect to the typesize */ \
-      LIBXS_OTRANS_GENERIC(TYPESIZE, OUT, IN, M0, M1, N0, N1, n, LD, LDO); \
+      LIBXS_OTRANS_TYPEOPT_BEGIN(OUT, IN, TYPESIZE, M0, M1, N0, N1, libxs_otrans_main_n_, LDI, LDO) \
+      /* fall-back code path, which is generic with respect to the typesize */ \
+      LIBXS_OTRANS_LOOP(char, TYPESIZE, LIBXS_OTRANS_KERNEL_GENERIC, LIBXS_OTRANS_LOOP_UNALIGNED, \
+        OUT, IN, M0, M1, N0, N1, libxs_otrans_main_n_, LDI, LDO); \
       LIBXS_OTRANS_TYPEOPT_END \
     } \
   } \
-  else if (m >= n) { \
-    const libxs_blasint mi = ((M0) + (M1)) / 2; \
-    (FN)(OUT, IN, TYPESIZE, M0, mi, N0, N1, LD, LDO); \
-    (FN)(OUT, IN, TYPESIZE, mi, M1, N0, N1, LD, LDO); \
+  else if (libxs_otrans_main_m_ >= libxs_otrans_main_n_) { \
+    const libxs_blasint libxs_otrans_main_mi_ = ((M0) + (M1)) / 2; \
+    (FN)(OUT, IN, TYPESIZE, M0, libxs_otrans_main_mi_, N0, N1, LDI, LDO); \
+    (FN)(OUT, IN, TYPESIZE, libxs_otrans_main_mi_, M1, N0, N1, LDI, LDO); \
   } \
   else { \
-    if (libxs_trans_chunksize < n) { \
-      const libxs_blasint ni = (N0) + libxs_trans_chunksize; \
-      (FN)(OUT, IN, TYPESIZE, M0, M1, N0, ni, LD, LDO); \
-      (FN)(OUT, IN, TYPESIZE, M0, M1, ni, N1, LD, LDO); \
+    const int libxs_otrans_main_chunksize_ = LIBXS_MAX(libxs_trans_chunksize, LIBXS_TRANS_MIN_CHUNKSIZE); \
+    if (libxs_otrans_main_chunksize_ < libxs_otrans_main_n_) { \
+      const libxs_blasint libxs_otrans_main_ni_ = (N0) + libxs_otrans_main_chunksize_; \
+      (FN)(OUT, IN, TYPESIZE, M0, M1, N0, libxs_otrans_main_ni_, LDI, LDO); \
+      (FN)(OUT, IN, TYPESIZE, M0, M1, libxs_otrans_main_ni_, N1, LDI, LDO); \
     } \
     else \
     { \
-      const libxs_blasint ni = ((N0) + (N1)) / 2; \
-      (FN)(OUT, IN, TYPESIZE, M0, M1, N0, ni, LD, LDO); \
-      (FN)(OUT, IN, TYPESIZE, M0, M1, ni, N1, LD, LDO); \
+      const libxs_blasint libxs_otrans_main_ni_ = ((N0) + (N1)) / 2; \
+      (FN)(OUT, IN, TYPESIZE, M0, M1, N0, libxs_otrans_main_ni_, LDI, LDO); \
+      (FN)(OUT, IN, TYPESIZE, M0, M1, libxs_otrans_main_ni_, N1, LDI, LDO); \
     } \
   } \
 }

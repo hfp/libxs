@@ -29,7 +29,15 @@
 #ifndef LIBXS_MALLOC_H
 #define LIBXS_MALLOC_H
 
-#include <libxs.h>
+#include "libxs_macros.h"
+
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <stddef.h>
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
 
 
 /** Allocate aligned memory (malloc/free interface). */
