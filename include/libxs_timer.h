@@ -29,7 +29,7 @@
 #ifndef LIBXS_TIMER_H
 #define LIBXS_TIMER_H
 
-#include <libxs.h>
+#include "libxs_macros.h"
 
 
 /** Returns the current clock tick of a monotonic timer source; uses a platform-specific resolution. */

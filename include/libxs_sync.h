@@ -29,7 +29,7 @@
 #ifndef LIBXS_SYNC_H
 #define LIBXS_SYNC_H
 
-#include <libxs.h>
+#include "libxs_macros.h"
 
 #if defined(LIBXS_NO_SYNC)
 # undef _REENTRANT
@@ -45,7 +45,7 @@
 #   else
 #     if (defined(_WIN32) && !defined(__GNUC__)) || defined(__PGI)
 #       define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
-#     elif defined(__GNUC__)
+#     elif defined(__GNUC__) || defined(_CRAYC)
 #       define LIBXS_TLS __thread
 #     elif defined(__cplusplus)
 #       define LIBXS_TLS thread_local
@@ -84,7 +84,8 @@
 # else
 #   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __sync_or_and_fetch(SRC_PTR, 0)
 #   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) *(DST_PTR) = VALUE; \
-      while (0/*false*/ == __sync_bool_compare_and_swap(DST_PTR, VALUE, VALUE))
+      while (0/*false*/ == __sync_bool_compare_and_swap(DST_PTR, VALUE, VALUE)) \
+         if (0/*false*/ != __sync_bool_compare_and_swap(DST_PTR, VALUE, VALUE)) break
     /* use store side-effect of built-in (dummy assignment to mute warning) */
 #   if 0 /* disabled as it appears to hang on some systems; fallback impl. is below */
 #   define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) { \
@@ -110,6 +111,9 @@
 # define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) LIBXS_ATOMIC_STORE(DST_PTR, 0, KIND)
 #endif
 
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
 #if defined(_REENTRANT)
 # if defined(_WIN32) /*TODO*/
 #   define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
@@ -120,7 +124,8 @@
 #   define LIBXS_LOCK_ACQUIRE(LOCK) WaitForSingleObject(LOCK, INFINITE)
 #   define LIBXS_LOCK_TRYLOCK(LOCK) WaitForSingleObject(LOCK, 0)
 #   define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(LOCK)
-# else /* PThreads: include <pthread.h> */
+# else
+#   include <pthread.h>
 #   define LIBXS_LOCK_ACQUIRED 0
 #   define LIBXS_LOCK_TYPE pthread_mutex_t
 #   define LIBXS_LOCK_CONSTRUCT PTHREAD_MUTEX_INITIALIZER
@@ -140,11 +145,8 @@
 # define LIBXS_LOCK_TRYLOCK(LOCK) LIBXS_UNUSED(LOCK)
 # define LIBXS_LOCK_RELEASE(LOCK) LIBXS_UNUSED(LOCK)
 #endif
-
-#if defined(__MIC__)
-# define LIBXS_SYNC_PAUSE(DELAY) _mm_delay_32(DELAY)
-#else
-# define LIBXS_SYNC_PAUSE(DELAY) _mm_pause()
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
 #endif
 
 
@@ -159,5 +161,10 @@ LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid);
 LIBXS_API void libxs_barrier_wait(libxs_barrier* barrier, int tid);
 /** Release the resources associated with this barrier. */
 LIBXS_API void libxs_barrier_release(const libxs_barrier* barrier);
+
+/** Utility function to receive the process ID of the calling process. */
+LIBXS_API unsigned int libxs_get_pid(void);
+/** Utility function to receive the thread ID of the calling thread. */
+LIBXS_API unsigned int libxs_get_tid(void);
 
 #endif /*LIBXS_SYNC_H*/

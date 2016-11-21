@@ -40,7 +40,7 @@
  */
 int main(void)
 {
-  const int cpuid_archid = libxs_cpuid_x86();
+  const int cpuid_archid = libxs_cpuid();
   const int m = 64, n = 239, k = 64, lda = 64, ldb = 240, ldc = 240;
   union { libxs_gemm_descriptor descriptor; char simd[LIBXS_ALIGNMENT]; } a, b;
   unsigned int i, result = EXIT_SUCCESS;
@@ -64,10 +64,10 @@ int main(void)
   }
 #endif
   {
-#if defined(LIBXS_GENERATOR_BIGDESC)
-    union { libxs_gemm_descriptor desc; char padding[32]; } descs[8];
-#else
+#if defined(LIBXS_GENERATOR_SMALLDESC)
     union { libxs_gemm_descriptor desc; char padding[16]; } descs[8];
+#else
+    union { libxs_gemm_descriptor desc; char padding[32]; } descs[8];
 #endif
     descs[0].desc = b.descriptor; descs[1].desc = a.descriptor;
     descs[2].desc = a.descriptor; descs[3].desc = a.descriptor;
@@ -276,10 +276,10 @@ int main(void)
 #   pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
     if (EXIT_SUCCESS == result) {
-#if defined(LIBXS_GENERATOR_BIGDESC)
-      union { libxs_gemm_descriptor desc; char padding[32]; } local[8];
-#else
+#if defined(LIBXS_GENERATOR_SMALLDESC)
       union { libxs_gemm_descriptor desc; char padding[16]; } local[8];
+#else
+      union { libxs_gemm_descriptor desc; char padding[32]; } local[8];
 #endif
       local[0].desc = b.descriptor; local[1].desc = a.descriptor;
       local[2].desc = a.descriptor; local[3].desc = a.descriptor;

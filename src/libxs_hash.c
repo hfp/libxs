@@ -30,7 +30,7 @@
 #define LIBXS_HASH_C
 
 #include "libxs_hash.h"
-#include "libxs_intrinsics_x86.h"
+#include <libxs_intrinsics_x86.h>
 #include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -78,7 +78,7 @@
 #define LIBXS_HASH_CRC32_U16(SEED, N, VALUE) _mm_crc32_u16(SEED, VALUE)
 #define LIBXS_HASH_CRC32_U32(SEED, N, VALUE) _mm_crc32_u32(SEED, VALUE)
 
-#if !defined(_WIN32) || defined(_WIN64)
+#if (4294967295U < (__SIZE_MAX__)) || defined(_WIN64)
 # define LIBXS_HASH_CRC32_U64(SEED, N, VALUE) _mm_crc32_u64(SEED, VALUE)
 #else
 # define LIBXS_HASH_CRC32_U64(SEED, N, VALUE) LIBXS_HASH_CRC32_U32( \
@@ -361,7 +361,7 @@ LIBXS_API_DEFINITION unsigned int libxs_crc32_sw(const void* data, unsigned int 
 
 LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int seed)
 {
-#if defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_MAX_STATIC_TARGET_ARCH) && \
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_MAX_STATIC_TARGET_ARCH) && \
   /* prevents backend error in Clang when selecting below intrinsic(s) (despite of the LIBXS_INTRINSICS attribute) */ \
   ((defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH)) || \
   !(defined(__clang__) || (defined(__APPLE__) && defined(__MACH__))))

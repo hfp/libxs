@@ -27,14 +27,14 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include <libxs_timer.h>
-#include "libxs_intrinsics_x86.h"
+#include <libxs_intrinsics_x86.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #if defined(_WIN32)
 # include <Windows.h>
-#elif defined(__GNUC__) || defined(__PGI)
+#elif defined(__GNUC__) || defined(__PGI) || defined(_CRAYC)
 # include <sys/time.h>
 # include <time.h>
 #endif
@@ -42,7 +42,8 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if (defined(__GNUC__) || defined(__INTEL_COMPILER)) && (defined(_WIN64) || !defined(_WIN32))
+#if (defined(__GNUC__) || defined(__INTEL_COMPILER)) && \
+  ((4294967295U < (__SIZE_MAX__)) || defined(_WIN64) || defined(_CRAYC))
 # define LIBXS_TIMER_RDTSC(CYCLE) { unsigned long long libxs_timer_rdtsc_hi_; \
     __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
     CYCLE |= libxs_timer_rdtsc_hi_ << 32; \

@@ -26,25 +26,37 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_CPUID_X86_C
-#define LIBXS_CPUID_X86_C
+#include <libxs_intrinsics_x86.h>
 
-#include "libxs_cpuid_x86.h"
-#include "libxs_intrinsics_x86.h"
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <assert.h>
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
 
-/** Execute the CPUID, and receive results (EAX, EBX, ECX, EDX) for requested FUNCTION. */
+/** Execute CPUID, and receive results (EAX, EBX, ECX, EDX) for requested FUNCTION. */
 #if defined(__GNUC__) || defined(__PGI)
-# define LIBXS_CPUID_X86(FUNCTION, EAX, EBX, ECX, EDX) \
-    __asm__ __volatile__ ("cpuid" : "=a"(EAX), "=b"(EBX), "=c"(ECX), "=d"(EDX) : "a"(FUNCTION), "c"(0))
-#else
+# if (4294967295U < (__SIZE_MAX__)) || defined(_CRAYC)
+#   define LIBXS_CPUID_X86(FUNCTION, EAX, EBX, ECX, EDX) __asm__ __volatile__ ( \
+      ".byte 0x0f, 0xa2" /*cpuid*/ : "=a"(EAX), "=b"(EBX), "=c"(ECX), "=d"(EDX) : "a"(FUNCTION), "c"(0) \
+    )
+# else
+LIBXS_EXTERN LIBXS_RETARGETABLE int __get_cpuid(unsigned int, unsigned int*, unsigned int*, unsigned int*, unsigned int*);
+#   define LIBXS_CPUID_X86(FUNCTION, EAX, EBX, ECX, EDX) __get_cpuid(FUNCTION, &(EAX), &(EBX), &(ECX), &(EDX))
+# endif
+#elif !defined(_CRAYC)
 # define LIBXS_CPUID_X86(FUNCTION, EAX, EBX, ECX, EDX) { \
     int libxs_cpuid_x86_[4]; \
     __cpuid(libxs_cpuid_x86_, FUNCTION); \
-    EAX = libxs_cpuid_x86_[0]; \
-    EBX = libxs_cpuid_x86_[1]; \
-    ECX = libxs_cpuid_x86_[2]; \
-    EDX = libxs_cpuid_x86_[3]; \
+    EAX = (unsigned int)libxs_cpuid_x86_[0]; \
+    EBX = (unsigned int)libxs_cpuid_x86_[1]; \
+    ECX = (unsigned int)libxs_cpuid_x86_[2]; \
+    EDX = (unsigned int)libxs_cpuid_x86_[3]; \
   }
+#else
+# define LIBXS_CPUID_X86(FUNCTION, EAX, EBX, ECX, EDX) LIBXS_X86_AVX
 #endif
 
 /** Execute the XGETBV (x86), and receive results (EAX, EDX) for req. eXtended Control Register (XCR). */
@@ -52,12 +64,14 @@
 # define LIBXS_XGETBV(XCR, EAX, EDX) __asm__ __volatile__( \
     ".byte 0x0f, 0x01, 0xd0" /*xgetbv*/ : "=a"(EAX), "=d"(EDX) : "c"(XCR) \
   )
-#else
+#elif !defined(_CRAYC)
 # define LIBXS_XGETBV(XCR, EAX, EDX) { \
     unsigned long long libxs_xgetbv_ = _xgetbv(XCR); \
     EAX = (int)libxs_xgetbv_; \
     EDX = (int)(libxs_xgetbv_ >> 32); \
   }
+#else
+# define LIBXS_XGETBV(XCR, EAX, EDX)
 #endif
 
 
@@ -82,19 +96,19 @@ LIBXS_API_DEFINITION int libxs_cpuid_x86(void)
         if (0x000000E0 == (0x000000E0 & eax)) { /* OS XSAVE 512-bit */
           LIBXS_CPUID_X86(7, eax, ebx, ecx, edx);
 
-          /* AVX512F(0x00010000), AVX512CD(0x10000000), AVX512PF(0x04000000),
-             AVX512ER(0x08000000) */
-          if (0x1C010000 == (0x1C010000 & ebx)) {
-            target_arch = LIBXS_X86_AVX512_MIC;
-          }
-          /* AVX512F(0x00010000), AVX512CD(0x10000000), AVX512DQ(0x00020000),
-             AVX512BW(0x40000000), AVX512VL(0x80000000) */
-          else if (0xD0030000 == (0xD0030000 & ebx)) {
-            target_arch = LIBXS_X86_AVX512_CORE;
-          }
           /* AVX512F(0x00010000), AVX512CD(0x10000000) */
-          else if (0x10010000 == (0x10010000 & ebx)) {
-            target_arch = LIBXS_X86_AVX512;
+          if (0x10010000 == (0x10010000 & ebx)) { /* Common */
+            /* AVX512DQ(0x00020000), AVX512BW(0x40000000), AVX512VL(0x80000000) */
+            if (0xC0020000 == (0xC0020000 & ebx)) { /* SKX (Core) */
+              target_arch = LIBXS_X86_AVX512_CORE;
+            }
+            /* AVX512PF(0x04000000), AVX512ER(0x08000000) */
+            else if (0x0C000000 == (0x0C000000 & ebx)) { /* KNL (MIC) */
+              target_arch = LIBXS_X86_AVX512_MIC;
+            }
+            else { /* Common */
+              target_arch = LIBXS_X86_AVX512;
+            }
           }
         }
         else if (0x10000000 == (0x10000000 & ecx)) { /* AVX(0x10000000) */
@@ -117,4 +131,3 @@ LIBXS_API_DEFINITION int libxs_cpuid_x86(void)
   return LIBXS_MAX(target_arch, LIBXS_STATIC_TARGET_ARCH);
 }
 
-#endif /* LIBXS_CPUID_X86_C */

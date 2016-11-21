@@ -100,7 +100,6 @@ typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
 /** Structure which describes an activation layer. */
 struct LIBXS_RETARGETABLE libxs_dnn_buffer {
   int N;                            /* number of images in mini-batch */
-  int splits;                       /* number of splits */
   int fmb;                          /* number of feature map blocks */
   int bfm;                          /* sized of blocked feature maps, in a block */
   int H;                            /* height of image */
@@ -113,7 +112,6 @@ struct LIBXS_RETARGETABLE libxs_dnn_buffer {
 
 /** Structure which describes a bias. */
 struct LIBXS_RETARGETABLE libxs_dnn_bias {
-  int splits;                       /* number of splits */
   int fmb;                          /* number of feature map blocks */
   int bfm;                          /* sized of blocked feature maps, in a block */
   int lpb;                          /* low precision blocking factor */
@@ -123,7 +121,6 @@ struct LIBXS_RETARGETABLE libxs_dnn_bias {
 
 /** Structure which describes a filter */
 struct LIBXS_RETARGETABLE libxs_dnn_filter {
-  int splits;                       /* number of splits */
   int ifmb;                         /* number of feature map blocks */
   int bifm;                         /* sized of blocked feature maps, in a block */
   int ofmb;                         /* number of feature map blocks */
@@ -137,7 +134,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_filter {
 };
 
 struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
-  libxs_dnn_datatype datatype;
+  libxs_dnn_datatype datatype_in;
+  libxs_dnn_datatype datatype_out;
   libxs_dnn_conv_desc desc;
   libxs_dnn_conv_algo algo;
   libxs_dnn_conv_format buffer_format;
@@ -157,15 +155,27 @@ struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
   int blocksifm;
   int blocksofm;
   int fwd_ofw_rb;
+  int fwd_ofw_rb_2;
   int fwd_ofh_rb;
+  int bwd_ofw_rb;
+  int bwd_ofh_rb;
+  int upd_ofw_rb;
+  int upd_ofh_rb;
   int fm_lp_block;              /* additional blocking for low precision datatypes of feature maps */
+  int upd_use_thread_fil;
+
   /* internal data representation */
   libxs_dnn_buffer* input;
   libxs_dnn_buffer* output;
   libxs_dnn_buffer* input_relu;
   libxs_dnn_filter* filter;
   libxs_dnn_bias* bias;
-  void* scratch;
+  void* scratch1;
+  void* scratch2;
+/*#ifdef LIBXS_WU_TRANSPOSE_OFW_IFM*/
+  void* scratch3;
+/*#endif*/
+  void* scratch4;
 
   /* JIT-generated convolution code */
   /*
@@ -175,8 +185,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
   */
   int avx512avx2fallback;
   libxs_code_pointer code_fwd[4];
-  libxs_code_pointer code_bwd[8];
-  libxs_code_pointer code_upd[4];
+  libxs_code_pointer code_bwd[4];
+  libxs_code_pointer code_upd[6];
 };
 
 typedef enum libxs_build_kind {
@@ -238,15 +248,17 @@ LIBXS_API void libxs_build(const libxs_build_request* request, unsigned regindex
 /** Updates counters of the statistic, which is shown at program termination. */
 LIBXS_API unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol);
 
-LIBXS_API int libxs_prefetch2uid(int prefetch);
-LIBXS_API int libxs_uid2prefetch(int uid);
+LIBXS_API int libxs_gemm_prefetch2uid(int prefetch);
+LIBXS_API int libxs_gemm_uid2prefetch(int uid);
+
+LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype);
 
 /** Stores the verbosity level (libxs_get_verbosity, libxs_set_verbosity). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_verbosity;
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_target_archid;
 /** Determines the prefetch strategy, which is used in case of LIBXS_PREFETCH_AUTO. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_prefetch;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_auto_prefetch;
 /** Determines if (OpenMP-)tasks are preferred over thread-style parallelization. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_tasks;
 /** Kind of parallel support (0: none, 1: sequential, 2: parallelized). */

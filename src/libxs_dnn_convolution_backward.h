@@ -26,34 +26,12 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include <libxs_source.h>
-#include <stdlib.h>
-#if defined(_DEBUG)
-# include <stdio.h>
-#endif
+#ifndef LIBXS_DNN_CONVOLUTION_BACKWARD_H
+#define LIBXS_DNN_CONVOLUTION_BACKWARD_H
 
+#include "libxs_main.h"
+#include "libxs_sync.h"
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int initialized /*= 0*/;
+LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid);
 
-
-LIBXS_API void init(void); /* declaration */
-LIBXS_API_DEFINITION LIBXS_CTOR_ATTRIBUTE void init(void)
-{
-  initialized = 1;
-}
-
-
-int main(void)
-{
-#if defined(LIBXS_CTOR)
-  return 0 != initialized ? EXIT_SUCCESS : EXIT_FAILURE;
-#else
-# if defined(_DEBUG)
-  if (0 != initialized) {
-    fprintf(stderr, "Warning: c'tor attribute works, but macro support does not expose it!\n");
-  }
-# endif
-  return EXIT_SUCCESS;
-#endif
-}
-
+#endif /* LIBXS_DNN_CONVOLUTION_BACKWARD_H */

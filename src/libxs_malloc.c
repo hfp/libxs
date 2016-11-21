@@ -26,12 +26,14 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include <libxs_malloc.h>
+#include "libxs_malloc.h"
 #include "libxs_main.h"
+#include <libxs_sync.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #if !defined(NDEBUG)
@@ -132,7 +134,7 @@ LIBXS_API_DEFINITION size_t libxs_alignment(size_t size, size_t alignment)
 
 
 #if defined(LIBXS_VTUNE)
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_vtune_jitdesc(const void* code,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_vtune_jitdesc(const volatile void* code,
   unsigned int code_id, size_t code_size, const char* code_name,
   LIBXS_VTUNE_JIT_DESC_TYPE* desc)
 {

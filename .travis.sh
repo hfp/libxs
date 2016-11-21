@@ -28,70 +28,51 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              #
 #############################################################################
 
-PATTERNS="*.c *.cpp *.h *.hpp *.f *.F90 *.fh *.sh *.py *.yml *.txt *.md Makefile"
 HERE=$(cd $(dirname $0); pwd -P)
+SED=$(which sed)
+TR=$(which tr)
 
-CODEFILE=${HERE}/.codefile
-KEYFILE=${HERE}/keywords.txt
-
-if [ -e ${CODEFILE} ]; then
-  PATTERNS="$(cat ${CODEFILE})"
-fi
-
-if [ ! -e ${KEYFILE} ]; then
-  >&2 echo "Error: No file ${KEYFILE} found!"
-  exit 1
-fi
-
-# check for any pending replacement which overlays local view of repository
-if [ "" != "$(git replace -l)" ]; then
-  >&2 echo "Error: found pending replacements!"
-  >&2 echo "Run: \"git replace -l | xargs -i git replace -d {}\" to cleanup"
-  >&2 echo "Run: \"git filter-branch -- --all\" to apply (not recommended!)"
-  exit 1
-fi
-
-for KEYWORD in $(cat ${KEYFILE}); do
-  echo "Searching for ${KEYWORD}..."
-  # Search all commit messages regardless of the file type
-  REVS=$(git log -i --grep=${KEYWORD} --oneline | cut -d' ' -f1)
-  for REV in ${REVS}; do
-    # Unix timestamp (sort key)
-    STM=$(git show -s --format=%ct ${REV})
-    # Author information
-    WHO=$(git show -s --format=%an ${REV})
-    echo "Found ${REV} (${WHO})"
-    HITS+="${STM} ${REV}\n"
-    LF=true
-  done
-  # Search the content of the diffs matching the given file types
-  for PATTERN in ${PATTERNS}; do
-    REVS=$(git log -i -G${KEYWORD} --oneline "${PATTERN}" | cut -d' ' -f1)
-    for REV in ${REVS}; do
-      # Unix timestamp (sort key)
-      STM=$(git show -s --format=%ct ${REV})
-      # Author information
-      WHO=$(git show -s --format=%an ${REV})
-      echo "Found ${REV} (${WHO})"
-      HITS+="${STM} ${REV}\n"
-      LF=true
-    done
-  done
-  if [ "" != "${LF}" ]; then
-    echo; LF=""
+if [ "" != "${SED}" ] && [ "" != "${TR}" ]; then
+  if [ "" = "${TRAVIS_BUILD_DIR}" ]; then
+    export TRAVIS_BUILD_DIR=${HERE}
   fi
-done
+  if [ "" = "${TRAVIS_OS_NAME}" ] && [ "" != "$(which uname)" ]; then
+    export TRAVIS_OS_NAME=$(uname)
+  fi
 
-# make unique by SHA, sort from older to newer, and drop timestamp (sort key)
-HIST=$(echo -e ${HITS} | sort -uk2 | sort -nuk1 | cut -d' ' -f2)
-HITS=$(echo -n "${HIST}" | wc -l)
+  # set the case number
+  if [ "" != "$1" ]; then
+    export TESTID=$1
+  else
+    export TESTID=1
+  fi
 
-if [ "0" != "${HITS}" ]; then
-  echo
-  echo "Potentially ${HITS} infected revisions (newer to older):"
-  echo "${HIST}" | tac
-  exit 1
+  # should be source'd after the above variables are set
+  source ${HERE}/.travis.env
+  source ${HERE}/.buildkite.env
+
+  while TEST=$(eval " \
+    ${SED} -e '/^\s*script:\s*$/,\$!d' -e '/^\s*script:\s*$/d' ${HERE}/.travis.yml | \
+    ${SED} -nr \"/^\s*-\s*/H;//,/^\s*$/G;s/\n(\n[^\n]*){\${TESTID}}$//p\" | \
+    ${SED} -e 's/^\s*-\s*//' -e 's/^\s\s*//' | ${TR} '\n' ' ' | \
+    ${SED} -e 's/\s\s*$//'") && [ "" != "${TEST}" ];
+  do
+    # print header if all test cases are selected
+    if [ "" = "$1" ]; then
+      echo "================================================================================"
+      echo "Test Case #${TESTID}"
+    fi
+
+    # run the actual test case
+    eval ${TEST}
+    RESULT=$?
+
+    # increment the case number if all cases are selected or leave the loop
+    if [ "0" = "${RESULT}" ] && [ "" = "$1" ]; then
+      TESTID=$((TESTID+1))
+    else # dummy/exit case
+      exit ${RESULT}
+    fi
+  done
 fi
-
-echo "Successfully Completed."
 

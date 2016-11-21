@@ -26,18 +26,54 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_CPUID_X86_H
-#define LIBXS_CPUID_X86_H
-
+#include "libxs_dnn_convolution_weight_update.h"
 #include <libxs.h>
 
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-/** Returns the target architecture and instruction set extension (code path). */
-LIBXS_API int libxs_cpuid_x86(void);
+  /* check if we have input, output and filter */
+  if (handle->input == 0 || handle->output == 0 || handle->filter == 0) {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
+  }
 
+  /* check if we have a kernel JITed */
+  if (handle->code_upd[0].xconv.sconv == 0) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_fallback.tpl.c"
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  }
+  else {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      if (handle->upd_use_thread_fil > 0) {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
+#define LIBXS_WU_PER_THREAD_ALLOCATION
+# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
+#undef LIBXS_WU_PER_THREAD_ALLOCATION
+      }
+      else {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
+      }
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  }
 
-#if defined(LIBXS_BUILD) && !defined(LIBXS_CPUID_X86_NOINLINE)
-# include "libxs_cpuid_x86.c"
-#endif
-
-#endif /*LIBXS_CPUID_X86_H*/
+  return status;
+}

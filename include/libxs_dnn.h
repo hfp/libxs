@@ -32,6 +32,17 @@
 #include "libxs_macros.h"
 #include "libxs_typedefs.h"
 
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <stdlib.h>
+#if !defined(NDEBUG)
+# include <stdio.h>
+#endif
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
+
 /** Opaque handles which represents convolutions and LIBXS datatypes */
 typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_handle libxs_dnn_conv_handle;
 typedef struct LIBXS_RETARGETABLE libxs_dnn_buffer libxs_dnn_buffer;
@@ -64,6 +75,10 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT     100019
 #define LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE    100020
 #define LIBXS_DNN_ERR_INVALID_FORMAT_KCRS        100021
+#define LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL     100022
+#define LIBXS_DNN_ERR_CREATE_LAYOUT              100023
+#define LIBXS_DNN_ERR_INVALID_LAYOUT             100024
+#define LIBXS_DNN_ERR_UNSUPPORTED_ARCH           100025
 
 /** Kinds of supported convolution operations. */
 typedef enum libxs_dnn_conv_kind {
@@ -74,6 +89,32 @@ typedef enum libxs_dnn_conv_kind {
   /** Updated weights. */
   LIBXS_DNN_CONV_KIND_UPD
 } libxs_dnn_conv_kind;
+
+/** type/meaning of dimension in a LIBXS DNN tensor */
+typedef enum libxs_dnn_conv_dimtype {
+  /** Mini-batch */
+  LIBXS_DNN_CONV_DIMTYPE_N,
+  /** Image Height */
+  LIBXS_DNN_CONV_DIMTYPE_H,
+  /** Image Width */
+  LIBXS_DNN_CONV_DIMTYPE_W,
+  /** channles or input channels */
+  LIBXS_DNN_CONV_DIMTYPE_C,
+  /** output channels */
+  LIBXS_DNN_CONV_DIMTYPE_K,
+  /** kernel height */
+  LIBXS_DNN_CONV_DIMTYPE_R,
+  /** kernel width */
+  LIBXS_DNN_CONV_DIMTYPE_S
+} libxs_dnn_conv_dimtype;
+
+/** layout descriptor to allow external data allocation 
+    outside of LIBXS */
+typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_datalayout {
+  libxs_dnn_conv_dimtype* dim_type;
+  unsigned int* dim_size;
+  unsigned int num_dims;
+} libxs_dnn_conv_datalayout;
 
 typedef enum libxs_dnn_conv_fuse_op {
   /* we fuse nothing into convolution */
@@ -86,11 +127,6 @@ typedef enum libxs_dnn_conv_fuse_op {
   LIBXS_DNN_CONV_FUSE_RELU = 2
 #endif
 } libxs_dnn_conv_fuse_op;
-
-typedef enum libxs_dnn_conv_option {
-  /* we get default settings */
-  LIBXS_DNN_CONV_OPTION_NONE = 0
-} libxs_dnn_conv_option;
 
 /** Type of algorithm used for convolutions. */
 typedef enum libxs_dnn_conv_algo {
@@ -115,18 +151,19 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   int pad_w_in;                                /* width of zero-padding in input buffer, ignored */
   int pad_h_out;                               /* height of zero-padding in output buffer */
   int pad_w_out;                               /* width of zero-padding in output buffer */
-  int splits;                                  /* number of splits */
   int threads;                                 /* number of threads to use when running convolution */
   libxs_dnn_conv_algo algo;                  /* convolution algorithm used */
   libxs_dnn_conv_format buffer_format;       /* format which is for buffer buffers */
   libxs_dnn_conv_format filter_format;       /* format which is for filter buffers */
   libxs_dnn_conv_fuse_op fuse_ops;           /* used ops into convolutions */
   libxs_dnn_conv_option options;             /* additional options */
-  libxs_dnn_datatype datatype;               /* datatypes use for all buffers */
+  libxs_dnn_datatype datatype_in;            /* datatypes use for all input-related data such as activations, filter */
+  libxs_dnn_datatype datatype_out;           /* datatypes use for all input-related data such as activations, bias */
 } libxs_dnn_conv_desc;
 
 /** get string of error code */
 LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code);
+LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype);
 
 /** Create a handle (non-NULL if successful), and pre-build all JIT-code versions. */
 LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle(
@@ -156,12 +193,21 @@ LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer_check(const libxs_dnn_co
 LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
 
-/** Bind layers, filters and bias to convolutions operation */
+/** get layout description of buffers and fiters from handle */
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_conv_handle* handle);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_conv_handle* handle);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_conv_handle* handle);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_datalayout(libxs_dnn_conv_datalayout* layout);
+
+/** Bind buffers, filters and bias to convolutions operation */
 LIBXS_API libxs_dnn_err_t libxs_dnn_bind_input_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* input);
 LIBXS_API libxs_dnn_err_t libxs_dnn_bind_output_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* output);
 LIBXS_API libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_conv_handle* handle, const libxs_dnn_filter* filter);
 
-/** Release layers, filters and bias from convolutions operation */
+/** Release buffers, filters and bias from convolutions operation */
 #if 0
 LIBXS_API libxs_dnn_err_t libxs_dnn_release_input_buffer(libxs_dnn_conv_handle* handle);
 LIBXS_API libxs_dnn_err_t libxs_dnn_release_output_buffer(libxs_dnn_conv_handle* handle);
@@ -174,7 +220,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_filter(const libxs_dnn_filter* filte
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias* bias);
 
 /**
- * Copy-in from a plain format such as input := [img][splits][ofm][ifm].
+ * Copy-in from a plain format such as input := [N][C][H][W] or [N][H][W][C]
  * The index specifies the actual channel number, and an eventual
  * padding is defined by the handle (pitch/stride).
  */
@@ -184,7 +230,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter
 LIBXS_API libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffer* layer);
 
 /**
- * Copy-out into a plain format such as output := [img][splits][ofm][ifm].
+ * Copy-out into a plain format such as output := [N][C][H][W] or [N][H][W][C]
  * The index specifies the actual channel number, and an eventual
  * padding is defined by the handle (pitch/stride).
  */
@@ -206,8 +252,14 @@ typedef LIBXS_RETARGETABLE void (*libxs_sconvfunction)(const float* input1, cons
 typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction)(const short* input1, const short* input2, int* output,
                                                            const short* ipf1, const short* ipf2, const int* opf);
 
+typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction)(const unsigned char* input1, const char* input2, short* output,
+                                                             const unsigned char* ipf1, const char* ipf2, const short* opf);
+
+typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction)(const unsigned char* input1, const char* input2, int* output,
+                                                             const unsigned char* ipf1, const char* ipf2, const int* opf);
+
 /** Function type which is either libxs_sconvfunction or libxs_wconvfunction (weak-typed). */
-typedef union LIBXS_RETARGETABLE libxs_xconvfunction { libxs_sconvfunction sconv; libxs_wconvfunction wconv; } libxs_xconvfunction;
+typedef union LIBXS_RETARGETABLE libxs_xconvfunction { libxs_sconvfunction sconv; libxs_wconvfunction wconv; libxs_busconvfunction busconv; libxs_busconvfunction budconv; } libxs_xconvfunction;
 
 /** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
 LIBXS_API libxs_sconvfunction libxs_create_sconv_forward(const libxs_convolution_forward_descriptor* descriptor);
