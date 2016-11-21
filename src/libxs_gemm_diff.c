@@ -136,7 +136,6 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diff_sse(const lib
   /* Cygwin/Clang: below code section causes an illegal instruction (Cygwin's GDB not able to determine further [ni/si]) */ \
   !(defined(__CYGWIN__) && defined(__clang__))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(4 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   {
     const __m128i a128 = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)reference);
@@ -168,7 +167,6 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diff_avx(const lib
   ((defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)) || \
   !(defined(__clang__) || (defined(__APPLE__) && defined(__MACH__))))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   {
     int r0, r1;
@@ -221,7 +219,6 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diff_avx2(const li
   ((defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)) || \
   !(defined(__clang__) || (defined(__APPLE__) && defined(__MACH__))))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(8 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   {
     const int yes = 0x80000000, no = 0x0;
@@ -263,7 +260,6 @@ LIBXS_API_DEFINITION unsigned int libxs_gemm_diff_imci(const libxs_gemm_descript
   assert(0 != reference && 0 != desc);
 #if defined(__MIC__) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(0 ==  LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-  assert(16 >= LIBXS_DIV2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   {
     const __mmask16 mask = (0xFFFF >> (16 - (LIBXS_GEMM_DESCRIPTOR_SIZE >> 2/*LOG2(sizeof(int))*/)));
     const __m512i a512 = _mm512_mask_loadunpackhi_epi32(
