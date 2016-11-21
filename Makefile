@@ -223,6 +223,7 @@ OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILE
 OBJFILES_GEN_CONV_BIN = $(patsubst %,$(BLDDIR)/%.o,$(basename $(notdir $(SRCFILES_GEN_CONV_BIN))))
 OBJFILES_HST = $(BLDDIR)/intel64/libxs_main.o $(BLDDIR)/intel64/libxs_dump.o \
                $(BLDDIR)/intel64/libxs_gemm.o $(BLDDIR)/intel64/libxs_trans.o \
+               $(BLDDIR)/intel64/libxs_spmdm.o \
                $(BLDDIR)/intel64/libxs_dnn.o $(BLDDIR)/intel64/libxs_dnn_convolution_forward.o 
 OBJFILES_MIC = $(BLDDIR)/mic/libxs_main.o $(BLDDIR)/mic/libxs_dump.o \
                $(BLDDIR)/mic/libxs_gemm.o $(BLDDIR)/mic/libxs_trans.o \
