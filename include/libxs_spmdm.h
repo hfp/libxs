@@ -65,21 +65,23 @@ typedef struct libxs_CSR_sparseslice {
 } libxs_CSR_sparseslice;
 
 
-void libxs_spmdm_init(int M, int N, int K, char trans, libxs_spmdm_handle * handle, libxs_CSR_sparseslice ** libxs_output_csr);
+void libxs_spmdm_init(int M, int N, int K, libxs_spmdm_handle * handle, libxs_CSR_sparseslice ** libxs_output_csr);
 
 void libxs_spmdm_createSparseSlice_fp32_notrans_thread( const libxs_spmdm_handle* handle,
+				char transA,
 				const float * A, 
-				const int transA,
 				libxs_CSR_sparseslice* libxs_output_csr_a,
                                 int mb, int kb,
 				int tid, int nthreads);
 void libxs_spmdm_createSparseSlice_bfloat16_notrans_thread( const libxs_spmdm_handle* handle,
+				char transA,
 				const uint16_t * A, 
-				const int transA,
 				libxs_CSR_sparseslice* libxs_output_csr_a,
                                 int mb, int kb,
 				int tid, int nthreads);
 void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_handle* handle,
+			    char transA,
+			    char transB,
                             const float *alpha, 
                             libxs_CSR_sparseslice* A_sparse, 
                             const float *B, 
@@ -89,6 +91,8 @@ void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_handle* handle,
                             int tid, int nthreads); 
 
 void libxs_spmdm_compute_bfloat16_thread( const libxs_spmdm_handle* handle,
+			    char transA,
+			    char transB,
                             const uint16_t *alpha, 
                             libxs_CSR_sparseslice* A_sparse, 
                             const uint16_t *B, 
