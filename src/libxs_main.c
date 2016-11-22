@@ -633,14 +633,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
 # if !defined(LIBXS_NO_SYNC)
   static int internal_reglock_check = 1; /* setup the locks in a thread-safe fashion */
   assert(sizeof(internal_reglock) == (INTERNAL_REGLOCK_COUNT * sizeof(*internal_reglock)));
-  if (1 == LIBXS_ATOMIC_LOAD(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST)) {
-    LIBXS_ATOMIC_ADD_FETCH(&internal_reglock_check, 1, LIBXS_ATOMIC_SEQ_CST);
-    if (2 == internal_reglock_check) {
-      for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_INIT(internal_reglock + i);
-      LIBXS_ATOMIC_STORE_ZERO(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST);
-    }
+  if (2 == LIBXS_ATOMIC_ADD_FETCH(&internal_reglock_check, 1, LIBXS_ATOMIC_SEQ_CST)) {
+    for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_INIT(internal_reglock + i);
+    LIBXS_ATOMIC_STORE_ZERO(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST);
   }
-  while (0 != internal_reglock_check); /* wait until locks are initialized */
+  while (0 != internal_reglock_check) { /* wait until locks are initialized */
+    if (0 == LIBXS_ATOMIC_LOAD(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST)) break;
+  }
   for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
 # endif
 #else
@@ -1051,13 +1050,14 @@ LIBXS_API_DEFINITION void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type 
 
 LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_get_precision_string(libxs_dnn_datatype datatype)
 {
+  const char* result = "unk"; /* unknown */
   switch (datatype) {
-    case LIBXS_DNN_DATATYPE_F32: return "f32";
-    case LIBXS_DNN_DATATYPE_I32: return "i32";
-    case LIBXS_DNN_DATATYPE_I16: return "i16";
-    case LIBXS_DNN_DATATYPE_I8:  return "i8";
-    default: return "unk"; /* unknown */
+    case LIBXS_DNN_DATATYPE_F32: result = "f32";
+    case LIBXS_DNN_DATATYPE_I32: result = "i32";
+    case LIBXS_DNN_DATATYPE_I16: result = "i16";
+    case LIBXS_DNN_DATATYPE_I8:  result = "i8";
   }
+  return result;
 }
 
 
@@ -1300,6 +1300,9 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
   }
 }
 
+#if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__)
+LIBXS_PRAGMA_OPTIMIZE_OFF
+#endif
 
 LIBXS_API_DEFINITION libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const int* lda, const int* ldb, const int* ldc,
@@ -1320,6 +1323,9 @@ LIBXS_API_DEFINITION libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
   INTERNAL_DISPATCH(double, flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
+#if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__)
+LIBXS_PRAGMA_OPTIMIZE_ON
+#endif
 
 LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_descriptor* descriptor,
   const unsigned int* row_ptr, const unsigned int* column_idx, const double* values)

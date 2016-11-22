@@ -163,6 +163,14 @@
 # define LIBXS_PRAGMA_UNROLL
 #endif
 
+#if defined(__clang__)
+# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(clang optimize off)
+# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(clang optimize on)
+#else
+# define LIBXS_PRAGMA_OPTIMIZE_OFF
+# define LIBXS_PRAGMA_OPTIMIZE_ON
+#endif
+
 #if defined(_OPENMP) && (200805 <= _OPENMP) /*OpenMP 3.0*/
 # define LIBXS_OPENMP_COLLAPSE(N) collapse(N)
 #else
@@ -432,5 +440,13 @@
 # define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) (FN)(__VA_ARGS__)
 #endif
 #define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
+
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <stdint.h>
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
 
 #endif /*LIBXS_MACROS_H*/
