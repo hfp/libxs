@@ -63,6 +63,7 @@
 #define _MM_STORE_FP32 _mm512_store_ps
 #define _MM_ADD_FP32 _mm512_add_ps
 #define _MM_FMADD_FP32 _mm512_fmadd_ps
+#define _MM_PREFETCH(x, y) _mm_prefetch(x, y)
 static void _mm512_print(__m512 a, char * s)
 {
   float *v=(float *)(&a);
@@ -160,6 +161,7 @@ static void _mm256i_epi16_print(__m256i a, char * s)
 #define _MM_STORE_FP32 _mm256_store_ps
 #define _MM_ADD_FP32 _mm256_add_ps
 #define _MM_FMADD_FP32 _mm256_fmadd_ps
+#define _MM_PREFETCH(x, y) _mm_prefetch(x, y)
 static void _mm256_print(__m256 a, char * s)
 {
   float *v=(float *)(&a);
@@ -217,10 +219,62 @@ static void _mm256i_epi16_print(__m256i a, char * s)
   v = _mm256_packus_epi32(_mm256_srli_epi32(vtmp1,16), _mm256_srli_epi32(vtmp2,16)); \
   }
 
+#else
+#define SIMD_WIDTH_FP32 (1)
+#define SIMDTYPE_FP32 float
+#define SIMDTYPE_INT32 int
+#define SIMDMASKTYPE_FP32 int
+#define _MM_SETZERO_FP32() (0)
+#define _MM_SETZERO_INT32() (0)
+#define _MM_SET1_FP32(x) (x)
+#define _MM_SET1_INT32(x) (x)
+#define _MM_SET1_INT16 (x)
+#define _MM_LOAD_FP32(x) (*(x))
+#define _MM_LOADU_FP32(x) (*(x))
+#define _MM_LOAD_INT32(x) (*(x))
+#define _MM_STORE_INT32(x,y) ((*(x)) = (y))
+#define _MM_LOADU_INT32(x) (*(x))
+#define _MM_GATHER_FP32(Addr, idx, scale) (*(Addr))
+#define _MM_CMPNEQ_FP32(v1,v2) ((v1) != (v2))
+#define _MM_STORE_FP32(x,y) ((*(x)) = (y))
+#define _MM_ADD_FP32(x,y) ((x) + (y))
+#define _MM_FMADD_FP32(x,y,z) (((x)*(y))+(z))
+#define _MM_PREFETCH(x, y) 
+
+#define COMPRESS_FP32(v, k, m, cnt) \
+  { \
+  if(m) \
+  { \
+    values_ptr[cnt] = v; \
+    colidx_ptr[cnt] = (uint16_t)k; \
+    cnt++; \
+  } \
+  }
+
+#define EXPAND_BFLOAT16(v, vlo_final, vhi_final) \
+  { \
+    int vlo_tmp = v & 0xFFFF; vlo_tmp <<= 16; \
+    vlo_final = *(float *)&vlo_tmp; \
+    int vhi_tmp = v & 0x0000FFFF; \
+    vhi_final = *(float *)&vhi_tmp; \
+  } 
+
+#define COMPRESS_BFLOAT16(vlo, vhi, v) \
+  { \
+      int vlo_tmp = *(int *)(&vlo); \
+      v = (vlo_tmp >> 16); \
+      int vhi_tmp = *(int *)(&vhi); \
+      v = v | (vhi_tmp & 0xFFFF0000); \
+  }
+
+
 #endif
 
 void libxs_spmdm_init_shufmask()
 {
+#if SIMD_WIDTH_FP32 == 1
+  return;
+#else
   unsigned int i,j, c, last_bit;
   LIBXS_ALIGNED(int temp_shufmasks[8], 64);
   LIBXS_ALIGNED(uint16_t temp_shufmasks2[16], 64);
@@ -240,6 +294,7 @@ void libxs_spmdm_init_shufmask()
     shufmasks_32[i] = _mm256_loadu_si256((const __m256i*)temp_shufmasks);
     shufmasks_16[i] = _mm256_loadu_si256((const __m256i*)temp_shufmasks2);
   }
+#endif
 }
 
 void libxs_spmdm_allocate_csr_a( const libxs_spmdm_handle* handle, libxs_CSR_sparseslice ** libxs_output_csr)
@@ -271,8 +326,10 @@ void libxs_spmdm_init(int M, int N, int K, libxs_spmdm_handle * handle, libxs_CS
   handle->bm = 512;
 #if LIBXS_STATIC_TARGET_ARCH==LIBXS_X86_AVX512_CORE
   handle->bn = 96;
-#else
+#elif LIBXS_STATIC_TARGET_ARCH==LIBXS_X86_AVX2
   handle->bn = 48;
+#else
+  handle->bn = 6;
 #endif
   handle->bk = 128;
   handle->mb = (handle->m + handle->bm - 1) / handle->bm;
@@ -322,6 +379,7 @@ void libxs_spmdm_createSparseSlice_fp32_notrans_thread( const libxs_spmdm_handle
    //printf("nrows: %d, ncols: %d\n", nrows, ncols);
    int ncols_aligned = ncols / (4*SIMD_WIDTH_FP32)*(4*SIMD_WIDTH_FP32);
    int ncols_aligned_2 = ncols / (SIMD_WIDTH_FP32)*(SIMD_WIDTH_FP32);
+   if(SIMD_WIDTH_FP32 == 1) { ncols_aligned = 0; ncols_aligned_2 = 0; }
    const float * input_ptr = A + block_offset;
    uint16_t * rowidx_ptr = slice.rowidx;
    uint16_t * colidx_ptr = slice.colidx;
@@ -362,13 +420,13 @@ void libxs_spmdm_createSparseSlice_fp32_notrans_thread( const libxs_spmdm_handle
      {
        for(k = 0; k < ncols_aligned; k+= 4*SIMD_WIDTH_FP32) {
          SIMDTYPE_FP32 v1 = _MM_LOADU_FP32(input_ptr + i*handle->k + k);
-         _mm_prefetch((char *)(input_ptr + (i+2)*handle->k + k), _MM_HINT_T0);
+         _MM_PREFETCH((char *)(input_ptr + (i+2)*handle->k + k), _MM_HINT_T0);
          SIMDTYPE_FP32 v2 = _MM_LOADU_FP32(input_ptr + i*handle->k + k + SIMD_WIDTH_FP32);
-         _mm_prefetch((char *)(input_ptr + (i+2)*handle->k + k + SIMD_WIDTH_FP32), _MM_HINT_T0);
+         _MM_PREFETCH((char *)(input_ptr + (i+2)*handle->k + k + SIMD_WIDTH_FP32), _MM_HINT_T0);
          SIMDTYPE_FP32 v3 = _MM_LOADU_FP32(input_ptr + i*handle->k + k + 2*SIMD_WIDTH_FP32);
-         _mm_prefetch((char *)(input_ptr + (i+2)*handle->k + k + 2*SIMD_WIDTH_FP32), _MM_HINT_T0);
+         _MM_PREFETCH((char *)(input_ptr + (i+2)*handle->k + k + 2*SIMD_WIDTH_FP32), _MM_HINT_T0);
          SIMDTYPE_FP32 v4 = _MM_LOADU_FP32(input_ptr + i*handle->k + k + 3*SIMD_WIDTH_FP32);
-         _mm_prefetch((char *)(input_ptr + (i+2)*handle->k + k + 3*SIMD_WIDTH_FP32), _MM_HINT_T0);
+         _MM_PREFETCH((char *)(input_ptr + (i+2)*handle->k + k + 3*SIMD_WIDTH_FP32), _MM_HINT_T0);
          SIMDMASKTYPE_FP32 m1 = _MM_CMPNEQ_FP32(v1, vzero);
          SIMDMASKTYPE_FP32 m2 = _MM_CMPNEQ_FP32(v2, vzero);
          SIMDMASKTYPE_FP32 m3 = _MM_CMPNEQ_FP32(v3, vzero);
@@ -380,7 +438,7 @@ void libxs_spmdm_createSparseSlice_fp32_notrans_thread( const libxs_spmdm_handle
        }
        for(k = ncols_aligned; k < ncols_aligned_2; k+= SIMD_WIDTH_FP32) {
          SIMDTYPE_FP32 v1 = _MM_LOADU_FP32(input_ptr + i*handle->k + k);
-         _mm_prefetch((char *)(input_ptr + (i+2)*handle->k + k), _MM_HINT_T0);
+         _MM_PREFETCH((char *)(input_ptr + (i+2)*handle->k + k), _MM_HINT_T0);
          SIMDMASKTYPE_FP32 m1 = _MM_CMPNEQ_FP32(v1, vzero);
          COMPRESS_FP32(v1, k, m1, cnt);
        }
@@ -429,6 +487,7 @@ void libxs_spmdm_createSparseSlice_bfloat16_notrans_thread( const libxs_spmdm_ha
    int ncols = ((kb + 1)*handle->bk > handle->k)?(handle->k - (kb)*handle->bk):handle->bk;
    //printf("nrows: %d, ncols: %d\n", nrows, ncols);
    int ncols_aligned = ncols / (4*SIMD_WIDTH_FP32)*(4*SIMD_WIDTH_FP32);
+   if(SIMD_WIDTH_FP32 == 1) { ncols_aligned = 0; }
    const uint16_t * input_ptr = A + block_offset;
    uint16_t * rowidx_ptr = slice.rowidx;
    uint16_t * colidx_ptr = slice.colidx;
@@ -471,9 +530,9 @@ void libxs_spmdm_createSparseSlice_bfloat16_notrans_thread( const libxs_spmdm_ha
      {
        for(k = 0; k < ncols_aligned; k+= 4*SIMD_WIDTH_FP32) {
          SIMDTYPE_INT32 v1tmp = _MM_LOADU_INT32((const SIMDTYPE_INT32* )(input_ptr + i*handle->k + k));
-         _mm_prefetch((char *)(input_ptr + (i+2)*handle->k + k), _MM_HINT_T0);
+         _MM_PREFETCH((char *)(input_ptr + (i+2)*handle->k + k), _MM_HINT_T0);
          SIMDTYPE_INT32 v2tmp = _MM_LOADU_INT32((const SIMDTYPE_INT32*)(input_ptr + i*handle->k + k + 2*SIMD_WIDTH_FP32));
-         _mm_prefetch((char *)(input_ptr + (i+2)*handle->k + k + SIMD_WIDTH_FP32), _MM_HINT_T0);
+         _MM_PREFETCH((char *)(input_ptr + (i+2)*handle->k + k + SIMD_WIDTH_FP32), _MM_HINT_T0);
          SIMDTYPE_FP32 v1, v2, v3, v4; 
          EXPAND_BFLOAT16(v1tmp, v1, v2);
          EXPAND_BFLOAT16(v2tmp, v3, v4);
