@@ -104,7 +104,9 @@
 /** Helper macro for comparing types. */
 #define LIBXS_EQUAL(T1, T2, R) LIBXS_CONCATENATE(LIBXS_CONCATENATE(LIBXS_EQUAL_, T1), T2)(R)
 #define LIBXS_EQUAL_doubledouble(R) R
+#define LIBXS_EQUAL_doublefloat(R)
 #define LIBXS_EQUAL_floatfloat(R) R
+#define LIBXS_EQUAL_floatdouble(R)
 
 /** Check ILP64 configuration for sanity. */
 #if (defined(MKL_ILP64) && 0 == LIBXS_ILP64)
