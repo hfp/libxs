@@ -79,3 +79,55 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
 
   return status;
 }
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_conv_handle* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  /* check if we have input, output and filter */
+  if (handle->input == 0 || handle->output == 0 || handle->filter == 0) {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
+  }
+
+  /* check if we have a kernel JITed */
+  if (handle->code_bwd[0].xconv.sconv == 0) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
+# include "template/libxs_dnn_convolve_st_bwd_nhwc_rsck_fallback.tpl.c"
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  }
+  else {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+#if 0
+      if (handle->desc.N*handle->blocksifm >= handle->desc.threads) {
+#endif
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_bwd_nhwc_rsck.tpl.c"
+#if 0
+      }
+      else {
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_sconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_bwd_nhwc_rsck_img_par.tpl.c"
+      }
+#endif
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  }
+
+  return status;
+}
+
