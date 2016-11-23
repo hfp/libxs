@@ -316,7 +316,7 @@ int main(int argc, char **argv)
   /* Step 5: Initialize libxs for transpose A - allocates handle and temporary space for the sparse data structure for A */
   libxs_spmdm_handle handle2;
   libxs_CSR_sparseslice* A_sparse2;
-  transA = 'Y';
+  transA = 'Y'; transB = 'N';
   libxs_spmdm_init(M, N, K, &handle2, &A_sparse2);
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transA = Y\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
   real * A_gold2 = (real*)libxs_aligned_malloc( M*K*sizeof(real), 2097152 );
@@ -353,7 +353,44 @@ int main(int argc, char **argv)
   end = libxs_timer_tick();
   printf("Time = %lf Time/rep = %lf, TFlops/s = %lf\n", libxs_timer_duration(start, end), libxs_timer_duration(start, end)*1.0/reps, flops/1000./1000./1000./1000./libxs_timer_duration(start, end)*reps);
  
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /* Step 6: Test transpose B  */
+  transA = 'N'; transB = 'Y';
+  printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transB = Y\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
+  real * B_gold2 = (real*)libxs_aligned_malloc( K*N*sizeof(real), 2097152 );
 
+  for(i = 0; i < K; i++) {
+    for(j = 0; j < N; j++) {
+      B_gold2[j*K + i] = B_gold[i*N + j];
+    }
+  }
+  for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
+    C[l]      = (real)0.0;
+  }
+  /* The overall function that takes in matrix inputs in dense format, does the conversion of A to sparse format and does the matrix multiply */
+  /* Currently ignores alpha, beta and transA, transB */
+  /* TODO: fix alpha, beta and transA, transB inputs */
+# ifdef USE_BFLOAT 
+  libxs_spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold, B_gold2, &beta, C, A_sparse2);
+# else
+  libxs_spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold, B_gold2, &beta, C, A_sparse2);
+# endif
+
+  /* Checks */
+  libxs_spmdm_check_c( &handle2, C, C_gold);
+
+  /* Timing loop starts */
+  start = libxs_timer_tick();
+  for( i = 0; i < reps; i++) {
+#   ifdef USE_BFLOAT
+    libxs_spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold, B_gold2, &beta, C, A_sparse2);
+#   else
+    libxs_spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold, B_gold2, &beta, C, A_sparse2);
+#   endif
+  }
+  end = libxs_timer_tick();
+  printf("Time = %lf Time/rep = %lf, TFlops/s = %lf\n", libxs_timer_duration(start, end), libxs_timer_duration(start, end)*1.0/reps, flops/1000./1000./1000./1000./libxs_timer_duration(start, end)*reps);
+ 
  return 0;
 }
 
