@@ -1052,10 +1052,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_get_precision_string(libxs_
 {
   const char* result = "unk"; /* unknown */
   switch (datatype) {
-    case LIBXS_DNN_DATATYPE_F32: result = "f32";
-    case LIBXS_DNN_DATATYPE_I32: result = "i32";
-    case LIBXS_DNN_DATATYPE_I16: result = "i16";
-    case LIBXS_DNN_DATATYPE_I8:  result = "i8";
+    case LIBXS_DNN_DATATYPE_F32: result = "f32"; break;
+    case LIBXS_DNN_DATATYPE_I32: result = "i32"; break;
+    case LIBXS_DNN_DATATYPE_I16: result = "i16"; break;
+    case LIBXS_DNN_DATATYPE_I8:  result = "i8";  break;
   }
   return result;
 }
