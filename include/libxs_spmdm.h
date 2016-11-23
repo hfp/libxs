@@ -65,21 +65,21 @@ typedef struct libxs_CSR_sparseslice {
 } libxs_CSR_sparseslice;
 
 
-void libxs_spmdm_init(int M, int N, int K, libxs_spmdm_handle * handle, libxs_CSR_sparseslice ** libxs_output_csr);
+LIBXS_API void libxs_spmdm_init(int M, int N, int K, libxs_spmdm_handle * handle, libxs_CSR_sparseslice ** libxs_output_csr);
 
-void libxs_spmdm_createSparseSlice_fp32_notrans_thread( const libxs_spmdm_handle* handle,
+LIBXS_API void libxs_spmdm_createSparseSlice_fp32_notrans_thread( const libxs_spmdm_handle* handle,
 				char transA,
 				const float * A, 
 				libxs_CSR_sparseslice* libxs_output_csr_a,
                                 int mb, int kb,
 				int tid, int nthreads);
-void libxs_spmdm_createSparseSlice_bfloat16_notrans_thread( const libxs_spmdm_handle* handle,
+LIBXS_API void libxs_spmdm_createSparseSlice_bfloat16_notrans_thread( const libxs_spmdm_handle* handle,
 				char transA,
 				const uint16_t * A, 
 				libxs_CSR_sparseslice* libxs_output_csr_a,
                                 int mb, int kb,
 				int tid, int nthreads);
-void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_handle* handle,
+LIBXS_API void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_handle* handle,
 			    char transA,
 			    char transB,
                             const float *alpha, 
@@ -90,7 +90,7 @@ void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_handle* handle,
                             int mb, int num_m_blocks, int nb, 
                             int tid, int nthreads); 
 
-void libxs_spmdm_compute_bfloat16_thread( const libxs_spmdm_handle* handle,
+LIBXS_API void libxs_spmdm_compute_bfloat16_thread( const libxs_spmdm_handle* handle,
 			    char transA,
 			    char transB,
                             const uint16_t *alpha, 
@@ -101,7 +101,5 @@ void libxs_spmdm_compute_bfloat16_thread( const libxs_spmdm_handle* handle,
                             int mb, int num_m_blocks, int nb, 
                             int tid, int nthreads); 
 
-__m256i shufmasks_32[256];
-__m256i shufmasks_16[256];
 
 #endif /*LIBXS_SPMDM_H*/
