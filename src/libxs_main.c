@@ -1166,8 +1166,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
     case LIBXS_BUILD_KIND_CBWD: { /* backward convolution */
       assert(0 != request->descriptor.cbwd);
       if (0 < request->descriptor.cbwd->kw && 0 < request->descriptor.cbwd->kh &&
-          /* for BP kernels, non-unit strides are not supported */
-          1 == request->descriptor.cbwd->stride_w && 1 == request->descriptor.cbwd->stride_h)
+          0 != request->descriptor.cbwd->stride_w && 0 != request->descriptor.cbwd->stride_h)
       {
         generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
