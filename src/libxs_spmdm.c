@@ -499,7 +499,9 @@ LIBXS_API_DEFINITION void libxs_spmdm_createSparseSlice_bfloat16_notrans_thread(
    uint16_t * rowidx_ptr = slice.rowidx;
    uint16_t * colidx_ptr = slice.colidx;
    float * values_ptr = (float *)(slice.values);
+#if SIMD_WIDTH > 1
    SIMDTYPE_INT32 vzero = _MM_SET1_INT32(0);
+#endif
    SIMDTYPE_FP32 vzerof = _MM_SET1_FP32(0.0);
    uint16_t cnt = 0;
    for(i = 0; i < nrows; i++) {
