@@ -191,6 +191,25 @@ LIBXS_INLINE void naive_copy_KCRS_to_RSCK(const float* kcrs, float* rsck, int R,
 }
 
 
+LIBXS_INLINE void naive_copy_RSCK_to_KCRS(const float* rsck, float* kcrs, int R, int S, int C, int K)
+{
+  LIBXS_VLA_DECL(4, const float,  input, rsck, S, C, K);
+  LIBXS_VLA_DECL(4,       float, output, kcrs, C, R, S);
+  int r, s, c, k;
+
+  for ( r = 0; r < R; r++ ) {
+    for ( s = 0; s < S; s++ ) {
+      for ( c = 0; c < C; c++ ) {
+        for ( k = 0; k < K; k++ ) {
+          LIBXS_VLA_ACCESS(4, output, k, c, r, s, C, R, S) = 
+            LIBXS_VLA_ACCESS(4,  input, r, s, c, k, S, C, K);
+        }
+      }
+    }
+  }
+}
+
+
 LIBXS_INLINE void naive_conv_fp(naive_conv_t* param, const float* input, float* output, const float* filter)
 {
   int nImg      = param->nImg;
@@ -337,7 +356,8 @@ LIBXS_INLINE void naive_conv_wu(naive_conv_t* param, const float* input, const f
 
 int main(int argc, char* argv[])
 {
-  float *naive_input, *naive_output, *naive_filter, *naive_filter_wu, *naive_libxs_output, *naive_libxs_input, *naive_libxs_filter, *naive_input_save;
+  float *naive_input, *naive_output, *naive_filter, *naive_filter_wu, *naive_libxs_output; 
+  float *naive_libxs_input, *naive_libxs_filter, *naive_input_save, *naive_filter_save, *naive_filter_kcrs;
   float *input_nhwc, *output_nhwc, *filter_rsck, *naive_output_nhwc, *naive_input_nhwc;
   int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
   int stride_h, stride_w, pad_h_out, pad_w_out;
@@ -446,7 +466,9 @@ int main(int argc, char* argv[])
   naive_libxs_output  = (float*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(float), 2097152);
   naive_libxs_input   = (float*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(float), 2097152);
   naive_filter          = (float*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(float), 2097152);
+  naive_filter_save     = (float*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(float), 2097152);
   naive_filter_wu       = (float*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(float), 2097152);
+  naive_filter_kcrs     = (float*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(float), 2097152);
   naive_libxs_filter  = (float*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(float), 2097152);
   input_nhwc            = (float*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(float), 2097152);
   output_nhwc           = (float*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(float), 2097152);
@@ -806,6 +828,32 @@ int main(int argc, char* argv[])
   }
 
   printf("##########################################\n");
+  printf("# Correctness - UPD (NHWC/RSCK-Storage)  #\n");
+  printf("##########################################\n");
+  /* run LIBXS convolutions */
+#if defined(_OPENMP)
+# pragma omp parallel
+#endif
+  {
+#if defined(_OPENMP)
+    const int tid = omp_get_thread_num();
+#else
+    const int tid = 0;
+#endif
+    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_UPD, 0, tid ) );
+  }
+  /* copy input data into KCRS storage in user code */
+  naive_copy_RSCK_to_KCRS(filter_rsck, naive_filter_kcrs, kh, kw, nIfm, nOfm);
+
+  /* compare */
+  compare_buf(naive_filter_wu, naive_filter_kcrs, nOfm*nIfm*kh*kw, &norms_upd);
+  printf("             1-norm of reference: %f\n", norms_upd.one_norm_ref);
+  printf("              1-norm of JIT-code: %f\n", norms_upd.one_norm_test);
+  printf("       L2-error-norm of JIT-code: %f\n", norms_upd.l2_rel_err);
+  printf("    inf-norm of comp. rel. error: %f\n", norms_upd.max_rel_err);
+  printf("    inf-norm of comp. abs. error: %f\n", norms_upd.max_abs_err);
+
+  printf("##########################################\n");
   printf("#  Performance - FWD (NHWC/RSCK-Storage) #\n");
   printf("##########################################\n");
   /* run LIBXS convolution for performance */
@@ -835,8 +883,40 @@ int main(int argc, char* argv[])
      ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
      norms_fwd.max_rel_err, norms_fwd.max_abs_err, norms_fwd.l2_rel_err, norms_fwd.one_norm_ref, norms_fwd.one_norm_test );
 
+  if (stride == 1 && nIfm > 3) {
+    printf("##########################################\n");
+    printf("#  Performance - BWD (NHWC/RSCK-Storage) #\n");
+    printf("##########################################\n");
+    /* run LIBXS convolution for performance */
+    l_start = libxs_timer_tick();
+    for (i = 0; i < iters; ++i) {
+#if defined(_OPENMP)
+#   pragma omp parallel
+#endif
+      {
+#if defined(_OPENMP)
+        const int tid = omp_get_thread_num();
+#else
+        const int tid = 0;
+#endif
+        libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_BWD, 0, tid );
+      }
+    }
+    l_end = libxs_timer_tick();
+    l_total = libxs_timer_duration(l_start, l_end);
+    flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
+
+    printf("GFLOP (NHWC,RSCK)  = %.5g\n", flops*1e-9/(double)iters);
+    printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
+    printf("GFLOPS (NHWC,RSCK) = %.5g\n", (flops*1e-9)/l_total);
+
+    printf("PERFDUMP-NHWC-RSCK,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+       norms_bwd.max_rel_err, norms_bwd.max_abs_err, norms_bwd.l2_rel_err, norms_bwd.one_norm_ref, norms_bwd.one_norm_test );
+  }
+
   printf("##########################################\n");
-  printf("#  Performance - BWD (NHWC/RSCK-Storage) #\n");
+  printf("#  Performance - UPD (NHWC/RSCK-Storage) #\n");
   printf("##########################################\n");
   /* run LIBXS convolution for performance */
   l_start = libxs_timer_tick();
@@ -850,7 +930,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_BWD, 0, tid );
+      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_CONV_KIND_UPD, 0, tid );
     }
   }
   l_end = libxs_timer_tick();
@@ -861,9 +941,9 @@ int main(int argc, char* argv[])
   printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
   printf("GFLOPS (NHWC,RSCK) = %.5g\n", (flops*1e-9)/l_total);
 
-  printf("PERFDUMP-NHWC-RSCK,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+  printf("PERFDUMP-NHWC-RSCK,WU,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
      ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-     norms_bwd.max_rel_err, norms_bwd.max_abs_err, norms_bwd.l2_rel_err, norms_bwd.one_norm_ref, norms_bwd.one_norm_test );
+     norms_upd.max_rel_err, norms_upd.max_abs_err, norms_upd.l2_rel_err, norms_upd.one_norm_ref, norms_upd.one_norm_test );
 
   /* clean-up */
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );

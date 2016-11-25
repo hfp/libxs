@@ -1,33 +1,32 @@
 /******************************************************************************
- * ** Copyright (c) 2016, Intel Corporation                                     **
- * ** All rights reserved.                                                      **
- * **                                                                           **
- * ** Redistribution and use in source and binary forms, with or without        **
- * ** modification, are permitted provided that the following conditions        **
- * ** are met:                                                                  **
- * ** 1. Redistributions of source code must retain the above copyright         **
- * **    notice, this list of conditions and the following disclaimer.          **
- * ** 2. Redistributions in binary form must reproduce the above copyright      **
- * **    notice, this list of conditions and the following disclaimer in the    **
- * **    documentation and/or other materials provided with the distribution.   **
- * ** 3. Neither the name of the copyright holder nor the names of its          **
- * **    contributors may be used to endorse or promote products derived        **
- * **    from this software without specific prior written permission.          **
- * **                                                                           **
- * ** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
- * ** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
- * ** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
- * ** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
- * ** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
- * ** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
- * ** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
- * ** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
- * ** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
- * ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
- * ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
- * ******************************************************************************/
-/* Nadathur Satish (Intel Corp.)
- * ******************************************************************************/
+** Copyright (c) 2016, Intel Corporation                                     **
+** All rights reserved.                                                      **
+**                                                                           **
+** Redistribution and use in source and binary forms, with or without        **
+** modification, are permitted provided that the following conditions        **
+** are met:                                                                  **
+** 1. Redistributions of source code must retain the above copyright         **
+**    notice, this list of conditions and the following disclaimer.          **
+** 2. Redistributions in binary form must reproduce the above copyright      **
+**    notice, this list of conditions and the following disclaimer in the    **
+**    documentation and/or other materials provided with the distribution.   **
+** 3. Neither the name of the copyright holder nor the names of its          **
+**    contributors may be used to endorse or promote products derived        **
+**    from this software without specific prior written permission.          **
+**                                                                           **
+** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
+** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
+** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
+** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
+** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
+** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
+** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
+** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
+** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
+** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
+** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
+******************************************************************************/
+
 /* NOTE: This code currently ignores alpha, beta and trans inputs to the matrix multiply */
 #include <libxs_spmdm.h>
 #include <libxs.h>
@@ -381,7 +380,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_createSparseSlice_fp32_notrans_thread( con
    libxs_CSR_sparseslice slice = libxs_output_csr_a[kb*handle->mb + mb];
    int nrows = ((mb + 1)*handle->bm > handle->m)?(handle->m - (mb)*handle->bm):handle->bm;
    int ncols = ((kb + 1)*handle->bk > handle->k)?(handle->k - (kb)*handle->bk):handle->bk;
-   //printf("nrows: %d, ncols: %d\n", nrows, ncols);
+   /*printf("nrows: %d, ncols: %d\n", nrows, ncols);*/
    int ncols_aligned = ncols / (4*SIMD_WIDTH_FP32)*(4*SIMD_WIDTH_FP32);
    int ncols_aligned_2 = ncols / (SIMD_WIDTH_FP32)*(SIMD_WIDTH_FP32);
    if(SIMD_WIDTH_FP32 == 1) { ncols_aligned = 0; ncols_aligned_2 = 0; }
@@ -492,7 +491,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_createSparseSlice_bfloat16_notrans_thread(
    libxs_CSR_sparseslice slice = libxs_output_csr_a[kb*handle->mb + mb];
    int nrows = ((mb + 1)*handle->bm > handle->m)?(handle->m - (mb)*handle->bm):handle->bm;
    int ncols = ((kb + 1)*handle->bk > handle->k)?(handle->k - (kb)*handle->bk):handle->bk;
-   //printf("nrows: %d, ncols: %d\n", nrows, ncols);
+   /*printf("nrows: %d, ncols: %d\n", nrows, ncols);*/
    int ncols_aligned = ncols / (4*SIMD_WIDTH_FP32)*(4*SIMD_WIDTH_FP32);
    if(SIMD_WIDTH_FP32 == 1) { ncols_aligned = 0; }
    const uint16_t * input_ptr = A + block_offset;
@@ -587,14 +586,14 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_han
                             int tid, int nthreads) 
 {
   const int m_blocks = handle->mb;
-  //const int n_blocks = handle->nb;
+  /* const int n_blocks = handle->nb; */
   const int k_blocks = handle->kb;
   const int m_block_size = handle->bm;
   const int n_block_size = handle->bn;
   const int k_block_size = handle->bk;
 
 #define num_regs (6) 
-// really is twice this
+  /* really is twice this */
   assert(n_block_size == num_regs*SIMD_WIDTH_FP32);
   int m_overall_start = mb*m_block_size;
   int m_overall_end   = (mb + num_m_blocks)*m_block_size;
@@ -621,7 +620,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_han
   if (n_overall_end   > handle->n) n_overall_end   = handle->n;
   num_n = (n_overall_end - n_overall_start);
   last_block_n = (num_n != n_block_size);
-  num_full_regs = 0; // (num_n / SIMD_WIDTH_FP32);
+  num_full_regs = 0; /* (num_n / SIMD_WIDTH_FP32);*/
   last_n_start = num_full_regs*SIMD_WIDTH_FP32;
 
   #if 0
@@ -629,7 +628,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_han
   printf("Block: n_overall_start: %d, n_overall_end: %d, num_n: %d, last_block_n: %d\n", n_overall_start, n_overall_end, num_n, last_block_n); 
   printf("Block: k_blocks: %d\n", k_blocks);
   #endif
-  // Copy in C matrix to buffer
+  /* Copy in C matrix to buffer*/
   ptr_result = C + m_overall_start*handle->n + n_overall_start;
   if(!last_block_n) {
     for (m = 0; m < num_m; m++) {
@@ -664,7 +663,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_han
     k_overall_end   = (kb+1)*k_block_size;
     num_k = (k_overall_end - k_overall_start);
      
-    // Copy in B matrix
+    /* Copy in B matrix*/
     if(transB == 'Y')
     {
       ptr_dense = B + n_overall_start*handle->k + k_overall_start;
@@ -718,7 +717,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_han
     printf("\n");
     #endif
     scratch_C_base = scratch_C - m_overall_start*num_regs*SIMD_WIDTH_FP32;
-    scratch_B_base = scratch_B; // - k_overall_start*num_regs*SIMD_WIDTH_FP32;
+    scratch_B_base = scratch_B; /* - k_overall_start*num_regs*SIMD_WIDTH_FP32;*/
     
     for (m = m_overall_start; m < m_overall_start + num_m_aligned; m+=2, m_local+=2) {
       int start_j, end_j, end_j_2, num_j, num_j_2;
@@ -924,7 +923,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_han
         }
       }
     }
-  } // kb
+  } /* kb */
   #if 0
   for (m = 0; m < 3; m++) {
     for (n = 0; n < num_n; n++) {
@@ -933,7 +932,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread( const libxs_spmdm_han
     printf("\n");
   }
   #endif
-  // Copy out C matrix
+  /* Copy out C matrix */
   if(!last_block_n) {
     for (m = 0; m < num_m; m++) {
       _MM_STORE_FP32(ptr_result + m*handle->n + 0*SIMD_WIDTH_FP32, _MM_LOAD_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 0*SIMD_WIDTH_FP32));
@@ -968,14 +967,14 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread( const libxs_spmdm
                             int tid, int nthreads) 
 {
   const int m_blocks = handle->mb;
-  //const int n_blocks = handle->nb;
+  /*const int n_blocks = handle->nb;*/
   const int k_blocks = handle->kb;
   const int m_block_size = handle->bm;
   const int n_block_size = handle->bn;
   const int k_block_size = handle->bk;
 
 #define num_regs (6) 
-// really is twice this
+  /* really is twice this */
   assert(n_block_size == num_regs*SIMD_WIDTH_FP32);
   int m_overall_start = mb*m_block_size;
   int m_overall_end   = (mb + num_m_blocks)*m_block_size;
@@ -1010,7 +1009,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread( const libxs_spmdm
   printf("Block: n_overall_start: %d, n_overall_end: %d, num_n: %d, last_block_n: %d\n", n_overall_start, n_overall_end, num_n, last_block_n); 
   printf("Block: k_blocks: %d\n", k_blocks);
   #endif
-  // Copy in C matrix to buffer
+  /* Copy in C matrix to buffer */
   ptr_result = C + m_overall_start*handle->n + n_overall_start;
   if(!last_block_n) {
     for (m = 0; m < num_m; m++) {
@@ -1053,7 +1052,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread( const libxs_spmdm
     k_overall_end   = (kb+1)*k_block_size;
     num_k = (k_overall_end - k_overall_start);
      
-    // Copy in B matrix
+    /* Copy in B matrix */
     if(transB == 'Y')
     {
       ptr_dense = B + n_overall_start*handle->k + k_overall_start;
@@ -1106,7 +1105,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread( const libxs_spmdm
     printf("\n");
     #endif
     scratch_C_base = scratch_C - m_overall_start*num_regs*SIMD_WIDTH_FP32;
-    scratch_B_base = scratch_B; // - k_overall_start*num_regs*SIMD_WIDTH_FP32;
+    scratch_B_base = scratch_B; /* - k_overall_start*num_regs*SIMD_WIDTH_FP32; */
     
     for (m = m_overall_start; m < m_overall_start + num_m_aligned; m+=2, m_local+=2) {
       int start_j, end_j, end_j_2, num_j, num_j_2;
@@ -1274,16 +1273,16 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread( const libxs_spmdm
         }
       }
     }
-  } // kb
+  } /* kb */
   #if 0
-  //for (m = 0; m < 3; m++) {
-  //  for (n = 0; n < num_n; n++) {
-  //    printf("%f ", scratch_C[m*num_regs*SIMD_WIDTH_FP32 + n]);
-  //  }
-  //  printf("\n");
-  //}
+  for (m = 0; m < 3; m++) {
+    for (n = 0; n < num_n; n++) {
+      printf("%f ", scratch_C[m*num_regs*SIMD_WIDTH_FP32 + n]);
+    }
+    printf("\n");
+  }
   #endif
-  // Copy out C matrix
+  /* Copy out C matrix */
   if(!last_block_n) {
     for (m = 0; m < num_m; m++) {
       SIMDTYPE_FP32 vload1_0 =  _MM_LOAD_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 2*0*SIMD_WIDTH_FP32);
