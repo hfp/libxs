@@ -357,8 +357,11 @@ LIBXS_API_DEFINITION void libxs_spmdm_createSparseSlice_fp32_notrans_thread( con
 				)
 {
    int i,k;
-#if SIMD_WIDTH_FP32 > 1
+#if SIMD_WIDTH_FP32 == 8
    __m256i * shufmasks = shufmasks_32;
+#endif
+
+#if SIMD_WIDTH_FP32 > 1
    __m256i * shufmasks2 = shufmasks_16;
 #endif
    int block_offset_base, block_offset;
@@ -473,8 +476,10 @@ LIBXS_API_DEFINITION void libxs_spmdm_createSparseSlice_bfloat16_notrans_thread(
 				int tid, int nthreads)
 {
    int i,k;
-#if SIMD_WIDTH_FP32 > 1
+#if SIMD_WIDTH_FP32 == 8
    __m256i * shufmasks = shufmasks_32;
+#endif
+#if SIMD_WIDTH_FP32 > 1
    __m256i * shufmasks2 = shufmasks_16;
 #endif
    int block_offset_base, block_offset;
@@ -498,7 +503,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_createSparseSlice_bfloat16_notrans_thread(
    uint16_t * rowidx_ptr = slice.rowidx;
    uint16_t * colidx_ptr = slice.colidx;
    float * values_ptr = (float *)(slice.values);
-#if SIMD_WIDTH > 1
+#if SIMD_WIDTH_FP32 > 1
    SIMDTYPE_INT32 vzero = _MM_SET1_INT32(0);
 #endif
    SIMDTYPE_FP32 vzerof = _MM_SET1_FP32(0.0);
