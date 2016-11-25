@@ -1272,6 +1272,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
               case LIBXS_DNN_CONV_FORMAT_RSCK: {
                 status = libxs_dnn_convolve_st_bwd_nhwc_rsck(handle, start_thread, tid);
               } break;
+              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+                status = libxs_dnn_convolve_st_bwd_nhwc_custom(handle, start_thread, tid);
+              } break;
               default: {
                 status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
               }
@@ -1298,6 +1301,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_convolve_st(libxs_dnn_c
             switch (handle->filter_format) {
               case LIBXS_DNN_CONV_FORMAT_RSCK: {
                 status = libxs_dnn_convolve_st_upd_nhwc_rsck(handle, start_thread, tid);
+              } break;
+              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+                status = libxs_dnn_convolve_st_upd_nhwc_custom(handle, start_thread, tid);
               } break;
               default: {
                 status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
