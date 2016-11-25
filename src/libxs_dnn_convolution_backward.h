@@ -36,4 +36,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_dnn_conv
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_conv_handle* handle, int start_thread, int tid);
 
+LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid);
+
 #endif /* LIBXS_DNN_CONVOLUTION_BACKWARD_H */
