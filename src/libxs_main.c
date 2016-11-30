@@ -380,6 +380,7 @@ return flux_entry.xmm
 #if !defined(LIBXS_OPENMP) && !defined(LIBXS_NO_SYNC)
 # define INTERNAL_REGLOCK_COUNT 16
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_LOCK_TYPE internal_reglock[INTERNAL_REGLOCK_COUNT];
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_reglock_check;
 #endif
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE internal_regkey_type* internal_registry_keys /*= 0*/;
@@ -630,15 +631,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
   /*const*/libxs_code_pointer* result;
   int i;
 #if !defined(LIBXS_OPENMP)
-# if !defined(LIBXS_NO_SYNC)
-  static int internal_reglock_check = 1; /* setup the locks in a thread-safe fashion */
+# if !defined(LIBXS_NO_SYNC) /* setup the locks in a thread-safe fashion */
   assert(sizeof(internal_reglock) == (INTERNAL_REGLOCK_COUNT * sizeof(*internal_reglock)));
-  if (2 == LIBXS_ATOMIC_ADD_FETCH(&internal_reglock_check, 1, LIBXS_ATOMIC_SEQ_CST)) {
+  if (1 == LIBXS_ATOMIC_ADD_FETCH(&internal_reglock_check, 1, LIBXS_ATOMIC_SEQ_CST)) {
     for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_INIT(internal_reglock + i);
-    LIBXS_ATOMIC_STORE_ZERO(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_ATOMIC_STORE(&internal_reglock_check, 1, LIBXS_ATOMIC_SEQ_CST);
   }
-  while (0 != internal_reglock_check) { /* wait until locks are initialized */
-    if (0 == LIBXS_ATOMIC_LOAD(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST)) break;
+  while (1 < internal_reglock_check) { /* wait until locks are initialized */
+    if (1 == LIBXS_ATOMIC_LOAD(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST)) break;
   }
   for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
 # endif
@@ -891,6 +891,7 @@ LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
     }
 #if !defined(LIBXS_OPENMP) && !defined(LIBXS_NO_SYNC) /* release locks */
     for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
+    LIBXS_ATOMIC_STORE_ZERO(&internal_reglock_check, LIBXS_ATOMIC_SEQ_CST);
 #endif
   }
 }
