@@ -226,6 +226,7 @@ HEADERS = $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
           $(ROOTDIR)/include/libxs_intrinsics_x86.h \
           $(ROOTDIR)/include/libxs_macros.h \
           $(ROOTDIR)/include/libxs_malloc.h \
+          $(ROOTDIR)/include/libxs_spmdm.h \
           $(ROOTDIR)/include/libxs_sync.h \
           $(ROOTDIR)/include/libxs_timer.h \
           $(ROOTDIR)/include/libxs_typedefs.h
@@ -388,6 +389,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config
 	@cp $(ROOTDIR)/include/libxs_intrinsics_x86.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_malloc.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_spmdm.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_sync.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
@@ -1165,7 +1167,7 @@ test-cpp: $(INCDIR)/libxs_source.h
 	@cd $(SPLDIR)/cp2k && $(MAKE) --no-print-directory COMPATIBLE=$(COMPATIBLE) THREADS=$(THREADS) \
 		DEPSTATIC=$(STATIC) SYM=$(SYM) DBG=$(DBG) IPO=$(IPO) SSE=$(SSE) AVX=$(AVX) MIC=$(MIC) OFFLOAD=$(OFFLOAD) TRACE=0 \
 		EFLAGS=$(EFLAGS) ELDFLAGS=$(ELDFLAGS) ECFLAGS=$(ECFLAGS) EFCFLAGS=$(EFCFLAGS) \
-		ECXXFLAGS="-DUSE_HEADER_ONLY $(ECXXFLAGS)" compile
+		ECXXFLAGS="-DUSE_HEADER_ONLY $(ECXXFLAGS)" clean compile
 
 .PHONY: test-cp2k
 test-cp2k: $(SPLDIR)/cp2k/cp2k-test.txt

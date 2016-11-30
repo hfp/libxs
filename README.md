@@ -90,7 +90,7 @@ The main concept in LIBXS's frontend is that everything is circled around `libxs
 ```C
 /** simplified LIBXS types which are needed to create a handle */
 /** Structure which describes the input and output of data (DNN). */
-typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
+typedef struct libxs_dnn_conv_desc {
   int N;                                       /* number of images in mini-batch */
   int C;                                       /* number of input feature maps */
   int H;                                       /* height of input image */
