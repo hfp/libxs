@@ -276,35 +276,32 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_input_buffer(const libxs
 
 LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_input_buffer_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
 {
-  libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
-  int result = EXIT_SUCCESS;
-  *status = LIBXS_DNN_SUCCESS;
+  libxs_dnn_buffer* buffer = 0;
 
-  if (handle != 0 && buffer != 0) {
-    /* set properties of the buffer according to convolution handle */
-    buffer->N = handle->desc.N;
-    buffer->fmb = handle->blocksifm;
-    buffer->bfm = handle->ifmblock;
-    buffer->H = handle->ifhp;
-    buffer->W = handle->ifwp;
-    buffer->format = handle->buffer_format;
-    buffer->datatype = handle->datatype_in;
-    buffer->lpb = handle->fm_lp_block;
-    /* allocate raw data */
-    result = libxs_xmalloc(&buffer->data,
+  if (0 != handle) {
+    buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
+
+    if (0 != buffer) { /* set properties of the buffer according to convolution handle */
+      buffer->N = handle->desc.N;
+      buffer->fmb = handle->blocksifm;
+      buffer->bfm = handle->ifmblock;
+      buffer->H = handle->ifhp;
+      buffer->W = handle->ifwp;
+      buffer->format = handle->buffer_format;
+      buffer->datatype = handle->datatype_in;
+      buffer->lpb = handle->fm_lp_block;
+      buffer->data = libxs_aligned_malloc( /* allocate raw data */
         buffer->N * buffer->fmb * buffer->bfm * buffer->H * buffer->W * buffer->lpb * libxs_dnn_typesize(buffer->datatype),
-        LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
-  }
-  else {
-    *status = LIBXS_DNN_ERR_CREATE_BUFFER;
-    buffer = 0;
+        LIBXS_ALIGNMENT);
+      if (0 == buffer->data) {
+        free(buffer);
+        buffer = 0;
+      }
+    }
   }
 
-  if (result != EXIT_SUCCESS) {
-    *status = LIBXS_DNN_ERR_CREATE_BUFFER;
-    free((libxs_dnn_buffer*)buffer);
-    buffer = 0;
-  }
+  assert(0 != status);
+  *status = 0 != buffer ? LIBXS_DNN_SUCCESS : LIBXS_DNN_ERR_CREATE_BUFFER;
 
   return buffer;
 }
@@ -448,36 +445,32 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_output_buffer(const libx
 
 LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_create_output_buffer_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
 {
-  libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
-  int result = EXIT_SUCCESS;
-  *status = LIBXS_DNN_SUCCESS;
+  libxs_dnn_buffer* buffer = 0;
 
-  if (handle != 0 && buffer != 0) {
-    /* set properties of the buffer according to convolution handle */
-    buffer->N = handle->desc.N;
-    buffer->fmb = handle->blocksofm;
-    buffer->bfm = handle->ofmblock;
-    buffer->H = handle->ofhp;
-    buffer->W = handle->ofwp;
-    buffer->format = handle->buffer_format;
-    buffer->lpb = 1;
-    buffer->datatype = handle->datatype_out;
+  if (0 != handle) {
+    buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
 
-    /* allocate raw data, we always have a 4 byte wide type!! */
-    result = libxs_xmalloc(&buffer->data,
+    if (0 != buffer) { /* set properties of the buffer according to convolution handle */
+      buffer->N = handle->desc.N;
+      buffer->fmb = handle->blocksofm;
+      buffer->bfm = handle->ofmblock;
+      buffer->H = handle->ofhp;
+      buffer->W = handle->ofwp;
+      buffer->format = handle->buffer_format;
+      buffer->lpb = 1;
+      buffer->datatype = handle->datatype_out;
+      buffer->data = libxs_aligned_malloc( /* allocate raw data, we always have a 4 byte wide type */
         buffer->N * buffer->fmb * buffer->bfm * buffer->H * buffer->W * buffer->lpb * libxs_dnn_typesize(buffer->datatype),
-        LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
-  }
-  else {
-    *status = LIBXS_DNN_ERR_CREATE_BUFFER;
-    buffer = 0;
+        LIBXS_ALIGNMENT);
+      if (0 == buffer->data) {
+        free(buffer);
+        buffer = 0;
+      }
+    }
   }
 
-  if (result != EXIT_SUCCESS) {
-    *status = LIBXS_DNN_ERR_CREATE_BUFFER;
-    free((libxs_dnn_buffer*)buffer);
-    buffer = 0;
-  }
+  assert(0 != status);
+  *status = 0 != buffer ? LIBXS_DNN_SUCCESS : LIBXS_DNN_ERR_CREATE_BUFFER;
 
   return buffer;
 }
@@ -624,36 +617,33 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_create_filter(const libxs_dnn_c
 
 LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_create_filter_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
 {
-  libxs_dnn_filter* filter = (libxs_dnn_filter*)malloc(sizeof(libxs_dnn_filter));
-  int result = EXIT_SUCCESS;
-  *status = LIBXS_DNN_SUCCESS;
+  libxs_dnn_filter* filter = 0;
 
-  if (handle != 0 && filter != 0) {
-    /* set properties of the buffer according to convolution handle */
-    filter->ifmb = handle->blocksifm;
-    filter->bifm = handle->ifmblock;
-    filter->ofmb = handle->blocksofm;
-    filter->bofm = handle->ofmblock;
-    filter->R = handle->desc.R;
-    filter->S = handle->desc.S;
-    filter->format = handle->filter_format;
-    filter->datatype = handle->datatype_in;
-    filter->lpb = handle->fm_lp_block;
-    /* allocate raw data */
-    result = libxs_xmalloc(&filter->data,
+  if (0 != handle) {
+    filter = (libxs_dnn_filter*)malloc(sizeof(libxs_dnn_filter));
+
+    if (0 != filter) { /* set properties of the buffer according to convolution handle */
+      filter->ifmb = handle->blocksifm;
+      filter->bifm = handle->ifmblock;
+      filter->ofmb = handle->blocksofm;
+      filter->bofm = handle->ofmblock;
+      filter->R = handle->desc.R;
+      filter->S = handle->desc.S;
+      filter->format = handle->filter_format;
+      filter->datatype = handle->datatype_in;
+      filter->lpb = handle->fm_lp_block;
+      filter->data = libxs_aligned_malloc( /* allocate raw data */
         filter->ifmb * filter->bifm * filter->ofmb * filter->bofm * filter->R * filter->S * filter->lpb * libxs_dnn_typesize(filter->datatype),
-        LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
-  }
-  else {
-    *status = LIBXS_DNN_ERR_CREATE_FILTER;
-    filter = 0;
+        LIBXS_ALIGNMENT);
+      if (0 == filter->data) {
+        free(filter);
+        filter = 0;
+      }
+    }
   }
 
-  if (result != EXIT_SUCCESS) {
-    *status = LIBXS_DNN_ERR_CREATE_FILTER;
-    free((libxs_dnn_filter*)filter);
-    filter = 0;
-  }
+  assert(0 != status);
+  *status = 0 != filter ? LIBXS_DNN_SUCCESS : LIBXS_DNN_ERR_CREATE_FILTER;
 
   return filter;
 }
@@ -825,31 +815,28 @@ LIBXS_API_DEFINITION libxs_dnn_bias* libxs_dnn_create_bias(const libxs_dnn_conv_
 
 LIBXS_API_DEFINITION libxs_dnn_bias* libxs_dnn_create_bias_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status)
 {
-  libxs_dnn_bias* bias = (libxs_dnn_bias*)malloc(sizeof(libxs_dnn_bias));
-  int result = EXIT_SUCCESS;
-  *status = LIBXS_DNN_SUCCESS;
+  libxs_dnn_bias* bias = 0;
 
-  if (handle != 0 && bias != 0) {
-    /* set properties of the buffer according to convolution handle */
-    bias->fmb = handle->blocksifm;
-    bias->bfm = handle->ifmblock;
-    bias->datatype = handle->datatype_out;
-    bias->lpb = handle->fm_lp_block;
-    /* allocate raw data, we always have a 4 byte wide type!! */
-    result = libxs_xmalloc(&bias->data,
+  if (0 != handle) {
+    bias = (libxs_dnn_bias*)malloc(sizeof(libxs_dnn_bias));
+
+    if (0 != bias) { /* set properties of the buffer according to convolution handle */
+      bias->fmb = handle->blocksifm;
+      bias->bfm = handle->ifmblock;
+      bias->datatype = handle->datatype_out;
+      bias->lpb = handle->fm_lp_block;
+      bias->data = libxs_aligned_malloc( /* allocate raw data, we always have a 4 byte wide type */
         bias->fmb * bias->bfm * bias->lpb * libxs_dnn_typesize(bias->datatype),
-        LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
-  }
-  else {
-    *status = LIBXS_DNN_ERR_CREATE_BIAS;
-    bias = 0;
+        LIBXS_ALIGNMENT);
+      if (0 == bias->data) {
+        free(bias);
+        bias = 0;
+      }
+    }
   }
 
-  if (result != EXIT_SUCCESS) {
-    *status = LIBXS_DNN_ERR_CREATE_BIAS;
-    free((libxs_dnn_bias*)bias);
-    bias = 0;
-  }
+  assert(0 != status);
+  *status = 0 != bias ? LIBXS_DNN_SUCCESS : LIBXS_DNN_ERR_CREATE_BIAS;
 
   return bias;
 }

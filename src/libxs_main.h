@@ -237,8 +237,8 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, int alignment, int flags
   const void* extra, size_t extra_size);
 LIBXS_API int libxs_xfree(const volatile void* memory);
 
-/** Attribute memory allocation such as to revoke protection flags. */
-LIBXS_API int libxs_malloc_attrib(const volatile void* memory, int flags,
+/** Attribute memory allocation and protect with only the necessary flags; may relocate the given memory. */
+LIBXS_API int libxs_malloc_attrib(void** memory, int flags,
   /** If a name is given, an executable buffer will be dumped into a file. */
   const char* name);
 
