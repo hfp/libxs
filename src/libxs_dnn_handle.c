@@ -605,25 +605,23 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       }
     } /* end of weight-update handle */
     {
-      /* Populating scratch register for transpose */
-      libxs_xmalloc(&handle->scratch1,
+      handle->scratch1 = libxs_aligned_malloc( /* populating scratch register for transpose */
         handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in),
-        LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
+        LIBXS_ALIGNMENT);
 
       handle->scratch2 = libxs_barrier_create(handle->desc.threads, 1);
 
 /*#ifdef LIBXS_WU_TRANSPOSE_OFW_IFM*/
-      /* allocate raw data */
-      libxs_xmalloc(&handle->scratch3,
+      handle->scratch3 = libxs_aligned_malloc( /* allocate raw data */
         handle->desc.N * handle->blocksifm * handle->ifmblock * handle->desc.H * handle->desc.W * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in),
-        LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
+        LIBXS_ALIGNMENT);
 /*#endif*/
       if (handle->ifmblock == 1) {
         handle->upd_use_thread_fil = 1;
-        libxs_xmalloc(&handle->scratch4,
+        handle->scratch4 = libxs_aligned_malloc(
           handle->desc.threads * handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
           * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in),
-          LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
+          LIBXS_ALIGNMENT);
       } else {
         handle->scratch4 = 0;
         handle->upd_use_thread_fil = 0;
@@ -633,10 +631,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
              && (handle->upd_use_thread_fil == 0)) {
         if ( (handle->desc.threads*2) > (handle->blocksifm*handle->blocksofm) ) {
           handle->upd_use_thread_fil = 1;
-          libxs_xmalloc(&handle->scratch4,
+          handle->scratch4 = libxs_aligned_malloc(
             handle->desc.threads * handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
             * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in),
-            LIBXS_ALIGNMENT, LIBXS_MALLOC_FLAG_RW, 0/*extra*/, 0/*extra_size*/);
+            LIBXS_ALIGNMENT);
         }
       }
     }
