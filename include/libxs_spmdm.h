@@ -75,20 +75,26 @@ LIBXS_API void libxs_spmdm_init(
 LIBXS_API void libxs_spmdm_destroy(
   libxs_spmdm_handle * handle);
 
-LIBXS_API void libxs_spmdm_createSparseSlice_fp32_notrans_thread(
+LIBXS_API int libxs_spmdm_get_num_createSparseSlice_blocks(
+  const libxs_spmdm_handle* handle);
+
+LIBXS_API int libxs_spmdm_get_num_compute_blocks(
+  const libxs_spmdm_handle* handle);
+
+LIBXS_API void libxs_spmdm_createSparseSlice_fp32_thread(
   const libxs_spmdm_handle* handle,
   char transA,
   const float * A,
   libxs_CSR_sparseslice* libxs_output_csr_a,
-  int mb, int kb,
+  int block_id,
   int tid, int nthreads);
 
-LIBXS_API void libxs_spmdm_createSparseSlice_bfloat16_notrans_thread(
+LIBXS_API void libxs_spmdm_createSparseSlice_bfloat16_thread(
   const libxs_spmdm_handle* handle,
   char transA,
   const uint16_t * A,
   libxs_CSR_sparseslice* libxs_output_csr_a,
-  int mb, int kb,
+  int block_id,
   int tid, int nthreads);
 
 LIBXS_API void libxs_spmdm_compute_fp32_thread(
@@ -100,7 +106,7 @@ LIBXS_API void libxs_spmdm_compute_fp32_thread(
   const float *B,
   const float *beta,
   float* C,
-  int mb, int num_m_blocks, int nb,
+  int block_id,
   int tid, int nthreads);
 
 LIBXS_API void libxs_spmdm_compute_bfloat16_thread(
@@ -112,7 +118,7 @@ LIBXS_API void libxs_spmdm_compute_bfloat16_thread(
   const uint16_t *B,
   const uint16_t *beta,
   float* C,
-  int mb, int num_m_blocks, int nb,
+  int block_id,
   int tid, int nthreads);
 
 #endif /*LIBXS_SPMDM_H*/
