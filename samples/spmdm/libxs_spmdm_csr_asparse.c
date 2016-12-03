@@ -45,7 +45,7 @@
 # define srand48 srand
 #endif
 
-#define USE_BFLOAT
+//#define USE_BFLOAT
 #ifdef USE_BFLOAT
 typedef uint16_t real;
 #else
@@ -276,7 +276,7 @@ int main(int argc, char **argv)
   /* Checks */
   /* Compute a "gold" answer sequentially - we can also use MKL; not using MKL now due to difficulty for bfloat16 */
 #if defined(_OPENMP)
-# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) num_threads(22)
+# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) 
 #endif
   for(i = 0; i < M; i++) {
     for(j = 0; j < N; j++) {
