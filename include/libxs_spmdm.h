@@ -53,6 +53,8 @@ typedef struct libxs_spmdm_handle {
   int kb;
   libxs_spmdm_datatype datatype;
   char * base_ptr_for_dealloc;
+  char * spmdm_scratch_B;
+  char * spmdm_scratch_C;
 } libxs_spmdm_handle;
 
 /**
