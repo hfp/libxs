@@ -163,7 +163,7 @@
 # define LIBXS_PRAGMA_UNROLL
 #endif
 
-#if defined(__clang__)
+#if defined(__clang__) && !defined(__INTEL_COMPILER)
 # define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(clang optimize off)
 # define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(clang optimize on)
 #else
