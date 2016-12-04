@@ -52,9 +52,9 @@ typedef struct libxs_spmdm_handle {
   int nb;
   int kb;
   libxs_spmdm_datatype datatype;
-  char * base_ptr_for_dealloc;
-  char * spmdm_scratch_B;
-  char * spmdm_scratch_C;
+  char * base_ptr_scratch_A;
+  char * base_ptr_scratch_B_scratch_C;
+  int memory_for_scratch_per_thread;
 } libxs_spmdm_handle;
 
 /**
@@ -71,6 +71,7 @@ typedef struct libxs_CSR_sparseslice {
 
 LIBXS_API void libxs_spmdm_init(
   int M, int N, int K,
+  int max_threads,
   libxs_spmdm_handle* handle,
   libxs_CSR_sparseslice** libxs_output_csr);
 
