@@ -517,7 +517,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
       if (0 == (LIBXS_MALLOC_FLAG_X & flags)) {
 #if defined(_WIN32)
         /* TODO: implement memory protection under Microsoft Windows */
-#else 
+#else
         soft_error = mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ);
 #endif
       }
@@ -557,7 +557,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
         if (0 != (LIBXS_MALLOC_FLAG_MMAP & flags)) {
 #if defined(_WIN32)
           /* TODO: implement memory protection under Microsoft Windows */
-#else 
+#else
           *memory = code_ptr; /* relocate */
           info->pointer = internal->reloc;
           internal->reloc = 0;
