@@ -375,7 +375,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   handle->n  = N;
   handle->k  = K;
 
-  handle->bm = 512;
+  handle->bm = 256;
 #if LIBXS_STATIC_TARGET_ARCH==LIBXS_X86_AVX512_CORE
   handle->bn = 96;
 #elif LIBXS_STATIC_TARGET_ARCH==LIBXS_X86_AVX2
