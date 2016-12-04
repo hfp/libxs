@@ -332,13 +332,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_csr_a( libxs_spmdm_
   int kb, mb;
   int m_blocks = handle->mb;
   int k_blocks = handle->kb;
-  
+
   size_t sz_block = ((handle->bm + 1)*sizeof(uint16_t) + (handle->bm)*(handle->bk)*sizeof(uint16_t) + (handle->bm)*(handle->bk)*sizeof(float) + sizeof(libxs_CSR_sparseslice));
   size_t sz_all_blocks = sz_block * handle->mb * handle->kb;
-  
+
   char * memory_block = (char *)LIBXS_SPMDM_MALLOC( sz_all_blocks, 2097152 );
   char * memory_head  = memory_block;
-  
+
   libxs_CSR_sparseslice* libxs_output_csr_a = (libxs_CSR_sparseslice*)(memory_head);
   memory_head += handle->mb * handle->kb * sizeof(libxs_CSR_sparseslice);
 
@@ -353,7 +353,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_csr_a( libxs_spmdm_
       memory_head += (handle->bm)*(handle->bk)*sizeof(float);
     }
   }
-  assert(memory_head == (memory_block + sz_all_blocks));    
+  assert(memory_head == (memory_block + sz_all_blocks));
   *libxs_output_csr = libxs_output_csr_a;
   handle->base_ptr_scratch_A = memory_block;
 }
@@ -361,12 +361,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_csr_a( libxs_spmdm_
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_scratch( libxs_spmdm_handle* handle, int max_threads)
 {
-  size_t sz_memory_for_scratch_per_thread = ((handle->bm)*(handle->bn)*sizeof(float) + (handle->bk)*(handle->bn)*sizeof(float))*max_threads;
+  size_t sz_memory_for_scratch_per_thread = ((handle->bm)*(handle->bn)*sizeof(float) + (handle->bk)*(handle->bn)*sizeof(float))*max_threads, sz_total_memory;
   sz_memory_for_scratch_per_thread = (sz_memory_for_scratch_per_thread + 4095)/4096 * 4096;
-  size_t sz_total_memory = sz_memory_for_scratch_per_thread * max_threads;
+  sz_total_memory = sz_memory_for_scratch_per_thread * max_threads;
 
   handle->base_ptr_scratch_B_scratch_C = (char *)LIBXS_SPMDM_MALLOC( sz_total_memory, 2097152 );
-  handle->memory_for_scratch_per_thread = (int)sz_memory_for_scratch_per_thread;  
+  handle->memory_for_scratch_per_thread = (int)sz_memory_for_scratch_per_thread;
 }
 
 LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads, libxs_spmdm_handle * handle, libxs_CSR_sparseslice ** libxs_output_csr)
@@ -391,7 +391,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   /* This is temporary space needed; allocate for each different size of A */
   internal_spmdm_allocate_csr_a( handle, libxs_output_csr);
   internal_spmdm_allocate_scratch( handle, max_threads);
-  
+
   /* Initialize shuffle masks for the computation */
   internal_spmdm_init_shufmask();
 }
@@ -406,7 +406,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_deallocate_csr_a(libxs_spmdm
 
 LIBXS_API_DEFINITION void libxs_spmdm_destroy(libxs_spmdm_handle * handle)
 {
-  internal_spmdm_deallocate_csr_a(handle); 
+  internal_spmdm_deallocate_csr_a(handle);
 }
 
 LIBXS_API_DEFINITION int libxs_spmdm_get_num_createSparseSlice_blocks(const libxs_spmdm_handle* handle)
@@ -959,11 +959,13 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
             sum[n+1] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + (n+1)*SIMD_WIDTH_FP32), sum[n+1]);
             sum[n+1 + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + (n+1)*SIMD_WIDTH_FP32), sum[n+1+num_regs]);
           }
-          float v_v_f = sp_v_ptr_base[j];
-          float v_v_f_2 = sp_v_ptr_base_2[j2];
-          for (n = last_n_start; n < num_n; n++) {
-            result_m_index[n] += sp_col_dense_index[n]*v_v_f;
-            result_m_index_2[n] += sp_col_dense_index_2[n]*v_v_f_2;
+          {
+            float v_v_f = sp_v_ptr_base[j];
+            float v_v_f_2 = sp_v_ptr_base_2[j2];
+            for (n = last_n_start; n < num_n; n++) {
+              result_m_index[n] += sp_col_dense_index[n]*v_v_f;
+              result_m_index_2[n] += sp_col_dense_index_2[n]*v_v_f_2;
+            }
           }
         }
         for (; j < num_j; j++) {
@@ -973,9 +975,11 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
             sum[n] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + n*SIMD_WIDTH_FP32), sum[n]);
             sum[n+1] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + (n+1)*SIMD_WIDTH_FP32), sum[n+1]);
           }
-          float v_v_f = sp_v_ptr_base[j];
-          for (n = last_n_start; n < num_n; n++) {
-            result_m_index[n] += sp_col_dense_index[n]*v_v_f;
+          {
+            float v_v_f = sp_v_ptr_base[j];
+            for (n = last_n_start; n < num_n; n++) {
+              result_m_index[n] += sp_col_dense_index[n]*v_v_f;
+            }
           }
         }
         for (; j2 < num_j_2; j2++) {
@@ -985,9 +989,11 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
             sum[n + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + n*SIMD_WIDTH_FP32), sum[n+num_regs]);
             sum[n+1 + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + (n+1)*SIMD_WIDTH_FP32), sum[n+1+num_regs]);
           }
-          float v_v_f_2 = sp_v_ptr_base_2[j2];
-          for (n = last_n_start; n < num_n; n++) {
-            result_m_index_2[n] += sp_col_dense_index_2[n]*v_v_f_2;
+          {
+            float v_v_f_2 = sp_v_ptr_base_2[j2];
+            for (n = last_n_start; n < num_n; n++) {
+              result_m_index_2[n] += sp_col_dense_index_2[n]*v_v_f_2;
+            }
           }
         }
         for (n = 0; n < num_full_regs; n+=2) {
@@ -1051,9 +1057,11 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
             sum[n] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + n*SIMD_WIDTH_FP32), sum[n]);
             sum[n+1] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + (n+1)*SIMD_WIDTH_FP32), sum[n+1]);
           }
-          float v_v_f = sp_v_ptr_base[j];
-          for (n = last_n_start; n < num_n; n++) {
-            result_m_index[n] += sp_col_dense_index[n]*v_v_f;
+          {
+            float v_v_f = sp_v_ptr_base[j];
+            for (n = last_n_start; n < num_n; n++) {
+              result_m_index[n] += sp_col_dense_index[n]*v_v_f;
+            }
           }
         }
         for (n = 0; n < num_full_regs; n+=2) {
@@ -1378,11 +1386,13 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
             sum[n+1] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + (n+1)*SIMD_WIDTH_FP32), sum[n+1]);
             sum[n+1 + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + (n+1)*SIMD_WIDTH_FP32), sum[n+1+num_regs]);
           }
-          float v_v_f = sp_v_ptr_base[j];
-          float v_v_f_2 = sp_v_ptr_base_2[j2];
-          for (n = last_n_start; n < num_n; n++) {
-            result_m_index[n] += sp_col_dense_index[n]*v_v_f;
-            result_m_index_2[n] += sp_col_dense_index_2[n]*v_v_f_2;
+          {
+            float v_v_f = sp_v_ptr_base[j];
+            float v_v_f_2 = sp_v_ptr_base_2[j2];
+            for (n = last_n_start; n < num_n; n++) {
+              result_m_index[n] += sp_col_dense_index[n]*v_v_f;
+              result_m_index_2[n] += sp_col_dense_index_2[n]*v_v_f_2;
+            }
           }
         }
         for (; j < num_j; j++) {
@@ -1392,9 +1402,11 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
             sum[n] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + n*SIMD_WIDTH_FP32), sum[n]);
             sum[n+1] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + (n+1)*SIMD_WIDTH_FP32), sum[n+1]);
           }
-          float v_v_f = sp_v_ptr_base[j];
-          for (n = last_n_start; n < num_n; n++) {
-            result_m_index[n] += sp_col_dense_index[n]*v_v_f;
+          {
+            float v_v_f = sp_v_ptr_base[j];
+            for (n = last_n_start; n < num_n; n++) {
+              result_m_index[n] += sp_col_dense_index[n]*v_v_f;
+            }
           }
         }
         for (; j2 < num_j_2; j2++) {
@@ -1404,9 +1416,11 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
             sum[n + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + n*SIMD_WIDTH_FP32), sum[n+num_regs]);
             sum[n+1 + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + (n+1)*SIMD_WIDTH_FP32), sum[n+1+num_regs]);
           }
-          float v_v_f_2 = sp_v_ptr_base_2[j2];
-          for (n = last_n_start; n < num_n; n++) {
-            result_m_index_2[n] += sp_col_dense_index_2[n]*v_v_f_2;
+          {
+            float v_v_f_2 = sp_v_ptr_base_2[j2];
+            for (n = last_n_start; n < num_n; n++) {
+              result_m_index_2[n] += sp_col_dense_index_2[n]*v_v_f_2;
+            }
           }
         }
         for (n = 0; n < num_full_regs; n+=2) {
@@ -1470,9 +1484,11 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
             sum[n] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + n*SIMD_WIDTH_FP32), sum[n]);
             sum[n+1] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + (n+1)*SIMD_WIDTH_FP32), sum[n+1]);
           }
-          float v_v_f = sp_v_ptr_base[j];
-          for (n = last_n_start; n < num_n; n++) {
-            result_m_index[n] += sp_col_dense_index[n]*v_v_f;
+          {
+            float v_v_f = sp_v_ptr_base[j];
+            for (n = last_n_start; n < num_n; n++) {
+              result_m_index[n] += sp_col_dense_index[n]*v_v_f;
+            }
           }
         }
         for (n = 0; n < num_full_regs; n+=2) {
