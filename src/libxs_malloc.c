@@ -510,7 +510,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
     assert((0 != buffer || 0 == size) && 0 != internal);
     /* quietly keep the read permission, but eventually revoke write permissions */
     if (0 == (LIBXS_MALLOC_FLAG_W & flags) || 0 != (LIBXS_MALLOC_FLAG_X & flags)) {
-      const int alignment = ((const char*)(*memory)) - ((const char*)buffer);
+      const int alignment = (int)(((const char*)(*memory)) - ((const char*)buffer));
       const size_t alloc_size = size + alignment;
       /* treat mprotect errors as soft error if the requested buffer is not executable */
       int soft_error = 0;
