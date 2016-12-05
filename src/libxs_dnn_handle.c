@@ -537,7 +537,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         int upper_limit_ofw_rb = wu_max_code_size / wu_each_iter_code_size, upper_limit_ofh_rb = 0;
         descriptor.ifm_unroll = 1;
 
-        for(i = LIBXS_MIN(upper_limit_ofw_rb, handle->ofw); i >= 1; i--) {
+        for(i = LIBXS_MIN(upper_limit_ofw_rb, LIBXS_MIN(28,handle->ofw)); i >= 1; i--) {
           if(handle->ofw % i == 0) break;
         }
         descriptor.ofw_rb =  i;
