@@ -64,7 +64,7 @@ int main(void)
   }
 #endif
   {
-#if defined(LIBXS_GENERATOR_SMALLDESC)
+#if defined(LIBXS_BIG) && (0 == LIBXS_BIG)
     union { libxs_gemm_descriptor desc; char padding[16]; } descs[8];
 #else
     union { libxs_gemm_descriptor desc; char padding[32]; } descs[8];
@@ -276,7 +276,7 @@ int main(void)
 #   pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
     if (EXIT_SUCCESS == result) {
-#if defined(LIBXS_GENERATOR_SMALLDESC)
+#if defined(LIBXS_BIG) && (0 == LIBXS_BIG)
       union { libxs_gemm_descriptor desc; char padding[16]; } local[8];
 #else
       union { libxs_gemm_descriptor desc; char padding[32]; } local[8];

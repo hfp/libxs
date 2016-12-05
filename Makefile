@@ -85,9 +85,6 @@ PRECISION ?= 0
 # 0: optimized JIT descriptor size
 # 1: regular descriptor size
 BIG ?= 1
-ifeq (0,$(BIG))
-  DFLAGS += -DLIBXS_GENERATOR_SMALLDESC
-endif
 
 # Specify an alignment (Bytes)
 ALIGNMENT ?= 64
@@ -389,7 +386,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config
 	@cp $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
 	@$(PYTHON) $(SCRDIR)/libxs_config.py $(SRCDIR)/template/libxs_config.h \
-		$(MAKE_ILP64) $(OFFLOAD) $(ALIGNMENT) $(PREFETCH_TYPE) \
+		$(MAKE_ILP64) $(BIG) $(OFFLOAD) $(ALIGNMENT) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) \
 		$(shell echo $$(($(THREADS)+$(OMP)))) \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) > $@
@@ -441,7 +438,7 @@ $(INCDIR)/libxs.h: $(SCRDIR)/libxs_interface.py \
                      $(SRCDIR)/template/libxs.h $(ROOTDIR)/version.txt \
                      $(INCDIR)/libxs_config.h $(HEADERS)
 	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/template/libxs.h \
-		$(PRECISION) $(MAKE_ILP64) $(PREFETCH_TYPE) $(INDICES) > $@
+		$(PRECISION) $(PREFETCH_TYPE) $(INDICES) > $@
 
 .PHONY: cheader_only
 cheader_only: $(INCDIR)/libxs_source.h
@@ -455,9 +452,9 @@ $(INCDIR)/libxs.f: $(BLDDIR)/.make \
                      $(SRCDIR)/template/libxs.f $(SCRDIR)/libxs_interface.py \
                      $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
 	@$(PYTHON) $(SCRDIR)/libxs_interface.py $(SRCDIR)/template/libxs.f \
-		$(PRECISION) $(MAKE_ILP64) $(PREFETCH_TYPE) $(INDICES) | \
+		$(PRECISION) $(PREFETCH_TYPE) $(INDICES) | \
 	$(PYTHON) $(SCRDIR)/libxs_config.py /dev/stdin \
-		$(MAKE_ILP64) $(OFFLOAD) $(ALIGNMENT) $(PREFETCH_TYPE) \
+		$(MAKE_ILP64) $(BIG) $(OFFLOAD) $(ALIGNMENT) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) \
 		$(shell echo $$(($(THREADS)+$(OMP)))) \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(INDICES) | \
