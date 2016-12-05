@@ -119,7 +119,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 
 /** Helper macro determining the default prefetch strategy which is used for statically generated kernels. */
 #if (0 > LIBXS_PREFETCH) /* auto-prefetch (frontend) */
-# define INTERNAL_PREFETCH LIBXS_PREFETCH_SIGONLY
+# define INTERNAL_PREFETCH LIBXS_PREFETCH_NONE
 #else
 # define INTERNAL_PREFETCH LIBXS_PREFETCH
 #endif
@@ -648,7 +648,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
       { /* select prefetch strategy for JIT */
         const char *const env = getenv("LIBXS_GEMM_PREFETCH");
-        libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
+        libxs_gemm_auto_prefetch = (LIBXS_X86_AVX512_MIC != libxs_target_archid ? INTERNAL_PREFETCH : LIBXS_PREFETCH_AL2BL2_VIA_C);
         if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
           const int uid = atoi(env);
           if (0 <= uid) {
