@@ -44,7 +44,7 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(LIBXS_SPMDM_MALLOC_INTRINSIC)
+#if !defined(LIBXS_SPMDM_MALLOC_INTRINSIC) && !defined(LIBXS_INTRINSICS_NONE)
 # define LIBXS_SPMDM_MALLOC_INTRINSIC
 #endif
 #if defined(LIBXS_SPMDM_MALLOC_INTRINSIC)
