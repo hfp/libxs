@@ -191,6 +191,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
     handle->upd_ofh_rb = 1;
     handle->fm_lp_block = 1;
     handle->upd_use_thread_fil = 0;
+    handle->filter_transposed = 0;
 
     /* Set algorithm to use */
     if (conv_desc.algo == LIBXS_DNN_CONV_ALGO_AUTO) {
@@ -1330,6 +1331,49 @@ LIBXS_API_DEFINITION void libxs_dnn_convolve(libxs_dnn_conv_handle* handle, libx
 #else
   internal_convolve_st(handle, kind, 0/*start_thread*/, 0/*tid*/);
 #endif
+}
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_conv_handle* handle) {
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  int ofm1, ifm1, kj, ki, ifm2, ofm2;
+
+  /* check if we have input, output and filter */
+  if (handle->input == 0 || handle->output == 0 || handle->filter == 0) {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
+  }
+
+  /* check that filter is in RSCK storage */
+  if ( (handle->filter_format & LIBXS_DNN_CONV_FORMAT_RSCK) == 0 ) {
+    status = LIBXS_DNN_ERR_MISMATCH_FILTER;
+    return status;
+  }
+
+  /* check that we are in FP32 */
+  if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+    LIBXS_VLA_DECL(6, float, wt, (float*)handle->filter->data, handle->desc.S, handle->blocksifm, handle->ifmblock, handle->blocksofm, handle->ofmblock);
+    LIBXS_VLA_DECL(6, float, tr_wt, (float*)handle->scratch1, handle->desc.S, handle->blocksofm, handle->ofmblock, handle->blocksifm, handle->ifmblock);
+
+    for (ofm1 = 0; ofm1 < handle->blocksofm; ++ofm1) {
+      for (ifm1 = 0; ifm1 < handle->blocksifm; ++ifm1) {
+        for(kj=0; kj < handle->desc.R; ++kj) {
+          for(ki=0; ki < handle->desc.S; ++ki) {
+            for (ofm2 = 0; ofm2 < handle->ofmblock; ++ofm2) {
+              for (ifm2 = 0; ifm2 < handle->ifmblock; ++ifm2) {
+                LIBXS_VLA_ACCESS(6, tr_wt, kj, ki, ofm1, ofm2, ifm1, ifm2, handle->desc.S, handle->blocksofm, handle->ofmblock, handle->blocksifm, handle->ifmblock) =
+                  LIBXS_VLA_ACCESS(6, wt,  kj, ki, ifm1, ifm2, ofm1, ofm2, handle->desc.S, handle->blocksifm, handle->ifmblock, handle->blocksofm, handle->ofmblock);
+              }
+            }
+          }
+        }  
+      }
+    }
+    handle->filter_transposed = 1;
+    return status;
+  } else {
+    status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+    return status;
+  }
 }
 
 
