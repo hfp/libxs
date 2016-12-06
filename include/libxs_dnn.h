@@ -239,6 +239,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filte
 /*LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_bias(const libxs_dnn_bias* bias, void* data);*/
 /** Run the convolution identified by the handle; may use threads internally. */
 LIBXS_API void libxs_dnn_convolve(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind);
+LIBXS_API libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_conv_handle* handle);
 
 /** Run the convolution identified by the handle; takes a thread id. */
 LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind,
