@@ -1333,6 +1333,7 @@ LIBXS_API_DEFINITION void libxs_dnn_convolve(libxs_dnn_conv_handle* handle, libx
 #endif
 }
 
+
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_conv_handle* handle) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   int ofm1, ifm1, kj, ki, ifm2, ofm2;
@@ -1374,6 +1375,38 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_conv_h
     status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
     return status;
   }
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind) {
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    switch (kind) {
+      case LIBXS_DNN_CONV_KIND_FWD: {
+        if (handle->code_fwd[0].xconv.sconv == 0) {
+          status = LIBXS_DNN_WARN_FALLBACK;
+        }
+      } break;
+      case LIBXS_DNN_CONV_KIND_BWD: {
+        if (handle->code_bwd[0].xconv.sconv == 0) {
+          status = LIBXS_DNN_WARN_FALLBACK;
+        }
+      } break;
+      case LIBXS_DNN_CONV_KIND_UPD: {
+        if (handle->code_upd[0].xconv.sconv == 0) {
+          status = LIBXS_DNN_WARN_FALLBACK;
+        }
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
+    }
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return status;
 }
 
 
