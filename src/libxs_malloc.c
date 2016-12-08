@@ -507,7 +507,7 @@ LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
           result = EXIT_FAILURE;
         }
         if (0 != (LIBXS_MALLOC_FLAG_X & flags) && EXIT_SUCCESS == result
-         && 0 != reloc && MAP_FAILED != reloc && buffer != reloc &&
+         && 0 != reloc && MAP_FAILED != reloc && buffer != reloc
          && 0 != munmap(reloc, alloc_size))
         {
 # if !defined(NDEBUG) /* library code is expected to be mute */
