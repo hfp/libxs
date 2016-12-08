@@ -446,7 +446,7 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_gemm_diffn_avx512(const
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX512) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH) && \
-  !defined(__clang__) /* Clang misses at least some of the intrinsics used below */
+  !defined(LIBXS_INTRINSICS_NO_PSEUDO) && !defined(__clang__) /* Clang misses at least some of the intrinsics used below */
   assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
