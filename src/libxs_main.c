@@ -69,6 +69,17 @@
 /*# define LIBXS_OPENMP*/
 #endif
 
+#if !defined(LIBXS_MAIN_MALLOC_INTRINSIC) && !defined(LIBXS_INTRINSICS_NONE)
+# define LIBXS_MAIN_MALLOC_INTRINSIC
+#endif
+#if defined(LIBXS_MAIN_MALLOC_INTRINSIC)
+# define LIBXS_MAIN_MALLOC(SIZE) _mm_malloc(SIZE, LIBXS_ALIGNMENT)
+# define LIBXS_MAIN_FREE(BUFFER) _mm_free((void*)(BUFFER))
+#else /* do not use libxs_malloc/free here! */
+# define LIBXS_MAIN_MALLOC(SIZE) malloc(SIZE)
+# define LIBXS_MAIN_FREE(BUFFER) free(BUFFER)
+#endif
+
 /* alternative hash algorithm (instead of CRC32) */
 #if !defined(LIBXS_HASH_BASIC)
 # if !defined(LIBXS_MAX_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4_2 > LIBXS_MAX_STATIC_TARGET_ARCH)
@@ -728,8 +739,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
         libxs_perf_init();
 #endif
         assert(0 == internal_registry_keys && 0 == internal_registry); /* should never happen */
-        result = (libxs_code_pointer*)libxs_malloc(LIBXS_REGSIZE * sizeof(libxs_code_pointer));
-        internal_registry_keys = (internal_regkey_type*)libxs_malloc(LIBXS_REGSIZE * sizeof(internal_regkey_type));
+        result = (libxs_code_pointer*)LIBXS_MAIN_MALLOC(LIBXS_REGSIZE * sizeof(libxs_code_pointer));
+        internal_registry_keys = (internal_regkey_type*)LIBXS_MAIN_MALLOC(LIBXS_REGSIZE * sizeof(internal_regkey_type));
         if (0 != result && 0 != internal_registry_keys) {
           for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].pmm = 0;
           /* omit registering code if JIT is enabled and if an ISA extension is found
@@ -758,8 +769,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
           fprintf(stderr, "LIBXS: failed to allocate code registry!\n");
 #endif
-          libxs_free(internal_registry_keys);
-          libxs_free(result);
+          LIBXS_MAIN_FREE(internal_registry_keys);
+          LIBXS_MAIN_FREE(result);
         }
       }
 #if !defined(NDEBUG) && defined(__TRACE) /* library code is expected to be mute */
@@ -881,8 +892,8 @@ LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
           LIBXS_FUNLOCK(stdout);
           LIBXS_FUNLOCK(stderr);
         }
-        libxs_free(registry_keys);
-        libxs_free(registry);
+        LIBXS_MAIN_FREE(registry_keys);
+        LIBXS_MAIN_FREE(registry);
       }
     }
 #if !defined(LIBXS_OPENMP) && !defined(LIBXS_NO_SYNC) /* release locks */

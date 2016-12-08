@@ -647,6 +647,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
 LIBXS_API_DEFINITION void* libxs_aligned_malloc(size_t size, int alignment)
 {
   void* result = 0;
+  LIBXS_INIT
   return 0 == libxs_xmalloc(&result, size, alignment, LIBXS_MALLOC_FLAG_DEFAULT,
     0/*extra*/, 0/*extra_size*/) ? result : 0;
 }
