@@ -355,13 +355,11 @@ return flux_entry.xmm
   if (LIBXS_GEMM_NO_BYPASS(internal_dispatch_main_flags_, internal_dispatch_main_alpha_, internal_dispatch_main_beta_) && LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) && \
     LIBXS_GEMM_NO_BYPASS_DIMS(internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_)) \
   { \
-    const int internal_dispatch_main_prefetch_ = (0 == (PREFETCH) \
-      ? LIBXS_PREFETCH_NONE/*NULL-pointer is given; do not adopt LIBXS_PREFETCH (prefetches must be specified explicitly)*/ \
-      : *(PREFETCH)); /*adopt the explicitly specified prefetch strategy*/ \
+    const int internal_dispatch_main_prefetch_ = (0 == (PREFETCH) ? libxs_gemm_auto_prefetch : *(PREFETCH)); \
     DESCRIPTOR_DECL; LIBXS_GEMM_DESCRIPTOR(*(DESC), 0 != (VECTOR_WIDTH) ? (VECTOR_WIDTH): LIBXS_ALIGNMENT, \
       internal_dispatch_main_flags_, LIBXS_LD(M, N), LIBXS_LD(N, M), K, internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_, \
       (signed char)(internal_dispatch_main_alpha_), (signed char)(internal_dispatch_main_beta_), \
-      (0 > internal_dispatch_main_prefetch_ ? libxs_gemm_auto_prefetch/*auto-dispatched*/ : internal_dispatch_main_prefetch_)); \
+      (0 > internal_dispatch_main_prefetch_ ? internal_gemm_auto_prefetch : internal_dispatch_main_prefetch_)); \
     { \
       INTERNAL_FIND_CODE(DESC, code).LIBXS_TPREFIX(TYPE, mm); \
     } \
@@ -397,6 +395,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_sml /*= 13*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_med /*= 23*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_mnk /*= LIBXS_MAX_M*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_teardown /*= 0*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_gemm_auto_prefetch;
 
 
 LIBXS_API_DEFINITION unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol)
@@ -659,7 +658,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
       { /* select prefetch strategy for JIT */
         const char *const env = getenv("LIBXS_GEMM_PREFETCH");
-        libxs_gemm_auto_prefetch = (LIBXS_X86_AVX512_MIC != libxs_target_archid ? INTERNAL_PREFETCH : LIBXS_PREFETCH_AL2BL2_VIA_C);
+        internal_gemm_auto_prefetch = (LIBXS_X86_AVX512_MIC != libxs_target_archid ? INTERNAL_PREFETCH : LIBXS_PREFETCH_AL2BL2_VIA_C);
+        libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
         if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
           const int uid = atoi(env);
           if (0 <= uid) {
