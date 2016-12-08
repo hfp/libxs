@@ -364,13 +364,6 @@
 # define LIBXS_MAY_ALIAS
 #endif
 
-#if defined(NDEBUG)
-# define LIBXS_NDEBUG NDEBUG
-# define LIBXS_DEBUG(...)
-#else
-# define LIBXS_DEBUG(...) __VA_ARGS__
-#endif
-
 #if defined(_WIN32)
 # define LIBXS_SNPRINTF(S, N, ...) _snprintf_s(S, N, _TRUNCATE, __VA_ARGS__)
 # define LIBXS_FLOCK(FILE) _lock_file(FILE)
