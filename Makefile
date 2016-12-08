@@ -222,24 +222,13 @@ endif
 INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 NINDICES = $(words $(INDICES))
 
-HEADERS = $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
+HEADERS = $(shell ls -1 $(ROOTDIR)/include/*.h 2> /dev/null | tr "\n" " ") \
           $(shell ls -1 $(SRCDIR)/template/*.c 2> /dev/null | tr "\n" " ") \
-          $(SRCDIR)/libxs_gemm_diff.c $(SRCDIR)/libxs_hash.c \
-          $(ROOTDIR)/include/libxs_dnn.h \
-          $(ROOTDIR)/include/libxs_cpuid.h \
-          $(ROOTDIR)/include/libxs_frontend.h \
-          $(ROOTDIR)/include/libxs_generator.h \
-          $(ROOTDIR)/include/libxs_intrinsics_x86.h \
-          $(ROOTDIR)/include/libxs_macros.h \
-          $(ROOTDIR)/include/libxs_malloc.h \
-          $(ROOTDIR)/include/libxs_spmdm.h \
-          $(ROOTDIR)/include/libxs_sync.h \
-          $(ROOTDIR)/include/libxs_timer.h \
-          $(ROOTDIR)/include/libxs_typedefs.h
+          $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ")
 
 SRCFILES_KERNELS = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) \
-                   libxs_cpuid_x86.c libxs_malloc.c libxs_sync.c \
+                   libxs_cpuid_x86.c libxs_malloc.c libxs_hash.c libxs_sync.c \
                    libxs_timer.c libxs_trace.c libxs_perf.c)
 SRCFILES_GEN_GEMM_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_gemm_driver.c)
 SRCFILES_GEN_CONV_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_convolution_driver.c)
@@ -247,14 +236,15 @@ OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $
 OBJFILES_GEN_CONV_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_CONV_BIN))))
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_HST = $(BLDDIR)/intel64/libxs_main.o $(BLDDIR)/intel64/libxs_dump.o \
-               $(BLDDIR)/intel64/libxs_gemm.o $(BLDDIR)/intel64/libxs_trans.o \
-               $(BLDDIR)/intel64/libxs_spmdm.o \
+               $(BLDDIR)/intel64/libxs_gemm.o $(BLDDIR)/intel64/libxs_gemm_diff.o \
+               $(BLDDIR)/intel64/libxs_trans.o $(BLDDIR)/intel64/libxs_spmdm.o \
                $(BLDDIR)/intel64/libxs_dnn.o $(BLDDIR)/intel64/libxs_dnn_handle.o \
                $(BLDDIR)/intel64/libxs_dnn_convolution_forward.o \
                $(BLDDIR)/intel64/libxs_dnn_convolution_backward.o \
                $(BLDDIR)/intel64/libxs_dnn_convolution_weight_update.o
 OBJFILES_MIC = $(BLDDIR)/mic/libxs_main.o $(BLDDIR)/mic/libxs_dump.o \
-               $(BLDDIR)/mic/libxs_gemm.o $(BLDDIR)/mic/libxs_trans.o \
+               $(BLDDIR)/mic/libxs_gemm.o $(BLDDIR)/mic/libxs_gemm_diff.o \
+               $(BLDDIR)/mic/libxs_trans.o \
                $(BLDDIR)/mic/libxs_dnn.o $(BLDDIR)/mic/libxs_dnn_handle.o \
                $(BLDDIR)/mic/libxs_dnn_convolution_forward.o \
                $(BLDDIR)/mic/libxs_dnn_convolution_backward.o \

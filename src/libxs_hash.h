@@ -67,9 +67,4 @@ LIBXS_API unsigned int libxs_hash_npot(
   /** Upper bound of the result. */
   unsigned int npot);
 
-
-#if defined(LIBXS_BUILD) && !defined(LIBXS_HASH_NOINLINE)
-# include "libxs_hash.c"
-#endif
-
 #endif /*LIBXS_HASH_H*/
