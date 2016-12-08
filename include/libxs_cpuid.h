@@ -53,6 +53,6 @@
 LIBXS_API int libxs_cpuid_x86(void);
 
 /** Returns the target architecture and instruction set extension (code path). */
-LIBXS_INLINE LIBXS_RETARGETABLE int libxs_cpuid(void) { return libxs_cpuid_x86(); }
+LIBXS_API int libxs_cpuid(void);
 
 #endif /*LIBXS_CPUID_H*/

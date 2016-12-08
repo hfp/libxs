@@ -132,3 +132,9 @@ LIBXS_API_DEFINITION int libxs_cpuid_x86(void)
   return LIBXS_MAX(target_arch, LIBXS_STATIC_TARGET_ARCH);
 }
 
+
+LIBXS_API_DEFINITION int libxs_cpuid(void)
+{
+  return libxs_cpuid_x86();
+}
+
