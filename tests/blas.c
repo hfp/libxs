@@ -63,10 +63,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT ds
 # pragma omp parallel for private(i)
 #endif
   for (i = 0; i < ncols; ++i) {
-    libxs_blasint j;
-    for (j = 0; j < nrows; ++j) {
+    libxs_blasint j = 0;
+    for (; j < nrows; ++j) {
       const libxs_blasint k = i * ld + j;
       dst[k] = (REAL_TYPE)(seed1 / (k + 1));
+    }
+    for (; j < ld; ++j) {
+      const libxs_blasint k = i * ld + j;
+      dst[k] = (REAL_TYPE)seed;
     }
   }
 }
