@@ -222,9 +222,19 @@ endif
 INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 NINDICES = $(words $(INDICES))
 
-HEADERS = $(shell ls -1 $(ROOTDIR)/include/*.h 2> /dev/null | tr "\n" " ") \
-          $(shell ls -1 $(SRCDIR)/template/*.c 2> /dev/null | tr "\n" " ") \
-          $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ")
+HEADERS = $(shell ls -1 $(SRCDIR)/template/*.c 2> /dev/null | tr "\n" " ") \
+          $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
+          $(ROOTDIR)/include/libxs_cpuid.h \
+          $(ROOTDIR)/include/libxs_dnn.h \
+          $(ROOTDIR)/include/libxs_frontend.h \
+          $(ROOTDIR)/include/libxs_generator.h \
+          $(ROOTDIR)/include/libxs_intrinsics_x86.h \
+          $(ROOTDIR)/include/libxs_macros.h \
+          $(ROOTDIR)/include/libxs_malloc.h \
+          $(ROOTDIR)/include/libxs_spmdm.h \
+          $(ROOTDIR)/include/libxs_sync.h \
+          $(ROOTDIR)/include/libxs_timer.h \
+          $(ROOTDIR)/include/libxs_typedefs.h
 
 SRCFILES_KERNELS = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) \
