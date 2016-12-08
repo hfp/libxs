@@ -31,9 +31,9 @@
 #if !defined(_GNU_SOURCE)
 # define _GNU_SOURCE
 #endif
-#include "libxs_malloc.h"
-#include "libxs_main.h"
+#include <libxs_malloc.h>
 #include <libxs_sync.h>
+#include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
