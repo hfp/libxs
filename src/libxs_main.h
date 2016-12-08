@@ -46,7 +46,9 @@
 #endif
 
 /** Helper macro to account for libxs_init being already executed via GCC constructor attribute */
-#if !defined(LIBXS_CTOR) && defined(__GNUC__) && !(defined(__INTEL_COMPILER) && !defined(LIBXS_BUILD))
+#if !defined(LIBXS_CTOR) && defined(__GNUC__) && \
+    !(defined(__INTEL_COMPILER) && !defined(LIBXS_BUILD)) && \
+    !defined(__clang__)
 # if defined(LIBXS_BUILD_EXT) && defined(__STATIC)
 #   define LIBXS_INIT libxs_ext_init/*dummy*/ = libxs_init;
     /**
