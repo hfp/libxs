@@ -255,10 +255,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE void* internal_xmap(const char* dir, size_t size
   if (0 <= i && i < (int)sizeof(filename)) {
     i = mkstemps(filename, 4);
     if (-1 != i && 0 == unlink(filename) && 0 == ftruncate(i, size)) {
-      void *const xmap = mmap(0, size, PROT_READ | PROT_EXEC, flags | MAP_SHARED | LIBXS_MAP_ANONYMOUS, i, 0);
+      void *const xmap = mmap(0, size, PROT_READ | PROT_EXEC, flags | MAP_SHARED /*| LIBXS_MAP_ANONYMOUS*/, i, 0);
       if (MAP_FAILED != xmap) {
         assert(0 != xmap);
-        result = mmap(0, size, PROT_READ | PROT_WRITE, flags | MAP_SHARED | LIBXS_MAP_ANONYMOUS, i, 0);
+        result = mmap(0, size, PROT_READ | PROT_WRITE, flags | MAP_SHARED /*| LIBXS_MAP_ANONYMOUS*/, i, 0);
         if (MAP_FAILED != result) {
           assert(0 != result);
           internal_mhint(xmap, size);
