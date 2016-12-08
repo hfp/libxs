@@ -35,6 +35,13 @@
 #include <libxs_sync.h>
 #include "libxs_main.h"
 
+#if !defined(NDEBUG)
+# include "libxs_hash.h"
+# if !defined(LIBXS_MALLOC_SEED)
+#   define LIBXS_MALLOC_SEED 1051981
+# endif
+#endif
+
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
@@ -55,6 +62,11 @@
 # include <sys/types.h>
 # include <unistd.h>
 # include <errno.h>
+# if defined(MAP_ANONYMOUS)
+#   define LIBXS_MAP_ANONYMOUS MAP_ANONYMOUS
+# else
+#   define LIBXS_MAP_ANONYMOUS MAP_ANON
+# endif
 #endif
 #if defined(LIBXS_VTUNE)
 # include <jitprofiling.h>
@@ -94,6 +106,9 @@ typedef struct LIBXS_RETARGETABLE internal_malloc_info_type {
   int flags;
 #if defined(LIBXS_VTUNE)
   unsigned int code_id;
+#endif
+#if !defined(NDEBUG) /* hash *must* be the last entry */
+  unsigned int hash;
 #endif
 } internal_malloc_info_type;
 
@@ -158,8 +173,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_vtune_jitdesc(const volatile v
 
 LIBXS_INLINE LIBXS_RETARGETABLE internal_malloc_info_type* internal_malloc_info(const volatile void* memory)
 {
-  /* TODO: rely on correct memory information; implement checksum */
-  return (internal_malloc_info_type*)(0 != memory ? (((const char*)memory) - sizeof(internal_malloc_info_type)) : 0);
+  internal_malloc_info_type* result = (internal_malloc_info_type*)
+    (0 != memory ? (((const char*)memory) - sizeof(internal_malloc_info_type)) : 0);
+#if defined(NDEBUG)
+  return result;
+#else /* calculate checksum over info */
+  const unsigned int hash = libxs_crc32(result,
+    /* info size minus actual hash value */
+    sizeof(internal_malloc_info_type) - sizeof(unsigned int),
+    LIBXS_MALLOC_SEED);
+  return (0 != result && hash == result->hash) ? result : 0;
+#endif
 }
 
 
@@ -167,17 +191,25 @@ LIBXS_API_DEFINITION int libxs_malloc_info(const volatile void* memory, size_t* 
 {
   int result = EXIT_SUCCESS;
 #if !defined(NDEBUG)
+  static int error_once = 0;
   if (0 != size || 0 != extra)
 #endif
   {
-    if (0 != memory) {
-      const internal_malloc_info_type *const info = internal_malloc_info(memory);
-      assert(0 != info);
+    const internal_malloc_info_type *const info = internal_malloc_info(memory);
+    if (0 != info) {
       if (size) *size = info->size;
       if (flags) *flags = info->flags;
       if (extra) *extra = info->pointer;
     }
     else {
+      if (0 != memory) {
+#if !defined(NDEBUG)
+        if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+          fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", memory);
+        }
+#endif
+        result = EXIT_FAILURE;
+      }
       if (size) *size = 0;
       if (flags) *flags = 0;
       if (extra) *extra = 0;
@@ -185,7 +217,6 @@ LIBXS_API_DEFINITION int libxs_malloc_info(const volatile void* memory, size_t* 
   }
 #if !defined(NDEBUG)
   else {
-    static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: attachment error for memory buffer %p!\n", memory);
     }
@@ -224,10 +255,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE void* internal_xmap(const char* dir, size_t size
   if (0 <= i && i < (int)sizeof(filename)) {
     i = mkstemps(filename, 4);
     if (-1 != i && 0 == unlink(filename) && 0 == ftruncate(i, size)) {
-      void *const xmap = mmap(0, size, PROT_READ | PROT_EXEC, flags | MAP_SHARED, i, 0);
+      void *const xmap = mmap(0, size, PROT_READ | PROT_EXEC, flags | MAP_SHARED | LIBXS_MAP_ANONYMOUS, i, 0);
       if (MAP_FAILED != xmap) {
         assert(0 != xmap);
-        result = mmap(0, size, PROT_READ | PROT_WRITE, flags | MAP_SHARED, i, 0);
+        result = mmap(0, size, PROT_READ | PROT_WRITE, flags | MAP_SHARED | LIBXS_MAP_ANONYMOUS, i, 0);
         if (MAP_FAILED != result) {
           assert(0 != result);
           internal_mhint(xmap, size);
@@ -340,11 +371,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
         alloc_size = internal_size + alloc_alignment - 1;
         alloc_failed = MAP_FAILED;
         if (0 == (LIBXS_MALLOC_FLAG_X & flags)) {
-# if defined(__APPLE__) && defined(__MACH__)
-          buffer = mmap(0, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | xflags, -1, 0);
-# else
-          buffer = mmap(0, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | xflags, -1, 0);
-# endif
+          buffer = mmap(0, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | xflags, -1, 0);
         }
         else {
           static LIBXS_TLS int fallback = 0;
@@ -407,6 +434,12 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
         info->pointer = buffer;
         info->size = size;
         info->flags = flags;
+#if !defined(NDEBUG) /* calculate checksum over info */
+        info->hash = libxs_crc32(info,
+          /* info size minus actual hash value */
+          sizeof(internal_malloc_info_type) - sizeof(unsigned int),
+          LIBXS_MALLOC_SEED);
+#endif
         *memory = aligned;
       }
       else {
@@ -435,9 +468,12 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
 
 LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
 {
+  /*const*/ internal_malloc_info_type *const info = internal_malloc_info(memory);
   int result = EXIT_SUCCESS;
-  if (memory) {
-    /*const*/ internal_malloc_info_type *const info = internal_malloc_info(memory);
+# if !defined(NDEBUG)
+  static int error_once = 0;
+#endif
+  if (0 != info) {
     assert((0 != info->pointer || 0 == info->size));
     if (0 == (LIBXS_MALLOC_FLAG_MMAP & info->flags)) {
       free(info->pointer);
@@ -457,7 +493,6 @@ LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
         const int flags = info->flags;
         if (0 != munmap(buffer, alloc_size)) {
 # if !defined(NDEBUG) /* library code is expected to be mute */
-          static int error_once = 0;
           if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
             const char *const error_message = strerror(errno);
             fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
@@ -471,7 +506,6 @@ LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
          && 0 != munmap(reloc, alloc_size))
         {
 # if !defined(NDEBUG) /* library code is expected to be mute */
-          static int error_once = 0;
           if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
             const char *const error_message = strerror(errno);
             fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
@@ -484,6 +518,14 @@ LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
 #endif
     }
   }
+  else if (0 != memory) {
+#if !defined(NDEBUG)
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", memory);
+    }
+#endif
+    result = EXIT_FAILURE;
+  }
   assert(EXIT_SUCCESS == result);
   return result;
 }
@@ -491,12 +533,12 @@ LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
 
 LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const char* name)
 {
+  internal_malloc_info_type *const info = 0 != memory ? internal_malloc_info(*memory) : 0;
   int result = EXIT_SUCCESS;
 #if !defined(NDEBUG)
   static int error_once = 0;
 #endif
-  if (0 != memory) {
-    internal_malloc_info_type *const info = internal_malloc_info(*memory);
+  if (0 != info) {
     void *const buffer = info->pointer;
     const size_t size = info->size;
     assert(0 != buffer || 0 == size);
@@ -551,9 +593,17 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
 #if defined(_WIN32)
           /* TODO: implement memory protection under Microsoft Windows */
 #else
+          /* memory is already protected at this point; relocate code */
+          assert(info->pointer != info->reloc);
           *memory = code_ptr; /* relocate */
           info->pointer = info->reloc;
           info->reloc = 0;
+# if !defined(NDEBUG) /* update checksum */
+          info->hash = libxs_crc32(info,
+            /* info size minus actual hash value */
+            sizeof(internal_malloc_info_type) - sizeof(unsigned int),
+            LIBXS_MALLOC_SEED);
+# endif
           assert(0 != buffer && MAP_FAILED != buffer);
           soft_error = munmap(buffer, alloc_size);
 #endif
@@ -575,10 +625,19 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
 #endif
     }
   }
-  else {
+  else if (0 == memory || 0 == *memory) {
 #if !defined(NDEBUG) /* library code is expected to be mute */
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: libxs_malloc_attrib failed because NULL cannot be attributed!\n");
+    }
+#endif
+    result = EXIT_FAILURE;
+  }
+  else {
+    assert(0 != memory && 0 != *memory);
+#if !defined(NDEBUG)
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", *memory);
     }
 #endif
     result = EXIT_FAILURE;
