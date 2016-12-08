@@ -30,7 +30,7 @@
 #define LIBXS_DNN_CONVOLUTION_WEIGHT_UPDATE_H
 
 #include "libxs_main.h"
-#include "libxs_sync.h"
+#include <libxs_sync.h>
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid);
 
