@@ -658,7 +658,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
       { /* select prefetch strategy for JIT */
         const char *const env = getenv("LIBXS_GEMM_PREFETCH");
-        internal_gemm_auto_prefetch = (LIBXS_X86_AVX512_MIC != libxs_target_archid ? INTERNAL_PREFETCH : LIBXS_PREFETCH_AL2BL2_VIA_C);
+        internal_gemm_auto_prefetch = (LIBXS_X86_AVX512_MIC != libxs_target_archid ? INTERNAL_PREFETCH : LIBXS_PREFETCH_BL2_VIA_C);
         libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
         if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
           const int uid = atoi(env);
