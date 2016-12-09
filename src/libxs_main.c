@@ -663,7 +663,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
         if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
           const int uid = atoi(env);
           if (0 <= uid) {
-            libxs_gemm_auto_prefetch = libxs_gemm_uid2prefetch(uid);
+            internal_gemm_auto_prefetch = libxs_gemm_uid2prefetch(uid);
+            libxs_gemm_auto_prefetch = internal_gemm_auto_prefetch;
           }
         }
       }
