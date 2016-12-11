@@ -31,8 +31,7 @@
 #if !defined(_GNU_SOURCE)
 # define _GNU_SOURCE
 #endif
-#include <libxs_malloc.h>
-#include <libxs_sync.h>
+#include <libxs.h>
 #include "libxs_main.h"
 
 #if !defined(NDEBUG)
