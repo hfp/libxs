@@ -1053,6 +1053,7 @@ LIBXS_API_DEFINITION libxs_gemm_prefetch_type libxs_get_gemm_auto_prefetch(void)
 
 LIBXS_API_DEFINITION void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type strategy)
 {
+  LIBXS_ATOMIC_STORE(&internal_gemm_auto_prefetch, strategy, LIBXS_ATOMIC_RELAXED);
   LIBXS_ATOMIC_STORE(&libxs_gemm_auto_prefetch, strategy, LIBXS_ATOMIC_RELAXED);
 }
 
