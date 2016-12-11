@@ -253,14 +253,25 @@
 # endif
 /** Intrinsic-specifc fixups */
 # if defined(__clang__)
-#   define LIBXS_INTRINSICS_LDDQU_SI128 _mm_loadu_si128
+#   define LIBXS_INTRINSICS_LDDQU_SI128(A) _mm_loadu_si128(A)
 # else
-#   define LIBXS_INTRINSICS_LDDQU_SI128 _mm_lddqu_si128
+#   define LIBXS_INTRINSICS_LDDQU_SI128(A) _mm_lddqu_si128(A)
 # endif
 #endif
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
+#endif
+
+#if defined(__INTEL_COMPILER) && !defined(LIBXS_INTRINSICS_NONE)
+# define LIBXS_INTRINSICS_BITSCANFWD(N) _bit_scan_forward(N)
+#elif defined(__GNUC__) && !defined(LIBXS_INTRINSICS_NONE)
+# define LIBXS_INTRINSICS_BITSCANFWD(N) (__builtin_ffs(N) - 1)
+#else /* fall-back implementation */
+LIBXS_INLINE LIBXS_RETARGETABLE int libxs_bitscanfwd(int n) {
+  int i, r = 0; for (i = 1; ! ( N & i ) ; i <<= 1) { ++r; } return r;
+}
+# define LIBXS_INTRINSICS_BITSCANFWD(N) libxs_bitscanfwd(N)
 #endif
 
 #endif /*LIBXS_INTRINSICS_X86_H*/

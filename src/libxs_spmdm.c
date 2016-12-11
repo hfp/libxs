@@ -314,7 +314,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_init_shufmask()
     for(c = 0; c < 8; c++) temp_shufmasks[c] = 0;
     for(c = 0; c < 16; c++) temp_shufmasks2[c] = 0;
     while ( j ) {
-      last_bit = _bit_scan_forward(j);
+      last_bit = LIBXS_INTRINSICS_BITSCANFWD(j);
       temp_shufmasks[cnt] = last_bit;
       temp_shufmasks2[cnt] = (uint16_t)last_bit;
       j &= (~(1<<last_bit));
