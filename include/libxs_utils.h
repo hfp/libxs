@@ -263,14 +263,14 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if defined(__INTEL_COMPILER) && !defined(LIBXS_INTRINSICS_NONE)
+#if (defined(__INTEL_COMPILER) || (defined(_CRAYC) && defined(__GNUC__))) && !defined(LIBXS_INTRINSICS_NONE)
 # define LIBXS_INTRINSICS_BITSCANFWD(N) _bit_scan_forward(N)
-#elif defined(__GNUC__) && !defined(LIBXS_INTRINSICS_NONE)
+#elif defined(__GNUC__) && !defined(_CRAYC) && !defined(LIBXS_INTRINSICS_NONE)
 # define LIBXS_INTRINSICS_BITSCANFWD(N) (__builtin_ffs(N) - 1)
 #else /* fall-back implementation */
-LIBXS_INLINE LIBXS_RETARGETABLE int libxs_bitscanfwd(int n) {
-  int i, r = 0; for (i = 1; ! ( N & i ) ; i <<= 1) { ++r; } return r;
-}
+  LIBXS_INLINE LIBXS_RETARGETABLE int libxs_bitscanfwd(int n) {
+    int i, r = 0; for (i = 1; 0 == (n & i) ; i <<= 1) { ++r; } return r;
+  }
 # define LIBXS_INTRINSICS_BITSCANFWD(N) libxs_bitscanfwd(N)
 #endif
 
