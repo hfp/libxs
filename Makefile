@@ -224,6 +224,7 @@ NINDICES = $(words $(INDICES))
 
 HEADERS = $(shell ls -1 $(SRCDIR)/template/*.c 2> /dev/null | tr "\n" " ") \
           $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
+          $(SRCDIR)/libxs_hash.c $(SRCDIR)/libxs_gemm_diff.c \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \
           $(ROOTDIR)/include/libxs_frontend.h \
@@ -236,14 +237,13 @@ HEADERS = $(shell ls -1 $(SRCDIR)/template/*.c 2> /dev/null | tr "\n" " ") \
           $(ROOTDIR)/include/libxs_timer.h \
           $(ROOTDIR)/include/libxs_typedefs.h
 SRCFILES_LIB = $(patsubst %,$(SRCDIR)/%, \
-          libxs_main.c libxs_cpuid_x86.c libxs_hash.c libxs_malloc.c \
-          libxs_sync.c libxs_dump.o libxs_timer.c libxs_perf.c \
-          libxs_gemm.o libxs_gemm_diff.o \
-          libxs_trans.o libxs_spmdm.o \
-          libxs_dnn.o libxs_dnn_handle.o \
-          libxs_dnn_convolution_forward.o \
-          libxs_dnn_convolution_backward.o \
-          libxs_dnn_convolution_weight_update.o)
+          libxs_main.c libxs_cpuid_x86.c libxs_malloc.c \
+          libxs_sync.c libxs_dump.c libxs_timer.c libxs_perf.c \
+          libxs_gemm.c libxs_trans.c libxs_spmdm.c \
+          libxs_dnn.c libxs_dnn_handle.c \
+          libxs_dnn_convolution_forward.c \
+          libxs_dnn_convolution_backward.c \
+          libxs_dnn_convolution_weight_update.c)
 
 SRCFILES_KERNELS = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) libxs_trace.c)
