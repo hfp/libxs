@@ -104,4 +104,8 @@ LIBXS_API unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* refe
 LIBXS_API unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descriptor* reference,
   const libxs_gemm_descriptor* descs, unsigned int hint, unsigned int ndescs, int nbytes);
 
+#if defined(LIBXS_BUILD) && !defined(LIBXS_GEMM_DIFF_NOINLINE)
+# include "libxs_gemm_diff.c"
+#endif
+
 #endif /*LIBXS_GEMM_DIFF_H*/
