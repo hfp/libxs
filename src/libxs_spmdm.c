@@ -890,8 +890,8 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
         sum[5] = _MM_LOAD_FP32(result_m_index + 5*SIMD_WIDTH_FP32);
         sum[5+num_regs] = _MM_LOAD_FP32(result_m_index_2 + 5*SIMD_WIDTH_FP32);
         for (; j < num_j && j2 < num_j_2; j++, j2++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
-          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + (unsigned int)sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           SIMDTYPE_FP32 v_v_2 = _MM_SET1_FP32(sp_v_ptr_base_2[j2]);
           sum[0] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 0*SIMD_WIDTH_FP32), sum[0]);
@@ -908,7 +908,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
           sum[5 + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + 5*SIMD_WIDTH_FP32), sum[5+num_regs]);
         }
         for (; j < num_j; j++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           sum[0] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 0*SIMD_WIDTH_FP32), sum[0]);
           sum[1] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 1*SIMD_WIDTH_FP32), sum[1]);
@@ -918,7 +918,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
           sum[5] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 5*SIMD_WIDTH_FP32), sum[5]);
         }
         for (; j2 < num_j_2; j2++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + (unsigned int)sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v_2 = _MM_SET1_FP32(sp_v_ptr_base_2[j2]);
           sum[0 + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + 0*SIMD_WIDTH_FP32), sum[0+num_regs]);
           sum[1 + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + 1*SIMD_WIDTH_FP32), sum[1+num_regs]);
@@ -949,8 +949,8 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
           sum[n+1+num_regs] = _MM_SETZERO_FP32();
         }
         for (; j < num_j && j2 < num_j_2; j++, j2++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
-          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + (unsigned int)sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           SIMDTYPE_FP32 v_v_2 = _MM_SET1_FP32(sp_v_ptr_base_2[j2]);
           for (n = 0; n < num_full_regs; n+=2) {
@@ -969,7 +969,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
           }
         }
         for (; j < num_j; j++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           for (n = 0; n < num_full_regs; n+=2) {
             sum[n] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + n*SIMD_WIDTH_FP32), sum[n]);
@@ -983,7 +983,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
           }
         }
         for (; j2 < num_j_2; j2++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + (unsigned int)sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v_2 = _MM_SET1_FP32(sp_v_ptr_base_2[j2]);
           for (n = 0; n < num_full_regs; n+=2) {
             sum[n + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + n*SIMD_WIDTH_FP32), sum[n+num_regs]);
@@ -1028,7 +1028,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
         sum[4] = _MM_LOAD_FP32(result_m_index + 4*SIMD_WIDTH_FP32);
         sum[5] = _MM_LOAD_FP32(result_m_index + 5*SIMD_WIDTH_FP32);
         for (; j < num_j; j++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           sum[0] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 0*SIMD_WIDTH_FP32), sum[0]);
           sum[1] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 1*SIMD_WIDTH_FP32), sum[1]);
@@ -1051,7 +1051,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
           sum[n+1] = _MM_SETZERO_FP32();
         }
         for (; j < num_j; j++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           for (n = 0; n < num_full_regs; n+=2) {
             sum[n] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + n*SIMD_WIDTH_FP32), sum[n]);
@@ -1317,8 +1317,8 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
         sum[5] = _MM_LOAD_FP32(result_m_index + 5*SIMD_WIDTH_FP32);
         sum[5+num_regs] = _MM_LOAD_FP32(result_m_index_2 + 5*SIMD_WIDTH_FP32);
         for (; j < num_j && j2 < num_j_2; j++, j2++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
-          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + (unsigned int)sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           SIMDTYPE_FP32 v_v_2 = _MM_SET1_FP32(sp_v_ptr_base_2[j2]);
           sum[0] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 0*SIMD_WIDTH_FP32), sum[0]);
@@ -1335,7 +1335,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
           sum[5 + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + 5*SIMD_WIDTH_FP32), sum[5+num_regs]);
         }
         for (; j < num_j; j++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           sum[0] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 0*SIMD_WIDTH_FP32), sum[0]);
           sum[1] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 1*SIMD_WIDTH_FP32), sum[1]);
@@ -1345,7 +1345,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
           sum[5] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 5*SIMD_WIDTH_FP32), sum[5]);
         }
         for (; j2 < num_j_2; j2++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + (unsigned int)sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v_2 = _MM_SET1_FP32(sp_v_ptr_base_2[j2]);
           sum[0 + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + 0*SIMD_WIDTH_FP32), sum[0+num_regs]);
           sum[1 + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + 1*SIMD_WIDTH_FP32), sum[1+num_regs]);
@@ -1376,8 +1376,8 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
           sum[n+1+num_regs] = _MM_SETZERO_FP32();
         }
         for (; j < num_j && j2 < num_j_2; j++, j2++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
-          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + (unsigned int)sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           SIMDTYPE_FP32 v_v_2 = _MM_SET1_FP32(sp_v_ptr_base_2[j2]);
           for (n = 0; n < num_full_regs; n+=2) {
@@ -1396,7 +1396,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
           }
         }
         for (; j < num_j; j++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           for (n = 0; n < num_full_regs; n+=2) {
             sum[n] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + n*SIMD_WIDTH_FP32), sum[n]);
@@ -1410,7 +1410,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
           }
         }
         for (; j2 < num_j_2; j2++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index_2 = scratch_B_base + (unsigned int)sp_c_ptr_base_2[j2]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v_2 = _MM_SET1_FP32(sp_v_ptr_base_2[j2]);
           for (n = 0; n < num_full_regs; n+=2) {
             sum[n + num_regs] = _MM_FMADD_FP32(v_v_2, _MM_LOAD_FP32(sp_col_dense_index_2 + n*SIMD_WIDTH_FP32), sum[n+num_regs]);
@@ -1455,7 +1455,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
         sum[4] = _MM_LOAD_FP32(result_m_index + 4*SIMD_WIDTH_FP32);
         sum[5] = _MM_LOAD_FP32(result_m_index + 5*SIMD_WIDTH_FP32);
         for (; j < num_j; j++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           sum[0] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 0*SIMD_WIDTH_FP32), sum[0]);
           sum[1] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + 1*SIMD_WIDTH_FP32), sum[1]);
@@ -1478,7 +1478,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
           sum[n+1] = _MM_SETZERO_FP32();
         }
         for (; j < num_j; j++) {
-          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
+          const float* const LIBXS_RESTRICT sp_col_dense_index = scratch_B_base +  (unsigned int)sp_c_ptr_base[j]*num_regs*SIMD_WIDTH_FP32;
           SIMDTYPE_FP32 v_v = _MM_SET1_FP32(sp_v_ptr_base[j]);
           for (n = 0; n < num_full_regs; n+=2) {
             sum[n] = _MM_FMADD_FP32(v_v, _MM_LOAD_FP32(sp_col_dense_index + n*SIMD_WIDTH_FP32), sum[n]);
