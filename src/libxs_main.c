@@ -182,6 +182,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
   /* search small cache starting with the last hit on record */ \
   i = libxs_gemm_diffn(DESCRIPTOR, &(CACHE_KEYS)->desc, CACHE_HIT, LIBXS_CACHESIZE, LIBXS_GEMM_DESCRIPTOR_SIMD_SIZE); \
   if ((LIBXS_CACHESIZE) > i && (CACHE_ID) == internal_teardown) { /* cache hit, and valid */ \
+    assert(0 == memcmp(DESCRIPTOR, &((CACHE)[i]), LIBXS_GEMM_DESCRIPTOR_SIZE)); \
     (RESULT).xmm = (CACHE)[i]; \
     CACHE_HIT = i; \
   } \
