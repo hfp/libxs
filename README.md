@@ -5,7 +5,7 @@ LIBXS is a library for small dense and small sparse matrix-matrix multiplication
 
 **What is the background of the name "LIBXS"?** The "MM" stands for Matrix Multiplication, and the "S" clarifies the working domain i.e., Small Matrix Multiplication. The latter also means the name is neither a variation of "MXM" nor an eXtreme Small Matrix Multiplication but rather about Intel Architecture (x86) - and no, the library is [64&#8209;bit only](https://github.com/hfp/libxs/issues/103#issuecomment-256887962). The spelling of the name might follow the syllables of libx\\/smm, libx'smm, or libx&#8209;smm.
 
-**What is a small matrix multiplication?** When characterizing the problem size using the M, N, and K parameters, a problem size suitable for LIBXS falls approximately within (M&#160;N&#160;K)<sup>1/3</sup>&#160;\<=&#160;80 (which illustrates that non-square matrices or even "tall and skinny" shapes are covered as well). The library is typically used to generate code up to the specified [threshold](#auto-dispatch). Raising the threshold may not only generate excessive amounts of code (due to unrolling in M and K dimension), but also miss to implement a tiling scheme to effectively utilize the cache hierarchy. For auto-dispatched problem sizes above the configurable threshold, LIBXS is falling back to BLAS.
+**What is a small matrix multiplication?** When characterizing the problem size using the M, N, and K parameters, a problem size suitable for LIBXS falls approximately within (M&#160;N&#160;K)<sup>1/3</sup>&#160;\<=&#160;128 (which illustrates that non-square matrices or even "tall and skinny" shapes are covered as well). The library is typically used to generate code up to the specified [threshold](#auto-dispatch). Raising the threshold may not only generate excessive amounts of code (due to unrolling in M and K dimension), but also miss to implement a tiling scheme to effectively utilize the cache hierarchy. For auto-dispatched problem sizes above the configurable threshold, LIBXS is falling back to BLAS.
 
 **What about "medium-sized" matrix multiplication?** A more recent addition are GEMM routines which are parallelized using OpenMP (`libxs_?gemm_omp`). These routines leverage the same specialized kernel routines as the small matrix multiplications, in-memory code generation (JIT), and automatic code/parameter dispatch but they are implementing a tile-based multiplication scheme i.e., a scheme suitable for larger problem sizes.
 
@@ -199,7 +199,7 @@ void libxs_set_verbosity(int level);
 
 ## Memory Allocation
 Without further claims on the properties of the memory allocation (e.g., thread scalability), there are C functions that allocate aligned memory one of which allows to specify the alignment (or to specify an automatically chosen alignment). The automatic alignment is also exposed by a `malloc` compatible signature. The size of the automatic alignment depends on a heuristic, which uses the size of the requested buffer.  
-**NOTE**: only `libxs_free` is supported in order to deallocate the memory.
+**NOTE**: Only `libxs_free` is supported in order to deallocate the memory.
 
 ```C
 void* libxs_aligned_malloc(size_t size, int alignment);
@@ -207,7 +207,7 @@ void* libxs_malloc(size_t size);
 void libxs_free(const volatile void* memory);
 ```
 
-## Build Instructions
+# Classic Library (ABI)
 The build system relies on GNU Make (typically associated with the `make` command, but e.g. FreeBSD is calling it `gmake`). The build can be customized by using key&#8209;value pairs. Key&#8209;value pairs can be supplied in two ways: (1)&#160;after the "make" command, or (2)&#160;prior to the "make" command (`env`) which is effectively the same as exporting the key&#8209;value pair as an environment variable (`export`, or `setenv`). Of course both methods can be mixed, however the second method may require to supply the `-e` flag. Please note that the CXX, CC, and FC keys are handled such that they are taken into account in any case.
 
 To generate the interface of the library inside of the 'include' directory and to build the static library (by default, STATIC=1 is activated), simply run the following command:
@@ -267,7 +267,7 @@ Of course, both mechanisms (M/N/K and MNK based) can be combined using the same 
 
 Functionality of LIBXS, which is unrelated to GEMM can be used without introducing a dependency to BLAS. This can be achieved in two ways: (1)&#160;building a special library with `make BLAS=0`, or (2)&#160;linking the application against the 'libxsnoblas' library. Some care must be taken with any matrix multiplication which does not appear to require BLAS for the given test arguments. However, it may fall back to BLAS (at runtime of the application), if an unforeseen input is given (problem size, or unsupported GEMM arguments).
 
-**NOTE**: by default, a C/C++ and a FORTRAN compiler is needed (some sample code is written in C++). Beside of specifying the compilers (`make CXX=g++ CC=gcc FC=gfortran` and maybe `AR=ar`), the need for a FORTRAN compiler can be relaxed (`make FC=` or `make FORTRAN=0`). The latter affects the availability of the MODule file and the corresponding 'libxsf' library (the interface 'libxs.f' is still generated). FORTRAN code can make use of LIBXS in three different ways:
+**NOTE**: By default, a C/C++ and a FORTRAN compiler is needed (some sample code is written in C++). Beside of specifying the compilers (`make CXX=g++ CC=gcc FC=gfortran` and maybe `AR=ar`), the need for a FORTRAN compiler can be relaxed (`make FC=` or `make FORTRAN=0`). The latter affects the availability of the MODule file and the corresponding 'libxsf' library (the interface 'libxs.f' is still generated). FORTRAN code can make use of LIBXS in three different ways:
 
 * By relying on the module file, and by linking against 'libxsf', 'libxs', and (optionally) 'libxsext',
 * By including the interface 'libxs.f' and linking against 'libxs', and (optionally) 'libxsext', or
@@ -275,7 +275,18 @@ Functionality of LIBXS, which is unrelated to GEMM can be used without introduci
 
 At the expense of a limited set of functionality (`libxs_?gemm[_omp]`, `libxs_blas_?gemm`, and `libxs_[s|d]otrans[_omp]`), the latter method also works with FORTRAN&#160;77 (otherwise the FORTRAN&#160;2003 standard is necessary). For the "omp" functionality, the 'libxsext' library needs to be present at the link line. For no code change at all, the [Call Wrapper](#call-wrapper) might be of interest.
 
-# Installation
+## Header-Only
+Version&#160;1.4.4 introduced support for the so-known "header-only" use case (C and C++). By only including the 'libxs_source.h' header file allows to get around building the library! However, this gives up on a clearly defined application binary interface (ABI). An ABI may allow for hot-fixes after deploying an application (when relying on the shared library form), and also ensures to only rely on the public interface of LIBXS. In contrast, the header-only form not only exposes the internal implementation of LIBXS but may also reduce the turnaround time during development of an application (due to longer compilation times). The header-only form is intentionally called "libxs_**source**.h" since it relies on the [src](https://github.com/hfp/libxs/tree/master/src) folder (with the implications as noted earlier).
+
+There is still one step needed in order to generate the 'libxs_source.h' file. The build target shown below ('header-only') has been introduced in LIBXS&#160;1.6.2, and `make cheader` can be used alternatively (or instead with earlier versions). Generating the C interface is still necessary since LIBXS has to be configured (see [configuration](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h) template).
+
+```
+make header-only
+```
+
+**NOTE**: Differences between C and C++ makes a header-only implementation (which is portable between both languages) considerably "techy". At this time, mixing C and C++ translation units (which rely on the header-only form of the library) is not supported! Also, remember that building an application (which uses the header-only form) now shares the same build settings with LIBXS. The latter is also important for whether debug code is generated or not (`-DNDEBUG`).
+
+## Installation
 Installing LIBXS makes possibly the most sense when combining the [JIT backend](#jit-backend) (enabled by default) with a collection of statically generated SSE kernels (by specifying M, N, K, or MNK). If the JIT backend is not disabled, statically generated kernels are only registered for dispatch if the CPUID flags at runtime are not supporting a more specific instruction set extension (code path). Since the JIT backend does not support or generate SSE code by itself, the library is compiled by selecting SSE code generation if not specified otherwise (AVX=1|2|3, or with SSE=0 falling back to an "arch-native" approach). Limiting the static code path to SSE4.2 allows to practically target any deployed system, however using SSE=0 and AVX=0 together is falling back to generic code, and any static kernels are not specialized using the assembly code generator.
 
 There are two main mechanisms to install LIBXS (both mechanisms can be combined): (1)&#160;building the library in an out&#8209;of&#8209;tree fashion, and (2)&#160;installing into a certain location. Building in an out&#8209;of&#8209;tree fashion looks like:
@@ -323,19 +334,19 @@ The verbose mode allows for an insight into the code dispatch mechanism by recei
 LIBXS_VERBOSE=1 ./myapplication
 [... application output]
 
-HSW/SP        TRY    JIT    STA    COL
-     0..13      7      7      0      0
-    14..23      0      0      0      0
-    24..80      3      3      0      0
+HSW/SP      TRY    JIT    STA    COL
+   0..13      0      0      0      0
+  14..23      0      0      0      0
+ 24..128      3      3      0      0
 ```
 
-The tables are distinct between single-precision and double-precision, but either table is pruned if all counters are zero. If both tables are pruned, the library shows the code path which would have been used for JIT'ting the code: `LIBXS_TARGET=hsw` (otherwise the code path is shown in the table's header). The actual counters are collected for three buckets: small kernels (MNK<sup>1/3</sup>&#160;\<=&#160;13), medium-sized kernels (13&#160;\<&#160;MNK<sup>1/3</sup>&#160;\<=&#160;23), and larger kernels (23&#160;\<&#160;MNK<sup>1/3</sup>&#160;\<=&#160;80; the actual upper bound depends on LIBXS_MAX_MNK as selected at compile-time). Keep in mind, that "larger" is supposedly still fairly small in terms of arithmetic intensity (which grows linearly with the kernel size). Unfortunately, the arithmetic intensity depends on the way a kernel is used (which operands are loaded/stored into main memory) and it is not performance-neutral to collect this information.
+The tables are distinct between single-precision and double-precision, but either table is pruned if all counters are zero. If both tables are pruned, the library shows the code path which would have been used for JIT'ting the code: `LIBXS_TARGET=hsw` (otherwise the code path is shown in the table's header). The actual counters are collected for three buckets: small kernels (MNK<sup>1/3</sup>&#160;\<=&#160;13), medium-sized kernels (13&#160;\<&#160;MNK<sup>1/3</sup>&#160;\<=&#160;23), and larger kernels (23&#160;\<&#160;MNK<sup>1/3</sup>&#160;\<=&#160;128; the actual upper bound depends on LIBXS_MAX_MNK as selected at compile-time). Keep in mind, that "larger" is supposedly still fairly small in terms of arithmetic intensity (which grows linearly with the kernel size). Unfortunately, the arithmetic intensity depends on the way a kernel is used (which operands are loaded/stored into main memory) and it is not performance-neutral to collect this information.
 
 The TRY counter represents all attempts to register statically generated kernels, and all attempts to dynamically generate and register kernels. The TRY counter includes rejected JIT requests due to unsupported GEMM arguments. The JIT and STA counters distinct the successful cases of the aforementioned event (TRY) into dynamically (JIT) and statically (STA) generated code. In case the capacity (O(*n*)&#160;=&#160;10<sup>5</sup>) of the code registry is exhausted, no more kernels can be registered although further attempts are not prevented. Registering many kernels (O(*n*)&#160;=&#160;10<sup>3</sup>) may ramp the number of hash key collisions (COL), which can degrade performance. The latter is prevented if the small thread-local cache is utilized effectively.
 
 Since explicitly JIT-generated code (`libxs_?mmdispatch`) does not fall under the THRESHOLD criterion, the above table is extended by one line if large kernels have been requested. This indicates a missing threshold-criterion (customized dispatch), or asks for cache-blocking the matrix multiplication. The latter is already implemented by LIBXS's "medium-sized" GEMM routines (`libxs_?gemm_omp`), which perform a tiled multiplication.
 
-**NOTE**: setting LIBXS_VERBOSE to a negative value will dump each generated JIT kernel to a file with each file being named similar to the function name shown in [Intel&#160;VTune](#profiling).
+**NOTE**: Setting LIBXS_VERBOSE to a negative value will dump each generated JIT kernel to a file with each file being named similar to the function name shown in [Intel&#160;VTune](#profiling).
 
 ## Performance
 ## Intel&#160;VTune&#160;Amplifier
