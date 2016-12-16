@@ -596,7 +596,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(const libxs_g
 }
 
 
-LIBXS_API_DEFINITION int libxs_gemm_prefetch2uid(int prefetch)
+LIBXS_API_DEFINITION int libxs_gemm_prefetch2uid(libxs_gemm_prefetch_type prefetch)
 {
   switch (prefetch) {
     case LIBXS_PREFETCH_SIGONLY:            return 2;
@@ -616,7 +616,7 @@ LIBXS_API_DEFINITION int libxs_gemm_prefetch2uid(int prefetch)
 }
 
 
-LIBXS_API_DEFINITION int libxs_gemm_uid2prefetch(int uid)
+LIBXS_API_DEFINITION libxs_gemm_prefetch_type libxs_gemm_uid2prefetch(int uid)
 {
   switch (uid) {
     case  2: return LIBXS_PREFETCH_SIGONLY;             /* pfsigonly */
@@ -1100,7 +1100,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         if (0 > libxs_verbosity)
 # endif
         {
-          const int uid = libxs_gemm_prefetch2uid(request->descriptor.gemm->prefetch);
+          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.gemm->prefetch);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.mxm", target_arch/*code path name*/,
             0 == (LIBXS_GEMM_FLAG_F32PREC & request->descriptor.gemm->flags) ? "f64" : "f32",
@@ -1128,7 +1128,7 @@ LIBXS_API_DEFINITION void libxs_build(const libxs_build_request* request, unsign
         if (0 > libxs_verbosity)
 # endif
         {
-          const int uid = libxs_gemm_prefetch2uid(request->descriptor.ssoa->gemm->prefetch);
+          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.ssoa->gemm->prefetch);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.ssoa", target_arch/*code path name*/,
             0 == (LIBXS_GEMM_FLAG_F32PREC & request->descriptor.ssoa->gemm->flags) ? "f64" : "f32",
