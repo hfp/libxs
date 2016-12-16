@@ -255,8 +255,8 @@ LIBXS_API void libxs_build(const libxs_build_request* request, unsigned regindex
 /** Updates counters of the statistic, which is shown at program termination. */
 LIBXS_API unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol);
 
-LIBXS_API int libxs_gemm_prefetch2uid(int prefetch);
-LIBXS_API int libxs_gemm_uid2prefetch(int uid);
+LIBXS_API int libxs_gemm_prefetch2uid(libxs_gemm_prefetch_type prefetch);
+LIBXS_API libxs_gemm_prefetch_type libxs_gemm_uid2prefetch(int uid);
 
 LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype);
 
