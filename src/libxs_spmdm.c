@@ -59,7 +59,7 @@
 #error "LIBXS_STATIC_TARGET_ARCH undefined"
 #endif
 
-#if LIBXS_STATIC_TARGET_ARCH==LIBXS_X86_AVX512_CORE
+#if (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
 #define SIMD_WIDTH_FP32 (16)
 #define SIMDTYPE_FP32 __m512
 #define SIMDTYPE_INT32 __m512i
@@ -164,7 +164,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void _mm256i_epi16_print(__m256i a, char * s)
   v = _mm512_packus_epi32(a, b); \
   }
 
-#elif LIBXS_STATIC_TARGET_ARCH==LIBXS_X86_AVX2
+#elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
 #define SIMD_WIDTH_FP32 (8)
 #define SIMDTYPE_FP32 __m256
 #define SIMDTYPE_INT32 __m256i
@@ -379,9 +379,9 @@ LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   handle->k  = K;
 
   handle->bm = 256;
-#if LIBXS_STATIC_TARGET_ARCH==LIBXS_X86_AVX512_CORE
+#if (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
   handle->bn = 96;
-#elif LIBXS_STATIC_TARGET_ARCH==LIBXS_X86_AVX2
+#elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   handle->bn = 48;
 #else
   handle->bn = 6;
