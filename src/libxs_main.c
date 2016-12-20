@@ -139,14 +139,6 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 # define LIBXS_TRYLOCK
 #endif
 
-#if defined(LIBXS_CTOR)
-/* libxs_init already executed via GCC constructor attribute */
-# define INTERNAL_FIND_CODE_INIT(VARIABLE) assert(0 != (VARIABLE))
-#else /* lazy initialization */
-/* use return value of internal_init to refresh local representation */
-# define INTERNAL_FIND_CODE_INIT(VARIABLE) if (0 == (VARIABLE)) VARIABLE = internal_init()
-#endif
-
 #if defined(LIBXS_OPENMP)
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) LIBXS_PRAGMA(omp critical(internal_reglock)) { \
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) }
@@ -276,7 +268,8 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 { \
   INTERNAL_FIND_CODE_CACHE_DECL(cache_id, cache_keys, cache, cache_hit) \
   unsigned int hash, diff = 0, diff0 = 0, i0; \
-  INTERNAL_FIND_CODE_INIT(CODE); \
+  /* use return value of internal_init to refresh local representation */ \
+  if (0 == (CODE)) CODE = internal_init(); \
   INTERNAL_FIND_CODE_CACHE_BEGIN(cache_id, cache_keys, cache, cache_hit, flux_entry, DESCRIPTOR) { \
     /* check if the requested xGEMM is already JITted */ \
     LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
@@ -922,7 +915,7 @@ LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
 
 LIBXS_API_DEFINITION int libxs_get_target_archid(void)
 {
-  LIBXS_INIT
+  LIBXS_INIT();
 #if !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   return libxs_target_archid;
 #else /* no JIT support */
@@ -969,7 +962,7 @@ LIBXS_API_DEFINITION void libxs_set_target_archid(int id)
 
 LIBXS_API_DEFINITION const char* libxs_get_target_arch(void)
 {
-  LIBXS_INIT
+  LIBXS_INIT();
   return internal_get_target_arch(libxs_target_archid);
 }
 
@@ -1048,14 +1041,14 @@ LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
 
 LIBXS_API_DEFINITION int libxs_get_verbosity(void)
 {
-  LIBXS_INIT
+  LIBXS_INIT();
   return libxs_verbosity;
 }
 
 
 LIBXS_API_DEFINITION void libxs_set_verbosity(int level)
 {
-  LIBXS_INIT
+  LIBXS_INIT();
   LIBXS_ATOMIC_STORE(&libxs_verbosity, level, LIBXS_ATOMIC_RELAXED);
 }
 
@@ -1309,7 +1302,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
   /* there is no need to check LIBXS_GEMM_NO_BYPASS_DIMS (M, N, K, LDx) since we already got a descriptor */
   if (0 != descriptor && LIBXS_GEMM_NO_BYPASS(descriptor->flags, descriptor->alpha, descriptor->beta)) {
     libxs_gemm_descriptor backend_descriptor;
-    LIBXS_INIT
+    LIBXS_INIT();
     if (0 > (int)descriptor->prefetch) {
       backend_descriptor = *descriptor;
       backend_descriptor.prefetch = (unsigned char)libxs_gemm_auto_prefetch;
@@ -1335,7 +1328,7 @@ LIBXS_API_DEFINITION libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const float* alpha, const float* beta,
   const int* flags, const int* prefetch)
 {
-  LIBXS_INIT
+  LIBXS_INIT();
   INTERNAL_DISPATCH(float, flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
@@ -1345,7 +1338,7 @@ LIBXS_API_DEFINITION libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
   const double* alpha, const double* beta,
   const int* flags, const int* prefetch)
 {
-  LIBXS_INIT
+  LIBXS_INIT();
   INTERNAL_DISPATCH(double, flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
@@ -1359,7 +1352,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_de
   libxs_code_pointer code = { 0 };
   libxs_csr_soa_descriptor ssoa;
   libxs_build_request request;
-  LIBXS_INIT
+  LIBXS_INIT();
   ssoa.gemm = descriptor;
   ssoa.row_ptr = row_ptr;
   ssoa.column_idx = column_idx;
@@ -1374,7 +1367,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_de
 LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
 {
   void* extra = 0;
-  LIBXS_INIT
+  LIBXS_INIT();
   if (EXIT_SUCCESS == libxs_malloc_info((const volatile void*)jit_code, 0/*size*/, 0/*flags*/, &extra) && 0 != extra) {
     const unsigned int regindex = *((const unsigned int*)extra);
     if (LIBXS_REGSIZE <= regindex) {
