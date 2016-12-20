@@ -154,7 +154,9 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
     /* if locked, (re-)try to receive the (meanwhile) generated code version */
 #   define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
       const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, INTERNAL_REGLOCK_COUNT); \
-      if (LIBXS_LOCK_ACQUIRED != LIBXS_LOCK_TRYLOCK(internal_reglock + (LOCKINDEX))) continue
+      if (LIBXS_LOCK_ACQUIRED != LIBXS_LOCK_TRYLOCK(internal_reglock + (LOCKINDEX))) { \
+        goto START; \
+      }
 # endif
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(internal_reglock + (LOCKINDEX)); }
 #else
@@ -277,6 +279,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
     LIBXS_PRAGMA_FORCEINLINE /* must precede a statement */ \
     LIBXS_HASH_FUNCTION_CALL(hash, i = i0, *(DESCRIPTOR)); \
     (CODE) += i; /* actual entry */ \
+    START: \
     do { \
       flux_entry.pmm = LIBXS_ATOMIC_LOAD(&(CODE)->pmm, LIBXS_ATOMIC_SEQ_CST); /* read registered code */ \
       if (0 != flux_entry.pmm) { /* code version exists */ \
