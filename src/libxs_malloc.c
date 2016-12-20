@@ -177,10 +177,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_malloc_info_type* internal_malloc_info(
 #if defined(NDEBUG)
   return result;
 #else /* calculate checksum over info */
-  const unsigned int hash = libxs_crc32(result,
-    /* info size minus actual hash value */
-    sizeof(internal_malloc_info_type) - sizeof(unsigned int),
-    LIBXS_MALLOC_SEED);
+  const unsigned int hash = libxs_crc32(result, /* info size minus actual hash value */
+    sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
   return (0 != result && hash == result->hash) ? result : 0;
 #endif
 }
@@ -438,10 +436,8 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
         info->size = size;
         info->flags = flags;
 #if !defined(NDEBUG) /* calculate checksum over info */
-        info->hash = libxs_crc32(info,
-          /* info size minus actual hash value */
-          sizeof(internal_malloc_info_type) - sizeof(unsigned int),
-          LIBXS_MALLOC_SEED);
+        info->hash = libxs_crc32(info, /* info size minus actual hash value */
+          sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
 #endif
         *memory = aligned;
       }
@@ -545,7 +541,11 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
   if (0 != info) {
     void *const buffer = info->pointer;
     const size_t size = info->size;
+#if defined(_WIN32)
     assert(0 != buffer || 0 == size);
+#else
+    assert((0 != buffer && MAP_FAILED != buffer) || 0 == size);
+#endif
     /* quietly keep the read permission, but eventually revoke write permissions */
     if (0 == (LIBXS_MALLOC_FLAG_W & flags) || 0 != (LIBXS_MALLOC_FLAG_X & flags)) {
       const int alignment = (int)(((const char*)(*memory)) - ((const char*)buffer));
@@ -602,18 +602,19 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
           info->pointer = info->reloc;
           info->reloc = 0;
 # if !defined(NDEBUG) /* update checksum */
-          info->hash = libxs_crc32(info,
-            /* info size minus actual hash value */
-            sizeof(internal_malloc_info_type) - sizeof(unsigned int),
-            LIBXS_MALLOC_SEED);
+          info->hash = libxs_crc32(info, /* info size minus actual hash value */
+            sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
 # endif
-          assert(0 != buffer && MAP_FAILED != buffer);
           /* treat memory protection errors as soft error; ignore return value */
           munmap(buffer, alloc_size);
 #endif
         }
 #if !defined(_WIN32)
         else { /* malloc-based fall-back */
+# if !defined(NDEBUG) && defined(LIBXS_VTUNE) /* update checksum */
+          info->hash = libxs_crc32(info, /* info size minus actual hash value */
+            sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
+# endif
           /* treat memory protection errors as soft error; ignore return value */
           mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ | PROT_EXEC);
         }
@@ -661,5 +662,13 @@ LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 LIBXS_API_DEFINITION void libxs_free(const volatile void* memory)
 {
   libxs_xfree(memory);
+}
+
+
+LIBXS_API_DEFINITION size_t libxs_malloc_size(const volatile void* memory)
+{
+  size_t size = 0;
+  libxs_malloc_info(memory, &size, 0/*flags*/, 0/*extra*/);
+  return size;
 }
 
