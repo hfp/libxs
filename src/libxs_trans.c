@@ -78,7 +78,7 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
 #endif
   assert(0 < typesize);
   if (ldi >= m && ldo >= n && 0 != out && 0 != in) {
-    LIBXS_INIT
+    LIBXS_INIT();
     if (out != in) {
       internal_otrans(out, in, typesize, 0, m, 0, n, ldi, ldo);
     }
@@ -127,7 +127,7 @@ LIBXS_API_DEFINITION int libxs_itrans(void* inout, unsigned int typesize,
   static int error_once = 0;
 #endif
   if (0 != inout) {
-    LIBXS_INIT
+    LIBXS_INIT();
     if (m == n) { /* some fallback; still warned as "not implemented" */
       libxs_blasint i, j;
       for (i = 0; i < n; ++i) {

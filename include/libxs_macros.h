@@ -359,6 +359,14 @@
 #endif
 
 #if defined(__GNUC__)
+# define LIBXS_CTOR_ATTRIBUTE LIBXS_ATTRIBUTE(constructor)
+# define LIBXS_DTOR_ATTRIBUTE LIBXS_ATTRIBUTE(destructor)
+#else
+# define LIBXS_CTOR_ATTRIBUTE
+# define LIBXS_DTOR_ATTRIBUTE
+#endif
+
+#if defined(__GNUC__)
 # define LIBXS_MAY_ALIAS LIBXS_ATTRIBUTE(__may_alias__)
 #else
 # define LIBXS_MAY_ALIAS
