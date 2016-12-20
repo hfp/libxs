@@ -136,7 +136,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 #endif
 
 #if !defined(LIBXS_TRYLOCK)
-/*# define LIBXS_TRYLOCK*/
+# define LIBXS_TRYLOCK
 #endif
 
 #if defined(LIBXS_CTOR)
@@ -155,7 +155,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 #   define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
       const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, INTERNAL_REGLOCK_COUNT); \
       if (LIBXS_LOCK_ACQUIRED != LIBXS_LOCK_TRYLOCK(internal_reglock + (LOCKINDEX))) { \
-        assert(0 == diff); continue; \
+        diff = 0; continue; \
       }
 # else
 #   define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
@@ -182,7 +182,6 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
   /* search small cache starting with the last hit on record */ \
   i = libxs_gemm_diffn(DESCRIPTOR, &(CACHE_KEYS)->desc, CACHE_HIT, LIBXS_CACHESIZE, LIBXS_GEMM_DESCRIPTOR_SIMD_SIZE); \
   if ((LIBXS_CACHESIZE) > i && (CACHE_ID) == internal_teardown) { /* cache hit, and valid */ \
-    assert(0 == memcmp(DESCRIPTOR, &(CACHE_KEYS)[i].desc, LIBXS_GEMM_DESCRIPTOR_SIZE)); \
     (RESULT).xmm = (CACHE)[i]; \
     CACHE_HIT = i; \
   } \
@@ -340,6 +339,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
     } \
     while (0 != diff); \
     assert(0 == diff || 0 == flux_entry.pmm); \
+    assert(0 == flux_entry.pmm || 0 == memcmp(DESCRIPTOR, &internal_registry_keys[i].descriptor, LIBXS_GEMM_DESCRIPTOR_SIZE)); \
     INTERNAL_FIND_CODE_CACHE_FINALIZE(cache_id, cache_keys, cache, cache_hit, flux_entry, DESCRIPTOR); \
   } \
 } \
@@ -396,6 +396,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_sml /*= 13*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_med /*= 23*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_mnk /*= LIBXS_MAX_M*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_teardown /*= 0*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_gemm_auto_prefetch_locked;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_gemm_auto_prefetch;
 
 
@@ -556,6 +557,13 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_statistic(FILE* ostr
 }
 
 
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_statistic_ntry(int precision)
+{
+  return internal_statistic[precision][0/*SML*/].ntry + internal_statistic[precision][1/*MED*/].ntry 
+       + internal_statistic[precision][2/*BIG*/].ntry + internal_statistic[precision][3/*XXX*/].ntry;
+}
+
+
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(const libxs_gemm_descriptor* desc,
   unsigned int index, unsigned int hash, libxs_xmmfunction src, libxs_code_pointer* registry)
 {
@@ -657,18 +665,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
     if (0 == result) {
       int init_code = EXIT_FAILURE;
       libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
-      { /* select prefetch strategy for JIT */
-        const char *const env = getenv("LIBXS_GEMM_PREFETCH");
-        internal_gemm_auto_prefetch = (LIBXS_X86_AVX512_MIC != libxs_target_archid ? INTERNAL_PREFETCH : LIBXS_PREFETCH_BL2_VIA_C);
-        libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
-        if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
-          const int uid = atoi(env);
-          if (0 <= uid) {
-            internal_gemm_auto_prefetch = libxs_gemm_uid2prefetch(uid);
-            libxs_gemm_auto_prefetch = internal_gemm_auto_prefetch;
-          }
-        }
-      }
       libxs_mt = 2;
       {
         /* behaviour of parallelized routines which are located in libxsext library
@@ -733,7 +729,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       if (EXIT_SUCCESS == init_code)
 #endif
       {
-        libxs_gemm_init(libxs_target_archid, libxs_gemm_auto_prefetch);
         libxs_gemm_diff_init(libxs_target_archid);
         libxs_trans_init(libxs_target_archid);
         libxs_hash_init(libxs_target_archid);
@@ -744,6 +739,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
         result = (libxs_code_pointer*)LIBXS_MAIN_MALLOC(LIBXS_REGSIZE * sizeof(libxs_code_pointer));
         internal_registry_keys = (internal_regkey_type*)LIBXS_MAIN_MALLOC(LIBXS_REGSIZE * sizeof(internal_regkey_type));
         if (0 != result && 0 != internal_registry_keys) {
+          const char *const env = getenv("LIBXS_GEMM_PREFETCH");
           for (i = 0; i < LIBXS_REGSIZE; ++i) result[i].pmm = 0;
           /* omit registering code if JIT is enabled and if an ISA extension is found
            * which is beyond the static code path used to compile the library
@@ -761,6 +757,19 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
 #           include <libxs_dispatch.h>
           }
 #endif
+          internal_gemm_auto_prefetch = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
+            ? LIBXS_PREFETCH_BL2_VIA_C /* avoid since static code is hard-coded for INTERNAL_PREFETCH */
+            : INTERNAL_PREFETCH;
+          libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
+          if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
+            const int uid = atoi(env);
+            if (0 <= uid) {
+              internal_gemm_auto_prefetch = libxs_gemm_uid2prefetch(uid);
+              libxs_gemm_auto_prefetch = internal_gemm_auto_prefetch;
+              internal_gemm_auto_prefetch_locked = 1;
+            }
+          }
+          libxs_gemm_init(libxs_target_archid, libxs_gemm_auto_prefetch);
           atexit(libxs_finalize);
           {
             void *const pv_registry = &internal_registry;
@@ -1054,8 +1063,10 @@ LIBXS_API_DEFINITION libxs_gemm_prefetch_type libxs_get_gemm_auto_prefetch(void)
 
 LIBXS_API_DEFINITION void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type strategy)
 {
-  LIBXS_ATOMIC_STORE(&internal_gemm_auto_prefetch, strategy, LIBXS_ATOMIC_RELAXED);
-  LIBXS_ATOMIC_STORE(&libxs_gemm_auto_prefetch, strategy, LIBXS_ATOMIC_RELAXED);
+  if (0 == internal_gemm_auto_prefetch_locked) { /* LIBXS_GEMM_PREFETCH environment takes precedence */
+    LIBXS_ATOMIC_STORE(&internal_gemm_auto_prefetch, strategy, LIBXS_ATOMIC_RELAXED);
+    LIBXS_ATOMIC_STORE(&libxs_gemm_auto_prefetch, strategy, LIBXS_ATOMIC_RELAXED);
+  }
 }
 
 

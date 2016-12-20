@@ -55,4 +55,7 @@ LIBXS_API void* libxs_malloc(size_t size);
 /** Deallocate memory (malloc/free interface). */
 LIBXS_API void libxs_free(const volatile void* memory);
 
+/** Get the size of the allocated memory; zero in case of an error. */
+LIBXS_API size_t libxs_malloc_size(const volatile void* memory);
+
 #endif /*LIBXS_MALLOC_H*/
