@@ -577,11 +577,13 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
           *memory;
         assert(0 != (LIBXS_MALLOC_FLAG_X & flags));
         if (name && *name) { /* profiler support requested */
-          FILE *const code_file = fopen(name, "wb");
-          if (0 != code_file) { /* dump byte-code into a file and print function pointer and filename */
-            fprintf(stderr, "LIBXS-JIT-DUMP(ptr:file) %p : %s\n", code_ptr, name);
-            fwrite(code_ptr, 1, size, code_file);
-            fclose(code_file);
+          if (0 > libxs_verbosity) { /* avoid dump when only the profiler is enabled */
+            FILE *const code_file = fopen(name, "wb");
+            if (0 != code_file) { /* dump byte-code into a file and print function pointer and filename */
+              fprintf(stderr, "LIBXS-JIT-DUMP(ptr:file) %p : %s\n", code_ptr, name);
+              fwrite(code_ptr, 1, size, code_file);
+              fclose(code_file);
+            }
           }
 #if defined(LIBXS_VTUNE)
           if (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
