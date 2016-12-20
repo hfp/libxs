@@ -71,16 +71,17 @@
 #   define LIBXS_VTUNE_JIT_LOAD iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED
 # endif
 # define LIBXS_VTUNE_JIT_UNLOAD iJVM_EVENT_TYPE_METHOD_UNLOAD_START
-# define LIBXS_MALLOC_FALLBACK 4
-# define LIBXS_MALLOC_NOCRC
-#else
-# define LIBXS_MALLOC_FALLBACK 0
+/*# define LIBXS_MALLOC_NOCRC*/
 #endif /*defined(LIBXS_VTUNE)*/
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 #if defined(LIBXS_PERF)
 # include "libxs_perf.h"
+#endif
+
+#if !defined(LIBXS_MALLOC_FALLBACK)
+# define LIBXS_MALLOC_FALLBACK 0
 #endif
 
 #if defined(NDEBUG) || defined(LIBXS_MALLOC_NOCRC)
