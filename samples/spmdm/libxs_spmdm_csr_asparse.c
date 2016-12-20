@@ -28,7 +28,7 @@
  * ******************************************************************************/
 /* Nadathur Satish (Intel Corp.)
  * ******************************************************************************/
-/* NOTE: This code currently ignores alpha, beta and trans inputs to the matrix multiply */
+/* NOTE: This code currently ignores alpha input to the matrix multiply */
 #include <libxs_spmdm.h>
 #include <libxs.h>
 #include <libxs_intrinsics_x86.h>
@@ -158,7 +158,7 @@ void libxs_spmdm_exec_bfloat16( const libxs_spmdm_handle* handle,
 int main(int argc, char **argv)
 {
   real *A_gold, *B_gold;
-  float *C_gold, *C;
+  float *C_gold, *C0_gold, *C;
 
   int M, N, K;
   real alpha, beta;
@@ -199,6 +199,7 @@ int main(int argc, char **argv)
   A_gold = (real*)libxs_aligned_malloc( M*K*sizeof(real), 2097152 );
   B_gold = (real*)libxs_aligned_malloc( K*N*sizeof(real), 2097152 );
   C_gold = (float*)libxs_aligned_malloc( M*N*sizeof(float), 2097152 );
+  C0_gold = (float*)libxs_aligned_malloc( M*N*sizeof(float), 2097152 );
   C      = (float*)libxs_aligned_malloc( M*N*sizeof(float), 2097152 );
 
   /* Step 3: init data */
@@ -229,10 +230,11 @@ int main(int argc, char **argv)
     B_gold[l] = val;
   }
   for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
-    C_gold[l] = (float)0.0;
+    C0_gold[l] = drand48();
+    C_gold[l] = C0_gold[l];
   }
   for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
-    C[l]      = (float)0.0;
+    C[l]      = (float)C0_gold[l];
   }
   flops = (double)M * (double)N * (double)K * 2.0;
 
@@ -254,8 +256,8 @@ int main(int argc, char **argv)
 
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i\n", M, N, K, handle.bm, handle.bn, handle.bk, handle.mb, handle.nb, handle.kb, reps );
   /* The overall function that takes in matrix inputs in dense format, does the conversion of A to sparse format and does the matrix multiply */
-  /* Currently ignores alpha, beta and transA, transB */
-  /* TODO: fix alpha, beta and transA, transB inputs */
+  /* Currently ignores alpha */
+  /* TODO: fix alpha input */
 # ifdef USE_BFLOAT
   libxs_spmdm_exec_bfloat16( &handle, transA, transB, &alpha, A_gold, B_gold, &beta, C, A_sparse);
 # else
@@ -285,7 +287,7 @@ int main(int argc, char **argv)
         sum += Aval * Bval;
       }
       float Cval = sum;
-      C_gold[i*N + j] += Cval;
+      C_gold[i*N + j] = Cval + beta*C_gold[i*N + j];
     }
   }
   /* LIBXS_FSYMBOL(sgemm)(&trans, &trans, &N, &M, &K, &alpha, B_gold, &N, A_gold, &K, &beta, C_gold, &N); */
@@ -320,11 +322,11 @@ int main(int argc, char **argv)
     }
   }
   for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
-    C[l]      = (float)0.0;
+    C[l]      = (float)C0_gold[l];
   }
   /* The overall function that takes in matrix inputs in dense format, does the conversion of A to sparse format and does the matrix multiply */
-  /* Currently ignores alpha, beta and transA, transB */
-  /* TODO: fix alpha, beta and transA, transB inputs */
+  /* Currently ignores alpha */
+  /* TODO: fix alpha inputs */
 # ifdef USE_BFLOAT
   libxs_spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold2, B_gold, &beta, C, A_sparse2);
 # else
@@ -358,11 +360,11 @@ int main(int argc, char **argv)
     }
   }
   for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
-    C[l]      = (float)0.0;
+    C[l]      = (float)C0_gold[l];
   }
   /* The overall function that takes in matrix inputs in dense format, does the conversion of A to sparse format and does the matrix multiply */
-  /* Currently ignores alpha, beta and transA, transB */
-  /* TODO: fix alpha, beta and transA, transB inputs */
+  /* Currently ignores alpha */
+  /* TODO: fix alpha inputs */
 # ifdef USE_BFLOAT
   libxs_spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold, B_gold2, &beta, C, A_sparse2);
 # else
@@ -384,7 +386,15 @@ int main(int argc, char **argv)
   end = libxs_timer_tick();
   printf("Time = %lf Time/rep = %lf, TFlops/s = %lf\n", libxs_timer_duration(start, end), libxs_timer_duration(start, end)*1.0/reps, flops/1000./1000./1000./1000./libxs_timer_duration(start, end)*reps);
   libxs_spmdm_destroy(&handle2);
+ 
+  libxs_free(A_gold);
+  libxs_free(B_gold);
+  libxs_free(C_gold);
+  libxs_free(C);
+  libxs_free(C0_gold);
+  libxs_free(B_gold2);
+  libxs_free(A_gold2);
 
- return 0;
+  return 0;
 }
 
