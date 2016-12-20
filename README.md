@@ -198,13 +198,14 @@ void libxs_set_verbosity(int level);
 ```
 
 ## Memory Allocation
-Without further claims on the properties of the memory allocation (e.g., thread scalability), there are C functions that allocate aligned memory one of which allows to specify the alignment (or to specify an automatically chosen alignment). The automatic alignment is also exposed by a `malloc` compatible signature. The size of the automatic alignment depends on a heuristic, which uses the size of the requested buffer.  
+Without further claims on the properties of the memory allocation (e.g., thread scalability), there are C functions ('libxs_malloc.h') that allocate aligned memory one of which allows to specify the alignment (or to specify an automatically chosen alignment). The automatic alignment is also exposed by a `malloc` compatible signature. The size of the automatic alignment depends on a heuristic, which uses the size of the requested buffer.  
 **NOTE**: Only `libxs_free` is supported in order to deallocate the memory.
 
 ```C
 void* libxs_aligned_malloc(size_t size, int alignment);
 void* libxs_malloc(size_t size);
 void libxs_free(const volatile void* memory);
+size_t libxs_malloc_size(const volatile void* memory);
 ```
 
 # Classic Library (ABI)
