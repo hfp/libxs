@@ -34,13 +34,6 @@
 #include <libxs.h>
 #include "libxs_main.h"
 
-#if !defined(NDEBUG)
-# include "libxs_hash.h"
-# if !defined(LIBXS_MALLOC_SEED)
-#   define LIBXS_MALLOC_SEED 1051981
-# endif
-#endif
-
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
@@ -90,7 +83,12 @@
 # include "libxs_perf.h"
 #endif
 
-#if !defined(NDEBUG) && !defined(LIBXS_MALLOC_NOCRC)
+#if defined(NDEBUG) || defined(LIBXS_MALLOC_NOCRC)
+# include "libxs_hash.h"
+# if !defined(LIBXS_MALLOC_SEED)
+#   define LIBXS_MALLOC_SEED 1051981
+# endif
+#else
 # define LIBXS_MALLOC_NOCRC
 #endif
 
@@ -114,7 +112,7 @@ typedef struct LIBXS_RETARGETABLE internal_malloc_info_type {
 #if defined(LIBXS_VTUNE)
   unsigned int code_id;
 #endif
-#if !defined(NDEBUG) /* hash *must* be the last entry */
+#if !defined(LIBXS_MALLOC_NOCRC) /* hash *must* be the last entry */
   unsigned int hash;
 #endif
 } internal_malloc_info_type;
@@ -195,7 +193,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_malloc_info_type* internal_malloc_info(
 LIBXS_API_DEFINITION int libxs_malloc_info(const volatile void* memory, size_t* size, int* flags, void** extra)
 {
   int result = EXIT_SUCCESS;
-#if !defined(NDEBUG)
+#if !defined(NDEBUG) || !defined(LIBXS_MALLOC_NOCRC)
   static int error_once = 0;
   if (0 != size || 0 != extra)
 #endif
@@ -447,7 +445,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
         info->pointer = buffer;
         info->size = size;
         info->flags = flags;
-#if !defined(NDEBUG) /* calculate checksum over info */
+#if !defined(LIBXS_MALLOC_NOCRC) /* calculate checksum over info */
         info->hash = libxs_crc32(info, /* info size minus actual hash value */
           sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
 #endif
@@ -481,7 +479,7 @@ LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
 {
   /*const*/ internal_malloc_info_type *const info = internal_malloc_info(memory);
   int result = EXIT_SUCCESS;
-# if !defined(NDEBUG)
+# if !defined(NDEBUG) || !defined(LIBXS_MALLOC_NOCRC)
   static int error_once = 0;
 #endif
   if (0 != info) {
@@ -547,7 +545,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
 {
   internal_malloc_info_type *const info = 0 != memory ? internal_malloc_info(*memory) : 0;
   int result = EXIT_SUCCESS;
-#if !defined(NDEBUG)
+#if !defined(NDEBUG) || !defined(LIBXS_MALLOC_NOCRC)
   static int error_once = 0;
 #endif
   if (0 != info) {
@@ -613,7 +611,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
           *memory = code_ptr; /* relocate */
           info->pointer = info->reloc;
           info->reloc = 0;
-# if !defined(NDEBUG) /* update checksum */
+# if !defined(LIBXS_MALLOC_NOCRC) /* update checksum */
           info->hash = libxs_crc32(info, /* info size minus actual hash value */
             sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
 # endif
@@ -623,7 +621,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
         }
 #if !defined(_WIN32)
         else { /* malloc-based fall-back */
-# if !defined(NDEBUG) && defined(LIBXS_VTUNE) /* update checksum */
+# if !defined(LIBXS_MALLOC_NOCRC) && defined(LIBXS_VTUNE) /* update checksum */
           info->hash = libxs_crc32(info, /* info size minus actual hash value */
             sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
 # endif
