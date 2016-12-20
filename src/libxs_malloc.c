@@ -71,7 +71,7 @@
 #   define LIBXS_VTUNE_JIT_LOAD iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED
 # endif
 # define LIBXS_VTUNE_JIT_UNLOAD iJVM_EVENT_TYPE_METHOD_UNLOAD_START
-/*# define LIBXS_MALLOC_NOCRC*/
+# define LIBXS_MALLOC_NOCRC
 #endif /*defined(LIBXS_VTUNE)*/
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
