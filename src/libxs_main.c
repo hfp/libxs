@@ -136,7 +136,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 #endif
 
 #if !defined(LIBXS_TRYLOCK)
-# define LIBXS_TRYLOCK
+/*# define LIBXS_TRYLOCK*/
 #endif
 
 #if defined(LIBXS_OPENMP)
