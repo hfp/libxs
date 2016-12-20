@@ -78,12 +78,20 @@
 #   define LIBXS_VTUNE_JIT_LOAD iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED
 # endif
 # define LIBXS_VTUNE_JIT_UNLOAD iJVM_EVENT_TYPE_METHOD_UNLOAD_START
+# define LIBXS_MALLOC_FALLBACK 4
+# define LIBXS_MALLOC_NOCRC
+#else
+# define LIBXS_MALLOC_FALLBACK 0
 #endif /*defined(LIBXS_VTUNE)*/
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 #if defined(LIBXS_PERF)
 # include "libxs_perf.h"
+#endif
+
+#if !defined(NDEBUG) && !defined(LIBXS_MALLOC_NOCRC)
+# define LIBXS_MALLOC_NOCRC
 #endif
 
 #if !defined(LIBXS_MALLOC_ALIGNMAX)
@@ -174,7 +182,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_malloc_info_type* internal_malloc_info(
 {
   internal_malloc_info_type* result = (internal_malloc_info_type*)
     (0 != memory ? (((const char*)memory) - sizeof(internal_malloc_info_type)) : 0);
-#if defined(NDEBUG)
+#if defined(LIBXS_MALLOC_NOCRC)
   return result;
 #else /* calculate checksum over info */
   const unsigned int hash = libxs_crc32(result, /* info size minus actual hash value */
@@ -200,7 +208,7 @@ LIBXS_API_DEFINITION int libxs_malloc_info(const volatile void* memory, size_t* 
     }
     else {
       if (0 != memory) {
-#if !defined(NDEBUG)
+#if !defined(LIBXS_MALLOC_NOCRC)
         if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
           fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", memory);
         }
@@ -219,8 +227,10 @@ LIBXS_API_DEFINITION int libxs_malloc_info(const volatile void* memory, size_t* 
     }
     result = EXIT_FAILURE;
   }
-#endif
+# if defined(LIBXS_MALLOC_NOCRC)
   assert(EXIT_SUCCESS == result);
+# endif
+#endif
   return result;
 }
 
@@ -371,7 +381,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
           buffer = mmap(0, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | xflags, -1, 0);
         }
         else {
-          static LIBXS_TLS int fallback = 0;
+          static LIBXS_TLS int fallback = LIBXS_MALLOC_FALLBACK;
           if (0 == fallback) {
             buffer = internal_xmap("/tmp", alloc_size, xflags, &reloc);
             if (alloc_failed == buffer) fallback = 1;
@@ -388,12 +398,14 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
             buffer = internal_xmap(getenv("JITDUMPDIR"), alloc_size, xflags, &reloc);
             if (alloc_failed == buffer) fallback = 4;
           }
-#if 0
-          if (4 == fallback) { /* final */
+          if (4 == fallback) { /* 5th try */
             buffer = mmap(0, alloc_size, PROT_READ | PROT_WRITE | PROT_EXEC,
               MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | xflags, -1, 0);
+            if (alloc_failed == buffer) fallback = 5;
           }
-#endif
+          if (5 == fallback && alloc_failed != buffer) { /* final */
+            buffer = alloc_failed; /* trigger fall-back */
+          }
         }
         if (alloc_failed != buffer) {
           assert(0 != buffer);
@@ -519,7 +531,7 @@ LIBXS_API_DEFINITION int libxs_xfree(const volatile void* memory)
     }
   }
   else if (0 != memory) {
-#if !defined(NDEBUG)
+#if !defined(LIBXS_MALLOC_NOCRC)
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", memory);
     }
@@ -632,7 +644,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
   }
   else {
     assert(0 != memory && 0 != *memory);
-#if !defined(NDEBUG)
+#if !defined(LIBXS_MALLOC_NOCRC)
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", *memory);
     }
