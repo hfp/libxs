@@ -764,7 +764,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
   /* Copy in C matrix to buffer*/
   ptr_result = C + m_overall_start*handle->n + n_overall_start;
   if(!last_block_n) {
-    if (*beta == 0.f) {
+    if (LIBXS_FEQ(0, *beta)) {
       for (m = 0; m < num_m; m++) {
         _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 0*SIMD_WIDTH_FP32, _MM_SETZERO_FP32());
         _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 1*SIMD_WIDTH_FP32, _MM_SETZERO_FP32());
@@ -774,7 +774,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
         _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 5*SIMD_WIDTH_FP32, _MM_SETZERO_FP32());
       }
     }
-    else if (*beta == 1.f) {
+    else if (LIBXS_FEQ(1, *beta)) {
       for (m = 0; m < num_m; m++) {
         _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 0*SIMD_WIDTH_FP32, _MM_LOADU_FP32(ptr_result + m*handle->n + 0*SIMD_WIDTH_FP32));
         _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 1*SIMD_WIDTH_FP32, _MM_LOADU_FP32(ptr_result + m*handle->n + 1*SIMD_WIDTH_FP32));
@@ -796,7 +796,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
       }
     }
   } else {
-    if (*beta == 0.f) {
+    if (LIBXS_FEQ(0, *beta)) {
       for (m = 0; m < num_m; m++) {
         for (n = 0; n < num_full_regs; n+=2) {
           _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + n*SIMD_WIDTH_FP32, _MM_SETZERO_FP32());
@@ -807,7 +807,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_fp32_thread(
         }
       }
     }
-    else if (*beta == 1.f) {
+    else if (LIBXS_FEQ(1, *beta)) {
       for (m = 0; m < num_m; m++) {
         for (n = 0; n < num_full_regs; n+=2) {
           _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + n*SIMD_WIDTH_FP32, _MM_LOADU_FP32(ptr_result + m*handle->n + n*SIMD_WIDTH_FP32));
@@ -1237,7 +1237,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
   /* Copy in C matrix to buffer */
   ptr_result = C + m_overall_start*handle->n + n_overall_start;
   if(!last_block_n) {
-    if (*beta == 0) {
+    if (LIBXS_FEQ(0, *beta)) {
       for (m = 0; m < num_m; m++) {
         _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 0*SIMD_WIDTH_FP32, _MM_SETZERO_FP32());
         _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 1*SIMD_WIDTH_FP32, _MM_SETZERO_FP32());
@@ -1247,7 +1247,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
         _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 5*SIMD_WIDTH_FP32, _MM_SETZERO_FP32());
       }
     }
-    else if (*beta == 1) {
+    else if (LIBXS_FEQ(1, *beta)) {
       for (m = 0; m < num_m; m++) {
         _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 0*SIMD_WIDTH_FP32, _MM_LOADU_FP32(ptr_result + m*handle->n + 0*SIMD_WIDTH_FP32));
         _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + 1*SIMD_WIDTH_FP32, _MM_LOADU_FP32(ptr_result + m*handle->n + 1*SIMD_WIDTH_FP32));
@@ -1269,7 +1269,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
       }
     }
   } else {
-    if (*beta == 0) {
+    if (LIBXS_FEQ(0, *beta)) {
       for (m = 0; m < num_m; m++) {
         for (n = 0; n < num_full_regs; n+=2) {
           _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + n*SIMD_WIDTH_FP32, _MM_SETZERO_FP32());
@@ -1280,7 +1280,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_compute_bfloat16_thread(
         }
       }
     }
-    else if (*beta == 1) {
+    else if (LIBXS_FEQ(1, *beta)) {
       for (m = 0; m < num_m; m++) {
         for (n = 0; n < num_full_regs; n+=2) {
           _MM_STORE_FP32(scratch_C + m*num_regs*SIMD_WIDTH_FP32 + n*SIMD_WIDTH_FP32, _MM_LOADU_FP32(ptr_result + m*handle->n + n*SIMD_WIDTH_FP32));
