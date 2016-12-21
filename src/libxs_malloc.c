@@ -184,9 +184,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE internal_malloc_info_type* internal_malloc_info(
 #if defined(LIBXS_MALLOC_NOCRC)
   return result;
 #else /* calculate checksum over info */
-  const unsigned int hash = libxs_crc32(result, /* info size minus actual hash value */
-    sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
-  return (0 != result && hash == result->hash) ? result : 0;
+  return (0 != result && result->hash == libxs_crc32(result, /* info size minus actual hash value */
+    sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED)) ? result : 0;
 #endif
 }
 
