@@ -701,6 +701,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           handle->desc.threads * handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
           * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in),
           LIBXS_ALIGNMENT);
+        /* enable external reduce of filter scratch */
+        if ( (handle->options & LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) > 0 ) {
+          handle->upd_use_external_reduce = 1;
+        }
       } else {
         handle->scratch4 = 0;
         handle->upd_use_thread_fil = 0;
@@ -714,6 +718,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             handle->desc.threads * handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
             * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in),
             LIBXS_ALIGNMENT);
+          /* enable external reduce of filter scratch */
+          if ( (handle->options & LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) > 0 ) {
+            handle->upd_use_external_reduce = 1;
+          }
         }
       }
     }
