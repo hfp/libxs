@@ -224,40 +224,40 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_d
        do not use libxs_release_kernel here! */
     if ( (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
           libxs_get_target_archid() == LIBXS_X86_AVX512_CORE    ) && (handle->avx512avx2fallback == 0) ) {
-      if (handle->code_fwd[0].pmm != 0) { libxs_xfree(handle->code_fwd[0].pmm); }
-      if (handle->code_fwd[1].pmm != 0) { libxs_xfree(handle->code_fwd[1].pmm); }
-      if (handle->code_fwd[2].pmm != 0) { libxs_xfree(handle->code_fwd[2].pmm); }
-      if (handle->code_fwd[3].pmm != 0) { libxs_xfree(handle->code_fwd[3].pmm); }
-      if (handle->code_bwd[0].pmm != 0) { libxs_xfree(handle->code_bwd[0].pmm); }
+      libxs_free(handle->code_fwd[0].pmm);
+      libxs_free(handle->code_fwd[1].pmm);
+      libxs_free(handle->code_fwd[2].pmm);
+      libxs_free(handle->code_fwd[3].pmm);
+      libxs_free(handle->code_bwd[0].pmm);
       if ((handle->filter_format == LIBXS_DNN_CONV_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_CONV_FORMAT_LIBXS)) {
-        if (handle->code_bwd[1].pmm != 0) { libxs_xfree(handle->code_bwd[1].pmm); }
-        if (handle->code_bwd[2].pmm != 0) { libxs_xfree(handle->code_bwd[2].pmm); }
-        if (handle->code_bwd[3].pmm != 0) { libxs_xfree(handle->code_bwd[3].pmm); }
+        libxs_free(handle->code_bwd[1].pmm);
+        libxs_free(handle->code_bwd[2].pmm);
+        libxs_free(handle->code_bwd[3].pmm);
       }
-      if (handle->code_upd[0].pmm != 0) { libxs_xfree(handle->code_upd[0].pmm); }
+      libxs_free(handle->code_upd[0].pmm);
       if ((handle->filter_format == LIBXS_DNN_CONV_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_CONV_FORMAT_LIBXS)) {
-        if (handle->code_upd[1].pmm != 0) { libxs_xfree(handle->code_upd[1].pmm); }
-        if (handle->code_upd[2].pmm != 0) { libxs_xfree(handle->code_upd[2].pmm); }
-        if (handle->code_upd[3].pmm != 0) { libxs_xfree(handle->code_upd[3].pmm); }
-        if (handle->code_upd[4].pmm != 0) { libxs_xfree(handle->code_upd[4].pmm); }
-        if (handle->code_upd[5].pmm != 0) { libxs_xfree(handle->code_upd[5].pmm); }
+        libxs_free(handle->code_upd[1].pmm);
+        libxs_free(handle->code_upd[2].pmm);
+        libxs_free(handle->code_upd[3].pmm);
+        libxs_free(handle->code_upd[4].pmm);
+        libxs_free(handle->code_upd[5].pmm);
       }
     } else if ( (libxs_get_target_archid() == LIBXS_X86_AVX2) || (handle->avx512avx2fallback != 0) ) {
-      if (handle->code_fwd[0].pmm != 0) { libxs_xfree(handle->code_fwd[0].pmm); }
+      libxs_free(handle->code_fwd[0].pmm);
       if (handle->fwd_ofw_rb_2 != 0) {
-        if (handle->code_fwd[1].pmm != 0) { libxs_xfree(handle->code_fwd[1].pmm); }
+        libxs_free(handle->code_fwd[1].pmm);
       }
-      if (handle->code_bwd[0].pmm != 0) { libxs_xfree(handle->code_bwd[0].pmm); }
-      if (handle->code_upd[0].pmm != 0) { libxs_xfree(handle->code_upd[0].pmm); }
+      libxs_free(handle->code_bwd[0].pmm);
+      libxs_free(handle->code_upd[0].pmm);
     } else {
       /* no kernel was JITed */
     }
 
     /*Deallocate scratch in handle*/
-    if(handle->scratch1 != 0) libxs_xfree(handle->scratch1);
-    if(handle->scratch2 != 0) libxs_barrier_release((const libxs_barrier*)handle->scratch2);
-    if(handle->scratch3 != 0) libxs_xfree(handle->scratch3);
-    if(handle->scratch4 != 0) libxs_xfree(handle->scratch4);
+    libxs_free(handle->scratch1);
+    libxs_barrier_release((const libxs_barrier*)handle->scratch2);
+    libxs_free(handle->scratch3);
+    libxs_free(handle->scratch4);
 
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_conv_handle*)handle);
@@ -597,7 +597,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_bu
   if (0 != buffer) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer, just deallocate if it's LIBXS private data */
     if ( (buffer->format & LIBXS_DNN_CONV_FORMAT_PTR) == 0 ) {
-      libxs_xfree(buffer->data);
+      libxs_free(buffer->data);
     }
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_buffer*)buffer);
@@ -795,7 +795,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_filter(const libxs_dnn_fi
   if (0 != filter) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
     if ( (filter->format & LIBXS_DNN_CONV_FORMAT_PTR) == 0 ) {
-      libxs_xfree(filter->data);
+      libxs_free(filter->data);
     }
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_filter*)filter);
@@ -850,7 +850,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias
 
   if (0 != bias) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
-    libxs_xfree(bias->data);
+    libxs_free(bias->data);
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_bias*)bias);
   }
