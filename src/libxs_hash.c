@@ -348,6 +348,7 @@ LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32(const void* data, unsigned in
 #if defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
   return libxs_crc32_sse42(data, size, seed);
 #else /* pointer based function call */
+  assert(0 != internal_hash_function);
   return internal_hash_function(data, size, seed);
 #endif
 }
