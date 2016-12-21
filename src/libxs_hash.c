@@ -355,12 +355,14 @@ LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32(const void* data, unsigned in
 
 LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_sw(const void* data, unsigned int size, unsigned int seed)
 {
+  assert(0 != data || 0 == size);
   LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 }
 
 
 LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int seed)
 {
+  assert(0 != data || 0 == size);
 #if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_MAX_STATIC_TARGET_ARCH) && \
   /* prevents backend error in Clang when selecting below intrinsic(s) (despite of the LIBXS_INTRINSICS attribute) */ \
   ((defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH)) || \
@@ -379,12 +381,14 @@ LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(const 
 
 LIBXS_HASH_API_DEFINITION unsigned int libxs_hash(const void* data, unsigned int size, unsigned int n)
 {
+  assert(0 != data || 0 == size);
   LIBXS_HASH_UNALIGNED(LIBXS_HASH_NGEN, LIBXS_HASH_NGEN, LIBXS_HASH_NGEN, LIBXS_HASH_NGEN, data, size, size, n);
 }
 
 
 LIBXS_HASH_API_DEFINITION unsigned int libxs_hash_npot(const void* data, unsigned int size, unsigned int npot)
 {
+  assert(0 != data || 0 == size);
   LIBXS_HASH_UNALIGNED(LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, LIBXS_HASH_NPOT, data, size, size, npot);
 }
 
