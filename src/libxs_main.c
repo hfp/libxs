@@ -135,25 +135,20 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 # define INTERNAL_PREFETCH LIBXS_PREFETCH
 #endif
 
-#if !defined(LIBXS_TRYLOCK)
-/*# define LIBXS_TRYLOCK*/
-#endif
-
 #if defined(LIBXS_OPENMP)
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) LIBXS_PRAGMA(omp critical(internal_reglock)) { \
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) }
 #elif !defined(LIBXS_NO_SYNC)
-# if defined(LIBXS_TRYLOCK)
-    /* if locked, exit entire dispatch loop and let the client-side fall back */
-#   define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
-      const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, INTERNAL_REGLOCK_COUNT); \
-      if (LIBXS_LOCK_ACQUIRED != LIBXS_LOCK_TRYLOCK(internal_reglock + (LOCKINDEX))) break
-# else
-    /* if locked, (re-)try to receive the (meanwhile) generated code version */
-#   define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
-      const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, INTERNAL_REGLOCK_COUNT); \
-      if (LIBXS_LOCK_ACQUIRED != LIBXS_LOCK_TRYLOCK(internal_reglock + (LOCKINDEX))) continue
-# endif
+# define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
+  const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, INTERNAL_REGLOCK_COUNT); \
+  if (LIBXS_LOCK_ACQUIRED != LIBXS_LOCK_TRYLOCK(internal_reglock + (LOCKINDEX))) { \
+    if (0 == internal_trylock) { /* (re-)try and get (meanwhile) generated code */ \
+      continue; \
+    } \
+    else { /* exit dispatch and let client fall back */ \
+      break; \
+    } \
+  }
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(internal_reglock + (LOCKINDEX)); }
 #else
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX)
@@ -386,6 +381,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_mnk /*= LIBXS_
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_teardown /*= 0*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_gemm_auto_prefetch_locked;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_gemm_auto_prefetch;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_trylock;
 
 
 LIBXS_API_DEFINITION unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol)
@@ -654,8 +650,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       int init_code = EXIT_FAILURE;
       libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
       libxs_mt = 2;
-      {
-        /* behaviour of parallelized routines which are located in libxsext library
+      { /* behaviour of parallelized routines which are located in libxsext library
          * 0: sequential below-threshold routine (no OpenMP); may fall-back to BLAS,
          * 1: (OpenMP-)parallelized but without internal parallel region,
          * 2: (OpenMP-)parallelized with internal parallel region"
@@ -665,10 +660,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
           libxs_mt = atoi(env);
         }
       }
-      {
-        const char *const env = getenv("LIBXS_TASKS");
+      { const char *const env = getenv("LIBXS_TASKS");
         if (0 != env && 0 != *env) {
           libxs_tasks = atoi(env);
+        }
+      }
+      { const char *const env = getenv("LIBXS_TRYLOCK");
+        if (0 != env && 0 != *env) {
+          internal_trylock = atoi(env);
         }
       }
       /* clear internal counters/statistic */
