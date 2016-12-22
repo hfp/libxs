@@ -59,8 +59,10 @@
 #endif
 
 /* Helper macro to eventually (if defined) call libxs_init */
-#if !defined(LIBXS_CTOR)
+#if !defined(LIBXS_CTOR) && !defined(LIBXS_INIT)
 # define LIBXS_INIT libxs_init();
+#elif !defined(LIBXS_INIT)
+# define LIBXS_INIT
 #endif
 
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
