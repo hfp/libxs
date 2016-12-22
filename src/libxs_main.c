@@ -910,7 +910,7 @@ LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
 
 LIBXS_API_DEFINITION int libxs_get_target_archid(void)
 {
-  LIBXS_INIT();
+  LIBXS_INIT
 #if !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   return libxs_target_archid;
 #else /* no JIT support */
@@ -957,7 +957,7 @@ LIBXS_API_DEFINITION void libxs_set_target_archid(int id)
 
 LIBXS_API_DEFINITION const char* libxs_get_target_arch(void)
 {
-  LIBXS_INIT();
+  LIBXS_INIT
   return internal_get_target_arch(libxs_target_archid);
 }
 
@@ -1036,28 +1036,28 @@ LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
 
 LIBXS_API_DEFINITION int libxs_get_verbosity(void)
 {
-  LIBXS_INIT();
+  LIBXS_INIT
   return libxs_verbosity;
 }
 
 
 LIBXS_API_DEFINITION void libxs_set_verbosity(int level)
 {
-  LIBXS_INIT();
+  LIBXS_INIT
   LIBXS_ATOMIC_STORE(&libxs_verbosity, level, LIBXS_ATOMIC_RELAXED);
 }
 
 
 LIBXS_API_DEFINITION int libxs_get_dispatch_trylock(void)
 {
-  LIBXS_INIT();
+  LIBXS_INIT
   return libxs_dispatch_trylock;
 }
 
 
 LIBXS_API_DEFINITION void libxs_set_dispatch_trylock(int trylock)
 {
-  LIBXS_INIT();
+  LIBXS_INIT
   if (0 == internal_dispatch_trylock_locked) { /* LIBXS_TRYLOCK environment takes precedence */
     LIBXS_ATOMIC_STORE(&libxs_dispatch_trylock, trylock, LIBXS_ATOMIC_RELAXED);
   }
@@ -1313,7 +1313,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
   /* there is no need to check LIBXS_GEMM_NO_BYPASS_DIMS (M, N, K, LDx) since we already got a descriptor */
   if (0 != descriptor && LIBXS_GEMM_NO_BYPASS(descriptor->flags, descriptor->alpha, descriptor->beta)) {
     libxs_gemm_descriptor backend_descriptor;
-    LIBXS_INIT();
+    LIBXS_INIT
     if (0 > (int)descriptor->prefetch) {
       backend_descriptor = *descriptor;
       backend_descriptor.prefetch = (unsigned char)libxs_gemm_auto_prefetch;
@@ -1339,7 +1339,7 @@ LIBXS_API_DEFINITION libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
   const float* alpha, const float* beta,
   const int* flags, const int* prefetch)
 {
-  LIBXS_INIT();
+  LIBXS_INIT
   INTERNAL_DISPATCH(float, flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
@@ -1349,7 +1349,7 @@ LIBXS_API_DEFINITION libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
   const double* alpha, const double* beta,
   const int* flags, const int* prefetch)
 {
-  LIBXS_INIT();
+  LIBXS_INIT
   INTERNAL_DISPATCH(double, flags, m, n, k, lda, ldb, ldc, alpha, beta, prefetch);
 }
 
@@ -1363,7 +1363,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_de
   libxs_code_pointer code = { 0 };
   libxs_csr_soa_descriptor ssoa;
   libxs_build_request request;
-  LIBXS_INIT();
+  LIBXS_INIT
   ssoa.gemm = descriptor;
   ssoa.row_ptr = row_ptr;
   ssoa.column_idx = column_idx;
@@ -1378,7 +1378,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_dcsr_soa(const libxs_gemm_de
 LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
 {
   void* extra = 0;
-  LIBXS_INIT();
+  LIBXS_INIT
   if (EXIT_SUCCESS == libxs_malloc_info((const volatile void*)jit_code, 0/*size*/, 0/*flags*/, &extra) && 0 != extra) {
     const unsigned int regindex = *((const unsigned int*)extra);
     if (LIBXS_REGSIZE <= regindex) {
