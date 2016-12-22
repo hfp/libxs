@@ -1486,7 +1486,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_forward(
   const libxs_convolution_forward_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
-  LIBXS_INIT();
+  LIBXS_INIT
   if (0 != descriptor) {
     libxs_build_request request;
     request.descriptor.cfwd = descriptor;
@@ -1509,7 +1509,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_backward(
   const libxs_convolution_backward_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
-  LIBXS_INIT();
+  LIBXS_INIT
   if (0 != descriptor) {
     libxs_build_request request;
     request.descriptor.cbwd = descriptor;
@@ -1532,7 +1532,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_update_weights(
   const libxs_convolution_weight_update_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
-  LIBXS_INIT();
+  LIBXS_INIT
   if (0 != descriptor) {
     libxs_build_request request;
     request.descriptor.cupd = descriptor;
@@ -1554,7 +1554,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_forward(
   const libxs_convolution_forward_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
-  LIBXS_INIT();
+  LIBXS_INIT
   if (0 != descriptor) {
     libxs_build_request request;
     request.descriptor.cfwd = descriptor;
@@ -1577,7 +1577,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_backward(
   const libxs_convolution_backward_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
-  LIBXS_INIT();
+  LIBXS_INIT
   if (0 != descriptor) {
     libxs_build_request request;
     request.descriptor.cbwd = descriptor;
@@ -1600,7 +1600,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_update_weights(
   const libxs_convolution_weight_update_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
-  LIBXS_INIT();
+  LIBXS_INIT
   if (0 != descriptor) {
     libxs_build_request request;
     request.descriptor.cupd = descriptor;

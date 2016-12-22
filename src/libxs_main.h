@@ -59,8 +59,9 @@
 #endif
 
 /* Helper macro to eventually (if defined) call libxs_init */
-#define LIBXS_INIT libxs_init
-
+#if !defined(LIBXS_CTOR)
+# define LIBXS_INIT libxs_init();
+#endif
 
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   /*const*/void* pmm;
