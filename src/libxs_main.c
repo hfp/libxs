@@ -142,7 +142,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX) { \
   const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, INTERNAL_REGLOCK_COUNT); \
   if (LIBXS_LOCK_ACQUIRED != LIBXS_LOCK_TRYLOCK(internal_reglock + (LOCKINDEX))) { \
-    if (0 == internal_trylock) { /* (re-)try and get (meanwhile) generated code */ \
+    if (0 == libxs_dispatch_trylock) { /* (re-)try and get (meanwhile) generated code */ \
       continue; \
     } \
     else { /* exit dispatch and let client fall back */ \
@@ -379,9 +379,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_sml /*= 13*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_med /*= 23*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_mnk /*= LIBXS_MAX_M*/;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_teardown /*= 0*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_dispatch_trylock_locked;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_gemm_auto_prefetch_locked;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_gemm_auto_prefetch;
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_trylock;
 
 
 LIBXS_API_DEFINITION unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol)
@@ -667,7 +667,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
       }
       { const char *const env = getenv("LIBXS_TRYLOCK");
         if (0 != env && 0 != *env) {
-          internal_trylock = atoi(env);
+          libxs_dispatch_trylock = atoi(env);
+          internal_dispatch_trylock_locked = 1;
         }
       }
       /* clear internal counters/statistic */
@@ -1044,6 +1045,22 @@ LIBXS_API_DEFINITION void libxs_set_verbosity(int level)
 {
   LIBXS_INIT();
   LIBXS_ATOMIC_STORE(&libxs_verbosity, level, LIBXS_ATOMIC_RELAXED);
+}
+
+
+LIBXS_API_DEFINITION int libxs_get_dispatch_trylock(void)
+{
+  LIBXS_INIT();
+  return libxs_dispatch_trylock;
+}
+
+
+LIBXS_API_DEFINITION void libxs_set_dispatch_trylock(int trylock)
+{
+  LIBXS_INIT();
+  if (0 == internal_dispatch_trylock_locked) { /* LIBXS_TRYLOCK environment takes precedence */
+    LIBXS_ATOMIC_STORE(&libxs_dispatch_trylock, trylock, LIBXS_ATOMIC_RELAXED);
+  }
 }
 
 
