@@ -42,16 +42,19 @@
 # if    defined(__AVX512F__)  && defined(__AVX512CD__) \
    &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
    && !(defined(__APPLE__) && defined(__MACH__)) \
-   && (!defined(__clang__) || LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+   && (!defined(__clang__) || ((LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
+   || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))))
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
 # elif  defined(__AVX512F__) && defined(__AVX512CD__) \
    &&   defined(__AVX512PF__) && defined(__AVX512ER__) \
    && !(defined(__APPLE__) && defined(__MACH__)) \
-   && (!defined(__clang__) || LIBXS_VERSION3(3, 5, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+   && (!defined(__clang__) || ((LIBXS_VERSION3(3, 5, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
+   || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))))
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
 # elif  defined(__AVX512F__) && defined(__AVX512CD__) \
    && !(defined(__APPLE__) && defined(__MACH__)) \
-   && (!defined(__clang__) || LIBXS_VERSION3(3, 5, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+   && (!defined(__clang__) || ((LIBXS_VERSION3(3, 5, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
+   || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))))
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512
 # elif defined(__AVX2__)
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX2
@@ -108,10 +111,10 @@
 #         define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #       else
-#         if (LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+#         if ((LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))
 #           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,avx512f,avx512cd,avx512pf,avx512er,avx512dq,avx512bw,avx512vl"))
 #           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
-#         elif (LIBXS_VERSION3(3, 4, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+#         elif ((LIBXS_VERSION3(3, 4, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))
 #           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,avx512f,avx512cd,avx512pf,avx512er"))
 #           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
 #         else
