@@ -258,7 +258,7 @@ int main(int argc, char **argv)
   end = libxs_timer_tick();
   printf("Time for handle init = %lf\n", libxs_timer_duration(start, end));
 
-  printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i\n", M, N, K, handle.bm, handle.bn, handle.bk, handle.mb, handle.nb, handle.kb, reps );
+  printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i -- forward pass\n", M, N, K, handle.bm, handle.bn, handle.bk, handle.mb, handle.nb, handle.kb, reps );
   /* The overall function that takes in matrix inputs in dense format, does the conversion of A to sparse format and does the matrix multiply */
   /* Currently ignores alpha */
   /* TODO: fix alpha input */
@@ -317,7 +317,7 @@ int main(int argc, char **argv)
   libxs_CSR_sparseslice* A_sparse2;
   transA = 'Y'; transB = 'N'; transC = 'Y';
   libxs_spmdm_init(M, N, K, max_threads, &handle2, &A_sparse2);
-  printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transA = Y, transC = Y\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
+  printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transA = Y, transC = Y -- weight update\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
   real * A_gold2 = (real*)libxs_aligned_malloc( M*K*sizeof(real), 2097152 );
   float * C2 = (float*)libxs_aligned_malloc( M*N*sizeof(float), 2097152 );
 
@@ -363,7 +363,7 @@ int main(int argc, char **argv)
   /*----------------------------------------------------------------------------------------------------------------------*/
   /* Step 6: Test transpose B  */
   transA = 'N'; transB = 'Y'; transC = 'N';
-  printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transB = Y\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
+  printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transB = Y -- backprop\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
   real * B_gold2 = (real*)libxs_aligned_malloc( K*N*sizeof(real), 2097152 );
 
   for(i = 0; i < K; i++) {
@@ -403,6 +403,7 @@ int main(int argc, char **argv)
   libxs_free(B_gold);
   libxs_free(C_gold);
   libxs_free(C);
+  libxs_free(C2);
   libxs_free(C0_gold);
   libxs_free(B_gold2);
   libxs_free(A_gold2);
