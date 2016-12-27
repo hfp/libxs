@@ -751,7 +751,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
           }
 #endif
           internal_gemm_auto_prefetch = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
-            ? LIBXS_PREFETCH_BL2_VIA_C /* avoid since static code is hard-coded for INTERNAL_PREFETCH */
+            /* avoid special prefetch if static code is present, since such code uses INTERNAL_PREFETCH */
+            ? (LIBXS_X86_AVX512_MIC != libxs_target_archid ? LIBXS_PREFETCH_AL2BL2_VIA_C : LIBXS_PREFETCH_BL2_VIA_C)
             : INTERNAL_PREFETCH;
           libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
           if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
