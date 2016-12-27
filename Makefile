@@ -606,7 +606,9 @@ endef
 EXTCFLAGS = -DLIBXS_BUILD_EXT
 ifneq (0,$(STATIC))
 ifneq (0,$(WRAP))
+ifneq (,$(strip $(WRAP)))
   EXTCFLAGS += -DLIBXS_GEMM_WRAP=$(WRAP)
+endif
 endif
 endif
 
