@@ -114,12 +114,13 @@
 #         if ((LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))
 #           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,fma,avx512f,avx512cd,avx512pf,avx512er,avx512dq,avx512bw,avx512vl"))
 #           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
-#         elif ((LIBXS_VERSION3(3, 4, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))
+          /* TODO: there appears to be no _mm256_fmadd_p? despite of other AVX2; double-check with a variety of Clang versions */
+#         elif ((LIBXS_VERSION3(3, 4, 0) < LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))
 #           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,fma,avx512f,avx512cd,avx512pf,avx512er"))
 #           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
 #         else
 #           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,fma"))
-#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX/*2*/
 #         endif
 #       endif
 #       if (LIBXS_X86_AVX512_MIC <= LIBXS_MAX_STATIC_TARGET_ARCH)
