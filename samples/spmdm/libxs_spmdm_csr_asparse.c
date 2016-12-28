@@ -66,7 +66,7 @@ void libxs_spmdm_check_c( const libxs_spmdm_handle* handle,
     if (local_error > max_error) {
       max_error = local_error;
     }
-    //if(local_error > 1e-3) printf("(%d,%d) : gold: %f, computed: %f\n", l / handle->n, l % handle->n, srcval, dstval);
+    /*if(local_error > 1e-3) printf("(%d,%d) : gold: %f, computed: %f\n", l / handle->n, l % handle->n, srcval, dstval);*/
     src_norm += srcval;
     dst_norm += dstval;
   }
