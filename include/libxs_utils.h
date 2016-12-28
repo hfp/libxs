@@ -71,8 +71,10 @@
 # endif
 # if defined(__INTEL_COMPILER)
     /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
-#   if 1300 <= (__INTEL_COMPILER)
+#   if 1500 <= (__INTEL_COMPILER)
 #     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#   elif 1300 <= (__INTEL_COMPILER)
+#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
 #   else
 #     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #   endif
