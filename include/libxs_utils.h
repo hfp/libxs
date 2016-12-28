@@ -108,17 +108,17 @@
 #   if defined(__clang__)
 #     if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
 #       if defined(__APPLE__) && defined(__MACH__)
-#         define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
+#         define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,fma"))
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #       else
 #         if ((LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))
-#           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,avx512f,avx512cd,avx512pf,avx512er,avx512dq,avx512bw,avx512vl"))
+#           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,fma,avx512f,avx512cd,avx512pf,avx512er,avx512dq,avx512bw,avx512vl"))
 #           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
 #         elif ((LIBXS_VERSION3(3, 4, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))
-#           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,avx512f,avx512cd,avx512pf,avx512er"))
+#           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,fma,avx512f,avx512cd,avx512pf,avx512er"))
 #           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
 #         else
-#           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
+#           define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,fma"))
 #           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #         endif
 #       endif
@@ -163,13 +163,13 @@
       /* TODO: AVX-512 in GCC appears to be incomplete (missing at _mm512_mask_reduce_or_epi32, and some pseudo intrinsics) */
 #     elif defined(__GNUC__) && (LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 #       if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
-#         define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2"))
+#         define LIBXS_INTRINSICS LIBXS_ATTRIBUTE(target("sse3,sse4.1,sse4.2,avx,avx2,fma"))
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #         if !defined(__AVX2__)
 #           define __AVX2__ 1
 #         endif
 #         pragma GCC push_options
-#         pragma GCC target("sse3,sse4.1,sse4.2,avx,avx2")
+#         pragma GCC target("sse3,sse4.1,sse4.2,avx,avx2,fma")
 #         include <immintrin.h>
 #         pragma GCC pop_options
 #       else
