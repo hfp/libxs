@@ -199,29 +199,39 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS void libxs_spmdm_createSparseSlice_fp32_th
 {
 #if !defined(LIBXS_INTRINSICS_NONE)
 # if (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
   if (LIBXS_X86_AVX512_CORE <= libxs_target_archid)
+#   endif
   {
 #   include "libxs_spmdm_begin_avx512.h"
 #   include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
 #   include "libxs_spmdm_end.h"
   }
+#   if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
   else
+#   endif
 # endif
 # if (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   if (LIBXS_X86_AVX2 <= libxs_target_archid)
+#   endif
   {
 #   include "libxs_spmdm_begin_avx2.h"
 #   include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
 #   include "libxs_spmdm_end.h"
   }
+#   if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   else
+#   endif
 # endif
-#endif
+#endif /*!defined(LIBXS_INTRINSICS_NONE)*/
+#if defined(LIBXS_INTRINSICS_NONE) || (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   {
-#include "libxs_spmdm_begin.h"
-#include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
-#include "libxs_spmdm_end.h"
+# include "libxs_spmdm_begin.h"
+# include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
+# include "libxs_spmdm_end.h"
   }
+#endif
 }
 
 
@@ -235,29 +245,39 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS void libxs_spmdm_createSparseSlice_bfloat1
 {
 #if !defined(LIBXS_INTRINSICS_NONE)
 # if (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
   if (LIBXS_X86_AVX512_CORE <= libxs_target_archid)
+#   endif
   {
 #   include "libxs_spmdm_begin_avx512.h"
 #   include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
 #   include "libxs_spmdm_end.h"
   }
+#   if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
   else
+#   endif
 # endif
 # if (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   if (LIBXS_X86_AVX2 <= libxs_target_archid)
+#   endif
   {
 #   include "libxs_spmdm_begin_avx2.h"
 #   include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
 #   include "libxs_spmdm_end.h"
   }
+#   if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   else
+#   endif
 # endif
-#endif
+#endif /*!defined(LIBXS_INTRINSICS_NONE)*/
+#if defined(LIBXS_INTRINSICS_NONE) || (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   {
-#include "libxs_spmdm_begin.h"
-#include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
-#include "libxs_spmdm_end.h"
+# include "libxs_spmdm_begin.h"
+# include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
+# include "libxs_spmdm_end.h"
   }
+#endif
 }
 
 
@@ -276,29 +296,39 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS void libxs_spmdm_compute_fp32_thread(
 {
 #if !defined(LIBXS_INTRINSICS_NONE)
 # if (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
   if (LIBXS_X86_AVX512_CORE <= libxs_target_archid)
+#   endif
   {
 #   include "libxs_spmdm_begin_avx512.h"
 #   include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
 #   include "libxs_spmdm_end.h"
   }
+#   if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
   else
+#   endif
 # endif
 # if (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   if (LIBXS_X86_AVX2 <= libxs_target_archid)
+#   endif
   {
 #   include "libxs_spmdm_begin_avx2.h"
 #   include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
 #   include "libxs_spmdm_end.h"
   }
+#   if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   else
+#   endif
 # endif
-#endif
+#endif /*!defined(LIBXS_INTRINSICS_NONE)*/
+#if defined(LIBXS_INTRINSICS_NONE) || (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   {
-#include "libxs_spmdm_begin.h"
-#include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
-#include "libxs_spmdm_end.h"
+# include "libxs_spmdm_begin.h"
+# include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
+# include "libxs_spmdm_end.h"
   }
+#endif
 }
 
 
@@ -317,28 +347,38 @@ LIBXS_API_DEFINITION LIBXS_INTRINSICS void libxs_spmdm_compute_bfloat16_thread(
 {
 #if !defined(LIBXS_INTRINSICS_NONE)
 # if (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
   if (LIBXS_X86_AVX512_CORE <= libxs_target_archid)
+#   endif
   {
 #   include "libxs_spmdm_begin_avx512.h"
 #   include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
 #   include "libxs_spmdm_end.h"
   }
+#   if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
   else
+#   endif
 # endif
 # if (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   if (LIBXS_X86_AVX2 <= libxs_target_archid)
+#   endif
   {
 #   include "libxs_spmdm_begin_avx2.h"
 #   include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
 #   include "libxs_spmdm_end.h"
   }
+#   if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   else
+#   endif
 # endif
-#endif
+#endif /*!defined(LIBXS_INTRINSICS_NONE)*/
+#if defined(LIBXS_INTRINSICS_NONE) || (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
   {
-#include "libxs_spmdm_begin.h"
-#include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
-#include "libxs_spmdm_end.h"
+# include "libxs_spmdm_begin.h"
+# include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
+# include "libxs_spmdm_end.h"
   }
+#endif
 }
 
