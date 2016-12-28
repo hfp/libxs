@@ -131,6 +131,26 @@ LIBXS_API_DEFINITION size_t libxs_dnn_typesize(libxs_dnn_datatype datatype)
 }
 
 
+LIBXS_API_DEFINITION size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype)
+{
+  size_t l_cl_width_bytes;
+  if ( libxs_get_target_archid() == LIBXS_X86_GENERIC ) {
+    l_cl_width_bytes = libxs_dnn_typesize(datatype);
+  } else if ( libxs_get_target_archid() == LIBXS_X86_SSE3   ||
+              libxs_get_target_archid() == LIBXS_X86_SSE4_1 || 
+              libxs_get_target_archid() == LIBXS_X86_SSE4_2   ) {
+    l_cl_width_bytes = 16;
+  } else if ( libxs_get_target_archid() == LIBXS_X86_AVX2 ||
+              libxs_get_target_archid() == LIBXS_X86_AVX ) {
+    l_cl_width_bytes = 32;
+  } else {
+    l_cl_width_bytes = 64;
+  }
+
+  return l_cl_width_bytes/libxs_dnn_typesize(datatype);
+}
+
+
 LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle(
   libxs_dnn_conv_desc     conv_desc)
 {
