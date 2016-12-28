@@ -166,6 +166,7 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
 /** get string of error code */
 LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code);
 LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype);
+LIBXS_API size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype);
 
 /** Create a handle (non-NULL if successful), and pre-build all JIT-code versions. */
 LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle(
