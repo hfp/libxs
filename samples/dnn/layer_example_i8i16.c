@@ -35,6 +35,12 @@
 # include <omp.h>
 #endif
 
+#if defined(_WIN32) || defined(__CYGWIN__)
+/* note: later on, this leads to (correct but) different than expected norm-values */
+# define drand48() ((double)rand() / RAND_MAX)
+# define srand48 srand
+#endif
+
 #define CHKERR_LIBXS_DNN(A) if ( A != LIBXS_DNN_SUCCESS ) fprintf(stderr, "%s\n", libxs_dnn_get_error(A) );
 
 typedef struct {
@@ -43,10 +49,14 @@ typedef struct {
   int nOfm;
   int ifhp;
   int ifwp;
+  int ifh;
+  int ifw;
   int ofhp;
   int ofwp;
   int ofh;
   int ofw;
+  int pad_h;
+  int pad_w;
   int pad_h_in;
   int pad_w_in;
   int pad_h_out;
@@ -104,6 +114,23 @@ LIBXS_INLINE void init_buf_uint8(unsigned char* buf, long size, int initPos, int
   }
 }
 
+LIBXS_INLINE void set_zeropad_nchw_uint8(unsigned char* nchw, int N, int C, int H, int W, int pad_h, int pad_w)
+{
+  LIBXS_VLA_DECL(4, unsigned char, input, nchw, C, H, W);
+  int n, h, w, c;
+
+  for ( n = 0; n < N; n++ ) {
+    for ( c = 0; c < C; c++ ) {
+      for ( h = 0; h < H; h++ ) {
+        for ( w = 0; w < W; w++ ) {
+          if(h < pad_h || h >= H-pad_h || w < pad_w || w >= W-pad_w)
+            LIBXS_VLA_ACCESS(4,  input, n, c, h, w, C, H, W) = 0;
+        }
+      }
+    }
+  }
+}
+
 LIBXS_INLINE void compare_buf_int16(short* ref, short* test, long size, correctness_t* norms)
 {
   int i;
@@ -147,8 +174,14 @@ LIBXS_INLINE void naive_conv_int8(naive_conv_t* param, const unsigned char* inpu
   int ifwp      = param->ifwp;
   int ofhp      = param->ofhp;
   int ofwp      = param->ofwp;
+  int ifh       = param->ifh;
+  int ifw       = param->ifw;
   int ofh       = param->ofh;
   int ofw       = param->ofw;
+  int pad_h     = param->pad_h;
+  int pad_w     = param->pad_w;
+  int pad_h_in  = param->pad_h_in;
+  int pad_w_in  = param->pad_w_in;
   int pad_h_out = param->pad_h_out;
   int pad_w_out = param->pad_w_out;
   int kh        = param->kh;
@@ -159,7 +192,7 @@ LIBXS_INLINE void naive_conv_int8(naive_conv_t* param, const unsigned char* inpu
   int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
 
   LIBXS_VLA_DECL(4,               short, output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
-  LIBXS_VLA_DECL(4, const unsigned char,  input_t,  input, nIfm, ifhp, ifwp);
+  LIBXS_VLA_DECL(4, const unsigned char,  input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
   LIBXS_VLA_DECL(4, const          char, filter_t, filter, nIfm, kh, kw);
 
 #if defined(_OPENMP)
@@ -169,14 +202,16 @@ LIBXS_INLINE void naive_conv_int8(naive_conv_t* param, const unsigned char* inpu
     for (ofm = 0; ofm < nOfm; ++ofm) {
       for (ifm = 0; ifm < nIfm; ++ifm) {
         for (oj = 0; oj < ofh; ++oj) {
-          ij = oj * stride_h;
+          ij = oj * stride_h - pad_h;
           for (oi = 0; oi < ofw; ++oi) {
-            ii = oi * stride_w;
+            ii = oi * stride_w - pad_w;
             for (kj = 0; kj < kh; ++kj) {
+              if(ij+kj < 0 || ij+kj >= ifh) continue;
               for (ki = 0; ki < kw; ++ki) {
-                LIBXS_VLA_ACCESS(  4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) += (short)(
+                if(ii+ki < 0 || ii+ki >= ifw) continue;
+                LIBXS_VLA_ACCESS(  4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) += (int)
                   LIBXS_VLA_ACCESS(4,  input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp)
-                * LIBXS_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw));
+                * LIBXS_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw);
               }
             }
           }
@@ -195,22 +230,23 @@ int main(int argc, char* argv[])
   short *naive_output, *naive_libxs_output;
   short *output_nhwc, *naive_output_nhwc;
   int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
-  int stride_h, stride_w, pad_h_out, pad_w_out;
+  int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
   naive_conv_t naive_param;
-  correctness_t norms;
+  correctness_t norms_fwd;
 
   /* some parameters we can overwrite via cli,
      default is some inner layer of overfeat */
   int iters = 10;         /* repetitions of benchmark */
   int ifw = 14;           /* input width, "W" */
-  int ifh = 14;           /* input height, "H" */
-  int nImg = 1;           /* mini-batch size, "N" */
+  int ifh = 18;           /* input height, "H" */
+  int nImg = 32;          /* mini-batch size, "N" */
   int nIfm = 256;         /* number of input feature maps, "C" */
   int nOfm = 512;         /* number of output feature maps, "K" */
   int kh = 3;             /* filter height, "R" */
   int kw = 3;             /* filter width, "S" */
-  int pad = 1;            /* padding in output */
+  int pad = 2;            /* padding in output */
   int stride = 1;         /* stride when accessing inputs */
+  char type = 'A';        /* 'A': ALL, 'F': FP, 'B': BP, 'U', WU */
 #if defined(_OPENMP)
   int nThreads = omp_get_max_threads();       /* number of threads */
 #else
@@ -228,6 +264,8 @@ int main(int argc, char* argv[])
   libxs_dnn_buffer* libxs_output;
   libxs_dnn_filter* libxs_filter;
   libxs_dnn_err_t status;
+
+  memset(&norms_fwd, 0, sizeof(norms_fwd));
 
   if (argc > 1 && !strncmp(argv[1], "-h", 3)) {
     printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride\n", argv[0]);
@@ -247,17 +285,30 @@ int main(int argc, char* argv[])
   if (argc > i) kh         = atoi(argv[i++]);
   if (argc > i) pad        = atoi(argv[i++]);
   if (argc > i) stride     = atoi(argv[i++]);
+  if (argc > i) type       = *(argv[i++]);
+
+  if (type != 'A' && type != 'F' /* && type != 'B' && type != 'U'*/) {
+    /*printf("type needs to be 'A' (All), 'F' (FP only), 'B' (BP only), 'U' (WU only)\n");*/
+    printf("type needs to be 'A' (All), 'F' (FP only)\n");
+    return 0;
+  }
 
   stride_w = stride;
   stride_h = stride;
-  pad_h_out = pad;
-  pad_w_out = pad;
+  pad_h = pad;
+  pad_w = pad;
+
+  pad_h_in = pad_h;
+  pad_w_in = pad_w;
+
+  pad_h_out = 0;
+  pad_w_out = 0;
 
   /* deriving some values for naive code */
-  ofh = (ifh - kh) / stride_h + 1;
-  ofw = (ifw - kw) / stride_w + 1;
-  ifhp = ifh;
-  ifwp = ifw;
+  ofh = (ifh + 2 * pad_h - kh) / stride_h + 1;
+  ofw = (ifw + 2 * pad_w - kw) / stride_w + 1;
+  ifhp = ifh + 2 * pad_h_in;
+  ifwp = ifw + 2 * pad_w_in;
   ofhp = ofh + 2 * pad_h_out;
   ofwp = ofw + 2 * pad_w_out;
 
@@ -267,12 +318,16 @@ int main(int argc, char* argv[])
   naive_param.nOfm = nOfm;
   naive_param.ifhp = ifhp;
   naive_param.ifwp = ifwp;
+  naive_param.ifh = ifh;
+  naive_param.ifw = ifw;
   naive_param.ofhp = ofhp;
   naive_param.ofwp = ofwp;
   naive_param.ofh = ofh;
   naive_param.ofw = ofw;
-  naive_param.pad_h_in = 0;
-  naive_param.pad_w_in = 0;
+  naive_param.pad_h = pad_h;
+  naive_param.pad_w = pad_w;
+  naive_param.pad_h_in = pad_h_in;
+  naive_param.pad_w_in = pad_w_in;
   naive_param.pad_h_out = pad_h_out;
   naive_param.pad_w_out = pad_w_out;
   naive_param.kh = kh;
@@ -302,6 +357,7 @@ int main(int argc, char* argv[])
 
   /* initialize data */
   init_buf_uint8(naive_input,          nImg*nIfm*ifhp*ifwp, 0, 0);
+  set_zeropad_nchw_uint8(naive_input, nImg, nIfm, ifhp, ifwp, pad_h_in, pad_w_in);
   zero_buf_int16(naive_output,         nImg*nOfm*ofhp*ofwp);
   zero_buf_int16(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
   init_buf_int8 (naive_filter,         nOfm*nIfm*kh*kw, 0, 0);
@@ -322,8 +378,10 @@ int main(int argc, char* argv[])
   conv_desc.u = stride_h;
   conv_desc.v = stride_w;
   /* @TODO we need to change the interface to provide CAFFE compatible padding! */
-  conv_desc.pad_h_in = 0;
-  conv_desc.pad_w_in = 0;
+  conv_desc.pad_h = pad_h;
+  conv_desc.pad_w = pad_w;
+  conv_desc.pad_h_in = pad_h_in;
+  conv_desc.pad_w_in = pad_w_in;
   conv_desc.pad_h_out = pad_h_out;
   conv_desc.pad_w_out = pad_w_out;
   conv_desc.threads = nThreads;
@@ -377,12 +435,12 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_CONV_FORMAT_NCHW ) );
 
   /* compare */
-  compare_buf_int16(naive_output, naive_libxs_output, nImg*nOfm*ofhp*ofwp, &norms);
-  printf("             1-norm of reference: %f\n", norms.one_norm_ref);
-  printf("              1-norm of JIT-code: %f\n", norms.one_norm_test);
-  printf("       L2-error-norm of JIT-code: %f\n", norms.l2_rel_err);
-  printf("    inf-norm of comp. rel. error: %f\n", norms.max_rel_err);
-  printf("    inf-norm of comp. abs. error: %f\n", norms.max_abs_err);
+  compare_buf_int16(naive_output, naive_libxs_output, nImg*nOfm*ofhp*ofwp, &norms_fwd);
+  printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
+  printf("              1-norm of JIT-code: %f\n", norms_fwd.one_norm_test);
+  printf("       L2-error-norm of JIT-code: %f\n", norms_fwd.l2_rel_err);
+  printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
+  printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
   printf("##########################################\n");
   printf("#   Performance Run   (custom-Storage)   #\n");
   printf("##########################################\n");
@@ -411,7 +469,7 @@ int main(int argc, char* argv[])
 
   printf("PERFDUMP,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
      ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-     norms.max_rel_err, norms.max_abs_err, norms.l2_rel_err, norms.one_norm_ref, norms.one_norm_test );
+     norms_fwd.max_rel_err, norms_fwd.max_abs_err, norms_fwd.l2_rel_err, norms_fwd.one_norm_ref, norms_fwd.one_norm_test );
 
   /* clean-up */
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
