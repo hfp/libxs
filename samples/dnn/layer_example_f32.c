@@ -103,7 +103,7 @@ LIBXS_INLINE void init_buf(float* buf, long size, int initPos, int initOne)
 
 LIBXS_INLINE void set_zeropad_nchw(float* nchw, int N, int C, int H, int W, int pad_h, int pad_w)
 {
-  LIBXS_VLA_DECL(4, float,  input, nchw, C, H, W);
+  LIBXS_VLA_DECL(4, float, input, nchw, C, H, W);
   int n, h, w, c;
 
   for ( n = 0; n < N; n++ ) {
