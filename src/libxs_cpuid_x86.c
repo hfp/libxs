@@ -124,10 +124,8 @@ LIBXS_API_DEFINITION int libxs_cpuid_x86(void)
     }
   }
 
-#if defined(LIBXS_STATIC_TARGET_ARCH)
   /* check if procedure obviously failed to detect the highest available instruction set extension */
   assert(LIBXS_STATIC_TARGET_ARCH <= target_arch);
-#endif
 
   return LIBXS_MAX(target_arch, LIBXS_STATIC_TARGET_ARCH);
 }

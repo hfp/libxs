@@ -322,7 +322,7 @@ LIBXS_HASH_API_DEFINITION void libxs_hash_init(int target_arch)
 #if defined(LIBXS_HASH_SW)
   LIBXS_UNUSED(target_arch);
 #else
-# if defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH)
+# if (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH)
   LIBXS_UNUSED(target_arch);
 # else
   if (LIBXS_X86_SSE4_2 <= target_arch)
@@ -345,7 +345,7 @@ LIBXS_HASH_API_DEFINITION void libxs_hash_finalize(void)
 
 LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int seed)
 {
-#if defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
+#if (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
   return libxs_crc32_sse42(data, size, seed);
 #else /* pointer based function call */
   assert(0 != internal_hash_function);
@@ -366,7 +366,7 @@ LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(const 
   assert(0 != data || 0 == size);
 #if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_MAX_STATIC_TARGET_ARCH) && \
   /* prevents backend error in Clang when selecting below intrinsic(s) (despite of the LIBXS_INTRINSICS attribute) */ \
-  ((defined(LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH)) || \
+  ((LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH) || \
   !(defined(__clang__) || (defined(__APPLE__) && defined(__MACH__))))
   LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 #else
