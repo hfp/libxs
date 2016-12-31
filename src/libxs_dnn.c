@@ -905,33 +905,30 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buf
   if (0 != buffer) {
     switch (in_format) {
       case LIBXS_DNN_CONV_FORMAT_NCHW: {
-        switch (buffer->format) {
-          case LIBXS_DNN_CONV_FORMAT_LIBXS: {
-            switch (buffer->datatype) {
-              case LIBXS_DNN_DATATYPE_F32: {
-                typedef float element_type;
-#               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I32: {
-                typedef int element_type;
-#               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I16: {
-                typedef short element_type;
-#               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I8: {
-                typedef char element_type;
-#               include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
-              } break;
-              default: {
-                status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-              }
+        if ( (buffer->format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0 ) {
+          switch (buffer->datatype) {
+            case LIBXS_DNN_DATATYPE_F32: {
+              typedef float element_type;
+#             include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I32: {
+              typedef int element_type;
+#             include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I16: {
+              typedef short element_type;
+#             include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I8: {
+              typedef char element_type;
+#             include "template/libxs_dnn_buffer_copy_in_nchw.tpl.c"
+            } break;
+            default: {
+              status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
             }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
           }
+        } else {
+          status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
         }
       } break;
       default: {
@@ -993,33 +990,30 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_bu
   if (0 != buffer) {
     switch (out_format) {
       case LIBXS_DNN_CONV_FORMAT_NCHW: {
-        switch (buffer->format) {
-          case LIBXS_DNN_CONV_FORMAT_LIBXS: {
-            switch (buffer->datatype) {
-              case LIBXS_DNN_DATATYPE_F32: {
-                typedef float element_type;
-#               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I32: {
-                typedef int element_type;
-#               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I16: {
-                typedef short element_type;
-#               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I8: {
-                typedef char element_type;
-#               include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
-              } break;
-              default: {
-                status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-              }
+        if ( (buffer->format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0 ) {
+          switch (buffer->datatype) {
+            case LIBXS_DNN_DATATYPE_F32: {
+              typedef float element_type;
+#             include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I32: {
+              typedef int element_type;
+#             include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I16: {
+              typedef short element_type;
+#             include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I8: {
+              typedef char element_type;
+#             include "template/libxs_dnn_buffer_copy_out_nchw.tpl.c"
+            } break;
+            default: {
+              status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
             }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
           }
+        } else {
+          status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
         }
       } break;
       default: {
@@ -1042,29 +1036,26 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_fil
   if (0 != filter) {
     switch (in_format) {
       case LIBXS_DNN_CONV_FORMAT_KCRS: {
-        switch (filter->format) {
-          case LIBXS_DNN_CONV_FORMAT_LIBXS: {
-            switch (filter->datatype) {
-              case LIBXS_DNN_DATATYPE_F32: {
-                typedef float element_type;
-#               include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I16: {
-                typedef short element_type;
-#               include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I8: {
-                typedef char element_type;
-#               include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
-              } break;
-              default: {
-                status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-              }
+        if ( (filter->format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0 ) {
+          switch (filter->datatype) {
+            case LIBXS_DNN_DATATYPE_F32: {
+              typedef float element_type;
+#             include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I16: {
+              typedef short element_type;
+#             include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I8: {
+              typedef char element_type;
+#             include "template/libxs_dnn_filter_copy_in_kcrs.tpl.c"
+            } break;
+            default: {
+              status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
             }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
           }
+        } else {
+          status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
         }
       } break;
       default: {
@@ -1087,33 +1078,30 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_fi
   if (0 != filter) {
     switch (out_format) {
       case LIBXS_DNN_CONV_FORMAT_KCRS: {
-        switch (filter->format) {
-          case LIBXS_DNN_CONV_FORMAT_LIBXS: {
-            switch (filter->datatype) {
-              case LIBXS_DNN_DATATYPE_F32: {
-                typedef float element_type;
-#               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I32: {
-                typedef int element_type;
-#               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I16: {
-                typedef short element_type;
-#               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
-              } break;
-              case LIBXS_DNN_DATATYPE_I8: {
-                typedef char element_type;
-#               include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
-              } break;
-              default: {
-                status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-              }
+        if ( (filter->format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0 ) {
+          switch (filter->datatype) {
+            case LIBXS_DNN_DATATYPE_F32: {
+              typedef float element_type;
+#             include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I32: {
+              typedef int element_type;
+#             include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I16: {
+              typedef short element_type;
+#             include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I8: {
+              typedef char element_type;
+#             include "template/libxs_dnn_filter_copy_out_kcrs.tpl.c"
+            } break;
+            default: {
+              status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
             }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
           }
+        } else {
+          status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
         }
       } break;
       default: {

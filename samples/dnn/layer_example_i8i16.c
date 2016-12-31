@@ -229,6 +229,9 @@ int main(int argc, char* argv[])
   char *filter_rsck;
   short *naive_output, *naive_libxs_output;
   short *output_nhwc, *naive_output_nhwc;
+  unsigned char *input_libxs;
+  char *filter_libxs;
+  short *output_libxs;
   int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
   int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
   naive_conv_t naive_param;
@@ -351,9 +354,12 @@ int main(int argc, char* argv[])
 
   /* allocate data */
   naive_input           = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
-  naive_output          = (short*)  libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(short),   2097152);
-  naive_libxs_output  = (short*)  libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(short),   2097152);
-  naive_filter          = (char*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char), 2097152);
+  naive_output          = (short*)        libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(short),         2097152);
+  naive_libxs_output  = (short*)        libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(short),         2097152);
+  naive_filter          = (char*)         libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char),          2097152);
+  input_libxs         = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
+  filter_libxs        = (char*)         libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char),          2097152);
+  output_libxs        = (short*)        libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(short),         2097152);
 
   /* initialize data */
   init_buf_uint8(naive_input,          nImg*nIfm*ifhp*ifwp, 0, 0);
@@ -397,14 +403,16 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_create_input_buffer_check( libxs_handle, &status );
+  libxs_input = libxs_dnn_link_input_buffer_check( libxs_handle, input_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_create_output_buffer_check( libxs_handle, &status );
+  libxs_output = libxs_dnn_link_output_buffer_check( libxs_handle, output_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_create_filter_check( libxs_handle, &status );
+  libxs_filter = libxs_dnn_link_filter_check( libxs_handle, filter_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
+  /* we can also use the layout functions and set the data on our 
+     own external to the library, @TODO, we plan to add an example here */
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_input, (void*)naive_input, LIBXS_DNN_CONV_FORMAT_NCHW ) );
   CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_CONV_FORMAT_KCRS ) );
@@ -482,6 +490,9 @@ int main(int argc, char* argv[])
   libxs_free(naive_output);
   libxs_free(naive_libxs_output);
   libxs_free(naive_filter);
+  libxs_free(input_libxs);
+  libxs_free(output_libxs);
+  libxs_free(filter_libxs);
 
   /* some empty lines at the end */
   printf("\n\n\n");
