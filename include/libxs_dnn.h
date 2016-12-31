@@ -180,18 +180,10 @@ LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_dnn_conv_handle* handle);
 
 /** Create buffers, filters and bias (non-NULL if successful) */
-LIBXS_API libxs_dnn_buffer* libxs_dnn_create_input_buffer(const libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_buffer* libxs_dnn_create_output_buffer(const libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_filter* libxs_dnn_create_filter(const libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_bias*   libxs_dnn_create_bias(const libxs_dnn_conv_handle* handle);
 LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format);
 LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format);
 LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format);
 
-LIBXS_API libxs_dnn_buffer* libxs_dnn_create_input_buffer_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_buffer* libxs_dnn_create_output_buffer_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_filter* libxs_dnn_create_filter_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_bias*   libxs_dnn_create_bias_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
