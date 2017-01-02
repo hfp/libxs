@@ -158,18 +158,14 @@ unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const l
 }
 
 
-LIBXS_GEMM_DIFF_API_DEFINITION
-#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
-LIBXS_INTRINSICS(LIBXS_X86_AVX2) /* TODO: investigate issue */
-#else
-LIBXS_INTRINSICS(LIBXS_X86_AVX)
-#endif
+LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX)
 unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
   assert(0 != reference && 0 != desc);
 #if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH) \
-  /* prevents backend error in Clang when selecting below intrinsic(s) (despite of the LIBXS_INTRINSICS attribute) */ \
-  && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || !(defined(__clang__) || (defined(__APPLE__) && defined(__MACH__))))
+  && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
+    !((defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__INTEL_COMPILER)) || \
+      (defined(__APPLE__) && defined(__MACH__))))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   {
@@ -211,8 +207,9 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
 {
   assert(0 != reference && 0 != desc);
 #if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
-  /* prevents backend error in Clang when selecting below intrinsic(s) (despite of the LIBXS_INTRINSICS attribute) */ \
-  && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || !(defined(__clang__) || (defined(__APPLE__) && defined(__MACH__))))
+  && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
+    !((defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__INTEL_COMPILER)) || \
+      (defined(__APPLE__) && defined(__MACH__))))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   {
@@ -317,19 +314,15 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_sw(const libxs_gemm
 }
 
 
-LIBXS_GEMM_DIFF_API_DEFINITION
-#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
-LIBXS_INTRINSICS(LIBXS_X86_AVX2) /* TODO: investigate issue */
-#else
-LIBXS_INTRINSICS(LIBXS_X86_AVX)
-#endif
+LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX)
 unsigned int libxs_gemm_diffn_avx(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH) \
-  /* prevents backend error in Clang when selecting below intrinsic(s) (despite of the LIBXS_INTRINSICS attribute) */ \
-  && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || !(defined(__clang__) || (defined(__APPLE__) && defined(__MACH__))))
+  && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
+    !((defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__INTEL_COMPILER)) || \
+      (defined(__APPLE__) && defined(__MACH__))))
   assert(/*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
@@ -386,8 +379,9 @@ unsigned int libxs_gemm_diffn_avx2(
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
-  /* prevents backend error in Clang when selecting below intrinsic(s) (despite of the LIBXS_INTRINSICS attribute) */ \
-  && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || !(defined(__clang__) || (defined(__APPLE__) && defined(__MACH__))))
+  && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
+    !((defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__INTEL_COMPILER)) || \
+      (defined(__APPLE__) && defined(__MACH__))))
   assert(/*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */

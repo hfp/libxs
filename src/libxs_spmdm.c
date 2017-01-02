@@ -81,15 +81,13 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_compute_bfloat16_thread)
   const uint16_t*, libxs_CSR_sparseslice*, const uint16_t*, char, const uint16_t*, float*, int, int, int);
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE
-#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
-LIBXS_INTRINSICS(LIBXS_X86_AVX2) /* TODO: investigate issue */
-#else
-LIBXS_INTRINSICS(LIBXS_X86_AVX)
-#endif
+LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX)
 void internal_spmdm_init_shufmask_avx()
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH) \
+  && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
+    !((defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__INTEL_COMPILER)) || \
+      (defined(__APPLE__) && defined(__MACH__))))
   unsigned int i, j, c, last_bit;
   LIBXS_ALIGNED(int temp_shufmasks[8], 64);
   LIBXS_ALIGNED(uint16_t temp_shufmasks2[16], 64);
