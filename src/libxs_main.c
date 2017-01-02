@@ -82,7 +82,7 @@
 
 /* alternative hash algorithm (instead of CRC32) */
 #if !defined(LIBXS_HASH_BASIC)
-# if !defined(LIBXS_MAX_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4_2 > LIBXS_MAX_STATIC_TARGET_ARCH)
+# if (LIBXS_X86_SSE4 > LIBXS_MAX_STATIC_TARGET_ARCH)
 /*#   define LIBXS_HASH_BASIC*/
 # endif
 #endif
@@ -433,11 +433,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_get_target_arch(int id)
     case LIBXS_X86_AVX: {
       target_arch = "snb";
     } break;
-    case LIBXS_X86_SSE4_2: {
+    case LIBXS_X86_SSE4: {
       target_arch = "wsm";
-    } break;
-    case LIBXS_X86_SSE4_1: {
-      target_arch = "sse4";
     } break;
     case LIBXS_X86_SSE3: {
       target_arch = "sse3";
@@ -915,7 +912,7 @@ LIBXS_API_DEFINITION int libxs_get_target_archid(void)
 #if !defined(__MIC__) && (!defined(__CYGWIN__) || !defined(NDEBUG)/*code-coverage with Cygwin; fails@runtime!*/)
   return libxs_target_archid;
 #else /* no JIT support */
-  return LIBXS_MIN(libxs_target_archid, LIBXS_X86_SSE4_2);
+  return LIBXS_MIN(libxs_target_archid, LIBXS_X86_SSE4);
 #endif
 }
 
@@ -929,8 +926,7 @@ LIBXS_API_DEFINITION void libxs_set_target_archid(int id)
     case LIBXS_X86_AVX512:
     case LIBXS_X86_AVX2:
     case LIBXS_X86_AVX:
-    case LIBXS_X86_SSE4_2:
-    case LIBXS_X86_SSE4_1:
+    case LIBXS_X86_SSE4:
     case LIBXS_X86_SSE3:
     case LIBXS_TARGET_ARCH_GENERIC: {
       target_archid = id;
@@ -1002,10 +998,7 @@ LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
       target_archid = LIBXS_X86_AVX;
     }
     else if (0 == strcmp("wsm", arch) || 0 == strcmp("nhm", arch) || 0 == strcmp("sse4", arch) || 0 == strcmp("sse4_2", arch) || 0 == strcmp("sse4.2", arch)) {
-      target_archid = LIBXS_X86_SSE4_2;
-    }
-    else if (0 == strcmp("sse4_1", arch) || 0 == strcmp("sse4.1", arch)) {
-      target_archid = LIBXS_X86_SSE4_1;
+      target_archid = LIBXS_X86_SSE4;
     }
     else if (0 == strcmp("sse3", arch) || 0 == strcmp("sse", arch)) {
       target_archid = LIBXS_X86_SSE3;

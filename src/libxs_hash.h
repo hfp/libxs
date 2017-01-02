@@ -60,7 +60,7 @@ LIBXS_HASH_API unsigned int libxs_crc32_sw(
   const void* data, unsigned int size, unsigned int seed);
 
 /** Similar to libxs_crc32_sw (uses CRC32 instructions available since SSE4.2). */
-LIBXS_HASH_API unsigned int libxs_crc32_sse42(
+LIBXS_HASH_API unsigned int libxs_crc32_sse4(
   const void* data, unsigned int size, unsigned int seed);
 
 /** Calculate a hash value for a given quantity (size) of raw data according to the seed. */

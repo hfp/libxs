@@ -322,16 +322,16 @@ LIBXS_HASH_API_DEFINITION void libxs_hash_init(int target_arch)
 #if defined(LIBXS_HASH_SW)
   LIBXS_UNUSED(target_arch);
 #else
-# if (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH)
+# if (LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH)
   LIBXS_UNUSED(target_arch);
 # else
-  if (LIBXS_X86_SSE4_2 <= target_arch)
+  if (LIBXS_X86_SSE4 <= target_arch)
 # endif
   {
-# if !defined(NDEBUG) && (!defined(LIBXS_MAX_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4_2 > LIBXS_MAX_STATIC_TARGET_ARCH))
+# if !defined(NDEBUG) && (LIBXS_X86_SSE4 > LIBXS_MAX_STATIC_TARGET_ARCH)
     fprintf(stderr, "LIBXS: CRC32 instructions are not accessible due to the compiler used!\n");
 # endif
-    internal_hash_function = libxs_crc32_sse42;
+    internal_hash_function = libxs_crc32_sse4;
   }
 #endif
   assert(0 != internal_hash_function);
@@ -345,8 +345,8 @@ LIBXS_HASH_API_DEFINITION void libxs_hash_finalize(void)
 
 LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32(const void* data, unsigned int size, unsigned int seed)
 {
-#if (LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
-  return libxs_crc32_sse42(data, size, seed);
+#if (LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
+  return libxs_crc32_sse4(data, size, seed);
 #else /* pointer based function call */
   assert(0 != internal_hash_function);
   return internal_hash_function(data, size, seed);
@@ -361,19 +361,24 @@ LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_sw(const void* data, unsigned
 }
 
 
-LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS unsigned int libxs_crc32_sse42(const void* data, unsigned int size, unsigned int seed)
+LIBXS_HASH_API_DEFINITION
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
+LIBXS_INTRINSICS(LIBXS_X86_AVX2) /* TODO: investigate issue */
+#else
+LIBXS_INTRINSICS(LIBXS_X86_SSE4)
+#endif
+unsigned int libxs_crc32_sse4(const void* data, unsigned int size, unsigned int seed)
 {
   assert(0 != data || 0 == size);
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_MAX_STATIC_TARGET_ARCH) && (LIBXS_X86_SSE4_2 <= LIBXS_MAX_STATIC_TARGET_ARCH) && \
-  /* prevents backend error in Clang when selecting below intrinsic(s) (despite of the LIBXS_INTRINSICS attribute) */ \
-  ((LIBXS_X86_SSE4_2 <= LIBXS_STATIC_TARGET_ARCH) || \
-  !(defined(__clang__) || (defined(__APPLE__) && defined(__MACH__))))
+#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_SSE4 <= LIBXS_MAX_STATIC_TARGET_ARCH)
   LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 #else
-# if !defined(__MIC__)
-  LIBXS_MESSAGE("================================================================================");
-  LIBXS_MESSAGE("LIBXS: Unable to enter the code path which is using CRC32 instructions!");
-  LIBXS_MESSAGE("================================================================================");
+# if !defined(NDEBUG)
+  { static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS: unable to enter SSE4 code path!\n");
+    }
+  }
 # endif
   return libxs_crc32_sw(data, size, seed);
 #endif
