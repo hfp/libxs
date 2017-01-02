@@ -55,6 +55,14 @@
 # define LIBXS_SPMDM_FREE(BUFFER) libxs_free(BUFFER)
 #endif
 
+/* Enable/disable specific code paths */
+#if !defined(LIBXS_SPMDM_AVX512_CORE)
+# define LIBXS_SPMDM_AVX512_CORE
+#endif
+#if !defined(LIBXS_SPMDM_AVX2)
+# define LIBXS_SPMDM_AVX2
+#endif
+
 
 #if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
 LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i internal_spmdm_shufmasks_32[256];
@@ -199,12 +207,12 @@ void internal_spmdm_createSparseSlice_fp32_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX2) /* library code is expected to be mute */
   { static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
@@ -225,12 +233,12 @@ void internal_spmdm_createSparseSlice_fp32_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX512_CORE) /* library code is expected to be mute */
   { static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX-512/Core code path!\n");
@@ -286,12 +294,12 @@ void internal_spmdm_createSparseSlice_bfloat16_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX2) /* library code is expected to be mute */
   { static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
@@ -312,12 +320,12 @@ void internal_spmdm_createSparseSlice_bfloat16_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX512_CORE) /* library code is expected to be mute */
   { static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX-512/Core code path!\n");
@@ -383,12 +391,12 @@ void internal_spmdm_compute_fp32_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX2) /* library code is expected to be mute */
   { static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
@@ -414,12 +422,12 @@ void internal_spmdm_compute_fp32_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX512_CORE) /* library code is expected to be mute */
   { static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX-512/Core code path!\n");
@@ -490,12 +498,12 @@ void internal_spmdm_compute_bfloat16_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX2) /* library code is expected to be mute */
   { static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
@@ -521,12 +529,12 @@ void internal_spmdm_compute_bfloat16_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) /* library code is expected to be mute */
+# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX512_CORE) /* library code is expected to be mute */
   { static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: unable to enter AVX-512/Core code path!\n");
@@ -536,7 +544,6 @@ void internal_spmdm_compute_bfloat16_thread_avx512_core(
   internal_spmdm_compute_bfloat16_thread_avx2(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
 #endif
 }
-
 
 
 LIBXS_API_DEFINITION
