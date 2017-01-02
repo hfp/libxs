@@ -69,7 +69,7 @@
 #endif
 #if defined(__MIC__)
 # define LIBXS_SYNC_PAUSE(DELAY) _mm_delay_32(DELAY)
-#elif !defined(LIBXS_INTRINSICS_NONE)
+#elif !defined(LIBXS_INTRINSICS_NONE) && !defined(__CYGWIN__)
 # define LIBXS_SYNC_PAUSE(DELAY) _mm_pause()
 #else
 # define LIBXS_SYNC_PAUSE(DELAY)
@@ -213,12 +213,7 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
 }
 
 
-LIBXS_API_DEFINITION
-#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
-LIBXS_INTRINSICS(LIBXS_X86_AVX2) /* TODO: investigate issue */
-#else
-LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-#endif
+LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
 void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 {
 #if defined(_REENTRANT)
