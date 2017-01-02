@@ -361,16 +361,13 @@ LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_sw(const void* data, unsigned
 }
 
 
-LIBXS_HASH_API_DEFINITION
-#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
-LIBXS_INTRINSICS(LIBXS_X86_AVX2) /* TODO: investigate issue */
-#else
-LIBXS_INTRINSICS(LIBXS_X86_SSE4)
-#endif
+LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE4)
 unsigned int libxs_crc32_sse4(const void* data, unsigned int size, unsigned int seed)
 {
   assert(0 != data || 0 == size);
-#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_SSE4 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_SSE4 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
+  && ((LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) || \
+    !(defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__clang__) && !defined(__INTEL_COMPILER)))
   LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 #else
 # if !defined(NDEBUG)
