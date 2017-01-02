@@ -152,7 +152,6 @@
 #         else
 #           define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #         endif
-        /* TODO: there appears to be no _mm256_fmadd_p? despite of other AVX2; double-check with a variety of Clang versions */
 #       elif (LIBXS_VERSION3(3, 5, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
          && !defined(__CYGWIN__) /* Error: invalid register for .seh_savexmm */
 #         if (LIBXS_X86_AVX512_MIC > LIBXS_STATIC_TARGET_ARCH)
@@ -164,9 +163,9 @@
 #           define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #         endif
 #       else
-#         if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
+#         if (LIBXS_X86_AVX/*2*/ > LIBXS_STATIC_TARGET_ARCH)
 #           define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX/*2*/
 #           undef  LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */
 #           define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
 #           undef  LIBXS_ATTRIBUTE_TARGET_1008 /* LIBXS_X86_AVX512_MIC */
