@@ -71,7 +71,8 @@ LIBXS_API_DEFINITION unsigned long long libxs_timer_tick(void)
 }
 
 
-LIBXS_API_DEFINITION /*LIBXS_INTRINSICS*/ unsigned long long libxs_timer_xtick(void)
+LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+unsigned long long libxs_timer_xtick(void)
 {
   unsigned long long result;
 #if defined(LIBXS_TIMER_RDTSC)

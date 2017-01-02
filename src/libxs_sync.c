@@ -213,7 +213,13 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
 }
 
 
-LIBXS_API_DEFINITION LIBXS_INTRINSICS void libxs_barrier_wait(libxs_barrier* barrier, int tid)
+LIBXS_API_DEFINITION
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
+LIBXS_INTRINSICS(LIBXS_X86_AVX2) /* TODO: investigate issue */
+#else
+LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+#endif
+void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 {
 #if defined(_REENTRANT)
   internal_sync_thread_tag *const thread = barrier->threads[tid];

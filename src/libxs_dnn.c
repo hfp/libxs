@@ -136,9 +136,8 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype
   size_t l_cl_width_bytes;
   if ( libxs_get_target_archid() == LIBXS_X86_GENERIC ) {
     l_cl_width_bytes = libxs_dnn_typesize(datatype);
-  } else if ( libxs_get_target_archid() == LIBXS_X86_SSE3   ||
-              libxs_get_target_archid() == LIBXS_X86_SSE4_1 || 
-              libxs_get_target_archid() == LIBXS_X86_SSE4_2   ) {
+  } else if ( libxs_get_target_archid() == LIBXS_X86_SSE3 ||
+              libxs_get_target_archid() == LIBXS_X86_SSE4 ) {
     l_cl_width_bytes = 16;
   } else if ( libxs_get_target_archid() == LIBXS_X86_AVX2 ||
               libxs_get_target_archid() == LIBXS_X86_AVX ) {
