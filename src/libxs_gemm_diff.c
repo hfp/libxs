@@ -436,7 +436,8 @@ unsigned int libxs_gemm_diffn_avx512(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX512) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_NO_PSEUDO) \
+  && defined(LIBXS_GEMM_DIFF_AVX512) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
