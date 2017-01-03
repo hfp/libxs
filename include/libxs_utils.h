@@ -129,6 +129,9 @@
 #     define __AVX__ 1
 #   endif
 #   if defined(__clang__)
+#     if !defined(LIBXS_INTRINSICS_NO_PSEUDO) /* some AVX-512 pseudo intrinsics are missing in Clang e.g., reductions */
+#       define LIBXS_INTRINSICS_NO_PSEUDO
+#     endif
 #     if defined(__APPLE__) && defined(__MACH__)
 #       if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
 #         define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
