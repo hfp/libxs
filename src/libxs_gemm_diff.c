@@ -164,7 +164,8 @@ LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX)
 unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
   assert(0 != reference && 0 != desc);
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH) \
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX) && defined(LIBXS_GEMM_DIFF_AVX) \
+  && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH) \
   && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
     !((defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__INTEL_COMPILER)) || \
       (defined(__APPLE__) && defined(__MACH__))))
@@ -208,7 +209,8 @@ LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
   assert(0 != reference && 0 != desc);
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX) && defined(LIBXS_GEMM_DIFF_AVX2) \
+  && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
   && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
     !((defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__INTEL_COMPILER)) || \
       (defined(__APPLE__) && defined(__MACH__))))
@@ -321,7 +323,8 @@ unsigned int libxs_gemm_diffn_avx(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH) \
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX) && defined(LIBXS_GEMM_DIFF_AVX) \
+  && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH) \
   && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
     !((defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__INTEL_COMPILER)) || \
       (defined(__APPLE__) && defined(__MACH__))))
@@ -380,7 +383,8 @@ unsigned int libxs_gemm_diffn_avx2(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX) && defined(LIBXS_GEMM_DIFF_AVX2) \
+  && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
   && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
     !((defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__INTEL_COMPILER)) || \
       (defined(__APPLE__) && defined(__MACH__))))
@@ -438,7 +442,7 @@ unsigned int libxs_gemm_diffn_avx512(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_NO_PSEUDO) \
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) \
   && defined(LIBXS_GEMM_DIFF_AVX512) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
