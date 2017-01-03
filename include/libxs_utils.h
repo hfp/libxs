@@ -213,6 +213,7 @@
 #     if !defined(__FMA__)
 #       define __FMA__ 1
 #     endif
+#     include <immintrin.h>
 #   elif defined(__GNUC__) && (LIBXS_VERSION3(4, 4, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 #     if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing in GCC e.g., reductions */
 #       define LIBXS_INTRINSICS_INCOMPLETE_AVX512
@@ -228,6 +229,7 @@
 #       else
 #         define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #       endif
+#       include <immintrin.h>
       /* TODO: AVX-512 in GCC appears to be incomplete (missing at _mm512_mask_reduce_or_epi32, and some pseudo intrinsics) */
 #     elif (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
         && !defined(__CYGWIN__) /* Error: invalid register for .seh_savexmm */
@@ -239,6 +241,7 @@
 #       else
 #         define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #       endif
+#       include <immintrin.h>
 #     else /* GCC/legacy */
 #       if !defined(__SSE3__)
 #         define __SSE3__ 1
@@ -272,8 +275,13 @@
 #           define LIBXS_ATTRIBUTE_TARGET_1008 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
 #           undef  LIBXS_ATTRIBUTE_TARGET_1007 /* LIBXS_X86_AVX512 */
 #           define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
+#           pragma GCC push_options
+#           pragma GCC target("avx2,fma")
+#           include <immintrin.h>
+#           pragma GCC pop_options
 #         else
 #           define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
+#           include <immintrin.h>
 #         endif
 #       elif (LIBXS_X86_AVX > LIBXS_STATIC_TARGET_ARCH)
 #         define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
@@ -286,10 +294,13 @@
 #         define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
 #         undef  LIBXS_ATTRIBUTE_TARGET_1006 /* LIBXS_X86_AVX2 */
 #         define LIBXS_ATTRIBUTE_TARGET_1006 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
+#         pragma GCC push_options
+#         pragma GCC target("avx")
+#         include <immintrin.h>
+#         pragma GCC pop_options
 #       endif
 #     endif
 #   endif
-#   include <immintrin.h>
 #   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE3 > (LIBXS_STATIC_TARGET_ARCH))
 #     undef __SSE3__
 #   endif
