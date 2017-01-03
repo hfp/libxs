@@ -218,7 +218,7 @@
 #     if !defined(LIBXS_INTRINSICS_NO_PSEUDO) /* some AVX-512 pseudo intrinsics are missing in GCC e.g., reductions */
 #       define LIBXS_INTRINSICS_NO_PSEUDO
 #     endif
-#     if  (LIBXS_VERSION3(5, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
+#     if (LIBXS_VERSION3(5, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
         && !defined(__CYGWIN__) /* Error: invalid register for .seh_savexmm */
 #       if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
 #         define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
@@ -259,7 +259,7 @@
 #         include <immintrin.h>
 #       endif
       /* TODO: AVX-512 in GCC appears to be incomplete (missing at _mm512_mask_reduce_or_epi32, and some pseudo intrinsics) */
-#     elif  (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
+#     elif (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
         && !defined(__CYGWIN__) /* Error: invalid register for .seh_savexmm */
 #       if (LIBXS_X86_AVX512_MIC > LIBXS_STATIC_TARGET_ARCH)
 #         define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
