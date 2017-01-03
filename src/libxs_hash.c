@@ -367,7 +367,7 @@ unsigned int libxs_crc32_sse4(const void* data, unsigned int size, unsigned int 
   assert(0 != data || 0 == size);
 #if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_SSE4 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
   && ((LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) || \
-    !(defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__INTEL_COMPILER)))
+    !(defined(__GNUC__)/*TODO: investigate*/ && !defined(__INTEL_COMPILER)))
   LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, data, size, seed, LIBXS_HASH_UNBOUNDED);
 #else
 # if !defined(NDEBUG)
