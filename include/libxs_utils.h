@@ -213,42 +213,6 @@
 #     if !defined(__FMA__)
 #       define __FMA__ 1
 #     endif
-#     include <immintrin.h>
-#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE3 > (LIBXS_STATIC_TARGET_ARCH))
-#       undef __SSE3__
-#     endif
-#     if defined(LIBXS_UNDEF_SSSE)
-#       undef LIBXS_UNDEF_SSSE
-#       undef __SSSE3__
-#     endif
-#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4 > (LIBXS_STATIC_TARGET_ARCH))
-#       undef __SSE4_1__
-#       undef __SSE4_2__
-#     endif
-#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX > (LIBXS_STATIC_TARGET_ARCH))
-#       undef __AVX__
-#     endif
-#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX2 > (LIBXS_STATIC_TARGET_ARCH))
-#       undef __AVX2__
-#       undef __FMA__
-#     endif
-#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX512 > (LIBXS_STATIC_TARGET_ARCH))
-#       undef __AVX512F__
-#       undef __AVX512CD__
-#     endif
-#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX512_MIC > (LIBXS_STATIC_TARGET_ARCH))
-#       undef __AVX512F__
-#       undef __AVX512CD__
-#       undef __AVX512PF__
-#       undef __AVX512ER__
-#     endif
-#     if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX512_CORE > (LIBXS_STATIC_TARGET_ARCH))
-#       undef __AVX512F__
-#       undef __AVX512CD__
-#       undef __AVX512DQ__
-#       undef __AVX512BW__
-#       undef __AVX512VL__
-#     endif
 #   elif defined(__GNUC__) && (LIBXS_VERSION3(4, 4, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 #     if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing in GCC e.g., reductions */
 #       define LIBXS_INTRINSICS_INCOMPLETE_AVX512
@@ -275,32 +239,91 @@
 #       else
 #         define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #       endif
-#     elif defined(__GNUC__) && (LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-#       if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
+#     else /* GCC/legacy */
+#       if !defined(__SSE3__)
+#         define __SSE3__ 1
+#       endif
+#       if !defined(__SSSE3__)
+#         define LIBXS_UNDEF_SSSE
+#         define __SSSE3__ 1
+#       endif
+#       if !defined(__SSE4_1__)
+#         define __SSE4_1__ 1
+#       endif
+#       if !defined(__SSE4_2__)
+#         define __SSE4_2__ 1
+#       endif
+#       if !defined(__AVX__)
+#         define __AVX__ 1
+#       endif
+#       if !defined(__AVX2__)
+#         define __AVX2__ 1
+#       endif
+#       if !defined(__FMA__)
+#         define __FMA__ 1
+#       endif
+#       if defined(__GNUC__) && (LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#         if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
+#           define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
+#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#           undef  LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */
+#           define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
+#           undef  LIBXS_ATTRIBUTE_TARGET_1008 /* LIBXS_X86_AVX512_MIC */
+#           define LIBXS_ATTRIBUTE_TARGET_1008 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
+#           undef  LIBXS_ATTRIBUTE_TARGET_1007 /* LIBXS_X86_AVX512 */
+#           define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
+#         else
+#           define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
+#         endif
+#       elif (LIBXS_X86_AVX > LIBXS_STATIC_TARGET_ARCH)
 #         define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
 #         undef  LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */
 #         define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
 #         undef  LIBXS_ATTRIBUTE_TARGET_1008 /* LIBXS_X86_AVX512_MIC */
 #         define LIBXS_ATTRIBUTE_TARGET_1008 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
 #         undef  LIBXS_ATTRIBUTE_TARGET_1007 /* LIBXS_X86_AVX512 */
 #         define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#       else
-#         define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
+#         undef  LIBXS_ATTRIBUTE_TARGET_1006 /* LIBXS_X86_AVX2 */
+#         define LIBXS_ATTRIBUTE_TARGET_1006 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
 #       endif
-#     elif (LIBXS_X86_AVX > LIBXS_STATIC_TARGET_ARCH)
-#       define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
-#       undef  LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */
-#       define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#       undef  LIBXS_ATTRIBUTE_TARGET_1008 /* LIBXS_X86_AVX512_MIC */
-#       define LIBXS_ATTRIBUTE_TARGET_1008 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#       undef  LIBXS_ATTRIBUTE_TARGET_1007 /* LIBXS_X86_AVX512 */
-#       define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#       undef  LIBXS_ATTRIBUTE_TARGET_1006 /* LIBXS_X86_AVX2 */
-#       define LIBXS_ATTRIBUTE_TARGET_1006 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
 #     endif
-#     include <immintrin.h>
+#   endif
+#   include <immintrin.h>
+#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE3 > (LIBXS_STATIC_TARGET_ARCH))
+#     undef __SSE3__
+#   endif
+#   if defined(LIBXS_UNDEF_SSSE)
+#     undef LIBXS_UNDEF_SSSE
+#     undef __SSSE3__
+#   endif
+#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4 > (LIBXS_STATIC_TARGET_ARCH))
+#     undef __SSE4_1__
+#     undef __SSE4_2__
+#   endif
+#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX > (LIBXS_STATIC_TARGET_ARCH))
+#     undef __AVX__
+#   endif
+#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX2 > (LIBXS_STATIC_TARGET_ARCH))
+#     undef __AVX2__
+#     undef __FMA__
+#   endif
+#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX512 > (LIBXS_STATIC_TARGET_ARCH))
+#     undef __AVX512F__
+#     undef __AVX512CD__
+#   endif
+#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX512_MIC > (LIBXS_STATIC_TARGET_ARCH))
+#     undef __AVX512F__
+#     undef __AVX512CD__
+#     undef __AVX512PF__
+#     undef __AVX512ER__
+#   endif
+#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX512_CORE > (LIBXS_STATIC_TARGET_ARCH))
+#     undef __AVX512F__
+#     undef __AVX512CD__
+#     undef __AVX512DQ__
+#     undef __AVX512BW__
+#     undef __AVX512VL__
 #   endif
 # endif
 #endif
