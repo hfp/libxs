@@ -133,7 +133,9 @@ LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE3)
 unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
   assert(0 != reference && 0 != desc);
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_SSE) && (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_SSE) && (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
+  && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
+    !((defined(__GNUC__)/*TODO: investigate issue*/ && !defined(__clang__) && !defined(__INTEL_COMPILER))))
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   {
