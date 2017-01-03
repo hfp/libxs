@@ -164,7 +164,7 @@ LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX)
 unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
   assert(0 != reference && 0 != desc);
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX) && defined(LIBXS_GEMM_DIFF_AVX) \
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) && defined(LIBXS_GEMM_DIFF_AVX) \
   && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH) \
   && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
     !((defined(__GNUC__)/*TODO: investigate*/ && !defined(__INTEL_COMPILER)) || \
@@ -209,7 +209,7 @@ LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
   assert(0 != reference && 0 != desc);
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX) && defined(LIBXS_GEMM_DIFF_AVX2) \
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) && defined(LIBXS_GEMM_DIFF_AVX2) \
   && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
   && ((LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) || \
     !((defined(__GNUC__)/*TODO: investigate*/ && !defined(__INTEL_COMPILER)) || \
@@ -323,7 +323,7 @@ unsigned int libxs_gemm_diffn_avx(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX) && defined(LIBXS_GEMM_DIFF_AVX) \
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) && defined(LIBXS_GEMM_DIFF_AVX) \
   && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH) \
   && ((LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) || \
     !((defined(__GNUC__)/*TODO: investigate*/ && !defined(__INTEL_COMPILER)) || \
@@ -383,7 +383,7 @@ unsigned int libxs_gemm_diffn_avx2(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX) && defined(LIBXS_GEMM_DIFF_AVX2) \
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) && defined(LIBXS_GEMM_DIFF_AVX2) \
   && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH) \
   && ((LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) || \
     !((defined(__GNUC__)/*TODO: investigate*/ && !defined(__INTEL_COMPILER)) || \
