@@ -1313,51 +1313,43 @@ $(DOCDIR)/cp2k.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/cp2k.md
 .PHONY: documentation
 documentation: $(DOCDIR)/libxs.pdf $(DOCDIR)/cp2k.pdf
 
-.PHONY: clean-minimal
-clean-minimal:
-	@rm -rf $(SCRDIR)/__pycache__
-	@rm -f $(SCRDIR)/libxs_utilities.pyc
-	@touch $(INCDIR)/.make 2> /dev/null || true
-	@touch $(SPLDIR)/cp2k/.make
-	@touch $(SPLDIR)/smm/.make
-	@touch $(SPLDIR)/nek/.make
-
 .PHONY: clean
-clean: clean-minimal
-	@rm -f $(OBJECTS) $(FTNOBJS) $(SRCFILES_KERNELS)
-	@rm -f $(BLDDIR)/libxs_dispatch.h
-	@if [ "" = "$$(find build -type f -not -name .make 2> /dev/null)" ]; then \
-		rm -rf $(BLDDIR); \
-	fi
-
-.PHONY: realclean
-realclean: clean
+clean:
 ifneq ($(abspath $(BLDDIR)),$(ROOTDIR))
 ifneq ($(abspath $(BLDDIR)),$(abspath .))
 	@rm -rf $(BLDDIR)
 endif
 endif
+ifneq (,$(wildcard $(BLDDIR))) # still exists
+	@rm -f $(OBJECTS) $(FTNOBJS) $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
+	@rm -f $(BLDDIR)/*.gcno $(BLDDIR)/*.gcda $(BLDDIR)/*.gcov
+endif
+	@find . -type f \( -name .make -or -name .state \) -exec rm {} \;
+	@rm -f $(SCRDIR)/libxs_utilities.pyc
+	@rm -rf $(SCRDIR)/__pycache__
+
+.PHONY: realclean
+realclean: clean
 ifneq ($(abspath $(OUTDIR)),$(ROOTDIR))
 ifneq ($(abspath $(OUTDIR)),$(abspath .))
 	@rm -rf $(OUTDIR)
 endif
 endif
-ifneq ($(abspath $(BINDIR)),$(ROOTDIR))
-ifneq ($(abspath $(BINDIR)),$(abspath .))
-	@rm -rf $(BINDIR)
-endif
-endif
-ifneq (,$(wildcard $(OUTDIR)))
+ifneq (,$(wildcard $(OUTDIR))) # still exists
 	@rm -f $(OUTDIR)/libxs.$(LIBEXT)* $(OUTDIR)/mic/libxs.$(LIBEXT)*
 	@rm -f $(OUTDIR)/libxsf.$(LIBEXT)* $(OUTDIR)/mic/libxsf.$(LIBEXT)*
 	@rm -f $(OUTDIR)/libxsext.$(LIBEXT)* $(OUTDIR)/mic/libxsext.$(LIBEXT)*
 	@rm -f $(OUTDIR)/libxsnoblas.$(LIBEXT)* $(OUTDIR)/mic/libxsnoblas.$(LIBEXT)*
 	@rm -f $(OUTDIR)/libxsgen.$(LIBEXT)*
 endif
-ifneq (,$(wildcard $(BINDIR)))
+ifneq ($(abspath $(BINDIR)),$(ROOTDIR))
+ifneq ($(abspath $(BINDIR)),$(abspath .))
+	@rm -rf $(BINDIR)
+endif
+endif
+ifneq (,$(wildcard $(BINDIR))) # still exists
 	@rm -f $(BINDIR)/libxs_*_generator
 endif
-	@rm -f *.gcno *.gcda *.gcov
 	@rm -f $(SPLDIR)/cp2k/cp2k-perf.sh
 	@rm -f $(SPLDIR)/smm/smmf-perf.sh
 	@rm -f $(SPLDIR)/nek/grad-perf.sh
@@ -1369,32 +1361,16 @@ endif
 	@rm -f $(INCDIR)/libxs.mod
 	@rm -f $(INCDIR)/libxs.f
 	@rm -f $(INCDIR)/libxs.h
-	@rm -f $(INCDIR)/.make
-	@rm -f $(DOCDIR)/.make
-	@rm -f .make .state
 
 .PHONY: clean-all
 clean-all: clean
-	@cd $(TSTDIR)           && $(MAKE) --no-print-directory clean-minimal
-	@cd $(SPLDIR)/cp2k      && $(MAKE) --no-print-directory clean-minimal
-	@cd $(SPLDIR)/dispatch  && $(MAKE) --no-print-directory clean-minimal
-	@cd $(SPLDIR)/nek       && $(MAKE) --no-print-directory clean-minimal
-	@cd $(SPLDIR)/smm       && $(MAKE) --no-print-directory clean-minimal
-	@cd $(SPLDIR)/wrap      && $(MAKE) --no-print-directory clean-minimal
+	@find $(ROOTDIR) -type f -name Makefile -exec dirname {} \; | xargs -i $(SHELL) -c \
+		"cd {}; $(MAKE) --no-print-directory clean 2> /dev/null || true"
 
 .PHONY: realclean-all
 realclean-all: realclean
-	@cd $(TSTDIR)           && $(MAKE) --no-print-directory realclean
-	@cd $(SPLDIR)/barrier   && $(MAKE) --no-print-directory realclean
-	@cd $(SPLDIR)/cp2k      && $(MAKE) --no-print-directory realclean
-	@cd $(SPLDIR)/dispatch  && $(MAKE) --no-print-directory realclean
-	@cd $(SPLDIR)/dnn       && $(MAKE) --no-print-directory realclean
-	@cd $(SPLDIR)/nek       && $(MAKE) --no-print-directory realclean
-	@cd $(SPLDIR)/smm       && $(MAKE) --no-print-directory realclean
-	@cd $(SPLDIR)/specfem   && $(MAKE) --no-print-directory realclean
-	@cd $(SPLDIR)/transpose && $(MAKE) --no-print-directory realclean
-	@cd $(SPLDIR)/wrap      && $(MAKE) --no-print-directory realclean
-	@cd $(SPLDIR)/xgemm     && $(MAKE) --no-print-directory realclean
+	@find $(ROOTDIR) -type f -name Makefile -exec dirname {} \; | xargs -i $(SHELL) -c \
+		"cd {}; $(MAKE) --no-print-directory realclean 2> /dev/null || true"
 
 # Dummy prefix
 ifneq (,$(strip $(PREFIX)))
