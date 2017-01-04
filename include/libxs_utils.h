@@ -31,24 +31,7 @@
 
 #include "libxs_cpuid.h"
 
-/** The following set of macros are required to literally match the CPUID (libxs_cpuid.h)! */
-#define LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */ \
-  target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl")
-#define LIBXS_ATTRIBUTE_TARGET_1008 /* LIBXS_X86_AVX512_MIC */ \
-  target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er")
-#define LIBXS_ATTRIBUTE_TARGET_1007 /* LIBXS_X86_AVX512 */ \
-  target("avx2,fma,avx512f,avx512cd")
-#define LIBXS_ATTRIBUTE_TARGET_1006 /* LIBXS_X86_AVX2 */ \
-  target("avx2,fma")
-#define LIBXS_ATTRIBUTE_TARGET_1005 /* LIBXS_X86_AVX */ \
-  target("avx")
-#define LIBXS_ATTRIBUTE_TARGET_1004 /* LIBXS_X86_SSE4 */ \
-  target("sse2,sse3,ssse3,sse4.1,sse4.2")
-#define LIBXS_ATTRIBUTE_TARGET_1003 /* LIBXS_X86_SSE3 */ \
-  target("sse3")
-#define LIBXS_ATTRIBUTE_TARGET_1002 /* LIBXS_X86_GENERIC */ \
-  target("sse2") /* 64-bit ABI */
-/** Macro evaluates to LIBXS_ATTRIBUTE_TARGET_xxx (see above) */
+/** Macro evaluates to LIBXS_ATTRIBUTE_TARGET_xxx (see below) */
 #define LIBXS_ATTRIBUTE_TARGET(TARGET) LIBXS_CONCATENATE2(LIBXS_ATTRIBUTE_TARGET_, TARGET)
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -58,7 +41,7 @@
 #if defined(__MIC__)
 # define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_IMCI
 # define LIBXS_INTRINSICS(TARGET)
-#else
+#else /*!defined(__MIC__)*/
 # if    defined(__AVX512F__)  && defined(__AVX512CD__) \
    &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
@@ -90,34 +73,79 @@
 # elif defined(__x86_64__)
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_GENERIC
 # endif
-# if defined(__INTEL_COMPILER)
-    /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
-#   if 1500 <= (__INTEL_COMPILER)
-#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
-#   elif 1300 <= (__INTEL_COMPILER)
-#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
-#   else
+# if defined(LIBXS_STATIC_TARGET_ARCH) /* prerequisite */
+#   if defined(__INTEL_COMPILER)
+      /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
+#     if 1500 <= (__INTEL_COMPILER)
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#     elif 1300 <= (__INTEL_COMPILER)
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
+#     else
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     endif
+#     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
+#     include <immintrin.h>
+#   elif defined(_CRAYC) && defined(__GNUC__)
+      /* TODO: version check e.g., LIBXS_VERSION2(11, 5) <= LIBXS_VERSION2(_RELEASE, _RELEASE_MINOR) */
+#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
+#     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
+#     include <immintrin.h>
+#   elif defined(_MSC_VER)
+      /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
 #     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
-#   endif
-#   define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
-#   include <immintrin.h>
-# elif defined(_CRAYC) && defined(__GNUC__)
-    /* TODO: version check e.g., LIBXS_VERSION2(11, 5) <= LIBXS_VERSION2(_RELEASE, _RELEASE_MINOR) */
-#   define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
-#   define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
-#   include <immintrin.h>
-# elif defined(_MSC_VER)
-    /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
-#   define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
-#   define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
-#   include <immintrin.h>
-# else
-#   if defined(__clang__)
+#     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
+#     include <immintrin.h>
+#   elif (LIBXS_VERSION3(5, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#     if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing e.g., reductions */
+#       define LIBXS_INTRINSICS_INCOMPLETE_AVX512
+#     endif
+#     if !defined(__CYGWIN__)
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#     else /* Error: invalid register for .seh_savexmm */
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     endif
+#     include <immintrin.h>
+#   elif (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#     if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing e.g., reductions */
+#       define LIBXS_INTRINSICS_INCOMPLETE_AVX512
+#     endif
+#     if !defined(__CYGWIN__)
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
+#     else /* Error: invalid register for .seh_savexmm */
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     endif
+#     include <immintrin.h>
+#   else /* GCC/legacy incl. Clang */
+#     if !defined(__clang__) && !defined(LIBXS_INTRINSICS_LEGACY)
+#       define LIBXS_INTRINSICS_LEGACY
+#     endif
+#     if defined(__clang__) \
+        && ((LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
+         || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))) /* Clang/Development */ \
+        && !defined(__CYGWIN__) /* Error: invalid register for .seh_savexmm */
+#       if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing e.g., reductions */
+#         define LIBXS_INTRINSICS_INCOMPLETE_AVX512
+#       endif
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#     elif defined(__clang__) \
+        && (LIBXS_VERSION3(3, 5, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
+        && !defined(__CYGWIN__) /* Error: invalid register for .seh_savexmm */
+#       if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing e.g., reductions */
+#         define LIBXS_INTRINSICS_INCOMPLETE_AVX512
+#       endif
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
+#     elif (defined(__GNUC__) && (LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))) \
+      || (defined(__clang__) && defined(__APPLE__) && defined(__MACH__))
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     elif defined(__GNUC__) && (LIBXS_VERSION3(4, 4, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
+#     else /* fall-back */
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
+#     endif
 #     if !defined(__SSE3__)
 #       define __SSE3__ 1
 #     endif
 #     if !defined(__SSSE3__)
-#       define LIBXS_UNDEF_SSSE
 #       define __SSSE3__ 1
 #     endif
 #     if !defined(__SSE4_1__)
@@ -129,214 +157,126 @@
 #     if !defined(__AVX__)
 #       define __AVX__ 1
 #     endif
-#     if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing in Clang e.g., reductions */
-#       define LIBXS_INTRINSICS_INCOMPLETE_AVX512
-#     endif
-#     if defined(__APPLE__) && defined(__MACH__)
-#       if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
-#         define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
-#         undef  LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */
-#         define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#         undef  LIBXS_ATTRIBUTE_TARGET_1008 /* LIBXS_X86_AVX512_MIC */
-#         define LIBXS_ATTRIBUTE_TARGET_1008 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#         undef  LIBXS_ATTRIBUTE_TARGET_1007 /* LIBXS_X86_AVX512 */
-#         define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#       else
-#         define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
-#       endif
-#     else
-#       if ((LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
-         || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))) /* Clang/Development */ \
-         && !defined(__CYGWIN__) /* Error: invalid register for .seh_savexmm */
-#         if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
-#           define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
-#         else
-#           define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
-#         endif
-#       elif (LIBXS_VERSION3(3, 5, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
-         && !defined(__CYGWIN__) /* Error: invalid register for .seh_savexmm */
-#         if (LIBXS_X86_AVX512_MIC > LIBXS_STATIC_TARGET_ARCH)
-#           define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
-#           undef  LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */
-#           define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET(LIBXS_X86_AVX512/*common*/)
-#         else
-#           define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
-#         endif
-#       else
-#         if (LIBXS_X86_AVX/*2*/ > LIBXS_STATIC_TARGET_ARCH)
-#           define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX/*2*/
-#           undef  LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */
-#           define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#           undef  LIBXS_ATTRIBUTE_TARGET_1008 /* LIBXS_X86_AVX512_MIC */
-#           define LIBXS_ATTRIBUTE_TARGET_1008 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#           undef  LIBXS_ATTRIBUTE_TARGET_1007 /* LIBXS_X86_AVX512 */
-#           define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#         else
-#           define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
-#         endif
-#       endif
-#     endif
-#     if (LIBXS_X86_AVX512_MIC <= LIBXS_MAX_STATIC_TARGET_ARCH) /* Common */
-#       if !defined(__AVX512F__)
-#         define __AVX512F__ 1
-#       endif
-#       if !defined(__AVX512CD__)
-#         define __AVX512CD__ 1
-#       endif
-#     endif
-#     if (LIBXS_X86_AVX512_MIC == LIBXS_MAX_STATIC_TARGET_ARCH) /* MIC */
-#       if !defined(__AVX512PF__)
-#         define __AVX512PF__ 1
-#       endif
-#       if !defined(__AVX512ER__)
-#         define __AVX512ER__ 1
-#       endif
-#     endif
-#     if (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH) /* Core */
-#       if !defined(__AVX512DQ__)
-#         define __AVX512DQ__ 1
-#       endif
-#       if !defined(__AVX512BW__)
-#         define __AVX512BW__ 1
-#       endif
-#       if !defined(__AVX512VL__)
-#         define __AVX512VL__ 1
-#       endif
-#     endif
 #     if !defined(__AVX2__)
 #       define __AVX2__ 1
 #     endif
 #     if !defined(__FMA__)
 #       define __FMA__ 1
 #     endif
-#     include <immintrin.h>
-#   elif defined(__GNUC__) && (LIBXS_VERSION3(4, 4, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-#     if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing in GCC e.g., reductions */
-#       define LIBXS_INTRINSICS_INCOMPLETE_AVX512
+#     if !defined(__AVX512F__)
+#       define __AVX512F__ 1
 #     endif
-#     if (LIBXS_VERSION3(5, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
-        && !defined(__CYGWIN__) /* Error: invalid register for .seh_savexmm */
-#       if (LIBXS_X86_AVX512_CORE > LIBXS_STATIC_TARGET_ARCH)
-#         define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#     if !defined(__AVX512CD__)
+#       define __AVX512CD__ 1
+#     endif
+#     if !defined(__AVX512PF__)
+#       define __AVX512PF__ 1
+#     endif
+#     if !defined(__AVX512ER__)
+#       define __AVX512ER__ 1
+#     endif
+#     if !defined(__AVX512DQ__)
+#       define __AVX512DQ__ 1
+#     endif
+#     if !defined(__AVX512BW__)
+#       define __AVX512BW__ 1
+#     endif
+#     if !defined(__AVX512VL__)
+#       define __AVX512VL__ 1
+#     endif
+#     if !defined(__clang__)
+#       pragma GCC push_options
+#       if (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         pragma GCC target("avx2,fma")
 #       else
-#         define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
-#       endif
-#       include <immintrin.h>
-      /* TODO: AVX-512 in GCC appears to be incomplete (missing at _mm512_mask_reduce_or_epi32, and some pseudo intrinsics) */
-#     elif (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
-        && !defined(__CYGWIN__) /* Error: invalid register for .seh_savexmm */
-#       if (LIBXS_X86_AVX512_MIC > LIBXS_STATIC_TARGET_ARCH)
-#         define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
-#         undef  LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */
-#         define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET(LIBXS_X86_AVX512/*common*/)
-#       else
-#         define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
-#       endif
-#       include <immintrin.h>
-#     else /* GCC/legacy */
-#       if !defined(LIBXS_INTRINSICS_LEGACY)
-#         define LIBXS_INTRINSICS_LEGACY
-#       endif
-#       if !defined(__SSE3__)
-#         define __SSE3__ 1
-#       endif
-#       if !defined(__SSSE3__)
-#         define LIBXS_UNDEF_SSSE
-#         define __SSSE3__ 1
-#       endif
-#       if !defined(__SSE4_1__)
-#         define __SSE4_1__ 1
-#       endif
-#       if !defined(__SSE4_2__)
-#         define __SSE4_2__ 1
-#       endif
-#       if !defined(__AVX__)
-#         define __AVX__ 1
-#       endif
-#       if !defined(__AVX2__)
-#         define __AVX2__ 1
-#       endif
-#       if !defined(__FMA__)
-#         define __FMA__ 1
-#       endif
-#       if defined(__GNUC__) && (LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-#         if (LIBXS_X86_AVX2 > LIBXS_STATIC_TARGET_ARCH)
-#           define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
-#           undef  LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */
-#           define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#           undef  LIBXS_ATTRIBUTE_TARGET_1008 /* LIBXS_X86_AVX512_MIC */
-#           define LIBXS_ATTRIBUTE_TARGET_1008 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#           undef  LIBXS_ATTRIBUTE_TARGET_1007 /* LIBXS_X86_AVX512 */
-#           define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#           pragma GCC push_options
-#           pragma GCC target("avx2,fma")
-#           include <immintrin.h>
-#           pragma GCC pop_options
-#         else
-#           define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
-#           include <immintrin.h>
-#         endif
-#       elif (LIBXS_X86_AVX > LIBXS_STATIC_TARGET_ARCH)
-#         define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
-#         undef  LIBXS_ATTRIBUTE_TARGET_1009 /* LIBXS_X86_AVX512_CORE */
-#         define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#         undef  LIBXS_ATTRIBUTE_TARGET_1008 /* LIBXS_X86_AVX512_MIC */
-#         define LIBXS_ATTRIBUTE_TARGET_1008 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#         undef  LIBXS_ATTRIBUTE_TARGET_1007 /* LIBXS_X86_AVX512 */
-#         define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#         undef  LIBXS_ATTRIBUTE_TARGET_1006 /* LIBXS_X86_AVX2 */
-#         define LIBXS_ATTRIBUTE_TARGET_1006 LIBXS_ATTRIBUTE_TARGET(LIBXS_MAX_STATIC_TARGET_ARCH)
-#         pragma GCC push_options
 #         pragma GCC target("avx")
-#         include <immintrin.h>
-#         pragma GCC pop_options
 #       endif
 #     endif
+#     include <immintrin.h>
+#     if !defined(__clang__)
+#       pragma GCC pop_options
+#     endif
+#     if (LIBXS_X86_SSE3 > (LIBXS_STATIC_TARGET_ARCH))
+#       undef __SSE3__
+#     endif
+#     if (LIBXS_X86_SSE4 > (LIBXS_STATIC_TARGET_ARCH))
+#       undef __SSSE3__
+#       undef __SSE4_1__
+#       undef __SSE4_2__
+#     endif
+#     if (LIBXS_X86_AVX > (LIBXS_STATIC_TARGET_ARCH))
+#       undef __AVX__
+#     endif
+#     if (LIBXS_X86_AVX2 > (LIBXS_STATIC_TARGET_ARCH))
+#       undef __AVX2__
+#       undef __FMA__
+#     endif
+#     if (LIBXS_X86_AVX512 > (LIBXS_STATIC_TARGET_ARCH))
+#       undef __AVX512F__
+#       undef __AVX512CD__
+#     endif
+#     if (LIBXS_X86_AVX512_MIC > (LIBXS_STATIC_TARGET_ARCH))
+#       undef __AVX512F__
+#       undef __AVX512CD__
+#       undef __AVX512PF__
+#       undef __AVX512ER__
+#     endif
+#     if (LIBXS_X86_AVX512_CORE > (LIBXS_STATIC_TARGET_ARCH))
+#       undef __AVX512F__
+#       undef __AVX512CD__
+#       undef __AVX512DQ__
+#       undef __AVX512BW__
+#       undef __AVX512VL__
+#     endif
+#   endif /* GCC/legacy incl. Clang */
+#   if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
+#     error "LIBXS_MAX_STATIC_TARGET_ARCH not defined!"
 #   endif
-#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE3 > (LIBXS_STATIC_TARGET_ARCH))
-#     undef __SSE3__
-#   endif
-#   if defined(LIBXS_UNDEF_SSSE)
-#     undef LIBXS_UNDEF_SSSE
-#     undef __SSSE3__
-#   endif
-#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_SSE4 > (LIBXS_STATIC_TARGET_ARCH))
-#     undef __SSE4_1__
-#     undef __SSE4_2__
-#   endif
-#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX > (LIBXS_STATIC_TARGET_ARCH))
-#     undef __AVX__
-#   endif
-#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX2 > (LIBXS_STATIC_TARGET_ARCH))
-#     undef __AVX2__
-#     undef __FMA__
-#   endif
-#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX512 > (LIBXS_STATIC_TARGET_ARCH))
-#     undef __AVX512F__
-#     undef __AVX512CD__
-#   endif
-#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX512_MIC > (LIBXS_STATIC_TARGET_ARCH))
-#     undef __AVX512F__
-#     undef __AVX512CD__
-#     undef __AVX512PF__
-#     undef __AVX512ER__
-#   endif
-#   if !defined(LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX512_CORE > (LIBXS_STATIC_TARGET_ARCH))
-#     undef __AVX512F__
-#     undef __AVX512CD__
-#     undef __AVX512DQ__
-#     undef __AVX512BW__
-#     undef __AVX512VL__
-#   endif
-# endif
+#   if !defined(LIBXS_INTRINSICS)
+#     if (LIBXS_MAX_STATIC_TARGET_ARCH > LIBXS_STATIC_TARGET_ARCH)
+#       define LIBXS_INTRINSICS(TARGET) LIBXS_ATTRIBUTE(LIBXS_ATTRIBUTE_TARGET(TARGET))
+        /* LIBXS_ATTRIBUTE_TARGET_xxx is required to literally match the CPUID (libxs_cpuid.h)! */
+#       define LIBXS_ATTRIBUTE_TARGET_1002 target("sse2") /* LIBXS_X86_GENERIC (64-bit ABI) */
+#       if (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1003 target("sse3")
+#       else
+#         define LIBXS_ATTRIBUTE_TARGET_1003 LIBXS_ATTRIBUTE_TARGET_1002
+#       endif
+#       if (LIBXS_X86_SSE4 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1004 target("sse4.1,sse4.2")
+#       else
+#         define LIBXS_ATTRIBUTE_TARGET_1004 LIBXS_ATTRIBUTE_TARGET_1003
+#       endif
+#       if (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1005 target("avx")
+#       else
+#         define LIBXS_ATTRIBUTE_TARGET_1005 LIBXS_ATTRIBUTE_TARGET_1004
+#       endif
+#       if (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1006 target("avx2,fma")
+#       else
+#         define LIBXS_ATTRIBUTE_TARGET_1006 LIBXS_ATTRIBUTE_TARGET_1005
+#       endif
+#       if (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1007 target("avx2,fma,avx512f,avx512cd")
+#       else
+#         define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET_1006
+#       endif
+#       if (LIBXS_X86_AVX512_MIC <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1008 target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er")
+#       else /* LIBXS_X86_AVX512 */
+#         define LIBXS_ATTRIBUTE_TARGET_1008 LIBXS_ATTRIBUTE_TARGET_1007
+#       endif
+#       if (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1009 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl")
+#       else /* LIBXS_X86_AVX512 */
+#         define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET_1007
+#       endif
+#     else
+#       define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
+#     endif
+#   endif /*!defined(LIBXS_INTRINSICS)*/
+# endif /*defined(LIBXS_STATIC_TARGET_ARCH)*/
 #endif
 
 #if !defined(LIBXS_STATIC_TARGET_ARCH)
