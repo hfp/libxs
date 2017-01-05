@@ -411,7 +411,7 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
-  /* we can also use the layout functions and set the data on our 
+  /* we can also use the layout functions and set the data on our
      own external to the library, @TODO, we plan to add an example here */
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_input, (void*)naive_input, LIBXS_DNN_CONV_FORMAT_NCHW ) );
   CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_output ) );
