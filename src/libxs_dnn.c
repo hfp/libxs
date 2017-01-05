@@ -1218,7 +1218,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_conv_h
               }
             }
           }
-        }  
+        }
       }
     }
     handle->filter_transposed = 1;

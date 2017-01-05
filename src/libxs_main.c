@@ -540,7 +540,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_print_statistic(FILE* ostr
 
 LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_statistic_ntry(int precision)
 {
-  return internal_statistic[precision][0/*SML*/].ntry + internal_statistic[precision][1/*MED*/].ntry 
+  return internal_statistic[precision][0/*SML*/].ntry + internal_statistic[precision][1/*MED*/].ntry
        + internal_statistic[precision][2/*BIG*/].ntry + internal_statistic[precision][3/*XXX*/].ntry;
 }
 
