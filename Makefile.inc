@@ -142,7 +142,7 @@ ILP64 ?= 0
 BLAS ?= 0
 
 # Separate control on how to link against the BLAS library
-BLAS_STATIC ?= $(STATIC)
+BLAS_STATIC ?= $(DEPSTATIC)
 ifneq (0,$(BLAS_STATIC))
   BLASLIBEXT ?= $(SLIBEXT)
 else
@@ -228,8 +228,6 @@ INTEL ?= $(shell echo "$$((2==$(words $(filter icpc icc, \
 
 #FORTRAN ?= $(if $(FC), $(if $(notdir $(shell which $(FC) 2> /dev/null)), 1, 0), 0)
 ifneq (0,$(INTEL))
-  # prefer statically linked MKL
-  BLAS_STATIC = 1
   ifeq (0,$(OFFLOAD))
     CXXFLAGS += -qno-offload
     CFLAGS += -qno-offload
