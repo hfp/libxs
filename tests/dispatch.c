@@ -42,26 +42,31 @@
 
 int main(void)
 {
-  const int m[] = { 1, 2, 3, LIBXS_MAX_M - 1, LIBXS_MAX_M, LIBXS_MAX_M + 1,    16,    16,    16 };
-  const int n[] = { 1, 2, 3, LIBXS_MAX_N - 1, LIBXS_MAX_N, LIBXS_MAX_N + 1, 65279, 65280, 65792 };
-  const int k[] = { 1, 2, 3, LIBXS_MAX_K - 1, LIBXS_MAX_K, LIBXS_MAX_K + 1,    16,    16,    16 };
-  const int size = sizeof(m) / sizeof(*m), flags = LIBXS_FLAGS, prefetch = LIBXS_PREFETCH;
-  const REAL_TYPE alpha = LIBXS_ALPHA, beta = LIBXS_BETA;
+  const int m[]           = {  1, 2, 3, LIBXS_MAX_M - 1, LIBXS_MAX_M, LIBXS_MAX_M + 1,    16,    16,    16,   32 };
+  const int n[]           = {  1, 2, 3, LIBXS_MAX_N - 1, LIBXS_MAX_N, LIBXS_MAX_N + 1, 65279, 65280, 65792,   33 };
+  const int k[]           = {  1, 2, 3, LIBXS_MAX_K - 1, LIBXS_MAX_K, LIBXS_MAX_K + 1,    16,    16,    16,  192 };
+  libxs_blasint lda[]   = {  1, 2, 3, LIBXS_MAX_M - 1, LIBXS_MAX_M, LIBXS_MAX_M + 1,    16,    16,    16,   32 };
+  libxs_blasint ldb[]   = {  1, 2, 3, LIBXS_MAX_K - 1, LIBXS_MAX_K, LIBXS_MAX_K + 1,    16,    16,    16, 2048 };
+  libxs_blasint ldc[]   = {  1, 2, 3, LIBXS_MAX_M - 1, LIBXS_MAX_M, LIBXS_MAX_M + 1,    16,    16,    16, 2048 };
+  const REAL_TYPE alpha[] = {  1, 1, 1,     LIBXS_ALPHA,             1,     LIBXS_ALPHA,     1,     1,     1,    1 };
+  const REAL_TYPE beta[]  = {  1, 1, 1,      LIBXS_BETA,             0,      LIBXS_BETA,     0,     0,     0,    0 };
+  const int prefetch[]    = { -1, 0, 0,                -1,             0,                -1,    -1,    -1,    -1,    0 };
+  const int size = sizeof(m) / sizeof(*m), flags = LIBXS_FLAGS;
   LIBXS_MMFUNCTION_TYPE(REAL_TYPE) f[sizeof(m)/sizeof(*m)];
   int i, nerrors = 0;
 
   /* initially generate a number of test kernels */
   for (i = 0; i < size; ++i) {
     f[i] = LIBXS_MMDISPATCH_SYMBOL(REAL_TYPE)(
-      m[i], n[i], k[i], m + i, k + i, m + i,
-      &alpha, &beta, &flags, &prefetch);
+      m[i], n[i], k[i], lda + i, ldb + i, ldc + i,
+      alpha + i, beta + i, &flags, prefetch + i);
   }
 
   /* check that the same kernels are dispatched as previously generated */
   for (i = 0; i < (NTESTS); ++i) {
     const LIBXS_MMFUNCTION_TYPE(REAL_TYPE) fi = LIBXS_MMDISPATCH_SYMBOL(REAL_TYPE)(
-      m[i%size], n[i%size], k[i%size], m + (i % size), k + (i % size), m + (i % size),
-      &alpha, &beta, &flags, &prefetch);
+      m[i%size], n[i%size], k[i%size], lda + (i % size), ldb + (i % size), ldc + (i % size),
+      alpha + (i % size), beta + (i % size), &flags, prefetch + (i % size));
 
     if (fi != f[i%size]) { /* always an error even when JIT is disabled at compile-time */
 #if defined(_DEBUG)
