@@ -315,7 +315,7 @@ int main(int argc, char **argv)
   /* Step 5: Initialize libxs for transpose A - allocates handle and temporary space for the sparse data structure for A */
   libxs_spmdm_handle handle2;
   libxs_CSR_sparseslice* A_sparse2;
-  transA = 'Y'; transB = 'N'; transC = 'Y';
+  transA = 'T'; transB = 'N'; transC = 'T';
   libxs_spmdm_init(M, N, K, max_threads, &handle2, &A_sparse2);
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transA = Y, transC = Y -- weight update\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
   real * A_gold2 = (real*)libxs_aligned_malloc( M*K*sizeof(real), 2097152 );
@@ -362,7 +362,7 @@ int main(int argc, char **argv)
 
   /*----------------------------------------------------------------------------------------------------------------------*/
   /* Step 6: Test transpose B  */
-  transA = 'N'; transB = 'Y'; transC = 'N';
+  transA = 'N'; transB = 'T'; transC = 'N';
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transB = Y -- backprop\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
   real * B_gold2 = (real*)libxs_aligned_malloc( K*N*sizeof(real), 2097152 );
 
