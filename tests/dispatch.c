@@ -53,8 +53,7 @@ int main(void)
   libxs_blasint ldc[]   = {  1, 2, 3, LIBXS_MAX_M - 1, LIBXS_MAX_M, LIBXS_MAX_M + 1,    16,    16,    16, 2048 };
   const REAL_TYPE alpha[] = {  1, 1, 1,     LIBXS_ALPHA,             1,     LIBXS_ALPHA,     1,     1,     1,    1 };
   const REAL_TYPE beta[]  = {  1, 1, 1,      LIBXS_BETA,             0,      LIBXS_BETA,     0,     0,     0,    0 };
-  const int prefetch[]    = { -1, 0, 0,                -1,             0,                -1,    -1,    -1,    -1,    0 };
-  const int size = sizeof(m) / sizeof(*m), flags = LIBXS_FLAGS;
+  const int size = sizeof(m) / sizeof(*m), flags = LIBXS_FLAGS, prefetch = LIBXS_PREFETCH_NONE;
   LIBXS_MMFUNCTION_TYPE(REAL_TYPE) f[sizeof(m)/sizeof(*m)];
   int i, nerrors = 0;
 
@@ -62,22 +61,22 @@ int main(void)
   for (i = 0; i < size; ++i) {
     f[i] = LIBXS_MMDISPATCH_SYMBOL(REAL_TYPE)(
       m[i], n[i], k[i], lda + i, ldb + i, ldc + i,
-      alpha + i, beta + i, &flags, prefetch + i);
+      alpha + i, beta + i, &flags, &prefetch);
   }
 
   /* check that the same kernels are dispatched as previously generated */
   for (i = 0; i < (NTESTS); ++i) {
 #if defined(USE_DESCRIPTOR)
     libxs_xmmfunction fi = { 0 };
-    LIBXS_GEMM_DESCRIPTOR_TYPE(descriptor, LIBXS_ALIGNMENT, flags,
+    LIBXS_GEMM_DESCRIPTOR_TYPE(descriptor, LIBXS_ALIGNMENT, flags | LIBXS_GEMM_TYPEFLAG(REAL_TYPE),
       m[i%size], n[i%size], k[i%size], lda[i%size], ldb[i%size], ldc[i%size],
-      alpha[i%size], beta[i%size], prefetch[i%size]);
+      alpha[i%size], beta[i%size], prefetch);
     fi = libxs_xmmdispatch(&descriptor);
     if (fi.LIBXS_TPREFIX(REAL_TYPE,mm) != f[i%size])
 #else
     const LIBXS_MMFUNCTION_TYPE(REAL_TYPE) fi = LIBXS_MMDISPATCH_SYMBOL(REAL_TYPE)(
       m[i%size], n[i%size], k[i%size], lda + (i % size), ldb + (i % size), ldc + (i % size),
-      alpha + (i % size), beta + (i % size), &flags, prefetch + (i % size));
+      alpha + (i % size), beta + (i % size), &flags, &prefetch);
     if (fi != f[i%size])
 #endif
     { /* always an error even when JIT is disabled at compile-time */
