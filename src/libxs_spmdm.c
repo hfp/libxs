@@ -570,6 +570,9 @@ void libxs_spmdm_compute_bfloat16_thread(
 LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   libxs_spmdm_handle* handle, libxs_CSR_sparseslice** libxs_output_csr)
 {
+  /* initialize internal library structures */
+  LIBXS_INIT
+
   handle->m  = M;
   handle->n  = N;
   handle->k  = K;
