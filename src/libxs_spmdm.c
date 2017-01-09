@@ -28,8 +28,7 @@
 ******************************************************************************/
 #include <libxs_spmdm.h>
 #include <libxs_intrinsics_x86.h>
-#include <libxs_malloc.h>
-#include <libxs_sync.h>
+#include <libxs.h>
 #include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
