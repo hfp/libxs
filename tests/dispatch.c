@@ -38,6 +38,9 @@
 #if !defined(NTESTS)
 # define NTESTS 10000
 #endif
+#if !defined(USE_DESCRIPTOR)
+# define USE_DESCRIPTOR
+#endif
 
 
 int main(void)
@@ -64,11 +67,19 @@ int main(void)
 
   /* check that the same kernels are dispatched as previously generated */
   for (i = 0; i < (NTESTS); ++i) {
+#if defined(USE_DESCRIPTOR)
+    LIBXS_GEMM_DESCRIPTOR_TYPE(descriptor, LIBXS_ALIGNMENT, flags,
+      m[i%size], n[i%size], k[i%size], lda[i%size], ldb[i%size], ldc[i%size],
+      alpha[i%size], beta[i%size], prefetch[i%size]);
+    const libxs_xmmfunction fi = libxs_xmmdispatch(&descriptor);
+    if (fi.LIBXS_TPREFIX(REAL_TYPE,mm) != f[i%size])
+#else
     const LIBXS_MMFUNCTION_TYPE(REAL_TYPE) fi = LIBXS_MMDISPATCH_SYMBOL(REAL_TYPE)(
       m[i%size], n[i%size], k[i%size], lda + (i % size), ldb + (i % size), ldc + (i % size),
       alpha + (i % size), beta + (i % size), &flags, prefetch + (i % size));
-
-    if (fi != f[i%size]) { /* always an error even when JIT is disabled at compile-time */
+    if (fi != f[i%size])
+#endif
+    { /* always an error even when JIT is disabled at compile-time */
 #if defined(_DEBUG)
       if (0 != fi) {
         fprintf(stderr, "Error: the %ix%ix%i-kernel does not match!\n", m[i%size], n[i%size], k[i%size]);
