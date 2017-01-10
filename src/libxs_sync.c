@@ -113,7 +113,7 @@ LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthread
     sizeof(libxs_barrier), LIBXS_SYNC_CACHELINE_SIZE);
 #if defined(_REENTRANT)
   barrier->ncores = ncores;
-  barrier->ncores_log2 = (int)ceil(log2(ncores));
+  barrier->ncores_log2 = LIBXS_LOG2((ncores << 1) - 1);
   barrier->nthreads_per_core = nthreads_per_core;
   barrier->nthreads = ncores * nthreads_per_core;
 
