@@ -54,7 +54,9 @@
 # define REAL_TYPE double
 #endif
 
-#define MAX_SIZE (LIBXS_MAX_MNK / LIBXS_AVG_K)
+#if !defined(MAX_SIZE)
+# define MAX_SIZE (LIBXS_MAX_MNK / LIBXS_AVG_K)
+#endif
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT dst,
