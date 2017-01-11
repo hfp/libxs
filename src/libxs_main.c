@@ -790,7 +790,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_code_pointer* internal_init(void)
 }
 
 
-LIBXS_API_DEFINITION LIBXS_CTOR_ATTRIBUTE void libxs_init(void)
+LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   const void *const registry = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED);
   if (0 == registry) {
@@ -805,7 +805,7 @@ LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
 void libxs_finalize(void);
 
-LIBXS_API_DEFINITION LIBXS_DTOR_ATTRIBUTE void libxs_finalize(void)
+LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 {
   libxs_code_pointer* registry = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
 

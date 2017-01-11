@@ -359,11 +359,13 @@
 #endif
 
 #if defined(__GNUC__)
-# define LIBXS_CTOR_ATTRIBUTE LIBXS_ATTRIBUTE(constructor)
-# define LIBXS_DTOR_ATTRIBUTE LIBXS_ATTRIBUTE(destructor)
+# define LIBXS_ATTRIBUTE_CTOR LIBXS_ATTRIBUTE(constructor)
+# define LIBXS_ATTRIBUTE_DTOR LIBXS_ATTRIBUTE(destructor)
+# define LIBXS_ATTRIBUTE_UNUSED LIBXS_ATTRIBUTE(unused)
 #else
-# define LIBXS_CTOR_ATTRIBUTE
-# define LIBXS_DTOR_ATTRIBUTE
+# define LIBXS_ATTRIBUTE_CTOR
+# define LIBXS_ATTRIBUTE_DTOR
+# define LIBXS_ATTRIBUTE_UNUSED
 #endif
 
 #if defined(__GNUC__)
