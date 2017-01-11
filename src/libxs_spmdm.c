@@ -83,7 +83,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_compute_bfloat16_thread)
 LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX)
 void internal_spmdm_init_shufmask_avx()
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+#if !defined(LIBXS_INTRINSICS_NONE) \
+  && (!defined(LIBXS_INTRINSICS_LEGACY) || (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)) \
   && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
   unsigned int i, j, c, last_bit;
   LIBXS_ALIGNED(int temp_shufmasks[8], 64);
