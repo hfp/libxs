@@ -145,7 +145,7 @@
 #     else /* fall-back */
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
 #     endif
-#     if !defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_MAX_STATIC_TARGET_ARCH)
+#     if !defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
 #       define LIBXS_INTRINSICS_LEGACY
 #     endif
 #     if !defined(__SSE3__)
