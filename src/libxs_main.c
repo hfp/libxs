@@ -545,7 +545,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_statistic_ntry(int precisi
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_register_static_code(const libxs_gemm_descriptor* desc,
+LIBXS_API void internal_register_static_code(const libxs_gemm_descriptor*,
+  unsigned int, unsigned int, libxs_xmmfunction, libxs_code_pointer*);
+LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descriptor* desc,
   unsigned int index, unsigned int hash, libxs_xmmfunction src, libxs_code_pointer* registry)
 {
   internal_regkey_type* dst_key = internal_registry_keys + index;
@@ -1073,7 +1075,8 @@ LIBXS_API_DEFINITION void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type 
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_get_precision_string(libxs_dnn_datatype datatype)
+LIBXS_API const char* internal_get_precision_string(libxs_dnn_datatype);
+LIBXS_API_DEFINITION const char* internal_get_precision_string(libxs_dnn_datatype datatype)
 {
   const char* result = "unk"; /* unknown */
   switch (datatype) {
