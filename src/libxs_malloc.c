@@ -39,10 +39,8 @@
 #endif
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
-#if !defined(NDEBUG)
-# include <string.h>
-#endif
 #if defined(_WIN32)
 # include <windows.h>
 #else
