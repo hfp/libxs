@@ -276,6 +276,11 @@ ifneq (,$(strip $(FC)))
   FTNOBJS = $(BLDDIR)/intel64/libxs-mod.o $(BLDDIR)/mic/libxs-mod.o
 endif
 
+ifneq (,$(strip $(TEST)))
+.PHONY: run-tests
+run-tests: tests
+endif
+
 .PHONY: libxs
 ifeq (0,$(COMPATIBLE))
 libxs: lib generator
