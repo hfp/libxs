@@ -85,14 +85,13 @@ int main(void)
       const libxs_blasint m = r[3*i+0] % max_shape + 1;
       const libxs_blasint n = r[3*i+1] % max_shape + 1;
       const libxs_blasint k = r[3*i+2] % max_shape + 1;
+      const libxs_smmfunction fi = libxs_smmdispatch(m, n, k,
+        NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, NULL/*alpha*/, NULL/*beta*/,
+        NULL/*flags*/, NULL/*prefetch*/);
 
-      if (NULL != f[i]) {
-        const libxs_smmfunction fi = libxs_smmdispatch(m, n, k,
-          NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, NULL/*alpha*/, NULL/*beta*/,
-          NULL/*flags*/, NULL/*prefetch*/);
-
-        if (fi != f[i]) {
-          if (NULL != fi) {
+      if (fi != f[i]) {
+        if (NULL != fi) {
+          if (NULL != f[0]) {
 #if defined(_DEBUG) || defined(USE_VERBOSE)
             fprintf(stderr, "Error: the %ix%ix%i-kernel does not match!\n", m, n, k);
 #endif
@@ -107,7 +106,7 @@ int main(void)
           }
           else if (0 != LIBXS_JIT && 0 == libxs_get_dispatch_trylock()) {
 #if defined(_DEBUG) || defined(USE_VERBOSE)
-            fprintf(stderr, "Error: cannot find %ix%ix%i-kernel!\n", m, n, k);
+            fprintf(stderr, "Error: no code generated for %ix%ix%i-kernel!\n", m, n, k);
 #endif
 #if defined(_OPENMP) && !defined(USE_PARALLEL_JIT)
 # if (201107 <= _OPENMP)
@@ -119,19 +118,19 @@ int main(void)
             result = EXIT_FAILURE;
           }
         }
-      }
-      else if (0 != LIBXS_JIT && 0 == libxs_get_dispatch_trylock()) {
+        else if (0 != LIBXS_JIT && 0 == libxs_get_dispatch_trylock()) {
 #if defined(_DEBUG) || defined(USE_VERBOSE)
-        fprintf(stderr, "Error: no code generated for %ix%ix%i-kernel!\n", m, n, k);
+          fprintf(stderr, "Error: cannot find %ix%ix%i-kernel!\n", m, n, k);
 #endif
 #if defined(_OPENMP) && !defined(USE_PARALLEL_JIT)
 # if (201107 <= _OPENMP)
-#       pragma omp atomic write
+#         pragma omp atomic write
 # else
-#       pragma omp critical
+#         pragma omp critical
 # endif
 #endif
-        result = EXIT_FAILURE;
+          result = EXIT_FAILURE;
+        }
       }
     }
   }
