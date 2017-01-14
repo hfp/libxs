@@ -75,7 +75,7 @@
 #define LIBXS_ATOMIC_RELAXED __ATOMIC_RELAXED
 #define LIBXS_ATOMIC_SEQ_CST __ATOMIC_SEQ_CST
 
-#if (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(LIBXS_GCCATOMICS)
+#if (defined(_REENTRANT) || defined(LIBXS_SYNC_OPENMP)) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
 #   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __atomic_load_n(SRC_PTR, KIND)
 #   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) __atomic_store_n(DST_PTR, VALUE, KIND)
@@ -95,7 +95,7 @@
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_add_and_fetch(DST_PTR, VALUE)
 #   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_sub_and_fetch(DST_PTR, VALUE)
 # endif
-#elif (defined(_REENTRANT) || defined(LIBXS_OPENMP)) && defined(_WIN32) /*TODO*/
+#elif (defined(_REENTRANT) || defined(LIBXS_SYNC_OPENMP)) && defined(_WIN32) /*TODO*/
 #   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) (*(SRC_PTR))
 #   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) (*(DST_PTR) = VALUE)
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) += VALUE)
@@ -114,15 +114,26 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #if defined(_REENTRANT)
-# if defined(_WIN32) /*TODO*/
-#   define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
-#   define LIBXS_LOCK_TYPE HANDLE
-#   define LIBXS_LOCK_CONSTRUCT 0
-#   define LIBXS_LOCK_INIT(LOCK) /*TODO*/
-#   define LIBXS_LOCK_DESTROY(LOCK) CloseHandle(LOCK)
-#   define LIBXS_LOCK_ACQUIRE(LOCK) WaitForSingleObject(LOCK, INFINITE)
-#   define LIBXS_LOCK_TRYLOCK(LOCK) WaitForSingleObject(LOCK, 0)
-#   define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(LOCK)
+# if defined(_WIN32)
+#   if 1
+#     define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
+#     define LIBXS_LOCK_TYPE HANDLE
+#     define LIBXS_LOCK_CONSTRUCT 0
+#     define LIBXS_LOCK_INIT(LOCK) *(LOCK) = CreateMutex(NULL, FALSE, NULL)
+#     define LIBXS_LOCK_DESTROY(LOCK) CloseHandle(*(LOCK))
+#     define LIBXS_LOCK_ACQUIRE(LOCK) WaitForSingleObject(*(LOCK), INFINITE)
+#     define LIBXS_LOCK_TRYLOCK(LOCK) WaitForSingleObject(*(LOCK), 0)
+#     define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(*(LOCK))
+#   else /*TODO*/
+#     define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
+#     define LIBXS_LOCK_TYPE CRITICAL_SECTION
+#     define LIBXS_LOCK_CONSTRUCT LIBXS_LOCK_TYPE()
+#     define LIBXS_LOCK_INIT(LOCK) InitializeCriticalSection(LOCK)
+#     define LIBXS_LOCK_DESTROY(LOCK)
+#     define LIBXS_LOCK_ACQUIRE(LOCK) EnterCriticalSection(LOCK)
+#     define LIBXS_LOCK_TRYLOCK(LOCK) TryEnterCriticalSection(LOCK)
+#     define LIBXS_LOCK_RELEASE(LOCK) LeaveCriticalSection(LOCK)
+#   endif
 # else
 #   include <pthread.h>
 #   define LIBXS_LOCK_ACQUIRED 0
