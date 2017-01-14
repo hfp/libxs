@@ -1167,7 +1167,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
     code += *index; /* actual entry */
     while (0 != diff) {
       flux_entry.pmm = LIBXS_ATOMIC_LOAD(&code->pmm, LIBXS_ATOMIC_SEQ_CST); /* read registered code */
-      if (0 != flux_entry.pmm || 1 == mode) { /* check existing entry further */
+      if ((0 != flux_entry.pmm || 1 == mode) && 2 != mode) { /* check existing entry further */
         diff = libxs_gemm_diff(descriptor, &internal_registry_keys[*index].descriptor);
         if (0 == diff) { /* found the correct code version */
           flux_entry.imm &= ~LIBXS_CODE_STATIC; /* clear non-JIT flag */
@@ -1222,7 +1222,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
               }
               if (*index == i0) { /* out of capacity (no registry slot available) */
                 diff = 0; /* inside of locked region (do not use break!) */
-                assert(0 == flux_entry.pmm);
+                flux_entry.pmm = 0; /* no result */
               }
             }
             code = internal_registry + *index;
