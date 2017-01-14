@@ -64,8 +64,8 @@
 
 
 #if !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
-LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i internal_spmdm_shufmasks_32[256];
-LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i internal_spmdm_shufmasks_16[256];
+LIBXS_EXTERN_C LIBXS_RETARGETABLE static __m256i internal_spmdm_shufmasks_32[256];
+LIBXS_EXTERN_C LIBXS_RETARGETABLE static __m256i internal_spmdm_shufmasks_16[256];
 #endif
 
 
