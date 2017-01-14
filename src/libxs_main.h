@@ -233,7 +233,7 @@ LIBXS_API int libxs_malloc_attrib(void** memory, int flags,
   const char* name);
 
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_REGSIZE for unmanaged code). */
-LIBXS_API void libxs_build(const libxs_build_request* request, unsigned regindex, libxs_code_pointer* code);
+LIBXS_API int libxs_build(const libxs_build_request* request, unsigned regindex, libxs_code_pointer* code);
 
 /** Updates counters of the statistic, which is shown at program termination. */
 LIBXS_API unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol);
