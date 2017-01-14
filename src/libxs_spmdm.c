@@ -628,7 +628,11 @@ LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   assert(0 != internal_spmdm_createSparseSlice_bfloat16_thread);
   assert(0 != internal_spmdm_compute_fp32_thread);
   assert(0 != internal_spmdm_compute_bfloat16_thread);
+
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
   assert(0 != internal_spmdm_shufmasks_32);
   assert(0 != internal_spmdm_shufmasks_16);
+#endif
 }
 
