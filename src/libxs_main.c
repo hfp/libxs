@@ -1232,7 +1232,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
         else
 #endif
         { /* leave the dispatch loop */
-          assert(0 == flux_entry.pmm);
+          flux_entry.pmm = 0;
           diff = 0;
         }
       }
