@@ -202,7 +202,8 @@ void internal_spmdm_createSparseSlice_fp32_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
@@ -228,7 +229,8 @@ void internal_spmdm_createSparseSlice_fp32_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
@@ -289,7 +291,8 @@ void internal_spmdm_createSparseSlice_bfloat16_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
@@ -315,7 +318,8 @@ void internal_spmdm_createSparseSlice_bfloat16_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
@@ -386,7 +390,8 @@ void internal_spmdm_compute_fp32_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
@@ -417,7 +422,8 @@ void internal_spmdm_compute_fp32_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
@@ -493,7 +499,8 @@ void internal_spmdm_compute_bfloat16_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
@@ -524,7 +531,8 @@ void internal_spmdm_compute_bfloat16_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
