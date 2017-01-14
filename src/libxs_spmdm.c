@@ -63,12 +63,6 @@
 #endif
 
 
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
-LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i internal_spmdm_shufmasks_32[256];
-LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i internal_spmdm_shufmasks_16[256];
-#endif
-
 /* function pointer for the CPUID-dispatched implementation */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_createSparseSlice_fp32_thread)(const libxs_spmdm_handle*, char,
   const float*, libxs_CSR_sparseslice*, int, int, int);
@@ -79,15 +73,22 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_compute_fp32_thread)(con
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_compute_bfloat16_thread)(const libxs_spmdm_handle*, char, char,
   const uint16_t*, libxs_CSR_sparseslice*, const uint16_t*, char, const uint16_t*, float*, int, int, int);
 
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i* internal_spmdm_shufmasks_32;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i* internal_spmdm_shufmasks_16;
+#endif
+
 
 LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX)
 void internal_spmdm_init_shufmask_avx()
 {
 #if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
   && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
-  unsigned int i, j, c, last_bit;
+  static __m256i spmdm_shufmasks_32[256], spmdm_shufmasks_16[256];
   LIBXS_ALIGNED(int temp_shufmasks[8], 64);
   LIBXS_ALIGNED(uint16_t temp_shufmasks2[16], 64);
+  unsigned int i, j, c, last_bit;
   int cnt;
   for (i = 0; i < 256; i++) {
     cnt = 0;
@@ -101,9 +102,11 @@ void internal_spmdm_init_shufmask_avx()
       j &= (~(1<<last_bit));
       cnt++;
     }
-    internal_spmdm_shufmasks_32[i] = _mm256_loadu_si256((const __m256i*)temp_shufmasks);
-    internal_spmdm_shufmasks_16[i] = _mm256_loadu_si256((const __m256i*)temp_shufmasks2);
+    spmdm_shufmasks_32[i] = _mm256_loadu_si256((const __m256i*)temp_shufmasks);
+    spmdm_shufmasks_16[i] = _mm256_loadu_si256((const __m256i*)temp_shufmasks2);
   }
+  internal_spmdm_shufmasks_32 = spmdm_shufmasks_32;
+  internal_spmdm_shufmasks_16 = spmdm_shufmasks_16;
 #endif
 }
 
@@ -625,5 +628,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   assert(0 != internal_spmdm_createSparseSlice_bfloat16_thread);
   assert(0 != internal_spmdm_compute_fp32_thread);
   assert(0 != internal_spmdm_compute_bfloat16_thread);
+  assert(0 != internal_spmdm_shufmasks_32);
+  assert(0 != internal_spmdm_shufmasks_16);
 }
 
