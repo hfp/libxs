@@ -118,8 +118,6 @@ if [ "" != "${MKTEMP}" ] && [ "" != "${CHMOD}" ] && [ "" != "${SED}" ] && [ "" !
     if [ "" = "$1" ] && [ "0" = "${RESULT}" ]; then
       TESTID=$((TESTID+1))
     else # finish
-      echo "--------------------------------------------------------------------------------"
-      echo "FAILURE"
       break
     fi
   done
@@ -127,6 +125,11 @@ if [ "" != "${MKTEMP}" ] && [ "" != "${CHMOD}" ] && [ "" != "${SED}" ] && [ "" !
   # remove temporary script (if it exists)
   if [ "" != "${TESTSCRIPT}" ] && [ -e ${TESTSCRIPT} ]; then
     ${RM} ${TESTSCRIPT}
+  fi
+
+  if [ "0" != "${RESULT}" ]; then
+    echo "--------------------------------------------------------------------------------"
+    echo "FAILURE"
   fi
 
   exit ${RESULT}
