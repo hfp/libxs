@@ -105,12 +105,11 @@ if [ "" != "${MKTEMP}" ] && [ "" != "${CHMOD}" ] && [ "" != "${SED}" ] && [ "" !
       RESULT=$?
 
       # exit the loop in case of an error
-      echo "--------------------------------------------------------------------------------"
       if [ "0" = "${RESULT}" ]; then
+        echo "--------------------------------------------------------------------------------"
         echo "SUCCESS"
         echo
       else
-        echo "FAILURE"
         break
       fi
     done
@@ -119,6 +118,8 @@ if [ "" != "${MKTEMP}" ] && [ "" != "${CHMOD}" ] && [ "" != "${SED}" ] && [ "" !
     if [ "" = "$1" ] && [ "0" = "${RESULT}" ]; then
       TESTID=$((TESTID+1))
     else # finish
+      echo "--------------------------------------------------------------------------------"
+      echo "FAILURE"
       break
     fi
   done
