@@ -129,7 +129,7 @@ int main(void)
                 result = EXIT_FAILURE;
               }
 #if defined(_DEBUG) || defined(USE_VERBOSE)
-              else if (0 == registry_nstatic) {
+              else if (0 != registry_nstatic) {
                 fprintf(stderr, "Warning: the %ix%ix%i-kernel may not match!\n", m, n, k);
               }
               else {
