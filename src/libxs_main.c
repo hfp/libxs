@@ -1275,34 +1275,31 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
 }
 
 
-LIBXS_API_DEFINITION int libxs_get_registry_info(size_t* capacity, size_t* size, size_t* nstatic, size_t* nbytes)
+LIBXS_API_DEFINITION int libxs_get_registry_info(libxs_registry_info* info)
 {
   int result = EXIT_SUCCESS;
-  if (0 != capacity || 0 != size || 0 != nstatic || 0 != nbytes) {
-    size_t registry_size = 0, registry_nstatic = 0, registry_nbytes = 0, i;
+  if (0 != info) {
     LIBXS_INIT
     if (0 != internal_registry) {
-      registry_nbytes = (LIBXS_REGCAPACITY) * (sizeof(libxs_code_pointer) + sizeof(internal_regkey_type));
+      size_t i;
+      info->nbytes = (LIBXS_REGCAPACITY) * (sizeof(libxs_code_pointer) + sizeof(internal_regkey_type));
+      info->capacity = LIBXS_REGCAPACITY;
       for (i = 0; i < (LIBXS_REGCAPACITY); ++i) {
         const libxs_code_pointer code = internal_registry[i];
         if (0 != code.pmm) {
-          ++registry_size;
+          ++info->size;
           if (0 == (LIBXS_CODE_STATIC & code.imm)) { /* check for allocated/generated JIT-code */
             size_t buffer_size = 0;
             void* buffer = 0;
             if (EXIT_SUCCESS == libxs_malloc_info(code.pmm, &buffer_size, 0/*flags*/, &buffer)) {
-              registry_nbytes += (unsigned int)(buffer_size + (((char*)code.pmm) - (char*)buffer));
+              info->nbytes += (unsigned int)(buffer_size + (((char*)code.pmm) - (char*)buffer));
             }
           }
           else {
-            ++registry_nstatic;
+            ++info->nstatic;
           }
         }
       }
-      if (0 != capacity) *capacity = LIBXS_REGCAPACITY;
-      if (0 != size) *size = registry_size;
-      if (0 != nstatic) *nstatic = registry_nstatic;
-      if (0 != nbytes) *nbytes = registry_nbytes;
     }
     else {
       result = EXIT_FAILURE;
