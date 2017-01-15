@@ -402,12 +402,13 @@ LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descrip
 
     /* start linearly searching for an available slot */
     for (i = (start != index) ? start : LIBXS_HASH_MOD(start + 1, LIBXS_REGSIZE), i0 = i, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE);
-      0 != (dst_entry = registry + i)->pmm && next != i0; i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE));
+      0 != registry[i].pmm && next != i0; i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_REGSIZE));
 
-    /* corresponding key position */
+    /* calculate destinations */
     dst_key = internal_registry_keys + i;
+    dst_entry = registry + i;
 
-    internal_update_mmstatistic(desc, 0, 1);
+    internal_update_mmstatistic(desc, 0, 1/*collision*/);
   }
 
   if (0 == dst_entry->pmm) { /* registry not (yet) exhausted */
@@ -417,7 +418,7 @@ LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descrip
     dst_entry->imm |= LIBXS_CODE_STATIC;
   }
 
-  internal_update_mmstatistic(desc, 1, 0);
+  internal_update_mmstatistic(desc, 1/*try*/, 0);
 }
 
 
