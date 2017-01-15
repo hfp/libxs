@@ -101,9 +101,7 @@ int main(void)
         if (NULL != fi.p) {
           if (NULL != f[i].p) {
             size_t registry_nstatic;
-            LIBXS_GEMM_DESCRIPTOR_TYPE(reference, LIBXS_ALIGNMENT, flags | LIBXS_GEMM_TYPEFLAG(float),
-              m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/, LIBXS_ALPHA, LIBXS_BETA, prefetch);
-            libxs_generator_gemm_kernel(&generated_code, &reference, target_arch);
+            libxs_generator_gemm_kernel(&generated_code, &descriptor, target_arch);
             result = libxs_get_registry_info(0, 0, &registry_nstatic, 0);
 
             if (EXIT_SUCCESS == result
