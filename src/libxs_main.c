@@ -1288,10 +1288,10 @@ LIBXS_API_DEFINITION int libxs_get_registry_info(size_t* capacity, size_t* size,
         if (0 != code.pmm) {
           ++registry_size;
           if (0 == (LIBXS_CODE_STATIC & code.imm)) { /* check for allocated/generated JIT-code */
+            size_t buffer_size = 0;
             void* buffer = 0;
-            size_t size = 0;
-            if (EXIT_SUCCESS == libxs_malloc_info(code.pmm, &size, 0/*flags*/, &buffer)) {
-              registry_nbytes += (unsigned int)(size + (((char*)code.pmm) - (char*)buffer));
+            if (EXIT_SUCCESS == libxs_malloc_info(code.pmm, &buffer_size, 0/*flags*/, &buffer)) {
+              registry_nbytes += (unsigned int)(buffer_size + (((char*)code.pmm) - (char*)buffer));
             }
           }
           else {
