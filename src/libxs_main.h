@@ -38,8 +38,8 @@
 #include <libxs_dnn.h>
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
-#if !defined(LIBXS_REGSIZE) /* must be POT */
-# define LIBXS_REGSIZE 524288 /* 524287: Mersenne Prime number (2^19-1) */
+#if !defined(LIBXS_REGCAPACITY) /* must be POT */
+# define LIBXS_REGCAPACITY 524288 /* 524287: Mersenne Prime number (2^19-1) */
 #endif
 #if !defined(LIBXS_CPU_DCACHESIZE)
 # define LIBXS_CPU_DCACHESIZE 32768
@@ -233,7 +233,7 @@ LIBXS_API int libxs_malloc_attrib(void** memory, int flags,
   /** If a name is given, an executable buffer will be dumped into a file. */
   const char* name);
 
-/** Services a build request, and (optionally) registers the code (use regindex=LIBXS_REGSIZE for unmanaged code). */
+/** Services a build request, and (optionally) registers the code (use regindex=LIBXS_REGCAPACITY for unmanaged code). */
 LIBXS_API int libxs_build(const libxs_build_request* request, unsigned regindex, libxs_code_pointer* code);
 
 /** Updates counters of the statistic, which is shown at program termination. */

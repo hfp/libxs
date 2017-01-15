@@ -1342,7 +1342,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_forward(
     libxs_build_request request;
     request.descriptor.cfwd = descriptor;
     request.kind = LIBXS_BUILD_KIND_CFWD;
-    libxs_build(&request, LIBXS_REGSIZE/*not managed*/, &code);
+    libxs_build(&request, LIBXS_REGCAPACITY/*not managed*/, &code);
   }
 #if !defined(NDEBUG) /* library code is expected to be mute */
   else {
@@ -1365,7 +1365,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_backward(
     libxs_build_request request;
     request.descriptor.cbwd = descriptor;
     request.kind = LIBXS_BUILD_KIND_CBWD;
-    libxs_build(&request, LIBXS_REGSIZE/*not managed*/, &code);
+    libxs_build(&request, LIBXS_REGCAPACITY/*not managed*/, &code);
   }
 #if !defined(NDEBUG) /* library code is expected to be mute */
   else {
@@ -1388,7 +1388,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_update_weights(
     libxs_build_request request;
     request.descriptor.cupd = descriptor;
     request.kind = LIBXS_BUILD_KIND_CUPD;
-    libxs_build(&request, LIBXS_REGSIZE/*not managed*/, &code);
+    libxs_build(&request, LIBXS_REGCAPACITY/*not managed*/, &code);
   }
 #if !defined(NDEBUG) /* library code is expected to be mute */
   else {
@@ -1410,7 +1410,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_forward(
     libxs_build_request request;
     request.descriptor.cfwd = descriptor;
     request.kind = LIBXS_BUILD_KIND_CFWD;
-    libxs_build(&request, LIBXS_REGSIZE/*not managed*/, &code);
+    libxs_build(&request, LIBXS_REGCAPACITY/*not managed*/, &code);
   }
 #if !defined(NDEBUG) /* library code is expected to be mute */
   else {
@@ -1433,7 +1433,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_backward(
     libxs_build_request request;
     request.descriptor.cbwd = descriptor;
     request.kind = LIBXS_BUILD_KIND_CBWD;
-    libxs_build(&request, LIBXS_REGSIZE/*not managed*/, &code);
+    libxs_build(&request, LIBXS_REGCAPACITY/*not managed*/, &code);
   }
 #if !defined(NDEBUG) /* library code is expected to be mute */
   else {
@@ -1456,7 +1456,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_update_weights(
     libxs_build_request request;
     request.descriptor.cupd = descriptor;
     request.kind = LIBXS_BUILD_KIND_CUPD;
-    libxs_build(&request, LIBXS_REGSIZE/*not managed*/, &code);
+    libxs_build(&request, LIBXS_REGCAPACITY/*not managed*/, &code);
   }
 #if !defined(NDEBUG) /* library code is expected to be mute */
   else {

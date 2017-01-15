@@ -32,11 +32,7 @@
 #include <stdio.h>
 
 #if !defined(MAX_NKERNELS)
-# if defined(LIBXS_REGSIZE)
-#   define MAX_NKERNELS ((LIBXS_REGSIZE) * 2)
-# else
-#   define MAX_NKERNELS 100
-# endif
+# define MAX_NKERNELS 100
 #endif
 #if !defined(USE_PARALLEL_JIT)
 # define USE_PARALLEL_JIT
@@ -104,17 +100,21 @@ int main(void)
       if (fi.p != f[i].p) {
         if (NULL != fi.p) {
           if (NULL != f[i].p) {
+            size_t registry_nstatic;
             LIBXS_GEMM_DESCRIPTOR_TYPE(reference, LIBXS_ALIGNMENT, flags | LIBXS_GEMM_TYPEFLAG(float),
               m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/, LIBXS_ALPHA, LIBXS_BETA, prefetch);
             libxs_generator_gemm_kernel(&generated_code, &reference, target_arch);
+            result = libxs_get_registry_info(0, 0, &registry_nstatic, 0);
 
-            if  (0 == generated_code.last_error
+            if (EXIT_SUCCESS == result
+              && 0 == generated_code.last_error
               && 0 != generated_code.generated_code
               && 0 < generated_code.code_size)
             {
               /* perform deeper check based on another code generation (used as reference) */
-              if  (0 != memcmp(generated_code.generated_code, fi.p, generated_code.code_size)
-                || 0 != memcmp(generated_code.generated_code, f[i].p, generated_code.code_size))
+              if  (0 == registry_nstatic &&
+                  (0 != memcmp(generated_code.generated_code, fi.p, generated_code.code_size)
+                || 0 != memcmp(generated_code.generated_code, f[i].p, generated_code.code_size)))
               {
 #if defined(_DEBUG) || defined(USE_VERBOSE)
                 fprintf(stderr, "Error: the %ix%ix%i-kernel does not match!\n", m, n, k);
@@ -129,6 +129,9 @@ int main(void)
                 result = EXIT_FAILURE;
               }
 #if defined(_DEBUG) || defined(USE_VERBOSE)
+              else if (0 == registry_nstatic) {
+                fprintf(stderr, "Warning: the %ix%ix%i-kernel may not match!\n", m, n, k);
+              }
               else {
                 fprintf(stderr, "(%ix%ix%i-kernel is duplicated)\n", m, n, k);
               }
