@@ -182,7 +182,7 @@ ifeq (0,$(STATIC))
 endif
 
 ifneq (1,$(CACHE))
-  DFLAGS += -DLIBXS_CACHESIZE=$(CACHE)
+  DFLAGS += -DLIBXS_CAPACITY_CACHE=$(CACHE)
 endif
 
 # disable lazy initialization and rely on ctor attribute
