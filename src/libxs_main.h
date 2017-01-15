@@ -66,7 +66,8 @@
 #endif
 
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
-  /*const*/void* pmm;
+  const void* const_pmm;
+  void* pmm;
   uintptr_t imm;
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
   libxs_xconvfunction xconv;
