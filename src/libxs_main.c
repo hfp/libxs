@@ -154,9 +154,6 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX)
 #endif
 
-#define INTERNAL_FIND_CODE_DECLARE(CODE) libxs_code_pointer* CODE = \
-  LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)
-
 #if defined(LIBXS_GEMM_DIFF_SW) && (2 == (LIBXS_GEMM_DIFF_SW)) /* most general implementation */
 # define INTERNAL_FIND_CODE_CACHE_INDEX(CACHE_HIT, RESULT_INDEX) \
     RESULT_INDEX = ((CACHE_HIT) + ((LIBXS_CAPACITY_CACHE) - 1)) % (LIBXS_CAPACITY_CACHE)
@@ -167,7 +164,6 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 #endif
 
 #define INTERNAL_DISPATCH_MAIN(TYPE, DESCRIPTOR_DECL, DESC, PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) { \
-  INTERNAL_FIND_CODE_DECLARE(code); \
   const int internal_dispatch_main_flags_ = (0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)) | LIBXS_GEMM_TYPEFLAG(TYPE); \
   const int internal_dispatch_main_lda_ = (0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB)); \
   const int internal_dispatch_main_ldb_ = (0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA)); \
@@ -183,7 +179,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
       (signed char)(internal_dispatch_main_alpha_), (signed char)(internal_dispatch_main_beta_), \
       (0 > internal_dispatch_main_prefetch_ ? internal_gemm_auto_prefetch : internal_dispatch_main_prefetch_)); \
     { \
-      return internal_find_code(DESC, code).LIBXS_TPREFIX(TYPE, mm); \
+      return internal_find_code(DESC).LIBXS_TPREFIX(TYPE, mm); \
     } \
   } \
   else { /* bypass (not supported) */ \
@@ -1150,7 +1146,7 @@ LIBXS_API_DEFINITION const libxs_gemm_descriptor* internal_get_gemm_descriptor(c
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs_gemm_descriptor* descriptor, libxs_code_pointer* code)
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs_gemm_descriptor* descriptor)
 {
   libxs_code_pointer flux_entry = { 0 };
   unsigned int hash, i0, i = 0, mode = 0, diff = 1;
@@ -1181,14 +1177,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
   assert(0 != descriptor);
 #endif
   {
-    assert(0 != code);
-    /* use return value of internal_init to refresh local representation */
-    if (0 == code) code = internal_init();
+    assert(0 != internal_registry);
     /* check if the requested xGEMM is already JITted */
     LIBXS_HASH_FUNCTION_CALL(hash, i = i0, *descriptor);
-    code += i; /* actual entry */
     while (0 != diff) {
-      flux_entry.pmm = LIBXS_ATOMIC_LOAD(&code->pmm, LIBXS_ATOMIC_SEQ_CST); /* read registered code */
+      flux_entry.pmm = LIBXS_ATOMIC_LOAD(&internal_registry[i].pmm, LIBXS_ATOMIC_SEQ_CST); /* read registered code */
       if ((0 != flux_entry.pmm || 1 == mode) && 2 != mode) { /* check existing entry further */
         diff = libxs_gemm_diff(descriptor, &internal_registry_keys[i].descriptor);
         if (0 != diff) { /* search for code version */
@@ -1200,7 +1193,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
           if (i == i0) { /* no code version exists */
             mode = 2; /* enter code generation */
           }
-          code = internal_registry + i;
           assert(0 != diff); /* continue */
         }
       }
@@ -1210,18 +1202,18 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
         if (LIBXS_X86_AVX <= libxs_target_archid) { /* check if JIT is supported (CPUID) */
           assert(0 == flux_entry.pmm/*code version does not exist*/ || 0 != mode);
           INTERNAL_FIND_CODE_LOCK(lock, i, diff, flux_entry.pmm); /* lock the registry entry */
-          if (0 == code->pmm) { /* double-check registry after acquiring the lock */
+          if (0 == internal_registry[i].pmm) { /* double-check registry after acquiring the lock */
             libxs_build_request request; /* setup the code build request */
             request.descriptor.gemm = descriptor; request.kind = LIBXS_BUILD_KIND_GEMM;
             internal_update_mmstatistic(descriptor, 1, 0); /* count attempt (try) */
             if (EXIT_SUCCESS == libxs_build(&request, i, &flux_entry) && 0 != flux_entry.pmm) {
               internal_registry_keys[i].descriptor = *descriptor;
-              LIBXS_ATOMIC_STORE(&code->pmm, flux_entry.pmm, LIBXS_ATOMIC_SEQ_CST); /* sync */
+              LIBXS_ATOMIC_STORE(&internal_registry[i].pmm, flux_entry.pmm, LIBXS_ATOMIC_SEQ_CST); /* sync */
             }
             diff = 0; /* inside of locked region (do not use break!) */
           }
           else { /* acquire registry slot */
-            assert(0 != code->pmm/*collision*/);
+            assert(0 != internal_registry[i].pmm/*collision*/);
             if (0 == mode) { /* initial condition */
               mode = 2; /* continue to linearly search for an empty slot */
               i0 = i; /* keep current position on record */
@@ -1232,7 +1224,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
               diff = 0; /* inside of locked region (do not use break!) */
               flux_entry.pmm = 0; /* no result */
             }
-            code = internal_registry + i;
           }
           INTERNAL_FIND_CODE_UNLOCK(lock);
         }
@@ -1308,7 +1299,7 @@ LIBXS_API_DEFINITION int libxs_get_registry_info(libxs_registry_info* info)
 
 LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
-  const libxs_xmmfunction null_mmfunction = { 0 };
+  libxs_xmmfunction result = { 0 };
   /* there is no need to check LIBXS_GEMM_NO_BYPASS_DIMS (M, N, K, LDx) since we already got a descriptor */
   if (0 != descriptor && LIBXS_GEMM_NO_BYPASS(descriptor->flags, descriptor->alpha, descriptor->beta)) {
     libxs_gemm_descriptor backend_descriptor;
@@ -1318,14 +1309,11 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
       backend_descriptor.prefetch = (unsigned char)libxs_gemm_auto_prefetch;
       descriptor = &backend_descriptor;
     }
-    {
-      INTERNAL_FIND_CODE_DECLARE(code);
-      return internal_find_code(descriptor, code);
-    }
+    result = internal_find_code(descriptor);
   }
   else { /* bypass (not supported) */
     internal_update_mmstatistic(descriptor, 1, 0);
-    return null_mmfunction;
+    return result;
   }
 }
 
