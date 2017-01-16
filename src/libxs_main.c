@@ -1178,6 +1178,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
     cache.hit = cache_index;
 #if !defined(NDEBUG)
     if (0 == (LIBXS_CODE_STATIC & flux_entry.imm)) { /* JIT only */
+# if defined(LIBXS_HASH_COLLISION)
+      flux_entry.imm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
+# endif
       refdesc = internal_get_gemm_descriptor(flux_entry.pmm);
     }
 #endif
@@ -1195,26 +1198,27 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
       if ((0 != flux_entry.pmm || 1 == mode) && 2 > mode) { /* check existing entry further */
         diff = 0 != flux_entry.pmm ? libxs_gemm_diff(descriptor, &internal_registry_keys[i].descriptor) : 1;
         if (0 != diff) { /* search for code version */
-          if (0 != mode) { /* continue searching code */
-            i = LIBXS_HASH_MOD(i + 1, LIBXS_CAPACITY_REGISTRY);
-          }
-          else { /* eventually start to search for code version */
+          if (0 == mode) { /* transition to higher mode */
             i0 = i; /* keep current position on record */
 #if defined(LIBXS_HASH_COLLISION)
-            if (0 != (LIBXS_HASH_COLLISION & flux_entry.imm))
-#endif
+            /* enter code generation, and collision fix-up */
+            if (0 == (LIBXS_HASH_COLLISION & flux_entry.imm)) {
+              assert(0 != flux_entry.pmm); /* collision */
+              mode = 3;
+            }
+            else
+#endif      /* search for an existing code version */
             {
-              i = LIBXS_HASH_MOD(i + 1, LIBXS_CAPACITY_REGISTRY);
-              mode = 1; /* search for an existing code version */
-              assert(0 != flux_entry.pmm);
+              mode = 1;
             }
           }
-          if (i == i0) { /* no code version exists */
+          i = LIBXS_HASH_MOD(i + 1, LIBXS_CAPACITY_REGISTRY);
+          if (i == i0) { /* search finished, no code version exists */
 #if defined(LIBXS_HASH_COLLISION)
             mode = 3; /* enter code generation, and collision fix-up */
 #else
             mode = 2; /* enter code generation */
-#endif
+#endif      
           }
           assert(0 != diff); /* continue */
         }
@@ -1223,7 +1227,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
         assert(0 == mode || 1 < mode);
 #if (0 != LIBXS_JIT)
         if (LIBXS_X86_AVX <= libxs_target_archid) { /* check if JIT is supported (CPUID) */
-          assert(0 == flux_entry.pmm/*code version does not exist*/ || 0 != mode);
+          assert(0 != mode || 0 == flux_entry.pmm/*code version does not exist*/);
           INTERNAL_FIND_CODE_LOCK(lock, i, diff, flux_entry.pmm); /* lock the registry entry */
           if (0 == internal_registry[i].pmm) { /* double-check registry after acquiring the lock */
             libxs_build_request request; /* setup the code build request */
@@ -1231,12 +1235,18 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
             internal_update_mmstatistic(descriptor, 1/*try*/, 0); /* count attempt */
             if (EXIT_SUCCESS == libxs_build(&request, i, &flux_entry) && 0 != flux_entry.pmm) {
               internal_registry_keys[i].descriptor = *descriptor;
-#if defined(LIBXS_HASH_COLLISION)
-              if (2 < mode) { /* arrived from collision state; now mark as collision */
-                flux_entry.imm |= LIBXS_HASH_COLLISION; /* mark current entry as collision */
-              }
-#endif
               LIBXS_ATOMIC_STORE(&internal_registry[i].pmm, flux_entry.pmm, LIBXS_ATOMIC_SEQ_CST); /* sync */
+# if defined(LIBXS_HASH_COLLISION)
+              if (2 < mode) { /* arrived from collision state; now mark as collision */
+                libxs_code_pointer fix_entry;
+                fix_entry.pmm = LIBXS_ATOMIC_LOAD(&internal_registry[i0].pmm, LIBXS_ATOMIC_RELAXED);
+                assert(0 != fix_entry.pmm);
+                if (0 == (LIBXS_HASH_COLLISION & fix_entry.imm)) {
+                  fix_entry.imm |= LIBXS_HASH_COLLISION; /* mark current entry as collision */
+                  LIBXS_ATOMIC_STORE(&internal_registry[i0].pmm, fix_entry.pmm, LIBXS_ATOMIC_RELAXED);
+                }
+              }
+# endif
             }
             diff = 0; /* inside of locked region (do not use break!) */
           }
@@ -1302,11 +1312,14 @@ LIBXS_API_DEFINITION int libxs_get_registry_info(libxs_registry_info* info)
       info->capacity = LIBXS_CAPACITY_REGISTRY;
       info->ncache = LIBXS_CAPACITY_CACHE;
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
-        const libxs_code_pointer code = internal_registry[i];
+        libxs_code_pointer code = internal_registry[i];
         if (0 != code.pmm && EXIT_SUCCESS == result) {
           if (0 == (LIBXS_CODE_STATIC & code.imm)) { /* check for allocated/generated JIT-code */
             size_t buffer_size = 0;
             void* buffer = 0;
+#if defined(LIBXS_HASH_COLLISION)
+            code.imm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
+#endif
             result = libxs_malloc_info(code.pmm, &buffer_size, 0/*flags*/, &buffer);
             if (EXIT_SUCCESS == result) {
               info->nbytes += (unsigned int)(buffer_size + (((char*)code.pmm) - (char*)buffer));
