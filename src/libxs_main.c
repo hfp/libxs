@@ -1313,8 +1313,8 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
   }
   else { /* bypass (not supported) */
     internal_update_mmstatistic(descriptor, 1, 0);
-    return result;
   }
+  return result;
 }
 
 #if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__)
