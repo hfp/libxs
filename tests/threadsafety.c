@@ -101,6 +101,7 @@ int main(void)
         if (NULL != fi.p) {
           if (NULL != f[i].p) {
             libxs_registry_info registry_info;
+            generated_code.code_size = 0; /* reset size; avoid stitching code */
             libxs_generator_gemm_kernel(&generated_code, &descriptor, target_arch);
             result = libxs_get_registry_info(&registry_info);
 
