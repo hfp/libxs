@@ -1158,17 +1158,18 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
   const libxs_gemm_descriptor* refdesc = 0;
 #endif
 #if defined(LIBXS_CAPACITY_CACHE) && (0 < (LIBXS_CAPACITY_CACHE))
-  static LIBXS_TLS union { libxs_gemm_descriptor desc; char padding[LIBXS_GEMM_DESCRIPTOR_SIMD_SIZE]; } cache_keys[LIBXS_CAPACITY_CACHE];
-  static LIBXS_TLS libxs_xmmfunction cache[LIBXS_CAPACITY_CACHE];
-  static LIBXS_TLS unsigned int cache_id = (unsigned int)(-1);
-  static LIBXS_TLS unsigned int cache_hit = LIBXS_CAPACITY_CACHE;
+  static LIBXS_TLS struct {
+    unsigned int id, hit; /* not ideal here, but avoid GCC's warning about "missing braces around initializer" */
+    union { char padding[LIBXS_GEMM_DESCRIPTOR_SIMD_SIZE]; libxs_gemm_descriptor desc; } keys[LIBXS_CAPACITY_CACHE];
+    libxs_xmmfunction code[LIBXS_CAPACITY_CACHE];
+  } cache = { (unsigned int)(-1), LIBXS_CAPACITY_CACHE };
   unsigned int cache_index;
   assert(0 != descriptor && LIBXS_GEMM_DESCRIPTOR_SIMD_SIZE >= LIBXS_GEMM_DESCRIPTOR_SIZE);
   /* search small cache starting with the last hit on record */
-  cache_index = libxs_gemm_diffn(descriptor, &cache_keys->desc, cache_hit, LIBXS_CAPACITY_CACHE, LIBXS_GEMM_DESCRIPTOR_SIMD_SIZE);
-  if ((LIBXS_CAPACITY_CACHE) > cache_index && cache_id == internal_teardown) { /* cache hit, and valid */
-    flux_entry.xmm = cache[cache_index];
-    cache_hit = cache_index;
+  cache_index = libxs_gemm_diffn(descriptor, &cache.keys->desc, cache.hit, LIBXS_CAPACITY_CACHE, LIBXS_GEMM_DESCRIPTOR_SIMD_SIZE);
+  if ((LIBXS_CAPACITY_CACHE) > cache_index && cache.id == internal_teardown) { /* cache hit, and valid */
+    flux_entry.xmm = cache.code[cache_index];
+    cache.hit = cache_index;
 #if !defined(NDEBUG)
     if (0 == (LIBXS_CODE_STATIC & flux_entry.imm)) { /* JIT only */
       refdesc = internal_get_gemm_descriptor(flux_entry.pmm);
@@ -1245,15 +1246,15 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
     }
 #if defined(LIBXS_CAPACITY_CACHE) && (0 < (LIBXS_CAPACITY_CACHE))
     if (0 != flux_entry.pmm) { /* keep code version on record (cache) */
-      INTERNAL_FIND_CODE_CACHE_INDEX(cache_hit, cache_index);
-      cache_keys[cache_index].desc = *descriptor;
-      cache[cache_index] = flux_entry.xmm;
-      cache_hit = cache_index;
+      INTERNAL_FIND_CODE_CACHE_INDEX(cache.hit, cache_index);
+      cache.keys[cache_index].desc = *descriptor;
+      cache.code[cache_index] = flux_entry.xmm;
+      cache.hit = cache_index;
       assert(0 == diff);
     }
-    if (cache_id != internal_teardown) {
-      memset(cache_keys, -1, sizeof(cache_keys));
-      cache_id = internal_teardown;
+    if (cache.id != internal_teardown) {
+      memset(cache.keys, -1, sizeof(cache.keys));
+      cache.id = internal_teardown;
     }
 #endif
 #if !defined(NDEBUG)
