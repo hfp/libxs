@@ -1210,10 +1210,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
             }
           }
           if (i == i0) { /* no code version exists */
-#if 0
-            mode = 2; /* enter code generation, and collision fix-up */
+#if defined(LIBXS_HASH_COLLISION)
+            mode = 3; /* enter code generation, and collision fix-up */
 #else
-            mode = 3; /* enter code generation */
+            mode = 2; /* enter code generation */
 #endif
           }
           assert(0 != diff); /* continue */
@@ -1232,7 +1232,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
             if (EXIT_SUCCESS == libxs_build(&request, i, &flux_entry) && 0 != flux_entry.pmm) {
               internal_registry_keys[i].descriptor = *descriptor;
 #if defined(LIBXS_HASH_COLLISION)
-              if (2 == mode) { /* arrived from collision state; now mark as collision */
+              if (2 < mode) { /* arrived from collision state; now mark as collision */
                 flux_entry.imm |= LIBXS_HASH_COLLISION; /* mark current entry as collision */
               }
 #endif
@@ -1243,7 +1243,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
           else { /* acquire registry slot */
             assert(0 != internal_registry[i].pmm/*collision*/);
             if (0 == mode) { /* initial condition */
-              mode = 3; /* continue to linearly search for an empty slot */
+              mode = 2; /* continue to linearly search for an empty slot */
               i0 = i; /* keep current position on record */
             }
             for (i = LIBXS_HASH_MOD(i + 1, LIBXS_CAPACITY_REGISTRY); i != i0 && 0 != internal_registry[i].pmm;
