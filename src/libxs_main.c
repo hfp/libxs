@@ -1374,14 +1374,15 @@ LIBXS_API_DEFINITION int libxs_get_registry_info(libxs_registry_info* info)
 }
 
 
-LIBXS_API_DEFINITION libxs_gemm_descriptor* libxs_create_gemm_descriptor(libxs_gemm_precision precision,
-  char transa, char transb, int m, int n, int k, int lda, int ldb, int ldc, double alpha, double beta,
+LIBXS_API_DEFINITION libxs_gemm_descriptor* libxs_create_dgemm_descriptor(char transa, char transb,
+  int m, int n, int k, int lda, int ldb, int ldc, double alpha, double beta,
   libxs_gemm_prefetch_type strategy)
 {
   libxs_gemm_descriptor *const result = (libxs_gemm_descriptor*)malloc(sizeof(libxs_gemm_descriptor));
+  assert(0 != transa && 0 != transb && 0 != strchr("NnTt", transa) && 0 != strchr("NnTt", transb));
   /* filter alpha and beta values since the descriptor cannot store general real values */
   if (0 != result && 0 != LIBXS_GEMM_NO_BYPASS(0, alpha, beta)) {
-    LIBXS_GEMM_DESCRIPTOR(*result, 1, precision |
+    LIBXS_GEMM_DESCRIPTOR(*result, 1, LIBXS_GEMM_FLAG_F64PREC |
       (('T' == transa || 't' == transa) ? LIBXS_GEMM_FLAG_TRANS_A : 0) |
       (('T' == transb || 't' == transb) ? LIBXS_GEMM_FLAG_TRANS_B : 0),
       m, n, k, lda, ldb, ldc, alpha, beta, strategy);
