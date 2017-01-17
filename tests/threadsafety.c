@@ -76,7 +76,7 @@ int main(void)
 
   result = libxs_get_registry_info(&registry_info);
   if (EXIT_SUCCESS == result) {
-    nkernels = LIBXS_MIN(nkernels, registry_info.capacity);
+    nkernels = (int)LIBXS_MIN((size_t)nkernels, registry_info.capacity);
   }
 
 #if defined(_OPENMP) && defined(USE_PARALLEL_JIT)
