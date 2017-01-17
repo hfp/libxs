@@ -998,7 +998,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
     case LIBXS_BUILD_KIND_SREG: { /* sparse register kernel */
       assert(0 != request->descriptor.sreg && 0 != request->descriptor.ssoa->gemm);
       assert(0 != request->descriptor.sreg->row_ptr && 0 != request->descriptor.sreg->column_idx && 0 != request->descriptor.sreg->values);
-#if 0
+#if 1
       if (0 == (LIBXS_GEMM_FLAG_F32PREC & (request->descriptor.sreg->gemm->flags))/*only double-precision*/) {
 #endif
         generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
@@ -1020,7 +1020,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
             (unsigned int)request->descriptor.sreg->gemm->lda, (unsigned int)request->descriptor.sreg->gemm->ldb, (unsigned int)request->descriptor.sreg->gemm->ldc,
             request->descriptor.sreg->gemm->alpha, request->descriptor.sreg->gemm->beta, uid);
         }
-#if 0
+#if 1
       }
       else { /* this case is not an actual error */
         return result;
@@ -1456,7 +1456,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_dcsr_reg(const libxs_gemm_de
   return code.xmm;
 }
 
-
+#if 0
 LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_fcsr_reg(const libxs_gemm_descriptor* descriptor,
   const unsigned int* row_ptr, const unsigned int* column_idx, const float* values)
 {
@@ -1473,7 +1473,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_fcsr_reg(const libxs_gemm_de
   libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
   return code.xmm;
 }
-
+#endif
 
 LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
 {
