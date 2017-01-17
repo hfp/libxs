@@ -1456,6 +1456,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_dcsr_reg(const libxs_gemm_de
   return code.xmm;
 }
 
+
 #if 0
 LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_fcsr_reg(const libxs_gemm_descriptor* descriptor,
   const unsigned int* row_ptr, const unsigned int* column_idx, const float* values)
@@ -1474,6 +1475,22 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_fcsr_reg(const libxs_gemm_de
   return code.xmm;
 }
 #endif
+
+
+LIBXS_API_DEFINITION libxs_gemm_descriptor* libxs_create_dgemm_descriptor(char transa, char transb, int m, int n, int k, 
+                                                                     int lda, int ldb, int ldc, double alpha, double beta, libxs_gemm_prefetch_type pf_type) 
+{
+  libxs_gemm_descriptor* l_xgemm_desc = (libxs_gemm_descriptor*)malloc(sizeof(libxs_gemm_descriptor));
+  LIBXS_GEMM_DESCRIPTOR(*l_xgemm_desc, 1, 0, m, n, k, lda, ldb, ldc, alpha, beta, pf_type);
+  return l_xgemm_desc;
+}
+
+
+LIBXS_API_DEFINITION void libxs_release_gemm_descriptor(libxs_gemm_descriptor* desc) 
+{
+  free(desc);
+}
+
 
 LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
 {
