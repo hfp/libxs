@@ -65,6 +65,7 @@
 #endif
 
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
+  const volatile void* cv_pmm;
   const void* const_pmm;
   void* pmm;
   uintptr_t imm;
