@@ -38,10 +38,10 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 
-#if defined(__MIC__)
+#if defined(__MIC__) && !defined(LIBXS_INTRINSICS_NONE)
 # define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_IMCI
 # define LIBXS_INTRINSICS(TARGET)
-#else /*!defined(__MIC__)*/
+#elif !defined(LIBXS_INTRINSICS_NONE) /*!defined(__MIC__)*/
 # if    defined(__AVX512F__)  && defined(__AVX512CD__) \
    &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
@@ -288,8 +288,7 @@
 #     endif
 #   endif /*!defined(LIBXS_INTRINSICS)*/
 # endif /*defined(LIBXS_STATIC_TARGET_ARCH)*/
-#endif
-
+#endif /*!defined(LIBXS_INTRINSICS_NONE)*/
 #if !defined(LIBXS_STATIC_TARGET_ARCH)
 # define LIBXS_STATIC_TARGET_ARCH LIBXS_TARGET_ARCH_GENERIC
 #endif
