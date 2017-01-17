@@ -711,8 +711,8 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 #if defined(LIBXS_HASH_COLLISION)
               code.imm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 #endif
-              if (EXIT_SUCCESS == libxs_malloc_info(code.const_pmm, &size, 0/*flags*/, &buffer)) {
-                libxs_xfree(code.const_pmm);
+              if (EXIT_SUCCESS == libxs_malloc_info(code.cv_pmm, &size, 0/*flags*/, &buffer)) {
+                libxs_xfree(code.cv_pmm);
                 ++internal_statistic[precision][bucket].njit;
                 heapmem += (unsigned int)(size + (((char*)code.const_pmm) - (char*)buffer));
               }
@@ -1351,7 +1351,7 @@ LIBXS_API_DEFINITION int libxs_get_registry_info(libxs_registry_info* info)
 #if defined(LIBXS_HASH_COLLISION)
             code.imm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 #endif
-            result = libxs_malloc_info(code.const_pmm, &buffer_size, 0/*flags*/, &buffer);
+            result = libxs_malloc_info(code.cv_pmm, &buffer_size, 0/*flags*/, &buffer);
             if (EXIT_SUCCESS == result) {
               info->nbytes += (unsigned int)(buffer_size + (((char*)code.const_pmm) - (char*)buffer));
             }

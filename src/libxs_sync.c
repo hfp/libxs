@@ -65,7 +65,7 @@
 # define LIBXS_SYNC_FREE(BUFFER) _mm_free((void*)(BUFFER))
 #else
 # define LIBXS_SYNC_MALLOC(SIZE, ALIGNMENT) libxs_aligned_malloc(SIZE, -(ALIGNMENT))
-# define LIBXS_SYNC_FREE(BUFFER) libxs_free(BUFFER)
+# define LIBXS_SYNC_FREE(BUFFER) libxs_free((const volatile void*)(BUFFER))
 #endif
 #if defined(__MIC__)
 # define LIBXS_SYNC_PAUSE(DELAY) _mm_delay_32(DELAY)
