@@ -81,6 +81,13 @@ typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
   const void* values;
 } libxs_csr_soa_descriptor;
 
+typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
+  const libxs_gemm_descriptor* gemm;
+  const unsigned int* row_ptr;
+  const unsigned int* column_idx;
+  const void* values;
+} libxs_csr_reg_descriptor;
+
 /** Structure which describes an activation layer. */
 struct LIBXS_RETARGETABLE libxs_dnn_buffer {
   int N;                            /* number of images in mini-batch */
@@ -178,6 +185,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
 typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GEMM,
   LIBXS_BUILD_KIND_SSOA,
+  LIBXS_BUILD_KIND_SREG,
   LIBXS_BUILD_KIND_CFWD,
   LIBXS_BUILD_KIND_CBWD,
   LIBXS_BUILD_KIND_CUPD
@@ -186,6 +194,7 @@ typedef enum libxs_build_kind {
 typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_gemm_descriptor* gemm;
   const libxs_csr_soa_descriptor* ssoa;
+  const libxs_csr_reg_descriptor* sreg;
   const libxs_convolution_forward_descriptor* cfwd;
   const libxs_convolution_backward_descriptor* cbwd;
   const libxs_convolution_weight_update_descriptor* cupd;
