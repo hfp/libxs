@@ -145,7 +145,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_csr_a(libxs_spmdm_h
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_scratch(libxs_spmdm_handle* handle, int max_threads)
 {
-  size_t sz_memory_for_scratch_per_thread = ((handle->bm)*(handle->bn)*sizeof(float) + (handle->bk)*(handle->bn)*sizeof(float))*max_threads, sz_total_memory;
+  size_t sz_memory_for_scratch_per_thread = ((handle->bm)*(handle->bn)*sizeof(float) + (handle->bk)*(handle->bn)*sizeof(float)), sz_total_memory;
   sz_memory_for_scratch_per_thread = (sz_memory_for_scratch_per_thread + 4095)/4096 * 4096;
   sz_total_memory = sz_memory_for_scratch_per_thread * max_threads;
 
