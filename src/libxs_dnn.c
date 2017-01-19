@@ -112,6 +112,8 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: Invalid layout was specified!";
     case LIBXS_DNN_ERR_UNSUPPORTED_ARCH:
       return "LIBXS DNN Error: Unsupported architecture!";
+    case LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED:
+      return "LIBXS DNN Error: scratch binding failed sas scratch was not allocated!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occured!";
   }
@@ -151,14 +153,6 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype
 
 
 LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle(
-  libxs_dnn_conv_desc     conv_desc)
-{
-  libxs_dnn_err_t status;
-  return libxs_dnn_create_conv_handle_check( conv_desc, &status);
-}
-
-
-LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
   libxs_dnn_conv_desc     conv_desc,
   libxs_dnn_err_t*        status)
 {
@@ -221,7 +215,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
     }
 
     if ( handle->algo == LIBXS_DNN_CONV_ALGO_DIRECT ) {
-       *status = libxs_dnn_internal_create_conv_handle_direct_check( handle );
+       *status = libxs_dnn_internal_create_conv_handle_direct( handle );
     } else {
       /* shouldn't happen */
     }
@@ -272,9 +266,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_d
       /* no kernel was JITed */
     }
 
+    /* Deallocate barrier */
+    if (handle->barrier != 0 ) { libxs_barrier_release((const libxs_barrier*)handle->barrier); }
+
     /*Deallocate scratch in handle*/
     libxs_free(handle->scratch1);
-    if (handle->scratch2 != 0 ) { libxs_barrier_release((const libxs_barrier*)handle->scratch2); }
     libxs_free(handle->scratch3);
     libxs_free(handle->scratch4);
 
@@ -289,14 +285,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_d
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format)
-{
-  libxs_dnn_err_t status;
-  return libxs_dnn_link_input_buffer_check( handle, data, in_format, &status );
-}
-
-
-LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
 {
   libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
   *status = LIBXS_DNN_SUCCESS;
@@ -335,13 +324,7 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer_check(const l
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_conv_handle* handle) {
-  libxs_dnn_err_t status;
-  return libxs_dnn_get_input_buffer_datalayout_check( handle, &status );
-}
-
-
-LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status) {
+LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status) {
   libxs_dnn_conv_datalayout* layout;
 
   *status = LIBXS_DNN_SUCCESS;
@@ -418,14 +401,7 @@ LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datal
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format)
-{
-  libxs_dnn_err_t status;
-  return libxs_dnn_link_output_buffer_check( handle, data, in_format, &status );
-}
-
-
-LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
 {
   libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
   *status = LIBXS_DNN_SUCCESS;
@@ -464,13 +440,7 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer_check(const 
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_conv_handle* handle) {
-  libxs_dnn_err_t status;
-  return libxs_dnn_get_output_buffer_datalayout_check( handle, &status );
-}
-
-
-LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status) {
+LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status) {
   libxs_dnn_conv_datalayout* layout;
 
   *status = LIBXS_DNN_SUCCESS;
@@ -550,14 +520,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_bu
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format)
-{
-  libxs_dnn_err_t status;
-  return libxs_dnn_link_filter_check(handle, data, in_format, &status);
-}
-
-
-LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
 {
   libxs_dnn_filter* filter = (libxs_dnn_filter*)malloc(sizeof(libxs_dnn_filter));
   *status = LIBXS_DNN_SUCCESS;
@@ -598,13 +561,7 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter_check(const libxs_d
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_conv_handle* handle) {
-  libxs_dnn_err_t status;
-  return libxs_dnn_get_filter_datalayout_check( handle, &status );
-}
-
-
-LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status) {
+LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status) {
   libxs_dnn_conv_datalayout* layout;
 
   *status = LIBXS_DNN_SUCCESS;
@@ -1056,6 +1013,170 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_conv_handle
   }
   else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE_FILTER;
+  }
+
+  return status;
+}
+
+
+LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_conv_handle* handle, const libxs_dnn_conv_kind kind, libxs_dnn_err_t* status)
+{
+  size_t l_scratch_size = 0;
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    switch (kind) {
+      case LIBXS_DNN_CONV_KIND_FWD: {
+        l_scratch_size = 0;
+      } break;
+      case LIBXS_DNN_CONV_KIND_BWD: {
+        /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+        l_scratch_size = handle->scratch1_size + 64;
+      } break;
+      case LIBXS_DNN_CONV_KIND_UPD: {
+        /* we need a minibatch copy for transpose of input, scratch3 */
+        l_scratch_size = handle->scratch3_size + 64;
+        /* potentially we need thread-local filter copies, scratch4 */
+        if (handle->upd_use_thread_fil == 1) {
+          l_scratch_size += handle->scratch4_size + 64;
+        }
+      } break;
+      case LIBXS_DNN_CONV_KIND_ALL: {
+        /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+        l_scratch_size = handle->scratch1_size + 64;
+        /* we need a minibatch copy for transpose of input, scratch3 */
+        l_scratch_size += handle->scratch3_size + 64;
+        /* potentially we need thread-local filter copies, scratch4 */
+        if (handle->upd_use_thread_fil == 1) {
+          l_scratch_size += handle->scratch4_size + 64;
+        }
+      } break;
+      default: {
+        *status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
+    }
+  } else {
+    *status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return l_scratch_size;
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_conv_handle* handle, const libxs_dnn_conv_kind kind, const void* scratch)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  size_t address = (size_t)scratch;
+  size_t offset = 0;
+
+  if (scratch == 0) {
+    status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
+    return status;
+  }
+
+  if (0 != handle) {
+    switch (kind) {
+#if 0
+      case LIBXS_DNN_CONV_KIND_FWD: {
+        /* nothing todo, we run into error */
+      } break;
+#endif
+      case LIBXS_DNN_CONV_KIND_BWD: {
+        /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+        if (address % 64 == 0) {
+          handle->scratch1 = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->scratch1 = (void*)(address+offset);
+        }
+      } break;
+      case LIBXS_DNN_CONV_KIND_UPD: {
+        /* we need a minibatch copy for transpose of input, scratch3 */
+        if (address % 64 == 0) {
+          handle->scratch3 = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->scratch3 = (void*)(address+offset);
+        }
+        /* potentially we need thread-local filter copies, scratch4 */
+        if (handle->upd_use_thread_fil == 1) {
+          address += handle->scratch3_size + 64;
+          if (address % 64 == 0) {
+            handle->scratch4 = (void*)address;
+          } else {
+            offset = (64 - address % 64);
+            handle->scratch4 = (void*)(address+offset);
+          }
+        }
+      } break;
+      case LIBXS_DNN_CONV_KIND_ALL: {
+        /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+        if (address % 64 == 0) {
+          handle->scratch1 = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->scratch1 = (void*)(address+offset);
+        }
+        address += handle->scratch1_size + 64;
+        /* we need a minibatch copy for transpose of input, scratch3 */
+        if (address % 64 == 0) {
+          handle->scratch3 = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->scratch3 = (void*)(address+offset);
+        }
+        /* potentially we need thread-local filter copies, scratch4 */
+        if (handle->upd_use_thread_fil == 1) {
+          address += handle->scratch3_size + 64;
+          if (address % 64 == 0) {
+            handle->scratch4 = (void*)address;
+          } else {
+            offset = (64 - address % 64);
+            handle->scratch4 = (void*)(address+offset);
+          }
+        }
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
+    }
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return status;
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_conv_handle* handle, const libxs_dnn_conv_kind kind)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    switch (kind) {
+#if 0
+      case LIBXS_DNN_CONV_KIND_FWD: {
+        /* nothing todo, we run into error */
+      } break;
+#endif
+      case LIBXS_DNN_CONV_KIND_BWD: {
+        handle->scratch1 = 0;
+      } break;
+      case LIBXS_DNN_CONV_KIND_UPD: {
+        handle->scratch3 = 0;
+        handle->scratch4 = 0;
+      } break;
+      case LIBXS_DNN_CONV_KIND_ALL: {
+        handle->scratch1 = 0;
+        handle->scratch3 = 0;
+        handle->scratch4 = 0;
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
+    }
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE;
   }
 
   return status;

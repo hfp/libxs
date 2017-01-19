@@ -236,6 +236,7 @@ int main(int argc, char* argv[])
   int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
   naive_conv_t naive_param;
   correctness_t norms_fwd;
+  void* scratch;
 
   /* some parameters we can overwrite via cli,
      default is some inner layer of overfeat */
@@ -399,15 +400,15 @@ int main(int argc, char* argv[])
   conv_desc.datatype_in = LIBXS_DNN_DATATYPE_I8;
   conv_desc.datatype_out = LIBXS_DNN_DATATYPE_I32;
 
-  libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
+  libxs_handle = libxs_dnn_create_conv_handle( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_input_buffer_check( libxs_handle, input_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
+  libxs_input = libxs_dnn_link_input_buffer( libxs_handle, input_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_output_buffer_check( libxs_handle, output_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
+  libxs_output = libxs_dnn_link_output_buffer( libxs_handle, output_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter_check( libxs_handle, filter_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, filter_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
@@ -421,6 +422,11 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
+
+  /* let's allocate and bind scratch */
+  scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_CONV_KIND_ALL, &status ), 2097152);
+  CHKERR_LIBXS_DNN( status );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_CONV_KIND_ALL, scratch ) );
 
   printf("##########################################\n");
   printf("#  Check Correctness   (custom-Storage)  #\n");
@@ -480,6 +486,8 @@ int main(int argc, char* argv[])
      norms_fwd.max_rel_err, norms_fwd.max_abs_err, norms_fwd.l2_rel_err, norms_fwd.one_norm_ref, norms_fwd.one_norm_test );
 
   /* clean-up */
+  CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_CONV_KIND_ALL ) );
+  libxs_free(scratch);
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
