@@ -557,7 +557,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
 #endif
 #if defined(LIBXS_SPMDM_AVX2)
   if (LIBXS_X86_AVX2 <= libxs_target_archid || LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) {
-    internal_spmdm_init_check(LIBXS_X86_AVX2);
+    internal_spmdm_init_check(LIBXS_X86_AVX512_MIC);
     internal_spmdm_createSparseSlice_fp32_thread = internal_spmdm_createSparseSlice_fp32_thread_avx2;
     internal_spmdm_createSparseSlice_bfloat16_thread = internal_spmdm_createSparseSlice_bfloat16_thread_avx2;
     internal_spmdm_compute_fp32_thread = internal_spmdm_compute_fp32_thread_avx2;
