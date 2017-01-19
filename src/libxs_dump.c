@@ -70,7 +70,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE int internal_write(FILE* file, const void* data,
     for (i = 1; i < d; ++i) {
       sub_size *= LIBXS_MAX(data_size[i], 0 != size ? size[i] : 0);
     }
-    for (i = 0; i < size[d]; ++i) {
+    for (i = 0; i < LIBXS_MAX(data_size[d], 0 != size ? size[d] : 0); ++i) {
       result = LIBXS_MAX(internal_write(file, data, data_size, size, typesize, d), result);
       data = (const char*)data + sub_size;
     }
