@@ -1147,6 +1147,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       LIBXS_MALLOC_FLAG_RWX, &regindex, sizeof(regindex));
     if (EXIT_SUCCESS == result) { /* check for success */
       assert(0 != code->const_pmm && 0 == (LIBXS_CODE_STATIC & code->imm));
+      assert(0 != generated_code.generated_code/*sanity check*/);
       /* copy temporary buffer into the prepared executable buffer */
       memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
       /* attribute/protect buffer and revoke unnecessary flags */
