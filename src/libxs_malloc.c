@@ -69,7 +69,6 @@
 #   define LIBXS_VTUNE_JIT_LOAD iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED
 # endif
 # define LIBXS_VTUNE_JIT_UNLOAD iJVM_EVENT_TYPE_METHOD_UNLOAD_START
-# define LIBXS_MALLOC_NOCRC
 #endif /*defined(LIBXS_VTUNE)*/
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
@@ -82,13 +81,19 @@
 # define LIBXS_MALLOC_FALLBACK 0
 #endif
 
-#if defined(NDEBUG) || defined(LIBXS_MALLOC_NOCRC)
+#if !defined(LIBXS_MALLOC_NOCRC)
+# if defined(NDEBUG)
+#   define LIBXS_MALLOC_NOCRC
+# elif defined(LIBXS_VTUNE)
+#   define LIBXS_MALLOC_NOCRC
+# endif
+#endif
+
+#if !defined(LIBXS_MALLOC_NOCRC)
 # include "libxs_hash.h"
 # if !defined(LIBXS_MALLOC_SEED)
 #   define LIBXS_MALLOC_SEED 1051981
 # endif
-#else
-# define LIBXS_MALLOC_NOCRC
 #endif
 
 #if !defined(LIBXS_MALLOC_ALIGNMAX)
@@ -377,7 +382,11 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, int alignment
           buffer = mmap(0, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | xflags, -1, 0);
         }
         else {
-          static LIBXS_TLS int fallback = LIBXS_MALLOC_FALLBACK;
+          static LIBXS_TLS int fallback = -1;
+          if (0 > fallback) { /* initialize fallback allocation method */
+            const char *const env = getenv("LIBXS_SE");
+            fallback = (0 == env || 0 == *env || 0 != atoi(env)) ? LIBXS_MALLOC_FALLBACK : 4;
+          }
           if (0 == fallback) {
             buffer = internal_xmap("/tmp", alloc_size, xflags, &reloc);
             if (alloc_failed == buffer) fallback = 1;

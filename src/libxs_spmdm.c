@@ -55,11 +55,20 @@
 #endif
 
 /* Enable/disable specific code paths */
-#if !defined(LIBXS_SPMDM_AVX512_CORE)
-# define LIBXS_SPMDM_AVX512_CORE
+#if !defined(LIBXS_SPMDM_AVX) \
+  && !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+# define LIBXS_SPMDM_AVX
 #endif
-#if !defined(LIBXS_SPMDM_AVX2)
+#if !defined(LIBXS_SPMDM_AVX2) && defined(LIBXS_SPMDM_AVX) \
+  && !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_SPMDM_AVX2
+#endif
+#if !defined(LIBXS_SPMDM_AVX512_CORE) && defined(LIBXS_SPMDM_AVX2) \
+  && !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
+  && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+# define LIBXS_SPMDM_AVX512_CORE
 #endif
 
 
@@ -73,8 +82,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_compute_fp32_thread)(con
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_compute_bfloat16_thread)(const libxs_spmdm_handle*, char, char,
   const uint16_t*, libxs_CSR_sparseslice*, const uint16_t*, char, const uint16_t*, float*, int, int, int);
 
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_SPMDM_AVX)
 LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i* internal_spmdm_shufmasks_32;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i* internal_spmdm_shufmasks_16;
 #endif
@@ -83,8 +91,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i* internal_spmdm_shufmasks_16;
 LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX)
 void internal_spmdm_init_shufmask_avx()
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_SPMDM_AVX)
   static __m256i spmdm_shufmasks_32[256], spmdm_shufmasks_16[256];
   LIBXS_ALIGNED(int temp_shufmasks[8], 64);
   LIBXS_ALIGNED(uint16_t temp_shufmasks2[16], 64);
@@ -205,19 +212,11 @@ void internal_spmdm_createSparseSlice_fp32_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_SPMDM_AVX2)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX2) /* library code is expected to be mute */
-  { static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
-    }
-  }
-# endif
   internal_spmdm_createSparseSlice_fp32_thread_sw(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
 #endif
 }
@@ -232,19 +231,11 @@ void internal_spmdm_createSparseSlice_fp32_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_SPMDM_AVX512_CORE)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX512_CORE) /* library code is expected to be mute */
-  { static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: unable to enter AVX-512/Core code path!\n");
-    }
-  }
-# endif
   internal_spmdm_createSparseSlice_fp32_thread_avx2(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
 #endif
 }
@@ -294,19 +285,11 @@ void internal_spmdm_createSparseSlice_bfloat16_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_SPMDM_AVX2)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX2) /* library code is expected to be mute */
-  { static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
-    }
-  }
-# endif
   internal_spmdm_createSparseSlice_bfloat16_thread_sw(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
 #endif
 }
@@ -321,19 +304,11 @@ void internal_spmdm_createSparseSlice_bfloat16_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_SPMDM_AVX512_CORE)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX512_CORE) /* library code is expected to be mute */
-  { static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: unable to enter AVX-512/Core code path!\n");
-    }
-  }
-# endif
   internal_spmdm_createSparseSlice_bfloat16_thread_avx2(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
 #endif
 }
@@ -393,19 +368,11 @@ void internal_spmdm_compute_fp32_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_SPMDM_AVX2)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX2) /* library code is expected to be mute */
-  { static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
-    }
-  }
-# endif
   internal_spmdm_compute_fp32_thread_sw(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
 #endif
 }
@@ -425,19 +392,11 @@ void internal_spmdm_compute_fp32_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_SPMDM_AVX512_CORE)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX512_CORE) /* library code is expected to be mute */
-  { static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: unable to enter AVX-512/Core code path!\n");
-    }
-  }
-# endif
   internal_spmdm_compute_fp32_thread_avx2(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
 #endif
 }
@@ -502,19 +461,11 @@ void internal_spmdm_compute_bfloat16_thread_avx2(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && defined(LIBXS_SPMDM_AVX2) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_SPMDM_AVX2)
 # include "libxs_spmdm_begin_avx2.h"
 # include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX2) /* library code is expected to be mute */
-  { static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
-    }
-  }
-# endif
   internal_spmdm_compute_bfloat16_thread_sw(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
 #endif
 }
@@ -534,19 +485,11 @@ void internal_spmdm_compute_bfloat16_thread_avx512_core(
   int block_id,
   int tid, int nthreads)
 {
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && defined(LIBXS_SPMDM_AVX512_CORE) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#if defined(LIBXS_SPMDM_AVX512_CORE)
 # include "libxs_spmdm_begin_avx512.h"
 # include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-# if !defined(NDEBUG) && defined(LIBXS_SPMDM_AVX512_CORE) /* library code is expected to be mute */
-  { static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: unable to enter AVX-512/Core code path!\n");
-    }
-  }
-# endif
   internal_spmdm_compute_bfloat16_thread_avx2(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
 #endif
 }
@@ -577,6 +520,19 @@ void libxs_spmdm_compute_bfloat16_thread(
 }
 
 
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_init_check(int archid)
+{
+  if (archid < libxs_target_archid
+    && 0 != libxs_verbosity) /* library code is expected to be mute */
+  {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS: missed to enter \"%s\" code path due to the compiler used!\n", libxs_get_target_arch());
+    }
+  }
+}
+
+
 LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   libxs_spmdm_handle* handle, libxs_CSR_sparseslice** libxs_output_csr)
 {
@@ -588,21 +544,30 @@ LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   handle->k  = K;
 
   handle->bm = (M >= 4096 || M <= 1024) ? 512 : 256;
-  if (LIBXS_X86_AVX512_CORE <= libxs_target_archid) {
+#if defined(LIBXS_SPMDM_AVX512_CORE)
+  if (LIBXS_X86_AVX512_CORE <= libxs_target_archid || LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH) {
+    internal_spmdm_init_check(LIBXS_X86_AVX512_CORE);
     internal_spmdm_createSparseSlice_fp32_thread = internal_spmdm_createSparseSlice_fp32_thread_avx512_core;
     internal_spmdm_createSparseSlice_bfloat16_thread = internal_spmdm_createSparseSlice_bfloat16_thread_avx512_core;
     internal_spmdm_compute_fp32_thread = internal_spmdm_compute_fp32_thread_avx512_core;
     internal_spmdm_compute_bfloat16_thread = internal_spmdm_compute_bfloat16_thread_avx512_core;
     handle->bn = 96;
   }
-  else if (LIBXS_X86_AVX2 <= libxs_target_archid) {
+  else
+#endif
+#if defined(LIBXS_SPMDM_AVX2)
+  if (LIBXS_X86_AVX2 <= libxs_target_archid || LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) {
+    internal_spmdm_init_check(LIBXS_X86_AVX512_MIC);
     internal_spmdm_createSparseSlice_fp32_thread = internal_spmdm_createSparseSlice_fp32_thread_avx2;
     internal_spmdm_createSparseSlice_bfloat16_thread = internal_spmdm_createSparseSlice_bfloat16_thread_avx2;
     internal_spmdm_compute_fp32_thread = internal_spmdm_compute_fp32_thread_avx2;
     internal_spmdm_compute_bfloat16_thread = internal_spmdm_compute_bfloat16_thread_avx2;
     handle->bn = 48;
   }
-  else {
+  else
+#endif
+  {
+    internal_spmdm_init_check(LIBXS_X86_AVX);
     internal_spmdm_createSparseSlice_fp32_thread = internal_spmdm_createSparseSlice_fp32_thread_sw;
     internal_spmdm_createSparseSlice_bfloat16_thread = internal_spmdm_createSparseSlice_bfloat16_thread_sw;
     internal_spmdm_compute_fp32_thread = internal_spmdm_compute_fp32_thread_sw;
@@ -619,20 +584,18 @@ LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   internal_spmdm_allocate_scratch(handle, max_threads);
 
   /* Initialize shuffle masks for the computation */
+#if defined(LIBXS_SPMDM_AVX)
   if (LIBXS_X86_AVX <= libxs_target_archid) {
     internal_spmdm_init_shufmask_avx();
   }
+  assert(0 != internal_spmdm_shufmasks_32);
+  assert(0 != internal_spmdm_shufmasks_16);
+#endif
 
   /* post-conditions */
   assert(0 != internal_spmdm_createSparseSlice_fp32_thread);
   assert(0 != internal_spmdm_createSparseSlice_bfloat16_thread);
   assert(0 != internal_spmdm_compute_fp32_thread);
   assert(0 != internal_spmdm_compute_bfloat16_thread);
-
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
-  && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
-  assert(0 != internal_spmdm_shufmasks_32);
-  assert(0 != internal_spmdm_shufmasks_16);
-#endif
 }
 

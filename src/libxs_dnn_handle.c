@@ -46,7 +46,7 @@
 #endif
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct_check( libxs_dnn_conv_handle* handle ) {
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dnn_conv_handle* handle ) {
   /* flag to test if we found an architecture which is supported */
   int noarch = 1;
   /* general counting helper */
@@ -684,29 +684,31 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       }
     } /* end of weight-update handle */
     {
-      handle->scratch1 = libxs_aligned_malloc( /* populating scratch register for transpose */
-        handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in),
-        LIBXS_ALIGNMENT);
+      handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
 
-      handle->scratch2 = libxs_barrier_create(handle->desc.threads, 1);
+      /* backward transpose filters */
+      handle->scratch1 = 0;
+      handle->scratch1_size = handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
+                                * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in);
 
-/*#ifdef LIBXS_WU_TRANSPOSE_OFW_IFM*/
-      handle->scratch3 = libxs_aligned_malloc( /* allocate raw data */
-        handle->desc.N * handle->blocksifm * handle->ifmblock * handle->ifhp * handle->ifwp * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in),
-        LIBXS_ALIGNMENT);
-/*#endif*/
+      /* weight update transpose of minibatch */
+      handle->scratch3 = 0;
+      handle->scratch3_size = handle->desc.N * handle->blocksifm * handle->ifmblock * handle->ifhp * handle->ifwp
+                                * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in);
+
       if ((handle->ifmblock == 1) || ((handle->blocksifm * handle->blocksofm) < (2*handle->desc.threads))) {
         handle->upd_use_thread_fil = 1;
-        handle->scratch4 = libxs_aligned_malloc(
-          handle->desc.threads * handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
-          * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in),
-          LIBXS_ALIGNMENT);
+        handle->scratch4 = 0;
+        handle->scratch4_size = handle->desc.threads * handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
+          * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in);
+
         /* enable external reduce of filter scratch */
         if ( (handle->options & LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) > 0 ) {
           handle->upd_use_external_reduce = 1;
         }
       } else {
         handle->scratch4 = 0;
+        handle->scratch4_size = 0;
         handle->upd_use_thread_fil = 0;
       }
     }
@@ -728,12 +730,15 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     handle->code_upd[3].xconv.sconv = 0;
     handle->code_upd[4].xconv.sconv = 0;
     handle->code_upd[5].xconv.sconv = 0;
+
+    handle->barrier = 0;
+
     handle->scratch1 = 0;
-    handle->scratch2 = 0;
-/*#ifdef LIBXS_WU_TRANSPOSE_OFW_IFM*/
+    handle->scratch1_size = 0;
     handle->scratch3 = 0;
-/*#endif*/
+    handle->scratch3_size = 0;
     handle->scratch4 = 0;
+    handle->scratch4_size = 0;
   }
 
   return status;

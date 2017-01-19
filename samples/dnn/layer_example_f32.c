@@ -412,6 +412,7 @@ int main(int argc, char* argv[])
   int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
   naive_conv_t naive_param;
   correctness_t norms_fwd, norms_bwd, norms_upd;
+  void* scratch;
 
   /* some parameters we can overwrite via cli,
      default is some inner layer of overfeat */
@@ -597,15 +598,15 @@ int main(int argc, char* argv[])
   conv_desc.datatype_in = LIBXS_DNN_DATATYPE_F32;
   conv_desc.datatype_out = LIBXS_DNN_DATATYPE_F32;
 
-  libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
+  libxs_handle = libxs_dnn_create_conv_handle( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_input_buffer_check( libxs_handle, input_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
+  libxs_input = libxs_dnn_link_input_buffer( libxs_handle, input_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_output_buffer_check( libxs_handle, output_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
+  libxs_output = libxs_dnn_link_output_buffer( libxs_handle, output_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter_check( libxs_handle, filter_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, filter_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
@@ -619,6 +620,11 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
+
+  /* let's allocate and bind scratch */
+  scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_CONV_KIND_ALL, &status ), 2097152);
+  CHKERR_LIBXS_DNN( status );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_CONV_KIND_ALL, scratch ) );
 
   if (type == 'A' || type == 'F') {
     printf("##########################################\n");
@@ -813,6 +819,8 @@ int main(int argc, char* argv[])
   }
 
   /* clean-up */
+  CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_CONV_KIND_ALL ) );
+  libxs_free(scratch);
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
@@ -850,21 +858,26 @@ int main(int argc, char* argv[])
   conv_desc.datatype_in = LIBXS_DNN_DATATYPE_F32;
   conv_desc.datatype_out = LIBXS_DNN_DATATYPE_F32;
 
-  libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
+  libxs_handle = libxs_dnn_create_conv_handle( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_input_buffer_check( libxs_handle, input_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
+  libxs_input = libxs_dnn_link_input_buffer( libxs_handle, input_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_output_buffer_check( libxs_handle, output_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
+  libxs_output = libxs_dnn_link_output_buffer( libxs_handle, output_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter_check( libxs_handle, filter_rsck, LIBXS_DNN_CONV_FORMAT_RSCK_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, filter_rsck, LIBXS_DNN_CONV_FORMAT_RSCK_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* bind buffers and filter to handle */
   CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
+
+  /* let's allocate and bind scratch */
+  scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_CONV_KIND_ALL, &status ), 2097152);
+  CHKERR_LIBXS_DNN( status );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_CONV_KIND_ALL, scratch ) );
 
   if (type == 'A' || type == 'F') {
     printf("##########################################\n");
@@ -1055,6 +1068,8 @@ int main(int argc, char* argv[])
   }
 
   /* clean-up */
+  CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_CONV_KIND_ALL ) );
+  libxs_free(scratch);
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
@@ -1092,7 +1107,7 @@ int main(int argc, char* argv[])
   conv_desc.datatype_in = LIBXS_DNN_DATATYPE_F32;
   conv_desc.datatype_out = LIBXS_DNN_DATATYPE_F32;
 
-  libxs_handle = libxs_dnn_create_conv_handle_check( conv_desc, &status );
+  libxs_handle = libxs_dnn_create_conv_handle( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* zero output buffer again */
@@ -1101,11 +1116,11 @@ int main(int argc, char* argv[])
   naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_input_buffer_check( libxs_handle, input_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
+  libxs_input = libxs_dnn_link_input_buffer( libxs_handle, input_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_output_buffer_check( libxs_handle, output_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
+  libxs_output = libxs_dnn_link_output_buffer( libxs_handle, output_nhwc, LIBXS_DNN_CONV_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter_check( libxs_handle, filter_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, filter_libxs, LIBXS_DNN_CONV_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
@@ -1115,6 +1130,11 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
+
+  /* let's allocate and bind scratch */
+  scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_CONV_KIND_ALL, &status ), 2097152);
+  CHKERR_LIBXS_DNN( status );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_CONV_KIND_ALL, scratch ) );
 
   if (type == 'A' || type == 'F') {
     printf("##########################################\n");
@@ -1303,6 +1323,8 @@ int main(int argc, char* argv[])
   }
 
   /* clean-up */
+  CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_CONV_KIND_ALL ) );
+  libxs_free(scratch);
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
@@ -1324,9 +1346,9 @@ int main(int argc, char* argv[])
   libxs_free(naive_output_nhwc);
   libxs_free(naive_input_nhwc);
   libxs_free(filter_rsck);
-  libxs_free(libxs_input);
-  libxs_free(libxs_filter);
-  libxs_free(libxs_output);
+  libxs_free(input_libxs);
+  libxs_free(filter_libxs);
+  libxs_free(output_libxs);
 
   /* some empty lines at the end */
   printf("\n\n\n");

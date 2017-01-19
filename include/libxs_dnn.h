@@ -79,6 +79,7 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_CREATE_LAYOUT              100023
 #define LIBXS_DNN_ERR_INVALID_LAYOUT             100024
 #define LIBXS_DNN_ERR_UNSUPPORTED_ARCH           100025
+#define LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED        100026
 
 /** Kinds of supported convolution operations. */
 typedef enum libxs_dnn_conv_kind {
@@ -87,7 +88,9 @@ typedef enum libxs_dnn_conv_kind {
   /** Backward convolution. */
   LIBXS_DNN_CONV_KIND_BWD,
   /** Updated weights. */
-  LIBXS_DNN_CONV_KIND_UPD
+  LIBXS_DNN_CONV_KIND_UPD,
+  /** All routines, need for some init routines. */
+  LIBXS_DNN_CONV_KIND_ALL
 } libxs_dnn_conv_kind;
 
 /** type/meaning of dimension in a LIBXS DNN tensor */
@@ -170,9 +173,6 @@ LIBXS_API size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype);
 
 /** Create a handle (non-NULL if successful), and pre-build all JIT-code versions. */
 LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle(
-  libxs_dnn_conv_desc     conv_desc );
-
-LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
   libxs_dnn_conv_desc     conv_desc,
   libxs_dnn_err_t*        status );
 
@@ -180,34 +180,36 @@ LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_dnn_conv_handle* handle);
 
 /** Create buffers, filters and bias (non-NULL if successful) */
-LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format);
-LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format);
-LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format);
-
-LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter_check(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
 
 /** get layout description of buffers and fiters from handle */
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout_check(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_datalayout(libxs_dnn_conv_datalayout* layout);
+
+/** scratch pad management */
+LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_conv_handle* handle, const libxs_dnn_conv_kind kind, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_conv_handle* handle, const libxs_dnn_conv_kind kind, const void* scratch);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_conv_handle* handle, const libxs_dnn_conv_kind kind);
 
 /** Bind buffers, filters and bias to convolutions operation */
 LIBXS_API libxs_dnn_err_t libxs_dnn_bind_input_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* input);
 LIBXS_API libxs_dnn_err_t libxs_dnn_bind_output_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* output);
 LIBXS_API libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_conv_handle* handle, const libxs_dnn_filter* filter);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_gradient_input_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* input);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_gradient_output_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* output);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_gradient_filter(libxs_dnn_conv_handle* handle, const libxs_dnn_filter* filter);
 
 /** Release buffers, filters and bias from convolutions operation */
-#if 0
 LIBXS_API libxs_dnn_err_t libxs_dnn_release_input_buffer(libxs_dnn_conv_handle* handle);
 LIBXS_API libxs_dnn_err_t libxs_dnn_release_output_buffer(libxs_dnn_conv_handle* handle);
 LIBXS_API libxs_dnn_err_t libxs_dnn_release_filter(libxs_dnn_conv_handle* handle);
-#endif
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_gradient_input_buffer(libxs_dnn_conv_handle* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_gradient_output_buffer(libxs_dnn_conv_handle* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_gradient_filter(libxs_dnn_conv_handle* handle);
 
 /** Release the given layer, filters, bias handle. */
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_buffer* buffer);

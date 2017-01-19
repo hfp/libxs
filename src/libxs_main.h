@@ -35,6 +35,7 @@
 #include <libxs_typedefs.h>
 #include <libxs_generator.h>
 #include <libxs_dnn.h>
+#include <libxs_sync.h>
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
 #if !defined(LIBXS_CAPACITY_REGISTRY) /* must be POT */
@@ -161,15 +162,22 @@ struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
   /* internal data representation */
   libxs_dnn_buffer* input;
   libxs_dnn_buffer* output;
-  libxs_dnn_buffer* input_relu;
   libxs_dnn_filter* filter;
+  libxs_dnn_buffer* grad_input;
+  libxs_dnn_buffer* grad_output;
+  libxs_dnn_filter* grad_filter;
   libxs_dnn_bias* bias;
+
+  /* barrier */
+  libxs_barrier* barrier;
+
+  /* scratch */
   void* scratch1;
-  void* scratch2;
-/*#ifdef LIBXS_WU_TRANSPOSE_OFW_IFM*/
+  size_t scratch1_size;
   void* scratch3;
-/*#endif*/
+  size_t scratch3_size;
   void* scratch4;
+  size_t scratch4_size;
 
   /* JIT-generated convolution code */
   /*
