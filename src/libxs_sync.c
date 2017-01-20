@@ -57,16 +57,6 @@
 #if !defined(LIBXS_SYNC_ATOMIC_SET)
 # define LIBXS_SYNC_ATOMIC_SET(DST, VALUE) ((DST) = (VALUE))
 #endif
-#if !defined(LIBXS_SYNC_MALLOC_INTRINSIC) && !defined(LIBXS_INTRINSICS_NONE)
-# define LIBXS_SYNC_MALLOC_INTRINSIC
-#endif
-#if defined(LIBXS_SYNC_MALLOC_INTRINSIC)
-# define LIBXS_SYNC_MALLOC(SIZE, ALIGNMENT) _mm_malloc(SIZE, ALIGNMENT)
-# define LIBXS_SYNC_FREE(BUFFER) _mm_free((void*)(BUFFER))
-#else
-# define LIBXS_SYNC_MALLOC(SIZE, ALIGNMENT) libxs_aligned_malloc(SIZE, -(ALIGNMENT))
-# define LIBXS_SYNC_FREE(BUFFER) libxs_free((const volatile void*)(BUFFER))
-#endif
 #if defined(__MIC__)
 # define LIBXS_SYNC_PAUSE(DELAY) _mm_delay_32(DELAY)
 #elif !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY)
@@ -109,7 +99,7 @@ struct LIBXS_RETARGETABLE libxs_barrier {
 
 LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
 {
-  libxs_barrier *const barrier = (libxs_barrier*)LIBXS_SYNC_MALLOC(
+  libxs_barrier *const barrier = (libxs_barrier*)libxs_aligned_malloc(
     sizeof(libxs_barrier), LIBXS_SYNC_CACHELINE_SIZE);
 #if defined(_REENTRANT)
   barrier->ncores = ncores;
@@ -117,9 +107,9 @@ LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthread
   barrier->nthreads_per_core = nthreads_per_core;
   barrier->nthreads = ncores * nthreads_per_core;
 
-  barrier->threads = (internal_sync_thread_tag**)LIBXS_SYNC_MALLOC(
+  barrier->threads = (internal_sync_thread_tag**)libxs_aligned_malloc(
     barrier->nthreads * sizeof(internal_sync_thread_tag*), LIBXS_SYNC_CACHELINE_SIZE);
-  barrier->cores = (internal_sync_core_tag**)LIBXS_SYNC_MALLOC(
+  barrier->cores = (internal_sync_core_tag**)libxs_aligned_malloc(
     barrier->ncores * sizeof(internal_sync_core_tag*), LIBXS_SYNC_CACHELINE_SIZE);
 
   LIBXS_SYNC_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
@@ -145,26 +135,26 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
   }
 
   /* allocate per-thread structure */
-  thread = (internal_sync_thread_tag*)LIBXS_SYNC_MALLOC(
+  thread = (internal_sync_thread_tag*)libxs_aligned_malloc(
     sizeof(internal_sync_thread_tag), LIBXS_SYNC_CACHELINE_SIZE);
   barrier->threads[tid] = thread;
   thread->core_tid = tid - (barrier->nthreads_per_core * cid); /* mod */
   /* each core's thread 0 does all the allocations */
   if (0 == thread->core_tid) {
-    core = (internal_sync_core_tag*)LIBXS_SYNC_MALLOC(
+    core = (internal_sync_core_tag*)libxs_aligned_malloc(
       sizeof(internal_sync_core_tag), LIBXS_SYNC_CACHELINE_SIZE);
     core->id = (uint8_t)cid;
     core->core_sense = 1;
 
-    core->thread_senses = (uint8_t*)LIBXS_SYNC_MALLOC(
+    core->thread_senses = (uint8_t*)libxs_aligned_malloc(
       barrier->nthreads_per_core * sizeof(uint8_t), LIBXS_SYNC_CACHELINE_SIZE);
     for (i = 0; i < barrier->nthreads_per_core; ++i) core->thread_senses[i] = 1;
 
     for (i = 0; i < 2;  ++i) {
-      core->my_flags[i] = (uint8_t*)LIBXS_SYNC_MALLOC(
+      core->my_flags[i] = (uint8_t*)libxs_aligned_malloc(
         barrier->ncores_log2 * sizeof(uint8_t) * LIBXS_SYNC_CACHELINE_SIZE,
         LIBXS_SYNC_CACHELINE_SIZE);
-      core->partner_flags[i] = (uint8_t**)LIBXS_SYNC_MALLOC(
+      core->partner_flags[i] = (uint8_t**)libxs_aligned_malloc(
         barrier->ncores_log2 * sizeof(uint8_t*),
         LIBXS_SYNC_CACHELINE_SIZE);
     }
@@ -291,24 +281,24 @@ LIBXS_API_DEFINITION void libxs_barrier_release(const libxs_barrier* barrier)
 {
 #if defined(_REENTRANT)
   int i;
-  if ( barrier->init_done == 2 ) {
+  if (2 == barrier->init_done) {
     for (i = 0; i < barrier->ncores; ++i) {
       int j;
-      LIBXS_SYNC_FREE(barrier->cores[i]->thread_senses);
+      libxs_free((const void*)barrier->cores[i]->thread_senses);
       for (j = 0; j < 2; ++j) {
-        LIBXS_SYNC_FREE(barrier->cores[i]->partner_flags[j]);
-        LIBXS_SYNC_FREE(barrier->cores[i]->my_flags[j]);
+        libxs_free((const void*)barrier->cores[i]->my_flags[j]);
+        libxs_free(barrier->cores[i]->partner_flags[j]);
       }
-      LIBXS_SYNC_FREE(barrier->cores[i]);
+      libxs_free(barrier->cores[i]);
     }
     for (i = 0; i < barrier->nthreads; ++i) {
-      LIBXS_SYNC_FREE(barrier->threads[i]);
+      libxs_free(barrier->threads[i]);
     }
   }
-  LIBXS_SYNC_FREE(barrier->cores);
-  LIBXS_SYNC_FREE(barrier->threads);
+  libxs_free(barrier->threads);
+  libxs_free(barrier->cores);
 #endif
-  LIBXS_SYNC_FREE(barrier);
+  libxs_free(barrier);
 }
 
 
