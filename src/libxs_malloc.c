@@ -309,6 +309,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
 {
   int result = EXIT_SUCCESS;
   if (memory) {
+    flags |= LIBXS_MALLOC_FLAG_RW; /* normalize given flags since flags=0 is accepted as well */
     if (0 < size) {
       const size_t internal_size = size + extra_size + sizeof(internal_malloc_info_type);
       size_t alloc_alignment = 0, alloc_size = 0;
@@ -316,12 +317,13 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
 #if !defined(NDEBUG)
       static int error_once = 0;
 #endif
-      flags |= LIBXS_MALLOC_FLAG_RW; /* normalize given flags since flags=0 is accepted as well */
 #if !defined(LIBXS_MALLOC_MMAP)
+      const libxs_malloc_function malloc_fn = libxs_malloc_fn;
+      const libxs_free_function free_fn = libxs_free_fn;
       if (0 == (LIBXS_MALLOC_FLAG_X & flags) && 0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) {
         alloc_alignment = (0 == alignment ? libxs_alignment(size, alignment) : alignment);
         alloc_size = internal_size + alloc_alignment - 1;
-        buffer = (0 != libxs_malloc_fn ? libxs_malloc_fn(alloc_size) : 0);
+        buffer = (0 != malloc_fn ? malloc_fn(alloc_size) : 0);
       }
       else
 #endif
@@ -363,7 +365,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
           flags |= LIBXS_MALLOC_FLAG_MMAP; /* select the corresponding deallocation */
         }
         else if (0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) { /* fall-back allocation */
-          buffer = (0 != libxs_malloc_fn ? libxs_malloc_fn(alloc_size) : 0);
+          buffer = (0 != malloc_fn ? malloc_fn(alloc_size) : 0);
         }
 #else /* !defined(_WIN32) */
         int xflags = 0
@@ -439,7 +441,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
         }
         else {
           if (0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) { /* fall-back allocation */
-            buffer = (0 != libxs_malloc_fn ? libxs_malloc_fn(alloc_size) : 0);
+            buffer = (0 != malloc_fn ? malloc_fn(alloc_size) : 0);
             reloc = buffer;
           }
           else {
@@ -461,6 +463,9 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
           result = EXIT_FAILURE;
         }
 #endif
+        if (0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) {
+          info->free = free_fn;
+        }
         info->reloc = reloc;
         info->pointer = buffer;
         info->size = size;
@@ -506,7 +511,7 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
     void *const buffer = info->pointer;
     assert((0 != buffer || 0 == info->size));
     if (0 == (LIBXS_MALLOC_FLAG_MMAP & info->flags)) {
-      if (0 != libxs_free_fn) libxs_free_fn(buffer);
+      if (0 != info->free) info->free(buffer);
     }
     else {
 #if defined(LIBXS_VTUNE)
