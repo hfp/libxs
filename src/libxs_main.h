@@ -29,13 +29,14 @@
 #ifndef LIBXS_MAIN_H
 #define LIBXS_MAIN_H
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include <libxs_typedefs.h>
 #include <libxs_generator.h>
-#include <libxs_dnn.h>
+#include <libxs_malloc.h>
 #include <libxs_sync.h>
+#include <libxs_dnn.h>
+
+#include <stddef.h>
+#include <stdint.h>
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
 #if !defined(LIBXS_CAPACITY_REGISTRY) /* must be POT */
@@ -66,7 +67,6 @@
 #endif
 
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
-  const volatile void* cv_pmm;
   const void* const_pmm;
   void* pmm;
   uintptr_t imm;
@@ -232,14 +232,18 @@ LIBXS_API size_t libxs_lcm(size_t a, size_t b);
 /** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */
 LIBXS_API size_t libxs_alignment(size_t size, size_t alignment);
 
+/** Same as libxs_set_allocator, but takes a lock (can be NULL).*/
+LIBXS_API void libxs_xset_allocator(LIBXS_LOCK_TYPE* lock,
+  libxs_malloc_function malloc_fn, libxs_free_function free_fn);
+
 /** Receive the size, the flags, or the extra attachment of the given buffer. */
-LIBXS_API int libxs_malloc_info(const volatile void* memory, size_t* size, int* flags, void** extra);
+LIBXS_API int libxs_malloc_info(const void* memory, size_t* size, int* flags, void** extra);
 
 /** Allocate memory of the requested size, which is aligned according to the given alignment. */
-LIBXS_API int libxs_xmalloc(void** memory, size_t size, int alignment, int flags,
+LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment, int flags,
   /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
   const void* extra, size_t extra_size);
-LIBXS_API int libxs_xfree(const volatile void* memory);
+LIBXS_API int libxs_xfree(const void* memory);
 
 /**
  * Attribute memory allocation and protect with only the necessary flags.
@@ -260,6 +264,12 @@ LIBXS_API int libxs_gemm_prefetch2uid(libxs_gemm_prefetch_type prefetch);
 LIBXS_API libxs_gemm_prefetch_type libxs_gemm_uid2prefetch(int uid);
 
 LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype);
+
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_lock_global;
+/** Default function to allocate memory. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_malloc_function libxs_malloc_fn;
+/** Default function to release memory. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_free_function libxs_free_fn;
 
 /** Stores the verbosity level (libxs_get_verbosity, libxs_set_verbosity). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_verbosity;

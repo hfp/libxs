@@ -43,17 +43,6 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(LIBXS_SPMDM_MALLOC_INTRINSIC) && !defined(LIBXS_INTRINSICS_NONE)
-# define LIBXS_SPMDM_MALLOC_INTRINSIC
-#endif
-#if defined(LIBXS_SPMDM_MALLOC_INTRINSIC)
-# define LIBXS_SPMDM_MALLOC(SIZE, ALIGNMENT) _mm_malloc(SIZE, ALIGNMENT)
-# define LIBXS_SPMDM_FREE(BUFFER) _mm_free((void*)(BUFFER))
-#else
-# define LIBXS_SPMDM_MALLOC(SIZE, ALIGNMENT) libxs_aligned_malloc(SIZE, -(ALIGNMENT))
-# define LIBXS_SPMDM_FREE(BUFFER) libxs_free(BUFFER)
-#endif
-
 /* Enable/disable specific code paths */
 #if !defined(LIBXS_SPMDM_AVX) \
   && !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) \
@@ -127,7 +116,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_csr_a(libxs_spmdm_h
   size_t sz_block = ((handle->bm + 1)*sizeof(uint16_t) + (handle->bm)*(handle->bk)*sizeof(uint16_t) + (handle->bm)*(handle->bk)*sizeof(float) + sizeof(libxs_CSR_sparseslice));
   size_t sz_all_blocks = sz_block * handle->mb * handle->kb;
 
-  char * memory_block = (char *)LIBXS_SPMDM_MALLOC( sz_all_blocks, 2097152);
+  char * memory_block = (char *)libxs_aligned_malloc(sz_all_blocks, 2097152);
   char * memory_head  = memory_block;
 
   libxs_CSR_sparseslice* libxs_output_csr_a = (libxs_CSR_sparseslice*)(memory_head);
@@ -156,16 +145,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_scratch(libxs_spmdm
   sz_memory_for_scratch_per_thread = (sz_memory_for_scratch_per_thread + 4095)/4096 * 4096;
   sz_total_memory = sz_memory_for_scratch_per_thread * max_threads;
 
-  handle->base_ptr_scratch_B_scratch_C = (char *)LIBXS_SPMDM_MALLOC(sz_total_memory, 2097152);
+  handle->base_ptr_scratch_B_scratch_C = (char *)libxs_aligned_malloc(sz_total_memory, 2097152);
   handle->memory_for_scratch_per_thread = (int)sz_memory_for_scratch_per_thread;
 }
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_deallocate_csr_a(libxs_spmdm_handle* handle)
 {
-  LIBXS_SPMDM_FREE(handle->base_ptr_scratch_A);
+  libxs_free(handle->base_ptr_scratch_A);
   handle->base_ptr_scratch_A= NULL;
-  LIBXS_SPMDM_FREE(handle->base_ptr_scratch_B_scratch_C);
+  libxs_free(handle->base_ptr_scratch_B_scratch_C);
   handle->base_ptr_scratch_B_scratch_C = NULL;
 }
 

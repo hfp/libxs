@@ -40,22 +40,34 @@
 #endif
 
 
+/** Function type accepted for memory allocation (libxs_set_allocator). */
+typedef LIBXS_RETARGETABLE void* (*libxs_malloc_function)(size_t size);
+/** Function type accepted for memory release (libxs_set_allocator). */
+typedef LIBXS_RETARGETABLE void (*libxs_free_function)(void* buffer);
+
+/**
+ * Setup the memory allocator, the malloc_fn and free_fn arguments are either
+ * non-NULL functions (custom allocator), or NULL-pointers (reset to default).
+ * It is supported to change the allocator with buffers still being allocated.
+ */
+LIBXS_API void libxs_set_allocator(/* malloc_fn/free_fn must correspond */
+  libxs_malloc_function malloc_fn, libxs_free_function free_fn);
+
 /** Allocate aligned memory (malloc/free interface). */
 LIBXS_API void* libxs_aligned_malloc(size_t size,
   /**
    * =0: automatic alignment is requested based on size
-   * 0<: delivers (at least) the given alignment (LCM)
-   * 0>: takes absolute alignment (skips align.-calc.)
+   * 0>: uses the requested alignment
    */
-  int alignment);
+  size_t alignment);
 
 /** Allocate memory (malloc/free interface). */
 LIBXS_API void* libxs_malloc(size_t size);
 
 /** Deallocate memory (malloc/free interface). */
-LIBXS_API void libxs_free(const volatile void* memory);
+LIBXS_API void libxs_free(const void* memory);
 
 /** Get the size of the allocated memory; zero in case of an error. */
-LIBXS_API size_t libxs_malloc_size(const volatile void* memory);
+LIBXS_API size_t libxs_malloc_size(const void* memory);
 
 #endif /*LIBXS_MALLOC_H*/
