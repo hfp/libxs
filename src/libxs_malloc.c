@@ -309,17 +309,17 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
 {
   int result = EXIT_SUCCESS;
   if (memory) {
-    flags |= LIBXS_MALLOC_FLAG_RW; /* normalize given flags since flags=0 is accepted as well */
     if (0 < size) {
       const size_t internal_size = size + extra_size + sizeof(internal_malloc_info_type);
+      const libxs_malloc_function malloc_fn = libxs_malloc_fn;
+      const libxs_free_function free_fn = libxs_free_fn;
       size_t alloc_alignment = 0, alloc_size = 0;
       void *alloc_failed = 0, *buffer = 0, *reloc = 0;
 #if !defined(NDEBUG)
       static int error_once = 0;
 #endif
+      flags |= LIBXS_MALLOC_FLAG_RW; /* normalize given flags since flags=0 is accepted as well */
 #if !defined(LIBXS_MALLOC_MMAP)
-      const libxs_malloc_function malloc_fn = libxs_malloc_fn;
-      const libxs_free_function free_fn = libxs_free_fn;
       if (0 == (LIBXS_MALLOC_FLAG_X & flags) && 0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) {
         alloc_alignment = (0 == alignment ? libxs_alignment(size, alignment) : alignment);
         alloc_size = internal_size + alloc_alignment - 1;
