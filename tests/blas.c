@@ -109,10 +109,10 @@ int main(void)
   }
 #endif
 
-  a = (REAL_TYPE*)malloc(maxa * maxk * sizeof(REAL_TYPE));
-  b = (REAL_TYPE*)malloc(maxb * maxn * sizeof(REAL_TYPE));
-  c = (REAL_TYPE*)malloc(maxc * maxn * sizeof(REAL_TYPE));
-  d = (REAL_TYPE*)malloc(maxc * maxn * sizeof(REAL_TYPE));
+  a = (REAL_TYPE*)libxs_malloc(maxa * maxk * sizeof(REAL_TYPE));
+  b = (REAL_TYPE*)libxs_malloc(maxb * maxn * sizeof(REAL_TYPE));
+  c = (REAL_TYPE*)libxs_malloc(maxc * maxn * sizeof(REAL_TYPE));
+  d = (REAL_TYPE*)libxs_malloc(maxc * maxn * sizeof(REAL_TYPE));
   assert(0 != a && 0 != b && 0 != c && 0 != d);
 
   init(42, a, maxm, maxk, maxa, 1.0);
@@ -140,8 +140,10 @@ int main(void)
     d2 = LIBXS_MAX(d2, dtest);
   }
 
-  free(a); free(b);
-  free(c); free(d);
+  libxs_free(a);
+  libxs_free(b);
+  libxs_free(c);
+  libxs_free(d);
 
   if (0.001 > d2) {
     return EXIT_SUCCESS;
