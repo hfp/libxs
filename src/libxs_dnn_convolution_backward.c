@@ -29,7 +29,7 @@
 #include "libxs_dnn_convolution_backward.h"
 #include <libxs.h>
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -80,7 +80,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
   return status;
 }
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_conv_handle* handle, int start_thread, int tid)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -131,7 +131,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_d
   return status;
 }
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs_dnn_conv_handle* handle, int start_thread, int tid)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 

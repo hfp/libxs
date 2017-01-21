@@ -263,7 +263,7 @@ int main(int argc, char* argv[])
   int i;
 
   libxs_dnn_conv_desc conv_desc;
-  libxs_dnn_conv_handle* libxs_handle;
+  libxs_dnn_layer* libxs_handle;
   libxs_dnn_buffer* libxs_input;
   libxs_dnn_buffer* libxs_output;
   libxs_dnn_filter* libxs_filter;
