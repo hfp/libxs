@@ -44,7 +44,7 @@
 #endif
 
 /** Opaque handles which represents convolutions and LIBXS datatypes */
-typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_handle libxs_dnn_conv_handle;
+typedef struct LIBXS_RETARGETABLE libxs_dnn_layer libxs_dnn_layer;
 typedef struct LIBXS_RETARGETABLE libxs_dnn_buffer libxs_dnn_buffer;
 typedef struct LIBXS_RETARGETABLE libxs_dnn_bias libxs_dnn_bias;
 typedef struct LIBXS_RETARGETABLE libxs_dnn_filter libxs_dnn_filter;
@@ -172,44 +172,44 @@ LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype);
 LIBXS_API size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype);
 
 /** Create a handle (non-NULL if successful), and pre-build all JIT-code versions. */
-LIBXS_API libxs_dnn_conv_handle* libxs_dnn_create_conv_handle(
+LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_handle(
   libxs_dnn_conv_desc     conv_desc,
   libxs_dnn_err_t*        status );
 
 /** Release the given convolution handle. */
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_dnn_conv_handle* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_dnn_layer* handle);
 
 /** Create buffers, filters and bias (non-NULL if successful) */
-LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_conv_handle* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_layer* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_layer* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_layer* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
 
 /** get layout description of buffers and fiters from handle */
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_conv_handle* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_datalayout(libxs_dnn_conv_datalayout* layout);
 
 /** scratch pad management */
-LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_conv_handle* handle, const libxs_dnn_conv_kind kind, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_conv_handle* handle, const libxs_dnn_conv_kind kind, const void* scratch);
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_conv_handle* handle, const libxs_dnn_conv_kind kind);
+LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const libxs_dnn_conv_kind kind, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const libxs_dnn_conv_kind kind, const void* scratch);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, const libxs_dnn_conv_kind kind);
 
 /** Bind buffers, filters and bias to convolutions operation */
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_input_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* input);
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_output_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* output);
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_conv_handle* handle, const libxs_dnn_filter* filter);
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_gradient_input_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* input);
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_gradient_output_buffer(libxs_dnn_conv_handle* handle, const libxs_dnn_buffer* output);
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_gradient_filter(libxs_dnn_conv_handle* handle, const libxs_dnn_filter* filter);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_input_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer* input);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_output_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer* output);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_layer* handle, const libxs_dnn_filter* filter);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_gradient_input_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer* input);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_gradient_output_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer* output);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_gradient_filter(libxs_dnn_layer* handle, const libxs_dnn_filter* filter);
 
 /** Release buffers, filters and bias from convolutions operation */
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_input_buffer(libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_output_buffer(libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_filter(libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_gradient_input_buffer(libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_gradient_output_buffer(libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_gradient_filter(libxs_dnn_conv_handle* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_input_buffer(libxs_dnn_layer* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_output_buffer(libxs_dnn_layer* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_filter(libxs_dnn_layer* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_gradient_input_buffer(libxs_dnn_layer* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_gradient_output_buffer(libxs_dnn_layer* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_gradient_filter(libxs_dnn_layer* handle);
 
 /** Release the given layer, filters, bias handle. */
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_buffer* buffer);
@@ -235,14 +235,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_buffer* buffe
 LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filter, void* data, libxs_dnn_conv_format out_format);
 /*LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_bias(const libxs_dnn_bias* bias, void* data);*/
 /** Run the convolution identified by the handle; may use threads internally. */
-LIBXS_API void libxs_dnn_convolve(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind);
-LIBXS_API libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_conv_handle* handle);
-LIBXS_API libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind);
-LIBXS_API libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind, unsigned int* num_tasks);
+LIBXS_API void libxs_dnn_convolve(libxs_dnn_layer* handle, libxs_dnn_conv_kind kind);
+LIBXS_API libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_layer* handle);
+LIBXS_API libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_layer* handle, libxs_dnn_conv_kind kind);
+LIBXS_API libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_layer* handle, libxs_dnn_conv_kind kind, unsigned int* num_tasks);
 
 /** Run the convolution identified by the handle; takes a thread id. */
-LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st(libxs_dnn_conv_handle* handle, libxs_dnn_conv_kind kind,
+LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st(libxs_dnn_layer* handle, libxs_dnn_conv_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid );
 
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API) /* Internal API */

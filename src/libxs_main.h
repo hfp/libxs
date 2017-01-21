@@ -126,7 +126,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_filter {
   void* data;                       /* pointer to data */
 };
 
-struct LIBXS_RETARGETABLE libxs_dnn_conv_handle {
+struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_datatype datatype_in;
   libxs_dnn_datatype datatype_out;
   libxs_dnn_conv_desc desc;
