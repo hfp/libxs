@@ -160,12 +160,12 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_handle(
   *status = LIBXS_DNN_SUCCESS;
 
   /* currently we don't support NCHW */
-  if ( (conv_desc.buffer_format & LIBXS_DNN_CONV_FORMAT_NCHW) > 0 ) {
+  if ( (conv_desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NCHW) > 0 ) {
     *status = LIBXS_DNN_ERR_INVALID_FORMAT_NCHW;
     return 0;
   }
   /* currently we don't support KCRS */
-  if ( (conv_desc.buffer_format & LIBXS_DNN_CONV_FORMAT_KCRS) > 0 ) {
+  if ( (conv_desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_KCRS) > 0 ) {
     *status = LIBXS_DNN_ERR_INVALID_FORMAT_KCRS;
     return 0;
   }
@@ -242,13 +242,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_d
       libxs_free(handle->code_fwd[2].pmm);
       libxs_free(handle->code_fwd[3].pmm);
       libxs_free(handle->code_bwd[0].pmm);
-      if ((handle->filter_format == LIBXS_DNN_CONV_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_CONV_FORMAT_LIBXS)) {
+      if ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) {
         libxs_free(handle->code_bwd[1].pmm);
         libxs_free(handle->code_bwd[2].pmm);
         libxs_free(handle->code_bwd[3].pmm);
       }
       libxs_free(handle->code_upd[0].pmm);
-      if ((handle->filter_format == LIBXS_DNN_CONV_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_CONV_FORMAT_LIBXS)) {
+      if ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) {
         libxs_free(handle->code_upd[1].pmm);
         libxs_free(handle->code_upd[2].pmm);
         libxs_free(handle->code_upd[3].pmm);
@@ -285,7 +285,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_d
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_layer* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_layer* handle, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status)
 {
   libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
   *status = LIBXS_DNN_SUCCESS;
@@ -301,10 +301,10 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_d
     buffer->datatype = handle->datatype_in;
     buffer->lpb = handle->fm_lp_block;
     /* NHWC */
-    if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_NHWC ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
+    if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_NHWC ) > 0)  && ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) > 0) ) {
       buffer->data = (void*)data;
     /* custom LIBXS format */
-    } else if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_LIBXS ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
+    } else if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS ) > 0)  && ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) > 0) ) {
       buffer->data = (void*)data;
     } else {
       *status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
@@ -335,7 +335,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_input_buffer_dat
 
     if (layout != 0) {
       memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
-      if ((handle->buffer_format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0) {
+      if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
         if ( handle->datatype_in == LIBXS_DNN_DATATYPE_F32 ) {
           layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(5*sizeof(libxs_dnn_tensor_dimtype));
           layout->dim_size = (unsigned int*) malloc(5*sizeof(unsigned int));
@@ -375,7 +375,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_input_buffer_dat
           layout = 0; /* make sure a NULL is returned */
           *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
         }
-      } else if ((handle->buffer_format & LIBXS_DNN_CONV_FORMAT_NHWC) > 0) {
+      } else if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0) {
         layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
         layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
         if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
@@ -406,7 +406,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_input_buffer_dat
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_layer* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_layer* handle, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status)
 {
   libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
   *status = LIBXS_DNN_SUCCESS;
@@ -422,10 +422,10 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_
     buffer->datatype = handle->datatype_out;
     buffer->lpb = 1;
     /* NHWC */
-    if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_NHWC ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
+    if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_NHWC ) > 0)  && ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) > 0) ) {
       buffer->data = (void*)data;
     /* custom LIBXS format */
-    } else if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_LIBXS ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
+    } else if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS ) > 0)  && ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) > 0) ) {
       buffer->data = (void*)data;
     } else {
       *status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
@@ -456,7 +456,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_output_buffer_da
 
     if (layout != 0) {
       memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
-      if ((handle->buffer_format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0) {
+      if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
         if ( (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) || (handle->datatype_out == LIBXS_DNN_DATATYPE_I32) ) {
           layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(5*sizeof(libxs_dnn_tensor_dimtype));
           layout->dim_size = (unsigned int*) malloc(5*sizeof(unsigned int));
@@ -478,7 +478,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_output_buffer_da
           layout = 0; /* make sure a NULL is returned */
           *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
         }
-      } else if ((handle->buffer_format & LIBXS_DNN_CONV_FORMAT_NHWC) > 0) {
+      } else if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0) {
         layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
         layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
         if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
@@ -515,7 +515,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_bu
 
   if (0 != buffer) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer, just deallocate if it's LIBXS private data */
-    if ( (buffer->format & LIBXS_DNN_CONV_FORMAT_PTR) == 0 ) {
+    if ( (buffer->format & LIBXS_DNN_TENSOR_FORMAT_PTR) == 0 ) {
       libxs_free(buffer->data);
     }
     /* deallocate handle structure */
@@ -529,7 +529,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_bu
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_layer* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_layer* handle, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status)
 {
   libxs_dnn_filter* filter = (libxs_dnn_filter*)malloc(sizeof(libxs_dnn_filter));
   *status = LIBXS_DNN_SUCCESS;
@@ -546,10 +546,10 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_lay
     filter->datatype = handle->datatype_in;
     filter->lpb = handle->fm_lp_block;
     /* RSCK */
-    if ( ((handle->filter_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_RSCK ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
+    if ( ((handle->filter_format & in_format) > 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_RSCK ) > 0)  && ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) > 0) ) {
       filter->data = (void*)data;
     /* custom LIBXS format */
-    } else if ( ((handle->filter_format & in_format) > 0) && ((in_format & LIBXS_DNN_CONV_FORMAT_LIBXS ) > 0)  && ((in_format & LIBXS_DNN_CONV_FORMAT_PTR ) > 0) ) {
+    } else if ( ((handle->filter_format & in_format) > 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS ) > 0)  && ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) > 0) ) {
       filter->data = (void*)data;
     } else {
       *status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
@@ -581,7 +581,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_filter_datalayou
 
     if (layout != 0) {
       memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
-      if ((handle->filter_format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0) {
+      if ((handle->filter_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
         if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
           layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
           layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
@@ -627,7 +627,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_filter_datalayou
           layout = 0; /* make sure a NULL is returned */
           *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
         }
-      } else if ((handle->filter_format & LIBXS_DNN_CONV_FORMAT_RSCK) > 0) {
+      } else if ((handle->filter_format & LIBXS_DNN_TENSOR_FORMAT_RSCK) > 0) {
         layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
         layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
         if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
@@ -664,7 +664,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_filter(const libxs_dnn_fi
 
   if (0 != filter) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
-    if ( (filter->format & LIBXS_DNN_CONV_FORMAT_PTR) == 0 ) {
+    if ( (filter->format & LIBXS_DNN_TENSOR_FORMAT_PTR) == 0 ) {
       libxs_free(filter->data);
     }
     /* deallocate handle structure */
@@ -712,14 +712,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_datalayout(libxs_dnn_tensor_datalayo
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buffer* buffer, const void* data, libxs_dnn_conv_format in_format)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buffer* buffer, const void* data, libxs_dnn_tensor_format in_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != buffer) {
     switch (in_format) {
-      case LIBXS_DNN_CONV_FORMAT_NCHW: {
-        if ( (buffer->format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0 ) {
+      case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
+        if ( (buffer->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
           switch (buffer->datatype) {
             case LIBXS_DNN_DATATYPE_F32: {
               typedef float element_type;
@@ -797,14 +797,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffe
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_buffer* buffer, void* data, libxs_dnn_conv_format out_format)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_buffer* buffer, void* data, libxs_dnn_tensor_format out_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != buffer) {
     switch (out_format) {
-      case LIBXS_DNN_CONV_FORMAT_NCHW: {
-        if ( (buffer->format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0 ) {
+      case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
+        if ( (buffer->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
           switch (buffer->datatype) {
             case LIBXS_DNN_DATATYPE_F32: {
               typedef float element_type;
@@ -843,14 +843,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_bu
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter, const void* data, libxs_dnn_conv_format in_format)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter, const void* data, libxs_dnn_tensor_format in_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != filter) {
     switch (in_format) {
-      case LIBXS_DNN_CONV_FORMAT_KCRS: {
-        if ( (filter->format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0 ) {
+      case LIBXS_DNN_TENSOR_FORMAT_KCRS: {
+        if ( (filter->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
           switch (filter->datatype) {
             case LIBXS_DNN_DATATYPE_F32: {
               typedef float element_type;
@@ -885,14 +885,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_fil
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filter, void* data, libxs_dnn_conv_format out_format)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filter, void* data, libxs_dnn_tensor_format out_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != filter) {
     switch (out_format) {
-      case LIBXS_DNN_CONV_FORMAT_KCRS: {
-        if ( (filter->format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0 ) {
+      case LIBXS_DNN_TENSOR_FORMAT_KCRS: {
+        if ( (filter->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
           switch (filter->datatype) {
             case LIBXS_DNN_DATATYPE_F32: {
               typedef float element_type;
@@ -1206,9 +1206,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
         switch (handle->buffer_format) {
-          case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+          case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
             switch (handle->filter_format) {
-              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+              case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
                 status = libxs_dnn_convolve_st_fwd_custom_custom(handle, start_thread, tid);
               } break;
               default: {
@@ -1216,12 +1216,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
               }
             }
           } break;
-          case LIBXS_DNN_CONV_FORMAT_NHWC: {
+          case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
             switch (handle->filter_format) {
-              case LIBXS_DNN_CONV_FORMAT_RSCK: {
+              case LIBXS_DNN_TENSOR_FORMAT_RSCK: {
                 status = libxs_dnn_convolve_st_fwd_nhwc_rsck(handle, start_thread, tid);
               } break;
-              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+              case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
                 status = libxs_dnn_convolve_st_fwd_nhwc_custom(handle, start_thread, tid);
               } break;
               default: {
@@ -1236,9 +1236,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
       } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD: {
         switch (handle->buffer_format) {
-          case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+          case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
             switch (handle->filter_format) {
-              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+              case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
                 status = libxs_dnn_convolve_st_bwd_custom_custom(handle, start_thread, tid);
               } break;
               default: {
@@ -1246,12 +1246,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
               }
             }
           } break;
-          case LIBXS_DNN_CONV_FORMAT_NHWC: {
+          case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
             switch (handle->filter_format) {
-              case LIBXS_DNN_CONV_FORMAT_RSCK: {
+              case LIBXS_DNN_TENSOR_FORMAT_RSCK: {
                 status = libxs_dnn_convolve_st_bwd_nhwc_rsck(handle, start_thread, tid);
               } break;
-              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+              case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
                 status = libxs_dnn_convolve_st_bwd_nhwc_custom(handle, start_thread, tid);
               } break;
               default: {
@@ -1266,9 +1266,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
       } break;
       case LIBXS_DNN_COMPUTE_KIND_UPD: {
         switch (handle->buffer_format) {
-          case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+          case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
             switch (handle->filter_format) {
-              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+              case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
                 status = libxs_dnn_convolve_st_upd_custom_custom(handle, start_thread, tid);
               } break;
               default: {
@@ -1276,12 +1276,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
               }
             }
           } break;
-          case LIBXS_DNN_CONV_FORMAT_NHWC: {
+          case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
             switch (handle->filter_format) {
-              case LIBXS_DNN_CONV_FORMAT_RSCK: {
+              case LIBXS_DNN_TENSOR_FORMAT_RSCK: {
                 status = libxs_dnn_convolve_st_upd_nhwc_rsck(handle, start_thread, tid);
               } break;
-              case LIBXS_DNN_CONV_FORMAT_LIBXS: {
+              case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
                 status = libxs_dnn_convolve_st_upd_nhwc_custom(handle, start_thread, tid);
               } break;
               default: {
@@ -1339,7 +1339,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer*
   }
 
   /* check that filter is in RSCK storage */
-  if ( (handle->filter_format & LIBXS_DNN_CONV_FORMAT_RSCK) == 0 ) {
+  if ( (handle->filter_format & LIBXS_DNN_TENSOR_FORMAT_RSCK) == 0 ) {
     status = LIBXS_DNN_ERR_MISMATCH_FILTER;
     return status;
   }
