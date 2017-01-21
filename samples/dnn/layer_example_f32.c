@@ -642,7 +642,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
     }
     /* copy out data */
     CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_CONV_FORMAT_NCHW ) );
@@ -672,7 +672,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
     }
     /* copy out data */
     CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_input, (void*)naive_libxs_input, LIBXS_DNN_CONV_FORMAT_NCHW ) );
@@ -702,7 +702,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
     }
     if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
       CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
@@ -735,7 +735,7 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
+        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
       }
     }
     l_end = libxs_timer_tick();
@@ -767,7 +767,7 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
+        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
       }
     }
     l_end = libxs_timer_tick();
@@ -799,7 +799,7 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
+        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
       }
       if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
         CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
@@ -893,7 +893,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
     }
     /* copy output data into NCHW storage in user code */
     naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
@@ -922,7 +922,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
     }
     /* copy input data into NCHW storage in user code */
     naive_copy_NHWC_to_NCHW(input_nhwc, naive_input_nhwc, nImg, ifhp, ifwp, nIfm);
@@ -950,7 +950,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
     }
     if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
       CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
@@ -983,7 +983,7 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
+        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
       }
     }
     l_end = libxs_timer_tick();
@@ -1016,7 +1016,7 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
+        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
       }
     }
     l_end = libxs_timer_tick();
@@ -1048,7 +1048,7 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
+        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
       }
       if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
         CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
@@ -1150,7 +1150,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
     }
     /* copy output data into NCHW storage in user code */
     naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
@@ -1178,7 +1178,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
     }
     /* copy input data into NCHW storage in user code */
     naive_copy_NHWC_to_NCHW(input_nhwc, naive_input_nhwc, nImg, ifhp, ifwp, nIfm);
@@ -1206,7 +1206,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
     }
     if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
       CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
@@ -1239,7 +1239,7 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
+        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
       }
     }
     l_end = libxs_timer_tick();
@@ -1271,7 +1271,7 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
+        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
       }
     }
     l_end = libxs_timer_tick();
@@ -1303,7 +1303,7 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
+        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
       }
       if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
         CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );

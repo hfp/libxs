@@ -424,7 +424,7 @@ int main(int argc, char* argv[])
 #else
     const int tid = 0;
 #endif
-    CHKERR_LIBXS_DNN( libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
   }
   /* copy out data */
   CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_CONV_FORMAT_NCHW ) );
@@ -451,7 +451,7 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      libxs_dnn_convolve_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
+      libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
     }
   }
   l_end = libxs_timer_tick();
