@@ -324,28 +324,28 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_d
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status) {
-  libxs_dnn_conv_datalayout* layout;
+LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status) {
+  libxs_dnn_tensor_datalayout* layout;
 
   *status = LIBXS_DNN_SUCCESS;
   layout = 0;
 
   if (handle != 0) {
-    layout = (libxs_dnn_conv_datalayout*) malloc(sizeof(libxs_dnn_conv_datalayout));
+    layout = (libxs_dnn_tensor_datalayout*) malloc(sizeof(libxs_dnn_tensor_datalayout));
 
     if (layout != 0) {
-      memset(layout, 0, sizeof(libxs_dnn_conv_datalayout));
+      memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
       if ((handle->buffer_format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0) {
         if ( handle->datatype_in == LIBXS_DNN_DATATYPE_F32 ) {
-          layout->dim_type = (libxs_dnn_conv_dimtype*) malloc(5*sizeof(libxs_dnn_conv_dimtype));
+          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(5*sizeof(libxs_dnn_tensor_dimtype));
           layout->dim_size = (unsigned int*) malloc(5*sizeof(unsigned int));
           if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
             layout->num_dims = 5;
-            layout->dim_type[0] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[1] = LIBXS_DNN_CONV_DIMTYPE_W;
-            layout->dim_type[2] = LIBXS_DNN_CONV_DIMTYPE_H;
-            layout->dim_type[3] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[4] = LIBXS_DNN_CONV_DIMTYPE_N;
+            layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_N;
             layout->dim_size[0] = handle->ifmblock;
             layout->dim_size[1] = handle->ifwp;
             layout->dim_size[2] = handle->ifhp;
@@ -353,16 +353,16 @@ LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datal
             layout->dim_size[4] = handle->desc.N;
           }
         } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) || (handle->datatype_in == LIBXS_DNN_DATATYPE_I8) ) {
-          layout->dim_type = (libxs_dnn_conv_dimtype*) malloc(6*sizeof(libxs_dnn_conv_dimtype));
+          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
           layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
           if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
             layout->num_dims = 6;
-            layout->dim_type[0] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[1] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[2] = LIBXS_DNN_CONV_DIMTYPE_W;
-            layout->dim_type[3] = LIBXS_DNN_CONV_DIMTYPE_H;
-            layout->dim_type[4] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[5] = LIBXS_DNN_CONV_DIMTYPE_N;
+            layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+            layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_N;
             layout->dim_size[0] = handle->fm_lp_block;
             layout->dim_size[1] = handle->ifmblock;
             layout->dim_size[2] = handle->ifwp;
@@ -376,14 +376,14 @@ LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datal
           *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
         }
       } else if ((handle->buffer_format & LIBXS_DNN_CONV_FORMAT_NHWC) > 0) {
-        layout->dim_type = (libxs_dnn_conv_dimtype*) malloc(4*sizeof(libxs_dnn_conv_dimtype));
+        layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
         layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
         if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
           layout->num_dims = 4;
-          layout->dim_type[0] = LIBXS_DNN_CONV_DIMTYPE_C;
-          layout->dim_type[1] = LIBXS_DNN_CONV_DIMTYPE_W;
-          layout->dim_type[2] = LIBXS_DNN_CONV_DIMTYPE_H;
-          layout->dim_type[3] = LIBXS_DNN_CONV_DIMTYPE_N;
+          layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+          layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+          layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+          layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_N;
           layout->dim_size[0] = handle->ifmblock * handle->blocksifm;
           layout->dim_size[1] = handle->ifwp;
           layout->dim_size[2] = handle->ifhp;
@@ -445,28 +445,28 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status) {
-  libxs_dnn_conv_datalayout* layout;
+LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status) {
+  libxs_dnn_tensor_datalayout* layout;
 
   *status = LIBXS_DNN_SUCCESS;
   layout = 0;
 
   if (handle != 0) {
-    layout = (libxs_dnn_conv_datalayout*) malloc(sizeof(libxs_dnn_conv_datalayout));
+    layout = (libxs_dnn_tensor_datalayout*) malloc(sizeof(libxs_dnn_tensor_datalayout));
 
     if (layout != 0) {
-      memset(layout, 0, sizeof(libxs_dnn_conv_datalayout));
+      memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
       if ((handle->buffer_format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0) {
         if ( (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) || (handle->datatype_out == LIBXS_DNN_DATATYPE_I32) ) {
-          layout->dim_type = (libxs_dnn_conv_dimtype*) malloc(5*sizeof(libxs_dnn_conv_dimtype));
+          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(5*sizeof(libxs_dnn_tensor_dimtype));
           layout->dim_size = (unsigned int*) malloc(5*sizeof(unsigned int));
           if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
             layout->num_dims = 5;
-            layout->dim_type[0] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[1] = LIBXS_DNN_CONV_DIMTYPE_W;
-            layout->dim_type[2] = LIBXS_DNN_CONV_DIMTYPE_H;
-            layout->dim_type[3] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[4] = LIBXS_DNN_CONV_DIMTYPE_N;
+            layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_N;
             layout->dim_size[0] = handle->ofmblock;
             layout->dim_size[1] = handle->ifwp;
             layout->dim_size[2] = handle->ifhp;
@@ -479,14 +479,14 @@ LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_data
           *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
         }
       } else if ((handle->buffer_format & LIBXS_DNN_CONV_FORMAT_NHWC) > 0) {
-        layout->dim_type = (libxs_dnn_conv_dimtype*) malloc(4*sizeof(libxs_dnn_conv_dimtype));
+        layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
         layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
         if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
           layout->num_dims = 4;
-          layout->dim_type[0] = LIBXS_DNN_CONV_DIMTYPE_C;
-          layout->dim_type[1] = LIBXS_DNN_CONV_DIMTYPE_W;
-          layout->dim_type[2] = LIBXS_DNN_CONV_DIMTYPE_H;
-          layout->dim_type[3] = LIBXS_DNN_CONV_DIMTYPE_N;
+          layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+          layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+          layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+          layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_N;
           layout->dim_size[0] = handle->ofmblock * handle->blocksofm;
           layout->dim_size[1] = handle->ifwp;
           layout->dim_size[2] = handle->ifhp;
@@ -570,29 +570,29 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_lay
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status) {
-  libxs_dnn_conv_datalayout* layout;
+LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status) {
+  libxs_dnn_tensor_datalayout* layout;
 
   *status = LIBXS_DNN_SUCCESS;
   layout = 0;
 
   if (handle != 0) {
-    layout = (libxs_dnn_conv_datalayout*) malloc(sizeof(libxs_dnn_conv_datalayout));
+    layout = (libxs_dnn_tensor_datalayout*) malloc(sizeof(libxs_dnn_tensor_datalayout));
 
     if (layout != 0) {
-      memset(layout, 0, sizeof(libxs_dnn_conv_datalayout));
+      memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
       if ((handle->filter_format & LIBXS_DNN_CONV_FORMAT_LIBXS) > 0) {
         if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
-          layout->dim_type = (libxs_dnn_conv_dimtype*) malloc(6*sizeof(libxs_dnn_conv_dimtype));
+          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
           layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
           if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
             layout->num_dims = 6;
-            layout->dim_type[0] = LIBXS_DNN_CONV_DIMTYPE_K;
-            layout->dim_type[1] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[2] = LIBXS_DNN_CONV_DIMTYPE_S;
-            layout->dim_type[3] = LIBXS_DNN_CONV_DIMTYPE_R;
-            layout->dim_type[4] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[5] = LIBXS_DNN_CONV_DIMTYPE_K;
+            layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_S;
+            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_R;
+            layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_K;
             layout->dim_size[0] = handle->ofmblock;
             layout->dim_size[1] = handle->ifmblock;
             layout->dim_size[2] = handle->desc.S;
@@ -603,17 +603,17 @@ LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(
         } else if ( ((handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_I32)) ||
                     ((handle->datatype_in == LIBXS_DNN_DATATYPE_I8)  && (handle->datatype_out == LIBXS_DNN_DATATYPE_I16)) ||
                     ((handle->datatype_in == LIBXS_DNN_DATATYPE_I8)  && (handle->datatype_out == LIBXS_DNN_DATATYPE_I32))    ) {
-          layout->dim_type = (libxs_dnn_conv_dimtype*) malloc(7*sizeof(libxs_dnn_conv_dimtype));
+          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(7*sizeof(libxs_dnn_tensor_dimtype));
           layout->dim_size = (unsigned int*) malloc(7*sizeof(unsigned int));
           if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
             layout->num_dims = 7;
-            layout->dim_type[0] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[1] = LIBXS_DNN_CONV_DIMTYPE_K;
-            layout->dim_type[2] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[3] = LIBXS_DNN_CONV_DIMTYPE_S;
-            layout->dim_type[4] = LIBXS_DNN_CONV_DIMTYPE_R;
-            layout->dim_type[5] = LIBXS_DNN_CONV_DIMTYPE_C;
-            layout->dim_type[6] = LIBXS_DNN_CONV_DIMTYPE_K;
+            layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_S;
+            layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_R;
+            layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[6] = LIBXS_DNN_TENSOR_DIMTYPE_K;
             layout->dim_size[0] = handle->fm_lp_block;
             layout->dim_size[1] = handle->ofmblock;
             layout->dim_size[2] = handle->ifmblock;
@@ -628,14 +628,14 @@ LIBXS_API_DEFINITION libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(
           *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
         }
       } else if ((handle->filter_format & LIBXS_DNN_CONV_FORMAT_RSCK) > 0) {
-        layout->dim_type = (libxs_dnn_conv_dimtype*) malloc(4*sizeof(libxs_dnn_conv_dimtype));
+        layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
         layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
         if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
           layout->num_dims = 4;
-          layout->dim_type[0] = LIBXS_DNN_CONV_DIMTYPE_K;
-          layout->dim_type[1] = LIBXS_DNN_CONV_DIMTYPE_C;
-          layout->dim_type[2] = LIBXS_DNN_CONV_DIMTYPE_S;
-          layout->dim_type[3] = LIBXS_DNN_CONV_DIMTYPE_R;
+          layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+          layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+          layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_S;
+          layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_R;
           layout->dim_size[0] = handle->ofmblock * handle->blocksofm;
           layout->dim_size[1] = handle->ofmblock * handle->blocksofm;
           layout->dim_size[2] = handle->desc.S;
@@ -696,7 +696,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_datalayout(libxs_dnn_conv_datalayout* layout) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_datalayout(libxs_dnn_tensor_datalayout* layout) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != layout) {
