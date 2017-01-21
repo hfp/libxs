@@ -94,30 +94,30 @@ typedef enum libxs_dnn_compute_kind {
 } libxs_dnn_compute_kind;
 
 /** type/meaning of dimension in a LIBXS DNN tensor */
-typedef enum libxs_dnn_conv_dimtype {
+typedef enum libxs_dnn_tensor_dimtype {
   /** Mini-batch */
-  LIBXS_DNN_CONV_DIMTYPE_N,
+  LIBXS_DNN_TENSOR_DIMTYPE_N,
   /** Image Height */
-  LIBXS_DNN_CONV_DIMTYPE_H,
+  LIBXS_DNN_TENSOR_DIMTYPE_H,
   /** Image Width */
-  LIBXS_DNN_CONV_DIMTYPE_W,
+  LIBXS_DNN_TENSOR_DIMTYPE_W,
   /** channles or input channels */
-  LIBXS_DNN_CONV_DIMTYPE_C,
+  LIBXS_DNN_TENSOR_DIMTYPE_C,
   /** output channels */
-  LIBXS_DNN_CONV_DIMTYPE_K,
+  LIBXS_DNN_TENSOR_DIMTYPE_K,
   /** kernel height */
-  LIBXS_DNN_CONV_DIMTYPE_R,
+  LIBXS_DNN_TENSOR_DIMTYPE_R,
   /** kernel width */
-  LIBXS_DNN_CONV_DIMTYPE_S
-} libxs_dnn_conv_dimtype;
+  LIBXS_DNN_TENSOR_DIMTYPE_S
+} libxs_dnn_tensor_dimtype;
 
 /** layout descriptor to allow external data allocation
     outside of LIBXS */
-typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_datalayout {
-  libxs_dnn_conv_dimtype* dim_type;
+typedef struct LIBXS_RETARGETABLE libxs_dnn_tensor_datalayout {
+  libxs_dnn_tensor_dimtype* dim_type;
   unsigned int* dim_size;
   unsigned int num_dims;
-} libxs_dnn_conv_datalayout;
+} libxs_dnn_tensor_datalayout;
 
 typedef enum libxs_dnn_conv_fuse_op {
   /* we fuse nothing into convolution */
@@ -162,7 +162,7 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   libxs_dnn_conv_format filter_format;       /* format which is for filter buffers */
   libxs_dnn_conv_fuse_op fuse_ops;           /* used ops into convolutions */
   libxs_dnn_conv_option options;             /* additional options */
-  libxs_dnn_datatype datatype_in;            /* datatypes use for all input-related data such as activations, filter */
+  libxs_dnn_datatype datatype_in;            /* datatypes use for all input and outputs */
   libxs_dnn_datatype datatype_out;           /* datatypes use for all input-related data such as activations, bias */
 } libxs_dnn_conv_desc;
 
@@ -185,10 +185,10 @@ LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_layer* 
 LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_layer* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
 
 /** get layout description of buffers and fiters from handle */
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_conv_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_datalayout(libxs_dnn_conv_datalayout* layout);
+LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_get_output_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_datalayout(libxs_dnn_tensor_datalayout* layout);
 
 /** scratch pad management */
 LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status);
