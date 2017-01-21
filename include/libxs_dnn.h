@@ -158,8 +158,8 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   int pad_w_out;                               /* width of zero-padding in output buffer */
   int threads;                                 /* number of threads to use when running convolution */
   libxs_dnn_conv_algo algo;                  /* convolution algorithm used */
-  libxs_dnn_conv_format buffer_format;       /* format which is for buffer buffers */
-  libxs_dnn_conv_format filter_format;       /* format which is for filter buffers */
+  libxs_dnn_tensor_format buffer_format;       /* format which is for buffer buffers */
+  libxs_dnn_tensor_format filter_format;       /* format which is for filter buffers */
   libxs_dnn_conv_fuse_op fuse_ops;           /* used ops into convolutions */
   libxs_dnn_conv_option options;             /* additional options */
   libxs_dnn_datatype datatype_in;            /* datatypes use for all input and outputs */
@@ -180,9 +180,9 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_handle(
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_dnn_layer* handle);
 
 /** Create buffers, filters and bias (non-NULL if successful) */
-LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_layer* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_layer* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_layer* handle, const void* data, libxs_dnn_conv_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_link_input_buffer(const libxs_dnn_layer* handle, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_buffer* libxs_dnn_link_output_buffer(const libxs_dnn_layer* handle, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_layer* handle, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status);
 
 /** get layout description of buffers and fiters from handle */
 LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_get_input_buffer_datalayout(const libxs_dnn_layer* handle, libxs_dnn_err_t* status);
@@ -221,8 +221,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias* bias);
  * The index specifies the actual channel number, and an eventual
  * padding is defined by the handle (pitch/stride).
  */
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buffer* buffer, const void* data, libxs_dnn_conv_format in_format);
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter, const void* data, libxs_dnn_conv_format in_format);
+LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buffer* buffer, const void* data, libxs_dnn_tensor_format in_format);
+LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter, const void* data, libxs_dnn_tensor_format in_format);
 /*LIBXS_API libxs_dnn_err_t libxs_conv_copyin_bias(const libxs_dnn_bias* bias, const void* data);*/
 LIBXS_API libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffer* layer);
 
@@ -231,8 +231,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffer* layer);
  * The index specifies the actual channel number, and an eventual
  * padding is defined by the handle (pitch/stride).
  */
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_buffer* buffer, void* data, libxs_dnn_conv_format out_format);
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filter, void* data, libxs_dnn_conv_format out_format);
+LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_buffer* buffer, void* data, libxs_dnn_tensor_format out_format);
+LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filter, void* data, libxs_dnn_tensor_format out_format);
 /*LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_bias(const libxs_dnn_bias* bias, void* data);*/
 /** Run the convolution identified by the handle; may use threads internally. */
 LIBXS_API void libxs_dnn_execute(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind);

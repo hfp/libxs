@@ -330,7 +330,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.datatype_in = handle->datatype_in;
       descriptor.datatype_out = handle->datatype_out;
       descriptor.option = handle->desc.options;
-      descriptor.format = (libxs_dnn_conv_format)(handle->buffer_format | handle->filter_format);
+      descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
       /* TODO check JIT errors */
       if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
           libxs_get_target_archid() == LIBXS_X86_AVX512_CORE)
@@ -387,11 +387,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.datatype_in = handle->datatype_in;
       descriptor.datatype_out = handle->datatype_out;
       descriptor.option = handle->desc.options;
-      descriptor.format = (libxs_dnn_conv_format)(handle->buffer_format | handle->filter_format);
+      descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
       /* TODO check JIT errors */
       if ( (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
             libxs_get_target_archid() == LIBXS_X86_AVX512_CORE) &&
-           ((handle->filter_format == LIBXS_DNN_CONV_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_CONV_FORMAT_LIBXS)) )
+           ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) )
       {
         /* control code size */
         const unsigned int max_code_size = 20000/*16384*/;
@@ -538,7 +538,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT_L2;
         handle->code_bwd[3].pmm = libxs_create_xconv_backward(&descriptor);
       } else if ((libxs_get_target_archid() == LIBXS_X86_AVX2) ||
-                   ((handle->filter_format != LIBXS_DNN_CONV_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_CONV_FORMAT_LIBXS)) ) {
+                   ((handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS)) ) {
         /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
         descriptor.unroll_kh = 0;
         descriptor.unroll_kw = 0;
@@ -578,12 +578,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.datatype_in = handle->datatype_in;
       descriptor.datatype_out = handle->datatype_out;
       descriptor.option = handle->desc.options;
-      descriptor.format = (libxs_dnn_conv_format)(handle->buffer_format | handle->filter_format);
+      descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
 
       /* TODO check JIT errors */
       if ( (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
             libxs_get_target_archid() == LIBXS_X86_AVX512_CORE) &&
-           ((handle->filter_format == LIBXS_DNN_CONV_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_CONV_FORMAT_LIBXS)) )
+           ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) )
       {
         const unsigned int wu_each_iter_code_size = 10 * (descriptor.ifm_block == 1 ? descriptor.kw : descriptor.ifm_block);
         const unsigned int wu_max_code_size = 20000;
@@ -667,7 +667,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT_L2;
         handle->code_upd[5].pmm = libxs_create_xconv_update_weights(&descriptor);
       } else if ((libxs_get_target_archid() == LIBXS_X86_AVX2) ||
-                   ((handle->filter_format != LIBXS_DNN_CONV_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_CONV_FORMAT_LIBXS)) ) {
+                   ((handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS)) ) {
         /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
         descriptor.unroll_kw = 0;
         descriptor.ifm_unroll = 0;

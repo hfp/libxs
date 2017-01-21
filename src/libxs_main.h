@@ -98,7 +98,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_buffer {
   int H;                            /* height of image */
   int W;                            /* width of image */
   int lpb;                          /* low precision blocking factor */
-  libxs_dnn_conv_format format;   /* format of activation buffer */
+  libxs_dnn_tensor_format format;   /* format of activation buffer */
   libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
 };
@@ -121,7 +121,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_filter {
   int R;                            /* height of filter kernel */
   int S;                            /* width of filter kernel */
   int lpb;                          /* low precision blocking factor */
-  libxs_dnn_conv_format format;   /* format of filter buffer */
+  libxs_dnn_tensor_format format;   /* format of filter buffer */
   libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
 };
@@ -131,8 +131,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_datatype datatype_out;
   libxs_dnn_conv_desc desc;
   libxs_dnn_conv_algo algo;
-  libxs_dnn_conv_format buffer_format;
-  libxs_dnn_conv_format filter_format;
+  libxs_dnn_tensor_format buffer_format;
+  libxs_dnn_tensor_format filter_format;
   libxs_dnn_conv_fuse_op fuse_ops;
   libxs_dnn_conv_option options;
 
