@@ -127,8 +127,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_filter {
 };
 
 struct LIBXS_RETARGETABLE libxs_dnn_layer {
-  libxs_dnn_datatype datatype_in;
-  libxs_dnn_datatype datatype_out;
+  libxs_dnn_datatype datatype;
+  libxs_dnn_datatype datatype_itm;
   libxs_dnn_conv_desc desc;
   libxs_dnn_conv_algo algo;
   libxs_dnn_tensor_format buffer_format;
@@ -178,6 +178,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   size_t scratch3_size;
   void* scratch4;
   size_t scratch4_size;
+  void* scratch6;
+  size_t scratch6_size;
 
   /* JIT-generated convolution code */
   /*
