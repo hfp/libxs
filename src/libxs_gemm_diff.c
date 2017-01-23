@@ -96,12 +96,17 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diff(const libxs_gemm_des
   return libxs_gemm_diff_sw(reference, desc);
 #elif defined(__MIC__)
   return libxs_gemm_diff_imci(reference, desc);
-#elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
+#elif (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH)
+# if (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diff_avx2(reference, desc);
-#elif (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)
+# elif (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diff_avx(reference, desc);
-#elif (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
+# elif (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diff_sse(reference, desc);
+# else /* pointer based function call */
+  assert(0 != internal_gemm_diff_fn);
+  return internal_gemm_diff_fn(reference, desc);
+# endif
 #else /* pointer based function call */
   assert(0 != internal_gemm_diff_fn);
   return internal_gemm_diff_fn(reference, desc);
@@ -270,12 +275,19 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn(const libxs_gemm_de
   /* attempt to rely on static code path avoids to rely on capability of inlining pointer-based function call */
 #if defined(LIBXS_GEMM_DIFF_SW) && (0 != LIBXS_GEMM_DIFF_SW)
   return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
-#elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+#elif defined(__MIC__)
+  return libxs_gemm_diffn_imci(reference, descs, hint, ndescs, nbytes);
+#elif (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH)
+# if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diffn_avx512(reference, descs, hint, ndescs, nbytes);
-#elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
+# elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diffn_avx2(reference, descs, hint, ndescs, nbytes);
-#elif (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)
+# elif (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)
   return libxs_gemm_diffn_avx(reference, descs, hint, ndescs, nbytes);
+# else /* pointer based function call */
+  assert(0 != internal_gemm_diffn_fn);
+  return internal_gemm_diffn_fn(reference, descs, hint, ndescs, nbytes);
+# endif
 #else /* pointer based function call */
   assert(0 != internal_gemm_diffn_fn);
   return internal_gemm_diffn_fn(reference, descs, hint, ndescs, nbytes);
