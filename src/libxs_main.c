@@ -475,8 +475,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 #endif
   result = internal_registry;
   if (0 == result) {
-    libxs_xset_allocator(0/*lock*/, 0/*malloc_fn*/, 0/*free_fn*/);
     libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
+    libxs_xset_allocator(0/*lock*/,
+      0/*default_malloc_fn*/, 0/*default_free_fn*/,
+      0/*scratch_malloc_fn*/, 0/*scratch_free_fn*/);
     libxs_mt = 2;
     { /* behavior of parallelized routines which are located in libxsext library
        * 0: sequential below-threshold routine (no OpenMP); may fall-back to BLAS,
@@ -556,9 +558,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 #if defined(LIBXS_PERF)
       libxs_perf_init();
 #endif
-      assert(0 == internal_registry_keys && 0 == internal_registry && 0 != libxs_malloc_fn); /* should never happen */
-      result = (libxs_code_pointer*)libxs_malloc_fn((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer));
-      internal_registry_keys = (internal_regkey_type*)libxs_malloc_fn((LIBXS_CAPACITY_REGISTRY) * sizeof(internal_regkey_type));
+      assert(0 == internal_registry_keys && 0 == internal_registry && 0 != libxs_default_malloc_fn); /* should never happen */
+      result = (libxs_code_pointer*)libxs_default_malloc_fn((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer));
+      internal_registry_keys = (internal_regkey_type*)libxs_default_malloc_fn((LIBXS_CAPACITY_REGISTRY) * sizeof(internal_regkey_type));
       if (0 != result && 0 != internal_registry_keys) {
         const char *const env = getenv("LIBXS_GEMM_PREFETCH");
         for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) result[i].pmm = 0;
@@ -721,9 +723,9 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           }
         }
       }
-      assert(0 != libxs_free_fn);
-      libxs_free_fn(registry_keys);
-      libxs_free_fn(registry);
+      assert(0 != libxs_default_free_fn);
+      libxs_default_free_fn(registry_keys);
+      libxs_default_free_fn(registry);
     }
 #if !defined(LIBXS_NO_SYNC) /* LIBXS_LOCK_RELEASE, but no LIBXS_LOCK_DESTROY */
     for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
@@ -929,7 +931,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       if (0 < request->descriptor.gemm->m   && 0 < request->descriptor.gemm->n   && 0 < request->descriptor.gemm->k &&
           0 < request->descriptor.gemm->lda && 0 < request->descriptor.gemm->ldb && 0 < request->descriptor.gemm->ldc)
       {
-        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = libxs_default_malloc_fn(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_kernel, &generated_code, request->descriptor.gemm, target_arch);
 # if !defined(LIBXS_VTUNE)
@@ -955,7 +957,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       assert(0 != request->descriptor.ssoa && 0 != request->descriptor.ssoa->gemm);
       assert(0 != request->descriptor.ssoa->row_ptr && 0 != request->descriptor.ssoa->column_idx && 0 != request->descriptor.ssoa->values);
       if (0 == (LIBXS_GEMM_FLAG_F32PREC & (request->descriptor.ssoa->gemm->flags))/*only double-precision*/) {
-        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = libxs_default_malloc_fn(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_soa_kernel, &generated_code, request->descriptor.ssoa->gemm, target_arch,
           request->descriptor.ssoa->row_ptr, request->descriptor.ssoa->column_idx,
@@ -985,7 +987,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
 #if 1
       if (0 == (LIBXS_GEMM_FLAG_F32PREC & (request->descriptor.sreg->gemm->flags))/*only double-precision*/) {
 #endif
-        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = libxs_default_malloc_fn(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_reg_kernel, &generated_code, request->descriptor.sreg->gemm, target_arch,
           request->descriptor.sreg->row_ptr, request->descriptor.sreg->column_idx,
@@ -1016,7 +1018,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       if (0 < request->descriptor.cfwd->kw && 0 < request->descriptor.cfwd->kh &&
           0 != request->descriptor.cfwd->stride_w && 0 != request->descriptor.cfwd->stride_h)
       {
-        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = libxs_default_malloc_fn(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_convolution_forward_kernel, &generated_code, request->descriptor.cfwd, target_arch);
 # if !defined(LIBXS_VTUNE)
@@ -1047,7 +1049,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       if (0 < request->descriptor.cbwd->kw && 0 < request->descriptor.cbwd->kh &&
           0 != request->descriptor.cbwd->stride_w && 0 != request->descriptor.cbwd->stride_h)
       {
-        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = libxs_default_malloc_fn(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_convolution_backward_kernel, &generated_code, request->descriptor.cbwd, target_arch);
 # if !defined(LIBXS_VTUNE)
@@ -1081,7 +1083,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       if (0 < request->descriptor.cupd->kw &&
           0 != request->descriptor.cupd->stride_w && 0 != request->descriptor.cupd->stride_h)
       {
-        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = libxs_default_malloc_fn(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_convolution_weight_update_kernel, &generated_code, request->descriptor.cupd, target_arch);
 # if !defined(LIBXS_VTUNE)
@@ -1149,7 +1151,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
     }
     result = EXIT_FAILURE;
   }
-  free(generated_code.generated_code); /* free temporary/initial code buffer */
+  libxs_default_free_fn(generated_code.generated_code); /* free temporary/initial code buffer */
 #else /* unsupported platform */
   LIBXS_UNUSED(request); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
