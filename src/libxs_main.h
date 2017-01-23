@@ -160,9 +160,9 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int filter_transposed;
 
   /* internal data representation */
-  libxs_dnn_buffer* input;
-  libxs_dnn_buffer* output;
-  libxs_dnn_filter* filter;
+  libxs_dnn_buffer* reg_input;
+  libxs_dnn_buffer* reg_output;
+  libxs_dnn_filter* reg_filter;
   libxs_dnn_buffer* grad_input;
   libxs_dnn_buffer* grad_output;
   libxs_dnn_filter* grad_filter;

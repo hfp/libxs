@@ -34,7 +34,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check if we have input, output and filter */
-  if (handle->input == 0 || handle->output == 0 || handle->filter == 0) {
+  if (handle->grad_input == 0 || handle->grad_output == 0 || handle->reg_filter == 0) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
   }
@@ -85,7 +85,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_d
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check if we have input, output and filter */
-  if (handle->input == 0 || handle->output == 0 || handle->filter == 0) {
+  if (handle->grad_input == 0 || handle->grad_output == 0 || handle->reg_filter == 0) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
   }
@@ -136,7 +136,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check if we have input, output and filter */
-  if (handle->input == 0 || handle->output == 0 || handle->filter == 0) {
+  if (handle->grad_input == 0 || handle->grad_output == 0 || handle->reg_filter == 0) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
   }

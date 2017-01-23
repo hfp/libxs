@@ -601,11 +601,11 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_input_buffer( libxs_handle, input_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT, input_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_output_buffer( libxs_handle, output_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT, output_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter( libxs_handle, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
@@ -616,9 +616,12 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
 
   /* bind buffers and filter to handle */
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_GRADIENT_INPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
 
   /* let's allocate and bind scratch */
   scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
@@ -704,7 +707,7 @@ int main(int argc, char* argv[])
       CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
     }
     if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
-      CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
     }
     /* copy out data */
     CHKERR_LIBXS_DNN( libxs_dnn_copyout_filter( libxs_filter, (void*)naive_libxs_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
@@ -801,7 +804,7 @@ int main(int argc, char* argv[])
         libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
       }
       if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
-        CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
+        CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
       }
     }
     l_end = libxs_timer_tick();
@@ -860,17 +863,20 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_input_buffer( libxs_handle, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_output_buffer( libxs_handle, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter( libxs_handle, filter_rsck, LIBXS_DNN_TENSOR_FORMAT_RSCK_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER, filter_rsck, LIBXS_DNN_TENSOR_FORMAT_RSCK_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* bind buffers and filter to handle */
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_GRADIENT_INPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
 
   /* let's allocate and bind scratch */
   scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
@@ -910,7 +916,7 @@ int main(int argc, char* argv[])
     printf("# Correctness - BWD (NHWC/RSCK-Storage)  #\n");
     printf("##########################################\n");
     /* run LIBXS convolutions */
-    CHKERR_LIBXS_DNN( libxs_dnn_transpose_filter( libxs_handle ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_transpose_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
 #if defined(_OPENMP)
 # pragma omp parallel
 #endif
@@ -951,7 +957,7 @@ int main(int argc, char* argv[])
       CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
     }
     if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
-      CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
     }
     /* copy input data into KCRS storage in user code */
     naive_copy_RSCK_to_KCRS(filter_rsck, naive_filter_kcrs, kh, kw, nIfm, nOfm);
@@ -1004,7 +1010,7 @@ int main(int argc, char* argv[])
     /* run LIBXS convolution for performance */
     l_start = libxs_timer_tick();
     for (i = 0; i < iters; ++i) {
-      CHKERR_LIBXS_DNN( libxs_dnn_transpose_filter( libxs_handle ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_transpose_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
 #if defined(_OPENMP)
 #   pragma omp parallel
 #endif
@@ -1049,7 +1055,7 @@ int main(int argc, char* argv[])
         libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
       }
       if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
-        CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
+        CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
       }
     }
     l_end = libxs_timer_tick();
@@ -1113,20 +1119,23 @@ int main(int argc, char* argv[])
   naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_input_buffer( libxs_handle, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_output_buffer( libxs_handle, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter( libxs_handle, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
 
   /* bind buffers and filter to handle */
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_GRADIENT_INPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
 
   /* let's allocate and bind scratch */
   scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
@@ -1206,7 +1215,7 @@ int main(int argc, char* argv[])
       CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
     }
     if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
-      CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
     }
     /* copy out data */
     CHKERR_LIBXS_DNN( libxs_dnn_copyout_filter( libxs_filter, (void*)naive_libxs_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
@@ -1303,7 +1312,7 @@ int main(int argc, char* argv[])
         libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
       }
       if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
-        CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle ) );
+        CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
       }
     }
     l_end = libxs_timer_tick();

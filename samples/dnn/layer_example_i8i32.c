@@ -431,11 +431,11 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_input_buffer( libxs_handle, input_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT, input_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_output_buffer( libxs_handle, output_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT, output_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter( libxs_handle, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
@@ -446,9 +446,9 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
 
   /* bind buffers and filter to handle */
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_input_buffer( libxs_handle, libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_output_buffer( libxs_handle, libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
 
   /* let's allocate and bind scratch */
   scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
