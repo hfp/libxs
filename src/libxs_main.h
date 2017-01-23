@@ -217,14 +217,14 @@ typedef struct LIBXS_RETARGETABLE libxs_build_request {
 } libxs_build_request;
 
 typedef enum libxs_malloc_flags {
-  LIBXS_MALLOC_FLAG_R = 1,
-  LIBXS_MALLOC_FLAG_W = 2,
-  LIBXS_MALLOC_FLAG_X = 4,
-  LIBXS_MALLOC_FLAG_MMAP = 8,
+  LIBXS_MALLOC_FLAG_DEFAULT = 0,
+  LIBXS_MALLOC_FLAG_SCRATCH = 1,
+  LIBXS_MALLOC_FLAG_MMAP = 2,
+  LIBXS_MALLOC_FLAG_R = 4,
+  LIBXS_MALLOC_FLAG_W = 8,
+  LIBXS_MALLOC_FLAG_X = 16,
   LIBXS_MALLOC_FLAG_RW  = LIBXS_MALLOC_FLAG_R | LIBXS_MALLOC_FLAG_W,
-  LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_RW | LIBXS_MALLOC_FLAG_X,
-  /** LIBXS_MALLOC_FLAG_DEFAULT is an alias for setting no flag bits. */
-  LIBXS_MALLOC_FLAG_DEFAULT = LIBXS_MALLOC_FLAG_RW
+  LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_RW | LIBXS_MALLOC_FLAG_X
 } libxs_malloc_flags;
 
 /** Greatest common divisor. */
@@ -236,7 +236,8 @@ LIBXS_API size_t libxs_alignment(size_t size, size_t alignment);
 
 /** Same as libxs_set_allocator, but takes a lock (can be NULL).*/
 LIBXS_API void libxs_xset_allocator(LIBXS_LOCK_TYPE* lock,
-  libxs_malloc_function malloc_fn, libxs_free_function free_fn);
+  libxs_malloc_function default_malloc_fn, libxs_free_function default_free_fn,
+  libxs_malloc_function scratch_malloc_fn, libxs_free_function scratch_free_fn);
 
 /** Receive the size, the flags, or the extra attachment of the given buffer. */
 LIBXS_API int libxs_malloc_info(const void* memory, size_t* size, int* flags, void** extra);
@@ -268,10 +269,14 @@ LIBXS_API libxs_gemm_prefetch_type libxs_gemm_uid2prefetch(int uid);
 LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype);
 
 LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_LOCK_TYPE libxs_lock_global;
-/** Default function to allocate memory. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_malloc_function libxs_malloc_fn;
-/** Default function to release memory. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_free_function libxs_free_fn;
+/** Function used to allocate default memory. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_malloc_function libxs_default_malloc_fn;
+/** Function used to allocate scratch memory. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_malloc_function libxs_scratch_malloc_fn;
+/** Function used to release default memory. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_free_function libxs_default_free_fn;
+/** Function used to release scratch memory. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_free_function libxs_scratch_free_fn;
 
 /** Stores the verbosity level (libxs_get_verbosity, libxs_set_verbosity). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_verbosity;

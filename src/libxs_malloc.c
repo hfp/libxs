@@ -162,42 +162,82 @@ LIBXS_API_DEFINITION size_t libxs_alignment(size_t size, size_t alignment)
 
 
 LIBXS_API_DEFINITION void libxs_xset_allocator(LIBXS_LOCK_TYPE* lock,
-  libxs_malloc_function malloc_fn, libxs_free_function free_fn)
+  libxs_malloc_function default_malloc_fn, libxs_free_function default_free_fn,
+  libxs_malloc_function scratch_malloc_fn, libxs_free_function scratch_free_fn)
 {
-  if (0 == malloc_fn && 0 == free_fn) { /* reset to default */
+  static int error_once = 0;
+  if (0 != lock) {
+    LIBXS_INIT
+    LIBXS_LOCK_ACQUIRE(lock);
+  }
+  if (0 != default_malloc_fn && 0 != default_free_fn) {
+    libxs_default_malloc_fn = default_malloc_fn;
+    libxs_default_free_fn = default_free_fn;
+  }
+  else {
 #if defined(__TBBMALLOC)
-    malloc_fn = scalable_malloc;
-    free_fn = scalable_free;
+    const libxs_malloc_function malloc_fn = scalable_malloc;
+    const libxs_free_function free_fn = scalable_free;
 #else
-    malloc_fn = malloc;
-    free_fn = free;
+    const libxs_malloc_function malloc_fn = malloc;
+    const libxs_free_function free_fn = free;
 #endif
+    if (0 == default_malloc_fn && 0 == default_free_fn) {
+      libxs_default_malloc_fn = malloc_fn;
+      libxs_default_free_fn = free_fn;
+    }
+    else { /* invalid allocator */
+      if (0 != libxs_verbosity /* library code is expected to be mute */
+        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      { 
+        fprintf(stderr, "LIBXS: allocator setup without malloc or free function!\n");
+      }
+      /* keep valid previous non-default allocator */
+      if (0 == libxs_default_malloc_fn || 0 == libxs_default_free_fn) {
+        libxs_default_malloc_fn = malloc_fn;
+        libxs_default_free_fn = free_fn;
+      }
+    }
   }
-  if (0 != malloc_fn && 0 != free_fn) {
-    if (0 != lock) {
-      LIBXS_INIT
-      LIBXS_LOCK_ACQUIRE(&libxs_lock_global);
-      libxs_malloc_fn = malloc_fn;
-      libxs_free_fn = free_fn;
-      LIBXS_LOCK_RELEASE(&libxs_lock_global);
+  if (0 == scratch_malloc_fn && 0 == scratch_free_fn) { /* adopt default allocator */
+    libxs_scratch_malloc_fn = libxs_default_malloc_fn;
+    libxs_scratch_free_fn = libxs_default_free_fn;
+  }
+  else if (0 != scratch_malloc_fn) {
+    if (0 == scratch_free_fn 
+      && /*warning*/(1 < libxs_verbosity || 0 > libxs_verbosity)
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS: scratch allocator setup without free function!\n");
     }
-    else {
-      libxs_malloc_fn = malloc_fn;
-      libxs_free_fn = free_fn;
+    libxs_scratch_malloc_fn = scratch_malloc_fn;
+    libxs_scratch_free_fn = scratch_free_fn; /* NULL allowed */
+  }
+  else { /* invalid scratch allocator */
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS: invalid scratch allocator (default used)!\n");
+    }
+    /* keep valid previous non-default scratch allocator */
+    if (0 == libxs_scratch_malloc_fn) {
+      libxs_scratch_malloc_fn = libxs_default_malloc_fn;
+      libxs_scratch_free_fn = libxs_default_free_fn;
     }
   }
-  else if (0 != libxs_verbosity) { /* library code is expected to be mute */
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: allocator must be setup with malloc and free functions!\n");
-    }
+  if (0 != lock) {
+    LIBXS_LOCK_RELEASE(lock);
   }
 }
 
 
-LIBXS_API_DEFINITION void libxs_set_allocator(libxs_malloc_function malloc_fn, libxs_free_function free_fn)
+LIBXS_API_DEFINITION void libxs_set_allocator(
+  libxs_malloc_function default_malloc_fn, libxs_free_function default_free_fn,
+  libxs_malloc_function scratch_malloc_fn, libxs_free_function scratch_free_fn)
 {
-  libxs_xset_allocator(&libxs_lock_global, malloc_fn, free_fn);
+  libxs_xset_allocator(&libxs_lock_global,
+    default_malloc_fn, default_free_fn,
+    scratch_malloc_fn, scratch_free_fn);
 }
 
 
@@ -311,13 +351,17 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
   if (memory) {
     if (0 < size) {
       const size_t internal_size = size + extra_size + sizeof(internal_malloc_info_type);
-      const libxs_malloc_function malloc_fn = libxs_malloc_fn;
-      const libxs_free_function free_fn = libxs_free_fn;
+      libxs_malloc_function malloc_fn = libxs_default_malloc_fn;
+      libxs_free_function free_fn = libxs_default_free_fn;
       size_t alloc_alignment = 0, alloc_size = 0;
       void *alloc_failed = 0, *buffer = 0, *reloc = 0;
 #if !defined(NDEBUG)
       static int error_once = 0;
 #endif
+      if (0 != (LIBXS_MALLOC_FLAG_SCRATCH & flags)) {
+        malloc_fn = libxs_scratch_malloc_fn;
+        free_fn = libxs_scratch_free_fn;
+      }
       flags |= LIBXS_MALLOC_FLAG_RW; /* normalize given flags since flags=0 is accepted as well */
 #if !defined(LIBXS_MALLOC_MMAP)
       if (0 == (LIBXS_MALLOC_FLAG_X & flags) && 0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) {
@@ -709,6 +753,15 @@ LIBXS_API_DEFINITION void* libxs_aligned_malloc(size_t size, size_t alignment)
   void* result = 0;
   LIBXS_INIT
   return 0 == libxs_xmalloc(&result, size, alignment, LIBXS_MALLOC_FLAG_DEFAULT,
+    0/*extra*/, 0/*extra_size*/) ? result : 0;
+}
+
+
+LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
+{
+  void* result = 0;
+  LIBXS_INIT
+  return 0 == libxs_xmalloc(&result, size, alignment, LIBXS_MALLOC_FLAG_SCRATCH,
     0/*extra*/, 0/*extra_size*/) ? result : 0;
 }
 
