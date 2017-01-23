@@ -1023,8 +1023,8 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const precision_in = internal_get_precision_string(request->descriptor.cfwd->datatype_in);
-          const char *const precision_out = internal_get_precision_string(request->descriptor.cfwd->datatype_out);
+          const char *const precision_in = internal_get_precision_string(request->descriptor.cfwd->datatype);
+          const char *const precision_out = internal_get_precision_string(request->descriptor.cfwd->datatype_itm);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_fwd_%s_%s_%ux%u_%ux%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_p%i_f%i.conv",
             target_arch/*code path name*/, precision_in, precision_out,
@@ -1054,8 +1054,8 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const precision_in = internal_get_precision_string(request->descriptor.cbwd->datatype_in);
-          const char *const precision_out = internal_get_precision_string(request->descriptor.cbwd->datatype_out);
+          const char *const precision_in = internal_get_precision_string(request->descriptor.cbwd->datatype);
+          const char *const precision_out = internal_get_precision_string(request->descriptor.cbwd->datatype_itm);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_bwd_%s_%s_%ux%u_%ux%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_of%uu%u_v%u_pa%u_p%i_f%i.conv",
             target_arch/*code path name*/, precision_in, precision_out,
@@ -1088,8 +1088,8 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const precision_in = internal_get_precision_string(request->descriptor.cupd->datatype_in);
-          const char *const precision_out = internal_get_precision_string(request->descriptor.cupd->datatype_out);
+          const char *const precision_in = internal_get_precision_string(request->descriptor.cupd->datatype);
+          const char *const precision_out = internal_get_precision_string(request->descriptor.cupd->datatype_itm);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_upd_%s_%s_%ux%u_%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_of%uu%ux%uu%u_if%uu_t%u_p%i_f%i.conv",
             target_arch/*code path name*/, precision_in, precision_out,
