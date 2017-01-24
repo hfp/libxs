@@ -32,24 +32,51 @@
 
 int main(void)
 {
-  const size_t size = 2507, alignment = 64;
+  const size_t size = 2507, alignment = (2u << 20);
+  void *context, *p;
   int nerrors = 0;
-  void* p;
 
-  p = libxs_malloc(size);
-  if (0 != libxs_malloc_size(NULL)) {
+  libxs_malloc_function malloc_fn;
+  libxs_free_function free_fn;
+  malloc_fn.function = malloc; free_fn.function = free;
+  libxs_set_default_allocator(0/*context*/, malloc_fn/*malloc*/, free_fn/*free*/);
+  malloc_fn.function = 0; free_fn.function = 0;
+  libxs_set_scratch_allocator(0, malloc_fn/*0*/, free_fn/*0*/);
+
+  /* check adoption of the default allocator */
+  libxs_get_scratch_allocator(&context, &malloc_fn, &free_fn);
+  if (0 != context || malloc != malloc_fn.function || free != free_fn.function) {
     ++nerrors;
   }
+
+  /* allocate some amount of memory */
+  p = libxs_malloc(size);
+
+  /* query and check the size of the buffer */
   if (0 != p && size != libxs_malloc_size(p)) {
     ++nerrors;
   }
+
+  /* check that a NULL-pointer yields no size */
+  if (0 != libxs_malloc_size(NULL)) {
+    ++nerrors;
+  }
+
+  /* release a NULL pointer */
   libxs_free(0);
+
+  /* release a buffer */
   libxs_free(p);
 
+  /* allocate memory with specific alignment */
   p = libxs_aligned_malloc(size, alignment);
+
+  /* check the alignment of the allocation */
   if (0 != (((uintptr_t)p) % alignment)) {
     ++nerrors;
   }
+
+  /* release aligned memory */
   libxs_free(p);
 
   return 0 == nerrors ? EXIT_SUCCESS : EXIT_FAILURE;
