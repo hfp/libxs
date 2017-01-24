@@ -122,7 +122,11 @@ typedef enum libxs_dnn_buffer_type {
   /** regular output buffer */
   LIBXS_DNN_REGULAR_OUTPUT,
   /** gradient output buffer */
-  LIBXS_DNN_GRADIENT_OUTPUT
+  LIBXS_DNN_GRADIENT_OUTPUT,
+  /** general input type */
+  LIBXS_DNN_INPUT,
+  /** general output type */
+  LIBXS_DNN_OUTPUT
 } libxs_dnn_buffer_type;
 
 /** types of different filters */
@@ -130,7 +134,9 @@ typedef enum libxs_dnn_filter_type {
   /* regular filter */
   LIBXS_DNN_REGULAR_FILTER,
   /* gradient filter */
-  LIBXS_DNN_GRADIENT_FILTER
+  LIBXS_DNN_GRADIENT_FILTER,
+  /** general filter type */
+  LIBXS_DNN_FILTER
 } libxs_dnn_filter_type;
 
 /** layout descriptor to allow external data allocation

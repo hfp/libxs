@@ -581,7 +581,6 @@ int main(int argc, char* argv[])
   conv_desc.S = kw;
   conv_desc.u = stride_h;
   conv_desc.v = stride_w;
-  /* @TODO we need to change the interface to provide CAFFE compatible padding! */
   conv_desc.pad_h = pad_h;
   conv_desc.pad_w = pad_w;
   conv_desc.pad_h_in = pad_h_in;
@@ -601,11 +600,11 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT, input_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT, output_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
@@ -843,7 +842,6 @@ int main(int argc, char* argv[])
   conv_desc.S = kw;
   conv_desc.u = stride_h;
   conv_desc.v = stride_w;
-  /* @TODO we need to change the interface to provide CAFFE compatible padding! */
   conv_desc.pad_h = pad_h;
   conv_desc.pad_w = pad_w;
   conv_desc.pad_h_in = pad_h_in;
@@ -863,11 +861,11 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER, filter_rsck, LIBXS_DNN_TENSOR_FORMAT_RSCK_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_rsck, LIBXS_DNN_TENSOR_FORMAT_RSCK_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* bind buffers and filter to handle */
@@ -1094,7 +1092,6 @@ int main(int argc, char* argv[])
   conv_desc.S = kw;
   conv_desc.u = stride_h;
   conv_desc.v = stride_w;
-  /* @TODO we need to change the interface to provide CAFFE compatible padding! */
   conv_desc.pad_h = pad_h;
   conv_desc.pad_w = pad_w;
   conv_desc.pad_h_in = pad_h_in;
@@ -1119,11 +1116,11 @@ int main(int argc, char* argv[])
   naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
 
   /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
   CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* copy in data to LIBXS format */
