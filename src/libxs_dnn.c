@@ -1553,7 +1553,7 @@ LIBXS_API_DEFINITION void libxs_dnn_execute(libxs_dnn_layer* handle, libxs_dnn_c
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer* handle, const libxs_dnn_filter_type type) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   int ofm1, ifm1, kj, ki, ifm2, ofm2;
- 
+
   /* check for filter type */
   if ( (type != LIBXS_DNN_REGULAR_FILTER) ) {
     status = LIBXS_DNN_ERR_UNKNOWN_FILTER_TYPE;

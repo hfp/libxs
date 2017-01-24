@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
       }
 
       if ((MAX_SIZE) >= csize) {
-        { // streaming
+        { // streaming A and B
           fprintf(stdout, "Streamed (A,B)...\n");
           const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
@@ -174,6 +174,56 @@ int main(int argc, char* argv[])
               LIBXS_PREFETCH_C(tmp));
 #else
             xmm(ai, bi, tmp);
+#endif
+          }
+          const double duration = libxs_timer_duration(start, libxs_timer_tick());
+          if (0 < duration) {
+            fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+            fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+          }
+          fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        }
+
+        { // streaming A and C
+          fprintf(stdout, "Streamed (A,C)...\n");
+          const unsigned long long start = libxs_timer_tick();
+#if defined(_OPENMP)
+#         pragma omp parallel for
+#endif
+          for (int i = 0; i < s; ++i) {
+            const T *const ai = a + i * asize;
+            T* ci = c + i * csize;
+#if (0 != LIBXS_PREFETCH)
+            xmm(ai, b, ci,
+              LIBXS_PREFETCH_A(ai + asize), LIBXS_PREFETCH_B(b),
+              LIBXS_PREFETCH_C(ci + csize));
+#else
+            xmm(ai, b, ci);
+#endif
+          }
+          const double duration = libxs_timer_duration(start, libxs_timer_tick());
+          if (0 < duration) {
+            fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+            fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+          }
+          fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        }
+
+        { // streaming B and C
+          fprintf(stdout, "Streamed (B,C)...\n");
+          const unsigned long long start = libxs_timer_tick();
+#if defined(_OPENMP)
+#         pragma omp parallel for
+#endif
+          for (int i = 0; i < s; ++i) {
+            const T *const bi = b + i * bsize;
+            T* ci = c + i * csize;
+#if (0 != LIBXS_PREFETCH)
+            xmm(a, bi, ci,
+              LIBXS_PREFETCH_A(a), LIBXS_PREFETCH_B(bi + bsize),
+              LIBXS_PREFETCH_C(ci + csize));
+#else
+            xmm(a, bi, ci);
 #endif
           }
           const double duration = libxs_timer_duration(start, libxs_timer_tick());
