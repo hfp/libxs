@@ -104,4 +104,64 @@ LIBXS_API void libxs_free(const void* memory);
 /** Get the size of the allocated memory; zero in case of an error. */
 LIBXS_API size_t libxs_malloc_size(const void* memory);
 
+
+#if defined(__cplusplus)
+
+/** RAII idiom to temporarily setup an allocator for the lifetime of the scope. */
+template<allocator_kind> class LIBXS_RETARGETABLE libxs_scoped_allocator {
+public:
+  /** Following the RAII idiom, the c'tor instantiates the new allocator. */
+  libxs_scoped_allocator(void* context,
+    libxs_malloc_function malloc_fn, libxs_free_function free_fn)
+  :
+    m_context(0), m_malloc(0), m_free(0)
+  {
+    allocator_kind::get(m_context, m_malloc, m_free);
+    allocator_kind::set(context, malloc_fn, free_fn);
+  }
+
+  /** Following the RAII idiom, the d'tor restores the previous allocator. */
+  ~libxs_scoped_allocator() {
+    allocator_kind::set(m_context, m_malloc, m_free);
+  }
+
+private: /* no copy/assignment */
+  explicit libxs_scoped_allocator(const libxs_scoped_allocator&);
+  libxs_scoped_allocator& operator=(const libxs_scoped_allocator&);
+
+private: /* saved/previous allocator */
+  void* m_context;
+  libxs_malloc_function m_malloc;
+  libxs_free_function m_free;
+};
+
+/** Wrap default allocator to act as an allocator-kind (libxs_scoped_allocator). */
+struct LIBXS_RETARGETABLE libxs_default_allocator {
+  static void set(void* context,
+    libxs_malloc_function malloc_fn, libxs_free_function free_fn)
+  {
+    libxs_set_default_allocator(context, malloc_fn, free_fn);
+  }
+  static void get(void*& context,
+    libxs_malloc_function& malloc_fn, libxs_free_function& free_fn)
+  {
+    libxs_get_default_allocator(&context, &malloc_fn, &free_fn);
+  }
+};
+
+/** Wrap scratch allocator to act as an allocator-kind (libxs_scoped_allocator). */
+struct LIBXS_RETARGETABLE libxs_scratch_allocator {
+  static void set(void* context,
+    libxs_malloc_function malloc_fn, libxs_free_function free_fn)
+  {
+    libxs_set_scratch_allocator(context, malloc_fn, free_fn);
+  }
+  static void get(void*& context,
+    libxs_malloc_function& malloc_fn, libxs_free_function& free_fn)
+  {
+    libxs_get_scratch_allocator(&context, &malloc_fn, &free_fn);
+  }
+};
+
+#endif /*defined(__cplusplus)*/
 #endif /*LIBXS_MALLOC_H*/
