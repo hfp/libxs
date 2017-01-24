@@ -156,7 +156,7 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_handle(
+LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
   libxs_dnn_conv_desc     conv_desc,
   libxs_dnn_err_t*        status)
 {
@@ -241,7 +241,7 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_handle(
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_dnn_layer* handle)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* handle)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -296,6 +296,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_handle(const libxs_d
 
 LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_buffer(const libxs_dnn_layer* handle, const libxs_dnn_buffer_type type, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status)
 {
+  return libxs_dnn_link_qbuffer(handle, type, data, 0, in_format, status);
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_qbuffer(const libxs_dnn_layer* handle, const libxs_dnn_buffer_type type, const void* data, const char exp, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status)
+{
   libxs_dnn_buffer* buffer = (libxs_dnn_buffer*)malloc(sizeof(libxs_dnn_buffer));
   *status = LIBXS_DNN_SUCCESS;
 
@@ -310,6 +316,7 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_buffer(const libxs_dnn_lay
       buffer->format = in_format;
       buffer->datatype = handle->datatype;
       buffer->lpb = handle->fm_lp_block;
+      buffer->exp = exp;
       /* NHWC */
       if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_NHWC ) > 0)  && ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) > 0) ) {
         buffer->data = (void*)data;
@@ -329,7 +336,7 @@ LIBXS_API_DEFINITION libxs_dnn_buffer* libxs_dnn_link_buffer(const libxs_dnn_lay
       buffer->format = in_format;
       buffer->datatype = handle->datatype;
       buffer->lpb = handle->fm_lp_block;
-
+      buffer->exp = exp;
       /* NHWC */
       if ( ((handle->buffer_format & in_format) > 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_NHWC ) > 0)  && ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) > 0) ) {
         buffer->data = (void*)data;
@@ -500,7 +507,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_bu
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_layer* handle, const libxs_dnn_filter_type type, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_layer* handle, const libxs_dnn_filter_type type, const void* data,  libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status)
+{
+  return libxs_dnn_link_qfilter(handle, type, data, 0, in_format, status);
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_qfilter(const libxs_dnn_layer* handle, const libxs_dnn_filter_type type, const void* data, const char exp,  libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status)
 {
   libxs_dnn_filter* filter = (libxs_dnn_filter*)malloc(sizeof(libxs_dnn_filter));
   *status = LIBXS_DNN_SUCCESS;
@@ -524,6 +537,7 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_lay
     filter->format = in_format;
     filter->datatype = handle->datatype;
     filter->lpb = handle->fm_lp_block;
+    filter->exp = exp;
     /* RSCK */
     if ( ((handle->filter_format & in_format) > 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_RSCK ) > 0)  && ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) > 0) ) {
       filter->data = (void*)data;

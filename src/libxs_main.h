@@ -98,9 +98,10 @@ struct LIBXS_RETARGETABLE libxs_dnn_buffer {
   int H;                            /* height of image */
   int W;                            /* width of image */
   int lpb;                          /* low precision blocking factor */
-  libxs_dnn_tensor_format format;   /* format of activation buffer */
+  libxs_dnn_tensor_format format; /* format of activation buffer */
   libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
+  char exp;                         /* fix point exponent for this tensor */
 };
 
 /** Structure which describes a bias. */
@@ -110,6 +111,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_bias {
   int lpb;                          /* low precision blocking factor */
   libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
+  char exp;                         /* fix point exponent for this tensor */
 };
 
 /** Structure which describes a filter */
@@ -121,9 +123,10 @@ struct LIBXS_RETARGETABLE libxs_dnn_filter {
   int R;                            /* height of filter kernel */
   int S;                            /* width of filter kernel */
   int lpb;                          /* low precision blocking factor */
-  libxs_dnn_tensor_format format;   /* format of filter buffer */
+  libxs_dnn_tensor_format format; /* format of filter buffer */
   libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
+  char exp;                         /* fix point exponent for this tensor */
 };
 
 struct LIBXS_RETARGETABLE libxs_dnn_layer {
