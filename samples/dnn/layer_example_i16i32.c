@@ -378,6 +378,15 @@ int main(int argc, char* argv[])
   zero_buf_int16(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
   init_buf_int16(naive_filter,         nOfm*nIfm*kh*kw, 0, 0);
 
+  printf("##########################################\n");
+  printf("#         Computing Reference ...        #\n");
+  printf("##########################################\n");
+  /* run naive convolution */
+  naive_conv_int16(&naive_param, naive_input, naive_output, naive_filter);
+  printf("##########################################\n");
+  printf("#      Computing Reference ... done      #\n");
+  printf("##########################################\n");
+
   printf("\n");
   printf("##########################################\n");
   printf("#     Setting Up    (custom-Storage)     #\n");
@@ -438,8 +447,6 @@ int main(int argc, char* argv[])
   printf("##########################################\n");
   printf("#  Check Correctness   (custom-Storage)  #\n");
   printf("##########################################\n");
-  /* run naive convolution */
-  naive_conv_int16(&naive_param, naive_input, naive_output, naive_filter);
   /* run LIBXS convolutions */
 #if defined(_OPENMP)
 # pragma omp parallel
