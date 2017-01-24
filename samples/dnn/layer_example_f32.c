@@ -596,7 +596,7 @@ int main(int argc, char* argv[])
   /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
   conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
 
-  libxs_handle = libxs_dnn_create_conv_handle( conv_desc, &status );
+  libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
@@ -825,7 +825,7 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_handle( libxs_handle ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
 
   printf("\n");
   printf("##########################################\n");
@@ -857,7 +857,7 @@ int main(int argc, char* argv[])
   /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
   conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
 
-  libxs_handle = libxs_dnn_create_conv_handle( conv_desc, &status );
+  libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* setup LIBXS buffers and filter */
@@ -1075,7 +1075,7 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_handle( libxs_handle ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
 
   printf("\n");
   printf("##########################################\n");
@@ -1107,7 +1107,7 @@ int main(int argc, char* argv[])
   /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
   conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
 
-  libxs_handle = libxs_dnn_create_conv_handle( conv_desc, &status );
+  libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
 
   /* zero output buffer again */
@@ -1331,7 +1331,7 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_handle( libxs_handle ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
 
   /* deallocate data */
   libxs_free(naive_input);
