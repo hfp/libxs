@@ -404,7 +404,7 @@ LIBXS_INLINE void naive_conv_wu(naive_conv_t* param, const float* input, const f
 
 int main(int argc, char* argv[])
 {
-  float *naive_input, *naive_output, *naive_filter, *naive_filter_wu, *naive_libxs_output;
+  float *naive_input, *naive_output, *naive_filter, *naive_filter_wu, *naive_output_bp, *naive_output_wu, *naive_libxs_output;
   float *naive_libxs_input, *naive_libxs_filter, *naive_input_save, *naive_filter_save, *naive_filter_kcrs;
   float *input_nhwc, *output_nhwc, *filter_rsck, *naive_output_nhwc, *naive_input_nhwc;
   float *input_libxs, *filter_libxs, *output_libxs;
@@ -427,6 +427,7 @@ int main(int argc, char* argv[])
   int pad = 2;            /* padding in output */
   int stride = 1;         /* stride when accessing inputs */
   char type = 'A';        /* 'A': ALL, 'F': FP, 'B': BP, 'U', WU */
+  char format = 'A';      /* 'A': ALL, 'L': LIBXS, 'T': Tensorflow, 'M', Mixed */
 #if defined(_OPENMP)
   int nThreads = omp_get_max_threads();      /* number of threads */
 #else
@@ -450,7 +451,7 @@ int main(int argc, char* argv[])
   memset(&norms_upd, 0, sizeof(norms_upd));
 
   if (argc > 1 && !strncmp(argv[1], "-h", 3)) {
-    printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride type\n", argv[0]);
+    printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride type format\n", argv[0]);
     return 0;
   }
   srand48(1);
@@ -468,6 +469,7 @@ int main(int argc, char* argv[])
   if (argc > i) pad        = atoi(argv[i++]);
   if (argc > i) stride     = atoi(argv[i++]);
   if (argc > i) type       = *(argv[i++]);
+  if (argc > i) format     = *(argv[i++]);
 
   if (type != 'A' && type != 'F' && type != 'B' && type != 'U') {
     printf("type needs to be 'A' (All), 'F' (FP only), 'B' (BP only), 'U' (WU only)\n");
@@ -534,6 +536,8 @@ int main(int argc, char* argv[])
   naive_input           = (float*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(float), 2097152);
   naive_input_save      = (float*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(float), 2097152);
   naive_output          = (float*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(float), 2097152);
+  naive_output_bp       = (float*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(float), 2097152);
+  naive_output_wu       = (float*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(float), 2097152);
   naive_libxs_output  = (float*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(float), 2097152);
   naive_libxs_input   = (float*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(float), 2097152);
   naive_filter          = (float*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(float), 2097152);
@@ -552,13 +556,15 @@ int main(int argc, char* argv[])
 
   /* initialize data */
   init_buf(naive_input,          nImg*nIfm*ifhp*ifwp, 0, 0);
+  init_buf(naive_output_bp,      nImg*nOfm*ofhp*ofwp, 0, 0);
+  init_buf(naive_output_wu,      nImg*nOfm*ofhp*ofwp, 0, 0);
   set_zeropad_nchw(naive_input, nImg, nIfm, ifhp, ifwp, pad_h_in, pad_w_in);
   copy_buf(naive_input, naive_input_save, nImg*nIfm*ifhp*ifwp);
   zero_buf(naive_output,         nImg*nOfm*ofhp*ofwp);
   zero_buf(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
   zero_buf(naive_libxs_input,  nImg*nIfm*ifhp*ifwp);
   init_buf(naive_filter,         nOfm*nIfm*kh*kw, 0, 0);
-  copy_buf(naive_filter, naive_filter_wu, nOfm*nIfm*kh*kw);
+  zero_buf(naive_filter_wu, nOfm*nIfm*kh*kw);
   zero_buf(naive_libxs_filter, nOfm*nIfm*kh*kw);
   naive_copy_NCHW_to_NHWC(naive_input, input_nhwc, nImg, ifhp, ifwp, nIfm);
   zero_buf(output_nhwc,          nImg*nOfm*ofhp*ofwp);
@@ -566,201 +572,151 @@ int main(int argc, char* argv[])
   zero_buf(naive_input_nhwc,     nImg*nIfm*ifhp*ifwp);
   naive_copy_KCRS_to_RSCK(naive_filter, filter_rsck, kh, kw, nIfm, nOfm);
 
-  printf("\n");
   printf("##########################################\n");
-  printf("#      Setting Up  (custom-Storage)      #\n");
+  printf("#          Computing Reference           #\n");
   printf("##########################################\n");
-
-  /* setup LIBXS handle */
-  conv_desc.N = nImg;
-  conv_desc.C = nIfm;
-  conv_desc.H = ifh;
-  conv_desc.W = ifw;
-  conv_desc.K = nOfm;
-  conv_desc.R = kh;
-  conv_desc.S = kw;
-  conv_desc.u = stride_h;
-  conv_desc.v = stride_w;
-  conv_desc.pad_h = pad_h;
-  conv_desc.pad_w = pad_w;
-  conv_desc.pad_h_in = pad_h_in;
-  conv_desc.pad_w_in = pad_w_in;
-  conv_desc.pad_h_out = pad_h_out;
-  conv_desc.pad_w_out = pad_w_out;
-  conv_desc.threads = nThreads;
-  conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
-  conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
-  conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
-  conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-  conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
-  /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
-  conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
-
-  libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
-  CHKERR_LIBXS_DNN( status );
-
-  /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-
-  /* copy in data to LIBXS format */
-  /* we can also use the layout functions and set the data on our
-     own external to the library, @TODO, we plan to add an example here */
-  CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_input, (void*)naive_input, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
-
-  /* bind buffers and filter to handle */
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_GRADIENT_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
-
-  /* let's allocate and bind scratch */
-  scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
-  CHKERR_LIBXS_DNN( status );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch ) );
-
   if (type == 'A' || type == 'F') {
-    printf("##########################################\n");
-    printf("#   Correctness - FWD (custom-Storage)   #\n");
-    printf("##########################################\n");
-    /* run naive convolution */
     naive_conv_fp(&naive_param, naive_input, naive_output, naive_filter);
-    /* run LIBXS convolutions */
-#if defined(_OPENMP)
-# pragma omp parallel
-#endif
-    {
-#if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
-#else
-      const int tid = 0;
-#endif
-      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
-    }
-    /* copy out data */
-    CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
-
-    /* compare */
-    compare_buf(naive_output, naive_libxs_output, nImg*nOfm*ofhp*ofwp, &norms_fwd);
-    printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_fwd.one_norm_test);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_fwd.l2_rel_err);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
   }
-
   if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
+    zero_buf(naive_input,         nImg*nIfm*ifhp*ifwp);
+    naive_conv_bp(&naive_param, naive_input, naive_output_bp, naive_filter);
+  }
+  if (type == 'A' || type == 'U') {
+    naive_conv_wu(&naive_param, naive_input, naive_output_wu, naive_filter_wu);
+  }
+
+  if (format == 'A' || format == 'L') {
+    printf("\n");
     printf("##########################################\n");
-    printf("#   Correctness - BWD (custom-Storage)   #\n");
+    printf("#      Setting Up  (custom-Storage)      #\n");
     printf("##########################################\n");
-    /* run naive convolution */
-    naive_conv_bp(&naive_param, naive_input, naive_output, naive_filter);
-    /* run LIBXS convolutions */
+
+    /* setup LIBXS handle */
+    conv_desc.N = nImg;
+    conv_desc.C = nIfm;
+    conv_desc.H = ifh;
+    conv_desc.W = ifw;
+    conv_desc.K = nOfm;
+    conv_desc.R = kh;
+    conv_desc.S = kw;
+    conv_desc.u = stride_h;
+    conv_desc.v = stride_w;
+    conv_desc.pad_h = pad_h;
+    conv_desc.pad_w = pad_w;
+    conv_desc.pad_h_in = pad_h_in;
+    conv_desc.pad_w_in = pad_w_in;
+    conv_desc.pad_h_out = pad_h_out;
+    conv_desc.pad_w_out = pad_w_out;
+    conv_desc.threads = nThreads;
+    conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
+    conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
+    conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+    conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
+    /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
+    conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
+
+    libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
+    CHKERR_LIBXS_DNN( status );
+
+    /* setup LIBXS buffers and filter */
+    libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+    libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+    libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+
+    /* copy in data to LIBXS format */
+    /* we can also use the layout functions and set the data on our
+       own external to the library, @TODO, we plan to add an example here */
+    CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_input, (void*)naive_input_save, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_output ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
+
+    /* bind buffers and filter to handle */
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
+
+    /* let's allocate and bind scratch */
+    scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
+    CHKERR_LIBXS_DNN( status );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch ) );
+
+    if (type == 'A' || type == 'F') {
+      printf("##########################################\n");
+      printf("#   Correctness - FWD (custom-Storage)   #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolutions */
 #if defined(_OPENMP)
 # pragma omp parallel
 #endif
-    {
+      {
 #if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
+        const int tid = omp_get_thread_num();
 #else
-      const int tid = 0;
+        const int tid = 0;
 #endif
-      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
+        CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
+      }
+      /* copy out data */
+      CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
+
+      /* compare */
+      compare_buf(naive_output, naive_libxs_output, nImg*nOfm*ofhp*ofwp, &norms_fwd);
+      printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
+      printf("              1-norm of JIT-code: %f\n", norms_fwd.one_norm_test);
+      printf("       L2-error-norm of JIT-code: %f\n", norms_fwd.l2_rel_err);
+      printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
+      printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
     }
-    /* copy out data */
-    CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_input, (void*)naive_libxs_input, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
 
-    /* compare */
-    compare_buf(naive_input, naive_libxs_input, nImg*nIfm*ifhp*ifwp, &norms_bwd);
-    printf("             1-norm of reference: %f\n", norms_bwd.one_norm_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_bwd.one_norm_test);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_bwd.l2_rel_err);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_bwd.max_rel_err);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_bwd.max_abs_err);
-  }
-
-  if (type == 'A' || type == 'U') {
-    printf("##########################################\n");
-    printf("#   Correctness - UPD (custom-Storage)   #\n");
-    printf("##########################################\n");
-    /* run naive convolution */
-    naive_conv_wu(&naive_param, naive_input, naive_output, naive_filter_wu);
-    /* run LIBXS convolutions */
+    if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
+      printf("##########################################\n");
+      printf("#   Correctness - BWD (custom-Storage)   #\n");
+      printf("##########################################\n");
+      /* let's do some additional init such that we can run passes standalone */
+      CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_output, (void*)naive_output_bp, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_input ) );
+      /* run LIBXS convolutions */
 #if defined(_OPENMP)
 # pragma omp parallel
 #endif
-    {
-#if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
-#else
-      const int tid = 0;
-#endif
-      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
-    }
-    if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
-      CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
-    }
-    /* copy out data */
-    CHKERR_LIBXS_DNN( libxs_dnn_copyout_filter( libxs_filter, (void*)naive_libxs_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
-
-    /* compare */
-    compare_buf(naive_filter_wu, naive_libxs_filter, nOfm*nIfm*kh*kw, &norms_upd);
-    printf("             1-norm of reference: %f\n", norms_upd.one_norm_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_upd.one_norm_test);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_upd.l2_rel_err);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_upd.max_rel_err);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_upd.max_abs_err);
-  }
-
-  if (type == 'A' || type == 'F') {
-    printf("##########################################\n");
-    printf("#   Performance - FWD (custom-Storage)   #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolution for performance */
-    l_start = libxs_timer_tick();
-    for (i = 0; i < iters; ++i) {
-#if defined(_OPENMP)
-#   pragma omp parallel
-#endif
       {
 #if defined(_OPENMP)
         const int tid = omp_get_thread_num();
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
+        CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
       }
+      /* copy out data */
+      CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_input, (void*)naive_libxs_input, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
+
+      /* compare */
+      compare_buf(naive_input, naive_libxs_input, nImg*nIfm*ifhp*ifwp, &norms_bwd);
+      printf("             1-norm of reference: %f\n", norms_bwd.one_norm_ref);
+      printf("              1-norm of JIT-code: %f\n", norms_bwd.one_norm_test);
+      printf("       L2-error-norm of JIT-code: %f\n", norms_bwd.l2_rel_err);
+      printf("    inf-norm of comp. rel. error: %f\n", norms_bwd.max_rel_err);
+      printf("    inf-norm of comp. abs. error: %f\n", norms_bwd.max_abs_err);
     }
-    l_end = libxs_timer_tick();
-    l_total = libxs_timer_duration(l_start, l_end);
-    flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
-    printf("GFLOP  = %.5g\n", flops*1e-9/(double)iters);
-    printf("fp time = %.5g\n", ((double)(l_total/iters)));
-    printf("GFLOPS  = %.5g\n", (flops*1e-9)/l_total);
-
-    printf("PERFDUMP,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-       norms_fwd.max_rel_err, norms_fwd.max_abs_err, norms_fwd.l2_rel_err, norms_fwd.one_norm_ref, norms_fwd.one_norm_test );
-  }
-
-  if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
-    printf("##########################################\n");
-    printf("#   Performance - BWD (custom-Storage)   #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolution for performance */
-    l_start = libxs_timer_tick();
-    for (i = 0; i < iters; ++i) {
+    if (type == 'A' || type == 'U') {
+      printf("##########################################\n");
+      printf("#   Correctness - UPD (custom-Storage)   #\n");
+      printf("##########################################\n");
+      /* let's do some additional init such that we can run passes standalone */
+      CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_output, (void*)naive_output_wu, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_zero_filter( libxs_filter ) );
+      /* run LIBXS convolutions */
 #if defined(_OPENMP)
-#   pragma omp parallel
+# pragma omp parallel
 #endif
       {
 #if defined(_OPENMP)
@@ -768,255 +724,231 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
-      }
-    }
-    l_end = libxs_timer_tick();
-    l_total = libxs_timer_duration(l_start, l_end);
-    flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
-
-    printf("GFLOP  = %.5g\n", flops*1e-9/(double)iters);
-    printf("bp time = %.5g\n", ((double)(l_total/iters)));
-    printf("GFLOPS  = %.5g\n", (flops*1e-9)/l_total);
-
-    printf("PERFDUMP,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-       norms_bwd.max_rel_err, norms_bwd.max_abs_err, norms_bwd.l2_rel_err, norms_bwd.one_norm_ref, norms_bwd.one_norm_test );
-  }
-
-  if (type == 'A' || type == 'U') {
-    printf("##########################################\n");
-    printf("#   Performance - UPD (custom-Storage)   #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolution for performance */
-    l_start = libxs_timer_tick();
-    for (i = 0; i < iters; ++i) {
-#if defined(_OPENMP)
-#   pragma omp parallel
-#endif
-      {
-#if defined(_OPENMP)
-        const int tid = omp_get_thread_num();
-#else
-        const int tid = 0;
-#endif
-        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
+        CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
       }
       if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
         CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
       }
+      /* copy out data */
+      CHKERR_LIBXS_DNN( libxs_dnn_copyout_filter( libxs_filter, (void*)naive_libxs_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
+
+      /* compare */
+      compare_buf(naive_filter_wu, naive_libxs_filter, nOfm*nIfm*kh*kw, &norms_upd);
+      printf("             1-norm of reference: %f\n", norms_upd.one_norm_ref);
+      printf("              1-norm of JIT-code: %f\n", norms_upd.one_norm_test);
+      printf("       L2-error-norm of JIT-code: %f\n", norms_upd.l2_rel_err);
+      printf("    inf-norm of comp. rel. error: %f\n", norms_upd.max_rel_err);
+      printf("    inf-norm of comp. abs. error: %f\n", norms_upd.max_abs_err);
     }
-    l_end = libxs_timer_tick();
-    l_total = libxs_timer_duration(l_start, l_end);
-    flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
-    printf("GFLOP  = %.5g\n", flops*1e-9/(double)iters);
-    printf("wu time = %.5g\n", ((double)(l_total/iters)));
-    printf("GFLOPS  = %.5g\n", (flops*1e-9)/l_total);
-
-    printf("PERFDUMP,WU,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-       norms_upd.max_rel_err, norms_upd.max_abs_err, norms_upd.l2_rel_err, norms_upd.one_norm_ref, norms_upd.one_norm_test );
-  }
-
-  /* clean-up */
-  CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL ) );
-  libxs_free(scratch);
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
-
-  printf("\n");
-  printf("##########################################\n");
-  printf("#  Setting Up - FWD (NHWC/RSCK-Storage)  #\n");
-  printf("##########################################\n");
-
-  /* setup LIBXS handle */
-  conv_desc.N = nImg;
-  conv_desc.C = nIfm;
-  conv_desc.H = ifh;
-  conv_desc.W = ifw;
-  conv_desc.K = nOfm;
-  conv_desc.R = kh;
-  conv_desc.S = kw;
-  conv_desc.u = stride_h;
-  conv_desc.v = stride_w;
-  conv_desc.pad_h = pad_h;
-  conv_desc.pad_w = pad_w;
-  conv_desc.pad_h_in = pad_h_in;
-  conv_desc.pad_w_in = pad_w_in;
-  conv_desc.pad_h_out = pad_h_out;
-  conv_desc.pad_w_out = pad_w_out;
-  conv_desc.threads = nThreads;
-  conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
-  conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_NHWC;
-  conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_RSCK;
-  conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-  conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
-  /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
-  conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
-
-  libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
-  CHKERR_LIBXS_DNN( status );
-
-  /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_rsck, LIBXS_DNN_TENSOR_FORMAT_RSCK_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-
-  /* bind buffers and filter to handle */
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_GRADIENT_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
-
-  /* let's allocate and bind scratch */
-  scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
-  CHKERR_LIBXS_DNN( status );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch ) );
-
-  if (type == 'A' || type == 'F') {
-    printf("##########################################\n");
-    printf("#  Correctness - FWD (NHWC/RSCK-Storage) #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolutions */
-#if defined(_OPENMP)
-# pragma omp parallel
-#endif
-    {
-#if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
-#else
-      const int tid = 0;
-#endif
-      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
-    }
-    /* copy output data into NCHW storage in user code */
-    naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
-
-    /* compare */
-    compare_buf(naive_output, naive_output_nhwc, nImg*nOfm*ofhp*ofwp, &norms_fwd);
-    printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_fwd.one_norm_test);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_fwd.l2_rel_err);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
-  }
-
-  if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
-    printf("##########################################\n");
-    printf("# Correctness - BWD (NHWC/RSCK-Storage)  #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolutions */
-    CHKERR_LIBXS_DNN( libxs_dnn_transpose_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
-#if defined(_OPENMP)
-# pragma omp parallel
-#endif
-    {
-#if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
-#else
-      const int tid = 0;
-#endif
-      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
-    }
-    /* copy input data into NCHW storage in user code */
-    naive_copy_NHWC_to_NCHW(input_nhwc, naive_input_nhwc, nImg, ifhp, ifwp, nIfm);
-
-    /* compare */
-    compare_buf(naive_input, naive_input_nhwc, nImg*nIfm*ifhp*ifwp, &norms_bwd);
-    printf("             1-norm of reference: %f\n", norms_bwd.one_norm_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_bwd.one_norm_test);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_bwd.l2_rel_err);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_bwd.max_rel_err);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_bwd.max_abs_err);
-  }
-
-  if (type == 'A' || type == 'U') {
-    printf("##########################################\n");
-    printf("# Correctness - UPD (NHWC/RSCK-Storage)  #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolutions */
-#if defined(_OPENMP)
-# pragma omp parallel
-#endif
-    {
-#if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
-#else
-      const int tid = 0;
-#endif
-      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
-    }
-    if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
-      CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
-    }
-    /* copy input data into KCRS storage in user code */
-    naive_copy_RSCK_to_KCRS(filter_rsck, naive_filter_kcrs, kh, kw, nIfm, nOfm);
-
-    /* compare */
-    compare_buf(naive_filter_wu, naive_filter_kcrs, nOfm*nIfm*kh*kw, &norms_upd);
-    printf("             1-norm of reference: %f\n", norms_upd.one_norm_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_upd.one_norm_test);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_upd.l2_rel_err);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_upd.max_rel_err);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_upd.max_abs_err);
-  }
-
-  if (type == 'A' || type == 'F') {
-    printf("##########################################\n");
-    printf("#  Performance - FWD (NHWC/RSCK-Storage) #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolution for performance */
-    l_start = libxs_timer_tick();
-    for (i = 0; i < iters; ++i) {
+    if (type == 'A' || type == 'F') {
+      printf("##########################################\n");
+      printf("#   Performance - FWD (custom-Storage)   #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolution for performance */
+      l_start = libxs_timer_tick();
+      for (i = 0; i < iters; ++i) {
 #if defined(_OPENMP)
 #   pragma omp parallel
 #endif
-     {
+        {
+#if defined(_OPENMP)
+          const int tid = omp_get_thread_num();
+#else
+          const int tid = 0;
+#endif
+          libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
+        }
+      }
+      l_end = libxs_timer_tick();
+      l_total = libxs_timer_duration(l_start, l_end);
+      flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
+
+      printf("GFLOP  = %.5g\n", flops*1e-9/(double)iters);
+      printf("fp time = %.5g\n", ((double)(l_total/iters)));
+      printf("GFLOPS  = %.5g\n", (flops*1e-9)/l_total);
+
+      printf("PERFDUMP,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+         ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+         norms_fwd.max_rel_err, norms_fwd.max_abs_err, norms_fwd.l2_rel_err, norms_fwd.one_norm_ref, norms_fwd.one_norm_test );
+    }
+
+    if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
+      printf("##########################################\n");
+      printf("#   Performance - BWD (custom-Storage)   #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolution for performance */
+      l_start = libxs_timer_tick();
+      for (i = 0; i < iters; ++i) {
+#if defined(_OPENMP)
+#   pragma omp parallel
+#endif
+        {
+#if defined(_OPENMP)
+          const int tid = omp_get_thread_num();
+#else
+          const int tid = 0;
+#endif
+          libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
+        }
+      }
+      l_end = libxs_timer_tick();
+      l_total = libxs_timer_duration(l_start, l_end);
+      flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
+
+      printf("GFLOP  = %.5g\n", flops*1e-9/(double)iters);
+      printf("bp time = %.5g\n", ((double)(l_total/iters)));
+      printf("GFLOPS  = %.5g\n", (flops*1e-9)/l_total);
+
+      printf("PERFDUMP,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+         ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+         norms_bwd.max_rel_err, norms_bwd.max_abs_err, norms_bwd.l2_rel_err, norms_bwd.one_norm_ref, norms_bwd.one_norm_test );
+    }
+
+    if (type == 'A' || type == 'U') {
+      printf("##########################################\n");
+      printf("#   Performance - UPD (custom-Storage)   #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolution for performance */
+      l_start = libxs_timer_tick();
+      for (i = 0; i < iters; ++i) {
+#if defined(_OPENMP)
+#   pragma omp parallel
+#endif
+        {
+#if defined(_OPENMP)
+          const int tid = omp_get_thread_num();
+#else
+          const int tid = 0;
+#endif
+          libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
+        }
+        if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
+          CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
+        }
+      }
+      l_end = libxs_timer_tick();
+      l_total = libxs_timer_duration(l_start, l_end);
+      flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
+
+      printf("GFLOP  = %.5g\n", flops*1e-9/(double)iters);
+      printf("wu time = %.5g\n", ((double)(l_total/iters)));
+      printf("GFLOPS  = %.5g\n", (flops*1e-9)/l_total);
+
+      printf("PERFDUMP,WU,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+         ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+         norms_upd.max_rel_err, norms_upd.max_abs_err, norms_upd.l2_rel_err, norms_upd.one_norm_ref, norms_upd.one_norm_test );
+    }
+
+    /* clean-up */
+    CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL ) );
+    libxs_free(scratch);
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
+  }
+
+  if (format == 'A' || format == 'T') {
+    printf("\n");
+    printf("##########################################\n");
+    printf("#    Setting Up - (NHWC/RSCK-Storage)    #\n");
+    printf("##########################################\n");
+
+    /* setup LIBXS handle */
+    conv_desc.N = nImg;
+    conv_desc.C = nIfm;
+    conv_desc.H = ifh;
+    conv_desc.W = ifw;
+    conv_desc.K = nOfm;
+    conv_desc.R = kh;
+    conv_desc.S = kw;
+    conv_desc.u = stride_h;
+    conv_desc.v = stride_w;
+    conv_desc.pad_h = pad_h;
+    conv_desc.pad_w = pad_w;
+    conv_desc.pad_h_in = pad_h_in;
+    conv_desc.pad_w_in = pad_w_in;
+    conv_desc.pad_h_out = pad_h_out;
+    conv_desc.pad_w_out = pad_w_out;
+    conv_desc.threads = nThreads;
+    conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
+    conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_NHWC;
+    conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_RSCK;
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+    conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
+    /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
+    conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
+
+    libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
+    CHKERR_LIBXS_DNN( status );
+
+    /* setup LIBXS buffers and filter */
+    libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+    libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+    libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_rsck, LIBXS_DNN_TENSOR_FORMAT_RSCK_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+
+    /* bind buffers and filter to handle */
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
+
+    /* let's allocate and bind scratch */
+    scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
+    CHKERR_LIBXS_DNN( status );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch ) );
+
+    if (type == 'A' || type == 'F') {
+      printf("##########################################\n");
+      printf("#  Correctness - FWD (NHWC/RSCK-Storage) #\n");
+      printf("##########################################\n");
+    /* run LIBXS convolutions */
+#if defined(_OPENMP)
+# pragma omp parallel
+#endif
+      {
 #if defined(_OPENMP)
         const int tid = omp_get_thread_num();
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
+        CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
       }
+      /* copy output data into NCHW storage in user code */
+      naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
+
+      /* compare */
+      compare_buf(naive_output, naive_output_nhwc, nImg*nOfm*ofhp*ofwp, &norms_fwd);
+      printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
+      printf("              1-norm of JIT-code: %f\n", norms_fwd.one_norm_test);
+      printf("       L2-error-norm of JIT-code: %f\n", norms_fwd.l2_rel_err);
+      printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
+      printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
     }
-    l_end = libxs_timer_tick();
-    l_total = libxs_timer_duration(l_start, l_end);
-    flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
-    printf("GFLOP (NHWC,RSCK)  = %.5g\n", flops*1e-9/(double)iters);
-    printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
-    printf("GFLOPS (NHWC,RSCK) = %.5g\n", (flops*1e-9)/l_total);
-
-    printf("PERFDUMP-NHWC-RSCK,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-       norms_fwd.max_rel_err, norms_fwd.max_abs_err, norms_fwd.l2_rel_err, norms_fwd.one_norm_ref, norms_fwd.one_norm_test );
-  }
-
-  if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
-    printf("##########################################\n");
-    printf("#  Performance - BWD (NHWC/RSCK-Storage) #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolution for performance */
-    l_start = libxs_timer_tick();
-    for (i = 0; i < iters; ++i) {
+    if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
+      printf("##########################################\n");
+      printf("# Correctness - BWD (NHWC/RSCK-Storage)  #\n");
+      printf("##########################################\n");
+      /* let's do some additional init such that we can run passes standalone */
+      naive_copy_NCHW_to_NHWC(naive_output_bp, output_nhwc, nImg, ofhp, ofwp, nOfm);
+      CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_input ) );
+      /* run LIBXS convolutions */
       CHKERR_LIBXS_DNN( libxs_dnn_transpose_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
 #if defined(_OPENMP)
-#   pragma omp parallel
+# pragma omp parallel
 #endif
       {
 #if defined(_OPENMP)
@@ -1024,31 +956,30 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
+        CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
       }
+      /* copy input data into NCHW storage in user code */
+      naive_copy_NHWC_to_NCHW(input_nhwc, naive_input_nhwc, nImg, ifhp, ifwp, nIfm);
+
+      /* compare */
+      compare_buf(naive_input, naive_input_nhwc, nImg*nIfm*ifhp*ifwp, &norms_bwd);
+      printf("             1-norm of reference: %f\n", norms_bwd.one_norm_ref);
+      printf("              1-norm of JIT-code: %f\n", norms_bwd.one_norm_test);
+      printf("       L2-error-norm of JIT-code: %f\n", norms_bwd.l2_rel_err);
+      printf("    inf-norm of comp. rel. error: %f\n", norms_bwd.max_rel_err);
+      printf("    inf-norm of comp. abs. error: %f\n", norms_bwd.max_abs_err);
     }
-    l_end = libxs_timer_tick();
-    l_total = libxs_timer_duration(l_start, l_end);
-    flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
-    printf("GFLOP (NHWC,RSCK)  = %.5g\n", flops*1e-9/(double)iters);
-    printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
-    printf("GFLOPS (NHWC,RSCK) = %.5g\n", (flops*1e-9)/l_total);
-
-    printf("PERFDUMP-NHWC-RSCK,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-       norms_bwd.max_rel_err, norms_bwd.max_abs_err, norms_bwd.l2_rel_err, norms_bwd.one_norm_ref, norms_bwd.one_norm_test );
-  }
-
-  if (type == 'A' || type == 'U') {
-    printf("##########################################\n");
-    printf("#  Performance - UPD (NHWC/RSCK-Storage) #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolution for performance */
-    l_start = libxs_timer_tick();
-    for (i = 0; i < iters; ++i) {
+    if (type == 'A' || type == 'U') {
+      printf("##########################################\n");
+      printf("# Correctness - UPD (NHWC/RSCK-Storage)  #\n");
+      printf("##########################################\n");
+      /* let's do some additional init such that we can run passes standalone */
+      naive_copy_NCHW_to_NHWC(naive_output_wu, output_nhwc, nImg, ofhp, ofwp, nOfm);
+      CHKERR_LIBXS_DNN( libxs_dnn_zero_filter( libxs_filter ) );
+      /* run LIBXS convolutions */
 #if defined(_OPENMP)
-#   pragma omp parallel
+# pragma omp parallel
 #endif
       {
 #if defined(_OPENMP)
@@ -1056,261 +987,208 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
+        CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
       }
       if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
         CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
       }
+      /* copy input data into KCRS storage in user code */
+      naive_copy_RSCK_to_KCRS(filter_rsck, naive_filter_kcrs, kh, kw, nIfm, nOfm);
+
+      /* compare */
+      compare_buf(naive_filter_wu, naive_filter_kcrs, nOfm*nIfm*kh*kw, &norms_upd);
+      printf("             1-norm of reference: %f\n", norms_upd.one_norm_ref);
+      printf("              1-norm of JIT-code: %f\n", norms_upd.one_norm_test);
+      printf("       L2-error-norm of JIT-code: %f\n", norms_upd.l2_rel_err);
+      printf("    inf-norm of comp. rel. error: %f\n", norms_upd.max_rel_err);
+      printf("    inf-norm of comp. abs. error: %f\n", norms_upd.max_abs_err);
     }
-    l_end = libxs_timer_tick();
-    l_total = libxs_timer_duration(l_start, l_end);
-    flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
-    printf("GFLOP (NHWC,RSCK)  = %.5g\n", flops*1e-9/(double)iters);
-    printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
-    printf("GFLOPS (NHWC,RSCK) = %.5g\n", (flops*1e-9)/l_total);
-
-    printf("PERFDUMP-NHWC-RSCK,WU,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-       norms_upd.max_rel_err, norms_upd.max_abs_err, norms_upd.l2_rel_err, norms_upd.one_norm_ref, norms_upd.one_norm_test );
-  }
-
-  /* clean-up */
-  CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL ) );
-  libxs_free(scratch);
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
-
-  printf("\n");
-  printf("##########################################\n");
-  printf("# Setting Up - FWD (NHWC/custom-Storage) #\n");
-  printf("##########################################\n");
-
-  /* setup LIBXS handle */
-  conv_desc.N = nImg;
-  conv_desc.C = nIfm;
-  conv_desc.H = ifh;
-  conv_desc.W = ifw;
-  conv_desc.K = nOfm;
-  conv_desc.R = kh;
-  conv_desc.S = kw;
-  conv_desc.u = stride_h;
-  conv_desc.v = stride_w;
-  conv_desc.pad_h = pad_h;
-  conv_desc.pad_w = pad_w;
-  conv_desc.pad_h_in = pad_h_in;
-  conv_desc.pad_w_in = pad_w_in;
-  conv_desc.pad_h_out = pad_h_out;
-  conv_desc.pad_w_out = pad_w_out;
-  conv_desc.threads = nThreads;
-  conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
-  conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_NHWC;
-  conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
-  conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-  conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
-  /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
-  conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
-
-  libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
-  CHKERR_LIBXS_DNN( status );
-
-  /* zero output buffer again */
-  zero_buf(output_nhwc,          nImg*nOfm*ofhp*ofwp);
-  /* init input agian */
-  naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
-
-  /* setup LIBXS buffers and filter */
-  libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-  libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-  libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
-  CHKERR_LIBXS_DNN( status );
-
-  /* copy in data to LIBXS format */
-  CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
-
-  /* bind buffers and filter to handle */
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_GRADIENT_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
-
-  /* let's allocate and bind scratch */
-  scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
-  CHKERR_LIBXS_DNN( status );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch ) );
-
-  if (type == 'A' || type == 'F') {
-    printf("##########################################\n");
-    printf("# Correctness - FWD(NHWC/custom-Storage) #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolutions */
-#if defined(_OPENMP)
-# pragma omp parallel
-#endif
-    {
-#if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
-#else
-      const int tid = 0;
-#endif
-      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
-    }
-    /* copy output data into NCHW storage in user code */
-    naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
-
-    /* compare */
-    compare_buf(naive_output, naive_output_nhwc, nImg*nOfm*ofhp*ofwp, &norms_fwd);
-    printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_fwd.one_norm_test);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_fwd.l2_rel_err);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
-  }
-
-  if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
-    printf("##########################################\n");
-    printf("# Correctness - BWD(NHWC/custom-Storage) #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolutions */
-#if defined(_OPENMP)
-# pragma omp parallel
-#endif
-    {
-#if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
-#else
-      const int tid = 0;
-#endif
-      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
-    }
-    /* copy input data into NCHW storage in user code */
-    naive_copy_NHWC_to_NCHW(input_nhwc, naive_input_nhwc, nImg, ifhp, ifwp, nIfm);
-
-    /* compare */
-    compare_buf(naive_input, naive_input_nhwc, nImg*nIfm*ifhp*ifwp, &norms_bwd);
-    printf("             1-norm of reference: %f\n", norms_bwd.one_norm_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_bwd.one_norm_test);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_bwd.l2_rel_err);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_bwd.max_rel_err);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_bwd.max_abs_err);
-  }
-
-  if (type == 'A' || type == 'U') {
-    printf("##########################################\n");
-    printf("# Correctness - UPD(NHWC/custom-Storage) #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolutions */
-#if defined(_OPENMP)
-# pragma omp parallel
-#endif
-    {
-#if defined(_OPENMP)
-      const int tid = omp_get_thread_num();
-#else
-      const int tid = 0;
-#endif
-      CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
-    }
-    if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
-      CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
-    }
-    /* copy out data */
-    CHKERR_LIBXS_DNN( libxs_dnn_copyout_filter( libxs_filter, (void*)naive_libxs_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
-
-    /* compare */
-    compare_buf(naive_filter_wu, naive_libxs_filter, nOfm*nIfm*kh*kw, &norms_upd);
-    printf("             1-norm of reference: %f\n", norms_upd.one_norm_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_upd.one_norm_test);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_upd.l2_rel_err);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_upd.max_rel_err);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_upd.max_abs_err);
-  }
-
-  if (type == 'A' || type == 'F') {
-    printf("##########################################\n");
-    printf("# Performance - FWD(NHWC/custom-Storage) #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolution for performance */
-    l_start = libxs_timer_tick();
-    for (i = 0; i < iters; ++i) {
+    if (type == 'A' || type == 'F') {
+      printf("##########################################\n");
+      printf("#  Performance - FWD (NHWC/RSCK-Storage) #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolution for performance */
+      l_start = libxs_timer_tick();
+      for (i = 0; i < iters; ++i) {
 #if defined(_OPENMP)
 #   pragma omp parallel
 #endif
-      {
+       {
 #if defined(_OPENMP)
-        const int tid = omp_get_thread_num();
+          const int tid = omp_get_thread_num();
 #else
-        const int tid = 0;
+          const int tid = 0;
 #endif
-        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
+          libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
+        }
       }
+      l_end = libxs_timer_tick();
+      l_total = libxs_timer_duration(l_start, l_end);
+      flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
+
+      printf("GFLOP (NHWC,RSCK)  = %.5g\n", flops*1e-9/(double)iters);
+      printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
+      printf("GFLOPS (NHWC,RSCK) = %.5g\n", (flops*1e-9)/l_total);
+
+      printf("PERFDUMP-NHWC-RSCK,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+         ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+         norms_fwd.max_rel_err, norms_fwd.max_abs_err, norms_fwd.l2_rel_err, norms_fwd.one_norm_ref, norms_fwd.one_norm_test );
     }
-    l_end = libxs_timer_tick();
-    l_total = libxs_timer_duration(l_start, l_end);
-    flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
-    printf("GFLOP (NHWC,custom)  = %.5g\n", flops*1e-9/(double)iters);
-    printf("fp time (NHWC,custom) = %.5g\n", ((double)(l_total/iters)));
-    printf("GFLOPS (NHWC,custom) = %.5g\n", (flops*1e-9)/l_total);
-
-    printf("PERFDUMP-NHWC-custom,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-       norms_fwd.max_rel_err, norms_fwd.max_abs_err, norms_fwd.l2_rel_err, norms_fwd.one_norm_ref, norms_fwd.one_norm_test );
-  }
-
-  if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
-    printf("##########################################\n");
-    printf("# Performance - BWD(NHWC/custom-Storage) #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolution for performance */
-    l_start = libxs_timer_tick();
-    for (i = 0; i < iters; ++i) {
+    if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
+      printf("##########################################\n");
+      printf("#  Performance - BWD (NHWC/RSCK-Storage) #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolution for performance */
+      l_start = libxs_timer_tick();
+      for (i = 0; i < iters; ++i) {
+        CHKERR_LIBXS_DNN( libxs_dnn_transpose_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
 #if defined(_OPENMP)
 #   pragma omp parallel
 #endif
-      {
+        {
 #if defined(_OPENMP)
-        const int tid = omp_get_thread_num();
+          const int tid = omp_get_thread_num();
 #else
-        const int tid = 0;
+          const int tid = 0;
 #endif
-        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
+          libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
+        }
       }
+      l_end = libxs_timer_tick();
+      l_total = libxs_timer_duration(l_start, l_end);
+      flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
+
+      printf("GFLOP (NHWC,RSCK)  = %.5g\n", flops*1e-9/(double)iters);
+      printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
+      printf("GFLOPS (NHWC,RSCK) = %.5g\n", (flops*1e-9)/l_total);
+
+      printf("PERFDUMP-NHWC-RSCK,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+         ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+         norms_bwd.max_rel_err, norms_bwd.max_abs_err, norms_bwd.l2_rel_err, norms_bwd.one_norm_ref, norms_bwd.one_norm_test );
     }
-    l_end = libxs_timer_tick();
-    l_total = libxs_timer_duration(l_start, l_end);
-    flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
-    printf("GFLOP (NHWC,custom)  = %.5g\n", flops*1e-9/(double)iters);
-    printf("fp time (NHWC,custom) = %.5g\n", ((double)(l_total/iters)));
-    printf("GFLOPS (NHWC,custom) = %.5g\n", (flops*1e-9)/l_total);
-
-    printf("PERFDUMP-NHWC-custom,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-       norms_bwd.max_rel_err, norms_bwd.max_abs_err, norms_bwd.l2_rel_err, norms_bwd.one_norm_ref, norms_bwd.one_norm_test );
-  }
-
-  if (type == 'A' || type == 'U') {
-    printf("##########################################\n");
-    printf("# Performance - UPD(NHWC/custom-Storage) #\n");
-    printf("##########################################\n");
-    /* run LIBXS convolution for performance */
-    l_start = libxs_timer_tick();
-    for (i = 0; i < iters; ++i) {
+    if (type == 'A' || type == 'U') {
+      printf("##########################################\n");
+      printf("#  Performance - UPD (NHWC/RSCK-Storage) #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolution for performance */
+      l_start = libxs_timer_tick();
+      for (i = 0; i < iters; ++i) {
 #if defined(_OPENMP)
 #   pragma omp parallel
+#endif
+        {
+#if defined(_OPENMP)
+          const int tid = omp_get_thread_num();
+#else
+          const int tid = 0;
+#endif
+           libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
+        }
+        if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
+          CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
+        }
+      }
+      l_end = libxs_timer_tick();
+      l_total = libxs_timer_duration(l_start, l_end);
+      flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
+
+      printf("GFLOP (NHWC,RSCK)  = %.5g\n", flops*1e-9/(double)iters);
+       printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
+      printf("GFLOPS (NHWC,RSCK) = %.5g\n", (flops*1e-9)/l_total);
+
+      printf("PERFDUMP-NHWC-RSCK,WU,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+         ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+         norms_upd.max_rel_err, norms_upd.max_abs_err, norms_upd.l2_rel_err, norms_upd.one_norm_ref, norms_upd.one_norm_test );
+    }
+
+    /* clean-up */
+    CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL ) );
+    libxs_free(scratch);
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
+  }
+
+  if (format == 'A' || format == 'M') {
+    printf("\n");
+    printf("##########################################\n");
+    printf("#   Setting Up - (NHWC/custom-Storage)   #\n");
+    printf("##########################################\n");
+
+    /* setup LIBXS handle */
+    conv_desc.N = nImg;
+    conv_desc.C = nIfm;
+    conv_desc.H = ifh;
+    conv_desc.W = ifw;
+    conv_desc.K = nOfm;
+    conv_desc.R = kh;
+    conv_desc.S = kw;
+    conv_desc.u = stride_h;
+    conv_desc.v = stride_w;
+    conv_desc.pad_h = pad_h;
+    conv_desc.pad_w = pad_w;
+    conv_desc.pad_h_in = pad_h_in;
+    conv_desc.pad_w_in = pad_w_in;
+    conv_desc.pad_h_out = pad_h_out;
+    conv_desc.pad_w_out = pad_w_out;
+    conv_desc.threads = nThreads;
+    conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
+    conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_NHWC;
+    conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+    conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
+    /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
+    conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
+
+    libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
+    CHKERR_LIBXS_DNN( status );
+
+    /* zero output buffer again */
+    zero_buf(output_nhwc,          nImg*nOfm*ofhp*ofwp);
+    /* init input agian */
+    naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
+
+    /* setup LIBXS buffers and filter */
+    libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+    libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+    libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+
+    /* copy in data to LIBXS format */
+    CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
+
+    /* bind buffers and filter to handle */
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
+
+    /* let's allocate and bind scratch */
+    scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
+    CHKERR_LIBXS_DNN( status );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch ) );
+
+    if (type == 'A' || type == 'F') {
+      printf("##########################################\n");
+      printf("# Correctness - FWD(NHWC/custom-Storage) #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolutions */
+#if defined(_OPENMP)
+# pragma omp parallel
 #endif
       {
 #if defined(_OPENMP)
@@ -1318,43 +1196,205 @@ int main(int argc, char* argv[])
 #else
         const int tid = 0;
 #endif
-        libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
+        CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid ) );
+      }
+      /* copy output data into NCHW storage in user code */
+      naive_copy_NHWC_to_NCHW(output_nhwc, naive_output_nhwc, nImg, ofhp, ofwp, nOfm);
+
+      /* compare */
+      compare_buf(naive_output, naive_output_nhwc, nImg*nOfm*ofhp*ofwp, &norms_fwd);
+      printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
+      printf("              1-norm of JIT-code: %f\n", norms_fwd.one_norm_test);
+      printf("       L2-error-norm of JIT-code: %f\n", norms_fwd.l2_rel_err);
+      printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
+      printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
+    }
+
+    if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
+      printf("##########################################\n");
+      printf("# Correctness - BWD(NHWC/custom-Storage) #\n");
+      printf("##########################################\n");
+      /* let's do some additional init such that we can run passes standalone */
+      naive_copy_NCHW_to_NHWC(naive_output_bp, output_nhwc, nImg, ofhp, ofwp, nOfm);
+      CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_input ) );
+      /* run LIBXS convolutions */
+#if defined(_OPENMP)
+# pragma omp parallel
+#endif
+      {
+#if defined(_OPENMP)
+        const int tid = omp_get_thread_num();
+#else
+        const int tid = 0;
+#endif
+        CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
+      }
+      /* copy input data into NCHW storage in user code */
+      naive_copy_NHWC_to_NCHW(input_nhwc, naive_input_nhwc, nImg, ifhp, ifwp, nIfm);
+
+      /* compare */
+      compare_buf(naive_input, naive_input_nhwc, nImg*nIfm*ifhp*ifwp, &norms_bwd);
+      printf("             1-norm of reference: %f\n", norms_bwd.one_norm_ref);
+      printf("              1-norm of JIT-code: %f\n", norms_bwd.one_norm_test);
+      printf("       L2-error-norm of JIT-code: %f\n", norms_bwd.l2_rel_err);
+      printf("    inf-norm of comp. rel. error: %f\n", norms_bwd.max_rel_err);
+      printf("    inf-norm of comp. abs. error: %f\n", norms_bwd.max_abs_err);
+    }
+
+    if (type == 'A' || type == 'U') {
+      printf("##########################################\n");
+      printf("# Correctness - UPD(NHWC/custom-Storage) #\n");
+      printf("##########################################\n");
+      /* let's do some additional init such that we can run passes standalone */
+      naive_copy_NCHW_to_NHWC(naive_output_wu, output_nhwc, nImg, ofhp, ofwp, nOfm);
+      CHKERR_LIBXS_DNN( libxs_dnn_zero_filter( libxs_filter ) );
+      /* run LIBXS convolutions */
+#if defined(_OPENMP)
+# pragma omp parallel
+#endif
+      {
+#if defined(_OPENMP)
+        const int tid = omp_get_thread_num();
+#else
+        const int tid = 0;
+#endif
+        CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid ) );
       }
       if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
         CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
       }
+      /* copy out data */
+      CHKERR_LIBXS_DNN( libxs_dnn_copyout_filter( libxs_filter, (void*)naive_libxs_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
+
+      /* compare */
+      compare_buf(naive_filter_wu, naive_libxs_filter, nOfm*nIfm*kh*kw, &norms_upd);
+      printf("             1-norm of reference: %f\n", norms_upd.one_norm_ref);
+      printf("              1-norm of JIT-code: %f\n", norms_upd.one_norm_test);
+      printf("       L2-error-norm of JIT-code: %f\n", norms_upd.l2_rel_err);
+      printf("    inf-norm of comp. rel. error: %f\n", norms_upd.max_rel_err);
+      printf("    inf-norm of comp. abs. error: %f\n", norms_upd.max_abs_err);
     }
-    l_end = libxs_timer_tick();
-    l_total = libxs_timer_duration(l_start, l_end);
-    flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
-    printf("GFLOP (NHWC,custom)  = %.5g\n", flops*1e-9/(double)iters);
-    printf("fp time (NHWC,custom) = %.5g\n", ((double)(l_total/iters)));
-    printf("GFLOPS (NHWC,custom) = %.5g\n", (flops*1e-9)/l_total);
+    if (type == 'A' || type == 'F') {
+      printf("##########################################\n");
+      printf("# Performance - FWD(NHWC/custom-Storage) #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolution for performance */
+      l_start = libxs_timer_tick();
+      for (i = 0; i < iters; ++i) {
+#if defined(_OPENMP)
+#   pragma omp parallel
+#endif
+        {
+#if defined(_OPENMP)
+          const int tid = omp_get_thread_num();
+#else
+          const int tid = 0;
+#endif
+          libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
+        }
+      }
+      l_end = libxs_timer_tick();
+      l_total = libxs_timer_duration(l_start, l_end);
+      flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
-    printf("PERFDUMP-NHWC-custom,WU,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
-       norms_upd.max_rel_err, norms_upd.max_abs_err, norms_upd.l2_rel_err, norms_upd.one_norm_ref, norms_upd.one_norm_test );
+      printf("GFLOP (NHWC,custom)  = %.5g\n", flops*1e-9/(double)iters);
+      printf("fp time (NHWC,custom) = %.5g\n", ((double)(l_total/iters)));
+      printf("GFLOPS (NHWC,custom) = %.5g\n", (flops*1e-9)/l_total);
+
+      printf("PERFDUMP-NHWC-custom,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+         ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+         norms_fwd.max_rel_err, norms_fwd.max_abs_err, norms_fwd.l2_rel_err, norms_fwd.one_norm_ref, norms_fwd.one_norm_test );
+    }
+
+    if ( (type == 'A' || type == 'B') && (stride == 1 && nIfm > 3) ) {
+      printf("##########################################\n");
+      printf("# Performance - BWD(NHWC/custom-Storage) #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolution for performance */
+      l_start = libxs_timer_tick();
+      for (i = 0; i < iters; ++i) {
+#if defined(_OPENMP)
+#   pragma omp parallel
+#endif
+        {
+#if defined(_OPENMP)
+          const int tid = omp_get_thread_num();
+#else
+          const int tid = 0;
+#endif
+          libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
+        }
+      }
+      l_end = libxs_timer_tick();
+      l_total = libxs_timer_duration(l_start, l_end);
+      flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
+
+      printf("GFLOP (NHWC,custom)  = %.5g\n", flops*1e-9/(double)iters);
+      printf("fp time (NHWC,custom) = %.5g\n", ((double)(l_total/iters)));
+      printf("GFLOPS (NHWC,custom) = %.5g\n", (flops*1e-9)/l_total);
+
+      printf("PERFDUMP-NHWC-custom,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+         ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+         norms_bwd.max_rel_err, norms_bwd.max_abs_err, norms_bwd.l2_rel_err, norms_bwd.one_norm_ref, norms_bwd.one_norm_test );
+    }
+
+    if (type == 'A' || type == 'U') {
+      printf("##########################################\n");
+      printf("# Performance - UPD(NHWC/custom-Storage) #\n");
+      printf("##########################################\n");
+      /* run LIBXS convolution for performance */
+      l_start = libxs_timer_tick();
+      for (i = 0; i < iters; ++i) {
+#if defined(_OPENMP)
+#   pragma omp parallel
+#endif
+        {
+#if defined(_OPENMP)
+          const int tid = omp_get_thread_num();
+#else
+          const int tid = 0;
+#endif
+          libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
+        }
+        if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
+          CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
+        }
+      }
+      l_end = libxs_timer_tick();
+      l_total = libxs_timer_duration(l_start, l_end);
+      flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
+
+      printf("GFLOP (NHWC,custom)  = %.5g\n", flops*1e-9/(double)iters);
+      printf("fp time (NHWC,custom) = %.5g\n", ((double)(l_total/iters)));
+      printf("GFLOPS (NHWC,custom) = %.5g\n", (flops*1e-9)/l_total);
+
+      printf("PERFDUMP-NHWC-custom,WU,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+         ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (flops*1e-9)/l_total,
+         norms_upd.max_rel_err, norms_upd.max_abs_err, norms_upd.l2_rel_err, norms_upd.one_norm_ref, norms_upd.one_norm_test );
+    }
+
+    /* clean-up */
+    CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL ) );
+    libxs_free(scratch);
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
   }
-
-  /* clean-up */
-  CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL ) );
-  libxs_free(scratch);
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
 
   /* deallocate data */
   libxs_free(naive_input);
   libxs_free(naive_input_save);
   libxs_free(naive_output);
+  libxs_free(naive_output_bp);
+  libxs_free(naive_output_wu);
   libxs_free(naive_libxs_output);
   libxs_free(naive_libxs_input);
   libxs_free(naive_filter);

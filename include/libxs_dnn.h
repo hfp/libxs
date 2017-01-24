@@ -229,7 +229,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias* bias);
 LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buffer* buffer, const void* data, libxs_dnn_tensor_format in_format);
 LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter, const void* data, libxs_dnn_tensor_format in_format);
 /*LIBXS_API libxs_dnn_err_t libxs_conv_copyin_bias(const libxs_dnn_bias* bias, const void* data);*/
-LIBXS_API libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffer* layer);
+LIBXS_API libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffer* buffer);
+LIBXS_API libxs_dnn_err_t libxs_dnn_zero_filter(const libxs_dnn_filter* filter);
 /**
  * Copy-out into a plain format such as output := [N][C][H][W] or [N][H][W][C]
  * The index specifies the actual channel number, and an eventual

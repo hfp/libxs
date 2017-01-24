@@ -848,7 +848,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buf
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffer* buffer)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  const size_t size = (size_t)buffer->N * (size_t)buffer->fmb
+  const size_t size = (size_t)buffer->N * (size_t)buffer->fmb * (size_t)buffer->lpb
                     * (size_t)buffer->bfm * (size_t)buffer->H * (size_t)buffer->W;
   size_t i;
 
@@ -1012,6 +1012,45 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_fi
   }
   else {
     status = LIBXS_DNN_ERR_INVALID_FILTER;
+  }
+
+  return status;
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_filter(const libxs_dnn_filter* filter)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  const size_t size = (size_t)filter->lpb * (size_t)filter->ifmb * (size_t)filter->bifm
+                       * (size_t)filter->ofmb * (size_t)filter->bofm * (size_t)filter->R * (size_t)filter->S;
+  size_t i;
+
+  if (0 != filter) {
+    /* use for-loops to potentially leverage NUMA in the future */
+    switch (filter->datatype) {
+      case LIBXS_DNN_DATATYPE_F32: {
+        float* fp32_data = (float*)filter->data;
+        for (i = 0; i < size; ++i) fp32_data[i] = 0.0f;
+      } break;
+      case LIBXS_DNN_DATATYPE_I32: {
+        int* int32_data = (int*)filter->data;
+        for (i = 0; i < size; ++i) int32_data[i] = 0;
+      } break;
+      case LIBXS_DNN_DATATYPE_I16: {
+        short* int16_data = (short*)filter->data;
+        for (i = 0; i < size; ++i) int16_data[i] = 0;
+      } break;
+      case LIBXS_DNN_DATATYPE_I8: {
+        char* int8_data = (char*)filter->data;
+        for (i = 0; i < size; ++i) int8_data[i] = 0;
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      }
+    }
+  }
+  else {
+    status = LIBXS_DNN_ERR_INVALID_BUFFER;
   }
 
   return status;
