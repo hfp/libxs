@@ -216,8 +216,8 @@ LIBXS_API void* libxs_dnn_get_buffer_data_ptr(const libxs_dnn_buffer* buffer, li
 LIBXS_API void* libxs_dnn_get_filter_data_ptr(const libxs_dnn_filter* filter, libxs_dnn_err_t* status);
 LIBXS_API char libxs_dnn_get_qbuffer_exp(const libxs_dnn_buffer* buffer, libxs_dnn_err_t* status);
 LIBXS_API char libxs_dnn_get_qfilter_exp(const libxs_dnn_filter* filter, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_err_t libxs_dnn_set_qbuffer_exp(const libxs_dnn_buffer* buffer, const char exp);
-LIBXS_API libxs_dnn_err_t libxs_dnn_set_qfilter_exp(const libxs_dnn_filter* filter, const char exp);
+LIBXS_API libxs_dnn_err_t libxs_dnn_set_qbuffer_exp(libxs_dnn_buffer* buffer, const char exp);
+LIBXS_API libxs_dnn_err_t libxs_dnn_set_qfilter_exp(libxs_dnn_filter* filter, const char exp);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_buffer* buffer);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_filter(const libxs_dnn_filter* filter);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias* bias);
