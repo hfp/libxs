@@ -39,6 +39,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
     return status;
   }
 
+  /* for low/mixed precision we need some scratch to be bound */
+  if ( (handle->datatype != handle->datatype_itm) && (handle->scratch6 == 0) ) {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
+  }
+
   /* check if we have a kernel JITed */
   if (handle->code_fwd[0].xconv.sconv == 0) {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
