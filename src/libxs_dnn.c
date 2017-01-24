@@ -487,6 +487,51 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_buffer_datalayou
 }
 
 
+LIBXS_API_DEFINITION void* libxs_dnn_get_buffer_data_ptr(const libxs_dnn_buffer* buffer, libxs_dnn_err_t* status)
+{
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != buffer) {
+    return buffer->data;
+  }
+  else {
+    *status = LIBXS_DNN_ERR_INVALID_BUFFER;
+  }
+
+  return 0;
+}
+
+
+LIBXS_API_DEFINITION char libxs_dnn_get_qbuffer_exp(const libxs_dnn_buffer* buffer, libxs_dnn_err_t* status)
+{
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != buffer) {
+    return buffer->exp;
+  }
+  else {
+    *status = LIBXS_DNN_ERR_INVALID_BUFFER;
+  }
+
+  return 0;
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_set_qbuffer_exp(libxs_dnn_buffer* buffer, const char exp)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != buffer) {
+    buffer->exp = exp;
+  }
+  else {
+    status = LIBXS_DNN_ERR_INVALID_BUFFER;
+  }
+
+  return status;
+}
+
+
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_buffer* buffer)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -652,6 +697,51 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_filter_datalayou
   }
 
   return layout;
+}
+
+
+LIBXS_API_DEFINITION void* libxs_dnn_get_filter_data_ptr(const libxs_dnn_filter* filter, libxs_dnn_err_t* status)
+{
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != filter) {
+    return filter->data;
+  }
+  else {
+    *status = LIBXS_DNN_ERR_INVALID_FILTER;
+  }
+
+  return 0;
+}
+
+
+LIBXS_API_DEFINITION char libxs_dnn_get_qfilter_exp(const libxs_dnn_filter* filter, libxs_dnn_err_t* status)
+{
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != filter) {
+    return filter->exp;
+  }
+  else {
+    *status = LIBXS_DNN_ERR_INVALID_FILTER;
+  }
+
+  return 0;
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_set_qfilter_exp(libxs_dnn_filter* filter, const char exp)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != filter) {
+    filter->exp = exp;
+  }
+  else {
+    status = LIBXS_DNN_ERR_INVALID_FILTER;
+  }
+
+  return status;
 }
 
 
@@ -1004,6 +1094,37 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_buffer(libxs_dnn_layer* hand
 }
 
 
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer_type type)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  /* check for buffer type */
+  if ( (type != LIBXS_DNN_REGULAR_INPUT) && (type != LIBXS_DNN_GRADIENT_INPUT) &&
+       (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT)    ) {
+    status = LIBXS_DNN_ERR_UNKNOWN_BUFFER_TYPE;
+    return status;
+  }
+
+  if (handle != 0) {
+    if ( type == LIBXS_DNN_REGULAR_INPUT ) {
+      handle->reg_input = 0;
+    } else if ( type == LIBXS_DNN_GRADIENT_INPUT ) {
+      handle->grad_input = 0;
+    } else if ( type == LIBXS_DNN_REGULAR_OUTPUT ) {
+      handle->reg_output = 0;
+    } else if ( type == LIBXS_DNN_GRADIENT_OUTPUT ) {
+      handle->grad_output = 0;
+    } else {
+      /* cannot happen */
+    }
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_BUFFER;
+  }
+
+  return status;
+}
+
+
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_layer* handle, const libxs_dnn_filter* filter, const libxs_dnn_filter_type type)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -1038,6 +1159,32 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_layer* hand
   }
   else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE_FILTER;
+  }
+
+  return status;
+}
+
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_filter(libxs_dnn_layer* handle, const libxs_dnn_filter_type type)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  /* check for filter type */
+  if ( (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER) ) {
+    status = LIBXS_DNN_ERR_UNKNOWN_FILTER_TYPE;
+    return status;
+  }
+
+  if (handle != 0) {
+    if ( type == LIBXS_DNN_REGULAR_FILTER ) {
+      handle->reg_filter = 0;
+    } else if ( type == LIBXS_DNN_GRADIENT_FILTER ) {
+      handle->grad_filter = 0;
+    } else {
+      /* cannot happen */
+    }
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_BUFFER;
   }
 
   return status;
