@@ -40,16 +40,20 @@
 #endif
 
 
-/** Function type accepted for memory allocation (see libxs_set_*_allocator). */
+/** Function types accepted for memory allocation (see libxs_*_allocator). */
+typedef LIBXS_RETARGETABLE void* (*libxs_malloc_ctx)(void* /*context*/, size_t /*size*/);
+typedef LIBXS_RETARGETABLE void* (*libxs_malloc_fun)(size_t /*size*/);
 typedef union LIBXS_RETARGETABLE libxs_malloc_function {
-  void* (*ctx_form)(void* context, size_t size);
-  void* (*function)(size_t size);
+  libxs_malloc_ctx ctx_form;
+  libxs_malloc_fun function;
 } libxs_malloc_function;
 
-/** Function type accepted for memory release (see libxs_set_*_allocator). */
+/** Function types accepted for releasing memory (see libxs_*_allocator). */
+typedef LIBXS_RETARGETABLE void (*libxs_free_ctx)(void* /*context*/, void* /*buffer*/);
+typedef LIBXS_RETARGETABLE void (*libxs_free_fun)(void* /*buffer*/);
 typedef union LIBXS_RETARGETABLE libxs_free_function {
-  void (*ctx_form)(void* context, void* buffer);
-  void (*function)(void* buffer);
+  libxs_free_ctx ctx_form;
+  libxs_free_fun function;
 } libxs_free_function;
 
 /**
@@ -108,21 +112,30 @@ LIBXS_API size_t libxs_malloc_size(const void* memory);
 #if defined(__cplusplus)
 
 /** RAII idiom to temporarily setup an allocator for the lifetime of the scope. */
-template<allocator_kind> class LIBXS_RETARGETABLE libxs_scoped_allocator {
+template<typename kind> class LIBXS_RETARGETABLE libxs_scoped_allocator {
 public:
-  /** Following the RAII idiom, the c'tor instantiates the new allocator. */
-  libxs_scoped_allocator(void* context,
-    libxs_malloc_function malloc_fn, libxs_free_function free_fn)
+  /** C'tor, which instantiates the new allocator (plain form). */
+  libxs_scoped_allocator(libxs_malloc_fun malloc_fn, libxs_free_fun free_fn)
   :
     m_context(0), m_malloc(0), m_free(0)
   {
-    allocator_kind::get(m_context, m_malloc, m_free);
-    allocator_kind::set(context, malloc_fn, free_fn);
+    kind::get(m_context, m_malloc, m_free);
+    kind::set(0/*context*/, malloc_fn, free_fn);
+  }
+
+  /** C'tor, which instantiates the new allocator (context form). */
+  libxs_scoped_allocator(void* context,
+    libxs_malloc_ctx malloc_fn, libxs_free_ctx free_fn)
+  :
+    m_context(0), m_malloc(0), m_free(0)
+  {
+    kind::get(m_context, m_malloc, m_free);
+    kind::set(context, malloc_fn, free_fn);
   }
 
   /** Following the RAII idiom, the d'tor restores the previous allocator. */
   ~libxs_scoped_allocator() {
-    allocator_kind::set(m_context, m_malloc, m_free);
+    kind::set(m_context, m_malloc, m_free);
   }
 
 private: /* no copy/assignment */
@@ -135,7 +148,7 @@ private: /* saved/previous allocator */
   libxs_free_function m_free;
 };
 
-/** Wrap default allocator to act as an allocator-kind (libxs_scoped_allocator). */
+/** Allocator-kind to instantiate libxs_scoped_allocator<kind>. */
 struct LIBXS_RETARGETABLE libxs_default_allocator {
   static void set(void* context,
     libxs_malloc_function malloc_fn, libxs_free_function free_fn)
@@ -149,7 +162,7 @@ struct LIBXS_RETARGETABLE libxs_default_allocator {
   }
 };
 
-/** Wrap scratch allocator to act as an allocator-kind (libxs_scoped_allocator). */
+/** Allocator-kind to instantiate libxs_scoped_allocator<kind>. */
 struct LIBXS_RETARGETABLE libxs_scratch_allocator {
   static void set(void* context,
     libxs_malloc_function malloc_fn, libxs_free_function free_fn)
@@ -160,6 +173,48 @@ struct LIBXS_RETARGETABLE libxs_scratch_allocator {
     libxs_malloc_function& malloc_fn, libxs_free_function& free_fn)
   {
     libxs_get_scratch_allocator(&context, &malloc_fn, &free_fn);
+  }
+};
+
+/**
+ * An object of this allocator type adopts a memory allocator from TensorFlow
+ * using the given OpKernelContext. All memory allocations of the requested
+ * kind within the current scope (where the libxs_tf_allocator object lives)
+ * will be subject to TensorFlow's memory allocation scheme.
+ * The allocation kind is usually "libxs_scratch_allocator"; using a second
+ * libxs_tf_allocator object of kind "libxs_default_allocator" makes the
+ * default memory allocation of LIBXS subject to TensorFlow as well.
+ */
+template<typename kind> class LIBXS_RETARGETABLE libxs_tf_allocator:
+  public libxs_scoped_allocator<kind>
+{
+public:
+  template<typename context_type> explicit libxs_tf_allocator(context_type& context)
+    : libxs_scoped_allocator<kind>(&context,
+      libxs_tf_allocator::malloc<context_type>,
+      libxs_tf_allocator::free<context_type>)
+  {}
+
+private:
+  template<typename context_type> static void* malloc(void* context, size_t size) {
+    using namespace tensorflow;
+    context_type *const tf_context = static_cast<context_type*>(context);
+    DeviceBase *const device = 0 != tf_context ? tf_context->device() : 0;
+    Allocator *const allocator = 0 != device ? device->GetStepAllocator(
+      AllocatorAttributes(), tf_context->resource_manager()) : 0;
+    /* no waste with (useless) alignment; raw result is re-aligned anyways */
+    return 0 != allocator ? allocator->AllocateRaw(1/*alignment*/, size) : 0;
+  }
+
+  template<typename context_type> static void free(void* context, void* buffer) {
+    using namespace tensorflow;
+    context_type *const tf_context = static_cast<context_type*>(context);
+    DeviceBase *const device = 0 != tf_context ? tf_context->device() : 0;
+    Allocator *const allocator = 0 != device ? device->GetStepAllocator(
+      AllocatorAttributes(), tf_context->resource_manager()) : 0;
+    if (0 != allocator) {
+      allocator->DeallocateRaw(buffer);
+    }
   }
 };
 
