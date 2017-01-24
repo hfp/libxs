@@ -148,7 +148,7 @@ int main(int argc, char* argv[])
       }
 
       if ((MAX_SIZE) >= csize) {
-        { // streaming
+        { // streaming A and B
           fprintf(stdout, "Streamed (A,B)...\n");
           const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
@@ -162,6 +162,48 @@ int main(int argc, char* argv[])
             libxs_gemm(0/*transa*/, 0/*transb*/, m, n, k,
               0/*alpha*/, a + i * asize, 0/*lda*/, b + i * bsize, 0/*ldb*/,
               0/*beta*/, tmp, 0/*ldc*/);
+          }
+          const double duration = libxs_timer_duration(start, libxs_timer_tick());
+          if (0 < duration) {
+            fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+            fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+          }
+          fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        }
+
+        { // streaming A and C
+          fprintf(stdout, "Streamed (A,C)...\n");
+          const unsigned long long start = libxs_timer_tick();
+#if defined(_OPENMP)
+#         pragma omp parallel for
+#endif
+          for (int i = 0; i < s; ++i) {
+            const T *const ai = a + i * asize;
+            T* ci = c + i * csize;
+            libxs_gemm(0/*transa*/, 0/*transb*/, m, n, k,
+              0/*alpha*/, a + i * asize, 0/*lda*/, b, 0/*ldb*/,
+              0/*beta*/, c + i * csize, 0/*ldc*/);
+          }
+          const double duration = libxs_timer_duration(start, libxs_timer_tick());
+          if (0 < duration) {
+            fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+            fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+          }
+          fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        }
+
+        { // streaming B and C
+          fprintf(stdout, "Streamed (B,C)...\n");
+          const unsigned long long start = libxs_timer_tick();
+#if defined(_OPENMP)
+#         pragma omp parallel for
+#endif
+          for (int i = 0; i < s; ++i) {
+            const T *const bi = b + i * bsize;
+            T* ci = c + i * csize;
+            libxs_gemm(0/*transa*/, 0/*transb*/, m, n, k,
+              0/*alpha*/, a, 0/*lda*/, b + i * bsize, 0/*ldb*/,
+              0/*beta*/, c + i * csize, 0/*ldc*/);
           }
           const double duration = libxs_timer_duration(start, libxs_timer_tick());
           if (0 < duration) {

@@ -237,10 +237,12 @@ LIBXS_API size_t libxs_lcm(size_t a, size_t b);
 /** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */
 LIBXS_API size_t libxs_alignment(size_t size, size_t alignment);
 
-/** Same as libxs_set_allocator, but takes a lock (can be NULL).*/
-LIBXS_API void libxs_xset_allocator(LIBXS_LOCK_TYPE* lock,
-  libxs_malloc_function default_malloc_fn, libxs_free_function default_free_fn,
-  libxs_malloc_function scratch_malloc_fn, libxs_free_function scratch_free_fn);
+/** Same as libxs_set_default_allocator, but takes a lock (can be NULL). */
+LIBXS_API void libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
+  void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
+/** Same as libxs_set_scratch_allocator, but takes a lock (can be NULL). */
+LIBXS_API void libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
+  void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 
 /** Receive the size, the flags, or the extra attachment of the given buffer. */
 LIBXS_API int libxs_malloc_info(const void* memory, size_t* size, int* flags, void** extra);
@@ -249,6 +251,7 @@ LIBXS_API int libxs_malloc_info(const void* memory, size_t* size, int* flags, vo
 LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment, int flags,
   /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
   const void* extra, size_t extra_size);
+/** Release memory, which was allocated using libxs_[*]malloc. */
 LIBXS_API int libxs_xfree(const void* memory);
 
 /**
@@ -280,7 +283,10 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_malloc_function libxs_scratch_malloc_fn;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_free_function libxs_default_free_fn;
 /** Function used to release scratch memory. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_free_function libxs_scratch_free_fn;
-
+/** If non-NULL, this context used for the context-form of the malloc/free function. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_default_allocator;
+/** If non-NULL, this context used for the context-form of the malloc/free function. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_scratch_allocator;
 /** Stores the verbosity level (libxs_get_verbosity, libxs_set_verbosity). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_verbosity;
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
