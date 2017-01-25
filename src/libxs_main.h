@@ -291,9 +291,9 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_free_function libxs_default_free_fn;
 /** Function used to release scratch memory. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_free_function libxs_scratch_free_fn;
 /** If non-NULL, this context used for the context-form of the malloc/free function. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_default_allocator;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_default_allocator_context;
 /** If non-NULL, this context used for the context-form of the malloc/free function. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_scratch_allocator;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_scratch_allocator_context;
 /** Stores the verbosity level (libxs_get_verbosity, libxs_set_verbosity). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_verbosity;
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */

@@ -170,7 +170,7 @@ LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
     LIBXS_LOCK_ACQUIRE(lock);
   }
   if (0 != malloc_fn.function && 0 != free_fn.function) {
-    libxs_default_allocator = context;
+    libxs_default_allocator_context = context;
     libxs_default_malloc_fn = malloc_fn;
     libxs_default_free_fn = free_fn;
   }
@@ -188,7 +188,7 @@ LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
     internal_free_fn.function = free;
 #endif
     if (0 == malloc_fn.function && 0 == free_fn.function) {
-      libxs_default_allocator = internal_allocator;
+      libxs_default_allocator_context = internal_allocator;
       libxs_default_malloc_fn = internal_malloc_fn;
       libxs_default_free_fn = internal_free_fn;
     }
@@ -201,7 +201,7 @@ LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
       }
       /* keep any valid (previously instantiated) default allocator */
       if (0 == libxs_default_malloc_fn.function || 0 == libxs_default_free_fn.function) {
-        libxs_default_allocator = internal_allocator;
+        libxs_default_allocator_context = internal_allocator;
         libxs_default_malloc_fn = internal_malloc_fn;
         libxs_default_free_fn = internal_free_fn;
       }
@@ -225,7 +225,7 @@ LIBXS_API_DEFINITION int libxs_xget_default_allocator(LIBXS_LOCK_TYPE* lock,
       LIBXS_INIT
       LIBXS_LOCK_ACQUIRE(lock);
     }
-    if (context) *context = libxs_default_allocator;
+    if (context) *context = libxs_default_allocator_context;
     if (0 != malloc_fn) *malloc_fn = libxs_default_malloc_fn;
     if (0 != free_fn) *free_fn = libxs_default_free_fn;
     if (0 != lock) {
@@ -260,7 +260,7 @@ LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
     libxs_xset_default_allocator(lock, 0/*context*/, null_malloc_fn, null_free_fn);
   }
   if (0 == malloc_fn.function && 0 == free_fn.function) { /* adopt default allocator */
-    libxs_scratch_allocator = libxs_default_allocator;
+    libxs_scratch_allocator_context = libxs_default_allocator_context;
     libxs_scratch_malloc_fn = libxs_default_malloc_fn;
     libxs_scratch_free_fn = libxs_default_free_fn;
   }
@@ -271,7 +271,7 @@ LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
     {
       fprintf(stderr, "LIBXS: scratch allocator setup without free function!\n");
     }
-    libxs_scratch_allocator = context;
+    libxs_scratch_allocator_context = context;
     libxs_scratch_malloc_fn = malloc_fn;
     libxs_scratch_free_fn = free_fn; /* NULL allowed */
   }
@@ -283,7 +283,7 @@ LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
     }
     /* keep any valid (previously instantiated) scratch allocator */
     if (0 == libxs_scratch_malloc_fn.function) {
-      libxs_scratch_allocator = libxs_default_allocator;
+      libxs_scratch_allocator_context = libxs_default_allocator_context;
       libxs_scratch_malloc_fn = libxs_default_malloc_fn;
       libxs_scratch_free_fn = libxs_default_free_fn;
     }
@@ -306,7 +306,7 @@ LIBXS_API_DEFINITION int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE* lock,
       LIBXS_INIT
       LIBXS_LOCK_ACQUIRE(lock);
     }
-    if (context) *context = libxs_scratch_allocator;
+    if (context) *context = libxs_scratch_allocator_context;
     if (0 != malloc_fn) *malloc_fn = libxs_scratch_malloc_fn;
     if (0 != free_fn) *free_fn = libxs_scratch_free_fn;
     if (0 != lock) {
@@ -464,7 +464,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
     if (0 < size) {
       const size_t internal_size = size + extra_size + sizeof(internal_malloc_info_type);
       /* ATOMIC BEGIN: this region should be atomic/locked */
-        void* context = libxs_default_allocator;
+        void* context = libxs_default_allocator_context;
         libxs_malloc_function malloc_fn = libxs_default_malloc_fn;
         libxs_free_function free_fn = libxs_default_free_fn;
       /* ATOMIC END: this region should be atomic */
@@ -474,7 +474,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
       static int error_once = 0;
 #endif
       if (0 != (LIBXS_MALLOC_FLAG_SCRATCH & flags)) {
-        context = libxs_scratch_allocator;
+        context = libxs_scratch_allocator_context;
         malloc_fn = libxs_scratch_malloc_fn;
         free_fn = libxs_scratch_free_fn;
       }
