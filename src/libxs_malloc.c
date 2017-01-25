@@ -161,10 +161,10 @@ LIBXS_API_DEFINITION size_t libxs_alignment(size_t size, size_t alignment)
 }
 
 
-LIBXS_API_DEFINITION void libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
+LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
-  static int error_once = 0;
+  int result = EXIT_SUCCESS;
   if (0 != lock) {
     LIBXS_INIT
     LIBXS_LOCK_ACQUIRE(lock);
@@ -193,6 +193,7 @@ LIBXS_API_DEFINITION void libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
       libxs_default_free_fn = internal_free_fn;
     }
     else { /* invalid allocator */
+      static int error_once = 0;
       if (0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
@@ -204,41 +205,49 @@ LIBXS_API_DEFINITION void libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
         libxs_default_malloc_fn = internal_malloc_fn;
         libxs_default_free_fn = internal_free_fn;
       }
+      result = EXIT_FAILURE;
     }
   }
   if (0 != lock) {
     LIBXS_LOCK_RELEASE(lock);
   }
+  assert(EXIT_SUCCESS == result);
+  return result;
 }
 
 
-LIBXS_API_DEFINITION void libxs_xget_default_allocator(LIBXS_LOCK_TYPE* lock,
+LIBXS_API_DEFINITION int libxs_xget_default_allocator(LIBXS_LOCK_TYPE* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn)
 {
-  if (0 != lock) {
-    LIBXS_INIT
-    LIBXS_LOCK_ACQUIRE(lock);
-  }
+  int result = EXIT_SUCCESS;
   if (0 != context || 0 != malloc_fn || 0 != free_fn) {
+    if (0 != lock) {
+      LIBXS_INIT
+      LIBXS_LOCK_ACQUIRE(lock);
+    }
     if (context) *context = libxs_default_allocator;
     if (0 != malloc_fn) *malloc_fn = libxs_default_malloc_fn;
     if (0 != free_fn) *free_fn = libxs_default_free_fn;
+    if (0 != lock) {
+      LIBXS_LOCK_RELEASE(lock);
+    }
   }
   else if (0 != libxs_verbosity) { /* library code is expected to be mute */
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: invalid signature used to get the default memory allocator!\n");
     }
+    result = EXIT_FAILURE;
   }
-  if (0 != lock) {
-    LIBXS_LOCK_RELEASE(lock);
-  }
+  assert(EXIT_SUCCESS == result);
+  return result;
 }
 
 
-LIBXS_API_DEFINITION void libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
+LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
+  int result = EXIT_SUCCESS;
   static int error_once = 0;
   if (0 != lock) {
     LIBXS_INIT
@@ -278,62 +287,69 @@ LIBXS_API_DEFINITION void libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
       libxs_scratch_malloc_fn = libxs_default_malloc_fn;
       libxs_scratch_free_fn = libxs_default_free_fn;
     }
+    result = EXIT_FAILURE;
   }
   if (0 != lock) {
     LIBXS_LOCK_RELEASE(lock);
   }
+  assert(EXIT_SUCCESS == result);
+  return result;
 }
 
 
-LIBXS_API_DEFINITION void libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE* lock,
+LIBXS_API_DEFINITION int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn)
 {
-  if (0 != lock) {
-    LIBXS_INIT
-    LIBXS_LOCK_ACQUIRE(lock);
-  }
+  int result = EXIT_SUCCESS;
   if (0 != context || 0 != malloc_fn || 0 != free_fn) {
+    if (0 != lock) {
+      LIBXS_INIT
+      LIBXS_LOCK_ACQUIRE(lock);
+    }
     if (context) *context = libxs_scratch_allocator;
     if (0 != malloc_fn) *malloc_fn = libxs_scratch_malloc_fn;
     if (0 != free_fn) *free_fn = libxs_scratch_free_fn;
+    if (0 != lock) {
+      LIBXS_LOCK_RELEASE(lock);
+    }
   }
   else if (0 != libxs_verbosity) { /* library code is expected to be mute */
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS: invalid signature used to get the scratch memory allocator!\n");
     }
+    result = EXIT_FAILURE;
   }
-  if (0 != lock) {
-    LIBXS_LOCK_RELEASE(lock);
-  }
+  assert(EXIT_SUCCESS == result);
+  return result;
 }
 
 
-LIBXS_API_DEFINITION void libxs_set_default_allocator(void* context,
+LIBXS_API_DEFINITION int libxs_set_default_allocator(void* context,
   libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
-  libxs_xset_default_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
+  return libxs_xset_default_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
 }
 
 
-LIBXS_API_DEFINITION void libxs_get_default_allocator(void** context,
+LIBXS_API_DEFINITION int libxs_get_default_allocator(void** context,
   libxs_malloc_function* malloc_fn, libxs_free_function* free_fn)
 {
-  libxs_xget_default_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
+  return libxs_xget_default_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
 }
 
 
-LIBXS_API_DEFINITION void libxs_set_scratch_allocator(void* context,
+LIBXS_API_DEFINITION int libxs_set_scratch_allocator(void* context,
   libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
-  libxs_xset_scratch_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
+  return libxs_xset_scratch_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
 }
 
 
-LIBXS_API_DEFINITION void libxs_get_scratch_allocator(void** context,
+LIBXS_API_DEFINITION int libxs_get_scratch_allocator(void** context,
   libxs_malloc_function* malloc_fn, libxs_free_function* free_fn)
 {
-  libxs_xget_scratch_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
+  return libxs_xget_scratch_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
 }
 
 

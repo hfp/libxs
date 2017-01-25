@@ -63,10 +63,10 @@ typedef union LIBXS_RETARGETABLE libxs_free_function {
  * form of the memory allocation is used.
  * It is supported to change the allocator while buffers are pending.
  */
-LIBXS_API void libxs_set_default_allocator(/* malloc_fn/free_fn must correspond */
+LIBXS_API int libxs_set_default_allocator(/* malloc_fn/free_fn must correspond */
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 /** Retrieve the default memory allocator. */
-LIBXS_API void libxs_get_default_allocator(void** context,
+LIBXS_API int libxs_get_default_allocator(void** context,
   libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /**
@@ -77,10 +77,10 @@ LIBXS_API void libxs_get_default_allocator(void** context,
  * the context-based form of the memory allocation is used.
  * It is supported to change the allocator while buffers are pending.
  */
-LIBXS_API void libxs_set_scratch_allocator(/* malloc_fn/free_fn must correspond */
+LIBXS_API int libxs_set_scratch_allocator(/* malloc_fn/free_fn must correspond */
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 /** Retrieve the scratch memory allocator. */
-LIBXS_API void libxs_get_scratch_allocator(void** context,
+LIBXS_API int libxs_get_scratch_allocator(void** context,
   libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /** Allocate aligned default memory. */
@@ -115,20 +115,14 @@ LIBXS_API size_t libxs_malloc_size(const void* memory);
 template<typename kind> class LIBXS_RETARGETABLE libxs_scoped_allocator {
 public:
   /** C'tor, which instantiates the new allocator (plain form). */
-  libxs_scoped_allocator(libxs_malloc_fun malloc_fn, libxs_free_fun free_fn)
-  :
-    m_context(0), m_malloc(0), m_free(0)
-  {
+  libxs_scoped_allocator(libxs_malloc_fun malloc_fn, libxs_free_fun free_fn) {
     kind::get(m_context, m_malloc, m_free);
     kind::set(0/*context*/, malloc_fn, free_fn);
   }
 
   /** C'tor, which instantiates the new allocator (context form). */
   libxs_scoped_allocator(void* context,
-    libxs_malloc_ctx malloc_fn, libxs_free_ctx free_fn)
-  :
-    m_context(0), m_malloc(0), m_free(0)
-  {
+    libxs_malloc_ctx malloc_fn, libxs_free_ctx free_fn) {
     kind::get(m_context, m_malloc, m_free);
     kind::set(context, malloc_fn, free_fn);
   }
