@@ -116,7 +116,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_csr_a(libxs_spmdm_h
   size_t sz_block = ((handle->bm + 1)*sizeof(uint16_t) + (handle->bm)*(handle->bk)*sizeof(uint16_t) + (handle->bm)*(handle->bk)*sizeof(float) + sizeof(libxs_CSR_sparseslice));
   size_t sz_all_blocks = sz_block * handle->mb * handle->kb;
 
-  char * memory_block = (char *)libxs_aligned_malloc(sz_all_blocks, 2097152);
+  char * memory_block = (char *)libxs_aligned_scratch(sz_all_blocks, 2097152);
   char * memory_head  = memory_block;
 
   libxs_CSR_sparseslice* libxs_output_csr_a = (libxs_CSR_sparseslice*)(memory_head);
@@ -145,7 +145,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_scratch(libxs_spmdm
   sz_memory_for_scratch_per_thread = (sz_memory_for_scratch_per_thread + 4095)/4096 * 4096;
   sz_total_memory = sz_memory_for_scratch_per_thread * max_threads;
 
-  handle->base_ptr_scratch_B_scratch_C = (char *)libxs_aligned_malloc(sz_total_memory, 2097152);
+  handle->base_ptr_scratch_B_scratch_C = (char *)libxs_aligned_scratch(sz_total_memory, 2097152);
   handle->memory_for_scratch_per_thread = (int)sz_memory_for_scratch_per_thread;
 }
 
