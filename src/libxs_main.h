@@ -240,9 +240,16 @@ LIBXS_API size_t libxs_alignment(size_t size, size_t alignment);
 /** Same as libxs_set_default_allocator, but takes a lock (can be NULL). */
 LIBXS_API int libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
+/** Same as libxs_get_default_allocator, but takes a lock (can be NULL). */
+LIBXS_API int libxs_xget_default_allocator(LIBXS_LOCK_TYPE* lock,
+  void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
+
 /** Same as libxs_set_scratch_allocator, but takes a lock (can be NULL). */
 LIBXS_API int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
+/** Same as libxs_get_scratch_allocator, but takes a lock (can be NULL). */
+LIBXS_API int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE* lock,
+  void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /** Receive the size, the flags, or the extra attachment of the given buffer. */
 LIBXS_API int libxs_malloc_info(const void* memory, size_t* size, int* flags, void** extra);
