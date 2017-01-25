@@ -56,6 +56,19 @@ typedef union LIBXS_RETARGETABLE libxs_free_function {
   libxs_free_fun function;
 } libxs_free_function;
 
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_malloc_function libxs_make_malloc_fun(libxs_malloc_fun malloc_fn) {
+  libxs_malloc_function result; result.function = malloc_fn; return result;
+}
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_free_function libxs_make_free_fun(libxs_free_fun free_fn) {
+  libxs_free_function result; result.function = free_fn; return result;
+}
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_malloc_function libxs_make_malloc_ctx(libxs_malloc_ctx malloc_fn) {
+  libxs_malloc_function result; result.ctx_form = malloc_fn; return result;
+}
+LIBXS_INLINE LIBXS_RETARGETABLE libxs_free_function libxs_make_free_ctx(libxs_free_ctx free_fn) {
+  libxs_free_function result; result.ctx_form = free_fn; return result;
+}
+
 /**
  * To setup the custom default memory allocator, either a malloc_fn and a free_fn
  * are given, or two NULL-pointers designate to reset the default allocator to a
@@ -117,14 +130,14 @@ public:
   /** C'tor, which instantiates the new allocator (plain form). */
   libxs_scoped_allocator(libxs_malloc_fun malloc_fn, libxs_free_fun free_fn) {
     kind::get(m_context, m_malloc, m_free);
-    kind::set(0/*context*/, malloc_fn, free_fn);
+    kind::set(0/*context*/, libxs_make_malloc_fun(malloc_fn), libxs_make_free_fun(free_fn));
   }
 
   /** C'tor, which instantiates the new allocator (context form). */
   libxs_scoped_allocator(void* context,
     libxs_malloc_ctx malloc_fn, libxs_free_ctx free_fn) {
     kind::get(m_context, m_malloc, m_free);
-    kind::set(context, malloc_fn, free_fn);
+    kind::set(context, libxs_make_malloc_ctx(malloc_fn), libxs_make_free_ctx(free_fn));
   }
 
   /** Following the RAII idiom, the d'tor restores the previous allocator. */
@@ -188,7 +201,7 @@ template<typename kind> class LIBXS_RETARGETABLE libxs_tf_allocator:
 public:
   /** The TensorFlow allocator is adopted from the global CPU memory allocator. */
   explicit libxs_tf_allocator()
-    : libxs_scoped_allocator<kind>(0/*context*/,
+    : libxs_scoped_allocator<kind>(
       libxs_tf_allocator::malloc,
       libxs_tf_allocator::free)
   {}
