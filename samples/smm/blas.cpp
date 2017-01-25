@@ -254,8 +254,6 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for
 #endif
           for (int i = 0; i < s; ++i) {
-            const T *const ai = a + i * asize;
-            T* ci = c + i * csize;
             // alternatively libxs_blas_gemm can be called instead of relying on a macro
             LIBXS_BLAS_GEMM(LIBXS_FLAGS, m, n, k,
               LIBXS_ALPHA, a + i * asize, LIBXS_LD(m, k), b, LIBXS_LD(k, n),
@@ -276,8 +274,6 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for
 #endif
           for (int i = 0; i < s; ++i) {
-            const T *const bi = b + i * bsize;
-            T* ci = c + i * csize;
             // alternatively libxs_blas_gemm can be called instead of relying on a macro
             LIBXS_BLAS_GEMM(LIBXS_FLAGS, m, n, k,
               LIBXS_ALPHA, a, LIBXS_LD(m, k), b + i * bsize, LIBXS_LD(k, n),
