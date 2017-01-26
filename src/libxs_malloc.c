@@ -355,13 +355,13 @@ LIBXS_API_DEFINITION int libxs_get_scratch_allocator(void** context,
 
 LIBXS_INLINE LIBXS_RETARGETABLE internal_malloc_info_type* internal_malloc_info(const void* memory)
 {
-  internal_malloc_info_type* result = (internal_malloc_info_type*)
+  internal_malloc_info_type *const result = (internal_malloc_info_type*)
     (0 != memory ? (((const char*)memory) - sizeof(internal_malloc_info_type)) : 0);
 #if defined(LIBXS_MALLOC_NOCRC)
   return result;
 #else /* calculate checksum over info */
   return (0 != result && result->hash == libxs_crc32(result, /* info size minus actual hash value */
-    sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED)) ? result : 0;
+    ((char*)&result->hash) - ((char*)result), LIBXS_MALLOC_SEED)) ? result : 0;
 #endif
 }
 
@@ -383,7 +383,9 @@ LIBXS_API_DEFINITION int libxs_malloc_info(const void* memory, size_t* size, int
     else {
       if (0 != memory) {
 #if !defined(LIBXS_MALLOC_NOCRC)
-        if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        if (0 != libxs_verbosity /* library code is expected to be mute */
+         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
           fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", memory);
         }
 #endif
@@ -651,7 +653,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
         info->flags = flags;
 #if !defined(LIBXS_MALLOC_NOCRC) /* calculate checksum over info */
         info->hash = libxs_crc32(info, /* info size minus actual hash value */
-          sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
+          ((char*)&info->hash) - ((char*)info), LIBXS_MALLOC_SEED);
 #endif
         *memory = aligned;
       }
@@ -741,13 +743,17 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
   }
   else if (0 != memory) {
 #if !defined(LIBXS_MALLOC_NOCRC)
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
       fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", memory);
     }
 #endif
     result = EXIT_FAILURE;
   }
+# if defined(LIBXS_MALLOC_NOCRC)
   assert(EXIT_SUCCESS == result);
+# endif
   return result;
 }
 
@@ -849,7 +855,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
           info->reloc = 0;
 # if !defined(LIBXS_MALLOC_NOCRC) /* update checksum */
           info->hash = libxs_crc32(info, /* info size minus actual hash value */
-            sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
+            ((char*)&info->hash) - ((char*)info), LIBXS_MALLOC_SEED);
 # endif
           /* treat memory protection errors as soft error; ignore return value */
           munmap(buffer, alloc_size);
@@ -859,7 +865,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
         else { /* malloc-based fall-back */
 # if !defined(LIBXS_MALLOC_NOCRC) && defined(LIBXS_VTUNE) /* update checksum */
           info->hash = libxs_crc32(info, /* info size minus actual hash value */
-            sizeof(internal_malloc_info_type) - sizeof(unsigned int), LIBXS_MALLOC_SEED);
+            ((char*)&info->hash) - ((char*)info), LIBXS_MALLOC_SEED);
 # endif
           /* treat memory protection errors as soft error; ignore return value */
           mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ | PROT_EXEC);
@@ -879,7 +885,9 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
   else {
     assert(0 != memory && 0 != *memory);
 #if !defined(LIBXS_MALLOC_NOCRC)
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
       fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", *memory);
     }
 #endif
