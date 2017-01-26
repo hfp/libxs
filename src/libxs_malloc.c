@@ -891,7 +891,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       fprintf(stderr, "LIBXS: checksum error for %s buffer %p!\n",
-        0 != (LIBXS_MALLOC_FLAG_X & flags) ? "executable" : "memory", memory);
+        0 != (LIBXS_MALLOC_FLAG_X & flags) ? "executable" : "memory", *memory);
     }
 #endif
     result = EXIT_FAILURE;
