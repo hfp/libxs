@@ -56,7 +56,7 @@
 #endif
 #if !defined(LIBXS_SPMDM_AVX512_CORE) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_SPMDM_AVX2) && ( \
      (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
-  || (defined(__clang__) && LIBXS_SPMDM_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH))
+  || (defined(__clang__) && LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH))
 # define LIBXS_SPMDM_AVX512_CORE
 #endif
 
