@@ -329,7 +329,12 @@ LIBXS_HASH_API_DEFINITION void libxs_hash_init(int target_arch)
 # endif
   {
 # if !defined(NDEBUG) && (LIBXS_X86_SSE4 > LIBXS_MAX_STATIC_TARGET_ARCH)
-    fprintf(stderr, "LIBXS: CRC32 instructions are not accessible due to the compiler used!\n");
+    static int error_once = 0;
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS: unable to access CRC32 instructions due to the compiler used!\n");
+    }
 # endif
     internal_hash_function = libxs_crc32_sse4;
   }
