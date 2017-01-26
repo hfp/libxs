@@ -30,15 +30,13 @@
 #define LIBXS_HASH_C
 
 #include "libxs_hash.h"
+#include "libxs_main.h"
 #include <libxs_intrinsics_x86.h>
-#include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#if !defined(NDEBUG)
-# include <stdio.h>
-#endif
+#include <stdio.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -138,17 +136,19 @@
 typedef uint32_t internal_crc32_entry_type[256];
 LIBXS_EXTERN_C const LIBXS_RETARGETABLE internal_crc32_entry_type* internal_crc32_table;
 
-LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_hash_function internal_hash_function /*= libxs_crc32_sw*/;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_hash_function internal_hash_function;
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u8(unsigned int seed, unsigned int n, unsigned char value)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u8(
+  unsigned int seed, unsigned int n, unsigned char value)
 {
   LIBXS_UNUSED(n);
   return internal_crc32_table[0][(seed^value)&0xFF] ^ (seed >> 8);
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u16(unsigned int seed, unsigned int n, unsigned short value)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u16(
+  unsigned int seed, unsigned int n, unsigned short value)
 {
   seed = internal_crc32_u8(seed, n, (uint8_t)value);
   seed = internal_crc32_u8(seed, n, (uint8_t)(value << 8));
@@ -156,7 +156,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u16(unsigned int see
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u32(unsigned int seed, unsigned int n, unsigned int value)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u32(
+  unsigned int seed, unsigned int n, unsigned int value)
 {
   const unsigned int s = seed ^ value;
   const uint32_t c0 = internal_crc32_table[0][(s>>24)&0xFF];
@@ -168,7 +169,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u32(unsigned int see
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u64(unsigned int seed, unsigned int n, unsigned long long value)
+LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u64(
+  unsigned int seed, unsigned int n, unsigned long long value)
 {
   seed = internal_crc32_u32(seed, n, (uint32_t)(value));
   seed = internal_crc32_u32(seed, n, (uint32_t)(value << 32));
@@ -328,14 +330,6 @@ LIBXS_HASH_API_DEFINITION void libxs_hash_init(int target_arch)
   if (LIBXS_X86_SSE4 <= target_arch)
 # endif
   {
-# if !defined(NDEBUG) && (LIBXS_X86_SSE4 > LIBXS_MAX_STATIC_TARGET_ARCH)
-    static int error_once = 0;
-    if (0 != libxs_verbosity /* library code is expected to be mute */
-     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-    {
-      fprintf(stderr, "LIBXS: unable to access CRC32 instructions due to the compiler used!\n");
-    }
-# endif
     internal_hash_function = libxs_crc32_sse4;
   }
 #endif
@@ -362,7 +356,8 @@ LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32(const void* data, unsigned in
 LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_sw(const void* data, unsigned int size, unsigned int seed)
 {
   assert(0 != data || 0 == size);
-  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, seed, LIBXS_HASH_UNBOUNDED);
+  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8,
+    data, size, seed, LIBXS_HASH_UNBOUNDED);
 }
 
 
@@ -370,16 +365,19 @@ LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE4)
 unsigned int libxs_crc32_sse4(const void* data, unsigned int size, unsigned int seed)
 {
   assert(0 != data || 0 == size);
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_SSE4 <= LIBXS_MAX_STATIC_TARGET_ARCH)
-  LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, data, size, seed, LIBXS_HASH_UNBOUNDED);
+#if !defined(LIBXS_INTRINSICS_NONE) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_SSE4 <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH))
+  LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8,
+    data, size, seed, LIBXS_HASH_UNBOUNDED);
 #else
-# if !defined(NDEBUG)
   { static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: unable to enter SSE4 code path!\n");
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS: unable to access CRC32 instructions due to the compiler used!\n");
     }
   }
-# endif
   return libxs_crc32_sw(data, size, seed);
 #endif
 }
