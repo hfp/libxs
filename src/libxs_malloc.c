@@ -89,6 +89,8 @@
 #   define LIBXS_MALLOC_NOCRC
 # elif defined(LIBXS_VTUNE)
 #   define LIBXS_MALLOC_NOCRC
+# elif !defined(LIBXS_BUILD)
+#   define LIBXS_MALLOC_NOCRC
 # endif
 #endif
 
@@ -386,8 +388,7 @@ LIBXS_API_DEFINITION int libxs_malloc_info(const void* memory, size_t* size, int
         if (0 != libxs_verbosity /* library code is expected to be mute */
          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
-          fprintf(stderr, "LIBXS: checksum error for %s buffer %p!\n",
-            0 != (LIBXS_MALLOC_FLAG_X & flags) ? "executable" : "memory", memory);
+          fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", memory);
         }
 #endif
         result = EXIT_FAILURE;
