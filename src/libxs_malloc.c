@@ -386,7 +386,8 @@ LIBXS_API_DEFINITION int libxs_malloc_info(const void* memory, size_t* size, int
         if (0 != libxs_verbosity /* library code is expected to be mute */
          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
-          fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", memory);
+          fprintf(stderr, "LIBXS: checksum error for %s buffer %p!\n",
+            0 != (LIBXS_MALLOC_FLAG_X & flags) ? "executable" : "memory", memory);
         }
 #endif
         result = EXIT_FAILURE;
@@ -888,7 +889,8 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", *memory);
+      fprintf(stderr, "LIBXS: checksum error for %s buffer %p!\n",
+        0 != (LIBXS_MALLOC_FLAG_X & flags) ? "executable" : "memory", memory);
     }
 #endif
     result = EXIT_FAILURE;
