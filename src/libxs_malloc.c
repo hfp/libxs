@@ -41,7 +41,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#if defined(__TBBMALLOC)
+#if defined(__TBB)
 # include <tbb/scalable_allocator.h>
 #endif
 #if defined(_WIN32)
@@ -178,7 +178,7 @@ LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
     void* internal_allocator = 0;
     libxs_malloc_function internal_malloc_fn;
     libxs_free_function internal_free_fn;
-#if defined(__TBBMALLOC)
+#if defined(__TBB)
     internal_allocator = 0;
     internal_malloc_fn.function = scalable_malloc;
     internal_free_fn.function = scalable_free;
