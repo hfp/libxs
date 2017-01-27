@@ -87,8 +87,6 @@
 #if !defined(LIBXS_MALLOC_NOCRC)
 # if defined(NDEBUG)
 #   define LIBXS_MALLOC_NOCRC
-# elif defined(LIBXS_VTUNE)
-#   define LIBXS_MALLOC_NOCRC
 # elif !defined(LIBXS_BUILD)
 #   define LIBXS_MALLOC_NOCRC
 # endif
@@ -400,14 +398,14 @@ LIBXS_API_DEFINITION int libxs_malloc_info(const void* memory, size_t* size, int
   }
 #if !defined(NDEBUG)
   else {
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
       fprintf(stderr, "LIBXS: attachment error for memory buffer %p!\n", memory);
     }
     result = EXIT_FAILURE;
   }
-# if defined(LIBXS_MALLOC_NOCRC)
   assert(EXIT_SUCCESS == result);
-# endif
 #endif
   return result;
 }
@@ -474,9 +472,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
       /* ATOMIC END: this region should be atomic */
       size_t alloc_alignment = 0, alloc_size = 0;
       void *alloc_failed = 0, *buffer = 0, *reloc = 0;
-#if !defined(NDEBUG)
       static int error_once = 0;
-#endif
       if (0 != (LIBXS_MALLOC_FLAG_SCRATCH & flags)) {
         context = libxs_scratch_allocator_context;
         malloc_fn = libxs_scratch_malloc_fn;
@@ -660,12 +656,12 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
         *memory = aligned;
       }
       else {
-#if !defined(NDEBUG) /* library code is expected to be mute */
-        if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        if (0 != libxs_verbosity /* library code is expected to be mute */
+         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
           fprintf(stderr, "LIBXS: memory allocation error for size %llu with flags=%i!\n",
             (unsigned long long)alloc_size, flags);
         }
-#endif
         result = EXIT_FAILURE;
       }
     }
@@ -673,11 +669,9 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
       *memory = 0;
     }
   }
-#if !defined(NDEBUG)
   else if (0 != size) {
     result = EXIT_FAILURE;
   }
-#endif
   assert(EXIT_SUCCESS == result);
   return result;
 }
@@ -687,9 +681,7 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
 {
   /*const*/ internal_malloc_info_type *const info = internal_malloc_info(memory);
   int result = EXIT_SUCCESS;
-# if !defined(NDEBUG) || !defined(LIBXS_MALLOC_NOCRC)
   static int error_once = 0;
-#endif
   if (0 != info) {
     void *const buffer = info->pointer;
     assert((0 != buffer || 0 == info->size));
@@ -717,26 +709,26 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
         void *const reloc = info->reloc;
         const int flags = info->flags;
         if (0 != munmap(buffer, alloc_size)) {
-# if !defined(NDEBUG) /* library code is expected to be mute */
-          if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+          if (0 != libxs_verbosity /* library code is expected to be mute */
+           && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          {
             const char *const error_message = strerror(errno);
             fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
               error_message, errno, buffer, (unsigned long long)alloc_size);
           }
-# endif
           result = EXIT_FAILURE;
         }
         if (0 != (LIBXS_MALLOC_FLAG_X & flags) && EXIT_SUCCESS == result
          && 0 != reloc && MAP_FAILED != reloc && buffer != reloc
          && 0 != munmap(reloc, alloc_size))
         {
-# if !defined(NDEBUG) /* library code is expected to be mute */
-          if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+          if (0 != libxs_verbosity /* library code is expected to be mute */
+           && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          {
             const char *const error_message = strerror(errno);
             fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
               error_message, errno, reloc, (unsigned long long)alloc_size);
           }
-# endif
           result = EXIT_FAILURE;
         }
       }
@@ -753,9 +745,7 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
 #endif
     result = EXIT_FAILURE;
   }
-# if defined(LIBXS_MALLOC_NOCRC)
   assert(EXIT_SUCCESS == result);
-# endif
   return result;
 }
 
@@ -787,9 +777,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
 {
   internal_malloc_info_type *const info = 0 != memory ? internal_malloc_info(*memory) : 0;
   int result = EXIT_SUCCESS;
-#if !defined(NDEBUG) || !defined(LIBXS_MALLOC_NOCRC)
   static int error_once = 0;
-#endif
   if (0 != info) {
     void *const buffer = info->pointer;
     const size_t size = info->size;
@@ -877,11 +865,11 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
     }
   }
   else if (0 == memory || 0 == *memory) {
-#if !defined(NDEBUG) /* library code is expected to be mute */
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
       fprintf(stderr, "LIBXS: libxs_malloc_attrib failed because NULL cannot be attributed!\n");
     }
-#endif
     result = EXIT_FAILURE;
   }
   else {
