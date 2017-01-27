@@ -931,6 +931,12 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
 }
 
 
+LIBXS_API_DEFINITION void libxs_release_scratch(void)
+{
+  /* TODO: to be implemented */
+}
+
+
 LIBXS_API_DEFINITION size_t libxs_malloc_size(const void* memory)
 {
   size_t size = 0;
