@@ -201,11 +201,15 @@ Without further claims on the properties of the memory allocation (e.g., thread 
 **NOTE**: Only `libxs_free` is supported in order to deallocate the memory.
 
 ```C
-void* libxs_aligned_malloc(size_t size, int alignment);
+void* libxs_aligned_malloc(size_t size, size_t alignment);
 void* libxs_malloc(size_t size);
 void libxs_free(const volatile void* memory);
 size_t libxs_malloc_size(const volatile void* memory);
+void* libxs_aligned_scratch(size_t size, size_t alignment);
 ```
+
+The library exposes two memory allocation domains: (1)&#160;default memory allocation, and (2)&#160;scratch memory allocation. In contrast to the default memory allocation techniques, the scratch memory allocation is meant to establish a watermark for buffers which would be repeatedly allocated and deallocated. By establishing a (remaining) pool of "temporary" memory, the cost of repeated allocation and deallocation is avoided at some point (once the watermark is reached during execution).  
+**NOTE**: be careful with scratch memory as it only grows during execution (in between `libxs_init` and `libxs_finalize` unless `libxs_release_scratch` is called). This is true even when `libxs_free` is (and should be) used!
 
 # Classic Library (ABI)
 The build system relies on GNU Make (typically associated with the `make` command, but e.g. FreeBSD is calling it `gmake`). The build can be customized by using key&#8209;value pairs. Key&#8209;value pairs can be supplied in two ways: (1)&#160;after the "make" command, or (2)&#160;prior to the "make" command (`env`) which is effectively the same as exporting the key&#8209;value pair as an environment variable (`export`, or `setenv`). Both methods can be mixed, however the second method may require to supply the `-e` flag. Please note that the CXX, CC, and FC keys are considered in any case.
