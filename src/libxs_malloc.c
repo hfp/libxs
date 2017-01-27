@@ -931,9 +931,10 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
 }
 
 
-LIBXS_API_DEFINITION void libxs_release_scratch(void)
+LIBXS_API_DEFINITION void libxs_release_scratch(size_t* npending)
 {
   /* TODO: to be implemented */
+  LIBXS_UNUSED(npending);
 }
 
 
