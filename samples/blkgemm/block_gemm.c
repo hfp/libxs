@@ -62,9 +62,9 @@ typedef struct libxs_blkgemm_handle {
   libxs_smmfunction kernel;
 } libxs_blkgemm_handle;
 
-void libxs_blksgemm_init_a( libxs_blkgemm_handle* handle,
-                              real* libxs_mat_dst,
-                              real* colmaj_mat_src ) {
+LIBXS_INLINE void libxs_blksgemm_init_a( libxs_blkgemm_handle* handle,
+                                             real* libxs_mat_dst,
+                                             real* colmaj_mat_src ) {
   LIBXS_VLA_DECL(4, real, dst, libxs_mat_dst, handle->mb, handle->bk, handle->bm);
   LIBXS_VLA_DECL(2, const real, src, colmaj_mat_src, handle->m);
   int mb, kb, bm, bk;
@@ -81,9 +81,9 @@ void libxs_blksgemm_init_a( libxs_blkgemm_handle* handle,
   }
 }
 
-void libxs_blksgemm_init_b( libxs_blkgemm_handle* handle,
-                              real* libxs_mat_dst,
-                              real* colmaj_mat_src ) {
+LIBXS_INLINE void libxs_blksgemm_init_b( libxs_blkgemm_handle* handle,
+                                             real* libxs_mat_dst,
+                                             real* colmaj_mat_src ) {
   LIBXS_VLA_DECL(4, real, dst, libxs_mat_dst, handle->kb, handle->bn, handle->bk);
   LIBXS_VLA_DECL(2, const real, src, colmaj_mat_src, handle->k);
   int kb, nb, bk, bn;
@@ -100,9 +100,9 @@ void libxs_blksgemm_init_b( libxs_blkgemm_handle* handle,
   }
 }
 
-void libxs_blksgemm_init_c( libxs_blkgemm_handle* handle,
-                              real* libxs_mat_dst,
-                              real* colmaj_mat_src ) {
+LIBXS_INLINE void libxs_blksgemm_init_c( libxs_blkgemm_handle* handle,
+                                             real* libxs_mat_dst,
+                                             real* colmaj_mat_src ) {
   LIBXS_VLA_DECL(4, real, dst, libxs_mat_dst, handle->mb, handle->bn, handle->bm);
   LIBXS_VLA_DECL(2, const real, src, colmaj_mat_src, handle->m);
   int mb, nb, bm, bn;
@@ -119,9 +119,9 @@ void libxs_blksgemm_init_c( libxs_blkgemm_handle* handle,
   }
 }
 
-void libxs_blksgemm_check_c( libxs_blkgemm_handle* handle,
-                               real* libxs_mat_dst,
-                               real* colmaj_mat_src ) {
+LIBXS_INLINE void libxs_blksgemm_check_c( libxs_blkgemm_handle* handle,
+                                              real* libxs_mat_dst,
+                                              real* colmaj_mat_src ) {
   LIBXS_VLA_DECL(4, real, dst, libxs_mat_dst, handle->mb, handle->bn, handle->bm);
   LIBXS_VLA_DECL(2, const real, src, colmaj_mat_src, handle->m);
   int mb, nb, bm, bn;
@@ -145,18 +145,17 @@ void libxs_blksgemm_check_c( libxs_blkgemm_handle* handle,
       }
     }
   }
-
   printf(" max error: %f, sum BLAS: %f, sum LIBXS: %f \n", max_error, src_norm, dst_norm );
 }
 
-void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
-                            const char transA,
-                            const char transB,
-                            const real* alpha,
-                            const real* a,
-                            const real* b,
-                            const real* beta,
-                            real* c ) {
+LIBXS_INLINE void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
+                                           const char transA,
+                                           const char transB,
+                                           const real* alpha,
+                                           const real* a,
+                                           const real* b,
+                                           const real* beta,
+                                           real* c ) {
   LIBXS_VLA_DECL(4, const real, a_t, a, handle->mb, handle->bk, handle->bm);
   LIBXS_VLA_DECL(4, const real, b_t, b, handle->kb, handle->bn, handle->bk);
   LIBXS_VLA_DECL(4,       real, c_t, c, handle->mb, handle->bn, handle->bm);
@@ -165,7 +164,11 @@ void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
   int nr = 8;
   int kr = 4;
 
-  if ( (*beta != (real)1.0) || (*alpha != (real)1.0) ) {
+  /* TODO: take transpose into account */
+  LIBXS_UNUSED(transA);
+  LIBXS_UNUSED(transB);
+
+  if ( !(LIBXS_FEQ(*beta, (real)1.0) && LIBXS_FEQ(*alpha, (real)1.0)) ) {
     printf(" alpha and beta need to be 1.0\n" );
     exit(-1);
   }

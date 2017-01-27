@@ -221,7 +221,7 @@ LIBXS_INLINE void naive_conv_int8(naive_conv_t* param, const unsigned char* inpu
               if(ij+kj < 0 || ij+kj >= ifh) continue;
               for (ki = 0; ki < kw; ++ki) {
                 if(ii+ki < 0 || ii+ki >= ifw) continue;
-                LIBXS_VLA_ACCESS(  4, output_itm_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) += (short)
+                LIBXS_VLA_ACCESS(  4,  output_itm_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) += (short)
                   LIBXS_VLA_ACCESS(4,  input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp)
                 * LIBXS_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw);
               }
@@ -433,7 +433,7 @@ int main(int argc, char* argv[])
   conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
   conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-  conv_desc.options = LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED | LIBXS_DNN_CONV_OPTION_16BIT_ACC;
+  conv_desc.options = LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED_16BIT_ACC;
   conv_desc.datatype = LIBXS_DNN_DATATYPE_I8;
 
   libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
