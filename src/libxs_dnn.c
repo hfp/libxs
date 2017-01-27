@@ -113,7 +113,7 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
     case LIBXS_DNN_ERR_UNSUPPORTED_ARCH:
       return "LIBXS DNN Error: Unsupported architecture!";
     case LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED:
-      return "LIBXS DNN Error: scratch binding failed sas scratch was not allocated!";
+      return "LIBXS DNN Error: scratch binding failed as scratch was not allocated!";
     case LIBXS_DNN_ERR_UNKNOWN_BUFFER_TYPE:
       return "LIBXS DNN Error: an unknown buffer type was provided!";
     case LIBXS_DNN_ERR_UNKNOWN_FILTER_TYPE:
