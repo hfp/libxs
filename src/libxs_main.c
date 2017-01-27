@@ -456,9 +456,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_finalize(void)
     }
   }
   {
+    size_t n = 0;
+    /* release scratch memory pool */
+    libxs_release_scratch(&n);
+    if (0 < n && 0 != libxs_verbosity) { /* library code is expected to be mute */
+      fprintf(stderr, "LIBXS: pending scratch-memory allocations discovered!\n");
+    }
 #if !defined(LIBXS_NO_SYNC) /* release locks */
-    int i;
-    for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_DESTROY(internal_reglock + i);
+    for (n = 0; n < INTERNAL_REGLOCK_COUNT; ++n) LIBXS_LOCK_DESTROY(internal_reglock + n);
     LIBXS_LOCK_DESTROY(&libxs_lock_global);
 #endif
   }
@@ -662,7 +667,6 @@ void libxs_finalize(void);
 LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 {
   libxs_code_pointer* registry = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
-
   if (0 != registry) {
     int i;
 #if !defined(LIBXS_NO_SYNC)
@@ -735,6 +739,8 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
 #endif
   }
+  /* release scratch memory pool */
+  libxs_release_scratch(0);
 }
 
 
