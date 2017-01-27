@@ -848,8 +848,8 @@ int main(int argc, char* argv[])
     libxs_free(scratch);
     CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_OUTPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
@@ -1112,8 +1112,8 @@ int main(int argc, char* argv[])
     libxs_free(scratch);
     CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_OUTPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
@@ -1382,8 +1382,8 @@ int main(int argc, char* argv[])
     libxs_free(scratch);
     CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_OUTPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
