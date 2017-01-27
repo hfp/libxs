@@ -91,63 +91,65 @@ The main concept in LIBXS's frontend is that everything is circled around `libxs
 /** simplified LIBXS types which are needed to create a handle */
 /** Structure which describes the input and output of data (DNN). */
 typedef struct libxs_dnn_conv_desc {
-  int N;                                  /* number of images in mini-batch */
-  int C;                                  /* number of input feature maps */
-  int H;                                  /* height of input image */
-  int W;                                  /* width of input image */
-  int K;                                  /* number of output feature maps */
-  int R;                                  /* height of filter kernel */
-  int S;                                  /* width of filter kernel */
-  int u;                                  /* vertical stride */
-  int v;                                  /* horizontal stride */
-  int pad_h_in;                           /* height of physical zero-padding in input buffer, ignored */
-  int pad_w_in;                           /* width of physical zero-padding in input buffer, ignored */
-  int pad_h_out;                          /* height of physical zero-padding in output buffer */
-  int pad_w_out;                          /* width of pyhsical zero-padding in output buffer */
-  libxs_dnn_conv_algo algo;             /* convolution algorithm used */
-  libxs_dnn_conv_format buffer_format;  /* format which is for buffer buffers */
-  libxs_dnn_conv_format filter_format;  /* format which is for filter buffers */
-  libxs_dnn_conv_fuse_ops fuse_ops;     /* used ops into convolutions */
-  libxs_dnn_conv_option options;        /* additional options */
-  libxs_dnn_datatype datatype_in;       /* datatypes use for all buffers */
-  libxs_dnn_datatype datatype_ou;       /* datatypes use for all buffers */
+  int N;                                    /* number of images in mini-batch */
+  int C;                                    /* number of input feature maps */
+  int H;                                    /* height of input image */
+  int W;                                    /* width of input image */
+  int K;                                    /* number of output feature maps */
+  int R;                                    /* height of filter kernel */
+  int S;                                    /* width of filter kernel */
+  int u;                                    /* vertical stride */
+  int v;                                    /* horizontal stride */
+  int pad_h;                                /* height of logical rim padding to input for adjusting output height */
+  int pad_w;                                /* width of logical rim padding to input for adjusting output width */
+  int pad_h_in;                             /* height of zero-padding in input buffer, must equal to pad_h for direct conv */
+  int pad_w_in;                             /* width of zero-padding in input buffer, must equal to pad_w for direct conv */
+  int pad_h_out;                            /* height of zero-padding in output buffer */
+  int pad_w_out;                            /* width of zero-padding in output buffer */
+  int threads;                              /* number of threads to use when running convolution */
+  libxs_dnn_datatype datatype;            /* datatypes use for all input and outputs */
+  libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
+  libxs_dnn_tensor_format filter_format;  /* format which is for filter buffers */
+  libxs_dnn_conv_algo algo;               /* convolution algorithm used */
+  libxs_dnn_conv_option options;          /* additional options */
+  libxs_dnn_conv_fuse_op fuse_ops;        /* used ops into convolutions */
 } libxs_dnn_conv_desc;
 
 /** Type of algorithm used for convolutions. */
 typedef enum libxs_dnn_conv_algo {
+  /** let the library decide */
+  LIBXS_DNN_CONV_ALGO_AUTO,   /* ignored for now */
   /** direct convolution. */
   LIBXS_DNN_CONV_ALGO_DIRECT
 } libxs_dnn_conv_algo;
 
 /** Denotes the element/pixel type of an image/channel. */
-typedef enum libxs_dnn_conv_datatype {
-  LIBXS_DNN_DATATYPE_F32
+typedef enum libxs_dnn_datatype {
+  LIBXS_DNN_DATATYPE_F32,
+  LIBXS_DNN_DATATYPE_I32,
+  LIBXS_DNN_DATATYPE_I16,
+  LIBXS_DNN_DATATYPE_I8
 } libxs_dnn_datatype;
 
-libxs_dnn_conv_handle* libxs_dnn_create_conv_handle_check(
-  libxs_dnn_conv_desc   conv_desc,
-  libxs_dnn_datatype    conv_datatype,
-  libxs_dnn_conv_algo   conv_algo,
-  libxs_dnn_err_t*      status);
+libxs_dnn_layer* libxs_dnn_create_conv_layer(
+  libxs_dnn_conv_desc conv_desc, libxs_dnn_err_t* status);
+libxs_dnn_err_t libxs_dnn_destroy_conv_layer(
+  const libxs_dnn_layer* handle);
 ```
 
-Therefore, a sample call looks like:
+A sample call looks like (without error checks):
 ```C
-/** Macro to check for an error. */
-#define CHKERR_LIBXS_DNN(A) if (A != LIBXS_DNN_SUCCESS) \
-  fprintf(stderr, "%s\n", libxs_dnn_get_error(A));
 /* declare LIBXS variables */
 libxs_dnn_conv_desc conv_desc;
 libxs_dnn_err_t status;
-libxs_dnn_conv_handle* libxs_handle;
+libxs_dnn_layer* handle;
 /* setting conv_desc values.... */
 conv_desc.N = ...
 /* create handle */
-libxs_handle = libxs_dnn_create_conv_handle_check(conv_desc, &status);
-CHKERR_LIBXS_DNN(status);
+handle = libxs_dnn_create_conv_layer(conv_desc, &status);
 ```
 
-Next activation and filter buffers need to be created, initialized and bound to the handle. Afterwards the convolution could be executed by a threading environment of choice:
+Next activation and filter buffers need to be created, initialized and bound to the handle. Afterwards the convolution can be executed in a threading environment of choice (error checks are omitted for bravity):
 
 ```C
 libxs_dnn_buffer* libxs_input;
@@ -156,34 +158,31 @@ libxs_dnn_filter* libxs_filter;
 
 /* setup LIBXS layer information */
 libxs_input = libxs_dnn_create_input_buffer_check(libxs_handle, &status);
-CHKERR_LIBXS_DNN(status);
 libxs_output = libxs_dnn_create_output_buffer_check(libxs_handle, &status);
-CHKERR_LIBXS_DNN(status);
 libxs_filter = libxs_dnn_create_filter_check(libxs_handle, &status);
-CHKERR_LIBXS_DNN(status);
 
 /* copy in data to LIBXS format: naive format is: */
 /* (mini-batch)(number-featuremaps)(featuremap-height)(featuremap-width) for layers, */
 /* and the naive format for filters is: */
 /* (number-output-featuremaps)(number-input-featuremaps)(kernel-height)(kernel-width) */
-CHKERR_LIBXS_DNN(libxs_dnn_copyin_buffer(libxs_input, (void*)naive_input));
-CHKERR_LIBXS_DNN(libxs_dnn_zero_buffer(libxs_output));
-CHKERR_LIBXS_DNN(libxs_dnn_copyin_filter(libxs_filter, (void*)naive_filter));
+libxs_dnn_copyin_buffer(libxs_input, (void*)naive_input);
+libxs_dnn_zero_buffer(libxs_output);
+libxs_dnn_copyin_filter(libxs_filter, (void*)naive_filter);
 
 /* bind layer to handle */
-CHKERR_LIBXS_DNN(libxs_dnn_bind_input_buffer(libxs_handle, libxs_input));
-CHKERR_LIBXS_DNN(libxs_dnn_bind_output_buffer(libxs_handle, libxs_output));
-CHKERR_LIBXS_DNN(libxs_dnn_bind_filter(libxs_handle, libxs_filter));
+libxs_dnn_bind_input_buffer(libxs_handle, libxs_input);
+libxs_dnn_bind_output_buffer(libxs_handle, libxs_output);
+libxs_dnn_bind_filter(libxs_handle, libxs_filter);
 
 /* run the convolution */
 #pragma omp parallel
 {
-  CHKERR_LIBXS_DNN(libxs_dnn_convolve_st(libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0,
-    omp_get_thread_num(), omp_get_num_threads()));
+  libxs_dnn_convolve_st(libxs_handle, LIBXS_DNN_CONV_KIND_FWD, 0,
+    omp_get_thread_num(), omp_get_num_threads());
 }
 
 /* copy out data */
-CHKERR_LIBXS_DNN(libxs_dnn_copyout_buffer(libxs_output, (void*)naive_libxs_output));
+libxs_dnn_copyout_buffer(libxs_output, (void*)naive_libxs_output);
 ```
 
 ## Service Functions
