@@ -1290,6 +1290,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
 
   if (scratch == 0) {
     status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
+    if ( (kind == LIBXS_DNN_COMPUTE_KIND_FWD) && (handle->datatype == handle->datatype_itm) ) {
+      status = LIBXS_DNN_SUCCESS;
+    }
     return status;
   }
 
