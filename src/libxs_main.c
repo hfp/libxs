@@ -362,9 +362,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_statistic_ntry(int precisi
 }
 
 
-LIBXS_INTERNAL_API void internal_register_static_code(const libxs_gemm_descriptor*,
+LIBXS_API void internal_register_static_code(const libxs_gemm_descriptor*,
   unsigned int, unsigned int, libxs_xmmfunction, libxs_code_pointer*);
-LIBXS_INTERNAL_API_DEFINITION void internal_register_static_code(const libxs_gemm_descriptor* desc,
+LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descriptor* desc,
   unsigned int index, unsigned int hash, libxs_xmmfunction src, libxs_code_pointer* registry)
 {
   internal_regkey_type* dst_key = internal_registry_keys + index;
@@ -797,8 +797,8 @@ LIBXS_API_DEFINITION const char* libxs_get_target_arch(void)
 
 
 /* function serves as a helper for implementing the Fortran interface */
-LIBXS_INTERNAL_API const char* get_target_arch(int* length);
-LIBXS_INTERNAL_API_DEFINITION const char* get_target_arch(int* length)
+LIBXS_API const char* get_target_arch(int* length);
+LIBXS_API_DEFINITION const char* get_target_arch(int* length)
 {
   const char *const arch = libxs_get_target_arch();
   /* valid here since function is not in the public interface */
@@ -908,8 +908,8 @@ LIBXS_API_DEFINITION void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type 
 }
 
 
-LIBXS_INTERNAL_API const char* internal_get_precision_string(libxs_dnn_datatype);
-LIBXS_INTERNAL_API_DEFINITION const char* internal_get_precision_string(libxs_dnn_datatype datatype)
+LIBXS_API const char* internal_get_precision_string(libxs_dnn_datatype);
+LIBXS_API_DEFINITION const char* internal_get_precision_string(libxs_dnn_datatype datatype)
 {
   const char* result = "unk"; /* unknown */
   switch (datatype) {
@@ -1173,8 +1173,8 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
 
 
 /** This function only works for JIT-generated code! */
-LIBXS_INTERNAL_API const libxs_gemm_descriptor* internal_get_gemm_descriptor(const void* gemm_jit);
-LIBXS_INTERNAL_API_DEFINITION const libxs_gemm_descriptor* internal_get_gemm_descriptor(const void* gemm_jit)
+LIBXS_API const libxs_gemm_descriptor* internal_get_gemm_descriptor(const void* gemm_jit);
+LIBXS_API_DEFINITION const libxs_gemm_descriptor* internal_get_gemm_descriptor(const void* gemm_jit)
 {
   const libxs_gemm_descriptor* result = 0;
   void* extra = 0;
