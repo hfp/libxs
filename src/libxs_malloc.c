@@ -684,56 +684,68 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
   static int error_once = 0;
   if (0 != info) {
     void *const buffer = info->pointer;
-    assert((0 != buffer || 0 == info->size));
-    if (0 == (LIBXS_MALLOC_FLAG_MMAP & info->flags)) {
-      if (0 != info->free.function) {
-        if (0 == info->context) {
-          info->free.function(buffer);
-        }
-        else {
-          info->free.ctx_form(info->context, buffer);
+#if !defined(LIBXS_BUILD) /* sanity check */
+    if (0 != buffer || 0 == info->size)
+#endif
+    {
+      assert(0 != buffer || 0 == info->size);
+      if (0 == (LIBXS_MALLOC_FLAG_MMAP & info->flags)) {
+        if (0 != info->free.function) {
+          if (0 == info->context) {
+            info->free.function(buffer);
+          }
+          else {
+            info->free.ctx_form(info->context, buffer);
+          }
         }
       }
-    }
-    else {
+      else {
 #if defined(LIBXS_VTUNE)
-      if (0 != (LIBXS_MALLOC_FLAG_X & info->flags) && 0 != info->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
-        iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &info->code_id);
-      }
+        if (0 != (LIBXS_MALLOC_FLAG_X & info->flags) && 0 != info->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
+          iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &info->code_id);
+        }
 #endif
 #if defined(_WIN32)
-      result = (0 == buffer || FALSE != VirtualFree(buffer, 0, MEM_RELEASE)) ? EXIT_SUCCESS : EXIT_FAILURE;
+        result = (0 == buffer || FALSE != VirtualFree(buffer, 0, MEM_RELEASE)) ? EXIT_SUCCESS : EXIT_FAILURE;
 #else /* defined(_WIN32) */
-      {
-        const size_t alloc_size = info->size + (((const char*)memory) - ((const char*)buffer));
-        void *const reloc = info->reloc;
-        const int flags = info->flags;
-        if (0 != munmap(buffer, alloc_size)) {
-          if (0 != libxs_verbosity /* library code is expected to be mute */
-           && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-          {
-            const char *const error_message = strerror(errno);
-            fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
-              error_message, errno, buffer, (unsigned long long)alloc_size);
-          }
-          result = EXIT_FAILURE;
-        }
-        if (0 != (LIBXS_MALLOC_FLAG_X & flags) && EXIT_SUCCESS == result
-         && 0 != reloc && MAP_FAILED != reloc && buffer != reloc
-         && 0 != munmap(reloc, alloc_size))
         {
-          if (0 != libxs_verbosity /* library code is expected to be mute */
-           && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-          {
-            const char *const error_message = strerror(errno);
-            fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
-              error_message, errno, reloc, (unsigned long long)alloc_size);
+          const size_t alloc_size = info->size + (((const char*)memory) - ((const char*)buffer));
+          void *const reloc = info->reloc;
+          const int flags = info->flags;
+          if (0 != munmap(buffer, alloc_size)) {
+            if (0 != libxs_verbosity /* library code is expected to be mute */
+             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+            {
+              const char *const error_message = strerror(errno);
+              fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
+                error_message, errno, buffer, (unsigned long long)alloc_size);
+            }
+            result = EXIT_FAILURE;
           }
-          result = EXIT_FAILURE;
+          if (0 != (LIBXS_MALLOC_FLAG_X & flags) && EXIT_SUCCESS == result
+           && 0 != reloc && MAP_FAILED != reloc && buffer != reloc
+           && 0 != munmap(reloc, alloc_size))
+          {
+            if (0 != libxs_verbosity /* library code is expected to be mute */
+             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+            {
+              const char *const error_message = strerror(errno);
+              fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
+                error_message, errno, reloc, (unsigned long long)alloc_size);
+            }
+            result = EXIT_FAILURE;
+          }
         }
-      }
 #endif
+      }
     }
+#if !defined(LIBXS_BUILD)
+    else if ((0 > libxs_verbosity || 1 < libxs_verbosity) /* library code is expected to be mute */
+     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS: attempt to release memory from non-matching implementation!\n");
+    }
+#endif
   }
   else if (0 != memory) {
 #if !defined(LIBXS_MALLOC_NOCRC)
