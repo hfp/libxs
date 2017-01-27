@@ -28,9 +28,7 @@
 ******************************************************************************/
 
 /* NOTE: This code currently ignores alpha input to the matrix multiply */
-#include <libxs_spmdm.h>
 #include <libxs.h>
-#include <libxs_intrinsics_x86.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -51,9 +49,10 @@ typedef uint16_t real;
 typedef float real;
 #endif
 
-void libxs_spmdm_check_c( const libxs_spmdm_handle* handle,
-                               float* test,
-                               float* gold) {
+LIBXS_INLINE
+void spmdm_check_c( const libxs_spmdm_handle* handle,
+                    float* test,
+                    float* gold) {
   double max_error = 0.0;
   double src_norm = 0.0;
   double dst_norm = 0.0;
@@ -74,17 +73,17 @@ void libxs_spmdm_check_c( const libxs_spmdm_handle* handle,
   printf(" max error: %f, sum BLAS: %f, sum LIBXS: %f \n", max_error, src_norm, dst_norm );
 }
 
-void libxs_spmdm_exec_fp32( const libxs_spmdm_handle* handle,
-                            const char transA,
-                            const char transB,
-                            const float* alpha,
-                            const float* A,
-                            const float* B,
-                            const char transC,
-                            const float* beta,
-                            float* C,
-                            libxs_CSR_sparseslice* A_sparse) {
-
+LIBXS_INLINE
+void spmdm_exec_fp32( const libxs_spmdm_handle* handle,
+                      const char transA,
+                      const char transB,
+                      const float* alpha,
+                      const float* A,
+                      const float* B,
+                      const char transC,
+                      const float* beta,
+                      float* C,
+                      libxs_CSR_sparseslice* A_sparse) {
   int num_createSparseSlice_blocks = libxs_spmdm_get_num_createSparseSlice_blocks(handle);
   int num_compute_blocks = libxs_spmdm_get_num_compute_blocks(handle);
 
@@ -115,18 +114,17 @@ void libxs_spmdm_exec_fp32( const libxs_spmdm_handle* handle,
   }
 }
 
-void libxs_spmdm_exec_bfloat16( const libxs_spmdm_handle* handle,
-                            const char transA,
-                            const char transB,
-                            const uint16_t* alpha,
-                            const uint16_t* A,
-                            const uint16_t* B,
-                            const char transC,
-                            const uint16_t* beta,
-                            float* C,
-                            libxs_CSR_sparseslice* A_sparse
-				) {
-
+LIBXS_INLINE
+void spmdm_exec_bfloat16( const libxs_spmdm_handle* handle,
+                          const char transA,
+                          const char transB,
+                          const uint16_t* alpha,
+                          const uint16_t* A,
+                          const uint16_t* B,
+                          const char transC,
+                          const uint16_t* beta,
+                          float* C,
+                          libxs_CSR_sparseslice* A_sparse) {
   int num_createSparseSlice_blocks = libxs_spmdm_get_num_createSparseSlice_blocks(handle);
   int num_compute_blocks = libxs_spmdm_get_num_compute_blocks(handle);
 
@@ -168,7 +166,7 @@ int main(int argc, char **argv)
 
   /* Step 1: Read in args */
   unsigned long long start, end;
-  double flops;
+  double flops, duration;
   char transA, transB, transC;
   int i, j, k;
 
@@ -234,7 +232,7 @@ int main(int argc, char **argv)
     B_gold[l] = val;
   }
   for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
-    C0_gold[l] = drand48();
+    C0_gold[l] = (float)drand48();
     C_gold[l] = C0_gold[l];
   }
   for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
@@ -256,16 +254,16 @@ int main(int argc, char **argv)
   start = libxs_timer_tick();
   libxs_spmdm_init(M, N, K, max_threads, &handle, &A_sparse);
   end = libxs_timer_tick();
-  printf("Time for handle init = %lf\n", libxs_timer_duration(start, end));
+  printf("Time for handle init = %f\n", libxs_timer_duration(start, end));
 
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i -- forward pass\n", M, N, K, handle.bm, handle.bn, handle.bk, handle.mb, handle.nb, handle.kb, reps );
   /* The overall function that takes in matrix inputs in dense format, does the conversion of A to sparse format and does the matrix multiply */
   /* Currently ignores alpha */
   /* TODO: fix alpha input */
 # ifdef USE_BFLOAT
-  libxs_spmdm_exec_bfloat16( &handle, transA, transB, &alpha, A_gold, B_gold, transC, &beta, C, A_sparse);
+  spmdm_exec_bfloat16( &handle, transA, transB, &alpha, A_gold, B_gold, transC, &beta, C, A_sparse);
 # else
-  libxs_spmdm_exec_fp32( &handle, transA, transB, &alpha, A_gold, B_gold, transC, &beta, C, A_sparse);
+  spmdm_exec_fp32( &handle, transA, transB, &alpha, A_gold, B_gold, transC, &beta, C, A_sparse);
 # endif
 
   /* Checks */
@@ -296,19 +294,20 @@ int main(int argc, char **argv)
   }
   /* LIBXS_FSYMBOL(sgemm)(&trans, &trans, &N, &M, &K, &alpha, B_gold, &N, A_gold, &K, &beta, C_gold, &N); */
   /* Compute the max difference between gold and computed results. */
-  libxs_spmdm_check_c( &handle, C, C_gold );
+  spmdm_check_c( &handle, C, C_gold );
 
   /* Timing loop starts */
   start = libxs_timer_tick();
   for( i = 0; i < reps; i++) {
 #   ifdef USE_BFLOAT
-    libxs_spmdm_exec_bfloat16( &handle, transA, transB, &alpha, A_gold, B_gold, transC, &beta, C, A_sparse);
+    spmdm_exec_bfloat16( &handle, transA, transB, &alpha, A_gold, B_gold, transC, &beta, C, A_sparse);
 #   else
-    libxs_spmdm_exec_fp32( &handle, transA, transB, &alpha, A_gold, B_gold, transC, &beta, C, A_sparse);
+    spmdm_exec_fp32( &handle, transA, transB, &alpha, A_gold, B_gold, transC, &beta, C, A_sparse);
 #   endif
   }
   end = libxs_timer_tick();
-  printf("Time = %lf Time/rep = %lf, TFlops/s = %lf\n", libxs_timer_duration(start, end), libxs_timer_duration(start, end)*1.0/reps, flops/1000./1000./1000./1000./libxs_timer_duration(start, end)*reps);
+  duration = libxs_timer_duration(start, end);
+  printf("Time = %f Time/rep = %f, TFlops/s = %f\n", duration, duration*1.0/reps, flops/1000./1000./1000./1000./duration*reps);
   libxs_spmdm_destroy(&handle);
 
   /*----------------------------------------------------------------------------------------------------------------------*/
@@ -335,9 +334,9 @@ int main(int argc, char **argv)
   /* Currently ignores alpha */
   /* TODO: fix alpha inputs */
 # ifdef USE_BFLOAT
-  libxs_spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
+  spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
 # else
-  libxs_spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
+  spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
 # endif
 
   for(i = 0; i < M; i++) {
@@ -346,19 +345,20 @@ int main(int argc, char **argv)
     }
   }
   /* Checks */
-  libxs_spmdm_check_c( &handle2, C2, C_gold);
+  spmdm_check_c( &handle2, C2, C_gold);
 
   /* Timing loop starts */
   start = libxs_timer_tick();
   for( i = 0; i < reps; i++) {
 #   ifdef USE_BFLOAT
-    libxs_spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
+    spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
 #   else
-    libxs_spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
+    spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
 #   endif
   }
   end = libxs_timer_tick();
-  printf("Time = %lf Time/rep = %lf, TFlops/s = %lf\n", libxs_timer_duration(start, end), libxs_timer_duration(start, end)*1.0/reps, flops/1000./1000./1000./1000./libxs_timer_duration(start, end)*reps);
+  duration = libxs_timer_duration(start, end);
+  printf("Time = %f Time/rep = %f, TFlops/s = %f\n", duration, duration*1.0/reps, flops/1000./1000./1000./1000./duration*reps);
 
   /*----------------------------------------------------------------------------------------------------------------------*/
   /* Step 6: Test transpose B  */
@@ -378,25 +378,26 @@ int main(int argc, char **argv)
   /* Currently ignores alpha */
   /* TODO: fix alpha inputs */
 # ifdef USE_BFLOAT
-  libxs_spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold, B_gold2, transC, &beta, C, A_sparse2);
+  spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold, B_gold2, transC, &beta, C, A_sparse2);
 # else
-  libxs_spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold, B_gold2, transC, &beta, C, A_sparse2);
+  spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold, B_gold2, transC, &beta, C, A_sparse2);
 # endif
 
   /* Checks */
-  libxs_spmdm_check_c( &handle2, C, C_gold);
+  spmdm_check_c( &handle2, C, C_gold);
 
   /* Timing loop starts */
   start = libxs_timer_tick();
   for( i = 0; i < reps; i++) {
 #   ifdef USE_BFLOAT
-    libxs_spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold, B_gold2, transC, &beta, C, A_sparse2);
+    spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold, B_gold2, transC, &beta, C, A_sparse2);
 #   else
-    libxs_spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold, B_gold2, transC, &beta, C, A_sparse2);
+    spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold, B_gold2, transC, &beta, C, A_sparse2);
 #   endif
   }
   end = libxs_timer_tick();
-  printf("Time = %lf Time/rep = %lf, TFlops/s = %lf\n", libxs_timer_duration(start, end), libxs_timer_duration(start, end)*1.0/reps, flops/1000./1000./1000./1000./libxs_timer_duration(start, end)*reps);
+  duration = libxs_timer_duration(start, end);
+  printf("Time = %f Time/rep = %f, TFlops/s = %f\n", duration, duration*1.0/reps, flops/1000./1000./1000./1000./duration*reps);
   libxs_spmdm_destroy(&handle2);
 
   libxs_free(A_gold);
