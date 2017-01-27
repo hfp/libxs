@@ -149,30 +149,39 @@ conv_desc.N = ...
 handle = libxs_dnn_create_conv_layer(conv_desc, &status);
 ```
 
-Next activation and filter buffers need to be created, initialized and bound to the handle. Afterwards the convolution can be executed in a threading environment of choice (error checks are omitted for brevity):
+Next activation and filter buffers need to be linked, initialized and bound to the handle. Afterwards the convolution can be executed in a threading environment of choice (error checks are omitted for brevity):
 
 ```C
-libxs_dnn_buffer* libxs_input;
-libxs_dnn_buffer* libxs_output;
-libxs_dnn_filter* libxs_filter;
+float *input, *output, *filter;
+libxs_dnn_buffer* libxs_reg_input;
+libxs_dnn_buffer* libxs_reg_output;
+libxs_dnn_filter* libxs_reg_filter;
 
-/* setup LIBXS layer information */
-libxs_input = libxs_dnn_create_input_buffer_check(libxs_handle, &status);
-libxs_output = libxs_dnn_create_output_buffer_check(libxs_handle, &status);
-libxs_filter = libxs_dnn_create_filter_check(libxs_handle, &status);
+/* allocate data */
+input = (float*)libxs_aligned_malloc(...);
+output = ...;
+
+/* link data to buffers */
+libxs_reg_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+libxs_reg_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+libxs_reg_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
 
 /* copy in data to LIBXS format: naive format is: */
 /* (mini-batch)(number-featuremaps)(featuremap-height)(featuremap-width) for layers, */
 /* and the naive format for filters is: */
 /* (number-output-featuremaps)(number-input-featuremaps)(kernel-height)(kernel-width) */
-libxs_dnn_copyin_buffer(libxs_input, (void*)naive_input);
-libxs_dnn_zero_buffer(libxs_output);
-libxs_dnn_copyin_filter(libxs_filter, (void*)naive_filter);
+libxs_dnn_copyin_buffer(libxs_reg_input, (void*)naive_input, LIBXS_DNN_TENSOR_FORMAT_NCHW);
+libxs_dnn_zero_buffer(libxs_reg_output);
+libxs_dnn_copyin_filter(libxs_reg_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS);
 
 /* bind layer to handle */
-libxs_dnn_bind_input_buffer(libxs_handle, libxs_input);
-libxs_dnn_bind_output_buffer(libxs_handle, libxs_output);
-libxs_dnn_bind_filter(libxs_handle, libxs_filter);
+libxs_dnn_bind_input_buffer(libxs_handle, libxs_reg_input, LIBXS_DNN_REGULAR_INPUT);
+libxs_dnn_bind_output_buffer(libxs_handle, libxs_reg_output, LIBXS_DNN_REGULAR_OUTPUT);
+libxs_dnn_bind_filter(libxs_handle, libxs_reg_filter, LIBXS_DNN_REGULAR_FILTER);
+
+/* let's allocate and bind scratch */
+scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, &status ), 2097152);
+libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, scratch );
 
 /* run the convolution */
 #pragma omp parallel
@@ -182,7 +191,15 @@ libxs_dnn_bind_filter(libxs_handle, libxs_filter);
 }
 
 /* copy out data */
-libxs_dnn_copyout_buffer(libxs_output, (void*)naive_libxs_output);
+libxs_dnn_copyout_buffer(libxs_output, (void*)naive_libxs_output,  LIBXS_DNN_TENSOR_FORMAT_NCHW );
+
+/* clean up */
+libxs_dnn_release_scratch(...);
+libxs_dnn_release_buffer(...);
+...
+libxs_dnn_destroy_buffer(...);
+...
+libxs_dnn_destroy_conv_layer(...);
 ```
 
 ## Service Functions
