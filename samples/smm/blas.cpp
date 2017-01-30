@@ -160,6 +160,7 @@ int main(int argc, char* argv[])
       { // batched
         fprintf(stdout, "Batched (A,B,C)...\n");
         const unsigned long long start = libxs_timer_tick();
+        unsigned long long x = libxs_timer_xtick();
 #if defined(_OPENMP)
 #       pragma omp parallel for
 #endif
@@ -169,8 +170,10 @@ int main(int argc, char* argv[])
             LIBXS_ALPHA, a + i * asize, LIBXS_LD(m, k), b + i * bsize, LIBXS_LD(k, n),
             LIBXS_BETA, c + i * csize, LIBXS_LD(m, n));
         }
+        x = std::max(libxs_timer_xtick(), x) - x;
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
-        if (0 < duration) {
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
         }
@@ -198,11 +201,14 @@ int main(int argc, char* argv[])
         // reset the destination after warm-up
         for (int i = 0; i < s; ++i) c_array[i] = d + i * csize;
         const unsigned long long start = libxs_timer_tick();
+        unsigned long long x = libxs_timer_xtick();
         LIBXS_TPREFIX(REAL_TYPE,gemm_batch)(transa_array, transb_array, &m, &n, &k,
           alpha_array, &a_array[0], &m, &b_array[0], &k,
            beta_array, &c_array[0], &m, &group_count, &s);
+        x = std::max(libxs_timer_xtick(), x) - x;
         const double duration = libxs_timer_duration(start, libxs_timer_tick());
-        if (0 < duration) {
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
         }
@@ -226,6 +232,7 @@ int main(int argc, char* argv[])
         { // streaming A and B
           fprintf(stdout, "Streamed (A,B)...\n");
           const unsigned long long start = libxs_timer_tick();
+          unsigned long long x = libxs_timer_xtick();
 #if defined(_OPENMP)
 #         pragma omp parallel for
 #endif
@@ -239,8 +246,10 @@ int main(int argc, char* argv[])
               LIBXS_ALPHA, a + i * asize, LIBXS_LD(m, k), b + i * bsize, LIBXS_LD(k, n),
               LIBXS_BETA, tmp, LIBXS_LD(m, n));
           }
+          x = std::max(libxs_timer_xtick(), x) - x;
           const double duration = libxs_timer_duration(start, libxs_timer_tick());
-          if (0 < duration) {
+          if (0 < duration && 0 != x) {
+            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
             fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
             fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
           }
@@ -250,6 +259,7 @@ int main(int argc, char* argv[])
         { // streaming A and C
           fprintf(stdout, "Streamed (A,C)...\n");
           const unsigned long long start = libxs_timer_tick();
+          unsigned long long x = libxs_timer_xtick();
 #if defined(_OPENMP)
 #         pragma omp parallel for
 #endif
@@ -259,8 +269,10 @@ int main(int argc, char* argv[])
               LIBXS_ALPHA, a + i * asize, LIBXS_LD(m, k), b, LIBXS_LD(k, n),
               LIBXS_BETA, c + i * csize, LIBXS_LD(m, n));
           }
+          x = std::max(libxs_timer_xtick(), x) - x;
           const double duration = libxs_timer_duration(start, libxs_timer_tick());
-          if (0 < duration) {
+          if (0 < duration && 0 != x) {
+            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
             fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
             fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
           }
@@ -270,6 +282,7 @@ int main(int argc, char* argv[])
         { // streaming B and C
           fprintf(stdout, "Streamed (B,C)...\n");
           const unsigned long long start = libxs_timer_tick();
+          unsigned long long x = libxs_timer_xtick();
 #if defined(_OPENMP)
 #         pragma omp parallel for
 #endif
@@ -279,8 +292,10 @@ int main(int argc, char* argv[])
               LIBXS_ALPHA, a, LIBXS_LD(m, k), b + i * bsize, LIBXS_LD(k, n),
               LIBXS_BETA, c + i * csize, LIBXS_LD(m, n));
           }
+          x = std::max(libxs_timer_xtick(), x) - x;
           const double duration = libxs_timer_duration(start, libxs_timer_tick());
-          if (0 < duration) {
+          if (0 < duration && 0 != x) {
+            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
             fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
             fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
           }
@@ -290,6 +305,7 @@ int main(int argc, char* argv[])
         { // cached
           fprintf(stdout, "Cached...\n");
           const unsigned long long start = libxs_timer_tick();
+          unsigned long long x = libxs_timer_xtick();
 #if defined(_OPENMP)
 #         pragma omp parallel for
 #endif
@@ -303,8 +319,10 @@ int main(int argc, char* argv[])
               LIBXS_ALPHA, a, LIBXS_LD(m, k), b, LIBXS_LD(k, n),
               LIBXS_BETA, tmp, LIBXS_LD(m, n));
           }
+          x = std::max(libxs_timer_xtick(), x) - x;
           const double duration = libxs_timer_duration(start, libxs_timer_tick());
-          if (0 < duration) {
+          if (0 < duration && 0 != x) {
+            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
             fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
           }
           fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
