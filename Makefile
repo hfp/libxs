@@ -234,6 +234,7 @@ HEADERS = $(shell ls -1 $(SRCDIR)/template/*.c 2> /dev/null | tr "\n" " ") \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \
           $(ROOTDIR)/include/libxs_frontend.h \
+          $(ROOTDIR)/include/libxs_fsspmdm.h \
           $(ROOTDIR)/include/libxs_generator.h \
           $(ROOTDIR)/include/libxs_intrinsics_x86.h \
           $(ROOTDIR)/include/libxs_macros.h \
@@ -245,7 +246,7 @@ HEADERS = $(shell ls -1 $(SRCDIR)/template/*.c 2> /dev/null | tr "\n" " ") \
 SRCFILES_LIB = $(patsubst %,$(SRCDIR)/%, \
           libxs_main.c libxs_cpuid_x86.c libxs_malloc.c \
           libxs_sync.c libxs_dump.c libxs_timer.c libxs_perf.c \
-          libxs_gemm.c libxs_trans.c libxs_spmdm.c \
+          libxs_gemm.c libxs_trans.c libxs_spmdm.c libxs_fsspmdm.c \
           libxs_dnn.c libxs_dnn_handle.c \
           libxs_dnn_convolution_forward.c \
           libxs_dnn_convolution_backward.c \
