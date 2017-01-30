@@ -109,8 +109,13 @@
 #define LIBXS_EQUAL_floatdouble(R)
 
 /** Check ILP64 configuration for sanity. */
-#if (defined(MKL_ILP64) && 0 == LIBXS_ILP64)
+#if !defined(LIBXS_ILP64) || (defined(MKL_ILP64) && 0 == LIBXS_ILP64)
 # error "Inconsistent ILP64 configuration detected!"
+#endif
+#if (0 != LIBXS_ILP64)
+# define LIBXS_BLASINT long long
+#else /* LP64 */
+# define LIBXS_BLASINT int
 #endif
 
 /** MKL_DIRECT_CALL requires to include the MKL interface. */
@@ -126,27 +131,15 @@
 #   include <mkl.h>
 # endif
 #endif
-#if (0 != LIBXS_ILP64)
-/** Fallback prototype functions served by any compliant LAPACK/BLAS (ILP64). */
+/** Fallback prototype functions served by any compliant LAPACK/BLAS. */
 typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
-  const char*, const char*, const long long*, const long long*, const long long*,
-  const float*, const float*, const long long*, const float*, const long long*,
-  const float*, float*, const long long*);
+  const char*, const char*, const LIBXS_BLASINT*, const LIBXS_BLASINT*, const LIBXS_BLASINT*,
+  const float*, const float*, const LIBXS_BLASINT*, const float*, const LIBXS_BLASINT*,
+  const float*, float*, const LIBXS_BLASINT*);
 typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
-  const char*, const char*, const long long*, const long long*, const long long*,
-  const double*, const double*, const long long*, const double*, const long long*,
-  const double*, double*, const long long*);
-# else /*LP64*/
-/** Fallback prototype functions served by any compliant LAPACK/BLAS (LP64). */
-typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
-  const char*, const char*, const int*, const int*, const int*,
-  const float*, const float*, const int*, const float*, const int*,
-  const float*, float*, const int*);
-typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
-  const char*, const char*, const int*, const int*, const int*,
-  const double*, const double*, const int*, const double*, const int*,
-  const double*, double*, const int*);
-#endif
+  const char*, const char*, const LIBXS_BLASINT*, const LIBXS_BLASINT*, const LIBXS_BLASINT*,
+  const double*, const double*, const LIBXS_BLASINT*, const double*, const LIBXS_BLASINT*,
+  const double*, double*, const LIBXS_BLASINT*);
 
 #if defined(LIBXS_BUILD_EXT)
 # define LIBXS_WEAK
@@ -195,12 +188,12 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
     const char libxs_blas_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
     const char libxs_blas_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
     const TYPE libxs_blas_xgemm_alpha_ = (TYPE)(ALPHA), libxs_blas_xgemm_beta_ = (TYPE)(BETA); \
-    const libxs_blasint libxs_blas_xgemm_lda_ = (libxs_blasint)LIBXS_MAX2(LIBXS_LD(LDA, LDB), LIBXS_LD(MM, NN)); \
-    const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)LIBXS_MAX2(LIBXS_LD(LDB, LDA), KK); \
-    const libxs_blasint libxs_blas_xgemm_ldc_ = (libxs_blasint)LIBXS_MAX2(LDC, LIBXS_LD(MM, NN)); \
-    const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)LIBXS_LD(MM, NN); \
-    const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)LIBXS_LD(NN, MM); \
-    const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(KK); \
+    const LIBXS_BLASINT libxs_blas_xgemm_lda_ = (LIBXS_BLASINT)LIBXS_MAX2(LIBXS_LD(LDA, LDB), LIBXS_LD(MM, NN)); \
+    const LIBXS_BLASINT libxs_blas_xgemm_ldb_ = (LIBXS_BLASINT)LIBXS_MAX2(LIBXS_LD(LDB, LDA), KK); \
+    const LIBXS_BLASINT libxs_blas_xgemm_ldc_ = (LIBXS_BLASINT)LIBXS_MAX2(LDC, LIBXS_LD(MM, NN)); \
+    const LIBXS_BLASINT libxs_blas_xgemm_m_ = (LIBXS_BLASINT)LIBXS_LD(MM, NN); \
+    const LIBXS_BLASINT libxs_blas_xgemm_n_ = (LIBXS_BLASINT)LIBXS_LD(NN, MM); \
+    const LIBXS_BLASINT libxs_blas_xgemm_k_ = (LIBXS_BLASINT)(KK); \
     assert(0 != ((uintptr_t)LIBXS_BLAS_GEMM_SYMBOL(TYPE))); \
     LIBXS_BLAS_GEMM_SYMBOL(TYPE)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
       &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
@@ -261,10 +254,10 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 
 /** Inlinable GEMM exercising the compiler's code generation (single-precision). */
 #define LIBXS_INLINE_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_INLINE_XGEMM(float, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+  LIBXS_INLINE_XGEMM(float, LIBXS_BLASINT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** Inlinable GEMM exercising the compiler's code generation (double-precision). */
 #define LIBXS_INLINE_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_INLINE_XGEMM(double, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+  LIBXS_INLINE_XGEMM(double, LIBXS_BLASINT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** Inlinable GEMM exercising the compiler's code generation. */
 #define LIBXS_INLINE_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   if (sizeof(double) == sizeof(*(A))) { \
@@ -346,10 +339,10 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 
 /** Dispatched general dense matrix multiplication (single-precision). */
 #define LIBXS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_XGEMM(float, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+  LIBXS_XGEMM(float, LIBXS_BLASINT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** Dispatched general dense matrix multiplication (double-precision). */
 #define LIBXS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_XGEMM(double, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+  LIBXS_XGEMM(double, LIBXS_BLASINT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** Dispatched general dense matrix multiplication. */
 #define LIBXS_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   if (sizeof(double) == sizeof(*(A))) { \
@@ -368,9 +361,9 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
  */
 LIBXS_API void libxs_gemm_print(void* ostream,
   libxs_gemm_precision precision, const char* transa, const char* transb,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const void* alpha, const void* a, const libxs_blasint* lda,
-  const void* b, const libxs_blasint* ldb,
-  const void* beta, void* c, const libxs_blasint* ldc);
+  const LIBXS_BLASINT* m, const LIBXS_BLASINT* n, const LIBXS_BLASINT* k,
+  const void* alpha, const void* a, const LIBXS_BLASINT* lda,
+  const void* b, const LIBXS_BLASINT* ldb,
+  const void* beta, void* c, const LIBXS_BLASINT* ldc);
 
 #endif /*LIBXS_FRONTEND_H*/
