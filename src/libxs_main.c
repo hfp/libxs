@@ -565,12 +565,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
       libxs_perf_init();
 #endif
       assert(0 == internal_registry_keys && 0 == internal_registry); /* should never happen */
-      init_code = libxs_xmalloc((void**)&result, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer),
-        0/*auto-alignment*/, LIBXS_MALLOC_FLAG_DEFAULT, 0/*extra*/, 0/*extra_size*/);
-      if (EXIT_SUCCESS == init_code) {
-        init_code = libxs_xmalloc((void**)&internal_registry_keys, (LIBXS_CAPACITY_REGISTRY) * sizeof(internal_regkey_type),
-          0/*auto-alignment*/, LIBXS_MALLOC_FLAG_DEFAULT, 0/*extra*/, 0/*extra_size*/);
-      }
+      result = (libxs_code_pointer*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer));
+      internal_registry_keys = (internal_regkey_type*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(internal_regkey_type));
       if (0 != result && 0 != internal_registry_keys) {
         const char *const env = getenv("LIBXS_GEMM_PREFETCH");
         for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) result[i].pmm = 0;
@@ -616,8 +612,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
         if (0 != libxs_verbosity) { /* library code is expected to be mute */
           fprintf(stderr, "LIBXS: failed to allocate code registry!\n");
         }
-        libxs_free(internal_registry_keys);
-        libxs_free(result);
+        free(internal_registry_keys);
+        free(result);
       }
     }
 #if defined(__TRACE)
@@ -732,8 +728,8 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           }
         }
       }
-      libxs_free(registry_keys);
-      libxs_free(registry);
+      free(registry_keys);
+      free(registry);
     }
 #if !defined(LIBXS_NO_SYNC) /* LIBXS_LOCK_RELEASE, but no LIBXS_LOCK_DESTROY */
     for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
@@ -941,7 +937,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       if (0 < request->descriptor.gemm->m   && 0 < request->descriptor.gemm->n   && 0 < request->descriptor.gemm->k &&
           0 < request->descriptor.gemm->lda && 0 < request->descriptor.gemm->ldb && 0 < request->descriptor.gemm->ldc)
       {
-        generated_code.generated_code = libxs_aligned_scratch(131072, 0/*auto*/); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_kernel, &generated_code, request->descriptor.gemm, target_arch);
 # if !defined(LIBXS_VTUNE)
@@ -967,7 +963,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       assert(0 != request->descriptor.ssoa && 0 != request->descriptor.ssoa->gemm);
       assert(0 != request->descriptor.ssoa->row_ptr && 0 != request->descriptor.ssoa->column_idx && 0 != request->descriptor.ssoa->values);
       if (0 == (LIBXS_GEMM_FLAG_F32PREC & (request->descriptor.ssoa->gemm->flags))/*only double-precision*/) {
-        generated_code.generated_code = libxs_aligned_scratch(131072, 0/*auto*/); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_soa_kernel, &generated_code, request->descriptor.ssoa->gemm, target_arch,
           request->descriptor.ssoa->row_ptr, request->descriptor.ssoa->column_idx,
@@ -997,7 +993,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
 #if 1
       if (0 == (LIBXS_GEMM_FLAG_F32PREC & (request->descriptor.sreg->gemm->flags))/*only double-precision*/) {
 #endif
-        generated_code.generated_code = libxs_aligned_scratch(131072, 0/*auto*/); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_reg_kernel, &generated_code, request->descriptor.sreg->gemm, target_arch,
           request->descriptor.sreg->row_ptr, request->descriptor.sreg->column_idx,
@@ -1028,7 +1024,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       if (0 < request->descriptor.cfwd->kw && 0 < request->descriptor.cfwd->kh &&
           0 != request->descriptor.cfwd->stride_w && 0 != request->descriptor.cfwd->stride_h)
       {
-        generated_code.generated_code = libxs_aligned_scratch(131072, 0/*auto*/); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_convolution_forward_kernel, &generated_code, request->descriptor.cfwd, target_arch);
 # if !defined(LIBXS_VTUNE)
@@ -1059,7 +1055,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       if (0 < request->descriptor.cbwd->kw && 0 < request->descriptor.cbwd->kh &&
           0 != request->descriptor.cbwd->stride_w && 0 != request->descriptor.cbwd->stride_h)
       {
-        generated_code.generated_code = libxs_aligned_scratch(131072, 0/*auto*/); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_convolution_backward_kernel, &generated_code, request->descriptor.cbwd, target_arch);
 # if !defined(LIBXS_VTUNE)
@@ -1093,7 +1089,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       if (0 < request->descriptor.cupd->kw &&
           0 != request->descriptor.cupd->stride_w && 0 != request->descriptor.cupd->stride_h)
       {
-        generated_code.generated_code = libxs_aligned_scratch(131072, 0/*auto*/); /* large enough temporary buffer for generated code */
+        generated_code.generated_code = malloc(131072); /* large enough temporary buffer for generated code */
         generated_code.buffer_size = 0 != generated_code.generated_code ? 131072 : 0;
         LIBXS_NO_OFFLOAD(void, libxs_generator_convolution_weight_update_kernel, &generated_code, request->descriptor.cupd, target_arch);
 # if !defined(LIBXS_VTUNE)
@@ -1161,7 +1157,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
     }
     result = EXIT_FAILURE;
   }
-  libxs_free(generated_code.generated_code); /* free temporary/initial code buffer */
+  free(generated_code.generated_code); /* free temporary/initial code buffer */
 #else /* unsupported platform */
   LIBXS_UNUSED(request); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
