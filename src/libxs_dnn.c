@@ -234,7 +234,7 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
           ((conv_desc.filter_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) &&
           (3 == conv_desc.R) && (3 == conv_desc.S) &&
           (1 == conv_desc.u) && (1 == conv_desc.v) &&
-          (0 == (conv_desc.C % 16)) && (0 == (conv_desc.K % 16)) && 
+          (0 == (conv_desc.C % 16)) && (0 == (conv_desc.K % 16)) &&
           (conv_desc.datatype  == LIBXS_DNN_DATATYPE_F32) ) {
         handle->algo = LIBXS_DNN_CONV_ALGO_WINOGRAD;
       } else {
@@ -1360,7 +1360,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
         handle->scratch4 = (void*)(address+offset);
       }
       address += handle->scratch4_size + 64;
-    } else { 
+    } else {
       switch (kind) {
         case LIBXS_DNN_COMPUTE_KIND_FWD: {
           /* low precision intermediate buffer */
