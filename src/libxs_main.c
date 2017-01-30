@@ -45,7 +45,6 @@
 /* mute warning about target attribute; KNC/native plus JIT is disabled below! */
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 #include <stdio.h>
 #include <math.h>
 #if !defined(NDEBUG)
@@ -529,7 +528,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
       }
 #if !defined(NDEBUG)
       else {
-        libxs_verbosity = INT_MAX; /* quiet -> verbose */
+        libxs_verbosity = INT_MAX - 1; /* quiet -> verbose */
       }
 #endif
     }
