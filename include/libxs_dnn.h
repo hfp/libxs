@@ -82,6 +82,8 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED        100026
 #define LIBXS_DNN_ERR_UNKNOWN_BUFFER_TYPE        100027
 #define LIBXS_DNN_ERR_UNKNOWN_FILTER_TYPE        100028
+#define LIBXS_DNN_ERR_INVALID_ALGO               100029
+#define LIBXS_DNN_ERR_INVALID_PADDING            100030
 
 /** Kinds of supported compute flavor operations. */
 typedef enum libxs_dnn_compute_kind {
@@ -162,9 +164,11 @@ typedef enum libxs_dnn_conv_fuse_op {
 /** Type of algorithm used for convolutions. */
 typedef enum libxs_dnn_conv_algo {
   /** let the library decide */
-  LIBXS_DNN_CONV_ALGO_AUTO,   /* ignored for now */
+  LIBXS_DNN_CONV_ALGO_AUTO,
   /** direct convolution. */
-  LIBXS_DNN_CONV_ALGO_DIRECT
+  LIBXS_DNN_CONV_ALGO_DIRECT,
+  /** winograd convolution. */
+  LIBXS_DNN_CONV_ALGO_WINOGRAD
 } libxs_dnn_conv_algo;
 
 /** Structure which describes the input and output of data (DNN). */
@@ -302,6 +306,15 @@ LIBXS_API void* libxs_create_xconv_backward(const libxs_convolution_backward_des
 
 /** Code generation routine for a convolution kernel as specified by descriptor. */
 LIBXS_API void* libxs_create_xconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor);
+
+/** Code generation routine for a forward-convolution winograd kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
+LIBXS_API void* libxs_create_xconv_wino_forward(const libxs_convolution_winograd_descriptor* descriptor);
+
+/** Code generation routine for a backward-convolution winograd kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
+LIBXS_API void* libxs_create_xconv_wino_backward(const libxs_convolution_winograd_descriptor* descriptor);
+
+/** Code generation routine for a weight-update-convolution winograd kernel as specified by descriptor. */
+LIBXS_API void* libxs_create_xconv_wino_update_weights(const libxs_convolution_winograd_descriptor* descriptor);
 
 #endif
 #endif /*LIBXS_DNN_H*/

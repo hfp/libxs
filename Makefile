@@ -249,13 +249,21 @@ SRCFILES_LIB = $(patsubst %,$(SRCDIR)/%, \
           libxs_dnn.c libxs_dnn_handle.c \
           libxs_dnn_convolution_forward.c \
           libxs_dnn_convolution_backward.c \
-          libxs_dnn_convolution_weight_update.c)
+          libxs_dnn_convolution_weight_update.c \
+          libxs_dnn_convolution_winograd_forward.c \
+          libxs_dnn_convolution_winograd_backward.c \
+          libxs_dnn_convolution_winograd_weight_update.o )
 
 SRCFILES_KERNELS = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) libxs_trace.c)
 SRCFILES_GEN_GEMM_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_gemm_driver.c)
+SRCFILES_GEN_CONVWINO_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_convolution_winograd_driver.c)
+#SRCFILES_GEN_DNN_CONVWINO_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_dnn_convolution_winograd_driver.c) #KB
 SRCFILES_GEN_CONV_BIN = $(patsubst %,$(SRCDIR)/%,libxs_generator_convolution_driver.c)
+OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
+OBJFILES_GEN_CONVWINO_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_CONVWINO_BIN))))
+#OBJFILES_GEN_DNN_CONVWINO_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_DNN_CONVWINO_BIN)))) #KB
 OBJFILES_GEN_CONV_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_CONV_BIN))))
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_LIB))))
@@ -270,8 +278,9 @@ NOBLAS_HST   = $(BLDDIR)/intel64/libxs_noblas.o
 NOBLAS_MIC   = $(BLDDIR)/mic/libxs_noblas.o
 
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
-OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_GEN_CONV_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) \
+OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_GEN_CONV_BIN) $(OBJFILES_GEN_CONVWINO_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) \
           $(KRNOBJS_HST) $(KRNOBJS_MIC) $(EXTOBJS_HST) $(EXTOBJS_MIC) $(NOBLAS_HST) $(NOBLAS_MIC)
+#$(OBJFILES_GEN_DNN_CONVWINO_BIN) #KB
 ifneq (,$(strip $(FC)))
   FTNOBJS = $(BLDDIR)/intel64/libxs-mod.o $(BLDDIR)/mic/libxs-mod.o
 endif
@@ -668,6 +677,14 @@ $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(CFLAGS) $(DFLAGS) $(IFLAGS))))
+$(foreach OBJ,$(OBJFILES_GEN_CONVWINO_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
+  $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
+  $(CFLAGS) $(DFLAGS) $(IFLAGS))))
+#$(foreach OBJ,$(OBJFILES_GEN_DNN_CONVWINO_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
+ # $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+ # $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
+ # $(CFLAGS) $(DFLAGS) $(IFLAGS)))) #KB
 $(foreach OBJ,$(OBJFILES_GEN_CONV_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
@@ -746,11 +763,16 @@ else
 endif
 
 .PHONY: generator
-generator: $(BINDIR)/libxs_gemm_generator $(BINDIR)/libxs_conv_generator
+generator: $(BINDIR)/libxs_gemm_generator $(BINDIR)/libxs_conv_generator $(BINDIR)/libxs_convwino_generator 
 $(BINDIR)/libxs_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
 	$(CC) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 $(BINDIR)/libxs_conv_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONV_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
 	$(CC) -o $@ $(OBJFILES_GEN_CONV_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+$(BINDIR)/libxs_convwino_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONVWINO_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
+	$(CC) -o $@ $(OBJFILES_GEN_CONVWINO_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+#$(BINDIR)/libxs_dnn_convwino_generator: $(BINDIR)/.make $(OBJFILES_GEN_DNN_CONVWINO_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
+#	$(CC) -o $@ $(OBJFILES_GEN_DNN_CONVWINO_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS) #KB
+#$(BINDIR)/libxs_dnn_convwino_generator 
 
 .PHONY: clib_mic
 ifneq (0,$(MIC))

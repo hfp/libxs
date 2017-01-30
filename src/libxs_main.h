@@ -138,7 +138,9 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_tensor_format filter_format;
   libxs_dnn_conv_fuse_op fuse_ops;
   libxs_dnn_conv_option options;
-
+  libxs_convolution_winograd_descriptor cwino_fwd; /* KB */
+  libxs_convolution_winograd_descriptor cwino_bwd; /* KB */
+  libxs_convolution_winograd_descriptor cwino_upd; /* KB */
   /* additional size for iternal data types */
   int ifhp;
   int ifwp;
@@ -202,7 +204,10 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_SREG,
   LIBXS_BUILD_KIND_CFWD,
   LIBXS_BUILD_KIND_CBWD,
-  LIBXS_BUILD_KIND_CUPD
+  LIBXS_BUILD_KIND_CUPD,
+  LIBXS_BUILD_KIND_CWFWD,
+  LIBXS_BUILD_KIND_CWBWD,
+  LIBXS_BUILD_KIND_CWUPD
 } libxs_build_kind;
 
 typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
@@ -212,6 +217,7 @@ typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_convolution_forward_descriptor* cfwd;
   const libxs_convolution_backward_descriptor* cbwd;
   const libxs_convolution_weight_update_descriptor* cupd;
+  const libxs_convolution_winograd_descriptor* cwino;
 } libxs_build_descriptor;
 
 typedef struct LIBXS_RETARGETABLE libxs_build_request {

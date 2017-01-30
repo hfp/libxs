@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2017, Intel Corporation                                **
+** Copyright (c) 2016, Intel Corporation                                     **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -26,14 +26,13 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_DNN_HANDLE_H
-#define LIBXS_DNN_HANDLE_H
+#ifndef LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_H
+#define LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_H
 
-#include <libxs_dnn.h>
 #include "libxs_main.h"
+#include "libxs_sync.h"
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dnn_layer* handle );
+LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid);
+LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_custom  (libxs_dnn_layer* handle, int start_thread, int tid);
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_check( libxs_dnn_layer* handle );
-
-#endif /* LIBXS_DNN_HANDLE_H */
+#endif /* LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_H */
