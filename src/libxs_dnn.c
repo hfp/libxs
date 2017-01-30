@@ -36,6 +36,9 @@
 #include "libxs_dnn_convolution_forward.h"
 #include "libxs_dnn_convolution_backward.h"
 #include "libxs_dnn_convolution_weight_update.h"
+#include "libxs_dnn_convolution_winograd_forward.h"
+#include "libxs_dnn_convolution_winograd_backward.h"
+#include "libxs_dnn_convolution_winograd_weight_update.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -118,6 +121,10 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: an unknown buffer type was provided!";
     case LIBXS_DNN_ERR_UNKNOWN_FILTER_TYPE:
       return "LIBXS DNN Error: an unknown filter type was provided!";
+    case LIBXS_DNN_ERR_INVALID_ALGO:
+      return "LIBXS DNN Error: Invalid algorithm was specified!";
+    case LIBXS_DNN_ERR_INVALID_PADDING:
+      return "LIBXS DNN Error: Invalid padding was specified!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occured!";
   }
@@ -223,13 +230,39 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
 
     /* Set algorithm to use */
     if (conv_desc.algo == LIBXS_DNN_CONV_ALGO_AUTO) {
-      handle->algo = LIBXS_DNN_CONV_ALGO_DIRECT;
+      if( (((conv_desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) || ((conv_desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0)) &&
+          ((conv_desc.filter_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) &&
+          (3 == conv_desc.R) && (3 == conv_desc.S) &&
+          (1 == conv_desc.u) && (1 == conv_desc.v) &&
+          (0 == (conv_desc.C % 16)) && (0 == (conv_desc.K % 16)) && 
+          (conv_desc.datatype  == LIBXS_DNN_DATATYPE_F32) ) {
+        handle->algo = LIBXS_DNN_CONV_ALGO_WINOGRAD;
+      } else {
+        handle->algo = LIBXS_DNN_CONV_ALGO_DIRECT;
+      }
     } else {
       handle->algo = conv_desc.algo;
     }
+    if(handle->algo != LIBXS_DNN_CONV_ALGO_WINOGRAD && handle->algo != LIBXS_DNN_CONV_ALGO_DIRECT ) {
+      *status = LIBXS_DNN_ERR_INVALID_ALGO;
+      free(handle);
+      handle = 0;
+      return 0;
+    }
+    /* @TODO we might want to fall back to direct convolutoin if winograd fails */
+    if ( handle->algo == LIBXS_DNN_CONV_ALGO_WINOGRAD ) {
+      *status = libxs_dnn_internal_create_conv_handle_winograd_check( handle );
+      if( *status == LIBXS_DNN_WARN_FALLBACK ) handle->algo = LIBXS_DNN_CONV_ALGO_DIRECT;
+    }
 
     if ( handle->algo == LIBXS_DNN_CONV_ALGO_DIRECT ) {
-       *status = libxs_dnn_internal_create_conv_handle_direct( handle );
+      if(conv_desc.pad_h_in != conv_desc.pad_h || conv_desc.pad_w_in != conv_desc.pad_w) {
+        *status = LIBXS_DNN_ERR_INVALID_PADDING;
+        free(handle);
+        handle = 0;
+        return 0;
+      }
+      *status = libxs_dnn_internal_create_conv_handle_direct( handle );
     } else {
       /* shouldn't happen */
     }
@@ -1236,42 +1269,49 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* ha
   *status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
-    switch (kind) {
-      case LIBXS_DNN_COMPUTE_KIND_FWD: {
-        l_scratch_size = 0;
-        /* low precision intermediate buffer */
-        if ( handle->datatype != handle->datatype_itm ) {
-          l_scratch_size += handle->scratch6_size + 64;
+    if (handle->algo == LIBXS_DNN_CONV_ALGO_WINOGRAD) {
+      l_scratch_size = 0;
+      l_scratch_size += handle->scratch1_size + 64;
+      l_scratch_size += handle->scratch3_size + 64;
+      l_scratch_size += handle->scratch4_size + 64;
+    } else {
+      switch (kind) {
+        case LIBXS_DNN_COMPUTE_KIND_FWD: {
+          l_scratch_size = 0;
+          /* low precision intermediate buffer */
+          if ( handle->datatype != handle->datatype_itm ) {
+            l_scratch_size += handle->scratch6_size + 64;
+          }
+        } break;
+        case LIBXS_DNN_COMPUTE_KIND_BWD: {
+          /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+          l_scratch_size += handle->scratch1_size + 64;
+        } break;
+        case LIBXS_DNN_COMPUTE_KIND_UPD: {
+          /* we need a minibatch copy for transpose of input, scratch3 */
+          l_scratch_size += handle->scratch3_size + 64;
+          /* potentially we need thread-local filter copies, scratch4 */
+          if (handle->upd_use_thread_fil == 1) {
+            l_scratch_size += handle->scratch4_size + 64;
+          }
+        } break;
+        case LIBXS_DNN_COMPUTE_KIND_ALL: {
+          /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+          l_scratch_size += handle->scratch1_size + 64;
+          /* we need a minibatch copy for transpose of input, scratch3 */
+          l_scratch_size += handle->scratch3_size + 64;
+          /* potentially we need thread-local filter copies, scratch4 */
+          if (handle->upd_use_thread_fil == 1) {
+            l_scratch_size += handle->scratch4_size + 64;
+          }
+          /* low precision intermediate buffer */
+          if ( handle->datatype != handle->datatype_itm ) {
+            l_scratch_size += handle->scratch6_size + 64;
+          }
+        } break;
+        default: {
+          *status = LIBXS_DNN_ERR_INVALID_KIND;
         }
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_BWD: {
-        /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
-        l_scratch_size += handle->scratch1_size + 64;
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_UPD: {
-        /* we need a minibatch copy for transpose of input, scratch3 */
-        l_scratch_size += handle->scratch3_size + 64;
-        /* potentially we need thread-local filter copies, scratch4 */
-        if (handle->upd_use_thread_fil == 1) {
-          l_scratch_size += handle->scratch4_size + 64;
-        }
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_ALL: {
-        /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
-        l_scratch_size += handle->scratch1_size + 64;
-        /* we need a minibatch copy for transpose of input, scratch3 */
-        l_scratch_size += handle->scratch3_size + 64;
-        /* potentially we need thread-local filter copies, scratch4 */
-        if (handle->upd_use_thread_fil == 1) {
-          l_scratch_size += handle->scratch4_size + 64;
-        }
-        /* low precision intermediate buffer */
-        if ( handle->datatype != handle->datatype_itm ) {
-          l_scratch_size += handle->scratch6_size + 64;
-        }
-      } break;
-      default: {
-        *status = LIBXS_DNN_ERR_INVALID_KIND;
       }
     }
   } else {
@@ -1297,86 +1337,111 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
   }
 
   if (0 != handle) {
-    switch (kind) {
-      case LIBXS_DNN_COMPUTE_KIND_FWD: {
-        /* low precision intermediate buffer */
-        if ( handle->datatype != handle->datatype_itm ) {
+    if (handle->algo == LIBXS_DNN_CONV_ALGO_WINOGRAD) {
+      /* + 64 to do alignement while performing bind, scratch1 */
+      if (address % 64 == 0) {
+        handle->scratch1 = (void*)address;
+      } else {
+        offset = (64 - address % 64);
+        handle->scratch1 = (void*)(address+offset);
+      }
+      address += handle->scratch1_size + 64;
+      if (address % 64 == 0) {
+        handle->scratch3 = (void*)address;
+      } else {
+        offset = (64 - address % 64);
+        handle->scratch3 = (void*)(address+offset);
+      }
+      address += handle->scratch3_size + 64;
+      if (address % 64 == 0) {
+        handle->scratch4 = (void*)address;
+      } else {
+        offset = (64 - address % 64);
+        handle->scratch4 = (void*)(address+offset);
+      }
+      address += handle->scratch4_size + 64;
+    } else { 
+      switch (kind) {
+        case LIBXS_DNN_COMPUTE_KIND_FWD: {
+          /* low precision intermediate buffer */
+          if ( handle->datatype != handle->datatype_itm ) {
+            if (address % 64 == 0) {
+              handle->scratch6 = (void*)address;
+            } else {
+              offset = (64 - address % 64);
+              handle->scratch6 = (void*)(address+offset);
+            }
+          }
+        } break;
+        case LIBXS_DNN_COMPUTE_KIND_BWD: {
+          /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
           if (address % 64 == 0) {
-            handle->scratch6 = (void*)address;
+            handle->scratch1 = (void*)address;
           } else {
             offset = (64 - address % 64);
-            handle->scratch6 = (void*)(address+offset);
+            handle->scratch1 = (void*)(address+offset);
           }
-        }
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_BWD: {
-        /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
-        if (address % 64 == 0) {
-          handle->scratch1 = (void*)address;
-        } else {
-          offset = (64 - address % 64);
-          handle->scratch1 = (void*)(address+offset);
-        }
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_UPD: {
-        /* we need a minibatch copy for transpose of input, scratch3 */
-        if (address % 64 == 0) {
-          handle->scratch3 = (void*)address;
-        } else {
-          offset = (64 - address % 64);
-          handle->scratch3 = (void*)(address+offset);
-        }
-        /* potentially we need thread-local filter copies, scratch4 */
-        if (handle->upd_use_thread_fil == 1) {
+        } break;
+        case LIBXS_DNN_COMPUTE_KIND_UPD: {
+          /* we need a minibatch copy for transpose of input, scratch3 */
+          if (address % 64 == 0) {
+            handle->scratch3 = (void*)address;
+          } else {
+            offset = (64 - address % 64);
+            handle->scratch3 = (void*)(address+offset);
+          }
+          /* potentially we need thread-local filter copies, scratch4 */
+          if (handle->upd_use_thread_fil == 1) {
+            address += handle->scratch3_size + 64;
+            if (address % 64 == 0) {
+              handle->scratch4 = (void*)address;
+            } else {
+              offset = (64 - address % 64);
+              handle->scratch4 = (void*)(address+offset);
+            }
+          }
+        } break;
+        case LIBXS_DNN_COMPUTE_KIND_ALL: {
+          /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+          if (address % 64 == 0) {
+            handle->scratch1 = (void*)address;
+          } else {
+            offset = (64 - address % 64);
+            handle->scratch1 = (void*)(address+offset);
+          }
+          address += handle->scratch1_size + 64;
+          /* we need a minibatch copy for transpose of input, scratch3 */
+          if (address % 64 == 0) {
+            handle->scratch3 = (void*)address;
+          } else {
+            offset = (64 - address % 64);
+            handle->scratch3 = (void*)(address+offset);
+          }
           address += handle->scratch3_size + 64;
-          if (address % 64 == 0) {
-            handle->scratch4 = (void*)address;
-          } else {
-            offset = (64 - address % 64);
-            handle->scratch4 = (void*)(address+offset);
+          /* potentially we need thread-local filter copies, scratch4 */
+          if (handle->upd_use_thread_fil == 1) {
+            if (address % 64 == 0) {
+              handle->scratch4 = (void*)address;
+            } else {
+              offset = (64 - address % 64);
+              handle->scratch4 = (void*)(address+offset);
+            }
+            address += handle->scratch4_size + 64;
           }
-        }
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_ALL: {
-        /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
-        if (address % 64 == 0) {
-          handle->scratch1 = (void*)address;
-        } else {
-          offset = (64 - address % 64);
-          handle->scratch1 = (void*)(address+offset);
-        }
-        address += handle->scratch1_size + 64;
-        /* we need a minibatch copy for transpose of input, scratch3 */
-        if (address % 64 == 0) {
-          handle->scratch3 = (void*)address;
-        } else {
-          offset = (64 - address % 64);
-          handle->scratch3 = (void*)(address+offset);
-        }
-        address += handle->scratch3_size + 64;
-        /* potentially we need thread-local filter copies, scratch4 */
-        if (handle->upd_use_thread_fil == 1) {
-          if (address % 64 == 0) {
-            handle->scratch4 = (void*)address;
-          } else {
-            offset = (64 - address % 64);
-            handle->scratch4 = (void*)(address+offset);
+          /* low precision intermediate buffer */
+          if ( handle->datatype != handle->datatype_itm ) {
+            if (address % 64 == 0) {
+              handle->scratch6 = (void*)address;
+            } else {
+              offset = (64 - address % 64);
+              handle->scratch6 = (void*)(address+offset);
+            }
+            address += handle->scratch6_size + 64;
           }
-          address += handle->scratch4_size + 64;
+        } break;
+        default: {
+          status = LIBXS_DNN_ERR_INVALID_KIND;
         }
-        /* low precision intermediate buffer */
-        if ( handle->datatype != handle->datatype_itm ) {
-          if (address % 64 == 0) {
-            handle->scratch6 = (void*)address;
-          } else {
-            offset = (64 - address % 64);
-            handle->scratch6 = (void*)(address+offset);
-          }
-          address += handle->scratch6_size + 64;
-        }
-      } break;
-      default: {
-        status = LIBXS_DNN_ERR_INVALID_KIND;
       }
     }
   } else {
@@ -1392,26 +1457,32 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* 
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
-    switch (kind) {
+    if (handle->algo == LIBXS_DNN_CONV_ALGO_WINOGRAD) {
+      handle->scratch1 = 0;
+      handle->scratch3 = 0;
+      handle->scratch4 = 0;
+    } else {
+      switch (kind) {
 #if 0
-      case LIBXS_DNN_COMPUTE_KIND_FWD: {
-        /* nothing todo, we run into error */
-      } break;
+        case LIBXS_DNN_COMPUTE_KIND_FWD: {
+          /* nothing todo, we run into error */
+        } break;
 #endif
-      case LIBXS_DNN_COMPUTE_KIND_BWD: {
-        handle->scratch1 = 0;
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_UPD: {
-        handle->scratch3 = 0;
-        handle->scratch4 = 0;
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_ALL: {
-        handle->scratch1 = 0;
-        handle->scratch3 = 0;
-        handle->scratch4 = 0;
-      } break;
-      default: {
-        status = LIBXS_DNN_ERR_INVALID_KIND;
+        case LIBXS_DNN_COMPUTE_KIND_BWD: {
+          handle->scratch1 = 0;
+        } break;
+        case LIBXS_DNN_COMPUTE_KIND_UPD: {
+          handle->scratch3 = 0;
+          handle->scratch4 = 0;
+        } break;
+        case LIBXS_DNN_COMPUTE_KIND_ALL: {
+          handle->scratch1 = 0;
+          handle->scratch3 = 0;
+          handle->scratch4 = 0;
+        } break;
+        default: {
+          status = LIBXS_DNN_ERR_INVALID_KIND;
+        }
       }
     }
   } else {
@@ -1428,26 +1499,93 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
-    switch (kind) {
-      case LIBXS_DNN_COMPUTE_KIND_FWD: {
-        switch (handle->buffer_format) {
-          case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-            switch (handle->filter_format) {
+    switch (handle->algo) {
+      case LIBXS_DNN_CONV_ALGO_DIRECT: {
+        switch (kind) {
+          case LIBXS_DNN_COMPUTE_KIND_FWD: {
+            switch (handle->buffer_format) {
               case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-                status = libxs_dnn_convolve_st_fwd_custom_custom(handle, start_thread, tid);
+                switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_st_fwd_custom_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
+              } break;
+              case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
+                switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_RSCK: {
+                    status = libxs_dnn_convolve_st_fwd_nhwc_rsck(handle, start_thread, tid);
+                  } break;
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_st_fwd_nhwc_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
               } break;
               default: {
                 status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
               }
             }
           } break;
-          case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
-            switch (handle->filter_format) {
-              case LIBXS_DNN_TENSOR_FORMAT_RSCK: {
-                status = libxs_dnn_convolve_st_fwd_nhwc_rsck(handle, start_thread, tid);
-              } break;
+          case LIBXS_DNN_COMPUTE_KIND_BWD: {
+            switch (handle->buffer_format) {
               case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-                status = libxs_dnn_convolve_st_fwd_nhwc_custom(handle, start_thread, tid);
+                switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_st_bwd_custom_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
+              } break;
+              case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
+                switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_RSCK: {
+                    status = libxs_dnn_convolve_st_bwd_nhwc_rsck(handle, start_thread, tid);
+                  } break;
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_st_bwd_nhwc_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
+              } break;
+              default: {
+                status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+              }
+            }
+          } break;
+          case LIBXS_DNN_COMPUTE_KIND_UPD: {
+            switch (handle->buffer_format) {
+              case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                 switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_st_upd_custom_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
+              } break;
+              case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
+                switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_RSCK: {
+                    status = libxs_dnn_convolve_st_upd_nhwc_rsck(handle, start_thread, tid);
+                  } break;
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_st_upd_nhwc_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
               } break;
               default: {
                 status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
@@ -1455,29 +1593,87 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
             }
           } break;
           default: {
-            status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+            status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
       } break;
-      case LIBXS_DNN_COMPUTE_KIND_BWD: {
-        switch (handle->buffer_format) {
-          case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-            switch (handle->filter_format) {
+      case LIBXS_DNN_CONV_ALGO_WINOGRAD: {
+        switch (kind) {
+          case LIBXS_DNN_COMPUTE_KIND_FWD: {
+            switch (handle->buffer_format) {
               case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-                status = libxs_dnn_convolve_st_bwd_custom_custom(handle, start_thread, tid);
+                switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_winograd_st_fwd_custom_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
+              } break;
+              case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
+                switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_winograd_st_fwd_nhwc_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
               } break;
               default: {
                 status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
               }
             }
           } break;
-          case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
-            switch (handle->filter_format) {
-              case LIBXS_DNN_TENSOR_FORMAT_RSCK: {
-                status = libxs_dnn_convolve_st_bwd_nhwc_rsck(handle, start_thread, tid);
-              } break;
+          case LIBXS_DNN_COMPUTE_KIND_BWD: {
+            switch (handle->buffer_format) {
               case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-                status = libxs_dnn_convolve_st_bwd_nhwc_custom(handle, start_thread, tid);
+                switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_winograd_st_bwd_custom_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
+              } break;
+              case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
+                switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_winograd_st_bwd_nhwc_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
+              } break;
+              default: {
+                status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+              }
+            }
+          } break;
+          case LIBXS_DNN_COMPUTE_KIND_UPD: {
+            switch (handle->buffer_format) {
+              case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                 switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_winograd_st_upd_custom_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
+              } break;
+              case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
+                 switch (handle->filter_format) {
+                  case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+                    status = libxs_dnn_convolve_winograd_st_upd_nhwc_custom(handle, start_thread, tid);
+                  } break;
+                  default: {
+                    status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+                  }
+                }
               } break;
               default: {
                 status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
@@ -1485,42 +1681,12 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
             }
           } break;
           default: {
-            status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
-          }
-        }
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_UPD: {
-        switch (handle->buffer_format) {
-          case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-            switch (handle->filter_format) {
-              case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-                status = libxs_dnn_convolve_st_upd_custom_custom(handle, start_thread, tid);
-              } break;
-              default: {
-                status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
-              }
-            }
-          } break;
-          case LIBXS_DNN_TENSOR_FORMAT_NHWC: {
-            switch (handle->filter_format) {
-              case LIBXS_DNN_TENSOR_FORMAT_RSCK: {
-                status = libxs_dnn_convolve_st_upd_nhwc_rsck(handle, start_thread, tid);
-              } break;
-              case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-                status = libxs_dnn_convolve_st_upd_nhwc_custom(handle, start_thread, tid);
-              } break;
-              default: {
-                status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
-              }
-            }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE;
+            status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
       } break;
       default: {
-        status = LIBXS_DNN_ERR_INVALID_KIND;
+        status = LIBXS_DNN_ERR_INVALID_ALGO;
       }
     }
   }
@@ -1828,6 +1994,75 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_update_weights(
     libxs_build_request request;
     request.descriptor.cupd = descriptor;
     request.kind = LIBXS_BUILD_KIND_CUPD;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
+  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  else {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS: invalid convolution descriptor (weight update)!\n");
+    }
+  }
+#endif
+  return code.pmm;
+}
+
+
+LIBXS_API_DEFINITION void* libxs_create_xconv_wino_forward(
+  const libxs_convolution_winograd_descriptor* descriptor)
+{
+  libxs_code_pointer code = { 0 };
+  LIBXS_INIT
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cwino = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CWFWD;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
+  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  else {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS: invalid descriptor (forward convolution)!\n");
+    }
+  }
+#endif
+  return code.pmm;
+}
+
+
+LIBXS_API_DEFINITION void* libxs_create_xconv_wino_backward(
+  const libxs_convolution_winograd_descriptor* descriptor)
+{
+  libxs_code_pointer code = { 0 };
+  LIBXS_INIT
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cwino = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CWBWD;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
+  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+  else {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS: invalid descriptor (backward convolution)!\n");
+    }
+  }
+#endif
+  return code.pmm;
+}
+
+
+LIBXS_API_DEFINITION void* libxs_create_xconv_wino_update_weights(
+  const libxs_convolution_winograd_descriptor* descriptor)
+{
+  libxs_code_pointer code = { 0 };
+  LIBXS_INIT
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cwino = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CWUPD;
     libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
   }
 #if !defined(NDEBUG) /* library code is expected to be mute */
