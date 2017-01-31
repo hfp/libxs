@@ -264,7 +264,7 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
       }
       *status = libxs_dnn_internal_create_conv_handle_direct( handle );
     } else {
-      /* shouldn't happen */
+      assert(0/*should not happen*/);
     }
   }
   else {
