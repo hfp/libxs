@@ -79,7 +79,7 @@ static void input_transform_custom_custom( float *inp,
 
 static void input_transform_nhwc_custom( float *inp,
                                          float *tinp,
-	                                 const libxs_dnn_layer* handle ) {
+                                         const libxs_dnn_layer* handle ) {
   if (handle->cwino_fwd.vratio == 1 && handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
@@ -128,7 +128,7 @@ static void input_transform_nhwc_custom( float *inp,
 
 static void weight_transform( float *wp,
                               float *twp,
-	                      const libxs_dnn_layer* handle ) {
+                              const libxs_dnn_layer* handle ) {
   if (handle->cwino_fwd.vratio == 1 && handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
@@ -177,7 +177,7 @@ static void weight_transform( float *wp,
 
 static void output_transform_custom_custom( float *toutp,
                                             float *outp,
-		                            const int vratio,
+                                            const int vratio,
                                             float bias[vratio][16/*tdvlen*/],
                                             const libxs_dnn_layer* handle ) {
   if (vratio == 1 && handle->cwino_fwd.alpha == 6) {
