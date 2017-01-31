@@ -626,7 +626,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
   for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
   LIBXS_LOCK_RELEASE(&libxs_lock_global);
 #endif
-  assert(result);
 }
 
 
