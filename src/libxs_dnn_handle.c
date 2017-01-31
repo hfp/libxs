@@ -1271,7 +1271,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         /* wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT; */
         /* handle->code_fwd[3].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp); */
       } else {
-        /* shouldn't happen */
+        assert(0/*should not happen*/);
       }
     }
     /* Backward path */
@@ -1593,7 +1593,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_bp.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
         handle->code_bwd[1].pmm = libxs_create_xconv_wino_backward(&wino_desc_bp);
       } else {
-        /* shouldn't happen */
+        assert(0/*should not happen*/);
       }
     } /* End of backward */
     /* Weight update path */
@@ -1939,7 +1939,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_wu.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
         handle->code_upd[1].pmm = libxs_create_xconv_wino_update_weights(&wino_desc_wu);
       } else {
-        /* shouldn't happen */
+        assert(0/*should not happen*/);
       }
     } /* end of weight-update handle */
     {
