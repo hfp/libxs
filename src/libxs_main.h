@@ -198,6 +198,17 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_code_pointer code_upd[6];
 };
 
+struct LIBXS_RETARGETABLE libxs_dfsspmdm {
+  int M;
+  int N;
+  int K;
+  int ldb;
+  int ldc;
+  int N_chunksize;
+  double* a_dense;
+  libxs_dmmfunction kernel;
+};
+
 typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GEMM,
   LIBXS_BUILD_KIND_SSOA,
