@@ -28,7 +28,8 @@
 ******************************************************************************/
 #include "libxs_dnn_convolution_winograd_weight_update.h"
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_custom_custom( float *inp,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_custom_custom(
+                                           float *inp,
                                            float *tinp,
                                            const libxs_dnn_layer* handle )
 {
@@ -78,7 +79,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_custom_custom(
   }
 }
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_nhwc_custom( float *inp,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_nhwc_custom(
+                                         float *inp,
                                          float *tinp,
                                          const libxs_dnn_layer* handle )
 {
@@ -128,7 +130,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_nhwc_custom( f
   }
 }
 
-static void deloutput_transform_custom_custom( float *inp,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_deloutput_transform_custom_custom(
+                                               float *inp,
                                                float *tinp,
                                                const libxs_dnn_layer* handle )
 {
@@ -178,7 +181,8 @@ static void deloutput_transform_custom_custom( float *inp,
   }
 }
 
-static void deloutput_transform_nhwc_custom( float *inp,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_deloutput_transform_nhwc_custom(
+                                             float *inp,
                                              float *tinp,
                                              const libxs_dnn_layer* handle )
 {
@@ -228,7 +232,8 @@ static void deloutput_transform_nhwc_custom( float *inp,
   }
 }
 
-static void delweight_transform( float *wp,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_delweight_transform(
+                                 float *wp,
                                  float *twp,
                                  const libxs_dnn_layer* handle )
 {
