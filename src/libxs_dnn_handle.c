@@ -177,7 +177,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     if (handle->desc.C < 16) {
       handle->ifmblock = 1;
     }
-
     /* Check if padded needs to be applied in the input and allocate appropriate buffers */
     if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && (handle->desc.pad_h > 0) && (handle->desc.pad_w > 0)) {
       handle->padding_flag = 1;
@@ -188,7 +187,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     } else {
       handle->padding_flag = 0;
     }
-
   } else if ( libxs_get_target_archid() == LIBXS_X86_AVX2 ) {
     noarch = 0;
 
@@ -302,7 +300,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     handle->blocksifm = handle->desc.C / handle->ifmblock;
     handle->blocksofm = handle->desc.K / handle->ofmblock;
   }
-
   /* Check if padded needs to be applied in the input and allocate appropriate buffers */
   if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && (handle->desc.pad_h > 0) && (handle->desc.pad_w > 0)) {
     handle->padding_flag = 1;
@@ -315,7 +312,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   }
 
   /* TODO: we need to add much more checks here .... */
-
   if (noarch == 0) {
     /* Forward path */
     { libxs_convolution_forward_descriptor descriptor;
@@ -335,7 +331,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.unroll_kh = 0;
         descriptor.unroll_kw = 0;
       }
-
       if (handle->padding_flag == 1) {
         descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
         descriptor.ifw_padded = handle->ifwp + 2 * handle->desc.pad_w;
