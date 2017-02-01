@@ -30,7 +30,8 @@
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom( float *inp,
                                            float *tinp,
-                                           const libxs_dnn_layer* handle ) {
+                                           const libxs_dnn_layer* handle )
+{
   if (handle->cwino_fwd.vratio == 1 && handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
@@ -79,7 +80,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom(
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_nhwc_custom( float *inp,
                                          float *tinp,
-                                         const libxs_dnn_layer* handle ) {
+                                         const libxs_dnn_layer* handle )
+{
   if (handle->cwino_fwd.vratio == 1 && handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
@@ -128,7 +130,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_nhwc_custom( f
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_weight_transform( float *wp,
                               float *twp,
-                              const libxs_dnn_layer* handle ) {
+                              const libxs_dnn_layer* handle )
+{
   if (handle->cwino_fwd.vratio == 1 && handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
@@ -179,7 +182,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_custom_custom
                                             float *outp,
                                             const int vratio,
                                             float bias[/*vratio*/][16/*tdvlen*/],
-                                            const libxs_dnn_layer* handle ) {
+                                            const libxs_dnn_layer* handle )
+{
+  LIBXS_UNUSED(bias); /* TODO: remove */
   if (vratio == 1 && handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
@@ -230,7 +235,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_nhwc_custom( 
                                           float *outp,
                                           const int vratio,
                                           float bias[/*vratio*/][16/*tdvlen*/],
-                                          const libxs_dnn_layer* handle ) {
+                                          const libxs_dnn_layer* handle )
+{
+  LIBXS_UNUSED(bias); /* TODO: remove */
   if (vratio == 1 && handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
