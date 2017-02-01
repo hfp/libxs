@@ -260,7 +260,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
   LIBXS_INLINE_XGEMM(double, LIBXS_BLASINT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** Inlinable GEMM exercising the compiler's code generation. */
 #define LIBXS_INLINE_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  if (sizeof(double) == sizeof(*(A))) { \
+  if (sizeof(double) == sizeof(*(A)) /*always true:*/&& 0 != (LDC)) { \
     LIBXS_INLINE_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
   else {\
@@ -345,7 +345,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
   LIBXS_XGEMM(double, LIBXS_BLASINT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 /** Dispatched general dense matrix multiplication. */
 #define LIBXS_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  if (sizeof(double) == sizeof(*(A))) { \
+  if (sizeof(double) == sizeof(*(A)) /*always true:*/&& 0 != (LDC)) { \
     LIBXS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
   else {\

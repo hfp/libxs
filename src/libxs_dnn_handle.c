@@ -177,6 +177,18 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     if (handle->desc.C < 16) {
       handle->ifmblock = 1;
     }
+
+    /* Check if padded needs to be applied in the input and allocate appropriate buffers */
+    if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && (handle->desc.pad_h > 0) && (handle->desc.pad_w > 0)) {
+      handle->padding_flag = 1;
+      handle->scratch5 = 0;
+      handle->minibatch_scratch_size = handle->desc.N * handle->blocksifm * handle->ifmblock * handle->fm_lp_block * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype);
+      handle->fwdbwd_scratch_size = handle->desc.threads * handle->blocksifm * handle->ifmblock * handle->fm_lp_block * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype);
+      handle->max_scratch5_size = (handle->minibatch_scratch_size > handle->fwdbwd_scratch_size) ? handle->minibatch_scratch_size : handle->fwdbwd_scratch_size ;
+    } else {
+      handle->padding_flag = 0;
+    }
+
   } else if ( libxs_get_target_archid() == LIBXS_X86_AVX2 ) {
     noarch = 0;
 
@@ -291,6 +303,17 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     handle->blocksofm = handle->desc.K / handle->ofmblock;
   }
 
+  /* Check if padded needs to be applied in the input and allocate appropriate buffers */
+  if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && (handle->desc.pad_h > 0) && (handle->desc.pad_w > 0)) {
+    handle->padding_flag = 1;
+    handle->scratch5  = 0;
+    handle->minibatch_scratch_size = handle->desc.N * handle->blocksifm * handle->ifmblock * handle->fm_lp_block * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype);
+    handle->fwdbwd_scratch_size = handle->desc.threads * handle->blocksifm * handle->ifmblock * handle->fm_lp_block * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype);
+    handle->max_scratch5_size = (handle->minibatch_scratch_size > handle->fwdbwd_scratch_size) ? handle->minibatch_scratch_size : handle->fwdbwd_scratch_size ;
+  } else {
+    handle->padding_flag = 0;
+  }
+
   /* TODO: we need to add much more checks here .... */
 
   if (noarch == 0) {
@@ -312,8 +335,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.unroll_kh = 0;
         descriptor.unroll_kw = 0;
       }
-      descriptor.ifh_padded = handle->ifhp;
-      descriptor.ifw_padded = handle->ifwp;
+
+      if (handle->padding_flag == 1) {
+        descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
+        descriptor.ifw_padded = handle->ifwp + 2 * handle->desc.pad_w;
+      } else {
+        descriptor.ifh_padded = handle->ifhp;
+        descriptor.ifw_padded = handle->ifwp;
+      }
       descriptor.kh = handle->desc.R;
       descriptor.kw = handle->desc.S;
       descriptor.stride_h = handle->desc.u;
@@ -363,8 +392,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     }
     /* Backward path */
     { libxs_convolution_backward_descriptor descriptor;
-      descriptor.ifh_padded = handle->ifhp;
-      descriptor.ifw_padded = handle->ifwp;
+      if (handle->padding_flag == 1) {
+        descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
+        descriptor.ifw_padded = handle->ifwp + 2 * handle->desc.pad_w;
+      } else {
+        descriptor.ifh_padded = handle->ifhp;
+        descriptor.ifw_padded = handle->ifwp;
+      }
       descriptor.kh = handle->desc.R;
       descriptor.kw = handle->desc.S;
       descriptor.unroll_kw = 1;
@@ -556,8 +590,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     } /* End of backward */
     /* TODO weight update path */
     { libxs_convolution_weight_update_descriptor descriptor;
-      descriptor.ifh_padded = handle->ifhp;
-      descriptor.ifw_padded = handle->ifwp;
+      if (handle->padding_flag == 1) {
+        descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
+        descriptor.ifw_padded = handle->ifwp + 2 * handle->desc.pad_w;
+      } else {
+        descriptor.ifh_padded = handle->ifhp;
+        descriptor.ifw_padded = handle->ifwp;
+      }
       descriptor.ofm_block = handle->ofmblock;
       descriptor.ifm_block = handle->ifmblock;
       descriptor.kh = handle->desc.R;
