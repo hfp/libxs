@@ -256,12 +256,6 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
     }
 
     if ( handle->algo == LIBXS_DNN_CONV_ALGO_DIRECT ) {
-      if(conv_desc.pad_h_in != conv_desc.pad_h || conv_desc.pad_w_in != conv_desc.pad_w) {
-        *status = LIBXS_DNN_ERR_INVALID_PADDING;
-        free(handle);
-        handle = 0;
-        return 0;
-      }
       *status = libxs_dnn_internal_create_conv_handle_direct( handle );
     } else {
       assert(0/*should not happen*/);
@@ -1636,7 +1630,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
           case LIBXS_DNN_COMPUTE_KIND_UPD: {
             switch (handle->buffer_format) {
               case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-                 switch (handle->filter_format) {
+                switch (handle->filter_format) {
                   case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
                     status = libxs_dnn_convolve_st_upd_custom_custom(handle, start_thread, tid);
                   } break;
