@@ -31,7 +31,7 @@
 ******************************************************************************/
 #include "libxs_dnn_convolution_winograd_weight_update.h"
 
-static void input_transform_custom_custom( float *inp,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_custom_custom( float *inp,
                                            float *tinp,
                                            const libxs_dnn_layer* handle ) {
   if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
@@ -80,7 +80,7 @@ static void input_transform_custom_custom( float *inp,
   }
 }
 
-static void input_transform_nhwc_custom( float *inp,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_nhwc_custom( float *inp,
                                          float *tinp,
                                          const libxs_dnn_layer* handle ) {
   if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
