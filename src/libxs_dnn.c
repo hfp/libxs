@@ -144,13 +144,13 @@ LIBXS_API_DEFINITION size_t libxs_dnn_typesize(libxs_dnn_datatype datatype)
 LIBXS_API_DEFINITION size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype)
 {
   size_t l_cl_width_bytes;
-  if ( libxs_get_target_archid() == LIBXS_X86_GENERIC ) {
+  if ( libxs_target_archid == LIBXS_X86_GENERIC ) {
     l_cl_width_bytes = libxs_dnn_typesize(datatype);
-  } else if ( libxs_get_target_archid() == LIBXS_X86_SSE3 ||
-              libxs_get_target_archid() == LIBXS_X86_SSE4 ) {
+  } else if ( libxs_target_archid == LIBXS_X86_SSE3 ||
+              libxs_target_archid == LIBXS_X86_SSE4 ) {
     l_cl_width_bytes = 16;
-  } else if ( libxs_get_target_archid() == LIBXS_X86_AVX2 ||
-              libxs_get_target_archid() == LIBXS_X86_AVX ) {
+  } else if ( libxs_target_archid == LIBXS_X86_AVX2 ||
+              libxs_target_archid == LIBXS_X86_AVX ) {
     l_cl_width_bytes = 32;
   } else {
     l_cl_width_bytes = 64;
@@ -273,8 +273,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dn
     /* deallocate data components; not an error to deallocate a NULL-pointer
        deallocate code known to be not registered; no index attached
        do not use libxs_release_kernel here! */
-    if ( (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
-          libxs_get_target_archid() == LIBXS_X86_AVX512_CORE    ) && (handle->avx512avx2fallback == 0) ) {
+    if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
+          libxs_target_archid == LIBXS_X86_AVX512_CORE    ) && (handle->avx512avx2fallback == 0) ) {
       libxs_free(handle->code_fwd[0].pmm);
       libxs_free(handle->code_fwd[1].pmm);
       libxs_free(handle->code_fwd[2].pmm);
@@ -293,7 +293,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dn
         libxs_free(handle->code_upd[4].pmm);
         libxs_free(handle->code_upd[5].pmm);
       }
-    } else if ( (libxs_get_target_archid() == LIBXS_X86_AVX2) || (handle->avx512avx2fallback != 0) ) {
+    } else if ( (libxs_target_archid == LIBXS_X86_AVX2) || (handle->avx512avx2fallback != 0) ) {
       libxs_free(handle->code_fwd[0].pmm);
       if (handle->fwd_ofw_rb_2 != 0) {
         libxs_free(handle->code_fwd[1].pmm);

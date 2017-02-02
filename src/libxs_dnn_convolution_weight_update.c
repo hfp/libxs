@@ -28,7 +28,7 @@
 ******************************************************************************/
 #include "libxs_dnn_convolution_weight_update.h"
 #include <libxs_intrinsics_x86.h>
-#include <libxs.h>
+#include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))

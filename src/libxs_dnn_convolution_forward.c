@@ -28,7 +28,7 @@
 ******************************************************************************/
 #include "libxs_dnn_convolution_forward.h"
 #include <libxs_intrinsics_x86.h>
-#include <libxs.h>
+#include "libxs_main.h"
 
 
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)

@@ -54,8 +54,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* now architecture specific */
-  if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
-      libxs_get_target_archid() == LIBXS_X86_AVX512_CORE)
+  if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
+      libxs_target_archid == LIBXS_X86_AVX512_CORE)
   {
     noarch = 0;
 #define LIBXS_FWD_OFH_BLOCKING
@@ -66,7 +66,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       /* on AVX512_CORE and int this only works for smaller 13 */
       if ( (((handle->datatype == LIBXS_DNN_DATATYPE_I16) ||
            (handle->datatype == LIBXS_DNN_DATATYPE_I8)) &&
-           (libxs_get_target_archid() == LIBXS_X86_AVX512_CORE)) &&
+           (libxs_target_archid == LIBXS_X86_AVX512_CORE)) &&
            (handle->ofw > 12) ) {
         handle->fwd_ofh_rb = 1;
       }
@@ -74,10 +74,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     else {
 #endif
       /* we need additional temp registers when running with int on AVX512_CORE */
-      if ( ((libxs_get_target_archid() == LIBXS_X86_AVX512_CORE) &&
+      if ( ((libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
            (handle->datatype == LIBXS_DNN_DATATYPE_I16) &&
            (handle->datatype_itm == LIBXS_DNN_DATATYPE_I32)) ||
-           ((libxs_get_target_archid() == LIBXS_X86_AVX512_CORE) &&
+           ((libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
            (handle->datatype == LIBXS_DNN_DATATYPE_I8) &&
            (handle->datatype_itm == LIBXS_DNN_DATATYPE_I16) &&
            ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) ) {
@@ -133,7 +133,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle->ifmblock = (handle->desc.C >=16) ? 16 : handle->desc.C/2;
       handle->ofmblock = (handle->desc.K >=16) ? 16 : handle->desc.K/2;
       handle->fm_lp_block = 2;
-      if ( libxs_get_target_archid() == LIBXS_X86_AVX512_MIC ) {
+      if ( libxs_target_archid == LIBXS_X86_AVX512_MIC ) {
         status = LIBXS_DNN_WARN_FALLBACK;
         handle->ifmblock = 1;
         handle->ofmblock = 1;
@@ -146,7 +146,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle->ifmblock = (handle->desc.C >=32) ? 32 : handle->desc.C/2;
       handle->ofmblock = (handle->desc.K >=32) ? 32 : handle->desc.K/2;
       handle->fm_lp_block = 2;
-      if ( libxs_get_target_archid() == LIBXS_X86_AVX512_MIC ) {
+      if ( libxs_target_archid == LIBXS_X86_AVX512_MIC ) {
         status = LIBXS_DNN_WARN_FALLBACK;
         handle->ifmblock = 1;
         handle->ofmblock = 1;
@@ -159,7 +159,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle->ifmblock = (handle->desc.C >=16) ? 16 : handle->desc.C/4;
       handle->ofmblock = (handle->desc.K >=16) ? 16 : handle->desc.K/4;
       handle->fm_lp_block = 4;
-      if ( libxs_get_target_archid() == LIBXS_X86_AVX512_MIC ) {
+      if ( libxs_target_archid == LIBXS_X86_AVX512_MIC ) {
         status = LIBXS_DNN_WARN_FALLBACK;
         handle->ifmblock = 1;
         handle->ofmblock = 1;
@@ -187,7 +187,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     } else {
       handle->padding_flag = 0;
     }
-  } else if ( libxs_get_target_archid() == LIBXS_X86_AVX2 ) {
+  } else if ( libxs_target_archid == LIBXS_X86_AVX2 ) {
     noarch = 0;
 
     /* get max. blocking forward */
@@ -325,7 +325,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       }
       if ( ((handle->datatype == LIBXS_DNN_DATATYPE_I8) ||
            (handle->datatype == LIBXS_DNN_DATATYPE_I16) ) &&
-           (libxs_get_target_archid() == LIBXS_X86_AVX512_CORE) &&
+           (libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
            handle->desc.R > 1 && handle->desc.S > 1 && handle->fwd_ofh_rb == 1 ) {
         /* we need 3 instrad of 1 instruction for FMA -> do not perform any unrolling in kh/kw to control code size */
         descriptor.unroll_kh = 0;
@@ -356,8 +356,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.option = handle->desc.options;
       descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
       /* TODO check JIT errors */
-      if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
-          libxs_get_target_archid() == LIBXS_X86_AVX512_CORE)
+      if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
+          libxs_target_archid == LIBXS_X86_AVX512_CORE)
       {
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
         handle->code_fwd[0].pmm = libxs_create_xconv_forward(&descriptor);
@@ -367,7 +367,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         handle->code_fwd[2].pmm = libxs_create_xconv_forward(&descriptor);
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT;
         handle->code_fwd[3].pmm = libxs_create_xconv_forward(&descriptor);
-      } else if (libxs_get_target_archid() == LIBXS_X86_AVX2) {
+      } else if (libxs_target_archid == LIBXS_X86_AVX2) {
         /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
         descriptor.unroll_kh = 0;
         descriptor.unroll_kw = 0;
@@ -418,8 +418,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.option = handle->desc.options;
       descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
       /* TODO check JIT errors */
-      if ( (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
-            libxs_get_target_archid() == LIBXS_X86_AVX512_CORE) &&
+      if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
+            libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
            ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) )
       {
         /* control code size */
@@ -566,7 +566,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.prefetch_output_ahead = 0;
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT_L2;
         handle->code_bwd[3].pmm = libxs_create_xconv_backward(&descriptor);
-      } else if ((libxs_get_target_archid() == LIBXS_X86_AVX2) ||
+      } else if ((libxs_target_archid == LIBXS_X86_AVX2) ||
                    ((handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS)) ) {
         /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
         descriptor.unroll_kh = 0;
@@ -615,8 +615,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
 
       /* TODO check JIT errors */
-      if ( (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
-            libxs_get_target_archid() == LIBXS_X86_AVX512_CORE) &&
+      if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
+            libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
            ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) )
       {
         const unsigned int wu_each_iter_code_size = 10 * (descriptor.ifm_block == 1 ? descriptor.kw : descriptor.ifm_block);
@@ -700,7 +700,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.transpose_ofw_ifm = 1;
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT_L2;
         handle->code_upd[5].pmm = libxs_create_xconv_update_weights(&descriptor);
-      } else if ((libxs_get_target_archid() == LIBXS_X86_AVX2) ||
+      } else if ((libxs_target_archid == LIBXS_X86_AVX2) ||
                    ((handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS)) ) {
         /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
         descriptor.unroll_kw = 0;
@@ -934,8 +934,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* now architecture specific */
-  if ((libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
-      libxs_get_target_archid() == LIBXS_X86_AVX512_CORE) &&
+  if ((libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
+      libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
       (handle->datatype == LIBXS_DNN_DATATYPE_F32) &&
       (handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) &&
       (0 == (handle->desc.C % 16) && 0 == (handle->desc.K % 16)) &&
@@ -1303,8 +1303,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
       handle->cwino_fwd = wino_desc_fp;
 
       /* TODO check JIT errors */
-      if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
-          libxs_get_target_archid() == LIBXS_X86_AVX512_CORE)
+      if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
+          libxs_target_archid == LIBXS_X86_AVX512_CORE)
       {
         wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
         handle->code_fwd[0].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp);
@@ -1627,8 +1627,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
       handle->cwino_bwd = wino_desc_bp;
 
       /* TODO check JIT errors */
-      if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
-          libxs_get_target_archid() == LIBXS_X86_AVX512_CORE)
+      if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
+          libxs_target_archid == LIBXS_X86_AVX512_CORE)
       {
         /* NONE */
         wino_desc_bp.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
@@ -1974,8 +1974,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
 
       handle->cwino_upd = wino_desc_wu;
       /* TODO check JIT errors */
-      if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
-          libxs_get_target_archid() == LIBXS_X86_AVX512_CORE)
+      if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
+          libxs_target_archid == LIBXS_X86_AVX512_CORE)
       {
         /* NONE */
         wino_desc_wu.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
