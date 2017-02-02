@@ -30,7 +30,6 @@
 #define LIBXS_DNN_HANDLE_H
 
 #include <libxs_dnn.h>
-#include "libxs_main.h"
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dnn_layer* handle );
 
