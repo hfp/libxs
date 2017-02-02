@@ -131,8 +131,8 @@
 # define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(simd private(__VA_ARGS__))
 # define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(simd)
 # define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(novector)
-#elif defined(_OPENMP) && (201307 <= _OPENMP) /*OpenMP 4.0*/ \
-  || LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#elif (defined(_OPENMP) && (201307 <= _OPENMP)) /*OpenMP 4.0*/ || (defined(LIBXS_OPENMP_SIMD) \
+  && LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
 # define LIBXS_ATTRIBUTE_SIMD LIBXS_PRAGMA(optimize("openmp-simd"))
 # define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(omp simd reduction(EXPRESSION))
 # define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(omp simd collapse(N))
