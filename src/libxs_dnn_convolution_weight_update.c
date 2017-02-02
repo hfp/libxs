@@ -27,9 +27,17 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_dnn_convolution_weight_update.h"
-#include <libxs.h>
 #include <libxs_intrinsics_x86.h>
+#include <libxs.h>
+
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
 #include <string.h>
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
+
 
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
