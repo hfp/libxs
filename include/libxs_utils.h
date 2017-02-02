@@ -96,8 +96,9 @@
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     include <immintrin.h>
 #   elif (LIBXS_VERSION3(5, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-#     if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing e.g., reductions */
-#       define LIBXS_INTRINSICS_INCOMPLETE_AVX512
+      /* AVX-512 pseudo intrinsics are missing e.g., reductions */
+#     if !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
+#       define LIBXS_INTRINSICS_AVX512_NOREDUCTIONS
 #     endif
 #     if !defined(__CYGWIN__)
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
@@ -106,8 +107,13 @@
 #     endif
 #     include <immintrin.h>
 #   elif (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-#     if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing e.g., reductions */
-#       define LIBXS_INTRINSICS_INCOMPLETE_AVX512
+      /* AVX-512 pseudo intrinsics are missing e.g., reductions */
+#     if !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
+#       define LIBXS_INTRINSICS_AVX512_NOREDUCTIONS
+#     endif
+      /* AVX-512 mask register support is missing */
+#     if !defined(LIBXS_INTRINSICS_AVX512_NOMASK)
+#       define LIBXS_INTRINSICS_AVX512_NOMASK
 #     endif
 #     if !defined(__CYGWIN__)
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
@@ -119,8 +125,13 @@
 #     if defined(__clang__) && !(defined(__APPLE__) && defined(__MACH__)) \
         && ((LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
          || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))) /* devel */
-#       if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing e.g., reductions */
-#         define LIBXS_INTRINSICS_INCOMPLETE_AVX512
+        /* AVX-512 pseudo intrinsics are missing e.g., reductions */
+#       if !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
+#         define LIBXS_INTRINSICS_AVX512_NOREDUCTIONS
+#       endif
+        /* AVX-512 mask register support is missing */
+#       if !defined(LIBXS_INTRINSICS_AVX512_NOMASK)
+#         define LIBXS_INTRINSICS_AVX512_NOMASK
 #       endif
 #       if !defined(__CYGWIN__)
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
@@ -129,8 +140,13 @@
 #       endif
 #     elif defined(__clang__) && !(defined(__APPLE__) && defined(__MACH__)) \
         && (LIBXS_VERSION3(3, 5, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
-#       if !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512) /* some AVX-512 pseudo intrinsics are missing e.g., reductions */
-#         define LIBXS_INTRINSICS_INCOMPLETE_AVX512
+        /* AVX-512 pseudo intrinsics are missing e.g., reductions */
+#       if !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
+#         define LIBXS_INTRINSICS_AVX512_NOREDUCTIONS
+#       endif
+        /* AVX-512 mask register support is missing */
+#       if !defined(LIBXS_INTRINSICS_AVX512_NOMASK)
+#         define LIBXS_INTRINSICS_AVX512_NOMASK
 #       endif
 #       if !defined(__CYGWIN__)
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
@@ -342,6 +358,66 @@
     int i, r = 0; for (i = 1; 0 == (n & i) ; i <<= 1) { ++r; } return r;
   }
 # define LIBXS_INTRINSICS_BITSCANFWD(N) libxs_bitscanfwd(N)
+#endif
+
+#if !defined(LIBXS_INTRINSICS_KNC) && !defined(LIBXS_INTRINSICS_NONE) && defined(__MIC__)
+# define LIBXS_INTRINSICS_KNC
+#endif
+
+/** LIBXS_INTRINSICS_X86 is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_INTRINSICS_NONE) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_GENERIC <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_GENERIC <= LIBXS_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_X86
+#endif
+
+/** LIBXS_INTRINSICS_SSE3 is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_SSE3) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_X86) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_SSE3
+#endif
+
+/** LIBXS_INTRINSICS_SSE4 is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_SSE4) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_SSE3) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_SSE4 <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_SSE4
+#endif
+
+/** LIBXS_INTRINSICS_AVX is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_SSE4) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_AVX
+#endif
+
+/** LIBXS_INTRINSICS_AVX2 is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_AVX2
+#endif
+
+/** LIBXS_INTRINSICS_AVX512 is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX2) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_AVX512
+#endif
+
+/** LIBXS_INTRINSICS_AVX512_MIC is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX512_MIC) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX512) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX512_MIC <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_AVX512_MIC <= LIBXS_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_AVX512_MIC
+#endif
+
+/** LIBXS_INTRINSICS_AVX512_CORE is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX512_CORE) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX512) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_AVX512_CORE
 #endif
 
 #endif /*LIBXS_INTRINSICS_X86_H*/

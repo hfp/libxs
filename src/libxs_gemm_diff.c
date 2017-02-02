@@ -43,27 +43,19 @@
 #endif
 
 /* Enable/disable specific code paths */
-#if !defined(LIBXS_GEMM_DIFF_KNC) && !defined(LIBXS_INTRINSICS_NONE) && defined(__MIC__)
+#if defined(LIBXS_INTRINSICS_KNC) && !defined(LIBXS_GEMM_DIFF_KNC)
 /*#define LIBXS_GEMM_DIFF_KNC*/
 #endif
-#if !defined(LIBXS_GEMM_DIFF_SSE) && !defined(LIBXS_INTRINSICS_NONE) && ( \
-     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
-  || (defined(__clang__) && LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH))
-# define LIBXS_GEMM_DIFF_SSE
+#if defined(LIBXS_INTRINSICS_SSE3) && !defined(LIBXS_GEMM_DIFF_SSE3)
+# define LIBXS_GEMM_DIFF_SSE3
 #endif
-#if !defined(LIBXS_GEMM_DIFF_AVX) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_SSE) && ( \
-     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
-  || (defined(__clang__) && LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH))
+#if defined(LIBXS_INTRINSICS_AVX) && !defined(LIBXS_GEMM_DIFF_AVX)
 # define LIBXS_GEMM_DIFF_AVX
 #endif
-#if !defined(LIBXS_GEMM_DIFF_AVX2) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX) && ( \
-     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
-  || (defined(__clang__) && LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH))
+#if defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_GEMM_DIFF_AVX2)
 # define LIBXS_GEMM_DIFF_AVX2
 #endif
-#if !defined(LIBXS_GEMM_DIFF_AVX512) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_GEMM_DIFF_AVX2) && ( \
-     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
-  || (defined(__clang__) && LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH))
+#if defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_GEMM_DIFF_AVX512)
 # define LIBXS_GEMM_DIFF_AVX512
 #endif
 
@@ -156,7 +148,7 @@ LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE3)
 unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
 {
   assert(0 != reference && 0 != desc);
-#if defined(LIBXS_GEMM_DIFF_SSE)
+#if defined(LIBXS_GEMM_DIFF_SSE3)
   assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
 # if (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   {
@@ -452,7 +444,7 @@ unsigned int libxs_gemm_diffn_avx512(
   const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* descs,
   unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if defined(LIBXS_GEMM_DIFF_AVX512) && !defined(LIBXS_INTRINSICS_INCOMPLETE_AVX512)
+#if defined(LIBXS_GEMM_DIFF_AVX512) && !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
   assert(/*is pot*/ndescs == (1 << LIBXS_LOG2(ndescs)));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
