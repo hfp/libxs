@@ -1272,6 +1272,8 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* ha
       l_scratch_size += handle->scratch1_size + 64;
       l_scratch_size += handle->scratch3_size + 64;
       l_scratch_size += handle->scratch4_size + 64;
+      l_scratch_size += handle->scratchIw_size + 64;
+      l_scratch_size += handle->scratchOw_size + 64;
     } else {
       switch (kind) {
         case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -1374,6 +1376,20 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
         handle->scratch4 = (void*)(address+offset);
       }
       address += handle->scratch4_size + 64;
+      if (address % 64 == 0) {
+        handle->scratchIw = (void*)address;
+      } else {
+        offset = (64 - address % 64);
+        handle->scratchIw = (void*)(address+offset);
+      }
+      address += handle->scratchIw_size + 64;
+      if (address % 64 == 0) {
+        handle->scratchOw = (void*)address;
+      } else {
+        offset = (64 - address % 64);
+        handle->scratchOw = (void*)(address+offset);
+      }
+      address += handle->scratchOw_size + 64;
     } else {
       switch (kind) {
         case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -1522,6 +1538,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* 
       handle->scratch1 = 0;
       handle->scratch3 = 0;
       handle->scratch4 = 0;
+      handle->scratchIw = 0;
+      handle->scratchOw = 0;
     } else {
       switch (kind) {
         case LIBXS_DNN_COMPUTE_KIND_FWD: {

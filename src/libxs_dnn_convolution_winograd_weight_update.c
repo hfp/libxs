@@ -44,6 +44,7 @@
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_custom_custom(
                                            float *inp,
                                            float *tinp,
+                                           float *Iwp,
                                            const libxs_dnn_layer* handle )
 {
   if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
@@ -98,6 +99,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_custom_custom(
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_nhwc_custom(
                                          float *inp,
                                          float *tinp,
+                                         float *Iwp,
                                          const libxs_dnn_layer* handle )
 {
   if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
@@ -152,6 +154,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_nhwc_custom(
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_deloutput_transform_custom_custom(
                                                float *inp,
                                                float *tinp,
+                                               float *Owp,
                                                const libxs_dnn_layer* handle )
 {
   if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
@@ -206,6 +209,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_deloutput_transform_custom_cus
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_deloutput_transform_nhwc_custom(
                                              float *inp,
                                              float *tinp,
+                                             float *Owp,
                                              const libxs_dnn_layer* handle )
 {
   if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
