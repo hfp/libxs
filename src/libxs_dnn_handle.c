@@ -892,7 +892,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_dnn_handle_factors_ijm(
       continue;
 
     for ( j = 0; fact_j[j] != 1; j++ ) {
-      if ( (cur_fact[i] == fact_j[j]) /* && ((((*ur_j)*fact_j[j]*itiles-1)*itiles + *ur_i-1) <= max_acc)*/ ) {
+      if ( cur_fact[i] == fact_j[j] /* && ((((*ur_j)*fact_j[j]*itiles-1)*itiles + *ur_i-1) <= max_acc)*/ ) {
         *ur_j = (*ur_j)*fact_j[j];
         found = 1;
         /* Remove this element from fact_j */
@@ -906,7 +906,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_dnn_handle_factors_ijm(
       continue;
 
     for ( j = 0; fact_m[j] != 1; j++ ) {
-      if ( (cur_fact[i] == fact_m[j]) /* && ((((*ur_m)*fact_m[j]-1)*itiles*jtiles + (*ur_j-1)*itiles + *ur_i-1) <= max_acc)*/ ) {
+      if ( cur_fact[i] == fact_m[j] /* && ((((*ur_m)*fact_m[j]-1)*itiles*jtiles + (*ur_j-1)*itiles + *ur_i-1) <= max_acc)*/ ) {
         *ur_m = (*ur_m)*fact_m[j];
         found = 1;
         /* Remove this element from fact_m */
