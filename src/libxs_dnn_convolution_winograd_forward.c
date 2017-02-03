@@ -321,7 +321,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_c
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check if we have input, output and filter */
-  if (handle->reg_input == 0 || handle->reg_output == 0 || handle->reg_filter == 0 || handle->scratch1 == 0 || handle->scratch3 == 0 || handle->scratch4 == 0) {
+  if (handle->reg_input == 0 || handle->reg_output == 0 || handle->reg_filter == 0 || handle->scratch1 == 0 || handle->scratch3 == 0 || handle->scratch4 == 0 || handle->scratchIw == 0 || handle->scratchOw == 0) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
   }
@@ -409,7 +409,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_cus
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check if we have input, output and filter */
-  if (handle->reg_input == 0 || handle->reg_output == 0 || handle->reg_filter == 0 || handle->scratch1 == 0 || handle->scratch3 == 0 || handle->scratch4 == 0) {
+  if (handle->reg_input == 0 || handle->reg_output == 0 || handle->reg_filter == 0 || handle->scratch1 == 0 || handle->scratch3 == 0 || handle->scratch4 == 0 || handle->scratchIw == 0 || handle->scratchOw == 0) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
   }
@@ -433,7 +433,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_cus
       typedef float element_output_type;
       typedef float element_filter_type;
       typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_winograd_st_fwd_custom_custom.tpl.c"
+# include "template/libxs_dnn_convolve_winograd_st_fwd_nhwc_custom.tpl.c"
 #endif
 
       if (handle->cwino_fwd.vratio == 1 && handle->cwino_fwd.alpha == 6) {
