@@ -1946,7 +1946,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         }
         allowed_unroll = 512 / (wino_desc_wu.bimg*wino_desc_wu.itiles*wino_desc_wu.jtiles);
         allowed_unroll = (allowed_unroll > 26) ? 26 : allowed_unroll;
-        internal_dnn_handle_factors_ijm( wino_desc_wu.itiles, wino_desc_wu.jtiles, wino_desc_wu.bimg, 
+        internal_dnn_handle_factors_ijm( wino_desc_wu.itiles, wino_desc_wu.jtiles, wino_desc_wu.bimg,
                      &(wino_desc_wu.ur_i), &(wino_desc_wu.ur_j), &(wino_desc_wu.ur_m), allowed_unroll );
         if(wino_desc_wu.ur_i * wino_desc_wu.ur_j * wino_desc_wu.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
       	  wino_desc_wu.vratio = 2;
@@ -1961,7 +1961,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         }
         allowed_unroll = 512 / (wino_desc_wu.bimg*wino_desc_wu.itiles*wino_desc_wu.jtiles);
         allowed_unroll = (allowed_unroll > 26) ? 26 : allowed_unroll;
-        internal_dnn_handle_factors_ijm( wino_desc_wu.itiles, wino_desc_wu.jtiles, wino_desc_wu.bimg, 
+        internal_dnn_handle_factors_ijm( wino_desc_wu.itiles, wino_desc_wu.jtiles, wino_desc_wu.bimg,
                      &(wino_desc_wu.ur_i), &(wino_desc_wu.ur_j), &(wino_desc_wu.ur_m), allowed_unroll );
         if(wino_desc_wu.ur_i * wino_desc_wu.ur_j * wino_desc_wu.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
       	  wino_desc_wu.vratio = 2;
