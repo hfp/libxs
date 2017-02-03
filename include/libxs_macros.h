@@ -460,4 +460,7 @@
 # pragma offload_attribute(pop)
 #endif
 
+/** Similar to LIBXS_UNUSED, this helper "sinks" multiple arguments. */
+LIBXS_INLINE LIBXS_RETARGETABLE void libxs_sink(LIBXS_VARIADIC) {/*nothing*/}
+
 #endif /*LIBXS_MACROS_H*/
