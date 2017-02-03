@@ -65,7 +65,7 @@ void spmdm_check_c( const libxs_spmdm_handle* handle,
     if (local_error > max_error) {
       max_error = local_error;
     }
-    /*if(local_error > 1e-3) printf("(%d,%d) : gold: %f, computed: %f\n", l / handle->n, l % handle->n, srcval, dstval);*/
+    /*if (local_error > 1e-3) printf("(%d,%d) : gold: %f, computed: %f\n", l / handle->n, l % handle->n, srcval, dstval);*/
     src_norm += srcval;
     dst_norm += dstval;
   }
@@ -216,7 +216,7 @@ int main(int argc, char **argv)
     #else
     float  val = (float)random;
     #endif
-    if(random > 0.85) A_gold[l] = val;
+    if (random > 0.85) A_gold[l] = val;
     else              A_gold[l] = (real)0.0;
   }
 
@@ -271,10 +271,10 @@ int main(int argc, char **argv)
 #if defined(_OPENMP)
 # pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2)
 #endif
-  for(i = 0; i < M; i++) {
-    for(j = 0; j < N; j++) {
+  for (i = 0; i < M; i++) {
+    for (j = 0; j < N; j++) {
       float sum = 0.0;
-      for(k = 0; k < K; k++) {
+      for (k = 0; k < K; k++) {
 #       ifdef USE_BFLOAT
         uint16_t Atmp = A_gold[i*K + k];
         int Atmp_int  = Atmp; Atmp_int <<= 16;
@@ -298,7 +298,7 @@ int main(int argc, char **argv)
 
   /* Timing loop starts */
   start = libxs_timer_tick();
-  for( i = 0; i < reps; i++) {
+  for ( i = 0; i < reps; i++) {
 #   ifdef USE_BFLOAT
     spmdm_exec_bfloat16( &handle, transA, transB, &alpha, A_gold, B_gold, transC, &beta, C, A_sparse);
 #   else
@@ -320,13 +320,13 @@ int main(int argc, char **argv)
   real * A_gold2 = (real*)libxs_aligned_malloc( M*K*sizeof(real), 64 );
   float * C2 = (float*)libxs_aligned_malloc( M*N*sizeof(float), 64 );
 
-  for(i = 0; i < M; i++) {
-    for(j = 0; j < K; j++) {
+  for (i = 0; i < M; i++) {
+    for (j = 0; j < K; j++) {
       A_gold2[j*M + i] = A_gold[i*K + j];
     }
   }
-  for(i = 0; i < M; i++) {
-    for(j = 0; j < N; j++) {
+  for (i = 0; i < M; i++) {
+    for (j = 0; j < N; j++) {
       C[j*M + i] = (float)C0_gold[i*N + j];
     }
   }
@@ -339,8 +339,8 @@ int main(int argc, char **argv)
   spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
 # endif
 
-  for(i = 0; i < M; i++) {
-    for(j = 0; j < N; j++) {
+  for (i = 0; i < M; i++) {
+    for (j = 0; j < N; j++) {
       C2[i*N + j] = C[j*M + i];
     }
   }
@@ -349,7 +349,7 @@ int main(int argc, char **argv)
 
   /* Timing loop starts */
   start = libxs_timer_tick();
-  for( i = 0; i < reps; i++) {
+  for ( i = 0; i < reps; i++) {
 #   ifdef USE_BFLOAT
     spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
 #   else
@@ -366,8 +366,8 @@ int main(int argc, char **argv)
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transB = Y -- backprop\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
   real * B_gold2 = (real*)libxs_aligned_malloc( K*N*sizeof(real), 64 );
 
-  for(i = 0; i < K; i++) {
-    for(j = 0; j < N; j++) {
+  for (i = 0; i < K; i++) {
+    for (j = 0; j < N; j++) {
       B_gold2[j*K + i] = B_gold[i*N + j];
     }
   }
@@ -388,7 +388,7 @@ int main(int argc, char **argv)
 
   /* Timing loop starts */
   start = libxs_timer_tick();
-  for( i = 0; i < reps; i++) {
+  for ( i = 0; i < reps; i++) {
 #   ifdef USE_BFLOAT
     spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold, B_gold2, transC, &beta, C, A_sparse2);
 #   else
