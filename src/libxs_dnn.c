@@ -227,7 +227,7 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
 
     /* Set algorithm to use */
     if (conv_desc.algo == LIBXS_DNN_CONV_ALGO_AUTO) {
-      if( (((conv_desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) || ((conv_desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0)) &&
+      if ( (((conv_desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) || ((conv_desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0)) &&
           ((conv_desc.filter_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) &&
           (3 == conv_desc.R) && (3 == conv_desc.S) &&
           (1 == conv_desc.u) && (1 == conv_desc.v) &&
@@ -240,7 +240,7 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
     } else {
       handle->algo = conv_desc.algo;
     }
-    if(handle->algo != LIBXS_DNN_CONV_ALGO_WINOGRAD && handle->algo != LIBXS_DNN_CONV_ALGO_DIRECT ) {
+    if (handle->algo != LIBXS_DNN_CONV_ALGO_WINOGRAD && handle->algo != LIBXS_DNN_CONV_ALGO_DIRECT ) {
       *status = LIBXS_DNN_ERR_INVALID_ALGO;
       free(handle);
       handle = 0;
@@ -249,7 +249,7 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
     /* @TODO we might want to fall back to direct convolutoin if winograd fails */
     if ( handle->algo == LIBXS_DNN_CONV_ALGO_WINOGRAD ) {
       *status = libxs_dnn_internal_create_conv_handle_winograd_check( handle );
-      if( *status == LIBXS_DNN_WARN_FALLBACK ) handle->algo = LIBXS_DNN_CONV_ALGO_DIRECT;
+      if ( *status == LIBXS_DNN_WARN_FALLBACK ) handle->algo = LIBXS_DNN_CONV_ALGO_DIRECT;
     }
 
     if ( handle->algo == LIBXS_DNN_CONV_ALGO_DIRECT ) {
@@ -1828,8 +1828,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer*
 
     for (ofm1 = 0; ofm1 < handle->blocksofm; ++ofm1) {
       for (ifm1 = 0; ifm1 < handle->blocksifm; ++ifm1) {
-        for(kj=0; kj < handle->desc.R; ++kj) {
-          for(ki=0; ki < handle->desc.S; ++ki) {
+        for (kj=0; kj < handle->desc.R; ++kj) {
+          for (ki=0; ki < handle->desc.S; ++ki) {
             for (ofm2 = 0; ofm2 < handle->ofmblock; ++ofm2) {
               for (ifm2 = 0; ifm2 < handle->ifmblock; ++ifm2) {
                 LIBXS_VLA_ACCESS(6, tr_wt, kj, ki, ofm1, ofm2, ifm1, ifm2, handle->desc.S, handle->blocksofm, handle->ofmblock, handle->blocksifm, handle->ifmblock) =
