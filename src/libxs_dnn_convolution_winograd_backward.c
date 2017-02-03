@@ -41,7 +41,8 @@
 #endif
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_input_transform_custom_custom( float *inp,
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_input_transform_custom_custom(
+                                           const float *inp,
                                            float *tinp,
                                            float *Iwp,
                                            const libxs_dnn_layer* handle )
@@ -95,7 +96,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_input_transform_custom_custom(
 #endif
 }
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_input_transform_nhwc_custom( float *inp,
+
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_input_transform_nhwc_custom(
+                                         const float *inp,
                                          float *tinp,
                                          float *Iwp,
                                          const libxs_dnn_layer* handle )
@@ -149,7 +152,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_input_transform_nhwc_custom( f
 #endif
 }
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_weight_transform( float *wp,
+
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_weight_transform(
+                              float *wp,
                               float *twp,
                               const libxs_dnn_layer* handle )
 {
@@ -202,7 +207,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_weight_transform( float *wp,
 #endif
 }
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_output_transform_custom_custom( float *toutp,
+
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_output_transform_custom_custom(
+                                            float *toutp,
                                             float *outp,
                                             float *Owp,
                                             const libxs_dnn_layer* handle )
@@ -256,7 +263,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_output_transform_custom_custom
 #endif
 }
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_output_transform_nhwc_custom( float *toutp,
+
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_output_transform_nhwc_custom(
+                                          float *toutp,
                                           float *outp,
                                           float *Owp,
                                           const libxs_dnn_layer* handle )
