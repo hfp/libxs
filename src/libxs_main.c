@@ -237,6 +237,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE const char* internal_get_target_arch(int id)
     case LIBXS_X86_AVX512_CORE: {
       target_arch = "skx";
     } break;
+    case LIBXS_X86_AVX512_KNM: {
+      target_arch = "knm";
+    } break;
     case LIBXS_X86_AVX512_MIC: {
       target_arch = "knl";
     } break;
@@ -754,6 +757,7 @@ LIBXS_API_DEFINITION void libxs_set_target_archid(int id)
 {
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
   switch (id) {
+    case LIBXS_X86_AVX512_KNM:
     case LIBXS_X86_AVX512_CORE:
     case LIBXS_X86_AVX512_MIC:
     case LIBXS_X86_AVX512:
@@ -816,6 +820,9 @@ LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
     else if (0 == strcmp("skx", arch) || 0 == strcmp("skl", arch)) {
       target_archid = LIBXS_X86_AVX512_CORE;
     }
+    else if (0 == strcmp("knm", arch) || 0 == strcmp("mic2", arch)) {
+      target_archid = LIBXS_X86_AVX512_KNM;
+    }
     else if (0 == strcmp("knl", arch) || 0 == strcmp("mic", arch)) {
       target_archid = LIBXS_X86_AVX512_MIC;
     }
@@ -842,7 +849,7 @@ LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
     }
   }
 
-  if (LIBXS_TARGET_ARCH_UNKNOWN == target_archid || LIBXS_X86_AVX512_CORE < target_archid) {
+  if (LIBXS_TARGET_ARCH_UNKNOWN == target_archid || LIBXS_X86_AVX512_KNM < target_archid) {
     target_archid = libxs_cpuid();
   }
   else if (0 != libxs_verbosity) { /* library code is expected to be mute */

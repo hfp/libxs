@@ -104,8 +104,13 @@ LIBXS_API_DEFINITION int libxs_cpuid_x86(void)
               target_arch = LIBXS_X86_AVX512_CORE;
             }
             /* AVX512PF(0x04000000), AVX512ER(0x08000000) */
-            else if (0x0C000000 == (0x0C000000 & ebx)) { /* KNL (MIC) */
-              target_arch = LIBXS_X86_AVX512_MIC;
+            else if (0x0C000000 == (0x0C000000 & ebx)) {
+              if (0x0000000C == (0x0000000C & edx)) { /* KNM (MIC) */
+                target_arch = LIBXS_X86_AVX512_KNM;
+              }
+              else { /* KNL (MIC) */
+                target_arch = LIBXS_X86_AVX512_MIC;
+              }
             }
             else { /* Common */
               target_arch = LIBXS_X86_AVX512;

@@ -65,7 +65,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
 #define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_fallback.tpl.c"
 #undef INPUT_PADDING
-      } else {
+    } else {
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_fallback.tpl.c"
       }
     } else {
@@ -93,6 +93,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
 #undef LIBXS_WU_PER_THREAD_ALLOCATION
         }
       }
+#if 1
       else {
         typedef float element_input_type;
         typedef float element_output_type;
@@ -100,12 +101,29 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
         typedef libxs_sconvfunction libxs_convfunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
+          if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM)
+            && (handle->desc.v == 1) && (handle->upd_ofw_rb%4 == 0) )
+          {
+#define LIBXS_WU_TRANSPOSE_OFW_IFM
 # include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
+#undef LIBXS_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
+          }
 #undef INPUT_PADDING
         } else {
+          if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM)
+            && (handle->desc.v == 1) && (handle->upd_ofw_rb%4 == 0) )
+          {
+#define LIBXS_WU_TRANSPOSE_OFW_IFM
 # include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
+#undef LIBXS_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
+          }
         }
       }
+#endif
 #undef INPUT_F32
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -115,6 +133,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
 
   return status;
 }
+
 
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_dnn_layer* handle, int start_thread, int tid)
 {
@@ -193,6 +212,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_d
   return status;
 }
 
+
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -269,3 +289,4 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs
 
   return status;
 }
+

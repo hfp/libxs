@@ -274,7 +274,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dn
        deallocate code known to be not registered; no index attached
        do not use libxs_release_kernel here! */
     if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-          libxs_target_archid == LIBXS_X86_AVX512_CORE    ) && (handle->avx512avx2fallback == 0) ) {
+          libxs_target_archid == LIBXS_X86_AVX512_KNM  ||
+          libxs_target_archid == LIBXS_X86_AVX512_CORE ) && (handle->avx512avx2fallback == 0) ) {
       libxs_free(handle->code_fwd[0].pmm);
       libxs_free(handle->code_fwd[1].pmm);
       libxs_free(handle->code_fwd[2].pmm);
@@ -674,7 +675,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_get_filter_datalayou
             layout->dim_size[5] = handle->blocksofm;
           }
         } else if ( (handle->datatype == LIBXS_DNN_DATATYPE_I16) ||
-                    (handle->datatype == LIBXS_DNN_DATATYPE_I8)     ) {
+                    (handle->datatype == LIBXS_DNN_DATATYPE_I8) ) {
           layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(7*sizeof(libxs_dnn_tensor_dimtype));
           layout->dim_size = (unsigned int*) malloc(7*sizeof(unsigned int));
           if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
@@ -1107,7 +1108,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_buffer(libxs_dnn_layer* hand
 
   /* check for buffer type */
   if ( (type != LIBXS_DNN_REGULAR_INPUT) && (type != LIBXS_DNN_GRADIENT_INPUT) &&
-       (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT)    ) {
+       (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) ) {
     status = LIBXS_DNN_ERR_UNKNOWN_BUFFER_TYPE;
     return status;
   }
@@ -1169,7 +1170,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_buffer(libxs_dnn_layer* handle, cons
 
   /* check for buffer type */
   if ( (type != LIBXS_DNN_REGULAR_INPUT) && (type != LIBXS_DNN_GRADIENT_INPUT) &&
-       (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT)    ) {
+       (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) ) {
     status = LIBXS_DNN_ERR_UNKNOWN_BUFFER_TYPE;
     return status;
   }
@@ -1439,7 +1440,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
           /* we need a minibatch copy for transpose of input, scratch3 */
           if (handle->padding_flag == 1) {
             scratch5_size = handle->minibatch_scratch_size;
-            if (address % 64 == 0) {
+          if (address % 64 == 0) {
               handle->scratch5 = (void*)address;
             } else {
               offset = (64 - address % 64);
@@ -1470,7 +1471,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
           /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
           if (handle->padding_flag == 1) {
             scratch5_size = handle->max_scratch5_size;
-            if (address % 64 == 0) {
+          if (address % 64 == 0) {
               handle->scratch5 = (void*)address;
             } else {
               offset = (64 - address % 64);
@@ -1645,7 +1646,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_la
           case LIBXS_DNN_COMPUTE_KIND_UPD: {
             switch (handle->buffer_format) {
               case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-                switch (handle->filter_format) {
+                 switch (handle->filter_format) {
                   case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
                     status = libxs_dnn_convolve_st_upd_custom_custom(handle, start_thread, tid);
                   } break;

@@ -55,12 +55,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
   /* now architecture specific */
   if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-      libxs_target_archid == LIBXS_X86_AVX512_CORE)
+      libxs_target_archid == LIBXS_X86_AVX512_CORE ||
+      libxs_target_archid == LIBXS_X86_AVX512_KNM )
   {
     noarch = 0;
 #define LIBXS_FWD_OFH_BLOCKING
 #if defined(LIBXS_FWD_OFH_BLOCKING)
-    if ((handle->ofw < 15) && (handle->ofh % 2 == 0) && (handle->desc.S == 1)) {
+    if ( ((handle->ofw < 15) && (handle->ofh % 2 == 0) && (handle->desc.S == 1)) ||
+         ((handle->ofw < 15) && (handle->ofh % 2 == 0) && (libxs_get_target_archid() == LIBXS_X86_AVX512_KNM)) ) {
       handle->fwd_ofw_rb = handle->ofw;
       handle->fwd_ofh_rb = 2;
       /* on AVX512_CORE and int this only works for smaller 13 */
@@ -87,7 +89,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       /* for 32 accumuation we need even one register more */
       } else if ( (handle->datatype == LIBXS_DNN_DATATYPE_I8) &&
            (handle->datatype_itm == LIBXS_DNN_DATATYPE_I32) &&
-           ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0)  ) {
+           ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
         for (i = 25; i > 1; --i) {
           if (handle->ofw % i == 0) break;
         }
@@ -146,7 +148,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle->ifmblock = (handle->desc.C >=32) ? 32 : handle->desc.C/2;
       handle->ofmblock = (handle->desc.K >=32) ? 32 : handle->desc.K/2;
       handle->fm_lp_block = 2;
-      if ( libxs_target_archid == LIBXS_X86_AVX512_MIC ) {
+      if ( libxs_target_archid == LIBXS_X86_AVX512_MIC ||
+           libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
         status = LIBXS_DNN_WARN_FALLBACK;
         handle->ifmblock = 1;
         handle->ofmblock = 1;
@@ -159,7 +162,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle->ifmblock = (handle->desc.C >=16) ? 16 : handle->desc.C/4;
       handle->ofmblock = (handle->desc.K >=16) ? 16 : handle->desc.K/4;
       handle->fm_lp_block = 4;
-      if ( libxs_target_archid == LIBXS_X86_AVX512_MIC ) {
+      if ( libxs_target_archid == LIBXS_X86_AVX512_MIC ||
+           libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
         status = LIBXS_DNN_WARN_FALLBACK;
         handle->ifmblock = 1;
         handle->ofmblock = 1;
@@ -335,8 +339,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
         descriptor.ifw_padded = handle->ifwp + 2 * handle->desc.pad_w;
       } else {
-        descriptor.ifh_padded = handle->ifhp;
-        descriptor.ifw_padded = handle->ifwp;
+      descriptor.ifh_padded = handle->ifhp;
+      descriptor.ifw_padded = handle->ifwp;
       }
       descriptor.kh = handle->desc.R;
       descriptor.kw = handle->desc.S;
@@ -356,8 +360,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.option = handle->desc.options;
       descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
       /* TODO check JIT errors */
-      if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-          libxs_target_archid == LIBXS_X86_AVX512_CORE)
+      if (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
+          libxs_get_target_archid() == LIBXS_X86_AVX512_CORE ||
+          libxs_get_target_archid() == LIBXS_X86_AVX512_KNM )
       {
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
         handle->code_fwd[0].pmm = libxs_create_xconv_forward(&descriptor);
@@ -391,8 +396,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
         descriptor.ifw_padded = handle->ifwp + 2 * handle->desc.pad_w;
       } else {
-        descriptor.ifh_padded = handle->ifhp;
-        descriptor.ifw_padded = handle->ifwp;
+      descriptor.ifh_padded = handle->ifhp;
+      descriptor.ifw_padded = handle->ifwp;
       }
       descriptor.kh = handle->desc.R;
       descriptor.kw = handle->desc.S;
@@ -418,8 +423,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.option = handle->desc.options;
       descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
       /* TODO check JIT errors */
-      if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-            libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
+      if ( (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
+            libxs_get_target_archid() == LIBXS_X86_AVX512_CORE ||
+            libxs_get_target_archid() == LIBXS_X86_AVX512_KNM) &&
            ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) )
       {
         /* control code size */
@@ -589,8 +595,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
         descriptor.ifw_padded = handle->ifwp + 2 * handle->desc.pad_w;
       } else {
-        descriptor.ifh_padded = handle->ifhp;
-        descriptor.ifw_padded = handle->ifwp;
+      descriptor.ifh_padded = handle->ifhp;
+      descriptor.ifw_padded = handle->ifwp;
       }
       descriptor.ofm_block = handle->ofmblock;
       descriptor.ifm_block = handle->ifmblock;
@@ -615,8 +621,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
 
       /* TODO check JIT errors */
-      if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-            libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
+      if ( (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
+            libxs_get_target_archid() == LIBXS_X86_AVX512_CORE ||
+            libxs_get_target_archid() == LIBXS_X86_AVX512_KNM ) &&
            ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) )
       {
         const unsigned int wu_each_iter_code_size = 10 * (descriptor.ifm_block == 1 ? descriptor.kw : descriptor.ifm_block);
@@ -1278,10 +1285,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         }
         internal_dnn_handle_factors_ijm( wino_desc_fp.itiles, wino_desc_fp.jtiles, wino_desc_fp.bimg,
                      &(wino_desc_fp.ur_i), &(wino_desc_fp.ur_j), &(wino_desc_fp.ur_m), 26 );
-        if (wino_desc_fp.ur_i * wino_desc_fp.ur_j * wino_desc_fp.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0)
+        if (wino_desc_fp.ur_i * wino_desc_fp.ur_j * wino_desc_fp.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
           wino_desc_fp.vratio = 2;
-        else
+        } else {
           wino_desc_fp.vratio = 1;
+        }
       } else {
         if ((handle->desc.N % 2) == 0) {
           wino_desc_fp.bimg = 2;
@@ -1949,9 +1957,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         internal_dnn_handle_factors_ijm( wino_desc_wu.itiles, wino_desc_wu.jtiles, wino_desc_wu.bimg,
                      &(wino_desc_wu.ur_i), &(wino_desc_wu.ur_j), &(wino_desc_wu.ur_m), allowed_unroll );
         if (wino_desc_wu.ur_i * wino_desc_wu.ur_j * wino_desc_wu.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
-      	  wino_desc_wu.vratio = 2;
+          wino_desc_wu.vratio = 2;
         } else {
-      	  wino_desc_wu.vratio = 1;
+          wino_desc_wu.vratio = 1;
         }
       } else {
         if ((handle->desc.N % 2) == 0) {
@@ -1964,9 +1972,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         internal_dnn_handle_factors_ijm( wino_desc_wu.itiles, wino_desc_wu.jtiles, wino_desc_wu.bimg,
                      &(wino_desc_wu.ur_i), &(wino_desc_wu.ur_j), &(wino_desc_wu.ur_m), allowed_unroll );
         if (wino_desc_wu.ur_i * wino_desc_wu.ur_j * wino_desc_wu.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
-      	  wino_desc_wu.vratio = 2;
+          wino_desc_wu.vratio = 2;
         } else {
-      	  wino_desc_wu.vratio = 1;
+          wino_desc_wu.vratio = 1;
         }
       }
 
