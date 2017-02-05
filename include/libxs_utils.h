@@ -290,14 +290,19 @@
 #         define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET_1006
 #       endif
 #       if (LIBXS_X86_AVX512_MIC <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1008 target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er")
+#         define LIBXS_ATTRIBUTE_TARGET_1010 target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er")
 #       else /* LIBXS_X86_AVX512 */
-#         define LIBXS_ATTRIBUTE_TARGET_1008 LIBXS_ATTRIBUTE_TARGET_1007
+#         define LIBXS_ATTRIBUTE_TARGET_1010 LIBXS_ATTRIBUTE_TARGET_1007
+#       endif
+#       if (LIBXS_X86_AVX512_KNM <= LIBXS_MAX_STATIC_TARGET_ARCH) /* TODO: add compiler flags */
+#         define LIBXS_ATTRIBUTE_TARGET_1011 target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er")
+#       else /* LIBXS_X86_AVX512_MIC */
+#         define LIBXS_ATTRIBUTE_TARGET_1011 LIBXS_ATTRIBUTE_TARGET_1010
 #       endif
 #       if (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1009 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl")
+#         define LIBXS_ATTRIBUTE_TARGET_1020 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl")
 #       else /* LIBXS_X86_AVX512 */
-#         define LIBXS_ATTRIBUTE_TARGET_1009 LIBXS_ATTRIBUTE_TARGET_1007
+#         define LIBXS_ATTRIBUTE_TARGET_1020 LIBXS_ATTRIBUTE_TARGET_1007
 #       endif
 #     else
 #       define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
@@ -411,6 +416,13 @@
      (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX512_MIC <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
   || (defined(__clang__) && LIBXS_X86_AVX512_MIC <= LIBXS_STATIC_TARGET_ARCH))
 # define LIBXS_INTRINSICS_AVX512_MIC
+#endif
+
+/** LIBXS_INTRINSICS_AVX512_KNM is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX512_KNM) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX512_MIC) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX512_KNM <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_AVX512_KNM <= LIBXS_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_AVX512_KNM
 #endif
 
 /** LIBXS_INTRINSICS_AVX512_CORE is defined only if the compiler is able to generate this code without special flags. */
