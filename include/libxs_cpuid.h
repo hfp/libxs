@@ -46,6 +46,7 @@
 #define LIBXS_X86_AVX512       1007
 #define LIBXS_X86_AVX512_MIC   1008
 #define LIBXS_X86_AVX512_CORE  1009
+#define LIBXS_X86_AVX512_KNM   1010
 
 
 /** Returns the target architecture and instruction set extension (code path). */
