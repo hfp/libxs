@@ -218,6 +218,17 @@ struct LIBXS_RETARGETABLE libxs_dfsspmdm {
   libxs_dmmfunction kernel;
 };
 
+struct LIBXS_RETARGETABLE libxs_sfsspmdm {
+  int M;
+  int N;
+  int K;
+  int ldb;
+  int ldc;
+  int N_chunksize;
+  float* a_dense;
+  libxs_smmfunction kernel;
+};
+
 typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GEMM,
   LIBXS_BUILD_KIND_SSOA,
