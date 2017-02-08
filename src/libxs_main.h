@@ -69,11 +69,13 @@
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   const void* const_pmm;
   void* pmm;
-  uintptr_t imm;
+  uintptr_t uimm;
+  intptr_t imm;
+  libxs_xmmfunction xmm;
+  void (*vmm)(const void* a, const void* b, void* c, ...);
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
   libxs_xconvfunction xconv;
 #endif
-  libxs_xmmfunction xmm;
 } libxs_code_pointer;
 
 typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
