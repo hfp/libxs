@@ -374,7 +374,7 @@ LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descrip
 #if !defined(NDEBUG)
   libxs_code_pointer code; code.xmm = src;
   assert(0 != desc && 0 != code.const_pmm && 0 != dst_key && 0 != registry);
-  assert(0 == (LIBXS_CODE_STATIC & code.imm));
+  assert(0 == (LIBXS_CODE_STATIC & code.uimm));
 #endif
 
   if (0 != dst_entry->const_pmm) { /* collision? */
@@ -383,7 +383,7 @@ LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descrip
     unsigned int i0, i, next;
 #if defined(LIBXS_HASH_COLLISION)
     /* mark current entry as a collision (this might be already the case) */
-    dst_entry->imm |= LIBXS_HASH_COLLISION;
+    dst_entry->uimm |= LIBXS_HASH_COLLISION;
 #endif
     /* start linearly searching for an available slot */
     for (i = (start != index) ? start : LIBXS_HASH_MOD(start + 1, LIBXS_CAPACITY_REGISTRY), i0 = i, next = LIBXS_HASH_MOD(i + 1, LIBXS_CAPACITY_REGISTRY);
@@ -400,7 +400,7 @@ LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descrip
     dst_key->descriptor = *desc;
     dst_entry->xmm = src;
     /* mark current entry as static code (non-JIT) */
-    dst_entry->imm |= LIBXS_CODE_STATIC;
+    dst_entry->uimm |= LIBXS_CODE_STATIC;
   }
 
   internal_update_mmstatistic(desc, 1/*try*/, 0);
@@ -713,11 +713,11 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           else if (LIBXS_MNK_SIZE(internal_statistic_mnk, internal_statistic_mnk, internal_statistic_mnk) >= kernel_size) {
             bucket = 2;
           }
-          if (0 == (LIBXS_CODE_STATIC & code.imm)) { /* check for allocated/generated JIT-code */
+          if (0 == (LIBXS_CODE_STATIC & code.uimm)) { /* check for allocated/generated JIT-code */
             void* buffer = 0;
             size_t size = 0;
 #if defined(LIBXS_HASH_COLLISION)
-            code.imm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
+            code.uimm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 #endif
             if (EXIT_SUCCESS == libxs_malloc_info(code.const_pmm, &size, 0/*flags*/, &buffer)) {
               libxs_xfree(code.const_pmm);
@@ -1222,7 +1222,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       /* flag must be a superset of what's populated by libxs_malloc_attrib */
       LIBXS_MALLOC_FLAG_RWX, &regindex, sizeof(regindex));
     if (EXIT_SUCCESS == result) { /* check for success */
-      assert(0 != code->const_pmm && 0 == (LIBXS_CODE_STATIC & code->imm));
+      assert(0 != code->const_pmm && 0 == (LIBXS_CODE_STATIC & code->uimm));
       assert(0 != generated_code.generated_code/*sanity check*/);
       /* copy temporary buffer into the prepared executable buffer */
       memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
@@ -1286,9 +1286,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
     flux_entry = cache.code[cache_index];
     cache.hit = cache_index;
 #if !defined(NDEBUG)
-    if (0 == (LIBXS_CODE_STATIC & flux_entry.imm)) { /* JIT only */
+    if (0 == (LIBXS_CODE_STATIC & flux_entry.uimm)) { /* JIT only */
 # if defined(LIBXS_HASH_COLLISION)
-      flux_entry.imm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
+      flux_entry.uimm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 # endif
       refdesc = internal_get_gemm_descriptor(flux_entry.const_pmm);
     }
@@ -1311,7 +1311,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
             i0 = i; /* keep current position on record */
 #if defined(LIBXS_HASH_COLLISION)
             /* enter code generation, and collision fix-up */
-            if (0 == (LIBXS_HASH_COLLISION & flux_entry.imm)) {
+            if (0 == (LIBXS_HASH_COLLISION & flux_entry.uimm)) {
               assert(0 != flux_entry.const_pmm); /* collision */
               mode = 3;
             }
@@ -1350,8 +1350,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
                 libxs_code_pointer fix_entry;
                 fix_entry.pmm = LIBXS_ATOMIC_LOAD(&internal_registry[i0].pmm, LIBXS_ATOMIC_RELAXED);
                 assert(0 != fix_entry.const_pmm);
-                if (0 == (LIBXS_HASH_COLLISION & fix_entry.imm)) {
-                  fix_entry.imm |= LIBXS_HASH_COLLISION; /* mark current entry as collision */
+                if (0 == (LIBXS_HASH_COLLISION & fix_entry.uimm)) {
+                  fix_entry.uimm |= LIBXS_HASH_COLLISION; /* mark current entry as collision */
                   LIBXS_ATOMIC_STORE(&internal_registry[i0].pmm, fix_entry.pmm, LIBXS_ATOMIC_RELAXED);
                 }
               }
@@ -1400,9 +1400,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE libxs_xmmfunction internal_find_code(const libxs
   }
   assert(0 == flux_entry.const_pmm || 0 == refdesc || 0 == memcmp(refdesc, descriptor, LIBXS_GEMM_DESCRIPTOR_SIZE));
 #if defined(LIBXS_HASH_COLLISION)
-  flux_entry.imm &= ~(LIBXS_CODE_STATIC | LIBXS_HASH_COLLISION); /* clear non-JIT and collision flag */
+  flux_entry.uimm &= ~(LIBXS_CODE_STATIC | LIBXS_HASH_COLLISION); /* clear non-JIT and collision flag */
 #else
-  flux_entry.imm &= ~LIBXS_CODE_STATIC; /* clear non-JIT flag */
+  flux_entry.uimm &= ~LIBXS_CODE_STATIC; /* clear non-JIT flag */
 #endif
   return flux_entry.xmm;
 }
@@ -1422,11 +1422,11 @@ LIBXS_API_DEFINITION int libxs_get_registry_info(libxs_registry_info* info)
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
         libxs_code_pointer code = internal_registry[i];
         if (0 != code.const_pmm && EXIT_SUCCESS == result) {
-          if (0 == (LIBXS_CODE_STATIC & code.imm)) { /* check for allocated/generated JIT-code */
+          if (0 == (LIBXS_CODE_STATIC & code.uimm)) { /* check for allocated/generated JIT-code */
             size_t buffer_size = 0;
             void* buffer = 0;
 #if defined(LIBXS_HASH_COLLISION)
-            code.imm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
+            code.uimm &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 #endif
             result = libxs_malloc_info(code.const_pmm, &buffer_size, 0/*flags*/, &buffer);
             if (EXIT_SUCCESS == result) {
@@ -1507,7 +1507,7 @@ LIBXS_API_DEFINITION intptr_t libxsf_xmmdispatch(const libxs_gemm_precision* pre
   static int error_once = 0;
   intptr_t result = 0;
 #if !defined(NDEBUG) /* this should not happen */
-  if ((0 == m || 0 == n || 0 != k)
+  if ((0 == m || 0 == n || 0 == k)
    && 0 != libxs_verbosity /* library code is expected to be mute */
    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
@@ -1532,6 +1532,36 @@ LIBXS_API_DEFINITION intptr_t libxsf_xmmdispatch(const libxs_gemm_precision* pre
     }
   }
   return result;
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void libxsf_xmmcall(
+  const intptr_t* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/,
+  const void* /*pa*/, const void* /*pb*/, const void* /*pc*/);
+LIBXS_API_DEFINITION void libxsf_xmmcall(
+  const intptr_t* fn, const void* a, const void* b, void* c,
+  const void* pa, const void* pb, const void* pc)
+{
+  libxs_code_pointer code_pointer = { 0 };
+  static int error_once = 0;
+#if !defined(NDEBUG) /* this should not happen */
+  if ((0 == fn || 0 == a || 0 == b || 0 == c)
+   && 0 != libxs_verbosity /* library code is expected to be mute */
+   && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS: invalid arguments for libxs_xmmcall specified!\n");
+  }
+#endif
+  if (0 != *fn) {
+    code_pointer.imm = *fn;
+    code_pointer.vmm(a, b, c, pa, pb, pc);
+  }
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS: NULL-function passed into libxs_xmmcall!\n");
+  }
 }
 
 #if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__)
