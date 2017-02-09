@@ -1519,36 +1519,45 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn, const l
   const int* m, const int* n, const int* k, const int* lda, const int* ldb, const int* ldc,
   const void* alpha, const void* beta, const int* flags, const int* prefetch)
 {
-  const libxs_gemm_precision gemm_precision = (0 != precision ? *precision : LIBXS_GEMM_FLAG_F64PREC);
-  static int error_once = 0;
 #if !defined(NDEBUG) /* this should not happen */
-  if ((0 == fn || 0 == m || 0 == n || 0 == k)
-   && 0 != libxs_verbosity /* library code is expected to be mute */
-   && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS: invalid M, N, or K passed into libxs_xmmdispatch!\n");
-  }
+  static int error_once = 0;
+  if (0 != fn && 0 != m && 0 != n && 0 != k)
 #endif
-  switch (gemm_precision) {
-    case LIBXS_GEMM_FLAG_F64PREC: {
-      *fn = (intptr_t)libxs_dmmdispatch(*m, *n, *k, lda, ldb, ldc,
-        (const double*)alpha, (const double*)beta,
-        flags, prefetch);
-    } break;
-    case LIBXS_GEMM_FLAG_F32PREC: {
-      *fn = (intptr_t)libxs_smmdispatch(*m, *n, *k, lda, ldb, ldc,
-        (const float*)alpha, (const float*)beta,
-        flags, prefetch);
-    } break;
-    default: {
-      if (0 != libxs_verbosity /* library code is expected to be mute */
-       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-      {
-        fprintf(stderr, "LIBXS: invalid precision requested for libxs_xmmdispatch!\n");
+  {
+    const libxs_gemm_precision gemm_precision = (0 != precision ? *precision : LIBXS_GEMM_FLAG_F64PREC);
+    switch (gemm_precision) {
+      case LIBXS_GEMM_FLAG_F64PREC: {
+        *fn = (intptr_t)libxs_dmmdispatch(*m, *n, *k, lda, ldb, ldc,
+          (const double*)alpha, (const double*)beta,
+          flags, prefetch);
+      } break;
+      case LIBXS_GEMM_FLAG_F32PREC: {
+        *fn = (intptr_t)libxs_smmdispatch(*m, *n, *k, lda, ldb, ldc,
+          (const float*)alpha, (const float*)beta,
+          flags, prefetch);
+      } break;
+#if !defined(NDEBUG) /* this should not happen */
+      default: {
+        if (0 != libxs_verbosity /* library code is expected to be mute */
+         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
+          fprintf(stderr, "LIBXS: invalid precision requested for libxs_xmmdispatch!\n");
+        }
+        *fn = 0;
       }
-      *fn = 0;
+#endif
     }
   }
+#if !defined(NDEBUG)
+  else {
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS: invalid M, N, or K passed into libxs_xmmdispatch!\n");
+    }
+    *fn = 0;
+  }
+#endif
 }
 
 
@@ -1560,25 +1569,34 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall)(
   const intptr_t* fn, const void* a, const void* b, void* c,
   const void* pa, const void* pb, const void* pc)
 {
-  libxs_code_pointer code_pointer = { 0 };
-  static int error_once = 0;
 #if !defined(NDEBUG) /* this should not happen */
-  if ((0 == fn || 0 == a || 0 == b || 0 == c)
-   && 0 != libxs_verbosity /* library code is expected to be mute */
-   && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  static int error_once = 0;
+  if (0 != fn && 0 != a && 0 != b && 0 != c)
+#endif
+  {
+#if !defined(NDEBUG) /* this should not happen */
+    if (0 != *fn)
+#endif
+    {
+      libxs_code_pointer code_pointer = { 0 };
+      code_pointer.imm = *fn;
+      code_pointer.vmm(a, b, c, pa, pb, pc);
+    }
+#if !defined(NDEBUG)
+    else if (0 != libxs_verbosity /* library code is expected to be mute */
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS: NULL-function passed into libxs_xmmcall!\n");
+    }
+#endif
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS: invalid arguments for libxs_xmmcall specified!\n");
   }
 #endif
-  if (0 != *fn) {
-    code_pointer.imm = *fn;
-    code_pointer.vmm(a, b, c, pa, pb, pc);
-  }
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS: NULL-function passed into libxs_xmmcall!\n");
-  }
 }
 
 #if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__)
