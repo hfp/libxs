@@ -899,7 +899,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_dnn_handle_factors_ijm(
       continue;
 
     for ( j = 0; fact_j[j] != 1; j++ ) {
-      if ( cur_fact[i] == fact_j[j] /* && ((((*ur_j)*fact_j[j]*itiles-1)*itiles + *ur_i-1) <= max_acc)*/ ) {
+      if ( cur_fact[i] == fact_j[j] ) {
         *ur_j = (*ur_j)*fact_j[j];
         found = 1;
         /* Remove this element from fact_j */
@@ -913,7 +913,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_dnn_handle_factors_ijm(
       continue;
 
     for ( j = 0; fact_m[j] != 1; j++ ) {
-      if ( cur_fact[i] == fact_m[j] /* && ((((*ur_m)*fact_m[j]-1)*itiles*jtiles + (*ur_j-1)*itiles + *ur_i-1) <= max_acc)*/ ) {
+      if ( cur_fact[i] == fact_m[j] ) {
         *ur_m = (*ur_m)*fact_m[j];
         found = 1;
         /* Remove this element from fact_m */
@@ -969,9 +969,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
     const int alpha = 6; /* The value of alpha can be either 4 or 6 */
     const int tileSize = alpha - 2;
     int allowed_unroll = 0;
+    int max_acc = 0;
     int flagBenchmark = 0;
     LIBXS_UNUSED(flagBenchmark/*TODO*/);
-    int max_acc;
 
     /* Forward path */
     { wino_desc_fp.alpha = alpha;
