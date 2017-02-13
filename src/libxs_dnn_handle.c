@@ -942,7 +942,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
 
   /* now architecture specific */
   if ((libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-      libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
+      libxs_target_archid == LIBXS_X86_AVX512_CORE  ||
+      libxs_target_archid == LIBXS_X86_AVX512_KNM ) &&
       (handle->datatype == LIBXS_DNN_DATATYPE_F32) &&
       (handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) &&
       (0 == (handle->desc.C % 16) && 0 == (handle->desc.K % 16)) &&
@@ -970,6 +971,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
     int allowed_unroll = 0;
     int flagBenchmark = 0;
     LIBXS_UNUSED(flagBenchmark/*TODO*/);
+    int max_acc;
 
     /* Forward path */
     { wino_desc_fp.alpha = alpha;
@@ -1283,9 +1285,16 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         } else {
           wino_desc_fp.bimg = 1;
         }
+        if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
+          max_acc = 24;
+        } else {
+          max_acc = 26;
+        }
         internal_dnn_handle_factors_ijm( wino_desc_fp.itiles, wino_desc_fp.jtiles, wino_desc_fp.bimg,
-                     &(wino_desc_fp.ur_i), &(wino_desc_fp.ur_j), &(wino_desc_fp.ur_m), 26 );
-        if (wino_desc_fp.ur_i * wino_desc_fp.ur_j * wino_desc_fp.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
+                     &(wino_desc_fp.ur_i), &(wino_desc_fp.ur_j), &(wino_desc_fp.ur_m), max_acc );
+        if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
+          wino_desc_fp.vratio = 1;
+        } else if (wino_desc_fp.ur_i * wino_desc_fp.ur_j * wino_desc_fp.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
           wino_desc_fp.vratio = 2;
         } else {
           wino_desc_fp.vratio = 1;
@@ -1296,12 +1305,18 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         } else {
           wino_desc_fp.bimg = 1;
         }
-        internal_dnn_handle_factors_ijm( wino_desc_fp.itiles, wino_desc_fp.jtiles, wino_desc_fp.bimg,
-                     &(wino_desc_fp.ur_i), &(wino_desc_fp.ur_j), &(wino_desc_fp.ur_m), 26 );
-        if (wino_desc_fp.ur_i * wino_desc_fp.ur_j * wino_desc_fp.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
-          wino_desc_fp.vratio = 2;
+        if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
+          max_acc = 24;
+        } else {
+          max_acc = 26;
         }
-        else {
+        internal_dnn_handle_factors_ijm( wino_desc_fp.itiles, wino_desc_fp.jtiles, wino_desc_fp.bimg,
+                     &(wino_desc_fp.ur_i), &(wino_desc_fp.ur_j), &(wino_desc_fp.ur_m), max_acc );
+        if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
+      	  wino_desc_fp.vratio = 1;
+        } else if (wino_desc_fp.ur_i * wino_desc_fp.ur_j * wino_desc_fp.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
+          wino_desc_fp.vratio = 2;
+        } else {
           wino_desc_fp.vratio = 1;
         }
       }
@@ -1312,7 +1327,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
 
       /* TODO check JIT errors */
       if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-          libxs_target_archid == LIBXS_X86_AVX512_CORE)
+          libxs_target_archid == LIBXS_X86_AVX512_CORE || 
+          libxs_target_archid == LIBXS_X86_AVX512_KNM )
       {
         wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
         handle->code_fwd[0].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp);
@@ -1622,12 +1638,18 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
       /* General scenario */
       else {
         wino_desc_bp.bimg = wino_desc_fp.bimg;
-        internal_dnn_handle_factors_ijm( wino_desc_bp.itiles, wino_desc_bp.jtiles, wino_desc_bp.bimg,
-                     &(wino_desc_bp.ur_i), &(wino_desc_bp.ur_j), &(wino_desc_bp.ur_m), 26 );
-        if (wino_desc_bp.ur_i * wino_desc_bp.ur_j * wino_desc_bp.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
-          wino_desc_bp.vratio = 2;
+        if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
+          max_acc = 24;
+        } else {
+          max_acc = 26;
         }
-        else {
+        internal_dnn_handle_factors_ijm( wino_desc_bp.itiles, wino_desc_bp.jtiles, wino_desc_bp.bimg,
+                     &(wino_desc_bp.ur_i), &(wino_desc_bp.ur_j), &(wino_desc_bp.ur_m), max_acc );
+        if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
+      	  wino_desc_bp.vratio = 1;
+        } else if (wino_desc_bp.ur_i * wino_desc_bp.ur_j * wino_desc_bp.ur_m <= 13 && handle->blocksofm % 2 == 0 && handle->blocksifm % 2 == 0) {
+          wino_desc_bp.vratio = 2;
+        } else {
           wino_desc_bp.vratio = 1;
         }
       }
@@ -1636,7 +1658,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
 
       /* TODO check JIT errors */
       if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-          libxs_target_archid == LIBXS_X86_AVX512_CORE)
+          libxs_target_archid == LIBXS_X86_AVX512_CORE ||
+          libxs_target_archid == LIBXS_X86_AVX512_KNM )
       {
         /* NONE */
         wino_desc_bp.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
@@ -1981,7 +2004,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
       handle->cwino_upd = wino_desc_wu;
       /* TODO check JIT errors */
       if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-          libxs_target_archid == LIBXS_X86_AVX512_CORE)
+          libxs_target_archid == LIBXS_X86_AVX512_CORE ||
+          libxs_target_archid == LIBXS_X86_AVX512_KNM )
       {
         /* NONE */
         wino_desc_wu.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
