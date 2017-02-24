@@ -177,10 +177,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle = 0;
       return status;
     }
+
     /* RB: updated to reflect the scenario that ifm=3 */
+#if 0
     if (handle->desc.C < 16) {
       handle->ifmblock = 1;
     }
+#endif
+
     /* Check if padded needs to be applied in the input and allocate appropriate buffers */
     if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && (handle->desc.pad_h > 0) && (handle->desc.pad_w > 0)) {
       handle->padding_flag = 1;
@@ -621,10 +625,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
 
       /* TODO check JIT errors */
-      if ( (libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
+      if ( /*(*/libxs_get_target_archid() == LIBXS_X86_AVX512_MIC  ||
             libxs_get_target_archid() == LIBXS_X86_AVX512_CORE ||
-            libxs_get_target_archid() == LIBXS_X86_AVX512_KNM ) &&
-           ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) )
+            libxs_get_target_archid() == LIBXS_X86_AVX512_KNM /*)*/ /*&&
+            ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ )
       {
         const unsigned int wu_each_iter_code_size = 10 * (descriptor.ifm_block == 1 ? descriptor.kw : descriptor.ifm_block);
         const unsigned int wu_max_code_size = 20000;
@@ -707,8 +711,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.transpose_ofw_ifm = 1;
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT_L2;
         handle->code_upd[5].pmm = libxs_create_xconv_update_weights(&descriptor);
-      } else if ((libxs_target_archid == LIBXS_X86_AVX2) ||
-                   ((handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS)) ) {
+      } else if (/*(*/libxs_target_archid == LIBXS_X86_AVX2/*)*/ /*||
+                   ((handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ ) {
         /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
         descriptor.unroll_kw = 0;
         descriptor.ifm_unroll = 0;
