@@ -47,44 +47,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_input_transform_custom_custom(
                                            float *Iwp,
                                            const libxs_dnn_layer* handle )
 {
-  if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 6) {
+  if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_custom_custom_input_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_custom_custom_input_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 4) {
+  } else if (handle->cwino_bwd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_custom_custom_input_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_custom_custom_input_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
   }
@@ -103,44 +75,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_input_transform_nhwc_custom(
                                          float *Iwp,
                                          const libxs_dnn_layer* handle )
 {
-  if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 6) {
+  if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_input_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_input_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 4) {
+  } else if (handle->cwino_bwd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_input_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_input_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
   }
@@ -158,44 +102,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_weight_transform(
                               float *twp,
                               const libxs_dnn_layer* handle )
 {
-  if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 6) {
+  if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_weight_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_weight_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 4) {
+  } else if (handle->cwino_bwd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_weight_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_weight_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
   }
@@ -214,44 +130,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_output_transform_custom_custom
                                             float *Owp,
                                             const libxs_dnn_layer* handle )
 {
-  if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 6) {
+  if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_custom_custom_output_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_custom_custom_output_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 4) {
+  } else if (handle->cwino_bwd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_custom_custom_output_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_custom_custom_output_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
   }
@@ -270,44 +158,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_bwd_output_transform_nhwc_custom(
                                           float *Owp,
                                           const libxs_dnn_layer* handle )
 {
-  if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 6) {
+  if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_output_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_output_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 4) {
+  } else if (handle->cwino_bwd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_output_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_output_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
   }
@@ -351,44 +211,16 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_custom_c
 # include "template/libxs_dnn_convolve_winograd_st_bwd_custom_custom.tpl.c"
 #endif
 
-      if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 6) {
+      if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_custom_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-      } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_custom_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-      } else if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 4) {
+      } else if (handle->cwino_bwd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_custom_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-      } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_custom_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
       }
@@ -439,44 +271,16 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_cus
 # include "template/libxs_dnn_convolve_winograd_st_bwd_nhwc_custom.tpl.c"
 #endif
 
-      if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 6) {
+      if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-      } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-      } else if (handle->cwino_bwd.vratio == 1 && handle->cwino_bwd.alpha == 4) {
+      } else if (handle->cwino_bwd.alpha == 4) { 
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-      } else if (handle->cwino_bwd.vratio == 2 && handle->cwino_bwd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
       }
