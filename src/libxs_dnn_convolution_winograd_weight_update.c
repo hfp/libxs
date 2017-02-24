@@ -26,6 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+/* Kunal Banerjee (Intel Corp.), Rajkishore Barik (Intel Corp.), 
+ * Alexander Heinecke (Intel Corp.)
+******************************************************************************/
 #include "libxs_dnn_convolution_winograd_weight_update.h"
 #include "libxs_main.h"
 
@@ -47,44 +50,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_custom_custom(
                                            float *Iwp,
                                            const libxs_dnn_layer* handle )
 {
-  if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
+  if (handle->cwino_upd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_input_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_input_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 4) {
+  } else if (handle->cwino_upd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_input_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_input_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
   }
@@ -102,44 +77,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_input_transform_nhwc_custom(
                                          float *Iwp,
                                          const libxs_dnn_layer* handle )
 {
-  if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
+  if (handle->cwino_upd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_input_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_input_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 4) {
+  } else if (handle->cwino_upd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_input_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_input_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
   }
@@ -157,44 +104,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_deloutput_transform_custom_cus
                                                float *Owp,
                                                const libxs_dnn_layer* handle )
 {
-  if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
+  if (handle->cwino_upd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_deloutput_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_deloutput_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 4) {
+  } else if (handle->cwino_upd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_deloutput_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_deloutput_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
   }
@@ -212,44 +131,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_deloutput_transform_nhwc_custo
                                              float *Owp,
                                              const libxs_dnn_layer* handle )
 {
-  if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
+  if (handle->cwino_upd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_deloutput_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_deloutput_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 4) {
+  } else if (handle->cwino_upd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_deloutput_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_deloutput_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
   }
@@ -266,44 +157,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_upd_delweight_transform(
                                  float *twp,
                                  const libxs_dnn_layer* handle )
 {
-  if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
+  if (handle->cwino_upd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_delweight_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_delweight_trans_alpha6.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 4) {
+  } else if (handle->cwino_upd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_delweight_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-  } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_delweight_trans_alpha4.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
   }
@@ -347,44 +210,16 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_custom_c
 # include "template/libxs_dnn_convolve_winograd_st_upd_custom_custom.tpl.c"
 #endif
 
-      if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
+      if (handle->cwino_upd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-      } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-      } else if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 4) {
+      } else if (handle->cwino_upd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-      } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_custom_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
       }
@@ -435,44 +270,16 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_nhwc_cus
 # include "template/libxs_dnn_convolve_winograd_st_upd_nhwc_custom.tpl.c"
 #endif
 
-      if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 6) {
+      if (handle->cwino_upd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
-      } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-      } else if (handle->cwino_upd.vratio == 1 && handle->cwino_upd.alpha == 4) {
+      } else if (handle->cwino_upd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
-#define FDVLEN 16
-#define VRATIO 1
 # include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
-#undef TDVLEN
-#undef ALPHA
-      } else if (handle->cwino_upd.vratio == 2 && handle->cwino_upd.alpha == 4) {
-#define ALPHA 4
-#define TDVLEN 16
-#define FDVLEN 32
-#define VRATIO 2
-# include "template/libxs_dnn_convolution_winograd_weight_update_nhwc_custom_inlined.tpl.c"
-#undef VRATIO
-#undef FDVLEN
 #undef TDVLEN
 #undef ALPHA
       }
