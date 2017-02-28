@@ -138,9 +138,10 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_tensor_format filter_format;
   libxs_dnn_conv_fuse_op fuse_ops;
   libxs_dnn_conv_option options;
-  libxs_convolution_winograd_descriptor cwino_fwd; /* KB */
-  libxs_convolution_winograd_descriptor cwino_bwd; /* KB */
-  libxs_convolution_winograd_descriptor cwino_upd; /* KB */
+  libxs_convolution_winograd_descriptor cwino_fwd;
+  libxs_convolution_winograd_descriptor cwino_bwd;
+  libxs_convolution_winograd_descriptor cwino_upd;
+
   /* additional size for iternal data types */
   int ifhp;
   int ifwp;
@@ -194,6 +195,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   size_t scratchIw_size;
   void* scratchOw;
   size_t scratchOw_size;
+  void* scratchVk;
+  size_t scratchVk_size;
 
   /* JIT-generated convolution code */
   /*

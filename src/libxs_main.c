@@ -1149,7 +1149,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
         }
       }
     } break;
-    case LIBXS_BUILD_KIND_CWBWD: { /* convolution winograd forward  */
+    case LIBXS_BUILD_KIND_CWBWD: { /* convolution winograd backward  */
       assert(0 != request->descriptor.cwino);
       if (0 < request->descriptor.cwino->itiles && 0 < request->descriptor.cwino->jtiles && 0 < request->descriptor.cwino->bimg && 0 < request->descriptor.cwino->ur)
       {
@@ -1173,7 +1173,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
         }
       }
     } break;
-    case LIBXS_BUILD_KIND_CWUPD: { /* convolution winograd forward  */
+    case LIBXS_BUILD_KIND_CWUPD: { /* convolution winograd update  */
       assert(0 != request->descriptor.cwino);
       if (0 < request->descriptor.cwino->itiles && 0 < request->descriptor.cwino->jtiles && 0 < request->descriptor.cwino->bimg && 0 < request->descriptor.cwino->ur)
       {
