@@ -69,11 +69,13 @@
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   const void* const_pmm;
   void* pmm;
-  uintptr_t imm;
+  uintptr_t uimm;
+  intptr_t imm;
+  libxs_xmmfunction xmm;
+  void (*vmm)(const void* a, const void* b, void* c, ...);
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
   libxs_xconvfunction xconv;
 #endif
-  libxs_xmmfunction xmm;
 } libxs_code_pointer;
 
 typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
@@ -342,10 +344,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_target_archid;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_dispatch_trylock;
 /** Determines the prefetch strategy, which is used in case of LIBXS_PREFETCH_AUTO. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_auto_prefetch;
-/** Determines if (OpenMP-)tasks are preferred over thread-style parallelization. */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_tasks;
-/** Kind of parallel support (0: none, 1: sequential, 2: parallelized). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_mt;
+/** Determines whether a threaded implementation is synchronized or not. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_sync;
 /** Number of threads per core. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_nt;
 

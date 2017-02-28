@@ -228,8 +228,7 @@ endif
 INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 NINDICES = $(words $(INDICES))
 
-HEADERS = $(shell ls -1 $(SRCDIR)/template/*.c 2> /dev/null | tr "\n" " ") \
-          $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
+HEADERS = $(wildcard $(SRCDIR)/template/*.c) $(wildcard $(SRCDIR)/*.h) \
           $(SRCDIR)/libxs_hash.c $(SRCDIR)/libxs_gemm_diff.c \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \
@@ -399,7 +398,8 @@ endif
 config: $(INCDIR)/libxs_config.h
 $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config.h \
                             $(SCRDIR)/libxs_config.py $(SCRDIR)/libxs_utilities.py \
-                            $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
+                            $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
+                            $(wildcard $(ROOTDIR)/.hooks/*)
 	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
 		$(ROOTDIR)/.hooks/install.sh; \
 	fi
@@ -1528,7 +1528,7 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo
 	@echo "LIBXS installing tests..."
 	@mkdir -p $(INSTALL_ROOT)/$(PTSTDIR)
-	@cp -v $(basename $(shell ls -1 ${TSTDIR}/*.c 2> /dev/null | tr "\n" " ")) $(INSTALL_ROOT)/$(PTSTDIR) 2> /dev/null || true
+	@cp -v $(basename $(wildcard ${TSTDIR}/*.c)) $(INSTALL_ROOT)/$(PTSTDIR) 2> /dev/null || true
 endif
 
 .PHONY: install-artifacts
