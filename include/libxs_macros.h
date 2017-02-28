@@ -304,7 +304,7 @@
 #define LIBXS_INDEX1_7(I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, S6) (LIBXS_INDEX1_6(I0, I1, I2, I3, I4, I5, S1, S2, S3, S4, S5) * (S6) + (I6))
 #define LIBXS_INDEX1_8(I0, I1, I2, I3, I4, I5, I6, I7, S1, S2, S3, S4, S5, S6, S7) (LIBXS_INDEX1_7(I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, S6) * (S7) + (I7))
 
- /**
+/**
  * LIBXS_VLA_DECL declares an array according to the given set of (multiple) bounds.
  * Syntax: LIBXS_VLA_DECL(<ndims>, <elem-type>, <var-name>, <init>, <s1>, ..., <s(ndims-1)>).
  * The element type can be "const" or otherwise qualified; initial value must be (const)element-type*.
@@ -315,19 +315,22 @@
  * Please note that the syntax is similar to LIBXS_INDEX1, and the leading dimension (s0) is omitted!
  */
 #if defined(LIBXS_VLA)
-# define LIBXS_VLA_ACCESS(NDIMS, ARRAY, ...) LIBXS_CONCATENATE(LIBXS_VLA_ACCESS_, NDIMS)(ARRAY, __VA_ARGS__)
-# define LIBXS_VLA_ACCESS_0(ARRAY, ...) (ARRAY)
-# define LIBXS_VLA_ACCESS_1(ARRAY, I0, ...) ((ARRAY)[I0])
-# define LIBXS_VLA_ACCESS_2(ARRAY, I0, I1, ...) ((ARRAY)[I0][I1])
-# define LIBXS_VLA_ACCESS_3(ARRAY, I0, I1, I2, ...) ((ARRAY)[I0][I1][I2])
-# define LIBXS_VLA_ACCESS_4(ARRAY, I0, I1, I2, I3, ...) ((ARRAY)[I0][I1][I2][I3])
-# define LIBXS_VLA_ACCESS_5(ARRAY, I0, I1, I2, I3, I4, ...) ((ARRAY)[I0][I1][I2][I3][I4])
-# define LIBXS_VLA_ACCESS_6(ARRAY, I0, I1, I2, I3, I4, I5, ...) ((ARRAY)[I0][I1][I2][I3][I4][I5])
-# define LIBXS_VLA_ACCESS_7(ARRAY, I0, I1, I2, I3, I4, I5, I6, ...) ((ARRAY)[I0][I1][I2][I3][I4][I5][I6])
-# define LIBXS_VLA_ACCESS_8(ARRAY, I0, I1, I2, I3, I4, I5, I6, I7, ...) ((ARRAY)[I0][I1][I2][I3][I4][I5][I6][I7])
+# define LIBXS_VLA_ACCESS(NDIMS, ARRAY, ...) LIBXS_VLA_ACCESS_Z(NDIMS, ARRAY, LIBXS_VLA_ACCESS_X, __VA_ARGS__)
+# define LIBXS_VLA_ACCESS_X(S) + 0 * (S)
+# define LIBXS_VLA_ACCESS_Y(...)
+# define LIBXS_VLA_ACCESS_Z(NDIMS, ARRAY, XY, ...) LIBXS_CONCATENATE(LIBXS_VLA_ACCESS_, NDIMS)(ARRAY, XY, __VA_ARGS__)
+# define LIBXS_VLA_ACCESS_0(ARRAY, XY, ...) (ARRAY)/*scalar*/
+# define LIBXS_VLA_ACCESS_1(ARRAY, XY, I0, ...) ((ARRAY)[I0])
+# define LIBXS_VLA_ACCESS_2(ARRAY, XY, I0, I1, ...) (((ARRAY) XY(__VA_ARGS__))[I0][I1])
+# define LIBXS_VLA_ACCESS_3(ARRAY, XY, I0, I1, I2, S1, ...) (((ARRAY) XY(S1) XY(__VA_ARGS__))[I0][I1][I2])
+# define LIBXS_VLA_ACCESS_4(ARRAY, XY, I0, I1, I2, I3, S1, S2, ...) (((ARRAY) XY(S1) XY(S2) XY(__VA_ARGS__))[I0][I1][I2][I3])
+# define LIBXS_VLA_ACCESS_5(ARRAY, XY, I0, I1, I2, I3, I4, S1, S2, S3, ...) (((ARRAY) XY(S1) XY(S2) XY(S3) XY(__VA_ARGS__))[I0][I1][I2][I3][I4])
+# define LIBXS_VLA_ACCESS_6(ARRAY, XY, I0, I1, I2, I3, I4, I5, S1, S2, S3, S4, ...) (((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][I5])
+# define LIBXS_VLA_ACCESS_7(ARRAY, XY, I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, ...) (((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(S5) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][I5][I6])
+# define LIBXS_VLA_ACCESS_8(ARRAY, XY, I0, I1, I2, I3, I4, I5, I6, I7, S1, S2, S3, S4, S5, S6, ...) (((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(S5) XY(S6) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][I5][I6][I7])
 # define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, VARIABLE_NAME, INIT_VALUE, .../*bounds*/) \
-    ELEMENT_TYPE LIBXS_VLA_ACCESS(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7), *LIBXS_RESTRICT VARIABLE_NAME, __VA_ARGS__/*bounds*/, __VA_ARGS__/*dummy*/) = \
-   (ELEMENT_TYPE LIBXS_VLA_ACCESS(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7), *, __VA_ARGS__/*bounds*/, __VA_ARGS__/*dummy*/))(INIT_VALUE)
+    ELEMENT_TYPE LIBXS_VLA_ACCESS_Z(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7), *LIBXS_RESTRICT VARIABLE_NAME, LIBXS_VLA_ACCESS_Y, __VA_ARGS__/*bounds*/, __VA_ARGS__/*dummy*/) = \
+   (ELEMENT_TYPE LIBXS_VLA_ACCESS_Z(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7), *, LIBXS_VLA_ACCESS_Y, __VA_ARGS__/*bounds*/, __VA_ARGS__/*dummy*/))(INIT_VALUE)
 #else /* calculate linear index */
 # define LIBXS_VLA_ACCESS(NDIMS, ARRAY, ...) ((ARRAY)[LIBXS_INDEX1(NDIMS, __VA_ARGS__)])
 # define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, VARIABLE_NAME, INIT_VALUE, .../*bounds*/) \
@@ -461,6 +464,6 @@
 #endif
 
 /** Similar to LIBXS_UNUSED, this helper "sinks" multiple arguments. */
-LIBXS_INLINE LIBXS_RETARGETABLE void libxs_sink(LIBXS_VARIADIC) {/*nothing*/}
+LIBXS_INLINE LIBXS_RETARGETABLE int libxs_sink(int rvalue, ...) { return rvalue; }
 
 #endif /*LIBXS_MACROS_H*/

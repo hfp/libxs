@@ -159,10 +159,13 @@ LIBXS_INLINE void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
   LIBXS_VLA_DECL(4, const real, a_t, a, handle->mb, handle->bk, handle->bm);
   LIBXS_VLA_DECL(4, const real, b_t, b, handle->kb, handle->bn, handle->bk);
   LIBXS_VLA_DECL(4,       real, c_t, c, handle->mb, handle->bn, handle->bm);
-  int mb, nb, kb, mb2, nb2, kb2;
+  int mb, nb, kb;
+#if 0
+  int mb2, nb2, kb2;
   int mr = 8;
   int nr = 8;
   int kr = 4;
+#endif
 
   /* TODO: take transpose into account */
   LIBXS_UNUSED(transA);
