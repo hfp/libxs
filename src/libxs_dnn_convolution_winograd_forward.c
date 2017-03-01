@@ -62,7 +62,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom(
   }
 #if !defined(NDEBUG)
   else {
-    fprintf(stderr, "LIBXS error: Unsupported fdvlen %u or unsupported alpha %u\n", handle->cwino_fwd.vratio*16, handle->cwino_fwd.alpha);
+    fprintf(stderr, "LIBXS error: Unsupported alpha %u\n", handle->cwino_fwd.alpha);
     assert(0);
   }
 #endif
@@ -89,7 +89,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_nhwc_custom(
   }
 #if !defined(NDEBUG)
   else {
-    fprintf(stderr, "LIBXS error: Unsupported fdvlen %u or unsupported alpha %u\n", handle->cwino_fwd.vratio*16, handle->cwino_fwd.alpha);
+    fprintf(stderr, "LIBXS error: Unsupported alpha %u\n", handle->cwino_fwd.alpha);
     assert(0);
   }
 #endif
@@ -114,7 +114,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_weight_transform( float *wp,
   }
 #if !defined(NDEBUG)
   else {
-    fprintf(stderr, "LIBXS error: Unsupported fdvlen %u or unsupported alpha %u\n", handle->cwino_fwd.vratio*16, handle->cwino_fwd.alpha);
+    fprintf(stderr, "LIBXS error: Unsupported alpha %u\n", handle->cwino_fwd.alpha);
     assert(0);
   }
 #endif
@@ -142,7 +142,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_custom_custom
   }
 #if !defined(NDEBUG)
   else {
-    fprintf(stderr, "LIBXS error: Unsupported fdvlen %u or unsupported alpha %u\n", handle->cwino_fwd.vratio*16, handle->cwino_fwd.alpha);
+    fprintf(stderr, "LIBXS error: Unsupported alpha %u\n", handle->cwino_fwd.alpha);
     assert(0);
   }
 #endif
@@ -170,7 +170,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_nhwc_custom( 
   }
 #if !defined(NDEBUG)
   else {
-    fprintf(stderr, "LIBXS error: Unsupported fdvlen %u or unsupported alpha %u\n", handle->cwino_fwd.vratio*16, handle->cwino_fwd.alpha);
+    fprintf(stderr, "LIBXS error: Unsupported alpha %u\n", handle->cwino_fwd.alpha);
     assert(0);
   }
 #endif
@@ -223,7 +223,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_c
       }
 #if !defined(NDEBUG)
       else {
-        fprintf(stderr, "LIBXS error: Unsupported fdvlen %u or unsupported alpha %u\n", handle->cwino_fwd.vratio*16, handle->cwino_fwd.alpha);
+        fprintf(stderr, "LIBXS error: Unsupported alpha %u\n", handle->cwino_fwd.alpha);
         assert(0);
       }
 #endif
@@ -283,7 +283,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_cus
       }
 #if !defined(NDEBUG)
       else {
-        fprintf(stderr, "LIBXS error: Unsupported fdvlen %u or unsupported alpha %u\n", handle->cwino_fwd.vratio*16, handle->cwino_fwd.alpha);
+        fprintf(stderr, "LIBXS error: Unsupported alpha %u\n", handle->cwino_fwd.alpha);
         assert(0);
       }
 #endif

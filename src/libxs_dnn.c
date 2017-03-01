@@ -1275,7 +1275,7 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* ha
       l_scratch_size += handle->scratch4_size + 64;
       l_scratch_size += handle->scratchIw_size + 64;
       l_scratch_size += handle->scratchOw_size + 64;
-      if ( libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
+      if ( libxs_target_archid == LIBXS_X86_AVX512_KNM) {
         l_scratch_size += handle->scratchVk_size + 64;
       }
     } else {
