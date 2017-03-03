@@ -293,7 +293,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_cus
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_inlined.tpl.c"
 #undef TDVLEN
 #undef ALPHA
-      } else if (handle->cwino_bwd.alpha == 4) { 
+      } else if (handle->cwino_bwd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_inlined.tpl.c"

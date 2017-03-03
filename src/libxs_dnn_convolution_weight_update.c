@@ -75,12 +75,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
   }
   else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
-#define INPUT_F32
       if (handle->upd_use_thread_fil > 0) {
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
+        typedef libxs_smatcopyfunction libxs_matzerofunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 #define LIBXS_WU_PER_THREAD_ALLOCATION
@@ -99,6 +100,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
+        typedef libxs_smatcopyfunction libxs_matzerofunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
           if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM)
@@ -124,7 +127,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
         }
       }
 #endif
-#undef INPUT_F32
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -171,12 +173,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_d
   }
   else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
-#define INPUT_F32
       if (handle->upd_use_thread_fil > 0) {
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
+        typedef libxs_smatcopyfunction libxs_matzerofunction;
         if (handle->padding_flag == 1) {
 #define LIBXS_WU_PER_THREAD_ALLOCATION
 #define INPUT_PADDING
@@ -194,6 +197,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_d
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
+        typedef libxs_smatcopyfunction libxs_matzerofunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
@@ -202,7 +207,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_d
 # include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
         }
       }
-#undef INPUT_F32
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -249,12 +253,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs
   }
   else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
-#define INPUT_F32
       if (handle->upd_use_thread_fil > 0) {
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
+        typedef libxs_smatcopyfunction libxs_matzerofunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 #define LIBXS_WU_PER_THREAD_ALLOCATION
@@ -272,6 +277,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
+        typedef libxs_smatcopyfunction libxs_matzerofunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
@@ -280,7 +287,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs
 # include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
         }
       }
-#undef INPUT_F32
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
