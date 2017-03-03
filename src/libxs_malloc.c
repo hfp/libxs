@@ -433,7 +433,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void* internal_xmap(const char* dir, size_t size
 {
   void* result = MAP_FAILED;
   char filename[4096];
-  int i = LIBXS_SNPRINTF(filename, sizeof(filename), "%s/XXXXXX.jit", dir);
+  int i = LIBXS_SNPRINTF(filename, sizeof(filename), "%s/libxs_XXXXXX.jit", dir);
   assert(0 != rx);
   if (0 <= i && i < (int)sizeof(filename)) {
     i = mkstemps(filename, 4);

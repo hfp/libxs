@@ -100,12 +100,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
   }
   else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
-#define INPUT_F32
       if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
         if (handle->desc.u == 1 && handle->desc.v == 1) {
           if (handle->padding_flag == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
@@ -133,6 +133,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
         if (handle->desc.u == 1 && handle->desc.v == 1) {
           if (handle->padding_flag == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
@@ -155,14 +156,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
           }
         }
       }
-#undef INPUT_F32
     } else if (handle->datatype ==  LIBXS_DNN_DATATYPE_I16 && handle->datatype_itm == LIBXS_DNN_DATATYPE_I32 ) {
-#define INPUT_I16
       if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
         typedef short element_input_type;
         typedef int element_output_type;
         typedef short element_filter_type;
         typedef libxs_wconvfunction libxs_convfunction;
+        typedef libxs_wmatcopyfunction libxs_matcopyfunction;
         if (handle->desc.u == 1 && handle->desc.v == 1) {
           if (handle->padding_flag == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
@@ -190,6 +190,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
         typedef int element_output_type;
         typedef short element_filter_type;
         typedef libxs_wconvfunction libxs_convfunction;
+        typedef libxs_wmatcopyfunction libxs_matcopyfunction;
         if (handle->desc.u == 1 && handle->desc.v == 1) {
           if (handle->padding_flag == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
@@ -212,14 +213,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
           }
         }
       }
-#undef INPUT_I16
     } else if (handle->datatype == LIBXS_DNN_DATATYPE_I8 && handle->datatype_itm == LIBXS_DNN_DATATYPE_I16 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
-#define INPUT_I8
       if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
         typedef unsigned char element_input_type;
         typedef short element_output_type;
         typedef char element_filter_type;
         typedef libxs_busconvfunction libxs_convfunction;
+        typedef libxs_bmatcopyfunction libxs_matcopyfunction;
         if (handle->desc.u == 1 && handle->desc.v == 1) {
           if (handle->padding_flag == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
@@ -247,12 +247,27 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
         typedef short element_output_type;
         typedef char element_filter_type;
         typedef libxs_busconvfunction libxs_convfunction;
+        typedef libxs_bmatcopyfunction libxs_matcopyfunction;
         if (handle->desc.u == 1 && handle->desc.v == 1) {
+          if (handle->padding_flag == 1) {
+#define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+#define INPUT_PADDING
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
+#undef INPUT_PADDING
+#undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+          } else {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
 #undef LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
+          }
         } else {
+          if (handle->padding_flag == 1) {
+#define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
+#undef INPUT_PADDING
+          } else {
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_img_par.tpl.c"
+          }
         }
       }
     } else if (handle->datatype == LIBXS_DNN_DATATYPE_I8 && handle->datatype_itm == LIBXS_DNN_DATATYPE_I32 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
@@ -261,6 +276,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
         typedef int element_output_type;
         typedef char element_filter_type;
         typedef libxs_budconvfunction libxs_convfunction;
+        typedef libxs_bmatcopyfunction libxs_matcopyfunction;
         if (handle->desc.u == 1 && handle->desc.v == 1) {
           if (handle->padding_flag == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
@@ -288,6 +304,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
         typedef int element_output_type;
         typedef char element_filter_type;
         typedef libxs_budconvfunction libxs_convfunction;
+        typedef libxs_bmatcopyfunction libxs_matcopyfunction;
         if (handle->desc.u == 1 && handle->desc.v == 1) {
           if (handle->padding_flag == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
@@ -310,7 +327,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
           }
         }
       }
-#undef INPUT_I8
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -350,12 +366,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs
     }
   } else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
-#define INPUT_F32
       if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_fwd_nhwc_custom.tpl.c"
@@ -369,6 +385,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_img_par.tpl.c"
@@ -377,7 +394,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs
 # include "template/libxs_dnn_convolve_st_fwd_nhwc_custom_img_par.tpl.c"
         }
       }
-#undef INPUT_F32
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -417,12 +433,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_d
     }
   } else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
-#define INPUT_F32
       if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck.tpl.c"
@@ -436,6 +452,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_d
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
+        typedef libxs_smatcopyfunction libxs_matcopyfunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_img_par.tpl.c"
@@ -444,7 +461,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_d
 # include "template/libxs_dnn_convolve_st_fwd_nhwc_rsck_img_par.tpl.c"
         }
       }
-#undef INPUT_F32
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;

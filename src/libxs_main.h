@@ -76,6 +76,7 @@ typedef union LIBXS_RETARGETABLE libxs_code_pointer {
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
   libxs_xconvfunction xconv;
 #endif
+  libxs_xmatcopyfunction xmatcopy;
 } libxs_code_pointer;
 
 typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
@@ -213,6 +214,10 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_code_pointer code_fwd[4];
   libxs_code_pointer code_bwd[4];
   libxs_code_pointer code_upd[6];
+
+  libxs_code_pointer matcopy_fwd[1];
+  libxs_code_pointer matcopy_bwd[2];
+  libxs_code_pointer matcopy_upd[2];
 };
 
 struct LIBXS_RETARGETABLE libxs_dfsspmdm {
@@ -246,7 +251,8 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_CUPD,
   LIBXS_BUILD_KIND_CWFWD,
   LIBXS_BUILD_KIND_CWBWD,
-  LIBXS_BUILD_KIND_CWUPD
+  LIBXS_BUILD_KIND_CWUPD,
+  LIBXS_BUILD_KIND_MATCOPY
 } libxs_build_kind;
 
 typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
@@ -257,6 +263,7 @@ typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_convolution_backward_descriptor* cbwd;
   const libxs_convolution_weight_update_descriptor* cupd;
   const libxs_convolution_winograd_descriptor* cwino;
+  const libxs_matcopy_descriptor* matcopy;
 } libxs_build_descriptor;
 
 typedef struct LIBXS_RETARGETABLE libxs_build_request {
