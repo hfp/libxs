@@ -2190,6 +2190,6 @@ LIBXS_API_DEFINITION void libxs_set_flag_reuseInput( libxs_dnn_layer* handle, ch
       handle->flag_reuseInput = 0;
     }
 }
-  
+
 
 #endif /*defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)*/
