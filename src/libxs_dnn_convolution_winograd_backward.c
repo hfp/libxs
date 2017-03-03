@@ -211,6 +211,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_custom_c
 # include "template/libxs_dnn_convolve_winograd_st_bwd_custom_custom.tpl.c"
 #endif
 
+      if (handle->flag_reuseInput == 1) {
+        if (handle->scratchInput == 0) {
+          status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+          return status;
+        } else {
+        handle->scratch3 = handle->scratchInput;
+        }
+      }
       if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
@@ -271,6 +279,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_cus
 # include "template/libxs_dnn_convolve_winograd_st_bwd_nhwc_custom.tpl.c"
 #endif
 
+      if (handle->flag_reuseInput == 1) {
+        if (handle->scratchInput == 0) {
+          status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+          return status;
+        } else {
+        handle->scratch3 = handle->scratchInput;
+        }
+      }
       if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
