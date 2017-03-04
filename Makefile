@@ -709,8 +709,8 @@ module_mic: $(INCDIR)/mic/libxs.mod
 $(BLDDIR)/mic/libxs-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)/mic
 $(INCDIR)/mic/libxs.mod: $(BLDDIR)/mic/libxs-mod.o
-	@if [ -e $(BLDDIR)/mic/libxs.mod ]; then cp $(BLDDIR)/mic/libxs.mod $@; fi
-	@if [ -e $(BLDDIR)/mic/LIBXS.mod ]; then cp $(BLDDIR)/mic/LIBXS.mod $@; fi
+	@if [ -e $(BLDDIR)/mic/libxs.mod ]; then cp $(BLDDIR)/mic/libxs.mod $(INCDIR)/mic; fi
+	@if [ -e $(BLDDIR)/mic/LIBXS.mod ]; then cp $(BLDDIR)/mic/LIBXS.mod $(INCDIR)/mic; fi
 	@touch $@
 else
 .PHONY: $(BLDDIR)/mic/libxs-mod.o
@@ -731,8 +731,8 @@ module_hst: $(INCDIR)/libxs.mod
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(FTARGET) -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
 $(INCDIR)/libxs.mod: $(BLDDIR)/intel64/libxs-mod.o
-	@if [ -e $(BLDDIR)/intel64/libxs.mod ]; then cp $(BLDDIR)/intel64/libxs.mod $@; fi
-	@if [ -e $(BLDDIR)/intel64/LIBXS.mod ]; then cp $(BLDDIR)/intel64/LIBXS.mod $@; fi
+	@if [ -e $(BLDDIR)/intel64/libxs.mod ]; then cp $(BLDDIR)/intel64/libxs.mod $(INCDIR); fi
+	@if [ -e $(BLDDIR)/intel64/LIBXS.mod ]; then cp $(BLDDIR)/intel64/LIBXS.mod $(INCDIR); fi
 	@touch $@
 else
 .PHONY: $(BLDDIR)/intel64/libxs-mod.o
