@@ -195,7 +195,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle = 0;
       return status;
     }
-    
+
     /* Adjust blocking factors if custom_2 format is requested */
     if ((handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2)) {
       if (handle->datatype == LIBXS_DNN_DATATYPE_F32) {
@@ -220,7 +220,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
       }
     }
-    
+
   } else if ( libxs_target_archid == LIBXS_X86_AVX2 ) {
     noarch = 0;
 
@@ -312,7 +312,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle = 0;
       return status;
     }
-    
+
     /* Adjust blocking factors if custom_2 format is requested */
     if ((handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2)) {
       if (handle->datatype == LIBXS_DNN_DATATYPE_F32) {
@@ -337,7 +337,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
       }
     }
-    
+
   } else {
     status = LIBXS_DNN_WARN_FALLBACK;
     handle->ifmblock = 1;
@@ -348,12 +348,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   /* Let's calculate how many blocks we need */
   handle->blocksifm = handle->desc.C / (handle->ifmblock * handle->fm_lp_block);
   handle->blocksofm = handle->desc.K / (handle->ofmblock * handle->fm_lp_block);
-  
+
   /* Calculate number of image blocks in case of custom_2 format */
   if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
     handle->nBImg = handle->desc.N / handle->nbImg;
   }
-      
+
   /* Let's check that we can actually block */
   if ( (handle->desc.C % (handle->ifmblock * handle->fm_lp_block) != 0) ||
        (handle->desc.K % (handle->ofmblock * handle->fm_lp_block) != 0)    )
@@ -365,7 +365,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     handle->blocksifm = handle->desc.C / handle->ifmblock;
     handle->blocksofm = handle->desc.K / handle->ofmblock;
   }
-  
+
   /* Check if padded needs to be applied in the input and allocate appropriate buffers */
   if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && (handle->desc.pad_h > 0) && (handle->desc.pad_w > 0)) {
     handle->padding_flag = 1;
@@ -618,7 +618,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
         descriptor.prefetch_output_ahead = 0;
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
-        
+
         if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
           handle->code_bwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
         } else {
@@ -897,7 +897,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           handle->matcopy_upd[0].pmm = libxs_xmatcopydispatch(&matcopy_descriptor);
           handle->matcopy_upd[1].pmm = libxs_xmatcopydispatch(&matzero_descriptor);
         }
-                     
+
         if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
           handle->code_upd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
         } else {
