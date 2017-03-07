@@ -72,6 +72,7 @@ typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   uintptr_t uimm;
   intptr_t imm;
   libxs_xmmfunction xmm;
+  libxs_smmfunction smm;
   void (*vmm)(const void* a, const void* b, void* c, ...);
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
   libxs_xconvfunction xconv;
@@ -101,7 +102,9 @@ struct LIBXS_RETARGETABLE libxs_dnn_buffer {
   int H;                            /* height of image */
   int W;                            /* width of image */
   int lpb;                          /* low precision blocking factor */
+  int bimg;                         /* size of blocked images */
   libxs_dnn_tensor_format format; /* format of activation buffer */
+  libxs_dnn_internal_format custom_format_type;
   libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
   char exp;                         /* fix point exponent for this tensor */
@@ -127,6 +130,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_filter {
   int S;                            /* width of filter kernel */
   int lpb;                          /* low precision blocking factor */
   libxs_dnn_tensor_format format; /* format of filter buffer */
+  libxs_dnn_internal_format custom_format_type;
   libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
   char exp;                         /* fix point exponent for this tensor */
@@ -144,7 +148,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_convolution_winograd_descriptor cwino_fwd;
   libxs_convolution_winograd_descriptor cwino_bwd;
   libxs_convolution_winograd_descriptor cwino_upd;
-
+  libxs_dnn_internal_format custom_format_type;    /* Specifies internal LIBXS format to be used */
   /* additional size for iternal data types */
   int ifhp;
   int ifwp;
@@ -167,6 +171,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int upd_use_thread_fil;
   int upd_use_external_reduce;
   int filter_transposed;
+  int nBImg;
+  int nbImg;
 
   /* internal data representation */
   libxs_dnn_buffer* reg_input;
