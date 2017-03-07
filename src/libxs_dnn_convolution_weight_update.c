@@ -82,6 +82,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
         typedef libxs_sconvfunction libxs_convfunction;
         typedef libxs_smatcopyfunction libxs_matcopyfunction;
         typedef libxs_smatcopyfunction libxs_matzerofunction;
+        typedef libxs_smmfunction libxs_mmfunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 #define LIBXS_WU_PER_THREAD_ALLOCATION
@@ -102,6 +103,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
         typedef libxs_sconvfunction libxs_convfunction;
         typedef libxs_smatcopyfunction libxs_matcopyfunction;
         typedef libxs_smatcopyfunction libxs_matzerofunction;
+        typedef libxs_smmfunction libxs_mmfunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
           if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM)

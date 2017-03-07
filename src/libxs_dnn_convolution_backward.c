@@ -78,6 +78,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
         typedef libxs_sconvfunction libxs_convfunction;
         typedef libxs_smatcopyfunction libxs_matcopyfunction;
         typedef libxs_smatcopyfunction libxs_matcopybackfunction;
+        typedef libxs_smmfunction libxs_mmfunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 #include "template/libxs_dnn_convolve_st_bwd_custom_custom.tpl.c"
