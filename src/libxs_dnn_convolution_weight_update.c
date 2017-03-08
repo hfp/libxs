@@ -203,10 +203,24 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_d
         typedef libxs_smatcopyfunction libxs_matzerofunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
+          if ( libxs_target_archid == LIBXS_X86_AVX512_KNM )
+          {
+#define LIBXS_WU_TRANSPOSE_OFW_IFM
 # include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
+#undef LIBXS_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
+          }
 #undef INPUT_PADDING
         } else {
+          if ( libxs_target_archid == LIBXS_X86_AVX512_KNM )
+          {
+#define LIBXS_WU_TRANSPOSE_OFW_IFM
 # include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
+#undef LIBXS_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
+          }
         }
       }
     } else {
@@ -283,10 +297,24 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs
         typedef libxs_smatcopyfunction libxs_matzerofunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
+          if ( libxs_target_archid == LIBXS_X86_AVX512_KNM )
+          {
+#define LIBXS_WU_TRANSPOSE_OFW_IFM
 # include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
+#undef LIBXS_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
+          }
 #undef INPUT_PADDING
         } else {
+          if ( libxs_target_archid == LIBXS_X86_AVX512_KNM )
+          {
+#define LIBXS_WU_TRANSPOSE_OFW_IFM
 # include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
+#undef LIBXS_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
+          }
         }
       }
     } else {
