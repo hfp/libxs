@@ -1,5 +1,6 @@
 .hooks/.commit
 My Amplifier*
+opentuner.db
 bin/libxs_generator
 include/libxs_config.h
 include/libxs_source.h
@@ -11,8 +12,10 @@ build/*/*/*.xml
 lib/libxs*
 ide/_vs*-*.bat
 ide/*.amplxeproj
+ide/*.advixeproj
 ide/build
 ide/r*ah
+samples2
 tmp
 .state
 .make
@@ -35,6 +38,7 @@ _*.txt
 *.gcno
 *.gcda
 *.gcov
+*.html
 *.iobj
 *.ipdb
 *.URL
