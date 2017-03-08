@@ -536,20 +536,21 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_init_check(int archid)
 LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   libxs_spmdm_handle* handle, libxs_CSR_sparseslice** libxs_output_csr)
 {
-  /* initialize internal library structures */
-  LIBXS_INIT
-
   double load_imbalance_tolerate = 1.1;
   int max_work_per_block;
   double avg_work_per_block;
   int max_blocks_per_thread;
   double avg_blocks_per_thread;
   double load_imbalance_1, load_imbalance_2, load_imbalance;
+
+  /* initialize internal library structures */
+  LIBXS_INIT
+
   handle->m  = M;
   handle->n  = N;
   handle->k  = K;
-
   handle->bm = (M >= 4096 || M <= 1024) ? 512 : 256;
+
 #if defined(LIBXS_SPMDM_AVX512_CORE)
   if (LIBXS_X86_AVX512_CORE <= libxs_target_archid || LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH) {
     internal_spmdm_init_check(LIBXS_X86_AVX512_CORE);
