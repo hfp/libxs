@@ -169,6 +169,7 @@ int main(int argc, char **argv)
   double flops, duration;
   char transA, transB, transC;
   int i, j, k;
+  size_t l;
 
   /* Step 1: Initalize handle */
   M = 0; N = 0; K = 0; alpha = (real)1.0; beta = (real)0.0;   reps = 0; transA = 'N'; transB = 'N';
@@ -206,7 +207,6 @@ int main(int argc, char **argv)
 
   /* Step 3: init data */
   srand48(1);
-  size_t l;
   for ( l = 0; l < (size_t)M * (size_t)K; l++ ) {
     double random = drand48();
     #ifdef USE_BFLOAT
@@ -274,6 +274,7 @@ int main(int argc, char **argv)
   for (i = 0; i < M; i++) {
     for (j = 0; j < N; j++) {
       float sum = 0.0;
+      float Cval;
       for (k = 0; k < K; k++) {
 #       ifdef USE_BFLOAT
         uint16_t Atmp = A_gold[i*K + k];
@@ -288,7 +289,7 @@ int main(int argc, char **argv)
 #       endif
         sum += Aval * Bval;
       }
-      float Cval = sum;
+      Cval = sum;
       C_gold[i*N + j] = Cval + beta*C_gold[i*N + j];
     }
   }
