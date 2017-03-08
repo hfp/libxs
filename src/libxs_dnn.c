@@ -2238,14 +2238,14 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_update_weights(
 }
 
 
-LIBXS_API_DEFINITION void libxs_set_flag_reuseInput( libxs_dnn_layer* handle, char type )
+LIBXS_API void libxs_set_flag_reuseInput(libxs_dnn_layer* /*handle*/, char /*type*/);
+LIBXS_API_DEFINITION void libxs_set_flag_reuseInput(libxs_dnn_layer* handle, char type)
 {
-    if (type == 'A') {
-      handle->flag_reuseInput = 1;
-    } else {
-      handle->flag_reuseInput = 0;
-    }
+  if (type == 'A') {
+    handle->flag_reuseInput = 1;
+  } else {
+    handle->flag_reuseInput = 0;
+  }
 }
-
 
 #endif /*defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)*/
