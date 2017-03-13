@@ -123,9 +123,9 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX)
 #else
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX, DIFF, CODE) { \
-  const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, INTERNAL_REGLOCK_COUNT); \
+  const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, internal_reglock_count); \
   if (LIBXS_LOCK_ACQUIRED != LIBXS_LOCK_TRYLOCK(internal_reglock + (LOCKINDEX))) { \
-    if (0 == libxs_dispatch_trylock) { /* (re-)try and get (meanwhile) generated code */ \
+    if (1 < internal_reglock_count) { /* (re-)try and get (meanwhile) generated code */ \
       continue; \
     } \
     else { /* exit dispatch and let client fall back */ \
@@ -183,10 +183,12 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 #endif
 
 #if !defined(LIBXS_NO_SYNC)
-# define INTERNAL_REGLOCK_COUNT 256
-LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_LOCK_TYPE internal_reglock[INTERNAL_REGLOCK_COUNT];
+# define INTERNAL_REGLOCK_MAXN 256
+LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_LOCK_TYPE internal_reglock[INTERNAL_REGLOCK_MAXN];
 #endif
 
+/** Determines the try-lock property (1<N: off, N=1: enabled). */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_reglock_count;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE internal_regkey_type* internal_registry_keys;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_code_pointer* internal_registry;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE internal_statistic_type internal_statistic[2/*DP/SP*/][4/*sml/med/big/xxx*/];
@@ -466,7 +468,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_finalize(void)
       fprintf(stderr, "LIBXS: pending scratch-memory allocations discovered!\n");
     }
 #if !defined(LIBXS_NO_SYNC) /* release locks */
-    for (n = 0; n < INTERNAL_REGLOCK_COUNT; ++n) LIBXS_LOCK_DESTROY(internal_reglock + n);
+    for (n = 0; n < INTERNAL_REGLOCK_MAXN; ++n) LIBXS_LOCK_DESTROY(internal_reglock + n);
     LIBXS_LOCK_DESTROY(&libxs_lock_global);
 #endif
   }
@@ -478,7 +480,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
   libxs_code_pointer* result;
   int init_code = EXIT_FAILURE, i;
 #if !defined(LIBXS_NO_SYNC) /* setup the locks in a thread-safe fashion */
-  for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
+  for (i = 0; i < INTERNAL_REGLOCK_MAXN; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
   LIBXS_LOCK_ACQUIRE(&libxs_lock_global);
 #endif
   result = internal_registry;
@@ -493,9 +495,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
     }
     { const char *const env = getenv("LIBXS_TRYLOCK");
       if (0 != env && 0 != *env) {
-        libxs_dispatch_trylock = atoi(env);
+        internal_reglock_count = (0 != atoi(env) ? 1 : (INTERNAL_REGLOCK_MAXN));
         internal_dispatch_trylock_locked = 1;
       }
+      assert(1 <= internal_reglock_count);
     }
     /* clear internal counters/statistic */
     for (i = 0; i < 4/*sml/med/big/xxx*/; ++i) {
@@ -511,8 +514,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
     }
     {
       const char *const env = getenv("LIBXS_VERBOSE");
-      internal_statistic_mnk = (unsigned int)(pow((double)(LIBXS_MAX_MNK), 0.3333333333333333) + 0.5);
-      internal_statistic_sml = 13; internal_statistic_med = 23;
       if (0 != env && 0 != *env) {
         libxs_verbosity = atoi(env);
       }
@@ -522,6 +523,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
       }
 #endif
     }
+    internal_statistic_mnk = libxs_icbrt(LIBXS_MAX_MNK);
+    internal_statistic_sml = 13;
+    internal_statistic_med = 23;
 #if !defined(__TRACE)
     LIBXS_UNUSED(init_code);
 #else
@@ -613,7 +617,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
 #endif
   }
 #if !defined(LIBXS_NO_SYNC) /* release locks */
-  for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
+  for (i = 0; i < INTERNAL_REGLOCK_MAXN; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
   LIBXS_LOCK_RELEASE(&libxs_lock_global);
 #endif
 }
@@ -626,9 +630,9 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 #if !defined(LIBXS_NO_SYNC) /* setup the locks in a thread-safe fashion */
     static int reglock_check = 0;
     int i;
-    assert(sizeof(internal_reglock) == (INTERNAL_REGLOCK_COUNT * sizeof(*internal_reglock)));
+    assert(sizeof(internal_reglock) == (INTERNAL_REGLOCK_MAXN * sizeof(*internal_reglock)));
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&reglock_check, 1, LIBXS_ATOMIC_SEQ_CST)) {
-      for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_INIT(internal_reglock + i);
+      for (i = 0; i < INTERNAL_REGLOCK_MAXN; ++i) LIBXS_LOCK_INIT(internal_reglock + i);
       LIBXS_LOCK_INIT(&libxs_lock_global);
     }
     else { /* wait until locks are initialized, or until shutdown */
@@ -664,7 +668,7 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     int i;
 #if !defined(LIBXS_NO_SYNC)
     /* acquire locks and thereby shortcut lazy initialization later on */
-    for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
+    for (i = 0; i < INTERNAL_REGLOCK_MAXN; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
 #endif
     registry = internal_registry;
 
@@ -729,7 +733,7 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       free(registry);
     }
 #if !defined(LIBXS_NO_SYNC) /* LIBXS_LOCK_RELEASE, but no LIBXS_LOCK_DESTROY */
-    for (i = 0; i < INTERNAL_REGLOCK_COUNT; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
+    for (i = 0; i < INTERNAL_REGLOCK_MAXN; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
 #endif
   }
   /* release scratch memory pool */
@@ -884,7 +888,7 @@ LIBXS_API_DEFINITION void libxs_set_verbosity(int level)
 LIBXS_API_DEFINITION int libxs_get_dispatch_trylock(void)
 {
   LIBXS_INIT
-  return libxs_dispatch_trylock;
+  return 1 == internal_reglock_count;
 }
 
 
@@ -892,7 +896,7 @@ LIBXS_API_DEFINITION void libxs_set_dispatch_trylock(int trylock)
 {
   LIBXS_INIT
   if (0 == internal_dispatch_trylock_locked) { /* LIBXS_TRYLOCK environment takes precedence */
-    LIBXS_ATOMIC_STORE(&libxs_dispatch_trylock, trylock, LIBXS_ATOMIC_RELAXED);
+    LIBXS_ATOMIC_STORE(&internal_reglock_count, 0 != trylock ? 1 : INTERNAL_REGLOCK_MAXN, LIBXS_ATOMIC_RELAXED);
   }
 }
 
