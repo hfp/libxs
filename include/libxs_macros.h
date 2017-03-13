@@ -211,7 +211,7 @@
 #define LIBXS_MUL2(N, NPOT) ((N) << LIBXS_LOG2(NPOT))
 #define LIBXS_DIV2(N, NPOT) ((N) >> LIBXS_LOG2(NPOT))
 #define LIBXS_SQRT2(N) (1 << (LIBXS_LOG2((N << 1) - 1) >> 1))
-#define LIBXS_UP2(N, NPOT) LIBXS_MUL2(LIBXS_DIV2((N) + (NPOT) - 1, NPOT), NPOT)
+#define LIBXS_UP2(N, NPOT) (((N) + ((NPOT) - 1)) & ~((NPOT) - 1))
 #define LIBXS_UP(N, UP) ((((N) + (UP) - 1) / (UP)) * (UP))
 /* compares floating point values but avoids warning about unreliable comparison */
 #define LIBXS_FEQ(A, B) (!((A) < (B) || (A) > (B)))
