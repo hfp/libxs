@@ -356,8 +356,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_scratch_allocator_context;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_verbosity;
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_target_archid;
-/** Try-lock property of the code registry (0: off, 1: enabled). */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_dispatch_trylock;
 /** Determines the prefetch strategy, which is used in case of LIBXS_PREFETCH_AUTO. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_gemm_auto_prefetch;
 /** Determines whether a threaded implementation is synchronized or not. */
