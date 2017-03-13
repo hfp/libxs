@@ -167,16 +167,6 @@ LIBXS_API_DEFINITION int libxs_itrans(void* inout, unsigned int typesize,
 
 #if defined(LIBXS_BUILD)
 
-/** code variant for the Fortran interface, which does not produce a return value */
-LIBXS_API void libxsf_otrans(void* /*out*/, const void* /*in*/, unsigned int /*typesize*/,
-  libxs_blasint /*m*/, libxs_blasint /*n*/, libxs_blasint /*ldi*/, libxs_blasint /*ldo*/);
-LIBXS_API_DEFINITION void libxsf_otrans(void* out, const void* in, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo)
-{
-  libxs_otrans(out, in, typesize, m, n, ldi, ldo);
-}
-
-
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_otrans)(void* /*out*/, const void* /*in*/, const unsigned int* /*typesize*/,
   const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const libxs_blasint* /*ldi*/, const libxs_blasint* /*ldo*/);
@@ -193,14 +183,6 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_otrans)(void* out, const void* in,
 LIBXS_API_DEFINITION int libxs_sotrans(float* out, const float* in, libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo)
 {
   return libxs_otrans(out, in, sizeof(float), m, n, ldi, ldo);
-}
-
-
-/** code variant for the Fortran interface, which does not produce a return value */
-LIBXS_API void libxsf_sotrans(float* /*out*/, const float* /*in*/, libxs_blasint /*m*/, libxs_blasint /*n*/, libxs_blasint /*ldi*/, libxs_blasint /*ldo*/);
-LIBXS_API_DEFINITION void libxsf_sotrans(float* out, const float* in, libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo)
-{
-  libxs_sotrans(out, in, m, n, ldi, ldo);
 }
 
 
@@ -223,16 +205,6 @@ LIBXS_API_DEFINITION int libxs_dotrans(double* out, const double* in, libxs_blas
 }
 
 
-/** code variant for the Fortran interface, which does not produce a return value */
-LIBXS_API void libxsf_dotrans(double* /*out*/, const double* /*in*/,
-  libxs_blasint /*m*/, libxs_blasint /*n*/, libxs_blasint /*ldi*/, libxs_blasint /*ldo*/);
-LIBXS_API_DEFINITION void libxsf_dotrans(double* out, const double* in,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo)
-{
-  libxs_dotrans(out, in, m, n, ldi, ldo);
-}
-
-
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_dotrans)(double* /*out*/, const double* /*in*/,
   const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const libxs_blasint* /*ldi*/, const libxs_blasint* /*ldo*/);
@@ -243,16 +215,6 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_dotrans)(double* out, const double
   assert(0 != m);
   ldx = *(0 != ldi ? ldi : m);
   libxs_dotrans(out, in, *m, *(n ? n : m), ldx, ldo ? *ldo : ldx);
-}
-
-
-/** code variant for the Fortran interface, which does not produce a return value */
-LIBXS_API void libxsf_itrans(void* /*inout*/, unsigned int /*typesize*/,
-  libxs_blasint /*m*/, libxs_blasint /*n*/, libxs_blasint /*ld*/);
-LIBXS_API_DEFINITION void libxsf_itrans(void* inout, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld)
-{
-  libxs_itrans(inout, typesize, m, n, ld);
 }
 
 
@@ -273,14 +235,6 @@ LIBXS_API_DEFINITION int libxs_sitrans(float* inout, libxs_blasint m, libxs_blas
 }
 
 
-/** code variant for the Fortran interface, which does not produce a return value */
-LIBXS_API void libxsf_sitrans(float* /*inout*/, libxs_blasint /*m*/, libxs_blasint /*n*/, libxs_blasint /*ld*/);
-LIBXS_API_DEFINITION void libxsf_sitrans(float* inout, libxs_blasint m, libxs_blasint n, libxs_blasint ld)
-{
-  libxs_sitrans(inout, m, n, ld);
-}
-
-
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_sitrans)(float* /*inout*/, const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const libxs_blasint* /*ld*/);
 LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_sitrans)(float* inout, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* ld)
@@ -293,14 +247,6 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_sitrans)(float* inout, const libxs
 LIBXS_API_DEFINITION int libxs_ditrans(double* inout, libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
   return libxs_itrans(inout, sizeof(double), m, n, ld);
-}
-
-
-/** code variant for the Fortran interface, which does not produce a return value */
-LIBXS_API void libxsf_ditrans(double* /*inout*/, libxs_blasint /*m*/, libxs_blasint /*n*/, libxs_blasint /*ld*/);
-LIBXS_API_DEFINITION void libxsf_ditrans(double* inout, libxs_blasint m, libxs_blasint n, libxs_blasint ld)
-{
-  libxs_ditrans(inout, m, n, ld);
 }
 
 
