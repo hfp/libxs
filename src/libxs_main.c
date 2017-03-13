@@ -494,7 +494,10 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
       libxs_sync = (0 == env || 0 == *env) ? 1/*default*/ : atoi(env);
     }
     { const char *const env = getenv("LIBXS_TRYLOCK");
-      if (0 != env && 0 != *env) {
+      if (0 == env || 0 == *env) {
+        internal_reglock_count = INTERNAL_REGLOCK_MAXN;
+      }
+      else {
         internal_reglock_count = (0 != atoi(env) ? 1 : (INTERNAL_REGLOCK_MAXN));
         internal_dispatch_trylock_locked = 1;
       }
