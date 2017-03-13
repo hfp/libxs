@@ -52,7 +52,7 @@
 
 /** Helper macro for aligning a buffer for aligned loads/store instructions. */
 #if (0 != (4/*LIBXS_GEMM_FLAG_ALIGN_A*/ & LIBXS_FLAGS) || 0 != (8/*LIBXS_GEMM_FLAG_ALIGN_C*/ & LIBXS_FLAGS))
-# define LIBXS_ALIGN_LDST(POINTER) LIBXS_ALIGN2(POINTER, LIBXS_ALIGNMENT)
+# define LIBXS_ALIGN_LDST(POINTER) LIBXS_ALIGN(POINTER, LIBXS_ALIGNMENT)
 #else
 # define LIBXS_ALIGN_LDST(POINTER) (POINTER)
 #endif

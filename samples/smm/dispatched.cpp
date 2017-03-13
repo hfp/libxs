@@ -99,9 +99,9 @@ int main(int argc, char* argv[])
       raii(int asize_, int bsize_, int csize_): a(new T[asize_]), b(new T[bsize_]), c(new T[csize_]) {}
       ~raii() { delete[] a; delete[] b; delete[] c; }
     } buffer(s * asize + aspace - 1, s * bsize + aspace - 1, s * csize + aspace - 1);
-    T *const a = LIBXS_ALIGN2(buffer.a, LIBXS_ALIGNMENT);
-    T *const b = LIBXS_ALIGN2(buffer.b, LIBXS_ALIGNMENT);
-    T *c = LIBXS_ALIGN2(buffer.c, LIBXS_ALIGNMENT);
+    T *const a = LIBXS_ALIGN(buffer.a, LIBXS_ALIGNMENT);
+    T *const b = LIBXS_ALIGN(buffer.b, LIBXS_ALIGNMENT);
+    T *c = LIBXS_ALIGN(buffer.c, LIBXS_ALIGNMENT);
 
 #if defined(_OPENMP)
 #   pragma omp parallel for
