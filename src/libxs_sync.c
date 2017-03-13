@@ -231,7 +231,7 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 #if defined(__MIC__)
       /* cannot use LIBXS_ALIGNED since attribute may not apply to local non-static arrays */
       uint8_t sendbuffer[LIBXS_SYNC_CACHELINE_SIZE+LIBXS_SYNC_CACHELINE_SIZE-1];
-      uint8_t *const sendbuf = LIBXS_ALIGN2(sendbuffer, LIBXS_SYNC_CACHELINE_SIZE);
+      uint8_t *const sendbuf = LIBXS_ALIGN(sendbuffer, LIBXS_SYNC_CACHELINE_SIZE);
       __m512d m512d;
       _mm_prefetch((const char*)core->partner_flags[core->parity][0], _MM_HINT_ET1);
       sendbuf[0] = core->sense;
