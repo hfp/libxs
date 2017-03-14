@@ -935,11 +935,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buf
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffer* buffer)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  const size_t size = (size_t)buffer->N * (size_t)buffer->fmb * (size_t)buffer->lpb
-                    * (size_t)buffer->bfm * (size_t)buffer->H * (size_t)buffer->W;
-  size_t i;
 
   if (0 != buffer) {
+    const size_t size = (size_t)buffer->N * (size_t)buffer->fmb * (size_t)buffer->lpb
+                      * (size_t)buffer->bfm * (size_t)buffer->H * (size_t)buffer->W;
+    size_t i;
     /* use for-loops to potentially leverage NUMA in the future */
     switch (buffer->datatype) {
       case LIBXS_DNN_DATATYPE_F32: {
@@ -1108,11 +1108,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_fi
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_filter(const libxs_dnn_filter* filter)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  const size_t size = (size_t)filter->lpb * (size_t)filter->ifmb * (size_t)filter->bifm
-                       * (size_t)filter->ofmb * (size_t)filter->bofm * (size_t)filter->R * (size_t)filter->S;
-  size_t i;
 
   if (0 != filter) {
+    const size_t size = (size_t)filter->lpb * (size_t)filter->ifmb * (size_t)filter->bifm
+                      * (size_t)filter->ofmb * (size_t)filter->bofm * (size_t)filter->R * (size_t)filter->S;
+    size_t i;
     /* use for-loops to potentially leverage NUMA in the future */
     switch (filter->datatype) {
       case LIBXS_DNN_DATATYPE_F32: {

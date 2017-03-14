@@ -1249,7 +1249,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       /* flag must be a superset of what's populated by libxs_malloc_attrib */
       LIBXS_MALLOC_FLAG_RWX, &regindex, sizeof(regindex));
     if (EXIT_SUCCESS == result) { /* check for success */
-      assert(0 != code->const_pmm && 0 == (LIBXS_CODE_STATIC & code->uimm));
+      assert(0 != code->pmm && 0 == (LIBXS_CODE_STATIC & code->uimm));
       assert(0 != generated_code.generated_code/*sanity check*/);
       /* copy temporary buffer into the prepared executable buffer */
       memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
