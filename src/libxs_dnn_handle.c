@@ -206,7 +206,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           handle = 0;
           return status;
         }
-        if (handle->desc.N % 16 == 0) {
+        if ((handle->desc.N % 16 == 0) && (handle->desc.K % 16 == 0) && (handle->desc.C % 16 == 0) ) {
           handle->nbImg = 16;
           handle->ifmblock = 16;
           handle->ofmblock = 16;
@@ -312,10 +312,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle = 0;
       return status;
     }
-
     /* Adjust blocking factors if custom_2 format is requested */
     if ((handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2)) {
-      if (handle->datatype == LIBXS_DNN_DATATYPE_F32) {
+      if (handle->datatype == LIBXS_DNN_DATATYPE_F32)  {
         /* In this case of custom_2 format, regardless of requested padding, all the pad_in/pad_out parameters should be 0 */
         if ( ((handle->desc.pad_h > 0) && ((handle->desc.pad_h_in != 0) || (handle->desc.pad_h_out != 0))) || ((handle->desc.pad_w > 0) && ((handle->desc.pad_w_in != 0) || (handle->desc.pad_w_out !=0))) ) {
           status = LIBXS_DNN_ERR_INVALID_PADDING;
@@ -323,7 +322,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           handle = 0;
           return status;
         }
-        if (handle->desc.N % 16 == 0) {
+        if ( (handle->desc.N % 16 == 0) && (handle->desc.C % 16 == 0) && (handle->desc.K % 16 == 0) ) {
           handle->nbImg = 16;
           handle->ifmblock = 16;
           handle->ofmblock = 16;
@@ -358,6 +357,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   if ( (handle->desc.C % (handle->ifmblock * handle->fm_lp_block) != 0) ||
        (handle->desc.K % (handle->ofmblock * handle->fm_lp_block) != 0)    )
   {
+    handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
     status = LIBXS_DNN_WARN_FALLBACK;
     handle->ifmblock = 1;
     handle->ofmblock = 1;
@@ -618,7 +618,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
         descriptor.prefetch_output_ahead = 0;
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
-
         if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
           handle->code_bwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
         } else {
@@ -1046,6 +1045,24 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
   /* flag to test if we found an architecture which is supported */
   int noarch = 1;
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  const char *const env = getenv("LIBXS_DNN_INTERNAL_FORMAT");
+  int internal_format_type;
+  if ( 0 == env || 0 == *env) {
+    /* Default internal format type */
+    handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
+  } else {
+    internal_format_type = atoi(env);
+    if (internal_format_type == 1) {
+      handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
+    } else if ( internal_format_type == 2) {
+      handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_2;
+    } else {
+      status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
+      free(handle);
+      handle = 0;
+      return status;
+    }
+  }
 
   /* now architecture specific */
   if ((libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
