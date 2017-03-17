@@ -166,9 +166,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_scratch(libxs_spmdm
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_deallocate_csr_a(libxs_spmdm_handle* handle)
 {
-  libxs_free(handle->base_ptr_scratch_A);
+  libxs_xfree(handle->base_ptr_scratch_A);
   handle->base_ptr_scratch_A= NULL;
-  libxs_free(handle->base_ptr_scratch_B_scratch_C);
+  libxs_xfree(handle->base_ptr_scratch_B_scratch_C);
   handle->base_ptr_scratch_B_scratch_C = NULL;
 }
 
