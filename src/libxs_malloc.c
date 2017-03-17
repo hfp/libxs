@@ -995,8 +995,8 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
   const char *const scratch = (const char*)internal_malloc_scratch_buffer;
   const char *const buffer = (const char*)memory;
   /* check if memory belongs to scratch domain */
-  if (buffer < scratch || (scratch + libxs_malloc_size(internal_malloc_scratch_buffer) <= buffer)) {
-    assert(buffer + libxs_malloc_size(memory) <= scratch);
+  if (0 == scratch || buffer < scratch || (scratch + libxs_malloc_size(internal_malloc_scratch_buffer) <= buffer)) {
+    assert(0 == scratch || buffer + libxs_malloc_size(buffer) <= scratch);
     libxs_xfree(memory);
   }
   else { /* scratch memory domain */
