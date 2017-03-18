@@ -160,6 +160,9 @@
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
 #     else /* fall-back */
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
+#       if !defined(LIBXS_INTRINSICS_NONE)
+#         define LIBXS_INTRINSICS_NONE
+#       endif
 #     endif
 #     if !defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
 #       define LIBXS_INTRINSICS_LEGACY
@@ -168,7 +171,7 @@
 #       define LIBXS_INTRINSICS_PATCH
 #     endif
 #   endif /* GCC/legacy incl. Clang */
-#   if defined(LIBXS_INTRINSICS_PATCH)
+#   if defined(LIBXS_INTRINSICS_PATCH) && !defined(LIBXS_INTRINSICS_NONE)
 #     if !defined(__SSE3__)
 #       define __SSE3__ 1
 #     endif
@@ -319,7 +322,7 @@
 #endif
 
 /** Include basic x86 intrinsics such as __rdtsc. */
-#if defined(LIBXS_INTRINSICS)
+#if defined(LIBXS_INTRINSICS) && !defined(LIBXS_INTRINSICS_NONE)
 # if defined(_WIN32)
 #   include <intrin.h>
 # else
