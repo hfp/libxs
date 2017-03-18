@@ -188,7 +188,7 @@ libxs_dnn_bind_output_buffer(libxs_handle, libxs_reg_output, LIBXS_DNN_REGULAR_O
 libxs_dnn_bind_filter(libxs_handle, libxs_reg_filter, LIBXS_DNN_REGULAR_FILTER);
 
 /* allocate and bind scratch */
-scratch = (void*)libxs_aligned_malloc(libxs_dnn_get_scratch_size(
+scratch = libxs_aligned_scratch(libxs_dnn_get_scratch_size(
   libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, &status), 2097152);
 libxs_dnn_bind_scratch(libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, scratch);
 
