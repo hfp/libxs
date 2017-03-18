@@ -131,6 +131,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE void* internal_malloc_scratch_buffer;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE char* internal_malloc_scratch;
 /* minimum size allocated if allocated first or reallocated next */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t internal_malloc_scratchmin;
+/* counter incremented/decremented on allocation/deallocation */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t internal_malloc_nscratch;
 
 
 LIBXS_API_DEFINITION size_t libxs_gcd(size_t a, size_t b)
@@ -577,7 +579,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
         }
         else {
           static LIBXS_TLS int fallback = -1;
-          if (0 > fallback) { /* initialize fallback allocation method */
+          if (0 > fallback) { /* initialize fall-back allocation method */
             const char *const env = getenv("LIBXS_SE");
             fallback = (0 == env || 0 == *env || 0 != atoi(env)) ? LIBXS_MALLOC_FALLBACK : 4;
           }
@@ -634,7 +636,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
         }
 #endif
       }
-      if (alloc_failed != buffer && /*fallback*/0 != buffer) {
+      if (alloc_failed != buffer && /*fall-back*/0 != buffer) {
         char *const aligned = LIBXS_ALIGN(((char*)buffer) + extra_size + sizeof(internal_malloc_info_type), alloc_alignment);
         internal_malloc_info_type *const info = (internal_malloc_info_type*)(aligned - sizeof(internal_malloc_info_type));
         assert((aligned + size) <= (((char*)buffer) + alloc_size));
@@ -847,7 +849,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
           }
 #endif
 #if defined(LIBXS_PERF)
-          /* If jitting is enabled and a valid name is given, emit information for perf.
+          /* If JIT is enabled and a valid name is given, emit information for profiler
            * In jitdump case this needs to be done after mprotect as it gets overwritten
            * otherwise. */
           libxs_perf_dump_code(code_ptr, size, name);
@@ -922,12 +924,11 @@ LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
   const size_t align_size = (0 == alignment ? libxs_alignment(size, alignment) : alignment);
   const size_t inuse_size = internal_malloc_scratch - ((char*)internal_malloc_scratch_buffer);
   const size_t alloc_size = size + align_size + (sizeof(internal_malloc_info_type) - 1);
-  const size_t total_size = libxs_malloc_size(internal_malloc_scratch_buffer);
-  size_t local_size = 0;
-  void* result;
+  size_t total_size = libxs_malloc_size(internal_malloc_scratch_buffer), local_size = 0;
+  void* result = 0;
 
   if (total_size < inuse_size + alloc_size) {
-    const size_t minsize = LIBXS_MAX(internal_malloc_scratchmin, 2 * size);
+    const size_t minsize = 2 * LIBXS_MAX(size, internal_malloc_scratchmin);
     if (0 == internal_malloc_scratch_buffer) {
       LIBXS_INIT
       LIBXS_LOCK_ACQUIRE(&libxs_lock_global);
@@ -936,23 +937,24 @@ LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
         if (EXIT_SUCCESS == libxs_xmalloc(&internal_malloc_scratch_buffer, minsize, 0/*auto*/,
           LIBXS_MALLOC_FLAG_SCRATCH, 0/*extra*/, 0/*extra_size*/))
         {
-          /* atomic update needed since modifications will also happen ouside of this region */
+          /* atomic update needed since modifications will also happen outside of this region */
           LIBXS_ATOMIC_STORE(&internal_malloc_scratch, (char*)internal_malloc_scratch_buffer, LIBXS_ATOMIC_SEQ_CST);
+          total_size = minsize;
         }
         else {
           if (0 != libxs_verbosity) { /* library code is expected to be mute */
             fprintf(stderr, "LIBXS: failed to allocate scratch memory!\n");
           }
-          /* fallback to local memory allocation */
+          /* fall-back to local memory allocation */
           local_size = size;
         }
       }
-      else { /* fallback to local memory allocation */
+      else { /* fall-back to local memory allocation */
         local_size = size;
       }
       LIBXS_LOCK_RELEASE(&libxs_lock_global);
     }
-    else { /* fallback to local memory allocation */
+    else { /* fall-back to local memory allocation */
       local_size = size;
     }
     LIBXS_ATOMIC_STORE(&internal_malloc_scratchmin, minsize, LIBXS_ATOMIC_RELAXED);
@@ -962,6 +964,7 @@ LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
     char *const next = (char*)LIBXS_ATOMIC_ADD_FETCH((uintptr_t*)&internal_malloc_scratch, alloc_size, LIBXS_ATOMIC_SEQ_CST);
     if (next <= ((char*)internal_malloc_scratch_buffer + total_size)) {
       char *const aligned = LIBXS_ALIGN(next - alloc_size, align_size);
+      LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_nscratch, 1, LIBXS_ATOMIC_SEQ_CST);
       result = aligned;
     }
     else { /* scratch memory recently exhausted */
@@ -969,14 +972,14 @@ LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
     }
   }
 
-  if (0 != local_size) { /* fallback to local memory allocation */
+  if (0 != local_size) { /* fall-back to local memory allocation */
     static int error_once = 0;
     if (EXIT_SUCCESS != libxs_xmalloc(&result, local_size, alignment,
       LIBXS_MALLOC_FLAG_SCRATCH, 0/*extra*/, 0/*extra_size*/) &&
       /* library code is expected to be mute */0 != libxs_verbosity &&
       1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: scratch memory fallback failed!\n");
+      fprintf(stderr, "LIBXS: scratch memory fall-back failed!\n");
     }
   }
 
@@ -992,14 +995,24 @@ LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 
 LIBXS_API_DEFINITION void libxs_free(const void* memory)
 {
+  const size_t total_size = libxs_malloc_size(internal_malloc_scratch_buffer);
   const char *const scratch = (const char*)internal_malloc_scratch_buffer;
   const char *const buffer = (const char*)memory;
   /* check if memory belongs to scratch domain */
-  if (0 == scratch || buffer < scratch || (scratch + libxs_malloc_size(internal_malloc_scratch_buffer) <= buffer)) {
-    assert(0 == scratch || buffer + libxs_malloc_size(buffer) <= scratch);
+  if (0 == scratch || buffer < scratch || (scratch + total_size <= buffer)) { /* local */
+    /*assert(0 == scratch || buffer + libxs_malloc_size(buffer) <= scratch);*/
     libxs_xfree(memory);
   }
-  else { /* scratch memory domain */
+  else if (0 == LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_nscratch, 1, LIBXS_ATOMIC_SEQ_CST) &&
+    total_size < internal_malloc_scratchmin) /* reallocate scratch domain */
+  {
+    /* TODO: ensure thread-safety */
+    const void *const buffer = internal_malloc_scratch_buffer;
+    LIBXS_ATOMIC_STORE_ZERO(&internal_malloc_scratch_buffer, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_ATOMIC_STORE_ZERO(&internal_malloc_scratch, LIBXS_ATOMIC_SEQ_CST);
+    libxs_xfree(buffer);
+  }
+  else { /* reuse scratch domain */
     /* TODO: document/check that allocation/deallocation adheres to linear/scoped allocator policy */
     LIBXS_ATOMIC_STORE(&internal_malloc_scratch, (char*)internal_malloc_scratch_buffer, LIBXS_ATOMIC_SEQ_CST);
   }
