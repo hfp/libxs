@@ -959,7 +959,7 @@ LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
   }
 
   if (0 == local_size) { /* draw from internal_malloc_scratch_buffer */
-    char *const next = LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_scratch, alloc_size, LIBXS_ATOMIC_SEQ_CST);
+    char *const next = (char*)LIBXS_ATOMIC_ADD_FETCH((uintptr_t*)&internal_malloc_scratch, alloc_size, LIBXS_ATOMIC_SEQ_CST);
     if (next <= ((char*)internal_malloc_scratch_buffer + total_size)) {
       char *const aligned = LIBXS_ALIGN(next - alloc_size, align_size);
       result = aligned;
