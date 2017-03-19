@@ -923,8 +923,12 @@ LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
 {
   const size_t align_size = (0 == alignment ? libxs_alignment(size, alignment) : alignment);
   const size_t inuse_size = internal_malloc_scratch - ((char*)internal_malloc_scratch_buffer);
+#if 0 /* TODO: shall we support memory information for scratch memory? */
   const size_t alloc_size = size + align_size + (sizeof(internal_malloc_info_type) - 1);
-  size_t total_size = libxs_malloc_size(internal_malloc_scratch_buffer), local_size = 0;
+#else
+  const size_t alloc_size = size + align_size - 1;
+#endif
+  size_t total_size = libxs_scratch_size(), local_size = 0;
   void* result = 0;
 
   if (total_size < inuse_size + alloc_size) {
@@ -995,12 +999,12 @@ LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 
 LIBXS_API_DEFINITION void libxs_free(const void* memory)
 {
-  const size_t total_size = libxs_malloc_size(internal_malloc_scratch_buffer);
+  const size_t total_size = libxs_scratch_size();
   const char *const scratch = (const char*)internal_malloc_scratch_buffer;
   const char *const buffer = (const char*)memory;
   /* check if memory belongs to scratch domain */
   if (0 == scratch || buffer < scratch || (scratch + total_size <= buffer)) { /* local */
-    /*assert(0 == scratch || buffer + libxs_malloc_size(buffer) <= scratch);*/
+    assert(0 == scratch || buffer + libxs_malloc_size(buffer) <= scratch);
     libxs_xfree(memory);
   }
   else if (0 == LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_nscratch, 1, LIBXS_ATOMIC_SEQ_CST) &&
@@ -1021,8 +1025,9 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
 
 LIBXS_API_DEFINITION void libxs_release_scratch(size_t* npending)
 {
-  /* TODO: to be implemented */
-  LIBXS_UNUSED(npending);
+  if (0 != npending) {
+    *npending = internal_malloc_nscratch;
+  }
   /* TODO: thread-safety */
   libxs_xfree(internal_malloc_scratch_buffer);
   internal_malloc_scratch_buffer = 0;
@@ -1035,5 +1040,11 @@ LIBXS_API_DEFINITION size_t libxs_malloc_size(const void* memory)
   size_t size = 0;
   libxs_malloc_info(memory, &size, 0/*flags*/, 0/*extra*/);
   return size;
+}
+
+
+LIBXS_API_DEFINITION size_t libxs_scratch_size(void)
+{
+  return libxs_malloc_size(internal_malloc_scratch_buffer);
 }
 

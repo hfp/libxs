@@ -189,6 +189,7 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_LOCK_TYPE internal_reglock[INTERNAL_REGL
 
 /** Determines the try-lock property (1<N: off, N=1: enabled). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_reglock_count;
+LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t internal_registry_nbytes;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE internal_regkey_type* internal_registry_keys;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_code_pointer* internal_registry;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE internal_statistic_type internal_statistic[2/*DP/SP*/][4/*sml/med/big/xxx*/];
@@ -196,7 +197,6 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_sml;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_med;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_statistic_mnk;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int internal_teardown;
-LIBXS_EXTERN_C LIBXS_RETARGETABLE size_t internal_heapmem;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_dispatch_trylock_locked;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_gemm_auto_prefetch_locked;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int internal_gemm_auto_prefetch;
@@ -454,10 +454,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_finalize(void)
     {
       const char *const target_arch = internal_get_target_arch(libxs_target_archid);
       const unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
+      const size_t scratch_size = libxs_scratch_size();
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak) {
         fprintf(stderr, "LIBXS_TARGET=%s ", target_arch);
       }
-      fprintf(stderr, "HEAP: %.f MB\n", 1.0 * internal_heapmem / (1 << 20));
+      fprintf(stderr, "Registry: %.f MB", 1.0 * internal_registry_nbytes / (1 << 20));
+      if (0 < scratch_size) {
+        fprintf(stderr, "  Scratch: %.f MB\n", 1.0 * scratch_size / (1 << 20));
+      }
+      else {
+        fprintf(stderr, "\n");
+      }
     }
   }
   {
@@ -677,7 +684,7 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 
     if (0 != registry) {
       internal_regkey_type *const registry_keys = internal_registry_keys;
-      internal_heapmem = (LIBXS_CAPACITY_REGISTRY) * (sizeof(libxs_code_pointer) + sizeof(internal_regkey_type));
+      internal_registry_nbytes = (LIBXS_CAPACITY_REGISTRY) * (sizeof(libxs_code_pointer) + sizeof(internal_regkey_type));
 
       /* serves as an id to invalidate the thread-local cache; never decremented */
       ++internal_teardown;
@@ -724,7 +731,7 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             if (EXIT_SUCCESS == libxs_malloc_info(code.const_pmm, &size, 0/*flags*/, &buffer)) {
               libxs_xfree(code.const_pmm);
               ++internal_statistic[precision][bucket].njit;
-              internal_heapmem += (unsigned int)(size + (((char*)code.const_pmm) - (char*)buffer));
+              internal_registry_nbytes += (unsigned int)(size + (((char*)code.const_pmm) - (char*)buffer));
             }
           }
           else {
