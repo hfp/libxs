@@ -127,6 +127,9 @@ LIBXS_API void libxs_release_scratch(size_t* npending);
 /** Get the size of the allocated memory; zero in case of an error. */
 LIBXS_API size_t libxs_malloc_size(const void* memory);
 
+/** Get the size of the allocated scratch memory. */
+LIBXS_API size_t libxs_scratch_size(void);
+
 
 #if defined(__cplusplus)
 
