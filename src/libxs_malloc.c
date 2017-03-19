@@ -928,7 +928,7 @@ LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
 #else
   const size_t alloc_size = size + align_size - 1;
 #endif
-  size_t total_size = libxs_scratch_size(), local_size = 0;
+  size_t total_size = libxs_malloc_size(internal_malloc_scratch_buffer), local_size = 0;
   void* result = 0;
 
   if (total_size < inuse_size + alloc_size) {
@@ -999,7 +999,7 @@ LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 
 LIBXS_API_DEFINITION void libxs_free(const void* memory)
 {
-  const size_t total_size = libxs_scratch_size();
+  const size_t total_size = libxs_malloc_size(internal_malloc_scratch_buffer);
   const char *const scratch = (const char*)internal_malloc_scratch_buffer;
   const char *const buffer = (const char*)memory;
   /* check if memory belongs to scratch domain */
@@ -1045,6 +1045,6 @@ LIBXS_API_DEFINITION size_t libxs_malloc_size(const void* memory)
 
 LIBXS_API_DEFINITION size_t libxs_scratch_size(void)
 {
-  return libxs_malloc_size(internal_malloc_scratch_buffer);
+  return internal_malloc_scratchmin;
 }
 
