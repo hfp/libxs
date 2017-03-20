@@ -1000,7 +1000,7 @@ LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 LIBXS_API_DEFINITION void libxs_free(const void* memory)
 {
   const size_t total_size = libxs_malloc_size(internal_malloc_scratch_buffer);
-  const char *const scratch = (const char*)internal_malloc_scratch_buffer;
+  const char* scratch = (const char*)internal_malloc_scratch_buffer;
   const char *const buffer = (const char*)memory;
   /* check if memory belongs to scratch domain */
   if (0 == scratch || buffer < scratch || (scratch + total_size <= buffer)) { /* local */
@@ -1011,10 +1011,10 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
     total_size < internal_malloc_scratchmin) /* reallocate scratch domain */
   {
     /* TODO: ensure thread-safety */
-    const void *const buffer = internal_malloc_scratch_buffer;
+    scratch = internal_malloc_scratch_buffer;
     LIBXS_ATOMIC_STORE_ZERO(&internal_malloc_scratch_buffer, LIBXS_ATOMIC_SEQ_CST);
     LIBXS_ATOMIC_STORE_ZERO(&internal_malloc_scratch, LIBXS_ATOMIC_SEQ_CST);
-    libxs_xfree(buffer);
+    libxs_xfree(scratch);
   }
   else { /* reuse scratch domain */
     /* TODO: document/check that allocation/deallocation adheres to linear/scoped allocator policy */
