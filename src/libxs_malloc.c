@@ -1011,7 +1011,7 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
     total_size < internal_malloc_scratchmin) /* reallocate scratch domain */
   {
     /* TODO: ensure thread-safety */
-    scratch = internal_malloc_scratch_buffer;
+    scratch = (const char*)internal_malloc_scratch_buffer; /* update */
     LIBXS_ATOMIC_STORE_ZERO(&internal_malloc_scratch_buffer, LIBXS_ATOMIC_SEQ_CST);
     LIBXS_ATOMIC_STORE_ZERO(&internal_malloc_scratch, LIBXS_ATOMIC_SEQ_CST);
     libxs_xfree(scratch);
