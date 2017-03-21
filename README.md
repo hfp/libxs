@@ -65,7 +65,7 @@ A more recently added variant of matrix multiplication is parallelized based on 
 libxs_?gemm_omp(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 ```
 
-Successively calling a kernel (i.e., multiple times) allows for amortizing the cost of the code dispatch. Moreover, to customize the dispatch mechanism, one can rely on the following interface.
+Successively calling a kernel (i.e., multiple times) allows for amortizing the cost of the code dispatch. Moreover, to customize the dispatch mechanism, one can rely on the following interface. Overloaded function signatures are provided and allow to omit arguments (C++ and FORTRAN), which are then derived from the [configurable defaults](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h).
 
 ```C
 /** If non-zero function pointer is returned, call (*function_ptr)(a, b, c). */
@@ -80,10 +80,45 @@ libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
   const int* flags, const int* prefetch);
 ```
 
-A variety of overloaded function signatures is provided allowing to omit arguments not deviating from the configured defaults. In C++, a type `libxs_mmfunction<type>` can be used to instantiate a functor rather than making a distinction for the numeric type in `libxs_?mmdispatch`. Similarly in FORTRAN, when calling the generic interface (`libxs_mmdispatch`) the given `LIBXS_?MMFUNCTION` is dispatched such that `libxs_call` can be used to actually perform the function call using the PROCEDURE POINTER wrapped by `LIBXS_?MMFUNCTION`. Beside of dispatching code, one can also call a specific kernel (e.g., `libxs_dmm_4_4_4`) using the prototype functions included for statically generated kernels.
+In C++, `libxs_mmfunction<type>` can be used to instantiate a functor rather than making a distinction between numeric types per type-prefix (see [samples/smm/specialized.cpp](https://github.com/hfp/libxs/blob/master/samples/smm/specialized.cpp)).
+
+```C
+const libxs_mmfunction<T> xmm(m, n, k);
+if (xmm) { /* JIT'ted code */
+  for (int i = 0; i < n; ++i) { /* perhaps OpenMP parallelized */
+    xmm(a+i*asize, b+i*bsize, c+i*csize); /* already dispatched */
+  }
+}
+```
+
+Similarly in FORTRAN (see [samples/smm/smm.f](https://github.com/hfp/libxs/blob/master/samples/smm/smm.f)), a generic interface (`libxs_mmdispatch`) can be used to dispatch a `LIBXS_?MMFUNCTION`, and the encapsulated PROCEDURE POINTER can be called via `libxs_call`. Beside of dispatching code, one can also call any statically generated kernels (e.g., `libxs_dmm_4_4_4`) using the prototype functions included with the FORTRAN and C/C++ interface.
+
+```FORTRAN
+TYPE(LIBXS_DMMFUNCTION) :: xmm
+CALL libxs_dispatch(xmm, m, n, k)
+IF (libxs_available(xmm)) THEN
+  DO i = LBOUND(c, 3), UBOUND(c, 3) ! perhaps OpenMP parallelized
+    CALL libxs_call(xmm, a(:,:,i), b(:,:,i), c(:,:,i))
+  END DO
+END IF
+```
+
+In case of batched SMMs, it can be beneficial to supply "next locations" such that the operands of the next multiplication are prefetched ahead of time. The "prefetch strategy" is requested at dispatch-time. A [strategy](#prefetch-strategy) other than `LIBXS_PREFETCH_NONE` turns the signature of a JIT'ted kernel into a six-argument function (`a,b,c, pa,pb,pc` instead of `a,b,c`). To defer the decision about the strategy to a CPUID-based mechanism, one can choose `LIBXS_PREFETCH_AUTO`.
+
+```C
+int prefetch = LIBXS_PREFETCH_AUTO;
+int flags = 0; /* LIBXS_FLAGS */
+libxs_dmmfunction xmm = NULL;
+double alpha = 1, beta = 0;
+xmm = libxs_dmmdispatch(23/*m*/, 23/*n*/, 23/*k*/,
+  NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/,
+  &alpha, &beta, &flags, &prefetch);
+```
+
+Above, pointer-arguments of `libxs_dmmdispatch` can be NULL (or OPTIONAL in FORTRAN): for LDx this means "tight" leading dimension, alpha, beta, and flags referring to the [default value](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h) selected at compile-time, and "no prefetch" used for the prefetch strategy (same as explicitly supplying `LIBXS_PREFETCH_NONE`).
 
 ## Interface for Convolutions
-To achieve best performance with small convolutions for CNN on SIMD architectures, a specific data layout has to be used. As this layout depends on several architectural parameters, the goal of the LIBXS's interface is to hide this complexity from the user by providing copy-in and copy-out routines. This happens using opaque data types which themselves are later bound to a convolution operation. The interface is available for C.
+To achieve best performance with small convolutions for CNN on SIMD architectures, a specific data layout must be used. As this layout depends on several architectural parameters, the goal of the LIBXS's interface is to hide this complexity from the user by providing copy-in and copy-out routines. This happens using opaque data types which themselves are later bound to a convolution operation. The interface is available for C.
 
 The concept of the interface is circled around a few handle types: `libxs_dnn_layer`, `libxs_dnn_buffer`, `libxs_dnn_bias`, and `libxs_dnn_filter`. A handle is setup by calling a create-function:
 
