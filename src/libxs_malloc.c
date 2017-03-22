@@ -32,6 +32,7 @@
 # define _GNU_SOURCE
 #endif
 #include <libxs.h>
+#include "libxs_trace.h"
 #include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -932,7 +933,7 @@ LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
   void* result = 0;
 
   if (total_size < inuse_size + alloc_size) {
-    const size_t minsize = 2 * LIBXS_MAX(size, internal_malloc_scratchmin);
+    const size_t minsize = 2 * LIBXS_MAX(alloc_size, internal_malloc_scratchmin);
     if (0 == internal_malloc_scratch_buffer) {
       LIBXS_INIT
       LIBXS_LOCK_ACQUIRE(&libxs_lock_global);
