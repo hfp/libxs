@@ -163,7 +163,8 @@ struct LIBXS_RETARGETABLE libxs_default_allocator {
     libxs_malloc_ctx malloc_ctx, libxs_free_ctx free_ctx,
     libxs_malloc_fun malloc_fun, libxs_free_fun free_fun)
   {
-    libxs_malloc_function malloc_fn, free_fn;
+    libxs_malloc_function malloc_fn;
+    libxs_free_function free_fn;
     if (0 == context) { /* use global form only when no context is given */
       malloc_fn.function = malloc_fun; free_fn.function = free_fun;
     }
@@ -185,7 +186,8 @@ struct LIBXS_RETARGETABLE libxs_scratch_allocator {
     libxs_malloc_ctx malloc_ctx, libxs_free_ctx free_ctx,
     libxs_malloc_fun malloc_fun, libxs_free_fun free_fun)
   {
-    libxs_malloc_function malloc_fn, free_fn;
+    libxs_malloc_function malloc_fn;
+    libxs_free_function free_fn;
     if (0 != malloc_fun) { /* prefer/adopt global malloc/free functions */
       malloc_fn.function = malloc_fun; free_fn.function = free_fun;
       context = 0; /* global malloc/free functions */
