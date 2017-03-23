@@ -1053,8 +1053,8 @@ LIBXS_INLINE LIBXS_RETARGETABLE int internal_free(const void* memory, unsigned i
     const char *const buffer = (const char*)memory;
 
     if (scratch <= buffer && buffer < (scratch + total_size)) { /* scratch */
-      if (0 < LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_scratch_pool[pool].counter, 1, LIBXS_ATOMIC_SEQ_CST) ||
-        internal_malloc_scratch_pool[pool].minsize <= total_size) /* reuse scratch domain */
+      if (0 < LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_scratch_pool[pool].counter, 1, LIBXS_ATOMIC_SEQ_CST)
+        || internal_malloc_scratch_pool[pool].minsize <= total_size) /* reuse scratch domain */
       {
         /* TODO: document/check that allocation/deallocation adheres to linear/scoped allocator policy */
         LIBXS_ATOMIC_STORE(&internal_malloc_scratch_pool[pool].head,
@@ -1076,31 +1076,28 @@ LIBXS_INLINE LIBXS_RETARGETABLE int internal_free(const void* memory, unsigned i
 
 LIBXS_API_DEFINITION void libxs_free(const void* memory)
 {
-  unsigned int pool = 0;
+  unsigned int npools, pool = 0, i = 0;
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
   const void* site = 0; int hit = 0;
   pool = internal_malloc_site(&site, &hit);
   if (0 != hit)
 #endif
   {
-    if (0 == internal_free(memory, pool)) {
-      libxs_xfree(memory); /* local */
-    }
+    npools = internal_free(memory, pool);
   }
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
   else { /* find pool */
-    const unsigned int npools = LIBXS_MAX(LIBXS_MIN(libxs_scratch_npools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS), 1);
-    unsigned int i;
-    for (i = 0; i < npools; ++i) {
+    npools = LIBXS_MAX(LIBXS_MIN(libxs_scratch_npools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS), 1);
+    for (; i < npools; ++i) {
       if (0 != internal_free(memory, i)) {
         i = npools + 1; /* break */
       }
     }
-    if (i == npools) { /* local */
-      libxs_xfree(memory);
-    }
   }
 #endif
+  if (i == npools) { /* local */
+    libxs_xfree(memory);
+  }
 }
 
 
