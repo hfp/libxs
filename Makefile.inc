@@ -66,8 +66,10 @@ else
   OPTFLAG = -$(OPT)
 endif
 
-# Trace level
-TRACE ?= 0
+# Instrumentation level (trace)
+ifeq (,$(strip $(INSTRUMENT)))
+  INSTRUMENT = 0
+endif
 
 # Number of repeated calls (tests),
 # or used to scale the problem size
@@ -539,8 +541,8 @@ ifneq (0,$(INTEL))
       CFLAGS += -ipo
       FCFLAGS += -ipo
     endif
-    ifneq (0,$(TRACE))
-      SYM = $(TRACE)
+    ifneq (0,$(INSTRUMENT))
+      SYM = $(INSTRUMENT)
     else ifeq (0,$(shell echo "$$((0 > $(SYM)))"))
       DFLAGS += -DNDEBUG
     else
@@ -555,18 +557,20 @@ ifneq (0,$(INTEL))
     FCFLAGS += -O0 -check
     SYM = $(DBG)
   endif
-  ifneq (0,$(TRACE))
+  ifneq (0,$(INSTRUMENT))
     CXXFLAGS += -finstrument-functions
     CFLAGS += -finstrument-functions
     FCFLAGS += -finstrument-functions
-    DFLAGS += -D__TRACE=$(TRACE)
-    ifneq (0,$(DEPSTATIC))
-    ifneq (Darwin,$(UNAME))
-    ifneq (Windows_NT,$(UNAME))
-      LDFLAGS += -Wl,--export-dynamic
-    endif
-    endif
-    endif
+    DFLAGS += -D__TRACE=$(INSTRUMENT)
+  endif
+  ifneq (0,$(TRACE))
+  ifneq (0,$(DEPSTATIC))
+  ifneq (Darwin,$(UNAME))
+  ifneq (Windows_NT,$(UNAME))
+    LDFLAGS += -Wl,--export-dynamic
+  endif
+  endif
+  endif
   endif
   ifneq (0,$(shell echo "$$((3 > $(DBG)))"))
     ifeq (0,$(COMPATIBLE))
@@ -758,8 +762,8 @@ else # GCC assumed
       FCFLAGS += -flto -ffat-lto-objects
       LDFLAGS += -flto
     endif
-    ifneq (0,$(TRACE))
-      SYM = $(TRACE)
+    ifneq (0,$(INSTRUMENT))
+      SYM = $(INSTRUMENT)
     else ifeq (0,$(shell echo "$$((0 > $(SYM)))"))
       DFLAGS += -DNDEBUG
     else
@@ -774,7 +778,7 @@ else # GCC assumed
     FCFLAGS += -O0
     SYM = $(DBG)
   endif
-  ifneq (0,$(TRACE))
+  ifneq (0,$(INSTRUMENT))
     CXXFLAGS += -finstrument-functions
     CFLAGS += -finstrument-functions
     FCFLAGS += -finstrument-functions
@@ -788,6 +792,12 @@ else # GCC assumed
         endif
       endif
     endif
+    DFLAGS += -D__TRACE=$(INSTRUMENT)
+  endif
+  ifneq (0,$(TRACE))
+    ifeq (Windows_NT,$(UNAME))
+      LDFLAGS += -ldbghelp
+    endif
     ifneq (0,$(DEPSTATIC))
     ifneq (Darwin,$(UNAME))
     ifneq (Windows_NT,$(UNAME))
@@ -795,10 +805,6 @@ else # GCC assumed
     endif
     endif
     endif
-    ifeq (Windows_NT,$(UNAME))
-      LDFLAGS += -ldbghelp
-    endif
-    DFLAGS += -D__TRACE=$(TRACE)
   endif
   ifneq (0,$(SYM))
     ifeq (1,$(SYM))
