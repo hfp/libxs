@@ -107,8 +107,8 @@
 # define LIBXS_MALLOC_ALIGNFCT 8
 #endif
 
-#if !defined(LIBXS_MALLOC_MAX_NSCRATCH)
-# define LIBXS_MALLOC_MAX_NSCRATCH 1/*6*/
+#if !defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
+# define LIBXS_MALLOC_SCRATCH_MAX_NPOOLS 16
 #endif
 
 /* perform low-level allocation even for small non-executable buffers */
@@ -132,12 +132,15 @@ typedef struct LIBXS_RETARGETABLE internal_malloc_info_type {
 
 typedef struct LIBXS_RETARGETABLE internal_malloc_pool_type {
   char *buffer, *head;
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
+  const void* site;
+#endif
   size_t minsize;
   size_t counter;
 } internal_malloc_pool_type;
 
 /** Scratch pool, which supports up to MAX_NSCRATCH allocation sites. */
-internal_malloc_pool_type internal_malloc_scratch_pool[LIBXS_MALLOC_MAX_NSCRATCH];
+internal_malloc_pool_type internal_malloc_scratch_pool[LIBXS_MALLOC_SCRATCH_MAX_NPOOLS];
 
 
 LIBXS_API_DEFINITION size_t libxs_gcd(size_t a, size_t b)
@@ -924,33 +927,42 @@ LIBXS_API_DEFINITION void* libxs_aligned_malloc(size_t size, size_t alignment)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE int internal_malloc_site(void)
+LIBXS_INLINE LIBXS_RETARGETABLE int internal_malloc_site(const void** site)
 {
-  int result = 0;
-#if defined(LIBXS_MALLOC_MAX_NSCRATCH) && (1 < (LIBXS_MALLOC_MAX_NSCRATCH))
-  void* stacktrace[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-  const unsigned int n = libxs_backtrace(stacktrace, sizeof(stacktrace) / sizeof(*stacktrace));
-  unsigned int i;
-  fprintf(stderr, "%p %p", libxs_aligned_scratch, internal_malloc_site);
-  for (i = 0; i < n; ++i) {
-    fprintf(stderr, " %p", stacktrace[i]);
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
+  const unsigned int npools = LIBXS_MIN(libxs_scratch_npools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+  if (1 < npools) {
+    void* stacktrace[] = { 0, 0, 0, 0, 0 };
+    const unsigned int size = sizeof(stacktrace) / sizeof(*stacktrace);
+    assert(0 != site);
+    if (size == libxs_backtrace(stacktrace, size)) {
+      unsigned int i;
+      *site = stacktrace[size-1];
+      for (i = 0; i < npools; ++i) {
+        if (*site == internal_malloc_scratch_pool[i].site) {
+          return i;
+        }
+      }
+    }
+    else {
+      *site = 0;
+    }
   }
-  fprintf(stderr, "\n");
+#else
+  LIBXS_UNUSED(site);
 #endif
-  return result;
+  return 0;
 }
 
 
 LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
 {
-  const int malloc_site = internal_malloc_site();
+  const void* site = 0;
+  const int malloc_site = internal_malloc_site(&site);
   const size_t align_size = (0 == alignment ? libxs_alignment(size, alignment) : alignment);
   const size_t inuse_size = internal_malloc_scratch_pool[malloc_site].head - internal_malloc_scratch_pool[malloc_site].buffer;
-#if 0 /* TODO: shall we support memory information for scratch memory? */
-  const size_t alloc_size = size + align_size + (sizeof(internal_malloc_info_type) - 1);
-#else
+  /* memory information for scratch memory is documented to be unsupported; no extra/info size */
   const size_t alloc_size = size + align_size - 1;
-#endif
   size_t total_size = libxs_malloc_size(internal_malloc_scratch_pool[malloc_site].buffer), local_size = 0;
   void* result = 0;
 
@@ -967,6 +979,9 @@ LIBXS_API_DEFINITION void* libxs_aligned_scratch(size_t size, size_t alignment)
           /* atomic update needed since modifications will also happen outside of this region */
           LIBXS_ATOMIC_STORE(&internal_malloc_scratch_pool[malloc_site].head,
             internal_malloc_scratch_pool[malloc_site].buffer, LIBXS_ATOMIC_SEQ_CST);
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
+          internal_malloc_scratch_pool[malloc_site].site = site;
+#endif
           total_size = minsize;
         }
         else {
@@ -1027,7 +1042,8 @@ LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 
 LIBXS_API_DEFINITION void libxs_free(const void* memory)
 {
-  const int malloc_site = internal_malloc_site();
+  const void* site;
+  const int malloc_site = internal_malloc_site(&site);
   const size_t total_size = libxs_malloc_size(internal_malloc_scratch_pool[malloc_site].buffer);
   const char* scratch = internal_malloc_scratch_pool[malloc_site].buffer;
   const char *const buffer = (const char*)memory;
@@ -1058,15 +1074,15 @@ LIBXS_API_DEFINITION void libxs_release_scratch(size_t* npending)
   int i;
   if (0 != npending) {
     *npending = internal_malloc_scratch_pool[0].counter;
-#if defined(LIBXS_MALLOC_MAX_NSCRATCH) && (1 < (LIBXS_MALLOC_MAX_NSCRATCH))
-    for (i = 1; i < (LIBXS_MALLOC_MAX_NSCRATCH); ++i) {
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
+    for (i = 1; i < LIBXS_MIN(libxs_scratch_npools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS); ++i) {
       *npending += internal_malloc_scratch_pool[i].counter;
     }
 #endif
   }
 
   /* TODO: thread-safety */
-  for (i = 0; i < (LIBXS_MALLOC_MAX_NSCRATCH); ++i) {
+  for (i = 0; i < LIBXS_MAX(LIBXS_MIN(libxs_scratch_npools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS), 1); ++i) {
     libxs_xfree(internal_malloc_scratch_pool[i].buffer);
     internal_malloc_scratch_pool[i].counter = 0;
     internal_malloc_scratch_pool[i].buffer = 0;
@@ -1086,9 +1102,9 @@ LIBXS_API_DEFINITION size_t libxs_malloc_size(const void* memory)
 LIBXS_API_DEFINITION size_t libxs_scratch_size(void)
 {
   size_t result = internal_malloc_scratch_pool[0].minsize;
-#if defined(LIBXS_MALLOC_MAX_NSCRATCH) && (1 < (LIBXS_MALLOC_MAX_NSCRATCH))
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
   int i;
-  for (i = 1; i < (LIBXS_MALLOC_MAX_NSCRATCH); ++i) {
+  for (i = 1; i < LIBXS_MIN(libxs_scratch_npools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS); ++i) {
     result += internal_malloc_scratch_pool[i].minsize;
   }
 #endif

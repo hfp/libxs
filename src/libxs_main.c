@@ -491,6 +491,16 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_init(void)
     const libxs_free_function null_free_fn = { 0 };
     libxs_xset_default_allocator(0/*lock*/, 0/*context*/, null_malloc_fn, null_free_fn);
     libxs_xset_scratch_allocator(0/*lock*/, 0/*context*/, null_malloc_fn, null_free_fn);
+    { const char *const env = getenv("LIBXS_NPOOLS");
+      if (0 == env || 0 == *env) {
+        libxs_scratch_npools = 1;
+      }
+      else {
+        libxs_scratch_npools = LIBXS_MAX(1, atoi(env));
+        /*libxs_scratch_npools_locked = 1;*/
+      }
+      assert(1 <= libxs_scratch_npools);
+    }
     libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
     { const char *const env = getenv("LIBXS_SYNC");
       libxs_sync = (0 == env || 0 == *env) ? 1/*default*/ : atoi(env);
@@ -1090,7 +1100,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
           const char *const precision_in = internal_get_precision_string(request->descriptor.cbwd->datatype);
           const char *const precision_out = internal_get_precision_string(request->descriptor.cbwd->datatype_itm);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_bwd_%s_%s_%ux%u_%ux%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_of%uu%u_v%u_pa%u_p%i_f%i.conv",
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_bwd_%s_%s_%ux%u_%ux%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_p%i_f%i.conv",
             target_arch/*code path name*/, precision_in, precision_out,
             (unsigned int)request->descriptor.cbwd->kw/*kernel width*/, (unsigned int)request->descriptor.cbwd->kh/*kernel height*/,
             (unsigned int)request->descriptor.cbwd->unroll_kw/*width*/, (unsigned int)request->descriptor.cbwd->unroll_kh/*height*/,
@@ -1101,9 +1111,6 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
             (unsigned int)request->descriptor.cbwd->ofh_padded/*2D register block*/,
             (unsigned int)request->descriptor.cbwd->ofw_rb/*register block ofw*/,
             (unsigned int)request->descriptor.cbwd->ofh_rb/*register block ofh*/,
-            (unsigned int)request->descriptor.cbwd->ofw/*ofw*/, (unsigned int)request->descriptor.cbwd->ofw_unroll/*ofw_unroll*/,
-            (unsigned int)request->descriptor.cbwd->peeled/*peeled version*/,
-            (unsigned int)request->descriptor.cbwd->prefetch_output_ahead/*prefetch kj outputs for jumping from non-peel to peel version*/,
             (int)request->descriptor.cbwd->prefetch/*binary OR'd prefetch flags*/,
             (int)request->descriptor.cbwd->format/*binary OR'd format flags*/);
         }

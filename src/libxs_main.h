@@ -200,6 +200,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int padding_flag;           /* Flag that dictates if we should apply padding in the input */
   void* scratch6;
   size_t scratch6_size;
+  void* scratch7;         /* This scratch is used for low precision intermediate buffer for input in backward pass*/
+  size_t scratch7_size;
   void* scratchIw;
   size_t scratchIw_size;
   void* scratchOw;
@@ -352,6 +354,8 @@ LIBXS_EXTERN_C LIBXS_RETARGETABLE libxs_free_function libxs_scratch_free_fn;
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_default_allocator_context;
 /** If non-NULL, this context used for the context-form of the malloc/free function. */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE void* libxs_scratch_allocator_context;
+/** Number of scratch memory pools used; clamped against internal maximum. */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE unsigned int libxs_scratch_npools;
 /** Stores the verbosity level (libxs_get_verbosity, libxs_set_verbosity). */
 LIBXS_EXTERN_C LIBXS_RETARGETABLE int libxs_verbosity;
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
