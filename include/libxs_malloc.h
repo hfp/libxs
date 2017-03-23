@@ -56,19 +56,6 @@ typedef union LIBXS_RETARGETABLE libxs_free_function {
   libxs_free_fun function;
 } libxs_free_function;
 
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_malloc_function libxs_make_malloc_fun(libxs_malloc_fun malloc_fn) {
-  libxs_malloc_function result; result.function = malloc_fn; return result;
-}
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_free_function libxs_make_free_fun(libxs_free_fun free_fn) {
-  libxs_free_function result; result.function = free_fn; return result;
-}
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_malloc_function libxs_make_malloc_ctx(libxs_malloc_ctx malloc_fn) {
-  libxs_malloc_function result; result.ctx_form = malloc_fn; return result;
-}
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_free_function libxs_make_free_ctx(libxs_free_ctx free_fn) {
-  libxs_free_function result; result.ctx_form = free_fn; return result;
-}
-
 /**
  * To setup the custom default memory allocator, either a malloc_fn and a free_fn
  * are given, or two NULL-pointers designate to reset the default allocator to a
@@ -104,7 +91,10 @@ LIBXS_API void* libxs_aligned_malloc(size_t size,
    */
   size_t alignment);
 
-/** Allocate aligned scratch memory. */
+/**
+ * Allocate aligned scratch memory. It is not supported
+ * to query properties e.g., libxs_malloc_size.
+ */
 LIBXS_API void* libxs_aligned_scratch(size_t size,
   /**
    * =0: align automatically according to the size
@@ -173,16 +163,14 @@ struct LIBXS_RETARGETABLE libxs_default_allocator {
     libxs_malloc_ctx malloc_ctx, libxs_free_ctx free_ctx,
     libxs_malloc_fun malloc_fun, libxs_free_fun free_fun)
   {
+    libxs_malloc_function malloc_fn, free_fn;
     if (0 == context) { /* use global form only when no context is given */
-      libxs_set_default_allocator(0/*context*/,
-        libxs_make_malloc_fun(malloc_fun),
-        libxs_make_free_fun(free_fun));
+      malloc_fn.function = malloc_fun; free_fn.function = free_fun;
     }
     else {
-      libxs_set_default_allocator(context,
-        libxs_make_malloc_ctx(malloc_ctx),
-        libxs_make_free_ctx(free_ctx));
+      malloc_fn.ctx_form = malloc_ctx; free_fn.ctx_form = free_ctx;
     }
+    libxs_set_default_allocator(context, malloc_fn, free_fn);
   }
   static void get(void*& context,
     libxs_malloc_function& malloc_fn, libxs_free_function& free_fn)
@@ -197,16 +185,15 @@ struct LIBXS_RETARGETABLE libxs_scratch_allocator {
     libxs_malloc_ctx malloc_ctx, libxs_free_ctx free_ctx,
     libxs_malloc_fun malloc_fun, libxs_free_fun free_fun)
   {
+    libxs_malloc_function malloc_fn, free_fn;
     if (0 != malloc_fun) { /* prefer/adopt global malloc/free functions */
-      libxs_set_scratch_allocator(0/*context*/,
-        libxs_make_malloc_fun(malloc_fun),
-        libxs_make_free_fun(free_fun));
+      malloc_fn.function = malloc_fun; free_fn.function = free_fun;
+      context = 0; /* global malloc/free functions */
     }
     else {
-      libxs_set_scratch_allocator(context,
-        libxs_make_malloc_ctx(malloc_ctx),
-        libxs_make_free_ctx(free_ctx));
+      malloc_fn.ctx_form = malloc_ctx; free_fn.ctx_form = free_ctx;
     }
+    libxs_set_default_allocator(context, malloc_fn, free_fn);
   }
   static void get(void*& context,
     libxs_malloc_function& malloc_fn, libxs_free_function& free_fn)
