@@ -937,7 +937,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_malloc_site(unsigned int* 
   *npools = LIBXS_MIN(libxs_scratch_npools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
   if (1 < *npools) {
 #if defined(NDEBUG) /* internal_malloc_site will be inlined */
+# if defined(_WIN32) || defined(__CYGWIN__)
     void* stacktrace[] = { 0, 0, 0 };
+# else
+    void* stacktrace[] = { 0, 0 };
+# endif
 #else /* not inlined */
     void* stacktrace[] = { 0, 0, 0, 0 };
 #endif
