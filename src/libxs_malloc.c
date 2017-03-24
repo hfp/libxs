@@ -110,6 +110,9 @@
 #if !defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
 # define LIBXS_MALLOC_SCRATCH_MAX_NPOOLS 16
 #endif
+#if !defined(LIBXS_MALLOC_SCRATCH_XFREE)
+# define LIBXS_MALLOC_SCRATCH_XFREE
+#endif
 
 /* perform low-level allocation even for small non-executable buffers */
 #if !defined(LIBXS_MALLOC_MMAP)
@@ -1079,14 +1082,16 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
   unsigned int npools, pool = 0, i = 0;
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
   const void* site = 0; int hit = 0;
+# if !defined(LIBXS_MALLOC_SCRATCH_XFREE)
   pool = internal_malloc_site(&site, &hit);
+# endif
   if (0 != hit)
 #endif
   {
     npools = internal_free(memory, pool);
   }
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-  else { /* find pool */
+  else { /* find scratch memory pool */
     npools = LIBXS_MAX(LIBXS_MIN(libxs_scratch_npools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS), 1);
     for (; i < npools; ++i) {
       if (0 != internal_free(memory, i)) {
