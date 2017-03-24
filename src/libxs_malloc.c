@@ -1081,8 +1081,9 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
 {
   unsigned int npools, pool = 0, i = 0;
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-  const void* site = 0; int hit = 0;
+  int hit = 0;
 # if !defined(LIBXS_MALLOC_SCRATCH_XFREE)
+  const void* site = 0;
   pool = internal_malloc_site(&site, &hit);
 # endif
   if (0 != hit)
