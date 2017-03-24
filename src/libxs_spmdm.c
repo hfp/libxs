@@ -614,7 +614,7 @@ LIBXS_API_DEFINITION void libxs_spmdm_init(int M, int N, int K, int max_threads,
   load_imbalance_2      = max_blocks_per_thread / avg_blocks_per_thread;
   load_imbalance        = load_imbalance_1 * load_imbalance_2;
 
-  while (1 < handle->bm && load_imbalance > load_imbalance_tolerate) {
+  while (32 < handle->bm && load_imbalance > load_imbalance_tolerate) {
     handle->bm--;
     handle->mb = (handle->m + handle->bm - 1) / handle->bm;
 
