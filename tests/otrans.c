@@ -28,6 +28,7 @@
 ******************************************************************************/
 #include <libxs.h>
 #include <stdlib.h>
+#include <assert.h>
 #if defined(_DEBUG)
 # include <stdio.h>
 #endif
@@ -69,10 +70,10 @@ int main(void)
   libxs_blasint maxm = 0, maxn = 0, maxi = 0, maxo = 0;
   unsigned int nerrors = 0;
   ELEM_TYPE *a = 0, *b = 0;
-  libxs_blasint i, j;
   int test;
 
   for (test = start; test < ntests; ++test) {
+    assert(m[test] <= ldi[test] && n[test] <= ldo[test]);
     maxm = LIBXS_MAX(maxm, m[test]);
     maxn = LIBXS_MAX(maxn, n[test]);
     maxi = LIBXS_MAX(maxi, ldi[test]);
@@ -91,8 +92,9 @@ int main(void)
       ldi[test], ldo[test]) ? 0 : 1);
 
     if (0 == testerrors) {
+      libxs_blasint i, j;
       for (i = 0; i < n[test]; ++i) {
-        for (j = i + 1; j < m[test]; ++j) {
+        for (j = 0; j < m[test]; ++j) {
           const libxs_blasint u = i * ldi[test] + j;
           const libxs_blasint v = j * ldo[test] + i;
           testerrors += (LIBXS_FEQ(a[u], b[v]) ? 0u : 1u);
@@ -113,8 +115,9 @@ int main(void)
           ldi[test], ldo[test]) ? 0 : 1);
 
         if (0 == testerrors) {
+          libxs_blasint i, j;
           for (i = 0; i < n[test]; ++i) {
-            for (j = i + 1; j < m[test]; ++j) {
+            for (j = 0; j < m[test]; ++j) {
               /* address serves both a and b since ldi and ldo are equal */
               const libxs_blasint uv = i * ldi[test] + j;
               testerrors += (LIBXS_FEQ(a[uv], b[uv]) ? 0u : 1u);
