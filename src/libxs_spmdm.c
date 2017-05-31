@@ -56,23 +56,23 @@
 
 
 /* function pointer for the CPUID-dispatched implementation */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_createSparseSlice_fp32_thread)(const libxs_spmdm_handle*, char,
+LIBXS_API_VARIABLE void (*internal_spmdm_createSparseSlice_fp32_thread)(const libxs_spmdm_handle*, char,
   const float*, libxs_CSR_sparseslice*, int, int, int);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_createSparseSlice_bfloat16_thread)(const libxs_spmdm_handle*, char,
+LIBXS_API_VARIABLE void (*internal_spmdm_createSparseSlice_bfloat16_thread)(const libxs_spmdm_handle*, char,
   const uint16_t*, libxs_CSR_sparseslice*, int, int, int);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_compute_fp32_thread)(const libxs_spmdm_handle*, char, char,
+LIBXS_API_VARIABLE void (*internal_spmdm_compute_fp32_thread)(const libxs_spmdm_handle*, char, char,
   const float*, libxs_CSR_sparseslice*, const float*, char, const float*, float*, int, int, int);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void (*internal_spmdm_compute_bfloat16_thread)(const libxs_spmdm_handle*, char, char,
+LIBXS_API_VARIABLE void (*internal_spmdm_compute_bfloat16_thread)(const libxs_spmdm_handle*, char, char,
   const uint16_t*, libxs_CSR_sparseslice*, const uint16_t*, char, const uint16_t*, float*, int, int, int);
 
 #if defined(LIBXS_SPMDM_AVX)
-LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i* internal_spmdm_shufmasks_32;
-LIBXS_EXTERN_C LIBXS_RETARGETABLE __m256i* internal_spmdm_shufmasks_16;
+LIBXS_API_VARIABLE __m256i* internal_spmdm_shufmasks_32;
+LIBXS_API_VARIABLE __m256i* internal_spmdm_shufmasks_16;
 #endif
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX)
-LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_init_shufmask_avx()
+LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_init_shufmask_avx(void)
 {
 #if defined(LIBXS_SPMDM_AVX)
   static __m256i spmdm_shufmasks_32[256], spmdm_shufmasks_16[256];
@@ -547,7 +547,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_init_check(int archid)
   {
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: missed to enter \"%s\" code path due to the compiler used!\n", libxs_get_target_arch());
+      fprintf(stderr, "LIBXS: missued to enter \"%s\" code path due to the compiler used!\n", libxs_get_target_arch());
     }
   }
 }
