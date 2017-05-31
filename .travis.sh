@@ -37,6 +37,9 @@ RM=$(which rm 2> /dev/null)
 
 if [ "" != "${MKTEMP}" ] && [ "" != "${CHMOD}" ] && [ "" != "${SED}" ] && [ "" != "${TR}" ] && [ "" != "${RM}" ]; then
   if [ "" = "${TRAVIS_BUILD_DIR}" ]; then
+    export TRAVIS_BUILD_DIR=${BUILDKITE_BUILD_CHECKOUT_PATH}
+  fi
+  if [ "" = "${TRAVIS_BUILD_DIR}" ]; then
     export TRAVIS_BUILD_DIR=${HERE}
   fi
   if [ "" = "${TRAVIS_OS_NAME}" ] && [ "" != "$(which uname)" ]; then
@@ -62,7 +65,7 @@ if [ "" != "${MKTEMP}" ] && [ "" != "${CHMOD}" ] && [ "" != "${SED}" ] && [ "" !
   # setup batch execution
   if [ "" = "${LAUNCH}" ] && [ "" != "${SRUN}" ]; then
     if [ "" = "${SRUN_CPUS_PER_TASK}" ]; then SRUN_CPUS_PER_TASK=2; fi
-    TESTSCRIPT=$(${MKTEMP} /tmp/.libxs_XXXXXX.sh)
+    TESTSCRIPT=$(${MKTEMP} ${TRAVIS_BUILD_DIR}/.libxs_XXXXXX.sh)
     ${CHMOD} +x ${TESTSCRIPT}
     LAUNCH="${SRUN} \
       --ntasks=1 --cpus-per-task=${SRUN_CPUS_PER_TASK} \
