@@ -235,7 +235,7 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
       __m512d m512d;
       _mm_prefetch((const char*)core->partner_flags[core->parity][0], _MM_HINT_ET1);
       sendbuf[0] = core->sense;
-      m512d = _mm512_load_pd(sendbuf);
+      m512d = LIBXS_INTRINSICS_MM512_LOAD_PD(sendbuf);
 #endif
 
       for (i = di = 0; i < barrier->ncores_log2 - 1; ++i, di += LIBXS_SYNC_CACHELINE_SIZE) {
@@ -314,15 +314,21 @@ LIBXS_API_DEFINITION unsigned int libxs_get_pid(void)
 
 LIBXS_API_DEFINITION unsigned int libxs_get_tid(void)
 {
-#if defined(__linux__)
-  return (unsigned int)syscall(__NR_gettid);
-#else /* fallback */
   static LIBXS_TLS unsigned int tid = (unsigned int)(-1);
   if ((unsigned int)(-1) == tid) {
     static unsigned int tc = 0; tid = tc;
     LIBXS_ATOMIC_ADD_FETCH(&tc, 1, LIBXS_ATOMIC_RELAXED);
   }
   return tid;
+}
+
+
+LIBXS_API_DEFINITION unsigned int libxs_get_tid_os(void)
+{
+#if defined(__linux__)
+  return (unsigned int)syscall(__NR_gettid);
+#else /* fallback */
+  return libxs_get_tid();
 #endif
 }
 

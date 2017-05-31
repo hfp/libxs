@@ -49,6 +49,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
     return status;
   }
 
+  /* for low/mixed precision we need some scratch to be bound */
+  if ( (handle->datatype != handle->datatype_itm) && (handle->scratch7 == 0) ) {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
+  }
+
   /* check if we have a kernel JITed */
   if (handle->code_bwd[0].xconv.sconv == 0) {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
@@ -60,7 +66,40 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
 #include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
 #undef INPUT_PADDING
       } else {
-# include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
+      }
+    } else if (handle->datatype ==  LIBXS_DNN_DATATYPE_I16 && handle->datatype_itm == LIBXS_DNN_DATATYPE_I32 ) {
+      typedef int element_input_type;
+      typedef short element_output_type;
+      typedef short element_filter_type;
+      if (handle->padding_flag == 1) {
+#define INPUT_PADDING
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
+#undef INPUT_PADDING
+      } else {
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
+      }
+    } else if (handle->datatype == LIBXS_DNN_DATATYPE_I8 && handle->datatype_itm == LIBXS_DNN_DATATYPE_I16 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
+      typedef unsigned short element_input_type;
+      typedef char element_output_type;
+      typedef char element_filter_type;
+      if (handle->padding_flag == 1) {
+#define INPUT_PADDING
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
+#undef INPUT_PADDING
+      } else {
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
+      }
+    } else if (handle->datatype == LIBXS_DNN_DATATYPE_I8 && handle->datatype_itm == LIBXS_DNN_DATATYPE_I32 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
+      typedef unsigned int element_input_type;
+      typedef char element_output_type;
+      typedef char element_filter_type;
+      if (handle->padding_flag == 1) {
+#define INPUT_PADDING
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
+#undef INPUT_PADDING
+      } else {
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
       }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -72,20 +111,18 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
 #if 0
       if (handle->desc.N*handle->blocksifm >= handle->desc.threads) {
 #endif
-        typedef float element_input_type;
-        typedef float element_output_type;
-        typedef float element_filter_type;
-        typedef libxs_sconvfunction libxs_convfunction;
-        typedef libxs_smatcopyfunction libxs_matcopyfunction;
-        typedef libxs_smatcopyfunction libxs_matcopybackfunction;
-        typedef libxs_smmfunction libxs_mmfunction;
-        if (handle->padding_flag == 1) {
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
+      typedef libxs_sconvfunction libxs_convfunction;
+      typedef libxs_smmfunction libxs_mmfunction;
+      if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 #include "template/libxs_dnn_convolve_st_bwd_custom_custom.tpl.c"
 #undef INPUT_PADDING
-        } else {
+      } else {
 #include "template/libxs_dnn_convolve_st_bwd_custom_custom.tpl.c"
-        }
+      }
 #if 0
       }
       else {
@@ -96,6 +133,42 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
 #include "template/libxs_dnn_convolve_st_bwd_custom_custom_img_par.tpl.c"
       }
 #endif
+    } else if (handle->datatype ==  LIBXS_DNN_DATATYPE_I16 && handle->datatype_itm == LIBXS_DNN_DATATYPE_I32 ) {
+      typedef int element_input_type;
+      typedef short element_output_type;
+      typedef short element_filter_type;
+      typedef libxs_wconvfunction_bwd libxs_convfunction;
+      if (handle->padding_flag == 1) {
+#define INPUT_PADDING
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_1.tpl.c"
+#undef INPUT_PADDING
+      } else {
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_1.tpl.c"
+      }
+    } else if (handle->datatype == LIBXS_DNN_DATATYPE_I8 && handle->datatype_itm == LIBXS_DNN_DATATYPE_I16 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
+      typedef unsigned short element_input_type;
+      typedef char element_output_type;
+      typedef char element_filter_type;
+      typedef libxs_busconvfunction_bwd libxs_convfunction;
+      if (handle->padding_flag == 1) {
+#define INPUT_PADDING
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_1.tpl.c"
+#undef INPUT_PADDING
+      } else {
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_1.tpl.c"
+      }
+    } else if (handle->datatype == LIBXS_DNN_DATATYPE_I8 && handle->datatype_itm == LIBXS_DNN_DATATYPE_I32 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
+      typedef unsigned int element_input_type;
+      typedef char element_output_type;
+      typedef char element_filter_type;
+      typedef libxs_budconvfunction_bwd libxs_convfunction;
+      if (handle->padding_flag == 1) {
+#define INPUT_PADDING
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_1.tpl.c"
+#undef INPUT_PADDING
+      } else {
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_1.tpl.c"
+      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -142,8 +215,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_d
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
-        typedef libxs_smatcopyfunction libxs_matcopyfunction;
-        typedef libxs_smatcopyfunction libxs_matcopybackfunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 #include "template/libxs_dnn_convolve_st_bwd_nhwc_rsck.tpl.c"
@@ -206,8 +277,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxs_sconvfunction libxs_convfunction;
-        typedef libxs_smatcopyfunction libxs_matcopyfunction;
-        typedef libxs_smatcopyfunction libxs_matcopybackfunction;
         if (handle->padding_flag == 1) {
 #define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_bwd_nhwc_custom.tpl.c"

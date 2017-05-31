@@ -31,6 +31,24 @@
 
 #include "libxs_config.h"
 
+/** Parameters the library and static kernels were built for. */
+#define LIBXS_ALIGNMENT LIBXS_CONFIG_ALIGNMENT
+#define LIBXS_PREFETCH LIBXS_CONFIG_PREFETCH
+#define LIBXS_MAX_MNK LIBXS_CONFIG_MAX_MNK
+#define LIBXS_MAX_M LIBXS_CONFIG_MAX_M
+#define LIBXS_MAX_N LIBXS_CONFIG_MAX_N
+#define LIBXS_MAX_K LIBXS_CONFIG_MAX_K
+#define LIBXS_AVG_M LIBXS_CONFIG_AVG_M
+#define LIBXS_AVG_N LIBXS_CONFIG_AVG_N
+#define LIBXS_AVG_K LIBXS_CONFIG_AVG_K
+#define LIBXS_FLAGS LIBXS_CONFIG_FLAGS
+#define LIBXS_ILP64 LIBXS_CONFIG_ILP64
+#define LIBXS_ALPHA LIBXS_CONFIG_ALPHA
+#define LIBXS_BETA LIBXS_CONFIG_BETA
+#define LIBXS_WRAP LIBXS_CONFIG_WRAP
+#define LIBXS_SYNC LIBXS_CONFIG_SYNC
+#define LIBXS_JIT LIBXS_CONFIG_JIT
+
 #define LIBXS_STRINGIFY2(SYMBOL) #SYMBOL
 #define LIBXS_STRINGIFY(SYMBOL) LIBXS_STRINGIFY2(SYMBOL)
 #define LIBXS_TOSTRING(SYMBOL) LIBXS_STRINGIFY(SYMBOL)
@@ -38,7 +56,7 @@
 #define LIBXS_CONCATENATE(A, B) LIBXS_CONCATENATE2(A, B)
 #define LIBXS_FSYMBOL(SYMBOL) LIBXS_CONCATENATE2(SYMBOL, _)
 #define LIBXS_UNIQUE(NAME) LIBXS_CONCATENATE(NAME, __LINE__)
-#define LIBXS_EXPAND(A) A
+#define LIBXS_EXPAND(...) __VA_ARGS__
 
 #define LIBXS_VERSION2(MAJOR, MINOR) ((MAJOR) * 10000 + (MINOR) * 100)
 #define LIBXS_VERSION3(MAJOR, MINOR, UPDATE) (LIBXS_VERSION2(MAJOR, MINOR) + (UPDATE))
@@ -74,30 +92,30 @@
 # endif
 # define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
 #endif /*__cplusplus*/
+#if defined(__cplusplus)
+# define LIBXS_API_INLINE LIBXS_EXTERN LIBXS_INLINE LIBXS_RETARGETABLE
+# define LIBXS_API_INTERN LIBXS_EXTERN LIBXS_RETARGETABLE
+# define LIBXS_API_VARIABLE LIBXS_RETARGETABLE
+#else
+# define LIBXS_API_INLINE LIBXS_INLINE LIBXS_RETARGETABLE
+# define LIBXS_API_INTERN LIBXS_RETARGETABLE
+# define LIBXS_API_VARIABLE LIBXS_RETARGETABLE
+#endif
+
 #if !defined(LIBXS_INTERNAL_API)
-# define LIBXS_INTERNAL_API LIBXS_EXTERN
+# if defined(__cplusplus)
+#   define LIBXS_INTERNAL_API extern "C"
+# else
+#   define LIBXS_INTERNAL_API
+# endif
 #endif
 #if !defined(LIBXS_INTERNAL_API_DEFINITION)
 # define LIBXS_INTERNAL_API_DEFINITION LIBXS_INTERNAL_API
 #endif
-#if defined(LIBXS_BUILD)
-# define LIBXS_INTERNAL_API_INLINE LIBXS_INTERNAL_API
-#else
-# define LIBXS_INTERNAL_API_INLINE LIBXS_INLINE
-#endif
 
 #define LIBXS_API LIBXS_INTERNAL_API LIBXS_RETARGETABLE
 #define LIBXS_API_DEFINITION LIBXS_INTERNAL_API_DEFINITION LIBXS_RETARGETABLE
-#define LIBXS_API_INLINE LIBXS_INTERNAL_API_INLINE LIBXS_RETARGETABLE
-
-/* Some definitions kept for compatibility with earlier versions */
-#if !defined(LIBXS_EXTERN_C)
-# if defined(__cplusplus)
-#   define LIBXS_EXTERN_C LIBXS_EXTERN
-# else
-#   define LIBXS_EXTERN_C
-# endif
-#endif
+#define LIBXS_API_EXTERN LIBXS_EXTERN LIBXS_RETARGETABLE
 
 #if !defined(LIBXS_RESTRICT)
 # if ((defined(__GNUC__) && !defined(__CYGWIN32__)) || defined(__INTEL_COMPILER)) && !defined(_WIN32)
@@ -115,107 +133,6 @@
 #   define LIBXS_PRAGMA(DIRECTIVE)
 # endif
 #endif /*LIBXS_PRAGMA*/
-#if defined(_MSC_VER)
-# define LIBXS_MESSAGE(MSG) LIBXS_PRAGMA(message(MSG))
-#elif LIBXS_VERSION3(4, 4, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
-   && LIBXS_VERSION3(5, 0, 0) >  LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
-# define LIBXS_MESSAGE(MSG) LIBXS_PRAGMA(message MSG)
-#else
-# define LIBXS_MESSAGE(MSG)
-#endif
-
-#if defined(__INTEL_COMPILER)
-# define LIBXS_ATTRIBUTE_SIMD
-# define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(simd reduction(EXPRESSION))
-# define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(simd collapse(N))
-# define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(simd private(__VA_ARGS__))
-# define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(simd)
-# define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(novector)
-#elif (defined(_OPENMP) && (201307 <= _OPENMP)) /*OpenMP 4.0*/ || (defined(LIBXS_OPENMP_SIMD) \
-  && LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-# define LIBXS_ATTRIBUTE_SIMD LIBXS_PRAGMA(optimize("openmp-simd"))
-# define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(omp simd reduction(EXPRESSION))
-# define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(omp simd collapse(N))
-# define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(omp simd private(__VA_ARGS__))
-# define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(omp simd)
-# define LIBXS_PRAGMA_NOVECTOR
-#else
-# define LIBXS_ATTRIBUTE_SIMD
-# define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION)
-# define LIBXS_PRAGMA_SIMD_COLLAPSE(N)
-# define LIBXS_PRAGMA_SIMD_PRIVATE(...)
-# define LIBXS_PRAGMA_SIMD
-# define LIBXS_PRAGMA_NOVECTOR
-#endif
-
-#if defined(__INTEL_COMPILER)
-# define LIBXS_PRAGMA_NONTEMPORAL_VARS(...) LIBXS_PRAGMA(vector nontemporal(__VA_ARGS__))
-# define LIBXS_PRAGMA_NONTEMPORAL LIBXS_PRAGMA(vector nontemporal)
-# define LIBXS_PRAGMA_VALIGNED_VARS(...) LIBXS_PRAGMA(vector aligned(__VA_ARGS__))
-# define LIBXS_PRAGMA_VALIGNED LIBXS_PRAGMA(vector aligned)
-# define LIBXS_PRAGMA_FORCEINLINE LIBXS_PRAGMA(forceinline)
-# define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG) LIBXS_PRAGMA(loop_count min(MIN) max(MAX) avg(AVG))
-# define LIBXS_PRAGMA_UNROLL_N(N) LIBXS_PRAGMA(unroll(N))
-# define LIBXS_PRAGMA_UNROLL LIBXS_PRAGMA(unroll)
-/*# define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))*/
-#else
-# define LIBXS_PRAGMA_NONTEMPORAL_VARS(...)
-# define LIBXS_PRAGMA_NONTEMPORAL
-# define LIBXS_PRAGMA_VALIGNED_VARS(...)
-# define LIBXS_PRAGMA_VALIGNED
-# define LIBXS_PRAGMA_FORCEINLINE
-# define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG)
-# define LIBXS_PRAGMA_UNROLL_N(N)
-# define LIBXS_PRAGMA_UNROLL
-#endif
-
-#if defined(__clang__) && !defined(__INTEL_COMPILER)
-# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(clang optimize off)
-# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(clang optimize on)
-#else
-# define LIBXS_PRAGMA_OPTIMIZE_OFF
-# define LIBXS_PRAGMA_OPTIMIZE_ON
-#endif
-
-#if defined(_OPENMP) && (200805 <= _OPENMP) /*OpenMP 3.0*/
-# define LIBXS_OPENMP_COLLAPSE(N) collapse(N)
-#else
-# define LIBXS_OPENMP_COLLAPSE(N)
-#endif
-
-#define LIBXS_REPEAT_1(A) A
-#define LIBXS_REPEAT_2(A) LIBXS_REPEAT_1(A); A
-#define LIBXS_REPEAT_3(A) LIBXS_REPEAT_2(A); A
-#define LIBXS_REPEAT_4(A) LIBXS_REPEAT_3(A); A
-#define LIBXS_REPEAT_5(A) LIBXS_REPEAT_4(A); A
-#define LIBXS_REPEAT_6(A) LIBXS_REPEAT_5(A); A
-#define LIBXS_REPEAT_7(A) LIBXS_REPEAT_6(A); A
-#define LIBXS_REPEAT_8(A) LIBXS_REPEAT_7(A); A
-#define LIBXS_REPEAT(N, A) LIBXS_CONCATENATE(LIBXS_REPEAT_, N)(A)
-
-/*Based on Stackoverflow's NBITSx macro.*/
-#define LIBXS_LOG2_02(N) (0 != ((N) & 0x2/*0b10*/) ? 1 : 0)
-#define LIBXS_LOG2_04(N) (0 != ((N) & 0xC/*0b1100*/) ? (2 | LIBXS_LOG2_02((N) >> 2)) : LIBXS_LOG2_02(N))
-#define LIBXS_LOG2_08(N) (0 != ((N) & 0xF0/*0b11110000*/) ? (4 | LIBXS_LOG2_04((N) >> 4)) : LIBXS_LOG2_04(N))
-#define LIBXS_LOG2_16(N) (0 != ((N) & 0xFF00) ? (8 | LIBXS_LOG2_08((N) >> 8)) : LIBXS_LOG2_08(N))
-#define LIBXS_LOG2_32(N) (0 != ((N) & 0xFFFF0000) ? (16 | LIBXS_LOG2_16((N) >> 16)) : LIBXS_LOG2_16(N))
-#define LIBXS_LOG2_64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 | LIBXS_LOG2_32((N) >> 32)) : LIBXS_LOG2_32(N))
-#define LIBXS_LOG2(N) LIBXS_MAX(LIBXS_LOG2_64((unsigned long long)(N)), 1)
-
-#define LIBXS_DEFAULT(DEFAULT, VALUE) (0 < (VALUE) ? (VALUE) : (DEFAULT))
-#define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
-#define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
-#define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
-#define LIBXS_CLMP(VALUE, LO, HI) ((LO) < (VALUE) ? ((HI) > (VALUE) ? (VALUE) : LIBXS_MAX(HI, VALUE)) : LIBXS_MIN(LO, VALUE))
-#define LIBXS_MOD2(N, NPOT) ((N) & ((NPOT) - 1))
-#define LIBXS_MUL2(N, NPOT) ((N) << LIBXS_LOG2(NPOT))
-#define LIBXS_DIV2(N, NPOT) ((N) >> LIBXS_LOG2(NPOT))
-#define LIBXS_SQRT2(N) (1 << (LIBXS_LOG2((N << 1) - 1) >> 1))
-#define LIBXS_UP2(N, NPOT) (((N) + ((NPOT) - 1)) & ~((NPOT) - 1))
-#define LIBXS_UP(N, UP) ((((N) + (UP) - 1) / (UP)) * (UP))
-/* compares floating point values but avoids warning about unreliable comparison */
-#define LIBXS_FEQ(A, B) (!((A) < (B) || (A) > (B)))
-
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __declspec(A)
 # if defined(__cplusplus)
@@ -236,6 +153,105 @@
 # define LIBXS_ALIGNED(DECL, N)
 # define LIBXS_CDECL
 #endif
+
+#if defined(_MSC_VER)
+# define LIBXS_MESSAGE(MSG) LIBXS_PRAGMA(message(MSG))
+#elif LIBXS_VERSION3(4, 4, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
+   && LIBXS_VERSION3(5, 0, 0) >  LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+# define LIBXS_MESSAGE(MSG) LIBXS_PRAGMA(message MSG)
+#else
+# define LIBXS_MESSAGE(MSG)
+#endif
+
+#if defined(__INTEL_COMPILER)
+# define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(simd reduction(EXPRESSION))
+# define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(simd collapse(N))
+# define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(simd private(__VA_ARGS__))
+# define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(simd)
+# define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(novector)
+#elif (defined(_OPENMP) && (201307 <= _OPENMP)) /*OpenMP 4.0*/ || (defined(LIBXS_OPENMP_SIMD) \
+  && LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+# define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(omp simd reduction(EXPRESSION))
+# define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(omp simd collapse(N))
+# define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(omp simd private(__VA_ARGS__))
+# define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(omp simd)
+# define LIBXS_PRAGMA_NOVECTOR
+#else
+# define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION)
+# define LIBXS_PRAGMA_SIMD_COLLAPSE(N)
+# define LIBXS_PRAGMA_SIMD_PRIVATE(...)
+# define LIBXS_PRAGMA_SIMD
+# define LIBXS_PRAGMA_NOVECTOR
+#endif
+
+#if defined(__INTEL_COMPILER)
+# define LIBXS_PRAGMA_NONTEMPORAL_VARS(...) LIBXS_PRAGMA(vector nontemporal(__VA_ARGS__))
+# define LIBXS_PRAGMA_NONTEMPORAL LIBXS_PRAGMA(vector nontemporal)
+# define LIBXS_PRAGMA_VALIGNED LIBXS_PRAGMA(vector aligned)
+# define LIBXS_PRAGMA_FORCEINLINE LIBXS_PRAGMA(forceinline)
+# define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG) LIBXS_PRAGMA(loop_count min(MIN) max(MAX) avg(AVG))
+# define LIBXS_PRAGMA_UNROLL_N(N) LIBXS_PRAGMA(unroll(N))
+# define LIBXS_PRAGMA_UNROLL LIBXS_PRAGMA(unroll)
+/*# define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))*/
+# if (1500 <= __INTEL_COMPILER)
+#   define LIBXS_PRAGMA_VALIGNED_VARS(...) LIBXS_PRAGMA(vector aligned(__VA_ARGS__))
+# else /* avoid potential issue */
+#   define LIBXS_PRAGMA_VALIGNED_VARS(...)
+# endif
+#else
+# define LIBXS_PRAGMA_NONTEMPORAL_VARS(...)
+# define LIBXS_PRAGMA_NONTEMPORAL
+# define LIBXS_PRAGMA_VALIGNED_VARS(...)
+# define LIBXS_PRAGMA_VALIGNED
+# define LIBXS_PRAGMA_FORCEINLINE
+# define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG)
+# define LIBXS_PRAGMA_UNROLL_N(N)
+# define LIBXS_PRAGMA_UNROLL
+#endif
+
+#if defined(__INTEL_COMPILER)
+# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(optimize("", off))
+# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(optimize("", on))
+#elif defined(__clang__)
+# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(clang optimize off)
+# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(clang optimize on)
+#elif defined(__GNUC__)
+# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(GCC push_options) LIBXS_PRAGMA(GCC optimize("O0"))
+# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(GCC pop_options)
+#else
+# define LIBXS_PRAGMA_OPTIMIZE_OFF
+# define LIBXS_PRAGMA_OPTIMIZE_ON
+#endif
+
+#if defined(_OPENMP) && (200805 <= _OPENMP) /*OpenMP 3.0*/
+# define LIBXS_OPENMP_COLLAPSE(N) collapse(N)
+#else
+# define LIBXS_OPENMP_COLLAPSE(N)
+#endif
+
+/*Based on Stackoverflow's NBITSx macro.*/
+#define LIBXS_LOG2_02(N) (0 != ((N) & 0x2/*0b10*/) ? 1 : 0)
+#define LIBXS_LOG2_04(N) (0 != ((N) & 0xC/*0b1100*/) ? (2 | LIBXS_LOG2_02((N) >> 2)) : LIBXS_LOG2_02(N))
+#define LIBXS_LOG2_08(N) (0 != ((N) & 0xF0/*0b11110000*/) ? (4 | LIBXS_LOG2_04((N) >> 4)) : LIBXS_LOG2_04(N))
+#define LIBXS_LOG2_16(N) (0 != ((N) & 0xFF00) ? (8 | LIBXS_LOG2_08((N) >> 8)) : LIBXS_LOG2_08(N))
+#define LIBXS_LOG2_32(N) (0 != ((N) & 0xFFFF0000) ? (16 | LIBXS_LOG2_16((N) >> 16)) : LIBXS_LOG2_16(N))
+#define LIBXS_LOG2_64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 | LIBXS_LOG2_32((N) >> 32)) : LIBXS_LOG2_32(N))
+#define LIBXS_LOG2(N) LIBXS_MAX(LIBXS_LOG2_64((unsigned long long)(N)), 1)
+
+#define LIBXS_DEFAULT(DEFAULT, VALUE) (0 < (VALUE) ? (VALUE) : (DEFAULT))
+#define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
+#define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
+#define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
+#define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
+#define LIBXS_CLMP(VALUE, LO, HI) ((LO) < (VALUE) ? ((HI) > (VALUE) ? (VALUE) : LIBXS_MAX(HI, VALUE)) : LIBXS_MIN(LO, VALUE))
+#define LIBXS_MOD2(N, NPOT) ((N) & ((NPOT) - 1))
+#define LIBXS_MUL2(N, NPOT) ((N) << LIBXS_LOG2(NPOT))
+#define LIBXS_DIV2(N, NPOT) ((N) >> LIBXS_LOG2(NPOT))
+#define LIBXS_SQRT2(N) (1 << (LIBXS_LOG2((N << 1) - 1) >> 1))
+#define LIBXS_UP2(N, NPOT) (((N) + ((NPOT) - 1)) & ~((NPOT) - 1))
+#define LIBXS_UP(N, UP) ((((N) + (UP) - 1) / (UP)) * (UP))
+/* compares floating point values but avoids warning about unreliable comparison */
+#define LIBXS_FEQ(A, B) (!((A) < (B) || (A) > (B)))
 
 #if defined(__INTEL_COMPILER)
 # define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N);
@@ -267,6 +283,8 @@
 #define LIBXS_SELECT_ELEMENT_6(E0, E1, E2, E3, E4, E5, E6, E7) E5
 #define LIBXS_SELECT_ELEMENT_7(E0, E1, E2, E3, E4, E5, E6, E7) E6
 #define LIBXS_SELECT_ELEMENT_8(E0, E1, E2, E3, E4, E5, E6, E7) E7
+#define LIBXS_SELECT_HEAD(A, ...) A
+#define LIBXS_SELECT_TAIL(A, ...) __VA_ARGS__
 
 /**
  * For VLAs, check EXACTLY for C99 since a C11-conforming compiler may not provide VLAs.

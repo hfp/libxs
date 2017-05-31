@@ -73,7 +73,7 @@
 # elif defined(__x86_64__) || defined(_WIN32) || defined(_WIN64)
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_GENERIC
 # endif
-# if defined(LIBXS_STATIC_TARGET_ARCH) /* prerequisite */
+# if defined(LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_INTRINSICS_STATIC)
 #   if defined(__INTEL_COMPILER)
       /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
 #     if 1500 <= (__INTEL_COMPILER)
@@ -311,6 +311,8 @@
 #       define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     endif
 #   endif /*!defined(LIBXS_INTRINSICS)*/
+# elif defined(LIBXS_STATIC_TARGET_ARCH)
+#   include <immintrin.h>
 # endif /*defined(LIBXS_STATIC_TARGET_ARCH)*/
 #endif /*!defined(LIBXS_INTRINSICS_NONE)*/
 #if !defined(LIBXS_STATIC_TARGET_ARCH)
@@ -345,11 +347,25 @@
 # else
 #   include <mm_malloc.h>
 # endif
-/** Intrinsic-specifc fixups */
+/** Intrinsic-specific fixups */
 # if defined(__clang__)
 #   define LIBXS_INTRINSICS_LDDQU_SI128(A) _mm_loadu_si128(A)
 # else
 #   define LIBXS_INTRINSICS_LDDQU_SI128(A) _mm_lddqu_si128(A)
+# endif
+# if defined(__clang__) && ((LIBXS_VERSION3(3, 9, 0) >  LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
+                        &&  (LIBXS_VERSION3(0, 0, 0) != LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))
+    /* at least Clang 3.8.1 misses _mm512_stream_p?. */
+#   define LIBXS_INTRINSICS_MM512_STREAM_PS(A, B) _mm512_store_ps(A, B)
+#   define LIBXS_INTRINSICS_MM512_STREAM_PD(A, B) _mm512_store_pd(A, B)
+    /* at least Clang 3.8.1 declares prototypes with incorrect signature (_mm512_load_ps takes DP*, _mm512_load_pd takes SP*) */
+#   define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_load_ps((const double*)(A))
+#   define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_load_pd((const float*)(A))
+# else
+#   define LIBXS_INTRINSICS_MM512_STREAM_PS(A, B) _mm512_stream_ps(A, B)
+#   define LIBXS_INTRINSICS_MM512_STREAM_PD(A, B) _mm512_stream_pd(A, B)
+#   define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_load_ps(A)
+#   define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_load_pd(A)
 # endif
 #endif
 

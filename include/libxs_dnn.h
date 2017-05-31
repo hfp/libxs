@@ -105,7 +105,7 @@ typedef enum libxs_dnn_tensor_dimtype {
   LIBXS_DNN_TENSOR_DIMTYPE_H,
   /** Image Width */
   LIBXS_DNN_TENSOR_DIMTYPE_W,
-  /** channles or input channels */
+  /** channels or input channels */
   LIBXS_DNN_TENSOR_DIMTYPE_C,
   /** output channels */
   LIBXS_DNN_TENSOR_DIMTYPE_K,
@@ -286,8 +286,17 @@ typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction)(const unsigned char* in
 typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction)(const unsigned char* input1, const char* input2, int* output,
                                                              const unsigned char* ipf1, const char* ipf2, const int* opf);
 
+typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction_bwd)(int* input1, const short* input2, const short* output,
+                                                           const int* ipf1, const short* ipf2, const short* opf);
+
+typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction_bwd)(const unsigned short* input1, const char* input2, const char* output,
+                                                             const unsigned short* ipf1, const char* ipf2, const char* opf);
+
+typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction_bwd)(const unsigned int* input1, const char* input2, const char* output,
+                                                             const unsigned int* ipf1, const char* ipf2, const char* opf);
+
 /** Function type which is either libxs_sconvfunction or libxs_wconvfunction (weak-typed). */
-typedef union LIBXS_RETARGETABLE libxs_xconvfunction { libxs_sconvfunction sconv; libxs_wconvfunction wconv; libxs_busconvfunction busconv; libxs_busconvfunction budconv; } libxs_xconvfunction;
+typedef union LIBXS_RETARGETABLE libxs_xconvfunction { libxs_sconvfunction sconv; libxs_wconvfunction wconv; libxs_busconvfunction busconv; libxs_budconvfunction budconv; libxs_wconvfunction_bwd wconvb; libxs_busconvfunction_bwd busconvb; libxs_budconvfunction_bwd budconvb; } libxs_xconvfunction;
 
 /** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
 LIBXS_API libxs_sconvfunction libxs_create_sconv_forward(const libxs_convolution_forward_descriptor* descriptor);

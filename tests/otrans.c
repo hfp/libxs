@@ -32,12 +32,12 @@
 # include <stdio.h>
 #endif
 
-#if !defined(REAL_TYPE)
-# define REAL_TYPE float
+#if !defined(ELEM_TYPE)
+# define ELEM_TYPE float
 #endif
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT dst,
+LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, ELEM_TYPE *LIBXS_RESTRICT dst,
   libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
 {
   const double seed1 = scale * (seed + 1);
@@ -49,11 +49,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT ds
     libxs_blasint j = 0;
     for (; j < nrows; ++j) {
       const libxs_blasint k = i * ld + j;
-      dst[k] = (REAL_TYPE)(seed1 / (k + 1));
+      dst[k] = (ELEM_TYPE)(seed1 / (k + 1));
     }
     for (; j < ld; ++j) {
       const libxs_blasint k = i * ld + j;
-      dst[k] = (REAL_TYPE)seed;
+      dst[k] = (ELEM_TYPE)seed;
     }
   }
 }
@@ -61,13 +61,14 @@ LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT ds
 
 int main(void)
 {
-  libxs_blasint m[]     = { 1, 2, 3, 16, 63,  16 };
-  libxs_blasint n[]     = { 1, 2, 3, 16, 31, 500 };
-  libxs_blasint ldi[]   = { 1, 2, 3, 16, 64,  16 };
-  libxs_blasint ldo[]   = { 1, 2, 3, 16, 32, 512 };
+  const libxs_blasint m[]   = { 1, 2, 3, 16, 63,  16, 2507 };
+  const libxs_blasint n[]   = { 1, 2, 3, 16, 31, 500, 1975 };
+  const libxs_blasint ldi[] = { 1, 2, 3, 16, 64,  16, 3000 };
+  const libxs_blasint ldo[] = { 1, 2, 3, 16, 32, 512, 3072 };
   const int start = 0, ntests = sizeof(m) / sizeof(*m);
-  libxs_blasint maxm = 0, maxn = 0, maxi = 0, maxo = 0, nerrors = 0;
-  REAL_TYPE *a = 0, *b = 0;
+  libxs_blasint maxm = 0, maxn = 0, maxi = 0, maxo = 0;
+  unsigned int nerrors = 0;
+  ELEM_TYPE *a = 0, *b = 0;
   libxs_blasint i, j;
   int test;
 
@@ -77,16 +78,16 @@ int main(void)
     maxi = LIBXS_MAX(maxi, ldi[test]);
     maxo = LIBXS_MAX(maxo, ldo[test]);
   }
-  a = (REAL_TYPE*)libxs_malloc(maxi * maxn * sizeof(REAL_TYPE));
-  b = (REAL_TYPE*)libxs_malloc(maxo * maxm * sizeof(REAL_TYPE));
+  a = (ELEM_TYPE*)libxs_malloc(maxi * maxn * sizeof(ELEM_TYPE));
+  b = (ELEM_TYPE*)libxs_malloc(maxo * maxm * sizeof(ELEM_TYPE));
   assert(0 != a && 0 != b);
 
   init(42, a, maxm, maxn, maxi, 1.0);
   init( 0, b, maxn, maxm, maxo, 1.0);
 
   for (test = start; test < ntests; ++test) {
-    libxs_blasint testerrors = (EXIT_SUCCESS == libxs_otrans(
-      b, a, sizeof(REAL_TYPE), m[test], n[test],
+    unsigned int testerrors = (EXIT_SUCCESS == libxs_otrans(
+      b, a, sizeof(ELEM_TYPE), m[test], n[test],
       ldi[test], ldo[test]) ? 0 : 1);
 
     if (0 == testerrors) {
@@ -94,7 +95,7 @@ int main(void)
         for (j = i + 1; j < m[test]; ++j) {
           const libxs_blasint u = i * ldi[test] + j;
           const libxs_blasint v = j * ldo[test] + i;
-          testerrors += (LIBXS_FEQ(a[u], b[v]) ? 0 : 1);
+          testerrors += (LIBXS_FEQ(a[u], b[v]) ? 0u : 1u);
         }
       }
     }
@@ -104,11 +105,11 @@ int main(void)
   if (0 == nerrors) { /* previous results are correct and may be used to validate other tests */
     for (test = start; test < ntests; ++test) {
       /* prepare expected results in b (correct according to the previous test block) */
-      libxs_otrans(b, a, sizeof(REAL_TYPE), m[test], n[test], ldi[test], ldo[test]);
+      libxs_otrans(b, a, sizeof(ELEM_TYPE), m[test], n[test], ldi[test], ldo[test]);
 
       if (m[test] == n[test] && ldi[test] == ldo[test]) {
-        libxs_blasint testerrors = (EXIT_SUCCESS == libxs_otrans(
-          a, a, sizeof(REAL_TYPE), m[test], n[test],
+        unsigned int testerrors = (EXIT_SUCCESS == libxs_otrans(
+          a, a, sizeof(ELEM_TYPE), m[test], n[test],
           ldi[test], ldo[test]) ? 0 : 1);
 
         if (0 == testerrors) {
@@ -116,7 +117,7 @@ int main(void)
             for (j = i + 1; j < m[test]; ++j) {
               /* address serves both a and b since ldi and ldo are equal */
               const libxs_blasint uv = i * ldi[test] + j;
-              testerrors += (LIBXS_FEQ(a[uv], b[uv]) ? 0 : 1);
+              testerrors += (LIBXS_FEQ(a[uv], b[uv]) ? 0u : 1u);
             }
           }
         }
@@ -124,8 +125,8 @@ int main(void)
       }
       else { /* negative tests */
         nerrors = LIBXS_MAX(EXIT_SUCCESS != libxs_otrans(
-          a, a, sizeof(REAL_TYPE), m[test], n[test],
-          ldi[test], ldo[test]) ? 0 : 1, nerrors);
+          a, a, sizeof(ELEM_TYPE), m[test], n[test],
+          ldi[test], ldo[test]) ? 0u : 1u, nerrors);
       }
     }
   }
@@ -138,7 +139,7 @@ int main(void)
   }
   else {
 # if defined(_DEBUG)
-    fprintf(stderr, "errors=%i\n", nerrors);
+    fprintf(stderr, "errors=%u\n", nerrors);
 # endif
     return EXIT_FAILURE;
   }

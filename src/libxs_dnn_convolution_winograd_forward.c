@@ -28,32 +28,70 @@
 ******************************************************************************/
 #include "libxs_dnn_convolution_winograd_forward.h"
 #include "libxs_main.h"
+#include <libxs_intrinsics_x86.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <assert.h>
 #if !defined(NDEBUG)
-# include <assert.h>
 # include <stdio.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 
+/* Enable/disable specific code paths */
+#if defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_FORWARD_AVX512)
+# define LIBXS_DNN_CONVOLUTION_WINOGRAD_FORWARD_AVX512
+#endif
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom(
-                                           const float *inp,
-                                           float *tinp,
-                                           float *Iwp,
-                                           const libxs_dnn_layer* handle )
+
+/* function pointer for the CPUID-dispatched implementation */
+LIBXS_API_VARIABLE void (*internal_fwd_input_transform_custom_custom_alpha6)(
+  const float*, float*, float*, const libxs_dnn_layer*);
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom_alpha6_default(
+  const float* inp, float* tinp, float* Iwp, const libxs_dnn_layer* handle)
 {
-  if (handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-# include "template/libxs_dnn_convolution_winograd_forward_custom_custom_input_trans_alpha6.tpl.c"
+#include "template/libxs_dnn_convolution_winograd_forward_custom_custom_input_trans_alpha6.tpl.c"
 #undef TDVLEN
 #undef ALPHA
-  } else if (handle->cwino_fwd.alpha == 4) {
+}
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+LIBXS_ATTRIBUTE_UNUSED void internal_fwd_input_transform_custom_custom_alpha6_avx512(
+  const float* inp, float* tinp, float* Iwp, const libxs_dnn_layer* handle)
+{
+#if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_FORWARD_AVX512)
+# define ALPHA 6
+# define TDVLEN 16
+# include "template/libxs_dnn_convolution_winograd_forward_custom_custom_input_trans_alpha6_avx512.tpl.c"
+# undef TDVLEN
+# undef ALPHA
+#else /* next lower/available code path (fallback chain) */
+  internal_fwd_input_transform_custom_custom_alpha6_default(inp, tinp, Iwp, handle);
+#endif
+}
+
+
+LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom(
+  const float* inp, float* tinp, float* Iwp, const libxs_dnn_layer* handle)
+{
+  if (handle->cwino_fwd.alpha == 6) {
+    /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
+#if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+    internal_fwd_input_transform_custom_custom_alpha6_avx512(inp, tinp, Iwp, handle);
+#else /* pointer based function call */
+    assert(0 != internal_fwd_input_transform_custom_custom_alpha6);
+    internal_fwd_input_transform_custom_custom_alpha6(inp, tinp, Iwp, handle);
+#endif
+  }
+  else if (handle->cwino_fwd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
 # include "template/libxs_dnn_convolution_winograd_forward_custom_custom_input_trans_alpha4.tpl.c"
@@ -67,6 +105,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom(
   }
 #endif
 }
+
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_nhwc_custom(
                                          const float *inp,
@@ -95,6 +134,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_nhwc_custom(
 #endif
 }
 
+
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_weight_transform( float *wp,
                               float *twp,
                               const libxs_dnn_layer* handle )
@@ -120,6 +160,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_weight_transform( float *wp,
 #endif
 }
 
+
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_custom_custom( float *toutp,
                                             float *outp,
                                             float *Owp,
@@ -130,7 +171,11 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_custom_custom
   if (handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
+#if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+# include "template/libxs_dnn_convolution_winograd_forward_custom_custom_output_trans_alpha6_avx512.tpl.c"
+#else
 # include "template/libxs_dnn_convolution_winograd_forward_custom_custom_output_trans_alpha6.tpl.c"
+#endif
 #undef TDVLEN
 #undef ALPHA
   } else if (handle->cwino_fwd.alpha == 4) {
@@ -147,6 +192,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_custom_custom
   }
 #endif
 }
+
 
 LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_nhwc_custom( float *toutp,
                                           float *outp,
@@ -175,6 +221,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_nhwc_custom( 
   }
 #endif
 }
+
 
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_custom( libxs_dnn_layer* handle, int start_thread, int tid )
 {
@@ -236,6 +283,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_c
   return status;
 }
 
+
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_custom( libxs_dnn_layer* handle, int start_thread, int tid )
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -295,3 +343,21 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_cus
 
   return status;
 }
+
+
+LIBXS_API_DEFINITION void libxs_dnn_convolve_winograd_init(int target_arch)
+{
+  if (LIBXS_X86_AVX512 <= target_arch) {
+    internal_fwd_input_transform_custom_custom_alpha6 = internal_fwd_input_transform_custom_custom_alpha6_avx512;
+  }
+  else {
+    internal_fwd_input_transform_custom_custom_alpha6 = internal_fwd_input_transform_custom_custom_alpha6_default;
+  }
+  assert(0 != internal_fwd_input_transform_custom_custom_alpha6);
+}
+
+
+LIBXS_API_DEFINITION void libxs_dnn_convolve_winograd_finalize(void)
+{
+}
+

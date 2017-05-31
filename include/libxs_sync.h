@@ -177,5 +177,7 @@ LIBXS_API void libxs_barrier_release(const libxs_barrier* barrier);
 LIBXS_API unsigned int libxs_get_pid(void);
 /** Utility function to receive the thread ID of the calling thread. */
 LIBXS_API unsigned int libxs_get_tid(void);
+/** Utility function to receive the OS-specific thread ID. */
+LIBXS_API unsigned int libxs_get_tid_os(void);
 
 #endif /*LIBXS_SYNC_H*/

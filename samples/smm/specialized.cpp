@@ -53,7 +53,7 @@
 #endif
 
 #if !defined(MAX_SIZE)
-# define MAX_SIZE (LIBXS_MAX_MNK / LIBXS_MAX_K)
+# define MAX_SIZE ((LIBXS_MAX_M) * (LIBXS_MAX_N))
 #endif
 
 
@@ -157,6 +157,62 @@ int main(int argc, char* argv[])
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       }
 
+      { // streaming A and C
+        fprintf(stdout, "Streamed (A,C)...\n");
+        const unsigned long long start = libxs_timer_tick();
+        unsigned long long x = libxs_timer_xtick();
+#if defined(_OPENMP)
+#       pragma omp parallel for
+#endif
+        for (int i = 0; i < s; ++i) {
+          const T *const ai = a + i * asize;
+          T* ci = c + i * csize;
+#if (0 != LIBXS_PREFETCH)
+          xmm(ai, b, ci,
+            LIBXS_PREFETCH_A(ai + asize), LIBXS_PREFETCH_B(b),
+            LIBXS_PREFETCH_C(ci + csize));
+#else
+          xmm(ai, b, ci);
+#endif
+        }
+        x = std::max(libxs_timer_xtick(), x) - x;
+        const double duration = libxs_timer_duration(start, libxs_timer_tick());
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+        }
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+      }
+
+      { // streaming B and C
+        fprintf(stdout, "Streamed (B,C)...\n");
+        const unsigned long long start = libxs_timer_tick();
+        unsigned long long x = libxs_timer_xtick();
+#if defined(_OPENMP)
+#       pragma omp parallel for
+#endif
+        for (int i = 0; i < s; ++i) {
+          const T *const bi = b + i * bsize;
+          T* ci = c + i * csize;
+#if (0 != LIBXS_PREFETCH)
+          xmm(a, bi, ci,
+            LIBXS_PREFETCH_A(a), LIBXS_PREFETCH_B(bi + bsize),
+            LIBXS_PREFETCH_C(ci + csize));
+#else
+          xmm(a, bi, ci);
+#endif
+        }
+        x = std::max(libxs_timer_xtick(), x) - x;
+        const double duration = libxs_timer_duration(start, libxs_timer_tick());
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+        }
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+      }
+
       if ((MAX_SIZE) >= csize) {
         { // streaming A and B
           fprintf(stdout, "Streamed (A,B)...\n");
@@ -166,9 +222,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for
 #endif
           for (int i = 0; i < s; ++i) {
-            // make sure that stacksize is covering the problem size
-            T tls[MAX_SIZE]; // LIBXS_ALIGNED does not apply to non-static local stack variables
-            T *const tmp = LIBXS_ALIGN_LDST(tls);
+            T tmp[MAX_SIZE]; // make sure that stacksize is covering the problem size
             const T *const ai = a + i * asize, *const bi = b + i * bsize;
             // do nothing else with tmp; just a benchmark
 #if (0 != LIBXS_PREFETCH)
@@ -190,62 +244,6 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
         }
 
-        { // streaming A and C
-          fprintf(stdout, "Streamed (A,C)...\n");
-          const unsigned long long start = libxs_timer_tick();
-          unsigned long long x = libxs_timer_xtick();
-#if defined(_OPENMP)
-#         pragma omp parallel for
-#endif
-          for (int i = 0; i < s; ++i) {
-            const T *const ai = a + i * asize;
-            T* ci = c + i * csize;
-#if (0 != LIBXS_PREFETCH)
-            xmm(ai, b, ci,
-              LIBXS_PREFETCH_A(ai + asize), LIBXS_PREFETCH_B(b),
-              LIBXS_PREFETCH_C(ci + csize));
-#else
-            xmm(ai, b, ci);
-#endif
-          }
-          x = std::max(libxs_timer_xtick(), x) - x;
-          const double duration = libxs_timer_duration(start, libxs_timer_tick());
-          if (0 < duration && 0 != x) {
-            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
-            fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-            fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
-          }
-          fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-        }
-
-        { // streaming B and C
-          fprintf(stdout, "Streamed (B,C)...\n");
-          const unsigned long long start = libxs_timer_tick();
-          unsigned long long x = libxs_timer_xtick();
-#if defined(_OPENMP)
-#         pragma omp parallel for
-#endif
-          for (int i = 0; i < s; ++i) {
-            const T *const bi = b + i * bsize;
-            T* ci = c + i * csize;
-#if (0 != LIBXS_PREFETCH)
-            xmm(a, bi, ci,
-              LIBXS_PREFETCH_A(a), LIBXS_PREFETCH_B(bi + bsize),
-              LIBXS_PREFETCH_C(ci + csize));
-#else
-            xmm(a, bi, ci);
-#endif
-          }
-          x = std::max(libxs_timer_xtick(), x) - x;
-          const double duration = libxs_timer_duration(start, libxs_timer_tick());
-          if (0 < duration && 0 != x) {
-            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
-            fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-            fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
-          }
-          fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-        }
-
         { // cached
           fprintf(stdout, "Cached...\n");
           const unsigned long long start = libxs_timer_tick();
@@ -254,9 +252,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for
 #endif
           for (int i = 0; i < s; ++i) {
-            // make sure that stacksize is covering the problem size
-            T tls[MAX_SIZE]; // LIBXS_ALIGNED does not apply to non-static local stack variables
-            T *const tmp = LIBXS_ALIGN_LDST(tls);
+            T tmp[MAX_SIZE]; // make sure that stacksize is covering the problem size
             // do nothing else with tmp; just a benchmark
             xmm(a, b, tmp);
           }

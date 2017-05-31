@@ -39,7 +39,7 @@ else
 fi
 
 # temporary file
-TMPFILE=$(mktemp fileXXXXXX)
+TMPFILE=$(mktemp /tmp/.libxs_XXXXXX.mak)
 mv ${TMPFILE} ${TMPFILE}.tex
 
 # dump pandoc template for latex, and adjust the template
