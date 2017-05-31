@@ -53,6 +53,18 @@
 #endif
 
 
+LIBXS_API_DEFINITION void libxs_dnn_init(int target_arch)
+{
+  libxs_dnn_convolve_winograd_init(target_arch);
+}
+
+
+LIBXS_API_DEFINITION void libxs_dnn_finalize(void)
+{
+  libxs_dnn_convolve_winograd_finalize();
+}
+
+
 LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
 {
   switch (code) {
@@ -61,7 +73,7 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
     case LIBXS_DNN_WARN_FALLBACK:
       return "LIBXS DNN Warning: Falling back to naive code as target is currently not supported by LIBXS!";
     case LIBXS_DNN_ERR_GENERAL:
-      return "LIBXS DNN Error: General error occured!";
+      return "LIBXS DNN Error: General error occurred!";
     case LIBXS_DNN_ERR_CREATE_HANDLE:
       return "LIBXS DNN Error: Handle creation failed!";
     case LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE:
@@ -69,7 +81,7 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
     case LIBXS_DNN_ERR_INVALID_BLOCKING:
       return "LIBXS DNN Error: Requested Input/Output buffer size cannot be blocked!";
     case LIBXS_DNN_ERR_INVALID_HANDLE:
-      return "LIBXS DNN Error: An invalid handle was proivded!";
+      return "LIBXS DNN Error: An invalid handle was provided!";
     case LIBXS_DNN_ERR_DATA_NOT_BOUND:
       return "LIBXS DNN Error: Not all required sources and destinations have been bound to convolution!";
     case LIBXS_DNN_ERR_CREATE_BUFFER:
@@ -87,9 +99,9 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
     case LIBXS_DNN_ERR_MISMATCH_BUFFER:
       return "LIBXS DNN Error: Layer doesn't match handle it should be bind to!";
     case LIBXS_DNN_ERR_INVALID_HANDLE_BUFFER:
-      return "LIBXS DNN Error: Invalid hanlde or buffer!";
+      return "LIBXS DNN Error: Invalid handle or buffer!";
     case LIBXS_DNN_ERR_MISMATCH_FILTER:
-      return "LIBXS DNN Error: Filter doens't match handle it should be bind to!";
+      return "LIBXS DNN Error: Filter does not match handle it should be bound to!";
     case LIBXS_DNN_ERR_INVALID_HANDLE_FILTER:
       return "LIBXS DNN Error: Invalid handle or filter!";
     case LIBXS_DNN_ERR_INVALID_KIND:
@@ -123,7 +135,7 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
     case LIBXS_DNN_ERR_INVALID_PADDING:
       return "LIBXS DNN Error: Invalid padding was specified!";
     default:
-      return "LIBXS DNN Error: Unknown error or warning occured!";
+      return "LIBXS DNN Error: Unknown error or warning occurred!";
   }
 }
 
@@ -224,7 +236,6 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
     handle->upd_use_thread_fil = 0;
     handle->upd_use_external_reduce = 0;
     handle->filter_transposed = 0;
-
     /* Set algorithm to use */
     if (conv_desc.algo == LIBXS_DNN_CONV_ALGO_AUTO) {
       if ( (((conv_desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) || ((conv_desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0)) &&
@@ -246,13 +257,12 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
       handle = 0;
       return 0;
     }
-    /* @TODO we might want to fall back to direct convolutoin if winograd fails */
+    /* @TODO we might want to fall back to direct convolution if winograd fails */
     if ( handle->algo == LIBXS_DNN_CONV_ALGO_WINOGRAD ) {
       *status = libxs_dnn_internal_create_conv_handle_winograd_check( handle );
       if ( *status == LIBXS_DNN_WARN_FALLBACK ) handle->algo = LIBXS_DNN_CONV_ALGO_DIRECT;
     }
-
-    if ( handle->algo == LIBXS_DNN_CONV_ALGO_DIRECT ) {
+    else if ( handle->algo == LIBXS_DNN_CONV_ALGO_DIRECT ) {
       *status = libxs_dnn_internal_create_conv_handle_direct( handle );
     } else {
       assert(0/*should not happen*/);
@@ -663,7 +673,7 @@ LIBXS_API_DEFINITION libxs_dnn_filter* libxs_dnn_link_qfilter(const libxs_dnn_la
     /* set properties of the buffer according to convolution handle */
     filter->ifmb = handle->blocksifm;
     filter->bifm = handle->ifmblock;
-    filter->ofmb = handle->blocksofm*handle->fm_lp_block; /* @TODO this is a flacky hack */
+    filter->ofmb = handle->blocksofm*handle->fm_lp_block; /* @TODO this is a flaky hack */
     filter->bofm = handle->ofmblock;
     filter->R = handle->desc.R;
     filter->S = handle->desc.S;
@@ -1271,7 +1281,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_layer* hand
       && handle->ifmblock == filter->bifm
       && handle->blocksifm == filter->ifmb
       && handle->ofmblock == filter->bofm
-      && (handle->blocksofm*handle->fm_lp_block) == filter->ofmb /* @TODO this check is flacky */
+      && (handle->blocksofm*handle->fm_lp_block) == filter->ofmb /* @TODO this check is flaky */
       && handle->fm_lp_block == filter->lpb
       && ((handle->filter_format & filter->format) > 0)
       && handle->datatype == filter->datatype)
@@ -1351,11 +1361,15 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* ha
           }
         } break;
         case LIBXS_DNN_COMPUTE_KIND_BWD: {
-          /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+          /* we need filter for transpose, + 64 to do alignment while performing bind, scratch1 */
           l_scratch_size = handle->scratch1_size + 64;
           if (handle->padding_flag == 1) {
             scratch5_size = handle->fwdbwd_scratch_size;
             l_scratch_size += scratch5_size + 64;
+          }
+          /* low precision intermediate buffer for input */
+          if (handle->datatype != handle->datatype_itm ) {
+            l_scratch_size = handle->scratch7_size + 64;
           }
         } break;
         case LIBXS_DNN_COMPUTE_KIND_UPD: {
@@ -1371,7 +1385,7 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* ha
           }
         } break;
         case LIBXS_DNN_COMPUTE_KIND_ALL: {
-          /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+          /* we need filter for transpose, + 64 to do alignment while performing bind, scratch1 */
           l_scratch_size += handle->scratch1_size + 64;
           /* we need a minibatch copy for transpose of input, scratch3 */
           l_scratch_size += handle->scratch3_size + 64;
@@ -1382,6 +1396,7 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* ha
           /* low precision intermediate buffer */
           if ( handle->datatype != handle->datatype_itm ) {
             l_scratch_size += handle->scratch6_size + 64;
+            l_scratch_size += handle->scratch7_size + 64;
           }
           if (handle->padding_flag == 1) {
             scratch5_size = handle->max_scratch5_size;
@@ -1418,7 +1433,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
 
   if (0 != handle) {
     if (handle->algo == LIBXS_DNN_CONV_ALGO_WINOGRAD) {
-      /* + 64 to do alignement while performing bind, scratch1 */
+      /* + 64 to do alignment while performing bind, scratch1 */
       if (address % 64 == 0) {
         handle->scratch1 = (void*)address;
       } else {
@@ -1496,7 +1511,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
           }
         } break;
         case LIBXS_DNN_COMPUTE_KIND_BWD: {
-          /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+          /* we need filter for transpose, + 64 to do alignment while performing bind, scratch1 */
           if (address % 64 == 0) {
             handle->scratch1 = (void*)address;
           } else {
@@ -1514,6 +1529,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
             }
             /* Initialize scratch5 to zero */
             memset(handle->scratch5, 0, scratch5_size);
+          }
+          if ( handle->datatype != handle->datatype_itm ) {
+            if (address % 64 == 0) {
+              handle->scratch7 = (void*)address;
+            } else {
+              offset = (64 - address % 64);
+              handle->scratch7 = (void*)(address+offset);
+            }
           }
         } break;
         case LIBXS_DNN_COMPUTE_KIND_UPD: {
@@ -1548,7 +1571,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
           }
         } break;
         case LIBXS_DNN_COMPUTE_KIND_ALL: {
-          /* we need filter for transpose, + 64 to do alignement while performing bind, scratch1 */
+          /* we need filter for transpose, + 64 to do alignment while performing bind, scratch1 */
           if (handle->padding_flag == 1) {
             scratch5_size = handle->max_scratch5_size;
           if (address % 64 == 0) {
@@ -1595,6 +1618,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
               handle->scratch6 = (void*)(address+offset);
             }
             address += handle->scratch6_size + 64;
+            if (address % 64 == 0) {
+              handle->scratch7 = (void*)address;
+            } else {
+              offset = (64 - address % 64);
+              handle->scratch7 = (void*)(address+offset);
+            }
+            address += handle->scratch7_size + 64;
           }
         } break;
         default: {
@@ -2241,6 +2271,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_update_weights(
 }
 
 
+/* TODO: fix this hack and provide a proper API */
 LIBXS_API void libxs_set_flag_reuseInput(libxs_dnn_layer* /*handle*/, char /*type*/);
 LIBXS_API_DEFINITION void libxs_set_flag_reuseInput(libxs_dnn_layer* handle, char type)
 {
