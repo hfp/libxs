@@ -109,7 +109,7 @@ LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int t
       descriptor.flags = (unsigned char)(0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE);
       descriptor.ldi = ldi; descriptor.ldo = ldo; descriptor.unroll_level = 2;
       descriptor.typesize = (unsigned char)typesize;
-      descriptor.m = n; descriptor.n = m;
+      descriptor.m = m; descriptor.n = n;
       xmatcopy = libxs_xmatcopydispatch(&descriptor);
     }
     if (0 != xmatcopy) {
