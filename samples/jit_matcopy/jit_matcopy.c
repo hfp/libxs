@@ -56,11 +56,11 @@ int main(int argc, char* argv[])
   iters = (8 < argc ? atoi(argv[8]) : 1);
   desc.typesize = 4;
 
-  a = (float *) malloc(desc.m * desc.ldi * sizeof(float));
-  b = (float *) malloc(desc.m * desc.ldo * sizeof(float));
+  a = (float *) malloc(desc.n * desc.ldi * sizeof(float));
+  b = (float *) malloc(desc.n * desc.ldo * sizeof(float));
 
-  for (i=0; i < desc.m; i++ ) {
-    for (j=0; j < desc.n; j++) {
+  for (i=0; i < desc.n; i++ ) {
+    for (j=0; j < desc.m; j++) {
       a[j+desc.ldi*i] = 1.f * rand();
       if (0 != (LIBXS_MATCOPY_FLAG_ZERO_SOURCE & desc.flags)) {
         b[j+desc.ldo*i] = 1.f * rand();
@@ -88,19 +88,19 @@ int main(int argc, char* argv[])
   l_end = libxs_timer_tick();
   copy_time = libxs_timer_duration(l_start, l_end);
 
-  for (i=0; i < desc.m; i++ ) {
-    for (j=0; j < desc.n; j++) {
+  for (i=0; i < desc.n; i++ ) {
+    for (j=0; j < desc.m; j++) {
       if (0 != (LIBXS_MATCOPY_FLAG_ZERO_SOURCE & desc.flags)) {
         if (0 == LIBXS_FEQ(b[j+desc.ldo*i], 0)) {
           printf("ERROR!!!\n");
-          i = desc.m;
+          i = desc.n;
           error = 1;
           break;
         }
       }
       else if (0 == LIBXS_FEQ(a[j+desc.ldi*i], b[j+desc.ldo*i])) {
         printf("ERROR!!!\n");
-        i = desc.m;
+        i = desc.n;
         error = 1;
         break;
       }
