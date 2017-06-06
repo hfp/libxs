@@ -925,6 +925,7 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( status );
 
     /* setup LIBXS buffers and filter */
+    naive_copy_NCHW_to_NHWC(naive_output_save, output_nhwc, nImg, ofhp, ofwp, nOfm);
     libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
     CHKERR_LIBXS_DNN( status );
     libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
@@ -981,7 +982,6 @@ int main(int argc, char* argv[])
       naive_copy_NCHW_to_NHWC(naive_output_bp, output_nhwc, nImg, ofhp, ofwp, nOfm);
       CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_input ) );
       /* run LIBXS convolutions */
-      CHKERR_LIBXS_DNN( libxs_dnn_transpose_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
 #if defined(_OPENMP)
 # pragma omp parallel
 #endif
@@ -1081,7 +1081,6 @@ int main(int argc, char* argv[])
       /* run LIBXS convolution for performance */
       l_start = libxs_timer_tick();
       for (i = 0; i < iters; ++i) {
-        CHKERR_LIBXS_DNN( libxs_dnn_transpose_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
 #if defined(_OPENMP)
 #   pragma omp parallel
 #endif
@@ -1195,12 +1194,9 @@ int main(int argc, char* argv[])
     /* The following assignment reuses input for convolution in Winograd domain */
     libxs_set_flag_reuseInput( libxs_handle, type );
 
-    /* zero output buffer again */
-    zero_buf(output_nhwc,          nImg*nOfm*ofhp*ofwp);
-    /* init input agian */
-    naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
-
     /* setup LIBXS buffers and filter */
+    naive_copy_NCHW_to_NHWC(naive_output_save, output_nhwc, nImg, ofhp, ofwp, nOfm);
+    naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
     libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
     CHKERR_LIBXS_DNN( status );
     libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_nhwc, LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
