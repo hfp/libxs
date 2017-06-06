@@ -1929,6 +1929,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer*
     return status;
   }
 
+  /* check if we have scratch */
+  if (handle->scratch1 = 0) {
+    status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
+    return status;
+  }
+
   /* check that filter is in RSCK storage */
   if ( (handle->filter_format & LIBXS_DNN_TENSOR_FORMAT_RSCK) == 0 ) {
     status = LIBXS_DNN_ERR_MISMATCH_FILTER;
