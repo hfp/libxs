@@ -126,7 +126,19 @@
   PARALLEL \
   { \
     libxs_blasint libxs_xcopy_i_ = M0, libxs_xcopy_j_ = N0; \
-    if (0 == (KERNEL)) { \
+    if (0 != (KERNEL)) { /* inner tiles with JIT */ \
+      LOOP_START(LIBXS_TRANS_COLLAPSE) \
+      for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
+        for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
+          KERNEL_START(firstprivate(libxs_xcopy_i_, libxs_xcopy_j_) untied) \
+          { \
+            XKERNEL(char, TYPESIZE, OUT, IN, LDI, LDO, libxs_xcopy_i_, libxs_xcopy_j_, libxs_xcopy_src_, libxs_xcopy_dst_); \
+            KERNEL_CALL(KERNEL, TYPESIZE, libxs_xcopy_src_, &(LDI), libxs_xcopy_dst_, &(LDO)); \
+          } \
+        } \
+      } \
+    } \
+    else { /* inner tiles without JIT */ \
       LOOP_START(LIBXS_TRANS_COLLAPSE) \
       for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
         for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
@@ -135,18 +147,6 @@
             LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
               libxs_xcopy_i_, libxs_xcopy_i_ + (TILE_M), \
               libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N)); \
-          } \
-        } \
-      } \
-    } \
-    else { /* inner tile with JIT */ \
-      LOOP_START(LIBXS_TRANS_COLLAPSE) \
-      for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
-        for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
-          KERNEL_START(firstprivate(libxs_xcopy_i_, libxs_xcopy_j_) untied) \
-          { \
-            XKERNEL(char, TYPESIZE, OUT, IN, LDI, LDO, libxs_xcopy_i_, libxs_xcopy_j_, libxs_xcopy_src_, libxs_xcopy_dst_); \
-            KERNEL_CALL(KERNEL, TYPESIZE, libxs_xcopy_src_, &(LDI), libxs_xcopy_dst_, &(LDO)); \
           } \
         } \
       } \
