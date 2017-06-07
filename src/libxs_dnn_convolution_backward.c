@@ -258,10 +258,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs
       typedef float element_output_type;
       typedef float element_filter_type;
       if (handle->padding_flag == 1) {
-      } else {
 #define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_bwd_nhwc_custom_fallback.tpl.c"
 #undef INPUT_PADDING
+      } else {
+# include "template/libxs_dnn_convolve_st_bwd_nhwc_custom_fallback.tpl.c"
       }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
