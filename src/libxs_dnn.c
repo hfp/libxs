@@ -1543,7 +1543,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
           /* we need a minibatch copy for transpose of input, scratch3 */
           if (handle->padding_flag == 1) {
             scratch5_size = handle->minibatch_scratch_size;
-          if (address % 64 == 0) {
+            if (address % 64 == 0) {
               handle->scratch5 = (void*)address;
             } else {
               offset = (64 - address % 64);
@@ -1568,6 +1568,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
               offset = (64 - address % 64);
               handle->scratch4 = (void*)(address+offset);
             }
+            /* Initialize scratch4 to zero */
+            memset(handle->scratch4, 0, handle->scratch4_size);
           }
         } break;
         case LIBXS_DNN_COMPUTE_KIND_ALL: {
@@ -1607,6 +1609,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
               offset = (64 - address % 64);
               handle->scratch4 = (void*)(address+offset);
             }
+            /* Initialize scratch4 to zero */
+            memset(handle->scratch4, 0, handle->scratch4_size);
             address += handle->scratch4_size + 64;
           }
           /* low precision intermediate buffer */
