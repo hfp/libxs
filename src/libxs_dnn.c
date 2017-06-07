@@ -1930,7 +1930,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer*
   }
 
   /* check if we have scratch */
-  if (handle->scratch1 = 0) {
+  if (handle->scratch1 == 0) {
     status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
     return status;
   }
