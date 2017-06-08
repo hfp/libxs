@@ -953,22 +953,22 @@ ifneq (undefined,$(origin TARGET))
 endif
 
 # check target flags by feeding an ad-hoc C program into the compiler
-ifneq (0,$(shell CINFILE=$$(mktemp /tmp/.libxs_XXXXXX.c); \
+ifneq (0,$(shell CINFILE=$$(mktemp /tmp/.libxs_XXXXXX-c.c); \
   echo "int main(void) { return 0; }" > $${CINFILE}; \
   CTEST=$$($(CC) $(CTARGET) -c $${CINFILE} 2>&1); \
   if [ "" = "$${CTEST}" ]; then echo $$?; else echo 1; fi; \
-  rm -f /tmp/.libxs_??????.c .libxs_??????.o* 2> /dev/null))
+  rm -f /tmp/.libxs_??????-c.c .libxs_??????-c.o* 2> /dev/null))
 # revoke target flags
   CTARGET = $(NULL)
 endif
 
 ifneq (,$(strip $(FC))) # check target flags by feeding an ad-hoc Fortran program into the compiler
-ifeq (0,$(shell FINFILE=$$(mktemp /tmp/.libxs_XXXXXX.f); \
+ifeq (0,$(shell FINFILE=$$(mktemp /tmp/.libxs_XXXXXX-f.f); \
   echo "      PROGRAM test" > $${FINFILE}; \
   echo "      END PROGRAM" >> $${FINFILE}; \
   FTEST=$$($(FC) $(CTARGET) -c $${FINFILE} 2>&1); \
   if [ "" = "$${FTEST}" ]; then echo $$?; else echo 1; fi; \
-  rm -f /tmp/.libxs_??????.f .libxs_??????.o* 2> /dev/null))
+  rm -f /tmp/.libxs_??????-f.f .libxs_??????-f.o* 2> /dev/null))
 # inherit CTARGET flags
   FTARGET = $(CTARGET)
 endif
