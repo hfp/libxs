@@ -724,10 +724,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matcopyback_descriptor);
         }
         descriptor.unroll_kh = 0;
-        descriptor.unroll_kw = 1;
-        /*descriptor.ofw_unroll = 0;
-        descriptor.prefetch_output_ahead = 0;
-        descriptor.peeled = 0;*/
+        descriptor.unroll_kw = 0;
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
         if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
           handle->code_bwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
