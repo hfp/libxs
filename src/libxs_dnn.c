@@ -260,7 +260,10 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
     /* @TODO we might want to fall back to direct convolution if winograd fails */
     if ( handle->algo == LIBXS_DNN_CONV_ALGO_WINOGRAD ) {
       *status = libxs_dnn_internal_create_conv_handle_winograd_check( handle );
-      if ( *status == LIBXS_DNN_WARN_FALLBACK ) handle->algo = LIBXS_DNN_CONV_ALGO_DIRECT;
+      if ( *status == LIBXS_DNN_WARN_FALLBACK ) {
+        handle->algo = LIBXS_DNN_CONV_ALGO_DIRECT;
+        *status = libxs_dnn_internal_create_conv_handle_direct( handle );
+      }
     }
     else if ( handle->algo == LIBXS_DNN_CONV_ALGO_DIRECT ) {
       *status = libxs_dnn_internal_create_conv_handle_direct( handle );
