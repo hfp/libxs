@@ -1744,9 +1744,9 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn, const l
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
-  const intptr_t* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/);
+  const libxs_code_pointer* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/);
 LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
-  const intptr_t* fn, const void* a, const void* b, void* c)
+  const libxs_code_pointer* fn, const void* a, const void* b, void* c)
 {
 #if !defined(NDEBUG) /* this should not happen */
   static int error_once = 0;
@@ -1754,12 +1754,10 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
 #endif
   {
 #if !defined(NDEBUG) /* this should not happen */
-    if (0 != *fn)
+    if (0 != fn->vmm)
 #endif
     {
-      libxs_code_pointer code_pointer = { 0 };
-      code_pointer.imm = *fn;
-      code_pointer.vmm(a, b, c);
+      fn->vmm(a, b, c);
     }
 #if !defined(NDEBUG)
     else if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -1781,10 +1779,10 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
-  const intptr_t* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/,
+  const libxs_code_pointer* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/,
   const void* /*pa*/, const void* /*pb*/, const void* /*pc*/);
 LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
-  const intptr_t* fn, const void* a, const void* b, void* c,
+  const libxs_code_pointer* fn, const void* a, const void* b, void* c,
   const void* pa, const void* pb, const void* pc)
 {
 #if !defined(NDEBUG) /* this should not happen */
@@ -1793,12 +1791,10 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
 #endif
   {
 #if !defined(NDEBUG) /* this should not happen */
-    if (0 != *fn)
+    if (0 != fn->vmm)
 #endif
     {
-      libxs_code_pointer code_pointer = { 0 };
-      code_pointer.imm = *fn;
-      code_pointer.vmm(a, b, c, pa, pb, pc);
+      fn->vmm(a, b, c, pa, pb, pc);
     }
 #if !defined(NDEBUG)
     else if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -1820,10 +1816,10 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall)(
-  const intptr_t* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/,
+  const libxs_code_pointer* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/,
   const void* /*pa*/, const void* /*pb*/, const void* /*pc*/);
 LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall)(
-  const intptr_t* fn, const void* a, const void* b, void* c,
+  const libxs_code_pointer* fn, const void* a, const void* b, void* c,
   const void* pa, const void* pb, const void* pc)
 {
   LIBXS_FSYMBOL(libxs_xmmcall_prf)(fn, a, b, c, pa, pb, pc);
