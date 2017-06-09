@@ -134,6 +134,10 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: Invalid algorithm was specified!";
     case LIBXS_DNN_ERR_INVALID_PADDING:
       return "LIBXS DNN Error: Invalid padding was specified!";
+    case LIBXS_DNN_ERR_MISMATCH_BIAS:
+      return "LIBXS DNN Error: Bias doesn't match handle it should be bind to!";
+    case LIBXS_DNN_ERR_INVALID_HANDLE_BIAS:
+      return "LIBXS DNN Error: Invalid handle or buffer!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occurred!";
   }
@@ -868,6 +872,96 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_filter(const libxs_dnn_fi
 }
 
 
+LIBXS_API_DEFINITION libxs_dnn_bias* libxs_dnn_link_bias(const libxs_dnn_layer* handle, const libxs_dnn_bias_type type, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status)
+{
+  return libxs_dnn_link_qbias(handle, type, data, 0, in_format, status);
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_bias* libxs_dnn_link_qbias(const libxs_dnn_layer* handle, const libxs_dnn_bias_type type, const void* data, const char exp, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status)
+{
+  libxs_dnn_bias* bias = (libxs_dnn_bias*)malloc(sizeof(libxs_dnn_bias));
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (handle != 0 && bias != 0 && data != 0) {
+    /* set properties of the buffer according to convolution handle */
+    if ( (type == LIBXS_DNN_REGULAR_BIAS) || (type == LIBXS_DNN_GRADIENT_BIAS) || (type == LIBXS_DNN_BIAS) ) {
+      bias->fmb = handle->blocksofm;
+      bias->bfm = handle->ofmblock;
+      bias->lpb = handle->fm_lp_block;
+      bias->format = in_format;
+      bias->datatype = handle->datatype;
+      bias->exp = exp;
+      bias->data = (void*)data;
+      /* check formats */
+      if ( ((handle->filter_format & in_format) == 0) || ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) == 0) ) {
+        *status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+      }
+      if ( ((in_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS ) == 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_NHWC ) == 0) ) {
+        *status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+      }
+    } else {
+      *status = LIBXS_DNN_ERR_UNKNOWN_BIAS_TYPE;
+    }
+  }
+  else {
+    *status = LIBXS_DNN_ERR_CREATE_BIAS;
+  }
+
+  if (*status != LIBXS_DNN_SUCCESS) {
+    free((libxs_dnn_bias*)bias);
+    bias = 0;
+  }
+
+  return bias;
+}
+
+
+LIBXS_API_DEFINITION void* libxs_dnn_get_bias_data_ptr(const libxs_dnn_bias* bias, libxs_dnn_err_t* status)
+{
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != bias) {
+    return bias->data;
+  }
+  else {
+    *status = LIBXS_DNN_ERR_INVALID_BIAS;
+  }
+
+  return 0;
+}
+
+
+LIBXS_API_DEFINITION char libxs_dnn_get_qbias_exp(const libxs_dnn_bias* bias, libxs_dnn_err_t* status)
+{
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != bias) {
+    return bias->exp;
+  }
+  else {
+    *status = LIBXS_DNN_ERR_INVALID_BIAS;
+  }
+
+  return 0;
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_set_qbias_exp(libxs_dnn_bias* bias, const char exp)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != bias) {
+    bias->exp = exp;
+  }
+  else {
+    status = LIBXS_DNN_ERR_INVALID_BIAS;
+  }
+
+  return status;
+}
+
+
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias* bias)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -1153,25 +1247,137 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_filter(const libxs_dnn_filte
     }
   }
   else {
-    status = LIBXS_DNN_ERR_INVALID_BUFFER;
+    status = LIBXS_DNN_ERR_INVALID_FILTER;
   }
 
   return status;
 }
 
 
-#if 0
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_bias(const libxs_dnn_bias* bias, const void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_bias(const libxs_dnn_bias* bias, const void* data, libxs_dnn_tensor_format in_format)
 {
-  LIBXS_UNUSED(bias); LIBXS_UNUSED(data); /* TODO: libxs_dnn_copyin_input */
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != bias) {
+    switch (in_format) {
+      case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
+        if ( (bias->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
+          switch (bias->datatype) {
+            case LIBXS_DNN_DATATYPE_F32: {
+              typedef float element_type;
+#             include "template/libxs_dnn_bias_copy_in_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I16: {
+              typedef short element_type;
+#             include "template/libxs_dnn_bias_copy_in_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I8: {
+              typedef char element_type;
+#             include "template/libxs_dnn_bias_copy_in_nchw.tpl.c"
+            } break;
+            default: {
+              status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+            }
+          }
+        } else {
+          status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
+        }
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+      }
+    }
+  }
+  else {
+    status = LIBXS_DNN_ERR_INVALID_FILTER;
+  }
+
+  return status;
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_bias(const libxs_dnn_bias* bias, void* data)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_bias(const libxs_dnn_bias* bias, void* data, libxs_dnn_tensor_format out_format)
 {
-  LIBXS_UNUSED(bias); LIBXS_UNUSED(data); /* TODO: libxs_dnn_copyin_input */
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != bias) {
+    switch (out_format) {
+      case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
+        if ( (bias->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
+          switch (bias->datatype) {
+            case LIBXS_DNN_DATATYPE_F32: {
+              typedef float element_type;
+#             include "template/libxs_dnn_bias_copy_out_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I32: {
+              typedef int element_type;
+#             include "template/libxs_dnn_bias_copy_out_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I16: {
+              typedef short element_type;
+#             include "template/libxs_dnn_bias_copy_out_nchw.tpl.c"
+            } break;
+            case LIBXS_DNN_DATATYPE_I8: {
+              typedef char element_type;
+#             include "template/libxs_dnn_bias_copy_out_nchw.tpl.c"
+            } break;
+            default: {
+              status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+            }
+          }
+        } else {
+          status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+        }
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
+      }
+    }
+  }
+  else {
+    status = LIBXS_DNN_ERR_INVALID_BIAS;
+  }
+
+  return status;
 }
-#endif
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_bias(const libxs_dnn_bias* bias)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != bias) {
+    const size_t size = (size_t)bias->lpb * (size_t)bias->fmb * (size_t)bias->bfm;
+    size_t i;
+    /* use for-loops to potentially leverage NUMA in the future */
+    switch (bias->datatype) {
+      case LIBXS_DNN_DATATYPE_F32: {
+        float* fp32_data = (float*)bias->data;
+        for (i = 0; i < size; ++i) fp32_data[i] = 0.0f;
+      } break;
+      case LIBXS_DNN_DATATYPE_I32: {
+        int* int32_data = (int*)bias->data;
+        for (i = 0; i < size; ++i) int32_data[i] = 0;
+      } break;
+      case LIBXS_DNN_DATATYPE_I16: {
+        short* int16_data = (short*)bias->data;
+        for (i = 0; i < size; ++i) int16_data[i] = 0;
+      } break;
+      case LIBXS_DNN_DATATYPE_I8: {
+        char* int8_data = (char*)bias->data;
+        for (i = 0; i < size; ++i) int8_data[i] = 0;
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      }
+    }
+  }
+  else {
+    status = LIBXS_DNN_ERR_INVALID_BIAS;
+  }
+
+  return status;
+}
 
 
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer* buffer, const libxs_dnn_buffer_type type)
@@ -1326,7 +1532,69 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_filter(libxs_dnn_layer* handle, cons
       /* cannot happen */
     }
   } else {
-    status = LIBXS_DNN_ERR_INVALID_HANDLE_BUFFER;
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_FILTER;
+  }
+
+  return status;
+}
+
+
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_bias(libxs_dnn_layer* handle, const libxs_dnn_bias* bias, const libxs_dnn_bias_type type)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  /* check for filter type */
+  if ( (type != LIBXS_DNN_REGULAR_BIAS) && (type != LIBXS_DNN_GRADIENT_BIAS) ) {
+    status = LIBXS_DNN_ERR_UNKNOWN_BIAS_TYPE;
+    return status;
+  }
+
+  if (handle != 0 && bias != 0) {
+    /* check if format matches */
+    if ( handle->ofmblock == bias->bfm
+      && handle->blocksofm == bias->fmb /* @TODO this check is flaky */
+      && handle->fm_lp_block == bias->lpb
+      && ((handle->buffer_format & bias->format) > 0)
+      && handle->datatype == bias->datatype)
+    {
+      if ( type == LIBXS_DNN_REGULAR_BIAS ) {
+        handle->reg_bias = (libxs_dnn_bias*)bias;
+      } else {
+        handle->grad_bias = (libxs_dnn_bias*)bias;
+      }
+    }
+    else {
+      status = LIBXS_DNN_ERR_MISMATCH_BIAS;
+    }
+  }
+  else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_BIAS;
+  }
+
+  return status;
+}
+
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_bias(libxs_dnn_layer* handle, const libxs_dnn_bias_type type)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  /* check for filter type */
+  if ( (type != LIBXS_DNN_REGULAR_BIAS) && (type != LIBXS_DNN_GRADIENT_BIAS) ) {
+    status = LIBXS_DNN_ERR_UNKNOWN_BIAS_TYPE;
+    return status;
+  }
+
+  if (handle != 0) {
+    if ( type == LIBXS_DNN_REGULAR_BIAS ) {
+      handle->reg_bias = 0;
+    } else if ( type == LIBXS_DNN_GRADIENT_BIAS ) {
+      handle->grad_bias = 0;
+    } else {
+      /* cannot happen */
+    }
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_BIAS;
   }
 
   return status;
