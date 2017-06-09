@@ -121,6 +121,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_bias {
   int fmb;                          /* number of feature map blocks */
   int bfm;                          /* sized of blocked feature maps, in a block */
   int lpb;                          /* low precision blocking factor */
+  libxs_dnn_tensor_format format; /* format of activation buffer */
   libxs_dnn_datatype datatype;    /* data type */
   void* data;                       /* pointer to data */
   char exp;                         /* fix point exponent for this tensor */
@@ -187,7 +188,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_buffer* grad_input;
   libxs_dnn_buffer* grad_output;
   libxs_dnn_filter* grad_filter;
-  libxs_dnn_bias* bias;
+  libxs_dnn_bias* reg_bias;
+  libxs_dnn_bias* grad_bias;
 
   /* barrier */
   libxs_barrier* barrier;
