@@ -894,7 +894,7 @@ LIBXS_API_DEFINITION libxs_dnn_bias* libxs_dnn_link_qbias(const libxs_dnn_layer*
       bias->exp = exp;
       bias->data = (void*)data;
       /* check formats */
-      if ( ((handle->filter_format & in_format) == 0) || ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) == 0) ) {
+      if ( ((handle->buffer_format & in_format) == 0) || ((in_format & LIBXS_DNN_TENSOR_FORMAT_PTR ) == 0) ) {
         *status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
       }
       if ( ((in_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS ) == 0) && ((in_format & LIBXS_DNN_TENSOR_FORMAT_NHWC ) == 0) ) {

@@ -277,6 +277,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, con
 /** Bind/Release buffers, filters and bias to layer operation */
 LIBXS_API libxs_dnn_err_t libxs_dnn_bind_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer* buffer, const libxs_dnn_buffer_type type);
 LIBXS_API libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_layer* handle, const libxs_dnn_filter* filter, const libxs_dnn_filter_type type);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_bias(libxs_dnn_layer* handle, const libxs_dnn_bias* bias, const libxs_dnn_bias_type type);
 LIBXS_API libxs_dnn_buffer* libxs_dnn_get_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer_type type, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_filter* libxs_dnn_get_filter(libxs_dnn_layer* handle, const libxs_dnn_filter_type type, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_bias* libxs_dnn_get_bias(libxs_dnn_layer* handle, const libxs_dnn_bias_type type, libxs_dnn_err_t* status);
