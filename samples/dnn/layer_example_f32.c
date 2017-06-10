@@ -41,6 +41,9 @@
 #if 0
 #define USE_OVERWRITE
 #endif
+#if 0
+#define USE_FUSED_BIAS
+#endif
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 /* note: later on, this leads to (correct but) different than expected norm-values */
@@ -238,7 +241,7 @@ LIBXS_INLINE void naive_copy_RSCK_to_KCRS(const float* rsck, float* kcrs, int R,
 }
 
 
-LIBXS_INLINE void naive_conv_fp(naive_conv_t* param, const float* input, float* output, const float* filter)
+LIBXS_INLINE void naive_conv_fp(naive_conv_t* param, const float* input, float* output, const float* filter, const float* bias)
 {
   int nImg      = param->nImg;
   int nIfm      = param->nIfm;
@@ -267,6 +270,21 @@ LIBXS_INLINE void naive_conv_fp(naive_conv_t* param, const float* input, float* 
   LIBXS_VLA_DECL(4,       float, output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
   LIBXS_VLA_DECL(4, const float,  input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
   LIBXS_VLA_DECL(4, const float, filter_t, filter, nIfm, kh, kw);
+
+#if defined(USE_FUSED_BIAS)
+#if defined(_OPENMP)
+# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
+#endif
+  for (img = 0; img < nImg; ++img) {
+    for (ofm = 0; ofm < nOfm; ++ofm) {
+      for (oj = 0; oj < ofh; ++oj) {
+        for (oi = 0; oi < ofw; ++oi) {
+          LIBXS_VLA_ACCESS(  4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) = bias[ofm];
+        }
+      }
+    }
+  }
+#endif
 
 #if defined(_OPENMP)
 # pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
@@ -414,6 +432,7 @@ int main(int argc, char* argv[])
   float *naive_input, *naive_output, *naive_output_save, *naive_filter, *naive_filter_wu, *naive_output_bp, *naive_output_wu, *naive_libxs_output;
   float *naive_libxs_input, *naive_libxs_filter, *naive_input_save, *naive_filter_save, *naive_filter_kcrs;
   float *input_nhwc, *output_nhwc, *filter_rsck, *naive_output_nhwc, *naive_input_nhwc;
+  float *naive_bias, *bias_libxs, *naive_dbias, *dbias_libxs, *bias_nhwc, *dbias_nhwc;
   float *input_libxs, *filter_libxs, *output_libxs, *dinput_libxs, *dfilter_libxs, *doutput_libxs;
   int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
   int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
@@ -455,6 +474,8 @@ int main(int argc, char* argv[])
   libxs_dnn_buffer* libxs_dinput;
   libxs_dnn_buffer* libxs_doutput;
   libxs_dnn_filter* libxs_dfilter;
+  libxs_dnn_bias* libxs_bias;
+  libxs_dnn_bias* libxs_dbias;
   libxs_dnn_err_t status;
 
   memset(&norms_fwd, 0, sizeof(norms_fwd));
@@ -577,6 +598,12 @@ int main(int argc, char* argv[])
   dinput_libxs        = (float*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(float), 2097152);
   dfilter_libxs       = (float*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(float), 2097152);
   doutput_libxs       = (float*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(float), 2097152);
+  naive_bias            = (float*)libxs_aligned_malloc( nOfm*               sizeof(float), 2097152);
+  naive_dbias           = (float*)libxs_aligned_malloc( nOfm*               sizeof(float), 2097152);
+  bias_libxs          = (float*)libxs_aligned_malloc( nOfm*               sizeof(float), 2097152);
+  dbias_libxs         = (float*)libxs_aligned_malloc( nOfm*               sizeof(float), 2097152);
+  bias_nhwc             = (float*)libxs_aligned_malloc( nOfm*               sizeof(float), 2097152);
+  dbias_nhwc            = (float*)libxs_aligned_malloc( nOfm*               sizeof(float), 2097152);
 
   /* initialize data */
   init_buf(naive_input,          nImg*nIfm*ifhp*ifwp, 0, 0);
@@ -597,6 +624,10 @@ int main(int argc, char* argv[])
   zero_buf(naive_output_nhwc,    nImg*nOfm*ofhp*ofwp);
   zero_buf(naive_input_nhwc,     nImg*nIfm*ifhp*ifwp);
   naive_copy_KCRS_to_RSCK(naive_filter, filter_rsck, kh, kw, nIfm, nOfm);
+  init_buf(naive_bias,           nOfm, 0, 0);
+  init_buf(naive_dbias,          nOfm, 0, 0);
+  copy_buf(naive_bias, bias_nhwc, nOfm);
+  copy_buf(naive_dbias, dbias_nhwc, nOfm);
 
   printf("##########################################\n");
   printf("#         Computing Reference ...        #\n");
@@ -605,7 +636,7 @@ int main(int argc, char* argv[])
 #ifdef USE_OVERWRITE
     zero_buf(naive_output,    nImg*nOfm*ofhp*ofwp);
 #endif
-    naive_conv_fp(&naive_param, naive_input, naive_output, naive_filter);
+    naive_conv_fp(&naive_param, naive_input, naive_output, naive_filter, naive_bias);
   }
   if ( (type == 'A' || type == 'B') && (nIfm > 3) ) {
     zero_buf(naive_input,         nImg*nIfm*ifhp*ifwp);
@@ -644,8 +675,8 @@ int main(int argc, char* argv[])
     conv_desc.pad_h_out = pad_h_out;
     conv_desc.pad_w_out = pad_w_out;
     conv_desc.threads = nThreads;
-    conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
-    /*conv_desc.algo = LIBXS_DNN_CONV_ALGO_DIRECT;*/
+    /*conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;*/
+    conv_desc.algo = LIBXS_DNN_CONV_ALGO_DIRECT;
     conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
     conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
     conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
@@ -653,6 +684,11 @@ int main(int argc, char* argv[])
     conv_desc.options = LIBXS_DNN_CONV_OPTION_OVERWRITE;
 #else
     conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
+#endif
+#ifdef USE_FUSED_BIAS
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_BIAS;
+#else
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
 #endif
     /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
     conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
@@ -664,17 +700,21 @@ int main(int argc, char* argv[])
     libxs_set_flag_reuseInput( libxs_handle, type );
 
     /* setup LIBXS buffers and filter */
-    libxs_input = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, input_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+    libxs_input =   libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT,  input_libxs,   LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
     CHKERR_LIBXS_DNN( status );
-    libxs_output = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+    libxs_output =  libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, output_libxs,  LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
     CHKERR_LIBXS_DNN( status );
-    libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+    libxs_filter =  libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_libxs,  LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
     CHKERR_LIBXS_DNN( status );
-    libxs_dinput = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT, dinput_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+    libxs_dinput =  libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT,  dinput_libxs,  LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
     CHKERR_LIBXS_DNN( status );
     libxs_doutput = libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_OUTPUT, doutput_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
     CHKERR_LIBXS_DNN( status );
     libxs_dfilter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, dfilter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+    libxs_bias =    libxs_dnn_link_bias(   libxs_handle, LIBXS_DNN_BIAS,   bias_libxs,    LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+    libxs_dbias =   libxs_dnn_link_bias(   libxs_handle, LIBXS_DNN_BIAS,   dbias_libxs,   LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
     CHKERR_LIBXS_DNN( status );
 
     /* copy in data to LIBXS format */
@@ -683,14 +723,18 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_input,  (void*)naive_input_save,  LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_output, (void*)naive_output_save, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter,      LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_copyin_bias  ( libxs_bias,   (void*)naive_bias,        LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
 
     /* bind buffers and filter to handle */
-    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_dinput, LIBXS_DNN_GRADIENT_INPUT ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input,   LIBXS_DNN_REGULAR_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_dinput,  LIBXS_DNN_GRADIENT_INPUT ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output,  LIBXS_DNN_REGULAR_OUTPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_doutput, LIBXS_DNN_GRADIENT_OUTPUT ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter,  LIBXS_DNN_REGULAR_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_dfilter, LIBXS_DNN_GRADIENT_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_bias  ( libxs_handle, libxs_bias,    LIBXS_DNN_REGULAR_BIAS ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_bias  ( libxs_handle, libxs_dbias,   LIBXS_DNN_GRADIENT_BIAS ) );
+
     /* let's allocate and bind scratch */
     scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
     CHKERR_LIBXS_DNN( status );
@@ -898,12 +942,16 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_OUTPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_bias( libxs_handle, LIBXS_DNN_REGULAR_BIAS ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_bias( libxs_handle, LIBXS_DNN_GRADIENT_BIAS ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_dinput ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_doutput ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_dfilter ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_bias( libxs_bias ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_bias( libxs_dbias ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
   }
 
@@ -930,12 +978,20 @@ int main(int argc, char* argv[])
     conv_desc.pad_h_out = pad_h_out;
     conv_desc.pad_w_out = pad_w_out;
     conv_desc.threads = nThreads;
-    /*conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;*/
-    conv_desc.algo = LIBXS_DNN_CONV_ALGO_DIRECT;
+    conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
+    /*conv_desc.algo = LIBXS_DNN_CONV_ALGO_DIRECT;*/
     conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_NHWC;
     conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_RSCK;
-    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+#ifdef USE_OVERWRITE
+    conv_desc.options = LIBXS_DNN_CONV_OPTION_OVERWRITE;
+#else
     conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
+#endif
+#ifdef USE_FUSED_BIAS
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_BIAS;
+#else
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+#endif
     /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
     conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
 
@@ -950,6 +1006,10 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( status );
     libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_rsck, LIBXS_DNN_TENSOR_FORMAT_RSCK_PTR, &status );
     CHKERR_LIBXS_DNN( status );
+    libxs_bias =    libxs_dnn_link_bias(   libxs_handle, LIBXS_DNN_BIAS,   bias_nhwc,    LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+    libxs_dbias =   libxs_dnn_link_bias(   libxs_handle, LIBXS_DNN_BIAS,   dbias_nhwc,   LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
 
     /* bind buffers and filter to handle */
     CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
@@ -958,6 +1018,8 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_bias( libxs_handle, libxs_bias, LIBXS_DNN_REGULAR_BIAS ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_bias( libxs_handle, libxs_dbias, LIBXS_DNN_GRADIENT_BIAS ) );
 
     /* let's allocate and bind scratch */
     scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
@@ -1169,6 +1231,8 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_bias( libxs_bias ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_bias( libxs_dbias ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
   }
 
@@ -1199,8 +1263,16 @@ int main(int argc, char* argv[])
     conv_desc.algo = LIBXS_DNN_CONV_ALGO_DIRECT;
     conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_NHWC;
     conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
-    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+#ifdef USE_OVERWRITE
+    conv_desc.options = LIBXS_DNN_CONV_OPTION_OVERWRITE;
+#else
     conv_desc.options = LIBXS_DNN_CONV_OPTION_NONE;
+#endif
+#ifdef USE_FUSED_BIAS
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_BIAS;
+#else
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+#endif
     /*conv_desc.options = LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE;*/
     conv_desc.datatype = LIBXS_DNN_DATATYPE_F32;
 
@@ -1219,6 +1291,10 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( status );
     libxs_filter = libxs_dnn_link_filter( libxs_handle, LIBXS_DNN_FILTER, filter_libxs, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
     CHKERR_LIBXS_DNN( status );
+    libxs_bias =    libxs_dnn_link_bias(   libxs_handle, LIBXS_DNN_BIAS,   bias_nhwc,    LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
+    libxs_dbias =   libxs_dnn_link_bias(   libxs_handle, LIBXS_DNN_BIAS,   dbias_nhwc,   LIBXS_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+    CHKERR_LIBXS_DNN( status );
 
     /* copy in data to LIBXS format */
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
@@ -1230,6 +1306,8 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_bind_buffer( libxs_handle, libxs_output, LIBXS_DNN_GRADIENT_OUTPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_filter, LIBXS_DNN_GRADIENT_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_bias( libxs_handle, libxs_bias, LIBXS_DNN_REGULAR_BIAS ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_bind_bias( libxs_handle, libxs_dbias, LIBXS_DNN_GRADIENT_BIAS ) );
 
     /* let's allocate and bind scratch */
     scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
@@ -1438,9 +1516,13 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_release_buffer( libxs_handle, LIBXS_DNN_GRADIENT_OUTPUT ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_filter( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_bias( libxs_handle, LIBXS_DNN_REGULAR_BIAS ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_bias( libxs_handle, LIBXS_DNN_GRADIENT_BIAS ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_input ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_buffer( libxs_output ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_filter( libxs_filter ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_bias( libxs_bias ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_bias( libxs_dbias ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
   }
 
@@ -1469,6 +1551,12 @@ int main(int argc, char* argv[])
   libxs_free(dinput_libxs);
   libxs_free(dfilter_libxs);
   libxs_free(doutput_libxs);
+  libxs_free(naive_bias);
+  libxs_free(naive_dbias);
+  libxs_free(bias_nhwc);
+  libxs_free(dbias_nhwc);
+  libxs_free(bias_libxs);
+  libxs_free(dbias_libxs);
 
   /* some empty lines at the end */
   printf("\n\n\n");
