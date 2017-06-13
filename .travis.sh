@@ -74,7 +74,7 @@ if [ "" != "${MKTEMP}" ] && [ "" != "${CHMOD}" ] && [ "" != "${SED}" ] && [ "" !
     LAUNCH=\${TEST}
   fi
   if [ "" != "${LAUNCH_USER}" ]; then
-    LAUNCH="su ${LAUNCH_USER} -c \'${LAUNCH}\'"
+    LAUNCH="su ${LAUNCH_USER} -p -c \'${LAUNCH}\'"
   fi
 
   RESULT=0
@@ -98,9 +98,6 @@ if [ "" != "${MKTEMP}" ] && [ "" != "${CHMOD}" ] && [ "" != "${SED}" ] && [ "" !
       # prepare temporary script
       if [ "" != "${TESTSCRIPT}" ] && [ -e ${TESTSCRIPT} ]; then
         echo "#!/bin/bash" > ${TESTSCRIPT}
-        # re-source the required environment
-        echo "source ${TRAVIS_BUILD_DIR}/.travis.env" >> ${TESTSCRIPT}
-        echo "source ${TRAVIS_BUILD_DIR}/.buildkite.env" >> ${TESTSCRIPT}
         # record the actual test case
         echo "${TEST}" >> ${TESTSCRIPT}
       fi
