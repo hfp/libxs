@@ -968,7 +968,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias
 
   if (0 != bias) { /* it is not an error attempting to destroy a NULL-handle */
     /* deallocate data components; not an error to deallocate a NULL-pointer */
-    libxs_free(bias->data);
+    if ( (bias->format & LIBXS_DNN_TENSOR_FORMAT_PTR) == 0 ) {
+      libxs_free(bias->data);
+    }
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_bias*)bias);
   }
