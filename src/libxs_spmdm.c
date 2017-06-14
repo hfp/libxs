@@ -71,7 +71,7 @@ LIBXS_API_VARIABLE __m256i* internal_spmdm_shufmasks_16;
 #endif
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_init_shufmask_avx(void)
 {
 #if defined(LIBXS_SPMDM_AVX)
@@ -101,7 +101,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_init_shufmask_avx(void)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_csr_a(libxs_spmdm_handle* handle, libxs_CSR_sparseslice** libxs_output_csr)
+LIBXS_API_INLINE void internal_spmdm_allocate_csr_a(libxs_spmdm_handle* handle, libxs_CSR_sparseslice** libxs_output_csr)
 {
   int kb, mb;
   int m_blocks = handle->mb;
@@ -142,7 +142,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_csr_a(libxs_spmdm_h
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_scratch(libxs_spmdm_handle* handle, int max_threads)
+LIBXS_API_INLINE void internal_spmdm_allocate_scratch(libxs_spmdm_handle* handle, int max_threads)
 {
   size_t sz_memory_for_scratch_per_thread = ((handle->bm)*(handle->bn)*sizeof(float) + (handle->bk)*(handle->bn)*sizeof(float)), sz_total_memory;
   sz_memory_for_scratch_per_thread = LIBXS_UP2(sz_memory_for_scratch_per_thread, 4096);
@@ -164,7 +164,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_allocate_scratch(libxs_spmdm
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_deallocate_csr_a(libxs_spmdm_handle* handle)
+LIBXS_API_INLINE void internal_spmdm_deallocate_csr_a(libxs_spmdm_handle* handle)
 {
   libxs_xfree(handle->base_ptr_scratch_A);
   handle->base_ptr_scratch_A= NULL;
@@ -191,7 +191,7 @@ LIBXS_API_DEFINITION int libxs_spmdm_get_num_compute_blocks(const libxs_spmdm_ha
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE
+LIBXS_API_INLINE
 void internal_spmdm_createSparseSlice_fp32_thread_sw(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -206,7 +206,7 @@ void internal_spmdm_createSparseSlice_fp32_thread_sw(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_fp32_thread_avx2(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -225,7 +225,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_fp32_thread_avx2(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_fp32_thread_avx512_core(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -270,7 +270,7 @@ void libxs_spmdm_createSparseSlice_fp32_thread(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE
+LIBXS_API_INLINE
 void internal_spmdm_createSparseSlice_bfloat16_thread_sw(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -285,7 +285,7 @@ void internal_spmdm_createSparseSlice_bfloat16_thread_sw(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_bfloat16_thread_avx2(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -304,7 +304,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_bfloat16_thread_avx
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_bfloat16_thread_avx512_core(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -349,7 +349,7 @@ void libxs_spmdm_createSparseSlice_bfloat16_thread(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE
+LIBXS_API_INLINE
 void internal_spmdm_compute_fp32_thread_sw(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -369,7 +369,7 @@ void internal_spmdm_compute_fp32_thread_sw(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_fp32_thread_avx2(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -393,7 +393,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_fp32_thread_avx2(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_fp32_thread_avx512_core(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -441,7 +441,7 @@ void libxs_spmdm_compute_fp32_thread(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE
+LIBXS_API_INLINE
 void internal_spmdm_compute_bfloat16_thread_sw(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -461,7 +461,7 @@ void internal_spmdm_compute_bfloat16_thread_sw(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_bfloat16_thread_avx2(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -485,7 +485,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_bfloat16_thread_avx2(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_bfloat16_thread_avx512_core(
   const libxs_spmdm_handle* handle,
   char transA,
@@ -540,7 +540,7 @@ void libxs_spmdm_compute_bfloat16_thread(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_spmdm_init_check(int archid)
+LIBXS_API_INLINE void internal_spmdm_init_check(int archid)
 {
   if (archid < libxs_target_archid
     && 0 != libxs_verbosity) /* library code is expected to be mute */

@@ -52,7 +52,7 @@ LIBXS_API_VARIABLE void (*internal_fwd_input_transform_custom_custom_alpha6)(
   const float*, float*, float*, const libxs_dnn_layer*);
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom_alpha6_default(
+LIBXS_API_INLINE void internal_fwd_input_transform_custom_custom_alpha6_default(
   const float* inp, float* tinp, float* Iwp, const libxs_dnn_layer* handle)
 {
 #define ALPHA 6
@@ -63,7 +63,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom_
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 LIBXS_ATTRIBUTE_UNUSED void internal_fwd_input_transform_custom_custom_alpha6_avx512(
   const float* inp, float* tinp, float* Iwp, const libxs_dnn_layer* handle)
 {
@@ -79,7 +79,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_fwd_input_transform_custom_custom_alpha6_av
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom(
+LIBXS_API_INLINE void internal_fwd_input_transform_custom_custom(
   const float* inp, float* tinp, float* Iwp, const libxs_dnn_layer* handle)
 {
   if (handle->cwino_fwd.alpha == 6) {
@@ -107,7 +107,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_custom_custom(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_nhwc_custom(
+LIBXS_API_INLINE void internal_fwd_input_transform_nhwc_custom(
                                          const float *inp,
                                          float *tinp,
                                          float *Iwp,
@@ -135,7 +135,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_input_transform_nhwc_custom(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_weight_transform( float *wp,
+LIBXS_API_INLINE void internal_fwd_weight_transform( float *wp,
                               float *twp,
                               const libxs_dnn_layer* handle )
 {
@@ -161,7 +161,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_weight_transform( float *wp,
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_custom_custom( float *toutp,
+LIBXS_API_INLINE void internal_fwd_output_transform_custom_custom( float *toutp,
                                             float *outp,
                                             float *Owp,
                                             float bias[/*vratio*/][16/*tdvlen*/],
@@ -194,7 +194,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_custom_custom
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_fwd_output_transform_nhwc_custom( float *toutp,
+LIBXS_API_INLINE void internal_fwd_output_transform_nhwc_custom( float *toutp,
                                           float *outp,
                                           float *Owp,
                                           float bias[/*vratio*/][16/*tdvlen*/],

@@ -401,7 +401,7 @@ LIBXS_API_DEFINITION int libxs_get_scratch_allocator(void** context,
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE internal_malloc_info_type* internal_malloc_info(const void* memory)
+LIBXS_API_INLINE internal_malloc_info_type* internal_malloc_info(const void* memory)
 {
   internal_malloc_info_type *const result = (internal_malloc_info_type*)
     (0 != memory ? (((const char*)memory) - sizeof(internal_malloc_info_type)) : 0);
@@ -461,7 +461,7 @@ LIBXS_API_DEFINITION int libxs_get_malloc_xinfo(const void* memory, size_t* size
 
 #if !defined(_WIN32)
 
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_mhint(void* buffer, size_t size)
+LIBXS_API_INLINE void internal_mhint(void* buffer, size_t size)
 {
   assert((MAP_FAILED != buffer && 0 != buffer) || 0 == size);
   /* proceed after failed madvise (even in case of an error; take what we got) */
@@ -477,7 +477,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE void internal_mhint(void* buffer, size_t size)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void* internal_xmap(const char* dir, size_t size, int flags, void** rx)
+LIBXS_API_INLINE void* internal_xmap(const char* dir, size_t size, int flags, void** rx)
 {
   void* result = MAP_FAILED;
   char filename[4096];
@@ -816,7 +816,7 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
 
 
 #if defined(LIBXS_VTUNE)
-LIBXS_INLINE LIBXS_RETARGETABLE void internal_get_vtune_jitdesc(const void* code,
+LIBXS_API_INLINE void internal_get_vtune_jitdesc(const void* code,
   unsigned int code_id, size_t code_size, const char* code_name,
   LIBXS_VTUNE_JIT_DESC_TYPE* desc)
 {
@@ -963,7 +963,7 @@ LIBXS_API_DEFINITION void* libxs_aligned_malloc(size_t size, size_t alignment)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_malloc_site(unsigned int* npools, unsigned int* hit, const void** site)
+LIBXS_API_INLINE unsigned int internal_malloc_site(unsigned int* npools, unsigned int* hit, const void** site)
 {
   assert(0 != npools && 0 != hit && 0 != site);
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
@@ -1128,7 +1128,7 @@ LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE int internal_scratch_free(const void* memory, unsigned int pool)
+LIBXS_API_INLINE int internal_scratch_free(const void* memory, unsigned int pool)
 {
   const char *const scratch = internal_malloc_scratch_pool[pool].buffer;
   int released = 0;
