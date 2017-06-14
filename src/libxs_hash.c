@@ -134,7 +134,7 @@ LIBXS_API_VARIABLE const internal_crc32_entry_type* internal_crc32_table;
 LIBXS_API_VARIABLE libxs_hash_function internal_hash_function;
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u8(
+LIBXS_API_INLINE unsigned int internal_crc32_u8(
   unsigned int seed, unsigned char value)
 {
   assert(0 != internal_crc32_table);
@@ -142,7 +142,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u8(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u16(
+LIBXS_API_INLINE unsigned int internal_crc32_u16(
   unsigned int seed, unsigned short value)
 {
   seed = internal_crc32_u8(seed, (uint8_t)value);
@@ -151,7 +151,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u16(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u32(
+LIBXS_API_INLINE unsigned int internal_crc32_u32(
   unsigned int seed, unsigned int value)
 {
   const unsigned int s = seed ^ value;
@@ -165,7 +165,7 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u32(
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int internal_crc32_u64(
+LIBXS_API_INLINE unsigned int internal_crc32_u64(
   unsigned int seed, unsigned long long value)
 {
   seed = internal_crc32_u32(seed, (uint32_t)(value));

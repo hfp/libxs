@@ -57,7 +57,7 @@ LIBXS_API_DEFINITION const char* libxs_meta_image_typeinfo(libxs_mhd_elemtype el
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE int internal_write(FILE* file, const void* data,
+LIBXS_API_INLINE int internal_write(FILE* file, const void* data,
   const size_t* data_size, const size_t* size, size_t typesize,
   size_t ndims)
 {

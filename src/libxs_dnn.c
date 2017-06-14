@@ -1964,7 +1964,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* 
 }
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE libxs_dnn_err_t internal_execute_st(libxs_dnn_layer* handle,
+LIBXS_API_INLINE libxs_dnn_err_t internal_execute_st(libxs_dnn_layer* handle,
   libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
