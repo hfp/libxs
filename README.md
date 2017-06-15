@@ -531,8 +531,7 @@ The LIBXS repository provides an orphaned branch "results" which is collecting c
 
 Please note that comparing performance results depends on whether the operands of the matrix multiplication are streamed or not. For example, running a matrix multiplication code many time with all operands covered by the L1 cache may have an emphasis towards an implementation which perhaps performs worse for the real workload (if this real workload needs to stream some or all operands from the main memory).
 
-# Applications
-### High Performance Computing (HPC)
+# High Performance Computing (HPC)
 **\[1]&#160;[https://cp2k.org/](https://cp2k.org/)**: Open Source Molecular Dynamics with its DBCSR component processing batches of small matrix multiplications ("matrix stacks") out of a problem-specific distributed block-sparse matrix. Starting with [CP2K 3.0](https://www.cp2k.org/version_history), LIBXS can be used to substitute CP2K's 'libsmm' library. Prior to CP2K 3.0, only the [Intel-branch of CP2K](https://github.com/cp2k/cp2k/tree/intel) integrated LIBXS (see https://github.com/hfp/libxs/raw/master/documentation/cp2k.pdf).
 
 **\[2]&#160;[https://github.com/SeisSol/SeisSol/](https://github.com/SeisSol/SeisSol/)**: SeisSol is one of the leading codes for earthquake scenarios, for simulating dynamic rupture processes. LIBXS provides highly optimized assembly kernels which form the computational back-bone of SeisSol (see https://github.com/TUM-I5/seissol_kernels/).
