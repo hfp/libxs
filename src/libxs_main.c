@@ -405,7 +405,10 @@ LIBXS_API_INLINE void internal_finalize(void)
       unsigned int linebreak;
 
       if (1 < libxs_verbosity || 0 > libxs_verbosity) {
-        fprintf(stderr, "LIBXS_VERSION=%s-%s", LIBXS_BRANCH, LIBXS_VERSION);
+        fprintf(stderr, "\nLIBXS_VERSION=%s-%s", LIBXS_BRANCH, LIBXS_VERSION);
+      }
+      else {
+        fprintf(stderr, "\n");
       }
       linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && 0 != target_arch) {
