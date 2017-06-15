@@ -29,6 +29,7 @@
 #############################################################################
 
 HERE=$(cd $(dirname $0); pwd -P)
+SETFACL=$(which setfacl 2> /dev/null)
 MKTEMP=$(which mktemp 2> /dev/null)
 MKDIR=$(which mkdir 2> /dev/null)
 CHMOD=$(which chmod 2> /dev/null)
@@ -92,6 +93,9 @@ then
     fi
     TESTSCRIPT=$(${MKTEMP} ${HERE}/.libxs_XXXXXX.sh)
     ${CHMOD} a+rwx ${TESTSCRIPT}
+    if [ "" != "${SETFACL}" ]; then
+      ${SETFACL} -b ${TESTSCRIPT}
+    fi
     LAUNCH="${SRUN} --ntasks=1 ${SRUN_CPUS_PER_TASK_FLAG} \
       --partition=\${PARTITION} --preserve-env --pty ${TESTSCRIPT}"
   else # avoid temporary script in case of non-batch execution
