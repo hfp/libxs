@@ -31,7 +31,7 @@
 FLOCK=$(which flock 2> /dev/null)
 
 if [ "" != "${FLOCK}" ]; then
-  flock $*
+  ${FLOCK} $*
 else
   shift
   $*
