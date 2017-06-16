@@ -129,6 +129,10 @@ else
   LIBEXT ?= $(DLIBEXT)
 endif
 
+# Utilities
+MKTEMP = $(DEPDIR)/.mktmp.sh
+FLOCK = $(DEPDIR)/.flock.sh
+
 # Debugging and symbols (e.g., when profiling)
 SYM ?= 0
 DBG ?= 0
@@ -953,7 +957,7 @@ ifneq (undefined,$(origin TARGET))
 endif
 
 # check target flags by feeding an ad-hoc C program into the compiler
-ifneq (0,$(shell CINFILE=$$($(ROOTDIR)/.mktmp.sh /tmp/.libxs_XXXXXX-c.c); \
+ifneq (0,$(shell CINFILE=$$($(MKTEMP) /tmp/.libxs_XXXXXX-c.c); \
   echo "int main(void) { return 0; }" > $${CINFILE}; \
   CTEST=$$($(CC) $(CTARGET) -c $${CINFILE} 2>&1); \
   if [ "" = "$${CTEST}" ]; then echo $$?; else echo 1; fi; \
@@ -963,7 +967,7 @@ ifneq (0,$(shell CINFILE=$$($(ROOTDIR)/.mktmp.sh /tmp/.libxs_XXXXXX-c.c); \
 endif
 
 ifneq (,$(strip $(FC))) # check target flags by feeding an ad-hoc Fortran program into the compiler
-ifeq (0,$(shell FINFILE=$$($(ROOTDIR)/.mktmp.sh /tmp/.libxs_XXXXXX-f.f); \
+ifeq (0,$(shell FINFILE=$$($(MKTEMP) /tmp/.libxs_XXXXXX-f.f); \
   echo "      PROGRAM test" > $${FINFILE}; \
   echo "      END PROGRAM" >> $${FINFILE}; \
   FTEST=$$($(FC) $(CTARGET) -c $${FINFILE} 2>&1); \
