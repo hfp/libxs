@@ -41,11 +41,11 @@
 #define _USE_LIBXS_PREFETCH
 #define BG_type 1 /* 1-float, 2-double */
 #if (BG_type==2)
-  #define BG_TYPE double
+  typedef double real;
   #define _KERNEL libxs_dmmfunction
   #define _KERNEL_JIT libxs_dmmdispatch
 #else
-  #define BG_TYPE float
+  typedef float real;
   #define _KERNEL libxs_smmfunction
   #define _KERNEL_JIT libxs_smmdispatch
 #endif
@@ -62,14 +62,6 @@
   mmap(NULL, size, PROT_READ | PROT_WRITE, \
       MAP_ANONYMOUS | MAP_SHARED | MAP_HUGETLB| MAP_POPULATE, -1, 0);
 #define _free(addr) {munmap(addr, 0);}
-
-#if defined( __MIC__) || defined (__AVX512F__)
-#define VLEN 16
-#elif defined (__AVX__)
-#define VLEN 8
-#else
-#error "Either AVX or MIC must be used"
-#endif
 
 //#define OMP_LOCK 
 #ifdef OMP_LOCK
@@ -153,32 +145,32 @@ typedef struct libxs_blkgemm_handle {
   libxs_barrier* bar;
 } libxs_blkgemm_handle;
 
-void libxs_blkgemm_handle_alloc(libxs_blkgemm_handle* handle, const int M, const int MB, const int N, const int NB);
+LIBXS_API void libxs_blksgemm_init_a( libxs_blkgemm_handle* handle,
+                                          real* libxs_mat_dst,
+                                          real* colmaj_mat_src );
 
-LIBXS_INLINE void libxs_blksgemm_init_a( libxs_blkgemm_handle* handle,
-                                             real* libxs_mat_dst,
-                                             real* colmaj_mat_src );
+LIBXS_API void libxs_blksgemm_init_b( libxs_blkgemm_handle* handle,
+                                          real* libxs_mat_dst,
+                                          real* colmaj_mat_src );
 
-LIBXS_INLINE void libxs_blksgemm_init_b( libxs_blkgemm_handle* handle,
-                                             real* libxs_mat_dst,
-                                             real* colmaj_mat_src );
+LIBXS_API void libxs_blksgemm_init_c( libxs_blkgemm_handle* handle,
+                                          real* libxs_mat_dst,
+                                          real* colmaj_mat_src );
 
-LIBXS_INLINE void libxs_blksgemm_init_c( libxs_blkgemm_handle* handle,
-                                             real* libxs_mat_dst,
-                                             real* colmaj_mat_src );
+LIBXS_API void libxs_blksgemm_check_c( libxs_blkgemm_handle* handle,
+                                           real* libxs_mat_dst,
+                                           real* colmaj_mat_src );
 
-LIBXS_INLINE void libxs_blksgemm_check_c( libxs_blkgemm_handle* handle,
-                                              real* libxs_mat_dst,
-                                              real* colmaj_mat_src );
+LIBXS_API void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
+                                        const char transA,
+                                        const char transB,
+                                        const real* alpha,
+                                        const real* a,
+                                        const real* b,
+                                        const real* beta,
+                                        real* c );
 
-LIBXS_INLINE void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
-                                           const char transA,
-                                           const char transB,
-                                           const real* alpha,
-                                           const real* a,
-                                           const real* b,
-                                           const real* beta,
-                                           real* c );
+LIBXS_API void libxs_blkgemm_handle_alloc(libxs_blkgemm_handle* handle, const int M, const int MB, const int N, const int NB);
 
 
 #ifdef __cplusplus
