@@ -38,7 +38,7 @@
 #if defined(_OPENMP)
 #include <omp.h>
 #endif
-#include "libxs_blkgemm.h"
+#include <libxs_blkgemm.h>
 
 #if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
 # include <mkl_service.h>
@@ -50,12 +50,10 @@
 # define srand48 srand
 #endif
 
-typedef float real;
-
 /** Function prototype for SGEMM; this way any kind of LAPACK/BLAS library is sufficient at link-time. */
-LIBXS_INLINE void libxs_blksgemm_init_a( libxs_blkgemm_handle* handle,
-                                             real* libxs_mat_dst,
-                                             real* colmaj_mat_src ) {
+LIBXS_API_DEFINITION void libxs_blksgemm_init_a( libxs_blkgemm_handle* handle,
+                                                     real* libxs_mat_dst,
+                                                     real* colmaj_mat_src ) {
   LIBXS_VLA_DECL(4, real, dst, libxs_mat_dst, handle->mb, handle->bk, handle->bm);
   LIBXS_VLA_DECL(2, const real, src, colmaj_mat_src, handle->m);
   int mb, kb, bm, bk;
@@ -72,9 +70,9 @@ LIBXS_INLINE void libxs_blksgemm_init_a( libxs_blkgemm_handle* handle,
   }
 }
 
-LIBXS_INLINE void libxs_blksgemm_init_b( libxs_blkgemm_handle* handle,
-                                             real* libxs_mat_dst,
-                                             real* colmaj_mat_src ) {
+LIBXS_API_DEFINITION void libxs_blksgemm_init_b( libxs_blkgemm_handle* handle,
+                                                     real* libxs_mat_dst,
+                                                     real* colmaj_mat_src ) {
   LIBXS_VLA_DECL(4, real, dst, libxs_mat_dst, handle->kb, handle->bn, handle->bk);
   LIBXS_VLA_DECL(2, const real, src, colmaj_mat_src, handle->k);
   int kb, nb, bk, bn;
@@ -91,9 +89,9 @@ LIBXS_INLINE void libxs_blksgemm_init_b( libxs_blkgemm_handle* handle,
   }
 }
 
-LIBXS_INLINE void libxs_blksgemm_init_c( libxs_blkgemm_handle* handle,
-                                             real* libxs_mat_dst,
-                                             real* colmaj_mat_src ) {
+LIBXS_API_DEFINITION void libxs_blksgemm_init_c( libxs_blkgemm_handle* handle,
+                                                     real* libxs_mat_dst,
+                                                     real* colmaj_mat_src ) {
   LIBXS_VLA_DECL(4, real, dst, libxs_mat_dst, handle->mb, handle->bn, handle->bm);
   LIBXS_VLA_DECL(2, const real, src, colmaj_mat_src, handle->m);
   int mb, nb, bm, bn;
@@ -110,9 +108,9 @@ LIBXS_INLINE void libxs_blksgemm_init_c( libxs_blkgemm_handle* handle,
   }
 }
 
-LIBXS_INLINE void libxs_blksgemm_check_c( libxs_blkgemm_handle* handle,
-                                              real* libxs_mat_dst,
-                                              real* colmaj_mat_src ) {
+LIBXS_API_DEFINITION void libxs_blksgemm_check_c( libxs_blkgemm_handle* handle,
+                                                      real* libxs_mat_dst,
+                                                      real* colmaj_mat_src ) {
   LIBXS_VLA_DECL(4, real, dst, libxs_mat_dst, handle->mb, handle->bn, handle->bm);
   LIBXS_VLA_DECL(2, const real, src, colmaj_mat_src, handle->m);
   int mb, nb, bm, bn;
@@ -205,7 +203,7 @@ void libxs_bgemm( const int _M,
   _KERNEL l_kernel_pf = handle->_l_kernel_pf;
 #endif
 
-  LOCK_T (* locks)[_N/B_N] = (LOCK_T (*)[*])handle->_wlock;
+  LIBXS_VLA_DECL(2, LOCK_T, locks, handle->_wlock, _N/B_N);
   real l_out[B_N][B_M];
   int ki;
   int kj;
@@ -261,14 +259,14 @@ void libxs_bgemm( const int _M,
             o_k2 = k2;
           } else {
             if ((o_i2 != i2) || (o_j2 != j2)) {
-              LOCK_SET(&locks[o_i2][o_j2]);
+              LOCK_SET(&LIBXS_VLA_ACCESS(2, locks, o_i2, o_j2, _N/B_N));
               for (ki = 0; ki < B_N; ki++) {
                 LIBXS_PRAGMA_SIMD
                 for (kj = 0; kj < B_M; kj++) {
-                  C[o_j2][o_i2][ki][kj] += l_out[ki][kj];
+                  LIBXS_VLA_ACCESS(4, C, o_j2, o_i2, ki, kj, _M/B_M, B_N, B_M) += l_out[ki][kj];
                 }
               }
-              LOCK_UNSET(&locks[o_i2][o_j2]);
+              LOCK_UNSET(&LIBXS_VLA_ACCESS(2, locks, o_i2, o_j2, _N/B_N));
               for (ki = 0; ki < B_N; ki++) {
                 LIBXS_PRAGMA_SIMD
                 for (kj = 0; kj < B_M; kj++) {
@@ -307,14 +305,14 @@ void libxs_bgemm( const int _M,
           if (w_i == e-1) {
             o_i2 = i2;
             o_j2 = j2;
-            LOCK_SET(&locks[o_i2][o_j2]);
+            LOCK_SET(&LIBXS_VLA_ACCESS(2, locks, o_i2, o_j2, _N/B_N));
             for (ki = 0; ki < B_N; ki++) {
               LIBXS_PRAGMA_SIMD
               for (kj = 0; kj < B_M; kj++) {
                 LIBXS_VLA_ACCESS(4, C, o_j2, o_i2, ki, kj, _M/B_M, B_N, B_M) += l_out[ki][kj];
               }
             }
-            LOCK_UNSET(&locks[o_i2][o_j2]);
+            LOCK_UNSET(&LIBXS_VLA_ACCESS(2, locks, o_i2, o_j2, _N/B_N));
             for (ki = 0; ki < B_N; ki++) {
               LIBXS_PRAGMA_SIMD
               for (kj = 0; kj < B_M; kj++) {
@@ -346,7 +344,7 @@ void libxs_bgemm_dry_run( const int _M,
   _KERNEL l_kernel_pf = handle->_l_kernel_pf;
 #endif
 
-  LOCK_T (* locks)[_N/B_N] = (LOCK_T (*)[*])handle->_wlock;
+  LIBXS_VLA_DECL(2, LOCK_T, locks, handle->_wlock, _N/B_N);
   real l_out[B_N][B_M];
   int ki;
   int kj;
@@ -402,14 +400,14 @@ void libxs_bgemm_dry_run( const int _M,
             o_k2 = k2;
           } else {
             if ((o_i2 != i2) || (o_j2 != j2)) {
-              LOCK_SET(&locks[o_i2][o_j2]);
+              LOCK_SET(&LIBXS_VLA_ACCESS(2, locks, o_i2, o_j2, _N/B_N));
               for (ki = 0; ki < B_N; ki++) {
                 LIBXS_PRAGMA_SIMD
                 for (kj = 0; kj < B_M; kj++) {
-                  C[o_j2][o_i2][ki][kj] += l_out[ki][kj];
+                  LIBXS_VLA_ACCESS(4, C, o_j2, o_i2, ki, kj, _M/B_M, B_N, B_M) += l_out[ki][kj];
                 }
               }
-              LOCK_UNSET(&locks[o_i2][o_j2]);
+              LOCK_UNSET(&LIBXS_VLA_ACCESS(2, locks, o_i2, o_j2, _N/B_N));
               for (ki = 0; ki < B_N; ki++) {
                 LIBXS_PRAGMA_SIMD
                 for (kj = 0; kj < B_M; kj++) {
@@ -450,14 +448,14 @@ void libxs_bgemm_dry_run( const int _M,
           if (w_i == e-1) {
             o_i2 = i2;
             o_j2 = j2;
-            LOCK_SET(&locks[o_i2][o_j2]);
+            LOCK_SET(&LIBXS_VLA_ACCESS(2, locks, o_i2, o_j2, _N/B_N));
             for (ki = 0; ki < B_N; ki++) {
               LIBXS_PRAGMA_SIMD
               for (kj = 0; kj < B_M; kj++) {
                 LIBXS_VLA_ACCESS(4, C, o_j2, o_i2, ki, kj, _M/B_M, B_N, B_M) += l_out[ki][kj];
               }
             }
-            LOCK_UNSET(&locks[o_i2][o_j2]);
+            LOCK_UNSET(&LIBXS_VLA_ACCESS(2, locks, o_i2, o_j2, _N/B_N));
             for (ki = 0; ki < B_N; ki++) {
               LIBXS_PRAGMA_SIMD
               for (kj = 0; kj < B_M; kj++) {
@@ -471,14 +469,14 @@ void libxs_bgemm_dry_run( const int _M,
   }
 }
 
-LIBXS_INLINE void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
-                                           const char transA,
-                                           const char transB,
-                                           const real* alpha,
-                                           const real* a,
-                                           const real* b,
-                                           const real* beta,
-                                           real* c ) {
+LIBXS_API_DEFINITION void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
+                                                   const char transA,
+                                                   const char transB,
+                                                   const real* alpha,
+                                                   const real* a,
+                                                   const real* b,
+                                                   const real* beta,
+                                                   real* c ) {
   /* TODO: take transpose into account */
   LIBXS_UNUSED(transA);
   LIBXS_UNUSED(transB);
@@ -504,18 +502,18 @@ LIBXS_INLINE void libxs_blksgemm_exec( const libxs_blkgemm_handle* handle,
 #endif
     int i;
     for (i = 0; i < count; i++) {
-      libxs_bgemm (handle->m, handle->n, handle->k, handle->bm, handle->bn, handle->bk, a, b, c, tid, nthrds, handle);
-      BG_BARRIER (handle->bar, tid);
+      libxs_bgemm(handle->m, handle->n, handle->k, handle->bm, handle->bn, handle->bk, a, b, c, tid, nthrds, handle);
+      BG_BARRIER(handle->bar, tid);
     }
   }
 }
 
-void libxs_blkgemm_handle_alloc(libxs_blkgemm_handle* handle, const int M, const int MB, const int N, const int NB)
+LIBXS_API_DEFINITION void libxs_blkgemm_handle_alloc(libxs_blkgemm_handle* handle, const int M, const int MB, const int N, const int NB)
 {
   int i;
   /* allocating lock array */
   if (handle->_wlock == NULL)
-    handle->_wlock = (LOCK_T*)_mm_malloc((M/MB)*(N/NB)*sizeof(LOCK_T), 64);
+    handle->_wlock = (LOCK_T*)libxs_aligned_malloc((M/MB)*(N/NB)*sizeof(LOCK_T), 64);
 
   for (i = 0; i < (M/MB)*(N/NB); i++)
     LOCK_INIT(&handle->_wlock[i]);
