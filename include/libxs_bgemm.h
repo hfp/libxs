@@ -48,14 +48,25 @@ typedef struct LIBXS_RETARGETABLE libxs_bgemm_handle libxs_bgemm_handle;
 
 LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_precision precision,
   libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint bm, libxs_blasint bn, libxs_blasint bk,
-  const void* alpha, const void* beta, const int* gemm_flags, const libxs_bgemm_order* order);
+  /** If alpha is not supplied (NULL), then LIBXS_ALPHA is used instead. */ const void* alpha,
+  /** If beta is not supplied (NULL), then LIBXS_BETA is used instead. */   const void*  beta,
+  /** See libxs_gemm_flags (LIBXS_FLAGS is used if NULL is given). */ const int* gemm_flags,
+  /**
+   * See libxs_gemm_prefetch_type (LIBXS_PREFETCH is used if NULL is given).
+   * In case of LIBXS_PREFETCH_AUTO, a strategy is chosen automatically.
+   */
+  const libxs_gemm_prefetch_type* strategy,
+  /** See libxs_bgemm_order; an order is chosen automatically if NULL is given. */
+  const libxs_bgemm_order* order);
 
 LIBXS_API void libxs_bgemm_handle_destroy(const libxs_bgemm_handle* handle);
 
-/** Copy-in functions for A, B, and C matrices. A leading dimension is optional and can be NULL. */
+/** Copy-in functions for A, B, and C matrices. A leading dimension for the source buffer is optional and can be NULL. */
 LIBXS_API int libxs_bgemm_copyin_a(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
 LIBXS_API int libxs_bgemm_copyin_b(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
 LIBXS_API int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+/** Copy-out function for the C-matrix. A leading dimension for the destination buffer is optional and can be NULL. */
+LIBXS_API int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
 
 /**
  * Fine grain parallelized block-GEMM (BGEMM), which uses a block structure
