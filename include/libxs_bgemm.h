@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2017, Intel Corporation                                **
+** Copyright (c) 2017, Intel Corporation                                     **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -26,57 +26,52 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#ifndef LIBXS_BGEMM_H
+#define LIBXS_BGEMM_H
 
-#define SIMD_WIDTH_FP32 (1)
-#define SIMDTYPE_FP32 float
-#define SIMDTYPE_INT32 int
-#define SIMDMASKTYPE_FP32 int
-#define _MM_SETZERO_FP32() (0)
-#define _MM_SETZERO_INT32() (0)
-#define _MM_SET1_FP32(x) (x)
-#define _MM_SET1_INT32(x) (x)
-#define _MM_SET1_INT16 (x)
-#define _MM_LOAD_FP32(x) (*(x))
-#define _MM_LOADU_FP32(x) (*(x))
-#define _MM_LOAD_INT32(x) (*(x))
-#define _MM_STORE_INT32(x,y) ((*(x)) = (y))
-#define _MM_LOADU_INT32(x) (*(x))
-#define _MM_GATHER_FP32(Addr, idx, scale) (*(Addr + (idx)))
-#define _MM_CMPNEQ_FP32(v1,v2) (LIBXS_FEQ(v1, v2) ? 0 : 1)
-#define _MM_STORE_FP32(x,y) ((*(x)) = (y))
-#define _MM_STOREU_FP32(x,y) ((*(x)) = (y))
-#define _MM_ADD_FP32(x,y) ((x) + (y))
-#define _MM_FMADD_FP32(x,y,z) (((x)*(y))+(z))
-#define _MM_MUL_FP32(x,y) ((x)*(y))
-#define _MM_PREFETCH(x, y)
-#define TRANSPOSE_SIMD_WIDTH_KERNEL(ptr_A, ldA, ptr_B, ldB) ((*(ptr_B)) = (*(ptr_A)))
-#define TRANSPOSE_SIMD_WIDTH_KERNEL_BFLOAT16(ptr_A, ldA, ptr_B, ldB) { \
-  uint16_t restmp = (*(ptr_A)); \
-  union { int i; float f; } res; \
-  res.i = restmp; \
-  res.i <<= 16; \
-  (*(ptr_B)) = res.f; \
-}
+#include <libxs_frontend.h>
 
-#define COMPRESS_FP32(v, k, m, cnt) if (m) { \
-  values_ptr[cnt] = v; \
-  colidx_ptr[cnt] = (uint16_t)(k); \
-  cnt++; \
-}
 
-#define EXPAND_BFLOAT16(v, vlo_final, vhi_final) { \
-  union { int i; float f; } vlo_tmp, vhi_tmp; \
-  vlo_tmp.i = (v) & 0xFFFF; vlo_tmp.i <<= 16; \
-  vlo_final = vlo_tmp.f; \
-  vhi_tmp.i = (v) & 0x0000FFFF; \
-  vhi_final = vhi_tmp.f; \
-}
+/** Denotes the BGEMM data order. */
+typedef enum libxs_bgemm_order {
+  LIBXS_BGEMM_ORDER_JIK = 0,
+  LIBXS_BGEMM_ORDER_IJK = 1,
+  LIBXS_BGEMM_ORDER_JKI = 2,
+  LIBXS_BGEMM_ORDER_IKJ = 3,
+  LIBXS_BGEMM_ORDER_KJI = 4,
+  LIBXS_BGEMM_ORDER_KIJ = 5
+} libxs_bgemm_order;
 
-#define COMPRESS_BFLOAT16(vlo, vhi, v) { \
-  union { int i; float f; } vlo_tmp, vhi_tmp; \
-  vlo_tmp.f = vlo; \
-  v = (vlo_tmp.i >> 16); \
-  vhi_tmp.f = vhi; \
-  v = v | (vhi_tmp.i & 0xFFFF0000); \
-}
+/** Describes the Block-GEMM (BGEMM) operation. */
+typedef struct LIBXS_RETARGETABLE libxs_bgemm_handle libxs_bgemm_handle;
 
+
+LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_precision precision,
+  libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint bm, libxs_blasint bn, libxs_blasint bk,
+  const void* alpha, const void* beta, const int* gemm_flags, const libxs_bgemm_order* order);
+
+LIBXS_API void libxs_bgemm_handle_destroy(const libxs_bgemm_handle* handle);
+
+/** Copy-in functions for A, B, and C matrices. A leading dimension is optional and can be NULL. */
+LIBXS_API int libxs_bgemm_copyin_a(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+LIBXS_API int libxs_bgemm_copyin_b(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+LIBXS_API int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+
+/**
+ * Fine grain parallelized block-GEMM (BGEMM), which uses a block structure
+ * layout for the A and B matrices. The implementation is parallelized
+ * among M, N, and K using fine-grained on-demand locks when writing C.
+ */
+LIBXS_API void libxs_bgemm(const libxs_bgemm_handle* handle,
+  const void* a, const void* b, void* c, int tid, int nthreads);
+
+/**
+ * Implementation of libxs_bgemm, which is parallelized with OpenMP
+ * and uses an OpenMP or custom barrier implementation. The function
+ * allows to run multiple GEMMs, which is specified by 'count' (RNNs).
+ * This function requires to link against libxsext.
+ */
+LIBXS_API void libxs_bgemm_omp(const libxs_bgemm_handle* handle,
+  const void* a, const void* b, void* c, /*unsigned*/int count);
+
+#endif /*LIBXS_BGEMM_H*/

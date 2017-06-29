@@ -51,19 +51,6 @@
 #if !defined(LIBXS_SYNC_CACHELINE_SIZE)
 # define LIBXS_SYNC_CACHELINE_SIZE 64
 #endif
-#if !defined(LIBXS_SYNC_DELAY)
-# define LIBXS_SYNC_DELAY 8
-#endif
-#if !defined(LIBXS_SYNC_ATOMIC_SET)
-# define LIBXS_SYNC_ATOMIC_SET(DST, VALUE) ((DST) = (VALUE))
-#endif
-#if defined(__MIC__)
-# define LIBXS_SYNC_PAUSE(DELAY) _mm_delay_32(DELAY)
-#elif !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY)
-# define LIBXS_SYNC_PAUSE(DELAY) _mm_pause()
-#else
-# define LIBXS_SYNC_PAUSE(DELAY)
-#endif
 
 
 /* internal counter type which is guaranteed to be atomic when using certain methods */
@@ -112,7 +99,7 @@ LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthread
   barrier->cores = (internal_sync_core_tag**)libxs_aligned_malloc(
     barrier->ncores * sizeof(internal_sync_core_tag*), LIBXS_SYNC_CACHELINE_SIZE);
 
-  LIBXS_SYNC_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
+  LIBXS_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
   barrier->init_done = 0;
 #else
   LIBXS_UNUSED(ncores); LIBXS_UNUSED(nthreads_per_core);
@@ -166,7 +153,7 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
 
   /* barrier to let all the allocations complete */
   if (0 == LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting.counter, 1, LIBXS_ATOMIC_RELAXED)) {
-    LIBXS_SYNC_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
+    LIBXS_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
     barrier->init_done = 1;
   }
   else {
@@ -191,7 +178,7 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
 
   /* barrier to let initialization complete */
   if (0 == LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting.counter, 1, LIBXS_ATOMIC_RELAXED)) {
-    LIBXS_SYNC_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
+    LIBXS_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
     barrier->init_done = 2;
   }
   else {
@@ -220,7 +207,7 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
     for (i = 1; i < barrier->nthreads_per_core; ++i) {
       uint8_t core_sense = core->core_sense, thread_sense = core->thread_senses[i];
       while (core_sense == thread_sense) { /* avoid evaluation in unspecified order */
-        LIBXS_SYNC_PAUSE(LIBXS_SYNC_DELAY);
+        LIBXS_SYNC_PAUSE;
         core_sense = core->core_sense;
         thread_sense = core->thread_senses[i];
       }
@@ -245,7 +232,7 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 #else
         *core->partner_flags[core->parity][i] = core->sense;
 #endif
-        while (core->my_flags[core->parity][di] != core->sense) LIBXS_SYNC_PAUSE(LIBXS_SYNC_DELAY);
+        while (core->my_flags[core->parity][di] != core->sense) LIBXS_SYNC_PAUSE;
       }
 
 #if defined(__MIC__)
@@ -253,7 +240,7 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 #else
       *core->partner_flags[core->parity][i] = core->sense;
 #endif
-      while (core->my_flags[core->parity][di] != core->sense) LIBXS_SYNC_PAUSE(LIBXS_SYNC_DELAY);
+      while (core->my_flags[core->parity][di] != core->sense) LIBXS_SYNC_PAUSE;
       if (1 == core->parity) {
         core->sense = (uint8_t)(0 == core->sense ? 1 : 0);
       }
@@ -266,7 +253,7 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
   else { /* other threads wait for cross-core sync to complete */
     uint8_t core_sense = core->core_sense, thread_sense = core->thread_senses[thread->core_tid];
     while (core_sense != thread_sense) { /* avoid evaluation in unspecified order */
-      LIBXS_SYNC_PAUSE(LIBXS_SYNC_DELAY);
+      LIBXS_SYNC_PAUSE;
       core_sense = core->core_sense;
       thread_sense = core->thread_senses[thread->core_tid];
     }
