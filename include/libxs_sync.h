@@ -29,7 +29,7 @@
 #ifndef LIBXS_SYNC_H
 #define LIBXS_SYNC_H
 
-#include "libxs_macros.h"
+#include "libxs_intrinsics_x86.h"
 
 #if defined(LIBXS_NO_SYNC)
 # undef _REENTRANT
@@ -59,6 +59,14 @@
 #   endif
 #   define LIBXS_TLS
 # endif
+#endif
+
+#if defined(__MIC__)
+# define LIBXS_SYNC_PAUSE _mm_delay_32(8/*delay*/)
+#elif !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY)
+# define LIBXS_SYNC_PAUSE _mm_pause()
+#else
+# define LIBXS_SYNC_PAUSE
 #endif
 
 #if defined(__GNUC__)
@@ -95,19 +103,36 @@
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_add_and_fetch(DST_PTR, VALUE)
 #   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_sub_and_fetch(DST_PTR, VALUE)
 # endif
+/* TODO: distinct implementation of LIBXS_ATIMIC_SYNC_* wrt LIBXS_GCCATOMICS */
+# define LIBXS_ATOMIC_SYNC_CHECK(LOCK) while (1 == (LOCK)); LIBXS_SYNC_PAUSE
+# define LIBXS_ATOMIC_SYNC_SET(LOCK) do { LIBXS_ATOMIC_SYNC_CHECK(LOCK); } while(0 != __sync_lock_test_and_set(&(LOCK), 1))
+# define LIBXS_ATOMIC_SYNC_UNSET(LOCK) __sync_lock_release(&(LOCK))
 #elif defined(_REENTRANT) && defined(_WIN32) /*TODO*/
-#   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) (*(SRC_PTR))
-#   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) (*(DST_PTR) = VALUE)
-#   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) += VALUE)
-#   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) -= VALUE)
+# define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) (*(SRC_PTR))
+# define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) (*(DST_PTR) = VALUE)
+# define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) += VALUE)
+# define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) -= VALUE)
+# define LIBXS_ATOMIC_SYNC_CHECK(LOCK) while (1 == (LOCK)); LIBXS_SYNC_PAUSE
+# define LIBXS_ATOMIC_SYNC_SET(LOCK) { int libxs_sync_set_i_; \
+    do { LIBXS_ATOMIC_SYNC_CHECK(LOCK); \
+      libxs_sync_set_i_ = LOCK; LOCK = 1; \
+    } while(0 != libxs_sync_set_i_); \
+  }
+# define LIBXS_ATOMIC_SYNC_UNSET(LOCK) (LOCK) = 0
 #else
-#   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) (*(SRC_PTR))
-#   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) (*(DST_PTR) = VALUE)
-#   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) += VALUE)
-#   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) -= VALUE)
+# define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) (*(SRC_PTR))
+# define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) (*(DST_PTR) = VALUE)
+# define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) += VALUE)
+# define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) -= VALUE)
+# define LIBXS_ATOMIC_SYNC_CHECK(LOCK)
+# define LIBXS_ATOMIC_SYNC_SET(LOCK)
+# define LIBXS_ATOMIC_SYNC_UNSET(LOCK)
 #endif
 #if !defined(LIBXS_ATOMIC_STORE_ZERO)
 # define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) LIBXS_ATOMIC_STORE(DST_PTR, 0, KIND)
+#endif
+#if !defined(LIBXS_ATOMIC_SET) /* TODO */
+# define LIBXS_ATOMIC_SET(DST, VALUE) ((DST) = (VALUE))
 #endif
 
 #if defined(LIBXS_OFFLOAD_TARGET)

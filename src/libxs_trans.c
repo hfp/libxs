@@ -100,16 +100,16 @@ LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int t
 
   assert(typesize <= 255);
   if (0 != out && out != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && n <= ldo) {
-    const unsigned int uldi = ldi, uldo = ldo;
+    const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
     libxs_xmatcopyfunction xmatcopy = 0;
     LIBXS_INIT
     if (0 != (1 & libxs_trans_jit)) { /* JIT'ted matcopy permitted; use no tiling */
       libxs_matcopy_descriptor descriptor = { 0 };
       descriptor.prefetch = (unsigned char)((0 == prefetch || 0 == *prefetch) ? 0 : 1);
       descriptor.flags = (unsigned char)(0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE);
-      descriptor.ldi = ldi; descriptor.ldo = ldo; descriptor.unroll_level = 2;
+      descriptor.ldi = (unsigned int)ldi; descriptor.ldo = (unsigned int)ldo; descriptor.unroll_level = 2;
       descriptor.typesize = (unsigned char)typesize;
-      descriptor.m = m; descriptor.n = n;
+      descriptor.m = (unsigned int)m; descriptor.n = (unsigned int)n;
       xmatcopy = libxs_xmatcopydispatch(&descriptor);
     }
     if (0 != xmatcopy) {
@@ -170,12 +170,12 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
     if (out != in) {
       libxs_xtransfunction xtrans = 0;
       libxs_transpose_descriptor descriptor = { 0 };
-      const unsigned int uldi = ldi, uldo = ldo;
-      const unsigned int size = 1U * m * n;
+      const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
+      const unsigned int size = (unsigned int)(1U * m * n);
       if (size <= (LIBXS_TRANS_THRESHOLD)) { /* no tiling */
         if (0 != (2 & libxs_trans_jit)) { /* JIT'ted transpose permitted? */
           descriptor.typesize = (unsigned char)typesize;
-          descriptor.m = m; descriptor.n = n; descriptor.ldo = ldo;
+          descriptor.m = (unsigned int)m; descriptor.n = (unsigned int)n; descriptor.ldo = (unsigned int)ldo;
           xtrans = libxs_xtransdispatch(&descriptor);
         }
         if (0 != xtrans) { /* prefer JIT for small problems */
@@ -190,7 +190,7 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
         descriptor.m = LIBXS_MIN((unsigned int)m, libxs_trans_tile[tindex][0/*M*/][index]);
         descriptor.n = LIBXS_MIN((unsigned int)n, libxs_trans_tile[tindex][1/*N*/][index]);
         if (0 != (2 & libxs_trans_jit)) { /* JIT'ted transpose permitted? */
-          descriptor.typesize = (unsigned char)typesize; descriptor.ldo = ldo;
+          descriptor.typesize = (unsigned char)typesize; descriptor.ldo = (unsigned int)ldo;
           descriptor.m = LIBXS_MIN(descriptor.m, LIBXS_MAX_M);
           descriptor.n = LIBXS_MIN(descriptor.n, LIBXS_MAX_N);
           xtrans = libxs_xtransdispatch(&descriptor);

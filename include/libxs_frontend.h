@@ -115,6 +115,9 @@
 # define LIBXS_BLASINT int
 #endif
 
+/** Integer type for LAPACK/BLAS (LP64: 32-bit, and ILP64: 64-bit). */
+typedef LIBXS_BLASINT libxs_blasint;
+
 /** MKL_DIRECT_CALL requires to include the MKL interface. */
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
 # if (0 != LIBXS_ILP64 && !defined(MKL_ILP64))
@@ -128,6 +131,7 @@
 #   include <mkl.h>
 # endif
 #endif
+
 /** Fallback prototype functions served by any compliant LAPACK/BLAS. */
 typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
   const char*, const char*, const LIBXS_BLASINT*, const LIBXS_BLASINT*, const LIBXS_BLASINT*,
@@ -158,6 +162,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_sgemm_function libxs_original_sgemm(const void* 
 LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* caller);
 
 /** Construct symbol name from a given real type name (float, double and short). */
+#define LIBXS_DATATYPE(TYPE)          LIBXS_TPOSTFIX(TYPE, LIBXS_DATATYPE_)
 #define LIBXS_GEMM_PRECISION(TYPE)    LIBXS_TPOSTFIX(TYPE, LIBXS_GEMM_PRECISION_)
 #define LIBXS_ORIGINAL_GEMM(TYPE)     LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_BLAS_GEMM_SYMBOL(TYPE)  LIBXS_ORIGINAL_GEMM(TYPE)(LIBXS_CALLER)
@@ -169,15 +174,14 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
 
 /** Helper macro consolidating the applicable GEMM arguments into LIBXS's flags. */
-#define LIBXS_GEMM_DECLARE_FLAGS(FLAGS, TRANSA, TRANSB) \
-  int FLAGS = (0 != (TRANSA) \
-    ? (('N' == *(TRANSA) || 'n' == *(TRANSA)) ? (LIBXS_FLAGS & ~LIBXS_GEMM_FLAG_TRANS_A) \
-                                              : (LIBXS_FLAGS |  LIBXS_GEMM_FLAG_TRANS_A)) \
-    : LIBXS_FLAGS); \
-  FLAGS = (0 != (TRANSB) \
-    ? (('N' == *(TRANSB) || 'n' == *(TRANSB)) ? ((FLAGS) & ~LIBXS_GEMM_FLAG_TRANS_B) \
-                                              : ((FLAGS) |  LIBXS_GEMM_FLAG_TRANS_B)) \
-    : (FLAGS)); \
+#define LIBXS_GEMM_FLAGS(PTRANSA, PTRANSB) ( \
+    (0 != ((const void*)(PTRANSA)) ? (('T' == *((const char*)(PTRANSA)) || 't' == *((const char*)(PTRANSA))) \
+            ? (LIBXS_FLAGS |  LIBXS_GEMM_FLAG_TRANS_A) \
+            : (LIBXS_FLAGS & ~LIBXS_GEMM_FLAG_TRANS_A)) : LIBXS_FLAGS) \
+  & (0 != ((const void*)(PTRANSB)) ? (('T' == *((const char*)(PTRANSB)) || 't' == *((const char*)(PTRANSB))) \
+            ? (LIBXS_FLAGS |  LIBXS_GEMM_FLAG_TRANS_B) \
+            : (LIBXS_FLAGS & ~LIBXS_GEMM_FLAG_TRANS_B)) : LIBXS_FLAGS) \
+)
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (template). */
 #if !defined(__BLAS) || (0 != __BLAS)
@@ -203,7 +207,8 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
     LIBXS_UNUSED(LDA); LIBXS_UNUSED(LDB); LIBXS_UNUSED(LDC); \
     LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(K); \
     LIBXS_UNUSED(A); LIBXS_UNUSED(B); LIBXS_UNUSED(C); \
-    LIBXS_UNUSED(ALPHA); LIBXS_UNUSED(BETA)
+    LIBXS_UNUSED(ALPHA); LIBXS_UNUSED(BETA); \
+    LIBXS_UNUSED(FLAGS)
 #endif
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (single-precision). */
@@ -217,7 +222,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
   if (sizeof(double) == sizeof(*(A)) /*always true:*/&& 0 != (LDC)) { \
     LIBXS_BLAS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
-  else {\
+  else { \
     LIBXS_BLAS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
 }
@@ -260,7 +265,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
   if (sizeof(double) == sizeof(*(A)) /*always true:*/&& 0 != (LDC)) { \
     LIBXS_INLINE_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
-  else {\
+  else { \
     LIBXS_INLINE_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
 }
@@ -345,9 +350,17 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
   if (sizeof(double) == sizeof(*(A)) /*always true:*/&& 0 != (LDC)) { \
     LIBXS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
-  else {\
+  else { \
     LIBXS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
+}
+
+/** Call libxs_gemm_print using LIBXS's GEMM-flags. */
+#define LIBXS_GEMM_PRINT(OSTREAM, PRECISION, FLAGS, PM, PN, PK, PALPHA, A, PLDA, B, PLDB, PBETA, C, PLDC) { \
+  const char libxs_gemm_print_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
+  const char libxs_gemm_print_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
+  libxs_gemm_print(OSTREAM, PRECISION, &libxs_gemm_print_transa_, &libxs_gemm_print_transb_, \
+    PM, PN, PK, PALPHA, A, PLDA, B, PLDB, PBETA, C, PLDC); \
 }
 
 /**
@@ -362,5 +375,29 @@ LIBXS_API void libxs_gemm_print(void* ostream,
   const void* alpha, const void* a, const LIBXS_BLASINT* lda,
   const void* b, const LIBXS_BLASINT* ldb,
   const void* beta, void* c, const LIBXS_BLASINT* ldc);
+
+/** Structure to hold difference information. */
+typedef struct LIBXS_RETARGETABLE libxs_matdiff_info {
+  double norm_l1_max;
+  double norm_l1_rel;
+  double norm_l2;
+  double sum_ref;
+  double sum_tst;
+} libxs_matdiff_info;
+
+/** Utility function to calculate the difference between two matrices. */
+LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blasint n,
+  const void* ref, const void* tst, const libxs_blasint* ldref, const libxs_blasint* ldtst,
+  libxs_matdiff_info* info);
+
+LIBXS_API_INLINE void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input) {
+  assert(0 != output && 0 != input);
+  if (output->norm_l1_rel < input->norm_l1_rel) {
+    output->norm_l1_max = input->norm_l1_max;
+    output->norm_l1_rel = input->norm_l1_rel;
+    output->sum_ref = input->sum_ref;
+    output->sum_tst = input->sum_tst;
+  }
+}
 
 #endif /*LIBXS_FRONTEND_H*/

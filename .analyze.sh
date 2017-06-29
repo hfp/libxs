@@ -28,7 +28,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              #
 #############################################################################
 
-make CXX=clang++ CC=clang DBG=1 ECFLAGS=--analyze 2> .analyze.log
+make CXX=clang++ CC=clang DBG=1 ECFLAGS=--analyze $* 2> .analyze.log
 echo
 echo "================================================================================"
 echo "Errors (warnings)"

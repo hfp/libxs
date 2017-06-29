@@ -1320,11 +1320,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
       /* The following condition checks whether we have encountered an input which is listed in our benchmark LUT */
       /* if (flagBenchmark) printf("In benchmark\n"); */
       if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
-        if (handle->desc.C % 4 == 0) {
+        if (handle->blocksifm % 4 == 0) {
           wino_desc_fp.ur_ifm = 4;
-        } else if (handle->desc.C % 3 == 0) {
+        } else if (handle->blocksifm % 3 == 0) {
           wino_desc_fp.ur_ifm = 3;
-        } else if (handle->desc.C % 2 == 0) {
+        } else if (handle->blocksifm % 2 == 0) {
           wino_desc_fp.ur_ifm = 2;
         } else {
           wino_desc_fp.ur_ifm = 1;
@@ -1540,11 +1540,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
       }
 
       if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
-        if (handle->desc.K % 4 == 0) {
+        if (handle->blocksofm % 4 == 0) {
           wino_desc_bp.ur_ifm = 4;
-        } else if (handle->desc.K % 3 == 0) {
+        } else if (handle->blocksofm % 3 == 0) {
           wino_desc_bp.ur_ifm = 3;
-        } else if (handle->desc.K % 2 == 0) {
+        } else if (handle->blocksofm % 2 == 0) {
           wino_desc_bp.ur_ifm = 2;
         } else {
           wino_desc_bp.ur_ifm = 1;

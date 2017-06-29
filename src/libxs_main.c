@@ -133,30 +133,51 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
     RESULT_INDEX = LIBXS_MOD2((CACHE_HIT) + ((LIBXS_CAPACITY_CACHE) - 1), LIBXS_CAPACITY_CACHE)
 #endif
 
+#if defined(_DEBUG)
+# define INTERNAL_DISPATCH_DEBUG(RESULT, TYPE, FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA) \
+  if (0 != libxs_verbosity && 0 != (RESULT).pmm) { \
+    const libxs_blasint internal_dispatch_debug_m_ = M, internal_dispatch_debug_n_ = N, internal_dispatch_debug_k_ = K; \
+    const libxs_blasint internal_dispatch_debug_lda_ = (0 == (PLDA) ? M : *(PLDA)); \
+    const libxs_blasint internal_dispatch_debug_ldb_ = (0 == (PLDB) ? K : *(PLDB)); \
+    const libxs_blasint internal_dispatch_debug_ldc_ = (0 == (PLDC) ? M : *(PLDC)); \
+    LIBXS_FLOCK(stderr); \
+    fprintf(stderr, "LIBXS: "); \
+    LIBXS_GEMM_PRINT(stderr, LIBXS_GEMM_PRECISION(TYPE), FLAGS, \
+      &internal_dispatch_debug_m_, &internal_dispatch_debug_n_, &internal_dispatch_debug_k_, \
+      PALPHA, 0/*a*/, &internal_dispatch_debug_lda_, 0/*b*/, &internal_dispatch_debug_ldb_, PBETA, 0/*c*/, &internal_dispatch_debug_ldc_); \
+    fprintf(stderr, " = %p\n", (RESULT).pmm); \
+    LIBXS_FUNLOCK(stderr); \
+  }
+#else
+# define INTERNAL_DISPATCH_DEBUG(RESULT, TYPE, FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA)
+#endif
+
 #define INTERNAL_DISPATCH(TYPE, DESC, PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) { \
-  const int internal_dispatch_main_flags_ = (0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)); \
-  const int internal_dispatch_main_lda_ = (0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB)); \
-  const int internal_dispatch_main_ldb_ = (0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA)); \
-  const int internal_dispatch_main_ldc_ = (0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC)); \
-  const TYPE internal_dispatch_main_alpha_ = (TYPE)(0 == (PALPHA) ? (LIBXS_ALPHA) : *(PALPHA)); \
-  const TYPE internal_dispatch_main_beta_ = (TYPE)(0 == (PBETA) ? (LIBXS_BETA) : *(PBETA)); \
-  if (LIBXS_GEMM_NO_BYPASS(internal_dispatch_main_flags_, internal_dispatch_main_alpha_, internal_dispatch_main_beta_) && \
-    LIBXS_GEMM_NO_BYPASS_DIMS(internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_) && \
+  const int internal_dispatch_flags_ = (0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)); \
+  const int internal_dispatch_lda_ = (0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB)); \
+  const int internal_dispatch_ldb_ = (0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA)); \
+  const int internal_dispatch_ldc_ = (0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC)); \
+  const TYPE internal_dispatch_alpha_ = (TYPE)(0 == (PALPHA) ? (LIBXS_ALPHA) : *(PALPHA)); \
+  const TYPE internal_dispatch_beta_ = (TYPE)(0 == (PBETA) ? (LIBXS_BETA) : *(PBETA)); \
+  libxs_code_pointer internal_dispatch_result_; \
+  if (LIBXS_GEMM_NO_BYPASS(internal_dispatch_flags_, internal_dispatch_alpha_, internal_dispatch_beta_) && \
+    LIBXS_GEMM_NO_BYPASS_DIMS(internal_dispatch_lda_, internal_dispatch_ldb_, internal_dispatch_ldc_) && \
     LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K)) \
   { \
-    const int internal_dispatch_main_prefetch_ = (0 == (PREFETCH) ? libxs_gemm_auto_prefetch : *(PREFETCH)); \
-    LIBXS_GEMM_DESCRIPTOR_TYPE(DESC, LIBXS_GEMM_PRECISION(TYPE), internal_dispatch_main_flags_, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
-      internal_dispatch_main_lda_, internal_dispatch_main_ldb_, internal_dispatch_main_ldc_, internal_dispatch_main_alpha_, internal_dispatch_main_beta_, \
-      (0 > internal_dispatch_main_prefetch_ ? internal_gemm_auto_prefetch : internal_dispatch_main_prefetch_)); \
-    { \
-      return internal_find_code(&(DESC)).xmm.LIBXS_TPREFIX(TYPE, mm); \
-    } \
+    const int internal_dispatch_prefetch_ = (0 == (PREFETCH) ? libxs_gemm_auto_prefetch : *(PREFETCH)); \
+    LIBXS_GEMM_DESCRIPTOR_TYPE(DESC, LIBXS_GEMM_PRECISION(TYPE), internal_dispatch_flags_, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
+      internal_dispatch_lda_, internal_dispatch_ldb_, internal_dispatch_ldc_, internal_dispatch_alpha_, internal_dispatch_beta_, \
+      (0 > internal_dispatch_prefetch_ ? internal_gemm_auto_prefetch : internal_dispatch_prefetch_)); \
+    internal_dispatch_result_ = internal_find_code(&(DESC)); \
   } \
   else { /* bypass (not supported) */ \
     /* libxs_gemm_print is not suitable here since A, B, and C are unknown at this point */ \
     libxs_update_mmstatistic(LIBXS_GEMM_PRECISION(TYPE), LIBXS_LD(M, N), LIBXS_LD(N, M), K, 1/*try*/, 0); \
-    return 0; \
+    internal_dispatch_result_.pmm = 0; \
   } \
+  INTERNAL_DISPATCH_DEBUG(internal_dispatch_result_, TYPE, internal_dispatch_flags_, \
+    M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA); \
+  return internal_dispatch_result_.xmm.LIBXS_TPREFIX(TYPE, mm); \
 }
 
 #if !defined(LIBXS_NO_SYNC)
@@ -488,6 +509,7 @@ LIBXS_API_INLINE void internal_init(void)
     { const char *const env = getenv("LIBXS_SYNC");
       libxs_sync = (0 == env || 0 == *env) ? 1/*default*/ : atoi(env);
     }
+#if !defined(LIBXS_NO_SYNC)
     { const char *const env = getenv("LIBXS_TRYLOCK");
       if (0 == env || 0 == *env) {
         internal_reglock_count = INTERNAL_REGLOCK_MAXN;
@@ -498,6 +520,7 @@ LIBXS_API_INLINE void internal_init(void)
       }
       assert(1 <= internal_reglock_count);
     }
+#endif
     /* clear internal counters/statistic */
     for (i = 0; i < 4/*sml/med/big/xxx*/; ++i) {
       memset(&internal_statistic[0/*DP*/][i], 0, sizeof(internal_statistic_type));
@@ -890,10 +913,14 @@ LIBXS_API_DEFINITION int libxs_get_dispatch_trylock(void)
 
 LIBXS_API_DEFINITION void libxs_set_dispatch_trylock(int trylock)
 {
+#if defined(LIBXS_NO_SYNC)
+  LIBXS_UNUSED(trylock);
+#else
   LIBXS_INIT
   if (0 == internal_dispatch_trylock_locked) { /* LIBXS_TRYLOCK environment takes precedence */
     LIBXS_ATOMIC_STORE(&internal_reglock_count, 0 != trylock ? 1 : INTERNAL_REGLOCK_MAXN, LIBXS_ATOMIC_RELAXED);
   }
+#endif
 }
 
 
@@ -926,8 +953,8 @@ LIBXS_API_DEFINITION const char* internal_get_typename(int datatype)
 }
 
 
-LIBXS_API const char* internal_get_typesizename(size_t typesize);
-LIBXS_API_DEFINITION const char* internal_get_typesizename(size_t typesize)
+LIBXS_API const char* internal_get_typesize_string(size_t typesize);
+LIBXS_API_DEFINITION const char* internal_get_typesize_string(size_t typesize)
 {
   static LIBXS_TLS char result[4];
   assert(256 > typesize);
@@ -1207,7 +1234,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const tsizename = internal_get_typesizename(request->descriptor.matcopy->typesize);
+          const char *const tsizename = internal_get_typesize_string(request->descriptor.matcopy->typesize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_p%u.mcopy", target_arch, tsizename,
             request->descriptor.matcopy->m, request->descriptor.matcopy->n,
@@ -1224,7 +1251,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const tsizename = internal_get_typesizename(request->descriptor.trans->typesize);
+          const char *const tsizename = internal_get_typesize_string(request->descriptor.trans->typesize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u.trans", target_arch, tsizename,
             request->descriptor.trans->m, request->descriptor.trans->n);
@@ -1682,6 +1709,131 @@ LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
       fprintf(stderr, "LIBXS: failed to release kernel!\n");
     }
   }
+}
+
+
+LIBXS_API_DEFINITION int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blasint n,
+  const void* ref, const void* tst, const libxs_blasint* ldref, const libxs_blasint* ldtst,
+  libxs_matdiff_info* info)
+{
+  int result = EXIT_SUCCESS;
+  if (0 != ref && 0 != tst && 0 != info) {
+    const libxs_blasint ildref = (0 == ldref ? m : *ldref), ildtst = (0 == ldtst ? m : *ldtst);
+    double comp_ref = 0, comp_tst = 0, comp_d = 0; /* Kahan compensations */
+    libxs_blasint i, j;
+    memset(info, 0, sizeof(*info)); /* nullify */
+    switch(datatype) {
+      case LIBXS_DATATYPE_F64: {
+        const double *const real_ref = (const double*)ref, *const real_tst = (const double*)tst;
+        for (i = 0; i < n; ++i) {
+          for (j = 0; j < m; ++j) {
+            const double refi = real_ref[i*ildref+j], tsti = real_tst[i*ildtst+j];
+            const double refa = LIBXS_ABS(refi), di = LIBXS_ABS(refi - tsti);
+            double v0 = refi - comp_ref, v1 = info->sum_ref + v0;
+            if (info->norm_l1_max < di) info->norm_l1_max = di;
+            comp_ref = (v1 - info->sum_ref) - v0;
+            info->sum_ref = v1;
+            v0 = tsti - comp_tst, v1 = info->sum_tst + v0;
+            comp_tst = (v1 - info->sum_tst) - v0;
+            info->sum_tst = v1;
+            v0 = di * di - comp_d, v1 = info->norm_l2 + v0;
+            comp_d = (v1 - info->norm_l2) - v0;
+            info->norm_l2 = v1;
+            if (0 < refa) {
+              const double norm_l1_rel = di / refa;
+              if (info->norm_l1_rel < norm_l1_rel) info->norm_l1_rel = norm_l1_rel;
+            }
+          }
+        }
+      } break;
+      case LIBXS_DATATYPE_F32: {
+        const float *const real_ref = (const float*)ref, *const real_tst = (const float*)tst;
+        for (i = 0; i < n; ++i) {
+          for (j = 0; j < m; ++j) {
+            const double refi = real_ref[i*ildref+j], tsti = real_tst[i*ildtst+j];
+            const double refa = LIBXS_ABS(refi), di = LIBXS_ABS(refi - tsti);
+            double v0 = refi - comp_ref, v1 = info->sum_ref + v0;
+            if (info->norm_l1_max < di) info->norm_l1_max = di;
+            comp_ref = (v1 - info->sum_ref) - v0;
+            info->sum_ref = v1;
+            v0 = tsti - comp_tst, v1 = info->sum_tst + v0;
+            comp_tst = (v1 - info->sum_tst) - v0;
+            info->sum_tst = v1;
+            v0 = di * di - comp_d, v1 = info->norm_l2 + v0;
+            comp_d = (v1 - info->norm_l2) - v0;
+            info->norm_l2 = v1;
+            if (0 < refa) {
+              const double norm_l1_rel = di / refa;
+              if (info->norm_l1_rel < norm_l1_rel) info->norm_l1_rel = norm_l1_rel;
+            }
+          }
+        }
+      } break;
+      case LIBXS_DATATYPE_I16: {
+        const short *const real_ref = (const short*)ref, *const real_tst = (const short*)tst;
+        for (i = 0; i < n; ++i) {
+          for (j = 0; j < m; ++j) {
+            const double refi = real_ref[i*ildref+j], tsti = real_tst[i*ildtst+j];
+            const double refa = LIBXS_ABS(refi), di = LIBXS_ABS(refi - tsti);
+            double v0 = refi - comp_ref, v1 = info->sum_ref + v0;
+            if (info->norm_l1_max < di) info->norm_l1_max = di;
+            comp_ref = (v1 - info->sum_ref) - v0;
+            info->sum_ref = v1;
+            v0 = tsti - comp_tst, v1 = info->sum_tst + v0;
+            comp_tst = (v1 - info->sum_tst) - v0;
+            info->sum_tst = v1;
+            v0 = di * di - comp_d, v1 = info->norm_l2 + v0;
+            comp_d = (v1 - info->norm_l2) - v0;
+            info->norm_l2 = v1;
+            if (0 < refa) {
+              const double norm_l1_rel = di / refa;
+              if (info->norm_l1_rel < norm_l1_rel) info->norm_l1_rel = norm_l1_rel;
+            }
+          }
+        }
+      } break;
+      case LIBXS_DATATYPE_I8: {
+        const signed char *const real_ref = (const signed char*)ref, *const real_tst = (const signed char*)tst;
+        for (i = 0; i < n; ++i) {
+          for (j = 0; j < m; ++j) {
+            const double refi = real_ref[i*ildref+j], tsti = real_tst[i*ildtst+j];
+            const double refa = LIBXS_ABS(refi), di = LIBXS_ABS(refi - tsti);
+            double v0 = refi - comp_ref, v1 = info->sum_ref + v0;
+            if (info->norm_l1_max < di) info->norm_l1_max = di;
+            comp_ref = (v1 - info->sum_ref) - v0;
+            info->sum_ref = v1;
+            v0 = tsti - comp_tst, v1 = info->sum_tst + v0;
+            comp_tst = (v1 - info->sum_tst) - v0;
+            info->sum_tst = v1;
+            v0 = di * di - comp_d, v1 = info->norm_l2 + v0;
+            comp_d = (v1 - info->norm_l2) - v0;
+            info->norm_l2 = v1;
+            if (0 < refa) {
+              const double norm_l1_rel = di / refa;
+              if (info->norm_l1_rel < norm_l1_rel) info->norm_l1_rel = norm_l1_rel;
+            }
+          }
+        }
+      } break;
+      default: {
+        static int error_once = 0;
+        if (0 != libxs_verbosity /* library code is expected to be mute */
+         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
+          fprintf(stderr, "LIBXS: unsupported data-type requested for libxs_matdiff!\n");
+        }
+        result = EXIT_FAILURE;
+      }
+    }
+  }
+  else {
+    result = EXIT_FAILURE;
+  }
+  if (EXIT_SUCCESS == result && 0 < info->norm_l2) { /* square-root without libm dependency */
+    const double squared = info->norm_l2; int i; info->norm_l2 *= 0.5;
+    for (i = 0; i < 8; ++i) info->norm_l2 = 0.5 * (info->norm_l2 + squared / info->norm_l2);
+  }
+  return result;
 }
 
 

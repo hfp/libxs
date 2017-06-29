@@ -213,7 +213,15 @@ ifeq (1,$(AVX_STATIC))
 else ifeq (2,$(AVX_STATIC))
   GENTARGET = hsw
 else ifeq (3,$(AVX_STATIC))
-  GENTARGET = knl
+  ifneq (0,$(MIC))
+    ifeq (2,$(MIC))
+      GENTARGET = knm
+    else
+      GENTARGET = knl
+    endif
+  else
+    GENTARGET = skx
+  endif
 else ifneq (0,$(SSE))
   GENTARGET = wsm
 else
@@ -234,6 +242,7 @@ NINDICES = $(words $(INDICES))
 
 HEADERS = $(wildcard $(SRCDIR)/template/*.c) $(wildcard $(SRCDIR)/*.h) \
           $(SRCDIR)/libxs_hash.c $(SRCDIR)/libxs_gemm_diff.c \
+          $(ROOTDIR)/include/libxs_bgemm.h \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \
           $(ROOTDIR)/include/libxs_frontend.h \
@@ -249,14 +258,14 @@ HEADERS = $(wildcard $(SRCDIR)/template/*.c) $(wildcard $(SRCDIR)/*.h) \
 SRCFILES_LIB = $(patsubst %,$(SRCDIR)/%, \
           libxs_main.c libxs_cpuid_x86.c libxs_malloc.c \
           libxs_sync.c libxs_dump.c libxs_timer.c libxs_perf.c \
-          libxs_gemm.c libxs_trans.c libxs_spmdm.c libxs_fsspmdm.c \
+          libxs_gemm.c libxs_trans.c libxs_bgemm.c \
+          libxs_spmdm.c libxs_fsspmdm.c \
           libxs_dnn.c libxs_dnn_handle.c \
           libxs_dnn_convolution_forward.c \
           libxs_dnn_convolution_backward.c \
           libxs_dnn_convolution_weight_update.c \
           libxs_dnn_convolution_winograd_forward.c \
           libxs_dnn_convolution_winograd_backward.c \
-					libxs_blkgemm.c \
           libxs_dnn_convolution_winograd_weight_update.o )
 
 SRCFILES_KERNELS = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
@@ -274,9 +283,13 @@ OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/%.o,$(basename $(notdir $(SRCFILES_LIB
 KRNOBJS_HST  = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
 KRNOBJS_MIC  = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
 EXTOBJS_HST  = $(BLDDIR)/intel64/libxs_ext.o \
-               $(BLDDIR)/intel64/libxs_ext_gemm.o $(BLDDIR)/intel64/libxs_ext_trans.o
+               $(BLDDIR)/intel64/libxs_ext_trans.o \
+               $(BLDDIR)/intel64/libxs_ext_bgemm.o \
+               $(BLDDIR)/intel64/libxs_ext_gemm.o
 EXTOBJS_MIC  = $(BLDDIR)/mic/libxs_ext.o \
-               $(BLDDIR)/mic/libxs_ext_gemm.o $(BLDDIR)/mic/libxs_ext_trans.o
+               $(BLDDIR)/mic/libxs_ext_trans.o \
+               $(BLDDIR)/mic/libxs_ext_bgemm.o \
+               $(BLDDIR)/mic/libxs_ext_gemm.o
 NOBLAS_HST   = $(BLDDIR)/intel64/libxs_noblas.o
 NOBLAS_MIC   = $(BLDDIR)/mic/libxs_noblas.o
 
@@ -440,6 +453,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config
 	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
 		$(ROOTDIR)/.hooks/install.sh; \
 	fi
+	@cp $(ROOTDIR)/include/libxs_bgemm.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_cpuid.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_dnn.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2> /dev/null || true
