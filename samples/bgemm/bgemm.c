@@ -48,6 +48,12 @@
 # define REAL_TYPE float
 #endif
 
+#if !defined(CHECK) && \
+  (!defined(__BLAS) || (0 != __BLAS)) && /* BLAS evailable */ \
+  (LIBXS_EQUAL(REAL_TYPE, float) || LIBXS_EQUAL(REAL_TYPE, double))
+# define CHECK
+#endif
+
 
 LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT dst,
   libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
@@ -108,7 +114,7 @@ int main(int argc, char* argv[])
     libxs_bgemm_handle* handle = 0;
     unsigned long long start;
     double duration;
-#if !defined(__BLAS) || (0 != __BLAS)
+#if defined(CHECK)
     const char *const env_check = getenv("CHECK");
     const double check = LIBXS_ABS(0 == env_check ? 0 : atof(env_check));
 #endif
@@ -128,7 +134,7 @@ int main(int argc, char* argv[])
 #endif
       /* warmup OpenMP (populate thread pool) */
       libxs_bgemm_omp(handle, a, b, c, 1);
-#if !defined(__BLAS) || (0 != __BLAS)
+#if defined(CHECK)
       if (!LIBXS_FEQ(0, check)) {
         LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
       }
@@ -143,7 +149,7 @@ int main(int argc, char* argv[])
       if (0 < duration) {
         fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops * nrepeat / duration);
       }
-#if !defined(__BLAS) || (0 != __BLAS)
+#if defined(CHECK)
       if (!LIBXS_FEQ(0, check)) { /* validate result against LAPACK/BLAS xGEMM */
         libxs_matdiff_info matdiff_info;
         REAL_TYPE* ctest = 0;
@@ -178,6 +184,7 @@ int main(int argc, char* argv[])
       libxs_bgemm_handle_destroy(handle);
     }
     else {
+      fprintf(stderr, "FAILED to create BGEMM-handle! For details retry with LIBXS_VERBOSE=1.\n");
       result = EXIT_FAILURE;
     }
     libxs_free(agold);
@@ -191,3 +198,4 @@ int main(int argc, char* argv[])
 
   return result;
 }
+

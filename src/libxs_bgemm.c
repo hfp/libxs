@@ -123,7 +123,7 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_pr
         assert(0 == ((n / handle.b_n1) % bn));
         assert(0 == ((m / handle.b_m1) % bm));
         handle.kernel = libxs_xmmdispatch(&descriptor);
-        if (LIBXS_PREFETCH_NONE != prefetch && LIBXS_PREFETCH_SIGONLY != prefetch) {
+        if (0 != handle.kernel.smm && LIBXS_PREFETCH_NONE != prefetch && LIBXS_PREFETCH_SIGONLY != prefetch) {
           if (LIBXS_PREFETCH_AUTO == prefetch) { /* automatically chosen */
             /* TODO: more sophisticated strategy perhaps according to CPUID */
             descriptor.prefetch = LIBXS_PREFETCH_AL2BL2_VIA_C;
