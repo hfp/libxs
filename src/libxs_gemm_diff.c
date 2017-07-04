@@ -165,7 +165,7 @@ unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const l
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: unable to enter SSE code path!\n");
+      fprintf(stderr, "LIBXS WARNING: unable to enter SSE code path!\n");
     }
   }
   return libxs_gemm_diff_sw(reference, desc);
@@ -205,7 +205,7 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: unable to enter AVX code path!\n");
+      fprintf(stderr, "LIBXS WARNING: unable to enter AVX code path!\n");
     }
   }
   return libxs_gemm_diff_sse(reference, desc);
@@ -247,7 +247,7 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
+      fprintf(stderr, "LIBXS WARNING: unable to enter AVX2 code path!\n");
     }
   }
   return libxs_gemm_diff_avx(reference, desc);
@@ -375,7 +375,7 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference,
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: unable to enter AVX code path!\n");
+      fprintf(stderr, "LIBXS WARNING: unable to enter AVX code path!\n");
     }
   }
   return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
@@ -429,7 +429,7 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference,
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: unable to enter AVX2 code path!\n");
+      fprintf(stderr, "LIBXS WARNING: unable to enter AVX2 code path!\n");
     }
   }
   return libxs_gemm_diffn_avx(reference, descs, hint, ndescs, nbytes);
@@ -485,7 +485,7 @@ unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: unable to enter AVX-512 code path!\n");
+      fprintf(stderr, "LIBXS WARNING: unable to enter AVX-512 code path!\n");
     }
   }
   return libxs_gemm_diffn_avx2(reference, descs, hint, ndescs, nbytes);

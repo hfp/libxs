@@ -140,13 +140,13 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
     const libxs_blasint internal_dispatch_debug_lda_ = (0 == (PLDA) ? M : *(PLDA)); \
     const libxs_blasint internal_dispatch_debug_ldb_ = (0 == (PLDB) ? K : *(PLDB)); \
     const libxs_blasint internal_dispatch_debug_ldc_ = (0 == (PLDC) ? M : *(PLDC)); \
-    LIBXS_FLOCK(stderr); \
-    fprintf(stderr, "LIBXS: "); \
-    LIBXS_GEMM_PRINT(stderr, LIBXS_GEMM_PRECISION(TYPE), FLAGS, \
+    LIBXS_FLOCK(stdout); \
+    fprintf(stdout, "LIBXS: "); \
+    LIBXS_GEMM_PRINT(stdout, LIBXS_GEMM_PRECISION(TYPE), FLAGS, \
       &internal_dispatch_debug_m_, &internal_dispatch_debug_n_, &internal_dispatch_debug_k_, \
       PALPHA, 0/*a*/, &internal_dispatch_debug_lda_, 0/*b*/, &internal_dispatch_debug_ldb_, PBETA, 0/*c*/, &internal_dispatch_debug_ldc_); \
-    fprintf(stderr, " = %p\n", (RESULT).pmm); \
-    LIBXS_FUNLOCK(stderr); \
+    fprintf(stdout, " = %p\n", (RESULT).pmm); \
+    LIBXS_FUNLOCK(stdout); \
   }
 #else
 # define INTERNAL_DISPATCH_DEBUG(RESULT, TYPE, FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA)
@@ -154,9 +154,9 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 
 #define INTERNAL_DISPATCH(TYPE, DESC, PFLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA, PREFETCH) { \
   const int internal_dispatch_flags_ = (0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS)); \
-  const int internal_dispatch_lda_ = (0 == LIBXS_LD(PLDA, PLDB) ? LIBXS_LD(M, N) : *LIBXS_LD(PLDA, PLDB)); \
-  const int internal_dispatch_ldb_ = (0 == LIBXS_LD(PLDB, PLDA) ? (K) : *LIBXS_LD(PLDB, PLDA)); \
-  const int internal_dispatch_ldc_ = (0 == (PLDC) ? LIBXS_LD(M, N) : *(PLDC)); \
+  const int internal_dispatch_lda_ = (0 == (PLDA) ? (M) : *(PLDA)); \
+  const int internal_dispatch_ldb_ = (0 == (PLDB) ? (K) : *(PLDB)); \
+  const int internal_dispatch_ldc_ = (0 == (PLDC) ? (M) : *(PLDC)); \
   const TYPE internal_dispatch_alpha_ = (TYPE)(0 == (PALPHA) ? (LIBXS_ALPHA) : *(PALPHA)); \
   const TYPE internal_dispatch_beta_ = (TYPE)(0 == (PBETA) ? (LIBXS_BETA) : *(PBETA)); \
   libxs_code_pointer internal_dispatch_result_; \
@@ -165,14 +165,14 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
     LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K)) \
   { \
     const int internal_dispatch_prefetch_ = (0 == (PREFETCH) ? libxs_gemm_auto_prefetch : *(PREFETCH)); \
-    LIBXS_GEMM_DESCRIPTOR_TYPE(DESC, LIBXS_GEMM_PRECISION(TYPE), internal_dispatch_flags_, LIBXS_LD(M, N), LIBXS_LD(N, M), K, \
+    LIBXS_GEMM_DESCRIPTOR_TYPE(DESC, LIBXS_GEMM_PRECISION(TYPE), internal_dispatch_flags_, M, N, K, \
       internal_dispatch_lda_, internal_dispatch_ldb_, internal_dispatch_ldc_, internal_dispatch_alpha_, internal_dispatch_beta_, \
       (0 > internal_dispatch_prefetch_ ? internal_gemm_auto_prefetch : internal_dispatch_prefetch_)); \
     internal_dispatch_result_ = internal_find_code(&(DESC)); \
   } \
   else { /* bypass (not supported) */ \
     /* libxs_gemm_print is not suitable here since A, B, and C are unknown at this point */ \
-    libxs_update_mmstatistic(LIBXS_GEMM_PRECISION(TYPE), LIBXS_LD(M, N), LIBXS_LD(N, M), K, 1/*try*/, 0); \
+    libxs_update_mmstatistic(LIBXS_GEMM_PRECISION(TYPE), M, N, K, 1/*try*/, 0); \
     internal_dispatch_result_.pmm = 0; \
   } \
   INTERNAL_DISPATCH_DEBUG(internal_dispatch_result_, TYPE, internal_dispatch_flags_, \
@@ -428,9 +428,6 @@ LIBXS_API_INLINE void internal_finalize(void)
       if (1 < libxs_verbosity || 0 > libxs_verbosity) {
         fprintf(stderr, "\nLIBXS_VERSION=%s-%s", LIBXS_BRANCH, LIBXS_VERSION);
       }
-      else {
-        fprintf(stderr, "\n");
-      }
       linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && 0 != target_arch) {
         fprintf(stderr, "\nLIBXS_TARGET=%s", target_arch);
@@ -447,7 +444,7 @@ LIBXS_API_INLINE void internal_finalize(void)
       }
       if (EXIT_SUCCESS == libxs_get_scratch_info(&scratch_info) && 0 < scratch_info.size) {
         fprintf(stderr, "\nScratch: %.f MB", 1.0 * scratch_info.size / (1 << 20));
-        if (1 < libxs_verbosity) {
+        if (1 < libxs_verbosity || 0 > libxs_verbosity) {
           fprintf(stderr, " (mallocs=%lu, pools=%u)\n",
             (unsigned long int)scratch_info.nmallocs,
             scratch_info.npools);
@@ -626,7 +623,7 @@ LIBXS_API_INLINE void internal_init(void)
       }
       else {
         if (0 != libxs_verbosity) { /* library code is expected to be mute */
-          fprintf(stderr, "LIBXS: failed to allocate code registry!\n");
+          fprintf(stderr, "LIBXS ERROR: failed to allocate code registry!\n");
         }
         free(internal_registry_keys);
         free(result);
@@ -634,7 +631,7 @@ LIBXS_API_INLINE void internal_init(void)
     }
 #if defined(__TRACE)
     else if (0 != libxs_verbosity) { /* library code is expected to be mute */
-      fprintf(stderr, "LIBXS: failed to initialize TRACE (error #%i)!\n", init_code);
+      fprintf(stderr, "LIBXS ERROR: failed to initialize TRACE (error #%i)!\n", init_code);
     }
 #endif
   }
@@ -696,7 +693,7 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 #if defined(__TRACE)
       i = libxs_trace_finalize();
       if (EXIT_SUCCESS != i && 0 != libxs_verbosity) { /* library code is expected to be mute */
-        fprintf(stderr, "LIBXS: failed to finalize trace (error #%i)!\n", i);
+        fprintf(stderr, "LIBXS ERROR: failed to finalize trace (error #%i)!\n", i);
       }
 #endif
       libxs_gemm_finalize();
@@ -806,7 +803,7 @@ LIBXS_API_DEFINITION void libxs_set_target_archid(int id)
     const int cpuid = libxs_cpuid();
     if (cpuid < libxs_target_archid) {
       const char *const target_arch = internal_get_target_arch(libxs_target_archid);
-      fprintf(stderr, "LIBXS: \"%s\" code will fail to run on \"%s\"!\n",
+      fprintf(stderr, "LIBXS WARNING: \"%s\" code will fail to run on \"%s\"!\n",
         target_arch, internal_get_target_arch(cpuid));
     }
   }
@@ -882,7 +879,7 @@ LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
     const int cpuid = libxs_cpuid();
     if (cpuid < target_archid) {
       const char *const target_arch = internal_get_target_arch(target_archid);
-      fprintf(stderr, "LIBXS: \"%s\" code will fail to run on \"%s\"!\n",
+      fprintf(stderr, "LIBXS WARNING: \"%s\" code will fail to run on \"%s\"!\n",
         target_arch, internal_get_target_arch(cpuid));
     }
   }
@@ -1262,7 +1259,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
     default: { /* unknown kind */
       static int error_once = 0;
       if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS: invalid build request discovered!\n");
+        fprintf(stderr, "LIBXS ERROR: invalid build request discovered!\n");
       }
       result = EXIT_FAILURE;
     }
@@ -1699,14 +1696,14 @@ LIBXS_API_DEFINITION void libxs_release_kernel(const void* jit_code)
     }
 #if !defined(NDEBUG)
     else { /* TODO: implement to unregister GEMM kernels */
-      fprintf(stderr, "LIBXS: attempt to unregister a JIT-kernel!\n");
+      fprintf(stderr, "LIBXS WARNING: attempt to unregister a JIT-kernel!\n");
     }
 #endif
   }
   else if (0 != libxs_verbosity) { /* library code is expected to be mute */
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: failed to release kernel!\n");
+      fprintf(stderr, "LIBXS WARNING: failed to release kernel!\n");
     }
   }
 }
@@ -1724,103 +1721,36 @@ LIBXS_API_DEFINITION int libxs_matdiff(libxs_datatype datatype, libxs_blasint m,
     memset(info, 0, sizeof(*info)); /* nullify */
     switch(datatype) {
       case LIBXS_DATATYPE_F64: {
-        const double *const real_ref = (const double*)ref, *const real_tst = (const double*)tst;
-        for (i = 0; i < n; ++i) {
-          for (j = 0; j < m; ++j) {
-            const double refi = real_ref[i*ildref+j], tsti = real_tst[i*ildtst+j];
-            const double refa = LIBXS_ABS(refi), di = LIBXS_ABS(refi - tsti);
-            double v0 = refi - comp_ref, v1 = info->sum_ref + v0;
-            if (info->norm_l1_max < di) info->norm_l1_max = di;
-            comp_ref = (v1 - info->sum_ref) - v0;
-            info->sum_ref = v1;
-            v0 = tsti - comp_tst, v1 = info->sum_tst + v0;
-            comp_tst = (v1 - info->sum_tst) - v0;
-            info->sum_tst = v1;
-            v0 = di * di - comp_d, v1 = info->norm_l2 + v0;
-            comp_d = (v1 - info->norm_l2) - v0;
-            info->norm_l2 = v1;
-            if (0 < refa) {
-              const double norm_l1_rel = di / refa;
-              if (info->norm_l1_rel < norm_l1_rel) info->norm_l1_rel = norm_l1_rel;
-            }
-          }
-        }
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE double
+#       include "template/libxs_matdiff.tpl.c"
+#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
       } break;
       case LIBXS_DATATYPE_F32: {
-        const float *const real_ref = (const float*)ref, *const real_tst = (const float*)tst;
-        for (i = 0; i < n; ++i) {
-          for (j = 0; j < m; ++j) {
-            const double refi = real_ref[i*ildref+j], tsti = real_tst[i*ildtst+j];
-            const double refa = LIBXS_ABS(refi), di = LIBXS_ABS(refi - tsti);
-            double v0 = refi - comp_ref, v1 = info->sum_ref + v0;
-            if (info->norm_l1_max < di) info->norm_l1_max = di;
-            comp_ref = (v1 - info->sum_ref) - v0;
-            info->sum_ref = v1;
-            v0 = tsti - comp_tst, v1 = info->sum_tst + v0;
-            comp_tst = (v1 - info->sum_tst) - v0;
-            info->sum_tst = v1;
-            v0 = di * di - comp_d, v1 = info->norm_l2 + v0;
-            comp_d = (v1 - info->norm_l2) - v0;
-            info->norm_l2 = v1;
-            if (0 < refa) {
-              const double norm_l1_rel = di / refa;
-              if (info->norm_l1_rel < norm_l1_rel) info->norm_l1_rel = norm_l1_rel;
-            }
-          }
-        }
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE float
+#       include "template/libxs_matdiff.tpl.c"
+#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+      } break;
+      case LIBXS_DATATYPE_I32: {
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE int
+#       include "template/libxs_matdiff.tpl.c"
+#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
       } break;
       case LIBXS_DATATYPE_I16: {
-        const short *const real_ref = (const short*)ref, *const real_tst = (const short*)tst;
-        for (i = 0; i < n; ++i) {
-          for (j = 0; j < m; ++j) {
-            const double refi = real_ref[i*ildref+j], tsti = real_tst[i*ildtst+j];
-            const double refa = LIBXS_ABS(refi), di = LIBXS_ABS(refi - tsti);
-            double v0 = refi - comp_ref, v1 = info->sum_ref + v0;
-            if (info->norm_l1_max < di) info->norm_l1_max = di;
-            comp_ref = (v1 - info->sum_ref) - v0;
-            info->sum_ref = v1;
-            v0 = tsti - comp_tst, v1 = info->sum_tst + v0;
-            comp_tst = (v1 - info->sum_tst) - v0;
-            info->sum_tst = v1;
-            v0 = di * di - comp_d, v1 = info->norm_l2 + v0;
-            comp_d = (v1 - info->norm_l2) - v0;
-            info->norm_l2 = v1;
-            if (0 < refa) {
-              const double norm_l1_rel = di / refa;
-              if (info->norm_l1_rel < norm_l1_rel) info->norm_l1_rel = norm_l1_rel;
-            }
-          }
-        }
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE short
+#       include "template/libxs_matdiff.tpl.c"
+#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
       } break;
       case LIBXS_DATATYPE_I8: {
-        const signed char *const real_ref = (const signed char*)ref, *const real_tst = (const signed char*)tst;
-        for (i = 0; i < n; ++i) {
-          for (j = 0; j < m; ++j) {
-            const double refi = real_ref[i*ildref+j], tsti = real_tst[i*ildtst+j];
-            const double refa = LIBXS_ABS(refi), di = LIBXS_ABS(refi - tsti);
-            double v0 = refi - comp_ref, v1 = info->sum_ref + v0;
-            if (info->norm_l1_max < di) info->norm_l1_max = di;
-            comp_ref = (v1 - info->sum_ref) - v0;
-            info->sum_ref = v1;
-            v0 = tsti - comp_tst, v1 = info->sum_tst + v0;
-            comp_tst = (v1 - info->sum_tst) - v0;
-            info->sum_tst = v1;
-            v0 = di * di - comp_d, v1 = info->norm_l2 + v0;
-            comp_d = (v1 - info->norm_l2) - v0;
-            info->norm_l2 = v1;
-            if (0 < refa) {
-              const double norm_l1_rel = di / refa;
-              if (info->norm_l1_rel < norm_l1_rel) info->norm_l1_rel = norm_l1_rel;
-            }
-          }
-        }
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE signed char
+#       include "template/libxs_matdiff.tpl.c"
+#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
       } break;
       default: {
         static int error_once = 0;
         if (0 != libxs_verbosity /* library code is expected to be mute */
          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
-          fprintf(stderr, "LIBXS: unsupported data-type requested for libxs_matdiff!\n");
+          fprintf(stderr, "LIBXS ERROR: unsupported data-type requested for libxs_matdiff!\n");
         }
         result = EXIT_FAILURE;
       }
@@ -1865,23 +1795,24 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn, const l
 {
 #if !defined(NDEBUG) /* this should not happen */
   static int error_once = 0;
-  if (0 != fn && 0 != m && 0 != n && 0 != k)
+  if (0 != fn && 0 != m)
 #endif
   {
     const libxs_gemm_precision gemm_precision = (0 != precision ? *precision : LIBXS_GEMM_PRECISION_F64);
+    const int kk = *(0 != k ? k : m), nn = (0 != n ? *n : kk);
     switch (gemm_precision) {
       case LIBXS_GEMM_PRECISION_F64: {
-        *fn = (intptr_t)libxs_dmmdispatch(*m, *n, *k, lda, ldb, ldc,
+        *fn = (intptr_t)libxs_dmmdispatch(*m, nn, kk, lda, ldb, ldc,
           (const double*)alpha, (const double*)beta,
           flags, prefetch);
       } break;
       case LIBXS_GEMM_PRECISION_F32: {
-        *fn = (intptr_t)libxs_smmdispatch(*m, *n, *k, lda, ldb, ldc,
+        *fn = (intptr_t)libxs_smmdispatch(*m, nn, kk, lda, ldb, ldc,
           (const float*)alpha, (const float*)beta,
           flags, prefetch);
       } break;
       case LIBXS_GEMM_PRECISION_I16: {
-        *fn = (intptr_t)libxs_wmmdispatch(*m, *n, *k, lda, ldb, ldc,
+        *fn = (intptr_t)libxs_wmmdispatch(*m, nn, kk, lda, ldb, ldc,
           (const int*)alpha, (const int*)beta,
           flags, prefetch);
       } break;
@@ -1890,7 +1821,7 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn, const l
         if (0 != libxs_verbosity /* library code is expected to be mute */
          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
-          fprintf(stderr, "LIBXS: invalid precision requested for libxs_xmmdispatch!\n");
+          fprintf(stderr, "LIBXS ERROR: invalid precision requested for libxs_xmmdispatch!\n");
         }
         *fn = 0;
       }
@@ -1902,7 +1833,7 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn, const l
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: invalid M, N, or K passed into libxs_xmmdispatch!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid M, N, or K passed into libxs_xmmdispatch!\n");
     }
     if (0 != fn) *fn = 0;
   }
@@ -1931,7 +1862,7 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
     else if (0 != libxs_verbosity /* library code is expected to be mute */
           && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: NULL-function passed into libxs_xmmcall_abc!\n");
+      fprintf(stderr, "LIBXS ERROR: NULL-function passed into libxs_xmmcall_abc!\n");
     }
 #endif
   }
@@ -1939,7 +1870,7 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
   else if (0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
-    fprintf(stderr, "LIBXS: invalid arguments for libxs_xmmcall_abc specified!\n");
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xmmcall_abc specified!\n");
   }
 #endif
 }
@@ -1968,7 +1899,7 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
     else if (0 != libxs_verbosity /* library code is expected to be mute */
           && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: NULL-function passed into libxs_xmmcall_prf!\n");
+      fprintf(stderr, "LIBXS ERROR: NULL-function passed into libxs_xmmcall_prf!\n");
     }
 #endif
   }
@@ -1976,7 +1907,7 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
   else if (0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
-    fprintf(stderr, "LIBXS: invalid arguments for libxs_xmmcall_prf specified!\n");
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xmmcall_prf specified!\n");
   }
 #endif
 }

@@ -245,7 +245,7 @@ LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
       if (0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
-        fprintf(stderr, "LIBXS: allocator setup without malloc or free function!\n");
+        fprintf(stderr, "LIBXS ERROR: allocator setup without malloc or free function!\n");
       }
       /* keep any valid (previously instantiated) default allocator */
       if (0 == libxs_default_malloc_fn.function || 0 == libxs_default_free_fn.function) {
@@ -283,7 +283,7 @@ LIBXS_API_DEFINITION int libxs_xget_default_allocator(LIBXS_LOCK_TYPE* lock,
   else if (0 != libxs_verbosity) { /* library code is expected to be mute */
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid signature used to get the default memory allocator!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid signature used to get the default memory allocator!\n");
     }
     result = EXIT_FAILURE;
   }
@@ -317,7 +317,7 @@ LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
       && /*warning*/(1 < libxs_verbosity || 0 > libxs_verbosity)
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: scratch allocator setup without free function!\n");
+      fprintf(stderr, "LIBXS WARNING: scratch allocator setup without free function!\n");
     }
     libxs_scratch_allocator_context = context;
     libxs_scratch_malloc_fn = malloc_fn;
@@ -327,7 +327,7 @@ LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
     if (0 != libxs_verbosity /* library code is expected to be mute */
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: invalid scratch allocator (default used)!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid scratch allocator (default used)!\n");
     }
     /* keep any valid (previously instantiated) scratch allocator */
     if (0 == libxs_scratch_malloc_fn.function) {
@@ -364,7 +364,7 @@ LIBXS_API_DEFINITION int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE* lock,
   else if (0 != libxs_verbosity) { /* library code is expected to be mute */
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid signature used to get the scratch memory allocator!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid signature used to get the scratch memory allocator!\n");
     }
     result = EXIT_FAILURE;
   }
@@ -434,7 +434,7 @@ LIBXS_API_DEFINITION int libxs_get_malloc_xinfo(const void* memory, size_t* size
         if (0 != libxs_verbosity /* library code is expected to be mute */
          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
-          fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", memory);
+          fprintf(stderr, "LIBXS ERROR: checksum error for memory buffer %p!\n", memory);
         }
 #endif
         result = EXIT_FAILURE;
@@ -449,7 +449,7 @@ LIBXS_API_DEFINITION int libxs_get_malloc_xinfo(const void* memory, size_t* size
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: attachment error for memory buffer %p!\n", memory);
+      fprintf(stderr, "LIBXS ERROR: attachment error for memory buffer %p!\n", memory);
     }
     result = EXIT_FAILURE;
   }
@@ -707,7 +707,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
         if (0 != libxs_verbosity /* library code is expected to be mute */
          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
-          fprintf(stderr, "LIBXS: memory allocation error for size %llu with flags=%i!\n",
+          fprintf(stderr, "LIBXS ERROR: memory allocation error for size %llu with flags=%i!\n",
             (unsigned long long)alloc_size, flags);
         }
         result = EXIT_FAILURE;
@@ -717,7 +717,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
       if ((1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
-        fprintf(stderr, "LIBXS: zero-sized memory allocation detected!\n");
+        fprintf(stderr, "LIBXS WARNING: zero-sized memory allocation detected!\n");
       }
       *memory = 0;
     }
@@ -770,7 +770,7 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
              && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
             {
               const char *const error_message = strerror(errno);
-              fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
+              fprintf(stderr, "LIBXS ERROR: %s (munmap error #%i for range %p+%llu)!\n",
                 error_message, errno, buffer, (unsigned long long)alloc_size);
             }
             result = EXIT_FAILURE;
@@ -783,7 +783,7 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
              && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
             {
               const char *const error_message = strerror(errno);
-              fprintf(stderr, "LIBXS: %s (munmap error #%i for range %p+%llu)!\n",
+              fprintf(stderr, "LIBXS ERROR: %s (munmap error #%i for range %p+%llu)!\n",
                 error_message, errno, reloc, (unsigned long long)alloc_size);
             }
             result = EXIT_FAILURE;
@@ -793,10 +793,10 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
       }
     }
 #if !defined(LIBXS_BUILD)
-    else if ((0 > libxs_verbosity || 1 < libxs_verbosity) /* library code is expected to be mute */
+    else if ((1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: attempt to release memory from non-matching implementation!\n");
+      fprintf(stderr, "LIBXS WARNING: attempt to release memory from non-matching implementation!\n");
     }
 #endif
   }
@@ -805,7 +805,7 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: checksum error for memory buffer %p!\n", memory);
+      fprintf(stderr, "LIBXS ERROR: checksum error for memory buffer %p!\n", memory);
     }
 #endif
     result = EXIT_FAILURE;
@@ -933,7 +933,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: libxs_malloc_attrib failed because NULL cannot be attributed!\n");
+      fprintf(stderr, "LIBXS ERROR: libxs_malloc_attrib failed because NULL cannot be attributed!\n");
     }
     result = EXIT_FAILURE;
   }
@@ -943,7 +943,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: checksum error for %s buffer %p!\n",
+      fprintf(stderr, "LIBXS ERROR: checksum error for %s buffer %p!\n",
         0 != (LIBXS_MALLOC_FLAG_X & flags) ? "executable" : "memory", *memory);
     }
 #endif
@@ -1056,14 +1056,16 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
             }
             else { /* fall-back to local allocation due to failed scratch memory allocation */
               if (0 != libxs_verbosity) { /* library code is expected to be mute */
-                fprintf(stderr, "LIBXS: failed to allocate scratch memory!\n");
+                fprintf(stderr, "LIBXS ERROR: failed to allocate scratch memory!\n");
               }
               local_size = size;
             }
             if (internal_malloc_scratch_pool[i].minsize < minsize) {
               LIBXS_ATOMIC_STORE(&internal_malloc_scratch_pool[i].minsize, minsize, LIBXS_ATOMIC_RELAXED);
             }
-            LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_scratch_nmallocs, 1, LIBXS_ATOMIC_RELAXED);
+            if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != caller) {
+              LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_scratch_nmallocs, 1, LIBXS_ATOMIC_RELAXED);
+            }
           }
           else { /* fall-back to local memory allocation due to lock-contention */
             local_size = size;
@@ -1113,9 +1115,11 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
         /* library code is expected to be mute */0 != libxs_verbosity &&
         1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
-        fprintf(stderr, "LIBXS: scratch memory fall-back failed!\n");
+        fprintf(stderr, "LIBXS ERROR: scratch memory fall-back failed!\n");
       }
-      LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_scratch_nmallocs, 1, LIBXS_ATOMIC_RELAXED);
+      if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != caller) {
+        LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_scratch_nmallocs, 1, LIBXS_ATOMIC_RELAXED);
+      }
     }
   }
   return result;
@@ -1205,7 +1209,7 @@ LIBXS_API_DEFINITION void libxs_release_scratch(void)
   if (0 != libxs_verbosity) { /* library code is expected to be mute */
     libxs_scratch_info scratch_info;
     if (EXIT_SUCCESS == libxs_get_scratch_info(&scratch_info) && 0 < scratch_info.npending) {
-      fprintf(stderr, "LIBXS: %lu pending scratch-memory allocations!\n",
+      fprintf(stderr, "LIBXS ERROR: %lu pending scratch-memory allocations!\n",
         (unsigned long int)scratch_info.npending);
     }
   }
@@ -1240,8 +1244,12 @@ LIBXS_API_DEFINITION int libxs_get_scratch_info(libxs_scratch_info* info)
     info->nmallocs = internal_malloc_scratch_nmallocs;
     info->npools = 1;
 
-    if (0 == internal_malloc_scratch_pool[0].buffer || EXIT_SUCCESS != libxs_get_malloc_xinfo(
-      internal_malloc_scratch_pool[0].buffer, &info->size, 0/*flags*/, 0/*extra*/))
+    if (
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
+      (LIBXS_MALLOC_SCRATCH_INTERNAL) != internal_malloc_scratch_pool[0].site &&
+#endif
+      (0 == internal_malloc_scratch_pool[0].buffer || EXIT_SUCCESS != libxs_get_malloc_xinfo(
+            internal_malloc_scratch_pool[0].buffer, &info->size, 0/*flags*/, 0/*extra*/)))
     {
       info->size = internal_malloc_scratch_pool[0].minsize;
     }
@@ -1250,22 +1258,28 @@ LIBXS_API_DEFINITION int libxs_get_scratch_info(libxs_scratch_info* info)
     {
       const unsigned max_npools = LIBXS_MIN(libxs_scratch_pools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
       for (i = 1; i < max_npools; ++i) {
-        info->npools += (unsigned int)LIBXS_MIN(internal_malloc_scratch_pool[i].minsize, 1);
-        info->npending += internal_malloc_scratch_pool[i].counter;
+        if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != internal_malloc_scratch_pool[i].site) {
+          info->npools += (unsigned int)LIBXS_MIN(internal_malloc_scratch_pool[i].minsize, 1);
+          info->npending += internal_malloc_scratch_pool[i].counter;
+        }
       }
       if (0 != internal_malloc_scratch_pool[0].buffer) {
         for (i = 1; i < max_npools; ++i) {
-          size_t size;
-          if (EXIT_SUCCESS == libxs_get_malloc_xinfo(
-            internal_malloc_scratch_pool[i].buffer, &size, 0/*flags*/, 0/*extra*/))
-          {
-            info->size += size;
+          if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != internal_malloc_scratch_pool[i].site) {
+            size_t size;
+            if (EXIT_SUCCESS == libxs_get_malloc_xinfo(
+              internal_malloc_scratch_pool[i].buffer, &size, 0/*flags*/, 0/*extra*/))
+            {
+              info->size += size;
+            }
           }
         }
       }
       else { /* approximate memory consumption by using minsize */
         for (i = 1; i < max_npools; ++i) {
-          info->size += internal_malloc_scratch_pool[i].minsize;
+          if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != internal_malloc_scratch_pool[i].site) {
+            info->size += internal_malloc_scratch_pool[i].minsize;
+          }
         }
       }
     }

@@ -40,16 +40,6 @@
 # pragma offload_attribute(pop)
 #endif
 
-/** Helper macro for GEMM argument permutation depending on storage scheme. */
-#define LIBXS_LD(M, N) (M)
-
-/** Used to sanitize GEMM arguments (LDx vs. M/N/K). */
-#if defined(LIBXS_SANITIZE_GEMM)
-# define LIBXS_MAX2(A, B) LIBXS_MAX(A, B)
-#else /* Argument B is not considered; pass-through A. */
-# define LIBXS_MAX2(A, B) (A)
-#endif
-
 /** Helper macros for eliding prefetch address calculations depending on prefetch scheme. */
 #if 0 != ((LIBXS_PREFETCH) & 2/*AL2*/) \
  || 0 != ((LIBXS_PREFETCH) & 4/*AL2_JPST*/) \
@@ -104,6 +94,8 @@
 #define LIBXS_EQUAL(T1, T2) LIBXS_EQUAL_CHECK(LIBXS_CONCATENATE(LIBXS_CONCATENATE(LIBXS_EQUAL_, T1), T2))
 #define LIBXS_EQUAL_floatfloat 1
 #define LIBXS_EQUAL_doubledouble 1
+#define LIBXS_EQUAL_floatdouble 0
+#define LIBXS_EQUAL_doublefloat 0
 
 /** Check ILP64 configuration for sanity. */
 #if !defined(LIBXS_ILP64) || (defined(MKL_ILP64) && 0 == LIBXS_ILP64)
@@ -173,15 +165,16 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 #define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
 
-/** Helper macro consolidating the applicable GEMM arguments into LIBXS's flags. */
-#define LIBXS_GEMM_FLAGS(PTRANSA, PTRANSB) ( \
-    (0 != ((const void*)(PTRANSA)) ? (('T' == *((const char*)(PTRANSA)) || 't' == *((const char*)(PTRANSA))) \
-            ? (LIBXS_FLAGS |  LIBXS_GEMM_FLAG_TRANS_A) \
-            : (LIBXS_FLAGS & ~LIBXS_GEMM_FLAG_TRANS_A)) : LIBXS_FLAGS) \
-  & (0 != ((const void*)(PTRANSB)) ? (('T' == *((const char*)(PTRANSB)) || 't' == *((const char*)(PTRANSB))) \
-            ? (LIBXS_FLAGS |  LIBXS_GEMM_FLAG_TRANS_B) \
-            : (LIBXS_FLAGS & ~LIBXS_GEMM_FLAG_TRANS_B)) : LIBXS_FLAGS) \
-)
+/** Helper macro consolidating the transpose requests into a set of flags. */
+#define LIBXS_GEMM_FLAGS(TRANSA, TRANSB) /* check for N/n rather than T/t since C/c is also valid! */ \
+   ((('N' == (TRANSA) || 'n' == (TRANSA)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_A) \
+  | (('N' == (TRANSB) || 'n' == (TRANSB)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_B))
+
+/** Helper macro allowing NULL-requests (transposes) supplied by some default. */
+#define LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, DEFAULT) LIBXS_GEMM_FLAGS( \
+  0 != ((const void*)(TRANSA)) ? *((const char*)(TRANSA)) : (0 == ((DEFAULT) & LIBXS_GEMM_FLAG_TRANS_A) ? 'N' : 'T'), \
+  0 != ((const void*)(TRANSB)) ? *((const char*)(TRANSB)) : (0 == ((DEFAULT) & LIBXS_GEMM_FLAG_TRANS_B) ? 'N' : 'T')) \
+  | ((DEFAULT) & ~(LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B))
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (template). */
 #if !defined(__BLAS) || (0 != __BLAS)
@@ -189,18 +182,18 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
     const char libxs_blas_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
     const char libxs_blas_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
     const TYPE libxs_blas_xgemm_alpha_ = (TYPE)(ALPHA), libxs_blas_xgemm_beta_ = (TYPE)(BETA); \
-    const LIBXS_BLASINT libxs_blas_xgemm_lda_ = (LIBXS_BLASINT)LIBXS_MAX2(LIBXS_LD(LDA, LDB), LIBXS_LD(MM, NN)); \
-    const LIBXS_BLASINT libxs_blas_xgemm_ldb_ = (LIBXS_BLASINT)LIBXS_MAX2(LIBXS_LD(LDB, LDA), KK); \
-    const LIBXS_BLASINT libxs_blas_xgemm_ldc_ = (LIBXS_BLASINT)LIBXS_MAX2(LDC, LIBXS_LD(MM, NN)); \
-    const LIBXS_BLASINT libxs_blas_xgemm_m_ = (LIBXS_BLASINT)LIBXS_LD(MM, NN); \
-    const LIBXS_BLASINT libxs_blas_xgemm_n_ = (LIBXS_BLASINT)LIBXS_LD(NN, MM); \
+    const LIBXS_BLASINT libxs_blas_xgemm_lda_ = (LIBXS_BLASINT)(LDA); \
+    const LIBXS_BLASINT libxs_blas_xgemm_ldb_ = (LIBXS_BLASINT)(LDB); \
+    const LIBXS_BLASINT libxs_blas_xgemm_ldc_ = (LIBXS_BLASINT)(LDC); \
+    const LIBXS_BLASINT libxs_blas_xgemm_m_ = (LIBXS_BLASINT)(MM); \
+    const LIBXS_BLASINT libxs_blas_xgemm_n_ = (LIBXS_BLASINT)(NN); \
     const LIBXS_BLASINT libxs_blas_xgemm_k_ = (LIBXS_BLASINT)(KK); \
     assert(0 != ((uintptr_t)LIBXS_BLAS_GEMM_SYMBOL(TYPE))); \
     LIBXS_BLAS_GEMM_SYMBOL(TYPE)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
       &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
-      &libxs_blas_xgemm_alpha_, (const TYPE*)LIBXS_LD(A, B), &libxs_blas_xgemm_lda_, \
-                                  (const TYPE*)LIBXS_LD(B, A), &libxs_blas_xgemm_ldb_, \
-      &libxs_blas_xgemm_beta_, (TYPE*)(C), &libxs_blas_xgemm_ldc_); \
+      &libxs_blas_xgemm_alpha_, (const TYPE*)(A), &libxs_blas_xgemm_lda_, \
+                                  (const TYPE*)(B), &libxs_blas_xgemm_ldb_, \
+       &libxs_blas_xgemm_beta_, (TYPE*)(C), &libxs_blas_xgemm_ldc_); \
   }
 #else
 # define LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
@@ -237,16 +230,16 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
   INT libxs_inline_xgemm_i_, libxs_inline_xgemm_j_, libxs_inline_xgemm_k_; \
   assert(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS))/*not supported*/); \
   /* TODO: remove/adjust precondition if anything other than NN is supported */ \
-  assert(LIBXS_LD(M, N) <= LIBXS_LD(LDA, LDB) && (K) <= LIBXS_LD(LDB, LDA) && LIBXS_LD(M, N) <= (LDC)); \
+  assert((M) <= (LDA) && (K) <= (LDB) && (M) <= (LDC)); \
   LIBXS_PRAGMA_SIMD \
-  for (libxs_inline_xgemm_j_ = 0; libxs_inline_xgemm_j_ < ((INT)LIBXS_LD(M, N)); ++libxs_inline_xgemm_j_) { \
+  for (libxs_inline_xgemm_j_ = 0; libxs_inline_xgemm_j_ < ((INT)(M)); ++libxs_inline_xgemm_j_) { \
     LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_MAX_K, LIBXS_AVG_K) \
     for (libxs_inline_xgemm_k_ = 0; libxs_inline_xgemm_k_ < (K); ++libxs_inline_xgemm_k_) { \
       LIBXS_PRAGMA_UNROLL \
-      for (libxs_inline_xgemm_i_ = 0; libxs_inline_xgemm_i_ < ((INT)LIBXS_LD(N, M)); ++libxs_inline_xgemm_i_) { \
+      for (libxs_inline_xgemm_i_ = 0; libxs_inline_xgemm_i_ < ((INT)(N)); ++libxs_inline_xgemm_i_) { \
         ((TYPE*)(C))[libxs_inline_xgemm_i_*((INT)(LDC))+libxs_inline_xgemm_j_] \
-          = ((const TYPE*)LIBXS_LD(B, A))[libxs_inline_xgemm_i_*((INT)LIBXS_LD(LDB, LDA))+libxs_inline_xgemm_k_] * \
-           (((const TYPE*)LIBXS_LD(A, B))[libxs_inline_xgemm_k_*((INT)LIBXS_LD(LDA, LDB))+libxs_inline_xgemm_j_] * libxs_inline_xgemm_alpha_) \
+          = ((const TYPE*)(B))[libxs_inline_xgemm_i_*((INT)(LDB))+libxs_inline_xgemm_k_] * \
+           (((const TYPE*)(A))[libxs_inline_xgemm_k_*((INT)(LDA))+libxs_inline_xgemm_j_] * libxs_inline_xgemm_alpha_) \
           + ((const TYPE*)(C))[libxs_inline_xgemm_i_*((INT)(LDC))+libxs_inline_xgemm_j_] * libxs_inline_xgemm_beta_; \
       } \
     } \
@@ -290,14 +283,14 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 #endif
 
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
-#define LIBXS_MMCALL_ABC(FN, A, B, C) FN(LIBXS_LD(A, B), LIBXS_LD(B, A), C)
+#define LIBXS_MMCALL_ABC(FN, A, B, C) FN(A, B, C)
 #define LIBXS_MMCALL_PRF(FN, A, B, C, PA, PB, PC) { \
-  LIBXS_NOPREFETCH_A(LIBXS_UNUSED(LIBXS_LD(PA, PB))); \
-  LIBXS_NOPREFETCH_B(LIBXS_UNUSED(LIBXS_LD(PB, PA))); \
+  LIBXS_NOPREFETCH_A(LIBXS_UNUSED(PA)); \
+  LIBXS_NOPREFETCH_B(LIBXS_UNUSED(PB)); \
   LIBXS_NOPREFETCH_C(LIBXS_UNUSED(PC)); \
-  FN(LIBXS_LD(A, B), LIBXS_LD(B, A), C, \
-    LIBXS_PREFETCH_A(LIBXS_LD(PA, PB)), \
-    LIBXS_PREFETCH_B(LIBXS_LD(PB, PA)), \
+  FN(A, B, C, \
+    LIBXS_PREFETCH_A(PA), \
+    LIBXS_PREFETCH_B(PB), \
     LIBXS_PREFETCH_C(PC)); \
 }
 
@@ -308,8 +301,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 # define LIBXS_MMCALL_LDX(FN, A, B, C, M, N, K, LDA, LDB, LDC) \
   LIBXS_MMCALL_PRF(FN, A, B, C, (A) + (LDA) * (K), (B) + (LDB) * (N), (C) + (LDC) * (N))
 #endif
-#define LIBXS_MMCALL(FN, A, B, C, M, N, K) \
-  LIBXS_MMCALL_LDX(FN, A, B, C, M, N, K, LIBXS_LD(M, N), K, LIBXS_LD(M, N))
+#define LIBXS_MMCALL(FN, A, B, C, M, N, K) LIBXS_MMCALL_LDX(FN, A, B, C, M, N, K, M, K, M)
 
 /** Calculate problem size from M, N, and K using the correct integer type in order to cover the general case. */
 #define LIBXS_MNK_SIZE(M, N, K) (((unsigned long long)(M)) * ((unsigned long long)(N)) * ((unsigned long long)(K)))

@@ -2363,7 +2363,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_forward(
   else {
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid descriptor (forward convolution)!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
     }
   }
 #endif
@@ -2386,7 +2386,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_backward(
   else {
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid descriptor (backward convolution)!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
     }
   }
 #endif
@@ -2409,7 +2409,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_update_weights(
   else {
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid convolution descriptor (weight update)!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
     }
   }
 #endif
@@ -2431,7 +2431,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_forward(
   else {
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid descriptor (forward convolution)!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
     }
   }
 #endif
@@ -2454,7 +2454,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_backward(
   else {
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid descriptor (backward convolution)!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
     }
   }
 #endif
@@ -2477,7 +2477,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_update_weights(
   else {
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid convolution descriptor (weight update)!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
     }
   }
 #endif
@@ -2500,7 +2500,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_forward(
   else {
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid descriptor (forward convolution)!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
     }
   }
 #endif
@@ -2523,7 +2523,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_backward(
   else {
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid descriptor (backward convolution)!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
     }
   }
 #endif
@@ -2546,7 +2546,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_update_weights(
   else {
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS: invalid convolution descriptor (weight update)!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
     }
   }
 #endif
