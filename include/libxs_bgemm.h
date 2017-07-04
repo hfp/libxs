@@ -48,6 +48,7 @@ typedef struct LIBXS_RETARGETABLE libxs_bgemm_handle libxs_bgemm_handle;
 
 LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_precision precision,
   libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint bm, libxs_blasint bn, libxs_blasint bk,
+  libxs_blasint b_m1, libxs_blasint b_n1, libxs_blasint b_k1, libxs_blasint b_k2,
   /** If alpha is not supplied (NULL), then LIBXS_ALPHA is used instead. */ const void* alpha,
   /** If beta is not supplied (NULL), then LIBXS_BETA is used instead. */   const void*  beta,
   /** See libxs_gemm_flags (LIBXS_FLAGS is used if NULL is given). */ const int* gemm_flags,
