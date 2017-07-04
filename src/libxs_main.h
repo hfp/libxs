@@ -49,6 +49,9 @@
 #if !defined(LIBXS_MALLOC_SCRATCH_SCALE)
 # define LIBXS_MALLOC_SCRATCH_SCALE 1.4
 #endif
+#if !defined(LIBXS_MALLOC_SCRATCH_INTERNAL)
+# define LIBXS_MALLOC_SCRATCH_INTERNAL ((const void*)-1)
+#endif
 
 #if !defined(LIBXS_EXT_MIN_NTASKS)
 # define LIBXS_MIN_NTASKS(NT) 1

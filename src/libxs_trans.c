@@ -135,20 +135,20 @@ LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int t
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       if (0 == out) {
-        fprintf(stderr, "LIBXS: the matcopy input and/or output is NULL!\n");
+        fprintf(stderr, "LIBXS ERROR: the matcopy input and/or output is NULL!\n");
       }
       else if (out == in) {
-        fprintf(stderr, "LIBXS: output and input of the matcopy must be different!\n");
+        fprintf(stderr, "LIBXS ERROR: output and input of the matcopy must be different!\n");
       }
       else if (0 == typesize) {
-        fprintf(stderr, "LIBXS: the typesize of the matcopy is zero!\n");
+        fprintf(stderr, "LIBXS ERROR: the typesize of the matcopy is zero!\n");
       }
       else if (0 >= m || 0 >= n) {
-        fprintf(stderr, "LIBXS: the matrix extent(s) of the matcopy is/are zero or negative!\n");
+        fprintf(stderr, "LIBXS ERROR: the matrix extent(s) of the matcopy is/are zero or negative!\n");
       }
       else {
         assert(ldi < m || ldo < n);
-        fprintf(stderr, "LIBXS: the leading dimension(s) of the matcopy is/are too small!\n");
+        fprintf(stderr, "LIBXS ERROR: the leading dimension(s) of the matcopy is/are too small!\n");
       }
     }
     result = EXIT_FAILURE;
@@ -208,7 +208,7 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
       if (0 != libxs_verbosity /* library code is expected to be mute */
        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
-        fprintf(stderr, "LIBXS: output and input of the transpose must be different!\n");
+        fprintf(stderr, "LIBXS ERROR: output and input of the transpose must be different!\n");
       }
       result = EXIT_FAILURE;
     }
@@ -218,20 +218,20 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       if (0 == out || 0 == in) {
-        fprintf(stderr, "LIBXS: the transpose input and/or output is NULL!\n");
+        fprintf(stderr, "LIBXS ERROR: the transpose input and/or output is NULL!\n");
       }
       else if (out == in) {
-        fprintf(stderr, "LIBXS: output and input of the transpose must be different!\n");
+        fprintf(stderr, "LIBXS ERROR: output and input of the transpose must be different!\n");
       }
       else if (0 == typesize) {
-        fprintf(stderr, "LIBXS: the typesize of the transpose is zero!\n");
+        fprintf(stderr, "LIBXS ERROR: the typesize of the transpose is zero!\n");
       }
       else if (0 >= m || 0 >= n) {
-        fprintf(stderr, "LIBXS: the matrix extent(s) of the transpose is/are zero or negative!\n");
+        fprintf(stderr, "LIBXS ERROR: the matrix extent(s) of the transpose is/are zero or negative!\n");
       }
       else {
         assert(ldi < m || ldo < n);
-        fprintf(stderr, "LIBXS: the leading dimension(s) of the transpose is/are too small!\n");
+        fprintf(stderr, "LIBXS ERROR: the leading dimension(s) of the transpose is/are too small!\n");
       }
     }
     result = EXIT_FAILURE;
@@ -281,7 +281,7 @@ LIBXS_API_DEFINITION int libxs_itrans(void* inout, unsigned int typesize,
       if (0 != libxs_verbosity /* library code is expected to be mute */
        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
-        fprintf(stderr, "LIBXS: in-place transpose is not fully implemented!\n");
+        fprintf(stderr, "LIBXS ERROR: in-place transpose is not fully implemented!\n");
       }
       assert(0/*TODO: proper implementation is pending*/);
       result = EXIT_FAILURE;
@@ -289,14 +289,14 @@ LIBXS_API_DEFINITION int libxs_itrans(void* inout, unsigned int typesize,
     if ((1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: performance warning - in-place transpose is not fully implemented!\n");
+      fprintf(stderr, "LIBXS WARNING: in-place transpose is not fully implemented!\n");
     }
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS: the transpose input/output is NULL!\n");
+      fprintf(stderr, "LIBXS ERROR: the transpose input/output cannot be NULL!\n");
     }
     result = EXIT_FAILURE;
   }
