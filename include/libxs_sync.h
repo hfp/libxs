@@ -104,17 +104,17 @@
 #   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_sub_and_fetch(DST_PTR, VALUE)
 # endif
 /* TODO: distinct implementation of LIBXS_ATIMIC_SYNC_* wrt LIBXS_GCCATOMICS */
-# define LIBXS_ATOMIC_SYNC_CHECK(LOCK) while (1 == (LOCK)); LIBXS_SYNC_PAUSE
-# define LIBXS_ATOMIC_SYNC_SET(LOCK) do { LIBXS_ATOMIC_SYNC_CHECK(LOCK); } while(0 != __sync_lock_test_and_set(&(LOCK), 1))
+# define LIBXS_ATOMIC_SYNC_CHECK(LOCK, VALUE) while ((VALUE) == (LOCK)); LIBXS_SYNC_PAUSE
+# define LIBXS_ATOMIC_SYNC_SET(LOCK) do { LIBXS_ATOMIC_SYNC_CHECK(LOCK, 1); } while(0 != __sync_lock_test_and_set(&(LOCK), 1))
 # define LIBXS_ATOMIC_SYNC_UNSET(LOCK) __sync_lock_release(&(LOCK))
 #elif defined(_REENTRANT) && defined(_WIN32) /*TODO*/
 # define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) (*(SRC_PTR))
 # define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) (*(DST_PTR) = VALUE)
 # define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) += VALUE)
 # define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) -= VALUE)
-# define LIBXS_ATOMIC_SYNC_CHECK(LOCK) while (1 == (LOCK)); LIBXS_SYNC_PAUSE
+# define LIBXS_ATOMIC_SYNC_CHECK(LOCK, VALUE) while ((VALUE) == (LOCK)); LIBXS_SYNC_PAUSE
 # define LIBXS_ATOMIC_SYNC_SET(LOCK) { int libxs_sync_set_i_; \
-    do { LIBXS_ATOMIC_SYNC_CHECK(LOCK); \
+    do { LIBXS_ATOMIC_SYNC_CHECK(LOCK, 1); \
       libxs_sync_set_i_ = LOCK; LOCK = 1; \
     } while(0 != libxs_sync_set_i_); \
   }
@@ -124,7 +124,7 @@
 # define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) (*(DST_PTR) = VALUE)
 # define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) += VALUE)
 # define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) -= VALUE)
-# define LIBXS_ATOMIC_SYNC_CHECK(LOCK)
+# define LIBXS_ATOMIC_SYNC_CHECK(LOCK, VALUE)
 # define LIBXS_ATOMIC_SYNC_SET(LOCK)
 # define LIBXS_ATOMIC_SYNC_UNSET(LOCK)
 #endif
