@@ -123,7 +123,7 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_pr
 
       if (0 == (m % bm) && 0 == (n % bn) && 0 == (k % bk)) { /* check for valid block-size */
         const libxs_gemm_prefetch_type prefetch = (0 == strategy ? ((libxs_gemm_prefetch_type)LIBXS_PREFETCH) : *strategy);
-        const libxs_blasint sm = m / handle.mb, sn = n / handle.nb, size = sm * sn;
+        const libxs_blasint size = handle.mb * handle.nb;
         assert(0 == (m % b_m1) && 0 == (n % b_n1) && 0 == (k % b_k1));
         assert(0 == ((k / b_k1 / b_k2) % bk));
         assert(0 == ((n / b_n1) % bn));
