@@ -30,7 +30,7 @@
    Alexander Heinecke (Intel Corp.), Hans Pabst (Intel Corp.)
 ******************************************************************************/
 #include <libxs_bgemm.h>
-#include <libxs.h>
+#include "libxs_gemm.h"
 #include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -69,18 +69,23 @@ struct LIBXS_RETARGETABLE libxs_bgemm_handle {
 };
 
 
-LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_precision precision,
-  libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint bm, libxs_blasint bn, libxs_blasint bk,
-  libxs_blasint b_m1, libxs_blasint b_n1, libxs_blasint b_k1, libxs_blasint b_k2,
+LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
+  libxs_gemm_precision precision, libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* bm, const libxs_blasint* bn, const libxs_blasint* bk,
+  const libxs_blasint* b_m1, const libxs_blasint* b_n1, const libxs_blasint* b_k1, const libxs_blasint* b_k2,
   const void* alpha, const void* beta, const int* gemm_flags,
   const libxs_gemm_prefetch_type* strategy,
   const libxs_bgemm_order* order)
 {
+  const char *const env_m = getenv("LIBXS_BGEMM_M"), *const env_n = getenv("LIBXS_BGEMM_N"), *const env_k = getenv("LIBXS_BGEMM_K");
+  const libxs_blasint mm = LIBXS_MIN(0 == bm ? ((0 == env_m || 0 == *env_m) ? 32 : atoi(env_m)) : *bm, m);
+  const libxs_blasint kk = LIBXS_MIN(0 == bk ? ((0 == env_k || 0 == *env_k) ? mm : atoi(env_k)) : *bk, k);
+  const libxs_blasint nn = LIBXS_MIN(0 == bn ? ((0 == env_n || 0 == *env_n) ? kk : atoi(env_n)) : *bn, n);
   libxs_bgemm_handle handle, *result = 0;
   libxs_gemm_descriptor descriptor = { 0 };
   static int error_once = 0;
 
-  if (0 < m && 0 < n && 0 < k && 0 < bm && 0 < bn && 0 < bk) {
+  if (0 < m && 0 < n && 0 < k && 0 < mm && 0 < nn && 0 < kk) {
     memset(&handle, 0, sizeof(handle));
     handle.flags = (0 == gemm_flags ? LIBXS_FLAGS : *gemm_flags);
 
@@ -89,7 +94,7 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_pr
         handle.alpha.d = (0 != alpha ? *((const double*)alpha) : LIBXS_ALPHA);
         handle.beta.d = (0 != beta ? *((const double*)beta) : LIBXS_BETA);
         assert(LIBXS_FEQ(1, handle.alpha.d) && LIBXS_FEQ(1, handle.beta.d)/*TODO*/);
-        LIBXS_GEMM_DESCRIPTOR(descriptor, precision, handle.flags, bm, bn, bk, bm/*lda*/, bk/*ldb*/, bm/*ldc*/,
+        LIBXS_GEMM_DESCRIPTOR(descriptor, precision, handle.flags, mm, nn, kk, mm/*lda*/, kk/*ldb*/, mm/*ldc*/,
           handle.alpha.d, handle.beta.d, LIBXS_PREFETCH_NONE);
         handle.typesize = 8;
       } break;
@@ -97,7 +102,7 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_pr
         handle.alpha.s = (0 != alpha ? *((const float*)alpha) : LIBXS_ALPHA);
         handle.beta.s = (0 != beta ? *((const float*)beta) : LIBXS_BETA);
         assert(LIBXS_FEQ(1, handle.alpha.s) && LIBXS_FEQ(1, handle.beta.s)/*TODO*/);
-        LIBXS_GEMM_DESCRIPTOR(descriptor, precision, handle.flags, bm, bn, bk, bm/*lda*/, bk/*ldb*/, bm/*ldc*/,
+        LIBXS_GEMM_DESCRIPTOR(descriptor, precision, handle.flags, mm, nn, kk, mm/*lda*/, kk/*ldb*/, mm/*ldc*/,
           handle.alpha.s, handle.beta.s, LIBXS_PREFETCH_NONE);
         handle.typesize = 4;
       } break;
@@ -111,7 +116,7 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_pr
         handle.alpha.w = (0 != alpha ? *((const short*)alpha) : LIBXS_ALPHA);
         handle.beta.w = (0 != beta ? *((const short*)beta) : LIBXS_BETA);
         assert(LIBXS_FEQ(1, handle.alpha.w) && LIBXS_FEQ(1, handle.beta.w)/*TODO*/);
-        LIBXS_GEMM_DESCRIPTOR(descriptor, precision, handle.flags, bm, bn, bk, bm/*lda*/, bk/*ldb*/, bm/*ldc*/,
+        LIBXS_GEMM_DESCRIPTOR(descriptor, precision, handle.flags, mm, nn, kk, mm/*lda*/, kk/*ldb*/, mm/*ldc*/,
           handle.alpha.w, handle.beta.w, LIBXS_PREFETCH_NONE);
         handle.typesize = 2;
       } break;
@@ -119,21 +124,24 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_pr
     }
 
     if (0 < handle.typesize) {
-      handle.mb = m / bm; handle.nb = n / bn; handle.kb = k / bk;
+      handle.mb = m / mm; handle.nb = n / nn; handle.kb = k / kk;
 
-      if (0 == (m % bm) && 0 == (n % bn) && 0 == (k % bk)) { /* check for valid block-size */
+      if (0 == (m % mm) && 0 == (n % nn) && 0 == (k % kk)) { /* check for valid block-size */
         const libxs_gemm_prefetch_type prefetch = (0 == strategy ? ((libxs_gemm_prefetch_type)LIBXS_PREFETCH) : *strategy);
         const libxs_blasint size = handle.mb * handle.nb;
-        assert(0 == (m % b_m1) && 0 == (n % b_n1) && 0 == (k % b_k1));
-        assert(0 == ((k / b_k1 / b_k2) % bk));
-        assert(0 == ((n / b_n1) % bn));
-        assert(0 == ((m / b_m1) % bm));
-        handle.b_m1 = b_m1; handle.b_n1 = b_n1; handle.b_k1 = b_k1; handle.b_k2 = b_k2;
+        handle.b_m1 = (0 == b_m1 ? 1 : *b_m1); handle.b_n1 = (0 == b_n1 ? 1 : *b_n1);
+        handle.b_k1 = (0 == b_k1 ? 1 : *b_k1); handle.b_k2 = (0 == b_k2 ? 1 : *b_k2);
+        assert(0 == (m % handle.b_m1) && 0 == (n % handle.b_n1) && 0 == (k % handle.b_k1));
+        assert(0 == ((k / handle.b_k1 / handle.b_k2) % kk));
+        assert(0 == ((n / handle.b_n1) % nn));
+        assert(0 == ((m / handle.b_m1) % mm));
         handle.kernel = libxs_xmmdispatch(&descriptor);
         if (0 != handle.kernel.smm && LIBXS_PREFETCH_NONE != prefetch && LIBXS_PREFETCH_SIGONLY != prefetch) {
           if (LIBXS_PREFETCH_AUTO == prefetch) { /* automatically chosen */
             /* TODO: more sophisticated strategy perhaps according to CPUID */
-            descriptor.prefetch = LIBXS_PREFETCH_AL2BL2_VIA_C;
+            const char *const env_p = getenv("LIBXS_BGEMM_PREFETCH");
+            const int uid = ((0 == env_p || 0 == *env_p) ? 7/*LIBXS_PREFETCH_AL2BL2_VIA_C*/ : atoi(env_p));
+            descriptor.prefetch = libxs_gemm_uid2prefetch(uid);
           }
           else { /* user-defined */
             descriptor.prefetch = (unsigned short)prefetch;
@@ -142,12 +150,12 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_pr
         }
         if (0 != handle.kernel.smm && (LIBXS_PREFETCH_NONE == descriptor.prefetch || 0 != handle.kernel_pf.smm)) {
           result = (libxs_bgemm_handle*)malloc(sizeof(libxs_bgemm_handle));
-          handle.buffer = libxs_aligned_malloc(LIBXS_BGEMM_MAX_NTHREADS * bm * bn * handle.typesize, LIBXS_ALIGNMENT);
+          handle.buffer = libxs_aligned_malloc(LIBXS_BGEMM_MAX_NTHREADS * mm * nn * handle.typesize, LIBXS_ALIGNMENT);
           handle.locks = (libxs_bgemm_lock*)libxs_aligned_malloc(size * sizeof(libxs_bgemm_lock), LIBXS_ALIGNMENT);
 
           if (0 != result && 0 != handle.buffer && 0 != handle.locks) {
             handle.precision = precision;
-            handle.m = m; handle.n = n; handle.k = k; handle.bm = bm; handle.bn = bn; handle.bk = bk;
+            handle.m = m; handle.n = n; handle.k = k; handle.bm = mm; handle.bn = nn; handle.bk = kk;
             memset(handle.locks, 0, size * sizeof(libxs_bgemm_lock));
             handle.order = (0 == order ? LIBXS_BGEMM_ORDER_JIK : *order);
             *result = handle;
