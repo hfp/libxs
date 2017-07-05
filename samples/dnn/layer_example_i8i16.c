@@ -698,7 +698,7 @@ int main(int argc, char* argv[])
   libxs_free(output_libxs);
   libxs_free(filter_libxs);
 
-  if (check < norms_check.norm_l1_rel) {
+  if (0 == LIBXS_FEQ(0, check) && check < norms_check.norm_l1_rel) {
     const char *const env_check_tolerance = getenv("CHECK_DNN_TOLERANCE");
     const double check_tolerance = LIBXS_ABS(0 == env_check_tolerance ? 0.000001 : atof(env_check_tolerance));
     if (check_tolerance < norms_check.norm_l1_max) {
