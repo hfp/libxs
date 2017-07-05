@@ -635,8 +635,8 @@ int main(int argc, char* argv[])
     conv_desc.pad_h_out = pad_h_out;
     conv_desc.pad_w_out = pad_w_out;
     conv_desc.threads = nThreads;
-    conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
-    /*conv_desc.algo = LIBXS_DNN_CONV_ALGO_DIRECT;*/
+    /*conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;*/
+    conv_desc.algo = LIBXS_DNN_CONV_ALGO_DIRECT;
     conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
     conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
     conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
@@ -941,8 +941,8 @@ int main(int argc, char* argv[])
     conv_desc.pad_h_out = pad_h_out;
     conv_desc.pad_w_out = pad_w_out;
     conv_desc.threads = nThreads;
-    conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;
-    /*conv_desc.algo = LIBXS_DNN_CONV_ALGO_DIRECT;*/
+    /*conv_desc.algo = LIBXS_DNN_CONV_ALGO_AUTO;*/
+    conv_desc.algo = LIBXS_DNN_CONV_ALGO_DIRECT;
     conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_NHWC;
     conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_RSCK;
 #ifdef USE_OVERWRITE
