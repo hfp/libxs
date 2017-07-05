@@ -105,6 +105,7 @@ then
   fi
 
   # setup batch execution
+  ERRORINDEX=0
   if [ "" = "${LAUNCH}" ] && [ "" != "${SRUN}" ]; then
     if [ "" != "${SRUN_CPUS_PER_TASK}" ]; then
       SRUN_CPUS_PER_TASK_FLAG="--cpus-per-task=${SRUN_CPUS_PER_TASK}"
@@ -114,6 +115,10 @@ then
     ${CHMOD} +rx ${TESTSCRIPT}
     LAUNCH="${SRUN} --ntasks=1 ${SRUN_FLAGS} ${SRUN_CPUS_PER_TASK_FLAG} \
       --partition=\${PARTITION} --preserve-env --pty ${TESTSCRIPT}"
+    if [ "" != "${GREP}" ]; then
+      LAUNCH="${LAUNCH} 2\>\&1 \| ${GREP} -v \'srun: error:\'"
+    fi
+    ERRORINDEX=1
   else # avoid temporary script in case of non-batch execution
     LAUNCH=\${TEST}
   fi
@@ -165,8 +170,8 @@ then
       # run the prepared test case/script
       eval $(eval echo ${LAUNCH})
 
-      # capture test status
-      RESULT=$?
+      # capture test status (RESULT=$?)
+      RESULT=${PIPESTATUS[${ERRORINDEX}]}
 
       # exit the loop in case of an error
       if [ "0" = "${RESULT}" ]; then
