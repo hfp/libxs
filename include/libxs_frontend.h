@@ -388,11 +388,11 @@ LIBXS_API_INLINE void libxs_matdiff_reduce(libxs_matdiff_info* output, const lib
   assert(0 != output && 0 != input);
   if (output->normf_rel < input->normf_rel) {
     output->norm1_abs = input->norm1_abs;
-    output->normf_abs = input->normf_abs;
-    output->normi_abs = input->normi_abs;
     output->norm1_rel = input->norm1_rel;
-    output->normf_rel = input->normf_rel;
+    output->normi_abs = input->normi_abs;
     output->normi_rel = input->normi_rel;
+    output->normf_abs = input->normf_abs;
+    output->normf_rel = input->normf_rel;
   }
 }
 
