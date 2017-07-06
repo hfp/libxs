@@ -141,7 +141,7 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
             /* TODO: more sophisticated strategy perhaps according to CPUID */
             const char *const env_p = getenv("LIBXS_BGEMM_PREFETCH");
             const int uid = ((0 == env_p || 0 == *env_p) ? 7/*LIBXS_PREFETCH_AL2BL2_VIA_C*/ : atoi(env_p));
-            descriptor.prefetch = libxs_gemm_uid2prefetch(uid);
+            descriptor.prefetch = (unsigned short)libxs_gemm_uid2prefetch(uid);
           }
           else { /* user-defined */
             descriptor.prefetch = (unsigned short)prefetch;
