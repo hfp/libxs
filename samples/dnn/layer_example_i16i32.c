@@ -300,7 +300,6 @@ int main(int argc, char* argv[])
   int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
   int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
   naive_conv_t naive_param;
-  libxs_matdiff_info norms_fwd, norms_bwd, norms_check;
   void* scratch;
 
   /* some parameters we can overwrite via cli,
@@ -337,9 +336,8 @@ int main(int argc, char* argv[])
   libxs_dnn_filter* libxs_filter;
   libxs_dnn_err_t status;
 
-  memset(&norms_fwd, 0, sizeof(norms_fwd));
-  memset(&norms_bwd, 0, sizeof(norms_bwd));
-  memset(&norms_check, 0, sizeof(norms_check));
+  libxs_matdiff_info norms_fwd, norms_bwd, diff;
+  memset(&diff, 0, sizeof(diff));
 
   if (argc > 1 && !strncmp(argv[1], "-h", 3)) {
     printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride type padding_mode\n", argv[0]);
@@ -534,7 +532,7 @@ int main(int argc, char* argv[])
     printf("##############################################\n");
     /* run LIBXS convolutions */
 #if defined(_OPENMP)
-# pragma omp parallel
+#   pragma omp parallel
 #endif
     {
 #if defined(_OPENMP)
@@ -549,12 +547,10 @@ int main(int argc, char* argv[])
 
     /* compare */
     libxs_matdiff(LIBXS_DATATYPE_I16, nImg*nOfm*ofhp*ofwp, 1, naive_output, naive_libxs_output, 0, 0, &norms_fwd);
-    printf("             1-norm of reference: %f\n", norms_fwd.sum_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_fwd.sum_tst);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_fwd.norm_l2);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.norm_l1_rel);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.norm_l1_max);
-    if (FLT_EPSILON < norms_fwd.norm_l1_max) libxs_matdiff_reduce(&norms_check, &norms_fwd);
+    printf("                        One-norm: %f\n", norms_fwd.norm1_abs);
+    printf("                   Infinity-norm: %f\n", norms_fwd.normi_abs);
+    printf("                 Froebenius-norm: %f\n", norms_fwd.normf_abs);
+    libxs_matdiff_reduce(&diff, &norms_fwd);
   }
 
   if (type == 'A' || type == 'B') {
@@ -565,7 +561,7 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_zero_buffer( libxs_input ) );
     /* run LIBXS convolutions */
 #if defined(_OPENMP)
-# pragma omp parallel
+#   pragma omp parallel
 #endif
     {
 #if defined(_OPENMP)
@@ -580,12 +576,10 @@ int main(int argc, char* argv[])
 
     /* compare */
     libxs_matdiff(LIBXS_DATATYPE_I16, nImg*nIfm*ifhp*ifwp, 1, naive_input, naive_libxs_input, 0, 0, &norms_bwd);
-    printf("             1-norm of reference: %f\n", norms_bwd.sum_ref);
-    printf("              1-norm of JIT-code: %f\n", norms_bwd.sum_tst);
-    printf("       L2-error-norm of JIT-code: %f\n", norms_bwd.norm_l2);
-    printf("    inf-norm of comp. rel. error: %f\n", norms_bwd.norm_l1_rel);
-    printf("    inf-norm of comp. abs. error: %f\n", norms_bwd.norm_l1_max);
-    if (FLT_EPSILON < norms_bwd.norm_l1_max) libxs_matdiff_reduce(&norms_check, &norms_bwd);
+    printf("                        One-norm: %f\n", norms_bwd.norm1_abs);
+    printf("                   Infinity-norm: %f\n", norms_bwd.normi_abs);
+    printf("                 Froebenius-norm: %f\n", norms_bwd.normf_abs);
+    libxs_matdiff_reduce(&diff, &norms_bwd);
   }
 
   if ((type == 'A' || type == 'F') && LIBXS_FEQ(0, check)) {
@@ -596,7 +590,7 @@ int main(int argc, char* argv[])
     l_start = libxs_timer_tick();
     for (i = 0; i < iters; ++i) {
 #if defined(_OPENMP)
-#   pragma omp parallel
+#     pragma omp parallel
 #endif
       {
 #if defined(_OPENMP)
@@ -615,9 +609,9 @@ int main(int argc, char* argv[])
     printf("fp time = %.5g\n", ((double)(l_total/iters)));
     printf("GOPS  = %.5g\n", (lpOps*1e-9)/l_total);
 
-    printf("PERFDUMP,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-       ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (lpOps*1e-9)/l_total,
-       norms_fwd.norm_l1_rel, norms_fwd.norm_l1_max, norms_fwd.norm_l2, norms_fwd.sum_ref, norms_fwd.sum_tst );
+    printf("PERFDUMP,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+      ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (lpOps*1e-9)/l_total,
+      norms_fwd.norm1_abs, norms_fwd.normf_abs, norms_fwd.normi_abs, norms_fwd.norm1_rel, norms_fwd.normf_rel, norms_fwd.normi_rel);
   }
 
   if ((type == 'A' || type == 'B') && LIBXS_FEQ(0, check)) {
@@ -628,7 +622,7 @@ int main(int argc, char* argv[])
     l_start = libxs_timer_tick();
     for (i = 0; i < iters; ++i) {
 #if defined(_OPENMP)
-#   pragma omp parallel
+#     pragma omp parallel
 #endif
       {
 #if defined(_OPENMP)
@@ -647,9 +641,9 @@ int main(int argc, char* argv[])
     printf("bp time = %.5g\n", ((double)(l_total/iters)));
     printf("GOPS  = %.5g\n", (lpOps*1e-9)/l_total);
 
-    printf("PERFDUMP,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-        ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (lpOps*1e-9)/l_total,
-        norms_bwd.norm_l1_rel, norms_bwd.norm_l1_max, norms_bwd.norm_l2, norms_bwd.sum_ref, norms_bwd.sum_tst );
+    printf("PERFDUMP,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+      ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (lpOps*1e-9)/l_total,
+      norms_fwd.norm1_abs, norms_fwd.normf_abs, norms_fwd.normi_abs, norms_fwd.norm1_rel, norms_fwd.normf_rel, norms_fwd.normi_rel);
   }
 
   /* clean-up */
@@ -677,12 +671,12 @@ int main(int argc, char* argv[])
   libxs_free(output_libxs);
   libxs_free(filter_libxs);
 
-  if (0 == LIBXS_FEQ(0, check) && check < norms_check.norm_l1_rel) {
+  if (0 == LIBXS_FEQ(0, check) && check < diff.normf_rel) {
     const char *const env_check_tolerance = getenv("CHECK_DNN_TOLERANCE");
     const double check_tolerance = LIBXS_ABS(0 == env_check_tolerance ? 0.000001 : atof(env_check_tolerance));
-    if (check_tolerance < norms_check.norm_l1_max) {
-      fprintf(stderr, "\nFAILED with an error of L1max=%f, L1rel=%f and L2=%f!\n\n",
-        norms_check.norm_l1_max, norms_check.norm_l1_rel, norms_check.norm_l2);
+    if (check_tolerance < diff.normi_abs) {
+      fprintf(stderr, "FAILED: L1abs=%f L1rel=%f L2abs=%f L2rel=%f!\n",
+        diff.normi_abs, diff.normi_rel, diff.normf_abs, diff.normf_rel);
       exit(EXIT_FAILURE);
     }
   }

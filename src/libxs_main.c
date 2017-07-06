@@ -1715,9 +1715,6 @@ LIBXS_API_DEFINITION int libxs_matdiff(libxs_datatype datatype, libxs_blasint m,
 {
   int result = EXIT_SUCCESS;
   if (0 != ref && 0 != tst && 0 != info) {
-    const libxs_blasint ildref = (0 == ldref ? m : *ldref), ildtst = (0 == ldtst ? m : *ldtst);
-    double comp_ref = 0, comp_tst = 0, comp_d = 0; /* Kahan compensations */
-    libxs_blasint i, j;
     memset(info, 0, sizeof(*info)); /* nullify */
     switch(datatype) {
       case LIBXS_DATATYPE_F64: {
@@ -1759,9 +1756,16 @@ LIBXS_API_DEFINITION int libxs_matdiff(libxs_datatype datatype, libxs_blasint m,
   else {
     result = EXIT_FAILURE;
   }
-  if (EXIT_SUCCESS == result && 0 < info->norm_l2) { /* square-root without libm dependency */
-    const double squared = info->norm_l2; int i; info->norm_l2 *= 0.5;
-    for (i = 0; i < 8; ++i) info->norm_l2 = 0.5 * (info->norm_l2 + squared / info->norm_l2);
+  if (EXIT_SUCCESS == result) { /* square-root without libm dependency */
+    int i;
+    if (0 < info->normf_abs) {
+      const double squared = info->normf_abs; info->normf_abs *= 0.5;
+      for (i = 0; i < 8; ++i) info->normf_abs = 0.5 * (info->normf_abs + squared / info->normf_abs);
+    }
+    if (0 < info->normf_rel) {
+      const double squared = info->normf_rel; info->normf_rel *= 0.5;
+      for (i = 0; i < 8; ++i) info->normf_rel = 0.5 * (info->normf_rel + squared / info->normf_rel);
+    }
   }
   return result;
 }
