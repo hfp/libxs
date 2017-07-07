@@ -128,7 +128,6 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
 
       if (0 == (m % mm) && 0 == (n % nn) && 0 == (k % kk)) { /* check for valid block-size */
         const libxs_gemm_prefetch_type prefetch = (0 == strategy ? ((libxs_gemm_prefetch_type)LIBXS_PREFETCH) : *strategy);
-        const libxs_blasint size = handle.mb * handle.nb;
         handle.b_m1 = (0 == b_m1 ? 1 : *b_m1); handle.b_n1 = (0 == b_n1 ? 1 : *b_n1);
         handle.b_k1 = (0 == b_k1 ? 1 : *b_k1); handle.b_k2 = (0 == b_k2 ? 1 : *b_k2);
         assert(0 == (m % handle.b_m1) && 0 == (n % handle.b_n1) && 0 == (k % handle.b_k1));
@@ -149,14 +148,16 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
           handle.kernel_pf = libxs_xmmdispatch(&descriptor);
         }
         if (0 != handle.kernel.smm && (LIBXS_PREFETCH_NONE == descriptor.prefetch || 0 != handle.kernel_pf.smm)) {
+          const size_t tls_size = ((mm * nn * handle.typesize + LIBXS_CACHELINE_SIZE - 1) & ~(LIBXS_CACHELINE_SIZE - 1)) * LIBXS_BGEMM_MAX_NTHREADS;
+          const libxs_blasint size_locks = handle.mb * handle.nb * sizeof(libxs_bgemm_lock);
+          handle.locks = (libxs_bgemm_lock*)libxs_aligned_malloc(size_locks, LIBXS_ALIGNMENT);
+          handle.buffer = libxs_aligned_malloc(tls_size, LIBXS_ALIGNMENT);
           result = (libxs_bgemm_handle*)malloc(sizeof(libxs_bgemm_handle));
-          handle.buffer = libxs_aligned_malloc(LIBXS_BGEMM_MAX_NTHREADS * mm * nn * handle.typesize, LIBXS_ALIGNMENT);
-          handle.locks = (libxs_bgemm_lock*)libxs_aligned_malloc(size * sizeof(libxs_bgemm_lock), LIBXS_ALIGNMENT);
 
           if (0 != result && 0 != handle.buffer && 0 != handle.locks) {
             handle.precision = precision;
             handle.m = m; handle.n = n; handle.k = k; handle.bm = mm; handle.bn = nn; handle.bk = kk;
-            memset(handle.locks, 0, size * sizeof(libxs_bgemm_lock));
+            memset(handle.locks, 0, size_locks);
             handle.order = (0 == order ? LIBXS_BGEMM_ORDER_JIK : *order);
             *result = handle;
           }
