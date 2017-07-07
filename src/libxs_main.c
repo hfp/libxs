@@ -1715,6 +1715,8 @@ LIBXS_API_DEFINITION int libxs_matdiff(libxs_datatype datatype, libxs_blasint m,
 {
   int result = EXIT_SUCCESS;
   if (0 != ref && 0 != tst && 0 != info) {
+    libxs_blasint mm = m, nn = n, ldr = (0 == ldref ? m : *ldref), ldt = (0 == ldtst ? m : *ldtst);
+    if (1 == n) { mm = ldr = ldt = 1; nn = m; } /* ensure row-vector shape to standardize results */
     memset(info, 0, sizeof(*info)); /* nullify */
     switch(datatype) {
       case LIBXS_DATATYPE_F64: {
