@@ -61,14 +61,14 @@ int main(void)
 
   if (EXIT_SUCCESS == result) {
     /* One-norm (~L1) */
-    if (0.000000222 < LIBXS_ABS(diff.norm1_abs - 1.8300000)) result = EXIT_FAILURE;
-    if (0.000000222 < LIBXS_ABS(diff.norm1_rel - 0.0963158)) result = EXIT_FAILURE;
+    if (0.0000003 < LIBXS_ABS(diff.norm1_abs - 1.8300000)) result = EXIT_FAILURE;
+    if (0.0000003 < LIBXS_ABS(diff.norm1_rel - 0.0963158)) result = EXIT_FAILURE;
     /* Infinity-norm (~L1) */
-    if (0.000000222 < LIBXS_ABS(diff.normi_abs - 2.4400000)) result = EXIT_FAILURE;
-    if (0.000000222 < LIBXS_ABS(diff.normi_rel - 0.0976000)) result = EXIT_FAILURE;
+    if (0.0000003 < LIBXS_ABS(diff.normi_abs - 2.4400000)) result = EXIT_FAILURE;
+    if (0.0000003 < LIBXS_ABS(diff.normi_rel - 0.0976000)) result = EXIT_FAILURE;
     /* Froebenius-norm (L2) */
-    if (0.000000222 < LIBXS_ABS(diff.normf_abs - 1.8742465)) result = EXIT_FAILURE;
-    if (0.000000222 < LIBXS_ABS(diff.normf_rel - 0.1074954)) result = EXIT_FAILURE;
+    if (0.0000003 < LIBXS_ABS(diff.normf_abs - 1.8742465)) result = EXIT_FAILURE;
+    if (0.0000003 < LIBXS_ABS(diff.normf_rel - 0.1074954)) result = EXIT_FAILURE;
   }
 
   result = libxs_matdiff(LIBXS_DATATYPE(REAL_TYPE), 1/*m*/, 3/*n*/,
@@ -76,14 +76,14 @@ int main(void)
 
   if (EXIT_SUCCESS == result) {
     /* One-norm (~L1) */
-    if (0.000000044 < LIBXS_ABS(diff.norm1_abs - 3.1000000)) result = EXIT_FAILURE;
-    if (0.000000044 < LIBXS_ABS(diff.norm1_rel - 0.0279028)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.norm1_abs - 3.1000000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.norm1_rel - 0.0279028)) result = EXIT_FAILURE;
     /* Infinity-norm (~L1) */
-    if (0.000000044 < LIBXS_ABS(diff.normi_abs - 2.0000000)) result = EXIT_FAILURE;
-    if (0.000000044 < LIBXS_ABS(diff.normi_rel - 0.0200000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.normi_abs - 2.0000000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.normi_rel - 0.0200000)) result = EXIT_FAILURE;
     /* Froebenius-norm (L2) */
-    if (0.000000044 < LIBXS_ABS(diff.normf_abs - 2.2383029)) result = EXIT_FAILURE;
-    if (0.000000044 < LIBXS_ABS(diff.normf_rel - 0.0224405)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.normf_abs - 2.2383029)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.normf_rel - 0.0222918)) result = EXIT_FAILURE;
   }
 
   result = libxs_matdiff(LIBXS_DATATYPE(REAL_TYPE), 3/*m*/, 1/*n*/,
@@ -91,14 +91,14 @@ int main(void)
 
   if (EXIT_SUCCESS == result) {
     /* One-norm (~L1) */
-    if (0.000000044 < LIBXS_ABS(diff.norm1_abs - 3.1000000)) result = EXIT_FAILURE;
-    if (0.000000044 < LIBXS_ABS(diff.norm1_rel - 0.0279028)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.norm1_abs - 3.1000000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.norm1_rel - 0.0279028)) result = EXIT_FAILURE;
     /* Infinity-norm (~L1) */
-    if (0.000000044 < LIBXS_ABS(diff.normi_abs - 2.0000000)) result = EXIT_FAILURE;
-    if (0.000000044 < LIBXS_ABS(diff.normi_rel - 0.0200000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.normi_abs - 2.0000000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.normi_rel - 0.0200000)) result = EXIT_FAILURE;
     /* Froebenius-norm (L2) */
-    if (0.000000044 < LIBXS_ABS(diff.normf_abs - 2.2383029)) result = EXIT_FAILURE;
-    if (0.000000044 < LIBXS_ABS(diff.normf_rel - 0.0224405)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.normf_abs - 2.2383029)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.normf_rel - 0.0222918)) result = EXIT_FAILURE;
   }
 
   return result;
