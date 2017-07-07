@@ -545,6 +545,8 @@ int main(int argc, char* argv[])
 
     /* compare */
     libxs_matdiff(LIBXS_DATATYPE_I16, nImg*nOfm*ofhp*ofwp, 1, naive_output, naive_libxs_output, 0, 0, &norms_fwd);
+    printf("  Reference-sum: %.23g\n", norms_fwd.asum_ref);
+    printf("       Test-sum: %.23g\n", norms_fwd.asum_tst);
     printf("       One-norm: %.12f (%.5f%%)\n", norms_fwd.norm1_abs, 100.0 * norms_fwd.norm1_rel);
     printf("  Infinity-norm: %.12f (%.5f%%)\n", norms_fwd.normi_abs, 100.0 * norms_fwd.normi_rel);
     printf("Froebenius-norm: %.12f (%.5f%%)\n", norms_fwd.normf_abs, 100.0 * norms_fwd.normf_rel);
@@ -574,6 +576,8 @@ int main(int argc, char* argv[])
 
     /* compare */
     libxs_matdiff(LIBXS_DATATYPE_I16, nImg*nIfm*ifhp*ifwp, 1, naive_input, naive_libxs_input, 0, 0, &norms_bwd);
+    printf("  Reference-sum: %.23g\n", norms_bwd.asum_ref);
+    printf("       Test-sum: %.23g\n", norms_bwd.asum_tst);
     printf("       One-norm: %.12f (%.5f%%)\n", norms_bwd.norm1_abs, 100.0 * norms_bwd.norm1_rel);
     printf("  Infinity-norm: %.12f (%.5f%%)\n", norms_bwd.normi_abs, 100.0 * norms_bwd.normi_rel);
     printf("Froebenius-norm: %.12f (%.5f%%)\n", norms_bwd.normf_abs, 100.0 * norms_bwd.normf_rel);
@@ -607,8 +611,8 @@ int main(int argc, char* argv[])
     printf("fp time = %.5g\n", ((double)(l_total/iters)));
     printf("GOPS  = %.5g\n", (lpOps*1e-9)/l_total);
 
-    printf("PERFDUMP,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-      ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (lpOps*1e-9)/l_total,
+    printf("PERFDUMP,FP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+      ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (lpOps*1e-9)/l_total, norms_fwd.asum_ref, norms_fwd.asum_tst,
       norms_fwd.norm1_abs, norms_fwd.normf_abs, norms_fwd.normi_abs, norms_fwd.norm1_rel, norms_fwd.normf_rel, norms_fwd.normi_rel);
   }
 
@@ -639,9 +643,9 @@ int main(int argc, char* argv[])
     printf("bp time = %.5g\n", ((double)(l_total/iters)));
     printf("GOPS  = %.5g\n", (lpOps*1e-9)/l_total);
 
-    printf("PERFDUMP,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-      ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (lpOps*1e-9)/l_total,
-      norms_fwd.norm1_abs, norms_fwd.normf_abs, norms_fwd.normi_abs, norms_fwd.norm1_rel, norms_fwd.normf_rel, norms_fwd.normi_rel);
+    printf("PERFDUMP,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
+      ifw, ifh, kw, kh, stride, pad, ((double)(l_total/iters)), (lpOps*1e-9)/l_total, norms_bwd.asum_ref, norms_bwd.asum_tst,
+      norms_bwd.norm1_abs, norms_bwd.normf_abs, norms_bwd.normi_abs, norms_bwd.norm1_rel, norms_bwd.normf_rel, norms_bwd.normi_rel);
   }
 
   /* clean-up */
