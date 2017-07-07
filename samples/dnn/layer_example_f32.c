@@ -1522,7 +1522,7 @@ int main(int argc, char* argv[])
   libxs_free(dbias_libxs);
 
   if (0 == LIBXS_FEQ(0, check) && check < 100.0 * diff.normf_rel) {
-    fprintf(stderr, "FAILED: L1abs=%f L1rel=%f L2abs=%f L2rel=%f!\n",
+    fprintf(stderr, "FAILED: L1abs=%f L1rel=%f L2abs=%f L2rel=%f\n",
       diff.normi_abs, diff.normi_rel, diff.normf_abs, diff.normf_rel);
     exit(EXIT_FAILURE);
   }
