@@ -717,9 +717,9 @@ int main(int argc, char* argv[])
 
       /* compare */
       libxs_matdiff(LIBXS_DATATYPE_F32, nImg*nOfm*ofhp*ofwp, 1, naive_output, naive_libxs_output, 0, 0, &norms_fwd);
-      printf("           One-norm: %f  (%f%%)\n", norms_fwd.norm1_abs, 100.0 * norms_fwd.norm1_rel);
-      printf("      Infinity-norm: %f  (%f%%)\n", norms_fwd.normi_abs, 100.0 * norms_fwd.normi_rel);
-      printf("    Froebenius-norm: %f  (%f%%)\n", norms_fwd.normf_abs, 100.0 * norms_fwd.normf_rel);
+      printf("       One-norm: %.12f (%.5f%%)\n", norms_fwd.norm1_abs, 100.0 * norms_fwd.norm1_rel);
+      printf("  Infinity-norm: %.12f (%.5f%%)\n", norms_fwd.normi_abs, 100.0 * norms_fwd.normi_rel);
+      printf("Froebenius-norm: %.12f (%.5f%%)\n", norms_fwd.normf_abs, 100.0 * norms_fwd.normf_rel);
       libxs_matdiff_reduce(&diff, &norms_fwd);
     }
 
@@ -747,9 +747,9 @@ int main(int argc, char* argv[])
 
       /* compare */
       libxs_matdiff(LIBXS_DATATYPE_F32, nImg*nIfm*ifhp*ifwp, 1, naive_input, naive_libxs_input, 0, 0, &norms_bwd);
-      printf("           One-norm: %f  (%f%%)\n", norms_bwd.norm1_abs, 100.0 * norms_bwd.norm1_rel);
-      printf("      Infinity-norm: %f  (%f%%)\n", norms_bwd.normi_abs, 100.0 * norms_bwd.normi_rel);
-      printf("    Froebenius-norm: %f  (%f%%)\n", norms_bwd.normf_abs, 100.0 * norms_bwd.normf_rel);
+      printf("       One-norm: %.12f (%.5f%%)\n", norms_bwd.norm1_abs, 100.0 * norms_bwd.norm1_rel);
+      printf("  Infinity-norm: %.12f (%.5f%%)\n", norms_bwd.normi_abs, 100.0 * norms_bwd.normi_rel);
+      printf("Froebenius-norm: %.12f (%.5f%%)\n", norms_bwd.normf_abs, 100.0 * norms_bwd.normf_rel);
       libxs_matdiff_reduce(&diff, &norms_bwd);
     }
 
@@ -781,9 +781,9 @@ int main(int argc, char* argv[])
 
       /* compare */
       libxs_matdiff(LIBXS_DATATYPE_F32, nOfm*nIfm*kh*kw, 1, naive_filter_wu, naive_libxs_filter, 0, 0, &norms_upd);
-      printf("           One-norm: %f  (%f%%)\n", norms_upd.norm1_abs, 100.0 * norms_upd.norm1_rel);
-      printf("      Infinity-norm: %f  (%f%%)\n", norms_upd.normi_abs, 100.0 * norms_upd.normi_rel);
-      printf("    Froebenius-norm: %f  (%f%%)\n", norms_upd.normf_abs, 100.0 * norms_upd.normf_rel);
+      printf("       One-norm: %.12f (%.5f%%)\n", norms_upd.norm1_abs, 100.0 * norms_upd.norm1_rel);
+      printf("  Infinity-norm: %.12f (%.5f%%)\n", norms_upd.normi_abs, 100.0 * norms_upd.normi_rel);
+      printf("Froebenius-norm: %.12f (%.5f%%)\n", norms_upd.normf_abs, 100.0 * norms_upd.normf_rel);
       libxs_matdiff_reduce(&diff, &norms_upd);
     }
 
@@ -1063,9 +1063,9 @@ int main(int argc, char* argv[])
 
       /* compare */
       libxs_matdiff(LIBXS_DATATYPE_F32, nOfm*nIfm*kh*kw, 1, naive_filter_wu, naive_filter_kcrs, 0, 0, &norms_upd);
-      printf("           One-norm: %f  (%f%%)\n", norms_upd.norm1_abs, 100.0 * norms_upd.norm1_rel);
-      printf("      Infinity-norm: %f  (%f%%)\n", norms_upd.normi_abs, 100.0 * norms_upd.normi_rel);
-      printf("    Froebenius-norm: %f  (%f%%)\n", norms_upd.normf_abs, 100.0 * norms_upd.normf_rel);
+      printf("       One-norm: %.12f (%.5f%%)\n", norms_upd.norm1_abs, 100.0 * norms_upd.norm1_rel);
+      printf("  Infinity-norm: %.12f (%.5f%%)\n", norms_upd.normi_abs, 100.0 * norms_upd.normi_rel);
+      printf("Froebenius-norm: %.12f (%.5f%%)\n", norms_upd.normf_abs, 100.0 * norms_upd.normf_rel);
       libxs_matdiff_reduce(&diff, &norms_upd);
     }
 
@@ -1347,9 +1347,9 @@ int main(int argc, char* argv[])
 
       /* compare */
       libxs_matdiff(LIBXS_DATATYPE_F32, nOfm*nIfm*kh*kw, 1, naive_filter_wu, naive_libxs_filter, 0, 0, &norms_upd);
-      printf("           One-norm: %f  (%f%%)\n", norms_upd.norm1_abs, 100.0 * norms_upd.norm1_rel);
-      printf("      Infinity-norm: %f  (%f%%)\n", norms_upd.normi_abs, 100.0 * norms_upd.normi_rel);
-      printf("    Froebenius-norm: %f  (%f%%)\n", norms_upd.normf_abs, 100.0 * norms_upd.normf_rel);
+      printf("       One-norm: %.12f (%.5f%%)\n", norms_upd.norm1_abs, 100.0 * norms_upd.norm1_rel);
+      printf("  Infinity-norm: %.12f (%.5f%%)\n", norms_upd.normi_abs, 100.0 * norms_upd.normi_rel);
+      printf("Froebenius-norm: %.12f (%.5f%%)\n", norms_upd.normf_abs, 100.0 * norms_upd.normf_rel);
       libxs_matdiff_reduce(&diff, &norms_upd);
     }
 
