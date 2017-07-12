@@ -84,7 +84,7 @@ LIBXS_API_INLINE void internal_fwd_input_transform_custom_custom(
 {
   if (handle->cwino_fwd.alpha == 6) {
     /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
-#if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+#if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_FORWARD_AVX512)
     internal_fwd_input_transform_custom_custom_alpha6_avx512(inp, tinp, Iwp, handle);
 #else /* pointer based function call */
     assert(0 != internal_fwd_input_transform_custom_custom_alpha6);
@@ -142,7 +142,11 @@ LIBXS_API_INLINE void internal_fwd_weight_transform( float *wp,
   if (handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
+#if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_FORWARD_AVX512)
+# include "template/libxs_dnn_convolution_winograd_forward_weight_trans_alpha6_avx512.tpl.c"
+#else
 # include "template/libxs_dnn_convolution_winograd_forward_weight_trans_alpha6.tpl.c"
+#endif
 #undef TDVLEN
 #undef ALPHA
   } else if (handle->cwino_fwd.alpha == 4) {
@@ -171,7 +175,7 @@ LIBXS_API_INLINE void internal_fwd_output_transform_custom_custom( float *toutp,
   if (handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-#if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+#if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_FORWARD_AVX512)
 # include "template/libxs_dnn_convolution_winograd_forward_custom_custom_output_trans_alpha6_avx512.tpl.c"
 #else
 # include "template/libxs_dnn_convolution_winograd_forward_custom_custom_output_trans_alpha6.tpl.c"
