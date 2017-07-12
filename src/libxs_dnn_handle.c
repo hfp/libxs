@@ -1315,23 +1315,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
           max_acc = 26;
         }
         internal_dnn_handle_factors_all( wino_desc_fp.itiles*wino_desc_fp.jtiles*wino_desc_fp.bimg, &(wino_desc_fp.ur), max_acc );
+        wino_desc_fp.ur = LIBXS_MIN(LIBXS_MAX(wino_desc_fp.ur, 14), wino_desc_fp.itiles*wino_desc_fp.jtiles*wino_desc_fp.bimg);
       }
 
       /* The following condition checks whether we have encountered an input which is listed in our benchmark LUT */
       /* if (flagBenchmark) printf("In benchmark\n"); */
-      if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
-        if (handle->blocksifm % 4 == 0) {
-          wino_desc_fp.ur_ifm = 4;
-        } else if (handle->blocksifm % 3 == 0) {
-          wino_desc_fp.ur_ifm = 3;
-        } else if (handle->blocksifm % 2 == 0) {
-          wino_desc_fp.ur_ifm = 2;
-        } else {
-          wino_desc_fp.ur_ifm = 1;
-        }
-      } else {
-        wino_desc_fp.ur_ifm = 1;
-      }
+      wino_desc_fp.ur_ifm = handle->blocksifm;
+      wino_desc_fp.blocks_ifm = handle->blocksifm;
 
       handle->cwino_fwd = wino_desc_fp;
 
@@ -1342,10 +1332,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
       {
         wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
         handle->code_fwd[0].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp);
-        wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+        wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_INPUT_L1;
         handle->code_fwd[1].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp);
-        /* wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT; */
-        /* handle->code_fwd[2].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp); */
+        wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_INPUT_L1 | LIBXS_CONVOLUTION_PREFETCH_INPUT_L2;
+        handle->code_fwd[2].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp);
         /* wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT; */
         /* handle->code_fwd[3].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp); */
       } else {
