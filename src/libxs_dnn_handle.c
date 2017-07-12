@@ -1527,21 +1527,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
           max_acc = 26;
         }
         internal_dnn_handle_factors_all( wino_desc_bp.itiles*wino_desc_bp.jtiles*wino_desc_bp.bimg, &(wino_desc_bp.ur), max_acc );
+        wino_desc_bp.ur = LIBXS_MIN(LIBXS_MAX(wino_desc_bp.ur, 14), wino_desc_bp.itiles*wino_desc_bp.jtiles*wino_desc_bp.bimg);
       }
 
-      if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
-        if (handle->blocksofm % 4 == 0) {
-          wino_desc_bp.ur_ifm = 4;
-        } else if (handle->blocksofm % 3 == 0) {
-          wino_desc_bp.ur_ifm = 3;
-        } else if (handle->blocksofm % 2 == 0) {
-          wino_desc_bp.ur_ifm = 2;
-        } else {
-          wino_desc_bp.ur_ifm = 1;
-        }
-      } else {
-        wino_desc_bp.ur_ifm = 1;
-      }
+      wino_desc_bp.ur_ifm = handle->blocksofm;
+      wino_desc_bp.blocks_ifm = handle->blocksofm;
 
       handle->cwino_bwd = wino_desc_bp;
 
@@ -1550,12 +1540,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
           libxs_target_archid == LIBXS_X86_AVX512_CORE ||
           libxs_target_archid == LIBXS_X86_AVX512_KNM )
       {
-        /* NONE */
         wino_desc_bp.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
         handle->code_bwd[0].pmm = libxs_create_xconv_wino_backward(&wino_desc_bp);
-        /* ALL */
-        wino_desc_bp.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+        wino_desc_bp.prefetch = LIBXS_CONVOLUTION_PREFETCH_INPUT_L1;
         handle->code_bwd[1].pmm = libxs_create_xconv_wino_backward(&wino_desc_bp);
+        wino_desc_bp.prefetch = LIBXS_CONVOLUTION_PREFETCH_INPUT_L1 | LIBXS_CONVOLUTION_PREFETCH_INPUT_L2;
+        handle->code_bwd[2].pmm = libxs_create_xconv_wino_backward(&wino_desc_bp);
       } else {
         assert(0/*should not happen*/);
       }
