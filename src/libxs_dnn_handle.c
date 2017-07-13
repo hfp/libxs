@@ -1336,7 +1336,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         handle->code_fwd[0].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp);
         wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_INPUT_L1;
         handle->code_fwd[1].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp);
-        wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_INPUT_L1 | LIBXS_CONVOLUTION_PREFETCH_INPUT_L2;
+        wino_desc_fp.prefetch = (libxs_convolution_prefetch_type)(LIBXS_CONVOLUTION_PREFETCH_INPUT_L1 | LIBXS_CONVOLUTION_PREFETCH_INPUT_L2);
         handle->code_fwd[2].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp);
         /* wino_desc_fp.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT; */
         /* handle->code_fwd[3].pmm = libxs_create_xconv_wino_forward(&wino_desc_fp); */
