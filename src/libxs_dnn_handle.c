@@ -1315,11 +1315,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
           max_acc = 26;
         }
         internal_dnn_handle_factors_all( wino_desc_fp.itiles*wino_desc_fp.jtiles*wino_desc_fp.bimg, &(wino_desc_fp.ur), max_acc );
+        /* ur should be at least 14 to hide qfma latency */
         wino_desc_fp.ur = LIBXS_MIN(LIBXS_MAX(wino_desc_fp.ur, 14), wino_desc_fp.itiles*wino_desc_fp.jtiles*wino_desc_fp.bimg);
       }
 
       /* The following condition checks whether we have encountered an input which is listed in our benchmark LUT */
       /* if (flagBenchmark) printf("In benchmark\n"); */
+      /* ur_ifm = blocksifm so that we don't need to zero-initialize M and use streaming store */
       wino_desc_fp.ur_ifm = handle->blocksifm;
       wino_desc_fp.blocks_ifm = handle->blocksifm;
 
