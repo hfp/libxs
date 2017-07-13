@@ -165,13 +165,12 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_tensor_datalayout {
 typedef enum libxs_dnn_conv_fuse_op {
   /* we fuse nothing into convolution */
   LIBXS_DNN_CONV_FUSE_NONE = 0,
-  /* we fuse fuse bias init into convolution */
-  LIBXS_DNN_CONV_FUSE_BIAS = 1
-#if 0
-  ,
-  /* we fase fase ReLU calculation into convolution Op */
-  LIBXS_DNN_CONV_FUSE_RELU = 2
-#endif
+  /* we fuse bias addition into convolution */
+  LIBXS_DNN_CONV_FUSE_BIAS = 1,
+  /* we fuse ReLU calculation into convolution op */
+  LIBXS_DNN_CONV_FUSE_RELU = 2,
+  /* we fuse bias addition and ReLU into convolution op */
+  LIBXS_DNN_CONV_FUSE_BIAS_RELU = LIBXS_DNN_CONV_FUSE_BIAS | LIBXS_DNN_CONV_FUSE_RELU
 } libxs_dnn_conv_fuse_op;
 
 /** Type of algorithm used for convolutions. */

@@ -1575,7 +1575,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         /*status = LIBXS_DNN_WARN_FALLBACK;*/
       } else if ((54 == handle->ofw) && (54 == handle->ofh) && (8 == handle->desc.N) && (64 == handle->desc.C) && (64 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 1;
-        wino_desc_wu.ur = 2;
+        if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
+          wino_desc_wu.ur = 1;
+        } else {
+          wino_desc_wu.ur = 2;
+        }
         flagBenchmark = 1;
       } else if ((27 == handle->ofw) && (27 == handle->ofh) && (8 == handle->desc.N) && (128 == handle->desc.C) && (128 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 1; /*8;*/
@@ -1595,7 +1599,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         flagBenchmark = 1;
       } else if ((56 == handle->ofw) && (56 == handle->ofh) && (8 == handle->desc.N) && (128 == handle->desc.C) && (256 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 1; /*2;*/
-        wino_desc_wu.ur = 2;
+        if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
+          wino_desc_wu.ur = 1;
+        } else {
+          wino_desc_wu.ur = 2;
+        }
         flagBenchmark = 1;
       } else if ((28 == handle->ofw) && (28 == handle->ofh) && (8 == handle->desc.N) && (256 == handle->desc.C) && (512 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 2; /*4;*/
@@ -1615,7 +1623,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         flagBenchmark = 1;
       } else if ((56 == handle->ofw) && (56 == handle->ofh) && (16 == handle->desc.N) && (128 == handle->desc.C) && (256 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 1;
-        wino_desc_wu.ur = 2;
+        if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
+          wino_desc_wu.ur = 1;
+        } else {
+          wino_desc_wu.ur = 2;
+        }
         flagBenchmark = 1;
       } else if ((28 == handle->ofw) && (28 == handle->ofh) && (16 == handle->desc.N) && (256 == handle->desc.C) && (512 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 2; /*16;*/
