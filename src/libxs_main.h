@@ -373,6 +373,8 @@ LIBXS_API_VARIABLE void* libxs_scratch_allocator_context;
 LIBXS_API_VARIABLE unsigned int libxs_scratch_pools;
 /** Growth factor used to scale the scratch memory in case of reallocation. */
 LIBXS_API_VARIABLE double libxs_scratch_scale;
+/** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wallclock) */
+LIBXS_API_VARIABLE double libxs_timer_scale;
 /** Stores the verbosity level (libxs_get_verbosity, libxs_set_verbosity). */
 LIBXS_API_VARIABLE int libxs_verbosity;
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
