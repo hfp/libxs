@@ -75,7 +75,7 @@
 #define LIBXS_HASH_CRC32_U16(SEED, VALUE) _mm_crc32_u16(SEED, VALUE)
 #define LIBXS_HASH_CRC32_U32(SEED, VALUE) _mm_crc32_u32(SEED, VALUE)
 
-#if (4294967295U < (__SIZE_MAX__)) || defined(_WIN64)
+#if (defined(__SIZE_MAX__) && (4294967295U < __SIZE_MAX__)) || defined(_WIN64)
 # define LIBXS_HASH_CRC32_U64(SEED, VALUE) _mm_crc32_u64(SEED, VALUE)
 #else
 # define LIBXS_HASH_CRC32_U64(SEED, VALUE) LIBXS_HASH_CRC32_U32( \
