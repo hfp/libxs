@@ -598,7 +598,7 @@ int main(int argc, char* argv[])
   zero_buf(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
   zero_buf(naive_libxs_input,  nImg*nIfm*ifhp*ifwp);
   init_buf(naive_filter,         nOfm*nIfm*kh*kw, 0, 0);
-  zero_buf(naive_filter_wu, nOfm*nIfm*kh*kw);
+  copy_buf(naive_filter, naive_filter_wu, nOfm*nIfm*kh*kw);
   zero_buf(naive_libxs_filter, nOfm*nIfm*kh*kw);
   naive_copy_NCHW_to_NHWC(naive_input, input_nhwc, nImg, ifhp, ifwp, nIfm);
   zero_buf(output_nhwc,          nImg*nOfm*ofhp*ofwp);
@@ -629,6 +629,9 @@ int main(int argc, char* argv[])
     /* NB: We reuse naive_input_save for weight update because the input should not
      * have been modified between forward propagation and weight update; it further
      * helps in exploiting reuse to converted data. */
+#ifdef USE_OVERWRITE
+    zero_buf(naive_filter_wu,          nOfm*nIfm*kh*kw);
+#endif
     naive_conv_wu(&naive_param, naive_input_save, naive_output_wu, naive_filter_wu);
   }
   printf("##########################################\n");
@@ -798,7 +801,7 @@ int main(int argc, char* argv[])
       /* let's do some additional init such that we can run passes standalone */
       CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_input, (void*)naive_input_save, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
       CHKERR_LIBXS_DNN( libxs_dnn_copyin_buffer( libxs_doutput, (void*)naive_output_wu, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
-      CHKERR_LIBXS_DNN( libxs_dnn_zero_filter( libxs_dfilter ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_dfilter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
       /* run LIBXS convolutions */
 #if defined(_OPENMP)
 #     pragma omp parallel
@@ -1096,7 +1099,7 @@ int main(int argc, char* argv[])
       /* let's do some additional init such that we can run passes standalone */
       naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
       naive_copy_NCHW_to_NHWC(naive_output_wu, output_nhwc, nImg, ofhp, ofwp, nOfm);
-      CHKERR_LIBXS_DNN( libxs_dnn_zero_filter( libxs_filter ) );
+      naive_copy_KCRS_to_RSCK(naive_filter, filter_rsck, kh, kw, nIfm, nOfm);
       /* run LIBXS convolutions */
 #if defined(_OPENMP)
 #     pragma omp parallel
@@ -1396,7 +1399,7 @@ int main(int argc, char* argv[])
       /* let's do some additional init such that we can run passes standalone */
       naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
       naive_copy_NCHW_to_NHWC(naive_output_wu, output_nhwc, nImg, ofhp, ofwp, nOfm);
-      CHKERR_LIBXS_DNN( libxs_dnn_zero_filter( libxs_filter ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_copyin_filter( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
       /* run LIBXS convolutions */
 #if defined(_OPENMP)
 #     pragma omp parallel
