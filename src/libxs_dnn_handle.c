@@ -1546,7 +1546,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         handle->code_bwd[0].pmm = libxs_create_xconv_wino_backward(&wino_desc_bp);
         wino_desc_bp.prefetch = LIBXS_CONVOLUTION_PREFETCH_INPUT_L1;
         handle->code_bwd[1].pmm = libxs_create_xconv_wino_backward(&wino_desc_bp);
-        wino_desc_bp.prefetch = LIBXS_CONVOLUTION_PREFETCH_INPUT_L1 | LIBXS_CONVOLUTION_PREFETCH_INPUT_L2;
+        wino_desc_bp.prefetch = (libxs_convolution_prefetch_type)(LIBXS_CONVOLUTION_PREFETCH_INPUT_L1 | LIBXS_CONVOLUTION_PREFETCH_INPUT_L2);
         handle->code_bwd[2].pmm = libxs_create_xconv_wino_backward(&wino_desc_bp);
       } else {
         assert(0/*should not happen*/);
