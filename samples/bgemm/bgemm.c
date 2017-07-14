@@ -47,12 +47,13 @@
 #if !defined(REAL_TYPE)
 # define REAL_TYPE float
 #endif
-
 #if !defined(CHECK) && \
   (!defined(__BLAS) || (0 != __BLAS)) && /* BLAS evailable */ \
   (LIBXS_EQUAL(REAL_TYPE, float) || LIBXS_EQUAL(REAL_TYPE, double))
 # define CHECK
 #endif
+
+#define MYASSERT(x) if(!(x)) { printf("Assertion %s failed...\n", #x); exit(1);}
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT dst,
@@ -91,9 +92,10 @@ int main(int argc, char* argv[])
   const libxs_blasint b_n1  = (10 < argc ? atoi(argv[10]) : 1);
   const libxs_blasint b_k1 = (11 < argc ? atoi(argv[11]) : 1);
   const libxs_blasint b_k2 = (12 < argc ? atoi(argv[12]) : 1);
-  const libxs_blasint lda = (13 < argc ? atoi(argv[13]) : m);
-  const libxs_blasint ldb = (14 < argc ? atoi(argv[14]) : k);
-  const libxs_blasint ldc = (15 < argc ? atoi(argv[15]) : m);
+  const int ab = (13 < argc ? atoi(argv[13]) : 0);
+  const libxs_blasint lda = (14 < argc ? atoi(argv[13]) : m);
+  const libxs_blasint ldb = (15 < argc ? atoi(argv[14]) : k);
+  const libxs_blasint ldc = (16 < argc ? atoi(argv[15]) : m);
   const double gflops = 2.0 * m * n * k * 1E-9;
   const char transa = 'N', transb = 'N'; /* no transposes */
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
@@ -104,9 +106,16 @@ int main(int argc, char* argv[])
   const double check = LIBXS_ABS(0 == env_check ? 0 : atof(env_check));
 #endif
   if (argc > 1 && !strncmp(argv[1], "-h", 3)) { /* check command line */
-    printf("\nUsage: ./bgemm [M] [N] [K] [bm] [bn] [bk] [order] [reps] [b_m1] [b_n1] [b_k1] [b_k2]\n\n");
+    printf("\nUsage: ./bgemm [M] [N] [K] [bm] [bn] [bk] [order] [reps] [b_m1] [b_n1] [b_k1] [b_k2] [verbose]\n\n");
     return result;
   }
+
+  MYASSERT(m % b_m1 == 0);
+  MYASSERT(n % b_n1 == 0);
+  MYASSERT(k % b_k1 == 0);
+  MYASSERT(m/b_m1 % bm == 0);
+  MYASSERT(n/b_n1 % bn == 0);
+  MYASSERT(k/b_k1/b_k2 % bk == 0);
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload target(LIBXS_OFFLOAD_TARGET)
@@ -143,15 +152,20 @@ int main(int argc, char* argv[])
         LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
       }
 #endif
+      if (!ab) {
       libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(REAL_TYPE),
         &transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
       fprintf(stdout, "\n\n");
-
+      }
       start = libxs_timer_tick();
       libxs_bgemm_omp(handle, a, b, c, nrepeat);
       duration = libxs_timer_duration(start, libxs_timer_tick());
       if (0 < duration) {
-        fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops * nrepeat / duration);
+        if (ab) {
+          fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s | %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d \n", gflops * nrepeat / duration, m, n, k, bm, bn, bk, order, b_m1, b_n1, b_k1, b_k2);
+        } else {
+          fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops * nrepeat / duration);
+        }
       }
 #if defined(CHECK)
       if (!LIBXS_FEQ(0, check)) { /* validate result against LAPACK/BLAS xGEMM */
@@ -199,8 +213,9 @@ int main(int argc, char* argv[])
     libxs_free(b);
     libxs_free(c);
   }
-  fprintf(stdout, "Finished\n");
-
+  if(!ab) {
+    fprintf(stdout, "Finished\n");
+  }
   return result;
 }
 
