@@ -367,7 +367,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   }
 
   /* Check if padded needs to be applied in the input and allocate appropriate buffers */
-  /* Anand: changing below check for pad to either/or pad_h or pad_w instead of and */ 
+  /* Anand: changing below check for pad to either/or pad_h or pad_w instead of and */
   if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && ((handle->desc.pad_h > 0) || (handle->desc.pad_w > 0))) {
     handle->padding_flag = 1;
     handle->scratch5  = 0;
