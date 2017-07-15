@@ -46,11 +46,10 @@
 #endif
 
 
-LIBXS_API_INLINE void internal_bwd_input_transform_custom_custom(
-                                           const float *inp,
-                                           float *tinp,
-                                           float *Iwp,
-                                           const libxs_dnn_layer* handle )
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_bwd_input_transform_custom_custom(
+  const float *inp, float *tinp, float *Iwp,
+  const libxs_dnn_layer* handle)
 {
   if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
@@ -136,11 +135,10 @@ LIBXS_API_INLINE void internal_bwd_weight_transform(
 }
 
 
-LIBXS_API_INLINE void internal_bwd_output_transform_custom_custom(
-                                            float *toutp,
-                                            float *outp,
-                                            float *Owp,
-                                            const libxs_dnn_layer* handle )
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_bwd_output_transform_custom_custom(
+  float *toutp, float *outp, float *Owp,
+  const libxs_dnn_layer* handle)
 {
   if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
