@@ -99,7 +99,7 @@ LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int t
   static int error_once = 0;
 
   assert(typesize <= 255);
-  if (0 != out && out != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && n <= ldo) {
+  if (0 != out && out != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && m <= ldo) {
     const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
     libxs_xmatcopyfunction xmatcopy = 0;
     LIBXS_INIT
@@ -165,7 +165,7 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
   static int error_once = 0;
 
   assert(typesize <= 255);
-  if (0 != out && 0 != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && n <= ldo) {
+  if (0 != out && 0 != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && m <= ldo) {
     LIBXS_INIT
     if (out != in) {
       libxs_xtransfunction xtrans = 0;
