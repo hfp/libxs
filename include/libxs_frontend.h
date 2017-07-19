@@ -294,6 +294,15 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
     LIBXS_PREFETCH_C(PC)); \
 }
 
+#if defined(LIBXS_FALLBACK_MMFUNCTION)
+# if !defined(LIBXS_FALLBACK_SMMFUNCTION)
+#   define LIBXS_FALLBACK_SMMFUNCTION
+#endif
+# if !defined(LIBXS_FALLBACK_DMMFUNCTION)
+#   define LIBXS_FALLBACK_DMMFUNCTION
+#endif
+#endif
+
 #if (0/*LIBXS_PREFETCH_NONE*/ == LIBXS_PREFETCH)
 # define LIBXS_MMCALL_LDX(FN, A, B, C, M, N, K, LDA, LDB, LDC) \
   LIBXS_MMCALL_ABC(FN, A, B, C)
