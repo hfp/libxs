@@ -87,44 +87,14 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
 
   if (0 < m && 0 < n && 0 < k && 0 < mm && 0 < nn && 0 < kk) {
     memset(&handle, 0, sizeof(handle));
-    handle.flags = (0 == gemm_flags ? LIBXS_FLAGS : *gemm_flags);
 
-    switch (precision) {
-      case LIBXS_GEMM_PRECISION_F64: {
-        handle.alpha.d = (0 != alpha ? *((const double*)alpha) : LIBXS_ALPHA);
-        handle.beta.d = (0 != beta ? *((const double*)beta) : LIBXS_BETA);
-        assert(LIBXS_FEQ(1, handle.alpha.d) && LIBXS_FEQ(1, handle.beta.d)/*TODO*/);
-        LIBXS_GEMM_DESCRIPTOR(descriptor, precision, handle.flags, mm, nn, kk, mm/*lda*/, kk/*ldb*/, mm/*ldc*/,
-          handle.alpha.d, handle.beta.d, LIBXS_PREFETCH_NONE);
-        handle.typesize = 8;
-      } break;
-      case LIBXS_GEMM_PRECISION_F32: {
-        handle.alpha.s = (0 != alpha ? *((const float*)alpha) : LIBXS_ALPHA);
-        handle.beta.s = (0 != beta ? *((const float*)beta) : LIBXS_BETA);
-        assert(LIBXS_FEQ(1, handle.alpha.s) && LIBXS_FEQ(1, handle.beta.s)/*TODO*/);
-        LIBXS_GEMM_DESCRIPTOR(descriptor, precision, handle.flags, mm, nn, kk, mm/*lda*/, kk/*ldb*/, mm/*ldc*/,
-          handle.alpha.s, handle.beta.s, LIBXS_PREFETCH_NONE);
-        handle.typesize = 4;
-      } break;
-      case LIBXS_GEMM_PRECISION_I16: {
-        /*
-         * Take alpha and beta as short data although wgemm takes full integers.
-         * However, alpha and beta are only JIT-supported for certain value,
-         * and the call-side may not distinct different input and output types
-         * (integer/short), hence it is safer to only read short data.
-         */
-        handle.alpha.w = (0 != alpha ? *((const short*)alpha) : LIBXS_ALPHA);
-        handle.beta.w = (0 != beta ? *((const short*)beta) : LIBXS_BETA);
-        assert(LIBXS_FEQ(1, handle.alpha.w) && LIBXS_FEQ(1, handle.beta.w)/*TODO*/);
-        LIBXS_GEMM_DESCRIPTOR(descriptor, precision, handle.flags, mm, nn, kk, mm/*lda*/, kk/*ldb*/, mm/*ldc*/,
-          handle.alpha.w, handle.beta.w, LIBXS_PREFETCH_NONE);
-        handle.typesize = 2;
-      } break;
-      default: ;
-    }
-
-    if (0 < handle.typesize) {
+    if (EXIT_SUCCESS == libxs_gemm_descriptor_init(&descriptor,
+      precision, mm, nn, kk, &mm/*lda*/, &kk/*ldb*/, &mm/*ldc*/,
+      alpha, beta, gemm_flags, 0/*prefetch*/))
+    {
+      handle.typesize = LIBXS_TYPESIZE(precision);
       handle.mb = m / mm; handle.nb = n / nn; handle.kb = k / kk;
+      assert(0 < handle.typesize);
 
       if (0 == (m % mm) && 0 == (n % nn) && 0 == (k % kk)) { /* check for valid block-size */
         const libxs_gemm_prefetch_type prefetch = (0 == strategy ? ((libxs_gemm_prefetch_type)LIBXS_PREFETCH) : *strategy);
