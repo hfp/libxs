@@ -126,8 +126,8 @@ LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int t
       const libxs_blasint tn = LIBXS_MIN((libxs_blasint)libxs_trans_tile[tindex][1/*N*/][index], n);
       LIBXS_XCOPY(
         LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
-        LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL_NOPF, xmatcopy,
-        out, in, typesize, uldi, uldo, tm, tn, 0, m, 0, n);
+        LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL_NOPF, xmatcopy, out, in,
+        typesize, uldi, uldo, tm, tn, 0, m, 0, n);
     }
   }
   else {
@@ -158,14 +158,18 @@ LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int t
 }
 
 
-LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo)
+LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
+  int tid, int nthreads)
 {
   int result = EXIT_SUCCESS;
   static int error_once = 0;
 
   assert(typesize <= 255);
-  if (0 != out && 0 != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && n <= ldo) {
+  if (0 != out && 0 != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && n <= ldo &&
+    /* use (signed) integer types, but check sanity of input */
+    0 <= tid && tid < nthreads)
+  {
     LIBXS_INIT
     if (out != in) {
       libxs_xtransfunction xtrans = 0;
@@ -187,6 +191,8 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
       }
       else { /* tiled transpose */
         const int tindex = (4 < typesize ? 0 : 1), index = LIBXS_MIN(LIBXS_SQRT2(size) >> 10, 7);
+        libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
+        int mtasks;
         descriptor.m = LIBXS_MIN((unsigned int)m, libxs_trans_tile[tindex][0/*M*/][index]);
         descriptor.n = LIBXS_MIN((unsigned int)n, libxs_trans_tile[tindex][1/*N*/][index]);
         if (0 != (2 & libxs_trans_jit)) { /* JIT'ted transpose permitted? */
@@ -195,10 +201,24 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
           descriptor.n = LIBXS_MIN(descriptor.n, LIBXS_MAX_N);
           xtrans = libxs_xtransdispatch(&descriptor);
         }
+        mtasks = ((1 < nthreads) ? ((int)((m + descriptor.m - 1) / descriptor.m)) : 1);
+        if (1 < mtasks && nthreads <= mtasks) { /* only parallelized over M */
+          const int mc = (mtasks + nthreads - 1) / nthreads * descriptor.m;
+          m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
+        }
+        else if (1 < nthreads) {
+          const int ntasks = (int)((n + descriptor.n - 1) / descriptor.n);
+          const int mnc = (ntasks * mtasks + nthreads - 1) / nthreads;
+          const int mc = (mnc % mtasks) * descriptor.m;
+          const int nc = (mnc % ntasks) * descriptor.n;
+          const int mtid = tid % mtasks, ntid = tid / mtasks;
+          m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
+          n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
+        }
         LIBXS_XCOPY(
           LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
-          LIBXS_TCOPY_KERNEL, LIBXS_TCOPY_CALL, xtrans,
-          out, in, typesize, uldi, uldo, descriptor.m, descriptor.n, 0, m, 0, n);
+          LIBXS_TCOPY_KERNEL, LIBXS_TCOPY_CALL, xtrans, out, in,
+          typesize, uldi, uldo, descriptor.m, descriptor.n, m0, m1, n0, n1);
       }
     }
     else if (ldi == ldo) {
@@ -217,7 +237,10 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      if (0 == out || 0 == in) {
+      if (0 > tid || tid >= nthreads) {
+        fprintf(stderr, "LIBXS ERROR: the transpose thread-id or number of threads is incorrect!\n");
+      }
+      else if (0 == out || 0 == in) {
         fprintf(stderr, "LIBXS ERROR: the transpose input and/or output is NULL!\n");
       }
       else if (out == in) {
@@ -237,6 +260,20 @@ LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int ty
     result = EXIT_FAILURE;
   }
 
+  return result;
+}
+
+
+LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo)
+{
+  const int ntasks = 1; /* TODO: tune outer block-size ("sequential threading") */
+  int result = EXIT_SUCCESS;
+  int task;
+  for (task = 0; task < ntasks; ++task) {
+    result = libxs_otrans_thread(out, in, typesize, m, n, ldi, ldo, task, ntasks);
+    if (EXIT_SUCCESS != result) break;
+  }
   return result;
 }
 
