@@ -267,14 +267,7 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
 LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo)
 {
-  const int ntasks = 1; /* TODO: tune outer block-size ("sequential threading") */
-  int result = EXIT_SUCCESS;
-  int task;
-  for (task = 0; task < ntasks; ++task) {
-    result = libxs_otrans_thread(out, in, typesize, m, n, ldi, ldo, task, ntasks);
-    if (EXIT_SUCCESS != result) break;
-  }
-  return result;
+  return libxs_otrans_thread(out, in, typesize, m, n, ldi, ldo, 0, 1);
 }
 
 
