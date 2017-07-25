@@ -33,7 +33,7 @@
 
 #if !defined(LIBXS_TRANS_COLLAPSE)
 # if !defined(_CRAYC)
-#   define LIBXS_TRANS_COLLAPSE 2
+#   define LIBXS_TRANS_COLLAPSE 1/*2*/
 # else
 #   define LIBXS_TRANS_COLLAPSE 1
 # endif
