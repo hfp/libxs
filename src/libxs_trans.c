@@ -91,50 +91,100 @@ LIBXS_API_DEFINITION void libxs_trans_finalize(void)
 }
 
 
-LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int typesize,
+LIBXS_API_DEFINITION int libxs_matcopy_thread(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
-  const int* prefetch)
+  const int* prefetch, int tid, int nthreads)
 {
   int result = EXIT_SUCCESS;
   static int error_once = 0;
 
   assert(typesize <= 255);
-  if (0 != out && out != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && m <= ldo) {
+  if (0 != out && out != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && m <= ldo &&
+    /* use (signed) integer types, but check sanity of input */
+    0 <= tid && tid < nthreads)
+  {
     const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
     libxs_xmatcopyfunction xmatcopy = 0;
     LIBXS_INIT
-    if (0 != (1 & libxs_trans_jit)) { /* JIT'ted matcopy permitted; use no tiling */
+    if (1 < nthreads) {
+      libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
       libxs_matcopy_descriptor descriptor = { 0 };
-      descriptor.prefetch = (unsigned char)((0 == prefetch || 0 == *prefetch) ? 0 : 1);
-      descriptor.flags = (unsigned char)(0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE);
-      descriptor.ldi = (unsigned int)ldi; descriptor.ldo = (unsigned int)ldo; descriptor.unroll_level = 2;
-      descriptor.typesize = (unsigned char)typesize;
-      descriptor.m = (unsigned int)m; descriptor.n = (unsigned int)n;
-      xmatcopy = libxs_xmatcopydispatch(&descriptor);
-    }
-    if (0 != xmatcopy) {
-      if (0 == prefetch || 0 == *prefetch) {
-        LIBXS_MCOPY_CALL_NOPF(xmatcopy, typesize, in, &uldi, out, &uldo);
-      }
-      else {
-        LIBXS_MCOPY_CALL(xmatcopy, typesize, in, &uldi, out, &uldo);
-      }
-    }
-    else { /* no JIT; tiled matrix-copy */
       const int tindex = (4 < typesize ? 0 : 1), index = LIBXS_MIN(LIBXS_SQRT2(1U * m * n) >> 10, 7);
-      const libxs_blasint tm = LIBXS_MIN((libxs_blasint)libxs_trans_tile[tindex][0/*M*/][index], m);
-      const libxs_blasint tn = LIBXS_MIN((libxs_blasint)libxs_trans_tile[tindex][1/*N*/][index], n);
-      LIBXS_XCOPY(
-        LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
-        LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL_NOPF, xmatcopy, out, in,
-        typesize, uldi, uldo, tm, tn, 0, m, 0, n);
+      int mtasks;
+      descriptor.m = LIBXS_MIN(libxs_trans_tile[tindex][0/*M*/][index], (unsigned int)m);
+      descriptor.n = LIBXS_MIN(libxs_trans_tile[tindex][1/*N*/][index], (unsigned int)n);
+      if (0 != (1 & libxs_trans_jit)) { /* JIT'ted matcopy permitted */
+        descriptor.prefetch = (unsigned char)((0 == prefetch || 0 == *prefetch) ? 0 : 1);
+        descriptor.flags = (unsigned char)(0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE);
+        descriptor.typesize = (unsigned char)typesize; descriptor.unroll_level = 2;
+        descriptor.ldi = (unsigned int)ldi; descriptor.ldo = (unsigned int)ldo;
+        xmatcopy = libxs_xmatcopydispatch(&descriptor);
+      }
+      mtasks = ((1 < nthreads) ? ((int)((m + descriptor.m - 1) / descriptor.m)) : 1);
+      if (1 < mtasks && nthreads <= mtasks) { /* only parallelized over M */
+        const int mc = (mtasks + nthreads - 1) / nthreads * descriptor.m;
+        m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
+      }
+      else if (1 < nthreads) {
+        const int mc = descriptor.m, ntasks = (nthreads / mtasks);
+        const int nc = (((n + ntasks - 1) / ntasks + descriptor.n - 1) / descriptor.n) * descriptor.n;
+        const int mtid = tid / ntasks, ntid = tid - mtid * ntasks;
+        m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
+        n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
+      }
+      assert(((tid + 1) != nthreads) || (m1 == m && n1 == n));
+      if (0 != prefetch && 0 != *prefetch) { /* prefetch */
+        LIBXS_XCOPY(
+          LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
+          LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL, xmatcopy, out, in,
+          typesize, uldi, uldo, descriptor.m, descriptor.n, m0, m1, n0, n1);
+      }
+      else { /* no prefetch */
+        LIBXS_XCOPY(
+          LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
+          LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL_NOPF, xmatcopy, out, in,
+          typesize, uldi, uldo, descriptor.m, descriptor.n, m0, m1, n0, n1);
+      }
+    }
+    else {
+      assert(0 == tid && 1 == nthreads);
+      if (0 != (1 & libxs_trans_jit)) { /* JIT'ted matcopy permitted */
+        libxs_matcopy_descriptor descriptor = { 0 };
+        descriptor.prefetch = (unsigned char)((0 == prefetch || 0 == *prefetch) ? 0 : 1);
+        descriptor.flags = (unsigned char)(0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE);
+        descriptor.ldi = (unsigned int)ldi; descriptor.ldo = (unsigned int)ldo; descriptor.unroll_level = 2;
+        descriptor.typesize = (unsigned char)typesize;
+        descriptor.m = (unsigned int)m; descriptor.n = (unsigned int)n;
+        xmatcopy = libxs_xmatcopydispatch(&descriptor);
+      }
+      if (0 != xmatcopy) { /* JIT-kernel available */
+        if (0 != prefetch && 0 != *prefetch) { /* prefetch */
+          LIBXS_MCOPY_CALL(xmatcopy, typesize, in, &uldi, out, &uldo);
+        }
+        else { /* no prefetch */
+          LIBXS_MCOPY_CALL_NOPF(xmatcopy, typesize, in, &uldi, out, &uldo);
+        }
+      }
+      else { /* no JIT */
+        const int tindex = (4 < typesize ? 0 : 1), index = LIBXS_MIN(LIBXS_SQRT2(1U * m * n) >> 10, 7);
+        const unsigned int tm = LIBXS_MIN(libxs_trans_tile[tindex][0/*M*/][index], (unsigned int)m);
+        const unsigned int tn = LIBXS_MIN(libxs_trans_tile[tindex][1/*N*/][index], (unsigned int)n);
+        assert(0 == xmatcopy);
+        LIBXS_XCOPY(
+          LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
+          LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL_NOPF, xmatcopy/*0*/, out, in,
+          typesize, uldi, uldo, tm, tn, 0, m, 0, n);
+      }
     }
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      if (0 == out) {
+      if (0 > tid || tid >= nthreads) {
+        fprintf(stderr, "LIBXS ERROR: the matcopy thread-id or number of threads is incorrect!\n");
+      }
+      else if (0 == out) {
         fprintf(stderr, "LIBXS ERROR: the matcopy input and/or output is NULL!\n");
       }
       else if (out == in) {
@@ -158,6 +208,14 @@ LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int t
 }
 
 
+LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
+  const int* prefetch)
+{
+  return libxs_matcopy_thread(out, in, typesize, m, n, ldi, ldo, prefetch, 0/*tid*/, 1/*nthreads*/);
+}
+
+
 LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
   int tid, int nthreads)
@@ -176,29 +234,15 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
       libxs_transpose_descriptor descriptor = { 0 };
       const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
       const unsigned int size = (unsigned int)(1U * m * n);
-      if (size <= (LIBXS_TRANS_THRESHOLD)) { /* no tiling */
-        if (0 != (2 & libxs_trans_jit)) { /* JIT'ted transpose permitted? */
-          descriptor.typesize = (unsigned char)typesize;
-          descriptor.m = (unsigned int)m; descriptor.n = (unsigned int)n; descriptor.ldo = (unsigned int)ldo;
-          xtrans = libxs_xtransdispatch(&descriptor);
-        }
-        if (0 != xtrans) { /* prefer JIT for small problems */
-          LIBXS_TCOPY_CALL(xtrans, typesize, in, &uldi, out, &uldo);
-        }
-        else { /* JIT not available */
-          LIBXS_XCOPY_NONJIT(LIBXS_TCOPY_KERNEL, out, in, typesize, uldi, uldo, 0, m, 0, n);
-        }
-      }
-      else { /* tiled transpose */
+      if ((LIBXS_TRANS_THRESHOLD) < size) { /* tiled transpose */
         const int tindex = (4 < typesize ? 0 : 1), index = LIBXS_MIN(LIBXS_SQRT2(size) >> 10, 7);
         libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
         int mtasks;
-        descriptor.m = LIBXS_MIN((unsigned int)m, libxs_trans_tile[tindex][0/*M*/][index]);
-        descriptor.n = LIBXS_MIN((unsigned int)n, libxs_trans_tile[tindex][1/*N*/][index]);
+        descriptor.m = LIBXS_MIN(libxs_trans_tile[tindex][0/*M*/][index], (unsigned int)m);
+        descriptor.n = LIBXS_MIN(libxs_trans_tile[tindex][1/*N*/][index], (unsigned int)n);
         if (0 != (2 & libxs_trans_jit)) { /* JIT'ted transpose permitted? */
           descriptor.typesize = (unsigned char)typesize; descriptor.ldo = (unsigned int)ldo;
-          descriptor.m = LIBXS_MIN(descriptor.m, LIBXS_MAX_M);
-          descriptor.n = LIBXS_MIN(descriptor.n, LIBXS_MAX_N);
+          assert((descriptor.m <= (LIBXS_MAX_M)) && (descriptor.n <= (LIBXS_MAX_N)));
           xtrans = libxs_xtransdispatch(&descriptor);
         }
         mtasks = ((1 < nthreads) ? ((int)((m + descriptor.m - 1) / descriptor.m)) : 1);
@@ -207,18 +251,32 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
           m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
         }
         else if (1 < nthreads) {
-          const int ntasks = (int)((n + descriptor.n - 1) / descriptor.n);
-          const int mnc = (ntasks * mtasks + nthreads - 1) / nthreads;
-          const int mc = (mnc % mtasks) * descriptor.m;
-          const int nc = (mnc % ntasks) * descriptor.n;
-          const int mtid = tid % mtasks, ntid = tid / mtasks;
+          const int mc = descriptor.m, ntasks = (nthreads / mtasks);
+          const int nc = (((n + ntasks - 1) / ntasks + descriptor.n - 1) / descriptor.n) * descriptor.n;
+          const int mtid = tid / ntasks, ntid = tid - mtid * ntasks;
           m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
           n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
         }
+        assert(((tid + 1) != nthreads) || (m1 == m && n1 == n));
         LIBXS_XCOPY(
           LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
           LIBXS_TCOPY_KERNEL, LIBXS_TCOPY_CALL, xtrans, out, in,
           typesize, uldi, uldo, descriptor.m, descriptor.n, m0, m1, n0, n1);
+      }
+      else { /* no tiling */
+        if (0 != (2 & libxs_trans_jit)) { /* JIT'ted transpose permitted? */
+          descriptor.typesize = (unsigned char)typesize;
+          descriptor.ldo = (unsigned int)ldo;
+          descriptor.m = (unsigned int)m;
+          descriptor.n = (unsigned int)n;
+          xtrans = libxs_xtransdispatch(&descriptor);
+        }
+        if (0 != xtrans) { /* JIT'ted kernel available */
+          LIBXS_TCOPY_CALL(xtrans, typesize, in, &uldi, out, &uldo);
+        }
+        else { /* JIT not available */
+          LIBXS_XCOPY_NONJIT(LIBXS_TCOPY_KERNEL, out, in, typesize, uldi, uldo, 0, m, 0, n);
+        }
       }
     }
     else if (ldi == ldo) {
@@ -267,7 +325,7 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
 LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo)
 {
-  return libxs_otrans_thread(out, in, typesize, m, n, ldi, ldo, 0, 1);
+  return libxs_otrans_thread(out, in, typesize, m, n, ldi, ldo, 0/*tid*/, 1/*nthreads*/);
 }
 
 
