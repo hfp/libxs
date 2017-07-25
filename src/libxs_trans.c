@@ -242,7 +242,9 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
         descriptor.n = LIBXS_MIN(libxs_trans_tile[tindex][1/*N*/][index], (unsigned int)n);
         if (0 != (2 & libxs_trans_jit)) { /* JIT'ted transpose permitted? */
           descriptor.typesize = (unsigned char)typesize; descriptor.ldo = (unsigned int)ldo;
-          assert((descriptor.m <= (LIBXS_MAX_M)) && (descriptor.n <= (LIBXS_MAX_N)));
+          /* limit the amount of (unrolled) code by limiting the shape of the kernel */
+          if ((LIBXS_MAX_M) < descriptor.m) descriptor.m = LIBXS_MAX_M;
+          if ((LIBXS_MAX_N) < descriptor.n) descriptor.n = LIBXS_MAX_N;
           xtrans = libxs_xtransdispatch(&descriptor);
         }
         mtasks = ((1 < nthreads) ? ((int)((m + descriptor.m - 1) / descriptor.m)) : 1);
