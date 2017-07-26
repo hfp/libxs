@@ -69,7 +69,7 @@ LIBXS_API_DEFINITION void libxs_trans_init(int archid)
   else {
     config = 0;
   }
-#if !defined(LIBXS_BUILD) && defined(__clang__) && !defined(__INTEL_COMPILER) /* TODO: investigate Clang specific issue */
+#if defined(__clang__) && !defined(__INTEL_COMPILER) /* TODO: investigate Clang specific issue */
   /* determine if JIT-kernels are used (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */
   libxs_trans_jit = ((0 == env_jit || 0 == *env_jit) ? 3 : atoi(env_jit));
 #else
@@ -243,7 +243,7 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
         descriptor.m = LIBXS_MIN(libxs_trans_tile[tindex][0/*M*/][index], (unsigned int)m);
         descriptor.n = LIBXS_MIN(libxs_trans_tile[tindex][1/*N*/][index], (unsigned int)n);
         if (0 != (2 & libxs_trans_jit)) { /* JIT'ted transpose permitted? */
-          descriptor.typesize = (unsigned char)typesize; descriptor.ldo = (unsigned int)ldo;
+          descriptor.typesize = (unsigned char)typesize; descriptor.ldo = uldo;
           /* limit the amount of (unrolled) code by limiting the shape of the kernel */
           if ((LIBXS_MAX_M) < descriptor.m) descriptor.m = LIBXS_MAX_M;
           if ((LIBXS_MAX_N) < descriptor.n) descriptor.n = LIBXS_MAX_N;
