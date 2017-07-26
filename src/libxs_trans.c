@@ -69,7 +69,7 @@ LIBXS_API_DEFINITION void libxs_trans_init(int archid)
   else {
     config = 0;
   }
-#if defined(__clang__) && !defined(__INTEL_COMPILER) /* TODO: investigate Clang specific issue */
+#if !defined(__clang__) || defined(__INTEL_COMPILER) /* TODO: investigate Clang specific issue */
   /* determine if JIT-kernels are used (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */
   libxs_trans_jit = ((0 == env_jit || 0 == *env_jit) ? 3 : atoi(env_jit));
 #else
