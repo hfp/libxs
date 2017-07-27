@@ -212,8 +212,8 @@ abslib = $(strip $(call abslibpath,$1) $(call abslibfile,$1))
 
 EXTLIB = $(call abslib,$(LIBNAME)ext.$(LIBEXT)) #$(XLIB_BEGIN) -lm $(XLIB_END)
 ifeq (0,$(BLAS))
-  # provides a libxsext as a dummy library which satisfies BLAS symbols
-  BLASLIB = $(EXTLIB)
+  # provides libxsnoblas to satisfy BLAS symbols
+  BLASLIB = $(call abslib,$(LIBNAME)noblas.$(LIBEXT))
 else
   BLASLIB ?= $(NULL)
 endif
@@ -1050,6 +1050,10 @@ ifneq (0,$(shell $(LD) $(SLDFLAGS) -l$(OMPRT) 2>&1 | grep -q "\-l$(OMPRT)"; echo
   endif
 else
   OMPLIB = $(NULL)
+endif
+
+ifneq (0,$(OMP))
+  EXTLIB += $(OMPLIB)
 endif
 
 ifeq (Darwin,$(UNAME))
