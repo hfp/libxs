@@ -251,14 +251,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_c
   }
   else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) {
-#if 0
-      typedef float element_input_type;
-      typedef float element_output_type;
-      typedef float element_filter_type;
-      typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_winograd_st_fwd_custom_custom.tpl.c"
-#endif
-
       if (handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
@@ -312,14 +304,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_cus
   }
   else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) {
-#if 0
-      typedef float element_input_type;
-      typedef float element_output_type;
-      typedef float element_filter_type;
-      typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_winograd_st_fwd_nhwc_custom.tpl.c"
-#endif
-
       if (handle->cwino_fwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
