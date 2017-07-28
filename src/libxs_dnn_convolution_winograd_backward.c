@@ -81,20 +81,10 @@ LIBXS_ATTRIBUTE_UNUSED void internal_bwd_input_transform_custom_custom_alpha6_av
 
 LIBXS_API_INLINE /*LIBXS_INTRINSICS(LIBXS_X86_AVX512)*/
 void internal_bwd_input_transform_custom_custom(
-  const float *inp, float *tinp, float *Iwp, const libxs_dnn_layer* handle)
+  const float *inp, float *tinp, float *Iwp,
+  const libxs_dnn_layer* handle)
 {
   if (handle->cwino_bwd.alpha == 6) {
-  /*
-#define ALPHA 6
-#define TDVLEN 16
-#if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_AVX512)
-# include "template/libxs_dnn_convolution_winograd_backward_custom_custom_input_trans_alpha6_avx512.tpl.c"
-#else
-# include "template/libxs_dnn_convolution_winograd_backward_custom_custom_input_trans_alpha6.tpl.c"
-#endif
-#undef TDVLEN
-#undef ALPHA
-  */
     /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_AVX512)
     internal_bwd_input_transform_custom_custom_alpha6_avx512(inp, tinp, Iwp, handle);
