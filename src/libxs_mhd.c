@@ -26,7 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_dump.h"
+#include <libxs_mhd.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -38,7 +38,7 @@
 #endif
 
 
-LIBXS_API_DEFINITION const char* libxs_meta_image_typeinfo(libxs_mhd_elemtype elemtype, size_t* elemsize)
+LIBXS_API_DEFINITION const char* libxs_mhd_typeinfo(libxs_mhd_elemtype elemtype, size_t* elemsize)
 {
   switch (elemtype) {
     case LIBXS_MHD_ELEMTYPE_CHAR: if (0 != elemsize) *elemsize = 1; return "MET_CHAR";
@@ -85,13 +85,13 @@ LIBXS_API_INLINE int internal_write(FILE* file, const void* data,
 }
 
 
-LIBXS_API_DEFINITION int libxs_meta_image_write(const char* filename,
+LIBXS_API_DEFINITION int libxs_mhd_write(const char* filename,
   const size_t* data_size, const size_t* size, size_t ndims, size_t ncomponents,
   const void* data, libxs_mhd_elemtype elemtype, const double* spacing,
   const char* extension_header, const void* extension, size_t extension_size)
 {
   size_t elemsize = 0;
-  const char *const elemtype_name = libxs_meta_image_typeinfo(elemtype, &elemsize);
+  const char *const elemtype_name = libxs_mhd_typeinfo(elemtype, &elemsize);
   FILE *const file = (0 != filename && 0 != *filename &&
       0 != data_size && 0 != ndims && 0 != ncomponents &&
       0 != data && 0 != elemtype_name)
@@ -140,3 +140,4 @@ LIBXS_API_DEFINITION int libxs_meta_image_write(const char* filename,
 
   return result;
 }
+
