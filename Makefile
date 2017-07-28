@@ -251,13 +251,14 @@ HEADERS = $(wildcard $(SRCDIR)/template/*.c) $(wildcard $(SRCDIR)/*.h) \
           $(ROOTDIR)/include/libxs_intrinsics_x86.h \
           $(ROOTDIR)/include/libxs_macros.h \
           $(ROOTDIR)/include/libxs_malloc.h \
+          $(ROOTDIR)/include/libxs_mhd.h \
           $(ROOTDIR)/include/libxs_spmdm.h \
           $(ROOTDIR)/include/libxs_sync.h \
           $(ROOTDIR)/include/libxs_timer.h \
           $(ROOTDIR)/include/libxs_typedefs.h
 SRCFILES_LIB = $(patsubst %,$(SRCDIR)/%, \
           libxs_main.c libxs_cpuid_x86.c libxs_malloc.c \
-          libxs_sync.c libxs_dump.c libxs_timer.c libxs_perf.c \
+          libxs_sync.c libxs_mhd.c libxs_timer.c libxs_perf.c \
           libxs_gemm.c libxs_trans.c libxs_bgemm.c \
           libxs_spmdm.c libxs_fsspmdm.c \
           libxs_dnn.c libxs_dnn_handle.c \
@@ -462,6 +463,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config
 	@cp $(ROOTDIR)/include/libxs_intrinsics_x86.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_malloc.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxs_mhd.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_spmdm.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_sync.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
