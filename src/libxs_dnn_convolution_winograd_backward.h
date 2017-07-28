@@ -31,6 +31,9 @@
 
 #include "libxs_dnn.h"
 
+LIBXS_API void libxs_dnn_convolve_winograd_init_bwd(int target_arch);
+LIBXS_API void libxs_dnn_convolve_winograd_finalize_bwd(void);
+
 LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_custom  (libxs_dnn_layer* handle, int start_thread, int tid);
 
