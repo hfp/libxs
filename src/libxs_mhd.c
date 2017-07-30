@@ -152,7 +152,7 @@ LIBXS_API_DEFINITION int libxs_mhd_read_header(const char* header_filename, size
           && key_end == strlen("NDims"))
         {
           const int value = atoi(buffer + value_begin);
-          if (0 < value && value <= *ndims) {
+          if (0 < value && value <= ((int)*ndims)) {
             *ndims = value;
           }
         }
