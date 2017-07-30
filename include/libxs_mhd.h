@@ -50,7 +50,7 @@ typedef enum libxs_mhd_elemtype {
 
 
 /** Returns the name and size of the element type; result may be NULL/0 in case of an unknown type. */
-LIBXS_API const char* libxs_mhd_typename(libxs_mhd_elemtype elemtype, size_t* elemsize);
+LIBXS_API const char* libxs_mhd_typename(libxs_mhd_elemtype type, size_t* typesize);
 
 /** Returns the type of the element for a given type-name. */
 LIBXS_API libxs_mhd_elemtype libxs_mhd_typeinfo(const char* elemname);
@@ -58,7 +58,7 @@ LIBXS_API libxs_mhd_elemtype libxs_mhd_typeinfo(const char* elemname);
 
 /**
  * Parse the header of an MHD-file. The header can be part of the data file (local),
- * or separately stored (mha+mhd). Returns the element type of the data (typeinfo).
+ * or separately stored (header: MHD, data MHA or RAW).
  */
 LIBXS_API int libxs_mhd_read_header(
   /* Filename referring to the header-file (may also contain the data). */
@@ -72,16 +72,53 @@ LIBXS_API int libxs_mhd_read_header(
   size_t* ndims,
   /* Image extents ("ndims" number of entries). */
   size_t* size,
-  /* Type of the image elements (pixel type). */
-  libxs_mhd_elemtype* type,
   /* Number of image components (channels). */
   size_t* ncomponents,
+  /* Type of the image elements (pixel type). */
+  libxs_mhd_elemtype* type,
   /* Size of the header in bytes; may be used to skip the header,
    * when reading content; can be a NULL-argument (optional). */
   size_t* header_size,
   /* Size (in Bytes) of an user-defined extended data record;
    * can be a NULL-argument (optional). */
   size_t* extension_size);
+
+
+/**
+* Loads the data file, and optionally allows data conversion.
+* Conversion is performed such that values are clamped to fit
+* into the destination.
+*/
+LIBXS_API int libxs_mhd_read(
+  /* Filename referring to the data. */
+  const char* filename,
+  /* Extents of the buffer. */
+  const size_t* data_size,
+  /* Extents of the content. */
+  const size_t* size,
+  /* Dimensionality (number of entries in size). */
+  size_t ndims,
+  /* Number of image components (channels). */
+  size_t ncomponents,
+  /* Used to skip the header, and to only read the data. */
+  size_t header_size,
+  /* Data element type as stored (pixel type). */
+  libxs_mhd_elemtype type_stored,
+  /* Storage type (data conversion, optional). */
+  const libxs_mhd_elemtype* type_data,
+  /* Buffer where the data is read into. */
+  void* data,
+  /**
+   * Optional callback executed per entry when reading the data.
+   * May assign the value to the left-most argument, but also
+   * allows to only compare with present data. Can be used to
+   * avoid allocating an actual destination.
+   */
+  void handle_entry(void*, size_t, const void*),
+  /* Post-content data (extension, optional). */
+  char* extension,
+  /* Size of the extension; can be zero. */
+  size_t extension_size);
 
 
 /**
@@ -97,12 +134,10 @@ LIBXS_API int libxs_mhd_write(const char* filename,
   size_t ndims,
   /** Number of pixel components. */
   size_t ncomponents,
+  /** Storage type. */
+  libxs_mhd_elemtype type,
   /** Raw data to be saved. */
   const void* data,
-  /** Storage type. */
-  libxs_mhd_elemtype elemtype,
-  /** Spacing; can be NULL. */
-  const double* spacing,
   /** Extension header data; can be NULL. */
   const char* extension_header,
   /** Extension data stream; can be NULL. */
