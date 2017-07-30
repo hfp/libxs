@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
     LIBXS_UNUSED(elemname);
     assert(0 != elemname);
   }
-
+#if 0
   /* Read the data according to the header into the allocate buffer. */
   if (EXIT_SUCCESS == result) {
     result = libxs_mhd_read(data_filename,
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
       type, 0/*type_data*/, data, 0/*handle_entry*/,
       0/*extension*/, 0/*extension_size*/);
   }
-
+#endif
   /* Write the data into a different file. */
   if (EXIT_SUCCESS == result) {
     result = libxs_mhd_write("mhd_test.mhd", size, size,
