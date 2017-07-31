@@ -1360,6 +1360,146 @@ $(DOCDIR)/libxs.pdf: $(DOCDIR)/.make $(ROOTDIR)/README.md
 		-o $@
 	@rm $(TMPFILE)
 
+$(DOCDIR)/libxs_aux.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/libxs_aux.md
+	$(eval TMPFILE = $(shell $(MKTEMP) .libxs_XXXXXX.tex))
+	@pandoc -D latex \
+	| sed \
+		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
+		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' \
+		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
+		> $(TMPFILE)
+	@iconv -t utf-8 $(ROOTDIR)/documentation/libxs_aux.md \
+	| sed \
+		-e 's/\[\[..*\](..*)\]//g' \
+		-e 's/\[!\[..*\](..*)\](..*)//g' \
+		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
+		-e 's/----*//g' \
+	| pandoc \
+		--latex-engine=xelatex --template=$(TMPFILE) --listings \
+		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
+		-V documentclass=scrartcl \
+		-V title-meta="LIBXS Documentation (AUX)" \
+		-V author-meta="Hans Pabst" \
+		-V classoption=DIV=45 \
+		-V linkcolor=black \
+		-V citecolor=black \
+		-V urlcolor=black \
+		-o $@
+	@rm $(TMPFILE)
+
+$(DOCDIR)/libxs_be.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/libxs_be.md
+	$(eval TMPFILE = $(shell $(MKTEMP) .libxs_XXXXXX.tex))
+	@pandoc -D latex \
+	| sed \
+		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
+		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' \
+		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
+		> $(TMPFILE)
+	@iconv -t utf-8 $(ROOTDIR)/documentation/libxs_be.md \
+	| sed \
+		-e 's/\[\[..*\](..*)\]//g' \
+		-e 's/\[!\[..*\](..*)\](..*)//g' \
+		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
+		-e 's/----*//g' \
+	| pandoc \
+		--latex-engine=xelatex --template=$(TMPFILE) --listings \
+		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
+		-V documentclass=scrartcl \
+		-V title-meta="LIBXS Documentation (BE)" \
+		-V author-meta="Alexander Heinecke, Hans Pabst" \
+		-V classoption=DIV=45 \
+		-V linkcolor=black \
+		-V citecolor=black \
+		-V urlcolor=black \
+		-o $@
+	@rm $(TMPFILE)
+
+$(DOCDIR)/libxs_dnn.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/libxs_dnn.md
+	$(eval TMPFILE = $(shell $(MKTEMP) .libxs_XXXXXX.tex))
+	@pandoc -D latex \
+	| sed \
+		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
+		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' \
+		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
+		> $(TMPFILE)
+	@iconv -t utf-8 $(ROOTDIR)/documentation/libxs_dnn.md \
+	| sed \
+		-e 's/\[\[..*\](..*)\]//g' \
+		-e 's/\[!\[..*\](..*)\](..*)//g' \
+		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
+		-e 's/----*//g' \
+	| pandoc \
+		--latex-engine=xelatex --template=$(TMPFILE) --listings \
+		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
+		-V documentclass=scrartcl \
+		-V title-meta="LIBXS Documentation (DNN)" \
+		-V author-meta="Alexander Heinecke, Hans Pabst" \
+		-V classoption=DIV=45 \
+		-V linkcolor=black \
+		-V citecolor=black \
+		-V urlcolor=black \
+		-o $@
+	@rm $(TMPFILE)
+
+$(DOCDIR)/libxs_mm.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/libxs_mm.md
+	$(eval TMPFILE = $(shell $(MKTEMP) .libxs_XXXXXX.tex))
+	@pandoc -D latex \
+	| sed \
+		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
+		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' \
+		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
+		> $(TMPFILE)
+	@iconv -t utf-8 $(ROOTDIR)/documentation/libxs_mm.md \
+	| sed \
+		-e 's/\[\[..*\](..*)\]//g' \
+		-e 's/\[!\[..*\](..*)\](..*)//g' \
+		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
+		-e 's/----*//g' \
+	| pandoc \
+		--latex-engine=xelatex --template=$(TMPFILE) --listings \
+		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
+		-V documentclass=scrartcl \
+		-V title-meta="LIBXS Documentation (MM)" \
+		-V author-meta="Hans Pabst" \
+		-V classoption=DIV=45 \
+		-V linkcolor=black \
+		-V citecolor=black \
+		-V urlcolor=black \
+		-o $@
+	@rm $(TMPFILE)
+
+$(DOCDIR)/libxs_perf.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/libxs_perf.md
+	$(eval TMPFILE = $(shell $(MKTEMP) .libxs_XXXXXX.tex))
+	@pandoc -D latex \
+	| sed \
+		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
+		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' \
+		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
+		> $(TMPFILE)
+	@iconv -t utf-8 $(ROOTDIR)/documentation/libxs_perf.md \
+	| sed \
+		-e 's/\[\[..*\](..*)\]//g' \
+		-e 's/\[!\[..*\](..*)\](..*)//g' \
+		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
+		-e 's/----*//g' \
+	| pandoc \
+		--latex-engine=xelatex --template=$(TMPFILE) --listings \
+		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
+		-V documentclass=scrartcl \
+		-V title-meta="LIBXS Documentation (PERF)" \
+		-V author-meta="Hans Pabst" \
+		-V classoption=DIV=45 \
+		-V linkcolor=black \
+		-V citecolor=black \
+		-V urlcolor=black \
+		-o $@
+	@rm $(TMPFILE)
+
 $(DOCDIR)/cp2k.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/cp2k.md
 	$(eval TMPFILE = $(shell $(MKTEMP) .libxs_XXXXXX.tex))
 	@pandoc -D latex \
@@ -1444,7 +1584,16 @@ $(DOCDIR)/samples.pdf: $(DOCDIR)/.make $(SPLDIR)/*/README.md
 	@rm $(TMPFILE)
 
 .PHONY: documentation
-documentation: $(DOCDIR)/libxs.pdf $(DOCDIR)/cp2k.pdf $(DOCDIR)/tensorflow.pdf $(DOCDIR)/samples.pdf
+documentation: \
+	$(DOCDIR)/libxs.pdf \
+	$(DOCDIR)/libxs_aux.pdf \
+	$(DOCDIR)/libxs_be.pdf \
+	$(DOCDIR)/libxs_dnn.pdf \
+	$(DOCDIR)/libxs_mm.pdf \
+	$(DOCDIR)/libxs_perf.pdf \
+	$(DOCDIR)/cp2k.pdf \
+	$(DOCDIR)/tensorflow.pdf \
+	$(DOCDIR)/samples.pdf
 
 .PHONY: clean
 clean:
