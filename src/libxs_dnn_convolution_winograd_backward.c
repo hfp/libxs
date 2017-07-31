@@ -117,7 +117,11 @@ LIBXS_API_INLINE void internal_bwd_input_transform_nhwc_custom(
   if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
+#if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_AVX512)
+# include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_input_trans_alpha6_avx512.tpl.c"
+#else
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_input_trans_alpha6.tpl.c"
+#endif
 #undef TDVLEN
 #undef ALPHA
   } else if (handle->cwino_bwd.alpha == 4) {
@@ -142,15 +146,7 @@ void internal_bwd_weight_transform(float *wp, float *twp, const libxs_dnn_layer*
   if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
-/*
-#if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_AVX512)
-# include "template/libxs_dnn_convolution_winograd_backward_weight_trans_alpha6_avx512.tpl.c"
-#else
-*/
 # include "template/libxs_dnn_convolution_winograd_backward_weight_trans_alpha6.tpl.c"
-/*
-#endif
-*/
 #undef TDVLEN
 #undef ALPHA
   } else if (handle->cwino_bwd.alpha == 4) {
@@ -209,7 +205,11 @@ LIBXS_API_INLINE void internal_bwd_output_transform_nhwc_custom(
   if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
+#if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_AVX512)
+# include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_output_trans_alpha6_avx512.tpl.c"
+#else
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_output_trans_alpha6.tpl.c"
+#endif
 #undef TDVLEN
 #undef ALPHA
   } else if (handle->cwino_bwd.alpha == 4) {
@@ -322,7 +322,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_cus
       if (handle->cwino_bwd.alpha == 6) {
 #define ALPHA 6
 #define TDVLEN 16
+#if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_AVX512)
+# include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_inlined_avx512.tpl.c"
+#else
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_inlined.tpl.c"
+#endif
 #undef TDVLEN
 #undef ALPHA
       } else if (handle->cwino_bwd.alpha == 4) {
