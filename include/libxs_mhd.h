@@ -49,6 +49,15 @@ typedef enum libxs_mhd_elemtype {
 } libxs_mhd_elemtype;
 
 
+/** Function type used for custom data-handler or element conversion. */
+typedef LIBXS_RETARGETABLE int (*libxs_mhd_element_handler)(
+  void* dst, libxs_mhd_elemtype dst_type,
+  const void* src, libxs_mhd_elemtype src_type);
+
+/** Predefined function to check a buffer against file content. */
+LIBXS_API int libxs_mhd_element_comparison(void* dst, libxs_mhd_elemtype dst_type, const void* src, libxs_mhd_elemtype src_type);
+
+
 /** Returns the name and size of the element type; result may be NULL/0 in case of an unknown type. */
 LIBXS_API const char* libxs_mhd_typename(libxs_mhd_elemtype type, size_t* typesize);
 
@@ -114,7 +123,7 @@ LIBXS_API int libxs_mhd_read(
    * allows to only compare with present data. Can be used to
    * avoid allocating an actual destination.
    */
-  void handle_entry(void*, size_t, const void*),
+  libxs_mhd_element_handler handle_element,
   /* Post-content data (extension, optional). */
   char* extension,
   /* Size of the extension; can be zero. */
