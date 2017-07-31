@@ -115,8 +115,8 @@ LIBXS_API_INLINE int internal_mhd_readline(char* buffer, char split, size_t* key
     i = isplit;
     while (0 != isspace((int)(*++i)) && '\n' != *i);
     *value_begin = i - buffer;
-    while ('\n' != *i && 0 != *i) ++i;
-    if ('\n' == *i) *i = 0; /* fix-up */
+    while (0 != *i && 0 != isprint((int)(*i))) ++i;
+    if (0 == isprint((int)(*i))) *i = 0; /* fix-up */
     if (i <= (buffer + *value_begin)) {
       result = EXIT_FAILURE;
     }
@@ -198,6 +198,7 @@ LIBXS_API_DEFINITION int libxs_mhd_read_header(const char* header_filename, size
             if (len < filename_max_length) {
               strncpy(filename, header_filename, len);
               *header_size = ftell(file);
+              filename[len] = 0;
             }
             else {
               result = EXIT_FAILURE;
@@ -209,6 +210,7 @@ LIBXS_API_DEFINITION int libxs_mhd_read_header(const char* header_filename, size
           const size_t len = strlen(value);
           if (len < filename_max_length) {
             strncpy(filename, value, len);
+            filename[len] = 0;
           }
           else {
             result = EXIT_FAILURE;
