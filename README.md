@@ -7,7 +7,15 @@ LIBXS is a library for small dense and small sparse matrix-matrix multiplication
 
 **<a name="what-is-a-small-convolution"></a>What is a small convolution?** In the last years, new workloads such as deep learning and more specifically convolutional neural networks (CNN) emerged, and are pushing the limits of today's hardware. One of the expensive kernels is a small convolution with certain kernel sizes (3, 5, or 7) such that calculations in the frequency space is not the most efficient method when compared with direct convolutions. LIBXS's current support for convolutions aims for an easy to use invocation of small (direct) convolutions, which are intended for CNN training and classification. The [Interface](#interface-for-convolutions) is currently ramping up, and the functionality increases quickly towards a broader set of use cases.
 
-For more questions and answers, please have a look at [https://github.com/hfp/libxs/wiki/Q&A](https://github.com/hfp/libxs/wiki/Q&A).
+For more questions and answers, please have a look at https://github.com/hfp/libxs/wiki/Q&A.
+
+Documented functionality and available domains:
+
+* MM: [Interface for Matrix Multiplication](#interface-for-matrix-multiplication)
+* DNN: [Interface for Convolutions](#interface-for-convolutions)
+* AUX: [Service Functions](#service-functions)
+
+For additional functionality, please have a look at https://github.com/hfp/libxs/tree/master/include.
 
 # Classic Library (ABI)
 The build system relies on GNU Make (typically associated with the `make` command, but e.g. FreeBSD is calling it `gmake`). The build can be customized by using key&#8209;value pairs. Key&#8209;value pairs can be supplied in two ways: (1)&#160;after the "make" command, or (2)&#160;prior to the "make" command (`env`) which is effectively the same as exporting the key&#8209;value pair as an environment variable (`export`, or `setenv`). Both methods can be mixed, however the second method may require to supply the `-e` flag. Please note that the CXX, CC, and FC keys are considered in any case.
@@ -127,6 +135,7 @@ The service function domain (AUX) contains routines for:
 
 * Getting and setting the target architecture
 * Measuring time (timer facility)
+* Loading and storing data (I/O)
 * Allocating memory
 
 The details can be found in a separate [document](https://github.com/hfp/libxs/blob/master/documentation/libxs_aux.md).
