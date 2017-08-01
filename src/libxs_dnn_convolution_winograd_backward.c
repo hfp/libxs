@@ -422,7 +422,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_cus
       if (handle->cwino_bwd.alpha == 6) {
         /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
-        internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6_avx512(toutp, outp, Owp, handle);
+        internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6_avx512(handle, start_thread, tid);
 #else /* pointer based function call */
         assert(0 != internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6);
         internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6(handle, start_thread, tid);
