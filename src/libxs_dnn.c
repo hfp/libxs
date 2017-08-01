@@ -348,10 +348,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dn
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_layer*)handle);
   }
+#if 0 /* releasing a NULL-handle should be not an error (similar to freeing a NULL pointer) */
   else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE;
   }
-
+#endif
   return status;
 }
 
