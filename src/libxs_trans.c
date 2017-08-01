@@ -383,20 +383,6 @@ LIBXS_API_DEFINITION int libxs_itrans(void* inout, unsigned int typesize,
 }
 
 
-LIBXS_API_DEFINITION int libxs_sitrans(float* inout,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld)
-{
-  return libxs_itrans(inout, sizeof(float), m, n, ld);
-}
-
-
-LIBXS_API_DEFINITION int libxs_ditrans(double* inout,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld)
-{
-  return libxs_itrans(inout, sizeof(double), m, n, ld);
-}
-
-
 #if defined(LIBXS_BUILD)
 
 /* implementation provided for Fortran 77 compatibility */
