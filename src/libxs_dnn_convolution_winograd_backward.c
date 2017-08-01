@@ -211,6 +211,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_bwd_output_transform_custom_custom_alpha6_a
 # include "template/libxs_dnn_convolution_winograd_backward_custom_custom_output_trans_alpha6_avx512.tpl.c"
 # undef TDVLEN
 # undef ALPHA
+  LIBXS_UNUSED(Owp);
 #else /* next lower/available code path (fall-back chain) */
   internal_bwd_output_transform_custom_custom_alpha6_default(toutp, outp, Owp, handle);
 #endif
@@ -265,6 +266,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_bwd_output_transform_nhwc_custom_alpha6_avx
 # include "template/libxs_dnn_convolution_winograd_backward_nhwc_custom_output_trans_alpha6_avx512.tpl.c"
 # undef TDVLEN
 # undef ALPHA
+  LIBXS_UNUSED(Owp);
 #else /* next lower/available code path (fall-back chain) */
   internal_bwd_output_transform_nhwc_custom_alpha6_default(toutp, outp, Owp, handle);
 #endif
