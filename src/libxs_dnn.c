@@ -55,15 +55,15 @@
 
 LIBXS_API_DEFINITION void libxs_dnn_init(int target_arch)
 {
-  libxs_dnn_convolve_winograd_init(target_arch);
-  libxs_dnn_convolve_winograd_init_bwd(target_arch);
+  libxs_dnn_convolve_winograd_fwd_init(target_arch);
+  libxs_dnn_convolve_winograd_bwd_init(target_arch);
 }
 
 
 LIBXS_API_DEFINITION void libxs_dnn_finalize(void)
 {
-  libxs_dnn_convolve_winograd_finalize();
-  libxs_dnn_convolve_winograd_finalize_bwd();
+  libxs_dnn_convolve_winograd_fwd_finalize();
+  libxs_dnn_convolve_winograd_bwd_finalize();
 }
 
 
