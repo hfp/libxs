@@ -256,7 +256,7 @@ void libxs_spmdm_createSparseSlice_fp32_thread(
   /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
   internal_spmdm_createSparseSlice_fp32_thread_avx512_core(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
-#elif (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH) /* eventually no no need for an indirect call */
+#elif (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH) /* eventually no need for an indirect call */
 # if (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   internal_spmdm_createSparseSlice_fp32_thread_avx2(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
 # else /* pointer based function call */
@@ -335,7 +335,7 @@ void libxs_spmdm_createSparseSlice_bfloat16_thread(
   /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
   internal_spmdm_createSparseSlice_bfloat16_thread_avx512_core(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
-#elif (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH) /* eventually no no need for an indirect call */
+#elif (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH) /* eventually no need for an indirect call */
 # if (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   internal_spmdm_createSparseSlice_bfloat16_thread_avx2(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
 # else /* pointer based function call */
@@ -526,7 +526,7 @@ void libxs_spmdm_compute_bfloat16_thread(
   /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
   internal_spmdm_compute_bfloat16_thread_avx512_core(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
-#elif (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH) /* eventually no no need for an indirect call */
+#elif (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH) /* eventually no need for an indirect call */
 # if (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   internal_spmdm_compute_bfloat16_thread_avx2(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
 # else /* pointer based function call */
