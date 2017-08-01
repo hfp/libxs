@@ -34,18 +34,18 @@
 
 /** Denotes the element/pixel type of an image/channel. */
 typedef enum libxs_mhd_elemtype {
-  LIBXS_MHD_ELEMTYPE_UNKNOWN,
-  LIBXS_MHD_ELEMTYPE_CHAR,
-  LIBXS_MHD_ELEMTYPE_I8,
+  LIBXS_MHD_ELEMTYPE_F64  = LIBXS_DATATYPE_F64,
+  LIBXS_MHD_ELEMTYPE_F32  = LIBXS_DATATYPE_F32,
+  LIBXS_MHD_ELEMTYPE_I32  = LIBXS_DATATYPE_I32,
+  LIBXS_MHD_ELEMTYPE_I16  = LIBXS_DATATYPE_I16,
+  LIBXS_MHD_ELEMTYPE_I8   = LIBXS_DATATYPE_I8,
+  LIBXS_MHD_ELEMTYPE_CHAR = LIBXS_MHD_ELEMTYPE_I8,
   LIBXS_MHD_ELEMTYPE_U8,
-  LIBXS_MHD_ELEMTYPE_I16,
   LIBXS_MHD_ELEMTYPE_U16,
-  LIBXS_MHD_ELEMTYPE_I32,
   LIBXS_MHD_ELEMTYPE_U32,
-  LIBXS_MHD_ELEMTYPE_I64,
   LIBXS_MHD_ELEMTYPE_U64,
-  LIBXS_MHD_ELEMTYPE_F32,
-  LIBXS_MHD_ELEMTYPE_F64
+  LIBXS_MHD_ELEMTYPE_I64,
+  LIBXS_MHD_ELEMTYPE_UNKNOWN
 } libxs_mhd_elemtype;
 
 
@@ -101,10 +101,10 @@ LIBXS_API int libxs_mhd_read_header(
 LIBXS_API int libxs_mhd_read(
   /* Filename referring to the data. */
   const char* filename,
-  /* Extents of the buffer. */
-  const size_t* data_size,
-  /* Extents of the content. */
+  /** Image dimensions (extents). */
   const size_t* size,
+  /** Leading dimensions (cNULL/0: size). */
+  const size_t* pitch,
   /* Dimensionality (number of entries in size). */
   size_t ndims,
   /* Number of image components (channels). */
@@ -135,11 +135,11 @@ LIBXS_API int libxs_mhd_read(
  * The file is suitable for visual inspection using e.g., ITK-SNAP or ParaView.
  */
 LIBXS_API int libxs_mhd_write(const char* filename,
-  /** Leading dimensions (buffer extents). */
-  const size_t* data_size,
-  /** Image dimensions; can be NULL/0 (data_size). */
+  /** Image dimensions (extents). */
   const size_t* size,
-  /** Dimensionality i.e., number of entries in "size". */
+  /** Leading dimensions (cNULL/0: size). */
+  const size_t* pitch,
+  /** Dimensionality i.e., number of entries in data_size/size. */
   size_t ndims,
   /** Number of pixel components. */
   size_t ncomponents,
