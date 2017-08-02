@@ -652,10 +652,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_bu
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_buffer*)buffer);
   }
+#if 0 /* releasing a NULL-buffer should be not an error (similar to freeing a NULL pointer) */
   else {
     status = LIBXS_DNN_ERR_INVALID_BUFFER;
   }
-
+#endif
   return status;
 }
 
