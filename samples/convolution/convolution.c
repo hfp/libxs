@@ -147,14 +147,14 @@ int main(int argc, char* argv[])
     descriptor.K = descriptor.C; /* no reduction */
     descriptor.u = 1; /* H-stride */
     descriptor.v = 1; /* W-stride */
-    descriptor.pad_h = 19; /* H-pad */
-    descriptor.pad_w = 19; /* W-pad */
+    descriptor.pad_h = 0; /* H-pad */
+    descriptor.pad_w = 0; /* W-pad */
     descriptor.pad_h_in = 0;
     descriptor.pad_w_in = 0;
     descriptor.pad_h_out = 0;
     descriptor.pad_w_out = 0;
-    descriptor.H = (int)((size[1] + 2 * descriptor.pad_h - descriptor.R) / descriptor.u + 1);
-    descriptor.W = (int)((size[0] + 2 * descriptor.pad_w - descriptor.S) / descriptor.v + 1);
+    descriptor.H = (int)size[1];
+    descriptor.W = (int)size[0];
     descriptor.algo = LIBXS_DNN_CONV_ALGO_DIRECT/*LIBXS_DNN_CONV_ALGO_AUTO*/;
     descriptor.buffer_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
     descriptor.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
@@ -182,7 +182,7 @@ int main(int argc, char* argv[])
     status = libxs_dnn_copyin_buffer(conv_input, image, LIBXS_DNN_TENSOR_FORMAT_NCHW);
     if (LIBXS_DNN_SUCCESS != status) result = EXIT_FAILURE;
     /* Filter buffer */
-    conv_filter_buffer = MALLOC(descriptor.K + descriptor.C * descriptor.R + descriptor.S * typesize);
+    conv_filter_buffer = MALLOC(descriptor.K * descriptor.C * descriptor.R * descriptor.S * typesize);
     if (0 == conv_filter_buffer) result = EXIT_FAILURE;
     conv_filter = libxs_dnn_link_filter(handle, LIBXS_DNN_FILTER, conv_filter_buffer, LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status);
     if (LIBXS_DNN_SUCCESS != status) result = EXIT_FAILURE;
@@ -210,12 +210,17 @@ int main(int argc, char* argv[])
 #else
       const int tid = 0;
 #endif
-      const libxs_dnn_err_t r = libxs_dnn_execute_st(handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid);
+#if !defined(NDEBUG)
+      const libxs_dnn_err_t r =
+#endif
+      libxs_dnn_execute_st(handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid);
+#if !defined(NDEBUG)
       if (LIBXS_DNN_SUCCESS != r && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
         const char *const error_message = libxs_dnn_get_error(r);
         fprintf(stderr, "%s\n", error_message);
         result = EXIT_FAILURE;
       }
+#endif
     }
   }
 
