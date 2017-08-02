@@ -48,7 +48,7 @@
 # define REAL_TYPE float
 #endif
 #if !defined(CHECK) && \
-  (!defined(__BLAS) || (0 != __BLAS)) && /* BLAS evailable */ \
+  (!defined(__BLAS) || (0 != __BLAS)) && /* BLAS available */ \
   (LIBXS_EQUAL(REAL_TYPE, float) || LIBXS_EQUAL(REAL_TYPE, double))
 # define CHECK
 #endif
