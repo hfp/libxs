@@ -219,6 +219,12 @@ int main(int argc, char* argv[])
     }
   }
 
+  /* Copy-out image into original format. */
+  if (EXIT_SUCCESS == result) {
+    status = libxs_dnn_copyout_buffer(conv_output, image, LIBXS_DNN_TENSOR_FORMAT_NCHW);
+    if (LIBXS_DNN_SUCCESS != status) result = EXIT_FAILURE;
+  }
+
   /* Write the image into a different file. */
   if (EXIT_SUCCESS == result) {
     result = libxs_mhd_write(filename_out, size, pitch, 2, ncomponents,
