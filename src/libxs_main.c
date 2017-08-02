@@ -480,10 +480,9 @@ LIBXS_API_INLINE void internal_init(void)
         libxs_scratch_pools = LIBXS_MALLOC_SCRATCH_MAX_NPOOLS;
       }
       else {
-        libxs_scratch_pools = LIBXS_MAX(1, atoi(env));
+        libxs_scratch_pools = LIBXS_MAX(0, atoi(env));
         /*libxs_scratch_pools_locked = 1;*/
       }
-      assert(1 <= libxs_scratch_pools);
     }
     { const char *const env = getenv("LIBXS_SCRATCH_SCALE");
       if (0 == env || 0 == *env) {
@@ -493,7 +492,7 @@ LIBXS_API_INLINE void internal_init(void)
         libxs_scratch_scale = LIBXS_CLMP(atof(env), 1.1, 3.0);
         /*libxs_scratch_scale_locked = 1;*/
       }
-      assert(1 <= libxs_scratch_pools);
+      assert(1 <= libxs_scratch_scale);
     }
 #endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
     libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
