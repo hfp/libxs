@@ -474,6 +474,7 @@ LIBXS_API_INLINE void internal_init(void)
     const libxs_free_function null_free_fn = { 0 };
     libxs_xset_default_allocator(0/*lock*/, 0/*context*/, null_malloc_fn, null_free_fn);
     libxs_xset_scratch_allocator(0/*lock*/, 0/*context*/, null_malloc_fn, null_free_fn);
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     { const char *const env = getenv("LIBXS_SCRATCH_POOLS");
       if (0 == env || 0 == *env) {
         libxs_scratch_pools = LIBXS_MALLOC_SCRATCH_MAX_NPOOLS;
@@ -494,6 +495,7 @@ LIBXS_API_INLINE void internal_init(void)
       }
       assert(1 <= libxs_scratch_pools);
     }
+#endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
     libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
     { const char *const env = getenv("LIBXS_SYNC");
       libxs_sync = (0 == env || 0 == *env) ? 1/*default*/ : atoi(env);
