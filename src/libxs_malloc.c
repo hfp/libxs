@@ -170,7 +170,9 @@ typedef struct LIBXS_RETARGETABLE internal_malloc_pool_type {
 } internal_malloc_pool_type;
 
 /** Scratch pool, which supports up to MAX_NSCRATCH allocation sites. */
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
 LIBXS_API_VARIABLE internal_malloc_pool_type internal_malloc_scratch_pool[LIBXS_MALLOC_SCRATCH_MAX_NPOOLS];
+#endif
 LIBXS_API_VARIABLE size_t internal_malloc_scratch_nmallocs;
 
 
@@ -1008,7 +1010,11 @@ LIBXS_API_INLINE unsigned int internal_malloc_site(unsigned int* npools, unsigne
   else
 #endif
   {
-    *npools = 1;
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
+    *npools = LIBXS_MALLOC_SCRATCH_MAX_NPOOLS;
+#else
+    *npools = 0;
+#endif
     *site = 0;
     *hit = 1;
   }
@@ -1021,6 +1027,8 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
   void* result = 0;
   LIBXS_INIT
   {
+    static int error_once = 0;
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     unsigned int npools = 0, hit = 0, i;
     const unsigned int pool = internal_malloc_site(&npools, &hit, &caller);
     const size_t align_size = (0 == alignment ? libxs_alignment(size, alignment) : alignment);
@@ -1106,7 +1114,6 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
     }
 
     if (0 != local_size) { /* fall-back to local memory allocation */
-      static int error_once = 0;
       if (i < npools && internal_malloc_scratch_pool[i].minsize < req_size) {
         LIBXS_ATOMIC_STORE(&internal_malloc_scratch_pool[i].minsize, req_size, LIBXS_ATOMIC_RELAXED);
       }
@@ -1121,6 +1128,16 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
         LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_scratch_nmallocs, 1, LIBXS_ATOMIC_RELAXED);
       }
     }
+#else
+    if (EXIT_SUCCESS != libxs_xmalloc(&result, size, alignment,
+      LIBXS_MALLOC_FLAG_SCRATCH, 0/*extra*/, 0/*extra_size*/) &&
+      /* library code is expected to be mute */0 != libxs_verbosity &&
+      1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS ERROR: scratch memory allocation failed!\n");
+    }
+    LIBXS_UNUSED(caller);
+#endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
   }
   return result;
 }
@@ -1134,8 +1151,9 @@ LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 
 LIBXS_API_INLINE int internal_scratch_free(const void* memory, unsigned int pool)
 {
-  const char *const scratch = internal_malloc_scratch_pool[pool].buffer;
   int released = 0;
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
+  const char *const scratch = internal_malloc_scratch_pool[pool].buffer;
 
   if (0 != scratch) { /* check if memory belongs to scratch domain or local domain */
     const char *const buffer = (const char*)memory;
@@ -1160,7 +1178,10 @@ LIBXS_API_INLINE int internal_scratch_free(const void* memory, unsigned int pool
       released = 1;
     }
   }
-
+#else
+  LIBXS_UNUSED(memory);
+  LIBXS_UNUSED(pool);
+#endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
   return released;
 }
 
@@ -1197,6 +1218,7 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
 
 LIBXS_API_DEFINITION void libxs_release_scratch(void)
 {
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
   const unsigned int max_npools = LIBXS_MAX(LIBXS_MIN(
     libxs_scratch_pools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS), 1);
   unsigned int i;
@@ -1213,6 +1235,7 @@ LIBXS_API_DEFINITION void libxs_release_scratch(void)
         (unsigned long int)scratch_info.npending);
     }
   }
+#endif
 }
 
 
@@ -1238,6 +1261,7 @@ LIBXS_API_DEFINITION int libxs_get_scratch_info(libxs_scratch_info* info)
 {
   int result = EXIT_SUCCESS;
   if (0 != info) {
+#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     unsigned int i;
     memset(info, 0, sizeof(libxs_scratch_info));
     info->npending = internal_malloc_scratch_pool[0].counter;
@@ -1283,7 +1307,10 @@ LIBXS_API_DEFINITION int libxs_get_scratch_info(libxs_scratch_info* info)
         }
       }
     }
-#endif
+#endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
+#else
+    memset(info, 0, sizeof(*info));
+#endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
   }
   else {
     result = EXIT_FAILURE;
