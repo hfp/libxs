@@ -142,10 +142,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_fwd_input_transform_nhwc_custom_alpha6_avx5
 
 
 LIBXS_API_INLINE void internal_fwd_input_transform_nhwc_custom(
-                                         const float *inp,
-                                         float *tinp,
-                                         float *Iwp,
-                                         const libxs_dnn_layer* handle )
+  const float *inp, float *tinp, float *Iwp, const libxs_dnn_layer* handle )
 {
   if (handle->cwino_fwd.alpha == 6) {
     /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */

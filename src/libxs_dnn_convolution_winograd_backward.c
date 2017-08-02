@@ -53,6 +53,8 @@ LIBXS_API_VARIABLE void (*internal_bwd_input_transform_nhwc_custom_alpha6)(const
 LIBXS_API_VARIABLE void (*internal_bwd_output_transform_custom_custom_alpha6)(float*, float*, float*, const libxs_dnn_layer*);
 LIBXS_API_VARIABLE void (*internal_bwd_output_transform_nhwc_custom_alpha6)(float*, float*, float*, const libxs_dnn_layer*);
 LIBXS_API_VARIABLE void (*internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6)(libxs_dnn_layer*, int, int);
+LIBXS_API_VARIABLE void (*internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6)(libxs_dnn_layer*, int, int);
+LIBXS_API_VARIABLE void (*internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6)(libxs_dnn_layer*, int, int);
 
 
 LIBXS_API_INLINE void internal_bwd_input_transform_custom_custom_alpha6_default(
@@ -82,10 +84,8 @@ LIBXS_ATTRIBUTE_UNUSED void internal_bwd_input_transform_custom_custom_alpha6_av
 #endif
 }
 
-LIBXS_API_INLINE /*LIBXS_INTRINSICS(LIBXS_X86_AVX512)*/
-void internal_bwd_input_transform_custom_custom(
-  const float *inp, float *tinp, float *Iwp,
-  const libxs_dnn_layer* handle)
+LIBXS_API_INLINE void internal_bwd_input_transform_custom_custom(
+  const float *inp, float *tinp, float *Iwp, const libxs_dnn_layer* handle)
 {
   if (handle->cwino_bwd.alpha == 6) {
     /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
@@ -300,6 +300,32 @@ LIBXS_API_INLINE void internal_bwd_output_transform_nhwc_custom(
 }
 
 
+LIBXS_API_INLINE void internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6_default(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+#define ALPHA 6
+#define TDVLEN 16
+#include "template/libxs_dnn_convolution_winograd_backward_custom_custom_inlined.tpl.c"
+#undef TDVLEN
+#undef ALPHA
+}
+
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+LIBXS_ATTRIBUTE_UNUSED void internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6_avx512(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+#if defined(LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_AVX512)
+# define ALPHA 6
+# define TDVLEN 16
+# include "template/libxs_dnn_convolution_winograd_backward_custom_custom_inlined_avx512.tpl.c"
+# undef TDVLEN
+# undef ALPHA
+  LIBXS_UNUSED(Iwp);
+#else /* next lower/available code path (fall-back chain) */
+  internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6_default(handle, start_thread, tid);
+#endif
+}
+
+
 LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -333,11 +359,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_custom_c
         }
       }
       if (handle->cwino_bwd.alpha == 6) {
-#define ALPHA 6
-#define TDVLEN 16
-# include "template/libxs_dnn_convolution_winograd_backward_custom_custom_inlined.tpl.c"
-#undef TDVLEN
-#undef ALPHA
+#if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+        internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6_avx512(handle, start_thread, tid);
+#else /* pointer based function call */
+        assert(0 != internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6);
+        internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6(handle, start_thread, tid);
+#endif
       } else if (handle->cwino_bwd.alpha == 4) {
 #define ALPHA 4
 #define TDVLEN 16
@@ -459,6 +486,7 @@ LIBXS_API_DEFINITION void libxs_dnn_convolve_winograd_bwd_init(int target_arch)
     internal_bwd_input_transform_nhwc_custom_alpha6 = internal_bwd_input_transform_nhwc_custom_alpha6_avx512;
     internal_bwd_output_transform_custom_custom_alpha6 = internal_bwd_output_transform_custom_custom_alpha6_avx512;
     internal_bwd_output_transform_nhwc_custom_alpha6 = internal_bwd_output_transform_nhwc_custom_alpha6_avx512;
+    internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6 = internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6_avx512;
     internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6 = internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6_avx512;
   }
   else {
@@ -466,12 +494,14 @@ LIBXS_API_DEFINITION void libxs_dnn_convolve_winograd_bwd_init(int target_arch)
     internal_bwd_input_transform_nhwc_custom_alpha6 = internal_bwd_input_transform_nhwc_custom_alpha6_default;
     internal_bwd_output_transform_custom_custom_alpha6 = internal_bwd_output_transform_custom_custom_alpha6_default;
     internal_bwd_output_transform_nhwc_custom_alpha6 = internal_bwd_output_transform_nhwc_custom_alpha6_default;
+    internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6 = internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6_default;
     internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6 = internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6_default;
   }
   assert(0 != internal_bwd_input_transform_custom_custom_alpha6);
   assert(0 != internal_bwd_input_transform_nhwc_custom_alpha6);
   assert(0 != internal_bwd_output_transform_custom_custom_alpha6);
   assert(0 != internal_bwd_output_transform_nhwc_custom_alpha6);
+  assert(0 != internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6);
   assert(0 != internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6);
 }
 
