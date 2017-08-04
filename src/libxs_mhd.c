@@ -167,7 +167,9 @@ LIBXS_API_DEFINITION int libxs_mhd_read_header(const char* header_filename, size
     memset(size, 0, *ndims * sizeof(*size));
     *type = LIBXS_MHD_ELEMTYPE_UNKNOWN;
     *ncomponents = 1;
-    *filename = 0;
+    if (header_filename != filename) {
+      *filename = 0;
+    }
 
     while (0 != fgets(buffer, sizeof(buffer), file) && EXIT_SUCCESS == result &&
       EXIT_SUCCESS == internal_mhd_readline(buffer, '=', &key_end, &value_begin))
