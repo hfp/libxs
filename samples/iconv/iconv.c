@@ -140,22 +140,26 @@ int main(int argc, char* argv[])
     if (0 != libxs_mhd_typename((libxs_mhd_elemtype)type_out, &typesize, &ctypename)) {
       const size_t filter_size = ncomponents * kh * kw;
       /* print some information about the workload */
-      fprintf(stdout, "filename=%s kernel=%ix%i size=%.fMB nrepeat=%u (%s)\n",
-        filename, kw, kh, 1.0 * (size1 * typesize) / (1 << 20),
+      fprintf(stdout, "filename=%s resolution=%ux%u kernel=%ix%i size=%.fMB nrepeat=%u (%s)\n",
+        filename, (unsigned int)size[0], (unsigned int)size[1], kw, kh,
+        1.0 * (size1 * typesize) / (1 << 20),
         (unsigned int)nrepeat, ctypename);
       image = MALLOC(size1 * typesize);
       if (0 == image) result = EXIT_FAILURE;
       filter = MALLOC(filter_size * typesize);
       if (0 != filter) {
+        FILE *const file = fopen("iconv_in.txt", "r");
         switch (type_out) {
           case LIBXS_DNN_DATATYPE_F32: {
-            float *const f = (float*)filter;
+            float *const f = (float*)filter, s;
             for (i = 0; i < filter_size; ++i) {
-              f[i] = (float)(0.05 - ((double)rand() / RAND_MAX) * 0.1);
+              f[i] = (float)((0 == file || 1 > fscanf(file, "%f", &s)) ?
+                        (0.05 - ((double)rand() / RAND_MAX) * 0.1) : s);
             }
           } break;
           default: result = EXIT_FAILURE;
         }
+        if (0 != fclose(file)) result = EXIT_FAILURE;
       }
       else {
         result = EXIT_FAILURE;
@@ -248,31 +252,33 @@ int main(int argc, char* argv[])
 
   /* Attempt to run the convolution. */
   start = libxs_timer_tick();
-#if defined(_OPENMP)
-# pragma omp parallel /* this is NOT a "parallel for"-loop! */
-#endif
   for (i = 0; i < nrepeat && EXIT_SUCCESS == result; ++i) {
 #if defined(_OPENMP)
-    const int tid = omp_get_thread_num();
+# pragma omp parallel
+#endif
+    {
+#if defined(_OPENMP)
+      const int tid = omp_get_thread_num();
 #else
-    const int tid = 0;
+      const int tid = 0;
 #endif
 #if !defined(USE_OVERWRITE)
-    memset(conv_output_buffer, 0, conv_output_size1 * typesize);
+      memset(conv_output_buffer, 0, conv_output_size1 * typesize);
 #endif
-#if defined(NDEBUG)
-    libxs_dnn_execute_st(handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid);
-#else
-    const libxs_dnn_err_t r = libxs_dnn_execute_st(handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid);
-    if (LIBXS_DNN_SUCCESS != r && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      const char *const error_message = libxs_dnn_get_error(r);
-      fprintf(stderr, "%s\n", error_message);
-      result = EXIT_FAILURE;
+      {
+#if !defined(NDEBUG)
+        const libxs_dnn_err_t r =
+#endif
+        libxs_dnn_execute_st(handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid);
+#if !defined(NDEBUG)
+        if (LIBXS_DNN_SUCCESS != r && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+          const char *const error_message = libxs_dnn_get_error(r);
+          fprintf(stderr, "%s\n", error_message);
+          result = EXIT_FAILURE;
+        }
+#endif
+      }
     }
-#endif
-#if defined(_OPENMP)
-#   pragma omp barrier
-#endif
   }
   duration = libxs_timer_duration(start, libxs_timer_tick());
 
