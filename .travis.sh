@@ -198,6 +198,11 @@ then
     echo
   fi
 
+  # override result code (alternative outcome)
+  if [ "" != "${RESULTCODE}" ]; then
+    RESULT=${RESULTCODE}
+  fi
+
   exit ${RESULT}
 fi
 
