@@ -1,0 +1,14 @@
+site_name: LIBXS
+docs_dir: documentation 
+theme: readthedocs
+pages:
+- Home: index.md
+- LIBXS Domains:
+  - "MM: Matrix Multiplication": libxs_mm.md
+  - "DNN: Deep Neural Networks": libxs_dnn.md
+  - "AUX: Service Functions": libxs_aux.md
+  - "PERF: Performance": libxs_perf.md
+  - "BE: Backend": libxs_be.md
+- Applications:
+  - CP2K: cp2k.md
+  - TensorFlow: tensorflow.md
