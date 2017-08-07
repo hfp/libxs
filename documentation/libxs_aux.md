@@ -33,7 +33,7 @@ ElementNumberOfChannels = 1
 ElementDataFile = mhd_image.raw
 ```
 
-In the above case, a single channel (gray-scale) 202x134-image is described (actual pixel data is stored in `mhd_image.raw`). The pixel type is according to the `libxs_mhd_elemtype` ([libxs_mhd.h](https://github.com/hfp/libxs/blob/master/include/libxs_mhd.h#L38).
+In the above case, a single channel (gray-scale) 202x134-image is described (actual pixel data is stored in `mhd_image.raw`). The pixel type is according to the `libxs_mhd_elemtype` ([libxs_mhd.h](https://github.com/hfp/libxs/blob/master/include/libxs_mhd.h#L38)).
 
 ## Memory Allocation
 The C interface ('libxs_malloc.h') provides functions for aligned memory one of which allows to specify the alignment (or to request an automatically selected alignment). The automatic alignment is also available with a `malloc` compatible signature. The size of the automatic alignment depends on a heuristic, which uses the size of the requested buffer.  
