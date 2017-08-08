@@ -969,7 +969,8 @@ LIBXS_API_INLINE unsigned int internal_malloc_site(unsigned int* npools, unsigne
 {
   assert(0 != npools && 0 != hit && 0 != site);
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-  *npools = LIBXS_MIN(libxs_scratch_pools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+  assert(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+  *npools = libxs_scratch_pools;
   if (1 < *npools) {
     if (0 != *site) {
       unsigned int i;
@@ -1062,6 +1063,12 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
               internal_malloc_scratch_pool[i].site = caller;
 #endif
+              if (internal_malloc_scratch_pool[i].minsize < minsize) {
+                LIBXS_ATOMIC_STORE(&internal_malloc_scratch_pool[i].minsize, minsize, LIBXS_ATOMIC_RELAXED);
+              }
+              if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != caller) {
+                LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_scratch_nmallocs, 1, LIBXS_ATOMIC_RELAXED);
+              }
               total_size = minsize;
             }
             else { /* fall-back to local allocation due to failed scratch memory allocation */
@@ -1069,12 +1076,6 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
                 fprintf(stderr, "LIBXS ERROR: failed to allocate scratch memory!\n");
               }
               local_size = size;
-            }
-            if (internal_malloc_scratch_pool[i].minsize < minsize) {
-              LIBXS_ATOMIC_STORE(&internal_malloc_scratch_pool[i].minsize, minsize, LIBXS_ATOMIC_RELAXED);
-            }
-            if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != caller) {
-              LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_scratch_nmallocs, 1, LIBXS_ATOMIC_RELAXED);
             }
           }
           else { /* fall-back to local memory allocation due to lock-contention */
@@ -1090,9 +1091,11 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
           }
         }
       }
+#if 0
       else if (0 == hit) { /* use foreign pool */
         break;
       }
+#endif
       else { /* hit and fit */
         break;
       }
@@ -1205,7 +1208,8 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
   }
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
   else { /* find scratch memory pool */
-    npools = LIBXS_MIN(libxs_scratch_pools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+    assert(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+    npools = libxs_scratch_pools;
     for (; i < npools; ++i) {
       if (0 != internal_scratch_free(memory, i)) {
         i = npools + 1; /* break */
@@ -1222,9 +1226,9 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
 LIBXS_API_DEFINITION void libxs_release_scratch(void)
 {
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-  const unsigned int max_npools = LIBXS_MIN(libxs_scratch_pools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
   unsigned int i;
-  for (i = 0; i < max_npools; ++i) { /* TODO: thread-safety */
+  assert(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+  for (i = 0; i < libxs_scratch_pools; ++i) { /* TODO: thread-safety */
     libxs_xfree(internal_malloc_scratch_pool[i].buffer);
     internal_malloc_scratch_pool[i].counter = 0;
     internal_malloc_scratch_pool[i].buffer = 0;
@@ -1263,7 +1267,7 @@ LIBXS_API_INLINE size_t internal_get_scratch_size(void)
 {
   size_t result = 0;
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-  unsigned int max_npools, i;
+  unsigned int i;
   if (
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     (LIBXS_MALLOC_SCRATCH_INTERNAL) != internal_malloc_scratch_pool[0].site &&
@@ -1274,9 +1278,9 @@ LIBXS_API_INLINE size_t internal_get_scratch_size(void)
     result = internal_malloc_scratch_pool[0].minsize;
   }
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-  max_npools = LIBXS_MIN(libxs_scratch_pools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+  assert(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
   if (0 != internal_malloc_scratch_pool[0].buffer) {
-    for (i = 1; i < max_npools; ++i) {
+    for (i = 1; i < libxs_scratch_pools; ++i) {
       if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != internal_malloc_scratch_pool[i].site) {
         size_t size;
         if (EXIT_SUCCESS == libxs_get_malloc_xinfo(
@@ -1288,7 +1292,7 @@ LIBXS_API_INLINE size_t internal_get_scratch_size(void)
     }
   }
   else { /* approximate memory consumption by using minsize */
-    for (i = 1; i < max_npools; ++i) {
+    for (i = 1; i < libxs_scratch_pools; ++i) {
       if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != internal_malloc_scratch_pool[i].site) {
         result += internal_malloc_scratch_pool[i].minsize;
       }
@@ -1305,15 +1309,15 @@ LIBXS_API_DEFINITION int libxs_get_scratch_info(libxs_scratch_info* info)
   int result = EXIT_SUCCESS;
   if (0 != info) {
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-    unsigned int max_npools, i;
+    unsigned int i;
     memset(info, 0, sizeof(libxs_scratch_info));
     info->npending = internal_malloc_scratch_pool[0].counter;
     info->nmallocs = internal_malloc_scratch_nmallocs;
     info->npools = LIBXS_MIN(1, libxs_scratch_pools);
     info->size = internal_get_scratch_size();
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-    max_npools = LIBXS_MIN(libxs_scratch_pools, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
-    for (i = 1; i < max_npools; ++i) {
+    assert(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+    for (i = 1; i < libxs_scratch_pools; ++i) {
       if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != internal_malloc_scratch_pool[i].site) {
         info->npools += (unsigned int)LIBXS_MIN(internal_malloc_scratch_pool[i].minsize, 1);
         info->npending += internal_malloc_scratch_pool[i].counter;
