@@ -147,12 +147,10 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
           fprintf(stderr, "LIBXS ERROR: BGEMM kernel generation failed!\n");
         }
       }
-      else {
-        if (0 != libxs_verbosity /* library code is expected to be mute */
-         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-        {
-          fprintf(stderr, "LIBXS ERROR: BGEMM block-size is invalid!\n");
-        }
+      else if (0 != libxs_verbosity /* library code is expected to be mute */
+            && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      {
+        fprintf(stderr, "LIBXS ERROR: BGEMM block-size is invalid!\n");
       }
     }
     else if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -449,7 +447,7 @@ LIBXS_API_DEFINITION void libxs_bgemm(const libxs_bgemm_handle* handle,
       }
     }
   }
-#if !defined(NDEBUG) /* intentionally no errror check in release build */
+#if !defined(NDEBUG) /* intentionally no error check in release build */
   else if (0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
