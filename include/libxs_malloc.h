@@ -146,6 +146,15 @@ typedef struct LIBXS_RETARGETABLE libxs_scratch_info {
 /** Retrieve information about the scratch memory domain. */
 LIBXS_API int libxs_get_scratch_info(libxs_scratch_info* info);
 
+/**
+ * Limit the total size (Bytes) of the scratch memory.
+ * The environment variable LIBXS_SCRATCH_LIMIT takes
+ * the following units: none (Bytes), k/K, m/M, and g/G.
+ */
+LIBXS_API void libxs_set_scratch_limit(size_t limit);
+/** Get the maximum size of the scratch memory domain. */
+LIBXS_API size_t libxs_get_scratch_limit(void);
+
 /** Calculate a hash value for a given buffer. */
 LIBXS_API unsigned int libxs_hash(const void* data, size_t size, unsigned int seed);
 
