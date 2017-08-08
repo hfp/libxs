@@ -480,9 +480,10 @@ LIBXS_API_INLINE void internal_init(void)
         libxs_scratch_pools = LIBXS_MALLOC_SCRATCH_MAX_NPOOLS;
       }
       else {
-        libxs_scratch_pools = LIBXS_MAX(0, atoi(env));
+        libxs_scratch_pools = LIBXS_CLMP(atoi(env), 0, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
         /*libxs_scratch_pools_locked = 1;*/
       }
+      assert(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
     }
     { const char *const env = getenv("LIBXS_SCRATCH_LIMIT");
       if (0 == env || 0 == *env) {
