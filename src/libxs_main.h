@@ -46,6 +46,9 @@
 #if !defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
 # define LIBXS_MALLOC_SCRATCH_MAX_NPOOLS 16
 #endif
+#if !defined(LIBXS_MALLOC_SCRATCH_LIMIT)
+# define LIBXS_MALLOC_SCRATCH_LIMIT (2ULL << 30) /* 2 GB */
+#endif
 #if !defined(LIBXS_MALLOC_SCRATCH_SCALE)
 # define LIBXS_MALLOC_SCRATCH_SCALE 1.4
 #endif
@@ -371,9 +374,11 @@ LIBXS_API_VARIABLE void* libxs_default_allocator_context;
 LIBXS_API_VARIABLE void* libxs_scratch_allocator_context;
 /** Number of scratch memory pools used; clamped against internal maximum. */
 LIBXS_API_VARIABLE unsigned int libxs_scratch_pools;
+/** Maximum total size of the scratch memory domain. */
+LIBXS_API_VARIABLE size_t libxs_scratch_limit;
 /** Growth factor used to scale the scratch memory in case of reallocation. */
 LIBXS_API_VARIABLE double libxs_scratch_scale;
-/** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wallclock) */
+/** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wall-clock) */
 LIBXS_API_VARIABLE double libxs_timer_scale;
 /** Stores the verbosity level (libxs_get_verbosity, libxs_set_verbosity). */
 LIBXS_API_VARIABLE int libxs_verbosity;

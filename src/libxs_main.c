@@ -484,6 +484,15 @@ LIBXS_API_INLINE void internal_init(void)
         /*libxs_scratch_pools_locked = 1;*/
       }
     }
+    { const char *const env = getenv("LIBXS_SCRATCH_LIMIT");
+      if (0 == env || 0 == *env) {
+        libxs_scratch_limit = (size_t)LIBXS_MALLOC_SCRATCH_LIMIT;
+      }
+      else {
+        libxs_scratch_limit = (size_t)strtoul(env, 0, 10);
+        /*libxs_scratch_limit_locked = 1;*/
+      }
+    }
     { const char *const env = getenv("LIBXS_SCRATCH_SCALE");
       if (0 == env || 0 == *env) {
         libxs_scratch_scale = LIBXS_MALLOC_SCRATCH_SCALE;
