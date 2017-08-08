@@ -90,7 +90,7 @@
 #     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     include <immintrin.h>
-#   elif defined(_MSC_VER)
+#   elif defined(_MSC_VER) && !defined(__clang__)
       /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
 #     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
