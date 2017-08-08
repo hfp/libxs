@@ -3,7 +3,7 @@
 
 LIBXS is a library for small dense and small sparse matrix-matrix multiplications as well as for deep learning primitives such as small convolutions targeting Intel Architecture. Small matrix multiplication kernels are generated for the following instruction set extensions: Intel&#160;SSE, Intel&#160;AVX, Intel&#160;AVX2, IMCI (KNCni) for Intel&#160;Xeon&#160;Phi coprocessors ("KNC"), and Intel&#160;AVX&#8209;512 as found in the Intel&#160;Xeon&#160;Phi processor family&#160;(Knights Landing "KNL", Knights Mill "KNM") and Intel&#160;Xeon processors (Skylake-SP "SKX"). Historically small matrix multiplications were only optimized for the Intel&#160;Many Integrated Core Architecture "MIC") using intrinsic functions, meanwhile optimized assembly code is targeting all afore mentioned instruction set extensions (static code generation), and Just&#8209;In&#8209;Time (JIT) code generation is targeting Intel&#160;AVX and beyond. Optimized code for small convolutions is JIT-generated for Intel&#160;AVX2 and Intel&#160;AVX&#8209;512.
 
-**<a name="what-is-a-small-matrix-multiplication"></a>What is a small matrix multiplication?** When characterizing the problem-size using the M, N, and K parameters, a problem-size suitable for LIBXS falls approximately within *(M&#160;N&#160;K)<sup>1/3</sup>&#160;\<=&#160;128* (which illustrates that non-square matrices or even "tall and skinny" shapes are covered as well). The library is typically used to generate code up to the specified [threshold](https://github.com/hfp/libxs/blob/master/documentation/libxs_perf.md#auto-dispatch). Raising the threshold may not only generate excessive amounts of code (due to unrolling in M or K dimension), but also miss to implement a tiling scheme to effectively utilize the cache hierarchy. For auto-dispatched problem-sizes above the configurable threshold (explicitly JIT'ted code is **not** subject to the threshold), LIBXS is falling back to BLAS. In terms of GEMM, the supported kernels are limited to *Alpha := 1*, *Beta := \{ 1, 0 \}*, *TransA := 'N'*, and *TransB = 'N'*.
+**<a name="what-is-a-small-matrix-multiplication"></a>What is a small matrix multiplication?** When characterizing the problem-size using the M, N, and K parameters, a problem-size suitable for LIBXS falls approximately within *(M&#160;N&#160;K)<sup>1/3</sup>&#160;\<=&#160;128* (which illustrates that non-square matrices or even "tall and skinny" shapes are covered as well). The library is typically used to generate code up to the specified [threshold](documentation/libxs_perf.md#auto-dispatch). Raising the threshold may not only generate excessive amounts of code (due to unrolling in M or K dimension), but also miss to implement a tiling scheme to effectively utilize the cache hierarchy. For auto-dispatched problem-sizes above the configurable threshold (explicitly JIT'ted code is **not** subject to the threshold), LIBXS is falling back to BLAS. In terms of GEMM, the supported kernels are limited to *Alpha := 1*, *Beta := \{ 1, 0 \}*, *TransA := 'N'*, and *TransB = 'N'*.
 
 **<a name="what-is-a-small-convolution"></a>What is a small convolution?** In the last years, new workloads such as deep learning and more specifically convolutional neural networks (CNN) emerged, and are pushing the limits of today's hardware. One of the expensive kernels is a small convolution with certain kernel sizes (3, 5, or 7) such that calculations in the frequency space is not the most efficient method when compared with direct convolutions. LIBXS's current support for convolutions aims for an easy to use invocation of small (direct) convolutions, which are intended for CNN training and classification. The [Interface](#interface-for-convolutions) is currently ramping up, and the functionality increases quickly towards a broader set of use cases.
 
@@ -11,9 +11,11 @@ For more questions and answers, please have a look at https://github.com/hfp/lib
 
 Documented functionality and available domains:
 
-* MM: [Interface for Matrix Multiplication](#interface-for-matrix-multiplication)
-* DNN: [Interface for Convolutions](#interface-for-convolutions)
+* MM: [Matrix Multiplication](#interface-for-matrix-multiplication)
+* DNN: [Convolutional Deep Neural Networks](#interface-for-convolutions)
 * AUX: [Service Functions](#service-functions)
+* PERF: [Performance](#performance)
+* BE: [Backend](#jit-backend)
 
 For additional functionality, please have a look at https://github.com/hfp/libxs/tree/master/include.
 
@@ -89,7 +91,7 @@ Functionality of LIBXS, which is unrelated to GEMM can be used without introduci
 * By including the interface 'libxs.f' and linking against 'libxs', and (optionally) 'libxsext', or
 * By declaring e.g., `libxs_?gemm` (BLAS signature) and linking 'libxs' (and 'libxsext' if needed).
 
-At the expense of a limited set of functionality (`libxs_?gemm[_omp]`, `libxs_blas_?gemm`, and `libxs_[s|d]otrans[_omp]`), the latter method also works with FORTRAN&#160;77 (otherwise the FORTRAN&#160;2003 standard is necessary). For the "omp" functionality, the 'libxsext' library needs to be present at the link line. For no code change at all, the [Call Wrapper](https://github.com/hfp/libxs/blob/master/documentation/libxs_mm.md#call-wrapper) might be of interest.
+At the expense of a limited set of functionality (`libxs_?gemm[_omp]`, `libxs_blas_?gemm`, and `libxs_[s|d]otrans[_omp]`), the latter method also works with FORTRAN&#160;77 (otherwise the FORTRAN&#160;2003 standard is necessary). For the "omp" functionality, the 'libxsext' library needs to be present at the link line. For no code change at all, the [Call Wrapper](documentation/libxs_mm.md#call-wrapper) might be of interest.
 
 ## Header-Only
 Version&#160;1.4.4 introduced support for "header-only" usage in C and C++. By only including 'libxs_source.h' allows to get around building the library. However, this gives up on a clearly defined application binary interface (ABI). An ABI may allow for hot-fixes after deploying an application (when relying on the shared library form), and ensures to only rely on the public interface of LIBXS. In contrast, the header-only form not only exposes the internal implementation of LIBXS but may also reduce the turnaround time during development of an application (due to longer compilation times). The header file is intentionally named "libxs_**source**.h" since it relies on the [src](https://github.com/hfp/libxs/tree/master/src) folder (with the implications as noted earlier).
@@ -103,7 +105,7 @@ make header-only
 **NOTE**: Differences between C and C++ makes a header-only implementation (which is portable between both languages) considerably "techy". Mixing C and C++ translation units (which rely on the header-only form of the library) is not supported. Also, remember that building an application now shares the same build settings with LIBXS. The latter is important for instance with respect to debug code (`-DNDEBUG`).
 
 ## Installation
-Installing LIBXS makes possibly the most sense when combining the JIT backend ([enabled by default](https://github.com/hfp/libxs/blob/master/documentation/libxs_be.md)) with a collection of statically generated SSE kernels (by specifying M, N, K, or MNK). If the JIT backend is not disabled, statically generated kernels are only registered for dispatch if the CPUID flags at runtime are not supporting a more specific instruction set extension (code path). Since the JIT backend does not support or generate SSE code by itself, the library is compiled by selecting SSE code generation if not specified otherwise (AVX=1\|2\|3, or with SSE=0 falling back to an "arch-native" approach). Limiting the static code path to SSE4.2 allows to practically target any deployed system, however using SSE=0 and AVX=0 together is falling back to generic code, and any static kernels are not specialized using the assembly code generator.
+Installing LIBXS makes possibly the most sense when combining the JIT backend ([enabled by default](documentation/libxs_be.md)) with a collection of statically generated SSE kernels (by specifying M, N, K, or MNK). If the JIT backend is not disabled, statically generated kernels are only registered for dispatch if the CPUID flags at runtime are not supporting a more specific instruction set extension (code path). Since the JIT backend does not support or generate SSE code by itself, the library is compiled by selecting SSE code generation if not specified otherwise (AVX=1\|2\|3, or with SSE=0 falling back to an "arch-native" approach). Limiting the static code path to SSE4.2 allows to practically target any deployed system, however using SSE=0 and AVX=0 together is falling back to generic code, and any static kernels are not specialized using the assembly code generator.
 
 There are two main mechanisms to install LIBXS (both mechanisms can be combined): (1)&#160;building the library in an out&#8209;of&#8209;tree fashion, and (2)&#160;installing into a certain location. Building in an out&#8209;of&#8209;tree fashion looks like:
 
@@ -126,20 +128,20 @@ make PREFIX=/path/to/libxs-install install
 ```
 
 # Interface for Convolutions
-The function domain for Deep Neural Networks (DNN) is detailed by a separate [document](https://github.com/hfp/libxs/blob/master/documentation/libxs_dnn.md). Please also note the separate guide for [Getting Started using TensorFlow&trade; and LIBXS](https://github.com/hfp/libxs/blob/master/documentation/tensorflow.md).
+The function domain for Deep Neural Networks (DNN) is detailed by a separate [document](documentation/libxs_dnn.md). Please also note the separate guide for [Getting Started using TensorFlow&trade; and LIBXS](documentation/tensorflow.md).
 
 ## Service Functions
 For convenient operation of the library and to ease integration, a few service routines are available. They do not exactly belong to the core functionality of LIBXS (SMM or DNN domain), but users are encouraged to rely on these routines of the API. There are two categories: (1)&#160;routines which are available for C and Fortran, and (2)&#160;routines which are only available with the C interface.
 
 The service function domain (AUX) contains routines for:
 
-* [Getting and setting the target architecture](https://github.com/hfp/libxs/blob/master/documentation/libxs_aux.md#getting-and-setting-the-target-architecture)
-* [Getting and setting the verbosity](https://github.com/hfp/libxs/blob/master/documentation/libxs_aux.md#getting-and-setting-the-verbosity)
-* [Measuring time durations (timer)](https://github.com/hfp/libxs/blob/master/documentation/libxs_aux.md#timer-facility)
-* [Loading and storing data (I/O)](https://github.com/hfp/libxs/blob/master/documentation/libxs_aux.md#meta-image-file-io)
-* [Allocating memory](https://github.com/hfp/libxs/blob/master/documentation/libxs_aux.md#memory-allocation)
+* [Getting and setting the target architecture](documentation/libxs_aux.md#getting-and-setting-the-target-architecture)
+* [Getting and setting the verbosity](documentation/libxs_aux.md#getting-and-setting-the-verbosity)
+* [Measuring time durations (timer)](documentation/libxs_aux.md#timer-facility)
+* [Loading and storing data (I/O)](documentation/libxs_aux.md#meta-image-file-io)
+* [Allocating memory](documentation/libxs_aux.md#memory-allocation)
 
-The details can be found in a separate [document](https://github.com/hfp/libxs/blob/master/documentation/libxs_aux.md).
+The details can be found in a separate [document](documentation/libxs_aux.md).
 
 # Verbose Mode
 The verbose mode allows for an insight into the code dispatch mechanism by receiving a small tabulated statistic as soon as the library terminates. The design point for this functionality is to not impact the performance of any critical code path i.e., verbose mode is always enabled and does not require symbols (SYM=1) or debug code (DBG=1). The statistics appears (`stderr`) when the environment variable LIBXS_VERBOSE is set to a non-zero value. For example:
@@ -164,19 +166,19 @@ Since explicitly JIT-generated code (`libxs_?mmdispatch`) does not fall under th
 Registry: 20 MB (gemm=0 mcopy=14 tcopy=0)
 ```
 
-**NOTE**: Setting LIBXS_VERBOSE to a negative value will binary-dump each generated JIT kernel to a file with each file being named like the function name shown in [Intel&#160;VTune](https://github.com/hfp/libxs/blob/master/documentation/libxs_perf.md#intelvtuneamplifier). Disassembly of the raw binary files can be accomplished by:
+**NOTE**: Setting LIBXS_VERBOSE to a negative value will binary-dump each generated JIT kernel to a file with each file being named like the function name shown in [Intel&#160;VTune](documentation/libxs_perf.md#intelvtuneamplifier). Disassembly of the raw binary files can be accomplished by:
 
 ```
 objdump -D -b binary -m i386 -M x86-64 [JIT-dump-file]
 ```
 
 ## Performance
-<a name="profiling"></a>Profiling an application using LIBXS is well-supported using [Intel&#160;VTune&#160;Amplifier](https://github.com/hfp/libxs/blob/master/documentation/libxs_perf.md#intelvtuneamplifier). Performance analysis using [Linux perf](https://github.com/hfp/libxs/blob/master/documentation/libxs_perf.md#linux-perf) is supported as well. Both references give details on how to include profiler support in LIBXS and how to run the application. At build time, a variety of options exist for <a name="tuning"></a>tuning the library for specific needs. LIBXS is setup for a broad range of use cases with sophisticated defaults for general use. Details about customizing LIBXS can be found in a separate [document](https://github.com/hfp/libxs/blob/master/documentation/libxs_perf.md#tuning), which also includes build settings that impact the <a name="auto-dispatch"></a>[auto-dispatch](https://github.com/hfp/libxs/blob/master/documentation/libxs_perf.md#auto-dispatch) behavior.
+<a name="profiling"></a>Profiling an application using LIBXS is well-supported using [Intel&#160;VTune&#160;Amplifier](documentation/libxs_perf.md#intelvtuneamplifier). Performance analysis using [Linux perf](documentation/libxs_perf.md#linux-perf) is supported as well. Both references give details on how to include profiler support in LIBXS and how to run the application. At build time, a variety of options exist for <a name="tuning"></a>tuning the library for specific needs. LIBXS is setup for a broad range of use cases with sophisticated defaults for general use. Details about customizing LIBXS can be found in a separate [document](documentation/libxs_perf.md#tuning), which also includes build settings that impact the <a name="auto-dispatch"></a>[auto-dispatch](documentation/libxs_perf.md#auto-dispatch) behavior.
 
 <a name="results"></a>To find performance results of applications or performance reproducers, the repository provides an orphaned branch "results" which collects collateral material such as measured performance results along with explanatory figures. The results can be found at [https://github.com/hfp/libxs/tree/results#libxs-results](https://github.com/hfp/libxs/tree/results#libxs-results). Please note that comparing performance results depends on whether the operands of the matrix multiplication are streamed or not. For example, running a matrix multiplication code many time with all operands covered by the L1 cache may have an emphasis towards an implementation which perhaps performs worse for the real workload (if this real workload needs to stream some or all operands from the main memory). Most of the [code samples](https://github.com/hfp/libxs/tree/master/samples) are aimed to reproduce performance results, and it is encouraged to model the exact case or to look at real [applications](#applications).
 
 ## JIT Backend
-More information about the JIT backend and the code generator can be found in a separate [document](https://github.com/hfp/libxs/blob/master/documentation/libxs_be.md), which also includes information about LIBXS's stand-alone <a name="generator-driver"></a>[generator-driver](https://github.com/hfp/libxs/blob/master/documentation/libxs_be.md#generator-driver) programs.
+<a name="backend"></a>More information about the JIT backend and the code generator can be found in a separate [document](documentation/libxs_be.md), which also includes information about LIBXS's stand-alone <a name="generator-driver"></a>[generator-driver](documentation/libxs_be.md#generator-driver) programs.
 
 # High Performance Computing (HPC)
 **\[1]&#160;[https://cp2k.org/](https://cp2k.org/)**: Open Source Molecular Dynamics with its DBCSR component processing batches of small matrix multiplications ("matrix stacks") out of a problem-specific distributed block-sparse matrix. Starting with [CP2K 3.0](https://www.cp2k.org/version_history), LIBXS can be used to substitute CP2K's 'libsmm' library. Prior to CP2K 3.0, only the [Intel-branch of CP2K](https://github.com/cp2k/cp2k/tree/intel) integrated LIBXS (see https://github.com/hfp/libxs/raw/master/documentation/cp2k.pdf).
@@ -192,7 +194,7 @@ More information about the JIT backend and the code generator can be found in a 
 ### Machine Learning (ML)
 **\[6]&#160;[https://github.com/baidu-research/DeepBench](https://github.com/baidu-research/DeepBench#deepbench)**: The primary purpose of DeepBench is to benchmark operations that are important to deep learning on different hardware platforms. LIBXS's DNN primitives have been [incorporated into DeepBench](https://github.com/baidu-research/DeepBench/tree/master/code/intel/convolution/libxs_conv) to demonstrate an increased performance of deep learning on Intel hardware. In addition, LIBXS's [DNN sample folder](https://github.com/hfp/libxs/tree/master/samples/dnn) contains scripts to run convolutions extracted from popular benchmarks in a stand-alone fashion.
 
-**\[7]&#160;[https://www.tensorflow.org/](https://tensorflow.org/)**: TensorFlow&trade; is an open source software library for numerical computation using data flow graphs. TensorFlow was originally developed by researchers and engineers working on the Google Brain Team for the purposes of conducting machine learning and deep neural networks research. LIBXS can be [used](https://github.com/hfp/libxs/blob/master/documentation/tensorflow.md#tensorflow-with-libxs) to increase the performance of TensorFlow on Intel hardware.
+**\[7]&#160;[https://www.tensorflow.org/](https://tensorflow.org/)**: TensorFlow&trade; is an open source software library for numerical computation using data flow graphs. TensorFlow was originally developed by researchers and engineers working on the Google Brain Team for the purposes of conducting machine learning and deep neural networks research. LIBXS can be [used](documentation/tensorflow.md#tensorflow-with-libxs) to increase the performance of TensorFlow on Intel hardware.
 
 **\[8]&#160;[https://github.com/IntelLabs/SkimCaffe](https://github.com/IntelLabs/SkimCaffe#skimcaffe-specific-description)**: SkimCaffe from Intel Labs is a Caffe branch for training of sparse CNNs, which provide 80-95% sparsity in convolutions and fully-connected layers. LIBXS's SPMDM domain (SParseMatrix-DenseMatrix multiplication) evolved from SkimCaffe, and since then LIBXS implements the sparse operations in SkimCaffe.
 
