@@ -305,13 +305,3 @@ LIBXS_API_DEFINITION unsigned int libxs_get_tid(void)
   return tid;
 }
 
-
-LIBXS_API_DEFINITION unsigned int libxs_get_tid_os(void)
-{
-#if defined(__linux__)
-  return (unsigned int)syscall(__NR_gettid);
-#else /* fallback */
-  return libxs_get_tid();
-#endif
-}
-

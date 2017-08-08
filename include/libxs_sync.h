@@ -200,9 +200,11 @@ LIBXS_API void libxs_barrier_release(const libxs_barrier* barrier);
 
 /** Utility function to receive the process ID of the calling process. */
 LIBXS_API unsigned int libxs_get_pid(void);
-/** Utility function to receive the thread ID of the calling thread. */
+/**
+ * Utility function to receive a Thread-ID (TID) for the calling thread.
+ * The TID is not related to a specific threading runtime. TID=0 may not
+ * represent the main thread. TIDs are zero-based and consecutive numbers.
+ */
 LIBXS_API unsigned int libxs_get_tid(void);
-/** Utility function to receive the OS-specific thread ID. */
-LIBXS_API unsigned int libxs_get_tid_os(void);
 
 #endif /*LIBXS_SYNC_H*/
