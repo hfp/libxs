@@ -352,8 +352,7 @@ LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32(const void* data, size_t size
 LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_sw(const void* data, size_t size, unsigned int seed)
 {
   assert(0 != data || 0 == size);
-  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8,
-    data, size, seed);
+  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, seed);
 }
 
 
@@ -362,8 +361,7 @@ unsigned int libxs_crc32_sse4(const void* data, size_t size, unsigned int seed)
 {
   assert(0 != data || 0 == size);
 #if defined(LIBXS_INTRINSICS_SSE4)
-  LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8,
-    data, size, seed);
+  LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, data, size, seed);
 #else
   { static int error_once = 0;
     if (0 != libxs_verbosity /* library code is expected to be mute */
