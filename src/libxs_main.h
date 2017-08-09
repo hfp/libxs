@@ -372,6 +372,8 @@ LIBXS_API_VARIABLE libxs_free_function libxs_scratch_free_fn;
 LIBXS_API_VARIABLE void* libxs_default_allocator_context;
 /** If non-NULL, this context used for the context-form of the malloc/free function. */
 LIBXS_API_VARIABLE void* libxs_scratch_allocator_context;
+/** Number of discovered threads (per libxs_get_tid) */
+LIBXS_API_VARIABLE unsigned int libxs_threads_count;
 /** Number of scratch memory pools used; clamped against internal maximum. */
 LIBXS_API_VARIABLE unsigned int libxs_scratch_pools;
 /** Maximum total size of the scratch memory domain. */
