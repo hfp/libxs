@@ -36,8 +36,9 @@
 # include <omp.h>
 #endif
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct( libxs_dnn_layer* handle ) { 
-  
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct( libxs_dnn_layer* handle ) {
+
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* Switch based on the format to use the correct dryrun */
@@ -54,8 +55,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct( libxs_dnn_layer* 
   return status;
 }
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_bwd_dryrun_direct( libxs_dnn_layer* handle ) { 
-  
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_bwd_dryrun_direct( libxs_dnn_layer* handle ) {
+
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* Switch based on the format to use the correct dryrun */
@@ -72,8 +73,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_bwd_dryrun_direct( libxs_dnn_layer* 
   return status;
 }
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct( libxs_dnn_layer* handle ) { 
-  
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct( libxs_dnn_layer* handle ) {
+
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* Switch based on the format to use the correct dryrun */
@@ -124,7 +125,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_bwd_dryrun_direct_custom_custom( lib
       if (handle->desc.N*handle->blocksifm*handle->fm_lp_block >= handle->desc.threads) {
 # include "template/libxs_dnn_convolve_dryrun_bwd_custom_custom.tpl.c"
       } else {
-# include "template/libxs_dnn_convolve_dryrun_bwd_custom_custom.tpl.c"   
+# include "template/libxs_dnn_convolve_dryrun_bwd_custom_custom.tpl.c"
       }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
