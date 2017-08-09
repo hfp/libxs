@@ -737,7 +737,7 @@ int main(int argc, char* argv[])
     scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
     CHKERR_LIBXS_DNN( status );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch ) );
-
+    
     if (type == 'A' || type == 'F') {
       printf("##########################################\n");
       printf("#   Correctness - FWD (custom-Storage)   #\n");
@@ -847,16 +847,16 @@ int main(int argc, char* argv[])
       printf("##########################################\n");
       /* run LIBXS convolution for performance */
       l_start = libxs_timer_tick();
-      for (i = 0; i < iters; ++i) {
 #if defined(_OPENMP)
-#       pragma omp parallel
+#   pragma omp parallel private(i)
 #endif
-        {
+      {
 #if defined(_OPENMP)
-          const int tid = omp_get_thread_num();
+        const int tid = omp_get_thread_num();
 #else
-          const int tid = 0;
+        const int tid = 0;
 #endif
+        for (i = 0; i < iters; ++i) {
           libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD, 0, tid );
         }
       }
@@ -879,16 +879,17 @@ int main(int argc, char* argv[])
       printf("##########################################\n");
       /* run LIBXS convolution for performance */
       l_start = libxs_timer_tick();
-      for (i = 0; i < iters; ++i) {
+
 #if defined(_OPENMP)
-#       pragma omp parallel
+#   pragma omp parallel  private(i)
 #endif
-        {
+      {
 #if defined(_OPENMP)
-          const int tid = omp_get_thread_num();
+        const int tid = omp_get_thread_num();
 #else
-          const int tid = 0;
+        const int tid = 0;
 #endif
+        for (i = 0; i < iters; ++i) {
           libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid );
         }
       }
@@ -911,20 +912,21 @@ int main(int argc, char* argv[])
       printf("##########################################\n");
       /* run LIBXS convolution for performance */
       l_start = libxs_timer_tick();
-      for (i = 0; i < iters; ++i) {
+
 #if defined(_OPENMP)
-#       pragma omp parallel
+#   pragma omp parallel private(i)
 #endif
-        {
+      {
 #if defined(_OPENMP)
-          const int tid = omp_get_thread_num();
+        const int tid = omp_get_thread_num();
 #else
-          const int tid = 0;
+        const int tid = 0;
 #endif
+        for (i = 0; i < iters; ++i) { 
           libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
-        }
-        if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
-          CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
+          if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
+            CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
+          }
         }
       }
       l_end = libxs_timer_tick();
@@ -1040,7 +1042,7 @@ int main(int argc, char* argv[])
       printf("##########################################\n");
       printf("#  Correctness - FWD (NHWC/RSCK-Storage) #\n");
       printf("##########################################\n");
-    /* run LIBXS convolutions */
+      /* run LIBXS convolutions */
 #if defined(_OPENMP)
 #     pragma omp parallel
 #endif
@@ -1219,7 +1221,7 @@ int main(int argc, char* argv[])
 #else
           const int tid = 0;
 #endif
-           libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
+          libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_UPD, 0, tid );
         }
         if (conv_desc.options == LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) {
           CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
