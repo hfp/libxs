@@ -435,12 +435,15 @@ LIBXS_API_INLINE void internal_finalize(void)
       if (EXIT_SUCCESS == libxs_get_scratch_info(&scratch_info) && 0 < scratch_info.size) {
         fprintf(stderr, "\nScratch: %.f MB", 1.0 * scratch_info.size / (1 << 20));
         if (1 < libxs_verbosity || 0 > libxs_verbosity) {
+#if !defined(LIBXS_NO_SYNC)
           if (0 < libxs_threads_count) {
             fprintf(stderr, " (mallocs=%lu, pools=%u, threads=%u)\n",
               (unsigned long int)scratch_info.nmallocs,
               scratch_info.npools, libxs_threads_count);
           }
-          else {
+          else
+#endif
+          {
             fprintf(stderr, " (mallocs=%lu, pools=%u)\n",
               (unsigned long int)scratch_info.nmallocs,
               scratch_info.npools);
