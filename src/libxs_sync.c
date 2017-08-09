@@ -296,8 +296,7 @@ LIBXS_API_DEFINITION unsigned int libxs_get_tid(void)
 {
   static LIBXS_TLS unsigned int tid = (unsigned int)(-1);
   if ((unsigned int)(-1) == tid) {
-    static unsigned int tc = 0; tid = tc;
-    LIBXS_ATOMIC_ADD_FETCH(&tc, 1, LIBXS_ATOMIC_RELAXED);
+    tid = LIBXS_ATOMIC_ADD_FETCH(&libxs_threads_count, 1, LIBXS_ATOMIC_RELAXED) - 1;
   }
   return tid;
 }
