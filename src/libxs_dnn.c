@@ -239,6 +239,8 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
     handle->upd_ofw_rb = 1;
     handle->upd_ofh_rb = 1;
     handle->fm_lp_block = 1;
+    handle->blocksifm_blocking = 1;
+    handle->blocksofm_blocking = 1;
     handle->upd_use_thread_fil = 0;
     handle->upd_use_external_reduce = 0;
     handle->filter_transposed = 0;
