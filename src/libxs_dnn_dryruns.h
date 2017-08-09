@@ -26,14 +26,20 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_DNN_HANDLE_H
-#define LIBXS_DNN_HANDLE_H
+#ifndef LIBXS_DNN_DRYRUN_H
+#define LIBXS_DNN_DRYRUN_H
 
 #include <libxs_dnn.h>
-#include <libxs_dnn_dryruns.h>  
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dnn_layer* handle );
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct( libxs_dnn_layer* handle );
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_custom_custom( libxs_dnn_layer* handle );
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_nhwc_custom( libxs_dnn_layer* handle );
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_nhwc_rsck( libxs_dnn_layer* handle );
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_check( libxs_dnn_layer* handle );
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_bwd_dryrun_direct( libxs_dnn_layer* handle );
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_bwd_dryrun_direct_custom_custom( libxs_dnn_layer* handle );
 
-#endif /* LIBXS_DNN_HANDLE_H */
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct( libxs_dnn_layer* handle );
+LIBXS_API libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct_custom_custom( libxs_dnn_layer* handle );
+
+#endif /* LIBXS_DNN_DRYRUN_H */

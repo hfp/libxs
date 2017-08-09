@@ -26,9 +26,12 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+/* Alexander Heinecke, Rajkishore Barik, Ankush Mandal, Evangelos Georganas (Intel Corp.)
+ ******************************************************************************/
 #include "libxs_dnn_handle.h"
 #include "libxs_main.h"
 #include <libxs.h>
+#include "libxs_dnn_dryruns.h" 
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -53,6 +56,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   int i = 0;
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   const char *const env = getenv("LIBXS_DNN_INTERNAL_FORMAT");
+  const char *const env_jit = getenv("LIBXS_DNN_THREAD_PRIVATE_JIT");
   int internal_format_type;
   if ( 0 == env || 0 == *env) {
     /* Default internal format type */
@@ -71,6 +75,31 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     }
   }
 
+  if ( 0 == env_jit || 0 == *env_jit) {
+    /* By default do not do any thread private jitting */
+    handle->use_thread_private_jit = 0;
+  } else {
+    handle->use_thread_private_jit = 1;
+    /* If we do not have AVX512 arch disable kernel streams  */
+    if (libxs_target_archid != LIBXS_X86_AVX512_MIC  &&
+        libxs_target_archid != LIBXS_X86_AVX512_CORE &&
+        libxs_target_archid != LIBXS_X86_AVX512_KNM ) {
+      handle->use_thread_private_jit = 0;
+    }
+    /* If we do not follow FP32 path disable kernel streams  */
+    if ( (handle->datatype != LIBXS_DNN_DATATYPE_F32) || (handle->datatype_itm != LIBXS_DNN_DATATYPE_F32) ) {
+      handle->use_thread_private_jit = 0;
+    }
+    /* If we use any options/fuse ops, disable kernel streams */
+    if ( (handle->desc.fuse_ops != LIBXS_DNN_CONV_FUSE_NONE) || (handle->desc.options != LIBXS_DNN_CONV_OPTION_NONE) ) {
+      handle->use_thread_private_jit = 0;
+    }
+    /* If we do not run on custom/custom format, disable kernel streams */
+    if (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS || handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS ) {
+      handle->use_thread_private_jit = 0; 
+    }
+  }
+
   /* now architecture specific */
   if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
       libxs_target_archid == LIBXS_X86_AVX512_CORE ||
@@ -80,14 +109,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 #define LIBXS_FWD_OFH_BLOCKING
 #if defined(LIBXS_FWD_OFH_BLOCKING)
     if ( ((handle->ofw < 15) && (handle->ofh % 2 == 0) && (handle->desc.S == 1)) ||
-         ((handle->ofw < 15) && (handle->ofh % 2 == 0) && (libxs_target_archid == LIBXS_X86_AVX512_KNM)) ) {
+        ((handle->ofw < 15) && (handle->ofh % 2 == 0) && (libxs_target_archid == LIBXS_X86_AVX512_KNM)) ) {
       handle->fwd_ofw_rb = handle->ofw;
       handle->fwd_ofh_rb = 2;
       /* on AVX512_CORE and int this only works for smaller 13 */
       if ( (((handle->datatype == LIBXS_DNN_DATATYPE_I16) ||
-           (handle->datatype == LIBXS_DNN_DATATYPE_I8)) &&
-           (libxs_target_archid == LIBXS_X86_AVX512_CORE)) &&
-           (handle->ofw > 12) ) {
+              (handle->datatype == LIBXS_DNN_DATATYPE_I8)) &&
+            (libxs_target_archid == LIBXS_X86_AVX512_CORE)) &&
+          (handle->ofw > 12) ) {
         handle->fwd_ofh_rb = 1;
       }
     }
@@ -95,19 +124,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 #endif
       /* we need additional temp registers when running with int on AVX512_CORE */
       if ( ((libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
-           (handle->datatype == LIBXS_DNN_DATATYPE_I16) &&
-           (handle->datatype_itm == LIBXS_DNN_DATATYPE_I32)) ||
-           ((libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
+            (handle->datatype == LIBXS_DNN_DATATYPE_I16) &&
+            (handle->datatype_itm == LIBXS_DNN_DATATYPE_I32)) ||
+          ((libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
            (handle->datatype == LIBXS_DNN_DATATYPE_I8) &&
            (handle->datatype_itm == LIBXS_DNN_DATATYPE_I16) &&
            ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) ) {
         for (i = 26; i > 1; --i) {
           if (handle->ofw % i == 0) break;
         }
-      /* for 32 accumulation we need even one register more */
+        /* for 32 accumulation we need even one register more */
       } else if ( (handle->datatype == LIBXS_DNN_DATATYPE_I8) &&
-           (handle->datatype_itm == LIBXS_DNN_DATATYPE_I32) &&
-           ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
+          (handle->datatype_itm == LIBXS_DNN_DATATYPE_I32) &&
+          ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
         for (i = 25; i > 1; --i) {
           if (handle->ofw % i == 0) break;
         }
@@ -162,12 +191,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       }
     }
     else if ( (handle->datatype == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_itm == LIBXS_DNN_DATATYPE_I16)
-                 && ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
+        && ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
       handle->ifmblock = (handle->desc.C >=32) ? 32 : (handle->desc.C/2);
       handle->ofmblock = (handle->desc.K >=32) ? 32 : (handle->desc.K/2);
       handle->fm_lp_block = 2;
       if ( libxs_target_archid == LIBXS_X86_AVX512_MIC ||
-           libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
+          libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
         status = LIBXS_DNN_WARN_FALLBACK;
         handle->ifmblock = 1;
         handle->ofmblock = 1;
@@ -176,12 +205,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       }
     }
     else if ( (handle->datatype == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_itm == LIBXS_DNN_DATATYPE_I32)
-                 && ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
+        && ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
       handle->ifmblock = (handle->desc.C >=16) ? 16 : (handle->desc.C/4);
       handle->ofmblock = (handle->desc.K >=16) ? 16 : (handle->desc.K/4);
       handle->fm_lp_block = 4;
       if ( libxs_target_archid == LIBXS_X86_AVX512_MIC ||
-           libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
+          libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
         status = LIBXS_DNN_WARN_FALLBACK;
         handle->ifmblock = 1;
         handle->ofmblock = 1;
@@ -291,7 +320,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       noarch = 1;
     }
     else if ( (handle->datatype == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_itm == LIBXS_DNN_DATATYPE_I16)
-                && ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
+        && ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
       status = LIBXS_DNN_WARN_FALLBACK;
       handle->ifmblock = 1;
       handle->ofmblock = 1;
@@ -299,7 +328,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       noarch = 1;
     }
     else if ( (handle->datatype == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_itm == LIBXS_DNN_DATATYPE_I32)
-                && ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
+        && ((handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0) ) {
       status = LIBXS_DNN_WARN_FALLBACK;
       handle->ifmblock = 1;
       handle->ofmblock = 1;
@@ -355,7 +384,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
   /* Let's check that we can actually block */
   if ( (handle->desc.C % (handle->ifmblock * handle->fm_lp_block) != 0) ||
-       (handle->desc.K % (handle->ofmblock * handle->fm_lp_block) != 0)    )
+      (handle->desc.K % (handle->ofmblock * handle->fm_lp_block) != 0)    )
   {
     handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
     status = LIBXS_DNN_WARN_FALLBACK;
@@ -383,6 +412,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     /* Forward path */
     { libxs_convolution_forward_descriptor descriptor;
       libxs_matcopy_descriptor matcopy_descriptor;
+      libxs_matcopy_descriptor matzero_descriptor;
       if (handle->desc.R == 1 && handle->desc.S == 1) {
         descriptor.unroll_kh = 1;
         descriptor.unroll_kw = 1;
@@ -392,9 +422,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.unroll_kw = 1;
       }
       if ( ((handle->datatype == LIBXS_DNN_DATATYPE_I8) ||
-           (handle->datatype == LIBXS_DNN_DATATYPE_I16) ) &&
-           (libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
-           handle->desc.R > 1 && handle->desc.S > 1 && handle->fwd_ofh_rb == 1 ) {
+            (handle->datatype == LIBXS_DNN_DATATYPE_I16) ) &&
+          (libxs_target_archid == LIBXS_X86_AVX512_CORE) &&
+          handle->desc.R > 1 && handle->desc.S > 1 && handle->fwd_ofh_rb == 1 ) {
         /* we need 3 instrad of 1 instruction for FMA -> do not perform any unrolling in kh/kw to control code size */
         descriptor.unroll_kh = 0;
         descriptor.unroll_kw = 0;
@@ -412,11 +442,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           matcopy_descriptor.ldi = handle->ifwp * handle->blocksifm * handle->ifmblock * handle->fm_lp_block;
           matcopy_descriptor.ldo = (handle->ifwp + 2*handle->desc.pad_w) * handle->blocksifm * handle->ifmblock * handle->fm_lp_block;
         }
-        if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
-          matcopy_descriptor.prefetch = 1;
-        } else {
-          matcopy_descriptor.prefetch = 0;
-        }
+        matcopy_descriptor.prefetch = 1;
         matcopy_descriptor.unroll_level = 2;
         matcopy_descriptor.typesize = (unsigned char)libxs_dnn_typesize(handle->datatype);
         matcopy_descriptor.flags = 0;
@@ -485,6 +511,57 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       } else {
         assert(0/*should not happen*/);
       }
+
+      if ( handle->use_thread_private_jit ) {
+        handle->n_entries_fwd = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->compute_fwd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+        handle->kernel_fwd_variant_ptrs = (char**) malloc(handle->desc.threads * sizeof(char*));
+        handle->n_fwd_code_segments = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->fwd_code_segments = (segment_t**) malloc(handle->desc.threads * sizeof(segment_t*));
+        handle->ofh_fwd_start = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->ofh_fwd_end = (int*) malloc(handle->desc.threads * sizeof(int));
+
+        for (i = 0; i < handle->desc.threads; i++) {
+          handle->compute_fwd_indices_ptrs[i] = NULL;
+          handle->kernel_fwd_variant_ptrs[i] = NULL;
+          handle->fwd_code_segments[i] = NULL;
+        }
+
+        /* In case of logical padding also add a kernel that copies only one line of the image -- in case we exploit intra-image parallelism we should avoid copying entire image for each thread but only the minimum required number of input pixels... */
+        if (handle->padding_flag == 1) {
+          matcopy_descriptor.n = 1;  
+          handle->matcopy_fwd[2].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
+        }
+
+        /* In case overwrite is requested, generate zero-ing kernel */
+        if ( (handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0 )  {
+          matzero_descriptor.n = 1;
+          if (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) {
+            matzero_descriptor.m = handle->ofhp*handle->ofwp*handle->ofmblock;
+            matzero_descriptor.ldi = handle->ofhp*handle->ofwp*handle->ofmblock;
+            matzero_descriptor.ldo = handle->ofhp*handle->ofwp*handle->ofmblock;
+          } else { /* Assumes NHWC format */
+            status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;   
+          }
+          matzero_descriptor.prefetch = 0;
+          matzero_descriptor.unroll_level = 2;
+          matzero_descriptor.typesize = (unsigned char)libxs_dnn_typesize(handle->datatype);
+          matzero_descriptor.flags = LIBXS_MATCOPY_FLAG_ZERO_SOURCE;
+          handle->matcopy_fwd[1].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
+
+          if (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) {
+            matzero_descriptor.m = handle->ofwp*handle->ofmblock;
+            matzero_descriptor.ldi = handle->ofwp*handle->ofmblock;
+            matzero_descriptor.ldo = handle->ofwp*handle->ofmblock;
+          } else { /* Assumes NHWC format */
+            status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;   
+          }
+          handle->matcopy_fwd[3].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
+
+        }
+        /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
+        status = libxs_dnn_perform_fwd_dryrun_direct(handle); 
+      }
     }
     /* Backward path */
     { libxs_convolution_backward_descriptor descriptor;
@@ -543,200 +620,220 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.fm_lp_block = handle->fm_lp_block;
       descriptor.ofw = handle->ofw;
       /*
-      descriptor.ofw_unroll = 1;
-      descriptor.peeled = 0;*/
+         descriptor.ofw_unroll = 1;
+         descriptor.peeled = 0;*/
       descriptor.datatype = handle->datatype;
       descriptor.datatype_itm = handle->datatype_itm;
       descriptor.option = handle->desc.options;
       descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
       /* TODO check JIT errors */
       if ( /*(*/libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-            libxs_target_archid == LIBXS_X86_AVX512_CORE ||
-            libxs_target_archid == LIBXS_X86_AVX512_KNM/*) &&
-           ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ )
-      {
+        libxs_target_archid == LIBXS_X86_AVX512_CORE ||
+          libxs_target_archid == LIBXS_X86_AVX512_KNM/*) &&
+                                                           ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ )
+          {
 #if 0
-        /* control code size */
-        const unsigned int max_code_size = 20000/*16384*/;
-        const unsigned int bp_each_iter_code_size = 12/*16*/;
-        if ((descriptor.ofw * descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size)) {
-          descriptor.ofw_unroll = 1;
-          descriptor.unroll_kw = 1;
-        } else if (descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
-          unsigned int upper_bound_ofw_rb = (max_code_size) / (descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size);
-          for (i = LIBXS_MIN(upper_bound_ofw_rb+1, 24); i >= 10; i--) {
-            if (handle->ofw % i == 0) break;
-          }
-          if (i>=10) {
-            descriptor.ofw_rb =  i;
-            descriptor.ofw_unroll = 0;
-            descriptor.unroll_kw = 1;
-          } else {
-            if (descriptor.ofw_rb*descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
+            /* control code size */
+            const unsigned int max_code_size = 20000/*16384*/;
+            const unsigned int bp_each_iter_code_size = 12/*16*/;
+            if ((descriptor.ofw * descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size)) {
+              descriptor.ofw_unroll = 1;
+              descriptor.unroll_kw = 1;
+            } else if (descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
+              unsigned int upper_bound_ofw_rb = (max_code_size) / (descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size);
+              for (i = LIBXS_MIN(upper_bound_ofw_rb+1, 24); i >= 10; i--) {
+                if (handle->ofw % i == 0) break;
+              }
+              if (i>=10) {
+                descriptor.ofw_rb =  i;
+                descriptor.ofw_unroll = 0;
+                descriptor.unroll_kw = 1;
+              } else {
+                if (descriptor.ofw_rb*descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
+                  descriptor.ofw_unroll = 0;
+                  descriptor.unroll_kw = 1;
+                } else {
+                  descriptor.ofw_unroll = 0;
+                  descriptor.unroll_kw = 0;
+                }
+              }
+            } else if (descriptor.ofw_rb*descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
               descriptor.ofw_unroll = 0;
               descriptor.unroll_kw = 1;
             } else {
               descriptor.ofw_unroll = 0;
               descriptor.unroll_kw = 0;
             }
-          }
-        } else if (descriptor.ofw_rb*descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
-          descriptor.ofw_unroll = 0;
-          descriptor.unroll_kw = 1;
-        } else {
-          descriptor.ofw_unroll = 0;
-          descriptor.unroll_kw = 0;
-        }
 #endif
-        /*descriptor.prefetch_output_ahead = 0;*/
-        /* TODO: Decide the unroll factor and register blocking using some heuristics as above */
-        descriptor.unroll_kh = 0;
-        descriptor.unroll_kw = 1;
-        descriptor.ofh_rb = handle->fwd_ofh_rb;
-        handle->bwd_ofh_rb = handle->fwd_ofh_rb;
-        descriptor.ofw_rb = handle->fwd_ofw_rb;
-        handle->bwd_ofw_rb = handle->fwd_ofw_rb;
-#if !defined(NDEBUG)
-        printf("DEBUG JIT of conv (NON-PEELED):\n  arch: %s\n  type: %s\n  kw: %u\n  unroll_kw: %u\n  kh: %u\n  unroll_kh: %u\n  ofm_block: %u\n  ifm_block: %u\n"
-         "  ofh_padded: %u\n  ofw_padded: %u\n  ofh_rb: %u\n  ofw_rb: %u\n  ifh_padded: %u\n  ifw_padded: %u\n"
-         "  stride_h: %u\n  stride_w: %u\n",
-            libxs_get_target_arch(),
-            "backward",     /* type */
-            descriptor.kw,         /* kernel width */
-            descriptor.unroll_kw,  /* kernel width, unrolled */
-            descriptor.kh,         /* kernel width */
-            descriptor.unroll_kh,  /* kernel width, unrolled */
-            descriptor.ofm_block,  /* should be VLEN */
-            descriptor.ifm_block,  /* should be VLEN */
-            descriptor.ofh_padded, /* this we need for 2D register block */
-            descriptor.ofw_padded, /* this we use for 1D and 2D register block */
-            descriptor.ofh_rb,     /* UR, register block of ofh */
-            descriptor.ofw_rb,     /* UR, register block of ofw */
-            descriptor.ifh_padded,
-            descriptor.ifw_padded,
-            descriptor.stride_h,   /* this we use for offsets in the input */
-            descriptor.stride_w   /* this we use for offsets in the input */);
-#endif
-
-        /* NONE */
-        if (handle->padding_flag == 1) {
-          handle->matcopy_bwd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
-          handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matcopyback_descriptor);
-        }
-
-        /*descriptor.prefetch_output_ahead = 0;*/
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
-        if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
-          handle->code_bwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-        } else {
-          handle->code_bwd[0].pmm = libxs_create_xconv_backward(&descriptor);
-        }
-        /* PREFETCH_NO_WEIGHT */
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT_L2;
-        handle->code_bwd[1].pmm = libxs_create_xconv_backward(&descriptor);
-        /*ALL*/
-        /*descriptor.prefetch_output_ahead = 0;*/
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
-        handle->code_bwd[2].pmm = libxs_create_xconv_backward(&descriptor);
-#if 0
-        /* PEELED VERSION */
-        for (i = LIBXS_MIN(24, handle->ofw); i > 1; i--) {
-          if (handle->ofw % i == 0) break;
-        }
-        descriptor.ofw_rb = i;
-        descriptor.peeled = 1;
-
-        /* control the code size using the following heuristic */
-        if ((descriptor.ofw * descriptor.kw * descriptor.kh * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size)) {
-          descriptor.ofw_unroll = 1;
-          descriptor.unroll_kw = 1;
-          descriptor.unroll_kh = 1;
-        } else if (descriptor.kw * descriptor.kh * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
-          unsigned int upper_bound_ofw_rb = (max_code_size) / (descriptor.kw * descriptor.kh * descriptor.ofm_block * bp_each_iter_code_size);
-          for (i = LIBXS_MIN(upper_bound_ofw_rb+1, 24); i >= 10; i--) {
-            if (handle->ofw % i == 0) break;
-          }
-          if (i>=10) {
-            descriptor.ofw_rb =  i;
-            descriptor.ofw_unroll = 0;
+            /*descriptor.prefetch_output_ahead = 0;*/
+            /* TODO: Decide the unroll factor and register blocking using some heuristics as above */
+            descriptor.unroll_kh = 0;
             descriptor.unroll_kw = 1;
-            descriptor.unroll_kh = 1;
-          } else {
-            if (descriptor.ofw_rb*descriptor.kw * descriptor.kh * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
+            descriptor.ofh_rb = handle->fwd_ofh_rb;
+            handle->bwd_ofh_rb = handle->fwd_ofh_rb;
+            descriptor.ofw_rb = handle->fwd_ofw_rb;
+            handle->bwd_ofw_rb = handle->fwd_ofw_rb;
+#if !defined(NDEBUG)
+            printf("DEBUG JIT of conv (NON-PEELED):\n  arch: %s\n  type: %s\n  kw: %u\n  unroll_kw: %u\n  kh: %u\n  unroll_kh: %u\n  ofm_block: %u\n  ifm_block: %u\n"
+                "  ofh_padded: %u\n  ofw_padded: %u\n  ofh_rb: %u\n  ofw_rb: %u\n  ifh_padded: %u\n  ifw_padded: %u\n"
+                "  stride_h: %u\n  stride_w: %u\n",
+                libxs_get_target_arch(),
+                "backward",     /* type */
+                descriptor.kw,         /* kernel width */
+                descriptor.unroll_kw,  /* kernel width, unrolled */
+                descriptor.kh,         /* kernel width */
+                descriptor.unroll_kh,  /* kernel width, unrolled */
+                descriptor.ofm_block,  /* should be VLEN */
+                descriptor.ifm_block,  /* should be VLEN */
+                descriptor.ofh_padded, /* this we need for 2D register block */
+                descriptor.ofw_padded, /* this we use for 1D and 2D register block */
+                descriptor.ofh_rb,     /* UR, register block of ofh */
+                descriptor.ofw_rb,     /* UR, register block of ofw */
+                descriptor.ifh_padded,
+                descriptor.ifw_padded,
+                descriptor.stride_h,   /* this we use for offsets in the input */
+                descriptor.stride_w   /* this we use for offsets in the input */);
+#endif
+
+            /* NONE */
+            if (handle->padding_flag == 1) {
+              handle->matcopy_bwd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
+              handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matcopyback_descriptor);
+            }
+
+            /*descriptor.prefetch_output_ahead = 0;*/
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
+            if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
+              handle->code_bwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+            } else {
+              handle->code_bwd[0].pmm = libxs_create_xconv_backward(&descriptor);
+            }
+            /* PREFETCH_NO_WEIGHT */
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT_L2;
+            handle->code_bwd[1].pmm = libxs_create_xconv_backward(&descriptor);
+            /*ALL*/
+            /*descriptor.prefetch_output_ahead = 0;*/
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+            handle->code_bwd[2].pmm = libxs_create_xconv_backward(&descriptor);
+#if 0
+            /* PEELED VERSION */
+            for (i = LIBXS_MIN(24, handle->ofw); i > 1; i--) {
+              if (handle->ofw % i == 0) break;
+            }
+            descriptor.ofw_rb = i;
+            descriptor.peeled = 1;
+
+            /* control the code size using the following heuristic */
+            if ((descriptor.ofw * descriptor.kw * descriptor.kh * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size)) {
+              descriptor.ofw_unroll = 1;
+              descriptor.unroll_kw = 1;
+              descriptor.unroll_kh = 1;
+            } else if (descriptor.kw * descriptor.kh * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
+              unsigned int upper_bound_ofw_rb = (max_code_size) / (descriptor.kw * descriptor.kh * descriptor.ofm_block * bp_each_iter_code_size);
+              for (i = LIBXS_MIN(upper_bound_ofw_rb+1, 24); i >= 10; i--) {
+                if (handle->ofw % i == 0) break;
+              }
+              if (i>=10) {
+                descriptor.ofw_rb =  i;
+                descriptor.ofw_unroll = 0;
+                descriptor.unroll_kw = 1;
+                descriptor.unroll_kh = 1;
+              } else {
+                if (descriptor.ofw_rb*descriptor.kw * descriptor.kh * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
+                  descriptor.ofw_unroll = 0;
+                  descriptor.unroll_kw = 1;
+                  descriptor.unroll_kh = 1;
+                } else {
+                  descriptor.ofw_unroll = 0;
+                  descriptor.unroll_kw = 0;
+                  descriptor.unroll_kh = 1;
+                }
+              }
+            } else if (descriptor.ofw_rb* descriptor.kh * descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
               descriptor.ofw_unroll = 0;
               descriptor.unroll_kw = 1;
               descriptor.unroll_kh = 1;
             } else {
               descriptor.ofw_unroll = 0;
               descriptor.unroll_kw = 0;
-              descriptor.unroll_kh = 1;
+              descriptor.unroll_kh = 1; /* always unroll kh */
             }
-          }
-        } else if (descriptor.ofw_rb* descriptor.kh * descriptor.kw * descriptor.ofm_block * bp_each_iter_code_size <= max_code_size) {
-          descriptor.ofw_unroll = 0;
-          descriptor.unroll_kw = 1;
-          descriptor.unroll_kh = 1;
-        } else {
-          descriptor.ofw_unroll = 0;
-          descriptor.unroll_kw = 0;
-          descriptor.unroll_kh = 1; /* always unroll kh */
-        }
-        descriptor.prefetch_output_ahead = 0;
+            descriptor.prefetch_output_ahead = 0;
 #if !defined(NDEBUG)
-        printf("DEBUG JIT of conv (PEELED):\n  arch: %s\n  type: %s\n  kw: %u\n  unroll_kw: %u\n  kh: %u\n  unroll_kh: %u\n  ofm_block: %u\n  ifm_block: %u\n"
-         "  ofh_padded: %u\n  ofw_padded: %u\n  ofh_rb: %u\n  ofw_rb: %u\n  ifh_padded: %u\n  ifw_padded: %u\n"
-         "  stride_h: %u\n  stride_w: %u\n  ofw: %u\n  ofw_unroll: %u\n  peeled: %u\n  prefetch_output: %u\n",
-            libxs_get_target_arch(),
-            "backward",       /* type */
-            descriptor.kw,         /* kernel width */
-            descriptor.unroll_kw,  /* kernel width, unrolled */
-            descriptor.kh,         /* kernel width */
-            descriptor.unroll_kh,  /* kernel width, unrolled */
-            descriptor.ofm_block,  /* should be VLEN */
-            descriptor.ifm_block,  /* should be VLEN */
-            descriptor.ofh_padded, /* this we need for 2D register block */
-            descriptor.ofw_padded, /* this we use for 1D and 2D register block */
-            descriptor.ofh_rb,     /* UR, register block of ofh */
-            descriptor.ofw_rb,     /* UR, register block of ofw */
-            descriptor.ifh_padded,
-            descriptor.ifw_padded,
-            descriptor.stride_h,   /* this we use for offsets in the input */
-            descriptor.stride_w,   /* this we use for offsets in the input */
-            descriptor.ofw, /* upper bound of oi loop */
-            descriptor.ofw_unroll, /*unroll for ofw loop */
-            descriptor.peeled, /*peeled?*/
-            descriptor.prefetch_output_ahead /* prefetch output ahead */ );
+            printf("DEBUG JIT of conv (PEELED):\n  arch: %s\n  type: %s\n  kw: %u\n  unroll_kw: %u\n  kh: %u\n  unroll_kh: %u\n  ofm_block: %u\n  ifm_block: %u\n"
+                "  ofh_padded: %u\n  ofw_padded: %u\n  ofh_rb: %u\n  ofw_rb: %u\n  ifh_padded: %u\n  ifw_padded: %u\n"
+                "  stride_h: %u\n  stride_w: %u\n  ofw: %u\n  ofw_unroll: %u\n  peeled: %u\n  prefetch_output: %u\n",
+                libxs_get_target_arch(),
+                "backward",       /* type */
+                descriptor.kw,         /* kernel width */
+                descriptor.unroll_kw,  /* kernel width, unrolled */
+                descriptor.kh,         /* kernel width */
+                descriptor.unroll_kh,  /* kernel width, unrolled */
+                descriptor.ofm_block,  /* should be VLEN */
+                descriptor.ifm_block,  /* should be VLEN */
+                descriptor.ofh_padded, /* this we need for 2D register block */
+                descriptor.ofw_padded, /* this we use for 1D and 2D register block */
+                descriptor.ofh_rb,     /* UR, register block of ofh */
+                descriptor.ofw_rb,     /* UR, register block of ofw */
+                descriptor.ifh_padded,
+                descriptor.ifw_padded,
+                descriptor.stride_h,   /* this we use for offsets in the input */
+                descriptor.stride_w,   /* this we use for offsets in the input */
+                descriptor.ofw, /* upper bound of oi loop */
+                descriptor.ofw_unroll, /*unroll for ofw loop */
+                descriptor.peeled, /*peeled?*/
+                descriptor.prefetch_output_ahead /* prefetch output ahead */ );
 #endif
 
-        /* NONE */
-        descriptor.prefetch_output_ahead = 0;
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
-        handle->code_bwd[2].pmm = libxs_create_xconv_backward(&descriptor);
-        /* NO_WEIGHT_L2 */
-        descriptor.prefetch_output_ahead = 0;
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT_L2;
-        handle->code_bwd[3].pmm = libxs_create_xconv_backward(&descriptor);
+            /* NONE */
+            descriptor.prefetch_output_ahead = 0;
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
+            handle->code_bwd[2].pmm = libxs_create_xconv_backward(&descriptor);
+            /* NO_WEIGHT_L2 */
+            descriptor.prefetch_output_ahead = 0;
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT_L2;
+            handle->code_bwd[3].pmm = libxs_create_xconv_backward(&descriptor);
 #endif
-      } else if (/*(*/libxs_target_archid == LIBXS_X86_AVX2/*) ||
-                   ((handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ ) {
-        /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
-        if (handle->padding_flag == 1) {
-          handle->matcopy_bwd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
-          handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matcopyback_descriptor);
+          } else if (/*(*/libxs_target_archid == LIBXS_X86_AVX2/*) ||
+                                                                     ((handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ ) {
+            /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
+            if (handle->padding_flag == 1) {
+              handle->matcopy_bwd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
+              handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matcopyback_descriptor);
+            }
+            descriptor.unroll_kh = 0;
+            descriptor.unroll_kw = 0;
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
+            if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
+              handle->code_bwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+            } else {
+              handle->code_bwd[0].pmm = libxs_create_xconv_backward(&descriptor);
+            }
+            handle->code_bwd[1].pmm = handle->code_bwd[0].pmm;
+            handle->code_bwd[2].pmm = handle->code_bwd[0].pmm;
+            handle->code_bwd[3].pmm = handle->code_bwd[0].pmm;
+          } else {
+            assert(0/*should not happen*/);
+          }
+
+      if ( handle->use_thread_private_jit ) {
+        handle->n_entries_bwd = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->compute_bwd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+        handle->kernel_bwd_variant_ptrs = (char**) malloc(handle->desc.threads * sizeof(char*));
+        handle->n_bwd_code_segments = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->bwd_code_segments = (segment_t**) malloc(handle->desc.threads * sizeof(segment_t*));
+        handle->ofh_bwd_start = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->ofh_bwd_end = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->n_entries_trans_bwd = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->transpose_bwd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+        /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
+        for (i = 0; i < handle->desc.threads; i++) {
+          handle->compute_bwd_indices_ptrs[i] = NULL;
+          handle->kernel_bwd_variant_ptrs[i] = NULL;
+          handle->bwd_code_segments[i] = NULL;
+          handle->transpose_bwd_indices_ptrs[i] = NULL;
         }
-        descriptor.unroll_kh = 0;
-        descriptor.unroll_kw = 0;
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
-        if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
-          handle->code_bwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-        } else {
-          handle->code_bwd[0].pmm = libxs_create_xconv_backward(&descriptor);
-        }
-        handle->code_bwd[1].pmm = handle->code_bwd[0].pmm;
-        handle->code_bwd[2].pmm = handle->code_bwd[0].pmm;
-        handle->code_bwd[3].pmm = handle->code_bwd[0].pmm;
-      } else {
-        assert(0/*should not happen*/);
+        status = libxs_dnn_perform_bwd_dryrun_direct(handle);
       }
     } /* End of backward */
     /* TODO weight update path */
@@ -800,124 +897,188 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
       /* TODO check JIT errors */
       if ( /*(*/libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-            libxs_target_archid == LIBXS_X86_AVX512_CORE ||
-            libxs_target_archid == LIBXS_X86_AVX512_KNM /*)*/ /*&&
-            ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ )
-      {
-        const unsigned int wu_each_iter_code_size = 10 * (descriptor.ifm_block == 1 ? descriptor.kw : descriptor.ifm_block);
-        const unsigned int wu_max_code_size = 20000;
-        int upper_limit_ofw_rb = wu_max_code_size / wu_each_iter_code_size, upper_limit_ofh_rb = 0;
-        descriptor.ifm_unroll = 1;
+        libxs_target_archid == LIBXS_X86_AVX512_CORE ||
+          libxs_target_archid == LIBXS_X86_AVX512_KNM /*)*/ /*&&
+                                                                  ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ )
+          {
+            const unsigned int wu_each_iter_code_size = 10 * (descriptor.ifm_block == 1 ? descriptor.kw : descriptor.ifm_block);
+            const unsigned int wu_max_code_size = 8000;
+            int upper_limit_ofw_rb = wu_max_code_size / wu_each_iter_code_size, upper_limit_ofh_rb = 0;
+            int chunk_size;
 
-        for (i = LIBXS_MIN(upper_limit_ofw_rb, LIBXS_MIN(56,handle->ofw)); i >= 1; i--) {
-          if (handle->ofw % i == 0) break;
-        }
-        descriptor.ofw_rb =  i;
-        upper_limit_ofh_rb = wu_max_code_size / (descriptor.ofw_rb * wu_each_iter_code_size);
-        for (i = LIBXS_MIN(upper_limit_ofh_rb, handle->ofh); i >= 1; i--) {
-          if (handle->ofh % i == 0) break;
-        }
-        descriptor.ofh_rb =  i;
+            descriptor.ifm_unroll = 1;
 
-        if ( handle->ofh * handle->ofw * wu_each_iter_code_size <= wu_max_code_size) {
-          descriptor.ofh_unroll = 1;
-          descriptor.ofw_unroll = 1;
-        } else if ((handle->ofh * descriptor.ofw_rb * wu_each_iter_code_size <= wu_max_code_size)) {
-          descriptor.ofh_unroll = 1;
-          descriptor.ofw_unroll = 0;
-        } else if ((handle->ofw * descriptor.ofh_rb * wu_each_iter_code_size <= wu_max_code_size)) {
-          descriptor.ofh_unroll = 0;
-          descriptor.ofw_unroll = 1;
-        } else {
-          descriptor.ofh_unroll = 0;
-          descriptor.ofw_unroll = 0;
-        }
-        handle->upd_ofh_rb = descriptor.ofh_rb;
-        handle->upd_ofw_rb = descriptor.ofw_rb;
-        descriptor.transpose_ofw_ifm = 0;
+            for (i = LIBXS_MIN(upper_limit_ofw_rb, LIBXS_MIN(56,handle->ofw)); i >= 1; i--) {
+              if (handle->ofw % i == 0) break;
+            }
+            descriptor.ofw_rb = i;
+
+            upper_limit_ofh_rb = wu_max_code_size / (descriptor.ofw_rb * wu_each_iter_code_size);
+            for (i = LIBXS_MIN(upper_limit_ofh_rb, handle->ofh); i >= 1; i--) {
+              if (handle->ofh % i == 0) break;
+            }
+            descriptor.ofh_rb =  i;
+
+            chunk_size = 6 * descriptor.ofw_rb *  descriptor.ofh_rb * handle->ifmblock * libxs_dnn_typesize(handle->datatype);
+            while( chunk_size > 32000) {
+              for (i = descriptor.ofh_rb-1; i >= 1; i--) {
+                if (handle->ofh % i == 0) break;
+              }
+              if (i == 0) i = 1;
+              descriptor.ofh_rb =  i;
+              chunk_size = 6 * descriptor.ofw_rb *  descriptor.ofh_rb * handle->ifmblock * libxs_dnn_typesize(handle->datatype);
+              if ( i == 1) break;
+            }
+
+            if ( handle->ofh * handle->ofw * wu_each_iter_code_size <= wu_max_code_size) {
+              descriptor.ofh_unroll = 1;
+              descriptor.ofw_unroll = 1;
+            } else if ((handle->ofh * descriptor.ofw_rb * wu_each_iter_code_size <= wu_max_code_size)) {
+              descriptor.ofh_unroll = 1;
+              descriptor.ofw_unroll = 0;
+            } else if ((handle->ofw * descriptor.ofh_rb * wu_each_iter_code_size <= wu_max_code_size)) {
+              descriptor.ofh_unroll = 0;
+              descriptor.ofw_unroll = 1;
+            } else {
+              descriptor.ofh_unroll = 0;
+              descriptor.ofw_unroll = 0;
+            }
+
+            handle->upd_ofh_rb = descriptor.ofh_rb;
+            handle->upd_ofw_rb = descriptor.ofw_rb;
+
+            descriptor.transpose_ofw_ifm = 0;
 #if !defined(NDEBUG)
-        printf("DEBUG JIT of conv:\n  arch: %s\n  type: %s\n  ofm_block: %u\n  ifm_block: %u\n"
-         "  ofh_padded: %u\n  ofw_padded: %u\n  ofh_rb: %u\n  ofw_rb: %u\n  ifh_padded: %u\n  ifw_padded: %u\n"
-         "  stride_h: %u\n  stride_w: %u\n  ifm_unroll: %u\n  ofh: %u\n  ofh_unroll: %u\n  ofw: %u\n  ofw_unroll: %u\n  kw:%u\n  unroll_kw=%u\n  kh: %u\n  transpose: %u\n",
-            libxs_get_target_arch(),
-            "weight-update",        /* type */
-            descriptor.ofm_block,  /* should be VLEN */
-            descriptor.ifm_block,  /* should be VLEN */
-            descriptor.ofh_padded, /* this we need for 2D register block */
-            descriptor.ofw_padded, /* this we use for 1D and 2D register block */
-            descriptor.ofh_rb,     /* UR, register block of ofh */
-            descriptor.ofw_rb,     /* UR, register block of ofw */
-            descriptor.ifh_padded,
-            descriptor.ifw_padded,
-            descriptor.stride_h,   /* this we use for offsets in the input */
-            descriptor.stride_w,   /* this we use for offsets in the input */
-            descriptor.ifm_unroll, /*should unroll ifm loop -- yes or no */
-            descriptor.ofh,        /*ofh */
-            descriptor.ofh_unroll,        /*ofh_unroll */
-            descriptor.ofw,        /*ofw */
-            descriptor.ofw_unroll,        /*ofw_unroll */
-            descriptor.kw, /*kw unroll */
-            descriptor.unroll_kw, /* unroll factor of kw */
-            descriptor.kh, /*kh unroll */
-            descriptor.transpose_ofw_ifm /*transpose */);
+            printf("DEBUG JIT of conv:\n  arch: %s\n  type: %s\n  ofm_block: %u\n  ifm_block: %u\n"
+                "  ofh_padded: %u\n  ofw_padded: %u\n  ofh_rb: %u\n  ofw_rb: %u\n  ifh_padded: %u\n  ifw_padded: %u\n"
+                "  stride_h: %u\n  stride_w: %u\n  ifm_unroll: %u\n  ofh: %u\n  ofh_unroll: %u\n  ofw: %u\n  ofw_unroll: %u\n  kw:%u\n  unroll_kw=%u\n  kh: %u\n  transpose: %u\n",
+                libxs_get_target_arch(),
+                "weight-update",        /* type */
+                descriptor.ofm_block,  /* should be VLEN */
+                descriptor.ifm_block,  /* should be VLEN */
+                descriptor.ofh_padded, /* this we need for 2D register block */
+                descriptor.ofw_padded, /* this we use for 1D and 2D register block */
+                descriptor.ofh_rb,     /* UR, register block of ofh */
+                descriptor.ofw_rb,     /* UR, register block of ofw */
+                descriptor.ifh_padded,
+                descriptor.ifw_padded,
+                descriptor.stride_h,   /* this we use for offsets in the input */
+                descriptor.stride_w,   /* this we use for offsets in the input */
+                descriptor.ifm_unroll, /*should unroll ifm loop -- yes or no */
+                descriptor.ofh,        /*ofh */
+                descriptor.ofh_unroll,        /*ofh_unroll */
+                descriptor.ofw,        /*ofw */
+                descriptor.ofw_unroll,        /*ofw_unroll */
+                descriptor.kw, /*kw unroll */
+                descriptor.unroll_kw, /* unroll factor of kw */
+                descriptor.kh, /*kh unroll */
+                descriptor.transpose_ofw_ifm /*transpose */);
 #endif
-        /* NONE */
-        if (handle->padding_flag == 1) {
-          handle->matcopy_upd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
-          handle->matcopy_upd[1].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
+            /* NONE */
+            if (handle->padding_flag == 1) {
+              handle->matcopy_upd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
+              handle->matcopy_upd[1].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
+            }
+
+            descriptor.transpose_ofw_ifm = 0;
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
+            if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
+              handle->code_upd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+            } else {
+              handle->code_upd[0].pmm = libxs_create_xconv_update_weights(&descriptor);
+            }
+            /*ALL*/
+            descriptor.transpose_ofw_ifm = 0;
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+            handle->code_upd[1].pmm = libxs_create_xconv_update_weights(&descriptor);
+            /* NO_OUTPUT_L2 */
+            descriptor.transpose_ofw_ifm = 0;
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT_L2;
+            handle->code_upd[2].pmm = libxs_create_xconv_update_weights(&descriptor);
+            /* TRANSPOSE NONE */
+            descriptor.transpose_ofw_ifm = 1;
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
+            handle->code_upd[3].pmm = libxs_create_xconv_update_weights(&descriptor);
+            /*TRANSPOSE ALL*/
+            descriptor.transpose_ofw_ifm = 1;
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+            handle->code_upd[4].pmm = libxs_create_xconv_update_weights(&descriptor);
+            /* TRANSPOSE NO_OUTPUT_L2 */
+            descriptor.transpose_ofw_ifm = 1;
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT_L2;
+            handle->code_upd[5].pmm = libxs_create_xconv_update_weights(&descriptor);
+          } else if (/*(*/libxs_target_archid == LIBXS_X86_AVX2/*)*/ /*||
+                                                                           ((handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ ) {
+            /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
+            descriptor.unroll_kw = 0;
+            descriptor.ifm_unroll = 0;
+            descriptor.transpose_ofw_ifm = 0;
+            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
+            if (handle->padding_flag == 1) {
+              handle->matcopy_upd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
+              handle->matcopy_upd[1].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
+            }
+
+            if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
+              handle->code_upd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+            } else {
+              handle->code_upd[0].pmm = libxs_create_xconv_update_weights(&descriptor);
+            }
+            handle->code_upd[1].pmm = handle->code_upd[0].pmm;
+            handle->code_upd[2].pmm = handle->code_upd[0].pmm;
+            handle->code_upd[3].pmm = handle->code_upd[0].pmm;
+            handle->code_upd[4].pmm = handle->code_upd[0].pmm;
+            handle->code_upd[5].pmm = handle->code_upd[0].pmm;
+          } else {
+            assert(0/*should not happen*/);
+          }
+
+      if ( handle->use_thread_private_jit ) {
+        handle->trans_ofw_ifm = 0; 
+        /* Determine if we will be using thread private filters  */
+        if ((handle->ifmblock == 1) || (handle->blocksifm * handle->blocksofm < handle->desc.threads) ) {
+          handle->use_thread_private_filter = 1;
+          /* determine if we will transpose input  */
+          if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->desc.v == 1) && (handle->upd_ofw_rb%4 == 0) ) {
+            handle->trans_ofw_ifm = 1;
+          }      
+        } else {
+          handle->use_thread_private_filter = 0;
+          /* determine if we will transpose input  */
+          if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->desc.v == 1) && (handle->upd_ofw_rb%4 == 0) ) {
+            handle->trans_ofw_ifm = 1;
+          }     
+        }
+        handle->n_entries_upd = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->compute_upd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+        handle->kernel_upd_variant_ptrs = (char**) malloc(handle->desc.threads * sizeof(char*));
+        handle->n_upd_code_segments = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->upd_code_segments = (segment_t**) malloc(handle->desc.threads * sizeof(segment_t*));
+        handle->n_entries_init_upd = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->init_upd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+        handle->n_entries_copy_upd = (int*) malloc(handle->desc.threads * sizeof(int));
+        handle->copy_upd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+
+        for (i = 0; i < handle->desc.threads; i++) {
+          handle->compute_upd_indices_ptrs[i] = NULL;
+          handle->kernel_upd_variant_ptrs[i] = NULL;
+          handle->upd_code_segments[i] = NULL;
+          handle->init_upd_indices_ptrs[i] = NULL;
+          handle->copy_upd_indices_ptrs[i] = NULL;
         }
 
-        descriptor.transpose_ofw_ifm = 0;
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
-        if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
-          handle->code_upd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-        } else {
-          handle->code_upd[0].pmm = libxs_create_xconv_update_weights(&descriptor);
-        }
-        /*ALL*/
-        descriptor.transpose_ofw_ifm = 0;
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
-        handle->code_upd[1].pmm = libxs_create_xconv_update_weights(&descriptor);
-        /* NO_OUTPUT_L2 */
-        descriptor.transpose_ofw_ifm = 0;
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT_L2;
-        handle->code_upd[2].pmm = libxs_create_xconv_update_weights(&descriptor);
-        /* TRANSPOSE NONE */
-        descriptor.transpose_ofw_ifm = 1;
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
-        handle->code_upd[3].pmm = libxs_create_xconv_update_weights(&descriptor);
-        /*TRANSPOSE ALL*/
-        descriptor.transpose_ofw_ifm = 1;
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
-        handle->code_upd[4].pmm = libxs_create_xconv_update_weights(&descriptor);
-        /* TRANSPOSE NO_OUTPUT_L2 */
-        descriptor.transpose_ofw_ifm = 1;
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT_L2;
-        handle->code_upd[5].pmm = libxs_create_xconv_update_weights(&descriptor);
-      } else if (/*(*/libxs_target_archid == LIBXS_X86_AVX2/*)*/ /*||
-                   ((handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS) || (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ ) {
-        /* we don't do prefetching and kh/kw unrolling (ignored in kernel generator) for AVX2 */
-        descriptor.unroll_kw = 0;
-        descriptor.ifm_unroll = 0;
-        descriptor.transpose_ofw_ifm = 0;
-        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
-        if (handle->padding_flag == 1) {
-          handle->matcopy_upd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
-          handle->matcopy_upd[1].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
-        }
+        matzero_descriptor.n = 1;
+        matzero_descriptor.m = handle->blocksofm*handle->blocksifm*handle->desc.R*handle->desc.S*handle->ifmblock*handle->ofmblock;
+        matzero_descriptor.ldi = handle->blocksofm*handle->blocksifm*handle->desc.R*handle->desc.S*handle->ifmblock*handle->ofmblock;
+        matzero_descriptor.ldo = handle->blocksofm*handle->blocksifm*handle->desc.R*handle->desc.S*handle->ifmblock*handle->ofmblock;
+        matzero_descriptor.prefetch = 0;
+        matzero_descriptor.unroll_level = 6;
+        matzero_descriptor.typesize = (unsigned char)libxs_dnn_typesize(handle->datatype);
+        matzero_descriptor.flags = LIBXS_MATCOPY_FLAG_ZERO_SOURCE;
+        handle->matcopy_upd[2].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
 
-        if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
-          handle->code_upd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-        } else {
-          handle->code_upd[0].pmm = libxs_create_xconv_update_weights(&descriptor);
-        }
-        handle->code_upd[1].pmm = handle->code_upd[0].pmm;
-        handle->code_upd[2].pmm = handle->code_upd[0].pmm;
-        handle->code_upd[3].pmm = handle->code_upd[0].pmm;
-        handle->code_upd[4].pmm = handle->code_upd[0].pmm;
-        handle->code_upd[5].pmm = handle->code_upd[0].pmm;
-      } else {
-        assert(0/*should not happen*/);
+        /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
+        status = libxs_dnn_perform_upd_dryrun_direct(handle); 
       }
     } /* end of weight-update handle */
     {
@@ -926,7 +1087,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       /* backward transpose filters */
       handle->scratch1 = 0;
       handle->scratch1_size = handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
-                                * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype);
+        * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype);
       if (handle->fm_lp_block > 1) {
         /* If low precision, we need extra buffer to store intermediate weight tensor */
         handle->scratch1_size *= 2;
@@ -935,10 +1096,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       /* weight update transpose of minibatch */
       handle->scratch3 = 0;
       handle->scratch3_size = handle->desc.N * handle->blocksifm * handle->ifmblock * handle->ifhp * handle->ifwp
-                                * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype);
+        * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype);
 
       /* minibatch parallel execution of weight update kernel */
-      if ((handle->ifmblock == 1) || ((handle->blocksifm * handle->blocksofm) < (2*handle->desc.threads))) {
+      if ((handle->ifmblock == 1) || ((handle->blocksifm * handle->blocksofm) < handle->desc.threads) || (handle->use_thread_private_jit)) {
         handle->upd_use_thread_fil = 1;
         handle->scratch4 = 0;
         handle->scratch4_size = handle->desc.threads * handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
@@ -958,11 +1119,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       if ( handle->datatype != handle->datatype_itm ) {
         handle->scratch6 = 0;
         handle->scratch6_size = handle->desc.N * handle->blocksofm * handle->ofmblock * handle->ofhp * handle->ofwp * handle->fm_lp_block
-                                  * libxs_dnn_typesize(handle->datatype_itm);
+          * libxs_dnn_typesize(handle->datatype_itm);
         /* For backward code, have to correct the size */
         handle->scratch7 = 0;
         handle->scratch7_size = handle->desc.N * handle->blocksifm * handle->ifmblock * handle->ifhp * handle->ifwp * handle->fm_lp_block
-                                  * libxs_dnn_typesize(handle->datatype_itm);
+          * libxs_dnn_typesize(handle->datatype_itm);
       } else {
         handle->scratch6 = 0;
         handle->scratch6_size = 0;
@@ -970,59 +1131,59 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         handle->scratch7 = 0;
         handle->scratch7_size = 0;
       }
+      }
     }
-  }
-  else {
-    handle->code_fwd[0].xconv.sconv = 0;
-    handle->code_fwd[1].xconv.sconv = 0;
-    handle->code_fwd[2].xconv.sconv = 0;
-    handle->code_fwd[3].xconv.sconv = 0;
-    /* Backward path */
-    handle->code_bwd[0].xconv.sconv = 0;
-    handle->code_bwd[1].xconv.sconv = 0;
-    handle->code_bwd[2].xconv.sconv = 0;
-    handle->code_bwd[3].xconv.sconv = 0;
-    /* weight update path */
-    handle->code_upd[0].xconv.sconv = 0;
-    handle->code_upd[1].xconv.sconv = 0;
-    handle->code_upd[2].xconv.sconv = 0;
-    handle->code_upd[3].xconv.sconv = 0;
-    handle->code_upd[4].xconv.sconv = 0;
-    handle->code_upd[5].xconv.sconv = 0;
+    else {
+      handle->code_fwd[0].xconv.sconv = 0;
+      handle->code_fwd[1].xconv.sconv = 0;
+      handle->code_fwd[2].xconv.sconv = 0;
+      handle->code_fwd[3].xconv.sconv = 0;
+      /* Backward path */
+      handle->code_bwd[0].xconv.sconv = 0;
+      handle->code_bwd[1].xconv.sconv = 0;
+      handle->code_bwd[2].xconv.sconv = 0;
+      handle->code_bwd[3].xconv.sconv = 0;
+      /* weight update path */
+      handle->code_upd[0].xconv.sconv = 0;
+      handle->code_upd[1].xconv.sconv = 0;
+      handle->code_upd[2].xconv.sconv = 0;
+      handle->code_upd[3].xconv.sconv = 0;
+      handle->code_upd[4].xconv.sconv = 0;
+      handle->code_upd[5].xconv.sconv = 0;
 
-    handle->barrier = 0;
+      handle->barrier = 0;
 
-    handle->scratch1 = 0;
-    handle->scratch1_size = 0;
-    handle->scratch3 = 0;
-    handle->scratch3_size = 0;
-    handle->scratch4 = 0;
-    handle->scratch4_size = 0;
-    /* low percision intermediate output buffer */
-    if ( handle->datatype != handle->datatype_itm ) {
-      handle->scratch6 = 0;
-      handle->scratch6_size = handle->desc.N * handle->blocksofm * handle->ofmblock * handle->ofhp * handle->ofwp * handle->fm_lp_block
-                                * libxs_dnn_typesize(handle->datatype_itm);
-    } else {
-      handle->scratch6 = 0;
-      handle->scratch6_size = 0;
+      handle->scratch1 = 0;
+      handle->scratch1_size = 0;
+      handle->scratch3 = 0;
+      handle->scratch3_size = 0;
+      handle->scratch4 = 0;
+      handle->scratch4_size = 0;
+      /* low percision intermediate output buffer */
+      if ( handle->datatype != handle->datatype_itm ) {
+        handle->scratch6 = 0;
+        handle->scratch6_size = handle->desc.N * handle->blocksofm * handle->ofmblock * handle->ofhp * handle->ofwp * handle->fm_lp_block
+          * libxs_dnn_typesize(handle->datatype_itm);
+      } else {
+        handle->scratch6 = 0;
+        handle->scratch6_size = 0;
+      }
     }
-  }
 
-  return status;
-}
+    return status;
+  }
 
 
 /* This function finds the prime factors of a number */
 LIBXS_API_INLINE void internal_dnn_handle_factors(
-              unsigned int num,
-              unsigned int num_factors[] )
+                                                    unsigned int num,
+                                                    unsigned int num_factors[] )
 {
   unsigned int primes[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29};
   int i;
   unsigned int total_primes = 10;
   unsigned int index = 0;
-
+  
   for ( i = total_primes-1; i >= 0; i-- ) {
     while((num % primes[i]) == 0) {
       num_factors[index] = primes[i];
@@ -1040,18 +1201,18 @@ LIBXS_API_INLINE void internal_dnn_handle_factors(
  * Eg, 12 = 3*2*2, MAX_ACC = 4, this algorithm: 3, best: 2*2
  */
 LIBXS_API_INLINE void internal_dnn_handle_factors_all(
-                  unsigned int  product,
-                  unsigned int* ur,
-                  unsigned int  max_acc)
+                                                        unsigned int  product,
+                                                        unsigned int* ur,
+                                                        unsigned int  max_acc)
 {
   unsigned int i;
   unsigned int fact[10];
-
+  
   for ( i = 0; i < 10; i++ ) {
     fact[i] = 1;
   }
   internal_dnn_handle_factors(product, fact);
-
+  
   *ur = 1;
   for ( i = 0; fact[i] != 1; i++ ) {
     if ( (fact[i] * (*ur)) <= max_acc ) {
@@ -1083,11 +1244,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
       return status;
     }
   }
-
+  
   /* now architecture specific */
   if ((libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-      libxs_target_archid == LIBXS_X86_AVX512_CORE  ||
-      libxs_target_archid == LIBXS_X86_AVX512_KNM ) &&
+       libxs_target_archid == LIBXS_X86_AVX512_CORE  ||
+       libxs_target_archid == LIBXS_X86_AVX512_KNM ) &&
       (handle->datatype == LIBXS_DNN_DATATYPE_F32) &&
       (handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) &&
       (0 == (handle->desc.C % 16) && 0 == (handle->desc.K % 16)) &&
@@ -1101,11 +1262,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
     handle->blocksifm = handle->desc.C / 16;
     handle->blocksofm = handle->desc.K / 16;
     handle->fm_lp_block = 1;
-
+    
   } else {
     status = LIBXS_DNN_WARN_FALLBACK;
   }
-
+  
   if (noarch == 0) {
     libxs_convolution_winograd_descriptor wino_desc_fp;
     libxs_convolution_winograd_descriptor wino_desc_bp;
@@ -1116,12 +1277,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
     int max_acc = 0;
     int flagBenchmark = 0;
     LIBXS_UNUSED(flagBenchmark/*TODO*/);
-
+    
     /* Forward path */
     { wino_desc_fp.alpha = alpha;
       wino_desc_fp.jtiles = (handle->ofh + tileSize - 1) / tileSize;
       wino_desc_fp.itiles = (handle->ofw + tileSize - 1) / tileSize;
-
+      
       /* LUT for DeepBench */
       if ((240 == handle->ofw) && (24 == handle->ofh) && (16 == handle->desc.N) && (16 == handle->desc.C) && (32 == handle->desc.K) && (6 == alpha)) {
         wino_desc_fp.bimg = 1;
@@ -1200,7 +1361,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_fp.ur = 16;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for AlexNet */
       else if ((13 == handle->ofw) && (13 == handle->ofh) && (64 <= handle->desc.N) && (192 == handle->desc.C) && (384 == handle->desc.K) && (6 == alpha)) {
         wino_desc_fp.bimg = 8;
@@ -1215,7 +1376,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_fp.ur = 16;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for GoogLenetV1 */
       else if ((56 == handle->ofw) && (56 == handle->ofh) && (64 <= handle->desc.N) && (64 == handle->desc.C) && (192 == handle->desc.K) && (6 == alpha)) {
         wino_desc_fp.bimg = 1;
@@ -1258,7 +1419,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_fp.ur = 4;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for Overfeat */
       else if ((12 == handle->ofw) && (12 == handle->ofh) && (64 <= handle->desc.N) && (256 == handle->desc.C) && (512 == handle->desc.K) && (6 == alpha)) {
         wino_desc_fp.bimg = 8;
@@ -1273,7 +1434,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_fp.ur = 12;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for VGGA */
       else if ((112 == handle->ofw) && (112 == handle->ofh) && (64 <= handle->desc.N) && (64 == handle->desc.C) && (128 == handle->desc.K) && (6 == alpha)) {
         wino_desc_fp.bimg = 1;
@@ -1300,7 +1461,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_fp.ur = 4;
         flagBenchmark = 1;
       }
-
+      
       /* General scenario */
       else {
         if ((handle->desc.N % 4) == 0) {
@@ -1319,15 +1480,15 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         /* ur should be at least 14 to hide qfma latency */
         wino_desc_fp.ur = LIBXS_MIN(LIBXS_MAX(wino_desc_fp.ur, 14), wino_desc_fp.itiles*wino_desc_fp.jtiles*wino_desc_fp.bimg);
       }
-
+      
       /* The following condition checks whether we have encountered an input which is listed in our benchmark LUT */
       /* if (flagBenchmark) printf("In benchmark\n"); */
       /* ur_ifm = blocksifm so that we don't need to zero-initialize M and use streaming store */
       wino_desc_fp.ur_ifm = handle->blocksifm;
       wino_desc_fp.blocks_ifm = handle->blocksifm;
-
+      
       handle->cwino_fwd = wino_desc_fp;
-
+      
       /* TODO check JIT errors */
       if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
           libxs_target_archid == LIBXS_X86_AVX512_CORE ||
@@ -1349,7 +1510,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
     { wino_desc_bp.alpha = alpha;
       wino_desc_bp.jtiles = (handle->desc.H + tileSize - 1) / tileSize;
       wino_desc_bp.itiles = (handle->desc.W + tileSize - 1) / tileSize;
-
+      
       /* LUT for DeepBench */
       if ((240 == handle->desc.W) && (24 == handle->desc.H) && (16 == handle->desc.N) && (16 == handle->desc.C) && (32 == handle->desc.K) && (6 == alpha)) {
         wino_desc_bp.bimg = 1;
@@ -1420,7 +1581,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_bp.ur = 16;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for AlexNet */
       else if ((13 == handle->desc.W) && (13 == handle->desc.H) && (64 <= handle->desc.N) && (192 == handle->desc.C) && (384 == handle->desc.K) && (6 == alpha)) {
         wino_desc_bp.bimg = 8;
@@ -1435,7 +1596,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_bp.ur = 16;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for GoogLenetV1 */
       else if ((56 == handle->desc.W) && (56 == handle->desc.H) && (64 <= handle->desc.N) && (64 == handle->desc.C) && (192 == handle->desc.K) && (6 == alpha)) {
         wino_desc_bp.bimg = 1;
@@ -1478,7 +1639,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_bp.ur = 4;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for Overfeat */
       else if ((12 == handle->desc.W) && (12 == handle->desc.H) && (64 <= handle->desc.N) && (256 == handle->desc.C) && (512 == handle->desc.K) && (6 == alpha)) {
         wino_desc_bp.bimg = 8;
@@ -1493,7 +1654,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_bp.ur = 12;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for VGGA */
       else if ((112 == handle->desc.W) && (112 == handle->desc.H) && (64 <= handle->desc.N) && (64 == handle->desc.C) && (128 == handle->desc.K) && (6 == alpha)) {
         wino_desc_bp.bimg = 1;
@@ -1520,7 +1681,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_bp.ur = 4;
         flagBenchmark = 1;
       }
-
+      
       /* General scenario */
       else {
         wino_desc_bp.bimg = wino_desc_fp.bimg;
@@ -1532,12 +1693,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         internal_dnn_handle_factors_all( wino_desc_bp.itiles*wino_desc_bp.jtiles*wino_desc_bp.bimg, &(wino_desc_bp.ur), max_acc );
         wino_desc_bp.ur = LIBXS_MIN(LIBXS_MAX(wino_desc_bp.ur, 14), wino_desc_bp.itiles*wino_desc_bp.jtiles*wino_desc_bp.bimg);
       }
-
+      
       wino_desc_bp.ur_ifm = handle->blocksofm;
       wino_desc_bp.blocks_ifm = handle->blocksofm;
-
+      
       handle->cwino_bwd = wino_desc_bp;
-
+      
       /* TODO check JIT errors */
       if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
           libxs_target_archid == LIBXS_X86_AVX512_CORE ||
@@ -1557,7 +1718,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
     { wino_desc_wu.alpha = alpha;
       wino_desc_wu.jtiles = wino_desc_fp.jtiles;
       wino_desc_wu.itiles = wino_desc_fp.itiles;
-
+      
       /* LUT for DeepBench */
       if ((240 == handle->ofw) && (24 == handle->ofh) && (16 == handle->desc.N) && (16 == handle->desc.C) && (32 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 1;
@@ -1643,7 +1804,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_wu.ur = 2;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for AlexNet */
       else if ((13 == handle->ofw) && (13 == handle->ofh) && (64 <= handle->desc.N) && (192 == handle->desc.C) && (384 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 8; /*16;*/
@@ -1658,7 +1819,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_wu.ur = 2;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for GoogLenetV1 */
       else if ((56 == handle->ofw) && (56 == handle->ofh) && (64 <= handle->desc.N) && (64 == handle->desc.C) && (192 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 1;
@@ -1701,7 +1862,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_wu.ur = 2;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for Overfeat */
       else if ((12 == handle->ofw) && (12 == handle->ofh) && (64 <= handle->desc.N) && (256 == handle->desc.C) && (512 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 32;
@@ -1716,7 +1877,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_wu.ur = 2;
         flagBenchmark = 1;
       }
-
+      
       /* LUT for VGGA */
       else if ((112 == handle->ofw) && (112 == handle->ofh) && (64 <= handle->desc.N) && (64 == handle->desc.C) && (128 == handle->desc.K) && (6 == alpha)) {
         wino_desc_wu.bimg = 1;
@@ -1743,7 +1904,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
         wino_desc_wu.ur = 2;
         flagBenchmark = 1;
       }
-
+      
       /* General scenario */
       else {
         if ((handle->desc.N % 4) == 0) {
@@ -1761,9 +1922,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
           internal_dnn_handle_factors_all( wino_desc_wu.itiles*wino_desc_wu.jtiles*wino_desc_wu.bimg,   &(wino_desc_wu.ur), allowed_unroll );
         }
       }
-
+      
       wino_desc_wu.ur_ifm = 1;
-
+      
       handle->cwino_upd = wino_desc_wu;
       /* TODO check JIT errors */
       if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
@@ -1788,7 +1949,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
       } else {
         ijtiles = wino_desc_fp.itiles * wino_desc_fp.jtiles;
       }
-
+      
       handle->scratch1 = 0;
       handle->scratch1_size = alpha*alpha*handle->desc.C*handle->desc.K*libxs_dnn_typesize(handle->datatype);
       handle->scratch3 = 0;
@@ -1835,7 +1996,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
     handle->scratch6 = 0;
     handle->scratch6_size = 0;
   }
-
+  
   return status;
 }
 
