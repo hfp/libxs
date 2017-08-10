@@ -137,7 +137,7 @@ typedef struct iJIT_Method_Load_V2 {
 # define LIBXS_MALLOC_ALIGNFCT 8
 #endif
 
-/* perform low-level allocation even for small non-executable buffers */
+/* map memory even for non-executable buffers */
 #if !defined(LIBXS_MALLOC_MMAP)
 /*# define LIBXS_MALLOC_MMAP*/
 #endif
@@ -171,7 +171,7 @@ typedef union LIBXS_RETARGETABLE internal_malloc_pool_type {
 # endif
 #endif
     size_t minsize;
-    int counter;
+    size_t counter;
   } instance;
 } internal_malloc_pool_type;
 
@@ -1044,19 +1044,20 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
       char* buffer = pool->instance.buffer;
       const internal_malloc_info_type *const info = internal_malloc_info(buffer);
       const size_t pool_size = (0 != info ? info->size : 0);
-      req_size = alloc_size + (pool->instance.head - buffer);
+      req_size = alloc_size + /*used:*/(pool->instance.head - buffer);
 
       if (pool_size < req_size) {
         const size_t minsize_old = pool->instance.minsize;
-        const size_t minsize_new = LIBXS_MAX(minsize_old, (size_t)(libxs_scratch_scale * req_size));
+        size_t minsize_new = LIBXS_MAX(minsize_old, (size_t)(libxs_scratch_scale * req_size));
         if (0 == buffer && ((limit + minsize_new) <= (libxs_scratch_limit + minsize_old)
-          || libxs_scratch_limit <= req_size/*prefer pooled allocation (otherwise it would be local)*/))
+          || libxs_scratch_limit <= alloc_size/*prefer pooled allocation (otherwise it would be local)*/))
         {
           int finished = 0;
           LIBXS_LOCK_ACQUIRE(&libxs_lock_global);
           buffer = pool->instance.buffer; /* update */
           if (0 == buffer) {
             assert(0 == pool->instance.head/*sanity check*/);
+            if (minsize_new < alloc_size) minsize_new = alloc_size;
             if (EXIT_SUCCESS == libxs_xmalloc((void**)&buffer, minsize_new, 0/*auto*/,
               LIBXS_MALLOC_FLAG_SCRATCH, 0/*extra*/, 0/*extra_size*/))
             {
@@ -1141,20 +1142,22 @@ LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
 LIBXS_API_INLINE int internal_scratch_free(const void* memory, internal_malloc_pool_type* pool)
 {
   const char *const buffer = (const char*)memory;
+  char* pool_buffer = pool->instance.buffer;
+  const internal_malloc_info_type* info = internal_malloc_info(pool_buffer);
   /* check if memory belongs to scratch domain or local domain */
-  int result = (pool->instance.buffer <= buffer && buffer < (pool->instance.buffer + pool->instance.minsize) ? EXIT_SUCCESS : EXIT_FAILURE);
+  int result = (pool_buffer <= buffer && buffer < (pool_buffer + info->size) ? EXIT_SUCCESS : EXIT_FAILURE);
 
   if (EXIT_SUCCESS == result) {
 #if defined(LIBXS_MALLOC_SCRATCH_LOCKED_FREE)
     LIBXS_LOCK_ACQUIRE(&libxs_lock_global);
-    result = (pool->instance.buffer <= buffer && buffer < (pool->instance.buffer + pool->instance.minsize) ? EXIT_SUCCESS : EXIT_FAILURE);
+    pool_buffer = pool->instance.buffer; /* update */
+    info = internal_malloc_info(pool_buffer);
+    result = (pool->instance.buffer <= buffer && buffer < (pool_buffer + info->size) ? EXIT_SUCCESS : EXIT_FAILURE);
     if (EXIT_SUCCESS == result)
 #endif
     {
-      char *const pool_buffer = pool->instance.buffer;
       assert(pool_buffer <= pool->instance.head);
-
-      if (1 < pool->instance.counter) { /* reuse scratch domain */
+      if (1 < pool->instance.counter || pool->instance.minsize <= info->size) { /* reuse scratch domain */
         /* TODO: document/check that allocation/deallocation must follow the linear/scoped allocator policy */
         LIBXS_ATOMIC_STORE(&pool->instance.head, pool_buffer, LIBXS_ATOMIC_SEQ_CST);
         LIBXS_ATOMIC_SUB_FETCH(&pool->instance.counter, 1, LIBXS_ATOMIC_SEQ_CST);
@@ -1177,27 +1180,29 @@ LIBXS_API_INLINE int internal_scratch_free(const void* memory, internal_malloc_p
 
 LIBXS_API_DEFINITION void libxs_free(const void* memory)
 {
-  unsigned int npools = 0, i = 0;
+  if (0 != memory) {
+    unsigned int npools = 0, i = 0;
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-  internal_malloc_pool_type *const pools = (internal_malloc_pool_type*)((uintptr_t)(internal_malloc_pool_buffer + (LIBXS_CACHELINE_SIZE)-1) & ~((LIBXS_CACHELINE_SIZE)-1));
-  assert(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
-  npools = libxs_scratch_pools;
-  for (; i < npools; ++i) {
-    if (EXIT_SUCCESS == internal_scratch_free(memory, pools + i)) {
+    internal_malloc_pool_type *const pools = (internal_malloc_pool_type*)((uintptr_t)(internal_malloc_pool_buffer + (LIBXS_CACHELINE_SIZE)-1) & ~((LIBXS_CACHELINE_SIZE)-1));
+    assert(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+    npools = libxs_scratch_pools;
+    for (; i < npools; ++i) {
+      if (EXIT_SUCCESS == internal_scratch_free(memory, pools + i)) {
 # if !defined(NDEBUG)
-      static int error_once = 0;
-      if (libxs_get_tid() != pools[i].instance.tid && (1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
-         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-      {
-        fprintf(stderr, "LIBXS WARNING: thread-id differs between allocation and deallocation!\n");
-      }
+        static int error_once = 0;
+        if (libxs_get_tid() != pools[i].instance.tid && (1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
+          fprintf(stderr, "LIBXS WARNING: thread-id differs between allocation and deallocation!\n");
+        }
 # endif
-      i = npools + 1; /* break */
+        i = npools + 1; /* break */
+      }
     }
-  }
 #endif
-  if (i == npools) { /* local */
-    libxs_xfree(memory);
+    if (i == npools) { /* local */
+      libxs_xfree(memory);
+    }
   }
 }
 
