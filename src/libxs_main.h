@@ -235,10 +235,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   size_t scratchOw_size;
   void* scratchVk;
   size_t scratchVk_size;
-  void* scratchInput;
-  size_t scratchInput_size;
-  void* scratchTemp;
-  int flag_reuseInput;        /* This flag is set to 1 when we want to reuse the input in Winograd domain between forward pass and weight update */
+
   /* JIT-generated convolution code */
   /*
   libxs_convolution_forward_descriptor       fwd_desc;
