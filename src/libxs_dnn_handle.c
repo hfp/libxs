@@ -229,7 +229,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     /* @TODO we limit ifm blocking in JIT to custom format 1 for now */
     if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_1) ) {
       if ( (handle->ifmblock%16 == 0) &&  (handle->desc.C%(handle->ifmblock*handle->fm_lp_block*4) == 0) && (handle->desc.R == 1) &&  (handle->desc.S == 1) ) {
-      handle->blocksifm_blocking = 4;
+        handle->blocksifm_blocking = 4;
       } else if ( (handle->ifmblock%16 == 0) && (handle->desc.C%(handle->ifmblock*handle->fm_lp_block*2) == 0) && (handle->desc.R == 1) && (handle->desc.S == 1) ) {
         handle->blocksifm_blocking = 2;
       } else {
@@ -237,6 +237,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       }
     } else {
       handle->blocksifm_blocking = 1;
+    }
+
+    /* when we chose overwrite and we loop over all ifms, then let's use streaming stores */
+    if (    ((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) 
+         && (handle->desc.C == handle->blocksifm_blocking*handle->ifmblock*handle->fm_lp_block) 
+         && (handle->datatype == LIBXS_DNN_DATATYPE_F32) ) {
+      handle->use_nts_fwd = 1;
     }
 
     /* Adjust blocking factors if custom_2 format is requested */
@@ -427,6 +434,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     { libxs_convolution_forward_descriptor descriptor;
       libxs_matcopy_descriptor matcopy_descriptor;
       libxs_matcopy_descriptor matzero_descriptor;
+      if ( handle->use_nts_fwd != 0 ) {
+        descriptor.use_nts = 1;
+      }
       if (handle->desc.R == 1 && handle->desc.S == 1) {
         descriptor.unroll_kh = 1;
         descriptor.unroll_kw = 1;
