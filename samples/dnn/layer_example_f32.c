@@ -396,9 +396,6 @@ LIBXS_INLINE void naive_conv_wu(naive_conv_t* param, const float* input, const f
   }
 }
 
-/* TODO: fix this hack and rely on a proper API */
-void libxs_set_flag_reuseInput(libxs_dnn_layer* /*handle*/, char /*type*/);
-
 int main(int argc, char* argv[])
 {
   float *naive_input, *naive_output, *naive_output_save, *naive_filter, *naive_filter_wu, *naive_output_bp, *naive_output_wu, *naive_libxs_output;
@@ -594,12 +591,7 @@ int main(int argc, char* argv[])
   set_zeropad_nchw(naive_input, nImg, nIfm, ifhp, ifwp, pad_h_in, pad_w_in);
   copy_buf(naive_input, naive_input_save, nImg*nIfm*ifhp*ifwp);
   zero_buf(naive_output_save,    nImg*nOfm*ofhp*ofwp);
-  if (algo_winograd) {
-    zero_buf(naive_output,       nImg*nOfm*ofhp*ofwp);
-  }
-  else {
-    init_buf(naive_output,       nImg*nOfm*ofhp*ofwp, 0, 0);
-  }
+  init_buf(naive_output,       nImg*nOfm*ofhp*ofwp, 0, 0);
   copy_buf(naive_output, naive_output_save, nImg*nOfm*ofhp*ofwp);
   zero_buf(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
   zero_buf(naive_libxs_input,  nImg*nIfm*ifhp*ifwp);
@@ -629,9 +621,6 @@ int main(int argc, char* argv[])
 #ifdef USE_OVERWRITE
     zero_buf(naive_input,         nImg*nIfm*ifhp*ifwp);
 #endif
-    if (algo_winograd) {
-      zero_buf(naive_input,         nImg*nIfm*ifhp*ifwp);
-    }
     naive_conv_bp(&naive_param, naive_input, naive_output_bp, naive_filter);
   }
   if (type == 'A' || type == 'U') {
@@ -693,9 +682,6 @@ int main(int argc, char* argv[])
 
     libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
     CHKERR_LIBXS_DNN( status );
-
-    /* The following assignment reuses input for convolution in Winograd domain */
-    libxs_set_flag_reuseInput( libxs_handle, type );
 
     /* setup LIBXS buffers and filter */
     libxs_input =   libxs_dnn_link_buffer( libxs_handle, LIBXS_DNN_INPUT,  input_libxs,   LIBXS_DNN_TENSOR_FORMAT_LIBXS_PTR, &status );
@@ -1302,9 +1288,6 @@ int main(int argc, char* argv[])
 
     libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
     CHKERR_LIBXS_DNN( status );
-
-    /* The following assignment reuses input for convolution in Winograd domain */
-    libxs_set_flag_reuseInput( libxs_handle, type );
 
     /* setup LIBXS buffers and filter */
     naive_copy_NCHW_to_NHWC(naive_output_save, output_nhwc, nImg, ofhp, ofwp, nOfm);

@@ -1979,9 +1979,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winog
       handle->scratchOw_size = ijtiles*alpha*alpha*16*libxs_dnn_typesize(handle->datatype_itm)*handle->desc.threads;
       handle->scratchVk = 0;
       handle->scratchVk_size = handle->scratch3_size;
-      handle->scratchInput = 0;
-      handle->scratchInput_size = handle->scratch3_size;
-      handle->scratchTemp  = 0;
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
     }
   } else {

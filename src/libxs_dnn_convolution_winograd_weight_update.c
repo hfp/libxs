@@ -203,22 +203,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_custom_c
   }
   else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) {
-#if 0
-      typedef float element_input_type;
-      typedef float element_output_type;
-      typedef float element_filter_type;
-      typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_winograd_st_upd_custom_custom.tpl.c"
-#endif
-
-      if (handle->flag_reuseInput == 1) {
-        if (handle->scratchTemp == 0) {
-          status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
-          return status;
-        } else {
-        handle->scratch3 = handle->scratchTemp;
-        }
-      }
       if (handle->cwino_upd.alpha == 6  && libxs_target_archid == LIBXS_X86_AVX512_KNM && (handle->cwino_upd.itiles*handle->cwino_upd.jtiles*handle->cwino_upd.bimg % 4) == 0) {
         if (handle->scratchVk == 0) {
           status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
@@ -293,22 +277,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_nhwc_cus
   }
   else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) {
-#if 0
-      typedef float element_input_type;
-      typedef float element_output_type;
-      typedef float element_filter_type;
-      typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_winograd_st_upd_nhwc_custom.tpl.c"
-#endif
-
-      if (handle->flag_reuseInput == 1) {
-        if (handle->scratchTemp == 0) {
-          status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
-          return status;
-        } else {
-        handle->scratch3 = handle->scratchTemp;
-        }
-      }
       if (handle->cwino_upd.alpha == 6 && libxs_target_archid == LIBXS_X86_AVX512_KNM && (handle->cwino_upd.itiles*handle->cwino_upd.jtiles*handle->cwino_upd.bimg % 4) == 0) {
         if (handle->scratchVk == 0) {
           status = LIBXS_DNN_ERR_DATA_NOT_BOUND;

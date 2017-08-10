@@ -1677,7 +1677,6 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* ha
       if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
         l_scratch_size += handle->scratchVk_size + 64;
       }
-      l_scratch_size += handle->scratchInput_size + 64;
     } else {
       switch (kind) {
         case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -1808,14 +1807,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
         }
         address += handle->scratchVk_size + 64;
       }
-      if (address % 64 == 0) {
-        handle->scratchInput = (void*)address;
-      } else {
-        offset = (64 - address % 64);
-        handle->scratchInput = (void*)(address+offset);
-      }
-      handle->scratchTemp = handle->scratch3;
-      address += handle->scratchInput_size + 64;
     } else {
       switch (kind) {
         case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -1986,8 +1977,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* 
       handle->scratchIw = 0;
       handle->scratchOw = 0;
       handle->scratchVk = 0;
-      handle->scratchInput = 0;
-      handle->scratchTemp  = 0;
     } else {
       switch (kind) {
         case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -2609,20 +2598,6 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_update_weights(
   }
 #endif
   return code.pmm;
-}
-
-
-/* TODO: fix this hack and provide a proper API */
-LIBXS_API void libxs_set_flag_reuseInput(libxs_dnn_layer* /*handle*/, char /*type*/);
-LIBXS_API_DEFINITION void libxs_set_flag_reuseInput(libxs_dnn_layer* handle, char type)
-{
-  if (type == 'A') {
-    handle->flag_reuseInput = 0/*1*/;
-      /* for time being, disable reusing transformed input in weight update
-         until weight update uses the new transformed input layout */
-  } else {
-    handle->flag_reuseInput = 0;
-  }
 }
 
 #endif /*defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)*/
