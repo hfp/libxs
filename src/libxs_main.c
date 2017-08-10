@@ -681,7 +681,8 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
     }
     else {
       while (0 == memcmp(&global_lock, &libxs_lock_global, sizeof(LIBXS_LOCK_TYPE))) {
-        if  (0 != memcmp(&global_lock, &libxs_lock_global, sizeof(LIBXS_LOCK_TYPE))) break;
+        volatile const void *const a = &global_lock, *const b = &libxs_lock_global;
+        if (0 != memcmp(a, b, sizeof(LIBXS_LOCK_TYPE))) break;  else fprintf(stderr, "");
       }
     }
 #endif
