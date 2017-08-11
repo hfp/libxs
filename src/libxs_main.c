@@ -473,7 +473,7 @@ LIBXS_API_INLINE void internal_init(void)
   libxs_code_pointer* result;
   int init_code = EXIT_FAILURE, i;
   unsigned long long s0 = libxs_timer_tick(), s1, t0, t1; /* warmup */
-  s0 = libxs_timer_tick(); t0 = libxs_timer_xtick(); /* initial timings */
+  s0 = libxs_timer_tick(); t0 = libxs_timer_tick_rdtsc(); /* initial timings */
 #if !defined(LIBXS_NO_SYNC) /* setup the locks in a thread-safe fashion */
   for (i = 0; i < INTERNAL_REGLOCK_MAXN; ++i) LIBXS_LOCK_ACQUIRE(internal_reglock + i);
   LIBXS_LOCK_ACQUIRE(&libxs_lock_global);
@@ -658,7 +658,7 @@ LIBXS_API_INLINE void internal_init(void)
   for (i = 0; i < INTERNAL_REGLOCK_MAXN; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
   LIBXS_LOCK_RELEASE(&libxs_lock_global);
 #endif
-  s1 = libxs_timer_tick(); t1 = libxs_timer_xtick(); /* final timings */
+  s1 = libxs_timer_tick(); t1 = libxs_timer_tick_rdtsc(); /* final timings */
   if (s0 != s1 && t0 != t1) {
     libxs_timer_scale = libxs_timer_duration(s0, s1) / (t0 < t1 ? (t1 - t0) : (t0 - t1));
   }

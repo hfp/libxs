@@ -407,6 +407,9 @@ LIBXS_API int libxs_build(const libxs_build_request* request, unsigned regindex,
 /** Updates counters of the statistic, which is shown at program termination. */
 LIBXS_API unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol);
 
+/** Returns the current tick of a (monotonic) platform-specific counter; not necessarily CPU cycles. */
+LIBXS_API unsigned long long libxs_timer_tick_rdtsc(void);
+
 LIBXS_API void libxs_dnn_init(int target_arch);
 LIBXS_API void libxs_dnn_finalize(void);
 
