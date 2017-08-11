@@ -213,7 +213,7 @@ abslib = $(strip $(call abslibpath,$1) $(call abslibfile,$1))
 EXTLIB = $(call abslib,$(LIBNAME)ext.$(LIBEXT)) #$(XLIB_BEGIN) -lm $(XLIB_END)
 ifeq (0,$(BLAS))
   # provides libxsnoblas to satisfy BLAS symbols
-  BLASLIB = $(call abslib,$(LIBNAME)noblas.$(LIBEXT))
+  BLASLIB ?= $(call abslib,$(LIBNAME)noblas.$(LIBEXT))
 else
   BLASLIB ?= $(NULL)
 endif
