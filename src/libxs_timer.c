@@ -54,7 +54,41 @@
 #endif
 
 
-LIBXS_API_DEFINITION unsigned long long libxs_timer_tick(void)
+LIBXS_API_INLINE unsigned long long internal_timer_tick(void)
+{
+  unsigned long long result;
+#if defined(_WIN32)
+  LARGE_INTEGER t;
+  QueryPerformanceCounter(&t);
+  result = (unsigned long long)t.QuadPart;
+#elif defined(CLOCK_MONOTONIC)
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  result = 1000000000ULL * t.tv_sec + t.tv_nsec;
+#else
+  struct timeval t;
+  gettimeofday(&t, 0);
+  result = 1000000ULL * t.tv_sec + t.tv_usec;
+#endif
+  return result;
+}
+
+
+LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+unsigned long long libxs_timer_tick_rdtsc(void)
+{
+  unsigned long long result;
+#if defined(LIBXS_TIMER_RDTSC)
+  LIBXS_TIMER_RDTSC(result);
+#else
+  result = internal_timer_tick();
+#endif
+  return result;
+}
+
+
+LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+unsigned long long libxs_timer_tick(void)
 {
   unsigned long long result;
 #if defined(LIBXS_TIMER_RDTSC)
@@ -64,36 +98,8 @@ LIBXS_API_DEFINITION unsigned long long libxs_timer_tick(void)
   else
 #endif
   {
-#if defined(_WIN32)
-    LARGE_INTEGER t;
-    QueryPerformanceCounter(&t);
-    result = (unsigned long long)t.QuadPart;
-#elif defined(CLOCK_MONOTONIC)
-    struct timespec t;
-    clock_gettime(CLOCK_MONOTONIC, &t);
-    result = 1000000000ULL * t.tv_sec + t.tv_nsec;
-#else
-    struct timeval t;
-    gettimeofday(&t, 0);
-    result = 1000000ULL * t.tv_sec + t.tv_usec;
-#endif
+    result = internal_timer_tick();
   }
-  return result;
-}
-
-
-LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-unsigned long long libxs_timer_xtick(void)
-{
-  unsigned long long result;
-#if defined(LIBXS_TIMER_RDTSC)
-  LIBXS_TIMER_RDTSC(result);
-#else
-  LIBXS_MESSAGE("================================================================================")
-  LIBXS_MESSAGE("LIBXS: Support for the RDTSC intrinsic appears to be unavailable!")
-  LIBXS_MESSAGE("================================================================================")
-  result = libxs_timer_tick();
-#endif
   return result;
 }
 
