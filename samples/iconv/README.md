@@ -20,5 +20,5 @@ ElementNumberOfChannels = 1
 ElementDataFile = mhd_image.raw
 ```
 
-In the above case, a single channel (gray-scale) 202x134-image is described (actual pixel data is stored in `mhd_image.raw`). The pixel type is according to the `libxs_mhd_elemtype` ([libxs_mhd.h](https://github.com/hfp/libxs/blob/master/include/libxs_mhd.h#L38)).
+In the above case, a single channel (gray-scale) 202x134-image is described with pixel data stored separately (`mhd_image.raw`). Multi-channel images are expected to interleave the pixel data. The pixel type is per `libxs_mhd_elemtype` ([libxs_mhd.h](https://github.com/hfp/libxs/blob/master/include/libxs_mhd.h#L38)).
 
