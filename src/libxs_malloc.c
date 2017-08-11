@@ -1256,7 +1256,7 @@ LIBXS_API_DEFINITION int libxs_get_scratch_info(libxs_scratch_info* info)
     const internal_malloc_pool_type *const pools = (internal_malloc_pool_type*)((uintptr_t)(internal_malloc_pool_buffer + (LIBXS_CACHELINE_SIZE)-1) & ~((LIBXS_CACHELINE_SIZE)-1));
     unsigned int i;
     memset(info, 0, sizeof(libxs_scratch_info));
-    info->npending = LIBXS_MAX(pools[0].instance.counter, 0);
+    info->npending = pools[0].instance.counter;
     info->nmallocs = internal_malloc_scratch_nmallocs;
     info->npools = LIBXS_MIN(1, libxs_scratch_pools);
     info->size = internal_get_scratch_size();
