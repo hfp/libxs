@@ -26,7 +26,7 @@ Available code paths (IDs and corresponding strings):
 The **bold** names are returned by `libxs_get_target_arch` whereas `libxs_set_target_arch` accepts all of the above strings (similar to the environment variable LIBXS_TARGET).
 
 ## Getting and Setting the Verbosity
-The [Verbose Mode](#verbose-mode) (level of verbosity) can be controlled using the C or Fortran API, and there is an environment variable which corresponds to `libxs_set_verbosity` (LIBXS_VERBOSE).
+The [verbose mode](index.md#verbose-mode) (level of verbosity) can be controlled using the C or Fortran API, and there is an environment variable which corresponds to `libxs_set_verbosity` (LIBXS_VERBOSE).
 
 ```C
 int libxs_get_verbosity(void);
@@ -79,7 +79,7 @@ void libxs_set_scratch_limit(size_t limit);
 size_t libxs_get_scratch_limit(void);
 ```
 
-By establishing a pool of "temporary" memory, the cost of repeated allocation and deallocation cycles is avoided when the watermark is reached. The scratch memory is scope-oriented, and supports only a limited number of pools for buffers of different life-time. The [verbose mode](#verbose-mode) with a verbosity level of at least two (LIBXS_VERBOSE=2) shows some statistics about the populated scratch memory.
+By establishing a pool of "temporary" memory, the cost of repeated allocation and deallocation cycles is avoided when the watermark is reached. The scratch memory is scope-oriented, and supports only a limited number of pools for buffers of different life-time. The [verbose mode](index.md#verbose-mode) with a verbosity level of at least two (LIBXS_VERBOSE=2) shows some statistics about the populated scratch memory.
 
 ```
 Scratch: 173 MB (mallocs=5, pools=1)
