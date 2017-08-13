@@ -1,6 +1,6 @@
  Getting and Setting the Target Architecture
 This functionality is available for the C and Fortran interface. There are [ID based](https://github.com/hfp/libxs/blob/master/include/libxs_cpuid.h#L47) (same for C and Fortran) and string based functions to query the code path (as determined by the CPUID), or to set the code path regardless of the presented CPUID features. The latter may degrade performance (if a lower set of instruction set extensions is requested), which can be still useful for studying the performance impact of different instruction set extensions.  
-**NOTE**: There is no additional check performed if an unsupported instruction set extension is requested, and incompatible JIT-generated code may be executed (unknown instruction signaled).
+**NOTE**: There is no additional check performed if an unsupported instruction set extension is requested, and incompatible JIT-generated code may be executed (unknown instruction signalled).
 
 ```C
 int libxs_get_target_archid(void);
