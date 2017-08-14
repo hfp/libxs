@@ -699,10 +699,6 @@ else # GCC assumed
     CXXLDFLAGS += $(XLIB_BEGIN) -lc $(XLIB_END)
     CLDFLAGS += $(XLIB_BEGIN) -lstdc++ $(XLIB_END)
   endif
-  ifeq (0,$(COMPATIBLE))
-    CXXFLAGS += -Wall -Wno-unused-function -Wno-attributes
-    CFLAGS += -Wall -Wno-unused-function -Wno-attributes
-  endif
   ifneq (Windows_NT,$(UNAME))
     CXXFLAGS += -f$(PIC)
     CFLAGS += -f$(PIC)
@@ -710,6 +706,8 @@ else # GCC assumed
     LDFLAGS += -f$(PIC)
   endif
   ifeq (0,$(COMPATIBLE))
+    CXXFLAGS += -std=c++11 -Wall -Wno-unused-function -Wno-attributes
+    CFLAGS += -Wall -Wno-unused-function -Wno-attributes
     FSTD = -std=f2003
     CPEDANTIC += -pedantic -Wno-overlength-strings -Wno-variadic-macros
     FPEDANTIC += -pedantic -Wunused-variable \
