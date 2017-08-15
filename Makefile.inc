@@ -706,7 +706,10 @@ else # GCC assumed
     LDFLAGS += -f$(PIC)
   endif
   ifeq (0,$(COMPATIBLE))
-    CXXFLAGS += -std=c++11 -Wall -Wno-unused-function -Wno-attributes
+    ifneq (0,$(shell echo "$$((40700 <= $(GXX_VERSION)))"))
+      CXXFLAGS += -std=c++11
+    endif
+    CXXFLAGS += -Wall -Wno-unused-function -Wno-attributes
     CFLAGS += -Wall -Wno-unused-function -Wno-attributes
     FSTD = -std=f2003
     CPEDANTIC += -pedantic -Wno-overlength-strings -Wno-variadic-macros
@@ -720,8 +723,6 @@ else # GCC assumed
                    -Wrealloc-lhs -Wrealloc-lhs-all
     endif
     FPEDANTIC += $(FWARNEXTRA)
-  endif
-  ifeq (0,$(COMPATIBLE))
     ifeq (1,$(PEDANTIC))
       CSTD = -std=c99
       CXXFLAGS += $(CPEDANTIC) -Wno-long-long
