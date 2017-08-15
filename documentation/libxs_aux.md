@@ -72,10 +72,10 @@ int libxs_get_scratch_allocator(void** context,
   libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 ```
 
-There are currently no claims on the properties of the default memory allocation (e.g., thread scalability). In contrast, the scratch memory allocation is very effective and delivers a decent speedup over subsequent regular memory allocations. In contrast to the default allocation technique, the scratch memory establishes a watermark for buffers which would be repeatedly allocated and deallocated. The scratch memory domain is (arbitrarily) limited to 2&#160;GB of memory, but it is possible set a different Byte-limit (also per environment variable LIBXS_SCRATCH_LIMIT with optional "k|K", "m|M", and "g|G" units).
+There are currently no claims on the properties of the default memory allocation (e.g., thread scalability). In contrast, the scratch memory allocation is very effective and delivers a decent speedup over subsequent regular memory allocations. In contrast to the default allocation technique, the scratch memory establishes a watermark for repeatedly allocated and deallocated buffers. The scratch memory domain is (arbitrarily) limited to 2&#160;GB of memory, but it is possible set a different Byte-limit (also per environment variable LIBXS_SCRATCH_LIMIT with optional "k|K", "m|M", and "g|G" units).
 
 ```
-void libxs_set_scratch_limit(size_t limit);
+void libxs_set_scratch_limit(size_t nbytes);
 size_t libxs_get_scratch_limit(void);
 ```
 
