@@ -151,7 +151,7 @@ LIBXS_API int libxs_get_scratch_info(libxs_scratch_info* info);
  * The environment variable LIBXS_SCRATCH_LIMIT takes
  * the following units: none (Bytes), k/K, m/M, and g/G.
  */
-LIBXS_API void libxs_set_scratch_limit(size_t limit);
+LIBXS_API void libxs_set_scratch_limit(size_t nbytes);
 /** Get the maximum size of the scratch memory domain. */
 LIBXS_API size_t libxs_get_scratch_limit(void);
 

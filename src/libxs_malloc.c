@@ -1280,10 +1280,10 @@ LIBXS_API_DEFINITION int libxs_get_scratch_info(libxs_scratch_info* info)
 }
 
 
-LIBXS_API_DEFINITION void libxs_set_scratch_limit(size_t limit)
+LIBXS_API_DEFINITION void libxs_set_scratch_limit(size_t nbytes)
 {
   LIBXS_INIT
-  libxs_scratch_limit = limit;
+  libxs_scratch_limit = nbytes;
 }
 
 
