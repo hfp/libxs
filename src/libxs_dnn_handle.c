@@ -228,9 +228,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     /* if we have 1x1 let's bring some ifms into the kernel for forward to increase accumulation chain length on AVX512 */
     /* @TODO we limit ifm blocking in JIT to custom format 1 for now */
     if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_1) ) {
-      if ( (handle->ifmblock%16 == 0) &&  (handle->desc.C%(handle->ifmblock*handle->fm_lp_block*64) == 0) && (handle->desc.R == 1) &&  (handle->desc.S == 1) ) {
-        handle->blocksifm_blocking = 64;
-      } else  if ( (handle->ifmblock%16 == 0) &&  (handle->desc.C%(handle->ifmblock*handle->fm_lp_block*32) == 0) && (handle->desc.R == 1) &&  (handle->desc.S == 1) ) {
+      if ( (handle->ifmblock%16 == 0) &&  (handle->desc.C%(handle->ifmblock*handle->fm_lp_block*32) == 0) && (handle->desc.R == 1) &&  (handle->desc.S == 1) ) {
         handle->blocksifm_blocking = 32;
       } else if ( (handle->ifmblock%16 == 0) &&  (handle->desc.C%(handle->ifmblock*handle->fm_lp_block*16) == 0) && (handle->desc.R == 1) &&  (handle->desc.S == 1) ) {
         handle->blocksifm_blocking = 16;
