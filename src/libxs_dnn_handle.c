@@ -65,10 +65,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   } else {
     disable_ifm_in = 1;
   }*/
+  /* 
   if (handle->ofh == 7 && handle->desc.u == 2) {
     disable_ifm_in = 1;
-  }
-
+  }  
+  */
   int internal_format_type;
   if ( 0 == env || 0 == *env) {
     /* Default internal format type */
@@ -576,6 +577,18 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         handle->ofh_fwd_start = (int*) malloc(handle->desc.threads * sizeof(int));
         handle->ofh_fwd_end = (int*) malloc(handle->desc.threads * sizeof(int));
 
+        if ( handle->fwd_ofw_rb == 7) {
+          descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+          descriptor.ofh_rb = 4;
+          descriptor.ofw_rb = handle->fwd_ofw_rb;
+          handle->code_fwd[2].pmm = libxs_create_xconv_forward(&descriptor);
+          descriptor.ofh_rb = 3;
+          descriptor.ofw_rb = handle->fwd_ofw_rb;
+          descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+          handle->code_fwd[3].pmm = libxs_create_xconv_forward(&descriptor);
+          handle->fwd_ofh_rb = 4;
+        }
+        
         for (i = 0; i < handle->desc.threads; i++) {
           handle->compute_fwd_indices_ptrs[i] = NULL;
           handle->kernel_fwd_variant_ptrs[i] = NULL;
