@@ -269,7 +269,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     /* Logic for L2 tiling  */
     unsigned int input_block_size = 28 * handle->blocksifm_blocking * 64;
     unsigned int output_block_size = 28 * 64;
-    unsigned int weight_ofm_block = 16; /*LIBXS_MIN(16, handle->blocksofm); */
+    unsigned int weight_ofm_block = LIBXS_MIN(16, handle->blocksofm);
     unsigned int weight_block_size = (handle->blocksifm_blocking * 64) * 64/2; /*  (weight_ofm_block * 64)/2; */
     unsigned int total_size = input_block_size + output_block_size + weight_block_size;
 
