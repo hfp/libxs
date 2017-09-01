@@ -613,7 +613,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         handle->ofh_fwd_start = (int*) malloc(handle->desc.threads * sizeof(int));
         handle->ofh_fwd_end = (int*) malloc(handle->desc.threads * sizeof(int));
 
+
         if ( handle->fwd_ofw_rb == 7) {
+          int hrb_save =  descriptor.ofh_rb;
+          int wrb_save =  descriptor.ofw_rb;
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
           descriptor.ofh_rb = 4;
           descriptor.ofw_rb = handle->fwd_ofw_rb;
@@ -623,6 +626,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
           handle->code_fwd[3].pmm = libxs_create_xconv_forward(&descriptor);
           handle->fwd_ofh_rb = 4;
+          descriptor.ofh_rb = hrb_save;
+          descriptor.ofw_rb = wrb_save;
         }
         
         for (i = 0; i < handle->desc.threads; i++) {
@@ -773,10 +778,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             /* TODO: Decide the unroll factor and register blocking using some heuristics as above */
             descriptor.unroll_kh = 0;
             descriptor.unroll_kw = 1;
-            descriptor.ofh_rb = handle->fwd_ofh_rb;
-            handle->bwd_ofh_rb = handle->fwd_ofh_rb;
-            descriptor.ofw_rb = handle->fwd_ofw_rb;
-            handle->bwd_ofw_rb = handle->fwd_ofw_rb;
+            if ( handle->fwd_ofw_rb != 7 ) {
+              descriptor.ofh_rb = handle->fwd_ofh_rb;
+              handle->bwd_ofh_rb = handle->fwd_ofh_rb;
+              descriptor.ofw_rb = handle->fwd_ofw_rb;
+              handle->bwd_ofw_rb = handle->fwd_ofw_rb;
+            }
 #if !defined(NDEBUG)
             printf("DEBUG JIT of conv (NON-PEELED):\n  arch: %s\n  type: %s\n  kw: %u\n  unroll_kw: %u\n  kh: %u\n  unroll_kh: %u\n  ofm_block: %u\n  ifm_block: %u\n"
                 "  ofh_padded: %u\n  ofw_padded: %u\n  ofh_rb: %u\n  ofw_rb: %u\n  ifh_padded: %u\n  ifw_padded: %u\n"
