@@ -777,6 +777,7 @@ int main(int argc, char* argv[])
 #endif
         CHKERR_LIBXS_DNN( libxs_dnn_execute_st( libxs_handle, LIBXS_DNN_COMPUTE_KIND_BWD, 0, tid ) );
       }
+
       /* copy out data */
       CHKERR_LIBXS_DNN( libxs_dnn_copyout_buffer( libxs_dinput, (void*)naive_libxs_input, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
 
