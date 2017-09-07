@@ -245,8 +245,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_convolution_weight_update_descriptor wu_desc;
   */
   int avx512avx2fallback;
-  libxs_code_pointer code_fwd[4];
-  libxs_code_pointer code_bwd[4];
+  libxs_code_pointer code_fwd[6];
+  libxs_code_pointer code_bwd[6];
   libxs_code_pointer code_upd[6];
 
   libxs_code_pointer matcopy_fwd[4];
