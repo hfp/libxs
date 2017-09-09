@@ -96,7 +96,8 @@ LIBXS_API void* libxs_aligned_malloc(size_t size,
 
 /**
  * Allocate aligned scratch memory. It is not supported
- * to query properties (libxs_get_malloc_info).
+ * to query properties per libxs_get_malloc_info, but
+ * libxs_get_scratch_info can used instead.
  */
 LIBXS_API void* libxs_scratch_malloc(size_t size,
   /**
@@ -110,6 +111,11 @@ LIBXS_API void* libxs_scratch_malloc(size_t size,
    */
   const void* caller);
 
+/**
+ * Binary form of libxs_scratch_malloc, which
+ * expands the call-context automatically. This
+ * macro is intentionlly lower case.
+ */
 #define libxs_aligned_scratch(size, alignment) \
   libxs_scratch_malloc(size, alignment, LIBXS_CALLER)
 

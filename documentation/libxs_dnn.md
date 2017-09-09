@@ -1,7 +1,8 @@
-# Interface for Convolutions
-To achieve best performance with small convolutions for CNN on SIMD architectures, a specific data layout must be used. As this layout depends on several architectural parameters, the goal of the LIBXS's interface is to hide this complexity from the user by providing copy-in and copy-out routines. This happens using opaque data types which themselves are later bound to a convolution operation.
+## Deep Neural Networks
 
-The interface is available for C. There is a collection ([samples/dnn](https://github.com/hfp/libxs/tree/master/samples/dnn)) of benchmarks-style code samples with focus on Convolutional Neural Networks (CNNs). Further, an [example](https://github.com/hfp/libxs/tree/master/samples/iconv/README.md#image-convolution) performing an image convolution is provided as well. The general concept of the interface is circled around a few handle types: `libxs_dnn_layer`, `libxs_dnn_buffer`, `libxs_dnn_bias`, and `libxs_dnn_filter`. A handle is setup by calling a create-function:
+To achieve best performance with small convolutions for CNN on SIMD architectures, a specific data layout must be used. As this layout depends on several architectural parameters, the goal of LIBXS's interface is to hide this complexity from the user by providing copy-in and copy-out routines. This happens using opaque data types, which themselves are later bound to a convolution operation.
+
+The interface is available for C. There is a collection of benchmark-style code samples ([samples/dnn](https://github.com/hfp/libxs/tree/master/samples/dnn)) with focus on Convolutional Deep Neural Networks (DNNs). Further, an [example](https://github.com/hfp/libxs/tree/master/samples/iconv/README.md#image-convolution) performing a single image convolution is provided as well. The general concept of the interface is circled around a few types: `libxs_dnn_layer`, `libxs_dnn_buffer`, `libxs_dnn_bias`, and `libxs_dnn_filter`. A handle of such a type is always setup by calling a create-function.
 
 ```C
 /** Simplified LIBXS types which are needed to create a handle. */
@@ -59,6 +60,7 @@ libxs_dnn_err_t libxs_dnn_destroy_conv_layer(
 ```
 
 A sample call looks like (without error checks):
+
 ```C
 /* declare LIBXS variables */
 libxs_dnn_conv_desc conv_desc;

@@ -41,7 +41,7 @@ else
 fi
 
 # temporary file
-TMPFILE=$(${MKTEMP} .libxs_XXXXXX.tex)
+TMPFILE=$(${MKTEMP} ${HERE}/.libxs_XXXXXX.tex)
 
 # dump pandoc template for latex, and adjust the template
 pandoc -D latex \
@@ -53,8 +53,10 @@ pandoc -D latex \
 
 # cleanup markup and pipe into pandoc using the template
 # LIBXS documentation
-iconv -t utf-8 README.md \
+cd ${DOCDIR}
+iconv -t utf-8 index.md libxs_mm.md libxs_dnn.md libxs_aux.md libxs_prof.md libxs_tune.md libxs_be.md \
 | sed \
+  -e 's/## Matrix Multiplication$/# LIBXS Domains\n## Matrix Multiplication/' \
   -e 's/\[\[..*\](..*)\]//g' \
   -e 's/\[!\[..*\](..*)\](..*)//g' \
   -e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
@@ -62,7 +64,7 @@ iconv -t utf-8 README.md \
   -e 's/----*//g' \
 | tee >( pandoc \
   --latex-engine=xelatex --template=${TMPFILE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
+  -f markdown_github+all_symbols_escapable+subscript+superscript \
   -V documentclass=scrartcl \
   -V title-meta="LIBXS Documentation" \
   -V author-meta="Hans Pabst, Alexander Heinecke" \
@@ -70,196 +72,11 @@ iconv -t utf-8 README.md \
   -V linkcolor=black \
   -V citecolor=black \
   -V urlcolor=black \
-  -o ${DOCDIR}/libxs.pdf) \
-| tee >( pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs.html) \
+  -o libxs.pdf) \
 | pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs.docx
-
-# cleanup markup and pipe into pandoc using the template
-# LIBXS/AUX documentation
-iconv -t utf-8 ${DOCDIR}/libxs_aux.md \
-| sed \
-  -e 's/\[\[..*\](..*)\]//g' \
-  -e 's/\[!\[..*\](..*)\](..*)//g' \
-  -e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-  -e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-  -e 's/----*//g' \
-| tee >( pandoc \
-  --latex-engine=xelatex --template=${TMPFILE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -V documentclass=scrartcl \
-  -V title-meta="LIBXS Documentation (AUX)" \
-  -V author-meta="Hans Pabst" \
-  -V classoption=DIV=45 \
-  -V linkcolor=black \
-  -V citecolor=black \
-  -V urlcolor=black \
-  -o ${DOCDIR}/libxs_aux.pdf) \
-| tee >( pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs_aux.html) \
-| pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs_aux.docx
-
-# cleanup markup and pipe into pandoc using the template
-# LIBXS/BE documentation
-iconv -t utf-8 ${DOCDIR}/libxs_be.md \
-| sed \
-  -e 's/\[\[..*\](..*)\]//g' \
-  -e 's/\[!\[..*\](..*)\](..*)//g' \
-  -e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-  -e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-  -e 's/----*//g' \
-| tee >( pandoc \
-  --latex-engine=xelatex --template=${TMPFILE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -V documentclass=scrartcl \
-  -V title-meta="LIBXS Documentation (BE)" \
-  -V author-meta="Alexander Heinecke, Hans Pabst" \
-  -V classoption=DIV=45 \
-  -V linkcolor=black \
-  -V citecolor=black \
-  -V urlcolor=black \
-  -o ${DOCDIR}/libxs_be.pdf) \
-| tee >( pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs_be.html) \
-| pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs_be.docx
-
-# cleanup markup and pipe into pandoc using the template
-# LIBXS/DNN documentation
-iconv -t utf-8 ${DOCDIR}/libxs_dnn.md \
-| sed \
-  -e 's/\[\[..*\](..*)\]//g' \
-  -e 's/\[!\[..*\](..*)\](..*)//g' \
-  -e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-  -e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-  -e 's/----*//g' \
-| tee >( pandoc \
-  --latex-engine=xelatex --template=${TMPFILE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -V documentclass=scrartcl \
-  -V title-meta="LIBXS Documentation (DNN)" \
-  -V author-meta="Alexander Heinecke, Hans Pabst" \
-  -V classoption=DIV=45 \
-  -V linkcolor=black \
-  -V citecolor=black \
-  -V urlcolor=black \
-  -o ${DOCDIR}/libxs_dnn.pdf) \
-| tee >( pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs_dnn.html) \
-| pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs_dnn.docx
-
-# cleanup markup and pipe into pandoc using the template
-# LIBXS/MM documentation
-iconv -t utf-8 ${DOCDIR}/libxs_mm.md \
-| sed \
-  -e 's/\[\[..*\](..*)\]//g' \
-  -e 's/\[!\[..*\](..*)\](..*)//g' \
-  -e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-  -e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-  -e 's/----*//g' \
-| tee >( pandoc \
-  --latex-engine=xelatex --template=${TMPFILE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -V documentclass=scrartcl \
-  -V title-meta="LIBXS Documentation (MM)" \
-  -V author-meta="Hans Pabst" \
-  -V classoption=DIV=45 \
-  -V linkcolor=black \
-  -V citecolor=black \
-  -V urlcolor=black \
-  -o ${DOCDIR}/libxs_mm.pdf) \
-| tee >( pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs_mm.html) \
-| pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs_mm.docx
-
-# cleanup markup and pipe into pandoc using the template
-# LIBXS/PERF documentation
-iconv -t utf-8 ${DOCDIR}/libxs_perf.md \
-| sed \
-  -e 's/\[\[..*\](..*)\]//g' \
-  -e 's/\[!\[..*\](..*)\](..*)//g' \
-  -e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-  -e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-  -e 's/----*//g' \
-| tee >( pandoc \
-  --latex-engine=xelatex --template=${TMPFILE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -V documentclass=scrartcl \
-  -V title-meta="LIBXS Documentation (PERF)" \
-  -V author-meta="Hans Pabst" \
-  -V classoption=DIV=45 \
-  -V linkcolor=black \
-  -V citecolor=black \
-  -V urlcolor=black \
-  -o ${DOCDIR}/libxs_perf.pdf) \
-| tee >( pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs_perf.html) \
-| pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/libxs_perf.docx
-
-# cleanup markup and pipe into pandoc using the template
-# CP2K recipe
-iconv -t utf-8 ${HERE}/documentation/cp2k.md \
-| sed \
-  -e 's/\[\[..*\](..*)\]//g' \
-  -e 's/\[!\[..*\](..*)\](..*)//g' \
-  -e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-  -e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-  -e 's/----*//g' \
-| tee >( pandoc \
-  --latex-engine=xelatex --template=${TMPFILE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -V documentclass=scrartcl \
-  -V title-meta="CP2K with LIBXS" \
-  -V author-meta="Hans Pabst" \
-  -V classoption=DIV=45 \
-  -V linkcolor=black \
-  -V citecolor=black \
-  -V urlcolor=black \
-  -o ${DOCDIR}/cp2k.pdf) \
-| pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/cp2k.docx
-
-# cleanup markup and pipe into pandoc using the template
-# TensorFlow recipe
-iconv -t utf-8 ${HERE}/documentation/tensorflow.md \
-| sed \
-  -e 's/\[\[..*\](..*)\]//g' \
-  -e 's/\[!\[..*\](..*)\](..*)//g' \
-  -e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-  -e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-  -e 's/----*//g' \
-| tee >( pandoc \
-  --latex-engine=xelatex --template=${TMPFILE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -V documentclass=scrartcl \
-  -V title-meta="TensorFlow with LIBXS" \
-  -V author-meta="Hans Pabst" \
-  -V classoption=DIV=45 \
-  -V linkcolor=black \
-  -V citecolor=black \
-  -V urlcolor=black \
-  -o ${DOCDIR}/tensorflow.pdf) \
-| pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/tensorflow.docx
+  -f markdown_github+all_symbols_escapable+subscript+superscript \
+  -o libxs.docx
+cd ${HERE}
 
 # cleanup markup and pipe into pandoc using the template
 # LIBXS Sample Code Summary
@@ -272,20 +89,70 @@ iconv -t utf-8 samples/*/README.md \
   -e 's/----*//g' \
 | tee >( pandoc \
   --latex-engine=xelatex --template=${TMPFILE} --listings \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
+  -f markdown_github+all_symbols_escapable+subscript+superscript \
   -V documentclass=scrartcl \
   -V title-meta="LIBXS Sample Code Summary" \
   -V classoption=DIV=45 \
   -V linkcolor=black \
   -V citecolor=black \
   -V urlcolor=black \
-  -o ${DOCDIR}/samples.pdf) \
-| tee >( pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/samples.html) \
+  -o ${DOCDIR}/libxs_samples.pdf) \
 | pandoc \
-  -f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
-  -o ${DOCDIR}/samples.docx
+  -f markdown_github+all_symbols_escapable+subscript+superscript \
+  -o ${DOCDIR}/libxs_samples.docx
+
+# cleanup markup and pipe into pandoc using the template
+# CP2K recipe
+cd ${DOCDIR}
+iconv -t utf-8 cp2k.md \
+| sed \
+  -e 's/\[\[..*\](..*)\]//g' \
+  -e 's/\[!\[..*\](..*)\](..*)//g' \
+  -e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+  -e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
+  -e 's/----*//g' \
+| tee >( pandoc \
+  --latex-engine=xelatex --template=${TMPFILE} --listings \
+  -f markdown_github+all_symbols_escapable+subscript+superscript \
+  -V documentclass=scrartcl \
+  -V title-meta="CP2K with LIBXS" \
+  -V author-meta="Hans Pabst" \
+  -V classoption=DIV=45 \
+  -V linkcolor=black \
+  -V citecolor=black \
+  -V urlcolor=black \
+  -o cp2k.pdf) \
+| pandoc \
+  -f markdown_github+all_symbols_escapable+subscript+superscript \
+  -o cp2k.docx
+cd ${HERE}
+
+# cleanup markup and pipe into pandoc using the template
+# TensorFlow recipe
+cd ${DOCDIR}
+iconv -t utf-8 tensorflow.md \
+| sed \
+  -e 's/\[\[..*\](..*)\]//g' \
+  -e 's/\[!\[..*\](..*)\](..*)//g' \
+  -e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+  -e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
+  -e 's/----*//g' \
+| tee >( pandoc \
+  --latex-engine=xelatex --template=${TMPFILE} --listings \
+  -f markdown_github+all_symbols_escapable+subscript+superscript \
+  -V documentclass=scrartcl \
+  -V title-meta="TensorFlow with LIBXS" \
+  -V author-meta="Hans Pabst" \
+  -V classoption=DIV=45 \
+  -V linkcolor=black \
+  -V citecolor=black \
+  -V urlcolor=black \
+  -o tensorflow.pdf) \
+| pandoc \
+  -f markdown_github+all_symbols_escapable+subscript+superscript \
+  -o tensorflow.docx
+cd ${HERE}
 
 # remove temporary file
 rm ${TMPFILE}
+

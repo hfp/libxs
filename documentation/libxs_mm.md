@@ -1,16 +1,5 @@
- Overview
-The interface of the library is *generated* per the [Build Instructions](index.md#build-instructions), and it is therefore **not** stored in the code repository. Instead, one may have a look at the code generation template files for [C/C++](https://github.com/hfp/libxs/blob/master/src/template/libxs.h) and [FORTRAN](https://github.com/hfp/libxs/blob/master/src/template/libxs.f).
+# Small Matrix Multiplication (SMM)
 
-To initialize the dispatch-table or other internal resources, an explicit initialization routine helps to avoid lazy initialization overhead when calling LIBXS for the first time. The library deallocates internal resources at program exit, but also provides a companion to the afore mentioned initialization (finalize).
-
-```C
-/** Initialize the library; pay for setup cost at a specific point. */
-void libxs_init(void);
-/** De-initialize the library and free internal memory (optional). */
-void libxs_finalize(void);
-```
-
-## Small Matrix Multiplication (SMM)
 To perform the dense matrix-matrix multiplication *C<sub>m&#8239;x&#8239;n</sub> = alpha &middot; A<sub>m&#8239;x&#8239;k</sub> &middot; B<sub>k&#8239;x&#8239;n</sub> + beta &middot; C<sub>m&#8239;x&#8239;n</sub>*, the full-blown GEMM interface can be treated with "default arguments" (which is deviating from the BLAS standard, however without compromising the binary compatibility).
 
 ```C
@@ -51,7 +40,8 @@ A more recently added variant of matrix multiplication is parallelized based on 
 libxs_?gemm_omp(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 ```
 
-## Manual Code Dispatch and Batched Matrix Multiplication
+### Manual Code Dispatch and Batched Matrix Multiplication
+
 Successively calling a kernel (i.e., multiple times) allows for amortizing the cost of the code dispatch. Moreover, to customize the dispatch mechanism, one can rely on the following interface. Overloaded function signatures are provided and allow to omit arguments (C++ and FORTRAN), which are then derived from the [configurable defaults](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h).
 
 ```C
@@ -90,7 +80,7 @@ IF (libxs_available(xmm)) THEN
 END IF
 ```
 
-In case of batched SMMs, it can be beneficial to supply "next locations" such that the upcoming operands are prefetched ahead of time. The "prefetch strategy" is requested at dispatch-time of a kernel. A [strategy](libxs_be.md#prefetch-strategy) other than `LIBXS_PREFETCH_NONE` turns the signature of a JIT'ted kernel into a function with six-arguments (`a,b,c, pa,pb,pc` instead of `a,b,c`). To defer the decision about the strategy to a CPUID-based mechanism, one can choose `LIBXS_PREFETCH_AUTO`.
+In case of batched SMMs, it can be beneficial to supply "next locations" such that the upcoming operands are prefetched ahead of time. The "prefetch strategy" is requested at dispatch-time of a kernel. A [strategy](libxs_be.md#prefetch-strategy) other than `LIBXS_PREFETCH_NONE` turns the signature of a JIT'ted kernel into a function with six arguments (`a,b,c, pa,pb,pc` instead of `a,b,c`). To defer the decision about the strategy to a CPUID-based mechanism, one can choose `LIBXS_PREFETCH_AUTO`.
 
 ```C
 int prefetch = LIBXS_PREFETCH_AUTO;
@@ -104,14 +94,15 @@ xmm = libxs_dmmdispatch(23/*m*/, 23/*n*/, 23/*k*/,
 
 Above, pointer-arguments of `libxs_dmmdispatch` can be NULL (or OPTIONAL in FORTRAN): for LDx this means a "tight" leading dimension, alpha, beta, and flags are given by a [default value](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h) (which is selected at compile-time), and for the prefetch strategy a NULL-argument refers to "no prefetch" (which is equivalent to an explicit `LIBXS_PREFETCH_NONE`).
 
-## Call Wrapper
+### Call Wrapper
+
 Since the library is binary compatible with existing GEMM calls (BLAS), these calls can be replaced at link-time or intercepted at runtime of an application such that LIBXS is used instead of the original BLAS library. There are two cases to consider:
 
-* An application which is linked statically against BLAS requires to wrap the 'sgemm_' and the 'dgemm_' symbol (an alternative is to wrap only 'dgemm_'), and a special build of the libxs(ext) library is required (`make WRAP=1` to to wrap SGEMM and DGEMM, or `make WRAP=2` to wrap only DGEMM):  
-`gcc [...] -Wl,--wrap=sgemm_,--wrap=dgemm_ /path/to/libxsext.a /path/to/libxs.a /path/to/your_regular_blas.a`  
-Relinking the application as shown above can often be accomplished by copying, pasting, modifying the linker command, and then re-invoking the modified link step. This linker command may appear as console output of the application's "make" command (or a similar build system).  
-The static link-time wrapper technique may only work with a GCC tool chain (GNU Binutils: `ld`, or `ld` via compiler-driver), and it has been tested with GNU GCC, Intel&#160;Compiler, and Clang. However, this does not work under Microsoft Windows (even when using the GNU tool chain), and it may not work under OS&#160;X (Compiler&#160;6.1 or earlier, later versions have not been tested).
-* An application which is dynamically linked against BLAS allows for intercepting the GEMM calls at startup time (runtime) of the unmodified executable by using the LD_PRELOAD mechanism. The shared library of LIBXS (`make STATIC=0`) allows to intercept the GEMM calls of the application:  
+1. An application which is linked statically against BLAS requires to wrap the 'sgemm_' and the 'dgemm_' symbol (an alternative is to wrap only 'dgemm_'), and a special build of the libxs(ext) library is required (`make WRAP=1` to wrap SGEMM and DGEMM, or `make WRAP=2` to wrap only DGEMM):  
+`gcc [...] -Wl,--wrap=sgemm_,--wrap=dgemm_ /path/to/libxsext.a /path/to/libxs.a /path/to/your_regular_blas.a`
+    * Relinking the application as shown above can often be accomplished by copying, pasting, modifying the linker command, and then re-invoking the modified link step. This linker command may appear as console output of the application's "make" command (or a similar build system).
+    * The static link-time wrapper technique may only work with a GCC tool chain (GNU Binutils: `ld`, or `ld` via compiler-driver), and it has been tested with GNU GCC, Intel&#160;Compiler, and Clang. However, this does not work under Microsoft Windows (even when using the GNU tool chain), and it may not work under OS&#160;X (Compiler&#160;6.1 or earlier, later versions have not been tested).
+2. An application that is dynamically linked against BLAS allows to intercept the GEMM calls at startup time (runtime) of the unmodified executable by using the LD_PRELOAD mechanism. The shared library of LIBXS (`make STATIC=0`) can be used to intercept GEMM calls:  
 `LD_PRELOAD=/path/to/libxsext.so ./myapplication`
 
 **NOTE**: Using the same multiplication kernel in a consecutive fashion (batch-processing) allows to extract higher performance, when using LIBXS's native programming interface.
