@@ -591,6 +591,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.blocks_ifm = handle->blocksifm;
       descriptor.blocks_ifm_blocking = handle->blocksifm_blocking;
       descriptor.weight_stride = 1;
+      descriptor.use_fwd_generator_for_bwd = 0;
+      descriptor.stride_h_store = 1;
+      descriptor.stride_w_store = 1;
       descriptor.ofm_block = handle->ofmblock;
       descriptor.ifm_block = handle->ifmblock;
       descriptor.ofh_padded = handle->ofhp;
@@ -791,8 +794,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         fwd_equivalent_descriptor.kw = handle->desc.S;
         fwd_equivalent_descriptor.unroll_kw = 1;
         fwd_equivalent_descriptor.unroll_kh = 1;
-        fwd_equivalent_descriptor.stride_h = handle->desc.u;
-        fwd_equivalent_descriptor.stride_w = handle->desc.v;
+        fwd_equivalent_descriptor.stride_h = 1;
+        fwd_equivalent_descriptor.stride_w = 1;
         fwd_equivalent_descriptor.blocks_ofm = handle->blocksifm;
         fwd_equivalent_descriptor.blocks_ifm = handle->blocksofm;
         fwd_equivalent_descriptor.ofm_block = handle->ifmblock;
@@ -807,7 +810,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         fwd_equivalent_descriptor.option = handle->desc.options;
         fwd_equivalent_descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
         fwd_equivalent_descriptor.blocks_ifm_blocking = handle->blocksofm_blocking;
-        fwd_equivalent_descriptor.weight_stride = 1; /*handle->blocksifm;*/
+        fwd_equivalent_descriptor.weight_stride = 1; 
+        fwd_equivalent_descriptor.use_fwd_generator_for_bwd = 1;
+        fwd_equivalent_descriptor.stride_h_store = handle->desc.u;
+        fwd_equivalent_descriptor.stride_w_store = handle->desc.v;
         fwd_equivalent_descriptor.use_nts = 1;
       }
 
