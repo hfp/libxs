@@ -1186,6 +1186,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                  handle->upd_ofh_rb = 1;
                  descriptor.ofh_rb = 1;
                }
+
+               if ( handle->desc.R == 3 && handle->desc.S == 3 ) {
+                 handle->upd_ofh_rb = 7;
+                 descriptor.ofh_rb = 7;
+               }
             }
              
             if ( handle->ofhp == 56 ) {
@@ -1193,6 +1198,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                descriptor.ofh_rb = 1;
                descriptor.blocks_h = 1;
                handle->upd_ofh_rb = 1;
+               if ( handle->desc.R == 3 && handle->desc.S == 3 ) {
+                 handle->upd_ofh_rb = 2;
+                 descriptor.ofh_rb = 2;
+               }
             }
 
             descriptor.transpose_ofw_ifm = 0;
