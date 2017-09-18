@@ -527,7 +527,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
   /* Check if padded needs to be applied in the input and allocate appropriate buffers */
   /* Anand: changing below check for pad to either/or pad_h or pad_w instead of and */
-  if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && ((handle->desc.pad_h > 0) || (handle->desc.pad_w > 0))) {
+  if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && (handle->desc.pad_h_out == 0) && (handle->desc.pad_w_out == 0) && ((handle->desc.pad_h > 0) || (handle->desc.pad_w > 0))) {
     handle->padding_flag = 1;
     handle->scratch5  = 0;
     handle->minibatch_scratch_size = handle->desc.N * handle->blocksifm * handle->ifmblock * handle->fm_lp_block * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_itm);
@@ -660,15 +660,17 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         handle->ofh_fwd_end = (int*) malloc(handle->desc.threads * sizeof(int));
 
 
-        if ( handle->fwd_ofw_rb == 7) {
+        if ( handle->ofw == 7) {
           int hrb_save =  descriptor.ofh_rb;
           int wrb_save =  descriptor.ofw_rb;
+          descriptor.ofh_padded = handle->ofhp;
+          descriptor.ofw_padded = handle->ofwp;
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
           descriptor.ofh_rb = 4;
-          descriptor.ofw_rb = handle->fwd_ofw_rb;
+          descriptor.ofw_rb = 7;
           handle->code_fwd[2].pmm = libxs_create_xconv_forward(&descriptor);
           descriptor.ofh_rb = 3;
-          descriptor.ofw_rb = handle->fwd_ofw_rb;
+          descriptor.ofw_rb = 7;
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
           handle->code_fwd[3].pmm = libxs_create_xconv_forward(&descriptor);
           handle->fwd_ofh_rb = 4;
