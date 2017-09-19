@@ -250,8 +250,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_code_pointer code_upd[6];
 
   libxs_code_pointer matcopy_fwd[4];
-  libxs_code_pointer matcopy_bwd[2];
-  libxs_code_pointer matcopy_upd[3];
+  libxs_code_pointer matcopy_bwd[4];
+  libxs_code_pointer matcopy_upd[4];
 
   /* Data structures and metadata related to per-thread private JITing */
   int use_thread_private_jit;

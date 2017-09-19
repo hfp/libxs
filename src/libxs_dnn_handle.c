@@ -694,9 +694,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         if ( (handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0 )  {
           matzero_descriptor.n = 1;
           if (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) {
-            matzero_descriptor.m = handle->ofhp*handle->ofwp*handle->ofmblock;
-            matzero_descriptor.ldi = handle->ofhp*handle->ofwp*handle->ofmblock;
-            matzero_descriptor.ldo = handle->ofhp*handle->ofwp*handle->ofmblock;
+            matzero_descriptor.m = handle->ofh*handle->ofwp*handle->ofmblock;
+            matzero_descriptor.ldi = handle->ofh*handle->ofwp*handle->ofmblock;
+            matzero_descriptor.ldo = handle->ofh*handle->ofwp*handle->ofmblock;
           } else { /* Assumes NHWC format */
             status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
           }
@@ -716,6 +716,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           handle->matcopy_fwd[3].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
 
         }
+
         /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
         status = libxs_dnn_perform_fwd_dryrun_direct(handle);
       }
@@ -725,6 +726,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       libxs_matcopy_descriptor matcopy_descriptor;
       libxs_matcopy_descriptor matcopyback_descriptor;
       libxs_convolution_forward_descriptor fwd_equivalent_descriptor;
+      libxs_matcopy_descriptor matzero_descriptor_overwrite;
 
       if (handle->padding_flag == 1) {
         descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
@@ -899,7 +901,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             /* NONE */
             if (handle->padding_flag == 1) {
               handle->matcopy_bwd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
-              handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matcopyback_descriptor);
+              /*handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matcopyback_descriptor);*/
             }
 
             /*descriptor.prefetch_output_ahead = 0;*/
@@ -1080,6 +1082,23 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         mirror_handle->ofh_fwd_end = handle->ofh_bwd_end;
         status = libxs_dnn_perform_fwd_dryrun_direct(mirror_handle);
 
+        /* In case overwrite is requested, generate zero-ing kernel */
+        if ( (handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0 )  {
+          matzero_descriptor_overwrite.n = 1;
+          if (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) {
+            matzero_descriptor_overwrite.m = handle->desc.H*handle->ifwp*handle->ifmblock;
+            matzero_descriptor_overwrite.ldi = handle->desc.H*handle->ifwp*handle->ifmblock;
+            matzero_descriptor_overwrite.ldo = handle->desc.H*handle->ifwp*handle->ifmblock;
+          } else { /* Assumes NHWC format */
+            status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
+          }
+          matzero_descriptor_overwrite.prefetch = 0;
+          matzero_descriptor_overwrite.unroll_level = 2;
+          matzero_descriptor_overwrite.typesize = (unsigned char)libxs_dnn_typesize(handle->datatype);
+          matzero_descriptor_overwrite.flags = LIBXS_MATCOPY_FLAG_ZERO_SOURCE;
+          handle->matcopy_bwd[1].xmatcopy =  handle->matcopy_fwd[1].xmatcopy; /* libxs_xmatcopydispatch(&matzero_descriptor_overwrite);*/
+        }
+
         /*int *compute_indices =   mirror_handle->compute_fwd_indices_ptrs[0];      
         int local_entries = 0;
         int ind = handle->n_entries_bwd[0], run;
@@ -1094,7 +1113,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     { libxs_convolution_weight_update_descriptor descriptor;
       libxs_matcopy_descriptor matcopy_descriptor;
       libxs_matcopy_descriptor matzero_descriptor;
-      if (handle->padding_flag == 1) {
+       if (handle->padding_flag == 1) {
         descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
         descriptor.ifw_padded = handle->ifwp + 2 * handle->desc.pad_w;
         matzero_descriptor.n = 1;
