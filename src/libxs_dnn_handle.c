@@ -787,15 +787,20 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
 
       /* If we have 1x1 convolution and kernels stream is enabled, then use the fwd convolution generator  */
-      if ( (handle->desc.R == 1) && (handle->desc.S == 1) && (handle->use_thread_private_jit > 0) ) {
+      if (handle->use_thread_private_jit > 0)  {
         handle->bwd_ofh_rb =  handle->fwd_ofh_rb;
         handle->bwd_ofw_rb =  handle->fwd_ofw_rb;
-        fwd_equivalent_descriptor.ifh_padded = handle->ofhp;
-        fwd_equivalent_descriptor.ifw_padded = handle->ofwp;
+        if (handle->padding_flag == 1) {
+          fwd_equivalent_descriptor.ifh_padded = handle->ofhp + 2 * handle->desc.pad_h_in;
+          fwd_equivalent_descriptor.ifw_padded = handle->ofwp + 2 * handle->desc.pad_w_in;
+        } else {
+          fwd_equivalent_descriptor.ifh_padded = handle->ofhp;
+          fwd_equivalent_descriptor.ifw_padded = handle->ofwp;
+        }
         fwd_equivalent_descriptor.kh = handle->desc.R;
         fwd_equivalent_descriptor.kw = handle->desc.S;
         fwd_equivalent_descriptor.unroll_kw = 1;
-        fwd_equivalent_descriptor.unroll_kh = 1;
+        fwd_equivalent_descriptor.unroll_kh = 0;
         fwd_equivalent_descriptor.stride_h = 1;
         fwd_equivalent_descriptor.stride_w = 1;
         fwd_equivalent_descriptor.blocks_ofm = handle->blocksifm;
@@ -813,10 +818,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         fwd_equivalent_descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
         fwd_equivalent_descriptor.blocks_ifm_blocking = handle->blocksofm_blocking;
         fwd_equivalent_descriptor.weight_stride = 1; 
-        fwd_equivalent_descriptor.use_fwd_generator_for_bwd = 1;
+        fwd_equivalent_descriptor.use_fwd_generator_for_bwd = 0;
         fwd_equivalent_descriptor.stride_h_store = handle->desc.u;
         fwd_equivalent_descriptor.stride_w_store = handle->desc.v;
-        fwd_equivalent_descriptor.use_nts = 1;
+        fwd_equivalent_descriptor.use_nts = handle->use_nts_bwd;
       }
 
 
@@ -912,7 +917,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
             handle->code_bwd[2].pmm = libxs_create_xconv_backward(&descriptor);
 
-            if ( (handle->desc.R == 1) && (handle->desc.S == 1) && (handle->use_thread_private_jit > 0) ) {
+            if (handle->use_thread_private_jit > 0) {
               fwd_equivalent_descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
               if ( handle->bwd_ofw_rb != 7) {
                 handle->code_bwd[4].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
@@ -920,10 +925,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 int hrb_save =  fwd_equivalent_descriptor.ofh_rb;
                 int wrb_save =  fwd_equivalent_descriptor.ofw_rb;
                 fwd_equivalent_descriptor.ofh_rb = 4;
-                fwd_equivalent_descriptor.ofw_rb = handle->bwd_ofw_rb;
+                fwd_equivalent_descriptor.ofw_rb = 7;
                 handle->code_bwd[4].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
                 fwd_equivalent_descriptor.ofh_rb = 3;
-                fwd_equivalent_descriptor.ofw_rb = handle->bwd_ofw_rb;
+                fwd_equivalent_descriptor.ofw_rb = 7;
                 handle->code_bwd[5].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
                 handle->bwd_ofh_rb = 4;
                 fwd_equivalent_descriptor.ofh_rb = hrb_save;
@@ -1048,8 +1053,42 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           handle->bwd_code_segments[i] = NULL;
           handle->transpose_bwd_indices_ptrs[i] = NULL;
         }
-        status = libxs_dnn_perform_bwd_dryrun_direct(handle);
+
+        libxs_dnn_layer *mirror_handle = (libxs_dnn_layer*)  malloc(sizeof(libxs_dnn_layer));
+        memcpy( mirror_handle, handle ,sizeof(libxs_dnn_layer));
+        mirror_handle->blocksifm_blocking = handle->blocksofm_blocking;
+        mirror_handle->fwd_ofh_rb = handle->bwd_ofh_rb;
+        mirror_handle->fwd_ofw_rb = handle->bwd_ofw_rb;
+        mirror_handle->blocksofm = handle->blocksifm;
+        mirror_handle->ifhp = handle->ofhp;
+        mirror_handle->ifwp = handle->ofwp;
+        mirror_handle->ofhp = handle->ifhp;
+        mirror_handle->ofwp = handle->ifwp;
+        mirror_handle->use_nts_fwd = handle->use_nts_bwd;
+        mirror_handle->block_fwd_ofm = handle->block_fwd_ifm;
+        mirror_handle->blocksifm = handle->blocksofm;
+        mirror_handle->ofh = handle->desc.H;
+        mirror_handle->ofw = handle->desc.W;
+        mirror_handle->ifmblock = handle->ofmblock;
+        mirror_handle->ofmblock = handle->ifmblock;
+        mirror_handle->compute_fwd_indices_ptrs =  handle->compute_bwd_indices_ptrs;
+        mirror_handle->n_entries_fwd = handle->n_entries_bwd;
+        mirror_handle->kernel_fwd_variant_ptrs = handle->kernel_bwd_variant_ptrs;
+        mirror_handle->n_fwd_code_segments = handle->n_bwd_code_segments;
+        mirror_handle->fwd_code_segments = handle->bwd_code_segments;
+        mirror_handle->ofh_fwd_start = handle->ofh_bwd_start;
+        mirror_handle->ofh_fwd_end = handle->ofh_bwd_end;
+        status = libxs_dnn_perform_fwd_dryrun_direct(mirror_handle);
+
+        /*int *compute_indices =   mirror_handle->compute_fwd_indices_ptrs[0];      
+        int local_entries = 0;
+        int ind = handle->n_entries_bwd[0], run;
+        for (run = 0; run < ind; run++) {
+            printf("Offsets are %d %d %d\n",   compute_indices[local_entries] ,  compute_indices[local_entries+1] ,   compute_indices[local_entries+2]  );
+            local_entries += 3;
+        } */   
       }
+
     } /* End of backward */
     /* TODO weight update path */
     { libxs_convolution_weight_update_descriptor descriptor;
