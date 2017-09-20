@@ -650,13 +650,22 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       }
 
       if ( handle->use_thread_private_jit ) {
+        int ks_overhead = 0;
+
         handle->n_entries_fwd = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->n_entries_fwd, 0, handle->desc.threads * sizeof(int) );
         handle->compute_fwd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+        memset( handle->compute_fwd_indices_ptrs, 0, handle->desc.threads * sizeof(int*));
         handle->kernel_fwd_variant_ptrs = (char**) malloc(handle->desc.threads * sizeof(char*));
+        memset( handle->kernel_fwd_variant_ptrs, 0, handle->desc.threads * sizeof(char*) );
         handle->n_fwd_code_segments = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->n_fwd_code_segments, 0, handle->desc.threads * sizeof(int) );
         handle->fwd_code_segments = (segment_t**) malloc(handle->desc.threads * sizeof(segment_t*));
+        memset( handle->fwd_code_segments, 0, handle->desc.threads * sizeof(segment_t*) );
         handle->ofh_fwd_start = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->ofh_fwd_start, 0, handle->desc.threads * sizeof(int) );
         handle->ofh_fwd_end = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->ofh_fwd_end, 0, handle->desc.threads * sizeof(int) );
 
 
         if ( handle->ofw == 7) {
@@ -676,7 +685,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           descriptor.ofh_rb = hrb_save;
           descriptor.ofw_rb = wrb_save;
         }
-        
+
         for (i = 0; i < handle->desc.threads; i++) {
           handle->compute_fwd_indices_ptrs[i] = NULL;
           handle->kernel_fwd_variant_ptrs[i] = NULL;
@@ -718,6 +727,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
         /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
         status = libxs_dnn_perform_fwd_dryrun_direct(handle);
+
+        /* compute kernel stream overhead */
+        ks_overhead += handle->desc.threads*4*sizeof(int);
+        ks_overhead += handle->desc.threads*sizeof(int*);
+        ks_overhead += handle->desc.threads*sizeof(char*);
+        ks_overhead += handle->desc.threads*sizeof(segment_t*);
+        for ( i = 0; i < handle->desc.threads; ++i ) {
+          ks_overhead += ((handle->n_entries_fwd[i]*3)+3)*sizeof(int);
+          ks_overhead += handle->n_entries_fwd[i]*sizeof(char);
+          ks_overhead += handle->n_fwd_code_segments[i]*sizeof(segment_t);
+        }
+        printf("KS Overhead FWD in KB: %i \n", ks_overhead/1024 );
+
       }
     }
     /* Backward path */
@@ -1038,24 +1060,29 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           }
 
       if ( handle->use_thread_private_jit ) {
+        int ks_overhead = 0;
+        
         handle->n_entries_bwd = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->n_entries_bwd, 0, handle->desc.threads * sizeof(int) );
         handle->compute_bwd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+        memset( handle->compute_bwd_indices_ptrs, 0, handle->desc.threads * sizeof(int*) );
         handle->kernel_bwd_variant_ptrs = (char**) malloc(handle->desc.threads * sizeof(char*));
+        memset( handle->kernel_bwd_variant_ptrs, 0, handle->desc.threads * sizeof(char*));
         handle->n_bwd_code_segments = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->n_bwd_code_segments, 0, handle->desc.threads * sizeof(int) );
         handle->bwd_code_segments = (segment_t**) malloc(handle->desc.threads * sizeof(segment_t*));
+        memset( handle->bwd_code_segments, 0, handle->desc.threads * sizeof(segment_t*) );
         handle->ofh_bwd_start = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->ofh_bwd_start, 0, handle->desc.threads * sizeof(int) );
         handle->ofh_bwd_end = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->ofh_bwd_end, 0, handle->desc.threads * sizeof(int));
         handle->n_entries_trans_bwd = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->n_entries_trans_bwd, 0, handle->desc.threads * sizeof(int));
         handle->transpose_bwd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
-        /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
-        for (i = 0; i < handle->desc.threads; i++) {
-          handle->compute_bwd_indices_ptrs[i] = NULL;
-          handle->kernel_bwd_variant_ptrs[i] = NULL;
-          handle->bwd_code_segments[i] = NULL;
-          handle->transpose_bwd_indices_ptrs[i] = NULL;
-        }
+        memset( handle->transpose_bwd_indices_ptrs, 0, handle->desc.threads * sizeof(int*) );
 
         libxs_dnn_layer *mirror_handle = (libxs_dnn_layer*)  malloc(sizeof(libxs_dnn_layer));
+
         memcpy( mirror_handle, handle ,sizeof(libxs_dnn_layer));
         mirror_handle->blocksifm_blocking = handle->blocksofm_blocking;
         mirror_handle->fwd_ofh_rb = handle->bwd_ofh_rb;
@@ -1081,6 +1108,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         mirror_handle->ofh_fwd_end = handle->ofh_bwd_end;
         status = libxs_dnn_perform_fwd_dryrun_direct(mirror_handle);
 
+        /* compute kernel stream overhead */
+        ks_overhead += handle->desc.threads*5*sizeof(int);
+        ks_overhead += handle->desc.threads*2*sizeof(int*);
+        ks_overhead += handle->desc.threads*sizeof(char*);
+        ks_overhead += handle->desc.threads*sizeof(segment_t*);
+        for ( i = 0; i < handle->desc.threads; ++i ) {
+          ks_overhead += ((handle->n_entries_bwd[i]*3)+3)*sizeof(int);
+          ks_overhead += handle->n_entries_bwd[i]*sizeof(char);
+          ks_overhead += handle->n_bwd_code_segments[i]*sizeof(segment_t);
+          ks_overhead += (handle->n_entries_trans_bwd[i]+1)*sizeof(int);
+        }
+        printf("KS Overhead BWD in KB: %i \n", ks_overhead/1024);
+
         /* In case overwrite is requested, generate zero-ing kernel */
         if ( (handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0 )  {
           matzero_descriptor_overwrite.n = 1;
@@ -1097,14 +1137,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           matzero_descriptor_overwrite.flags = LIBXS_MATCOPY_FLAG_ZERO_SOURCE;
           handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor_overwrite);
         }
-
-        /*int *compute_indices =   mirror_handle->compute_fwd_indices_ptrs[0];      
-        int local_entries = 0;
-        int ind = handle->n_entries_bwd[0], run;
-        for (run = 0; run < ind; run++) {
-            printf("Offsets are %d %d %d\n",   compute_indices[local_entries] ,  compute_indices[local_entries+1] ,   compute_indices[local_entries+2]  );
-            local_entries += 3;
-        } */   
       }
 
     } /* End of backward */
@@ -1112,7 +1144,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     { libxs_convolution_weight_update_descriptor descriptor;
       libxs_matcopy_descriptor matcopy_descriptor;
       libxs_matcopy_descriptor matzero_descriptor;
-       if (handle->padding_flag == 1) {
+      if (handle->padding_flag == 1) {
         descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
         descriptor.ifw_padded = handle->ifwp + 2 * handle->desc.pad_w;
         matzero_descriptor.n = 1;
@@ -1224,7 +1256,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             }
 
             while (  handle->ofh % descriptor.ofh_rb != 0 ) {
-                 descriptor.ofh_rb--;
+              descriptor.ofh_rb--;
             }
 
             descriptor.use_nts = 1;
@@ -1233,34 +1265,34 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             handle->upd_ofw_rb = descriptor.ofw_rb;
 
             if ( handle->ofh == 28) {
-               descriptor.use_nts = 0;
-               descriptor.blocks_h = 1;
-               handle->upd_ofh_rb = 2;
-               descriptor.ofh_rb = 2;
-               if ( handle->blocksofm == 32 && handle->blocksifm == 16 ) {
-                 handle->upd_ofh_rb = 7;
-                 descriptor.ofh_rb = 7;
-               }
-               if ( handle->blocksofm == 8 && handle->blocksifm == 16 ) {
-                 handle->upd_ofh_rb = 1;
-                 descriptor.ofh_rb = 1;
-               }
+              descriptor.use_nts = 0;
+              descriptor.blocks_h = 1;
+              handle->upd_ofh_rb = 2;
+              descriptor.ofh_rb = 2;
+              if ( handle->blocksofm == 32 && handle->blocksifm == 16 ) {
+                handle->upd_ofh_rb = 7;
+                descriptor.ofh_rb = 7;
+              }
+              if ( handle->blocksofm == 8 && handle->blocksifm == 16 ) {
+                handle->upd_ofh_rb = 1;
+                descriptor.ofh_rb = 1;
+              }
 
-               if ( handle->desc.R == 3 && handle->desc.S == 3 ) {
-                 handle->upd_ofh_rb = 7;
-                 descriptor.ofh_rb = 7;
-               }
+              if ( handle->desc.R == 3 && handle->desc.S == 3 ) {
+                handle->upd_ofh_rb = 7;
+                descriptor.ofh_rb = 7;
+              }
             }
-             
+
             if ( handle->ofh == 56 ) {
-               descriptor.use_nts = 0;
-               descriptor.ofh_rb = 1;
-               descriptor.blocks_h = 1;
-               handle->upd_ofh_rb = 1;
-               if ( handle->desc.R == 3 && handle->desc.S == 3 ) {
-                 handle->upd_ofh_rb = 2;
-                 descriptor.ofh_rb = 2;
-               }
+              descriptor.use_nts = 0;
+              descriptor.ofh_rb = 1;
+              descriptor.blocks_h = 1;
+              handle->upd_ofh_rb = 1;
+              if ( handle->desc.R == 3 && handle->desc.S == 3 ) {
+                handle->upd_ofh_rb = 2;
+                descriptor.ofh_rb = 2;
+              }
             }
 
             descriptor.transpose_ofw_ifm = 0;
@@ -1350,6 +1382,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           }
 
       if ( handle->use_thread_private_jit ) {
+        int ks_overhead = 0;
+
         handle->trans_ofw_ifm = 0;
         /* Determine if we will be using thread private filters  */
         if ((handle->ifmblock == 1) || (handle->blocksifm * handle->blocksofm < handle->desc.threads) ) {
@@ -1365,23 +1399,25 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             handle->trans_ofw_ifm = 1;
           }
         }
-        handle->n_entries_upd = (int*) malloc(handle->desc.threads * sizeof(int));
-        handle->compute_upd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
-        handle->kernel_upd_variant_ptrs = (char**) malloc(handle->desc.threads * sizeof(char*));
-        handle->n_upd_code_segments = (int*) malloc(handle->desc.threads * sizeof(int));
-        handle->upd_code_segments = (segment_t**) malloc(handle->desc.threads * sizeof(segment_t*));
-        handle->n_entries_init_upd = (int*) malloc(handle->desc.threads * sizeof(int));
-        handle->init_upd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
-        handle->n_entries_copy_upd = (int*) malloc(handle->desc.threads * sizeof(int));
-        handle->copy_upd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
 
-        for (i = 0; i < handle->desc.threads; i++) {
-          handle->compute_upd_indices_ptrs[i] = NULL;
-          handle->kernel_upd_variant_ptrs[i] = NULL;
-          handle->upd_code_segments[i] = NULL;
-          handle->init_upd_indices_ptrs[i] = NULL;
-          handle->copy_upd_indices_ptrs[i] = NULL;
-        }
+        handle->n_entries_upd = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->n_entries_upd, 0, handle->desc.threads * sizeof(int) );
+        handle->compute_upd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+        memset( handle->compute_upd_indices_ptrs, 0, handle->desc.threads * sizeof(int*) );
+        handle->kernel_upd_variant_ptrs = (char**) malloc(handle->desc.threads * sizeof(char*));
+        memset( handle->kernel_upd_variant_ptrs, 0, handle->desc.threads * sizeof(char*) );
+        handle->n_upd_code_segments = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->n_upd_code_segments, 0, handle->desc.threads * sizeof(int) );
+        handle->upd_code_segments = (segment_t**) malloc(handle->desc.threads * sizeof(segment_t*));
+        memset( handle->upd_code_segments, 0, handle->desc.threads * sizeof(segment_t*));
+        handle->n_entries_init_upd = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->n_entries_init_upd, 0, handle->desc.threads * sizeof(int) );
+        handle->init_upd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+        memset( handle->init_upd_indices_ptrs, 0, handle->desc.threads * sizeof(int*) );
+        handle->n_entries_copy_upd = (int*) malloc(handle->desc.threads * sizeof(int));
+        memset( handle->n_entries_copy_upd, 0, handle->desc.threads * sizeof(int) );
+        handle->copy_upd_indices_ptrs = (int**) malloc(handle->desc.threads * sizeof(int*));
+        memset( handle->copy_upd_indices_ptrs, 0, handle->desc.threads * sizeof(int*) );
 
         matzero_descriptor.n = 1;
         matzero_descriptor.m = handle->blocksofm*handle->blocksifm*handle->desc.R*handle->desc.S*handle->ifmblock*handle->ofmblock;
@@ -1395,6 +1431,21 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
         /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
         status = libxs_dnn_perform_upd_dryrun_direct(handle);
+
+        /* compute kernel stream overhead */
+        ks_overhead += handle->desc.threads*4*sizeof(int);
+        ks_overhead += handle->desc.threads*3*sizeof(int*);
+        ks_overhead += handle->desc.threads*sizeof(char*);
+        ks_overhead += handle->desc.threads*sizeof(segment_t*);
+        for ( i = 0; i < handle->desc.threads; ++i ) {
+          ks_overhead += ((handle->n_entries_upd[i]*3)+3)*sizeof(int);
+          ks_overhead += handle->n_entries_upd[i]*sizeof(char);
+          ks_overhead += handle->n_upd_code_segments[i]*sizeof(segment_t);
+          ks_overhead += (handle->n_entries_copy_upd[i]+1)*sizeof(int);
+          ks_overhead += (handle->n_entries_init_upd[i]+1)*sizeof(int);
+        }
+        printf("KS Overhead UPD in KB: %i \n", ks_overhead/1024 ); 
+
       }
     } /* end of weight-update handle */
     {
