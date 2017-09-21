@@ -201,6 +201,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int blocksofm_blocking;
   int use_nts_fwd;
   int use_nts_bwd;
+  int use_fwd_for_bwd;
 
   /* internal data representation */
   libxs_dnn_buffer* reg_input;
