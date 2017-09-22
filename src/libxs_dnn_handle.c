@@ -1222,6 +1222,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.datatype_itm = handle->datatype_itm;
         descriptor.option = handle->desc.options;
         descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
+        descriptor.ncopies = handle->desc.threads;
 
         /* TODO check JIT errors */
         if ( /*(*/libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
@@ -1328,7 +1329,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   handle->upd_ofh_rb = 1;
                   descriptor.ofh_rb = 1;
                 }
-
                 if ( handle->desc.R == 3 && handle->desc.S == 3 ) {
                   handle->upd_ofh_rb = 7;
                   descriptor.ofh_rb = 7;
@@ -1523,6 +1523,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           handle->scratch4 = 0;
           handle->scratch4_size = handle->desc.threads * handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
             * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype);
+          handle->scratch4_size += handle->desc.threads * handle->block_upd_ofm * handle->block_upd_ifm * handle->desc.R
+            * handle->desc.S * handle->ifmblock * handle->ofmblock * libxs_dnn_typesize(handle->datatype);
 
           /* enable external reduce of filter scratch */
           if ( (handle->options & LIBXS_DNN_CONV_OPTION_WU_EXT_FILTER_REDUCE) > 0 ) {
@@ -1591,7 +1593,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
       return status;
     }
-
 
     /* This function finds the prime factors of a number */
     LIBXS_API_INLINE void internal_dnn_handle_factors(
