@@ -570,7 +570,7 @@ int main(int argc, char* argv[])
   naive_input_nhwc      = (float*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(float), 2097152);
   filter_rsck           = (float*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(float), 2097152);
   input_libxs         = (float*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(float), 2097152);
-  filter_libxs        = (float*)libxs_aligned_malloc( 72 * nOfm*nIfm*kh*kw*    sizeof(float), 2097152);
+  filter_libxs        = (float*)libxs_aligned_malloc( Ofm*nIfm*kh*kw*    sizeof(float), 2097152);
   output_libxs        = (float*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(float), 2097152);
   dinput_libxs        = (float*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(float), 2097152);
   dfilter_libxs       = (float*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(float), 2097152);
@@ -724,13 +724,6 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_bind_filter( libxs_handle, libxs_dfilter, LIBXS_DNN_GRADIENT_FILTER ) );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_bias  ( libxs_handle, libxs_bias,    LIBXS_DNN_REGULAR_BIAS ) );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_bias  ( libxs_handle, libxs_dbias,   LIBXS_DNN_GRADIENT_BIAS ) );
-
-
-    int cpyloop;
-    for (cpyloop = 1; cpyloop < 72; cpyloop++) {
-       memcpy(filter_libxs + cpyloop*(nOfm*nIfm*kh*kw), filter_libxs, nOfm*nIfm*kh*kw*sizeof(float));
-    }
-
 
     /* let's allocate and bind scratch */
     scratch = (void*)libxs_aligned_malloc( libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
