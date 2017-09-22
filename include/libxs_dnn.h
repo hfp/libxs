@@ -45,9 +45,7 @@
 
 /** Opaque handles which represents convolutions and LIBXS datatypes */
 typedef struct LIBXS_RETARGETABLE libxs_dnn_layer libxs_dnn_layer;
-typedef struct LIBXS_RETARGETABLE libxs_dnn_buffer libxs_dnn_buffer;
-typedef struct LIBXS_RETARGETABLE libxs_dnn_bias libxs_dnn_bias;
-typedef struct LIBXS_RETARGETABLE libxs_dnn_filter libxs_dnn_filter;
+typedef struct LIBXS_RETARGETABLE libxs_dnn_tensor libxs_dnn_tensor;
 typedef unsigned int libxs_dnn_err_t;
 
 /** Define error and warning codes */
@@ -59,34 +57,27 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_INVALID_BLOCKING           100003
 #define LIBXS_DNN_ERR_INVALID_HANDLE             100004
 #define LIBXS_DNN_ERR_DATA_NOT_BOUND             100005
-#define LIBXS_DNN_ERR_CREATE_BUFFER              100006
-#define LIBXS_DNN_ERR_INVALID_BUFFER             100007
-#define LIBXS_DNN_ERR_CREATE_FILTER              100008
-#define LIBXS_DNN_ERR_INVALID_FILTER             100009
-#define LIBXS_DNN_ERR_CREATE_BIAS                100010
-#define LIBXS_DNN_ERR_INVALID_BIAS               100011
-#define LIBXS_DNN_ERR_MISMATCH_BUFFER            100012
-#define LIBXS_DNN_ERR_INVALID_HANDLE_BUFFER      100013
-#define LIBXS_DNN_ERR_MISMATCH_FILTER            100014
-#define LIBXS_DNN_ERR_INVALID_HANDLE_FILTER      100015
-#define LIBXS_DNN_ERR_INVALID_KIND               100016
-#define LIBXS_DNN_ERR_INVALID_FORMAT_NCHW        100017
-#define LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT     100018
-#define LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT     100019
-#define LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE    100020
-#define LIBXS_DNN_ERR_INVALID_FORMAT_KCRS        100021
-#define LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL     100022
-#define LIBXS_DNN_ERR_CREATE_LAYOUT              100023
-#define LIBXS_DNN_ERR_INVALID_LAYOUT             100024
-#define LIBXS_DNN_ERR_UNSUPPORTED_ARCH           100025
-#define LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED        100026
-#define LIBXS_DNN_ERR_UNKNOWN_BUFFER_TYPE        100027
-#define LIBXS_DNN_ERR_UNKNOWN_FILTER_TYPE        100028
-#define LIBXS_DNN_ERR_INVALID_ALGO               100029
-#define LIBXS_DNN_ERR_INVALID_PADDING            100030
-#define LIBXS_DNN_ERR_UNKNOWN_BIAS_TYPE          100031
-#define LIBXS_DNN_ERR_MISMATCH_BIAS              100032
-#define LIBXS_DNN_ERR_INVALID_HANDLE_BIAS        100033
+#define LIBXS_DNN_ERR_CREATE_TENSOR              100006
+#define LIBXS_DNN_ERR_INVALID_TENSOR             100007
+#define LIBXS_DNN_ERR_MISMATCH_TENSOR            100008
+#define LIBXS_DNN_ERR_INVALID_HANDLE_TENSOR      100009
+#define LIBXS_DNN_ERR_INVALID_KIND               100010
+#define LIBXS_DNN_ERR_INVALID_FORMAT_NCHW        100011
+#define LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT     100012
+#define LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT     100013
+#define LIBXS_DNN_ERR_INVALID_FORMAT_CONVOLVE    100014
+#define LIBXS_DNN_ERR_INVALID_FORMAT_KCRS        100015
+#define LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL     100016
+#define LIBXS_DNN_ERR_CREATE_LAYOUT              100017
+#define LIBXS_DNN_ERR_INVALID_LAYOUT             100018
+#define LIBXS_DNN_ERR_UNSUPPORTED_ARCH           100019
+#define LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED        100020
+#define LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE        100021
+#define LIBXS_DNN_ERR_INVALID_ALGO               100022
+#define LIBXS_DNN_ERR_INVALID_PADDING            100023
+#define LIBXS_DNN_ERR_UNKNOWN_BIAS_TYPE          100024
+#define LIBXS_DNN_ERR_MISMATCH_BIAS              100025
+#define LIBXS_DNN_ERR_INVALID_HANDLE_BIAS        100026
 
 /** Kinds of supported compute flavor operations. */
 typedef enum libxs_dnn_compute_kind {
@@ -119,7 +110,7 @@ typedef enum libxs_dnn_tensor_dimtype {
 } libxs_dnn_tensor_dimtype;
 
 /** types of different buffers */
-typedef enum libxs_dnn_buffer_type {
+typedef enum libxs_dnn_tensor_type {
   /** regular input buffer */
   LIBXS_DNN_REGULAR_INPUT,
   /** gradient input buffer */
@@ -131,35 +122,35 @@ typedef enum libxs_dnn_buffer_type {
   /** general input type */
   LIBXS_DNN_INPUT,
   /** general output type */
-  LIBXS_DNN_OUTPUT
-} libxs_dnn_buffer_type;
-
-/** types of different filters */
-typedef enum libxs_dnn_filter_type {
+  LIBXS_DNN_OUTPUT,
+  /** general activation type */
+  LIBXS_DNN_ACTIVATION,
   /* regular filter */
   LIBXS_DNN_REGULAR_FILTER,
   /* gradient filter */
   LIBXS_DNN_GRADIENT_FILTER,
   /** general filter type */
-  LIBXS_DNN_FILTER
-} libxs_dnn_filter_type;
-
-/** types of different biases */
-typedef enum libxs_dnn_bias_type {
+  LIBXS_DNN_FILTER,
   /* regular bias */
   LIBXS_DNN_REGULAR_BIAS,
   /* gradient bias */
   LIBXS_DNN_GRADIENT_BIAS,
   /** general bias type */
-  LIBXS_DNN_BIAS
-} libxs_dnn_bias_type;
+  LIBXS_DNN_BIAS,
+  /** general type, if needed might cause API issues in copy in/out API */
+  LIBXS_DNN_TENSOR
+} libxs_dnn_tensor_type;
 
-/** layout descriptor to allow external data allocation
+/** layout descriptor to allow external data handling
     outside of LIBXS */
 typedef struct LIBXS_RETARGETABLE libxs_dnn_tensor_datalayout {
   libxs_dnn_tensor_dimtype* dim_type;
   unsigned int* dim_size;
   unsigned int num_dims;
+  libxs_dnn_tensor_format format;                /* format of activation buffer */
+  libxs_dnn_internal_format custom_format;       /* internal classifier of format, an internal subgroup */
+  libxs_dnn_datatype datatype;                   /* data type */
+  libxs_dnn_tensor_type tensor_type;             /* tensor type */
 } libxs_dnn_tensor_datalayout;
 
 typedef enum libxs_dnn_conv_fuse_op {
@@ -224,49 +215,27 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(libxs_dnn_conv_desc conv_
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* handle);
 
 /** get layout description of buffers and fiters from handle */
-LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_get_buffer_datalayout(const libxs_dnn_layer* handle, const libxs_dnn_buffer_type type, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_get_filter_datalayout(const libxs_dnn_layer* handle, const libxs_dnn_filter_type type, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_datalayout(libxs_dnn_tensor_datalayout* layout);
+LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const libxs_dnn_layer* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_duplicate_tensor_datalayout(const libxs_dnn_tensor_datalayout* layout, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_tensor_datalayout(libxs_dnn_tensor_datalayout* layout);
+LIBXS_API unsigned int libxs_dnn_compare_tensor_datalayout(const libxs_dnn_tensor_datalayout* layout_a, const libxs_dnn_tensor_datalayout* layout_b, libxs_dnn_err_t* status);
+LIBXS_API unsigned int libxs_dnn_get_tensor_size(const libxs_dnn_tensor_datalayout* layout, libxs_dnn_err_t* status);
+LIBXS_API unsigned int libxs_dnn_get_tensor_elements(const libxs_dnn_tensor_datalayout* layout, libxs_dnn_err_t* status);
 
 /** Create and manage buffers, filters and bias (non-NULL if successful) */
-LIBXS_API libxs_dnn_buffer* libxs_dnn_link_buffer(const libxs_dnn_layer* handle, const libxs_dnn_buffer_type type, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_filter* libxs_dnn_link_filter(const libxs_dnn_layer* handle, const libxs_dnn_filter_type type, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_bias* libxs_dnn_link_bias(const libxs_dnn_layer* handle, const libxs_dnn_bias_type type, const void* data, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_buffer* libxs_dnn_link_qbuffer(const libxs_dnn_layer* handle, const libxs_dnn_buffer_type type, const void* data, const char exp, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_filter* libxs_dnn_link_qfilter(const libxs_dnn_layer* handle, const libxs_dnn_filter_type type, const void* data, const char exp, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_bias* libxs_dnn_link_qbias(const libxs_dnn_layer* handle, const libxs_dnn_bias_type type, const void* data, const char exp, libxs_dnn_tensor_format in_format, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_tensor* libxs_dnn_link_tensor(const libxs_dnn_tensor_datalayout* layout, const void* data, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_tensor* libxs_dnn_link_qtensor(const libxs_dnn_tensor_datalayout* layout, const void* data, const char exp, libxs_dnn_err_t* status);
+LIBXS_API void* libxs_dnn_get_tensor_data_ptr(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status);
+LIBXS_API char libxs_dnn_get_qtensor_exp(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_set_qtensor_exp(libxs_dnn_tensor* tensor, const char exp);
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_tensor(const libxs_dnn_tensor* tensor);
+LIBXS_API libxs_dnn_err_t libxs_dnn_zero_tensor(const libxs_dnn_tensor* tensor);
 
-LIBXS_API void* libxs_dnn_get_buffer_data_ptr(const libxs_dnn_buffer* buffer, libxs_dnn_err_t* status);
-LIBXS_API void* libxs_dnn_get_filter_data_ptr(const libxs_dnn_filter* filter, libxs_dnn_err_t* status);
-LIBXS_API void* libxs_dnn_get_bias_data_ptr(const libxs_dnn_bias* bias, libxs_dnn_err_t* status);
-LIBXS_API char libxs_dnn_get_qbuffer_exp(const libxs_dnn_buffer* buffer, libxs_dnn_err_t* status);
-LIBXS_API char libxs_dnn_get_qfilter_exp(const libxs_dnn_filter* filter, libxs_dnn_err_t* status);
-LIBXS_API char libxs_dnn_get_qbias_exp(const libxs_dnn_bias* bias, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_err_t libxs_dnn_set_qbuffer_exp(libxs_dnn_buffer* buffer, const char exp);
-LIBXS_API libxs_dnn_err_t libxs_dnn_set_qfilter_exp(libxs_dnn_filter* filter, const char exp);
-LIBXS_API libxs_dnn_err_t libxs_dnn_set_qbias_exp(libxs_dnn_bias* bias, const char exp);
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_buffer(const libxs_dnn_buffer* buffer);
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_filter(const libxs_dnn_filter* filter);
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_bias(const libxs_dnn_bias* bias);
 /**
- * Copy-in from a plain format such as input := [N][C][H][W] or [N][H][W][C]
- * The index specifies the actual channel number, and an eventual
- * padding is defined by the handle (pitch/stride).
+ * Copy-in/out from a plain format such [N][C][H][W] or [N][H][W][C]
  */
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_buffer(const libxs_dnn_buffer* buffer, const void* data, libxs_dnn_tensor_format in_format);
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_filter(const libxs_dnn_filter* filter, const void* data, libxs_dnn_tensor_format in_format);
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_bias(const libxs_dnn_bias* bias, const void* data, libxs_dnn_tensor_format in_format);
-LIBXS_API libxs_dnn_err_t libxs_dnn_zero_buffer(const libxs_dnn_buffer* buffer);
-LIBXS_API libxs_dnn_err_t libxs_dnn_zero_filter(const libxs_dnn_filter* filter);
-LIBXS_API libxs_dnn_err_t libxs_dnn_zero_bias(const libxs_dnn_bias* bias);
-/**
- * Copy-out into a plain format such as output := [N][C][H][W] or [N][H][W][C]
- * The index specifies the actual channel number, and an eventual
- * padding is defined by the handle (pitch/stride).
- */
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_buffer(const libxs_dnn_buffer* buffer, void* data, libxs_dnn_tensor_format out_format);
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_filter(const libxs_dnn_filter* filter, void* data, libxs_dnn_tensor_format out_format);
-LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_bias(const libxs_dnn_bias* bias, void* data, libxs_dnn_tensor_format out_format);
+LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_tensor* tensor, const void* data, const libxs_dnn_tensor_format in_format);
+LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_tensor* tensor, void* data, const libxs_dnn_tensor_format out_format);
 
 /** scratch pad management */
 LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status);
@@ -274,15 +243,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
 LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, const libxs_dnn_compute_kind kind);
 
 /** Bind/Release buffers, filters and bias to layer operation */
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer* buffer, const libxs_dnn_buffer_type type);
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_layer* handle, const libxs_dnn_filter* filter, const libxs_dnn_filter_type type);
-LIBXS_API libxs_dnn_err_t libxs_dnn_bind_bias(libxs_dnn_layer* handle, const libxs_dnn_bias* bias, const libxs_dnn_bias_type type);
-LIBXS_API libxs_dnn_buffer* libxs_dnn_get_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer_type type, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_filter* libxs_dnn_get_filter(libxs_dnn_layer* handle, const libxs_dnn_filter_type type, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_bias* libxs_dnn_get_bias(libxs_dnn_layer* handle, const libxs_dnn_bias_type type, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_buffer(libxs_dnn_layer* handle, const libxs_dnn_buffer_type type);
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_filter(libxs_dnn_layer* handle, const libxs_dnn_filter_type type);
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_bias(libxs_dnn_layer* handle, const libxs_dnn_bias_type type);
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_tensor(libxs_dnn_layer* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type);
+LIBXS_API libxs_dnn_tensor* libxs_dnn_get_tensor(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_tensor(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type);
 
 /** Run the layer identified by the handle; may use threads internally. */
 LIBXS_API void libxs_dnn_execute(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind);
@@ -290,8 +253,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_execute_st(libxs_dnn_layer* handle, libxs_dn
   /*unsigned*/int start_thread, /*unsigned*/int tid);
 
 /** some helper functions for framework integration */
-LIBXS_API libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer* handle, const libxs_dnn_filter_type type);
-LIBXS_API libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_layer* handle, const libxs_dnn_filter_type type);
+LIBXS_API libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type);
+LIBXS_API libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type);
 LIBXS_API libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind);
 LIBXS_API libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind, unsigned int* num_tasks);
 

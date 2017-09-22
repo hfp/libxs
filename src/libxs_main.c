@@ -1616,6 +1616,12 @@ LIBXS_API_DEFINITION int libxs_gemm_descriptor_init(libxs_gemm_descriptor* descr
     free(result);
     result = 0;
   }
+  if (1 < libxs_verbosity || 0 > libxs_verbosity) { /* library code is expected to be mute */
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS WARNING: create_dgemm_descriptor is deprecated, use libxs_gemm_descriptor_init instead!\n");
+    }
+  }
   return result;
 }
 
@@ -1623,6 +1629,12 @@ LIBXS_API_DEFINITION int libxs_gemm_descriptor_init(libxs_gemm_descriptor* descr
 /*DEPRECATED*/LIBXS_API_DEFINITION void libxs_release_gemm_descriptor(const libxs_gemm_descriptor* descriptor)
 {
   free((void*)descriptor);
+  if (1 < libxs_verbosity || 0 > libxs_verbosity) { /* library code is expected to be mute */
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS WARNING: release_gemm_descriptor is deprecated, libxs_gemm_descriptor_init makes it superfluous!\n");
+    }
+  }
 }
 
 

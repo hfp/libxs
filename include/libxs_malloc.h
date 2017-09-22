@@ -114,7 +114,7 @@ LIBXS_API void* libxs_scratch_malloc(size_t size,
 /**
  * Binary form of libxs_scratch_malloc, which
  * expands the call-context automatically. This
- * macro is intentionlly lower case.
+ * macro is intentionally lower case.
  */
 #define libxs_aligned_scratch(size, alignment) \
   libxs_scratch_malloc(size, alignment, LIBXS_CALLER)
@@ -163,6 +163,12 @@ LIBXS_API size_t libxs_get_scratch_limit(void);
 
 /** Calculate a hash value for a given buffer. */
 LIBXS_API unsigned int libxs_hash(const void* data, size_t size, unsigned int seed);
+
+/**
+ * Calculate the linear offset of the n-dimensional (ndims) offset (can be NULL),
+ * and the (optional) linear size of the corresponding shape.
+ */
+LIBXS_API size_t libxs_offset(const size_t offset[], const size_t shape[], size_t ndims, size_t* size);
 
 
 #if defined(__cplusplus)
