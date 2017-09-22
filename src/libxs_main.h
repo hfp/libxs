@@ -110,47 +110,11 @@ typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
   const void* values;
 } libxs_csr_reg_descriptor;
 
-/** Structure which describes an activation layer. */
-struct LIBXS_RETARGETABLE libxs_dnn_buffer {
-  int N;                            /* number of images in mini-batch */
-  int fmb;                          /* number of feature map blocks */
-  int bfm;                          /* sized of blocked feature maps, in a block */
-  int H;                            /* height of image */
-  int W;                            /* width of image */
-  int lpb;                          /* low precision blocking factor */
-  int bimg;                         /* size of blocked images */
-  libxs_dnn_tensor_format format; /* format of activation buffer */
-  libxs_dnn_internal_format custom_format_type;
-  libxs_dnn_datatype datatype;    /* data type */
-  void* data;                       /* pointer to data */
-  char exp;                         /* fix point exponent for this tensor */
-};
-
-/** Structure which describes a bias. */
-struct LIBXS_RETARGETABLE libxs_dnn_bias {
-  int fmb;                          /* number of feature map blocks */
-  int bfm;                          /* sized of blocked feature maps, in a block */
-  int lpb;                          /* low precision blocking factor */
-  libxs_dnn_tensor_format format; /* format of activation buffer */
-  libxs_dnn_datatype datatype;    /* data type */
-  void* data;                       /* pointer to data */
-  char exp;                         /* fix point exponent for this tensor */
-};
-
-/** Structure which describes a filter */
-struct LIBXS_RETARGETABLE libxs_dnn_filter {
-  int ifmb;                         /* number of feature map blocks */
-  int bifm;                         /* sized of blocked feature maps, in a block */
-  int ofmb;                         /* number of feature map blocks */
-  int bofm;                         /* sized of blocked feature maps, in a block */
-  int R;                            /* height of filter kernel */
-  int S;                            /* width of filter kernel */
-  int lpb;                          /* low precision blocking factor */
-  libxs_dnn_tensor_format format; /* format of filter buffer */
-  libxs_dnn_internal_format custom_format_type;
-  libxs_dnn_datatype datatype;    /* data type */
-  void* data;                       /* pointer to data */
-  char exp;                         /* fix point exponent for this tensor */
+/** Structure which describes all tensors in LIBXS's DNN module */
+struct LIBXS_RETARGETABLE libxs_dnn_tensor {
+  libxs_dnn_tensor_datalayout* layout;           /* datalayout descriptor */
+  void* data;                                      /* pointer to data */
+  char exp;                                        /* fix point exponent for this tensor */
 };
 
 /* Structure to record segment in stream of code  */
@@ -173,7 +137,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_convolution_winograd_descriptor cwino_bwd;
   libxs_convolution_winograd_descriptor cwino_upd;
   libxs_dnn_internal_format custom_format_type;    /* Specifies internal LIBXS format to be used */
-  /* additional size for iternal data types */
+  /* additional size for internal data types */
   int ifhp;
   int ifwp;
   int ofh;
@@ -205,14 +169,14 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int exploit_duality;
 
   /* internal data representation */
-  libxs_dnn_buffer* reg_input;
-  libxs_dnn_buffer* reg_output;
-  libxs_dnn_filter* reg_filter;
-  libxs_dnn_buffer* grad_input;
-  libxs_dnn_buffer* grad_output;
-  libxs_dnn_filter* grad_filter;
-  libxs_dnn_bias* reg_bias;
-  libxs_dnn_bias* grad_bias;
+  libxs_dnn_tensor* reg_input;
+  libxs_dnn_tensor* reg_output;
+  libxs_dnn_tensor* reg_filter;
+  libxs_dnn_tensor* grad_input;
+  libxs_dnn_tensor* grad_output;
+  libxs_dnn_tensor* grad_filter;
+  libxs_dnn_tensor* reg_bias;
+  libxs_dnn_tensor* grad_bias;
 
   /* barrier */
   libxs_barrier* barrier;

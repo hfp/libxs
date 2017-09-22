@@ -163,19 +163,36 @@
 # define LIBXS_MESSAGE(MSG)
 #endif
 
-#if defined(__INTEL_COMPILER)
+#if !defined(LIBXS_OPENMP_SIMD) && (defined(_OPENMP) && (201307 <= _OPENMP)) /*OpenMP 4.0*/
+# if defined(__INTEL_COMPILER)
+#   if (1500 <= __INTEL_COMPILER)
+#     define LIBXS_OPENMP_SIMD
+#   endif
+# elif defined(__GNUC__)
+#   if LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#     define LIBXS_OPENMP_SIMD
+#   endif
+# else
+#   define LIBXS_OPENMP_SIMD
+# endif
+#endif
+
+#if defined(LIBXS_OPENMP_SIMD)
+# define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(omp simd reduction(EXPRESSION))
+# define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(omp simd collapse(N))
+# define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(omp simd private(__VA_ARGS__))
+# define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(omp simd)
+# if defined(__INTEL_COMPILER)
+#   define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(novector)
+# else
+#   define LIBXS_PRAGMA_NOVECTOR
+# endif
+#elif defined(__INTEL_COMPILER)
 # define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(simd reduction(EXPRESSION))
 # define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(simd collapse(N))
 # define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(simd private(__VA_ARGS__))
 # define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(simd)
 # define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(novector)
-#elif (defined(_OPENMP) && (201307 <= _OPENMP)) /*OpenMP 4.0*/ || (defined(LIBXS_OPENMP_SIMD) \
-  && LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-# define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(omp simd reduction(EXPRESSION))
-# define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(omp simd collapse(N))
-# define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(omp simd private(__VA_ARGS__))
-# define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(omp simd)
-# define LIBXS_PRAGMA_NOVECTOR
 #else
 # define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION)
 # define LIBXS_PRAGMA_SIMD_COLLAPSE(N)
@@ -479,7 +496,7 @@
 #endif
 
 /* Implementation is taken from an anonymous GiHub Gist. */
-LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_icbrt(unsigned long long n) {
+LIBXS_API_INLINE unsigned int libxs_icbrt(unsigned long long n) {
   unsigned long long b; unsigned int y = 0; int s;
   for (s = 63; s >= 0; s -= 3) {
     y += y; b = 3 * y * ((unsigned long long)y + 1) + 1;
@@ -489,6 +506,6 @@ LIBXS_INLINE LIBXS_RETARGETABLE unsigned int libxs_icbrt(unsigned long long n) {
 }
 
 /** Similar to LIBXS_UNUSED, this helper "sinks" multiple arguments. */
-LIBXS_INLINE LIBXS_RETARGETABLE int libxs_sink(int rvalue, ...) { return rvalue; }
+LIBXS_API_INLINE int libxs_sink(int rvalue, ...) { return rvalue; }
 
 #endif /*LIBXS_MACROS_H*/

@@ -1,5 +1,20 @@
-site_name: LIBXS
 docs_dir: documentation
+theme: readthedocs
+theme_dir: .theme
+markdown_extensions:
+- toc:
+    permalink: True
+extra_javascript:
+- search.js
+extra_css:
+- style.css
+
+site_name: LIBXS
+site_author: Hans Pabst
+copyright: Copyright (c) 2009-2017, LIBXS <a href="http://libxs.readthedocs.io/LICENSE/">Contributors</a>.
+site_description: Library targeting Intel Architecture for small, dense or sparse matrix multiplications, and small convolutions.
+repo_url: https://github.com/hfp/libxs.git
+
 pages:
 - index.md
 - Domains:

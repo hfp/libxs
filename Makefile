@@ -1347,13 +1347,11 @@ $(ROOTDIR)/documentation/libxs_prof.md $(ROOTDIR)/documentation/libxs_tune.md $(
 		libxs_prof.md libxs_tune.md libxs_be.md \
 	| sed \
 		-e 's/## Matrix Multiplication$$/# LIBXS Domains\n## Matrix Multiplication/' \
-		-e 's/\[\[..*\](..*)\]//g' \
-		-e 's/\[!\[..*\](..*)\](..*)//g' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
 		-e 's/----*//g' \
 	| pandoc \
-		--latex-engine=xelatex --template=$(TMPFILE) --listings \
+		--latex-engine=xelatex --template=$(notdir $(TMPFILE)) --listings \
 		-f markdown_github+all_symbols_escapable+subscript+superscript \
 		-V documentclass=scrartcl \
 		-V title-meta="LIBXS Documentation" \
@@ -1375,8 +1373,6 @@ $(DOCDIR)/libxs_samples.pdf: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(SPLDIR)/*/REA
 		> $(TMPFILE)
 	@iconv -t utf-8 $(SPLDIR)/*/README.md \
 	| sed \
-		-e 's/\[\[..*\](..*)\]//g' \
-		-e 's/\[!\[..*\](..*)\](..*)//g' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
 		-e 's/----*//g' \
@@ -1402,13 +1398,11 @@ $(DOCDIR)/cp2k.pdf: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/documentation
 		> $(TMPFILE)
 	@cd $(ROOTDIR)/documentation && iconv -t utf-8 cp2k.md \
 	| sed \
-		-e 's/\[\[..*\](..*)\]//g' \
-		-e 's/\[!\[..*\](..*)\](..*)//g' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
 		-e 's/----*//g' \
 	| pandoc \
-		--latex-engine=xelatex --template=$(TMPFILE) --listings \
+		--latex-engine=xelatex --template=$(notdir $(TMPFILE)) --listings \
 		-f markdown_github+all_symbols_escapable+subscript+superscript \
 		-V documentclass=scrartcl \
 		-V title-meta="CP2K with LIBXS" \
@@ -1430,13 +1424,11 @@ $(DOCDIR)/tensorflow.pdf: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/documen
 		> $(TMPFILE)
 	@cd $(ROOTDIR)/documentation && iconv -t utf-8 tensorflow.md \
 	| sed \
-		-e 's/\[\[..*\](..*)\]//g' \
-		-e 's/\[!\[..*\](..*)\](..*)//g' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
 		-e 's/----*//g' \
 	| pandoc \
-		--latex-engine=xelatex --template=$(TMPFILE) --listings \
+		--latex-engine=xelatex --template=$(notdir $(TMPFILE)) --listings \
 		-f markdown_github+all_symbols_escapable+subscript+superscript \
 		-V documentclass=scrartcl \
 		-V title-meta="TensorFlow with LIBXS" \

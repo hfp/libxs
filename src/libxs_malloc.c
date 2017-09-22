@@ -219,6 +219,23 @@ LIBXS_API_DEFINITION size_t libxs_alignment(size_t size, size_t alignment)
 }
 
 
+LIBXS_API_DEFINITION size_t libxs_offset(const size_t offset[], const size_t shape[], size_t ndims, size_t* size)
+{
+  size_t result = 0, size1 = 0;
+  if (0 != ndims && 0 != shape) {
+    size_t i;
+    result = (0 != offset ? offset[0] : 0);
+    size1 = shape[0];
+    for (i = 1; i < ndims; ++i) {
+      result += (0 != offset ? offset[i] : 0) * size1;
+      size1 *= shape[i];
+    }
+  }
+  if (0 != size) *size = size1;
+  return result;
+}
+
+
 LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
