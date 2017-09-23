@@ -1278,15 +1278,33 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               int kernel_ofw_compute;
               int kernel_ofw_fake_pixels;
               int kernel_ofw;
+              if (handle->desc.R == 1 && handle->desc.S == 1 && (handle->desc.u != 1 || handle->desc.v != 1)) {
+                handle->resize_input = 1;
+                handle->ifwp_resized = handle->ifwp/handle->desc.u;
+                handle->ifhp_resized = handle->ifhp/handle->desc.v;
+              } else {
+                handle->resize_input = 0;
+              }
 
-              ifw_padded = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
+              if (handle->desc.R != 1 && handle->desc.S != 1 && (handle->desc.u != 1 || handle->desc.v != 1)) {
+                descriptor.use_fastpath = 0;
+              } else {
+                descriptor.use_fastpath = 1;
+              }
+
+              if (handle->resize_input == 1 ) {
+                ifw_padded = handle->ifwp_resized;
+              } else {
+                ifw_padded = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
+              }
+
               qfma_padding = (ifw_padded % 4 == 0) ? 0 : 4 - ifw_padded % 4;
               kernel_ifw_padded = ifw_padded + qfma_padding;
               handle->qfma_input_pad = qfma_padding;
               descriptor.ifw_padded = kernel_ifw_padded;
+
               descriptor.ofw_padded = handle->ofwp;
               descriptor.ofh_padded = handle->ofhp;
-
               if (handle->desc.R == 1 && handle->desc.S == 1) {
                 kernel_ofw_compute = handle->ofwp;
               } else {
@@ -1298,7 +1316,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               }
               kernel_ofw_fake_pixels = (kernel_ofw_compute % 4 == 0) ? 0 : 4 - kernel_ofw_compute % 4;
               kernel_ofw = kernel_ofw_compute + kernel_ofw_fake_pixels;
-              /*printf("Compute pixels are: %d , fake pixels are %d, ofw is %d and ofw_padded is %d, ofw_rb is %d\n",kernel_ofw_compute, kernel_ofw_fake_pixels, handle->ofw, descriptor.ofw_padded, kernel_ofw ); */
               descriptor.ofw_fake_pixels = kernel_ofw_fake_pixels;
               descriptor.ofw_rb = kernel_ofw;  
               descriptor.ofh_rb = handle->ofh;
@@ -1441,14 +1458,17 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           if ((handle->ifmblock == 1) || (handle->blocksifm * handle->blocksofm < handle->desc.threads) ) {
             handle->use_thread_private_filter = 1;
             /* determine if we will transpose input  */
-            if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->desc.v == 1) && (handle->upd_ofw_rb%4 == 0) ) {
+            if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM)  && (handle->upd_ofw_rb%4 == 0) ) {
               handle->trans_ofw_ifm = 1;
             }
           } else {
             handle->use_thread_private_filter = 0;
             /* determine if we will transpose input  */
-            if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->desc.v == 1) && (handle->upd_ofw_rb%4 == 0) ) {
+            if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM) &&  (handle->upd_ofw_rb%4 == 0) ) {
               handle->trans_ofw_ifm = 1;
+              if ( handle->desc.R !=1 && handle->desc.S != 1 && ( handle->desc.u !=1 || handle->desc.v != 1 )  ) {
+                handle->trans_ofw_ifm = 0;
+              }
             }
           }
 
