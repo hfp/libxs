@@ -101,7 +101,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct_custom_custom( lib
     status = LIBXS_DNN_WARN_FALLBACK;
   } else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
-# include "template/libxs_dnn_convolve_dryrun_upd_custom_custom_opt.tpl.c"
+      if (handle->use_fastpath) {
+#include "template/libxs_dnn_convolve_dryrun_upd_custom_custom_opt.tpl.c"
+      } else {
+#include "template/libxs_dnn_convolve_dryrun_upd_custom_custom_fma_opt.tpl.c"
+      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;

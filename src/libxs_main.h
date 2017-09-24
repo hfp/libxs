@@ -171,6 +171,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int resize_input;
   int ifhp_resized;
   int ifwp_resized;
+  int use_fastpath;
 
   /* internal data representation */
   libxs_dnn_tensor* reg_input;
