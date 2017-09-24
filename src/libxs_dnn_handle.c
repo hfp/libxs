@@ -1223,6 +1223,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.option = handle->desc.options;
         descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
         descriptor.ncopies = handle->desc.threads;
+        descriptor.use_nts = 0;
 
         /* TODO check JIT errors */
         if ( /*(*/libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
@@ -1273,6 +1274,20 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 descriptor.ofw_unroll = 0;
               }
 
+              if (handle->desc.R != 1 && handle->desc.S != 1 && (handle->desc.u != 1 || handle->desc.v != 1)) {
+                descriptor.use_fastpath = 0;
+                handle->use_fastpath = 0;
+              } else {
+                descriptor.use_fastpath = 1;
+                handle->use_fastpath = 1;
+              }
+
+             handle->upd_ofh_rb = descriptor.ofh_rb;
+             handle->upd_ofw_rb = descriptor.ofw_rb;
+             descriptor.transpose_ofw_ifm = 0;
+
+             if (handle->use_fastpath == 1) {
+
               /* Here starts logic for calculating RB factors for UPD when KS are enabled  */
               int ifw_padded, qfma_padding, kernel_ifw_padded, kernel_ofw_padded;
               int kernel_ofw_compute;
@@ -1284,12 +1299,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 handle->ifhp_resized = handle->ifhp/handle->desc.v;
               } else {
                 handle->resize_input = 0;
-              }
-
-              if (handle->desc.R != 1 && handle->desc.S != 1 && (handle->desc.u != 1 || handle->desc.v != 1)) {
-                descriptor.use_fastpath = 0;
-              } else {
-                descriptor.use_fastpath = 1;
               }
 
               if (handle->resize_input == 1 ) {
@@ -1362,6 +1371,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   descriptor.ofh_rb = 2;
                 }
               }
+             }
 
               descriptor.transpose_ofw_ifm = 0;
 #if 0
