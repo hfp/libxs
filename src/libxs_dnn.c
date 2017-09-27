@@ -1589,8 +1589,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
                                                  offset = (64 - address % 64);
                                                  handle->scratch5 = (void*)(address+offset);
                                                }
-                                               /* Initialize scratch5 to zero */
-                                               memset(handle->scratch5, 0, scratch5_size);
                                                address += scratch5_size + 64;
                                              }
                                              if ( handle->datatype != handle->datatype_itm ) {
@@ -1619,8 +1617,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
                                                  offset = (64 - address % 64);
                                                  handle->scratch5 = (void*)(address+offset);
                                                }
-                                               /* Initialize scratch5 to zero */
-                                               memset(handle->scratch5, 0, scratch5_size);
                                              }
                                              if ( handle->datatype != handle->datatype_itm ) {
                                                if (address % 64 == 0) {
@@ -1641,8 +1637,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
                                                  offset = (64 - address % 64);
                                                  handle->scratch5 = (void*)(address+offset);
                                                }
-                                               /* Initialize scratch5 to zero */
-                                               memset(handle->scratch5, 0, scratch5_size);
                                                address += scratch5_size + 64;
                                              }
                                              if (address % 64 == 0) {
@@ -1660,8 +1654,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
                                                  offset = (64 - address % 64);
                                                  handle->scratch4 = (void*)(address+offset);
                                                }
-                                               /* Initialize scratch4 to zero */
-                                               memset(handle->scratch4, 0, handle->scratch4_size);
                                              }
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_ALL: {
@@ -1674,8 +1666,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
                                                  offset = (64 - address % 64);
                                                  handle->scratch5 = (void*)(address+offset);
                                                }
-                                               /* Initialize scratch5 to zero */
-                                               memset(handle->scratch5, 0, scratch5_size);
                                                address += scratch5_size + 64;
                                              }
                                              if (address % 64 == 0) {
@@ -1701,8 +1691,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
                                                  offset = (64 - address % 64);
                                                  handle->scratch4 = (void*)(address+offset);
                                                }
-                                               /* Initialize scratch4 to zero */
-                                               memset(handle->scratch4, 0, handle->scratch4_size);
                                                address += handle->scratch4_size + 64;
                                              }
                                              /* low precision intermediate buffer */
