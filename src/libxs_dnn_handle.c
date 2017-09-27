@@ -551,6 +551,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       libxs_matcopy_descriptor matcopy_descriptor;
       libxs_matcopy_descriptor matzero_descriptor;
 
+      descriptor.input_L2_prefetching = 0;
       if (handle->desc.R != 1 || handle->desc.S != 1) {
         descriptor.extra_L2_prefetching = 0;
       } else {
@@ -764,6 +765,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       libxs_convolution_forward_descriptor fwd_equivalent_descriptor;
       libxs_matcopy_descriptor matzero_descriptor_overwrite;
     
+      fwd_equivalent_descriptor.input_L2_prefetching = 0;
       if (handle->desc.R != 1 || handle->desc.S != 1) {
         fwd_equivalent_descriptor.extra_L2_prefetching = 0;
       } else {
