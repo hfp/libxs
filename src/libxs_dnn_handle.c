@@ -550,6 +550,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     { libxs_convolution_forward_descriptor descriptor;
       libxs_matcopy_descriptor matcopy_descriptor;
       libxs_matcopy_descriptor matzero_descriptor;
+
+      if (handle->desc.R != 1 || handle->desc.S != 1) {
+        descriptor.extra_L2_prefetching = 0;
+      } else {
+        descriptor.extra_L2_prefetching = 1;
+        descriptor.lookahead = 4;
+      }
+
       descriptor.use_nts =  handle->use_nts_fwd;
 
       if (handle->desc.R == 1 && handle->desc.S == 1) {
@@ -755,6 +763,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       libxs_matcopy_descriptor matcopyback_descriptor;
       libxs_convolution_forward_descriptor fwd_equivalent_descriptor;
       libxs_matcopy_descriptor matzero_descriptor_overwrite;
+    
+      if (handle->desc.R != 1 || handle->desc.S != 1) {
+        fwd_equivalent_descriptor.extra_L2_prefetching = 0;
+      } else {
+        fwd_equivalent_descriptor.extra_L2_prefetching = 1;
+        fwd_equivalent_descriptor.lookahead = 4;
+      }
 
       if (handle->padding_flag == 1) {
         descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
@@ -1282,6 +1297,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 handle->use_fastpath = 1;
               }
 
+             descriptor.ofw_rb = 14;
+             descriptor.ofh_rb = 4;
              handle->upd_ofh_rb = descriptor.ofh_rb;
              handle->upd_ofw_rb = descriptor.ofw_rb;
              descriptor.transpose_ofw_ifm = 0;
