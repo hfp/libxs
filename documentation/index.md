@@ -6,8 +6,8 @@ LIBXS is a library for small dense and small sparse matrix-matrix multiplication
 
 **Where to go for documentation?**
 
-* [**ReadtheDocs**](http://libxs.readthedocs.io/): online documentation with full text search.
-* [**PDF**](https://github.com/hfp/libxs/raw/master/documentation/libxs.pdf): a single documentation file.
+* **ReadtheDocs**: [main](http://libxs.readthedocs.io/) and [sample](http://libxs.readthedocs.io/libxs_samples/) documentation with full text search.
+* **PDF**: [main](https://github.com/hfp/libxs/raw/master/documentation/libxs.pdf) documentation file, and separate [sample](https://github.com/hfp/libxs/raw/master/documentation/libxs_samples.pdf) documentation.
 
 **<a name="what-is-a-small-matrix-multiplication"></a>What is a small matrix multiplication?** When characterizing the problem-size using the M, N, and K parameters, a problem-size suitable for LIBXS falls approximately within *(M&#160;N&#160;K)<sup>1/3</sup>&#160;&lt;=&#160;128* (which illustrates that non-square matrices or even "tall and skinny" shapes are covered as well). The library is typically used to generate code up to the specified [threshold](libxs_tune.md#auto-dispatch). Raising the threshold may not only generate excessive amounts of code (due to unrolling in M or K dimension), but also miss to implement a tiling scheme to effectively utilize the cache hierarchy. For auto-dispatched problem-sizes above the configurable threshold (explicitly JIT'ted code is **not** subject to the threshold), LIBXS is falling back to BLAS. In terms of GEMM, the supported kernels are limited to *Alpha := 1*, *Beta := \{ 1, 0 \}*, *TransA := 'N'*, and *TransB = 'N'*.
 
@@ -27,7 +27,7 @@ For additional functionality, please have a look at [https://github.com/hfp/libx
 
 # Overview
 
-The main interface file is *generated*, and it is therefore **not** stored in the code repository. Instead, one may have a look at the code generation template files for [C/C++](https://github.com/hfp/libxs/blob/master/src/template/libxs.h) and [FORTRAN](https://github.com/hfp/libxs/blob/master/src/template/libxs.f). The main interface consists of the [general interface](#general-interface) as well as the [matrix multiplication](#matrix-multiplication) interface.
+The main interface file is *generated*, and it is therefore **not** stored in the code repository. Instead, one may have a look at the code generation template files for [C/C++](https://github.com/hfp/libxs/blob/master/src/template/libxs.h#L36) and [FORTRAN](https://github.com/hfp/libxs/blob/master/src/template/libxs.f#L32). The main interface consists of the [general interface](#general-interface) as well as the [matrix multiplication](#matrix-multiplication) interface.
 
 There are two ways to incorporate LIBXS into an application:
 
@@ -36,7 +36,7 @@ There are two ways to incorporate LIBXS into an application:
 
 ### Classic Library (ABI)
 
-The build system relies on GNU Make (typically associated with the `make` command, but e.g. FreeBSD is calling it `gmake`). The build can be customized by using key&#8209;value pairs. Key&#8209;value pairs can be supplied in two ways: (1)&#160;after the "make" command, or (2)&#160;prior to the "make" command (`env`) which is effectively the same as exporting the key&#8209;value pair as an environment variable (`export`, or `setenv`). Both methods can be mixed, however the second method may require to supply the `-e` flag. Please note that the CXX, CC, and FC keys are considered in any case.
+The build system relies on GNU Make (typically associated with the `make` command, but e.g. FreeBSD is calling it `gmake`). The build can be customized by using key&#8209;value pairs. Key&#8209;value pairs can be supplied in two ways: (1)&#160;after the "make" command, or (2)&#160;prior to the "make" command (`env`) which is effectively the same as exporting the key&#8209;value pair as an environment variable (`export`, or `setenv`). Both methods can be mixed, however the second method may require the `-e` flag. Please note that the CXX, CC, and FC keys are considered in any case.
 
 To generate the interface of the library inside of the 'include' directory and to build the static library (by default, STATIC=1 is activated), simply run the following command:
 
@@ -50,7 +50,7 @@ On CRAY systems, the CRAY Compiling Environment (CCE) should be used regardless 
 make CXX=CC CC=cc FC=ftn
 ```
 
-If the build process is not successful, it may help to avoid more advanced GCC flags. This is useful with a tool chain, which pretends to be GCC-compatible (or is treated as such) but fails to consume the afore mentioned flags. In such a case one may raise the compatibility:
+If the build process is not successful, it may help to avoid more advanced GCC flags. This is useful with a tool chain, which pretends to be GCC-compatible (or is treated as such) but fails to consume the afore mentioned flags. In such a case, one may raise the compatibility:
 
 ```bash
 make COMPATIBLE=1
@@ -127,9 +127,9 @@ To use the header-only form, 'libxs_source.h' needs to be *generated*. The build
 make header-only
 ```
 
-**NOTE**: Differences between C and C++ makes a header-only implementation (which is portable between both languages) considerably "techy". Mixing C and C++ translation units (which rely on the header-only form of the library) is **not** supported. Also remember: to build an application now shares the same build settings with LIBXS! This is important; for instance to omit debug code inside of LIBXS (use `-DNDEBUG`).
+**NOTE**: Differences between C and C++ makes a header-only implementation (which is portable between both languages) considerably "techy". Mixing C and C++ translation units (which rely on the header-only form of the library) is **not** supported. Also remember: to build an application now shares the same build settings with LIBXS! This is important not only to omit debug code inside of LIBXS (use `-DNDEBUG`).
 
-## Installation
+### Installation
 
 Installing LIBXS makes possibly the most sense when combining the JIT backend ([enabled by default](libxs_be.md)) with a collection of statically generated SSE kernels (by specifying M, N, K, or MNK). If the JIT backend is not disabled, statically generated kernels are only registered for dispatch if the CPUID flags at runtime are not supporting a more specific instruction set extension (code path). Since the JIT backend does not support or generate SSE code by itself, the library is compiled by selecting SSE code generation if not specified otherwise (AVX=1&#124;2&#124;3, or with SSE=0 falling back to an "arch-native" approach). Limiting the static code path to SSE4.2 allows to practically target any deployed system, however using SSE=0 and AVX=0 together is falling back to generic code, and any static kernels are not specialized using the assembly code generator.
 
@@ -153,11 +153,22 @@ make PREFIX=/path/to/libxs-install STATIC=0 install
 make PREFIX=/path/to/libxs-install install
 ```
 
-# Matrix Multiplication<a name="interface-for-matrix-multiplication"></a>
+# General Interface
 
-This domain (MM) supports Small Matrix Multiplications (SMM), batches of multiple multiplications as well as the industry-standard interface for GEneral Matrix Matrix multiplication (GEMM). The details are covered in a separate [document](libxs_mm.md).
+To initialize the dispatch-table or other internal resources, an explicit initialization routine helps to avoid lazy initialization overhead when calling LIBXS for the first time. The library deallocates internal resources at program exit, but also provides a companion to the afore mentioned initialization (finalize).
 
-# Service Functions
+```C
+/** Initialize the library; pay for setup cost at a specific point. */
+void libxs_init(void);
+/** De-initialize the library and free internal memory (optional). */
+void libxs_finalize(void);
+```
+
+## Deep Neural Networks<a name="interface-for-convolutions"></a>
+
+This domain (DNN) is detailed by a separate [document](libxs_dnn.md). Please also note on how to [Get Started with TensorFlow&trade; using LIBXS](tensorflow.md).
+
+### Service Functions
 
 For convenient operation of the library and to ease integration, some service routines are available. These routines may not belong to the core functionality of LIBXS (SMM or DNN domain), but users are encouraged to use this domain (AUX). There are two categories: (1)&#160;routines which are available for C and Fortran, and (2)&#160;routines that are only available per C interface.
 
@@ -168,6 +179,10 @@ The [service function domain (AUX)](libxs_aux.md) contains routines for:
 * [Measuring time durations (timer)](libxs_aux.md#timer-facility)
 * [Loading and storing data (I/O)](libxs_aux.md#meta-image-file-io)
 * [Allocating memory](libxs_aux.md#memory-allocation)
+
+### Backend<a name="jit-backend"></a>
+
+More information about the JIT-backend and the code generator can be found in a separate [document](libxs_be.md), which also includes information about LIBXS's stand-alone <a name="generator-driver"></a>[generator-driver](libxs_be.md#generator-driver) programs.
 
 # Verbose Mode
 
@@ -211,17 +226,13 @@ objdump -D -b binary -m i386 -M x86-64 [JIT-dump-file]
 * [Customizing performance](libxs_tune.md#tuning)
 * <a name="auto-dispatch"></a>[Tuning auto-dispatch](libxs_tune.md#auto-dispatch)
 
-<a name="results"></a>To find performance results of applications or performance reproducers, the repository provides an orphaned branch "results" which collects collateral material such as measured performance results along with explanatory figures. The results can be found at [https://github.com/hfp/libxs/tree/results#libxs-results](https://github.com/hfp/libxs/tree/results#libxs-results), or the results can be cloned as shown below.
+<a name="results"></a>To find performance results of applications or performance reproducers, the repository provides an orphaned branch called "results" which collects collateral material such as measured performance results along with explanatory figures. The results can be found at [https://github.com/hfp/libxs/tree/results#libxs-results](https://github.com/hfp/libxs/tree/results#libxs-results), or the results can be cloned as shown below.
 
 ```bash
 git clone --branch results https://github.com/hfp/libxs.git libxs-results
 ```
 
-Please note that comparing performance results depends on whether the operands of the matrix multiplication are streamed or not. For example, running a matrix multiplication code many time with all operands covered by the L1 cache may have an emphasis towards an implementation which perhaps performs worse for the real workload (if this real workload needs to stream some or all operands from the main memory). Most of the [code samples](https://github.com/hfp/libxs/tree/master/samples) are aimed to reproduce performance results, and it is encouraged to model the exact case or to look at real [applications](#applications).
-
-## Backend<a name="jit-backend"></a>
-
-More information about the JIT-backend and the code generator can be found in a separate [document](libxs_be.md), which also includes information about LIBXS's stand-alone <a name="generator-driver"></a>[generator-driver](libxs_be.md#generator-driver) programs.
+Please note that comparing performance results depends on whether the operands of the matrix multiplication are streamed or not. For example, multiplying with all matrices covered by the L1 cache may have an emphasis towards an implementation which perhaps performs worse for the real workload (if this real workload needs to stream some or all matrices from the main memory). Most of the [code samples](https://github.com/hfp/libxs/tree/master/samples) are aimed to reproduce performance results, and it is encouraged to model the exact case or to look at real [applications](#applications).
 
 # High Performance Computing (HPC)
 

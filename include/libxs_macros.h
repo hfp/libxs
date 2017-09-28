@@ -490,10 +490,16 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#if !defined(LIBXS_ASSERT)
+# include <assert.h>
+# define LIBXS_ASSERT(EXPR) assert(EXPR)
+#endif
+#include <stddef.h>
 #include <stdint.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
+
 
 /* Implementation is taken from an anonymous GiHub Gist. */
 LIBXS_API_INLINE unsigned int libxs_icbrt(unsigned long long n) {
