@@ -276,6 +276,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle->blocksifm_blocking = 1;
     }
 
+    /* handle->blocksifm_blocking = atoi(getenv("FM")); */
+    if ( (handle->desc.C == 1024 && handle->desc.K == 256) || (handle->desc.C == 2048 && handle->desc.K == 512) ) {
+      handle->blocksifm_blocking = 8;
+    }
+
+
     /* Ditto for ofms in BWD  */
     if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_1) ) {
       if ( (handle->ofmblock%16 == 0) &&  (handle->desc.K%(handle->ofmblock*handle->fm_lp_block*512) == 0) && (handle->desc.R == 1) &&  (handle->desc.S == 1) ) {
@@ -301,6 +307,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       }
     } else {
       handle->blocksofm_blocking = 1;
+    }
+
+    if ( (handle->desc.C == 256 && handle->desc.K == 1024) || (handle->desc.C == 512 && handle->desc.K == 2048) ) {
+      handle->blocksofm_blocking = 8;
     }
 
     /* Logic for L2 tiling  */
