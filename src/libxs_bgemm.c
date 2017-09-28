@@ -30,6 +30,7 @@
    Alexander Heinecke (Intel Corp.), Hans Pabst (Intel Corp.)
 ******************************************************************************/
 #include <libxs_bgemm.h>
+#include <libxs.h>
 #include "libxs_gemm.h"
 #include "libxs_main.h"
 
@@ -104,7 +105,7 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
         handle.b_m1 = *b_m1; handle.b_n1 = *b_n1;
         handle.b_k1 = *b_k1; handle.b_k2 = *b_k2;
         handle.kernel = libxs_xmmdispatch(&descriptor);
-        if (0 != handle.kernel.smm && LIBXS_PREFETCH_NONE != prefetch && LIBXS_PREFETCH_SIGONLY != prefetch) {
+        if (0 != handle.kernel.xmm && LIBXS_PREFETCH_NONE != prefetch && LIBXS_PREFETCH_SIGONLY != prefetch) {
           if (LIBXS_PREFETCH_AUTO == prefetch) { /* automatically chosen */
             /* TODO: more sophisticated strategy perhaps according to CPUID */
             const char *const env_p = getenv("LIBXS_BGEMM_PREFETCH");

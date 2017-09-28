@@ -29,16 +29,7 @@
 #ifndef LIBXS_FRONTEND_H
 #define LIBXS_FRONTEND_H
 
-#include "libxs_macros.h"
-
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <assert.h> /* intentionally here */
-#include "libxs_generator.h"
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
+#include "libxs_typedefs.h"
 
 /** Helper macros for eliding prefetch address calculations depending on prefetch scheme. */
 #if 0 != ((LIBXS_PREFETCH) & 2/*AL2*/) \
@@ -188,7 +179,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
     const LIBXS_BLASINT libxs_blas_xgemm_m_ = (LIBXS_BLASINT)(MM); \
     const LIBXS_BLASINT libxs_blas_xgemm_n_ = (LIBXS_BLASINT)(NN); \
     const LIBXS_BLASINT libxs_blas_xgemm_k_ = (LIBXS_BLASINT)(KK); \
-    assert(0 != ((uintptr_t)LIBXS_BLAS_GEMM_SYMBOL(TYPE))); \
+    LIBXS_ASSERT(0 != ((uintptr_t)LIBXS_BLAS_GEMM_SYMBOL(TYPE))); \
     LIBXS_BLAS_GEMM_SYMBOL(TYPE)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
       &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
       &libxs_blas_xgemm_alpha_, (const TYPE*)(A), &libxs_blas_xgemm_lda_, \
@@ -228,9 +219,9 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 # define LIBXS_INLINE_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   const TYPE libxs_inline_xgemm_alpha_ = (TYPE)(ALPHA), libxs_inline_xgemm_beta_ = (TYPE)(BETA); \
   INT libxs_inline_xgemm_i_, libxs_inline_xgemm_j_, libxs_inline_xgemm_k_; \
-  assert(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS))/*not supported*/); \
+  LIBXS_ASSERT(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS))/*not supported*/); \
   /* TODO: remove/adjust precondition if anything other than NN is supported */ \
-  assert((M) <= (LDA) && (K) <= (LDB) && (M) <= (LDC)); \
+  LIBXS_ASSERT((M) <= (LDA) && (K) <= (LDB) && (M) <= (LDC)); \
   LIBXS_PRAGMA_SIMD \
   for (libxs_inline_xgemm_j_ = 0; libxs_inline_xgemm_j_ < ((INT)(M)); ++libxs_inline_xgemm_j_) { \
     LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_MAX_K, LIBXS_AVG_K) \
@@ -282,26 +273,31 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
     LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #endif
 
+#if defined(__cplusplus) /** Fallback in libxs_mmfunction (C++). */
+# if defined(LIBXS_FALLBACK_MMFUNCTION)
+#   if !defined(LIBXS_FALLBACK_SMMFUNCTION)
+#     define LIBXS_FALLBACK_SMMFUNCTION
+#   endif
+#   if !defined(LIBXS_FALLBACK_DMMFUNCTION)
+#     define LIBXS_FALLBACK_DMMFUNCTION
+#   endif
+# endif
+#endif
+
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
-#define LIBXS_MMCALL_ABC(FN, A, B, C) FN(A, B, C)
+#define LIBXS_MMCALL_ABC(FN, A, B, C) \
+  LIBXS_ASSERT(FN); \
+  FN(A, B, C)
 #define LIBXS_MMCALL_PRF(FN, A, B, C, PA, PB, PC) { \
   LIBXS_NOPREFETCH_A(LIBXS_UNUSED(PA)); \
   LIBXS_NOPREFETCH_B(LIBXS_UNUSED(PB)); \
   LIBXS_NOPREFETCH_C(LIBXS_UNUSED(PC)); \
+  LIBXS_ASSERT(FN); \
   FN(A, B, C, \
     LIBXS_PREFETCH_A(PA), \
     LIBXS_PREFETCH_B(PB), \
     LIBXS_PREFETCH_C(PC)); \
 }
-
-#if defined(LIBXS_FALLBACK_MMFUNCTION)
-# if !defined(LIBXS_FALLBACK_SMMFUNCTION)
-#   define LIBXS_FALLBACK_SMMFUNCTION
-#endif
-# if !defined(LIBXS_FALLBACK_DMMFUNCTION)
-#   define LIBXS_FALLBACK_DMMFUNCTION
-#endif
-#endif
 
 #if (0/*LIBXS_PREFETCH_NONE*/ == LIBXS_PREFETCH)
 # define LIBXS_MMCALL_LDX(FN, A, B, C, M, N, K, LDA, LDB, LDC) \
@@ -399,7 +395,7 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
   libxs_matdiff_info* info);
 
 LIBXS_API_INLINE void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input) {
-  assert(0 != output && 0 != input);
+  LIBXS_ASSERT(0 != output && 0 != input);
   if (output->normf_rel < input->normf_rel) {
     output->norm1_abs = input->norm1_abs;
     output->norm1_rel = input->norm1_rel;

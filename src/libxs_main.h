@@ -35,9 +35,6 @@
 #include <libxs_sync.h>
 #include <libxs_dnn.h>
 
-#include <stddef.h>
-#include <stdint.h>
-
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
 #if !defined(LIBXS_CAPACITY_REGISTRY) /* must be POT */
 # define LIBXS_CAPACITY_REGISTRY 524288 /* 524287: Mersenne Prime number (2^19-1) */
@@ -112,7 +109,7 @@ typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
 
 /** Structure which describes all tensors in LIBXS's DNN module */
 struct LIBXS_RETARGETABLE libxs_dnn_tensor {
-  libxs_dnn_tensor_datalayout* layout;           /* datalayout descriptor */
+  libxs_dnn_tensor_datalayout* layout;           /* data-layout descriptor */
   void* data;                                      /* pointer to data */
   char exp;                                        /* fix point exponent for this tensor */
 };
@@ -375,8 +372,10 @@ LIBXS_API int libxs_malloc_attrib(void** memory, int flags,
   /** If a name is given, an executable buffer will be dumped into a file. */
   const char* name);
 
+LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
+
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
-LIBXS_API int libxs_build(const libxs_build_request* request, unsigned regindex, libxs_code_pointer* code);
+LIBXS_API int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
 /** Updates counters of the statistic, which is shown at program termination. */
 LIBXS_API unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol);
