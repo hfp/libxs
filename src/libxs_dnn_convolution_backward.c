@@ -56,6 +56,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
 
   /* check if we have a kernel JITed */
   if (handle->code_bwd[0].xconv.sconv == 0) {
+#if 0
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
@@ -104,6 +105,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
+#endif
   }
   else {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
@@ -187,6 +189,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_d
     return status;
   }
 
+#if 1
+  /* @TODO FIXME */
+  printf("no nhwc_rsck backward\n");
+  return(-1);
+#else
   /* check if we have a kernel JITed */
   if (handle->code_bwd[0].xconv.sconv == 0) {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
@@ -236,6 +243,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_d
       return status;
     }
   }
+#endif
 
   return status;
 }
@@ -250,6 +258,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs
     return status;
   }
 
+#if 1
+  /* @TODO FIXME */
+  printf("no nhwc_custom backward\n");
+  return(-1);
+#else
   /* check if we have a kernel JITed */
   if (handle->code_bwd[0].xconv.sconv == 0) {
     if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
@@ -299,6 +312,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs
       return status;
     }
   }
+#endif
 
   return status;
 }
