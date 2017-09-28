@@ -94,7 +94,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     handle->use_thread_private_jit = 0;
     /* @TODO this is a crazy hack, let's clean up later */
     printf("no kernel streams is not supported in this version of LIBXS\n");
-    exit("-1");
+    exit(-1);
   } else {
     handle->use_thread_private_jit = 1;
     /* If we do not have AVX512 arch disable kernel streams  */
