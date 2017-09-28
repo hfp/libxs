@@ -113,6 +113,8 @@ typedef enum libxs_dnn_tensor_dimtype {
 typedef enum libxs_dnn_tensor_type {
   /** regular input buffer */
   LIBXS_DNN_REGULAR_INPUT,
+  /** regular input buffer, transpose */
+  LIBXS_DNN_REGULAR_INPUT_TRANS,
   /** gradient input buffer */
   LIBXS_DNN_GRADIENT_INPUT,
   /** regular output buffer */
@@ -127,6 +129,8 @@ typedef enum libxs_dnn_tensor_type {
   LIBXS_DNN_ACTIVATION,
   /* regular filter */
   LIBXS_DNN_REGULAR_FILTER,
+  /* regular filter */
+  LIBXS_DNN_REGULAR_FILTER_TRANS,
   /* gradient filter */
   LIBXS_DNN_GRADIENT_FILTER,
   /** general filter type */
