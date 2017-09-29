@@ -102,18 +102,27 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         libxs_target_archid != LIBXS_X86_AVX512_CORE &&
         libxs_target_archid != LIBXS_X86_AVX512_KNM ) {
       handle->use_thread_private_jit = 0;
+      printf("no kernel streams is not supported in this version of LIBXS\n");
+      exit(-1);
     }
     /* If we do not follow FP32 path disable kernel streams  */
     if ( (handle->datatype != LIBXS_DNN_DATATYPE_F32) || (handle->datatype_itm != LIBXS_DNN_DATATYPE_F32) ) {
       handle->use_thread_private_jit = 0;
+      printf("no kernel streams is not supported in this version of LIBXS\n");
+      exit(-1);
     }
     /* If we use any options/fuse ops, disable kernel streams */
-    if ( (handle->desc.fuse_ops != LIBXS_DNN_CONV_FUSE_NONE) ) {
+    if ( ((handle->desc.fuse_ops & LIBXS_DNN_CONV_FUSE_BIAS) > 0) ||
+         ((handle->desc.fuse_ops & LIBXS_DNN_CONV_FUSE_RELU) > 0)    ) {
       handle->use_thread_private_jit = 0;
+      printf("no kernel streams is not supported in this version of LIBXS\n");
+      exit(-1);
     }
     /* If we do not run on custom/custom format, disable kernel streams */
     if (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS || handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS ) {
       handle->use_thread_private_jit = 0;
+      printf("no kernel streams is not supported in this version of LIBXS\n");
+      exit(-1);
     }
   }
 
