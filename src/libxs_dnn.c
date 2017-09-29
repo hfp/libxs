@@ -773,6 +773,36 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
           layout = 0; /* make sure a NULL is returned */
           *status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }
+      } else if ( (type == LIBXS_DNN_BATCH_STATS) ) {
+        layout->format = handle->buffer_format;
+        layout->tensor_type = LIBXS_DNN_BATCH_STATS;
+
+        if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
+          if ( handle->datatype == LIBXS_DNN_DATATYPE_F32 ) {
+            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
+            layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
+
+            if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+              layout->num_dims = 2;
+              layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_X;
+              layout->dim_size[0] = handle->ofmblock;
+              layout->dim_size[1] = handle->blocksofm;
+              layout->dim_size[2] = handle->desc.N;
+              layout->dim_size[3] = 2;
+            }
+          } else {
+            free(layout);
+            layout = 0; /* make sure a NULL is returned */
+            *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+          }
+        } else {
+          free(layout);
+          layout = 0; /* make sure a NULL is returned */
+          *status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
+        }
       } else {
         free(layout);
         layout = 0; /* make sure a NULL is returned */
@@ -1318,11 +1348,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_tensor(libxs_dnn_layer* hand
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check for tensor type */
-  if ( (type != LIBXS_DNN_REGULAR_INPUT)  && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
-       (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
-       (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER) &&
-       (type != LIBXS_DNN_REGULAR_BIAS)   && (type != LIBXS_DNN_GRADIENT_BIAS)   &&
-       (type != LIBXS_DNN_REGULAR_FILTER_TRANS)   ) {
+  if ( (type != LIBXS_DNN_REGULAR_INPUT)        && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
+       (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
+       (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER) &&
+       (type != LIBXS_DNN_REGULAR_BIAS)         && (type != LIBXS_DNN_GRADIENT_BIAS)   &&
+       (type != LIBXS_DNN_REGULAR_FILTER_TRANS) && (type != LIBXS_DNN_BATCH_STATS)        ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -1349,6 +1379,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_tensor(libxs_dnn_layer* hand
         handle->grad_bias = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_REGULAR_FILTER_TRANS ) {
         handle->reg_filter_tr = (libxs_dnn_tensor*)tensor;
+      } else if ( type == LIBXS_DNN_BATCH_STATS ) {
+        handle->batch_stats = (libxs_dnn_tensor*)tensor;
       } else {
         /* cannot happen */
       }
@@ -1371,11 +1403,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_tensor(libxs_dnn_layer* handle, cons
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check for tensor type */
-  if ( (type != LIBXS_DNN_REGULAR_INPUT)  && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
-       (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
-       (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER) &&
-       (type != LIBXS_DNN_REGULAR_BIAS)   && (type != LIBXS_DNN_GRADIENT_BIAS)   &&
-       (type != LIBXS_DNN_REGULAR_FILTER_TRANS)   ) {
+  if ( (type != LIBXS_DNN_REGULAR_INPUT)        && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
+       (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
+       (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER) &&
+       (type != LIBXS_DNN_REGULAR_BIAS)         && (type != LIBXS_DNN_GRADIENT_BIAS)   &&
+       (type != LIBXS_DNN_REGULAR_FILTER_TRANS) && (type != LIBXS_DNN_BATCH_STATS)        ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -1399,6 +1431,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_tensor(libxs_dnn_layer* handle, cons
       handle->grad_bias = 0;
     } else if ( type == LIBXS_DNN_REGULAR_FILTER_TRANS ) {
       handle->reg_filter_tr = 0;
+    } else if ( type == LIBXS_DNN_BATCH_STATS ) {
+      handle->batch_stats = 0;
     } else {
       /* cannot happen */
     }
@@ -1408,136 +1442,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_tensor(libxs_dnn_layer* handle, cons
 
   return status;
 }
-
-
-#if 0
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_filter(libxs_dnn_layer* handle, const libxs_dnn_filter* filter, const libxs_dnn_filter_type type)
-{
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-
-  /* check for filter type */
-  if ( (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER) ) {
-    status = LIBXS_DNN_ERR_UNKNOWN_FILTER_TYPE;
-    return status;
-  }
-
-  if (handle != 0 && filter != 0) {
-    /* check if format matches */
-    if ( handle->desc.R == filter->R
-        && handle->desc.S == filter->S
-        && handle->ifmblock == filter->bifm
-        && handle->blocksifm == filter->ifmb
-        && handle->ofmblock == filter->bofm
-        && (handle->blocksofm*handle->fm_lp_block) == filter->ofmb /* @TODO this check is flaky */
-        && handle->fm_lp_block == filter->lpb
-        && ((handle->filter_format & filter->format) > 0)
-        && handle->datatype == filter->datatype)
-    {
-      if ( type == LIBXS_DNN_REGULAR_FILTER ) {
-        handle->reg_filter = (libxs_dnn_filter*)filter;
-      } else {
-        handle->grad_filter = (libxs_dnn_filter*)filter;
-      }
-    }
-    else {
-      status = LIBXS_DNN_ERR_MISMATCH_FILTER;
-    }
-  }
-  else {
-    status = LIBXS_DNN_ERR_INVALID_HANDLE_FILTER;
-  }
-
-  return status;
-}
-
-
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_filter(libxs_dnn_layer* handle, const libxs_dnn_filter_type type)
-{
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-
-  /* check for filter type */
-  if ( (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER) ) {
-    status = LIBXS_DNN_ERR_UNKNOWN_FILTER_TYPE;
-    return status;
-  }
-
-  if (handle != 0) {
-    if ( type == LIBXS_DNN_REGULAR_FILTER ) {
-      handle->reg_filter = 0;
-    } else if ( type == LIBXS_DNN_GRADIENT_FILTER ) {
-      handle->grad_filter = 0;
-    } else {
-      /* cannot happen */
-    }
-  } else {
-    status = LIBXS_DNN_ERR_INVALID_HANDLE_FILTER;
-  }
-
-  return status;
-}
-
-
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_bias(libxs_dnn_layer* handle, const libxs_dnn_bias* bias, const libxs_dnn_bias_type type)
-{
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-
-  /* check for filter type */
-  if ( (type != LIBXS_DNN_REGULAR_BIAS) && (type != LIBXS_DNN_GRADIENT_BIAS) ) {
-    status = LIBXS_DNN_ERR_UNKNOWN_BIAS_TYPE;
-    return status;
-  }
-
-  if (handle != 0 && bias != 0) {
-    /* check if format matches */
-    if ( handle->ofmblock == bias->bfm
-        && handle->blocksofm == bias->fmb /* @TODO this check is flaky */
-        && handle->fm_lp_block == bias->lpb
-        && ((handle->buffer_format & bias->format) > 0)
-        && handle->datatype == bias->datatype)
-    {
-      if ( type == LIBXS_DNN_REGULAR_BIAS ) {
-        handle->reg_bias = (libxs_dnn_bias*)bias;
-      } else {
-        handle->grad_bias = (libxs_dnn_bias*)bias;
-      }
-    }
-    else {
-      status = LIBXS_DNN_ERR_MISMATCH_BIAS;
-    }
-  }
-  else {
-    status = LIBXS_DNN_ERR_INVALID_HANDLE_BIAS;
-  }
-
-  return status;
-}
-
-
-LIBXS_API libxs_dnn_err_t libxs_dnn_release_bias(libxs_dnn_layer* handle, const libxs_dnn_bias_type type)
-{
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-
-  /* check for filter type */
-  if ( (type != LIBXS_DNN_REGULAR_BIAS) && (type != LIBXS_DNN_GRADIENT_BIAS) ) {
-    status = LIBXS_DNN_ERR_UNKNOWN_BIAS_TYPE;
-    return status;
-  }
-
-  if (handle != 0) {
-    if ( type == LIBXS_DNN_REGULAR_BIAS ) {
-      handle->reg_bias = 0;
-    } else if ( type == LIBXS_DNN_GRADIENT_BIAS ) {
-      handle->grad_bias = 0;
-    } else {
-      /* cannot happen */
-    }
-  } else {
-    status = LIBXS_DNN_ERR_INVALID_HANDLE_BIAS;
-  }
-
-  return status;
-}
-#endif
 
 
 LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status)

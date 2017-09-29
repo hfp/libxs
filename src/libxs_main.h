@@ -182,6 +182,8 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   /* internal data representations for copies of tensors */
   libxs_dnn_tensor* reg_input_tr;
   libxs_dnn_tensor* reg_filter_tr;
+  /* batchnorm stats */
+  libxs_dnn_tensor* batch_stats;
 
   /* barrier */
   libxs_barrier* barrier;
