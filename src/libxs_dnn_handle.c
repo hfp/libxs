@@ -642,6 +642,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       descriptor.datatype_itm = handle->datatype_itm;
       descriptor.option = handle->desc.options;
       descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
+      descriptor.compute_batch_stats = 0;
       /* TODO check JIT errors */
       if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
           libxs_target_archid == LIBXS_X86_AVX512_CORE ||
@@ -892,6 +893,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         fwd_equivalent_descriptor.stride_h_store = handle->desc.u;
         fwd_equivalent_descriptor.stride_w_store = handle->desc.v;
         fwd_equivalent_descriptor.use_nts = handle->use_nts_bwd;
+        fwd_equivalent_descriptor.compute_batch_stats = 0;
         if (handle->padding_flag == 1) {
           matcopy_descriptor.n = handle->ofhp;
           matcopy_descriptor.m = handle->ofwp * handle->ofmblock * handle->fm_lp_block;

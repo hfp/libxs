@@ -272,25 +272,25 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_layer* handle, 
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API) /* Internal API */
 /** Function type used for convolutions (single-precision); the actual signature depends on the kind of convolution. */
 typedef LIBXS_RETARGETABLE void (*libxs_sconvfunction)(const float* input1, const float* input2, float* output,
-                                                           const float* ipf1, const float* ipf2, const float* opf);
+                                                           const float* ipf1, const float* ipf2, const float* opf, ...);
 
 typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction)(const short* input1, const short* input2, int* output,
-                                                           const short* ipf1, const short* ipf2, const int* opf);
+                                                           const short* ipf1, const short* ipf2, const int* opf, ...);
 
 typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction)(const unsigned char* input1, const char* input2, short* output,
-                                                             const unsigned char* ipf1, const char* ipf2, const short* opf);
+                                                             const unsigned char* ipf1, const char* ipf2, const short* opf, ...);
 
 typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction)(const unsigned char* input1, const char* input2, int* output,
-                                                             const unsigned char* ipf1, const char* ipf2, const int* opf);
+                                                             const unsigned char* ipf1, const char* ipf2, const int* opf, ...);
 
 typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction_bwd)(int* input1, const short* input2, const short* output,
-                                                           const int* ipf1, const short* ipf2, const short* opf);
+                                                           const int* ipf1, const short* ipf2, const short* opf, ...);
 
 typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction_bwd)(const unsigned short* input1, const char* input2, const char* output,
-                                                             const unsigned short* ipf1, const char* ipf2, const char* opf);
+                                                             const unsigned short* ipf1, const char* ipf2, const char* opf, ...);
 
 typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction_bwd)(const unsigned int* input1, const char* input2, const char* output,
-                                                             const unsigned int* ipf1, const char* ipf2, const char* opf);
+                                                             const unsigned int* ipf1, const char* ipf2, const char* opf, ...);
 
 /** Function type which is either libxs_sconvfunction or libxs_wconvfunction (weak-typed). */
 typedef union LIBXS_RETARGETABLE libxs_xconvfunction { libxs_sconvfunction sconv; libxs_wconvfunction wconv; libxs_busconvfunction busconv; libxs_budconvfunction budconv; libxs_wconvfunction_bwd wconvb; libxs_busconvfunction_bwd busconvb; libxs_budconvfunction_bwd budconvb; } libxs_xconvfunction;
