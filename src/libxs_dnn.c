@@ -791,12 +791,12 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
             if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
               layout->num_dims = 2;
               layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
               layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_X;
               layout->dim_size[0] = handle->ofmblock;
-              layout->dim_size[1] = handle->blocksofm;
-              layout->dim_size[2] = handle->desc.N;
+              layout->dim_size[1] = handle->desc.N;
+              layout->dim_size[2] = handle->blocksofm;
               layout->dim_size[3] = 2;
             }
           } else {

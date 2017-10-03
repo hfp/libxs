@@ -39,7 +39,8 @@
 
 # define USE_OVERWRITE
 /*# define USE_BWD_NO_FILTER_TRANSPOSE_OVERWRITE*/
-/*# define USE_FUSED_BATCH_STATS*/
+# define USE_FUSED_BATCH_STATS
+
 #if !defined(USE_FUSED_BIAS) && 0
 # define USE_FUSED_BIAS
 #endif
@@ -798,8 +799,9 @@ int main(int argc, char* argv[])
         float *ch_sum2, *ch_sum2_fuse;
         int img_i = 0;
         int ch_i = 0;
+        int ch_j = 0;
         int pxl_i = 0;
-        LIBXS_VLA_DECL(3, float, sum_fuse,  batchstats_libxs, nImg, nOfm);
+        LIBXS_VLA_DECL(4, float, sum_fuse,  batchstats_libxs, nOfm/16, nImg, 16);
         LIBXS_VLA_DECL(3, float, sum_naive, naive_output,       nOfm, ofhp*ofwp);
 
         ch_sum       = (float*) malloc(nOfm*sizeof(float));
@@ -813,10 +815,12 @@ int main(int argc, char* argv[])
           ch_sum[ch_i] = 0.0f;
           ch_sum2[ch_i] = 0.0f;
         }
-        for ( img_i = 0; img_i < nImg; ++img_i ) {
-          for ( ch_i = 0; ch_i < nOfm; ++ch_i ) {
-            ch_sum_fuse[ch_i]  += sum_fuse[0][img_i][ch_i];
-            ch_sum2_fuse[ch_i] += sum_fuse[1][img_i][ch_i];
+        for ( ch_i = 0; ch_i < nOfm/16; ++ch_i ) {
+          for ( img_i = 0; img_i < nImg; ++img_i ) {
+            for ( ch_j = 0; ch_j < 16; ++ch_j ) {
+              ch_sum_fuse[(ch_i*16) + ch_j]  += sum_fuse[0][ch_i][img_i][ch_j];
+              ch_sum2_fuse[(ch_i*16) + ch_j] += sum_fuse[1][ch_i][img_i][ch_j];
+            }
           }
         }
         for ( img_i = 0; img_i < nImg; ++img_i ) {
