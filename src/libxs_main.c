@@ -173,7 +173,7 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
   INTERNAL_DISPATCH_DEBUG(internal_dispatch_result_, TYPE, \
     0 == (PFLAGS) ? LIBXS_FLAGS : *(PFLAGS), \
     M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA); \
-  return internal_dispatch_result_.xmm.LIBXS_TPREFIX(TYPE, mm); \
+  return internal_dispatch_result_.xgemm.LIBXS_TPREFIX(TYPE, mm); \
 }
 
 #if !defined(LIBXS_NO_SYNC)
@@ -372,7 +372,7 @@ LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descrip
   internal_regkey_type* dst_key = internal_registry_keys + index;
   libxs_code_pointer* dst_entry = registry + index;
 #if !defined(NDEBUG)
-  libxs_code_pointer code; code.xmm = src;
+  libxs_code_pointer code; code.xgemm = src;
   assert(0 != desc && 0 != code.const_pmm && 0 != dst_key && 0 != registry);
   assert(0 == (LIBXS_CODE_STATIC & code.uimm));
 #endif
@@ -398,7 +398,7 @@ LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descrip
 
   if (0 == dst_entry->const_pmm) { /* registry not (yet) exhausted */
     dst_key->xgemm = *desc;
-    dst_entry->xmm = src;
+    dst_entry->xgemm = src;
     /* mark current entry as static code (non-JIT) */
     dst_entry->uimm |= LIBXS_CODE_STATIC;
   }
@@ -1616,7 +1616,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
       backend_descriptor.prefetch = (unsigned char)libxs_gemm_auto_prefetch;
       descriptor = &backend_descriptor;
     }
-    result = internal_find_code(descriptor).xmm;
+    result = internal_find_code(descriptor).xgemm;
   }
   else { /* bypass (not supported) */
     internal_update_mmstatistic(descriptor, 1/*try*/, 0);
@@ -1709,7 +1709,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_de
   request.descriptor.ssoa = &ssoa;
   request.kind = LIBXS_BUILD_KIND_SSOA;
   libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  return code.xmm;
+  return code.xgemm;
 }
 
 
@@ -1727,7 +1727,7 @@ LIBXS_API_DEFINITION libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_de
   request.descriptor.sreg = &sreg;
   request.kind = LIBXS_BUILD_KIND_SREG;
   libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  return code.xmm.dmm;
+  return code.xgemm.dmm;
 }
 
 
@@ -1752,7 +1752,7 @@ LIBXS_API_DEFINITION libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_de
     libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
     free(d_values);
   }
-  return code.xmm.smm;
+  return code.xgemm.smm;
 }
 
 
@@ -1939,10 +1939,10 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
 #endif
   {
 #if !defined(NDEBUG) /* this should not happen */
-    if (0 != fn->vmm)
+    if (0 != fn->xgemm.xmm)
 #endif
     {
-      fn->vmm(a, b, c);
+      fn->xgemm.xmm(a, b, c);
     }
 #if !defined(NDEBUG)
     else if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -1976,10 +1976,10 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
 #endif
   {
 #if !defined(NDEBUG) /* this should not happen */
-    if (0 != fn->vmm)
+    if (0 != fn->xgemm.xmm)
 #endif
     {
-      fn->vmm(a, b, c, pa, pb, pc);
+      fn->xgemm.xmm(a, b, c, pa, pb, pc);
     }
 #if !defined(NDEBUG)
     else if (0 != libxs_verbosity /* library code is expected to be mute */

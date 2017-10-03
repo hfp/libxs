@@ -649,7 +649,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           libxs_target_archid == LIBXS_X86_AVX512_KNM )
       {
         if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
-          handle->code_fwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+          handle->code_fwd[0].xgemm.smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
         } else {
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
           handle->code_fwd[0].pmm = libxs_create_xconv_forward(&descriptor);
@@ -669,7 +669,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.unroll_kw = 0;
         descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
         if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
-          handle->code_fwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+          handle->code_fwd[0].xgemm.smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
         } else {
           handle->code_fwd[0].pmm = libxs_create_xconv_forward(&descriptor);
         }
@@ -988,7 +988,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             /*descriptor.prefetch_output_ahead = 0;*/
             descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
             if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
-              handle->code_bwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+              handle->code_bwd[0].xgemm.smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
             } else {
               handle->code_bwd[0].pmm = libxs_create_xconv_backward(&descriptor);
             }
@@ -1109,7 +1109,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             descriptor.unroll_kw = 0;
             descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
             if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
-              handle->code_bwd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+              handle->code_bwd[0].xgemm.smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
             } else {
               handle->code_bwd[0].pmm = libxs_create_xconv_backward(&descriptor);
             }
@@ -1453,7 +1453,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               descriptor.transpose_ofw_ifm = 0;
               descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
               if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
-                handle->code_upd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+                handle->code_upd[0].xgemm.smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
               } else {
                 handle->code_upd[0].pmm = libxs_create_xconv_update_weights(&descriptor);
               }
@@ -1490,7 +1490,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               }
 
               if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
-                handle->code_upd[0].smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+                handle->code_upd[0].xgemm.smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
               } else {
                 handle->code_upd[0].pmm = libxs_create_xconv_update_weights(&descriptor);
               }
