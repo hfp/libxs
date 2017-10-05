@@ -408,7 +408,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_c
 
   /* check if we have a kernel JITed */
   if (handle->code_fwd[0].xconv.sconv == 0) {
-    if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32) {
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
@@ -419,7 +419,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_c
     }
   }
   else {
-    if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32) {
       if (handle->cwino_fwd.alpha == 6) {
         /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
@@ -488,7 +488,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_cus
 
   /* check if we have a kernel JITed */
   if (handle->code_fwd[0].xconv.sconv == 0) {
-    if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32) {
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
@@ -499,7 +499,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_cus
     }
   }
   else {
-    if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32) {
       if (handle->cwino_fwd.alpha == 6) {
         /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)

@@ -100,7 +100,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct_custom_custom( lib
     /* In these case we run fallback code so we do not support thread private jitting */
     status = LIBXS_DNN_WARN_FALLBACK;
   } else {
-    if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       if (handle->use_fastpath) {
 #include "template/libxs_dnn_convolve_dryrun_upd_custom_custom_opt.tpl.c"
       } else {
@@ -125,7 +125,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_bwd_dryrun_direct_custom_custom( lib
     /* In these case we run fallback code so we do not support thread private jitting */
     status = LIBXS_DNN_WARN_FALLBACK;
   } else {
-    if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       if (handle->desc.N*handle->blocksifm*handle->fm_lp_block >= handle->desc.threads) {
 # include "template/libxs_dnn_convolve_dryrun_bwd_custom_custom.tpl.c"
       } else {
@@ -150,7 +150,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_custom_custom( lib
     /* In these case we run fallback code so we do not support thread private jitting */
     status = LIBXS_DNN_WARN_FALLBACK;
   } else {
-    if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
 # include "template/libxs_dnn_convolve_dryrun_fwd_custom_custom.tpl.c"
       } else {
@@ -176,7 +176,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_nhwc_custom( libxs
     status = LIBXS_DNN_WARN_FALLBACK;
   }
   else {
-    if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
         if (handle->padding_flag == 1) {
           /* FIXME: For now support only physical padding  */
@@ -212,7 +212,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_nhwc_rsck( libxs_d
     status = LIBXS_DNN_WARN_FALLBACK;
   }
   else {
-    if (handle->datatype == LIBXS_DNN_DATATYPE_F32 && handle->datatype_itm == LIBXS_DNN_DATATYPE_F32 ) {
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
         if (handle->padding_flag == 1) {
           /* FIXME: For now support only physical padding  */
