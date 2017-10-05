@@ -207,7 +207,8 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   int pad_w_out;                            /* width of zero-padding in output buffer */
   int threads;                              /* number of threads to use when running
                                                convolution */
-  libxs_dnn_datatype datatype;            /* datatypes use for all input and outputs */
+  libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
+  libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
   libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
   libxs_dnn_tensor_format filter_format;  /* format which is for filter buffers */
   libxs_dnn_conv_algo algo;               /* convolution algorithm used */
