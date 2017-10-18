@@ -527,7 +527,8 @@ int main(int argc, char* argv[])
   conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
   conv_desc.options = LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED;
-  conv_desc.datatype = LIBXS_DNN_DATATYPE_I8;
+  conv_desc.datatype_in = LIBXS_DNN_DATATYPE_I8;
+  conv_desc.datatype_out = LIBXS_DNN_DATATYPE_I32;
 
   libxs_handle = libxs_dnn_create_conv_layer( conv_desc, &status );
   CHKERR_LIBXS_DNN( status );
