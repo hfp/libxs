@@ -157,6 +157,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int nbImg;
   int blocksifm_blocking;
   int blocksofm_blocking;
+  int blocksimg_blocking;
   int use_nts_fwd;
   int use_nts_bwd;
   int use_fwd_for_bwd;
@@ -166,6 +167,10 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int ifhp_resized;
   int ifwp_resized;
   int use_fastpath;
+  int use_hybrid_wu_parallelism;
+  int weight_copies;
+  int compute_batch_stats_in_kernel;
+  int perform_relu_in_kernel;
 
   /* internal data representation */
   libxs_dnn_tensor* reg_input;
@@ -226,6 +231,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
 
   int *n_entries_fwd;
   int **compute_fwd_indices_ptrs;
+  int **bn_indices_ptrs;
   char **kernel_fwd_variant_ptrs;
   int block_fwd_oj;
   int block_fwd_oi;
@@ -381,6 +387,9 @@ LIBXS_API unsigned long long libxs_timer_tick_rdtsc(void);
 LIBXS_API void libxs_dnn_init(int target_arch);
 LIBXS_API void libxs_dnn_finalize(void);
 
+/** Default attribute of internal locks. */
+LIBXS_API_VARIABLE LIBXS_LOCK_ATTR_TYPE libxs_lock_attr_default;
+/** Global lock; create an own lock for an independent domain. */
 LIBXS_API_VARIABLE LIBXS_LOCK_TYPE libxs_lock_global;
 /** Function used to allocate default memory. */
 LIBXS_API_VARIABLE libxs_malloc_function libxs_default_malloc_fn;
@@ -404,7 +413,7 @@ LIBXS_API_VARIABLE size_t libxs_scratch_limit;
 LIBXS_API_VARIABLE double libxs_scratch_scale;
 /** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wall-clock) */
 LIBXS_API_VARIABLE double libxs_timer_scale;
-/** Stores the verbosity level (libxs_get_verbosity, libxs_set_verbosity). */
+/** Verbosity level (0: quiet, 1: errors, 2: warnings, 3: info, neg.: all/dump). */
 LIBXS_API_VARIABLE int libxs_verbosity;
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
 LIBXS_API_VARIABLE int libxs_target_archid;

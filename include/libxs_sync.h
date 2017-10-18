@@ -131,9 +131,9 @@
 # define LIBXS_ATOMIC_STORE LIBXS_NONATOMIC_STORE
 # define LIBXS_ATOMIC_ADD_FETCH LIBXS_NONATOMIC_ADD_FETCH
 # define LIBXS_ATOMIC_SUB_FETCH LIBXS_NONATOMIC_SUB_FETCH
-# define LIBXS_ATOMIC_SYNC_CHECK(LOCK, VALUE)
-# define LIBXS_ATOMIC_SYNC_SET(LOCK)
-# define LIBXS_ATOMIC_SYNC_UNSET(LOCK)
+# define LIBXS_ATOMIC_SYNC_CHECK(LOCK, VALUE) LIBXS_UNUSED(LOCK)
+# define LIBXS_ATOMIC_SYNC_SET(LOCK) LIBXS_UNUSED(LOCK)
+# define LIBXS_ATOMIC_SYNC_UNSET(LOCK) LIBXS_UNUSED(LOCK)
 #endif
 #if !defined(LIBXS_ATOMIC_STORE_ZERO)
 # define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) LIBXS_ATOMIC_STORE(DST_PTR, 0, KIND)
@@ -150,18 +150,24 @@
 #   include <windows.h>
 #   if 1
 #     define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
+#     define LIBXS_LOCK_ATTR_TYPE LPSECURITY_ATTRIBUTES
+#     define LIBXS_LOCK_ATTR_INIT(ATTR) *(ATTR) = NULL
+#     define LIBXS_LOCK_ATTR_DESTROY(ATTR)
 #     define LIBXS_LOCK_TYPE HANDLE
 #     define LIBXS_LOCK_CONSTRUCT 0
-#     define LIBXS_LOCK_INIT(LOCK) *(LOCK) = CreateMutex(NULL, FALSE, NULL)
+#     define LIBXS_LOCK_INIT(LOCK, ATTR) *(LOCK) = CreateMutex(*(ATTR), FALSE, NULL)
 #     define LIBXS_LOCK_DESTROY(LOCK) CloseHandle(*(LOCK))
 #     define LIBXS_LOCK_ACQUIRE(LOCK) WaitForSingleObject(*(LOCK), INFINITE)
 #     define LIBXS_LOCK_TRYLOCK(LOCK) WaitForSingleObject(*(LOCK), 0)
 #     define LIBXS_LOCK_RELEASE(LOCK) ReleaseMutex(*(LOCK))
 #   else /*TODO*/
 #     define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
+#     define LIBXS_LOCK_ATTR_TYPE const void*
+#     define LIBXS_LOCK_ATTR_INIT(ATTR) *(ATTR) = NULL
+#     define LIBXS_LOCK_ATTR_DESTROY(ATTR)
 #     define LIBXS_LOCK_TYPE CRITICAL_SECTION
 #     define LIBXS_LOCK_CONSTRUCT LIBXS_LOCK_TYPE()
-#     define LIBXS_LOCK_INIT(LOCK) InitializeCriticalSection(LOCK)
+#     define LIBXS_LOCK_INIT(LOCK, ATTR) InitializeCriticalSection(LOCK)
 #     define LIBXS_LOCK_DESTROY(LOCK)
 #     define LIBXS_LOCK_ACQUIRE(LOCK) EnterCriticalSection(LOCK)
 #     define LIBXS_LOCK_TRYLOCK(LOCK) TryEnterCriticalSection(LOCK)
@@ -170,9 +176,18 @@
 # else
 #   include <pthread.h>
 #   define LIBXS_LOCK_ACQUIRED 0
+#   define LIBXS_LOCK_ATTR_TYPE pthread_mutexattr_t
+#   if defined(NDEBUG)
+#     define LIBXS_LOCK_ATTR_INIT(ATTR) pthread_mutexattr_init(ATTR); \
+              pthread_mutexattr_settype(ATTR, PTHREAD_MUTEX_NORMAL)
+#   else
+#     define LIBXS_LOCK_ATTR_INIT(ATTR) pthread_mutexattr_init(ATTR); \
+              pthread_mutexattr_settype(ATTR, PTHREAD_MUTEX_ERRORCHECK)
+#   endif
+#   define LIBXS_LOCK_ATTR_DESTROY(ATTR) pthread_mutexattr_destroy(ATTR)
 #   define LIBXS_LOCK_TYPE pthread_mutex_t
-#   define LIBXS_LOCK_CONSTRUCT PTHREAD_MUTEX_INITIALIZER
-#   define LIBXS_LOCK_INIT(LOCK) pthread_mutex_init(LOCK, 0)
+#   define LIBXS_LOCK_CONSTRUCT PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+#   define LIBXS_LOCK_INIT(LOCK, ATTR) pthread_mutex_init(LOCK, ATTR)
 #   define LIBXS_LOCK_DESTROY(LOCK) pthread_mutex_destroy(LOCK)
 #   define LIBXS_LOCK_ACQUIRE(LOCK) pthread_mutex_lock(LOCK)
 #   define LIBXS_LOCK_TRYLOCK(LOCK) pthread_mutex_trylock(LOCK)
@@ -180,9 +195,12 @@
 # endif
 #else
 # define LIBXS_LOCK_ACQUIRED 0
+# define LIBXS_LOCK_ATTR_TYPE const void*
+# define LIBXS_LOCK_ATTR_INIT(ATTR) LIBXS_UNUSED(ATTR)
+# define LIBXS_LOCK_ATTR_DESTROY(ATTR) LIBXS_UNUSED(ATTR)
 # define LIBXS_LOCK_TYPE const void*
 # define LIBXS_LOCK_CONSTRUCT 0
-# define LIBXS_LOCK_INIT(LOCK) LIBXS_UNUSED(LOCK)
+# define LIBXS_LOCK_INIT(LOCK, ATTR) LIBXS_UNUSED(LOCK); LIBXS_UNUSED(ATTR)
 # define LIBXS_LOCK_DESTROY(LOCK) LIBXS_UNUSED(LOCK)
 # define LIBXS_LOCK_ACQUIRE(LOCK) LIBXS_UNUSED(LOCK)
 # define LIBXS_LOCK_TRYLOCK(LOCK) LIBXS_UNUSED(LOCK)

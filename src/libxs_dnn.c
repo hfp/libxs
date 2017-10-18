@@ -39,6 +39,9 @@
 #include "libxs_dnn_convolution_winograd_backward.h"
 #include "libxs_dnn_convolution_winograd_weight_update.h"
 
+
+#define FP64_BN_STATS
+
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
@@ -803,6 +806,9 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
       } else if ( (type == LIBXS_DNN_BATCH_STATS) ) {
         layout->format = handle->buffer_format;
         layout->tensor_type = LIBXS_DNN_BATCH_STATS;
+#ifdef FP64_BN_STATS     
+        layout->datatype = LIBXS_DNN_DATATYPE_F64; 
+#endif
 
         if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
           if ( handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
@@ -857,7 +863,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_duplicate_tensor_dat
   if (layout != 0 && layout->num_dims != 0) {
     unsigned int dim = 0;
 
-    dst_layout = (libxs_dnn_tensor_datalayout*) malloc(sizeof(libxs_dnn_tensor_datalayout));
+    dst_layout = (libxs_dnn_tensor_datalayout*)malloc(sizeof(libxs_dnn_tensor_datalayout));
     if (0 != dst_layout) {
       memset(dst_layout, 0, sizeof(libxs_dnn_tensor_datalayout));
       dst_layout->dim_type = (libxs_dnn_tensor_dimtype*)malloc(layout->num_dims * sizeof(libxs_dnn_tensor_dimtype));
@@ -867,10 +873,13 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_duplicate_tensor_dat
       dst_layout->custom_format = layout->custom_format;
       dst_layout->datatype = layout->datatype;
       dst_layout->tensor_type = layout->tensor_type;
-
-      for (dim = 0; dim < layout->num_dims; ++dim) {
-        dst_layout->dim_type[dim] = layout->dim_type[dim];
-        dst_layout->dim_size[dim] = layout->dim_size[dim];
+      if (0 != dst_layout->dim_type && 0 != dst_layout->dim_size) {
+        for (dim = 0; dim < layout->num_dims; ++dim) {
+          dst_layout->dim_type[dim] = layout->dim_type[dim];
+          dst_layout->dim_size[dim] = layout->dim_size[dim];
+        }
+      } else {
+        *status = LIBXS_DNN_ERR_CREATE_LAYOUT;
       }
     } else {
       *status = LIBXS_DNN_ERR_CREATE_LAYOUT;
