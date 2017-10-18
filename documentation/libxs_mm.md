@@ -1,4 +1,4 @@
-# Small Matrix Multiplication (SMM)
+# Overview<a name="small-matrix-multiplication-smm"></a>
 
 To perform the dense matrix-matrix multiplication *C<sub>m&#8239;x&#8239;n</sub> = alpha &middot; A<sub>m&#8239;x&#8239;k</sub> &middot; B<sub>k&#8239;x&#8239;n</sub> + beta &middot; C<sub>m&#8239;x&#8239;n</sub>*, the full-blown GEMM interface can be treated with "default arguments" (which is deviating from the BLAS standard, however without compromising the binary compatibility).
 
@@ -40,47 +40,9 @@ A more recently added variant of matrix multiplication is parallelized based on 
 libxs_?gemm_omp(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 ```
 
-### Manual Code Dispatch and Batched Matrix Multiplication
+## Batched Multiplication
 
-Successively calling a kernel (i.e., multiple times) allows for amortizing the cost of the code dispatch. Moreover, to customize the dispatch mechanism, one can rely on the following interface. Overloaded function signatures are provided and allow to omit arguments (C++ and FORTRAN), which are then derived from the [configurable defaults](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h).
-
-```C
-/** If non-zero function pointer is returned, call (*function_ptr)(a, b, c). */
-libxs_smmfunction libxs_smmdispatch(int m, int n, int k,
-  const int* lda, const int* ldb, const int* ldc,
-  const float* alpha, const float* beta,
-  const int* flags, const int* prefetch);
-/** If non-zero function pointer is returned, call (*function_ptr)(a, b, c). */
-libxs_dmmfunction libxs_dmmdispatch(int m, int n, int k,
-  const int* lda, const int* ldb, const int* ldc,
-  const double* alpha, const double* beta,
-  const int* flags, const int* prefetch);
-```
-
-In C++, `libxs_mmfunction<type>` can be used to instantiate a functor rather than making a distinction between numeric types per type-prefix (see [samples/smm/specialized.cpp](https://github.com/hfp/libxs/blob/master/samples/smm/specialized.cpp)).
-
-```C
-libxs_mmfunction<T> xmm(m, n, k); /* generates or dispatches the code specialization */
-if (xmm) { /* JIT'ted code */
-  for (int i = 0; i < n; ++i) { /* perhaps OpenMP parallelized */
-    xmm(a+i*asize, b+i*bsize, c+i*csize); /* already dispatched */
-  }
-}
-```
-
-Similarly in FORTRAN (see [samples/smm/smm.f](https://github.com/hfp/libxs/blob/master/samples/smm/smm.f)), a generic interface (`libxs_mmdispatch`) can be used to dispatch a `LIBXS_?MMFUNCTION`, and the encapsulated PROCEDURE POINTER can be called via `libxs_call`. Beside of dispatching code, one can also call any statically generated kernels (e.g., `libxs_dmm_4_4_4`) using the prototype functions included with the FORTRAN and C/C++ interface.
-
-```FORTRAN
-TYPE(LIBXS_DMMFUNCTION) :: xmm
-CALL libxs_dispatch(xmm, m, n, k)
-IF (libxs_available(xmm)) THEN
-  DO i = LBOUND(c, 3), UBOUND(c, 3) ! perhaps OpenMP parallelized
-    CALL libxs_dmmcall(xmm, a(:,:,i), b(:,:,i), c(:,:,i))
-  END DO
-END IF
-```
-
-In case of batched SMMs, it can be beneficial to supply "next locations" such that the upcoming operands are prefetched ahead of time. The "prefetch strategy" is requested at dispatch-time of a kernel. A [strategy](libxs_be.md#prefetch-strategy) other than `LIBXS_PREFETCH_NONE` turns the signature of a JIT'ted kernel into a function with six arguments (`a,b,c, pa,pb,pc` instead of `a,b,c`). To defer the decision about the strategy to a CPUID-based mechanism, one can choose `LIBXS_PREFETCH_AUTO`.
+In case of batched SMMs, it can be beneficial to supply "next locations" such that the upcoming operands are prefetched ahead of time. Such a location would be the address of the next matrix to be multiplied (and not any of the floating-point elements within the "current" matrix-operand). The "prefetch strategy" is requested at dispatch-time of a kernel. A [strategy](libxs_be.md#prefetch-strategy) other than `LIBXS_PREFETCH_NONE` turns the signature of a JIT'ted kernel into a function with six arguments (`a,b,c, pa,pb,pc` instead of `a,b,c`). To defer the decision about the strategy to a CPUID-based mechanism, one can choose `LIBXS_PREFETCH_AUTO`.
 
 ```C
 int prefetch = LIBXS_PREFETCH_AUTO;
@@ -93,6 +55,17 @@ xmm = libxs_dmmdispatch(23/*m*/, 23/*n*/, 23/*k*/,
 ```
 
 Above, pointer-arguments of `libxs_dmmdispatch` can be NULL (or OPTIONAL in FORTRAN): for LDx this means a "tight" leading dimension, alpha, beta, and flags are given by a [default value](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h) (which is selected at compile-time), and for the prefetch strategy a NULL-argument refers to "no prefetch" (which is equivalent to an explicit `LIBXS_PREFETCH_NONE`).
+
+```C
+/** Process a series of matrix multiplications (explicit data representation). */
+int libxs_mmbatch(const libxs_gemm_descriptor* descriptor,
+  const void* a_matrix, const void* b_matrix, void* c_matrix,
+  int index_base, int index_stride, const unsigned int a_stride[],
+  const unsigned int b_stride[], const unsigned int c_stride[],
+  unsigned int batchsize);
+```
+
+To further simplify the multiplication of matrices in a batch, the above interface can help if an explicit data representation is available. A lower level form (`libxs_mmbatch_thread`) can employ a user-defined threading runtime, which is already the case for OpenMP (`libxs_mmbatch_omp`) and hosted by the extension library (libxsext). Please note that an explicit data presentation is not necessary to prefetch a series of matrix multiplications. A "chain" of multiplications can be programmatically described without the need to build arrays of operands or indexes.
 
 ### Call Wrapper
 

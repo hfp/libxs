@@ -27,13 +27,11 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_gemm_diff.h"
+#include "libxs_trace.h"
 #include "libxs_trans.h"
 #include "libxs_gemm.h"
 #include "libxs_hash.h"
 #include "libxs_main.h"
-#if defined(__TRACE)
-# include "libxs_trace.h"
-#endif
 #if defined(LIBXS_PERF)
 # include "libxs_perf.h"
 #endif
@@ -466,9 +464,8 @@ LIBXS_API_INLINE void internal_finalize(void)
   }
 #if !defined(LIBXS_NO_SYNC)
   { /* release locks */
-    int i;
-    for (i = 0; i < (INTERNAL_REGLOCK_MAXN); ++i) LIBXS_LOCK_DESTROY(internal_reglock + i);
-    LIBXS_LOCK_DESTROY(&libxs_lock_global);
+    int i; for (i = 0; i < (INTERNAL_REGLOCK_MAXN); ++i) LIBXS_LOCK_DESTROY(internal_reglock + i);
+    LIBXS_LOCK_DESTROY(&libxs_lock_global); LIBXS_LOCK_ATTR_DESTROY(&libxs_lock_attr_default);
   }
 #endif
 }
@@ -569,30 +566,33 @@ LIBXS_API_INLINE void internal_init(void)
     internal_statistic_mnk = libxs_icbrt(LIBXS_MAX_MNK);
     internal_statistic_sml = 13;
     internal_statistic_med = 23;
-#if !defined(__TRACE)
-    LIBXS_UNUSED(init_code);
-#else
+#if defined(LIBXS_TRACE)
     {
-      int filter_threadid = 0, filter_mindepth = 1, filter_maxnsyms = 0;
+      int filter_threadid = 0, filter_mindepth = -1, filter_maxnsyms = 0;
       const char *const env = getenv("LIBXS_TRACE");
+      init_code = EXIT_SUCCESS;
       if (0 != env && 0 != *env) {
         char buffer[32];
         if (1 == sscanf(env, "%32[^,],", buffer)) {
-          sscanf(buffer, "%i", &filter_threadid);
+          init_code = (0 <= sscanf(buffer, "%i", &filter_threadid) ? EXIT_SUCCESS : EXIT_FAILURE);
         }
         if (1 == sscanf(env, "%*[^,],%32[^,],", buffer)) {
-          sscanf(buffer, "%i", &filter_mindepth);
+          init_code = (0 <= sscanf(buffer, "%i", &filter_mindepth) ? EXIT_SUCCESS : EXIT_FAILURE);
         }
         if (1 == sscanf(env, "%*[^,],%*[^,],%32s", buffer)) {
-          sscanf(buffer, "%i", &filter_maxnsyms);
+          init_code = (0 <= sscanf(buffer, "%i", &filter_maxnsyms) ? EXIT_SUCCESS : EXIT_FAILURE);
         }
         else {
           filter_maxnsyms = -1; /* all */
         }
       }
-      init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
+      if (EXIT_SUCCESS == init_code) {
+        init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
+      }
     }
     if (EXIT_SUCCESS == init_code)
+#else
+    LIBXS_UNUSED(init_code);
 #endif
     {
       libxs_gemm_diff_init(libxs_target_archid);
@@ -654,7 +654,7 @@ LIBXS_API_INLINE void internal_init(void)
         free(result);
       }
     }
-#if defined(__TRACE)
+#if defined(LIBXS_TRACE)
     else if (0 != libxs_verbosity) { /* library code is expected to be mute */
       fprintf(stderr, "LIBXS ERROR: failed to initialize TRACE (error #%i)!\n", init_code);
     }
@@ -681,8 +681,9 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&reglock_check, 1, LIBXS_ATOMIC_SEQ_CST)) {
       int i;
       assert(sizeof(internal_reglock) == (INTERNAL_REGLOCK_MAXN * sizeof(*internal_reglock)));
-      for (i = 0; i < INTERNAL_REGLOCK_MAXN; ++i) LIBXS_LOCK_INIT(internal_reglock + i);
-      LIBXS_LOCK_INIT(&libxs_lock_global); /* valid */
+      LIBXS_LOCK_ATTR_INIT(&libxs_lock_attr_default);
+      for (i = 0; i < INTERNAL_REGLOCK_MAXN; ++i) LIBXS_LOCK_INIT(internal_reglock + i, &libxs_lock_attr_default);
+      LIBXS_LOCK_INIT(&libxs_lock_global, &libxs_lock_attr_default); /* valid */
       memset(&global_lock, -1, sizeof(LIBXS_LOCK_TYPE)); /* mark invalid */
     }
     else {
@@ -720,7 +721,7 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 
       /* serves as an id to invalidate the thread-local cache; never decremented */
       ++internal_teardown;
-#if defined(__TRACE)
+#if defined(LIBXS_TRACE)
       i = libxs_trace_finalize();
       if (EXIT_SUCCESS != i && 0 != libxs_verbosity) { /* library code is expected to be mute */
         fprintf(stderr, "LIBXS ERROR: failed to finalize trace (error #%i)!\n", i);

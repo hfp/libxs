@@ -166,11 +166,15 @@ typedef enum libxs_dnn_conv_fuse_op {
   LIBXS_DNN_CONV_FUSE_NONE = 0,
   /* we fuse bias addition into convolution */
   LIBXS_DNN_CONV_FUSE_BIAS = 1,
-  /* we fuse ReLU calculation into convolution op */
-  LIBXS_DNN_CONV_FUSE_RELU = 2,
+  /* we fuse ReLU calculation into fwd convolution op */
+  LIBXS_DNN_CONV_FUSE_RELU_FWD = 2,
+  /* we fuse ReLU calculation into bwd convolution op */
+  LIBXS_DNN_CONV_FUSE_RELU_BWD = 4,
   /* we fuse batch stats */
-  LIBXS_DNN_CONV_FUSE_BATCH_STATS = 4,
+  LIBXS_DNN_CONV_FUSE_BATCH_STATS = 8,
+  LIBXS_DNN_CONV_FUSE_BATCH_STATS_RELU_BWD = LIBXS_DNN_CONV_FUSE_RELU_BWD | LIBXS_DNN_CONV_FUSE_BATCH_STATS,
   /* we fuse bias addition and ReLU into convolution op */
+  LIBXS_DNN_CONV_FUSE_RELU = LIBXS_DNN_CONV_FUSE_RELU_FWD | LIBXS_DNN_CONV_FUSE_RELU_BWD,
   LIBXS_DNN_CONV_FUSE_BIAS_RELU = LIBXS_DNN_CONV_FUSE_BIAS | LIBXS_DNN_CONV_FUSE_RELU
 } libxs_dnn_conv_fuse_op;
 

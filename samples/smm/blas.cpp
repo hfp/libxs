@@ -43,9 +43,6 @@
 # include <mkl_service.h>
 # include <mkl.h>
 #endif
-#if defined(_OPENMP)
-# include <omp.h>
-#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif

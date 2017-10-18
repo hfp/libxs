@@ -435,8 +435,9 @@ LIBXS_API_INLINE internal_malloc_info_type* internal_malloc_info(const void* mem
 #if defined(LIBXS_MALLOC_NOCRC)
   return result;
 #else /* calculate checksum over info */
-  const size_t checksize = (size_t)(((const char*)&result->hash) - ((const char*)result));
-  return (0 != result && result->hash == libxs_crc32(result, checksize, LIBXS_MALLOC_SEED)) ? result : 0;
+  return (0 != result && result->hash == libxs_crc32(
+    result, ((const char*)&result->hash) - ((const char*)result),
+    LIBXS_MALLOC_SEED)) ? result : 0;
 #endif
 }
 
@@ -1044,8 +1045,10 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
     const size_t align_size = (0 == alignment ? libxs_alignment(size, alignment) : alignment);
     const size_t alloc_size = size + align_size - 1, limit = internal_get_scratch_size();
     size_t local_size = 0, req_size = 0;
-    const unsigned int tid = libxs_get_tid();
     unsigned int i = 0;
+#if !defined(LIBXS_NO_SYNC)
+    const unsigned int tid = libxs_get_tid();
+#endif
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     for (; i < libxs_scratch_pools; ++i) {
 # if defined(LIBXS_NO_SYNC)
@@ -1118,7 +1121,9 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
 
     if (0 == local_size) { /* draw from buffer */
       char* head;
+#if !defined(LIBXS_NO_SYNC)
       assert(pools[i].instance.tid == tid);
+#endif
       LIBXS_ATOMIC_ADD_FETCH(&pools[i].instance.counter, 1, LIBXS_ATOMIC_SEQ_CST);
       head = (char*)LIBXS_ATOMIC_ADD_FETCH((uintptr_t*)&pools[i].instance.head, alloc_size, LIBXS_ATOMIC_SEQ_CST);
       result = LIBXS_ALIGN(head - alloc_size, align_size);
@@ -1207,8 +1212,12 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
       if (EXIT_SUCCESS == internal_scratch_free(memory, pools + i)) {
 # if !defined(NDEBUG)
         static int error_once = 0;
-        if (libxs_get_tid() != pools[i].instance.tid && (1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
-          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        if (
+# if !defined(LIBXS_NO_SYNC)
+          libxs_get_tid() != pools[i].instance.tid &&
+# endif
+          (1 < libxs_verbosity || 0 > libxs_verbosity) && /* library code is expected to be mute */
+          (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)))
         {
           fprintf(stderr, "LIBXS WARNING: thread-id differs between allocation and deallocation!\n");
         }
