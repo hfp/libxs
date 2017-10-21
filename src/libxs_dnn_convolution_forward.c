@@ -164,6 +164,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
         typedef int element_output_type;
         typedef short element_filter_type;
         typedef libxs_wconvfunction libxs_convfunction;
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"     
+#if 0
         if (handle->desc.u == 1 && handle->desc.v == 1) {
           if (handle->padding_flag == 1) {
 #define LIBXS_DNN_CONV_FWD_INTERNAL_STRIDE_ONE
@@ -185,6 +187,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_1.tpl.c"
           }
         }
+#endif
       }
       else {
         typedef short element_input_type;
