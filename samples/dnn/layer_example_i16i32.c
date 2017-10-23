@@ -607,24 +607,15 @@ int main(int argc, char* argv[])
       norms_fwd.l2_abs, norms_fwd.l2_rel, norms_fwd.linf_abs, norms_fwd.linf_rel, norms_fwd.normf_rel);
   }
 
-  return 0;
-
-
   /* clean-up */
-  CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_FWD ) );
   libxs_free(scratch);
   CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
   CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_GRADIENT_OUTPUT ) );
   CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_filter ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_dinput ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_doutput ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_dfilter ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
 
   /* deallocate data */
