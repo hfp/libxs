@@ -644,7 +644,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
               layout->dim_size[3] = handle->desc.S;
               layout->dim_size[4] = handle->desc.R;
               layout->dim_size[5] = handle->blocksifm;
-              layout->dim_size[6] = handle->blocksofm*handle->fm_lp_block;
+              layout->dim_size[6] = handle->blocksofm;
             }
           } else {
             free(layout);
@@ -1188,7 +1188,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_tensor(const libxs_dnn_tenso
         for (i = 0; i < size; ++i) int32_data[i] = 0;
       } break;
       case LIBXS_DNN_DATATYPE_I16: {
-        short* int16_data = (short*)tensor->data;
+        /*FIXME HACK*/
+        int* int16_data = (int*)tensor->data;
         for (i = 0; i < size; ++i) int16_data[i] = 0;
       } break;
       case LIBXS_DNN_DATATYPE_I8: {
