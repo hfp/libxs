@@ -274,6 +274,17 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle->blocksifm_blocking = 8;
     }
 
+    printf("The blocking ORIGINBALLY was %d\n",handle->blocksifm_blocking);
+
+    if (handle->blocksifm_blocking * handle->ifmblock * handle->fm_lp_block > 256) {
+      handle->blocksifm_blocking = 8;
+      while ( handle->desc.C%(handle->blocksifm_blocking * handle->ifmblock * handle->fm_lp_block) != 0  ) {
+         handle->blocksifm_blocking--;
+      }
+    }
+
+    printf("The blocking FINALLY is %d\n",handle->blocksifm_blocking);
+
 
     /* Ditto for ofms in BWD  */
     if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_1) ) {
@@ -359,6 +370,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     } else {
       handle->use_nts_fwd = 0;
     }
+
+    /* FIXME: add better logic  */
+    if (handle->blocksifm_blocking == 1) {
+      handle->use_nts_fwd = 0; 
+    } else {
+      handle->use_nts_fwd = 1; 
+    }
+
 
     if (((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) 
          && (handle->desc.K == handle->blocksofm_blocking*handle->ofmblock*handle->fm_lp_block) 
