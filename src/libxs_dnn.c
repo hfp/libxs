@@ -527,7 +527,11 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
             }
           /* @TODO this need to change */
           } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_I32) ) {
-            layout->datatype = handle->datatype_in;
+            if ( ( (type == LIBXS_DNN_REGULAR_INPUT) || (type == LIBXS_DNN_INPUT) )  ) {
+              layout->datatype = handle->datatype_in;
+            } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
+              layout->datatype = handle->datatype_out;     
+            }
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
             if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
@@ -1188,8 +1192,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_tensor(const libxs_dnn_tenso
         for (i = 0; i < size; ++i) int32_data[i] = 0;
       } break;
       case LIBXS_DNN_DATATYPE_I16: {
-        /*FIXME HACK*/
-        int* int16_data = (int*)tensor->data;
+        short* int16_data = (short*)tensor->data;
         for (i = 0; i < size; ++i) int16_data[i] = 0;
       } break;
       case LIBXS_DNN_DATATYPE_I8: {
@@ -1233,11 +1236,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_te
                 } break;
                 case LIBXS_DNN_DATATYPE_I32: {
                   typedef int element_type;
+#define LIBXS_DNN_COPY_LOW_PRECISION                
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
+#undef LIBXS_DNN_COPY_LOW_PRECISION                 
                 } break;
                 case LIBXS_DNN_DATATYPE_I16: {
-                /* FIXME... HACK....  */
-                  typedef int element_type;
+                  typedef short element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
