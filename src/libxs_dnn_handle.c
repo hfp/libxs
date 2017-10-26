@@ -366,20 +366,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
        handle->blocksifm_blocking = 1;
     }*/
     /* when we chose overwrite and we loop over all ifms, then let's use streaming stores */
-    if (    ((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0)
+    if ( ((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0)
          && (handle->desc.C == handle->blocksifm_blocking*handle->ifmblock*handle->fm_lp_block)
          && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32 || handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) ) {
       handle->use_nts_fwd = 1;
     } else {
       handle->use_nts_fwd = 0;
-    }
-
-    if (handle->use_lp_kernel == 1) {
-      if (handle->blocksifm_blocking == 1) {
-        handle->use_nts_fwd = 0; 
-      } else {
-        handle->use_nts_fwd = 1; 
-      }
     }
 
     if (((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) 
