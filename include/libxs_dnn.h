@@ -282,6 +282,9 @@ typedef LIBXS_RETARGETABLE void (*libxs_sconvfunction)(const float* input1, cons
 typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction)(const short* input1, const short* input2, int* output,
                                                            const short* ipf1, const short* ipf2, const int* opf, ...);
 
+typedef LIBXS_RETARGETABLE void (*libxs_wsconvfunction)(const short* input1, const short* input2, float* output,
+                                                           const short* ipf1, const short* ipf2, const float* opf, ...);
+
 typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction)(const unsigned char* input1, const char* input2, short* output,
                                                              const unsigned char* ipf1, const char* ipf2, const short* opf, ...);
 
@@ -298,7 +301,7 @@ typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction_bwd)(const unsigned int*
                                                              const unsigned int* ipf1, const char* ipf2, const char* opf, ...);
 
 /** Function type which is either libxs_sconvfunction or libxs_wconvfunction (weak-typed). */
-typedef union LIBXS_RETARGETABLE libxs_xconvfunction { libxs_sconvfunction sconv; libxs_wconvfunction wconv; libxs_busconvfunction busconv; libxs_budconvfunction budconv; libxs_wconvfunction_bwd wconvb; libxs_busconvfunction_bwd busconvb; libxs_budconvfunction_bwd budconvb; } libxs_xconvfunction;
+typedef union LIBXS_RETARGETABLE libxs_xconvfunction { libxs_sconvfunction sconv; libxs_wsconvfunction wsconv; libxs_wconvfunction wconv; libxs_busconvfunction busconv; libxs_budconvfunction budconv; libxs_wconvfunction_bwd wconvb; libxs_busconvfunction_bwd busconvb; libxs_budconvfunction_bwd budconvb; } libxs_xconvfunction;
 
 /** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
 LIBXS_API libxs_sconvfunction libxs_create_sconv_forward(const libxs_convolution_forward_descriptor* descriptor);
