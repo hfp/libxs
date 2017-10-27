@@ -56,7 +56,7 @@
 #define MYASSERT(x) if(!(x)) { printf("Assertion %s failed...\n", #x); exit(1);}
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT dst,
+LIBXS_INLINE LIBXS_RETARGETABLE void init(libxs_blasint seed, REAL_TYPE *LIBXS_RESTRICT dst,
   libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
 {
   const double seed1 = scale * (seed + 1);
@@ -121,12 +121,12 @@ int main(int argc, char* argv[])
 # pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
   {
-    REAL_TYPE* agold = (REAL_TYPE*)libxs_malloc(lda * k * sizeof(REAL_TYPE));
-    REAL_TYPE* bgold = (REAL_TYPE*)libxs_malloc(ldb * n * sizeof(REAL_TYPE));
-    REAL_TYPE* cgold = (REAL_TYPE*)libxs_malloc(ldc * n * sizeof(REAL_TYPE));
-    REAL_TYPE* a = (REAL_TYPE*)libxs_malloc(m * k * sizeof(REAL_TYPE));
-    REAL_TYPE* b = (REAL_TYPE*)libxs_malloc(k * n * sizeof(REAL_TYPE));
-    REAL_TYPE* c = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
+    REAL_TYPE* agold = (REAL_TYPE*)libxs_malloc((size_t)(lda * k * sizeof(REAL_TYPE)));
+    REAL_TYPE* bgold = (REAL_TYPE*)libxs_malloc((size_t)(ldb * n * sizeof(REAL_TYPE)));
+    REAL_TYPE* cgold = (REAL_TYPE*)libxs_malloc((size_t)(ldc * n * sizeof(REAL_TYPE)));
+    REAL_TYPE* a = (REAL_TYPE*)libxs_malloc((size_t)(m * k * sizeof(REAL_TYPE)));
+    REAL_TYPE* b = (REAL_TYPE*)libxs_malloc((size_t)(k * n * sizeof(REAL_TYPE)));
+    REAL_TYPE* c = (REAL_TYPE*)libxs_malloc((size_t)(m * n * sizeof(REAL_TYPE)));
     libxs_bgemm_handle* handle = 0;
     unsigned long long start;
     double duration;
@@ -162,8 +162,9 @@ int main(int argc, char* argv[])
       duration = libxs_timer_duration(start, libxs_timer_tick());
       if (0 < duration) {
         if (ab) {
-          fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s | %i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i\n",
-            gflops * nrepeat / duration, m, n, k, bm, bn, bk, order, b_m1, b_n1, b_k1, b_k2);
+          fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s | %lli,%lli,%lli,%lli,%lli,%lli,%i,%lli,%lli,%lli,%lli\n",
+            gflops * nrepeat / duration, (long long)m, (long long)n, (long long)k, (long long)bm, (long long)bn, (long long)bk,
+            order, (long long)b_m1, (long long)b_n1, (long long)b_k1, (long long)b_k2);
         } else {
           fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops * nrepeat / duration);
         }
@@ -186,7 +187,7 @@ int main(int argc, char* argv[])
         libxs_free(a); a = 0;
         libxs_free(b); b = 0;
         /* allocate C-matrix in regular format, and perform copy-out */
-        ctest = (REAL_TYPE*)libxs_malloc(ldc * n * sizeof(REAL_TYPE));
+        ctest = (REAL_TYPE*)libxs_malloc((size_t)(ldc * n * sizeof(REAL_TYPE)));
         if (0 != ctest) {
           libxs_matdiff_info diff;
           libxs_bgemm_copyout_c(handle, c, &ldc, ctest);

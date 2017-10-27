@@ -35,7 +35,11 @@
 # define REAL_TYPE double
 #endif
 #if !defined(DGEMM)
-# define DGEMM LIBXS_FSYMBOL(LIBXS_CONCATENATE(__wrap_, LIBXS_TPREFIX(REAL_TYPE, gemm)))
+# if defined(WRAP)
+#   define DGEMM LIBXS_FSYMBOL(LIBXS_TPREFIX(REAL_TYPE, gemm))
+# else
+#   define DGEMM LIBXS_FSYMBOL(LIBXS_CONCATENATE(__wrap_, LIBXS_TPREFIX(REAL_TYPE, gemm)))
+# endif
 #endif
 
 #if !defined(CALL_BEGIN_END)
@@ -74,7 +78,7 @@ void init(int seed, REAL_TYPE* dst, libxs_blasint nrows, libxs_blasint ncols, li
 int main(int argc, char* argv[])
 {
   const libxs_blasint maxn = 1 < argc ? atoi(argv[1]) : 23;
-  const libxs_blasint maxv = 2 < argc ? atoi(argv[2]) : 2;
+  const libxs_blasint maxv = LIBXS_MIN(2 < argc ? atoi(argv[2]) : 2, maxn);
   const libxs_blasint size = 3 < argc ? atoi(argv[3]) : 1000;
 
   const libxs_blasint m = ((rand() % maxv) + 1) * maxn / maxv;
@@ -99,9 +103,9 @@ int main(int argc, char* argv[])
 
   libxs_init();
 
-  a = (REAL_TYPE*)malloc(maxn * maxn * sizeof(REAL_TYPE));
-  b = (REAL_TYPE*)malloc(maxn * maxn * sizeof(REAL_TYPE));
-  c = (REAL_TYPE*)malloc(maxn * maxn * sizeof(REAL_TYPE));
+  a = (REAL_TYPE*)malloc((size_t)(maxn * maxn * sizeof(REAL_TYPE)));
+  b = (REAL_TYPE*)malloc((size_t)(maxn * maxn * sizeof(REAL_TYPE)));
+  c = (REAL_TYPE*)malloc((size_t)(maxn * maxn * sizeof(REAL_TYPE)));
   if (0 == a || 0 == b || 0 == c) result = EXIT_FAILURE;
 
   if (EXIT_SUCCESS == result) {
@@ -109,24 +113,34 @@ int main(int argc, char* argv[])
     init(24, b, maxn, maxn, maxn, 1.0);
     init(0, c, maxn, maxn, maxn, 1.0);
 
+#if defined(_OPENMP)
+#   pragma omp parallel private(i)
+#endif
+    {
 #if defined(CALL_BEGIN_END)
-    /* enable batch-recording of the specified matrix multiplication */
-    libxs_mmbatch_begin(LIBXS_GEMM_PRECISION(REAL_TYPE), &flags, &m, &n, &k, &lda, &ldb, &ldc, &alpha, &beta);
+# if defined(_OPENMP)
+#     pragma omp single nowait
+# endif /* enable batch-recording of the specified matrix multiplication */
+      libxs_mmbatch_begin(LIBXS_GEMM_PRECISION(REAL_TYPE), &flags, &m, &n, &k, &lda, &ldb, &ldc, &alpha, &beta);
 #endif
 #if defined(_OPENMP)
-#   pragma omp parallel for private(i)
+#     pragma omp for
 #endif
-    for (i = 0; i < size; ++i) {
-      const libxs_blasint mi = ((rand() % maxv) + 1) * maxn / maxv;
-      const libxs_blasint ni = ((rand() % maxv) + 1) * maxn / maxv;
-      const libxs_blasint ki = ((rand() % maxv) + 1) * maxn / maxv;
-      const libxs_blasint ilda = mi, ildb = ki, ildc = mi;
-      DGEMM(&transa, &transb, &mi, &ni, &ki, &alpha, a, &ilda, b, &ildb, &beta, c, &ildc);
-    }
+      for (i = 0; i < size; ++i) {
+        const libxs_blasint mi = ((rand() % maxv) + 1) * maxn / maxv;
+        const libxs_blasint ni = ((rand() % maxv) + 1) * maxn / maxv;
+        const libxs_blasint ki = ((rand() % maxv) + 1) * maxn / maxv;
+        const libxs_blasint ilda = mi, ildb = ki, ildc = mi;
+        assert(0 < mi && 0 < ni && 0 < ki && mi <= ilda && ki <= ildb && mi <= ildc);
+        DGEMM(&transa, &transb, &mi, &ni, &ki, &alpha, a, &ilda, b, &ildb, &beta, c, &ildc);
+      }
 #if defined(CALL_BEGIN_END)
-    /* disable/flush multiplication batch */
-    libxs_mmbatch_end();
+# if defined(_OPENMP)
+#     pragma omp single nowait
+# endif /* disable/flush multiplication batch */
+      libxs_mmbatch_end();
 #endif
+    }
   }
 
   libxs_finalize();

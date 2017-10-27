@@ -54,29 +54,84 @@ xmm = libxs_dmmdispatch(23/*m*/, 23/*n*/, 23/*k*/,
   &alpha, &beta, &flags, &prefetch);
 ```
 
-Above, pointer-arguments of `libxs_dmmdispatch` can be NULL (or OPTIONAL in FORTRAN): for LDx this means a "tight" leading dimension, alpha, beta, and flags are given by a [default value](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h) (which is selected at compile-time), and for the prefetch strategy a NULL-argument refers to "no prefetch" (which is equivalent to an explicit `LIBXS_PREFETCH_NONE`).
+Above, pointer-arguments of `libxs_dmmdispatch` can be NULL (or OPTIONAL in FORTRAN): for LDx this means a "tight" leading dimension, alpha, beta, and flags are given by a [default value](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h) (which is selected at compile-time), and for the prefetch strategy a NULL-argument refers to "no prefetch" (which is equivalent to an explicit `LIBXS_PREFETCH_NONE`). By design, the prefetch strategy can be changed at runtime (as soon as valid next-locations are used) without changing the call-site (kernel-signature with six arguments).
+
+```C
+if (0 < n) { /* check that n is at least 1 */
+# pragma parallel omp private(i)
+  for (i = 0; i < (n - 1); ++i) {
+    const double *const ai = a + i * asize;
+    const double *const bi = b + i * bsize;
+    double *const ci = c + i * csize;
+    xmm(ai, bi, ci, ai + asize, bi + bsize, ci + csize);
+  }
+  xmm(a + (n - 1) * asize, b + (n - 1) * bsize, c + (n - 1) * csize,
+  /* pseudo prefetch for last element of batch (avoids page fault) */
+      a + (n - 1) * asize, b + (n - 1) * bsize, c + (n - 1) * csize);
+}
+```
+
+To process a batch of matrix multiplications and to prefetch the operands of the next multiplication ahead of time, the code presented in the [Overview](#overview) section may be modified as shown above. The last multiplication is peeled off from the batch to avoid prefetching out-of-bounds (OOB). Prefetching from an invalid address does not trap an exception, but an (unnecessary) page fault can be avoided as shown above.
 
 ```C
 /** Process a series of matrix multiplications (explicit data representation). */
-int libxs_mmbatch(const libxs_gemm_descriptor* descriptor,
-  const void* a_matrix, const void* b_matrix, void* c_matrix,
-  int index_base, int index_stride, const unsigned int a_stride[],
-  const unsigned int b_stride[], const unsigned int c_stride[],
-  unsigned int batchsize);
+int libxs_mmbatch(libxs_gemm_precision precision, libxs_xmmfunction kernel,
+  const void* a, const void* b, void* c, libxs_blasint index_base, libxs_blasint index_stride,
+  const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
+  libxs_blasint batchsize, int tid, int nthreads);
 ```
 
-To further simplify the multiplication of matrices in a batch, the above interface can help if an explicit data representation is available. A lower level form (`libxs_mmbatch_thread`) can employ a user-defined threading runtime, which is already the case for OpenMP (`libxs_mmbatch_omp`) and hosted by the extension library (libxsext). Please note that an explicit data presentation is not necessary to prefetch a series of matrix multiplications. A "chain" of multiplications can be programmatically described without the need to build arrays of operands or indexes.
+To further simplify the multiplication of matrices in a batch, the above interface can help if an explicit data representation is available. This low-level form is also able to employ a user-defined threading runtime. In case of OpenMP, `libxs_mmbatch_omp` is ready to use and hosted by the extension library (libxsext). An even higher-level set of procedures (and potentially more convenient functions) are available with `libxs_gemm_batch` and `libxs_gemm_batch_omp`.
 
-### Call Wrapper
+```C
+void libxs_gemm_batch(libxs_gemm_precision precision, const char* transa, const char* transb,
+  libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const void* alpha, const void* a, const libxs_blasint* lda,
+                     const void* b, const libxs_blasint* ldb,
+   const void* beta,       void* c, const libxs_blasint* ldc,
+  libxs_blasint index_base, libxs_blasint index_stride,
+  const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
+  libxs_blasint batchsize);
+```
 
-Since the library is binary compatible with existing GEMM calls (BLAS), these calls can be replaced at link-time or intercepted at runtime of an application such that LIBXS is used instead of the original BLAS library. There are two cases to consider:
+Please note that an explicit data representation is not actually necessary to process a series of matrix multiplications. A "chain" of multiplications can be programmatically described without the need for arrays of operands or indexes.
 
-1. An application which is linked statically against BLAS requires to wrap the 'sgemm_' and the 'dgemm_' symbol (an alternative is to wrap only 'dgemm_'), and a special build of the libxs(ext) library is required (`make WRAP=1` to wrap SGEMM and DGEMM, or `make WRAP=2` to wrap only DGEMM):  
-`gcc [...] -Wl,--wrap=sgemm_,--wrap=dgemm_ /path/to/libxsext.a /path/to/libxs.a /path/to/your_regular_blas.a`
-    * Relinking the application as shown above can often be accomplished by copying, pasting, modifying the linker command, and then re-invoking the modified link step. This linker command may appear as console output of the application's "make" command (or a similar build system).
-    * The static link-time wrapper technique may only work with a GCC tool chain (GNU Binutils: `ld`, or `ld` via compiler-driver), and it has been tested with GNU GCC, Intel&#160;Compiler, and Clang. However, this does not work under Microsoft Windows (even when using the GNU tool chain), and it may not work under OS&#160;X (Compiler&#160;6.1 or earlier, later versions have not been tested).
-2. An application that is dynamically linked against BLAS allows to intercept the GEMM calls at startup time (runtime) of the unmodified executable by using the LD_PRELOAD mechanism. The shared library of LIBXS (`make STATIC=0`) can be used to intercept GEMM calls:  
-`LD_PRELOAD=/path/to/libxsext.so ./myapplication`
+## Overview
+
+Since the library is binary compatible with existing GEMM calls (BLAS), such calls can be replaced at link-time or intercepted at runtime of an application such that LIBXS is used instead of the original BLAS library. There are two cases to consider: (1)&#160;static linkage, and (2)&#160;dynamic linkage of the application against the original BLAS library.
+
+```bash
+LIBXS STATISTIC: 1000 multiplications
+dgemm(trans=NN mnk=32,32,21 ldx=32,21,32 a,b=1,0): 8% [main$omp$1]
+dgemm(trans=NN mnk=32,21,32 ldx=32,32,32 a,b=1,0): 8% [main$omp$1]
+dgemm(trans=NN mnk=10,21,32 ldx=10,32,10 a,b=1,0): 5% [main$omp$1]
+dgemm(trans=NN mnk=32,10,32 ldx=32,32,32 a,b=1,0): 5% [main$omp$1]
+dgemm(trans=NN mnk=32,32,10 ldx=32,10,32 a,b=1,0): 5% [main$omp$1]
+```
+
+In any case, a sophisticated statistic (histogram) becomes available with LIBXS_VERBOSE=1 (or higher). The histogram displays the call sites of all intercepted GEMMs ([example](https://github.com/hfp/libxs/blob/master/samples/wrap/autobatch.c) above depicts an OpenMP region hosted by the main function). With level&#160;2 (or higher) the histogram yields the entire content, and eventually less relevant entries are not pruned. An application must be built with symbols (`-g`) and export symbols similar to shared libraries (`-Wl,--export-dynamic`) even when linked statically in order to display the symbol names of where the GEMMs originated (call site).
 
 **NOTE**: Using the same multiplication kernel in a consecutive fashion (batch-processing) allows to extract higher performance, when using LIBXS's native programming interface.
+
+#### Static Linkage
+
+An application which is linked statically against BLAS requires to wrap the 'sgemm_' and the 'dgemm_' symbol (an alternative is to wrap only 'dgemm_'), and a special build of the libxs(ext) library is required (`make WRAP=1` to wrap SGEMM and DGEMM, or `make WRAP=2` to wrap only DGEMM). To relink the application (without editing the build system) can often be accomplished by copying and pasting the linker command as it appeared in the console output of the build system, and then re-invoking a modified link step:
+
+```bash
+gcc [...] -Wl,--wrap=sgemm_,--wrap=dgemm_ \
+          /path/to/libxsext.a /path/to/libxs.a \
+          /path/to/your_regular_blas.a
+```
+
+**NOTE**: The static link-time wrapper technique may only work with a GCC tool chain (GNU Binutils: `ld`, or `ld` via compiler-driver), and it has been tested with GNU GCC, Intel&#160;Compiler, and Clang. However, this does not work under Microsoft Windows (even when using the GNU tool chain or Cygwin), and it may not work under OS&#160;X (Compiler&#160;6.1 or earlier, later versions have not been tested).
+
+#### Dynamic Linkage
+
+An application that is dynamically linked against BLAS allows to intercept the GEMM calls at startup time (runtime) of the unmodified executable by using the LD_PRELOAD mechanism. The shared library of LIBXSext (`make STATIC=0`) can be used to intercept GEMM calls:
+
+```bash
+LD_PRELOAD=/path/to/libxs/lib/libxsext.so \
+LD_LIBRARY_PATH=/path/to/libxs/lib:${LD_LIBRARY_PATH} \
+   ./myapplication
+```
 

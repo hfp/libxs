@@ -29,7 +29,7 @@
 #ifndef LIBXS_MAIN_H
 #define LIBXS_MAIN_H
 
-#include <libxs_typedefs.h>
+#include <libxs_frontend.h>
 #include <libxs_generator.h>
 #include <libxs_malloc.h>
 #include <libxs_sync.h>
@@ -380,7 +380,8 @@ LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 LIBXS_API int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
 /** Updates counters of the statistic, which is shown at program termination. */
-LIBXS_API unsigned int libxs_update_mmstatistic(int flags, int m, int n, int k, unsigned int ntry, unsigned int ncol);
+LIBXS_API unsigned int libxs_update_mmstatistic(libxs_gemm_precision precision,
+  libxs_blasint m, libxs_blasint n, libxs_blasint k, unsigned int ntry, unsigned int ncol);
 
 /** Returns the current tick of a (monotonic) platform-specific counter; not necessarily CPU cycles. */
 LIBXS_API unsigned long long libxs_timer_tick_rdtsc(void);

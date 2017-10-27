@@ -128,9 +128,9 @@ LIBXS_API_DEFINITION int libxs_matcopy_thread(void* out, const void* in, unsigne
         m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
       }
       else if (1 < nthreads) {
-        const int mc = descriptor.m, ntasks = (nthreads / mtasks);
-        const int nc = (((n + ntasks - 1) / ntasks + descriptor.n - 1) / descriptor.n) * descriptor.n;
-        const int mtid = tid / ntasks, ntid = tid - mtid * ntasks;
+        const int ntasks = nthreads / mtasks, mtid = tid / ntasks, ntid = tid - mtid * ntasks;
+        const libxs_blasint nc = (((n + ntasks - 1) / ntasks + descriptor.n - 1) / descriptor.n) * descriptor.n;
+        const libxs_blasint mc = descriptor.m;
         m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
         n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
       }
@@ -255,9 +255,9 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
           m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
         }
         else if (1 < nthreads) {
-          const int mc = descriptor.m, ntasks = (nthreads / mtasks);
-          const int nc = (((n + ntasks - 1) / ntasks + descriptor.n - 1) / descriptor.n) * descriptor.n;
-          const int mtid = tid / ntasks, ntid = tid - mtid * ntasks;
+          const int ntasks = nthreads / mtasks, mtid = tid / ntasks, ntid = tid - mtid * ntasks;
+          const libxs_blasint nc = (((n + ntasks - 1) / ntasks + descriptor.n - 1) / descriptor.n) * descriptor.n;
+          const libxs_blasint mc = descriptor.m;
           m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
           n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
         }

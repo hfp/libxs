@@ -86,6 +86,7 @@ typedef struct {
 
 LIBXS_INLINE void zero_buf(float* buf, long size) {
   int i;
+#pragma omp parallel for private(i)
   for (i = 0; i < size; ++i) {
     buf[i] = 0.0f;
   }
@@ -93,6 +94,7 @@ LIBXS_INLINE void zero_buf(float* buf, long size) {
 
 LIBXS_INLINE void copy_buf(float* src, float* dst, long size) {
   int i;
+#pragma omp parallel for private(i)
   for (i = 0; i < size; ++i) {
     dst[i] = src[i];
   }
@@ -696,6 +698,15 @@ int main(int argc, char* argv[])
   init_buf(naive_dbias,          nOfm, 0, 0);
   copy_buf(naive_bias, bias_nhwc, nOfm);
   copy_buf(naive_dbias, dbias_nhwc, nOfm);
+
+  /* first touch LIBXS */
+  zero_buf( input_libxs    , nImg*nIfm*ifhp*ifwp );
+  zero_buf( filter_libxs   , nOfm*nIfm*kh*kw );
+  zero_buf( output_libxs   , nImg*nOfm*ofhp*ofwp );
+  zero_buf( dinput_libxs   , nImg*nIfm*ifhp*ifwp );
+  zero_buf( dfilter_libxs  , nOfm*nIfm*kh*kw );
+  zero_buf( doutput_libxs  , nImg*nOfm*ofhp*ofwp );
+  zero_buf( filtertr_libxs , nOfm*nIfm*kh*kw );
 
   printf("##########################################\n");
   printf("#         Computing Reference ...        #\n");

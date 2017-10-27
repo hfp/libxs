@@ -143,7 +143,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 #define LIBXS_FWD_OFH_BLOCKING
 #if defined(LIBXS_FWD_OFH_BLOCKING)
     if ( ((handle->ofw < 15) && (handle->ofh % 2 == 0) && (handle->desc.S == 1)) ||
-        ((handle->ofw < 15) && (handle->ofh % 2 == 0) && (libxs_target_archid == LIBXS_X86_AVX512_KNM)) ) {
+        ((handle->ofw < 15) && (handle->ofh % 2 == 0)) ) {
       handle->fwd_ofw_rb = handle->ofw;
       handle->fwd_ofh_rb = 2;
       /* on AVX512_CORE and int this only works for smaller 13 */
@@ -1356,7 +1356,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 ifw_padded = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
               }
 
-              qfma_padding = (handle->desc.W % 4 == 0) ? 0 : 4 - handle->desc.W % 4;
+              if ( libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
+                qfma_padding = (handle->desc.W % 4 == 0) ? 0 : 4 - handle->desc.W % 4;
+              } else {
+                qfma_padding = 0;
+              }
               kernel_ifw_padded = ifw_padded + qfma_padding;
               handle->qfma_input_pad = qfma_padding;
               descriptor.ifw_padded = kernel_ifw_padded;
@@ -1372,7 +1376,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   kernel_ofw_compute = handle->ofw;
                 }
               }
-              kernel_ofw_fake_pixels = (kernel_ofw_compute % 4 == 0) ? 0 : 4 - kernel_ofw_compute % 4;
+              if ( libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
+                kernel_ofw_fake_pixels = (kernel_ofw_compute % 4 == 0) ? 0 : 4 - kernel_ofw_compute % 4;
+              } else {
+                kernel_ofw_fake_pixels = 0;
+              }
               kernel_ofw = kernel_ofw_compute + kernel_ofw_fake_pixels;
               descriptor.ofw_fake_pixels = kernel_ofw_fake_pixels;
               descriptor.ofw_rb = kernel_ofw;  
@@ -1535,13 +1543,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           if ((handle->ifmblock == 1) || (handle->blocksifm * handle->blocksofm < handle->desc.threads) ) {
             handle->use_thread_private_filter = 1;
             /* determine if we will transpose input  */
-            if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM)  && (handle->upd_ofw_rb%4 == 0) ) {
+            if ( ((libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->upd_ofw_rb%4 == 0)) || ((libxs_target_archid == LIBXS_X86_AVX512_MIC) || (libxs_target_archid == LIBXS_X86_AVX512_CORE)) ) {
               handle->trans_ofw_ifm = 1;
             }
           } else {
             handle->use_thread_private_filter = 0;
             /* determine if we will transpose input  */
-            if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM) &&  (handle->upd_ofw_rb%4 == 0) ) {
+            if ( ((libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->upd_ofw_rb%4 == 0)) || ((libxs_target_archid == LIBXS_X86_AVX512_MIC) || (libxs_target_archid == LIBXS_X86_AVX512_CORE)) ) {
               handle->trans_ofw_ifm = 1;
               if ( handle->desc.R !=1 && handle->desc.S != 1 && ( handle->desc.u !=1 || handle->desc.v != 1 )  ) {
                 handle->trans_ofw_ifm = 0;

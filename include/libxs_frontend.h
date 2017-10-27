@@ -89,8 +89,10 @@
 #define LIBXS_EQUAL_doublefloat 0
 
 /** Check ILP64 configuration for sanity. */
-#if !defined(LIBXS_ILP64) || (defined(MKL_ILP64) && 0 == LIBXS_ILP64)
+#if !defined(LIBXS_ILP64) || (0 == LIBXS_ILP64 && defined(MKL_ILP64))
 # error "Inconsistent ILP64 configuration detected!"
+#elif (0 != LIBXS_ILP64 && !defined(MKL_ILP64))
+# define MKL_ILP64
 #endif
 #if (0 != LIBXS_ILP64)
 # define LIBXS_BLASINT long long
@@ -174,9 +176,9 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 
 /** Helper macro allowing NULL-requests (transposes) supplied by some default. */
 #define LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, DEFAULT) LIBXS_GEMM_FLAGS( \
-  0 != ((const void*)(TRANSA)) ? *((const char*)(TRANSA)) : (0 == ((DEFAULT) & LIBXS_GEMM_FLAG_TRANS_A) ? 'N' : 'T'), \
-  0 != ((const void*)(TRANSB)) ? *((const char*)(TRANSB)) : (0 == ((DEFAULT) & LIBXS_GEMM_FLAG_TRANS_B) ? 'N' : 'T')) \
-  | ((DEFAULT) & ~(LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B))
+  0 != ((const void*)(TRANSA)) ? *((const char*)(TRANSA)) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & (DEFAULT)) ? 'N' : 'T'), \
+  0 != ((const void*)(TRANSB)) ? *((const char*)(TRANSB)) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & (DEFAULT)) ? 'N' : 'T')) \
+  | (~(LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B) & (DEFAULT))
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (template). */
 #if !defined(__BLAS) || (0 != __BLAS)
@@ -330,10 +332,10 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 #define LIBXS_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   if (((unsigned long long)(LIBXS_MAX_MNK)) >= LIBXS_MNK_SIZE(M, N, K)) { \
     const int libxs_xgemm_flags_ = (int)(FLAGS); \
-    const int libxs_xgemm_lda_ = (int)(LDA), libxs_xgemm_ldb_ = (int)(LDB), libxs_xgemm_ldc_ = (int)(LDC); \
+    const INT libxs_xgemm_lda_ = (INT)(LDA), libxs_xgemm_ldb_ = (INT)(LDB), libxs_xgemm_ldc_ = (INT)(LDC); \
     const TYPE libxs_xgemm_alpha_ = (TYPE)(ALPHA), libxs_xgemm_beta_ = (TYPE)(BETA); \
     const LIBXS_MMFUNCTION_TYPE(TYPE) libxs_mmfunction_ = LIBXS_MMDISPATCH_SYMBOL(TYPE)( \
-      (int)(M), (int)(N), (int)(K), &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
+      (INT)(M), (INT)(N), (INT)(K), &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
       &libxs_xgemm_alpha_, &libxs_xgemm_beta_, &libxs_xgemm_flags_, 0); \
     if (0 != libxs_mmfunction_) { \
       LIBXS_MMCALL_LDX(libxs_mmfunction_, (const TYPE*)(A), (const TYPE*)(B), (TYPE*)(C), M, N, K, LDA, LDB, LDC); \

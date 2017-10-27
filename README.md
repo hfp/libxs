@@ -1,4 +1,4 @@
-# [LIBXS](https://github.com/hfp/libxs/raw/master/documentation/libxs.pdf)
+# LIBXS
 
 [![License](https://img.shields.io/badge/license-BSD3-blue.svg)](LICENSE.md) [![Travis CI](https://travis-ci.org/hfp/libxs.svg?branch=master "Master branch build status")](https://github.com/hfp/libxs/wiki/Status) [![ReadtheDocs](http://readthedocs.org/projects/libxs/badge/?version=latest "Read the Docs")](http://libxs.readthedocs.io/)
 
