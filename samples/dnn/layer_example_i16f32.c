@@ -224,7 +224,7 @@ LIBXS_INLINE void naive_conv_fp_int16(naive_conv_t* param, const short* input, f
   }
 }
 
-LIBXS_INLINE void naive_conv_bp_int16(naive_conv_t* param, int* input, const short* output, const short* filter)
+LIBXS_INLINE void naive_conv_bp_int16(naive_conv_t* param, float* input, const short* output, const short* filter)
 {
   int nImg      = param->nImg;
   int nIfm      = param->nIfm;
@@ -251,7 +251,7 @@ LIBXS_INLINE void naive_conv_bp_int16(naive_conv_t* param, int* input, const sho
   int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
 
   LIBXS_VLA_DECL(4, const short,     output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
-  LIBXS_VLA_DECL(4,         int,      input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
+  LIBXS_VLA_DECL(4,       float,      input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
   LIBXS_VLA_DECL(4, const short,     filter_t, filter, nIfm, kh, kw);
 
 #if defined(_OPENMP)
@@ -268,9 +268,9 @@ LIBXS_INLINE void naive_conv_bp_int16(naive_conv_t* param, int* input, const sho
               if (ij+kj < 0 || ij+kj >= ifh) continue;
               for (ki = 0; ki < kw; ++ki) {
                 if (ii+ki < 0 || ii+ki >= ifw) continue;
-                  LIBXS_VLA_ACCESS(4,   input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp) += (int)
-                  (LIBXS_VLA_ACCESS(4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp)
-                    * LIBXS_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw));
+                  LIBXS_VLA_ACCESS(4,   input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp) += (float)
+                  ( (1.0 *  LIBXS_VLA_ACCESS(4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp))
+                    * (1.0 * LIBXS_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw)) );
               }
             }
           }
