@@ -110,12 +110,13 @@
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_add_and_fetch(DST_PTR, VALUE)
 #   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_sub_and_fetch(DST_PTR, VALUE)
 # endif
-/* TODO: distinct implementation of LIBXS_ATIMIC_SYNC_* wrt LIBXS_GCCATOMICS */
+# define LIBXS_SYNCHRONIZE __sync_synchronize()
+/* TODO: distinct implementation of LIBXS_ATOMIC_SYNC_* wrt LIBXS_GCCATOMICS */
 # define LIBXS_ATOMIC_SYNC_CHECK(LOCK, VALUE) while ((VALUE) == (LOCK)); LIBXS_SYNC_PAUSE
 # define LIBXS_ATOMIC_SYNC_SET(LOCK) do { LIBXS_ATOMIC_SYNC_CHECK(LOCK, 1); } while(0 != __sync_lock_test_and_set(&(LOCK), 1))
 # define LIBXS_ATOMIC_SYNC_UNSET(LOCK) __sync_lock_release(&(LOCK))
-#elif defined(_REENTRANT) && defined(_WIN32) /*TODO*/
-# define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) (*(SRC_PTR))
+#elif defined(_REENTRANT) && defined(_WIN32) /* TODO: atomics */
+# define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) (*((SRC_PTR) /*+ InterlockedOr((LONG volatile*)(SRC_PTR), 0) * 0*/))
 # define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) (*(DST_PTR) = VALUE)
 # define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) += VALUE)
 # define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) -= VALUE)
@@ -126,6 +127,7 @@
     } while(0 != libxs_sync_set_i_); \
   }
 # define LIBXS_ATOMIC_SYNC_UNSET(LOCK) (LOCK) = 0
+# define LIBXS_SYNCHRONIZE /* TODO */
 #else
 # define LIBXS_ATOMIC_LOAD LIBXS_NONATOMIC_LOAD
 # define LIBXS_ATOMIC_STORE LIBXS_NONATOMIC_STORE
@@ -134,6 +136,7 @@
 # define LIBXS_ATOMIC_SYNC_CHECK(LOCK, VALUE) LIBXS_UNUSED(LOCK)
 # define LIBXS_ATOMIC_SYNC_SET(LOCK) LIBXS_UNUSED(LOCK)
 # define LIBXS_ATOMIC_SYNC_UNSET(LOCK) LIBXS_UNUSED(LOCK)
+# define LIBXS_SYNCHRONIZE
 #endif
 #if !defined(LIBXS_ATOMIC_STORE_ZERO)
 # define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) LIBXS_ATOMIC_STORE(DST_PTR, 0, KIND)
@@ -146,7 +149,23 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #if defined(_REENTRANT)
-# if defined(_WIN32)
+  /* OpenMP based locks need to stay disabled unless both
+   * libxs and libxsext are built with OpenMP support.
+   */
+# if defined(_OPENMP) && defined(LIBXS_OMP)
+#   include <omp.h>
+#   define LIBXS_LOCK_ACQUIRED 1
+#   define LIBXS_LOCK_ATTR_TYPE const void*
+#   define LIBXS_LOCK_ATTR_INIT(ATTR) LIBXS_UNUSED(ATTR)
+#   define LIBXS_LOCK_ATTR_DESTROY(ATTR) LIBXS_UNUSED(ATTR)
+#   define LIBXS_LOCK_TYPE omp_lock_t
+#   define LIBXS_LOCK_CONSTRUCT LIBXS_LOCK_TYPE()
+#   define LIBXS_LOCK_INIT(LOCK, ATTR) omp_init_lock(LOCK)
+#   define LIBXS_LOCK_DESTROY(LOCK) omp_destroy_lock(LOCK)
+#   define LIBXS_LOCK_ACQUIRE(LOCK) omp_set_lock(LOCK)
+#   define LIBXS_LOCK_TRYLOCK(LOCK) omp_test_lock(LOCK)
+#   define LIBXS_LOCK_RELEASE(LOCK) omp_unset_lock(LOCK)
+# elif defined(_WIN32)
 #   include <windows.h>
 #   if 1
 #     define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
@@ -164,11 +183,11 @@
 #     define LIBXS_LOCK_ACQUIRED WAIT_OBJECT_0
 #     define LIBXS_LOCK_ATTR_TYPE const void*
 #     define LIBXS_LOCK_ATTR_INIT(ATTR) *(ATTR) = NULL
-#     define LIBXS_LOCK_ATTR_DESTROY(ATTR)
+#     define LIBXS_LOCK_ATTR_DESTROY(ATTR) LIBXS_UNUSED(ATTR)
 #     define LIBXS_LOCK_TYPE CRITICAL_SECTION
 #     define LIBXS_LOCK_CONSTRUCT LIBXS_LOCK_TYPE()
 #     define LIBXS_LOCK_INIT(LOCK, ATTR) InitializeCriticalSection(LOCK)
-#     define LIBXS_LOCK_DESTROY(LOCK)
+#     define LIBXS_LOCK_DESTROY(LOCK) DeleteCriticalSection(LOCK)
 #     define LIBXS_LOCK_ACQUIRE(LOCK) EnterCriticalSection(LOCK)
 #     define LIBXS_LOCK_TRYLOCK(LOCK) TryEnterCriticalSection(LOCK)
 #     define LIBXS_LOCK_RELEASE(LOCK) LeaveCriticalSection(LOCK)
@@ -196,11 +215,11 @@
 #else
 # define LIBXS_LOCK_ACQUIRED 0
 # define LIBXS_LOCK_ATTR_TYPE const void*
-# define LIBXS_LOCK_ATTR_INIT(ATTR) LIBXS_UNUSED(ATTR)
+# define LIBXS_LOCK_ATTR_INIT(ATTR) *(ATTR) = NULL
 # define LIBXS_LOCK_ATTR_DESTROY(ATTR) LIBXS_UNUSED(ATTR)
 # define LIBXS_LOCK_TYPE const void*
 # define LIBXS_LOCK_CONSTRUCT 0
-# define LIBXS_LOCK_INIT(LOCK, ATTR) LIBXS_UNUSED(LOCK); LIBXS_UNUSED(ATTR)
+# define LIBXS_LOCK_INIT(LOCK, ATTR) *(LOCK) = NULL; LIBXS_UNUSED(ATTR)
 # define LIBXS_LOCK_DESTROY(LOCK) LIBXS_UNUSED(LOCK)
 # define LIBXS_LOCK_ACQUIRE(LOCK) LIBXS_UNUSED(LOCK)
 # define LIBXS_LOCK_TRYLOCK(LOCK) LIBXS_UNUSED(LOCK)

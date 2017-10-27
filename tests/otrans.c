@@ -79,8 +79,8 @@ int main(void)
     maxi = LIBXS_MAX(maxi, ldi[test]);
     maxo = LIBXS_MAX(maxo, ldo[test]);
   }
-  a = (ELEM_TYPE*)libxs_malloc(maxi * maxn * sizeof(ELEM_TYPE));
-  b = (ELEM_TYPE*)libxs_malloc(maxo * maxm * sizeof(ELEM_TYPE));
+  a = (ELEM_TYPE*)libxs_malloc((size_t)(maxi * maxn * sizeof(ELEM_TYPE)));
+  b = (ELEM_TYPE*)libxs_malloc((size_t)(maxo * maxm * sizeof(ELEM_TYPE)));
   assert(0 != a && 0 != b);
 
   init(42, a, maxm, maxn, maxi, 1.0);
