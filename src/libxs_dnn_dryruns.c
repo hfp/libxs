@@ -130,18 +130,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_bwd_dryrun_direct_custom_custom( lib
     /* In these case we run fallback code so we do not support thread private jitting */
     status = LIBXS_DNN_WARN_FALLBACK;
   } else {
-    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      if (handle->desc.N*handle->blocksifm*handle->fm_lp_block >= handle->desc.threads) {
+    if (handle->desc.N*handle->blocksifm*handle->fm_lp_block >= handle->desc.threads) {
 # include "template/libxs_dnn_convolve_dryrun_bwd_custom_custom.tpl.c"
-      } else {
-# include "template/libxs_dnn_convolve_dryrun_bwd_custom_custom.tpl.c"
-      }
     } else {
-      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-      return status;
+# include "template/libxs_dnn_convolve_dryrun_bwd_custom_custom.tpl.c"
     }
   }
-
   return status;
 }
 
@@ -161,7 +155,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_custom_custom( lib
 # include "template/libxs_dnn_convolve_dryrun_fwd_custom_custom_img_par.tpl.c"
     }
   }
-
   return status;
 }
 

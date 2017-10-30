@@ -320,6 +320,15 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle->blocksofm_blocking = 8;
     }
 
+    if (handle->use_lp_kernel == 1) {
+      if (handle->blocksofm_blocking * handle->ofmblock * handle->fm_lp_block > 256) {
+        handle->blocksofm_blocking = 8;
+        while ( handle->desc.K%(handle->blocksofm_blocking * handle->ofmblock * handle->fm_lp_block) != 0  ) {
+           handle->blocksofm_blocking--;
+        }
+      }
+    } 
+
     /* Logic for L2 tiling  */
     unsigned int input_block_size = 28 * handle->blocksifm_blocking * 64;
     unsigned int output_block_size = 28 * 64;
@@ -376,7 +385,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
     if (((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) 
          && (handle->desc.K == handle->blocksofm_blocking*handle->ofmblock*handle->fm_lp_block) 
-         && (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 || handle->datatype_in == LIBXS_DNN_DATATYPE_I32 ) ) {
+         && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32 || handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) ) {
       handle->use_nts_bwd = 1;
     } else {
       handle->use_nts_bwd = 0;
