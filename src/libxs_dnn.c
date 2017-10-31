@@ -547,7 +547,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
                 layout->dim_size[1] = handle->ifmblock;
                 layout->dim_size[2] = handle->ifwp;
                 layout->dim_size[3] = handle->ifhp;
-                layout->dim_size[4] = handle->blocksifm;
+                layout->dim_size[4] = handle->blocksifm_lp;
                 layout->dim_size[5] = handle->desc.N;
               } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
                 layout->dim_size[0] = 1;
@@ -585,7 +585,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
                 layout->dim_size[1] = handle->ifmblock;
                 layout->dim_size[2] = handle->ifwp;
                 layout->dim_size[3] = handle->ifhp;
-                layout->dim_size[4] = handle->blocksifm;
+                layout->dim_size[4] = handle->blocksifm_lp;
                 layout->dim_size[5] = handle->desc.N;
               } else if ( type == LIBXS_DNN_GRADIENT_OUTPUT )   {
                 layout->num_dims = 6;
@@ -599,7 +599,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
                 layout->dim_size[1] = handle->ofmblock;
                 layout->dim_size[2] = handle->ofwp;
                 layout->dim_size[3] = handle->ofhp;
-                layout->dim_size[4] = handle->blocksofm;
+                layout->dim_size[4] = handle->blocksofm_lp;
                 layout->dim_size[5] = handle->desc.N;
               } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
                 layout->num_dims = 5;
@@ -687,7 +687,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
               layout->dim_size[2] = handle->ifmblock;
               layout->dim_size[3] = handle->desc.S;
               layout->dim_size[4] = handle->desc.R;
-              layout->dim_size[5] = handle->blocksifm;
+              layout->dim_size[5] = handle->blocksifm_lp;
               layout->dim_size[6] = handle->blocksofm;
             }
           } else {
