@@ -668,27 +668,46 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
               layout->dim_size[4] = handle->blocksifm;
               layout->dim_size[5] = handle->blocksofm;
             }
-          } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) ||
-            (handle->datatype_in == LIBXS_DNN_DATATYPE_I8) ) {
-            layout->datatype = handle->datatype_in;
+          } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
+            if ( (type == LIBXS_DNN_REGULAR_FILTER) || (type == LIBXS_DNN_FILTER) ) {
+              layout->datatype = handle->datatype_in;
+            } else if (type == LIBXS_DNN_GRADIENT_FILTER) {
+              layout->datatype = handle->datatype_out;       
+            }
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(7*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(7*sizeof(unsigned int));
             if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
-              layout->num_dims = 7;
-              layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_K;
-              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_S;
-              layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_R;
-              layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-              layout->dim_type[6] = LIBXS_DNN_TENSOR_DIMTYPE_K;
-              layout->dim_size[0] = handle->fm_lp_block;
-              layout->dim_size[1] = handle->ofmblock;
-              layout->dim_size[2] = handle->ifmblock;
-              layout->dim_size[3] = handle->desc.S;
-              layout->dim_size[4] = handle->desc.R;
-              layout->dim_size[5] = handle->blocksifm_lp;
-              layout->dim_size[6] = handle->blocksofm;
+              if ((type == LIBXS_DNN_REGULAR_FILTER) || (type == LIBXS_DNN_FILTER)) {
+                layout->num_dims = 7;
+                layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+                layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+                layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_S;
+                layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_R;
+                layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+                layout->dim_type[6] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                layout->dim_size[0] = handle->fm_lp_block;
+                layout->dim_size[1] = handle->ofmblock;
+                layout->dim_size[2] = handle->ifmblock;
+                layout->dim_size[3] = handle->desc.S;
+                layout->dim_size[4] = handle->desc.R;
+                layout->dim_size[5] = handle->blocksifm_lp;
+                layout->dim_size[6] = handle->blocksofm;
+              } else if (type == LIBXS_DNN_GRADIENT_FILTER) {
+                layout->num_dims = 6;
+                layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+                layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_S;
+                layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_R;
+                layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+                layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                layout->dim_size[0] = handle->ofmblock;
+                layout->dim_size[1] = handle->ifmblock;
+                layout->dim_size[2] = handle->desc.S;
+                layout->dim_size[3] = handle->desc.R;
+                layout->dim_size[4] = handle->blocksifm;
+                layout->dim_size[5] = handle->blocksofm;
+              }
             }
           } else {
             free(layout);
@@ -741,7 +760,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
               layout->dim_size[5] = handle->blocksifm;
             }
           } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) ||
-            (handle->datatype_in == LIBXS_DNN_DATATYPE_I8) ) {
+              (handle->datatype_in == LIBXS_DNN_DATATYPE_I8) ) {
             layout->datatype = handle->datatype_in;
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(7*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(7*sizeof(unsigned int));
@@ -1092,118 +1111,118 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_ten
       case LIBXS_DNN_INPUT:
       case LIBXS_DNN_OUTPUT:
       case LIBXS_DNN_ACTIVATION: {
-        switch (in_format) {
-          case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
-            if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
-              switch (tensor->layout->datatype) {
-                case LIBXS_DNN_DATATYPE_F32: {
-                  typedef float element_type;
+                                     switch (in_format) {
+                                       case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
+                                                                              if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
+                                                                                switch (tensor->layout->datatype) {
+                                                                                  case LIBXS_DNN_DATATYPE_F32: {
+                                                                                                                   typedef float element_type;
 #include "template/libxs_dnn_tensor_buffer_copy_in_nchw.tpl.c"
-                } break;
-                case LIBXS_DNN_DATATYPE_I32: {
-                  typedef int element_type;
+                                                                                                                 } break;
+                                                                                  case LIBXS_DNN_DATATYPE_I32: {
+                                                                                                                   typedef int element_type;
 #include "template/libxs_dnn_tensor_buffer_copy_in_nchw.tpl.c"
-                } break;
-                case LIBXS_DNN_DATATYPE_I16: {
-                  typedef short  element_type;
+                                                                                                                 } break;
+                                                                                  case LIBXS_DNN_DATATYPE_I16: {
+                                                                                                                   typedef short  element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_buffer_copy_in_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                case LIBXS_DNN_DATATYPE_I8: {
-                  typedef char element_type;
+                                                                                                                 } break;
+                                                                                  case LIBXS_DNN_DATATYPE_I8: {
+                                                                                                                  typedef char element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_buffer_copy_in_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                default: {
-                  status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-                }
-              }
-            } else {
-              status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
-            }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
-          }
-        }
-      } break;
+                                                                                                                } break;
+                                                                                  default: {
+                                                                                             status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+                                                                                           }
+                                                                                }
+                                                                              } else {
+                                                                                status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
+                                                                              }
+                                                                            } break;
+                                       default: {
+                                                  status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+                                                }
+                                     }
+                                   } break;
       case LIBXS_DNN_REGULAR_FILTER:
       case LIBXS_DNN_GRADIENT_FILTER:
       case LIBXS_DNN_FILTER: {
-        switch (in_format) {
-          case LIBXS_DNN_TENSOR_FORMAT_KCRS: {
-            if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
-              switch (tensor->layout->datatype) {
-                case LIBXS_DNN_DATATYPE_F32: {
-                  typedef float element_type;
+                                 switch (in_format) {
+                                   case LIBXS_DNN_TENSOR_FORMAT_KCRS: {
+                                                                          if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
+                                                                            switch (tensor->layout->datatype) {
+                                                                              case LIBXS_DNN_DATATYPE_F32: {
+                                                                                                               typedef float element_type;
 #include "template/libxs_dnn_tensor_filter_copy_in_kcrs.tpl.c"
-                } break;
-                case LIBXS_DNN_DATATYPE_I16: {
-                  typedef short element_type;
+                                                                                                             } break;
+                                                                              case LIBXS_DNN_DATATYPE_I16: {
+                                                                                                               typedef short element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_in_kcrs.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                case LIBXS_DNN_DATATYPE_I8: {
-                  typedef char element_type;
+                                                                                                             } break;
+                                                                              case LIBXS_DNN_DATATYPE_I8: {
+                                                                                                              typedef char element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_in_kcrs.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                default: {
-                  status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-                }
-              }
-            } else {
-              status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
-            }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
-          }
-        }
-      } break;
+                                                                                                            } break;
+                                                                              default: {
+                                                                                         status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+                                                                                       }
+                                                                            }
+                                                                          } else {
+                                                                            status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
+                                                                          }
+                                                                        } break;
+                                   default: {
+                                              status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+                                            }
+                                 }
+                               } break;
       case LIBXS_DNN_REGULAR_BIAS:
       case LIBXS_DNN_GRADIENT_BIAS:
       case LIBXS_DNN_BIAS: {
-        switch (in_format) {
-          case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
-            if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
-              switch (tensor->layout->datatype) {
-                case LIBXS_DNN_DATATYPE_F32: {
-                  typedef float element_type;
+                               switch (in_format) {
+                                 case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
+                                                                        if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
+                                                                          switch (tensor->layout->datatype) {
+                                                                            case LIBXS_DNN_DATATYPE_F32: {
+                                                                                                             typedef float element_type;
 #include "template/libxs_dnn_tensor_bias_copy_in_nchw.tpl.c"
-                } break;
-                case LIBXS_DNN_DATATYPE_I16: {
-                  typedef short element_type;
+                                                                                                           } break;
+                                                                            case LIBXS_DNN_DATATYPE_I16: {
+                                                                                                             typedef short element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_bias_copy_in_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                case LIBXS_DNN_DATATYPE_I8: {
-                  typedef char element_type;
+                                                                                                           } break;
+                                                                            case LIBXS_DNN_DATATYPE_I8: {
+                                                                                                            typedef char element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_bias_copy_in_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                default: {
-                  status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-                }
-              }
-            } else {
-              status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
-            }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
-          }
-        }
-      } break;
+                                                                                                          } break;
+                                                                            default: {
+                                                                                       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+                                                                                     }
+                                                                          }
+                                                                        } else {
+                                                                          status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
+                                                                        }
+                                                                      } break;
+                                 default: {
+                                            status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+                                          }
+                               }
+                             } break;
       default: {
-        status = LIBXS_DNN_ERR_INVALID_TENSOR;
-      }
+                 status = LIBXS_DNN_ERR_INVALID_TENSOR;
+               }
     }
   }
   else {
@@ -1224,24 +1243,24 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_tensor(const libxs_dnn_tenso
     /* use for-loops to potentially leverage NUMA in the future */
     switch (tensor->layout->datatype) {
       case LIBXS_DNN_DATATYPE_F32: {
-        float* fp32_data = (float*)tensor->data;
-        for (i = 0; i < size; ++i) fp32_data[i] = 0.0f;
-      } break;
+                                       float* fp32_data = (float*)tensor->data;
+                                       for (i = 0; i < size; ++i) fp32_data[i] = 0.0f;
+                                     } break;
       case LIBXS_DNN_DATATYPE_I32: {
-        int* int32_data = (int*)tensor->data;
-        for (i = 0; i < size; ++i) int32_data[i] = 0;
-      } break;
+                                       int* int32_data = (int*)tensor->data;
+                                       for (i = 0; i < size; ++i) int32_data[i] = 0;
+                                     } break;
       case LIBXS_DNN_DATATYPE_I16: {
-        short* int16_data = (short*)tensor->data;
-        for (i = 0; i < size; ++i) int16_data[i] = 0;
-      } break;
+                                       short* int16_data = (short*)tensor->data;
+                                       for (i = 0; i < size; ++i) int16_data[i] = 0;
+                                     } break;
       case LIBXS_DNN_DATATYPE_I8: {
-        char* int8_data = (char*)tensor->data;
-        for (i = 0; i < size; ++i) int8_data[i] = 0;
-      } break;
+                                      char* int8_data = (char*)tensor->data;
+                                      for (i = 0; i < size; ++i) int8_data[i] = 0;
+                                    } break;
       default: {
-        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-      }
+                 status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+               }
     }
   }
   else {
@@ -1266,120 +1285,120 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_te
       case LIBXS_DNN_INPUT:
       case LIBXS_DNN_OUTPUT:
       case LIBXS_DNN_ACTIVATION: {
-        switch (out_format) {
-          case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
-            if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
-              switch (tensor->layout->datatype) {
-                case LIBXS_DNN_DATATYPE_F32: {
-                  typedef float element_type;
+                                     switch (out_format) {
+                                       case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
+                                                                              if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
+                                                                                switch (tensor->layout->datatype) {
+                                                                                  case LIBXS_DNN_DATATYPE_F32: {
+                                                                                                                   typedef float element_type;
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
-                } break;
-                case LIBXS_DNN_DATATYPE_I32: {
-                  typedef int element_type;
+                                                                                                                 } break;
+                                                                                  case LIBXS_DNN_DATATYPE_I32: {
+                                                                                                                   typedef int element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION                
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION                 
-                } break;
-                case LIBXS_DNN_DATATYPE_I16: {
-                  typedef short element_type;
+                                                                                                                 } break;
+                                                                                  case LIBXS_DNN_DATATYPE_I16: {
+                                                                                                                   typedef short element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                case LIBXS_DNN_DATATYPE_I8: {
-                  typedef char element_type;
+                                                                                                                 } break;
+                                                                                  case LIBXS_DNN_DATATYPE_I8: {
+                                                                                                                  typedef char element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                default: {
-                  status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-                }
-              }
-            } else {
-              status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
-            }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
-          }
-        }
-      } break;
+                                                                                                                } break;
+                                                                                  default: {
+                                                                                             status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+                                                                                           }
+                                                                                }
+                                                                              } else {
+                                                                                status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+                                                                              }
+                                                                            } break;
+                                       default: {
+                                                  status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
+                                                }
+                                     }
+                                   } break;
       case LIBXS_DNN_REGULAR_FILTER:
       case LIBXS_DNN_GRADIENT_FILTER:
       case LIBXS_DNN_FILTER: {
-        switch (out_format) {
-          case LIBXS_DNN_TENSOR_FORMAT_KCRS: {
-            if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
-              switch (tensor->layout->datatype) {
-                case LIBXS_DNN_DATATYPE_F32: {
-                  typedef float element_type;
+                                 switch (out_format) {
+                                   case LIBXS_DNN_TENSOR_FORMAT_KCRS: {
+                                                                          if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
+                                                                            switch (tensor->layout->datatype) {
+                                                                              case LIBXS_DNN_DATATYPE_F32: {
+                                                                                                               typedef float element_type;
 #include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
-                } break;
-                case LIBXS_DNN_DATATYPE_I16: {
-                  typedef short  element_type;
+                                                                                                             } break;
+                                                                              case LIBXS_DNN_DATATYPE_I16: {
+                                                                                                               typedef short  element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                case LIBXS_DNN_DATATYPE_I8: {
-                  typedef char element_type;
+                                                                                                             } break;
+                                                                              case LIBXS_DNN_DATATYPE_I8: {
+                                                                                                              typedef char element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                default: {
-                  status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-                }
-              }
-            } else {
-              status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
-            }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
-          }
-        }
-      } break;
+                                                                                                            } break;
+                                                                              default: {
+                                                                                         status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+                                                                                       }
+                                                                            }
+                                                                          } else {
+                                                                            status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+                                                                          }
+                                                                        } break;
+                                   default: {
+                                              status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
+                                            }
+                                 }
+                               } break;
       case LIBXS_DNN_REGULAR_BIAS:
       case LIBXS_DNN_GRADIENT_BIAS:
       case LIBXS_DNN_BIAS: {
-        switch (out_format) {
-          case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
-            if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
-              switch (tensor->layout->datatype) {
-                case LIBXS_DNN_DATATYPE_F32: {
-                  typedef float element_type;
+                               switch (out_format) {
+                                 case LIBXS_DNN_TENSOR_FORMAT_NCHW: {
+                                                                        if ( (tensor->layout->format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0 ) {
+                                                                          switch (tensor->layout->datatype) {
+                                                                            case LIBXS_DNN_DATATYPE_F32: {
+                                                                                                             typedef float element_type;
 #include "template/libxs_dnn_tensor_bias_copy_out_nchw.tpl.c"
-                } break;
-                case LIBXS_DNN_DATATYPE_I16: {
-                  typedef short element_type;
+                                                                                                           } break;
+                                                                            case LIBXS_DNN_DATATYPE_I16: {
+                                                                                                             typedef short element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_bias_copy_out_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                case LIBXS_DNN_DATATYPE_I8: {
-                  typedef char element_type;
+                                                                                                           } break;
+                                                                            case LIBXS_DNN_DATATYPE_I8: {
+                                                                                                            typedef char element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_bias_copy_out_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
-                } break;
-                default: {
-                  status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-                }
-              }
-            } else {
-              status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
-            }
-          } break;
-          default: {
-            status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
-          }
-        }
-      } break;
+                                                                                                          } break;
+                                                                            default: {
+                                                                                       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+                                                                                     }
+                                                                          }
+                                                                        } else {
+                                                                          status = LIBXS_DNN_ERR_UNSUPPORTED_SRC_FORMAT;
+                                                                        }
+                                                                      } break;
+                                 default: {
+                                            status = LIBXS_DNN_ERR_UNSUPPORTED_DST_FORMAT;
+                                          }
+                               }
+                             } break;
       default: {
-        status = LIBXS_DNN_ERR_INVALID_TENSOR;
-      }
+                 status = LIBXS_DNN_ERR_INVALID_TENSOR;
+               }
     }
   }
   else {
@@ -1432,10 +1451,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_tensor(libxs_dnn_layer* hand
 
   /* check for tensor type */
   if ( (type != LIBXS_DNN_REGULAR_INPUT)        && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
-       (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
-       (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER) &&
-       (type != LIBXS_DNN_REGULAR_BIAS)         && (type != LIBXS_DNN_GRADIENT_BIAS)   &&
-       (type != LIBXS_DNN_REGULAR_FILTER_TRANS) && (type != LIBXS_DNN_BATCH_STATS)        ) {
+      (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
+      (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER) &&
+      (type != LIBXS_DNN_REGULAR_BIAS)         && (type != LIBXS_DNN_GRADIENT_BIAS)   &&
+      (type != LIBXS_DNN_REGULAR_FILTER_TRANS) && (type != LIBXS_DNN_BATCH_STATS)        ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -1487,10 +1506,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_tensor(libxs_dnn_layer* handle, cons
 
   /* check for tensor type */
   if ( (type != LIBXS_DNN_REGULAR_INPUT)        && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
-       (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
-       (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER) &&
-       (type != LIBXS_DNN_REGULAR_BIAS)         && (type != LIBXS_DNN_GRADIENT_BIAS)   &&
-       (type != LIBXS_DNN_REGULAR_FILTER_TRANS) && (type != LIBXS_DNN_BATCH_STATS)        ) {
+      (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
+      (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER) &&
+      (type != LIBXS_DNN_REGULAR_BIAS)         && (type != LIBXS_DNN_GRADIENT_BIAS)   &&
+      (type != LIBXS_DNN_REGULAR_FILTER_TRANS) && (type != LIBXS_DNN_BATCH_STATS)        ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -1823,7 +1842,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* 
 
 
 LIBXS_API_INLINE libxs_dnn_err_t internal_execute_st(libxs_dnn_layer* handle,
-  libxs_dnn_compute_kind kind, int start_thread, int tid)
+    libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -2211,19 +2230,19 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_forward(
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-  if (0 != descriptor) {
-    libxs_build_request request;
-    request.descriptor.cfwd = descriptor;
-    request.kind = LIBXS_BUILD_KIND_CFWD;
-    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-  else {
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
+    if (0 != descriptor) {
+      libxs_build_request request;
+      request.descriptor.cfwd = descriptor;
+      request.kind = LIBXS_BUILD_KIND_CFWD;
+      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
     }
-  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+    else {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
+      }
+    }
 #endif
   return code.xconv.sconv;
 }
@@ -2234,19 +2253,19 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_backward(
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-  if (0 != descriptor) {
-    libxs_build_request request;
-    request.descriptor.cbwd = descriptor;
-    request.kind = LIBXS_BUILD_KIND_CBWD;
-    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-  else {
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
+    if (0 != descriptor) {
+      libxs_build_request request;
+      request.descriptor.cbwd = descriptor;
+      request.kind = LIBXS_BUILD_KIND_CBWD;
+      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
     }
-  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+    else {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
+      }
+    }
 #endif
   return code.xconv.sconv;
 }
@@ -2257,19 +2276,19 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_update_weights(
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-  if (0 != descriptor) {
-    libxs_build_request request;
-    request.descriptor.cupd = descriptor;
-    request.kind = LIBXS_BUILD_KIND_CUPD;
-    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-  else {
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
+    if (0 != descriptor) {
+      libxs_build_request request;
+      request.descriptor.cupd = descriptor;
+      request.kind = LIBXS_BUILD_KIND_CUPD;
+      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
     }
-  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+    else {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
+      }
+    }
 #endif
   return code.xconv.sconv;
 }
@@ -2280,19 +2299,19 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_forward(
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-  if (0 != descriptor) {
-    libxs_build_request request;
-    request.descriptor.cfwd = descriptor;
-    request.kind = LIBXS_BUILD_KIND_CFWD;
-    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-  else {
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
+    if (0 != descriptor) {
+      libxs_build_request request;
+      request.descriptor.cfwd = descriptor;
+      request.kind = LIBXS_BUILD_KIND_CFWD;
+      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
     }
-  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+    else {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
+      }
+    }
 #endif
   return code.pmm;
 }
@@ -2303,19 +2322,19 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_backward(
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-  if (0 != descriptor) {
-    libxs_build_request request;
-    request.descriptor.cbwd = descriptor;
-    request.kind = LIBXS_BUILD_KIND_CBWD;
-    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-  else {
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
+    if (0 != descriptor) {
+      libxs_build_request request;
+      request.descriptor.cbwd = descriptor;
+      request.kind = LIBXS_BUILD_KIND_CBWD;
+      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
     }
-  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+    else {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
+      }
+    }
 #endif
   return code.pmm;
 }
@@ -2326,19 +2345,19 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_update_weights(
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-  if (0 != descriptor) {
-    libxs_build_request request;
-    request.descriptor.cupd = descriptor;
-    request.kind = LIBXS_BUILD_KIND_CUPD;
-    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-  else {
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
+    if (0 != descriptor) {
+      libxs_build_request request;
+      request.descriptor.cupd = descriptor;
+      request.kind = LIBXS_BUILD_KIND_CUPD;
+      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
     }
-  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+    else {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
+      }
+    }
 #endif
   return code.pmm;
 }
@@ -2349,19 +2368,19 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_forward(
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-  if (0 != descriptor) {
-    libxs_build_request request;
-    request.descriptor.cwino = descriptor;
-    request.kind = LIBXS_BUILD_KIND_CWFWD;
-    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-  else {
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
+    if (0 != descriptor) {
+      libxs_build_request request;
+      request.descriptor.cwino = descriptor;
+      request.kind = LIBXS_BUILD_KIND_CWFWD;
+      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
     }
-  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+    else {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
+      }
+    }
 #endif
   return code.pmm;
 }
@@ -2372,19 +2391,19 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_backward(
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-  if (0 != descriptor) {
-    libxs_build_request request;
-    request.descriptor.cwino = descriptor;
-    request.kind = LIBXS_BUILD_KIND_CWBWD;
-    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-  else {
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
+    if (0 != descriptor) {
+      libxs_build_request request;
+      request.descriptor.cwino = descriptor;
+      request.kind = LIBXS_BUILD_KIND_CWBWD;
+      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
     }
-  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+    else {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
+      }
+    }
 #endif
   return code.pmm;
 }
@@ -2395,19 +2414,19 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_update_weights(
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-  if (0 != descriptor) {
-    libxs_build_request request;
-    request.descriptor.cwino = descriptor;
-    request.kind = LIBXS_BUILD_KIND_CWUPD;
-    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-  }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-  else {
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
+    if (0 != descriptor) {
+      libxs_build_request request;
+      request.descriptor.cwino = descriptor;
+      request.kind = LIBXS_BUILD_KIND_CWUPD;
+      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
     }
-  }
+#if !defined(NDEBUG) /* library code is expected to be mute */
+    else {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
+      }
+    }
 #endif
   return code.pmm;
 }
