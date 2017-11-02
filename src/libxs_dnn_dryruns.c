@@ -100,7 +100,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct_custom_custom( lib
     /* In these case we run fallback code so we do not support thread private jitting */
     status = LIBXS_DNN_WARN_FALLBACK;
   } else {
-    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+    if (1) { /*(handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {*/
       if (handle->use_fastpath) {
         if ( handle->use_hybrid_wu_parallelism == 1 ) {
 #include "template/libxs_dnn_convolve_dryrun_upd_custom_custom.tpl.c"     
