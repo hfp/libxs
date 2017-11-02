@@ -435,6 +435,33 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
         }
       }
       #endif
+    } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      if (handle->upd_use_thread_fil > 0) {
+        typedef short element_input_type;
+        typedef short element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_uwsconvfunction libxs_convfunction;
+        if (handle->use_fastpath) {
+          if ( handle->use_hybrid_wu_parallelism == 1) {
+#include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_lp.tpl.c"
+          } else {
+#include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_opt_lp.tpl.c"
+          }
+        } 
+#if 0
+        if (handle->padding_flag == 1) {
+#define INPUT_PADDING
+#define LIBXS_WU_PER_THREAD_ALLOCATION
+# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
+#undef LIBXS_WU_PER_THREAD_ALLOCATION
+#undef INPUT_PADDING
+        } else {
+#define LIBXS_WU_PER_THREAD_ALLOCATION
+# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
+#undef LIBXS_WU_PER_THREAD_ALLOCATION
+        }
+#endif
+      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;

@@ -1269,7 +1269,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.stride_h = handle->desc.u;
         descriptor.stride_w = handle->desc.v;
         descriptor.blocks_ofm = handle->blocksofm;
-        descriptor.blocks_ifm = handle->blocksifm_lp;
+        descriptor.blocks_ifm = handle->blocksifm;
         descriptor.ofh_padded = handle->ofhp;
         descriptor.ofw_padded = handle->ofwp;
         descriptor.ofw = handle->ofw;
