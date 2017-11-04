@@ -1357,10 +1357,15 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               int kernel_ofw_fake_pixels;
               int kernel_ofw;
               int padding_target;
+              int output_lp_padding = 0;
+              handle->output_lp_padding = 0;
+
               if (handle->use_lp_kernel == 0) {
                 padding_target = 4;
               } else {
                 padding_target = 8;
+                output_lp_padding = handle->ofwp%2;
+                handle->output_lp_padding = output_lp_padding;
               }
 
               if (handle->desc.R == 1 && handle->desc.S == 1 && (handle->desc.u != 1 || handle->desc.v != 1)) {
@@ -1387,22 +1392,25 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               handle->qfma_input_pad = qfma_padding;
               descriptor.ifw_padded = kernel_ifw_padded;
 
-              descriptor.ofw_padded = handle->ofwp;
+              descriptor.ofw_padded = handle->ofwp+output_lp_padding;
               descriptor.ofh_padded = handle->ofhp;
+
               if (handle->desc.R == 1 && handle->desc.S == 1) {
-                kernel_ofw_compute = handle->ofwp;
+                kernel_ofw_compute = handle->ofwp+output_lp_padding;
               } else {
                 if (handle->padding_flag == 1) {
-                  kernel_ofw_compute = handle->ofwp;
+                  kernel_ofw_compute = handle->ofwp+output_lp_padding;
                 } else {
-                  kernel_ofw_compute = handle->ofw;
+                  kernel_ofw_compute = handle->ofw+output_lp_padding;
                 }
               }
+
               if ( libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
                 kernel_ofw_fake_pixels = (kernel_ofw_compute % padding_target == 0) ? 0 : padding_target - kernel_ofw_compute % padding_target;
               } else {
                 kernel_ofw_fake_pixels = 0;
               }
+
               kernel_ofw = kernel_ofw_compute + kernel_ofw_fake_pixels;
               descriptor.ofw_fake_pixels = kernel_ofw_fake_pixels;
               descriptor.ofw_rb = kernel_ofw;  
