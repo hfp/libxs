@@ -190,6 +190,10 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_tensor* reg_filter_tr;
   /* batchnorm stats */
   libxs_dnn_tensor* batch_stats;
+  /* maxstats used in low-recision kernels */
+  libxs_dnn_tensor* maxstats_fwd;
+  libxs_dnn_tensor* maxstats_bwd;
+  libxs_dnn_tensor* maxstats_upd;
 
   /* barrier */
   libxs_barrier* barrier;

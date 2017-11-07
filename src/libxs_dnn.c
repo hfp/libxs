@@ -901,6 +901,45 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
           layout = 0; /* make sure a NULL is returned */
           *status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }
+      } else if (type == LIBXS_DNN_MAX_STATS_FWD) {
+        layout->format = handle->buffer_format;
+        layout->tensor_type = LIBXS_DNN_MAX_STATS_FWD;
+        layout->datatype = LIBXS_DNN_DATATYPE_F32;
+        layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(2*sizeof(libxs_dnn_tensor_dimtype));
+        layout->dim_size = (unsigned int*) malloc(2*sizeof(unsigned int));
+        if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+          layout->num_dims = 2;
+          layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+          layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+          layout->dim_size[0] = handle->ifmblock;
+          layout->dim_size[1] = handle->desc.nThreads;
+        }
+      } else if (type == LIBXS_DNN_MAX_STATS_BWD) {
+        layout->format = handle->buffer_format;
+        layout->tensor_type = LIBXS_DNN_MAX_STATS_BWD;
+        layout->datatype = LIBXS_DNN_DATATYPE_F32;
+        layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(2*sizeof(libxs_dnn_tensor_dimtype));
+        layout->dim_size = (unsigned int*) malloc(2*sizeof(unsigned int));
+        if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+          layout->num_dims = 2;
+          layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+          layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+          layout->dim_size[0] = handle->ifmblock;
+          layout->dim_size[1] = handle->desc.nThreads;
+        }
+      } else if (type == LIBXS_DNN_MAX_STATS_UPD) {
+        layout->format = handle->buffer_format;
+        layout->tensor_type = LIBXS_DNN_MAX_STATS_UPD;
+        layout->datatype = LIBXS_DNN_DATATYPE_F32;
+        layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(2*sizeof(libxs_dnn_tensor_dimtype));
+        layout->dim_size = (unsigned int*) malloc(2*sizeof(unsigned int));
+        if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+          layout->num_dims = 2;
+          layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+          layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+          layout->dim_size[0] = handle->ifmblock;
+          layout->dim_size[1] = handle->desc.nThreads;
+        }
       } else {
         free(layout);
         layout = 0; /* make sure a NULL is returned */
@@ -1455,7 +1494,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_tensor(libxs_dnn_layer* hand
       (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
       (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER) &&
       (type != LIBXS_DNN_REGULAR_BIAS)         && (type != LIBXS_DNN_GRADIENT_BIAS)   &&
-      (type != LIBXS_DNN_REGULAR_FILTER_TRANS) && (type != LIBXS_DNN_BATCH_STATS)        ) {
+      (type != LIBXS_DNN_REGULAR_FILTER_TRANS) && (type != LIBXS_DNN_BATCH_STATS) && (type != LIBXS_DNN_MAX_STATS_FWD) && (type != LIBXS_DNN_MAX_STATS_BWD)  && (type != LIBXS_DNN_MAX_STATS_UPD)  ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -1484,6 +1523,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_tensor(libxs_dnn_layer* hand
         handle->reg_filter_tr = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_BATCH_STATS ) {
         handle->batch_stats = (libxs_dnn_tensor*)tensor;
+      } else if ( type == LIBXS_DNN_MAX_STATS_FWD ) {
+        handle->maxstats_fwd = (libxs_dnn_tensor*)tensor;
+      } else if ( type == LIBXS_DNN_MAX_STATS_BWD ) {
+        handle->maxstats_bwd = (libxs_dnn_tensor*)tensor;
+      } else if ( type == LIBXS_DNN_MAX_STATS_UPDD ) {
+        handle->maxstats_upd = (libxs_dnn_tensor*)tensor;
       } else {
         /* cannot happen */
       }
