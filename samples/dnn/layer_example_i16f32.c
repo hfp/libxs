@@ -45,10 +45,9 @@
 #define CHKERR_LIBXS_DNN(A) if ( A != LIBXS_DNN_SUCCESS ) fprintf(stderr, "%s\n", libxs_dnn_get_error(A) );
 
 #define USE_OVERWRITE
-/* #define USE_FUSED_BATCH_STATS */
+#define USE_FUSED_BATCH_STATS
 #define FP64_BN_STATS
 /*#define USE_FUSED_RELU_BWD*/
-JJJJ
 typedef struct {
   int nImg;
   int nIfm;
@@ -77,7 +76,7 @@ LIBXS_INLINE void zero_buf_int16(short* buf, long size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
-  }JJJJ
+  }
 }
 
 LIBXS_INLINE void zero_buf_int32(int* buf, long size) {
