@@ -48,6 +48,7 @@
 /* #define USE_FUSED_BATCH_STATS */
 #define FP64_BN_STATS
 /*#define USE_FUSED_RELU_BWD*/
+JJJJ
 typedef struct {
   int nImg;
   int nIfm;
@@ -76,7 +77,7 @@ LIBXS_INLINE void zero_buf_int16(short* buf, long size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
-  }
+  }JJJJ
 }
 
 LIBXS_INLINE void zero_buf_int32(int* buf, long size) {
@@ -359,6 +360,9 @@ int main(int argc, char* argv[])
 #ifdef FP64_BN_STATS
   double *batchstats_libxs;
 #endif
+#ifdef MAX_STATS
+  float *maxstats_libxs;
+#endif
 
   /* some parameters we can overwrite via cli,
      default is some inner layer of overfeat */
@@ -399,6 +403,9 @@ int main(int argc, char* argv[])
   libxs_dnn_tensor* libxs_doutput;
   libxs_dnn_tensor* libxs_dfilter;
   libxs_dnn_tensor* libxs_batchstats;
+  libxs_dnn_tensor* libxs_maxstats_fwd;
+  libxs_dnn_tensor* libxs_maxstats_bwd;
+  libxs_dnn_tensor* libxs_maxstats_upd;
   libxs_dnn_tensor_datalayout* libxs_layout;
   libxs_dnn_err_t status;
 
@@ -527,6 +534,9 @@ int main(int argc, char* argv[])
 #ifdef FP64_BN_STATS
   batchstats_libxs    = (double*)libxs_aligned_malloc( 2*nImg*nOfm*        sizeof(double), 2097152);
 #endif
+#ifdef MAX_STATS
+  maxstats_libxs    = (double*)libxs_aligned_malloc(3*nThreads*16*sizeof(float), 2097152);
+#endif
 
   /* initialize data */
   short  *naive_input_tmp  = (short*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(short), 2097152);
@@ -653,6 +663,20 @@ int main(int argc, char* argv[])
   libxs_batchstats  = libxs_dnn_link_tensor( libxs_layout, batchstats_libxs, &status ); CHKERR_LIBXS_DNN( status );
   libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
+#ifdef MAX_STATS
+  libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_MAX_STATS_FWD, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_maxstats_fwd  = libxs_dnn_link_tensor( libxs_layout, maxstats_libxs, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_dnn_destroy_tensor_datalayout( libxs_layout );
+
+  libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_MAX_STATS_BWD, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_maxstats_bwd  = libxs_dnn_link_tensor( libxs_layout, maxstats_libxs+nThreads*16, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_dnn_destroy_tensor_datalayout( libxs_layout );
+
+  libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_MAX_STATS_UPD, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_maxstats_upd  = libxs_dnn_link_tensor( libxs_layout, maxstats_libxs+2*nThreads*16, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_dnn_destroy_tensor_datalayout( libxs_layout );
+#endif
+
   /* copy in data to LIBXS format */
   /* we can also use the layout functions and set the data on our
      own external to the library, @TODO, we plan to add an example here */
@@ -677,6 +701,12 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_dfilter, LIBXS_DNN_GRADIENT_FILTER ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_batchstats, LIBXS_DNN_BATCH_STATS ) );
+
+#ifdef MAX_STATS
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_maxstats_fwd, LIBXS_DNN_MAX_STATS_FWD ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_maxstats_bwd, LIBXS_DNN_MAX_STATS_BWD ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_maxstats_upd, LIBXS_DNN_MAX_STATS_UPD ) );
+#endif
 
   /* let's allocate and bind scratch */
   scratch_size = libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status );
