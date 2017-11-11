@@ -362,8 +362,9 @@ int main(int argc, char* argv[])
   double *batchstats_libxs;
 #endif
 #ifdef USE_FUSED_MAX_STATS
-  float *maxstats_libxs;
+  float *maxstats_libxs_fwd;
   float *maxstats_libxs_bwd;
+  float *maxstats_libxs_upd;
 #endif
 
   /* some parameters we can overwrite via cli,
@@ -537,8 +538,9 @@ int main(int argc, char* argv[])
   batchstats_libxs    = (double*)libxs_aligned_malloc( 2*nImg*nOfm*        sizeof(double), 2097152);
 #endif
 #ifdef USE_FUSED_MAX_STATS
-  maxstats_libxs    = (float*)libxs_aligned_malloc(nImg*16*sizeof(float), 2097152);
+  maxstats_libxs_fwd    = (float*)libxs_aligned_malloc(nImg*16*sizeof(float), 2097152);
   maxstats_libxs_bwd    = (float*)libxs_aligned_malloc(nImg*16*sizeof(float), 2097152);
+  maxstats_libxs_upd    = (float*)libxs_aligned_malloc(nImg*16*sizeof(float), 2097152);
 #endif
 
   /* initialize data */
@@ -676,7 +678,7 @@ int main(int argc, char* argv[])
 
 #ifdef USE_FUSED_MAX_STATS
   libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_MAX_STATS_FWD, &status ); CHKERR_LIBXS_DNN( status );
-  libxs_maxstats_fwd  = libxs_dnn_link_tensor( libxs_layout, maxstats_libxs, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_maxstats_fwd  = libxs_dnn_link_tensor( libxs_layout, maxstats_libxs_fwd, &status ); CHKERR_LIBXS_DNN( status );
   libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
   libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_MAX_STATS_BWD, &status ); CHKERR_LIBXS_DNN( status );
@@ -684,7 +686,7 @@ int main(int argc, char* argv[])
   libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
   libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_MAX_STATS_UPD, &status ); CHKERR_LIBXS_DNN( status );
-  libxs_maxstats_upd  = libxs_dnn_link_tensor( libxs_layout, maxstats_libxs+2*nThreads*16, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_maxstats_upd  = libxs_dnn_link_tensor( libxs_layout, maxstats_libxs_upd, &status ); CHKERR_LIBXS_DNN( status );
   libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 #endif
 
@@ -775,7 +777,7 @@ int main(int argc, char* argv[])
       }
       for ( img_i = 0; img_i < nImg; ++img_i ) {
         for ( ch_i = 0; ch_i < 16; ++ch_i ) {
-          max_libxs = LIBXS_MAX( max_libxs, maxstats_libxs[img_i*16+ch_i]);
+          max_libxs = LIBXS_MAX( max_libxs, maxstats_libxs_fwd[img_i*16+ch_i]);
         }
       }
       printf("\nABSOLUTE MAX VALUES FWD:\n");
@@ -960,6 +962,32 @@ int main(int argc, char* argv[])
     printf("Linf rel.error: %.24f\n", norms_upd.linf_rel);
     printf("Check-norm    : %.24f\n", norms_upd.normf_rel);
     libxs_matdiff_reduce(&diff, &norms_upd);
+
+#ifdef USE_FUSED_MAX_STATS
+    {
+      int thread_i = 0;
+      int entry_i = 0;
+      int c,k,r,s;
+      float max_naive = 0.0;
+      float max_libxs = 0.0;
+
+      for ( entry_i = 0; entry_i < nOfm*nIfm*kh*kw; ++entry_i) {
+        max_naive = LIBXS_MAX( max_naive , fabs(naive_filter_wu[entry_i]));
+      }
+
+      for ( thread_i = 0; thread_i < nImg; ++thread_i) {
+        for ( entry_i = 0; entry_i < 16; ++entry_i ) {
+          max_libxs = LIBXS_MAX( max_libxs, maxstats_libxs_upd[thread_i*16+entry_i]);
+        }
+      }
+
+      printf("\nABSOLUTE MAX VALUES UPD:\n");
+      printf("Referen. max abs UPD value: %.25f\n", max_naive);
+      printf("LIBXS  max abs UPD value: %.25f\n", max_libxs);
+      printf("L2 abs.error  : %.24f\n\n", max_naive-max_libxs);
+    }
+#endif
+
   }
 
   if ((type == 'A' || type == 'F') && LIBXS_FEQ(0, check)) {
