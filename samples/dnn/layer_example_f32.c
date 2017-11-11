@@ -39,7 +39,8 @@
 
 # define USE_OVERWRITE
 /*# define USE_BWD_NO_FILTER_TRANSPOSE_OVERWRITE*/
-/*# define USE_FUSED_BATCH_STATS*/
+# define USE_FUSED_BATCH_STATS
+
 #define FP64_BN_STATS
 /*#define USE_FUSED_RELU_BWD*/
 #if !defined(USE_FUSED_BIAS) && 0
