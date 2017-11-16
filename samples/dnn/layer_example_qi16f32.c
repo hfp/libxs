@@ -791,23 +791,35 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( status );
 
     /* setup LIBXS buffers and filter */
-    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_INPUT, &status ); CHKERR_LIBXS_DNN( status );
+    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_REGULAR_INPUT, &status ); CHKERR_LIBXS_DNN( status );
     libxs_input  = libxs_dnn_link_tensor( libxs_layout,  input_libxs, &status ); CHKERR_LIBXS_DNN( status );
+    libxs_dnn_destroy_tensor_datalayout( libxs_layout );
+
+    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_GRADIENT_INPUT, &status ); CHKERR_LIBXS_DNN( status );
     libxs_dinput = libxs_dnn_link_tensor( libxs_layout, dinput_libxs, &status ); CHKERR_LIBXS_DNN( status );
     libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
-    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_OUTPUT, &status ); CHKERR_LIBXS_DNN( status );
+    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT, &status ); CHKERR_LIBXS_DNN( status );
     libxs_output  = libxs_dnn_link_tensor( libxs_layout,  output_libxs, &status ); CHKERR_LIBXS_DNN( status );
+    libxs_dnn_destroy_tensor_datalayout( libxs_layout );
+
+    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_GRADIENT_OUTPUT, &status ); CHKERR_LIBXS_DNN( status );
     libxs_doutput = libxs_dnn_link_tensor( libxs_layout, doutput_libxs, &status ); CHKERR_LIBXS_DNN( status );
     libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
-    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_FILTER, &status ); CHKERR_LIBXS_DNN( status );
+    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_REGULAR_FILTER, &status ); CHKERR_LIBXS_DNN( status );
     libxs_filter  = libxs_dnn_link_tensor( libxs_layout,  filter_libxs, &status ); CHKERR_LIBXS_DNN( status );
+    libxs_dnn_destroy_tensor_datalayout( libxs_layout );
+
+    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_GRADIENT_FILTER, &status ); CHKERR_LIBXS_DNN( status );
     libxs_dfilter = libxs_dnn_link_tensor( libxs_layout, dfilter_libxs, &status ); CHKERR_LIBXS_DNN( status );
     libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
-    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_BIAS, &status ); CHKERR_LIBXS_DNN( status );
+    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_REGULAR_BIAS, &status ); CHKERR_LIBXS_DNN( status );
     libxs_bias  = libxs_dnn_link_tensor( libxs_layout,  bias_libxs, &status ); CHKERR_LIBXS_DNN( status );
+    libxs_dnn_destroy_tensor_datalayout( libxs_layout );
+
+    libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_GRADIENT_BIAS, &status ); CHKERR_LIBXS_DNN( status );
     libxs_dbias = libxs_dnn_link_tensor( libxs_layout, dbias_libxs, &status ); CHKERR_LIBXS_DNN( status );
     libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
