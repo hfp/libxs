@@ -410,7 +410,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor* libxs_dnn_link_tensor(const libxs_dnn_ten
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_tensor* libxs_dnn_link_qtensor(const libxs_dnn_tensor_datalayout* layout, const void* data, const char exp, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION libxs_dnn_tensor* libxs_dnn_link_qtensor(const libxs_dnn_tensor_datalayout* layout, const void* data, const unsigned char scf, libxs_dnn_err_t* status)
 {
   libxs_dnn_tensor* tensor = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
   *status = LIBXS_DNN_SUCCESS;
@@ -419,7 +419,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor* libxs_dnn_link_qtensor(const libxs_dnn_te
     memset(tensor, 0, sizeof(libxs_dnn_tensor));
     tensor->layout = libxs_dnn_duplicate_tensor_datalayout(layout, status);
     tensor->data = (void*)data;
-    tensor->exp = exp;
+    tensor->scf = scf;
     /* when layout copy failed, free layout */
     if (*status != LIBXS_DNN_SUCCESS) {
       libxs_dnn_destroy_tensor_datalayout(tensor->layout);
@@ -1090,12 +1090,12 @@ LIBXS_API_DEFINITION void* libxs_dnn_get_tensor_data_ptr(const libxs_dnn_tensor*
 }
 
 
-LIBXS_API_DEFINITION char libxs_dnn_get_qtensor_exp(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status)
+LIBXS_API_DEFINITION unsigned char libxs_dnn_get_qtensor_scf(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status)
 {
   *status = LIBXS_DNN_SUCCESS;
 
   if (0 != tensor) {
-    return tensor->exp;
+    return tensor->scf;
   }
   else {
     *status = LIBXS_DNN_ERR_INVALID_TENSOR;
@@ -1105,12 +1105,12 @@ LIBXS_API_DEFINITION char libxs_dnn_get_qtensor_exp(const libxs_dnn_tensor* tens
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_set_qtensor_exp(libxs_dnn_tensor* tensor, const char exp)
+LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_set_qtensor_scf(libxs_dnn_tensor* tensor, const unsigned char scf)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != tensor) {
-    tensor->exp = exp;
+    tensor->scf = scf;
   }
   else {
     status = LIBXS_DNN_ERR_INVALID_TENSOR;
