@@ -227,6 +227,32 @@ typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   libxs_dnn_conv_fuse_op fuse_ops;        /* used ops into convolutions */
 } libxs_dnn_conv_desc;
 
+/** these are some quatization definitions, not sure if we want to
+    move them into some main part of LIBXS */
+/* @TODO check position of these declarations and defines */
+typedef union LIBXS_RETARGETABLE libxs_intfloat {
+  unsigned int ui;
+  float f;
+} libxs_intfloat;
+
+/* F32 masking defines */
+#define LIBXSNN_DNN_MASK_SIGN_F32      0x80000000
+#define LIBXS_DNN_MASK_EXP_F32       0x7f800000
+#define LIBXS_DNN_MASK_MANT_F32      0x007fffff
+#define LIBXS_DNN_MASK_ABS_F32       0x7fffffff
+#define LIBXS_DNN_MASK_FULL_F32      0xffffffff
+#define LIBXS_DNN_MANT_SZ_F32        23
+#define LIBXS_DNN_SZ_F32             32
+ 
+/* DFP16 masking defines */
+#define LIBXS_DNN_MANT_DFP16         15
+#define LIXSMMM_DNN_RES_DFP16          (pow(2,-(LIBXS_DNN_MANT_DFP16)))
+
+/* Qunatization Rounding Defines */
+#define LIBXS_DNN_QUANT_NO_ROUND     80000
+#define LIBXS_DNN_QUANT_BIAS_ROUND   80001
+#define LIBXS_DNN_QUANT_STOCH_ROUND  80002
+
 /** get string of error code */
 LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code);
 LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype);
@@ -280,6 +306,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer* handle, co
 LIBXS_API libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type);
 LIBXS_API libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind);
 LIBXS_API libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind, unsigned int* num_tasks);
+
+/** some quantization helper functions, 
+    @TODO need to be integrated better for all different ways of quantizations */
+LIBXS_API void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int length, unsigned char add_shift, unsigned char* scf, int round_mode );
+LIBXS_API void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int length, unsigned char scf );
 
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API) /* Internal API */
 /** Function type used for convolutions (single-precision); the actual signature depends on the kind of convolution. */
