@@ -159,15 +159,31 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 /** Construct symbol name from a given real type name (float, double and short). */
 #define LIBXS_DATATYPE(TYPE)          LIBXS_TPOSTFIX(TYPE, LIBXS_DATATYPE_)
 #define LIBXS_GEMM_PRECISION(TYPE)    LIBXS_TPOSTFIX(TYPE, LIBXS_GEMM_PRECISION_)
-#define LIBXS_ORIGINAL_GEMM(TYPE)     LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemm))
-#define LIBXS_BLAS_GEMM_SYMBOL(TYPE)  LIBXS_ORIGINAL_GEMM(TYPE)(LIBXS_CALLER)
+#define LIBXS_GEMM_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemm))
+#define LIBXS_GEMV_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemv))
 #define LIBXS_GEMMFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm_function))
 #define LIBXS_GEMVFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemv_function))
+#define LIBXS_ORIGINAL_GEMM(TYPE)     LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemm))(LIBXS_CALLER)
 #define LIBXS_MMFUNCTION_TYPE(TYPE)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmfunction))
 #define LIBXS_MMDISPATCH_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmdispatch))
 #define LIBXS_XBLAS_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
+
+#if !defined(LIBXS_GEMM_CONST)
+# if defined(LIBXS_GEMM_NONCONST) || defined(__OPENBLAS)
+#   define LIBXS_GEMM_CONST
+# else
+#   define LIBXS_GEMM_CONST const
+# endif
+#endif
+
+#define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE) \
+  LIBXS_API_EXTERN void LIBXS_GEMM_SYMBOL(TYPE)(CONST char*, CONST char*, \
+    CONST libxs_blasint*, CONST libxs_blasint*, CONST libxs_blasint*, \
+    CONST TYPE*, CONST TYPE*, CONST libxs_blasint*, \
+    CONST TYPE*, CONST libxs_blasint*, \
+    CONST TYPE*, TYPE*, CONST libxs_blasint*)
 
 /** Helper macro consolidating the transpose requests into a set of flags. */
 #define LIBXS_GEMM_FLAGS(TRANSA, TRANSB) /* check for N/n rather than T/t since C/c is also valid! */ \
@@ -192,8 +208,8 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
     const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)(MM); \
     const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)(NN); \
     const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(KK); \
-    LIBXS_ASSERT(0 != ((uintptr_t)LIBXS_BLAS_GEMM_SYMBOL(TYPE))); \
-    LIBXS_BLAS_GEMM_SYMBOL(TYPE)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
+    LIBXS_ASSERT(0 != ((uintptr_t)LIBXS_ORIGINAL_GEMM(TYPE))); \
+    LIBXS_ORIGINAL_GEMM(TYPE)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
       &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
       &libxs_blas_xgemm_alpha_, (const TYPE*)(A), &libxs_blas_xgemm_lda_, \
                                   (const TYPE*)(B), &libxs_blas_xgemm_ldb_, \
@@ -410,12 +426,19 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
 LIBXS_API_INLINE void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input) {
   LIBXS_ASSERT(0 != output && 0 != input);
   if (output->normf_rel < input->normf_rel) {
+    output->linf_abs_m = input->linf_abs_m;
+    output->linf_abs_n = input->linf_abs_n;
     output->norm1_abs = input->norm1_abs;
     output->norm1_rel = input->norm1_rel;
     output->normi_abs = input->normi_abs;
     output->normi_rel = input->normi_rel;
-    output->l2_abs = input->l2_abs;
     output->normf_rel = input->normf_rel;
+    output->linf_abs = input->linf_abs;
+    output->linf_rel = input->linf_rel;
+    output->l2_abs = input->l2_abs;
+    output->l2_rel = input->l2_rel;
+    output->l1_ref = input->l1_ref;
+    output->l1_tst = input->l1_tst;
   }
 }
 

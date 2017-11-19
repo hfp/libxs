@@ -56,6 +56,11 @@
 #define MYASSERT(x) if(!(x)) { printf("Assertion %s failed...\n", #x); exit(1);}
 
 
+#if !defined(MKL_DIRECT_CALL_SEQ) && !defined(MKL_DIRECT_CALL)
+LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, REAL_TYPE);
+#endif
+
+
 LIBXS_INLINE LIBXS_RETARGETABLE void init(libxs_blasint seed, REAL_TYPE *LIBXS_RESTRICT dst,
   libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
 {
@@ -149,7 +154,7 @@ int main(int argc, char* argv[])
       libxs_bgemm_omp(handle, a, b, c, 1);
 #if defined(CHECK)
       if (!LIBXS_FEQ(0, check)) {
-        LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
+        LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
       }
 #endif
       if (!ab) {
@@ -175,7 +180,7 @@ int main(int argc, char* argv[])
         int i;
         start = libxs_timer_tick();
         for (i = 0; i < nrepeat; ++i) {
-          LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
+          LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
         }
         duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {

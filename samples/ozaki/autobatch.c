@@ -34,11 +34,12 @@
 #if !defined(REAL_TYPE)
 # define REAL_TYPE double
 #endif
-#if !defined(DGEMM)
+#if !defined(GEMM)
 # if defined(WRAP)
-#   define DGEMM LIBXS_FSYMBOL(LIBXS_TPREFIX(REAL_TYPE, gemm))
+#   define GEMM LIBXS_GEMM_SYMBOL(REAL_TYPE)
 # else
-#   define DGEMM LIBXS_FSYMBOL(LIBXS_CONCATENATE(__wrap_, LIBXS_TPREFIX(REAL_TYPE, gemm)))
+    /* prototype for LIBXS's wrapped GEMM; this way auto-batch can be tested as if GEMM calls are intercepted */
+#   define GEMM LIBXS_FSYMBOL(LIBXS_CONCATENATE(__wrap_, LIBXS_TPREFIX(REAL_TYPE, gemm)))
 # endif
 #endif
 
@@ -47,8 +48,7 @@
 #endif
 
 
-/** Function prototype for LIBXS's wrapped DGEMM; this way auto-batch can be tested as if DGEMM calls are intercepted/batched. */
-void DGEMM(const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+void GEMM(const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const REAL_TYPE*, const REAL_TYPE*, const libxs_blasint*, const REAL_TYPE*, const libxs_blasint*,
   const REAL_TYPE*, REAL_TYPE*, const libxs_blasint*);
 
@@ -132,7 +132,7 @@ int main(int argc, char* argv[])
         const libxs_blasint ki = ((rand() % maxv) + 1) * maxn / maxv;
         const libxs_blasint ilda = mi, ildb = ki, ildc = mi;
         assert(0 < mi && 0 < ni && 0 < ki && mi <= ilda && ki <= ildb && mi <= ildc);
-        DGEMM(&transa, &transb, &mi, &ni, &ki, &alpha, a, &ilda, b, &ildb, &beta, c, &ildc);
+        GEMM(&transa, &transb, &mi, &ni, &ki, &alpha, a, &ilda, b, &ildb, &beta, c, &ildc);
       }
 #if defined(CALL_BEGIN_END)
 # if defined(_OPENMP)

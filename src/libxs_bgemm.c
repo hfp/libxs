@@ -51,7 +51,7 @@
 
 
 typedef union LIBXS_RETARGETABLE libxs_bgemm_lock {
-  char pad[LIBXS_CACHELINE_SIZE];
+  char pad[LIBXS_CACHELINE];
   volatile int instance;
 } libxs_bgemm_lock;
 
@@ -118,10 +118,10 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
           handle.kernel_pf = libxs_xmmdispatch(&descriptor);
         }
         if (0 != handle.kernel.smm && (LIBXS_PREFETCH_NONE == descriptor.prefetch || 0 != handle.kernel_pf.smm)) {
-          const size_t tls_size = ((mm * nn * handle.typesize + LIBXS_CACHELINE_SIZE - 1) & ~(LIBXS_CACHELINE_SIZE - 1)) * LIBXS_BGEMM_MAX_NTHREADS;
+          const size_t tls_size = LIBXS_UP2(mm * nn * handle.typesize, LIBXS_CACHELINE) * LIBXS_BGEMM_MAX_NTHREADS;
           const size_t size_locks = (size_t)(handle.mb * handle.nb * sizeof(libxs_bgemm_lock));
-          handle.locks = (libxs_bgemm_lock*)libxs_aligned_malloc(size_locks, LIBXS_CACHELINE_SIZE);
-          handle.buffer = libxs_aligned_malloc(tls_size, LIBXS_CACHELINE_SIZE);
+          handle.locks = (libxs_bgemm_lock*)libxs_aligned_malloc(size_locks, LIBXS_CACHELINE);
+          handle.buffer = libxs_aligned_malloc(tls_size, LIBXS_CACHELINE);
           result = (libxs_bgemm_handle*)malloc(sizeof(libxs_bgemm_handle));
 
           if (0 != result && 0 != handle.buffer && 0 != handle.locks) {

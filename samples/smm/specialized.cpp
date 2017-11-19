@@ -26,6 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+#if !defined(NDEBUG) && (defined(__CYGWIN__) || defined(_WIN32))
+# define LIBXS_FALLBACK_MMFUNCTION
+#endif
 #include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -37,9 +40,10 @@
 #include <cstring>
 #include <cassert>
 #include <cstdio>
+#include <vector>
 #include <cmath>
-#if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-# include <mkl_service.h>
+#if defined(_OPENMP)
+# include <omp.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
@@ -49,19 +53,12 @@
 # define REAL_TYPE double
 #endif
 
-#if !defined(MAX_SIZE)
-# define MAX_SIZE ((LIBXS_MAX_M) * (LIBXS_MAX_N))
-#endif
-
 
 LIBXS_INLINE LIBXS_RETARGETABLE void init(libxs_blasint seed, REAL_TYPE *LIBXS_RESTRICT dst,
   libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
 {
   const double seed1 = scale * (seed + 1);
   libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
   for (i = 0; i < ncols; ++i) {
     libxs_blasint j = 0;
     for (; j < nrows; ++j) {
@@ -81,35 +78,45 @@ int main(int argc, char* argv[])
   int result = EXIT_SUCCESS;
   try {
     typedef REAL_TYPE T;
-    const libxs_blasint m = 1 < argc ? std::atoi(argv[1]) : 23;
-    const libxs_blasint k = 3 < argc ? std::atoi(argv[3]) : m;
-    const libxs_blasint n = 2 < argc ? std::atoi(argv[2]) : k;
+    const libxs_blasint benchmark = 1 < argc ? std::atoi(argv[1]) : 0;
+    const libxs_blasint m = (2 < argc ? std::atoi(argv[2]) : 23);
+    const libxs_blasint k = (4 < argc ? std::atoi(argv[4]) : m);
+    const libxs_blasint n = (3 < argc ? std::atoi(argv[3]) : k);
 
-    const libxs_blasint asize = m * k, bsize = k * n, csize = m * n, aspace = LIBXS_ALIGNMENT / sizeof(T);
+    const libxs_blasint lda = m, ldb = k, ldc = m;
+    const char transa = 'N', transb = 'N';
+    const T alpha = 1, beta = 1;
+
+    const libxs_blasint asize = lda * k, bsize = ldb * n, csize = ldc * n, aspace = LIBXS_ALIGNMENT / sizeof(T);
     const libxs_blasint s = (2ULL << 30) / ((asize + bsize + csize) * sizeof(T)); // 2 GByte
     const size_t bwsize_batched = (size_t)((asize/*load*/ + bsize/*load*/ + 2 * csize/*RFO*/) * sizeof(T)); // batched (A, B, and C)
     const size_t bwsize = (size_t)((asize/*load*/ + bsize/*load*/) * sizeof(T)); // omit size of A, B, or C since it is held in cache
     const double gflops = 2.0 * s * m * n * k * 1E-9, scale = 1.0 / s;
 
     struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
-      T *a, *b, *c;
+      T *a, *b, *c, *d;
       raii(libxs_blasint asize_, libxs_blasint bsize_, libxs_blasint csize_)
         : a(new T[static_cast<size_t>(asize_)]), b(new T[static_cast<size_t>(bsize_)])
-        , c(new T[static_cast<size_t>(csize_)]) {}
-      ~raii() { delete[] a; delete[] b; delete[] c; }
+        , c(new T[static_cast<size_t>(csize_)]), d(new T[static_cast<size_t>(csize_)]) {}
+      ~raii() { delete[] a; delete[] b; delete[] c; delete[] d; }
     } buffer(s * asize + aspace - 1, s * bsize + aspace - 1, s * csize + aspace - 1);
     T *const a = LIBXS_ALIGN(buffer.a, LIBXS_ALIGNMENT);
     T *const b = LIBXS_ALIGN(buffer.b, LIBXS_ALIGNMENT);
     T *c = LIBXS_ALIGN(buffer.c, LIBXS_ALIGNMENT);
+    T *d = LIBXS_ALIGN(buffer.d, LIBXS_ALIGNMENT);
 
+#if defined(_OPENMP)
+#   pragma omp parallel for schedule(static)
+#endif
     for (libxs_blasint i = 0; i < s; ++i) {
-      init(42 + i, a + i * asize, m, k, m, scale);
-      init(24 + i, b + i * bsize, k, n, k, scale);
-      init(22 + i, c + i * csize, m, n, m, scale);
+      init(42 + i, a + i * asize, m, k, lda, scale);
+      init(24 + i, b + i * bsize, k, n, ldb, scale);
+      init(22 + i, c + i * csize, m, n, ldc, scale);
+      init(22 + i, d + i * csize, m, n, ldc, scale);
     }
 
 #if defined(LIBXS_OFFLOAD_TARGET)
-#   pragma offload target(LIBXS_OFFLOAD_TARGET) in(a: length(s * asize)) in(b: length(s * bsize)) inout(c: length(s * csize))
+#   pragma offload target(LIBXS_OFFLOAD_TARGET) in(a: length(s * asize)) in(b: length(s * bsize)) inout(c: length(s * csize) inout(d: length(s * csize))
 #endif
     {
 #if defined(MKL_ENABLE_AVX512)
@@ -119,22 +126,30 @@ int main(int argc, char* argv[])
       libxs_init();
 
       fprintf(stdout, "m=%lli n=%lli k=%lli size=%lli memory=%.1f MB (%s)\n\n",
-        (long long)m, (long long)n, (long long)k, (long long)s,
+        static_cast<long long>(m), static_cast<long long>(n), static_cast<long long>(k), static_cast<long long>(s),
         1.0 * (s * (asize + bsize + csize) * sizeof(T)) / (1 << 20),
         8 == sizeof(T) ? "DP" : "SP");
 
-      const libxs_mmfunction<T> xmm(m, n, k);
+      const libxs_mmfunction<T> xmm(LIBXS_GEMM_FLAGS(transa, transb), m, n, k, lda, ldb, ldc, alpha, beta);
       if (!xmm) throw "no specialized routine found!";
 
-      { // batched
+      // arrays needed for the batch interface (indirect)
+      std::vector<const T*> va_array(static_cast<size_t>(s)), vb_array(static_cast<size_t>(s));
+      std::vector<T*> vc_array(static_cast<size_t>(s));
+      const T* *const a_array = &va_array[0];
+      const T* *const b_array = &vb_array[0];
+      T* *const c_array = &vc_array[0];
+
+      switch (benchmark) {
+      case 0: { // batched
         fprintf(stdout, "Batched (A,B,C)...\n");
         const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
-#       pragma omp parallel for
+#       pragma omp parallel for schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
           const T *const ai = a + i * asize, *const bi = b + i * bsize;
-          T* ci = c + i * csize;
+          T *const ci = c + i * csize;
 #if (0 != LIBXS_PREFETCH)
           xmm(ai, bi, ci,
             LIBXS_PREFETCH_A(ai + asize),
@@ -152,17 +167,47 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      }
+      } /*break;*/
+      case 1: { // batched/indirect
+        fprintf(stdout, "Indirect (A,B,C)...\n");
+        for (libxs_blasint i = 0; i < s; ++i) {
+          a_array[i] = a + i * asize; b_array[i] = b + i * bsize; c_array[i] = d + i * csize;
+        }
+        const libxs_blasint ptrsize = sizeof(T*);
+        const unsigned long long start = libxs_timer_tick();
+        libxs_gemm_batch_omp(LIBXS_GEMM_PRECISION(REAL_TYPE), &transa, &transb,
+          m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
+          0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
+        const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
+        const double duration = libxs_timer_duration(start, end);
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
+        }
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        if (0 == benchmark) { /* Gold result is available */
+          libxs_matdiff_info diff = { 0 };
+          for (libxs_blasint h = 0; h < s; ++h) {
+            const T *const u = c + h * csize, *const v = c_array[h];
+            libxs_matdiff_info dv;
+            if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(REAL_TYPE), m, n, u, v, &ldc, &ldc, &dv)) {
+              libxs_matdiff_reduce(&diff, &dv);
+            }
+          }
+          if (0 < diff.normf_rel) fprintf(stdout, "\tdiff: %.0f%%\n", 100.0 * diff.normf_rel);
+        }
+      } break;
 
-      { // streaming A and C
+      case 2: { // streaming A and C
         fprintf(stdout, "Streamed (A,C)...\n");
         const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
-#       pragma omp parallel for
+#       pragma omp parallel for schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
           const T *const ai = a + i * asize;
-          T* ci = c + i * csize;
+          T *const ci = c + i * csize;
 #if (0 != LIBXS_PREFETCH)
           xmm(ai, b, ci,
             LIBXS_PREFETCH_A(ai + asize), LIBXS_PREFETCH_B(b),
@@ -179,17 +224,43 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      }
+      } /*break;*/
+      case 3: { // indirect A and C
+        fprintf(stdout, "Indirect (A,C)...\n");
+        for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a + i * asize; b_array[i] = b; c_array[i] = d + i * csize; }
+        const libxs_blasint ptrsize = sizeof(T*);
+        const unsigned long long start = libxs_timer_tick();
+        libxs_gemm_batch_omp(LIBXS_GEMM_PRECISION(REAL_TYPE), &transa, &transb,
+          m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
+          0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
+        const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
+        const double duration = libxs_timer_duration(start, end);
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
+        }
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        libxs_matdiff_info diff = { 0 };
+        for (libxs_blasint h = 0; h < s; ++h) {
+          const T *const u = c + h * csize, *const v = c_array[h];
+          libxs_matdiff_info dv;
+          if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(REAL_TYPE), m, n, u, v, &ldc, &ldc, &dv)) {
+            libxs_matdiff_reduce(&diff, &dv);
+          }
+        }
+        if (0 < diff.normf_rel) fprintf(stdout, "\tdiff: %.0f%%\n", 100.0 * diff.normf_rel);
+      } break;
 
-      { // streaming B and C
+      case 4: { // streaming B and C
         fprintf(stdout, "Streamed (B,C)...\n");
         const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
-#       pragma omp parallel for
+#       pragma omp parallel for schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
           const T *const bi = b + i * bsize;
-          T* ci = c + i * csize;
+          T *const ci = c + i * csize;
 #if (0 != LIBXS_PREFETCH)
           xmm(a, bi, ci,
             LIBXS_PREFETCH_A(a), LIBXS_PREFETCH_B(bi + bsize),
@@ -206,62 +277,155 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      }
+      } /*break;*/
+      case 5: { // indirect B and C
+        fprintf(stdout, "Indirect (B,C)...\n");
+        for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a; b_array[i] = b + i * bsize; c_array[i] = d + i * csize; }
+        const libxs_blasint ptrsize = sizeof(T*);
+        const unsigned long long start = libxs_timer_tick();
+        libxs_gemm_batch_omp(LIBXS_GEMM_PRECISION(REAL_TYPE), &transa, &transb,
+          m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
+          0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
+        const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
+        const double duration = libxs_timer_duration(start, end);
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
+        }
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        libxs_matdiff_info diff = { 0 };
+        for (libxs_blasint h = 0; h < s; ++h) {
+          const T *const u = c + h * csize, *const v = c_array[h];
+          libxs_matdiff_info dv;
+          if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(REAL_TYPE), m, n, u, v, &ldc, &ldc, &dv)) {
+            libxs_matdiff_reduce(&diff, &dv);
+          }
+        }
+        if (0 < diff.normf_rel) fprintf(stdout, "\tdiff: %.0f%%\n", 100.0 * diff.normf_rel);
+      } break;
 
-      if ((MAX_SIZE) >= csize) {
-        { // streaming A and B
-          fprintf(stdout, "Streamed (A,B)...\n");
-          const unsigned long long start = libxs_timer_tick();
+      case 6: { // streaming A and B
+        fprintf(stdout, "Streamed (A,B)...\n");
+        const unsigned long long start = libxs_timer_tick();
 #if defined(_OPENMP)
-#         pragma omp parallel for
+        const libxs_blasint chunksize = s / omp_get_max_threads();
+#       pragma omp parallel for schedule(static)
 #endif
-          for (libxs_blasint i = 0; i < s; ++i) {
-            T tmp[MAX_SIZE]; // make sure that stacksize is covering the problem size
-            const T *const ai = a + i * asize, *const bi = b + i * bsize;
-            // do nothing else with tmp; just a benchmark
-#if (0 != LIBXS_PREFETCH)
-            xmm(ai, bi, tmp,
-              LIBXS_PREFETCH_A(ai + asize),
-              LIBXS_PREFETCH_B(bi + bsize),
-              LIBXS_PREFETCH_C(tmp));
+        for (libxs_blasint i = 0; i < s; ++i) {
+#if defined(_OPENMP) /* attempt to write to disjunct cachelines */
+          const libxs_blasint j = omp_get_thread_num() * chunksize * csize;
 #else
-            xmm(ai, bi, tmp);
+          const libxs_blasint j = 0;
 #endif
-          }
-          const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
-          const double duration = libxs_timer_duration(start, end);
-          if (0 < duration && 0 != x) {
-            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
-            fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-            fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
-          }
-          fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+          const T *const ai = a + i * asize, *const bi = b + i * bsize;
+#if (0 != LIBXS_PREFETCH)
+          xmm(ai, bi, c + j,
+            LIBXS_PREFETCH_A(ai + asize),
+            LIBXS_PREFETCH_B(bi + bsize),
+            LIBXS_PREFETCH_C(c + j));
+#else
+          xmm(ai, bi, c + j);
+#endif
         }
-
-        { // cached
-          fprintf(stdout, "Cached...\n");
-          const unsigned long long start = libxs_timer_tick();
+        const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
+        const double duration = libxs_timer_duration(start, end);
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+        }
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+      } /*break;*/
+      case 7: { // indirect A and B
+        fprintf(stdout, "Indirect (A,B)...\n");
 #if defined(_OPENMP)
-#         pragma omp parallel for
+        const libxs_blasint chunksize = s / omp_get_max_threads();
+#       pragma omp parallel for schedule(static)
 #endif
-          for (libxs_blasint i = 0; i < s; ++i) {
-            T tmp[MAX_SIZE]; // make sure that stacksize is covering the problem size
-            // do nothing else with tmp; just a benchmark
-            xmm(a, b, tmp);
-          }
-          const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
-          const double duration = libxs_timer_duration(start, end);
-          if (0 < duration && 0 != x) {
-            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
-            fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          }
-          fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        for (libxs_blasint i = 0; i < s; ++i) {
+          a_array[i] = a + i * asize; b_array[i] = b + i * bsize;
+#if defined(_OPENMP) /* attempt to write to disjunct cachelines */
+          c_array[i] = d + omp_get_thread_num() * chunksize * csize;
+#else
+          c_array[i] = d;
+#endif
         }
-      }
-      else {
-        fprintf(stderr, "Warning: size M x N is exceeding MAX_SIZE!\n");
-      }
+        const libxs_blasint ptrsize = sizeof(T*);
+        const unsigned long long start = libxs_timer_tick();
+        libxs_gemm_batch_omp(LIBXS_GEMM_PRECISION(REAL_TYPE), &transa, &transb,
+          m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
+          0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
+        const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
+        const double duration = libxs_timer_duration(start, end);
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
+        }
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+      } break;
 
+      case 8: { // cached
+        fprintf(stdout, "Cached...\n");
+        const unsigned long long start = libxs_timer_tick();
+#if defined(_OPENMP)
+        const libxs_blasint chunksize = s / omp_get_max_threads();
+#       pragma omp parallel for schedule(static)
+#endif
+        for (libxs_blasint i = 0; i < s; ++i) {
+#if defined(_OPENMP) /* attempt to write to disjunct cachelines */
+          const libxs_blasint j = omp_get_thread_num() * chunksize * csize;
+#else
+          const libxs_blasint j = 0;
+#endif
+#if (0 != LIBXS_PREFETCH)
+          xmm(a, b, c + j,
+            LIBXS_PREFETCH_A(a),
+            LIBXS_PREFETCH_B(b),
+            LIBXS_PREFETCH_C(c + j));
+#else
+          xmm(a, b, c + j);
+#endif
+        }
+        const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
+        const double duration = libxs_timer_duration(start, end);
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+        }
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+      } /*break;*/
+      case 9: { // indirect cached
+        fprintf(stdout, "Indirect cached...\n");
+#if defined(_OPENMP)
+        const libxs_blasint chunksize = s / omp_get_max_threads();
+#       pragma omp parallel for schedule(static)
+#endif
+        for (libxs_blasint i = 0; i < s; ++i) {
+          a_array[i] = a; b_array[i] = b;
+#if defined(_OPENMP) /* attempt to write to disjunct cachelines */
+          c_array[i] = d + omp_get_thread_num() * chunksize * csize;
+#else
+          c_array[i] = d;
+#endif
+        }
+        const libxs_blasint ptrsize = sizeof(T*);
+        const unsigned long long start = libxs_timer_tick();
+        libxs_gemm_batch_omp(LIBXS_GEMM_PRECISION(REAL_TYPE), &transa, &transb,
+          m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
+          0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
+        const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
+        const double duration = libxs_timer_duration(start, end);
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
+        }
+        fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+      } break;
+      default: throw "invalid case selected!";
+      } /*switch*/
       // finalize LIBXS
       libxs_finalize();
       fprintf(stdout, "Finished\n");
@@ -282,3 +446,4 @@ int main(int argc, char* argv[])
 
   return result;
 }
+
