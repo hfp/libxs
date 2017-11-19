@@ -1018,9 +1018,19 @@ int main(int argc, char* argv[])
       printf("##########################################\n");
       printf("#   Correctness - BWD (custom-Storage)   #\n");
       printf("##########################################\n");
+
+      /* quantize input, filter, and Bias */
+      libxs_dnn_quantize( naive_output_bp, i16_naive_doutput, nImg*nOfm*ofhp*ofwp, 2, &scf_doutput,  LIBXS_DNN_QUANT_BIAS_ROUND );
+  
+      /* set scaling factors into tensors */
+      libxs_dnn_set_qtensor_scf( libxs_doutput,  scf_doutput );
+
+      /* dequantize to check quantization error */
+      libxs_dnn_dequantize( i16_naive_doutput,  dq_naive_doutput, nImg*nOfm*ofhp*ofwp, scf_doutput );
+
       /* let's do some additional init such that we can run passes standalone */
-      CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor(    libxs_doutput, (void*)naive_output_bp, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
-      CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor(    libxs_dinput, (void*)naive_input_save, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor(    libxs_doutput, (void*)i16_naive_doutput, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor(    libxs_dinput,  (void*)naive_input_save,  LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
 #if defined(USE_BWD_NO_FILTER_TRANSPOSE_OVERWRITE)
       CHKERR_LIBXS_DNN( libxs_dnn_trans_reg_filter( libxs_handle ) );
 #endif
@@ -1041,8 +1051,30 @@ int main(int argc, char* argv[])
       /* copy out data */
       CHKERR_LIBXS_DNN( libxs_dnn_copyout_tensor( libxs_dinput, (void*)naive_libxs_input, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
 
+      /* norms quantization */
+      libxs_matdiff(LIBXS_DATATYPE_F32, nImg*nOfm*ofhp*ofwp, 1, naive_output_bp, dq_naive_doutput, 0, 0, &norms_quant);
+      printf("del-Output Quantization:\n");
+      printf("L1 reference  : %.25g\n", norms_quant.l1_ref);
+      printf("L1 test       : %.25g\n", norms_quant.l1_tst);
+      printf("L2 abs.error  : %.24f\n", norms_quant.l2_abs);
+      printf("L2 rel.error  : %.24f\n", norms_quant.l2_rel);
+      printf("Linf abs.error: %.24f\n", norms_quant.linf_abs);
+      printf("Linf rel.error: %.24f\n", norms_quant.linf_rel);
+      printf("Check-norm    : %.24f\n", norms_quant.normf_rel);
+
+      libxs_matdiff(LIBXS_DATATYPE_F32, nIfm*nOfm*kw*kh, 1, naive_filter, dq_naive_filter, 0, 0, &norms_quant);
+      printf("Filter Quantization:\n");
+      printf("L1 reference  : %.25g\n", norms_quant.l1_ref);
+      printf("L1 test       : %.25g\n", norms_quant.l1_tst);
+      printf("L2 abs.error  : %.24f\n", norms_quant.l2_abs);
+      printf("L2 rel.error  : %.24f\n", norms_quant.l2_rel);
+      printf("Linf abs.error: %.24f\n", norms_quant.linf_abs);
+      printf("Linf rel.error: %.24f\n", norms_quant.linf_rel);
+      printf("Check-norm    : %.24f\n", norms_quant.normf_rel);
+
       /* compare */
       libxs_matdiff(LIBXS_DATATYPE_F32, nImg*nIfm*ifhp*ifwp, 1, naive_input, naive_libxs_input, 0, 0, &norms_bwd);
+      printf("del-Input:\n");
       printf("L1 reference  : %.25g\n", norms_bwd.l1_ref);
       printf("L1 test       : %.25g\n", norms_bwd.l1_tst);
       printf("L2 abs.error  : %.24f\n", norms_bwd.l2_abs);
@@ -1057,10 +1089,23 @@ int main(int argc, char* argv[])
       printf("##########################################\n");
       printf("#   Correctness - UPD (custom-Storage)   #\n");
       printf("##########################################\n");
+      /* quantize input, filter, and Bias */
+      libxs_dnn_quantize( naive_input_save, i16_naive_input,   nImg*nIfm*ifhp*ifwp, 2, &scf_input,    LIBXS_DNN_QUANT_BIAS_ROUND );
+      libxs_dnn_quantize( naive_output_wu,  i16_naive_doutput, nImg*nOfm*ofhp*ofwp, 2, &scf_doutput,  LIBXS_DNN_QUANT_BIAS_ROUND );
+  
+      /* set scaling factors into tensors */
+      libxs_dnn_set_qtensor_scf( libxs_input,  scf_input );
+      libxs_dnn_set_qtensor_scf( libxs_doutput,  scf_doutput );
+
+      /* dequantize to check quantization error */
+      libxs_dnn_dequantize( i16_naive_input,    dq_naive_input,   nImg*nIfm*ifhp*ifwp, scf_input );
+      libxs_dnn_dequantize( i16_naive_doutput,  dq_naive_doutput, nImg*nOfm*ofhp*ofwp, scf_doutput );
+
       /* let's do some additional init such that we can run passes standalone */
-      CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_input, (void*)naive_input_save, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
-      CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_doutput, (void*)naive_output_wu, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
-      CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_dfilter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_input,   (void*)i16_naive_input,   LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_doutput, (void*)i16_naive_doutput, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
+      CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_dfilter, (void*)naive_filter,      LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
+
       /* run LIBXS convolutions */
 #if defined(_OPENMP)
 #     pragma omp parallel
@@ -1076,11 +1121,34 @@ int main(int argc, char* argv[])
       if (conv_desc.options == LIBXS_DNN_CONV_OPTION_UPD_NO_FILTER_REDUCE) {
         CHKERR_LIBXS_DNN( libxs_dnn_reduce_wu_filters( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
       }
+
       /* copy out data */
       CHKERR_LIBXS_DNN( libxs_dnn_copyout_tensor( libxs_dfilter, (void*)naive_libxs_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
 
+      libxs_matdiff(LIBXS_DATATYPE_F32, nImg*nIfm*ifhp*ifwp, 1, naive_input_save, dq_naive_input, 0, 0, &norms_quant);
+      printf("Input Quantization:\n");
+      printf("L1 reference  : %.25g\n", norms_quant.l1_ref);
+      printf("L1 test       : %.25g\n", norms_quant.l1_tst);
+      printf("L2 abs.error  : %.24f\n", norms_quant.l2_abs);
+      printf("L2 rel.error  : %.24f\n", norms_quant.l2_rel);
+      printf("Linf abs.error: %.24f\n", norms_quant.linf_abs);
+      printf("Linf rel.error: %.24f\n", norms_quant.linf_rel);
+      printf("Check-norm    : %.24f\n", norms_quant.normf_rel);
+
+      /* norms quantization */
+      libxs_matdiff(LIBXS_DATATYPE_F32, nImg*nOfm*ofhp*ofwp, 1, naive_output_bp, dq_naive_doutput, 0, 0, &norms_quant);
+      printf("del-Output Quantization:\n");
+      printf("L1 reference  : %.25g\n", norms_quant.l1_ref);
+      printf("L1 test       : %.25g\n", norms_quant.l1_tst);
+      printf("L2 abs.error  : %.24f\n", norms_quant.l2_abs);
+      printf("L2 rel.error  : %.24f\n", norms_quant.l2_rel);
+      printf("Linf abs.error: %.24f\n", norms_quant.linf_abs);
+      printf("Linf rel.error: %.24f\n", norms_quant.linf_rel);
+      printf("Check-norm    : %.24f\n", norms_quant.normf_rel);
+
       /* compare */
       libxs_matdiff(LIBXS_DATATYPE_F32, nOfm*nIfm*kh*kw, 1, naive_filter_wu, naive_libxs_filter, 0, 0, &norms_upd);
+      printf("del-Filter:\n");
       printf("L1 reference  : %.25g\n", norms_upd.l1_ref);
       printf("L1 test       : %.25g\n", norms_upd.l1_tst);
       printf("L2 abs.error  : %.24f\n", norms_upd.l2_abs);
