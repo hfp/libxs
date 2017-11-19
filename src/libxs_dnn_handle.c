@@ -578,12 +578,21 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       libxs_matcopy_descriptor matcopy_descriptor;
       libxs_matcopy_descriptor matzero_descriptor;
 
+      /* init descriptors */
+      memset( &descriptor, 0, sizeof(libxs_convolution_forward_descriptor) );
+      memset( &matcopy_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
+      memset( &matzero_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
+
       descriptor.input_L2_prefetching = 0;
-      if (handle->desc.R != 1 || handle->desc.S != 1) {
-        descriptor.extra_L2_prefetching = 0;
-      } else {
-        descriptor.extra_L2_prefetching = 1;
-        descriptor.lookahead = 4;
+      descriptor.lookahead = 0;
+      if ( (handle->desc.R == 1) && (handle->desc.S == 1) ) {
+        if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC) || (libxs_target_archid == LIBXS_X86_AVX512_KNM) ) {
+          descriptor.extra_L2_prefetching = 1;
+          descriptor.lookahead = 4;
+        } else {
+          descriptor.extra_L2_prefetching = 0;
+          descriptor.lookahead = 0;
+        }
       }
 
       descriptor.use_nts =  handle->use_nts_fwd;
@@ -813,13 +822,23 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       libxs_convolution_forward_descriptor fwd_equivalent_descriptor;
       libxs_matcopy_descriptor matzero_descriptor_overwrite;
 
+      /* init descriptors */
+      memset( &descriptor, 0, sizeof(libxs_convolution_backward_descriptor) );
+      memset( &fwd_equivalent_descriptor, 0, sizeof(libxs_convolution_forward_descriptor) );
+      memset( &matcopy_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
+      memset( &matcopyback_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
+      memset( &matzero_descriptor_overwrite, 0, sizeof(libxs_matcopy_descriptor) );
 
       fwd_equivalent_descriptor.input_L2_prefetching = 0;
-      if (handle->desc.R != 1 || handle->desc.S != 1) {
-        fwd_equivalent_descriptor.extra_L2_prefetching = 0;
-      } else {
-        fwd_equivalent_descriptor.extra_L2_prefetching = 1;
-        fwd_equivalent_descriptor.lookahead = 4;
+      fwd_equivalent_descriptor.lookahead = 0;
+      if ( (handle->desc.R == 1) && (handle->desc.S == 1) ) {
+        if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC) || (libxs_target_archid == LIBXS_X86_AVX512_KNM) ) {
+          fwd_equivalent_descriptor.extra_L2_prefetching = 1;
+          fwd_equivalent_descriptor.lookahead = 4;
+        } else {
+          fwd_equivalent_descriptor.extra_L2_prefetching = 0;
+          fwd_equivalent_descriptor.lookahead = 0;
+        }
       }
 
       if (handle->padding_flag == 1) {
@@ -1248,6 +1267,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       { libxs_convolution_weight_update_descriptor descriptor;
         libxs_matcopy_descriptor matcopy_descriptor;
         libxs_matcopy_descriptor matzero_descriptor;
+
+        /* init descriptors */
+        memset( &descriptor, 0, sizeof(libxs_convolution_weight_update_descriptor) );
+        memset( &matcopy_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
+        memset( &matzero_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
+
         if (handle->padding_flag == 1) {
           descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
           descriptor.ifw_padded = handle->ifwp + 2 * handle->desc.pad_w;
@@ -1485,20 +1510,28 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   handle->blocksimg_blocking = 1;
                   descriptor.blocks_img = 1;
                 } else {
-                  int spread_out;
+                  int spread_out = 0;
                   if (handle->ofh == 7 && handle->desc.threads % 4 == 0) {
                     spread_out = 4;
-                  } else {
+                  } else if (handle->desc.threads % 2 == 0) {
                     spread_out = 2;
+                  } else {
+                    spread_out = 1;
                   }
-                  handle->use_hybrid_wu_parallelism = 1;
-                  handle->weight_copies = handle->desc.threads/spread_out;
-                  descriptor.ncopies = handle->weight_copies;  
-                  handle->blocksimg_blocking = spread_out;
-                  descriptor.blocks_img = handle->blocksimg_blocking;
+                  if (spread_out == 1) {
+                    handle->use_hybrid_wu_parallelism = 0;
+                    handle->weight_copies = handle->desc.threads;
+                    handle->blocksimg_blocking = 1;
+                    descriptor.blocks_img = 1;
+                  } else {
+                    handle->use_hybrid_wu_parallelism = 1;
+                    handle->weight_copies = handle->desc.threads/spread_out;
+                    descriptor.ncopies = handle->weight_copies;  
+                    handle->blocksimg_blocking = spread_out;
+                    descriptor.blocks_img = handle->blocksimg_blocking;
+                  }
                 }
               }
-
 #if 0
               !defined(NDEBUG)
                 printf("DEBUG JIT of conv:\n  arch: %s\n  type: %s\n  ofm_block: %u\n  ifm_block: %u\n"
@@ -1832,6 +1865,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         libxs_convolution_winograd_descriptor wino_desc_fp;
         libxs_convolution_winograd_descriptor wino_desc_bp;
         libxs_convolution_winograd_descriptor wino_desc_wu;
+
+        memset( &wino_desc_fp, 0, sizeof(libxs_convolution_winograd_descriptor) );
+        memset( &wino_desc_bp, 0, sizeof(libxs_convolution_winograd_descriptor) );
+        memset( &wino_desc_wu, 0, sizeof(libxs_convolution_winograd_descriptor) );
+
         const int alpha = 6; /* The value of alpha can be either 4 or 6 */
         const int tileSize = alpha - 2;
         int allowed_unroll = 0;

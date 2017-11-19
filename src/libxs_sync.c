@@ -81,7 +81,7 @@ struct LIBXS_RETARGETABLE libxs_barrier {
 LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
 {
   libxs_barrier *const barrier = (libxs_barrier*)libxs_aligned_malloc(
-    sizeof(libxs_barrier), LIBXS_CACHELINE_SIZE);
+    sizeof(libxs_barrier), LIBXS_CACHELINE);
 #if defined(_REENTRANT)
   barrier->ncores = ncores;
   barrier->ncores_log2 = LIBXS_LOG2((ncores << 1) - 1);
@@ -89,9 +89,9 @@ LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthread
   barrier->nthreads = ncores * nthreads_per_core;
 
   barrier->threads = (internal_sync_thread_tag**)libxs_aligned_malloc(
-    barrier->nthreads * sizeof(internal_sync_thread_tag*), LIBXS_CACHELINE_SIZE);
+    barrier->nthreads * sizeof(internal_sync_thread_tag*), LIBXS_CACHELINE);
   barrier->cores = (internal_sync_core_tag**)libxs_aligned_malloc(
-    barrier->ncores * sizeof(internal_sync_core_tag*), LIBXS_CACHELINE_SIZE);
+    barrier->ncores * sizeof(internal_sync_core_tag*), LIBXS_CACHELINE);
 
   LIBXS_ATOMIC_SET(barrier->threads_waiting.counter, barrier->nthreads);
   barrier->init_done = 0;
@@ -117,27 +117,27 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
 
   /* allocate per-thread structure */
   thread = (internal_sync_thread_tag*)libxs_aligned_malloc(
-    sizeof(internal_sync_thread_tag), LIBXS_CACHELINE_SIZE);
+    sizeof(internal_sync_thread_tag), LIBXS_CACHELINE);
   barrier->threads[tid] = thread;
   thread->core_tid = tid - (barrier->nthreads_per_core * cid); /* mod */
   /* each core's thread 0 does all the allocations */
   if (0 == thread->core_tid) {
     core = (internal_sync_core_tag*)libxs_aligned_malloc(
-      sizeof(internal_sync_core_tag), LIBXS_CACHELINE_SIZE);
+      sizeof(internal_sync_core_tag), LIBXS_CACHELINE);
     core->id = (uint8_t)cid;
     core->core_sense = 1;
 
     core->thread_senses = (uint8_t*)libxs_aligned_malloc(
-      barrier->nthreads_per_core * sizeof(uint8_t), LIBXS_CACHELINE_SIZE);
+      barrier->nthreads_per_core * sizeof(uint8_t), LIBXS_CACHELINE);
     for (i = 0; i < barrier->nthreads_per_core; ++i) core->thread_senses[i] = 1;
 
     for (i = 0; i < 2;  ++i) {
       core->my_flags[i] = (uint8_t*)libxs_aligned_malloc(
-        barrier->ncores_log2 * sizeof(uint8_t) * LIBXS_CACHELINE_SIZE,
-        LIBXS_CACHELINE_SIZE);
+        barrier->ncores_log2 * sizeof(uint8_t) * LIBXS_CACHELINE,
+        LIBXS_CACHELINE);
       core->partner_flags[i] = (uint8_t**)libxs_aligned_malloc(
         barrier->ncores_log2 * sizeof(uint8_t*),
-        LIBXS_CACHELINE_SIZE);
+        LIBXS_CACHELINE);
     }
 
     core->parity = 0;
@@ -160,7 +160,7 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
   /* each core's thread 0 completes setup */
   if (0 == thread->core_tid) {
     int di;
-    for (i = di = 0; i < barrier->ncores_log2; ++i, di += LIBXS_CACHELINE_SIZE) {
+    for (i = di = 0; i < barrier->ncores_log2; ++i, di += LIBXS_CACHELINE) {
       /* find dissemination partner and link to it */
       const int dissem_cid = (cid + (1 << i)) % barrier->ncores;
       assert(0 != core); /* initialized under the same condition; see above */
@@ -214,15 +214,15 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
       int di;
 #if defined(__MIC__)
       /* cannot use LIBXS_ALIGNED since attribute may not apply to local non-static arrays */
-      uint8_t sendbuffer[LIBXS_CACHELINE_SIZE+LIBXS_CACHELINE_SIZE-1];
-      uint8_t *const sendbuf = LIBXS_ALIGN(sendbuffer, LIBXS_CACHELINE_SIZE);
+      uint8_t sendbuffer[LIBXS_CACHELINE+LIBXS_CACHELINE-1];
+      uint8_t *const sendbuf = LIBXS_ALIGN(sendbuffer, LIBXS_CACHELINE);
       __m512d m512d;
       _mm_prefetch((const char*)core->partner_flags[core->parity][0], _MM_HINT_ET1);
       sendbuf[0] = core->sense;
       m512d = LIBXS_INTRINSICS_MM512_LOAD_PD(sendbuf);
 #endif
 
-      for (i = di = 0; i < barrier->ncores_log2 - 1; ++i, di += LIBXS_CACHELINE_SIZE) {
+      for (i = di = 0; i < barrier->ncores_log2 - 1; ++i, di += LIBXS_CACHELINE) {
 #if defined(__MIC__)
         _mm_prefetch((const char*)core->partner_flags[core->parity][i+1], _MM_HINT_ET1);
         _mm512_storenrngo_pd(core->partner_flags[core->parity][i], m512d);

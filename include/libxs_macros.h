@@ -32,6 +32,7 @@
 #include "libxs_config.h"
 
 /** Parameters the library and static kernels were built for. */
+#define LIBXS_CACHELINE LIBXS_CONFIG_CACHELINE
 #define LIBXS_ALIGNMENT LIBXS_CONFIG_ALIGNMENT
 #define LIBXS_PREFETCH LIBXS_CONFIG_PREFETCH
 #define LIBXS_MAX_MNK LIBXS_CONFIG_MAX_MNK
@@ -95,11 +96,16 @@
 #if defined(__cplusplus)
 # define LIBXS_API_INLINE LIBXS_EXTERN LIBXS_INLINE LIBXS_RETARGETABLE
 # define LIBXS_API_INTERN LIBXS_EXTERN LIBXS_RETARGETABLE
-# define LIBXS_API_VARIABLE LIBXS_RETARGETABLE
 #else
 # define LIBXS_API_INLINE LIBXS_INLINE LIBXS_RETARGETABLE
 # define LIBXS_API_INTERN LIBXS_RETARGETABLE
-# define LIBXS_API_VARIABLE LIBXS_RETARGETABLE
+#endif
+
+#define LIBXS_VARIABLE LIBXS_RETARGETABLE
+#if defined(LIBXS_BUILD_EXT)
+# define LIBXS_API_VARIABLE LIBXS_EXTERN LIBXS_VARIABLE
+#else
+# define LIBXS_API_VARIABLE LIBXS_VARIABLE
 #endif
 
 #if !defined(LIBXS_INTERNAL_API)
@@ -246,7 +252,7 @@
 # define LIBXS_OPENMP_COLLAPSE(N)
 #endif
 
-/*Based on Stackoverflow's NBITSx macro.*/
+/** Binary Logarithm (based on Stackoverflow's NBITSx macro). */
 #define LIBXS_LOG2_02(N) (0 != ((N) & 0x2/*0b10*/) ? 1ULL : 0ULL)
 #define LIBXS_LOG2_04(N) (0 != ((N) & 0xC/*0b1100*/) ? (2ULL | LIBXS_LOG2_02((N) >> 2)) : LIBXS_LOG2_02(N))
 #define LIBXS_LOG2_08(N) (0 != ((N) & 0xF0/*0b11110000*/) ? (4ULL | LIBXS_LOG2_04((N) >> 4)) : LIBXS_LOG2_04(N))
@@ -255,8 +261,17 @@
 #define LIBXS_LOG2_64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32ULL | LIBXS_LOG2_32((N) >> 32)) : LIBXS_LOG2_32(N))
 #define LIBXS_LOG2(N) LIBXS_MAX((unsigned int)LIBXS_LOG2_64((unsigned long long)(N)), 1U)
 
-#define LIBXS_DEFAULT(DEFAULT, VALUE) (0 < (VALUE) ? (VALUE) : (DEFAULT))
-#define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
+/** LIBXS_UP2POT rounds up to the next power of two (POT). */
+#define LIBXS_UP2POT_01(N) ((N) | ((N) >> 1))
+#define LIBXS_UP2POT_02(N) (LIBXS_UP2POT_01(N) | (LIBXS_UP2POT_01(N) >> 2))
+#define LIBXS_UP2POT_04(N) (LIBXS_UP2POT_02(N) | (LIBXS_UP2POT_02(N) >> 4))
+#define LIBXS_UP2POT_08(N) (LIBXS_UP2POT_04(N) | (LIBXS_UP2POT_04(N) >> 8))
+#define LIBXS_UP2POT_16(N) (LIBXS_UP2POT_08(N) | (LIBXS_UP2POT_08(N) >> 16))
+#define LIBXS_UP2POT_32(N) (LIBXS_UP2POT_16(N) | (LIBXS_UP2POT_16(N) >> 32))
+#define LIBXS_UP2POT(N) (LIBXS_UP2POT_32((unsigned long long)((N) - 1)) + 1)
+
+#define LIBXS_UP2(N, NPOT) ((((uintptr_t)(N)) + ((NPOT) - 1)) & ~((NPOT) - 1))
+#define LIBXS_UP(N, UP) (((((uintptr_t)(N)) + (UP) - 1) / (UP)) * (UP))
 #define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
@@ -265,10 +280,11 @@
 #define LIBXS_MUL2(N, NPOT) (((unsigned long long)(N)) << LIBXS_LOG2(NPOT))
 #define LIBXS_DIV2(N, NPOT) (((unsigned long long)(N)) >> LIBXS_LOG2(NPOT))
 #define LIBXS_SQRT2(N) ((unsigned int)(1ULL << (LIBXS_LOG2(((N) << 1) - 1) >> 1)))
-#define LIBXS_UP2(N, NPOT) (((N) + ((NPOT) - 1)) & ~((NPOT) - 1))
-#define LIBXS_UP(N, UP) ((((N) + (UP) - 1) / (UP)) * (UP))
-/* compares floating point values but avoids warning about unreliable comparison */
+/** Compares floating point values but avoids warning about unreliable comparison. */
 #define LIBXS_FEQ(A, B) (!((A) < (B) || (A) > (B)))
+
+#define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
+#define LIBXS_DEFAULT(DEFAULT, VALUE) (0 < (VALUE) ? (VALUE) : (DEFAULT))
 
 #if defined(__INTEL_COMPILER)
 # define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N);
