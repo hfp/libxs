@@ -39,8 +39,8 @@
 
 # define USE_OVERWRITE
 /*# define USE_BWD_NO_FILTER_TRANSPOSE_OVERWRITE*/
-# define USE_FUSED_BATCH_STATS
-/*#define USE_FUSED_MAX_STATS*/
+/*# define USE_FUSED_BATCH_STATS*/
+/*# define USE_FUSED_MAX_STATS*/
 #define FP64_BN_STATS
 /*#define USE_FUSED_RELU_BWD*/
 #if !defined(USE_FUSED_BIAS) && 0
@@ -1394,7 +1394,14 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_REGULAR_BIAS ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_GRADIENT_BIAS ) );
     CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_REGULAR_FILTER_TRANS ) );
+#ifdef USE_FUSED_BATCH_STATS
     CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_BATCH_STATS ) );
+#endif
+#ifdef USE_FUSED_MAX_STATS
+    CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_MAX_STATS_FWD ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_MAX_STATS_BWD ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_MAX_STATS_UPD ) );
+#endif
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_input ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_output ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_filter ) );
@@ -1404,7 +1411,14 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_bias ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_dbias ) );
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_filter_tr ) );
+#ifdef USE_FUSED_BATCH_STATS
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_batchstats ) );
+#endif
+#ifdef USE_FUSED_MAX_STATS
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_maxstats_fwd ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_maxstats_bwd ) );
+    CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_maxstats_upd ) );
+#endif
     CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
   }
 
