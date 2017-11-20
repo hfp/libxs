@@ -1555,7 +1555,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_tensor(libxs_dnn_layer* handle, cons
       (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
       (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER) &&
       (type != LIBXS_DNN_REGULAR_BIAS)         && (type != LIBXS_DNN_GRADIENT_BIAS)   &&
-      (type != LIBXS_DNN_REGULAR_FILTER_TRANS) && (type != LIBXS_DNN_BATCH_STATS)        ) {
+      (type != LIBXS_DNN_REGULAR_FILTER_TRANS) && (type != LIBXS_DNN_BATCH_STATS) && (type != LIBXS_DNN_MAX_STATS_FWD) && (type != LIBXS_DNN_MAX_STATS_BWD)  && (type != LIBXS_DNN_MAX_STATS_UPD)  ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -1581,6 +1581,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_tensor(libxs_dnn_layer* handle, cons
       handle->reg_filter_tr = 0;
     } else if ( type == LIBXS_DNN_BATCH_STATS ) {
       handle->batch_stats = 0;
+    }  else if ( type == LIBXS_DNN_MAX_STATS_FWD ) {
+      handle->maxstats_fwd = 0;
+    } else if ( type == LIBXS_DNN_MAX_STATS_BWD ) {
+      handle->maxstats_bwd = 0;
+    } else if ( type == LIBXS_DNN_MAX_STATS_UPD ) {
+      handle->maxstats_upd = 0;
     } else {
       /* cannot happen */
     }
@@ -1637,7 +1643,7 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* ha
                                                l_scratch_size += scratch5_size + 64;
                                              }
                                              if (handle->use_lp_kernel == 1) {
-                                              l_scratch_size += handle->scratch6_size +64;
+                                               l_scratch_size += handle->scratch6_size +64;
                                              }
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_ALL: {
@@ -1654,7 +1660,7 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* ha
                                                l_scratch_size += scratch5_size + 64;
                                              }
                                              if (handle->use_lp_kernel == 1) {
-                                              l_scratch_size += handle->scratch6_size +64;
+                                               l_scratch_size += handle->scratch6_size +64;
                                              }
                                            } break;
         default: {
@@ -2358,7 +2364,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffe
       if ( sign > 0 && qvalue > 0 ) {
         qvalue = (~qvalue + 1);
       }
-      
+
       if (round_mode == LIBXS_DNN_QUANT_BIAS_ROUND) {
         /* biased rounding towards next bigger number */
         /* first let's determine in the original number if we need a bias rounding, @TODO need fix for F64 */
@@ -2396,7 +2402,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffe
 LIBXS_API_DEFINITION void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int length, unsigned char scf ) {
   int i = 0;
   float exp = pow(2.0, -scf);
-  
+
   for ( i = 0 ; i < length; ++i ) {
     out_buffer[i] = ((float)in_buffer[i])*exp;
   }
