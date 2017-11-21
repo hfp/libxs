@@ -101,7 +101,12 @@ LIBXS_API_DEFINITION int libxs_cpuid_x86(void)
           if (0x10010000 == (0x10010000 & ebx)) { /* Common */
             /* AVX512DQ(0x00020000), AVX512BW(0x40000000), AVX512VL(0x80000000) */
             if (0xC0020000 == (0xC0020000 & ebx)) { /* SKX (Core) */
-              target_arch = LIBXS_X86_AVX512_CORE;
+              if (0x00000800 == (0x00000800 & ecx)) { /* ICL (CORE) */
+                target_arch = LIBXS_X86_AVX512_ICL;
+              }
+              else { /* SKX (CORE) */
+                target_arch = LIBXS_X86_AVX512_CORE;
+              }
             }
             /* AVX512PF(0x04000000), AVX512ER(0x08000000) */
             else if (0x0C000000 == (0x0C000000 & ebx)) {

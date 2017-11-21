@@ -82,7 +82,7 @@ LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthread
 {
   libxs_barrier *const barrier = (libxs_barrier*)libxs_aligned_malloc(
     sizeof(libxs_barrier), LIBXS_CACHELINE);
-#if defined(_REENTRANT)
+#if !defined(LIBXS_NO_SYNC)
   barrier->ncores = ncores;
   barrier->ncores_log2 = LIBXS_LOG2((ncores << 1) - 1);
   barrier->nthreads_per_core = nthreads_per_core;
@@ -104,7 +104,7 @@ LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthread
 
 LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
 {
-#if defined(_REENTRANT)
+#if !defined(LIBXS_NO_SYNC)
   const int cid = tid / barrier->nthreads_per_core; /* this thread's core ID */
   internal_sync_core_tag* core = 0;
   int i;
@@ -187,7 +187,7 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
 LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
 void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 {
-#if defined(_REENTRANT)
+#if !defined(LIBXS_NO_SYNC)
   internal_sync_thread_tag *const thread = barrier->threads[tid];
   internal_sync_core_tag *const core = thread->core;
 
@@ -263,7 +263,7 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 
 LIBXS_API_DEFINITION void libxs_barrier_release(const libxs_barrier* barrier)
 {
-#if defined(_REENTRANT)
+#if !defined(LIBXS_NO_SYNC)
   int i;
   if (2 == barrier->init_done) {
     for (i = 0; i < barrier->ncores; ++i) {

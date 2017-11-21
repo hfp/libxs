@@ -55,7 +55,7 @@
 #endif
 
 
-#if !defined(MKL_DIRECT_CALL_SEQ) && !defined(MKL_DIRECT_CALL)
+#if (LIBXS_VERSION3(11, 2, 0) > INTEL_MKL_VERSION) || !(defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL))
 LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, REAL_TYPE);
 #endif
 
@@ -88,16 +88,22 @@ int main(int argc, char* argv[])
     const libxs_blasint m = (2 < argc ? std::atoi(argv[2]) : 23);
     const libxs_blasint k = (4 < argc ? std::atoi(argv[4]) : m);
     const libxs_blasint n = (3 < argc ? std::atoi(argv[3]) : k);
+    const libxs_blasint q = (5 < argc ? std::atoi(argv[5]) : 0/*auto*/);
+    const libxs_blasint nrepeat = (6 < argc ? std::atoi(argv[6]) : (0 >= q ? 13 : 1));
 
     const libxs_blasint lda = m, ldb = k, ldc = m;
     const char transa = 'N', transb = 'N';
     const T alpha = 1, beta = 1;
 
     const libxs_blasint asize = lda * k, bsize = ldb * n, csize = ldc * n, aspace = LIBXS_ALIGNMENT / sizeof(T);
-    const libxs_blasint s = (2ULL << 30) / ((asize + bsize + csize) * sizeof(T)); // 2 GByte
+    const libxs_blasint max_size = ((2ULL << 30/*2 GB*/) / ((asize + bsize + csize) * sizeof(T)));
+    const libxs_blasint s = LIBXS_MIN(0 < q ? q : max_size, max_size);
     const size_t bwsize_batched = static_cast<size_t>((asize/*load*/ + bsize/*load*/ + 2 * csize/*RFO*/) * sizeof(T)); // batched (A, B, and C)
     const size_t bwsize = static_cast<size_t>((asize/*load*/ + bsize/*load*/) * sizeof(T)); // omit size of A, B, or C since it is held in cache
-    const double gflops = 2.0 * s * m * n * k * 1E-9, scale = 1.0;
+    const double gflops = 2.0 * nrepeat * s * m * n * k * 1E-9, scale = 1.0 / s;
+#if defined(_OPENMP)
+    const libxs_blasint chunksize = s / omp_get_max_threads();
+#endif
 
     struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
       T *a, *b, *c, *d;
@@ -140,67 +146,70 @@ int main(int argc, char* argv[])
         1.0 * (s * (asize + bsize + csize) * sizeof(T)) / (1 << 20),
         8 == sizeof(T) ? "DP" : "SP");
 
-      { // LAPACK/BLAS3 (warmup BLAS Library)
+      // LAPACK/BLAS3 (warmup BLAS Library)
 #if defined(_OPENMP)
-#       pragma omp parallel for schedule(static)
+#     pragma omp parallel for schedule(static)
 #endif
-        for (libxs_blasint i = 0; i < s; ++i) {
-          LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
-            &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
-             &beta, c + i * csize, &ldc);
-        }
+      for (libxs_blasint i = 0; i < s; ++i) {
+        LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+          &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
+            &beta, c + i * csize, &ldc);
       }
 
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && defined(INTEL_MKL_VERSION) && (110300 <= (INTEL_MKL_VERSION))
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       std::vector<const T*> va_array(static_cast<size_t>(s)), vb_array(static_cast<size_t>(s));
       std::vector<T*> vc_array(static_cast<size_t>(s));
       const T* *const a_array = &va_array[0];
       const T* *const b_array = &vb_array[0];
       T* *const c_array = &vc_array[0];
       const libxs_blasint group_count = 1;
+      for (libxs_blasint i = 0; i < s; ++i) { // setup batched (A,B,C)
+        a_array[i] = a + i * asize; b_array[i] = b + i * bsize; c_array[i] = d + i * csize;
+      }
+      // additional warm-up (also to eventually match the Gold result)
+      LIBXS_TPREFIX(REAL_TYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
+        &alpha, &a_array[0], &lda, &b_array[0], &ldb,
+          &beta, &c_array[0], &ldc, &group_count, &s);
 #endif
 
       switch (benchmark) {
       case 0: { // batched
         fprintf(stdout, "Batched (A,B,C)...\n");
         const unsigned long long start = libxs_timer_tick();
+        for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
-#       pragma omp parallel for schedule(static)
+#         pragma omp parallel for schedule(static)
 #endif
-        for (libxs_blasint i = 0; i < s; ++i) {
-          LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
-            &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
-             &beta, c + i * csize, &ldc);
+          for (libxs_blasint i = 0; i < s; ++i) {
+            LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+              &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
+               &beta, c + i * csize, &ldc);
+          }
         }
         const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
         const double duration = libxs_timer_duration(start, end);
         if (0 < duration && 0 != x) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (nrepeat * s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize_batched / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /*break;*/
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && defined(INTEL_MKL_VERSION) && (110300 <= (INTEL_MKL_VERSION))
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       case 1: { // batched indirect
         fprintf(stdout, "Indirect (A,B,C)...\n");
-        for (libxs_blasint i = 0; i < s; ++i) {
-          a_array[i] = a + i * asize; b_array[i] = b + i * bsize; c_array[i] = d + i * csize;
-        }
-        // additional warm-up
-        LIBXS_TPREFIX(REAL_TYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
-          &alpha, &a_array[0], &lda, &b_array[0], &ldb,
-           &beta, &c_array[0], &ldc, &group_count, &s);
         const unsigned long long start = libxs_timer_tick();
-        LIBXS_TPREFIX(REAL_TYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
-          &alpha, &a_array[0], &lda, &b_array[0], &ldb,
-           &beta, &c_array[0], &ldc, &group_count, &s);
+        for (libxs_blasint r = 0; r < nrepeat; ++r) {
+          LIBXS_TPREFIX(REAL_TYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
+            &alpha, &a_array[0], &lda, &b_array[0], &ldb,
+             &beta, &c_array[0], &ldc, &group_count, &s);
+        }
         const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
         const double duration = libxs_timer_duration(start, end);
         if (0 < duration && 0 != x) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (nrepeat * s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize_batched / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
         if (0 == benchmark) { /* Gold result is available */
@@ -220,37 +229,41 @@ int main(int argc, char* argv[])
       case 2: { // streaming A and C
         fprintf(stdout, "Streamed (A,C)...\n");
         const unsigned long long start = libxs_timer_tick();
+        for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
-#       pragma omp parallel for schedule(static)
+#         pragma omp parallel for schedule(static)
 #endif
-        for (libxs_blasint i = 0; i < s; ++i) {
-          LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
-            &alpha, a + i * asize, &lda, b, &ldb,
-             &beta, c + i * csize, &ldc);
+          for (libxs_blasint i = 0; i < s; ++i) {
+            LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+              &alpha, a + i * asize, &lda, b, &ldb,
+               &beta, c + i * csize, &ldc);
+          }
         }
         const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
         const double duration = libxs_timer_duration(start, end);
         if (0 < duration && 0 != x) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (nrepeat * s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /*break;*/
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && defined(INTEL_MKL_VERSION) && (110300 <= (INTEL_MKL_VERSION))
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       case 3: { // indirect A and C
         fprintf(stdout, "Indirect (A,C)...\n");
         for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a + i * asize; b_array[i] = b; c_array[i] = d + i * csize; }
         const unsigned long long start = libxs_timer_tick();
-        LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
-          &alpha, &a_array[0], &lda, &b_array[0], &ldb,
-          &beta, &c_array[0], &ldc, &group_count, &s);
+        for (libxs_blasint r = 0; r < nrepeat; ++r) {
+          LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+            &alpha, &a_array[0], &lda, &b_array[0], &ldb,
+            &beta, &c_array[0], &ldc, &group_count, &s);
+        }
         const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
         const double duration = libxs_timer_duration(start, end);
         if (0 < duration && 0 != x) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (nrepeat * s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       }
@@ -259,37 +272,41 @@ int main(int argc, char* argv[])
       case 4: { // streaming B and C
         fprintf(stdout, "Streamed (B,C)...\n");
         const unsigned long long start = libxs_timer_tick();
+        for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
-#       pragma omp parallel for schedule(static)
+#         pragma omp parallel for schedule(static)
 #endif
-        for (libxs_blasint i = 0; i < s; ++i) {
-          LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
-            &alpha, a, &lda, b + i * bsize, &ldb,
-             &beta, c + i * csize, &ldc);
+          for (libxs_blasint i = 0; i < s; ++i) {
+            LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+              &alpha, a, &lda, b + i * bsize, &ldb,
+               &beta, c + i * csize, &ldc);
+          }
         }
         const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
         const double duration = libxs_timer_duration(start, end);
         if (0 < duration && 0 != x) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (nrepeat * s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /*break;*/
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && defined(INTEL_MKL_VERSION) && (110300 <= (INTEL_MKL_VERSION))
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       case 5: { // indirect B and C
         fprintf(stdout, "Indirect (B,C)...\n");
         for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a; b_array[i] = b + i * bsize; c_array[i] = d + i * csize; }
         const unsigned long long start = libxs_timer_tick();
-        LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
-          &alpha, &a_array[0], &lda, &b_array[0], &ldb,
-          &beta, &c_array[0], &ldc, &group_count, &s);
+        for (libxs_blasint r = 0; r < nrepeat; ++r) {
+          LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+            &alpha, &a_array[0], &lda, &b_array[0], &ldb,
+            &beta, &c_array[0], &ldc, &group_count, &s);
+        }
         const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
         const double duration = libxs_timer_duration(start, end);
         if (0 < duration && 0 != x) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (nrepeat * s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       }
@@ -298,34 +315,34 @@ int main(int argc, char* argv[])
       case 6: { // streaming A and B
         fprintf(stdout, "Streamed (A,B)...\n");
         const unsigned long long start = libxs_timer_tick();
+        for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
-        const libxs_blasint chunksize = s / omp_get_max_threads();
-#       pragma omp parallel for schedule(static)
+#         pragma omp parallel for schedule(static)
 #endif
-        for (libxs_blasint i = 0; i < s; ++i) {
+          for (libxs_blasint i = 0; i < s; ++i) {
 #if defined(_OPENMP) /* attempt to write to disjunct cachelines */
-          const libxs_blasint j = omp_get_thread_num() * chunksize * csize;
+            const libxs_blasint j = omp_get_thread_num() * chunksize * csize;
 #else
-          const libxs_blasint j = 0;
+            const libxs_blasint j = 0;
 #endif
-          LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
-            &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
-             &beta, c + j, &ldc);
+            LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+              &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
+               &beta, c + j, &ldc);
+          }
         }
         const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
         const double duration = libxs_timer_duration(start, end);
         if (0 < duration && 0 != x) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (nrepeat * s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /*break;*/
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && defined(INTEL_MKL_VERSION) && (110300 <= (INTEL_MKL_VERSION))
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       case 7: { // indirect A and B
         fprintf(stdout, "Indirect (A,B)...\n");
 #if defined(_OPENMP)
-        const libxs_blasint chunksize = s / omp_get_max_threads();
 #       pragma omp parallel for schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
@@ -337,15 +354,17 @@ int main(int argc, char* argv[])
 #endif
         }
         const unsigned long long start = libxs_timer_tick();
-        LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
-          &alpha, &a_array[0], &lda, &b_array[0], &ldb,
-          &beta, &c_array[0], &ldc, &group_count, &s);
+        for (libxs_blasint r = 0; r < nrepeat; ++r) {
+          LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+            &alpha, &a_array[0], &lda, &b_array[0], &ldb,
+            &beta, &c_array[0], &ldc, &group_count, &s);
+        }
         const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
         const double duration = libxs_timer_duration(start, end);
         if (0 < duration && 0 != x) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (nrepeat * s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
+          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       }
@@ -354,33 +373,33 @@ int main(int argc, char* argv[])
       case 8: { // cached
         fprintf(stdout, "Cached...\n");
         const unsigned long long start = libxs_timer_tick();
+        for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
-        const libxs_blasint chunksize = s / omp_get_max_threads();
-#       pragma omp parallel for schedule(static)
+#         pragma omp parallel for schedule(static)
 #endif
-        for (libxs_blasint i = 0; i < s; ++i) {
+          for (libxs_blasint i = 0; i < s; ++i) {
 #if defined(_OPENMP) /* attempt to write to disjunct cachelines */
-          const libxs_blasint j = omp_get_thread_num() * chunksize * csize;
+            const libxs_blasint j = omp_get_thread_num() * chunksize * csize;
 #else
-          const libxs_blasint j = 0;
+            const libxs_blasint j = 0;
 #endif
-          LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
-            &alpha, a, &lda, b, &ldb,
-             &beta, c + j, &ldc);
+            LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+              &alpha, a, &lda, b, &ldb,
+               &beta, c + j, &ldc);
+          }
         }
         const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
         const double duration = libxs_timer_duration(start, end);
         if (0 < duration && 0 != x) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (nrepeat * s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /*break;*/
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && defined(INTEL_MKL_VERSION) && (110300 <= (INTEL_MKL_VERSION))
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       case 9: { // indirect cached
-        fprintf(stdout, "Indirect cached\n");
+        fprintf(stdout, "Indirect cached...\n");
 #if defined(_OPENMP)
-        const libxs_blasint chunksize = s / omp_get_max_threads();
 #       pragma omp parallel for schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
@@ -392,15 +411,16 @@ int main(int argc, char* argv[])
 #endif
         }
         const unsigned long long start = libxs_timer_tick();
-        LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
-          &alpha, &a_array[0], &lda, &b_array[0], &ldb,
-          &beta, &c_array[0], &ldc, &group_count, &s);
+        for (libxs_blasint r = 0; r < nrepeat; ++r) {
+          LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+            &alpha, &a_array[0], &lda, &b_array[0], &ldb,
+            &beta, &c_array[0], &ldc, &group_count, &s);
+        }
         const unsigned long long end = libxs_timer_tick(), x = std::max(end, start) - start;
         const double duration = libxs_timer_duration(start, end);
         if (0 < duration && 0 != x) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (nrepeat * s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
-          fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       }
@@ -415,6 +435,10 @@ int main(int argc, char* argv[])
   }
   catch(const std::exception& e) {
     fprintf(stderr, "Error: %s\n", e.what());
+    result = EXIT_FAILURE;
+  }
+  catch(const char* message) {
+    fprintf(stderr, "Error: %s\n", message);
     result = EXIT_FAILURE;
   }
   catch(...) {

@@ -51,6 +51,9 @@ typedef LIBXS_RETARGETABLE unsigned int (*libxs_hash_function)(const void*, size
 LIBXS_HASH_API void libxs_hash_init(int target_arch);
 LIBXS_HASH_API void libxs_hash_finalize(void);
 
+LIBXS_HASH_API unsigned int libxs_crc32_u32(unsigned int seed, unsigned int value);
+LIBXS_HASH_API unsigned int libxs_crc32_u64(unsigned int seed, unsigned long long value);
+
 /** Dispatched implementation which may (or may not) use a SIMD extension. */
 LIBXS_HASH_API unsigned int libxs_crc32(
   const void* data, size_t size, unsigned int seed);
