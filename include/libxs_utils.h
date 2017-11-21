@@ -43,6 +43,13 @@
 # define LIBXS_INTRINSICS(TARGET)
 #elif !defined(LIBXS_INTRINSICS_NONE) /*!defined(__MIC__)*/
 # if    defined(__AVX512F__)  && defined(__AVX512CD__) \
+   &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) && defined(__AVX512VNNI__) \
+   &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
+   && !(defined(__APPLE__) && defined(__MACH__)) \
+   && (!defined(__clang__) || ((LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
+   || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))))
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_ICL
+# elif    defined(__AVX512F__)  && defined(__AVX512CD__) \
    &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
    && !(defined(__APPLE__) && defined(__MACH__)) \
@@ -214,6 +221,9 @@
 #     if !defined(__AVX512VL__)
 #       define __AVX512VL__ 1
 #     endif
+#     if !defined(__AVX512VNNI__)
+#       define __AVX512VNNI__ 1
+#     endif
 #     if defined(__GNUC__) && !defined(__clang__)
 #       pragma GCC push_options
 #       if (LIBXS_X86_AVX < LIBXS_MAX_STATIC_TARGET_ARCH)
@@ -257,6 +267,9 @@
 #       undef __AVX512DQ__
 #       undef __AVX512BW__
 #       undef __AVX512VL__
+#     endif
+#     if (LIBXS_X86_AVX512_ICL > (LIBXS_STATIC_TARGET_ARCH))
+#       undef __AVX512VNNI__
 #     endif
 #   endif /*defined(LIBXS_INTRINSICS_PATCH)*/
 #   if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
@@ -306,6 +319,11 @@
 #         define LIBXS_ATTRIBUTE_TARGET_1020 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl")
 #       else /* LIBXS_X86_AVX512 */
 #         define LIBXS_ATTRIBUTE_TARGET_1020 LIBXS_ATTRIBUTE_TARGET_1007
+#       endif
+#       if (LIBXS_X86_AVX512_ICL <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1022 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni")
+#       else /* LIBXS_X86_AVX512_CORE */
+#         define LIBXS_ATTRIBUTE_TARGET_1022 LIBXS_ATTRIBUTE_TARGET_1020
 #       endif
 #     else
 #       define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
@@ -378,15 +396,43 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if (defined(__INTEL_COMPILER) || defined(_CRAYC)) && !defined(LIBXS_INTRINSICS_NONE)
-# define LIBXS_INTRINSICS_BITSCANFWD(N) _bit_scan_forward(N)
-#elif defined(__GNUC__) && !defined(_CRAYC) && !defined(LIBXS_INTRINSICS_NONE)
-# define LIBXS_INTRINSICS_BITSCANFWD(N) (__builtin_ffs(N) - 1)
-#else /* fall-back implementation */
-  LIBXS_API_INLINE int libxs_bitscanfwd(int n) {
-    int i, r = 0; for (i = 1; 0 == (n & i) ; i <<= 1) { ++r; } return r;
+LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD32_SW(unsigned int n) {
+  unsigned int i, r = 0; if (0 != n) for (i = 1; 0 == (n & i); i <<= 1) { ++r; } return r;
+}
+LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
+  unsigned int i, r = 0; if (0 != n) for (i = 1; 0 == (n & i); i <<= 1) { ++r; } return r;
+}
+#define LIBXS_INTRINSICS_BITSCANBWD32_SW(N) LIBXS_LOG2_32((unsigned int)(N))
+#define LIBXS_INTRINSICS_BITSCANBWD64_SW(N) LIBXS_LOG2_64((unsigned long long)(N))
+
+#if defined(_WIN32) && !defined(LIBXS_INTRINSICS_NONE)
+  LIBXS_API_INLINE unsigned int LIBXS_INTRINSICS_BITSCANFWD32(unsigned int n) {
+    unsigned long r = 0; _BitScanForward(&r, n); return (0 != n) * r;
   }
-# define LIBXS_INTRINSICS_BITSCANFWD(N) libxs_bitscanfwd(N)
+  LIBXS_API_INLINE unsigned int LIBXS_INTRINSICS_BITSCANBWD32(unsigned int n) {
+    unsigned long r = 0; _BitScanReverse(&r, n); return r;
+  }
+# if defined(_WIN64)
+    LIBXS_API_INLINE unsigned int LIBXS_INTRINSICS_BITSCANFWD64(unsigned long long n) {
+      unsigned long r = 0; _BitScanForward64(&r, n); return (0 != n) * r;
+    }
+    LIBXS_API_INLINE unsigned int LIBXS_INTRINSICS_BITSCANBWD64(unsigned long long n) {
+      unsigned long r = 0; _BitScanReverse64(&r, n); return r;
+    }
+# else
+#   define LIBXS_INTRINSICS_BITSCANFWD64 LIBXS_INTRINSICS_BITSCANFWD64_SW
+#   define LIBXS_INTRINSICS_BITSCANBWD64 LIBXS_INTRINSICS_BITSCANBWD64_SW
+# endif
+#elif defined(__GNUC__) && !defined(LIBXS_INTRINSICS_NONE)
+# define LIBXS_INTRINSICS_BITSCANFWD32(N) ((0 != (N)) * __builtin_ctz(N))
+# define LIBXS_INTRINSICS_BITSCANFWD64(N) ((0 != (N)) * __builtin_ctzll(N))
+# define LIBXS_INTRINSICS_BITSCANBWD32(N) ((0 != (N)) * (31 - __builtin_clz(N)))
+# define LIBXS_INTRINSICS_BITSCANBWD64(N) ((0 != (N)) * (63 - __builtin_clzll(N)))
+#else /* fall-back implementation */
+# define LIBXS_INTRINSICS_BITSCANFWD32 LIBXS_INTRINSICS_BITSCANFWD32_SW
+# define LIBXS_INTRINSICS_BITSCANFWD64 LIBXS_INTRINSICS_BITSCANFWD64_SW
+# define LIBXS_INTRINSICS_BITSCANBWD32 LIBXS_INTRINSICS_BITSCANBWD32_SW
+# define LIBXS_INTRINSICS_BITSCANBWD64 LIBXS_INTRINSICS_BITSCANBWD64_SW
 #endif
 
 #if !defined(LIBXS_INTRINSICS_KNC) && !defined(LIBXS_INTRINSICS_NONE) && defined(__MIC__)
@@ -454,6 +500,13 @@
      (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
   || (defined(__clang__) && LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH))
 # define LIBXS_INTRINSICS_AVX512_CORE
+#endif
+
+/** LIBXS_INTRINSICS_AVX512_ICL is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX512_ICL) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX512_CORE) && ( \
+     (!defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_X86_AVX512_ICL <= LIBXS_MAX_STATIC_TARGET_ARCH)) \
+  || (defined(__clang__) && LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_AVX512_ICL
 #endif
 
 #endif /*LIBXS_INTRINSICS_X86_H*/

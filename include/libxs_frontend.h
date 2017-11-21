@@ -95,8 +95,10 @@
 # define MKL_ILP64
 #endif
 #if (0 != LIBXS_ILP64)
+# define LIBXS_BLASINT_NBITS 64
 # define LIBXS_BLASINT long long
 #else /* LP64 */
+# define LIBXS_BLASINT_NBITS 32
 # define LIBXS_BLASINT int
 #endif
 
@@ -248,8 +250,8 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const void* 
 # define LIBXS_INLINE_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
   const TYPE libxs_inline_xgemm_alpha_ = (TYPE)(ALPHA), libxs_inline_xgemm_beta_ = (TYPE)(BETA); \
   INT libxs_inline_xgemm_i_, libxs_inline_xgemm_j_, libxs_inline_xgemm_k_; \
+  LIBXS_UNUSED(FLAGS); /* TODO: remove/adjust precondition if anything other than NN is supported */ \
   LIBXS_ASSERT(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS))/*not supported*/); \
-  /* TODO: remove/adjust precondition if anything other than NN is supported */ \
   LIBXS_ASSERT((M) <= (LDA) && (K) <= (LDB) && (M) <= (LDC)); \
   LIBXS_PRAGMA_SIMD \
   for (libxs_inline_xgemm_j_ = 0; libxs_inline_xgemm_j_ < ((INT)(M)); ++libxs_inline_xgemm_j_) { \
@@ -440,6 +442,25 @@ LIBXS_API_INLINE void libxs_matdiff_reduce(libxs_matdiff_info* output, const lib
     output->l1_ref = input->l1_ref;
     output->l1_tst = input->l1_tst;
   }
+}
+
+/* Implementation is taken from an anonymous GitHub Gist. */
+LIBXS_API_INLINE unsigned int libxs_cbrt_u64(unsigned long long n) {
+  unsigned long long b; unsigned int y = 0; int s;
+  for (s = 63; s >= 0; s -= 3) {
+    y += y; b = 3 * y * ((unsigned long long)y + 1) + 1;
+    if (b <= (n >> s)) { n -= b << s; ++y; }
+  }
+  return y;
+}
+
+LIBXS_API_INLINE unsigned int libxs_cbrt_u32(unsigned int n) {
+  unsigned int b; unsigned int y = 0; int s;
+  for (s = 31; s >= 0; s -= 3) {
+    y += y; b = 3 * y * (y + 1) + 1;
+    if (b <= (n >> s)) { n -= b << s; ++y; }
+  }
+  return y;
 }
 
 #endif /*LIBXS_FRONTEND_H*/

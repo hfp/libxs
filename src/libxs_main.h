@@ -74,16 +74,17 @@
 #endif
 
 typedef union LIBXS_RETARGETABLE libxs_code_pointer {
-  const void* const_pmm;
+  void (*ptr_fn)(LIBXS_VARIADIC);
+  const void* ptr_const;
   void* pmm;
-  uintptr_t uimm;
-  intptr_t imm;
+  uintptr_t uval;
+  intptr_t ival;
   libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wmm, or void-function */
+  libxs_xmatcopyfunction xmatcopy;
+  libxs_xtransfunction xtrans;
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
   libxs_xconvfunction xconv;
 #endif
-  libxs_xmatcopyfunction xmatcopy;
-  libxs_xtransfunction xtrans;
 } libxs_code_pointer;
 
 typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
@@ -386,6 +387,15 @@ LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
+typedef union LIBXS_RETARGETABLE libxs_kernel_info {
+  libxs_gemm_descriptor xgemm;
+  libxs_matcopy_descriptor mcopy;
+  libxs_transpose_descriptor trans;
+} libxs_kernel_info;
+
+/** Attempts to receive information about JIT-generated code. */
+LIBXS_API const libxs_kernel_info* libxs_get_kernel_info(libxs_code_pointer code, libxs_kernel_kind* kind, size_t* size);
+
 /** Updates counters of the statistic, which is shown at program termination. */
 LIBXS_API unsigned int libxs_update_mmstatistic(libxs_gemm_precision precision,
   libxs_blasint m, libxs_blasint n, libxs_blasint k, unsigned int ntry, unsigned int ncol);
@@ -427,7 +437,7 @@ LIBXS_API_VARIABLE int libxs_verbosity;
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
 LIBXS_API_VARIABLE int libxs_target_archid;
 /** Determines whether a threaded implementation is synchronized or not. */
-LIBXS_API_VARIABLE int libxs_sync;
+LIBXS_API_VARIABLE int libxs_nosync;
 /** Number of threads per core. */
 LIBXS_API_VARIABLE int libxs_nt;
 

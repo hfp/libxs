@@ -324,7 +324,7 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_GEMM_DIFF_AVX)
-  assert(0 == ndescs || /*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
+  assert(/*is pot*/ndescs == LIBXS_UP2POT(ndescs));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
   {
@@ -378,7 +378,7 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_GEMM_DIFF_AVX2)
-  assert(0 == ndescs || /*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
+  assert(/*is pot*/ndescs == LIBXS_UP2POT(ndescs));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
   {
@@ -432,7 +432,7 @@ unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_GEMM_DIFF_AVX512) && !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
-  assert(0 == ndescs || /*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
+  assert(/*is pot*/ndescs == LIBXS_UP2POT(ndescs));
 # if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
   {
@@ -487,7 +487,7 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_imci(const libxs_ge
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_GEMM_DIFF_KNC) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
-  assert(0 == ndescs || /*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
+  assert(/*is pot*/ndescs == LIBXS_UP2POT(ndescs));
   assert(32 == nbytes); /* padded descriptor array */
   {
     const unsigned int hint_even = (hint & 0xFFFFFFFE), end = hint_even + ndescs;
@@ -513,7 +513,7 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_imci(const libxs_ge
     return ndescs;
   }
 #elif defined(LIBXS_GEMM_DIFF_KNC) && (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
-  assert(0 == ndescs || /*is pot*/ndescs == (1u << LIBXS_LOG2(ndescs)));
+  assert(/*is pot*/ndescs == LIBXS_UP2POT(ndescs));
   assert(16 == nbytes); /* padded descriptor array */
   { /* TODO: implement for 16 Byte descriptor */
     return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);

@@ -134,16 +134,14 @@ LIBXS_API_VARIABLE const internal_crc32_entry_type* internal_crc32_table;
 LIBXS_API_VARIABLE libxs_hash_function internal_hash_function;
 
 
-LIBXS_API_INLINE unsigned int internal_crc32_u8(
-  unsigned int seed, unsigned char value)
+LIBXS_API_INLINE unsigned int internal_crc32_u8(unsigned int seed, unsigned char value)
 {
   assert(0 != internal_crc32_table);
   return internal_crc32_table[0][(seed^value)&0xFF] ^ (seed >> 8);
 }
 
 
-LIBXS_API_INLINE unsigned int internal_crc32_u16(
-  unsigned int seed, unsigned short value)
+LIBXS_API_INLINE unsigned int internal_crc32_u16(unsigned int seed, unsigned short value)
 {
   seed = internal_crc32_u8(seed, (uint8_t)value);
   seed = internal_crc32_u8(seed, (uint8_t)(value >> 8));
@@ -151,9 +149,12 @@ LIBXS_API_INLINE unsigned int internal_crc32_u16(
 }
 
 
-LIBXS_API_INLINE unsigned int internal_crc32_u32(
-  unsigned int seed, unsigned int value)
+LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE4)
+unsigned int libxs_crc32_u32(unsigned int seed, unsigned int value)
 {
+#if defined(LIBXS_INTRINSICS_SSE4)
+  return LIBXS_HASH_CRC32_U32(seed, value);
+#else
   const unsigned int s = seed ^ value;
   uint32_t c0, c1, c2, c3;
   assert(0 != internal_crc32_table);
@@ -162,15 +163,20 @@ LIBXS_API_INLINE unsigned int internal_crc32_u32(
   c2 = internal_crc32_table[2][(s>>8)&0xFF];
   c3 = internal_crc32_table[3][s&0xFF];
   return (c0 ^ c1) ^ (c2 ^ c3);
+#endif
 }
 
 
-LIBXS_API_INLINE unsigned int internal_crc32_u64(
-  unsigned int seed, unsigned long long value)
+LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE4)
+unsigned int libxs_crc32_u64(unsigned int seed, unsigned long long value)
 {
-  seed = internal_crc32_u32(seed, (uint32_t)(value));
-  seed = internal_crc32_u32(seed, (uint32_t)(value >> 32));
+#if defined(LIBXS_INTRINSICS_SSE4)
+  return (unsigned int)LIBXS_HASH_CRC32_U64(seed, value);
+#else
+  seed = libxs_crc32_u32(seed, (uint32_t)(value));
+  seed = libxs_crc32_u32(seed, (uint32_t)(value >> 32));
   return seed;
+#endif
 }
 
 
@@ -352,7 +358,7 @@ LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32(const void* data, size_t size
 LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_sw(const void* data, size_t size, unsigned int seed)
 {
   assert(0 != data || 0 == size);
-  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, seed);
+  LIBXS_HASH(libxs_crc32_u64, libxs_crc32_u32, internal_crc32_u16, internal_crc32_u8, data, size, seed);
 }
 
 

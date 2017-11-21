@@ -34,7 +34,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
+#if defined(__MKL)
 # include <mkl_service.h>
 #endif
 #include <stdlib.h>
@@ -56,9 +56,7 @@
 #define MYASSERT(x) if(!(x)) { printf("Assertion %s failed...\n", #x); exit(1);}
 
 
-#if !defined(MKL_DIRECT_CALL_SEQ) && !defined(MKL_DIRECT_CALL)
 LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, REAL_TYPE);
-#endif
 
 
 LIBXS_INLINE LIBXS_RETARGETABLE void init(libxs_blasint seed, REAL_TYPE *LIBXS_RESTRICT dst,
@@ -169,7 +167,7 @@ int main(int argc, char* argv[])
         if (ab) {
           fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s | %lli,%lli,%lli,%lli,%lli,%lli,%i,%lli,%lli,%lli,%lli\n",
             gflops * nrepeat / duration, (long long)m, (long long)n, (long long)k, (long long)bm, (long long)bn, (long long)bk,
-            order, (long long)b_m1, (long long)b_n1, (long long)b_k1, (long long)b_k2);
+            (int)order, (long long)b_m1, (long long)b_n1, (long long)b_k1, (long long)b_k2);
         } else {
           fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops * nrepeat / duration);
         }

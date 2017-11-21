@@ -75,8 +75,7 @@ To process a batch of matrix multiplications and to prefetch the operands of the
 
 ```C
 /** Process a series of matrix multiplications (explicit data representation). */
-int libxs_mmbatch(libxs_gemm_precision precision,
-  libxs_xmmfunction kernel, libxs_blasint index_base, libxs_blasint index_stride,
+int libxs_mmbatch(libxs_xmmfunction kernel, libxs_blasint index_base, libxs_blasint index_stride,
   const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
   const void* a, const void* b, void* c, libxs_blasint batchsize, int tid, int nthreads);
 ```

@@ -31,14 +31,8 @@
 
 #include "libxs_intrinsics_x86.h"
 
-#if defined(LIBXS_NO_SYNC)
-# undef _REENTRANT
-#elif !defined(_REENTRANT)
-# define _REENTRANT
-#endif
-
 #if !defined(LIBXS_TLS)
-# if defined(_REENTRANT) && !defined(LIBXS_NO_TLS)
+# if !defined(LIBXS_NO_SYNC) && !defined(LIBXS_NO_TLS)
 #   if defined(__CYGWIN__) && defined(__clang__)
 #     define LIBXS_NO_TLS
 #     define LIBXS_TLS
@@ -90,7 +84,7 @@
 #define LIBXS_NONATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) -= VALUE)
 #define LIBXS_NONATOMIC_SET(DST, VALUE) ((DST) = (VALUE))
 
-#if defined(_REENTRANT) && defined(LIBXS_GCCATOMICS)
+#if !defined(LIBXS_NO_SYNC) && defined(LIBXS_GCCATOMICS)
 # if (0 != LIBXS_GCCATOMICS)
 #   define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __atomic_load_n(SRC_PTR, KIND)
 #   define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) __atomic_store_n(DST_PTR, VALUE, KIND)
@@ -115,7 +109,7 @@
 # define LIBXS_ATOMIC_SYNC_CHECK(LOCK, VALUE) while ((VALUE) == (LOCK)); LIBXS_SYNC_PAUSE
 # define LIBXS_ATOMIC_SYNC_SET(LOCK) do { LIBXS_ATOMIC_SYNC_CHECK(LOCK, 1); } while(0 != __sync_lock_test_and_set(&(LOCK), 1))
 # define LIBXS_ATOMIC_SYNC_UNSET(LOCK) __sync_lock_release(&(LOCK))
-#elif defined(_REENTRANT) && defined(_WIN32) /* TODO: atomics */
+#elif !defined(LIBXS_NO_SYNC) && defined(_WIN32) /* TODO: atomics */
 # define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) (*((SRC_PTR) /*+ InterlockedOr((LONG volatile*)(SRC_PTR), 0) * 0*/))
 # define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) (*(DST_PTR) = VALUE)
 # define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) (*(DST_PTR) += VALUE)
@@ -148,7 +142,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#if defined(_REENTRANT)
+#if !defined(LIBXS_NO_SYNC)
   /* OpenMP based locks need to stay disabled unless both
    * libxs and libxsext are built with OpenMP support.
    */
