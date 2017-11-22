@@ -2317,11 +2317,31 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffe
 
   /* finding absmax float for largest exp */
   absmax_value = (float)fabs((double)(in_buffer[0]));
+#ifdef _OPENMP
+#pragma omp parallel private(i)
+  {
+  float my_absmax_value = 0;
+#pragma omp for private(i)
+  for( i = 1; i < length; ++i ) {
+    if ((float)fabs((double)(in_buffer[i])) > my_absmax_value) {
+      my_absmax_value = (float)fabs((double)(in_buffer[i]));
+    }
+  }
+#pragma omp critical
+  {
+  if (my_absmax_value > absmax_value) {
+    absmax_value = my_absmax_value;
+  }
+  }
+  }
+#else
   for( i = 1; i < length; ++i ) {
     if ((float)fabs((double)(in_buffer[i])) > absmax_value) {
       absmax_value = (float)fabs((double)(in_buffer[i]));
     }
   }
+#endif
+
   /* bit-wise conversion to int */
   exp.f = absmax_value;
   /* shift by mantissa to the right and convert to char */
@@ -2332,6 +2352,9 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffe
     srand( time(NULL) );
   }
 
+#ifdef _OPENMP
+#pragma omp parallel for private(i, value, qvalue, exp_off, mant, sign, rhs)
+#endif
   for( i = 0; i < length; ++i ) {
     value.f = in_buffer[i];
     /* in case of zero we don't need to do anything */
