@@ -64,12 +64,22 @@
 #define LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH) ((MAJOR) * 100000000 + (MINOR) * 1000000 + (UPDATE) * 10000 + (PATCH))
 
 #if defined(__cplusplus)
+# define LIBXS_API_INLINE LIBXS_EXTERN LIBXS_INLINE LIBXS_RETARGETABLE
+# define LIBXS_API_INTERN LIBXS_EXTERN LIBXS_RETARGETABLE
 # define LIBXS_VARIADIC ...
 # define LIBXS_EXTERN extern "C"
 # define LIBXS_INLINE_KEYWORD inline
 # define LIBXS_INLINE LIBXS_INLINE_KEYWORD
-# define LIBXS_CALLER __FUNCTION__
+# if defined(__GNUC__)
+#   define LIBXS_CALLER __PRETTY_FUNCTION__
+# elif defined(_MSC_VER)
+#   define LIBXS_CALLER __FUNCDNAME__
+# else
+#   define LIBXS_CALLER __FUNCNAME__
+# endif
 #else
+# define LIBXS_API_INLINE LIBXS_INLINE LIBXS_RETARGETABLE
+# define LIBXS_API_INTERN LIBXS_RETARGETABLE
 # define LIBXS_VARIADIC
 # define LIBXS_EXTERN extern
 # if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
@@ -78,27 +88,20 @@
 #   define LIBXS_RESTRICT restrict
 #   define LIBXS_INLINE_KEYWORD inline
 # elif defined(_MSC_VER)
-#   define LIBXS_CALLER __FUNCTION__
+#   define LIBXS_CALLER __FUNCDNAME__
 #   define LIBXS_INLINE_KEYWORD __inline
 #   define LIBXS_INLINE_FIXUP
 # elif defined(__GNUC__) && !defined(__STRICT_ANSI__)
-#   define LIBXS_CALLER __FUNCTION__
+#   define LIBXS_CALLER __PRETTY_FUNCTION__
 # endif
 # if !defined(LIBXS_INLINE_KEYWORD)
 #   define LIBXS_INLINE_KEYWORD
 #   define LIBXS_INLINE_FIXUP
 # endif
-# if !defined(LIBXS_CALLER)
-#   define LIBXS_CALLER 0
-# endif
 # define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
 #endif /*__cplusplus*/
-#if defined(__cplusplus)
-# define LIBXS_API_INLINE LIBXS_EXTERN LIBXS_INLINE LIBXS_RETARGETABLE
-# define LIBXS_API_INTERN LIBXS_EXTERN LIBXS_RETARGETABLE
-#else
-# define LIBXS_API_INLINE LIBXS_INLINE LIBXS_RETARGETABLE
-# define LIBXS_API_INTERN LIBXS_RETARGETABLE
+#if !defined(LIBXS_CALLER)
+# define LIBXS_CALLER 0
 #endif
 
 #define LIBXS_VARIABLE LIBXS_RETARGETABLE

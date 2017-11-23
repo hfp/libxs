@@ -101,7 +101,7 @@ LIBXS_API void* libxs_scratch_malloc(size_t size,
    * Identifies the call site, which is used
    * to determine the memory pool.
    */
-  const void* caller);
+  const char* caller);
 
 /**
  * Binary form of libxs_scratch_malloc, which
