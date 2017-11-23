@@ -2301,6 +2301,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_laye
   return status;
 }
 
+
 LIBXS_API_DEFINITION unsigned char libxs_internal_get_max_exp( float* in_buffer, int length ) {
   int i = 0;
   libxs_intfloat exp;
@@ -2341,6 +2342,7 @@ LIBXS_API_DEFINITION unsigned char libxs_internal_get_max_exp( float* in_buffer,
 
   return max_exp;
 }
+
 
 LIBXS_API_DEFINITION short libxs_internal_quantize_scalar_no_scf( float input, unsigned char max_exp, unsigned char add_shift, int round_mode ) {
   libxs_intfloat value;
@@ -2412,6 +2414,7 @@ LIBXS_API_DEFINITION short libxs_internal_quantize_scalar_no_scf( float input, u
   return (short)qvalue;
 }
 
+
 /* @TODO make this routine aware of any int type */
 LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int length, unsigned char add_shift, unsigned char* scf, int round_mode ) {
   int i = 0;
@@ -2430,6 +2433,103 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffe
 #endif
   for( i = 0; i < length; ++i ) {
     out_buffer[i] = libxs_internal_quantize_scalar_no_scf( in_buffer[i], max_exp, add_shift, round_mode );
+  }
+
+  *scf = 14-add_shift-(max_exp-127);
+}
+
+
+LIBXS_API_DEFINITION void libxs_dnn_quantize_act( float* in_buffer, short* out_buffer, unsigned int N, unsigned int C, unsigned int H, unsigned int W, unsigned int cblk_f32, unsigned int cblk_i16, unsigned int lp_blk, unsigned char add_shift, unsigned char* scf, int round_mode ) {
+  unsigned char max_exp = 0;
+  LIBXS_VLA_DECL(5, float, in,  in_buffer,  C/cblk_f32, H, W, cblk_f32);
+  LIBXS_VLA_DECL(6, short, out, out_buffer, C/(cblk_i16*lp_blk), H, W, cblk_i16, lp_blk);
+  unsigned int cblk = C/(cblk_i16*lp_blk);
+  int i1, i2, i3, i4, i5, i6;
+
+  /* some quick and dirty checks */
+  assert((C % cblk_f32) == 0);
+  assert((C % cblk_i16) == 0);
+  
+  /* get max exponent */
+  max_exp = libxs_internal_get_max_exp( in_buffer, N*C*H*W );
+
+  /* if we go for stochstic rounding, let's intialize random seed */
+  if ( round_mode == LIBXS_DNN_QUANT_STOCH_ROUND ) {
+    srand( time(NULL) );
+  }
+
+#ifdef _OPENMP
+#pragma omp parallel for private(i1, i2, i3, i4, i5, i6) collapse(4)
+#endif
+  for( i1 = 0; i1 < N; ++i1 ) {
+    for( i2 = 0; i2 < cblk; ++i2 ) {
+      for( i3 = 0; i3 < H; ++i3 ) {
+        for( i4 = 0; i4 < W; ++i4 ) {
+          for( i5 = 0; i5 < cblk_i16; ++i5 ) {
+            for( i6 = 0; i6 < lp_blk; ++i6 ) {
+              int fi1 = i1;
+              int fi2 = ((i2*cblk_i16*lp_blk)+(i5*lp_blk)+i6)/cblk_f32;
+              int fi3 = i3;
+              int fi4 = i4;
+              int fi5 = ((i2*cblk_i16*lp_blk)+(i5*lp_blk)+i6)%cblk_f32;
+              out[i1][i2][i3][i4][i5][i6] = libxs_internal_quantize_scalar_no_scf( in[fi1][fi2][fi3][fi4][fi5], max_exp, add_shift, round_mode );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  *scf = 14-add_shift-(max_exp-127);
+}
+
+
+LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsigned int K, unsigned int C, unsigned int R, unsigned int S, unsigned int cblk_f32, unsigned int cblk_i16, unsigned int kblk_f32, unsigned int kblk_i16, unsigned int lp_blk, unsigned char add_shift, unsigned char* scf, int round_mode ) {
+  unsigned char max_exp = 0;
+  LIBXS_VLA_DECL(6, float, in,  in_buffer,  C/cblk_f32, R, S, cblk_f32, kblk_f32);
+  LIBXS_VLA_DECL(7, short, out, out_buffer, C/(cblk_i16*lp_blk), R, S, cblk_i16, kblk_i16, lp_blk );
+  unsigned int cblk = C/(cblk_i16*lp_blk);
+  unsigned int kblk = K/kblk_i16;
+  int i1, i2, i3, i4, i5, i6, i7;
+
+  /* some quick and dirty checks */
+  assert((C % cblk_f32) == 0);
+  assert((C % (cblk_i16*lp_blk)) == 0);
+  assert((K % kblk_f32) == 0);
+  assert((K % kblk_i16) == 0);
+  assert((lp_blk % 2) == 0);
+  
+  /* get max exponent */
+  max_exp = libxs_internal_get_max_exp( in_buffer, K*C*R*S );
+
+  /* if we go for stochstic rounding, let's intialize random seed */
+  if ( round_mode == LIBXS_DNN_QUANT_STOCH_ROUND ) {
+    srand( time(NULL) );
+  }
+
+#ifdef _OPENMP
+#pragma omp parallel for private(i1, i2, i3, i4, i5, i6, i7) collapse(4)
+#endif
+  for( i1 = 0; i1 < kblk; ++i1 ) {
+    for( i2 = 0; i2 < cblk; ++i2 ) {
+      for( i3 = 0; i3 < R; ++i3 ) {
+        for( i4 = 0; i4 < S; ++i4 ) {
+          for( i5 = 0; i5 < cblk_i16; ++i5 ) {
+            for( i6 = 0; i6 < kblk_i16; ++i6 ) {
+              for( i7 = 0; i7 < lp_blk; ++i7 ) {
+                int fi1 = ((i1*kblk_i16)+i6)/kblk_f32;
+                int fi2 = ((i2*cblk_i16*lp_blk)+(i5*lp_blk)+i7)/cblk_f32;
+                int fi3 = i3;
+                int fi4 = i4;
+                int fi5 = ((i2*cblk_i16*lp_blk)+(i5*lp_blk)+i7)%cblk_f32;
+                int fi6 = ((i1*kblk_i16)+i6)%kblk_f32;
+                out[i1][i2][i3][i4][i5][i6][i7] = libxs_internal_quantize_scalar_no_scf( in[fi1][fi2][fi3][fi4][fi5][fi6], max_exp, add_shift, round_mode );
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   *scf = 14-add_shift-(max_exp-127);
