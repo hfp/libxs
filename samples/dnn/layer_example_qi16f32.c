@@ -43,6 +43,8 @@
 /*# define USE_FUSED_MAX_STATS*/
 #define FP64_BN_STATS
 /*#define USE_FUSED_RELU_BWD*/
+#define USE_FORMATED_QUANT
+
 #if !defined(USE_FUSED_BIAS) && 0
 # define USE_FUSED_BIAS
 #endif
@@ -877,6 +879,12 @@ int main(int argc, char* argv[])
     libxs_dnn_quantize( naive_input_save, i16_naive_input,  nImg*nIfm*ifhp*ifwp, 2, &scf_input,  LIBXS_DNN_QUANT_BIAS_ROUND );
     libxs_dnn_quantize( naive_filter,     i16_naive_filter, nIfm*nOfm*kw*kh    , 2, &scf_filter, LIBXS_DNN_QUANT_BIAS_ROUND );
 
+#ifdef USE_FORMATED_QUANT
+    /* quantize and copy into LIBXS format */
+    libxs_dnn_quantize_act( naive_input_save, input_libxs,  nImg, nIfm, ifhp, ifwp, 1, 16, 2, 2, &scf_input,  LIBXS_DNN_QUANT_BIAS_ROUND );
+    libxs_dnn_quantize_fil( naive_filter,     filter_libxs, nOfm, nIfm, kw, kh, 1, 16, 1, 16, 2, 2, &scf_filter, LIBXS_DNN_QUANT_BIAS_ROUND );
+#endif
+
     /* set scaling factors into tensors */
     libxs_dnn_set_qtensor_scf( libxs_input,  scf_input );
     libxs_dnn_set_qtensor_scf( libxs_filter, scf_filter );
@@ -888,9 +896,11 @@ int main(int argc, char* argv[])
     /* copy in data to LIBXS format */
     /* we can also use the layout functions and set the data on our
        own external to the library, @TODO, we plan to add an example here */
+#ifndef USE_FORMATED_QUANT
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_input,  (void*)i16_naive_input,   LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_output, (void*)naive_output_save, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_filter, (void*)i16_naive_filter,  LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
+#endif
+    CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_output, (void*)naive_output_save, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_bias,   (void*)naive_bias,        LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
     zero_buf_i16(filtertr_libxs, nOfm*nIfm*kh*kw);
 #ifdef FP32_BN_STATS 
