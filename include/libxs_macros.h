@@ -101,7 +101,7 @@
 # define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
 #endif /*__cplusplus*/
 #if !defined(LIBXS_CALLER)
-# define LIBXS_CALLER 0
+# define LIBXS_CALLER NULL
 #endif
 
 #define LIBXS_VARIABLE LIBXS_RETARGETABLE
@@ -278,7 +278,7 @@
 #define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
-#define LIBXS_CLMP(VALUE, LO, HI) ((LO) < (VALUE) ? ((HI) > (VALUE) ? (VALUE) : LIBXS_MAX(HI, VALUE)) : LIBXS_MIN(LO, VALUE))
+#define LIBXS_CLMP(VALUE, LO, HI) ((LO) < (VALUE) ? ((VALUE) <= (HI) ? (VALUE) : LIBXS_MIN(VALUE, HI)) : LIBXS_MAX(LO, VALUE))
 #define LIBXS_MOD2(N, NPOT) ((N) & ((NPOT) - 1))
 #define LIBXS_MUL2(N, NPOT) (((unsigned long long)(N)) << LIBXS_LOG2(NPOT))
 #define LIBXS_DIV2(N, NPOT) (((unsigned long long)(N)) >> LIBXS_LOG2(NPOT))
@@ -450,7 +450,14 @@
 # endif
 #endif
 
-/** Below group is to fixup some platform/compiler specifics. */
+/** Determines whether constant-folding is available or not. */
+#if !defined(LIBXS_STRING_POOLING)
+# if defined(__GNUC__) /*&& !defined(_MSC_VER)*/
+#   define LIBXS_STRING_POOLING
+# endif
+#endif
+
+/** Below group is to fix-up some platform/compiler specifics. */
 #if defined(_WIN32)
 # if !defined(_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES)
 #   define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1
