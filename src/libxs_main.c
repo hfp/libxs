@@ -784,13 +784,13 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       }
       free(registry_keys);
       free(registry);
-      /* release scratch memory pool */
-      libxs_release_scratch();
     }
 #if !defined(LIBXS_NO_SYNC) /* LIBXS_LOCK_RELEASE, but no LIBXS_LOCK_DESTROY */
     for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_RELEASE(internal_reglock + i);
     LIBXS_LOCK_RELEASE(&libxs_lock_global);
 #endif
+    /* release scratch memory pool */
+    libxs_release_scratch();
   }
 }
 
