@@ -47,6 +47,7 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
@@ -2313,19 +2314,19 @@ LIBXS_API_DEFINITION unsigned char libxs_internal_get_max_exp( float* in_buffer,
 #ifdef _OPENMP
 #pragma omp parallel private(i)
   {
-  float my_absmax_value = 0;
+    float my_absmax_value = absmax_value;
 #pragma omp for private(i)
-  for( i = 1; i < length; ++i ) {
-    if ((float)fabs((double)(in_buffer[i])) > my_absmax_value) {
-      my_absmax_value = (float)fabs((double)(in_buffer[i]));
+    for( i = 1; i < length; ++i ) {
+      if ((float)fabs((double)(in_buffer[i])) > my_absmax_value) {
+        my_absmax_value = (float)fabs((double)(in_buffer[i]));
+      }
     }
-  }
 #pragma omp critical
-  {
-  if (my_absmax_value > absmax_value) {
-    absmax_value = my_absmax_value;
-  }
-  }
+    {
+      if (my_absmax_value > absmax_value) {
+        absmax_value = my_absmax_value;
+      }
+    }
   }
 #else
   for( i = 1; i < length; ++i ) {
@@ -2369,9 +2370,9 @@ LIBXS_API_DEFINITION short libxs_internal_quantize_scalar_no_scf( float input, u
     mant = ((0x1 << LIBXS_DNN_MANT_SZ_F32) | (value.ui & LIBXS_DNN_MASK_MANT_F32));
     /* extract sign */
     /* __mmask16 smask =  _mm512_cmplt_ps_mask (inp, _mm512_set1_ps(0)); */
-    sign = (value.ui & LIBXSNN_DNN_MASK_SIGN_F32) >> (LIBXS_DNN_SZ_F32-1);
+    sign = ((value.ui & LIBXSNN_DNN_MASK_SIGN_F32) >> (LIBXS_DNN_SZ_F32-1));
     /* caclulate rhs, be aware of the now explicit leading bit, @TODO add DFP8/4 */
-    rhs = (unsigned char)(LIBXS_DNN_MANT_SZ_F32+1) - LIBXS_DNN_MANT_DFP16 + exp_off + add_shift;
+    rhs = (unsigned char)((LIBXS_DNN_MANT_SZ_F32+1) - LIBXS_DNN_MANT_DFP16 + exp_off + add_shift);
     /* some safety, to generate 0 when we fall off quant region, @TODO issue a LIBXS Warning that we shifted out the entire mantissa */
     if (rhs > (LIBXS_DNN_MANT_SZ_F32+1)) { 
       rhs = (LIBXS_DNN_MANT_SZ_F32+1);
@@ -2379,7 +2380,7 @@ LIBXS_API_DEFINITION short libxs_internal_quantize_scalar_no_scf( float input, u
     /* finally shfit the value into the region we need, this is now a 15-add_rhs bit number for the max value in in_buffer */
     qvalue = (mant >> rhs);
     /* handle sign, 2 complement */
-    if ( sign > 0 && qvalue > 0 ) {
+    if ( (sign > 0) && (qvalue > 0) ) {
       qvalue = (~qvalue + 1);
     }
 
