@@ -324,9 +324,9 @@ LIBXS_INLINE void naive_conv_bp(naive_conv_t* param, float* input, const float* 
   /* loop counters */
   int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
 
-  LIBXS_VLA_DECL(4, const float, output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
-  LIBXS_VLA_DECL(4,       float,  input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
-  LIBXS_VLA_DECL(4,       float,  naive_input_t,  naive_input_save + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
+  LIBXS_VLA_DECL(4, const float, output_t, output + (pad_h_out * ofwp + pad_w_out), nOfm, ofhp, ofwp);
+  LIBXS_VLA_DECL(4,       float,  input_t,  input + (pad_h_in * ifwp + pad_w_in), nIfm, ifhp, ifwp);
+  LIBXS_VLA_DECL(4,       float,  naive_input_t,  naive_input_save + (pad_h_in * ifwp + pad_w_in), nIfm, ifhp, ifwp);
   LIBXS_VLA_DECL(4, const float, filter_t, filter, nIfm, kh, kw);
 
 #if defined(_OPENMP)
@@ -390,8 +390,8 @@ LIBXS_INLINE void naive_conv_wu(naive_conv_t* param, const float* input, const f
   /* loop counters */
   int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
 
-  LIBXS_VLA_DECL(4, const float, output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
-  LIBXS_VLA_DECL(4, const float,  input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
+  LIBXS_VLA_DECL(4, const float, output_t, output + (pad_h_out * ofwp + pad_w_out), nOfm, ofhp, ofwp);
+  LIBXS_VLA_DECL(4, const float,  input_t,  input + (pad_h_in * ifwp + pad_w_in), nIfm, ifhp, ifwp);
   LIBXS_VLA_DECL(4,       float, filter_t, filter, nIfm, kh, kw);
 
 #if defined(_OPENMP)
