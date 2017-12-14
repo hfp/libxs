@@ -45,7 +45,7 @@
 
 #if (defined(__GNUC__) || defined(__INTEL_COMPILER)) && \
   ((4294967295U < (__SIZE_MAX__)) || defined(_WIN64) || defined(_CRAYC))
-# define LIBXS_TIMER_RDTSC(CYCLE) { unsigned long long libxs_timer_rdtsc_hi_; \
+# define LIBXS_TIMER_RDTSC(CYCLE) { libxs_timer_tickint libxs_timer_rdtsc_hi_; \
     __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
     CYCLE |= libxs_timer_rdtsc_hi_ << 32; \
   }
@@ -54,13 +54,13 @@
 #endif
 
 
-LIBXS_API_INLINE unsigned long long internal_timer_tick(void)
+LIBXS_API_INLINE libxs_timer_tickint internal_timer_tick(void)
 {
-  unsigned long long result;
+  libxs_timer_tickint result;
 #if defined(_WIN32)
   LARGE_INTEGER t;
   QueryPerformanceCounter(&t);
-  result = (unsigned long long)t.QuadPart;
+  result = (libxs_timer_tickint)t.QuadPart;
 #elif defined(CLOCK_MONOTONIC)
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
@@ -75,9 +75,9 @@ LIBXS_API_INLINE unsigned long long internal_timer_tick(void)
 
 
 LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-unsigned long long libxs_timer_tick_rdtsc(void)
+libxs_timer_tickint libxs_timer_tick_rdtsc(void)
 {
-  unsigned long long result;
+  libxs_timer_tickint result;
 #if defined(LIBXS_TIMER_RDTSC)
   LIBXS_TIMER_RDTSC(result);
 #else
@@ -88,9 +88,9 @@ unsigned long long libxs_timer_tick_rdtsc(void)
 
 
 LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-unsigned long long libxs_timer_tick(void)
+libxs_timer_tickint libxs_timer_tick(void)
 {
-  unsigned long long result;
+  libxs_timer_tickint result;
 #if defined(LIBXS_TIMER_RDTSC)
   if (0 < libxs_timer_scale) {
     LIBXS_TIMER_RDTSC(result);
@@ -104,9 +104,9 @@ unsigned long long libxs_timer_tick(void)
 }
 
 
-LIBXS_API_DEFINITION double libxs_timer_duration(unsigned long long tick0, unsigned long long tick1)
+LIBXS_API_DEFINITION double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
 {
-  double result = (double)(tick0 < tick1 ? (tick1 - tick0) : (tick0 - tick1));
+  double result = (double)LIBXS_DIFF(tick0, tick1);
 #if defined(LIBXS_TIMER_RDTSC)
   if (0 < libxs_timer_scale) {
     result *= libxs_timer_scale;

@@ -32,13 +32,20 @@
 #include "libxs_macros.h"
 
 
+typedef unsigned long long libxs_timer_tickint;
+
 /**
  * Returns the current clock tick of a monotonic timer source with
  * platform-specific resolution (not necessarily CPU cycles).
  */
-LIBXS_API unsigned long long libxs_timer_tick(void);
+LIBXS_API libxs_timer_tickint libxs_timer_tick(void);
+
+/** Helper function to receive the difference between two timer ticks; avoids potential side-effects of LIBXS_DIFF. */
+LIBXS_API_INLINE libxs_timer_tickint libxs_timer_diff(libxs_timer_tickint tick0, libxs_timer_tickint tick1) {
+  return LIBXS_DIFF(tick0, tick1);
+}
 
 /** Returns the duration (in seconds) between two values received by libxs_timer_tick. */
-LIBXS_API double libxs_timer_duration(unsigned long long tick0, unsigned long long tick1);
+LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
 
 #endif /*LIBXS_TIMER_H*/
