@@ -47,16 +47,16 @@
 # define LIBXS_MALLOC_SCRATCH_MAX_NPOOLS LIBXS_MAX_NTHREADS
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_LIMIT)
-# define LIBXS_MALLOC_SCRATCH_LIMIT (2ULL << 30) /* 2 GB */
+# define LIBXS_MALLOC_SCRATCH_LIMIT (4ULL << 30) /* 4 GB */
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_MMAP)
 /*# define LIBXS_MALLOC_SCRATCH_MMAP*/
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_SCALE)
 # if defined(LIBXS_MALLOC_SCRATCH_MMAP)
-#   define LIBXS_MALLOC_SCRATCH_SCALE 2.0
+#   define LIBXS_MALLOC_SCRATCH_SCALE 1.3
 # else
-#   define LIBXS_MALLOC_SCRATCH_SCALE 1.4
+#   define LIBXS_MALLOC_SCRATCH_SCALE 1.0
 # endif
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_INTERNAL_SITE)
@@ -106,6 +106,13 @@ typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
   const unsigned int* column_idx;
   const void* values;
 } libxs_csr_soa_descriptor;
+
+typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csc_soa_descriptor {
+  const libxs_gemm_descriptor* gemm;
+  const unsigned int* column_ptr;
+  const unsigned int* row_idx;
+  const void* values;
+} libxs_csc_soa_descriptor;
 
 typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
   const libxs_gemm_descriptor* gemm;
@@ -315,7 +322,8 @@ struct LIBXS_RETARGETABLE libxs_sfsspmdm {
 
 typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GEMM,
-  LIBXS_BUILD_KIND_SSOA,
+  LIBXS_BUILD_KIND_SRSOA,
+  LIBXS_BUILD_KIND_SCSOA,
   LIBXS_BUILD_KIND_SREG,
   LIBXS_BUILD_KIND_CFWD,
   LIBXS_BUILD_KIND_CBWD,
@@ -329,7 +337,8 @@ typedef enum libxs_build_kind {
 
 typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_gemm_descriptor* gemm;
-  const libxs_csr_soa_descriptor* ssoa;
+  const libxs_csr_soa_descriptor* srsoa;
+  const libxs_csc_soa_descriptor* scsoa;
   const libxs_csr_reg_descriptor* sreg;
   const libxs_convolution_forward_descriptor* cfwd;
   const libxs_convolution_backward_descriptor* cbwd;
@@ -363,17 +372,17 @@ LIBXS_API size_t libxs_lcm(size_t a, size_t b);
 LIBXS_API size_t libxs_alignment(size_t size, size_t alignment);
 
 /** Same as libxs_set_default_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xset_default_allocator(LIBXS_LOCK_TYPE* lock,
+LIBXS_API int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 /** Same as libxs_get_default_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xget_default_allocator(LIBXS_LOCK_TYPE* lock,
+LIBXS_API int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /** Same as libxs_set_scratch_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE* lock,
+LIBXS_API int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 /** Same as libxs_get_scratch_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE* lock,
+LIBXS_API int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /** Retrieve internal information about a buffer (default memory domain). */
@@ -420,9 +429,9 @@ LIBXS_API void libxs_dnn_init(int target_arch);
 LIBXS_API void libxs_dnn_finalize(void);
 
 /** Default attribute of internal locks. */
-LIBXS_API_VARIABLE LIBXS_LOCK_ATTR_TYPE libxs_lock_attr_default;
+LIBXS_API_VARIABLE LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK_DEFAULT) libxs_lock_attr_default;
 /** Global lock; create an own lock for an independent domain. */
-LIBXS_API_VARIABLE LIBXS_LOCK_TYPE libxs_lock_global;
+LIBXS_API_VARIABLE LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT) libxs_lock_global;
 /** Function used to allocate default memory. */
 LIBXS_API_VARIABLE libxs_malloc_function libxs_default_malloc_fn;
 /** Function used to allocate scratch memory. */

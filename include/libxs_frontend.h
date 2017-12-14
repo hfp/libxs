@@ -172,12 +172,13 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
 #define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
 
-#if !defined(LIBXS_GEMM_CONST)
-# if defined(LIBXS_GEMM_NONCONST) || defined(__OPENBLAS)
-#   define LIBXS_GEMM_CONST
-# else
-#   define LIBXS_GEMM_CONST const
-# endif
+#if defined(LIBXS_GEMM_CONST)
+# undef LIBXS_GEMM_CONST
+# define LIBXS_GEMM_CONST const
+#elif defined(LIBXS_GEMM_NONCONST) || defined(__OPENBLAS)
+# define LIBXS_GEMM_CONST
+#else
+# define LIBXS_GEMM_CONST const
 #endif
 
 #define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE) \
@@ -285,7 +286,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
   } \
 }
 
-/** Fallback code paths: LIBXS_FALLBACK0, and LIBXS_FALLBACK1 (template). */
+/** Fall-back code paths: LIBXS_FALLBACK0, and LIBXS_FALLBACK1 (template). */
 #if defined(LIBXS_FALLBACK_INLINE_GEMM)
 # define LIBXS_FALLBACK0(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
     LIBXS_INLINE_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
@@ -304,15 +305,14 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
     LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #endif
 
-#if defined(__cplusplus) /** Fallback in libxs_mmfunction (C++). */
-# if defined(LIBXS_FALLBACK_MMFUNCTION)
-#   if !defined(LIBXS_FALLBACK_SMMFUNCTION)
-#     define LIBXS_FALLBACK_SMMFUNCTION
-#   endif
-#   if !defined(LIBXS_FALLBACK_DMMFUNCTION)
-#     define LIBXS_FALLBACK_DMMFUNCTION
-#   endif
-# endif
+#if defined(__cplusplus) /** Fall-back from JIT inside of libxs_mmfunction (C++). */ \
+  && (defined(LIBXS_FALLBACK_MMFUNCTION) || !defined(NDEBUG)/*debug code*/) \
+  /* there are no individual fall-back requests for single or double-precision */ \
+  && !defined(LIBXS_FALLBACK_SMMFUNCTION) && !defined(LIBXS_FALLBACK_DMMFUNCTION) \
+  /* there is no request to avoid falling back */ \
+  && !defined(LIBXS_FALLBACK_MMFUNCTION_NONE)
+# define LIBXS_FALLBACK_SMMFUNCTION
+# define LIBXS_FALLBACK_DMMFUNCTION
 #endif
 
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
@@ -343,7 +343,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
 #define LIBXS_MNK_SIZE(M, N, K) (((unsigned long long)(M)) * ((unsigned long long)(N)) * ((unsigned long long)(K)))
 
 /**
- * Execute a specialized function, or use a fallback code path depending on threshold (template).
+ * Execute a specialized function, or use a fall-back code path depending on threshold (template).
  * LIBXS_FALLBACK0 or specialized function: below LIBXS_MAX_MNK
  * LIBXS_FALLBACK1: above LIBXS_MAX_MNK
  */
