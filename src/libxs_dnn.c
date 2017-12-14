@@ -293,7 +293,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dn
        do not use libxs_release_kernel here! */
     if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
           libxs_target_archid == LIBXS_X86_AVX512_KNM  ||
-          libxs_target_archid == LIBXS_X86_AVX512_CORE ) && (handle->avx512avx2fallback == 0) ) {
+          libxs_target_archid == LIBXS_X86_AVX512_CORE ||
+          libxs_target_archid == LIBXS_X86_AVX512_ICL    ) && (handle->avx512avx2fallback == 0) ) {
       if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
         libxs_free(handle->code_fwd[0].pmm);
       }
