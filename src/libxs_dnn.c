@@ -599,10 +599,10 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
                 layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_C;
                 layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_N;
                 layout->dim_size[0] = handle->fm_lp_block;
-                layout->dim_size[1] = handle->ofmblock;
+                layout->dim_size[1] = handle->ofmblock_lp;
                 layout->dim_size[2] = handle->ofwp;
                 layout->dim_size[3] = handle->ofhp;
-                layout->dim_size[4] = handle->blocksofm_lp;
+                layout->dim_size[4] = handle->blocksofm;
                 layout->dim_size[5] = handle->desc.N;
               } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
                 layout->num_dims = 5;
@@ -623,7 +623,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
                 layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
                 layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_C;
                 layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_N;
-                layout->dim_size[0] = handle->ifmblock;
+                layout->dim_size[0] = handle->ifmblock_hp;
                 layout->dim_size[1] = handle->ifwp;
                 layout->dim_size[2] = handle->ifhp;
                 layout->dim_size[3] = handle->blocksifm;
@@ -705,7 +705,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
                 layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_C;
                 layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                 layout->dim_size[0] = handle->ofmblock;
-                layout->dim_size[1] = handle->ifmblock;
+                layout->dim_size[1] = handle->ifmblock_hp;
                 layout->dim_size[2] = handle->desc.S;
                 layout->dim_size[3] = handle->desc.R;
                 layout->dim_size[4] = handle->blocksifm;
