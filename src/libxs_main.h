@@ -156,7 +156,9 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int ofhp;
   int ofwp;
   int ifmblock;
+  int ifmblock_hp;
   int ofmblock;
+  int ofmblock_lp;
   int blocksifm;
   int blocksofm;
   int blocksifm_lp;
