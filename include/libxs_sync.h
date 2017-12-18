@@ -104,8 +104,9 @@
 #   define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_add_and_fetch(DST_PTR, VALUE)
 #   define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) /**(DST_PTR) = */__sync_sub_and_fetch(DST_PTR, VALUE)
 # endif
+# define LIBXS_SYNC_BARRIER __asm__ __volatile__ ("" ::: "memory")
 # define LIBXS_SYNCHRONIZE __sync_synchronize()
-/* TODO: distinct implementation of LIBXS_ATOMIC_SYNC_* wrt LIBXS_GCCATOMICS */
+    /* TODO: distinct implementation of LIBXS_ATOMIC_SYNC_* wrt LIBXS_GCCATOMICS */
 # define LIBXS_ATOMIC_SYNC_CHECK(LOCK, VALUE) while ((VALUE) == (LOCK)); LIBXS_SYNC_PAUSE
 # define LIBXS_ATOMIC_SYNC_SET(LOCK) do { LIBXS_ATOMIC_SYNC_CHECK(LOCK, 1); } while(0 != __sync_lock_test_and_set(&(LOCK), 1))
 # define LIBXS_ATOMIC_SYNC_UNSET(LOCK) __sync_lock_release(&(LOCK))
@@ -121,6 +122,7 @@
     } while(0 != libxs_sync_set_i_); \
   }
 # define LIBXS_ATOMIC_SYNC_UNSET(LOCK) (LOCK) = 0
+# define LIBXS_SYNC_BARRIER _ReadWriteBarrier()
 # define LIBXS_SYNCHRONIZE /* TODO */
 #else
 # define LIBXS_ATOMIC_LOAD LIBXS_NONATOMIC_LOAD
@@ -130,6 +132,7 @@
 # define LIBXS_ATOMIC_SYNC_CHECK(LOCK, VALUE) LIBXS_UNUSED(LOCK)
 # define LIBXS_ATOMIC_SYNC_SET(LOCK) LIBXS_UNUSED(LOCK)
 # define LIBXS_ATOMIC_SYNC_UNSET(LOCK) LIBXS_UNUSED(LOCK)
+# define LIBXS_SYNC_BARRIER
 # define LIBXS_SYNCHRONIZE
 #endif
 #if !defined(LIBXS_ATOMIC_STORE_ZERO)
@@ -206,7 +209,7 @@
 #     define LIBXS_LOCK_ACQUIRED_spin TRUE
 #     define LIBXS_LOCK_TYPE_spin CRITICAL_SECTION
 #     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) InitializeCriticalSection(LOCK)
-#     define LIBXS_LOCK_DESTROY_spin(LOCK) DeleteCriticalSection(LOCK)
+#     define LIBXS_LOCK_DESTROY_spin(LOCK) DeleteCriticalSection((LIBXS_LOCK_TYPE_spin*)(LOCK))
 #     define LIBXS_LOCK_TRYLOCK_spin(LOCK) TryEnterCriticalSection(LOCK)
 #     define LIBXS_LOCK_ACQUIRE_spin(LOCK) EnterCriticalSection(LOCK)
 #     define LIBXS_LOCK_RELEASE_spin(LOCK) LeaveCriticalSection(LOCK)
