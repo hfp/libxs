@@ -72,7 +72,7 @@
 #define LIBXS_CODE_STATIC (1ULL << (8 * sizeof(void*) - 1))
 /* flag fused into the memory address of a code version in case of collision */
 #if 0 /* disabled due to no performance advantage */
-#define LIBXS_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 2))
+# define LIBXS_HASH_COLLISION (1ULL << (8 * sizeof(void*) - 2))
 #endif
 
 #define LIBXS_HASH_FUNCTION_CALL(HASH, INDX, DESCRIPTOR) \
