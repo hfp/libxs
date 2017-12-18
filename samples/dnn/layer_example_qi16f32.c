@@ -881,8 +881,8 @@ int main(int argc, char* argv[])
 
 #ifdef USE_FORMATED_QUANT
     /* quantize and copy into LIBXS format */
-    libxs_dnn_quantize_act( naive_input_save, input_libxs,  nImg, nIfm, ifhp, ifwp, 1, 16, 2, 2, &scf_input,  LIBXS_DNN_QUANT_BIAS_ROUND );
-    libxs_dnn_quantize_fil( naive_filter,     filter_libxs, nOfm, nIfm, kw, kh, 1, 16, 1, 16, 2, 2, &scf_filter, LIBXS_DNN_QUANT_BIAS_ROUND );
+    libxs_dnn_quantize_act( naive_input_save, input_libxs,  nImg, nIfm, ifhp, ifwp, 1, 8, 2, 2, &scf_input,  LIBXS_DNN_QUANT_BIAS_ROUND );
+    libxs_dnn_quantize_fil( naive_filter,     filter_libxs, nOfm, nIfm, kw, kh, 1, 8, 1, 16, 2, 2, &scf_filter, LIBXS_DNN_QUANT_BIAS_ROUND );
 #endif
 
     /* set scaling factors into tensors */
