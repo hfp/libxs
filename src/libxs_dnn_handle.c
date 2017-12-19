@@ -1427,6 +1427,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               descriptor.transpose_ofw_ifm = 0;
               handle->use_hybrid_wu_parallelism = 0;
 
+              if ( handle->use_lp_kernel == 1 && (libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) ) {
+                handle->use_vperm_transposes = 1;
+              } else {
+                handle->use_vperm_transposes = 0;
+              }
+
               if (handle->use_fastpath == 1) {
                 /* Here starts logic for calculating RB factors for UPD when KS are enabled  */
                 int ifw_padded, qfma_padding, kernel_ifw_padded, kernel_ofw_padded;
@@ -1570,7 +1576,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   }
                 }
 
-                if ( (libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) &&  (handle->ofh == 7 || (handle->ofh == 14 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v ==1)) ) {
+                if ((libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) &&  (handle->ofh == 7 || (handle->ofh == 14 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v ==1)) ) {
                     descriptor.use_nts = 0;
                     descriptor.blocks_h = handle->ofh / descriptor.ofh_rb;
                     handle->upd_ofh_rb = descriptor.ofh_rb * descriptor.blocks_h;
