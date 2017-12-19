@@ -1569,7 +1569,23 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                     descriptor.blocks_img = handle->blocksimg_blocking;
                   }
                 }
+
+                if ( (libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) &&  (handle->ofh == 7 || (handle->ofh == 14 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v ==1)) ) {
+                    descriptor.use_nts = 0;
+                    descriptor.blocks_h = handle->ofh / descriptor.ofh_rb;
+                    handle->upd_ofh_rb = descriptor.ofh_rb * descriptor.blocks_h;
+                    handle->use_hybrid_wu_parallelism = 1;
+                    handle->weight_copies = 1;
+                    descriptor.ncopies = 1;  
+                    handle->blocksimg_blocking = 1;
+                    descriptor.blocks_img = handle->blocksimg_blocking;
+                    handle->reduce_weights = 0; 
+                } else {
+                    handle->reduce_weights = 1; 
+                }
               }
+
+
 #if 0
               !defined(NDEBUG)
                 printf("DEBUG JIT of conv:\n  arch: %s\n  type: %s\n  ofm_block: %u\n  ifm_block: %u\n"
