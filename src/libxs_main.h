@@ -196,6 +196,7 @@ struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int perform_relu_in_kernel;
   int use_lp_kernel;
   int output_lp_padding;
+  int reduce_weights;
 
   /* internal data representation */
   libxs_dnn_tensor* reg_input;
