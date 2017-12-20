@@ -1442,17 +1442,20 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 int padding_target;
                 int output_lp_padding = 0;
                 handle->output_lp_padding = 0;
-
                 if (handle->use_lp_kernel == 0) {
                   padding_target = 4;
                 } else {
                   padding_target = 8;
+                  if (  libxs_target_archid == LIBXS_X86_AVX512_CORE ) {
+                    padding_target = 2;
+                  }
                   output_lp_padding = handle->ofwp%2;
                   handle->output_lp_padding = output_lp_padding;
                 }
 
-                if (handle->desc.R == 1 && handle->desc.S == 1 && (libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->desc.u != 1 || handle->desc.v != 1)) {
+                if (handle->desc.R == 1 && handle->desc.S == 1 && (libxs_target_archid == LIBXS_X86_AVX512_KNM || libxs_target_archid == LIBXS_X86_AVX512_CORE) && (handle->desc.u != 1 || handle->desc.v != 1)) {
                   handle->resize_input = 1;
+                  handle->trans_ofw_ifm = 1;
                   handle->ifwp_resized = handle->ifwp/handle->desc.u;
                   handle->ifhp_resized = handle->ifhp/handle->desc.v;
                   descriptor.stride_h = 1;
@@ -1468,7 +1471,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   ifw_padded = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
                 }
 
-                if ( libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
+                if ( libxs_target_archid == LIBXS_X86_AVX512_KNM ||  libxs_target_archid == LIBXS_X86_AVX512_CORE  ) {
                   qfma_padding = (handle->desc.W % padding_target == 0) ? 0 : padding_target - handle->desc.W % padding_target;
                 } else {
                   qfma_padding = 0;
@@ -1490,7 +1493,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   }
                 }
 
-                if ( libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
+                if ( libxs_target_archid == LIBXS_X86_AVX512_KNM ||  libxs_target_archid == LIBXS_X86_AVX512_CORE ) {
                   kernel_ofw_fake_pixels = (kernel_ofw_compute % padding_target == 0) ? 0 : padding_target - kernel_ofw_compute % padding_target;
                 } else {
                   kernel_ofw_fake_pixels = 0;
@@ -1686,13 +1689,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           if ((handle->ifmblock == 1) || (handle->blocksifm_lp * handle->blocksofm < handle->desc.threads) ) {
             handle->use_thread_private_filter = 1;
             /* determine if we will transpose input  */
-            if ( ((libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->upd_ofw_rb%4 == 0)) || ((libxs_target_archid == LIBXS_X86_AVX512_MIC) /*|| (libxs_target_archid == LIBXS_X86_AVX512_CORE)*/) ) {
+            if ( ((libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->upd_ofw_rb%4 == 0)) || ((libxs_target_archid == LIBXS_X86_AVX512_MIC) || (libxs_target_archid == LIBXS_X86_AVX512_CORE  && handle->use_lp_kernel == 1 && (handle->desc.R !=1 || handle->desc.S != 1 || handle->desc.u != 1 || handle->desc.v != 1)) ) ) {
               handle->trans_ofw_ifm = 1;
             }
           } else {
             handle->use_thread_private_filter = 0;
             /* determine if we will transpose input  */
-            if ( ((libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->upd_ofw_rb%4 == 0)) || ((libxs_target_archid == LIBXS_X86_AVX512_MIC) /* || (libxs_target_archid == LIBXS_X86_AVX512_CORE)*/) ) {
+            if ( ((libxs_target_archid == LIBXS_X86_AVX512_KNM) && (handle->upd_ofw_rb%4 == 0)) || ((libxs_target_archid == LIBXS_X86_AVX512_MIC)  || (libxs_target_archid == LIBXS_X86_AVX512_CORE  && handle->use_lp_kernel == 1 && (handle->desc.R !=1 || handle->desc.S !=1 || handle->desc.u != 1 || handle->desc.v != 1)) ) ) {
               handle->trans_ofw_ifm = 1;
               if ( handle->desc.R !=1 && handle->desc.S != 1 && ( handle->desc.u !=1 || handle->desc.v != 1 )  ) {
                 handle->trans_ofw_ifm = 0;
