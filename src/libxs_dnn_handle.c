@@ -1360,7 +1360,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
         descriptor.use_nts = 0;
         descriptor.blocks_img = 1;
-        descriptor.ncopies = handle->desc.threads;  
+        descriptor.ncopies = handle->desc.threads; 
+ 
 
         /* TODO check JIT errors */
         if ( /*(*/libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
@@ -1431,6 +1432,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 handle->use_vperm_transposes = 1;
               } else {
                 handle->use_vperm_transposes = 0;
+              }
+
+              if (libxs_target_archid == LIBXS_X86_AVX512_CORE ) {
+                  handle->avoid_output_trans = 1;
+                  descriptor.avoid_output_trans = 1;
               }
 
               if (handle->use_fastpath == 1) {
