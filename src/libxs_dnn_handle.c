@@ -1435,9 +1435,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               }
 
               if (libxs_target_archid == LIBXS_X86_AVX512_CORE ) {
-                  handle->avoid_output_trans = atoi(getenv("OUT"));
+                  handle->avoid_output_trans = 1;
                   descriptor.avoid_output_trans = handle->avoid_output_trans;
-                  handle->avoid_input_trans = 0;
+                  if (handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v == 1) {
+                    handle->avoid_input_trans = 1;
+                  } else {
+                    handle->avoid_input_trans = 0;
+                  }
               }
 
               if (handle->use_fastpath == 1) {
@@ -1561,8 +1565,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 if (handle->ofh == 28 || handle->ofh == 56 || ( handle->ofh == 14 && ( handle->desc.C == 512 && (handle->desc.K == 1024 || handle->desc.K == 256) ))) {
                   handle->use_hybrid_wu_parallelism = 0;
                   handle->weight_copies = handle->desc.threads;
-                  handle->blocksimg_blocking = 1;
-                  descriptor.blocks_img = 1;
+                  descriptor.ncopies = handle->weight_copies;            
+                  handle->blocksimg_blocking = 1;// handle->desc.N/handle->desc.threads;
+                  descriptor.blocks_img = 1; //handle->desc.N/handle->desc.threads;
+                  //descriptor.use_nts = 0;
+                  handle->reduce_weights = 1; 
                 } else {
                   int spread_out = 0;
                   if (handle->ofh == 7 && handle->desc.threads % 4 == 0) {
@@ -1581,12 +1588,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                     handle->use_hybrid_wu_parallelism = 1;
                     handle->weight_copies = handle->desc.threads/spread_out;
                     descriptor.ncopies = handle->weight_copies;  
-                    handle->blocksimg_blocking = spread_out;
+                    handle->blocksimg_blocking = spread_out*(handle->desc.N/handle->desc.threads);
                     descriptor.blocks_img = handle->blocksimg_blocking;
                   }
                 }
 
-                if ((libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) &&  (handle->ofh == 7 || (handle->ofh == 14 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v ==1)) ) {
+                if ((libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) &&  (handle->ofh == 8 || (handle->ofh == 14 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v ==1)) ) {
                     descriptor.use_nts = 0;
                     descriptor.blocks_h = handle->ofh / descriptor.ofh_rb;
                     handle->upd_ofh_rb = descriptor.ofh_rb * descriptor.blocks_h;
@@ -1600,7 +1607,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                     handle->reduce_weights = 1; 
                 }
               }
-
 
 #if 0
               !defined(NDEBUG)
