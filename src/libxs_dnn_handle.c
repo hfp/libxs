@@ -1434,7 +1434,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 handle->use_vperm_transposes = 0;
               }
 
-              if (libxs_target_archid == LIBXS_X86_AVX512_CORE ) {
+              if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) {
                   handle->avoid_output_trans = 1;
                   descriptor.avoid_output_trans = handle->avoid_output_trans;
                   if (handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v == 1) {
@@ -1457,14 +1457,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   padding_target = 4;
                 } else {
                   padding_target = 8;
-                  if (  libxs_target_archid == LIBXS_X86_AVX512_CORE ) {
+                  if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) {
                     padding_target = 2;
                   }
                   output_lp_padding = handle->ofwp%2;
                   handle->output_lp_padding = output_lp_padding;
                 }
 
-                if (handle->desc.R == 1 && handle->desc.S == 1 && (libxs_target_archid == LIBXS_X86_AVX512_KNM || libxs_target_archid == LIBXS_X86_AVX512_CORE) && (handle->desc.u != 1 || handle->desc.v != 1)) {
+                if (handle->desc.R == 1 && handle->desc.S == 1 && (libxs_target_archid == LIBXS_X86_AVX512_KNM || ((libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) && handle->use_lp_kernel == 1)) && (handle->desc.u != 1 || handle->desc.v != 1)) {
                   handle->resize_input = 1;
                   handle->trans_ofw_ifm = 1;
                   handle->ifwp_resized = handle->ifwp/handle->desc.u;
@@ -1482,11 +1482,18 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   ifw_padded = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
                 }
 
-                if ( libxs_target_archid == LIBXS_X86_AVX512_KNM ||  libxs_target_archid == LIBXS_X86_AVX512_CORE  ) {
+                if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
                   qfma_padding = (handle->desc.W % padding_target == 0) ? 0 : padding_target - handle->desc.W % padding_target;
+                } else if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) {
+                  if (handle->use_lp_kernel == 1) {
+                    qfma_padding = (handle->desc.W % padding_target == 0) ? 0 : padding_target - handle->desc.W % padding_target;
+                  } else {
+                    qfma_padding = 0;
+                  }
                 } else {
                   qfma_padding = 0;
                 }
+
                 kernel_ifw_padded = ifw_padded + qfma_padding;
                 handle->qfma_input_pad = qfma_padding;
                 descriptor.ifw_padded = kernel_ifw_padded;
@@ -1504,7 +1511,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   }
                 }
 
-                if ( libxs_target_archid == LIBXS_X86_AVX512_KNM ||  libxs_target_archid == LIBXS_X86_AVX512_CORE ) {
+                if (libxs_target_archid == LIBXS_X86_AVX512_KNM) {
                   kernel_ofw_fake_pixels = (kernel_ofw_compute % padding_target == 0) ? 0 : padding_target - kernel_ofw_compute % padding_target;
                 } else {
                   kernel_ofw_fake_pixels = 0;
@@ -1523,7 +1530,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   descriptor.ofh_rb--;
                 }
 
-                if (handle->ofh == 14 &&  libxs_target_archid == LIBXS_X86_AVX512_CORE) {
+                if (handle->ofh == 14 && (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL)) {
                   descriptor.ofh_rb = 2;
                 }
 
@@ -1566,9 +1573,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   handle->use_hybrid_wu_parallelism = 0;
                   handle->weight_copies = handle->desc.threads;
                   descriptor.ncopies = handle->weight_copies;            
-                  handle->blocksimg_blocking = 1;// handle->desc.N/handle->desc.threads;
-                  descriptor.blocks_img = 1; //handle->desc.N/handle->desc.threads;
-                  //descriptor.use_nts = 0;
+                  handle->blocksimg_blocking = 1;
+                  descriptor.blocks_img = 1;
                   handle->reduce_weights = 1; 
                 } else {
                   int spread_out = 0;
@@ -1593,7 +1599,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   }
                 }
 
-                if ((libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) &&  (handle->ofh == 8 || (handle->ofh == 14 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v ==1)) ) {
+                if ((libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) &&  (handle->ofh == 7 || (handle->ofh == 14 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v == 1)) ) {
                     descriptor.use_nts = 0;
                     descriptor.blocks_h = handle->ofh / descriptor.ofh_rb;
                     handle->upd_ofh_rb = descriptor.ofh_rb * descriptor.blocks_h;
