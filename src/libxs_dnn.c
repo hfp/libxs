@@ -185,10 +185,12 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
   }
 
   /* TODO remove this check later */
+#if 0
   if (conv_desc.N != conv_desc.threads) {
     printf("For this version of LIBXS minibatch size needs to match with number of threads!\n");
     exit(-1);
   }
+#endif
 
   handle = (libxs_dnn_layer*)malloc(sizeof(libxs_dnn_layer));
 
