@@ -12,7 +12,7 @@ extra_css:
 
 site_name: LIBXS
 site_author: Hans Pabst
-copyright: Copyright (c) 2009-2017, LIBXS <a href="http://libxs.readthedocs.io/LICENSE/">Contributors</a>.
+copyright: Copyright (c) 2009-2018, LIBXS <a href="http://libxs.readthedocs.io/LICENSE/">Contributors</a>.
 site_description: Library targeting Intel Architecture for small, dense or sparse matrix multiplications, and small convolutions.
 repo_url: https://github.com/hfp/libxs
 edit_uri: edit/master/documentation

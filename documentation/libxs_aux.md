@@ -44,24 +44,6 @@ unsigned long long libxs_timer_tick(void);
 double libxs_timer_duration(unsigned long long tick0, unsigned long long tick1);
 ```
 
-### Meta Image File I/O
-
-Loading and storing data (I/O) is normally out of LIBXS's scope. However, comparing results (correctness) or writing files for visual inspection is clearly desired. This is particularly useful for the DNN domain. The MHD library domain provides support for the Meta Image File format (MHD). Tools such as [ITK-SNAP](http://itksnap.org/) or [ParaView](https://www.paraview.org/) can be used to inspect, compare, and modify images (even beyond two-dimensional images).
-
-Writing an image is per `libxs_mhd_write`, and loading an image is split in two stages: (1)&#160;`libxs_mhd_read_header`, and (2)&#160;`libxs_mhd_read`. The first step allows to allocate a properly sized buffer, which is then used to obtain the data per `libxs_mhd_read`. When reading data, an on-the-fly type conversion is supported. Further, data that is already in memory can be compared against file-data without allocating memory or reading this file into memory.
-
-To load an image from a familiar format (JPG, PNG, etc.), one may save the raw data using for instance [IrfanView](http://www.irfanview.com/) and rely on a "header-only" MHD-file (plain text). This may look like:
-
-```ini
-NDims = 2
-DimSize = 202 134
-ElementType = MET_UCHAR
-ElementNumberOfChannels = 1
-ElementDataFile = mhd_image.raw
-```
-
-In the above case, a single channel (gray-scale) 202x134-image is described with pixel data stored separately (`mhd_image.raw`). Multi-channel images are expected to interleave the pixel data. The pixel type is per `libxs_mhd_elemtype` ([libxs_mhd.h](https://github.com/hfp/libxs/blob/master/include/libxs_mhd.h#L38)).
-
 ### Memory Allocation
 
 The C interface ([libxs_malloc.h](https://github.com/hfp/libxs/blob/master/include/libxs_malloc.h#L37)) provides functions for aligned memory one of which allows to specify the alignment (or to request an automatically selected alignment). The automatic alignment is also available with a `malloc` compatible signature. The size of the automatic alignment depends on a heuristic, which uses the size of the requested buffer.  
@@ -99,4 +81,74 @@ Scratch: 173 MB (mallocs=5, pools=1)
 ```
 
 **NOTE**: be careful with scratch memory as it only grows during execution (in between `libxs_init` and `libxs_finalize` unless `libxs_release_scratch` is called). This is true even when `libxs_free` is (and should be) used!
+
+### Meta Image File I/O
+
+Loading and storing data (I/O) is normally out of LIBXS's scope. However, comparing results (correctness) or writing files for visual inspection is clearly desired. This is particularly useful for the DNN domain. The MHD library domain provides support for the Meta Image File format (MHD). Tools such as [ITK-SNAP](http://itksnap.org/) or [ParaView](https://www.paraview.org/) can be used to inspect, compare, and modify images (even beyond two-dimensional images).
+
+Writing an image is per `libxs_mhd_write`, and loading an image is split in two stages: (1)&#160;`libxs_mhd_read_header`, and (2)&#160;`libxs_mhd_read`. The first step allows to allocate a properly sized buffer, which is then used to obtain the data per `libxs_mhd_read`. When reading data, an on-the-fly type conversion is supported. Further, data that is already in memory can be compared against file-data without allocating memory or reading this file into memory.
+
+To load an image from a familiar format (JPG, PNG, etc.), one may save the raw data using for instance [IrfanView](http://www.irfanview.com/) and rely on a "header-only" MHD-file (plain text). This may look like:
+
+```ini
+NDims = 2
+DimSize = 202 134
+ElementType = MET_UCHAR
+ElementNumberOfChannels = 1
+ElementDataFile = mhd_image.raw
+```
+
+In the above case, a single channel (gray-scale) 202x134-image is described with pixel data stored separately (`mhd_image.raw`). Multi-channel images are expected to interleave the pixel data. The pixel type is per `libxs_mhd_elemtype` ([libxs_mhd.h](https://github.com/hfp/libxs/blob/master/include/libxs_mhd.h#L38)).
+
+### Thread Synchronization
+
+LIBXS comes with a number of light-weight abstraction layers (macro and API-based), which are distinct from the internal API (include files in [src](https://github.com/hfp/libxs/tree/master/src) directory) and that are exposed for general use (and hence part of the [include](https://github.com/hfp/libxs/tree/master/include) directory).
+
+The synchronization layer is mainly based on macros: LIBXS_LOCK_\* provide spin-locks, mutexes, and reader-writer locks (LIBXS_LOCK_SPINLOCK, LIBXS_LOCK_MUTEX, and LIBXS_LOCK_RWLOCK respectively). Usually the spin-lock is also named LIBXS_LOCK_DEFAULT. The implementation is intentionally based on OS-native primitives unless LIBXS is reconfigured (per LIBXS_LOCK_SYSTEM), or built using `make OMP=1` (using OpenMP inside of the library is not recommended). The life-cycle of a lock looks like:
+
+```C
+/* attribute variable and lock variable */
+LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK_DEFAULT) attr;
+LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT) lock;
+/* attribute initialization */
+LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK_DEFAULT, &attr);
+/* lock initialization per initialized attribute */
+LIBXS_LOCK_INIT(LIBXS_LOCK_DEFAULT, &lock, &attr);
+/* the attribute can be destroyed */
+LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK_DEFAULT, &attr);
+/* lock destruction (usage: see below/next code block) */
+LIBXS_LOCK_DESTROY(LIBXS_LOCK_DEFAULT, &lock);
+```
+
+Once the lock is initialized (or an array of locks), it can be exclusively locked or try-locked, and released at the end of the locked section (LIBXS_LOCK_ACQUIRE, LIBXS_LOCK_TRYLOCK, and LIBXS_LOCK_RELEASE respectively):
+
+```C
+LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_DEFAULT, &lock);
+/* locked code section */
+LIBXS_LOCK_RELEASE(LIBXS_LOCK_DEFAULT, &lock);
+```
+
+If the lock-kind is LIBXS_LOCK_RWLOCK, non-exclusive a.k.a. shared locking allows to permit multiple readers (LIBXS_LOCK_ACQREAD, LIBXS_LOCK_TRYREAD, and LIBXS_LOCK_RELREAD) if the lock is not acquired exclusively (see above). An attempt to only read-lock anything else but an RW-lock is an exclusive lock (see above).
+
+```C
+if (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK) ==
+    LIBXS_LOCK_TRYREAD(LIBXS_LOCK_RWLOCK, &rwlock))
+{ /* locked code section */
+  LIBXS_LOCK_RELREAD(LIBXS_LOCK_RWLOCK, &rwlock);
+}
+```
+
+Locking different sections for read (LIBXS_LOCK_ACQREAD, LIBXS_LOCK_RELREAD) and write (LIBXS_LOCK_ACQUIRE, LIBXS_LOCK_RELEASE) may look like:
+
+```C
+LIBXS_LOCK_ACQREAD(LIBXS_LOCK_RWLOCK, &rwlock);
+/* locked code section: only reads are performed */
+LIBXS_LOCK_RELREAD(LIBXS_LOCK_RWLOCK, &rwlock);
+
+LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_RWLOCK, &rwlock);
+/* locked code section: exclusive write (no R/W) */
+LIBXS_LOCK_RELEASE(LIBXS_LOCK_RWLOCK, &rwlock);
+```
+
+Depending on the platform or when using OpenMP to implement the low-level synchronization primitives, the LIBXS_LOCK_RWLOCK may be not implemented (OSX) or not available (OMP). In any case, LIBXS also implements own lock primitives which are available per API (libxs_mutex_\*, and libxs_rwlock_\*). This experimental implementation can be used independently of the LIBXS_LOCK_\* macros. Future versions of the library eventually map the macros to LIBXS's own low-level primitives.
 
