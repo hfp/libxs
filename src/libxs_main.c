@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2014-2017, Intel Corporation                                **
+** Copyright (c) 2014-2018, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -530,7 +530,8 @@ LIBXS_API_INLINE void internal_init(void)
     }
     { const char *const env = getenv("LIBXS_SCRATCH_LIMIT");
       if (0 == env || 0 == *env) {
-        libxs_scratch_limit = (size_t)LIBXS_MALLOC_SCRATCH_LIMIT;
+        /*const*/ unsigned long long limit = LIBXS_MALLOC_SCRATCH_LIMIT;
+        libxs_scratch_limit = (size_t)limit;
       }
       else {
         size_t u = strlen(env) - 1; /* 0 < strlen(env) */
@@ -1472,7 +1473,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
     /* check if the requested xGEMM is already JITted */
     LIBXS_HASH_FUNCTION_CALL(hash, i = i0, descriptor);
     while (0 != diff) {
-#if (0 < INTERNAL_REGLOCK_MAXN)
+#if (0 < INTERNAL_REGLOCK_MAXN) || defined(LIBXS_NO_SYNC)
       flux_entry.pmm = LIBXS_ATOMIC_LOAD(&internal_registry[i].pmm, LIBXS_ATOMIC_RELAXED); /* read registered code */
 #else
       LIBXS_LOCK_ACQREAD(LIBXS_LOCK_RWLOCK, &internal_reglock);

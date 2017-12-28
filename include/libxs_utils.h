@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2017, Intel Corporation                                **
+** Copyright (c) 2016-2018, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -31,11 +31,16 @@
 
 #include "libxs_cpuid.h"
 
-/** Macro evaluates to LIBXS_ATTRIBUTE_TARGET_xxx (see below) */
+/** Macro evaluates to LIBXS_ATTRIBUTE_TARGET_xxx (see below). */
 #define LIBXS_ATTRIBUTE_TARGET(TARGET) LIBXS_CONCATENATE2(LIBXS_ATTRIBUTE_TARGET_, TARGET)
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+
+/** PGI's own intrinsic header file(s) appear to be broken with PGI C++. */
+#if !defined(LIBXS_INTRINSICS_NONE) && (defined(__PGI) && defined(__cplusplus))
+# define LIBXS_INTRINSICS_NONE
 #endif
 
 #if defined(__MIC__) && !defined(LIBXS_INTRINSICS_NONE)
