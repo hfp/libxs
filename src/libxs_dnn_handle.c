@@ -1580,6 +1580,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   handle->blocksimg_blocking = 1;
                   descriptor.blocks_img = 1;
                   handle->reduce_weights = 1; 
+                  descriptor.use_nts = 0;
                 } else {
                   int spread_out = 0;
                   if (handle->ofh == 7 && handle->desc.threads % 4 == 0) {
