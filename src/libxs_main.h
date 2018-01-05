@@ -80,7 +80,7 @@
 #endif
 
 /* Helper macro to eventually (if defined) call libxs_init */
-#if !defined(LIBXS_CTOR) && !defined(LIBXS_INIT)
+#if !defined(LIBXS_INIT) && !defined(LIBXS_CTOR)
 # define LIBXS_INIT libxs_init();
 #elif !defined(LIBXS_INIT)
 # define LIBXS_INIT

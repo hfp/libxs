@@ -37,7 +37,7 @@
 # define LIBXS_SYNC_FUTEX
 #endif
 
-#if !defined(LIBXS_SYNC_SYSTEM) && 0
+#if !defined(LIBXS_SYNC_SYSTEM) || defined(__MINGW32__)
 # define LIBXS_SYNC_SYSTEM
 #endif
 
@@ -49,6 +49,7 @@
 #include <stdio.h>
 #include <math.h>
 #if defined(_WIN32)
+# include <windows.h>
 # include <process.h>
 #else
 # if defined(LIBXS_SYNC_FUTEX) && defined(__linux__)
@@ -344,7 +345,7 @@ LIBXS_API_DEFINITION libxs_mutex* libxs_mutex_create(void)
 LIBXS_API_DEFINITION void libxs_mutex_destroy(const libxs_mutex* mutex)
 {
 #if defined(LIBXS_LOCK_SYSTEM) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_DESTROY(LIBXS_LOCK_MUTEX, &mutex->impl);
+  LIBXS_LOCK_DESTROY(LIBXS_LOCK_MUTEX, (LIBXS_LOCK_TYPE(LIBXS_LOCK_MUTEX)*)&mutex->impl);
 #endif
   free((libxs_mutex*)mutex);
 }
@@ -505,7 +506,7 @@ LIBXS_API_DEFINITION void libxs_mutex_release(libxs_mutex* mutex)
 }
 
 
-#if !defined(LIBXS_NO_SYNC) && (!defined(LIBXS_LOCK_SYSTEM) || !defined(LIBXS_SYNC_SYSTEM))
+#if !defined(LIBXS_NO_SYNC) && !(defined(LIBXS_LOCK_SYSTEM) && defined(LIBXS_SYNC_SYSTEM))
 typedef union LIBXS_RETARGETABLE internal_sync_counter {
   struct {
     uint16_t writer;
@@ -549,13 +550,13 @@ LIBXS_API_DEFINITION libxs_rwlock* libxs_rwlock_create(void)
 LIBXS_API_DEFINITION void libxs_rwlock_destroy(const libxs_rwlock* rwlock)
 {
 #if defined(LIBXS_LOCK_SYSTEM) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_DESTROY(LIBXS_LOCK_RWLOCK, &rwlock->impl);
+  LIBXS_LOCK_DESTROY(LIBXS_LOCK_RWLOCK, (LIBXS_LOCK_TYPE(LIBXS_LOCK_RWLOCK)*)&rwlock->impl);
 #endif
   free((libxs_rwlock*)rwlock);
 }
 
 
-#if !defined(LIBXS_NO_SYNC) && (!defined(LIBXS_LOCK_SYSTEM) || !defined(LIBXS_SYNC_SYSTEM))
+#if !defined(LIBXS_NO_SYNC) && !(defined(LIBXS_LOCK_SYSTEM) && defined(LIBXS_SYNC_SYSTEM))
 LIBXS_API_INLINE int internal_rwlock_trylock(libxs_rwlock* rwlock, internal_sync_counter* prev)
 {
   internal_sync_counter next;
@@ -617,12 +618,10 @@ LIBXS_API_DEFINITION void libxs_rwlock_release(libxs_rwlock* rwlock)
   assert(0 != rwlock);
 # if defined(LIBXS_LOCK_SYSTEM) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_RELEASE(LIBXS_LOCK_RWLOCK, &rwlock->impl);
-# else
-#   if defined(_WIN32)
+# elif defined(_WIN32)
   _InterlockedExchangeAdd16((volatile short*)&rwlock->completions.kind.writer, 1);
-#   else
+# else
   LIBXS_ATOMIC_ADD_FETCH(&rwlock->completions.kind.writer, 1, LIBXS_ATOMIC_SEQ_CST);
-#   endif
 # endif
 #else
   LIBXS_UNUSED(rwlock);
@@ -630,7 +629,7 @@ LIBXS_API_DEFINITION void libxs_rwlock_release(libxs_rwlock* rwlock)
 }
 
 
-#if !defined(LIBXS_NO_SYNC) && (!defined(LIBXS_LOCK_SYSTEM) || !defined(LIBXS_SYNC_SYSTEM))
+#if !defined(LIBXS_NO_SYNC) && !(defined(LIBXS_LOCK_SYSTEM) && defined(LIBXS_SYNC_SYSTEM))
 LIBXS_API_INLINE int internal_rwlock_tryread(libxs_rwlock* rwlock, internal_sync_counter* prev)
 {
 #if !defined(LIBXS_NO_SYNC)
@@ -695,12 +694,10 @@ LIBXS_API_DEFINITION void libxs_rwlock_relread(libxs_rwlock* rwlock)
   assert(0 != rwlock);
 # if defined(LIBXS_LOCK_SYSTEM) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_RELREAD(LIBXS_LOCK_RWLOCK, &rwlock->impl);
-# else
-#   if defined(_WIN32)
+# elif defined(_WIN32)
   _InterlockedExchangeAdd16((volatile short*)&rwlock->completions.kind.reader, 1);
-#   else
+# else
   LIBXS_ATOMIC_ADD_FETCH(&rwlock->completions.kind.reader, 1, LIBXS_ATOMIC_SEQ_CST);
-#   endif
 # endif
 #else
   LIBXS_UNUSED(rwlock);

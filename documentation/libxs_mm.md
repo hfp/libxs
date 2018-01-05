@@ -3,14 +3,18 @@
 To perform the dense matrix-matrix multiplication *C<sub>m&#8239;x&#8239;n</sub> = alpha &middot; A<sub>m&#8239;x&#8239;k</sub> &middot; B<sub>k&#8239;x&#8239;n</sub> + beta &middot; C<sub>m&#8239;x&#8239;n</sub>*, the full-blown GEMM interface can be treated with "default arguments" (which is deviating from the BLAS standard, however without compromising the binary compatibility).
 
 ```C
-/** Automatically dispatched dense matrix multiplication (single/double-precision, C code). */
-libxs_?gemm(NULL/*transa*/, NULL/*transb*/, &m/*required*/, &n/*required*/, &k/*required*/,
-  NULL/*alpha*/, a/*required*/, NULL/*lda*/, b/*required*/, NULL/*ldb*/,
-  NULL/*beta*/, c/*required*/, NULL/*ldc*/);
+/** Dense matrix multiplication (single/double-precision, C code). */
+libxs_?gemm(NULL/*transa*/, NULL/*transb*/,
+  &m/*required*/, &n/*required*/, &k/*required*/,
+  NULL/*alpha*/, a/*required*/, NULL/*lda*/,
+                 b/*required*/, NULL/*ldb*/,
+   NULL/*beta*/, c/*required*/, NULL/*ldc*/);
 /** Automatically dispatched dense matrix multiplication (C++ code). */
-libxs_gemm(NULL/*transa*/, NULL/*transb*/, m/*required*/, n/*required*/, k/*required*/,
-  NULL/*alpha*/, a/*required*/, NULL/*lda*/, b/*required*/, NULL/*ldb*/,
-  NULL/*beta*/, c/*required*/, NULL/*ldc*/);
+libxs_gemm(NULL/*transa*/, NULL/*transb*/,
+  m/*required*/, n/*required*/, k/*required*/,
+  NULL/*alpha*/, a/*required*/, NULL/*lda*/,
+                 b/*required*/, NULL/*ldb*/,
+   NULL/*beta*/, c/*required*/, NULL/*ldc*/);
 ```
 
 For the C interface (with type prefix 's' or 'd'), all arguments including m, n, and k are passed by pointer. This is needed for binary compatibility with the original GEMM/BLAS interface. The C++ interface is also supplying overloaded versions where m, n, and k can be passed by&#8209;value (making it clearer that m, n, and k are non-optional arguments).
@@ -18,26 +22,29 @@ For the C interface (with type prefix 's' or 'd'), all arguments including m, n,
 The FORTRAN interface supports optional arguments (without affecting the binary compatibility with the original BLAS interface) by allowing to omit arguments where the C/C++ interface allows for NULL to be passed.
 
 ```FORTRAN
-! Automatically dispatched dense matrix multiplication (single/double-precision).
+! Dense matrix multiplication (single/double-precision).
 CALL libxs_?gemm(m=m, n=n, k=k, a=a, b=b, c=c)
-! Automatically dispatched dense matrix multiplication (generic interface).
+! Dense matrix multiplication (generic interface).
 CALL libxs_gemm(m=m, n=n, k=k, a=a, b=b, c=c)
 ```
 
 For convenience, a BLAS-based dense matrix multiplication (`libxs_blas_gemm`) is provided for all supported languages which is simply re-exposing the underlying GEMM/BLAS implementation. The BLAS-based GEMM might be useful for validation/benchmark purposes, and more important as a fallback when building an application-specific dispatch mechanism.
 
 ```C
-/** Automatically dispatched dense matrix multiplication (single/double-precision). */
-libxs_blas_?gemm(NULL/*transa*/, NULL/*transb*/, &m/*required*/, &n/*required*/, &k/*required*/,
-  NULL/*alpha*/, a/*required*/, NULL/*lda*/, b/*required*/, NULL/*ldb*/,
-  NULL/*beta*/, c/*required*/, NULL/*ldc*/);
+/** Dense matrix multiplication (single/double-precision). */
+libxs_blas_?gemm(NULL/*transa*/, NULL/*transb*/,
+  &m/*required*/, &n/*required*/, &k/*required*/,
+  NULL/*alpha*/, a/*required*/, NULL/*lda*/,
+                 b/*required*/, NULL/*ldb*/,
+   NULL/*beta*/, c/*required*/, NULL/*ldc*/);
 ```
 
 A more recently added variant of matrix multiplication is parallelized based on the OpenMP standard. These routines will open an internal parallel region and rely on "classic" thread-based OpenMP. If these routines are called from inside of a parallel region, the parallelism will be based on tasks (OpenMP&#160;3.0). Please note that all OpenMP-based routines are hosted by the extension library (libxsext), which keeps the main library agnostic with respect to a threading runtime.
 
 ```C
-/** OpenMP parallelized dense matrix multiplication (single/double-precision). */
-libxs_?gemm_omp(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+/** OpenMP parallelized dense matrix multiplication. */
+libxs_?gemm_omp(&transa, &transb, &m, &n, &k,
+  &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 ```
 
 ## Batched Multiplication
@@ -74,26 +81,34 @@ if (0 < n) { /* check that n is at least 1 */
 To process a batch of matrix multiplications and to prefetch the operands of the next multiplication ahead of time, the code presented in the [Overview](#overview) section may be modified as shown above. The last multiplication is peeled off from the batch to avoid prefetching out-of-bounds (OOB). Prefetching from an invalid address does not trap an exception, but an (unnecessary) page fault can be avoided as shown above.
 
 ```C
-/** Process a series of matrix multiplications (explicit data representation). */
-int libxs_mmbatch(libxs_xmmfunction kernel, libxs_blasint index_base, libxs_blasint index_stride,
-  const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
-  const void* a, const void* b, void* c, libxs_blasint batchsize, int tid, int nthreads);
+/** Batched matrix multiplications (explicit data representation). */
+int libxs_mmbatch(libxs_xmmfunction kernel,
+  libxs_blasint index_base, libxs_blasint index_stride,
+  const libxs_blasint stride_a[],
+  const libxs_blasint stride_b[],
+  const libxs_blasint stride_c[],
+  const void* a, const void* b, void* c,
+  libxs_blasint batchsize,
+  int tid, int nthreads);
 ```
 
 To further simplify the multiplication of matrices in a batch, the above interface can help if an explicit data representation is available. This low-level form is also able to employ a user-defined threading runtime. In case of OpenMP, `libxs_mmbatch_omp` is ready to use and hosted by the extension library (libxsext). An even higher-level set of procedures (and potentially more convenient functions) are available with `libxs_gemm_batch` and `libxs_gemm_batch_omp`.
 
 ```C
-void libxs_gemm_batch(libxs_gemm_precision precision, const char* transa, const char* transb,
+void libxs_gemm_batch(libxs_gemm_precision precision,
+  const char* transa, const char* transb,
   libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const void* alpha, const void* a, const libxs_blasint* lda,
                      const void* b, const libxs_blasint* ldb,
    const void* beta,       void* c, const libxs_blasint* ldc,
   libxs_blasint index_base, libxs_blasint index_stride,
-  const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
+  const libxs_blasint stride_a[],
+  const libxs_blasint stride_b[],
+  const libxs_blasint stride_c[],
   libxs_blasint batchsize);
 ```
 
-Please note that an explicit data representation is not actually necessary to process a series of matrix multiplications. A "chain" of multiplications can be programmatically described without the need for arrays of operands or indexes.
+Please note that an explicit data representation is not actually necessary to process a series of matrix multiplications. A "chain" of multiplications can be algorithmically described without the need for arrays of operands or indexes.
 
 ## Overview
 
