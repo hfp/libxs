@@ -38,6 +38,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <inttypes.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -750,8 +751,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
         if (0 != libxs_verbosity /* library code is expected to be mute */
          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
-          fprintf(stderr, "LIBXS ERROR: memory allocation error for size %llu with flag=%i!\n",
-            (unsigned long long)alloc_size, flags);
+          fprintf(stderr, "LIBXS ERROR: memory allocation error for size %" PRIiPTR " with flag=%i!\n", (uintptr_t)alloc_size, flags);
         }
         result = EXIT_FAILURE;
       }

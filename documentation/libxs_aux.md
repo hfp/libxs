@@ -40,8 +40,11 @@ void libxs_set_verbosity(int level);
 Due to the performance oriented nature of LIBXS, timer-related functionality is available for the C and Fortran interface ([libxs_timer.h](https://github.com/hfp/libxs/blob/master/include/libxs_timer.h#L37) and [libxs.f](https://github.com/hfp/libxs/blob/master/src/template/libxs.f#L32)). The timer is used in many of the [code samples](https://github.com/hfp/libxs/tree/master/samples) to measure the duration of executing various code regions. The timer is based on monotonic clock tick, which uses a platform-specific resolution. The counter may rely on the time stamp counter instruction (RDTSC), but this is not necessarily counting CPU cycles due to varying CPU clock speed (Turbo Boost), different clock domains (e.g., depending on the instructions executed), and other reasons (which are out of scope in this context).
 
 ```C
-unsigned long long libxs_timer_tick(void);
-double libxs_timer_duration(unsigned long long tick0, unsigned long long tick1);
+typedef unsigned long long libxs_timer_tickint;
+libxs_timer_tickint libxs_timer_tick(void);
+double libxs_timer_duration(
+  libxs_timer_tickint tick0,
+  libxs_timer_tickint tick1);
 ```
 
 ### Memory Allocation
@@ -54,7 +57,7 @@ void* libxs_malloc(size_t size);
 void* libxs_aligned_malloc(size_t size, size_t alignment);
 void* libxs_aligned_scratch(size_t size, size_t alignment);
 void libxs_free(const volatile void* memory);
-int libxs_get_malloc_info(const void* memory, libxs_malloc_info* info);
+int libxs_get_malloc_info(const void* m, libxs_malloc_info* i);
 int libxs_get_scratch_info(libxs_scratch_info* info);
 ```
 
