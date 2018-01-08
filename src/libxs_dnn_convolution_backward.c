@@ -153,6 +153,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
 #include "template/libxs_dnn_convolve_st_bwd_custom_custom.tpl.c"
       }
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I16 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
+#if 0
       typedef unsigned short element_input_type;
       typedef char element_output_type;
       typedef char element_filter_type;
@@ -164,7 +165,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
       } else {
 #include "template/libxs_dnn_convolve_st_bwd_custom_custom_1.tpl.c"
       }
+#endif
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
+#if 0
       typedef unsigned int element_input_type;
       typedef char element_output_type;
       typedef char element_filter_type;
@@ -176,6 +179,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
       } else {
 #include "template/libxs_dnn_convolve_st_bwd_custom_custom_1.tpl.c"
       }
+#endif
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
