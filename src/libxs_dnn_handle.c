@@ -1426,7 +1426,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 descriptor.ofw_unroll = 0;
               }
 
-              if (handle->desc.R != 1 && handle->desc.S != 1 && (handle->desc.u != 1 || handle->desc.v != 1)) {
+              if (handle->desc.R != 1 && handle->desc.S != 1 && libxs_target_archid == LIBXS_X86_AVX512_KNM && (handle->desc.u != 1 || handle->desc.v != 1)) {
                 descriptor.use_fastpath = 0;
                 handle->use_fastpath = 0;
               } else {
@@ -1434,7 +1434,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 handle->use_fastpath = 1;
               }
 
-              descriptor.ofw_rb = 14;
+              descriptor.ofw_rb = 14; 
               descriptor.ofh_rb = 4;
               handle->upd_ofh_rb = descriptor.ofh_rb;
               handle->upd_ofw_rb = descriptor.ofw_rb;
