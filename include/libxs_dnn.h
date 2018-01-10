@@ -249,9 +249,10 @@ typedef union LIBXS_RETARGETABLE libxs_intfloat {
 #define LIXSMMM_DNN_RES_DFP16          (pow(2,-(LIBXS_DNN_MANT_DFP16)))
 
 /* Qunatization Rounding Defines */
-#define LIBXS_DNN_QUANT_NO_ROUND     80000
-#define LIBXS_DNN_QUANT_BIAS_ROUND   80001
-#define LIBXS_DNN_QUANT_STOCH_ROUND  80002
+#define LIBXS_DNN_QUANT_NO_ROUND       80000
+#define LIBXS_DNN_QUANT_BIAS_ROUND     80001
+#define LIBXS_DNN_QUANT_STOCH_ROUND    80002
+#define LIBXS_DNN_QUANT_NEAREST_ROUND  80003
 
 /** get string of error code */
 LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code);
