@@ -1829,7 +1829,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           handle->scratch4_size = handle->desc.threads * handle->blocksifm_lp * handle->ifmblock * handle->blocksofm * handle->ofmblock
             * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_out);
           handle->scratch4_size += handle->desc.threads *  handle->blocksofm *  handle->blocksifm * handle->desc.R
-            * handle->desc.S * handle->ifmblock * handle->ofmblock * handle->blocksifm_lp * libxs_dnn_typesize(handle->datatype_out);
+            * handle->desc.S * handle->ifmblock * handle->ofmblock * libxs_dnn_typesize(handle->datatype_out);
 
           /* enable external reduce of filter scratch */
           if ( (handle->options & LIBXS_DNN_CONV_OPTION_UPD_NO_FILTER_REDUCE) > 0 ) {
