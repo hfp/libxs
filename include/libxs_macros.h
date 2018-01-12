@@ -50,6 +50,16 @@
 #define LIBXS_SYNC LIBXS_CONFIG_SYNC
 #define LIBXS_JIT LIBXS_CONFIG_JIT
 
+#if (0 != (__x86_64__)) || (4 < (__SIZEOF_PTRDIFF_T__)) || \
+    (defined(__SIZE_MAX__) && (4294967295U < (__SIZE_MAX__))) || \
+    (defined(__GNUC__) && defined(_CRAYC)) || defined(_WIN64)
+# define LIBXS_BITS 64
+#elif defined(NDEBUG) /* not for production use! */
+# error LIBXS is only supported on a 64-bit platform!
+#else /* JIT-generated code (among other issues) is not supported! */
+# define LIBXS_BITS 32
+#endif
+
 #define LIBXS_STRINGIFY2(SYMBOL) #SYMBOL
 #define LIBXS_STRINGIFY(SYMBOL) LIBXS_STRINGIFY2(SYMBOL)
 #define LIBXS_TOSTRING(SYMBOL) LIBXS_STRINGIFY(SYMBOL)
@@ -161,15 +171,6 @@
 # define LIBXS_INLINE_ALWAYS LIBXS_INLINE
 # define LIBXS_ALIGNED(DECL, N)
 # define LIBXS_CDECL
-#endif
-
-#if defined(_MSC_VER)
-# define LIBXS_MESSAGE(MSG) LIBXS_PRAGMA(message(MSG))
-#elif LIBXS_VERSION3(4, 4, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
-   && LIBXS_VERSION3(5, 0, 0) >  LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
-# define LIBXS_MESSAGE(MSG) LIBXS_PRAGMA(message MSG)
-#else
-# define LIBXS_MESSAGE(MSG)
 #endif
 
 #if !defined(LIBXS_OPENMP_SIMD) && (defined(_OPENMP) && (201307 <= _OPENMP)) /*OpenMP 4.0*/
