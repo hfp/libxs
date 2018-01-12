@@ -501,8 +501,12 @@ LIBXS_API_INLINE void internal_finalize(void)
 
 LIBXS_API_INLINE void internal_init(void)
 {
-  libxs_code_pointer* result;
-  int init_code = EXIT_FAILURE, i;
+#if defined(LIBXS_TRACE)
+  int filter_threadid = 0, filter_mindepth = -1, filter_maxnsyms = 0, init_code = EXIT_SUCCESS;
+#endif
+  int i;
+  const libxs_malloc_function null_malloc_fn = { 0 };
+  const libxs_free_function null_free_fn = { 0 };
 #if !defined(LIBXS_NO_SYNC) /* setup the locks in a thread-safe fashion */
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_DEFAULT, &libxs_lock_global);
 # if (0 < INTERNAL_REGLOCK_MAXN)
@@ -511,10 +515,8 @@ LIBXS_API_INLINE void internal_init(void)
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_RWLOCK, &internal_reglock);
 # endif
 #endif
-  result = internal_registry;
-  if (0 == result) {
-    const libxs_malloc_function null_malloc_fn = { 0 };
-    const libxs_free_function null_free_fn = { 0 };
+  if (0 == internal_registry) { /* double-check after acquiring the lock(s) */
+    assert(0 == internal_registry_keys); /* should never happen */
     libxs_xset_default_allocator(0/*lock*/, 0/*context*/, null_malloc_fn, null_free_fn);
     libxs_xset_scratch_allocator(0/*lock*/, 0/*context*/, null_malloc_fn, null_free_fn);
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
@@ -586,10 +588,7 @@ LIBXS_API_INLINE void internal_init(void)
     internal_statistic_sml = 13;
     internal_statistic_med = 23;
 #if defined(LIBXS_TRACE)
-    {
-      int filter_threadid = 0, filter_mindepth = -1, filter_maxnsyms = 0;
-      const char *const env = getenv("LIBXS_TRACE");
-      init_code = EXIT_SUCCESS;
+    { const char *const env = getenv("LIBXS_TRACE");
       if (0 != env && 0 != *env) {
         char buffer[32] = { 0 };
         if (1 == sscanf(env, "%32[^,],", buffer)) {
@@ -605,82 +604,82 @@ LIBXS_API_INLINE void internal_init(void)
           filter_maxnsyms = -1; /* all */
         }
       }
-      if (EXIT_SUCCESS == init_code) {
-        init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
-      }
     }
-    if (EXIT_SUCCESS == init_code)
-#else
-    LIBXS_UNUSED(init_code);
+    if (EXIT_SUCCESS == init_code) {
+      init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
+      if (EXIT_SUCCESS == init_code)
 #endif
-    {
-      libxs_gemm_diff_init(libxs_target_archid);
-      libxs_trans_init(libxs_target_archid);
-      libxs_hash_init(libxs_target_archid);
-      libxs_dnn_init(libxs_target_archid);
+      {
+        libxs_code_pointer *const new_registry = (libxs_code_pointer*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer));
+        internal_registry_keys = (libxs_kernel_info*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_kernel_info));
+        if (0 != new_registry && 0 != internal_registry_keys) {
+          const char *const env = getenv("LIBXS_GEMM_PREFETCH");
+          libxs_gemm_diff_init(libxs_target_archid);
+          libxs_trans_init(libxs_target_archid);
+          libxs_hash_init(libxs_target_archid);
+          libxs_dnn_init(libxs_target_archid);
 #if defined(LIBXS_PERF)
-      libxs_perf_init();
+          libxs_perf_init();
 #endif
-      assert(0 == internal_registry_keys && 0 == internal_registry); /* should never happen */
-      result = (libxs_code_pointer*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer));
-      internal_registry_keys = (libxs_kernel_info*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_kernel_info));
-      if (0 != result && 0 != internal_registry_keys) {
-        const char *const env = getenv("LIBXS_GEMM_PREFETCH");
-        for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) result[i].pmm = 0;
-        /* omit registering code if JIT is enabled and if an ISA extension is found
-         * which is beyond the static code path used to compile the library
-         */
+          for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) new_registry[i].pmm = 0;
+          /* omit registering code if JIT is enabled and if an ISA extension is found
+           * which is beyond the static code path used to compile the library
+           */
 #if defined(LIBXS_BUILD)
 # if (0 != LIBXS_JIT) && !defined(__MIC__)
-        /* check if target arch. permits execution (arch. may be overridden) */
-        if (LIBXS_STATIC_TARGET_ARCH <= libxs_target_archid &&
-           (LIBXS_X86_AVX > libxs_target_archid /* JIT code gen. is not available */
-            /* condition allows to avoid JIT (if static code is good enough) */
-         || LIBXS_STATIC_TARGET_ARCH == libxs_target_archid))
+          /* check if target arch. permits execution (arch. may be overridden) */
+          if (LIBXS_STATIC_TARGET_ARCH <= libxs_target_archid &&
+            (LIBXS_X86_AVX > libxs_target_archid /* JIT code gen. is not available */
+              /* condition allows to avoid JIT (if static code is good enough) */
+              || LIBXS_STATIC_TARGET_ARCH == libxs_target_archid))
 # endif
-        { /* opening a scope for eventually declaring variables */
-          /* setup the dispatch table for the statically generated code */
-#         include <libxs_dispatch.h>
-        }
+          { /* opening a scope for eventually declaring variables */
+            /* setup the dispatch table for the statically generated code */
+#           include <libxs_dispatch.h>
+          }
 #endif
 #if defined(_WIN32) || defined(__CYGWIN__) /* TODO: full support for Windows calling convention */
-        libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
+          libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
 #else
-        libxs_gemm_auto_prefetch_default = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
-          /* avoid special prefetch if static code is present, since such code uses INTERNAL_PREFETCH */
-          ? (((LIBXS_X86_AVX512 >= libxs_target_archid || LIBXS_X86_AVX512_CORE <= libxs_target_archid))
-            ? LIBXS_PREFETCH_AL2BL2_VIA_C : LIBXS_PREFETCH_BL2_VIA_C)
-          : INTERNAL_PREFETCH;
+          libxs_gemm_auto_prefetch_default = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
+            /* avoid special prefetch if static code is present, since such code uses INTERNAL_PREFETCH */
+            ? (((LIBXS_X86_AVX512 >= libxs_target_archid || LIBXS_X86_AVX512_CORE <= libxs_target_archid))
+              ? LIBXS_PREFETCH_AL2BL2_VIA_C : LIBXS_PREFETCH_BL2_VIA_C)
+            : INTERNAL_PREFETCH;
 #endif
-        libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
-        if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
-          const int uid = atoi(env);
-          if (0 <= uid) {
-            libxs_gemm_auto_prefetch_default = libxs_gemm_uid2prefetch(uid);
-            libxs_gemm_auto_prefetch = libxs_gemm_auto_prefetch_default;
-            internal_gemm_auto_prefetch_locked = 1;
+          libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
+          if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
+            const int uid = atoi(env);
+            if (0 <= uid) {
+              libxs_gemm_auto_prefetch_default = libxs_gemm_uid2prefetch(uid);
+              libxs_gemm_auto_prefetch = libxs_gemm_auto_prefetch_default;
+              internal_gemm_auto_prefetch_locked = 1;
+            }
+          }
+          libxs_gemm_init(libxs_target_archid);
+          if (0 == internal_teardown) {
+            atexit(internal_finalize);
+          }
+          {
+            void *const pv_registry = &internal_registry;
+            LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)((void**)pv_registry, (void*)new_registry, LIBXS_ATOMIC_SEQ_CST);
           }
         }
-        libxs_gemm_init(libxs_target_archid);
-        if (0 == internal_teardown) {
-          atexit(internal_finalize);
-        }
-        {
-          void *const pv_registry = &internal_registry;
-          LIBXS_ATOMIC_STORE((void**)pv_registry, (void*)result, LIBXS_ATOMIC_SEQ_CST);
+        else {
+          if (0 != libxs_verbosity) { /* library code is expected to be mute */
+            fprintf(stderr, "LIBXS ERROR: failed to allocate code registry!\n");
+          }
+          free(internal_registry_keys);
+          free(new_registry);
         }
       }
-      else {
-        if (0 != libxs_verbosity) { /* library code is expected to be mute */
-          fprintf(stderr, "LIBXS ERROR: failed to allocate code registry!\n");
-        }
-        free(internal_registry_keys);
-        free(result);
+#if defined(LIBXS_TRACE)
+      else if (0 != libxs_verbosity) { /* library code is expected to be mute */
+        fprintf(stderr, "LIBXS ERROR: failed to initialize TRACE (error #%i)!\n", init_code);
       }
     }
-#if defined(LIBXS_TRACE)
     else if (0 != libxs_verbosity) { /* library code is expected to be mute */
-      fprintf(stderr, "LIBXS ERROR: failed to initialize TRACE (error #%i)!\n", init_code);
+      fprintf(stderr, "LIBXS ERROR: failed to parse LIBXS_TRACE!\n");
     }
 #endif
   }
@@ -748,7 +747,7 @@ void libxs_finalize(void);
 
 LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 {
-  libxs_code_pointer* registry = LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
+  libxs_code_pointer* registry = (libxs_code_pointer*)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
   if (0 != registry) {
     int i;
 #if !defined(LIBXS_NO_SYNC)
@@ -760,7 +759,7 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_RWLOCK, &internal_reglock);
 # endif
 #endif
-    registry = internal_registry;
+    registry = (libxs_code_pointer*)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&internal_registry, LIBXS_ATOMIC_RELAXED);
 
     if (0 != registry) {
       libxs_kernel_info *const registry_keys = internal_registry_keys;
@@ -782,10 +781,6 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 #if defined(LIBXS_PERF)
       libxs_perf_finalize();
 #endif
-      /* make internal registry globally unavailable */
-      LIBXS_ATOMIC_STORE_ZERO(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
-      internal_registry_keys = 0;
-
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
         /*const*/ libxs_code_pointer code = registry[i];
         if (0 != code.ptr_const) {
@@ -834,6 +829,9 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           }
         }
       }
+      /* make internal registry globally unavailable */
+      LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
+      internal_registry_keys = 0;
       free(registry_keys);
       free(registry);
     }
@@ -885,8 +883,8 @@ LIBXS_API_DEFINITION void libxs_set_target_archid(int id)
   LIBXS_ATOMIC_STORE(&libxs_target_archid, target_archid, LIBXS_ATOMIC_RELAXED);
   if (0 != libxs_verbosity) { /* library code is expected to be mute */
     const int cpuid = libxs_cpuid();
-    if (cpuid < libxs_target_archid) {
-      const char *const target_arch = internal_get_target_arch(libxs_target_archid);
+    if (cpuid < target_archid) {
+      const char *const target_arch = internal_get_target_arch(target_archid);
       fprintf(stderr, "LIBXS WARNING: \"%s\" code will fail to run on \"%s\"!\n",
         target_arch, internal_get_target_arch(cpuid));
     }
@@ -1477,8 +1475,8 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
     /* check if the requested xGEMM is already JITted */
     LIBXS_HASH_FUNCTION_CALL(hash, i = i0, descriptor);
     while (0 != diff) {
-#if (0 < INTERNAL_REGLOCK_MAXN) || defined(LIBXS_NO_SYNC)
-      flux_entry.pmm = LIBXS_ATOMIC_LOAD(&internal_registry[i].pmm, LIBXS_ATOMIC_RELAXED); /* read registered code */
+#if (0 < INTERNAL_REGLOCK_MAXN) || defined(LIBXS_NO_SYNC) /* read registered code */
+      flux_entry.pmm = (void*)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&internal_registry[i].pmm, LIBXS_ATOMIC_RELAXED);
 #else
       LIBXS_LOCK_ACQREAD(LIBXS_LOCK_RWLOCK, &internal_reglock);
       flux_entry.pmm = internal_registry[i].pmm; /* read registered code */
@@ -1536,7 +1534,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
             if (EXIT_SUCCESS == libxs_build(&request, i, &flux_entry) && 0 != flux_entry.ptr_const) {
               internal_registry_keys[i].xgemm = *descriptor;
 # if (0 < INTERNAL_REGLOCK_MAXN)
-              LIBXS_ATOMIC_STORE(&internal_registry[i].pmm, flux_entry.pmm, LIBXS_ATOMIC_RELAXED);
+              LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_registry[i].pmm, flux_entry.pmm, LIBXS_ATOMIC_RELAXED);
 # else
               internal_registry[i].pmm = flux_entry.pmm;
 # endif

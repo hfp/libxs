@@ -751,7 +751,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
         if (0 != libxs_verbosity /* library code is expected to be mute */
          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
-          fprintf(stderr, "LIBXS ERROR: memory allocation error for size %" PRIiPTR " with flag=%i!\n", (uintptr_t)alloc_size, flags);
+          fprintf(stderr, "LIBXS ERROR: memory allocation error for size %" PRIuPTR " with flag=%i!\n", (uintptr_t)alloc_size, flags);
         }
         result = EXIT_FAILURE;
       }
@@ -777,7 +777,9 @@ LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
 {
   /*const*/ internal_malloc_info_type *const info = internal_malloc_info(memory);
   int result = EXIT_SUCCESS;
+#if !defined(_WIN32) || !defined(LIBXS_BUILD) || !defined(LIBXS_MALLOC_NOCRC)
   static int error_once = 0;
+#endif
   if (0 != info) {
     void *const buffer = info->pointer;
 #if !defined(LIBXS_BUILD) /* sanity check */
@@ -1173,8 +1175,8 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
         assert(used_size <= pool_size);
 
         if (req_size <= pool_size) { /* fast path: draw from pool-buffer */
-          char* head;
-          head = (char*)LIBXS_ATOMIC_ADD_FETCH((uintptr_t*)&pool->instance.head, alloc_size, LIBXS_ATOMIC_SEQ_CST);
+          void *const headptr = &pool->instance.head;
+          char *const head = (char*)LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)((uintptr_t*)headptr, alloc_size, LIBXS_ATOMIC_SEQ_CST);
           result = LIBXS_ALIGN(head - alloc_size, align_size);
         }
         else { /* fall-back to local memory allocation */

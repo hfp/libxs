@@ -465,20 +465,20 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config
 	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
 		$(ROOTDIR)/.hooks/install.sh; \
 	fi
-	@cp $(ROOTDIR)/include/libxs_bgemm.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_cpuid.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_dnn.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_fsspmdm.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_generator.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_intrinsics_x86.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_malloc.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_mhd.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_spmdm.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_sync.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
-	@cp $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_bgemm.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_cpuid.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_dnn.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_fsspmdm.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_generator.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_intrinsics_x86.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_malloc.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_mhd.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_spmdm.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_sync.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_timer.h $(INCDIR) 2> /dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_typedefs.h $(INCDIR) 2> /dev/null || true
 	@$(PYTHON) $(SCRDIR)/libxs_config.py $(SRCDIR)/template/libxs_config.h \
 		$(MAKE_ILP64) $(OFFLOAD) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) \
@@ -666,7 +666,7 @@ ifeq (,$(filter Darwin,$(UNAME)))
       CFLAGS += -diag-disable 271
     endif
 $(LIBJITPROFILING): $(BLDDIR)/jitprofiling/.make
-	@cp $(VTUNEROOT)/lib64/libjitprofiling.$(SLIBEXT) $(BLDDIR)/jitprofiling
+	@$(CP) $(VTUNEROOT)/lib64/libjitprofiling.$(SLIBEXT) $(BLDDIR)/jitprofiling
 	@cd $(BLDDIR)/jitprofiling; $(AR) x libjitprofiling.$(SLIBEXT)
   else
 .PHONY: $(LIBJITPROFILING)
@@ -768,8 +768,8 @@ module_mic: $(INCDIR)/mic/libxs.mod
 $(BLDDIR)/mic/libxs-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)/mic
 $(INCDIR)/mic/libxs.mod: $(BLDDIR)/mic/libxs-mod.o
-	@if [ -e $(BLDDIR)/mic/libxs.mod ]; then cp $(BLDDIR)/mic/libxs.mod $(INCDIR)/mic; fi
-	@if [ -e $(BLDDIR)/mic/LIBXS.mod ]; then cp $(BLDDIR)/mic/LIBXS.mod $(INCDIR)/mic; fi
+	@if [ -e $(BLDDIR)/mic/libxs.mod ]; then $(CP) $(BLDDIR)/mic/libxs.mod $(INCDIR)/mic; fi
+	@if [ -e $(BLDDIR)/mic/LIBXS.mod ]; then $(CP) $(BLDDIR)/mic/LIBXS.mod $(INCDIR)/mic; fi
 	@touch $@
 else
 .PHONY: $(BLDDIR)/mic/libxs-mod.o
@@ -790,8 +790,8 @@ module_hst: $(INCDIR)/libxs.mod
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(FTARGET) -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
 $(INCDIR)/libxs.mod: $(BLDDIR)/intel64/libxs-mod.o
-	@if [ -e $(BLDDIR)/intel64/libxs.mod ]; then cp $(BLDDIR)/intel64/libxs.mod $(INCDIR); fi
-	@if [ -e $(BLDDIR)/intel64/LIBXS.mod ]; then cp $(BLDDIR)/intel64/LIBXS.mod $(INCDIR); fi
+	@if [ -e $(BLDDIR)/intel64/libxs.mod ]; then $(CP) $(BLDDIR)/intel64/libxs.mod $(INCDIR); fi
+	@if [ -e $(BLDDIR)/intel64/LIBXS.mod ]; then $(CP) $(BLDDIR)/intel64/LIBXS.mod $(INCDIR); fi
 	@touch $@
 else
 .PHONY: $(BLDDIR)/intel64/libxs-mod.o
@@ -1548,57 +1548,57 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo
 	@echo "LIBXS installing binaries..."
 	@mkdir -p $(INSTALL_ROOT)/$(POUTDIR) $(INSTALL_ROOT)/$(PBINDIR) $(INSTALL_ROOT)/$(PINCDIR)
-	@cp -v $(OUTDIR)/libxsnoblas.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsnoblas.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsgen.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsgen.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsext.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsf.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxsf.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
-	@cp -v $(OUTDIR)/libxs.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@$(CP) -v $(OUTDIR)/libxsnoblas.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@$(CP) -v $(OUTDIR)/libxsnoblas.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@$(CP) -v $(OUTDIR)/libxsgen.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@$(CP) -v $(OUTDIR)/libxsgen.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@$(CP) -v $(OUTDIR)/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@$(CP) -v $(OUTDIR)/libxsext.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@$(CP) -v $(OUTDIR)/libxsf.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@$(CP) -v $(OUTDIR)/libxsf.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@$(CP) -v $(OUTDIR)/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
+	@$(CP) -v $(OUTDIR)/libxs.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2> /dev/null || true
 	@if [ -e $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
-		cp -v $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		$(CP) -v $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
-		cp -v $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		$(CP) -v $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsext.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
-		cp -v $(OUTDIR)/mic/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		$(CP) -v $(OUTDIR)/mic/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsext.$(SLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
-		cp -v $(OUTDIR)/mic/libxsext.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		$(CP) -v $(OUTDIR)/mic/libxsext.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsf.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
-		cp -v $(OUTDIR)/mic/libxsf.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		$(CP) -v $(OUTDIR)/mic/libxsf.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsf.$(SLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
-		cp -v $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		$(CP) -v $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxs.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
-		cp -v $(OUTDIR)/mic/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		$(CP) -v $(OUTDIR)/mic/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxs.$(SLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
-		cp -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
+		$(CP) -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@echo
 	@echo "LIBXS installing interface..."
-	@cp -v $(BINDIR)/libxs_*_generator $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
-	@cp -v $(INCDIR)/*.mod* $(INSTALL_ROOT)/$(PINCDIR) 2> /dev/null || true
-	@cp -v $(INCDIR)/libxs*.h $(INSTALL_ROOT)/$(PINCDIR)
-	@cp -v $(INCDIR)/libxs.f $(INSTALL_ROOT)/$(PINCDIR)
+	@$(CP) -v $(BINDIR)/libxs_*_generator $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(INCDIR)/*.mod* $(INSTALL_ROOT)/$(PINCDIR) 2> /dev/null || true
+	@$(CP) -v $(INCDIR)/libxs*.h $(INSTALL_ROOT)/$(PINCDIR)
+	@$(CP) -v $(INCDIR)/libxs.f $(INSTALL_ROOT)/$(PINCDIR)
 	@echo
 	@echo "LIBXS installing stand-alone generators..."
-	@cp -v $(BINDIR)/libxs_*_generator $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(BINDIR)/libxs_*_generator $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
 endif
 
 .PHONY: install
@@ -1607,12 +1607,12 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo
 	@echo "LIBXS installing documentation..."
 	@mkdir -p $(INSTALL_ROOT)/$(PDOCDIR)
-	@cp -v $(ROOTDIR)/$(DOCDIR)/*.pdf $(INSTALL_ROOT)/$(PDOCDIR)
-	@cp -v $(ROOTDIR)/$(DOCDIR)/*.md $(INSTALL_ROOT)/$(PDOCDIR)
-	@cp -v $(ROOTDIR)/version.txt $(INSTALL_ROOT)/$(PDOCDIR)
-	@cp -v $(ROOTDIR)/CODE_OF_CONDUCT.md $(INSTALL_ROOT)/$(PDOCDIR)
-	@cp -v $(ROOTDIR)/CONTRIBUTING.md $(INSTALL_ROOT)/$(PDOCDIR)
-	@cp -v $(ROOTDIR)/LICENSE.md $(INSTALL_ROOT)/$(PDOCDIR)
+	@$(CP) -v $(ROOTDIR)/$(DOCDIR)/*.pdf $(INSTALL_ROOT)/$(PDOCDIR)
+	@$(CP) -v $(ROOTDIR)/$(DOCDIR)/*.md $(INSTALL_ROOT)/$(PDOCDIR)
+	@$(CP) -v $(ROOTDIR)/version.txt $(INSTALL_ROOT)/$(PDOCDIR)
+	@$(CP) -v $(ROOTDIR)/CODE_OF_CONDUCT.md $(INSTALL_ROOT)/$(PDOCDIR)
+	@$(CP) -v $(ROOTDIR)/CONTRIBUTING.md $(INSTALL_ROOT)/$(PDOCDIR)
+	@$(CP) -v $(ROOTDIR)/LICENSE.md $(INSTALL_ROOT)/$(PDOCDIR)
 endif
 
 .PHONY: install-all
@@ -1620,15 +1620,15 @@ install-all: install samples
 ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo
 	@echo "LIBXS installing samples..."
-	@cp -v $(addprefix $(SPLDIR)/cp2k/,cp2k cp2k.sh cp2k-perf* cp2k-plot.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
-	@cp -v $(addprefix $(SPLDIR)/wrap/,dgemm-blas dgemm-blas.sh dgemm-wrap dgemm-wrap.sh dgemm-test.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
-	@cp -v $(addprefix $(SPLDIR)/dispatch/,dispatch dispatch.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
-	@cp -v $(addprefix $(SPLDIR)/nek/,axhm grad rstr *.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
-	@cp -v $(addprefix $(SPLDIR)/smm/,smm smm.sh smm-perf* smmf-perf.sh smm-plot.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
-	@cp -v $(addprefix $(SPLDIR)/smm/,specialized specialized.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
-	@cp -v $(addprefix $(SPLDIR)/smm/,dispatched dispatched.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
-	@cp -v $(addprefix $(SPLDIR)/smm/,inlined inlined.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
-	@cp -v $(addprefix $(SPLDIR)/smm/,blas blas.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(addprefix $(SPLDIR)/cp2k/,cp2k cp2k.sh cp2k-perf* cp2k-plot.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(addprefix $(SPLDIR)/wrap/,dgemm-blas dgemm-blas.sh dgemm-wrap dgemm-wrap.sh dgemm-test.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(addprefix $(SPLDIR)/dispatch/,dispatch dispatch.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(addprefix $(SPLDIR)/nek/,axhm grad rstr *.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(addprefix $(SPLDIR)/smm/,smm smm.sh smm-perf* smmf-perf.sh smm-plot.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(addprefix $(SPLDIR)/smm/,specialized specialized.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(addprefix $(SPLDIR)/smm/,dispatched dispatched.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(addprefix $(SPLDIR)/smm/,inlined inlined.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
+	@$(CP) -v $(addprefix $(SPLDIR)/smm/,blas blas.sh) $(INSTALL_ROOT)/$(PBINDIR) 2> /dev/null || true
 endif
 
 .PHONY: install-dev
@@ -1637,7 +1637,7 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo
 	@echo "LIBXS installing tests..."
 	@mkdir -p $(INSTALL_ROOT)/$(PTSTDIR)
-	@cp -v $(basename $(wildcard ${TSTDIR}/*.c)) $(INSTALL_ROOT)/$(PTSTDIR) 2> /dev/null || true
+	@$(CP) -v $(basename $(wildcard ${TSTDIR}/*.c)) $(INSTALL_ROOT)/$(PTSTDIR) 2> /dev/null || true
 endif
 
 .PHONY: install-artifacts
@@ -1646,6 +1646,6 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo
 	@echo "LIBXS installing artifacts..."
 	@mkdir -p $(INSTALL_ROOT)/$(PDOCDIR)/artifacts
-	@cp -v .state $(INSTALL_ROOT)/$(PDOCDIR)/artifacts/make.txt
+	@$(CP) -v .state $(INSTALL_ROOT)/$(PDOCDIR)/artifacts/make.txt
 endif
 

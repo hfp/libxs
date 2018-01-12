@@ -52,7 +52,7 @@
 
 typedef union LIBXS_RETARGETABLE libxs_bgemm_lock {
   char pad[LIBXS_CACHELINE];
-  volatile int instance;
+  volatile char instance;
 } libxs_bgemm_lock;
 
 struct LIBXS_RETARGETABLE libxs_bgemm_handle {
@@ -109,7 +109,7 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
           if (LIBXS_PREFETCH_AUTO == prefetch) { /* automatically chosen */
             /* TODO: more sophisticated strategy perhaps according to CPUID */
             const char *const env_p = getenv("LIBXS_BGEMM_PREFETCH");
-            const int uid = ((0 == env_p || 0 == *env_p) ? libxs_gemm_uid2prefetch(LIBXS_PREFETCH_AL2BL2_VIA_C) : atoi(env_p));
+            const int uid = ((0 == env_p || 0 == *env_p) ? libxs_gemm_prefetch2uid(LIBXS_PREFETCH_AL2BL2_VIA_C) : atoi(env_p));
             descriptor.prefetch = (unsigned short)libxs_gemm_uid2prefetch(uid);
           }
           else { /* user-defined */

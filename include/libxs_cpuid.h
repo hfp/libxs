@@ -50,10 +50,15 @@
 #define LIBXS_X86_AVX512_ICL   1022
 
 
-/** Returns the target architecture and instruction set extension (code path). */
+/**
+ * Returns the target architecture and instruction set extensions, but *not* necessarily the
+ * code path as used by LIBXS. To determine (or manually adjust) the code path in use, one
+ * needs to rely on libxs_get_target_archid/libxs_get_target_arch (to manually adjust
+ * the coda path use libxs_set_target_archid/libxs_set_target_arch).
+ */
 LIBXS_API int libxs_cpuid_x86(void);
 
-/** Returns the target architecture and instruction set extension (code path). */
+/** Similar to libxs_cpuid_x86, but conceptually not x86-specific. */
 LIBXS_API int libxs_cpuid(void);
 
 #endif /*LIBXS_CPUID_H*/

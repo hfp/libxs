@@ -38,18 +38,18 @@
 #endif
 
 
-libxs_timer_tickint work(libxs_timer_tickint start, libxs_timer_tickint amount);
-libxs_timer_tickint work(libxs_timer_tickint start, libxs_timer_tickint amount)
+libxs_timer_tickint work(libxs_timer_tickint start, libxs_timer_tickint duration);
+libxs_timer_tickint work(libxs_timer_tickint start, libxs_timer_tickint duration)
 {
-  const libxs_timer_tickint t1 = start + amount;
-  libxs_timer_tickint t0 = start;
+  const libxs_timer_tickint end = start + duration;
+  libxs_timer_tickint tick = start;
   do {
     libxs_timer_tickint i, s = 0;
-    for (i = 0; i < ((t1 - t0) / 4); ++i) s += i;
-    t0 = libxs_timer_tick();
+    for (i = 0; i < ((end - tick) / 4); ++i) s += i;
+    tick = libxs_timer_tick();
   }
-  while(t0 < t1);
-  return t0;
+  while(tick < end);
+  return tick;
 }
 
 
@@ -66,7 +66,6 @@ int main(int argc, char* argv[])
   const int work_w = LIBXS_MAX(4 < argc ? atoi(argv[4]) : work_r, 1);
   const int nrepeat = LIBXS_MAX(5 < argc ? atoi(argv[5]) : 100000, 1);
   const int nw = 0 < wratioperc ? (100 / wratioperc) : (nrepeat + 1);
-  libxs_timer_tickint duration = 0;
 
   /* declare attribute and lock */
   LIBXS_LOCK_ATTR_TYPE(LOCK_KIND) attr;
@@ -77,41 +76,100 @@ int main(int argc, char* argv[])
   LIBXS_LOCK_INIT(LOCK_KIND, &lock, &attr);
   LIBXS_LOCK_ATTR_DESTROY(LOCK_KIND, &attr);
 
-#if defined(_OPENMP)
-# pragma omp parallel num_threads(nthreads)
-#endif
-  {
-    int n, nn;
-    libxs_timer_tickint t1, t2, d = 0;
-    const libxs_timer_tickint t0 = libxs_timer_tick();
-    for (n = 0; n < nrepeat; n = nn) {
-      nn = n + 1;
-      if (0 != (nn % nw)) { /* read */
-        LIBXS_LOCK_ACQREAD(LOCK_KIND, &lock);
-        t1 = libxs_timer_tick();
-        t2 = work(t1, work_r);
-        LIBXS_LOCK_RELREAD(LOCK_KIND, &lock);
-        d += libxs_timer_diff(t1, t2);
-      }
-      else { /* write */
-        LIBXS_LOCK_ACQUIRE(LOCK_KIND, &lock);
-        t1 = libxs_timer_tick();
-        t2 = work(t1, work_w);
-        LIBXS_LOCK_RELEASE(LOCK_KIND, &lock);
-        d += libxs_timer_diff(t1, t2);
-      }
-    }
-    t1 = libxs_timer_diff(t0, libxs_timer_tick());
-#if defined(_OPENMP)
-#   pragma omp atomic
-#endif
-    duration += t1 - d;
-  }
-  LIBXS_LOCK_DESTROY(LOCK_KIND, &lock);
-
   assert(0 < (nthreads * nrepeat));
-  printf("Duration of lock/unlock operation: %.0f us (%i threads)\n",
-    libxs_timer_duration(0, duration) * 1e6 / (nrepeat * nthreads), nthreads);
+  fprintf(stdout, "Latency and throughput for nthreads=%i wratio=%i%% work_r=%i work_w=%i nrepeat=%i\n",
+    nthreads, wratioperc, work_r, work_w, nrepeat);
+
+  { /* measure non-contended latency of RO-lock */
+    libxs_timer_tickint latency = 0;
+    double duration;
+    int i;
+    for (i = 0; i < nrepeat / 4; ++i) {
+      const libxs_timer_tickint tick = libxs_timer_tick();
+      LIBXS_LOCK_ACQREAD(LOCK_KIND, &lock);
+      LIBXS_LOCK_RELREAD(LOCK_KIND, &lock);
+      LIBXS_LOCK_ACQREAD(LOCK_KIND, &lock);
+      LIBXS_LOCK_RELREAD(LOCK_KIND, &lock);
+      LIBXS_LOCK_ACQREAD(LOCK_KIND, &lock);
+      LIBXS_LOCK_RELREAD(LOCK_KIND, &lock);
+      LIBXS_LOCK_ACQREAD(LOCK_KIND, &lock);
+      LIBXS_LOCK_RELREAD(LOCK_KIND, &lock);
+      latency += libxs_timer_diff(tick, libxs_timer_tick());
+    }
+    duration = libxs_timer_duration(0, latency);
+    if (0 < duration) {
+      printf("\tro-latency: %.0f ns (%.0f MHz)\n",
+        duration * 1e9 / nrepeat,
+        nrepeat / (1e6 * duration));
+    }
+  }
+
+  { /* measure non-contended latency of RW-lock */
+    libxs_timer_tickint latency = 0;
+    double duration;
+    int i;
+    for (i = 0; i < nrepeat / 4; ++i) {
+      const libxs_timer_tickint tick = libxs_timer_tick();
+      LIBXS_LOCK_ACQUIRE(LOCK_KIND, &lock);
+      LIBXS_LOCK_RELEASE(LOCK_KIND, &lock);
+      LIBXS_LOCK_ACQUIRE(LOCK_KIND, &lock);
+      LIBXS_LOCK_RELEASE(LOCK_KIND, &lock);
+      LIBXS_LOCK_ACQUIRE(LOCK_KIND, &lock);
+      LIBXS_LOCK_RELEASE(LOCK_KIND, &lock);
+      LIBXS_LOCK_ACQUIRE(LOCK_KIND, &lock);
+      LIBXS_LOCK_RELEASE(LOCK_KIND, &lock);
+      latency += libxs_timer_diff(tick, libxs_timer_tick());
+    }
+    duration = libxs_timer_duration(0, latency);
+    if (0 < duration) {
+      printf("\trw-latency: %.0f ns (%.0f MHz)\n",
+        duration * 1e9 / nrepeat,
+        nrepeat / (1e6 * duration));
+    }
+  }
+
+  { /* measure throughput */
+    libxs_timer_tickint throughput = 0;
+    double duration;
+#if defined(_OPENMP)
+#   pragma omp parallel num_threads(nthreads)
+#endif
+    {
+      int n, nn;
+      libxs_timer_tickint t1, t2, d = 0;
+      const libxs_timer_tickint t0 = libxs_timer_tick();
+      for (n = 0; n < nrepeat; n = nn) {
+        nn = n + 1;
+        if (0 != (nn % nw)) { /* read */
+          LIBXS_LOCK_ACQREAD(LOCK_KIND, &lock);
+          t1 = libxs_timer_tick();
+          t2 = work(t1, work_r);
+          LIBXS_LOCK_RELREAD(LOCK_KIND, &lock);
+          d += libxs_timer_diff(t1, t2);
+        }
+        else { /* write */
+          LIBXS_LOCK_ACQUIRE(LOCK_KIND, &lock);
+          t1 = libxs_timer_tick();
+          t2 = work(t1, work_w);
+          LIBXS_LOCK_RELEASE(LOCK_KIND, &lock);
+          d += libxs_timer_diff(t1, t2);
+        }
+      }
+      t1 = libxs_timer_diff(t0, libxs_timer_tick());
+#if defined(_OPENMP)
+#     pragma omp atomic
+#endif
+      throughput += t1 - d;
+    }
+    duration = libxs_timer_duration(0, throughput);
+    if (0 < duration) {
+      printf("\tthroughput: %.0f us (%.0f kHz)\n",
+        duration * 1e6 / (nrepeat * nthreads),
+        (nrepeat * nthreads) / (1e3 * duration));
+    }
+  }
+
+  LIBXS_LOCK_DESTROY(LOCK_KIND, &lock);
 
   return EXIT_SUCCESS;
 }
