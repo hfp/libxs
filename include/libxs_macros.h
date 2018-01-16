@@ -50,9 +50,10 @@
 #define LIBXS_SYNC LIBXS_CONFIG_SYNC
 #define LIBXS_JIT LIBXS_CONFIG_JIT
 
-#if (0 != (__x86_64__)) || (4 < (__SIZEOF_PTRDIFF_T__)) || \
+#if (defined(__SIZEOF_PTRDIFF_T__) && 4 < (__SIZEOF_PTRDIFF_T__)) || \
     (defined(__SIZE_MAX__) && (4294967295U < (__SIZE_MAX__))) || \
-    (defined(__GNUC__) && defined(_CRAYC)) || defined(_WIN64)
+    (defined(__GNUC__) && defined(_CRAYC)) || defined(_WIN64) || \
+    (defined(__x86_64__) && 0 != (__x86_64__))
 # define LIBXS_BITS 64
 #elif defined(NDEBUG) /* not for production use! */
 # error LIBXS is only supported on a 64-bit platform!
@@ -416,7 +417,7 @@
 #if defined(__GNUC__)
 # define LIBXS_ATTRIBUTE_CTOR LIBXS_ATTRIBUTE(constructor)
 # define LIBXS_ATTRIBUTE_DTOR LIBXS_ATTRIBUTE(destructor)
-# if !defined(LIBXS_CTOR) && !(defined(__STATIC) && defined(LIBXS_BUILD))
+# if !defined(LIBXS_CTOR) && defined(LIBXS_BUILD) && !defined(__STATIC)
 #   define LIBXS_CTOR
 # endif
 #else
