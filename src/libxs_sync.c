@@ -60,26 +60,6 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if defined(LIBXS_NO_SYNC)
-# define LIBXS_SYNC_CYCLE(COUNTER, NPAUSE)
-#else
-# if !defined(LIBXS_SYNC_NPAUSE)
-#   define LIBXS_SYNC_NPAUSE 1000
-# endif
-# if defined(LIBXS_WIN32_THREADS)
-#   define LIBXS_SYNC_YIELD YieldProcessor
-# else
-#   define LIBXS_SYNC_YIELD LIBXS_PTHREAD_CALL(pthread_yield)
-# endif
-# define LIBXS_SYNC_CYCLE_ELSE(COUNTER, NPAUSE, ELSE) if (((COUNTER)++) < (NPAUSE)) { \
-    LIBXS_SYNC_PAUSE; \
-  } \
-  else { \
-    LIBXS_SYNC_YIELD(); ELSE \
-  }
-# define LIBXS_SYNC_CYCLE(COUNTER, NPAUSE) LIBXS_SYNC_CYCLE_ELSE(COUNTER, NPAUSE, ;)
-#endif
-
 
 typedef struct LIBXS_RETARGETABLE internal_sync_core_tag { /* per-core */
   uint8_t id;
@@ -381,8 +361,7 @@ LIBXS_API_DEFINITION int libxs_spinlock_trylock(libxs_spinlock* spinlock)
     ? (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_SPINLOCK) + 1) /* not acquired */
     : (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_SPINLOCK));
 # else
-  return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_SPINLOCK) + (1 & /* bit-test/set lock-state */
-    LIBXS_ATOMIC_FETCH_OR(&spinlock->state, 1, LIBXS_ATOMIC_RELAXED));
+  return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_SPINLOCK) + LIBXS_ATOMIC_TRYLOCK(&spinlock->state, LIBXS_ATOMIC_RELAXED);
 # endif
 #else
   LIBXS_UNUSED(spinlock);
@@ -398,7 +377,7 @@ LIBXS_API_DEFINITION void libxs_spinlock_acquire(libxs_spinlock* spinlock)
   assert(0 != spinlock);
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_SPINLOCK, &spinlock->impl);
 # else
-  unsigned int counter = 0;
+  LIBXS_SYNC_CYCLE_DECL(counter);
   assert(0 != spinlock);
   for (;;) {
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&spinlock->state, 1, LIBXS_ATOMIC_RELAXED)) break;
@@ -474,13 +453,11 @@ LIBXS_API_DEFINITION void libxs_mutex_destroy(const libxs_mutex* mutex)
 LIBXS_API_DEFINITION int libxs_mutex_trylock(libxs_mutex* mutex)
 {
 #if !defined(LIBXS_NO_SYNC)
-# if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
   assert(0 != mutex);
+# if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
   return LIBXS_LOCK_TRYLOCK(LIBXS_LOCK_MUTEX, &mutex->impl);
 # else
-  assert(0 != mutex);
-  return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_MUTEX) + (1 & /* bit-test/set lock-state */
-    LIBXS_ATOMIC(LIBXS_ATOMIC_FETCH_OR, 8)(&mutex->state, 1, LIBXS_ATOMIC_SEQ_CST));
+  return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_MUTEX) + LIBXS_ATOMIC_TRYLOCK(&mutex->state, LIBXS_ATOMIC_RELAXED);
 # endif
 #else
   LIBXS_UNUSED(mutex);
@@ -496,7 +473,7 @@ LIBXS_API_DEFINITION void libxs_mutex_acquire(libxs_mutex* mutex)
   assert(0 != mutex);
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_MUTEX, &mutex->impl);
 # else
-  unsigned int counter = 0;
+  LIBXS_SYNC_CYCLE_DECL(counter);
 #   if defined(_WIN32)
   assert(0 != mutex);
   while (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_MUTEX) != libxs_mutex_trylock(mutex)) {
@@ -652,7 +629,7 @@ LIBXS_API_DEFINITION void libxs_rwlock_acquire(libxs_rwlock* rwlock)
 # else
   internal_sync_counter prev;
   if (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK) != internal_rwlock_trylock(rwlock, &prev)) {
-    unsigned int counter = 0;
+    LIBXS_SYNC_CYCLE_DECL(counter);
     while (rwlock->completions.bits != prev.bits) LIBXS_SYNC_CYCLE(counter, LIBXS_SYNC_NPAUSE);
   }
 # endif
@@ -726,7 +703,7 @@ LIBXS_API_DEFINITION void libxs_rwlock_acqread(libxs_rwlock* rwlock)
 # else
   internal_sync_counter prev;
   if (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK) != internal_rwlock_tryread(rwlock, &prev)) {
-    unsigned int counter = 0;
+    LIBXS_SYNC_CYCLE_DECL(counter);
     while (rwlock->completions.kind.writer != prev.kind.writer) LIBXS_SYNC_CYCLE(counter, LIBXS_SYNC_NPAUSE);
   }
 # endif
