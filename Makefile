@@ -39,18 +39,11 @@ FCFLAGS := $(CFLAGS)
 DFLAGS = -DLIBXS_BUILD
 IFLAGS = -I$(INCDIR) -I$(BLDDIR) -I$(SRCDIR)
 
-# Python interpreter
-PYTHON ?= python
-
-# Version numbers according to interface (version.txt)
-VERSION_MAJOR ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py 1)
-VERSION_MINOR ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py 2)
-
 # THRESHOLD problem size (M x N x K) determining when to use BLAS
 # A value of zero (0) populates a default threshold
 THRESHOLD ?= 0
 
-# Generates M,N,K-combinations for each comma separated group e.g., "1, 2, 3" gnerates (1,1,1), (2,2,2),
+# Generates M,N,K-combinations for each comma separated group e.g., "1, 2, 3" generates (1,1,1), (2,2,2),
 # and (3,3,3). This way a heterogeneous set can be generated e.g., "1 2, 3" generates (1,1,1), (1,1,2),
 # (1,2,1), (1,2,2), (2,1,1), (2,1,2) (2,2,1) out of the first group, and a (3,3,3) for the second group
 # To generate a series of square matrices one can specify e.g., make MNK=$(echo $(seq -s, 1 5))
@@ -210,6 +203,10 @@ EXCLUDE_STATE = BLAS_WARNING PREFIX
 # include common Makefile artifacts
 include $(ROOTDIR)/Makefile.inc
 
+# Version numbers according to interface (version.txt)
+VERSION_MAJOR ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py 1)
+VERSION_MINOR ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py 2)
+
 # target library for a broad range of systems
 ifneq (0,$(JIT))
 ifeq (file,$(origin AVX))
@@ -267,7 +264,7 @@ HEADERS = $(wildcard $(SRCDIR)/template/*.c) $(wildcard $(SRCDIR)/*.h) \
           $(ROOTDIR)/include/libxs_timer.h \
           $(ROOTDIR)/include/libxs_typedefs.h
 SRCFILES_LIB = $(patsubst %,$(SRCDIR)/%, \
-          libxs_main.c libxs_cpuid_x86.c libxs_malloc.c \
+          libxs_main.c libxs_cpuid_x86.c libxs_malloc.c libxs_python.c \
           libxs_sync.c libxs_mhd.c libxs_timer.c libxs_perf.c \
           libxs_gemm.c libxs_trans.c libxs_bgemm.c \
           libxs_spmdm.c libxs_fsspmdm.c \
@@ -711,7 +708,7 @@ $(foreach OBJ,$(EXTOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   -mmic $(EXTCFLAGS) $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_MIC),$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
-  -mmic $(NOBLAS_CFLAGS) $(NOBLAS_DFLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
+  -mmic $(NOBLAS_CFLAGS) $(NOBLAS_FLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
 endif
 endif
 
@@ -744,7 +741,7 @@ $(foreach OBJ,$(OBJFILES_GEN_CONV_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_HST),$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
-  $(CTARGET) $(NOBLAS_CFLAGS) $(NOBLAS_DFLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
+  $(CTARGET) $(NOBLAS_CFLAGS) $(NOBLAS_FLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
 
 .PHONY: compile_mic
 ifneq (0,$(MIC))

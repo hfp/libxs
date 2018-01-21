@@ -234,6 +234,7 @@
 # endif
   /* Lock type, initialization, destruction, (try-)lock, unlock, etc */
 # define LIBXS_LOCK_ACQUIRED(KIND) LIBXS_CONCATENATE(LIBXS_LOCK_ACQUIRED_, KIND)
+# define LIBXS_LOCK_TYPE_ISPOD(KIND) LIBXS_CONCATENATE(LIBXS_LOCK_TYPE_ISPOD_, KIND)
 # define LIBXS_LOCK_TYPE(KIND) LIBXS_CONCATENATE(LIBXS_LOCK_TYPE_, KIND)
 # define LIBXS_LOCK_INIT(KIND, LOCK, ATTR) LIBXS_CONCATENATE(LIBXS_LOCK_INIT_, KIND)(LOCK, ATTR)
 # define LIBXS_LOCK_DESTROY(KIND, LOCK) LIBXS_CONCATENATE(LIBXS_LOCK_DESTROY_, KIND)(LOCK)
@@ -271,6 +272,7 @@
 #     define LIBXS_LOCK_ACQUIRED_spin TRUE
 #   endif
 #   if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#     define LIBXS_LOCK_TYPE_ISPOD_spin 0
 #     define LIBXS_LOCK_TYPE_spin CRITICAL_SECTION
 #     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) InitializeCriticalSection(LOCK)
 #     define LIBXS_LOCK_DESTROY_spin(LOCK) DeleteCriticalSection((LIBXS_LOCK_TYPE_spin*)(LOCK))
@@ -288,6 +290,7 @@
 #     define LIBXS_LOCK_ACQUIRED_mutex WAIT_OBJECT_0
 #   endif
 #   if defined(LIBXS_LOCK_SYSTEM_MUTEX) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#     define LIBXS_LOCK_TYPE_ISPOD_mutex 0
 #     define LIBXS_LOCK_TYPE_mutex HANDLE
 #     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) (*(LOCK) = CreateMutex(*(ATTR), FALSE, NULL))
 #     define LIBXS_LOCK_DESTROY_mutex(LOCK) CloseHandle(*(LOCK))
@@ -305,6 +308,7 @@
 #     define LIBXS_LOCK_ACQUIRED_rwlock TRUE
 #   endif
 #   if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#     define LIBXS_LOCK_TYPE_ISPOD_rwlock 1
 #     define LIBXS_LOCK_TYPE_rwlock SRWLOCK
 #     define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) InitializeSRWLock(LOCK)
 #     define LIBXS_LOCK_DESTROY_rwlock(LOCK) LIBXS_UNUSED(LOCK)
@@ -340,6 +344,7 @@
 #     define LIBXS_LOCK_ACQUIRED_spin 0
 #   endif
 #   if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#     define LIBXS_LOCK_TYPE_ISPOD_spin 0
 #     define LIBXS_LOCK_TYPE_spin pthread_spinlock_t
 #     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) LIBXS_EXPECT(0, pthread_spin_init(LOCK, *(ATTR)))
 #     define LIBXS_LOCK_DESTROY_spin(LOCK) LIBXS_EXPECT(0, pthread_spin_destroy(LOCK))
@@ -357,6 +362,7 @@
 #     define LIBXS_LOCK_ACQUIRED_mutex 0
 #   endif
 #   if defined(LIBXS_LOCK_SYSTEM_MUTEX) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#     define LIBXS_LOCK_TYPE_ISPOD_mutex 0
 #     define LIBXS_LOCK_TYPE_mutex pthread_mutex_t
 #     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) LIBXS_EXPECT(0, pthread_mutex_init(LOCK, ATTR))
 #     define LIBXS_LOCK_DESTROY_mutex(LOCK) LIBXS_EXPECT(0, pthread_mutex_destroy(LOCK))
@@ -380,6 +386,7 @@
 #     define LIBXS_LOCK_ACQUIRED_rwlock 0
 #   endif
 #   if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#     define LIBXS_LOCK_TYPE_ISPOD_rwlock 0
 #     define LIBXS_LOCK_TYPE_rwlock pthread_rwlock_t
 #     define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) LIBXS_EXPECT(0, pthread_rwlock_init(LOCK, ATTR))
 #     define LIBXS_LOCK_DESTROY_rwlock(LOCK) LIBXS_EXPECT(0, pthread_rwlock_destroy(LOCK))
@@ -402,6 +409,7 @@
 # endif
 # if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
 #   if 1 /* directly based on atomic primitives */
+#     define LIBXS_LOCK_TYPE_ISPOD_spin 1
 #     define LIBXS_LOCK_TYPE_spin volatile char
 #     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) (*(LOCK) = 0)
 #     define LIBXS_LOCK_DESTROY_spin(LOCK) LIBXS_UNUSED(LOCK)
@@ -415,6 +423,7 @@
 #     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
 #     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
 #   else /* rely on LIBXS's portable locks */
+#     define LIBXS_LOCK_TYPE_ISPOD_spin 0
 #     define LIBXS_LOCK_TYPE_spin libxs_spinlock*
 #     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) (*(LOCK) = libxs_spinlock_create())
 #     define LIBXS_LOCK_DESTROY_spin(LOCK) libxs_spinlock_destroy(*(LOCK))
@@ -430,6 +439,7 @@
 #   endif
 # elif defined(_OPENMP) && defined(LIBXS_OMP)
 #   define LIBXS_LOCK_ACQUIRED_spin 1
+#   define LIBXS_LOCK_TYPE_ISPOD_spin 0
 #   define LIBXS_LOCK_TYPE_spin omp_lock_t
 #   define LIBXS_LOCK_INIT_spin(LOCK, ATTR) omp_init_lock(LOCK)
 #   define LIBXS_LOCK_DESTROY_spin(LOCK) omp_destroy_lock(LOCK)
@@ -444,6 +454,7 @@
 #   define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
 # endif
 # if !defined(LIBXS_LOCK_SYSTEM_MUTEX)
+#   define LIBXS_LOCK_TYPE_ISPOD_mutex 0
 #   define LIBXS_LOCK_TYPE_mutex libxs_mutex*
 #   define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) (*(LOCK) = libxs_mutex_create())
 #   define LIBXS_LOCK_DESTROY_mutex(LOCK) libxs_mutex_destroy(*(LOCK))
@@ -458,6 +469,7 @@
 #   define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_UNUSED(ATTR)
 # elif defined(_OPENMP) && defined(LIBXS_OMP)
 #   define LIBXS_LOCK_ACQUIRED_mutex 1
+#   define LIBXS_LOCK_TYPE_ISPOD_mutex 0
 #   define LIBXS_LOCK_TYPE_mutex omp_lock_t
 #   define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) omp_init_lock(LOCK)
 #   define LIBXS_LOCK_DESTROY_mutex(LOCK) omp_destroy_lock(LOCK)
@@ -472,6 +484,7 @@
 #   define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_UNUSED(ATTR)
 # endif
 # if !defined(LIBXS_LOCK_SYSTEM_RWLOCK)
+#   define LIBXS_LOCK_TYPE_ISPOD_rwlock 0
 #   define LIBXS_LOCK_TYPE_rwlock libxs_rwlock*
 #   define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) (*(LOCK) = libxs_rwlock_create())
 #   define LIBXS_LOCK_DESTROY_rwlock(LOCK) libxs_rwlock_destroy(*(LOCK))
@@ -486,6 +499,7 @@
 #   define LIBXS_LOCK_ATTR_DESTROY_rwlock(ATTR) LIBXS_UNUSED(ATTR)
 # elif defined(_OPENMP) && defined(LIBXS_OMP)
 #   define LIBXS_LOCK_ACQUIRED_rwlock 1
+#   define LIBXS_LOCK_TYPE_ISPOD_rwlock 0
 #   define LIBXS_LOCK_TYPE_rwlock omp_lock_t
 #   define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) omp_init_lock(LOCK)
 #   define LIBXS_LOCK_DESTROY_rwlock(LOCK) omp_destroy_lock(LOCK)

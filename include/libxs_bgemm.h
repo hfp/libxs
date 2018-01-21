@@ -29,7 +29,7 @@
 #ifndef LIBXS_BGEMM_H
 #define LIBXS_BGEMM_H
 
-#include <libxs_frontend.h>
+#include "libxs_frontend.h"
 
 
 /** Denotes the BGEMM data order. */
