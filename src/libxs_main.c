@@ -68,6 +68,10 @@
 # define LIBXS_CAPACITY_CACHE 4
 #endif
 
+#if !defined(LIBXS_CODE_MAXSIZE)
+# define LIBXS_CODE_MAXSIZE 131072
+#endif
+
 /* flag fused into the memory address of a code version in case of non-JIT */
 #define LIBXS_CODE_STATIC (1ULL << (8 * sizeof(void*) - 1))
 /* flag fused into the memory address of a code version in case of collision */
@@ -153,7 +157,9 @@ typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 # endif
 # if (0 < INTERNAL_REGLOCK_MAXN)
 LIBXS_API_VARIABLE union LIBXS_RETARGETABLE {
+# if LIBXS_LOCK_TYPE_ISPOD(LIBXS_LOCK_DEFAULT)
   char pad[LIBXS_CACHELINE];
+# endif
   LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT) state;
 } internal_reglock[INTERNAL_REGLOCK_MAXN];
 # else /* RW-lock */
@@ -1075,12 +1081,12 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
 
   /* large enough temporary buffer for generated code */
 #if defined(NDEBUG)
-  char jit_buffer[131072];
+  char jit_buffer[LIBXS_CODE_MAXSIZE];
   generated_code.generated_code = jit_buffer;
   generated_code.buffer_size = sizeof(jit_buffer);
 #else
-  generated_code.generated_code = malloc(131072);
-  generated_code.buffer_size = (0 != generated_code.generated_code ? 131072 : 0);
+  generated_code.generated_code = malloc(LIBXS_CODE_MAXSIZE);
+  generated_code.buffer_size = (0 != generated_code.generated_code ? LIBXS_CODE_MAXSIZE : 0);
 #endif
   /* setup code generation */
   generated_code.code_type = 2;
@@ -1915,9 +1921,7 @@ LIBXS_API_DEFINITION libxs_xmatcopyfunction libxs_xmatcopydispatch(const libxs_m
 LIBXS_API_DEFINITION libxs_xtransfunction libxs_xtransdispatch(const libxs_transpose_descriptor* descriptor)
 {
   libxs_xtransfunction result = { 0 };
-  if (0 != descriptor && /* basic sanity check against LIBXS_TRANS_THRESHOLD */
-     (descriptor->m * descriptor->n) <= (LIBXS_TRANS_THRESHOLD))
-  {
+  if (0 != descriptor && 0 != LIBXS_TRANS_NO_BYPASS_DIMS(descriptor->m, descriptor->n, descriptor->ldo)) {
     libxs_kernel_info query = { { 0 } };
     assert(LIBXS_SIZEOF(descriptor, &descriptor->typesize) < sizeof(query));
     LIBXS_INIT

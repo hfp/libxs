@@ -39,9 +39,7 @@
 # endif
 #endif
 
-#if !defined(LIBXS_TRANS_THRESHOLD)
-# define LIBXS_TRANS_THRESHOLD ((LIBXS_MAX_M) * (LIBXS_MAX_N))
-#endif
+#define LIBXS_TRANS_NO_BYPASS_DIMS(M, N, LDO) (((unsigned int)(1U * (M) * (N))) <= ((LIBXS_AVG_M) * (LIBXS_AVG_N)))
 
 /* kernel uses consecutive stores and consecutive loads (copy) */
 #define LIBXS_MCOPY_KERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, INDEX_I, INDEX_J, SRC, DST) \

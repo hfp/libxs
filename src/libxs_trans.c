@@ -143,7 +143,6 @@ LIBXS_API_DEFINITION int libxs_matcopy_thread(void* out, const void* in, unsigne
         m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
         n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
       }
-      assert(((tid + 1) != nthreads) || (m1 == m && n1 == n));
       if (0 != prefetch && 0 != *prefetch) { /* prefetch */
         LIBXS_XCOPY(
           LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
@@ -245,7 +244,7 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
       libxs_transpose_descriptor descriptor = { 0 };
       const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
       const unsigned int size = (unsigned int)(1U * m * n);
-      if ((LIBXS_TRANS_THRESHOLD) < size) { /* tiled transpose */
+      if (0 == LIBXS_TRANS_NO_BYPASS_DIMS(m, n, ldo)) { /* tiled transpose */
         const int tindex = (4 < typesize ? 0 : 1), index = LIBXS_MIN(LIBXS_SQRT2(size) >> 10, 7);
         libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
         int mtasks;
@@ -270,7 +269,6 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
           m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
           n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
         }
-        assert(((tid + 1) != nthreads) || (m1 == m && n1 == n));
         LIBXS_XCOPY(
           LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
           LIBXS_TCOPY_KERNEL, LIBXS_TCOPY_CALL, xtrans, out, in,

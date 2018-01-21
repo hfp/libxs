@@ -29,7 +29,7 @@
 #ifndef LIBXS_SPMDM_H
 #define LIBXS_SPMDM_H
 
-#include <libxs_macros.h>
+#include "libxs_macros.h"
 
 
 typedef enum libxs_spmdm_datatype {
