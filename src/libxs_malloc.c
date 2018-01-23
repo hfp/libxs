@@ -622,7 +622,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
 # if defined(MAP_NORESERVE)
           | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? MAP_NORESERVE : 0)
 # endif
-# if defined(MAP_32BIT)
+# if defined(MAP_32BIT) && /*may fail*/0
           | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? MAP_32BIT : 0)
 # endif
 # if defined(MAP_HUGETLB) /* may fail depending on system settings */
@@ -655,10 +655,23 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
           buffer = mmap(0, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | xflags, -1, 0);
         }
         else {
-          static LIBXS_TLS int fallback = -1;
+          static /*LIBXS_TLS*/ int fallback = -1;
           if (0 > fallback) { /* initialize fall-back allocation method */
             const char *const env = getenv("LIBXS_SE");
-            fallback = (0 == env || 0 == *env || 0 != atoi(env)) ? LIBXS_MALLOC_FALLBACK : 4;
+            int sevalue = 0;
+            if (0 == env || 0 == *env) {
+              FILE *const selinux = fopen("/sys/fs/selinux/enforce", "rb");
+              if (0 != selinux) {
+                if (1 != fread(&sevalue, sizeof(int), 1/*count*/, selinux)) {
+                  sevalue = 1; /* conservative assumption in case of an error */
+                }
+                fclose(selinux);
+              }
+            }
+            else { /* user's choice takes precedence */
+              sevalue = atoi(env);
+            }
+            fallback = (0 == sevalue ? 4 : LIBXS_MALLOC_FALLBACK);
           }
           if (0 == fallback) {
             buffer = internal_xmap("/tmp", alloc_size, xflags, &reloc);
