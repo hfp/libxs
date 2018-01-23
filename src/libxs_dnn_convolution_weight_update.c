@@ -1472,74 +1472,23 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
 
   /* check if we have a kernel JITed */
   if (handle->code_upd[0].xconv.sconv == 0) {
-#if 0
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
-      if (handle->padding_flag == 1) {
-#define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_fallback.tpl.c"
-#undef INPUT_PADDING
-      } else {
-# include "template/libxs_dnn_convolve_st_upd_custom_custom_fallback.tpl.c"
-      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-#endif
   }
   else {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      if (handle->upd_use_thread_fil > 0) {
-        typedef float element_input_type;
-        typedef float element_output_type;
-        typedef float element_filter_type;
-        typedef libxs_sconvfunction libxs_convfunction;
-        if (handle->padding_flag == 1) {
-#define INPUT_PADDING
-#define LIBXS_WU_PER_THREAD_ALLOCATION
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
+      typedef libxs_sconvfunction libxs_convfunction;
 # include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
-#undef LIBXS_WU_PER_THREAD_ALLOCATION
-#undef INPUT_PADDING
-        } else {
-#define LIBXS_WU_PER_THREAD_ALLOCATION
-# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
-#undef LIBXS_WU_PER_THREAD_ALLOCATION
-        }
-      }
-#if 1
-      else {
-        typedef float element_input_type;
-        typedef float element_output_type;
-        typedef float element_filter_type;
-        typedef libxs_sconvfunction libxs_convfunction;
-        if (handle->padding_flag == 1) {
-#define INPUT_PADDING
-          if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM)
-              && (handle->desc.v == 1) && (handle->upd_ofw_rb%4 == 0) )
-          {
-#define LIBXS_WU_TRANSPOSE_OFW_IFM
-# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
-#undef LIBXS_WU_TRANSPOSE_OFW_IFM
-          } else {
-# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
-          }
-#undef INPUT_PADDING
-        } else {
-          if ( (libxs_target_archid == LIBXS_X86_AVX512_KNM)
-              && (handle->desc.v == 1) && (handle->upd_ofw_rb%4 == 0) )
-          {
-#define LIBXS_WU_TRANSPOSE_OFW_IFM
-# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
-#undef LIBXS_WU_TRANSPOSE_OFW_IFM
-          } else {
-# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
-          }
-        }
-      }
-#endif
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       if (handle->upd_use_thread_fil > 0) {
         typedef short element_input_type;
@@ -1552,20 +1501,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
           } else {
 #include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_opt_lp.tpl.c"
           }
-        } 
-#if 0
-        if (handle->padding_flag == 1) {
-#define INPUT_PADDING
-#define LIBXS_WU_PER_THREAD_ALLOCATION
-# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
-#undef LIBXS_WU_PER_THREAD_ALLOCATION
-#undef INPUT_PADDING
-        } else {
-#define LIBXS_WU_PER_THREAD_ALLOCATION
-# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
-#undef LIBXS_WU_PER_THREAD_ALLOCATION
         }
-#endif
       }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -1593,81 +1529,21 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_d
     return status;
   }
 
-#if 1
-  /* @TODO FIXME */
-  printf("no nhwc_rsck update\n");
-  return(-1);
-#else
   /* check if we have a kernel JITed */
   if (handle->code_upd[0].xconv.sconv == 0) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
-      if (handle->padding_flag == 1) {
-#define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_upd_nhwc_rsck_fallback.tpl.c"
-#undef INPUT_PADDING
-      } else {
-# include "template/libxs_dnn_convolve_st_upd_nhwc_rsck_fallback.tpl.c"
-      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
   }
   else {
-    if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      if (handle->upd_use_thread_fil > 0) {
-        typedef float element_input_type;
-        typedef float element_output_type;
-        typedef float element_filter_type;
-        typedef libxs_sconvfunction libxs_convfunction;
-        if (handle->padding_flag == 1) {
-#define LIBXS_WU_PER_THREAD_ALLOCATION
-#define INPUT_PADDING
-# include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
-#undef INPUT_PADDING
-#undef LIBXS_WU_PER_THREAD_ALLOCATION
-        } else {
-#define LIBXS_WU_PER_THREAD_ALLOCATION
-# include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
-#undef LIBXS_WU_PER_THREAD_ALLOCATION
-        }
-      }
-      else {
-        typedef float element_input_type;
-        typedef float element_output_type;
-        typedef float element_filter_type;
-        typedef libxs_sconvfunction libxs_convfunction;
-        if (handle->padding_flag == 1) {
-#define INPUT_PADDING
-          if ( libxs_target_archid == LIBXS_X86_AVX512_KNM )
-          {
-#define LIBXS_WU_TRANSPOSE_OFW_IFM
-# include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
-#undef LIBXS_WU_TRANSPOSE_OFW_IFM
-          } else {
-# include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
-          }
-#undef INPUT_PADDING
-        } else {
-          if ( libxs_target_archid == LIBXS_X86_AVX512_KNM )
-          {
-#define LIBXS_WU_TRANSPOSE_OFW_IFM
-# include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
-#undef LIBXS_WU_TRANSPOSE_OFW_IFM
-          } else {
-# include "template/libxs_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
-          }
-        }
-      }
-    } else {
-      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-      return status;
-    }
+    /* shouldn't happen */
   }
-#endif
 
   return status;
 }
@@ -1689,81 +1565,32 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs
     return status;
   }
 
-#if 1
-  /* @TODO FIXME */
-  printf("no nhwc_custom update\n");
-  return(-1);
-#else
   /* check if we have a kernel JITed */
   if (handle->code_upd[0].xconv.sconv == 0) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
-      if (handle->padding_flag == 1) {
-#define INPUT_PADDING
 # include "template/libxs_dnn_convolve_st_upd_nhwc_custom_fallback.tpl.c"
-#undef INPUT_PADDING
-      } else {
-# include "template/libxs_dnn_convolve_st_upd_nhwc_custom_fallback.tpl.c"
-      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
   }
   else {
+#if 0
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      if (handle->upd_use_thread_fil > 0) {
-        typedef float element_input_type;
-        typedef float element_output_type;
-        typedef float element_filter_type;
-        typedef libxs_sconvfunction libxs_convfunction;
-        if (handle->padding_flag == 1) {
-#define INPUT_PADDING
-#define LIBXS_WU_PER_THREAD_ALLOCATION
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
+      typedef libxs_sconvfunction libxs_convfunction;
 # include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
-#undef LIBXS_WU_PER_THREAD_ALLOCATION
-#undef INPUT_PADDING
-        } else {
-#define LIBXS_WU_PER_THREAD_ALLOCATION
-# include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
-#undef LIBXS_WU_PER_THREAD_ALLOCATION
-        }
-      }
-      else {
-        typedef float element_input_type;
-        typedef float element_output_type;
-        typedef float element_filter_type;
-        typedef libxs_sconvfunction libxs_convfunction;
-        if (handle->padding_flag == 1) {
-#define INPUT_PADDING
-          if ( libxs_target_archid == LIBXS_X86_AVX512_KNM )
-          {
-#define LIBXS_WU_TRANSPOSE_OFW_IFM
-# include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
-#undef LIBXS_WU_TRANSPOSE_OFW_IFM
-          } else {
-# include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
-          }
-#undef INPUT_PADDING
-        } else {
-          if ( libxs_target_archid == LIBXS_X86_AVX512_KNM )
-          {
-#define LIBXS_WU_TRANSPOSE_OFW_IFM
-# include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
-#undef LIBXS_WU_TRANSPOSE_OFW_IFM
-          } else {
-# include "template/libxs_dnn_convolve_st_upd_nhwc_custom.tpl.c"
-          }
-        }
-      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  }
 #endif
+  }
 
   return status;
 }
