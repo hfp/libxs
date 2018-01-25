@@ -224,7 +224,6 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
     handle->ofw = (conv_desc.W + 2*conv_desc.pad_w - conv_desc.S) / conv_desc.v + 1;
     handle->ofhp = handle->ofh + 2*conv_desc.pad_h_out;
     handle->ofwp = handle->ofw + 2*conv_desc.pad_w_out;
-    handle->avx512avx2fallback = 0;
     handle->ifmblock = 1;
     handle->ofmblock = 1;
     handle->blocksifm = conv_desc.C;
@@ -296,7 +295,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dn
     if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
           libxs_target_archid == LIBXS_X86_AVX512_KNM  ||
           libxs_target_archid == LIBXS_X86_AVX512_CORE ||
-          libxs_target_archid == LIBXS_X86_AVX512_ICL    ) && (handle->avx512avx2fallback == 0) ) {
+          libxs_target_archid == LIBXS_X86_AVX512_ICL    ) ) {
       if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
         libxs_free(handle->code_fwd[0].pmm);
       }
@@ -320,19 +319,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dn
         libxs_free(handle->code_upd[3].pmm);
         libxs_free(handle->code_upd[4].pmm);
         libxs_free(handle->code_upd[5].pmm);
-      }
-    } else if ( (libxs_target_archid == LIBXS_X86_AVX2) || (handle->avx512avx2fallback != 0) ) {
-      if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
-        libxs_free(handle->code_fwd[0].pmm);
-      }
-      if (handle->fwd_ofw_rb_2 != 0) {
-        libxs_free(handle->code_fwd[1].pmm);
-      }
-      if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
-        libxs_free(handle->code_bwd[0].pmm);
-      }
-      if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
-        libxs_free(handle->code_upd[0].pmm);
       }
     } else {
       /* no kernel was JITed */
