@@ -75,10 +75,9 @@
 #define LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH) ((MAJOR) * 100000000 + (MINOR) * 1000000 + (UPDATE) * 10000 + (PATCH))
 
 #if defined(__cplusplus)
-# define LIBXS_API_INLINE LIBXS_EXTERN LIBXS_INLINE LIBXS_RETARGETABLE
-# define LIBXS_API_INTERN LIBXS_EXTERN LIBXS_RETARGETABLE
 # define LIBXS_VARIADIC ...
 # define LIBXS_EXTERN extern "C"
+# define LIBXS_EXTERN_C LIBXS_EXTERN
 # define LIBXS_INLINE_KEYWORD inline
 # define LIBXS_INLINE LIBXS_INLINE_KEYWORD
 # if defined(__GNUC__)
@@ -89,10 +88,9 @@
 #   define LIBXS_CALLER __FUNCNAME__
 # endif
 #else
-# define LIBXS_API_INLINE LIBXS_INLINE LIBXS_RETARGETABLE
-# define LIBXS_API_INTERN LIBXS_RETARGETABLE
 # define LIBXS_VARIADIC
 # define LIBXS_EXTERN extern
+# define LIBXS_EXTERN_C
 # if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
 #   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
 #   define LIBXS_CALLER __func__
@@ -115,23 +113,29 @@
 # define LIBXS_CALLER NULL
 #endif
 
-#define LIBXS_VARIABLE LIBXS_RETARGETABLE
-#if defined(LIBXS_BUILD_EXT)
-# define LIBXS_API_VARIABLE LIBXS_EXTERN LIBXS_VARIABLE
+#if defined(LIBXS_OFFLOAD_BUILD) && \
+  defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
+# define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
+# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) ((RTYPE (*)(LIBXS_VARIADIC))(FN))(__VA_ARGS__)
+# if !defined(LIBXS_OFFLOAD_TARGET)
+#   define LIBXS_OFFLOAD_TARGET mic
+# endif
 #else
-# define LIBXS_API_VARIABLE LIBXS_VARIABLE
+# define LIBXS_OFFLOAD(A)
+# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) (FN)(__VA_ARGS__)
 #endif
+#define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
 
 #if !defined(LIBXS_INTERNAL_API)
-# if defined(__cplusplus)
-#   define LIBXS_INTERNAL_API extern "C"
-# else
-#   define LIBXS_INTERNAL_API
-# endif
+# define LIBXS_INTERNAL_API LIBXS_EXTERN_C
 #endif
 #if !defined(LIBXS_INTERNAL_API_DEFINITION)
 # define LIBXS_INTERNAL_API_DEFINITION LIBXS_INTERNAL_API
 #endif
+
+#define LIBXS_API_INLINE LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INLINE
+#define LIBXS_API_INTERN LIBXS_INTERNAL_API LIBXS_RETARGETABLE
+#define LIBXS_API_VARIABLE(VARDECL) LIBXS_EXTERN_C LIBXS_RETARGETABLE VARDECL; LIBXS_RETARGETABLE VARDECL
 
 #define LIBXS_API LIBXS_INTERNAL_API LIBXS_RETARGETABLE
 #define LIBXS_API_DEFINITION LIBXS_INTERNAL_API_DEFINITION LIBXS_RETARGETABLE
@@ -438,16 +442,20 @@
 
 #if defined(_WIN32)
 # define LIBXS_SNPRINTF(S, N, ...) _snprintf_s(S, N, _TRUNCATE, __VA_ARGS__)
-# define LIBXS_FLOCK(FILE) _lock_file(FILE)
-# define LIBXS_FUNLOCK(FILE) _unlock_file(FILE)
 # define setenv(NAME, VALUE, OVERWRITE) _putenv(NAME "=" VALUE)
+#elif defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__ || defined(__GNUC__))
+# define LIBXS_SNPRINTF(S, N, ...) snprintf(S, N, __VA_ARGS__)
 #else
-# if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__ || defined(__GNUC__))
-#   define LIBXS_SNPRINTF(S, N, ...) snprintf(S, N, __VA_ARGS__)
-# else
-#   define LIBXS_SNPRINTF(S, N, ...) sprintf(S, __VA_ARGS__); LIBXS_UNUSED(N)
-# endif
-# if !defined(__CYGWIN__)
+# define LIBXS_SNPRINTF(S, N, ...) sprintf(S, __VA_ARGS__); LIBXS_UNUSED(N)
+#endif
+#if defined(LIBXS_NO_SYNC)
+# define LIBXS_FLOCK(FILE)
+# define LIBXS_FUNLOCK(FILE)
+#else
+# if defined(_WIN32)
+#   define LIBXS_FLOCK(FILE) _lock_file(FILE)
+#   define LIBXS_FUNLOCK(FILE) _unlock_file(FILE)
+# elif !defined(__CYGWIN__)
 #   define LIBXS_FLOCK(FILE) flockfile(FILE)
 #   define LIBXS_FUNLOCK(FILE) funlockfile(FILE)
 # else /* Only available with __CYGWIN__ *and* C++0x. */
@@ -493,11 +501,15 @@
 #     define __STATIC
 #   endif
 # endif
+#else
 #endif
 #if defined(__GNUC__)
 # if !defined(_GNU_SOURCE)
 #   define _GNU_SOURCE
 # endif
+#endif
+#if !defined(__STDC_FORMAT_MACROS)
+# define __STDC_FORMAT_MACROS
 #endif
 #if defined(__clang__) && !defined(__extern_always_inline)
 # define __extern_always_inline LIBXS_INLINE
@@ -516,19 +528,6 @@
   || (defined(__INTEL_COMPILER) && defined(__INTEL_COMPILER_UPDATE) && (1801 > ((__INTEL_COMPILER) + (__INTEL_COMPILER_UPDATE)))))
 # define _Float128 __float128
 #endif
-
-#if defined(LIBXS_OFFLOAD_BUILD) && \
-  defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
-# define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
-# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) ((RTYPE (*)(LIBXS_VARIADIC))(FN))(__VA_ARGS__)
-# if !defined(LIBXS_OFFLOAD_TARGET)
-#   define LIBXS_OFFLOAD_TARGET mic
-# endif
-#else
-# define LIBXS_OFFLOAD(A)
-# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) (FN)(__VA_ARGS__)
-#endif
-#define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))

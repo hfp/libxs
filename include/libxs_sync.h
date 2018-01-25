@@ -154,9 +154,8 @@
 #     define LIBXS_ATOMIC_SYNC(KIND) __atomic_thread_fence(KIND)
 #   else /* GCC legacy atomics */
 #     define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __sync_or_and_fetch(SRC_PTR, 0)
-#     define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) while (*(DST_PTR) != (VALUE)) \
-        if (0/*false*/ != __sync_bool_compare_and_swap(DST_PTR, *(DST_PTR), VALUE)) break
-#     define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) __sync_and_and_fetch(DST_PTR, 0)
+#     define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) __sync_bool_compare_and_swap(DST_PTR, *(DST_PTR), VALUE)
+#     define LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND) if(__sync_and_and_fetch(DST_PTR, 0))
 #     define LIBXS_ATOMIC_FETCH_OR(DST_PTR, VALUE, KIND) __sync_fetch_and_or(DST_PTR, VALUE)
 #     define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) __sync_add_and_fetch(DST_PTR, VALUE)
 #     define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) __sync_sub_and_fetch(DST_PTR, VALUE)
@@ -537,7 +536,7 @@
 
 
 /** Opaque type which represents a barrier. */
-typedef struct LIBXS_RETARGETABLE libxs_barrier libxs_barrier;
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_barrier libxs_barrier;
 
 /** Create barrier from one of the threads. */
 LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core);
@@ -551,7 +550,7 @@ LIBXS_API void libxs_barrier_destroy(const libxs_barrier* barrier);
 #define libxs_barrier_release libxs_barrier_destroy
 
 /** Spin-lock, which eventually differs from LIBXS_LOCK_TYPE(LIBXS_LOCK_SPINLOCK). */
-typedef struct LIBXS_RETARGETABLE libxs_spinlock libxs_spinlock;
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_spinlock libxs_spinlock;
 LIBXS_API libxs_spinlock* libxs_spinlock_create(void);
 LIBXS_API void libxs_spinlock_destroy(const libxs_spinlock* spinlock);
 LIBXS_API int libxs_spinlock_trylock(libxs_spinlock* spinlock);
@@ -559,7 +558,7 @@ LIBXS_API void libxs_spinlock_acquire(libxs_spinlock* spinlock);
 LIBXS_API void libxs_spinlock_release(libxs_spinlock* spinlock);
 
 /** Mutual-exclusive lock (Mutex), which eventually differs from LIBXS_LOCK_TYPE(LIBXS_LOCK_MUTEX). */
-typedef struct LIBXS_RETARGETABLE libxs_mutex libxs_mutex;
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_mutex libxs_mutex;
 LIBXS_API libxs_mutex* libxs_mutex_create(void);
 LIBXS_API void libxs_mutex_destroy(const libxs_mutex* mutex);
 LIBXS_API int libxs_mutex_trylock(libxs_mutex* mutex);
@@ -567,7 +566,7 @@ LIBXS_API void libxs_mutex_acquire(libxs_mutex* mutex);
 LIBXS_API void libxs_mutex_release(libxs_mutex* mutex);
 
 /** Reader-Writer lock (RW-lock), which eventually differs from LIBXS_LOCK_TYPE(LIBXS_LOCK_RWLOCK). */
-typedef struct LIBXS_RETARGETABLE libxs_rwlock libxs_rwlock;
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_rwlock libxs_rwlock;
 LIBXS_API libxs_rwlock* libxs_rwlock_create(void);
 LIBXS_API void libxs_rwlock_destroy(const libxs_rwlock* rwlock);
 LIBXS_API int libxs_rwlock_trylock(libxs_rwlock* rwlock);

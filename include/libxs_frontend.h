@@ -120,21 +120,21 @@ typedef LIBXS_BLASINT libxs_blasint;
 #endif
 
 /** GEMM: fall-back prototype functions served by any compliant LAPACK/BLAS. */
-typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
   const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const float*, const float*, const libxs_blasint*, const float*, const libxs_blasint*,
   const float*, float*, const libxs_blasint*);
-typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
   const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
   const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
   const double*, double*, const libxs_blasint*);
 
 /** GEMV: fall-back prototype functions served by any compliant LAPACK/BLAS. */
-typedef LIBXS_RETARGETABLE void(*libxs_sgemv_function)(
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void(*libxs_sgemv_function)(
   const char*, const libxs_blasint*, const libxs_blasint*,
   const float*, const float*, const libxs_blasint*, const float*, const libxs_blasint*,
   const float*, float*, const libxs_blasint*);
-typedef LIBXS_RETARGETABLE void(*libxs_dgemv_function)(
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void(*libxs_dgemv_function)(
   const char*, const libxs_blasint*, const libxs_blasint*,
   const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
   const double*, double*, const libxs_blasint*);
@@ -408,7 +408,7 @@ LIBXS_API void libxs_gemm_print(void* ostream,
  * Structure of differences with matrix norms according
  * to http://www.netlib.org/lapack/lug/node75.html).
  */
-typedef struct LIBXS_RETARGETABLE libxs_matdiff_info {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_matdiff_info {
   /** One-norm */         double norm1_abs, norm1_rel;
   /** Infinity-norm */    double normi_abs, normi_rel;
   /** Froebenius-norm */  double normf_rel;

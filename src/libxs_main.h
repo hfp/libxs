@@ -66,6 +66,13 @@
 # define LIBXS_MALLOC_SCRATCH_INTERNAL ((const void*)(LIBXS_MALLOC_SCRATCH_INTERNAL_SITE))
 #endif
 
+#if !defined(LIBXS_LOCK)
+# define LIBXS_LOCK LIBXS_LOCK_DEFAULT
+#endif
+#if !defined(LIBXS_REGLOCK)
+# define LIBXS_REGLOCK LIBXS_LOCK_DEFAULT
+#endif
+
 #if !defined(LIBXS_EXT_MIN_NTASKS)
 # define LIBXS_MIN_NTASKS(NT) 1
 #endif
@@ -86,7 +93,7 @@
 # define LIBXS_INIT
 #endif
 
-typedef union LIBXS_RETARGETABLE libxs_code_pointer {
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   void (*ptr_fn)(LIBXS_VARIADIC);
   const void* ptr_const;
   void* pmm;
@@ -100,21 +107,21 @@ typedef union LIBXS_RETARGETABLE libxs_code_pointer {
 #endif
 } libxs_code_pointer;
 
-typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
   const unsigned int* column_idx;
   const void* values;
 } libxs_csr_soa_descriptor;
 
-typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csc_soa_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csc_soa_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* column_ptr;
   const unsigned int* row_idx;
   const void* values;
 } libxs_csc_soa_descriptor;
 
-typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
   const unsigned int* column_idx;
@@ -122,20 +129,20 @@ typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
 } libxs_csr_reg_descriptor;
 
 /** Structure which describes all tensors in LIBXS's DNN module */
-struct LIBXS_RETARGETABLE libxs_dnn_tensor {
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_tensor {
   libxs_dnn_tensor_datalayout* layout;           /* data-layout descriptor */
   void* data;                                      /* pointer to data */
   unsigned char scf;                               /* fix point scaling factor for this tensor */
 };
 
 /* Structure to record segment in stream of code  */
-typedef struct LIBXS_RETARGETABLE segment_t {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE segment_t {
   int segment_type;
   int n_convs;
   int aux_index;
 } segment_t;
 
-struct LIBXS_RETARGETABLE libxs_dnn_layer {
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_datatype datatype_in;
   libxs_dnn_datatype datatype_out;
   libxs_dnn_conv_desc desc;
@@ -342,7 +349,7 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_TRANS
 } libxs_build_kind;
 
-typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_gemm_descriptor* gemm;
   const libxs_csr_soa_descriptor* srsoa;
   const libxs_csc_soa_descriptor* scsoa;
@@ -355,7 +362,7 @@ typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_transpose_descriptor* trans;
 } libxs_build_descriptor;
 
-typedef struct LIBXS_RETARGETABLE libxs_build_request {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
   libxs_build_descriptor descriptor;
   libxs_build_kind kind;
 } libxs_build_request;
@@ -379,17 +386,17 @@ LIBXS_API size_t libxs_lcm(size_t a, size_t b);
 LIBXS_API size_t libxs_alignment(size_t size, size_t alignment);
 
 /** Same as libxs_set_default_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
+LIBXS_API int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 /** Same as libxs_get_default_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
+LIBXS_API int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /** Same as libxs_set_scratch_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
+LIBXS_API int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 /** Same as libxs_get_scratch_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
+LIBXS_API int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /** Retrieve internal information about a buffer (default memory domain). */
@@ -416,7 +423,7 @@ LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
-typedef union LIBXS_RETARGETABLE libxs_kernel_info {
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_kernel_info {
   libxs_gemm_descriptor xgemm;
   libxs_matcopy_descriptor mcopy;
   libxs_transpose_descriptor trans;
@@ -436,38 +443,38 @@ LIBXS_API void libxs_dnn_init(int target_arch);
 LIBXS_API void libxs_dnn_finalize(void);
 
 /** Default attribute of internal locks. */
-LIBXS_API_VARIABLE LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK_DEFAULT) libxs_lock_attr_default;
+LIBXS_API_VARIABLE(LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK) libxs_lock_attr_default);
 /** Global lock; create an own lock for an independent domain. */
-LIBXS_API_VARIABLE LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT) libxs_lock_global;
+LIBXS_API_VARIABLE(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 /** Function used to allocate default memory. */
-LIBXS_API_VARIABLE libxs_malloc_function libxs_default_malloc_fn;
+LIBXS_API_VARIABLE(libxs_malloc_function libxs_default_malloc_fn);
 /** Function used to allocate scratch memory. */
-LIBXS_API_VARIABLE libxs_malloc_function libxs_scratch_malloc_fn;
+LIBXS_API_VARIABLE(libxs_malloc_function libxs_scratch_malloc_fn);
 /** Function used to release default memory. */
-LIBXS_API_VARIABLE libxs_free_function libxs_default_free_fn;
+LIBXS_API_VARIABLE(libxs_free_function libxs_default_free_fn);
 /** Function used to release scratch memory. */
-LIBXS_API_VARIABLE libxs_free_function libxs_scratch_free_fn;
+LIBXS_API_VARIABLE(libxs_free_function libxs_scratch_free_fn);
 /** If non-NULL, this context used for the context-form of the malloc/free function. */
-LIBXS_API_VARIABLE void* libxs_default_allocator_context;
+LIBXS_API_VARIABLE(void* libxs_default_allocator_context);
 /** If non-NULL, this context used for the context-form of the malloc/free function. */
-LIBXS_API_VARIABLE void* libxs_scratch_allocator_context;
+LIBXS_API_VARIABLE(void* libxs_scratch_allocator_context);
 /** Number of discovered threads (per libxs_get_tid) */
-LIBXS_API_VARIABLE unsigned int libxs_threads_count;
+LIBXS_API_VARIABLE(unsigned int libxs_threads_count);
 /** Number of scratch memory pools used; clamped against internal maximum. */
-LIBXS_API_VARIABLE unsigned int libxs_scratch_pools;
+LIBXS_API_VARIABLE(unsigned int libxs_scratch_pools);
 /** Maximum total size of the scratch memory domain. */
-LIBXS_API_VARIABLE size_t libxs_scratch_limit;
+LIBXS_API_VARIABLE(size_t libxs_scratch_limit);
 /** Growth factor used to scale the scratch memory in case of reallocation. */
-LIBXS_API_VARIABLE double libxs_scratch_scale;
+LIBXS_API_VARIABLE(double libxs_scratch_scale);
 /** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wall-clock) */
-LIBXS_API_VARIABLE double libxs_timer_scale;
+LIBXS_API_VARIABLE(double libxs_timer_scale);
 /** Verbosity level (0: quiet, 1: errors, 2: warnings, 3: info, neg.: all/dump). */
-LIBXS_API_VARIABLE int libxs_verbosity;
+LIBXS_API_VARIABLE(int libxs_verbosity);
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
-LIBXS_API_VARIABLE int libxs_target_archid;
+LIBXS_API_VARIABLE(int libxs_target_archid);
 /** Determines whether a threaded implementation is synchronized or not. */
-LIBXS_API_VARIABLE int libxs_nosync;
+LIBXS_API_VARIABLE(int libxs_nosync);
 /** Number of threads per core. */
-LIBXS_API_VARIABLE int libxs_nt;
+LIBXS_API_VARIABLE(int libxs_nt);
 
 #endif /*LIBXS_MAIN_H*/

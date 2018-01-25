@@ -56,18 +56,18 @@
 
 
 /* function pointer for the CPUID-dispatched implementation */
-LIBXS_API_VARIABLE void (*internal_spmdm_createSparseSlice_fp32_thread)(const libxs_spmdm_handle*, char,
-  const float*, libxs_CSR_sparseslice*, int, int, int);
-LIBXS_API_VARIABLE void (*internal_spmdm_createSparseSlice_bfloat16_thread)(const libxs_spmdm_handle*, char,
-  const uint16_t*, libxs_CSR_sparseslice*, int, int, int);
-LIBXS_API_VARIABLE void (*internal_spmdm_compute_fp32_thread)(const libxs_spmdm_handle*, char, char,
-  const float*, libxs_CSR_sparseslice*, const float*, char, const float*, float*, int, int, int);
-LIBXS_API_VARIABLE void (*internal_spmdm_compute_bfloat16_thread)(const libxs_spmdm_handle*, char, char,
-  const uint16_t*, libxs_CSR_sparseslice*, const uint16_t*, char, const uint16_t*, float*, int, int, int);
+LIBXS_API_VARIABLE(void (*internal_spmdm_createSparseSlice_fp32_thread)(const libxs_spmdm_handle*, char,
+  const float*, libxs_CSR_sparseslice*, int, int, int));
+LIBXS_API_VARIABLE(void (*internal_spmdm_createSparseSlice_bfloat16_thread)(const libxs_spmdm_handle*, char,
+  const uint16_t*, libxs_CSR_sparseslice*, int, int, int));
+LIBXS_API_VARIABLE(void (*internal_spmdm_compute_fp32_thread)(const libxs_spmdm_handle*, char, char,
+  const float*, libxs_CSR_sparseslice*, const float*, char, const float*, float*, int, int, int));
+LIBXS_API_VARIABLE(void (*internal_spmdm_compute_bfloat16_thread)(const libxs_spmdm_handle*, char, char,
+  const uint16_t*, libxs_CSR_sparseslice*, const uint16_t*, char, const uint16_t*, float*, int, int, int));
 
 #if defined(LIBXS_SPMDM_AVX)
-LIBXS_API_VARIABLE __m256i* internal_spmdm_shufmasks_32;
-LIBXS_API_VARIABLE __m256i* internal_spmdm_shufmasks_16;
+LIBXS_API_VARIABLE(__m256i* internal_spmdm_shufmasks_32);
+LIBXS_API_VARIABLE(__m256i* internal_spmdm_shufmasks_16);
 #endif
 
 

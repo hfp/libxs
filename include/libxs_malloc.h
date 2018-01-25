@@ -33,17 +33,17 @@
 
 
 /** Function types accepted for memory allocation (see libxs_*_allocator). */
-typedef LIBXS_RETARGETABLE void* (*libxs_malloc_ctx)(void* /*context*/, size_t /*size*/);
-typedef LIBXS_RETARGETABLE void* (*libxs_malloc_fun)(size_t /*size*/);
-typedef union LIBXS_RETARGETABLE libxs_malloc_function {
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void* (*libxs_malloc_ctx)(void* /*context*/, size_t /*size*/);
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void* (*libxs_malloc_fun)(size_t /*size*/);
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_malloc_function {
   libxs_malloc_ctx ctx_form;
   libxs_malloc_fun function;
 } libxs_malloc_function;
 
 /** Function types accepted for releasing memory (see libxs_*_allocator). */
-typedef LIBXS_RETARGETABLE void (*libxs_free_ctx)(void* /*context*/, void* /*buffer*/);
-typedef LIBXS_RETARGETABLE void (*libxs_free_fun)(void* /*buffer*/);
-typedef union LIBXS_RETARGETABLE libxs_free_function {
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_free_ctx)(void* /*context*/, void* /*buffer*/);
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_free_fun)(void* /*buffer*/);
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_free_function {
   libxs_free_ctx ctx_form;
   libxs_free_fun function;
 } libxs_free_function;
@@ -121,7 +121,7 @@ LIBXS_API void libxs_free(const void* memory);
 LIBXS_API void libxs_release_scratch(void);
 
 /** Information about a buffer (default memory domain). */
-typedef struct LIBXS_RETARGETABLE libxs_malloc_info {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_malloc_info {
   /** Size of the buffer. */
   size_t size;
 } libxs_malloc_info;
@@ -130,7 +130,7 @@ typedef struct LIBXS_RETARGETABLE libxs_malloc_info {
 LIBXS_API int libxs_get_malloc_info(const void* memory, libxs_malloc_info* info);
 
 /** Information about the scratch memory domain. */
-typedef struct LIBXS_RETARGETABLE libxs_scratch_info {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_scratch_info {
   /** Total size of all scratch memory pools. */
   size_t size;
   /** Pending allocations (not released). */
