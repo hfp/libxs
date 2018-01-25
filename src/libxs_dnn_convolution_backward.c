@@ -82,9 +82,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
   }
   else {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-#if 0
-      if (handle->desc.N*handle->blocksifm >= handle->desc.threads) {
-#endif
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
