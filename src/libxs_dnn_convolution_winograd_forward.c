@@ -409,9 +409,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_c
   /* check if we have a kernel JITed */
   if (handle->code_fwd[0].xconv.sconv == 0) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32) {
+      const int ldx = (int)(handle->desc.v*handle->ifmblock); 
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
+      typedef libxs_smmfunction gemm_function;
+      /* let's do a ofmblock x ofw_rb x ifmblock GEMM :-) or in other words M=nbOfm, N=ofw, K=nbIfm (col-major) */
+      gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ofw, handle->ifmblock, NULL, &ldx, NULL, NULL, NULL, NULL, NULL);
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
