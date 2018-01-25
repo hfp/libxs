@@ -28,7 +28,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              #
 #############################################################################
 
-FLOCK=$(which flock 2> /dev/null)
+FLOCK=$(which flock 2>/dev/null)
 
 if [ -f $1 ]; then
   ABSDIR=$(cd $(dirname $1); pwd -P)
