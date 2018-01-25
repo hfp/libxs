@@ -145,7 +145,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(lib
         typedef int element_output_type;
         typedef char element_filter_type;
         typedef libxs_budconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_1.tpl.c"
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
 #if 0
       }
       else {
