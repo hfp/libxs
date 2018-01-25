@@ -41,6 +41,8 @@
 
 #define CHKERR_LIBXS_DNN(A) if ( A != LIBXS_DNN_SUCCESS ) fprintf(stderr, "%s\n", libxs_dnn_get_error(A) );
 
+#define USE_OVERWRITE
+
 typedef struct {
   int nImg;
   int nIfm;
@@ -79,6 +81,21 @@ LIBXS_INLINE void zero_buf_uint8(unsigned char* buf, long size) {
   }
 }
 
+LIBXS_INLINE void zero_buf_int32(int* buf, long size) {
+  int i;
+  for (i = 0; i < size; ++i) {
+    buf[i] = 0;
+  }
+}
+
+LIBXS_INLINE void copy_buf_int8(char* src, char* dst, long size) {
+  int i;
+  for (i = 0; i < size; ++i) {
+    dst[i] = src[i];
+  }
+}
+
+
 LIBXS_INLINE void copy_buf_uint8(unsigned char* src, unsigned char* dst, long size) {
   int i;
   for (i = 0; i < size; ++i) {
@@ -102,7 +119,15 @@ LIBXS_INLINE void init_buf_uint8(unsigned char* buf, long size, int initPos, int
   for (i = 0; i < size; ++i) {
     buf[i] = (unsigned char)((initOne != 0) ? 1 : (rand()%3));
   }
-  LIBXS_UNUSED(initPos);
+}
+
+LIBXS_INLINE void init_buf_int32(int* buf, long size, int initPos, int initOne)
+{
+  int i;
+  zero_buf_int32(buf, size);
+  for (i = 0; i < size; ++i) {
+    buf[i] = (int)((initOne != 0) ? 1 : ((initPos != 0) ? (rand()%7) : (rand()%7)-3));
+  }
 }
 
 LIBXS_INLINE void set_zeropad_nchw_uint8(unsigned char* nchw, int N, int C, int H, int W, int pad_h, int pad_w)
@@ -122,7 +147,42 @@ LIBXS_INLINE void set_zeropad_nchw_uint8(unsigned char* nchw, int N, int C, int 
   }
 }
 
-LIBXS_INLINE void naive_conv_fp_int8(naive_conv_t* param, const unsigned char* input, unsigned char* output, const char* filter)
+LIBXS_INLINE void set_zeropad_nchw_int32(int* nchw, int N, int C, int H, int W, int pad_h, int pad_w)
+{
+  LIBXS_VLA_DECL(4, int, input, nchw, C, H, W);
+  int n, h, w, c;
+
+  for ( n = 0; n < N; n++ ) {
+    for ( c = 0; c < C; c++ ) {
+      for ( h = 0; h < H; h++ ) {
+        for ( w = 0; w < W; w++ ) {
+          if (h < pad_h || h >= H-pad_h || w < pad_w || w >= W-pad_w)
+            LIBXS_VLA_ACCESS(4,  input, n, c, h, w, C, H, W) = 0;
+        }
+      }
+    }
+  }
+}
+
+LIBXS_INLINE void copy_internal_nchw(unsigned char* dst , unsigned char* src, int N, int C, int H, int W, int pad_h, int pad_w)
+{
+  LIBXS_VLA_DECL(4, unsigned char, input, src, C, H, W);
+  LIBXS_VLA_DECL(4, unsigned char, new_input, dst, C, H+2*pad_h, W+2*pad_w);
+  int n, h, w, c;
+
+  for ( n = 0; n < N; n++ ) {
+    for ( c = 0; c < C; c++ ) {
+      for ( h = 0; h < H; h++ ) {
+        for ( w = 0; w < W; w++ ) {
+          LIBXS_VLA_ACCESS(4, new_input, n, c, h+pad_h, w+pad_w, C, H+2*pad_h, W+2*pad_w) =  LIBXS_VLA_ACCESS(4,  input, n, c, h, w, C, H, W);
+        }
+      }
+    }
+  }
+}
+
+
+LIBXS_INLINE void naive_conv_fp_int8(naive_conv_t* param, const unsigned char* input, int* output, const char* filter)
 {
   int nImg      = param->nImg;
   int nIfm      = param->nIfm;
@@ -148,27 +208,10 @@ LIBXS_INLINE void naive_conv_fp_int8(naive_conv_t* param, const unsigned char* i
   /* loop counters */
   int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
 
-  int* output_itm = (int*)libxs_aligned_malloc(nImg * nOfm * ofhp * ofwp * sizeof(int), 64);
-
-  LIBXS_VLA_DECL(4,                 int, output_itm_t, output_itm + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
-  LIBXS_VLA_DECL(4,       unsigned char,     output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
+  LIBXS_VLA_DECL(4,         int,     output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
   LIBXS_VLA_DECL(4, const unsigned char,      input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
-  LIBXS_VLA_DECL(4, const          char,     filter_t, filter, nIfm, kh, kw);
+  LIBXS_VLA_DECL(4, const char,     filter_t, filter, nIfm, kh, kw);
 
-  /* up convert */
-#if defined(_OPENMP)
-# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ofm, oj, oi)
-#endif
-  for (img = 0; img < nImg; ++img) {
-    for (ofm = 0; ofm < nOfm; ++ofm) {
-      for (oj = 0; oj < ofh; ++oj) {
-        for (oi = 0; oi < ofw; ++oi) {
-          LIBXS_VLA_ACCESS(  4, output_itm_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) =
-           (int)LIBXS_VLA_ACCESS(  4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp);
-        }
-      }
-    }
-  }
 
 #if defined(_OPENMP)
 # pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
@@ -184,8 +227,8 @@ LIBXS_INLINE void naive_conv_fp_int8(naive_conv_t* param, const unsigned char* i
               if (ij+kj < 0 || ij+kj >= ifh) continue;
               for (ki = 0; ki < kw; ++ki) {
                 if (ii+ki < 0 || ii+ki >= ifw) continue;
-                LIBXS_VLA_ACCESS(  4, output_itm_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) += (int)
-                  LIBXS_VLA_ACCESS(4,  input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp)
+                LIBXS_VLA_ACCESS(  4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) += (int)
+                 LIBXS_VLA_ACCESS(4,  input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp)
                 * LIBXS_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw);
               }
             }
@@ -194,26 +237,9 @@ LIBXS_INLINE void naive_conv_fp_int8(naive_conv_t* param, const unsigned char* i
       }
     }
   }
-
-  /* down convert */
-#if defined(_OPENMP)
-# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ofm, oj, oi)
-#endif
-  for (img = 0; img < nImg; ++img) {
-    for (ofm = 0; ofm < nOfm; ++ofm) {
-      for (oj = 0; oj < ofh; ++oj) {
-        for (oi = 0; oi < ofw; ++oi) {
-          LIBXS_VLA_ACCESS(  4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) =
-           (unsigned char)LIBXS_VLA_ACCESS(  4, output_itm_t, img, ofm, oj, oi, nOfm, ofhp, ofwp);
-        }
-      }
-    }
-  }
-
-  libxs_free(output_itm);
 }
 
-LIBXS_INLINE void naive_conv_bp_int8(naive_conv_t* param, unsigned char* input, const unsigned char* output, const char* filter)
+LIBXS_INLINE void naive_conv_bp_int8(naive_conv_t* param, int* input, const unsigned char* output, const char* filter)
 {
   int nImg      = param->nImg;
   int nIfm      = param->nIfm;
@@ -239,27 +265,9 @@ LIBXS_INLINE void naive_conv_bp_int8(naive_conv_t* param, unsigned char* input, 
   /* loop counters */
   int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
 
-  int* input_itm = (int*)libxs_aligned_malloc(nImg * nIfm * ifhp * ifwp * sizeof(int), 64);
-
-  LIBXS_VLA_DECL(4,                 int,  input_itm_t, input_itm + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
   LIBXS_VLA_DECL(4, const unsigned char,     output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
-  LIBXS_VLA_DECL(4,       unsigned char,      input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
-  LIBXS_VLA_DECL(4, const          char,     filter_t, filter, nIfm, kh, kw);
-
-  /* up convert */
-#if defined(_OPENMP)
-# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ifm, ij, ii)
-#endif
-  for (img = 0; img < nImg; ++img) {
-    for (ifm = 0; ifm < nIfm; ++ifm) {
-      for (ij = 0; ij < ifh; ++ij) {
-        for (ii = 0; ii < ifw; ++ii) {
-          LIBXS_VLA_ACCESS(  4, input_itm_t, img, ifm, ij, ii, nIfm, ifhp, ifwp) =
-           (int)LIBXS_VLA_ACCESS(  4, input_t, img, ifm, ij, ii, nIfm, ifhp, ifwp);
-        }
-      }
-    }
-  }
+  LIBXS_VLA_DECL(4,         int,      input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
+  LIBXS_VLA_DECL(4, const char,     filter_t, filter, nIfm, kh, kw);
 
 #if defined(_OPENMP)
 # pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
@@ -275,8 +283,8 @@ LIBXS_INLINE void naive_conv_bp_int8(naive_conv_t* param, unsigned char* input, 
               if (ij+kj < 0 || ij+kj >= ifh) continue;
               for (ki = 0; ki < kw; ++ki) {
                 if (ii+ki < 0 || ii+ki >= ifw) continue;
-                  LIBXS_VLA_ACCESS(4,  input_itm_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp) += (int)
-                     (LIBXS_VLA_ACCESS(4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp)
+                  LIBXS_VLA_ACCESS(4,   input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp) += (int)
+                  (LIBXS_VLA_ACCESS(4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp)
                     * LIBXS_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw));
               }
             }
@@ -285,37 +293,20 @@ LIBXS_INLINE void naive_conv_bp_int8(naive_conv_t* param, unsigned char* input, 
       }
     }
   }
-
-  /* down convert */
-#if defined(_OPENMP)
-# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ifm, ij, ii)
-#endif
-  for (img = 0; img < nImg; ++img) {
-    for (ifm = 0; ifm < nIfm; ++ifm) {
-      for (ij = 0; ij < ifh; ++ij) {
-        for (ii = 0; ii < ifw; ++ii) {
-          LIBXS_VLA_ACCESS(  4, input_t, img, ifm, ij, ii, nIfm, ifhp, ifwp) =
-           (unsigned char)LIBXS_VLA_ACCESS(  4, input_itm_t, img, ifm, ij, ii, nIfm, ifhp, ifwp);
-        }
-      }
-    }
-  }
-
-  libxs_free(input_itm);
 }
-
 
 int main(int argc, char* argv[])
 {
-  unsigned char *naive_input, *naive_libxs_input;
-  unsigned char *naive_input_save;
+  unsigned char *naive_input;
   char *naive_filter;
-  unsigned char *naive_output, *naive_libxs_output;
-  unsigned char *naive_output_bp;
+  unsigned char *naive_output_bp, *naive_input_save, *naive_output_save;
+  int *naive_output_fp, *naive_input_bp;
+  int *naive_libxs_input;
+  int  *naive_libxs_output;
   unsigned char *input_libxs;
   char *filter_libxs;
-  unsigned char *output_libxs;
-  unsigned char *dinput_libxs;
+  int *output_libxs;
+  int *dinput_libxs;
   char *dfilter_libxs;
   unsigned char *doutput_libxs;
   int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
@@ -338,6 +329,8 @@ int main(int argc, char* argv[])
   int padw = 1;           /* padding in input, width */
   int stride = 1;         /* stride when accessing inputs */
   char type = 'A';        /* 'A': ALL, 'F': FP, 'B': BP, 'U', WU */
+  char format = 'L';
+
   const char *const env_check = getenv("CHECK")/*, *const env_winograd = getenv("WINOGRAD")*/;
   const double check = LIBXS_ABS(0 == env_check ? 0 : atof(env_check));
   /*const int algo_winograd = (0 == env_winograd ? 0 : atoi(env_winograd));*/
@@ -388,9 +381,10 @@ int main(int argc, char* argv[])
   if (argc > i) padh       = atoi(argv[i++]);
   if (argc > i) stride     = atoi(argv[i++]);
   if (argc > i) type       = *(argv[i++]);
+  if (argc > i) format     = *(argv[i++]);
   if (argc > i) padding_mode = atoi(argv[i++]);
 
-  if (type != 'A' && type != 'F' && type != 'B' /* && type != 'U'*/) {
+  if (type != 'A' && type != 'F' && type != 'B'/* && type != 'U'*/) {
     /*printf("type needs to be 'A' (All), 'F' (FP only), 'B' (BP only), 'U' (WU only)\n");*/
     printf("type needs to be 'A' (All), 'F' (FP only), 'B' (BP only)\n");
     return 0;
@@ -404,16 +398,17 @@ int main(int argc, char* argv[])
   if (0 == padding_mode) {
     pad_h_in = 0;
     pad_w_in = 0;
+    pad_h_out = 0;
+    pad_w_out = 0;
   }
   else {
     /* TODO: change "1" to "0" if "padding_mode = -1" is acknowledged */
     if (1 < padding_mode) pad_w = padding_mode;
     pad_h_in = pad_h;
     pad_w_in = pad_w;
+    pad_h_out = pad_h;
+    pad_w_out = pad_w; 
   }
-
-  pad_h_out = 0;
-  pad_w_out = 0;
 
   /* deriving some values for naive code */
   ofh = (ifh + 2 * pad_h - kh) / stride_h + 1;
@@ -448,54 +443,70 @@ int main(int argc, char* argv[])
 
   /* print some summary */
   printf("##########################################\n");
-  printf("#    Setting Up forward-prop (Common)    #\n");
+  printf("#    Setting Up Common    #\n");
   printf("##########################################\n");
-  printf("PARAMS: W:%d  H:%d  N:%d  C:%d  K:%d  R:%d  S:%d  STRIDE:%d\n", ifw, ifh, nImg, nIfm, nOfm, kw, kh, stride);
+  printf("PARAMS: W:%d  H:%d  N:%d  C:%d  K:%d  R:%d  S:%d  P:%d  Q:%d  STRIDE:%d\n", ifw, ifh, nImg, nIfm, nOfm, kw, kh, ofh, ofw, stride);
   printf("PARAMS: ITERS:%d", iters); if (LIBXS_FEQ(0, check)) printf("  Threads:%d\n", nThreads); else printf("\n");
   printf(" InImg %dx%d Padded (%dx%d)\n", ifh, ifw, ifhp, ifwp);
   printf("OutImg %dx%d Padded (%dx%d)\n", ofh, ofw, ofhp, ofwp);
   printf("SIZE Input  (MB): %10.2f MiB\n", (double)(nImg*nIfm*ifhp*ifwp*sizeof(unsigned char))/(1024.0*1024.0) );
-  printf("SIZE Output (MB): %10.2f MiB\n", (double)(nImg*nOfm*ofhp*ofwp*sizeof(unsigned char))/(1024.0*1024.0) );
+  printf("SIZE Output (MB): %10.2f MiB\n", (double)(nImg*nOfm*ofhp*ofwp*sizeof(int))/(1024.0*1024.0) );
   printf("SIZE Input   (1): %10.2f MiB\n", (double)(1*nIfm*ifhp*ifwp*   sizeof(unsigned char))/(1024.0*1024.0) );
-  printf("SIZE Output  (1): %10.2f MiB\n", (double)(1*nOfm*ofhp*ofwp*   sizeof(unsigned char))/(1024.0*1024.0) );
+  printf("SIZE Output  (1): %10.2f MiB\n", (double)(1*nOfm*ofhp*ofwp*   sizeof(int))/(1024.0*1024.0) );
   printf("SIZE Weight     : %10.2f MiB\n", (double)(nIfm*nOfm*kw*kh*    sizeof(char))/(1024.0*1024.0) );
 
   /* allocate data */
   naive_input           = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
   naive_input_save      = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
-  naive_output          = (unsigned char*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(unsigned char), 2097152);
+  naive_output_fp       = (int*  )libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(int),   2097152);
+  naive_input_bp        = (int*  )libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(int),   2097152);
+  naive_output_save     = (unsigned char*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(unsigned char), 2097152);
   naive_output_bp       = (unsigned char*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(unsigned char), 2097152);
-  naive_libxs_input   = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
-  naive_libxs_output  = (unsigned char*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(unsigned char), 2097152);
-  naive_filter          = (char*)         libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char),          2097152);
+  naive_libxs_input   = (int*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(int),   2097152);
+  naive_libxs_output  = (int*  )libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(int),   2097152);
+  naive_filter          = (char*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char), 2097152);
   input_libxs         = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
-  filter_libxs        = (char*)         libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char),          2097152);
-  output_libxs        = (unsigned char*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(unsigned char), 2097152);
-  dinput_libxs        = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
-  dfilter_libxs       = (char*)         libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char),          2097152);
-  doutput_libxs       = (unsigned char*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(unsigned char), 2097152);
+  filter_libxs        = (char*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char), 2097152);
+  output_libxs        = (int*) libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(int), 2097152);
+  dinput_libxs         = (int*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(int), 2097152);
+  dfilter_libxs        = (char*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char), 2097152);
+  doutput_libxs        = (unsigned char*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(unsigned char), 2097152);
 
   /* initialize data */
-  init_buf_uint8(naive_input,          nImg*nIfm*ifhp*ifwp, 0, 0);
-  init_buf_uint8(naive_output_bp,      nImg*nOfm*ofhp*ofwp, 0, 0);
-  set_zeropad_nchw_uint8(naive_input, nImg, nIfm, ifhp, ifwp, pad_h_in, pad_w_in);
+  unsigned char  *naive_input_tmp  = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
+  unsigned char  *naive_output_bp_tmp  = (unsigned char*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(unsigned char), 2097152);
+  zero_buf_uint8(naive_input, nImg*nIfm*ifhp*ifwp);
+  if (padding_mode == 0 ) {
+    init_buf_uint8(naive_input,          nImg*nIfm*ifhp*ifwp, 0, 0);
+    init_buf_uint8(naive_output_bp,      nImg*nOfm*ofhp*ofwp, 0, 0);
+  } else {
+    init_buf_uint8(naive_input_tmp,      nImg*nIfm*ifh*ifw, 0, 0);
+    init_buf_uint8(naive_output_bp_tmp,  nImg*nOfm*ofh*ofw, 0, 0); 
+    copy_internal_nchw( naive_input , naive_input_tmp, nImg, nIfm, ifh, ifw, pad_h, pad_w);
+    copy_internal_nchw( naive_output_bp , naive_output_bp_tmp, nImg, nOfm, ofh, ofw, pad_h, pad_w);
+  }
   copy_buf_uint8(naive_input, naive_input_save, nImg*nIfm*ifhp*ifwp);
-  zero_buf_uint8(naive_output,         nImg*nOfm*ofhp*ofwp);
-  zero_buf_uint8(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
-  zero_buf_uint8(naive_libxs_input,  nImg*nIfm*ifhp*ifwp);
-  init_buf_int8 (naive_filter,         nOfm*nIfm*kh*kw, 0, 0);
-
+  copy_buf_uint8(naive_output_bp, naive_output_save, nImg*nOfm*ofhp*ofwp);
+  init_buf_int8(naive_filter,         nOfm*nIfm*kh*kw, 0, 0);
+  zero_buf_int32(naive_output_fp,      nImg*nOfm*ofhp*ofwp);
+  zero_buf_int32(output_libxs, nImg*nOfm*ofhp*ofwp);
+  zero_buf_int32(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
+  zero_buf_int32(naive_libxs_input,  nImg*nIfm*ifhp*ifwp);
+  zero_buf_int32(naive_input_bp,      nImg*nIfm*ifhp*ifwp);
+  zero_buf_int32(dinput_libxs,      nImg*nIfm*ifhp*ifwp);
+  
   printf("##########################################\n");
   printf("#         Computing Reference ...        #\n");
   printf("##########################################\n");
   /* run naive convolutions */
   if (type == 'A' || type == 'F') {
-    naive_conv_fp_int8(&naive_param, naive_input, naive_output, naive_filter);
+    naive_conv_fp_int8(&naive_param, naive_input, naive_output_fp, naive_filter);
   }
+
   if (type == 'A' || type == 'B') {
-    zero_buf_uint8(naive_input, nImg*nIfm*ifhp*ifwp);
-    naive_conv_bp_int8(&naive_param, naive_input, naive_output_bp, naive_filter);
+    naive_conv_bp_int8(&naive_param, naive_input_bp, naive_output_bp, naive_filter);
   }
+
   printf("##########################################\n");
   printf("#      Computing Reference ... done      #\n");
   printf("##########################################\n");
@@ -526,7 +537,11 @@ int main(int argc, char* argv[])
   conv_desc.buffer_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
   conv_desc.filter_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS;
   conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
+#if defined(USE_OVERWRITE)
+  conv_desc.options = LIBXS_DNN_CONV_OPTION_OVERWRITE | LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED;
+#else
   conv_desc.options = LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED;
+#endif
   conv_desc.datatype_in = LIBXS_DNN_DATATYPE_I8;
   conv_desc.datatype_out = LIBXS_DNN_DATATYPE_I32;
 
@@ -536,34 +551,39 @@ int main(int argc, char* argv[])
   /* setup LIBXS buffers and filter */
   libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_INPUT, &status ); CHKERR_LIBXS_DNN( status );
   libxs_input  = libxs_dnn_link_tensor( libxs_layout,  input_libxs, &status ); CHKERR_LIBXS_DNN( status );
-  libxs_dinput = libxs_dnn_link_tensor( libxs_layout, dinput_libxs, &status ); CHKERR_LIBXS_DNN( status );
   libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
   libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_OUTPUT, &status ); CHKERR_LIBXS_DNN( status );
   libxs_output  = libxs_dnn_link_tensor( libxs_layout,  output_libxs, &status ); CHKERR_LIBXS_DNN( status );
-  libxs_doutput = libxs_dnn_link_tensor( libxs_layout, doutput_libxs, &status ); CHKERR_LIBXS_DNN( status );
   libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
   libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_FILTER, &status ); CHKERR_LIBXS_DNN( status );
   libxs_filter  = libxs_dnn_link_tensor( libxs_layout,  filter_libxs, &status ); CHKERR_LIBXS_DNN( status );
-  libxs_dfilter = libxs_dnn_link_tensor( libxs_layout, dfilter_libxs, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_dnn_destroy_tensor_datalayout( libxs_layout );
+
+  libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_GRADIENT_OUTPUT, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_doutput  = libxs_dnn_link_tensor( libxs_layout,  doutput_libxs, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_dnn_destroy_tensor_datalayout( libxs_layout );
+
+  libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_GRADIENT_INPUT, &status ); CHKERR_LIBXS_DNN( status );
+  libxs_dinput = libxs_dnn_link_tensor( libxs_layout,  dinput_libxs, &status ); CHKERR_LIBXS_DNN( status ); 
   libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
   /* copy in data to LIBXS format */
   /* we can also use the layout functions and set the data on our
      own external to the library, @TODO, we plan to add an example here */
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_input, (void*)naive_input_save, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_zero_tensor( libxs_output ) );
+  CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_doutput, (void*)naive_output_save, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );  
+  /* CHKERR_LIBXS_DNN( libxs_dnn_zero_tensor( libxs_output ) ); */
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
 
   /* bind buffers and filter to handle */
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_dinput, LIBXS_DNN_GRADIENT_INPUT ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_output, LIBXS_DNN_REGULAR_OUTPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_doutput, LIBXS_DNN_GRADIENT_OUTPUT ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_dfilter, LIBXS_DNN_GRADIENT_FILTER ) );
-
+  CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_doutput, LIBXS_DNN_GRADIENT_OUTPUT ) );
+ 
   /* let's allocate and bind scratch */
   scratch_size = libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status );
   CHKERR_LIBXS_DNN( status );
@@ -571,8 +591,6 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( status );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch ) );
   /* set scratch to bogus to make sure that libxs takes care of zeroing internally */
-  init_buf_int8( (char*)scratch, scratch_size, 0, 0 );
-
   if (type == 'A' || type == 'F') {
     printf("##############################################\n");
     printf("#  Check Correctness - FWD (custom-Storage)  #\n");
@@ -593,7 +611,7 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_copyout_tensor( libxs_output, (void*)naive_libxs_output, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
 
     /* compare */
-    libxs_matdiff(LIBXS_DATATYPE_I8, nImg*nOfm*ofhp*ofwp, 1, naive_output, naive_libxs_output, 0, 0, &norms_fwd);
+    libxs_matdiff(LIBXS_DATATYPE_I32, nImg*nOfm*ofhp*ofwp, 1, naive_output_fp, naive_libxs_output, 0, 0, &norms_fwd);
     printf("L1 reference  : %.25g\n", norms_fwd.l1_ref);
     printf("L1 test       : %.25g\n", norms_fwd.l1_tst);
     printf("L2 abs.error  : %.24f\n", norms_fwd.l2_abs);
@@ -604,12 +622,10 @@ int main(int argc, char* argv[])
     libxs_matdiff_reduce(&diff, &norms_fwd);
   }
 
-  if (type == 'A' || type == 'B') {
+  if ((type == 'A' || type == 'B') && (nIfm > 3)) {
     printf("##############################################\n");
     printf("#  Check Correctness - BWD (custom-Storage)  #\n");
     printf("##############################################\n");
-    CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_doutput, (void*)naive_output_bp, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
-    CHKERR_LIBXS_DNN( libxs_dnn_zero_tensor( libxs_dinput ) );
     /* run LIBXS convolutions */
 #if defined(_OPENMP)
 #   pragma omp parallel
@@ -626,7 +642,7 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_copyout_tensor( libxs_dinput, (void*)naive_libxs_input, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
 
     /* compare */
-    libxs_matdiff(LIBXS_DATATYPE_I8, nImg*nIfm*ifhp*ifwp, 1, naive_input, naive_libxs_input, 0, 0, &norms_bwd);
+    libxs_matdiff(LIBXS_DATATYPE_I32, nImg*nIfm*ifhp*ifwp, 1, naive_input_bp, naive_libxs_input, 0, 0, &norms_bwd);
     printf("L1 reference  : %.25g\n", norms_bwd.l1_ref);
     printf("L1 test       : %.25g\n", norms_bwd.l1_tst);
     printf("L2 abs.error  : %.24f\n", norms_bwd.l2_abs);
@@ -637,9 +653,10 @@ int main(int argc, char* argv[])
     libxs_matdiff_reduce(&diff, &norms_bwd);
   }
 
+
   if ((type == 'A' || type == 'F') && LIBXS_FEQ(0, check)) {
     printf("##########################################\n");
-    printf("#   Performance Run   (custom-Storage)   #\n");
+    printf("#   Performance - FWD (custom-Storage)   #\n");
     printf("##########################################\n");
     /* run LIBXS convolution for performance */
     l_start = libxs_timer_tick();
@@ -669,7 +686,7 @@ int main(int argc, char* argv[])
       norms_fwd.l2_abs, norms_fwd.l2_rel, norms_fwd.linf_abs, norms_fwd.linf_rel, norms_fwd.normf_rel);
   }
 
-  if ((type == 'A' || type == 'B') && LIBXS_FEQ(0, check)) {
+  if (((type == 'A' || type == 'B') && (nIfm > 3)) && LIBXS_FEQ(0, check)) {
     printf("##########################################\n");
     printf("#   Performance - BWD (custom-Storage)   #\n");
     printf("##########################################\n");
@@ -697,30 +714,25 @@ int main(int argc, char* argv[])
     printf("GOPS  = %.5g\n", (lpOps*1e-9)/l_total);
 
     printf("PERFDUMP,BP,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f,%f,%f\n", LIBXS_VERSION, nThreads, nImg, nIfm, nOfm,
-      ifw, ifh, kw, kh, stride, padw, padh, ((double)(l_total/iters)), (lpOps*1e-9)/l_total, norms_bwd.l1_ref, norms_bwd.l1_tst,
-      norms_bwd.l2_abs, norms_bwd.l2_rel, norms_bwd.linf_abs, norms_bwd.linf_rel, norms_bwd.normf_rel);
+        ifw, ifh, kw, kh, stride, padw, padh, ((double)(l_total/iters)), (lpOps*1e-9)/l_total, norms_bwd.l1_ref, norms_bwd.l1_tst,
+        norms_bwd.l2_abs, norms_bwd.l2_rel, norms_bwd.linf_abs, norms_bwd.linf_rel, norms_bwd.normf_rel);
   }
 
   /* clean-up */
   CHKERR_LIBXS_DNN( libxs_dnn_release_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL ) );
   libxs_free(scratch);
   CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_REGULAR_INPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_GRADIENT_INPUT ) );
   CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_REGULAR_OUTPUT ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_GRADIENT_OUTPUT ) );
   CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_REGULAR_FILTER ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_release_tensor( libxs_handle, LIBXS_DNN_GRADIENT_FILTER ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_input ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_output ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_filter ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_dinput ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_doutput ) );
-  CHKERR_LIBXS_DNN( libxs_dnn_destroy_tensor( libxs_dfilter ) );
   CHKERR_LIBXS_DNN( libxs_dnn_destroy_conv_layer( libxs_handle ) );
 
   /* deallocate data */
   libxs_free(naive_input);
-  libxs_free(naive_output);
+  libxs_free(naive_input_bp);
+  libxs_free(naive_output_fp);
   libxs_free(naive_output_bp);
   libxs_free(naive_libxs_output);
   libxs_free(naive_libxs_input);

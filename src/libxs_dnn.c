@@ -569,7 +569,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
                 *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
               }
             }
-          } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
+          } else if ( ((handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32)) ||  ((handle->datatype_in == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_out == LIBXS_DNN_DATATYPE_I32))  ) {
             if ( ( (type == LIBXS_DNN_REGULAR_INPUT) || (type == LIBXS_DNN_INPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT)  )  ) {
               layout->datatype = handle->datatype_in;
             } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_OUTPUT) || (type == LIBXS_DNN_GRADIENT_INPUT) ) {
@@ -673,7 +673,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
               layout->dim_size[4] = handle->blocksifm;
               layout->dim_size[5] = handle->blocksofm;
             }
-          } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
+          } else if ( ((handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32)) || ((handle->datatype_in == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_out == LIBXS_DNN_DATATYPE_I32)) ) {
             if ( (type == LIBXS_DNN_REGULAR_FILTER) || (type == LIBXS_DNN_FILTER) ) {
               layout->datatype = handle->datatype_in;
             } else if (type == LIBXS_DNN_GRADIENT_FILTER) {
@@ -1174,7 +1174,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_ten
 #undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                                  } break;
                                                                                   case LIBXS_DNN_DATATYPE_I8: {
-                                                                                                                  typedef char element_type;
+                                                                                                                  typedef unsigned char element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_buffer_copy_in_nchw.tpl.c"
 #undef LIBXS_DNN_COPY_LOW_PRECISION
@@ -1339,9 +1339,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_te
                                                                                                                  } break;
                                                                                   case LIBXS_DNN_DATATYPE_I32: {
                                                                                                                    typedef int element_type;
-#define LIBXS_DNN_COPY_LOW_PRECISION                
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
-#undef LIBXS_DNN_COPY_LOW_PRECISION                 
                                                                                                                  } break;
                                                                                   case LIBXS_DNN_DATATYPE_I16: {
                                                                                                                    typedef short element_type;
@@ -1350,10 +1348,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_te
 #undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                                  } break;
                                                                                   case LIBXS_DNN_DATATYPE_I8: {
-                                                                                                                  typedef char element_type;
-#define LIBXS_DNN_COPY_LOW_PRECISION
+                                                                                                                  typedef unsigned char element_type;
+#define LIBXS_DNN_COPY_LOW_PRECISION                                                                                                                  
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
-#undef LIBXS_DNN_COPY_LOW_PRECISION
+#undef LIBXS_DNN_COPY_LOW_PRECISION                                                                                                               
                                                                                                                 } break;
                                                                                   default: {
                                                                                              status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
