@@ -48,7 +48,7 @@ typedef enum libxs_mhd_elemtype {
 
 
 /** Function type used for custom data-handler or element conversion. */
-typedef LIBXS_RETARGETABLE int (*libxs_mhd_element_handler)(
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE int (*libxs_mhd_element_handler)(
   void* dst, libxs_mhd_elemtype dst_type,
   const void* src, libxs_mhd_elemtype src_type);
 

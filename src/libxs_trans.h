@@ -179,8 +179,8 @@ LIBXS_API void libxs_trans_finalize(void);
 
 
 /** Size of peeled chunks during transposing inner tiles. */
-LIBXS_API_VARIABLE unsigned int libxs_trans_tile[2/*DP/SP*/][2/*M,N*/][8/*size-range*/];
+LIBXS_API_VARIABLE(unsigned int libxs_trans_tile[2/*DP/SP*/][2/*M,N*/][8/*size-range*/]);
 /** Determines whether JIT-kernels are used or not (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */
-LIBXS_API_VARIABLE int libxs_trans_jit;
+LIBXS_API_VARIABLE(int libxs_trans_jit);
 
 #endif /*LIBXS_TRANS_H*/

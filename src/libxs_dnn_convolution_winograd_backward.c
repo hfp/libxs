@@ -48,12 +48,12 @@
 
 
 /* function pointer for the CPUID-dispatched implementation */
-LIBXS_API_VARIABLE void (*internal_bwd_input_transform_custom_custom_alpha6)(const float*, float*, float*, const libxs_dnn_layer*);
-LIBXS_API_VARIABLE void (*internal_bwd_input_transform_nhwc_custom_alpha6)(const float*, float*, float*, const libxs_dnn_layer*);
-LIBXS_API_VARIABLE void (*internal_bwd_output_transform_custom_custom_alpha6)(float*, float*, float*, const libxs_dnn_layer*);
-LIBXS_API_VARIABLE void (*internal_bwd_output_transform_nhwc_custom_alpha6)(float*, float*, float*, const libxs_dnn_layer*);
-LIBXS_API_VARIABLE void (*internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6)(libxs_dnn_layer*, int, int);
-LIBXS_API_VARIABLE void (*internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6)(libxs_dnn_layer*, int, int);
+LIBXS_API_VARIABLE(void (*internal_bwd_input_transform_custom_custom_alpha6)(const float*, float*, float*, const libxs_dnn_layer*));
+LIBXS_API_VARIABLE(void (*internal_bwd_input_transform_nhwc_custom_alpha6)(const float*, float*, float*, const libxs_dnn_layer*));
+LIBXS_API_VARIABLE(void (*internal_bwd_output_transform_custom_custom_alpha6)(float*, float*, float*, const libxs_dnn_layer*));
+LIBXS_API_VARIABLE(void (*internal_bwd_output_transform_nhwc_custom_alpha6)(float*, float*, float*, const libxs_dnn_layer*));
+LIBXS_API_VARIABLE(void (*internal_dnn_convolve_winograd_st_bwd_custom_custom_alpha6)(libxs_dnn_layer*, int, int));
+LIBXS_API_VARIABLE(void (*internal_dnn_convolve_winograd_st_bwd_nhwc_custom_alpha6)(libxs_dnn_layer*, int, int));
 
 
 LIBXS_API_INLINE void internal_bwd_input_transform_custom_custom_alpha6_default(

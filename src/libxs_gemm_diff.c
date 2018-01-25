@@ -60,8 +60,8 @@
 #endif
 
 
-LIBXS_API_VARIABLE libxs_gemm_diff_function internal_gemm_diff_fn;
-LIBXS_API_VARIABLE libxs_gemm_diffn_function internal_gemm_diffn_fn;
+LIBXS_API_VARIABLE(libxs_gemm_diff_function internal_gemm_diff_fn);
+LIBXS_API_VARIABLE(libxs_gemm_diffn_function internal_gemm_diffn_fn);
 
 
 LIBXS_GEMM_DIFF_API_DEFINITION void libxs_gemm_diff_init(int target_arch)

@@ -37,7 +37,7 @@ typedef enum libxs_spmdm_datatype {
   LIBXS_SPMDM_DATATYPE_BFLOAT16
 } libxs_spmdm_datatype;
 
-typedef struct libxs_spmdm_handle {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_spmdm_handle {
   /* The following are the matrix multiply dimensions: A (sparse): m X k, B (dense): k X n, Output C (dense): m X n */
   int m;
   int n;
@@ -59,9 +59,9 @@ typedef struct libxs_spmdm_handle {
 
 /**
  * This stores a single sparse splice (or block) of sparse matrix A using a CSR representation (rowidx, colidx, and values
- * Each splice corresponds to a bm X bk region of A, and stores local indices
+ * Each splice corresponds to a bm X bk region of A, and stores local indexes
  */
-typedef struct libxs_CSR_sparseslice {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_CSR_sparseslice {
   /* Since bm and bk are assumed to be <=256, a 16-bit integer is enough to store the local rowidx, colidx */
   uint16_t * rowidx;
   uint16_t * colidx;

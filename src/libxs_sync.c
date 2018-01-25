@@ -61,7 +61,7 @@
 #endif
 
 
-typedef struct LIBXS_RETARGETABLE internal_sync_core_tag { /* per-core */
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_sync_core_tag { /* per-core */
   uint8_t id;
   volatile uint8_t core_sense;
   volatile uint8_t* thread_senses;
@@ -71,7 +71,7 @@ typedef struct LIBXS_RETARGETABLE internal_sync_core_tag { /* per-core */
   uint8_t sense;
 } internal_sync_core_tag;
 
-typedef struct LIBXS_RETARGETABLE internal_sync_thread_tag { /* per-thread */
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_sync_thread_tag { /* per-thread */
   int core_tid;
   internal_sync_core_tag *core;
 } internal_sync_thread_tag;
@@ -480,11 +480,10 @@ LIBXS_API_DEFINITION void libxs_mutex_acquire(libxs_mutex* mutex)
     while (0 != (mutex->state & 1)) LIBXS_SYNC_CYCLE(counter, LIBXS_SYNC_NPAUSE);
   }
 #   else
-  libxs_mutex_state lock_free = INTERNAL_SYNC_LOCK_FREE;
-  int lock_state = INTERNAL_SYNC_LOCK_LOCKED;
+  libxs_mutex_state lock_free = INTERNAL_SYNC_LOCK_FREE, lock_state = INTERNAL_SYNC_LOCK_LOCKED;
   assert(0 != mutex);
   while (0/*false*/ == LIBXS_ATOMIC_CMPSWP(&mutex->state, lock_free, lock_state, LIBXS_ATOMIC_RELAXED)) {
-    int state;
+    libxs_mutex_state state;
     for (state = mutex->state; INTERNAL_SYNC_LOCK_FREE != state; state = mutex->state) {
 #     if defined(LIBXS_SYNC_FUTEX) && defined(__linux__)
       LIBXS_SYNC_CYCLE_ELSE(counter, LIBXS_SYNC_NPAUSE, {
@@ -535,7 +534,7 @@ LIBXS_API_DEFINITION void libxs_mutex_release(libxs_mutex* mutex)
 
 
 #if !defined(LIBXS_NO_SYNC) && !(defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM))
-typedef union LIBXS_RETARGETABLE internal_sync_counter {
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_sync_counter {
   struct {
     uint16_t writer;
     uint16_t reader;
@@ -545,7 +544,7 @@ typedef union LIBXS_RETARGETABLE internal_sync_counter {
 #endif
 
 
-struct LIBXS_RETARGETABLE libxs_rwlock {
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_rwlock {
 #if !defined(LIBXS_NO_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_TYPE(LIBXS_LOCK_RWLOCK) impl;
