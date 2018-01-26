@@ -29,6 +29,7 @@
 #include "libxs_dnn_convolution_winograd_forward.h"
 #include "libxs_main.h"
 #include <libxs_intrinsics_x86.h>
+#include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
