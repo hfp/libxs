@@ -135,13 +135,13 @@ int main(int argc, char* argv[])
 #endif
       tcgen += libxs_timer_diff(t0, libxs_timer_tick());
     }
-
+#if 1
     /* correct for duplicated code generation requests */
     if (EXIT_SUCCESS == libxs_get_registry_info(&reginfo)) {
       ncgens = (int)(reginfo.size - 1/*initial code gen.*/);
-      tcgen -= tcall * (size - ncgens);
+      tcgen -= tdisp * (size - ncgens) / size;
     }
-
+#endif
     free(r);
   }
 
