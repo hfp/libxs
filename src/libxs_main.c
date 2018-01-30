@@ -108,7 +108,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 
 #if defined(_DEBUG)
 # define INTERNAL_DISPATCH_DEBUG(RESULT, TYPE, FLAGS, M, N, K, PLDA, PLDB, PLDC, PALPHA, PBETA) \
-  if (0 != libxs_verbosity && ((INT_MAX) - 1) != libxs_verbosity && 0 != (RESULT).pmm) { \
+  if (0 != libxs_verbosity && INT_MAX != libxs_verbosity && 0 != (RESULT).pmm) { \
     const libxs_blasint internal_dispatch_debug_m_ = M, internal_dispatch_debug_n_ = N, internal_dispatch_debug_k_ = K; \
     const libxs_blasint internal_dispatch_debug_lda_ = (0 == (PLDA) ? M : *(PLDA)); \
     const libxs_blasint internal_dispatch_debug_ldb_ = (0 == (PLDB) ? K : *(PLDB)); \
@@ -599,7 +599,7 @@ LIBXS_API_INLINE void internal_init(void)
       }
 #if !defined(NDEBUG)
       else {
-        libxs_verbosity = INT_MAX - 1; /* quiet -> verbose */
+        libxs_verbosity = INT_MAX; /* quiet -> verbose */
       }
 #endif
     }
@@ -625,75 +625,72 @@ LIBXS_API_INLINE void internal_init(void)
       }
     }
     if (EXIT_SUCCESS == init_code) {
-      init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
-      if (EXIT_SUCCESS == init_code)
 #endif
-      {
-        libxs_code_pointer *const new_registry = (libxs_code_pointer*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer));
-        internal_registry_keys = (libxs_kernel_info*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_kernel_info));
-        if (0 != new_registry && 0 != internal_registry_keys) {
-          const char *const env = getenv("LIBXS_GEMM_PREFETCH");
-          libxs_gemm_diff_init(libxs_target_archid);
-          libxs_trans_init(libxs_target_archid);
-          libxs_hash_init(libxs_target_archid);
-          libxs_dnn_init(libxs_target_archid);
+      libxs_code_pointer *const new_registry = (libxs_code_pointer*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer));
+      internal_registry_keys = (libxs_kernel_info*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_kernel_info));
+      if (0 != new_registry && 0 != internal_registry_keys) {
+        const char *const env = getenv("LIBXS_GEMM_PREFETCH");
+        libxs_gemm_diff_init(libxs_target_archid);
+        libxs_trans_init(libxs_target_archid);
+        libxs_hash_init(libxs_target_archid);
+        libxs_dnn_init(libxs_target_archid);
 #if defined(LIBXS_PERF)
-          libxs_perf_init();
+        libxs_perf_init();
 #endif
-          for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) new_registry[i].pmm = 0;
-          /* omit registering code if JIT is enabled and if an ISA extension is found
-           * which is beyond the static code path used to compile the library
-           */
+        for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) new_registry[i].pmm = 0;
+        /* omit registering code if JIT is enabled and if an ISA extension is found
+         * which is beyond the static code path used to compile the library
+         */
 #if defined(LIBXS_BUILD)
 # if (0 != LIBXS_JIT) && !defined(__MIC__)
-          /* check if target arch. permits execution (arch. may be overridden) */
-          if (LIBXS_STATIC_TARGET_ARCH <= libxs_target_archid &&
-            (LIBXS_X86_AVX > libxs_target_archid /* JIT code gen. is not available */
-              /* condition allows to avoid JIT (if static code is good enough) */
-              || LIBXS_STATIC_TARGET_ARCH == libxs_target_archid))
+        /* check if target arch. permits execution (arch. may be overridden) */
+        if (LIBXS_STATIC_TARGET_ARCH <= libxs_target_archid &&
+           (LIBXS_X86_AVX > libxs_target_archid /* JIT code gen. is not available */
+            /* condition allows to avoid JIT (if static code is good enough) */
+            || LIBXS_STATIC_TARGET_ARCH == libxs_target_archid))
 # endif
-          { /* opening a scope for eventually declaring variables */
-            /* setup the dispatch table for the statically generated code */
+        { /* opening a scope for eventually declaring variables */
+          /* setup the dispatch table for the statically generated code */
 #           include <libxs_dispatch.h>
-          }
+        }
 #endif
 #if defined(_WIN32) || defined(__CYGWIN__) /* TODO: full support for Windows calling convention */
-          libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
+        libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
 #else
-          libxs_gemm_auto_prefetch_default = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
-            /* avoid special prefetch if static code is present, since such code uses INTERNAL_PREFETCH */
-            ? (((LIBXS_X86_AVX512 >= libxs_target_archid || LIBXS_X86_AVX512_CORE <= libxs_target_archid))
-              ? LIBXS_PREFETCH_AL2BL2_VIA_C : LIBXS_PREFETCH_BL2_VIA_C)
-            : INTERNAL_PREFETCH;
+        libxs_gemm_auto_prefetch_default = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
+          /* avoid special prefetch if static code is present, since such code uses INTERNAL_PREFETCH */
+          ? (((LIBXS_X86_AVX512 >= libxs_target_archid || LIBXS_X86_AVX512_CORE <= libxs_target_archid))
+            ? LIBXS_PREFETCH_AL2BL2_VIA_C : LIBXS_PREFETCH_BL2_VIA_C)
+          : INTERNAL_PREFETCH;
 #endif
-          libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
-          if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
-            const int uid = atoi(env);
-            if (0 <= uid) {
-              libxs_gemm_auto_prefetch_default = libxs_gemm_uid2prefetch(uid);
-              libxs_gemm_auto_prefetch = libxs_gemm_auto_prefetch_default;
-              internal_gemm_auto_prefetch_locked = 1;
-            }
-          }
-          libxs_gemm_init(libxs_target_archid);
-          if (0 == internal_teardown) {
-            atexit(internal_finalize);
-          }
-          {
-            void *const pv_registry = &internal_registry;
-            LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)((void**)pv_registry, (void*)new_registry, LIBXS_ATOMIC_SEQ_CST);
+        libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
+        if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
+          const int uid = atoi(env);
+          if (0 <= uid) {
+            libxs_gemm_auto_prefetch_default = libxs_gemm_uid2prefetch(uid);
+            libxs_gemm_auto_prefetch = libxs_gemm_auto_prefetch_default;
+            internal_gemm_auto_prefetch_locked = 1;
           }
         }
-        else {
-          if (0 != libxs_verbosity) { /* library code is expected to be mute */
-            fprintf(stderr, "LIBXS ERROR: failed to allocate code registry!\n");
-          }
-          free(internal_registry_keys);
-          free(new_registry);
+        libxs_gemm_init(libxs_target_archid);
+        if (0 == internal_teardown) {
+          atexit(internal_finalize);
+        }
+        {
+          void *const pv_registry = &internal_registry;
+          LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)((void**)pv_registry, (void*)new_registry, LIBXS_ATOMIC_SEQ_CST);
         }
       }
+      else {
+        if (0 != libxs_verbosity) { /* library code is expected to be mute */
+          fprintf(stderr, "LIBXS ERROR: failed to allocate code registry!\n");
+        }
+        free(internal_registry_keys);
+        free(new_registry);
+      }
 #if defined(LIBXS_TRACE)
-      else if (0 != libxs_verbosity) { /* library code is expected to be mute */
+      init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
+      if (EXIT_SUCCESS != init_code && 0 != libxs_verbosity) { /* library code is expected to be mute */
         fprintf(stderr, "LIBXS ERROR: failed to initialize TRACE (error #%i)!\n", init_code);
       }
     }
@@ -962,10 +959,14 @@ LIBXS_API_DEFINITION void libxs_set_target_arch(const char* arch)
     else if (0 == strcmp("snb", arch) || 0 == strcmp("avx", arch)) {
       target_archid = LIBXS_X86_AVX;
     }
-    else if (0 == strcmp("wsm", arch) || 0 == strcmp("nhm", arch) || 0 == strcmp("sse4", arch) || 0 == strcmp("sse4_2", arch) || 0 == strcmp("sse4.2", arch)) {
+    else if (0 == strcmp("wsm", arch) || 0 == strcmp("nhm", arch)
+          || 0 == strcmp("sse", arch) || 0 == strcmp("sse4", arch)
+          || 0 == strcmp("sse4_2", arch)
+          || 0 == strcmp("sse4.2", arch))
+    {
       target_archid = LIBXS_X86_SSE4;
     }
-    else if (0 == strcmp("sse", arch) || 0 == strcmp("sse3", arch)) {
+    else if (0 == strcmp("sse3", arch)) {
       target_archid = LIBXS_X86_SSE3;
     }
     else if (0 == strcmp("x86", arch) || 0 == strcmp("sse2", arch)) {
