@@ -15,14 +15,15 @@ Available code paths (IDs and corresponding strings):
 
 * LIBXS_TARGET_ARCH_GENERIC: "**generic**", "none", "0"
 * LIBXS_X86_GENERIC: "**x86**", "sse2"
-* LIBXS_X86_SSE3: "**sse3**", "sse"
-* LIBXS_X86_SSE4: "**wsm**", "nhm", "sse4", "sse4_2", "sse4.2"
+* LIBXS_X86_SSE3: "**sse3**"
+* LIBXS_X86_SSE4: "**wsm**", "nhm", "sse", "sse4", "sse4_2", "sse4.2"
 * LIBXS_X86_AVX: "**snb**", "avx"
 * LIBXS_X86_AVX2: "**hsw**", "avx2"
 * LIBXS_X86_AVX512: "**avx3**", "avx512"
 * LIBXS_X86_AVX512_MIC: "**knl**", "mic"
 * LIBXS_X86_AVX512_KNM: "**knm**"
 * LIBXS_X86_AVX512_CORE: "**skx**", "skl"
+* LIBXS_X86_AVX512_ICL: "**icl**"
 
 The **bold** names are returned by `libxs_get_target_arch` whereas `libxs_set_target_arch` accepts all of the above strings (similar to the environment variable LIBXS_TARGET).
 
