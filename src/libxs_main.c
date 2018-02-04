@@ -151,27 +151,36 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 
 #if !defined(LIBXS_NO_SYNC)
 # if !defined(INTERNAL_REGLOCK_MAXN)
-#   if 0 /* RW-lock */
-#   define INTERNAL_REGLOCK_MAXN 0
+#   if defined(_MSC_VER)
+#     define INTERNAL_REGLOCK_MAXN 0
 #   else
-#   define INTERNAL_REGLOCK_MAXN 256
+#     define INTERNAL_REGLOCK_MAXN 256
 #   endif
 # endif
 # if (0 < INTERNAL_REGLOCK_MAXN)
-#   if LIBXS_LOCK_TYPE_ISPOD(LIBXS_REGLOCK)
+#   if !defined(LIBXS_REGNLOCK)
+#     define LIBXS_REGNLOCK LIBXS_LOCK_DEFAULT
+#   endif
+#   if LIBXS_LOCK_TYPE_ISPOD(LIBXS_REGNLOCK)
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_reglocktype {
   char pad[LIBXS_CACHELINE];
-  LIBXS_LOCK_TYPE(LIBXS_REGLOCK) state;
+  LIBXS_LOCK_TYPE(LIBXS_REGNLOCK) state;
 } internal_reglocktype;
 #   else
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_reglocktype {
-  LIBXS_LOCK_TYPE(LIBXS_REGLOCK) state;
+  LIBXS_LOCK_TYPE(LIBXS_REGNLOCK) state;
 } internal_reglocktype;
 #   endif
 LIBXS_API_VARIABLE(internal_reglocktype internal_reglock[INTERNAL_REGLOCK_MAXN]);
 # else /* RW-lock */
-LIBXS_API_VARIABLE(LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK_RWLOCK) internal_reglock_attr);
-LIBXS_API_VARIABLE(LIBXS_LOCK_TYPE(LIBXS_LOCK_RWLOCK) internal_reglock);
+#   if !defined(LIBXS_REG1LOCK)
+#     if defined(_MSC_VER)
+#       define LIBXS_REG1LOCK LIBXS_LOCK_MUTEX
+#     else
+#       define LIBXS_REG1LOCK LIBXS_LOCK_RWLOCK
+#     endif
+#   endif
+LIBXS_API_VARIABLE(LIBXS_LOCK_TYPE(LIBXS_REG1LOCK) internal_reglock);
 # endif
 #endif
 
@@ -197,7 +206,7 @@ LIBXS_API_VARIABLE(int internal_gemm_auto_prefetch_locked);
 #elif (0 < INTERNAL_REGLOCK_MAXN)
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX, DIFF, CODE) { \
   const unsigned int LOCKINDEX = LIBXS_MOD2(INDEX, internal_reglock_count); \
-  if (LIBXS_LOCK_ACQUIRED(LIBXS_REGLOCK) != LIBXS_LOCK_TRYLOCK(LIBXS_REGLOCK, &internal_reglock[LOCKINDEX].state)) { \
+  if (LIBXS_LOCK_ACQUIRED(LIBXS_REGNLOCK) != LIBXS_LOCK_TRYLOCK(LIBXS_REGNLOCK, &internal_reglock[LOCKINDEX].state)) { \
     if (1 != internal_reglock_count && /* (re-)try and get (meanwhile) generated code */ \
         0 != internal_registry) /* ensure engine is not shut down */ \
     { \
@@ -208,10 +217,10 @@ LIBXS_API_VARIABLE(int internal_gemm_auto_prefetch_locked);
       break; \
     } \
   }
-# define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, &internal_reglock[LOCKINDEX].state); }
+# define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(LIBXS_REGNLOCK, &internal_reglock[LOCKINDEX].state); }
 #else /* RW-lock */
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX, DIFF, CODE) { \
-  if (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK) != LIBXS_LOCK_TRYLOCK(LIBXS_LOCK_RWLOCK, &internal_reglock)) { \
+  if (LIBXS_LOCK_ACQUIRED(LIBXS_REG1LOCK) != LIBXS_LOCK_TRYLOCK(LIBXS_REG1LOCK, &internal_reglock)) { \
     if (1 != internal_reglock_count && /* (re-)try and get (meanwhile) generated code */ \
         0 != internal_registry) /* ensure engine is not shut down */ \
     { \
@@ -222,7 +231,7 @@ LIBXS_API_VARIABLE(int internal_gemm_auto_prefetch_locked);
       break; \
     } \
   }
-# define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(LIBXS_LOCK_RWLOCK, &internal_reglock); }
+# define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(LIBXS_REG1LOCK, &internal_reglock); }
 #endif
 
 
@@ -506,13 +515,11 @@ LIBXS_API_INLINE void internal_finalize(void)
 #if !defined(LIBXS_NO_SYNC)
   { /* release locks */
 # if (0 < INTERNAL_REGLOCK_MAXN)
-    int i; for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_DESTROY(LIBXS_REGLOCK, &internal_reglock[i].state);
+    int i; for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_DESTROY(LIBXS_REGNLOCK, &internal_reglock[i].state);
 # else
-    LIBXS_LOCK_DESTROY(LIBXS_LOCK_RWLOCK, &internal_reglock);
-    LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK_RWLOCK, &internal_reglock_attr);
+    LIBXS_LOCK_DESTROY(LIBXS_REG1LOCK, &internal_reglock);
 # endif
     LIBXS_LOCK_DESTROY(LIBXS_LOCK, &libxs_lock_global);
-    LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK, &libxs_lock_attr_default);
   }
 #endif
 }
@@ -529,9 +536,9 @@ LIBXS_API_INLINE void internal_init(void)
 #if !defined(LIBXS_NO_SYNC) /* setup the locks in a thread-safe fashion */
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &libxs_lock_global);
 # if (0 < INTERNAL_REGLOCK_MAXN)
-  for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_ACQUIRE(LIBXS_REGLOCK, &internal_reglock[i].state);
+  for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_ACQUIRE(LIBXS_REGNLOCK, &internal_reglock[i].state);
 # else
-  LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_RWLOCK, &internal_reglock);
+  LIBXS_LOCK_ACQUIRE(LIBXS_REG1LOCK, &internal_reglock);
 # endif
 #endif
   if (0 == internal_registry) { /* double-check after acquiring the lock(s) */
@@ -701,9 +708,9 @@ LIBXS_API_INLINE void internal_init(void)
   }
 #if !defined(LIBXS_NO_SYNC) /* release locks */
 # if (0 < INTERNAL_REGLOCK_MAXN)
-  for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, &internal_reglock[i].state);
+  for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_RELEASE(LIBXS_REGNLOCK, &internal_reglock[i].state);
 # else
-  LIBXS_LOCK_RELEASE(LIBXS_LOCK_RWLOCK, &internal_reglock);
+  LIBXS_LOCK_RELEASE(LIBXS_REG1LOCK, &internal_reglock);
 # endif
   LIBXS_LOCK_RELEASE(LIBXS_LOCK, &libxs_lock_global);
 #endif
@@ -719,12 +726,22 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
     static int counter = 0, once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&counter, 1, LIBXS_ATOMIC_SEQ_CST)) {
       const char *const env_trylock = getenv("LIBXS_TRYLOCK");
+      LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK) attr_global;
 # if (0 < INTERNAL_REGLOCK_MAXN)
       int i;
+      LIBXS_LOCK_ATTR_TYPE(LIBXS_REGNLOCK) attr;
+      LIBXS_LOCK_ATTR_INIT(LIBXS_REGNLOCK, &attr);
+# else
+      LIBXS_LOCK_ATTR_TYPE(LIBXS_REG1LOCK) attr;
+      LIBXS_LOCK_ATTR_INIT(LIBXS_REG1LOCK, &attr);
+      LIBXS_LOCK_INIT(LIBXS_REG1LOCK, &internal_reglock, &attr);
+      LIBXS_LOCK_ATTR_DESTROY(LIBXS_REG1LOCK, &attr);
 # endif
-      LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK, &libxs_lock_attr_default);
-      LIBXS_LOCK_INIT(LIBXS_LOCK, &libxs_lock_global, &libxs_lock_attr_default);
-      if (0 == env_trylock || 0 == *env_trylock) { /* LIBXS_TRYLOCK not present in environment */
+      LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK, &attr_global);
+      LIBXS_LOCK_INIT(LIBXS_LOCK, &libxs_lock_global, &attr_global);
+      LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK, &attr_global);
+      /* control number of locks needed; LIBXS_TRYLOCK implies only 1 lock */
+      if (0 == env_trylock || 0 == *env_trylock) { /* no LIBXS_TRYLOCK */
         internal_reglock_count = INTERNAL_REGLOCK_MAXN;
       }
       else { /* LIBXS_TRYLOCK environment variable specified */
@@ -733,10 +750,8 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       }
 # if (0 < INTERNAL_REGLOCK_MAXN)
       assert(1 <= internal_reglock_count);
-      for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_INIT(LIBXS_REGLOCK, &internal_reglock[i].state, &libxs_lock_attr_default);
-# else
-      LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK_RWLOCK, &internal_reglock_attr);
-      LIBXS_LOCK_INIT(LIBXS_LOCK_RWLOCK, &internal_reglock, &internal_reglock_attr);
+      for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_INIT(LIBXS_REGNLOCK, &internal_reglock[i].state, &attr);
+      LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGNLOCK, &attr);
 # endif
       once = 1;
     }
@@ -762,19 +777,21 @@ void libxs_finalize(void);
 
 LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 {
-  libxs_code_pointer* registry = (libxs_code_pointer*)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&internal_registry, LIBXS_ATOMIC_SEQ_CST);
+  uintptr_t regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)&internal_registry, LIBXS_ATOMIC_SEQ_CST);
+  libxs_code_pointer* registry = (libxs_code_pointer*)regptr;
   if (0 != registry) {
     int i;
 #if !defined(LIBXS_NO_SYNC)
     LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &libxs_lock_global);
     /* acquire locks and thereby shortcut lazy initialization later on */
 # if (0 < INTERNAL_REGLOCK_MAXN)
-    for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_ACQUIRE(LIBXS_REGLOCK, &internal_reglock[i].state);
+    for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_ACQUIRE(LIBXS_REGNLOCK, &internal_reglock[i].state);
 # else
-    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_RWLOCK, &internal_reglock);
+    LIBXS_LOCK_ACQUIRE(LIBXS_REG1LOCK, &internal_reglock);
 # endif
 #endif
-    registry = (libxs_code_pointer*)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&internal_registry, LIBXS_ATOMIC_RELAXED);
+    regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)&internal_registry, LIBXS_ATOMIC_RELAXED);
+    registry = (libxs_code_pointer*)regptr;
 
     if (0 != registry) {
       libxs_kernel_info *const registry_keys = internal_registry_keys;
@@ -853,9 +870,9 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     }
 #if !defined(LIBXS_NO_SYNC) /* LIBXS_LOCK_RELEASE, but no LIBXS_LOCK_DESTROY */
 # if (0 < INTERNAL_REGLOCK_MAXN)
-    for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, &internal_reglock[i].state);
+    for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_RELEASE(LIBXS_REGNLOCK, &internal_reglock[i].state);
 # else
-    LIBXS_LOCK_RELEASE(LIBXS_LOCK_RWLOCK, &internal_reglock);
+    LIBXS_LOCK_RELEASE(LIBXS_REG1LOCK, &internal_reglock);
 # endif
     LIBXS_LOCK_RELEASE(LIBXS_LOCK, &libxs_lock_global);
 #endif
@@ -1498,11 +1515,11 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
 
     while (0 != diff) {
 #if (0 < INTERNAL_REGLOCK_MAXN) || defined(LIBXS_NO_SYNC) /* read registered code */
-      flux_entry.pmm = (void*)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&internal_registry[i].pmm, LIBXS_ATOMIC_RELAXED);
+      flux_entry.uval = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)&internal_registry[i].pmm, LIBXS_ATOMIC_RELAXED);
 #else
-      LIBXS_LOCK_ACQREAD(LIBXS_LOCK_RWLOCK, &internal_reglock);
+      LIBXS_LOCK_ACQREAD(LIBXS_REG1LOCK, &internal_reglock);
       flux_entry.pmm = internal_registry[i].pmm; /* read registered code */
-      LIBXS_LOCK_RELREAD(LIBXS_LOCK_RWLOCK, &internal_reglock);
+      LIBXS_LOCK_RELREAD(LIBXS_REG1LOCK, &internal_reglock);
 #endif
       if ((0 != flux_entry.ptr_const || 1 == mode) && 2 > mode) { /* check existing entry further */
         diff = 0 != flux_entry.ptr_const ? libxs_gemm_diff(descriptor, &internal_registry_keys[i].xgemm) : 1;

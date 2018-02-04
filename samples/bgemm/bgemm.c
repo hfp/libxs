@@ -83,9 +83,9 @@ LIBXS_INLINE LIBXS_RETARGETABLE void init(libxs_blasint seed, REAL_TYPE *LIBXS_R
 
 int main(int argc, char* argv[])
 {
-  const libxs_blasint m = (1 < argc ? atoi(argv[1]) : 1024);
-  const libxs_blasint k = (3 < argc ? atoi(argv[3]) : m);
-  const libxs_blasint n = (2 < argc ? atoi(argv[2]) : k);
+  LIBXS_GEMM_CONST libxs_blasint m = (1 < argc ? atoi(argv[1]) : 1024);
+  LIBXS_GEMM_CONST libxs_blasint k = (3 < argc ? atoi(argv[3]) : m);
+  LIBXS_GEMM_CONST libxs_blasint n = (2 < argc ? atoi(argv[2]) : k);
   const libxs_blasint bm = (4 < argc ? atoi(argv[4]) : 32);
   const libxs_blasint bk = (6 < argc ? atoi(argv[6]) : bm);
   const libxs_blasint bn = (5 < argc ? atoi(argv[5]) : bk);
@@ -96,13 +96,13 @@ int main(int argc, char* argv[])
   const libxs_blasint b_k1 = (11 < argc ? atoi(argv[11]) : 1);
   const libxs_blasint b_k2 = (12 < argc ? atoi(argv[12]) : 1);
   const int ab = (13 < argc ? atoi(argv[13]) : 0);
-  const libxs_blasint lda = (14 < argc ? atoi(argv[13]) : m);
-  const libxs_blasint ldb = (15 < argc ? atoi(argv[14]) : k);
-  const libxs_blasint ldc = (16 < argc ? atoi(argv[15]) : m);
-  const double gflops = 2.0 * m * n * k * 1E-9;
-  const char transa = 'N', transb = 'N'; /* no transposes */
+  LIBXS_GEMM_CONST libxs_blasint lda = (14 < argc ? atoi(argv[13]) : m);
+  LIBXS_GEMM_CONST libxs_blasint ldb = (15 < argc ? atoi(argv[14]) : k);
+  LIBXS_GEMM_CONST libxs_blasint ldc = (16 < argc ? atoi(argv[15]) : m);
+  LIBXS_GEMM_CONST char transa = 'N', transb = 'N'; /* no transposes */
+  LIBXS_GEMM_CONST REAL_TYPE alpha = 1, beta = 1;
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
-  const REAL_TYPE alpha = 1, beta = 1;
+  const double gflops = 2.0 * m * n * k * 1E-9;
   int result = EXIT_SUCCESS;
 #if defined(CHECK)
   const char *const env_check = getenv("CHECK");

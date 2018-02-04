@@ -1241,8 +1241,9 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
         assert(used_size <= pool_size);
 
         if (req_size <= pool_size) { /* fast path: draw from pool-buffer */
-          void *const headptr = &pool->instance.head;
-          char *const head = (char*)LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)((uintptr_t*)headptr, alloc_size, LIBXS_ATOMIC_SEQ_CST);
+          void *const headaddr = &pool->instance.head;
+          uintptr_t headptr = LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)((uintptr_t*)headaddr, alloc_size, LIBXS_ATOMIC_SEQ_CST);
+          char *const head = (char*)headptr;
           result = LIBXS_ALIGN(head - alloc_size, align_size);
         }
         else { /* fall-back to local memory allocation */

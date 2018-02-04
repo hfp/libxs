@@ -35,10 +35,6 @@
 # define LIBXS_SYNC_FUTEX
 #endif
 
-#if !defined(LIBXS_SYNC_SYSTEM) && defined(__MINGW32__)
-# define LIBXS_SYNC_SYSTEM
-#endif
-
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
@@ -361,7 +357,7 @@ LIBXS_API_DEFINITION int libxs_spinlock_trylock(libxs_spinlock* spinlock)
     ? (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_SPINLOCK) + 1) /* not acquired */
     : (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_SPINLOCK));
 # else
-  return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_SPINLOCK) + LIBXS_ATOMIC_TRYLOCK(&spinlock->state, LIBXS_ATOMIC_RELAXED);
+  return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_SPINLOCK) + !LIBXS_ATOMIC_TRYLOCK(&spinlock->state, LIBXS_ATOMIC_RELAXED);
 # endif
 #else
   LIBXS_UNUSED(spinlock);
@@ -457,7 +453,7 @@ LIBXS_API_DEFINITION int libxs_mutex_trylock(libxs_mutex* mutex)
 # if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
   return LIBXS_LOCK_TRYLOCK(LIBXS_LOCK_MUTEX, &mutex->impl);
 # else
-  return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_MUTEX) + LIBXS_ATOMIC_TRYLOCK(&mutex->state, LIBXS_ATOMIC_RELAXED);
+  return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_MUTEX) + !LIBXS_ATOMIC_TRYLOCK(&mutex->state, LIBXS_ATOMIC_RELAXED);
 # endif
 #else
   LIBXS_UNUSED(mutex);
@@ -473,14 +469,15 @@ LIBXS_API_DEFINITION void libxs_mutex_acquire(libxs_mutex* mutex)
   assert(0 != mutex);
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_MUTEX, &mutex->impl);
 # else
-  LIBXS_SYNC_CYCLE_DECL(counter);
 #   if defined(_WIN32)
+  LIBXS_SYNC_CYCLE_DECL(counter);
   assert(0 != mutex);
   while (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_MUTEX) != libxs_mutex_trylock(mutex)) {
     while (0 != (mutex->state & 1)) LIBXS_SYNC_CYCLE(counter, LIBXS_SYNC_NPAUSE);
   }
 #   else
   libxs_mutex_state lock_free = INTERNAL_SYNC_LOCK_FREE, lock_state = INTERNAL_SYNC_LOCK_LOCKED;
+  LIBXS_SYNC_CYCLE_DECL(counter);
   assert(0 != mutex);
   while (0/*false*/ == LIBXS_ATOMIC_CMPSWP(&mutex->state, lock_free, lock_state, LIBXS_ATOMIC_RELAXED)) {
     libxs_mutex_state state;

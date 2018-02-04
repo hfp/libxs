@@ -49,8 +49,8 @@
 #if !defined(LIBXS_MALLOC_SCRATCH_LIMIT)
 # define LIBXS_MALLOC_SCRATCH_LIMIT (4ULL << 30) /* 4 GB */
 #endif
-#if !defined(LIBXS_MALLOC_SCRATCH_MMAP)
-/*# define LIBXS_MALLOC_SCRATCH_MMAP*/
+#if !defined(LIBXS_MALLOC_SCRATCH_MMAP) && 0
+# define LIBXS_MALLOC_SCRATCH_MMAP
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_SCALE)
 # if defined(LIBXS_MALLOC_SCRATCH_MMAP)
@@ -68,9 +68,6 @@
 
 #if !defined(LIBXS_LOCK)
 # define LIBXS_LOCK LIBXS_LOCK_DEFAULT
-#endif
-#if !defined(LIBXS_REGLOCK)
-# define LIBXS_REGLOCK LIBXS_LOCK_DEFAULT
 #endif
 
 #if !defined(LIBXS_EXT_MIN_NTASKS)
@@ -441,8 +438,6 @@ LIBXS_API unsigned long long libxs_timer_tick_rdtsc(void);
 LIBXS_API void libxs_dnn_init(int target_arch);
 LIBXS_API void libxs_dnn_finalize(void);
 
-/** Default attribute of internal locks. */
-LIBXS_API_VARIABLE(LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK) libxs_lock_attr_default);
 /** Global lock; create an own lock for an independent domain. */
 LIBXS_API_VARIABLE(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 /** Function used to allocate default memory. */
