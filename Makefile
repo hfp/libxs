@@ -171,7 +171,9 @@ ifneq (0,$(OMP))
 endif
 
 ifneq (,$(MKL))
+ifneq (0,$(MKL))
   BLAS = $(MKL)
+endif
 endif
 
 BLAS_WARNING ?= 0
@@ -648,7 +650,7 @@ endif
 		-e "/#pragma message (\".*KERNEL COMPILATION WARNING: compiling ..* code on ..* or newer architecture: \" __FILE__)/d" \
 		| tr "~" "\n" > $(TMPFILE)
 	@$(PYTHON) $(SCRDIR)/libxs_specialized.py $(PRECISION) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >> $(TMPFILE)
-	@mv $(TMPFILE) $@
+	@$(MV) $(TMPFILE) $@
 endif
 
 ifneq (0,$(JIT))
@@ -774,8 +776,10 @@ module_mic: $(INCDIR)/mic/libxs.mod
 $(BLDDIR)/mic/libxs-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)/mic
 $(INCDIR)/mic/libxs.mod: $(BLDDIR)/mic/libxs-mod.o
-	@if [ -e $(BLDDIR)/mic/libxs.mod ]; then $(CP) $(BLDDIR)/mic/libxs.mod $(INCDIR)/mic; fi
-	@if [ -e $(BLDDIR)/mic/LIBXS.mod ]; then $(CP) $(BLDDIR)/mic/LIBXS.mod $(INCDIR)/mic; fi
+	@if [ -e $(BLDDIR)/mic/LIBXS.mod ]; then $(CP) $(BLDDIR)/mic/LIBXS.mod $(INCDIR); fi
+	@if [ -e $(BLDDIR)/mic/libxs.mod ]; then $(CP) $(BLDDIR)/mic/libxs.mod $(INCDIR); fi
+	@if [ -e LIBXS.mod ]; then $(MV) LIBXS.mod $(INCDIR); fi
+	@if [ -e libxs.mod ]; then $(MV) libxs.mod $(INCDIR); fi
 	@touch $@
 else
 .PHONY: $(BLDDIR)/mic/libxs-mod.o
@@ -796,8 +800,10 @@ module_hst: $(INCDIR)/libxs.mod
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(FTARGET) -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
 $(INCDIR)/libxs.mod: $(BLDDIR)/intel64/libxs-mod.o
-	@if [ -e $(BLDDIR)/intel64/libxs.mod ]; then $(CP) $(BLDDIR)/intel64/libxs.mod $(INCDIR); fi
 	@if [ -e $(BLDDIR)/intel64/LIBXS.mod ]; then $(CP) $(BLDDIR)/intel64/LIBXS.mod $(INCDIR); fi
+	@if [ -e $(BLDDIR)/intel64/libxs.mod ]; then $(CP) $(BLDDIR)/intel64/libxs.mod $(INCDIR); fi
+	@if [ -e LIBXS.mod ]; then $(MV) LIBXS.mod $(INCDIR); fi
+	@if [ -e libxs.mod ]; then $(MV) libxs.mod $(INCDIR); fi
 	@touch $@
 else
 .PHONY: $(BLDDIR)/intel64/libxs-mod.o
@@ -811,11 +817,7 @@ module: module_hst module_mic
 build_generator_lib: $(OUTDIR)/libxsgen.$(LIBEXT)
 $(OUTDIR)/libxsgen.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
-ifneq (Darwin,$(UNAME))
-	$(LD) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_GEN_LIB) $(LDFLAGS) $(CLDFLAGS) -lrt
-else # osx
-	$(LD) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_GEN_LIB) $(LDFLAGS) $(CLDFLAGS)
-endif
+	$(LD) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_GEN_LIB) $(LDFLAGS) $(CLDFLAGS) $(LIBRT)
 else # static
 	$(AR) -rs $@ $(OBJFILES_GEN_LIB)
 endif

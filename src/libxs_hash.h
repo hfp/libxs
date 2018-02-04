@@ -31,8 +31,8 @@
 
 #include <libxs.h>
 
-#if !defined(LIBXS_HASH_SW)
-/*# define LIBXS_HASH_SW*/
+#if !defined(LIBXS_HASH_SW) && 0
+# define LIBXS_HASH_SW
 #endif
 
 #if defined(LIBXS_BUILD) && !defined(LIBXS_HASH_NOINLINE)

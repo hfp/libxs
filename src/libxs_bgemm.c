@@ -52,7 +52,7 @@
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_bgemm_lock {
   char pad[LIBXS_CACHELINE];
-  volatile char state;
+  volatile LIBXS_ATOMIC_LOCKTYPE state;
 } libxs_bgemm_lock;
 
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_bgemm_handle {
@@ -100,7 +100,8 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
 
       if (0 == (m % mm) && 0 == (n % nn) && 0 == (k % kk) &&
           0 == (m % *b_m1) && 0 == (n % *b_n1) && 0 == (k % *b_k1) &&
-          0 == ((k / *b_k1 / *b_k2) % kk) && 0 == ((n / *b_n1) % nn) && 0 == ((m / *b_m1) % mm)) { /* check for valid block-size */
+          0 == ((k / *b_k1 / *b_k2) % kk) && 0 == ((n / *b_n1) % nn) && 0 == ((m / *b_m1) % mm))
+      { /* check for valid block-size */
         const libxs_gemm_prefetch_type prefetch = (0 == strategy ? ((libxs_gemm_prefetch_type)LIBXS_PREFETCH) : *strategy);
         handle.b_m1 = *b_m1; handle.b_n1 = *b_n1;
         handle.b_k1 = *b_k1; handle.b_k2 = *b_k2;
@@ -187,10 +188,12 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyin_a(const libxs_bgemm_handle* handle, 
   static int error_once = 0;
 
   if (0 != handle) {
+#if 0 /* TODO: support leading dimension for the source buffer */
     const libxs_blasint ild = (0 == ld ? handle->m : *ld);
-    /* TODO: support leading dimension for the source buffer */
-    assert(ild >= handle->m); LIBXS_UNUSED(ild);
-
+    assert(ild >= handle->m);
+#else
+    LIBXS_UNUSED(ld);
+#endif
     switch (handle->precision) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE double
@@ -235,10 +238,12 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyin_b(const libxs_bgemm_handle* handle, 
   static int error_once = 0;
 
   if (0 != handle) {
+#if 0 /* TODO: support leading dimension for the source buffer */
     const libxs_blasint ild = (0 == ld ? handle->k : *ld);
-    /* TODO: support leading dimension for the source buffer */
-    assert(ild >= handle->k); LIBXS_UNUSED(ild);
-
+    assert(ild >= handle->k);
+#else
+    LIBXS_UNUSED(ld);
+#endif
     switch (handle->precision) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE double
@@ -283,10 +288,12 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, 
   static int error_once = 0;
 
   if (0 != handle) {
+#if 0 /* TODO: support leading dimension for the source buffer */
     const libxs_blasint ild = (0 == ld ? handle->m : *ld);
-    /* TODO: support leading dimension for the source buffer */
-    assert(ild >= handle->m); LIBXS_UNUSED(ild);
-
+    assert(ild >= handle->m);
+#else
+    LIBXS_UNUSED(ld);
+#endif
     switch (handle->precision) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE double
@@ -331,10 +338,12 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle,
   static int error_once = 0;
 
   if (0 != handle) {
+#if 0 /* TODO: support leading dimension for the source buffer */
     const libxs_blasint ild = (0 == ld ? handle->m : *ld);
-    /* TODO: support leading dimension for the source buffer */
-    assert(ild >= handle->m); LIBXS_UNUSED(ild);
-
+    assert(ild >= handle->m);
+#else
+    LIBXS_UNUSED(ld);
+#endif
     switch (handle->precision) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE double
