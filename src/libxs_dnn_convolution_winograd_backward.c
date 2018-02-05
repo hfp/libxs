@@ -29,6 +29,7 @@
 #include "libxs_dnn_convolution_winograd_backward.h"
 #include "libxs_main.h"
 #include <libxs_intrinsics_x86.h>
+#include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -359,9 +360,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_custom_c
   /* check if we have a kernel JITed */
   if (handle->code_bwd[0].xconv.sconv == 0) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32) {
+      const int ldx = (int)(handle->desc.v*handle->ifmblock); 
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
+      typedef libxs_smmfunction gemm_function;
+      /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
+      gemm_function gemm_kernel = libxs_smmdispatch(handle->ifmblock, handle->ofw, handle->ofmblock, NULL, NULL, &ldx, NULL, NULL, NULL, NULL);
 # include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback.tpl.c"
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -440,9 +445,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_cus
   /* check if we have a kernel JITed */
   if (handle->code_bwd[0].xconv.sconv == 0) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32) {
+      const int ldx = (int)(handle->desc.v*handle->ifmblock); 
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
+      typedef libxs_smmfunction gemm_function;
+      /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
+      gemm_function gemm_kernel = libxs_smmdispatch(handle->ifmblock, handle->ofw, handle->ofmblock, NULL, NULL, &ldx, NULL, NULL, NULL, NULL);
 # include "template/libxs_dnn_convolve_st_bwd_nhwc_custom_fallback.tpl.c"
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
