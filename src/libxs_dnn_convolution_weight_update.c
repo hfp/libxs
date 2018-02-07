@@ -1503,6 +1503,20 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
           }
         }
       }
+    } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) {
+      if (handle->upd_use_thread_fil > 0) {
+        typedef unsigned char element_input_type;
+        typedef unsigned char element_output_type;
+        typedef int element_filter_type;
+        typedef libxs_bdbconvfunction libxs_convfunction;
+        if (handle->use_fastpath) {
+          if ( handle->use_hybrid_wu_parallelism == 1) {
+#include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_lp.tpl.c"
+          } else {
+#include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_opt_lp.tpl.c"
+          }
+        }
+      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;

@@ -1363,7 +1363,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_te
                                                                                                                typedef float element_type;
 #include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
                                                                                                              } break;
-                                                                              case LIBXS_DNN_DATATYPE_I16: {
+
+                                                                                   case LIBXS_DNN_DATATYPE_I32: {
+                                                                                                                   typedef int element_type;
+#include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
+                                                                                                                 } break;
+                                                                                   case LIBXS_DNN_DATATYPE_I16: {
                                                                                                                typedef short  element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
