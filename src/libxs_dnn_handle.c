@@ -1232,13 +1232,14 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               descriptor.transpose_ofw_ifm = 0;
               handle->use_hybrid_wu_parallelism = 0;
 
-              if ( handle->use_lp_kernel == 1 && (libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) ) {
+              if ( handle->use_lp_kernel == 1 && (libxs_target_archid == LIBXS_X86_AVX512_ICL || (libxs_target_archid == LIBXS_X86_AVX512_CORE && handle->datatype_in == LIBXS_DNN_DATATYPE_I16)) ) {
                 handle->use_vperm_transposes = 1;
               } else {
                 handle->use_vperm_transposes = 0;
               }
 
-              if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) {
+              if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) {
+                if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) {
                   if (handle->ofwp % 2 == 0) {
                     handle->avoid_output_trans = 1;
                   } else {
@@ -1250,6 +1251,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   } else {
                     handle->avoid_input_trans = 0;
                   }
+                }
+              } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8) {
+                if (libxs_target_archid == LIBXS_X86_AVX512_CORE) {
+                  handle->avoid_output_trans = 0;
+                  handle->avoid_input_trans = 0;
+                }
               }
 
               if (handle->use_fastpath == 1) {
@@ -1273,10 +1280,15 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   padding_target = 4;
                 } else {
                   padding_target = 8;
-                  if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) {
-                    padding_target = 2;
-                  }
                   output_lp_padding = handle->ofwp%2;
+                  if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) {
+                    if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) {
+                      padding_target = 2;
+                    } else {
+                      padding_target = 4;
+                      output_lp_padding = (handle->ofwp % 4 == 0) ? 0 : padding_target - handle->ofwp % 4;
+                    }
+                  }
                   handle->output_lp_padding = output_lp_padding;
                 }
 
@@ -1323,7 +1335,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   if (handle->padding_flag == 1) {
                     kernel_ofw_compute = handle->ofwp+output_lp_padding;
                   } else {
-                    kernel_ofw_compute = handle->ofw+output_lp_padding;
+                    kernel_ofw_compute = handle->ofwp+output_lp_padding;
                   }
                 }
 
@@ -1467,7 +1479,6 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 handle->matcopy_upd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
                 handle->matcopy_upd[1].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
               }
-
               descriptor.transpose_ofw_ifm = 0;
               descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
               if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
@@ -1519,6 +1530,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 handle->trans_ofw_ifm = 0;
               }
             }
+          }
+
+          if (libxs_target_archid == LIBXS_X86_AVX512_CORE  && handle->use_lp_kernel == 1 && handle->datatype_in == LIBXS_DNN_DATATYPE_I8){
+            handle->trans_ofw_ifm = 1;
           }
 
           if (handle->use_fastpath == 0 || handle->enforce_sfma_kernel == 1) {
