@@ -884,7 +884,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             /* NONE */
             if (handle->padding_flag == 1) {
               handle->matcopy_bwd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
-              /*handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matcopyback_descriptor);*/
+              handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matcopyback_descriptor);
             }
 
             /*descriptor.prefetch_output_ahead = 0;*/
