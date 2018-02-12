@@ -1270,7 +1270,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 handle->output_lp_padding = 0;
                 int enforce_sfma_kernel = 0;
 
-                if ((libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL || ( (handle->desc.R!=1 || handle->desc.S!=1) && (handle->desc.u!=1 || handle->desc.v!=1) )) && (handle->use_lp_kernel == 0)  ) {
+                if ((libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_MIC || libxs_target_archid == LIBXS_X86_AVX512_ICL || ( (handle->desc.R!=1 || handle->desc.S!=1) && (handle->desc.u!=1 || handle->desc.v!=1) )) && (handle->use_lp_kernel == 0)  ) {
                   enforce_sfma_kernel = 1;
                 }
 
@@ -1292,7 +1292,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   handle->output_lp_padding = output_lp_padding;
                 }
 
-                if (handle->desc.R == 1 && handle->desc.S == 1 && (libxs_target_archid == LIBXS_X86_AVX512_KNM || ((libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) && handle->use_lp_kernel == 1)) && (handle->desc.u != 1 || handle->desc.v != 1)) {
+                if (handle->desc.R == 1 && handle->desc.S == 1 && (libxs_target_archid == LIBXS_X86_AVX512_KNM || ((libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_MIC || libxs_target_archid == LIBXS_X86_AVX512_ICL) && handle->use_lp_kernel == 1)) && (handle->desc.u != 1 || handle->desc.v != 1)) {
                   handle->resize_input = 1;
                   handle->trans_ofw_ifm = 1;
                   handle->ifwp_resized = handle->ifwp/handle->desc.u;
@@ -1312,7 +1312,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
                 if (libxs_target_archid == LIBXS_X86_AVX512_KNM && (enforce_sfma_kernel == 0) ) {
                   qfma_padding = (handle->desc.W % padding_target == 0) ? 0 : padding_target - handle->desc.W % padding_target;
-                } else if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL || enforce_sfma_kernel == 1) {
+                } else if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_MIC || enforce_sfma_kernel == 1) {
                   if (handle->use_lp_kernel == 1) {
                     qfma_padding = (ifw_padded % padding_target == 0) ? 0 : padding_target - ifw_padded % padding_target;
                   } else {
@@ -1358,7 +1358,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   descriptor.ofh_rb--;
                 }
 
-                if (handle->ofh == 14 && (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL || enforce_sfma_kernel==1)) {
+                if (handle->ofh == 14 && (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_MIC || libxs_target_archid == LIBXS_X86_AVX512_ICL || enforce_sfma_kernel==1)) {
                   descriptor.ofh_rb = 2;
                 }
 
@@ -1432,7 +1432,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   }
                 }
 
-                if ((libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) &&  (handle->ofh == 7 || (handle->ofh == 14 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v == 1)) ) {
+                if ((libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_MIC) &&  (handle->ofh == 7 || (handle->ofh == 14 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v == 1)) ) {
                     descriptor.use_nts = 0;
                     descriptor.blocks_h = handle->ofh / descriptor.ofh_rb;
                     handle->upd_ofh_rb = descriptor.ofh_rb * descriptor.blocks_h;
