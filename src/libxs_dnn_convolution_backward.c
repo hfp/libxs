@@ -51,7 +51,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(lib
   }
 
   /* check if we have a kernel JITed */
-  if ( handle->code_bwd[0].xconv.sconv == 0 ) {
+  if ( handle->code_bwd[0].xconv.sconv == 0 && handle->code_bwd[3].xconv.sconv != 0 ) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       const int ldx = (int)(handle->desc.v*handle->ifmblock); 
       typedef float element_input_type;
