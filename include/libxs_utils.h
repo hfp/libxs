@@ -38,8 +38,8 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 
-/** PGI's own intrinsic header file(s) appear to be broken with PGI C++. */
-#if !defined(LIBXS_INTRINSICS_NONE) && (defined(__PGI) && defined(__cplusplus))
+/** PGI's intrinsic headers do not compile, __SSE4_x__/__AVX__ etc. are never defined (-tp=haswell, etc.) */
+#if !defined(LIBXS_INTRINSICS_NONE) && defined(__PGI)
 # define LIBXS_INTRINSICS_NONE
 #endif
 
@@ -96,18 +96,21 @@
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #     endif
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
+#     define LIBXS_INTRINSICS_INCLUDE
 #     include <immintrin.h>
 #   elif defined(_CRAYC) && defined(__GNUC__)
       /* TODO: version check e.g., LIBXS_VERSION2(11, 5) <= LIBXS_VERSION2(_RELEASE, _RELEASE_MINOR) */
 #     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
+#     define LIBXS_INTRINSICS_INCLUDE
 #     include <immintrin.h>
 #   elif defined(_MSC_VER) && !defined(__clang__)
       /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
 #     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
+#     define LIBXS_INTRINSICS_INCLUDE
 #     include <immintrin.h>
-#   elif (LIBXS_VERSION3(5, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#   elif (LIBXS_VERSION3(5, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) && !defined(__PGI)
       /* AVX-512 pseudo intrinsics are missing e.g., reductions */
 #     if !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
 #       define LIBXS_INTRINSICS_AVX512_NOREDUCTIONS
@@ -117,8 +120,9 @@
 #     else /* Error: invalid register for .seh_savexmm */
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #     endif
+#     define LIBXS_INTRINSICS_INCLUDE
 #     include <immintrin.h>
-#   elif (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#   elif (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) && !defined(__PGI)
       /* AVX-512 pseudo intrinsics are missing e.g., reductions */
 #     if !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
 #       define LIBXS_INTRINSICS_AVX512_NOREDUCTIONS
@@ -132,6 +136,7 @@
 #     else /* Error: invalid register for .seh_savexmm */
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #     endif
+#     define LIBXS_INTRINSICS_INCLUDE
 #     include <immintrin.h>
 #   else /* GCC/legacy incl. Clang */
 #     if defined(__clang__) && !(defined(__APPLE__) && defined(__MACH__)) \
@@ -172,18 +177,19 @@
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
 #     else /* fall-back */
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
-#       if !defined(LIBXS_INTRINSICS_NONE)
+#       if !defined(LIBXS_INTRINSICS_NONE) && !defined(__PGI)
 #         define LIBXS_INTRINSICS_NONE
 #       endif
 #     endif
-#     if !defined(LIBXS_INTRINSICS_LEGACY) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
+#     if !defined(LIBXS_INTRINSICS_LEGACY) && !defined(__PGI) \
+        && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
 #       define LIBXS_INTRINSICS_LEGACY
 #     endif
-#     if !defined(LIBXS_INTRINSICS_PATCH)
-#       define LIBXS_INTRINSICS_PATCH
+#     if !defined(LIBXS_INTRINSICS_INCLUDE) && !defined(__PGI)
+#       define LIBXS_INTRINSICS_INCLUDE
 #     endif
 #   endif /* GCC/legacy incl. Clang */
-#   if defined(LIBXS_INTRINSICS_PATCH) && !defined(LIBXS_INTRINSICS_NONE)
+#   if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_NONE)
 #     if !defined(__SSE3__)
 #       define __SSE3__ 1
 #     endif
@@ -276,7 +282,7 @@
 #     if (LIBXS_X86_AVX512_ICL > (LIBXS_STATIC_TARGET_ARCH))
 #       undef __AVX512VNNI__
 #     endif
-#   endif /*defined(LIBXS_INTRINSICS_PATCH)*/
+#   endif /*defined(LIBXS_INTRINSICS_INCLUDE)*/
 #   if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
 #     error "LIBXS_MAX_STATIC_TARGET_ARCH not defined!"
 #   endif
@@ -334,7 +340,8 @@
 #       define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     endif
 #   endif /*!defined(LIBXS_INTRINSICS)*/
-# elif defined(LIBXS_STATIC_TARGET_ARCH)
+# elif defined(LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_INTRINSICS_INCLUDE)
+#   define LIBXS_INTRINSICS_INCLUDE
 #   include <immintrin.h>
 # endif /*defined(LIBXS_STATIC_TARGET_ARCH)*/
 #endif /*!defined(LIBXS_INTRINSICS_NONE)*/
@@ -347,7 +354,7 @@
 #endif
 
 /** Include basic x86 intrinsics such as __rdtsc. */
-#if defined(LIBXS_INTRINSICS) && !defined(LIBXS_INTRINSICS_NONE)
+#if defined(LIBXS_INTRINSICS_INCLUDE)
 # if defined(_WIN32)
 #   include <intrin.h>
 # else
@@ -357,7 +364,9 @@
 # if defined(__SSE3__)
 #   include <pmmintrin.h>
 # endif
-#else
+#endif
+
+#if !defined(LIBXS_INTRINSICS)
 # if !defined(LIBXS_INTRINSICS_NONE)
 #   define LIBXS_INTRINSICS_NONE
 # endif
@@ -370,7 +379,7 @@
 # else
 #   include <mm_malloc.h>
 # endif
-/** Intrinsic-specific fixups */
+/** Intrinsic-specific fix-ups */
 # if defined(__clang__)
 #   define LIBXS_INTRINSICS_LDDQU_SI128(A) _mm_loadu_si128(A)
 # else
@@ -395,6 +404,14 @@
 # else
 #   define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_load_ps(A)
 #   define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_load_pd(A)
+# endif
+# if defined(__INTEL_COMPILER)
+#   define LIBXS_INTRINSICS_MM512_ABS_PS(A) _mm512_abs_ps(A)
+#   define LIBXS_INTRINSICS_MM512_PERMUTEVAR_EPI32(A, B) _mm512_permutevar_epi32(A, B)
+# else
+#   define LIBXS_INTRINSICS_MM512_ABS_PS(A) _mm512_castsi512_ps(_mm512_and_epi32( \
+                             _mm512_castps_si512(A), _mm512_set1_epi32(0x7FFFFFFF)))
+#   define LIBXS_INTRINSICS_MM512_PERMUTEVAR_EPI32(A, B) _mm512_permutexvar_epi32(A, B)
 # endif
 #endif /*!defined(LIBXS_INTRINSICS_NONE)*/
 #if defined(LIBXS_OFFLOAD_TARGET)

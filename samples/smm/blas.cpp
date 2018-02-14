@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize_batched / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      } /*break;*/
+      } /* fallthrough */
 #if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       case 1: { // batched indirect
         fprintf(stdout, "Indirect (A,B,C)...\n");
@@ -213,7 +213,8 @@ int main(int argc, char* argv[])
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
         if (0 == benchmark) { /* Gold result is available */
-          libxs_matdiff_info diff = { 0 };
+          libxs_matdiff_info diff;
+          memset(&diff, 0, sizeof(diff));
           for (libxs_blasint h = 0; h < s; ++h) {
             const T *const u = c + h * csize, *const v = c_array[h];
             libxs_matdiff_info dv;
@@ -247,7 +248,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      } /*break;*/
+      } /* fallthrough */
 #if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       case 3: { // indirect A and C
         fprintf(stdout, "Indirect (A,C)...\n");
@@ -290,7 +291,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      } /*break;*/
+      } /* fallthrough */
 #if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       case 5: { // indirect B and C
         fprintf(stdout, "Indirect (B,C)...\n");
@@ -338,7 +339,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      } /*break;*/
+      } /* fallthrough */
 #if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       case 7: { // indirect A and B
         fprintf(stdout, "Indirect (A,B)...\n");
@@ -395,7 +396,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      } /*break;*/
+      } /* fallthrough */
 #if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
       case 9: { // indirect cached
         fprintf(stdout, "Indirect cached...\n");

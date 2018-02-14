@@ -43,7 +43,7 @@
 LIBXS_API PyObject* libxspy_get_target_arch(PyObject* self, PyObject* args);
 LIBXS_API_DEFINITION PyObject* libxspy_get_target_arch(PyObject* self, PyObject* args)
 {
-  LIBXS_UNUSED(args);
+  LIBXS_UNUSED(self); LIBXS_UNUSED(args);
   return PyString_InternFromString(libxs_get_target_arch());
 }
 
@@ -52,6 +52,7 @@ LIBXS_API_DEFINITION PyObject* libxspy_set_target_arch(PyObject* self, PyObject*
 {
   int ivalue = LIBXS_TARGET_ARCH_UNKNOWN;
   char* svalue = NULL;
+  LIBXS_UNUSED(self);
   if (0 != PyArg_ParseTuple(args, "s", &svalue)) {
     libxs_set_target_arch(svalue);
   }
@@ -68,7 +69,7 @@ LIBXS_API_DEFINITION PyObject* libxspy_set_target_arch(PyObject* self, PyObject*
 LIBXS_API PyObject* libxspy_get_target_archid(PyObject* self, PyObject* args);
 LIBXS_API_DEFINITION PyObject* libxspy_get_target_archid(PyObject* self, PyObject* args)
 {
-  LIBXS_UNUSED(args);
+  LIBXS_UNUSED(self); LIBXS_UNUSED(args);
   return Py_BuildValue("i", libxs_get_target_archid());
 }
 
@@ -76,6 +77,7 @@ LIBXS_API PyObject* libxspy_set_target_archid(PyObject* self, PyObject* args);
 LIBXS_API_DEFINITION PyObject* libxspy_set_target_archid(PyObject* self, PyObject* args)
 {
   int value = LIBXS_TARGET_ARCH_UNKNOWN;
+  LIBXS_UNUSED(self);
   if (0 != PyArg_ParseTuple(args, "i", &value)) {
     libxs_set_target_archid(value);
   }
@@ -89,7 +91,7 @@ LIBXS_API_DEFINITION PyObject* libxspy_set_target_archid(PyObject* self, PyObjec
 LIBXS_API PyObject* libxspy_get_verbosity(PyObject* self, PyObject* args);
 LIBXS_API_DEFINITION PyObject* libxspy_get_verbosity(PyObject* self, PyObject* args)
 {
-  LIBXS_UNUSED(args);
+  LIBXS_UNUSED(self); LIBXS_UNUSED(args);
   return Py_BuildValue("i", libxs_get_verbosity());
 }
 
@@ -97,6 +99,7 @@ LIBXS_API PyObject* libxspy_set_verbosity(PyObject* self, PyObject* args);
 LIBXS_API_DEFINITION PyObject* libxspy_set_verbosity(PyObject* self, PyObject* args)
 {
   int value = 0;
+  LIBXS_UNUSED(self);
   if (0 != PyArg_ParseTuple(args, "i", &value)) {
     libxs_set_verbosity(value);
   }

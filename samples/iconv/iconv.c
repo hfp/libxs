@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
   libxs_dnn_tensor *conv_input = 0, *conv_output = 0, *conv_filter = 0;
   libxs_mhd_elemtype type_in = LIBXS_MHD_ELEMTYPE_UNKNOWN;
   libxs_dnn_datatype type_dnn = LIBXS_DNN_DATATYPE_F32;
-  libxs_dnn_conv_desc descriptor = { 0 };
+  libxs_dnn_conv_desc descriptor;
   libxs_dnn_layer* handle = 0;
   libxs_dnn_err_t status;
   size_t size1 = 0, typesize_dnn = 0;
@@ -229,6 +229,7 @@ int main(int argc, char* argv[])
   }
 
   /* Setup convolution descriptor. */
+  memset(&descriptor, 0, sizeof(descriptor));
   if (EXIT_SUCCESS == result) {
 #if defined(_OPENMP)
     descriptor.threads = omp_get_max_threads();

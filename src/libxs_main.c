@@ -652,7 +652,7 @@ LIBXS_API_INLINE void internal_init(void)
 # if (0 != LIBXS_JIT) && !defined(__MIC__)
         /* check if target arch. permits execution (arch. may be overridden) */
         if (LIBXS_STATIC_TARGET_ARCH <= libxs_target_archid &&
-           (LIBXS_X86_AVX > libxs_target_archid /* JIT code gen. is not available */
+           (LIBXS_X86_SSE4 > libxs_target_archid /* JIT code gen. is not available */
             /* condition allows to avoid JIT (if static code is good enough) */
             || LIBXS_STATIC_TARGET_ARCH == libxs_target_archid))
 # endif
@@ -777,7 +777,8 @@ void libxs_finalize(void);
 
 LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 {
-  uintptr_t regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)&internal_registry, LIBXS_ATOMIC_SEQ_CST);
+  void *const regaddr = &internal_registry;
+  uintptr_t regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
   libxs_code_pointer* registry = (libxs_code_pointer*)regptr;
   if (0 != registry) {
     int i;
@@ -790,7 +791,7 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     LIBXS_LOCK_ACQUIRE(LIBXS_REG1LOCK, &internal_reglock);
 # endif
 #endif
-    regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)&internal_registry, LIBXS_ATOMIC_RELAXED);
+    regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_RELAXED);
     registry = (libxs_code_pointer*)regptr;
 
     if (0 != registry) {
@@ -1105,15 +1106,17 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
   int result = EXIT_SUCCESS;
 #if !defined(__MIC__)
   const char *const target_arch = internal_get_target_arch(libxs_target_archid);
-  libxs_generated_code generated_code = { 0 };
+  libxs_generated_code generated_code;
   char jit_name[256] = { 0 };
 
   /* large enough temporary buffer for generated code */
 #if defined(NDEBUG)
   char jit_buffer[LIBXS_CODE_MAXSIZE];
+  memset(&generated_code, 0, sizeof(generated_code)); /* avoid warning "maybe used uninitialized" */
   generated_code.generated_code = jit_buffer;
   generated_code.buffer_size = sizeof(jit_buffer);
 #else
+  memset(&generated_code, 0, sizeof(generated_code)); /* avoid warning "maybe used uninitialized" */
   generated_code.generated_code = malloc(LIBXS_CODE_MAXSIZE);
   generated_code.buffer_size = (0 != generated_code.generated_code ? LIBXS_CODE_MAXSIZE : 0);
 #endif
@@ -1200,7 +1203,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
       assert(0 != request->descriptor.sreg && 0 != request->descriptor.sreg->gemm);
       assert(0 != request->descriptor.sreg->row_ptr && 0 != request->descriptor.sreg->column_idx && 0 != request->descriptor.sreg->values);
 #if 1
-      if (LIBXS_GEMM_PRECISION_F64 == request->descriptor.sreg->gemm->flags) { /* only double-precision */
+      if (LIBXS_GEMM_PRECISION_F64 == request->descriptor.sreg->gemm->datatype) { /* only double-precision */
 #endif
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_reg_kernel, &generated_code, request->descriptor.sreg->gemm, target_arch,
           request->descriptor.sreg->row_ptr, request->descriptor.sreg->column_idx,
@@ -1465,7 +1468,7 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
 #else /* unsupported platform */
   LIBXS_UNUSED(request); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
-  if (LIBXS_X86_AVX <= libxs_target_archid) result = EXIT_FAILURE;
+  if (LIBXS_X86_SSE4 <= libxs_target_archid) result = EXIT_FAILURE;
 #endif
   return result;
 }
@@ -1515,7 +1518,8 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
 
     while (0 != diff) {
 #if (0 < INTERNAL_REGLOCK_MAXN) || defined(LIBXS_NO_SYNC) /* read registered code */
-      flux_entry.uval = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)&internal_registry[i].pmm, LIBXS_ATOMIC_RELAXED);
+      void *const fluxaddr = &internal_registry[i].pmm;
+      flux_entry.uval = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)fluxaddr, LIBXS_ATOMIC_RELAXED);
 #else
       LIBXS_LOCK_ACQREAD(LIBXS_REG1LOCK, &internal_reglock);
       flux_entry.pmm = internal_registry[i].pmm; /* read registered code */
@@ -1552,7 +1556,9 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
       else { /* enter code generation (there is no code version yet) */
         assert(0 == mode || 1 < mode);
 #if (0 != LIBXS_JIT)
-        if (LIBXS_X86_AVX <= libxs_target_archid) { /* check if JIT is supported (CPUID) */
+        if (LIBXS_X86_AVX <= libxs_target_archid || /* check if JIT is supported (CPUID) */
+           (LIBXS_X86_SSE4 <= libxs_target_archid && LIBXS_BUILD_KIND_GEMM == descriptor->iflags))
+        {
           assert(0 != mode || 0 == flux_entry.ptr_const/*code version does not exist*/);
           INTERNAL_FIND_CODE_LOCK(lock, i, diff, flux_entry.pmm); /* lock the registry entry */
           if (0 == internal_registry[i].ptr_const) { /* double-check registry after acquiring the lock */
@@ -1879,7 +1885,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descri
   if (0 != descriptor && LIBXS_GEMM_NO_BYPASS(descriptor->flags, descriptor->alpha, descriptor->beta)) {
     libxs_gemm_descriptor backend_descriptor;
     LIBXS_INIT
-    if (0 > (int)descriptor->prefetch) {
+    if (0 != (0x8000 & descriptor->prefetch)) { /* "sign"-bit of unsigned short is set */
       backend_descriptor = *descriptor;
       LIBXS_GEMM_DESCRIPTOR_PREFETCH(backend_descriptor, libxs_gemm_auto_prefetch);
       descriptor = &backend_descriptor;
@@ -1933,11 +1939,13 @@ LIBXS_PRAGMA_OPTIMIZE_ON
 
 LIBXS_API_DEFINITION libxs_xmatcopyfunction libxs_xmatcopydispatch(const libxs_matcopy_descriptor* descriptor)
 {
-  libxs_xmatcopyfunction result = { 0 };
+  libxs_xmatcopyfunction result;
+  memset(&result, 0, sizeof(result)); /* avoid warning "maybe used uninitialized" */
   if (0 != descriptor) {
-    libxs_kernel_info query = { { 0 } };
+    libxs_kernel_info query;
     assert(LIBXS_SIZEOF(descriptor, &descriptor->flags) < sizeof(query));
     LIBXS_INIT
+    memset(&query, 0, sizeof(query)); /* avoid warning "maybe used uninitialized" */
     query.mcopy = *descriptor;
 #if defined(_WIN32) || defined(__CYGWIN__) /* TODO: full support for Windows calling convention */
     query.mcopy.prefetch = 0;
@@ -1951,11 +1959,13 @@ LIBXS_API_DEFINITION libxs_xmatcopyfunction libxs_xmatcopydispatch(const libxs_m
 
 LIBXS_API_DEFINITION libxs_xtransfunction libxs_xtransdispatch(const libxs_transpose_descriptor* descriptor)
 {
-  libxs_xtransfunction result = { 0 };
+  libxs_xtransfunction result;
+  memset(&result, 0, sizeof(result)); /* avoid warning "maybe used uninitialized" */
   if (0 != descriptor && 0 != LIBXS_TRANS_NO_BYPASS_DIMS(descriptor->m, descriptor->n, descriptor->ldo)) {
-    libxs_kernel_info query = { { 0 } };
+    libxs_kernel_info query;
     assert(LIBXS_SIZEOF(descriptor, &descriptor->typesize) < sizeof(query));
     LIBXS_INIT
+    memset(&query, 0, sizeof(query)); /* avoid warning "maybe used uninitialized" */
     query.trans = *descriptor;
     query.xgemm.iflags = LIBXS_KERNEL_KIND_TCOPY;
     result = internal_find_code(&query.xgemm).xtrans;

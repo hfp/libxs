@@ -1474,13 +1474,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(lib
   /* check if we have a kernel JITed */
   if (handle->code_upd[0].xconv.sconv == 0) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      const int ldx = (int)(handle->desc.W+(2*handle->desc.pad_w)); 
+      const int ldx     = (int)(handle->desc.W+(2*handle->desc.pad_w));
+      const int ldx_alt = (int)(handle->desc.v*handle->ifmblock);
+      const int ldb_alt = (int)handle->ofwp;
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
       typedef libxs_smmfunction gemm_function;
       /* let's do a ofmblock x ifmblock x ofw_rb GEMM :-) or in other words M=nbOfm, N=nbIfm, K=ofw (col-major) */
-      gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ifmblock, handle->ofw, NULL, &ldx, NULL, NULL, NULL, NULL, NULL);
+      gemm_function gemm_kernel     = libxs_smmdispatch(handle->ofmblock, handle->ifmblock, handle->ofw, NULL, &ldx, NULL, NULL, NULL, NULL, NULL);
+      /* for strided convlutions with kernel size bigger than 1 the above GEMM doesn't work and we need to switch to more transposes and an
+         alternative GEMM:
+         let's do a ifmblock x ofmblock x ofw_rb GEMM :-) or in other words M=nbIfm, N=nbOfm, K=ofw (col-major) */
+      gemm_function gemm_kernel_alt = libxs_smmdispatch(handle->ifmblock, handle->ofmblock, handle->ofw, &ldx_alt, &ldb_alt, NULL, NULL, NULL, NULL, NULL);
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_fallback.tpl.c"
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;

@@ -244,13 +244,13 @@ LIBXS_API_DEFINITION size_t libxs_offset(const size_t offset[], const size_t sha
 }
 
 
-LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
+LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
   int result = EXIT_SUCCESS;
   if (0 != lock) {
     LIBXS_INIT
-    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_DEFAULT, lock);
+    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
   }
   if (0 != malloc_fn.function && 0 != free_fn.function) {
     libxs_default_allocator_context = context;
@@ -292,27 +292,27 @@ LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK
     }
   }
   if (0 != lock) {
-    LIBXS_LOCK_RELEASE(LIBXS_LOCK_DEFAULT, lock);
+    LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
   }
   assert(EXIT_SUCCESS == result);
   return result;
 }
 
 
-LIBXS_API_DEFINITION int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
+LIBXS_API_DEFINITION int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn)
 {
   int result = EXIT_SUCCESS;
   if (0 != context || 0 != malloc_fn || 0 != free_fn) {
     if (0 != lock) {
       LIBXS_INIT
-      LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_DEFAULT, lock);
+      LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     }
     if (context) *context = libxs_default_allocator_context;
     if (0 != malloc_fn) *malloc_fn = libxs_default_malloc_fn;
     if (0 != free_fn) *free_fn = libxs_default_free_fn;
     if (0 != lock) {
-      LIBXS_LOCK_RELEASE(LIBXS_LOCK_DEFAULT, lock);
+      LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
     }
   }
   else if (0 != libxs_verbosity) { /* library code is expected to be mute */
@@ -327,14 +327,14 @@ LIBXS_API_DEFINITION int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK
 }
 
 
-LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
+LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
   int result = EXIT_SUCCESS;
   static int error_once = 0;
   if (0 != lock) {
     LIBXS_INIT
-    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_DEFAULT, lock);
+    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
   }
   /* make sure the default allocator is setup before adopting it eventually */
   if (0 == libxs_default_malloc_fn.function || 0 == libxs_default_free_fn.function) {
@@ -373,27 +373,27 @@ LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK
     result = EXIT_FAILURE;
   }
   if (0 != lock) {
-    LIBXS_LOCK_RELEASE(LIBXS_LOCK_DEFAULT, lock);
+    LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
   }
   assert(EXIT_SUCCESS == result);
   return result;
 }
 
 
-LIBXS_API_DEFINITION int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK_DEFAULT)* lock,
+LIBXS_API_DEFINITION int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn)
 {
   int result = EXIT_SUCCESS;
   if (0 != context || 0 != malloc_fn || 0 != free_fn) {
     if (0 != lock) {
       LIBXS_INIT
-      LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_DEFAULT, lock);
+      LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     }
     if (context) *context = libxs_scratch_allocator_context;
     if (0 != malloc_fn) *malloc_fn = libxs_scratch_malloc_fn;
     if (0 != free_fn) *free_fn = libxs_scratch_free_fn;
     if (0 != lock) {
-      LIBXS_LOCK_RELEASE(LIBXS_LOCK_DEFAULT, lock);
+      LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
     }
   }
   else if (0 != libxs_verbosity) { /* library code is expected to be mute */
@@ -1370,11 +1370,11 @@ LIBXS_API_DEFINITION void libxs_release_scratch(void)
         (unsigned long int)scratch_info.npending);
     }
   }
-  LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_DEFAULT, &libxs_lock_global);
+  LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &libxs_lock_global);
   for (i = 0; i < libxs_scratch_pools; ++i) libxs_xfree(pools[i].instance.buffer);
   memset(pools, 0, (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) * sizeof(internal_malloc_pool_type));
   internal_malloc_scratch_nmallocs = internal_malloc_scratch_size = 0;
-  LIBXS_LOCK_RELEASE(LIBXS_LOCK_DEFAULT, &libxs_lock_global);
+  LIBXS_LOCK_RELEASE(LIBXS_LOCK, &libxs_lock_global);
 #endif
 }
 

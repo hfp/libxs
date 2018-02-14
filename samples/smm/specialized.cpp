@@ -175,7 +175,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize_batched / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      } /*break;*/
+      } /* fallthrough */
       case 1: { // batched/indirect
         fprintf(stdout, "Indirect (A,B,C)...\n");
         for (libxs_blasint i = 0; i < s; ++i) {
@@ -197,7 +197,8 @@ int main(int argc, char* argv[])
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
         if (0 == benchmark) { /* Gold result is available */
-          libxs_matdiff_info diff = { 0 };
+          libxs_matdiff_info diff;
+          memset(&diff, 0, sizeof(diff));
           for (libxs_blasint h = 0; h < s; ++h) {
             const T *const u = c + h * csize, *const v = c_array[h];
             libxs_matdiff_info dv;
@@ -236,7 +237,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      } /*break;*/
+      } /* fallthrough */
       case 3: { // indirect A and C
         fprintf(stdout, "Indirect (A,C)...\n");
         for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a + i * asize; b_array[i] = b; c_array[i] = d + i * csize; }
@@ -255,7 +256,8 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-        libxs_matdiff_info diff = { 0 };
+        libxs_matdiff_info diff;
+        memset(&diff, 0, sizeof(diff));
         for (libxs_blasint h = 0; h < s; ++h) {
           const T *const u = c + h * csize, *const v = c_array[h];
           libxs_matdiff_info dv;
@@ -293,7 +295,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      } /*break;*/
+      } /* fallthrough */
       case 5: { // indirect B and C
         fprintf(stdout, "Indirect (B,C)...\n");
         for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a; b_array[i] = b + i * bsize; c_array[i] = d + i * csize; }
@@ -312,7 +314,8 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-        libxs_matdiff_info diff = { 0 };
+        libxs_matdiff_info diff;
+        memset(&diff, 0, sizeof(diff));
         for (libxs_blasint h = 0; h < s; ++h) {
           const T *const u = c + h * csize, *const v = c_array[h];
           libxs_matdiff_info dv;
@@ -355,7 +358,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", nrepeat * s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      } /*break;*/
+      } /* fallthrough */
       case 7: { // indirect A and B
         fprintf(stdout, "Indirect (A,B)...\n");
 #if defined(_OPENMP)
@@ -416,7 +419,7 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-      } /*break;*/
+      } /* fallthrough */
       case 9: { // indirect cached
         fprintf(stdout, "Indirect cached...\n");
 #if defined(_OPENMP)
