@@ -158,6 +158,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       if (handle->ofw % i == 0) break;
     }
     handle->upd_ofw_rb = i;
+    handle->blocksimg_blocking = 1;
 
     /* calculate blockings */
     if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
@@ -1352,6 +1353,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
                 while (   descriptor.ofw_rb  *  descriptor.ofh_rb > 196 ) {
                   descriptor.ofh_rb = descriptor.ofh_rb / 2;
+                }
+
+                if (descriptor.ofh_rb == 0) {
+                  descriptor.ofh_rb = 1;
                 }
 
                 while (  handle->ofh % descriptor.ofh_rb != 0 ) {
