@@ -72,14 +72,6 @@
 #define LIBXS_TPREFIX_float s
 #define LIBXS_TPREFIX_short w
 
-/** Helper macro for type postfixes. */
-#define LIBXS_TPOSTFIX_NAME(TYPE) LIBXS_CONCATENATE(LIBXS_TPOSTFIX_, TYPE)
-#define LIBXS_TPOSTFIX(TYPE, SYMBOL) LIBXS_CONCATENATE(SYMBOL, LIBXS_TPOSTFIX_NAME(TYPE))
-#define LIBXS_TPOSTFIX_double F64
-#define LIBXS_TPOSTFIX_float F32
-#define LIBXS_TPOSTFIX_int I32
-#define LIBXS_TPOSTFIX_short I16
-
 /** Helper macro for comparing types. */
 #define LIBXS_EQUAL_CHECK(...) LIBXS_SELECT_HEAD(__VA_ARGS__, 0)
 #define LIBXS_EQUAL(T1, T2) LIBXS_EQUAL_CHECK(LIBXS_CONCATENATE(LIBXS_CONCATENATE(LIBXS_EQUAL_, T1), T2))
@@ -159,8 +151,6 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_sgemm_function libxs_original_sgemm(const char* 
 LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* caller);
 
 /** Construct symbol name from a given real type name (float, double and short). */
-#define LIBXS_DATATYPE(TYPE)          LIBXS_TPOSTFIX(TYPE, LIBXS_DATATYPE_)
-#define LIBXS_GEMM_PRECISION(TYPE)    LIBXS_TPOSTFIX(TYPE, LIBXS_GEMM_PRECISION_)
 #define LIBXS_GEMM_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_GEMV_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemv))
 #define LIBXS_GEMMFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm_function))

@@ -59,15 +59,14 @@
 
 #define LIBXS_XCOPY_LOOP_UNALIGNED(...)
 #define LIBXS_XCOPY_LOOP(TYPE, TYPESIZE, XKERNEL, HINT_ALIGNED, OUT, IN, LDI, LDO, M0, M1, N0, N1) { \
-  /*const*/int generic_type = (sizeof(TYPE) == (TYPESIZE) ? 1 : 0); /* mute warning (constant conditional) */ \
+  /*const*/int libxs_xcopy_loop_native_ = (sizeof(TYPE) == (TYPESIZE)); /* mute warning (constant conditional) */ \
   libxs_blasint libxs_xcopy_loop_i_, libxs_xcopy_loop_j_; \
-  if (0 != generic_type) { \
+  if (0 != libxs_xcopy_loop_native_) { \
     for (libxs_xcopy_loop_i_ = M0; libxs_xcopy_loop_i_ < (libxs_blasint)(M1); ++libxs_xcopy_loop_i_) { \
       LIBXS_PRAGMA_NONTEMPORAL HINT_ALIGNED(OUT) \
       for (libxs_xcopy_loop_j_ = N0; libxs_xcopy_loop_j_ < (libxs_blasint)(N1); ++libxs_xcopy_loop_j_) { \
         XKERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, libxs_xcopy_loop_i_, libxs_xcopy_loop_j_, \
-          libxs_xcopy_loop_src_, libxs_xcopy_loop_dst_); \
-        *libxs_xcopy_loop_dst_ = *libxs_xcopy_loop_src_; \
+          libxs_xcopy_loop_src_, libxs_xcopy_loop_dst_); *libxs_xcopy_loop_dst_ = *libxs_xcopy_loop_src_; \
       } \
     } \
   } \
@@ -110,8 +109,8 @@
       LIBXS_XCOPY_XALIGN(double, 8, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
     } break; \
     case 16: { \
-      typedef struct dvec2_t { double value[2]; } dvec2_t; \
-      LIBXS_XCOPY_XALIGN(dvec2_t, 16, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
+      typedef struct /*libxs_xcopy_nonjit_elem_t*/ { double value[2]; } libxs_xcopy_nonjit_elem_t; \
+      LIBXS_XCOPY_XALIGN(libxs_xcopy_nonjit_elem_t, 16, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
     } break; \
     default: { \
       LIBXS_XCOPY_XALIGN(char, TYPESIZE, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
