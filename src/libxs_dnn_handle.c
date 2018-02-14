@@ -1432,6 +1432,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                     handle->weight_copies = handle->desc.threads/spread_out;
                     descriptor.ncopies = handle->weight_copies;  
                     handle->blocksimg_blocking = spread_out * (handle->desc.N/handle->desc.threads);
+                    if (handle->blocksimg_blocking <= 0) handle->blocksimg_blocking = 1;
                     descriptor.blocks_img = handle->blocksimg_blocking;
                     handle->reduce_weights = 1; 
                   }
