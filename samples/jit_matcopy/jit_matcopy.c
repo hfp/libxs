@@ -91,14 +91,14 @@ int main(int argc, char* argv[])
   for (i=0; i < desc.n; i++ ) {
     for (j=0; j < desc.m; j++) {
       if (0 != (LIBXS_MATCOPY_FLAG_ZERO_SOURCE & desc.flags)) {
-        if (0 == LIBXS_FEQ(b[j+desc.ldo*i], 0)) {
+        if (LIBXS_NEQ(b[j+desc.ldo*i], 0)) {
           printf("ERROR!!!\n");
           i = desc.n;
           error = 1;
           break;
         }
       }
-      else if (0 == LIBXS_FEQ(a[j+desc.ldi*i], b[j+desc.ldo*i])) {
+      else if (LIBXS_NEQ(a[j+desc.ldi*i], b[j+desc.ldo*i])) {
         printf("ERROR!!!\n");
         i = desc.n;
         error = 1;

@@ -762,7 +762,7 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 #endif
     internal_init();
     s1 = libxs_timer_tick(); t1 = libxs_timer_tick_rdtsc(); /* final timings */
-    if (0 != LIBXS_FEQ(0, libxs_timer_scale) && s0 != s1 && t0 != t1) {
+    if (LIBXS_FEQ(0, libxs_timer_scale) && s0 != s1 && t0 != t1) {
       libxs_timer_scale = libxs_timer_duration(s0, s1) / (t0 < t1 ? (t1 - t0) : (t0 - t1));
     }
   }
