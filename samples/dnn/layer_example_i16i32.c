@@ -459,22 +459,24 @@ int main(int argc, char* argv[])
   zero_buf_int32(output_libxs, nImg*nOfm*ofhp*ofwp);
   zero_buf_int32(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
 
-  printf("##########################################\n");
-  printf("#         Computing Reference ...        #\n");
-  printf("##########################################\n");
-  /* run naive convolutions */
-  if (type == 'A' || type == 'F') {
-    naive_conv_fp_int16(&naive_param, naive_input, naive_output_fp, naive_filter);
-  }
+  if (0 == LIBXS_FEQ(0, check)) {
+    printf("##########################################\n");
+    printf("#         Computing Reference ...        #\n");
+    printf("##########################################\n");
+    /* run naive convolutions */
+    if (type == 'A' || type == 'F') {
+      naive_conv_fp_int16(&naive_param, naive_input, naive_output_fp, naive_filter);
+    }
 #if 0
-  if (type == 'A' || type == 'B') {
-    zero_buf_int16(naive_input, nImg*nIfm*ifhp*ifwp);
-    naive_conv_bp_int16(&naive_param, naive_input_bp, naive_output_bp, naive_filter);
-  }
+    if (type == 'A' || type == 'B') {
+      zero_buf_int16(naive_input, nImg*nIfm*ifhp*ifwp);
+      naive_conv_bp_int16(&naive_param, naive_input_bp, naive_output_bp, naive_filter);
+    }
 #endif
-  printf("##########################################\n");
-  printf("#      Computing Reference ... done      #\n");
-  printf("##########################################\n");
+    printf("##########################################\n");
+    printf("#      Computing Reference ... done      #\n");
+    printf("##########################################\n");
+  }
 
   printf("\n");
   printf("##########################################\n");
@@ -547,7 +549,7 @@ int main(int argc, char* argv[])
   /* set scratch to bogus to make sure that libxs takes care of zeroing internally */
   //init_buf_int16( (short*)scratch, scratch_size/2, 0, 0 );
 
-  if (type == 'A' || type == 'F') {
+  if ((type == 'A' || type == 'F') && 0 == LIBXS_FEQ(0, check)) {
     printf("##############################################\n");
     printf("#  Check Correctness - FWD (custom-Storage)  #\n");
     printf("##############################################\n");
@@ -578,7 +580,7 @@ int main(int argc, char* argv[])
     libxs_matdiff_reduce(&diff, &norms_fwd);
   }
 
-  if ((type == 'A' || type == 'F') && LIBXS_FEQ(0, check)) {
+  if (type == 'A' || type == 'F') {
     printf("##########################################\n");
     printf("#   Performance - FWD (custom-Storage)   #\n");
     printf("##########################################\n");
