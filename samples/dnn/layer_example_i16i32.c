@@ -304,7 +304,7 @@ int main(int argc, char* argv[])
   char format = 'L';
 
   const char *const env_check = getenv("CHECK")/*, *const env_winograd = getenv("WINOGRAD")*/;
-  const double check = LIBXS_ABS(0 == env_check ? 0 : atof(env_check));
+  const double check = LIBXS_ABS(0 == env_check ? 1 : atof(env_check));
   /*const int algo_winograd = (0 == env_winograd ? 0 : atoi(env_winograd));*/
 #if defined(_OPENMP)
   int nThreads = omp_get_max_threads();       /* number of threads */
@@ -459,7 +459,7 @@ int main(int argc, char* argv[])
   zero_buf_int32(output_libxs, nImg*nOfm*ofhp*ofwp);
   zero_buf_int32(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
 
-  if (0 == LIBXS_FEQ(0, check)) {
+  if (LIBXS_NEQ(0, check)) {
     printf("##########################################\n");
     printf("#         Computing Reference ...        #\n");
     printf("##########################################\n");
@@ -549,7 +549,7 @@ int main(int argc, char* argv[])
   /* set scratch to bogus to make sure that libxs takes care of zeroing internally */
   //init_buf_int16( (short*)scratch, scratch_size/2, 0, 0 );
 
-  if ((type == 'A' || type == 'F') && 0 == LIBXS_FEQ(0, check)) {
+  if ((type == 'A' || type == 'F') && LIBXS_NEQ(0, check)) {
     printf("##############################################\n");
     printf("#  Check Correctness - FWD (custom-Storage)  #\n");
     printf("##############################################\n");
@@ -640,7 +640,7 @@ int main(int argc, char* argv[])
 
   { const char *const env_check_scale = getenv("CHECK_SCALE");
     const double check_scale = LIBXS_ABS(0 == env_check_scale ? 100.0 : atof(env_check_scale));
-    if (0 == LIBXS_FEQ(0, check) && check < 100.0 * check_scale * diff.normf_rel) {
+    if (LIBXS_NEQ(0, check) && check < 100.0 * check_scale * diff.normf_rel) {
       fprintf(stderr, "FAILED with an error of %f%%!\n", 100.0 * diff.normf_rel);
       exit(EXIT_FAILURE);
     }
