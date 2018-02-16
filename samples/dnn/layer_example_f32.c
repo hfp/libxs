@@ -458,7 +458,7 @@ int main(int argc, char* argv[])
   char type = 'A';        /* 'A': ALL, 'F': FP, 'B': BP, 'U', WU */
   char format = 'A';      /* 'A': ALL, 'L': LIBXS, 'T': Tensorflow, 'M', Mixed */
   const char *const env_check = getenv("CHECK"), *const env_winograd = getenv("WINOGRAD");
-  const double check = LIBXS_ABS(0 == env_check ? 0 : atof(env_check));
+  const double check = LIBXS_ABS(0 == env_check ? 1 : atof(env_check));
   const int algo_winograd = (0 == env_winograd ? 0 : atoi(env_winograd));
 
   #if defined(_OPENMP)
@@ -708,7 +708,7 @@ int main(int argc, char* argv[])
   zero_buf( doutput_libxs  , nImg*nOfm*ofhp*ofwp );
   zero_buf( filtertr_libxs , nOfm*nIfm*kh*kw );
 
-  if (0 == LIBXS_FEQ(0, check)) {
+  if (LIBXS_NEQ(0, check)) {
     printf("##########################################\n");
     printf("#         Computing Reference ...        #\n");
     printf("##########################################\n");
@@ -863,7 +863,7 @@ int main(int argc, char* argv[])
     /* set scratch to bogus to make sure that libxs takes care of zeroing internally */
     init_buf( (float*)scratch, scratch_size/4, 0, 0 );
 
-    if ((type == 'A' || type == 'F') && 0 == LIBXS_FEQ(0, check)) {
+    if ((type == 'A' || type == 'F') && LIBXS_NEQ(0, check)) {
       printf("##########################################\n");
       printf("#   Correctness - FWD (custom-Storage)   #\n");
       printf("##########################################\n");
@@ -971,7 +971,7 @@ int main(int argc, char* argv[])
 #endif
     }
 
-    if ( (type == 'A' || type == 'B') && (nIfm > 3) && 0 == LIBXS_FEQ(0, check) ) {
+    if ( (type == 'A' || type == 'B') && (nIfm > 3) && LIBXS_NEQ(0, check) ) {
       printf("##########################################\n");
       printf("#   Correctness - BWD (custom-Storage)   #\n");
       printf("##########################################\n");
@@ -1010,7 +1010,7 @@ int main(int argc, char* argv[])
       libxs_matdiff_reduce(&diff, &norms_bwd);
     }
 
-    if ((type == 'A' || type == 'U') && 0 == LIBXS_FEQ(0, check)) {
+    if ((type == 'A' || type == 'U') && LIBXS_NEQ(0, check)) {
       printf("##########################################\n");
       printf("#   Correctness - UPD (custom-Storage)   #\n");
       printf("##########################################\n");
@@ -1269,7 +1269,7 @@ int main(int argc, char* argv[])
     /* set scratch to bogus to make sure that libxs takes care of zeroing internally */
     init_buf( (float*)scratch, scratch_size/4, 0, 0 );
 
-    if ((type == 'A' || type == 'F') && 0 == LIBXS_FEQ(0, check)) {
+    if ((type == 'A' || type == 'F') && LIBXS_NEQ(0, check)) {
       printf("##########################################\n");
       printf("#  Correctness - FWD (NHWC/RSCK-Storage) #\n");
       printf("##########################################\n");
@@ -1300,7 +1300,7 @@ int main(int argc, char* argv[])
       libxs_matdiff_reduce(&diff, &norms_fwd);
     }
 
-    if ( (type == 'A' || type == 'B') && (nIfm > 3) && 0 == LIBXS_FEQ(0, check) ) {
+    if ( (type == 'A' || type == 'B') && (nIfm > 3) && LIBXS_NEQ(0, check) ) {
       printf("##########################################\n");
       printf("# Correctness - BWD (NHWC/RSCK-Storage)  #\n");
       printf("##########################################\n");
@@ -1334,7 +1334,7 @@ int main(int argc, char* argv[])
       libxs_matdiff_reduce(&diff, &norms_bwd);
     }
 
-    if ((type == 'A' || type == 'U') && 0 == LIBXS_FEQ(0, check)) {
+    if ((type == 'A' || type == 'U') && LIBXS_NEQ(0, check)) {
       printf("##########################################\n");
       printf("# Correctness - UPD (NHWC/RSCK-Storage)  #\n");
       printf("##########################################\n");
@@ -1586,7 +1586,7 @@ int main(int argc, char* argv[])
     /* set scratch to bogus to make sure that libxs takes care of zeroing internally */
     init_buf( (float*)scratch, scratch_size/4, 0, 0 );
 
-    if ((type == 'A' || type == 'F') && 0 == LIBXS_FEQ(0, check)) {
+    if ((type == 'A' || type == 'F') && LIBXS_NEQ(0, check)) {
       printf("##########################################\n");
       printf("# Correctness - FWD(NHWC/custom-Storage) #\n");
       printf("##########################################\n");
@@ -1617,7 +1617,7 @@ int main(int argc, char* argv[])
       libxs_matdiff_reduce(&diff, &norms_fwd);
     }
 
-    if ( (type == 'A' || type == 'B') && (nIfm > 3) && 0 == LIBXS_FEQ(0, check) ) {
+    if ( (type == 'A' || type == 'B') && (nIfm > 3) && LIBXS_NEQ(0, check) ) {
       printf("##########################################\n");
       printf("# Correctness - BWD(NHWC/custom-Storage) #\n");
       printf("##########################################\n");
@@ -1651,7 +1651,7 @@ int main(int argc, char* argv[])
       libxs_matdiff_reduce(&diff, &norms_bwd);
     }
 
-    if ((type == 'A' || type == 'U') && 0 == LIBXS_FEQ(0, check)) {
+    if ((type == 'A' || type == 'U') && LIBXS_NEQ(0, check)) {
       printf("##########################################\n");
       printf("# Correctness - UPD(NHWC/custom-Storage) #\n");
       printf("##########################################\n");
@@ -1849,7 +1849,7 @@ int main(int argc, char* argv[])
 
   { const char *const env_check_scale = getenv("CHECK_SCALE");
     const double check_scale = LIBXS_ABS(0 == env_check_scale ? 100.0 : atof(env_check_scale));
-    if (0 == LIBXS_FEQ(0, check) && check < 100.0 * check_scale * diff.normf_rel) {
+    if (LIBXS_NEQ(0, check) && check < 100.0 * check_scale * diff.normf_rel) {
       fprintf(stderr, "FAILED with an error of %f%%!\n", 100.0 * diff.normf_rel);
       exit(EXIT_FAILURE);
     }
