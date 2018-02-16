@@ -89,6 +89,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     }
   }
 
+  /* let's enable generice code path by default */
+  handle->use_fwd_generic = 1;
+  handle->use_bwd_generic = 1;
+  handle->use_upd_generic = 1;
+
   /* @FIXME, we should find a better knob */
   handle->use_thread_private_jit = 1;
 
@@ -551,6 +556,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             handle->matcopy_fwd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
           }
         }
+        /* use jit code path */
+        handle->use_fwd_generic = 0;
       } else {
         assert(0/*should not happen*/);
       }
@@ -922,6 +929,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 fwd_equivalent_descriptor.ofw_rb = wrb_save;
               }
             }
+
+            /* enable jit code */
+            handle->use_bwd_generic = 0;
 #if 0
             /* PEELED VERSION */
             for (i = LIBXS_MIN(24, handle->ofw); i > 1; i--) {
@@ -1512,6 +1522,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               descriptor.transpose_ofw_ifm = 1;
               descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT_L2;
               handle->code_upd[5].pmm = libxs_create_xconv_update_weights(&descriptor);
+
+              /* enable JIT code path */
+              handle->use_upd_generic = 0;
             } else {
               assert(0/*should not happen*/);
             }
@@ -1692,6 +1705,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
         }
       }
+
+      /* use generic code path */
+      handle->use_fwd_generic = 1;
+      handle->use_bwd_generic = 1;
+      handle->use_upd_generic = 1;
 
       handle->code_fwd[0].xconv.sconv = 0;
       handle->code_fwd[1].xconv.sconv = 0;
