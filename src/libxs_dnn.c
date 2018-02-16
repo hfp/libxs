@@ -2433,6 +2433,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffe
     maxexp -= (15-add_shift);
     scfq = (float)pow(2.0, (double)-maxexp);
 
+#if defined(__AVX512F__)
     if ( length % 16 == 0 ) {
       __m512 vscfq = _mm512_set1_ps(scfq);
 #ifdef _OPENMP
@@ -2442,17 +2443,22 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffe
         _mm256_stream_si256( (__m256i *)&(out_buffer[i]), _mm512_quantize_near_ps_epi16( &(in_buffer[i]), vscfq ) );
       }
     } else {
+#endif
 #ifdef _OPENMP
 #pragma omp parallel for private(i)
 #endif
       for( i = 0; i < length; ++i ) {
         out_buffer[i] = (short)round(in_buffer[i]*scfq);
       }
+#if defined(__AVX512F__)
     }
+#endif
     /* @TODO, we need to potentialy fix this unsigned char problem */
+#if !defined(NDEBUG) /* library code is expected to be mute */
     if (maxexp > 0) {
-      printf("error quant fil\n");
+      fprintf(stderr, "error quant fil\n");
     }
+#endif
     *scf = (unsigned char)(-maxexp);
   } else {
     /* get max exponent */
@@ -2495,6 +2501,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_act( float* in_buffer, short* out_b
     maxexp -= (15-add_shift);
     scfq = (float)pow(2.0, (double)-maxexp);
 
+#if defined(__AVX512F__)
     if ( (cblk_f32 == 16) && (cblk_i16*lp_blk == 16) ) {
       __m512 vscfq = _mm512_set1_ps(scfq);
 #ifdef _OPENMP
@@ -2504,6 +2511,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_act( float* in_buffer, short* out_b
         _mm256_stream_si256( (__m256i *)&(out_buffer[i1]), _mm512_quantize_near_ps_epi16( &(in_buffer[i1]), vscfq ) );
       }
     } else {
+#endif
 #ifdef _OPENMP
 #pragma omp parallel for private(i1, i2, i3, i4, i5, i6) collapse(4)
 #endif
@@ -2525,11 +2533,15 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_act( float* in_buffer, short* out_b
           }
         }
       }
+#if defined(__AVX512F__)
     }
+#endif
     /* @TODO, we need to potentialy fix this unsigned char problem */
+#if !defined(NDEBUG) /* library code is expected to be mute */
     if (maxexp > 0) {
-      printf("error quant act\n");
+      fprintf(stderr, "error quant act\n");
     }
+#endif
     *scf = (unsigned char)(-maxexp);
   } else {
     /* get max exponent */
@@ -2591,6 +2603,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_b
     maxexp -= (15-add_shift);
     scfq = (float)pow(2.0, (double)-maxexp);
 
+#if defined(__AVX512F__)
     if ( (kblk_f32 == 16) && (cblk_f32 == 16) && (kblk_i16 == 16) && (cblk_i16*lp_blk == 16) ) {
       const __m512 vscfq = _mm512_set1_ps(scfq);
       const __m512i permute_compact_idx = _mm512_set_epi32(15,14,13,12,7,6,5,4,11,10,9,8,3,2,1,0);
@@ -2616,6 +2629,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_b
         }
       }
     } else {
+#endif
 #ifdef _OPENMP
 #pragma omp parallel for private(i1, i2, i3, i4, i5, i6, i7) collapse(4)
 #endif
@@ -2640,11 +2654,15 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_b
           }
         }
       }
+#if defined(__AVX512F__)
     }
+#endif
     /* @TODO, we need to potentialy fix this unsigned char problem */
+#if !defined(NDEBUG) /* library code is expected to be mute */
     if (maxexp > 0) {
-      printf("error quant fil\n");
+      fprintf(stderr, "error quant fil\n");
     }
+#endif
     *scf = (unsigned char)(-maxexp);
   } else {
     /* get max exponent */
