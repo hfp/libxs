@@ -1226,7 +1226,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 descriptor.ofw_unroll = 0;
               }
 
-              if (handle->desc.R != 1 && handle->desc.S != 1  && (handle->desc.C == 3 && handle->ofw%14 == 0) && (handle->desc.u != 1 || handle->desc.v != 1)) {
+              if (handle->desc.R != 1 && handle->desc.S != 1  && (handle->desc.C == 3 && handle->desc.K == 64 && handle->ofw%14 == 0) && (handle->desc.u != 1 || handle->desc.v != 1)) {
                 descriptor.use_fastpath = 0;
                 handle->use_fastpath = 0;
                 handle->enforce_sfma_kernel = 0;
