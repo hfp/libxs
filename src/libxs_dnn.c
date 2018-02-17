@@ -624,12 +624,45 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
                 *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
               }
             }
-          } else{
+          } else {
             free(layout);
             layout = 0; /* make sure a NULL is returned */
             *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
           }
-
+        } else if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0) {
+          if ( ((handle->datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) ) {
+            layout->datatype = LIBXS_DNN_DATATYPE_F32;
+            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
+            layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
+            if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+              layout->num_dims = 4;
+              layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+              if ( (type == LIBXS_DNN_REGULAR_INPUT) || (type == LIBXS_DNN_GRADIENT_INPUT) || (type == LIBXS_DNN_INPUT) )   {
+                layout->dim_size[0] = handle->ifmblock * handle->blocksifm;
+                layout->dim_size[1] = handle->ifwp;
+                layout->dim_size[2] = handle->ifhp;
+                layout->dim_size[3] = handle->desc.N;
+              } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
+                layout->dim_size[0] = handle->ofmblock * handle->blocksofm;
+                layout->dim_size[1] = handle->ofwp;
+                layout->dim_size[2] = handle->ofhp;
+                layout->dim_size[3] = handle->desc.N;
+              } else {
+                free(layout->dim_type);
+                free(layout->dim_size);
+                free(layout);
+                layout = 0; /* make sure a NULL is returned */
+                *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
+              }
+            }
+          } else {
+            free(layout);
+            layout = 0; /* make sure a NULL is returned */
+            *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+          }
         } else {
           free(layout);
           layout = 0; /* make sure a NULL is returned */
@@ -705,22 +738,27 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
             layout = 0; /* make sure a NULL is returned */
             *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
           }
-#if 0
         } else if ((handle->filter_format & LIBXS_DNN_TENSOR_FORMAT_RSCK) > 0) {
-          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
-          layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
-          if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
-            layout->num_dims = 4;
-            layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
-            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_S;
-            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_R;
-            layout->dim_size[0] = handle->ofmblock * handle->blocksofm;
-            layout->dim_size[1] = handle->ifmblock * handle->blocksifm;
-            layout->dim_size[2] = handle->desc.S;
-            layout->dim_size[3] = handle->desc.K;
+          if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
+            layout->datatype = LIBXS_DNN_DATATYPE_F32;
+            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
+            layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
+            if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+              layout->num_dims = 4;
+              layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_S;
+              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_R;
+              layout->dim_size[0] = handle->ofmblock * handle->blocksofm;
+              layout->dim_size[1] = handle->ifmblock * handle->blocksifm;
+              layout->dim_size[2] = handle->desc.S;
+              layout->dim_size[3] = handle->desc.K;
+            }
+          } else {
+            free(layout);
+            layout = 0; /* make sure a NULL is returned */
+            *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
           }
-#endif
         } else {
           free(layout);
           layout = 0; /* make sure a NULL is returned */
@@ -779,18 +817,25 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
           }
 #if 0
         } else if ((handle->filter_format & LIBXS_DNN_TENSOR_FORMAT_RSCK) > 0) {
-          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
-          layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
-          if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
-            layout->num_dims = 4;
-            layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
-            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_S;
-            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_R;
-            layout->dim_size[0] = handle->ofmblock * handle->blocksofm;
-            layout->dim_size[1] = handle->ifmblock * handle->blocksifm;
-            layout->dim_size[2] = handle->desc.S;
-            layout->dim_size[3] = handle->desc.K;
+          if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
+            layout->datatype = LIBXS_DNN_DATATYPE_F32;
+            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
+            layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
+            if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+              layout->num_dims = 4;
+              layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_S;
+              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_R;
+              layout->dim_size[0] = handle->ofmblock * handle->blocksofm;
+              layout->dim_size[1] = handle->ifmblock * handle->blocksifm;
+              layout->dim_size[2] = handle->desc.S;
+              layout->dim_size[3] = handle->desc.K;
+            }
+          } else {
+            free(layout);
+            layout = 0; /* make sure a NULL is returned */
+            *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
           }
 #endif
         } else {
@@ -835,8 +880,8 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
             layout = 0; /* make sure a NULL is returned */
             *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
           }
-#if 0
         } else if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0) {
+          layout->datatype = handle->datatype_out;
           if ( handle->datatype_in == LIBXS_DNN_DATATYPE_F32 ) {
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(1*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(1*sizeof(unsigned int));
@@ -851,7 +896,6 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
             layout = 0; /* make sure a NULL is returned */
             *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
           }
-#endif
         } else {
           free(layout);
           layout = 0; /* make sure a NULL is returned */
