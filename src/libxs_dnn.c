@@ -2665,7 +2665,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_b
                 __m256i compressed_hi  = _mm256_unpackhi_epi16(even_ch, odd_ch);
                 __m512i compact =  _mm512_inserti64x4( _mm512_setzero_si512(), compressed_lo, 0);
                 compact =  _mm512_inserti64x4(compact, compressed_hi, 1);
-                compact =  _mm512_permutevar_epi32(permute_compact_idx, compact);
+                compact =  LIBXS_INTRINSICS_MM512_PERMUTEVAR_EPI32(permute_compact_idx, compact);
                 _mm512_stream_si512(&(out[i1][i2][i3][i4][i5/2][0][0]), compact);
               }
             }
