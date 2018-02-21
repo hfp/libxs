@@ -190,7 +190,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_custom_c
   }
 
   /* check if we have a kernel JITed */
-  if (handle->code_upd[0].xconv.sconv == 0) {
+  if ( handle->use_upd_generic != 0 ) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32) {
       const int ldx = (int)(handle->desc.W+(2*handle->desc.pad_w));
       const int ldx_alt = (int)(handle->desc.v*handle->ifmblock);
@@ -274,7 +274,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_nhwc_cus
   }
 
   /* check if we have a kernel JITed */
-  if (handle->code_upd[0].xconv.sconv == 0) {
+  if ( handle->use_upd_generic != 0 ) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32) {
       const int ldx = (int)(handle->desc.W+(2*handle->desc.pad_w));
       const int ldx_alt = (int)(handle->desc.v*handle->ifmblock);
