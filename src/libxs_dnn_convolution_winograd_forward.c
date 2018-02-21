@@ -417,7 +417,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_c
       typedef libxs_smmfunction gemm_function;
       /* let's do a ofmblock x ofw_rb x ifmblock GEMM :-) or in other words M=nbOfm, N=ofw, K=nbIfm (col-major) */
       gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ofw, handle->ifmblock, NULL, &ldx, NULL, NULL, NULL, NULL, NULL);
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_fallback.tpl.c"
+# include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic.tpl.c"
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -505,7 +505,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_cus
       /* let's do a ofmblock x ofw_rb x ifmblock GEMM :-) or in other words M=nbOfm, N=ofw, K=nbIfm (col-major) */
       gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ofw, handle->ifmblock, &lda, &ldb, &ldc, NULL, NULL, NULL, NULL);
 #define LIBXS_DNN_TPL_FWD_DIRECT_GENERIC_NHWC_CUSTOM
-# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom-rsck_fallback.tpl.c"
+# include "template/libxs_dnn_convolve_st_fwd_nhwc_custom-rsck_generic.tpl.c"
 #undef LIBXS_DNN_TPL_FWD_DIRECT_GENERIC_NHWC_CUSTOM
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
