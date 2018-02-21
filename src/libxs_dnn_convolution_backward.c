@@ -148,10 +148,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_d
   /* check if we have a kernel JITed */
   if ( handle->use_bwd_generic != 0 ) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      const int lda = (int)(handle->ifmblock);
+      const int ldb = (int)(handle->blocksofm*handle->ofmblock);
+      const int ldc = ( (handle->desc.pad_h == handle->desc.pad_h_in) && (handle->desc.pad_w == handle->desc.pad_w_in) ) 
+                        ? (int)(handle->desc.v*handle->blocksifm*handle->ifmblock) : (int)(handle->desc.v*handle->ifmblock);
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
-#include "template/libxs_dnn_convolve_st_bwd_nhwc_rsck_fallback.tpl.c"
+      typedef libxs_smmfunction gemm_function;
+      /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
+      gemm_function gemm_kernel = libxs_smmdispatch(handle->ifmblock, handle->ofw, handle->ofmblock, &lda, &ldb, &ldc, NULL, NULL, NULL, NULL);
+#define LIBXS_DNN_TPL_FWD_DIRECT_GENERIC_NHWC_RSCK
+# include "template/libxs_dnn_convolve_st_bwd_nhwc_custom-rsck_fallback.tpl.c"
+#undef LIBXS_DNN_TPL_FWD_DIRECT_GENERIC_NHWC_RSCK
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -177,10 +186,19 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs
   /* check if we have a kernel JITed */
   if ( handle->use_bwd_generic != 0 ) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      const int lda = (int)(handle->ifmblock);
+      const int ldb = (int)(handle->blocksofm*handle->ofmblock);
+      const int ldc = ( (handle->desc.pad_h == handle->desc.pad_h_in) && (handle->desc.pad_w == handle->desc.pad_w_in) ) 
+                        ? (int)(handle->desc.v*handle->blocksifm*handle->ifmblock) : (int)(handle->desc.v*handle->ifmblock);
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
-# include "template/libxs_dnn_convolve_st_bwd_nhwc_custom_fallback.tpl.c"
+      typedef libxs_smmfunction gemm_function;
+      /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
+      gemm_function gemm_kernel = libxs_smmdispatch(handle->ifmblock, handle->ofw, handle->ofmblock, &lda, &ldb, &ldc, NULL, NULL, NULL, NULL);
+#define LIBXS_DNN_TPL_FWD_DIRECT_GENERIC_NHWC_CUSTOM
+# include "template/libxs_dnn_convolve_st_bwd_nhwc_custom-rsck_fallback.tpl.c"
+#undef LIBXS_DNN_TPL_FWD_DIRECT_GENERIC_NHWC_CUSTOM
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
