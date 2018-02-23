@@ -39,8 +39,6 @@
 # endif
 #endif
 
-#define LIBXS_TRANS_NO_BYPASS_DIMS(M, N, LDO) (((unsigned int)(1U * (M) * (N))) <= ((LIBXS_AVG_M) * (LIBXS_AVG_N)))
-
 /* kernel uses consecutive stores and consecutive loads (copy) */
 #define LIBXS_MCOPY_KERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, INDEX_I, INDEX_J, SRC, DST) \
   const TYPE *const SRC = (const TYPE*)(((const char*)(IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
@@ -177,9 +175,9 @@ LIBXS_API void libxs_trans_init(int archid);
 LIBXS_API void libxs_trans_finalize(void);
 
 
-/** Size of peeled chunks during transposing inner tiles. */
-LIBXS_API_VARIABLE(unsigned int libxs_trans_tile[2/*DP/SP*/][2/*M,N*/][8/*size-range*/]);
 /** Determines whether JIT-kernels are used or not (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */
 LIBXS_API_VARIABLE(int libxs_trans_jit);
+/** Configuration table containing the tile sizes separate for DP and SP. */
+LIBXS_API_VARIABLE(/*const*/ unsigned int(*libxs_trans_tile)[2/*M,N*/][8/*size-range*/]);
 
 #endif /*LIBXS_TRANS_H*/

@@ -42,13 +42,13 @@ int main(void)
 {
   const int cpuid_archid = libxs_cpuid();
   const int m = 64, n = 239, k = 64, lda = 64, ldb = 240, ldc = 240;
-  libxs_gemm_descriptor descs[8], desc_a, desc_b;
+  libxs_gemm_descriptor_type descs[8], desc_a, desc_b;
   int result = EXIT_SUCCESS;
 
   LIBXS_GEMM_DESCRIPTOR(desc_a, LIBXS_GEMM_PRECISION_F32, LIBXS_GEMM_FLAGS('N', 'N'),
-    m, n, k, lda, ldb, ldc, 1, 0.0, LIBXS_PREFETCH_BL2_VIA_C);
+    m, n, k, lda, ldb, ldc, 1, 0.0, LIBXS_GEMM_PREFETCH_BL2_VIA_C);
   LIBXS_GEMM_DESCRIPTOR(desc_b, LIBXS_GEMM_PRECISION_F32, LIBXS_GEMM_FLAGS('N', 'T'),
-    m, n, k, lda, ldb, ldc, 1.0, 0, LIBXS_PREFETCH_BL2_VIA_C);
+    m, n, k, lda, ldb, ldc, 1.0, 0, LIBXS_GEMM_PREFETCH_BL2_VIA_C);
 
   descs[0] = desc_b; descs[1] = desc_a;
   descs[2] = desc_a; descs[3] = desc_a;

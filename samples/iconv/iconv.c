@@ -266,7 +266,8 @@ int main(int argc, char* argv[])
     descriptor.options = LIBXS_DNN_CONV_OPTION_NONE;
 #endif
     descriptor.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
-    descriptor.datatype = LIBXS_DNN_DATATYPE_F32;
+    descriptor.datatype_in = LIBXS_DNN_DATATYPE_F32;
+    descriptor.datatype_out = LIBXS_DNN_DATATYPE_F32;
     handle = libxs_dnn_create_conv_layer(descriptor, &status);
     if (LIBXS_DNN_SUCCESS != status) {
       const char *const error_message = libxs_dnn_get_error(status);

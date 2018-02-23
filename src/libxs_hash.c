@@ -31,7 +31,6 @@
 
 #include "libxs_hash.h"
 #include "libxs_main.h"
-#include <libxs_intrinsics_x86.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))

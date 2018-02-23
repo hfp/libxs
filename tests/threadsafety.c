@@ -50,9 +50,10 @@ int main(void)
 {
   union { LIBXS_MMFUNCTION_TYPE(REAL_TYPE) f; void* p; } f[MAX_NKERNELS];
   const char *const target_arch = libxs_get_target_arch();
+  const REAL_TYPE alpha = LIBXS_ALPHA, beta = LIBXS_BETA;
+  const int prefetch = LIBXS_GEMM_PREFETCH_NONE;
   libxs_generated_code generated_code;
   libxs_registry_info registry_info;
-  const int prefetch = LIBXS_PREFETCH_NONE;
   const int max_shape = LIBXS_AVG_M;
   const int flags = LIBXS_FLAGS;
   int nkernels = MAX_NKERNELS;
@@ -97,7 +98,7 @@ int main(void)
     const libxs_blasint n = r[3*i+1] % max_shape + 1;
     const libxs_blasint k = r[3*i+2] % max_shape + 1;
     f[i].f = LIBXS_MMDISPATCH_SYMBOL(REAL_TYPE)(m, n, k,
-      NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, NULL/*alpha*/, NULL/*beta*/,
+      &m/*lda*/, &k/*ldb*/, &m/*ldc*/, &alpha, &beta,
       &flags, &prefetch);
   }
 
@@ -110,15 +111,18 @@ int main(void)
       const libxs_blasint n = r[3*i+1] % max_shape + 1;
       const libxs_blasint k = r[3*i+2] % max_shape + 1;
       union { libxs_xmmfunction x; void* p; } fi;
-      LIBXS_GEMM_DESCRIPTOR_TYPE(descriptor, LIBXS_GEMM_PRECISION(REAL_TYPE), flags,
-        m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/, LIBXS_ALPHA, LIBXS_BETA, prefetch);
-      fi.x = libxs_xmmdispatch(&descriptor);
+      libxs_descriptor_blob blob;
+      const libxs_gemm_descriptor_type *const desc = libxs_gemm_descriptor_init(&blob, LIBXS_GEMM_PRECISION(REAL_TYPE),
+        m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/, &alpha, &beta, flags,
+        /* translate an eventual LIBXS_PREFETCH_AUTO */
+        libxs_get_gemm_prefetch(prefetch));
 
+      fi.x = libxs_xmmdispatch(desc);
       if (fi.p != f[i].p) {
         if (NULL != fi.p) {
           if (NULL != f[i].p) {
             generated_code.code_size = 0; /* reset size; avoid stitching code */
-            libxs_generator_gemm_kernel(&generated_code, &descriptor, target_arch);
+            libxs_generator_gemm_kernel(&generated_code, desc, target_arch);
 
             if (0 == generated_code.last_error && 0 < generated_code.code_size) {
               /* perform deeper check based on another code generation (used as reference) */

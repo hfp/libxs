@@ -62,10 +62,10 @@
 
 /** Function type representing the gemm_diff functionality. */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE unsigned int (*libxs_gemm_diff_function)(
-  const libxs_gemm_descriptor*, const libxs_gemm_descriptor*);
+  const libxs_gemm_descriptor_type*, const libxs_gemm_descriptor_type*);
 /** Function type representing the gemm_diffn functionality. */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE unsigned int (*libxs_gemm_diffn_function)(
-  const libxs_gemm_descriptor*, const void*, unsigned int, unsigned int, int);
+  const libxs_gemm_descriptor_type*, const void*, unsigned int, unsigned int, int);
 
 
 /** Initialize GEMM/DIFF module; not thread-safe. */
@@ -74,42 +74,42 @@ LIBXS_GEMM_DIFF_API void libxs_gemm_diff_finalize(void);
 
 /** Dispatched implementation which may (or may not) use a SIMD extension. */
 LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diff(
-  const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
+  const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc);
 
 /** Generic implementation which is only relying on high-level constructs. */
 LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diff_sw(
-  const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
+  const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc);
 /** Collection of implementations which are using specific instruction set extensions. */
 LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diff_sse(
-  const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
+  const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc);
 LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diff_avx(
-  const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
+  const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc);
 LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diff_avx2(
-  const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
+  const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc);
 LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diff_imci(
-  const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc);
+  const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc);
 
 /**
  * Compare a number of descriptors (array) against a reference descriptor.
  * Returns the index of the first match (or ndesc in case of no match).
  */
-LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference,
+LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor_type* reference,
   /** Array of descriptors with ndesc elements. */
   const void* descs, unsigned int hint, unsigned int ndescs,
   /** Number of bytes until the next descriptor is reached (stride). */
   int nbytes);
 
 /** Generic implementation of libxs_gemm_diffn which is only relying on high-level constructs. */
-LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor* reference,
+LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes);
 /** Collection of implementations which are using specific instruction set extensions. */
-LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference,
+LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes);
-LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference,
+LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes);
-LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
+LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes);
-LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descriptor* reference,
+LIBXS_GEMM_DIFF_API unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes);
 
 #if defined(LIBXS_BUILD) && !defined(LIBXS_GEMM_DIFF_NOINLINE)

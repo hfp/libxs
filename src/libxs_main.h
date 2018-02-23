@@ -90,40 +90,131 @@
 # define LIBXS_INIT
 #endif
 
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
-  void (*ptr_fn)(LIBXS_VARIADIC);
-  const void* ptr_const;
-  void* pmm;
-  uintptr_t uval;
-  intptr_t ival;
-  libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wmm, or void-function */
-  libxs_xmatcopyfunction xmatcopy;
-  libxs_xtransfunction xtrans;
-#if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
-  libxs_xconvfunction xconv;
+/** Check if M, N, K, or LDx fits into the descriptor. */
+#if (0 != LIBXS_ILP64)
+# define LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) ( \
+    ((unsigned int)(-1)) >= ((unsigned int)(M)) && \
+    ((unsigned int)(-1)) >= ((unsigned int)(N)) && \
+    ((unsigned int)(-1)) >= ((unsigned int)(K)))
+#else /* always fits */
+# define LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) 1
 #endif
-} libxs_code_pointer;
+
+#if defined(LIBXS_ASSERT) /* assert available */
+# define LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K) LIBXS_ASSERT(LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K))
+#else
+# define LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K)
+#endif
+
+#if (defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__)) /* TODO: full support for Windows calling convention */
+# define LIBXS_GEMM_DESCRIPTOR_PREFETCH(DESCRIPTOR, PREFETCH) LIBXS_UNUSED(PREFETCH); \
+            (DESCRIPTOR).prefetch = (unsigned short)(LIBXS_GEMM_PREFETCH_NONE)
+#else
+# define LIBXS_GEMM_DESCRIPTOR_PREFETCH(DESCRIPTOR, PREFETCH) (DESCRIPTOR).prefetch = (unsigned short)(PREFETCH)
+#endif
+
+/**
+* Construct a GEMM descriptor after it has been declared. The descriptor flags will sanitized to remove any
+* alignment request which cannot be satisfied (avoids to build an unnecessary code version).
+*/
+#define LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
+  LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K); LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(LDA, LDB, LDC); \
+  (DESCRIPTOR).lda = (unsigned int)(LDA); (DESCRIPTOR).ldb = (unsigned int)(LDB); (DESCRIPTOR).ldc = (unsigned int)(LDC); \
+  (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
+  (DESCRIPTOR).flags = (unsigned short)(FLAGS); LIBXS_GEMM_DESCRIPTOR_PREFETCH(DESCRIPTOR, PREFETCH); \
+  (DESCRIPTOR).alpha = (signed char)(ALPHA); (DESCRIPTOR).beta = (signed char)(BETA); \
+  (DESCRIPTOR).datatype = (unsigned char)(DATA_TYPE); (DESCRIPTOR).iflags = 0
+/** Similar to LIBXS_GEMM_DESCRIPTOR, but separately taking the input-/output-precision. */
+#define LIBXS_GEMM_DESCRIPTOR2(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
+  LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, LIBXS_GETENUM(IPREC, OPREC), FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH)
+
+/** Declare and construct a GEMM descriptor. */
+#define LIBXS_GEMM_DESCRIPTOR_TYPE(DESCRIPTOR, DATA_TYPE, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
+  libxs_gemm_descriptor_type DESCRIPTOR; LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE, \
+    FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH)
+/** Similar to LIBXS_GEMM_DESCRIPTOR_TYPE, but separately taking the input-/output-precision. */
+#define LIBXS_GEMM_DESCRIPTOR2_TYPE(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
+  LIBXS_GEMM_DESCRIPTOR_TYPE(DESCRIPTOR, LIBXS_GETENUM(IPREC, OPREC), FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH)
+
+
+/**
+* Structure, which stores the argument description of GEMM routines.
+* This structure must be ordered by the size of the members (packed).
+* The size of the structure matches LIBXS_DESCRIPTOR_SIZE.
+*/
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_gemm_descriptor_type {
+  /** Leading dimensions are general offsets. */
+  unsigned int lda, ldb, ldc;
+  /** Extents of the matrix. */
+  unsigned int m, n, k;
+  /** Set of flags. */
+  unsigned short flags;
+  /** Prefetch strategy enumeration. */
+  unsigned short prefetch;
+  /** Integer value. */
+  signed char alpha, beta;
+  /** Denotes the data-type. */
+  unsigned char datatype;
+  /** INTERNAL (last member!) */
+  unsigned char iflags;
+};
+
+/** Structure storing the matcopy argument description. */
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_mcopy_descriptor_type { /* 20 Byte */
+  /** LDx, M, and N. */
+  unsigned int m, n, ldi, ldo;
+  /** Size of data element. */
+  unsigned char typesize;
+  /** Level of unrolling. */
+  unsigned char unroll_level;
+  /** Boolean value (@TODO fix this). */
+  unsigned char prefetch;
+  /** Set of flags. */
+  unsigned char flags;
+};
+
+/** Structure storing the transpose argument description. */
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_trans_descriptor_type { /* 13 Byte */
+  /** LD, M, and N. */
+  unsigned int m, n, ldo;
+  /** Size of data element. */
+  unsigned char typesize;
+};
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
-  const libxs_gemm_descriptor* gemm;
+  const libxs_gemm_descriptor_type* gemm;
   const unsigned int* row_ptr;
   const unsigned int* column_idx;
   const void* values;
 } libxs_csr_soa_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csc_soa_descriptor {
-  const libxs_gemm_descriptor* gemm;
+  const libxs_gemm_descriptor_type* gemm;
   const unsigned int* column_ptr;
   const unsigned int* row_idx;
   const void* values;
 } libxs_csc_soa_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
-  const libxs_gemm_descriptor* gemm;
+  const libxs_gemm_descriptor_type* gemm;
   const unsigned int* row_ptr;
   const unsigned int* column_idx;
   const void* values;
 } libxs_csr_reg_descriptor;
+
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
+  void(*ptr_fn)(LIBXS_VARIADIC);
+  const void* ptr_const;
+  void* pmm;
+  uintptr_t uval;
+  intptr_t ival;
+  libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wmm, or void-function */
+  libxs_xmcopyfunction xmatcopy;
+  libxs_xtransfunction xtrans;
+#if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
+  libxs_xconvfunction xconv;
+#endif
+} libxs_code_pointer;
 
 /** Structure which describes all tensors in LIBXS's DNN module */
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_tensor {
@@ -174,7 +265,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int bwd_ofh_rb;
   int upd_ofw_rb;
   int upd_ofh_rb;
-  int fm_lp_block;              /* additional blocking for low precision datatypes of feature maps */
+  int fm_lp_block; /* additional blocking for low precision datatypes of feature maps */
   int upd_use_thread_fil;
   int upd_use_external_reduce;
   int filter_transposed;
@@ -349,7 +440,7 @@ typedef enum libxs_build_kind {
 } libxs_build_kind;
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
-  const libxs_gemm_descriptor* gemm;
+  const libxs_gemm_descriptor_type* gemm;
   const libxs_csr_soa_descriptor* srsoa;
   const libxs_csc_soa_descriptor* scsoa;
   const libxs_csr_reg_descriptor* sreg;
@@ -357,8 +448,8 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_convolution_backward_descriptor* cbwd;
   const libxs_convolution_weight_update_descriptor* cupd;
   const libxs_convolution_winograd_descriptor* cwino;
-  const libxs_matcopy_descriptor* matcopy;
-  const libxs_transpose_descriptor* trans;
+  const libxs_mcopy_descriptor_type* matcopy;
+  const libxs_trans_descriptor_type* trans;
 } libxs_build_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
@@ -423,9 +514,9 @@ LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 LIBXS_API int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_kernel_info {
-  libxs_gemm_descriptor xgemm;
-  libxs_matcopy_descriptor mcopy;
-  libxs_transpose_descriptor trans;
+  libxs_gemm_descriptor_type xgemm;
+  libxs_mcopy_descriptor_type mcopy;
+  libxs_trans_descriptor_type trans;
 } libxs_kernel_info;
 
 /** Attempts to receive information about JIT-generated code. */

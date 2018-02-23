@@ -427,13 +427,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   if (noarch == 0) {
     /* Forward path */
     { libxs_convolution_forward_descriptor descriptor;
-      libxs_matcopy_descriptor matcopy_descriptor;
-      libxs_matcopy_descriptor matzero_descriptor;
+      libxs_mcopy_descriptor_type matcopy_descriptor;
+      libxs_mcopy_descriptor_type matzero_descriptor;
 
       /* init descriptors */
       memset( &descriptor, 0, sizeof(libxs_convolution_forward_descriptor) );
-      memset( &matcopy_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
-      memset( &matzero_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
+      memset( &matcopy_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
+      memset( &matzero_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
 
       descriptor.input_L2_prefetching = 0;
       descriptor.lookahead = 0;
@@ -553,7 +553,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_OUTPUT;
           handle->code_fwd[3].pmm = libxs_create_xconv_forward(&descriptor);
           if (handle->padding_flag == 1) {
-            handle->matcopy_fwd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
+            handle->matcopy_fwd[0].xmatcopy = libxs_xmcopydispatch(&matcopy_descriptor);
           }
         }
         /* use jit code path */
@@ -610,7 +610,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         /* In case of logical padding also add a kernel that copies only one line of the image -- in case we exploit intra-image parallelism we should avoid copying entire image for each thread but only the minimum required number of input pixels... */
         if (handle->padding_flag == 1) {
           matcopy_descriptor.n = 1;
-          handle->matcopy_fwd[2].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
+          handle->matcopy_fwd[2].xmatcopy = libxs_xmcopydispatch(&matcopy_descriptor);
         }
 
         /* In case overwrite is requested, generate zero-ing kernel */
@@ -627,7 +627,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           matzero_descriptor.unroll_level = 2;
           matzero_descriptor.typesize = (unsigned char)libxs_dnn_typesize(handle->datatype_out);
           matzero_descriptor.flags = LIBXS_MATCOPY_FLAG_ZERO_SOURCE;
-          handle->matcopy_fwd[1].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
+          handle->matcopy_fwd[1].xmatcopy = libxs_xmcopydispatch(&matzero_descriptor);
 
           if (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) {
             matzero_descriptor.m = handle->ofwp*handle->ofmblock;
@@ -636,7 +636,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           } else { /* Assumes NHWC format */
             status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
           }
-          handle->matcopy_fwd[3].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
+          handle->matcopy_fwd[3].xmatcopy = libxs_xmcopydispatch(&matzero_descriptor);
 
         }
 
@@ -659,17 +659,17 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     }
     /* Backward path */
     { libxs_convolution_backward_descriptor descriptor;
-      libxs_matcopy_descriptor matcopy_descriptor;
-      libxs_matcopy_descriptor matcopyback_descriptor;
+      libxs_mcopy_descriptor_type matcopy_descriptor;
+      libxs_mcopy_descriptor_type matcopyback_descriptor;
       libxs_convolution_forward_descriptor fwd_equivalent_descriptor;
-      libxs_matcopy_descriptor matzero_descriptor_overwrite;
+      libxs_mcopy_descriptor_type matzero_descriptor_overwrite;
 
       /* init descriptors */
       memset( &descriptor, 0, sizeof(libxs_convolution_backward_descriptor) );
       memset( &fwd_equivalent_descriptor, 0, sizeof(libxs_convolution_forward_descriptor) );
-      memset( &matcopy_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
-      memset( &matcopyback_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
-      memset( &matzero_descriptor_overwrite, 0, sizeof(libxs_matcopy_descriptor) );
+      memset( &matcopy_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
+      memset( &matcopyback_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
+      memset( &matzero_descriptor_overwrite, 0, sizeof(libxs_mcopy_descriptor_type) );
 
       fwd_equivalent_descriptor.input_L2_prefetching = 0;
       fwd_equivalent_descriptor.lookahead = 0;
@@ -891,8 +891,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
             /* NONE */
             if (handle->padding_flag == 1) {
-              handle->matcopy_bwd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
-              handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matcopyback_descriptor);
+              handle->matcopy_bwd[0].xmatcopy = libxs_xmcopydispatch(&matcopy_descriptor);
+              handle->matcopy_bwd[1].xmatcopy = libxs_xmcopydispatch(&matcopyback_descriptor);
             }
 
             /*descriptor.prefetch_output_ahead = 0;*/
@@ -1083,7 +1083,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 matzero_descriptor_overwrite.unroll_level = 2;
                 matzero_descriptor_overwrite.typesize = (unsigned char)libxs_dnn_typesize(handle->datatype_out);
                 matzero_descriptor_overwrite.flags = LIBXS_MATCOPY_FLAG_ZERO_SOURCE;
-                handle->matcopy_bwd[1].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor_overwrite);
+                handle->matcopy_bwd[1].xmatcopy = libxs_xmcopydispatch(&matzero_descriptor_overwrite);
               }        
             } else {
               status = libxs_dnn_perform_bwd_dryrun_direct(handle);
@@ -1106,13 +1106,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           } /* End of backward */
       /* TODO weight update path */
       { libxs_convolution_weight_update_descriptor descriptor;
-        libxs_matcopy_descriptor matcopy_descriptor;
-        libxs_matcopy_descriptor matzero_descriptor;
+        libxs_mcopy_descriptor_type matcopy_descriptor;
+        libxs_mcopy_descriptor_type matzero_descriptor;
 
         /* init descriptors */
         memset( &descriptor, 0, sizeof(libxs_convolution_weight_update_descriptor) );
-        memset( &matcopy_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
-        memset( &matzero_descriptor, 0, sizeof(libxs_matcopy_descriptor) );
+        memset( &matcopy_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
+        memset( &matzero_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
 
         if (handle->padding_flag == 1) {
           descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
@@ -1492,8 +1492,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 #endif
               /* NONE */
               if (handle->padding_flag == 1) {
-                handle->matcopy_upd[0].xmatcopy = libxs_xmatcopydispatch(&matcopy_descriptor);
-                handle->matcopy_upd[1].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
+                handle->matcopy_upd[0].xmatcopy = libxs_xmcopydispatch(&matcopy_descriptor);
+                handle->matcopy_upd[1].xmatcopy = libxs_xmcopydispatch(&matzero_descriptor);
               }
               descriptor.transpose_ofw_ifm = 0;
               descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NONE;
@@ -1586,7 +1586,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           matzero_descriptor.unroll_level = 6;
           matzero_descriptor.typesize = (unsigned char)libxs_dnn_typesize(handle->datatype_out);
           matzero_descriptor.flags = LIBXS_MATCOPY_FLAG_ZERO_SOURCE;
-          handle->matcopy_upd[2].xmatcopy = libxs_xmatcopydispatch(&matzero_descriptor);
+          handle->matcopy_upd[2].xmatcopy = libxs_xmcopydispatch(&matzero_descriptor);
 
           /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
           status = libxs_dnn_perform_upd_dryrun_direct(handle);
