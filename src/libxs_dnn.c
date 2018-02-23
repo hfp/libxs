@@ -2508,7 +2508,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffe
     /* get max exponent */
     unsigned char max_exp = libxs_internal_get_max_exp( in_buffer, length );
 
-    /* if we go for stochstic rounding, let's intialize random seed */
+    /* if we go for stochastic rounding, let's initialize random seed */
     if ( round_mode == LIBXS_DNN_QUANT_STOCH_ROUND ) {
       srand( time(NULL) );
     }
@@ -2557,7 +2557,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_act( float* in_buffer, short* out_b
     } else {
 #endif
 #ifdef _OPENMP
-#pragma omp parallel for private(i1, i2, i3, i4, i5, i6) collapse(4)
+#     pragma omp parallel for private(i1, i2, i3, i4, i5, i6) LIBXS_OPENMP_COLLAPSE(4)
 #endif
       for( i1 = 0; i1 < N; ++i1 ) {
         for( i2 = 0; i2 < cblk; ++i2 ) {
@@ -2597,7 +2597,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_act( float* in_buffer, short* out_b
     }
 
 #ifdef _OPENMP
-#pragma omp parallel for private(i1, i2, i3, i4, i5, i6) collapse(4)
+#   pragma omp parallel for private(i1, i2, i3, i4, i5, i6) LIBXS_OPENMP_COLLAPSE(4)
 #endif
     for( i1 = 0; i1 < N; ++i1 ) {
       for( i2 = 0; i2 < cblk; ++i2 ) {
@@ -2652,7 +2652,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_b
       const __m512 vscfq = _mm512_set1_ps(scfq);
       const __m512i permute_compact_idx = _mm512_set_epi32(15,14,13,12,7,6,5,4,11,10,9,8,3,2,1,0);
 #ifdef _OPENMP
-#pragma omp parallel for private(i1, i2, i3, i4, i5) collapse(4)
+#     pragma omp parallel for private(i1, i2, i3, i4, i5) LIBXS_OPENMP_COLLAPSE(4)
 #endif
       for( i1 = 0; i1 < kblk; ++i1 ) {
         for( i2 = 0; i2 < cblk; ++i2 ) {
@@ -2675,7 +2675,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_b
     } else {
 #endif
 #ifdef _OPENMP
-#pragma omp parallel for private(i1, i2, i3, i4, i5, i6, i7) collapse(4)
+#     pragma omp parallel for private(i1, i2, i3, i4, i5, i6, i7) LIBXS_OPENMP_COLLAPSE(4)
 #endif
       for( i1 = 0; i1 < kblk; ++i1 ) {
         for( i2 = 0; i2 < cblk; ++i2 ) {
@@ -2718,7 +2718,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_b
     }
 
 #ifdef _OPENMP
-#pragma omp parallel for private(i1, i2, i3, i4, i5, i6, i7) collapse(4)
+#   pragma omp parallel for private(i1, i2, i3, i4, i5, i6, i7) LIBXS_OPENMP_COLLAPSE(4)
 #endif
     for( i1 = 0; i1 < kblk; ++i1 ) {
       for( i2 = 0; i2 < cblk; ++i2 ) {

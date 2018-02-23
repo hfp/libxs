@@ -159,9 +159,9 @@ int main(int argc, char* argv[])
             T *const ci = c + i * csize;
 #if (0 != LIBXS_PREFETCH)
             xmm(ai, bi, ci,
-              LIBXS_PREFETCH_A(ai + asize),
-              LIBXS_PREFETCH_B(bi + bsize),
-              LIBXS_PREFETCH_C(ci + csize));
+              LIBXS_GEMM_PREFETCH_A(ai + asize),
+              LIBXS_GEMM_PREFETCH_B(bi + bsize),
+              LIBXS_GEMM_PREFETCH_C(ci + csize));
 #else
             xmm(ai, bi, ci);
 #endif
@@ -222,8 +222,8 @@ int main(int argc, char* argv[])
             T *const ci = c + i * csize;
 #if (0 != LIBXS_PREFETCH)
             xmm(ai, b, ci,
-              LIBXS_PREFETCH_A(ai + asize), LIBXS_PREFETCH_B(b),
-              LIBXS_PREFETCH_C(ci + csize));
+              LIBXS_GEMM_PREFETCH_A(ai + asize), LIBXS_GEMM_PREFETCH_B(b),
+              LIBXS_GEMM_PREFETCH_C(ci + csize));
 #else
             xmm(ai, b, ci);
 #endif
@@ -280,8 +280,8 @@ int main(int argc, char* argv[])
             T *const ci = c + i * csize;
 #if (0 != LIBXS_PREFETCH)
             xmm(a, bi, ci,
-              LIBXS_PREFETCH_A(a), LIBXS_PREFETCH_B(bi + bsize),
-              LIBXS_PREFETCH_C(ci + csize));
+              LIBXS_GEMM_PREFETCH_A(a), LIBXS_GEMM_PREFETCH_B(bi + bsize),
+              LIBXS_GEMM_PREFETCH_C(ci + csize));
 #else
             xmm(a, bi, ci);
 #endif
@@ -342,9 +342,9 @@ int main(int argc, char* argv[])
             const T *const ai = a + i * asize, *const bi = b + i * bsize;
 #if (0 != LIBXS_PREFETCH)
             xmm(ai, bi, c + j,
-              LIBXS_PREFETCH_A(ai + asize),
-              LIBXS_PREFETCH_B(bi + bsize),
-              LIBXS_PREFETCH_C(c + j));
+              LIBXS_GEMM_PREFETCH_A(ai + asize),
+              LIBXS_GEMM_PREFETCH_B(bi + bsize),
+              LIBXS_GEMM_PREFETCH_C(c + j));
 #else
             xmm(ai, bi, c + j);
 #endif
@@ -404,9 +404,9 @@ int main(int argc, char* argv[])
 #endif
 #if (0 != LIBXS_PREFETCH)
             xmm(a, b, c + j,
-              LIBXS_PREFETCH_A(a),
-              LIBXS_PREFETCH_B(b),
-              LIBXS_PREFETCH_C(c + j));
+              LIBXS_GEMM_PREFETCH_A(a),
+              LIBXS_GEMM_PREFETCH_B(b),
+              LIBXS_GEMM_PREFETCH_C(c + j));
 #else
             xmm(a, b, c + j);
 #endif

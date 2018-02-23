@@ -46,7 +46,7 @@ typedef enum libxs_bgemm_order {
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_bgemm_handle libxs_bgemm_handle;
 
 
-LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_precision precision,
+LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
   libxs_blasint m, libxs_blasint n, libxs_blasint k,
   /** If the block-size (bm, bn, or bk) is not given, a suitable value is chosen internally. */
   const libxs_blasint* bm, const libxs_blasint* bn, const libxs_blasint* bk,
@@ -55,11 +55,8 @@ LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_precision pre
   /** If alpha is not supplied (NULL), then LIBXS_ALPHA is used instead. */ const void* alpha,
   /** If beta is not supplied (NULL), then LIBXS_BETA is used instead. */   const void*  beta,
   /** See libxs_gemm_flags (LIBXS_FLAGS is used if NULL is given). */ const int* gemm_flags,
-  /**
-   * See libxs_gemm_prefetch_type (LIBXS_PREFETCH is used if NULL is given).
-   * In case of LIBXS_PREFETCH_AUTO, a strategy is chosen automatically.
-   */
-  const libxs_gemm_prefetch_type* strategy,
+  /** See libxs_gemm_prefetch_type; a strategy chosen automatically if NULL is given. */
+  const libxs_gemm_prefetch_type* prefetch,
   /** See libxs_bgemm_order; an order is chosen automatically if NULL is given. */
   const libxs_bgemm_order* order);
 

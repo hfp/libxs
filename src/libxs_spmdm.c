@@ -27,7 +27,6 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include <libxs_spmdm.h>
-#include <libxs_intrinsics_x86.h>
 #include <libxs.h>
 #include "libxs_main.h"
 
@@ -542,9 +541,7 @@ void libxs_spmdm_compute_bfloat16_thread(
 
 LIBXS_API_INLINE void internal_spmdm_init_check(int archid)
 {
-  if (archid < libxs_target_archid
-    && 0 != libxs_verbosity) /* library code is expected to be mute */
-  {
+  if (archid < libxs_target_archid && 0 != libxs_verbosity) { /* library code is expected to be mute */
     static int error_once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
       fprintf(stderr, "LIBXS ERROR: missed to enter \"%s\" code path due to the compiler used!\n", libxs_get_target_arch());

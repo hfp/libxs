@@ -29,10 +29,8 @@
 /* Kunal Banerjee (Intel Corp.), Dheevatsa Mudigere (Intel Corp.)
    Alexander Heinecke (Intel Corp.), Hans Pabst (Intel Corp.)
 ******************************************************************************/
-#include <libxs_bgemm.h>
 #include <libxs.h>
 #include "libxs_gemm.h"
-#include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -57,109 +55,103 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_bgemm_lock {
 
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_bgemm_handle {
   union { double d; float s; int w; } alpha, beta;
+  libxs_gemm_precision iprec, oprec;
   libxs_xmmfunction kernel_pf;
   libxs_xmmfunction kernel;
-  void* buffer;
   libxs_bgemm_lock* locks;
+  libxs_bgemm_order order;
   libxs_blasint m, n, k, bm, bn, bk;
   libxs_blasint b_m1, b_n1, b_k1, b_k2;
   libxs_blasint mb, nb, kb;
-  libxs_gemm_precision precision;
-  libxs_bgemm_order order;
-  int typesize;
+  void* buffer;
   int flags;
 };
 
 
 LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
-  libxs_gemm_precision precision, libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  libxs_gemm_precision iprec, libxs_gemm_precision oprec, libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* bm, const libxs_blasint* bn, const libxs_blasint* bk,
   const libxs_blasint* b_m1, const libxs_blasint* b_n1, const libxs_blasint* b_k1, const libxs_blasint* b_k2,
   const void* alpha, const void* beta, const int* gemm_flags,
-  const libxs_gemm_prefetch_type* strategy,
+  const libxs_gemm_prefetch_type* prefetch,
   const libxs_bgemm_order* order)
 {
   const char *const env_m = getenv("LIBXS_BGEMM_M"), *const env_n = getenv("LIBXS_BGEMM_N"), *const env_k = getenv("LIBXS_BGEMM_K");
   const libxs_blasint mm = LIBXS_MIN(0 == bm ? ((0 == env_m || 0 == *env_m) ? 32 : atoi(env_m)) : *bm, m);
   const libxs_blasint kk = LIBXS_MIN(0 == bk ? ((0 == env_k || 0 == *env_k) ? mm : atoi(env_k)) : *bk, k);
   const libxs_blasint nn = LIBXS_MIN(0 == bn ? ((0 == env_n || 0 == *env_n) ? kk : atoi(env_n)) : *bn, n);
-  libxs_bgemm_handle handle, *result = 0;
-  libxs_gemm_descriptor descriptor;
+  libxs_bgemm_handle* result = 0;
   static int error_once = 0;
 
   if (0 < m && 0 < n && 0 < k && 0 < mm && 0 < nn && 0 < kk) {
+    libxs_bgemm_handle handle;
     memset(&handle, 0, sizeof(handle));
-
-    if (EXIT_SUCCESS == libxs_gemm_descriptor_init(&descriptor,
-      precision, mm, nn, kk, &mm/*lda*/, &kk/*ldb*/, &mm/*ldc*/,
-      alpha, beta, gemm_flags, 0/*prefetch*/))
-    {
-      handle.typesize = LIBXS_TYPESIZE(precision);
-      handle.mb = m / mm; handle.nb = n / nn; handle.kb = k / kk;
-      assert(0 < handle.typesize);
-
-      if (0 == (m % mm) && 0 == (n % nn) && 0 == (k % kk) &&
-          0 == (m % *b_m1) && 0 == (n % *b_n1) && 0 == (k % *b_k1) &&
-          0 == ((k / *b_k1 / *b_k2) % kk) && 0 == ((n / *b_n1) % nn) && 0 == ((m / *b_m1) % mm))
-      { /* check for valid block-size */
-        const libxs_gemm_prefetch_type prefetch = (0 == strategy ? ((libxs_gemm_prefetch_type)LIBXS_PREFETCH) : *strategy);
-        handle.b_m1 = *b_m1; handle.b_n1 = *b_n1;
-        handle.b_k1 = *b_k1; handle.b_k2 = *b_k2;
-        handle.kernel = libxs_xmmdispatch(&descriptor);
-        if (0 != handle.kernel.xmm && LIBXS_PREFETCH_NONE != prefetch && LIBXS_PREFETCH_SIGONLY != prefetch) {
-          if (LIBXS_PREFETCH_AUTO == prefetch) { /* automatically chosen */
-            /* TODO: more sophisticated strategy perhaps according to CPUID */
-            const char *const env_p = getenv("LIBXS_BGEMM_PREFETCH");
-            const int uid = ((0 == env_p || 0 == *env_p) ? libxs_gemm_prefetch2uid(LIBXS_PREFETCH_AL2BL2_VIA_C) : atoi(env_p));
-            descriptor.prefetch = (unsigned short)libxs_gemm_uid2prefetch(uid);
-          }
-          else { /* user-defined */
-            descriptor.prefetch = (unsigned short)prefetch;
-          }
-          handle.kernel_pf = libxs_xmmdispatch(&descriptor);
+    if (0 == (m % mm) && 0 == (n % nn) && 0 == (k % kk) &&
+        0 == (m % *b_m1) && 0 == (n % *b_n1) && 0 == (k % *b_k1) &&
+        0 == ((k / *b_k1 / *b_k2) % kk) && 0 == ((n / *b_n1) % nn) && 0 == ((m / *b_m1) % mm))
+    { /* check for valid block-size */
+      libxs_gemm_descriptor_type* desc;
+      libxs_descriptor_blob blob;
+      if (0 == prefetch) { /* auto-prefetch */
+        /* TODO: more sophisticated strategy perhaps according to CPUID */
+        const libxs_gemm_prefetch_type prefetch_default = LIBXS_GEMM_PREFETCH_AL2BL2_VIA_C;
+        const char *const env_p = getenv("LIBXS_BGEMM_PREFETCH");
+        desc = libxs_gemm_descriptor_init2(&blob, iprec, oprec, mm, nn, kk, mm/*lda*/, kk/*ldb*/, mm/*ldc*/,
+          alpha, beta, 0 == gemm_flags ? LIBXS_GEMM_FLAG_NONE : *gemm_flags,
+          (0 == env_p || 0 == *env_p) ? prefetch_default : libxs_gemm_uid2prefetch(atoi(env_p)));
+      }
+      else { /* user-defined */
+        desc = libxs_gemm_descriptor_init2(&blob, iprec, oprec, mm, nn, kk, mm/*lda*/, kk/*ldb*/, mm/*ldc*/,
+          alpha, beta, 0 == gemm_flags ? LIBXS_GEMM_FLAG_NONE : *gemm_flags, *prefetch);
+      }
+      if (0 != desc) {
+        handle.mb = m / mm; handle.nb = n / nn; handle.kb = k / kk;
+        if (LIBXS_GEMM_PREFETCH_NONE != desc->prefetch) {
+          handle.kernel_pf = libxs_xmmdispatch(desc);
+          desc->prefetch = LIBXS_GEMM_PREFETCH_NONE;
+          handle.kernel = libxs_xmmdispatch(desc);
         }
-        if (0 != handle.kernel.smm && (LIBXS_PREFETCH_NONE == descriptor.prefetch || 0 != handle.kernel_pf.smm)) {
-          const size_t tls_size = LIBXS_UP2(mm * nn * handle.typesize, LIBXS_CACHELINE) * LIBXS_BGEMM_MAX_NTHREADS;
-          const size_t size_locks = (size_t)(handle.mb * handle.nb * sizeof(libxs_bgemm_lock));
-          handle.locks = (libxs_bgemm_lock*)libxs_aligned_malloc(size_locks, LIBXS_CACHELINE);
-          handle.buffer = libxs_aligned_malloc(tls_size, LIBXS_CACHELINE);
-          result = (libxs_bgemm_handle*)malloc(sizeof(libxs_bgemm_handle));
-
-          if (0 != result && 0 != handle.buffer && 0 != handle.locks) {
-            handle.precision = precision;
-            handle.m = m; handle.n = n; handle.k = k; handle.bm = mm; handle.bn = nn; handle.bk = kk;
-            memset(handle.locks, 0, size_locks);
-            handle.order = (0 == order ? LIBXS_BGEMM_ORDER_JIK : *order);
-            *result = handle;
-          }
-          else {
-            if (0 != libxs_verbosity /* library code is expected to be mute */
-             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-            {
-              fprintf(stderr, "LIBXS ERROR: BGEMM handle allocation failed!\n");
-            }
-            libxs_free(handle.buffer);
-            libxs_free(handle.locks);
-            free(result);
-            result = 0;
-          }
+        else { /* no prefetch */
+          handle.kernel = libxs_xmmdispatch(desc);
+          handle.kernel_pf.xmm = 0;
         }
-        else if (0 != libxs_verbosity /* library code is expected to be mute */
-              && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-        {
-          fprintf(stderr, "LIBXS ERROR: BGEMM kernel generation failed!\n");
+      }
+      if (0 != handle.kernel.xmm) {
+        const size_t tls_size = LIBXS_UP2(mm * nn * LIBXS_TYPESIZE(oprec), LIBXS_CACHELINE) * LIBXS_BGEMM_MAX_NTHREADS;
+        const size_t size_locks = (size_t)(handle.mb * handle.nb * sizeof(libxs_bgemm_lock));
+        handle.locks = (libxs_bgemm_lock*)libxs_aligned_malloc(size_locks, LIBXS_CACHELINE);
+        handle.buffer = libxs_aligned_malloc(tls_size, LIBXS_CACHELINE);
+        result = (libxs_bgemm_handle*)malloc(sizeof(libxs_bgemm_handle));
+        if (0 != result && 0 != handle.buffer && 0 != handle.locks) {
+          handle.m = m; handle.n = n; handle.k = k; handle.bm = mm; handle.bn = nn; handle.bk = kk;
+          handle.b_m1 = *b_m1; handle.b_n1 = *b_n1; handle.b_k1 = *b_k1; handle.b_k2 = *b_k2;
+          handle.iprec = iprec; handle.oprec = oprec;
+          memset(handle.locks, 0, size_locks);
+          handle.order = (0 == order ? LIBXS_BGEMM_ORDER_JIK : *order);
+          *result = handle;
+        }
+        else {
+          if (0 != libxs_verbosity /* library code is expected to be mute */
+            && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          {
+            fprintf(stderr, "LIBXS ERROR: BGEMM handle allocation failed!\n");
+          }
+          libxs_free(handle.buffer);
+          libxs_free(handle.locks);
+          free(result);
+          result = 0;
         }
       }
       else if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
-        fprintf(stderr, "LIBXS ERROR: BGEMM block-size is invalid!\n");
+        fprintf(stderr, "LIBXS ERROR: unsupported BGEMM kernel requested!\n");
       }
     }
     else if (0 != libxs_verbosity /* library code is expected to be mute */
           && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS ERROR: BGEMM precision is not supported!\n");
+      fprintf(stderr, "LIBXS ERROR: BGEMM block-size is invalid!\n");
     }
   }
   else if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -194,7 +186,7 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyin_a(const libxs_bgemm_handle* handle, 
 #else
     LIBXS_UNUSED(ld);
 #endif
-    switch (handle->precision) {
+    switch (handle->iprec) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE double
 #       include "template/libxs_bgemm_copyin_a.tpl.c"
@@ -244,7 +236,7 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyin_b(const libxs_bgemm_handle* handle, 
 #else
     LIBXS_UNUSED(ld);
 #endif
-    switch (handle->precision) {
+    switch (handle->iprec) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE double
 #       include "template/libxs_bgemm_copyin_b.tpl.c"
@@ -294,7 +286,7 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, 
 #else
     LIBXS_UNUSED(ld);
 #endif
-    switch (handle->precision) {
+    switch (handle->oprec) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE double
 #       include "template/libxs_bgemm_copyin_c.tpl.c"
@@ -344,7 +336,7 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle,
 #else
     LIBXS_UNUSED(ld);
 #endif
-    switch (handle->precision) {
+    switch (handle->oprec) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE double
 #       include "template/libxs_bgemm_copyout_c.tpl.c"
@@ -425,11 +417,11 @@ LIBXS_API_DEFINITION void libxs_bgemm(const libxs_bgemm_handle* handle,
   const void* a, const void* b, void* c, int tid, int nthreads)
 {
   static int error_once = 0;
-#if !defined(NDEBUG) /* intentionally no errror check in release build */
+#if !defined(NDEBUG) /* intentionally no error check in release build */
   if (0 != handle && 0 != a && 0 != b && 0 != c && 0 <= tid && tid < nthreads)
 #endif
   {
-    switch (handle->precision) {
+    switch (handle->iprec) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE_AB double
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE_C  double
@@ -446,10 +438,17 @@ LIBXS_API_DEFINITION void libxs_bgemm(const libxs_bgemm_handle* handle,
       } break;
       case LIBXS_GEMM_PRECISION_I16: {
 #       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE_AB short
-#       define LIBXS_BGEMM_TEMPLATE_REAL_TYPE_C  int
-#       include "template/libxs_bgemm.tpl.c"
-#       undef  LIBXS_BGEMM_TEMPLATE_REAL_TYPE_AB
-#       undef  LIBXS_BGEMM_TEMPLATE_REAL_TYPE_C
+        if (LIBXS_GEMM_PRECISION_I32 == handle->oprec) {
+#         define LIBXS_BGEMM_TEMPLATE_REAL_TYPE_C int
+#         include "template/libxs_bgemm.tpl.c"
+#         undef LIBXS_BGEMM_TEMPLATE_REAL_TYPE_C
+        }
+        else {
+#         define LIBXS_BGEMM_TEMPLATE_REAL_TYPE_C float
+#         include "template/libxs_bgemm.tpl.c"
+#         undef LIBXS_BGEMM_TEMPLATE_REAL_TYPE_C
+        }
+#       undef LIBXS_BGEMM_TEMPLATE_REAL_TYPE_AB
       } break;
       default: if (0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))

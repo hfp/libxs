@@ -31,7 +31,6 @@
 
 #include "libxs_gemm_diff.h"
 #include "libxs_main.h"
-#include <libxs_intrinsics_x86.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -99,7 +98,7 @@ LIBXS_GEMM_DIFF_API_DEFINITION void libxs_gemm_diff_finalize(void)
 }
 
 
-LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diff(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
+LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diff(const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc)
 {
   /* attempt to rely on static code path avoids to rely on capability of inlining pointer-based function call */
 #if defined(LIBXS_GEMM_DIFF_SW) && (0 != LIBXS_GEMM_DIFF_SW)
@@ -124,16 +123,16 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diff(const libxs_gemm_des
 }
 
 
-LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
+LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diff_sw(const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc)
 {
 #if defined(LIBXS_GEMM_DIFF_SW) && (2 == (LIBXS_GEMM_DIFF_SW))
-  return 0 != memcmp(reference, desc, LIBXS_GEMM_DESCRIPTOR_SIZE);
+  return 0 != memcmp(reference, desc, LIBXS_DESCRIPTOR_SIZE);
 #else
   typedef unsigned int LIBXS_MAY_ALIAS uia_type;
   const uia_type *const ia = (const uia_type*)reference, *const ib = (const uia_type*)desc;
-  const unsigned int end = (LIBXS_GEMM_DESCRIPTOR_SIZE >> 2/*LOG2(sizeof(int))*/);
+  const unsigned int end = (LIBXS_DESCRIPTOR_SIZE >> 2/*LOG2(sizeof(int))*/);
   unsigned int result, i;
-  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
+  assert(0 == LIBXS_MOD2(LIBXS_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   assert(0 != reference && 0 != desc);
   result = ia[0] ^ ib[0];
   for (i = 1; i < end; ++i) {
@@ -145,12 +144,12 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diff_sw(const libxs_gemm_
 
 
 LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE3)
-unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
+unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc)
 {
   assert(0 != reference && 0 != desc);
 #if defined(LIBXS_GEMM_DIFF_SSE3)
-  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-# if (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  assert(0 == LIBXS_MOD2(LIBXS_DESCRIPTOR_SIZE, sizeof(unsigned int)));
+# if (16 == LIBXS_DESCRIPTOR_SIZE)
   {
     const __m128i a128 = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)reference);
     const __m128i b128 = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)desc);
@@ -174,12 +173,12 @@ unsigned int libxs_gemm_diff_sse(const libxs_gemm_descriptor* reference, const l
 
 
 LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX)
-unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
+unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc)
 {
   assert(0 != reference && 0 != desc);
 #if defined(LIBXS_GEMM_DIFF_AVX)
-  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  assert(0 == LIBXS_MOD2(LIBXS_DESCRIPTOR_SIZE, sizeof(unsigned int)));
+# if (28 == LIBXS_DESCRIPTOR_SIZE)
   {
     const int yes = 0x80000000, no = 0x0;
     const __m256i m256 = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
@@ -214,12 +213,12 @@ unsigned int libxs_gemm_diff_avx(const libxs_gemm_descriptor* reference, const l
 
 
 LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
+unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc)
 {
   assert(0 != reference && 0 != desc);
 #if defined(LIBXS_GEMM_DIFF_AVX2)
-  assert(0 == LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+  assert(0 == LIBXS_MOD2(LIBXS_DESCRIPTOR_SIZE, sizeof(unsigned int)));
+# if (28 == LIBXS_DESCRIPTOR_SIZE)
   {
     const int yes = 0x80000000, no = 0x0;
     const __m256i m256 = _mm256_set_epi32(no, yes, yes, yes, yes, yes, yes, yes);
@@ -235,7 +234,7 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
     const int r1 = _mm256_testnzc_si256(b256, a256);
     return r0 | r1;
   }
-# elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+# elif (16 == LIBXS_DESCRIPTOR_SIZE)
   { /* no difference between AVX and AVX2 based implementation */
     return libxs_gemm_diff_avx(reference, desc);
   }
@@ -255,13 +254,13 @@ unsigned int libxs_gemm_diff_avx2(const libxs_gemm_descriptor* reference, const 
 }
 
 
-LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor* reference, const libxs_gemm_descriptor* desc)
+LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diff_imci(const libxs_gemm_descriptor_type* reference, const libxs_gemm_descriptor_type* desc)
 {
   assert(0 != reference && 0 != desc);
-#if defined(LIBXS_GEMM_DIFF_KNC) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
-  assert(0 ==  LIBXS_MOD2(LIBXS_GEMM_DESCRIPTOR_SIZE, sizeof(unsigned int)));
+#if defined(LIBXS_GEMM_DIFF_KNC) && (28 == LIBXS_DESCRIPTOR_SIZE)
+  assert(0 ==  LIBXS_MOD2(LIBXS_DESCRIPTOR_SIZE, sizeof(unsigned int)));
   {
-    const __mmask16 mask = (0xFFFF >> (16 - (LIBXS_GEMM_DESCRIPTOR_SIZE >> 2/*LOG2(sizeof(int))*/)));
+    const __mmask16 mask = (0xFFFF >> (16 - (LIBXS_DESCRIPTOR_SIZE >> 2/*LOG2(sizeof(int))*/)));
     const __m512i a512 = _mm512_mask_loadunpackhi_epi32(
       _mm512_mask_loadunpacklo_epi32(_mm512_set1_epi32(0), mask, reference),
       mask, ((const char*)reference) + 32);
@@ -276,7 +275,7 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diff_imci(const libxs_gem
 }
 
 
-LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor* reference,
+LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes)
 {
   /* attempt to rely on static code path avoids to rely on capability of inlining pointer-based function call */
@@ -302,7 +301,7 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn(const libxs_gemm_de
 }
 
 
-LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor* reference,
+LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_sw(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes)
 {
   const char *const desc = (const char*)descs;
@@ -311,7 +310,7 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_sw(const libxs_gemm
   for (i = hint; i < end; ++i) {
     const unsigned int j = i % ndescs; /* wrap around index */
     /* negative stride runs backwards */
-    if (0 == libxs_gemm_diff_sw(reference, (const libxs_gemm_descriptor*)(desc + j * nbytes))) {
+    if (0 == libxs_gemm_diff_sw(reference, (const libxs_gemm_descriptor_type*)(desc + j * nbytes))) {
       return j;
     }
   }
@@ -320,12 +319,12 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_sw(const libxs_gemm
 
 
 LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX)
-unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference,
+unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_GEMM_DIFF_AVX)
   assert(/*is pot*/ndescs == LIBXS_UP2POT(ndescs));
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+# if (28 == LIBXS_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
   {
     const unsigned int end = hint + ndescs;
@@ -352,7 +351,7 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference,
     }
     return ndescs;
   }
-# elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+# elif (16 == LIBXS_DESCRIPTOR_SIZE)
   assert(16 == nbytes); /* padded descriptor array */
   { /* TODO: implement for 16 Byte descriptor */
     return libxs_gemm_diffn_sw(reference, descs, hint, ndescs, nbytes);
@@ -374,12 +373,12 @@ unsigned int libxs_gemm_diffn_avx(const libxs_gemm_descriptor* reference,
 
 
 LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference,
+unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_GEMM_DIFF_AVX2)
   assert(/*is pot*/ndescs == LIBXS_UP2POT(ndescs));
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+# if (28 == LIBXS_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
   {
     const unsigned int end = hint + ndescs;
@@ -406,7 +405,7 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference,
     }
     return ndescs;
   }
-# elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+# elif (16 == LIBXS_DESCRIPTOR_SIZE)
   assert(16 == nbytes); /* padded descriptor array */
   { /* TODO: implement for 16 Byte descriptor */
     return libxs_gemm_diffn_avx(reference, descs, hint, ndescs, nbytes);
@@ -428,12 +427,12 @@ unsigned int libxs_gemm_diffn_avx2(const libxs_gemm_descriptor* reference,
 
 
 LIBXS_GEMM_DIFF_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
+unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes)
 {
 #if defined(LIBXS_GEMM_DIFF_AVX512) && !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
   assert(/*is pot*/ndescs == LIBXS_UP2POT(ndescs));
-# if (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+# if (28 == LIBXS_DESCRIPTOR_SIZE)
   assert(32 == nbytes); /* padded descriptor array */
   {
     const unsigned int hint_even = (hint & 0xFFFFFFFE), end = hint_even + ndescs;
@@ -462,7 +461,7 @@ unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
     }
     return ndescs;
   }
-# elif (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+# elif (16 == LIBXS_DESCRIPTOR_SIZE)
   assert(16 == nbytes); /* padded descriptor array */
   { /* TODO: implement for 16 Byte descriptor */
     return libxs_gemm_diffn_avx2(reference, descs, hint, ndescs, nbytes);
@@ -483,10 +482,10 @@ unsigned int libxs_gemm_diffn_avx512(const libxs_gemm_descriptor* reference,
 }
 
 
-LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descriptor* reference,
+LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_imci(const libxs_gemm_descriptor_type* reference,
   const void* descs, unsigned int hint, unsigned int ndescs, int nbytes)
 {
-#if defined(LIBXS_GEMM_DIFF_KNC) && (28 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+#if defined(LIBXS_GEMM_DIFF_KNC) && (28 == LIBXS_DESCRIPTOR_SIZE)
   assert(/*is pot*/ndescs == LIBXS_UP2POT(ndescs));
   assert(32 == nbytes); /* padded descriptor array */
   {
@@ -512,7 +511,7 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_imci(const libxs_ge
     }
     return ndescs;
   }
-#elif defined(LIBXS_GEMM_DIFF_KNC) && (16 == LIBXS_GEMM_DESCRIPTOR_SIZE)
+#elif defined(LIBXS_GEMM_DIFF_KNC) && (16 == LIBXS_DESCRIPTOR_SIZE)
   assert(/*is pot*/ndescs == LIBXS_UP2POT(ndescs));
   assert(16 == nbytes); /* padded descriptor array */
   { /* TODO: implement for 16 Byte descriptor */
