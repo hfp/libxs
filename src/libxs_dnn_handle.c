@@ -900,38 +900,46 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
               handle->code_bwd[0].xgemm.smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
             } else {
-              handle->code_bwd[0].pmm = libxs_create_xconv_backward(&descriptor);
-            }
-            /* PREFETCH_NO_WEIGHT */
-            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT_L2;
-            handle->code_bwd[1].pmm = libxs_create_xconv_backward(&descriptor);
-            /*ALL*/
-            /*descriptor.prefetch_output_ahead = 0;*/
-            descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
-            handle->code_bwd[2].pmm = libxs_create_xconv_backward(&descriptor);
+              /*if (handle->use_thread_private_jit > 0) {*/
+              if (handle->exploit_duality == 1) {
+                fwd_equivalent_descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+                if ( handle->ofw != 7) {
+                  handle->code_bwd[4].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
+                } else {
+                  int hrb_save =  fwd_equivalent_descriptor.ofh_rb;
+                  int wrb_save =  fwd_equivalent_descriptor.ofw_rb;
+                  fwd_equivalent_descriptor.ofh_rb = 4;
+                  fwd_equivalent_descriptor.ofw_rb = 7;
+                  handle->code_bwd[4].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
+                  fwd_equivalent_descriptor.ofh_rb = 3;
+                  fwd_equivalent_descriptor.ofw_rb = 7;
+                  handle->code_bwd[5].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
+                  handle->bwd_ofh_rb = 4;
+                  fwd_equivalent_descriptor.ofh_rb = hrb_save;
+                  fwd_equivalent_descriptor.ofw_rb = wrb_save;
+                }
 
-            /*if (handle->use_thread_private_jit > 0) {*/
-            if (handle->exploit_duality == 1) {
-              fwd_equivalent_descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
-              if ( handle->ofw != 7) {
-                handle->code_bwd[4].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
+                /* enable jit code */
+                handle->use_bwd_generic = 0;
               } else {
-                int hrb_save =  fwd_equivalent_descriptor.ofh_rb;
-                int wrb_save =  fwd_equivalent_descriptor.ofw_rb;
-                fwd_equivalent_descriptor.ofh_rb = 4;
-                fwd_equivalent_descriptor.ofw_rb = 7;
-                handle->code_bwd[4].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
-                fwd_equivalent_descriptor.ofh_rb = 3;
-                fwd_equivalent_descriptor.ofw_rb = 7;
-                handle->code_bwd[5].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
-                handle->bwd_ofh_rb = 4;
-                fwd_equivalent_descriptor.ofh_rb = hrb_save;
-                fwd_equivalent_descriptor.ofw_rb = wrb_save;
+#if defined(LIBXS_ENABLE_ORIG_BWD_GENERATOR)
+                handle->code_bwd[0].pmm = libxs_create_xconv_backward(&descriptor);
+
+                /* PREFETCH_NO_WEIGHT */
+                descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_NO_WEIGHT_L2;
+                handle->code_bwd[1].pmm = libxs_create_xconv_backward(&descriptor);
+                /*ALL*/
+                /*descriptor.prefetch_output_ahead = 0;*/
+                descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+                handle->code_bwd[2].pmm = libxs_create_xconv_backward(&descriptor);
+#else
+                /* disable jit code, use generic */
+                handle->bwd_ofh_rb = 1;
+                handle->bwd_ofw_rb = handle->ofw;
+                handle->use_bwd_generic = 1;
+#endif
               }
             }
-
-            /* enable jit code */
-            handle->use_bwd_generic = 0;
 #if 0
             /* PEELED VERSION */
             for (i = LIBXS_MIN(24, handle->ofw); i > 1; i--) {
@@ -1086,7 +1094,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 handle->matcopy_bwd[1].xmatcopy = libxs_xmcopydispatch(&matzero_descriptor_overwrite);
               }        
             } else {
+#if defined(LIBXS_ENABLE_ORIG_BWD_GENERATOR)
               status = libxs_dnn_perform_bwd_dryrun_direct(handle);
+#endif
             }
 
             /* compute kernel stream overhead */
@@ -1105,7 +1115,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
           } /* End of backward */
       /* TODO weight update path */
-      { libxs_convolution_weight_update_descriptor descriptor;
+      { 
+        if ( handle->desc.N % handle->desc.threads == 0 ) {
+        libxs_convolution_weight_update_descriptor descriptor;
         libxs_mcopy_descriptor_type matcopy_descriptor;
         libxs_mcopy_descriptor_type matzero_descriptor;
 
@@ -1605,6 +1617,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           }
           printf("KS Overhead UPD in KB: %i \n", ks_overhead/1024 ); 
 
+        }
+        } else {
+          handle->use_upd_generic = 1;
         }
       } /* end of weight-update handle */
       {
