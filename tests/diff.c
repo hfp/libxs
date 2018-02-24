@@ -42,7 +42,7 @@ int main(void)
 {
   const int cpuid_archid = libxs_cpuid();
   const int m = 64, n = 239, k = 64, lda = 64, ldb = 240, ldc = 240;
-  libxs_gemm_descriptor_type descs[8], desc_a, desc_b;
+  libxs_gemm_descriptor descs[8], desc_a, desc_b;
   int result = EXIT_SUCCESS;
 
   LIBXS_GEMM_DESCRIPTOR(desc_a, LIBXS_GEMM_PRECISION_F32, LIBXS_GEMM_FLAGS('N', 'N'),

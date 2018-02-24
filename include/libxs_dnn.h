@@ -243,7 +243,7 @@ typedef union LIBXS_RETARGETABLE libxs_intfloat {
 #define LIBXS_DNN_MASK_FULL_F32      0xffffffff
 #define LIBXS_DNN_MANT_SZ_F32        23
 #define LIBXS_DNN_SZ_F32             32
- 
+
 /* DFP16 masking defines */
 #define LIBXS_DNN_MANT_DFP16         15
 #define LIXSMMM_DNN_RES_DFP16          (pow(2,-(LIBXS_DNN_MANT_DFP16)))
@@ -309,7 +309,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_layer* handle, c
 LIBXS_API libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind);
 LIBXS_API libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind, unsigned int* num_tasks);
 
-/** some quantization helper functions, 
+/** some quantization helper functions,
     @TODO need to be integrated better for all different ways of quantizations */
 #define _mm512_quantize_near_ps_epi16( A, B ) _mm512_cvtepi32_epi16( _mm512_cvt_roundps_epi32( _mm512_mul_ps( _mm512_load_ps(A), B), (_MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC) ) )
 LIBXS_API void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int length, unsigned char add_shift, unsigned char* scf, int round_mode );
@@ -362,7 +362,7 @@ LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction_bwd)(
 /** Function type which is either libxs_sconvfunction or libxs_wconvfunction (weak-typed). */
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_xconvfunction {
   libxs_sconvfunction sconv;
-  libxs_wsconvfunction wsconv; 
+  libxs_wsconvfunction wsconv;
   libxs_uwsconvfunction uwsconv;
   libxs_wconvfunction wconv;
   libxs_bdbconvfunction bdbconv;

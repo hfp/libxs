@@ -118,7 +118,7 @@ LIBXS_API_DEFINITION int libxs_matcopy_thread(void* out, const void* in, unsigne
       const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
       const unsigned int index = LIBXS_MIN(size2 >> 10, 7);
       const unsigned int tindex = (4 < typesize ? 0 : 1);
-      const libxs_mcopy_descriptor_type* desc;
+      const libxs_mcopy_descriptor* desc;
       libxs_descriptor_blob blob;
       int mtasks;
       tm = LIBXS_MIN(tm, libxs_trans_tile[tindex][0/*M*/][index]);
@@ -156,7 +156,7 @@ LIBXS_API_DEFINITION int libxs_matcopy_thread(void* out, const void* in, unsigne
     else {
       libxs_descriptor_blob blob;
       /* libxs_trans_jit: JIT'ted matrix-copy permitted? */
-      const libxs_mcopy_descriptor_type *const desc = (0 != (1 & libxs_trans_jit) ? libxs_mcopy_descriptor_init(&blob,
+      const libxs_mcopy_descriptor *const desc = (0 != (1 & libxs_trans_jit) ? libxs_mcopy_descriptor_init(&blob,
         typesize, tm, tn, uldo, uldi, 0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE, iprefetch, NULL/*default unroll*/) : 0);
       xmatcopy = libxs_xmcopydispatch(desc);
       assert(0 == tid && 1 == nthreads);
@@ -237,7 +237,7 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
       unsigned int tm = (unsigned int)m, tn = (unsigned int)n;
       libxs_descriptor_blob blob;
       /* libxs_trans_jit: JIT'ted transpose permitted? */
-      libxs_trans_descriptor_type* desc = (0 != (2 & libxs_trans_jit)
+      libxs_trans_descriptor* desc = (0 != (2 & libxs_trans_jit)
         ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
       libxs_xtransfunction xtrans = 0;
       if (0 == desc) { /* tiled transpose */
