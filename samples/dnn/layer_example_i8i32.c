@@ -465,7 +465,7 @@ int main(int argc, char* argv[])
     pad_h_in = pad_h;
     pad_w_in = pad_w;
     pad_h_out = pad_h;
-    pad_w_out = pad_w; 
+    pad_w_out = pad_w;
   }
 
   /* deriving some values for naive code */
@@ -523,7 +523,7 @@ int main(int argc, char* argv[])
   naive_output_bp       = (unsigned char*)libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(unsigned char), 2097152);
   naive_libxs_input   = (int*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(int),   2097152);
   naive_libxs_output  = (int*  )libxs_aligned_malloc( nImg*nOfm*ofhp*ofwp*sizeof(int),   2097152);
-  naive_libxs_filter  = (int*  )libxs_aligned_malloc( nOfm*nIfm*kh*kw*sizeof(int),   2097152);  
+  naive_libxs_filter  = (int*  )libxs_aligned_malloc( nOfm*nIfm*kh*kw*sizeof(int),   2097152);
   naive_filter          = (char*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char), 2097152);
   input_libxs         = (unsigned char*)libxs_aligned_malloc( nImg*nIfm*ifhp*ifwp*sizeof(unsigned char), 2097152);
   filter_libxs        = (char*)libxs_aligned_malloc( nOfm*nIfm*kh*kw*    sizeof(char), 2097152);
@@ -541,7 +541,7 @@ int main(int argc, char* argv[])
     init_buf_uint8(naive_output_bp,      nImg*nOfm*ofhp*ofwp, 0, 0);
   } else {
     init_buf_uint8(naive_input_tmp,      nImg*nIfm*ifh*ifw, 0, 0);
-    init_buf_uint8(naive_output_bp_tmp,  nImg*nOfm*ofh*ofw, 0, 0); 
+    init_buf_uint8(naive_output_bp_tmp,  nImg*nOfm*ofh*ofw, 0, 0);
     copy_internal_nchw( naive_input , naive_input_tmp, nImg, nIfm, ifh, ifw, pad_h, pad_w);
     copy_internal_nchw( naive_output_bp , naive_output_bp_tmp, nImg, nOfm, ofh, ofw, pad_h, pad_w);
   }
@@ -556,7 +556,7 @@ int main(int argc, char* argv[])
   zero_buf_int32(naive_libxs_output, nImg*nOfm*ofhp*ofwp);
   zero_buf_int32(naive_libxs_input,  nImg*nIfm*ifhp*ifwp);
   zero_buf_int32(naive_libxs_filter, nOfm*nIfm*kh*kw);
-  
+
   if (LIBXS_NEQ(0, check)) {
     printf("##########################################\n");
     printf("#         Computing Reference ...        #\n");
@@ -577,7 +577,7 @@ int main(int argc, char* argv[])
     printf("#      Computing Reference ... done      #\n");
     printf("##########################################\n");
   }
-  
+
   printf("\n");
   printf("##########################################\n");
   printf("#     Setting Up    (custom-Storage)     #\n");
@@ -633,13 +633,13 @@ int main(int argc, char* argv[])
   libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
   libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_GRADIENT_INPUT, &status ); CHKERR_LIBXS_DNN( status );
-  libxs_dinput = libxs_dnn_link_tensor( libxs_layout,  dinput_libxs, &status ); CHKERR_LIBXS_DNN( status ); 
+  libxs_dinput = libxs_dnn_link_tensor( libxs_layout,  dinput_libxs, &status ); CHKERR_LIBXS_DNN( status );
   libxs_dnn_destroy_tensor_datalayout( libxs_layout );
 
   libxs_layout = libxs_dnn_create_tensor_datalayout( libxs_handle, LIBXS_DNN_GRADIENT_FILTER, &status ); CHKERR_LIBXS_DNN( status );
   libxs_dfilter  = libxs_dnn_link_tensor( libxs_layout,  dfilter_libxs, &status ); CHKERR_LIBXS_DNN( status );
   libxs_dnn_destroy_tensor_datalayout( libxs_layout );
-  
+
   /* copy in data to LIBXS format */
   /* we can also use the layout functions and set the data on our
      own external to the library, @TODO, we plan to add an example here */
@@ -649,7 +649,7 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_zero_tensor( libxs_dinput ) );
   CHKERR_LIBXS_DNN( libxs_dnn_zero_tensor( libxs_dfilter ) );
   CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_filter, (void*)naive_filter, LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
-  
+
   /* bind buffers and filter to handle */
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_input, LIBXS_DNN_REGULAR_INPUT ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_dinput, LIBXS_DNN_GRADIENT_INPUT ) );
@@ -657,7 +657,7 @@ int main(int argc, char* argv[])
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_filter, LIBXS_DNN_REGULAR_FILTER ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_doutput, LIBXS_DNN_GRADIENT_OUTPUT ) );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_dfilter, LIBXS_DNN_GRADIENT_FILTER ) );
-   
+
   /* let's allocate and bind scratch */
   scratch_size = libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status );
   CHKERR_LIBXS_DNN( status );

@@ -521,7 +521,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
             if ( ( (type == LIBXS_DNN_REGULAR_INPUT) || (type == LIBXS_DNN_INPUT) )  ) {
               layout->datatype = handle->datatype_in;
             } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
-              layout->datatype = handle->datatype_out;     
+              layout->datatype = handle->datatype_out;
             }
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
@@ -559,7 +559,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
             if ( ( (type == LIBXS_DNN_REGULAR_INPUT) || (type == LIBXS_DNN_INPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT)  )  ) {
               layout->datatype = handle->datatype_in;
             } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_OUTPUT) || (type == LIBXS_DNN_GRADIENT_INPUT) ) {
-              layout->datatype = handle->datatype_out;     
+              layout->datatype = handle->datatype_out;
             }
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
@@ -696,7 +696,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
             if ( (type == LIBXS_DNN_REGULAR_FILTER) || (type == LIBXS_DNN_FILTER) ) {
               layout->datatype = handle->datatype_in;
             } else if (type == LIBXS_DNN_GRADIENT_FILTER) {
-              layout->datatype = handle->datatype_out;       
+              layout->datatype = handle->datatype_out;
             }
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(7*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(7*sizeof(unsigned int));
@@ -904,8 +904,8 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
       } else if ( (type == LIBXS_DNN_BATCH_STATS) ) {
         layout->format = handle->buffer_format;
         layout->tensor_type = LIBXS_DNN_BATCH_STATS;
-#ifdef FP64_BN_STATS     
-        layout->datatype = LIBXS_DNN_DATATYPE_F64; 
+#ifdef FP64_BN_STATS
+        layout->datatype = LIBXS_DNN_DATATYPE_F64;
 #endif
 
         if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
@@ -1379,9 +1379,9 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_te
                                                                                                                  } break;
                                                                                   case LIBXS_DNN_DATATYPE_I8: {
                                                                                                                   typedef unsigned char element_type;
-#define LIBXS_DNN_COPY_LOW_PRECISION                                                                                                                  
+#define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
-#undef LIBXS_DNN_COPY_LOW_PRECISION                                                                                                               
+#undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                                 } break;
                                                                                   default: {
                                                                                              status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -2415,7 +2415,7 @@ LIBXS_API_DEFINITION short libxs_internal_quantize_scalar_no_scf( float input, u
     /* caclulate rhs, be aware of the now explicit leading bit, @TODO add DFP8/4 */
     rhs = (unsigned char)((LIBXS_DNN_MANT_SZ_F32+1) - LIBXS_DNN_MANT_DFP16 + exp_off + add_shift);
     /* some safety, to generate 0 when we fall off quant region, @TODO issue a LIBXS Warning that we shifted out the entire mantissa */
-    if (rhs > (LIBXS_DNN_MANT_SZ_F32+1)) { 
+    if (rhs > (LIBXS_DNN_MANT_SZ_F32+1)) {
       rhs = (LIBXS_DNN_MANT_SZ_F32+1);
     }
     /* finally shfit the value into the region we need, this is now a 15-add_rhs bit number for the max value in in_buffer */
@@ -2440,7 +2440,7 @@ LIBXS_API_DEFINITION short libxs_internal_quantize_scalar_no_scf( float input, u
         qvalue++;
       }
     } else if (round_mode == LIBXS_DNN_QUANT_STOCH_ROUND) {
-      /* stochastic rounding, as implemented in the IBM paper from 2015, @TODO, fix F64 and DFP8 */ 
+      /* stochastic rounding, as implemented in the IBM paper from 2015, @TODO, fix F64 and DFP8 */
       float p, q;
       libxs_intfloat fvalue;
       float eps = (float)LIXSMMM_DNN_RES_DFP16;
@@ -2472,7 +2472,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffe
   if ( round_mode == LIBXS_DNN_QUANT_FPHW_ROUND ) {
     float max = libxs_internal_get_max( in_buffer, length );
     int maxexp = 0;
-    float scfq = 0.0f;  
+    float scfq = 0.0f;
     frexpf(max, &maxexp);
     maxexp -= (15-add_shift);
     scfq = (float)pow(2.0, (double)-maxexp);
@@ -2540,7 +2540,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_act( float* in_buffer, short* out_b
   if ( round_mode == LIBXS_DNN_QUANT_FPHW_ROUND ) {
     float max = libxs_internal_get_max( in_buffer, N*C*H*W );
     int maxexp = 0;
-    float scfq = 0.0f;  
+    float scfq = 0.0f;
     frexpf(max, &maxexp);
     maxexp -= (15-add_shift);
     scfq = (float)pow(2.0, (double)-maxexp);
@@ -2642,7 +2642,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_b
   if ( round_mode == LIBXS_DNN_QUANT_FPHW_ROUND ) {
     float max = libxs_internal_get_max( in_buffer, K*C*R*S );
     int maxexp = 0;
-    float scfq = 0.0f;  
+    float scfq = 0.0f;
     frexpf(max, &maxexp);
     maxexp -= (15-add_shift);
     scfq = (float)pow(2.0, (double)-maxexp);

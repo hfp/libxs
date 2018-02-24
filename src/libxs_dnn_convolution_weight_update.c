@@ -71,7 +71,7 @@
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_low,1), 0); \
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_high, 1), 1); \
         _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, ij, 2*ifm2, w_offset, BLOCKSIFM, handle->ifhp, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_low_store); \
-        _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, ij, 2*ifm2+1, w_offset, BLOCKSIFM, handle->ifhp, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_high_store); 
+        _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, ij, 2*ifm2+1, w_offset, BLOCKSIFM, handle->ifhp, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_high_store);
 
 #define TRANSPOSE_W_CHUNK_RESIZED(img, ifm1, w_offset, ij, ifm2, dst_i, dst_j) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
@@ -103,7 +103,7 @@
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_low,1), 0); \
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_high, 1), 1); \
         _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, dst_j, 2*ifm2, dst_i, BLOCKSIFM, handle->ifhp_resized, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_low_store); \
-        _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, dst_j, 2*ifm2+1, dst_i, BLOCKSIFM, handle->ifhp_resized, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_high_store); 
+        _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, dst_j, 2*ifm2+1, dst_i, BLOCKSIFM, handle->ifhp_resized, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_high_store);
 
 #define TRANSPOSE_W_FULL_PAIR(img, ofm1, ij, ii, half_i) \
       pair_addr = &LIBXS_VLA_ACCESS(6, output, img, ofm1, ij, ii, 0, 0,  handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block); \
@@ -190,7 +190,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
               /* Handle remainder */
               for (ifm2 = 0; ifm2 < 8; ++ifm2) {
                 TRANSPOSE_W_REMAINDER(img, ifm1, ij, w_chunks*16, ifm2);
-                TRANSPOSE_W_REMAINDER(img, ifm1+1, ij, w_chunks*16, ifm2);  
+                TRANSPOSE_W_REMAINDER(img, ifm1+1, ij, w_chunks*16, ifm2);
               }
             }
           }
@@ -203,7 +203,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
               for (w = 0; w < w_chunks; w++) {
                 for (ifm2 = 0; ifm2 < 8; ++ifm2) {
                   TRANSPOSE_W_CHUNK(img, ifm1, ij, w*16, ifm2);
-                  TRANSPOSE_W_CHUNK(img, ifm1+1, ij, w*16, ifm2);   
+                  TRANSPOSE_W_CHUNK(img, ifm1+1, ij, w*16, ifm2);
                 }
               }
             }
@@ -212,7 +212,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
       }
     } else {
       if (handle->avoid_input_trans == 0) {
-        const __m512i perm_index = LIBXS_INTRINSICS_MM512_SET_EPI16(31,15, 30,14, 29,13, 28,12, 27,11 ,26,10, 25,9, 24,8, 23,7, 22,6, 21,5, 20,4, 19,3, 18,2, 17,1, 16,0); 
+        const __m512i perm_index = LIBXS_INTRINSICS_MM512_SET_EPI16(31,15, 30,14, 29,13, 28,12, 27,11 ,26,10, 25,9, 24,8, 23,7, 22,6, 21,5, 20,4, 19,3, 18,2, 17,1, 16,0);
         LIBXS_VLA_DECL(6, element_input_type, input_nopad, (element_input_type*)handle->reg_input->data, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
         LIBXS_VLA_DECL(6, element_input_type, tr_input_nopad, (element_input_type*)handle->scratch3, handle->blocksifm_lp, handle->ifhp, handle->ifwp/2, handle->ifmblock_hp, 2);
 
@@ -226,7 +226,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
             for (ij = 0; ij < handle->ifhp; ij++) {
               for (ii = 0; ii < handle->ifwp; ii+=2) {
                 element_input_type *addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, ii, 0, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
-                element_input_type *dst_addr =  &LIBXS_VLA_ACCESS(6, tr_input_nopad, img, ifm1, ij, ii/2, 0, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp/2, handle->ifmblock_hp, 2); 
+                element_input_type *dst_addr =  &LIBXS_VLA_ACCESS(6, tr_input_nopad, img, ifm1, ij, ii/2, 0, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp/2, handle->ifmblock_hp, 2);
                 __m512i cl =  _mm512_loadu_si512(addr);
                 __m512i permuted_reg =  _mm512_permutexvar_epi16(perm_index, cl);
                 _mm512_store_si512(dst_addr, permuted_reg);
@@ -235,12 +235,12 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
           }
         }
       }
-    } 
+    }
 
     if (handle->avoid_output_trans == 0 ) {
-      const __m512i perm_index = LIBXS_INTRINSICS_MM512_SET_EPI16(31,15, 30,14, 29,13, 28,12, 27,11 ,26,10, 25,9, 24,8, 23,7, 22,6, 21,5, 20,4, 19,3, 18,2, 17,1, 16,0); 
-      int ifm1, ij, ii, ofm1; 
-      int OFWP = handle->ofwp+handle->output_lp_padding;    
+      const __m512i perm_index = LIBXS_INTRINSICS_MM512_SET_EPI16(31,15, 30,14, 29,13, 28,12, 27,11 ,26,10, 25,9, 24,8, 23,7, 22,6, 21,5, 20,4, 19,3, 18,2, 17,1, 16,0);
+      int ifm1, ij, ii, ofm1;
+      int OFWP = handle->ofwp+handle->output_lp_padding;
       element_output_type *out = ((element_output_type*)handle->grad_output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock_lp * handle->fm_lp_block;
       LIBXS_VLA_DECL(6, element_output_type, tr_output, (element_output_type*)handle->scratch6 , handle->blocksofm, handle->ofhp, OFWP/2, handle->ofmblock, 2);
       LIBXS_VLA_DECL(6, element_output_type, output, out, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
@@ -249,7 +249,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
       int my_img_start = LIBXS_MIN( ltid * imgpt, handle->desc.N);
       int my_img_end = LIBXS_MIN( (ltid+1) * imgpt, handle->desc.N);
 
-      if (handle->ofwp % 2 == 0) { 
+      if (handle->ofwp % 2 == 0) {
         for (img = my_img_start; img < my_img_end; img++) {
           for (ofm1 = 0; ofm1 < handle->blocksofm_lp; ofm1++) {
             for (ij = 0; ij < handle->ofhp; ij++) {
@@ -344,7 +344,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
             /* Handle remainder */
             for (ifm2 = 0; ifm2 < 8; ++ifm2) {
               TRANSPOSE_W_REMAINDER(img, ifm1, ij, w_chunks*16, ifm2);
-              TRANSPOSE_W_REMAINDER(img, ifm1+1, ij, w_chunks*16, ifm2);  
+              TRANSPOSE_W_REMAINDER(img, ifm1+1, ij, w_chunks*16, ifm2);
             }
           }
         }
@@ -357,7 +357,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
             for (w = 0; w < w_chunks; w++) {
               for (ifm2 = 0; ifm2 < 8; ++ifm2) {
                 TRANSPOSE_W_CHUNK(img, ifm1, ij, w*16, ifm2);
-                TRANSPOSE_W_CHUNK(img, ifm1+1, ij, w*16, ifm2);   
+                TRANSPOSE_W_CHUNK(img, ifm1+1, ij, w*16, ifm2);
               }
             }
           }
@@ -369,7 +369,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
     element_output_type *dst_lo, *dst_hi;
     int half_i, ofm1, ii;
     int BLOCKSOFM = handle->blocksofm;
-    int OFWP = handle->ofwp+handle->output_lp_padding;  
+    int OFWP = handle->ofwp+handle->output_lp_padding;
     __m256i even_pixel_lo, even_pixel_hi, odd_pixel_hi, odd_pixel_lo, compressed_hi, compressed_lo, compressed_lo_store, compressed_hi_store, even_pixel, odd_pixel;
     __m128i part0, part1, part2, part3;
     __m512i compact, pair_pixels;
@@ -465,8 +465,8 @@ void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
           }
           /* Handle remainder */
           for (ifm2 = 0; ifm2 < 8; ++ifm2) {
-            TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, w_chunks*u*16, src_j, ifm2, w_chunks*16, dst_j);  
-            TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1+1, w_chunks*u*16, src_j, ifm2, w_chunks*16, dst_j);   
+            TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, w_chunks*u*16, src_j, ifm2, w_chunks*16, dst_j);
+            TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1+1, w_chunks*u*16, src_j, ifm2, w_chunks*16, dst_j);
           }
         }
       }
@@ -481,7 +481,7 @@ void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
           for (w = 0; w < w_chunks; w++) {
             for (ifm2 = 0; ifm2 < 8; ++ifm2) {
               TRANSPOSE_W_CHUNK_RESIZED(img, ifm1, w*u*16, src_j, ifm2, w*16, dst_j);
-              TRANSPOSE_W_CHUNK_RESIZED(img, ifm1+1, w*u*16, src_j, ifm2, w*16, dst_j);       
+              TRANSPOSE_W_CHUNK_RESIZED(img, ifm1+1, w*u*16, src_j, ifm2, w*16, dst_j);
             }
           }
         }
@@ -496,14 +496,14 @@ void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
     int my_img_end = LIBXS_MIN( (ltid+1) * imgpt, handle->desc.N);
 
     if (handle->avoid_output_trans == 0) {
-      const __m512i perm_index = LIBXS_INTRINSICS_MM512_SET_EPI16(31,15, 30,14, 29,13, 28,12, 27,11 ,26,10, 25,9, 24,8, 23,7, 22,6, 21,5, 20,4, 19,3, 18,2, 17,1, 16,0); 
-      int ifm1, ij, ii, ofm1;   
-      int OFWP = handle->ofwp+handle->output_lp_padding;     
+      const __m512i perm_index = LIBXS_INTRINSICS_MM512_SET_EPI16(31,15, 30,14, 29,13, 28,12, 27,11 ,26,10, 25,9, 24,8, 23,7, 22,6, 21,5, 20,4, 19,3, 18,2, 17,1, 16,0);
+      int ifm1, ij, ii, ofm1;
+      int OFWP = handle->ofwp+handle->output_lp_padding;
       element_output_type *out = ((element_output_type*)handle->grad_output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock_lp * handle->fm_lp_block;
-      LIBXS_VLA_DECL(6, element_output_type, output, out, handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block); 
+      LIBXS_VLA_DECL(6, element_output_type, output, out, handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
       LIBXS_VLA_DECL(6, element_output_type, tr_output, (element_output_type*)handle->scratch6 , handle->blocksofm, handle->ofhp, OFWP/2, handle->ofmblock, 2);
 
-      if (handle->ofwp % 2 == 0) { 
+      if (handle->ofwp % 2 == 0) {
         for (img = my_img_start; img < my_img_end; img++) {
           for (ofm1 = 0; ofm1 < handle->blocksofm_lp; ofm1++) {
             for (ij = 0; ij < handle->ofhp; ij++) {
@@ -548,7 +548,7 @@ void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
     element_output_type *dst_lo, *dst_hi;
     int half_i, ofm1, ii;
     int BLOCKSOFM = handle->blocksofm;
-    int OFWP = handle->ofwp+handle->output_lp_padding;  
+    int OFWP = handle->ofwp+handle->output_lp_padding;
     __m256i even_pixel_lo, even_pixel_hi, odd_pixel_hi, odd_pixel_lo, compressed_hi, compressed_lo, compressed_lo_store, compressed_hi_store, even_pixel, odd_pixel;
     __m128i part0, part1, part2, part3;
     __m512i compact, pair_pixels;
@@ -625,7 +625,7 @@ void lp_transpose_0_chunk_1_remainder_even_pixels(int img, libxs_dnn_layer* hand
     for (ij = 0; ij < handle->ifhp; ++ij) {
       for (ifm2 = 0; ifm2 < 8; ++ifm2) {
         TRANSPOSE_W_REMAINDER(img, ifm1, ij, 0, ifm2, 2*ifm1, 2*ifm2);
-        TRANSPOSE_W_REMAINDER(img, ifm1, ij, 0, ifm2+8,  2*ifm1+1, 2*ifm2);   
+        TRANSPOSE_W_REMAINDER(img, ifm1, ij, 0, ifm2+8,  2*ifm1+1, 2*ifm2);
       }
     }
   }
@@ -692,7 +692,7 @@ void lp_transpose_0_chunk_1_remainder_odd_pixels(int img, libxs_dnn_layer* handl
     for (ij = 0; ij < handle->ifhp; ++ij) {
       for (ifm2 = 0; ifm2 < 8; ++ifm2) {
         TRANSPOSE_W_REMAINDER(img, ifm1, ij, 0, ifm2, 2*ifm1, 2*ifm2);
-        TRANSPOSE_W_REMAINDER(img, ifm1, ij, 0, ifm2+8,  2*ifm1+1, 2*ifm2);   
+        TRANSPOSE_W_REMAINDER(img, ifm1, ij, 0, ifm2+8,  2*ifm1+1, 2*ifm2);
       }
     }
   }
@@ -819,7 +819,7 @@ void lp_transpose_1_chunk_1_remainder_even_pixels(int img, libxs_dnn_layer* hand
         TRANSPOSE_W_CHUNK(img, ifm1, ij, 0, ifm2, 2*ifm1, 2*ifm2);
         TRANSPOSE_W_CHUNK(img, ifm1, ij, 0, ifm2+8, 2*ifm1+1, 2*ifm2);
         TRANSPOSE_W_REMAINDER(img, ifm1, ij, 16, ifm2, 2*ifm1, 2*ifm2);
-        TRANSPOSE_W_REMAINDER(img, ifm1, ij, 16, ifm2+8,  2*ifm1+1, 2*ifm2);   
+        TRANSPOSE_W_REMAINDER(img, ifm1, ij, 16, ifm2+8,  2*ifm1+1, 2*ifm2);
       }
     }
   }
@@ -890,9 +890,9 @@ void lp_transpose_3_chunk_1_remainder_even_pixels(int img, libxs_dnn_layer* hand
         TRANSPOSE_W_CHUNK(img, ifm1, ij, 16, ifm2, 2*ifm1, 2*ifm2);
         TRANSPOSE_W_CHUNK(img, ifm1, ij, 16, ifm2+8, 2*ifm1+1, 2*ifm2);
         TRANSPOSE_W_CHUNK(img, ifm1, ij, 32, ifm2, 2*ifm1, 2*ifm2);
-        TRANSPOSE_W_CHUNK(img, ifm1, ij, 32, ifm2+8, 2*ifm1+1, 2*ifm2);   
+        TRANSPOSE_W_CHUNK(img, ifm1, ij, 32, ifm2+8, 2*ifm1+1, 2*ifm2);
         TRANSPOSE_W_REMAINDER(img, ifm1, ij, 48, ifm2, 2*ifm1, 2*ifm2);
-        TRANSPOSE_W_REMAINDER(img, ifm1, ij, 48, ifm2+8,  2*ifm1+1, 2*ifm2);   
+        TRANSPOSE_W_REMAINDER(img, ifm1, ij, 48, ifm2+8,  2*ifm1+1, 2*ifm2);
       }
     }
   }
@@ -962,7 +962,7 @@ void lp_transpose_and_resize_0_chunk_1_remainder_even_pixels(int img, libxs_dnn_
     for (dst_j=0; dst_j < handle->ifhp_resized; dst_j++) {
       src_j = dst_j * handle->desc.v;
       for (ifm2 = 0; ifm2 < 8; ++ifm2) {
-        TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, 0, src_j, 0, dst_j, ifm2, 2*ifm1, 2*ifm2);  
+        TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, 0, src_j, 0, dst_j, ifm2, 2*ifm1, 2*ifm2);
         TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, 0, src_j, 0, dst_j, ifm2+8, 2*ifm1+1, 2*ifm2);
       }
     }
@@ -1032,7 +1032,7 @@ void lp_transpose_and_resize_0_chunk_1_remainder_odd_pixels(int img, libxs_dnn_l
     for (dst_j=0; dst_j < handle->ifhp_resized; dst_j++) {
       src_j = dst_j * handle->desc.v;
       for (ifm2 = 0; ifm2 < 8; ++ifm2) {
-        TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, 0, src_j, 0, dst_j, ifm2, 2*ifm1, 2*ifm2);  
+        TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, 0, src_j, 0, dst_j, ifm2, 2*ifm1, 2*ifm2);
         TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, 0, src_j, 0, dst_j, ifm2+8, 2*ifm1+1, 2*ifm2);
       }
     }
@@ -1112,7 +1112,7 @@ void lp_transpose_and_resize_1_chunk_1_remainder_even_pixels(int img, libxs_dnn_
       for (ifm2 = 0; ifm2 < 8; ++ifm2) {
         TRANSPOSE_W_CHUNK_RESIZED(img, ifm1, 0, src_j, 0, dst_j, ifm2, 2*ifm1, 2*ifm2);
         TRANSPOSE_W_CHUNK_RESIZED(img, ifm1, 0, src_j, 0, dst_j, ifm2+8, 2*ifm1+1, 2*ifm2);
-        TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, u*16, src_j, 16, dst_j, ifm2, 2*ifm1, 2*ifm2);  
+        TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, u*16, src_j, 16, dst_j, ifm2, 2*ifm1, 2*ifm2);
         TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, u*16, src_j, 16, dst_j, ifm2+8, 2*ifm1+1, 2*ifm2);
       }
     }
@@ -1554,7 +1554,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs
       const int lda     = (int)(handle->blocksofm*handle->ofmblock);
       const int ldb     = (int)(handle->desc.W+(2*handle->desc.pad_w));
       const int ldc     = (int)(handle->ofmblock);
-      const int lda_alt = ( (handle->desc.pad_h == handle->desc.pad_h_in) && (handle->desc.pad_w == handle->desc.pad_w_in) ) 
+      const int lda_alt = ( (handle->desc.pad_h == handle->desc.pad_h_in) && (handle->desc.pad_w == handle->desc.pad_w_in) )
                             ? (int)(handle->desc.v*handle->blocksifm*handle->ifmblock) : (int)(handle->desc.v*handle->ifmblock);
       const int ldb_alt = (int)(handle->ofwp);
       const int ldc_alt = (int)(handle->ifmblock);
@@ -1600,7 +1600,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_d
       const int lda     = (int)(handle->blocksofm*handle->ofmblock);
       const int ldb     = (int)(handle->desc.W+(2*handle->desc.pad_w));
       const int ldc     = (int)(handle->blocksofm*handle->ofmblock);
-      const int lda_alt = ( (handle->desc.pad_h == handle->desc.pad_h_in) && (handle->desc.pad_w == handle->desc.pad_w_in) ) 
+      const int lda_alt = ( (handle->desc.pad_h == handle->desc.pad_h_in) && (handle->desc.pad_w == handle->desc.pad_w_in) )
                             ? (int)(handle->desc.v*handle->blocksifm*handle->ifmblock) : (int)(handle->desc.v*handle->ifmblock);
       const int ldb_alt = (int)(handle->ofwp);
       const int ldc_alt = (int)(handle->ifmblock);

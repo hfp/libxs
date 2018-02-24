@@ -351,7 +351,7 @@ LIBXS_INLINE void naive_conv_bp(naive_conv_t* param, float* input, const float* 
           }
         }
       }
-#if defined(USE_FUSED_RELU_BWD) 
+#if defined(USE_FUSED_RELU_BWD)
       for (ij = 0; ij < ifh; ij++) {
         for (ii = 0; ii < ifw; ii++) {
           if ( LIBXS_VLA_ACCESS(4,  naive_input_t, img, ifm, ij, ii , nIfm, ifhp, ifwp) == 0.0 ) {
@@ -426,8 +426,8 @@ int main(int argc, char* argv[])
   float *naive_libxs_input, *naive_libxs_filter, *naive_input_save, *naive_filter_save, *naive_filter_kcrs;
   float *input_nhwc, *output_nhwc, *filter_rsck, *dinput_nhwc, *doutput_nhwc, *dfilter_rsck, *naive_output_nhwc, *naive_input_nhwc;
   float *naive_bias, *bias_libxs, *naive_dbias, *dbias_libxs, *bias_nhwc, *dbias_nhwc;
-  float *input_libxs, *filter_libxs, *output_libxs, *dinput_libxs, *dfilter_libxs, *doutput_libxs, *filtertr_libxs; 
-  
+  float *input_libxs, *filter_libxs, *output_libxs, *dinput_libxs, *dfilter_libxs, *doutput_libxs, *filtertr_libxs;
+
 #ifdef FP32_BN_STATS
   float *batchstats_libxs;
 #endif
@@ -666,7 +666,7 @@ int main(int argc, char* argv[])
     init_buf(naive_output_bp_tmp,      nImg*nOfm*ofh*ofw, 0, 0);
     copy_internal_nchw( naive_output_bp , naive_output_bp_tmp, nImg, nOfm, ofh, ofw, pad_h, pad_w);
     init_buf(naive_output_wu_tmp,      nImg*nOfm*ofh*ofw, 0, 0);
-    copy_internal_nchw( naive_output_wu , naive_output_wu_tmp, nImg, nOfm, ofh, ofw, pad_h, pad_w); 
+    copy_internal_nchw( naive_output_wu , naive_output_wu_tmp, nImg, nOfm, ofh, ofw, pad_h, pad_w);
   }
   set_zeropad_nchw(naive_input, nImg, nIfm, ifhp, ifwp, pad_h_in, pad_w_in);
   set_zeropad_nchw(naive_output_bp, nImg, nOfm, ofhp, ofwp, pad_h_out, pad_w_out);
@@ -735,7 +735,7 @@ int main(int argc, char* argv[])
     }
     printf("##########################################\n");
     printf("#      Computing Reference ... done      #\n");
-    printf("##########################################\n");    
+    printf("##########################################\n");
   }
 
   if (format == 'A' || format == 'L') {
@@ -833,10 +833,10 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_filter, (void*)naive_filter,      LIBXS_DNN_TENSOR_FORMAT_KCRS ) );
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_bias,   (void*)naive_bias,        LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
     zero_buf(filtertr_libxs, nOfm*nIfm*kh*kw);
-#ifdef FP32_BN_STATS 
+#ifdef FP32_BN_STATS
     zero_buf(batchstats_libxs, 2*nImg*nOfm);
 #endif
-#ifdef FP64_BN_STATS 
+#ifdef FP64_BN_STATS
     zero_buf((float *) batchstats_libxs, 4*nImg*nOfm);
 #endif
 
@@ -850,7 +850,7 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_bias,       LIBXS_DNN_REGULAR_BIAS ) );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_dbias,      LIBXS_DNN_GRADIENT_BIAS ) );
     CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_filter_tr,  LIBXS_DNN_REGULAR_FILTER_TRANS ) );
-#ifdef USE_FUSED_BATCH_STATS 
+#ifdef USE_FUSED_BATCH_STATS
    CHKERR_LIBXS_DNN( libxs_dnn_bind_tensor( libxs_handle, libxs_batchstats, LIBXS_DNN_BATCH_STATS ) );
 #endif
 
@@ -901,10 +901,10 @@ int main(int argc, char* argv[])
         int ch_i = 0;
         int ch_j = 0;
         int pxl_i = 0;
-#ifdef FP32_BN_STATS         
+#ifdef FP32_BN_STATS
         LIBXS_VLA_DECL(4, float, sum_fuse,  batchstats_libxs, nOfm/16, nImg, 16);
 #endif
-#ifdef FP64_BN_STATS   
+#ifdef FP64_BN_STATS
         LIBXS_VLA_DECL(4, double, sum_fuse,  batchstats_libxs, nOfm/16, nImg, 16);
 #endif
         LIBXS_VLA_DECL(3, float, sum_naive, naive_output,       nOfm, ofhp*ofwp);
@@ -913,7 +913,7 @@ int main(int argc, char* argv[])
         ch_sum_fuse  = (float*) malloc(nOfm*sizeof(float));
         ch_sum2      = (float*) malloc(nOfm*sizeof(float));
         ch_sum2_fuse = (float*) malloc(nOfm*sizeof(float));
-        
+
         for ( ch_i = 0; ch_i < nOfm; ++ch_i ) {
           ch_sum_fuse[ch_i] = 0.0f;
           ch_sum2_fuse[ch_i] = 0.0f;
@@ -923,12 +923,12 @@ int main(int argc, char* argv[])
         for ( ch_i = 0; ch_i < nOfm/16; ++ch_i ) {
           for ( img_i = 0; img_i < nImg; ++img_i ) {
             for ( ch_j = 0; ch_j < 16; ++ch_j ) {
-#ifdef FP32_BN_STATS    
-              ch_sum_fuse[(ch_i*16) + ch_j]  += sum_fuse[0][ch_i][img_i][ch_j];           
+#ifdef FP32_BN_STATS
+              ch_sum_fuse[(ch_i*16) + ch_j]  += sum_fuse[0][ch_i][img_i][ch_j];
               ch_sum2_fuse[(ch_i*16) + ch_j] += sum_fuse[1][ch_i][img_i][ch_j];
 #endif
-#ifdef FP64_BN_STATS 
-              ch_sum_fuse[(ch_i*16) + ch_j]  += (float) sum_fuse[0][ch_i][img_i][ch_j];           
+#ifdef FP64_BN_STATS
+              ch_sum_fuse[(ch_i*16) + ch_j]  += (float) sum_fuse[0][ch_i][img_i][ch_j];
               ch_sum2_fuse[(ch_i*16) + ch_j] += (float) sum_fuse[1][ch_i][img_i][ch_j];
 #endif
             }
@@ -966,7 +966,7 @@ int main(int argc, char* argv[])
         free(ch_sum);
         free(ch_sum2);
         free(ch_sum_fuse);
-        free(ch_sum2_fuse);        
+        free(ch_sum2_fuse);
       }
 #endif
     }

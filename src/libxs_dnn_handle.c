@@ -26,7 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-/* Alexander Heinecke, Rajkishore Barik, 
+/* Alexander Heinecke, Rajkishore Barik,
 ** Ankush Mandal, Evangelos Georganas (Intel Corp.)
 ******************************************************************************/
 #include "libxs_dnn_handle.h"
@@ -66,10 +66,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   } else {
     disable_ifm_in = 1;
   }*/
-  /* 
+  /*
   if (handle->ofh == 7 && handle->desc.u == 2) {
     disable_ifm_in = 1;
-  }  
+  }
   */
   int internal_format_type;
   if ( 0 == env || 0 == *env) {
@@ -100,7 +100,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   /* If we do not have AVX512 arch disable kernel streams  */
   if (libxs_target_archid != LIBXS_X86_AVX512_MIC  &&
       libxs_target_archid != LIBXS_X86_AVX512_CORE &&
-      libxs_target_archid != LIBXS_X86_AVX512_KNM  && 
+      libxs_target_archid != LIBXS_X86_AVX512_KNM  &&
       libxs_target_archid != LIBXS_X86_AVX512_ICL     ) {
     handle->use_thread_private_jit = 0;
   }
@@ -131,7 +131,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
     /* let's check for duality */
     if ( (handle->use_thread_private_jit > 0) && ( (handle->desc.R == 1 && handle->desc.S == 1) || (handle->desc.u == 1 && handle->desc.v == 1) ) && !((handle->desc.R > 1 && handle->desc.pad_h == 0) || (handle->desc.S > 1 && handle->desc.pad_w == 0)) )  {
-      handle->exploit_duality = 1;  
+      handle->exploit_duality = 1;
     } else {
       handle->exploit_duality = 0;
     }
@@ -294,7 +294,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           }
         }
       }
-    } 
+    }
 
     /* Let's calculate how many blocks we need */
     if (handle->use_lp_kernel == 1) {
@@ -337,7 +337,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       while ( total_size < 450000 ) {
         weight_ofm_block += 2;
         input_block_size = 28 * handle->blocksifm_blocking * 64;
-        weight_block_size =  (handle->blocksifm_blocking * 64) * ((weight_ofm_block+2) * 64)/2; 
+        weight_block_size =  (handle->blocksifm_blocking * 64) * ((weight_ofm_block+2) * 64)/2;
         total_size = input_block_size + output_block_size + weight_block_size;
       }
 #endif
@@ -351,7 +351,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     handle->block_fwd_ofm = weight_ofm_block;
     handle->block_bwd_ifm = weight_ifm_block;
 
-    /*if (disable_ifm_in == 1) {   
+    /*if (disable_ifm_in == 1) {
       handle->blocksifm_blocking = 1;
       }*/
     /* when we chose overwrite and we loop over all ifms, then let's use streaming stores */
@@ -363,8 +363,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
       handle->use_nts_fwd = 0;
     }
 
-    if (((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) 
-        && (handle->desc.K == handle->blocksofm_blocking*handle->ofmblock) 
+    if (((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0)
+        && (handle->desc.K == handle->blocksofm_blocking*handle->ofmblock)
         && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32 || handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) ) {
       handle->use_nts_bwd = 1;
     } else {
@@ -427,13 +427,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
   if (noarch == 0) {
     /* Forward path */
     { libxs_convolution_forward_descriptor descriptor;
-      libxs_mcopy_descriptor_type matcopy_descriptor;
-      libxs_mcopy_descriptor_type matzero_descriptor;
+      libxs_mcopy_descriptor matcopy_descriptor;
+      libxs_mcopy_descriptor matzero_descriptor;
 
       /* init descriptors */
       memset( &descriptor, 0, sizeof(libxs_convolution_forward_descriptor) );
-      memset( &matcopy_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
-      memset( &matzero_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
+      memset( &matcopy_descriptor, 0, sizeof(libxs_mcopy_descriptor) );
+      memset( &matzero_descriptor, 0, sizeof(libxs_mcopy_descriptor) );
 
       descriptor.input_L2_prefetching = 0;
       descriptor.lookahead = 0;
@@ -659,17 +659,17 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     }
     /* Backward path */
     { libxs_convolution_backward_descriptor descriptor;
-      libxs_mcopy_descriptor_type matcopy_descriptor;
-      libxs_mcopy_descriptor_type matcopyback_descriptor;
+      libxs_mcopy_descriptor matcopy_descriptor;
+      libxs_mcopy_descriptor matcopyback_descriptor;
       libxs_convolution_forward_descriptor fwd_equivalent_descriptor;
-      libxs_mcopy_descriptor_type matzero_descriptor_overwrite;
+      libxs_mcopy_descriptor matzero_descriptor_overwrite;
 
       /* init descriptors */
       memset( &descriptor, 0, sizeof(libxs_convolution_backward_descriptor) );
       memset( &fwd_equivalent_descriptor, 0, sizeof(libxs_convolution_forward_descriptor) );
-      memset( &matcopy_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
-      memset( &matcopyback_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
-      memset( &matzero_descriptor_overwrite, 0, sizeof(libxs_mcopy_descriptor_type) );
+      memset( &matcopy_descriptor, 0, sizeof(libxs_mcopy_descriptor) );
+      memset( &matcopyback_descriptor, 0, sizeof(libxs_mcopy_descriptor) );
+      memset( &matzero_descriptor_overwrite, 0, sizeof(libxs_mcopy_descriptor) );
 
       fwd_equivalent_descriptor.input_L2_prefetching = 0;
       fwd_equivalent_descriptor.lookahead = 0;
@@ -788,7 +788,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         fwd_equivalent_descriptor.option = handle->desc.options;
         fwd_equivalent_descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
         fwd_equivalent_descriptor.blocks_ifm_blocking = handle->blocksofm_blocking;
-        fwd_equivalent_descriptor.weight_stride = 1; 
+        fwd_equivalent_descriptor.weight_stride = 1;
         fwd_equivalent_descriptor.use_fwd_generator_for_bwd = 1;
         fwd_equivalent_descriptor.stride_h_store = handle->desc.u;
         fwd_equivalent_descriptor.stride_w_store = handle->desc.v;
@@ -812,7 +812,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
           matcopy_descriptor.unroll_level = 2;
           matcopy_descriptor.typesize = (unsigned char)libxs_dnn_typesize(handle->datatype_in);
           matcopy_descriptor.flags = 0;
-        } 
+        }
       }
 
 
@@ -1061,7 +1061,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               mirror_handle->use_nts_fwd = handle->use_nts_bwd;
               mirror_handle->block_fwd_ofm = handle->block_fwd_ifm;
               mirror_handle->blocksifm = handle->blocksofm;
-              mirror_handle->blocksifm_lp = handle->blocksofm_lp;        
+              mirror_handle->blocksifm_lp = handle->blocksofm_lp;
               mirror_handle->ofh = (handle->desc.H + 2 * handle->desc.pad_h - handle->desc.R) / handle->desc.v + 1;
               mirror_handle->ofw = (handle->desc.W + 2 * handle->desc.pad_w - handle->desc.S) / handle->desc.u + 1;
               mirror_handle->ifmblock = handle->ofmblock_lp;
@@ -1074,7 +1074,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
               mirror_handle->ofh_fwd_start = handle->ofh_bwd_start;
               mirror_handle->ofh_fwd_end = handle->ofh_bwd_end;
               mirror_handle->perform_relu_in_kernel = (((handle->fuse_ops & LIBXS_DNN_CONV_FUSE_RELU_BWD) > 0) && (handle->use_nts_bwd == 1)) ? 1 : 0 ;
-              handle->perform_relu_in_kernel = (((handle->fuse_ops & LIBXS_DNN_CONV_FUSE_RELU_BWD) > 0) && (handle->use_nts_bwd == 1)) ? 1 : 0 ;     
+              handle->perform_relu_in_kernel = (((handle->fuse_ops & LIBXS_DNN_CONV_FUSE_RELU_BWD) > 0) && (handle->use_nts_bwd == 1)) ? 1 : 0 ;
               status = libxs_dnn_perform_fwd_dryrun_direct(mirror_handle);
 
               /* In case overwrite is requested, generate zero-ing kernel */
@@ -1092,7 +1092,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 matzero_descriptor_overwrite.typesize = (unsigned char)libxs_dnn_typesize(handle->datatype_out);
                 matzero_descriptor_overwrite.flags = LIBXS_MATCOPY_FLAG_ZERO_SOURCE;
                 handle->matcopy_bwd[1].xmatcopy = libxs_xmcopydispatch(&matzero_descriptor_overwrite);
-              }        
+              }
             } else {
 #if defined(LIBXS_ENABLE_ORIG_BWD_GENERATOR)
               status = libxs_dnn_perform_bwd_dryrun_direct(handle);
@@ -1115,16 +1115,16 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
           } /* End of backward */
       /* TODO weight update path */
-      { 
+      {
         if ( handle->desc.N % handle->desc.threads == 0 ) {
         libxs_convolution_weight_update_descriptor descriptor;
-        libxs_mcopy_descriptor_type matcopy_descriptor;
-        libxs_mcopy_descriptor_type matzero_descriptor;
+        libxs_mcopy_descriptor matcopy_descriptor;
+        libxs_mcopy_descriptor matzero_descriptor;
 
         /* init descriptors */
         memset( &descriptor, 0, sizeof(libxs_convolution_weight_update_descriptor) );
-        memset( &matcopy_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
-        memset( &matzero_descriptor, 0, sizeof(libxs_mcopy_descriptor_type) );
+        memset( &matcopy_descriptor, 0, sizeof(libxs_mcopy_descriptor) );
+        memset( &matzero_descriptor, 0, sizeof(libxs_mcopy_descriptor) );
 
         if (handle->padding_flag == 1) {
           descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
@@ -1162,8 +1162,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.ofm_block = handle->ofmblock;
         descriptor.ifm_block = handle->ifmblock;
         descriptor.ofm_block_lp = handle->ofmblock_lp;
-        descriptor.ifm_block_hp = handle->ifmblock_hp;  
-        descriptor.fm_lp_block = handle->fm_lp_block;     
+        descriptor.ifm_block_hp = handle->ifmblock_hp;
+        descriptor.fm_lp_block = handle->fm_lp_block;
         descriptor.kh = handle->desc.R;
         descriptor.kw = handle->desc.S;
         descriptor.unroll_kw = (descriptor.ifm_block == 1) ? 1 : 0;
@@ -1185,8 +1185,8 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
         descriptor.use_nts = 0;
         descriptor.blocks_img = 1;
-        descriptor.ncopies = handle->desc.threads; 
- 
+        descriptor.ncopies = handle->desc.threads;
+
 
         /* TODO check JIT errors */
         if ( /*(*/libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
@@ -1247,7 +1247,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 handle->use_fastpath = 1;
               }
 
-              descriptor.ofw_rb = 14; 
+              descriptor.ofw_rb = 14;
               descriptor.ofh_rb = 4;
 
               handle->upd_ofh_rb = descriptor.ofh_rb;
@@ -1266,7 +1266,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   if (handle->ofwp % 2 == 0) {
                     handle->avoid_output_trans = 1;
                   } else {
-                    handle->avoid_output_trans = 0;    
+                    handle->avoid_output_trans = 0;
                   }
                   descriptor.avoid_output_trans = handle->avoid_output_trans;
                   if ( ((handle->desc.R == 1 && handle->desc.S == 1) || handle->padding_flag == 0) && handle->desc.u == 1 && handle->desc.v == 1) {
@@ -1321,7 +1321,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   handle->ifwp_resized = handle->ifwp/handle->desc.u;
                   handle->ifhp_resized = handle->ifhp/handle->desc.v;
                   descriptor.stride_h = 1;
-                  descriptor.stride_w = 1;    
+                  descriptor.stride_w = 1;
                   descriptor.ifh_padded = handle->ifhp_resized;
                 } else {
                   handle->resize_input = 0;
@@ -1370,7 +1370,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
 
                 kernel_ofw = kernel_ofw_compute + kernel_ofw_fake_pixels;
                 descriptor.ofw_fake_pixels = kernel_ofw_fake_pixels;
-                descriptor.ofw_rb = kernel_ofw;  
+                descriptor.ofw_rb = kernel_ofw;
                 descriptor.ofh_rb = handle->ofh;
 
                 while (   descriptor.ofw_rb  *  descriptor.ofh_rb > 196 ) {
@@ -1427,10 +1427,10 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                 if (handle->ofh == 28 || handle->ofh == 56 || ( handle->ofh == 14 && ( handle->desc.C == 512 && (handle->desc.K == 1024 || handle->desc.K == 256) ))) {
                   handle->use_hybrid_wu_parallelism = 0;
                   handle->weight_copies = handle->desc.threads;
-                  descriptor.ncopies = handle->weight_copies;            
+                  descriptor.ncopies = handle->weight_copies;
                   handle->blocksimg_blocking = 1;
                   descriptor.blocks_img = 1;
-                  handle->reduce_weights = 1; 
+                  handle->reduce_weights = 1;
                   descriptor.use_nts = 0;
                 } else {
                   int spread_out = 0;
@@ -1452,11 +1452,11 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                   } else {
                     handle->use_hybrid_wu_parallelism = 1;
                     handle->weight_copies = handle->desc.threads/spread_out;
-                    descriptor.ncopies = handle->weight_copies;  
+                    descriptor.ncopies = handle->weight_copies;
                     handle->blocksimg_blocking = spread_out * (handle->desc.N/handle->desc.threads);
                     if (handle->blocksimg_blocking <= 0) handle->blocksimg_blocking = 1;
                     descriptor.blocks_img = handle->blocksimg_blocking;
-                    handle->reduce_weights = 1; 
+                    handle->reduce_weights = 1;
                   }
                 }
 
@@ -1466,12 +1466,12 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
                     handle->upd_ofh_rb = descriptor.ofh_rb * descriptor.blocks_h;
                     handle->use_hybrid_wu_parallelism = 1;
                     handle->weight_copies = 1;
-                    descriptor.ncopies = 1;  
+                    descriptor.ncopies = 1;
                     handle->blocksimg_blocking = 1;
                     descriptor.blocks_img = handle->blocksimg_blocking;
-                    handle->reduce_weights = 0; 
+                    handle->reduce_weights = 0;
                 } else {
-                    handle->reduce_weights = 1; 
+                    handle->reduce_weights = 1;
                 }
               }
 
@@ -1615,7 +1615,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
             ks_overhead += (handle->n_entries_copy_upd[i]+1)*sizeof(int);
             ks_overhead += (handle->n_entries_init_upd[i]+1)*sizeof(int);
           }
-          printf("KS Overhead UPD in KB: %i \n", ks_overhead/1024 ); 
+          printf("KS Overhead UPD in KB: %i \n", ks_overhead/1024 );
 
         }
         } else {
@@ -1688,7 +1688,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
         }
       }
       handle->blocksofm = handle->desc.K / handle->ofmblock;
-           
+
       handle->fwd_ofh_rb = 1;
       handle->fwd_ofw_rb = handle->ofw;
       handle->bwd_ofh_rb = 1;

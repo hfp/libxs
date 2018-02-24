@@ -112,7 +112,7 @@ int main(void)
       const libxs_blasint k = r[3*i+2] % max_shape + 1;
       union { libxs_xmmfunction x; void* p; } fi;
       libxs_descriptor_blob blob;
-      const libxs_gemm_descriptor_type *const desc = libxs_gemm_descriptor_init(&blob, LIBXS_GEMM_PRECISION(REAL_TYPE),
+      const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init(&blob, LIBXS_GEMM_PRECISION(REAL_TYPE),
         m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/, &alpha, &beta, flags,
         /* translate an eventual LIBXS_PREFETCH_AUTO */
         libxs_get_gemm_prefetch(prefetch));

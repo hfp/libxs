@@ -130,7 +130,7 @@
 
 /** Declare and construct a GEMM descriptor. */
 #define LIBXS_GEMM_DESCRIPTOR_TYPE(DESCRIPTOR, DATA_TYPE, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
-  libxs_gemm_descriptor_type DESCRIPTOR; LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE, \
+  libxs_gemm_descriptor DESCRIPTOR; LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE, \
     FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH)
 /** Similar to LIBXS_GEMM_DESCRIPTOR_TYPE, but separately taking the input-/output-precision. */
 #define LIBXS_GEMM_DESCRIPTOR2_TYPE(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
@@ -142,7 +142,7 @@
 * This structure must be ordered by the size of the members (packed).
 * The size of the structure matches LIBXS_DESCRIPTOR_SIZE.
 */
-LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_gemm_descriptor_type {
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_gemm_descriptor {
   /** Leading dimensions are general offsets. */
   unsigned int lda, ldb, ldc;
   /** Extents of the matrix. */
@@ -160,7 +160,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_gemm_descriptor_type {
 };
 
 /** Structure storing the matcopy argument description. */
-LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_mcopy_descriptor_type { /* 20 Byte */
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_mcopy_descriptor { /* 20 Byte */
   /** LDx, M, and N. */
   unsigned int m, n, ldi, ldo;
   /** Size of data element. */
@@ -174,7 +174,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_mcopy_descriptor_type { /* 20 Byt
 };
 
 /** Structure storing the transpose argument description. */
-LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_trans_descriptor_type { /* 13 Byte */
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_trans_descriptor { /* 13 Byte */
   /** LD, M, and N. */
   unsigned int m, n, ldo;
   /** Size of data element. */
@@ -182,21 +182,21 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_trans_descriptor_type { /* 13 Byt
 };
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
-  const libxs_gemm_descriptor_type* gemm;
+  const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
   const unsigned int* column_idx;
   const void* values;
 } libxs_csr_soa_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csc_soa_descriptor {
-  const libxs_gemm_descriptor_type* gemm;
+  const libxs_gemm_descriptor* gemm;
   const unsigned int* column_ptr;
   const unsigned int* row_idx;
   const void* values;
 } libxs_csc_soa_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
-  const libxs_gemm_descriptor_type* gemm;
+  const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
   const unsigned int* column_idx;
   const void* values;
@@ -440,7 +440,7 @@ typedef enum libxs_build_kind {
 } libxs_build_kind;
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
-  const libxs_gemm_descriptor_type* gemm;
+  const libxs_gemm_descriptor* gemm;
   const libxs_csr_soa_descriptor* srsoa;
   const libxs_csc_soa_descriptor* scsoa;
   const libxs_csr_reg_descriptor* sreg;
@@ -448,8 +448,8 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_convolution_backward_descriptor* cbwd;
   const libxs_convolution_weight_update_descriptor* cupd;
   const libxs_convolution_winograd_descriptor* cwino;
-  const libxs_mcopy_descriptor_type* matcopy;
-  const libxs_trans_descriptor_type* trans;
+  const libxs_mcopy_descriptor* matcopy;
+  const libxs_trans_descriptor* trans;
 } libxs_build_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
@@ -514,9 +514,9 @@ LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 LIBXS_API int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_kernel_info {
-  libxs_gemm_descriptor_type xgemm;
-  libxs_mcopy_descriptor_type mcopy;
-  libxs_trans_descriptor_type trans;
+  libxs_gemm_descriptor xgemm;
+  libxs_mcopy_descriptor mcopy;
+  libxs_trans_descriptor trans;
 } libxs_kernel_info;
 
 /** Attempts to receive information about JIT-generated code. */

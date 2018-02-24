@@ -363,7 +363,7 @@ LIBXS_INLINE void naive_conv_bp(naive_conv_t* param, float* input, const float* 
           }
         }
       }
-#if defined(USE_FUSED_RELU_BWD) 
+#if defined(USE_FUSED_RELU_BWD)
       for (ij = 0; ij < ifh; ij++) {
         for (ii = 0; ii < ifw; ii++) {
           if ( LIBXS_VLA_ACCESS(4,  naive_input_t, img, ifm, ij, ii , nIfm, ifhp, ifwp) == 0.0 ) {
@@ -442,7 +442,7 @@ int main(int argc, char* argv[])
   short *i16_naive_input, *i16_naive_filter, *i16_naive_doutput;
   float *dq_naive_input, *dq_naive_filter, *dq_naive_doutput;
   unsigned char scf_input, scf_filter, scf_doutput, scf_filtertr;
-  
+
 #ifdef FP32_BN_STATS
   float *batchstats_libxs;
 #endif
@@ -691,7 +691,7 @@ int main(int argc, char* argv[])
     init_buf(naive_output_bp_tmp,      nImg*nOfm*ofh*ofw, 0, 0);
     copy_internal_nchw( naive_output_bp , naive_output_bp_tmp, nImg, nOfm, ofh, ofw, pad_h, pad_w);
     init_buf(naive_output_wu_tmp,      nImg*nOfm*ofh*ofw, 0, 0);
-    copy_internal_nchw( naive_output_wu , naive_output_wu_tmp, nImg, nOfm, ofh, ofw, pad_h, pad_w); 
+    copy_internal_nchw( naive_output_wu , naive_output_wu_tmp, nImg, nOfm, ofh, ofw, pad_h, pad_w);
   }
   set_zeropad_nchw(naive_input, nImg, nIfm, ifhp, ifwp, pad_h_in, pad_w_in);
   set_zeropad_nchw(naive_output_bp, nImg, nOfm, ofhp, ofwp, pad_h_out, pad_w_out);
@@ -797,7 +797,7 @@ int main(int argc, char* argv[])
 #elif defined(USE_FUSED_BIAS_RELU)
     conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_BIAS_RELU;
 #elif (defined(USE_FUSED_BATCH_STATS) && defined(USE_FUSED_MAX_STATS))
-    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_BATCH_STATS_AND_MAX;  
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_BATCH_STATS_AND_MAX;
 #elif (defined(USE_FUSED_RELU_BWD) && defined(USE_FUSED_MAX_STATS))
     conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_RELU_BWD_AND_MAX;
 #elif defined(USE_FUSED_BATCH_STATS_RELU_BWD)
@@ -809,7 +809,7 @@ int main(int argc, char* argv[])
 #elif defined(USE_FUSED_MAX_STATS)
     conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_MAX_STATS;
 #elif defined(USE_FUSED_RELU_BWD)
-    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_RELU_BWD;  
+    conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_RELU_BWD;
 #else
     conv_desc.fuse_ops = LIBXS_DNN_CONV_FUSE_NONE;
 #endif
@@ -893,7 +893,7 @@ int main(int argc, char* argv[])
 
     /* dequantize to check quantization error */
     libxs_dnn_dequantize( i16_naive_input,  dq_naive_input,  nImg*nIfm*ifhp*ifwp, scf_input );
-    libxs_dnn_dequantize( i16_naive_filter, dq_naive_filter, nIfm*nOfm*kw*kh,     scf_filter ); 
+    libxs_dnn_dequantize( i16_naive_filter, dq_naive_filter, nIfm*nOfm*kw*kh,     scf_filter );
 
     /* copy in data to LIBXS format */
     /* we can also use the layout functions and set the data on our
@@ -905,10 +905,10 @@ int main(int argc, char* argv[])
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_output, (void*)naive_output_save, LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
     CHKERR_LIBXS_DNN( libxs_dnn_copyin_tensor( libxs_bias,   (void*)naive_bias,        LIBXS_DNN_TENSOR_FORMAT_NCHW ) );
     zero_buf_i16(filtertr_libxs, nOfm*nIfm*kh*kw);
-#ifdef FP32_BN_STATS 
+#ifdef FP32_BN_STATS
     zero_buf(batchstats_libxs, 2*nImg*nOfm);
 #endif
-#ifdef FP64_BN_STATS 
+#ifdef FP64_BN_STATS
     zero_buf((float *) batchstats_libxs, 4*nImg*nOfm);
 #endif
 
@@ -1026,10 +1026,10 @@ int main(int argc, char* argv[])
         int ch_i = 0;
         int ch_j = 0;
         int pxl_i = 0;
-#ifdef FP32_BN_STATS         
+#ifdef FP32_BN_STATS
         LIBXS_VLA_DECL(4, float, sum_fuse,  batchstats_libxs, nOfm/16, nImg, 16);
 #endif
-#ifdef FP64_BN_STATS   
+#ifdef FP64_BN_STATS
         LIBXS_VLA_DECL(4, double, sum_fuse,  batchstats_libxs, nOfm/16, nImg, 16);
 #endif
         LIBXS_VLA_DECL(3, float, sum_naive, naive_output,       nOfm, ofhp*ofwp);
@@ -1038,7 +1038,7 @@ int main(int argc, char* argv[])
         ch_sum_fuse  = (float*) malloc(nOfm*sizeof(float));
         ch_sum2      = (float*) malloc(nOfm*sizeof(float));
         ch_sum2_fuse = (float*) malloc(nOfm*sizeof(float));
-        
+
         for ( ch_i = 0; ch_i < nOfm; ++ch_i ) {
           ch_sum_fuse[ch_i] = 0.0f;
           ch_sum2_fuse[ch_i] = 0.0f;
@@ -1048,12 +1048,12 @@ int main(int argc, char* argv[])
         for ( ch_i = 0; ch_i < nOfm/16; ++ch_i ) {
           for ( img_i = 0; img_i < nImg; ++img_i ) {
             for ( ch_j = 0; ch_j < 16; ++ch_j ) {
-#ifdef FP32_BN_STATS    
-              ch_sum_fuse[(ch_i*16) + ch_j]  += sum_fuse[0][ch_i][img_i][ch_j];           
+#ifdef FP32_BN_STATS
+              ch_sum_fuse[(ch_i*16) + ch_j]  += sum_fuse[0][ch_i][img_i][ch_j];
               ch_sum2_fuse[(ch_i*16) + ch_j] += sum_fuse[1][ch_i][img_i][ch_j];
 #endif
-#ifdef FP64_BN_STATS 
-              ch_sum_fuse[(ch_i*16) + ch_j]  += (float) sum_fuse[0][ch_i][img_i][ch_j];           
+#ifdef FP64_BN_STATS
+              ch_sum_fuse[(ch_i*16) + ch_j]  += (float) sum_fuse[0][ch_i][img_i][ch_j];
               ch_sum2_fuse[(ch_i*16) + ch_j] += (float) sum_fuse[1][ch_i][img_i][ch_j];
 #endif
             }
@@ -1091,7 +1091,7 @@ int main(int argc, char* argv[])
         free(ch_sum);
         free(ch_sum2);
         free(ch_sum_fuse);
-        free(ch_sum2_fuse);        
+        free(ch_sum2_fuse);
       }
 #endif
     }
@@ -1103,7 +1103,7 @@ int main(int argc, char* argv[])
 
       /* quantize input, filter, and Bias */
       libxs_dnn_quantize( naive_output_bp, i16_naive_doutput, nImg*nOfm*ofhp*ofwp, 2, &scf_doutput,  LIBXS_DNN_QUANT_FPHW_ROUND );
-  
+
       /* set scaling factors into tensors */
       libxs_dnn_set_qtensor_scf( libxs_doutput,  scf_doutput );
 
@@ -1201,7 +1201,7 @@ int main(int argc, char* argv[])
       /* quantize input, filter, and Bias */
       libxs_dnn_quantize( naive_input_save, i16_naive_input,   nImg*nIfm*ifhp*ifwp, 2, &scf_input,    LIBXS_DNN_QUANT_FPHW_ROUND );
       libxs_dnn_quantize( naive_output_wu,  i16_naive_doutput, nImg*nOfm*ofhp*ofwp, 2, &scf_doutput,  LIBXS_DNN_QUANT_FPHW_ROUND );
-  
+
       /* set scaling factors into tensors */
       libxs_dnn_set_qtensor_scf( libxs_input,  scf_input );
       libxs_dnn_set_qtensor_scf( libxs_doutput,  scf_doutput );

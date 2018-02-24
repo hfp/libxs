@@ -214,7 +214,7 @@ LIBXS_API_DEFINITION unsigned int libxs_update_mmstatistic(libxs_gemm_precision 
 }
 
 
-LIBXS_API_INLINE unsigned int internal_update_mmstatistic(const libxs_gemm_descriptor_type* desc,
+LIBXS_API_INLINE unsigned int internal_update_mmstatistic(const libxs_gemm_descriptor* desc,
   unsigned int ntry, unsigned int ncol)
 {
   assert(0 != desc && LIBXS_KERNEL_KIND_MATMUL == desc->iflags);
@@ -365,9 +365,9 @@ LIBXS_API_INLINE unsigned int internal_statistic_ntry(int precision)
 }
 
 
-LIBXS_API void internal_register_static_code(const libxs_gemm_descriptor_type*,
+LIBXS_API void internal_register_static_code(const libxs_gemm_descriptor*,
   unsigned int, unsigned int, libxs_xmmfunction, libxs_code_pointer*);
-LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descriptor_type* desc,
+LIBXS_API_DEFINITION void internal_register_static_code(const libxs_gemm_descriptor* desc,
   unsigned int index, unsigned int hash, libxs_xmmfunction src, libxs_code_pointer* registry)
 {
   libxs_kernel_info* dst_key = internal_registry_keys + index;
@@ -776,7 +776,7 @@ LIBXS_API_DEFINITION LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
         if (0 != code.ptr_const) {
           /* check if the registered entity is a GEMM kernel */
           if (LIBXS_KERNEL_KIND_MATMUL == registry_keys[i].xgemm.iflags) {
-            const libxs_gemm_descriptor_type *const desc = &registry_keys[i].xgemm;
+            const libxs_gemm_descriptor *const desc = &registry_keys[i].xgemm;
             const unsigned long long kernel_size = LIBXS_MNK_SIZE(desc->m, desc->n, desc->k);
             const int precision = (LIBXS_GEMM_PRECISION_F64 == desc->datatype ? 0 : 1);
             int bucket = 3/*huge*/;
@@ -1431,16 +1431,16 @@ LIBXS_API_DEFINITION int libxs_build(const libxs_build_request* request, unsigne
 }
 
 
-LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descriptor_type* descriptor)
+LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descriptor* descriptor)
 {
   libxs_code_pointer flux_entry = { 0 };
   unsigned int hash, i0, i = 0, mode = 0, diff = 1;
 #if !defined(NDEBUG)
-  const libxs_gemm_descriptor_type* refdesc = 0;
+  const libxs_gemm_descriptor* refdesc = 0;
 #endif
 #if defined(LIBXS_CAPACITY_CACHE) && (0 < (LIBXS_CAPACITY_CACHE))
   static LIBXS_TLS struct {
-    libxs_gemm_descriptor_type keys[LIBXS_CAPACITY_CACHE];
+    libxs_gemm_descriptor keys[LIBXS_CAPACITY_CACHE];
     libxs_code_pointer code[LIBXS_CAPACITY_CACHE];
     unsigned int hit, id;
   } cache;
@@ -1619,7 +1619,7 @@ LIBXS_API_DEFINITION const libxs_kernel_info* libxs_get_kernel_info(libxs_code_p
     && EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, size, 0/*flags*/, &extra)
     && 0 != extra && *((const unsigned int*)extra) < (LIBXS_CAPACITY_REGISTRY)
     && code.ptr_const == internal_registry[*((const unsigned int*)extra)].ptr_const
-    /* the kernel kind is stored in the internal flags of the libxs_gemm_descriptor_type (iflags). */
+    /* the kernel kind is stored in the internal flags of the libxs_gemm_descriptor (iflags). */
     && internal_registry_keys[*((const unsigned int*)extra)].xgemm.iflags < LIBXS_KERNEL_KIND_INVALID)
   {
     if (0 != kind) *kind = (libxs_kernel_kind)internal_registry_keys[*((const unsigned int*)extra)].xgemm.iflags;
@@ -1809,11 +1809,11 @@ LIBXS_API_DEFINITION int libxs_get_registry_info(libxs_registry_info* info)
 }
 
 
-LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor_type* descriptor)
+LIBXS_API_DEFINITION libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   libxs_xmmfunction result;
   if (0 != descriptor) {
-    libxs_gemm_descriptor_type backend_descriptor;
+    libxs_gemm_descriptor backend_descriptor;
     /*LIBXS_INIT: assume initialization completed by descriptor initialization function */
     if (0 != (0x8000 & descriptor->prefetch)) { /* "sign"-bit of unsigned short is set */
       backend_descriptor = *descriptor;
@@ -1852,7 +1852,7 @@ LIBXS_API_DEFINITION libxs_dmmfunction libxs_dmmdispatch(libxs_blasint m, libxs_
   const double* alpha, const double* beta, const int* flags, const int* prefetch)
 {
   libxs_descriptor_blob blob;
-  const libxs_gemm_descriptor_type *const desc = libxs_dgemm_descriptor_init(&blob, m, n, k,
+  const libxs_gemm_descriptor *const desc = libxs_dgemm_descriptor_init(&blob, m, n, k,
     0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
     0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
     0 == flags ? LIBXS_FLAGS : *flags, libxs_get_gemm_xprefetch(prefetch));
@@ -1865,7 +1865,7 @@ LIBXS_API_DEFINITION libxs_smmfunction libxs_smmdispatch(libxs_blasint m, libxs_
   const float* alpha, const float* beta, const int* flags, const int* prefetch)
 {
   libxs_descriptor_blob blob;
-  const libxs_gemm_descriptor_type *const desc = libxs_sgemm_descriptor_init(&blob, m, n, k,
+  const libxs_gemm_descriptor *const desc = libxs_sgemm_descriptor_init(&blob, m, n, k,
     0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
     0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
     0 == flags ? LIBXS_FLAGS : *flags, libxs_get_gemm_xprefetch(prefetch));
@@ -1878,7 +1878,7 @@ LIBXS_API_DEFINITION libxs_wmmfunction libxs_wmmdispatch(libxs_blasint m, libxs_
   const int* alpha, const int* beta, const int* flags, const int* prefetch)
 {
   libxs_descriptor_blob blob;
-  const libxs_gemm_descriptor_type *const desc = libxs_wigemm_descriptor_init(&blob, m, n, k,
+  const libxs_gemm_descriptor *const desc = libxs_wigemm_descriptor_init(&blob, m, n, k,
     0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
     0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
     0 == flags ? LIBXS_FLAGS : *flags, libxs_get_gemm_xprefetch(prefetch));
@@ -1890,7 +1890,7 @@ LIBXS_API_DEFINITION libxs_wmmfunction libxs_wmmdispatch(libxs_blasint m, libxs_
 LIBXS_PRAGMA_OPTIMIZE_ON
 #endif
 
-LIBXS_API_DEFINITION libxs_xmcopyfunction libxs_xmcopydispatch(const libxs_mcopy_descriptor_type* descriptor)
+LIBXS_API_DEFINITION libxs_xmcopyfunction libxs_xmcopydispatch(const libxs_mcopy_descriptor* descriptor)
 {
   libxs_xmcopyfunction result;
   if (0 != descriptor) {
@@ -1912,7 +1912,7 @@ LIBXS_API_DEFINITION libxs_xmcopyfunction libxs_xmcopydispatch(const libxs_mcopy
 }
 
 
-LIBXS_API_DEFINITION libxs_xtransfunction libxs_xtransdispatch(const libxs_trans_descriptor_type* descriptor)
+LIBXS_API_DEFINITION libxs_xtransfunction libxs_xtransdispatch(const libxs_trans_descriptor* descriptor)
 {
   libxs_xtransfunction result;
   if (0 != descriptor
@@ -1934,7 +1934,7 @@ LIBXS_API_DEFINITION libxs_xtransfunction libxs_xtransdispatch(const libxs_trans
 }
 
 
-LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_descriptor_type* descriptor,
+LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_descriptor* descriptor,
   const unsigned int* row_ptr, const unsigned int* column_idx, const void* values)
 {
   libxs_code_pointer result = { 0 };
@@ -1942,7 +1942,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_de
     libxs_csr_soa_descriptor srsoa;
     libxs_build_request request;
 #if defined(_WIN32) || defined(__CYGWIN__) /* TODO: full support for Windows calling convention */
-    libxs_gemm_descriptor_type gemm = *descriptor;
+    libxs_gemm_descriptor gemm = *descriptor;
     LIBXS_GEMM_DESCRIPTOR_PREFETCH(gemm, LIBXS_GEMM_PREFETCH_NONE);
     descriptor = &gemm;
 #endif
@@ -1959,7 +1959,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_de
 }
 
 
-LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_descriptor_type* descriptor,
+LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_descriptor* descriptor,
   const unsigned int* column_ptr, const unsigned int* row_idx, const void* values)
 {
   libxs_code_pointer result = { 0 };
@@ -1967,7 +1967,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_de
     libxs_csc_soa_descriptor scsoa;
     libxs_build_request request;
 #if defined(_WIN32) || defined(__CYGWIN__) /* TODO: full support for Windows calling convention */
-    libxs_gemm_descriptor_type gemm = *descriptor;
+    libxs_gemm_descriptor gemm = *descriptor;
     LIBXS_GEMM_DESCRIPTOR_PREFETCH(gemm, LIBXS_GEMM_PREFETCH_NONE);
     descriptor = &gemm;
 #endif
@@ -1984,7 +1984,7 @@ LIBXS_API_DEFINITION libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_de
 }
 
 
-LIBXS_API_DEFINITION libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_descriptor_type* descriptor,
+LIBXS_API_DEFINITION libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_descriptor* descriptor,
   const unsigned int* row_ptr, const unsigned int* column_idx, const double* values)
 {
   libxs_code_pointer result = { 0 };
@@ -1992,7 +1992,7 @@ LIBXS_API_DEFINITION libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_de
     libxs_csr_reg_descriptor sreg;
     libxs_build_request request;
 #if defined(_WIN32) || defined(__CYGWIN__) /* TODO: full support for Windows calling convention */
-    libxs_gemm_descriptor_type gemm = *descriptor;
+    libxs_gemm_descriptor gemm = *descriptor;
     LIBXS_GEMM_DESCRIPTOR_PREFETCH(gemm, LIBXS_GEMM_PREFETCH_NONE);
     descriptor = &gemm;
 #endif
@@ -2009,7 +2009,7 @@ LIBXS_API_DEFINITION libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_de
 }
 
 
-LIBXS_API_DEFINITION libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor_type* descriptor,
+LIBXS_API_DEFINITION libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* descriptor,
   const unsigned int* row_ptr, const unsigned int* column_idx, const float* values)
 {
   libxs_code_pointer result = { 0 };
@@ -2019,7 +2019,7 @@ LIBXS_API_DEFINITION libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_de
     const unsigned int n = row_ptr[descriptor->m];
     double *const d_values = (double*)malloc(n * sizeof(double));
 #if defined(_WIN32) || defined(__CYGWIN__) /* TODO: full support for Windows calling convention */
-    libxs_gemm_descriptor_type gemm = *descriptor;
+    libxs_gemm_descriptor gemm = *descriptor;
     LIBXS_GEMM_DESCRIPTOR_PREFETCH(gemm, LIBXS_GEMM_PREFETCH_NONE);
     descriptor = &gemm;
 #endif
