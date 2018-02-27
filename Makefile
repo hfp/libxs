@@ -833,11 +833,11 @@ endif
 .PHONY: generator
 generator: $(BINDIR)/libxs_gemm_generator $(BINDIR)/libxs_conv_generator $(BINDIR)/libxs_convwino_generator
 $(BINDIR)/libxs_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
-	$(LD) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 $(BINDIR)/libxs_conv_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONV_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
-	$(LD) -o $@ $(OBJFILES_GEN_CONV_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_GEN_CONV_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 $(BINDIR)/libxs_convwino_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONVWINO_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
-	$(LD) -o $@ $(OBJFILES_GEN_CONVWINO_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_GEN_CONVWINO_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 
 .PHONY: clib_mic
 ifneq (0,$(MIC))
@@ -868,7 +868,8 @@ ifneq (,$(strip $(FC)))
 flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/libxs.$(LIBEXT)
-	$(FLD) -o $@.$(VERSION_MAJOR).$(VERSION_MINOR) -mmic -shared $(FCMTFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(LIBEXT)) $(LDFLAGS) $(FLDFLAGS)
+	$(FLD) -o $@.$(VERSION_MAJOR).$(VERSION_MINOR) -mmic -shared $(FCMTFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(IMPEXT)) $(LDFLAGS) $(FLDFLAGS)
 else # static
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/.make
 	$(AR) -rs $@ $(BLDDIR)/mic/libxs-mod.o
@@ -884,7 +885,8 @@ ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
-	$(FLD) $(FCMTFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(LIBEXT)) $(LDFLAGS) $(FLDFLAGS)
+	$(FLD) $(FCMTFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(FLDFLAGS)
 else # static
 $(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/.make
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
@@ -898,8 +900,9 @@ ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ext_mic: $(OUTDIR)/mic/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
-$(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(DLIBEXT)
-	$(LD) -o $@.$(VERSION_MAJOR).$(VERSION_MINOR) -mmic -shared $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(DLIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(LIBEXT)
+	$(LD) -o $@.$(VERSION_MAJOR).$(VERSION_MINOR) -mmic -shared $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 else # static
 $(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC)
 	$(AR) -rs $@ $(EXTOBJS_MIC)
@@ -910,13 +913,16 @@ endif
 .PHONY: ext_hst
 ext_hst: $(OUTDIR)/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
-$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST) $(OUTDIR)/libxs.$(DLIBEXT)
+$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST) $(OUTDIR)/libxs.$(LIBEXT)
 ifneq (Darwin,$(UNAME))
-	$(LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(DLIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 else ifneq (0,$(INTEL)) # intel @ osx
-	$(LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(DLIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 else # osx
-	$(LD)               $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(DLIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD)               $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 endif
 else # static
 $(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST)
