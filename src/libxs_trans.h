@@ -176,8 +176,8 @@ LIBXS_API void libxs_trans_finalize(void);
 
 
 /** Determines whether JIT-kernels are used or not (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */
-LIBXS_API_VARIABLE(int libxs_trans_jit);
+LIBXS_APIVAR(int libxs_trans_jit);
 /** Configuration table containing the tile sizes separate for DP and SP. */
-LIBXS_API_VARIABLE(/*const*/ unsigned int(*libxs_trans_tile)[2/*M,N*/][8/*size-range*/]);
+LIBXS_APIVAR(/*const*/ unsigned int(*libxs_trans_tile)[2/*M,N*/][8/*size-range*/]);
 
 #endif /*LIBXS_TRANS_H*/

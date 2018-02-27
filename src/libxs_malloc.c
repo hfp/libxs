@@ -185,14 +185,14 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_malloc_pool_type {
 
 /** Scratch pool, which supports up to MAX_NSCRATCH allocation sites. */
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-/* LIBXS_ALIGNED appears to contradict LIBXS_API_VARIABLE, and causes multiple defined symbols (if below is seen in multiple translation units) */
-LIBXS_API_VARIABLE(char internal_malloc_pool_buffer[(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)*sizeof(internal_malloc_pool_type)+(LIBXS_CACHELINE)-1]);
+/* LIBXS_ALIGNED appears to contradict LIBXS_APIVAR, and causes multiple defined symbols (if below is seen in multiple translation units) */
+LIBXS_APIVAR(char internal_malloc_pool_buffer[(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)*sizeof(internal_malloc_pool_type)+(LIBXS_CACHELINE)-1]);
 #endif
-LIBXS_API_VARIABLE(size_t internal_malloc_scratch_nmallocs);
-LIBXS_API_VARIABLE(size_t internal_malloc_scratch_size);
+LIBXS_APIVAR(size_t internal_malloc_scratch_nmallocs);
+LIBXS_APIVAR(size_t internal_malloc_scratch_size);
 
 
-LIBXS_API_DEFINITION size_t libxs_gcd(size_t a, size_t b)
+LIBXS_API size_t libxs_gcd(size_t a, size_t b)
 {
   while (0 != b) {
     const size_t r = a % b;
@@ -203,13 +203,13 @@ LIBXS_API_DEFINITION size_t libxs_gcd(size_t a, size_t b)
 }
 
 
-LIBXS_API_DEFINITION size_t libxs_lcm(size_t a, size_t b)
+LIBXS_API size_t libxs_lcm(size_t a, size_t b)
 {
   return (a * b) / libxs_gcd(a, b);
 }
 
 
-LIBXS_API_DEFINITION size_t libxs_alignment(size_t size, size_t alignment)
+LIBXS_API size_t libxs_alignment(size_t size, size_t alignment)
 {
   size_t result = sizeof(void*);
   if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_MALLOC_ALIGNMAX) <= size) {
@@ -227,7 +227,7 @@ LIBXS_API_DEFINITION size_t libxs_alignment(size_t size, size_t alignment)
 }
 
 
-LIBXS_API_DEFINITION size_t libxs_offset(const size_t offset[], const size_t shape[], size_t ndims, size_t* size)
+LIBXS_API size_t libxs_offset(const size_t offset[], const size_t shape[], size_t ndims, size_t* size)
 {
   size_t result = 0, size1 = 0;
   if (0 != ndims && 0 != shape) {
@@ -244,7 +244,7 @@ LIBXS_API_DEFINITION size_t libxs_offset(const size_t offset[], const size_t sha
 }
 
 
-LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
+LIBXS_API int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
   int result = EXIT_SUCCESS;
@@ -299,7 +299,7 @@ LIBXS_API_DEFINITION int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK
 }
 
 
-LIBXS_API_DEFINITION int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
+LIBXS_API int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn)
 {
   int result = EXIT_SUCCESS;
@@ -327,7 +327,7 @@ LIBXS_API_DEFINITION int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK
 }
 
 
-LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
+LIBXS_API int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
   int result = EXIT_SUCCESS;
@@ -380,7 +380,7 @@ LIBXS_API_DEFINITION int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK
 }
 
 
-LIBXS_API_DEFINITION int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
+LIBXS_API int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn)
 {
   int result = EXIT_SUCCESS;
@@ -408,28 +408,28 @@ LIBXS_API_DEFINITION int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK
 }
 
 
-LIBXS_API_DEFINITION int libxs_set_default_allocator(void* context,
+LIBXS_API int libxs_set_default_allocator(void* context,
   libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
   return libxs_xset_default_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
 }
 
 
-LIBXS_API_DEFINITION int libxs_get_default_allocator(void** context,
+LIBXS_API int libxs_get_default_allocator(void** context,
   libxs_malloc_function* malloc_fn, libxs_free_function* free_fn)
 {
   return libxs_xget_default_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
 }
 
 
-LIBXS_API_DEFINITION int libxs_set_scratch_allocator(void* context,
+LIBXS_API int libxs_set_scratch_allocator(void* context,
   libxs_malloc_function malloc_fn, libxs_free_function free_fn)
 {
   return libxs_xset_scratch_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
 }
 
 
-LIBXS_API_DEFINITION int libxs_get_scratch_allocator(void** context,
+LIBXS_API int libxs_get_scratch_allocator(void** context,
   libxs_malloc_function* malloc_fn, libxs_free_function* free_fn)
 {
   return libxs_xget_scratch_allocator(&libxs_lock_global, context, malloc_fn, free_fn);
@@ -450,7 +450,7 @@ LIBXS_API_INLINE internal_malloc_info_type* internal_malloc_info(const void* mem
 }
 
 
-LIBXS_API_DEFINITION int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flags, void** extra)
+LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flags, void** extra)
 {
   int result = EXIT_SUCCESS;
 #if !defined(NDEBUG) || !defined(LIBXS_MALLOC_NOCRC)
@@ -539,7 +539,7 @@ LIBXS_API_INLINE void* internal_xmap(const char* dir, size_t size, int flags, vo
 
 #endif /*!defined(_WIN32)*/
 
-LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignment,
+LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment,
   int flags, const void* extra, size_t extra_size)
 {
   int result = EXIT_SUCCESS;
@@ -839,7 +839,7 @@ LIBXS_API_DEFINITION int libxs_xmalloc(void** memory, size_t size, size_t alignm
 }
 
 
-LIBXS_API_DEFINITION int libxs_xfree(const void* memory)
+LIBXS_API int libxs_xfree(const void* memory)
 {
   /*const*/ internal_malloc_info_type *const info = internal_malloc_info(memory);
   int result = EXIT_SUCCESS;
@@ -949,7 +949,7 @@ LIBXS_API_INLINE void internal_get_vtune_jitdesc(const void* code,
 #endif
 
 
-LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const char* name)
+LIBXS_API int libxs_malloc_attrib(void** memory, int flags, const char* name)
 {
   internal_malloc_info_type *const info = 0 != memory ? internal_malloc_info(*memory) : 0;
   int result = EXIT_SUCCESS;
@@ -1061,7 +1061,7 @@ LIBXS_API_DEFINITION int libxs_malloc_attrib(void** memory, int flags, const cha
 }
 
 
-LIBXS_API_DEFINITION void* libxs_aligned_malloc(size_t size, size_t alignment)
+LIBXS_API void* libxs_aligned_malloc(size_t size, size_t alignment)
 {
   void* result = 0;
   LIBXS_INIT
@@ -1131,7 +1131,7 @@ LIBXS_API_INLINE size_t internal_get_scratch_size(const internal_malloc_pool_typ
 }
 
 
-LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, const char* caller)
+LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* caller)
 {
   static int error_once = 0;
   size_t local_size = 0;
@@ -1282,13 +1282,13 @@ LIBXS_API_DEFINITION void* libxs_scratch_malloc(size_t size, size_t alignment, c
 }
 
 
-LIBXS_API_DEFINITION void* libxs_malloc(size_t size)
+LIBXS_API void* libxs_malloc(size_t size)
 {
   return libxs_aligned_malloc(size, 0/*auto*/);
 }
 
 
-LIBXS_API_DEFINITION void libxs_free(const void* memory)
+LIBXS_API void libxs_free(const void* memory)
 {
   if (0 != memory) {
     unsigned int npools = 0, i = 0;
@@ -1355,7 +1355,7 @@ LIBXS_API_DEFINITION void libxs_free(const void* memory)
 }
 
 
-LIBXS_API_DEFINITION void libxs_release_scratch(void)
+LIBXS_API void libxs_release_scratch(void)
 {
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
   internal_malloc_pool_type *const pools = (internal_malloc_pool_type*)((uintptr_t)(internal_malloc_pool_buffer + (LIBXS_CACHELINE)-1) & ~((LIBXS_CACHELINE)-1));
@@ -1379,7 +1379,7 @@ LIBXS_API_DEFINITION void libxs_release_scratch(void)
 }
 
 
-LIBXS_API_DEFINITION int libxs_get_malloc_info(const void* memory, libxs_malloc_info* info)
+LIBXS_API int libxs_get_malloc_info(const void* memory, libxs_malloc_info* info)
 {
   int result = EXIT_SUCCESS;
   if (0 != info) {
@@ -1397,7 +1397,7 @@ LIBXS_API_DEFINITION int libxs_get_malloc_info(const void* memory, libxs_malloc_
 }
 
 
-LIBXS_API_DEFINITION int libxs_get_scratch_info(libxs_scratch_info* info)
+LIBXS_API int libxs_get_scratch_info(libxs_scratch_info* info)
 {
   int result = EXIT_SUCCESS;
   if (0 != info) {
@@ -1431,21 +1431,21 @@ LIBXS_API_DEFINITION int libxs_get_scratch_info(libxs_scratch_info* info)
 }
 
 
-LIBXS_API_DEFINITION void libxs_set_scratch_limit(size_t nbytes)
+LIBXS_API void libxs_set_scratch_limit(size_t nbytes)
 {
   LIBXS_INIT
   libxs_scratch_limit = nbytes;
 }
 
 
-LIBXS_API_DEFINITION size_t libxs_get_scratch_limit(void)
+LIBXS_API size_t libxs_get_scratch_limit(void)
 {
   LIBXS_INIT
   return libxs_scratch_limit;
 }
 
 
-LIBXS_API_DEFINITION unsigned int libxs_hash(const void* data, size_t size, unsigned int seed)
+LIBXS_API unsigned int libxs_hash(const void* data, size_t size, unsigned int seed)
 {
   LIBXS_INIT
   return libxs_crc32(data, size, seed);

@@ -129,8 +129,8 @@
 #endif
 
 typedef uint32_t internal_crc32_entry_type[256];
-LIBXS_API_VARIABLE(const internal_crc32_entry_type* internal_crc32_table);
-LIBXS_API_VARIABLE(libxs_hash_function internal_hash_function);
+LIBXS_APIVAR(const internal_crc32_entry_type* internal_crc32_table);
+LIBXS_APIVAR(libxs_hash_function internal_hash_function);
 
 
 LIBXS_API_INLINE unsigned int internal_crc32_u8(unsigned int seed, unsigned char value)

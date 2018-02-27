@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2017, Intel Corporation                                **
+** Copyright (c) 2016-2018, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -50,7 +50,7 @@
 #endif
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dnn_layer* handle ) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dnn_layer* handle ) {
   /* flag to test if we found an architecture which is supported */
   int noarch = 1;
   /* general counting helper */
@@ -1812,7 +1812,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direc
     }
 
 
-    LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_check( libxs_dnn_layer* handle ) {
+    LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_check( libxs_dnn_layer* handle ) {
       /* flag to test if we found an architecture which is supported */
       int noarch = 1;
       libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;

@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2017, Intel Corporation                                **
+** Copyright (c) 2016-2018, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -59,21 +59,21 @@
 #endif
 
 
-LIBXS_API_DEFINITION void libxs_dnn_init(int target_arch)
+LIBXS_API void libxs_dnn_init(int target_arch)
 {
   libxs_dnn_convolve_winograd_fwd_init(target_arch);
   libxs_dnn_convolve_winograd_bwd_init(target_arch);
 }
 
 
-LIBXS_API_DEFINITION void libxs_dnn_finalize(void)
+LIBXS_API void libxs_dnn_finalize(void)
 {
   libxs_dnn_convolve_winograd_fwd_finalize();
   libxs_dnn_convolve_winograd_bwd_finalize();
 }
 
 
-LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
+LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code)
 {
   switch (code) {
     case LIBXS_DNN_SUCCESS:
@@ -134,7 +134,7 @@ LIBXS_API_DEFINITION const char* libxs_dnn_get_error(libxs_dnn_err_t code)
 }
 
 
-LIBXS_API_DEFINITION size_t libxs_dnn_typesize(libxs_dnn_datatype datatype)
+LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype)
 {
   switch (datatype) {
     case LIBXS_DNN_DATATYPE_F32: return 4;
@@ -147,7 +147,7 @@ LIBXS_API_DEFINITION size_t libxs_dnn_typesize(libxs_dnn_datatype datatype)
 }
 
 
-LIBXS_API_DEFINITION size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype)
+LIBXS_API size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype)
 {
   size_t l_cl_width_bytes;
   if ( libxs_target_archid == LIBXS_X86_GENERIC ) {
@@ -166,7 +166,7 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
+LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(
     libxs_dnn_conv_desc     conv_desc,
     libxs_dnn_err_t*        status)
 {
@@ -283,7 +283,7 @@ LIBXS_API_DEFINITION libxs_dnn_layer* libxs_dnn_create_conv_layer(
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* handle)
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* handle)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   int loop;
@@ -394,13 +394,13 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dn
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_tensor* libxs_dnn_link_tensor(const libxs_dnn_tensor_datalayout* layout, const void* data, libxs_dnn_err_t* status)
+LIBXS_API libxs_dnn_tensor* libxs_dnn_link_tensor(const libxs_dnn_tensor_datalayout* layout, const void* data, libxs_dnn_err_t* status)
 {
   return libxs_dnn_link_qtensor(layout, data, 0, status);
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_tensor* libxs_dnn_link_qtensor(const libxs_dnn_tensor_datalayout* layout, const void* data, const unsigned char scf, libxs_dnn_err_t* status)
+LIBXS_API libxs_dnn_tensor* libxs_dnn_link_qtensor(const libxs_dnn_tensor_datalayout* layout, const void* data, const unsigned char scf, libxs_dnn_err_t* status)
 {
   libxs_dnn_tensor* tensor = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
   *status = LIBXS_DNN_SUCCESS;
@@ -427,7 +427,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor* libxs_dnn_link_qtensor(const libxs_dnn_te
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const libxs_dnn_layer* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
+LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const libxs_dnn_layer* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
   libxs_dnn_tensor_datalayout* layout;
 
   *status = LIBXS_DNN_SUCCESS;
@@ -991,7 +991,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datala
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_duplicate_tensor_datalayout(const libxs_dnn_tensor_datalayout* layout, libxs_dnn_err_t* status) {
+LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_duplicate_tensor_datalayout(const libxs_dnn_tensor_datalayout* layout, libxs_dnn_err_t* status) {
   libxs_dnn_tensor_datalayout* dst_layout;
 
   *status = LIBXS_DNN_SUCCESS;
@@ -1029,7 +1029,7 @@ LIBXS_API_DEFINITION libxs_dnn_tensor_datalayout* libxs_dnn_duplicate_tensor_dat
 }
 
 
-LIBXS_API_DEFINITION unsigned int libxs_dnn_compare_tensor_datalayout(const libxs_dnn_tensor_datalayout* layout_a, const libxs_dnn_tensor_datalayout* layout_b, libxs_dnn_err_t* status) {
+LIBXS_API unsigned int libxs_dnn_compare_tensor_datalayout(const libxs_dnn_tensor_datalayout* layout_a, const libxs_dnn_tensor_datalayout* layout_b, libxs_dnn_err_t* status) {
   unsigned int result = 0;
   *status = LIBXS_DNN_SUCCESS;
 
@@ -1056,7 +1056,7 @@ LIBXS_API_DEFINITION unsigned int libxs_dnn_compare_tensor_datalayout(const libx
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_tensor_datalayout(libxs_dnn_tensor_datalayout* layout) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_tensor_datalayout(libxs_dnn_tensor_datalayout* layout) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != layout) {
@@ -1072,7 +1072,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_tensor_datalayout(libxs_d
 }
 
 
-LIBXS_API_DEFINITION unsigned int libxs_dnn_get_tensor_size(const libxs_dnn_tensor_datalayout* layout, libxs_dnn_err_t* status) {
+LIBXS_API unsigned int libxs_dnn_get_tensor_size(const libxs_dnn_tensor_datalayout* layout, libxs_dnn_err_t* status) {
   unsigned int size = 0;
   *status = LIBXS_DNN_SUCCESS;
 
@@ -1091,7 +1091,7 @@ LIBXS_API_DEFINITION unsigned int libxs_dnn_get_tensor_size(const libxs_dnn_tens
 }
 
 
-LIBXS_API_DEFINITION unsigned int libxs_dnn_get_tensor_elements(const libxs_dnn_tensor_datalayout* layout, libxs_dnn_err_t* status) {
+LIBXS_API unsigned int libxs_dnn_get_tensor_elements(const libxs_dnn_tensor_datalayout* layout, libxs_dnn_err_t* status) {
   unsigned int elements = 1;
   *status = LIBXS_DNN_SUCCESS;
 
@@ -1109,7 +1109,7 @@ LIBXS_API_DEFINITION unsigned int libxs_dnn_get_tensor_elements(const libxs_dnn_
 }
 
 
-LIBXS_API_DEFINITION void* libxs_dnn_get_tensor_data_ptr(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status)
+LIBXS_API void* libxs_dnn_get_tensor_data_ptr(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status)
 {
   *status = LIBXS_DNN_SUCCESS;
 
@@ -1124,7 +1124,7 @@ LIBXS_API_DEFINITION void* libxs_dnn_get_tensor_data_ptr(const libxs_dnn_tensor*
 }
 
 
-LIBXS_API_DEFINITION unsigned char libxs_dnn_get_qtensor_scf(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status)
+LIBXS_API unsigned char libxs_dnn_get_qtensor_scf(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status)
 {
   *status = LIBXS_DNN_SUCCESS;
 
@@ -1139,7 +1139,7 @@ LIBXS_API_DEFINITION unsigned char libxs_dnn_get_qtensor_scf(const libxs_dnn_ten
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_set_qtensor_scf(libxs_dnn_tensor* tensor, const unsigned char scf)
+LIBXS_API libxs_dnn_err_t libxs_dnn_set_qtensor_scf(libxs_dnn_tensor* tensor, const unsigned char scf)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -1154,7 +1154,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_set_qtensor_scf(libxs_dnn_tensor*
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_tensor(const libxs_dnn_tensor* tensor)
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_tensor(const libxs_dnn_tensor* tensor)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -1171,7 +1171,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_destroy_tensor(const libxs_dnn_te
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_tensor* tensor, const void* data, const libxs_dnn_tensor_format in_format)
+LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_tensor* tensor, const void* data, const libxs_dnn_tensor_format in_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -1307,7 +1307,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_ten
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_tensor(const libxs_dnn_tensor* tensor)
+LIBXS_API libxs_dnn_err_t libxs_dnn_zero_tensor(const libxs_dnn_tensor* tensor)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -1345,7 +1345,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_zero_tensor(const libxs_dnn_tenso
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_tensor* tensor, void* data, const libxs_dnn_tensor_format out_format)
+LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_tensor* tensor, void* data, const libxs_dnn_tensor_format out_format)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -1486,7 +1486,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_te
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_trans_reg_filter(const libxs_dnn_layer* handle) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_trans_reg_filter(const libxs_dnn_layer* handle) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (handle != 0) {
@@ -1522,7 +1522,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_trans_reg_filter(const libxs_dnn_
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_tensor(libxs_dnn_layer* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type)
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_tensor(libxs_dnn_layer* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -1635,7 +1635,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_tensor(libxs_dnn_layer* handle, cons
 }
 
 
-LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status)
+LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status)
 {
   size_t l_scratch_size = 0;
   size_t scratch5_size = 0;
@@ -1713,7 +1713,7 @@ LIBXS_API_DEFINITION size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* ha
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const libxs_dnn_compute_kind kind, const void* scratch)
+LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const libxs_dnn_compute_kind kind, const void* scratch)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   size_t address = (size_t)scratch;
@@ -1910,7 +1910,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* han
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, const libxs_dnn_compute_kind kind)
+LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, const libxs_dnn_compute_kind kind)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -2162,14 +2162,14 @@ LIBXS_API_INLINE libxs_dnn_err_t internal_execute_st(libxs_dnn_layer* handle,
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_execute_st(libxs_dnn_layer* handle,
+LIBXS_API libxs_dnn_err_t libxs_dnn_execute_st(libxs_dnn_layer* handle,
     libxs_dnn_compute_kind kind, /*unsigned*/int start_thread, /*unsigned*/int tid)
 {
   return internal_execute_st(handle, kind, start_thread, tid);
 }
 
 
-LIBXS_API_DEFINITION void libxs_dnn_execute(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind)
+LIBXS_API void libxs_dnn_execute(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind)
 {
 #if defined(_OPENMP)
 # pragma omp parallel num_threads(handle->desc.threads)
@@ -2183,7 +2183,7 @@ LIBXS_API_DEFINITION void libxs_dnn_execute(libxs_dnn_layer* handle, libxs_dnn_c
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   int ofm1, ifm1, kj, ki, ifm2, ofm2;
 
@@ -2239,7 +2239,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer*
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   int i, j, filter_size;
 
@@ -2277,7 +2277,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_layer
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
@@ -2309,7 +2309,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_lay
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind, unsigned int* num_tasks) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind, unsigned int* num_tasks) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
@@ -2339,7 +2339,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_laye
 }
 
 
-LIBXS_API_DEFINITION float libxs_internal_get_max( float* in_buffer, int length ) {
+LIBXS_API float libxs_internal_get_max( float* in_buffer, int length ) {
   int i = 0;
   float absmax_value = 0.0f;
 
@@ -2373,7 +2373,7 @@ LIBXS_API_DEFINITION float libxs_internal_get_max( float* in_buffer, int length 
 }
 
 
-LIBXS_API_DEFINITION unsigned char libxs_internal_get_max_exp( float* in_buffer, int length ) {
+LIBXS_API unsigned char libxs_internal_get_max_exp( float* in_buffer, int length ) {
   libxs_intfloat exp;
   unsigned char max_exp = 0;
 
@@ -2386,7 +2386,7 @@ LIBXS_API_DEFINITION unsigned char libxs_internal_get_max_exp( float* in_buffer,
 }
 
 
-LIBXS_API_DEFINITION short libxs_internal_quantize_scalar_no_scf( float input, unsigned char max_exp, unsigned char add_shift, int round_mode ) {
+LIBXS_API short libxs_internal_quantize_scalar_no_scf( float input, unsigned char max_exp, unsigned char add_shift, int round_mode ) {
   libxs_intfloat value;
   unsigned int qvalue = 0;
   unsigned int mant = 0;
@@ -2464,7 +2464,7 @@ LIBXS_API_DEFINITION short libxs_internal_quantize_scalar_no_scf( float input, u
 
 
 /* @TODO make this routine aware of any int type */
-LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int length, unsigned char add_shift, unsigned char* scf, int round_mode ) {
+LIBXS_API void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int length, unsigned char add_shift, unsigned char* scf, int round_mode ) {
   int i = 0;
 
   /* in case we are using FP-Mul based quatization we use a different path for now
@@ -2525,7 +2525,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize( float* in_buffer, short* out_buffe
 }
 
 
-LIBXS_API_DEFINITION void libxs_dnn_quantize_act( float* in_buffer, short* out_buffer, unsigned int N, unsigned int C, unsigned int H, unsigned int W, unsigned int cblk_f32, unsigned int cblk_i16, unsigned int lp_blk, unsigned char add_shift, unsigned char* scf, int round_mode ) {
+LIBXS_API void libxs_dnn_quantize_act( float* in_buffer, short* out_buffer, unsigned int N, unsigned int C, unsigned int H, unsigned int W, unsigned int cblk_f32, unsigned int cblk_i16, unsigned int lp_blk, unsigned char add_shift, unsigned char* scf, int round_mode ) {
   LIBXS_VLA_DECL(5, float, in,  in_buffer,  C/cblk_f32, H, W, cblk_f32);
   LIBXS_VLA_DECL(6, short, out, out_buffer, C/(cblk_i16*lp_blk), H, W, cblk_i16, lp_blk);
   unsigned int cblk = C/(cblk_i16*lp_blk);
@@ -2623,7 +2623,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_act( float* in_buffer, short* out_b
 }
 
 
-LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsigned int K, unsigned int C, unsigned int R, unsigned int S, unsigned int cblk_f32, unsigned int cblk_i16, unsigned int kblk_f32, unsigned int kblk_i16, unsigned int lp_blk, unsigned char add_shift, unsigned char* scf, int round_mode ) {
+LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsigned int K, unsigned int C, unsigned int R, unsigned int S, unsigned int cblk_f32, unsigned int cblk_i16, unsigned int kblk_f32, unsigned int kblk_i16, unsigned int lp_blk, unsigned char add_shift, unsigned char* scf, int round_mode ) {
   LIBXS_VLA_DECL(6, float, in,  in_buffer,  C/cblk_f32, R, S, cblk_f32, kblk_f32);
   LIBXS_VLA_DECL(7, short, out, out_buffer, C/(cblk_i16*lp_blk), R, S, cblk_i16, kblk_i16, lp_blk );
   unsigned int cblk = C/(cblk_i16*lp_blk);
@@ -2747,7 +2747,7 @@ LIBXS_API_DEFINITION void libxs_dnn_quantize_fil( float* in_buffer, short* out_b
 }
 
 
-LIBXS_API_DEFINITION void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int length, unsigned char scf ) {
+LIBXS_API void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int length, unsigned char scf ) {
   int i = 0;
   float exp = pow(2.0, -scf);
 
@@ -2762,7 +2762,7 @@ LIBXS_API_DEFINITION void libxs_dnn_dequantize( short* in_buffer, float* out_buf
 
 #if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
 
-LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_forward(
+LIBXS_API libxs_sconvfunction libxs_create_sconv_forward(
     const libxs_convolution_forward_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
@@ -2785,7 +2785,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_forward(
 }
 
 
-LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_backward(
+LIBXS_API libxs_sconvfunction libxs_create_sconv_backward(
     const libxs_convolution_backward_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
@@ -2808,7 +2808,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_backward(
 }
 
 
-LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_update_weights(
+LIBXS_API libxs_sconvfunction libxs_create_sconv_update_weights(
     const libxs_convolution_weight_update_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
@@ -2831,7 +2831,7 @@ LIBXS_API_DEFINITION libxs_sconvfunction libxs_create_sconv_update_weights(
 }
 
 
-LIBXS_API_DEFINITION void* libxs_create_xconv_forward(
+LIBXS_API void* libxs_create_xconv_forward(
     const libxs_convolution_forward_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
@@ -2854,7 +2854,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_forward(
 }
 
 
-LIBXS_API_DEFINITION void* libxs_create_xconv_backward(
+LIBXS_API void* libxs_create_xconv_backward(
     const libxs_convolution_backward_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
@@ -2877,7 +2877,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_backward(
 }
 
 
-LIBXS_API_DEFINITION void* libxs_create_xconv_update_weights(
+LIBXS_API void* libxs_create_xconv_update_weights(
     const libxs_convolution_weight_update_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
@@ -2900,7 +2900,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_update_weights(
 }
 
 
-LIBXS_API_DEFINITION void* libxs_create_xconv_wino_forward(
+LIBXS_API void* libxs_create_xconv_wino_forward(
     const libxs_convolution_winograd_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
@@ -2923,7 +2923,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_forward(
 }
 
 
-LIBXS_API_DEFINITION void* libxs_create_xconv_wino_backward(
+LIBXS_API void* libxs_create_xconv_wino_backward(
     const libxs_convolution_winograd_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
@@ -2946,7 +2946,7 @@ LIBXS_API_DEFINITION void* libxs_create_xconv_wino_backward(
 }
 
 
-LIBXS_API_DEFINITION void* libxs_create_xconv_wino_update_weights(
+LIBXS_API void* libxs_create_xconv_wino_update_weights(
     const libxs_convolution_winograd_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };

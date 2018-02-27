@@ -533,36 +533,37 @@ LIBXS_API void libxs_dnn_init(int target_arch);
 LIBXS_API void libxs_dnn_finalize(void);
 
 /** Global lock; create an own lock for an independent domain. */
-LIBXS_API_VARIABLE(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
-/** Function used to allocate default memory. */
-LIBXS_API_VARIABLE(libxs_malloc_function libxs_default_malloc_fn);
-/** Function used to allocate scratch memory. */
-LIBXS_API_VARIABLE(libxs_malloc_function libxs_scratch_malloc_fn);
-/** Function used to release default memory. */
-LIBXS_API_VARIABLE(libxs_free_function libxs_default_free_fn);
-/** Function used to release scratch memory. */
-LIBXS_API_VARIABLE(libxs_free_function libxs_scratch_free_fn);
-/** If non-NULL, this context used for the context-form of the malloc/free function. */
-LIBXS_API_VARIABLE(void* libxs_default_allocator_context);
-/** If non-NULL, this context used for the context-form of the malloc/free function. */
-LIBXS_API_VARIABLE(void* libxs_scratch_allocator_context);
-/** Number of discovered threads (per libxs_get_tid) */
-LIBXS_API_VARIABLE(unsigned int libxs_threads_count);
-/** Number of scratch memory pools used; clamped against internal maximum. */
-LIBXS_API_VARIABLE(unsigned int libxs_scratch_pools);
-/** Maximum total size of the scratch memory domain. */
-LIBXS_API_VARIABLE(size_t libxs_scratch_limit);
-/** Growth factor used to scale the scratch memory in case of reallocation. */
-LIBXS_API_VARIABLE(double libxs_scratch_scale);
-/** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wall-clock) */
-LIBXS_API_VARIABLE(double libxs_timer_scale);
+LIBXS_APIVAR_PUBLIC(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 /** Verbosity level (0: quiet, 1: errors, 2: warnings, 3: info, neg.: all/dump). */
-LIBXS_API_VARIABLE(int libxs_verbosity);
+LIBXS_APIVAR_PUBLIC(int libxs_verbosity);
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
-LIBXS_API_VARIABLE(int libxs_target_archid);
+LIBXS_APIVAR_PUBLIC(int libxs_target_archid);
 /** Determines whether a threaded implementation is synchronized or not. */
-LIBXS_API_VARIABLE(int libxs_nosync);
+LIBXS_APIVAR_PUBLIC(int libxs_nosync);
 /** Number of threads per core. */
-LIBXS_API_VARIABLE(int libxs_nt);
+LIBXS_APIVAR_PUBLIC(int libxs_nt);
+
+/** Function used to allocate default memory. */
+LIBXS_APIVAR(libxs_malloc_function libxs_default_malloc_fn);
+/** Function used to allocate scratch memory. */
+LIBXS_APIVAR(libxs_malloc_function libxs_scratch_malloc_fn);
+/** Function used to release default memory. */
+LIBXS_APIVAR(libxs_free_function libxs_default_free_fn);
+/** Function used to release scratch memory. */
+LIBXS_APIVAR(libxs_free_function libxs_scratch_free_fn);
+/** If non-NULL, this context used for the context-form of the malloc/free function. */
+LIBXS_APIVAR(void* libxs_default_allocator_context);
+/** If non-NULL, this context used for the context-form of the malloc/free function. */
+LIBXS_APIVAR(void* libxs_scratch_allocator_context);
+/** Number of discovered threads (per libxs_get_tid) */
+LIBXS_APIVAR(unsigned int libxs_threads_count);
+/** Number of scratch memory pools used; clamped against internal maximum. */
+LIBXS_APIVAR(unsigned int libxs_scratch_pools);
+/** Maximum total size of the scratch memory domain. */
+LIBXS_APIVAR(size_t libxs_scratch_limit);
+/** Growth factor used to scale the scratch memory in case of reallocation. */
+LIBXS_APIVAR(double libxs_scratch_scale);
+/** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wall-clock) */
+LIBXS_APIVAR(double libxs_timer_scale);
 
 #endif /*LIBXS_MAIN_H*/

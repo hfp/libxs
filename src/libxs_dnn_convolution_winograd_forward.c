@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2017, Intel Corporation                                **
+** Copyright (c) 2016-2018, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -49,13 +49,13 @@
 
 
 /* function pointer for the CPUID-dispatched implementation */
-LIBXS_API_VARIABLE(void (*internal_fwd_input_transform_custom_custom_alpha6)(const float*, float*, float*, const libxs_dnn_layer*));
-LIBXS_API_VARIABLE(void (*internal_fwd_input_transform_nhwc_custom_alpha6)(const float*, float*, float*, const libxs_dnn_layer*));
-LIBXS_API_VARIABLE(void (*internal_fwd_weight_transform_alpha6)(float*, float*, const libxs_dnn_layer*));
-LIBXS_API_VARIABLE(void (*internal_fwd_output_transform_custom_custom_alpha6)(float*, float*, float*, float[][16], const libxs_dnn_layer*));
-LIBXS_API_VARIABLE(void (*internal_fwd_output_transform_nhwc_custom_alpha6)(float*, float*, float*, float[][16], const libxs_dnn_layer*));
-LIBXS_API_VARIABLE(void (*internal_dnn_convolve_winograd_st_fwd_custom_custom_alpha6)(libxs_dnn_layer*, int, int));
-LIBXS_API_VARIABLE(void (*internal_dnn_convolve_winograd_st_fwd_nhwc_custom_alpha6)(libxs_dnn_layer*, int, int));
+LIBXS_APIVAR(void (*internal_fwd_input_transform_custom_custom_alpha6)(const float*, float*, float*, const libxs_dnn_layer*));
+LIBXS_APIVAR(void (*internal_fwd_input_transform_nhwc_custom_alpha6)(const float*, float*, float*, const libxs_dnn_layer*));
+LIBXS_APIVAR(void (*internal_fwd_weight_transform_alpha6)(float*, float*, const libxs_dnn_layer*));
+LIBXS_APIVAR(void (*internal_fwd_output_transform_custom_custom_alpha6)(float*, float*, float*, float[][16], const libxs_dnn_layer*));
+LIBXS_APIVAR(void (*internal_fwd_output_transform_nhwc_custom_alpha6)(float*, float*, float*, float[][16], const libxs_dnn_layer*));
+LIBXS_APIVAR(void (*internal_dnn_convolve_winograd_st_fwd_custom_custom_alpha6)(libxs_dnn_layer*, int, int));
+LIBXS_APIVAR(void (*internal_dnn_convolve_winograd_st_fwd_nhwc_custom_alpha6)(libxs_dnn_layer*, int, int));
 
 
 LIBXS_API_INLINE void internal_fwd_input_transform_custom_custom_alpha6_default(
@@ -397,7 +397,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_dnn_convolve_winograd_st_fwd_custom_custom_
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
+LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -481,7 +481,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_dnn_convolve_winograd_st_fwd_nhwc_custom_al
 }
 
 
-LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_custom( libxs_dnn_layer* handle, int start_thread, int tid )
+LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_custom( libxs_dnn_layer* handle, int start_thread, int tid )
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -545,7 +545,7 @@ LIBXS_API_DEFINITION libxs_dnn_err_t libxs_dnn_convolve_winograd_st_fwd_nhwc_cus
 }
 
 
-LIBXS_API_DEFINITION void libxs_dnn_convolve_winograd_fwd_init(int target_arch)
+LIBXS_API void libxs_dnn_convolve_winograd_fwd_init(int target_arch)
 {
   if (LIBXS_X86_AVX512 <= target_arch) {
     internal_fwd_input_transform_custom_custom_alpha6 = internal_fwd_input_transform_custom_custom_alpha6_avx512;
@@ -575,7 +575,7 @@ LIBXS_API_DEFINITION void libxs_dnn_convolve_winograd_fwd_init(int target_arch)
 }
 
 
-LIBXS_API_DEFINITION void libxs_dnn_convolve_winograd_fwd_finalize(void)
+LIBXS_API void libxs_dnn_convolve_winograd_fwd_finalize(void)
 {
 }
 
