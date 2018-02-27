@@ -65,7 +65,7 @@
   else { assert(0/*should not happen*/); }}
 
 
-LIBXS_API_DEFINITION const char* libxs_mhd_typename(libxs_mhd_elemtype type, size_t* typesize, const char** ctypename)
+LIBXS_API const char* libxs_mhd_typename(libxs_mhd_elemtype type, size_t* typesize, const char** ctypename)
 {
   const char *mhd_typename = 0, *c_typename = 0;
   size_t size = 0;
@@ -89,7 +89,7 @@ LIBXS_API_DEFINITION const char* libxs_mhd_typename(libxs_mhd_elemtype type, siz
 }
 
 
-LIBXS_API_DEFINITION libxs_mhd_elemtype libxs_mhd_typeinfo(const char elemname[])
+LIBXS_API libxs_mhd_elemtype libxs_mhd_typeinfo(const char elemname[])
 {
   libxs_mhd_elemtype result = LIBXS_MHD_ELEMTYPE_UNKNOWN;
   if (0 == strcmp("MET_CHAR", elemname)) {
@@ -155,7 +155,7 @@ LIBXS_API_INLINE int internal_mhd_readline(char buffer[], char split, size_t* ke
 }
 
 
-LIBXS_API_DEFINITION int libxs_mhd_read_header(const char header_filename[], size_t filename_max_length,
+LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filename_max_length,
   char filename[], size_t* ndims, size_t size[], size_t* ncomponents, libxs_mhd_elemtype* type,
   size_t* header_size, size_t* extension_size)
 {
@@ -347,8 +347,7 @@ LIBXS_API_DEFINITION int libxs_mhd_read_header(const char header_filename[], siz
 }
 
 
-LIBXS_API int internal_mhd_element_conversion(void* /*dst*/, libxs_mhd_elemtype /*dst_type*/, const void* /*src*/, libxs_mhd_elemtype /*src_type*/);
-LIBXS_API_DEFINITION int internal_mhd_element_conversion(void* dst, libxs_mhd_elemtype dst_type, const void* src, libxs_mhd_elemtype src_type)
+LIBXS_API_INLINE int internal_mhd_element_conversion(void* dst, libxs_mhd_elemtype dst_type, const void* src, libxs_mhd_elemtype src_type)
 {
   int result = EXIT_SUCCESS;
   switch (dst_type) {
@@ -388,7 +387,7 @@ LIBXS_API_DEFINITION int internal_mhd_element_conversion(void* dst, libxs_mhd_el
 }
 
 
-LIBXS_API_DEFINITION int libxs_mhd_element_comparison(void* dst, libxs_mhd_elemtype dst_type, const void* src, libxs_mhd_elemtype src_type)
+LIBXS_API int libxs_mhd_element_comparison(void* dst, libxs_mhd_elemtype dst_type, const void* src, libxs_mhd_elemtype src_type)
 {
   size_t typesize;
   int result;
@@ -617,7 +616,7 @@ LIBXS_API_INLINE int internal_mhd_write(FILE* file, const void* data,
 }
 
 
-LIBXS_API_DEFINITION int libxs_mhd_write(const char filename[],
+LIBXS_API int libxs_mhd_write(const char filename[],
   const size_t offset[], const size_t size[], const size_t pitch[], size_t ndims,
   size_t ncomponents, libxs_mhd_elemtype type, const void* data, size_t* header_size,
   const char extension_header[], const void* extension, size_t extension_size)

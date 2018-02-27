@@ -68,7 +68,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_bgemm_handle {
 };
 
 
-LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
+LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(
   libxs_gemm_precision iprec, libxs_gemm_precision oprec, libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* bm, const libxs_blasint* bn, const libxs_blasint* bk,
   const libxs_blasint* b_m1, const libxs_blasint* b_n1, const libxs_blasint* b_k1, const libxs_blasint* b_k2,
@@ -164,7 +164,7 @@ LIBXS_API_DEFINITION libxs_bgemm_handle* libxs_bgemm_handle_create(
 }
 
 
-LIBXS_API_DEFINITION void libxs_bgemm_handle_destroy(const libxs_bgemm_handle* handle)
+LIBXS_API void libxs_bgemm_handle_destroy(const libxs_bgemm_handle* handle)
 {
   if (0 != handle) {
     libxs_free(handle->buffer);
@@ -174,7 +174,7 @@ LIBXS_API_DEFINITION void libxs_bgemm_handle_destroy(const libxs_bgemm_handle* h
 }
 
 
-LIBXS_API_DEFINITION int libxs_bgemm_copyin_a(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst)
+LIBXS_API int libxs_bgemm_copyin_a(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst)
 {
   int result = EXIT_SUCCESS;
   static int error_once = 0;
@@ -224,7 +224,7 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyin_a(const libxs_bgemm_handle* handle, 
 }
 
 
-LIBXS_API_DEFINITION int libxs_bgemm_copyin_b(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst)
+LIBXS_API int libxs_bgemm_copyin_b(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst)
 {
   int result = EXIT_SUCCESS;
   static int error_once = 0;
@@ -274,7 +274,7 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyin_b(const libxs_bgemm_handle* handle, 
 }
 
 
-LIBXS_API_DEFINITION int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst)
+LIBXS_API int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst)
 {
   int result = EXIT_SUCCESS;
   static int error_once = 0;
@@ -324,7 +324,7 @@ LIBXS_API_DEFINITION int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, 
 }
 
 
-LIBXS_API_DEFINITION int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst)
+LIBXS_API int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst)
 {
   int result = EXIT_SUCCESS;
   static int error_once = 0;
@@ -413,7 +413,7 @@ LIBXS_API_INLINE void internal_bgemm_order(libxs_bgemm_order order,
   }
 }
 
-LIBXS_API_DEFINITION void libxs_bgemm(const libxs_bgemm_handle* handle,
+LIBXS_API void libxs_bgemm(const libxs_bgemm_handle* handle,
   const void* a, const void* b, void* c, int tid, int nthreads)
 {
   static int error_once = 0;

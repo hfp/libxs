@@ -116,59 +116,6 @@
 # define LIBXS_CALLER NULL
 #endif
 
-#if defined(LIBXS_OFFLOAD_BUILD) && \
-  defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
-# define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
-# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) ((RTYPE (*)(LIBXS_VARIADIC))(FN))(__VA_ARGS__)
-# if !defined(LIBXS_OFFLOAD_TARGET)
-#   define LIBXS_OFFLOAD_TARGET mic
-# endif
-#else
-# define LIBXS_OFFLOAD(A)
-# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) (FN)(__VA_ARGS__)
-#endif
-#define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
-
-#if !defined(LIBXS_INTERNAL_API)
-# define LIBXS_INTERNAL_API LIBXS_EXTERN_C
-#endif
-#if !defined(LIBXS_INTERNAL_API_DEFINITION)
-# define LIBXS_INTERNAL_API_DEFINITION LIBXS_INTERNAL_API
-#endif
-
-#define LIBXS_API_INLINE LIBXS_EXTERN_C LIBXS_RETARGETABLE LIBXS_INLINE
-#define LIBXS_API_INTERN LIBXS_INTERNAL_API LIBXS_RETARGETABLE
-#define LIBXS_API LIBXS_INTERNAL_API LIBXS_RETARGETABLE
-#define LIBXS_API_DEFINITION LIBXS_INTERNAL_API_DEFINITION LIBXS_RETARGETABLE
-#define LIBXS_API_EXTERN LIBXS_EXTERN LIBXS_RETARGETABLE
-
-#if defined(LIBXS_BUILD_EXT)
-# if defined(__cplusplus)
-#   define LIBXS_API_VARIABLE(DECL) LIBXS_EXTERN_C LIBXS_RETARGETABLE DECL
-# else
-#   define LIBXS_API_VARIABLE(DECL) LIBXS_EXTERN LIBXS_RETARGETABLE DECL
-# endif
-# define LIBXS_API_VARIABLE_EXT(DECL) LIBXS_EXTERN_C LIBXS_RETARGETABLE DECL; LIBXS_RETARGETABLE DECL
-#else
-# define LIBXS_API_VARIABLE(DECL) LIBXS_EXTERN_C LIBXS_RETARGETABLE DECL; LIBXS_RETARGETABLE DECL
-#endif
-
-#if !defined(LIBXS_RESTRICT)
-# if ((defined(__GNUC__) && !defined(__CYGWIN32__)) || defined(__INTEL_COMPILER)) && !defined(_WIN32)
-#   define LIBXS_RESTRICT __restrict__
-# elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
-#   define LIBXS_RESTRICT __restrict
-# else
-#   define LIBXS_RESTRICT
-# endif
-#endif /*LIBXS_RESTRICT*/
-#if !defined(LIBXS_PRAGMA)
-# if defined(__INTEL_COMPILER) || defined(_MSC_VER)
-#   define LIBXS_PRAGMA(DIRECTIVE) __pragma(DIRECTIVE)
-# else
-#   define LIBXS_PRAGMA(DIRECTIVE)
-# endif
-#endif /*LIBXS_PRAGMA*/
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __declspec(A)
 # if defined(__cplusplus)
@@ -190,6 +137,92 @@
 # define LIBXS_CDECL
 #endif
 
+#if defined(LIBXS_OFFLOAD_BUILD) && \
+  defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
+# define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
+# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) ((RTYPE (*)(LIBXS_VARIADIC))(FN))(__VA_ARGS__)
+# if !defined(LIBXS_OFFLOAD_TARGET)
+#   define LIBXS_OFFLOAD_TARGET mic
+# endif
+#else
+# define LIBXS_OFFLOAD(A)
+# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) (FN)(__VA_ARGS__)
+#endif
+#define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
+
+#if defined(__GNUC__) /* may include Clang and other compatible compilers */
+# define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
+# define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
+# define LIBXS_VISIBILITY_PUBLIC LIBXS_ATTRIBUTE(visibility("default"))
+#else
+# define LIBXS_VISIBILITY_HIDDEN
+# define LIBXS_VISIBILITY_INTERNAL
+# define LIBXS_VISIBILITY_PUBLIC
+#endif
+#if !defined(LIBXS_VISIBILITY_PRIVATE)
+# define LIBXS_VISIBILITY_PRIVATE LIBXS_VISIBILITY_HIDDEN
+#endif
+#if !defined(__STATIC) && !defined(_WINDLL) && (defined(_WIN32) || defined(__CYGWIN__))
+# define __STATIC
+#endif
+#if !defined(__STATIC) && (defined(_WIN32) || defined(__CYGWIN__)) /* Dynamic Link Library (DLL) */
+# define LIBXS_VISIBILITY_EXPORT LIBXS_ATTRIBUTE(dllexport) LIBXS_VISIBILITY_PUBLIC
+# define LIBXS_VISIBILITY_IMPORT LIBXS_ATTRIBUTE(dllimport)
+#else /* static library archive */
+# define LIBXS_VISIBILITY_EXPORT LIBXS_VISIBILITY_PUBLIC
+# define LIBXS_VISIBILITY_IMPORT LIBXS_EXTERN
+#endif
+
+#if defined(LIBXS_API) /* header-only mode */
+# define LIBXS_API_INTERN LIBXS_API
+# define LIBXS_APIVAR_PUBLIC(DECL) LIBXS_EXTERN_C LIBXS_RETARGETABLE DECL; LIBXS_RETARGETABLE DECL
+# define LIBXS_APIVAR(DECL) LIBXS_APIVAR_PUBLIC(DECL)
+# define LIBXS_EXTVAR(DECL) LIBXS_APIVAR(DECL)
+# define LIBXS_APIEXT_INTERN LIBXS_API_INTERN
+# define LIBXS_APIEXT LIBXS_APIEXT_INTERN
+#else /* classic ABI */
+# if defined(LIBXS_BUILD_EXT)
+#   define LIBXS_API LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
+#   define LIBXS_API_INTERN LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE
+#   define LIBXS_APIVAR_PUBLIC(DECL) LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE DECL; \
+                                       LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE DECL
+#   define LIBXS_APIVAR(DECL) LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL; \
+                                LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL
+#   define LIBXS_EXTVAR(DECL) LIBXS_APIVAR(DECL)
+#   define LIBXS_APIEXT LIBXS_EXTERN_C LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE
+#   define LIBXS_APIEXT_INTERN LIBXS_API_INTERN
+# elif defined(LIBXS_BUILD)
+#   define LIBXS_API LIBXS_EXTERN_C LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE
+#   define LIBXS_API_INTERN LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE
+#   define LIBXS_APIVAR_PUBLIC(DECL) LIBXS_EXTERN_C LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE DECL; \
+                                                        LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE DECL
+#   define LIBXS_APIVAR(DECL) LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL; \
+                                LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL
+#   define LIBXS_APIEXT LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
+# else /* import */
+#   define LIBXS_API LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
+#   define LIBXS_APIEXT LIBXS_API
+# endif
+#endif
+#define LIBXS_API_INLINE LIBXS_EXTERN_C LIBXS_INLINE LIBXS_RETARGETABLE
+#define LIBXS_API_EXTERN LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
+
+#if !defined(LIBXS_RESTRICT)
+# if ((defined(__GNUC__) && !defined(__CYGWIN32__)) || defined(__INTEL_COMPILER)) && !defined(_WIN32)
+#   define LIBXS_RESTRICT __restrict__
+# elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#   define LIBXS_RESTRICT __restrict
+# else
+#   define LIBXS_RESTRICT
+# endif
+#endif /*LIBXS_RESTRICT*/
+#if !defined(LIBXS_PRAGMA)
+# if defined(__INTEL_COMPILER) || defined(_MSC_VER)
+#   define LIBXS_PRAGMA(DIRECTIVE) __pragma(DIRECTIVE)
+# else
+#   define LIBXS_PRAGMA(DIRECTIVE)
+# endif
+#endif /*LIBXS_PRAGMA*/
 #if !defined(LIBXS_OPENMP_SIMD) && (defined(_OPENMP) && (201307 <= _OPENMP)) /*OpenMP 4.0*/
 # if defined(__INTEL_COMPILER)
 #   if (1500 <= __INTEL_COMPILER)
@@ -415,14 +448,6 @@
 # endif
 #endif
 
-#if defined(__GNUC__) && defined(LIBXS_BUILD)
-# define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
-# define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
-#else
-# define LIBXS_VISIBILITY_HIDDEN
-# define LIBXS_VISIBILITY_INTERNAL
-#endif
-
 #if (defined(__GNUC__) || defined(__clang__)) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT LIBXS_ATTRIBUTE(weak_import)
 # define LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE(weak)
@@ -508,11 +533,6 @@
 #   define __builtin_nanf nanf
 #   define __builtin_nans nan
 #   define __builtin_nansf nanf
-# endif
-# if defined(LIBXS_BUILD)
-#   if !defined(__STATIC) && !defined(_WINDLL)
-#     define __STATIC
-#   endif
 # endif
 #else
 #endif

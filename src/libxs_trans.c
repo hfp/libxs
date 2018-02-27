@@ -49,7 +49,7 @@
 #endif
 
 
-LIBXS_API_DEFINITION void libxs_trans_init(int archid)
+LIBXS_API void libxs_trans_init(int archid)
 {
   /* setup tile sizes according to CPUID or environment (LIBXS_TRANS_M, LIBXS_TRANS_N) */
   static unsigned int tile_configs[/*configs*/][2/*DP/SP*/][2/*TILE_M,TILE_N*/][8/*size-range*/] = {
@@ -92,12 +92,12 @@ LIBXS_API_DEFINITION void libxs_trans_init(int archid)
 }
 
 
-LIBXS_API_DEFINITION void libxs_trans_finalize(void)
+LIBXS_API void libxs_trans_finalize(void)
 {
 }
 
 
-LIBXS_API_DEFINITION int libxs_matcopy_thread(void* out, const void* in, unsigned int typesize,
+LIBXS_API int libxs_matcopy_thread(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
   const int* prefetch, int tid, int nthreads)
 {
@@ -212,7 +212,7 @@ LIBXS_API_DEFINITION int libxs_matcopy_thread(void* out, const void* in, unsigne
 }
 
 
-LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int typesize,
+LIBXS_API int libxs_matcopy(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
   const int* prefetch)
 {
@@ -220,7 +220,7 @@ LIBXS_API_DEFINITION int libxs_matcopy(void* out, const void* in, unsigned int t
 }
 
 
-LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned int typesize,
+LIBXS_API int libxs_otrans_thread(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
   int tid, int nthreads)
 {
@@ -324,14 +324,14 @@ LIBXS_API_DEFINITION int libxs_otrans_thread(void* out, const void* in, unsigned
 }
 
 
-LIBXS_API_DEFINITION int libxs_otrans(void* out, const void* in, unsigned int typesize,
+LIBXS_API int libxs_otrans(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo)
 {
   return libxs_otrans_thread(out, in, typesize, m, n, ldi, ldo, 0/*tid*/, 1/*nthreads*/);
 }
 
 
-LIBXS_API_DEFINITION int libxs_itrans(void* inout, unsigned int typesize,
+LIBXS_API int libxs_itrans(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
   int result = EXIT_SUCCESS;
@@ -386,7 +386,7 @@ LIBXS_API_DEFINITION int libxs_itrans(void* inout, unsigned int typesize,
 LIBXS_API void LIBXS_FSYMBOL(libxs_matcopy)(void* /*out*/, const void* /*in*/, const unsigned int* /*typesize*/,
   const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const libxs_blasint* /*ldi*/, const libxs_blasint* /*ldo*/,
   const int* /*prefetch*/);
-LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_matcopy)(void* out, const void* in, const unsigned int* typesize,
+LIBXS_API void LIBXS_FSYMBOL(libxs_matcopy)(void* out, const void* in, const unsigned int* typesize,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* ldi, const libxs_blasint* ldo,
   const int* prefetch)
 {
@@ -400,7 +400,7 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_matcopy)(void* out, const void* in
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_otrans)(void* /*out*/, const void* /*in*/, const unsigned int* /*typesize*/,
   const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const libxs_blasint* /*ldi*/, const libxs_blasint* /*ldo*/);
-LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_otrans)(void* out, const void* in, const unsigned int* typesize,
+LIBXS_API void LIBXS_FSYMBOL(libxs_otrans)(void* out, const void* in, const unsigned int* typesize,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* ldi, const libxs_blasint* ldo)
 {
   libxs_blasint ldx;
@@ -413,7 +413,7 @@ LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_otrans)(void* out, const void* in,
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_itrans)(void* /*inout*/, const unsigned int* /*typesize*/,
   const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const libxs_blasint* /*ld*/);
-LIBXS_API_DEFINITION void LIBXS_FSYMBOL(libxs_itrans)(void* inout, const unsigned int* typesize,
+LIBXS_API void LIBXS_FSYMBOL(libxs_itrans)(void* inout, const unsigned int* typesize,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* ld)
 {
   assert(0 != typesize && 0 != m);

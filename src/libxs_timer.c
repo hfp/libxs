@@ -73,7 +73,7 @@ LIBXS_API_INLINE libxs_timer_tickint internal_timer_tick(void)
 }
 
 
-LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
 libxs_timer_tickint libxs_timer_tick_rdtsc(void)
 {
   libxs_timer_tickint result;
@@ -86,7 +86,7 @@ libxs_timer_tickint libxs_timer_tick_rdtsc(void)
 }
 
 
-LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
 libxs_timer_tickint libxs_timer_tick(void)
 {
   libxs_timer_tickint result;
@@ -103,7 +103,7 @@ libxs_timer_tickint libxs_timer_tick(void)
 }
 
 
-LIBXS_API_DEFINITION double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
+LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
 {
   double result = (double)LIBXS_DIFF(tick0, tick1);
 #if defined(LIBXS_TIMER_RDTSC)

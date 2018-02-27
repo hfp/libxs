@@ -82,7 +82,7 @@ struct LIBXS_RETARGETABLE libxs_barrier {
 };
 
 
-LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
+LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
 {
   libxs_barrier *const barrier = (libxs_barrier*)libxs_aligned_malloc(
     sizeof(libxs_barrier), LIBXS_CACHELINE);
@@ -106,7 +106,7 @@ LIBXS_API_DEFINITION libxs_barrier* libxs_barrier_create(int ncores, int nthread
 }
 
 
-LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
+LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid)
 {
 #if !defined(LIBXS_NO_SYNC)
   const int cid = tid / barrier->nthreads_per_core; /* this thread's core ID */
@@ -188,7 +188,7 @@ LIBXS_API_DEFINITION void libxs_barrier_init(libxs_barrier* barrier, int tid)
 }
 
 
-LIBXS_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
 void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 {
 #if !defined(LIBXS_NO_SYNC)
@@ -265,7 +265,7 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 }
 
 
-LIBXS_API_DEFINITION void libxs_barrier_destroy(const libxs_barrier* barrier)
+LIBXS_API void libxs_barrier_destroy(const libxs_barrier* barrier)
 {
 #if !defined(LIBXS_NO_SYNC)
   int i;
@@ -316,7 +316,7 @@ struct LIBXS_RETARGETABLE libxs_spinlock {
 };
 
 
-LIBXS_API_DEFINITION libxs_spinlock* libxs_spinlock_create(void)
+LIBXS_API libxs_spinlock* libxs_spinlock_create(void)
 {
   libxs_spinlock *const result = (libxs_spinlock*)malloc(sizeof(libxs_spinlock));
   if (0 != result) {
@@ -333,7 +333,7 @@ LIBXS_API_DEFINITION libxs_spinlock* libxs_spinlock_create(void)
 }
 
 
-LIBXS_API_DEFINITION void libxs_spinlock_destroy(const libxs_spinlock* spinlock)
+LIBXS_API void libxs_spinlock_destroy(const libxs_spinlock* spinlock)
 {
 #if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_DESTROY(LIBXS_LOCK_SPINLOCK, (LIBXS_LOCK_TYPE(LIBXS_LOCK_SPINLOCK)*)&spinlock->impl);
@@ -342,7 +342,7 @@ LIBXS_API_DEFINITION void libxs_spinlock_destroy(const libxs_spinlock* spinlock)
 }
 
 
-LIBXS_API_DEFINITION int libxs_spinlock_trylock(libxs_spinlock* spinlock)
+LIBXS_API int libxs_spinlock_trylock(libxs_spinlock* spinlock)
 {
 #if !defined(LIBXS_NO_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
@@ -364,7 +364,7 @@ LIBXS_API_DEFINITION int libxs_spinlock_trylock(libxs_spinlock* spinlock)
 }
 
 
-LIBXS_API_DEFINITION void libxs_spinlock_acquire(libxs_spinlock* spinlock)
+LIBXS_API void libxs_spinlock_acquire(libxs_spinlock* spinlock)
 {
 #if !defined(LIBXS_NO_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
@@ -385,7 +385,7 @@ LIBXS_API_DEFINITION void libxs_spinlock_acquire(libxs_spinlock* spinlock)
 }
 
 
-LIBXS_API_DEFINITION void libxs_spinlock_release(libxs_spinlock* spinlock)
+LIBXS_API void libxs_spinlock_release(libxs_spinlock* spinlock)
 {
 #if !defined(LIBXS_NO_SYNC)
   assert(0 != spinlock);
@@ -418,7 +418,7 @@ struct LIBXS_RETARGETABLE libxs_mutex {
 };
 
 
-LIBXS_API_DEFINITION libxs_mutex* libxs_mutex_create(void)
+LIBXS_API libxs_mutex* libxs_mutex_create(void)
 {
   libxs_mutex *const result = (libxs_mutex*)malloc(sizeof(libxs_mutex));
   if (0 != result) {
@@ -435,7 +435,7 @@ LIBXS_API_DEFINITION libxs_mutex* libxs_mutex_create(void)
 }
 
 
-LIBXS_API_DEFINITION void libxs_mutex_destroy(const libxs_mutex* mutex)
+LIBXS_API void libxs_mutex_destroy(const libxs_mutex* mutex)
 {
 #if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_DESTROY(LIBXS_LOCK_MUTEX, (LIBXS_LOCK_TYPE(LIBXS_LOCK_MUTEX)*)&mutex->impl);
@@ -444,7 +444,7 @@ LIBXS_API_DEFINITION void libxs_mutex_destroy(const libxs_mutex* mutex)
 }
 
 
-LIBXS_API_DEFINITION int libxs_mutex_trylock(libxs_mutex* mutex)
+LIBXS_API int libxs_mutex_trylock(libxs_mutex* mutex)
 {
 #if !defined(LIBXS_NO_SYNC)
   assert(0 != mutex);
@@ -460,7 +460,7 @@ LIBXS_API_DEFINITION int libxs_mutex_trylock(libxs_mutex* mutex)
 }
 
 
-LIBXS_API_DEFINITION void libxs_mutex_acquire(libxs_mutex* mutex)
+LIBXS_API void libxs_mutex_acquire(libxs_mutex* mutex)
 {
 #if !defined(LIBXS_NO_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
@@ -505,7 +505,7 @@ LIBXS_API_DEFINITION void libxs_mutex_acquire(libxs_mutex* mutex)
 }
 
 
-LIBXS_API_DEFINITION void libxs_mutex_release(libxs_mutex* mutex)
+LIBXS_API void libxs_mutex_release(libxs_mutex* mutex)
 {
 #if !defined(LIBXS_NO_SYNC)
   assert(0 != mutex);
@@ -553,7 +553,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_rwlock {
 };
 
 
-LIBXS_API_DEFINITION libxs_rwlock* libxs_rwlock_create(void)
+LIBXS_API libxs_rwlock* libxs_rwlock_create(void)
 {
   libxs_rwlock *const result = (libxs_rwlock*)malloc(sizeof(libxs_rwlock));
   if (0 != result) {
@@ -570,7 +570,7 @@ LIBXS_API_DEFINITION libxs_rwlock* libxs_rwlock_create(void)
 }
 
 
-LIBXS_API_DEFINITION void libxs_rwlock_destroy(const libxs_rwlock* rwlock)
+LIBXS_API void libxs_rwlock_destroy(const libxs_rwlock* rwlock)
 {
 #if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_DESTROY(LIBXS_LOCK_RWLOCK, (LIBXS_LOCK_TYPE(LIBXS_LOCK_RWLOCK)*)&rwlock->impl);
@@ -597,7 +597,7 @@ LIBXS_API_INLINE int internal_rwlock_trylock(libxs_rwlock* rwlock, internal_sync
 #endif
 
 
-LIBXS_API_DEFINITION int libxs_rwlock_trylock(libxs_rwlock* rwlock)
+LIBXS_API int libxs_rwlock_trylock(libxs_rwlock* rwlock)
 {
 #if !defined(LIBXS_NO_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
@@ -614,7 +614,7 @@ LIBXS_API_DEFINITION int libxs_rwlock_trylock(libxs_rwlock* rwlock)
 }
 
 
-LIBXS_API_DEFINITION void libxs_rwlock_acquire(libxs_rwlock* rwlock)
+LIBXS_API void libxs_rwlock_acquire(libxs_rwlock* rwlock)
 {
 #if !defined(LIBXS_NO_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
@@ -633,7 +633,7 @@ LIBXS_API_DEFINITION void libxs_rwlock_acquire(libxs_rwlock* rwlock)
 }
 
 
-LIBXS_API_DEFINITION void libxs_rwlock_release(libxs_rwlock* rwlock)
+LIBXS_API void libxs_rwlock_release(libxs_rwlock* rwlock)
 {
 #if !defined(LIBXS_NO_SYNC)
   assert(0 != rwlock);
@@ -671,7 +671,7 @@ LIBXS_API_INLINE int internal_rwlock_tryread(libxs_rwlock* rwlock, internal_sync
 #endif
 
 
-LIBXS_API_DEFINITION int libxs_rwlock_tryread(libxs_rwlock* rwlock)
+LIBXS_API int libxs_rwlock_tryread(libxs_rwlock* rwlock)
 {
 #if !defined(LIBXS_NO_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
@@ -688,7 +688,7 @@ LIBXS_API_DEFINITION int libxs_rwlock_tryread(libxs_rwlock* rwlock)
 }
 
 
-LIBXS_API_DEFINITION void libxs_rwlock_acqread(libxs_rwlock* rwlock)
+LIBXS_API void libxs_rwlock_acqread(libxs_rwlock* rwlock)
 {
 #if !defined(LIBXS_NO_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
@@ -707,7 +707,7 @@ LIBXS_API_DEFINITION void libxs_rwlock_acqread(libxs_rwlock* rwlock)
 }
 
 
-LIBXS_API_DEFINITION void libxs_rwlock_relread(libxs_rwlock* rwlock)
+LIBXS_API void libxs_rwlock_relread(libxs_rwlock* rwlock)
 {
 #if !defined(LIBXS_NO_SYNC)
   assert(0 != rwlock);
@@ -724,7 +724,7 @@ LIBXS_API_DEFINITION void libxs_rwlock_relread(libxs_rwlock* rwlock)
 }
 
 
-LIBXS_API_DEFINITION unsigned int libxs_get_pid(void)
+LIBXS_API unsigned int libxs_get_pid(void)
 {
 #if defined(_WIN32)
   return (unsigned int)_getpid();
@@ -734,7 +734,7 @@ LIBXS_API_DEFINITION unsigned int libxs_get_pid(void)
 }
 
 
-LIBXS_API_DEFINITION unsigned int libxs_get_tid(void)
+LIBXS_API unsigned int libxs_get_tid(void)
 {
   static LIBXS_TLS unsigned int tid = (unsigned int)(-1);
   if ((unsigned int)(-1) == tid) {

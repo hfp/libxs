@@ -161,8 +161,19 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
 # define LIBXS_GEMM_CONST const
 #endif
 
-#define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE) \
-  LIBXS_API_EXTERN void LIBXS_GEMM_SYMBOL(TYPE)(CONST char*, CONST char*, \
+#if defined(LIBXS_BUILD)
+# if defined(LIBXS_BUILD_EXT) && !defined(__STATIC)
+#   define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_APIEXT
+# elif defined(LIBXS_NO_BLAS) && (1 == LIBXS_NO_BLAS)
+#   define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_API
+# endif
+#endif
+#if !defined(LIBXS_GEMM_SYMBOL_VISIBILITY)
+# define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_VISIBILITY_IMPORT
+#endif
+
+#define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE) LIBXS_GEMM_SYMBOL_VISIBILITY \
+  void LIBXS_GEMM_SYMBOL(TYPE)(CONST char*, CONST char*, \
     CONST libxs_blasint*, CONST libxs_blasint*, CONST libxs_blasint*, \
     CONST TYPE*, CONST TYPE*, CONST libxs_blasint*, \
     CONST TYPE*, CONST libxs_blasint*, \
