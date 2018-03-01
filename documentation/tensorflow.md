@@ -52,7 +52,7 @@ Generally, please follow the [guide](https://www.tensorflow.org/install/install_
 
 ```bash
 bazel build --copt=-O2 --copt=-fopenmp-simd --copt=-DLIBXS_OPENMP_SIMD --linkopt=-pthread \
-  --define tensorflow_xsmm=1 --define eigen_xsmm=1 --define tensorflow_xsmm_backward=1 \
+  --define tensorflow_xsmm=1 --define tensorflow_xsmm_convolutions=1 --define tensorflow_xsmm_backward_convolutions=1 \
   <line-of-target-flags-from-above> \
   //tensorflow/tools/pip_package:build_pip_package
 
@@ -67,31 +67,7 @@ pip install \
   -I /tmp/tensorflow_pkg/<package-name-build-above.whl>
 ```
 
-# TensorFlow Model Repository
-
-This section helps to quickly setup benchmarks such as Alexnet.
-
-```bash
-git clone https://github.com/tensorflow/models.git tensorflow-models
-cd /path/to/tensorflow-xsmm
-ln -s /path/to/tensorflow-models tensorflow/models
-
-bazel build --copt=-O2 --copt=-fopenmp-simd --copt=-DLIBXS_OPENMP_SIMD --linkopt=-pthread \
-  --define tensorflow_xsmm=1 --define eigen_xsmm=1 --define tensorflow_xsmm_backward=1 \
-  <line-of-target-flags-from-above> \
-  //tensorflow/models/tutorials/image/alexnet:alexnet_benchmark
-```
-
-The above command may be combined with `//tensorflow/tools/pip_package:build_pip_package` to build TF as well. Please note, the wheel needs to be only installed if it is needed to run a model outside of TF's source tree. To run the "Alexnet" benchmark:
-
-```bash
-LIBXS_VERBOSE=2 \
-bazel-bin/tensorflow/models/tutorials/image/alexnet/alexnet_benchmark \
-  --data_format=NHWC --forward_only=true --batch_size=256 2>&1 \
-| tee output_alexnet.log
-```
-
-### Convnet Benchmarks
+# Convnet Benchmarks
 
 The section helps to quickly setup benchmarks for Alexnet, Overfeat, VGG, and Googlenet&#160;v1. Recently, the original Convnet benchmark **stopped working with current TensorFlow**: please rely on TensorFlow model repository (previous section).
 
@@ -102,7 +78,7 @@ mkdir -p tensorflow/models
 ln -s /path/to/convnet-benchmarks/tensorflow tensorflow/models/convnetbenchmarks
 
 bazel build --copt=-O2 --copt=-fopenmp-simd --copt=-DLIBXS_OPENMP_SIMD --linkopt=-pthread \
-  --define tensorflow_xsmm=1 --define eigen_xsmm=1 --define tensorflow_xsmm_backward=1 \
+  --define tensorflow_xsmm=1 --define tensorflow_xsmm_convolutions=1 --define tensorflow_xsmm_backward_convolutions=1 \
   <line-of-target-flags-from-above> \
   //tensorflow/models/convnetbenchmarks:benchmark_alexnet \
   //tensorflow/models/convnetbenchmarks:benchmark_overfeat \
@@ -110,7 +86,7 @@ bazel build --copt=-O2 --copt=-fopenmp-simd --copt=-DLIBXS_OPENMP_SIMD --linkopt
   //tensorflow/models/convnetbenchmarks:benchmark_googlenet
 ```
 
-The above command may be combined with `//tensorflow/tools/pip_package:build_pip_package` to build TF as well. To run the "Alexnet" benchmark:
+The above command may be combined with `//tensorflow/tools/pip_package:build_pip_package` to build TF as well. Please note, the wheel needs to be only installed if the model runs outside of TF's source tree. For convenience, one can use a symlink to link the model into TF's source tree. To run the "Alexnet" benchmark:
 
 ```bash
 LIBXS_VERBOSE=2 \
@@ -148,7 +124,7 @@ There are two aspects of LIBXS enabled within TensorFlow: (1)&#160;sparse CNN, a
 
 ```bash
 bazel build --copt=-O2 --copt=-fopenmp-simd --copt=-DLIBXS_OPENMP_SIMD --linkopt=-pthread \
-  --define tensorflow_xsmm=1 --define eigen_xsmm=1 --define tensorflow_xsmm_backward=1 \
+  --define tensorflow_xsmm=1 --define tensorflow_xsmm_convolutions=1 --define tensorflow_xsmm_backward_convolutions=1 \
   <line-of-target-flags-from-above> \
   //tensorflow/core/kernels:sparse_matmul_op_test
 
@@ -156,7 +132,7 @@ bazel-bin/tensorflow/core/kernels/sparse_matmul_op_test --benchmarks=all
 bazel-bin/tensorflow/core/kernels/sparse_matmul_op_test
 
 bazel run --copt=-O2 --copt=-fopenmp-simd --copt=-DLIBXS_OPENMP_SIMD --linkopt=-pthread \
-  --define tensorflow_xsmm=1 --define eigen_xsmm=1 --define tensorflow_xsmm_backward=1 \
+  --define tensorflow_xsmm=1 --define tensorflow_xsmm_convolutions=1 --define tensorflow_xsmm_backward_convolutions=1 \
   <line-of-target-flags-from-above> \
   //tensorflow/python/kernel_tests:sparse_matmul_op_test
 ```
@@ -165,14 +141,14 @@ To build and test the regular CNN routines (note that below `bazel run...` may b
 
 ```bash
 bazel build --copt=-O2 --copt=-fopenmp-simd --copt=-DLIBXS_OPENMP_SIMD --linkopt=-pthread \
-  --define tensorflow_xsmm=1 --define eigen_xsmm=1 --define tensorflow_xsmm_backward=1 \
+  --define tensorflow_xsmm=1 --define tensorflow_xsmm_convolutions=1 --define tensorflow_xsmm_backward_convolutions=1 \
   <line-of-target-flags-from-above> \
   //tensorflow/core/kernels:conv_ops_test
 
 bazel-bin/tensorflow/core/kernels/conv_ops_test
 
 bazel run --copt=-O2 --copt=-fopenmp-simd --copt=-DLIBXS_OPENMP_SIMD --linkopt=-pthread \
-  --define tensorflow_xsmm=1 --define eigen_xsmm=1 --define tensorflow_xsmm_backward=1 \
+  --define tensorflow_xsmm=1 --define tensorflow_xsmm_convolutions=1 --define tensorflow_xsmm_backward_convolutions=1 \
   <line-of-target-flags-from-above> \
   //tensorflow/python/kernel_tests:conv_ops_test
 ```
