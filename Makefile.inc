@@ -1133,6 +1133,8 @@ ifeq (0,$(COMPATIBLE))
         ifneq (0,$(HARDEN))
           ifneq (,$(strip $(HARDEN))) # explicit
             LDFLAGS += -Wl,--export-dynamic
+          else ifneq (0,$(SYM))
+            LDFLAGS += -Wl,--export-dynamic
           endif
         else ifneq (0,$(SYM))
           LDFLAGS += -Wl,--export-dynamic
