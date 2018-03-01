@@ -1250,10 +1250,9 @@ LIBXS_API int libxs_build(const libxs_build_request* request, unsigned int regin
           const char *const precision_in = internal_get_typename(request->descriptor.cupd->datatype);
           const char *const precision_out = internal_get_typename(request->descriptor.cupd->datatype_itm);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_upd_%s_%s_%ux%u_%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_of%uu%ux%uu%u_if%uu_t%u_p%i_f%i.conv",
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_upd_%s_%s_%ux%u_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_of%uu%ux%uu%u_if%uu_t%u_p%i_f%i.conv",
             target_arch/*code path name*/, precision_in, precision_out,
             (unsigned int)request->descriptor.cupd->kw/*kernel width*/, (unsigned int)request->descriptor.cupd->kh/*kernel height*/,
-            (unsigned int)request->descriptor.cupd->unroll_kw/*width*/,
             (int)request->descriptor.cupd->stride_w/*input offset*/, (int)request->descriptor.cupd->stride_h/*output offsets*/,
             (unsigned int)request->descriptor.cupd->ifm_block/*VLEN*/, (unsigned int)request->descriptor.cupd->ofm_block/*VLEN*/,
             (unsigned int)request->descriptor.cupd->ifw_padded, (unsigned int)request->descriptor.cupd->ifh_padded,
