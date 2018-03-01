@@ -1,6 +1,6 @@
 # Dispatch (Microbenchmark)
 
-This code sample benchmarks the performance of (1)&#160;the dispatch mechanism, and (2)&#160;the time needed to JIT-generate code for the first time. Both mechanisms are relevant when replacing GEMM calls (see [Call Wrapper](https://github.com/hfp/libxs#call-wrapper) section of the reference documentation), or in any case of calling LIBXS's native [GEMM functionality](http://libxs.readthedocs.io/libxs_mm/).
+This code sample benchmarks the performance of (1)&#160;the dispatch mechanism, and (2)&#160;the time needed to JIT-generate code for the first time. Both mechanisms are relevant when replacing GEMM calls (see [Call Wrapper](https://github.com/hfp/libxs#call-wrapper) section of the reference documentation), or in any case of calling LIBXS's native [GEMM functionality](https://libxs.readthedocs.io/libxs_mm/).
 
 **Command Line Interface (CLI)**
 
