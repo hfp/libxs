@@ -397,30 +397,22 @@
 #else
 # define LIBXS_INTRINSICS_LDDQU_SI128(A) _mm_lddqu_si128(A)
 #endif
-/* Clang misses _mm512_stream_p? (checked with v3.8.1). */
 #if defined(__clang__) && ( \
       (LIBXS_VERSION3(3, 9, 0)  > LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) && \
        LIBXS_VERSION3(0, 0, 0) != LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
-   || (defined(__APPLE__) && defined(__MACH__)))
+   || (LIBXS_VERSION3(7, 3, 0)  > LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) && \
+       defined(__APPLE__) && defined(__MACH__)))
+/* prototypes with incorrect signature: _mm512_load_ps takes DP*, _mm512_load_pd takes SP* (checked with v3.8.1) */
+# define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_load_ps((const double*)(A))
+# define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_load_pd((const float*)(A))
+/* Clang misses _mm512_stream_p? (checked with v3.8.1). */
 # define LIBXS_INTRINSICS_MM512_STREAM_PS(A, B) _mm512_store_ps(A, B)
 # define LIBXS_INTRINSICS_MM512_STREAM_PD(A, B) _mm512_store_pd(A, B)
 #else
-# define LIBXS_INTRINSICS_MM512_STREAM_PS(A, B) _mm512_stream_ps(A, B)
-# define LIBXS_INTRINSICS_MM512_STREAM_PD(A, B) _mm512_stream_pd(A, B)
-#endif
-/* at least Clang 3.8.1 declares prototypes with incorrect signature (_mm512_load_ps takes DP*, _mm512_load_pd takes SP*) */
-#if defined(__clang__) && ( \
-      (LIBXS_VERSION3(3, 9, 0)  > LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) && \
-       LIBXS_VERSION3(0, 0, 0) != LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
-   || (defined(__APPLE__) && defined(__MACH__)))
-# define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_load_ps((const double*)(A))
-# define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_load_pd((const float*)(A))
-#elif defined(__clang__)
 # define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_load_ps((const float*)(A))
 # define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_load_pd((const double*)(A))
-#else
-# define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_load_ps(A)
-# define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_load_pd(A)
+# define LIBXS_INTRINSICS_MM512_STREAM_PS(A, B) _mm512_stream_ps(A, B)
+# define LIBXS_INTRINSICS_MM512_STREAM_PD(A, B) _mm512_stream_pd(A, B)
 #endif
 #if defined(__INTEL_COMPILER)
 # define LIBXS_INTRINSICS_MM512_SET_EPI16(A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, \
