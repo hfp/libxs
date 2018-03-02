@@ -29,7 +29,7 @@
 #ifndef LIBXS_DNN_CONVOLUTION_WINOGRAD_WEIGHT_UPDATE_H
 #define LIBXS_DNN_CONVOLUTION_WINOGRAD_WEIGHT_UPDATE_H
 
-#include "libxs_dnn.h"
+#include <libxs_dnn.h>
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_nhwc_custom  (libxs_dnn_layer* handle, int start_thread, int tid);

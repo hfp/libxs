@@ -29,7 +29,7 @@
 #ifndef LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_H
 #define LIBXS_DNN_CONVOLUTION_WINOGRAD_BACKWARD_H
 
-#include "libxs_dnn.h"
+#include <libxs_dnn.h>
 
 LIBXS_API void libxs_dnn_convolve_winograd_bwd_init(int target_arch);
 LIBXS_API void libxs_dnn_convolve_winograd_bwd_finalize(void);
