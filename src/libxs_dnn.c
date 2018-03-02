@@ -2510,7 +2510,7 @@ LIBXS_API void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int leng
 
     /* if we go for stochastic rounding, let's initialize random seed */
     if ( round_mode == LIBXS_DNN_QUANT_STOCH_ROUND ) {
-      srand( time(NULL) );
+      srand(libxs_timer_tick() % ((unsigned int)-1));
     }
 
 #ifdef _OPENMP
@@ -2593,7 +2593,7 @@ LIBXS_API void libxs_dnn_quantize_act( float* in_buffer, short* out_buffer, unsi
 
     /* if we go for stochstic rounding, let's intialize random seed */
     if ( round_mode == LIBXS_DNN_QUANT_STOCH_ROUND ) {
-      srand( time(NULL) );
+      srand(libxs_timer_tick() % ((unsigned int)-1));
     }
 
 #ifdef _OPENMP
@@ -2714,7 +2714,7 @@ LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsi
 
     /* if we go for stochstic rounding, let's intialize random seed */
     if ( round_mode == LIBXS_DNN_QUANT_STOCH_ROUND ) {
-      srand( time(NULL) );
+      srand(libxs_timer_tick() % ((unsigned int)-1));
     }
 
 #ifdef _OPENMP
