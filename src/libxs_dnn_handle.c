@@ -109,7 +109,7 @@ int find_rb(int W, int H, int *wrb1_res, int *hrb1_res, int *wrb2_res, int *hrb2
         wrb2 = W % wrb1;
         hrb2 = 1;
         case_id = 4;
-      } 
+      }
     }
   }
   /* Case 3: W < min_r */
@@ -173,7 +173,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dn
         handle->w_variants = 0;
       } else {
         handle->h_variants = 0;
-        handle->w_variants = 1; 
+        handle->w_variants = 1;
       }
     }
   }
@@ -498,11 +498,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dn
     } else {
       handle->use_nts_bwd = 0;
     }
-   
+
     if (libxs_target_archid == LIBXS_X86_AVX512_CORE && handle->desc.K/16 <= 8) {
       handle->use_nts_bwd = 0;
     }
-    
+
 
     /* Adjust blocking factors if custom_2 format is requested */
     if ((handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2)) {
