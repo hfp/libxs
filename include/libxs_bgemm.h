@@ -83,7 +83,7 @@ LIBXS_API void libxs_bgemm(const libxs_bgemm_handle* handle,
  * allows to run multiple GEMMs, which is specified by 'count' (RNNs).
  * This function requires to link against libxsext.
  */
-LIBXS_API void libxs_bgemm_omp(const libxs_bgemm_handle* handle,
+LIBXS_APIEXT void libxs_bgemm_omp(const libxs_bgemm_handle* handle,
   const void* a, const void* b, void* c, /*unsigned*/int count);
 
 #endif /*LIBXS_BGEMM_H*/

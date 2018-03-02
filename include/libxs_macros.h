@@ -150,27 +150,35 @@
 #endif
 #define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
 
-#if defined(__GNUC__) /* may include Clang and other compatible compilers */
-# define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
-# define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
-# define LIBXS_VISIBILITY_PUBLIC LIBXS_ATTRIBUTE(visibility("default"))
-#else
-# define LIBXS_VISIBILITY_HIDDEN
+#if !defined(__STATIC) && !defined(_WINDLL) && !defined(__MINGW32__) && (defined(_WIN32) || defined(__CYGWIN__))
+# define __STATIC
+#endif
+#if !defined(__STATIC) && (defined(_WIN32) || defined(__CYGWIN__)) /* Dynamic Link Library (DLL) */
+# define LIBXS_VISIBILITY_EXPORT LIBXS_ATTRIBUTE(dllexport)
+# define LIBXS_VISIBILITY_IMPORT LIBXS_ATTRIBUTE(dllimport)
+#endif
+
+#if !defined(LIBXS_VISIBILITY_EXPORT) && !defined(LIBXS_VISIBILITY_IMPORT)
+# if defined(__GNUC__) /* may include Clang and other compatible compilers */
+#   define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
+#   define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
+#   define LIBXS_VISIBILITY_PUBLIC LIBXS_ATTRIBUTE(visibility("default"))
+# endif
+# define LIBXS_VISIBILITY_EXPORT LIBXS_VISIBILITY_PUBLIC
+# define LIBXS_VISIBILITY_IMPORT LIBXS_EXTERN
+#endif
+
+#if !defined(LIBXS_VISIBILITY_INTERNAL)
 # define LIBXS_VISIBILITY_INTERNAL
+#endif
+#if !defined(LIBXS_VISIBILITY_HIDDEN)
+# define LIBXS_VISIBILITY_HIDDEN
+#endif
+#if !defined(LIBXS_VISIBILITY_PUBLIC)
 # define LIBXS_VISIBILITY_PUBLIC
 #endif
 #if !defined(LIBXS_VISIBILITY_PRIVATE)
 # define LIBXS_VISIBILITY_PRIVATE LIBXS_VISIBILITY_HIDDEN
-#endif
-#if !defined(__STATIC) && !defined(_WINDLL) && (defined(_WIN32) || defined(__CYGWIN__))
-# define __STATIC
-#endif
-#if !defined(__STATIC) && (defined(_WIN32) || defined(__CYGWIN__)) /* Dynamic Link Library (DLL) */
-# define LIBXS_VISIBILITY_EXPORT LIBXS_ATTRIBUTE(dllexport) LIBXS_VISIBILITY_PUBLIC
-# define LIBXS_VISIBILITY_IMPORT LIBXS_ATTRIBUTE(dllimport)
-#else /* static library archive */
-# define LIBXS_VISIBILITY_EXPORT LIBXS_VISIBILITY_PUBLIC
-# define LIBXS_VISIBILITY_IMPORT LIBXS_EXTERN
 #endif
 
 #if defined(LIBXS_API) /* header-only mode */
