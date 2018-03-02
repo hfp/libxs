@@ -30,7 +30,7 @@
 #include <libxs_intrinsics_x86.h>
 #include "libxs_main.h"
 #include <libxs.h>
-#include "stdio.h"
+#include <stdio.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
