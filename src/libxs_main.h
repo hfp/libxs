@@ -296,6 +296,9 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int avoid_output_trans;
   int avoid_input_trans;
   int enforce_sfma_kernel;
+  int n_variants;
+  int w_variants;
+  int h_variants;
 
   /* internal data representation */
   libxs_dnn_tensor* reg_input;
