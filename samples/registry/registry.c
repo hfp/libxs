@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
     1 >= nthreads ? "" : "s");
 
 #if 0 != LIBXS_JIT
-  if (LIBXS_X86_AVX > libxs_get_target_archid()) {
+  if (LIBXS_X86_SSE3 > libxs_get_target_archid()) {
     fprintf(stderr, "\tWarning: JIT support is not available at runtime!\n");
   }
 #else
