@@ -159,7 +159,8 @@
 #endif
 
 #if !defined(LIBXS_VISIBILITY_EXPORT) && !defined(LIBXS_VISIBILITY_IMPORT)
-# if defined(__GNUC__) /* may include Clang and other compatible compilers */
+/* may include Clang and other compatible compilers */
+# if defined(__GNUC__) && !defined(_WIN32) && !defined(__CYGWIN__)
 #   define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
 #   define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
 #   define LIBXS_VISIBILITY_PUBLIC LIBXS_ATTRIBUTE(visibility("default"))
