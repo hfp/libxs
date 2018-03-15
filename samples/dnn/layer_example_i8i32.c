@@ -39,7 +39,7 @@
 # define srand48 srand
 #endif
 
-#define CHKERR_LIBXS_DNN(A) if ( A != LIBXS_DNN_SUCCESS ) fprintf(stderr, "%s\n", libxs_dnn_get_error(A) );
+#define CHKERR_LIBXS_DNN(A) if ( A != LIBXS_DNN_SUCCESS ) { fprintf(stderr, "%s\n", libxs_dnn_get_error(A) ); global_status = A; }
 
 #define USE_OVERWRITE
 
@@ -413,6 +413,7 @@ int main(int argc, char* argv[])
   libxs_dnn_tensor* libxs_dfilter;
   libxs_dnn_tensor_datalayout* libxs_layout;
   libxs_dnn_err_t status;
+  libxs_dnn_err_t global_status;
 
   libxs_matdiff_info norms_fwd, norms_bwd, norms_upd, diff;
   memset(&norms_fwd, 0, sizeof(norms_fwd));
@@ -883,7 +884,7 @@ int main(int argc, char* argv[])
 
   { const char *const env_check_scale = getenv("CHECK_SCALE");
     const double check_scale = LIBXS_ABS(0 == env_check_scale ? 100.0 : atof(env_check_scale));
-    if (LIBXS_NEQ(0, check) && check < 100.0 * check_scale * diff.normf_rel) {
+    if (LIBXS_NEQ(0, check) && (check < 100.0 * check_scale * diff.normf_rel) && (global_status == LIBXS_DNN_SUCCESS)) {
       fprintf(stderr, "FAILED with an error of %f%%!\n", 100.0 * diff.normf_rel);
       exit(EXIT_FAILURE);
     }
