@@ -1078,10 +1078,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
 
 
         /* TODO check JIT errors */
-        if ( /*(*/libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
+        if ( /*(*/(libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
           libxs_target_archid == LIBXS_X86_AVX512_CORE ||
             libxs_target_archid == LIBXS_X86_AVX512_KNM ||
-            libxs_target_archid == LIBXS_X86_AVX512_ICL /*)*/ /*&&
+            libxs_target_archid == LIBXS_X86_AVX512_ICL) &&
+            !((handle->datatype_in == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_out == LIBXS_DNN_DATATYPE_I32))                                                      /*)*/ /*&&
                                                                     ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS))*/ )
             {
               const unsigned int wu_each_iter_code_size = 10 * descriptor.ifm_block;
