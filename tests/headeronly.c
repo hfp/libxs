@@ -29,22 +29,25 @@
 #include <libxs_source.h>
 #include <stdlib.h>
 
+/* must match definitions in headeronly_aux.c */
 #if !defined(REAL_TYPE)
-/* must correspond with definition in headeronly_aux.c */
 # define REAL_TYPE double
+#endif
+#if !defined(REAL_OUT)
+# define REAL_OUT REAL_TYPE
 #endif
 
 
-LIBXS_EXTERN LIBXS_MMFUNCTION_TYPE(REAL_TYPE) mmdispatch(int m, int n, int k);
+LIBXS_EXTERN LIBXS_MMFUNCTION_TYPE2(REAL_TYPE, REAL_OUT) mmdispatch(int m, int n, int k);
 
 
 int main(void)
 {
   const int m = LIBXS_MAX_M, n = LIBXS_MAX_N, k = LIBXS_MAX_K;
-  const LIBXS_MMFUNCTION_TYPE(REAL_TYPE) fa = LIBXS_MMDISPATCH_SYMBOL(REAL_TYPE)(m, n, k,
+  const LIBXS_MMFUNCTION_TYPE2(REAL_TYPE, REAL_OUT) fa = LIBXS_MMDISPATCH_SYMBOL2(REAL_TYPE, REAL_OUT)(m, n, k,
     NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, NULL/*alpha*/, NULL/*beta*/,
     NULL/*flags*/, NULL/*prefetch*/);
-  const LIBXS_MMFUNCTION_TYPE(REAL_TYPE) fb = mmdispatch(m, n, k);
+  const LIBXS_MMFUNCTION_TYPE2(REAL_TYPE, REAL_OUT) fb = mmdispatch(m, n, k);
   int result = EXIT_SUCCESS;
   if (fa != fb) {
     result = EXIT_FAILURE;

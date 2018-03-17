@@ -49,7 +49,7 @@
 #endif
 
 
-LIBXS_API void libxs_trans_init(int archid)
+LIBXS_API_INTERN void libxs_trans_init(int archid)
 {
   /* setup tile sizes according to CPUID or environment (LIBXS_TRANS_M, LIBXS_TRANS_N) */
   static unsigned int tile_configs[/*configs*/][2/*DP/SP*/][2/*TILE_M,TILE_N*/][8/*size-range*/] = {
@@ -92,7 +92,7 @@ LIBXS_API void libxs_trans_init(int archid)
 }
 
 
-LIBXS_API void libxs_trans_finalize(void)
+LIBXS_API_INTERN void libxs_trans_finalize(void)
 {
 }
 

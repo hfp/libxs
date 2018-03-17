@@ -62,7 +62,7 @@
 
 #if defined(__MIC__)
 # define LIBXS_SYNC_PAUSE _mm_delay_32(8/*delay*/)
-#elif !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_LEGACY)
+#elif !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_STATIC)
 # define LIBXS_SYNC_PAUSE _mm_pause()
 #elif defined(LIBXS_GCC_BASELINE) && !defined(__PGI)
 # define LIBXS_SYNC_PAUSE __builtin_ia32_pause()
@@ -163,7 +163,11 @@
 #       define LIBXS_ATOMIC_RELEASE(DST_PTR, KIND) { LIBXS_ASSERT(0 != *(DST_PTR) && *"LIBXS_ATOMIC_RELEASE"); \
                 __atomic_clear(DST_PTR, KIND); }
 #     endif
+#     if 0 /* __atomic_thread_fence: incorrect behavior in libxs_barrier (even with LIBXS_ATOMIC_SEQ_CST) */
 #     define LIBXS_ATOMIC_SYNC(KIND) __atomic_thread_fence(KIND)
+#     else
+#     define LIBXS_ATOMIC_SYNC(KIND) __sync_synchronize()
+#     endif
 #   else /* GCC legacy atomics */
 #     define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __sync_or_and_fetch(SRC_PTR, 0)
 #     define LIBXS_ATOMIC_STORE(DST_PTR, VALUE, KIND) { \

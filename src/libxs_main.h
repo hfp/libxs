@@ -140,7 +140,7 @@
 /**
 * Structure, which stores the argument description of GEMM routines.
 * This structure must be ordered by the size of the members (packed).
-* The size of the structure matches LIBXS_DESCRIPTOR_SIZE.
+* The size of the structure matches LIBXS_GEMM_DESCRIPTOR_SIZE.
 */
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_gemm_descriptor {
   /** Leading dimensions are general offsets. */
@@ -202,18 +202,71 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_d
   const void* values;
 } libxs_csr_reg_descriptor;
 
+/** Function type used for convolutions (single-precision); the actual signature depends on the kind of convolution. */
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sconvfunction)(
+  const float* input1, const float* input2, float* output,
+  const float* ipf1, const float* ipf2, const float* opf, ...);
+
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction)(
+  const short* input1, const short* input2, int* output,
+  const short* ipf1, const short* ipf2, const int* opf, ...);
+
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_wsconvfunction)(
+  const short* input1, const short* input2, float* output,
+  const short* ipf1, const short* ipf2, const float* opf, ...);
+
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_uwsconvfunction)(
+  short* input1, float* input2, short* output,
+  short* ipf1, float* ipf2, short* opf, ...);
+
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_bdbconvfunction)(
+  unsigned char* input1, int* input2, unsigned char* output,
+  unsigned char* ipf1, int* ipf2, unsigned char* opf, ...);
+
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction)(
+  const unsigned char* input1, const char* input2, short* output,
+  const unsigned char* ipf1, const char* ipf2, const short* opf, ...);
+
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction)(
+  const unsigned char* input1, const char* input2, int* output,
+  const unsigned char* ipf1, const char* ipf2, const int* opf, ...);
+
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction_bwd)(
+  int* input1, const short* input2, const short* output,
+  const int* ipf1, const short* ipf2, const short* opf, ...);
+
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction_bwd)(
+  const unsigned short* input1, const char* input2, const char* output,
+  const unsigned short* ipf1, const char* ipf2, const char* opf, ...);
+
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction_bwd)(
+  const unsigned int* input1, const char* input2, const char* output,
+  const unsigned int* ipf1, const char* ipf2, const char* opf, ...);
+
+/** Function type which is either libxs_sconvfunction or libxs_wconvfunction (weak-typed). */
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_xconvfunction {
+  libxs_sconvfunction sconv;
+  libxs_wsconvfunction wsconv;
+  libxs_uwsconvfunction uwsconv;
+  libxs_wconvfunction wconv;
+  libxs_bdbconvfunction bdbconv;
+  libxs_busconvfunction busconv;
+  libxs_budconvfunction budconv;
+  libxs_wconvfunction_bwd wconvb;
+  libxs_busconvfunction_bwd busconvb;
+  libxs_budconvfunction_bwd budconvb;
+} libxs_xconvfunction;
+
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   void (*ptr_fn)(LIBXS_VARIADIC);
   const void* ptr_const;
   void* pmm;
   uintptr_t uval;
   intptr_t ival;
-  libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wmm, or void-function */
+  libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, wsmm, or void-function */
   libxs_xmcopyfunction xmatcopy;
   libxs_xtransfunction xtrans;
-#if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
   libxs_xconvfunction xconv;
-#endif
 } libxs_code_pointer;
 
 /** Structure which describes all tensors in LIBXS's DNN module */
@@ -261,6 +314,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int fwd_ofw_rb;
   int fwd_ofw_rb_2;
   int fwd_ofh_rb;
+  int fwd_ofh_rb_2;
   int bwd_ofw_rb;
   int bwd_ofh_rb;
   int upd_ofw_rb;
@@ -352,13 +406,13 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_convolution_forward_descriptor       bwd_desc;
   libxs_convolution_weight_update_descriptor wu_desc;
   */
-  libxs_code_pointer code_fwd[6];
-  libxs_code_pointer code_bwd[6];
-  libxs_code_pointer code_upd[6];
+  libxs_code_pointer code_fwd[3];
+  libxs_code_pointer code_bwd[3];
+  libxs_code_pointer code_upd[2];
 
   libxs_code_pointer matcopy_fwd[4];
   libxs_code_pointer matcopy_bwd[4];
-  libxs_code_pointer matcopy_upd[4];
+  libxs_code_pointer matcopy_upd[3];
 
   /* Data structures and metadata related to per-thread private JITing */
   int use_thread_private_jit;
@@ -433,7 +487,6 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_SCSOA,
   LIBXS_BUILD_KIND_SREG,
   LIBXS_BUILD_KIND_CFWD,
-  LIBXS_BUILD_KIND_CBWD,
   LIBXS_BUILD_KIND_CUPD,
   LIBXS_BUILD_KIND_CWFWD,
   LIBXS_BUILD_KIND_CWBWD,
@@ -448,7 +501,6 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_csc_soa_descriptor* scsoa;
   const libxs_csr_reg_descriptor* sreg;
   const libxs_convolution_forward_descriptor* cfwd;
-  const libxs_convolution_backward_descriptor* cbwd;
   const libxs_convolution_weight_update_descriptor* cupd;
   const libxs_convolution_winograd_descriptor* cwino;
   const libxs_mcopy_descriptor* matcopy;
@@ -472,49 +524,49 @@ typedef enum libxs_malloc_flags {
 } libxs_malloc_flags;
 
 /** Greatest common divisor. */
-LIBXS_API size_t libxs_gcd(size_t a, size_t b);
+LIBXS_API_INTERN size_t libxs_gcd(size_t a, size_t b);
 /** Least common multiple. */
-LIBXS_API size_t libxs_lcm(size_t a, size_t b);
+LIBXS_API_INTERN size_t libxs_lcm(size_t a, size_t b);
 /** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */
-LIBXS_API size_t libxs_alignment(size_t size, size_t alignment);
+LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment);
 
 /** Same as libxs_set_default_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
+LIBXS_API_INTERN int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 /** Same as libxs_get_default_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
+LIBXS_API_INTERN int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /** Same as libxs_set_scratch_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
+LIBXS_API_INTERN int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 /** Same as libxs_get_scratch_allocator, but takes a lock (can be NULL). */
-LIBXS_API int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
+LIBXS_API_INTERN int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /** Retrieve internal information about a buffer (default memory domain). */
 LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flags, void** extra);
 
 /** Allocate memory of the requested size, which is aligned according to the given alignment. */
-LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment, int flags,
+LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment, int flags,
   /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
   const void* extra, size_t extra_size);
 /** Release memory, which was allocated using libxs_[*]malloc. */
-LIBXS_API int libxs_xfree(const void* memory);
+LIBXS_API_INTERN int libxs_xfree(const void* memory);
 
 /**
  * Attribute memory allocation and protect with only the necessary flags.
  * This procedure is expected to run only one time per buffer, and may
  * relocate the given memory.
  */
-LIBXS_API int libxs_malloc_attrib(void** memory, int flags,
+LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags,
   /** If a name is given, an executable buffer will be dumped into a file. */
   const char* name);
 
-LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
+LIBXS_API_INTERN unsigned char libxs_typesize(libxs_datatype datatype);
 
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
-LIBXS_API int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
+LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_kernel_info {
   libxs_gemm_descriptor xgemm;
@@ -530,10 +582,37 @@ LIBXS_API unsigned int libxs_update_mmstatistic(libxs_gemm_precision precision,
   libxs_blasint m, libxs_blasint n, libxs_blasint k, unsigned int ntry, unsigned int ncol);
 
 /** Returns the current tick of a (monotonic) platform-specific counter; not necessarily CPU cycles. */
-LIBXS_API unsigned long long libxs_timer_tick_rdtsc(void);
+LIBXS_API_INTERN unsigned long long libxs_timer_tick_rdtsc(void);
 
-LIBXS_API void libxs_dnn_init(int target_arch);
-LIBXS_API void libxs_dnn_finalize(void);
+LIBXS_API_INTERN void libxs_dnn_init(int target_arch);
+LIBXS_API_INTERN void libxs_dnn_finalize(void);
+
+/** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
+LIBXS_API_INTERN libxs_sconvfunction libxs_create_sconv_forward(const libxs_convolution_forward_descriptor* descriptor);
+
+/** Code generation routine for a backward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
+LIBXS_API_INTERN libxs_sconvfunction libxs_create_sconv_backward(const libxs_convolution_backward_descriptor* descriptor);
+
+/** Code generation routine for a convolution kernel as specified by descriptor. */
+LIBXS_API_INTERN libxs_sconvfunction libxs_create_sconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor);
+
+/** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
+LIBXS_API_INTERN void* libxs_create_xconv_forward(const libxs_convolution_forward_descriptor* descriptor);
+
+/** Code generation routine for a backward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
+LIBXS_API_INTERN void* libxs_create_xconv_backward(const libxs_convolution_backward_descriptor* descriptor);
+
+/** Code generation routine for a convolution kernel as specified by descriptor. */
+LIBXS_API_INTERN void* libxs_create_xconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor);
+
+/** Code generation routine for a forward-convolution Winograd kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
+LIBXS_API_INTERN void* libxs_create_xconv_wino_forward(const libxs_convolution_winograd_descriptor* descriptor);
+
+/** Code generation routine for a backward-convolution Winograd kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
+LIBXS_API_INTERN void* libxs_create_xconv_wino_backward(const libxs_convolution_winograd_descriptor* descriptor);
+
+/** Code generation routine for a weight-update-convolution Winograd kernel as specified by descriptor. */
+LIBXS_API_INTERN void* libxs_create_xconv_wino_update_weights(const libxs_convolution_winograd_descriptor* descriptor);
 
 /** Global lock; create an own lock for an independent domain. */
 LIBXS_APIVAR_PUBLIC(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);

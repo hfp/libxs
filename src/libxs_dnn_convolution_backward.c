@@ -40,7 +40,75 @@
 # pragma offload_attribute(pop)
 #endif
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
+/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */ 
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#ifdef __AVX512F__
+  typedef float element_input_type;
+  typedef float element_output_type;
+  typedef float element_filter_type;
+  typedef libxs_sconvfunction libxs_convfunction;
+#include "template/libxs_dnn_convolve_st_bwd_via_fwd_custom_custom_stream.tpl.c"
+#else
+/* should not happen */
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */ 
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#ifdef __AVX512F__
+  typedef int element_input_type;
+  typedef short element_output_type;
+  typedef short element_filter_type;
+  typedef libxs_wconvfunction libxs_convfunction;
+#include "template/libxs_dnn_convolve_st_bwd_via_fwd_custom_custom_stream.tpl.c"
+#else
+/* should not happen */
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */ 
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#ifdef __AVX512F__
+  typedef float element_input_type;
+  typedef short element_output_type;
+  typedef short element_filter_type;
+  typedef libxs_wsconvfunction libxs_convfunction;
+#include "template/libxs_dnn_convolve_st_bwd_via_fwd_custom_custom_stream.tpl.c"
+#else
+/* should not happen */
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */ 
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#ifdef __AVX512F__
+  typedef int element_input_type;
+  typedef unsigned char element_output_type;
+  typedef char element_filter_type;
+  typedef libxs_budconvfunction libxs_convfunction;
+#include "template/libxs_dnn_convolve_st_bwd_via_fwd_custom_custom_stream.tpl.c"
+#else
+/* should not happen */
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -87,45 +155,13 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_dnn_laye
   }
   else {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      typedef float element_input_type;
-      typedef float element_output_type;
-      typedef float element_filter_type;
-      typedef libxs_sconvfunction libxs_convfunction;
-      if ( handle->exploit_duality == 1  ) {
-#include "template/libxs_dnn_convolve_st_bwd_via_fwd_custom_custom_stream.tpl.c"
-      } else {
-#include "template/libxs_dnn_convolve_st_bwd_custom_custom_stream.tpl.c"
-      }
+      status = libxs_dnn_convolve_st_bwd_custom_custom_f32_f32( handle, start_thread, tid );
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) {
-#if 0
-      typedef int element_input_type;
-      typedef short element_output_type;
-      typedef short element_filter_type;
-      typedef libxs_wconvfunction_bwd libxs_convfunction;
-#include "template/libxs_dnn_convolve_st_bwd_custom_custom_1.tpl.c"
-#endif
+      status = libxs_dnn_convolve_st_bwd_custom_custom_i16_i32( handle, start_thread, tid );
     } else if (handle->datatype_in ==  LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      typedef float element_input_type;
-      typedef short element_output_type;
-      typedef short element_filter_type;
-      typedef libxs_wsconvfunction libxs_convfunction;
-      if ( handle->exploit_duality == 1  ) {
-#include "template/libxs_dnn_convolve_st_bwd_via_fwd_custom_custom_stream.tpl.c"
-      } else {
-        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-        return status;
-      }
+      status = libxs_dnn_convolve_st_bwd_custom_custom_i16_f32( handle, start_thread, tid );
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
-      typedef int element_input_type;
-      typedef unsigned char element_output_type;
-      typedef char element_filter_type;
-      typedef libxs_budconvfunction libxs_convfunction;
-      if ( handle->exploit_duality == 1  ) {
-#include "template/libxs_dnn_convolve_st_bwd_via_fwd_custom_custom_stream.tpl.c"
-      } else {
-        status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-        return status;
-      }
+      status = libxs_dnn_convolve_st_bwd_custom_custom_i8_i32( handle, start_thread, tid );
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -135,7 +171,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_dnn_laye
   return status;
 }
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_layer* handle, int start_thread, int tid)
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -173,7 +209,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_layer* h
   return status;
 }
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs_dnn_layer* handle, int start_thread, int tid)
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 

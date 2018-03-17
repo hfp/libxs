@@ -68,11 +68,16 @@
 /** Helper macro for BLAS-style prefixes. */
 #define LIBXS_TPREFIX_NAME(TYPE) LIBXS_CONCATENATE(LIBXS_TPREFIX_, TYPE)
 #define LIBXS_TPREFIX(TYPE, SYMBOL) LIBXS_CONCATENATE(LIBXS_TPREFIX_NAME(TYPE), SYMBOL)
-#define LIBXS_TPREFIX_double d
-#define LIBXS_TPREFIX_float s
-#define LIBXS_TPREFIX_short w
+#define LIBXS_TPREFIX_doubledouble d
+#define LIBXS_TPREFIX_floatfloat s
+#define LIBXS_TPREFIX_shortfloat ws
+#define LIBXS_TPREFIX_shortint wi
+/** Defaults if only the input type is specified. */
+#define LIBXS_TPREFIX_double LIBXS_TPREFIX_doubledouble
+#define LIBXS_TPREFIX_float LIBXS_TPREFIX_floatfloat
+#define LIBXS_TPREFIX_short LIBXS_TPREFIX_shortint
 
-/** Helper macro for comparing types. */
+/** Helper macro for comparing selected types. */
 #define LIBXS_EQUAL_CHECK(...) LIBXS_SELECT_HEAD(__VA_ARGS__, 0)
 #define LIBXS_EQUAL(T1, T2) LIBXS_EQUAL_CHECK(LIBXS_CONCATENATE2(LIBXS_EQUAL_, T1, T2))
 #define LIBXS_EQUAL_floatfloat 1
@@ -152,6 +157,12 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
 #define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
 
+/* Construct prefix names, function type or dispatch function from given input and output types. */
+#define LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE)    LIBXS_MMFUNCTION_TYPE(LIBXS_CONCATENATE(ITYPE, OTYPE))
+#define LIBXS_MMDISPATCH_SYMBOL2(ITYPE, OTYPE)  LIBXS_MMDISPATCH_SYMBOL(LIBXS_CONCATENATE(ITYPE, OTYPE))
+#define LIBXS_TPREFIX_NAME2(ITYPE, OTYPE)       LIBXS_TPREFIX_NAME(LIBXS_CONCATENATE(ITYPE, OTYPE))
+#define LIBXS_TPREFIX2(ITYPE, OTYPE, SYMBOL)    LIBXS_TPREFIX(LIBXS_CONCATENATE(ITYPE, OTYPE), SYMBOL)
+
 #if defined(LIBXS_GEMM_CONST)
 # undef LIBXS_GEMM_CONST
 # define LIBXS_GEMM_CONST const
@@ -169,7 +180,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
 # endif
 #endif
 #if !defined(LIBXS_GEMM_SYMBOL_VISIBILITY)
-# define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_VISIBILITY_IMPORT
+# define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
 #endif
 
 #define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE) LIBXS_GEMM_SYMBOL_VISIBILITY \
@@ -192,16 +203,17 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (template). */
 #if !defined(__BLAS) || (0 != __BLAS)
-# define LIBXS_BLAS_XGEMM(TYPE, FLAGS, MM, NN, KK, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-    const char libxs_blas_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'N' : 'T'); \
-    const char libxs_blas_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'N' : 'T'); \
+# define LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+    /* 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
+    const char libxs_blas_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'n' : 'T'); \
+    const char libxs_blas_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'n' : 'T'); \
     const TYPE libxs_blas_xgemm_alpha_ = (TYPE)(ALPHA), libxs_blas_xgemm_beta_ = (TYPE)(BETA); \
     const libxs_blasint libxs_blas_xgemm_lda_ = (libxs_blasint)(LDA); \
     const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)(LDB); \
     const libxs_blasint libxs_blas_xgemm_ldc_ = (libxs_blasint)(LDC); \
-    const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)(MM); \
-    const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)(NN); \
-    const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(KK); \
+    const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)(M); \
+    const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)(N); \
+    const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(K); \
     LIBXS_ASSERT(0 != ((uintptr_t)LIBXS_ORIGINAL_GEMM(TYPE))); \
     LIBXS_ORIGINAL_GEMM(TYPE)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
       &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
@@ -294,16 +306,6 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
 #else
 # define LIBXS_FALLBACK1(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
     LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-#endif
-
-#if defined(__cplusplus) /** Fall-back from JIT inside of libxs_mmfunction (C++). */ \
-  && (defined(LIBXS_FALLBACK_MMFUNCTION) || !defined(NDEBUG)/*debug code*/) \
-  /* there are no individual fall-back requests for single or double-precision */ \
-  && !defined(LIBXS_FALLBACK_SMMFUNCTION) && !defined(LIBXS_FALLBACK_DMMFUNCTION) \
-  /* there is no request to avoid falling back */ \
-  && !defined(LIBXS_FALLBACK_MMFUNCTION_NONE)
-# define LIBXS_FALLBACK_SMMFUNCTION
-# define LIBXS_FALLBACK_DMMFUNCTION
 #endif
 
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
@@ -414,64 +416,5 @@ LIBXS_API void libxs_gemm_dprint2(void* ostream,
   double dalpha, const void* a, libxs_blasint lda,
   const void* b, libxs_blasint ldb,
   double dbeta, void* c, libxs_blasint ldc);
-
-/**
- * Structure of differences with matrix norms according
- * to http://www.netlib.org/lapack/lug/node75.html).
- */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_matdiff_info {
-  /** One-norm */         double norm1_abs, norm1_rel;
-  /** Infinity-norm */    double normi_abs, normi_rel;
-  /** Froebenius-norm */  double normf_rel;
-  /** L1-norm and L2-norm of differences. */
-  double l2_abs, l2_rel, l1_ref, l1_tst;
-  /** Maximum absolute and relative error. */
-  double linf_abs, linf_rel;
-  /** Location of maximum error (m, n). */
-  libxs_blasint linf_abs_m, linf_abs_n;
-} libxs_matdiff_info;
-
-/** Utility function to calculate the difference between two matrices. */
-LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blasint n,
-  const void* ref, const void* tst, const libxs_blasint* ldref, const libxs_blasint* ldtst,
-  libxs_matdiff_info* info);
-
-LIBXS_API_INLINE void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input) {
-  LIBXS_ASSERT(0 != output && 0 != input);
-  if (output->normf_rel < input->normf_rel) {
-    output->linf_abs_m = input->linf_abs_m;
-    output->linf_abs_n = input->linf_abs_n;
-    output->norm1_abs = input->norm1_abs;
-    output->norm1_rel = input->norm1_rel;
-    output->normi_abs = input->normi_abs;
-    output->normi_rel = input->normi_rel;
-    output->normf_rel = input->normf_rel;
-    output->linf_abs = input->linf_abs;
-    output->linf_rel = input->linf_rel;
-    output->l2_abs = input->l2_abs;
-    output->l2_rel = input->l2_rel;
-    output->l1_ref = input->l1_ref;
-    output->l1_tst = input->l1_tst;
-  }
-}
-
-/* Implementation is taken from an anonymous GitHub Gist. */
-LIBXS_API_INLINE unsigned int libxs_cbrt_u64(unsigned long long n) {
-  unsigned long long b; unsigned int y = 0; int s;
-  for (s = 63; s >= 0; s -= 3) {
-    y += y; b = 3 * y * ((unsigned long long)y + 1) + 1;
-    if (b <= (n >> s)) { n -= b << s; ++y; }
-  }
-  return y;
-}
-
-LIBXS_API_INLINE unsigned int libxs_cbrt_u32(unsigned int n) {
-  unsigned int b; unsigned int y = 0; int s;
-  for (s = 31; s >= 0; s -= 3) {
-    y += y; b = 3 * y * (y + 1) + 1;
-    if (b <= (n >> s)) { n -= b << s; ++y; }
-  }
-  return y;
-}
 
 #endif /*LIBXS_FRONTEND_H*/

@@ -443,10 +443,11 @@ LIBXS_API void libxs_bgemm(const libxs_bgemm_handle* handle,
 #         include "template/libxs_bgemm.tpl.c"
 #         undef LIBXS_BGEMM_TEMPLATE_REAL_TYPE_C
         }
-        else {
+        else { /* WSMM */
 #         define LIBXS_BGEMM_TEMPLATE_REAL_TYPE_C float
 #         include "template/libxs_bgemm.tpl.c"
 #         undef LIBXS_BGEMM_TEMPLATE_REAL_TYPE_C
+          LIBXS_ASSERT(LIBXS_GEMM_PRECISION_F32 == handle->oprec);
         }
 #       undef LIBXS_BGEMM_TEMPLATE_REAL_TYPE_AB
       } break;

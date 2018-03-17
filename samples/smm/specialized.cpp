@@ -26,9 +26,6 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#if !defined(NDEBUG) && (defined(__CYGWIN__) || defined(_WIN32))
-# define LIBXS_FALLBACK_MMFUNCTION
-#endif
 #include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -136,7 +133,8 @@ int main(int argc, char* argv[])
         1.0 * (s * (asize + bsize + csize) * sizeof(T)) / (1 << 20),
         8 == sizeof(T) ? "DP" : "SP");
 
-      const libxs_mmfunction<T> xmm(LIBXS_GEMM_FLAGS(transa, transb), m, n, k, lda, ldb, ldc, alpha, beta);
+      const libxs_mmfunction<T> xmm(LIBXS_GEMM_FLAGS(transa, transb),
+                  m, n, k, lda, ldb, ldc, alpha, beta, LIBXS_PREFETCH);
       if (!xmm) throw "no specialized routine found!";
 
       // arrays needed for the batch interface (indirect)

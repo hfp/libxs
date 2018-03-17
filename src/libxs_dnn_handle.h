@@ -32,8 +32,8 @@
 #include <libxs_dnn.h>
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dnn_layer* handle );
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dnn_layer* handle );
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_check( libxs_dnn_layer* handle );
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_check( libxs_dnn_layer* handle );
 
 #endif /* LIBXS_DNN_HANDLE_H */

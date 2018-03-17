@@ -191,7 +191,7 @@ typedef enum libxs_dnn_conv_algo {
   LIBXS_DNN_CONV_ALGO_AUTO,
   /** direct convolution. */
   LIBXS_DNN_CONV_ALGO_DIRECT,
-  /** winograd convolution. */
+  /** Winograd convolution. */
   LIBXS_DNN_CONV_ALGO_WINOGRAD
 } libxs_dnn_conv_algo;
 
@@ -246,9 +246,9 @@ typedef union LIBXS_RETARGETABLE libxs_intfloat {
 
 /* DFP16 masking defines */
 #define LIBXS_DNN_MANT_DFP16         15
-#define LIXSMMM_DNN_RES_DFP16          (pow(2,-(LIBXS_DNN_MANT_DFP16)))
+#define LIXSMMM_DNN_RES_DFP16          (libxs_sexp2(-(LIBXS_DNN_MANT_DFP16)))
 
-/* Qunatization Rounding Defines */
+/* Quantization Rounding Defines */
 #define LIBXS_DNN_QUANT_NO_ROUND       80000
 #define LIBXS_DNN_QUANT_BIAS_ROUND     80001
 #define LIBXS_DNN_QUANT_STOCH_ROUND    80002
@@ -264,7 +264,7 @@ LIBXS_API size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype);
 LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(libxs_dnn_conv_desc conv_desc, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* handle);
 
-/** get layout description of buffers and fiters from handle */
+/** get layout description of buffers and filters from handle */
 LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const libxs_dnn_layer* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_duplicate_tensor_datalayout(const libxs_dnn_tensor_datalayout* layout, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_tensor_datalayout(libxs_dnn_tensor_datalayout* layout);
@@ -317,88 +317,4 @@ LIBXS_API void libxs_dnn_quantize_act( float* in_buffer, short* out_buffer, unsi
 LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsigned int K, unsigned int C, unsigned int R, unsigned int S, unsigned int cblk_f32, unsigned int cblk_i16, unsigned int kblk_f32, unsigned int kblk_i16, unsigned int lp_blk, unsigned char add_shift, unsigned char* scf, int round_mode );
 LIBXS_API void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int length, unsigned char scf );
 
-#if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API) /* Internal API */
-/** Function type used for convolutions (single-precision); the actual signature depends on the kind of convolution. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sconvfunction)(
-  const float* input1, const float* input2, float* output,
-  const float* ipf1, const float* ipf2, const float* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction)(
-  const short* input1, const short* input2, int* output,
-  const short* ipf1, const short* ipf2, const int* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_wsconvfunction)(
-  const short* input1, const short* input2, float* output,
-  const short* ipf1, const short* ipf2, const float* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_uwsconvfunction)(
-  short* input1, float* input2, short* output,
-  short* ipf1, float* ipf2, short* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_bdbconvfunction)(
-  unsigned char* input1, int* input2, unsigned char* output,
-  unsigned char* ipf1, int* ipf2, unsigned char* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction)(
-  const unsigned char* input1, const char* input2, short* output,
-  const unsigned char* ipf1, const char* ipf2, const short* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction)(
-  const unsigned char* input1, const char* input2, int* output,
-  const unsigned char* ipf1, const char* ipf2, const int* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction_bwd)(
-  int* input1, const short* input2, const short* output,
-  const int* ipf1, const short* ipf2, const short* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction_bwd)(
-  const unsigned short* input1, const char* input2, const char* output,
-  const unsigned short* ipf1, const char* ipf2, const char* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction_bwd)(
-  const unsigned int* input1, const char* input2, const char* output,
-  const unsigned int* ipf1, const char* ipf2, const char* opf, ...);
-
-/** Function type which is either libxs_sconvfunction or libxs_wconvfunction (weak-typed). */
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_xconvfunction {
-  libxs_sconvfunction sconv;
-  libxs_wsconvfunction wsconv;
-  libxs_uwsconvfunction uwsconv;
-  libxs_wconvfunction wconv;
-  libxs_bdbconvfunction bdbconv;
-  libxs_busconvfunction busconv;
-  libxs_budconvfunction budconv;
-  libxs_wconvfunction_bwd wconvb;
-  libxs_busconvfunction_bwd busconvb;
-  libxs_budconvfunction_bwd budconvb;
-} libxs_xconvfunction;
-
-/** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
-LIBXS_API libxs_sconvfunction libxs_create_sconv_forward(const libxs_convolution_forward_descriptor* descriptor);
-
-/** Code generation routine for a backward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
-LIBXS_API libxs_sconvfunction libxs_create_sconv_backward(const libxs_convolution_backward_descriptor* descriptor);
-
-/** Code generation routine for a convolution kernel as specified by descriptor. */
-LIBXS_API libxs_sconvfunction libxs_create_sconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor);
-
-/** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
-LIBXS_API void* libxs_create_xconv_forward(const libxs_convolution_forward_descriptor* descriptor);
-
-/** Code generation routine for a backward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
-LIBXS_API void* libxs_create_xconv_backward(const libxs_convolution_backward_descriptor* descriptor);
-
-/** Code generation routine for a convolution kernel as specified by descriptor. */
-LIBXS_API void* libxs_create_xconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor);
-
-/** Code generation routine for a forward-convolution winograd kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
-LIBXS_API void* libxs_create_xconv_wino_forward(const libxs_convolution_winograd_descriptor* descriptor);
-
-/** Code generation routine for a backward-convolution winograd kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
-LIBXS_API void* libxs_create_xconv_wino_backward(const libxs_convolution_winograd_descriptor* descriptor);
-
-/** Code generation routine for a weight-update-convolution winograd kernel as specified by descriptor. */
-LIBXS_API void* libxs_create_xconv_wino_update_weights(const libxs_convolution_winograd_descriptor* descriptor);
-
-#endif
 #endif /*LIBXS_DNN_H*/
