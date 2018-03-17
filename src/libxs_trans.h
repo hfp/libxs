@@ -169,10 +169,10 @@
 
 
 /** Initializes the transpose functionality; NOT thread-safe. */
-LIBXS_API void libxs_trans_init(int archid);
+LIBXS_API_INTERN void libxs_trans_init(int archid);
 
 /** Finalizes the transpose functionality; NOT thread-safe. */
-LIBXS_API void libxs_trans_finalize(void);
+LIBXS_API_INTERN void libxs_trans_finalize(void);
 
 
 /** Determines whether JIT-kernels are used or not (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */

@@ -347,7 +347,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_dnn_convolve_winograd_st_bwd_custom_custom_
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -432,7 +432,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_dnn_convolve_winograd_st_bwd_nhwc_custom_al
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_custom(libxs_dnn_layer* handle, int start_thread, int tid)
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -496,7 +496,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_bwd_nhwc_custom(libxs_d
 }
 
 
-LIBXS_API void libxs_dnn_convolve_winograd_bwd_init(int target_arch)
+LIBXS_API_INTERN void libxs_dnn_convolve_winograd_bwd_init(int target_arch)
 {
   if (LIBXS_X86_AVX512 <= target_arch) {
     internal_bwd_input_transform_custom_custom_alpha6 = internal_bwd_input_transform_custom_custom_alpha6_avx512;
@@ -523,7 +523,7 @@ LIBXS_API void libxs_dnn_convolve_winograd_bwd_init(int target_arch)
 }
 
 
-LIBXS_API void libxs_dnn_convolve_winograd_bwd_finalize(void)
+LIBXS_API_INTERN void libxs_dnn_convolve_winograd_bwd_finalize(void)
 {
 }
 

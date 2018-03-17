@@ -59,14 +59,14 @@
 #endif
 
 
-LIBXS_API void libxs_dnn_init(int target_arch)
+LIBXS_API_INTERN void libxs_dnn_init(int target_arch)
 {
   libxs_dnn_convolve_winograd_fwd_init(target_arch);
   libxs_dnn_convolve_winograd_bwd_init(target_arch);
 }
 
 
-LIBXS_API void libxs_dnn_finalize(void)
+LIBXS_API_INTERN void libxs_dnn_finalize(void)
 {
   libxs_dnn_convolve_winograd_fwd_finalize();
   libxs_dnn_convolve_winograd_bwd_finalize();
@@ -296,30 +296,22 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* ha
           libxs_target_archid == LIBXS_X86_AVX512_KNM  ||
           libxs_target_archid == LIBXS_X86_AVX512_CORE ||
           libxs_target_archid == LIBXS_X86_AVX512_ICL    ) ) {
-      if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
+#if 0
+     if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
         libxs_free(handle->code_fwd[0].pmm);
       }
       libxs_free(handle->code_fwd[1].pmm);
       libxs_free(handle->code_fwd[2].pmm);
-      libxs_free(handle->code_fwd[3].pmm);
       if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
         libxs_free(handle->code_bwd[0].pmm);
       }
-      if ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) {
-        libxs_free(handle->code_bwd[1].pmm);
-        libxs_free(handle->code_bwd[2].pmm);
-        libxs_free(handle->code_bwd[3].pmm);
-      }
+      libxs_free(handle->code_bwd[1].pmm);
+      libxs_free(handle->code_bwd[2].pmm);
       if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
         libxs_free(handle->code_upd[0].pmm);
       }
-      if ((handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)) {
-        libxs_free(handle->code_upd[1].pmm);
-        libxs_free(handle->code_upd[2].pmm);
-        libxs_free(handle->code_upd[3].pmm);
-        libxs_free(handle->code_upd[4].pmm);
-        libxs_free(handle->code_upd[5].pmm);
-      }
+      libxs_free(handle->code_upd[1].pmm);
+#endif
     } else {
       /* no kernel was JITed */
     }
@@ -327,11 +319,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* ha
     /* Deallocate barrier */
     if (handle->barrier != 0 ) { libxs_barrier_release((const libxs_barrier*)handle->barrier); }
 
-    /*Deallocate scratch in handle*/
-    libxs_free(handle->scratch1);
-    libxs_free(handle->scratch3);
-    libxs_free(handle->scratch4);
-
+#if 0
     /* Deallocate per-thread jitted data structures */
     if ( handle->use_thread_private_jit ) {
 
@@ -347,19 +335,37 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* ha
         if ( handle->fwd_code_segments[loop] != NULL ) {
           libxs_free( handle->fwd_code_segments[loop] );
         }
-        /* Bwd related arrays  */
-        if ( handle->compute_bwd_indices_ptrs[loop] != NULL ) {
-          libxs_free( handle->compute_bwd_indices_ptrs[loop] );
+        if (handle->exploit_duality == 1) {
+          /* Bwd related arrays  */
+          if ( handle->compute_bwd_indices_ptrs[loop] != NULL ) {
+            libxs_free( handle->compute_bwd_indices_ptrs[loop] );
+          }
+          if ( handle->kernel_bwd_variant_ptrs[loop] != NULL ) {
+            libxs_free( handle->kernel_bwd_variant_ptrs[loop] );
+          }
+          if ( handle->bwd_code_segments[loop] != NULL ) {
+            libxs_free( handle->bwd_code_segments[loop] );
+          }
+          if ( handle->transpose_bwd_indices_ptrs[loop] != NULL ) {
+            libxs_free( handle->transpose_bwd_indices_ptrs[loop] );
+          }
         }
-        if ( handle->kernel_bwd_variant_ptrs[loop] != NULL ) {
-          libxs_free( handle->kernel_bwd_variant_ptrs[loop] );
+        /* Upd related arrays */
+        if ( handle->compute_upd_indices_ptrs[loop] != NULL ) {
+          libxs_free( handle->compute_upd_indices_ptrs[loop] );
         }
-        if ( handle->bwd_code_segments[loop] != NULL ) {
-          libxs_free( handle->bwd_code_segments[loop] );
+        if ( handle->init_upd_indices_ptrs[loop] != NULL ) {
+          libxs_free( handle->init_upd_indices_ptrs[loop] );
         }
-        if ( handle->transpose_bwd_indices_ptrs[loop] != NULL ) {
-          libxs_free( handle->transpose_bwd_indices_ptrs[loop] );
+        if ( handle->kernel_upd_variant_ptrs[loop] != NULL ) {
+          libxs_free( handle->kernel_upd_variant_ptrs[loop] );
         }
+        if ( handle->upd_code_segments[loop] != NULL ) {
+          libxs_free( handle->upd_code_segments[loop] );
+        }
+        if ( handle->copy_upd_indices_ptrs[loop] != NULL ) {
+          libxs_free( handle->copy_upd_indices_ptrs[loop] );
+        }     
       }
 
       /* Free shared arrays  */
@@ -370,17 +376,27 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* ha
       free( handle->ofh_fwd_start );
       free( handle->ofh_fwd_end );
 
-      free( handle->compute_bwd_indices_ptrs );
-      free( handle->kernel_bwd_variant_ptrs );
-      free( handle->n_entries_bwd );
-      free( handle->n_bwd_code_segments );
-      free( handle->ofh_bwd_start );
-      free( handle->ofh_bwd_end );
-      free( handle->transpose_bwd_indices_ptrs );
-    }
+      if (handle->exploit_duality == 1) {
+        free( handle->compute_bwd_indices_ptrs );
+        free( handle->kernel_bwd_variant_ptrs );
+        free( handle->n_entries_bwd );
+        free( handle->n_bwd_code_segments );
+        free( handle->ofh_bwd_start );
+        free( handle->ofh_bwd_end );
+        free( handle->transpose_bwd_indices_ptrs );
+      }
+      free( handle->compute_upd_indices_ptrs );
+      free( handle->kernel_upd_variant_ptrs );
+      free( handle->n_entries_upd );
+      free( handle->n_entries_init_upd );   
+      free( handle->n_upd_code_segments );
+      free( handle->upd_code_segments );
+      free( handle->init_upd_indices_ptrs );
+      free( handle->n_entries_copy_upd );   
+      free( handle->copy_upd_indices_ptrs );
 
-    if (handle->padding_flag) libxs_free(handle->scratch5);
-    if (handle->use_lp_kernel == 1) libxs_free(handle->scratch6);
+    }
+#endif
 
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_layer*)handle);
@@ -2443,7 +2459,7 @@ LIBXS_API short libxs_internal_quantize_scalar_no_scf( float input, unsigned cha
       /* stochastic rounding, as implemented in the IBM paper from 2015, @TODO, fix F64 and DFP8 */
       float p, q;
       libxs_intfloat fvalue;
-      float eps = (float)LIXSMMM_DNN_RES_DFP16;
+      float eps = LIXSMMM_DNN_RES_DFP16;
       /* masking all bits which will be shifted out */
       fvalue.ui = value.ui & ((LIBXS_DNN_MASK_FULL_F32) << rhs);
       /* drawing a random number */
@@ -2475,7 +2491,7 @@ LIBXS_API void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int leng
     float scfq = 0.0f;
     frexpf(max, &maxexp);
     maxexp -= (15-add_shift);
-    scfq = (float)pow(2.0, (double)-maxexp);
+    scfq = libxs_sexp2((float)-maxexp);
 
 #if defined(__AVX512F__)
     if ( length % 16 == 0 ) {
@@ -2543,7 +2559,7 @@ LIBXS_API void libxs_dnn_quantize_act( float* in_buffer, short* out_buffer, unsi
     float scfq = 0.0f;
     frexpf(max, &maxexp);
     maxexp -= (15-add_shift);
-    scfq = (float)pow(2.0, (double)-maxexp);
+    scfq = libxs_sexp2((float)-maxexp);
 
 #if defined(__AVX512F__)
     if ( (cblk_f32 == 16) && (cblk_i16*lp_blk == 16) ) {
@@ -2645,7 +2661,7 @@ LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsi
     float scfq = 0.0f;
     frexpf(max, &maxexp);
     maxexp -= (15-add_shift);
-    scfq = (float)pow(2.0, (double)-maxexp);
+    scfq = libxs_sexp2((float)-maxexp);
 
 #if defined(__AVX512F__)
     if ( (kblk_f32 == 16) && (cblk_f32 == 16) && (kblk_i16 == 16) && (cblk_i16*lp_blk == 16) ) {
@@ -2749,7 +2765,7 @@ LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsi
 
 LIBXS_API void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int length, unsigned char scf ) {
   int i = 0;
-  float exp = pow(2.0, -scf);
+  float exp = libxs_sexp2(-scf);
 
 #ifdef _OPENMP
 #pragma omp parallel for private(i)
@@ -2760,212 +2776,156 @@ LIBXS_API void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int le
 }
 
 
-#if defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)
-
-LIBXS_API libxs_sconvfunction libxs_create_sconv_forward(
-    const libxs_convolution_forward_descriptor* descriptor)
+LIBXS_API_INTERN libxs_sconvfunction libxs_create_sconv_forward(const libxs_convolution_forward_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-    if (0 != descriptor) {
-      libxs_build_request request;
-      request.descriptor.cfwd = descriptor;
-      request.kind = LIBXS_BUILD_KIND_CFWD;
-      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-    }
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cfwd = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CFWD;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
+  }
 #if !defined(NDEBUG) /* library code is expected to be mute */
-    else {
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
-      }
+  else {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
     }
+  }
 #endif
   return code.xconv.sconv;
 }
 
 
-LIBXS_API libxs_sconvfunction libxs_create_sconv_backward(
-    const libxs_convolution_backward_descriptor* descriptor)
+LIBXS_API_INTERN libxs_sconvfunction libxs_create_sconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-    if (0 != descriptor) {
-      libxs_build_request request;
-      request.descriptor.cbwd = descriptor;
-      request.kind = LIBXS_BUILD_KIND_CBWD;
-      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-    }
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cupd = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CUPD;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
+  }
 #if !defined(NDEBUG) /* library code is expected to be mute */
-    else {
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
-      }
+  else {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
     }
+  }
 #endif
   return code.xconv.sconv;
 }
 
 
-LIBXS_API libxs_sconvfunction libxs_create_sconv_update_weights(
-    const libxs_convolution_weight_update_descriptor* descriptor)
+LIBXS_API_INTERN void* libxs_create_xconv_forward(const libxs_convolution_forward_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-    if (0 != descriptor) {
-      libxs_build_request request;
-      request.descriptor.cupd = descriptor;
-      request.kind = LIBXS_BUILD_KIND_CUPD;
-      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-    }
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cfwd = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CFWD;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
+  }
 #if !defined(NDEBUG) /* library code is expected to be mute */
-    else {
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
-      }
+  else {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
     }
-#endif
-  return code.xconv.sconv;
-}
-
-
-LIBXS_API void* libxs_create_xconv_forward(
-    const libxs_convolution_forward_descriptor* descriptor)
-{
-  libxs_code_pointer code = { 0 };
-  LIBXS_INIT
-    if (0 != descriptor) {
-      libxs_build_request request;
-      request.descriptor.cfwd = descriptor;
-      request.kind = LIBXS_BUILD_KIND_CFWD;
-      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-    }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-    else {
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
-      }
-    }
+  }
 #endif
   return code.pmm;
 }
 
 
-LIBXS_API void* libxs_create_xconv_backward(
-    const libxs_convolution_backward_descriptor* descriptor)
+LIBXS_API_INTERN void* libxs_create_xconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-    if (0 != descriptor) {
-      libxs_build_request request;
-      request.descriptor.cbwd = descriptor;
-      request.kind = LIBXS_BUILD_KIND_CBWD;
-      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-    }
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cupd = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CUPD;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
+  }
 #if !defined(NDEBUG) /* library code is expected to be mute */
-    else {
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
-      }
+  else {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
     }
+  }
 #endif
   return code.pmm;
 }
 
 
-LIBXS_API void* libxs_create_xconv_update_weights(
-    const libxs_convolution_weight_update_descriptor* descriptor)
+LIBXS_API_INTERN void* libxs_create_xconv_wino_forward(const libxs_convolution_winograd_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-    if (0 != descriptor) {
-      libxs_build_request request;
-      request.descriptor.cupd = descriptor;
-      request.kind = LIBXS_BUILD_KIND_CUPD;
-      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-    }
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cwino = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CWFWD;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
+  }
 #if !defined(NDEBUG) /* library code is expected to be mute */
-    else {
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
-      }
+  else {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
     }
+  }
 #endif
   return code.pmm;
 }
 
 
-LIBXS_API void* libxs_create_xconv_wino_forward(
-    const libxs_convolution_winograd_descriptor* descriptor)
+LIBXS_API_INTERN void* libxs_create_xconv_wino_backward(const libxs_convolution_winograd_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-    if (0 != descriptor) {
-      libxs_build_request request;
-      request.descriptor.cwino = descriptor;
-      request.kind = LIBXS_BUILD_KIND_CWFWD;
-      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-    }
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cwino = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CWBWD;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
+  }
 #if !defined(NDEBUG) /* library code is expected to be mute */
-    else {
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: invalid descriptor (forward convolution)!\n");
-      }
+  else {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
     }
+  }
 #endif
   return code.pmm;
 }
 
 
-LIBXS_API void* libxs_create_xconv_wino_backward(
-    const libxs_convolution_winograd_descriptor* descriptor)
+LIBXS_API_INTERN void* libxs_create_xconv_wino_update_weights(const libxs_convolution_winograd_descriptor* descriptor)
 {
   libxs_code_pointer code = { 0 };
   LIBXS_INIT
-    if (0 != descriptor) {
-      libxs_build_request request;
-      request.descriptor.cwino = descriptor;
-      request.kind = LIBXS_BUILD_KIND_CWBWD;
-      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-    }
+  if (0 != descriptor) {
+    libxs_build_request request;
+    request.descriptor.cwino = descriptor;
+    request.kind = LIBXS_BUILD_KIND_CWUPD;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
+  }
 #if !defined(NDEBUG) /* library code is expected to be mute */
-    else {
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: invalid descriptor (backward convolution)!\n");
-      }
+  else {
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
     }
+  }
 #endif
   return code.pmm;
 }
 
-
-LIBXS_API void* libxs_create_xconv_wino_update_weights(
-    const libxs_convolution_winograd_descriptor* descriptor)
-{
-  libxs_code_pointer code = { 0 };
-  LIBXS_INIT
-    if (0 != descriptor) {
-      libxs_build_request request;
-      request.descriptor.cwino = descriptor;
-      request.kind = LIBXS_BUILD_KIND_CWUPD;
-      libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &code);
-    }
-#if !defined(NDEBUG) /* library code is expected to be mute */
-    else {
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: invalid convolution descriptor (weight update)!\n");
-      }
-    }
-#endif
-  return code.pmm;
-}
-
-#endif /*defined(LIBXS_BUILD) || defined(LIBXS_DNN_INTERNAL_API)*/

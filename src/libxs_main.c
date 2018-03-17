@@ -568,7 +568,7 @@ LIBXS_API_INLINE void internal_init(void)
       }
 #endif
     }
-    internal_statistic_mnk = libxs_cbrt_u64(LIBXS_MAX_MNK);
+    internal_statistic_mnk = libxs_icbrt_u32(LIBXS_MAX_MNK);
     internal_statistic_sml = 13;
     internal_statistic_med = 23;
 #if defined(LIBXS_TRACE)
@@ -714,8 +714,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       once = 1;
     }
     else while (1) {
-      if (0 != once) break;
-      else LIBXS_SYNC_PAUSE;
+      if (0 != once) break; else { LIBXS_SYNC_PAUSE; }
     }
 #endif
     internal_init();
@@ -1018,7 +1017,7 @@ LIBXS_API void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type strategy)
 }
 
 
-LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype)
+LIBXS_API_INTERN unsigned char libxs_typesize(libxs_datatype datatype)
 {
   switch (datatype) {
     case LIBXS_DATATYPE_F64: return 8;
@@ -1040,7 +1039,18 @@ LIBXS_API_INLINE const char* internal_get_typename(int datatype)
     case LIBXS_DATATYPE_I16: return "i16";
     case LIBXS_DATATYPE_I8:  return "i8";
   }
-  return "void";
+  if ( LIBXS_GEMM_PRECISION_I16 == LIBXS_GETENUM_INP( datatype ) && LIBXS_GEMM_PRECISION_I32 == LIBXS_GETENUM_OUT( datatype ) ) {
+    return "i16i32";
+  }
+  else if ( LIBXS_GEMM_PRECISION_I16 == LIBXS_GETENUM_INP( datatype ) && LIBXS_GEMM_PRECISION_F32 == LIBXS_GETENUM_OUT( datatype ) ) {
+    return "i16f32";
+  }
+  else if ( LIBXS_GEMM_PRECISION_I8 == LIBXS_GETENUM_INP( datatype ) && LIBXS_GEMM_PRECISION_I32 == LIBXS_GETENUM_OUT( datatype ) ) {
+    return "i8i32";
+  }
+  else {
+    return "void";
+  }
 }
 
 
@@ -1058,7 +1068,7 @@ LIBXS_API_INLINE const char* internal_get_typesize_string(size_t typesize)
 }
 
 
-LIBXS_API int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code)
+LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code)
 {
   int result = EXIT_SUCCESS;
 #if !defined(__MIC__)
@@ -1209,35 +1219,6 @@ LIBXS_API int libxs_build(const libxs_build_request* request, unsigned int regin
             (unsigned int)request->descriptor.cfwd->ofh_rb/*register block ofh*/,
             (int)request->descriptor.cfwd->prefetch/*binary OR'd prefetch flags*/,
             (int)request->descriptor.cfwd->format/*binary OR'd format flags*/);
-        }
-      }
-    } break;
-    case LIBXS_BUILD_KIND_CBWD: { /* backward convolution */
-      assert(0 != request->descriptor.cbwd);
-      if (0 < request->descriptor.cbwd->kw && 0 < request->descriptor.cbwd->kh &&
-          0 != request->descriptor.cbwd->stride_w && 0 != request->descriptor.cbwd->stride_h)
-      {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_convolution_backward_kernel, &generated_code, request->descriptor.cbwd, target_arch);
-# if !defined(LIBXS_VTUNE)
-        if (0 > libxs_verbosity)
-# endif
-        {
-          const char *const precision_in = internal_get_typename(request->descriptor.cbwd->datatype);
-          const char *const precision_out = internal_get_typename(request->descriptor.cbwd->datatype_itm);
-          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_bwd_%s_%s_%ux%u_%ux%uu_s%ii%io_vl%ui%uo_ri%ux%u_ro%ux%u_r%ux%u_p%i_f%i.conv",
-            target_arch/*code path name*/, precision_in, precision_out,
-            (unsigned int)request->descriptor.cbwd->kw/*kernel width*/, (unsigned int)request->descriptor.cbwd->kh/*kernel height*/,
-            (unsigned int)request->descriptor.cbwd->unroll_kw/*width*/, (unsigned int)request->descriptor.cbwd->unroll_kh/*height*/,
-            (int)request->descriptor.cbwd->stride_w/*input offset*/, (int)request->descriptor.cbwd->stride_h/*output offsets*/,
-            (unsigned int)request->descriptor.cbwd->ifm_block/*VLEN*/, (unsigned int)request->descriptor.cbwd->ofm_block/*VLEN*/,
-            (unsigned int)request->descriptor.cbwd->ifw_padded, (unsigned int)request->descriptor.cbwd->ifh_padded,
-            (unsigned int)request->descriptor.cbwd->ofw_padded/*1D and 2D register block*/,
-            (unsigned int)request->descriptor.cbwd->ofh_padded/*2D register block*/,
-            (unsigned int)request->descriptor.cbwd->ofw_rb/*register block ofw*/,
-            (unsigned int)request->descriptor.cbwd->ofh_rb/*register block ofh*/,
-            (int)request->descriptor.cbwd->prefetch/*binary OR'd prefetch flags*/,
-            (int)request->descriptor.cbwd->format/*binary OR'd format flags*/);
         }
       }
     } break;
@@ -1446,7 +1427,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
   unsigned int cache_index;
   assert(0 != descriptor);
   /* search small cache starting with the last hit on record */
-  cache_index = libxs_gemm_diffn(descriptor, &cache.keys, cache.hit, LIBXS_CAPACITY_CACHE, LIBXS_DESCRIPTOR_SIZE);
+  cache_index = libxs_gemm_diffn(descriptor, &cache.keys, cache.hit, LIBXS_CAPACITY_CACHE, LIBXS_GEMM_DESCRIPTOR_SIZE);
   if ((LIBXS_CAPACITY_CACHE) > cache_index && cache.id == internal_teardown) { /* cache hit, and valid */
     flux_entry = cache.code[cache_index];
     cache.hit = cache_index;
@@ -1469,7 +1450,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
   {
     assert(0 != internal_registry);
     /* calculate registry location (and check if the requested code is already JITted) */
-    hash = libxs_crc32(descriptor, LIBXS_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
+    hash = libxs_crc32(descriptor, LIBXS_GEMM_DESCRIPTOR_SIZE, LIBXS_HASH_SEED);
     i = i0 = LIBXS_HASH_MOD(hash, LIBXS_CAPACITY_REGISTRY);
 
     while (0 != diff) {
@@ -1600,7 +1581,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
     refdesc = &internal_registry_keys[i].xgemm;
 #endif
   }
-  assert(0 == flux_entry.ptr_const || 0 == refdesc || 0 == memcmp(refdesc, descriptor, LIBXS_DESCRIPTOR_SIZE));
+  assert(0 == flux_entry.ptr_const || 0 == refdesc || 0 == memcmp(refdesc, descriptor, LIBXS_GEMM_DESCRIPTOR_SIZE));
 #if defined(LIBXS_HASH_COLLISION)
   flux_entry.uval &= ~(LIBXS_CODE_STATIC | LIBXS_HASH_COLLISION); /* clear non-JIT and collision flag */
 #else
@@ -1871,7 +1852,7 @@ LIBXS_API libxs_smmfunction libxs_smmdispatch(libxs_blasint m, libxs_blasint n, 
 }
 
 
-LIBXS_API libxs_wmmfunction libxs_wmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+LIBXS_API libxs_wimmfunction libxs_wimmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
   const int* alpha, const int* beta, const int* flags, const int* prefetch)
 {
@@ -1880,7 +1861,20 @@ LIBXS_API libxs_wmmfunction libxs_wmmdispatch(libxs_blasint m, libxs_blasint n, 
     0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
     0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
     0 == flags ? LIBXS_FLAGS : *flags, libxs_get_gemm_xprefetch(prefetch));
-  return libxs_xmmdispatch(desc).wmm;
+  return libxs_xmmdispatch(desc).wimm;
+}
+
+
+LIBXS_API libxs_wsmmfunction libxs_wsmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
+  const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_wsgemm_descriptor_init(&blob, m, n, k,
+    0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
+    0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
+    0 == flags ? LIBXS_FLAGS : *flags, libxs_get_gemm_xprefetch(prefetch));
+  return libxs_xmmdispatch(desc).wsmm;
 }
 
 
@@ -2061,79 +2055,6 @@ LIBXS_API void libxs_release_kernel(const void* jit_code)
       fprintf(stderr, "LIBXS ERROR: failed to release kernel!\n");
     }
   }
-}
-
-
-LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blasint n,
-  const void* ref, const void* tst, const libxs_blasint* ldref, const libxs_blasint* ldtst,
-  libxs_matdiff_info* info)
-{
-  int result = EXIT_SUCCESS;
-  if (0 != ref && 0 != tst && 0 != info) {
-    libxs_blasint mm = m, nn = n, ldr = (0 == ldref ? m : *ldref), ldt = (0 == ldtst ? m : *ldtst);
-    if (1 == n) { mm = ldr = ldt = 1; nn = m; } /* ensure row-vector shape to standardize results */
-    memset(info, 0, sizeof(*info)); /* nullify */
-    switch(datatype) {
-      case LIBXS_DATATYPE_F64: {
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE double
-#       include "template/libxs_matdiff.tpl.c"
-#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-      } break;
-      case LIBXS_DATATYPE_F32: {
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE float
-#       include "template/libxs_matdiff.tpl.c"
-#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-      } break;
-      case LIBXS_DATATYPE_I32: {
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE int
-#       include "template/libxs_matdiff.tpl.c"
-#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-      } break;
-      case LIBXS_DATATYPE_I16: {
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE short
-#       include "template/libxs_matdiff.tpl.c"
-#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-      } break;
-      case LIBXS_DATATYPE_I8: {
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE signed char
-#       include "template/libxs_matdiff.tpl.c"
-#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-      } break;
-      default: {
-        static int error_once = 0;
-        if (0 != libxs_verbosity /* library code is expected to be mute */
-         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-        {
-          fprintf(stderr, "LIBXS ERROR: unsupported data-type requested for libxs_matdiff!\n");
-        }
-        result = EXIT_FAILURE;
-      }
-    }
-  }
-  else {
-    result = EXIT_FAILURE;
-  }
-  if (EXIT_SUCCESS == result) { /* square-root without libm dependency */
-    int i;
-    if (0 < info->l2_abs) {
-      const double squared = info->l2_abs; info->l2_abs *= 0.5;
-      for (i = 0; i < 16; ++i) info->l2_abs = 0.5 * (info->l2_abs + squared / info->l2_abs);
-    }
-    if (0 < info->l2_rel) {
-      const double squared = info->l2_rel; info->l2_rel *= 0.5;
-      for (i = 0; i < 16; ++i) info->l2_rel = 0.5 * (info->l2_rel + squared / info->l2_rel);
-    }
-    if (0 < info->normf_rel) {
-      const double squared = info->normf_rel; info->normf_rel *= 0.5;
-      for (i = 0; i < 16; ++i) info->normf_rel = 0.5 * (info->normf_rel + squared / info->normf_rel);
-    }
-    if (1 == n) {
-      const libxs_blasint tmp = info->linf_abs_m;
-      info->linf_abs_m = info->linf_abs_n;
-      info->linf_abs_n = tmp;
-    }
-  }
-  return result;
 }
 
 

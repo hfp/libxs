@@ -28,21 +28,24 @@
 ******************************************************************************/
 #include <libxs_source.h>
 
+/* must match definitions in headeronly.c */
 #if !defined(REAL_TYPE)
-/* must correspond with definition in headeronly.c */
 # define REAL_TYPE double
+#endif
+#if !defined(REAL_OUT)
+# define REAL_OUT REAL_TYPE
 #endif
 
 
-LIBXS_EXTERN LIBXS_MMFUNCTION_TYPE(REAL_TYPE) mmdispatch(int m, int n, int k);
-LIBXS_EXTERN LIBXS_MMFUNCTION_TYPE(REAL_TYPE) mmdispatch(int m, int n, int k)
+LIBXS_EXTERN LIBXS_MMFUNCTION_TYPE2(REAL_TYPE, REAL_OUT) mmdispatch(int m, int n, int k);
+LIBXS_EXTERN LIBXS_MMFUNCTION_TYPE2(REAL_TYPE, REAL_OUT) mmdispatch(int m, int n, int k)
 {
-  LIBXS_MMFUNCTION_TYPE(REAL_TYPE) result;
+  LIBXS_MMFUNCTION_TYPE2(REAL_TYPE, REAL_OUT) result;
 #if defined(__cplusplus) /* C++ by chance: test libxs_mmfunction<> wrapper */
-  const libxs_mmfunction<REAL_TYPE> mmfunction(m, n, k);
-  result = mmfunction.kernel().LIBXS_TPREFIX(REAL_TYPE, mm);
+  const libxs_mmfunction<REAL_TYPE, REAL_OUT> mmfunction(m, n, k);
+  result = mmfunction.kernel().LIBXS_TPREFIX2(REAL_TYPE, REAL_OUT, mm);
 #else
-  result = LIBXS_MMDISPATCH_SYMBOL(REAL_TYPE)(m, n, k,
+  result = LIBXS_MMDISPATCH_SYMBOL2(REAL_TYPE, REAL_OUT)(m, n, k,
     NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/,
     NULL/*alpha*/, NULL/*beta*/,
     NULL/*flags*/, NULL/*prefetch*/);

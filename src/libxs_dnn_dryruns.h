@@ -31,15 +31,12 @@
 
 #include <libxs_dnn.h>
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct( libxs_dnn_layer* handle );
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_custom_custom( libxs_dnn_layer* handle );
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_nhwc_custom( libxs_dnn_layer* handle );
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_nhwc_rsck( libxs_dnn_layer* handle );
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct( libxs_dnn_layer* handle );
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_custom_custom( libxs_dnn_layer* handle );
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_nhwc_custom( libxs_dnn_layer* handle );
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_nhwc_rsck( libxs_dnn_layer* handle );
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_bwd_dryrun_direct( libxs_dnn_layer* handle );
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_bwd_dryrun_direct_custom_custom( libxs_dnn_layer* handle );
-
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct( libxs_dnn_layer* handle );
-LIBXS_API libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct_custom_custom( libxs_dnn_layer* handle );
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct( libxs_dnn_layer* handle );
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct_custom_custom( libxs_dnn_layer* handle );
 
 #endif /* LIBXS_DNN_DRYRUN_H */

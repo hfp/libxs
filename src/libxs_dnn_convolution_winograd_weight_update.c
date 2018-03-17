@@ -179,7 +179,7 @@ LIBXS_API_INLINE void internal_upd_delweight_transform(
 #endif
 }
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -263,7 +263,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_custom_custom(libxs
   return status;
 }
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_nhwc_custom(libxs_dnn_layer* handle, int start_thread, int tid)
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_nhwc_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 

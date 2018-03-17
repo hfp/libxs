@@ -104,14 +104,6 @@ ifneq (0,$(BETA))
 endif
 endif
 
-# determines if WGEMM should produce FP32
-# @TODO this is kind of hacky and we should find a better solutions
-WGEMM_FP32 ?= 0
-
-ifneq (0,$(WGEMM_FP32))
-  DFLAGS += -DLIBXS_WGEMM_USE_FP32_OUTPUT
-endif
-
 # Determines if the library is thread-safe
 THREADS ?= 1
 
@@ -217,7 +209,7 @@ include $(ROOTDIR)/Makefile.inc
 VERSION_MAJOR ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py 1)
 VERSION_MINOR ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py 2)
 VERSION_UPDATE ?= $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py 3)
-VERSION_API ?= $(VERSION_MAJOR).$(VERSION_MINOR)
+VERSION_API ?= $(VERSION_MAJOR)
 
 # target library for a broad range of systems
 ifneq (0,$(JIT))
@@ -277,14 +269,15 @@ HEADERS = $(wildcard $(SRCDIR)/template/*.c) $(wildcard $(SRCDIR)/*.h) \
           $(ROOTDIR)/include/libxs_intrinsics_x86.h \
           $(ROOTDIR)/include/libxs_macros.h \
           $(ROOTDIR)/include/libxs_malloc.h \
+          $(ROOTDIR)/include/libxs_math.h \
           $(ROOTDIR)/include/libxs_mhd.h \
           $(ROOTDIR)/include/libxs_spmdm.h \
           $(ROOTDIR)/include/libxs_sync.h \
           $(ROOTDIR)/include/libxs_timer.h \
           $(ROOTDIR)/include/libxs_typedefs.h
 SRCFILES_LIB = $(patsubst %,$(SRCDIR)/%, \
-          libxs_main.c libxs_cpuid_x86.c libxs_malloc.c libxs_python.c \
-          libxs_sync.c libxs_mhd.c libxs_timer.c libxs_perf.c \
+          libxs_main.c libxs_cpuid_x86.c libxs_malloc.c libxs_math.c libxs_sync.c \
+          libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
           libxs_gemm.c libxs_trans.c libxs_bgemm.c \
           libxs_spmdm.c libxs_fsspmdm.c \
           libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_handle.c \
@@ -327,6 +320,63 @@ ifneq (,$(strip $(FC)))
   FTNOBJS = $(BLDDIR)/intel64/libxs-mod.o $(BLDDIR)/mic/libxs-mod.o
 endif
 
+ifneq (0,$(JIT))
+ifneq (0,$(SYM))
+ifeq (,$(filter Darwin,$(UNAME)))
+  ifneq (0,$(PERF))
+    DFLAGS += -DLIBXS_PERF
+    ifneq (0,$(JITDUMP))
+      DFLAGS += -DLIBXS_PERF_JITDUMP
+    endif
+  endif
+  VTUNEROOT = $(shell env | grep VTUNE_AMPLIFIER | grep -m1 _DIR | cut -d= -f2-)
+  ifneq (,$(wildcard $(VTUNEROOT)/lib64/libjitprofiling.$(SLIBEXT)))
+    LIBJITPROFILING = $(BLDDIR)/jitprofiling/libjitprofiling.$(SLIBEXT)
+    OBJJITPROFILING = $(BLDDIR)/jitprofiling/*.o
+    DFLAGS += -DLIBXS_VTUNE
+    IFLAGS += -I$(VTUNEROOT)/include
+    ifneq (0,$(INTEL))
+      CXXFLAGS += -diag-disable 271
+      CFLAGS += -diag-disable 271
+    endif
+  endif
+endif
+endif
+endif
+
+information = \
+	$(info ================================================================================) \
+	$(info LIBXS $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py)) \
+	$(info --------------------------------------------------------------------------------) \
+	$(info $(GINFO)) \
+	$(info $(CINFO)) \
+	$(if $(strip $(FC)),$(info $(FINFO)),$(NULL)) \
+	$(info --------------------------------------------------------------------------------) \
+	$(if $(strip $(FC)),$(NULL),$(if $(strip $(FC_VERSION_STRING)), \
+	$(info Fortran Compiler $(FC_VERSION_STRING) is outdated!), \
+	$(info Fortran Compiler is missing: no Fortran interface is built!)) \
+	$(info ================================================================================)) \
+	$(if $(filter Windows_NT0,$(UNAME)$(STATIC)), \
+	$(info The shared link-time wrapper (libxsext) is not supported under Windows/Cygwin!) \
+	$(info ================================================================================), \
+	$(NULL)) \
+	$(if $(filter _0_,_$(BLAS_WARNING)_),$(NULL), \
+	$(info Building a shared library requires to link against BLAS since there is) \
+	$(info no runtime resolution/search for weak symbols implemented for this OS.)) \
+	$(if $(filter _0_,_$(BLAS)_), \
+	$(if $(filter _0_,_$(NOBLAS)_),$(NULL), \
+	$(info LIBXS's link-time BLAS dependency is removed (fallback might be unavailable!)) \
+	$(info ================================================================================)), \
+	$(if $(filter _0_,_$(BLAS_WARNING)_), \
+	$(info LIBXS is link-time agnostic with respect to BLAS/GEMM!) \
+	$(info Linking a certain BLAS library may prevent users to decide.), \
+	$(NULL)) \
+	$(if $(filter _1_,_$(BLAS)_), \
+	$(info LIBXS's THRESHOLD already prevents calling small GEMMs!) \
+	$(info A sequential BLAS is superfluous with respect to LIBXS.), \
+	$(NULL)) \
+	$(info ================================================================================))
+
 ifneq (,$(strip $(TEST)))
 .PHONY: run-tests
 run-tests: tests
@@ -337,6 +387,11 @@ ifeq (0,$(COMPATIBLE))
 libxs: lib generator
 else
 libxs: lib
+endif
+	$(information)
+ifneq (,$(strip $(LIBJITPROFILING)))
+	$(info Intel VTune Amplifier support has been incorporated.)
+	$(info ================================================================================)
 endif
 
 .PHONY: lib
@@ -478,6 +533,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config
                             $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
                             $(wildcard $(ROOTDIR)/.hooks/*) \
                             $(ROOTDIR)/version.txt
+	$(information)
 	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
 		$(ROOTDIR)/.hooks/install.sh; \
 	fi
@@ -490,6 +546,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config
 	@$(CP) $(ROOTDIR)/include/libxs_intrinsics_x86.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_malloc.h $(INCDIR) 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_math.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_mhd.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_spmdm.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_sync.h $(INCDIR) 2>/dev/null || true
@@ -500,47 +557,6 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) \
 		$(shell echo $$(($(THREADS)+$(OMP)))) \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(GEMM) $(INDICES) > $@
-	$(info ================================================================================)
-	$(info LIBXS $(shell $(PYTHON) $(SCRDIR)/libxs_utilities.py))
-	$(info --------------------------------------------------------------------------------)
-	$(info $(GINFO))
-	$(info $(CINFO))
-ifneq (,$(strip $(FC)))
-	$(info $(FINFO))
-endif
-	$(info --------------------------------------------------------------------------------)
-ifeq (,$(strip $(FC)))
-ifeq (,$(strip $(FC_VERSION_STRING)))
-	$(info Fortran Compiler is missing: building without Fortran support!)
-else
-	$(info Fortran Compiler $(FC_VERSION_STRING) is outdated!)
-endif
-	$(info ================================================================================)
-endif
-ifeq (0,$(STATIC))
-ifeq (Windows_NT,$(UNAME))
-	$(info The shared link-time wrapper (libxsext) is not supported under Windows/Cygwin!)
-	$(info ================================================================================)
-endif
-endif
-ifneq (0,$(BLAS_WARNING))
-	$(info Building a shared library requires to link against BLAS since there is)
-	$(info no runtime resolution/search for weak symbols implemented for this OS.)
-endif
-ifneq (0,$(BLAS))
-ifeq (0,$(BLAS_WARNING))
-	$(info LIBXS is link-time agnostic with respect to BLAS/GEMM!)
-	$(info Linking a certain BLAS library may prevent users to decide.)
-endif
-ifeq (1,$(BLAS))
-	$(info LIBXS's THRESHOLD already prevents calling small GEMMs!)
-	$(info A sequential BLAS is superfluous with respect to LIBXS.)
-endif
-	$(info ================================================================================)
-else ifneq (0,$(NOBLAS))
-	$(info LIBXS's link-time BLAS dependency is removed (fallback might be unavailable!))
-	$(info ================================================================================)
-endif
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
@@ -659,36 +675,6 @@ endif
 		| tr "~" "\n" > $(TMPFILE)
 	@$(PYTHON) $(SCRDIR)/libxs_specialized.py $(PRECISION) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >> $(TMPFILE)
 	@$(MV) $(TMPFILE) $@
-endif
-
-ifneq (0,$(JIT))
-ifneq (0,$(SYM))
-ifeq (,$(filter Darwin,$(UNAME)))
-  ifneq (0,$(PERF))
-    DFLAGS += -DLIBXS_PERF
-    ifneq (0,$(JITDUMP))
-      DFLAGS += -DLIBXS_PERF_JITDUMP
-    endif
-  endif
-
-  VTUNEROOT = $(shell env | grep VTUNE_AMPLIFIER | grep -m1 _DIR | cut -d= -f2-)
-  ifneq (,$(wildcard $(VTUNEROOT)/lib64/libjitprofiling.$(SLIBEXT)))
-    LIBJITPROFILING = $(BLDDIR)/jitprofiling/libjitprofiling.$(SLIBEXT)
-    OBJJITPROFILING = $(BLDDIR)/jitprofiling/*.o
-    DFLAGS += -DLIBXS_VTUNE
-    IFLAGS += -I$(VTUNEROOT)/include
-    ifneq (0,$(INTEL))
-      CXXFLAGS += -diag-disable 271
-      CFLAGS += -diag-disable 271
-    endif
-$(LIBJITPROFILING): $(BLDDIR)/jitprofiling/.make
-	@$(CP) $(VTUNEROOT)/lib64/libjitprofiling.$(SLIBEXT) $(BLDDIR)/jitprofiling
-	@cd $(BLDDIR)/jitprofiling; $(AR) x libjitprofiling.$(SLIBEXT)
-  else
-.PHONY: $(LIBJITPROFILING)
-  endif
-endif
-endif
 endif
 
 define DEFINE_COMPILE_RULE
@@ -825,7 +811,7 @@ module: module_hst module_mic
 build_generator_lib: $(OUTDIR)/libxsgen.$(LIBEXT)
 $(OUTDIR)/libxsgen.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
-	$(LD) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_GEN_LIB) $(LDFLAGS) $(CLDFLAGS) $(LIBRT)
+	$(LIB_LD) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_GEN_LIB) $(LDFLAGS) $(CLDFLAGS) $(LIBRT)
 else # static
 	$(AR) -rs $@ $(OBJFILES_GEN_LIB)
 endif
@@ -839,13 +825,19 @@ $(BINDIR)/libxs_conv_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONV_BIN) $(OUTDI
 $(BINDIR)/libxs_convwino_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONVWINO_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
 	$(LD) -o $@ $(OBJFILES_GEN_CONVWINO_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 
+ifneq (,$(strip $(LIBJITPROFILING)))
+$(LIBJITPROFILING): $(BLDDIR)/jitprofiling/.make
+	@$(CP) $(VTUNEROOT)/lib64/libjitprofiling.$(SLIBEXT) $(BLDDIR)/jitprofiling
+	@cd $(BLDDIR)/jitprofiling; $(AR) x libjitprofiling.$(SLIBEXT)
+endif
+
 .PHONY: clib_mic
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 clib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
 $(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC) $(KRNOBJS_MIC)
 ifeq (0,$(STATIC))
-	$(LD) -o $@.$(VERSION_MAJOR).$(VERSION_MINOR) -mmic -shared $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_MIC) $(KRNOBJS_MIC) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) -mmic $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_MIC) $(KRNOBJS_MIC) $(LDFLAGS) $(CLDFLAGS)
 else # static
 	$(AR) -rs $@ $(OBJFILES_MIC) $(KRNOBJS_MIC)
 endif
@@ -856,7 +848,7 @@ endif
 clib_hst: $(OUTDIR)/libxs.$(LIBEXT)
 $(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING)
 ifeq (0,$(STATIC))
-	$(LD) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING) $(LDFLAGS) $(CLDFLAGS)
 else # static
 	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(OBJJITPROFILING)
 endif
@@ -868,7 +860,7 @@ ifneq (,$(strip $(FC)))
 flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/libxs.$(LIBEXT)
-	$(FLD) -o $@.$(VERSION_MAJOR).$(VERSION_MINOR) -mmic -shared $(FCMTFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+	$(LIB_FLD) -mmic $(FCMTFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(IMPEXT)) $(LDFLAGS) $(FLDFLAGS)
 else # static
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/.make
@@ -885,7 +877,7 @@ ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
-	$(FLD) $(FCMTFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+	$(LIB_FLD) $(FCMTFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(FLDFLAGS)
 else # static
 $(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/.make
@@ -901,7 +893,7 @@ ifneq (0,$(MPSS))
 ext_mic: $(OUTDIR)/mic/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(LIBEXT)
-	$(LD) -o $@.$(VERSION_MAJOR).$(VERSION_MINOR) -mmic -shared $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+	$(LIB_LD) -mmic $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 else # static
 $(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC)
@@ -915,14 +907,14 @@ ext_hst: $(OUTDIR)/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST) $(OUTDIR)/libxs.$(LIBEXT)
 ifneq (Darwin,$(UNAME))
-	$(LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+	$(LIB_LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 else ifneq (0,$(INTEL)) # intel @ osx
-	$(LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+			$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 else # osx
-	$(LD)               $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD)               $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+			$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 endif
 else # static
 $(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST)
@@ -935,7 +927,7 @@ ifneq (0,$(MPSS))
 noblas_mic: $(OUTDIR)/mic/libxsnoblas.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsnoblas.$(LIBEXT): $(OUTDIR)/mic/.make $(NOBLAS_MIC)
-	$(LD) -o $@.$(VERSION_MAJOR).$(VERSION_MINOR) -mmic -shared $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_MIC) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) -mmic $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_MIC) $(LDFLAGS) $(CLDFLAGS)
 else # static
 $(OUTDIR)/mic/libxsnoblas.$(LIBEXT): $(OUTDIR)/mic/.make $(NOBLAS_MIC)
 	$(AR) -rs $@ $(NOBLAS_MIC)
@@ -948,11 +940,11 @@ noblas_hst: $(OUTDIR)/libxsnoblas.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsnoblas.$(LIBEXT): $(OUTDIR)/.make $(NOBLAS_HST)
 ifneq (Darwin,$(UNAME))
-	$(LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_HST) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_HST) $(LDFLAGS) $(CLDFLAGS)
 else ifneq (0,$(INTEL)) # intel @ osx
-	$(LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_HST) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) $(EXTLDFLAGS) $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_HST) $(LDFLAGS) $(CLDFLAGS)
 else # osx
-	$(LD)               $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_HST) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD)               $(call soname,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_HST) $(LDFLAGS) $(CLDFLAGS)
 endif
 else # static
 $(OUTDIR)/libxsnoblas.$(LIBEXT): $(OUTDIR)/.make $(NOBLAS_HST)
@@ -1243,8 +1235,7 @@ cpp-test: test-cpp
 .PHONY: test-cpp
 test-cpp: $(INCDIR)/libxs_source.h
 	@$(FLOCK) $(SPLDIR)/cp2k "$(MAKE) --no-print-directory DEPSTATIC=$(STATIC) TRACE=0 \
-		EFLAGS=$(EFLAGS) ELDFLAGS=$(ELDFLAGS) ECFLAGS=$(ECFLAGS) EFCFLAGS=$(EFCFLAGS) \
-		ECXXFLAGS=-DUSE_HEADER_ONLY $(ECXXFLAGS) clean compile"
+		ECXXFLAGS='-DUSE_HEADER_ONLY $(ECXXFLAGS)' clean compile"
 
 .PHONY: test-cp2k
 test-cp2k: $(SPLDIR)/cp2k/cp2k-test.txt

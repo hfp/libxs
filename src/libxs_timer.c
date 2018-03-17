@@ -73,7 +73,7 @@ LIBXS_API_INLINE libxs_timer_tickint internal_timer_tick(void)
 }
 
 
-LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
 libxs_timer_tickint libxs_timer_tick_rdtsc(void)
 {
   libxs_timer_tickint result;
