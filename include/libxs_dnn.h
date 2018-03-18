@@ -227,7 +227,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   libxs_dnn_conv_fuse_op fuse_ops;        /* used ops into convolutions */
 } libxs_dnn_conv_desc;
 
-/** these are some quatization definitions, not sure if we want to
+/** these are some quantization definitions, not sure if we want to
     move them into some main part of LIBXS */
 /* @TODO check position of these declarations and defines */
 typedef union LIBXS_RETARGETABLE libxs_intfloat {
