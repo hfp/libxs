@@ -334,3 +334,10 @@ LIBXS_API float libxs_sexp2_i8(signed char x)
   return result.s;
 }
 
+
+LIBXS_API float libxs_sexp2_i8i(int x)
+{
+  LIBXS_ASSERT(-128 <= x && x <= 127);
+  libxs_sexp2_i8(x);
+}
+

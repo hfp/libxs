@@ -246,7 +246,7 @@ typedef union LIBXS_RETARGETABLE libxs_intfloat {
 
 /* DFP16 masking defines */
 #define LIBXS_DNN_MANT_DFP16         15
-#define LIXSMMM_DNN_RES_DFP16          (libxs_sexp2(-(LIBXS_DNN_MANT_DFP16)))
+#define LIXSMMM_DNN_RES_DFP16          libxs_sexp2_i8i(-(LIBXS_DNN_MANT_DFP16))
 
 /* Quantization Rounding Defines */
 #define LIBXS_DNN_QUANT_NO_ROUND       80000
