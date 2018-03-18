@@ -365,7 +365,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* ha
         }
         if ( handle->copy_upd_indices_ptrs[loop] != NULL ) {
           libxs_free( handle->copy_upd_indices_ptrs[loop] );
-        }     
+        }
       }
 
       /* Free shared arrays  */
@@ -388,11 +388,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* ha
       free( handle->compute_upd_indices_ptrs );
       free( handle->kernel_upd_variant_ptrs );
       free( handle->n_entries_upd );
-      free( handle->n_entries_init_upd );   
+      free( handle->n_entries_init_upd );
       free( handle->n_upd_code_segments );
       free( handle->upd_code_segments );
       free( handle->init_upd_indices_ptrs );
-      free( handle->n_entries_copy_upd );   
+      free( handle->n_entries_copy_upd );
       free( handle->copy_upd_indices_ptrs );
 
     }

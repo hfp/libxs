@@ -1586,7 +1586,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       /* weight update path */
       handle->code_upd[0].xconv.sconv = 0;
       handle->code_upd[1].xconv.sconv = 0;
-      
+
       /* prepare barrier */
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
 
