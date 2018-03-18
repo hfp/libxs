@@ -286,7 +286,6 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* handle)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  int loop;
 
   if (0 != handle) {
     /* deallocate data components; not an error to deallocate a NULL-pointer
@@ -322,6 +321,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_conv_layer(const libxs_dnn_layer* ha
 #if 0
     /* Deallocate per-thread jitted data structures */
     if ( handle->use_thread_private_jit ) {
+      int loop;
 
       /* Free per thread allocated arrays  */
       for (loop = 0; loop < handle->desc.threads; loop++) {
