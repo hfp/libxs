@@ -83,15 +83,18 @@ LIBXS_API float libxs_sexp2_fast(float x, int maxiter);
 LIBXS_API float libxs_sexp2(float x);
 
 /**
- * Exponential function (base 2), which is limited to unsigned 8-bit input values.
- * This function reproduces bit-accurate results (single-precision).
+ * Exponential function (base 2), which is limited to unsigned 8-bit input values (0...255).
+ * This function produces bit-accurate results (single-precision).
  */
 LIBXS_API float libxs_sexp2_u8(unsigned char x);
 
 /**
-* Exponential function (base 2), which is limited to signed 8-bit input values.
-* This function reproduces bit-accurate results (single-precision).
-*/
+ * Exponential function (base 2), which is limited to signed 8-bit input values (-128...127).
+ * This function produces bit-accurate results (single-precision).
+ */
 LIBXS_API float libxs_sexp2_i8(signed char x);
+
+/** Similar to libxs_sexp2_i8: checks a full integer to fit into a signed 8-bit value. */
+LIBXS_API float libxs_sexp2_i8i(int x);
 
 #endif /*LIBXS_MATH_H*/
