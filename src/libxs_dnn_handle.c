@@ -209,7 +209,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
     }
   }
 
-  /* let's enable generice code path by default */
+  /* let's enable generic code path by default */
   handle->use_fwd_generic = 1;
   handle->use_bwd_generic = 1;
   handle->use_upd_generic = 1;
@@ -1075,7 +1075,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
         descriptor.blocks_img = 1;
         descriptor.ncopies = handle->desc.threads;
 
-
         /* TODO check JIT errors */
         if ( /*(*/(libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
           libxs_target_archid == LIBXS_X86_AVX512_CORE ||
@@ -1505,7 +1504,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
           handle->upd_use_thread_fil = 0;
         }
 
-        /* Allocate scrarch for additional output transpose */
+        /* Allocate scratch for additional output transpose */
         if (handle->use_lp_kernel == 1) {
           handle->scratch6 = 0;
           handle->scratch6_size = handle->desc.N * handle->blocksofm * handle->ofmblock * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+8+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_in);
