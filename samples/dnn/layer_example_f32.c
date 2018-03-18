@@ -330,7 +330,7 @@ LIBXS_INLINE void naive_conv_bp(naive_conv_t* param, float* input, const float* 
 
   LIBXS_VLA_DECL(4, const float, output_t, output + (pad_h_out * ofwp + pad_w_out), nOfm, ofhp, ofwp);
   LIBXS_VLA_DECL(4,       float,  input_t,  input + (pad_h_in * ifwp + pad_w_in), nIfm, ifhp, ifwp);
-  LIBXS_VLA_DECL(4,       float,  naive_input_t,  naive_input_save + (pad_h_in * ifwp + pad_w_in), nIfm, ifhp, ifwp);
+  LIBXS_VLA_DECL(4, const float, naive_input_t, naive_input_save + (pad_h_in * ifwp + pad_w_in), nIfm, ifhp, ifwp);
   LIBXS_VLA_DECL(4, const float, filter_t, filter, nIfm, kh, kw);
 
 #if defined(_OPENMP)
