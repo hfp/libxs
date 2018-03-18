@@ -40,7 +40,7 @@
 # pragma offload_attribute(pop)
 #endif
 
-/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */ 
+/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -57,7 +57,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_f32_f32
   return status;
 }
 
-/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */ 
+/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -74,7 +74,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_i32
   return status;
 }
 
-/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */ 
+/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -91,7 +91,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_f32
   return status;
 }
 
-/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */ 
+/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
