@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2018, Intel Corporation                                **
+** Copyright (c) 2017-2018, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -73,35 +73,35 @@ typedef struct {
   int stride_w;
 } naive_conv_t;
 
-LIBXS_INLINE void zero_buf_int16(short* buf, long size) {
+LIBXS_INLINE void zero_buf_int16(short* buf, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
   }
 }
 
-LIBXS_INLINE void zero_buf_int32(int* buf, long size) {
+LIBXS_INLINE void zero_buf_int32(int* buf, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
   }
 }
 
-LIBXS_INLINE void copy_buf_int16(short* src, short* dst, long size) {
+LIBXS_INLINE void copy_buf_int16(short* src, short* dst, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     dst[i] = src[i];
   }
 }
 
-LIBXS_INLINE void zero_buf_f32(float* buf, long size) {
+LIBXS_INLINE void zero_buf_f32(float* buf, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
   }
 }
 
-LIBXS_INLINE void init_buf_int16(short* buf, long size, int initPos, int initOne)
+LIBXS_INLINE void init_buf_int16(short* buf, size_t size, int initPos, int initOne)
 {
   int i;
   zero_buf_int16(buf, size);
@@ -110,7 +110,7 @@ LIBXS_INLINE void init_buf_int16(short* buf, long size, int initPos, int initOne
   }
 }
 
-LIBXS_INLINE void init_buf_int32(int* buf, long size, int initPos, int initOne)
+LIBXS_INLINE void init_buf_int32(int* buf, size_t size, int initPos, int initOne)
 {
   int i;
   zero_buf_int32(buf, size);
@@ -216,9 +216,9 @@ LIBXS_INLINE void naive_conv_fp_int16(naive_conv_t* param, const short* input, f
               if (ij+kj < 0 || ij+kj >= ifh) continue;
               for (ki = 0; ki < kw; ++ki) {
                 if (ii+ki < 0 || ii+ki >= ifw) continue;
-                LIBXS_VLA_ACCESS(  4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) +=
-                   (1.0 *  LIBXS_VLA_ACCESS(4,  input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp))
-                *  (1.0 *  LIBXS_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw));
+                LIBXS_VLA_ACCESS(4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) +=
+                  (1.f * LIBXS_VLA_ACCESS(4,  input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp))
+                * (1.f * LIBXS_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw));
               }
             }
           }
@@ -406,12 +406,14 @@ int main(int argc, char* argv[])
   libxs_dnn_tensor* libxs_doutput;
   libxs_dnn_tensor* libxs_dfilter;
   libxs_dnn_tensor* libxs_batchstats;
+#ifdef USE_FUSED_MAX_STATS
   libxs_dnn_tensor* libxs_maxstats_fwd;
   libxs_dnn_tensor* libxs_maxstats_bwd;
   libxs_dnn_tensor* libxs_maxstats_upd;
+#endif
   libxs_dnn_tensor_datalayout* libxs_layout;
   libxs_dnn_err_t status;
-  libxs_dnn_err_t global_status;
+  libxs_dnn_err_t global_status = LIBXS_DNN_SUCCESS;
 
   libxs_matdiff_info norms_fwd, norms_bwd, norms_upd, diff, norms_batchstats;
   memset(&norms_fwd, 0, sizeof(norms_fwd));
