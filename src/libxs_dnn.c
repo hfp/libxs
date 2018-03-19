@@ -1806,7 +1806,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
       switch (kind) {
         case LIBXS_DNN_COMPUTE_KIND_FWD: {
                                              if (handle->padding_flag == 1) {
-                                               scratch5_size = handle->fwdbwd_scratch_size;;
+                                               scratch5_size = handle->fwdbwd_scratch_size;
                                                if (address % 64 == 0) {
                                                  handle->scratch5 = (void*)address;
                                                } else {
@@ -1834,7 +1834,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                handle->scratch1 = (void*)(address+offset);
                                              }
                                              if (handle->padding_flag == 1) {
-                                               scratch5_size = handle->fwdbwd_scratch_size;;
+                                               scratch5_size = handle->fwdbwd_scratch_size;
                                                address += handle->scratch1_size + 64;
                                                if (address % 64 == 0) {
                                                  handle->scratch5 = (void*)address;

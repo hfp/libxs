@@ -142,7 +142,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
       int w_chunks = handle->ifwp/16;
       int w_remainder = handle->ifwp%16;
       int w_i, w, c_i, ifm1, ij, ifm2;
-      int BLOCKSIFM = handle->blocksifm;;
+      int BLOCKSIFM = handle->blocksifm;
       int padded_w = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
       int ifwp_extended = padded_w + handle->qfma_input_pad;
       int dst_ifhp;
@@ -295,7 +295,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
     int w_chunks = handle->ifwp/16;
     int w_remainder = handle->ifwp%16;
     int w_i, w, c_i, ifm1, ij, ifm2;
-    int BLOCKSIFM = handle->blocksifm;;
+    int BLOCKSIFM = handle->blocksifm;
     int padded_w = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
     int ifwp_extended = padded_w + handle->qfma_input_pad;
     int dst_ifhp;
@@ -416,7 +416,7 @@ void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
   int u = handle->desc.u;
   int w_i, w, c_i, ifm1, ij, ifm2;
   int dst_i, dst_j, src_i, src_j;
-  int BLOCKSIFM = handle->blocksifm;;
+  int BLOCKSIFM = handle->blocksifm;
   int padded_w = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
   int ifwp_extended = padded_w + handle->qfma_input_pad;
   int dst_ifhp;
