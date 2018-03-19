@@ -67,28 +67,28 @@ typedef struct {
   int stride_w;
 } naive_conv_t;
 
-LIBXS_INLINE void zero_buf_int16(short* buf, long size) {
+LIBXS_INLINE void zero_buf_int16(short* buf, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
   }
 }
 
-LIBXS_INLINE void zero_buf_int32(int* buf, long size) {
+LIBXS_INLINE void zero_buf_int32(int* buf, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
   }
 }
 
-LIBXS_INLINE void copy_buf_int16(short* src, short* dst, long size) {
+LIBXS_INLINE void copy_buf_int16(short* src, short* dst, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     dst[i] = src[i];
   }
 }
 
-LIBXS_INLINE void init_buf_int16(short* buf, long size, int initPos, int initOne)
+LIBXS_INLINE void init_buf_int16(short* buf, size_t size, int initPos, int initOne)
 {
   int i;
   zero_buf_int16(buf, size);
@@ -97,7 +97,7 @@ LIBXS_INLINE void init_buf_int16(short* buf, long size, int initPos, int initOne
   }
 }
 
-LIBXS_INLINE void init_buf_int32(int* buf, long size, int initPos, int initOne)
+LIBXS_INLINE void init_buf_int32(int* buf, size_t size, int initPos, int initOne)
 {
   int i;
   zero_buf_int32(buf, size);
@@ -322,9 +322,9 @@ int main(int argc, char* argv[])
   libxs_dnn_tensor* libxs_input;
   libxs_dnn_tensor* libxs_output;
   libxs_dnn_tensor* libxs_filter;
-  libxs_dnn_tensor* libxs_dinput;
-  libxs_dnn_tensor* libxs_doutput;
-  libxs_dnn_tensor* libxs_dfilter;
+  /*libxs_dnn_tensor* libxs_dinput;*/
+  /*libxs_dnn_tensor* libxs_doutput;*/
+  /*libxs_dnn_tensor* libxs_dfilter;*/
   libxs_dnn_tensor_datalayout* libxs_layout;
   libxs_dnn_err_t status;
   libxs_dnn_err_t global_status = LIBXS_DNN_SUCCESS;

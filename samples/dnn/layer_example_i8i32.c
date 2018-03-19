@@ -26,6 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
+/* Alexander Heinecke, Evangelos Georganas, Hans Pabst,
+   Dhiraj Kalamkar, Ankush Mandal (Intel Corp.)
+******************************************************************************/
 #include <libxs.h>
 #include <stdlib.h>
 #include <string.h>
@@ -67,28 +70,28 @@ typedef struct {
   int stride_w;
 } naive_conv_t;
 
-LIBXS_INLINE void zero_buf_int8(char* buf, long size) {
+LIBXS_INLINE void zero_buf_int8(char* buf, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
   }
 }
 
-LIBXS_INLINE void zero_buf_uint8(unsigned char* buf, long size) {
+LIBXS_INLINE void zero_buf_uint8(unsigned char* buf, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
   }
 }
 
-LIBXS_INLINE void zero_buf_int32(int* buf, long size) {
+LIBXS_INLINE void zero_buf_int32(int* buf, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     buf[i] = 0;
   }
 }
 
-LIBXS_INLINE void copy_buf_int8(char* src, char* dst, long size) {
+LIBXS_INLINE void copy_buf_int8(char* src, char* dst, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     dst[i] = src[i];
@@ -96,14 +99,14 @@ LIBXS_INLINE void copy_buf_int8(char* src, char* dst, long size) {
 }
 
 
-LIBXS_INLINE void copy_buf_uint8(unsigned char* src, unsigned char* dst, long size) {
+LIBXS_INLINE void copy_buf_uint8(unsigned char* src, unsigned char* dst, size_t size) {
   int i;
   for (i = 0; i < size; ++i) {
     dst[i] = src[i];
   }
 }
 
-LIBXS_INLINE void init_buf_int8(char* buf, long size, int initPos, int initOne)
+LIBXS_INLINE void init_buf_int8(char* buf, size_t size, int initPos, int initOne)
 {
   int i;
   zero_buf_int8(buf, size);
@@ -112,7 +115,7 @@ LIBXS_INLINE void init_buf_int8(char* buf, long size, int initPos, int initOne)
   }
 }
 
-LIBXS_INLINE void init_buf_uint8(unsigned char* buf, long size, int initPos, int initOne)
+LIBXS_INLINE void init_buf_uint8(unsigned char* buf, size_t size, int initPos, int initOne)
 {
   int i;
   zero_buf_uint8(buf, size);
@@ -121,7 +124,7 @@ LIBXS_INLINE void init_buf_uint8(unsigned char* buf, long size, int initPos, int
   }
 }
 
-LIBXS_INLINE void init_buf_int32(int* buf, long size, int initPos, int initOne)
+LIBXS_INLINE void init_buf_int32(int* buf, size_t size, int initPos, int initOne)
 {
   int i;
   zero_buf_int32(buf, size);
@@ -321,9 +324,9 @@ LIBXS_INLINE void naive_conv_wu_int8(naive_conv_t* param, const unsigned char *i
   /* loop counters */
   int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
 
-  LIBXS_VLA_DECL(4, unsigned char, output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
-  LIBXS_VLA_DECL(4, unsigned char,  input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
-  LIBXS_VLA_DECL(4,       int, filter_t, filter, nIfm, kh, kw);
+  LIBXS_VLA_DECL(4, const unsigned char, output_t, output + (pad_w_out * ofwp + pad_h_out), nOfm, ofhp, ofwp);
+  LIBXS_VLA_DECL(4, const unsigned char,  input_t,  input + (pad_w_in * ifwp + pad_h_in), nIfm, ifhp, ifwp);
+  LIBXS_VLA_DECL(4,                 int, filter_t, filter, nIfm, kh, kw);
 
 #if defined(_OPENMP)
 # pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
@@ -413,7 +416,7 @@ int main(int argc, char* argv[])
   libxs_dnn_tensor* libxs_dfilter;
   libxs_dnn_tensor_datalayout* libxs_layout;
   libxs_dnn_err_t status;
-  libxs_dnn_err_t global_status;
+  libxs_dnn_err_t global_status = LIBXS_DNN_SUCCESS;
 
   libxs_matdiff_info norms_fwd, norms_bwd, norms_upd, diff;
   memset(&norms_fwd, 0, sizeof(norms_fwd));

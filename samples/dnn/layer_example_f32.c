@@ -84,7 +84,7 @@ typedef struct {
   int stride_w;
 } naive_conv_t;
 
-LIBXS_INLINE void zero_buf(float* buf, long size) {
+LIBXS_INLINE void zero_buf(float* buf, size_t size) {
   int i;
 #if defined(_OPENMP)
 # pragma omp parallel for private(i)
@@ -94,7 +94,7 @@ LIBXS_INLINE void zero_buf(float* buf, long size) {
   }
 }
 
-LIBXS_INLINE void copy_buf(float* src, float* dst, long size) {
+LIBXS_INLINE void copy_buf(float* src, float* dst, size_t size) {
   int i;
 #if defined(_OPENMP)
 # pragma omp parallel for private(i)
@@ -104,7 +104,7 @@ LIBXS_INLINE void copy_buf(float* src, float* dst, long size) {
   }
 }
 
-LIBXS_INLINE void init_buf(float* buf, long size, int initPos, int initOne)
+LIBXS_INLINE void init_buf(float* buf, size_t size, int initPos, int initOne)
 {
   int i;
   zero_buf(buf, size);
@@ -330,8 +330,10 @@ LIBXS_INLINE void naive_conv_bp(naive_conv_t* param, float* input, const float* 
 
   LIBXS_VLA_DECL(4, const float, output_t, output + (pad_h_out * ofwp + pad_w_out), nOfm, ofhp, ofwp);
   LIBXS_VLA_DECL(4,       float,  input_t,  input + (pad_h_in * ifwp + pad_w_in), nIfm, ifhp, ifwp);
-  LIBXS_VLA_DECL(4, const float, naive_input_t, naive_input_save + (pad_h_in * ifwp + pad_w_in), nIfm, ifhp, ifwp);
   LIBXS_VLA_DECL(4, const float, filter_t, filter, nIfm, kh, kw);
+#if defined(USE_FUSED_RELU_BWD)
+  LIBXS_VLA_DECL(4, const float, naive_input_t, naive_input_save + (pad_h_in * ifwp + pad_w_in), nIfm, ifhp, ifwp);
+#endif
 
 #if defined(_OPENMP)
 # pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
@@ -487,7 +489,9 @@ int main(int argc, char* argv[])
   libxs_dnn_tensor* libxs_filter_tr;
   libxs_dnn_tensor* libxs_bias;
   libxs_dnn_tensor* libxs_dbias;
+#ifdef USE_FUSED_BATCH_STATS
   libxs_dnn_tensor* libxs_batchstats;
+#endif
   libxs_dnn_tensor_datalayout* libxs_layout;
   libxs_dnn_err_t status;
   libxs_dnn_err_t global_status = LIBXS_DNN_SUCCESS;
