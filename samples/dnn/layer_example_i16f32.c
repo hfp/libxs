@@ -727,12 +727,10 @@ int main(int argc, char* argv[])
   /* let's allocate and bind scratch */
   scratch_size = libxs_dnn_get_scratch_size( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status );
   CHKERR_LIBXS_DNN( status );
-  scratch = (void*)libxs_aligned_malloc( scratch_size, 2097152 );
-  CHKERR_LIBXS_DNN( status );
+  scratch = libxs_aligned_malloc( scratch_size, 2097152 );
   CHKERR_LIBXS_DNN( libxs_dnn_bind_scratch( libxs_handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch ) );
   /* set scratch to bogus to make sure that libxs takes care of zeroing internally */
-  //init_buf_int16( (short*)scratch, scratch_size/2, 0, 0 );
-
+  /*init_buf_int16( (short*)scratch, scratch_size/2, 0, 0 );*/
   if ((type == 'A' || type == 'F') && LIBXS_NEQ(0, check)) {
     printf("##############################################\n");
     printf("#  Check Correctness - FWD (custom-Storage)  #\n");

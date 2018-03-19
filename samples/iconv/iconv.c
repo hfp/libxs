@@ -54,9 +54,13 @@
 #if 1
 # define MALLOC(SIZE) libxs_aligned_malloc(SIZE, 0/*auto*/)
 # define FREE(POINTER) libxs_free(POINTER)
+# define SCRATCH_MALLOC(SIZE) libxs_aligned_scratch(SIZE, 0/*auto*/)
+# define SCRATCH_FREE(POINTER) libxs_free(POINTER)
 #else
 # define MALLOC(SIZE) malloc(SIZE)
 # define FREE(POINTER) free(POINTER)
+# define SCRATCH_MALLOC(SIZE) MALLOC(SIZE)
+# define SCRATCH_FREE(POINTER) FREE(POINTER)
 #endif
 
 #if !defined(USE_OUTPUT_PADDING) && 0
@@ -89,6 +93,7 @@ int main(int argc, char* argv[])
   unsigned long long start;
   char filename[1024];
   double duration = 0;
+  void *scratch = 0;
   void *filter = 0;
   void *image = 0;
 #if !defined(NDEBUG)
@@ -279,6 +284,7 @@ int main(int argc, char* argv[])
   /* Link buffers and convert NCHW-image and KCRS-filter to internal format. */
   if (EXIT_SUCCESS == result) {
     libxs_dnn_tensor_datalayout* layout;
+    size_t scratch_size;
 
     /* Input buffer */
     conv_input_buffer = MALLOC(descriptor.N * descriptor.C * (descriptor.H + 2 * descriptor.pad_h_in) * (descriptor.W + 2 * descriptor.pad_w_in) * typesize_dnn);
@@ -319,6 +325,14 @@ int main(int argc, char* argv[])
     status = libxs_dnn_destroy_tensor_datalayout(layout);
     if (LIBXS_DNN_SUCCESS != status) result = EXIT_FAILURE;
     status = libxs_dnn_bind_tensor(handle, conv_output, LIBXS_DNN_REGULAR_OUTPUT);
+    if (LIBXS_DNN_SUCCESS != status) result = EXIT_FAILURE;
+
+    /* allocate and bind scratch memory */
+    scratch_size = libxs_dnn_get_scratch_size(handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status);
+    if (LIBXS_DNN_SUCCESS != status) result = EXIT_FAILURE;
+    scratch = SCRATCH_MALLOC(scratch_size, 2097152);
+    if (0 == scratch) result = EXIT_FAILURE;
+    status = libxs_dnn_bind_scratch(handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch);
     if (LIBXS_DNN_SUCCESS != status) result = EXIT_FAILURE;
   }
 
@@ -406,6 +420,7 @@ int main(int argc, char* argv[])
   if (LIBXS_DNN_SUCCESS != libxs_dnn_destroy_tensor(conv_output)) result = EXIT_FAILURE;
   if (LIBXS_DNN_SUCCESS != libxs_dnn_destroy_tensor(conv_input)) result = EXIT_FAILURE;
   if (LIBXS_DNN_SUCCESS != libxs_dnn_destroy_conv_layer(handle)) result = EXIT_FAILURE;
+  SCRATCH_FREE(scratch);
   FREE(conv_output_buffer);
   FREE(conv_filter_buffer);
   FREE(conv_input_buffer);
