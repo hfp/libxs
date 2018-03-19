@@ -472,7 +472,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       handle->use_nts_bwd = 0;
     }
 
-    if (libxs_target_archid == LIBXS_X86_AVX512_CORE && handle->desc.K/16 <= 8) {
+    if ((libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) && handle->desc.K/16 <= 8) {
       handle->use_nts_bwd = 0;
     }
 
@@ -1144,7 +1144,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
               descriptor.transpose_ofw_ifm = 0;
               handle->use_hybrid_wu_parallelism = 0;
 
-              if ( handle->use_lp_kernel == 1 && (libxs_target_archid == LIBXS_X86_AVX512_ICL || (libxs_target_archid == LIBXS_X86_AVX512_CORE && handle->datatype_in == LIBXS_DNN_DATATYPE_I16)) ) {
+              if ( handle->use_lp_kernel == 1 && ((libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) && handle->datatype_in == LIBXS_DNN_DATATYPE_I16 ) ) {
                 handle->use_vperm_transposes = 1;
               } else {
                 handle->use_vperm_transposes = 0;
@@ -1165,7 +1165,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
                   }
                 }
               } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8) {
-                if (libxs_target_archid == LIBXS_X86_AVX512_CORE) {
+                if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL ) {
                   handle->avoid_output_trans = 0;
                   handle->avoid_input_trans = 0;
                 }
@@ -1398,13 +1398,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
           if ( (handle->blocksifm_lp * handle->blocksofm < handle->desc.threads) ) {
             handle->use_thread_private_filter = 1;
             /* determine if we will transpose input  */
-            if ( ((libxs_target_archid == LIBXS_X86_AVX512_KNM && handle->enforce_sfma_kernel == 0 ) && (handle->upd_ofw_rb%4 == 0)) || ((libxs_target_archid == LIBXS_X86_AVX512_MIC) || (libxs_target_archid == LIBXS_X86_AVX512_CORE  && handle->use_lp_kernel == 1 && ( ((handle->desc.R !=1 || handle->desc.S != 1) && handle->padding_flag == 1) || handle->desc.u != 1 || handle->desc.v != 1 || handle->desc.W%2 != 0 )) ) ) {
+            if ( ((libxs_target_archid == LIBXS_X86_AVX512_KNM && handle->enforce_sfma_kernel == 0 ) && (handle->upd_ofw_rb%4 == 0)) || ((libxs_target_archid == LIBXS_X86_AVX512_MIC) || ((libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) && handle->use_lp_kernel == 1 && ( ((handle->desc.R !=1 || handle->desc.S != 1) && handle->padding_flag == 1) || handle->desc.u != 1 || handle->desc.v != 1 || handle->desc.W%2 != 0 )) ) ) {
               handle->trans_ofw_ifm = 1;
             }
           } else {
             handle->use_thread_private_filter = 0;
             /* determine if we will transpose input  */
-            if ( ((libxs_target_archid == LIBXS_X86_AVX512_KNM && handle->enforce_sfma_kernel == 0) && (handle->upd_ofw_rb%4 == 0)) || ((libxs_target_archid == LIBXS_X86_AVX512_MIC)  || (libxs_target_archid == LIBXS_X86_AVX512_CORE  && handle->use_lp_kernel == 1 && (((handle->desc.R !=1 || handle->desc.S != 1) && handle->padding_flag == 1) || handle->desc.u != 1 || handle->desc.v != 1 ||  handle->desc.W%2 != 0 )) ) ) {
+            if ( ((libxs_target_archid == LIBXS_X86_AVX512_KNM && handle->enforce_sfma_kernel == 0) && (handle->upd_ofw_rb%4 == 0)) || ((libxs_target_archid == LIBXS_X86_AVX512_MIC)  || ((libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) && handle->use_lp_kernel == 1 && (((handle->desc.R !=1 || handle->desc.S != 1) && handle->padding_flag == 1) || handle->desc.u != 1 || handle->desc.v != 1 ||  handle->desc.W%2 != 0 )) ) ) {
               handle->trans_ofw_ifm = 1;
               if ( handle->desc.R !=1 && handle->desc.S != 1 && ( handle->desc.u !=1 || handle->desc.v != 1 )  ) {
                 handle->trans_ofw_ifm = 0;
@@ -1412,7 +1412,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
             }
           }
 
-          if (libxs_target_archid == LIBXS_X86_AVX512_CORE  && handle->use_lp_kernel == 1 && handle->datatype_in == LIBXS_DNN_DATATYPE_I8){
+          if ((libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) && handle->use_lp_kernel == 1 && handle->datatype_in == LIBXS_DNN_DATATYPE_I8) {
             handle->trans_ofw_ifm = 1;
           }
 
