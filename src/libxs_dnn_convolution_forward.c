@@ -50,8 +50,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_f32_f32
   typedef float element_filter_type;
   typedef libxs_sconvfunction libxs_convfunction;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#else
-/* should not happen */
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
   return status;
@@ -67,8 +67,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_i32
   typedef short element_filter_type;
   typedef libxs_wconvfunction libxs_convfunction;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#else
-/* should not happen */
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
   return status;
@@ -84,8 +84,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_f32
   typedef short element_filter_type;
   typedef libxs_wsconvfunction libxs_convfunction;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#else
-/* should not happen */
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
   return status;
@@ -101,8 +101,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i8_i32(
   typedef char element_filter_type;
   typedef libxs_budconvfunction libxs_convfunction;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#else
-/* should not happen */
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
   return status;
