@@ -330,7 +330,7 @@ int main(int argc, char* argv[])
     /* allocate and bind scratch memory */
     scratch_size = libxs_dnn_get_scratch_size(handle, LIBXS_DNN_COMPUTE_KIND_ALL, &status);
     if (LIBXS_DNN_SUCCESS != status) result = EXIT_FAILURE;
-    scratch = SCRATCH_MALLOC(scratch_size, 2097152);
+    scratch = SCRATCH_MALLOC(scratch_size);
     if (0 == scratch) result = EXIT_FAILURE;
     status = libxs_dnn_bind_scratch(handle, LIBXS_DNN_COMPUTE_KIND_ALL, scratch);
     if (LIBXS_DNN_SUCCESS != status) result = EXIT_FAILURE;

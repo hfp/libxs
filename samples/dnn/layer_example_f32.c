@@ -89,7 +89,7 @@ LIBXS_INLINE void zero_buf(float* buf, size_t size) {
 #if defined(_OPENMP)
 # pragma omp parallel for private(i)
 #endif
-  for (i = 0; i < size; ++i) {
+  for (i = 0; i < (int)size; ++i) {
     buf[i] = 0.0f;
   }
 }
@@ -99,7 +99,7 @@ LIBXS_INLINE void copy_buf(float* src, float* dst, size_t size) {
 #if defined(_OPENMP)
 # pragma omp parallel for private(i)
 #endif
-  for (i = 0; i < size; ++i) {
+  for (i = 0; i < (int)size; ++i) {
     dst[i] = src[i];
   }
 }
@@ -108,7 +108,7 @@ LIBXS_INLINE void init_buf(float* buf, size_t size, int initPos, int initOne)
 {
   int i;
   zero_buf(buf, size);
-  for (i = 0; i < size; ++i) {
+  for (i = 0; i < (int)size; ++i) {
     buf[i] = (float)((initOne != 0) ? 1.0 : ((initPos != 0) ? drand48() : (0.05 - drand48()/10.0)));
   }
 }
