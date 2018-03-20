@@ -2088,37 +2088,31 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
   const void* alpha, const void* beta, const int* flags, const int* prefetch)
 {
-  static int error_once = 0;
-  LIBXS_UNUSED(oprec);
   if (0 != fn && 0 != m) {
     const libxs_gemm_precision precision = (0 != iprec ? *iprec : LIBXS_GEMM_PRECISION_F64);
     const libxs_blasint kk = *(0 != k ? k : m), nn = (0 != n ? *n : kk);
-    switch (precision) {
-      case LIBXS_GEMM_PRECISION_F64: {
-        *fn = (intptr_t)libxs_dmmdispatch(*m, nn, kk, lda, ldb, ldc,
-          (const double*)alpha, (const double*)beta,
-          flags, prefetch);
-      } break;
-      case LIBXS_GEMM_PRECISION_F32: {
-        *fn = (intptr_t)libxs_smmdispatch(*m, nn, kk, lda, ldb, ldc,
-          (const float*)alpha, (const float*)beta,
-          flags, prefetch);
-      } break;
-      default: {
-        if (0 != libxs_verbosity /* library code is expected to be mute */
-         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-        {
-          fprintf(stderr, "LIBXS ERROR: unsupported precision requested for libxs_xmmdispatch!\n");
-        }
-        *fn = 0;
+    libxs_descriptor_blob blob;
+    libxs_gemm_descriptor backend_descriptor, *descriptor = libxs_gemm_descriptor_init2(&blob,
+      precision, 0 != oprec ? *oprec : precision, *m, nn, kk, 0 != lda ? *lda : *m, 0 != ldb ? *ldb : kk, 0 != ldc ? *ldc : *m,
+      alpha, beta, 0 != flags ? *flags : LIBXS_FLAGS, libxs_get_gemm_xprefetch(prefetch));
+    if (0 != descriptor) {
+      if (0 != (0x8000 & descriptor->prefetch)) { /* "sign"-bit of unsigned short is set */
+        backend_descriptor = *descriptor;
+        LIBXS_GEMM_DESCRIPTOR_PREFETCH(backend_descriptor, libxs_gemm_auto_prefetch);
+        descriptor = &backend_descriptor;
       }
+      *fn = internal_find_code(descriptor).ival;
+    }
+    else { /* quiet */
+      *fn = 0;
     }
   }
   else {
+    static int error_once = 0;
     if (0 != libxs_verbosity /* library code is expected to be mute */
      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS ERROR: invalid M, N, or K passed into libxs_xmmdispatch!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid argument passed into libxs_xmmdispatch!\n");
     }
     if (0 != fn) *fn = 0;
   }
