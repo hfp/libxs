@@ -1605,7 +1605,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       handle->scratch4_size = 0;
     }
 
-    if (handle->use_fwd_generic != 0 || handle->use_bwd_generic != 0) {
+    if (handle->use_fwd_generic != 0 || handle->use_bwd_generic != 0 || handle->use_upd_generic != 0) {
       const int padded_h = handle->desc.H + (2 * handle->desc.pad_h);
       const int padded_w = handle->desc.W + (2 * handle->desc.pad_w);
       const size_t size7 = padded_h * padded_w * handle->ifmblock * libxs_dnn_typesize(handle->datatype_in);
