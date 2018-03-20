@@ -1608,7 +1608,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
     if (handle->use_fwd_generic != 0 || handle->use_bwd_generic != 0) {
       const int padded_h = handle->desc.H + (2 * handle->desc.pad_h);
       const int padded_w = handle->desc.W + (2 * handle->desc.pad_w);
-      handle->scratch7_size = padded_h * padded_w * handle->ifmblock;
+      const int size7 = padded_h * padded_w * handle->ifmblock;
+      handle->scratch7_size = size7 * libxs_dnn_typesize(handle->datatype_in);
       handle->scratch7 = 0;
     }
     else {
@@ -1616,9 +1617,14 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       handle->scratch7 = 0;
     }
     if (handle->use_upd_generic != 0) {
-      handle->scratch8_size = handle->ofhp * handle->ofwp * handle->ofmblock;
+      const int size8 = handle->ofhp * handle->ofwp * handle->ofmblock;
+      const int size9 = handle->desc.R * handle->desc.S * handle->ifmblock * handle->ofmblock;
+      const size_t output_typesize = libxs_dnn_typesize(handle->datatype_out);
+      /* FIXME: currently filter data-type is always smaller/equal output type */
+      const size_t filter_typesize = output_typesize;
+      handle->scratch8_size = size8 * output_typesize;
       handle->scratch8 = 0;
-      handle->scratch9_size = handle->desc.R * handle->desc.S * handle->ifmblock * handle->ofmblock;
+      handle->scratch9_size = size9 * filter_typesize;
       handle->scratch9 = 0;
     }
     else {
