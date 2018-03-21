@@ -2760,7 +2760,7 @@ LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsi
                 compact = _mm512_inserti64x4(compact, compressed_hi, 1);
                 compact = LIBXS_INTRINSICS_MM512_PERMUTEVAR_EPI32(permute_compact_idx, compact);
                 _mm512_stream_si512(
-                  &LIBXS_VLA_ACCESS(7, out, i1, i2, i3, i4, i5 / 2, 0, 0, cblk, R, S, cblk_i16, kblk_i16, lp_blk),
+                  (void*)&LIBXS_VLA_ACCESS(7, out, i1, i2, i3, i4, i5 / 2, 0, 0, cblk, R, S, cblk_i16, kblk_i16, lp_blk),
                   compact);
               }
             }
