@@ -152,7 +152,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_d
       status = libxs_dnn_convolve_st_fwd_custom_custom_f32_f32( handle, start_thread, tid);
     } else if (handle->datatype_in ==  LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) {
       status = libxs_dnn_convolve_st_fwd_custom_custom_i16_i32( handle, start_thread, tid);
-    }  else if (handle->datatype_in ==  LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+    } else if (handle->datatype_in ==  LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_convolve_st_fwd_custom_custom_i16_f32( handle, start_thread, tid);
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
       status = libxs_dnn_convolve_st_fwd_custom_custom_i8_i32( handle, start_thread, tid);
