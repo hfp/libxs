@@ -1460,7 +1460,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* data, const int*
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
-  if (0 != hash && 0 != data && 0 != size || 0 != seed)
+  if (0 != hash && 0 != data && 0 != size && 0 != seed)
 #endif
   {
     *hash = (libxs_hash(data, *size, *seed) & 0x7FFFFFFF);
