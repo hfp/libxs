@@ -1451,3 +1451,27 @@ LIBXS_API unsigned int libxs_hash(const void* data, size_t size, unsigned int se
   return libxs_crc32(data, size, seed);
 }
 
+
+#if defined(LIBXS_BUILD)
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* /*data*/, const int* /*size*/, const int* /*seed*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* data, const int* size, const int* seed)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (0 != hash && 0 != data && 0 != size || 0 != seed)
+#endif
+  {
+    *hash = (libxs_hash(data, *size, *seed) & 0x7FFFFFFF);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_hash specified!\n");
+  }
+#endif
+}
+
+#endif /*defined(LIBXS_BUILD)*/

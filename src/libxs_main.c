@@ -2088,7 +2088,10 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
   const void* alpha, const void* beta, const int* flags, const int* prefetch)
 {
-  if (0 != fn && 0 != m) {
+#if !defined(NDEBUG)
+  if (0 != fn && 0 != m)
+#endif
+  {
     const libxs_gemm_precision precision = (0 != iprec ? *iprec : LIBXS_GEMM_PRECISION_F64);
     const libxs_blasint kk = *(0 != k ? k : m), nn = (0 != n ? *n : kk);
     libxs_descriptor_blob blob;
@@ -2107,6 +2110,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
       *fn = 0;
     }
   }
+#if !defined(NDEBUG)
   else {
     static int error_once = 0;
     if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -2116,6 +2120,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
     }
     if (0 != fn) *fn = 0;
   }
+#endif
 }
 
 
@@ -2139,12 +2144,12 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
   const libxs_code_pointer* fn, const void* a, const void* b, void* c)
 {
-#if !defined(NDEBUG) /* this should not happen */
+#if !defined(NDEBUG)
   static int error_once = 0;
   if (0 != fn && 0 != a && 0 != b && 0 != c)
 #endif
   {
-#if !defined(NDEBUG) /* this should not happen */
+#if !defined(NDEBUG)
     if (0 != fn->xgemm.xmm)
 #endif
     {
@@ -2176,12 +2181,12 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
   const libxs_code_pointer* fn, const void* a, const void* b, void* c,
   const void* pa, const void* pb, const void* pc)
 {
-#if !defined(NDEBUG) /* this should not happen */
+#if !defined(NDEBUG)
   static int error_once = 0;
   if (0 != fn && 0 != a && 0 != b && 0 != c)
 #endif
   {
-#if !defined(NDEBUG) /* this should not happen */
+#if !defined(NDEBUG)
     if (0 != fn->xgemm.xmm)
 #endif
     {
