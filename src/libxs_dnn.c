@@ -2467,7 +2467,7 @@ LIBXS_API unsigned char libxs_internal_get_max_exp( float* in_buffer, int length
   unsigned char max_exp = 0;
 
   /* bit-wise conversion to int */
-  exp.f = libxs_internal_get_max( in_buffer, length ) ;
+  exp.f = libxs_internal_get_max( in_buffer, length );
   /* shift by mantissa to the right and convert to char */
   max_exp = (unsigned char)((exp.ui & LIBXS_DNN_MASK_ABS_F32) >> LIBXS_DNN_MANT_SZ_F32);
 
@@ -2530,18 +2530,18 @@ LIBXS_API short libxs_internal_quantize_scalar_no_scf( float input, unsigned cha
       }
     } else if (round_mode == LIBXS_DNN_QUANT_STOCH_ROUND) {
       /* stochastic rounding, as implemented in the IBM paper from 2015, @TODO, fix F64 and DFP8 */
-      float p, q;
+      const float eps = LIXSMMM_DNN_RES_DFP16;
+      const float r = (float)fabs((double)rand());
       libxs_intfloat fvalue;
-      float eps = LIXSMMM_DNN_RES_DFP16;
+      float p, q;
       /* masking all bits which will be shifted out */
       fvalue.ui = value.ui & ((LIBXS_DNN_MASK_FULL_F32) << rhs);
       /* drawing a random number */
-      float r = (float)fabs((double)rand());
       p = r/((float)RAND_MAX);
       q = (input - fvalue.f)/eps;
       /* apply rounding if needed */
-      if (p+q > 0.5f) {
-        qvalue++;
+      if ((p + q) > 0.5f) {
+        ++qvalue;
       }
     } else {
       /* do nothing about rounding, just chop */
@@ -2851,7 +2851,7 @@ LIBXS_API void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int le
 #ifdef _OPENMP
 #pragma omp parallel for private(i)
 #endif
-  for ( i = 0 ; i < length; ++i ) {
+  for ( i = 0; i < length; ++i ) {
     out_buffer[i] = ((float)in_buffer[i])*exp;
   }
 }
