@@ -38,28 +38,6 @@
 #endif
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, ELEM_TYPE *LIBXS_RESTRICT dst,
-  libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
-{
-  const double seed1 = scale * (seed + 1);
-  libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < ncols; ++i) {
-    libxs_blasint j = 0;
-    for (; j < nrows; ++j) {
-      const libxs_blasint k = i * ld + j;
-      dst[k] = (ELEM_TYPE)(seed1 / (k + 1));
-    }
-    for (; j < ld; ++j) {
-      const libxs_blasint k = i * ld + j;
-      dst[k] = (ELEM_TYPE)seed;
-    }
-  }
-}
-
-
 int main(void)
 {
   const libxs_blasint m[]   = { 1, 2, 3, 16, 63,  16,  75, 2507 };
@@ -82,8 +60,8 @@ int main(void)
   b = (ELEM_TYPE*)libxs_malloc((size_t)(max_size_b * sizeof(ELEM_TYPE)));
   assert(0 != a && 0 != b);
 
-  init(42, a, max_size_a, 1, max_size_a, 1.0);
-  init( 0, b, max_size_b, 1, max_size_b, 1.0);
+  LIBXS_MATRNG(ELEM_TYPE, 42, a, max_size_a, 1, max_size_a, 1.0);
+  LIBXS_MATRNG(ELEM_TYPE,  0, b, max_size_b, 1, max_size_b, 1.0);
 
   for (test = start; test < ntests; ++test) {
     unsigned int testerrors = (EXIT_SUCCESS == libxs_otrans(

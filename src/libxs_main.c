@@ -1387,15 +1387,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       }
     }
     else {
-# if !defined(LIBXS_VERBOSE_BACKEND) /* avoid duplicated error messages */
-      if (0 != libxs_verbosity) { /* library code is expected to be mute */
-        static int error_once = 0;
-        if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-          LIBXS_NO_OFFLOAD(int, fprintf, stderr, "LIBXS ERROR: %s\n",
-            LIBXS_NO_OFFLOAD(const char*, libxs_strerror, generated_code.last_error));
-        }
-      }
-# endif
       result = EXIT_FAILURE;
     }
 # if !defined(NDEBUG)

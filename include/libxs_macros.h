@@ -84,11 +84,12 @@
 # define LIBXS_INLINE_KEYWORD inline
 # define LIBXS_INLINE LIBXS_INLINE_KEYWORD
 # if defined(__GNUC__)
-#   define LIBXS_CALLER __PRETTY_FUNCTION__
+#   define LIBXS_CALLER_ID __PRETTY_FUNCTION__
 # elif defined(_MSC_VER)
-#   define LIBXS_CALLER __FUNCDNAME__
+#   define LIBXS_CALLER_ID __FUNCDNAME__
+#   define LIBXS_CALLER __FUNCTION__
 # else
-#   define LIBXS_CALLER __FUNCNAME__
+#   define LIBXS_CALLER_ID __FUNCNAME__
 # endif
 #else
 # define LIBXS_VARIADIC
@@ -96,15 +97,16 @@
 # define LIBXS_EXTERN_C
 # if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
 #   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
-#   define LIBXS_CALLER __func__
+#   define LIBXS_CALLER_ID __func__
 #   define LIBXS_RESTRICT restrict
 #   define LIBXS_INLINE_KEYWORD inline
 # elif defined(_MSC_VER)
-#   define LIBXS_CALLER __FUNCDNAME__
+#   define LIBXS_CALLER_ID __FUNCDNAME__
+#   define LIBXS_CALLER __FUNCTION__
 #   define LIBXS_INLINE_KEYWORD __inline
 #   define LIBXS_INLINE_FIXUP
 # elif defined(__GNUC__) && !defined(__STRICT_ANSI__)
-#   define LIBXS_CALLER __PRETTY_FUNCTION__
+#   define LIBXS_CALLER_ID __PRETTY_FUNCTION__
 # endif
 # if !defined(LIBXS_INLINE_KEYWORD)
 #   define LIBXS_INLINE_KEYWORD
@@ -112,8 +114,11 @@
 # endif
 # define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
 #endif /*__cplusplus*/
+#if !defined(LIBXS_CALLER_ID)
+# define LIBXS_CALLER_ID NULL
+#endif
 #if !defined(LIBXS_CALLER)
-# define LIBXS_CALLER NULL
+# define LIBXS_CALLER LIBXS_CALLER_ID
 #endif
 
 #if defined(_WIN32) && !defined(__GNUC__)
@@ -209,6 +214,8 @@
                                 LIBXS_EXTERN_C LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL
 #   define LIBXS_APIEXT LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
 # else /* import */
+#   define LIBXS_APIVAR(DECL) LIBXS_EXTERN_C LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL; \
+                                LIBXS_EXTERN_C LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL
 #   define LIBXS_API LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
 #   define LIBXS_APIEXT LIBXS_API
 # endif
@@ -268,6 +275,12 @@
 # define LIBXS_PRAGMA_SIMD_PRIVATE(...)
 # define LIBXS_PRAGMA_SIMD
 # define LIBXS_PRAGMA_NOVECTOR
+#endif
+
+#if defined(_OPENMP)
+# define LIBXS_PRAGMA_OMP(...) LIBXS_PRAGMA(omp __VA_ARGS__)
+#else
+# define LIBXS_PRAGMA_OMP(...)
 #endif
 
 #if defined(__INTEL_COMPILER)

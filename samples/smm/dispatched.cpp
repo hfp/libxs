@@ -45,35 +45,18 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(REAL_TYPE)
-# define REAL_TYPE double
+#if !defined(ITYPE)
+# define ITYPE double
 #endif
-
-
-LIBXS_INLINE LIBXS_RETARGETABLE void init(libxs_blasint seed, REAL_TYPE *LIBXS_RESTRICT dst,
-  libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
-{
-  const double seed1 = scale * (seed + 1);
-  libxs_blasint i;
-  for (i = 0; i < ncols; ++i) {
-    libxs_blasint j = 0;
-    for (; j < nrows; ++j) {
-      const libxs_blasint k = i * ld + j;
-      dst[k] = (REAL_TYPE)(seed1 / (k + 1));
-    }
-    for (; j < ld; ++j) {
-      const libxs_blasint k = i * ld + j;
-      dst[k] = (REAL_TYPE)seed;
-    }
-  }
-}
+#if !defined(OTYPE)
+# define OTYPE ITYPE
+#endif
 
 
 int main(int argc, char* argv[])
 {
   int result = EXIT_SUCCESS;
   try {
-    typedef REAL_TYPE T;
     const libxs_blasint benchmark = 1 < argc ? std::atoi(argv[1]) : 0;
     const libxs_blasint m = (2 < argc ? std::atoi(argv[2]) : 23);
     const libxs_blasint k = (4 < argc ? std::atoi(argv[4]) : m);
@@ -83,36 +66,37 @@ int main(int argc, char* argv[])
 
     const libxs_blasint lda = m, ldb = k, ldc = m;
     const char transa = 'N', transb = 'N';
-    const T alpha = 1, beta = 1;
+    const OTYPE alpha = 1, beta = 1;
 
-    const libxs_blasint asize = lda * k, bsize = ldb * n, csize = ldc * n, aspace = LIBXS_ALIGNMENT / sizeof(T);
-    const libxs_blasint max_size = ((2ULL << 30/*2 GB*/) / ((asize + bsize + csize) * sizeof(T)));
+    const libxs_blasint asize = lda * k, bsize = ldb * n, csize = ldc * n, aspace = LIBXS_ALIGNMENT / sizeof(ITYPE);
+    const libxs_blasint max_size = ((2ULL << 30/*2 GB*/) / ((asize + bsize) * sizeof(ITYPE) + csize * sizeof(OTYPE)));
     const libxs_blasint s = LIBXS_MIN(0 < q ? q : max_size, max_size);
-    const size_t bwsize_batched = static_cast<size_t>((asize/*load*/ + bsize/*load*/ + 2 * csize/*RFO*/) * sizeof(T)); // batched (A, B, and C)
-    const size_t bwsize = static_cast<size_t>((asize/*load*/ + bsize/*load*/) * sizeof(T)); // omit size of A, B, or C since it is held in cache
+    const size_t bwsize_batched = static_cast<size_t>((asize/*load*/ + bsize/*load*/) * sizeof(ITYPE) + 2/*RFO*/ * csize * sizeof(OTYPE));
+    const size_t bwsize = static_cast<size_t>((asize/*load*/ + bsize/*load*/) * sizeof(ITYPE)); // omit size of A, B, or C since it is held in cache
     const double gflops = 2.0 * nrepeat * s * m * n * k * 1E-9, scale = 1.0 / s;
 #if defined(_OPENMP)
     const libxs_blasint chunksize = s / omp_get_max_threads();
 #endif
 
     struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
-      T *a, *b, *c;
+      ITYPE *a, *b;
+      OTYPE *c;
       raii(libxs_blasint asize_, libxs_blasint bsize_, libxs_blasint csize_)
-        : a(new T[static_cast<size_t>(asize_)]), b(new T[static_cast<size_t>(bsize_)])
-        , c(new T[static_cast<size_t>(csize_)]) {}
+        : a(new ITYPE[static_cast<size_t>(asize_)]), b(new ITYPE[static_cast<size_t>(bsize_)])
+        , c(new OTYPE[static_cast<size_t>(csize_)]) {}
       ~raii() { delete[] a; delete[] b; delete[] c; }
     } buffer(s * asize + aspace - 1, s * bsize + aspace - 1, s * csize + aspace - 1);
-    T *const a = LIBXS_ALIGN(buffer.a, LIBXS_ALIGNMENT);
-    T *const b = LIBXS_ALIGN(buffer.b, LIBXS_ALIGNMENT);
-    T *c = LIBXS_ALIGN(buffer.c, LIBXS_ALIGNMENT);
+    ITYPE *const a = LIBXS_ALIGN(buffer.a, LIBXS_ALIGNMENT);
+    ITYPE *const b = LIBXS_ALIGN(buffer.b, LIBXS_ALIGNMENT);
+    OTYPE *c = LIBXS_ALIGN(buffer.c, LIBXS_ALIGNMENT);
 
 #if defined(_OPENMP)
 #   pragma omp parallel for schedule(static)
 #endif
     for (libxs_blasint i = 0; i < s; ++i) {
-      init(42 + i, a + i * asize, m, k, lda, scale);
-      init(24 + i, b + i * bsize, k, n, ldb, scale);
-      init(22 + i, c + i * csize, m, n, ldc, scale);
+      LIBXS_MATRNG(ITYPE, 42 + i, a + i * asize, m, k, lda, scale);
+      LIBXS_MATRNG(ITYPE, 24 + i, b + i * bsize, k, n, ldb, scale);
+      LIBXS_MATRNG(ITYPE, 22 + i, c + i * csize, m, n, ldc, scale);
     }
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -127,11 +111,11 @@ int main(int argc, char* argv[])
 
       fprintf(stdout, "m=%lli n=%lli k=%lli size=%lli memory=%.1f MB (%s)\n\n",
         static_cast<long long>(m), static_cast<long long>(n), static_cast<long long>(k), static_cast<long long>(s),
-        1.0 * (s * (asize + bsize + csize) * sizeof(T)) / (1 << 20),
-        8 == sizeof(T) ? "DP" : "SP");
+        1.0 * (s * ((asize + bsize) * sizeof(ITYPE) + csize * sizeof(OTYPE))) / (1 << 20),
+        8 == sizeof(ITYPE) ? "DP" : "SP");
 
       // eventually JIT-compile the requested kernel
-      libxs_mmfunction<T>(LIBXS_GEMM_FLAGS(transa, transb), m, n, k, lda, ldb, ldc, alpha, beta);
+      libxs_mmfunction<ITYPE,OTYPE>(LIBXS_GEMM_FLAGS(transa, transb), m, n, k, lda, ldb, ldc, alpha, beta);
 
       switch (benchmark) {
       case 0: { // batched

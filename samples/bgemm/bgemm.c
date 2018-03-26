@@ -44,41 +44,19 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(REAL_TYPE)
-# define REAL_TYPE float
+#if !defined(ITYPE)
+# define ITYPE float
 #endif
 #if !defined(CHECK) && \
   (!defined(__BLAS) || (0 != __BLAS)) && /* BLAS available */ \
-  (LIBXS_EQUAL(REAL_TYPE, float) || LIBXS_EQUAL(REAL_TYPE, double))
+  (LIBXS_EQUAL(ITYPE, float) || LIBXS_EQUAL(ITYPE, double))
 # define CHECK
 #endif
 
 #define MYASSERT(x) if(!(x)) { printf("Assertion %s failed...\n", #x); exit(1);}
 
 
-LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, REAL_TYPE);
-
-
-LIBXS_INLINE LIBXS_RETARGETABLE void init(libxs_blasint seed, REAL_TYPE *LIBXS_RESTRICT dst,
-  libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
-{
-  const double seed1 = scale * (seed + 1);
-  libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < ncols; ++i) {
-    libxs_blasint j = 0;
-    for (; j < nrows; ++j) {
-      const libxs_blasint k = i * ld + j;
-      dst[k] = (REAL_TYPE)(seed1 / (k + 1));
-    }
-    for (; j < ld; ++j) {
-      const libxs_blasint k = i * ld + j;
-      dst[k] = (REAL_TYPE)seed;
-    }
-  }
-}
+LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, ITYPE);
 
 
 int main(int argc, char* argv[])
@@ -100,7 +78,7 @@ int main(int argc, char* argv[])
   LIBXS_GEMM_CONST libxs_blasint ldb = (15 < argc ? atoi(argv[14]) : k);
   LIBXS_GEMM_CONST libxs_blasint ldc = (16 < argc ? atoi(argv[15]) : m);
   LIBXS_GEMM_CONST char transa = 'N', transb = 'N'; /* no transposes */
-  LIBXS_GEMM_CONST REAL_TYPE alpha = 1, beta = 1;
+  LIBXS_GEMM_CONST ITYPE alpha = 1, beta = 1;
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
   const double gflops = 2.0 * m * n * k * 1E-9;
   int result = EXIT_SUCCESS;
@@ -124,24 +102,24 @@ int main(int argc, char* argv[])
 # pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
   {
-    REAL_TYPE* agold = (REAL_TYPE*)libxs_malloc((size_t)(lda * k * sizeof(REAL_TYPE)));
-    REAL_TYPE* bgold = (REAL_TYPE*)libxs_malloc((size_t)(ldb * n * sizeof(REAL_TYPE)));
-    REAL_TYPE* cgold = (REAL_TYPE*)libxs_malloc((size_t)(ldc * n * sizeof(REAL_TYPE)));
-    REAL_TYPE* a = (REAL_TYPE*)libxs_malloc((size_t)(m * k * sizeof(REAL_TYPE)));
-    REAL_TYPE* b = (REAL_TYPE*)libxs_malloc((size_t)(k * n * sizeof(REAL_TYPE)));
-    REAL_TYPE* c = (REAL_TYPE*)libxs_malloc((size_t)(m * n * sizeof(REAL_TYPE)));
+    ITYPE* agold = (ITYPE*)libxs_malloc((size_t)(lda * k * sizeof(ITYPE)));
+    ITYPE* bgold = (ITYPE*)libxs_malloc((size_t)(ldb * n * sizeof(ITYPE)));
+    ITYPE* cgold = (ITYPE*)libxs_malloc((size_t)(ldc * n * sizeof(ITYPE)));
+    ITYPE* a = (ITYPE*)libxs_malloc((size_t)(m * k * sizeof(ITYPE)));
+    ITYPE* b = (ITYPE*)libxs_malloc((size_t)(k * n * sizeof(ITYPE)));
+    ITYPE* c = (ITYPE*)libxs_malloc((size_t)(m * n * sizeof(ITYPE)));
     libxs_bgemm_handle* handle = 0;
     unsigned long long start;
     double duration;
     handle = libxs_bgemm_handle_create(
-      LIBXS_GEMM_PRECISION(REAL_TYPE), LIBXS_GEMM_PRECISION(REAL_TYPE),
+      LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(ITYPE),
       m, n, k, &bm, &bn, &bk, &b_m1, &b_n1, &b_k1, &b_k2,
       &alpha, &beta, &gemm_flags, NULL/*auto-prefetch*/, &order);
 
     if (0 != handle) {
-      init(42, agold, m, k, lda, 1.0);
-      init(24, bgold, k, n, ldb, 1.0);
-      init( 0, cgold, m, n, ldc, 1.0);
+      LIBXS_MATRNG(ITYPE, 42, agold, m, k, lda, 1.0);
+      LIBXS_MATRNG(ITYPE, 24, bgold, k, n, ldb, 1.0);
+      LIBXS_MATRNG(ITYPE,  0, cgold, m, n, ldc, 1.0);
       libxs_bgemm_copyin_a(handle, agold, &lda, a);
       libxs_bgemm_copyin_b(handle, bgold, &ldb, b);
       libxs_bgemm_copyin_c(handle, cgold, &ldc, c);
@@ -152,11 +130,11 @@ int main(int argc, char* argv[])
       libxs_bgemm_omp(handle, a, b, c, 1);
 #if defined(CHECK)
       if (!LIBXS_FEQ(0, check)) {
-        LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
+        LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
       }
 #endif
       if (!ab) {
-      libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(REAL_TYPE),
+      libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(ITYPE),
         &transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
       fprintf(stdout, "\n\n");
       }
@@ -174,11 +152,11 @@ int main(int argc, char* argv[])
       }
 #if defined(CHECK)
       if (!LIBXS_FEQ(0, check)) { /* validate result against LAPACK/BLAS xGEMM */
-        REAL_TYPE* ctest = 0;
+        ITYPE* ctest = 0;
         int i;
         start = libxs_timer_tick();
         for (i = 0; i < nrepeat; ++i) {
-          LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
+          LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
         }
         duration = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < duration) {
@@ -190,11 +168,11 @@ int main(int argc, char* argv[])
         libxs_free(a); a = 0;
         libxs_free(b); b = 0;
         /* allocate C-matrix in regular format, and perform copy-out */
-        ctest = (REAL_TYPE*)libxs_malloc((size_t)(ldc * n * sizeof(REAL_TYPE)));
+        ctest = (ITYPE*)libxs_malloc((size_t)(ldc * n * sizeof(ITYPE)));
         if (0 != ctest) {
           libxs_matdiff_info diff;
           libxs_bgemm_copyout_c(handle, c, &ldc, ctest);
-          if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(REAL_TYPE), m, n, cgold, ctest, &ldc, &ldc, &diff)) {
+          if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(ITYPE), m, n, cgold, ctest, &ldc, &ldc, &diff)) {
             fprintf(stdout, "\tdiff: L2abs=%f Linf=%f\n", diff.l2_abs, diff.linf_abs);
             if (check < 100.0 * diff.normf_rel) {
               fprintf(stderr, "FAILED with an error of %f%%!\n", 100.0 * diff.normf_rel);

@@ -65,26 +65,6 @@
 # define LIBXS_GEMM_PREFETCH_C(EXPR) 0
 #endif
 
-/** Helper macro for BLAS-style prefixes. */
-#define LIBXS_TPREFIX_NAME(TYPE) LIBXS_CONCATENATE(LIBXS_TPREFIX_, TYPE)
-#define LIBXS_TPREFIX(TYPE, SYMBOL) LIBXS_CONCATENATE(LIBXS_TPREFIX_NAME(TYPE), SYMBOL)
-#define LIBXS_TPREFIX_doubledouble d
-#define LIBXS_TPREFIX_floatfloat s
-#define LIBXS_TPREFIX_shortfloat ws
-#define LIBXS_TPREFIX_shortint wi
-/** Defaults if only the input type is specified. */
-#define LIBXS_TPREFIX_double LIBXS_TPREFIX_doubledouble
-#define LIBXS_TPREFIX_float LIBXS_TPREFIX_floatfloat
-#define LIBXS_TPREFIX_short LIBXS_TPREFIX_shortint
-
-/** Helper macro for comparing selected types. */
-#define LIBXS_EQUAL_CHECK(...) LIBXS_SELECT_HEAD(__VA_ARGS__, 0)
-#define LIBXS_EQUAL(T1, T2) LIBXS_EQUAL_CHECK(LIBXS_CONCATENATE2(LIBXS_EQUAL_, T1, T2))
-#define LIBXS_EQUAL_floatfloat 1
-#define LIBXS_EQUAL_doubledouble 1
-#define LIBXS_EQUAL_floatdouble 0
-#define LIBXS_EQUAL_doublefloat 0
-
 /** MKL_DIRECT_CALL requires to include the MKL interface. */
 #if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
 # if (0 != LIBXS_ILP64 && !defined(MKL_ILP64))
@@ -102,29 +82,51 @@
 /** Automatically select a prefetch-strategy (libxs_get_gemm_xprefetch, etc.). */
 #define LIBXS_PREFETCH_AUTO -1
 
-/** Translates GEMM prefetch request into prefetch-enumeration (incl. FE's auto-prefetch). */
-LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_xprefetch(const int* prefetch);
-LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_prefetch(int prefetch);
+/** Helper macro for BLAS-style prefixes. */
+#define LIBXS_TPREFIX_NAME(TYPE) LIBXS_CONCATENATE(LIBXS_TPREFIX_, TYPE)
+#define LIBXS_TPREFIX(TYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_TPREFIX_NAME(TYPE), FUNCTION)
+#define LIBXS_TPREFIX_doubledouble d
+#define LIBXS_TPREFIX_floatfloat s
+#define LIBXS_TPREFIX_shortfloat ws
+#define LIBXS_TPREFIX_shortint wi
+/** Defaults if only the input type is specified. */
+#define LIBXS_TPREFIX_double LIBXS_TPREFIX_doubledouble
+#define LIBXS_TPREFIX_float LIBXS_TPREFIX_floatfloat
+#define LIBXS_TPREFIX_short LIBXS_TPREFIX_shortint
 
-/** GEMM: fall-back prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
-  const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
-  const float*, const float*, const libxs_blasint*, const float*, const libxs_blasint*,
-  const float*, float*, const libxs_blasint*);
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(
-  const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
-  const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
-  const double*, double*, const libxs_blasint*);
+/** Construct symbol name from a given real type name (float, double and short). */
+#define LIBXS_GEMM_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemm))
+#define LIBXS_GEMV_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemv))
+#define LIBXS_GEMMFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm_function))
+#define LIBXS_GEMVFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemv_function))
+#define LIBXS_MMFUNCTION_TYPE(TYPE)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmfunction))
+#define LIBXS_MMDISPATCH_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmdispatch))
+#define LIBXS_XBLAS_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(TYPE, gemm))
+#define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
+#define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
 
-/** GEMV: fall-back prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void(*libxs_sgemv_function)(
-  const char*, const libxs_blasint*, const libxs_blasint*,
-  const float*, const float*, const libxs_blasint*, const float*, const libxs_blasint*,
-  const float*, float*, const libxs_blasint*);
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void(*libxs_dgemv_function)(
-  const char*, const libxs_blasint*, const libxs_blasint*,
-  const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
-  const double*, double*, const libxs_blasint*);
+/* Construct prefix names, function type or dispatch function from given input and output types. */
+#define LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE)    LIBXS_MMFUNCTION_TYPE(LIBXS_CONCATENATE(ITYPE, OTYPE))
+#define LIBXS_MMDISPATCH_SYMBOL2(ITYPE, OTYPE)  LIBXS_MMDISPATCH_SYMBOL(LIBXS_CONCATENATE(ITYPE, OTYPE))
+#define LIBXS_TPREFIX_NAME2(ITYPE, OTYPE)       LIBXS_TPREFIX_NAME(LIBXS_CONCATENATE(ITYPE, OTYPE))
+#define LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION)  LIBXS_TPREFIX(LIBXS_CONCATENATE(ITYPE, OTYPE), FUNCTION)
+
+/** Helper macro for comparing selected types. */
+#define LIBXS_EQUAL_CHECK(...) LIBXS_SELECT_HEAD(__VA_ARGS__, 0)
+#define LIBXS_EQUAL(T1, T2) LIBXS_EQUAL_CHECK(LIBXS_CONCATENATE2(LIBXS_EQUAL_, T1, T2))
+#define LIBXS_EQUAL_floatfloat 1
+#define LIBXS_EQUAL_doubledouble 1
+#define LIBXS_EQUAL_floatdouble 0
+#define LIBXS_EQUAL_doublefloat 0
+
+#if defined(LIBXS_GEMM_CONST)
+# undef LIBXS_GEMM_CONST
+# define LIBXS_GEMM_CONST const
+#elif defined(LIBXS_GEMM_NONCONST) || defined(__OPENBLAS)
+# define LIBXS_GEMM_CONST
+#else
+# define LIBXS_GEMM_CONST const
+#endif
 
 #if defined(LIBXS_BUILD_EXT)
 # define LIBXS_WEAK
@@ -139,37 +141,6 @@ LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void(*libxs_dgemv_function)(
 #else
 # define LIBXS_GEMM_WEAK
 # define LIBXS_EXT_GEMM_WEAK
-#endif
-
-/** The original GEMM functions (SGEMM and DGEMM). */
-LIBXS_API LIBXS_GEMM_WEAK libxs_sgemm_function libxs_original_sgemm(const char* caller);
-LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* caller);
-
-/** Construct symbol name from a given real type name (float, double and short). */
-#define LIBXS_GEMM_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemm))
-#define LIBXS_GEMV_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemv))
-#define LIBXS_GEMMFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm_function))
-#define LIBXS_GEMVFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemv_function))
-#define LIBXS_ORIGINAL_GEMM(TYPE)     LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemm))(LIBXS_CALLER)
-#define LIBXS_MMFUNCTION_TYPE(TYPE)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmfunction))
-#define LIBXS_MMDISPATCH_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmdispatch))
-#define LIBXS_XBLAS_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(TYPE, gemm))
-#define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
-#define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
-
-/* Construct prefix names, function type or dispatch function from given input and output types. */
-#define LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE)    LIBXS_MMFUNCTION_TYPE(LIBXS_CONCATENATE(ITYPE, OTYPE))
-#define LIBXS_MMDISPATCH_SYMBOL2(ITYPE, OTYPE)  LIBXS_MMDISPATCH_SYMBOL(LIBXS_CONCATENATE(ITYPE, OTYPE))
-#define LIBXS_TPREFIX_NAME2(ITYPE, OTYPE)       LIBXS_TPREFIX_NAME(LIBXS_CONCATENATE(ITYPE, OTYPE))
-#define LIBXS_TPREFIX2(ITYPE, OTYPE, SYMBOL)    LIBXS_TPREFIX(LIBXS_CONCATENATE(ITYPE, OTYPE), SYMBOL)
-
-#if defined(LIBXS_GEMM_CONST)
-# undef LIBXS_GEMM_CONST
-# define LIBXS_GEMM_CONST const
-#elif defined(LIBXS_GEMM_NONCONST) || defined(__OPENBLAS)
-# define LIBXS_GEMM_CONST
-#else
-# define LIBXS_GEMM_CONST const
 #endif
 
 #if defined(LIBXS_BUILD)
@@ -197,116 +168,79 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
 
 /** Helper macro allowing NULL-requests (transposes) supplied by some default. */
 #define LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, DEFAULT) LIBXS_GEMM_FLAGS( \
-  0 != ((const void*)(TRANSA)) ? *((const char*)(TRANSA)) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & (DEFAULT)) ? 'N' : 'T'), \
-  0 != ((const void*)(TRANSB)) ? *((const char*)(TRANSB)) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & (DEFAULT)) ? 'N' : 'T')) \
+  NULL != ((const void*)(TRANSA)) ? (*(const char*)(TRANSA)) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & (DEFAULT)) ? 'N' : 'T'), \
+  NULL != ((const void*)(TRANSB)) ? (*(const char*)(TRANSB)) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & (DEFAULT)) ? 'N' : 'T')) \
   | (~(LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B) & (DEFAULT))
 
-/** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (template). */
-#if !defined(__BLAS) || (0 != __BLAS)
-# define LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-    /* 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
-    const char libxs_blas_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'n' : 'T'); \
-    const char libxs_blas_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'n' : 'T'); \
-    const TYPE libxs_blas_xgemm_alpha_ = (TYPE)(ALPHA), libxs_blas_xgemm_beta_ = (TYPE)(BETA); \
-    const libxs_blasint libxs_blas_xgemm_lda_ = (libxs_blasint)(LDA); \
-    const libxs_blasint libxs_blas_xgemm_ldb_ = (libxs_blasint)(LDB); \
-    const libxs_blasint libxs_blas_xgemm_ldc_ = (libxs_blasint)(LDC); \
-    const libxs_blasint libxs_blas_xgemm_m_ = (libxs_blasint)(M); \
-    const libxs_blasint libxs_blas_xgemm_n_ = (libxs_blasint)(N); \
-    const libxs_blasint libxs_blas_xgemm_k_ = (libxs_blasint)(K); \
-    LIBXS_ASSERT(0 != ((uintptr_t)LIBXS_ORIGINAL_GEMM(TYPE))); \
-    LIBXS_ORIGINAL_GEMM(TYPE)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
-      &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
-      &libxs_blas_xgemm_alpha_, (const TYPE*)(A), &libxs_blas_xgemm_lda_, \
-                                  (const TYPE*)(B), &libxs_blas_xgemm_ldb_, \
-       &libxs_blas_xgemm_beta_, (TYPE*)(C), &libxs_blas_xgemm_ldc_); \
-  }
-#else
-# define LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_UNUSED(LDA); LIBXS_UNUSED(LDB); LIBXS_UNUSED(LDC); \
-    LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(K); \
-    LIBXS_UNUSED(A); LIBXS_UNUSED(B); LIBXS_UNUSED(C); \
-    LIBXS_UNUSED(ALPHA); LIBXS_UNUSED(BETA); \
-    LIBXS_UNUSED(FLAGS)
-#endif
-
-/** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (single-precision). */
-#define LIBXS_BLAS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_BLAS_XGEMM(float, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-/** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (single-precision). */
-#define LIBXS_BLAS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_BLAS_XGEMM(double, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-/** BLAS-based GEMM supplied by the linked LAPACK/BLAS library. */
-#define LIBXS_BLAS_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  if (sizeof(double) == sizeof(*(A)) /*always true:*/&& 0 != (LDC)) { \
-    LIBXS_BLAS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
-  } \
-  else { \
-    LIBXS_BLAS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
-  } \
-}
-
-/** Inlinable GEMM exercising the compiler's code generation (template). */
-#if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
-# define LIBXS_INLINE_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-#else
-# define LIBXS_INLINE_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  const TYPE libxs_inline_xgemm_alpha_ = (TYPE)(ALPHA), libxs_inline_xgemm_beta_ = (TYPE)(BETA); \
-  INT libxs_inline_xgemm_i_, libxs_inline_xgemm_j_, libxs_inline_xgemm_k_; \
-  LIBXS_UNUSED(FLAGS); /* TODO: remove/adjust precondition if anything other than NN is supported */ \
-  LIBXS_ASSERT(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS))/*not supported*/); \
-  LIBXS_ASSERT((M) <= (LDA) && (K) <= (LDB) && (M) <= (LDC)); \
+/** Inlinable GEMM exercising the compiler's code generation (macro template). TODO: only NN is supported and SP/DP matrices. */
+#define LIBXS_INLINE_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+  const libxs_blasint libxs_inline_xgemm_m_ = *(const libxs_blasint*)(M); /* must be specified */ \
+  const libxs_blasint libxs_inline_xgemm_k_ = (NULL != ((void*)(K)) ? (*(const libxs_blasint*)(K)) : libxs_inline_xgemm_m_); \
+  const libxs_blasint libxs_inline_xgemm_n_ = (NULL != ((void*)(N)) ? (*(const libxs_blasint*)(N)) : libxs_inline_xgemm_k_); \
+  const libxs_blasint libxs_inline_xgemm_lda_ = (NULL != ((void*)(LDA)) ? (*(const libxs_blasint*)(LDA)) : libxs_inline_xgemm_m_); \
+  const libxs_blasint libxs_inline_xgemm_ldb_ = (NULL != ((void*)(LDB)) ? (*(const libxs_blasint*)(LDB)) : libxs_inline_xgemm_k_); \
+  const libxs_blasint libxs_inline_xgemm_ldc_ = (NULL != ((void*)(LDA)) ? (*(const libxs_blasint*)(LDC)) : libxs_inline_xgemm_m_); \
+  const OTYPE libxs_inline_xgemm_alpha_ = (NULL != ((void*)(ALPHA)) ? (*(const OTYPE*)(ALPHA)) : ((OTYPE)LIBXS_ALPHA)); \
+  const OTYPE libxs_inline_xgemm_beta_  = (NULL != ((void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
+  libxs_blasint libxs_inline_xgemm_ni_, libxs_inline_xgemm_mi_, libxs_inline_xgemm_ki_; /* loop induction variables */ \
+  LIBXS_UNUSED(TRANSA); LIBXS_UNUSED(TRANSB); /* TODO: only NN is supported */ \
+  LIBXS_ASSERT((NULL == ((void*)(TRANSA)) && 0 == (LIBXS_GEMM_FLAG_TRANS_A & LIBXS_FLAGS)) || (NULL != ((void*)(TRANSA)) && (*"N" == *(TRANSA) || 'n' == *(TRANSA)))); \
+  LIBXS_ASSERT((NULL == ((void*)(TRANSB)) && 0 == (LIBXS_GEMM_FLAG_TRANS_B & LIBXS_FLAGS)) || (NULL != ((void*)(TRANSB)) && (*"N" == *(TRANSB) || 'n' == *(TRANSB)))); \
+  LIBXS_ASSERT(libxs_inline_xgemm_m_ <= LIBXS_MIN(libxs_inline_xgemm_lda_, libxs_inline_xgemm_ldc_) && libxs_inline_xgemm_k_ <= libxs_inline_xgemm_ldb_); \
   LIBXS_PRAGMA_SIMD \
-  for (libxs_inline_xgemm_j_ = 0; libxs_inline_xgemm_j_ < ((INT)(M)); ++libxs_inline_xgemm_j_) { \
+  for (libxs_inline_xgemm_mi_ = 0; libxs_inline_xgemm_mi_ < libxs_inline_xgemm_m_; ++libxs_inline_xgemm_mi_) { \
     LIBXS_PRAGMA_LOOP_COUNT(1, LIBXS_MAX_K, LIBXS_AVG_K) \
-    for (libxs_inline_xgemm_k_ = 0; libxs_inline_xgemm_k_ < (K); ++libxs_inline_xgemm_k_) { \
+    for (libxs_inline_xgemm_ki_ = 0; libxs_inline_xgemm_ki_ < libxs_inline_xgemm_k_; ++libxs_inline_xgemm_ki_) { \
       LIBXS_PRAGMA_UNROLL \
-      for (libxs_inline_xgemm_i_ = 0; libxs_inline_xgemm_i_ < ((INT)(N)); ++libxs_inline_xgemm_i_) { \
-        ((TYPE*)(C))[libxs_inline_xgemm_i_*((INT)(LDC))+libxs_inline_xgemm_j_] \
-          = ((const TYPE*)(B))[libxs_inline_xgemm_i_*((INT)(LDB))+libxs_inline_xgemm_k_] * \
-           (((const TYPE*)(A))[libxs_inline_xgemm_k_*((INT)(LDA))+libxs_inline_xgemm_j_] * libxs_inline_xgemm_alpha_) \
-          + ((const TYPE*)(C))[libxs_inline_xgemm_i_*((INT)(LDC))+libxs_inline_xgemm_j_] * libxs_inline_xgemm_beta_; \
+      for (libxs_inline_xgemm_ni_ = 0; libxs_inline_xgemm_ni_ < libxs_inline_xgemm_n_; ++libxs_inline_xgemm_ni_) { \
+        ((OTYPE*)(C))[libxs_inline_xgemm_ni_*libxs_inline_xgemm_ldc_+libxs_inline_xgemm_mi_] \
+          = ((const ITYPE*)(B))[libxs_inline_xgemm_ni_*libxs_inline_xgemm_ldb_+libxs_inline_xgemm_ki_] * \
+           (((const ITYPE*)(A))[libxs_inline_xgemm_ki_*libxs_inline_xgemm_lda_+libxs_inline_xgemm_mi_] * libxs_inline_xgemm_alpha_) \
+          + ((const OTYPE*)(C))[libxs_inline_xgemm_ni_*libxs_inline_xgemm_ldc_+libxs_inline_xgemm_mi_] * libxs_inline_xgemm_beta_; \
       } \
     } \
   } \
 }
-#endif
 
-/** Inlinable GEMM exercising the compiler's code generation (single-precision). */
-#define LIBXS_INLINE_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_INLINE_XGEMM(float, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-/** Inlinable GEMM exercising the compiler's code generation (double-precision). */
-#define LIBXS_INLINE_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_INLINE_XGEMM(double, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-/** Inlinable GEMM exercising the compiler's code generation. */
-#define LIBXS_INLINE_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  if (sizeof(double) == sizeof(*(A)) /*always true:*/&& 0 != (LDC)) { \
-    LIBXS_INLINE_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
-  } \
-  else { \
-    LIBXS_INLINE_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
-  } \
+/** Map to appropriate BLAS function (or fall-back). The mapping is used e.g., inside of LIBXS_BLAS_XGEMM. */
+#define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
+#if !defined(__BLAS) || (0 != __BLAS)
+# define LIBXS_BLAS_FUNCTION_dgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+    libxs_original_dgemm()(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+# define LIBXS_BLAS_FUNCTION_sgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+    libxs_original_sgemm()(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+#else /* no BLAS */
+# define LIBXS_BLAS_FUNCTION_dgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+    LIBXS_INLINE_XGEMM(double, double, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+# define LIBXS_BLAS_FUNCTION_sgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+    LIBXS_INLINE_XGEMM(float, float, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+#endif
+#define LIBXS_BLAS_FUNCTION_wigemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_INLINE_XGEMM(short, int, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+#define LIBXS_BLAS_FUNCTION_wsgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_INLINE_XGEMM(short, float, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+
+/** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (macro template). */
+#define LIBXS_BLAS_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+  const libxs_blasint libxs_blas_xgemm_m_ = *(const libxs_blasint*)(M); /* must be specified */ \
+  const libxs_blasint libxs_blas_xgemm_k_ = (NULL != ((void*)(K)) ? (*(const libxs_blasint*)(K)) : libxs_blas_xgemm_m_); \
+  const libxs_blasint libxs_blas_xgemm_n_ = (NULL != ((void*)(N)) ? (*(const libxs_blasint*)(N)) : libxs_blas_xgemm_k_); \
+  const libxs_blasint libxs_blas_xgemm_lda_ = (NULL != ((void*)(LDA)) ? (*(const libxs_blasint*)(LDA)) : libxs_blas_xgemm_m_); \
+  const libxs_blasint libxs_blas_xgemm_ldb_ = (NULL != ((void*)(LDB)) ? (*(const libxs_blasint*)(LDB)) : libxs_blas_xgemm_k_); \
+  const libxs_blasint libxs_blas_xgemm_ldc_ = (NULL != ((void*)(LDA)) ? (*(const libxs_blasint*)(LDC)) : libxs_blas_xgemm_m_); \
+  const OTYPE libxs_blas_xgemm_alpha_ = (NULL != ((void*)(ALPHA)) ? (*(const OTYPE*)(ALPHA)) : ((OTYPE)LIBXS_ALPHA)); \
+  const OTYPE libxs_blas_xgemm_beta_  = (NULL != ((void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
+  /* Use 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
+  const char libxs_blas_xgemm_transa_ = (char)(NULL != ((void*)(TRANSA)) ? (*(const char*)(TRANSA)) : \
+                        (0 == (LIBXS_GEMM_FLAG_TRANS_A & LIBXS_FLAGS) ? 'n' : 't')); \
+  const char libxs_blas_xgemm_transb_ = (char)(NULL != ((void*)(TRANSB)) ? (*(const char*)(TRANSB)) : \
+                        (0 == (LIBXS_GEMM_FLAG_TRANS_B & LIBXS_FLAGS) ? 'n' : 't')); \
+  LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, gemm)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
+    &libxs_blas_xgemm_m_, &libxs_blas_xgemm_n_, &libxs_blas_xgemm_k_, \
+    &libxs_blas_xgemm_alpha_, (const ITYPE*)(A), &libxs_blas_xgemm_lda_, \
+                                (const ITYPE*)(B), &libxs_blas_xgemm_ldb_, \
+     &libxs_blas_xgemm_beta_,       (ITYPE*)(C), &libxs_blas_xgemm_ldc_); \
 }
-
-/** Fall-back code paths: LIBXS_FALLBACK0, and LIBXS_FALLBACK1 (template). */
-#if defined(LIBXS_FALLBACK_INLINE_GEMM)
-# define LIBXS_FALLBACK0(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_INLINE_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-#elif defined(LIBXS_FALLBACK_OMPS)
-# define LIBXS_FALLBACK0(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_OMPS_GEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-#else
-# define LIBXS_FALLBACK0(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-#endif
-#if defined(LIBXS_FALLBACK_OMPS)
-# define LIBXS_FALLBACK1(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_OMPS_GEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-#else
-# define LIBXS_FALLBACK1(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_BLAS_XGEMM(TYPE, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-#endif
 
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
 #define LIBXS_MMCALL_ABC(FN, A, B, C) \
@@ -335,44 +269,59 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
 /** Calculate problem size from M, N, and K using the correct integer type in order to cover the general case. */
 #define LIBXS_MNK_SIZE(M, N, K) (((unsigned long long)(M)) * ((unsigned long long)(N)) * ((unsigned long long)(K)))
 
+/** Fall-back code paths: LIBXS_XGEMM_FALLBACK0, and LIBXS_XGEMM_FALLBACK1 (macro template). */
+#if !defined(LIBXS_XGEMM_FALLBACK0)
+# define LIBXS_XGEMM_FALLBACK0 LIBXS_BLAS_XGEMM
+#endif
+#if !defined(LIBXS_XGEMM_FALLBACK1)
+# define LIBXS_XGEMM_FALLBACK1 LIBXS_BLAS_XGEMM
+#endif
+
 /**
- * Execute a specialized function, or use a fall-back code path depending on threshold (template).
- * LIBXS_FALLBACK0 or specialized function: below LIBXS_MAX_MNK
- * LIBXS_FALLBACK1: above LIBXS_MAX_MNK
+ * Execute a specialized function, or use a fall-back code path depending on threshold (macro template).
+ * LIBXS_XGEMM_FALLBACK0 or specialized function: below LIBXS_MAX_MNK
+ * LIBXS_XGEMM_FALLBACK1: above LIBXS_MAX_MNK
  */
-#define LIBXS_XGEMM(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  if (((unsigned long long)(LIBXS_MAX_MNK)) >= LIBXS_MNK_SIZE(M, N, K)) { \
-    const int libxs_xgemm_flags_ = (int)(FLAGS); \
-    const INT libxs_xgemm_lda_ = (INT)(LDA), libxs_xgemm_ldb_ = (INT)(LDB), libxs_xgemm_ldc_ = (INT)(LDC); \
-    const TYPE libxs_xgemm_alpha_ = (TYPE)(ALPHA), libxs_xgemm_beta_ = (TYPE)(BETA); \
-    const LIBXS_MMFUNCTION_TYPE(TYPE) libxs_mmfunction_ = LIBXS_MMDISPATCH_SYMBOL(TYPE)( \
-      (INT)(M), (INT)(N), (INT)(K), &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
-      &libxs_xgemm_alpha_, &libxs_xgemm_beta_, &libxs_xgemm_flags_, 0); \
-    if (0 != libxs_mmfunction_) { \
-      LIBXS_MMCALL_LDX(libxs_mmfunction_, (const TYPE*)(A), (const TYPE*)(B), (TYPE*)(C), M, N, K, LDA, LDB, LDC); \
+#define LIBXS_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+  const libxs_blasint libxs_xgemm_m_ = *(const libxs_blasint*)(M); /* must be specified */ \
+  const libxs_blasint libxs_xgemm_k_ = (NULL != (K) ? (*(const libxs_blasint*)(K)) : libxs_xgemm_m_); \
+  const libxs_blasint libxs_xgemm_n_ = (NULL != (N) ? (*(const libxs_blasint*)(N)) : libxs_xgemm_k_); \
+  if (((unsigned long long)(LIBXS_MAX_MNK)) >= LIBXS_MNK_SIZE(libxs_xgemm_m_, libxs_xgemm_n_, libxs_xgemm_k_)) { \
+    const libxs_blasint libxs_xgemm_lda_ = (NULL != (LDA) ? (*(const libxs_blasint*)(LDA)) : libxs_xgemm_m_); \
+    const libxs_blasint libxs_xgemm_ldb_ = (NULL != (LDB) ? (*(const libxs_blasint*)(LDB)) : libxs_xgemm_k_); \
+    const libxs_blasint libxs_xgemm_ldc_ = (NULL != (LDA) ? (*(const libxs_blasint*)(LDC)) : libxs_xgemm_m_); \
+    const int libxs_xgemm_flags_ = LIBXS_GEMM_PFLAGS(transa, transb, LIBXS_FLAGS); \
+    const LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) libxs_mmfunction_ = LIBXS_MMDISPATCH_SYMBOL2(ITYPE, OTYPE)( \
+      libxs_xgemm_m_, libxs_xgemm_n_, libxs_xgemm_k_, &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
+      (const OTYPE*)(ALPHA), (const OTYPE*)(BETA), &libxs_xgemm_flags_, NULL); \
+    if (NULL != libxs_mmfunction_) { \
+      LIBXS_MMCALL_LDX(libxs_mmfunction_, (const ITYPE*)(A), (const ITYPE*)(B), (OTYPE*)(C), \
+        libxs_xgemm_m_, libxs_xgemm_n_, libxs_xgemm_k_, libxs_xgemm_lda_, libxs_xgemm_ldb_, libxs_xgemm_ldc_); \
     } \
     else { \
-      LIBXS_FALLBACK0(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
+      LIBXS_XGEMM_FALLBACK0(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
     } \
   } \
   else { \
-    LIBXS_FALLBACK1(TYPE, INT, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
+    LIBXS_XGEMM_FALLBACK1(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
   } \
 }
 
-/** Dispatched general dense matrix multiplication (single-precision). */
-#define LIBXS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_XGEMM(float, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-/** Dispatched general dense matrix multiplication (double-precision). */
-#define LIBXS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  LIBXS_XGEMM(double, libxs_blasint, FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-/** Dispatched general dense matrix multiplication. */
-#define LIBXS_GEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  if (sizeof(double) == sizeof(*(A)) /*always true:*/&& 0 != (LDC)) { \
-    LIBXS_DGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
-  } \
-  else { \
-    LIBXS_SGEMM(FLAGS, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
+/** Helper macro to setup a matrix with some initial values. */
+#define LIBXS_MATRNG(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) { \
+  const double libxs_matrng_seed1_ = (SCALE) * ((SEED) + 1); \
+  libxs_blasint libxs_matrng_i_; \
+  LIBXS_PRAGMA_OMP(parallel for private(libxs_matrng_i_)) \
+  for (libxs_matrng_i_ = 0; libxs_matrng_i_ < (NCOLS); ++libxs_matrng_i_) { \
+    libxs_blasint libxs_matrng_j_ = 0, libxs_matrng_k_; \
+    for (; libxs_matrng_j_ < (NROWS); ++libxs_matrng_j_) { \
+      libxs_matrng_k_ = libxs_matrng_i_ * (LD) + libxs_matrng_j_; \
+      (DST)[libxs_matrng_k_] = (TYPE)(libxs_matrng_seed1_ / (libxs_matrng_k_ + 1)); \
+    } \
+    for (; libxs_matrng_j_ < (LD); ++libxs_matrng_j_) { \
+      libxs_matrng_k_ = libxs_matrng_i_ * (LD) + libxs_matrng_j_; \
+      (DST)[libxs_matrng_k_] = (TYPE)(SEED); \
+    } \
   } \
 }
 
@@ -381,7 +330,7 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(const char* 
   LIBXS_GEMM_PRINT2(OSTREAM, PRECISION, PRECISION, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC)
 #define LIBXS_GEMM_PRINT2(OSTREAM, IPREC, OPREC, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC) \
   libxs_gemm_dprint2(OSTREAM, (libxs_gemm_precision)(IPREC), (libxs_gemm_precision)(OPREC), \
-    /* 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
+    /* Use 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
     (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'n' : 'T'), \
     (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'n' : 'T'), \
     M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC)
@@ -416,5 +365,55 @@ LIBXS_API void libxs_gemm_dprint2(void* ostream,
   double dalpha, const void* a, libxs_blasint lda,
   const void* b, libxs_blasint ldb,
   double dbeta, void* c, libxs_blasint ldc);
+
+/** GEMM: fall-back prototype functions served by any compliant LAPACK/BLAS. */
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void(*libxs_sgemm_function)(
+  const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+  const float*, const float*, const libxs_blasint*, const float*, const libxs_blasint*,
+  const float*, float*, const libxs_blasint*);
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void(*libxs_dgemm_function)(
+  const char*, const char*, const libxs_blasint*, const libxs_blasint*, const libxs_blasint*,
+  const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
+  const double*, double*, const libxs_blasint*);
+
+/** GEMV: fall-back prototype functions served by any compliant LAPACK/BLAS. */
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void(*libxs_sgemv_function)(
+  const char*, const libxs_blasint*, const libxs_blasint*,
+  const float*, const float*, const libxs_blasint*, const float*, const libxs_blasint*,
+  const float*, float*, const libxs_blasint*);
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void(*libxs_dgemv_function)(
+  const char*, const libxs_blasint*, const libxs_blasint*,
+  const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
+  const double*, double*, const libxs_blasint*);
+
+/** The original GEMM functions (SGEMM and DGEMM). */
+LIBXS_API LIBXS_GEMM_WEAK libxs_sgemm_function libxs_original_sgemm(void);
+LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(void);
+
+/**
+ * General dense matrix multiplication (single-precision), which re-exposes
+ * LAPACK/BLAS but allows to rely on LIBXS's defaults (libxs_config.h)
+ * when supplying NULL-arguments in certain places.
+ */
+LIBXS_API void libxs_blas_sgemm(const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const float* alpha, const float* a, const libxs_blasint* lda,
+  const float* b, const libxs_blasint* ldb,
+  const float* beta, float* c, const libxs_blasint* ldc);
+
+/**
+ * General dense matrix multiplication (double-precision), which re-exposes
+ * LAPACK/BLAS but allows to rely on LIBXS's defaults (libxs_config.h)
+ * when supplying NULL-arguments in certain places.
+ */
+LIBXS_API void libxs_blas_dgemm(const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const double* alpha, const double* a, const libxs_blasint* lda,
+  const double* b, const libxs_blasint* ldb,
+  const double* beta, double* c, const libxs_blasint* ldc);
+
+/** Translates GEMM prefetch request into prefetch-enumeration (incl. FE's auto-prefetch). */
+LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_xprefetch(const int* prefetch);
+LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_prefetch(int prefetch);
 
 #endif /*LIBXS_FRONTEND_H*/
