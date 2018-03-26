@@ -2,7 +2,7 @@
 
 
 
-LIBXS is a library for small dense and small sparse matrix-matrix multiplications as well as for deep learning primitives such as small convolutions targeting Intel Architecture. Small matrix multiplication kernels are generated for the following instruction set extensions: Intel&#160;SSE, Intel&#160;AVX, Intel&#160;AVX2, IMCI (KNCni) for Intel&#160;Xeon&#160;Phi coprocessors ("KNC"), and Intel&#160;AVX&#8209;512 as found in the Intel&#160;Xeon&#160;Phi processor family&#160;(Knights Landing "KNL", Knights Mill "KNM") and Intel&#160;Xeon processors (Skylake-SP "SKX"). Historically small matrix multiplications were only optimized for the Intel&#160;Many Integrated Core Architecture "MIC") using intrinsic functions, meanwhile optimized assembly code is targeting all afore mentioned instruction set extensions (static code generation), and Just&#8209;In&#8209;Time (JIT) code generation is targeting Intel&#160;AVX and beyond. Optimized code for small convolutions is JIT-generated for Intel&#160;AVX2 and Intel&#160;AVX&#8209;512.
+LIBXS is a library for small dense and small sparse matrix-matrix multiplications as well as for deep learning primitives such as small convolutions targeting Intel Architecture. Small matrix multiplication kernels are generated for the following instruction set extensions: Intel&#160;SSE, Intel&#160;AVX, Intel&#160;AVX2, IMCI (KNCni) for Intel&#160;Xeon&#160;Phi coprocessors ("KNC"), and Intel&#160;AVX&#8209;512 as found in the Intel&#160;Xeon&#160;Phi processor family&#160;(Knights Landing "KNL", Knights Mill "KNM") and Intel&#160;Xeon processors (Skylake-SP "SKX"). Historically small matrix multiplications were only optimized for the Intel&#160;Many Integrated Core Architecture "MIC") using intrinsic functions, meanwhile optimized assembly code is targeting all afore mentioned instruction set extensions (static code generation), and Just&#8209;In&#8209;Time (JIT) code generation is targeting Intel&#160;SSE3, Intel&#160;AVX and beyond. Optimized code for small convolutions is JIT-generated for Intel&#160;AVX2 and Intel&#160;AVX&#8209;512.
 
 **Where to go for documentation?**
 
@@ -96,7 +96,7 @@ To use the header-only form, 'libxs_source.h' needs to be *generated*. The build
 make header-only
 ```
 
-**NOTE**: building an application now applies the same build settings to LIBXS! For instance, to omit debug code inside of LIBXS `NDEBUG` must be defined (`-DNDEBUG`).
+**NOTE**: building an application applies the same build settings to LIBXS! For instance, to omit debug code inside of LIBXS `NDEBUG` must be defined (`-DNDEBUG`).
 
 ### Installation
 
@@ -133,11 +133,18 @@ void libxs_init(void);
 void libxs_finalize(void);
 ```
 
-## Deep Neural Networks<a name="interface-for-convolutions"></a>
+### Matrix Multiplication<a name="interface-for-matrix-multiplication"></a>
 
-This domain (DNN) is detailed by a separate [document](libxs_dnn.md). Please also note on how to [Get Started with TensorFlow&trade; using LIBXS](tensorflow.md).
+This domain (MM) supports Small Matrix Multiplications (SMM), batches of multiple multiplications as well as the industry-standard interface for GEneral Matrix Matrix multiplication (GEMM).
 
-### Service Functions
+The [Matrix Multiplication domain (MM)](libxs_mm.md) contains routines for:
+
+* [Small, tiled, and parallelized matrix multiplications](libxs_mm.md#overview)
+* [Manual code dispatch (customized matrix batches)](libxs_mm.md#manual-code-dispatch)
+* [Batched multiplication (explicit interface)](libxs_mm.md#batched-multiplication)
+* [Call wrapper (static and dynamic linkage)](libxs_mm.md#call-wrapper)
+
+## Service Functions
 
 For convenient operation of the library and to ease integration, some service routines are available. These routines may not belong to the core functionality of LIBXS (SMM or DNN domain), but users are encouraged to use this domain (AUX). There are two categories: (1)&#160;routines which are available for C and Fortran, and (2)&#160;routines that are only available per C interface.
 

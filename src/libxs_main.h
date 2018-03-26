@@ -619,8 +619,6 @@ LIBXS_API_INTERN void* libxs_create_xconv_wino_update_weights(const libxs_convol
 
 /** Global lock; create an own lock for an independent domain. */
 LIBXS_APIVAR_PUBLIC(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
-/** Verbosity level (0: quiet, 1: errors, 2: warnings, 3: info, neg.: all/dump). */
-LIBXS_APIVAR_PUBLIC(int libxs_verbosity);
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
 LIBXS_APIVAR_PUBLIC(int libxs_target_archid);
 /** Determines whether a threaded implementation is synchronized or not. */

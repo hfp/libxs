@@ -51,13 +51,13 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(REAL_TYPE)
-# define REAL_TYPE float
+#if !defined(ITYPE)
+# define ITYPE float
 #endif
 
 #if !defined(CHECK) && \
-  (!defined(__BLAS) || (0 != __BLAS)) && /* BLAS evailable */ \
-  (LIBXS_EQUAL(REAL_TYPE, float) || LIBXS_EQUAL(REAL_TYPE, double))
+  (!defined(__BLAS) || (0 != __BLAS)) && /* BLAS available */ \
+  (LIBXS_EQUAL(ITYPE, float) || LIBXS_EQUAL(ITYPE, double))
 # define CHECK
 #endif
 
@@ -121,7 +121,7 @@ struct lstm_handle {
 };
 
 
-LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT dst,
+LIBXS_INLINE LIBXS_RETARGETABLE void LIBXS_MATRNG(ITYPE, int seed, ITYPE *LIBXS_RESTRICT dst,
   libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
 {
   const double seed1 = scale * (seed + 1);
@@ -133,17 +133,17 @@ LIBXS_INLINE LIBXS_RETARGETABLE void init(int seed, REAL_TYPE *LIBXS_RESTRICT ds
     libxs_blasint j = 0;
     for (; j < nrows; ++j) {
       const libxs_blasint k = i * ld + j;
-      dst[k] = (REAL_TYPE)(seed1 / (k + 1));
+      dst[k] = (ITYPE)(seed1 / (k + 1));
     }
     for (; j < ld; ++j) {
       const libxs_blasint k = i * ld + j;
-      dst[k] = (REAL_TYPE)seed;
+      dst[k] = (ITYPE)seed;
     }
   }
 }
 
 
-void matrix_add(libxs_blasint size, REAL_TYPE *a, REAL_TYPE *b, REAL_TYPE *c)
+void matrix_add(libxs_blasint size, ITYPE *a, ITYPE *b, ITYPE *c)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -156,7 +156,7 @@ void matrix_add(libxs_blasint size, REAL_TYPE *a, REAL_TYPE *b, REAL_TYPE *c)
 }
 
 
-void matrix_eltwise_mult(libxs_blasint size, REAL_TYPE *a, REAL_TYPE *b, REAL_TYPE *c)
+void matrix_eltwise_mult(libxs_blasint size, ITYPE *a, ITYPE *b, ITYPE *c)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -169,22 +169,22 @@ void matrix_eltwise_mult(libxs_blasint size, REAL_TYPE *a, REAL_TYPE *b, REAL_TY
 }
 
 
-void matrix_sigmoid(libxs_blasint size, REAL_TYPE *src, REAL_TYPE *dst)
+void matrix_sigmoid(libxs_blasint size, ITYPE *src, ITYPE *dst)
 {
   libxs_blasint i;
-  REAL_TYPE exp_value;
+  ITYPE exp_value;
 #if defined(_OPENMP)
 # pragma omp parallel for private(i, size)
 #endif
   /*LIBXS_PRAGMA_SIMD*/
   for (i = 0; i < size; i++) {
-    exp_value = (REAL_TYPE)exp( -src[i]);
+    exp_value = (ITYPE)exp( -src[i]);
     dst[i] = 1 / (1 + exp_value);
   }
 }
 
 
-void matrix_tanh(libxs_blasint size, REAL_TYPE *src, REAL_TYPE *dst)
+void matrix_tanh(libxs_blasint size, ITYPE *src, ITYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -197,7 +197,7 @@ void matrix_tanh(libxs_blasint size, REAL_TYPE *src, REAL_TYPE *dst)
 }
 
 
-void matrix_relu(libxs_blasint size, REAL_TYPE *src, REAL_TYPE *dst)
+void matrix_relu(libxs_blasint size, ITYPE *src, ITYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -210,8 +210,8 @@ void matrix_relu(libxs_blasint size, REAL_TYPE *src, REAL_TYPE *dst)
 }
 
 
-void recursive_step(libxs_bgemm_handle* handle, REAL_TYPE* u, REAL_TYPE* h, REAL_TYPE* op1, REAL_TYPE *op2,
-  REAL_TYPE *temp, REAL_TYPE *dst, int act, libxs_blasint size)
+void recursive_step(libxs_bgemm_handle* handle, ITYPE* u, ITYPE* h, ITYPE* op1, ITYPE *op2,
+  ITYPE *temp, ITYPE *dst, int act, libxs_blasint size)
 {
 #if defined(LSTM_TIMING)
   Gbl_t_recur = libxs_timer_tick();
@@ -253,7 +253,7 @@ void recursive_step(libxs_bgemm_handle* handle, REAL_TYPE* u, REAL_TYPE* h, REAL
 }
 
 
-libxs_dnn_tensor* libxs_create_dnn_tensor_rnn( REAL_TYPE *data )
+libxs_dnn_tensor* libxs_create_dnn_tensor_rnn( ITYPE *data )
 {
   libxs_dnn_tensor* tensor;
   tensor = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
@@ -264,8 +264,8 @@ libxs_dnn_tensor* libxs_create_dnn_tensor_rnn( REAL_TYPE *data )
 }
 
 
-void rnn_init(struct rnn_handle *rnn, REAL_TYPE *wgold, REAL_TYPE *xgoldt, REAL_TYPE *ugold,
-  REAL_TYPE *hgold, REAL_TYPE *z1gold, REAL_TYPE *z2gold, REAL_TYPE *zgold,
+void rnn_init(struct rnn_handle *rnn, ITYPE *wgold, ITYPE *xgoldt, ITYPE *ugold,
+  ITYPE *hgold, ITYPE *z1gold, ITYPE *z2gold, ITYPE *zgold,
   const libxs_blasint ldw, const libxs_blasint ldx, const libxs_blasint ldz,
   const libxs_blasint ldu, const libxs_blasint ldh)
 {
@@ -275,34 +275,34 @@ void rnn_init(struct rnn_handle *rnn, REAL_TYPE *wgold, REAL_TYPE *xgoldt, REAL_
 #endif
   const char transa = 'N', transb = 'N'; /* no transposes */
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
-  const REAL_TYPE alpha = 1, beta = 1;
+  const ITYPE alpha = 1, beta = 1;
   libxs_blasint m = rnn->m;
   libxs_blasint n = rnn->n;
   libxs_blasint k = rnn->k;
   libxs_blasint t = rnn->t;
-  REAL_TYPE *w = (REAL_TYPE*)rnn->w->data;
-  REAL_TYPE *xt = (REAL_TYPE*)rnn->xt->data;
-  REAL_TYPE *u = (REAL_TYPE*)rnn->u->data;
-  REAL_TYPE *h = (REAL_TYPE*)rnn->h->data;
-  REAL_TYPE *z1t = (REAL_TYPE*)rnn->z1t->data;
-  REAL_TYPE *z2 = (REAL_TYPE*)rnn->z2->data;
-  REAL_TYPE *z = (REAL_TYPE*)rnn->z->data;
+  ITYPE *w = (ITYPE*)rnn->w->data;
+  ITYPE *xt = (ITYPE*)rnn->xt->data;
+  ITYPE *u = (ITYPE*)rnn->u->data;
+  ITYPE *h = (ITYPE*)rnn->h->data;
+  ITYPE *z1t = (ITYPE*)rnn->z1t->data;
+  ITYPE *z2 = (ITYPE*)rnn->z2->data;
+  ITYPE *z = (ITYPE*)rnn->z->data;
   libxs_bgemm_handle *handlewx = rnn->handlewx;
   libxs_bgemm_handle *handleuh = rnn->handleuh;
-  LIBXS_VLA_DECL(2, REAL_TYPE, xgold, xgoldt, ldx * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, x, xt, k * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, z1, z1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, xgold, xgoldt, ldx * n);
+  LIBXS_VLA_DECL(2, ITYPE, x, xt, k * n);
+  LIBXS_VLA_DECL(2, ITYPE, z1, z1t, m * n);
 
-  init(42, wgold, m, k, ldw, 1.0);
+  LIBXS_MATRNG(ITYPE, 42, wgold, m, k, ldw, 1.0);
   int it;
   for (it = 0; it < t; ++it) {
-    init(24, &LIBXS_VLA_ACCESS(2, xgold, it, 0, ldx * n), k, n, ldx, 1.0);
+    LIBXS_MATRNG(ITYPE, 24, &LIBXS_VLA_ACCESS(2, xgold, it, 0, ldx * n), k, n, ldx, 1.0);
   }
-  init(42, ugold, m, m, ldu, 1.0);
-  init(24, hgold, m, n, ldh, 1.0);
-  init( 0, z1gold, m, n, ldz, 1.0);
-  init( 0, z2gold, m, n, ldz, 1.0);
-  init( 0, zgold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE, 42, ugold, m, m, ldu, 1.0);
+  LIBXS_MATRNG(ITYPE, 24, hgold, m, n, ldh, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, z1gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, z2gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, zgold, m, n, ldz, 1.0);
   libxs_bgemm_copyin_a(handlewx, wgold, &ldw, w);
   for (it = 0; it < t; ++it) {
     libxs_bgemm_copyin_b(handlewx, &LIBXS_VLA_ACCESS(2, xgold, it, 0, ldx * n), &ldx, &LIBXS_VLA_ACCESS(2, x, it, 0, k * n));
@@ -321,20 +321,20 @@ void rnn_init(struct rnn_handle *rnn, REAL_TYPE *wgold, REAL_TYPE *xgoldt, REAL_
   libxs_bgemm_omp(handlewx, w, x, &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), 1);
 #if defined(CHECK)
   if (!LIBXS_FEQ(0, check)) {
-    LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, 0, 0, ldx * n), &ldx, &beta, z1gold, &ldz);
+    LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, 0, 0, ldx * n), &ldx, &beta, z1gold, &ldz);
   }
 #endif
-  libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(REAL_TYPE),
+  libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(ITYPE),
     &transa, &transb, &m, &n, &k, &alpha, w, &ldw, x, &ldx, &beta, &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), &ldz);
   fprintf(stdout, "\n\n");
   /* warmup OpenMP (populate thread pool) */
   libxs_bgemm_omp(handleuh, u, h, z2, 1);
 #if defined(CHECK)
   if (!LIBXS_FEQ(0, check)) {
-    LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, ugold, &ldu, hgold, &ldh, &beta, z2gold, &ldz);
+    LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, ugold, &ldu, hgold, &ldh, &beta, z2gold, &ldz);
   }
 #endif
-  libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(REAL_TYPE),
+  libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(ITYPE),
     &transa, &transb, &m, &n, &m, &alpha, u, &ldu, h, &ldh, &beta, z2, &ldz);
   fprintf(stdout, "\n\n");
 }
@@ -344,24 +344,24 @@ void rnn_execute(struct rnn_handle *rnn, const int nrepeat)
 {
   const char transa = 'N', transb = 'N'; /* no transposes */
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
-  const REAL_TYPE alpha = 1, beta = 1;
+  const ITYPE alpha = 1, beta = 1;
   libxs_blasint m = rnn->m;
   libxs_blasint n = rnn->n;
   libxs_blasint k = rnn->k;
   libxs_blasint t = rnn->t;
   const double gflops = ((2.0 * m * n * k) + (2.0 * m * n * m) + (2.0 * m * n)) * t * 1E-9;
-  REAL_TYPE *w = (REAL_TYPE*)rnn->w->data;
-  REAL_TYPE *xt = (REAL_TYPE*)rnn->xt->data;
-  REAL_TYPE *u = (REAL_TYPE*)rnn->u->data;
-  REAL_TYPE *h = (REAL_TYPE*)rnn->h->data;
-  REAL_TYPE *z1t = (REAL_TYPE*)rnn->z1t->data;
-  REAL_TYPE *z2 = (REAL_TYPE*)rnn->z2->data;
-  REAL_TYPE *z = (REAL_TYPE*)rnn->z->data;
+  ITYPE *w = (ITYPE*)rnn->w->data;
+  ITYPE *xt = (ITYPE*)rnn->xt->data;
+  ITYPE *u = (ITYPE*)rnn->u->data;
+  ITYPE *h = (ITYPE*)rnn->h->data;
+  ITYPE *z1t = (ITYPE*)rnn->z1t->data;
+  ITYPE *z2 = (ITYPE*)rnn->z2->data;
+  ITYPE *z = (ITYPE*)rnn->z->data;
   libxs_bgemm_handle *handlewx = rnn->handlewx;
   libxs_bgemm_handle *handleuh = rnn->handleuh;
   libxs_bgemm_handle *handlett = rnn->handlett;
-  LIBXS_VLA_DECL(2, REAL_TYPE, x, xt, k * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, z1, z1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, x, xt, k * n);
+  LIBXS_VLA_DECL(2, ITYPE, z1, z1t, m * n);
   unsigned long long start;
   double duration;
 #if defined(LSTM_TIMING)
@@ -380,7 +380,7 @@ void rnn_execute(struct rnn_handle *rnn, const int nrepeat)
 #endif
     /* The following loop may be absorbed into libxs_lstm_omp */
     libxs_bgemm_omp(handlett, w, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), 1/*nrepeat*/);
-    /*LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &nt, &k, &alpha, w, m, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), k, &beta, z1, m);*/
+    /*LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &nt, &k, &alpha, w, m, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), k, &beta, z1, m);*/
 #if defined(LSTM_TIMING)
     Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
     Gbl_t_input_total += Gbl_duration_input;
@@ -429,39 +429,39 @@ int rnn (const libxs_blasint m, const libxs_blasint n, const libxs_blasint k, co
   const double gflops = ((2.0 * m * n * k) + (2.0 * m * n * m) + (2.0 * m * n)) * t * 1E-9;
   const char transa = 'N', transb = 'N'; /* no transposes */
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
-  const REAL_TYPE alpha = 1, beta = 1;
+  const ITYPE alpha = 1, beta = 1;
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
   {
-    REAL_TYPE* wgold = (REAL_TYPE*)libxs_malloc(ldw * k * sizeof(REAL_TYPE));
-    REAL_TYPE* xgoldt = (REAL_TYPE*)libxs_malloc(ldx * n * sizeof(REAL_TYPE) * t);
-    REAL_TYPE* ugold = (REAL_TYPE*)libxs_malloc(ldu * m * sizeof(REAL_TYPE));
-    REAL_TYPE* hgold = (REAL_TYPE*)libxs_malloc(ldh * n * sizeof(REAL_TYPE));
-    REAL_TYPE* z1gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* z2gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* zgold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
+    ITYPE* wgold = (ITYPE*)libxs_malloc(ldw * k * sizeof(ITYPE));
+    ITYPE* xgoldt = (ITYPE*)libxs_malloc(ldx * n * sizeof(ITYPE) * t);
+    ITYPE* ugold = (ITYPE*)libxs_malloc(ldu * m * sizeof(ITYPE));
+    ITYPE* hgold = (ITYPE*)libxs_malloc(ldh * n * sizeof(ITYPE));
+    ITYPE* z1gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* z2gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* zgold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
 
-    REAL_TYPE* w = (REAL_TYPE*)libxs_malloc(m * k * sizeof(REAL_TYPE));
-    REAL_TYPE* xt = (REAL_TYPE*)libxs_malloc(k * n * sizeof(REAL_TYPE) * t);
-    REAL_TYPE* u = (REAL_TYPE*)libxs_malloc(m * m * sizeof(REAL_TYPE));
-    REAL_TYPE* h = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* z1t = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE) * t);
-    REAL_TYPE* z2 = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* z = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    LIBXS_VLA_DECL(2, REAL_TYPE, xgold, xgoldt, ldx * n);
+    ITYPE* w = (ITYPE*)libxs_malloc(m * k * sizeof(ITYPE));
+    ITYPE* xt = (ITYPE*)libxs_malloc(k * n * sizeof(ITYPE) * t);
+    ITYPE* u = (ITYPE*)libxs_malloc(m * m * sizeof(ITYPE));
+    ITYPE* h = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* z1t = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE) * t);
+    ITYPE* z2 = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* z = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    LIBXS_VLA_DECL(2, ITYPE, xgold, xgoldt, ldx * n);
     libxs_bgemm_handle* handlewx = 0;
     libxs_bgemm_handle* handleuh = 0;
     libxs_bgemm_handle* handlett = 0;
     const libxs_gemm_prefetch_type strategy = LIBXS_PREFETCH_AUTO;
-    handlewx = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(REAL_TYPE),
+    handlewx = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(ITYPE),
       m, n, k, &bm, &bn, &bk, &b_m1, &b_n1, &b_k1, &b_k2,
       &alpha, &beta, &gemm_flags, &strategy, &order);
-    handleuh = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(REAL_TYPE),
+    handleuh = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(ITYPE),
       m, n, m, &bm, &bn, &bm, &b_m1, &b_n1, &b_m1, &b_m2,
       &alpha, &beta, &gemm_flags, &strategy, &order);
-    handlett = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(REAL_TYPE),
+    handlett = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(ITYPE),
       m, n*t, k, &bm, &bn, &bk, &b_m1, &b_n1, &b_k1, &b_k2,
       &alpha, &beta, &gemm_flags, &strategy, &order);
 
@@ -489,18 +489,18 @@ int rnn (const libxs_blasint m, const libxs_blasint n, const libxs_blasint k, co
       double duration;
       int s;
       if (!LIBXS_FEQ(0, check)) { /* validate result against LAPACK/BLAS xGEMM */
-        REAL_TYPE* ztest = 0;
+        ITYPE* ztest = 0;
         int i;
         start = libxs_timer_tick();
         for (s = 0; s < nrepeat; ++s) {
           for (i = 0; i < t-1; ++i) {
-            LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, i, 0, k * n), &ldx, &beta, z1gold, &ldz);
-            LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, ugold, &ldu, hgold, &ldh, &beta, z2gold, &ldz);
+            LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, i, 0, k * n), &ldx, &beta, z1gold, &ldz);
+            LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, ugold, &ldu, hgold, &ldh, &beta, z2gold, &ldz);
             matrix_add(m*n, z1gold, z2gold, zgold);
             matrix_relu(m*n, zgold, hgold); /*sigmoid*/
           }
-          LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, t-1, 0, k * n), &ldx, &beta, z1gold, &ldz);
-          LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, ugold, &ldu, hgold, &ldh, &beta, z2gold, &ldz);
+          LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, t-1, 0, k * n), &ldx, &beta, z1gold, &ldz);
+          LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, ugold, &ldu, hgold, &ldh, &beta, z2gold, &ldz);
           matrix_add(m*n, z1gold, z2gold, zgold);
         }
         duration = libxs_timer_duration(start, libxs_timer_tick());
@@ -515,11 +515,11 @@ int rnn (const libxs_blasint m, const libxs_blasint n, const libxs_blasint k, co
         libxs_free(z1gold); z1gold = 0;
         libxs_free(z2gold); z2gold = 0;
         /* allocate C-matrix in regular format, and perform copy-out */
-        ztest = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
+        ztest = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
         if (0 != ztest) {
           libxs_matdiff_info diff;
           libxs_bgemm_copyout_c(handleuh, z, &ldz, ztest);
-          if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(REAL_TYPE), m, n, zgold, ztest, &ldz, &ldz, &diff)) {
+          if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(ITYPE), m, n, zgold, ztest, &ldz, &ldz, &diff)) {
             fprintf(stdout, "\tdiff: L2abs=%f L2rel=%f\n", diff.l2_abs, diff.linf_abs);
             if (check < 100.0 * diff.normf_rel) {
               fprintf(stderr, "FAILED with an error of %f%%!\n", 100.0 * diff.normf_rel);
@@ -553,11 +553,11 @@ int rnn (const libxs_blasint m, const libxs_blasint n, const libxs_blasint k, co
 }
 
 
-void lstm_init(struct lstm_handle *lstm, REAL_TYPE *wigold, REAL_TYPE *wfgold, REAL_TYPE *wogold, REAL_TYPE *wcgold,
-  REAL_TYPE *xgoldt, REAL_TYPE *rigold, REAL_TYPE *rfgold, REAL_TYPE *rogold, REAL_TYPE *rcgold, REAL_TYPE *hgold,
-  REAL_TYPE *i1gold, REAL_TYPE *i2gold, REAL_TYPE *f1gold, REAL_TYPE *f2gold, REAL_TYPE *o1gold, REAL_TYPE *o2gold,
-  REAL_TYPE *c1gold, REAL_TYPE *c2gold, REAL_TYPE *igold, REAL_TYPE *fgold, REAL_TYPE *ogold, REAL_TYPE *cgold,
-  REAL_TYPE *d0gold, REAL_TYPE *d1gold, REAL_TYPE *d2gold, REAL_TYPE *dgold,
+void lstm_init(struct lstm_handle *lstm, ITYPE *wigold, ITYPE *wfgold, ITYPE *wogold, ITYPE *wcgold,
+  ITYPE *xgoldt, ITYPE *rigold, ITYPE *rfgold, ITYPE *rogold, ITYPE *rcgold, ITYPE *hgold,
+  ITYPE *i1gold, ITYPE *i2gold, ITYPE *f1gold, ITYPE *f2gold, ITYPE *o1gold, ITYPE *o2gold,
+  ITYPE *c1gold, ITYPE *c2gold, ITYPE *igold, ITYPE *fgold, ITYPE *ogold, ITYPE *cgold,
+  ITYPE *d0gold, ITYPE *d1gold, ITYPE *d2gold, ITYPE *dgold,
   const libxs_blasint ldw, const libxs_blasint ldx, const libxs_blasint ldz,
   const libxs_blasint ldu, const libxs_blasint ldh)
 {
@@ -567,86 +567,86 @@ void lstm_init(struct lstm_handle *lstm, REAL_TYPE *wigold, REAL_TYPE *wfgold, R
 #endif
   const char transa = 'N', transb = 'N'; /* no transposes */
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
-  const REAL_TYPE alpha = 1, beta = 1;
+  const ITYPE alpha = 1, beta = 1;
   libxs_blasint m = lstm->m;
   libxs_blasint n = lstm->n;
   libxs_blasint k = lstm->k;
   libxs_blasint t = lstm->t;
-  REAL_TYPE *wi = (REAL_TYPE*)lstm->wi->data;
-  REAL_TYPE *wf = (REAL_TYPE*)lstm->wf->data;
-  REAL_TYPE *wo = (REAL_TYPE*)lstm->wo->data;
-  REAL_TYPE *wc = (REAL_TYPE*)lstm->wc->data;
-  REAL_TYPE *xt = (REAL_TYPE*)lstm->xt->data;
-  REAL_TYPE *ri = (REAL_TYPE*)lstm->ri->data;
-  REAL_TYPE *rf = (REAL_TYPE*)lstm->rf->data;
-  REAL_TYPE *ro = (REAL_TYPE*)lstm->ro->data;
-  REAL_TYPE *rc = (REAL_TYPE*)lstm->rc->data;
-  REAL_TYPE *h = (REAL_TYPE*)lstm->h->data;
-  REAL_TYPE *i1t = (REAL_TYPE*)lstm->i1t->data;
-  REAL_TYPE *i2 = (REAL_TYPE*)lstm->i2->data;
-  REAL_TYPE *f1t = (REAL_TYPE*)lstm->f1t->data;
-  REAL_TYPE *f2 = (REAL_TYPE*)lstm->f2->data;
-  REAL_TYPE *o1t = (REAL_TYPE*)lstm->o1t->data;
-  REAL_TYPE *o2 = (REAL_TYPE*)lstm->o2->data;
-  REAL_TYPE *c1t = (REAL_TYPE*)lstm->c1t->data;
-  REAL_TYPE *c2 = (REAL_TYPE*)lstm->c2->data;
-  REAL_TYPE *i = (REAL_TYPE*)lstm->i->data;
-  REAL_TYPE *f = (REAL_TYPE*)lstm->f->data;
-  REAL_TYPE *o = (REAL_TYPE*)lstm->o->data;
-  REAL_TYPE *c = (REAL_TYPE*)lstm->c->data;
-  REAL_TYPE *d0 = (REAL_TYPE*)lstm->d0->data;
-  REAL_TYPE *d1 = (REAL_TYPE*)lstm->d1->data;
-  REAL_TYPE *d2 = (REAL_TYPE*)lstm->d2->data;
-  REAL_TYPE *d = (REAL_TYPE*)lstm->d->data;
-  LIBXS_VLA_DECL(2, REAL_TYPE, xgold, xgoldt, ldx * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, x, xt, k * n);
+  ITYPE *wi = (ITYPE*)lstm->wi->data;
+  ITYPE *wf = (ITYPE*)lstm->wf->data;
+  ITYPE *wo = (ITYPE*)lstm->wo->data;
+  ITYPE *wc = (ITYPE*)lstm->wc->data;
+  ITYPE *xt = (ITYPE*)lstm->xt->data;
+  ITYPE *ri = (ITYPE*)lstm->ri->data;
+  ITYPE *rf = (ITYPE*)lstm->rf->data;
+  ITYPE *ro = (ITYPE*)lstm->ro->data;
+  ITYPE *rc = (ITYPE*)lstm->rc->data;
+  ITYPE *h = (ITYPE*)lstm->h->data;
+  ITYPE *i1t = (ITYPE*)lstm->i1t->data;
+  ITYPE *i2 = (ITYPE*)lstm->i2->data;
+  ITYPE *f1t = (ITYPE*)lstm->f1t->data;
+  ITYPE *f2 = (ITYPE*)lstm->f2->data;
+  ITYPE *o1t = (ITYPE*)lstm->o1t->data;
+  ITYPE *o2 = (ITYPE*)lstm->o2->data;
+  ITYPE *c1t = (ITYPE*)lstm->c1t->data;
+  ITYPE *c2 = (ITYPE*)lstm->c2->data;
+  ITYPE *i = (ITYPE*)lstm->i->data;
+  ITYPE *f = (ITYPE*)lstm->f->data;
+  ITYPE *o = (ITYPE*)lstm->o->data;
+  ITYPE *c = (ITYPE*)lstm->c->data;
+  ITYPE *d0 = (ITYPE*)lstm->d0->data;
+  ITYPE *d1 = (ITYPE*)lstm->d1->data;
+  ITYPE *d2 = (ITYPE*)lstm->d2->data;
+  ITYPE *d = (ITYPE*)lstm->d->data;
+  LIBXS_VLA_DECL(2, ITYPE, xgold, xgoldt, ldx * n);
+  LIBXS_VLA_DECL(2, ITYPE, x, xt, k * n);
 #if defined(NON_FUSED_INPUT_GEMM)
-  LIBXS_VLA_DECL(2, REAL_TYPE, i1, i1t, m * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, f1, f1t, m * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, o1, o1t, m * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, c1, c1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, i1, i1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, f1, f1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, o1, o1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, c1, c1t, m * n);
 #else
-  LIBXS_VLA_DECL(3, REAL_TYPE, i1, i1t, t, m * n);
+  LIBXS_VLA_DECL(3, ITYPE, i1, i1t, t, m * n);
 #endif
   libxs_bgemm_handle *handlewx = lstm->handlewx;
   libxs_bgemm_handle *handleuh = lstm->handleuh;
 
-  init(42, wigold, m, k, ldw, 1.0);
-  init(42, wfgold, m, k, ldw, 1.0);
-  init(42, wogold, m, k, ldw, 1.0);
-  init(42, wcgold, m, k, ldw, 1.0);
+  LIBXS_MATRNG(ITYPE, 42, wigold, m, k, ldw, 1.0);
+  LIBXS_MATRNG(ITYPE, 42, wfgold, m, k, ldw, 1.0);
+  LIBXS_MATRNG(ITYPE, 42, wogold, m, k, ldw, 1.0);
+  LIBXS_MATRNG(ITYPE, 42, wcgold, m, k, ldw, 1.0);
   int it;
   for (it = 0; it < t; ++it) {
-    init(24, &LIBXS_VLA_ACCESS(2, xgold, it, 0, ldx * n), k, n, ldx, 1.0);
+    LIBXS_MATRNG(ITYPE, 24, &LIBXS_VLA_ACCESS(2, xgold, it, 0, ldx * n), k, n, ldx, 1.0);
   }
-  init(42, rigold, m, m, ldu, 1.0);
-  init(42, rfgold, m, m, ldu, 1.0);
-  init(42, rogold, m, m, ldu, 1.0);
-  init(42, rcgold, m, m, ldu, 1.0);
-  init(24, hgold, m, n, ldh, 1.0);
-  init(24, d0gold, m, n, ldh, 1.0);
-  init( 0, i1gold, m, n, ldz, 1.0);
-  init( 0, i2gold, m, n, ldz, 1.0);
-  init( 0, f1gold, m, n, ldz, 1.0);
-  init( 0, f2gold, m, n, ldz, 1.0);
-  init( 0, o1gold, m, n, ldz, 1.0);
-  init( 0, o2gold, m, n, ldz, 1.0);
-  init( 0, c1gold, m, n, ldz, 1.0);
-  init( 0, c2gold, m, n, ldz, 1.0);
-  init( 0, igold, m, n, ldz, 1.0);
-  init( 0, fgold, m, n, ldz, 1.0);
-  init( 0, ogold, m, n, ldz, 1.0);
-  init( 0, cgold, m, n, ldz, 1.0);
-  init( 0, d1gold, m, n, ldz, 1.0);
-  init( 0, d2gold, m, n, ldz, 1.0);
-  init( 0, dgold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE, 42, rigold, m, m, ldu, 1.0);
+  LIBXS_MATRNG(ITYPE, 42, rfgold, m, m, ldu, 1.0);
+  LIBXS_MATRNG(ITYPE, 42, rogold, m, m, ldu, 1.0);
+  LIBXS_MATRNG(ITYPE, 42, rcgold, m, m, ldu, 1.0);
+  LIBXS_MATRNG(ITYPE, 24, hgold, m, n, ldh, 1.0);
+  LIBXS_MATRNG(ITYPE, 24, d0gold, m, n, ldh, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, i1gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, i2gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, f1gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, f2gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, o1gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, o2gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, c1gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, c2gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, igold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, fgold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, ogold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, cgold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, d1gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, d2gold, m, n, ldz, 1.0);
+  LIBXS_MATRNG(ITYPE,  0, dgold, m, n, ldz, 1.0);
 #if defined(NON_FUSED_INPUT_GEMM)
   libxs_bgemm_copyin_a(handlewx, wigold, &ldw, wi);
   libxs_bgemm_copyin_a(handlewx, wfgold, &ldw, wf);
   libxs_bgemm_copyin_a(handlewx, wogold, &ldw, wo);
   libxs_bgemm_copyin_a(handlewx, wcgold, &ldw, wc);
 #else
-  LIBXS_VLA_DECL(2, REAL_TYPE, wi4, wi, m * k);
+  LIBXS_VLA_DECL(2, ITYPE, wi4, wi, m * k);
   libxs_bgemm_copyin_a(handlewx, wigold, &ldw, &LIBXS_VLA_ACCESS(2, wi4, 0, 0, m * k));
   libxs_bgemm_copyin_a(handlewx, wfgold, &ldw, &LIBXS_VLA_ACCESS(2, wi4, 1, 0, m * k));
   libxs_bgemm_copyin_a(handlewx, wogold, &ldw, &LIBXS_VLA_ACCESS(2, wi4, 2, 0, m * k));
@@ -703,13 +703,13 @@ void lstm_init(struct lstm_handle *lstm, REAL_TYPE *wigold, REAL_TYPE *wfgold, R
 #endif
 #if defined(CHECK)
   if (!LIBXS_FEQ(0, check)) {
-    LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wigold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, 0, 0, ldx * n), &ldx, &beta, i1gold, &ldz);
-    LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wfgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, 0, 0, ldx * n), &ldx, &beta, f1gold, &ldz);
-    LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wogold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, 0, 0, ldx * n), &ldx, &beta, o1gold, &ldz);
-    LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wcgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, 0, 0, ldx * n), &ldx, &beta, c1gold, &ldz);
+    LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wigold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, 0, 0, ldx * n), &ldx, &beta, i1gold, &ldz);
+    LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wfgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, 0, 0, ldx * n), &ldx, &beta, f1gold, &ldz);
+    LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wogold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, 0, 0, ldx * n), &ldx, &beta, o1gold, &ldz);
+    LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wcgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, 0, 0, ldx * n), &ldx, &beta, c1gold, &ldz);
   }
 #endif
-  libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(REAL_TYPE),
+  libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(ITYPE),
     &transa, &transb, &m, &n, &k, &alpha, wi, &ldw, x, &ldx, &beta, &LIBXS_VLA_ACCESS(2, i1, 0, 0, m * n), &ldz);
   fprintf(stdout, "\n\n");
   /* warmup OpenMP (populate thread pool) */
@@ -719,13 +719,13 @@ void lstm_init(struct lstm_handle *lstm, REAL_TYPE *wigold, REAL_TYPE *wfgold, R
   libxs_bgemm_omp(handleuh, rc, h, c2, 1);
 #if defined(CHECK)
   if (!LIBXS_FEQ(0, check)) {
-    LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, rigold, &ldu, hgold, &ldh, &beta, i2gold, &ldz);
-    LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, rfgold, &ldu, hgold, &ldh, &beta, f2gold, &ldz);
-    LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, rogold, &ldu, hgold, &ldh, &beta, o2gold, &ldz);
-    LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, rcgold, &ldu, hgold, &ldh, &beta, c2gold, &ldz);
+    LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, rigold, &ldu, hgold, &ldh, &beta, i2gold, &ldz);
+    LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, rfgold, &ldu, hgold, &ldh, &beta, f2gold, &ldz);
+    LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, rogold, &ldu, hgold, &ldh, &beta, o2gold, &ldz);
+    LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, rcgold, &ldu, hgold, &ldh, &beta, c2gold, &ldz);
   }
 #endif
-  libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(REAL_TYPE),
+  libxs_gemm_print(stdout, LIBXS_GEMM_PRECISION(ITYPE),
     &transa, &transb, &m, &n, &m, &alpha, ri, &ldu, h, &ldh, &beta, i2, &ldz);
   fprintf(stdout, "\n\n");
 }
@@ -735,54 +735,54 @@ void lstm_execute(struct lstm_handle *lstm, const int nrepeat)
 {
   const char transa = 'N', transb = 'N'; /* no transposes */
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
-  const REAL_TYPE alpha = 1, beta = 1;
+  const ITYPE alpha = 1, beta = 1;
   libxs_blasint m = lstm->m;
   libxs_blasint n = lstm->n;
   libxs_blasint k = lstm->k;
   libxs_blasint t = lstm->t;
   const double gflops = (((2.0 * m * n * k) + (2.0 * m * n * m) + (2.0 * m * n)) * 4.0 + (4.0 * m * n)) * t * 1E-9;
-  REAL_TYPE *wi = (REAL_TYPE*)lstm->wi->data;
-  REAL_TYPE *wf = (REAL_TYPE*)lstm->wf->data;
-  REAL_TYPE *wo = (REAL_TYPE*)lstm->wo->data;
-  REAL_TYPE *wc = (REAL_TYPE*)lstm->wc->data;
-  REAL_TYPE *xt = (REAL_TYPE*)lstm->xt->data;
-  REAL_TYPE *ri = (REAL_TYPE*)lstm->ri->data;
-  REAL_TYPE *rf = (REAL_TYPE*)lstm->rf->data;
-  REAL_TYPE *ro = (REAL_TYPE*)lstm->ro->data;
-  REAL_TYPE *rc = (REAL_TYPE*)lstm->rc->data;
-  REAL_TYPE *h = (REAL_TYPE*)lstm->h->data;
-  REAL_TYPE *i1t = (REAL_TYPE*)lstm->i1t->data;
-  REAL_TYPE *i2 = (REAL_TYPE*)lstm->i2->data;
-  REAL_TYPE *f1t = (REAL_TYPE*)lstm->f1t->data;
-  REAL_TYPE *f2 = (REAL_TYPE*)lstm->f2->data;
-  REAL_TYPE *o1t = (REAL_TYPE*)lstm->o1t->data;
-  REAL_TYPE *o2 = (REAL_TYPE*)lstm->o2->data;
-  REAL_TYPE *c1t = (REAL_TYPE*)lstm->c1t->data;
-  REAL_TYPE *c2 = (REAL_TYPE*)lstm->c2->data;
-  REAL_TYPE *i = (REAL_TYPE*)lstm->i->data;
-  REAL_TYPE *f = (REAL_TYPE*)lstm->f->data;
-  REAL_TYPE *o = (REAL_TYPE*)lstm->o->data;
-  REAL_TYPE *c = (REAL_TYPE*)lstm->c->data;
-  REAL_TYPE *d0 = (REAL_TYPE*)lstm->d0->data;
-  REAL_TYPE *d1 = (REAL_TYPE*)lstm->d1->data;
-  REAL_TYPE *d2 = (REAL_TYPE*)lstm->d2->data;
-  REAL_TYPE *d = (REAL_TYPE*)lstm->d->data;
-  LIBXS_VLA_DECL(2, REAL_TYPE, x, xt, k * n);
+  ITYPE *wi = (ITYPE*)lstm->wi->data;
+  ITYPE *wf = (ITYPE*)lstm->wf->data;
+  ITYPE *wo = (ITYPE*)lstm->wo->data;
+  ITYPE *wc = (ITYPE*)lstm->wc->data;
+  ITYPE *xt = (ITYPE*)lstm->xt->data;
+  ITYPE *ri = (ITYPE*)lstm->ri->data;
+  ITYPE *rf = (ITYPE*)lstm->rf->data;
+  ITYPE *ro = (ITYPE*)lstm->ro->data;
+  ITYPE *rc = (ITYPE*)lstm->rc->data;
+  ITYPE *h = (ITYPE*)lstm->h->data;
+  ITYPE *i1t = (ITYPE*)lstm->i1t->data;
+  ITYPE *i2 = (ITYPE*)lstm->i2->data;
+  ITYPE *f1t = (ITYPE*)lstm->f1t->data;
+  ITYPE *f2 = (ITYPE*)lstm->f2->data;
+  ITYPE *o1t = (ITYPE*)lstm->o1t->data;
+  ITYPE *o2 = (ITYPE*)lstm->o2->data;
+  ITYPE *c1t = (ITYPE*)lstm->c1t->data;
+  ITYPE *c2 = (ITYPE*)lstm->c2->data;
+  ITYPE *i = (ITYPE*)lstm->i->data;
+  ITYPE *f = (ITYPE*)lstm->f->data;
+  ITYPE *o = (ITYPE*)lstm->o->data;
+  ITYPE *c = (ITYPE*)lstm->c->data;
+  ITYPE *d0 = (ITYPE*)lstm->d0->data;
+  ITYPE *d1 = (ITYPE*)lstm->d1->data;
+  ITYPE *d2 = (ITYPE*)lstm->d2->data;
+  ITYPE *d = (ITYPE*)lstm->d->data;
+  LIBXS_VLA_DECL(2, ITYPE, x, xt, k * n);
 #if defined(NON_FUSED_INPUT_GEMM)
-  LIBXS_VLA_DECL(2, REAL_TYPE, i1, i1t, m * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, f1, f1t, m * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, o1, o1t, m * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, c1, c1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, i1, i1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, f1, f1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, o1, o1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, c1, c1t, m * n);
 #else
-  LIBXS_VLA_DECL(3, REAL_TYPE, i4, i1t, t, m * n);
+  LIBXS_VLA_DECL(3, ITYPE, i4, i1t, t, m * n);
   i1t = &LIBXS_VLA_ACCESS(3, i4, 0, 0, 0, t, m * n);
   f1t = &LIBXS_VLA_ACCESS(3, i4, 1, 0, 0, t, m * n);
   o1t = &LIBXS_VLA_ACCESS(3, i4, 2, 0, 0, t, m * n);
   c1t = &LIBXS_VLA_ACCESS(3, i4, 3, 0, 0, t, m * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, i1, i1t, m * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, f1, f1t, m * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, o1, o1t, m * n);
-  LIBXS_VLA_DECL(2, REAL_TYPE, c1, c1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, i1, i1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, f1, f1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, o1, o1t, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, c1, c1t, m * n);
 #endif
   libxs_bgemm_handle *handlewx = lstm->handlewx;
   libxs_bgemm_handle *handleuh = lstm->handleuh;
@@ -949,95 +949,95 @@ int lstm (const libxs_blasint m, const libxs_blasint n, const libxs_blasint k, c
   const double gflops = (((2.0 * m * n * k) + (2.0 * m * n * m) + (2.0 * m * n)) * 4.0 + (4.0 * m * n)) * t * 1E-9;
   const char transa = 'N', transb = 'N'; /* no transposes */
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
-  const REAL_TYPE alpha = 1, beta = 1;
+  const ITYPE alpha = 1, beta = 1;
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
   {
-    REAL_TYPE* wigold = (REAL_TYPE*)libxs_malloc(ldw * k * sizeof(REAL_TYPE));
-    REAL_TYPE* wfgold = (REAL_TYPE*)libxs_malloc(ldw * k * sizeof(REAL_TYPE));
-    REAL_TYPE* wogold = (REAL_TYPE*)libxs_malloc(ldw * k * sizeof(REAL_TYPE));
-    REAL_TYPE* wcgold = (REAL_TYPE*)libxs_malloc(ldw * k * sizeof(REAL_TYPE));
-    REAL_TYPE* xgoldt = (REAL_TYPE*)libxs_malloc(ldx * n * sizeof(REAL_TYPE) * t);
-    REAL_TYPE* rigold = (REAL_TYPE*)libxs_malloc(ldu * m * sizeof(REAL_TYPE));
-    REAL_TYPE* rfgold = (REAL_TYPE*)libxs_malloc(ldu * m * sizeof(REAL_TYPE));
-    REAL_TYPE* rogold = (REAL_TYPE*)libxs_malloc(ldu * m * sizeof(REAL_TYPE));
-    REAL_TYPE* rcgold = (REAL_TYPE*)libxs_malloc(ldu * m * sizeof(REAL_TYPE));
-    REAL_TYPE* hgold = (REAL_TYPE*)libxs_malloc(ldh * n * sizeof(REAL_TYPE));
-    REAL_TYPE* i1gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* i2gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* f1gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* f2gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* o1gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* o2gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* c1gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* c2gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* igold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* fgold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* ogold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* cgold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* d1gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* d2gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* d0gold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
-    REAL_TYPE* dgold = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
+    ITYPE* wigold = (ITYPE*)libxs_malloc(ldw * k * sizeof(ITYPE));
+    ITYPE* wfgold = (ITYPE*)libxs_malloc(ldw * k * sizeof(ITYPE));
+    ITYPE* wogold = (ITYPE*)libxs_malloc(ldw * k * sizeof(ITYPE));
+    ITYPE* wcgold = (ITYPE*)libxs_malloc(ldw * k * sizeof(ITYPE));
+    ITYPE* xgoldt = (ITYPE*)libxs_malloc(ldx * n * sizeof(ITYPE) * t);
+    ITYPE* rigold = (ITYPE*)libxs_malloc(ldu * m * sizeof(ITYPE));
+    ITYPE* rfgold = (ITYPE*)libxs_malloc(ldu * m * sizeof(ITYPE));
+    ITYPE* rogold = (ITYPE*)libxs_malloc(ldu * m * sizeof(ITYPE));
+    ITYPE* rcgold = (ITYPE*)libxs_malloc(ldu * m * sizeof(ITYPE));
+    ITYPE* hgold = (ITYPE*)libxs_malloc(ldh * n * sizeof(ITYPE));
+    ITYPE* i1gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* i2gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* f1gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* f2gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* o1gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* o2gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* c1gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* c2gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* igold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* fgold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* ogold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* cgold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* d1gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* d2gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* d0gold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
+    ITYPE* dgold = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
 #if defined(NON_FUSED_INPUT_GEMM)
-    REAL_TYPE* wi = (REAL_TYPE*)libxs_malloc(m * k * sizeof(REAL_TYPE));
-    REAL_TYPE* wf = (REAL_TYPE*)libxs_malloc(m * k * sizeof(REAL_TYPE));
-    REAL_TYPE* wo = (REAL_TYPE*)libxs_malloc(m * k * sizeof(REAL_TYPE));
-    REAL_TYPE* wc = (REAL_TYPE*)libxs_malloc(m * k * sizeof(REAL_TYPE));
+    ITYPE* wi = (ITYPE*)libxs_malloc(m * k * sizeof(ITYPE));
+    ITYPE* wf = (ITYPE*)libxs_malloc(m * k * sizeof(ITYPE));
+    ITYPE* wo = (ITYPE*)libxs_malloc(m * k * sizeof(ITYPE));
+    ITYPE* wc = (ITYPE*)libxs_malloc(m * k * sizeof(ITYPE));
 #else
-    REAL_TYPE* wi = (REAL_TYPE*)libxs_malloc(m * 4 * k * sizeof(REAL_TYPE));
-    REAL_TYPE* wf = 0;
-    REAL_TYPE* wo = 0;
-    REAL_TYPE* wc = 0;
+    ITYPE* wi = (ITYPE*)libxs_malloc(m * 4 * k * sizeof(ITYPE));
+    ITYPE* wf = 0;
+    ITYPE* wo = 0;
+    ITYPE* wc = 0;
 #endif
-    REAL_TYPE* xt = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE) * t);
-    REAL_TYPE* ri = (REAL_TYPE*)libxs_malloc(m * m * sizeof(REAL_TYPE));
-    REAL_TYPE* rf = (REAL_TYPE*)libxs_malloc(m * m * sizeof(REAL_TYPE));
-    REAL_TYPE* ro = (REAL_TYPE*)libxs_malloc(m * m * sizeof(REAL_TYPE));
-    REAL_TYPE* rc = (REAL_TYPE*)libxs_malloc(m * m * sizeof(REAL_TYPE));
-    REAL_TYPE* h = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
+    ITYPE* xt = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE) * t);
+    ITYPE* ri = (ITYPE*)libxs_malloc(m * m * sizeof(ITYPE));
+    ITYPE* rf = (ITYPE*)libxs_malloc(m * m * sizeof(ITYPE));
+    ITYPE* ro = (ITYPE*)libxs_malloc(m * m * sizeof(ITYPE));
+    ITYPE* rc = (ITYPE*)libxs_malloc(m * m * sizeof(ITYPE));
+    ITYPE* h = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
 #if defined(NON_FUSED_INPUT_GEMM)
-    REAL_TYPE* i1t = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE) * t);
-    REAL_TYPE* f1t = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE) * t);
-    REAL_TYPE* o1t = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE) * t);
-    REAL_TYPE* c1t = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE) * t);
+    ITYPE* i1t = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE) * t);
+    ITYPE* f1t = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE) * t);
+    ITYPE* o1t = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE) * t);
+    ITYPE* c1t = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE) * t);
 #else
-    REAL_TYPE* i1t = (REAL_TYPE*)libxs_malloc(m * 4 * n * sizeof(REAL_TYPE) * t);
-    REAL_TYPE* f1t = 0;
-    REAL_TYPE* o1t = 0;
-    REAL_TYPE* c1t = 0;
+    ITYPE* i1t = (ITYPE*)libxs_malloc(m * 4 * n * sizeof(ITYPE) * t);
+    ITYPE* f1t = 0;
+    ITYPE* o1t = 0;
+    ITYPE* c1t = 0;
 #endif
-    REAL_TYPE* i2 = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* f2 = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* o2 = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* c2 = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* i = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* f = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* o = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* c = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* d1 = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* d2 = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* d0 = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    REAL_TYPE* d = (REAL_TYPE*)libxs_malloc(m * n * sizeof(REAL_TYPE));
-    LIBXS_VLA_DECL(2, REAL_TYPE, xgold, xgoldt, ldx * n);
+    ITYPE* i2 = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* f2 = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* o2 = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* c2 = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* i = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* f = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* o = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* c = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* d1 = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* d2 = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* d0 = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    ITYPE* d = (ITYPE*)libxs_malloc(m * n * sizeof(ITYPE));
+    LIBXS_VLA_DECL(2, ITYPE, xgold, xgoldt, ldx * n);
     libxs_bgemm_handle* handlewx = 0;
     libxs_bgemm_handle* handleuh = 0;
     libxs_bgemm_handle* handlett = 0;
     const libxs_gemm_prefetch_type strategy = LIBXS_PREFETCH_AUTO;
-    handlewx = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(REAL_TYPE),
+    handlewx = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(ITYPE),
       m, n, k, &bm, &bn, &bk, &b_m1, &b_n1, &b_k1, &b_k2,
       &alpha, &beta, &gemm_flags, &strategy, &order);
-    handleuh = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(REAL_TYPE),
+    handleuh = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(ITYPE),
       m, n, m, &bm, &bn, &bm, &b_m1, &b_n1, &b_m1, &b_m2,
       &alpha, &beta, &gemm_flags, &strategy, &order);
 #if defined(NON_FUSED_INPUT_GEMM)
-    handlett = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(REAL_TYPE),
+    handlett = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(ITYPE),
       m, n*t, k, &bm, &bn, &bk, &b_m1, &b_n1, &b_k1, &b_k2,
       &alpha, &beta, &gemm_flags, &strategy, &order);
 #else
-    handlett = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(REAL_TYPE),
+    handlett = libxs_bgemm_handle_create(LIBXS_GEMM_PRECISION(ITYPE),
       m*4, n*t, k, &bm, &bn, &bk, &b_m1, &b_n1, &b_k1, &b_k2,
       &alpha, &beta, &gemm_flags, &strategy, &order);
 #endif
@@ -1087,20 +1087,20 @@ int lstm (const libxs_blasint m, const libxs_blasint n, const libxs_blasint k, c
       if (!LIBXS_FEQ(0, check)) { /* validate result against LAPACK/BLAS xGEMM */
         unsigned long long start;
         double duration;
-        REAL_TYPE* dtest = 0;
+        ITYPE* dtest = 0;
         int j;
         int s;
         start = libxs_timer_tick();
         for (s = 0; s < nrepeat; ++s) {
           for (j = 0; j < t; ++j) {
-            LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wigold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, j, 0, k * n), &ldx, &beta, i1gold, &ldz);
-            LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wfgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, j, 0, k * n), &ldx, &beta, f1gold, &ldz);
-            LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wogold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, j, 0, k * n), &ldx, &beta, o1gold, &ldz);
-            LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k, &alpha, wcgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, j, 0, k * n), &ldx, &beta, c1gold, &ldz);
-            LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, rigold, &ldu, hgold, &ldh, &beta, i2gold, &ldz);
-            LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, rfgold, &ldu, hgold, &ldh, &beta, f2gold, &ldz);
-            LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, rogold, &ldu, hgold, &ldh, &beta, o2gold, &ldz);
-            LIBXS_XBLAS_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &m, &alpha, rcgold, &ldu, hgold, &ldh, &beta, c2gold, &ldz);
+            LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wigold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, j, 0, k * n), &ldx, &beta, i1gold, &ldz);
+            LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wfgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, j, 0, k * n), &ldx, &beta, f1gold, &ldz);
+            LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wogold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, j, 0, k * n), &ldx, &beta, o1gold, &ldz);
+            LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, wcgold, &ldw, &LIBXS_VLA_ACCESS(2, xgold, j, 0, k * n), &ldx, &beta, c1gold, &ldz);
+            LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, rigold, &ldu, hgold, &ldh, &beta, i2gold, &ldz);
+            LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, rfgold, &ldu, hgold, &ldh, &beta, f2gold, &ldz);
+            LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, rogold, &ldu, hgold, &ldh, &beta, o2gold, &ldz);
+            LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &m, &alpha, rcgold, &ldu, hgold, &ldh, &beta, c2gold, &ldz);
             matrix_add(m*n, i1gold, i2gold, igold);
             matrix_add(m*n, f1gold, f2gold, fgold);
             matrix_add(m*n, o1gold, o2gold, ogold);
@@ -1153,11 +1153,11 @@ int lstm (const libxs_blasint m, const libxs_blasint n, const libxs_blasint k, c
         libxs_free(d1gold); d1gold = 0;
         libxs_free(d2gold); d2gold = 0;
         /* allocate C-matrix in regular format, and perform copy-out */
-        dtest = (REAL_TYPE*)libxs_malloc(ldz * n * sizeof(REAL_TYPE));
+        dtest = (ITYPE*)libxs_malloc(ldz * n * sizeof(ITYPE));
         if (0 != dtest) {
           libxs_matdiff_info diff;
           libxs_bgemm_copyout_c(handleuh, d, &ldz, dtest);
-          if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(REAL_TYPE), m, n, dgold, dtest, &ldz, &ldz, &diff)) {
+          if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(ITYPE), m, n, dgold, dtest, &ldz, &ldz, &diff)) {
             fprintf(stdout, "\tdiff: L2abs=%f L2rel=%f\n", diff.l2_abs, diff.linf_abs);
             if (check < 100.0 * diff.normf_rel) {
               fprintf(stderr, "FAILED with an error of %f%%!\n", 100.0 * diff.normf_rel);

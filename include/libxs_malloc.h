@@ -109,7 +109,7 @@ LIBXS_API void* libxs_scratch_malloc(size_t size,
  * macro is intentionally lower case.
  */
 #define libxs_aligned_scratch(size, alignment) \
-  libxs_scratch_malloc(size, alignment, LIBXS_CALLER)
+  libxs_scratch_malloc(size, alignment, LIBXS_CALLER_ID)
 
 /** Deallocate memory (malloc/free interface). */
 LIBXS_API void libxs_free(const void* memory);

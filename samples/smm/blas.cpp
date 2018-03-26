@@ -50,40 +50,21 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(REAL_TYPE)
-# define REAL_TYPE double
+#if !defined(ITYPE)
+# define ITYPE double
 #endif
 
 
 #if (LIBXS_VERSION3(11, 2, 0) > INTEL_MKL_VERSION) || !(defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL))
-LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, REAL_TYPE);
+LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, ITYPE);
 #endif
-
-
-LIBXS_INLINE LIBXS_RETARGETABLE void init(libxs_blasint seed, REAL_TYPE *LIBXS_RESTRICT dst,
-  libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
-{
-  const double seed1 = scale * (seed + 1);
-  libxs_blasint i;
-  for (i = 0; i < ncols; ++i) {
-    libxs_blasint j = 0;
-    for (; j < nrows; ++j) {
-      const libxs_blasint k = i * ld + j;
-      dst[k] = (REAL_TYPE)(seed1 / (k + 1));
-    }
-    for (; j < ld; ++j) {
-      const libxs_blasint k = i * ld + j;
-      dst[k] = (REAL_TYPE)seed;
-    }
-  }
-}
 
 
 int main(int argc, char* argv[])
 {
   int result = EXIT_SUCCESS;
   try {
-    typedef REAL_TYPE T;
+    typedef ITYPE T;
     const libxs_blasint benchmark = 1 < argc ? std::atoi(argv[1]) : 0;
     LIBXS_GEMM_CONST libxs_blasint m = (2 < argc ? std::atoi(argv[2]) : 23);
     LIBXS_GEMM_CONST libxs_blasint k = (4 < argc ? std::atoi(argv[4]) : m);
@@ -121,10 +102,10 @@ int main(int argc, char* argv[])
 #   pragma omp parallel for schedule(static)
 #endif
     for (libxs_blasint i = 0; i < s; ++i) {
-      init(42 + i, a + i * asize, m, k, lda, scale);
-      init(24 + i, b + i * bsize, k, n, ldb, scale);
-      init(22 + i, c + i * csize, m, n, ldc, scale);
-      init(22 + i, d + i * csize, m, n, ldc, scale);
+      LIBXS_MATRNG(ITYPE, 42 + i, a + i * asize, m, k, lda, scale);
+      LIBXS_MATRNG(ITYPE, 24 + i, b + i * bsize, k, n, ldb, scale);
+      LIBXS_MATRNG(ITYPE, 22 + i, c + i * csize, m, n, ldc, scale);
+      LIBXS_MATRNG(ITYPE, 22 + i, d + i * csize, m, n, ldc, scale);
     }
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -151,9 +132,9 @@ int main(int argc, char* argv[])
 #     pragma omp parallel for schedule(static)
 #endif
       for (libxs_blasint i = 0; i < s; ++i) {
-        LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+        LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
           &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
-            &beta, c + i * csize, &ldc);
+           &beta, c + i * csize, &ldc);
       }
 
 #if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION3(11, 3, 0) <= INTEL_MKL_VERSION)
@@ -167,7 +148,7 @@ int main(int argc, char* argv[])
         a_array[i] = a + i * asize; b_array[i] = b + i * bsize; c_array[i] = d + i * csize;
       }
       // additional warm-up (also to eventually match the Gold result)
-      LIBXS_TPREFIX(REAL_TYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
+      LIBXS_TPREFIX(ITYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
         &alpha, &a_array[0], &lda, &b_array[0], &ldb,
           &beta, &c_array[0], &ldc, &group_count, &s);
 #endif
@@ -181,7 +162,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
-            LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+            LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
               &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
                &beta, c + i * csize, &ldc);
           }
@@ -200,7 +181,7 @@ int main(int argc, char* argv[])
         fprintf(stdout, "Indirect (A,B,C)...\n");
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
-          LIBXS_TPREFIX(REAL_TYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
+          LIBXS_TPREFIX(ITYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
             &alpha, &a_array[0], &lda, &b_array[0], &ldb,
              &beta, &c_array[0], &ldc, &group_count, &s);
         }
@@ -218,7 +199,7 @@ int main(int argc, char* argv[])
           for (libxs_blasint h = 0; h < s; ++h) {
             const T *const u = c + h * csize, *const v = c_array[h];
             libxs_matdiff_info dv;
-            if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(REAL_TYPE), m, n, u, v, &ldc, &ldc, &dv)) {
+            if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(ITYPE), m, n, u, v, &ldc, &ldc, &dv)) {
               libxs_matdiff_reduce(&diff, &dv);
             }
           }
@@ -235,7 +216,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
-            LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+            LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
               &alpha, a + i * asize, &lda, b, &ldb,
                &beta, c + i * csize, &ldc);
           }
@@ -255,9 +236,9 @@ int main(int argc, char* argv[])
         for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a + i * asize; b_array[i] = b; c_array[i] = d + i * csize; }
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
-          LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+          LIBXS_TPREFIX(ITYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
             &alpha, &a_array[0], &lda, &b_array[0], &ldb,
-            &beta, &c_array[0], &ldc, &group_count, &s);
+             &beta, &c_array[0], &ldc, &group_count, &s);
         }
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles);
@@ -278,7 +259,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
-            LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+            LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
               &alpha, a, &lda, b + i * bsize, &ldb,
                &beta, c + i * csize, &ldc);
           }
@@ -298,9 +279,9 @@ int main(int argc, char* argv[])
         for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a; b_array[i] = b + i * bsize; c_array[i] = d + i * csize; }
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
-          LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+          LIBXS_TPREFIX(ITYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
             &alpha, &a_array[0], &lda, &b_array[0], &ldb,
-            &beta, &c_array[0], &ldc, &group_count, &s);
+             &beta, &c_array[0], &ldc, &group_count, &s);
         }
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles);
@@ -326,7 +307,7 @@ int main(int argc, char* argv[])
 #else
             const libxs_blasint j = 0;
 #endif
-            LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
+            LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
               &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
                &beta, c + j, &ldc);
           }
@@ -356,9 +337,9 @@ int main(int argc, char* argv[])
         }
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
-          LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+          LIBXS_TPREFIX(ITYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
             &alpha, &a_array[0], &lda, &b_array[0], &ldb,
-            &beta, &c_array[0], &ldc, &group_count, &s);
+             &beta, &c_array[0], &ldc, &group_count, &s);
         }
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles);
@@ -384,9 +365,8 @@ int main(int argc, char* argv[])
 #else
             const libxs_blasint j = 0;
 #endif
-            LIBXS_GEMM_SYMBOL(REAL_TYPE)(&transa, &transb, &m, &n, &k,
-              &alpha, a, &lda, b, &ldb,
-               &beta, c + j, &ldc);
+            LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
+              &alpha, a, &lda, b, &ldb, &beta, c + j, &ldc);
           }
         }
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
@@ -413,9 +393,9 @@ int main(int argc, char* argv[])
         }
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
-          LIBXS_TPREFIX(REAL_TYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+          LIBXS_TPREFIX(ITYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
             &alpha, &a_array[0], &lda, &b_array[0], &ldb,
-            &beta, &c_array[0], &ldc, &group_count, &s);
+             &beta, &c_array[0], &ldc, &group_count, &s);
         }
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles);
