@@ -103,6 +103,12 @@ libxs_timer_tickint libxs_timer_tick(void)
 }
 
 
+LIBXS_API libxs_timer_tickint libxs_timer_cycles(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
+{
+  return LIBXS_DIFF(tick0, tick1);
+}
+
+
 LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
 {
   double result = (double)LIBXS_DIFF(tick0, tick1);
