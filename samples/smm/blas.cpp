@@ -88,7 +88,14 @@ int main(int argc, char* argv[])
     const libxs_blasint s = LIBXS_MIN(0 < q ? q : max_size, max_size);
     const libxs_blasint aspace = LIBXS_ALIGNMENT / sizeof(ITYPE);
     const size_t bwsize = static_cast<size_t>((asize/*load*/ + bsize/*load*/) * sizeof(ITYPE) + 2/*RFO*/ * csize * sizeof(OTYPE));
-    const double gflops = 2E-9 * s * m * n * k, scale = 1.0 / s;
+    const double gflops = 2E-9 * s * m * n * k;
+#if LIBXS_TYPEINFO(ITYPE, FP)
+    const char *const ops = "FLOPS";
+    const double scale = 1.0 / s;
+#else
+    const char *const ops = "OPS";
+    const double scale = 1;
+#endif
 #if !defined(_DEBUG)
     const char *const env_check = getenv("CHECK");
     const int check = (0 == env_check ? 0 : atoi(env_check));
@@ -183,8 +190,8 @@ int main(int argc, char* argv[])
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles);
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles, ops);
+          fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
@@ -201,8 +208,8 @@ int main(int argc, char* argv[])
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles);
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles, ops);
+          fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
@@ -237,8 +244,8 @@ int main(int argc, char* argv[])
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles);
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles, ops);
+          fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * (bwsize - bsize * sizeof(ITYPE)) / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
@@ -256,8 +263,8 @@ int main(int argc, char* argv[])
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles);
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles, ops);
+          fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * (bwsize - bsize * sizeof(ITYPE)) / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
@@ -280,8 +287,8 @@ int main(int argc, char* argv[])
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles);
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles, ops);
+          fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * (bwsize - asize * sizeof(ITYPE)) / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
@@ -299,8 +306,8 @@ int main(int argc, char* argv[])
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles);
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles, ops);
+          fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * (bwsize - asize * sizeof(ITYPE)) / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
@@ -328,8 +335,8 @@ int main(int argc, char* argv[])
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles);
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles, ops);
+          fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * (bwsize - 2 * csize * sizeof(OTYPE)) / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
@@ -357,8 +364,8 @@ int main(int argc, char* argv[])
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles);
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles, ops);
+          fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * (bwsize - 2 * csize * sizeof(OTYPE)) / (duration * (1 << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
@@ -385,8 +392,8 @@ int main(int argc, char* argv[])
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles);
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles, ops);
+          fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /* fallthrough */
@@ -413,8 +420,8 @@ int main(int argc, char* argv[])
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
-          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles);
-          fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
+          fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2 * k - 1) * (double)(s * m * n) / ncycles, ops);
+          fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       }
@@ -424,7 +431,7 @@ int main(int argc, char* argv[])
       } /*switch*/
       if (0 != check) {
         libxs_matdiff_info diff;
-        if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(OTYPE), m, n, c, NULL, &ldc, &ldc, &diff)) {
+        if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(OTYPE), m, n, 0 == (benchmark & 1) ? c : d, NULL, &ldc, &ldc, &diff)) {
           fprintf(stdout, "\tcheck: %f\n", diff.l1_ref);
         }
       }
