@@ -51,6 +51,10 @@
 # define PAD(TYPE, VALUE) (VALUE)
 #endif
 
+#if !defined(RANDOMIZED) && 0
+# define RANDOMIZED
+#endif
+
 #if !defined(ITYPE)
 # define ITYPE double
 #endif
@@ -93,34 +97,47 @@ int main(int argc, char* argv[])
 #else
     /*const*/ int check = 1;
 #endif
-#if defined(_OPENMP)
-    const libxs_blasint chunksize = s / omp_get_max_threads();
-#endif
-    struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
-      ITYPE *a, *b;
-      OTYPE *c;
-      raii(libxs_blasint asize_, libxs_blasint bsize_, libxs_blasint csize_)
-        : a(new ITYPE[static_cast<size_t>(asize_)]), b(new ITYPE[static_cast<size_t>(bsize_)])
-        , c(new OTYPE[static_cast<size_t>(csize_)]) {}
-      ~raii() { delete[] a; delete[] b; delete[] c; }
-    } buffer(s * asize + aspace - 1, s * bsize + aspace - 1, s * csize + aspace - 1);
-    ITYPE *const a = LIBXS_ALIGN(buffer.a, LIBXS_ALIGNMENT);
-    ITYPE *const b = LIBXS_ALIGN(buffer.b, LIBXS_ALIGNMENT);
-    OTYPE *c = LIBXS_ALIGN(buffer.c, LIBXS_ALIGNMENT);
-
-#if defined(_OPENMP)
-#   pragma omp parallel for schedule(static)
-#endif
-    for (libxs_blasint i = 0; i < s; ++i) {
-      LIBXS_MATRNG(ITYPE, 42 + i, a + i * asize, m, k, lda, scale);
-      LIBXS_MATRNG(ITYPE, 24 + i, b + i * bsize, k, n, ldb, scale);
-      LIBXS_MATRNG(OTYPE, 22 + i, c + i * csize, m, n, ldc, scale);
-    }
 
 #if defined(LIBXS_OFFLOAD_TARGET)
-#   pragma offload target(LIBXS_OFFLOAD_TARGET) in(a: length(s * asize)) in(b: length(s * bsize)) inout(c: length(s * csize))
+#   pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
     {
+#if defined(_OPENMP)
+      const libxs_blasint chunksize = s / omp_get_max_threads();
+#endif
+      struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
+        ITYPE *a, *b;
+        OTYPE *c;
+        libxs_blasint *m_shuffle;
+        raii(libxs_blasint asize_, libxs_blasint bsize_, libxs_blasint csize_, libxs_blasint size_)
+          : a(new ITYPE[static_cast<size_t>(asize_)]), b(new ITYPE[static_cast<size_t>(bsize_)])
+          , c(new OTYPE[static_cast<size_t>(csize_)]), m_shuffle(new libxs_blasint[size_])
+        {
+# if defined(_OPENMP)
+#         pragma omp parallel for schedule(static)
+# endif
+          for (libxs_blasint i = 0; i < size_; ++i) m_shuffle[i] = libxs_irand(size_);
+        }
+        ~raii() { delete[] a; delete[] b; delete[] c; delete[] m_shuffle; }
+#if defined(RANDOMIZED)
+        libxs_blasint shuffle(libxs_blasint i) const { return m_shuffle[i]; }
+#else
+        libxs_blasint shuffle(libxs_blasint i) const { return i; }
+#endif
+      } helper(s * asize + aspace - 1, s * bsize + aspace - 1, s * csize + aspace - 1, s);
+
+      ITYPE *const a = LIBXS_ALIGN(helper.a, LIBXS_ALIGNMENT);
+      ITYPE *const b = LIBXS_ALIGN(helper.b, LIBXS_ALIGNMENT);
+      OTYPE *const c = LIBXS_ALIGN(helper.c, LIBXS_ALIGNMENT);
+#if defined(_OPENMP)
+#     pragma omp parallel for schedule(static)
+#endif
+      for (libxs_blasint i = 0; i < s; ++i) {
+        LIBXS_MATRNG(ITYPE, 42 + helper.shuffle(i), a + helper.shuffle(i) * asize, m, k, lda, scale);
+        LIBXS_MATRNG(ITYPE, 24 + helper.shuffle(i), b + helper.shuffle(i) * bsize, k, n, ldb, scale);
+        LIBXS_MATRNG(OTYPE, 22 + i, c + i * csize, m, n, ldc, scale);
+      }
+
 #if defined(MKL_ENABLE_AVX512)
       mkl_enable_instructions(MKL_ENABLE_AVX512);
 #endif
@@ -145,7 +162,7 @@ int main(int argc, char* argv[])
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
             libxs_gemm(&transa, &transb, m, n, k,
-              &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
+              &alpha, a + helper.shuffle(i) * asize, &lda, b + helper.shuffle(i) * bsize, &ldb,
                &beta, c + i * csize, &ldc);
           }
         }
@@ -168,7 +185,7 @@ int main(int argc, char* argv[])
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
             libxs_gemm(&transa, &transb, m, n, k,
-              &alpha, a + i * asize, &lda, b, &ldb,
+              &alpha, a + helper.shuffle(i) * asize, &lda, b, &ldb,
                &beta, c + i * csize, &ldc);
           }
         }
@@ -191,7 +208,7 @@ int main(int argc, char* argv[])
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
             libxs_gemm(&transa, &transb, m, n, k,
-              &alpha, a, &lda, b + i * bsize, &ldb,
+              &alpha, a, &lda, b + helper.shuffle(i) * bsize, &ldb,
                &beta, c + i * csize, &ldc);
           }
         }
@@ -219,7 +236,7 @@ int main(int argc, char* argv[])
             const libxs_blasint j = 0;
 #endif
             libxs_gemm(&transa, &transb, m, n, k,
-              &alpha, a + i * asize, &lda, b + i * bsize, &ldb,
+              &alpha, a + helper.shuffle(i) * asize, &lda, b + helper.shuffle(i) * bsize, &ldb,
                &beta, c + j, &ldc);
           }
         }

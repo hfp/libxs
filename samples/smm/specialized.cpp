@@ -52,6 +52,10 @@
 # define PAD(TYPE, VALUE) (VALUE)
 #endif
 
+#if !defined(RANDOMIZED) && 0
+# define RANDOMIZED
+#endif
+
 #if !defined(ITYPE)
 # define ITYPE double
 #endif
@@ -94,36 +98,50 @@ int main(int argc, char* argv[])
 #else
     /*const*/ int check = 1;
 #endif
-#if defined(_OPENMP)
-    const libxs_blasint chunksize = s / omp_get_max_threads();
-#endif
-    struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
-      ITYPE *a, *b;
-      OTYPE *c, *d;
-      raii(libxs_blasint asize_, libxs_blasint bsize_, libxs_blasint csize_)
-        : a(new ITYPE[static_cast<size_t>(asize_)]), b(new ITYPE[static_cast<size_t>(bsize_)])
-        , c(new OTYPE[static_cast<size_t>(csize_)]), d(new OTYPE[static_cast<size_t>(csize_)]) {}
-      ~raii() { delete[] a; delete[] b; delete[] c; delete[] d; }
-    } buffer(s * asize + aspace - 1, s * bsize + aspace - 1, s * csize + aspace - 1);
-    ITYPE *const a = LIBXS_ALIGN(buffer.a, LIBXS_ALIGNMENT);
-    ITYPE *const b = LIBXS_ALIGN(buffer.b, LIBXS_ALIGNMENT);
-    OTYPE *c = LIBXS_ALIGN(buffer.c, LIBXS_ALIGNMENT);
-    OTYPE *d = LIBXS_ALIGN(buffer.d, LIBXS_ALIGNMENT);
-
-#if defined(_OPENMP)
-#   pragma omp parallel for schedule(static)
-#endif
-    for (libxs_blasint i = 0; i < s; ++i) {
-      LIBXS_MATRNG(ITYPE, 42 + i, a + i * asize, m, k, lda, scale);
-      LIBXS_MATRNG(ITYPE, 24 + i, b + i * bsize, k, n, ldb, scale);
-      LIBXS_MATRNG(OTYPE, 22 + i, c + i * csize, m, n, ldc, scale);
-      LIBXS_MATRNG(OTYPE, 22 + i, d + i * csize, m, n, ldc, scale);
-    }
 
 #if defined(LIBXS_OFFLOAD_TARGET)
-#   pragma offload target(LIBXS_OFFLOAD_TARGET) in(a: length(s * asize)) in(b: length(s * bsize)) inout(c: length(s * csize) inout(d: length(s * csize))
+#   pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
     {
+#if defined(_OPENMP)
+      const libxs_blasint chunksize = s / omp_get_max_threads();
+#endif
+      struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
+        ITYPE *a, *b;
+        OTYPE *c, *d;
+        libxs_blasint *m_shuffle;
+        raii(libxs_blasint asize_, libxs_blasint bsize_, libxs_blasint csize_, libxs_blasint size_)
+          : a(new ITYPE[static_cast<size_t>(asize_)]), b(new ITYPE[static_cast<size_t>(bsize_)])
+          , c(new OTYPE[static_cast<size_t>(csize_)]), d(new OTYPE[static_cast<size_t>(csize_)])
+          , m_shuffle(new libxs_blasint[size_])
+        {
+# if defined(_OPENMP)
+#         pragma omp parallel for schedule(static)
+# endif
+          for (libxs_blasint i = 0; i < size_; ++i) m_shuffle[i] = libxs_irand(size_);
+        }
+        ~raii() { delete[] a; delete[] b; delete[] c; delete[] d; delete[] m_shuffle; }
+#if defined(RANDOMIZED)
+        libxs_blasint shuffle(libxs_blasint i) const { return m_shuffle[i]; }
+#else
+        libxs_blasint shuffle(libxs_blasint i) const { return i; }
+#endif
+      } helper(s * asize + aspace - 1, s * bsize + aspace - 1, s * csize + aspace - 1, s);
+
+      ITYPE *const a = LIBXS_ALIGN(helper.a, LIBXS_ALIGNMENT);
+      ITYPE *const b = LIBXS_ALIGN(helper.b, LIBXS_ALIGNMENT);
+      OTYPE *const c = LIBXS_ALIGN(helper.c, LIBXS_ALIGNMENT);
+      OTYPE *const d = LIBXS_ALIGN(helper.d, LIBXS_ALIGNMENT);
+#if defined(_OPENMP)
+#     pragma omp parallel for schedule(static)
+#endif
+      for (libxs_blasint i = 0; i < s; ++i) {
+        LIBXS_MATRNG(ITYPE, 42 + helper.shuffle(i), a + helper.shuffle(i) * asize, m, k, lda, scale);
+        LIBXS_MATRNG(ITYPE, 24 + helper.shuffle(i), b + helper.shuffle(i) * bsize, k, n, ldb, scale);
+        LIBXS_MATRNG(OTYPE, 22 + i, c + i * csize, m, n, ldc, scale);
+        LIBXS_MATRNG(OTYPE, 22 + i, d + i * csize, m, n, ldc, scale);
+      }
+
 #if defined(MKL_ENABLE_AVX512)
       mkl_enable_instructions(MKL_ENABLE_AVX512);
 #endif
@@ -155,7 +173,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
-            const ITYPE *const ai = a + i * asize, *const bi = b + i * bsize;
+            const ITYPE *const ai = a + helper.shuffle(i) * asize, *const bi = b + helper.shuffle(i) * bsize;
             OTYPE *const ci = c + i * csize;
 #if (0 != LIBXS_PREFETCH)
             xmm(ai, bi, ci,
@@ -179,12 +197,12 @@ int main(int argc, char* argv[])
       case 1: { // batched/indirect
         fprintf(stdout, "Indirect (A,B,C)...\n");
         for (libxs_blasint i = 0; i < s; ++i) {
-          a_array[i] = a + i * asize; b_array[i] = b + i * bsize; c_array[i] = d + i * csize;
+          a_array[i] = a + helper.shuffle(i) * asize; b_array[i] = b + helper.shuffle(i) * bsize; c_array[i] = d + i * csize;
         }
         const libxs_blasint ptrsize = sizeof(void*);
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
-          libxs_gemm_batch_omp2(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
+          libxs_gemm_batch2_omp(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
             0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
         }
@@ -218,7 +236,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
-            const ITYPE *const ai = a + i * asize;
+            const ITYPE *const ai = a + helper.shuffle(i) * asize;
             OTYPE *const ci = c + i * csize;
 #if (0 != LIBXS_PREFETCH)
             xmm(ai, b, ci,
@@ -240,11 +258,11 @@ int main(int argc, char* argv[])
       } /* fallthrough */
       case 3: { // indirect A and C
         fprintf(stdout, "Indirect (A,C)...\n");
-        for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a + i * asize; b_array[i] = b; c_array[i] = d + i * csize; }
+        for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a + helper.shuffle(i) * asize; b_array[i] = b; c_array[i] = d + i * csize; }
         const libxs_blasint ptrsize = sizeof(void*);
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
-          libxs_gemm_batch_omp2(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
+          libxs_gemm_batch2_omp(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
             0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
         }
@@ -276,7 +294,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
-            const ITYPE *const bi = b + i * bsize;
+            const ITYPE *const bi = b + helper.shuffle(i) * bsize;
             OTYPE *const ci = c + i * csize;
 #if (0 != LIBXS_PREFETCH)
             xmm(a, bi, ci,
@@ -298,11 +316,11 @@ int main(int argc, char* argv[])
       } /* fallthrough */
       case 5: { // indirect B and C
         fprintf(stdout, "Indirect (B,C)...\n");
-        for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a; b_array[i] = b + i * bsize; c_array[i] = d + i * csize; }
+        for (libxs_blasint i = 0; i < s; ++i) { a_array[i] = a; b_array[i] = b + helper.shuffle(i) * bsize; c_array[i] = d + i * csize; }
         const libxs_blasint ptrsize = sizeof(void*);
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
-          libxs_gemm_batch_omp2(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
+          libxs_gemm_batch2_omp(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
             0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
         }
@@ -339,7 +357,7 @@ int main(int argc, char* argv[])
 #else
             const libxs_blasint j = 0;
 #endif
-            const ITYPE *const ai = a + i * asize, *const bi = b + i * bsize;
+            const ITYPE *const ai = a + helper.shuffle(i) * asize, *const bi = b + helper.shuffle(i) * bsize;
 #if (0 != LIBXS_PREFETCH)
             xmm(ai, bi, c + j,
               LIBXS_GEMM_PREFETCH_A(ai + asize),
@@ -365,7 +383,7 @@ int main(int argc, char* argv[])
 #       pragma omp parallel for schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
-          a_array[i] = a + i * asize; b_array[i] = b + i * bsize;
+          a_array[i] = a + helper.shuffle(i) * asize; b_array[i] = b + helper.shuffle(i) * bsize;
 #if defined(_OPENMP) /* attempt to write to disjunct cachelines */
           c_array[i] = d + omp_get_thread_num() * chunksize * csize;
 #else
@@ -375,7 +393,7 @@ int main(int argc, char* argv[])
         const libxs_blasint ptrsize = sizeof(void*);
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
-          libxs_gemm_batch_omp2(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
+          libxs_gemm_batch2_omp(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
             0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
         }
@@ -436,7 +454,7 @@ int main(int argc, char* argv[])
         const libxs_blasint ptrsize = sizeof(void*);
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
-          libxs_gemm_batch_omp2(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
+          libxs_gemm_batch2_omp(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
             0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
         }
