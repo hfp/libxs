@@ -83,18 +83,28 @@ LIBXS_API float libxs_sexp2_fast(float x, int maxiter);
 LIBXS_API float libxs_sexp2(float x);
 
 /**
- * Exponential function (base 2), which is limited to unsigned 8-bit input values (0...255).
- * This function produces bit-accurate results (single-precision).
+ * Exponential function (base 2), which is limited to unsigned 8-bit input values.
+ * This function reproduces bit-accurate results (single-precision).
  */
 LIBXS_API float libxs_sexp2_u8(unsigned char x);
 
 /**
- * Exponential function (base 2), which is limited to signed 8-bit input values (-128...127).
- * This function produces bit-accurate results (single-precision).
- */
+* Exponential function (base 2), which is limited to signed 8-bit input values.
+* This function reproduces bit-accurate results (single-precision).
+*/
 LIBXS_API float libxs_sexp2_i8(signed char x);
 
-/** Similar to libxs_sexp2_i8: checks a full integer to fit into a signed 8-bit value. */
-LIBXS_API float libxs_sexp2_i8i(int x);
+/** Function to seed libxs_irand (similar to srand). */
+LIBXS_API void libxs_srand(unsigned int seed);
+
+/**
+ * Returns a (pseudo-)random value based on rand/rand48 in the interval [0, n).
+ * This function compensates for an n, which is not a factor of RAND_MAX.
+ * Note: libxs_srand must be used if one wishes to seed the generator.
+ */
+LIBXS_API int libxs_irand(int n);
+
+/** Similar to libxs_irand, but return a DP-value in the interval [0, 1). */
+LIBXS_API double libxs_drand();
 
 #endif /*LIBXS_MATH_H*/
