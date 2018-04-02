@@ -118,7 +118,7 @@ LIBXS_INLINE void init_buf(float* buf, size_t size, int initPos, int initOne)
   int i;
   zero_buf(buf, size);
   for (i = 0; i < (int)size; ++i) {
-    buf[i] = (float)((initOne != 0) ? 1.0 : ((initPos != 0) ? libxs_drand() : (0.05 - libxs_drand()/10.0)));
+    buf[i] = (float)((initOne != 0) ? 1.0 : ((initPos != 0) ? libxs_rand_f64() : (0.05 - libxs_rand_f64()/10.0)));
   }
 }
 
