@@ -340,6 +340,13 @@ LIBXS_API float libxs_sexp2_i8(signed char x)
 }
 
 
+LIBXS_API float libxs_sexp2_i8i(int x)
+{
+  LIBXS_ASSERT(-128 <= x && x <= 127);
+  return libxs_sexp2_i8((signed char)x);
+}
+
+
 LIBXS_API void libxs_srand(unsigned int seed)
 {
 #if defined(_WIN32) || defined(__CYGWIN__) || !(defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE))
