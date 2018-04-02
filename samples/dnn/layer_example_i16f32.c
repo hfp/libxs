@@ -37,11 +37,6 @@
 # include <omp.h>
 #endif
 
-#if defined(_WIN32) || defined(__CYGWIN__) || !(defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE))
-# define drand48() ((double)rand() / RAND_MAX)
-# define srand48 srand
-#endif
-
 #define CHKERR_LIBXS_DNN(A) if ( A != LIBXS_DNN_SUCCESS ) { fprintf(stderr, "%s\n", libxs_dnn_get_error(A) ); global_status = A; }
 
 #define USE_OVERWRITE
