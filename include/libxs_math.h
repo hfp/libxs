@@ -94,7 +94,7 @@ LIBXS_API float libxs_sexp2_u8(unsigned char x);
 */
 LIBXS_API float libxs_sexp2_i8(signed char x);
 
-/** Function to seed libxs_irand (similar to srand). */
+/** Function to seed libxs_rand_u32 (similar to srand). */
 LIBXS_API void libxs_srand(unsigned int seed);
 
 /**
@@ -102,9 +102,9 @@ LIBXS_API void libxs_srand(unsigned int seed);
  * This function compensates for an n, which is not a factor of RAND_MAX.
  * Note: libxs_srand must be used if one wishes to seed the generator.
  */
-LIBXS_API int libxs_irand(int n);
+LIBXS_API unsigned int libxs_rand_u32(unsigned int n);
 
-/** Similar to libxs_irand, but return a DP-value in the interval [0, 1). */
-LIBXS_API double libxs_drand();
+/** Similar to libxs_rand_u32, but return a DP-value in the interval [0, 1). */
+LIBXS_API double libxs_rand_f64();
 
 #endif /*LIBXS_MATH_H*/
