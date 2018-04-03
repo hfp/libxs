@@ -113,7 +113,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_custom_cust
     /* In these case we run fallback code so we do not support thread private jitting */
     status = LIBXS_DNN_WARN_FALLBACK;
   } else {
-    if (handle->desc.N*handle->blocksofm >= handle->desc.threads) {
+    if (handle->desc.N >= handle->desc.threads) {
 # include "template/libxs_dnn_convolve_dryrun_fwd_custom_custom.tpl.c"
     } else {
 # include "template/libxs_dnn_convolve_dryrun_fwd_custom_custom_img_par.tpl.c"
