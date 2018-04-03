@@ -1166,6 +1166,27 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         }
       }
     } break;
+    case LIBXS_BUILD_KIND_RMACSOA: { /* sparse SOA kernel, CSC format */
+      assert(0 != request->descriptor.rmacsoa && 0 != request->descriptor.rmacsoa->gemm);
+      /* only floating point */
+      if (LIBXS_GEMM_PRECISION_F64 == request->descriptor.scsoa->gemm->datatype || LIBXS_GEMM_PRECISION_F32 == request->descriptor.scsoa->gemm->datatype) {
+        LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_rm_ac_soa, &generated_code, request->descriptor.rmacsoa->gemm, target_arch);
+# if !defined(LIBXS_VTUNE)
+        if (0 > libxs_verbosity)
+# endif
+        {
+          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.scsoa->gemm->prefetch);
+          const char *const tname = internal_get_typename(request->descriptor.scsoa->gemm->datatype);
+          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.rmacsoa", target_arch, tname,
+            0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.scsoa->gemm->flags) ? 'n' : 't',
+            0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.scsoa->gemm->flags) ? 'n' : 't',
+            (unsigned int)request->descriptor.scsoa->gemm->m,   (unsigned int)request->descriptor.scsoa->gemm->n,   (unsigned int)request->descriptor.scsoa->gemm->k,
+            (unsigned int)request->descriptor.scsoa->gemm->lda, (unsigned int)request->descriptor.scsoa->gemm->ldb, (unsigned int)request->descriptor.scsoa->gemm->ldc,
+            request->descriptor.scsoa->gemm->alpha, request->descriptor.scsoa->gemm->beta, uid);
+        }
+      }
+    } break;
     case LIBXS_BUILD_KIND_SREG: { /* sparse register kernel */
       assert(0 != request->descriptor.sreg && 0 != request->descriptor.sreg->gemm);
       assert(0 != request->descriptor.sreg->row_ptr && 0 != request->descriptor.sreg->column_idx && 0 != request->descriptor.sreg->values);
@@ -1961,6 +1982,27 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_descriptor* d
     scsoa.values = values;
     request.descriptor.scsoa = &scsoa;
     request.kind = LIBXS_BUILD_KIND_SCSOA;
+    libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
+  }
+  return result.xgemm;
+}
+
+
+LIBXS_API libxs_xmmfunction libxs_create_rm_ac_soa(const libxs_gemm_descriptor* descriptor)
+{
+  libxs_code_pointer result = { 0 };
+  if (0 != descriptor) {
+    libxs_rm_ac_soa_descriptor rmacsoa;
+    libxs_build_request request;
+#if defined(_WIN32) || defined(__CYGWIN__) /* TODO: full support for Windows calling convention */
+    libxs_gemm_descriptor gemm = *descriptor;
+    LIBXS_GEMM_DESCRIPTOR_PREFETCH(gemm, LIBXS_GEMM_PREFETCH_NONE);
+    descriptor = &gemm;
+#endif
+    LIBXS_INIT
+    rmacsoa.gemm = descriptor;
+    request.descriptor.rmacsoa = &rmacsoa;
+    request.kind = LIBXS_BUILD_KIND_RMACSOA;
     libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
   }
   return result.xgemm;

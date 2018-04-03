@@ -195,6 +195,10 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csc_soa_d
   const void* values;
 } libxs_csc_soa_descriptor;
 
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_rm_ac_soa_descriptor {
+  const libxs_gemm_descriptor* gemm;
+} libxs_rm_ac_soa_descriptor;
+
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
@@ -488,6 +492,7 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GEMM,
   LIBXS_BUILD_KIND_SRSOA,
   LIBXS_BUILD_KIND_SCSOA,
+  LIBXS_BUILD_KIND_RMACSOA,
   LIBXS_BUILD_KIND_SREG,
   LIBXS_BUILD_KIND_CFWD,
   LIBXS_BUILD_KIND_CUPD,
@@ -502,6 +507,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_gemm_descriptor* gemm;
   const libxs_csr_soa_descriptor* srsoa;
   const libxs_csc_soa_descriptor* scsoa;
+  const libxs_rm_ac_soa_descriptor* rmacsoa;
   const libxs_csr_reg_descriptor* sreg;
   const libxs_convolution_forward_descriptor* cfwd;
   const libxs_convolution_weight_update_descriptor* cupd;
