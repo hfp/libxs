@@ -953,7 +953,7 @@ endif
 
 .PHONY: samples
 samples: lib_hst
-	@find $(SPLDIR) -type f -name Makefile | grep -v /pyfr/ | grep -v /lstm/ \
+	@find $(SPLDIR) -type f -name Makefile | grep -v /pyfr/ | grep -v /lstmcell/ | grep -v /gxm/ \
 		$(patsubst %, | grep -v /%/,$^) | xargs -I {} $(FLOCK) {} "$(MAKE) DEPSTATIC=$(STATIC)"
 
 .PHONY: cp2k
@@ -1306,7 +1306,7 @@ $(DOCDIR)/index.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
 		> $@
 
 $(DOCDIR)/libxs.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/documentation/index.md \
-$(ROOTDIR)/documentation/libxs_mm.md $(ROOTDIR)/documentation/libxs_dnn.md $(ROOTDIR)/documentation/libxs_aux.md \
+$(ROOTDIR)/documentation/libxs_mm.md $(ROOTDIR)/documentation/libxs_dl.md $(ROOTDIR)/documentation/libxs_aux.md \
 $(ROOTDIR)/documentation/libxs_prof.md $(ROOTDIR)/documentation/libxs_tune.md $(ROOTDIR)/documentation/libxs_be.md
 	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/documentation/.libxs_XXXXXX.tex))
 	@pandoc -D latex \
@@ -1319,7 +1319,7 @@ $(ROOTDIR)/documentation/libxs_prof.md $(ROOTDIR)/documentation/libxs_tune.md $(
 		iconv -t utf-8 index.md && echo && \
 		echo "# LIBXS Domains" && \
 		iconv -t utf-8 libxs_mm.md && echo && \
-		iconv -t utf-8 libxs_dnn.md && echo && \
+		iconv -t utf-8 libxs_dl.md && echo && \
 		iconv -t utf-8 libxs_aux.md && echo && \
 		iconv -t utf-8 libxs_prof.md && echo && \
 		iconv -t utf-8 libxs_tune.md && echo && \
