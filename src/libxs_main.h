@@ -334,6 +334,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int blocksimg_blocking;
   int use_nts_fwd;
   int use_nts_bwd;
+  int use_nts_upd;
   int use_fwd_for_bwd;
   int exploit_duality;
   int qfma_input_pad;
