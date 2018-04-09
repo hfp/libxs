@@ -2493,7 +2493,7 @@ LIBXS_API short libxs_internal_quantize_scalar_no_scf( float input, unsigned cha
     /* let's compute the offset of the current exp at pos i from max offset, we need to mask the sign bit though */
     /*__m512i vexp     = _mm512_cvtps_epi32(_mm512_getexp_ps (vinp));
       __m512i vexp_off = _mm512_sub_epi32(maxexpf, vexp);*/
-    exp_off = max_exp - (unsigned char)((value.ui & LIBXS_DNN_MASK_ABS_F32) >> LIBXS_DNN_MANT_SZ_F32);
+    exp_off = (unsigned char)(max_exp - ((value.ui & LIBXS_DNN_MASK_ABS_F32) >> LIBXS_DNN_MANT_SZ_F32));
     /* cut out mantissa and set leading bit */
     /*__m512i mmask = _mm512_set1_epi32(LIBXS_DNN_MASK_MANT_F32);
       __m512i vmant = _mm512_or_epi32(_mm512_set1_epi32(0x1 << LIBXS_DNN_MANT_SZ_F32), _mm512_and_epi32( _mm512_castps_si512( vinp ), mmask));*/
@@ -2501,13 +2501,13 @@ LIBXS_API short libxs_internal_quantize_scalar_no_scf( float input, unsigned cha
     /* extract sign */
     /* __mmask16 smask =  _mm512_cmplt_ps_mask (inp, _mm512_set1_ps(0)); */
     sign = ((value.ui & LIBXSNN_DNN_MASK_SIGN_F32) >> (LIBXS_DNN_SZ_F32-1));
-    /* caclulate rhs, be aware of the now explicit leading bit, @TODO add DFP8/4 */
+    /* calculate rhs, be aware of the now explicit leading bit, @TODO add DFP8/4 */
     rhs = (unsigned char)((LIBXS_DNN_MANT_SZ_F32+1) - LIBXS_DNN_MANT_DFP16 + exp_off + add_shift);
     /* some safety, to generate 0 when we fall off quant region, @TODO issue a LIBXS Warning that we shifted out the entire mantissa */
     if (rhs > (LIBXS_DNN_MANT_SZ_F32+1)) {
       rhs = (LIBXS_DNN_MANT_SZ_F32+1);
     }
-    /* finally shfit the value into the region we need, this is now a 15-add_rhs bit number for the max value in in_buffer */
+    /* finally shift the value into the region we need, this is now a 15-add_rhs bit number for the max value in in_buffer */
     qvalue = (mant >> rhs);
     /* handle sign, 2 complement */
     if ( (sign > 0) && (qvalue > 0) ) {
@@ -2609,7 +2609,7 @@ LIBXS_API void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int leng
       out_buffer[i] = libxs_internal_quantize_scalar_no_scf( in_buffer[i], max_exp, add_shift, round_mode );
     }
 
-    *scf = 14-add_shift-(max_exp-127);
+    *scf = (unsigned char)(14 - add_shift - (max_exp - 127));
   }
 }
 
@@ -2709,7 +2709,7 @@ LIBXS_API void libxs_dnn_quantize_act( float* in_buffer, short* out_buffer, unsi
       }
     }
 
-    *scf = 14-add_shift-(max_exp-127);
+    *scf = (unsigned char)(14 - add_shift - (max_exp - 127));
   }
 }
 
@@ -2839,7 +2839,7 @@ LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsi
       }
     }
 
-    *scf = 14-add_shift-(max_exp-127);
+    *scf = (unsigned char)(14 - add_shift - (max_exp - 127));
   }
 }
 

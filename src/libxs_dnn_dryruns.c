@@ -113,7 +113,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_custom_cust
     /* In these case we run fallback code so we do not support thread private jitting */
     status = LIBXS_DNN_WARN_FALLBACK;
   } else {
-    //TODO: Second condition guarantess we run the img_par code when we have MB=1 -- and hopefully HUGE images
+    /* TODO: Second condition guarantees we run the img_par code when we have MB=1 -- and hopefully HUGE images */
     if ((handle->desc.N*handle->blocksofm >= handle->desc.threads) && !((handle->desc.N == 1) && (handle->fwd_ofh_rb == 1 )) ) {
 # include "template/libxs_dnn_convolve_dryrun_fwd_custom_custom.tpl.c"
     } else {
