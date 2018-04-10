@@ -64,7 +64,7 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_low,1), 0); \
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_high, 1), 1); \
         _mm256_storeu_si256((__m256i*)&LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, ij, 2*ifm2, w_offset, BLOCKSIFM, handle->ifhp, handle->ifmblock_hp, ifwp_extended), compressed_low_store); \
-        _mm256_storeu_si256((__m256i*)&LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, ij, 2*ifm2+1, w_offset, BLOCKSIFM, handle->ifhp, handle->ifmblock_hp, ifwp_extended), compressed_high_store);
+        _mm256_storeu_si256((__m256i*)&LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, ij, 2*ifm2+1, w_offset, BLOCKSIFM, handle->ifhp, handle->ifmblock_hp, ifwp_extended), compressed_high_store)
 
 #define TRANSPOSE_W_REMAINDER(img, ifm1, ij, w_offset, ifm2) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
@@ -81,7 +81,7 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_low,1), 0); \
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_high, 1), 1); \
         _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, ij, 2*ifm2, w_offset, BLOCKSIFM, handle->ifhp, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_low_store); \
-        _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, ij, 2*ifm2+1, w_offset, BLOCKSIFM, handle->ifhp, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_high_store);
+        _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, ij, 2*ifm2+1, w_offset, BLOCKSIFM, handle->ifhp, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_high_store)
 
 #define TRANSPOSE_W_CHUNK_RESIZED(img, ifm1, w_offset, ij, ifm2, dst_i, dst_j) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
@@ -98,7 +98,7 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_low,1), 0); \
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_high, 1), 1); \
         _mm256_storeu_si256((__m256i*)&LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, dst_j, 2*ifm2, dst_i, BLOCKSIFM, handle->ifhp_resized, handle->ifmblock_hp, ifwp_extended), compressed_low_store); \
-        _mm256_storeu_si256((__m256i*)&LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, dst_j, 2*ifm2+1, dst_i, BLOCKSIFM, handle->ifhp_resized, handle->ifmblock_hp, ifwp_extended), compressed_high_store);
+        _mm256_storeu_si256((__m256i*)&LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, dst_j, 2*ifm2+1, dst_i, BLOCKSIFM, handle->ifhp_resized, handle->ifmblock_hp, ifwp_extended), compressed_high_store)
 
 #define TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, w_offset, ij, ifm2, dst_i, dst_j) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
@@ -115,7 +115,7 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_low,1), 0); \
         compressed_high_store = _mm256_insertf128_si256(compressed_high_store, _mm256_extractf128_si256(compressed_high, 1), 1); \
         _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, dst_j, 2*ifm2, dst_i, BLOCKSIFM, handle->ifhp_resized, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_low_store); \
-        _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, dst_j, 2*ifm2+1, dst_i, BLOCKSIFM, handle->ifhp_resized, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_high_store);
+        _mm256_maskstore_epi32((int*) &LIBXS_VLA_ACCESS(5, tr_input_nopad, img, ifm1, dst_j, 2*ifm2+1, dst_i, BLOCKSIFM, handle->ifhp_resized, handle->ifmblock_hp, ifwp_extended), mask_reg, compressed_high_store)
 
 #define TRANSPOSE_W_FULL_PAIR(img, ofm1, ij, ii, half_i) \
       pair_addr = &LIBXS_VLA_ACCESS(6, output, img, ofm1, ij, ii, 0, 0,  handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block); \
@@ -128,7 +128,7 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
       compact = _mm512_inserti64x4(compact, compressed_hi, 1); \
       compact = LIBXS_INTRINSICS_MM512_PERMUTEVAR_EPI32(permute_compact_idx, compact); \
       pair_addr_dst = &LIBXS_VLA_ACCESS(6,  tr_output, img, ofm1, ij, half_i, 0, 0, BLOCKSOFM, handle->ofhp, OFWP/2, handle->ofmblock, 2); \
-      _mm512_stream_si512((void*)pair_addr_dst, compact);
+      _mm512_stream_si512((void*)pair_addr_dst, compact)
 
 #define TRANSPOSE_W_HALF_PAIR(img, ofm1, ij, ii, half_i) \
       pair_addr = &LIBXS_VLA_ACCESS(6, output, img, ofm1, ij, ii, 0, 0,  handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block); \
@@ -140,7 +140,7 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
       compact = _mm512_inserti64x4(compact, compressed_hi, 1); \
       compact = LIBXS_INTRINSICS_MM512_PERMUTEVAR_EPI32(permute_compact_idx, compact); \
       pair_addr_dst = &LIBXS_VLA_ACCESS(6,  tr_output, img, ofm1, ij, half_i, 0, 0, BLOCKSOFM, handle->ofhp, OFWP/2, handle->ofmblock, 2); \
-      _mm512_stream_si512((void*)pair_addr_dst, compact);
+      _mm512_stream_si512((void*)pair_addr_dst, compact)
 
 /* @TODO this function needs to be target decorated, it's only called on AVX512 platforms and use_vperm_transposes=1 is for AVX512BW platforms only */
 LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
@@ -160,7 +160,7 @@ LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* h
       int BLOCKSIFM = handle->blocksifm;
       int padded_w = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
       int ifwp_extended = padded_w + handle->qfma_input_pad;
-      int dst_ifhp;
+      int dst_ifhp = handle->ifhp;
       element_input_type *base_addr;
       const __m512i vgindex = _mm512_set_epi32(480,416,224,160,  352,288,96,32,  448,384,192,128,  320,256,64,0);
       const int gather_offsets[16] = {480,416,224,160,  352,288,96,32,  448,384,192,128,  320,256,64,0};
@@ -168,7 +168,14 @@ LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* h
       unsigned int int_mask = 0xffffffff;
       const __mmask16 gmask = (__mmask16)int_mask;
       int mask_remainder = (w_remainder+1)/2;
+      /* Input transpose  */
+      LIBXS_VLA_DECL(6, element_input_type, input_nopad, (element_input_type*)handle->reg_input->data, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+      LIBXS_VLA_DECL(5, element_input_type, tr_input_nopad, (element_input_type*)handle->scratch3, BLOCKSIFM, dst_ifhp, handle->ifmblock_hp, ifwp_extended);
+      __m256i mask_reg, lo_reg, hi_reg, compressed_low, compressed_high, compressed_low_store, compressed_high_store;
+      __m512i gather_reg;     
       unsigned int mask[8];
+      LIBXS_UNUSED(dst_ifhp);
+
       for (c_i=0;c_i<16;c_i++) {
         if (gather_offsets[16-c_i-1] >= w_remainder*64) {
           int_mask = int_mask & ~(1 << c_i);
@@ -180,14 +187,7 @@ LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* h
       for (c_i=mask_remainder; c_i<8; c_i++) {
         mask[c_i] = 0;
       }
-      __m256i mask_reg = _mm256_loadu_si256((const __m256i*)mask);
-      __m512i gather_reg;
-      __m256i lo_reg, hi_reg, compressed_low, compressed_high, compressed_low_store, compressed_high_store;
-
-      /* Input transpose  */
-      dst_ifhp = handle->ifhp;
-      LIBXS_VLA_DECL(6, element_input_type, input_nopad, (element_input_type*)handle->reg_input->data, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
-      LIBXS_VLA_DECL(5, element_input_type, tr_input_nopad, (element_input_type*)handle->scratch3, BLOCKSIFM, dst_ifhp, handle->ifmblock_hp, ifwp_extended);
+      mask_reg = _mm256_loadu_si256((const __m256i*)mask);
 
       if (w_remainder) {
         for (img = my_img_start; img < my_img_end; img++) {
@@ -279,15 +279,16 @@ LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* h
                 __m512i permuted_reg = _mm512_permutexvar_epi16(perm_index, cl);
                 _mm512_store_si512(dst_addr, permuted_reg);
               }
-
-              element_output_type *addr = &LIBXS_VLA_ACCESS(6, output, img, ofm1, ij, handle->ofwp-1, 0, 0, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
-              element_output_type *dst_addr = &LIBXS_VLA_ACCESS(6, tr_output, img, ofm1, ij, ii/2, 0, 0, handle->blocksofm, handle->ofhp, OFWP/2, handle->ofmblock, 2);
-              __m256i half_cl = _mm256_loadu_si256((const __m256i*)addr);
-              __m512i cl = _mm512_inserti64x4(LIBXS_INTRINSICS_MM512_UNDEFINED_EPI32(), half_cl, 0);
-              /*__m256i zero_pixel = _mm256_xor_si256(zero_pixel, zero_pixel);*/
-              cl = _mm512_inserti64x4(cl, _mm256_set1_epi32(0)/*zero_pixel*/, 1);
-              __m512i permuted_reg = _mm512_permutexvar_epi16(perm_index, cl);
-              _mm512_store_si512(dst_addr, permuted_reg);
+              {
+                element_output_type *addr = &LIBXS_VLA_ACCESS(6, output, img, ofm1, ij, handle->ofwp-1, 0, 0, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
+                element_output_type *dst_addr = &LIBXS_VLA_ACCESS(6, tr_output, img, ofm1, ij, ii/2, 0, 0, handle->blocksofm, handle->ofhp, OFWP/2, handle->ofmblock, 2);
+                __m256i half_cl = _mm256_loadu_si256((const __m256i*)addr);
+                __m512i cl = _mm512_inserti64x4(LIBXS_INTRINSICS_MM512_UNDEFINED_EPI32(), half_cl, 0), permuted_reg;
+                /*__m256i zero_pixel = _mm256_xor_si256(zero_pixel, zero_pixel);*/
+                cl = _mm512_inserti64x4(cl, _mm256_set1_epi32(0)/*zero_pixel*/, 1);
+                permuted_reg = _mm512_permutexvar_epi16(perm_index, cl);
+                _mm512_store_si512(dst_addr, permuted_reg);                
+              }
             }
           }
         }
@@ -300,7 +301,7 @@ LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* h
     int BLOCKSIFM = handle->blocksifm;
     int padded_w = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
     int ifwp_extended = padded_w + handle->qfma_input_pad;
-    int dst_ifhp;
+    int dst_ifhp = handle->ifhp;
     element_input_type *base_addr;
     const __m512i vgindex = _mm512_set_epi32(480,416,224,160,  352,288,96,32,  448,384,192,128,  320,256,64,0);
     const int gather_offsets[16] = {480,416,224,160,  352,288,96,32,  448,384,192,128,  320,256,64,0};
@@ -308,7 +309,14 @@ LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* h
     unsigned int int_mask = 0xffffffff;
     const __mmask16 gmask = (__mmask16)int_mask;
     int mask_remainder = (w_remainder+1)/2;
+    /* Input transpose  */
+    LIBXS_VLA_DECL(6, element_input_type, input_nopad, (element_input_type*)handle->reg_input->data, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+    LIBXS_VLA_DECL(5, element_input_type, tr_input_nopad, (element_input_type*)handle->scratch3, BLOCKSIFM, dst_ifhp, handle->ifmblock_hp, ifwp_extended);
+    __m256i mask_reg, lo_reg, hi_reg, compressed_low, compressed_high, compressed_low_store, compressed_high_store;
+    __m512i gather_reg;
     unsigned int mask[8];
+    LIBXS_UNUSED(dst_ifhp);
+
     for (c_i=0;c_i<16;c_i++) {
       if (gather_offsets[16-c_i-1] >= w_remainder*64) {
         int_mask = int_mask & ~(1 << c_i);
@@ -320,14 +328,7 @@ LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* h
     for (c_i=mask_remainder; c_i<8; c_i++) {
       mask[c_i] = 0;
     }
-    __m256i mask_reg = _mm256_loadu_si256((const __m256i*)mask);
-    __m512i gather_reg;
-    __m256i lo_reg, hi_reg, compressed_low, compressed_high, compressed_low_store, compressed_high_store;
-
-    /* Input transpose  */
-    dst_ifhp = handle->ifhp;
-    LIBXS_VLA_DECL(6, element_input_type, input_nopad, (element_input_type*)handle->reg_input->data, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
-    LIBXS_VLA_DECL(5, element_input_type, tr_input_nopad, (element_input_type*)handle->scratch3, BLOCKSIFM, dst_ifhp, handle->ifmblock_hp, ifwp_extended);
+    mask_reg = _mm256_loadu_si256((const __m256i*)mask);
 
     if (w_remainder) {
       for (img = my_img_start; img < my_img_end; img++) {
@@ -363,36 +364,37 @@ LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* h
         }
       }
     }
+    {
+      element_output_type *pair_addr, *pair_addr_dst;
+      int half_i, ofm1, ii;
+      int BLOCKSOFM = handle->blocksofm;
+      int OFWP = handle->ofwp+handle->output_lp_padding;
+      __m256i compressed_hi, compressed_lo, even_pixel, odd_pixel;
+      __m512i compact, pair_pixels;
+      const __m512i permute_compact_idx = _mm512_set_epi32(15,14,13,12,  7,6,5,4,  11,10,9,8,  3,2,1,0);
 
-    element_output_type *pair_addr, *pair_addr_dst;
-    int half_i, ofm1, ii;
-    int BLOCKSOFM = handle->blocksofm;
-    int OFWP = handle->ofwp+handle->output_lp_padding;
-    __m256i compressed_hi, compressed_lo, even_pixel, odd_pixel;
-    __m512i compact, pair_pixels;
-    const __m512i permute_compact_idx = _mm512_set_epi32(15,14,13,12,  7,6,5,4,  11,10,9,8,  3,2,1,0);
+      /* Output transpose */
+      element_output_type *out = ((element_output_type*)handle->grad_output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock_lp * handle->fm_lp_block;
+      LIBXS_VLA_DECL(6, element_output_type, tr_output,  (element_output_type*)handle->scratch6 , BLOCKSOFM, handle->ofhp, OFWP/2, handle->ofmblock, 2);
+      LIBXS_VLA_DECL(6, element_output_type, output, out, handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
 
-    /* Output transpose */
-    element_output_type *out = ((element_output_type*)handle->grad_output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock_lp * handle->fm_lp_block;
-    LIBXS_VLA_DECL(6, element_output_type, tr_output,  (element_output_type*)handle->scratch6 , BLOCKSOFM, handle->ofhp, OFWP/2, handle->ofmblock, 2);
-    LIBXS_VLA_DECL(6, element_output_type, output, out, handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
-
-    for (img = my_img_start; img < my_img_end; img++) {
-      for (ofm1 = 0; ofm1 < handle->blocksofm_lp; ofm1++) {
-        for (ij = 0; ij < handle->ofhp; ++ij) {
-          for (ii = 0, half_i = 0; ii < handle->ofwp - 1; ii += 2, half_i++) {
-            TRANSPOSE_W_FULL_PAIR(img, ofm1, ij, ii, half_i);
-          }
-        }
-      }
-
-      if (handle->output_lp_padding != 0) {
-        /* Zero out the "output padding pixel" */
+      for (img = my_img_start; img < my_img_end; img++) {
         for (ofm1 = 0; ofm1 < handle->blocksofm_lp; ofm1++) {
           for (ij = 0; ij < handle->ofhp; ++ij) {
-            ii = handle->ofwp-1;
-            half_i = ii/2;
-            TRANSPOSE_W_HALF_PAIR(img, ofm1, ij, ii, half_i);
+            for (ii = 0, half_i = 0; ii < handle->ofwp - 1; ii += 2, half_i++) {
+              TRANSPOSE_W_FULL_PAIR(img, ofm1, ij, ii, half_i);
+            }
+          }
+        }
+
+        if (handle->output_lp_padding != 0) {
+          /* Zero out the "output padding pixel" */
+          for (ofm1 = 0; ofm1 < handle->blocksofm_lp; ofm1++) {
+            for (ij = 0; ij < handle->ofhp; ++ij) {
+              ii = handle->ofwp-1;
+              half_i = ii/2;
+              TRANSPOSE_W_HALF_PAIR(img, ofm1, ij, ii, half_i);
+            }
           }
         }
       }
@@ -412,20 +414,32 @@ LIBXS_API_INTERN void lp_transpose_and_resize_input_and_output(int ltid, libxs_d
   int w, c_i, ifm1, ij, ifm2;
   int dst_j, src_j;
   int BLOCKSIFM = handle->blocksifm;
+  const int imgpt = (handle->desc.N + handle->desc.threads - 1)/handle->desc.threads;
+  const int my_img_start = LIBXS_MIN( ltid * imgpt, handle->desc.N);
+  const int my_img_end = LIBXS_MIN( (ltid+1) * imgpt, handle->desc.N);
+#if 0
   int padded_w = (handle->padding_flag == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
   int ifwp_extended = padded_w + handle->qfma_input_pad;
-  int dst_ifhp;
+#else /* Input transpose */
+  int ifwp_extended = handle->ifwp_resized + handle->qfma_input_pad;
+#endif
+  int dst_ifhp = handle->ifhp_resized;
+  LIBXS_VLA_DECL(6, element_input_type, input_nopad, (element_input_type*)handle->reg_input->data, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+  LIBXS_VLA_DECL(5, element_input_type, tr_input_nopad, (element_input_type*)handle->scratch3, BLOCKSIFM, dst_ifhp, handle->ifmblock_hp, ifwp_extended);
   element_input_type *base_addr;
-
   const __m512i vgindex = _mm512_set_epi32(u*480,u*416,u*224,u*160,  u*352,u*288,u*96,u*32,  u*448,u*384,u*192,u*128,  u*320,u*256,u*64, u*0);
-  const int gather_offsets[16] = {u*480,u*416,u*224,u*160,  u*352,u*288,u*96,u*32,  u*448,u*384,u*192,u*128,  u*320,u*256,u*64, u*0};
+  const int gather_offsets[16] = {480,416,224,160,  352,288,96,32,  448,384,192,128,  320,256,64, 0};
   const __m256i shuffler = _mm256_set_epi32(7,5,3,1,6,4,2,0);
   unsigned int int_mask = 0xffffffff;
   const __mmask16 gmask = (__mmask16)int_mask;
   int mask_remainder = (w_remainder+1)/2;
+  __m256i mask_reg, lo_reg, hi_reg, compressed_low, compressed_high, compressed_low_store, compressed_high_store;
+  __m512i gather_reg;
   unsigned int mask[8];
+  LIBXS_UNUSED(dst_ifhp);
+
   for (c_i=0;c_i<16;c_i++) {
-    if (gather_offsets[16-c_i-1] >= (w_remainder*64)*u) {
+    if (gather_offsets[16-c_i-1] >= (w_remainder*64)) {
       int_mask = int_mask & ~(1 << c_i);
     }
   }
@@ -435,19 +449,7 @@ LIBXS_API_INTERN void lp_transpose_and_resize_input_and_output(int ltid, libxs_d
   for (c_i=mask_remainder; c_i<8; c_i++) {
     mask[c_i] = 0;
   }
-  __m256i mask_reg = _mm256_loadu_si256((const __m256i*)mask);
-  __m512i gather_reg;
-  __m256i lo_reg, hi_reg, compressed_low, compressed_high, compressed_low_store, compressed_high_store;
-
-  /* Input transpose  */
-  ifwp_extended = handle->ifwp_resized + handle->qfma_input_pad;
-  dst_ifhp = handle->ifhp_resized;
-  LIBXS_VLA_DECL(6, element_input_type, input_nopad, (element_input_type*)handle->reg_input->data, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
-  LIBXS_VLA_DECL(5, element_input_type, tr_input_nopad, (element_input_type*)handle->scratch3, BLOCKSIFM, dst_ifhp, handle->ifmblock_hp, ifwp_extended);
-
-  const int imgpt = (handle->desc.N + handle->desc.threads - 1)/handle->desc.threads;
-  const int my_img_start = LIBXS_MIN( ltid * imgpt, handle->desc.N);
-  const int my_img_end = LIBXS_MIN( (ltid+1) * imgpt, handle->desc.N);
+  mask_reg = _mm256_loadu_si256((const __m256i*)mask);
 
   if (w_remainder) {
     for (img = my_img_start; img < my_img_end; img++) {
@@ -520,16 +522,16 @@ LIBXS_API_INTERN void lp_transpose_and_resize_input_and_output(int ltid, libxs_d
                 __m512i permuted_reg = _mm512_permutexvar_epi16(perm_index, cl);
                 _mm512_store_si512(dst_addr, permuted_reg);
               }
-
-              element_output_type *addr = &LIBXS_VLA_ACCESS(6, output, img, ofm1, ij, handle->ofwp-1, 0, 0, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
-              element_output_type *dst_addr = &LIBXS_VLA_ACCESS(6, tr_output, img, ofm1, ij, ii/2, 0, 0, handle->blocksofm, handle->ofhp, OFWP/2, handle->ofmblock, 2);
-              __m256i half_cl = _mm256_loadu_si256((const __m256i*)addr);
-              __m512i cl = _mm512_inserti64x4(LIBXS_INTRINSICS_MM512_UNDEFINED_EPI32(), half_cl, 0);
-              /*__m256i zero_pixel = _mm256_xor_si256(zero_pixel, zero_pixel);*/
-              cl = _mm512_inserti64x4(cl, _mm256_set1_epi32(0)/*zero_pixel*/, 1);
-              __m512i permuted_reg = _mm512_permutexvar_epi16(perm_index, cl);
-              _mm512_store_si512(dst_addr, permuted_reg);
-
+              {
+                element_output_type *addr = &LIBXS_VLA_ACCESS(6, output, img, ofm1, ij, handle->ofwp-1, 0, 0, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
+                element_output_type *dst_addr = &LIBXS_VLA_ACCESS(6, tr_output, img, ofm1, ij, ii/2, 0, 0, handle->blocksofm, handle->ofhp, OFWP/2, handle->ofmblock, 2);
+                __m256i half_cl = _mm256_loadu_si256((const __m256i*)addr);
+                __m512i cl = _mm512_inserti64x4(LIBXS_INTRINSICS_MM512_UNDEFINED_EPI32(), half_cl, 0), permuted_reg;
+                /*__m256i zero_pixel = _mm256_xor_si256(zero_pixel, zero_pixel);*/
+                cl = _mm512_inserti64x4(cl, _mm256_set1_epi32(0)/*zero_pixel*/, 1);
+                permuted_reg = _mm512_permutexvar_epi16(perm_index, cl);
+                _mm512_store_si512(dst_addr, permuted_reg);
+              }
             }
           }
         }
@@ -591,72 +593,72 @@ LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* h
 LIBXS_API_INLINE void gather_transpose_ps_16_56_56_16(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS) {
   const __m512i vindex = _mm512_set_epi32(240,224,208,192,176,160,144,128,112,96,80,64,48,32,16,0);
   const __mmask16 Nremmask = 0x00FF;
-  int m;
+  __m512 tmp;
+  int m, n;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
-    int n;
     LIBXS_PRAGMA_UNROLL_N(3)
     for(n = 0; n < 3; ++n) {
-      const __m512 tmp = _mm512_i32gather_ps(vindex, src+m+n*256, 4);
+      tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*56+n*16),tmp);
     }
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*56+n*16),Nremmask,tmprem);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*56+n*16),Nremmask,tmp);
   }
 }
 
 LIBXS_API_INLINE void gather_transpose_ps_16_56_58_16(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS) {
   const __m512i vindex = _mm512_set_epi32(240,224,208,192,176,160,144,128,112,96,80,64,48,32,16,0);
   const __mmask16 Nremmask = 0x00FF;
-  int m;
+  __m512 tmp;
+  int m, n;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
-    int n;
     LIBXS_PRAGMA_UNROLL_N(3)
     for(n = 0; n < 3; ++n) {
-      const __m512 tmp = _mm512_i32gather_ps(vindex, src+m+n*256, 4);
+      tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*58+n*16),tmp);
     }
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*58+n*16),Nremmask,tmprem);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*58+n*16),Nremmask,tmp);
   }
 }
 
 LIBXS_API_INLINE void gather_transpose_ps_16_58_60_16(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS) {
   const __m512i vindex = _mm512_set_epi32(240,224,208,192,176,160,144,128,112,96,80,64,48,32,16,0);
   const __mmask16 Nremmask = 0x03FF;
-  int m;
+  __m512 tmp;
+  int m, n;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
-    int n;
     LIBXS_PRAGMA_UNROLL_N(3)
     for(n = 0; n < 3; ++n) {
-      const __m512 tmp = _mm512_i32gather_ps(vindex, src+m+n*256, 4);
+      tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*60+n*16),tmp);
     }
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*60+n*16),Nremmask,tmprem);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*60+n*16),Nremmask,tmp);
   }
 }
 
 LIBXS_API_INLINE void gather_transpose_ps_16_58_58_16(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS) {
   const __m512i vindex = _mm512_set_epi32(240,224,208,192,176,160,144,128,112,96,80,64,48,32,16,0);
   const __mmask16 Nremmask = 0x03FF;
-  int m;
+  __m512 tmp;
+  int m, n;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
-    int n;
     LIBXS_PRAGMA_UNROLL_N(3)
     for(n = 0; n < 3; ++n) {
-      const __m512 tmp = _mm512_i32gather_ps(vindex, src+m+n*256, 4);
+      tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*58+n*16),tmp);
     }
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*58+n*16),Nremmask,tmprem);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*58+n*16),Nremmask,tmp);
   }
 }
 
@@ -668,11 +670,11 @@ LIBXS_API_INLINE void gather_transpose_ps_16_28_28_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_i32gather_ps(vindex, src+m+n*256, 4);
+    __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*28+n*16),tmp);
     n = 1;
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*28+n*16),Nremmask,tmprem);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*28+n*16),Nremmask,tmp);
   }
 }
 
@@ -684,11 +686,11 @@ LIBXS_API_INLINE void gather_transpose_ps_16_28_30_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_i32gather_ps(vindex, src+m+n*256, 4);
+    __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*30+n*16),tmp);
     n = 1;
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*30+n*16),Nremmask,tmprem);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*30+n*16),Nremmask,tmp);
   }
 }
 
@@ -700,11 +702,11 @@ LIBXS_API_INLINE void gather_transpose_ps_16_30_32_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_i32gather_ps(vindex, src+m+n*256, 4);
+    __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*32+n*16),tmp);
     n = 1;
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*32+n*16),Nremmask,tmprem);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*32+n*16),Nremmask,tmp);
   }
 }
 
@@ -716,11 +718,11 @@ LIBXS_API_INLINE void gather_transpose_ps_16_30_30_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_i32gather_ps(vindex, src+m+n*256, 4);
+    __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*30+n*16),tmp);
     n = 1;
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*30+n*16),Nremmask,tmprem);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*30+n*16),Nremmask,tmp);
   }
 }
 
@@ -731,7 +733,7 @@ LIBXS_API_INLINE void gather_transpose_ps_16_16_16_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_i32gather_ps(vindex, src+m+n*256, 4);
+    const __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*16+n*16),tmp);
   }
 }
@@ -743,7 +745,7 @@ LIBXS_API_INLINE void gather_transpose_ps_16_16_18_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_i32gather_ps(vindex, src+m+n*256, 4);
+    const __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*18+n*16),tmp);
   }
 }
@@ -756,8 +758,8 @@ LIBXS_API_INLINE void gather_transpose_ps_16_14_16_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*16+n*16),Nremmask,tmprem);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*16+n*16),Nremmask,tmp);
   }
 }
 
@@ -769,8 +771,8 @@ LIBXS_API_INLINE void gather_transpose_ps_16_14_18_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*18+n*16),Nremmask,tmprem);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*18+n*16),Nremmask,tmp);
   }
 }
 
@@ -782,8 +784,8 @@ LIBXS_API_INLINE void gather_transpose_ps_16_7_8_16(int M, int N, float *LIBXS_R
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 8; ++m) {
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m*2, 4);
-    _mm512_mask_store_ps((void*)(dst+m*8*2),Nremmask,tmprem);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m*2), 4);
+    _mm512_mask_store_ps((void*)(dst+m*8*2),Nremmask,tmp);
   }
 }
 
@@ -795,8 +797,8 @@ LIBXS_API_INLINE void gather_transpose_ps_16_7_10_16(int M, int N, float *LIBXS_
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*10+n*16),Nremmask,tmprem);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*10+n*16),Nremmask,tmp);
   }
 }
 
@@ -808,8 +810,8 @@ LIBXS_API_INLINE void gather_transpose_ps_16_9_12_16(int M, int N, float *LIBXS_
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*12+n*16),Nremmask,tmprem);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*12+n*16),Nremmask,tmp);
   }
 }
 
@@ -821,8 +823,8 @@ LIBXS_API_INLINE void gather_transpose_ps_16_9_10_16(int M, int N, float *LIBXS_
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmprem = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, src+m+n*256, 4);
-    _mm512_mask_store_ps((void*)(dst+m*10+n*16),Nremmask,tmprem);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    _mm512_mask_store_ps((void*)(dst+m*10+n*16),Nremmask,tmp);
   }
 }
 
@@ -837,11 +839,11 @@ LIBXS_API_INTERN void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst
     int j;
     LIBXS_PRAGMA_UNROLL_N(4)
     for(j = 0; j < whole16s; ++j) {
-      const __m512 res = _mm512_i32gather_ps(vindex, src+i+j*16*ldS, 4);
+      const __m512 res = _mm512_i32gather_ps(vindex, (const void*)(src+i+j*16*ldS), 4);
       _mm512_store_ps(dst + ldD*i+j*16, res);
     }
     if(remainder) {
-      const __m512 res = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nmask, vindex, src+i+j*16*ldS, 4);
+      const __m512 res = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nmask, vindex, (const void*)(src+i+j*16*ldS), 4);
       _mm512_mask_store_ps(dst + ldD*i+j*16, Nmask, res);
     }
   }
