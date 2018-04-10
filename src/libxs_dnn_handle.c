@@ -152,12 +152,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
   /* Generic codepath setup here... */
   if (noarch == 1) {
     /*Setup generic code generation here*/
-    status = libxs_dnn_setup_generic(handle);
+    const int handle_status = libxs_dnn_setup_generic(handle);
     const int padded_h = handle->desc.H + (2 * handle->desc.pad_h);
     const int padded_w = handle->desc.W + (2 * handle->desc.pad_w);
     const size_t size7 = padded_h * padded_w * handle->ifmblock * libxs_dnn_typesize(handle->datatype_in);
     handle->scratch7_size = LIBXS_UP2(size7, LIBXS_CACHELINE) * handle->desc.threads;
     handle->scratch7 = 0;
+    status = handle_status;
   } else {
     handle->scratch7_size = 0;
     handle->scratch7 = 0;
