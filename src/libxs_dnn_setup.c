@@ -41,6 +41,76 @@
 # pragma offload_attribute(pop)
 #endif
 
+#define MIXED 0
+#define KHWC 1
+#define HWKC 2
+#define CHWK 3
+#define HWCK 4
+
+
+LIBXS_API_INLINE void tune_fwd_blockings(libxs_dnn_layer *handle) {
+  int BLOCKSIFM_BLOCKING = handle->blocksifm_blocking;
+  /* Some cache blocking tuning here...   */
+  /* Loop order tuning  */
+  int loop_order = MIXED;
+  if (handle->desc.H >= 28 && handle->desc.R == 1) {
+    loop_order = HWKC;
+  }
+
+  /* Feature map block tuning */
+  int blockifm = 8;
+  while (blockifm % BLOCKSIFM_BLOCKING != 0) {
+    blockifm++;
+  }
+
+  handle->block_fwd_ofm = LIBXS_MIN(handle->blocksofm, 16);
+  handle->block_fwd_ifm = blockifm;
+
+  /* Spatial dimension block tuning  */
+  int block_j = 14;
+  if ((handle->ofh == 7 && handle->desc.u == 2) || (handle->ofh == 14 && handle->desc.R != 3 ) ||  handle->ofh == 27 || (handle->ofh == 28 && handle->desc.R == 1) || handle->ofh == 48 || handle->ofh == 54 || handle->ofh == 56 || handle->ofh == 112 ) {
+    block_j = 4;
+  }
+  while ( block_j % handle->fwd_ofh_rb != 0 ) {
+    block_j--;
+  }
+  handle->block_fwd_oj = block_j;
+  handle->loop_order = loop_order;
+}
+
+LIBXS_API_INLINE void tune_upd_blockings(libxs_dnn_layer *handle) {
+  if ( handle->ofh == 56 ) {
+    /* Pixel block is 196 Kbytes */
+    handle->block_upd_ofm = handle->blocksofm;
+    handle->block_upd_ifm = 1;
+  }
+
+  if ( handle->ofh == 28 ) {
+    /* Pixel block is 49 Kbytes */
+    handle->block_upd_ofm = 3;
+    handle->block_upd_ifm = 3;
+  }
+
+  if ( handle->ofh == 14 || handle->ofh == 28 || handle->ofh == 56 ) {
+    /* Pixel block is 12.25 Kbytes */
+    handle->block_upd_ofm = 8;
+    handle->block_upd_ifm = 32;
+  }
+
+  if ( handle->ofh == 7 ) {
+    /* Pixel block is 3.06 Kbytes */
+    handle->block_upd_ofm = 8;
+    handle->block_upd_ifm = 16;
+  }
+
+  if (  handle->ofh == 28 || handle->ofh == 35  || handle->ofh == 56 || handle->ofh == 149 || handle->ofh == 71  ||  handle->ofh == 147 || handle->ofh == 73   ) {     /* Pixel block is 12.25 Kbytes */
+    handle->block_upd_ofm = 32;
+    handle->block_upd_ifm = 16;
+  }
+
+  handle->block_upd_ofm = 64;
+  handle->block_upd_ifm = 64;
+}
 
 LIBXS_API_INLINE int find_rb(int W, int H, int *wrb1_res, int *hrb1_res, int *wrb2_res, int *hrb2_res) {
   const int min_r = 15;
@@ -640,6 +710,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
     }
 
     /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
+    tune_fwd_blockings(handle);
     status = libxs_dnn_perform_fwd_dryrun_direct(handle);
 
 #if defined(LIBXS_DNN_HANDLE_DEBUG)
@@ -947,6 +1018,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
       mirror_handle.ofh_fwd_end = handle->ofh_bwd_end;
       mirror_handle.perform_relu_in_kernel = (((handle->fuse_ops & LIBXS_DNN_CONV_FUSE_RELU_BWD) > 0) && (handle->use_nts_bwd == 1)) ? 1 : 0;
       handle->perform_relu_in_kernel = (((handle->fuse_ops & LIBXS_DNN_CONV_FUSE_RELU_BWD) > 0) && (handle->use_nts_bwd == 1)) ? 1 : 0;
+
+      tune_fwd_blockings(&mirror_handle);
       status = libxs_dnn_perform_fwd_dryrun_direct(&mirror_handle);
     }
 
@@ -1471,6 +1544,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, i
         handle->matcopy_upd[2].xmatcopy = libxs_xmcopydispatch(&matzero_descriptor);
 
         /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
+        tune_upd_blockings(handle);
         status = libxs_dnn_perform_upd_dryrun_direct(handle);
 
 #if defined(LIBXS_DNN_HANDLE_DEBUG)
@@ -1497,4 +1571,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, i
   } /* end of weight-update handle */
   return status;
 }
+
+
+#undef MIXED
+#undef KHWC
+#undef HWKC
+#undef CHWK
+#undef HWCK
 

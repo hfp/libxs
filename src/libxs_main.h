@@ -358,6 +358,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int n_variants;
   int w_variants;
   int h_variants;
+  int loop_order;
 
   /* internal data representation */
   libxs_dnn_tensor* reg_input;
