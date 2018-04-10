@@ -335,7 +335,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
   if (handle->desc.N >= handle->desc.threads) {
     n_variants = find_rb(handle->ofw, handle->ofh, &wrb1, &hrb1, &wrb2, &hrb2);
     handle->fwd_ofw_rb = wrb1;
-    handle->fwd_ofh_rb = hrb1; 
+    handle->fwd_ofh_rb = hrb1;
 
     if (n_variants == 2) {
       if (wrb1 == wrb2) {
@@ -360,7 +360,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
       handle->fwd_ofh_rb = 1;
     }
   }
-  handle->n_variants = n_variants; 
+  handle->n_variants = n_variants;
 
   /* if we have 1x1 let's bring some ifms into the kernel for forward to increase accumulation chain length on AVX512 */
   if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_1) ) {
@@ -394,7 +394,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
     handle->blocksifm_blocking = 8;
   }
 
-  /* Restrict acc chain for overflow handling only if combo is int16/int32  */ 
+  /* Restrict acc chain for overflow handling only if combo is int16/int32  */
   if (handle->use_lp_kernel == 1) {
     if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && ((handle->datatype_out == LIBXS_DNN_DATATYPE_I32) || (handle->datatype_out == LIBXS_DNN_DATATYPE_F32)) ) {
       if (handle->blocksifm_blocking * handle->ifmblock * handle->fm_lp_block > 256) {
@@ -417,7 +417,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
   if ((handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2)) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32) {
       /* Calculate number of image blocks in case of custom_2 format */
-      handle->nBImg = handle->desc.N / handle->nbImg;  
+      handle->nBImg = handle->desc.N / handle->nbImg;
       /* In this case of custom_2 format, regardless of requested padding, all the pad_in/pad_out parameters should be 0 */
       if ( ((handle->desc.pad_h > 0) && ((handle->desc.pad_h_in != 0) || (handle->desc.pad_h_out != 0))) || ((handle->desc.pad_w > 0) && ((handle->desc.pad_w_in != 0) || (handle->desc.pad_w_out !=0))) ) {
         status = LIBXS_DNN_ERR_INVALID_PADDING;
@@ -442,11 +442,15 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
 
   /* Check if padded needs to be applied in the input and allocate appropriate buffers */
   if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && (handle->desc.pad_h_out == 0) && (handle->desc.pad_w_out == 0) && ((handle->desc.pad_h > 0) || (handle->desc.pad_w > 0))) {
-    handle->padding_flag = 1;
-    handle->scratch5  = 0;
-    handle->minibatch_scratch_size = LIBXS_MAX(handle->desc.N * handle->blocksifm_lp * handle->ifmblock * handle->fm_lp_block * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w+8) * libxs_dnn_typesize(handle->datatype_out), handle->desc.N * handle->blocksofm_lp * handle->ofmblock * handle->fm_lp_block * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_out));
-    handle->fwdbwd_scratch_size =  LIBXS_MAX(handle->desc.threads * handle->desc.C * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_out), handle->desc.threads * handle->desc.K * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_in));
+    const size_t fwdbwd_scratch_size_a = handle->desc.threads * handle->desc.C * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_out);
+    const size_t fwdbwd_scratch_size_b = handle->desc.threads * handle->desc.K * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_in);
+    handle->fwdbwd_scratch_size =  LIBXS_MAX(fwdbwd_scratch_size_a, fwdbwd_scratch_size_b);
+    handle->minibatch_scratch_size = libxs_dnn_typesize(handle->datatype_out) * LIBXS_MAX(
+      handle->desc.N * handle->blocksifm_lp * handle->ifmblock * handle->fm_lp_block * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w+8),
+      handle->desc.N * handle->blocksofm_lp * handle->ofmblock * handle->fm_lp_block * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+2*handle->desc.pad_w));
     handle->max_scratch5_size = (handle->minibatch_scratch_size > handle->fwdbwd_scratch_size) ? handle->minibatch_scratch_size : handle->fwdbwd_scratch_size;
+    handle->padding_flag = 1;
+    handle->scratch5 = 0;
   } else {
     handle->padding_flag = 0;
   }
@@ -712,7 +716,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
   }
 
 
-  /* FIXME: KNM specific tuning for Resnet */  
+  /* FIXME: KNM specific tuning for Resnet */
   if ( (handle->desc.C == 256 && handle->desc.K == 1024) || (handle->desc.C == 512 && handle->desc.K == 2048) ||  (handle->desc.C == 1024 && handle->desc.K == 2048) ) {
     handle->blocksofm_blocking = 8;
   }
@@ -736,7 +740,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
     handle->use_nts_bwd = 0;
   }
 
-  /* FIXME: SKX specific tuning for GooglenetV3 */  
+  /* FIXME: SKX specific tuning for GooglenetV3 */
   if ((libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) && handle->desc.K/16 <= 8) {
     handle->use_nts_bwd = 0;
   }
@@ -943,7 +947,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
       mirror_handle.ofh_fwd_end = handle->ofh_bwd_end;
       mirror_handle.perform_relu_in_kernel = (((handle->fuse_ops & LIBXS_DNN_CONV_FUSE_RELU_BWD) > 0) && (handle->use_nts_bwd == 1)) ? 1 : 0;
       handle->perform_relu_in_kernel = (((handle->fuse_ops & LIBXS_DNN_CONV_FUSE_RELU_BWD) > 0) && (handle->use_nts_bwd == 1)) ? 1 : 0;
-      status = libxs_dnn_perform_fwd_dryrun_direct(&mirror_handle);      
+      status = libxs_dnn_perform_fwd_dryrun_direct(&mirror_handle);
     }
 
     /* In case overwrite is requested, generate zero-ing kernel */
@@ -997,7 +1001,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, int *noarch ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   int i = 0; /* general counting helper */
-  handle->blocksimg_blocking = 1; 
+  handle->blocksimg_blocking = 1;
 
   /*FIXME: Do we still need that? Don't we unroll aggressivele anyway here? */
   for (i = LIBXS_MIN(28, handle->ofh); i > 1; i--) {

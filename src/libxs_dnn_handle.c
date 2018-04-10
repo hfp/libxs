@@ -120,7 +120,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
         libxs_target_archid == LIBXS_X86_AVX512_ICL    ) &&
       handle->use_thread_private_jit == 1 )
   {
-    /* This is basically a decision pertaining for all three passes: FWD, BWD and UPD */ 
+    /* This is basically a decision pertaining for all three passes: FWD, BWD and UPD */
     /* Initialize fields that control layer fusion */
     noarch = 0;
     handle->compute_batch_stats_in_kernel = 0;
@@ -137,13 +137,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
     }
 
     /* Forward path setup */
-    status = libxs_dnn_setup_fwd(handle, &noarch); 
+    status = libxs_dnn_setup_fwd(handle, &noarch);
 
     /* Backward path setup */
-    status = libxs_dnn_setup_bwd(handle, &noarch); 
+    status = libxs_dnn_setup_bwd(handle, &noarch);
 
     /* Weight update path setup */
-    status = libxs_dnn_setup_upd(handle, &noarch); 
+    status = libxs_dnn_setup_upd(handle, &noarch);
 
     /* Calculate scratch requirements */
     libxs_dnn_setup_scratch(handle);

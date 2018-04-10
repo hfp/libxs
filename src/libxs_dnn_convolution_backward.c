@@ -41,6 +41,7 @@
 #endif
 
 /* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -49,7 +50,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_f32_f32
   typedef float element_output_type;
   typedef float element_filter_type;
   typedef libxs_sconvfunction libxs_convfunction;
-#include "template/libxs_dnn_convolve_st_bwd_via_fwd_custom_custom_stream.tpl.c"
+# include "template/libxs_dnn_convolve_st_bwd_via_fwd_custom_custom_stream.tpl.c"
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
@@ -58,6 +59,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_f32_f32
 }
 
 /* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -75,6 +77,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i16_i32
 }
 
 /* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -92,6 +95,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i16_f32
 }
 
 /* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx??) */
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
