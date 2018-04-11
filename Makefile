@@ -531,11 +531,11 @@ config: $(INCDIR)/libxs_config.h
 $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config.h \
                             $(SCRDIR)/libxs_config.py $(SCRDIR)/libxs_utilities.py \
                             $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
-                            $(wildcard $(ROOTDIR)/.hooks/*) \
+                            $(wildcard $(ROOTDIR)/.gitx/*) \
                             $(ROOTDIR)/version.txt
 	$(information)
-	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
-		$(ROOTDIR)/.hooks/install.sh; \
+	@if [ -e $(ROOTDIR)/.gitx/install.sh ]; then \
+		$(ROOTDIR)/.gitx/install.sh; \
 	fi
 	@$(CP) $(ROOTDIR)/include/libxs_bgemm.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_cpuid.h $(INCDIR) 2>/dev/null || true
