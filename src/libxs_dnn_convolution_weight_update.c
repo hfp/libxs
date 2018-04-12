@@ -51,7 +51,7 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
 #if defined(__AVX512F__) /*&& defined(__AVX512BW__)*/
 #define TRANSPOSE_W_CHUNK(img, ifm1, ij, w_offset, ifm2) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
-        gather_reg = _mm512_i32gather_epi32(vgindex, base_addr, 1); \
+        gather_reg = _mm512_i32gather_epi32(vgindex, (const int*)base_addr, 1); \
         lo_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,0); \
         hi_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,1); \
         compressed_low = _mm256_unpacklo_epi16(lo_reg, hi_reg); \
@@ -85,7 +85,7 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
 
 #define TRANSPOSE_W_CHUNK_RESIZED(img, ifm1, w_offset, ij, ifm2, dst_i, dst_j) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
-        gather_reg = _mm512_i32gather_epi32(vgindex, base_addr, 1); \
+        gather_reg = _mm512_i32gather_epi32(vgindex, (const int*)base_addr, 1); \
         lo_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,0); \
         hi_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,1); \
         compressed_low = _mm256_unpacklo_epi16(lo_reg, hi_reg); \
@@ -600,10 +600,10 @@ LIBXS_API_INLINE void gather_transpose_ps_16_56_56_16(int M, int N, float *LIBXS
   for(m = 0; m < 16; ++m) {
     LIBXS_PRAGMA_UNROLL_N(3)
     for(n = 0; n < 3; ++n) {
-      tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
+      tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*56+n*16),tmp);
     }
-    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*56+n*16),Nremmask,tmp);
   }
 }
@@ -618,10 +618,10 @@ LIBXS_API_INLINE void gather_transpose_ps_16_56_58_16(int M, int N, float *LIBXS
   for(m = 0; m < 16; ++m) {
     LIBXS_PRAGMA_UNROLL_N(3)
     for(n = 0; n < 3; ++n) {
-      tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
+      tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*58+n*16),tmp);
     }
-    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*58+n*16),Nremmask,tmp);
   }
 }
@@ -636,10 +636,10 @@ LIBXS_API_INLINE void gather_transpose_ps_16_58_60_16(int M, int N, float *LIBXS
   for(m = 0; m < 16; ++m) {
     LIBXS_PRAGMA_UNROLL_N(3)
     for(n = 0; n < 3; ++n) {
-      tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
+      tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*60+n*16),tmp);
     }
-    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*60+n*16),Nremmask,tmp);
   }
 }
@@ -654,10 +654,10 @@ LIBXS_API_INLINE void gather_transpose_ps_16_58_58_16(int M, int N, float *LIBXS
   for(m = 0; m < 16; ++m) {
     LIBXS_PRAGMA_UNROLL_N(3)
     for(n = 0; n < 3; ++n) {
-      tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
+      tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*58+n*16),tmp);
     }
-    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*58+n*16),Nremmask,tmp);
   }
 }
@@ -670,10 +670,10 @@ LIBXS_API_INLINE void gather_transpose_ps_16_28_28_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
+    __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*28+n*16),tmp);
     n = 1;
-    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*28+n*16),Nremmask,tmp);
   }
 }
@@ -686,10 +686,10 @@ LIBXS_API_INLINE void gather_transpose_ps_16_28_30_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
+    __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*30+n*16),tmp);
     n = 1;
-    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*30+n*16),Nremmask,tmp);
   }
 }
@@ -702,10 +702,10 @@ LIBXS_API_INLINE void gather_transpose_ps_16_30_32_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
+    __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*32+n*16),tmp);
     n = 1;
-    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*32+n*16),Nremmask,tmp);
   }
 }
@@ -718,10 +718,10 @@ LIBXS_API_INLINE void gather_transpose_ps_16_30_30_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
+    __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*30+n*16),tmp);
     n = 1;
-    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*30+n*16),Nremmask,tmp);
   }
 }
@@ -733,7 +733,7 @@ LIBXS_API_INLINE void gather_transpose_ps_16_16_16_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
+    const __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*16+n*16),tmp);
   }
 }
@@ -745,7 +745,7 @@ LIBXS_API_INLINE void gather_transpose_ps_16_16_18_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_i32gather_ps(vindex, (const void*)(src+m+n*256), 4);
+    const __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*18+n*16),tmp);
   }
 }
@@ -758,7 +758,7 @@ LIBXS_API_INLINE void gather_transpose_ps_16_14_16_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*16+n*16),Nremmask,tmp);
   }
 }
@@ -771,7 +771,7 @@ LIBXS_API_INLINE void gather_transpose_ps_16_14_18_16(int M, int N, float *LIBXS
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*18+n*16),Nremmask,tmp);
   }
 }
@@ -784,7 +784,7 @@ LIBXS_API_INLINE void gather_transpose_ps_16_7_8_16(int M, int N, float *LIBXS_R
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 8; ++m) {
-    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m*2), 4);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m*2), 4);
     _mm512_mask_store_ps((void*)(dst+m*8*2),Nremmask,tmp);
   }
 }
@@ -797,7 +797,7 @@ LIBXS_API_INLINE void gather_transpose_ps_16_7_10_16(int M, int N, float *LIBXS_
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*10+n*16),Nremmask,tmp);
   }
 }
@@ -810,7 +810,7 @@ LIBXS_API_INLINE void gather_transpose_ps_16_9_12_16(int M, int N, float *LIBXS_
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*12+n*16),Nremmask,tmp);
   }
 }
@@ -823,7 +823,7 @@ LIBXS_API_INLINE void gather_transpose_ps_16_9_10_16(int M, int N, float *LIBXS_
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
   for(m = 0; m < 16; ++m) {
     int n = 0;
-    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const void*)(src+m+n*256), 4);
+    const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*10+n*16),Nremmask,tmp);
   }
 }
@@ -839,11 +839,11 @@ LIBXS_API_INTERN void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst
     int j;
     LIBXS_PRAGMA_UNROLL_N(4)
     for(j = 0; j < whole16s; ++j) {
-      const __m512 res = _mm512_i32gather_ps(vindex, (const void*)(src+i+j*16*ldS), 4);
+      const __m512 res = _mm512_i32gather_ps(vindex, (const float*)(src+i+j*16*ldS), 4);
       _mm512_store_ps(dst + ldD*i+j*16, res);
     }
     if(remainder) {
-      const __m512 res = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nmask, vindex, (const void*)(src+i+j*16*ldS), 4);
+      const __m512 res = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nmask, vindex, (const float*)(src+i+j*16*ldS), 4);
       _mm512_mask_store_ps(dst + ldD*i+j*16, Nmask, res);
     }
   }
