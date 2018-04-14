@@ -740,8 +740,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, int *noarch ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   int i = 0; /* general counting helper */
-  int wrb1 = 0, wrb2 = 0, hrb1 = 0, hrb2 = 0, n_variants = 1;
-
+  int wrb1 = 0, wrb2 = 0, hrb1 = 0, hrb2 = 0;
+#if 0
+  int n_variants = 1;
+#endif
   /* Let's check if we can use algorithmic duality for backward convolution! */
   /* TODO: Enable duality even in cases of image parallelism */
   if ( (handle->use_thread_private_jit > 0) && (handle->desc.N >= handle->desc.threads) && ( (handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.pad_h == 0 && handle->desc.pad_w == 0) || (handle->desc.u == 1 && handle->desc.v == 1) ) && !((handle->desc.R > 1 && handle->desc.pad_h == 0) || (handle->desc.S > 1 && handle->desc.pad_w == 0)) )  {
@@ -749,8 +751,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
   } else {
     handle->exploit_duality = 0;
   }
-
-  n_variants = find_rb(handle->ofw, handle->ofh, &wrb1, &hrb1, &wrb2, &hrb2);
+#if 0
+  n_variants =
+#endif
+  find_rb(handle->ofw, handle->ofh, &wrb1, &hrb1, &wrb2, &hrb2);
 
   /* FIXME: Remove loop below? Doesn't algorithmic duality take care of that? */
   handle->bwd_ofh_rb = 1;
