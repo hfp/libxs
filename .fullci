@@ -1,0 +1,3 @@
+samples/deeplearning/*
+src/libxs_dnn*.c
+include/*.h
