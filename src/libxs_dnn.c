@@ -39,9 +39,6 @@
 #include "libxs_dnn_convolution_winograd_backward.h"
 #include "libxs_dnn_convolution_winograd_weight_update.h"
 
-
-#define FP64_BN_STATS
-
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif

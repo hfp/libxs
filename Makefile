@@ -263,6 +263,8 @@ HEADERS = $(wildcard $(SRCDIR)/template/*.c) $(wildcard $(SRCDIR)/*.h) \
           $(ROOTDIR)/include/libxs_bgemm.h \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \
+          $(ROOTDIR)/include/libxs_dnn_rnncell.h \
+          $(ROOTDIR)/include/libxs_dnn_lstmcell.h \
           $(ROOTDIR)/include/libxs_frontend.h \
           $(ROOTDIR)/include/libxs_fsspmdm.h \
           $(ROOTDIR)/include/libxs_generator.h \
@@ -281,6 +283,7 @@ SRCFILES_LIB = $(patsubst %,$(SRCDIR)/%, \
           libxs_gemm.c libxs_trans.c libxs_bgemm.c \
           libxs_spmdm.c libxs_fsspmdm.c \
           libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c \
+          libxs_dnn_rnncell.c libxs_dnn_lstmcell.c \
           libxs_dnn_convolution_forward.c \
           libxs_dnn_convolution_backward.c \
           libxs_dnn_convolution_weight_update.c \
@@ -540,6 +543,8 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxs_config
 	@$(CP) $(ROOTDIR)/include/libxs_bgemm.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_cpuid.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn.h $(INCDIR) 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_dnn_rnncell.h $(INCDIR) 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_dnn_lstmcell.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_fsspmdm.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_generator.h $(INCDIR) 2>/dev/null || true
@@ -1346,8 +1351,8 @@ $(ROOTDIR)/documentation/libxs_prof.md $(ROOTDIR)/documentation/libxs_tune.md $(
 		-o $(notdir $@)
 	@rm $(TMPFILE)
 
-$(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(SPLDIR)/*/README.md
-	@cat $(SPLDIR)/*/README.md \
+$(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(SPLDIR)/*/README.md $(SPLDIR)/deeplearning/*/README.md
+	@cat $(SPLDIR)/*/README.md $(SPLDIR)/deeplearning/*/README.md \
 	| sed \
 		-e 's/^#/##/' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
