@@ -31,7 +31,7 @@
 
 #include "libxs_macros.h"
 #include "libxs_typedefs.h"
-#include "libxs_dnn.h" 
+#include "libxs_dnn.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
