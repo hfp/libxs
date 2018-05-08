@@ -913,9 +913,9 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
   if (0 != arch && 0 != *arch) {
     const int jit = atoi(arch);
     if (0 == strcmp("0", arch)) {
-      target_archid = LIBXS_TARGET_ARCH_GENERIC;
+      target_archid = LIBXS_X86_SSE3;
     }
-    else if (1 < jit) {
+    else if (0 < jit) {
       target_archid = LIBXS_X86_GENERIC + jit;
     }
     else if (0 == strcmp("icl", arch) || 0 == strcmp("icx", arch)) {
