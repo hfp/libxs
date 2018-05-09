@@ -739,7 +739,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, int *noarch ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  int i = 0; /* general counting helper */
   int wrb1 = 0, wrb2 = 0, hrb1 = 0, hrb2 = 0;
   /* Let's check if we can use algorithmic duality for backward convolution! */
   /* TODO: Enable duality even in cases of image parallelism */
