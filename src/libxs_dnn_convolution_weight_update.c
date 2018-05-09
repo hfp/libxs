@@ -48,6 +48,12 @@ LIBXS_API_INTERN void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*transposer)(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS);
 LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
 
+/* @TODO: needs target decoration, only on AVX512F (some functions called inside need to distinguish between SKX and KNx) */
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid);
+
 #if defined(__AVX512F__) /*&& defined(__AVX512BW__)*/
 #define TRANSPOSE_W_CHUNK(img, ifm1, ij, w_offset, ifm2) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
@@ -915,12 +921,12 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS) {
   return transpose_fallback;
 }
 
-/* @TODO: needs target decoration, only on AVX512F (some functions called inside need to distinguish between SKX and KNx) */
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid)
+
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#ifdef __AVX512F__
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   typedef float element_input_type;
   typedef float element_output_type;
   typedef float element_filter_type;
@@ -933,13 +939,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32
   return status;
 }
 
-/* @TODO: needs target decoration, only on AVX512F (some functions called inside need to distinguish between SKX and KNx) */
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid);
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid)
+
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid); /* TODO */
-#ifdef __AVX512F__
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #else /* should not happen */
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
@@ -947,12 +953,12 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_i32
   return status;
 }
 
-/* @TODO: needs target decoration, only on AVX512F (some functions called inside need to distinguish between SKX and KNx) */
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid);
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid)
+
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#ifdef __AVX512F__
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if (handle->upd_use_thread_fil > 0) {
     typedef short element_input_type;
     typedef short element_output_type;
@@ -960,9 +966,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_f32
     typedef libxs_uwsconvfunction libxs_convfunction;
     if (handle->use_fastpath) {
       if ( handle->use_hybrid_wu_parallelism == 1) {
-#include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_lp.tpl.c"
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_lp.tpl.c"
       } else {
-#include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_opt_lp.tpl.c"
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_opt_lp.tpl.c"
       }
     }
   }
@@ -973,12 +979,12 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_f32
   return status;
 }
 
-/* @TODO: needs target decoration, only on AVX512F (some functions called inside need to distinguish between SKX and KNx) */
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid);
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid)
+
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#ifdef __AVX512F__
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if (handle->upd_use_thread_fil > 0) {
     typedef unsigned char element_input_type;
     typedef unsigned char element_output_type;
@@ -986,9 +992,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(
     typedef libxs_bdbconvfunction libxs_convfunction;
     if (handle->use_fastpath) {
       if ( handle->use_hybrid_wu_parallelism == 1) {
-#include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_lp.tpl.c"
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_lp.tpl.c"
       } else {
-#include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_opt_lp.tpl.c"
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_opt_lp.tpl.c"
       }
     }
   }
