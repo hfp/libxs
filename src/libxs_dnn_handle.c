@@ -88,38 +88,31 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
   handle->use_bwd_generic = 1;
   handle->use_upd_generic = 1;
 
-  /* @FIXME, we should find a better knob */
-#ifdef __AVX512F__
-  handle->use_thread_private_jit = 1;
-#else
-  handle->use_thread_private_jit = 0;
-#endif
-
   /* If we do not have AVX512 arch disable kernel streams  */
-  if (libxs_target_archid != LIBXS_X86_AVX512_MIC  &&
-      libxs_target_archid != LIBXS_X86_AVX512_CORE &&
-      libxs_target_archid != LIBXS_X86_AVX512_KNM  &&
-      libxs_target_archid != LIBXS_X86_AVX512_ICL     ) {
-    handle->use_thread_private_jit = 0;
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
+  if (LIBXS_X86_AVX512 <= libxs_target_archid) {
+    if (/* If we use any options/fuse ops, disable kernel streams */
+      0 < (handle->desc.fuse_ops & LIBXS_DNN_CONV_FUSE_BIAS)
+      /* If we do not run on custom/custom format, disable kernel streams */
+      || handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS
+      || handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS)
+    {
+      handle->use_thread_private_jit = 0;
+    }
+    else {
+      handle->use_thread_private_jit = 1;
+    }
   }
-
-  /* If we use any options/fuse ops, disable kernel streams */
-  if ( ((handle->desc.fuse_ops & LIBXS_DNN_CONV_FUSE_BIAS) > 0) ) {
-    handle->use_thread_private_jit = 0;
-  }
-
-  /* If we do not run on custom/custom format, disable kernel streams */
-  if (handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS || handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS ) {
+  else
+#endif
+  {
     handle->use_thread_private_jit = 0;
   }
 
   /* If we have AVX512 and kernel streams is enabled, then we generate specialized code */
-  if ( (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
-        libxs_target_archid == LIBXS_X86_AVX512_CORE ||
-        libxs_target_archid == LIBXS_X86_AVX512_KNM  ||
-        libxs_target_archid == LIBXS_X86_AVX512_ICL    ) &&
-      handle->use_thread_private_jit == 1 )
-  {
+  if (handle->use_thread_private_jit != 0) {
+    LIBXS_ASSERT(LIBXS_X86_AVX512 <= libxs_target_archid);
+
     /* This is basically a decision pertaining for all three passes: FWD, BWD and UPD */
     /* Initialize fields that control layer fusion */
     noarch = 0;
