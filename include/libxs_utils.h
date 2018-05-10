@@ -326,8 +326,9 @@
 #       define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     endif
 #   endif /*!defined(LIBXS_INTRINSICS)*/
-# elif !defined(LIBXS_INTRINSICS_INCLUDE) && defined(LIBXS_STATIC_TARGET_ARCH) && /* legacy-check */ \
-  LIBXS_VERSION3(4, 3, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+# elif !defined(LIBXS_INTRINSICS_INCLUDE) && defined(LIBXS_STATIC_TARGET_ARCH) /* legacy-check */ \
+  && !(defined(__APPLE__) && defined(__MACH__)) && !defined(__clang__) && !defined(__PGI) && !defined(_CRAYC) \
+  && defined(__GNUC__) && LIBXS_VERSION3(4, 3, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
 #   define LIBXS_INTRINSICS_INCLUDE
 #   include <immintrin.h>
 # endif /*defined(LIBXS_STATIC_TARGET_ARCH)*/
