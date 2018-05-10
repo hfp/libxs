@@ -557,14 +557,18 @@ LIBXS_API libxs_rwlock* libxs_rwlock_create(void)
 {
   libxs_rwlock *const result = (libxs_rwlock*)malloc(sizeof(libxs_rwlock));
   if (0 != result) {
-#if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
+#if !defined(LIBXS_NO_SYNC)
+# if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
     LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK_RWLOCK) attr;
     LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK_RWLOCK, &attr);
     LIBXS_LOCK_INIT(LIBXS_LOCK_RWLOCK, &result->impl, &attr);
     LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK_RWLOCK, &attr);
-#else
+# else
     memset((void*)&result->completions, 0, sizeof(internal_sync_counter));
     memset((void*)&result->requests, 0, sizeof(internal_sync_counter));
+# endif
+#else
+    memset(result, 0, sizeof(libxs_rwlock));
 #endif
   }
   return result;
