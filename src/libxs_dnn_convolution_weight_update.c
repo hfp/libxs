@@ -58,8 +58,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(
 #define TRANSPOSE_W_CHUNK(img, ifm1, ij, w_offset, ifm2) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
         gather_reg = _mm512_i32gather_epi32(vgindex, (const int*)base_addr, 1); \
-        lo_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,0); \
-        hi_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,1); \
+        lo_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(gather_reg,0); \
+        hi_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(gather_reg,1); \
         compressed_low = _mm256_unpacklo_epi16(lo_reg, hi_reg); \
         compressed_low = _mm256_permutevar8x32_epi32(compressed_low, shuffler); \
         compressed_high = _mm256_unpackhi_epi16(lo_reg, hi_reg); \
@@ -75,8 +75,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(
 #define TRANSPOSE_W_REMAINDER(img, ifm1, ij, w_offset, ifm2) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
         gather_reg = LIBXS_INTRINSICS_MM512_MASK_I32GATHER_EPI32(LIBXS_INTRINSICS_MM512_UNDEFINED_EPI32(), gmask, vgindex, base_addr, 1); \
-        lo_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,0); \
-        hi_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,1); \
+        lo_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(gather_reg,0); \
+        hi_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(gather_reg,1); \
         compressed_low = _mm256_unpacklo_epi16(lo_reg, hi_reg); \
         compressed_low = _mm256_permutevar8x32_epi32(compressed_low, shuffler); \
         compressed_high = _mm256_unpackhi_epi16(lo_reg, hi_reg); \
@@ -92,8 +92,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(
 #define TRANSPOSE_W_CHUNK_RESIZED(img, ifm1, w_offset, ij, ifm2, dst_i, dst_j) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
         gather_reg = _mm512_i32gather_epi32(vgindex, (const int*)base_addr, 1); \
-        lo_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,0); \
-        hi_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,1); \
+        lo_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(gather_reg,0); \
+        hi_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(gather_reg,1); \
         compressed_low = _mm256_unpacklo_epi16(lo_reg, hi_reg); \
         compressed_low = _mm256_permutevar8x32_epi32(compressed_low, shuffler); \
         compressed_high = _mm256_unpackhi_epi16(lo_reg, hi_reg); \
@@ -109,8 +109,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(
 #define TRANSPOSE_W_REMAINDER_RESIZED(img, ifm1, w_offset, ij, ifm2, dst_i, dst_j) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
         gather_reg = LIBXS_INTRINSICS_MM512_MASK_I32GATHER_EPI32(LIBXS_INTRINSICS_MM512_UNDEFINED_EPI32(), gmask, vgindex, base_addr, 1); \
-        lo_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,0); \
-        hi_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(gather_reg,1); \
+        lo_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(gather_reg,0); \
+        hi_reg = LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(gather_reg,1); \
         compressed_low = _mm256_unpacklo_epi16(lo_reg, hi_reg); \
         compressed_low = _mm256_permutevar8x32_epi32(compressed_low, shuffler); \
         compressed_high = _mm256_unpackhi_epi16(lo_reg, hi_reg); \
@@ -126,13 +126,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(
 #define TRANSPOSE_W_FULL_PAIR(img, ofm1, ij, ii, half_i) \
       pair_addr = &LIBXS_VLA_ACCESS(6, output, img, ofm1, ij, ii, 0, 0,  handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block); \
       pair_pixels = _mm512_loadu_si512(pair_addr); \
-      even_pixel = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(pair_pixels, 0); \
-      odd_pixel = LIBXS_INTRINSICS_MM512_EXTRACTI64x4_EPI64(pair_pixels, 1); \
+      even_pixel = LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(pair_pixels, 0); \
+      odd_pixel = LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(pair_pixels, 1); \
       compressed_lo = _mm256_unpacklo_epi16(even_pixel, odd_pixel); \
       compressed_hi = _mm256_unpackhi_epi16(even_pixel, odd_pixel); \
       compact = _mm512_inserti64x4(LIBXS_INTRINSICS_MM512_UNDEFINED_EPI32(), compressed_lo, 0); \
       compact = _mm512_inserti64x4(compact, compressed_hi, 1); \
-      compact = LIBXS_INTRINSICS_MM512_PERMUTEVAR_EPI32(permute_compact_idx, compact); \
+      compact = _mm512_permutexvar_epi32(permute_compact_idx, compact); \
       pair_addr_dst = &LIBXS_VLA_ACCESS(6,  tr_output, img, ofm1, ij, half_i, 0, 0, BLOCKSOFM, handle->ofhp, OFWP/2, handle->ofmblock, 2); \
       LIBXS_INTRINSICS_MM512_STREAM_SI512((void*)pair_addr_dst, compact)
 
@@ -144,10 +144,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(
       compressed_hi = _mm256_unpackhi_epi16(even_pixel, odd_pixel); \
       compact = _mm512_inserti64x4(LIBXS_INTRINSICS_MM512_UNDEFINED_EPI32(), compressed_lo, 0); \
       compact = _mm512_inserti64x4(compact, compressed_hi, 1); \
-      compact = LIBXS_INTRINSICS_MM512_PERMUTEVAR_EPI32(permute_compact_idx, compact); \
+      compact = _mm512_permutexvar_epi32(permute_compact_idx, compact); \
       pair_addr_dst = &LIBXS_VLA_ACCESS(6,  tr_output, img, ofm1, ij, half_i, 0, 0, BLOCKSOFM, handle->ofhp, OFWP/2, handle->ofmblock, 2); \
       LIBXS_INTRINSICS_MM512_STREAM_SI512((void*)pair_addr_dst, compact)
 
+#if defined(LIBXS_INTRINSICS_AVX512_CORE)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 void lp_transpose_input_and_output_vperm(int my_img_start, int my_img_end, libxs_dnn_layer* handle)
 {
@@ -300,7 +301,7 @@ void lp_transpose_input_and_output_vperm(int my_img_start, int my_img_end, libxs
     }
   }
 }
-
+#endif /*defined(LIBXS_INTRINSICS_AVX512_CORE)*/
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle)
 {
@@ -311,10 +312,13 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle)
   const int my_img_start = LIBXS_MIN( ltid * imgpt, handle->desc.N);
   const int my_img_end = LIBXS_MIN( (ltid+1) * imgpt, handle->desc.N);
 
+#if defined(LIBXS_INTRINSICS_AVX512_CORE)
   if (handle->use_vperm_transposes == 1) {
     lp_transpose_input_and_output_vperm(my_img_start, my_img_end, handle);
   }
-  else {
+  else
+#endif
+  {
     int w_chunks = handle->ifwp/16;
     int w_remainder = handle->ifwp%16;
     int w, c_i, ifm1, ij, ifm2;
@@ -424,6 +428,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle)
   }
 }
 
+#if defined(LIBXS_INTRINSICS_AVX512_CORE)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 void lp_transpose_and_resize_input_and_output_vperm(int my_img_start, int my_img_end, libxs_dnn_layer* handle)
 {
@@ -481,7 +486,7 @@ void lp_transpose_and_resize_input_and_output_vperm(int my_img_start, int my_img
     }
   }
 }
-
+#endif /*defined(LIBXS_INTRINSICS_AVX512_CORE)*/
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
 {
@@ -570,10 +575,13 @@ void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
     }
   }
 
+#if defined(LIBXS_INTRINSICS_AVX512_CORE)
   if (handle->use_vperm_transposes == 1) {
     lp_transpose_and_resize_input_and_output_vperm(my_img_start, my_img_end, handle);
   }
-  else {
+  else
+#endif
+  {
     element_output_type *pair_addr, *pair_addr_dst;
     int half_i, ofm1, ii;
     int BLOCKSOFM = handle->blocksofm;
@@ -613,7 +621,6 @@ void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
 LIBXS_API_INTERN void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle) {
   LIBXS_UNUSED(ltid); LIBXS_UNUSED(handle);
 }
-
 LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
   LIBXS_UNUSED(ltid); LIBXS_UNUSED(handle);
 }
@@ -930,7 +937,8 @@ LIBXS_API_INTERN void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst
 }
 #endif
 
-LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS) {
+LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS)
+{
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if(M == 16 && N == 7 && ldD == 8 && ldS == 16) {
     return gather_transpose_ps_16_7_8_16;
