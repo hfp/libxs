@@ -272,8 +272,8 @@ public:
   template<typename context_type>
   explicit libxs_tf_allocator(context_type& context)
     : libxs_scoped_allocator<kind>(&context,
-      libxs_tf_allocator::malloc_ctx<context_type>,
-      libxs_tf_allocator::free_ctx<context_type>,
+      libxs_tf_allocator::template malloc_ctx<context_type>,
+      libxs_tf_allocator::template free_ctx<context_type>,
       libxs_tf_allocator::malloc,
       libxs_tf_allocator::free)
   {}
