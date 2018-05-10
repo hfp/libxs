@@ -88,26 +88,23 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
   handle->use_bwd_generic = 1;
   handle->use_upd_generic = 1;
 
-  /* If we do not have AVX512 arch disable kernel streams  */
+  handle->use_thread_private_jit = 0;
+  /* If we have AVX512 arch consider kernel streams  */
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  if (LIBXS_X86_AVX512 <= libxs_target_archid) {
-    if (/* If we use any options/fuse ops, disable kernel streams */
-      0 < (handle->desc.fuse_ops & LIBXS_DNN_CONV_FUSE_BIAS)
-      /* If we do not run on custom/custom format, disable kernel streams */
-      || handle->buffer_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS
-      || handle->filter_format != LIBXS_DNN_TENSOR_FORMAT_LIBXS)
+  if (/* If we use any options/fuse ops, keep kernel streams disabled */
+    0 >= (handle->desc.fuse_ops & LIBXS_DNN_CONV_FUSE_BIAS)
+    /* If we do not run on custom/custom format, keep kernel streams disabled */
+    && handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS
+    && handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)
+  {
+# if (LIBXS_X86_AVX512 > LIBXS_STATIC_TARGET_ARCH)
+    if (LIBXS_X86_AVX512 <= libxs_target_archid)
+# endif
     {
-      handle->use_thread_private_jit = 0;
-    }
-    else {
       handle->use_thread_private_jit = 1;
     }
   }
-  else
 #endif
-  {
-    handle->use_thread_private_jit = 0;
-  }
 
   /* If we have AVX512 and kernel streams is enabled, then we generate specialized code */
   if (handle->use_thread_private_jit != 0) {
