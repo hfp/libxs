@@ -131,15 +131,8 @@
 #     define LIBXS_INTRINSICS_INCLUDE
 #     include <immintrin.h>
 #   elif (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) && !defined(__PGI)
-      /* AVX-512 pseudo intrinsics are missing e.g., reductions */
-#     if !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
-#       define LIBXS_INTRINSICS_AVX512_NOREDUCTIONS
-#     endif
-#     if !defined(__CYGWIN__)
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
-#     else /* Error: invalid register for .seh_savexmm */
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
-#     endif
+      /* too many AVX-512 (pseudo-)intrinsics are missing e.g., reductions, or casts (_mm512_castps_si512) */
+#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #     define LIBXS_INTRINSICS_INCLUDE
 #     include <immintrin.h>
 #   else /* GCC/legacy incl. Clang */
