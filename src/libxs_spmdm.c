@@ -109,9 +109,10 @@ LIBXS_API_INLINE void internal_spmdm_allocate_csr_a(libxs_spmdm_handle* handle, 
   size_t sz_block = ((handle->bm + 1)*sizeof(uint16_t) + (handle->bm)*(handle->bk)*sizeof(uint16_t) + (handle->bm)*(handle->bk)*sizeof(float) + sizeof(libxs_CSR_sparseslice));
   size_t sz_all_blocks = sz_block * handle->mb * handle->kb;
   char* memory_block = 0;
+  void *const pv = &memory_block;
 
   /* use low-level scratch memory allocation since life-time of this buffer is unknown */
-  if (EXIT_SUCCESS == libxs_xmalloc((void**)&memory_block, sz_all_blocks, 2097152,
+  if (EXIT_SUCCESS == libxs_xmalloc((void**)pv, sz_all_blocks, 2097152,
     LIBXS_MALLOC_FLAG_SCRATCH, 0/*extra*/, 0/*extra_size*/))
   {
     char* memory_head  = memory_block;
@@ -147,9 +148,10 @@ LIBXS_API_INLINE void internal_spmdm_allocate_scratch(libxs_spmdm_handle* handle
   sz_memory_for_scratch_per_thread = LIBXS_UP2(sz_memory_for_scratch_per_thread, 4096);
   sz_total_memory = sz_memory_for_scratch_per_thread * max_threads;
   handle->base_ptr_scratch_B_scratch_C = 0;
+  void *const pv = &handle->base_ptr_scratch_B_scratch_C;
 
   /* use low-level scratch memory allocation since life-time of this buffer is unknown */
-  if (EXIT_SUCCESS == libxs_xmalloc((void**)&handle->base_ptr_scratch_B_scratch_C, sz_total_memory, 2097152,
+  if (EXIT_SUCCESS == libxs_xmalloc((void**)pv, sz_total_memory, 2097152,
     LIBXS_MALLOC_FLAG_SCRATCH, 0/*extra*/, 0/*extra_size*/))
   {
     handle->memory_for_scratch_per_thread = (int)sz_memory_for_scratch_per_thread;
