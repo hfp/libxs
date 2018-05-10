@@ -544,8 +544,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_rwlock {
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_TYPE(LIBXS_LOCK_RWLOCK) impl;
 # else
-  volatile internal_sync_counter requests;
   volatile internal_sync_counter completions;
+  volatile internal_sync_counter requests;
 # endif
 #else
   int dummy;
@@ -563,7 +563,8 @@ LIBXS_API libxs_rwlock* libxs_rwlock_create(void)
     LIBXS_LOCK_INIT(LIBXS_LOCK_RWLOCK, &result->impl, &attr);
     LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK_RWLOCK, &attr);
 #else
-    memset(result, 0, sizeof(libxs_rwlock));
+    memset((void*)&result->completions, 0, sizeof(internal_sync_counter));
+    memset((void*)&result->requests, 0, sizeof(internal_sync_counter));
 #endif
   }
   return result;
