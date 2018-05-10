@@ -134,7 +134,8 @@
 #   define LIBXS_SYNC_NPAUSE 0
 # endif
 #else
-# if defined(__GNUC__) && !defined(LIBXS_SYNC_SYSTEM)
+# if defined(__GNUC__) && !defined(LIBXS_SYNC_SYSTEM) && /* check for legacy GCC (no atomics) */ \
+  LIBXS_VERSION3(4, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
 #   define LIBXS_ATOMIC(FN, BITS) FN
 #   if defined(LIBXS_GCC_BASELINE)
 #     define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __atomic_load_n(SRC_PTR, KIND)
