@@ -157,16 +157,6 @@
 #       else /* Error: invalid register for .seh_savexmm */
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #       endif
-#     elif (defined(__GNUC__) && LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) || defined(__clang__)
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
-#       if !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
-#         define LIBXS_INTRINSICS_STATIC
-#       endif
-#     elif (defined(__GNUC__) && LIBXS_VERSION3(4, 4, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
-#       if !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
-#         define LIBXS_INTRINSICS_STATIC
-#       endif
 #     else /* fall-back */
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
 #       if !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
