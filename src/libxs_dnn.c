@@ -2461,13 +2461,13 @@ LIBXS_API_INTERN float libxs_internal_get_max( float* in_buffer, int length ) {
 
 
 LIBXS_API_INLINE unsigned char libxs_internal_get_max_exp( float* in_buffer, int length ) {
-  libxs_intfloat exp;
+  libxs_intfloat val_exp;
   unsigned char max_exp = 0;
 
   /* bit-wise conversion to int */
-  exp.f = libxs_internal_get_max( in_buffer, length );
+  val_exp.f = libxs_internal_get_max( in_buffer, length );
   /* shift by mantissa to the right and convert to char */
-  max_exp = (unsigned char)((exp.ui & LIBXS_DNN_MASK_ABS_F32) >> LIBXS_DNN_MANT_SZ_F32);
+  max_exp = (unsigned char)((val_exp.ui & LIBXS_DNN_MASK_ABS_F32) >> LIBXS_DNN_MANT_SZ_F32);
 
   return max_exp;
 }
@@ -2843,14 +2843,14 @@ LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsi
 
 
 LIBXS_API void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int length, unsigned char scf ) {
-  const float exp = libxs_sexp2_i8i(-scf);
+  const float val_exp = libxs_sexp2_i8i(-scf);
   int i = 0;
 
 #ifdef _OPENMP
 # pragma omp parallel for private(i)
 #endif
   for ( i = 0; i < length; ++i ) {
-    out_buffer[i] = ((float)in_buffer[i])*exp;
+    out_buffer[i] = ((float)in_buffer[i])*val_exp;
   }
 }
 
