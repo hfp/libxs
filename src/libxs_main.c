@@ -196,7 +196,7 @@ LIBXS_API unsigned int libxs_update_mmstatistic(libxs_gemm_precision precision,
   libxs_blasint m, libxs_blasint n, libxs_blasint k, unsigned int ntry, unsigned int ncol)
 {
   const unsigned long long kernel_size = LIBXS_MNK_SIZE(m, n, k);
-  const int index = (LIBXS_GEMM_PRECISION_F64 == precision ? 0 : 1);
+  const int idx = (LIBXS_GEMM_PRECISION_F64 == precision ? 0 : 1);
   int bucket = 3/*huge*/;
 
   if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= kernel_size) {
@@ -209,8 +209,8 @@ LIBXS_API unsigned int libxs_update_mmstatistic(libxs_gemm_precision precision,
     bucket = 2;
   }
 
-  LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[index][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
-  return LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[index][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
+  return LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
 }
 
 
@@ -369,10 +369,10 @@ LIBXS_API_INLINE unsigned int internal_statistic_ntry(int precision)
 
 
 LIBXS_API_INLINE void internal_register_static_code(const libxs_gemm_descriptor* desc,
-  unsigned int index, unsigned int hash, libxs_xmmfunction src, libxs_code_pointer* registry)
+  unsigned int idx, unsigned int hash, libxs_xmmfunction src, libxs_code_pointer* registry)
 {
-  libxs_kernel_info* dst_key = internal_registry_keys + index;
-  libxs_code_pointer* dst_entry = registry + index;
+  libxs_kernel_info* dst_key = internal_registry_keys + idx;
+  libxs_code_pointer* dst_entry = registry + idx;
 #if !defined(NDEBUG)
   libxs_code_pointer code; code.xgemm = src;
   assert(0 != desc && 0 != code.ptr_const && 0 != dst_key && 0 != registry);
@@ -380,7 +380,7 @@ LIBXS_API_INLINE void internal_register_static_code(const libxs_gemm_descriptor*
 #endif
 
   if (0 != dst_entry->ptr_const) { /* collision? */
-    /* start at a re-hashed index position */
+    /* start at a re-hashed idx position */
     const unsigned int start = LIBXS_HASH_MOD(libxs_crc32_u32(151981/*seed*/, hash), LIBXS_CAPACITY_REGISTRY);
     unsigned int i0, i, next;
 #if defined(LIBXS_HASH_COLLISION)
@@ -388,7 +388,7 @@ LIBXS_API_INLINE void internal_register_static_code(const libxs_gemm_descriptor*
     dst_entry->uval |= LIBXS_HASH_COLLISION;
 #endif
     /* start linearly searching for an available slot */
-    for (i = (start != index) ? start : LIBXS_HASH_MOD(start + 1, LIBXS_CAPACITY_REGISTRY), i0 = i, next = LIBXS_HASH_MOD(i + 1, LIBXS_CAPACITY_REGISTRY);
+    for (i = (start != idx) ? start : LIBXS_HASH_MOD(start + 1, LIBXS_CAPACITY_REGISTRY), i0 = i, next = LIBXS_HASH_MOD(i + 1, LIBXS_CAPACITY_REGISTRY);
       0 != registry[i].ptr_const && next != i0; i = next, next = LIBXS_HASH_MOD(i + 1, LIBXS_CAPACITY_REGISTRY));
 
     /* calculate destinations */
