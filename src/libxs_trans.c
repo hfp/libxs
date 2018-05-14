@@ -116,13 +116,13 @@ LIBXS_API int libxs_matcopy_thread(void* out, const void* in, unsigned int types
     if (1 < nthreads) {
       libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
       const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
-      const unsigned int index = LIBXS_MIN(size2 >> 10, 7);
-      const unsigned int tindex = (4 < typesize ? 0 : 1);
+      const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
+      const unsigned int tidx = (4 < typesize ? 0 : 1);
       const libxs_mcopy_descriptor* desc;
       libxs_descriptor_blob blob;
       int mtasks;
-      tm = LIBXS_MIN(tm, libxs_trans_tile[tindex][0/*M*/][index]);
-      tn = LIBXS_MIN(tn, libxs_trans_tile[tindex][1/*N*/][index]);
+      tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
+      tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
       /* libxs_trans_jit: JIT'ted matrix-copy permitted? */
       desc = (0 != (1 & libxs_trans_jit) ? libxs_mcopy_descriptor_init(&blob,
         typesize, tm, tn, uldo, uldi, 0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE,
@@ -170,10 +170,10 @@ LIBXS_API int libxs_matcopy_thread(void* out, const void* in, unsigned int types
       }
       else { /* no JIT */
         const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
-        const unsigned int index = LIBXS_MIN(size2 >> 10, 7);
-        const unsigned int tindex = (4 < typesize ? 0 : 1);
-        tm = LIBXS_MIN(tm, libxs_trans_tile[tindex][0/*M*/][index]);
-        tn = LIBXS_MIN(tn, libxs_trans_tile[tindex][1/*N*/][index]);
+        const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
+        const unsigned int tidx = (4 < typesize ? 0 : 1);
+        tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
+        tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
         assert(0 == xmatcopy);
         LIBXS_XCOPY(
           LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
@@ -242,12 +242,12 @@ LIBXS_API int libxs_otrans_thread(void* out, const void* in, unsigned int typesi
       libxs_xtransfunction xtrans = 0;
       if (0 == desc) { /* tiled transpose */
         const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
-        const unsigned int index = LIBXS_MIN(size2 >> 10, 7);
-        const unsigned int tindex = (4 < typesize ? 0 : 1);
+        const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
+        const unsigned int tidx = (4 < typesize ? 0 : 1);
         libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
         int mtasks;
-        tm = LIBXS_MIN(tm, libxs_trans_tile[tindex][0/*M*/][index]);
-        tn = LIBXS_MIN(tn, libxs_trans_tile[tindex][1/*N*/][index]);
+        tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
+        tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
         /* libxs_trans_jit: JIT'ted transpose permitted? */
         desc = (0 != (2 & libxs_trans_jit) ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
         if (0 != desc) { /* limit the amount of (unrolled) code with smaller kernel/tiles */
