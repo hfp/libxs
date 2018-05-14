@@ -481,12 +481,11 @@
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT
 #endif
 
-#if !defined(LIBXS_NO_CTOR) && defined(__GNUC__)
+#if !defined(LIBXS_NO_CTOR) && defined(__GNUC__) \
+ && !defined(LIBXS_CTOR) && defined(LIBXS_BUILD) && !defined(__STATIC)
 # define LIBXS_ATTRIBUTE_CTOR LIBXS_ATTRIBUTE(constructor)
 # define LIBXS_ATTRIBUTE_DTOR LIBXS_ATTRIBUTE(destructor)
-# if !defined(LIBXS_CTOR) && defined(LIBXS_BUILD) && !defined(__STATIC)
-#   define LIBXS_CTOR
-# endif
+# define LIBXS_CTOR
 #else
 # define LIBXS_ATTRIBUTE_CTOR
 # define LIBXS_ATTRIBUTE_DTOR
