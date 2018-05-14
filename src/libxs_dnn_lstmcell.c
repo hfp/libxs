@@ -86,6 +86,34 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell*
 }
 
 
+LIBXS_API size_t libxs_dnn_lstmcell_get_internalstate_size(const libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status) {
+  size_t size = 0;
+
+  LIBXS_UNUSED( handle );
+  LIBXS_UNUSED( kind );
+  *status = LIBXS_DNN_SUCCESS;
+
+  return size;
+}
+
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, const void* internalstate) {
+  LIBXS_UNUSED( handle );
+  LIBXS_UNUSED( kind );
+  LIBXS_UNUSED( internalstate );
+
+  return LIBXS_DNN_SUCCESS;
+}
+
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_internalstate(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind) {
+  LIBXS_UNUSED( handle );
+  LIBXS_UNUSED( kind );
+
+  return LIBXS_DNN_SUCCESS;
+}
+
+
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type) {
   LIBXS_UNUSED( handle );
   LIBXS_UNUSED( tensor );
