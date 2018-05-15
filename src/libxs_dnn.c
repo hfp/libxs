@@ -201,6 +201,8 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(
     /* select the intermediate format, only applicable for integer types */
     if ( (conv_desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (conv_desc.datatype_out != LIBXS_DNN_DATATYPE_F32) ) {
       /* error */
+    } else if ( (conv_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (conv_desc.datatype_out != LIBXS_DNN_DATATYPE_BF16) ) {
+      /* error */
     } else if ( (conv_desc.datatype_in == LIBXS_DNN_DATATYPE_I16) && (conv_desc.datatype_out != LIBXS_DNN_DATATYPE_F32) ) {
       /* error */
     } else if ( (conv_desc.datatype_in == LIBXS_DNN_DATATYPE_I8) && (conv_desc.datatype_out != LIBXS_DNN_DATATYPE_I32) ) {
@@ -568,6 +570,40 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
                 *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
               }
             }
+          } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
+            layout->datatype = LIBXS_DNN_DATATYPE_BF16;
+            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
+            layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
+            if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+              layout->num_dims = 6;
+              layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+              layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+              if ( (type == LIBXS_DNN_REGULAR_INPUT) || (type == LIBXS_DNN_GRADIENT_INPUT) || (type == LIBXS_DNN_INPUT) )   {
+                layout->dim_size[0] = handle->fm_lp_block;
+                layout->dim_size[1] = handle->ifmblock;
+                layout->dim_size[2] = handle->ifwp;
+                layout->dim_size[3] = handle->ifhp;
+                layout->dim_size[4] = handle->blocksifm_lp;
+                layout->dim_size[5] = handle->desc.N;
+              } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
+                layout->dim_size[0] = handle->fm_lp_block;
+                layout->dim_size[1] = handle->ofmblock;
+                layout->dim_size[2] = handle->ofwp;
+                layout->dim_size[3] = handle->ofhp;
+                layout->dim_size[4] = handle->blocksofm_lp;
+                layout->dim_size[5] = handle->desc.N;
+              } else {
+                free(layout->dim_type);
+                free(layout->dim_size);
+                free(layout);
+                layout = 0; /* make sure a NULL is returned */
+                *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
+              }
+            }
           } else if ( ((handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32)) ||  ((handle->datatype_in == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_out == LIBXS_DNN_DATATYPE_I32))  ) {
             if ( ( (type == LIBXS_DNN_REGULAR_INPUT) || (type == LIBXS_DNN_INPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT)  )  ) {
               layout->datatype = handle->datatype_in;
@@ -705,6 +741,27 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
               layout->dim_size[4] = handle->blocksifm;
               layout->dim_size[5] = handle->blocksofm;
             }
+          } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
+            layout->datatype = LIBXS_DNN_DATATYPE_BF16;
+            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(7*sizeof(libxs_dnn_tensor_dimtype));
+            layout->dim_size = (unsigned int*) malloc(7*sizeof(unsigned int));
+            if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+              layout->num_dims = 7;
+              layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_S;
+              layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_R;
+              layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[6] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+              layout->dim_size[0] = handle->fm_lp_block;
+              layout->dim_size[1] = handle->ofmblock*handle->fm_lp_block;
+              layout->dim_size[2] = handle->ifmblock;
+              layout->dim_size[3] = handle->desc.S;
+              layout->dim_size[4] = handle->desc.R;
+              layout->dim_size[5] = handle->blocksifm_lp;
+              layout->dim_size[6] = handle->blocksofm_lp;
+            }
           } else if ( ((handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32)) || ((handle->datatype_in == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_out == LIBXS_DNN_DATATYPE_I32)) ) {
             if ( (type == LIBXS_DNN_REGULAR_FILTER) || (type == LIBXS_DNN_FILTER) ) {
               layout->datatype = handle->datatype_in;
@@ -800,6 +857,27 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
               layout->dim_size[3] = handle->desc.R;
               layout->dim_size[4] = handle->blocksofm;
               layout->dim_size[5] = handle->blocksifm;
+            }
+          } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
+            layout->datatype = LIBXS_DNN_DATATYPE_BF16;
+            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(7*sizeof(libxs_dnn_tensor_dimtype));
+            layout->dim_size = (unsigned int*) malloc(7*sizeof(unsigned int));
+            if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+              layout->num_dims = 7;
+              layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_S;
+              layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_R;
+              layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+              layout->dim_type[6] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_size[0] = handle->fm_lp_block;
+              layout->dim_size[1] = handle->ifmblock*handle->fm_lp_block;
+              layout->dim_size[2] = handle->ofmblock;
+              layout->dim_size[3] = handle->desc.S;
+              layout->dim_size[4] = handle->desc.R;
+              layout->dim_size[5] = handle->blocksofm_lp;
+              layout->dim_size[6] = handle->blocksifm_lp;
             }
           } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) ||
               (handle->datatype_in == LIBXS_DNN_DATATYPE_I8) ) {
@@ -922,8 +1000,8 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
 #endif
 
         if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
-          if ( handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-            layout->datatype = handle->datatype_out;
+          if ( (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) || (handle->datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
+            layout->datatype = LIBXS_DNN_DATATYPE_F32;
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
 
@@ -1206,6 +1284,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_tensor* tensor
                                                                                                                    typedef float element_type;
 #include "template/libxs_dnn_tensor_buffer_copy_in_nchw.tpl.c"
                                                                                                                  } break;
+                                                                                  case LIBXS_DNN_DATATYPE_BF16: {
+                                                                                                                   typedef libxs_bfloat16 element_type;
+#define LIBXS_DNN_COPY_LOW_PRECISION
+#include "template/libxs_dnn_tensor_buffer_copy_in_nchw.tpl.c"
+#undef LIBXS_DNN_COPY_LOW_PRECISION
+                                                                                                                 } break;
                                                                                   case LIBXS_DNN_DATATYPE_I32: {
                                                                                                                    typedef int element_type;
 #include "template/libxs_dnn_tensor_buffer_copy_in_nchw.tpl.c"
@@ -1246,6 +1330,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_tensor* tensor
                                                                                                                typedef float element_type;
 #include "template/libxs_dnn_tensor_filter_copy_in_kcrs.tpl.c"
                                                                                                              } break;
+                                                                              case LIBXS_DNN_DATATYPE_BF16: {
+                                                                                                               typedef libxs_bfloat16 element_type;
+#define LIBXS_DNN_COPY_LOW_PRECISION
+#include "template/libxs_dnn_tensor_filter_copy_in_kcrs.tpl.c"
+#undef LIBXS_DNN_COPY_LOW_PRECISION
+                                                                                                             } break;
                                                                               case LIBXS_DNN_DATATYPE_I16: {
                                                                                                                typedef short element_type;
 #define LIBXS_DNN_COPY_LOW_PRECISION
@@ -1281,6 +1371,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_tensor* tensor
                                                                             case LIBXS_DNN_DATATYPE_F32: {
                                                                                                              typedef float element_type;
 #include "template/libxs_dnn_tensor_bias_copy_in_nchw.tpl.c"
+                                                                                                           } break;
+                                                                            case LIBXS_DNN_DATATYPE_BF16: {
+                                                                                                             typedef libxs_bfloat16 element_type;
+#define LIBXS_DNN_COPY_LOW_PRECISION
+#include "template/libxs_dnn_tensor_bias_copy_in_nchw.tpl.c"
+#undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                            } break;
                                                                             case LIBXS_DNN_DATATYPE_I16: {
                                                                                                              typedef short element_type;
@@ -1333,6 +1429,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_zero_tensor(const libxs_dnn_tensor* tensor)
                                        float* fp32_data = (float*)tensor->data;
                                        for (i = 0; i < size; ++i) fp32_data[i] = 0.0f;
                                      } break;
+      case LIBXS_DNN_DATATYPE_BF16: {
+                                       libxs_bfloat16* bfp16_data = (libxs_bfloat16*)tensor->data;
+                                       for (i = 0; i < size; ++i) bfp16_data[i] = 0;
+                                     } break;
       case LIBXS_DNN_DATATYPE_I32: {
                                        int* int32_data = (int*)tensor->data;
                                        for (i = 0; i < size; ++i) int32_data[i] = 0;
@@ -1380,6 +1480,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_tensor* tenso
                                                                                                                    typedef float element_type;
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
                                                                                                                  } break;
+                                                                                  case LIBXS_DNN_DATATYPE_BF16: {
+                                                                                                                   typedef libxs_bfloat16 element_type;
+#define LIBXS_DNN_COPY_LOW_PRECISION
+#include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
+#undef LIBXS_DNN_COPY_LOW_PRECISION
+                                                                                                                 } break;
                                                                                   case LIBXS_DNN_DATATYPE_I32: {
                                                                                                                    typedef int element_type;
 #include "template/libxs_dnn_tensor_buffer_copy_out_nchw.tpl.c"
@@ -1421,6 +1527,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_tensor* tenso
 #include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
                                                                                                              } break;
 
+                                                                              case LIBXS_DNN_DATATYPE_BF16: {
+                                                                                                               typedef libxs_bfloat16 element_type;
+#define LIBXS_DNN_COPY_LOW_PRECISION
+#include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
+#undef LIBXS_DNN_COPY_LOW_PRECISION
+                                                                                                             } break;
                                                                                    case LIBXS_DNN_DATATYPE_I32: {
                                                                                                                    typedef int element_type;
 #include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
@@ -1460,6 +1572,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_tensor* tenso
                                                                             case LIBXS_DNN_DATATYPE_F32: {
                                                                                                              typedef float element_type;
 #include "template/libxs_dnn_tensor_bias_copy_out_nchw.tpl.c"
+                                                                                                           } break;
+                                                                            case LIBXS_DNN_DATATYPE_BF16: {
+                                                                                                             typedef libxs_bfloat16 element_type;
+#define LIBXS_DNN_COPY_LOW_PRECISION
+#include "template/libxs_dnn_tensor_bias_copy_out_nchw.tpl.c"
+#undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                            } break;
                                                                             case LIBXS_DNN_DATATYPE_I16: {
                                                                                                              typedef short element_type;
