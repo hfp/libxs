@@ -587,14 +587,14 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
                 layout->dim_size[1] = handle->ifmblock;
                 layout->dim_size[2] = handle->ifwp;
                 layout->dim_size[3] = handle->ifhp;
-                layout->dim_size[4] = handle->blocksifm_lp;
+                layout->dim_size[4] = handle->blocksifm;
                 layout->dim_size[5] = handle->desc.N;
               } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
                 layout->dim_size[0] = handle->fm_lp_block;
                 layout->dim_size[1] = handle->ofmblock_lp;
                 layout->dim_size[2] = handle->ofwp;
                 layout->dim_size[3] = handle->ofhp;
-                layout->dim_size[4] = handle->blocksofm_lp;
+                layout->dim_size[4] = handle->blocksofm;
                 layout->dim_size[5] = handle->desc.N;
               } else {
                 free(layout->dim_type);
@@ -759,7 +759,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
               layout->dim_size[2] = handle->ifmblock;
               layout->dim_size[3] = handle->desc.S;
               layout->dim_size[4] = handle->desc.R;
-              layout->dim_size[5] = handle->blocksifm_lp;
+              layout->dim_size[5] = handle->blocksifm;
               layout->dim_size[6] = handle->blocksofm;
             }
           } else if ( ((handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32)) || ((handle->datatype_in == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_out == LIBXS_DNN_DATATYPE_I32)) ) {
@@ -876,8 +876,8 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
               layout->dim_size[2] = handle->ofmblock;
               layout->dim_size[3] = handle->desc.S;
               layout->dim_size[4] = handle->desc.R;
-              layout->dim_size[5] = handle->blocksofm_lp;
-              layout->dim_size[6] = handle->blocksifm_lp;
+              layout->dim_size[5] = handle->blocksofm;
+              layout->dim_size[6] = handle->blocksifm;
             }
           } else if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) ||
               (handle->datatype_in == LIBXS_DNN_DATATYPE_I8) ) {
@@ -2969,6 +2969,33 @@ LIBXS_API void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int le
 #endif
   for ( i = 0; i < length; ++i ) {
     out_buffer[i] = ((float)in_buffer[i])*val_exp;
+  }
+}
+
+
+LIBXS_API void libxs_truncate_convert_f32_bf16(const float* in, libxs_bfloat16* out, const unsigned int length) {
+  unsigned int i = 0;
+
+  /* truncate buffer to bfp16 */
+  for ( i = 0; i < length; ++i ) {
+    union libxs_bfloat16_hp t;
+
+    t.f = in[i];
+    out[i] = t.i[1];
+  } 
+}
+
+
+LIBXS_API void libxs_convert_bf16_f32(const libxs_bfloat16* in, float* out, unsigned int length) {
+  unsigned int i = 0;
+
+  /* up-convert is super simple */
+  for ( i = 0; i < length; ++i ) {
+    union libxs_bfloat16_hp t;
+
+    t.i[1] = in[i];
+    t.i[0] = 0;
+    out[i] = t.f;    
   }
 }
 

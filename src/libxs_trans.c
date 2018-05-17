@@ -128,7 +128,7 @@ LIBXS_API int libxs_matcopy_thread(void* out, const void* in, unsigned int types
         typesize, tm, tn, uldo, uldi, 0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE,
         iprefetch, NULL/*default unroll*/) : 0);
       mtasks = ((1 < nthreads) ? ((int)((m + tm - 1) / tm)) : 1);
-      xmatcopy = libxs_xmcopydispatch(desc);
+      xmatcopy = libxs_dispatch_mcopy(desc);
       if (1 < mtasks && nthreads <= mtasks) { /* only parallelized over M */
         const int mc = (mtasks + nthreads - 1) / nthreads * tm;
         m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
@@ -158,7 +158,7 @@ LIBXS_API int libxs_matcopy_thread(void* out, const void* in, unsigned int types
       /* libxs_trans_jit: JIT'ted matrix-copy permitted? */
       const libxs_mcopy_descriptor *const desc = (0 != (1 & libxs_trans_jit) ? libxs_mcopy_descriptor_init(&blob,
         typesize, tm, tn, uldo, uldi, 0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE, iprefetch, NULL/*default unroll*/) : 0);
-      xmatcopy = libxs_xmcopydispatch(desc);
+      xmatcopy = libxs_dispatch_mcopy(desc);
       assert(0 == tid && 1 == nthreads);
       if (0 != xmatcopy) { /* JIT-kernel available */
         if (0 != prefetch && 0 != *prefetch) { /* prefetch */
@@ -252,7 +252,7 @@ LIBXS_API int libxs_otrans_thread(void* out, const void* in, unsigned int typesi
         desc = (0 != (2 & libxs_trans_jit) ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
         if (0 != desc) { /* limit the amount of (unrolled) code with smaller kernel/tiles */
           desc->m = LIBXS_MIN(tm, LIBXS_MAX_M); desc->n = LIBXS_MIN(tn, LIBXS_MAX_N);
-          if (0 != (xtrans = libxs_xtransdispatch(desc))) {
+          if (0 != (xtrans = libxs_dispatch_trans(desc))) {
             tm = desc->m; tn = desc->n;
           }
         }
@@ -274,7 +274,7 @@ LIBXS_API int libxs_otrans_thread(void* out, const void* in, unsigned int typesi
           typesize, uldi, uldo, tm, tn, m0, m1, n0, n1);
       }
       else { /* no tiling */
-        if (0 != (xtrans = libxs_xtransdispatch(desc))) { /* JIT'ted kernel available */
+        if (0 != (xtrans = libxs_dispatch_trans(desc))) { /* JIT'ted kernel available */
           LIBXS_TCOPY_CALL(xtrans, typesize, in, &uldi, out, &uldo);
         }
         else { /* JIT not available */
