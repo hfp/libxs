@@ -954,18 +954,17 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
             matcopy_descriptor.n = 1;
             handle->matcopy_bwd[2].xmatcopy = libxs_dispatch_mcopy(&matcopy_descriptor);
           }
-
           fwd_equivalent_descriptor.n_variants = handle->n_variants;
           fwd_equivalent_descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
           if ( handle->n_variants == 1) {
-            //handle->code_bwd[0].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
+            handle->code_bwd[0].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
           } else {
             fwd_equivalent_descriptor.ofh_rb = hrb1;
             fwd_equivalent_descriptor.ofw_rb = wrb1;
-            //handle->code_bwd[0].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
+            handle->code_bwd[0].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
             fwd_equivalent_descriptor.ofh_rb = hrb2;
             fwd_equivalent_descriptor.ofw_rb = wrb2;
-            //handle->code_bwd[1].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
+            handle->code_bwd[1].pmm = libxs_create_xconv_forward(&fwd_equivalent_descriptor);
             handle->bwd_ofh_rb = hrb1;
             handle->bwd_ofw_rb = wrb1;
             fwd_equivalent_descriptor.ofh_rb = hrb1;

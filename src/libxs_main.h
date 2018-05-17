@@ -225,6 +225,10 @@ LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sconvfunction)(
   const float* input1, const float* input2, float* output,
   const float* ipf1, const float* ipf2, const float* opf, ...);
 
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_bf16convfunction)(
+  const libxs_bfloat16* input1, const libxs_bfloat16* input2, libxs_bfloat16* output,
+  const libxs_bfloat16* ipf1, const libxs_bfloat16* ipf2, const libxs_bfloat16* opf, ...);
+
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction)(
   const short* input1, const short* input2, int* output,
   const short* ipf1, const short* ipf2, const int* opf, ...);
@@ -264,6 +268,7 @@ LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction_bwd)(
 /** Function type which is either libxs_sconvfunction or libxs_wconvfunction (weak-typed). */
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_xconvfunction {
   libxs_sconvfunction sconv;
+  libxs_bf16convfunction bf16conv;
   libxs_wsconvfunction wsconv;
   libxs_uwsconvfunction uwsconv;
   libxs_wconvfunction wconv;
