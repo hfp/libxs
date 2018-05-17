@@ -181,6 +181,16 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_trans_descriptor { /* 13 Byte */
   unsigned char typesize;
 };
 
+/** Structure storing arguments of packed TRSM. */
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_trsm_descriptor { /* 30 Byte */
+  union { double d; float s; } alpha;
+  unsigned int m, n, lda, ldb;
+  unsigned char typesize;
+  unsigned char layout;
+  char diag, side, uplo;
+  char transa;
+};
+
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
@@ -275,6 +285,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   libxs_xmcopyfunction xmatcopy;
   libxs_xtransfunction xtrans;
   libxs_xconvfunction xconv;
+  libxs_xtrsmfunction xtrsm;
 } libxs_code_pointer;
 
 /** Structure which describes all tensors in LIBXS's DNN module */
@@ -496,19 +507,20 @@ struct LIBXS_RETARGETABLE libxs_sfsspmdm {
 };
 
 typedef enum libxs_build_kind {
-  LIBXS_BUILD_KIND_GEMM,
+  LIBXS_BUILD_KIND_GEMM     = LIBXS_KERNEL_KIND_MATMUL,
+  LIBXS_BUILD_KIND_MCOPY    = LIBXS_KERNEL_KIND_MCOPY,
+  LIBXS_BUILD_KIND_TRANS    = LIBXS_KERNEL_KIND_TRANS,
+  LIBXS_BUILD_KIND_TRSM     = LIBXS_KERNEL_KIND_TRSM,
+  LIBXS_BUILD_KIND_RMACSOA  = LIBXS_KERNEL_KIND_INVALID,
+  LIBXS_BUILD_KIND_RMBCSOA,
   LIBXS_BUILD_KIND_SRSOA,
   LIBXS_BUILD_KIND_SCSOA,
-  LIBXS_BUILD_KIND_RMACSOA,
-  LIBXS_BUILD_KIND_RMBCSOA,
   LIBXS_BUILD_KIND_SREG,
   LIBXS_BUILD_KIND_CFWD,
   LIBXS_BUILD_KIND_CUPD,
   LIBXS_BUILD_KIND_CWFWD,
   LIBXS_BUILD_KIND_CWBWD,
-  LIBXS_BUILD_KIND_CWUPD,
-  LIBXS_BUILD_KIND_MCOPY,
-  LIBXS_BUILD_KIND_TRANS
+  LIBXS_BUILD_KIND_CWUPD
 } libxs_build_kind;
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
@@ -523,6 +535,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_convolution_winograd_descriptor* cwino;
   const libxs_mcopy_descriptor* matcopy;
   const libxs_trans_descriptor* trans;
+  const libxs_trsm_descriptor* trsm;
 } libxs_build_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
@@ -590,6 +603,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_kernel_info {
   libxs_gemm_descriptor xgemm;
   libxs_mcopy_descriptor mcopy;
   libxs_trans_descriptor trans;
+  libxs_trsm_descriptor trsm;
 } libxs_kernel_info;
 
 /** Attempts to receive information about JIT-generated code. */
