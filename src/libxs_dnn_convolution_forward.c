@@ -74,7 +74,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_bf16_bf16(libxs_dnn_laye
   typedef libxs_bfloat16 element_input_type;
   typedef libxs_bfloat16 element_output_type;
   typedef libxs_bfloat16 element_filter_type;
-  typedef libxs_sconvfunction libxs_convfunction;
+  typedef libxs_bf16convfunction libxs_convfunction;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
