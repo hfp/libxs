@@ -1226,7 +1226,7 @@ LIBXS_API unsigned char libxs_dnn_get_qtensor_scf(const libxs_dnn_tensor* tensor
     *status = LIBXS_DNN_ERR_INVALID_TENSOR;
   }
 
-  return 0;     
+  return 0;
 }
 
 
@@ -2982,7 +2982,7 @@ LIBXS_API void libxs_truncate_convert_f32_bf16(const float* in, libxs_bfloat16* 
 
     t.f = in[i];
     out[i] = t.i[1];
-  } 
+  }
 }
 
 
@@ -2995,7 +2995,7 @@ LIBXS_API void libxs_convert_bf16_f32(const libxs_bfloat16* in, float* out, unsi
 
     t.i[1] = in[i];
     t.i[0] = 0;
-    out[i] = t.f;    
+    out[i] = t.f;
   }
 }
 
