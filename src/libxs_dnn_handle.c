@@ -28,7 +28,7 @@
 ******************************************************************************/
 /* Alexander Heinecke, Rajkishore Barik,
  ** Ankush Mandal, Evangelos Georganas (Intel Corp.)
- ******************************************************************************/
+******************************************************************************/
 #include "libxs_dnn_handle.h"
 #include "libxs_main.h"
 #include <libxs.h>
