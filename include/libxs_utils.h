@@ -467,65 +467,65 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
 #if !defined(LIBXS_INTRINSICS_KNC) && !defined(LIBXS_INTRINSICS_NONE) && defined(__MIC__)
 # define LIBXS_INTRINSICS_KNC
 #endif
-
 /** LIBXS_INTRINSICS_X86 is defined only if the compiler is able to generate this code without special flags. */
 #if !defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_INTRINSICS_NONE) && \
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_GENERIC <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_X86
 #endif
-
 /** LIBXS_INTRINSICS_SSE3 is defined only if the compiler is able to generate this code without special flags. */
 #if !defined(LIBXS_INTRINSICS_SSE3) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_X86) && \
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_SSE3
 #endif
-
 /** LIBXS_INTRINSICS_SSE4 is defined only if the compiler is able to generate this code without special flags. */
 #if !defined(LIBXS_INTRINSICS_SSE4) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_SSE3) && \
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_SSE4 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_SSE4
 #endif
-
 /** LIBXS_INTRINSICS_AVX is defined only if the compiler is able to generate this code without special flags. */
 #if !defined(LIBXS_INTRINSICS_AVX) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_SSE4) && \
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_AVX
 #endif
-
 /** LIBXS_INTRINSICS_AVX2 is defined only if the compiler is able to generate this code without special flags. */
 #if !defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX) && \
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_AVX2
 #endif
-
 /** LIBXS_INTRINSICS_AVX512 is defined only if the compiler is able to generate this code without special flags. */
 #if !defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX2) && \
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_AVX512
 #endif
-
 /** LIBXS_INTRINSICS_AVX512_MIC is defined only if the compiler is able to generate this code without special flags. */
 #if !defined(LIBXS_INTRINSICS_AVX512_MIC) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX512) && \
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_AVX512_MIC <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_AVX512_MIC
 #endif
-
 /** LIBXS_INTRINSICS_AVX512_KNM is defined only if the compiler is able to generate this code without special flags. */
 #if !defined(LIBXS_INTRINSICS_AVX512_KNM) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX512_MIC) && \
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_AVX512_KNM <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_AVX512_KNM
 #endif
-
 /** LIBXS_INTRINSICS_AVX512_CORE is defined only if the compiler is able to generate this code without special flags. */
 #if !defined(LIBXS_INTRINSICS_AVX512_CORE) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX512) && \
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_AVX512_CORE
 #endif
-
 /** LIBXS_INTRINSICS_AVX512_ICL is defined only if the compiler is able to generate this code without special flags. */
 #if !defined(LIBXS_INTRINSICS_AVX512_ICL) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_INTRINSICS_AVX512_CORE) && \
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_AVX512_ICL <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_AVX512_ICL
+#endif
+
+#if defined(LIBXS_INTRINSICS_AVX512)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+__m512i LIBXS_INTRINSICS_MM512F_PERMUTEXVAR_EPI16(__m512i index, __m512i source) {
+  LIBXS_ALIGNED(short dst[32], 64); LIBXS_ALIGNED(short src[32], 64); LIBXS_ALIGNED(short idx[32], 64); int i;
+  _mm512_store_si512(idx, index); _mm512_store_si512(src, source);
+  LIBXS_PRAGMA_SIMD for (i = 0; i < 32; ++i) dst[i] = src[idx[i]/*&0x1F*/];
+  return _mm512_load_si512(dst);
+}
 #endif
 
 #endif /*LIBXS_INTRINSICS_X86_H*/
