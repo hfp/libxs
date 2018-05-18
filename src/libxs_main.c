@@ -1043,7 +1043,7 @@ LIBXS_API_INLINE const char* internal_get_typename(int datatype)
     case LIBXS_DATATYPE_F32: return "f32";
     case LIBXS_DATATYPE_I32: return "i32";
     case LIBXS_DATATYPE_I16: return "i16";
-    case LIBXS_DATATYPE_BF16: return "bf16";                             
+    case LIBXS_DATATYPE_BF16: return "bf16";
     case LIBXS_DATATYPE_I8:  return "i8";
   }
   if ( LIBXS_GEMM_PRECISION_I16 == LIBXS_GETENUM_INP( datatype ) && LIBXS_GEMM_PRECISION_I32 == LIBXS_GETENUM_OUT( datatype ) ) {
