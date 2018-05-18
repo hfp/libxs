@@ -40,7 +40,7 @@
 # pragma offload_attribute(pop)
 #endif
 
-/* @TODO: needs target decoration, only on AVX512F (do we need to distinguish between SKX and KNx?) */
+
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid);
