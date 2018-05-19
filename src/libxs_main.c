@@ -858,6 +858,7 @@ LIBXS_API void libxs_set_target_archid(int id)
 {
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
   switch (id) {
+    case LIBXS_X86_AVX512_ICL:
     case LIBXS_X86_AVX512_CORE:
     case LIBXS_X86_AVX512_KNM:
     case LIBXS_X86_AVX512_MIC:
