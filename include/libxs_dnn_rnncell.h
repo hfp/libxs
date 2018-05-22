@@ -33,16 +33,6 @@
 #include "libxs_typedefs.h"
 #include "libxs_dnn.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <stdlib.h>
-#if !defined(NDEBUG)
-# include <stdio.h>
-#endif
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
   int N;
