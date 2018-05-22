@@ -3010,7 +3010,7 @@ LIBXS_API void libxs_rnaz_convert_fp32_bfp16(const float* in, libxs_bfloat16* ou
     int_round = int_round >> 16;
 
     out[i] = (libxs_bfloat16)int_round;
-  } 
+  }
 }
 
 
@@ -3039,7 +3039,7 @@ LIBXS_API void rne_convert_fp32_bfp16(const float* in, libxs_bfloat16* out, cons
     int_round = int_round >> 16;
 
     out[i] = (unsigned short)int_round;
-  } 
+  }
 }
 
 
