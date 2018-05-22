@@ -44,15 +44,72 @@
 # pragma offload_attribute(pop)
 #endif
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
-  int N;
-  int nThreads;
-} libxs_dnn_rnncell;
-
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
   int N;
   int nThreads;
+  int m; /* number of outputs */
+  int n; /* size of the minibatch */
+  int k; /* number of inputs */
+  int t; /* number of time steps */
+  int bm; /* blocksize for m */
+  int bn; /* blocksize for n */
+  int bk; /* blocksize for k */
+  int b_m1; /* b_?? parameters are used in libxs_bgemm */
+  int b_n1;
+  int b_k1;
+  int b_m2;
+  int b_n2;
+  int b_k2;
+  libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
+  libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
+  libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
 } libxs_dnn_rnncell_desc;
+
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
+  int N;
+  int nThreads;
+  libxs_dnn_rnncell_desc desc;
+  libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
+  libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
+  libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
+  int m;
+  int n;
+  int k;
+  int t;
+  int bm;
+  int bn;
+  int bk;
+  int b_m1;
+  int b_n1;
+  int b_k1;
+  int b_m2;
+  int b_n2;
+  int b_k2;
+  libxs_dnn_tensor *w;
+  libxs_dnn_tensor *xt;
+  libxs_dnn_tensor *u;
+  libxs_dnn_tensor *h;
+  libxs_dnn_tensor *z;
+  libxs_dnn_tensor* djdht;
+  libxs_dnn_tensor* djdu;
+  libxs_dnn_tensor* djdw;
+  libxs_dnn_tensor* djdxt;
+  libxs_dnn_tensor* deltat;
+  libxs_dnn_tensor *z1t;
+  libxs_dnn_tensor *z2;
+  libxs_dnn_tensor* di1;
+  libxs_dnn_tensor* di2;
+  libxs_dnn_tensor* dj1;
+  libxs_dnn_tensor* dw1;
+  libxs_dnn_tensor* uTp;
+  libxs_dnn_tensor* wTp;
+  libxs_dnn_tensor* hTp;
+  libxs_dnn_tensor* xTp;
+  libxs_bgemm_handle *handlewx;
+  libxs_bgemm_handle *handleuh;
+  libxs_bgemm_handle *handlett;
+  libxs_bgemm_handle *handlewd;
+} libxs_dnn_rnncell;
 
 LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnncell_desc, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_rnncell(const libxs_dnn_rnncell* handle);
