@@ -637,18 +637,241 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
 }
 
 
+#define ITYPE float
+void matinit(int seed, ITYPE * dst,
+  libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
+{
+  const double seed1 = scale * (seed + 1);
+  libxs_blasint i;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i)
+#endif
+  for (i = 0; i < ncols; ++i) {
+    libxs_blasint j = 0;
+    for (; j < nrows; ++j) {
+      const libxs_blasint k = i * ld + j;
+      dst[k] = (ITYPE)(seed1 / (k + 1));
+    }
+    for (; j < ld; ++j) {
+      const libxs_blasint k = i * ld + j;
+      dst[k] = (ITYPE)seed;
+    }
+  }
+}
+
+
+void matrix_add(libxs_blasint size, ITYPE *a, ITYPE *b, ITYPE *c)
+{
+  libxs_blasint i;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    c[i] = a[i] + b[i];
+  }
+}
+
+
+void matrix_eltwise_mult(libxs_blasint size, ITYPE *a, ITYPE *b, ITYPE *c)
+{
+  libxs_blasint i;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    c[i] = a[i] * b[i];
+  }
+}
+
+
+void matrix_sigmoid(libxs_blasint size, ITYPE *src, ITYPE *dst)
+{
+  libxs_blasint i;
+  ITYPE exp_value;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    exp_value = (ITYPE)exp( -src[i]);
+    dst[i] = 1 / (1 + exp_value);
+  }
+}
+
+
+void matrix_tanh(libxs_blasint size, ITYPE *src, ITYPE *dst)
+{
+  libxs_blasint i;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    dst[i] = tanh(src[i]);
+  }
+}
+
+
+void matrix_relu(libxs_blasint size, ITYPE *src, ITYPE *dst)
+{
+  libxs_blasint i;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    dst[i] = (src[i] >= 0) ? src[i] : 0;
+  }
+}
+
+
+void matrix_sigmoid_inverse(libxs_blasint size, ITYPE *src, ITYPE *dst)
+{
+  libxs_blasint i;
+  ITYPE exp_value;
+  ITYPE sig_exp;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    exp_value = (ITYPE)exp( -src[i]);
+    sig_exp = 1 / (1 + exp_value);
+    dst[i] = (1 - sig_exp)*sig_exp;
+  }
+}
+
+
+void matrix_tanh_inverse(libxs_blasint size, ITYPE *src, ITYPE *dst)
+{
+  libxs_blasint i;
+  ITYPE sech_value;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    sech_value = sech(src[i]);
+    dst[i] = sech_value * sech_value;
+  }
+}
+
+
+void matrix_relu_inverse(libxs_blasint size, ITYPE *src, ITYPE *dst, ITYPE *input)
+{
+  libxs_blasint i;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    dst[i] = (input[i] >= 0) ? src[i] : 0;
+  }
+}
+
+
+void matrix_transpose(libxs_blasint rows, libxs_blasint cols, ITYPE *src, ITYPE *dst)
+{
+  libxs_blasint i, j;
+  LIBXS_VLA_DECL(2, ITYPE, src2D, src, cols);
+  LIBXS_VLA_DECL(2, ITYPE, dst2D, dst, rows);
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, j, rows, cols) collapse(2)
+#endif
+  for (i = 0; i < rows; i++) {
+    for (j = 0; j < cols; j++) {
+      LIBXS_VLA_ACCESS(2, dst2D, j, i, rows) = LIBXS_VLA_ACCESS(2, src2D, i, j, cols);
+    }
+  }
+}
+
+
+void matrix_copy(libxs_blasint size, ITYPE *src, ITYPE *dst)
+{
+  libxs_blasint i;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    dst[i] = src[i];
+  }
+}
+
+
+void matrix_complement(libxs_blasint size, ITYPE *src, ITYPE *dst)
+{
+  libxs_blasint i;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    dst[i] = 1 - src[i];
+  }
+}
+
+
+void matrix_complement_square(libxs_blasint size, ITYPE *src, ITYPE *dst)
+{
+  libxs_blasint i;
+#if defined(_OPENMP)
+# pragma omp parallel for private(i, size)
+#endif
+  for (i = 0; i < size; i++) {
+    dst[i] = 1 - (src[i] * src[i]);
+  }
+}
+
+
+void recursive_step(libxs_bgemm_handle* handle, ITYPE* u, ITYPE* h, ITYPE* op1, ITYPE *op2,
+  ITYPE *temp, ITYPE *dst, int act, libxs_blasint size, int tid, int nthreads)
+{
+#if defined(LSTM_TIMING)
+  Gbl_t_recur = libxs_timer_tick();
+#endif
+  libxs_bgemm(handle, u, h, op1, tid, nthreads);
+#if defined(LSTM_TIMING)
+  Gbl_duration_recur = libxs_timer_duration(Gbl_t_recur, libxs_timer_tick());
+  Gbl_t_recur_total += Gbl_duration_recur;
+  Gbl_t_eltwise = libxs_timer_tick();
+#endif
+  matrix_add(size, op1, op2, temp);
+#if defined(LSTM_TIMING)
+  Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
+  Gbl_t_eltwise_total += Gbl_duration_eltwise;
+  Gbl_t_nonlin = libxs_timer_tick();
+#endif
+  switch (act) {
+    case 0:
+      /* do nothing -- this is required for the last time step */
+      dst = temp;
+      break;
+    case 1:
+      matrix_relu(size, temp, dst);
+      break;
+    case 2:
+      matrix_sigmoid(size, temp, dst);
+      break;
+    case 3:
+      matrix_tanh(size, temp, dst);
+      break;
+    default:
+      /* fprintf(stdout, "Unsupported activation function: %d\n", act); */
+      dst = temp;
+  }
+#if defined(LSTM_TIMING)
+  Gbl_duration_nonlin = libxs_timer_duration(Gbl_t_nonlin, libxs_timer_tick());
+  Gbl_t_nonlin_total += Gbl_duration_nonlin;
+#endif
+}
+
+
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#if 0
   const char transa = 'N', transb = 'N'; /* no transposes */
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
-  const ITYPE alpha = 1, beta = 1;
   libxs_blasint m = rnn->m;
   libxs_blasint n = rnn->n;
   libxs_blasint k = rnn->k;
   libxs_blasint t = rnn->t;
   const double gflops = ((2.0 * m * n * k) + (2.0 * m * n * m) + (2.0 * m * n)) * t * 1E-9;
+  int reuse = 1;
+  /* The following code should be in template */
+  const ITYPE alpha = 1, beta = 1;
   ITYPE *w = (ITYPE*)rnn->w;
   ITYPE *xt = (ITYPE*)rnn->xt;
   ITYPE *u = (ITYPE*)rnn->u;
@@ -675,12 +898,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   int i;
   libxs_blasint nt = n*t;
   start = libxs_timer_tick();
-  for (s = 0; s < nrepeat; ++s) {
+  /* for (s = 0; s < nrepeat; ++s) { */
 #if defined(LSTM_TIMING)
     Gbl_t_input = libxs_timer_tick();
 #endif
     /* The following loop may be absorbed into libxs_lstm_omp */
-    libxs_bgemm_omp(handlett, w, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), 1/*nrepeat*/);
+    libxs_bgemm(handlett, w, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), tid, rnn->nThreads);
     /*LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &nt, &k, &alpha, w, m, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), k, &beta, z1, m);*/
 #if defined(LSTM_TIMING)
     Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
@@ -688,21 +911,21 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
 #endif
     if (reuse) {
       for (i = 0; i < t-1; ++i) {
-        recursive_step(handleuh, u, h, z2, &LIBXS_VLA_ACCESS(2, z1, i, 0, m * n), z, h, 1, m * n); /*sigmoid*/
+        recursive_step(handleuh, u, h, z2, &LIBXS_VLA_ACCESS(2, z1, i, 0, m * n), z, h, 1, m * n, tid, rnn->nThreads); /*sigmoid*/
       }
-      recursive_step(handleuh, u, h, z2, &LIBXS_VLA_ACCESS(2, z1, t-1, 0, m * n), z, z, 0, m * n); /*nop*/
+      recursive_step(handleuh, u, h, z2, &LIBXS_VLA_ACCESS(2, z1, t-1, 0, m * n), z, z, 0, m * n, tid, rnn->nThreads); /*nop*/
     } else {
       for (i = 0; i < t-1; ++i) {
         recursive_step(handleuh, u, &LIBXS_VLA_ACCESS(2, hnr, i, 0, m * n), z2, &LIBXS_VLA_ACCESS(2, z1, i, 0, m * n),
-          &LIBXS_VLA_ACCESS(2, znr, i, 0, m * n), &LIBXS_VLA_ACCESS(2, hnr, i+1, 0, m * n), 1, m * n); /*sigmoid*/
+          &LIBXS_VLA_ACCESS(2, znr, i, 0, m * n), &LIBXS_VLA_ACCESS(2, hnr, i+1, 0, m * n), 1, m * n, tid, rnn->nThreads); /*sigmoid*/
       }
       recursive_step(handleuh, u, &LIBXS_VLA_ACCESS(2, hnr, t-1, 0, m * n), z2, &LIBXS_VLA_ACCESS(2, z1, t-1, 0, m * n),
-        &LIBXS_VLA_ACCESS(2, znr, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, znr, t-1, 0, m * n), 0, m * n); /*nop*/
+        &LIBXS_VLA_ACCESS(2, znr, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, znr, t-1, 0, m * n), 0, m * n, tid, rnn->nThreads); /*nop*/
     }
-  }
+  /* } */
   duration = libxs_timer_duration(start, libxs_timer_tick());
   if (0 < duration) {
-    fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops * nrepeat / duration);
+    /* fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops * nrepeat / duration); */
   }
 #if defined(LSTM_TIMING)
   double t_total = Gbl_t_input_total + Gbl_t_recur_total + Gbl_t_eltwise_total + Gbl_t_nonlin_total;
@@ -711,7 +934,118 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   fprintf(stdout, "Percentage of time spent in element-wise operations: %lf\n", Gbl_t_eltwise_total*100.0/t_total);
   fprintf(stdout, "Percentage of time spent in non-linear operations: %lf\n", Gbl_t_nonlin_total*100.0/t_total);
 #endif
-#endif /* if 0 */
+  return status;
+}
+
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_all(libxs_dnn_rnncell* rnn, int start_thread, int tid, int pass)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  const char transa = 'N', transb = 'N'; /* no transposes */
+  const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
+  libxs_blasint m = rnn->m;
+  libxs_blasint n = rnn->n;
+  libxs_blasint k = rnn->k;
+  libxs_blasint t = rnn->t;
+  const double tflops = 12; /* transcendental flops */
+  double gflops = m * m; /* U^T */
+  gflops += (2.0 * m * n * m); /* U^T * delta */
+  gflops += (m * n); /* dJdh + (U^T * delta) */
+  gflops += (tflops * m * n); /* sigma'(Z) */
+  gflops += (m * n); /* sigma'(Z) * (dJdh + (U^T * delta)) */
+  gflops *= t; /* for t time steps */
+  double tempflops;
+  if (pass == 2 || pass == 3) {
+    tempflops = m * n; /* h^T */
+    tempflops += (2.0 * m * n * m); /* delta * h^T */
+    tempflops *= t; /* for t time steps */
+    tempflops += (m * m * (t-1)); /* for summation of dJdU */
+    gflops += tempflops;
+    tempflops = k * n; /* x^T */
+    tempflops += (2.0 * m * n * k); /* delta * x^T */
+    tempflops *= t; /* for t time steps */
+    tempflops += (m * k * (t-1)); /* for summation of dJdW */
+    gflops += tempflops;
+  }
+  if (pass == 1 || pass == 3) {
+    tempflops = m * k; /* W^T */
+    tempflops += (2.0 * m * n * k); /* W^T * delta */
+    tempflops *= t; /* for t time steps of input */
+    gflops += tempflops;
+  }
+  gflops *= 1E-9; /* to convert flops to Gflops */
+  const ITYPE alpha = 1, beta = 1;
+  ITYPE *djdht = (ITYPE*)rnn->djdht;
+  ITYPE *zt = (ITYPE*)rnn->z;
+  ITYPE *deltat = (ITYPE*)rnn->deltat;
+  ITYPE *u = (ITYPE*)rnn->u;
+  ITYPE *xt = (ITYPE*)rnn->xt;
+  ITYPE *ht = (ITYPE*)rnn->h;
+  ITYPE *w = (ITYPE*)rnn->w;
+  ITYPE *djdu = (ITYPE*)rnn->djdu;
+  ITYPE *djdw = (ITYPE*)rnn->djdw;
+  ITYPE *djdxt = (ITYPE*)rnn->djdxt;
+  ITYPE* zi = (ITYPE*)rnn->z1t;
+  ITYPE* di1 = (ITYPE*)rnn->di1;
+  ITYPE* di2 = (ITYPE*)rnn->di2;
+  ITYPE* dj1 = (ITYPE*)rnn->dj1;
+  ITYPE* dw1 = (ITYPE*)rnn->dw1;
+  /*
+  ITYPE* uTp = (ITYPE*)rnn->uTp;
+  ITYPE* wTp = (ITYPE*)rnn->wTp;
+  ITYPE* hTp = (ITYPE*)rnn->hTp;
+  ITYPE* xTp = (ITYPE*)rnn->xTp;
+  */
+  libxs_bgemm_handle *handleud = rnn->handlewx;
+  libxs_bgemm_handle *handledh = rnn->handleuh;
+  libxs_bgemm_handle *handledx = rnn->handlett;
+  libxs_bgemm_handle *handlewd = rnn->handlewd;
+  LIBXS_VLA_DECL(2, ITYPE, djdh, djdh, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, z, zt, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, delta, deltat, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, x, xt, k * n);
+  LIBXS_VLA_DECL(2, ITYPE, h, ht, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, djdx, djdxt, k * n);
+  unsigned long long start;
+  double duration;
+  int s;
+  int i;
+  start = libxs_timer_tick();
+  /* for (s = 0; s < nrepeat; ++s) { */
+    LIBXS_MATRNG(ITYPE, 0, &LIBXS_VLA_ACCESS(2, delta, t-1, 0, m * n), m, n, m, 0.0);
+    /* matrix_transpose(m, m, u, uTp); - already taken care of in init */
+    for (i = t-2; i >= 0; --i) {
+      matrix_sigmoid_inverse(m * n, &LIBXS_VLA_ACCESS(2, z, i+1, 0, m * n), zi);
+      /* libxs_bgemm(handleud, uTp, &LIBXS_VLA_ACCESS(2, delta, i+1, 0, m * n), di1, tid, rnn->nThreads); */
+      libxs_bgemm(handleud, u, &LIBXS_VLA_ACCESS(2, delta, i+1, 0, m * n), di1, tid, rnn->nThreads);
+      matrix_add(m * n, &LIBXS_VLA_ACCESS(2, djdh, i+1, 0, m * n), di1, di2);
+      matrix_eltwise_mult(m * n, zi, di2, &LIBXS_VLA_ACCESS(2, delta, i, 0, m * n));
+    }
+    if (pass == 1 || pass == 3) {
+      /* matrix_transpose(m, k, w, wTp); - already taken care of in init */
+      for (i = 0; i < t; ++i) {
+        /* libxs_bgemm(handlewd, wTp, &LIBXS_VLA_ACCESS(2, delta, i, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, i, 0, k * n), tid, rnn->nThreads); */
+        libxs_bgemm(handlewd, w, &LIBXS_VLA_ACCESS(2, delta, i, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, i, 0, k * n), tid, rnn->nThreads);
+      }
+    }
+    if (pass == 2 || pass == 3) {
+      for (i = 0; i < t; ++i) {
+        /* matrix_transpose(m, n, &LIBXS_VLA_ACCESS(2, h, i, 0, m * n), hTp); - already taken care of in init */
+        /* libxs_bgemm(handledh, &LIBXS_VLA_ACCESS(2, delta, i, 0, m * n), hTp, dj1, tid, rnn->nThreads); */
+        libxs_bgemm(handledh, &LIBXS_VLA_ACCESS(2, delta, i, 0, m * n), h, dj1, tid, rnn->nThreads);
+        matrix_add(m*m, dj1, djdu, djdu);
+        /* matrix_transpose(k, n, &LIBXS_VLA_ACCESS(2, x, i, 0, k * n), xTp); - already taken care of in init */
+        /* libxs_bgemm(handledx, &LIBXS_VLA_ACCESS(2, delta, i, 0, m * n), xTp, dw1, tid, rnn->nThreads); */
+        libxs_bgemm(handledx, &LIBXS_VLA_ACCESS(2, delta, i, 0, m * n), x, dw1, tid, rnn->nThreads);
+        matrix_add(m*k, dw1, djdw, djdw);
+      }
+    }
+  /* } */
+  duration = libxs_timer_duration(start, libxs_timer_tick());
+  if (0 < duration) {
+    /* fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops * nrepeat / duration); */
+  }
+
   return status;
 }
 
@@ -725,10 +1059,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
                                            status = libxs_dnn_rnncell_fwd(handle, start_thread, tid);
                                          } break;
-      case LIBXS_DNN_COMPUTE_KIND_BWD:
-      case LIBXS_DNN_COMPUTE_KIND_UPD:
+      case LIBXS_DNN_COMPUTE_KIND_BWD: {
+                                           status = libxs_dnn_rnncell_all(handle, start_thread, tid, 1);
+                                         } break;
+      case LIBXS_DNN_COMPUTE_KIND_UPD: {
+                                           status = libxs_dnn_rnncell_all(handle, start_thread, tid, 2);
+                                         } break;
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           /* status = libxs_dnn_rnncell_all(handle, start_thread, tid); */
+                                           status = libxs_dnn_rnncell_all(handle, start_thread, tid, 3);
                                          } break;
     
       default: {
