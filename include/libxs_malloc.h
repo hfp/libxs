@@ -337,7 +337,7 @@ private:
       result = allocator->AllocateRaw(1/*alignment*/, size);
     }
     else {
-      LIBXS_ASSERT(0 == *"LIBXS ERROR: memory allocator is missing!");
+      LIBXS_ASSERT_MSG(0, "LIBXS ERROR: memory allocator is missing!");
       result = 0;
     }
     return result;
@@ -345,7 +345,7 @@ private:
 
   template<typename allocator_ptr> /* break interface dependency with TF */
   static void deallocate(allocator_ptr allocator, void* buffer) {
-    LIBXS_ASSERT(0 != allocator && *"LIBXS ERROR: memory allocator is missing!");
+    LIBXS_ASSERT_MSG(0 != allocator, "LIBXS ERROR: memory allocator is missing!");
     if (0 != allocator) allocator->DeallocateRaw(buffer);
   }
 };
