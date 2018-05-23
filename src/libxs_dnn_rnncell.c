@@ -655,8 +655,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
 }
 
 
-# define FTYPE float
-void matinit(int seed, FTYPE * dst,
+# define FTYPE float /* TODO: undefine/remove generic symbol names as header-only interfers with user's code */
+/* TODO: avoid generic function names without prefix e.g., libxs_internal_ or libxs_ */
+LIBXS_API_INLINE void matinit(int seed, FTYPE * dst,
   libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
 {
   const double seed1 = scale * (seed + 1);
@@ -678,7 +679,7 @@ void matinit(int seed, FTYPE * dst,
 }
 
 
-void matrix_add(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *c)
+LIBXS_API_INLINE void matrix_add(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *c)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -690,7 +691,7 @@ void matrix_add(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *c)
 }
 
 
-void matrix_eltwise_mult(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *c)
+LIBXS_API_INLINE void matrix_eltwise_mult(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *c)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -702,7 +703,7 @@ void matrix_eltwise_mult(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *c)
 }
 
 
-void matrix_sigmoid(libxs_blasint size, FTYPE *src, FTYPE *dst)
+LIBXS_API_INLINE void matrix_sigmoid(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
   FTYPE exp_value;
@@ -716,7 +717,7 @@ void matrix_sigmoid(libxs_blasint size, FTYPE *src, FTYPE *dst)
 }
 
 
-void matrix_tanh(libxs_blasint size, FTYPE *src, FTYPE *dst)
+LIBXS_API_INLINE void matrix_tanh(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -728,7 +729,7 @@ void matrix_tanh(libxs_blasint size, FTYPE *src, FTYPE *dst)
 }
 
 
-void matrix_relu(libxs_blasint size, FTYPE *src, FTYPE *dst)
+LIBXS_API_INLINE void matrix_relu(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -740,7 +741,7 @@ void matrix_relu(libxs_blasint size, FTYPE *src, FTYPE *dst)
 }
 
 
-void matrix_sigmoid_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst)
+LIBXS_API_INLINE void matrix_sigmoid_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
   FTYPE exp_value;
@@ -756,7 +757,7 @@ void matrix_sigmoid_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst)
 }
 
 
-void matrix_tanh_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst)
+LIBXS_API_INLINE void matrix_tanh_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
   FTYPE tanh_value;
@@ -770,7 +771,7 @@ void matrix_tanh_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst)
 }
 
 
-void matrix_relu_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst, FTYPE *input)
+LIBXS_API_INLINE void matrix_relu_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst, FTYPE *input)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -782,7 +783,7 @@ void matrix_relu_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst, FTYPE *inpu
 }
 
 
-void matrix_transpose(libxs_blasint rows, libxs_blasint cols, FTYPE *src, FTYPE *dst)
+LIBXS_API_INLINE void matrix_transpose(libxs_blasint rows, libxs_blasint cols, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i, j;
   LIBXS_VLA_DECL(2, FTYPE, src2D, src, cols);
@@ -798,7 +799,7 @@ void matrix_transpose(libxs_blasint rows, libxs_blasint cols, FTYPE *src, FTYPE 
 }
 
 
-void matrix_copy(libxs_blasint size, FTYPE *src, FTYPE *dst)
+LIBXS_API_INLINE void matrix_copy(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -810,7 +811,7 @@ void matrix_copy(libxs_blasint size, FTYPE *src, FTYPE *dst)
 }
 
 
-void matrix_complement(libxs_blasint size, FTYPE *src, FTYPE *dst)
+LIBXS_API_INLINE void matrix_complement(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -822,7 +823,7 @@ void matrix_complement(libxs_blasint size, FTYPE *src, FTYPE *dst)
 }
 
 
-void matrix_complement_square(libxs_blasint size, FTYPE *src, FTYPE *dst)
+LIBXS_API_INLINE void matrix_complement_square(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -834,7 +835,7 @@ void matrix_complement_square(libxs_blasint size, FTYPE *src, FTYPE *dst)
 }
 
 
-void recursive_step(libxs_bgemm_handle* handle, FTYPE* u, FTYPE* h, FTYPE* op1, FTYPE *op2,
+LIBXS_API_INLINE void recursive_step(libxs_bgemm_handle* handle, FTYPE* u, FTYPE* h, FTYPE* op1, FTYPE *op2,
   FTYPE *temp, FTYPE *dst, int act, libxs_blasint size, int tid, int nthreads)
 {
 #if defined(LSTM_TIMING)
