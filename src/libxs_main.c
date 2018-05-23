@@ -2216,12 +2216,27 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
       0 != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? kk : nn),
       *(0 != ldc ? ldc : m), alpha, beta, gemm_flags, libxs_get_gemm_xprefetch(prefetch));
     if (0 != descriptor) {
+      libxs_code_pointer result;
       if (0 != (0x8000 & descriptor->prefetch)) { /* "sign"-bit of unsigned short is set */
         backend_descriptor = *descriptor;
         LIBXS_GEMM_DESCRIPTOR_PREFETCH(backend_descriptor, libxs_gemm_auto_prefetch);
         descriptor = &backend_descriptor;
       }
-      *fn = internal_find_code(descriptor).ival;
+      result = internal_find_code(descriptor);
+      *fn = result.ival;
+#if defined(_DEBUG)
+      if (0 != libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.pmm) {
+        LIBXS_FLOCK(stdout);
+        fprintf(stdout, "LIBXS: ");
+        LIBXS_GEMM_PRINT2(stdout,
+          LIBXS_GETENUM_INP(descriptor->datatype), LIBXS_GETENUM_OUT(descriptor->datatype),
+          descriptor->flags, descriptor->m, descriptor->n, descriptor->k,
+          descriptor->alpha, 0/*a*/, descriptor->lda, 0/*b*/, descriptor->ldb,
+          descriptor->beta, 0/*c*/, descriptor->ldc);
+        fprintf(stdout, " = %p\n", result.pmm);
+        LIBXS_FUNLOCK(stdout);
+      }
+#endif
     }
     else { /* quiet */
       *fn = 0;
