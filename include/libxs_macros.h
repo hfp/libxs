@@ -597,7 +597,14 @@
 #endif
 #if !defined(LIBXS_ASSERT)
 # include <assert.h>
-# define LIBXS_ASSERT(EXPR) assert(EXPR)
+# if defined(NDEBUG)
+#   define LIBXS_ASSERT(EXPR) LIBXS_ASSUME(EXPR)
+# else
+#   define LIBXS_ASSERT(EXPR) assert(EXPR)
+# endif
+#endif
+#if !defined(LIBXS_ASSERT_MSG)
+# define LIBXS_ASSERT_MSG(EXPR, MSG) LIBXS_ASSERT((EXPR) && (0 != *(MSG)))
 #endif
 #if !defined(LIBXS_EXPECT)
 # if defined(NDEBUG)

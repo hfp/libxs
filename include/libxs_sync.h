@@ -107,11 +107,11 @@
 #define LIBXS_NONATOMIC_CMPSWP(DST_PTR, OLDVAL, NEWVAL, KIND) ((NEWVAL) == (*(DST_PTR) == (OLDVAL) ? (*(DST_PTR) = (NEWVAL)) : (OLDVAL)))
 #define LIBXS_NONATOMIC_TRYLOCK(DST_PTR, KIND) LIBXS_NONATOMIC_CMPSWP(DST_PTR, 0, 1, KIND)
 #define LIBXS_NONATOMIC_ACQUIRE(DST_PTR, NPAUSE, KIND) { LIBXS_UNUSED(NPAUSE); \
-          LIBXS_ASSERT(0 == *(DST_PTR) && *"LIBXS_NONATOMIC_ACQUIRE"); LIBXS_NONATOMIC_STORE(DST_PTR, 1, KIND); \
-          LIBXS_ASSERT(0 != *(DST_PTR) && *"LIBXS_NONATOMIC_ACQUIRE"); }
+          LIBXS_ASSERT_MSG(0 == *(DST_PTR), "LIBXS_NONATOMIC_ACQUIRE"); LIBXS_NONATOMIC_STORE(DST_PTR, 1, KIND); \
+          LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_NONATOMIC_ACQUIRE"); }
 #define LIBXS_NONATOMIC_RELEASE(DST_PTR, KIND) { LIBXS_UNUSED(DST_PTR); LIBXS_UNUSED(KIND); \
-          LIBXS_ASSERT(0 != *(DST_PTR) && *"LIBXS_NONATOMIC_RELEASE"); LIBXS_NONATOMIC_STORE(DST_PTR, 0, KIND); \
-          LIBXS_ASSERT(0 == *(DST_PTR) && *"LIBXS_NONATOMIC_RELEASE"); }
+          LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_NONATOMIC_RELEASE"); LIBXS_NONATOMIC_STORE(DST_PTR, 0, KIND); \
+          LIBXS_ASSERT_MSG(0 == *(DST_PTR), "LIBXS_NONATOMIC_RELEASE"); }
 #define LIBXS_NONATOMIC_SYNC(KIND) LIBXS_UNUSED(KIND)
 
 #if defined(LIBXS_NO_SYNC)
@@ -158,10 +158,10 @@
 #       define LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND) (!__atomic_test_and_set(DST_PTR, KIND))
 #     endif
 #     if defined(__PGI) /* ICE: __atomic_clear not implemented */
-#       define LIBXS_ATOMIC_RELEASE(DST_PTR, KIND) { LIBXS_ASSERT(0 != *(DST_PTR) && *"LIBXS_ATOMIC_RELEASE"); \
+#       define LIBXS_ATOMIC_RELEASE(DST_PTR, KIND) { LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_RELEASE"); \
                 LIBXS_ATOMIC_STORE_ZERO(DST_PTR, KIND); }
 #     else
-#       define LIBXS_ATOMIC_RELEASE(DST_PTR, KIND) { LIBXS_ASSERT(0 != *(DST_PTR) && *"LIBXS_ATOMIC_RELEASE"); \
+#       define LIBXS_ATOMIC_RELEASE(DST_PTR, KIND) { LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_RELEASE"); \
                 __atomic_clear(DST_PTR, KIND); }
 #     endif
 #     if 0 /* __atomic_thread_fence: incorrect behavior in libxs_barrier (even with LIBXS_ATOMIC_SEQ_CST) */
@@ -186,7 +186,7 @@
 #     if defined(LIBXS_ATOMIC_TRYLOCK_CMPSWP)
 #       define LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND) (0 == __sync_lock_test_and_set(DST_PTR, 1))
 #     endif
-#     define LIBXS_ATOMIC_RELEASE(DST_PTR, KIND) { LIBXS_ASSERT(0 != *(DST_PTR) && *"LIBXS_ATOMIC_RELEASE"); \
+#     define LIBXS_ATOMIC_RELEASE(DST_PTR, KIND) { LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_RELEASE"); \
               __sync_lock_release(DST_PTR); }
 #     define LIBXS_ATOMIC_SYNC(KIND) __sync_synchronize()
 #   endif
@@ -199,7 +199,7 @@
 #   define LIBXS_ATOMIC_ACQUIRE(DST_PTR, NPAUSE, KIND) { LIBXS_SYNC_CYCLE_DECL(libxs_atomic_acquire_counter_); \
             LIBXS_ASSERT(1 == sizeof(LIBXS_ATOMIC_LOCKTYPE)); LIBXS_ASSERT(0 == LIBXS_MOD2((uintptr_t)(DST_PTR), 4)); \
             while (!LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND)) LIBXS_SYNC_CYCLE(libxs_atomic_acquire_counter_, NPAUSE); \
-            LIBXS_ASSERT(0 != *(DST_PTR) && *"LIBXS_ATOMIC_ACQUIRE"); }
+            LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_ACQUIRE"); }
 #   define LIBXS_ATOMIC_SYNC_NOFENCE(KIND) __asm__ __volatile__ ("" ::: "memory")
 #   if !defined(LIBXS_SYNC_NPAUSE)
 #     define LIBXS_SYNC_NPAUSE 4096
@@ -244,9 +244,9 @@
 #   define LIBXS_ATOMIC_ACQUIRE(DST_PTR, NPAUSE, KIND) { LIBXS_SYNC_CYCLE_DECL(libxs_atomic_acquire_counter_); \
             LIBXS_ASSERT(1 == sizeof(LIBXS_ATOMIC_LOCKTYPE)); LIBXS_ASSERT(0 == LIBXS_MOD2((uintptr_t)(DST_PTR), 4)); \
             while (!LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND)) LIBXS_SYNC_CYCLE(libxs_atomic_acquire_counter_, NPAUSE); \
-            LIBXS_ASSERT(0 != *(DST_PTR) && *"LIBXS_ATOMIC_ACQUIRE"); }
+            LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_ACQUIRE"); }
 #   define LIBXS_ATOMIC_RELEASE(DST_PTR, KIND) { \
-            LIBXS_ASSERT(0 != *(DST_PTR) && *"LIBXS_ATOMIC_RELEASE"); \
+            LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_RELEASE"); \
             LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, 8)(DST_PTR, KIND); }
 #   define LIBXS_ATOMIC_SYNC(KIND) _ReadWriteBarrier()
 #   if !defined(LIBXS_SYNC_NPAUSE)
