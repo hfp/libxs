@@ -78,7 +78,9 @@ int main(void)
         }
       }
     }
-    nerrors = LIBXS_MAX(nerrors, testerrors);
+    if (nerrors < testerrors) {
+      nerrors = testerrors;
+    }
   }
 
   if (0 == nerrors) { /* previous results are correct and may be used to validate other tests */
@@ -101,7 +103,9 @@ int main(void)
             }
           }
         }
-        nerrors = LIBXS_MAX(nerrors, testerrors);
+        if (nerrors < testerrors) {
+          nerrors = testerrors;
+        }
       }
       else { /* negative tests */
         nerrors = LIBXS_MAX(EXIT_SUCCESS != libxs_otrans(
