@@ -683,7 +683,7 @@ LIBXS_API_INLINE void matrix_add(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *
 {
   libxs_blasint i;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     c[i] = a[i] + b[i];
@@ -695,7 +695,7 @@ LIBXS_API_INLINE void matrix_eltwise_mult(libxs_blasint size, FTYPE *a, FTYPE *b
 {
   libxs_blasint i;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     c[i] = a[i] * b[i];
@@ -708,7 +708,7 @@ LIBXS_API_INLINE void matrix_sigmoid(libxs_blasint size, FTYPE *src, FTYPE *dst)
   libxs_blasint i;
   FTYPE exp_value;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     exp_value = (FTYPE)exp((double) -src[i]);
@@ -721,7 +721,7 @@ LIBXS_API_INLINE void matrix_tanh(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     dst[i] = (FTYPE)tanh((double)src[i]);
@@ -733,7 +733,7 @@ LIBXS_API_INLINE void matrix_relu(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     dst[i] = (src[i] >= 0) ? src[i] : 0;
@@ -747,7 +747,7 @@ LIBXS_API_INLINE void matrix_sigmoid_inverse(libxs_blasint size, FTYPE *src, FTY
   FTYPE exp_value;
   FTYPE sig_exp;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     exp_value = (FTYPE)exp((double) -src[i]);
@@ -762,7 +762,7 @@ LIBXS_API_INLINE void matrix_tanh_inverse(libxs_blasint size, FTYPE *src, FTYPE 
   libxs_blasint i;
   FTYPE tanh_value;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     tanh_value = (FTYPE)tanh((double)src[i]);
@@ -775,7 +775,7 @@ LIBXS_API_INLINE void matrix_relu_inverse(libxs_blasint size, FTYPE *src, FTYPE 
 {
   libxs_blasint i;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     dst[i] = (input[i] >= 0) ? src[i] : 0;
@@ -803,7 +803,7 @@ LIBXS_API_INLINE void matrix_copy(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     dst[i] = src[i];
@@ -815,7 +815,7 @@ LIBXS_API_INLINE void matrix_complement(libxs_blasint size, FTYPE *src, FTYPE *d
 {
   libxs_blasint i;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     dst[i] = 1 - src[i];
@@ -827,7 +827,7 @@ LIBXS_API_INLINE void matrix_complement_square(libxs_blasint size, FTYPE *src, F
 {
   libxs_blasint i;
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, size)
+# pragma omp parallel for private(i)
 #endif
   for (i = 0; i < size; i++) {
     dst[i] = 1 - (src[i] * src[i]);
