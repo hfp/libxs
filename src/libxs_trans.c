@@ -39,7 +39,7 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(LIBXS_TRANS_TO_COPY) && 0
+#if !defined(LIBXS_TRANS_TO_COPY)
 # define LIBXS_TRANS_TO_COPY
 #endif
 
@@ -206,7 +206,7 @@ LIBXS_API int libxs_matcopy_thread(void* out, const void* in, unsigned int types
         fprintf(stderr, "LIBXS ERROR: the matrix extent(s) of the matcopy is/are zero or negative!\n");
       }
       else {
-        assert(ldi < m || ldo < n);
+        assert(ldi < m || ldo < m);
         fprintf(stderr, "LIBXS ERROR: the leading dimension(s) of the matcopy is/are too small!\n");
       }
     }
@@ -237,8 +237,8 @@ LIBXS_API int libxs_otrans_thread(void* out, const void* in, unsigned int typesi
   {
     LIBXS_INIT /* before leading tile sizes */
     if (out != in) {
-#if defined(LIBXS_TRANS_TO_COPY)
-      if (1 != m && 1 != n) /* transpose needed */
+#if defined(LIBXS_TRANS_TO_COPY) /* check if transpose can be lowered */
+      if ((1 != n || m > ldo) && (1 != m || n != ldo))
 #endif
       {
         const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
@@ -292,12 +292,12 @@ LIBXS_API int libxs_otrans_thread(void* out, const void* in, unsigned int typesi
       }
 #if defined(LIBXS_TRANS_TO_COPY)
       else if (1 == m) {
-        result = libxs_matcopy_thread(out, in, typesize, 1, n, 1/*ldi*/, 1/*ldo*/,
+        result = libxs_matcopy_thread(out, in, typesize, 1/*m*/, n, 1/*ldi*/, 1/*ldo*/,
           /*default prefetch*/NULL, tid, nthreads);
       }
       else {
-        LIBXS_ASSERT(1 == m);
-        result = libxs_matcopy_thread(out, in, typesize, n, 1, 1/*ldi*/, 1/*ldo*/,
+        LIBXS_ASSERT(1 == n);
+        result = libxs_matcopy_thread(out, in, typesize, m, 1/*n*/, ldi, ldo,
           /*default prefetch*/NULL, tid, nthreads);
       }
 #endif
