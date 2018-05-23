@@ -28,6 +28,7 @@
 ******************************************************************************/
 
 #include <libxs.h>
+#include <math.h>
 #include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -36,6 +37,13 @@
 #include <string.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
+#endif
+
+#if defined(LSTM_TIMING)
+#include <stdio.h>
+double Gbl_t_input_total = 0., Gbl_t_recur_total = 0., Gbl_t_eltwise_total = 0., Gbl_t_nonlin_total = 0.;
+unsigned long long Gbl_t_input = 0, Gbl_t_recur = 0, Gbl_t_eltwise = 0, Gbl_t_nonlin = 0;
+double Gbl_duration_input = 0., Gbl_duration_recur = 0., Gbl_duration_eltwise = 0., Gbl_duration_nonlin = 0.;
 #endif
 
 
@@ -646,7 +654,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
 }
 
 
-#define ITYPE float
+# define ITYPE float
 void matinit(int seed, ITYPE * dst,
   libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
 {
@@ -701,7 +709,7 @@ void matrix_sigmoid(libxs_blasint size, ITYPE *src, ITYPE *dst)
 # pragma omp parallel for private(i, size)
 #endif
   for (i = 0; i < size; i++) {
-    exp_value = (ITYPE)exp( -src[i]);
+    exp_value = (ITYPE)exp((double) -src[i]);
     dst[i] = 1 / (1 + exp_value);
   }
 }
@@ -714,7 +722,7 @@ void matrix_tanh(libxs_blasint size, ITYPE *src, ITYPE *dst)
 # pragma omp parallel for private(i, size)
 #endif
   for (i = 0; i < size; i++) {
-    dst[i] = tanh(src[i]);
+    dst[i] = (ITYPE)tanh((double)src[i]);
   }
 }
 
@@ -740,7 +748,7 @@ void matrix_sigmoid_inverse(libxs_blasint size, ITYPE *src, ITYPE *dst)
 # pragma omp parallel for private(i, size)
 #endif
   for (i = 0; i < size; i++) {
-    exp_value = (ITYPE)exp( -src[i]);
+    exp_value = (ITYPE)exp((double) -src[i]);
     sig_exp = 1 / (1 + exp_value);
     dst[i] = (1 - sig_exp)*sig_exp;
   }
@@ -750,13 +758,13 @@ void matrix_sigmoid_inverse(libxs_blasint size, ITYPE *src, ITYPE *dst)
 void matrix_tanh_inverse(libxs_blasint size, ITYPE *src, ITYPE *dst)
 {
   libxs_blasint i;
-  ITYPE sech_value;
+  ITYPE tanh_value;
 #if defined(_OPENMP)
 # pragma omp parallel for private(i, size)
 #endif
   for (i = 0; i < size; i++) {
-    sech_value = sech(src[i]);
-    dst[i] = sech_value * sech_value;
+    tanh_value = (ITYPE)tanh((double)src[i]);
+    dst[i] = 1 - (tanh_value * tanh_value);
   }
 }
 
@@ -871,16 +879,15 @@ void recursive_step(libxs_bgemm_handle* handle, ITYPE* u, ITYPE* h, ITYPE* op1, 
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  const char transa = 'N', transb = 'N'; /* no transposes */
-  const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
   libxs_blasint m = rnn->m;
   libxs_blasint n = rnn->n;
   libxs_blasint k = rnn->k;
   libxs_blasint t = rnn->t;
+#if defined(LSTM_TIMING)
   const double gflops = ((2.0 * m * n * k) + (2.0 * m * n * m) + (2.0 * m * n)) * t * 1E-9;
+#endif
   int reuse = 1;
   /* The following code should be in template */
-  const ITYPE alpha = 1, beta = 1;
   ITYPE *w = (ITYPE*)rnn->w;
   ITYPE *xt = (ITYPE*)rnn->xt;
   ITYPE *u = (ITYPE*)rnn->u;
@@ -895,9 +902,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   LIBXS_VLA_DECL(2, ITYPE, z1, z1t, m * n);
   LIBXS_VLA_DECL(2, ITYPE, hnr, h, m * n);
   LIBXS_VLA_DECL(2, ITYPE, znr, z, m * n);
+#if defined(LSTM_TIMING)
   unsigned long long start;
   double duration;
-#if defined(LSTM_TIMING)
   Gbl_t_input_total = 0.; Gbl_t_recur_total = 0.; Gbl_t_eltwise_total = 0.; Gbl_t_nonlin_total = 0.;
   Gbl_t_input = 0; Gbl_t_recur = 0; Gbl_t_eltwise = 0; Gbl_t_nonlin = 0;
   Gbl_duration_input = 0.; Gbl_duration_recur = 0.; Gbl_duration_eltwise = 0.; Gbl_duration_nonlin = 0.;
@@ -905,15 +912,15 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
 
   int s;
   int i;
-  libxs_blasint nt = n*t;
+#if defined(LSTM_TIMING)
   start = libxs_timer_tick();
+#endif
   /* for (s = 0; s < nrepeat; ++s) { */
 #if defined(LSTM_TIMING)
     Gbl_t_input = libxs_timer_tick();
 #endif
     /* The following loop may be absorbed into libxs_lstm_omp */
     libxs_bgemm(handlett, w, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), tid, rnn->nThreads);
-    /*LIBXS_XBLAS_SYMBOL(ITYPE)(&transa, &transb, &m, &nt, &k, &alpha, w, m, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), k, &beta, z1, m);*/
 #if defined(LSTM_TIMING)
     Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
     Gbl_t_input_total += Gbl_duration_input;
@@ -932,11 +939,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
         &LIBXS_VLA_ACCESS(2, znr, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, znr, t-1, 0, m * n), 0, m * n, tid, rnn->nThreads); /*nop*/
     }
   /* } */
+#if defined(LSTM_TIMING)
   duration = libxs_timer_duration(start, libxs_timer_tick());
   if (0 < duration) {
-    /* fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops * nrepeat / duration); */
+    fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops / duration); /* *nrepeat */
   }
-#if defined(LSTM_TIMING)
   double t_total = Gbl_t_input_total + Gbl_t_recur_total + Gbl_t_eltwise_total + Gbl_t_nonlin_total;
   fprintf(stdout, "Percentage of time spent in input matrix multiplication: %lf\n", Gbl_t_input_total*100.0/t_total);
   fprintf(stdout, "Percentage of time spent in recurrence matrix multiplication: %lf\n", Gbl_t_recur_total*100.0/t_total);
@@ -947,15 +954,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_all(libxs_dnn_rnncell* rnn, int start_thread, int tid, int pass)
+LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, int start_thread, int tid, int pass)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  const char transa = 'N', transb = 'N'; /* no transposes */
-  const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
   libxs_blasint m = rnn->m;
   libxs_blasint n = rnn->n;
   libxs_blasint k = rnn->k;
   libxs_blasint t = rnn->t;
+#ifdef LSTM_TIMING
   const double tflops = 12; /* transcendental flops */
   double gflops = m * m; /* U^T */
   gflops += (2.0 * m * n * m); /* U^T * delta */
@@ -983,7 +989,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_all(libxs_dnn_rnncell* rnn, 
     gflops += tempflops;
   }
   gflops *= 1E-9; /* to convert flops to Gflops */
-  const ITYPE alpha = 1, beta = 1;
+#endif
   ITYPE *djdht = (ITYPE*)rnn->djdht;
   ITYPE *zt = (ITYPE*)rnn->z;
   ITYPE *deltat = (ITYPE*)rnn->deltat;
@@ -1009,17 +1015,20 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_all(libxs_dnn_rnncell* rnn, 
   libxs_bgemm_handle *handledh = rnn->handleuh;
   libxs_bgemm_handle *handledx = rnn->handlett;
   libxs_bgemm_handle *handlewd = rnn->handlewd;
-  LIBXS_VLA_DECL(2, ITYPE, djdh, djdh, m * n);
+  LIBXS_VLA_DECL(2, ITYPE, djdh, djdht, m * n);
   LIBXS_VLA_DECL(2, ITYPE, z, zt, m * n);
   LIBXS_VLA_DECL(2, ITYPE, delta, deltat, m * n);
   LIBXS_VLA_DECL(2, ITYPE, x, xt, k * n);
   LIBXS_VLA_DECL(2, ITYPE, h, ht, m * n);
   LIBXS_VLA_DECL(2, ITYPE, djdx, djdxt, k * n);
-  unsigned long long start;
-  double duration;
+  
   int s;
   int i;
+#ifdef LSTM_TIMING
+  unsigned long long start;
+  double duration;
   start = libxs_timer_tick();
+#endif
   /* for (s = 0; s < nrepeat; ++s) { */
     LIBXS_MATRNG(ITYPE, 0, &LIBXS_VLA_ACCESS(2, delta, t-1, 0, m * n), m, n, m, 0.0);
     /* matrix_transpose(m, m, u, uTp); - already taken care of in init */
@@ -1050,10 +1059,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_all(libxs_dnn_rnncell* rnn, 
       }
     }
   /* } */
+#ifdef LSTM_TIMING
   duration = libxs_timer_duration(start, libxs_timer_tick());
   if (0 < duration) {
-    /* fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops * nrepeat / duration); */
+    fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops / duration); /* *nrepeat */
   }
+#endif
 
   return status;
 }
@@ -1069,13 +1080,13 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle
                                            status = libxs_dnn_rnncell_fwd(handle, start_thread, tid);
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD: {
-                                           status = libxs_dnn_rnncell_all(handle, start_thread, tid, 1);
+                                           status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 1);
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_UPD: {
-                                           status = libxs_dnn_rnncell_all(handle, start_thread, tid, 2);
+                                           status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 2);
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           status = libxs_dnn_rnncell_all(handle, start_thread, tid, 3);
+                                           status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 3);
                                          } break;
     
       default: {
