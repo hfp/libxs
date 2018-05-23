@@ -362,12 +362,25 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_scratch(libxs_dnn_rnncell* h
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
+                                           handle->z1t->data = 0;
+                                           handle->z2->data = 0;
                                            handle->z1t = 0;
                                            handle->z2 = 0;
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
+                                           handle->z1t->data = 0;
+                                           handle->z2->data = 0;
+                                           handle->deltat->data = 0;
+                                           handle->di1->data = 0;
+                                           handle->di2->data = 0;
+                                           handle->dj1->data = 0;
+                                           handle->dw1->data = 0;
+                                           handle->uTp->data = 0;
+                                           handle->wTp->data = 0;
+                                           handle->hTp->data = 0;
+                                           handle->xTp->data = 0;
                                            handle->z1t = 0;
                                            handle->z2 = 0;
                                            handle->deltat = 0;
@@ -581,6 +594,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
+                                           handle->w->data = 0;
+                                           handle->xt->data = 0;
+                                           handle->u->data = 0;
+                                           handle->h->data = 0;
+                                           handle->z->data = 0;
                                            handle->w = 0;
                                            handle->xt = 0;
                                            handle->u = 0;
@@ -590,6 +608,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
+                                           handle->z->data = 0;
+                                           handle->u->data = 0;
+                                           handle->xt->data = 0;
+                                           handle->h->data = 0;
+                                           handle->djdu->data = 0;
+                                           handle->djdw->data = 0;
+                                           handle->djdxt->data = 0;
+                                           handle->w->data = 0;
                                            handle->z = 0;
                                            handle->u = 0;
                                            handle->xt = 0;
