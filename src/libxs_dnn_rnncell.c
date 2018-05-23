@@ -789,7 +789,7 @@ LIBXS_API_INLINE void matrix_transpose(libxs_blasint rows, libxs_blasint cols, F
   LIBXS_VLA_DECL(2, FTYPE, src2D, src, cols);
   LIBXS_VLA_DECL(2, FTYPE, dst2D, dst, rows);
 #if defined(_OPENMP)
-# pragma omp parallel for private(i, j, rows, cols) collapse(2)
+# pragma omp parallel for private(i, j) LIBXS_OPENMP_COLLAPSE(2)
 #endif
   for (i = 0; i < rows; i++) {
     for (j = 0; j < cols; j++) {
