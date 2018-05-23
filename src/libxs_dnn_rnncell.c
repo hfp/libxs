@@ -177,7 +177,7 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
   size_t size = 0;
   *status = LIBXS_DNN_SUCCESS;
   size_t sizeof_datatype = sizeof(float);
-  
+
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -396,7 +396,7 @@ LIBXS_API size_t libxs_dnn_rnncell_get_internalstate_size(const libxs_dnn_rnncel
   size_t size = 0;
   *status = LIBXS_DNN_SUCCESS;
   size_t sizeof_datatype = sizeof(float);
-  
+
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -1024,7 +1024,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
   LIBXS_VLA_DECL(2, FTYPE, x, xt, k * n);
   LIBXS_VLA_DECL(2, FTYPE, h, ht, m * n);
   LIBXS_VLA_DECL(2, FTYPE, djdx, djdxt, k * n);
-  
+
   /* int s; */
   int i;
 #ifdef LSTM_TIMING
@@ -1091,7 +1091,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
                                            status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 3);
                                          } break;
-    
+
       default: {
                   status = LIBXS_DNN_ERR_INVALID_KIND;
                }
