@@ -654,8 +654,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
 }
 
 
-# define ITYPE float
-void matinit(int seed, ITYPE * dst,
+# define FTYPE float
+void matinit(int seed, FTYPE * dst,
   libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
 {
   const double seed1 = scale * (seed + 1);
@@ -667,17 +667,17 @@ void matinit(int seed, ITYPE * dst,
     libxs_blasint j = 0;
     for (; j < nrows; ++j) {
       const libxs_blasint k = i * ld + j;
-      dst[k] = (ITYPE)(seed1 / (k + 1));
+      dst[k] = (FTYPE)(seed1 / (k + 1));
     }
     for (; j < ld; ++j) {
       const libxs_blasint k = i * ld + j;
-      dst[k] = (ITYPE)seed;
+      dst[k] = (FTYPE)seed;
     }
   }
 }
 
 
-void matrix_add(libxs_blasint size, ITYPE *a, ITYPE *b, ITYPE *c)
+void matrix_add(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *c)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -689,7 +689,7 @@ void matrix_add(libxs_blasint size, ITYPE *a, ITYPE *b, ITYPE *c)
 }
 
 
-void matrix_eltwise_mult(libxs_blasint size, ITYPE *a, ITYPE *b, ITYPE *c)
+void matrix_eltwise_mult(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *c)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -701,33 +701,33 @@ void matrix_eltwise_mult(libxs_blasint size, ITYPE *a, ITYPE *b, ITYPE *c)
 }
 
 
-void matrix_sigmoid(libxs_blasint size, ITYPE *src, ITYPE *dst)
+void matrix_sigmoid(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
-  ITYPE exp_value;
+  FTYPE exp_value;
 #if defined(_OPENMP)
 # pragma omp parallel for private(i, size)
 #endif
   for (i = 0; i < size; i++) {
-    exp_value = (ITYPE)exp((double) -src[i]);
+    exp_value = (FTYPE)exp((double) -src[i]);
     dst[i] = 1 / (1 + exp_value);
   }
 }
 
 
-void matrix_tanh(libxs_blasint size, ITYPE *src, ITYPE *dst)
+void matrix_tanh(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
 # pragma omp parallel for private(i, size)
 #endif
   for (i = 0; i < size; i++) {
-    dst[i] = (ITYPE)tanh((double)src[i]);
+    dst[i] = (FTYPE)tanh((double)src[i]);
   }
 }
 
 
-void matrix_relu(libxs_blasint size, ITYPE *src, ITYPE *dst)
+void matrix_relu(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -739,37 +739,37 @@ void matrix_relu(libxs_blasint size, ITYPE *src, ITYPE *dst)
 }
 
 
-void matrix_sigmoid_inverse(libxs_blasint size, ITYPE *src, ITYPE *dst)
+void matrix_sigmoid_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
-  ITYPE exp_value;
-  ITYPE sig_exp;
+  FTYPE exp_value;
+  FTYPE sig_exp;
 #if defined(_OPENMP)
 # pragma omp parallel for private(i, size)
 #endif
   for (i = 0; i < size; i++) {
-    exp_value = (ITYPE)exp((double) -src[i]);
+    exp_value = (FTYPE)exp((double) -src[i]);
     sig_exp = 1 / (1 + exp_value);
     dst[i] = (1 - sig_exp)*sig_exp;
   }
 }
 
 
-void matrix_tanh_inverse(libxs_blasint size, ITYPE *src, ITYPE *dst)
+void matrix_tanh_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
-  ITYPE tanh_value;
+  FTYPE tanh_value;
 #if defined(_OPENMP)
 # pragma omp parallel for private(i, size)
 #endif
   for (i = 0; i < size; i++) {
-    tanh_value = (ITYPE)tanh((double)src[i]);
+    tanh_value = (FTYPE)tanh((double)src[i]);
     dst[i] = 1 - (tanh_value * tanh_value);
   }
 }
 
 
-void matrix_relu_inverse(libxs_blasint size, ITYPE *src, ITYPE *dst, ITYPE *input)
+void matrix_relu_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst, FTYPE *input)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -781,11 +781,11 @@ void matrix_relu_inverse(libxs_blasint size, ITYPE *src, ITYPE *dst, ITYPE *inpu
 }
 
 
-void matrix_transpose(libxs_blasint rows, libxs_blasint cols, ITYPE *src, ITYPE *dst)
+void matrix_transpose(libxs_blasint rows, libxs_blasint cols, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i, j;
-  LIBXS_VLA_DECL(2, ITYPE, src2D, src, cols);
-  LIBXS_VLA_DECL(2, ITYPE, dst2D, dst, rows);
+  LIBXS_VLA_DECL(2, FTYPE, src2D, src, cols);
+  LIBXS_VLA_DECL(2, FTYPE, dst2D, dst, rows);
 #if defined(_OPENMP)
 # pragma omp parallel for private(i, j, rows, cols) collapse(2)
 #endif
@@ -797,7 +797,7 @@ void matrix_transpose(libxs_blasint rows, libxs_blasint cols, ITYPE *src, ITYPE 
 }
 
 
-void matrix_copy(libxs_blasint size, ITYPE *src, ITYPE *dst)
+void matrix_copy(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -809,7 +809,7 @@ void matrix_copy(libxs_blasint size, ITYPE *src, ITYPE *dst)
 }
 
 
-void matrix_complement(libxs_blasint size, ITYPE *src, ITYPE *dst)
+void matrix_complement(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -821,7 +821,7 @@ void matrix_complement(libxs_blasint size, ITYPE *src, ITYPE *dst)
 }
 
 
-void matrix_complement_square(libxs_blasint size, ITYPE *src, ITYPE *dst)
+void matrix_complement_square(libxs_blasint size, FTYPE *src, FTYPE *dst)
 {
   libxs_blasint i;
 #if defined(_OPENMP)
@@ -833,8 +833,8 @@ void matrix_complement_square(libxs_blasint size, ITYPE *src, ITYPE *dst)
 }
 
 
-void recursive_step(libxs_bgemm_handle* handle, ITYPE* u, ITYPE* h, ITYPE* op1, ITYPE *op2,
-  ITYPE *temp, ITYPE *dst, int act, libxs_blasint size, int tid, int nthreads)
+void recursive_step(libxs_bgemm_handle* handle, FTYPE* u, FTYPE* h, FTYPE* op1, FTYPE *op2,
+  FTYPE *temp, FTYPE *dst, int act, libxs_blasint size, int tid, int nthreads)
 {
 #if defined(LSTM_TIMING)
   Gbl_t_recur = libxs_timer_tick();
@@ -888,20 +888,20 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
 #endif
   int reuse = 1;
   /* The following code should be in template */
-  ITYPE *w = (ITYPE*)rnn->w;
-  ITYPE *xt = (ITYPE*)rnn->xt;
-  ITYPE *u = (ITYPE*)rnn->u;
-  ITYPE *h = (ITYPE*)rnn->h;
-  ITYPE *z1t = (ITYPE*)rnn->z1t;
-  ITYPE *z2 = (ITYPE*)rnn->z2;
-  ITYPE *z = (ITYPE*)rnn->z;
+  FTYPE *w = (FTYPE*)rnn->w;
+  FTYPE *xt = (FTYPE*)rnn->xt;
+  FTYPE *u = (FTYPE*)rnn->u;
+  FTYPE *h = (FTYPE*)rnn->h;
+  FTYPE *z1t = (FTYPE*)rnn->z1t;
+  FTYPE *z2 = (FTYPE*)rnn->z2;
+  FTYPE *z = (FTYPE*)rnn->z;
   libxs_bgemm_handle *handlewx = rnn->handlewx;
   libxs_bgemm_handle *handleuh = rnn->handleuh;
   libxs_bgemm_handle *handlett = rnn->handlett;
-  LIBXS_VLA_DECL(2, ITYPE, x, xt, k * n);
-  LIBXS_VLA_DECL(2, ITYPE, z1, z1t, m * n);
-  LIBXS_VLA_DECL(2, ITYPE, hnr, h, m * n);
-  LIBXS_VLA_DECL(2, ITYPE, znr, z, m * n);
+  LIBXS_VLA_DECL(2, FTYPE, x, xt, k * n);
+  LIBXS_VLA_DECL(2, FTYPE, z1, z1t, m * n);
+  LIBXS_VLA_DECL(2, FTYPE, hnr, h, m * n);
+  LIBXS_VLA_DECL(2, FTYPE, znr, z, m * n);
 #if defined(LSTM_TIMING)
   unsigned long long start;
   double duration;
@@ -910,7 +910,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   Gbl_duration_input = 0.; Gbl_duration_recur = 0.; Gbl_duration_eltwise = 0.; Gbl_duration_nonlin = 0.;
 #endif
 
-  int s;
+  /* int s; */
   int i;
 #if defined(LSTM_TIMING)
   start = libxs_timer_tick();
@@ -990,39 +990,39 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
   }
   gflops *= 1E-9; /* to convert flops to Gflops */
 #endif
-  ITYPE *djdht = (ITYPE*)rnn->djdht;
-  ITYPE *zt = (ITYPE*)rnn->z;
-  ITYPE *deltat = (ITYPE*)rnn->deltat;
-  ITYPE *u = (ITYPE*)rnn->u;
-  ITYPE *xt = (ITYPE*)rnn->xt;
-  ITYPE *ht = (ITYPE*)rnn->h;
-  ITYPE *w = (ITYPE*)rnn->w;
-  ITYPE *djdu = (ITYPE*)rnn->djdu;
-  ITYPE *djdw = (ITYPE*)rnn->djdw;
-  ITYPE *djdxt = (ITYPE*)rnn->djdxt;
-  ITYPE* zi = (ITYPE*)rnn->z1t;
-  ITYPE* di1 = (ITYPE*)rnn->di1;
-  ITYPE* di2 = (ITYPE*)rnn->di2;
-  ITYPE* dj1 = (ITYPE*)rnn->dj1;
-  ITYPE* dw1 = (ITYPE*)rnn->dw1;
+  FTYPE *djdht = (FTYPE*)rnn->djdht;
+  FTYPE *zt = (FTYPE*)rnn->z;
+  FTYPE *deltat = (FTYPE*)rnn->deltat;
+  FTYPE *u = (FTYPE*)rnn->u;
+  FTYPE *xt = (FTYPE*)rnn->xt;
+  FTYPE *ht = (FTYPE*)rnn->h;
+  FTYPE *w = (FTYPE*)rnn->w;
+  FTYPE *djdu = (FTYPE*)rnn->djdu;
+  FTYPE *djdw = (FTYPE*)rnn->djdw;
+  FTYPE *djdxt = (FTYPE*)rnn->djdxt;
+  FTYPE* zi = (FTYPE*)rnn->z1t;
+  FTYPE* di1 = (FTYPE*)rnn->di1;
+  FTYPE* di2 = (FTYPE*)rnn->di2;
+  FTYPE* dj1 = (FTYPE*)rnn->dj1;
+  FTYPE* dw1 = (FTYPE*)rnn->dw1;
   /*
-  ITYPE* uTp = (ITYPE*)rnn->uTp;
-  ITYPE* wTp = (ITYPE*)rnn->wTp;
-  ITYPE* hTp = (ITYPE*)rnn->hTp;
-  ITYPE* xTp = (ITYPE*)rnn->xTp;
+  FTYPE* uTp = (FTYPE*)rnn->uTp;
+  FTYPE* wTp = (FTYPE*)rnn->wTp;
+  FTYPE* hTp = (FTYPE*)rnn->hTp;
+  FTYPE* xTp = (FTYPE*)rnn->xTp;
   */
   libxs_bgemm_handle *handleud = rnn->handlewx;
   libxs_bgemm_handle *handledh = rnn->handleuh;
   libxs_bgemm_handle *handledx = rnn->handlett;
   libxs_bgemm_handle *handlewd = rnn->handlewd;
-  LIBXS_VLA_DECL(2, ITYPE, djdh, djdht, m * n);
-  LIBXS_VLA_DECL(2, ITYPE, z, zt, m * n);
-  LIBXS_VLA_DECL(2, ITYPE, delta, deltat, m * n);
-  LIBXS_VLA_DECL(2, ITYPE, x, xt, k * n);
-  LIBXS_VLA_DECL(2, ITYPE, h, ht, m * n);
-  LIBXS_VLA_DECL(2, ITYPE, djdx, djdxt, k * n);
+  LIBXS_VLA_DECL(2, FTYPE, djdh, djdht, m * n);
+  LIBXS_VLA_DECL(2, FTYPE, z, zt, m * n);
+  LIBXS_VLA_DECL(2, FTYPE, delta, deltat, m * n);
+  LIBXS_VLA_DECL(2, FTYPE, x, xt, k * n);
+  LIBXS_VLA_DECL(2, FTYPE, h, ht, m * n);
+  LIBXS_VLA_DECL(2, FTYPE, djdx, djdxt, k * n);
   
-  int s;
+  /* int s; */
   int i;
 #ifdef LSTM_TIMING
   unsigned long long start;
@@ -1030,7 +1030,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
   start = libxs_timer_tick();
 #endif
   /* for (s = 0; s < nrepeat; ++s) { */
-    LIBXS_MATRNG(ITYPE, 0, &LIBXS_VLA_ACCESS(2, delta, t-1, 0, m * n), m, n, m, 0.0);
+    LIBXS_MATRNG(FTYPE, 0, &LIBXS_VLA_ACCESS(2, delta, t-1, 0, m * n), m, n, m, 0.0);
     /* matrix_transpose(m, m, u, uTp); - already taken care of in init */
     for (i = t-2; i >= 0; --i) {
       matrix_sigmoid_inverse(m * n, &LIBXS_VLA_ACCESS(2, z, i+1, 0, m * n), zi);
