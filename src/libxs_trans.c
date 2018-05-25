@@ -122,17 +122,10 @@ LIBXS_API int libxs_matcopy_thread(void* out, const void* in, unsigned int types
       const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
       const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
       const unsigned int tidx = (4 < typesize ? 0 : 1);
-      const libxs_mcopy_descriptor* desc;
-      libxs_descriptor_blob blob;
       int mtasks;
       tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
       tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
-      /* libxs_trans_jit: JIT'ted matrix-copy permitted? */
-      desc = (0 != (1 & libxs_trans_jit) ? libxs_mcopy_descriptor_init(&blob,
-        typesize, tm, tn, uldo, uldi, 0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE,
-        iprefetch, NULL/*default unroll*/) : 0);
       mtasks = ((1 < nthreads) ? ((int)((m + tm - 1) / tm)) : 1);
-      xmatcopy = libxs_dispatch_mcopy(desc);
       if (1 < mtasks && nthreads <= mtasks) { /* only parallelized over M */
         const int mc = (mtasks + nthreads - 1) / nthreads * tm;
         m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
@@ -143,6 +136,16 @@ LIBXS_API int libxs_matcopy_thread(void* out, const void* in, unsigned int types
         const libxs_blasint mc = tm;
         m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
         n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
+      }
+      if (0 != (1 & libxs_trans_jit) /* libxs_trans_jit: JIT'ted matrix-copy permitted? */
+        /* avoid code-dispatch if task does not need the kernel for inner tiles */
+        && tm + m0 <= (unsigned int)(m1 - m0) && tn <= (unsigned int)(n1 - n0))
+      {
+        libxs_descriptor_blob blob;
+        const libxs_mcopy_descriptor *const desc = libxs_mcopy_descriptor_init(&blob,
+          typesize, tm, tn, uldo, uldi, 0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE,
+          iprefetch, NULL/*default unroll*/);
+        xmatcopy = libxs_dispatch_mcopy(desc);
       }
       if (0 != prefetch && 0 != *prefetch) { /* prefetch */
         LIBXS_XCOPY(
