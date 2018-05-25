@@ -41,17 +41,17 @@
 
 /* kernel uses consecutive stores and consecutive loads (copy) */
 #define LIBXS_MCOPY_KERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, INDEX_I, INDEX_J, SRC, DST) \
-  const TYPE *const SRC = (const TYPE*)(((const char*)(IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
-  TYPE *const DST = (TYPE*)(((const char*)(OUT)) + (TYPESIZE) * ((INDEX_J) * (LDO) + (INDEX_I)))
+  const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
+              TYPE *const DST = (TYPE*)(((const char*)(OUT)) + (TYPESIZE) * ((INDEX_J) * (LDO) + (INDEX_I)))
 /* call JIT-kernel (matrix-copy) */
 #define LIBXS_MCOPY_CALL_NOPF(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) (KERNEL)(SRC, LDI, DST, LDO)
 /* call JIT-kernel (matrix-copy with prefetch) */
-#define LIBXS_MCOPY_CALL(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) (KERNEL)(SRC, LDI, DST, LDO, \
+#define LIBXS_MCOPY_CALL(PRFT_KERNEL, TYPESIZE, SRC, LDI, DST, LDO) (PRFT_KERNEL)(SRC, LDI, DST, LDO, \
   ((const char*)(SRC)) + (TYPESIZE) * (*(LDI))) /* prefetch next line*/
 /* kernel uses consecutive stores and strided loads (transpose) */
 #define LIBXS_TCOPY_KERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, INDEX_I, INDEX_J, SRC, DST) \
-  const TYPE *const SRC = (const TYPE*)(((const char*)(IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
-  TYPE *const DST = (TYPE*)(((const char*)(OUT)) + (TYPESIZE) * ((INDEX_I) * (LDO) + (INDEX_J)))
+  const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
+              TYPE *const DST = (TYPE*)(((const char*)(OUT)) + (TYPESIZE) * ((INDEX_I) * (LDO) + (INDEX_J)))
 /* call JIT-kernel (transpose) */
 #define LIBXS_TCOPY_CALL(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) (KERNEL)(SRC, LDI, DST, LDO)
 
@@ -116,6 +116,12 @@
   } \
 }
 
+#if 1
+# define LIBXS_XCOPY_PRECOND(COND)
+#else
+# define LIBXS_XCOPY_PRECOND(COND) COND
+#endif
+
 #define LIBXS_XCOPY(PARALLEL, LOOP_START, KERNEL_START, SYNC, \
   XKERNEL, KERNEL_CALL, KERNEL, OUT, IN, TYPESIZE, LDI, LDO, TILE_M, TILE_N, M0, M1, N0, N1) { \
   PARALLEL \
@@ -146,23 +152,29 @@
         } \
       } \
     } \
-    LOOP_START(1/*COLLAPSE*/) \
-    for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
-      KERNEL_START(firstprivate(libxs_xcopy_i_) untied) \
-      LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
-        libxs_xcopy_i_, libxs_xcopy_i_ + (TILE_M), \
-        libxs_xcopy_j_, N1); \
+    LIBXS_XCOPY_PRECOND(if (libxs_xcopy_j_ < (N1))) { \
+      LOOP_START(1/*COLLAPSE*/) \
+      for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
+        KERNEL_START(firstprivate(libxs_xcopy_i_) untied) \
+        LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
+          libxs_xcopy_i_, libxs_xcopy_i_ + (TILE_M), \
+          libxs_xcopy_j_, N1); \
+      } \
     } \
-    LOOP_START(1/*COLLAPSE*/) \
-    for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
-      KERNEL_START(firstprivate(libxs_xcopy_j_) untied) \
+    LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < (M1))) { \
+      LOOP_START(1/*COLLAPSE*/) \
+      for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N)); libxs_xcopy_j_ += TILE_N) { \
+        KERNEL_START(firstprivate(libxs_xcopy_j_) untied) \
+        LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
+          libxs_xcopy_i_, M1, \
+          libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N)); \
+      } \
+    } \
+    LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < (M1) && libxs_xcopy_j_ < (N1))) { \
       LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
         libxs_xcopy_i_, M1, \
-        libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N)); \
+        libxs_xcopy_j_, N1); \
     } \
-    LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
-      libxs_xcopy_i_, M1, \
-      libxs_xcopy_j_, N1); \
     SYNC \
   } \
 }
