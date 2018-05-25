@@ -1066,11 +1066,12 @@ LIBXS_API_INLINE const char* internal_get_typesize_string(size_t typesize)
 {
   static LIBXS_TLS char result[4];
   assert(256 > typesize);
-  if (1 < typesize) {
-    LIBXS_SNPRINTF(result, sizeof(result), "%i", (int)typesize);
+  if (10 > typesize) {
+    result[0] = (char)('0' + typesize);
+    result[1] = 0;
   }
   else {
-    result[0] = 0;
+    LIBXS_SNPRINTF(result, sizeof(result), "%i", (int)typesize);
   }
   return result;
 }
