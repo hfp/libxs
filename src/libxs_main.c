@@ -1454,7 +1454,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       }
     }
     else {
-      result = EXIT_FAILURE;
+      result = generated_code.last_error;
     }
 # if !defined(NDEBUG)
     free(generated_code.generated_code); /* free temporary/initial code buffer */
