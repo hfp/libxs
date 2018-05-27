@@ -1851,6 +1851,8 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     result = internal_find_code(descriptor).xgemm;
 #if defined(_DEBUG)
     if (0 != libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.xmm) {
+      size_t code_size;
+      libxs_get_mmkernel_info(result, NULL/*info*/, &code_size);
       LIBXS_FLOCK(stdout);
       fprintf(stdout, "LIBXS: ");
       LIBXS_GEMM_PRINT2(stdout,
@@ -1858,7 +1860,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
         descriptor->flags, descriptor->m, descriptor->n, descriptor->k,
         descriptor->alpha, 0/*a*/, descriptor->lda, 0/*b*/, descriptor->ldb,
         descriptor->beta, 0/*c*/, descriptor->ldc);
-      fprintf(stdout, " = %p\n", result.xmm);
+      fprintf(stdout, " = %p+%u\n", result.xmm, (unsigned int)code_size);
       LIBXS_FUNLOCK(stdout);
     }
 #endif
@@ -2227,6 +2229,8 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
       *fn = result.ival;
 #if defined(_DEBUG)
       if (0 != libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.pmm) {
+        size_t code_size;
+        libxs_get_mmkernel_info(result.xgemm, NULL/*info*/, &code_size);
         LIBXS_FLOCK(stdout);
         fprintf(stdout, "LIBXS: ");
         LIBXS_GEMM_PRINT2(stdout,
@@ -2234,7 +2238,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
           descriptor->flags, descriptor->m, descriptor->n, descriptor->k,
           descriptor->alpha, 0/*a*/, descriptor->lda, 0/*b*/, descriptor->ldb,
           descriptor->beta, 0/*c*/, descriptor->ldc);
-        fprintf(stdout, " = %p\n", result.pmm);
+        fprintf(stdout, " = %p+%u\n", result.pmm, (unsigned int)code_size);
         LIBXS_FUNLOCK(stdout);
       }
 #endif
