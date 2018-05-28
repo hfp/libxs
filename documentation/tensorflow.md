@@ -1,6 +1,6 @@
  Getting Started
 
-The [TensorFlow repository](https://github.com/hfp/tensorflow-xsmm) (as cloned below) is tracking the master revision of the [original TensorFlow](https://github.com/tensorflow/tensorflow/) and it is modified to use a recent revision of LIBXS (likely the master revision) as well as a recent revision of the Eigen library (which may be [an improved version](https://github.com/hfp/libxs)). It is also possible to build this fork of TensorFlow without LIBXS (see [Special Builds](#performance-tuning) section).
+The [TensorFlow repository](https://github.com/hfp/tensorflow-xsmm) (as cloned below) is tracking the master revision of the [original TensorFlow](https://github.com/tensorflow/tensorflow/) and it is modified to use a recent revision of LIBXS (likely the master revision) as well as a recent revision of the Eigen library (which may be [an improved version](https://github.com/hfp/libxs)). It is also possible to build this fork of TensorFlow without LIBXS (see [Performance Tuning and Profiling](#performance-tuning-and-profiling)).
 
 ```bash
 git clone https://github.com/hfp/tensorflow-xsmm.git
