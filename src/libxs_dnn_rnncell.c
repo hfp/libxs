@@ -191,7 +191,7 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
                                            size += handle->m * handle->n * sizeof_datatype * handle->t; /* z1t */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* z2i, zi */
+                                           size += handle->m * handle->n * sizeof_datatype; /* z2, zi */
                                            size += 64;
                                            size += handle->m * handle->n * sizeof_datatype * handle->t; /* deltat */
                                            size += 64;
@@ -427,6 +427,8 @@ LIBXS_API size_t libxs_dnn_rnncell_get_internalstate_size(const libxs_dnn_rnncel
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
+                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* djdht */
+                                           size += 64;
                                            size += handle->m * handle->n * sizeof_datatype * handle->t; /* zt */
                                            size += 64;
                                            size += handle->m * handle->m * sizeof_datatype; /* u */
@@ -575,6 +577,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_internalstate(libxs_dnn_rnncell
                                              offset = (64 - address % 64);
                                              handle->w->data = (void*)(address+offset);
                                            }
+                                           scratch_size = handle->m * handle->k * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->djdht->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->djdht->data = (void*)(address+offset);
+                                           }
                                          } break;
       default: {
                  status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -616,6 +626,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
                                            handle->djdw->data = 0;
                                            handle->djdxt->data = 0;
                                            handle->w->data = 0;
+                                           handle->djdht->data = 0;
                                            handle->z = 0;
                                            handle->u = 0;
                                            handle->xt = 0;
@@ -624,6 +635,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
                                            handle->djdw = 0;
                                            handle->djdxt = 0;
                                            handle->w = 0;
+                                           handle->djdht = 0;
                                          } break;
       default: {
                  status = LIBXS_DNN_ERR_INVALID_KIND;
