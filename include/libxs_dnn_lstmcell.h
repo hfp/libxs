@@ -34,15 +34,109 @@
 #include "libxs_dnn.h"
 
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
-  int N;
-  int nThreads;
-} libxs_dnn_lstmcell;
-
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell_desc {
   int N;
   int nThreads;
+  int m; /* number of outputs */
+  int n; /* size of the minibatch */
+  int k; /* number of inputs */
+  int t; /* number of time steps */
+  int bm; /* blocksize for m */
+  int bn; /* blocksize for n */
+  int bk; /* blocksize for k */
+  int b_m1; /* b_?? parameters are used in libxs_bgemm */
+  int b_n1;
+  int b_k1;
+  int b_m2;
+  int b_n2;
+  int b_k2;
+  libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
+  libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
+  libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
 } libxs_dnn_lstmcell_desc;
+
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
+  int N;
+  int nThreads;
+  libxs_dnn_lstmcell_desc desc;
+  libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
+  libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
+  libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
+  int m;
+  int n;
+  int k;
+  int t;
+  int bm;
+  int bn;
+  int bk;
+  int b_m1;
+  int b_n1;
+  int b_k1;
+  int b_m2;
+  int b_n2;
+  int b_k2;
+  libxs_dnn_tensor* wi;
+  libxs_dnn_tensor* wf;
+  libxs_dnn_tensor* wo;
+  libxs_dnn_tensor* wc;
+  libxs_dnn_tensor* xt;
+  libxs_dnn_tensor* ri;
+  libxs_dnn_tensor* rf;
+  libxs_dnn_tensor* ro;
+  libxs_dnn_tensor* rc;
+  libxs_dnn_tensor* h;
+  libxs_dnn_tensor* i1t;
+  libxs_dnn_tensor* i1b;
+  libxs_dnn_tensor* i2;
+  libxs_dnn_tensor* f1t;
+  libxs_dnn_tensor* f1b;
+  libxs_dnn_tensor* f2;
+  libxs_dnn_tensor* o1t;
+  libxs_dnn_tensor* o1b;
+  libxs_dnn_tensor* o2;
+  libxs_dnn_tensor* c1t;
+  libxs_dnn_tensor* c1b;
+  libxs_dnn_tensor* c2;
+  libxs_dnn_tensor* i;
+  libxs_dnn_tensor* f;
+  libxs_dnn_tensor* o;
+  libxs_dnn_tensor* c;
+  libxs_dnn_tensor* dh;
+  libxs_dnn_tensor* d1;
+  libxs_dnn_tensor* d2;
+  libxs_dnn_tensor* d;
+  libxs_dnn_tensor* i3;
+  libxs_dnn_tensor* f3;
+  libxs_dnn_tensor* d4;
+  libxs_dnn_tensor* djdht;
+  libxs_dnn_tensor* deltat;
+  libxs_dnn_tensor* djddt;
+  libxs_dnn_tensor* djdit;
+  libxs_dnn_tensor* djdft;
+  libxs_dnn_tensor* djdct;
+  libxs_dnn_tensor* djdot;
+  libxs_dnn_tensor* djdxt;
+  libxs_dnn_tensor* djdwi;
+  libxs_dnn_tensor* djdwf;
+  libxs_dnn_tensor* djdwo;
+  libxs_dnn_tensor* djdwc;
+  libxs_dnn_tensor* djdri;
+  libxs_dnn_tensor* djdrf;
+  libxs_dnn_tensor* djdro;
+  libxs_dnn_tensor* djdrc;
+  libxs_dnn_tensor* djdbi;
+  libxs_dnn_tensor* djdbf;
+  libxs_dnn_tensor* djdbo;
+  libxs_dnn_tensor* djdbc;
+  libxs_dnn_tensor* rTp;
+  libxs_dnn_tensor* wTp;
+  libxs_dnn_tensor* deltaTp;
+  libxs_dnn_tensor* xTp;
+  libxs_bgemm_handle* handlewx;
+  libxs_bgemm_handle* handleuh;
+  libxs_bgemm_handle* handlett;
+  libxs_bgemm_handle* handlewd;
+} libxs_dnn_lstmcell;
 
 LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc lstmcell_desc, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_lstmcell(const libxs_dnn_lstmcell* handle);
