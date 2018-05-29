@@ -110,7 +110,12 @@ int main(void)
 # if defined(CHECK_FPE) && defined(__SSE__)
     fpstate = _MM_GET_EXCEPTION_STATE() & ~fpcheck;
     result = (0 == fpstate ? EXIT_SUCCESS : EXIT_FAILURE);
-    if (EXIT_SUCCESS == result)
+    if (EXIT_SUCCESS != result) {
+#   if defined(_DEBUG)
+      fprintf(stderr, "FPE(%i): state=%u\n", test + 1, fpstate);
+#   endif
+    }
+    else
 # endif
     {
       REFERENCE_BLAS(ITYPE)(&transa, &transb, m + test, n + test, k + test,
@@ -118,7 +123,15 @@ int main(void)
 
       result = libxs_matdiff(LIBXS_DATATYPE(OTYPE), m[test], n[test], d, c, ldc + test, ldc + test, &diff_test);
       if (EXIT_SUCCESS == result) {
-        libxs_matdiff_reduce(&diff, &diff_test);
+        if (1.0 >= (1000.0 * diff_test.normf_rel)) {
+          libxs_matdiff_reduce(&diff, &diff_test);
+        }
+        else {
+# if defined(_DEBUG)
+          fprintf(stderr, "Diff(%i): L2abs=%f Linf=%f\n", test + 1, diff_test.l2_abs, diff_test.linf_abs);
+# endif
+          result = EXIT_FAILURE;
+        }
       }
     }
   }
@@ -132,19 +145,6 @@ int main(void)
   libxs_free(c);
   libxs_free(d);
 
-  if (result == EXIT_SUCCESS) {
-    if (1.0 < (1000.0 * diff.normf_rel)) {
-# if defined(_DEBUG)
-      fprintf(stderr, "Diff(%i): L2abs=%f Linf=%f\n", test + 1, diff.l2_abs, diff.linf_abs);
-# endif
-      result = EXIT_FAILURE;
-    }    
-  }
-# if defined(_DEBUG) && defined(CHECK_FPE) && defined(__SSE__)
-  else {
-    fprintf(stderr, "FPE(%i): state=%u\n", test + 1, fpstate);
-  }
-# endif   
   return result;
 #else
 # if defined(_DEBUG)
