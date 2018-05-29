@@ -388,6 +388,8 @@ LIBXS_API void libxs_gemm_dprint2(void* ostream,
   double dalpha, const void* a, libxs_blasint lda,
   const void* b, libxs_blasint ldb,
   double dbeta, void* c, libxs_blasint ldc);
+LIBXS_API void libxs_gemm_xprint(void* ostream,
+  libxs_xmmfunction kernel, const void* a, const void* b, void* c);
 
 /** GEMM: fall-back prototype functions served by any compliant LAPACK/BLAS. */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(
