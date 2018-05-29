@@ -150,7 +150,81 @@ typedef enum libxs_dnn_tensor_type {
   LIBXS_DNN_MAX_STATS_BWD,
   LIBXS_DNN_MAX_STATS_UPD,
    /** general type, if needed might cause API issues in copy in/out API */
-  LIBXS_DNN_TENSOR
+  LIBXS_DNN_TENSOR,
+
+  /** regular input buffer */
+  LIBXS_DNN_RNN_REGULAR_INPUT,
+  /** regular hidden state buffer */
+  LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE,
+  /** regular weight */
+  LIBXS_DNN_RNN_REGULAR_WEIGHT,
+  /** regular recurrent weight */
+  LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT,
+  /** regular gradient input buffer */
+  LIBXS_DNN_RNN_GRADIENT_INPUT,
+  /** regular gradient hidden state buffer */
+  LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE,
+  /** regular gradient weight */
+  LIBXS_DNN_RNN_GRADIENT_WEIGHT,
+  /** regular gradient recurrent weight */
+  LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT,
+
+  /** regular input buffer */
+  LIBXS_DNN_LSTM_REGULAR_INPUT,
+  /** regular hidden state buffer */
+  LIBXS_DNN_LSTM_REGULAR_HIDDEN_STATE,
+  /** regular weight i */
+  LIBXS_DNN_LSTM_REGULAR_WEIGHT_I,
+  /** regular weight f */
+  LIBXS_DNN_LSTM_REGULAR_WEIGHT_F,
+  /** regular weight o */
+  LIBXS_DNN_LSTM_REGULAR_WEIGHT_O,
+  /** regular weight c */
+  LIBXS_DNN_LSTM_REGULAR_WEIGHT_C,
+  /** regular recurrent weight i */
+  LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_I,
+  /** regular recurrent weight f */
+  LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_F,
+  /** regular recurrent weight o */
+  LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_O,
+  /** regular recurrent weight c */
+  LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_C,
+  /** regular bias i */
+  LIBXS_DNN_LSTM_REGULAR_BIAS_I,
+  /** regular bias f */
+  LIBXS_DNN_LSTM_REGULAR_BIAS_F,
+  /** regular bias o */
+  LIBXS_DNN_LSTM_REGULAR_BIAS_O,
+  /** regular bias c */
+  LIBXS_DNN_LSTM_REGULAR_BIAS_C,
+  /** regular gradient input buffer */
+  LIBXS_DNN_LSTM_GRADIENT_INPUT,
+  /** regular gradient hidden state buffer */
+  LIBXS_DNN_LSTM_GRADIENT_HIDDEN_STATE,
+  /** regular gradient weight i */
+  LIBXS_DNN_LSTM_GRADIENT_WEIGHT_I,
+  /** regular gradient weight f */
+  LIBXS_DNN_LSTM_GRADIENT_WEIGHT_F,
+  /** regular gradient weight o */
+  LIBXS_DNN_LSTM_GRADIENT_WEIGHT_O,
+  /** regular gradient weight c */
+  LIBXS_DNN_LSTM_GRADIENT_WEIGHT_C,
+  /** regular gradient recurrent weight i */
+  LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_I,
+  /** regular gradient recurrent weight f */
+  LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_F,
+  /** regular gradient recurrent weight o */
+  LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_O,
+  /** regular gradient recurrent weight c */
+  LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_C,
+  /** regular gradient bias i */
+  LIBXS_DNN_LSTM_GRADIENT_BIAS_I,
+  /** regular gradient bias f */
+  LIBXS_DNN_LSTM_GRADIENT_BIAS_F,
+  /** regular gradient bias o */
+  LIBXS_DNN_LSTM_GRADIENT_BIAS_O,
+  /** regular gradient bias c */
+  LIBXS_DNN_LSTM_GRADIENT_BIAS_C,
 } libxs_dnn_tensor_type;
 
 /** layout descriptor to allow external data handling
