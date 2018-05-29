@@ -1388,8 +1388,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     } break;
     case LIBXS_BUILD_KIND_MCOPY: { /* matcopy kernel */
       assert(0 != request->descriptor.matcopy);
-      if (4 == request->descriptor.matcopy->typesize || 8 == request->descriptor.matcopy->typesize
-       || 2 == request->descriptor.matcopy->typesize || 1 == request->descriptor.matcopy->typesize)
+      if (4 == request->descriptor.matcopy->typesize ||
+          2 == request->descriptor.matcopy->typesize ||
+          1 == request->descriptor.matcopy->typesize)
       {
         LIBXS_NO_OFFLOAD(void, libxs_generator_matcopy_kernel, &generated_code, request->descriptor.matcopy, target_arch);
 # if !defined(LIBXS_VTUNE)
