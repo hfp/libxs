@@ -84,6 +84,11 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
   libxs_dnn_tensor* rf;
   libxs_dnn_tensor* ro;
   libxs_dnn_tensor* rc;
+  /* Currently we are not using the following 4 bias terms */
+  libxs_dnn_tensor* bi;
+  libxs_dnn_tensor* bf;
+  libxs_dnn_tensor* bo;
+  libxs_dnn_tensor* bc;
   libxs_dnn_tensor* h;
   libxs_dnn_tensor* i1t;
   libxs_dnn_tensor* i1b;
