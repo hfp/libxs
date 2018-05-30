@@ -39,10 +39,6 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(LIBXS_TRANS_TO_COPY)
-# define LIBXS_TRANS_TO_COPY
-#endif
-
 #if !defined(LIBXS_TRANS_JIT)
 # if defined(_WIN32) || defined(__CYGWIN__)
 /* only enable matcopy code generation (workaround issue with taking GP registers correctly) */
@@ -241,70 +237,54 @@ LIBXS_API int libxs_otrans_thread(void* out, const void* in, unsigned int typesi
   {
     LIBXS_INIT /* before leading tile sizes */
     if (out != in) {
-#if defined(LIBXS_TRANS_TO_COPY) /* check if transpose can be lowered */
-      if ((1 != n || m != ldo) && (1 != m || ldi != ldo))
-#endif
-      {
-        const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
-        unsigned int tm = (unsigned int)m, tn = (unsigned int)n;
-        libxs_descriptor_blob blob;
+      const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
+      unsigned int tm = (unsigned int)m, tn = (unsigned int)n;
+      libxs_descriptor_blob blob;
+      /* libxs_trans_jit: JIT'ted transpose permitted? */
+      libxs_trans_descriptor* desc = (0 != (2 & libxs_trans_jit)
+        ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
+      libxs_xtransfunction xtrans = 0;
+      if (0 == desc) { /* tiled transpose */
+        const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
+        const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
+        const unsigned int tidx = (4 < typesize ? 0 : 1);
+        libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
+        int mtasks;
+        tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
+        tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
         /* libxs_trans_jit: JIT'ted transpose permitted? */
-        libxs_trans_descriptor* desc = (0 != (2 & libxs_trans_jit)
-          ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
-        libxs_xtransfunction xtrans = 0;
-        if (0 == desc) { /* tiled transpose */
-          const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
-          const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
-          const unsigned int tidx = (4 < typesize ? 0 : 1);
-          libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
-          int mtasks;
-          tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
-          tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
-          /* libxs_trans_jit: JIT'ted transpose permitted? */
-          desc = (0 != (2 & libxs_trans_jit) ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
-          if (0 != desc) { /* limit the amount of (unrolled) code with smaller kernel/tiles */
-            desc->m = LIBXS_MIN(tm, LIBXS_MAX_M); desc->n = LIBXS_MIN(tn, LIBXS_MAX_N);
-            if (0 != (xtrans = libxs_dispatch_trans(desc))) {
-              tm = desc->m; tn = desc->n;
-            }
-          }
-          mtasks = ((1 < nthreads) ? ((int)((m + tm - 1) / tm)) : 1);
-          if (1 < mtasks && nthreads <= mtasks) { /* only parallelized over M */
-            const int mc = (mtasks + nthreads - 1) / nthreads * tm;
-            m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
-          }
-          else if (1 < nthreads) {
-            const int ntasks = nthreads / mtasks, mtid = tid / ntasks, ntid = tid - mtid * ntasks;
-            const libxs_blasint nc = (((n + ntasks - 1) / ntasks + tn - 1) / tn) * tn;
-            const libxs_blasint mc = tm;
-            m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
-            n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
-          }
-          LIBXS_XCOPY(
-            LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
-            LIBXS_TCOPY_KERNEL, LIBXS_TCOPY_CALL, xtrans, out, in,
-            typesize, uldi, uldo, tm, tn, m0, m1, n0, n1);
-        }
-        else { /* no tiling */
-          if (0 != (xtrans = libxs_dispatch_trans(desc))) { /* JIT'ted kernel available */
-            LIBXS_TCOPY_CALL(xtrans, typesize, in, &uldi, out, &uldo);
-          }
-          else { /* JIT not available */
-            LIBXS_XCOPY_NONJIT(LIBXS_TCOPY_KERNEL, out, in, typesize, uldi, uldo, 0, m, 0, n);
+        desc = (0 != (2 & libxs_trans_jit) ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
+        if (0 != desc) { /* limit the amount of (unrolled) code with smaller kernel/tiles */
+          desc->m = LIBXS_MIN(tm, LIBXS_MAX_M); desc->n = LIBXS_MIN(tn, LIBXS_MAX_N);
+          if (0 != (xtrans = libxs_dispatch_trans(desc))) {
+            tm = desc->m; tn = desc->n;
           }
         }
+        mtasks = ((1 < nthreads) ? ((int)((m + tm - 1) / tm)) : 1);
+        if (1 < mtasks && nthreads <= mtasks) { /* only parallelized over M */
+          const int mc = (mtasks + nthreads - 1) / nthreads * tm;
+          m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
+        }
+        else if (1 < nthreads) {
+          const int ntasks = nthreads / mtasks, mtid = tid / ntasks, ntid = tid - mtid * ntasks;
+          const libxs_blasint nc = (((n + ntasks - 1) / ntasks + tn - 1) / tn) * tn;
+          const libxs_blasint mc = tm;
+          m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
+          n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
+        }
+        LIBXS_XCOPY(
+          LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
+          LIBXS_TCOPY_KERNEL, LIBXS_TCOPY_CALL, xtrans, out, in,
+          typesize, uldi, uldo, tm, tn, m0, m1, n0, n1);
       }
-#if defined(LIBXS_TRANS_TO_COPY)
-      else if (1 == m) {
-        result = libxs_matcopy_thread(out, in, typesize, 1/*m*/, n, 1/*ldi*/, 1/*ldo*/,
-          /*default prefetch*/NULL, tid, nthreads);
+      else { /* no tiling */
+        if (0 != (xtrans = libxs_dispatch_trans(desc))) { /* JIT'ted kernel available */
+          LIBXS_TCOPY_CALL(xtrans, typesize, in, &uldi, out, &uldo);
+        }
+        else { /* JIT not available */
+          LIBXS_XCOPY_NONJIT(LIBXS_TCOPY_KERNEL, out, in, typesize, uldi, uldo, 0, m, 0, n);
+        }
       }
-      else {
-        LIBXS_ASSERT(1 == n);
-        result = libxs_matcopy_thread(out, in, typesize, m, 1/*n*/, ldi, ldo,
-          /*default prefetch*/NULL, tid, nthreads);
-      }
-#endif
     }
     else if (ldi == ldo) {
       result = libxs_itrans(out, typesize, m, n, ldi);
