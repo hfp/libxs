@@ -109,7 +109,14 @@ typedef enum libxs_dnn_tensor_dimtype {
   /** kernel width */
   LIBXS_DNN_TENSOR_DIMTYPE_S,
   /** general counter */
-  LIBXS_DNN_TENSOR_DIMTYPE_X
+  LIBXS_DNN_TENSOR_DIMTYPE_X,
+
+  /** number of outputs for RNN/LSTM */
+  LIBXS_DNN_TENSOR_DIMTYPE_RLM,
+  /** number of inputs for RNN/LSTM */
+  LIBXS_DNN_TENSOR_DIMTYPE_RLK,
+  /** size of minibatch for RNN/LSTM */
+  LIBXS_DNN_TENSOR_DIMTYPE_RLN
 } libxs_dnn_tensor_dimtype;
 
 /** types of different buffers */
@@ -167,7 +174,7 @@ typedef enum libxs_dnn_tensor_type {
   /** regular gradient weight */
   LIBXS_DNN_RNN_GRADIENT_WEIGHT,
   /** regular gradient recurrent weight */
-  LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT,
+  LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT,
 
   /** regular input buffer */
   LIBXS_DNN_LSTM_REGULAR_INPUT,
