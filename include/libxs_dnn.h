@@ -402,8 +402,8 @@ LIBXS_API void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int le
 /** some BF16<->FP32 conversion functions
     @TODO we need to find a final place for those */
 LIBXS_API void libxs_truncate_convert_f32_bf16(const float* in, libxs_bfloat16* out, const unsigned int length);
-LIBXS_API void rnaz_convert_fp32_bfp16(const float* in, libxs_bfloat16* out, const unsigned int len);
-LIBXS_API void rne_convert_fp32_bfp16(const float* in, libxs_bfloat16* out, const unsigned int len);
+LIBXS_API void libxs_rnaz_convert_fp32_bfp16(const float* in, libxs_bfloat16* out, const unsigned int len);
+LIBXS_API void libxs_rne_convert_fp32_bfp16(const float* in, libxs_bfloat16* out, const unsigned int len);
 LIBXS_API void libxs_convert_bf16_f32(const libxs_bfloat16* in, float* out, unsigned int length);
 
 #endif /*LIBXS_DNN_H*/

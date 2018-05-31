@@ -3014,7 +3014,7 @@ LIBXS_API void libxs_rnaz_convert_fp32_bfp16(const float* in, libxs_bfloat16* ou
 }
 
 
-LIBXS_API void rne_convert_fp32_bfp16(const float* in, libxs_bfloat16* out, const unsigned int len) {
+LIBXS_API void libxs_rne_convert_fp32_bfp16(const float* in, libxs_bfloat16* out, const unsigned int len) {
   unsigned int i = 0;
 
   /* truncate buffer to bfp16 */
