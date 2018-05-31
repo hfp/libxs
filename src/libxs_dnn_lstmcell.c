@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2018, Intel Corporation                                **
+** Copyright (c) 2017-2018, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -26,10 +26,8 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-
-#include <libxs.h>
-#include "libxs_main.h"
 #include "libxs_dnn_elementwise.h"
+#include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -39,9 +37,6 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(FTYPE)
-# define FTYPE float /* TODO: undefine/remove generic symbol names as header-only interfers with user's code */
-#endif
 
 #if defined(LSTM_TIMING)
 #include <stdio.h>
@@ -51,7 +46,8 @@ double Gbl_duration_input = 0., Gbl_duration_recur = 0., Gbl_duration_eltwise = 
 #endif
 
 
-LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc lstmcell_desc, libxs_dnn_err_t* status) {
+LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc lstmcell_desc, libxs_dnn_err_t* status)
+{
   libxs_dnn_lstmcell* handle = 0;
   *status = LIBXS_DNN_SUCCESS;
 
@@ -92,7 +88,8 @@ LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc 
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_lstmcell(const libxs_dnn_lstmcell* handle) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_lstmcell(const libxs_dnn_lstmcell* handle)
+{
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   if (0 != handle) {
     /* deallocate handle structure */
@@ -102,7 +99,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_lstmcell(const libxs_dnn_lstmcell* h
 }
 
 
-LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayout(const libxs_dnn_lstmcell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
+LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayout(const libxs_dnn_lstmcell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status)
+{
   libxs_dnn_tensor_datalayout* layout = 0;
   *status = LIBXS_DNN_SUCCESS;
   layout = 0;
@@ -112,7 +110,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
       memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
       /*layout->custom_format = handle->custom_format_type;*/
       if ( (type == LIBXS_DNN_LSTM_REGULAR_INPUT)          || (type == LIBXS_DNN_LSTM_GRADIENT_INPUT)  ||
-           (type == LIBXS_DNN_LSTM_REGULAR_HIDDEN_STATE)   || (type == LIBXS_DNN_LSTM_GRADIENT_HIDDEN_STATE) || 
+           (type == LIBXS_DNN_LSTM_REGULAR_HIDDEN_STATE)   || (type == LIBXS_DNN_LSTM_GRADIENT_HIDDEN_STATE) ||
            (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_I)       || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_I) ||
            (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_F)       || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_F) ||
            (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_O)       || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_O) ||
@@ -156,7 +154,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
                   layout->dim_size[1] = handle->bn;
                   layout->dim_size[2] = handle->m / handle->bm;
                   layout->dim_size[3] = handle->n / handle->bn;
-                } else if ( (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_I) || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_I) || 
+                } else if ( (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_I) || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_I) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_F) || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_F) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_O) || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_O) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_C) || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_C) ) {
@@ -168,7 +166,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
                   layout->dim_size[1] = handle->bk;
                   layout->dim_size[2] = handle->k / handle->bk;
                   layout->dim_size[3] = handle->m / handle->bm;
-                } else if ( (type == LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_I) || (type == LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_I) || 
+                } else if ( (type == LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_I) || (type == LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_I) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_F) || (type == LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_F) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_O) || (type == LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_O) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_C) || (type == LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_C) ) {
@@ -180,7 +178,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
                   layout->dim_size[1] = handle->bm;
                   layout->dim_size[2] = handle->m / handle->bm;
                   layout->dim_size[3] = handle->m / handle->bm;
-                } else if ( (type == LIBXS_DNN_LSTM_REGULAR_BIAS_I) || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_I) || 
+                } else if ( (type == LIBXS_DNN_LSTM_REGULAR_BIAS_I) || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_I) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_BIAS_F) || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_F) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_BIAS_O) || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_O) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_BIAS_C) || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_C) ) {
@@ -230,7 +228,8 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
 }
 
 
-LIBXS_API size_t libxs_dnn_lstmcell_get_scratch_size(const libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status) {
+LIBXS_API size_t libxs_dnn_lstmcell_get_scratch_size(const libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status)
+{
   size_t sizeof_datatype = sizeof(float);
   size_t size = 0;
   *status = LIBXS_DNN_SUCCESS;
@@ -337,7 +336,8 @@ LIBXS_API size_t libxs_dnn_lstmcell_get_scratch_size(const libxs_dnn_lstmcell* h
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, const void* scratch) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, const void* scratch)
+{
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   size_t address = (size_t)scratch;
   size_t offset = 0;
@@ -657,7 +657,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind)
+{
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
@@ -746,7 +747,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell*
 }
 
 
-LIBXS_API size_t libxs_dnn_lstmcell_get_internalstate_size(const libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status) {
+LIBXS_API size_t libxs_dnn_lstmcell_get_internalstate_size(const libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status)
+{
   size_t sizeof_datatype = sizeof(float);
   size_t size = 0;
   *status = LIBXS_DNN_SUCCESS;
@@ -801,7 +803,8 @@ LIBXS_API size_t libxs_dnn_lstmcell_get_internalstate_size(const libxs_dnn_lstmc
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, const void* internalstate) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, const void* internalstate)
+{
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   size_t address = (size_t)internalstate;
   size_t offset = 0;
@@ -949,7 +952,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_internalstate(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_internalstate(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind)
+{
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
@@ -1002,7 +1006,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_internalstate(libxs_dnn_lst
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type)
+{
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check for tensor type */
@@ -1101,8 +1106,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_tensor(libxs_dnn_lstmcell* han
 }
 
 
-LIBXS_API libxs_dnn_tensor* libxs_dnn_lstmcell_get_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
+LIBXS_API libxs_dnn_tensor* libxs_dnn_lstmcell_get_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status)
+{
   libxs_dnn_tensor* tensor = 0;
+  LIBXS_UNUSED(status/*TODO*/);
+
   /* check for tensor type */
   if ( (type != LIBXS_DNN_LSTM_REGULAR_INPUT)         && (type != LIBXS_DNN_LSTM_GRADIENT_INPUT)  &&
       (type != LIBXS_DNN_LSTM_REGULAR_HIDDEN_STATE)   && (type != LIBXS_DNN_LSTM_GRADIENT_HIDDEN_STATE) &&
@@ -1187,7 +1195,8 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_lstmcell_get_tensor(libxs_dnn_lstmcell* ha
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor_type type) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor_type type)
+{
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check for tensor type */
@@ -1289,60 +1298,60 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
   const double gflops = (((2.0 * m * n * k) + (2.0 * m * n * m) + (2.0 * m * n)) * 4.0 + (5.0 * m * n)) * t * 1E-9;
 #endif
   int reuse = 1;
-  FTYPE *wi = (FTYPE*)lstm->wi->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wi = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wi->data;
 #if defined(NON_FUSED_INPUT_GEMM)
-  FTYPE *wf = (FTYPE*)lstm->wf->data;
-  FTYPE *wo = (FTYPE*)lstm->wo->data;
-  FTYPE *wc = (FTYPE*)lstm->wc->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wf = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wf->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wo = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wo->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wc = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wc->data;
 #endif
-  FTYPE *xt = (FTYPE*)lstm->xt->data;
-  FTYPE *ri = (FTYPE*)lstm->ri->data;
-  FTYPE *rf = (FTYPE*)lstm->rf->data;
-  FTYPE *ro = (FTYPE*)lstm->ro->data;
-  FTYPE *rc = (FTYPE*)lstm->rc->data;
-  FTYPE *h = (FTYPE*)lstm->h->data;
-  FTYPE *i1t = (FTYPE*)lstm->i1t->data;
-  FTYPE *i2 = (FTYPE*)lstm->i2->data;
-  FTYPE *f1t = (FTYPE*)lstm->f1t->data;
-  FTYPE *f2 = (FTYPE*)lstm->f2->data;
-  FTYPE *o1t = (FTYPE*)lstm->o1t->data;
-  FTYPE *o2 = (FTYPE*)lstm->o2->data;
-  FTYPE *c1t = (FTYPE*)lstm->c1t->data;
-  FTYPE *c2 = (FTYPE*)lstm->c2->data;
-  FTYPE *i = (FTYPE*)lstm->i->data;
-  FTYPE *f = (FTYPE*)lstm->f->data;
-  FTYPE *o = (FTYPE*)lstm->o->data;
-  FTYPE *c = (FTYPE*)lstm->c->data;
-  FTYPE *dh = (FTYPE*)lstm->dh->data;
-  FTYPE *d1 = (FTYPE*)lstm->d1->data;
-  FTYPE *d2 = (FTYPE*)lstm->d2->data;
-  FTYPE *d = (FTYPE*)lstm->d->data;
-  LIBXS_VLA_DECL(2, FTYPE, x, xt, k * n);
+  LIBXS_DNN_ELTWISE_FTYPE *xt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->xt->data;
+  LIBXS_DNN_ELTWISE_FTYPE *ri = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->ri->data;
+  LIBXS_DNN_ELTWISE_FTYPE *rf = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->rf->data;
+  LIBXS_DNN_ELTWISE_FTYPE *ro = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->ro->data;
+  LIBXS_DNN_ELTWISE_FTYPE *rc = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->rc->data;
+  LIBXS_DNN_ELTWISE_FTYPE *h = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->h->data;
+  LIBXS_DNN_ELTWISE_FTYPE *i1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *i2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i2->data;
+  LIBXS_DNN_ELTWISE_FTYPE *f1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *f2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f2->data;
+  LIBXS_DNN_ELTWISE_FTYPE *o1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *o2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o2->data;
+  LIBXS_DNN_ELTWISE_FTYPE *c1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *c2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c2->data;
+  LIBXS_DNN_ELTWISE_FTYPE *i = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i->data;
+  LIBXS_DNN_ELTWISE_FTYPE *f = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f->data;
+  LIBXS_DNN_ELTWISE_FTYPE *o = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o->data;
+  LIBXS_DNN_ELTWISE_FTYPE *c = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c->data;
+  LIBXS_DNN_ELTWISE_FTYPE *dh = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->dh->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d1 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d1->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d2->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d->data;
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n);
 #if defined(NON_FUSED_INPUT_GEMM)
-  LIBXS_VLA_DECL(2, FTYPE, i1, i1t, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, f1, f1t, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, o1, o1t, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, c1, c1t, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i1, i1t, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f1, f1t, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o1, o1t, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c1, c1t, m * n);
 #else
-  LIBXS_VLA_DECL(3, FTYPE, i4, i1t, t, m * n);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, i4, i1t, t, m * n);
   i1t = &LIBXS_VLA_ACCESS(3, i4, 0, 0, 0, t, m * n);
   f1t = &LIBXS_VLA_ACCESS(3, i4, 1, 0, 0, t, m * n);
   o1t = &LIBXS_VLA_ACCESS(3, i4, 2, 0, 0, t, m * n);
   c1t = &LIBXS_VLA_ACCESS(3, i4, 3, 0, 0, t, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, i1, i1t, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, f1, f1t, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, o1, o1t, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, c1, c1t, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i1, i1t, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f1, f1t, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o1, o1t, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c1, c1t, m * n);
 #endif
   /* libxs_bgemm_handle *handlewx = lstm->handlewx; */
   libxs_bgemm_handle *handleuh = lstm->handleuh;
   libxs_bgemm_handle *handlett = lstm->handlett;
-  LIBXS_VLA_DECL(2, FTYPE, hnr, h, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, inr, i, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, fnr, f, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, onr, o, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, cnr, c, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, dnr, d, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, hnr, h, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, inr, i, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, fnr, f, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, onr, o, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, cnr, c, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, dnr, d, m * n);
 #if defined(LSTM_TIMING)
   unsigned long long start;
   double duration;
@@ -1536,76 +1545,76 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   }
   gflops *= 1E-9; /* to convert flops to Gflops */
 #endif
-  FTYPE *wi = (FTYPE*)lstm->wi->data;
-  FTYPE *wf = (FTYPE*)lstm->wf->data;
-  FTYPE *wo = (FTYPE*)lstm->wo->data;
-  FTYPE *wc = (FTYPE*)lstm->wc->data;
-  FTYPE *xt = (FTYPE*)lstm->xt->data;
-  FTYPE *ri = (FTYPE*)lstm->ri->data;
-  FTYPE *rf = (FTYPE*)lstm->rf->data;
-  FTYPE *ro = (FTYPE*)lstm->ro->data;
-  FTYPE *rc = (FTYPE*)lstm->rc->data;
-  /* FTYPE *ht = (FTYPE*)lstm->h->data; */
-  FTYPE *i1 = (FTYPE*)lstm->i1t->data;
-  FTYPE *i2 = (FTYPE*)lstm->i2->data;
-  FTYPE *i3 = (FTYPE*)lstm->i3->data;
-  FTYPE *f1 = (FTYPE*)lstm->f1t->data;
-  FTYPE *f2 = (FTYPE*)lstm->f2->data;
-  FTYPE *f3 = (FTYPE*)lstm->f3->data;
-  FTYPE *o1 = (FTYPE*)lstm->o1t->data;
-  FTYPE *o2 = (FTYPE*)lstm->o2->data;
-  FTYPE *c1 = (FTYPE*)lstm->c1t->data;
-  FTYPE *c2 = (FTYPE*)lstm->c2->data;
-  FTYPE *it = (FTYPE*)lstm->i->data;
-  FTYPE *ft = (FTYPE*)lstm->f->data;
-  FTYPE *ot = (FTYPE*)lstm->o->data;
-  FTYPE *ct = (FTYPE*)lstm->c->data;
-  FTYPE *d1 = (FTYPE*)lstm->d1->data;
-  FTYPE *d2 = (FTYPE*)lstm->d2->data;
-  FTYPE *d3 = (FTYPE*)lstm->dh->data;
-  FTYPE *d4 = (FTYPE*)lstm->d4->data;
-  FTYPE *dt = (FTYPE*)lstm->d->data;
-  FTYPE *djdht = (FTYPE*)lstm->djdht->data;
-  FTYPE *deltat = (FTYPE*)lstm->deltat->data;
-  FTYPE *djddt = (FTYPE*)lstm->djddt->data;
-  FTYPE *djdit = (FTYPE*)lstm->djdit->data;
-  FTYPE *djdft = (FTYPE*)lstm->djdft->data;
-  FTYPE *djdct = (FTYPE*)lstm->djdct->data;
-  FTYPE *djdot = (FTYPE*)lstm->djdot->data;
-  FTYPE *djdxt = (FTYPE*)lstm->djdxt->data;
-  FTYPE *djdwi = (FTYPE*)lstm->djdwi->data;
-  FTYPE *djdwf = (FTYPE*)lstm->djdwf->data;
-  FTYPE *djdwo = (FTYPE*)lstm->djdwo->data;
-  FTYPE *djdwc = (FTYPE*)lstm->djdwc->data;
-  FTYPE *djdri = (FTYPE*)lstm->djdri->data;
-  FTYPE *djdrf = (FTYPE*)lstm->djdrf->data;
-  FTYPE *djdro = (FTYPE*)lstm->djdro->data;
-  FTYPE *djdrc = (FTYPE*)lstm->djdrc->data;
-  FTYPE *djdbi = (FTYPE*)lstm->djdbi->data;
-  FTYPE *djdbf = (FTYPE*)lstm->djdbf->data;
-  FTYPE *djdbo = (FTYPE*)lstm->djdbo->data;
-  FTYPE *djdbc = (FTYPE*)lstm->djdbc->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wi = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wi->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wf = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wf->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wo = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wo->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wc = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wc->data;
+  LIBXS_DNN_ELTWISE_FTYPE *xt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->xt->data;
+  LIBXS_DNN_ELTWISE_FTYPE *ri = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->ri->data;
+  LIBXS_DNN_ELTWISE_FTYPE *rf = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->rf->data;
+  LIBXS_DNN_ELTWISE_FTYPE *ro = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->ro->data;
+  LIBXS_DNN_ELTWISE_FTYPE *rc = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->rc->data;
+  /* LIBXS_DNN_ELTWISE_FTYPE *ht = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->h->data; */
+  LIBXS_DNN_ELTWISE_FTYPE *i1 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *i2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i2->data;
+  LIBXS_DNN_ELTWISE_FTYPE *i3 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i3->data;
+  LIBXS_DNN_ELTWISE_FTYPE *f1 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *f2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f2->data;
+  LIBXS_DNN_ELTWISE_FTYPE *f3 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f3->data;
+  LIBXS_DNN_ELTWISE_FTYPE *o1 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *o2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o2->data;
+  LIBXS_DNN_ELTWISE_FTYPE *c1 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *c2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c2->data;
+  LIBXS_DNN_ELTWISE_FTYPE *it = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i->data;
+  LIBXS_DNN_ELTWISE_FTYPE *ft = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f->data;
+  LIBXS_DNN_ELTWISE_FTYPE *ot = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o->data;
+  LIBXS_DNN_ELTWISE_FTYPE *ct = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d1 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d1->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d2->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d3 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->dh->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d4 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d4->data;
+  LIBXS_DNN_ELTWISE_FTYPE *dt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdht = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdht->data;
+  LIBXS_DNN_ELTWISE_FTYPE *deltat = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->deltat->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djddt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djddt->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdit = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdit->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdft = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdft->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdct = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdct->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdot = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdot->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdxt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdxt->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdwi = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdwi->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdwf = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdwf->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdwo = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdwo->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdwc = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdwc->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdri = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdri->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdrf = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdrf->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdro = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdro->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdrc = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdrc->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdbi = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdbi->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdbf = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdbf->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdbo = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdbo->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdbc = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdbc->data;
   /*
-  FTYPE *rTp = (FTYPE*)lstm->rTp->data;
-  FTYPE *wTp = (FTYPE*)lstm->wTp->data;
-  FTYPE *deltaTp = (FTYPE*)lstm->deltaTp->data;
-  FTYPE *xTp = (FTYPE*)lstm->xTp->data;
+  LIBXS_DNN_ELTWISE_FTYPE *rTp = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->rTp->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wTp = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wTp->data;
+  LIBXS_DNN_ELTWISE_FTYPE *deltaTp = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->deltaTp->data;
+  LIBXS_DNN_ELTWISE_FTYPE *xTp = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->xTp->data;
   */
-  LIBXS_VLA_DECL(2, FTYPE, x, xt, k * n);
-  /* LIBXS_VLA_DECL(2, FTYPE, h, ht, m * n); */
-  LIBXS_VLA_DECL(2, FTYPE, i, it, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, f, ft, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, o, ot, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, c, ct, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, d, dt, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, djdh, djdht, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, delta, deltat, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, djdd, djddt, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, djdi, djdit, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, djdf, djdft, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, djdo, djdot, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, djdc, djdct, m * n);
-  LIBXS_VLA_DECL(2, FTYPE, djdx, djdxt, k * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n);
+  /* LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, h, ht, m * n); */
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i, it, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f, ft, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o, ot, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c, ct, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, d, dt, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdh, djdht, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, delta, deltat, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdd, djddt, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdi, djdit, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdf, djdft, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdo, djdot, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdc, djdct, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdx, djdxt, k * n);
   libxs_bgemm_handle *handleud = lstm->handlewx;
   libxs_bgemm_handle *handledh = lstm->handleuh;
   libxs_bgemm_handle *handledx = lstm->handlett;
@@ -1616,7 +1625,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
 #endif
   /* int s; */
   int j;
-  
+
   LIBXS_UNUSED(start_thread/* Need to populate this code */);
 #if defined(LSTM_TIMING)
   start = libxs_timer_tick();
@@ -1769,7 +1778,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
 
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_execute_st(libxs_dnn_lstmcell* handle, libxs_dnn_compute_kind kind,
-  /*unsigned*/int start_thread, /*unsigned*/int tid) {
+  /*unsigned*/int start_thread, /*unsigned*/int tid)
+{
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
