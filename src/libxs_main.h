@@ -29,11 +29,7 @@
 #ifndef LIBXS_MAIN_H
 #define LIBXS_MAIN_H
 
-#include <libxs_frontend.h>
-#include <libxs_generator.h>
-#include <libxs_malloc.h>
-#include <libxs_sync.h>
-#include <libxs_dnn.h>
+#include <libxs.h>
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
 #if !defined(LIBXS_CAPACITY_REGISTRY) /* must be POT */

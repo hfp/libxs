@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2018, Intel Corporation                                **
+** Copyright (c) 2018, Intel Corporation                                     **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -26,29 +26,30 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_HELPER_RECURRENT_H
-#define LIBXS_HELPER_RECURRENT_H
+#ifndef LIBXS_DNN_ELEMENTWISE_H
+#define LIBXS_DNN_ELEMENTWISE_H
 
-#if !defined(FTYPE)
-# define FTYPE float /* TODO: undefine/remove generic symbol names as header-only interfers with user's code */
+#include <libxs_bgemm.h>
+
+#if !defined(LIBXS_DNN_ELTWISE_FTYPE)
+# define LIBXS_DNN_ELTWISE_FTYPE float /* TODO: undefine/remove generic symbol names as header-only interferes with user's code */
 #endif
 
-void libxs_internal_matinit(int seed, FTYPE *dst, 
+LIBXS_API_INTERN void libxs_internal_matinit(int seed, LIBXS_DNN_ELTWISE_FTYPE *dst,
   libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale);
-void libxs_internal_matrix_add(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *c);
-void libxs_internal_matrix_eltwise_mult(libxs_blasint size, FTYPE *a, FTYPE *b, FTYPE *c);
-void libxs_internal_matrix_sigmoid(libxs_blasint size, FTYPE *src, FTYPE *dst);
-void libxs_internal_matrix_tanh(libxs_blasint size, FTYPE *src, FTYPE *dst);
-void libxs_internal_matrix_relu(libxs_blasint size, FTYPE *src, FTYPE *dst);
-void libxs_internal_matrix_sigmoid_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst);
-void libxs_internal_matrix_tanh_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst);
-void libxs_internal_matrix_relu_inverse(libxs_blasint size, FTYPE *src, FTYPE *dst, FTYPE *input);
-void libxs_internal_matrix_transpose(libxs_blasint rows, libxs_blasint cols, FTYPE *src, FTYPE *dst);
-void libxs_internal_matrix_copy(libxs_blasint size, FTYPE *src, FTYPE *dst);
-void libxs_internal_matrix_complement(libxs_blasint size, FTYPE *src, FTYPE *dst);
-void libxs_internal_matrix_complement_square(libxs_blasint size, FTYPE *src, FTYPE *dst);
-void libxs_internal_recursive_step(libxs_bgemm_handle* handle, FTYPE* u, FTYPE* h, FTYPE* op1, FTYPE *op2,
-  FTYPE *temp, FTYPE *dst, int act, libxs_blasint size, int tid, int nthreads);
+LIBXS_API_INTERN void libxs_internal_matrix_add(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *a, LIBXS_DNN_ELTWISE_FTYPE *b, LIBXS_DNN_ELTWISE_FTYPE *c);
+LIBXS_API_INTERN void libxs_internal_matrix_eltwise_mult(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *a, LIBXS_DNN_ELTWISE_FTYPE *b, LIBXS_DNN_ELTWISE_FTYPE *c);
+LIBXS_API_INTERN void libxs_internal_matrix_sigmoid(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
+LIBXS_API_INTERN void libxs_internal_matrix_tanh(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
+LIBXS_API_INTERN void libxs_internal_matrix_relu(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
+LIBXS_API_INTERN void libxs_internal_matrix_sigmoid_inverse(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
+LIBXS_API_INTERN void libxs_internal_matrix_tanh_inverse(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
+LIBXS_API_INTERN void libxs_internal_matrix_relu_inverse(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, LIBXS_DNN_ELTWISE_FTYPE *input);
+LIBXS_API_INTERN void libxs_internal_matrix_transpose(libxs_blasint rows, libxs_blasint cols, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
+LIBXS_API_INTERN void libxs_internal_matrix_copy(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
+LIBXS_API_INTERN void libxs_internal_matrix_complement(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
+LIBXS_API_INTERN void libxs_internal_matrix_complement_square(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
+LIBXS_API_INTERN void libxs_internal_recursive_step(libxs_bgemm_handle* handle, LIBXS_DNN_ELTWISE_FTYPE* u, LIBXS_DNN_ELTWISE_FTYPE* h, LIBXS_DNN_ELTWISE_FTYPE* op1, LIBXS_DNN_ELTWISE_FTYPE *op2,
+  LIBXS_DNN_ELTWISE_FTYPE *temp, LIBXS_DNN_ELTWISE_FTYPE *dst, int act, libxs_blasint size, int tid, int nthreads);
 
-#endif
-
+#endif /*LIBXS_DNN_ELEMENTWISE_H*/
