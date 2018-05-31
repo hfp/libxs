@@ -283,7 +283,7 @@ SRCFILES_LIB = $(patsubst %,$(SRCDIR)/%, \
           libxs_gemm.c libxs_trans.c libxs_bgemm.c \
           libxs_spmdm.c libxs_fsspmdm.c \
           libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c \
-          libxs_dnn_rnncell.c libxs_dnn_lstmcell.c \
+          libxs_dnn_elementwise.c libxs_dnn_rnncell.c libxs_dnn_lstmcell.c \
           libxs_dnn_convolution_forward.c \
           libxs_dnn_convolution_backward.c \
           libxs_dnn_convolution_weight_update.c \
