@@ -1297,7 +1297,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             (unsigned int)request->descriptor.cfwd->ofh_rb/*register block ofh*/,
             (int)request->descriptor.cfwd->prefetch/*binary OR'd prefetch flags*/,
             (int)request->descriptor.cfwd->format/*binary OR'd format flags*/);
-       
+
           }
         }
       }
