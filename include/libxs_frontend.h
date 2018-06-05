@@ -143,6 +143,14 @@
 # define LIBXS_EXT_GEMM_WEAK
 #endif
 
+#if !defined(LIBXS_NO_BLAS)
+# if !defined(__BLAS) || (0 != __BLAS)
+#   define LIBXS_NO_BLAS 0
+# else
+#   define LIBXS_NO_BLAS 1
+# endif
+#endif
+
 #if defined(LIBXS_BUILD)
 # if defined(LIBXS_BUILD_EXT) && !defined(__STATIC)
 #   define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_APIEXT
