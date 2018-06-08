@@ -1310,13 +1310,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
   LIBXS_DNN_ELTWISE_FTYPE *ro = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->ro->data;
   LIBXS_DNN_ELTWISE_FTYPE *rc = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->rc->data;
   LIBXS_DNN_ELTWISE_FTYPE *h = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->h->data;
-  LIBXS_DNN_ELTWISE_FTYPE *i1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i1t->data;
   LIBXS_DNN_ELTWISE_FTYPE *i2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *f1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f1t->data;
   LIBXS_DNN_ELTWISE_FTYPE *f2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *o1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o1t->data;
   LIBXS_DNN_ELTWISE_FTYPE *o2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *c1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c1t->data;
   LIBXS_DNN_ELTWISE_FTYPE *c2 = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c2->data;
   LIBXS_DNN_ELTWISE_FTYPE *i = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i->data;
   LIBXS_DNN_ELTWISE_FTYPE *f = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f->data;
@@ -1328,16 +1324,21 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
   LIBXS_DNN_ELTWISE_FTYPE *d = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d->data;
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n);
 #if defined(NON_FUSED_INPUT_GEMM)
+  LIBXS_DNN_ELTWISE_FTYPE *i1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *f1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *o1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o1t->data;
+  LIBXS_DNN_ELTWISE_FTYPE *c1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c1t->data;
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i1, i1t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f1, f1t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o1, o1t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c1, c1t, m * n);
 #else
-  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, i4, i1t, t, m * n);
-  i1t = &LIBXS_VLA_ACCESS(3, i4, 0, 0, 0, t, m * n);
-  f1t = &LIBXS_VLA_ACCESS(3, i4, 1, 0, 0, t, m * n);
-  o1t = &LIBXS_VLA_ACCESS(3, i4, 2, 0, 0, t, m * n);
-  c1t = &LIBXS_VLA_ACCESS(3, i4, 3, 0, 0, t, m * n);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, i4,
+    (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i1t->data, t, m * n);
+  LIBXS_DNN_ELTWISE_FTYPE *i1t = &LIBXS_VLA_ACCESS(3, i4, 0, 0, 0, t, m * n);
+  LIBXS_DNN_ELTWISE_FTYPE *f1t = &LIBXS_VLA_ACCESS(3, i4, 1, 0, 0, t, m * n);
+  LIBXS_DNN_ELTWISE_FTYPE *o1t = &LIBXS_VLA_ACCESS(3, i4, 2, 0, 0, t, m * n);
+  LIBXS_DNN_ELTWISE_FTYPE *c1t = &LIBXS_VLA_ACCESS(3, i4, 3, 0, 0, t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i1, i1t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f1, f1t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o1, o1t, m * n);
