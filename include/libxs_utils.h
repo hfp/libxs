@@ -166,14 +166,14 @@
 #       if !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
 #         define LIBXS_INTRINSICS_STATIC
 #       endif
-#       if !defined(LIBXS_INTRINSICS_NONE) && !defined(__PGI)
+#       if !defined(LIBXS_INTRINSICS_NONE) && defined(__PGI)
 #         define LIBXS_INTRINSICS_NONE
 #       endif
 #     endif
 #     if !defined(LIBXS_INTRINSICS_INCLUDE) && !defined(__PGI)
 #       define LIBXS_INTRINSICS_INCLUDE
 #     endif
-#     if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_NONE)
+#     if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_STATIC)
 #       if !defined(__SSE3__)
 #         define __SSE3__ 1
 #       endif
