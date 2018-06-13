@@ -985,22 +985,22 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
         if (name && *name) { /* profiler support requested */
           if (0 > libxs_verbosity) { /* avoid dump when only the profiler is enabled */
             FILE* code_file = fopen(name, "rb");
-            size_t check_size = size;
+            size_t check_size = 0;
             if (NULL != code_file) {
               fseek(code_file, 0L, SEEK_END);
               check_size = (size_t)ftell(code_file);
               fclose(code_file);
             }
-            if (check_size == size) {
+            if (0 == check_size) { /* file does not exist yet */
               code_file = fopen(name, "wb");
               if (NULL != code_file) { /* dump byte-code into a file and print function pointer and filename */
                 fprintf(stderr, "LIBXS-JIT-DUMP(ptr:file) %p : %s\n", code_ptr, name);
                 fwrite(code_ptr, 1, size, code_file);
                 fclose(code_file);
-              }              
+              }
             }
-            else {
-              fprintf(stderr, "LIBXS ERROR: %s is shared by different code!\n", name);              
+            else if (check_size != size) {
+              fprintf(stderr, "LIBXS ERROR: %s is shared by different code!\n", name);
             }
           }
 #if defined(LIBXS_VTUNE)
