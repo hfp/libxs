@@ -527,6 +527,10 @@
 # endif
 #endif
 
+/** Synchronize console output */
+#define LIBXS_STDIO_ACQUIRE() LIBXS_FLOCK(stdout); LIBXS_FLOCK(stderr)
+#define LIBXS_STDIO_RELEASE() LIBXS_FLOCK(stderr); LIBXS_FLOCK(stdout)
+
 /** Determines whether constant-folding is available or not. */
 #if !defined(LIBXS_STRING_POOLING)
 # if defined(__GNUC__) /*&& !defined(_MSC_VER)*/
