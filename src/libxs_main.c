@@ -422,8 +422,7 @@ LIBXS_API_INLINE void internal_finalize(void)
     unsigned int linebreak;
 
     /* synchronize I/O */
-    LIBXS_FLOCK(stdout);
-    LIBXS_FLOCK(stderr);
+    LIBXS_STDIO_ACQUIRE();
 
     if (1 < libxs_verbosity || 0 > libxs_verbosity) {
       fprintf(stderr, "\nLIBXS_VERSION=%s-%s", LIBXS_BRANCH, LIBXS_VERSION);
@@ -468,8 +467,7 @@ LIBXS_API_INLINE void internal_finalize(void)
     }
 
     /* synchronize I/O */
-    LIBXS_FUNLOCK(stderr);
-    LIBXS_FUNLOCK(stdout);
+    LIBXS_STDIO_RELEASE();
   }
 
   /* release scratch memory pool */
@@ -1881,11 +1879,11 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     result = internal_find_code(descriptor).xgemm;
 #if defined(_DEBUG)
     if (0 != libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.xmm) {
-      LIBXS_FLOCK(stdout);
-      fprintf(stdout, "LIBXS: ");
-      libxs_gemm_xprint(stdout, result, NULL/*a*/, NULL/*b*/, NULL/*c*/);
-      fprintf(stdout, "\n");
-      LIBXS_FUNLOCK(stdout);
+      LIBXS_STDIO_ACQUIRE();
+      fprintf(stderr, "LIBXS: ");
+      libxs_gemm_xprint(stderr, result, NULL/*a*/, NULL/*b*/, NULL/*c*/);
+      fprintf(stderr, "\n");
+      LIBXS_STDIO_RELEASE();
     }
 #endif
   }
@@ -2253,11 +2251,11 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
       *fn = result.ival;
 #if defined(_DEBUG)
       if (0 != libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.pmm) {
-        LIBXS_FLOCK(stdout);
-        fprintf(stdout, "LIBXS: ");
-        libxs_gemm_xprint(stdout, result.xgemm, NULL/*a*/, NULL/*b*/, NULL/*c*/);
-        fprintf(stdout, "\n");
-        LIBXS_FUNLOCK(stdout);
+        LIBXS_STDIO_ACQUIRE();
+        fprintf(stderr, "LIBXS: ");
+        libxs_gemm_xprint(stderr, result.xgemm, NULL/*a*/, NULL/*b*/, NULL/*c*/);
+        fprintf(stderr, "\n");
+        LIBXS_STDIO_RELEASE();
       }
 #endif
     }
