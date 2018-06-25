@@ -78,7 +78,7 @@ void libxs_set_scratch_limit(size_t nbytes);
 size_t libxs_get_scratch_limit(void);
 ```
 
-By establishing a pool of "temporary" memory, the cost of repeated allocation and deallocation cycles is avoided when the watermark is reached. The scratch memory is scope-oriented, and supports only a limited number of pools for buffers of different life-time. The [verbose mode](index.md#verbose-mode) with a verbosity level of at least two (LIBXS_VERBOSE=2) shows some statistics about the populated scratch memory.
+By establishing a pool of "temporary" memory, the cost of repeated allocation and deallocation cycles is avoided when the watermark is reached. The scratch memory is scope-oriented and supports only a limited number of pools for buffers of different life-time. The [verbose mode](index.md#verbose-mode) with a verbosity level of at least two (LIBXS_VERBOSE=2) shows some statistics about the populated scratch memory.
 
 ```bash
 Scratch: 173 MB (mallocs=5, pools=1)
@@ -108,7 +108,7 @@ In the above case, a single channel (gray-scale) 202x134-image is described with
 
 LIBXS comes with a number of light-weight abstraction layers (macro and API-based), which are distinct from the internal API (include files in [src](https://github.com/hfp/libxs/tree/master/src) directory) and that are exposed for general use (and hence part of the [include](https://github.com/hfp/libxs/tree/master/include) directory).
 
-The synchronization layer is mainly based on macros: LIBXS_LOCK_\* provide spin-locks, mutexes, and reader-writer locks (LIBXS_LOCK_SPINLOCK, LIBXS_LOCK_MUTEX, and LIBXS_LOCK_RWLOCK respectively). Usually the spin-lock is also named LIBXS_LOCK_DEFAULT. The implementation is intentionally based on OS-native primitives unless LIBXS is reconfigured (per LIBXS_LOCK_SYSTEM), or built using `make OMP=1` (using OpenMP inside of the library is not recommended). The life-cycle of a lock looks like:
+The synchronization layer is mainly based on macros: LIBXS_LOCK_\* provide spin-locks, mutexes, and reader-writer locks (LIBXS_LOCK_SPINLOCK, LIBXS_LOCK_MUTEX, and LIBXS_LOCK_RWLOCK respectively). Usually the spin-lock is also named LIBXS_LOCK_DEFAULT. The implementation is intentionally based on OS-native primitives unless LIBXS is reconfigured (per LIBXS_LOCK_SYSTEM) or built using `make OMP=1` (using OpenMP inside of the library is not recommended). The life-cycle of a lock looks like:
 
 ```C
 /* attribute variable and lock variable */
