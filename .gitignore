@@ -1,4 +1,6 @@
 My Amplifier*
+libxs-*
+libxs_*
 opentuner.db
 bin/libxs_generator
 include/libxs_config.h
