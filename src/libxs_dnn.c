@@ -2973,7 +2973,7 @@ LIBXS_API void libxs_dnn_dequantize( short* in_buffer, float* out_buffer, int le
 }
 
 
-LIBXS_API void libxs_truncate_convert_f32_bf16(const float* in, libxs_bfloat16* out, const unsigned int length) {
+LIBXS_API void libxs_truncate_convert_f32_bf16(const float* in, libxs_bfloat16* out, unsigned int length) {
   unsigned int i = 0;
 
   /* truncate buffer to bfp16 */
@@ -3014,7 +3014,7 @@ LIBXS_API void libxs_rnaz_convert_fp32_bfp16(const float* in, libxs_bfloat16* ou
 }
 
 
-LIBXS_API void libxs_rne_convert_fp32_bfp16(const float* in, libxs_bfloat16* out, const unsigned int len) {
+LIBXS_API void libxs_rne_convert_fp32_bfp16(const float* in, libxs_bfloat16* out, unsigned int len) {
   unsigned int i = 0;
 
   /* truncate buffer to bfp16 */
