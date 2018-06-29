@@ -1574,7 +1574,7 @@ endif
 endif
 
 .PHONY: install-minimal
-install-minimal: #libxs
+install-minimal: libxs
 ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@mkdir -p $(INSTALL_ROOT)/$(POUTDIR) $(INSTALL_ROOT)/$(PBINDIR) $(INSTALL_ROOT)/$(PINCDIR) $(INSTALL_ROOT)/$(PSRCDIR)
 	@echo
