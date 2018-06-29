@@ -25,8 +25,9 @@ BINDIR = bin
 SPLDIR = samples
 DOCDIR = documentation
 
-# subdirectories (relative) for prefix based installation
+# subdirectories (relative) to PREFIX (install targets)
 PINCDIR ?= $(INCDIR)
+PSRCDIR ?= $(PINCDIR)/libxs
 POUTDIR ?= $(OUTDIR)
 PBINDIR ?= $(BINDIR)
 PTSTDIR ?= $(TSTDIR)
@@ -1573,11 +1574,11 @@ endif
 endif
 
 .PHONY: install-minimal
-install-minimal: libxs
+install-minimal: #libxs
 ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
+	@mkdir -p $(INSTALL_ROOT)/$(POUTDIR) $(INSTALL_ROOT)/$(PBINDIR) $(INSTALL_ROOT)/$(PINCDIR) $(INSTALL_ROOT)/$(PSRCDIR)
 	@echo
-	@echo "LIBXS installing binaries..."
-	@mkdir -p $(INSTALL_ROOT)/$(POUTDIR) $(INSTALL_ROOT)/$(PBINDIR) $(INSTALL_ROOT)/$(PINCDIR)
+	@echo "LIBXS installing libraries..."
 	@$(CP) -va $(OUTDIR)/libxsnoblas.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsnoblas.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -va $(OUTDIR)/libxsgen.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
@@ -1621,14 +1622,19 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 		$(CP) -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
 	@echo
+	@echo "LIBXS installing stand-alone generators..."
+	@$(CP) -v $(BINDIR)/libxs_*_generator $(INSTALL_ROOT)/$(PBINDIR) 2>/dev/null || true
+	@echo
 	@echo "LIBXS installing interface..."
 	@$(CP) -v $(BINDIR)/libxs_*_generator $(INSTALL_ROOT)/$(PBINDIR) 2>/dev/null || true
 	@$(CP) -v $(INCDIR)/*.mod* $(INSTALL_ROOT)/$(PINCDIR) 2>/dev/null || true
-	@$(CP) -v $(INCDIR)/libxs*.h $(INSTALL_ROOT)/$(PINCDIR)
+	@ls -1 $(INCDIR)/libxs*.h | grep -v libxs_source.h | xargs -I {} $(CP) -v {} $(INSTALL_ROOT)/$(PINCDIR)
 	@$(CP) -v $(INCDIR)/libxs.f $(INSTALL_ROOT)/$(PINCDIR)
 	@echo
-	@echo "LIBXS installing stand-alone generators..."
-	@$(CP) -v $(BINDIR)/libxs_*_generator $(INSTALL_ROOT)/$(PBINDIR) 2>/dev/null || true
+	@echo "LIBXS installing header-only..."
+	@$(ROOTDIR)/$(SCRDIR)/libxs_source.sh $(patsubst $(PINCDIR)/%,%,$(PSRCDIR)) \
+		> $(INSTALL_ROOT)/$(PINCDIR)/libxs_source.h
+	@$(CP) -vr $(SRCDIR)/* $(INSTALL_ROOT)/$(PSRCDIR)
 endif
 
 .PHONY: install
