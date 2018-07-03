@@ -225,9 +225,9 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
           if (header_size) {
             const size_t len = strlen(header_filename);
             if (len < filename_max_length) {
-              strncpy(filename, header_filename, len);
+              memcpy(filename, header_filename, len + 1);
+              assert(0 == filename[len]);
               *header_size = ftell(file);
-              filename[len] = 0;
             }
             else {
               result = EXIT_FAILURE;
@@ -238,8 +238,8 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
         else {
           const size_t len = strlen(value);
           if (len < filename_max_length) {
-            strncpy(filename, value, len);
-            filename[len] = 0;
+            memcpy(filename, value, len + 1);
+            assert(0 == filename[len]);
           }
           else {
             result = EXIT_FAILURE;
