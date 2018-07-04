@@ -168,7 +168,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
     handle->scratch8 = 0;
 #endif
     handle->scratch9_size = LIBXS_UP2(size9, LIBXS_CACHELINE) * handle->desc.threads;
-#if defined(LIBXS_SCRATCH8)
+#if defined(LIBXS_SCRATCH9)
     handle->scratch9 = 0;
 #endif
   }
