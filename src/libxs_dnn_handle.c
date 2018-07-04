@@ -140,23 +140,22 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
   }
 
   /* Generic codepath setup here... */
-  if (noarch == 1) {
+  if (noarch == 1 || handle->use_upd_generic != 0) {
     /*Setup generic code generation here*/
     const int handle_status = libxs_dnn_setup_generic(handle);
     const int padded_h = handle->desc.H + (2 * handle->desc.pad_h);
     const int padded_w = handle->desc.W + (2 * handle->desc.pad_w);
     const size_t size7 = padded_h * padded_w * handle->ifmblock * libxs_dnn_typesize(handle->datatype_in);
     handle->scratch7_size = LIBXS_UP2(size7, LIBXS_CACHELINE) * handle->desc.threads;
-#if !defined(LIBXS_DNN_VLA_TLS1)
-    handle->scratch7 = 0;
-#endif
     status = handle_status;
-  } else {
-    handle->scratch7_size = 0;
-#if !defined(LIBXS_DNN_VLA_TLS1)
-    handle->scratch7 = 0;
-#endif
   }
+  else {
+    assert(0 == handle->use_fwd_generic && 0 == handle->use_bwd_generic);
+    handle->scratch7_size = 0;
+  }
+#if !defined(LIBXS_DNN_VLA_TLS1)
+  handle->scratch7 = 0;
+#endif
   if (handle->use_upd_generic != 0) {
     const size_t output_typesize = libxs_dnn_typesize(handle->datatype_out);
     /* FIXME: currently filter data-type is always smaller/equal output type */
@@ -164,25 +163,18 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
     const size_t size8 = handle->ofhp * handle->ofwp * handle->ofmblock * output_typesize;
     const size_t size9 = handle->desc.R * handle->desc.S * handle->ifmblock * handle->ofmblock * filter_typesize;
     handle->scratch8_size = LIBXS_UP2(size8, LIBXS_CACHELINE) * handle->desc.threads;
-#if !defined(LIBXS_DNN_VLA_TLS2)
-    handle->scratch8 = 0;
-#endif
     handle->scratch9_size = LIBXS_UP2(size9, LIBXS_CACHELINE) * handle->desc.threads;
-#if !defined(LIBXS_DNN_VLA_TLS3)
-    handle->scratch9 = 0;
-#endif
   }
   else {
     handle->scratch8_size = 0;
-#if !defined(LIBXS_DNN_VLA_TLS2)
-    handle->scratch8 = 0;
-#endif
     handle->scratch9_size = 0;
-#if !defined(LIBXS_DNN_VLA_TLS3)
-    handle->scratch9 = 0;
-#endif
   }
-
+#if !defined(LIBXS_DNN_VLA_TLS2)
+  handle->scratch8 = 0;
+#endif
+#if !defined(LIBXS_DNN_VLA_TLS3)
+  handle->scratch9 = 0;
+#endif
   return status;
 }
 
