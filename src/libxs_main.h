@@ -391,7 +391,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_tensor* reg_filter_tr;
   /* batchnorm stats */
   libxs_dnn_tensor* batch_stats;
-  /* maxstats used in low-recision kernels */
+  /* maxstats used in low-precision kernels */
   libxs_dnn_tensor* maxstats_fwd;
   libxs_dnn_tensor* maxstats_bwd;
   libxs_dnn_tensor* maxstats_upd;
@@ -407,20 +407,27 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   void* scratch4;
   size_t scratch4_size;
   void* scratch5;             /* This scratch is used as a copy buffer when padding needs to be applied */
+  size_t max_scratch5_size;
   void* scratch6;
+  size_t scratch6_size;
+#if defined(LIBXS_SCRATCH7)
   void* scratch7;             /* [H][W][c-block] tensor (generic fwd/bwd convolution) */
+#endif
+#if defined(LIBXS_SCRATCH8)
   void* scratch8;             /* output_scratch (generic update convolution) */
+#endif
+#if defined(LIBXS_SCRATCH9)
   void* scratch9;             /* filter_scratch (generic update convolution) */
-  size_t scratch6_size, scratch7_size, scratch8_size, scratch9_size;
+#endif
+  size_t scratch7_size, scratch8_size, scratch9_size;
   size_t minibatch_scratch_size;
   size_t fwdbwd_scratch_size;
-  size_t max_scratch5_size;
   int padding_flag;           /* Flag that dictates if we should apply padding in the input */
-  void* scratchIw;
+  void* scratchIw;            /* Winograd input buffer */
   size_t scratchIw_size;
-  void* scratchOw;
+  void* scratchOw;            /* Winograd output buffer */
   size_t scratchOw_size;
-  void* scratchVk;
+  void* scratchVk;            /* Winograd weight buffer */
   size_t scratchVk_size;
 
   /* JIT-generated convolution code */
@@ -664,9 +671,9 @@ LIBXS_APIVAR(libxs_malloc_function libxs_scratch_malloc_fn);
 LIBXS_APIVAR(libxs_free_function libxs_default_free_fn);
 /** Function used to release scratch memory. */
 LIBXS_APIVAR(libxs_free_function libxs_scratch_free_fn);
-/** If non-NULL, this context used for the context-form of the malloc/free function. */
+/** If non-NULL, this context is used by the context-form of memory allocation. */
 LIBXS_APIVAR(void* libxs_default_allocator_context);
-/** If non-NULL, this context used for the context-form of the malloc/free function. */
+/** If non-NULL, this context is used by the context-form of memory allocation. */
 LIBXS_APIVAR(void* libxs_scratch_allocator_context);
 /** Number of discovered threads (per libxs_get_tid) */
 LIBXS_APIVAR(unsigned int libxs_threads_count);
