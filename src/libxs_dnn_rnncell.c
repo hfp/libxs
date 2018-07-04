@@ -28,26 +28,16 @@
 ******************************************************************************/
 #include "libxs_dnn_elementwise.h"
 #include "libxs_main.h"
-#if defined(_OPENMP)
-#include <omp.h>
-#endif
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <string.h>
+#if defined(_OPENMP) /* TODO: remove OMP */
+# include <omp.h>
+#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
-#endif
-
-#if !defined(LIBXS_DNN_ELTWISE_FTYPE)
-# define LIBXS_DNN_ELTWISE_FTYPE float
-#endif
-
-#if !defined(CHECK) && \
-  (!defined(__BLAS) || (0 != __BLAS)) && /* BLAS available */ \
-  (LIBXS_EQUAL(LIBXS_DNN_ELTWISE_FTYPE, float) || LIBXS_EQUAL(LIBXS_DNN_ELTWISE_FTYPE, double))
-# define CHECK
 #endif
 
 #if defined(LSTM_TIMING)

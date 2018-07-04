@@ -32,7 +32,7 @@
 #include <libxs_bgemm.h>
 
 #if !defined(LIBXS_DNN_ELTWISE_FTYPE)
-# define LIBXS_DNN_ELTWISE_FTYPE float /* TODO: undefine/remove generic symbol names as header-only interferes with user's code */
+# define LIBXS_DNN_ELTWISE_FTYPE float
 #endif
 
 LIBXS_API_INTERN void libxs_internal_matrix_zero(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, int start_thread, int tid, int nthreads);
