@@ -36,100 +36,145 @@
 # pragma offload_attribute(pop)
 #endif
 
-
-LIBXS_API_INTERN void libxs_internal_matinit(int seed, LIBXS_DNN_ELTWISE_FTYPE *dst,
-  libxs_blasint nrows, libxs_blasint ncols, libxs_blasint ld, double scale)
+LIBXS_API_INTERN void libxs_internal_matrix_zero(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, int start_thread, int tid, int nthreads)
 {
-  const double seed1 = scale * (seed + 1);
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < ncols; ++i) {
-    libxs_blasint j = 0;
-    for (; j < nrows; ++j) {
-      const libxs_blasint k = i * ld + j;
-      dst[k] = (LIBXS_DNN_ELTWISE_FTYPE)(seed1 / (k + 1));
-    }
-    for (; j < ld; ++j) {
-      const libxs_blasint k = i * ld + j;
-      dst[k] = (LIBXS_DNN_ELTWISE_FTYPE)seed;
-    }
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
+    src[i] = (LIBXS_DNN_ELTWISE_FTYPE)0;
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_add(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *a, LIBXS_DNN_ELTWISE_FTYPE *b, LIBXS_DNN_ELTWISE_FTYPE *c)
+LIBXS_API_INTERN void libxs_internal_matrix_add(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *a, LIBXS_DNN_ELTWISE_FTYPE *b, LIBXS_DNN_ELTWISE_FTYPE *c, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     c[i] = a[i] + b[i];
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_eltwise_mult(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *a, LIBXS_DNN_ELTWISE_FTYPE *b, LIBXS_DNN_ELTWISE_FTYPE *c)
+LIBXS_API_INTERN void libxs_internal_matrix_eltwise_mult(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *a, LIBXS_DNN_ELTWISE_FTYPE *b, LIBXS_DNN_ELTWISE_FTYPE *c, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     c[i] = a[i] * b[i];
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_sigmoid(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst)
+LIBXS_API_INTERN void libxs_internal_matrix_sigmoid(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
   LIBXS_DNN_ELTWISE_FTYPE exp_value;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     exp_value = (LIBXS_DNN_ELTWISE_FTYPE)exp((double) -src[i]);
     dst[i] = 1 / (1 + exp_value);
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_tanh(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst)
+LIBXS_API_INTERN void libxs_internal_matrix_tanh(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     dst[i] = (LIBXS_DNN_ELTWISE_FTYPE)tanh((double)src[i]);
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_relu(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst)
+LIBXS_API_INTERN void libxs_internal_matrix_relu(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     dst[i] = (src[i] >= 0) ? src[i] : 0;
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_sigmoid_inverse(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst)
+LIBXS_API_INTERN void libxs_internal_matrix_sigmoid_inverse(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
   LIBXS_DNN_ELTWISE_FTYPE exp_value;
   LIBXS_DNN_ELTWISE_FTYPE sig_exp;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     exp_value = (LIBXS_DNN_ELTWISE_FTYPE)exp((double) -src[i]);
     sig_exp = 1 / (1 + exp_value);
     dst[i] = (1 - sig_exp)*sig_exp;
@@ -137,86 +182,137 @@ LIBXS_API_INTERN void libxs_internal_matrix_sigmoid_inverse(libxs_blasint size, 
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_tanh_inverse(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst)
+LIBXS_API_INTERN void libxs_internal_matrix_tanh_inverse(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
   LIBXS_DNN_ELTWISE_FTYPE tanh_value;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     tanh_value = (LIBXS_DNN_ELTWISE_FTYPE)tanh((double)src[i]);
     dst[i] = 1 - (tanh_value * tanh_value);
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_relu_inverse(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, LIBXS_DNN_ELTWISE_FTYPE *input)
+LIBXS_API_INTERN void libxs_internal_matrix_relu_inverse(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, LIBXS_DNN_ELTWISE_FTYPE *input, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     dst[i] = (input[i] >= 0) ? src[i] : 0;
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_transpose(libxs_blasint rows, libxs_blasint cols, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst)
+LIBXS_API_INTERN void libxs_internal_matrix_transpose(libxs_blasint rows, libxs_blasint cols, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, int start_thread, int tid, int nthreads)
 {
-  libxs_blasint i, j;
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
+  int size;
+  libxs_blasint job, i, j;
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, src2D, src, cols);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, dst2D, dst, rows);
-#if defined(_OPENMP)
-# pragma omp parallel for private(i, j) LIBXS_OPENMP_COLLAPSE(2)
-#endif
-  for (i = 0; i < rows; i++) {
-    for (j = 0; j < cols; j++) {
-      LIBXS_VLA_ACCESS(2, dst2D, j, i, rows) = LIBXS_VLA_ACCESS(2, src2D, i, j, cols);
-    }
+  ltid = tid - start_thread;
+  /* number of tasks that could be run in parallel */
+  size = rows*cols;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (job = thr_begin; job < thr_end; job++) {
+    i = job / cols;
+    j = job % cols;
+    LIBXS_VLA_ACCESS(2, dst2D, j, i, rows) = LIBXS_VLA_ACCESS(2, src2D, i, j, cols);
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_copy(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst)
+LIBXS_API_INTERN void libxs_internal_matrix_copy(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     dst[i] = src[i];
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_complement(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst)
+LIBXS_API_INTERN void libxs_internal_matrix_complement(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     dst[i] = 1 - src[i];
   }
 }
 
 
-LIBXS_API_INTERN void libxs_internal_matrix_complement_square(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst)
+LIBXS_API_INTERN void libxs_internal_matrix_complement_square(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst, int start_thread, int tid, int nthreads)
 {
+  int ltid;
+  int chunksize;
+  int thr_begin;
+  int thr_end;
   libxs_blasint i;
-#if defined(_OPENMP)
-# pragma omp parallel for private(i)
-#endif
-  for (i = 0; i < size; i++) {
+  ltid = tid - start_thread;
+  /* compute chunk size */
+  chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
+  /* compute thr_begin and thr_end */
+  thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
+  thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+
+  for (i = thr_begin; i < thr_end; i++) {
     dst[i] = 1 - (src[i] * src[i]);
   }
 }
 
 
 LIBXS_API_INTERN void libxs_internal_recursive_step(libxs_bgemm_handle* handle, LIBXS_DNN_ELTWISE_FTYPE* u, LIBXS_DNN_ELTWISE_FTYPE* h, LIBXS_DNN_ELTWISE_FTYPE* op1, LIBXS_DNN_ELTWISE_FTYPE *op2,
-  LIBXS_DNN_ELTWISE_FTYPE *temp, LIBXS_DNN_ELTWISE_FTYPE *dst, int act, libxs_blasint size, int tid, int nthreads)
+  LIBXS_DNN_ELTWISE_FTYPE *temp, LIBXS_DNN_ELTWISE_FTYPE *dst, int act, libxs_blasint size, int start_thread, int tid, int nthreads)
 {
 #if defined(LSTM_TIMING)
   Gbl_t_recur = libxs_timer_tick();
@@ -227,7 +323,7 @@ LIBXS_API_INTERN void libxs_internal_recursive_step(libxs_bgemm_handle* handle, 
   Gbl_t_recur_total += Gbl_duration_recur;
   Gbl_t_eltwise = libxs_timer_tick();
 #endif
-  libxs_internal_matrix_add(size, op1, op2, temp);
+  libxs_internal_matrix_add(size, op1, op2, temp, start_thread, tid, nthreads);
 #if defined(LSTM_TIMING)
   Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
   Gbl_t_eltwise_total += Gbl_duration_eltwise;
@@ -235,17 +331,17 @@ LIBXS_API_INTERN void libxs_internal_recursive_step(libxs_bgemm_handle* handle, 
 #endif
   switch (act) {
     case 0:
-      /* do nothing -- this is required for the last time step */
+      /* do nothing */
       dst = temp;
       break;
     case 1:
-      libxs_internal_matrix_relu(size, temp, dst);
+      libxs_internal_matrix_relu(size, temp, dst, start_thread, tid, nthreads);
       break;
     case 2:
-      libxs_internal_matrix_sigmoid(size, temp, dst);
+      libxs_internal_matrix_sigmoid(size, temp, dst, start_thread, tid, nthreads);
       break;
     case 3:
-      libxs_internal_matrix_tanh(size, temp, dst);
+      libxs_internal_matrix_tanh(size, temp, dst, start_thread, tid, nthreads);
       break;
     default:
       /* fprintf(stdout, "Unsupported activation function: %d\n", act); */
