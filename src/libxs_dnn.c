@@ -1886,6 +1886,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
         handle->scratch4 = (void*)(address+offset);
       }
       address += handle->scratch4_size + 64;
+#if defined(LIBXS_SCRATCH7)
       if (address % 64 == 0) {
         handle->scratch7 = (void*)address;
       }
@@ -1894,6 +1895,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
         handle->scratch7 = (void*)(address + offset);
       }
       address += handle->scratch7_size + 64;
+#endif
       if (address % 64 == 0) {
         handle->scratchIw = (void*)address;
       } else {
@@ -1930,6 +1932,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += scratch5_size + 64;
                                              }
+#if defined(LIBXS_SCRATCH7)
                                              if (handle->use_fwd_generic != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch7 = (void*)address;
@@ -1939,6 +1942,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch7_size + 64;
                                              }
+#endif
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_BWD: {
                                              /* we need filter for transpose, + 64 to do alignment while performing bind, scratch1 */
@@ -1959,6 +1963,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += scratch5_size + 64;
                                              }
+#if defined(LIBXS_SCRATCH7)
                                              if (handle->use_bwd_generic != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch7 = (void*)address;
@@ -1968,6 +1973,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch7_size + 64;
                                              }
+#endif
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_UPD: {
                                              /* we need a minibatch copy for transpose of input, scratch3 */
@@ -2008,6 +2014,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                address += handle->scratch6_size + 64;
                                              }
                                              if (handle->use_upd_generic != 0) {
+#if defined(LIBXS_SCRATCH8)
                                                if (address % 64 == 0) {
                                                  handle->scratch8 = (void*)address;
                                                } else {
@@ -2015,6 +2022,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                  handle->scratch8 = (void*)(address+offset);
                                                }
                                                address += handle->scratch8_size + 64;
+#endif
+#if defined(LIBXS_SCRATCH9)
                                                if (address % 64 == 0) {
                                                  handle->scratch9 = (void*)address;
                                                } else {
@@ -2022,6 +2031,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                  handle->scratch9 = (void*)(address+offset);
                                                }
                                                address += handle->scratch9_size + 64;
+#endif
                                              }
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_ALL: {
@@ -2070,6 +2080,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch6_size + 64;
                                              }
+#if defined(LIBXS_SCRATCH7)
                                              if (handle->use_fwd_generic != 0 || handle->use_bwd_generic != 0 || handle->use_upd_generic != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch7 = (void*)address;
@@ -2079,7 +2090,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch7_size + 64;
                                              }
+#endif
                                              if (handle->use_upd_generic != 0) {
+#if defined(LIBXS_SCRATCH8)
                                                if (address % 64 == 0) {
                                                  handle->scratch8 = (void*)address;
                                                } else {
@@ -2087,6 +2100,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                  handle->scratch8 = (void*)(address+offset);
                                                }
                                                address += handle->scratch8_size + 64;
+#endif
+#if defined(LIBXS_SCRATCH9)
                                                if (address % 64 == 0) {
                                                  handle->scratch9 = (void*)address;
                                                } else {
@@ -2094,6 +2109,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                  handle->scratch9 = (void*)(address+offset);
                                                }
                                                address += handle->scratch9_size + 64;
+#endif
                                              }
                                            } break;
         default: {
@@ -2118,7 +2134,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, con
       handle->scratch1 = 0;
       handle->scratch3 = 0;
       handle->scratch4 = 0;
+#if defined(LIBXS_SCRATCH7)
       handle->scratch7 = 0;
+#endif
       handle->scratchIw = 0;
       handle->scratchOw = 0;
       handle->scratchVk = 0;
@@ -2130,15 +2148,21 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, con
         case LIBXS_DNN_COMPUTE_KIND_BWD: {
                                              handle->scratch1 = 0;
                                              handle->scratch5 = 0;
+#if defined(LIBXS_SCRATCH7)
                                              handle->scratch7 = 0;
+#endif
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_UPD: {
                                              handle->scratch3 = 0;
                                              handle->scratch4 = 0;
                                              handle->scratch5 = 0;
                                              handle->scratch6 = 0;
+#if defined(LIBXS_SCRATCH8)
                                              handle->scratch8 = 0;
+#endif
+#if defined(LIBXS_SCRATCH9)
                                              handle->scratch9 = 0;
+#endif
         } break;
         case LIBXS_DNN_COMPUTE_KIND_ALL: {
                                              handle->scratch1 = 0;
@@ -2146,9 +2170,15 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, con
                                              handle->scratch4 = 0;
                                              handle->scratch5 = 0;
                                              handle->scratch6 = 0;
+#if defined(LIBXS_SCRATCH7)
                                              handle->scratch7 = 0;
+#endif
+#if defined(LIBXS_SCRATCH8)
                                              handle->scratch8 = 0;
+#endif
+#if defined(LIBXS_SCRATCH9)
                                              handle->scratch9 = 0;
+#endif
         } break;
         default: {
                    status = LIBXS_DNN_ERR_INVALID_KIND;
