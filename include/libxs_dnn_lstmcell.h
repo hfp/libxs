@@ -53,6 +53,10 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell_desc {
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
   libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
   libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
+  libxs_bgemm_handle* handlewx;
+  libxs_bgemm_handle* handleuh;
+  libxs_bgemm_handle* handlett;
+  libxs_bgemm_handle* handlewd;
 } libxs_dnn_lstmcell_desc;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
@@ -84,7 +88,6 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
   libxs_dnn_tensor* rf;
   libxs_dnn_tensor* ro;
   libxs_dnn_tensor* rc;
-  /* Currently we are not using the following 4 bias terms */
   libxs_dnn_tensor* bi;
   libxs_dnn_tensor* bf;
   libxs_dnn_tensor* bo;
