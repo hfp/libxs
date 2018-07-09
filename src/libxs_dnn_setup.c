@@ -1198,6 +1198,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, i
         }
         descriptor.ofw_rb = i;
 
+        assert(0 != descriptor.ofw_rb);
+        assert(0 != wu_each_iter_code_size);
         upper_limit_ofh_rb = wu_max_code_size / (descriptor.ofw_rb * wu_each_iter_code_size);
         for (i = LIBXS_MIN(upper_limit_ofh_rb, handle->ofh); i >= 1; i--) {
           if (handle->ofh % i == 0) break;
