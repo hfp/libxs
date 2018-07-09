@@ -381,7 +381,7 @@
 #if defined(__INTEL_COMPILER)
 # define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N)
 #else
-# define LIBXS_ASSUME_ALIGNED(A, N)
+# define LIBXS_ASSUME_ALIGNED(A, N) assert(0 == ((uintptr_t)(A)) % (N))
 #endif
 #define LIBXS_ALIGN(POINTER, ALIGNMENT/*POT*/) ((POINTER) + (LIBXS_UP2((uintptr_t)(POINTER), ALIGNMENT) - ((uintptr_t)(POINTER))) / sizeof(*(POINTER)))
 #define LIBXS_FOLD2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_DIV2((uintptr_t)(POINTER), ALIGNMENT), NPOT)
