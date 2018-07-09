@@ -491,17 +491,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_z(libxs_dnn_rnncell* handle, void* zgoldtb)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  libxs_blasint it;
-  libxs_blasint m, n, t;
-  LIBXS_DNN_ELTWISE_FTYPE* zgoldt, *zt;
+
   if (handle != 0 && zgoldtb != 0) {
-    m = handle->m;
-    n = handle->n;
-    t = handle->t;
-    zgoldt = (LIBXS_DNN_ELTWISE_FTYPE*)zgoldtb;
-    zt = (LIBXS_DNN_ELTWISE_FTYPE*)handle->z->data;
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, zgold, zgoldt, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z, zt, m * n);
+    const libxs_blasint m = handle->m, n = handle->n, t = handle->t;
+    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, zgold, (const LIBXS_DNN_ELTWISE_FTYPE*)zgoldtb, m * n);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z, (LIBXS_DNN_ELTWISE_FTYPE*)handle->z->data, m * n);
+    libxs_blasint it;
     for (it = 0; it < t; ++it) {
       libxs_bgemm_copyin_b(handle->handlewx, &LIBXS_VLA_ACCESS(2, zgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, z, it, 0, m * n));
     }
