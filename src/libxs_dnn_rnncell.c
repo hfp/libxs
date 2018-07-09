@@ -87,14 +87,23 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     handle->handleuh = rnncell_desc.handleuh;
     handle->handlett = rnncell_desc.handlett;
     handle->handlewd = rnncell_desc.handlewd;
-    /* Need to allocate space for scratch libxs_dnn_tensor's */
-    handle->z   = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->deltat = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->z1t = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->z2  = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->di1 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->di2 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->deltaMt = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
+    /* Need to allocate space for scratch and internalstate libxs_dnn_tensor's */
+    handle->z   = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->deltat = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->z1t = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->z2  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->di1 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->di2 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->deltaMt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    if (NULL == handle->deltat || NULL == handle->deltaMt ||
+        NULL == handle->z || NULL == handle->z1t || NULL == handle->z2 ||
+        NULL == handle->di1 || NULL == handle->di2)
+    {
+      free(handle->deltat); free(handle->deltaMt);
+      free(handle->z); free(handle->z1t); free(handle->z2);
+      free(handle->di1); free(handle->di2);
+      *status = LIBXS_DNN_ERR_CREATE_HANDLE;
+    }
   } else {
     *status = LIBXS_DNN_ERR_CREATE_HANDLE;
   }
@@ -106,6 +115,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_rnncell(const libxs_dnn_rnncell* han
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   if (0 != handle) {
+    free(handle->deltat); free(handle->deltaMt);
+    free(handle->z); free(handle->z1t); free(handle->z2);
+    free(handle->di1); free(handle->di2);
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_rnncell*)handle);
   }
@@ -488,7 +500,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_z(libxs_dnn_rnncell* handle, void* zgoldtb)
+LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_z(libxs_dnn_rnncell* handle, const void* zgoldtb)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
