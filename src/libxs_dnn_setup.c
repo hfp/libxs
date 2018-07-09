@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2018, Intel Corporation                                **
+** Copyright (c) 2018, Intel Corporation                                     **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -320,11 +320,11 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
 
   /* Allocate scratch for additional output transpose */
   if (handle->use_lp_kernel == 1) {
-    handle->scratch6 = 0;
-    handle->scratch6_size = handle->desc.N * handle->blocksofm * handle->ofmblock * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+8+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_in);
+    handle->scratch2 = 0;
+    handle->scratch2_size = handle->desc.N * handle->blocksofm * handle->ofmblock * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+8+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_in);
   } else {
-    handle->scratch6 = 0;
-    handle->scratch6_size = 0;
+    handle->scratch2 = 0;
+    handle->scratch2_size = 0;
   }
 }
 
@@ -542,15 +542,16 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
     }
   }
 
-  /* Check if padded needs to be applied in the input and allocate appropriate buffers */
+  /* allocate appropriate buffers if the input must be padded */
   if ((handle->desc.pad_h_in == 0) && (handle->desc.pad_w_in == 0) && (handle->desc.pad_h_out == 0) && (handle->desc.pad_w_out == 0) && ((handle->desc.pad_h > 0) || (handle->desc.pad_w > 0))) {
-    const size_t fwdbwd_scratch_size_a = handle->desc.threads * handle->desc.C * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_out);
-    const size_t fwdbwd_scratch_size_b = handle->desc.threads * handle->desc.K * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_in);
-    handle->fwdbwd_scratch_size =  LIBXS_MAX(fwdbwd_scratch_size_a, fwdbwd_scratch_size_b);
+    const size_t fwdbwd_scratch_size_a = handle->desc.C * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_out);
+    const size_t fwdbwd_scratch_size_b = handle->desc.K * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_in);
+    const size_t fwdbwd_scratch_size = LIBXS_MAX(fwdbwd_scratch_size_a, fwdbwd_scratch_size_b);
+    handle->fwdbwd_scratch_size = LIBXS_UP2(fwdbwd_scratch_size, LIBXS_CACHELINE) * handle->desc.threads;
     handle->minibatch_scratch_size = libxs_dnn_typesize(handle->datatype_out) * LIBXS_MAX(
         handle->desc.N * handle->blocksifm_lp * handle->ifmblock * handle->fm_lp_block * (handle->ifhp+2*handle->desc.pad_h) * (handle->ifwp+2*handle->desc.pad_w+8),
         handle->desc.N * handle->blocksofm_lp * handle->ofmblock * handle->fm_lp_block * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+2*handle->desc.pad_w));
-    handle->max_scratch5_size = (handle->minibatch_scratch_size > handle->fwdbwd_scratch_size) ? handle->minibatch_scratch_size : handle->fwdbwd_scratch_size;
+    handle->max_scratch5_size = LIBXS_MAX(handle->minibatch_scratch_size, handle->fwdbwd_scratch_size);
     handle->padding_flag = 1;
     handle->scratch5 = 0;
   } else {
@@ -709,13 +710,15 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
       handle->fwd_code_segments[i] = NULL;
     }
 
-    /* In case of logical padding also add a kernel that copies only one line of the image -- in case we exploit intra-image parallelism we should avoid copying entire image for each thread but only the minimum required number of input pixels... */
+    /* In case of logical padding also add a kernel that copies only one line of the image;
+     * in case we exploit intra-image parallelism we should avoid copying entire image for
+     * each thread but only the minimum required number of input pixels... */
     if (handle->padding_flag == 1) {
       matcopy_descriptor.n = 1;
       handle->matcopy_fwd[2].xmatcopy = libxs_dispatch_mcopy(&matcopy_descriptor);
     }
 
-    /* In case overwrite is requested, generate zero-ing kernel */
+    /* In case overwrite is requested, generate zeroing kernel */
     if ( (handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0 )  {
       matzero_descriptor.n = 1;
       if (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) {
@@ -739,7 +742,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
         status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
       }
       handle->matcopy_fwd[3].xmatcopy = libxs_dispatch_mcopy(&matzero_descriptor);
-
     }
 
     /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
@@ -1042,7 +1044,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
       status = libxs_dnn_perform_fwd_dryrun_direct(&mirror_handle);
     }
 
-    /* In case overwrite is requested, generate zero-ing kernel */
+    /* In case overwrite is requested, generate zeroing kernel */
     if ( (handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0 )  {
       matzero_descriptor_overwrite.n = 1;
       if (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) {
@@ -1095,7 +1097,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, i
   int i = 0; /* general counting helper */
   handle->blocksimg_blocking = 1;
 
-  /*FIXME: Do we still need that? Don't we unroll aggressivele anyway here? */
+  /* FIXME: Do we still need that? Don't we unroll aggressively anyway here? */
   for (i = LIBXS_MIN(28, handle->ofh); i > 1; i--) {
     if (handle->ofh % i == 0) break;
   }
@@ -1562,7 +1564,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, i
         matzero_descriptor.flags = LIBXS_MATCOPY_FLAG_ZERO_SOURCE;
         handle->matcopy_upd[2].xmatcopy = libxs_dispatch_mcopy(&matzero_descriptor);
 
-        /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
+        /* Perform the dry-run and generate thread private jit indices to be used for the convolutions */
         tune_upd_blockings(handle);
         status = libxs_dnn_perform_upd_dryrun_direct(handle);
 
