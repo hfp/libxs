@@ -257,7 +257,7 @@
 #if defined(LIBXS_OPENMP_SIMD)
 # define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(omp simd reduction(EXPRESSION))
 # define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(omp simd collapse(N))
-# define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(omp simd private(__VA_ARGS__))
+# define LIBXS_PRAGMA_SIMD_PRIVATE(A, ...) LIBXS_PRAGMA(omp simd private(A, __VA_ARGS__))
 # define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(omp simd)
 # if defined(__INTEL_COMPILER)
 #   define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(novector)
@@ -267,13 +267,13 @@
 #elif defined(__INTEL_COMPILER)
 # define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(simd reduction(EXPRESSION))
 # define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(simd collapse(N))
-# define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(simd private(__VA_ARGS__))
+# define LIBXS_PRAGMA_SIMD_PRIVATE(A, ...) LIBXS_PRAGMA(simd private(A, __VA_ARGS__))
 # define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(simd)
 # define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(novector)
 #else
 # define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION)
 # define LIBXS_PRAGMA_SIMD_COLLAPSE(N)
-# define LIBXS_PRAGMA_SIMD_PRIVATE(...)
+# define LIBXS_PRAGMA_SIMD_PRIVATE(A, ...)
 # define LIBXS_PRAGMA_SIMD
 # define LIBXS_PRAGMA_NOVECTOR
 #endif
@@ -285,7 +285,7 @@
 #endif
 
 #if defined(__INTEL_COMPILER)
-# define LIBXS_PRAGMA_NONTEMPORAL_VARS(...) LIBXS_PRAGMA(vector nontemporal(__VA_ARGS__))
+# define LIBXS_PRAGMA_NONTEMPORAL_VARS(A, ...) LIBXS_PRAGMA(vector nontemporal(A, __VA_ARGS__))
 # define LIBXS_PRAGMA_NONTEMPORAL LIBXS_PRAGMA(vector nontemporal)
 # define LIBXS_PRAGMA_VALIGNED LIBXS_PRAGMA(vector aligned)
 # define LIBXS_PRAGMA_FORCEINLINE LIBXS_PRAGMA(forceinline)
@@ -294,15 +294,17 @@
 # define LIBXS_PRAGMA_UNROLL_N(N) LIBXS_PRAGMA(unroll(N))
 # define LIBXS_PRAGMA_UNROLL LIBXS_PRAGMA(unroll)
 /*# define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))*/
-# if (1500 <= __INTEL_COMPILER)
-#   define LIBXS_PRAGMA_VALIGNED_VARS(...) LIBXS_PRAGMA(vector aligned(__VA_ARGS__))
+# if (1900 <= __INTEL_COMPILER)
+#   define LIBXS_PRAGMA_VALIGNED_VARS(A, ...) LIBXS_PRAGMA(vector aligned)
+# elif (1500 <= __INTEL_COMPILER)
+#   define LIBXS_PRAGMA_VALIGNED_VARS(A, ...) LIBXS_PRAGMA(vector aligned(A, __VA_ARGS__))
 # else /* avoid potential issue */
-#   define LIBXS_PRAGMA_VALIGNED_VARS(...)
+#   define LIBXS_PRAGMA_VALIGNED_VARS(A, ...)
 # endif
 #else
-# define LIBXS_PRAGMA_NONTEMPORAL_VARS(...)
+# define LIBXS_PRAGMA_NONTEMPORAL_VARS(A, ...)
 # define LIBXS_PRAGMA_NONTEMPORAL
-# define LIBXS_PRAGMA_VALIGNED_VARS(...)
+# define LIBXS_PRAGMA_VALIGNED_VARS(A, ...)
 # define LIBXS_PRAGMA_VALIGNED
 # define LIBXS_PRAGMA_FORCEINLINE
 # define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG)
