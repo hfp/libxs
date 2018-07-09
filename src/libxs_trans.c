@@ -95,100 +95,113 @@ LIBXS_API_INTERN void libxs_trans_finalize(void)
 }
 
 
+LIBXS_API void libxs_matcopy_internal(void* out, const void* in, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
+  const int* prefetch, int tid, int nthreads)
+{
+  const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
+  unsigned int tm = (unsigned int)m, tn = (unsigned int)n;
+  const int iprefetch = (0 == prefetch ? 0 : *prefetch);
+  libxs_xmcopyfunction xmatcopy = 0;
+
+  LIBXS_ASSERT_MSG(NULL != libxs_trans_tile, "Library must be initialized!");
+  LIBXS_ASSERT_MSG(typesize <= 255, "Invalid type-size!");
+
+  if (1 < nthreads) {
+    libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
+    const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
+    const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
+    const unsigned int tidx = (4 < typesize ? 0 : 1);
+    int mtasks;
+    tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
+    tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
+    mtasks = ((1 < nthreads) ? ((int)((m + tm - 1) / tm)) : 1);
+    if (1 < mtasks && nthreads <= mtasks) { /* only parallelized over M */
+      const int mc = (mtasks + nthreads - 1) / nthreads * tm;
+      m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
+    }
+    else if (1 < nthreads) {
+      const int ntasks = nthreads / mtasks, mtid = tid / ntasks, ntid = tid - mtid * ntasks;
+      const libxs_blasint nc = (((n + ntasks - 1) / ntasks + tn - 1) / tn) * tn;
+      const libxs_blasint mc = tm;
+      m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
+      n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
+    }
+    if (0 != (1 & libxs_trans_jit) /* libxs_trans_jit: JIT'ted matrix-copy permitted? */
+      && (1 == typesize || 2 == typesize || 4 == typesize) /* TODO: support multiples */
+      /* avoid code-dispatch if task does not need the kernel for inner tiles */
+      && tm + m0 <= (unsigned int)(m1 - m0) && tn <= (unsigned int)(n1 - n0)
+      /* TODO: investigate issue with Byte-element copy/MT on pre-AVX512 */
+      && (1 < typesize || LIBXS_X86_AVX2 < libxs_target_archid))
+    {
+      libxs_descriptor_blob blob;
+      const libxs_mcopy_descriptor *const desc = libxs_mcopy_descriptor_init(&blob,
+        typesize, tm, tn, uldo, uldi, 0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE,
+        iprefetch, NULL/*default unroll*/);
+      xmatcopy = libxs_dispatch_mcopy(desc);
+    }
+    if (0 != prefetch && 0 != *prefetch) { /* prefetch */
+      LIBXS_XCOPY(
+        LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
+        LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL, xmatcopy, out, in,
+        typesize, uldi, uldo, tm, tn, m0, m1, n0, n1);
+    }
+    else { /* no prefetch */
+      LIBXS_XCOPY(
+        LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
+        LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL_NOPF, xmatcopy, out, in,
+        typesize, uldi, uldo, tm, tn, m0, m1, n0, n1);
+    }
+  }
+  else {
+    libxs_descriptor_blob blob;
+    /* libxs_trans_jit: JIT'ted matrix-copy permitted? */
+    const libxs_mcopy_descriptor *const desc = (0 != (1 & libxs_trans_jit) ? libxs_mcopy_descriptor_init(&blob,
+      typesize, tm, tn, uldo, uldi, 0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE, iprefetch, NULL/*default unroll*/) : 0);
+    xmatcopy = libxs_dispatch_mcopy(desc);
+    assert(0 == tid && 1 == nthreads);
+    if (0 != xmatcopy) { /* JIT-kernel available */
+      if (0 != prefetch && 0 != *prefetch) { /* prefetch */
+        LIBXS_MCOPY_CALL(xmatcopy, typesize, in, &uldi, out, &uldo);
+      }
+      else { /* no prefetch */
+        LIBXS_MCOPY_CALL_NOPF(xmatcopy, typesize, in, &uldi, out, &uldo);
+      }
+    }
+    else { /* no JIT */
+      const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
+      const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
+      const unsigned int tidx = (4 < typesize ? 0 : 1);
+      tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
+      tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
+      assert(0 == xmatcopy);
+      LIBXS_XCOPY(
+        LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
+        LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL_NOPF, xmatcopy/*0*/, out, in,
+        typesize, uldi, uldo, tm, tn, 0, m, 0, n);
+    }
+  }
+}
+
+
 LIBXS_API int libxs_matcopy_thread(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
   const int* prefetch, int tid, int nthreads)
 {
-  int result = EXIT_SUCCESS;
-  static int error_once = 0;
-  assert(typesize <= 255);
+  int result;
+  LIBXS_INIT
+
   if (0 != out && out != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && m <= ldo &&
     /* use (signed) integer types, but check sanity of input */
     0 <= tid && tid < nthreads)
   {
-    const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
-    unsigned int tm = (unsigned int)m, tn = (unsigned int)n;
-    const int iprefetch = (0 == prefetch ? 0 : *prefetch);
-    libxs_xmcopyfunction xmatcopy = 0;
-    LIBXS_INIT /* before leading tile sizes */
-    if (1 < nthreads) {
-      libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
-      const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
-      const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
-      const unsigned int tidx = (4 < typesize ? 0 : 1);
-      int mtasks;
-      tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
-      tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
-      mtasks = ((1 < nthreads) ? ((int)((m + tm - 1) / tm)) : 1);
-      if (1 < mtasks && nthreads <= mtasks) { /* only parallelized over M */
-        const int mc = (mtasks + nthreads - 1) / nthreads * tm;
-        m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
-      }
-      else if (1 < nthreads) {
-        const int ntasks = nthreads / mtasks, mtid = tid / ntasks, ntid = tid - mtid * ntasks;
-        const libxs_blasint nc = (((n + ntasks - 1) / ntasks + tn - 1) / tn) * tn;
-        const libxs_blasint mc = tm;
-        m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
-        n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
-      }
-      if (0 != (1 & libxs_trans_jit) /* libxs_trans_jit: JIT'ted matrix-copy permitted? */
-        && (1 == typesize || 2 == typesize || 4 == typesize) /* TODO: support multiples */
-        /* avoid code-dispatch if task does not need the kernel for inner tiles */
-        && tm + m0 <= (unsigned int)(m1 - m0) && tn <= (unsigned int)(n1 - n0)
-        /* TODO: investigate issue with Byte-element copy/MT on pre-AVX512 */
-        && (1 < typesize || LIBXS_X86_AVX2 < libxs_target_archid))
-      {
-        libxs_descriptor_blob blob;
-        const libxs_mcopy_descriptor *const desc = libxs_mcopy_descriptor_init(&blob,
-          typesize, tm, tn, uldo, uldi, 0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE,
-          iprefetch, NULL/*default unroll*/);
-        xmatcopy = libxs_dispatch_mcopy(desc);
-      }
-      if (0 != prefetch && 0 != *prefetch) { /* prefetch */
-        LIBXS_XCOPY(
-          LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
-          LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL, xmatcopy, out, in,
-          typesize, uldi, uldo, tm, tn, m0, m1, n0, n1);
-      }
-      else { /* no prefetch */
-        LIBXS_XCOPY(
-          LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
-          LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL_NOPF, xmatcopy, out, in,
-          typesize, uldi, uldo, tm, tn, m0, m1, n0, n1);
-      }
-    }
-    else {
-      libxs_descriptor_blob blob;
-      /* libxs_trans_jit: JIT'ted matrix-copy permitted? */
-      const libxs_mcopy_descriptor *const desc = (0 != (1 & libxs_trans_jit) ? libxs_mcopy_descriptor_init(&blob,
-        typesize, tm, tn, uldo, uldi, 0 != in ? 0 : LIBXS_MATCOPY_FLAG_ZERO_SOURCE, iprefetch, NULL/*default unroll*/) : 0);
-      xmatcopy = libxs_dispatch_mcopy(desc);
-      assert(0 == tid && 1 == nthreads);
-      if (0 != xmatcopy) { /* JIT-kernel available */
-        if (0 != prefetch && 0 != *prefetch) { /* prefetch */
-          LIBXS_MCOPY_CALL(xmatcopy, typesize, in, &uldi, out, &uldo);
-        }
-        else { /* no prefetch */
-          LIBXS_MCOPY_CALL_NOPF(xmatcopy, typesize, in, &uldi, out, &uldo);
-        }
-      }
-      else { /* no JIT */
-        const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
-        const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
-        const unsigned int tidx = (4 < typesize ? 0 : 1);
-        tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
-        tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
-        assert(0 == xmatcopy);
-        LIBXS_XCOPY(
-          LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
-          LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL_NOPF, xmatcopy/*0*/, out, in,
-          typesize, uldi, uldo, tm, tn, 0, m, 0, n);
-      }
-    }
+    libxs_matcopy_internal(out, in, typesize, m, n, ldi, ldo, prefetch, tid, nthreads);
+    result = EXIT_SUCCESS;
   }
   else {
+    static int error_once = 0;
     if (0 != libxs_verbosity /* library code is expected to be mute */
-     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       if (0 > tid || tid >= nthreads) {
         fprintf(stderr, "LIBXS ERROR: the matcopy thread-id or number of threads is incorrect!\n");
@@ -212,6 +225,7 @@ LIBXS_API int libxs_matcopy_thread(void* out, const void* in, unsigned int types
     }
     result = EXIT_FAILURE;
   }
+
   return result;
 }
 
@@ -224,74 +238,87 @@ LIBXS_API int libxs_matcopy(void* out, const void* in, unsigned int typesize,
 }
 
 
+LIBXS_API void libxs_otrans_internal(void* out, const void* in, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
+  int tid, int nthreads)
+{
+  const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
+  unsigned int tm = (unsigned int)m, tn = (unsigned int)n;
+  libxs_descriptor_blob blob;
+  /* libxs_trans_jit: JIT'ted transpose permitted? */
+  libxs_trans_descriptor* desc = (0 != (2 & libxs_trans_jit)
+    ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
+  libxs_xtransfunction xtrans = 0;
+
+  LIBXS_ASSERT_MSG(NULL != libxs_trans_tile, "Library must be initialized!");
+  LIBXS_ASSERT_MSG(typesize <= 255, "Invalid type-size!");
+
+  if (0 == desc) { /* tiled transpose */
+    const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
+    const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
+    const unsigned int tidx = (4 < typesize ? 0 : 1);
+    libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
+    int mtasks;
+    tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
+    tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
+    /* libxs_trans_jit: JIT'ted transpose permitted? */
+    desc = (0 != (2 & libxs_trans_jit) ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
+    if (0 != desc) { /* limit the amount of (unrolled) code with smaller kernel/tiles */
+      desc->m = LIBXS_MIN(tm, LIBXS_MAX_M); desc->n = LIBXS_MIN(tn, LIBXS_MAX_N);
+      if (0 != (xtrans = libxs_dispatch_trans(desc))) {
+        tm = desc->m; tn = desc->n;
+      }
+    }
+    mtasks = ((1 < nthreads) ? ((int)((m + tm - 1) / tm)) : 1);
+    if (1 < mtasks && nthreads <= mtasks) { /* only parallelized over M */
+      const int mc = (mtasks + nthreads - 1) / nthreads * tm;
+      m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
+    }
+    else if (1 < nthreads) {
+      const int ntasks = nthreads / mtasks, mtid = tid / ntasks, ntid = tid - mtid * ntasks;
+      const libxs_blasint nc = (((n + ntasks - 1) / ntasks + tn - 1) / tn) * tn;
+      const libxs_blasint mc = tm;
+      m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
+      n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
+    }
+    LIBXS_XCOPY(
+      LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
+      LIBXS_TCOPY_KERNEL, LIBXS_TCOPY_CALL, xtrans, out, in,
+      typesize, uldi, uldo, tm, tn, m0, m1, n0, n1);
+  }
+  else { /* no tiling */
+    if (0 != (xtrans = libxs_dispatch_trans(desc))) { /* JIT'ted kernel available */
+      LIBXS_TCOPY_CALL(xtrans, typesize, in, &uldi, out, &uldo);
+    }
+    else { /* JIT not available */
+      LIBXS_XCOPY_NONJIT(LIBXS_TCOPY_KERNEL, out, in, typesize, uldi, uldo, 0, m, 0, n);
+    }
+  }
+}
+
+
 LIBXS_API int libxs_otrans_thread(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
   int tid, int nthreads)
 {
-  int result = EXIT_SUCCESS;
   static int error_once = 0;
-  assert(typesize <= 255);
+  int result = EXIT_SUCCESS;
+  LIBXS_INIT
+
   if (0 != out && 0 != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && n <= ldo &&
     /* use (signed) integer types, but check sanity of input */
     0 <= tid && tid < nthreads)
   {
-    LIBXS_INIT /* before leading tile sizes */
     if (out != in) {
-      const unsigned int uldi = (unsigned int)ldi, uldo = (unsigned int)ldo;
-      unsigned int tm = (unsigned int)m, tn = (unsigned int)n;
-      libxs_descriptor_blob blob;
-      /* libxs_trans_jit: JIT'ted transpose permitted? */
-      libxs_trans_descriptor* desc = (0 != (2 & libxs_trans_jit)
-        ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
-      libxs_xtransfunction xtrans = 0;
-      if (0 == desc) { /* tiled transpose */
-        const unsigned int size = tm * tn, size2 = LIBXS_SQRT2(size);
-        const unsigned int indx = LIBXS_MIN(size2 >> 10, 7);
-        const unsigned int tidx = (4 < typesize ? 0 : 1);
-        libxs_blasint m0 = 0, n0 = 0, m1 = m, n1 = n;
-        int mtasks;
-        tm = LIBXS_MIN(tm, libxs_trans_tile[tidx][0/*M*/][indx]);
-        tn = LIBXS_MIN(tn, libxs_trans_tile[tidx][1/*N*/][indx]);
-        /* libxs_trans_jit: JIT'ted transpose permitted? */
-        desc = (0 != (2 & libxs_trans_jit) ? libxs_trans_descriptor_init(&blob, typesize, tm, tn, uldo) : 0);
-        if (0 != desc) { /* limit the amount of (unrolled) code with smaller kernel/tiles */
-          desc->m = LIBXS_MIN(tm, LIBXS_MAX_M); desc->n = LIBXS_MIN(tn, LIBXS_MAX_N);
-          if (0 != (xtrans = libxs_dispatch_trans(desc))) {
-            tm = desc->m; tn = desc->n;
-          }
-        }
-        mtasks = ((1 < nthreads) ? ((int)((m + tm - 1) / tm)) : 1);
-        if (1 < mtasks && nthreads <= mtasks) { /* only parallelized over M */
-          const int mc = (mtasks + nthreads - 1) / nthreads * tm;
-          m0 = tid * mc; m1 = LIBXS_MIN(m0 + mc, m);
-        }
-        else if (1 < nthreads) {
-          const int ntasks = nthreads / mtasks, mtid = tid / ntasks, ntid = tid - mtid * ntasks;
-          const libxs_blasint nc = (((n + ntasks - 1) / ntasks + tn - 1) / tn) * tn;
-          const libxs_blasint mc = tm;
-          m0 = mtid * mc; m1 = LIBXS_MIN(m0 + mc, m);
-          n0 = ntid * nc; n1 = LIBXS_MIN(n0 + nc, n);
-        }
-        LIBXS_XCOPY(
-          LIBXS_NOOP, LIBXS_NOOP_ARGS, LIBXS_NOOP_ARGS, LIBXS_NOOP,
-          LIBXS_TCOPY_KERNEL, LIBXS_TCOPY_CALL, xtrans, out, in,
-          typesize, uldi, uldo, tm, tn, m0, m1, n0, n1);
-      }
-      else { /* no tiling */
-        if (0 != (xtrans = libxs_dispatch_trans(desc))) { /* JIT'ted kernel available */
-          LIBXS_TCOPY_CALL(xtrans, typesize, in, &uldi, out, &uldo);
-        }
-        else { /* JIT not available */
-          LIBXS_XCOPY_NONJIT(LIBXS_TCOPY_KERNEL, out, in, typesize, uldi, uldo, 0, m, 0, n);
-        }
-      }
+      libxs_otrans_internal(out, in, typesize, m, n, ldi, ldo, tid, nthreads);
+      result = EXIT_SUCCESS;
     }
     else if (ldi == ldo) {
       result = libxs_itrans(out, typesize, m, n, ldi);
     }
     else {
       if (0 != libxs_verbosity /* library code is expected to be mute */
-       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
         fprintf(stderr, "LIBXS ERROR: output and input of the transpose must be different!\n");
       }
@@ -300,7 +327,7 @@ LIBXS_API int libxs_otrans_thread(void* out, const void* in, unsigned int typesi
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
-     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       if (0 > tid || tid >= nthreads) {
         fprintf(stderr, "LIBXS ERROR: the transpose thread-id or number of threads is incorrect!\n");

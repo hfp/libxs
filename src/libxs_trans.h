@@ -182,10 +182,15 @@
 
 /** Initializes the transpose functionality; NOT thread-safe. */
 LIBXS_API_INTERN void libxs_trans_init(int archid);
-
 /** Finalizes the transpose functionality; NOT thread-safe. */
 LIBXS_API_INTERN void libxs_trans_finalize(void);
 
+LIBXS_API void libxs_matcopy_internal(void* out, const void* in, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
+  const int* prefetch, int tid, int nthreads);
+LIBXS_API void libxs_otrans_internal(void* out, const void* in, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
+  int tid, int nthreads);
 
 /** Determines whether JIT-kernels are used or not (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */
 LIBXS_APIVAR(int libxs_trans_jit);
