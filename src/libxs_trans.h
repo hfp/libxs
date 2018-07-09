@@ -55,7 +55,7 @@
 /* call JIT-kernel (transpose) */
 #define LIBXS_TCOPY_CALL(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) (KERNEL)(SRC, LDI, DST, LDO)
 
-#define LIBXS_XCOPY_LOOP_UNALIGNED(...)
+#define LIBXS_XCOPY_LOOP_UNALIGNED(A)
 #define LIBXS_XCOPY_LOOP(TYPE, TYPESIZE, XKERNEL, HINT_ALIGNED, OUT, IN, LDI, LDO, M0, M1, N0, N1) { \
   /*const*/int libxs_xcopy_loop_native_ = (sizeof(TYPE) == (TYPESIZE)); /* mute warning (constant conditional) */ \
   libxs_blasint libxs_xcopy_loop_i_, libxs_xcopy_loop_j_; \
@@ -88,7 +88,7 @@
       0 == LIBXS_MOD2((LDO) * (TYPESIZE), LIBXS_ALIGNMENT) && \
       0 == LIBXS_MOD2((uintptr_t)(OUT), LIBXS_ALIGNMENT)) \
   { \
-    LIBXS_XCOPY_LOOP(TYPE, TYPESIZE, XKERNEL, LIBXS_PRAGMA_VALIGNED_VARS, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
+    LIBXS_XCOPY_LOOP(TYPE, TYPESIZE, XKERNEL, LIBXS_PRAGMA_VALIGNED_VAR, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
   } \
   else { /* unaligned store */ \
     LIBXS_XCOPY_LOOP(TYPE, TYPESIZE, XKERNEL, LIBXS_XCOPY_LOOP_UNALIGNED, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
