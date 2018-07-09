@@ -69,6 +69,9 @@ LIBXS_API int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, const void*
 /** Copy-out function for the C-matrix. A leading dimension for the destination buffer is optional and can be NULL. */
 LIBXS_API int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
 
+/** Convert function required to reorganize elements in delta for bwd and upd passes of RNN and LSTM */
+LIBXS_API int libxs_bgemm_convert_b_to_a(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+
 /**
  * Fine grain parallelized block-GEMM (BGEMM), which uses a block structure
  * layout for the A and B matrices. The implementation is parallelized
@@ -86,4 +89,4 @@ LIBXS_API void libxs_bgemm(const libxs_bgemm_handle* handle,
 LIBXS_APIEXT void libxs_bgemm_omp(const libxs_bgemm_handle* handle,
   const void* a, const void* b, void* c, /*unsigned*/int count);
 
-#endif /*LIBXS_BGEMM_H*/
+#endif

@@ -96,12 +96,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_dnn_tensor* z2;
   libxs_dnn_tensor* di1;
   libxs_dnn_tensor* di2;
-  libxs_dnn_tensor* dj1;
-  libxs_dnn_tensor* dw1;
-  libxs_dnn_tensor* uTp;
-  libxs_dnn_tensor* wTp;
-  libxs_dnn_tensor* hTp;
-  libxs_dnn_tensor* xTp;
+  libxs_dnn_tensor* deltaMt;
   libxs_bgemm_handle* handlewx;
   libxs_bgemm_handle* handleuh;
   libxs_bgemm_handle* handlett;
@@ -120,6 +115,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_scratch(libxs_dnn_rnncell* h
 LIBXS_API size_t libxs_dnn_rnncell_get_internalstate_size(const libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_internalstate(libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind, const void* internalstate);
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind);
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_z(libxs_dnn_rnncell* handle, void* zgoldt);
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type);
 LIBXS_API libxs_dnn_tensor* libxs_dnn_rnncell_get_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
