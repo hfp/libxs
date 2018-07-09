@@ -87,7 +87,7 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     handle->handleuh = rnncell_desc.handleuh;
     handle->handlett = rnncell_desc.handlett;
     handle->handlewd = rnncell_desc.handlewd;
-    /* Need to allocate space for scratch and internalstate libxs_dnn_tensor's */
+    /* Need to allocate space for scratch libxs_dnn_tensor's */
     handle->z   = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->deltat = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->z1t = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
