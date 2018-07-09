@@ -86,53 +86,78 @@ LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc 
     handle->handlett = lstmcell_desc.handlett;
     handle->handlewd = lstmcell_desc.handlewd;
     /* Need to allocate space for scratch and internalstate libxs_dnn_tensor's */
-    handle->i1t = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->i1b = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->i2 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->f1t = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->f1b = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->f2 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->o1t = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->o1b = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->o2 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->c1t = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->c1b = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->c2 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->i = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->f = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->o = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->c = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->dh = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->d1 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->d2 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->d = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->i3 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->f3 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->d4 = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdht = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->deltat = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djddt = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdit = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdft = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdct = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdot = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdxt = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdwi = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdwf = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdwo = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdwc = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdri = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdrf = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdro = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdrc = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdbi = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdbf = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdbo = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->djdbc = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->rTp = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->wTp = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->deltaTp = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
-    handle->xTp = (libxs_dnn_tensor*)libxs_malloc(sizeof(libxs_dnn_tensor));
+    handle->i1t = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->i1b = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->i2 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->f1t = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->f1b = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->f2 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->o1t = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->o1b = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->o2 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->c1t = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->c1b = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->c2 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->i = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->f = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->o = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->c = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->dh = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d1 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d2 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->i3 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->f3 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d4 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdht = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->deltat = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djddt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdit = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdft = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdct = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdot = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdxt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdwi = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdwf = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdwo = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdwc = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdri = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdrf = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdro = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdrc = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdbi = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdbf = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdbo = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdbc = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->rTp = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->wTp = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->deltaTp = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->xTp = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    if (NULL == handle->i1t || NULL == handle->i1b || NULL == handle->i2 || NULL == handle->f1t || NULL == handle->f1b ||
+        NULL == handle->f2 || NULL == handle->o1t || NULL == handle->o1b || NULL == handle->o2 || NULL == handle->c1t ||
+        NULL == handle->c1b || NULL == handle->c2 || NULL == handle->i || NULL == handle->f || NULL == handle->o ||
+        NULL == handle->c || NULL == handle->dh || NULL == handle->d1 || NULL == handle->d2 || NULL == handle->d ||
+        NULL == handle->i3 || NULL == handle->f3 || NULL == handle->d4 || NULL == handle->djdht || NULL == handle->deltat ||
+        NULL == handle->djddt || NULL == handle->djdit || NULL == handle->djdft || NULL == handle->djdct ||
+        NULL == handle->djdot || NULL == handle->djdxt || NULL == handle->djdwi || NULL == handle->djdwf ||
+        NULL == handle->djdwo || NULL == handle->djdwc || NULL == handle->djdri || NULL == handle->djdrf ||
+        NULL == handle->djdro || NULL == handle->djdrc || NULL == handle->djdbi || NULL == handle->djdbf ||
+        NULL == handle->djdbo || NULL == handle->djdbc || NULL == handle->rTp || NULL == handle->wTp ||
+        NULL == handle->deltaTp || NULL == handle->xTp)
+    {
+      free(handle->i1t); free(handle->i1b); free(handle->i2); free(handle->f1t); free(handle->f1b);
+      free(handle->f2); free(handle->o1t); free(handle->o1b); free(handle->o2); free(handle->c1t);
+      free(handle->c1b); free(handle->c2); free(handle->i); free(handle->f); free(handle->o);
+      free(handle->c); free(handle->dh); free(handle->d1); free(handle->d2); free(handle->d);
+      free(handle->i3); free(handle->f3); free(handle->d4); free(handle->djdht); free(handle->deltat);
+      free(handle->djddt); free(handle->djdit); free(handle->djdft); free(handle->djdct);
+      free(handle->djdot); free(handle->djdxt); free(handle->djdwi); free(handle->djdwf);
+      free(handle->djdwo); free(handle->djdwc); free(handle->djdri); free(handle->djdrf);
+      free(handle->djdro); free(handle->djdrc); free(handle->djdbi); free(handle->djdbf);
+      free(handle->djdbo); free(handle->djdbc); free(handle->rTp); free(handle->wTp);
+      free(handle->deltaTp); free(handle->xTp);
+      *status = LIBXS_DNN_ERR_CREATE_HANDLE;
+    }
   } else {
     *status = LIBXS_DNN_ERR_CREATE_HANDLE;
   }
@@ -144,6 +169,17 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_lstmcell(const libxs_dnn_lstmcell* h
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   if (0 != handle) {
+    free(handle->i1t); free(handle->i1b); free(handle->i2); free(handle->f1t); free(handle->f1b);
+    free(handle->f2); free(handle->o1t); free(handle->o1b); free(handle->o2); free(handle->c1t);
+    free(handle->c1b); free(handle->c2); free(handle->i); free(handle->f); free(handle->o);
+    free(handle->c); free(handle->dh); free(handle->d1); free(handle->d2); free(handle->d);
+    free(handle->i3); free(handle->f3); free(handle->d4); free(handle->djdht); free(handle->deltat);
+    free(handle->djddt); free(handle->djdit); free(handle->djdft); free(handle->djdct);
+    free(handle->djdot); free(handle->djdxt); free(handle->djdwi); free(handle->djdwf);
+    free(handle->djdwo); free(handle->djdwc); free(handle->djdri); free(handle->djdrf);
+    free(handle->djdro); free(handle->djdrc); free(handle->djdbi); free(handle->djdbf);
+    free(handle->djdbo); free(handle->djdbc); free(handle->rTp); free(handle->wTp);
+    free(handle->deltaTp); free(handle->xTp);
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_lstmcell*)handle);
   }
