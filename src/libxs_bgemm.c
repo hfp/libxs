@@ -374,6 +374,56 @@ LIBXS_API int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle, const void
 }
 
 
+LIBXS_API int libxs_bgemm_convert_b_to_a(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst)
+{
+  int result = EXIT_SUCCESS;
+  static int error_once = 0;
+
+  if (0 != handle) {
+#if 0 /* TODO: support leading dimension for the source buffer */
+    const libxs_blasint ild = (0 == ld ? handle->k : *ld);
+    assert(ild >= handle->k);
+#else
+    LIBXS_UNUSED(ld);
+#endif
+    switch (handle->iprec) {
+      case LIBXS_GEMM_PRECISION_F64: {
+#       define LIBXS_BGEMM_TEMPLATE_TYPE double
+#       include "template/libxs_bgemm_convert_b_to_a.tpl.c"
+#       undef  LIBXS_BGEMM_TEMPLATE_TYPE
+      } break;
+      case LIBXS_GEMM_PRECISION_F32: {
+#       define LIBXS_BGEMM_TEMPLATE_TYPE float
+#       include "template/libxs_bgemm_convert_b_to_a.tpl.c"
+#       undef  LIBXS_BGEMM_TEMPLATE_TYPE
+      } break;
+      case LIBXS_GEMM_PRECISION_I16: {
+#       define LIBXS_BGEMM_TEMPLATE_TYPE short
+#       include "template/libxs_bgemm_convert_b_to_a.tpl.c"
+#       undef  LIBXS_BGEMM_TEMPLATE_TYPE
+      } break;
+      default: {
+        if (0 != libxs_verbosity /* library code is expected to be mute */
+         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
+          fprintf(stderr, "LIBXS ERROR: BGEMM precision of matrix B is not supported!\n");
+        }
+        result = EXIT_FAILURE;
+      }
+    }
+  }
+  else {
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS ERROR: BGEMM-handle cannot be NULL!\n");
+    }
+    result = EXIT_FAILURE;
+  }
+  return result;
+}
+
+
 LIBXS_API_INLINE void internal_bgemm_order(libxs_bgemm_order order,
   libxs_blasint w_i, libxs_blasint nw_i, libxs_blasint nw_j, libxs_blasint nw_k,
   libxs_blasint* i2, libxs_blasint* j2, libxs_blasint* k2)
