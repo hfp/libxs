@@ -255,7 +255,7 @@ void lp_transpose_input_and_output_vperm(int my_img_start, int my_img_end, libxs
     int ij, ii, ofm1;
     int OFWP = handle->ofwp + handle->output_lp_padding;
     element_output_type *out = ((element_output_type*)handle->grad_output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock_lp * handle->fm_lp_block;
-    LIBXS_VLA_DECL(6, element_output_type, tr_output, (element_output_type*)handle->scratch6, handle->blocksofm, handle->ofhp, OFWP / 2, handle->ofmblock, 2);
+    LIBXS_VLA_DECL(6, element_output_type, tr_output, (element_output_type*)handle->scratch2, handle->blocksofm, handle->ofhp, OFWP / 2, handle->ofmblock, 2);
     LIBXS_VLA_DECL(6, element_output_type, output, out, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
 
     if (handle->ofwp % 2 == 0) {
@@ -400,7 +400,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle)
 
       /* Output transpose */
       element_output_type *out = ((element_output_type*)handle->grad_output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock_lp * handle->fm_lp_block;
-      LIBXS_VLA_DECL(6, element_output_type, tr_output,  (element_output_type*)handle->scratch6 , BLOCKSOFM, handle->ofhp, OFWP/2, handle->ofmblock, 2);
+      LIBXS_VLA_DECL(6, element_output_type, tr_output,  (element_output_type*)handle->scratch2 , BLOCKSOFM, handle->ofhp, OFWP/2, handle->ofmblock, 2);
       LIBXS_VLA_DECL(6, element_output_type, output, out, handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
 
       for (img = my_img_start; img < my_img_end; img++) {
@@ -441,7 +441,7 @@ void lp_transpose_and_resize_input_and_output_vperm(int my_img_start, int my_img
     int OFWP = handle->ofwp + handle->output_lp_padding;
     element_output_type *out = ((element_output_type*)handle->grad_output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock_lp * handle->fm_lp_block;
     LIBXS_VLA_DECL(6, element_output_type, output, out, handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
-    LIBXS_VLA_DECL(6, element_output_type, tr_output, (element_output_type*)handle->scratch6, handle->blocksofm, handle->ofhp, OFWP / 2, handle->ofmblock, 2);
+    LIBXS_VLA_DECL(6, element_output_type, tr_output, (element_output_type*)handle->scratch2, handle->blocksofm, handle->ofhp, OFWP / 2, handle->ofmblock, 2);
 
     if (handle->ofwp % 2 == 0) {
       for (img = my_img_start; img < my_img_end; img++) {
@@ -591,7 +591,7 @@ void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
 
     /* Output transpose */
     element_output_type *out = ((element_output_type*)handle->grad_output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * handle->ofmblock_lp * handle->fm_lp_block;
-    LIBXS_VLA_DECL(6, element_output_type, tr_output,  (element_output_type*)handle->scratch6 , BLOCKSOFM, handle->ofhp, OFWP/2, handle->ofmblock, 2);
+    LIBXS_VLA_DECL(6, element_output_type, tr_output,  (element_output_type*)handle->scratch2 , BLOCKSOFM, handle->ofhp, OFWP/2, handle->ofmblock, 2);
     LIBXS_VLA_DECL(6, element_output_type, output, out, handle->blocksofm_lp, handle->ofhp, handle->ofwp, handle->ofmblock_lp, handle->fm_lp_block);
 
     for (img = my_img_start; img < my_img_end; img++) {

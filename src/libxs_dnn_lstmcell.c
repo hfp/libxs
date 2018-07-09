@@ -339,7 +339,7 @@ LIBXS_API size_t libxs_dnn_lstmcell_get_scratch_size(const libxs_dnn_lstmcell* h
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, const void* scratch)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  size_t address = (size_t)scratch;
+  uintptr_t address = (uintptr_t)scratch;
   size_t offset = 0;
   size_t scratch_size = 0;
   size_t sizeof_datatype = sizeof(float);
@@ -806,7 +806,7 @@ LIBXS_API size_t libxs_dnn_lstmcell_get_internalstate_size(const libxs_dnn_lstmc
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, const void* internalstate)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  size_t address = (size_t)internalstate;
+  uintptr_t address = (uintptr_t)internalstate;
   size_t offset = 0;
   size_t scratch_size = 0;
   size_t sizeof_datatype = sizeof(float);

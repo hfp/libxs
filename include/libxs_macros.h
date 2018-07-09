@@ -369,17 +369,23 @@
 #define LIBXS_DEFAULT(DEFAULT, VALUE) (0 < (VALUE) ? (VALUE) : (DEFAULT))
 
 #if defined(__INTEL_COMPILER)
-# define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N);
-# define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION);
+# if (1600 <= __INTEL_COMPILER)
+#   define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION)
+# else
+#   define LIBXS_ASSUME(EXPRESSION) assert(EXPRESSION)
+# endif
+#elif defined(_MSC_VER)
+# define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION)
+#elif defined(__GNUC__) && !defined(_CRAYC) && (LIBXS_VERSION3(4, 5, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+# define LIBXS_ASSUME(EXPRESSION) do { if (!(EXPRESSION)) __builtin_unreachable(); } while(0)
+#else
+# define LIBXS_ASSUME(EXPRESSION) assert(EXPRESSION)
+#endif
+
+#if defined(__INTEL_COMPILER)
+# define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N)
 #else
 # define LIBXS_ASSUME_ALIGNED(A, N)
-# if defined(_MSC_VER)
-#   define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION);
-# elif defined(__GNUC__) && !defined(_CRAYC) && (LIBXS_VERSION3(4, 5, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
-#   define LIBXS_ASSUME(EXPRESSION) do { if (!(EXPRESSION)) __builtin_unreachable(); } while(0);
-# else
-#   define LIBXS_ASSUME(EXPRESSION)
-# endif
 #endif
 #define LIBXS_ALIGN(POINTER, ALIGNMENT/*POT*/) ((POINTER) + (LIBXS_UP2((uintptr_t)(POINTER), ALIGNMENT) - ((uintptr_t)(POINTER))) / sizeof(*(POINTER)))
 #define LIBXS_FOLD2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_DIV2((uintptr_t)(POINTER), ALIGNMENT), NPOT)
