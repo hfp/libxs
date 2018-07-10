@@ -73,12 +73,11 @@ int main(void)
   ITYPE *a = 0, *b = 0;
   OTYPE *c = 0, *d = 0;
   int result = EXIT_SUCCESS, test;
-#if defined(CHECK_FPE) && (defined(__SSE__) || defined(_WIN32))
+#if defined(CHECK_FPE) && defined(_MM_GET_EXCEPTION_MASK)
   const unsigned int fpemask = _MM_GET_EXCEPTION_MASK(); /* backup FPE mask */
   const unsigned int fpcheck = _MM_MASK_INVALID | _MM_MASK_OVERFLOW;
   unsigned int fpstate = 0;
   _MM_SET_EXCEPTION_MASK(fpemask & ~fpcheck);
-  _MM_SET_EXCEPTION_STATE(0);
 #endif
   for (test = begin; test < end; ++test) {
     const libxs_blasint size_a = lda[test] * k[test], size_b = ldb[test] * n[test], size_c = ldc[test] * n[test];
@@ -93,23 +92,20 @@ int main(void)
   c = (OTYPE*)libxs_malloc((size_t)(max_size_c * sizeof(OTYPE)));
   d = (OTYPE*)libxs_malloc((size_t)(max_size_c * sizeof(OTYPE)));
   assert(0 != a && 0 != b && 0 != c && 0 != d);
-#if defined(CHECK_FPE) && (defined(__SSE__) || defined(_WIN32))
-  memset(a, 0, max_size_a * sizeof(ITYPE));
-  memset(b, 0, max_size_b * sizeof(ITYPE));
-  memset(c, 0, max_size_c * sizeof(OTYPE));
-#else
   LIBXS_MATRNG(ITYPE, 42, a, max_size_a, 1, max_size_a, 1.0);
   LIBXS_MATRNG(ITYPE, 24, b, max_size_b, 1, max_size_b, 1.0);
   LIBXS_MATRNG(OTYPE,  0, c, max_size_c, 1, max_size_c, 1.0);
   LIBXS_MATRNG(OTYPE,  0, d, max_size_c, 1, max_size_c, 1.0);
-#endif
   memset(&diff, 0, sizeof(diff));
 
   for (test = begin; test < end && EXIT_SUCCESS == result; ++test) {
+#if defined(CHECK_FPE) && defined(_MM_GET_EXCEPTION_MASK)
+    _MM_SET_EXCEPTION_STATE(0);
+#endif
     LIBXS_BLAS(ITYPE)(&transa, &transb, m + test, n + test, k + test,
       alpha + test, a, lda + test, b, ldb + test, beta + test, c, ldc + test);
 
-#if defined(CHECK_FPE) && (defined(__SSE__) || defined(_WIN32))
+#if defined(CHECK_FPE) && defined(_MM_GET_EXCEPTION_MASK)
     fpstate = _MM_GET_EXCEPTION_STATE() & fpcheck;
     result = (0 == fpstate ? EXIT_SUCCESS : EXIT_FAILURE);
     if (EXIT_SUCCESS != result) {
@@ -120,20 +116,22 @@ int main(void)
 # endif
     }
 #elif !defined(__BLAS) || (0 != __BLAS)
-    libxs_matdiff_info diff_test;
-    REFERENCE_BLAS(ITYPE)(&transa, &transb, m + test, n + test, k + test,
-      alpha + test, a, lda + test, b, ldb + test, beta + test, d, ldc + test);
+    else {
+      libxs_matdiff_info diff_test;
+      REFERENCE_BLAS(ITYPE)(&transa, &transb, m + test, n + test, k + test,
+        alpha + test, a, lda + test, b, ldb + test, beta + test, d, ldc + test);
 
-    result = libxs_matdiff(LIBXS_DATATYPE(OTYPE), m[test], n[test], d, c, ldc + test, ldc + test, &diff_test);
-    if (EXIT_SUCCESS == result) {
-      if (1.0 >= (1000.0 * diff_test.normf_rel)) {
-        libxs_matdiff_reduce(&diff, &diff_test);
-      }
-      else {
+      result = libxs_matdiff(LIBXS_DATATYPE(OTYPE), m[test], n[test], d, c, ldc + test, ldc + test, &diff_test);
+      if (EXIT_SUCCESS == result) {
+        if (1.0 >= (1000.0 * diff_test.normf_rel)) {
+          libxs_matdiff_reduce(&diff, &diff_test);
+        }
+        else {
 # if defined(_DEBUG)
-        fprintf(stderr, "Diff(#%i): L2abs=%f Linf=%f\n", test + 1, diff_test.l2_abs, diff_test.linf_abs);
+          fprintf(stderr, "Diff(#%i): L2abs=%f Linf=%f\n", test + 1, diff_test.l2_abs, diff_test.linf_abs);
 # endif
-        result = EXIT_FAILURE;
+          result = EXIT_FAILURE;
+        }
       }
     }
 #elif defined(_DEBUG)
@@ -141,7 +139,7 @@ int main(void)
 #endif
   }
 
-#if defined(CHECK_FPE) && (defined(__SSE__) || defined(_WIN32))
+#if defined(CHECK_FPE) && defined(_MM_GET_EXCEPTION_MASK)
   _MM_SET_EXCEPTION_MASK(fpemask); /* restore FPE mask */
   _MM_SET_EXCEPTION_STATE(0); /* clear FPE state */
 #endif
