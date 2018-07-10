@@ -144,7 +144,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
   }
 
 #if !(defined(LIBXS_DNN_VLA_TLS1) && defined(LIBXS_DNN_VLA_TLS2) && defined(LIBXS_DNN_VLA_TLS3))
-  if (LIBXS_DNN_SUCCESS == status) {
+# if 0 /* TODO: Bf16 currently triggers error 90005 before but we want to continue */
+  if (LIBXS_DNN_SUCCESS == status)
+# endif
+  {
 # if !defined(LIBXS_DNN_VLA_TLS1)
     if (0 != handle->use_fwd_generic || 0 != handle->use_bwd_generic || 0 != handle->use_upd_generic) {
       const int padded_h = handle->desc.H + (2 * handle->desc.pad_h), padded_w = handle->desc.W + (2 * handle->desc.pad_w);
