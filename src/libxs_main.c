@@ -703,7 +703,11 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK, &attr_global);
       /* control number of locks needed; LIBXS_TRYLOCK implies only 1 lock */
       if (0 == env_trylock || 0 == *env_trylock) { /* no LIBXS_TRYLOCK */
+#if defined(LIBXS_VTUNE)
+        internal_reglock_count = 1; /* avoid duplicated kernels */
+#else
         internal_reglock_count = INTERNAL_REGLOCK_MAXN;
+#endif
       }
       else { /* LIBXS_TRYLOCK environment variable specified */
         internal_reglock_count = (0 != atoi(env_trylock) ? 1 : (INTERNAL_REGLOCK_MAXN));
