@@ -41,7 +41,7 @@
 #if !defined(OTYPE)
 # define OTYPE ITYPE
 #endif
-#if !defined(CHECK_FPE) && 0
+#if !defined(CHECK_FPE)
 # define CHECK_FPE
 #endif
 #if !defined(REFERENCE_BLAS)
@@ -58,7 +58,6 @@ LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, ITYPE);
 
 int main(void)
 {
-#if !defined(__BLAS) || (0 != __BLAS)
   libxs_blasint m[]               = { 0, 0, 1, 1, 1, 2, 3, 3, 1,   64,  64,    16,    16, 350, 350, 350, 350, 350,  5, 10, 12, 20,   32,    9 };
   libxs_blasint n[]               = { 0, 1, 1, 1, 2, 2, 3, 1, 3,    8, 239, 13824, 65792,  16,   1,  25,   4,   9, 13,  1, 10,  6,   33,    9 };
   libxs_blasint k[]               = { 0, 1, 1, 1, 2, 2, 3, 2, 2,   64,  64,    16,    16,  20,   1,  35,   4,  10, 70,  1, 12,  6,  192, 1742 };
@@ -74,13 +73,13 @@ int main(void)
   ITYPE *a = 0, *b = 0;
   OTYPE *c = 0, *d = 0;
   int result = EXIT_SUCCESS, test;
-# if defined(CHECK_FPE) && defined(__SSE__)
+#if defined(CHECK_FPE) && (defined(__SSE__) || defined(_WIN32))
   const unsigned int fpemask = _MM_GET_EXCEPTION_MASK(); /* backup FPE mask */
   const unsigned int fpcheck = _MM_MASK_INVALID | _MM_MASK_OVERFLOW;
   unsigned int fpstate = 0;
-  _MM_SET_EXCEPTION_MASK(fpemask | fpcheck);
+  _MM_SET_EXCEPTION_MASK(fpemask & ~fpcheck);
   _MM_SET_EXCEPTION_STATE(0);
-# endif
+#endif
   for (test = begin; test < end; ++test) {
     const libxs_blasint size_a = lda[test] * k[test], size_b = ldb[test] * n[test], size_c = ldc[test] * n[test];
     assert(m[test] <= lda[test] && k[test] <= ldb[test] && m[test] <= ldc[test]);
@@ -94,70 +93,63 @@ int main(void)
   c = (OTYPE*)libxs_malloc((size_t)(max_size_c * sizeof(OTYPE)));
   d = (OTYPE*)libxs_malloc((size_t)(max_size_c * sizeof(OTYPE)));
   assert(0 != a && 0 != b && 0 != c && 0 != d);
-# if defined(CHECK_FPE) && defined(__SSE__)
+#if defined(CHECK_FPE) && (defined(__SSE__) || defined(_WIN32))
   memset(a, 0, max_size_a * sizeof(ITYPE));
   memset(b, 0, max_size_b * sizeof(ITYPE));
   memset(c, 0, max_size_c * sizeof(OTYPE));
-# else
+#else
   LIBXS_MATRNG(ITYPE, 42, a, max_size_a, 1, max_size_a, 1.0);
   LIBXS_MATRNG(ITYPE, 24, b, max_size_b, 1, max_size_b, 1.0);
   LIBXS_MATRNG(OTYPE,  0, c, max_size_c, 1, max_size_c, 1.0);
   LIBXS_MATRNG(OTYPE,  0, d, max_size_c, 1, max_size_c, 1.0);
-# endif
+#endif
   memset(&diff, 0, sizeof(diff));
 
   for (test = begin; test < end && EXIT_SUCCESS == result; ++test) {
-    libxs_matdiff_info diff_test;
-
     LIBXS_BLAS(ITYPE)(&transa, &transb, m + test, n + test, k + test,
       alpha + test, a, lda + test, b, ldb + test, beta + test, c, ldc + test);
 
-# if defined(CHECK_FPE) && defined(__SSE__)
-    fpstate = _MM_GET_EXCEPTION_STATE() & ~fpcheck;
+#if defined(CHECK_FPE) && (defined(__SSE__) || defined(_WIN32))
+    fpstate = _MM_GET_EXCEPTION_STATE() & fpcheck;
     result = (0 == fpstate ? EXIT_SUCCESS : EXIT_FAILURE);
     if (EXIT_SUCCESS != result) {
-#   if defined(_DEBUG)
-      fprintf(stderr, "FPE: test=#%i state=0x%08x -> invalid=%s overflow=%s\n", test + 1, fpstate,
+# if defined(_DEBUG)
+      fprintf(stderr, "FPE(#%i): state=0x%08x -> invalid=%s overflow=%s\n", test + 1, fpstate,
         0 != (_MM_MASK_INVALID  & fpstate) ? "true" : "false",
         0 != (_MM_MASK_OVERFLOW & fpstate) ? "true" : "false");
-#   endif
+# endif
     }
-    else
-# endif
-    {
-      REFERENCE_BLAS(ITYPE)(&transa, &transb, m + test, n + test, k + test,
-        alpha + test, a, lda + test, b, ldb + test, beta + test, d, ldc + test);
+#elif !defined(__BLAS) || (0 != __BLAS)
+    libxs_matdiff_info diff_test;
+    REFERENCE_BLAS(ITYPE)(&transa, &transb, m + test, n + test, k + test,
+      alpha + test, a, lda + test, b, ldb + test, beta + test, d, ldc + test);
 
-      result = libxs_matdiff(LIBXS_DATATYPE(OTYPE), m[test], n[test], d, c, ldc + test, ldc + test, &diff_test);
-      if (EXIT_SUCCESS == result) {
-        if (1.0 >= (1000.0 * diff_test.normf_rel)) {
-          libxs_matdiff_reduce(&diff, &diff_test);
-        }
-        else {
+    result = libxs_matdiff(LIBXS_DATATYPE(OTYPE), m[test], n[test], d, c, ldc + test, ldc + test, &diff_test);
+    if (EXIT_SUCCESS == result) {
+      if (1.0 >= (1000.0 * diff_test.normf_rel)) {
+        libxs_matdiff_reduce(&diff, &diff_test);
+      }
+      else {
 # if defined(_DEBUG)
-          fprintf(stderr, "Diff(%i): L2abs=%f Linf=%f\n", test + 1, diff_test.l2_abs, diff_test.linf_abs);
+        fprintf(stderr, "Diff(#%i): L2abs=%f Linf=%f\n", test + 1, diff_test.l2_abs, diff_test.linf_abs);
 # endif
-          result = EXIT_FAILURE;
-        }
+        result = EXIT_FAILURE;
       }
     }
+#elif defined(_DEBUG)
+    fprintf(stderr, "Warning: skipped the test due to missing BLAS support!\n");
+#endif
   }
 
-# if defined(CHECK_FPE) && defined(__SSE__)
+#if defined(CHECK_FPE) && (defined(__SSE__) || defined(_WIN32))
   _MM_SET_EXCEPTION_MASK(fpemask); /* restore FPE mask */
   _MM_SET_EXCEPTION_STATE(0); /* clear FPE state */
-# endif
+#endif
   libxs_free(a);
   libxs_free(b);
   libxs_free(c);
   libxs_free(d);
 
   return result;
-#else
-# if defined(_DEBUG)
-  fprintf(stderr, "Warning: skipped the test due to missing BLAS support!\n");
-# endif
-  return EXIT_SUCCESS;
-#endif
 }
 
