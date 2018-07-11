@@ -328,7 +328,7 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
     handle->scratch2_size = handle->desc.N * handle->blocksofm * handle->ofmblock * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+8+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_in);
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
       /* Allocate scratch to dump results before downconvert  */
-      handle->scratch2_size += handle->desc.C * handle->desc.K * handle->desc.R * handle->desc.S * sizeof(float);    
+      handle->scratch2_size += handle->desc.C * handle->desc.K * handle->desc.R * handle->desc.S * sizeof(float);
     }
   } else {
     handle->scratch2 = 0;
