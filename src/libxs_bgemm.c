@@ -29,8 +29,8 @@
 /* Kunal Banerjee (Intel Corp.), Dheevatsa Mudigere (Intel Corp.)
    Alexander Heinecke (Intel Corp.), Hans Pabst (Intel Corp.)
 ******************************************************************************/
+#include "libxs_bgemm_types.h"
 #include <libxs.h>
-#include "libxs_gemm.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -43,32 +43,8 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(LIBXS_BGEMM_MAX_NTHREADS)
-# define LIBXS_BGEMM_MAX_NTHREADS LIBXS_MAX_NTHREADS
-#endif
 
-
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_bgemm_lock {
-  char pad[LIBXS_CACHELINE];
-  volatile LIBXS_ATOMIC_LOCKTYPE state;
-} libxs_bgemm_lock;
-
-LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_bgemm_handle {
-  union { double d; float s; int w; } alpha, beta;
-  libxs_gemm_precision iprec, oprec;
-  libxs_xmmfunction kernel_pf;
-  libxs_xmmfunction kernel;
-  libxs_bgemm_lock* locks;
-  libxs_bgemm_order order;
-  libxs_blasint m, n, k, bm, bn, bk;
-  libxs_blasint b_m1, b_n1, b_k1, b_k2;
-  libxs_blasint mb, nb, kb;
-  void* buffer;
-  int flags;
-};
-
-
-LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(
+LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(/*unsigned*/ int nthreads,
   libxs_gemm_precision iprec, libxs_gemm_precision oprec, libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* bm, const libxs_blasint* bn, const libxs_blasint* bk,
   const libxs_blasint* b_m1, const libxs_blasint* b_n1, const libxs_blasint* b_k1, const libxs_blasint* b_k2,
@@ -83,7 +59,7 @@ LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(
   libxs_bgemm_handle* result = 0;
   static int error_once = 0;
 
-  if (0 < m && 0 < n && 0 < k && 0 < mm && 0 < nn && 0 < kk) {
+  if (0 < m && 0 < n && 0 < k && 0 < mm && 0 < nn && 0 < kk && 0 < nthreads) {
     libxs_bgemm_handle handle;
     memset(&handle, 0, sizeof(handle));
     if (0 == (m % mm) && 0 == (n % nn) && 0 == (k % kk) &&
@@ -117,17 +93,31 @@ LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(
         }
       }
       if (0 != handle.kernel.xmm) {
-        const size_t tls_size = LIBXS_UP2(mm * nn * LIBXS_TYPESIZE(oprec), LIBXS_CACHELINE) * LIBXS_BGEMM_MAX_NTHREADS;
+        const size_t tls_size = LIBXS_UP2(mm * nn * LIBXS_TYPESIZE(oprec), LIBXS_CACHELINE) * nthreads;
         const size_t size_locks = (size_t)(handle.mb * handle.nb * sizeof(libxs_bgemm_lock));
         handle.locks = (libxs_bgemm_lock*)libxs_aligned_malloc(size_locks, LIBXS_CACHELINE);
         handle.buffer = libxs_aligned_malloc(tls_size, LIBXS_CACHELINE);
         result = (libxs_bgemm_handle*)malloc(sizeof(libxs_bgemm_handle));
-        if (0 != result && 0 != handle.buffer && 0 != handle.locks) {
+
+        if (224 <= nthreads
+#if !defined(__MIC__)
+          && LIBXS_X86_AVX512_MIC <= libxs_target_archid
+          && LIBXS_X86_AVX512_CORE > libxs_target_archid
+#endif
+          )
+        {
+          handle.barrier = libxs_barrier_create(nthreads / 4, 4);
+        }
+        else {
+          handle.barrier = libxs_barrier_create(nthreads / 2, 2);
+        }
+        if (0 != result && 0 != handle.barrier && 0 != handle.buffer && 0 != handle.locks) {
           handle.m = m; handle.n = n; handle.k = k; handle.bm = mm; handle.bn = nn; handle.bk = kk;
           handle.b_m1 = *b_m1; handle.b_n1 = *b_n1; handle.b_k1 = *b_k1; handle.b_k2 = *b_k2;
           handle.iprec = iprec; handle.oprec = oprec;
           memset(handle.locks, 0, size_locks);
           handle.order = (0 == order ? LIBXS_BGEMM_ORDER_JIK : *order);
+          handle.nthreads = nthreads;
           *result = handle;
         }
         else {
@@ -136,6 +126,7 @@ LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(
           {
             fprintf(stderr, "LIBXS ERROR: BGEMM handle allocation failed!\n");
           }
+          libxs_barrier_release(handle.barrier);
           libxs_free(handle.buffer);
           libxs_free(handle.locks);
           free(result);
@@ -143,19 +134,19 @@ LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(
         }
       }
       else if (0 != libxs_verbosity /* library code is expected to be mute */
-            && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
         fprintf(stderr, "LIBXS ERROR: unsupported BGEMM kernel requested!\n");
       }
     }
     else if (0 != libxs_verbosity /* library code is expected to be mute */
-          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       fprintf(stderr, "LIBXS ERROR: BGEMM block-size is invalid!\n");
     }
   }
   else if (0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_bgemm_handle_create!\n");
   }
@@ -167,6 +158,7 @@ LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(
 LIBXS_API void libxs_bgemm_handle_destroy(const libxs_bgemm_handle* handle)
 {
   if (0 != handle) {
+    libxs_barrier_release(handle->barrier);
     libxs_free(handle->buffer);
     libxs_free(handle->locks);
     free((libxs_bgemm_handle*)handle);
@@ -204,7 +196,7 @@ LIBXS_API int libxs_bgemm_copyin_a(const libxs_bgemm_handle* handle, const void*
       } break;
       default: {
         if (0 != libxs_verbosity /* library code is expected to be mute */
-         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
           fprintf(stderr, "LIBXS ERROR: BGEMM precision of matrix A is not supported!\n");
         }
@@ -214,7 +206,7 @@ LIBXS_API int libxs_bgemm_copyin_a(const libxs_bgemm_handle* handle, const void*
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
-     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       fprintf(stderr, "LIBXS ERROR: BGEMM-handle cannot be NULL!\n");
     }
@@ -254,7 +246,7 @@ LIBXS_API int libxs_bgemm_copyin_b(const libxs_bgemm_handle* handle, const void*
       } break;
       default: {
         if (0 != libxs_verbosity /* library code is expected to be mute */
-         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
           fprintf(stderr, "LIBXS ERROR: BGEMM precision of matrix B is not supported!\n");
         }
@@ -264,7 +256,7 @@ LIBXS_API int libxs_bgemm_copyin_b(const libxs_bgemm_handle* handle, const void*
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
-     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       fprintf(stderr, "LIBXS ERROR: BGEMM-handle cannot be NULL!\n");
     }
@@ -304,7 +296,7 @@ LIBXS_API int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, const void*
       } break;
       default: {
         if (0 != libxs_verbosity /* library code is expected to be mute */
-         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
           fprintf(stderr, "LIBXS ERROR: BGEMM precision of matrix A is not supported!\n");
         }
@@ -314,7 +306,7 @@ LIBXS_API int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, const void*
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
-     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       fprintf(stderr, "LIBXS ERROR: BGEMM-handle cannot be NULL!\n");
     }
@@ -354,7 +346,7 @@ LIBXS_API int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle, const void
       } break;
       default: {
         if (0 != libxs_verbosity /* library code is expected to be mute */
-         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
           fprintf(stderr, "LIBXS ERROR: BGEMM precision of matrix A is not supported!\n");
         }
@@ -364,7 +356,7 @@ LIBXS_API int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle, const void
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
-     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       fprintf(stderr, "LIBXS ERROR: BGEMM-handle cannot be NULL!\n");
     }
@@ -404,7 +396,7 @@ LIBXS_API int libxs_bgemm_convert_b_to_a(const libxs_bgemm_handle* handle, const
       } break;
       default: {
         if (0 != libxs_verbosity /* library code is expected to be mute */
-         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
           fprintf(stderr, "LIBXS ERROR: BGEMM precision of matrix B is not supported!\n");
         }
@@ -414,7 +406,7 @@ LIBXS_API int libxs_bgemm_convert_b_to_a(const libxs_bgemm_handle* handle, const
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
-     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       fprintf(stderr, "LIBXS ERROR: BGEMM-handle cannot be NULL!\n");
     }
@@ -463,14 +455,16 @@ LIBXS_API_INLINE void internal_bgemm_order(libxs_bgemm_order order,
   }
 }
 
-LIBXS_API void libxs_bgemm(const libxs_bgemm_handle* handle,
-  const void* a, const void* b, void* c, int tid, int nthreads)
+LIBXS_API void libxs_bgemm_st(const libxs_bgemm_handle* handle, const void* a, const void* b, void* c,
+  /*unsigned*/int start_thread, /*unsigned*/int tid)
 {
+#if defined(LIBXS_BGEMM_CHECKS)
   static int error_once = 0;
-#if !defined(NDEBUG) /* intentionally no error check in release build */
-  if (0 != handle && 0 != a && 0 != b && 0 != c && 0 <= tid && tid < nthreads)
+  if (0 != handle && 0 != a && 0 != b && 0 != c && start_thread <= tid && 0 <= tid)
 #endif
   {
+    const int ltid = tid - start_thread;
+    libxs_barrier_init(handle->barrier, ltid);
     switch (handle->iprec) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_TYPE_AB double
@@ -507,12 +501,14 @@ LIBXS_API void libxs_bgemm(const libxs_bgemm_handle* handle,
         fprintf(stderr, "LIBXS ERROR: BGEMM precision is not supported!\n");
       }
     }
+    libxs_barrier_wait(handle->barrier, ltid);
   }
-#if !defined(NDEBUG) /* intentionally no error check in release build */
+#if defined(LIBXS_BGEMM_CHECKS)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_bgemm!\n");
   }
 #endif
 }
+

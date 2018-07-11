@@ -34,12 +34,15 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#if defined(__MKL)
-# include <mkl_service.h>
-#endif
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#if defined(_OPENMP)
+# include <omp.h>
+#endif
+#if defined(__MKL)
+# include <mkl_service.h>
+#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -111,7 +114,12 @@ int main(int argc, char* argv[])
     libxs_bgemm_handle* handle = 0;
     unsigned long long start;
     double duration;
-    handle = libxs_bgemm_handle_create(
+#if defined(_OPENMP)
+    const int nthreads = omp_get_max_threads();
+#else
+    const int nthreads = 1;
+#endif
+    handle = libxs_bgemm_handle_create(nthreads,
       LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(ITYPE),
       m, n, k, &bm, &bn, &bk, &b_m1, &b_n1, &b_k1, &b_k2,
       &alpha, &beta, &gemm_flags, NULL/*auto-prefetch*/, &order);
