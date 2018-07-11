@@ -27,14 +27,16 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_dnn_elementwise.h"
-#include <math.h>
+#include "libxs_bgemm_types.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <math.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
+
 
 LIBXS_API_INTERN void libxs_internal_matrix_zero(libxs_blasint size, LIBXS_DNN_ELTWISE_FTYPE *src, int start_thread, int tid, int nthreads)
 {
@@ -312,18 +314,18 @@ LIBXS_API_INTERN void libxs_internal_matrix_complement_square(libxs_blasint size
 
 
 LIBXS_API_INTERN void libxs_internal_recursive_step(libxs_bgemm_handle* handle, LIBXS_DNN_ELTWISE_FTYPE* u, LIBXS_DNN_ELTWISE_FTYPE* h, LIBXS_DNN_ELTWISE_FTYPE* op1, LIBXS_DNN_ELTWISE_FTYPE *op2,
-  LIBXS_DNN_ELTWISE_FTYPE *temp, LIBXS_DNN_ELTWISE_FTYPE *dst, int act, libxs_blasint size, int start_thread, int tid, int nthreads)
+  LIBXS_DNN_ELTWISE_FTYPE *temp, LIBXS_DNN_ELTWISE_FTYPE *dst, int act, libxs_blasint size, int start_thread, int tid)
 {
 #if defined(LSTM_TIMING)
   Gbl_t_recur = libxs_timer_tick();
 #endif
-  libxs_bgemm(handle, u, h, op1, tid, nthreads);
+  libxs_bgemm_st(handle, u, h, op1, start_thread, tid);
 #if defined(LSTM_TIMING)
   Gbl_duration_recur = libxs_timer_duration(Gbl_t_recur, libxs_timer_tick());
   Gbl_t_recur_total += Gbl_duration_recur;
   Gbl_t_eltwise = libxs_timer_tick();
 #endif
-  libxs_internal_matrix_add(size, op1, op2, temp, start_thread, tid, nthreads);
+  libxs_internal_matrix_add(size, op1, op2, temp, start_thread, tid, handle->nthreads);
 #if defined(LSTM_TIMING)
   Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
   Gbl_t_eltwise_total += Gbl_duration_eltwise;
@@ -335,13 +337,13 @@ LIBXS_API_INTERN void libxs_internal_recursive_step(libxs_bgemm_handle* handle, 
       dst = temp;
       break;
     case 1:
-      libxs_internal_matrix_relu(size, temp, dst, start_thread, tid, nthreads);
+      libxs_internal_matrix_relu(size, temp, dst, start_thread, tid, handle->nthreads);
       break;
     case 2:
-      libxs_internal_matrix_sigmoid(size, temp, dst, start_thread, tid, nthreads);
+      libxs_internal_matrix_sigmoid(size, temp, dst, start_thread, tid, handle->nthreads);
       break;
     case 3:
-      libxs_internal_matrix_tanh(size, temp, dst, start_thread, tid, nthreads);
+      libxs_internal_matrix_tanh(size, temp, dst, start_thread, tid, handle->nthreads);
       break;
     default:
       /* fprintf(stdout, "Unsupported activation function: %d\n", act); */

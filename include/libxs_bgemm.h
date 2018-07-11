@@ -46,9 +46,11 @@ typedef enum libxs_bgemm_order {
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_bgemm_handle libxs_bgemm_handle;
 
 
-LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
+LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(
+  /** Number of threads used to run BGEMM. */
+  /*unsigned*/ int nthreads, libxs_gemm_precision iprec, libxs_gemm_precision oprec,
   libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  /** If the block-size (bm, bn, or bk) is not given, a suitable value is chosen internally. */
+  /** If the block-size (BM, BN, or BK) is not given, a suitable value is chosen internally. */
   const libxs_blasint* bm, const libxs_blasint* bn, const libxs_blasint* bk,
   /** If b_m1, b_n1, b_k1, or b_k2 is not supplied, the respective value defaults to one. */
   const libxs_blasint* b_m1, const libxs_blasint* b_n1, const libxs_blasint* b_k1, const libxs_blasint* b_k2,
@@ -69,16 +71,16 @@ LIBXS_API int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, const void*
 /** Copy-out function for the C-matrix. A leading dimension for the destination buffer is optional and can be NULL. */
 LIBXS_API int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
 
-/** Convert function required to reorganize elements in delta for bwd and upd passes of RNN and LSTM */
+/** Convert function required to reorganize elements in delta for BWD and UPD passes of RNN and LSTM */
 LIBXS_API int libxs_bgemm_convert_b_to_a(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
 
 /**
- * Fine grain parallelized block-GEMM (BGEMM), which uses a block structure
- * layout for the A and B matrices. The implementation is parallelized
- * among M, N, and K using fine-grained on-demand locks when writing C.
- */
-LIBXS_API void libxs_bgemm(const libxs_bgemm_handle* handle,
-  const void* a, const void* b, void* c, int tid, int nthreads);
+* Fine grain parallelized block-GEMM (BGEMM), which uses a block structure
+* layout for the A and B matrices. The implementation is parallelized
+* among M, N, and K using fine-grained on-demand locks when writing C.
+*/
+LIBXS_API void libxs_bgemm_st(const libxs_bgemm_handle* handle, const void* a, const void* b, void* c,
+  /*unsigned*/int start_thread, /*unsigned*/int tid);
 
 /**
  * Implementation of libxs_bgemm, which is parallelized with OpenMP
@@ -89,4 +91,4 @@ LIBXS_API void libxs_bgemm(const libxs_bgemm_handle* handle,
 LIBXS_APIEXT void libxs_bgemm_omp(const libxs_bgemm_handle* handle,
   const void* a, const void* b, void* c, /*unsigned*/int count);
 
-#endif
+#endif /*LIBXS_BGEMM_H*/

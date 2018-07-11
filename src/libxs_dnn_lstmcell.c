@@ -1460,22 +1460,22 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
     Gbl_t_input = libxs_timer_tick();
 #endif
 #if defined(NON_FUSED_INPUT_GEMM)
-    libxs_bgemm(handlett, wi, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, i1, 0, 0, m * n), tid, lstm->nThreads);
-    libxs_bgemm(handlett, wf, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, f1, 0, 0, m * n), tid, lstm->nThreads);
-    libxs_bgemm(handlett, wo, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, o1, 0, 0, m * n), tid, lstm->nThreads);
-    libxs_bgemm(handlett, wc, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, c1, 0, 0, m * n), tid, lstm->nThreads);
+    libxs_bgemm_st(handlett, wi, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, i1, 0, 0, m * n), start_thread, tid);
+    libxs_bgemm_st(handlett, wf, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, f1, 0, 0, m * n), start_thread, tid);
+    libxs_bgemm_st(handlett, wo, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, o1, 0, 0, m * n), start_thread, tid);
+    libxs_bgemm_st(handlett, wc, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, c1, 0, 0, m * n), start_thread, tid);
 #else
-    libxs_bgemm(handlett, wi, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(3, i4, 0, 0, 0, t, m * n), tid, lstm->nThreads);
+    libxs_bgemm_st(handlett, wi, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(3, i4, 0, 0, 0, t, m * n), start_thread, tid);
 #endif
 #if defined(LSTM_TIMING)
     Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
     Gbl_t_input_total += Gbl_duration_input;
 #endif
     for (j = 0; j < t-1; ++j) {
-      libxs_internal_recursive_step(handleuh, ri, h, i2, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), i, i, 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, rf, h, f2, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), f, f, 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, ro, h, o2, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), o, o, 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, rc, h, c2, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), c, c, 1, m * n, start_thread, tid, lstm->nThreads); /*tanh*/
+      libxs_internal_recursive_step(handleuh, ri, h, i2, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), i, i, 1, m * n, start_thread, tid); /*sigmoid*/
+      libxs_internal_recursive_step(handleuh, rf, h, f2, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), f, f, 1, m * n, start_thread, tid); /*sigmoid*/
+      libxs_internal_recursive_step(handleuh, ro, h, o2, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), o, o, 1, m * n, start_thread, tid); /*sigmoid*/
+      libxs_internal_recursive_step(handleuh, rc, h, c2, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), c, c, 1, m * n, start_thread, tid); /*tanh*/
 #if defined(LSTM_TIMING)
       Gbl_t_eltwise = libxs_timer_tick();
 #endif
@@ -1499,10 +1499,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
       Gbl_t_eltwise_total += Gbl_duration_eltwise;
 #endif
     }
-    libxs_internal_recursive_step(handleuh, ri, h, i2, &LIBXS_VLA_ACCESS(2, i1, t-1, 0, m * n), i, i, 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-    libxs_internal_recursive_step(handleuh, rf, h, f2, &LIBXS_VLA_ACCESS(2, f1, t-1, 0, m * n), f, f, 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-    libxs_internal_recursive_step(handleuh, ro, h, o2, &LIBXS_VLA_ACCESS(2, o1, t-1, 0, m * n), o, o, 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-    libxs_internal_recursive_step(handleuh, rc, h, c2, &LIBXS_VLA_ACCESS(2, c1, t-1, 0, m * n), c, c, 1, m * n, start_thread, tid, lstm->nThreads); /*tanh*/
+    libxs_internal_recursive_step(handleuh, ri, h, i2, &LIBXS_VLA_ACCESS(2, i1, t-1, 0, m * n), i, i, 1, m * n, start_thread, tid); /*sigmoid*/
+    libxs_internal_recursive_step(handleuh, rf, h, f2, &LIBXS_VLA_ACCESS(2, f1, t-1, 0, m * n), f, f, 1, m * n, start_thread, tid); /*sigmoid*/
+    libxs_internal_recursive_step(handleuh, ro, h, o2, &LIBXS_VLA_ACCESS(2, o1, t-1, 0, m * n), o, o, 1, m * n, start_thread, tid); /*sigmoid*/
+    libxs_internal_recursive_step(handleuh, rc, h, c2, &LIBXS_VLA_ACCESS(2, c1, t-1, 0, m * n), c, c, 1, m * n, start_thread, tid); /*tanh*/
 #if defined(LSTM_TIMING)
     Gbl_t_eltwise = libxs_timer_tick();
 #endif
@@ -1518,22 +1518,22 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
     Gbl_t_input = libxs_timer_tick();
 #endif
 #if defined(NON_FUSED_INPUT_GEMM)
-    libxs_bgemm(handlett, wi, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, i1, 0, 0, m * n), tid, lstm->nThreads);
-    libxs_bgemm(handlett, wf, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, f1, 0, 0, m * n), tid, lstm->nThreads);
-    libxs_bgemm(handlett, wo, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, o1, 0, 0, m * n), tid, lstm->nThreads);
-    libxs_bgemm(handlett, wc, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, c1, 0, 0, m * n), tid, lstm->nThreads);
+    libxs_bgemm_st(handlett, wi, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, i1, 0, 0, m * n), start_thread, tid);
+    libxs_bgemm_st(handlett, wf, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, f1, 0, 0, m * n), start_thread, tid);
+    libxs_bgemm_st(handlett, wo, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, o1, 0, 0, m * n), start_thread, tid);
+    libxs_bgemm_st(handlett, wc, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, c1, 0, 0, m * n), start_thread, tid);
 #else
-    libxs_bgemm(handlett, wi, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(3, i4, 0, 0, 0, t, m * n), tid, lstm->nThreads);
+    libxs_bgemm_st(handlett, wi, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(3, i4, 0, 0, 0, t, m * n), start_thread, tid);
 #endif
 #if defined(LSTM_TIMING)
     Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
     Gbl_t_input_total += Gbl_duration_input;
 #endif
     for (j = 0; j < t-1; ++j) {
-      libxs_internal_recursive_step(handleuh, ri, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), i2, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, j, 0, m * n), 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, rf, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), f2, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, j, 0, m * n), 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, ro, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), o2, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, onr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, onr, j, 0, m * n), 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, rc, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), c2, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, j, 0, m * n), 1, m * n, start_thread, tid, lstm->nThreads); /*tanh*/
+      libxs_internal_recursive_step(handleuh, ri, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), i2, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, j, 0, m * n), 1, m * n, start_thread, tid); /*sigmoid*/
+      libxs_internal_recursive_step(handleuh, rf, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), f2, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, j, 0, m * n), 1, m * n, start_thread, tid); /*sigmoid*/
+      libxs_internal_recursive_step(handleuh, ro, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), o2, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, onr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, onr, j, 0, m * n), 1, m * n, start_thread, tid); /*sigmoid*/
+      libxs_internal_recursive_step(handleuh, rc, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), c2, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, j, 0, m * n), 1, m * n, start_thread, tid); /*tanh*/
 #if defined(LSTM_TIMING)
       Gbl_t_eltwise = libxs_timer_tick();
 #endif
@@ -1557,10 +1557,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
       Gbl_t_eltwise_total += Gbl_duration_eltwise;
 #endif
     }
-    libxs_internal_recursive_step(handleuh, ri, &LIBXS_VLA_ACCESS(2, hnr, t-1, 0, m * n), i2, &LIBXS_VLA_ACCESS(2, i1, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, t-2, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, t-2, 0, m * n), 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-    libxs_internal_recursive_step(handleuh, rf, &LIBXS_VLA_ACCESS(2, hnr, t-1, 0, m * n), f2, &LIBXS_VLA_ACCESS(2, f1, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, t-2, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, t-2, 0, m * n), 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-    libxs_internal_recursive_step(handleuh, ro, &LIBXS_VLA_ACCESS(2, hnr, t-1, 0, m * n), o2, &LIBXS_VLA_ACCESS(2, o1, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, onr, t-2, 0, m * n), &LIBXS_VLA_ACCESS(2, onr, t-2, 0, m * n), 1, m * n, start_thread, tid, lstm->nThreads); /*sigmoid*/
-    libxs_internal_recursive_step(handleuh, rc, &LIBXS_VLA_ACCESS(2, hnr, t-1, 0, m * n), c2, &LIBXS_VLA_ACCESS(2, c1, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, t-2, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, t-2, 0, m * n), 1, m * n, start_thread, tid, lstm->nThreads); /*tanh*/
+    libxs_internal_recursive_step(handleuh, ri, &LIBXS_VLA_ACCESS(2, hnr, t-1, 0, m * n), i2, &LIBXS_VLA_ACCESS(2, i1, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, t-2, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, t-2, 0, m * n), 1, m * n, start_thread, tid); /*sigmoid*/
+    libxs_internal_recursive_step(handleuh, rf, &LIBXS_VLA_ACCESS(2, hnr, t-1, 0, m * n), f2, &LIBXS_VLA_ACCESS(2, f1, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, t-2, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, t-2, 0, m * n), 1, m * n, start_thread, tid); /*sigmoid*/
+    libxs_internal_recursive_step(handleuh, ro, &LIBXS_VLA_ACCESS(2, hnr, t-1, 0, m * n), o2, &LIBXS_VLA_ACCESS(2, o1, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, onr, t-2, 0, m * n), &LIBXS_VLA_ACCESS(2, onr, t-2, 0, m * n), 1, m * n, start_thread, tid); /*sigmoid*/
+    libxs_internal_recursive_step(handleuh, rc, &LIBXS_VLA_ACCESS(2, hnr, t-1, 0, m * n), c2, &LIBXS_VLA_ACCESS(2, c1, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, t-2, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, t-2, 0, m * n), 1, m * n, start_thread, tid); /*tanh*/
 #if defined(LSTM_TIMING)
     Gbl_t_eltwise = libxs_timer_tick();
 #endif
@@ -1742,32 +1742,32 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   if (pass == 1 || pass == 3) {
     /* compute djdx */
     /* libxs_internal_matrix_transpose(m, k, wi, wTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-    /* libxs_bgemm(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdi, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), tid, lstm->nThreads); */
-    libxs_bgemm(handlewd, wi, &LIBXS_VLA_ACCESS(2, djdi, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), tid, lstm->nThreads);
+    /* libxs_bgemm_st(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdi, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid); */
+    libxs_bgemm_st(handlewd, wi, &LIBXS_VLA_ACCESS(2, djdi, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid);
     /* libxs_internal_matrix_transpose(m, k, wf, wTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-    /* libxs_bgemm(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdf, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), tid, lstm->nThreads); */
-    libxs_bgemm(handlewd, wf, &LIBXS_VLA_ACCESS(2, djdf, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), tid, lstm->nThreads);
+    /* libxs_bgemm_st(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdf, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid); */
+    libxs_bgemm_st(handlewd, wf, &LIBXS_VLA_ACCESS(2, djdf, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid);
     /* libxs_internal_matrix_transpose(m, k, wo, wTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-    /* libxs_bgemm(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdo, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), tid, lstm->nThreads); */
-    libxs_bgemm(handlewd, wo, &LIBXS_VLA_ACCESS(2, djdo, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), tid, lstm->nThreads);
+    /* libxs_bgemm_st(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdo, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid); */
+    libxs_bgemm_st(handlewd, wo, &LIBXS_VLA_ACCESS(2, djdo, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid);
     /* libxs_internal_matrix_transpose(m, k, wc, wTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-    /* libxs_bgemm(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdc, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), tid, lstm->nThreads); */
-    libxs_bgemm(handlewd, wc, &LIBXS_VLA_ACCESS(2, djdc, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), tid, lstm->nThreads);
+    /* libxs_bgemm_st(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdc, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid); */
+    libxs_bgemm_st(handlewd, wc, &LIBXS_VLA_ACCESS(2, djdc, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid);
   }
   for (j = t-2; j >= 0; --j) {
     /* compute delta */
     /* libxs_internal_matrix_transpose(m, m, ri, rTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-    /* libxs_bgemm(handleud, rTp, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), tid, lstm->nThreads); */
-    libxs_bgemm(handleud, ri, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), tid, lstm->nThreads);
+    /* libxs_bgemm_st(handleud, rTp, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid); */
+    libxs_bgemm_st(handleud, ri, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid);
     /* libxs_internal_matrix_transpose(m, m, rf, rTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-    /* libxs_bgemm(handleud, rTp, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), tid, lstm->nThreads); */
-    libxs_bgemm(handleud, rf, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), tid, lstm->nThreads);
+    /* libxs_bgemm_st(handleud, rTp, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid); */
+    libxs_bgemm_st(handleud, rf, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid);
     /* libxs_internal_matrix_transpose(m, m, ro, rTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-    /* libxs_bgemm(handleud, rTp, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), tid, lstm->nThreads); */
-    libxs_bgemm(handleud, ro, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), tid, lstm->nThreads);
+    /* libxs_bgemm_st(handleud, rTp, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid); */
+    libxs_bgemm_st(handleud, ro, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid);
     /* libxs_internal_matrix_transpose(m, m, rc, rTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-    /* libxs_bgemm(handleud, rTp, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), tid, lstm->nThreads); */
-    libxs_bgemm(handleud, rc, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), tid, lstm->nThreads);
+    /* libxs_bgemm_st(handleud, rTp, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid); */
+    libxs_bgemm_st(handleud, rc, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid);
     libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, djdh, j, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), start_thread, tid, lstm->nThreads);
     /* compute djdd */
     libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, djdh, j, 0, m * n), &LIBXS_VLA_ACCESS(2, o, j, 0, m * n), d1, start_thread, tid, lstm->nThreads);
@@ -1803,17 +1803,17 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
     if (pass == 1 || pass == 3) {
       /* compute djdx */
       /* libxs_internal_matrix_transpose(m, k, wi, wTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-      /* libxs_bgemm(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), tid, lstm->nThreads); */
-      libxs_bgemm(handlewd, wi, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), tid, lstm->nThreads);
+      /* libxs_bgemm_st(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid); */
+      libxs_bgemm_st(handlewd, wi, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid);
       /* libxs_internal_matrix_transpose(m, k, wf, wTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-      /* libxs_bgemm(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), tid, lstm->nThreads); */
-      libxs_bgemm(handlewd, wf, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), tid, lstm->nThreads);
+      /* libxs_bgemm_st(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid); */
+      libxs_bgemm_st(handlewd, wf, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid);
       /* libxs_internal_matrix_transpose(m, k, wo, wTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-      /* libxs_bgemm(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), tid, lstm->nThreads); */
-      libxs_bgemm(handlewd, wo, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), tid, lstm->nThreads);
+      /* libxs_bgemm_st(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid); */
+      libxs_bgemm_st(handlewd, wo, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid);
       /* libxs_internal_matrix_transpose(m, k, wc, wTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-      /* libxs_bgemm(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), tid, lstm->nThreads); */
-      libxs_bgemm(handlewd, wc, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), tid, lstm->nThreads);
+      /* libxs_bgemm_st(handlewd, wTp, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid); */
+      libxs_bgemm_st(handlewd, wc, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid);
     }
   }
   if (pass == 2 || pass == 3) {
@@ -1821,23 +1821,23 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
     for (j = 0; j < t; ++j) {
       /* libxs_internal_matrix_transpose(k, n, &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), xTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
       /*
-      libxs_bgemm(handledx, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), xTp, djdwi, tid, lstm->nThreads);
-      libxs_bgemm(handledx, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), xTp, djdwf, tid, lstm->nThreads);
-      libxs_bgemm(handledx, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), xTp, djdwo, tid, lstm->nThreads);
-      libxs_bgemm(handledx, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), xTp, djdwc, tid, lstm->nThreads);
+      libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), xTp, djdwi, start_thread, tid);
+      libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), xTp, djdwf, start_thread, tid);
+      libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), xTp, djdwo, start_thread, tid);
+      libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), xTp, djdwc, start_thread, tid);
       */
-      libxs_bgemm(handledx, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwi, tid, lstm->nThreads);
-      libxs_bgemm(handledx, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwf, tid, lstm->nThreads);
-      libxs_bgemm(handledx, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwo, tid, lstm->nThreads);
-      libxs_bgemm(handledx, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwc, tid, lstm->nThreads);
+      libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwi, start_thread, tid);
+      libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwf, start_thread, tid);
+      libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwo, start_thread, tid);
+      libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwc, start_thread, tid);
     }
     /* compute djdr */
     for (j = 0; j < t-1; ++j) {
       /* libxs_internal_matrix_transpose(m, n, &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), deltaTp, start_thread, tid, lstm->nThreads); - already taken care of in init */
-      libxs_bgemm(handledh, &LIBXS_VLA_ACCESS(2, djdi, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), djdri, tid, lstm->nThreads);
-      libxs_bgemm(handledh, &LIBXS_VLA_ACCESS(2, djdf, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), djdrf, tid, lstm->nThreads);
-      libxs_bgemm(handledh, &LIBXS_VLA_ACCESS(2, djdo, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), djdro, tid, lstm->nThreads);
-      libxs_bgemm(handledh, &LIBXS_VLA_ACCESS(2, djdc, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), djdrc, tid, lstm->nThreads);
+      libxs_bgemm_st(handledh, &LIBXS_VLA_ACCESS(2, djdi, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), djdri, start_thread, tid);
+      libxs_bgemm_st(handledh, &LIBXS_VLA_ACCESS(2, djdf, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), djdrf, start_thread, tid);
+      libxs_bgemm_st(handledh, &LIBXS_VLA_ACCESS(2, djdo, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), djdro, start_thread, tid);
+      libxs_bgemm_st(handledh, &LIBXS_VLA_ACCESS(2, djdc, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), djdrc, start_thread, tid);
     }
     /* compute djdb */
     for (j = 0; j < t-1; j++) {
