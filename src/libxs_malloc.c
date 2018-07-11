@@ -1018,10 +1018,8 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
               } while (0 < rest && 0 == diff);
               fclose(code_file);
             }
-            if (0 == diff) { /* print function pointer and filename */
-              fprintf(stderr, "LIBXS-JIT-DUMP(ptr:file) %p : %s\n", code_ptr, name);
-            }
-            else { /* override existing dump and warn about erroneous condition */
+            fprintf(stderr, "LIBXS-JIT-DUMP(ptr:file) %p : %s\n", code_ptr, name);
+            if (0 != diff) { /* override existing dump and warn about erroneous condition */
               fprintf(stderr, "LIBXS ERROR: %s is shared by different code!\n", name);
               code_file = fopen(name, "wb");
               if (NULL != code_file) { /* dump byte-code into a file */
