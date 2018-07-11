@@ -136,6 +136,7 @@ LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype)
   switch (datatype) {
     case LIBXS_DNN_DATATYPE_F32: return 4;
     case LIBXS_DNN_DATATYPE_I32: return 4;
+    case LIBXS_DNN_DATATYPE_BF16:return 2;                                  
     case LIBXS_DNN_DATATYPE_I16: return 2;
     case LIBXS_DNN_DATATYPE_I8:  return 1;
     /* no error expected as enumeration really arrives at an enum; compiler-checked */
