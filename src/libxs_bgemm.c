@@ -458,8 +458,8 @@ LIBXS_API_INLINE void internal_bgemm_order(libxs_bgemm_order order,
 LIBXS_API void libxs_bgemm_st(const libxs_bgemm_handle* handle, const void* a, const void* b, void* c,
   /*unsigned*/int start_thread, /*unsigned*/int tid)
 {
-#if defined(LIBXS_BGEMM_CHECKS)
   static int error_once = 0;
+#if defined(LIBXS_BGEMM_CHECKS)
   if (0 != handle && 0 != a && 0 != b && 0 != c && start_thread <= tid && 0 <= tid)
 #endif
   {
