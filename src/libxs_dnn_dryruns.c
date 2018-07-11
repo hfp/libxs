@@ -86,12 +86,21 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_perform_upd_dryrun_direct_custom_cust
     if (1) { /*(handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {*/
       if (handle->use_fastpath) {
         if ( handle->use_hybrid_wu_parallelism == 1 ) {
+          if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
+#include "template/libxs_dnn_convolve_dryrun_upd_custom_custom_bf16.tpl.c"          
+          } else {
 #include "template/libxs_dnn_convolve_dryrun_upd_custom_custom.tpl.c"
+          }
         }
         else {
+          if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
+#include "template/libxs_dnn_convolve_dryrun_upd_custom_custom_opt_bf16.tpl.c"          
+          } else {     
 #include "template/libxs_dnn_convolve_dryrun_upd_custom_custom_opt.tpl.c"
+          }
         }
       } else {
+        /* TODO: Add BF16 path */
 #include "template/libxs_dnn_convolve_dryrun_upd_custom_custom_fma_opt.tpl.c"
       }
     } else {

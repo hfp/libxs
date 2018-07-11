@@ -51,6 +51,7 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid);
 
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
@@ -1052,6 +1053,31 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_f32(libxs_dnn_layer*
   return status;
 }
 
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
+  if (handle->upd_use_thread_fil > 0) {
+    typedef libxs_bfloat16 element_input_type;
+    typedef libxs_bfloat16 element_output_type;
+    typedef float element_filter_type;
+    typedef libxs_bf16f32convfunction libxs_convfunction;
+    if (handle->use_fastpath) {
+      if ( handle->use_hybrid_wu_parallelism == 1) {
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_bf16.tpl.c"
+      }
+      else {
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_opt_bf16.tpl.c"
+      }
+    }
+  }
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid)
@@ -1121,6 +1147,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_d
   else {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_convolve_st_upd_custom_custom_f32_f32( handle, start_thread, tid );
+    }  
+    else if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
+      status = libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16( handle, start_thread, tid );
     }
     else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_convolve_st_upd_custom_custom_i16_f32( handle, start_thread, tid );

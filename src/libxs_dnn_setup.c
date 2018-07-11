@@ -308,6 +308,10 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
     handle->upd_use_thread_fil = 1;
     handle->scratch4 = 0;
     handle->scratch4_size = 2 * handle->desc.threads * handle->desc.C * handle->desc.K * handle->desc.R * handle->desc.S * libxs_dnn_typesize(handle->datatype_out);
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
+      /* Allocate twice as much since the out datatype is BF16 while the intermediate output is in float  */
+      handle->scratch4_size = 2 * handle->scratch4_size;
+    }
     /* enable external reduce of filter scratch */
     if ( (handle->options & LIBXS_DNN_CONV_OPTION_UPD_NO_FILTER_REDUCE) > 0 ) {
       handle->upd_use_external_reduce = 1;
@@ -322,6 +326,10 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
   if (handle->use_lp_kernel == 1) {
     handle->scratch2 = 0;
     handle->scratch2_size = handle->desc.N * handle->blocksofm * handle->ofmblock * (handle->ofhp+2*handle->desc.pad_h) * (handle->ofwp+8+2*handle->desc.pad_w) * libxs_dnn_typesize(handle->datatype_in);
+    if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
+      /* Allocate scratch to dump results before downconvert  */
+      handle->scratch2_size += handle->desc.C * handle->desc.K * handle->desc.R * handle->desc.S * sizeof(float);    
+    }
   } else {
     handle->scratch2 = 0;
     handle->scratch2_size = 0;
@@ -1248,13 +1256,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, i
         descriptor.transpose_ofw_ifm = 0;
         handle->use_hybrid_wu_parallelism = 0;
 
-        if ( handle->use_lp_kernel == 1 && ((libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) && handle->datatype_in == LIBXS_DNN_DATATYPE_I16 ) ) {
+        if ( handle->use_lp_kernel == 1 && ((libxs_target_archid == LIBXS_X86_AVX512_ICL || libxs_target_archid == LIBXS_X86_AVX512_CORE) && (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 || handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) ) ) {
           handle->use_vperm_transposes = 1;
         } else {
           handle->use_vperm_transposes = 0;
         }
 
-        if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) {
+        if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 || handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
           if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) {
             if (handle->ofwp % 2 == 0) {
               handle->avoid_output_trans = 1;
@@ -1298,7 +1306,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, i
             padding_target = 8;
             output_lp_padding = handle->ofwp%2;
             if (libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL) {
-              if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) {
+              if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 || handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
                 padding_target = 2;
               } else {
                 padding_target = 4;
@@ -1492,7 +1500,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, i
         if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
           handle->code_upd[0].xgemm.smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
         } else {
-          handle->code_upd[0].pmm = libxs_create_xconv_update_weights(&descriptor);
+          /*handle->code_upd[0].pmm = libxs_create_xconv_update_weights(&descriptor);*/
         }
         /*ALL*/
         descriptor.transpose_ofw_ifm = 0;
