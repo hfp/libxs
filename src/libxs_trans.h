@@ -194,11 +194,11 @@ LIBXS_API void libxs_otrans_internal(void* out, const void* in, unsigned int typ
   int tid, int nthreads);
 
 /** Determines whether JIT-kernels are used or not (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */
-LIBXS_APIVAR(int libxs_trans_jit);
+LIBXS_APIVAR_PUBLIC(int libxs_trans_jit);
 /** M-factor shaping the N-extent (tile shape). */
-LIBXS_APIVAR(float libxs_trans_tile_stretch);
+LIBXS_APIVAR_PUBLIC(float libxs_trans_tile_stretch);
 /** Table of M-extents per type-size (tile shape). */
-LIBXS_APIVAR(libxs_blasint* libxs_trans_mtile);
+LIBXS_APIVAR_PUBLIC(libxs_blasint* libxs_trans_mtile);
 /** Determines if OpenMP tasks are used, and scales beyond the number of threads. */
 LIBXS_APIVAR_PUBLIC(int libxs_trans_taskscale);
 
