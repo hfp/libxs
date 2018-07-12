@@ -108,6 +108,6 @@ LIBXS_API void libxs_srand(unsigned int seed);
 LIBXS_API unsigned int libxs_rand_u32(unsigned int n);
 
 /** Similar to libxs_rand_u32, but return a DP-value in the interval [0, 1). */
-LIBXS_API double libxs_rand_f64();
+LIBXS_API double libxs_rand_f64(void);
 
 #endif /*LIBXS_MATH_H*/
