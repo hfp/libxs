@@ -31,6 +31,10 @@
 
 #include <libxs.h>
 
+#if !defined(LIBXS_TRANS_CHECK) && !defined(NDEBUG)
+# define LIBXS_TRANS_CHECK
+#endif
+
 #if !defined(LIBXS_TRANS_COLLAPSE)
 # if !defined(_CRAYC)
 #   define LIBXS_TRANS_COLLAPSE 1/*2*/
@@ -44,16 +48,28 @@
   const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
               TYPE *const DST = (TYPE*)(((const char*)(OUT)) + (TYPESIZE) * ((INDEX_J) * (LDO) + (INDEX_I)))
 /* call JIT-kernel (matrix-copy) */
-#define LIBXS_MCOPY_CALL_NOPF(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) (KERNEL)(SRC, LDI, DST, LDO)
+#define LIBXS_MCOPY_CALL_NOPF(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) { \
+  const unsigned int libxs_mcopy_call_uldi_ = (unsigned int)(LDI); \
+  const unsigned int libxs_mcopy_call_uldo_ = (unsigned int)(LDO); \
+  (KERNEL)(SRC, &libxs_mcopy_call_uldi_, DST, &libxs_mcopy_call_uldo_); \
+}
 /* call JIT-kernel (matrix-copy with prefetch) */
-#define LIBXS_MCOPY_CALL(PRFT_KERNEL, TYPESIZE, SRC, LDI, DST, LDO) (PRFT_KERNEL)(SRC, LDI, DST, LDO, \
-  ((const char*)(SRC)) + (TYPESIZE) * (*(LDI))) /* prefetch next line*/
+#define LIBXS_MCOPY_CALL(PRFT_KERNEL, TYPESIZE, SRC, LDI, DST, LDO) { \
+  const unsigned int libxs_mcopy_call_uldi_ = (unsigned int)(LDI); \
+  const unsigned int libxs_mcopy_call_uldo_ = (unsigned int)(LDO); \
+  (PRFT_KERNEL)(SRC, &libxs_mcopy_call_uldi_, DST, &libxs_mcopy_call_uldo_, \
+    /*prefetch next line*/((const char*)(SRC)) + (TYPESIZE) * (LDI)); \
+}
 /* kernel uses consecutive stores and strided loads (transpose) */
 #define LIBXS_TCOPY_KERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, INDEX_I, INDEX_J, SRC, DST) \
   const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
               TYPE *const DST = (TYPE*)(((const char*)(OUT)) + (TYPESIZE) * ((INDEX_I) * (LDO) + (INDEX_J)))
 /* call JIT-kernel (transpose) */
-#define LIBXS_TCOPY_CALL(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) (KERNEL)(SRC, LDI, DST, LDO)
+#define LIBXS_TCOPY_CALL(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) { \
+  const unsigned int libxs_tcopy_call_uldi_ = (unsigned int)(LDI); \
+  const unsigned int libxs_tcopy_call_uldo_ = (unsigned int)(LDO); \
+  (KERNEL)(SRC, &libxs_tcopy_call_uldi_, DST, &libxs_tcopy_call_uldo_); \
+}
 
 #define LIBXS_XCOPY_LOOP_UNALIGNED(A)
 #define LIBXS_XCOPY_LOOP(TYPE, TYPESIZE, XKERNEL, HINT_ALIGNED, OUT, IN, LDI, LDO, M0, M1, N0, N1) { \
@@ -122,60 +138,43 @@
 # define LIBXS_XCOPY_PRECOND(COND) COND
 #endif
 
-#define LIBXS_XCOPY(PARALLEL, LOOP_START, KERNEL_START, SYNC, \
-  XKERNEL, KERNEL_CALL, KERNEL, OUT, IN, TYPESIZE, LDI, LDO, TILE_M, TILE_N, M0, M1, N0, N1) { \
-  PARALLEL \
-  { \
-    libxs_blasint libxs_xcopy_i_ = M0, libxs_xcopy_j_ = N0; \
-    if (0 != (KERNEL)) { /* inner tiles with JIT */ \
-      LOOP_START(LIBXS_TRANS_COLLAPSE) \
-      for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
-        for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
-          KERNEL_START(firstprivate(libxs_xcopy_i_, libxs_xcopy_j_) untied) \
-          { \
-            XKERNEL(char, TYPESIZE, OUT, IN, LDI, LDO, libxs_xcopy_i_, libxs_xcopy_j_, libxs_xcopy_src_, libxs_xcopy_dst_); \
-            KERNEL_CALL(KERNEL, TYPESIZE, libxs_xcopy_src_, &(LDI), libxs_xcopy_dst_, &(LDO)); \
-          } \
-        } \
+#define LIBXS_XCOPY(XKERNEL, KERNEL_CALL, KERNEL, OUT, IN, TYPESIZE, LDI, LDO, TILE_M, TILE_N, M0, M1, N0, N1) { \
+  libxs_blasint libxs_xcopy_i_ = M0, libxs_xcopy_j_ = N0; \
+  if (0 != (KERNEL)) { /* inner tiles with JIT */ \
+    for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
+      for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
+        XKERNEL(char, TYPESIZE, OUT, IN, LDI, LDO, libxs_xcopy_i_, libxs_xcopy_j_, libxs_xcopy_src_, libxs_xcopy_dst_); \
+        KERNEL_CALL(KERNEL, TYPESIZE, libxs_xcopy_src_, LDI, libxs_xcopy_dst_, LDO); \
       } \
     } \
-    else { /* inner tiles without JIT */ \
-      LOOP_START(LIBXS_TRANS_COLLAPSE) \
-      for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
-        for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
-          KERNEL_START(firstprivate(libxs_xcopy_i_, libxs_xcopy_j_) untied) \
-          { \
-            LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
-              libxs_xcopy_i_, libxs_xcopy_i_ + (TILE_M), \
-              libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N)); \
-          } \
-        } \
-      } \
-    } \
-    LIBXS_XCOPY_PRECOND(if (libxs_xcopy_j_ < (N1))) { \
-      LOOP_START(1/*COLLAPSE*/) \
-      for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
-        KERNEL_START(firstprivate(libxs_xcopy_i_) untied) \
+  } \
+  else { /* inner tiles without JIT */ \
+    for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
+      for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
         LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
           libxs_xcopy_i_, libxs_xcopy_i_ + (TILE_M), \
-          libxs_xcopy_j_, N1); \
-      } \
-    } \
-    LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < (M1))) { \
-      LOOP_START(1/*COLLAPSE*/) \
-      for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N)); libxs_xcopy_j_ += TILE_N) { \
-        KERNEL_START(firstprivate(libxs_xcopy_j_) untied) \
-        LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
-          libxs_xcopy_i_, M1, \
           libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N)); \
       } \
     } \
-    LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < (M1) && libxs_xcopy_j_ < (N1))) { \
+  } \
+  LIBXS_XCOPY_PRECOND(if (libxs_xcopy_j_ < (N1))) { \
+    for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
       LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
-        libxs_xcopy_i_, M1, \
+        libxs_xcopy_i_, libxs_xcopy_i_ + (TILE_M), \
         libxs_xcopy_j_, N1); \
     } \
-    SYNC \
+  } \
+  LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < (M1))) { \
+    for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N)); libxs_xcopy_j_ += TILE_N) { \
+      LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
+        libxs_xcopy_i_, M1, \
+        libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N)); \
+    } \
+  } \
+  LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < (M1) && libxs_xcopy_j_ < (N1))) { \
+    LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
+      libxs_xcopy_i_, M1, \
+      libxs_xcopy_j_, N1); \
   } \
 }
 
@@ -186,15 +185,21 @@ LIBXS_API_INTERN void libxs_trans_init(int archid);
 LIBXS_API_INTERN void libxs_trans_finalize(void);
 
 LIBXS_API void libxs_matcopy_internal(void* out, const void* in, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
-  const int* prefetch, int tid, int nthreads);
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo, const int* prefetch,
+  libxs_blasint tm, libxs_blasint tn, libxs_xmcopyfunction kernel,
+  int tid, int nthreads);
 LIBXS_API void libxs_otrans_internal(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
+  libxs_blasint tm, libxs_blasint tn, libxs_xtransfunction kernel,
   int tid, int nthreads);
 
 /** Determines whether JIT-kernels are used or not (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */
 LIBXS_APIVAR(int libxs_trans_jit);
-/** Configuration table containing the tile sizes separate for DP and SP. */
-LIBXS_APIVAR(/*const*/ unsigned int(*libxs_trans_tile)[2/*M,N*/][8/*size-range*/]);
+/** M-factor shaping the N-extent (tile shape). */
+LIBXS_APIVAR(float libxs_trans_tile_stretch);
+/** Table of M-extents per type-size (tile shape). */
+LIBXS_APIVAR(libxs_blasint* libxs_trans_mtile);
+/** Determines if OpenMP tasks are used, and scales beyond the number of threads. */
+LIBXS_APIVAR_PUBLIC(int libxs_trans_taskscale);
 
 #endif /*LIBXS_TRANS_H*/

@@ -37,6 +37,16 @@
 # define ELEM_TYPE float
 #endif
 
+#if !defined(CHECK_PARALLEL)
+# define CHECK_PARALLEL
+#endif
+
+#if defined(CHECK_PARALLEL)
+# define OTRANS libxs_otrans_omp
+#else
+# define OTRANS libxs_otrans
+#endif
+
 
 int main(void)
 {
@@ -64,11 +74,9 @@ int main(void)
   LIBXS_MATRNG(ELEM_TYPE,  0, b, max_size_b, 1, max_size_b, 1.0);
 
   for (test = start; test < ntests; ++test) {
-    unsigned int testerrors = (EXIT_SUCCESS == libxs_otrans(
-      b, a, sizeof(ELEM_TYPE), m[test], n[test],
-      ldi[test], ldo[test]) ? 0 : 1);
-
-    if (0 == testerrors) {
+    OTRANS(b, a, sizeof(ELEM_TYPE), m[test], n[test], ldi[test], ldo[test]);
+    { /* validation */
+      unsigned int testerrors = 0;
       libxs_blasint i, j;
       for (i = 0; i < n[test]; ++i) {
         for (j = 0; j < m[test]; ++j) {
@@ -77,23 +85,21 @@ int main(void)
           testerrors += (LIBXS_FEQ(a[u], b[v]) ? 0u : 1u);
         }
       }
-    }
-    if (nerrors < testerrors) {
-      nerrors = testerrors;
+      if (nerrors < testerrors) {
+        nerrors = testerrors;
+      }
     }
   }
 
   if (0 == nerrors) { /* previous results are correct and may be used to validate other tests */
     for (test = start; test < ntests; ++test) {
       /* prepare expected results in b (correct according to the previous test block) */
-      libxs_otrans(b, a, sizeof(ELEM_TYPE), m[test], n[test], ldi[test], ldo[test]);
+      OTRANS(b, a, sizeof(ELEM_TYPE), m[test], n[test], ldi[test], ldo[test]);
 
       if (m[test] == n[test] && ldi[test] == ldo[test]) {
-        unsigned int testerrors = (EXIT_SUCCESS == libxs_otrans(
-          a, a, sizeof(ELEM_TYPE), m[test], n[test],
-          ldi[test], ldo[test]) ? 0 : 1);
-
-        if (0 == testerrors) {
+        OTRANS(a, a, sizeof(ELEM_TYPE), m[test], n[test], ldi[test], ldo[test]);
+        { /* validation */
+          unsigned int testerrors = 0;
           libxs_blasint i, j;
           for (i = 0; i < n[test]; ++i) {
             for (j = 0; j < m[test]; ++j) {
@@ -102,15 +108,10 @@ int main(void)
               testerrors += (LIBXS_FEQ(a[uv], b[uv]) ? 0u : 1u);
             }
           }
+          if (nerrors < testerrors) {
+            nerrors = testerrors;
+          }
         }
-        if (nerrors < testerrors) {
-          nerrors = testerrors;
-        }
-      }
-      else { /* negative tests */
-        nerrors = LIBXS_MAX(EXIT_SUCCESS != libxs_otrans(
-          a, a, sizeof(ELEM_TYPE), m[test], n[test],
-          ldi[test], ldo[test]) ? 0u : 1u, nerrors);
       }
     }
   }
