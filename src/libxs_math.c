@@ -383,7 +383,7 @@ LIBXS_API unsigned int libxs_rand_u32(unsigned int n)
 }
 
 
-LIBXS_API double libxs_rand_f64()
+LIBXS_API double libxs_rand_f64(void)
 {
 #if defined(_WIN32) || defined(__CYGWIN__) || !(defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE))
   static const double scale = 1.0 / (RAND_MAX);
