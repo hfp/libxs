@@ -37,14 +37,14 @@
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
   int N;
   int nThreads;
-  int m; /* number of outputs */
-  int n; /* size of the minibatch */
-  int k; /* number of inputs */
-  int t; /* number of time steps */
-  int bm; /* blocksize for m */
-  int bn; /* blocksize for n */
-  int bk; /* blocksize for k */
-  int b_m1; /* b_?? parameters are used in libxs_bgemm */
+  int m;     /* number of outputs */
+  int n;     /* size of the minibatch */
+  int k;     /* number of inputs */
+  int t;     /* number of time steps */
+  int bm;    /* blocksize for m */
+  int bn;    /* blocksize for n */
+  int bk;    /* blocksize for k */
+  int b_m1;  /* b_?? parameters are used in libxs_bgemm */
   int b_n1;
   int b_k1;
   int b_m2;
@@ -116,7 +116,7 @@ LIBXS_API size_t libxs_dnn_rnncell_get_internalstate_size(const libxs_dnn_rnncel
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_internalstate(libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind, const void* internalstate);
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind);
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_z(libxs_dnn_rnncell* handle, const void* zgoldt);
+LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_internalstate(libxs_dnn_rnncell* handle, const void* zgoldt);
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type);
 LIBXS_API libxs_dnn_tensor* libxs_dnn_rnncell_get_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);

@@ -500,7 +500,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_z(libxs_dnn_rnncell* handle, const void* zgoldtb)
+LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_internalstate(libxs_dnn_rnncell* handle, const void* zgoldtb)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
