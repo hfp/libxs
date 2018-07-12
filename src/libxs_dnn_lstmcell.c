@@ -1430,7 +1430,7 @@ LIBXS_API void libxs_dnn_lstmcell_split_wx(libxs_dnn_lstmcell* lstm, libxs_blasi
     k = ((job % (n * m)) % (m * bn)) / (bn * bm);
     l = (((job % (n * m)) % (m * bn)) % (bn * bm)) / bm;
     p = (((job % (n * m)) % (m * bn)) % (bn * bm)) % bm;
-    LIBXS_VLA_ACCESS(5, real_dst, i, j, k, l, p, nb, mb, bn, bm) = 
+    LIBXS_VLA_ACCESS(5, real_dst, i, j, k, l, p, nb, mb, bn, bm) =
       LIBXS_VLA_ACCESS(5, real_src, i, j, mb*offset + k, l, p, nb, mb*4, bn, bm);
   }
 }
@@ -1440,7 +1440,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   libxs_blasint m = lstm->m;
   libxs_blasint n = lstm->n;
-  libxs_blasint k = lstm->k;
+  /*libxs_blasint k = lstm->k;*/
   libxs_blasint t = lstm->t;
 #if defined(LSTM_TIMING)
   const double gflops = (((2.0 * m * n * k) + (2.0 * m * n * m) + (2.0 * m * n)) * 4.0 + (5.0 * m * n)) * t * 1E-9;
@@ -1474,7 +1474,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
   LIBXS_DNN_ELTWISE_FTYPE *d1  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d1->data;
   LIBXS_DNN_ELTWISE_FTYPE *d2  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d2->data;
   LIBXS_DNN_ELTWISE_FTYPE *d   = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d->data;
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n);
+  /*LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n);*/
   LIBXS_DNN_ELTWISE_FTYPE *i1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i1t->data;
   LIBXS_DNN_ELTWISE_FTYPE *f1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f1t->data;
   LIBXS_DNN_ELTWISE_FTYPE *o1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o1t->data;
@@ -1531,9 +1531,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
     Gbl_t_input_total += Gbl_duration_input;
 #endif
     for (j = 0; j < t; ++j) {
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), bi, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), start_thread, tid, lstm->nThreads);  
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), bf, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), start_thread, tid, lstm->nThreads);  
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), bo, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), start_thread, tid, lstm->nThreads);  
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), bi, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), bf, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), bo, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), start_thread, tid, lstm->nThreads);
       libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), bc, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), start_thread, tid, lstm->nThreads);
       libxs_internal_recursive_step(handleuh, ri, h, &LIBXS_VLA_ACCESS(2, i2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), i, i, 2, m * n, start_thread, tid); /*sigmoid*/
       libxs_internal_recursive_step(handleuh, rf, h, &LIBXS_VLA_ACCESS(2, f2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), f, f, 2, m * n, start_thread, tid); /*sigmoid*/
@@ -1583,9 +1583,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
     Gbl_t_input_total += Gbl_duration_input;
 #endif
     for (j = 0; j < t; ++j) {
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), bi, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), start_thread, tid, lstm->nThreads);  
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), bf, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), start_thread, tid, lstm->nThreads);  
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), bo, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), start_thread, tid, lstm->nThreads);  
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), bi, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), bf, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), bo, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), start_thread, tid, lstm->nThreads);
       libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), bc, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), start_thread, tid, lstm->nThreads);
       libxs_internal_recursive_step(handleuh, ri, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, i2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, j, 0, m * n), 2, m * n, start_thread, tid); /*sigmoid*/
       libxs_internal_recursive_step(handleuh, rf, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, f2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, j, 0, m * n), 2, m * n, start_thread, tid); /*sigmoid*/
