@@ -464,7 +464,9 @@ LIBXS_API void libxs_bgemm_st(const libxs_bgemm_handle* handle, const void* a, c
 #endif
   {
     const int ltid = tid - start_thread;
-    libxs_barrier_init(handle->barrier, ltid);
+    if (handle->nthreads > 1) {
+      libxs_barrier_init(handle->barrier, ltid);
+    }
     switch (handle->iprec) {
       case LIBXS_GEMM_PRECISION_F64: {
 #       define LIBXS_BGEMM_TEMPLATE_TYPE_AB double
@@ -501,7 +503,9 @@ LIBXS_API void libxs_bgemm_st(const libxs_bgemm_handle* handle, const void* a, c
         fprintf(stderr, "LIBXS ERROR: BGEMM precision is not supported!\n");
       }
     }
-    libxs_barrier_wait(handle->barrier, ltid);
+    if (handle->nthreads > 1) {
+      libxs_barrier_wait(handle->barrier, ltid);
+    }
   }
 #if defined(LIBXS_BGEMM_CHECKS)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
