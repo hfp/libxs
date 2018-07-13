@@ -38,12 +38,12 @@
 /* kernel uses consecutive stores and consecutive loads (copy) */
 #define LIBXS_MCOPY_KERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, INDEX_I, INDEX_J, SRC, DST) \
   const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
-              TYPE *const DST = (TYPE*)(((const char*)(OUT)) + (TYPESIZE) * ((INDEX_J) * (LDO) + (INDEX_I)))
+        TYPE *const DST = (      TYPE*)(((      char*)(OUT)) + (TYPESIZE) * ((INDEX_J) * (LDO) + (INDEX_I)))
 /* call JIT-kernel (matrix-copy) */
 #define LIBXS_MCOPY_CALL_NOPF(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) { \
-  const unsigned int libxs_mcopy_call_uldi_ = (unsigned int)(LDI); \
-  const unsigned int libxs_mcopy_call_uldo_ = (unsigned int)(LDO); \
-  (KERNEL)(SRC, &libxs_mcopy_call_uldi_, DST, &libxs_mcopy_call_uldo_); \
+  const unsigned int libxs_mcopy_call_nopf_uldi_ = (unsigned int)(LDI); \
+  const unsigned int libxs_mcopy_call_nopf_uldo_ = (unsigned int)(LDO); \
+  (KERNEL)(SRC, &libxs_mcopy_call_nopf_uldi_, DST, &libxs_mcopy_call_nopf_uldo_); \
 }
 /* call JIT-kernel (matrix-copy with prefetch) */
 #define LIBXS_MCOPY_CALL(PRFT_KERNEL, TYPESIZE, SRC, LDI, DST, LDO) { \
@@ -55,7 +55,7 @@
 /* kernel uses consecutive stores and strided loads (transpose) */
 #define LIBXS_TCOPY_KERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, INDEX_I, INDEX_J, SRC, DST) \
   const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
-              TYPE *const DST = (TYPE*)(((const char*)(OUT)) + (TYPESIZE) * ((INDEX_I) * (LDO) + (INDEX_J)))
+        TYPE *const DST = (      TYPE*)(((      char*)(OUT)) + (TYPESIZE) * ((INDEX_I) * (LDO) + (INDEX_J)))
 /* call JIT-kernel (transpose) */
 #define LIBXS_TCOPY_CALL(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) { \
   const unsigned int libxs_tcopy_call_uldi_ = (unsigned int)(LDI); \
@@ -65,9 +65,9 @@
 
 #define LIBXS_XCOPY_LOOP_UNALIGNED(A)
 #define LIBXS_XCOPY_LOOP(TYPE, TYPESIZE, XKERNEL, HINT_ALIGNED, OUT, IN, LDI, LDO, M0, M1, N0, N1) { \
-  /*const*/int libxs_xcopy_loop_native_ = (sizeof(TYPE) == (TYPESIZE)); /* mute warning (constant conditional) */ \
+  /*const*/int libxs_xcopy_loop_generic_ = (sizeof(TYPE) != (TYPESIZE)); /* mute warning (constant conditional) */ \
   libxs_blasint libxs_xcopy_loop_i_, libxs_xcopy_loop_j_; \
-  if (0 != libxs_xcopy_loop_native_) { \
+  if (0 == libxs_xcopy_loop_generic_) { /* specific type-size */ \
     for (libxs_xcopy_loop_i_ = M0; libxs_xcopy_loop_i_ < (libxs_blasint)(M1); ++libxs_xcopy_loop_i_) { \
       LIBXS_PRAGMA_NONTEMPORAL HINT_ALIGNED(OUT) \
       for (libxs_xcopy_loop_j_ = N0; libxs_xcopy_loop_j_ < (libxs_blasint)(N1); ++libxs_xcopy_loop_j_) { \
@@ -76,7 +76,7 @@
       } \
     } \
   } \
-  else { \
+  else { /* generic type-size */ \
     unsigned int libxs_xcopy_loop_k_; \
     for (libxs_xcopy_loop_i_ = M0; libxs_xcopy_loop_i_ < (libxs_blasint)(M1); ++libxs_xcopy_loop_i_) { \
       LIBXS_PRAGMA_NONTEMPORAL HINT_ALIGNED(OUT) \
@@ -91,10 +91,13 @@
   } \
 }
 
-#define LIBXS_XCOPY_XALIGN(TYPE, TYPESIZE, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1) { \
-  if (0 == LIBXS_MOD2((N0) * (TYPESIZE), LIBXS_ALIGNMENT) && \
+#define LIBXS_XALIGN_TCOPY(N0, TYPESIZE) (0 == LIBXS_MOD2((N0) * (TYPESIZE), LIBXS_ALIGNMENT))
+#define LIBXS_XALIGN_MCOPY(N0, TYPESIZE) (1)
+
+#define LIBXS_XCOPY_XALIGN(TYPE, TYPESIZE, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1, XALIGN) { \
+  if (0 == LIBXS_MOD2((uintptr_t)(OUT), LIBXS_ALIGNMENT) && \
       0 == LIBXS_MOD2((LDO) * (TYPESIZE), LIBXS_ALIGNMENT) && \
-      0 == LIBXS_MOD2((uintptr_t)(OUT), LIBXS_ALIGNMENT)) \
+      XALIGN(N0, TYPESIZE)) \
   { \
     LIBXS_XCOPY_LOOP(TYPE, TYPESIZE, XKERNEL, LIBXS_PRAGMA_VALIGNED_VAR, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
   } \
@@ -103,23 +106,23 @@
   } \
 }
 
-#define LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, M0, M1, N0, N1) { \
+#define LIBXS_XCOPY_NONJIT(XKERNEL, TYPESIZE, OUT, IN, LDI, LDO, M0, M1, N0, N1, XALIGN) { \
   switch(TYPESIZE) { \
     case 2: { \
-      LIBXS_XCOPY_XALIGN(short, 2, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
+      LIBXS_XCOPY_XALIGN(short, 2, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1, XALIGN); \
     } break; \
     case 4: { \
-      LIBXS_XCOPY_XALIGN(float, 4, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
+      LIBXS_XCOPY_XALIGN(float, 4, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1, XALIGN); \
     } break; \
     case 8: { \
-      LIBXS_XCOPY_XALIGN(double, 8, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
+      LIBXS_XCOPY_XALIGN(double, 8, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1, XALIGN); \
     } break; \
     case 16: { \
       typedef struct /*libxs_xcopy_nonjit_elem_t*/ { double value[2]; } libxs_xcopy_nonjit_elem_t; \
-      LIBXS_XCOPY_XALIGN(libxs_xcopy_nonjit_elem_t, 16, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
+      LIBXS_XCOPY_XALIGN(libxs_xcopy_nonjit_elem_t, 16, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1, XALIGN); \
     } break; \
     default: { \
-      LIBXS_XCOPY_XALIGN(char, TYPESIZE, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1); \
+      LIBXS_XCOPY_XALIGN(char, TYPESIZE, XKERNEL, OUT, IN, LDI, LDO, M0, M1, N0, N1, XALIGN); \
     } break; \
   } \
 }
@@ -130,10 +133,10 @@
 # define LIBXS_XCOPY_PRECOND(COND) COND
 #endif
 
-#define LIBXS_XCOPY(XKERNEL, KERNEL_CALL, KERNEL, OUT, IN, TYPESIZE, LDI, LDO, TILE_M, TILE_N, M0, M1, N0, N1) { \
+#define LIBXS_XCOPY(XKERNEL, KERNEL_CALL, KERNEL, OUT, IN, TYPESIZE, LDI, LDO, TILE_M, TILE_N, M0, M1, N0, N1, XALIGN) { \
   libxs_blasint libxs_xcopy_i_ = M0, libxs_xcopy_j_ = N0; \
   if (0 != (KERNEL)) { /* inner tiles with JIT */ \
-    for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
+    for (; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
       for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
         XKERNEL(char, TYPESIZE, OUT, IN, LDI, LDO, libxs_xcopy_i_, libxs_xcopy_j_, libxs_xcopy_src_, libxs_xcopy_dst_); \
         KERNEL_CALL(KERNEL, TYPESIZE, libxs_xcopy_src_, LDI, libxs_xcopy_dst_, LDO); \
@@ -141,32 +144,32 @@
     } \
   } \
   else { /* inner tiles without JIT */ \
-    for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
+    for (; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
       for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
-        LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
+        LIBXS_XCOPY_NONJIT(XKERNEL, TYPESIZE, OUT, IN, LDI, LDO, \
           libxs_xcopy_i_, libxs_xcopy_i_ + (TILE_M), \
-          libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N)); \
+          libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N), XALIGN); \
       } \
     } \
   } \
   LIBXS_XCOPY_PRECOND(if (libxs_xcopy_j_ < (N1))) { \
     for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
-      LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
+      LIBXS_XCOPY_NONJIT(XKERNEL, TYPESIZE, OUT, IN, LDI, LDO, \
         libxs_xcopy_i_, libxs_xcopy_i_ + (TILE_M), \
-        libxs_xcopy_j_, N1); \
+        libxs_xcopy_j_, N1, XALIGN); \
     } \
   } \
   LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < (M1))) { \
     for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N)); libxs_xcopy_j_ += TILE_N) { \
-      LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
+      LIBXS_XCOPY_NONJIT(XKERNEL, TYPESIZE, OUT, IN, LDI, LDO, \
         libxs_xcopy_i_, M1, \
-        libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N)); \
+        libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N), XALIGN); \
     } \
   } \
   LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < (M1) && libxs_xcopy_j_ < (N1))) { \
-    LIBXS_XCOPY_NONJIT(XKERNEL, OUT, IN, TYPESIZE, LDI, LDO, \
+    LIBXS_XCOPY_NONJIT(XKERNEL, TYPESIZE, OUT, IN, LDI, LDO, \
       libxs_xcopy_i_, M1, \
-      libxs_xcopy_j_, N1); \
+      libxs_xcopy_j_, N1, XALIGN); \
   } \
 }
 
