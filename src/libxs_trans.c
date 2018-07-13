@@ -62,9 +62,9 @@ LIBXS_API_INTERN void libxs_trans_init(int archid)
 {
   /* setup tile sizes according to CPUID or environment (LIBXS_TRANS_M, LIBXS_TRANS_N) */
   static libxs_blasint config_tm[/*config*/][2/*DP/SP*/] = {
-    /* generic (hsw) */ { 140, 140 },
-    /* mic (knl/knm) */ { 140, 140 },
-    /* core (skx)    */ { 140, 140 }
+    /* generic (hsw) */ { 2, 2 },
+    /* mic (knl/knm) */ { 2, 2 },
+    /* core (skx)    */ { 2, 2 }
   };
   { /* check if JIT-code generation is permitted */
     const char *const env_jit = getenv("LIBXS_TRANS_JIT");
@@ -78,15 +78,15 @@ LIBXS_API_INTERN void libxs_trans_init(int archid)
     int i;
     if (LIBXS_X86_AVX512_CORE <= archid) {
       libxs_trans_mtile = config_tm[2];
-      libxs_trans_tile_stretch = 0.5f;
+      libxs_trans_tile_stretch = 32.f;
     }
     else if (LIBXS_X86_AVX512_MIC <= archid && LIBXS_X86_AVX512_CORE > archid) {
       libxs_trans_mtile = config_tm[1];
-      libxs_trans_tile_stretch = 0.5f;
+      libxs_trans_tile_stretch = 32.f;
     }
     else {
       libxs_trans_mtile = config_tm[0];
-      libxs_trans_tile_stretch = 0.5f;
+      libxs_trans_tile_stretch = 32.f;
     }
     for (i = 0; i < 2/*DP/SP*/; ++i) {
       if (0 < m) libxs_trans_mtile[i] = LIBXS_MAX(m, LIBXS_TRANS_MIN);
