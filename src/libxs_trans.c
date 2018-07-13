@@ -124,7 +124,7 @@ LIBXS_API void libxs_matcopy_internal(void* out, const void* in, unsigned int ty
 
   if (nthreads <= mtasks) { /* parallelized over M */
     const libxs_blasint mt = (m + nthreads - 1) / nthreads;
-    m0 = tid * mt; m1 = LIBXS_MIN(m0 + mt, m);
+    m0 = LIBXS_MIN(tid * mt, m); m1 = LIBXS_MIN(m0 + mt, m);
     n0 = 0; n1 = n;
   }
   else { /* parallelized over M and N */
@@ -241,7 +241,7 @@ LIBXS_API void libxs_otrans_internal(void* out, const void* in, unsigned int typ
 
   if (nthreads <= mtasks) { /* parallelized over M */
     const libxs_blasint mt = (m + nthreads - 1) / nthreads;
-    m0 = tid * mt; m1 = LIBXS_MIN(m0 + mt, m);
+    m0 = LIBXS_MIN(tid * mt, m); m1 = LIBXS_MIN(m0 + mt, m);
     n0 = 0; n1 = n;
   }
   else { /* parallelized over M and N */
