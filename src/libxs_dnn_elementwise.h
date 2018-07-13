@@ -30,7 +30,6 @@
 #define LIBXS_DNN_ELEMENTWISE_H
 
 #include <libxs_bgemm.h>
-#include <libxs_sync.h>
 
 #if !defined(LIBXS_DNN_ELTWISE_FTYPE)
 # define LIBXS_DNN_ELTWISE_FTYPE float
