@@ -140,11 +140,13 @@ LIBXS_API void libxs_matcopy_internal(void* out, const void* in, unsigned int ty
 
   if (0 != prefetch && 0 != *prefetch) { /* prefetch */
     LIBXS_XCOPY(LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL, kernel,
-      out, in, typesize, ldi, ldo, tm, tn, m0, m1, n0, n1);
+      out, in, typesize, ldi, ldo, tm, tn, m0, m1, n0, n1,
+      LIBXS_XALIGN_MCOPY);
   }
   else { /* no prefetch */
     LIBXS_XCOPY(LIBXS_MCOPY_KERNEL, LIBXS_MCOPY_CALL_NOPF, kernel,
-      out, in, typesize, ldi, ldo, tm, tn, m0, m1, n0, n1);
+      out, in, typesize, ldi, ldo, tm, tn, m0, m1, n0, n1,
+      LIBXS_XALIGN_MCOPY);
   }
 }
 
@@ -256,7 +258,8 @@ LIBXS_API void libxs_otrans_internal(void* out, const void* in, unsigned int typ
   LIBXS_ASSERT_MSG(n0 <= n1 && n1 <= n, "Invalid task size!");
 
   LIBXS_XCOPY(LIBXS_TCOPY_KERNEL, LIBXS_TCOPY_CALL, kernel,
-    out, in, typesize, ldi, ldo, tm, tn, m0, m1, n0, n1);
+    out, in, typesize, ldi, ldo, tm, tn, m0, m1, n0, n1,
+    LIBXS_XALIGN_TCOPY);
 }
 
 
