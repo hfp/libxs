@@ -1993,7 +1993,7 @@ LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor
   libxs_xtransfunction result;
   if (0 != descriptor
     /* no need to double-check since initializing the descriptor was successful
-    && 0 != LIBXS_TRANS_NO_BYPASS_DIMS(descriptor->m, descriptor->n, descriptor->ldo)*/)
+    && 0 != LIBXS_TRANS_NO_BYPASS(descriptor->m, descriptor->n)*/)
   {
     libxs_kernel_info query;
     assert(LIBXS_SIZEOF(descriptor, &descriptor->typesize) < sizeof(query));
