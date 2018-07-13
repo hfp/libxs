@@ -35,14 +35,6 @@
 # define LIBXS_TRANS_CHECK
 #endif
 
-#if !defined(LIBXS_TRANS_COLLAPSE)
-# if !defined(_CRAYC)
-#   define LIBXS_TRANS_COLLAPSE 1/*2*/
-# else
-#   define LIBXS_TRANS_COLLAPSE 1
-# endif
-#endif
-
 /* kernel uses consecutive stores and consecutive loads (copy) */
 #define LIBXS_MCOPY_KERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, INDEX_I, INDEX_J, SRC, DST) \
   const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
