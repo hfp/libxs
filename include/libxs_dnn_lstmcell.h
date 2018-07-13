@@ -147,6 +147,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
   libxs_bgemm_handle* handleuh;
   libxs_bgemm_handle* handlett;
   libxs_bgemm_handle* handlewd;
+  /* barrier */
+  libxs_barrier* barrier;
 } libxs_dnn_lstmcell;
 
 LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc lstmcell_desc, libxs_dnn_err_t* status);

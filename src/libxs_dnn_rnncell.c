@@ -95,9 +95,10 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     handle->di1 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->di2 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->deltaMt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->barrier = libxs_barrier_create(handle->nThreads, 1);
     if (NULL == handle->deltat || NULL == handle->deltaMt ||
         NULL == handle->z || NULL == handle->z1t || NULL == handle->z2 ||
-        NULL == handle->di1 || NULL == handle->di2)
+        NULL == handle->di1 || NULL == handle->di2 || NULL == handle->barrier)
     {
       free(handle->deltat); free(handle->deltaMt);
       free(handle->z); free(handle->z1t); free(handle->z2);
@@ -118,8 +119,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_rnncell(const libxs_dnn_rnncell* han
     free(handle->deltat); free(handle->deltaMt);
     free(handle->z); free(handle->z1t); free(handle->z2);
     free(handle->di1); free(handle->di2);
+    /* Deallocate barrier */
+    if (handle->barrier != 0 ) { libxs_barrier_release((const libxs_barrier*)handle->barrier); }
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_rnncell*)handle);
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE;
   }
   return status;
 }
@@ -686,6 +691,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   Gbl_duration_input = 0.; Gbl_duration_recur = 0.; Gbl_duration_eltwise = 0.; Gbl_duration_nonlin = 0.;
 #endif
   int i;
+  const int ltid = tid - start_thread;
 
 #if defined(LSTM_TIMING)
   start = libxs_timer_tick();
@@ -696,15 +702,19 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
   Gbl_t_input_total += Gbl_duration_input;
 #endif
+  if (rnn->nThreads > 1) {
+    libxs_barrier_init(rnn->barrier, ltid);
+  }
   if (reuse) {
     for (i = 0; i < t; ++i) {
-      /* printf("i %d, t %d\n", i, t); */
       libxs_internal_recursive_step(handleuh, u, h, &LIBXS_VLA_ACCESS(2, z2, i, 0, m * n), &LIBXS_VLA_ACCESS(2, z1, i, 0, m * n), z, h, 2, m * n, start_thread, tid); /*sigmoid*/
+      if (rnn->nThreads > 1) { libxs_barrier_wait(rnn->barrier, ltid); }
     }
   } else {
     for (i = 0; i < t; ++i) {
       libxs_internal_recursive_step(handleuh, u, &LIBXS_VLA_ACCESS(2, hnr, i, 0, m * n), &LIBXS_VLA_ACCESS(2, z2, i, 0, m * n), &LIBXS_VLA_ACCESS(2, z1, i, 0, m * n),
         &LIBXS_VLA_ACCESS(2, znr, i, 0, m * n), &LIBXS_VLA_ACCESS(2, hnr, i+1, 0, m * n), 2, m * n, start_thread, tid); /*sigmoid*/
+      if (rnn->nThreads > 1) { libxs_barrier_wait(rnn->barrier, ltid); }
     }
   }
 #if defined(LSTM_TIMING)
@@ -786,18 +796,24 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, deltaM, deltaMt, m * n);
 
   int i;
+  const int ltid = tid - start_thread;
 #ifdef LSTM_TIMING
   unsigned long long start;
   double duration;
   start = libxs_timer_tick();
 #endif
-
+  if (rnn->nThreads > 1) {
+    libxs_barrier_init(rnn->barrier, ltid);
+  }
   libxs_internal_matrix_zero(m * n, &LIBXS_VLA_ACCESS(2, delta, t-1, 0, m * n), start_thread, tid, rnn->nThreads);
+  if (rnn->nThreads > 1) { libxs_barrier_wait(rnn->barrier, ltid); }
   for (i = t-2; i >= 0; --i) {
     libxs_internal_matrix_sigmoid_inverse(m * n, &LIBXS_VLA_ACCESS(2, z, i+1, 0, m * n), zi, start_thread, tid, rnn->nThreads);
+    if (rnn->nThreads > 1) { libxs_barrier_wait(rnn->barrier, ltid); }
     libxs_bgemm_st(handleud, u, &LIBXS_VLA_ACCESS(2, delta, i+1, 0, m * n), &LIBXS_VLA_ACCESS(2, di1, i, 0, m * n), start_thread, tid);
     libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, djdh, i+1, 0, m * n), &LIBXS_VLA_ACCESS(2, di1, i, 0, m * n), di2, start_thread, tid, rnn->nThreads);
     libxs_internal_matrix_eltwise_mult(m * n, zi, di2, &LIBXS_VLA_ACCESS(2, delta, i, 0, m * n), start_thread, tid, rnn->nThreads);
+    if (rnn->nThreads > 1) { libxs_barrier_wait(rnn->barrier, ltid); }
   }
   if (pass == 1 || pass == 3) {
     for (i = 0; i < t; ++i) {
@@ -808,6 +824,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
     for (i = 0; i < t; ++i) {
       libxs_bgemm_convert_b_to_a(handleud, &LIBXS_VLA_ACCESS(2, delta, i, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, deltaM, i, 0, m * n));
     }
+    if (rnn->nThreads > 1) { libxs_barrier_wait(rnn->barrier, ltid); }
     for (i = 0; i < t; ++i) {
       libxs_bgemm_st(handledh, &LIBXS_VLA_ACCESS(2, deltaM, i, 0, m * n), &LIBXS_VLA_ACCESS(2, h, i, 0, m * n), djdu, start_thread, tid);
       libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, deltaM, i, 0, m * n), &LIBXS_VLA_ACCESS(2, x, i, 0, k * m), djdw, start_thread, tid);
