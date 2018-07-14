@@ -48,10 +48,6 @@
 # endif
 #endif
 
-#if !defined(LIBXS_TRANS_TASKSCALE)
-# define LIBXS_TRANS_TASKSCALE 2
-#endif
-
 /* minimum tile-size is 3x3 to avoid remainder tiles of 2x2 */
 #if !defined(LIBXS_TRANS_MIN)
 # define LIBXS_TRANS_MIN 3
