@@ -98,7 +98,7 @@ LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
     barrier->cores = (internal_sync_core_tag**)libxs_aligned_malloc(
       barrier->ncores * sizeof(internal_sync_core_tag*), LIBXS_CACHELINE);
     barrier->threads_waiting = barrier->nthreads; /* atomic */
-    barrier->init_done = 0; /* false */    
+    barrier->init_done = 0; /* false */
   }
   else
 #endif
@@ -187,7 +187,7 @@ LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid)
     }
     else {
       while (2 != barrier->init_done);
-    }    
+    }
   }
 #endif
 }
