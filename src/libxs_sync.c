@@ -86,22 +86,26 @@ LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
 {
   libxs_barrier *const barrier = (libxs_barrier*)libxs_aligned_malloc(
     sizeof(libxs_barrier), LIBXS_CACHELINE);
-#if !defined(LIBXS_NO_SYNC)
-  barrier->ncores = ncores;
-  barrier->ncores_log2 = LIBXS_LOG2((ncores << 1) - 1);
-  barrier->nthreads_per_core = nthreads_per_core;
-  barrier->nthreads = ncores * nthreads_per_core;
-
-  barrier->threads = (internal_sync_thread_tag**)libxs_aligned_malloc(
-    barrier->nthreads * sizeof(internal_sync_thread_tag*), LIBXS_CACHELINE);
-  barrier->cores = (internal_sync_core_tag**)libxs_aligned_malloc(
-    barrier->ncores * sizeof(internal_sync_core_tag*), LIBXS_CACHELINE);
-
-  barrier->threads_waiting = barrier->nthreads; /* atomic */
-  barrier->init_done = 0; /* false */
-#else
+#if defined(LIBXS_NO_SYNC)
   LIBXS_UNUSED(ncores); LIBXS_UNUSED(nthreads_per_core);
+#else
+  if (1 < ncores && ncores <= nthreads_per_core) {
+    barrier->ncores = ncores;
+    barrier->ncores_log2 = LIBXS_LOG2((ncores << 1) - 1);
+    barrier->nthreads_per_core = nthreads_per_core;
+    barrier->nthreads = ncores * nthreads_per_core;
+    barrier->threads = (internal_sync_thread_tag**)libxs_aligned_malloc(
+      barrier->nthreads * sizeof(internal_sync_thread_tag*), LIBXS_CACHELINE);
+    barrier->cores = (internal_sync_core_tag**)libxs_aligned_malloc(
+      barrier->ncores * sizeof(internal_sync_core_tag*), LIBXS_CACHELINE);
+    barrier->threads_waiting = barrier->nthreads; /* atomic */
+    barrier->init_done = 0; /* false */    
+  }
+  else
 #endif
+  {
+    barrier->nthreads = 1;
+  }
   return barrier;
 }
 
@@ -109,78 +113,80 @@ LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
 LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid)
 {
 #if !defined(LIBXS_NO_SYNC)
-  const int cid = tid / barrier->nthreads_per_core; /* this thread's core ID */
-  internal_sync_core_tag* core = 0;
-  int i;
-  internal_sync_thread_tag* thread;
+  if (1 < barrier->nthreads) {
+    const int cid = tid / barrier->nthreads_per_core; /* this thread's core ID */
+    internal_sync_core_tag* core = 0;
+    int i;
+    internal_sync_thread_tag* thread;
 
-  /* we only initialize the barrier once */
-  if (barrier->init_done == 2) {
-    return;
-  }
-
-  /* allocate per-thread structure */
-  thread = (internal_sync_thread_tag*)libxs_aligned_malloc(
-    sizeof(internal_sync_thread_tag), LIBXS_CACHELINE);
-  barrier->threads[tid] = thread;
-  thread->core_tid = tid - (barrier->nthreads_per_core * cid); /* mod */
-  /* each core's thread 0 does all the allocations */
-  if (0 == thread->core_tid) {
-    core = (internal_sync_core_tag*)libxs_aligned_malloc(
-      sizeof(internal_sync_core_tag), LIBXS_CACHELINE);
-    core->id = (uint8_t)cid;
-    core->core_sense = 1;
-
-    core->thread_senses = (uint8_t*)libxs_aligned_malloc(
-      barrier->nthreads_per_core * sizeof(uint8_t), LIBXS_CACHELINE);
-    for (i = 0; i < barrier->nthreads_per_core; ++i) core->thread_senses[i] = 1;
-
-    for (i = 0; i < 2; ++i) {
-      core->my_flags[i] = (uint8_t*)libxs_aligned_malloc(
-        barrier->ncores_log2 * sizeof(uint8_t) * LIBXS_CACHELINE,
-        LIBXS_CACHELINE);
-      core->partner_flags[i] = (uint8_t**)libxs_aligned_malloc(
-        barrier->ncores_log2 * sizeof(uint8_t*),
-        LIBXS_CACHELINE);
+    /* we only initialize the barrier once */
+    if (barrier->init_done == 2) {
+      return;
     }
 
-    core->parity = 0;
-    core->sense = 1;
-    barrier->cores[cid] = core;
-  }
+    /* allocate per-thread structure */
+    thread = (internal_sync_thread_tag*)libxs_aligned_malloc(
+      sizeof(internal_sync_thread_tag), LIBXS_CACHELINE);
+    barrier->threads[tid] = thread;
+    thread->core_tid = tid - (barrier->nthreads_per_core * cid); /* mod */
+    /* each core's thread 0 does all the allocations */
+    if (0 == thread->core_tid) {
+      core = (internal_sync_core_tag*)libxs_aligned_malloc(
+        sizeof(internal_sync_core_tag), LIBXS_CACHELINE);
+      core->id = (uint8_t)cid;
+      core->core_sense = 1;
 
-  /* barrier to let all the allocations complete */
-  if (0 == LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting, 1, LIBXS_ATOMIC_RELAXED)) {
-    barrier->threads_waiting = barrier->nthreads; /* atomic */
-    barrier->init_done = 1; /* true */
-  }
-  else {
-    while (0/*false*/ == barrier->init_done);
-  }
+      core->thread_senses = (uint8_t*)libxs_aligned_malloc(
+        barrier->nthreads_per_core * sizeof(uint8_t), LIBXS_CACHELINE);
+      for (i = 0; i < barrier->nthreads_per_core; ++i) core->thread_senses[i] = 1;
 
-  /* set required per-thread information */
-  thread->core = barrier->cores[cid];
+      for (i = 0; i < 2; ++i) {
+        core->my_flags[i] = (uint8_t*)libxs_aligned_malloc(
+          barrier->ncores_log2 * sizeof(uint8_t) * LIBXS_CACHELINE,
+          LIBXS_CACHELINE);
+        core->partner_flags[i] = (uint8_t**)libxs_aligned_malloc(
+          barrier->ncores_log2 * sizeof(uint8_t*),
+          LIBXS_CACHELINE);
+      }
 
-  /* each core's thread 0 completes setup */
-  if (0 == thread->core_tid) {
-    int di;
-    for (i = di = 0; i < barrier->ncores_log2; ++i, di += LIBXS_CACHELINE) {
-      /* find dissemination partner and link to it */
-      const int dissem_cid = (cid + (1 << i)) % barrier->ncores;
-      assert(0 != core); /* initialized under the same condition; see above */
-      core->my_flags[0][di] = core->my_flags[1][di] = 0;
-      core->partner_flags[0][i] = (uint8_t*)&barrier->cores[dissem_cid]->my_flags[0][di];
-      core->partner_flags[1][i] = (uint8_t*)&barrier->cores[dissem_cid]->my_flags[1][di];
+      core->parity = 0;
+      core->sense = 1;
+      barrier->cores[cid] = core;
     }
-  }
 
-  /* barrier to let initialization complete */
-  if (0 == LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting, 1, LIBXS_ATOMIC_RELAXED)) {
-    barrier->threads_waiting = barrier->nthreads; /* atomic */
-    barrier->init_done = 2;
-  }
-  else {
-    while (2 != barrier->init_done);
+    /* barrier to let all the allocations complete */
+    if (0 == LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting, 1, LIBXS_ATOMIC_RELAXED)) {
+      barrier->threads_waiting = barrier->nthreads; /* atomic */
+      barrier->init_done = 1; /* true */
+    }
+    else {
+      while (0/*false*/ == barrier->init_done);
+    }
+
+    /* set required per-thread information */
+    thread->core = barrier->cores[cid];
+
+    /* each core's thread 0 completes setup */
+    if (0 == thread->core_tid) {
+      int di;
+      for (i = di = 0; i < barrier->ncores_log2; ++i, di += LIBXS_CACHELINE) {
+        /* find dissemination partner and link to it */
+        const int dissem_cid = (cid + (1 << i)) % barrier->ncores;
+        assert(0 != core); /* initialized under the same condition; see above */
+        core->my_flags[0][di] = core->my_flags[1][di] = 0;
+        core->partner_flags[0][i] = (uint8_t*)&barrier->cores[dissem_cid]->my_flags[0][di];
+        core->partner_flags[1][i] = (uint8_t*)&barrier->cores[dissem_cid]->my_flags[1][di];
+      }
+    }
+
+    /* barrier to let initialization complete */
+    if (0 == LIBXS_ATOMIC_SUB_FETCH(&barrier->threads_waiting, 1, LIBXS_ATOMIC_RELAXED)) {
+      barrier->threads_waiting = barrier->nthreads; /* atomic */
+      barrier->init_done = 2;
+    }
+    else {
+      while (2 != barrier->init_done);
+    }    
   }
 #else
   LIBXS_UNUSED(barrier); LIBXS_UNUSED(tid);
@@ -192,71 +198,73 @@ LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
 void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 {
 #if !defined(LIBXS_NO_SYNC)
-  internal_sync_thread_tag *const thread = barrier->threads[tid];
-  internal_sync_core_tag *const core = thread->core;
+  if (1 < barrier->nthreads) {
+    internal_sync_thread_tag *const thread = barrier->threads[tid];
+    internal_sync_core_tag *const core = thread->core;
 
-  /* first let's execute a memory fence */
-  LIBXS_ATOMIC_SYNC(LIBXS_ATOMIC_SEQ_CST);
+    /* first let's execute a memory fence */
+    LIBXS_ATOMIC_SYNC(LIBXS_ATOMIC_SEQ_CST);
 
-  /* first signal this thread's arrival */
-  core->thread_senses[thread->core_tid] = (uint8_t)(0 == core->thread_senses[thread->core_tid] ? 1 : 0);
+    /* first signal this thread's arrival */
+    core->thread_senses[thread->core_tid] = (uint8_t)(0 == core->thread_senses[thread->core_tid] ? 1 : 0);
 
-  /* each core's thread 0 syncs across cores */
-  if (0 == thread->core_tid) {
-    int i;
-    /* wait for the core's remaining threads */
-    for (i = 1; i < barrier->nthreads_per_core; ++i) {
-      uint8_t core_sense = core->core_sense, thread_sense = core->thread_senses[i];
-      while (core_sense == thread_sense) { /* avoid evaluation in unspecified order */
+    /* each core's thread 0 syncs across cores */
+    if (0 == thread->core_tid) {
+      int i;
+      /* wait for the core's remaining threads */
+      for (i = 1; i < barrier->nthreads_per_core; ++i) {
+        uint8_t core_sense = core->core_sense, thread_sense = core->thread_senses[i];
+        while (core_sense == thread_sense) { /* avoid evaluation in unspecified order */
+          LIBXS_SYNC_PAUSE;
+          core_sense = core->core_sense;
+          thread_sense = core->thread_senses[i];
+        }
+      }
+
+      if (1 < barrier->ncores) {
+        int di;
+# if defined(__MIC__)
+        /* cannot use LIBXS_ALIGNED since attribute may not apply to local non-static arrays */
+        uint8_t sendbuffer[LIBXS_CACHELINE+LIBXS_CACHELINE-1];
+        uint8_t *const sendbuf = LIBXS_ALIGN(sendbuffer, LIBXS_CACHELINE);
+        __m512d m512d;
+        _mm_prefetch((const char*)core->partner_flags[core->parity][0], _MM_HINT_ET1);
+        sendbuf[0] = core->sense;
+        m512d = LIBXS_INTRINSICS_MM512_LOAD_PD(sendbuf);
+# endif
+
+        for (i = di = 0; i < barrier->ncores_log2 - 1; ++i, di += LIBXS_CACHELINE) {
+# if defined(__MIC__)
+          _mm_prefetch((const char*)core->partner_flags[core->parity][i+1], _MM_HINT_ET1);
+          _mm512_storenrngo_pd(core->partner_flags[core->parity][i], m512d);
+# else
+          *core->partner_flags[core->parity][i] = core->sense;
+# endif
+          while (core->my_flags[core->parity][di] != core->sense) LIBXS_SYNC_PAUSE;
+        }
+
+# if defined(__MIC__)
+        _mm512_storenrngo_pd(core->partner_flags[core->parity][i], m512d);
+# else
+        *core->partner_flags[core->parity][i] = core->sense;
+# endif
+        while (core->my_flags[core->parity][di] != core->sense) LIBXS_SYNC_PAUSE;
+        if (1 == core->parity) {
+          core->sense = (uint8_t)(0 == core->sense ? 1 : 0);
+        }
+        core->parity = (uint8_t)(1 - core->parity);
+      }
+
+      /* wake up the core's remaining threads */
+      core->core_sense = core->thread_senses[0];
+    }
+    else { /* other threads wait for cross-core sync to complete */
+      uint8_t core_sense = core->core_sense, thread_sense = core->thread_senses[thread->core_tid];
+      while (core_sense != thread_sense) { /* avoid evaluation in unspecified order */
         LIBXS_SYNC_PAUSE;
         core_sense = core->core_sense;
-        thread_sense = core->thread_senses[i];
+        thread_sense = core->thread_senses[thread->core_tid];
       }
-    }
-
-    if (1 < barrier->ncores) {
-      int di;
-#if defined(__MIC__)
-      /* cannot use LIBXS_ALIGNED since attribute may not apply to local non-static arrays */
-      uint8_t sendbuffer[LIBXS_CACHELINE+LIBXS_CACHELINE-1];
-      uint8_t *const sendbuf = LIBXS_ALIGN(sendbuffer, LIBXS_CACHELINE);
-      __m512d m512d;
-      _mm_prefetch((const char*)core->partner_flags[core->parity][0], _MM_HINT_ET1);
-      sendbuf[0] = core->sense;
-      m512d = LIBXS_INTRINSICS_MM512_LOAD_PD(sendbuf);
-#endif
-
-      for (i = di = 0; i < barrier->ncores_log2 - 1; ++i, di += LIBXS_CACHELINE) {
-#if defined(__MIC__)
-        _mm_prefetch((const char*)core->partner_flags[core->parity][i+1], _MM_HINT_ET1);
-        _mm512_storenrngo_pd(core->partner_flags[core->parity][i], m512d);
-#else
-        *core->partner_flags[core->parity][i] = core->sense;
-#endif
-        while (core->my_flags[core->parity][di] != core->sense) LIBXS_SYNC_PAUSE;
-      }
-
-#if defined(__MIC__)
-      _mm512_storenrngo_pd(core->partner_flags[core->parity][i], m512d);
-#else
-      *core->partner_flags[core->parity][i] = core->sense;
-#endif
-      while (core->my_flags[core->parity][di] != core->sense) LIBXS_SYNC_PAUSE;
-      if (1 == core->parity) {
-        core->sense = (uint8_t)(0 == core->sense ? 1 : 0);
-      }
-      core->parity = (uint8_t)(1 - core->parity);
-    }
-
-    /* wake up the core's remaining threads */
-    core->core_sense = core->thread_senses[0];
-  }
-  else { /* other threads wait for cross-core sync to complete */
-    uint8_t core_sense = core->core_sense, thread_sense = core->thread_senses[thread->core_tid];
-    while (core_sense != thread_sense) { /* avoid evaluation in unspecified order */
-      LIBXS_SYNC_PAUSE;
-      core_sense = core->core_sense;
-      thread_sense = core->thread_senses[thread->core_tid];
     }
   }
 #else
@@ -268,23 +276,25 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 LIBXS_API void libxs_barrier_destroy(const libxs_barrier* barrier)
 {
 #if !defined(LIBXS_NO_SYNC)
-  int i;
-  if (2 == barrier->init_done) {
-    for (i = 0; i < barrier->ncores; ++i) {
-      int j;
-      libxs_free((const void*)barrier->cores[i]->thread_senses);
-      for (j = 0; j < 2; ++j) {
-        libxs_free((const void*)barrier->cores[i]->my_flags[j]);
-        libxs_free(barrier->cores[i]->partner_flags[j]);
+  if (1 < barrier->nthreads) {
+    if (2 == barrier->init_done) {
+      int i;
+      for (i = 0; i < barrier->ncores; ++i) {
+        int j;
+        libxs_free((const void*)barrier->cores[i]->thread_senses);
+        for (j = 0; j < 2; ++j) {
+          libxs_free((const void*)barrier->cores[i]->my_flags[j]);
+          libxs_free(barrier->cores[i]->partner_flags[j]);
+        }
+        libxs_free(barrier->cores[i]);
       }
-      libxs_free(barrier->cores[i]);
+      for (i = 0; i < barrier->nthreads; ++i) {
+        libxs_free(barrier->threads[i]);
+      }
     }
-    for (i = 0; i < barrier->nthreads; ++i) {
-      libxs_free(barrier->threads[i]);
-    }
+    libxs_free(barrier->threads);
+    libxs_free(barrier->cores);
   }
-  libxs_free(barrier->threads);
-  libxs_free(barrier->cores);
 #endif
   libxs_free(barrier);
 }
