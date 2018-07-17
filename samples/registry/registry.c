@@ -163,7 +163,8 @@ int main(int argc, char* argv[])
         rm[i], rn[i], rk[i], alpha, rm[i], rk[i], beta, rm[i])); /* generate */
       LIBXS_EXPECT_NOT(NULL, mkl_jit_get_dgemm_ptr(jitter[i])); /* ...and dispatch (no release) */
 #else
-      LIBXS_EXPECT_NOT(NULL, libxs_dmmdispatch(rm[i], rn[i], rk[i], rm + i, rk + i, rm + i, &alpha, &beta, NULL/*flags*/, NULL/*prefetch*/));
+      LIBXS_EXPECT_NOT(NULL, libxs_dmmdispatch(rm[i], rn[i], rk[i],
+        rm + i, rk + i, rm + i, &alpha, &beta, NULL/*flags*/, NULL/*prefetch*/));
 #endif
 #if defined(_OPENMP)
 #     pragma omp atomic
@@ -186,9 +187,10 @@ int main(int argc, char* argv[])
     for (i = 0; i < size; ++i) {
       const libxs_timer_tickint t0 = libxs_timer_tick();
 #if defined(mkl_jit_create_dgemm)
-      mkl_jit_get_dgemm_ptr(jitter[i]); /* dispatch (likely uncached) */
+      LIBXS_EXPECT_NOT(NULL, mkl_jit_get_dgemm_ptr(jitter[i])); /* dispatch (likely uncached) */
 #else
-      libxs_dmmdispatch(rm[i], rn[i], rk[i], rm + i, rk + i, rm + i, &alpha, &beta, NULL/*flags*/, NULL/*prefetch*/);
+      LIBXS_EXPECT_NOT(NULL, libxs_dmmdispatch(rm[i], rn[i], rk[i],
+        rm + i, rk + i, rm + i, &alpha, &beta, NULL/*flags*/, NULL/*prefetch*/));
 #endif
 #if defined(_OPENMP)
 #     pragma omp atomic
