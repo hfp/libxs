@@ -36,6 +36,9 @@
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
+#if defined(__MKL)
+# include <mkl_blas.h>
+#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -56,11 +59,11 @@ int main(int argc, char* argv[])
 #endif
   const int size = LIBXS_MAX(1 < argc ? atoi(argv[1]) : 10000/*default*/, 1);
   const int nthreads = LIBXS_CLMP(2 < argc ? atoi(argv[2]) : 1/*default*/, 1, max_nthreads);
-  const int maxksize = LIBXS_CLMP(3 < argc ? atoi(argv[3]) : 64/*default*/, 1, LIBXS_MAX_M);
-  const int minksize = LIBXS_CLMP(4 < argc ? atoi(argv[4]) : 4/*default*/, 1, maxksize);
+  const libxs_blasint maxksize = LIBXS_CLMP(3 < argc ? atoi(argv[3]) : 16/*default*/, 1, LIBXS_MAX_M);
+  const libxs_blasint minksize = LIBXS_CLMP(4 < argc ? atoi(argv[4]) : 4/*default*/, 1, maxksize);
   libxs_timer_tickint tdsp0 = 0, tdsp1 = 0, tcgen = 0, tcall;
-  const int krange = maxksize - minksize;
-  int ncgens = size;
+  const libxs_blasint krange = maxksize - minksize;
+  int result = EXIT_SUCCESS;
 
   fprintf(stdout, "Dispatching %i calls %s internal synchronization using %i thread%s...\n", size,
 #if 0 != LIBXS_SYNC
@@ -83,81 +86,121 @@ int main(int argc, char* argv[])
 # pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
   {
-    libxs_blasint *const r = (libxs_blasint*)malloc(3/*m,n,k*/ * size * sizeof(libxs_blasint));
-    libxs_registry_info reginfo;
+    libxs_blasint *const rm = (libxs_blasint*)malloc(size * sizeof(libxs_blasint));
+    libxs_blasint *const rn = (libxs_blasint*)malloc(size * sizeof(libxs_blasint));
+    libxs_blasint *const rk = (libxs_blasint*)malloc(size * sizeof(libxs_blasint));
+    const libxs_blasint m0 = (1 < krange ? ((23 % krange) + minksize) : minksize);
+    const libxs_blasint n0 = (1 < krange ? ((23 % krange) + minksize) : minksize);
+    const libxs_blasint k0 = (1 < krange ? ((23 % krange) + minksize) : minksize);
+    const double alpha = 1, beta = 1;
     int i;
 
-    assert(0 != r);
+#if defined(mkl_jit_create_dgemm)
+    void* *const jitter = malloc(size * sizeof(void*));
+    if (NULL == jitter) exit(EXIT_FAILURE);
+#else
+    libxs_registry_info reginfo;
+#endif
+    if (NULL == rm && NULL == rn && NULL == rk) exit(EXIT_FAILURE);
+
     /* generate a set of random numbers outside of any parallel region */
-    for (i = 0; i < (3/*m,n,k*/ * size); ++i) {
-      r[i] = (1 < krange) ? ((rand() % krange) + minksize) : minksize;
+    for (i = 0; i < size; ++i) {
+      rm[i] = (1 < krange ? ((rand() % krange) + minksize) : minksize);
+      rn[i] = (1 < krange ? ((rand() % krange) + minksize) : minksize);
+      rk[i] = (1 < krange ? ((rand() % krange) + minksize) : minksize);
+#if defined(mkl_jit_create_dgemm)
+      jitter[i] = NULL;
+#endif
     }
 
-    /* run non-inline function to measure call overhead of an "empty" function */
+    /* first invocation may initialize some internals */
+    libxs_init(); /* subsequent calls are not doing any work */
     tcall = libxs_timer_tick();
     for (i = 0; i < size; ++i) {
-      libxs_init(); /* subsequent calls are not doing any work */
+      /* measure call overhead of an "empty" function (not inlined) */
+      libxs_init();
     }
     tcall = libxs_timer_diff(tcall, libxs_timer_tick());
 
-    /* first invocation may initialize some internals (libxs_init),
-     * or actually generate code (code gen. time is out of scope)
-     */
-    libxs_dmmdispatch(23, 23, 23,
-      NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, NULL/*alpha*/, NULL/*beta*/,
-      NULL/*flags*/, NULL/*prefetch*/);
+    { /* trigger code generation to subsequently measure only dispatch time */
+#if defined(mkl_jit_create_dgemm)
+      LIBXS_EXPECT(MKL_JIT_SUCCESS, mkl_cblas_jit_create_dgemm(jitter, MKL_COL_MAJOR, MKL_NOTRANS/*transa*/, MKL_NOTRANS/*transb*/,
+        m0, n0, k0, alpha, m0, k0, beta, m0));
+      LIBXS_EXPECT_NOT(NULL, mkl_jit_get_dgemm_ptr(jitter[0])); /* to measure "cached" lookup time (below) */
+#else
+      LIBXS_EXPECT_NOT(NULL, libxs_dmmdispatch(m0, n0, k0, &m0, &k0, &m0, &alpha, &beta, NULL/*flags*/, NULL/*prefetch*/));
+#endif
+    }
 
+    /* measure dispatching previously generated and eventually cached kernel */
 #if defined(_OPENMP)
 #   pragma omp parallel for num_threads(nthreads) private(i)
 #endif
     for (i = 0; i < size; ++i) {
       const libxs_timer_tickint t0 = libxs_timer_tick();
-      libxs_dmmdispatch(23, 23, 23,
-        NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, NULL/*alpha*/, NULL/*beta*/,
-        NULL/*flags*/, NULL/*prefetch*/);
+#if defined(mkl_jit_create_dgemm)
+      mkl_jit_get_dgemm_ptr(jitter[0]);
+#else
+      libxs_dmmdispatch(m0, n0, k0, &m0, &k0, &m0, &alpha, &beta, NULL/*flags*/, NULL/*prefetch*/);
+#endif
 #if defined(_OPENMP)
 #     pragma omp atomic
 #endif
       tdsp1 += libxs_timer_diff(t0, libxs_timer_tick());
     }
+#if defined(mkl_jit_create_dgemm)
+    mkl_jit_destroy(jitter[0]); jitter[0] = NULL;
+#endif
 
+    /* measure generating JIT-kernels (randomized parameterization) */
 #if defined(_OPENMP)
 #   pragma omp parallel for num_threads(nthreads) private(i)
 #endif
     for (i = 0; i < size; ++i) {
-      const int j = 3 * i;
       const libxs_timer_tickint t0 = libxs_timer_tick();
-      libxs_dmmdispatch(r[j], r[j+1], r[j+2],
-        NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, NULL/*alpha*/, NULL/*beta*/,
-        NULL/*flags*/, NULL/*prefetch*/);
+#if defined(mkl_jit_create_dgemm)
+      LIBXS_EXPECT(MKL_JIT_SUCCESS, mkl_cblas_jit_create_dgemm(jitter + i, MKL_COL_MAJOR, MKL_NOTRANS/*transa*/, MKL_NOTRANS/*transb*/,
+        rm[i], rn[i], rk[i], alpha, rm[i], rk[i], beta, rm[i])); /* generate */
+      LIBXS_EXPECT_NOT(NULL, mkl_jit_get_dgemm_ptr(jitter[i])); /* ...and dispatch (no release) */
+#else
+      LIBXS_EXPECT_NOT(NULL, libxs_dmmdispatch(rm[i], rn[i], rk[i], rm + i, rk + i, rm + i, &alpha, &beta, NULL/*flags*/, NULL/*prefetch*/));
+#endif
 #if defined(_OPENMP)
 #     pragma omp atomic
 #endif
       tcgen += libxs_timer_diff(t0, libxs_timer_tick());
     }
 
+#if !defined(mkl_jit_create_dgemm)
     /* correct for duplicated code generation requests */
     if (EXIT_SUCCESS == libxs_get_registry_info(&reginfo)) {
-      ncgens = (int)(reginfo.size - 1/*initial code gen.*/);
+      const int ncgens = (int)(reginfo.size - 1/*initial code gen.*/);
       tcgen -= tdsp1 * (size - ncgens) / size;
     }
+#endif
 
+    /* measure dispatching previously generated kernel */
 #if defined(_OPENMP)
 #   pragma omp parallel for num_threads(nthreads) private(i)
 #endif
     for (i = 0; i < size; ++i) {
-      const int j = 3 * i;
       const libxs_timer_tickint t0 = libxs_timer_tick();
-      libxs_dmmdispatch(r[j], r[j + 1], r[j + 2],
-        NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, NULL/*alpha*/, NULL/*beta*/,
-        NULL/*flags*/, NULL/*prefetch*/);
+#if defined(mkl_jit_create_dgemm)
+      mkl_jit_get_dgemm_ptr(jitter[i]); /* dispatch (likely uncached) */
+#else
+      libxs_dmmdispatch(rm[i], rn[i], rk[i], rm + i, rk + i, rm + i, &alpha, &beta, NULL/*flags*/, NULL/*prefetch*/);
+#endif
 #if defined(_OPENMP)
 #     pragma omp atomic
 #endif
       tdsp0 += libxs_timer_diff(t0, libxs_timer_tick());
     }
 
-    free(r); /* release random numbers */
+    free(rm); free(rn); free(rk); /* release random numbers */
+#if defined(mkl_jit_create_dgemm)
+    for (i = 0; i < size; ++i) mkl_jit_destroy(jitter[i]); /* release dispatched code */
+    free(jitter); /* release array used to store dispatched code */
+#endif
   }
 
   if (0 < size) {
@@ -174,6 +217,6 @@ int main(int argc, char* argv[])
   }
   fprintf(stdout, "Finished\n");
 
-  return EXIT_SUCCESS;
+  return result;
 }
 
