@@ -620,6 +620,13 @@
 #   define LIBXS_EXPECT(RESULT, EXPR) LIBXS_ASSERT((RESULT) == (EXPR))
 # endif
 #endif
+#if !defined(LIBXS_EXPECT_NOT)
+# if defined(NDEBUG)
+#   define LIBXS_EXPECT_NOT(RESULT, EXPR) (EXPR)
+# else
+#   define LIBXS_EXPECT_NOT(RESULT, EXPR) LIBXS_ASSERT((RESULT) != (EXPR))
+# endif
+#endif
 #include <stddef.h>
 #include <stdint.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
