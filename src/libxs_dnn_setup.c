@@ -633,8 +633,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
     if ( (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) ) {
       handle->code_fwd[0].xgemm.smm = libxs_smmdispatch(16, 16, 16, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     } else {
-      descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
-      handle->code_fwd[0].pmm = libxs_create_xconv_forward(&descriptor);
+      if ( handle->n_variants == 1 ) {
+        descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
+        handle->code_fwd[0].pmm = libxs_create_xconv_forward(&descriptor);
+      }
       if (handle->padding_flag == 1) {
         handle->matcopy_fwd[0].xmatcopy = libxs_dispatch_mcopy(&matcopy_descriptor);
       }
@@ -660,7 +662,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
     memset( handle->ofh_fwd_end, 0, handle->desc.threads * sizeof(int) );
 
     descriptor.n_variants = handle->n_variants;
-    if ( handle->n_variants == 2) {
+    if ( handle->n_variants == 2 ) {
       descriptor.ofh_padded = handle->ofhp;
       descriptor.ofw_padded = handle->ofwp;
       descriptor.prefetch = LIBXS_CONVOLUTION_PREFETCH_ALL;
@@ -1044,6 +1046,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
 #if defined(LIBXS_DNN_HANDLE_DEBUG)
     { /* compute kernel stream overhead */
       int ks_overhead = 0;
+      int i = 0;
       ks_overhead += handle->desc.threads*5*sizeof(int);
       ks_overhead += handle->desc.threads*2*sizeof(int*);
       ks_overhead += handle->desc.threads*sizeof(char*);
