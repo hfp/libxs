@@ -50,7 +50,6 @@ double Gbl_duration_input = 0., Gbl_duration_recur = 0., Gbl_duration_eltwise = 
 LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc lstmcell_desc, libxs_dnn_err_t* status)
 {
   libxs_dnn_lstmcell* handle = 0;
-  *status = LIBXS_DNN_SUCCESS;
   const char *const env_b_m1 = getenv("LIBXS_BGEMM_M1");
   const int b_m1 = (0 == env_b_m1) ? 1 : atoi(env_b_m1);
   const char *const env_b_n1 = getenv("LIBXS_BGEMM_N1");
@@ -71,6 +70,7 @@ LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc 
 
   handle = (libxs_dnn_lstmcell*)malloc(sizeof(libxs_dnn_lstmcell));
   if (0 != handle) {
+    *status = LIBXS_DNN_SUCCESS;
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
     memset(handle, 0, sizeof(*handle));
     /* initialize known handle components */
