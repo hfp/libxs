@@ -44,20 +44,11 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell_desc {
   int bm;    /* blocksize for m */
   int bn;    /* blocksize for n */
   int bk;    /* blocksize for k */
-  int b_m1;  /* b_?? parameters are used in libxs_bgemm */
-  int b_n1;
-  int b_k1;
-  int b_m2;
-  int b_n2;
-  int b_k2;
   int reuse; /* reuse/overwrite memory for FWD */
+  int pass;  /* denotes whether it is FWD/BWD/UPD */
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
   libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
   libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
-  libxs_bgemm_handle* handlewx;
-  libxs_bgemm_handle* handleuh;
-  libxs_bgemm_handle* handlett;
-  libxs_bgemm_handle* handlewd;
 } libxs_dnn_lstmcell_desc;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
@@ -74,13 +65,14 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
   int bm;
   int bn;
   int bk;
+  int reuse;
+  int pass;
   int b_m1;
   int b_n1;
   int b_k1;
   int b_m2;
   int b_n2;
   int b_k2;
-  int reuse;
   libxs_dnn_tensor* wi;
   libxs_dnn_tensor* wf;
   libxs_dnn_tensor* wo;
@@ -147,8 +139,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
   libxs_bgemm_handle* handleuh;
   libxs_bgemm_handle* handlett;
   libxs_bgemm_handle* handlewd;
-  /* barrier */
-  libxs_barrier* barrier;
+  libxs_barrier* barrier; /* barrier */
 } libxs_dnn_lstmcell;
 
 LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc lstmcell_desc, libxs_dnn_err_t* status);
