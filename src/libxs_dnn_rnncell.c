@@ -64,8 +64,8 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
   const char transa = 'N', transb = 'N'; /* no transposes */
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
   const float alpha = 1, beta = 1;
-  libxs_bgemm_order order = 0; /* denotes order of execution for bgemm */
-  const libxs_gemm_prefetch_type strategy = LIBXS_PREFETCH_AUTO;
+  const libxs_bgemm_order order = (libxs_bgemm_order)0; /* denotes order of execution for bgemm */
+  const libxs_gemm_prefetch_type strategy = (libxs_gemm_prefetch_type)LIBXS_PREFETCH_AUTO;
 
   handle = (libxs_dnn_rnncell*)malloc(sizeof(libxs_dnn_rnncell));
   if (0 != handle) {
