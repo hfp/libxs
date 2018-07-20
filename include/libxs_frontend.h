@@ -424,26 +424,22 @@ LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(void);
 LIBXS_API LIBXS_GEMM_WEAK libxs_sgemm_function libxs_original_sgemm(void);
 
 /**
- * General dense matrix multiplication (single-precision), which re-exposes
- * LAPACK/BLAS but allows to rely on LIBXS's defaults (libxs_config.h)
+ * General dense matrix multiplication, which re-exposes LAPACK/BLAS
+ * but allows to rely on LIBXS's defaults (libxs_config.h)
  * when supplying NULL-arguments in certain places.
  */
-LIBXS_API void libxs_blas_sgemm(const char* transa, const char* transb,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const float* alpha, const float* a, const libxs_blasint* lda,
-  const float* b, const libxs_blasint* ldb,
-  const float* beta, float* c, const libxs_blasint* ldc);
+LIBXS_API void libxs_blas_xgemm(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
+  const char* transa, const char* transb, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const void* alpha, const void* a, const libxs_blasint* lda,
+  const void* b, const libxs_blasint* ldb,
+  const void* beta, void* c, const libxs_blasint* ldc);
 
-/**
- * General dense matrix multiplication (double-precision), which re-exposes
- * LAPACK/BLAS but allows to rely on LIBXS's defaults (libxs_config.h)
- * when supplying NULL-arguments in certain places.
- */
-LIBXS_API void libxs_blas_dgemm(const char* transa, const char* transb,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const double* alpha, const double* a, const libxs_blasint* lda,
-  const double* b, const libxs_blasint* ldb,
-  const double* beta, double* c, const libxs_blasint* ldc);
+#define libxs_blas_dgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  libxs_blas_xgemm(LIBXS_GEMM_PRECISION_F64, LIBXS_GEMM_PRECISION_F64, \
+    TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+#define libxs_blas_sgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  libxs_blas_xgemm(LIBXS_GEMM_PRECISION_F32, LIBXS_GEMM_PRECISION_F32, \
+    TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
 /** Translates GEMM prefetch request into prefetch-enumeration (incl. FE's auto-prefetch). */
 LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_xprefetch(const int* prefetch);
