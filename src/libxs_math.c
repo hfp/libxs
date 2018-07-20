@@ -84,7 +84,7 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
       if (0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
-        fprintf(stderr, "LIBXS ERROR: unsupported data-type requested for libxs_matdiff!\n");
+        fprintf(stderr, "LIBXS ERROR: unsupported data-type requested!\n");
       }
       result = EXIT_FAILURE;
     }
