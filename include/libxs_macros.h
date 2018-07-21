@@ -357,12 +357,10 @@
 #define LIBXS_DIV2(N, NPOT) (((unsigned long long)(N)) >> LIBXS_LOG2(NPOT))
 #define LIBXS_SQRT2(N) (0 < (N) ? ((unsigned int)(1ULL << (LIBXS_LOG2(((N) << 1) - 1) >> 1))) : 0)
 #define LIBXS_HASH2(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
+#define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
 /** Compares floating point values but avoids warning about unreliable comparison. */
 #define LIBXS_NEQ(A, B) ((A) < (B) || (A) > (B))
 #define LIBXS_FEQ(A, B) (!LIBXS_NEQ(A, B))
-
-#define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
-#define LIBXS_DEFAULT(DEFAULT, VALUE) (0 < (VALUE) ? (VALUE) : (DEFAULT))
 
 #if defined(__INTEL_COMPILER)
 # if (1600 <= __INTEL_COMPILER)
