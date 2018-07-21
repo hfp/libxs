@@ -54,40 +54,40 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
     if (1 == n) { mm = ldr = ldt = 1; nn = m; } /* ensure row-vector shape to standardize results */
     memset(info, 0, sizeof(*info)); /* nullify */
     switch (datatype) {
-    case LIBXS_DATATYPE_F64: {
+      case LIBXS_DATATYPE_F64: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE double
 #       include "template/libxs_matdiff.tpl.c"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-    } break;
-    case LIBXS_DATATYPE_F32: {
+      } break;
+      case LIBXS_DATATYPE_F32: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE float
 #       include "template/libxs_matdiff.tpl.c"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-    } break;
-    case LIBXS_DATATYPE_I32: {
+      } break;
+      case LIBXS_DATATYPE_I32: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE int
 #       include "template/libxs_matdiff.tpl.c"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-    } break;
-    case LIBXS_DATATYPE_I16: {
+      } break;
+      case LIBXS_DATATYPE_I16: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE short
 #       include "template/libxs_matdiff.tpl.c"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-    } break;
-    case LIBXS_DATATYPE_I8: {
+      } break;
+      case LIBXS_DATATYPE_I8: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE signed char
 #       include "template/libxs_matdiff.tpl.c"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-    } break;
-    default: {
-      static int error_once = 0;
-      if (0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-      {
-        fprintf(stderr, "LIBXS ERROR: unsupported data-type requested!\n");
+      } break;
+      default: {
+        static int error_once = 0;
+        if (0 != libxs_verbosity /* library code is expected to be mute */
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
+          fprintf(stderr, "LIBXS ERROR: unsupported data-type requested!\n");
+        }
+        result = EXIT_FAILURE;
       }
-      result = EXIT_FAILURE;
-    }
     }
   }
   else {

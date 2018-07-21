@@ -280,7 +280,8 @@ int main(int argc, char* argv[])
       } /*switch*/
       if (0 != check) {
         libxs_matdiff_info diff;
-        if (EXIT_SUCCESS == libxs_matdiff(LIBXS_DATATYPE(OTYPE), m, n, c, NULL, &ldc, &ldc, &diff)) {
+        result = libxs_matdiff(LIBXS_DATATYPE(OTYPE), m, n, c, NULL, &ldc, &ldc, &diff);
+        if (EXIT_SUCCESS == result) {
           fprintf(stdout, "\tcheck: %f\n", diff.l1_ref);
         }
       }
