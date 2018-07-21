@@ -605,6 +605,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags,
   /** If a name is given, an executable buffer will be dumped into a file. */
   const char* name);
 
+/** Returns the type-size of data-type (can be also libxs_gemm_precision). */
 LIBXS_API_INTERN unsigned char libxs_typesize(libxs_datatype datatype);
 
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
