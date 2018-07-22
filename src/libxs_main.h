@@ -608,6 +608,12 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags,
 /** Returns the type-size of data-type (can be also libxs_gemm_precision). */
 LIBXS_API_INTERN unsigned char libxs_typesize(libxs_datatype datatype);
 
+/** Determines the given value in double-precision based on the given type. */
+LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
+
+/** Determines the generic value given in double-precision. */
+LIBXS_API_INTERN int libxs_cast(libxs_datatype datatype, double dvalue, char value[]);
+
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
