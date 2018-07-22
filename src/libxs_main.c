@@ -1039,6 +1039,46 @@ LIBXS_API_INTERN unsigned char libxs_typesize(libxs_datatype datatype)
 }
 
 
+LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue)
+{
+  int result = EXIT_SUCCESS;
+  if (NULL != value && NULL != dvalue) {
+    switch (datatype) {
+      case LIBXS_DATATYPE_F64: *dvalue =         (*(const double*)value); break;
+      case LIBXS_DATATYPE_F32: *dvalue = (double)(*(const float *)value); break;
+      case LIBXS_DATATYPE_I32: *dvalue = (double)(*(const int   *)value); break;
+      case LIBXS_DATATYPE_I16: *dvalue = (double)(*(const short *)value); break;
+      case LIBXS_DATATYPE_I8:  *dvalue = (double)(*(const char  *)value); break;
+      default: result = EXIT_FAILURE;
+    }
+  }
+  else {
+    result = EXIT_FAILURE;
+  }
+  return result;
+}
+
+
+LIBXS_API_INTERN int libxs_cast(libxs_datatype datatype, double dvalue, char value[])
+{
+  int result = EXIT_SUCCESS;
+  if (NULL != value) {
+    switch (datatype) {
+      case LIBXS_DATATYPE_F64: *(double     *)value =              dvalue; break;
+      case LIBXS_DATATYPE_F32: *(float      *)value =       (float)dvalue; break;
+      case LIBXS_DATATYPE_I32: *(int        *)value =         (int)dvalue; break;
+      case LIBXS_DATATYPE_I16: *(short      *)value =       (short)dvalue; break;
+      case LIBXS_DATATYPE_I8:  *(signed char*)value = (signed char)dvalue; break;
+      default: result = EXIT_FAILURE;
+    }
+  }
+  else {
+    result = EXIT_FAILURE;
+  }
+  return result;
+}
+
+
 LIBXS_API_INLINE const char* internal_get_typename(int datatype)
 {
   switch (datatype) {
