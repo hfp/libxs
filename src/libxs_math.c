@@ -163,11 +163,13 @@ LIBXS_API unsigned int libxs_split_work(unsigned int work, unsigned int split_li
   unsigned int result;
   LIBXS_ASSERT((NULL != nsplits && NULL != nsplits) || (NULL == nsplits && NULL == nsplits));
   if (split_limit < work) {
+    unsigned int* fmin = NULL;
+    int imin = 0;
     if (1 < split_limit) {
-      unsigned int fw[32], ft[32], *const fs = (NULL != splits_n32 ? splits_n32 : ft), *fmin, *fmax;
+      unsigned int fw[32], ft[32], *const fs = (NULL != splits_n32 ? splits_n32 : ft), *fmax;
       const int nw = libxs_primes_u32(work, fw);
       const int ns = libxs_primes_u32(split_limit, fs);
-      int imin = 0, imax = 0, maxi, mini;
+      int imax = 0, maxi, mini;
       if (ns <= nw) {
         fmin = fs; fmax = fw;
         maxi = nw; mini = ns;
@@ -194,23 +196,25 @@ LIBXS_API unsigned int libxs_split_work(unsigned int work, unsigned int split_li
           ++imax;
         }
       }
-      if (NULL != nsplits) {
+    }
+    else {
+      result = 1;
+    }
+    if (NULL != nsplits) {
+      LIBXS_ASSERT(NULL != splits_n32);
+      if (0 < imin) {
         *nsplits = imin;
         if (fmin != splits_n32) {
-          LIBXS_ASSERT(NULL != splits_n32);
+          LIBXS_ASSERT(NULL != fmin);
           for (imin = 0; imin < *nsplits; ++imin) {
             splits_n32[imin] = fmin[imin];
           }
         }
       }
-    }
-    else {
-      if (NULL != nsplits) {
-        LIBXS_ASSERT(NULL != splits_n32);
+      else {
         *splits_n32 = 1;
         *nsplits = 1;
       }
-      result = 1;
     }
   }
   else {
