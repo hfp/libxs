@@ -48,7 +48,6 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_matdiff_info {
   libxs_blasint linf_abs_m, linf_abs_n;
 } libxs_matdiff_info;
 
-
 /** Utility function to calculate the difference between two matrices. */
 LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blasint n,
   const void* ref, const void* tst, const libxs_blasint* ldref, const libxs_blasint* ldtst,
@@ -56,6 +55,8 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
 
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input);
 
+/* This function finds up to 32 prime factors of an unsigned integer. */
+LIBXS_API void libxs_primes_u32(unsigned int num, unsigned int num_factors_32[]);
 
 /* SQRT with Newton's method using integer arithmetic. */
 LIBXS_API unsigned int libxs_isqrt_u64(unsigned long long x);
@@ -66,12 +67,10 @@ LIBXS_API double libxs_dsqrt(double x);
 /* SQRT with Newton's method using single-precision. */
 LIBXS_API float libxs_ssqrt(float x);
 
-
 /* CBRT with Newton's method using integer arithmetic. */
 LIBXS_API unsigned int libxs_icbrt_u64(unsigned long long x);
 /* CBRT with Newton's method using integer arithmetic. */
 LIBXS_API unsigned int libxs_icbrt_u32(unsigned int x);
-
 
 /**
  * Exponential function, which exposes the number of iterations taken in the main case (1...22). For example,
