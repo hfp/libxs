@@ -565,10 +565,6 @@ typedef enum libxs_malloc_flags {
   LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_RW | LIBXS_MALLOC_FLAG_X
 } libxs_malloc_flags;
 
-/** Greatest common divisor. */
-LIBXS_API_INTERN size_t libxs_gcd(size_t a, size_t b);
-/** Least common multiple. */
-LIBXS_API_INTERN size_t libxs_lcm(size_t a, size_t b);
 /** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */
 LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment);
 
