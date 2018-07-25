@@ -42,6 +42,10 @@
 # pragma offload_attribute(pop)
 #endif
 
+#if !defined(LIBXS_MAX_SPLITLIMIT)
+# define LIBXS_MAX_SPLITLIMIT 512
+#endif
+
 
 LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blasint n,
   const void* ref, const void* tst, const libxs_blasint* ldref, const libxs_blasint* ldtst,
@@ -132,6 +136,23 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
 }
 
 
+LIBXS_API size_t libxs_gcd(size_t a, size_t b)
+{
+  while (0 != b) {
+    const size_t r = a % b;
+    a = b;
+    b = r;
+  }
+  return a;
+}
+
+
+LIBXS_API size_t libxs_lcm(size_t a, size_t b)
+{
+  return (a * b) / libxs_gcd(a, b);
+}
+
+
 LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[])
 {
   unsigned int c = num, i;
@@ -160,56 +181,53 @@ LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[])
 
 LIBXS_API unsigned int libxs_split_work(unsigned int work, unsigned int split_limit, unsigned int splits_n32[], int* nsplits)
 {
-  unsigned int result;
+  int result;
   LIBXS_ASSERT((NULL != nsplits && NULL != nsplits) || (NULL == nsplits && NULL == nsplits));
   if (split_limit < work) {
-    unsigned int* fmin = NULL;
-    int imin = 0;
+    result = 1;
     if (1 < split_limit) {
-      unsigned int fw[32], ft[32], *const fs = (NULL != splits_n32 ? splits_n32 : ft), *fmax;
-      const int nw = libxs_primes_u32(work, fw);
-      const int ns = libxs_primes_u32(split_limit, fs);
-      int imax = 0, maxi, mini;
-      if (ns <= nw) {
-        fmin = fs; fmax = fw;
-        maxi = nw; mini = ns;
-      }
-      else {
-        fmin = fw; fmax = fs;
-        maxi = ns; mini = nw;
-      }
-      result = 1;
-      /* intersect fmin and fmax into fmin (in-place) */
-      while (imin < mini && imax < maxi) {
-        const unsigned int minf = fmin[imin];
-        const unsigned int maxf = fmax[imax];
-        if (minf < maxf) {
-          ++imin;
-        }
-        else if (maxf < minf) {
-          ++imax;
-        }
-        else {
-          LIBXS_ASSERT(minf == maxf);
-          result *= minf;
-          ++imin;
-          ++imax;
-        }
-      }
-    }
-    else {
-      result = 1;
-    }
-    if (NULL != nsplits) {
-      LIBXS_ASSERT(NULL != splits_n32);
-      if (0 < imin) {
-        *nsplits = imin;
-        if (fmin != splits_n32) {
-          LIBXS_ASSERT(NULL != fmin);
-          for (imin = 0; imin < *nsplits; ++imin) {
-            splits_n32[imin] = fmin[imin];
+      unsigned int fact[32], wmax;
+      int i;
+      result = (unsigned int)libxs_gcd(work, split_limit);
+      /* lowering the memory requirement for DP */
+      wmax = split_limit / result;
+      if (LIBXS_MAX_SPLITLIMIT >= wmax) {
+        unsigned int K[32][LIBXS_MAX_SPLITLIMIT], w;
+        const int n = libxs_primes_u32(work / result, fact);
+        for (i = 0; i <= n; ++i) {
+          for (w = 0; w <= wmax; ++w) {
+            if (0 != i && 0 != w) {
+              const unsigned int f = fact[i-1];
+              if (w < f) {
+                K[i][w] = K[i-1][w];
+              }
+              else {
+                K[i][w] = LIBXS_MAX(f * K[i-1][w/f], K[i-1][w]);
+              }
+            }
+            else { /* neutral factor */
+              K[i][w] = 1;
+            }
           }
         }
+        result *= K[n][wmax];
+      }
+      else { /* trivial approximation */
+        const int n = libxs_primes_u32(work, fact);
+        for (i = 0; i < n; ++i) {
+          const unsigned int f = result * fact[i];
+          if (f <= split_limit) {
+            result = f;
+          }
+          else i = n; /* break */
+        }
+      }
+    }
+    /* determine prime-factors instead of back-tracking DP-solution */
+    if (NULL != splits_n32) {
+      LIBXS_ASSERT(NULL != nsplits);
+      if (1 < result) {
+        *nsplits = libxs_primes_u32(result, splits_n32);
       }
       else {
         *splits_n32 = 1;
@@ -217,7 +235,7 @@ LIBXS_API unsigned int libxs_split_work(unsigned int work, unsigned int split_li
       }
     }
   }
-  else {
+  else { /* fast-path */
     if (NULL != nsplits) {
       LIBXS_ASSERT(NULL != splits_n32);
       *splits_n32 = work;

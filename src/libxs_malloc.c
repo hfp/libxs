@@ -192,23 +192,6 @@ LIBXS_APIVAR(size_t internal_malloc_scratch_nmallocs);
 LIBXS_APIVAR(size_t internal_malloc_scratch_size);
 
 
-LIBXS_API_INTERN size_t libxs_gcd(size_t a, size_t b)
-{
-  while (0 != b) {
-    const size_t r = a % b;
-    a = b;
-    b = r;
-  }
-  return a;
-}
-
-
-LIBXS_API_INTERN size_t libxs_lcm(size_t a, size_t b)
-{
-  return (a * b) / libxs_gcd(a, b);
-}
-
-
 LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment)
 {
   size_t result = sizeof(void*);

@@ -55,6 +55,11 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
 
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input);
 
+/** Greatest common divisor. */
+LIBXS_API size_t libxs_gcd(size_t a, size_t b);
+/** Least common multiple. */
+LIBXS_API size_t libxs_lcm(size_t a, size_t b);
+
 /**
  * This function finds prime-factors (up to 32) of an unsigned integer in ascending order, and
  * returns the number of factors found (zero if the given number is prime and unequal to two).
