@@ -43,7 +43,7 @@
 #endif
 
 #if !defined(LIBXS_MAX_SPLITLIMIT)
-# define LIBXS_MAX_SPLITLIMIT 512
+# define LIBXS_MAX_SPLITLIMIT 2048
 #endif
 
 
@@ -191,26 +191,26 @@ LIBXS_API unsigned int libxs_split_work(unsigned int work, unsigned int split_li
       /* lowering the memory requirement for DP */
       wmax = split_limit / result;
       if (LIBXS_MAX_SPLITLIMIT >= wmax) {
-        unsigned int K[32][LIBXS_MAX_SPLITLIMIT], w;
+        unsigned int k[2][LIBXS_MAX_SPLITLIMIT], w;
         const int n = libxs_primes_u32(work / result, fact);
-        for (i = 0; i <= n; ++i) {
-          for (w = 0; w <= wmax; ++w) {
-            if (0 != i && 0 != w) {
-              const unsigned int f = fact[i-1], h = K[i-1][w];
-              if (w < f) {
-                K[i][w] = h;
-              }
-              else {
-                const unsigned int g = f * K[i-1][w/f];
-                K[i][w] = LIBXS_MAX(g, h);
-              }
+        unsigned int *k0 = k[0], *k1 = k[1], *kt;
+        /* initialize table with trivial factor */
+        for (w = 0; w <= wmax; ++w) k[0][w] = 1;
+        k[0][0] = k[1][0] = 1;
+        for (i = 1; i <= n; ++i) {
+          for (w = 1; w <= wmax; ++w) {
+            const unsigned int f = fact[i-1], h = k0[w];
+            if (w < f) {
+              k1[w] = h;
             }
-            else { /* neutral factor */
-              K[i][w] = 1;
+            else {
+              const unsigned int g = f * k0[w/f];
+              k1[w] = LIBXS_MAX(g, h);
             }
           }
+          kt = k0; k0 = k1; k1 = kt;
         }
-        result *= K[n][wmax];
+        result *= k0[wmax];
       }
       else { /* trivial approximation */
         const int n = libxs_primes_u32(work, fact);
