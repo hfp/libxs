@@ -179,10 +179,9 @@ LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[])
 }
 
 
-LIBXS_API unsigned int libxs_split_work(unsigned int work, unsigned int split_limit, unsigned int splits_n32[], int* nsplits)
+LIBXS_API unsigned int libxs_split_work(unsigned int work, unsigned int split_limit)
 {
   int result;
-  LIBXS_ASSERT((NULL != nsplits && NULL != nsplits) || (NULL == nsplits && NULL == nsplits));
   if (split_limit < work) {
     result = 1;
     if (1 < split_limit) {
@@ -197,12 +196,13 @@ LIBXS_API unsigned int libxs_split_work(unsigned int work, unsigned int split_li
         for (i = 0; i <= n; ++i) {
           for (w = 0; w <= wmax; ++w) {
             if (0 != i && 0 != w) {
-              const unsigned int f = fact[i-1];
+              const unsigned int f = fact[i-1], h = K[i-1][w];
               if (w < f) {
-                K[i][w] = K[i-1][w];
+                K[i][w] = h;
               }
               else {
-                K[i][w] = LIBXS_MAX(f * K[i-1][w/f], K[i-1][w]);
+                const unsigned int g = f * K[i-1][w/f];
+                K[i][w] = LIBXS_MAX(g, h);
               }
             }
             else { /* neutral factor */
@@ -223,24 +223,8 @@ LIBXS_API unsigned int libxs_split_work(unsigned int work, unsigned int split_li
         }
       }
     }
-    /* determine prime-factors instead of back-tracking DP-solution */
-    if (NULL != splits_n32) {
-      LIBXS_ASSERT(NULL != nsplits);
-      if (1 < result) {
-        *nsplits = libxs_primes_u32(result, splits_n32);
-      }
-      else {
-        *splits_n32 = 1;
-        *nsplits = 1;
-      }
-    }
   }
   else { /* fast-path */
-    if (NULL != nsplits) {
-      LIBXS_ASSERT(NULL != splits_n32);
-      *splits_n32 = work;
-      *nsplits = 1;
-    }
     result = work;
   }
   return result;
