@@ -553,7 +553,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_
         } else {
           max_acc = 26;
         }
-        wino_desc_fp.ur = libxs_split_work(wino_desc_fp.itiles*wino_desc_fp.jtiles*wino_desc_fp.bimg, max_acc, NULL, NULL);
+        wino_desc_fp.ur = libxs_split_work(wino_desc_fp.itiles*wino_desc_fp.jtiles*wino_desc_fp.bimg, max_acc);
         /* ur should be at least 14 to hide qfma latency */
         temp_ur = LIBXS_MIN(LIBXS_MAX(wino_desc_fp.ur, 14), wino_desc_fp.itiles*wino_desc_fp.jtiles*wino_desc_fp.bimg);
         if (0 == wino_desc_fp.itiles*wino_desc_fp.jtiles*wino_desc_fp.bimg % temp_ur) {
@@ -886,7 +886,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_
         } else {
           max_acc = 26;
         }
-        wino_desc_bp.ur = libxs_split_work(wino_desc_bp.itiles*wino_desc_bp.jtiles*wino_desc_bp.bimg, max_acc, NULL, NULL);
+        wino_desc_bp.ur = libxs_split_work(wino_desc_bp.itiles*wino_desc_bp.jtiles*wino_desc_bp.bimg, max_acc);
         temp_ur = LIBXS_MIN(LIBXS_MAX(wino_desc_bp.ur, 14), wino_desc_bp.itiles*wino_desc_bp.jtiles*wino_desc_bp.bimg);
         if (0 == wino_desc_bp.itiles*wino_desc_bp.jtiles*wino_desc_bp.bimg % temp_ur) {
           wino_desc_bp.ur = temp_ur;
@@ -1234,9 +1234,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_
         allowed_unroll = 512 / (wino_desc_wu.bimg*wino_desc_wu.itiles*wino_desc_wu.jtiles);
         allowed_unroll = (allowed_unroll > 26) ? 26 : allowed_unroll;
         if (libxs_target_archid == LIBXS_X86_AVX512_KNM && (wino_desc_wu.itiles*wino_desc_wu.jtiles*wino_desc_wu.bimg % 4) == 0) {
-          wino_desc_wu.ur = libxs_split_work(wino_desc_wu.itiles*wino_desc_wu.jtiles*wino_desc_wu.bimg/4, allowed_unroll, NULL, NULL);
+          wino_desc_wu.ur = libxs_split_work(wino_desc_wu.itiles*wino_desc_wu.jtiles*wino_desc_wu.bimg/4, allowed_unroll);
         } else {
-          wino_desc_wu.ur = libxs_split_work(wino_desc_wu.itiles*wino_desc_wu.jtiles*wino_desc_wu.bimg, allowed_unroll, NULL, NULL);
+          wino_desc_wu.ur = libxs_split_work(wino_desc_wu.itiles*wino_desc_wu.jtiles*wino_desc_wu.bimg, allowed_unroll);
         }
       }
 
