@@ -447,6 +447,13 @@ LIBXS_API void libxs_blas_xgemm(libxs_gemm_precision iprec, libxs_gemm_precision
   libxs_blas_xgemm(LIBXS_GEMM_PRECISION_F32, LIBXS_GEMM_PRECISION_F32, \
     TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
+#define libxs_dgemm_omp(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  libxs_blas_xgemm(LIBXS_GEMM_PRECISION_F64, LIBXS_GEMM_PRECISION_F64, \
+    TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+#define libxs_sgemm_omp(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  libxs_blas_xgemm(LIBXS_GEMM_PRECISION_F32, LIBXS_GEMM_PRECISION_F32, \
+    TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+
 /** Translates GEMM prefetch request into prefetch-enumeration (incl. FE's auto-prefetch). */
 LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_xprefetch(const int* prefetch);
 LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_prefetch(int prefetch);
