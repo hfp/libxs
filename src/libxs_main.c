@@ -240,7 +240,8 @@ LIBXS_API_INLINE const char* internal_get_target_arch(int id)
       target_arch = "knl";
     } break;
     case LIBXS_X86_AVX512: {
-      target_arch = "avx3";
+      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "avx3") */
+      target_arch = "hsw";
     } break;
     case LIBXS_X86_AVX2: {
       target_arch = "hsw";
@@ -249,7 +250,8 @@ LIBXS_API_INLINE const char* internal_get_target_arch(int id)
       target_arch = "snb";
     } break;
     case LIBXS_X86_SSE4: {
-      target_arch = "sse4";
+      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "sse4") */
+      target_arch = "wsm";
     } break;
     case LIBXS_X86_SSE3: {
       /* WSM includes SSE4, but BE relies on SSE3 only,
@@ -762,22 +764,9 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       libxs_kernel_info *const registry_keys = internal_registry_keys;
       internal_registry_nbytes = (LIBXS_CAPACITY_REGISTRY) * (sizeof(libxs_code_pointer) + sizeof(libxs_kernel_info));
 
-      /* serves as an id to invalidate the thread-local cache; never decremented */
+      /* serves as an ID to invalidate the thread-local cache; never decremented */
       ++internal_teardown;
-#if defined(LIBXS_TRACE)
-      i = libxs_trace_finalize();
-      if (EXIT_SUCCESS != i && 0 != libxs_verbosity) { /* library code is expected to be mute */
-        fprintf(stderr, "LIBXS ERROR: failed to finalize trace (error #%i)!\n", i);
-      }
-#endif
-      libxs_gemm_finalize();
-      libxs_gemm_diff_finalize();
-      libxs_trans_finalize();
-      libxs_hash_finalize();
-      libxs_dnn_finalize();
-#if defined(LIBXS_PERF)
-      libxs_perf_finalize();
-#endif
+
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
         /*const*/ libxs_code_pointer code = registry[i];
         if (0 != code.ptr_const) {
@@ -827,6 +816,22 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           }
         }
       }
+
+#if defined(LIBXS_TRACE)
+      i = libxs_trace_finalize();
+      if (EXIT_SUCCESS != i && 0 != libxs_verbosity) { /* library code is expected to be mute */
+        fprintf(stderr, "LIBXS ERROR: failed to finalize trace (error #%i)!\n", i);
+      }
+#endif
+      libxs_gemm_finalize();
+      libxs_gemm_diff_finalize();
+      libxs_trans_finalize();
+      libxs_hash_finalize();
+      libxs_dnn_finalize();
+#if defined(LIBXS_PERF)
+      libxs_perf_finalize();
+#endif
+
       /* make internal registry globally unavailable */
       LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
       internal_registry_keys = 0;
