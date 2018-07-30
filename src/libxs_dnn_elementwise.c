@@ -312,25 +312,36 @@ LIBXS_API_INTERN void libxs_internal_matrix_complement_square(libxs_blasint size
   }
 }
 
+/* #define LSTM_TIMING */
+#if defined(LSTM_TIMING)
+extern double Gbl_t_input_total, Gbl_t_recur_total, Gbl_t_eltwise_total, Gbl_t_nonlin_total;
+extern unsigned long long Gbl_t_input, Gbl_t_recur, Gbl_t_eltwise, Gbl_t_nonlin;
+extern double Gbl_duration_input, Gbl_duration_recur, Gbl_duration_eltwise, Gbl_duration_nonlin;
+#endif
 
 LIBXS_API_INTERN void libxs_internal_recursive_step(libxs_bgemm_handle* handle, LIBXS_DNN_ELTWISE_FTYPE* u, LIBXS_DNN_ELTWISE_FTYPE* h, LIBXS_DNN_ELTWISE_FTYPE* op1, LIBXS_DNN_ELTWISE_FTYPE *op2,
   LIBXS_DNN_ELTWISE_FTYPE *temp, LIBXS_DNN_ELTWISE_FTYPE *dst, int act, libxs_blasint size, int start_thread, int tid)
 {
-  /*const int ltid = tid - start_thread;*/
+  const int ltid = tid - start_thread;
 #if defined(LSTM_TIMING)
-  Gbl_t_recur = libxs_timer_tick();
+  if (ltid == 0) { Gbl_t_recur = libxs_timer_tick(); }
 #endif
-  libxs_bgemm_st(handle, u, h, op1, start_thread, tid);
+  libxs_bgemm_st(handle, u, h, op1, start_thread, ltid);
 #if defined(LSTM_TIMING)
-  Gbl_duration_recur = libxs_timer_duration(Gbl_t_recur, libxs_timer_tick());
-  Gbl_t_recur_total += Gbl_duration_recur;
-  Gbl_t_eltwise = libxs_timer_tick();
+  if (ltid == 0) {
+    Gbl_duration_recur = libxs_timer_duration(Gbl_t_recur, libxs_timer_tick());
+    Gbl_t_recur_total += Gbl_duration_recur;
+    Gbl_t_eltwise = libxs_timer_tick();
+  }
 #endif
-  libxs_internal_matrix_add(size, op1, op2, temp, start_thread, tid, handle->nthreads);
+  libxs_internal_matrix_add(size, op1, op2, temp, start_thread, ltid, handle->nthreads);
 #if defined(LSTM_TIMING)
-  Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
-  Gbl_t_eltwise_total += Gbl_duration_eltwise;
-  Gbl_t_nonlin = libxs_timer_tick();
+  libxs_barrier_wait(handle->barrier, ltid); /* Additional barrier introduced to measure time */
+  if (ltid == 0) {
+    Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
+    Gbl_t_eltwise_total += Gbl_duration_eltwise;
+    Gbl_t_nonlin = libxs_timer_tick();
+  }
 #endif
   switch (act) {
     case 0:
@@ -338,21 +349,24 @@ LIBXS_API_INTERN void libxs_internal_recursive_step(libxs_bgemm_handle* handle, 
       dst = temp;
       break;
     case 1:
-      libxs_internal_matrix_relu(size, temp, dst, start_thread, tid, handle->nthreads);
+      libxs_internal_matrix_relu(size, temp, dst, start_thread, ltid, handle->nthreads);
       break;
     case 2:
-      libxs_internal_matrix_sigmoid(size, temp, dst, start_thread, tid, handle->nthreads);
+      libxs_internal_matrix_sigmoid(size, temp, dst, start_thread, ltid, handle->nthreads);
       break;
     case 3:
-      libxs_internal_matrix_tanh(size, temp, dst, start_thread, tid, handle->nthreads);
+      libxs_internal_matrix_tanh(size, temp, dst, start_thread, ltid, handle->nthreads);
       break;
     default:
       /* fprintf(stdout, "Unsupported activation function: %d\n", act); */
       dst = temp;
   }
 #if defined(LSTM_TIMING)
-  Gbl_duration_nonlin = libxs_timer_duration(Gbl_t_nonlin, libxs_timer_tick());
-  Gbl_t_nonlin_total += Gbl_duration_nonlin;
+  libxs_barrier_wait(handle->barrier, ltid); /* Additional barrier introduced to measure time */
+  if (ltid == 0) {
+    Gbl_duration_nonlin = libxs_timer_duration(Gbl_t_nonlin, libxs_timer_tick());
+    Gbl_t_nonlin_total += Gbl_duration_nonlin;
+  }
 #endif
 }
 

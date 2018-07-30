@@ -37,6 +37,7 @@
 # pragma offload_attribute(pop)
 #endif
 
+/* #define LSTM_TIMING */
 #if defined(LSTM_TIMING)
 #include <stdio.h>
 double Gbl_t_input_total = 0., Gbl_t_recur_total = 0., Gbl_t_eltwise_total = 0., Gbl_t_nonlin_total = 0.;
@@ -702,7 +703,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   libxs_blasint k = rnn->k;
   libxs_blasint t = rnn->t;
 #if defined(LSTM_TIMING)
-  const double gflops = ((2.0 * m * n * k) + (2.0 * m * n * m) + (2.0 * m * n)) * t * 1E-9;
+  const double tflops = 12;
+  const double gflops = ((2.0 * m * n * k) + (2.0 * m * n * m) + (m * n) + (tflops * m * n)) * (double)t * 1E-9;
 #endif
   int reuse = rnn->reuse;
   /* The following code should be in template */
@@ -731,41 +733,47 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   int i;
   const int ltid = tid - start_thread;
 
+  libxs_barrier_init(rnn->barrier, ltid);
 #if defined(LSTM_TIMING)
-  start = libxs_timer_tick();
-  Gbl_t_input = libxs_timer_tick();
+  if (ltid == 0) {
+    start = libxs_timer_tick();
+    Gbl_t_input = libxs_timer_tick();
+  }
 #endif
   libxs_bgemm_st(handlett, w, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), start_thread, tid);
 #if defined(LSTM_TIMING)
-  Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
-  Gbl_t_input_total += Gbl_duration_input;
-#endif
-  if (rnn->nThreads > 1) {
-    libxs_barrier_init(rnn->barrier, ltid);
+  if (ltid == 0) {
+    Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
+    Gbl_t_input_total += Gbl_duration_input;
   }
+#endif
+
   if (reuse) {
     for (i = 0; i < t; ++i) {
       libxs_internal_recursive_step(handleuh, u, h, &LIBXS_VLA_ACCESS(2, z2, i, 0, m * n), &LIBXS_VLA_ACCESS(2, z1, i, 0, m * n), z, h, 2, m * n, start_thread, tid); /*sigmoid*/
-      if (rnn->nThreads > 1) { libxs_barrier_wait(rnn->barrier, ltid); }
+      libxs_barrier_wait(rnn->barrier, ltid);
     }
   } else {
     for (i = 0; i < t; ++i) {
       libxs_internal_recursive_step(handleuh, u, &LIBXS_VLA_ACCESS(2, hnr, i, 0, m * n), &LIBXS_VLA_ACCESS(2, z2, i, 0, m * n), &LIBXS_VLA_ACCESS(2, z1, i, 0, m * n),
         &LIBXS_VLA_ACCESS(2, znr, i, 0, m * n), &LIBXS_VLA_ACCESS(2, hnr, i+1, 0, m * n), 2, m * n, start_thread, tid); /*sigmoid*/
-      if (rnn->nThreads > 1) { libxs_barrier_wait(rnn->barrier, ltid); }
+      libxs_barrier_wait(rnn->barrier, ltid);
     }
   }
 #if defined(LSTM_TIMING)
-  duration = libxs_timer_duration(start, libxs_timer_tick());
-  if (0 < duration) {
-    fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops / duration); /* *nrepeat */
+  if (ltid == 0) {
+    duration = libxs_timer_duration(start, libxs_timer_tick());
+    if (0 < duration) {
+      fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops / duration); /* *nrepeat */
+      double t_total = Gbl_t_input_total + Gbl_t_recur_total + Gbl_t_eltwise_total + Gbl_t_nonlin_total;
+      fprintf(stdout, "Percentage of time spent in input matrix multiplication: %lf\n", Gbl_t_input_total*100.0/t_total);
+      fprintf(stdout, "Percentage of time spent in recurrence matrix multiplication: %lf\n", Gbl_t_recur_total*100.0/t_total);
+      fprintf(stdout, "Percentage of time spent in element-wise operations: %lf\n", Gbl_t_eltwise_total*100.0/t_total);
+      fprintf(stdout, "Percentage of time spent in non-linear operations: %lf\n", Gbl_t_nonlin_total*100.0/t_total);
+    }
   }
-  double t_total = Gbl_t_input_total + Gbl_t_recur_total + Gbl_t_eltwise_total + Gbl_t_nonlin_total;
-  fprintf(stdout, "Percentage of time spent in input matrix multiplication: %lf\n", Gbl_t_input_total*100.0/t_total);
-  fprintf(stdout, "Percentage of time spent in recurrence matrix multiplication: %lf\n", Gbl_t_recur_total*100.0/t_total);
-  fprintf(stdout, "Percentage of time spent in element-wise operations: %lf\n", Gbl_t_eltwise_total*100.0/t_total);
-  fprintf(stdout, "Percentage of time spent in non-linear operations: %lf\n", Gbl_t_nonlin_total*100.0/t_total);
 #endif
+
   return status;
 }
 
@@ -777,35 +785,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
   libxs_blasint n = rnn->n;
   libxs_blasint k = rnn->k;
   libxs_blasint t = rnn->t;
-#ifdef LSTM_TIMING
-  const double tflops = 12; /* transcendental flops */
-  double gflops = m * m; /* U^T */
-  gflops += (2.0 * m * n * m); /* U^T * delta */
-  gflops += (m * n); /* dJdh + (U^T * delta) */
-  gflops += (tflops * m * n); /* sigma'(Z) */
-  gflops += (m * n); /* sigma'(Z) * (dJdh + (U^T * delta)) */
-  gflops *= t; /* for t time steps */
-  double tempflops;
-  if (pass == 2 || pass == 3) {
-    tempflops = m * n; /* h^T */
-    tempflops += (2.0 * m * n * m); /* delta * h^T */
-    tempflops *= t; /* for t time steps */
-    tempflops += (m * m * (t-1)); /* for summation of dJdU */
-    gflops += tempflops;
-    tempflops = k * n; /* x^T */
-    tempflops += (2.0 * m * n * k); /* delta * x^T */
-    tempflops *= t; /* for t time steps */
-    tempflops += (m * k * (t-1)); /* for summation of dJdW */
-    gflops += tempflops;
-  }
-  if (pass == 1 || pass == 3) {
-    tempflops = m * k; /* W^T */
-    tempflops += (2.0 * m * n * k); /* W^T * delta */
-    tempflops *= t; /* for t time steps of input */
-    gflops += tempflops;
-  }
-  gflops *= 1E-9; /* to convert flops to Gflops */
-#endif
   LIBXS_DNN_ELTWISE_FTYPE *djdht = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->djdht->data;
   LIBXS_DNN_ELTWISE_FTYPE *zt = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->z->data;
   LIBXS_DNN_ELTWISE_FTYPE *deltat = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->deltat->data;
@@ -835,14 +814,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
 
   int i;
   const int ltid = tid - start_thread;
-#ifdef LSTM_TIMING
-  unsigned long long start;
-  double duration;
-  start = libxs_timer_tick();
-#endif
-  if (rnn->nThreads > 1) {
-    libxs_barrier_init(rnn->barrier, ltid);
-  }
+
+  libxs_barrier_init(rnn->barrier, ltid);
   libxs_internal_matrix_zero(m * n, &LIBXS_VLA_ACCESS(2, delta, t-1, 0, m * n), start_thread, tid, rnn->nThreads);
   if (rnn->nThreads > 1) { libxs_barrier_wait(rnn->barrier, ltid); }
   for (i = t-2; i >= 0; --i) {
@@ -868,12 +841,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
       libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, deltaM, i, 0, m * n), &LIBXS_VLA_ACCESS(2, x, i, 0, k * m), djdw, start_thread, tid);
     }
   }
-#ifdef LSTM_TIMING
-  duration = libxs_timer_duration(start, libxs_timer_tick());
-  if (0 < duration) {
-    fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops / duration); /* *nrepeat */
-  }
-#endif
 
   return status;
 }
