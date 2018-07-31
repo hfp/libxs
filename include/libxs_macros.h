@@ -359,6 +359,8 @@
 #define LIBXS_HASH2(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
 #define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
 /** Compares floating point values but avoids warning about unreliable comparison. */
+#define LIBXS_NOTNAN(A) (LIBXS_NEQ(0, (A) - (A)) || 0 == ((int)((A) - (A))))
+#define LIBXS_ISNAN(A)  (!LIBXS_NOTNAN(A))
 #define LIBXS_NEQ(A, B) ((A) < (B) || (A) > (B))
 #define LIBXS_FEQ(A, B) (!LIBXS_NEQ(A, B))
 
