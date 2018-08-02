@@ -253,16 +253,17 @@ LIBXS_API void libxs_otrans_thread_internal(void* out, const void* in, unsigned 
   LIBXS_ASSERT_MSG(m0 <= m1 && m1 <= m, "Invalid task size!");
   LIBXS_ASSERT_MSG(n0 <= n1 && n1 <= n, "Invalid task size!");
 
-  libxs_otrans_internal(out, in, typesize, m, n, ldi, ldo, tm, tn, kernel);
+  libxs_otrans_internal(out, in, typesize, ldi, ldo, m0, m1, n0, n1, tm, tn, kernel);
 }
 
 
-LIBXS_API_INTERN void libxs_otrans_internal(void* out, const void* in, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
+LIBXS_API_INTERN void libxs_otrans_internal(void* out, const void* in,
+  unsigned int typesize, libxs_blasint ldi, libxs_blasint ldo,
+  libxs_blasint m0, libxs_blasint m1, libxs_blasint n0, libxs_blasint n1,
   libxs_blasint tm, libxs_blasint tn, libxs_xtransfunction kernel)
 {
   LIBXS_XCOPY(LIBXS_TCOPY_KERNEL, LIBXS_TCOPY_CALL, kernel,
-    out, in, typesize, ldi, ldo, tm, tn, 0, m, 0, n,
+    out, in, typesize, ldi, ldo, tm, tn, m0, m1, n0, n1,
     LIBXS_XALIGN_TCOPY);
 }
 
