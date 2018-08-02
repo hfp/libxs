@@ -185,11 +185,13 @@ LIBXS_API unsigned int libxs_split_work(unsigned int work, unsigned int split_li
   if (split_limit < work) {
     result = 1;
     if (1 < split_limit) {
-      unsigned int fact[32], wmax;
+      unsigned int fact[32], wmax = split_limit;
       int i;
-      result = (unsigned int)libxs_gcd(work, split_limit);
-      /* lowering the memory requirement for DP */
-      wmax = split_limit / result;
+      /* attempt to lower the memory requirement for DP; can miss best solution */
+      if (LIBXS_MAX_SPLITLIMIT < split_limit) {
+        result = (unsigned int)libxs_gcd(work, split_limit);
+        wmax /= result;
+      }
       if (LIBXS_MAX_SPLITLIMIT >= wmax) {
         unsigned int k[2][LIBXS_MAX_SPLITLIMIT], w;
         const int n = libxs_primes_u32(work / result, fact);
