@@ -186,10 +186,13 @@ LIBXS_API void libxs_matcopy_internal(void* out, const void* in, unsigned int ty
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo, const int* prefetch,
   libxs_blasint tm, libxs_blasint tn, libxs_xmcopyfunction kernel,
   int tid, int nthreads);
-LIBXS_API void libxs_otrans_internal(void* out, const void* in, unsigned int typesize,
+LIBXS_API void libxs_otrans_thread_internal(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
   libxs_blasint tm, libxs_blasint tn, libxs_xtransfunction kernel,
   int tid, int nthreads);
+LIBXS_API_INTERN void libxs_otrans_internal(void* out, const void* in, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
+  libxs_blasint tm, libxs_blasint tn, libxs_xtransfunction kernel);
 
 /** Determines whether JIT-kernels are used or not (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */
 LIBXS_APIVAR_PUBLIC(int libxs_trans_jit);
