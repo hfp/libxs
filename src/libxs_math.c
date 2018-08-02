@@ -174,7 +174,9 @@ LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[])
       break;
     }
   }
-  LIBXS_ASSERT(1 >= c || 0 == n);
+  if (1 < c && 0 != n) {
+    num_factors_n32[n++] = c;
+  }
   return n;
 }
 
