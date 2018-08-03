@@ -97,7 +97,7 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
     if (EXIT_SUCCESS == result) {
       const char *const env = getenv("LIBXS_DUMP");
       if (0 != env && 0 != *env) {
-        const char *const basename = isdigit(*env) ? "libxs_dump" : env;
+        const char *const basename = ('0' <= *env && '9' >= *env) ? "libxs_dump" : env;
         const libxs_mhd_elemtype type_src = (libxs_mhd_elemtype)datatype;
         const libxs_mhd_elemtype type_dst = LIBXS_MAX(LIBXS_MHD_ELEMTYPE_U8, type_src);
         char filename[256];
