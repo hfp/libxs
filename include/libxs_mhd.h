@@ -145,8 +145,10 @@ LIBXS_API int libxs_mhd_write(const char filename[],
   size_t ndims,
   /* Number of pixel components. */
   size_t ncomponents,
-  /* Storage type. */
-  libxs_mhd_elemtype type,
+  /* Type (input). */
+  libxs_mhd_elemtype type_data,
+  /* Type (data conversion, optional). */
+  const libxs_mhd_elemtype* type,
   /* Raw data to be saved. */
   const void* data,
   /* Size of the header; can be a NULL-argument (optional). */

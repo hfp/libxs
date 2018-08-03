@@ -28,6 +28,7 @@
 ******************************************************************************/
 
 #include <libxs_math.h>
+#include <libxs_mhd.h>
 #include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -93,23 +94,42 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
         result = EXIT_FAILURE;
       }
     }
+    if (EXIT_SUCCESS == result) {
+      const char *const env = getenv("LIBXS_DUMP");
+      if (0 != env && 0 != *env) {
+        const char *const basename = isdigit(*env) ? "libxs_dump" : env;
+        const libxs_mhd_elemtype type_src = (libxs_mhd_elemtype)datatype;
+        const libxs_mhd_elemtype type_dst = LIBXS_MAX(LIBXS_MHD_ELEMTYPE_U8, type_src);
+        char filename[256];
+        size_t size[2], pr[2]; size[0] = mm; size[1] = nn; pr[0] = ldr; pr[1] = nn;
+        LIBXS_SNPRINTF(filename, sizeof(filename), "%s-ref%p.mhd", basename, ref);
+        libxs_mhd_write(filename, NULL/*offset*/, size, pr, 2/*ndims*/, 1/*ncomponents*/,
+          type_src, &type_dst, ref, NULL/*header_size*/, NULL/*extension_header*/,
+          NULL/*extension*/, 0/*extension_size*/);
+        if (NULL != tst) {
+          size_t pt[2]; pt[0] = ldt; pt[1] = nn;
+          LIBXS_SNPRINTF(filename, sizeof(filename), "%s-tst%p.mhd", basename, tst);
+          libxs_mhd_write(filename, NULL/*offset*/, size, pt, 2/*ndims*/, 1/*ncomponents*/,
+            type_src, &type_dst, tst, NULL/*header_size*/, NULL/*extension_header*/,
+            NULL/*extension*/, 0/*extension_size*/);
+        }
+      }
+      info->normf_rel = libxs_dsqrt(info->normf_rel);
+      info->l2_abs = libxs_dsqrt(info->l2_abs);
+      info->l2_rel = libxs_dsqrt(info->l2_rel);
+      if (1 == n) {
+        const libxs_blasint tmp = info->linf_abs_m;
+        info->linf_abs_m = info->linf_abs_n;
+        info->linf_abs_n = tmp;
+      }
+      if (0 != result_swap) {
+        info->l1_tst = info->l1_ref;
+        info->l1_ref = 0;
+      }
+    }
   }
   else {
     result = EXIT_FAILURE;
-  }
-  if (EXIT_SUCCESS == result) {
-    info->normf_rel = libxs_dsqrt(info->normf_rel);
-    info->l2_abs = libxs_dsqrt(info->l2_abs);
-    info->l2_rel = libxs_dsqrt(info->l2_rel);
-    if (1 == n) {
-      const libxs_blasint tmp = info->linf_abs_m;
-      info->linf_abs_m = info->linf_abs_n;
-      info->linf_abs_n = tmp;
-    }
-    if (0 != result_swap) {
-      info->l1_tst = info->l1_ref;
-      info->l1_ref = 0;
-    }
   }
   return result;
 }
