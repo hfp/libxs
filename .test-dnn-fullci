@@ -3,6 +3,7 @@ include/libxs_dnn.h
 src/libxs_dnn_convolution_*
 src/generator_convolution*
 src/template/*.tpl.c
+src/libxs_main.*
 src/libxs_dnn_dryruns.*
 src/libxs_dnn_handle.*
 src/libxs_dnn_setup.*
