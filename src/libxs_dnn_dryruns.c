@@ -129,7 +129,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_perform_fwd_dryrun_direct_custom_cust
       if ( handle->fwd_img_par == 0 ) {
 # include "template/libxs_dnn_convolve_dryrun_fwd_custom_custom.tpl.c"
       } else {
-        printf("IMG PAR DRYRUN\n");
 # include "template/libxs_dnn_convolve_dryrun_fwd_custom_custom_img_par.tpl.c"
       }
     }
