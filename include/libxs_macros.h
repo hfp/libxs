@@ -334,7 +334,7 @@
 #define LIBXS_LOG2_16(N) (0 != ((N) & 0xFF00) ? (8 | LIBXS_LOG2_08((N) >> 8)) : LIBXS_LOG2_08(N))
 #define LIBXS_LOG2_32(N) (0 != ((N) & 0xFFFF0000) ? (16 | LIBXS_LOG2_16((N) >> 16)) : LIBXS_LOG2_16(N))
 #define LIBXS_LOG2_64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 | LIBXS_LOG2_32((N) >> 32)) : LIBXS_LOG2_32(N))
-#define LIBXS_LOG2(N) LIBXS_MAX((unsigned int)LIBXS_LOG2_64((unsigned long long)(N)), 1U)
+#define LIBXS_LOG2(N) LIBXS_MAX((unsigned int)LIBXS_LOG2_64((unsigned long long)N), 1U)
 
 /** LIBXS_UP2POT rounds up to the next power of two (POT). */
 #define LIBXS_UP2POT_01(N) ((N) | ((N) >> 1))
@@ -343,18 +343,18 @@
 #define LIBXS_UP2POT_08(N) (LIBXS_UP2POT_04(N) | (LIBXS_UP2POT_04(N) >> 8))
 #define LIBXS_UP2POT_16(N) (LIBXS_UP2POT_08(N) | (LIBXS_UP2POT_08(N) >> 16))
 #define LIBXS_UP2POT_32(N) (LIBXS_UP2POT_16(N) | (LIBXS_UP2POT_16(N) >> 32))
-#define LIBXS_UP2POT(N) (LIBXS_UP2POT_32((unsigned long long)((N) - 1)) + 1)
+#define LIBXS_UP2POT(N) (LIBXS_UP2POT_32((unsigned long long)(N) - 1) + 1)
 
-#define LIBXS_UP2(N, NPOT) ((((uintptr_t)(N)) + ((NPOT) - 1)) & ~((NPOT) - 1))
-#define LIBXS_UP(N, UP) (((((uintptr_t)(N)) + (UP) - 1) / (UP)) * (UP))
+#define LIBXS_UP2(N, NPOT) ((((uintptr_t)N) + ((NPOT) - 1)) & ~((NPOT) - 1))
+#define LIBXS_UP(N, UP) (((((uintptr_t)N) + (UP) - 1) / (UP)) * (UP))
 #define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
 #define LIBXS_DIFF(T0, T1) ((T0) < (T1) ? ((T1) - (T0)) : 0)
 #define LIBXS_CLMP(VALUE, LO, HI) ((LO) < (VALUE) ? ((VALUE) <= (HI) ? (VALUE) : LIBXS_MIN(VALUE, HI)) : LIBXS_MAX(LO, VALUE))
 #define LIBXS_MOD2(N, NPOT) ((N) & ((NPOT) - 1))
-#define LIBXS_MUL2(N, NPOT) (((unsigned long long)(N)) << LIBXS_LOG2(NPOT))
-#define LIBXS_DIV2(N, NPOT) (((unsigned long long)(N)) >> LIBXS_LOG2(NPOT))
+#define LIBXS_MUL2(N, NPOT) (((unsigned long long)N) << LIBXS_LOG2(NPOT))
+#define LIBXS_DIV2(N, NPOT) (((unsigned long long)N) >> LIBXS_LOG2(NPOT))
 #define LIBXS_SQRT2(N) (0 < (N) ? ((unsigned int)(1ULL << (LIBXS_LOG2(((N) << 1) - 1) >> 1))) : 0)
 #define LIBXS_HASH2(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
 #define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
@@ -425,14 +425,14 @@
 #else
 # define LIBXS_INDEX1(NDIMS, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)(__VA_ARGS__)
 #endif
-#define LIBXS_INDEX1_1(I0) (1ULL * (I0))
-#define LIBXS_INDEX1_2(I0, I1, S1) (LIBXS_INDEX1_1(I0) * (S1) + I1)
-#define LIBXS_INDEX1_3(I0, I1, I2, S1, S2) (LIBXS_INDEX1_2(I0, I1, S1) * (S2) + (I2))
-#define LIBXS_INDEX1_4(I0, I1, I2, I3, S1, S2, S3) (LIBXS_INDEX1_3(I0, I1, I2, S1, S2) * (S3) + (I3))
-#define LIBXS_INDEX1_5(I0, I1, I2, I3, I4, S1, S2, S3, S4) (LIBXS_INDEX1_4(I0, I1, I2, I3, S1, S2, S3) * (S4) + (I4))
-#define LIBXS_INDEX1_6(I0, I1, I2, I3, I4, I5, S1, S2, S3, S4, S5) (LIBXS_INDEX1_5(I0, I1, I2, I3, I4, S1, S2, S3, S4) * (S5) + (I5))
-#define LIBXS_INDEX1_7(I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, S6) (LIBXS_INDEX1_6(I0, I1, I2, I3, I4, I5, S1, S2, S3, S4, S5) * (S6) + (I6))
-#define LIBXS_INDEX1_8(I0, I1, I2, I3, I4, I5, I6, I7, S1, S2, S3, S4, S5, S6, S7) (LIBXS_INDEX1_7(I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, S6) * (S7) + (I7))
+#define LIBXS_INDEX1_1(I0) ((size_t)I0)
+#define LIBXS_INDEX1_2(I0, I1, S1) (LIBXS_INDEX1_1(I0) * ((size_t)S1) + (size_t)I1)
+#define LIBXS_INDEX1_3(I0, I1, I2, S1, S2) (LIBXS_INDEX1_2(I0, I1, S1) * ((size_t)S2) + (size_t)I2)
+#define LIBXS_INDEX1_4(I0, I1, I2, I3, S1, S2, S3) (LIBXS_INDEX1_3(I0, I1, I2, S1, S2) * ((size_t)S3) + (size_t)I3)
+#define LIBXS_INDEX1_5(I0, I1, I2, I3, I4, S1, S2, S3, S4) (LIBXS_INDEX1_4(I0, I1, I2, I3, S1, S2, S3) * ((size_t)S4) + (size_t)I4)
+#define LIBXS_INDEX1_6(I0, I1, I2, I3, I4, I5, S1, S2, S3, S4, S5) (LIBXS_INDEX1_5(I0, I1, I2, I3, I4, S1, S2, S3, S4) * ((size_t)S5) + (size_t)I5)
+#define LIBXS_INDEX1_7(I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, S6) (LIBXS_INDEX1_6(I0, I1, I2, I3, I4, I5, S1, S2, S3, S4, S5) * ((size_t)S6) + (size_t)I6)
+#define LIBXS_INDEX1_8(I0, I1, I2, I3, I4, I5, I6, I7, S1, S2, S3, S4, S5, S6, S7) (LIBXS_INDEX1_7(I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, S6) * ((size_t)S7) + (size_t)I7)
 
 /**
  * LIBXS_VLA_DECL declares an array according to the given set of (multiple) bounds.

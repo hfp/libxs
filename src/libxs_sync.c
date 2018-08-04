@@ -90,7 +90,7 @@ LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
 #else
   if (NULL != barrier && 1 < ncores && 1 <= nthreads_per_core) {
     barrier->ncores = ncores;
-    barrier->ncores_log2 = LIBXS_LOG2((ncores << 1) - 1);
+    barrier->ncores_log2 = (int)LIBXS_LOG2(((unsigned long long)ncores << 1) - 1);
     barrier->nthreads_per_core = nthreads_per_core;
     barrier->nthreads = ncores * nthreads_per_core;
     barrier->threads = (internal_sync_thread_tag**)libxs_aligned_malloc(

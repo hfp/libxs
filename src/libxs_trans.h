@@ -40,8 +40,8 @@
 
 /* kernel uses consecutive stores and consecutive loads (copy) */
 #define LIBXS_MCOPY_KERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, INDEX_I, INDEX_J, SRC, DST) \
-  const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
-        TYPE *const DST = (      TYPE*)(((      char*)(OUT)) + (TYPESIZE) * ((INDEX_J) * (LDO) + (INDEX_I)))
+  const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((size_t)(INDEX_J) * (LDI) + (INDEX_I))); \
+        TYPE *const DST = (      TYPE*)(((      char*)(OUT)) + (TYPESIZE) * ((size_t)(INDEX_J) * (LDO) + (INDEX_I)))
 /* call JIT-kernel (matrix-copy) */
 #define LIBXS_MCOPY_CALL_NOPF(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) { \
   const unsigned int libxs_mcopy_call_nopf_uldi_ = (unsigned int)(LDI); \
@@ -53,12 +53,12 @@
   const unsigned int libxs_mcopy_call_uldi_ = (unsigned int)(LDI); \
   const unsigned int libxs_mcopy_call_uldo_ = (unsigned int)(LDO); \
   (PRFT_KERNEL)(SRC, &libxs_mcopy_call_uldi_, DST, &libxs_mcopy_call_uldo_, \
-    /*prefetch next line*/((const char*)(SRC)) + (TYPESIZE) * (LDI)); \
+    /*prefetch next line*/((const char*)(SRC)) + (TYPESIZE) * (size_t)(LDI)); \
 }
 /* kernel uses consecutive stores and strided loads (transpose) */
 #define LIBXS_TCOPY_KERNEL(TYPE, TYPESIZE, OUT, IN, LDI, LDO, INDEX_I, INDEX_J, SRC, DST) \
-  const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((INDEX_J) * (LDI) + (INDEX_I))); \
-        TYPE *const DST = (      TYPE*)(((      char*)(OUT)) + (TYPESIZE) * ((INDEX_I) * (LDO) + (INDEX_J)))
+  const TYPE *const SRC = (const TYPE*)(((const char*) (IN)) + (TYPESIZE) * ((size_t)(INDEX_J) * (LDI) + (INDEX_I))); \
+        TYPE *const DST = (      TYPE*)(((      char*)(OUT)) + (TYPESIZE) * ((size_t)(INDEX_I) * (LDO) + (INDEX_J)))
 /* call JIT-kernel (transpose) */
 #define LIBXS_TCOPY_CALL(KERNEL, TYPESIZE, SRC, LDI, DST, LDO) { \
   const unsigned int libxs_tcopy_call_uldi_ = (unsigned int)(LDI); \
