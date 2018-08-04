@@ -486,6 +486,17 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
     handle->use_nts_fwd = 0;
   }
 
+  /* determine if we should use the image par version */
+  handle->fwd_img_par = 0;
+  /* we are running out of parallelism */
+  if ( handle->desc.N*handle->blocksofm  < handle->desc.threads ) {
+    handle->fwd_img_par = 1;
+  }
+  /* huge images, but minibatch 1 */
+  if ( (handle->desc.threads != 1) &&  (handle->desc.N == 1) && (handle->fwd_ofh_rb == 1) && (handle->n_variants == 1) && (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
+    handle->fwd_img_par = 1;
+  }
+
   /* Adjust blocking factors if custom_2 format is requested */
   if ((handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2)) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32) {
