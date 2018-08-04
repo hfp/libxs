@@ -1185,7 +1185,7 @@ LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* 
     if (end == pool) pool = pool0; /* fall-back to new pool */
     if (end != pool) {
       const internal_malloc_info_type* info = NULL;
-      const size_t counter = LIBXS_ATOMIC_ADD_FETCH(&pool->instance.counter, 1, LIBXS_ATOMIC_SEQ_CST);
+      const size_t counter = LIBXS_ATOMIC_ADD_FETCH(&pool->instance.counter, (size_t)1, LIBXS_ATOMIC_SEQ_CST);
       info = internal_malloc_info(pool->instance.buffer);
 
       if (NULL == pool->instance.buffer && 1 == counter) {
@@ -1326,7 +1326,7 @@ LIBXS_API void libxs_free(const void* memory)
 
       /* check if memory belongs to scratch domain or local domain */
       if (NULL != info && pool->instance.buffer <= buffer && buffer < (pool->instance.buffer + info->size)) {
-        const size_t counter = LIBXS_ATOMIC_SUB_FETCH(&pool->instance.counter, 1, LIBXS_ATOMIC_SEQ_CST);
+        const size_t counter = LIBXS_ATOMIC_SUB_FETCH(&pool->instance.counter, (size_t)1, LIBXS_ATOMIC_SEQ_CST);
 
         assert(pool->instance.buffer <= pool->instance.head);
         if (0 == counter) { /* reallocate scratch domain */

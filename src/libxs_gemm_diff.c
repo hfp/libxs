@@ -307,11 +307,14 @@ LIBXS_GEMM_DIFF_API_DEFINITION unsigned int libxs_gemm_diffn_sw(const libxs_gemm
   const char *const desc = (const char*)descs;
   const unsigned int end = hint + ndescs;
   unsigned int i;
+  LIBXS_ASSERT(0 <= nbytes);
   for (i = hint; i < end; ++i) {
-    const unsigned int j = i % ndescs; /* wrap around index */
+    const size_t j = (i % ndescs); /* wrap around index */
     /* negative stride runs backwards */
-    if (0 == libxs_gemm_diff_sw(reference, (const libxs_gemm_descriptor*)(desc + j * nbytes))) {
-      return j;
+    const libxs_gemm_descriptor *const idesc = (const libxs_gemm_descriptor*)(
+      0 <= nbytes ? (desc + j * nbytes) : (desc - j * (size_t)(-nbytes)));
+    if (0 == libxs_gemm_diff_sw(reference, idesc)) {
+      return (unsigned int)j;
     }
   }
   return ndescs;

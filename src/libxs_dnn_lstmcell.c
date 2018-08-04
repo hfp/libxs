@@ -380,81 +380,81 @@ LIBXS_API size_t libxs_dnn_lstmcell_get_scratch_size(const libxs_dnn_lstmcell* h
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* i1t */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* i1t */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* f1t */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* f1t */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* o1t */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* o1t */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* c1t */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* c1t */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* i2 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* i2 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* f2 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* f2 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* o2 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* o2 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* c2 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* c2 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* d1 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d1 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* d2 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d2 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* dh */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* dh */
                                            size += 64;
 #if !defined(NON_FUSED_INPUT_GEMM)
-                                           size += handle->m * 4 * handle->n * sizeof_datatype * handle->t; /* i4t */
+                                           size += (size_t)handle->m * 4 * handle->n * sizeof_datatype * handle->t; /* i4t */
                                            size += 64;
 #endif
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* i1t */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* i1t */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* f1t */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* f1t */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* o1t */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* o1t */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* c1t */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* c1t */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* i1b */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* i1b */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* i2 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* i2 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* i3 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* i3 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* f1b */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* f1b */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* f2 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* f2 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* f3 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* f3 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* o1b */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* o1b */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* o2 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* o2 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* c1b */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* c1b */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* c2 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* c2 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* d1 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d1 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* d2 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d2 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* d3 (dh) */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d3 (dh) */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype; /* d4 */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d4 */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* delta */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* delta */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* djdiMt */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdiMt */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* djdfMt */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdfMt */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* djdcMt */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdcMt */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* djdoMt */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdoMt */
                                            size += 64;
                                          } break;
       default: {
@@ -491,7 +491,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->i1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f1t->data = (void*)address;
@@ -499,7 +499,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->f1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o1t->data = (void*)address;
@@ -507,7 +507,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->o1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c1t->data = (void*)address;
@@ -515,7 +515,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->c1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->i2->data = (void*)address;
@@ -523,7 +523,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->i2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f2->data = (void*)address;
@@ -531,7 +531,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->f2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o2->data = (void*)address;
@@ -539,7 +539,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->o2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c2->data = (void*)address;
@@ -547,7 +547,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->c2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d1->data = (void*)address;
@@ -555,7 +555,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->d1->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d2->data = (void*)address;
@@ -563,7 +563,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->d2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->dh->data = (void*)address;
@@ -572,7 +572,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              handle->dh->data = (void*)(address+offset);
                                            }
 #if !defined(NON_FUSED_INPUT_GEMM)
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->i4t->data = (void*)address;
@@ -591,7 +591,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->i1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f1t->data = (void*)address;
@@ -599,7 +599,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->f1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o1t->data = (void*)address;
@@ -607,7 +607,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->o1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c1t->data = (void*)address;
@@ -615,7 +615,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->c1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->i1b->data = (void*)address;
@@ -623,7 +623,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->i1b->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->i2->data = (void*)address;
@@ -631,7 +631,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->i2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->i3->data = (void*)address;
@@ -639,7 +639,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->i3->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f1b->data = (void*)address;
@@ -647,7 +647,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->f1b->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f2->data = (void*)address;
@@ -655,7 +655,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->f2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f3->data = (void*)address;
@@ -663,7 +663,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->f3->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o1b->data = (void*)address;
@@ -671,7 +671,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->o1b->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o2->data = (void*)address;
@@ -679,7 +679,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->o2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c1b->data = (void*)address;
@@ -687,7 +687,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->c1b->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c2->data = (void*)address;
@@ -695,7 +695,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->c2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d1->data = (void*)address;
@@ -703,7 +703,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->d1->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d2->data = (void*)address;
@@ -711,7 +711,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->d2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->dh->data = (void*)address;
@@ -719,7 +719,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->dh->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d4->data = (void*)address;
@@ -727,7 +727,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->d4->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->deltat->data = (void*)address;
@@ -735,7 +735,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->deltat->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->djdiMt->data = (void*)address;
@@ -743,7 +743,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->djdiMt->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->djdfMt->data = (void*)address;
@@ -751,7 +751,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->djdfMt->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->djdoMt->data = (void*)address;
@@ -759,7 +759,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->djdoMt->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->djdcMt->data = (void*)address;
@@ -883,39 +883,39 @@ LIBXS_API size_t libxs_dnn_lstmcell_get_internalstate_size(const libxs_dnn_lstmc
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* i */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* i */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* f */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* f */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* o */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* o */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* c */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* c */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * (handle->t + 1); /* d */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * ((size_t)handle->t + 1); /* d */
                                            size += 64;
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* i */
+        size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* i */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* f */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* f */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* o */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* o */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* c */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* c */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* d */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* d */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* djddt */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djddt */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* djdit */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdit */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* djdft */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdft */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* djdct */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdct */
                                            size += 64;
-                                           size += handle->m * handle->n * sizeof_datatype * handle->t; /* djdot */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdot */
                                            size += 64;
                                          } break;
       default: {
@@ -952,7 +952,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->i->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f->data = (void*)address;
@@ -960,7 +960,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->f->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o->data = (void*)address;
@@ -968,7 +968,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->o->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c->data = (void*)address;
@@ -976,7 +976,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->c->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d->data = (void*)address;
@@ -994,7 +994,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->i->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f->data = (void*)address;
@@ -1002,7 +1002,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->f->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o->data = (void*)address;
@@ -1010,7 +1010,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->o->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c->data = (void*)address;
@@ -1018,7 +1018,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->c->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d->data = (void*)address;
@@ -1026,7 +1026,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->d->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->djddt->data = (void*)address;
@@ -1034,7 +1034,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->djddt->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->djdit->data = (void*)address;
@@ -1042,7 +1042,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->djdit->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->djdft->data = (void*)address;
@@ -1050,7 +1050,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->djdft->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->djdot->data = (void*)address;
@@ -1058,7 +1058,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->djdot->data = (void*)(address+offset);
                                            }
-                                           scratch_size = handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->djdct->data = (void*)address;

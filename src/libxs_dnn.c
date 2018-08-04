@@ -1635,7 +1635,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_trans_reg_filter(const libxs_dnn_layer* hand
             for (ki=0; ki < handle->desc.S; ++ki) {
               for ( ofm2 = 0; ofm2 < handle->ofmblock; ++ofm2 ) {
                 for ( ifm2 = 0; ifm2 < handle->ifmblock; ++ifm2 ) {
-                  LIBXS_VLA_ACCESS(6, tr_wt, ifm1, ofm1, handle->desc.R-1-kj , handle->desc.S-1-ki, ofm2, ifm2, handle->blocksofm, handle->desc.R, handle->desc.S, handle->ofmblock, handle->ifmblock) =
+                  LIBXS_VLA_ACCESS(6, tr_wt, ifm1, ofm1, handle->desc.R-1-kj, handle->desc.S-1-ki, ofm2, ifm2, handle->blocksofm, handle->desc.R, handle->desc.S, handle->ofmblock, handle->ifmblock) =
                     LIBXS_VLA_ACCESS(6, wt, ofm1, ifm1, kj, ki, ifm2, ofm2, handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock);
                 }
               }
@@ -2549,9 +2549,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_layer* handle, c
       /* calculate filter size */
       filter_size = handle->blocksofm * handle->blocksifm * handle->desc.R * handle->desc.S * handle->ofmblock * handle->ifmblock;
 
-      for ( i = 0; i < handle->desc.threads; i++ ) {
-        float* tmp_filter_ptr = ((float*)handle->scratch4) + (i*filter_size);
-        for ( j = 0; j < filter_size; j++) {
+      for ( i = 0; i < handle->desc.threads; ++i ) {
+        float* tmp_filter_ptr = ((float*)handle->scratch4) + ((size_t)i * filter_size);
+        for ( j = 0; j < filter_size; ++j ) {
           filter_ptr[j] += tmp_filter_ptr[j];
         }
       }
@@ -2758,8 +2758,8 @@ LIBXS_API void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int leng
   if ( round_mode == LIBXS_DNN_QUANT_FPHW_ROUND ) {
     const float max_value = libxs_internal_get_max( in_buffer, length );
     int maxexp = 0;
-    float scfq = 0;
-    frexpf(max_value, &maxexp);
+    /* take return value of frexpf to mute static analysis issue */
+    float scfq = frexpf(max_value, &maxexp);
     maxexp -= (15/*LIBXS_DNN_MANT_DFP16?*/ - add_shift);
     scfq = libxs_sexp2_i8i(-maxexp);
 
@@ -2778,7 +2778,7 @@ LIBXS_API void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int leng
 #     pragma omp parallel for private(i)
 #endif
       for( i = 0; i < length; ++i ) {
-        out_buffer[i] = (short)round(in_buffer[i]*scfq);
+        out_buffer[i] = (short)round((double)in_buffer[i] * scfq);
       }
 #if defined(__AVX512F__)
     }
@@ -2826,8 +2826,8 @@ LIBXS_API void libxs_dnn_quantize_act( float* in_buffer, short* out_buffer, unsi
   if ( round_mode == LIBXS_DNN_QUANT_FPHW_ROUND ) {
     const float max_value = libxs_internal_get_max( in_buffer, N*C*H*W );
     int maxexp = 0;
-    float scfq = 0;
-    frexpf(max_value, &maxexp);
+    /* take return value of frexpf to mute static analysis issue */
+    float scfq = frexpf(max_value, &maxexp);
     maxexp -= (15/*LIBXS_DNN_MANT_DFP16?*/ - add_shift);
     scfq = libxs_sexp2_i8i(-maxexp);
 
@@ -2856,7 +2856,7 @@ LIBXS_API void libxs_dnn_quantize_act( float* in_buffer, short* out_buffer, unsi
                   const int fi3 = i3;
                   const int fi4 = i4;
                   const int fi5 = ((i2*cblk_i16*lp_blk)+(i5*lp_blk)+i6)%cblk_f32;
-                  LIBXS_VLA_ACCESS(6, out, i1, i2, i3, i4, i5, i6, cblk, H, W, cblk_i16, lp_blk) = (short)round(
+                  LIBXS_VLA_ACCESS(6, out, i1, i2, i3, i4, i5, i6, cblk, H, W, cblk_i16, lp_blk) = (short)round((double)
                   LIBXS_VLA_ACCESS(5, in, fi1, fi2, fi3, fi4, fi5, C / cblk_f32, H, W, cblk_f32) * scfq);
                 }
               }
@@ -2930,8 +2930,8 @@ LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsi
   if ( round_mode == LIBXS_DNN_QUANT_FPHW_ROUND ) {
     const float max_value = libxs_internal_get_max( in_buffer, K*C*R*S );
     int maxexp = 0;
-    float scfq = 0.0f;
-    frexpf(max_value, &maxexp);
+    /* take return value of frexpf to mute static analysis issue */
+    float scfq = frexpf(max_value, &maxexp);
     maxexp -= (15/*LIBXS_DNN_MANT_DFP16?*/ - add_shift);
     scfq = libxs_sexp2_i8i(-maxexp);
 
@@ -2982,7 +2982,7 @@ LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsi
                     const int fi4 = i4;
                     const int fi5 = ((i2*cblk_i16*lp_blk)+(i5*lp_blk)+i7)%cblk_f32;
                     const int fi6 = ((i1*kblk_i16)+i6)%kblk_f32;
-                    LIBXS_VLA_ACCESS(7, out, i1, i2, i3, i4, i5, i6, i7, cblk, R, S, cblk_i16, kblk_i16, lp_blk) = (short)round(
+                    LIBXS_VLA_ACCESS(7, out, i1, i2, i3, i4, i5, i6, i7, cblk, R, S, cblk_i16, kblk_i16, lp_blk) = (short)round((double)
                     LIBXS_VLA_ACCESS(6, in, fi1, fi2, fi3, fi4, fi5, fi6, C / cblk_f32, R, S, cblk_f32, kblk_f32) * scfq);
                   }
                 }
