@@ -499,6 +499,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
   if ( (handle->desc.threads != 1) &&  (handle->desc.N == 1) && (handle->fwd_ofh_rb == 1) && (handle->n_variants == 1) && (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
     handle->fwd_img_par = 1;
   }
+  /* when batch stats should be calculated -> no img par version */
+  if ( (handle->fuse_ops & LIBXS_DNN_CONV_FUSE_BATCH_STATS) > 0  ) {
+    handle->fwd_img_par = 0;
+  }
 
   /* Adjust blocking factors if custom_2 format is requested */
   if ((handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2)) {
