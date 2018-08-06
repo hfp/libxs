@@ -1064,7 +1064,7 @@ LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, do
 }
 
 
-LIBXS_API_INTERN int libxs_cast(libxs_datatype datatype, double dvalue, char value[])
+LIBXS_API_INTERN int libxs_cast(libxs_datatype datatype, double dvalue, void* value)
 {
   int result = EXIT_SUCCESS;
   if (NULL != value) {
@@ -1168,8 +1168,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't',
             (unsigned int)request->descriptor.gemm->m,   (unsigned int)request->descriptor.gemm->n,   (unsigned int)request->descriptor.gemm->k,
             (unsigned int)request->descriptor.gemm->lda, (unsigned int)request->descriptor.gemm->ldb, (unsigned int)request->descriptor.gemm->ldc,
-            0 == (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.gemm->flags) ? 1 : 0,
-            0 == (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 1 : 0,
+            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.gemm->flags) ? 0 : */1,
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1,
             uid);
         }
       }
@@ -1195,8 +1195,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.srsoa->gemm->flags) ? 'n' : 't',
             (unsigned int)request->descriptor.srsoa->gemm->m,   (unsigned int)request->descriptor.srsoa->gemm->n,   (unsigned int)request->descriptor.srsoa->gemm->k,
             (unsigned int)request->descriptor.srsoa->gemm->lda, (unsigned int)request->descriptor.srsoa->gemm->ldb, (unsigned int)request->descriptor.srsoa->gemm->ldc,
-            0 == (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.srsoa->gemm->flags) ? 1 : 0,
-            0 == (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.srsoa->gemm->flags) ? 1 : 0,
+            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.srsoa->gemm->flags) ? 0 : */1,
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.srsoa->gemm->flags) ? 0 : 1,
             uid, nnz);
         }
       }
@@ -1222,8 +1222,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.scsoa->gemm->flags) ? 'n' : 't',
             (unsigned int)request->descriptor.scsoa->gemm->m,   (unsigned int)request->descriptor.scsoa->gemm->n,   (unsigned int)request->descriptor.scsoa->gemm->k,
             (unsigned int)request->descriptor.scsoa->gemm->lda, (unsigned int)request->descriptor.scsoa->gemm->ldb, (unsigned int)request->descriptor.scsoa->gemm->ldc,
-            0 == (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.scsoa->gemm->flags) ? 1 : 0,
-            0 == (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.scsoa->gemm->flags) ? 1 : 0,
+            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.scsoa->gemm->flags) ? 0 : */1,
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.scsoa->gemm->flags) ? 0 : 1,
             uid, nnz);
         }
       }
@@ -1245,8 +1245,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.rmacsoa->gemm->flags) ? 'n' : 't',
             (unsigned int)request->descriptor.rmacsoa->gemm->m,   (unsigned int)request->descriptor.rmacsoa->gemm->n,   (unsigned int)request->descriptor.rmacsoa->gemm->k,
             (unsigned int)request->descriptor.rmacsoa->gemm->lda, (unsigned int)request->descriptor.rmacsoa->gemm->ldb, (unsigned int)request->descriptor.rmacsoa->gemm->ldc,
-            0 == (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.rmacsoa->gemm->flags) ? 1 : 0,
-            0 == (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.rmacsoa->gemm->flags) ? 1 : 0,
+            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.rmacsoa->gemm->flags) ? 0 : */1,
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.rmacsoa->gemm->flags) ? 0 : 1,
             uid);
         }
       }
@@ -1268,8 +1268,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.rmbcsoa->gemm->flags) ? 'n' : 't',
             (unsigned int)request->descriptor.rmbcsoa->gemm->m,   (unsigned int)request->descriptor.rmbcsoa->gemm->n,   (unsigned int)request->descriptor.rmbcsoa->gemm->k,
             (unsigned int)request->descriptor.rmbcsoa->gemm->lda, (unsigned int)request->descriptor.rmbcsoa->gemm->ldb, (unsigned int)request->descriptor.rmbcsoa->gemm->ldc,
-            0 == (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.rmbcsoa->gemm->flags) ? 1 : 0,
-            0 == (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.rmbcsoa->gemm->flags) ? 1 : 0,
+            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.rmbcsoa->gemm->flags) ? 0 : */1,
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.rmbcsoa->gemm->flags) ? 0 : 1,
             uid);
         }
       }
@@ -1295,8 +1295,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.sreg->gemm->flags) ? 'n' : 't',
             (unsigned int)request->descriptor.sreg->gemm->m,   (unsigned int)request->descriptor.sreg->gemm->n,   (unsigned int)request->descriptor.sreg->gemm->k,
             (unsigned int)request->descriptor.sreg->gemm->lda, (unsigned int)request->descriptor.sreg->gemm->ldb, (unsigned int)request->descriptor.sreg->gemm->ldc,
-            0 == (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.sreg->gemm->flags) ? 1 : 0,
-            0 == (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.sreg->gemm->flags) ? 1 : 0,
+            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.sreg->gemm->flags) ? 0 : */1,
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.sreg->gemm->flags) ? 0 : 1,
             uid);
         }
 #if 1
