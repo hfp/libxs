@@ -182,25 +182,34 @@ LIBXS_API_INTERN void libxs_trans_init(int archid);
 /** Finalizes the transpose functionality; NOT thread-safe. */
 LIBXS_API_INTERN void libxs_trans_finalize(void);
 
-LIBXS_API void libxs_matcopy_internal(void* out, const void* in, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo, const int* prefetch,
-  libxs_blasint tm, libxs_blasint tn, libxs_xmcopyfunction kernel,
+LIBXS_API void libxs_matcopy_thread_internal(void* out, const void* in, unsigned int typesize,
+  unsigned int m, unsigned int n, unsigned int ldi, unsigned int ldo, const int* prefetch,
+  unsigned int tm, unsigned int tn, libxs_xmcopyfunction kernel,
   int tid, int nthreads);
+LIBXS_API_INTERN void libxs_matcopy_internal_pf(void* out, const void* in,
+  unsigned int typesize, unsigned int ldi, unsigned int ldo,
+  unsigned int m0, unsigned int m1, unsigned int n0, unsigned int n1,
+  unsigned int tm, unsigned int tn, libxs_xmcopyfunction kernel);
+LIBXS_API_INTERN void libxs_matcopy_internal(void* out, const void* in,
+  unsigned int typesize, unsigned int ldi, unsigned int ldo,
+  unsigned int m0, unsigned int m1, unsigned int n0, unsigned int n1,
+  unsigned int tm, unsigned int tn, libxs_xmcopyfunction kernel);
+
 LIBXS_API void libxs_otrans_thread_internal(void* out, const void* in, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
-  libxs_blasint tm, libxs_blasint tn, libxs_xtransfunction kernel,
+  unsigned int m, unsigned int n, unsigned int ldi, unsigned int ldo,
+  unsigned int tm, unsigned int tn, libxs_xtransfunction kernel,
   int tid, int nthreads);
 LIBXS_API_INTERN void libxs_otrans_internal(void* out, const void* in,
-  unsigned int typesize, libxs_blasint ldi, libxs_blasint ldo,
-  libxs_blasint m0, libxs_blasint m1, libxs_blasint n0, libxs_blasint n1,
-  libxs_blasint tm, libxs_blasint tn, libxs_xtransfunction kernel);
+  unsigned int typesize, unsigned int ldi, unsigned int ldo,
+  unsigned int m0, unsigned int m1, unsigned int n0, unsigned int n1,
+  unsigned int tm, unsigned int tn, libxs_xtransfunction kernel);
 
 /** Determines whether JIT-kernels are used or not (0: none, 1: matcopy, 2: transpose, 3: matcopy+transpose). */
 LIBXS_APIVAR_PUBLIC(int libxs_trans_jit);
 /** M-factor shaping the N-extent (tile shape). */
 LIBXS_APIVAR_PUBLIC(float libxs_trans_tile_stretch);
 /** Table of M-extents per type-size (tile shape). */
-LIBXS_APIVAR_PUBLIC(libxs_blasint* libxs_trans_mtile);
+LIBXS_APIVAR_PUBLIC(unsigned int* libxs_trans_mtile);
 /** Determines if OpenMP tasks are used, and scales beyond the number of threads. */
 LIBXS_APIVAR_PUBLIC(int libxs_trans_taskscale);
 
