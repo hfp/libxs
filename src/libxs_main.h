@@ -116,7 +116,7 @@
   (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
   (DESCRIPTOR).datatype = (unsigned char)(DATA_TYPE); (DESCRIPTOR).iflags = 0; (DESCRIPTOR).pad0 = 0; (DESCRIPTOR).pad1 = 0; \
   (DESCRIPTOR).flags = (unsigned short)((FLAGS) \
-    | (LIBXS_NEQ(0, ALPHA) ? 0 : LIBXS_GEMM_FLAG_ALPHA_0) \
+    /*| (LIBXS_NEQ(0, ALPHA) ? 0 : LIBXS_GEMM_FLAG_ALPHA_0)*/ \
     | (LIBXS_NEQ(0, BETA)  ? 0 : LIBXS_GEMM_FLAG_BETA_0)); \
     LIBXS_GEMM_DESCRIPTOR_PREFETCH(DESCRIPTOR, PREFETCH)
 /** Similar to LIBXS_GEMM_DESCRIPTOR, but separately taking the input-/output-precision. */
@@ -609,7 +609,7 @@ LIBXS_API_INTERN unsigned char libxs_typesize(libxs_datatype datatype);
 LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
 
 /** Determines the generic value given in double-precision. */
-LIBXS_API_INTERN int libxs_cast(libxs_datatype datatype, double dvalue, char value[]);
+LIBXS_API_INTERN int libxs_cast(libxs_datatype datatype, double dvalue, void* value);
 
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
