@@ -116,6 +116,7 @@ LIBXS_API void libxs_matcopy_thread_internal(void* out, const void* in, unsigned
 
   LIBXS_ASSERT_MSG(tid < nthreads && 0 < nthreads, "Invalid task setup!");
   LIBXS_ASSERT_MSG(tm <= m && tn <= n, "Invalid problem size!");
+  LIBXS_ASSERT_MSG(0 < tm && 0 < tn, "Invalid tile size!");
   LIBXS_ASSERT_MSG(typesize <= 255, "Invalid type-size!");
 
   if (nthreads <= mtasks) { /* parallelized over M */
@@ -173,7 +174,8 @@ LIBXS_API void libxs_matcopy_thread(void* out, const void* in, unsigned int type
 {
   LIBXS_INIT
 #if defined(LIBXS_TRANS_CHECK)
-  if (0 != out && out != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && m <= ldo &&
+  if (0 < typesize && m <= ldi && m <= ldo && out != in &&
+    ((0 != out && 0 < m && 0 < n) || (0 == m && 0 == n)) &&
     /* use (signed) integer types, but check sanity of input */
     0 <= tid && tid < nthreads)
 #endif
@@ -186,7 +188,8 @@ LIBXS_API void libxs_matcopy_thread(void* out, const void* in, unsigned int type
         const unsigned int tasksize = (((unsigned int)m) * n) / ((unsigned int)(nthreads * libxs_trans_tile_stretch));
         const unsigned int nn = libxs_isqrt_u32(tasksize);
         const unsigned int mm = (unsigned int)(libxs_trans_tile_stretch * nn);
-        tn = LIBXS_MIN(nn, (unsigned int)n); tm = LIBXS_CLMP((unsigned int)m, 1, mm);
+        tn = LIBXS_CLMP((unsigned int)n, 1, nn);
+        tm = LIBXS_CLMP((unsigned int)m, 1, mm);
       }
       else {
         tm = m; tn = n;
@@ -257,6 +260,7 @@ LIBXS_API void libxs_otrans_thread_internal(void* out, const void* in, unsigned 
 
   LIBXS_ASSERT_MSG(tid < nthreads && 0 < nthreads, "Invalid task setup!");
   LIBXS_ASSERT_MSG(tm <= m && tn <= n, "Invalid problem size!");
+  LIBXS_ASSERT_MSG(0 < tm && 0 < tn, "Invalid tile size!");
   LIBXS_ASSERT_MSG(typesize <= 255, "Invalid type-size!");
 
   if (nthreads <= mtasks) { /* parallelized over M */
@@ -297,7 +301,8 @@ LIBXS_API void libxs_otrans_thread(void* out, const void* in, unsigned int types
   static int error_once = 0;
   LIBXS_INIT
 #if defined(LIBXS_TRANS_CHECK)
-  if (0 != out && 0 != in && 0 < typesize && 0 < m && 0 < n && m <= ldi && n <= ldo &&
+  if (0 < typesize && m <= ldi && n <= ldo &&
+    ((0 != out && 0 != in && 0 < m && 0 < n) || (0 == m && 0 == n)) &&
     /* use (signed) integer types, but check sanity of input */
     0 <= tid && tid < nthreads)
 #endif
@@ -313,7 +318,8 @@ LIBXS_API void libxs_otrans_thread(void* out, const void* in, unsigned int types
           const unsigned int tasksize = (((unsigned int)m) * n) / ((unsigned int)(nthreads * libxs_trans_tile_stretch));
           const unsigned int nn = libxs_isqrt_u32(tasksize);
           const unsigned int mm = (unsigned int)(libxs_trans_tile_stretch * nn);
-          tn = LIBXS_MIN(nn, (unsigned int)n); tm = LIBXS_CLMP((unsigned int)m, 1, mm);
+          tn = LIBXS_CLMP((unsigned int)n, 1, nn);
+          tm = LIBXS_CLMP((unsigned int)m, 1, mm);
           if (0 != (2 & libxs_trans_jit) /* JIT'ted transpose permitted? */
             && NULL != (desc = libxs_trans_descriptor_init(&blob, typesize, tm, tn, (unsigned int)ldo)))
           {
