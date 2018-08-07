@@ -173,12 +173,10 @@ LIBXS_API void libxs_matcopy_thread(void* out, const void* in, unsigned int type
   const int* prefetch, int tid, int nthreads)
 {
   LIBXS_INIT
-#if defined(LIBXS_TRANS_CHECK)
   if (0 < typesize && m <= ldi && m <= ldo && out != in &&
     ((0 != out && 0 < m && 0 < n) || (0 == m && 0 == n)) &&
     /* use (signed) integer types, but check sanity of input */
     0 <= tid && tid < nthreads)
-#endif
   {
     unsigned int tm = libxs_trans_mtile[4 < typesize ? 0 : 1];
     unsigned int tn = (unsigned int)(libxs_trans_tile_stretch * tm);
@@ -211,34 +209,32 @@ LIBXS_API void libxs_matcopy_thread(void* out, const void* in, unsigned int type
       (unsigned int)m, (unsigned int)n, (unsigned int)ldi, (unsigned int)ldo,
       prefetch, tm, tn, kernel, tid, nthreads);
   }
-#if defined(LIBXS_TRANS_CHECK)
   else {
     static int error_once = 0;
     if (0 != libxs_verbosity /* library code is expected to be mute */
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       if (0 > tid || tid >= nthreads) {
-        fprintf(stderr, "LIBXS ERROR: the matcopy thread-id or number of threads is incorrect!\n");
+        fprintf(stderr, "LIBXS ERROR: the matrix-copy thread-id or number of threads is incorrect!\n");
       }
       else if (0 == out) {
-        fprintf(stderr, "LIBXS ERROR: the matcopy input and/or output is NULL!\n");
+        fprintf(stderr, "LIBXS ERROR: the matrix-copy input and/or output is NULL!\n");
       }
       else if (out == in) {
-        fprintf(stderr, "LIBXS ERROR: output and input of the matcopy must be different!\n");
+        fprintf(stderr, "LIBXS ERROR: output and input of the matrix-copy must be different!\n");
       }
       else if (0 == typesize) {
-        fprintf(stderr, "LIBXS ERROR: the typesize of the matcopy is zero!\n");
+        fprintf(stderr, "LIBXS ERROR: the type-size of the matrix-copy is zero!\n");
       }
       else if (0 >= m || 0 >= n) {
-        fprintf(stderr, "LIBXS ERROR: the matrix extent(s) of the matcopy is/are zero or negative!\n");
+        fprintf(stderr, "LIBXS ERROR: the matrix extent(s) of the matrix-copy is/are zero or negative!\n");
       }
       else {
         LIBXS_ASSERT(ldi < m || ldo < m);
-        fprintf(stderr, "LIBXS ERROR: the leading dimension(s) of the matcopy is/are too small!\n");
+        fprintf(stderr, "LIBXS ERROR: the leading dimension(s) of the matrix-copy is/are too small!\n");
       }
     }
   }
-#endif
 }
 
 
@@ -300,12 +296,10 @@ LIBXS_API void libxs_otrans_thread(void* out, const void* in, unsigned int types
 {
   static int error_once = 0;
   LIBXS_INIT
-#if defined(LIBXS_TRANS_CHECK)
   if (0 < typesize && m <= ldi && n <= ldo &&
     ((0 != out && 0 != in && 0 < m && 0 < n) || (0 == m && 0 == n)) &&
     /* use (signed) integer types, but check sanity of input */
     0 <= tid && tid < nthreads)
-#endif
   {
     if (out != in) {
       unsigned int tm = libxs_trans_mtile[4 < typesize ? 0 : 1];
@@ -350,7 +344,6 @@ LIBXS_API void libxs_otrans_thread(void* out, const void* in, unsigned int types
       fprintf(stderr, "LIBXS ERROR: output and input of the transpose must be different!\n");
     }
   }
-#if defined(LIBXS_TRANS_CHECK)
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
@@ -365,7 +358,7 @@ LIBXS_API void libxs_otrans_thread(void* out, const void* in, unsigned int types
         fprintf(stderr, "LIBXS ERROR: output and input of the transpose must be different!\n");
       }
       else if (0 == typesize) {
-        fprintf(stderr, "LIBXS ERROR: the typesize of the transpose is zero!\n");
+        fprintf(stderr, "LIBXS ERROR: the type-size of the transpose is zero!\n");
       }
       else if (0 >= m || 0 >= n) {
         fprintf(stderr, "LIBXS ERROR: the matrix extent(s) of the transpose is/are zero or negative!\n");
@@ -376,7 +369,6 @@ LIBXS_API void libxs_otrans_thread(void* out, const void* in, unsigned int types
       }
     }
   }
-#endif
 }
 
 
@@ -390,19 +382,10 @@ LIBXS_API void libxs_otrans(void* out, const void* in, unsigned int typesize,
 LIBXS_API void libxs_itrans(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld)
 {
-#if defined(LIBXS_TRANS_CHECK)
   static int error_once = 0;
   LIBXS_INIT
-  if (0 != inout)
-#else
-  LIBXS_UNUSED(n);
-  LIBXS_INIT
-#endif
-  {
-#if defined(LIBXS_TRANS_CHECK)
-    if (m == n) /* some fall-back; still warned as "not implemented" */
-#endif
-    {
+  if (0 != inout) {
+    if (m == n) { /* some fall-back; still warned as "not implemented" */
       libxs_blasint i, j;
       for (i = 0; i < m; ++i) {
         for (j = 0; j < i; ++j) {
@@ -424,7 +407,6 @@ LIBXS_API void libxs_itrans(void* inout, unsigned int typesize,
       }
 #endif
     }
-#if defined(LIBXS_TRANS_CHECK)
     else {
       if (0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
@@ -433,15 +415,12 @@ LIBXS_API void libxs_itrans(void* inout, unsigned int typesize,
       }
       LIBXS_ASSERT(0/*TODO: proper implementation is pending*/);
     }
-#endif
   }
-#if defined(LIBXS_TRANS_CHECK)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS ERROR: the transpose input/output cannot be NULL!\n");
   }
-#endif
 }
 
 
