@@ -290,7 +290,7 @@
 # define LIBXS_PRAGMA_OMP(...)
 #endif
 
-#if defined(LIBXS_INTEL_COMPILER)
+#if defined(__INTEL_COMPILER)
 # define LIBXS_PRAGMA_NONTEMPORAL_VARS(A, ...) LIBXS_PRAGMA(vector nontemporal(A, __VA_ARGS__))
 # define LIBXS_PRAGMA_NONTEMPORAL LIBXS_PRAGMA(vector nontemporal)
 # define LIBXS_PRAGMA_VALIGNED LIBXS_PRAGMA(vector aligned)

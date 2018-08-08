@@ -99,7 +99,7 @@
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_GENERIC
 # endif
 # if defined(LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_INTRINSICS_STATIC)
-#   if defined(LIBXS_INTEL_COMPILER)
+#   if defined(__INTEL_COMPILER)
       /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
 #     if 1500 <= (LIBXS_INTEL_COMPILER)
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
