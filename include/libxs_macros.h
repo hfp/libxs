@@ -415,8 +415,8 @@
  * VLA-support is signaled by LIBXS_VLA.
  */
 #if !defined(LIBXS_VLA) && !defined(LIBXS_NO_VLA) && !defined(__PGI) && ((defined(__STDC_VERSION__) && (199901L/*C99*/ == __STDC_VERSION__ || \
-   (!defined(__STDC_NO_VLA__) && 199901L/*C99*/ < __STDC_VERSION__))) || (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32)) || \
-    (defined(__GNUC__) && !defined(__STRICT_ANSI__) && !defined(__cplusplus))/*depends on prior C99-check*/)
+   (!defined(__STDC_NO_VLA__) && 199901L/*C99*/ < __STDC_VERSION__))) || (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32) && !defined(__cplusplus)) || \
+    (defined(__INTEL_COMPILER) && !defined(_WIN32)) || (defined(__GNUC__) && !defined(__STRICT_ANSI__) && !defined(__cplusplus))/*depends on prior C99-check*/)
 # define LIBXS_VLA
 #endif
 
