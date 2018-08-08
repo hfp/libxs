@@ -143,8 +143,14 @@
 # define LIBXS_CDECL
 #endif
 
+#if defined(__INTEL_COMPILER)
+# define LIBXS_INTEL_COMPILER __INTEL_COMPILER
+#elif defined(__INTEL_COMPILER_BUILD_DATE)
+# define LIBXS_INTEL_COMPILER ((__INTEL_COMPILER_BUILD_DATE / 10000 - 2000) * 100)
+#endif
+
 #if defined(LIBXS_OFFLOAD_BUILD) && \
-  defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= __INTEL_COMPILER))
+  defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= LIBXS_INTEL_COMPILER))
 # define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
 # define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) ((RTYPE (*)(LIBXS_VARIADIC))(FN))(__VA_ARGS__)
 # if !defined(LIBXS_OFFLOAD_TARGET)
@@ -225,24 +231,24 @@
 #define LIBXS_API_EXTERN LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
 
 #if !defined(LIBXS_RESTRICT)
-# if ((defined(__GNUC__) && !defined(__CYGWIN32__)) || defined(__INTEL_COMPILER)) && !defined(_WIN32)
+# if ((defined(__GNUC__) && !defined(__CYGWIN32__)) || defined(LIBXS_INTEL_COMPILER)) && !defined(_WIN32)
 #   define LIBXS_RESTRICT __restrict__
-# elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
+# elif defined(_MSC_VER) || defined(LIBXS_INTEL_COMPILER)
 #   define LIBXS_RESTRICT __restrict
 # else
 #   define LIBXS_RESTRICT
 # endif
 #endif /*LIBXS_RESTRICT*/
 #if !defined(LIBXS_PRAGMA)
-# if defined(__INTEL_COMPILER) || defined(_MSC_VER)
+# if defined(LIBXS_INTEL_COMPILER) || defined(_MSC_VER)
 #   define LIBXS_PRAGMA(DIRECTIVE) __pragma(DIRECTIVE)
 # else
 #   define LIBXS_PRAGMA(DIRECTIVE)
 # endif
 #endif /*LIBXS_PRAGMA*/
 #if !defined(LIBXS_OPENMP_SIMD) && (defined(_OPENMP) && (201307 <= _OPENMP)) /*OpenMP 4.0*/
-# if defined(__INTEL_COMPILER)
-#   if (1500 <= __INTEL_COMPILER)
+# if defined(LIBXS_INTEL_COMPILER)
+#   if (1500 <= LIBXS_INTEL_COMPILER)
 #     define LIBXS_OPENMP_SIMD
 #   endif
 # elif defined(__GNUC__)
@@ -259,12 +265,12 @@
 # define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(omp simd collapse(N))
 # define LIBXS_PRAGMA_SIMD_PRIVATE(A, ...) LIBXS_PRAGMA(omp simd private(A, __VA_ARGS__))
 # define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(omp simd)
-# if defined(__INTEL_COMPILER)
+# if defined(LIBXS_INTEL_COMPILER)
 #   define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(novector)
 # else
 #   define LIBXS_PRAGMA_NOVECTOR
 # endif
-#elif defined(__INTEL_COMPILER)
+#elif defined(LIBXS_INTEL_COMPILER)
 # define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(simd reduction(EXPRESSION))
 # define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(simd collapse(N))
 # define LIBXS_PRAGMA_SIMD_PRIVATE(A, ...) LIBXS_PRAGMA(simd private(A, __VA_ARGS__))
@@ -284,7 +290,7 @@
 # define LIBXS_PRAGMA_OMP(...)
 #endif
 
-#if defined(__INTEL_COMPILER)
+#if defined(LIBXS_INTEL_COMPILER)
 # define LIBXS_PRAGMA_NONTEMPORAL_VARS(A, ...) LIBXS_PRAGMA(vector nontemporal(A, __VA_ARGS__))
 # define LIBXS_PRAGMA_NONTEMPORAL LIBXS_PRAGMA(vector nontemporal)
 # define LIBXS_PRAGMA_VALIGNED LIBXS_PRAGMA(vector aligned)
@@ -307,7 +313,7 @@
 # define LIBXS_PRAGMA_UNROLL
 #endif
 
-#if defined(__INTEL_COMPILER)
+#if defined(LIBXS_INTEL_COMPILER)
 # define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(optimize("", off))
 # define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(optimize("", on))
 #elif defined(__clang__)
@@ -364,8 +370,8 @@
 #define LIBXS_NEQ(A, B) ((A) < (B) || (A) > (B))
 #define LIBXS_FEQ(A, B) (!LIBXS_NEQ(A, B))
 
-#if defined(__INTEL_COMPILER)
-# if (1600 <= __INTEL_COMPILER)
+#if defined(LIBXS_INTEL_COMPILER)
+# if (1600 <= LIBXS_INTEL_COMPILER)
 #   define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION)
 # else
 #   define LIBXS_ASSUME(EXPRESSION) assert(EXPRESSION)
@@ -378,7 +384,7 @@
 # define LIBXS_ASSUME(EXPRESSION) assert(EXPRESSION)
 #endif
 
-#if defined(__INTEL_COMPILER)
+#if defined(LIBXS_INTEL_COMPILER)
 # define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N)
 #else
 # define LIBXS_ASSUME_ALIGNED(A, N) assert(0 == ((uintptr_t)(A)) % (N))
@@ -409,7 +415,7 @@
  * VLA-support is signaled by LIBXS_VLA.
  */
 #if !defined(LIBXS_VLA) && !defined(LIBXS_NO_VLA) && !defined(__PGI) && ((defined(__STDC_VERSION__) && (199901L/*C99*/ == __STDC_VERSION__ || \
-   (!defined(__STDC_NO_VLA__) && 199901L/*C99*/ < __STDC_VERSION__))) || (defined(__INTEL_COMPILER) && !defined(_WIN32)) || \
+   (!defined(__STDC_NO_VLA__) && 199901L/*C99*/ < __STDC_VERSION__))) || (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32)) || \
     (defined(__GNUC__) && !defined(__STRICT_ANSI__) && !defined(__cplusplus))/*depends on prior C99-check*/)
 # define LIBXS_VLA
 #endif
@@ -494,7 +500,7 @@
 # define LIBXS_ATTRIBUTE_DTOR
 #endif
 
-#if defined(__GNUC__) || (defined(__INTEL_COMPILER) && !defined(_WIN32))
+#if defined(__GNUC__) || (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32))
 # define LIBXS_ATTRIBUTE_UNUSED LIBXS_ATTRIBUTE(unused)
 #else
 # define LIBXS_ATTRIBUTE_UNUSED
@@ -557,7 +563,7 @@
 # if !defined(NOMINMAX)
 #   define NOMINMAX 1
 # endif
-# if defined(__INTEL_COMPILER) && (190023506 <= _MSC_FULL_VER)
+# if defined(LIBXS_INTEL_COMPILER) && (190023506 <= _MSC_FULL_VER)
 #   define __builtin_huge_val() HUGE_VAL
 #   define __builtin_huge_valf() HUGE_VALF
 #   define __builtin_nan nan
@@ -591,11 +597,11 @@
 /* _Float128 was introduced with GNU GCC 7.0. */
 #if !defined(_Float128) && defined(__GNUC__) && !defined(__cplusplus) \
   && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
-  || (defined(__INTEL_COMPILER) && defined(__INTEL_COMPILER_UPDATE) && ( \
-        ((1800 <= ((__INTEL_COMPILER) + (__INTEL_COMPILER_UPDATE))) \
-      && (1801  > ((__INTEL_COMPILER) + (__INTEL_COMPILER_UPDATE)))) || \
-        ((1706  > ((__INTEL_COMPILER) + (__INTEL_COMPILER_UPDATE))) \
-      &&    (0 != ((__INTEL_COMPILER) + (__INTEL_COMPILER_UPDATE)))))))
+  || (defined(LIBXS_INTEL_COMPILER) && defined(LIBXS_INTEL_COMPILER_UPDATE) && ( \
+        ((1800 <= ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE))) \
+      && (1801  > ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE)))) || \
+        ((1706  > ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE))) \
+      &&    (0 != ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE)))))))
 # define _Float128 __float128
 #endif
 
