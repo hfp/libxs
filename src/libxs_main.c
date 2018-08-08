@@ -1940,7 +1940,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
 }
 
 
-#if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__) && defined(__clang__) && !defined(__INTEL_COMPILER)
+#if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__) && defined(__clang__) && !defined(LIBXS_INTEL_COMPILER)
 LIBXS_PRAGMA_OPTIMIZE_OFF
 #endif
 
@@ -2004,7 +2004,7 @@ LIBXS_API libxs_wsmmfunction libxs_wsmmdispatch(libxs_blasint m, libxs_blasint n
 }
 
 
-#if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__) && defined(__clang__) && !defined(__INTEL_COMPILER)
+#if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__) && defined(__clang__) && !defined(LIBXS_INTEL_COMPILER)
 LIBXS_PRAGMA_OPTIMIZE_ON
 #endif
 
