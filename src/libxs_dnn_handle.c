@@ -164,7 +164,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
 #   endif
     {
       const size_t size6a = (size_t)handle->ofmblock * handle->ofw * handle->ofh * sizeof(float);
-      const size_t size6b = (size_t)handle->ifmblock * handle->desc.W * handle->desc.H * sizeof(float);
+      const size_t size6b = (size_t)handle->ifmblock * handle->fm_lp_block *  handle->desc.W * handle->desc.H * sizeof(float);
       const size_t size6 = ( size6a > size6b ) ? size6a : size6b;
       handle->scratch6_size = LIBXS_UP2(size6, LIBXS_CACHELINE) * handle->desc.threads;
     }

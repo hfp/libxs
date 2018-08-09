@@ -815,12 +815,14 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
 
 
   /* FIXME: KNM specific tuning for Resnet */
-  if ( (handle->desc.C == 256 && handle->desc.K == 1024) || (handle->desc.C == 512 && handle->desc.K == 2048) ||  (handle->desc.C == 1024 && handle->desc.K == 2048) ) {
-    handle->blocksofm_blocking = 8;
+  if (handle->datatype_out != LIBXS_DNN_DATATYPE_BF16) {
+    if ( (handle->desc.C == 256 && handle->desc.K == 1024) || (handle->desc.C == 512 && handle->desc.K == 2048) ||  (handle->desc.C == 1024 && handle->desc.K == 2048) ) {
+      handle->blocksofm_blocking = 8;
+    }
   }
 
   /* Restrict acc chain for overflow handling only if combo is int16/int32  */
-  if (handle->use_lp_kernel == 1) {
+  if (handle->use_lp_kernel == 1  && (handle->datatype_in != LIBXS_DNN_DATATYPE_BF16) ) {
     if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_I16) && ((handle->datatype_out == LIBXS_DNN_DATATYPE_I32) || (handle->datatype_out == LIBXS_DNN_DATATYPE_F32)) ) {
       if (handle->blocksofm_blocking * handle->ofmblock > 256) {
         handle->blocksofm_blocking = 16;
