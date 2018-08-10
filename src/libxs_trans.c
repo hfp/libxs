@@ -48,11 +48,6 @@
 # endif
 #endif
 
-/* min. tile-size is 3x3 rather than 2x2 to avoid remainder tiles of 1x1 */
-#if !defined(LIBXS_TRANS_TMIN)
-# define LIBXS_TRANS_TMIN 3
-#endif
-
 
 LIBXS_API_INTERN void libxs_trans_init(int archid)
 {
@@ -85,10 +80,10 @@ LIBXS_API_INTERN void libxs_trans_init(int archid)
       libxs_trans_tile_stretch = 32.f;
     }
     for (i = 0; i < 2/*DP/SP*/; ++i) {
-      if (0 < m) libxs_trans_mtile[i] = LIBXS_MAX(m, LIBXS_TRANS_TMIN);
+      if (0 < m) libxs_trans_mtile[i] = LIBXS_MAX(m, 1);
       if (0 < n) libxs_trans_tile_stretch = ((float)n) / libxs_trans_mtile[i];
-      if (LIBXS_TRANS_TMIN > (libxs_trans_tile_stretch * libxs_trans_mtile[i])) {
-        const float stretch = ((float)(LIBXS_TRANS_TMIN)) / libxs_trans_mtile[i];
+      if (1 > (libxs_trans_tile_stretch * libxs_trans_mtile[i])) {
+        const float stretch = 1.f / libxs_trans_mtile[i];
         libxs_trans_tile_stretch = LIBXS_MAX(stretch, libxs_trans_tile_stretch);
       }
     }
