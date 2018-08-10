@@ -1924,7 +1924,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     }
     result = internal_find_code(descriptor).xgemm;
 #if defined(_DEBUG)
-    if (0 != libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.xmm) {
+    if (2 < libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.xmm) {
       LIBXS_STDIO_ACQUIRE();
       fprintf(stderr, "LIBXS: ");
       libxs_gemm_xprint(stderr, result, NULL/*a*/, NULL/*b*/, NULL/*c*/);
@@ -2296,7 +2296,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
       result = internal_find_code(descriptor);
       *fn = result.ival;
 #if defined(_DEBUG)
-      if (0 != libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.pmm) {
+      if (2 < libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.pmm) {
         LIBXS_STDIO_ACQUIRE();
         fprintf(stderr, "LIBXS: ");
         libxs_gemm_xprint(stderr, result.xgemm, NULL/*a*/, NULL/*b*/, NULL/*c*/);
