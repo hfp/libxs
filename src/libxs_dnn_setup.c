@@ -934,6 +934,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
       fwd_equivalent_descriptor.stride_h_store = handle->desc.u;
       fwd_equivalent_descriptor.stride_w_store = handle->desc.v;
       fwd_equivalent_descriptor.use_nts = handle->use_nts_bwd;
+      fwd_equivalent_descriptor.f32_bf16_cvt_rne = handle->f32_bf16_cvt_rne;
       fwd_equivalent_descriptor.compute_batch_stats = 0;
       fwd_equivalent_descriptor.compute_max = 0;
       if ( ((handle->fuse_ops & LIBXS_DNN_CONV_FUSE_MAX_STATS) > 0) && (handle->use_nts_bwd == 1))  {
