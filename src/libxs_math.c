@@ -209,7 +209,7 @@ LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[])
 
 LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int limit, int is_lower)
 {
-  int result;
+  unsigned int result;
   if (limit < product) {
     result = 1;
     if (1 < limit) {
@@ -262,23 +262,27 @@ LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int li
           else i = n; /* break */
         }
       }
-      if (0 != is_lower) {
+      if (0 != is_lower && result < limit) {
         unsigned int rfact[32];
         const int m = libxs_primes_u32(result, rfact);
-        if (0 != m) {
-          int j = 0;
-          n = libxs_primes_u32(product, fact);
-          LIBXS_ASSERT(m <= n);
-          for (i = 0; i < n; ++i) {
-            while (j < m && fact[i] == rfact[j]) {
-              ++i; ++j; /* skip */
-            }
-            if (j == m || fact[i] != rfact[j]) {
+        int j = 0;
+        n = libxs_primes_u32(product, fact);
+        LIBXS_ASSERT(m <= n);
+        for (i = 0; i < n; ++i) {
+          while (j < m && fact[i] == rfact[j]) {
+            ++i; ++j; /* skip */
+          }
+          if (j == m || fact[i] != rfact[j]) {
+            if (i < n) {
               result *= fact[i];
-              i = n; /* break */
             }
+            else {
+              result = product;
+            }
+            i = n; /* break */
           }
         }
+        LIBXS_ASSERT(result <= product);
       }
     }
   }
