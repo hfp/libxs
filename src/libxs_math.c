@@ -270,13 +270,11 @@ LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int li
           n = libxs_primes_u32(product, fact);
           LIBXS_ASSERT(m <= n);
           for (i = 0; i < n; ++i) {
-            const unsigned int fi = fact[i];
-            while (fi == rfact[j] && j < m) {
-              ++i;
-              ++j;
+            while (j < m && fact[i] == rfact[j]) {
+              ++i; ++j; /* skip */
             }
-            if (j == m || fi != rfact[j]) {
-              result *= fi;
+            if (j == m || fact[i] != rfact[j]) {
+              result *= fact[i];
               i = n; /* break */
             }
           }
