@@ -92,43 +92,58 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_fusedbn(const libxs_dnn_fusedbn* han
 
 
 LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbn_create_tensor_datalayout(const libxs_dnn_fusedbn* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
+  LIBXS_UNUSED(handle);
+  LIBXS_UNUSED(type);
+  LIBXS_UNUSED(status);
   return 0;
 }
 
 LIBXS_API size_t libxs_dnn_fusedbn_get_scratch_size(const libxs_dnn_fusedbn* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status) {
+  LIBXS_UNUSED(handle);
+  LIBXS_UNUSED(kind);
+  LIBXS_UNUSED(status);
   return 0;
 }
 
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_scratch(libxs_dnn_fusedbn* handle, const libxs_dnn_compute_kind kind, const void* scratch) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-
+  LIBXS_UNUSED(handle);
+  LIBXS_UNUSED(kind);
+  LIBXS_UNUSED(scratch);
   return status;
 }
 
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_scratch(libxs_dnn_fusedbn* handle, const libxs_dnn_compute_kind kind) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-
+  LIBXS_UNUSED(handle);
+  LIBXS_UNUSED(kind);
   return status;
 }
 
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_tensor(libxs_dnn_fusedbn* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-
+  LIBXS_UNUSED(handle);
+  LIBXS_UNUSED(tensor);
+  LIBXS_UNUSED(type);
   return status;
 }
 
 
 LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbn_get_tensor(libxs_dnn_fusedbn* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
+  LIBXS_UNUSED(handle);
+  LIBXS_UNUSED(type);
+  LIBXS_UNUSED(status);
   return 0;
 }
 
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_tensor(libxs_dnn_fusedbn* handle, const libxs_dnn_tensor_type type) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-
+  LIBXS_UNUSED(handle);
+  LIBXS_UNUSED(type);
   return status;
 }
 
@@ -136,7 +151,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_tensor(libxs_dnn_fusedbn* ha
 LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_execute_st(libxs_dnn_fusedbn* handle, libxs_dnn_compute_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-
+  LIBXS_UNUSED(handle);
+  LIBXS_UNUSED(kind);
+  LIBXS_UNUSED(start_thread);
+  LIBXS_UNUSED(tid);
   return status;
 }
 
