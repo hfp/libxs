@@ -272,6 +272,7 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
           $(ROOTDIR)/include/libxs_bgemm.h \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \
+          $(ROOTDIR)/include/libxs_dnn_fusedbn.h \
           $(ROOTDIR)/include/libxs_dnn_rnncell.h \
           $(ROOTDIR)/include/libxs_dnn_lstmcell.h \
           $(ROOTDIR)/include/libxs_frontend.h \
@@ -293,7 +294,7 @@ SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_spmdm.c libxs_fsspmdm.c \
           libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c \
           libxs_dnn_elementwise.c libxs_dnn_rnncell.c libxs_dnn_lstmcell.c \
-          libxs_dnn_convolution_forward.c \
+          libxs_dnn_fusedbn.c libxs_dnn_convolution_forward.c \
           libxs_dnn_convolution_backward.c \
           libxs_dnn_convolution_weight_update.c \
           libxs_dnn_convolution_winograd_forward.c \
@@ -569,6 +570,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(ROOTDIR)/$(SRCDIR)/template/l
 	@$(CP) $(ROOTDIR)/include/libxs_bgemm.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_cpuid.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn.h $(INCDIR) 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_dnn_fusedbn.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn_rnncell.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn_lstmcell.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2>/dev/null || true
