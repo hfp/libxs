@@ -496,7 +496,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int **copy_upd_indices_ptrs;
 };
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fusedbn {
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedbn {
   libxs_dnn_fusedbn_desc desc;
   libxs_dnn_tensor* reg_input;      /* input tensor */
   libxs_dnn_tensor* reg_output;     /* output tensor */
@@ -508,8 +508,19 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fusedbn {
   libxs_dnn_tensor* gamma;          /* gamma tensor */
   libxs_dnn_tensor* grad_beta;      /* grad beta tensor */
   libxs_dnn_tensor* grad_gamma;     /* grad gamma tensor */
+  libxs_dnn_tensor* expvalue;       /* expected value */
+  libxs_dnn_tensor* stddev;         /* standard derivation */
   libxs_barrier* barrier;           /* barrier */
-} libxs_dnn_fusedbn;
+  int ifmblock;
+  int ifmblock_hp;   
+  int ofmblock;
+  int ofmblock_lp;
+  int blocksifm;
+  int blocksofm;
+  int blocksifm_lp;  /* not used */
+  int blocksofm_lp;  /* not used */
+  int fm_lp_block;
+};
 
 struct LIBXS_RETARGETABLE libxs_dfsspmdm {
   int M;
