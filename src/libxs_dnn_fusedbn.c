@@ -30,6 +30,15 @@
 #include "libxs_main.h"
 #include "libxs_dnn_setup.h"
 
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <string.h>
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
+
+
 LIBXS_API libxs_dnn_fusedbn* libxs_dnn_create_fusedbn(libxs_dnn_fusedbn_desc fusedbn_desc, libxs_dnn_err_t* status) {
   libxs_dnn_fusedbn* handle = 0;
   int noarch;
