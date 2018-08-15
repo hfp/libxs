@@ -474,6 +474,9 @@ LIBXS_API_INLINE void internal_finalize(void)
 
   /* release scratch memory pool */
   libxs_release_scratch();
+  /* release global services */
+  libxs_gemm_diff_finalize();
+  libxs_hash_finalize();
 
 #if !defined(LIBXS_NO_SYNC)
   { /* release locks */
@@ -823,14 +826,12 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
         fprintf(stderr, "LIBXS ERROR: failed to finalize trace (error #%i)!\n", i);
       }
 #endif
-      libxs_gemm_finalize();
-      libxs_gemm_diff_finalize();
-      libxs_trans_finalize();
-      libxs_hash_finalize();
-      libxs_dnn_finalize();
 #if defined(LIBXS_PERF)
       libxs_perf_finalize();
 #endif
+      libxs_gemm_finalize();
+      libxs_trans_finalize();
+      libxs_dnn_finalize();
 
       /* make internal registry globally unavailable */
       LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
