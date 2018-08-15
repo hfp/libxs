@@ -207,82 +207,71 @@ LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[])
 }
 
 
+LIBXS_API_INLINE unsigned int internal_product_limit(unsigned int product, unsigned int limit)
+{
+  unsigned int fact[32], maxp = limit, result = 1;
+  int i, n;
+  /* attempt to lower the memory requirement for DP; can miss best solution */
+  if (LIBXS_MATH_MAXPRODUCT < limit) {
+    const unsigned int minfct = (limit + limit - 1) / LIBXS_MATH_MAXPRODUCT;
+    const unsigned int maxfct = (unsigned int)libxs_gcd(product, limit);
+    result = maxfct;
+    if (minfct < maxfct) {
+      n = libxs_primes_u32(result, fact);
+      for (i = 0; i < n; ++i) {
+        if (minfct < fact[i]) {
+          result = fact[i];
+          i = n; /* break */
+        }
+      }
+    }
+    maxp /= result;
+  }
+  if (LIBXS_MATH_MAXPRODUCT >= maxp) {
+    unsigned int k[2][LIBXS_MATH_MAXPRODUCT], *k0 = k[0], *k1 = k[1], *kt, p;
+    n = libxs_primes_u32(product / result, fact);
+    /* initialize table with trivial factor */
+    for (p = 0; p <= maxp; ++p) k[0][p] = 1;
+    k[0][0] = k[1][0] = 1;
+    for (i = 1; i <= n; ++i) {
+      for (p = 1; p <= maxp; ++p) {
+        const unsigned int f = fact[i - 1], h = k0[p];
+        if (p < f) {
+          k1[p] = h;
+        }
+        else {
+          const unsigned int g = f * k0[p / f];
+          k1[p] = LIBXS_MAX(g, h);
+        }
+      }
+      kt = k0; k0 = k1; k1 = kt;
+    }
+    result *= k0[maxp];
+  }
+  else { /* trivial approximation */
+    n = libxs_primes_u32(product, fact);
+    for (i = 0; i < n; ++i) {
+      const unsigned int f = result * fact[i];
+      if (f <= limit) {
+        result = f;
+      }
+      else i = n; /* break */
+    }
+  }
+  return result;
+}
+
+
 LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int limit, int is_lower)
 {
   unsigned int result;
   if (limit < product) {
     result = 1;
     if (1 < limit) {
-      unsigned int fact[32], maxp = limit;
-      int i, n;
-      /* attempt to lower the memory requirement for DP; can miss best solution */
-      if (LIBXS_MATH_MAXPRODUCT < limit) {
-        const unsigned int minfct = (limit + limit - 1) / LIBXS_MATH_MAXPRODUCT;
-        const unsigned int maxfct = (unsigned int)libxs_gcd(product, limit);
-        result = maxfct;
-        if (minfct < maxfct) {
-          n = libxs_primes_u32(result, fact);
-          for (i = 0; i < n; ++i) {
-            if (minfct < fact[i]) {
-              result = fact[i];
-              i = n; /* break */
-            }
-          }
-        }
-        maxp /= result;
-      }
-      if (LIBXS_MATH_MAXPRODUCT >= maxp) {
-        unsigned int k[2][LIBXS_MATH_MAXPRODUCT], *k0 = k[0], *k1 = k[1], *kt, p;
-        n = libxs_primes_u32(product / result, fact);
-        /* initialize table with trivial factor */
-        for (p = 0; p <= maxp; ++p) k[0][p] = 1;
-        k[0][0] = k[1][0] = 1;
-        for (i = 1; i <= n; ++i) {
-          for (p = 1; p <= maxp; ++p) {
-            const unsigned int f = fact[i - 1], h = k0[p];
-            if (p < f) {
-              k1[p] = h;
-            }
-            else {
-              const unsigned int g = f * k0[p / f];
-              k1[p] = LIBXS_MAX(g, h);
-            }
-          }
-          kt = k0; k0 = k1; k1 = kt;
-        }
-        result *= k0[maxp];
-      }
-      else { /* trivial approximation */
-        n = libxs_primes_u32(product, fact);
-        for (i = 0; i < n; ++i) {
-          const unsigned int f = result * fact[i];
-          if (f <= limit) {
-            result = f;
-          }
-          else i = n; /* break */
-        }
-      }
+      result = internal_product_limit(product, limit);
       if (0 != is_lower && result < limit) {
-        unsigned int rfact[32];
-        const int m = libxs_primes_u32(result, rfact);
-        int j = 0;
-        n = libxs_primes_u32(product, fact);
-        LIBXS_ASSERT(m <= n);
-        for (i = 0; i < n; ++i) {
-          while (j < m && fact[i] == rfact[j]) {
-            ++i; ++j; /* skip */
-          }
-          if (j == m || fact[i] != rfact[j]) {
-            if (i < n) {
-              result *= fact[i];
-            }
-            else {
-              result = product;
-            }
-            i = n; /* break */
-          }
-        }
-        LIBXS_ASSERT(result <= product);
+        result = internal_product_limit(product, 2 * limit - 1);
+        if (result < limit) result = product;
       }
     }
   }
