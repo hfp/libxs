@@ -512,7 +512,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedbn {
   libxs_dnn_tensor* stddev;         /* standard derivation */
   libxs_barrier* barrier;           /* barrier */
   int ifmblock;
-  int ifmblock_hp;   
+  int ifmblock_hp;
   int ofmblock;
   int ofmblock_lp;
   int blocksifm;

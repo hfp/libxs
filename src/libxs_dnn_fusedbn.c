@@ -34,7 +34,7 @@ LIBXS_API libxs_dnn_fusedbn* libxs_dnn_create_fusedbn(libxs_dnn_fusedbn_desc fus
   libxs_dnn_fusedbn* handle = 0;
   int noarch;
 
-  if ( ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) || 
+  if ( ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
        ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
     handle = (libxs_dnn_fusedbn*)malloc(sizeof(libxs_dnn_fusedbn));
 
@@ -45,7 +45,7 @@ LIBXS_API libxs_dnn_fusedbn* libxs_dnn_create_fusedbn(libxs_dnn_fusedbn_desc fus
       /* let's make the desciption presitent */
       handle->desc = fusedbn_desc;
       /* we need to compute the memory layout given the */
-      *status = libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.C, 
+      *status = libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.C,
                                                     &(handle->ifmblock), &(handle->ifmblock_hp),
                                                     &(handle->ofmblock), &(handle->ofmblock_lp),
                                                     &(handle->fm_lp_block), handle->desc.datatype_in, handle->desc.datatype_out, &noarch );

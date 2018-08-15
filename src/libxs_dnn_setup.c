@@ -220,7 +220,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
   *C_block_hp = ifmblock_hp;
   *K_block_lp = ofmblock_lp;
 
-  return status;  
+  return status;
 }
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_feature_map_blocks( libxs_dnn_layer* handle, int *noarch ) {
@@ -232,7 +232,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_feature_map_blocks( libxs_dnn_l
     handle->use_lp_kernel = 0;
   }
 
-  status = libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.K, 
+  status = libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.K,
                                                &(handle->ifmblock), &(handle->ifmblock_hp),
                                                &(handle->ofmblock), &(handle->ofmblock_lp),
                                                &(handle->fm_lp_block), handle->datatype_in, handle->datatype_out, noarch );
