@@ -308,8 +308,6 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbn_create_tensor_datalayou
   }
 
   return layout;
-
-  return 0;
 }
 
 LIBXS_API size_t libxs_dnn_fusedbn_get_scratch_size(const libxs_dnn_fusedbn* handle, libxs_dnn_err_t* status) {
