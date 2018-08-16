@@ -112,11 +112,11 @@ typedef enum libxs_dnn_tensor_dimtype {
   /** general counter */
   LIBXS_DNN_TENSOR_DIMTYPE_X,
 
-  /** number of outputs for RNN/LSTM */
+  /** number of outputs for RNN/LSTM/GRU */
   LIBXS_DNN_TENSOR_DIMTYPE_RLM,
-  /** number of inputs for RNN/LSTM */
+  /** number of inputs for RNN/LSTM/GRU */
   LIBXS_DNN_TENSOR_DIMTYPE_RLK,
-  /** size of minibatch for RNN/LSTM */
+  /** size of minibatch for RNN/LSTM/GRU */
   LIBXS_DNN_TENSOR_DIMTYPE_RLN
 } libxs_dnn_tensor_dimtype;
 
@@ -254,7 +254,52 @@ typedef enum libxs_dnn_tensor_type {
   /** regular gradient bias o */
   LIBXS_DNN_LSTM_GRADIENT_BIAS_O,
   /** regular gradient bias c */
-  LIBXS_DNN_LSTM_GRADIENT_BIAS_C
+  LIBXS_DNN_LSTM_GRADIENT_BIAS_C,
+
+  /** regular input buffer */
+  LIBXS_DNN_GRU_REGULAR_INPUT,
+  /** regular hidden state buffer */
+  LIBXS_DNN_GRU_REGULAR_HIDDEN_STATE,
+  /** regular weight r */
+  LIBXS_DNN_GRU_REGULAR_WEIGHT_R,
+  /** regular weight z */
+  LIBXS_DNN_GRU_REGULAR_WEIGHT_Z,
+  /** regular weight g */
+  LIBXS_DNN_GRU_REGULAR_WEIGHT_G,
+  /** regular recurrent weight r */
+  LIBXS_DNN_GRU_REGULAR_RECUR_WEIGHT_R,
+  /** regular recurrent weight z */
+  LIBXS_DNN_GRU_REGULAR_RECUR_WEIGHT_Z,
+  /** regular recurrent weight g */
+  LIBXS_DNN_GRU_REGULAR_RECUR_WEIGHT_G,
+  /** regular bias r */
+  LIBXS_DNN_GRU_REGULAR_BIAS_R,
+  /** regular bias z */
+  LIBXS_DNN_GRU_REGULAR_BIAS_Z,
+  /** regular bias g */
+  LIBXS_DNN_GRU_REGULAR_BIAS_G,
+  /** regular gradient input buffer */
+  LIBXS_DNN_GRU_GRADIENT_INPUT,
+  /** regular gradient hidden state buffer */
+  LIBXS_DNN_GRU_GRADIENT_HIDDEN_STATE,
+  /** regular gradient weight r */
+  LIBXS_DNN_GRU_GRADIENT_WEIGHT_R,
+  /** regular gradient weight z */
+  LIBXS_DNN_GRU_GRADIENT_WEIGHT_Z,
+  /** regular gradient weight g */
+  LIBXS_DNN_GRU_GRADIENT_WEIGHT_G,
+  /** regular gradient recurrent weight r */
+  LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_R,
+  /** regular gradient recurrent weight z */
+  LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_Z,
+  /** regular gradient recurrent weight g */
+  LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_G,
+  /** regular gradient bias r */
+  LIBXS_DNN_GRU_GRADIENT_BIAS_R,
+  /** regular gradient bias z */
+  LIBXS_DNN_GRU_GRADIENT_BIAS_Z,
+  /** regular gradient bias g */
+  LIBXS_DNN_GRU_GRADIENT_BIAS_G
 } libxs_dnn_tensor_type;
 
 /** layout descriptor to allow external data handling
