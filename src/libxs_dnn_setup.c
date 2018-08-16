@@ -1025,7 +1025,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
       assert(0/*should not happen*/);
     }
 
-    if (handle->exploit_duality) { 
+    if (handle->exploit_duality) {
       libxs_dnn_layer mirror_handle;
       /* allocate buffers */
       handle->n_entries_bwd = (int*) malloc(handle->desc.threads * sizeof(int));
