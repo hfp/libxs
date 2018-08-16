@@ -344,7 +344,7 @@ LIBXS_API size_t libxs_dnn_grucell_get_scratch_size(const libxs_dnn_grucell* han
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-#if 0      
+#if 0
                                            size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* i1t */
                                            size += 64;
                                            size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* f1t */
@@ -391,7 +391,7 @@ LIBXS_API size_t libxs_dnn_grucell_get_scratch_size(const libxs_dnn_grucell* han
                                            size += 64;
                                            size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdoMt */
                                            size += 64;
-#endif                                           
+#endif
                                          } break;
       default: {
                  *status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -686,7 +686,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_scratch(libxs_dnn_grucell* hand
                                              offset = (64 - address % 64);
                                              handle->djdcMt->data = (void*)(address+offset);
                                            }
-#endif                                           
+#endif
                                          } break;
       default: {
                  status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -783,7 +783,7 @@ LIBXS_API size_t libxs_dnn_grucell_get_internalstate_size(const libxs_dnn_grucel
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-#if 0      
+#if 0
         size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* i */
                                            size += 64;
                                            size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* f */
@@ -804,7 +804,7 @@ LIBXS_API size_t libxs_dnn_grucell_get_internalstate_size(const libxs_dnn_grucel
                                            size += 64;
                                            size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdot */
                                            size += 64;
-#endif                                           
+#endif
                                          } break;
       default: {
                  *status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -860,7 +860,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_internalstate(libxs_dnn_grucell
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-#if 0      
+#if 0
                                            if (address % 64 == 0) {
                                              handle->i->data = (void*)address;
                                            } else {
@@ -939,7 +939,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_internalstate(libxs_dnn_grucell
                                              offset = (64 - address % 64);
                                              handle->djdct->data = (void*)(address+offset);
                                            }
-#endif                                           
+#endif
                                          } break;
       default: {
                  status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -1377,7 +1377,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_fwd(libxs_dnn_grucell* gru, int star
       libxs_barrier_wait(gru->barrier, ltid);
       libxs_internal_matrix_eltwise_mult(m*n, h, h2, h1, start_thread, tid, gru->nThreads);
       libxs_barrier_wait(gru->barrier, ltid);
-      libxs_internal_matrix_add(m*n, h1, h3, h, start_thread, tid, gru->nThreads); 
+      libxs_internal_matrix_add(m*n, h1, h3, h, start_thread, tid, gru->nThreads);
 #if defined(LSTM_TIMING)
       libxs_barrier_wait(gru->barrier, ltid); /* Additional barrier introduced to measure time */
       if (ltid == 0) {
@@ -1696,7 +1696,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_execute_st(libxs_dnn_grucell* handle
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
                                            status = libxs_dnn_grucell_fwd(handle, start_thread, tid);
                                          } break;
-#if 0                                         
+#if 0
       case LIBXS_DNN_COMPUTE_KIND_BWD: {
                                            status = libxs_dnn_grucell_bwd_upd_bu(handle, start_thread, tid, 1);
                                          } break;
