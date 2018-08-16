@@ -212,7 +212,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbn_create_tensor_datalayou
               layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
               layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
               layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_N;
-              if ( (type == LIBXS_DNN_REGULAR_INPUT)     || (type == LIBXS_DNN_GRADIENT_INPUT)     || (type == LIBXS_DNN_INPUT) || 
+              if ( (type == LIBXS_DNN_REGULAR_INPUT)     || (type == LIBXS_DNN_GRADIENT_INPUT)     || (type == LIBXS_DNN_INPUT) ||
                    (type == LIBXS_DNN_REGULAR_INPUT_ADD) || (type == LIBXS_DNN_GRADIENT_INPUT_ADD)                                      )   {
                 layout->dim_size[0] = handle->desc.C;
                 layout->dim_size[1] = handle->desc.W;
