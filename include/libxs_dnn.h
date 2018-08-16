@@ -79,6 +79,7 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_MISMATCH_BIAS              100025
 #define LIBXS_DNN_ERR_INVALID_HANDLE_BIAS        100026
 #define LIBXS_DNN_ERR_TIME_STEPS_TOO_SMALL       100027
+#define LIBXS_DNN_ERR_CREATE_LAYOUT_ARRAYS       100028
 
 /** Kinds of supported compute flavor operations. */
 typedef enum libxs_dnn_compute_kind {
@@ -123,10 +124,14 @@ typedef enum libxs_dnn_tensor_dimtype {
 typedef enum libxs_dnn_tensor_type {
   /** regular input buffer */
   LIBXS_DNN_REGULAR_INPUT,
+  /** regular input buffer */
+  LIBXS_DNN_REGULAR_INPUT_ADD,
   /** regular input buffer, transpose */
   LIBXS_DNN_REGULAR_INPUT_TRANS,
   /** gradient input buffer */
   LIBXS_DNN_GRADIENT_INPUT,
+  /** gradient input buffer */
+  LIBXS_DNN_GRADIENT_INPUT_ADD,
   /** regular output buffer */
   LIBXS_DNN_REGULAR_OUTPUT,
   /** gradient output buffer */
@@ -146,11 +151,29 @@ typedef enum libxs_dnn_tensor_type {
   /** general filter type */
   LIBXS_DNN_FILTER,
   /* regular bias */
-  LIBXS_DNN_REGULAR_BIAS,
+  LIBXS_DNN_REGULAR_CHANNEL_BIAS,
   /* gradient bias */
-  LIBXS_DNN_GRADIENT_BIAS,
+  LIBXS_DNN_GRADIENT_CHANNEL_BIAS,
+  /* bias */
+  LIBXS_DNN_CHANNEL_BIAS,
+  /* regular beta */
+  LIBXS_DNN_REGULAR_CHANNEL_BETA,
+  /* gradient beta */
+  LIBXS_DNN_GRADIENT_CHANNEL_BETA,
+  /* beta */
+  LIBXS_DNN_CHANNEL_BETA,
+  /* regular gamma */
+  LIBXS_DNN_REGULAR_CHANNEL_GAMMA,
+  /* gradient gamma */
+  LIBXS_DNN_GRADIENT_CHANNEL_GAMMA,
+  /* Gamma */
+  LIBXS_DNN_CHANNEL_GAMMA,
+  /* regular beta */
+  LIBXS_DNN_CHANNEL_EXPECTV,
+  /* regular beta */
+  LIBXS_DNN_CHANNEL_STDDEV,
   /** general bias type */
-  LIBXS_DNN_BIAS,
+  LIBXS_DNN_CHANNEL_SCALAR,
   /** batch stats */
   LIBXS_DNN_BATCH_STATS,
   LIBXS_DNN_MAX_STATS_FWD,
