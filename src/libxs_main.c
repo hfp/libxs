@@ -1040,6 +1040,12 @@ LIBXS_API_INTERN unsigned char libxs_typesize(libxs_datatype datatype)
     case LIBXS_DATATYPE_I32:  return 4;
     case LIBXS_DATATYPE_I16:  return 2;
     case LIBXS_DATATYPE_I8:   return 1;
+    case LIBXS_DATATYPE_UNSUPPORTED: {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: unsupported data type!\n");
+      }
+    } break;
   }
   return 0;
 }
