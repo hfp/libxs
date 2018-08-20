@@ -169,7 +169,7 @@
       CONST libxs_blasint*, CONST libxs_blasint*, CONST libxs_blasint*, \
       CONST TYPE*, CONST TYPE*, CONST libxs_blasint*, \
       CONST TYPE*, CONST libxs_blasint*, \
-      CONST TYPE*, TYPE*, CONST libxs_blasint*)
+      CONST TYPE*, TYPE*, CONST libxs_blasint*);
 #else
 # define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE)
 #endif
