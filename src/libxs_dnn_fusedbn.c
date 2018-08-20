@@ -423,10 +423,54 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_tensor(libxs_dnn_fusedbn* handl
 
 
 LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbn_get_tensor(libxs_dnn_fusedbn* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
-  LIBXS_UNUSED(handle);
-  LIBXS_UNUSED(type);
-  LIBXS_UNUSED(status);
-  return 0;
+  libxs_dnn_tensor* return_tensor = 0;
+
+  *status = LIBXS_DNN_SUCCESS;
+
+  /* check for tensor type */
+  if ( (type != LIBXS_DNN_REGULAR_INPUT)         && (type != LIBXS_DNN_GRADIENT_INPUT)         &&
+       (type != LIBXS_DNN_REGULAR_OUTPUT)        && (type != LIBXS_DNN_GRADIENT_OUTPUT)        &&
+       (type != LIBXS_DNN_REGULAR_INPUT_ADD)     && (type != LIBXS_DNN_GRADIENT_INPUT_ADD)     &&
+       (type != LIBXS_DNN_REGULAR_CHANNEL_BETA)  && (type != LIBXS_DNN_GRADIENT_CHANNEL_BETA)  &&
+       (type != LIBXS_DNN_REGULAR_CHANNEL_GAMMA) && (type != LIBXS_DNN_GRADIENT_CHANNEL_GAMMA) &&
+       (type != LIBXS_DNN_CHANNEL_EXPECTVAL)     && (type != LIBXS_DNN_CHANNEL_STDDEV)            ) {
+    *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
+    return return_tensor;
+  }
+
+  if (handle != 0) {
+    if ( type == LIBXS_DNN_REGULAR_INPUT ) {
+      return_tensor = handle->reg_input;
+    } else if ( type == LIBXS_DNN_GRADIENT_INPUT ) {
+      return_tensor = handle->grad_input;
+    } else if ( type == LIBXS_DNN_REGULAR_OUTPUT ) {
+      return_tensor = handle->reg_output;
+    } else if ( type == LIBXS_DNN_GRADIENT_OUTPUT ) {
+      return_tensor = handle->grad_output;
+    } else if ( type == LIBXS_DNN_REGULAR_INPUT_ADD ) {
+      return_tensor = handle->reg_add;
+    } else if ( type == LIBXS_DNN_GRADIENT_INPUT_ADD ) {
+      return_tensor = handle->grad_add;
+    } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BETA ) {
+      return_tensor = handle->reg_beta;
+    } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BETA ) {
+      return_tensor = handle->grad_beta;
+    } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_GAMMA ) {
+      return_tensor = handle->reg_gamma;
+    } else if ( type == LIBXS_DNN_GRADIENT_CHANNEL_GAMMA ) {
+      return_tensor = handle->grad_gamma;
+    } else if ( type == LIBXS_DNN_CHANNEL_EXPECTVAL ) {
+      return_tensor = handle->expvalue;
+    } else if ( type == LIBXS_DNN_CHANNEL_STDDEV ) {
+      return_tensor = handle->stddev;
+    } else {
+      /* cannot happen */
+    }
+  } else {
+    *status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return return_tensor;
 }
 
 
