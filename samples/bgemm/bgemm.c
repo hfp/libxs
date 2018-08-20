@@ -50,16 +50,13 @@
 #if !defined(ITYPE)
 # define ITYPE float
 #endif
-#if !defined(CHECK) && \
-  (!defined(__BLAS) || (0 != __BLAS)) && /* BLAS available */ \
-  (LIBXS_EQUAL(ITYPE, float) || LIBXS_EQUAL(ITYPE, double))
+
+#if !defined(CHECK) && (LIBXS_EQUAL(ITYPE, float) || LIBXS_EQUAL(ITYPE, double))
+LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, ITYPE);
 # define CHECK
 #endif
 
 #define MYASSERT(x) if(!(x)) { printf("Assertion %s failed...\n", #x); exit(1);}
-
-
-LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, ITYPE);
 
 
 int main(int argc, char* argv[])
