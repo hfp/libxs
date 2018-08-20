@@ -114,8 +114,7 @@
 #define LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION)  LIBXS_TPREFIX(LIBXS_CONCATENATE(ITYPE, OTYPE), FUNCTION)
 
 /** Helper macro for comparing selected types. */
-#define LIBXS_EQUAL_CHECK(...) LIBXS_SELECT_HEAD(__VA_ARGS__, 0)
-#define LIBXS_EQUAL(T1, T2) LIBXS_EQUAL_CHECK(LIBXS_CONCATENATE2(LIBXS_EQUAL_, T1, T2))
+#define LIBXS_EQUAL(T1, T2) LIBXS_CONCATENATE2(LIBXS_EQUAL_, T1, T2)
 #define LIBXS_EQUAL_floatfloat 1
 #define LIBXS_EQUAL_doubledouble 1
 #define LIBXS_EQUAL_floatdouble 0
@@ -164,12 +163,16 @@
 # define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
 #endif
 
-#define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE) LIBXS_GEMM_SYMBOL_VISIBILITY \
-  void LIBXS_GEMM_SYMBOL(TYPE)(CONST char*, CONST char*, \
-    CONST libxs_blasint*, CONST libxs_blasint*, CONST libxs_blasint*, \
-    CONST TYPE*, CONST TYPE*, CONST libxs_blasint*, \
-    CONST TYPE*, CONST libxs_blasint*, \
-    CONST TYPE*, TYPE*, CONST libxs_blasint*)
+#if (!defined(__BLAS) || (0 != __BLAS)) /* BLAS available */
+# define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE) LIBXS_GEMM_SYMBOL_VISIBILITY \
+    void LIBXS_GEMM_SYMBOL(TYPE)(CONST char*, CONST char*, \
+      CONST libxs_blasint*, CONST libxs_blasint*, CONST libxs_blasint*, \
+      CONST TYPE*, CONST TYPE*, CONST libxs_blasint*, \
+      CONST TYPE*, CONST libxs_blasint*, \
+      CONST TYPE*, TYPE*, CONST libxs_blasint*)
+#else
+# define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE)
+#endif
 
 /** Helper macro consolidating the transpose requests into a set of flags. */
 #define LIBXS_GEMM_FLAGS(TRANSA, TRANSB) /* check for N/n rather than T/t since C/c is also valid! */ \
