@@ -1373,7 +1373,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_tensor* tensor
       case LIBXS_DNN_REGULAR_CHANNEL_GAMMA:
       case LIBXS_DNN_GRADIENT_CHANNEL_GAMMA:
       case LIBXS_DNN_CHANNEL_GAMMA:
-      case LIBXS_DNN_CHANNEL_EXPECTV:
+      case LIBXS_DNN_CHANNEL_EXPECTVAL:
       case LIBXS_DNN_CHANNEL_STDDEV:
       case LIBXS_DNN_CHANNEL_SCALAR: {
                                switch (in_format) {
@@ -1583,7 +1583,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_tensor* tenso
       case LIBXS_DNN_REGULAR_CHANNEL_GAMMA:
       case LIBXS_DNN_GRADIENT_CHANNEL_GAMMA:
       case LIBXS_DNN_CHANNEL_GAMMA:
-      case LIBXS_DNN_CHANNEL_EXPECTV:
+      case LIBXS_DNN_CHANNEL_EXPECTVAL:
       case LIBXS_DNN_CHANNEL_STDDEV:
       case LIBXS_DNN_CHANNEL_SCALAR: {
                                switch (out_format) {

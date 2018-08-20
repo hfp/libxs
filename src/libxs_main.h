@@ -504,8 +504,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedbn {
   libxs_dnn_tensor* grad_output;    /* grad output tensor */
   libxs_dnn_tensor* reg_add;        /* elementwise tensor */
   libxs_dnn_tensor* grad_add;       /* grad elementwise tensor */
-  libxs_dnn_tensor* beta;           /* beta tensor */
-  libxs_dnn_tensor* gamma;          /* gamma tensor */
+  libxs_dnn_tensor* reg_beta;       /* beta tensor */
+  libxs_dnn_tensor* reg_gamma;      /* gamma tensor */
   libxs_dnn_tensor* grad_beta;      /* grad beta tensor */
   libxs_dnn_tensor* grad_gamma;     /* grad gamma tensor */
   libxs_dnn_tensor* expvalue;       /* expected value */
