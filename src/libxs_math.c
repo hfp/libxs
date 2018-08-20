@@ -278,9 +278,12 @@ LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int li
     if (result < limit) {
       result = internal_product_limit(product, 2 * limit - 1);
     }
-    if (product < result || result < limit) {
+    if (result < limit) {
       result = product;
     }
+  }
+  if (product < result) {
+    result = product;
   }
   LIBXS_ASSERT(result <= product);
   return result;
