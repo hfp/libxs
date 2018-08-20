@@ -1096,7 +1096,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_tensor(libxs_dnn_grucell* handl
       status = LIBXS_DNN_ERR_MISMATCH_TENSOR;
     }
 
-    /* libxs_dnn_destroy_tensor_datalayout( handle_layout ); */
+    libxs_dnn_destroy_tensor_datalayout( handle_layout );
   }
   else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE_TENSOR;
