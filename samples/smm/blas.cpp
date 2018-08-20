@@ -76,6 +76,10 @@ int main(int argc, char* argv[])
 {
   int result = EXIT_SUCCESS;
   try {
+#if defined(__BLAS) && (0 == __BLAS)
+    LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
+    throw "LAPACK/BLAS library must be available for this sample code!";
+#else /* BLAS available */
     const libxs_blasint benchmark = 1 < argc ? std::atoi(argv[1]) : 0;
     LIBXS_GEMM_CONST libxs_blasint m = (2 < argc ? std::atoi(argv[2]) : 23);
     LIBXS_GEMM_CONST libxs_blasint k = (4 < argc ? std::atoi(argv[4]) : m);
@@ -455,6 +459,7 @@ int main(int argc, char* argv[])
       libxs_finalize();
       fprintf(stdout, "Finished\n");
     }
+#endif
   }
   catch(const std::exception& e) {
     fprintf(stderr, "Error: %s\n", e.what());
