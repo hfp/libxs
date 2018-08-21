@@ -114,6 +114,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_grucell {
   libxs_bgemm_handle* handleux;
   libxs_bgemm_handle* handlewh;
   libxs_bgemm_handle* handlett;
+  libxs_bgemm_handle* handlewd;
   libxs_barrier* barrier; /* barrier */
 } libxs_dnn_grucell;
 
