@@ -80,6 +80,7 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_INVALID_HANDLE_BIAS        100026
 #define LIBXS_DNN_ERR_TIME_STEPS_TOO_SMALL       100027
 #define LIBXS_DNN_ERR_CREATE_LAYOUT_ARRAYS       100028
+#define LIBXS_DNN_ERR_NOT_IMPLEMENTED            100029
 
 /** Kinds of supported compute flavor operations. */
 typedef enum libxs_dnn_compute_kind {
