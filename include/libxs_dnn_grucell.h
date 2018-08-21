@@ -131,7 +131,7 @@ LIBXS_API size_t libxs_dnn_grucell_get_internalstate_size(const libxs_dnn_grucel
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_internalstate(libxs_dnn_grucell* handle, const libxs_dnn_compute_kind kind, const void* internalstate);
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_release_internalstate(libxs_dnn_grucell* handle, const libxs_dnn_compute_kind kind);
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_assign_internalstate(libxs_dnn_grucell* handle, const void* igoldtb, const void* fgoldtb, const void* ogoldtb, const void* cgoldtb, const void* dgoldtb);
+LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_assign_internalstate(libxs_dnn_grucell* handle, const void* rgoldtb, const void* zgoldtb, const void* ggoldtb);
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_tensor(libxs_dnn_grucell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type);
 LIBXS_API libxs_dnn_tensor* libxs_dnn_grucell_get_tensor(libxs_dnn_grucell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
