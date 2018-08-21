@@ -43,15 +43,15 @@ LIBXS_API libxs_dnn_fusedbn* libxs_dnn_create_fusedbn(libxs_dnn_fusedbn_desc fus
   libxs_dnn_fusedbn* handle = 0;
   int noarch;
 
-  if ( ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
-       ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
+  if ( ((fusedbn_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fusedbn_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
+       ((fusedbn_desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (fusedbn_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
     handle = (libxs_dnn_fusedbn*)malloc(sizeof(libxs_dnn_fusedbn));
 
     if (0 != handle) {
       *status = LIBXS_DNN_SUCCESS;
       /* zero entire content; not only safer but also sets data and code pointers to NULL */
       memset(handle, 0, sizeof(*handle));
-      /* let's make the desciption presitent */
+      /* let's make the description persistent */
       handle->desc = fusedbn_desc;
       /* we need to compute the memory layout given the */
       *status = libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.C,
@@ -74,7 +74,7 @@ LIBXS_API libxs_dnn_fusedbn* libxs_dnn_create_fusedbn(libxs_dnn_fusedbn_desc fus
       /* create barrier */
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
       /* calculate scratch size for batchstats */
-      handle->scratch_size = (handle->desc.C * handle->desc.N * 2 * sizeof(float));
+      handle->scratch_size = (sizeof(float) * 2 * handle->desc.C * handle->desc.N);
     } else {
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     }
@@ -315,7 +315,7 @@ LIBXS_API size_t libxs_dnn_fusedbn_get_scratch_size(const libxs_dnn_fusedbn* han
   *status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
-    l_scratch_size = handle->scratch_size + 64; /* 64 byte extra in case the user code doens't care about alignment */
+    l_scratch_size = handle->scratch_size + 64; /* 64 byte extra in case the user code does not care about alignment */
   } else {
     *status = LIBXS_DNN_ERR_INVALID_HANDLE;
   }

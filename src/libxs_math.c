@@ -268,11 +268,8 @@ LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int li
   if (1 < limit) { /* check for fast-path */
     result = internal_product_limit(product, limit);
   }
-  else if (limit < product) {
-    result = limit;
-  }
   else {
-    result = product;
+    result = limit;
   }
   if (0 != is_lower && limit < product) {
     if (result < limit) {
@@ -281,6 +278,7 @@ LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int li
     if (result < limit) {
       result = product;
     }
+    LIBXS_ASSERT(limit <= result);
   }
   if (product < result) {
     result = product;
