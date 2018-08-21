@@ -79,7 +79,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom(libxs_dnn_fuse
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check if we have input, output and filter */
-  if (handle->reg_input == 0 || handle->reg_output == 0 || 
+  if (handle->reg_input == 0 || handle->reg_output == 0 ||
       handle->reg_beta == 0  || handle->reg_gamma == 0  ||
       handle->expvalue == 0  || handle->stddev == 0        ) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
