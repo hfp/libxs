@@ -121,6 +121,9 @@ LIBXS_API libxs_dnn_grucell* libxs_dnn_create_grucell(libxs_dnn_grucell_desc gru
       handle->handlett = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
         handle->m, handle->k, handle->n, &(handle->bm), &(handle->bk), &(handle->bn), &(handle->b_m1), &(handle->b_k1), &(handle->b_n1), &(handle->b_n2),
         &alpha, &beta, &gemm_flags, &strategy, &order); /* delta*x^T */
+      handle->handlewd = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
+        handle->k, handle->n, handle->m, &(handle->bk), &(handle->bn), &(handle->bm), &(handle->b_k1), &(handle->b_n1), &(handle->b_m1), &(handle->b_m2),
+        &alpha, &beta, &gemm_flags, &strategy, &order); /* W^T*delta */
     }
     /* Need to allocate space for scratch and internalstate libxs_dnn_tensor's */
     handle->r1t = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
@@ -136,6 +139,29 @@ LIBXS_API libxs_dnn_grucell* libxs_dnn_create_grucell(libxs_dnn_grucell_desc gru
     handle->r   = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->z   = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->g   = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d4  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d5  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d6  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d7  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d8  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d9  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d10 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d11 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d12 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d13 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d14 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d15 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d16 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d17 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d18 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d19 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d20 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d21 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d22 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d23 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d10M  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d11M  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->d18M  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdwr = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdwz = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdwg = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
@@ -144,23 +170,32 @@ LIBXS_API libxs_dnn_grucell* libxs_dnn_create_grucell(libxs_dnn_grucell_desc gru
     handle->djduz = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdug = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdht = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->djdrt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->djdzt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->djdgt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdbr = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdbz = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->djdbg = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->barrier = libxs_barrier_create(handle->nThreads, 1);
     if (NULL == handle->r1t || NULL == handle->r2t || NULL == handle->z1t || NULL == handle->z2t || NULL == handle->g1t ||
         NULL == handle->g2t || NULL == handle->g3 || NULL == handle->h1 || NULL == handle->h2 || NULL == handle->h3 ||
         NULL == handle->r || NULL == handle->z || NULL == handle->g || NULL == handle->barrier ||
         NULL == handle->djdwr || NULL == handle->djdwz ||NULL == handle->djdwg || NULL == handle->djdxt ||
         NULL == handle->djdur || NULL == handle->djduz ||NULL == handle->djdug || NULL == handle->djdht ||
-        NULL == handle->djdrt || NULL == handle->djdzt || NULL == handle->djdgt)
+        NULL == handle->djdbr || NULL == handle->djdbz ||NULL == handle->djdbg ||
+        NULL == handle->d4 || NULL == handle->d5 || NULL == handle->d6 || NULL == handle->d7 || NULL == handle->d8 ||
+        NULL == handle->d9 || NULL == handle->d10 || NULL == handle->d11 || NULL == handle->d12 || NULL == handle->d13 ||
+        NULL == handle->d14 || NULL == handle->d15 || NULL == handle->d16 || NULL == handle->d17 || NULL == handle->d18 ||
+        NULL == handle->d19 || NULL == handle->d20 || NULL == handle->d21 || NULL == handle->d22 || NULL == handle->d23 ||
+        NULL == handle->d10M || NULL == handle->d11M || NULL == handle->d18M)
     {
       free(handle->r1t); free(handle->r2t); free(handle->z1t); free(handle->z2t); free(handle->g1t);
       free(handle->g2t); free(handle->g3); free(handle->h1); free(handle->h2); free(handle->h3);
       free(handle->r); free(handle->z); free(handle->g);
       free(handle->djdwr); free(handle->djdwz); free(handle->djdwg); free(handle->djdxt);
       free(handle->djdur); free(handle->djduz); free(handle->djdug); free(handle->djdht);
-      free(handle->djdrt); free(handle->djdzt); free(handle->djdgt);
+      free(handle->djdbr); free(handle->djdbz); free(handle->djdbg);
+      free(handle->d4); free(handle->d5); free(handle->d6); free(handle->d7); free(handle->d8); free(handle->d9);
+      free(handle->d10); free(handle->d11); free(handle->d12); free(handle->d13); free(handle->d14); free(handle->d15);
+      free(handle->d16); free(handle->d17); free(handle->d18); free(handle->d19); free(handle->d20); free(handle->d21);
+      free(handle->d22); free(handle->d23); free(handle->d10M); free(handle->d11M); free(handle->d18M);
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     }
   } else {
@@ -179,7 +214,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_grucell(const libxs_dnn_grucell* han
     free(handle->r); free(handle->z); free(handle->g);
     free(handle->djdwr); free(handle->djdwz); free(handle->djdwg); free(handle->djdxt);
     free(handle->djdur); free(handle->djduz); free(handle->djdug); free(handle->djdht);
-    free(handle->djdrt); free(handle->djdzt); free(handle->djdgt);
+    free(handle->djdbr); free(handle->djdbz); free(handle->djdbg);
+    free(handle->d4); free(handle->d5); free(handle->d6); free(handle->d7); free(handle->d8); free(handle->d9);
+    free(handle->d10); free(handle->d11); free(handle->d12); free(handle->d13); free(handle->d14); free(handle->d15);
+    free(handle->d16); free(handle->d17); free(handle->d18); free(handle->d19); free(handle->d20); free(handle->d21);
+    free(handle->d22); free(handle->d23); free(handle->d10M); free(handle->d11M); free(handle->d18M);
     /* Deallocate barrier */
     if (handle->barrier != 0 ) { libxs_barrier_release((const libxs_barrier*)handle->barrier); }
     /* deallocate handle structure */
@@ -344,54 +383,52 @@ LIBXS_API size_t libxs_dnn_grucell_get_scratch_size(const libxs_dnn_grucell* han
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-#if 0
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* i1t */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* f1t */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* o1t */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* c1t */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* i1b */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* i2 */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* i3 */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* f1b */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* f2 */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* f3 */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* o1b */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* o2 */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* c1b */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* c2 */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d1 */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d2 */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d3 (dh) */
-                                           size += 64;
                                            size += (size_t)handle->m * handle->n * sizeof_datatype; /* d4 */
                                            size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* delta */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d5 */
                                            size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdiMt */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d6 */
                                            size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdfMt */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d7 */
                                            size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdcMt */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d8 */
                                            size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdoMt */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d9 */
                                            size += 64;
-#endif
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d10 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d11 */
+                                           size += 64;
+                                           size += (size_t)handle->k * handle->n * sizeof_datatype; /* d12 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d13 */
+                                           size += 64;
+                                           size += (size_t)handle->k * handle->n * sizeof_datatype; /* d14 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d15 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d16 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d17 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d18 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d19 */
+                                           size += 64;
+                                           size += (size_t)handle->k * handle->n * sizeof_datatype; /* d20 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d21 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d22 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d23 */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d10M */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d11M */
+                                           size += 64;
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype; /* d18M */
+                                           size += 64;
                                          } break;
       default: {
                  *status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -503,143 +540,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_scratch(libxs_dnn_grucell* hand
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-#if 0
-                                           if (address % 64 == 0) {
-                                             handle->i1t->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->i1t->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->f1t->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->f1t->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->o1t->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->o1t->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->c1t->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->c1t->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->i1b->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->i1b->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->i2->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->i2->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->i3->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->i3->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->f1b->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->f1b->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->f2->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->f2->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->f3->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->f3->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->o1b->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->o1b->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->o2->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->o2->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->c1b->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->c1b->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->c2->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->c2->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->d1->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->d1->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->d2->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->d2->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->dh->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->dh->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d4->data = (void*)address;
                                            } else {
@@ -649,44 +549,179 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_scratch(libxs_dnn_grucell* hand
                                            scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
-                                             handle->deltat->data = (void*)address;
+                                             handle->d5->data = (void*)address;
                                            } else {
                                              offset = (64 - address % 64);
-                                             handle->deltat->data = (void*)(address+offset);
+                                             handle->d5->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
-                                             handle->djdiMt->data = (void*)address;
+                                             handle->d6->data = (void*)address;
                                            } else {
                                              offset = (64 - address % 64);
-                                             handle->djdiMt->data = (void*)(address+offset);
+                                             handle->d6->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
-                                             handle->djdfMt->data = (void*)address;
+                                             handle->d7->data = (void*)address;
                                            } else {
                                              offset = (64 - address % 64);
-                                             handle->djdfMt->data = (void*)(address+offset);
+                                             handle->d7->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
-                                             handle->djdoMt->data = (void*)address;
+                                             handle->d8->data = (void*)address;
                                            } else {
                                              offset = (64 - address % 64);
-                                             handle->djdoMt->data = (void*)(address+offset);
+                                             handle->d8->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
-                                             handle->djdcMt->data = (void*)address;
+                                             handle->d9->data = (void*)address;
                                            } else {
                                              offset = (64 - address % 64);
-                                             handle->djdcMt->data = (void*)(address+offset);
+                                             handle->d9->data = (void*)(address+offset);
                                            }
-#endif
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d10->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d10->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d11->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d11->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d12->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d12->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->k * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d13->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d13->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d14->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d14->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->k * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d15->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d15->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d16->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d16->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d17->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d17->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d18->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d18->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d19->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d19->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d20->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d20->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->k * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d21->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d21->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d22->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d22->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d23->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d23->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d10M->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d10M->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d11M->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d11M->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->d18M->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->d18M->data = (void*)(address+offset);
+                                           }
                                          } break;
       default: {
                  status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -741,6 +776,29 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_release_scratch(libxs_dnn_grucell* h
                                            handle->h1->data = 0;
                                            handle->h2->data = 0;
                                            handle->h3->data = 0;
+                                           handle->d4->data = 0;
+                                           handle->d5->data = 0;
+                                           handle->d6->data = 0;
+                                           handle->d7->data = 0;
+                                           handle->d8->data = 0;
+                                           handle->d9->data = 0;
+                                           handle->d10->data = 0;
+                                           handle->d11->data = 0;
+                                           handle->d12->data = 0;
+                                           handle->d13->data = 0;
+                                           handle->d14->data = 0;
+                                           handle->d15->data = 0;
+                                           handle->d16->data = 0;
+                                           handle->d17->data = 0;
+                                           handle->d18->data = 0;
+                                           handle->d19->data = 0;
+                                           handle->d20->data = 0;
+                                           handle->d21->data = 0;
+                                           handle->d22->data = 0;
+                                           handle->d23->data = 0;
+                                           handle->d10M->data = 0;
+                                           handle->d11M->data = 0;
+                                           handle->d18M->data = 0;
                                            handle->r1t = 0;
                                            handle->r2t = 0;
                                            handle->z1t = 0;
@@ -751,6 +809,29 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_release_scratch(libxs_dnn_grucell* h
                                            handle->h1 = 0;
                                            handle->h2 = 0;
                                            handle->h3 = 0;
+                                           handle->d4 = 0;
+                                           handle->d5 = 0;
+                                           handle->d6 = 0;
+                                           handle->d7 = 0;
+                                           handle->d8 = 0;
+                                           handle->d9 = 0;
+                                           handle->d10 = 0;
+                                           handle->d11 = 0;
+                                           handle->d12 = 0;
+                                           handle->d13 = 0;
+                                           handle->d14 = 0;
+                                           handle->d15 = 0;
+                                           handle->d16 = 0;
+                                           handle->d17 = 0;
+                                           handle->d18 = 0;
+                                           handle->d19 = 0;
+                                           handle->d20 = 0;
+                                           handle->d21 = 0;
+                                           handle->d22 = 0;
+                                           handle->d23 = 0;
+                                           handle->d10M = 0;
+                                           handle->d11M = 0;
+                                           handle->d18M = 0;
                                          } break;
       default: {
                  status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -783,28 +864,12 @@ LIBXS_API size_t libxs_dnn_grucell_get_internalstate_size(const libxs_dnn_grucel
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-#if 0
-        size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* i */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* r */
                                            size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* f */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* z */
                                            size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* o */
+                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* g */
                                            size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* c */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* d */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djddt */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdit */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdft */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdct */
-                                           size += 64;
-                                           size += (size_t)handle->m * handle->n * sizeof_datatype * handle->t; /* djdot */
-                                           size += 64;
-#endif
                                          } break;
       default: {
                  *status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -860,86 +925,28 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_internalstate(libxs_dnn_grucell
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-#if 0
                                            if (address % 64 == 0) {
-                                             handle->i->data = (void*)address;
+                                             handle->r->data = (void*)address;
                                            } else {
                                              offset = (64 - address % 64);
-                                             handle->i->data = (void*)(address+offset);
+                                             handle->r->data = (void*)(address+offset);
                                            }
                                            scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
-                                             handle->f->data = (void*)address;
+                                             handle->z->data = (void*)address;
                                            } else {
                                              offset = (64 - address % 64);
-                                             handle->f->data = (void*)(address+offset);
+                                             handle->z->data = (void*)(address+offset);
                                            }
                                            scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
-                                             handle->o->data = (void*)address;
+                                             handle->g->data = (void*)address;
                                            } else {
                                              offset = (64 - address % 64);
-                                             handle->o->data = (void*)(address+offset);
+                                             handle->g->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->c->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->c->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->d->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->d->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djddt->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djddt->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdit->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdit->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdft->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdft->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdot->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdot->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * handle->n * sizeof_datatype * handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdct->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdct->data = (void*)(address+offset);
-                                           }
-#endif
                                          } break;
       default: {
                  status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -1458,7 +1465,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_fwd(libxs_dnn_grucell* gru, int star
   return status;
 }
 
-#if 0
+
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bwd_upd_bu(libxs_dnn_grucell* gru, int start_thread, int tid, int pass)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -1466,86 +1473,67 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bwd_upd_bu(libxs_dnn_grucell* gru, i
   libxs_blasint n = gru->n;
   libxs_blasint k = gru->k;
   libxs_blasint t = gru->t;
-  LIBXS_DNN_ELTWISE_FTYPE *wi = (LIBXS_DNN_ELTWISE_FTYPE*)gru->wi->data;
-  LIBXS_DNN_ELTWISE_FTYPE *wf = (LIBXS_DNN_ELTWISE_FTYPE*)gru->wf->data;
-  LIBXS_DNN_ELTWISE_FTYPE *wo = (LIBXS_DNN_ELTWISE_FTYPE*)gru->wo->data;
-  LIBXS_DNN_ELTWISE_FTYPE *wc = (LIBXS_DNN_ELTWISE_FTYPE*)gru->wc->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wr = (LIBXS_DNN_ELTWISE_FTYPE*)gru->wr->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wz = (LIBXS_DNN_ELTWISE_FTYPE*)gru->wz->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wg = (LIBXS_DNN_ELTWISE_FTYPE*)gru->wg->data;
   LIBXS_DNN_ELTWISE_FTYPE *xt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->xt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *ri = (LIBXS_DNN_ELTWISE_FTYPE*)gru->ri->data;
-  LIBXS_DNN_ELTWISE_FTYPE *rf = (LIBXS_DNN_ELTWISE_FTYPE*)gru->rf->data;
-  LIBXS_DNN_ELTWISE_FTYPE *ro = (LIBXS_DNN_ELTWISE_FTYPE*)gru->ro->data;
-  LIBXS_DNN_ELTWISE_FTYPE *rc = (LIBXS_DNN_ELTWISE_FTYPE*)gru->rc->data;
+  LIBXS_DNN_ELTWISE_FTYPE *ur = (LIBXS_DNN_ELTWISE_FTYPE*)gru->ur->data;
+  LIBXS_DNN_ELTWISE_FTYPE *uz = (LIBXS_DNN_ELTWISE_FTYPE*)gru->uz->data;
+  LIBXS_DNN_ELTWISE_FTYPE *ug = (LIBXS_DNN_ELTWISE_FTYPE*)gru->ug->data;
   LIBXS_DNN_ELTWISE_FTYPE *ht = (LIBXS_DNN_ELTWISE_FTYPE*)gru->h->data;
-  LIBXS_DNN_ELTWISE_FTYPE *i1 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->i1t->data;
-  LIBXS_DNN_ELTWISE_FTYPE *i2 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->i2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *i3 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->i3->data;
-  LIBXS_DNN_ELTWISE_FTYPE *f1 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->f1t->data;
-  LIBXS_DNN_ELTWISE_FTYPE *f2 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->f2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *f3 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->f3->data;
-  LIBXS_DNN_ELTWISE_FTYPE *o1 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->o1t->data;
-  LIBXS_DNN_ELTWISE_FTYPE *o2 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->o2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *c1 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->c1t->data;
-  LIBXS_DNN_ELTWISE_FTYPE *c2 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->c2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *it = (LIBXS_DNN_ELTWISE_FTYPE*)gru->i->data;
-  LIBXS_DNN_ELTWISE_FTYPE *ft = (LIBXS_DNN_ELTWISE_FTYPE*)gru->f->data;
-  LIBXS_DNN_ELTWISE_FTYPE *ot = (LIBXS_DNN_ELTWISE_FTYPE*)gru->o->data;
-  LIBXS_DNN_ELTWISE_FTYPE *ct = (LIBXS_DNN_ELTWISE_FTYPE*)gru->c->data;
-  LIBXS_DNN_ELTWISE_FTYPE *d1 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d1->data;
-  LIBXS_DNN_ELTWISE_FTYPE *d2 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *d3 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->dh->data;
+  LIBXS_DNN_ELTWISE_FTYPE *rt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->r->data;
+  LIBXS_DNN_ELTWISE_FTYPE *zt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->z->data;
+  LIBXS_DNN_ELTWISE_FTYPE *gt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->g->data;
   LIBXS_DNN_ELTWISE_FTYPE *d4 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d4->data;
-  LIBXS_DNN_ELTWISE_FTYPE *dt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d5 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d5->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d6 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d6->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d7 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d7->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d8 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d8->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d9 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d9->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d10 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d10->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d11 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d11->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d12 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d12->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d13 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d13->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d14 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d14->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d15 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d15->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d16 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d16->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d17 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d17->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d18 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d18->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d19 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d19->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d20 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d20->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d21 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d21->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d22 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d22->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d23 = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d23->data;
   LIBXS_DNN_ELTWISE_FTYPE *djdht = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdht->data;
-  LIBXS_DNN_ELTWISE_FTYPE *deltat = (LIBXS_DNN_ELTWISE_FTYPE*)gru->deltat->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djddt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djddt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdit = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdit->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdft = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdft->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdct = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdct->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdot = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdot->data;
   LIBXS_DNN_ELTWISE_FTYPE *djdxt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdxt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdwi = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdwi->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdwf = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdwf->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdwo = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdwo->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdwc = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdwc->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdri = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdri->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdrf = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdrf->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdro = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdro->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdrc = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdrc->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdbi = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdbi->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdbf = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdbf->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdbo = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdbo->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdbc = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdbc->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdiMt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdiMt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdfMt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdfMt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdcMt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdcMt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdoMt = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdoMt->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdwr = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdwr->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdwz = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdwz->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdwg = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdwg->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdur = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdur->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djduz = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djduz->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdug = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdug->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdbr = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdbr->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdbz = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdbz->data;
+  LIBXS_DNN_ELTWISE_FTYPE *djdbg = (LIBXS_DNN_ELTWISE_FTYPE*)gru->djdbg->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d10M = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d10M->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d11M = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d11M->data;
+  LIBXS_DNN_ELTWISE_FTYPE *d18M = (LIBXS_DNN_ELTWISE_FTYPE*)gru->d18M->data;
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, h, ht, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i, it, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f, ft, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o, ot, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c, ct, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, d, dt, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, r, rt, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z, zt, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, g, gt, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdh, djdht, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, delta, deltat, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdd, djddt, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdi, djdit, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdf, djdft, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdo, djdot, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdc, djdct, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdx, djdxt, k * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdiM, djdiMt, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdfM, djdfMt, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdoM, djdoMt, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdcM, djdcMt, m * n);
-  libxs_bgemm_handle *handleud = gru->handlewx;
-  libxs_bgemm_handle *handledh = gru->handleuh;
+  libxs_bgemm_handle *handleud = gru->handleux;
+  libxs_bgemm_handle *handledh = gru->handlewh;
   libxs_bgemm_handle *handledx = gru->handlett;
   libxs_bgemm_handle *handlewd = gru->handlewd;
   int j;
   const int ltid = tid - start_thread;
 
   libxs_barrier_init(gru->barrier, ltid);
+#if 0
   /* compute delta */
   libxs_internal_matrix_copy(m * n, &LIBXS_VLA_ACCESS(2, djdh, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, t-1, 0, m * n), start_thread, tid, gru->nThreads);
   /* compute djdd */
@@ -1676,10 +1664,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bwd_upd_bu(libxs_dnn_grucell* gru, i
     }
     libxs_barrier_wait(gru->barrier, ltid);
   }
+#endif
 
   return status;
 }
-#endif /* if 0 */
+
+
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_execute_st(libxs_dnn_grucell* handle, libxs_dnn_compute_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid)
 {
@@ -1690,7 +1680,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_execute_st(libxs_dnn_grucell* handle
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
                                            status = libxs_dnn_grucell_fwd(handle, start_thread, tid);
                                          } break;
-#if 0
       case LIBXS_DNN_COMPUTE_KIND_BWD: {
                                            status = libxs_dnn_grucell_bwd_upd_bu(handle, start_thread, tid, 1);
                                          } break;
@@ -1700,7 +1689,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_execute_st(libxs_dnn_grucell* handle
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
                                            status = libxs_dnn_grucell_bwd_upd_bu(handle, start_thread, tid, 3);
                                          } break;
-#endif
       default: {
                   status = LIBXS_DNN_ERR_INVALID_KIND;
                }
