@@ -127,6 +127,8 @@ LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: time steps should be >= 2 for RNN/LSTM!";
     case LIBXS_DNN_ERR_CREATE_LAYOUT_ARRAYS:
       return "LIBXS DNN Error: failed to create internal layout arrays!";
+    case LIBXS_DNN_ERR_NOT_IMPLEMENTED:
+      return "LIBXS DNN Error: the requested functionality is right now not implemented!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occurred!";
   }
