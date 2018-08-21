@@ -988,30 +988,24 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_release_internalstate(libxs_dnn_gruc
   return status;
 }
 
-#if 0
-LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_assign_internalstate(libxs_dnn_grucell* handle, const void* igoldtb, const void* fgoldtb, const void* ogoldtb, const void* cgoldtb, const void* dgoldtb)
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_assign_internalstate(libxs_dnn_grucell* handle, const void* rgoldtb, const void* zgoldtb, const void* ggoldtb)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
-  if (handle != 0 && igoldtb != 0 && fgoldtb != 0 && ogoldtb != 0 && cgoldtb != 0 && dgoldtb != 0) {
+  if (handle != 0 && rgoldtb != 0 && zgoldtb != 0 && ggoldtb != 0) {
     const libxs_blasint m = handle->m, n = handle->n, t = handle->t;
-    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, igold, (const LIBXS_DNN_ELTWISE_FTYPE*)igoldtb, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i, (LIBXS_DNN_ELTWISE_FTYPE*)handle->i->data, m * n);
-    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, fgold, (const LIBXS_DNN_ELTWISE_FTYPE*)fgoldtb, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f, (LIBXS_DNN_ELTWISE_FTYPE*)handle->f->data, m * n);
-    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, ogold, (const LIBXS_DNN_ELTWISE_FTYPE*)ogoldtb, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o, (LIBXS_DNN_ELTWISE_FTYPE*)handle->o->data, m * n);
-    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, cgold, (const LIBXS_DNN_ELTWISE_FTYPE*)cgoldtb, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c, (LIBXS_DNN_ELTWISE_FTYPE*)handle->c->data, m * n);
-    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, dgold, (const LIBXS_DNN_ELTWISE_FTYPE*)dgoldtb, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, d, (LIBXS_DNN_ELTWISE_FTYPE*)handle->d->data, m * n);
+    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, rgold, (const LIBXS_DNN_ELTWISE_FTYPE*)rgoldtb, m * n);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, r, (LIBXS_DNN_ELTWISE_FTYPE*)handle->r->data, m * n);
+    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, zgold, (const LIBXS_DNN_ELTWISE_FTYPE*)zgoldtb, m * n);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z, (LIBXS_DNN_ELTWISE_FTYPE*)handle->z->data, m * n);
+    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, ggold, (const LIBXS_DNN_ELTWISE_FTYPE*)ggoldtb, m * n);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, g, (LIBXS_DNN_ELTWISE_FTYPE*)handle->g->data, m * n);
     libxs_blasint it;
     for (it = 0; it < t; ++it) {
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, igold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, i, it, 0, m * n));
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, fgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, f, it, 0, m * n));
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, ogold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, o, it, 0, m * n));
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, cgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, c, it, 0, m * n));
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, dgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, d, it, 0, m * n));
+      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, rgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, r, it, 0, m * n));
+      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, zgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, z, it, 0, m * n));
+      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, ggold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, g, it, 0, m * n));
     }
   } else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE_TENSOR;
@@ -1019,7 +1013,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_assign_internalstate(libxs_dnn_gruce
 
   return status;
 }
-#endif
+
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_tensor(libxs_dnn_grucell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type)
 {
