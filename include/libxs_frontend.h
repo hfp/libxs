@@ -163,13 +163,14 @@
 # define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
 #endif
 
+#define LIBXS_GEMM_SYMBOL_BLAS(CONST, TYPE) LIBXS_GEMM_SYMBOL_VISIBILITY \
+  void LIBXS_GEMM_SYMBOL(TYPE)(CONST char*, CONST char*, \
+    CONST libxs_blasint*, CONST libxs_blasint*, CONST libxs_blasint*, \
+    CONST TYPE*, CONST TYPE*, CONST libxs_blasint*, \
+    CONST TYPE*, CONST libxs_blasint*, \
+    CONST TYPE*, TYPE*, CONST libxs_blasint*);
 #if (!defined(__BLAS) || (0 != __BLAS)) /* BLAS available */
-# define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE) LIBXS_GEMM_SYMBOL_VISIBILITY \
-    void LIBXS_GEMM_SYMBOL(TYPE)(CONST char*, CONST char*, \
-      CONST libxs_blasint*, CONST libxs_blasint*, CONST libxs_blasint*, \
-      CONST TYPE*, CONST TYPE*, CONST libxs_blasint*, \
-      CONST TYPE*, CONST libxs_blasint*, \
-      CONST TYPE*, TYPE*, CONST libxs_blasint*);
+# define LIBXS_GEMM_SYMBOL_DECL LIBXS_GEMM_SYMBOL_BLAS
 #else
 # define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE)
 #endif

@@ -49,7 +49,9 @@ libxs_dnn_err_t libxs_dnn_fusedbn_st_bwd_custom_f32_f32(libxs_dnn_fusedbn* handl
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  /* @TODO */
+  LIBXS_UNUSED( handle );
+  LIBXS_UNUSED( start_thread );
+  LIBXS_UNUSED( tid );
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;

@@ -129,6 +129,10 @@ LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: failed to create internal layout arrays!";
     case LIBXS_DNN_ERR_NOT_IMPLEMENTED:
       return "LIBXS DNN Error: the requested functionality is right now not implemented!";
+    case LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_ORDER:
+      return "LIBXS DNN Error: the requested order of fusion in batch norm is right now not implemented!";
+    case LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION:
+      return "LIBXS DNN Error: the requested fusion in batch norm is right now not implemented!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occurred!";
   }
