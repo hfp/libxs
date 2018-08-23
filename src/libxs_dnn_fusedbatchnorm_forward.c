@@ -49,7 +49,33 @@ libxs_dnn_err_t libxs_dnn_fusedbn_st_fwd_custom_f32_f32(libxs_dnn_fusedbn* handl
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  /* @TODO */
+  typedef float element_input_type;
+  typedef float element_output_type;
+  typedef float element_stats_type;
+
+  if ( handle->desc.fuse_order != LIBXS_DNN_FUSEDBN_ORDER_BN_ELTWISE_RELU ) {
+    status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_ORDER;
+  } else {
+    if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE ) {
+# include "template/libxs_dnn_fusedbatchnorm_st_fwd_custom.tpl.c"
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE ) {
+# define LIBXS_DNN_FUSEDBN_FWD_ENABLE_ELTWISE
+# include "template/libxs_dnn_fusedbatchnorm_st_fwd_custom.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_FWD_ENABLE_ELTWISE
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_RELU ) {
+# define LIBXS_DNN_FUSEDBN_FWD_ENABLE_RELU
+# include "template/libxs_dnn_fusedbatchnorm_st_fwd_custom.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_FWD_ENABLE_RELU
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE_RELU ) {
+# define LIBXS_DNN_FUSEDBN_FWD_ENABLE_ELTWISE
+# define LIBXS_DNN_FUSEDBN_FWD_ENABLE_RELU
+# include "template/libxs_dnn_fusedbatchnorm_st_fwd_custom.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_FWD_ENABLE_RELU
+# undef LIBXS_DNN_FUSEDBN_FWD_ENABLE_ELTWISE
+    } else {
+      status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+    }
+  }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
@@ -87,20 +113,47 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom(libxs_dnn_fuse
   }
 
   /* check if we are on an AVX512 platform */
-  if ( 1 ) {
+  if ( libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
+       libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL    ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      /* @TODO */
+      status = libxs_dnn_fusedbn_st_fwd_custom_f32_f32( handle, start_thread, tid);
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
-      /* @TODO */
+      /*status = libxs_dnn_fusedbn_st_fwd_custom_bf16_bf16( handle, start_thread, tid);*/
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
   } else {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_fusedbn_st_fwd_custom_f32_f32( handle, start_thread, tid);
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_stats_type;
+
+      if ( handle->desc.fuse_order != LIBXS_DNN_FUSEDBN_ORDER_BN_ELTWISE_RELU ) {
+        status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_ORDER;
+      } else {
+        if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE ) {
+# include "template/libxs_dnn_fusedbatchnorm_st_fwd_custom.tpl.c"
+        } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE ) {
+# define LIBXS_DNN_FUSEDBN_FWD_ENABLE_ELTWISE
+# include "template/libxs_dnn_fusedbatchnorm_st_fwd_custom.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_FWD_ENABLE_ELTWISE
+        } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_RELU ) {
+# define LIBXS_DNN_FUSEDBN_FWD_ENABLE_RELU
+# include "template/libxs_dnn_fusedbatchnorm_st_fwd_custom.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_FWD_ENABLE_RELU
+        } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE_RELU ) {
+# define LIBXS_DNN_FUSEDBN_FWD_ENABLE_ELTWISE
+# define LIBXS_DNN_FUSEDBN_FWD_ENABLE_RELU
+# include "template/libxs_dnn_fusedbatchnorm_st_fwd_custom.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_FWD_ENABLE_RELU
+# undef LIBXS_DNN_FUSEDBN_FWD_ENABLE_ELTWISE
+        } else {
+         status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+        }
+      }
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
-      /*status = libxs_dnn_fusedbn_st_fwd_custom_bf16_bf16( handle, start_thread, tid);*/
+      /* TODO */
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
