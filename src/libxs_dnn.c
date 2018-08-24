@@ -133,6 +133,8 @@ LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: the requested order of fusion in batch norm is right now not implemented!";
     case LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION:
       return "LIBXS DNN Error: the requested fusion in batch norm is right now not implemented!";
+    case LIBXS_DNN_ERR_INVALID_FORMAT_FUSEDBN:
+      return "LIBXS DNN Error: Unsupported format when requesting a fused batch norm!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occurred!";
   }
