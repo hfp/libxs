@@ -76,7 +76,7 @@ libxs_dnn_err_t libxs_dnn_fusedbn_st_bwd_custom_bf16_bf16(libxs_dnn_fusedbn* han
 #endif
 
 
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom(libxs_dnn_fusedbn* handle, int start_thread, int tid)
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbn_st_bwd_custom(libxs_dnn_fusedbn* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
