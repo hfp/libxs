@@ -361,7 +361,7 @@ endif
 
 information = \
 	$(info ================================================================================) \
-	$(info LIBXS $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py)) \
+	$(info LIBXS $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py) ($(UNAME))) \
 	$(info --------------------------------------------------------------------------------) \
 	$(info $(GINFO)) \
 	$(info $(CINFO)) \

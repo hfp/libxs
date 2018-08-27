@@ -32,7 +32,7 @@
 #include "libxs_intrinsics_x86.h"
 
 #if !defined(LIBXS_TLS)
-# if !defined(LIBXS_NO_SYNC) && !defined(LIBXS_NO_TLS)
+# if (0 != LIBXS_SYNC) && !defined(LIBXS_NO_TLS)
 #   if defined(__CYGWIN__) && defined(__clang__)
 #     define LIBXS_NO_TLS
 #     define LIBXS_TLS
@@ -114,7 +114,7 @@
           LIBXS_ASSERT_MSG(0 == *(DST_PTR), "LIBXS_NONATOMIC_RELEASE"); }
 #define LIBXS_NONATOMIC_SYNC(KIND) LIBXS_UNUSED(KIND)
 
-#if defined(LIBXS_NO_SYNC)
+#if (0 == LIBXS_SYNC)
 # define LIBXS_ATOMIC(FN, BITS) FN
 # define LIBXS_ATOMIC_LOAD LIBXS_NONATOMIC_LOAD
 # define LIBXS_ATOMIC_STORE LIBXS_NONATOMIC_STORE
@@ -291,7 +291,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#if !defined(LIBXS_NO_SYNC) /** Default lock-kind */
+#if (0 != LIBXS_SYNC) /** Default lock-kind */
 # define LIBXS_LOCK_DEFAULT LIBXS_LOCK_SPINLOCK
 # if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && (defined(LIBXS_SYNC_SYSTEM) || 1)
 #   define LIBXS_LOCK_SYSTEM_SPINLOCK

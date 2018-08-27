@@ -657,7 +657,7 @@ LIBXS_API unsigned int libxs_update_mmstatistic(libxs_gemm_precision precision,
   libxs_blasint m, libxs_blasint n, libxs_blasint k, unsigned int ntry, unsigned int ncol);
 
 /** Returns the current tick of a (monotonic) platform-specific counter; not necessarily CPU cycles. */
-LIBXS_API_INTERN unsigned long long libxs_timer_tick_rdtsc(void);
+LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void);
 
 LIBXS_API_INTERN void libxs_dnn_init(int target_arch);
 LIBXS_API_INTERN void libxs_dnn_finalize(void);

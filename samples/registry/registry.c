@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
   int result = EXIT_SUCCESS;
 
   fprintf(stdout, "Dispatching %i calls %s internal synchronization using %i thread%s...\n", size,
-#if 0 != LIBXS_SYNC
+#if (0 != LIBXS_SYNC)
     "with",
 #else
     "without",

@@ -519,7 +519,7 @@
 #else
 # define LIBXS_SNPRINTF(S, N, ...) sprintf(S, __VA_ARGS__); LIBXS_UNUSED(N)
 #endif
-#if defined(LIBXS_NO_SYNC)
+#if (0 == LIBXS_SYNC)
 # define LIBXS_FLOCK(FILE)
 # define LIBXS_FUNLOCK(FILE)
 #else
@@ -590,7 +590,7 @@
 # define inline LIBXS_INLINE_KEYWORD
 #endif
 
-#if !defined(LIBXS_NO_SYNC) && !defined(_REENTRANT)
+#if (0 != LIBXS_SYNC) && !defined(_REENTRANT)
 # define _REENTRANT
 #endif
 

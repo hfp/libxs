@@ -85,7 +85,7 @@ struct LIBXS_RETARGETABLE libxs_barrier {
 LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
 {
   libxs_barrier *const barrier = (libxs_barrier*)malloc(sizeof(libxs_barrier));
-#if defined(LIBXS_NO_SYNC)
+#if (0 == LIBXS_SYNC)
   LIBXS_UNUSED(ncores); LIBXS_UNUSED(nthreads_per_core);
 #else
   if (NULL != barrier && 1 < ncores && 1 <= nthreads_per_core) {
@@ -111,7 +111,7 @@ LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
 
 LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid)
 {
-#if defined(LIBXS_NO_SYNC)
+#if (0 == LIBXS_SYNC)
   LIBXS_UNUSED(barrier); LIBXS_UNUSED(tid);
 #else
   if (NULL != barrier && 1 < barrier->nthreads) {
@@ -196,7 +196,7 @@ LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid)
 LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
 void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 {
-#if defined(LIBXS_NO_SYNC)
+#if (0 == LIBXS_SYNC)
   LIBXS_UNUSED(barrier); LIBXS_UNUSED(tid);
 #else
   if (NULL != barrier && 1 < barrier->nthreads) {
@@ -274,7 +274,7 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
 
 LIBXS_API void libxs_barrier_destroy(const libxs_barrier* barrier)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
   if (NULL != barrier && 1 < barrier->nthreads) {
     if (2 == barrier->init_done) {
       int i;
@@ -299,7 +299,7 @@ LIBXS_API void libxs_barrier_destroy(const libxs_barrier* barrier)
 }
 
 
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
 enum {
   INTERNAL_SYNC_LOCK_FREE = 0,
   INTERNAL_SYNC_LOCK_LOCKED = 1,
@@ -334,7 +334,7 @@ LIBXS_API libxs_spinlock* libxs_spinlock_create(void)
     LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK_SPINLOCK, &attr);
     LIBXS_LOCK_INIT(LIBXS_LOCK_SPINLOCK, &result->impl, &attr);
     LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK_SPINLOCK, &attr);
-#elif !defined(LIBXS_NO_SYNC)
+#elif (0 != LIBXS_SYNC)
     result->state = INTERNAL_SYNC_LOCK_FREE;
 #endif
   }
@@ -353,7 +353,7 @@ LIBXS_API void libxs_spinlock_destroy(const libxs_spinlock* spinlock)
 
 LIBXS_API int libxs_spinlock_trylock(libxs_spinlock* spinlock)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
   assert(0 != spinlock);
   return LIBXS_LOCK_TRYLOCK(LIBXS_LOCK_SPINLOCK, &spinlock->impl);
@@ -375,7 +375,7 @@ LIBXS_API int libxs_spinlock_trylock(libxs_spinlock* spinlock)
 
 LIBXS_API void libxs_spinlock_acquire(libxs_spinlock* spinlock)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
   assert(0 != spinlock);
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_SPINLOCK, &spinlock->impl);
@@ -396,7 +396,7 @@ LIBXS_API void libxs_spinlock_acquire(libxs_spinlock* spinlock)
 
 LIBXS_API void libxs_spinlock_release(libxs_spinlock* spinlock)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
   assert(0 != spinlock);
 # if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_RELEASE(LIBXS_LOCK_SPINLOCK, &spinlock->impl);
@@ -436,7 +436,7 @@ LIBXS_API libxs_mutex* libxs_mutex_create(void)
     LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK_MUTEX, &attr);
     LIBXS_LOCK_INIT(LIBXS_LOCK_MUTEX, &result->impl, &attr);
     LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK_MUTEX, &attr);
-#elif !defined(LIBXS_NO_SYNC)
+#elif (0 != LIBXS_SYNC)
     result->state = INTERNAL_SYNC_LOCK_FREE;
 #endif
   }
@@ -455,7 +455,7 @@ LIBXS_API void libxs_mutex_destroy(const libxs_mutex* mutex)
 
 LIBXS_API int libxs_mutex_trylock(libxs_mutex* mutex)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
   assert(0 != mutex);
 # if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
   return LIBXS_LOCK_TRYLOCK(LIBXS_LOCK_MUTEX, &mutex->impl);
@@ -471,7 +471,7 @@ LIBXS_API int libxs_mutex_trylock(libxs_mutex* mutex)
 
 LIBXS_API void libxs_mutex_acquire(libxs_mutex* mutex)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
   assert(0 != mutex);
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_MUTEX, &mutex->impl);
@@ -516,7 +516,7 @@ LIBXS_API void libxs_mutex_acquire(libxs_mutex* mutex)
 
 LIBXS_API void libxs_mutex_release(libxs_mutex* mutex)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
   assert(0 != mutex);
 # if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_RELEASE(LIBXS_LOCK_MUTEX, &mutex->impl);
@@ -537,7 +537,7 @@ LIBXS_API void libxs_mutex_release(libxs_mutex* mutex)
 }
 
 
-#if !defined(LIBXS_NO_SYNC) && !(defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM))
+#if (0 != LIBXS_SYNC) && !(defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM))
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_sync_counter {
   struct {
     uint16_t writer;
@@ -549,7 +549,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_sync_counter {
 
 
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_rwlock {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_TYPE(LIBXS_LOCK_RWLOCK) impl;
 # else
@@ -566,7 +566,7 @@ LIBXS_API libxs_rwlock* libxs_rwlock_create(void)
 {
   libxs_rwlock *const result = (libxs_rwlock*)malloc(sizeof(libxs_rwlock));
   if (0 != result) {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
     LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK_RWLOCK) attr;
     LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK_RWLOCK, &attr);
@@ -593,7 +593,7 @@ LIBXS_API void libxs_rwlock_destroy(const libxs_rwlock* rwlock)
 }
 
 
-#if !defined(LIBXS_NO_SYNC) && !(defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM))
+#if (0 != LIBXS_SYNC) && !(defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM))
 LIBXS_API_INLINE int internal_rwlock_trylock(libxs_rwlock* rwlock, internal_sync_counter* prev)
 {
   internal_sync_counter next;
@@ -613,7 +613,7 @@ LIBXS_API_INLINE int internal_rwlock_trylock(libxs_rwlock* rwlock, internal_sync
 
 LIBXS_API int libxs_rwlock_trylock(libxs_rwlock* rwlock)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
   assert(0 != rwlock);
   return LIBXS_LOCK_TRYLOCK(LIBXS_LOCK_RWLOCK, &rwlock->impl);
@@ -630,7 +630,7 @@ LIBXS_API int libxs_rwlock_trylock(libxs_rwlock* rwlock)
 
 LIBXS_API void libxs_rwlock_acquire(libxs_rwlock* rwlock)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
   assert(0 != rwlock);
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_RWLOCK, &rwlock->impl);
@@ -649,7 +649,7 @@ LIBXS_API void libxs_rwlock_acquire(libxs_rwlock* rwlock)
 
 LIBXS_API void libxs_rwlock_release(libxs_rwlock* rwlock)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
   assert(0 != rwlock);
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_RELEASE(LIBXS_LOCK_RWLOCK, &rwlock->impl);
@@ -664,10 +664,10 @@ LIBXS_API void libxs_rwlock_release(libxs_rwlock* rwlock)
 }
 
 
-#if !defined(LIBXS_NO_SYNC) && !(defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM))
+#if (0 != LIBXS_SYNC) && !(defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM))
 LIBXS_API_INLINE int internal_rwlock_tryread(libxs_rwlock* rwlock, internal_sync_counter* prev)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
   assert(0 != rwlock && 0 != prev);
 # if defined(_WIN32)
   prev->bits = InterlockedExchangeAdd((volatile LONG*)&rwlock->requests.bits, INTERNAL_SYNC_RWLOCK_READINC);
@@ -687,7 +687,7 @@ LIBXS_API_INLINE int internal_rwlock_tryread(libxs_rwlock* rwlock, internal_sync
 
 LIBXS_API int libxs_rwlock_tryread(libxs_rwlock* rwlock)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
   assert(0 != rwlock);
   return LIBXS_LOCK_TRYREAD(LIBXS_LOCK_RWLOCK, &rwlock->impl);
@@ -704,7 +704,7 @@ LIBXS_API int libxs_rwlock_tryread(libxs_rwlock* rwlock)
 
 LIBXS_API void libxs_rwlock_acqread(libxs_rwlock* rwlock)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
   assert(0 != rwlock);
   LIBXS_LOCK_ACQREAD(LIBXS_LOCK_RWLOCK, &rwlock->impl);
@@ -723,7 +723,7 @@ LIBXS_API void libxs_rwlock_acqread(libxs_rwlock* rwlock)
 
 LIBXS_API void libxs_rwlock_relread(libxs_rwlock* rwlock)
 {
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
   assert(0 != rwlock);
 # if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
   LIBXS_LOCK_RELREAD(LIBXS_LOCK_RWLOCK, &rwlock->impl);
