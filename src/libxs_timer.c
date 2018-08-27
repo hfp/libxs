@@ -53,7 +53,7 @@
 #endif
 
 
-LIBXS_API_INLINE libxs_timer_tickint internal_timer_tick(void)
+LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void)
 {
   libxs_timer_tickint result;
 #if defined(_WIN32)
@@ -73,32 +73,15 @@ LIBXS_API_INLINE libxs_timer_tickint internal_timer_tick(void)
 }
 
 
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-libxs_timer_tickint libxs_timer_tick_rdtsc(void)
-{
-  libxs_timer_tickint result;
-#if defined(LIBXS_TIMER_RDTSC)
-  LIBXS_TIMER_RDTSC(result);
-#else
-  result = internal_timer_tick();
-#endif
-  return result;
-}
-
-
 LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
 libxs_timer_tickint libxs_timer_tick(void)
 {
   libxs_timer_tickint result;
 #if defined(LIBXS_TIMER_RDTSC)
-  if (0 < libxs_timer_scale) {
-    LIBXS_TIMER_RDTSC(result);
-  }
-  else
+  LIBXS_TIMER_RDTSC(result);
+#else
+  result = libxs_timer_tick_rtc();
 #endif
-  {
-    result = internal_timer_tick();
-  }
   return result;
 }
 

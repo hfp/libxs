@@ -172,7 +172,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_malloc_pool_type {
     char *buffer, *head;
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     const void* site;
-# if !defined(LIBXS_NO_SYNC)
+# if (0 != LIBXS_SYNC)
     size_t tid;
 # endif
 #endif
@@ -1164,13 +1164,13 @@ LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* 
     const void *const site = internal_malloc_site(caller);
     const size_t align_size = (0 == alignment ? libxs_alignment(size, alignment) : alignment);
     const size_t alloc_size = size + align_size - 1;
-#if !defined(LIBXS_NO_SYNC)
+#if (0 != LIBXS_SYNC)
     const unsigned int tid = libxs_get_tid();
 #endif
     assert(sizeof(internal_malloc_pool_type) <= (LIBXS_CACHELINE));
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     for (; pool != end; ++pool) { /* find exact matching pool */
-# if !defined(LIBXS_NO_SYNC)
+# if (0 != LIBXS_SYNC)
       if (site == pool->instance.site && (tid == pool->instance.tid
 #   if defined(LIBXS_MALLOC_NO_AFFINITY)
         || (LIBXS_MALLOC_NO_AFFINITY) == pool->instance.tid
@@ -1206,7 +1206,7 @@ LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* 
         pool->instance.minsize = minsize;
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
         pool->instance.site = site;
-# if !defined(LIBXS_NO_SYNC)
+# if (0 != LIBXS_SYNC)
         pool->instance.tid = tid;
 # endif
 #endif
@@ -1337,7 +1337,7 @@ LIBXS_API void libxs_free(const void* memory)
 
           if (pool->instance.minsize < minsize) {
             pool->instance.buffer = pool->instance.head = NULL;
-# if !defined(LIBXS_NO_SYNC)
+# if (0 != LIBXS_SYNC)
 #   if !defined(NDEBUG) /* library code is expected to be mute */
             if ((1 < libxs_verbosity || 0 > libxs_verbosity) && libxs_get_tid() != pool->instance.tid) {
               static int error_once = 0;
