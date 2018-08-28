@@ -49,9 +49,33 @@ libxs_dnn_err_t libxs_dnn_fusedbn_st_bwd_custom_f32_f32(libxs_dnn_fusedbn* handl
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  LIBXS_UNUSED( handle );
-  LIBXS_UNUSED( start_thread );
-  LIBXS_UNUSED( tid );
+  typedef float element_input_type;
+  typedef float element_output_type;
+  typedef float element_stats_type;
+
+  if ( handle->desc.fuse_order != LIBXS_DNN_FUSEDBN_ORDER_BN_ELTWISE_RELU ) {
+    status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_ORDER;
+  } else {
+    if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE ) {
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE ) {
+# define LIBXS_DNN_FUSEDBN_bWD_ENABLE_ELTWISE
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_BWD_ENABLE_ELTWISE
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_RELU ) {
+# define LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE_RELU ) {
+# define LIBXS_DNN_FUSEDBN_BWD_ENABLE_ELTWISE
+# define LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
+# undef LIBXS_DNN_FUSEDBN_bWD_ENABLE_ELTWISE
+    } else {
+      status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+    }
+  }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
@@ -81,17 +105,19 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbn_st_bwd_custom(libxs_dnn_fused
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check if we have input, output and filter */
-  if (handle->reg_input == 0 || handle->reg_output == 0 ||
-      handle->reg_beta == 0  || handle->reg_gamma == 0  ||
-      handle->expvalue == 0  || handle->stddev == 0        ) {
+  if (handle->reg_input == 0  || handle->reg_output == 0  ||
+      handle->grad_input == 0 || handle->grad_output == 0 ||
+      handle->grad_beta == 0  || handle->grad_gamma == 0  ||
+      handle->expvalue == 0   || handle->stddev == 0        ) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
   }
 
   /* check if we are on an AVX512 platform */
-  if ( 1 ) {
+  if ( libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
+       libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL    ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      /* @TODO */
+      status = libxs_dnn_fusedbn_st_bwd_custom_f32_f32( handle, start_thread, tid);
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
       /* @TODO */
     } else {
@@ -100,7 +126,33 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbn_st_bwd_custom(libxs_dnn_fused
     }
   } else {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_fusedbn_st_bwd_custom_f32_f32( handle, start_thread, tid);
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_stats_type;
+
+      if ( handle->desc.fuse_order != LIBXS_DNN_FUSEDBN_ORDER_BN_ELTWISE_RELU ) {
+        status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_ORDER;
+      } else {
+        if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE ) {
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+        } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE ) {
+# define LIBXS_DNN_FUSEDBN_BWD_ENABLE_ELTWISE
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_BWD_ENABLE_ELTWISE
+        } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_RELU ) {
+# define LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
+        } else if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE_RELU ) {
+# define LIBXS_DNN_FUSEDBN_BWD_ENABLE_ELTWISE
+# define LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+# undef LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
+# undef LIBXS_DNN_FUSEDBN_BWD_ENABLE_ELTWISE
+        } else {
+         status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+        }
+      }
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
       /*status = libxs_dnn_fusedbn_st_bwd_custom_bf16_bf16( handle, start_thread, tid);*/
     } else {
