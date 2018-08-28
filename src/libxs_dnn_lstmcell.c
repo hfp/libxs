@@ -274,7 +274,6 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
 
               if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
                 layout->num_dims = 4;
-                /* TODO: Check if the following layout works for bwd and upd passes */
                 if ( (type == LIBXS_DNN_LSTM_REGULAR_INPUT) || (type == LIBXS_DNN_LSTM_GRADIENT_INPUT) ) {
                   layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_RLK;
                   layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
@@ -1481,6 +1480,7 @@ LIBXS_API void libxs_dnn_lstmcell_split_wx(libxs_dnn_lstmcell* lstm, libxs_blasi
       LIBXS_VLA_ACCESS(5, real_src, i, j, mb*offset + k, l, p, nb, mb*4, bn, bm);
   }
 }
+
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int start_thread, int tid)
 {
