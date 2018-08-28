@@ -284,12 +284,6 @@
 # define LIBXS_PRAGMA_NOVECTOR
 #endif
 
-#if defined(_OPENMP)
-# define LIBXS_PRAGMA_OMP(...) LIBXS_PRAGMA(omp __VA_ARGS__)
-#else
-# define LIBXS_PRAGMA_OMP(...)
-#endif
-
 #if defined(__INTEL_COMPILER)
 # define LIBXS_PRAGMA_NONTEMPORAL_VARS(A, ...) LIBXS_PRAGMA(vector nontemporal(A, __VA_ARGS__))
 # define LIBXS_PRAGMA_NONTEMPORAL LIBXS_PRAGMA(vector nontemporal)
@@ -392,7 +386,7 @@
 #define LIBXS_ALIGN(POINTER, ALIGNMENT/*POT*/) ((POINTER) + (LIBXS_UP2((uintptr_t)(POINTER), ALIGNMENT) - ((uintptr_t)(POINTER))) / sizeof(*(POINTER)))
 #define LIBXS_FOLD2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_DIV2((uintptr_t)(POINTER), ALIGNMENT), NPOT)
 
-#if defined(_MSC_VER) /* account for incorrect handling of __VA_ARGS__ */
+#if defined(_MSC_VER) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) /* account for incorrect handling of __VA_ARGS__ */
 # define LIBXS_SELECT_ELEMENT(INDEX1/*one-based*/, .../*elements*/) LIBXS_CONCATENATE(LIBXS_SELECT_ELEMENT_, INDEX1)LIBXS_EXPAND((__VA_ARGS__))
 #else
 # define LIBXS_SELECT_ELEMENT(INDEX1/*one-based*/, .../*elements*/) LIBXS_CONCATENATE(LIBXS_SELECT_ELEMENT_, INDEX1)(__VA_ARGS__)
@@ -426,7 +420,7 @@
  * Please note that the leading dimension (s0) is omitted in the above syntax!
  * TODO: support leading dimension (pitch/stride).
  */
-#if defined(_MSC_VER) /* account for incorrect handling of __VA_ARGS__ */
+#if defined(_MSC_VER) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) /* account for incorrect handling of __VA_ARGS__ */
 # define LIBXS_INDEX1(NDIMS, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)LIBXS_EXPAND((__VA_ARGS__))
 #else
 # define LIBXS_INDEX1(NDIMS, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)(__VA_ARGS__)
@@ -479,6 +473,17 @@
 # else
 #   define LIBXS_UNUSED(VARIABLE) (void)(VARIABLE)
 # endif
+#endif
+
+#if defined(_OPENMP)
+# define LIBXS_PRAGMA_OMP(...) LIBXS_PRAGMA(omp __VA_ARGS__)
+#else
+# define LIBXS_PRAGMA_OMP(...)
+#endif
+#if defined(_OPENMP) && defined(_MSC_VER) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER)
+# define LIBXS_OMP_VAR(A) LIBXS_UNUSED(A) /* suppress warning about "unused" variable */
+#else
+# define LIBXS_OMP_VAR(A)
 #endif
 
 #if (defined(__GNUC__) || defined(__clang__)) && !defined(__CYGWIN__) && !defined(__MINGW32__)
