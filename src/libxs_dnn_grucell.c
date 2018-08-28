@@ -1664,14 +1664,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bwd_upd_bu(libxs_dnn_grucell* gru, i
       libxs_bgemm_convert_b_to_a(handlewd, d18, &m, d18M);
       /* djdwr = djdwr + d18 * h^T */
       libxs_dnn_grucell_matrix_transpose_b(gru, &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), hrTp, start_thread, tid, gru->nThreads);
-      //libxs_bgemm_transpose_b(handledh, &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), &m, hrTp);
+      /*libxs_bgemm_transpose_b(handledh, &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), &m, hrTp);*/
       libxs_bgemm_st(handledh, d18M, hrTp, djdwr, start_thread, tid);
       /* djdwz = djdwz + d11 * h^T */
       libxs_bgemm_st(handledh, d11M, hrTp, djdwz, start_thread, tid);
       /* djdwg = djdwg + d10 * (h.r)^T */
       libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), &LIBXS_VLA_ACCESS(2, r, j, 0, m * n), d4, start_thread, tid, gru->nThreads);
       libxs_dnn_grucell_matrix_transpose_b(gru, d4, hrTp, start_thread, tid, gru->nThreads);
-      //libxs_bgemm_transpose_b(handledh, d4, &m, hrTp);
+      /*libxs_bgemm_transpose_b(handledh, d4, &m, hrTp);*/
       libxs_bgemm_st(handledh, d10M, hrTp, djdwg, start_thread, tid);
       /* djdur = djdur + d18 * x^T */
       libxs_bgemm_st(handledx, d18M, &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdur, start_thread, tid);
