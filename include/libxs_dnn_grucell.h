@@ -97,6 +97,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_grucell {
   libxs_dnn_tensor* r;
   libxs_dnn_tensor* z;
   libxs_dnn_tensor* g;
+  libxs_dnn_tensor* d3;
   libxs_dnn_tensor* d4;
   libxs_dnn_tensor* d5;
   libxs_dnn_tensor* d6;
@@ -120,6 +121,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_grucell {
   libxs_dnn_tensor* d10M;
   libxs_dnn_tensor* d11M;
   libxs_dnn_tensor* d18M;
+  libxs_dnn_tensor* hrTp;
   libxs_dnn_tensor* djdwr;
   libxs_dnn_tensor* djdwz;
   libxs_dnn_tensor* djdwg;
@@ -156,6 +158,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_assign_internalstate(libxs_dnn_gruce
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_tensor(libxs_dnn_grucell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type);
 LIBXS_API libxs_dnn_tensor* libxs_dnn_grucell_get_tensor(libxs_dnn_grucell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_release_tensor(libxs_dnn_grucell* handle, const libxs_dnn_tensor_type type);
+
+LIBXS_API void libxs_dnn_grucell_matrix_transpose_b(libxs_dnn_grucell* gru, void* src, void* dst, int start_thread, int tid, int nthreads);
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_fwd(libxs_dnn_grucell* gru, int start_thread, int tid);
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bwd_upd_bu(libxs_dnn_grucell* gru, int start_thread, int tid, int pass);
