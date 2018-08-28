@@ -541,6 +541,16 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_execute_st(libxs_dnn_fusedbn* handle
           }
         }
       } break;
+      case LIBXS_DNN_COMPUTE_KIND_BWD: {
+        switch (handle->desc.buffer_format) {
+          case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+            status = libxs_dnn_fusedbn_st_bwd_custom( handle, start_thread, tid );
+          } break;
+          default: {
+            status = LIBXS_DNN_ERR_INVALID_FORMAT_FUSEDBN;
+          }
+        }
+      } break;
       default: {
         status = LIBXS_DNN_ERR_INVALID_KIND;
       }
