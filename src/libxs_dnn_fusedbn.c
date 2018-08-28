@@ -396,7 +396,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_tensor(libxs_dnn_fusedbn* handl
         handle->grad_add = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BETA ) {
         handle->reg_beta = (libxs_dnn_tensor*)tensor;
-      } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BETA ) {
+      } else if ( type == LIBXS_DNN_GRADIENT_CHANNEL_BETA ) {
         handle->grad_beta = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_GAMMA ) {
         handle->reg_gamma = (libxs_dnn_tensor*)tensor;
