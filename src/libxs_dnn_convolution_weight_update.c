@@ -642,9 +642,9 @@ void gather_transpose_ps_16_56_56_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m, n;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     LIBXS_PRAGMA_UNROLL_N(3)
-    for(n = 0; n < 3; ++n) {
+    for (n = 0; n < 3; ++n) {
       tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*56+n*16),tmp);
     }
@@ -662,9 +662,9 @@ void gather_transpose_ps_16_56_58_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m, n;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     LIBXS_PRAGMA_UNROLL_N(3)
-    for(n = 0; n < 3; ++n) {
+    for (n = 0; n < 3; ++n) {
       tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*58+n*16),tmp);
     }
@@ -682,9 +682,9 @@ void gather_transpose_ps_16_58_60_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m, n;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     LIBXS_PRAGMA_UNROLL_N(3)
-    for(n = 0; n < 3; ++n) {
+    for (n = 0; n < 3; ++n) {
       tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*60+n*16),tmp);
     }
@@ -702,9 +702,9 @@ void gather_transpose_ps_16_58_58_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m, n;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     LIBXS_PRAGMA_UNROLL_N(3)
-    for(n = 0; n < 3; ++n) {
+    for (n = 0; n < 3; ++n) {
       tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
       _mm512_store_ps((void*)(dst+m*58+n*16),tmp);
     }
@@ -721,7 +721,7 @@ void gather_transpose_ps_16_28_28_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*28+n*16),tmp);
@@ -739,7 +739,7 @@ void gather_transpose_ps_16_28_30_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*30+n*16),tmp);
@@ -757,7 +757,7 @@ void gather_transpose_ps_16_30_32_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*32+n*16),tmp);
@@ -775,7 +775,7 @@ void gather_transpose_ps_16_30_30_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*30+n*16),tmp);
@@ -792,7 +792,7 @@ void gather_transpose_ps_16_16_16_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     const __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*16+n*16),tmp);
@@ -806,7 +806,7 @@ void gather_transpose_ps_16_16_18_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     const __m512 tmp = _mm512_i32gather_ps(vindex, (const float*)(src+m+n*256), 4);
     _mm512_store_ps((void*)(dst+m*18+n*16),tmp);
@@ -821,7 +821,7 @@ void gather_transpose_ps_16_14_16_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*16+n*16),Nremmask,tmp);
@@ -836,7 +836,7 @@ void gather_transpose_ps_16_14_18_16(int M, int N, float *LIBXS_RESTRICT dst, in
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*18+n*16),Nremmask,tmp);
@@ -852,7 +852,7 @@ void gather_transpose_ps_16_7_8_16(int M, int N, float *LIBXS_RESTRICT dst, int 
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 8; ++m) {
+  for (m = 0; m < 8; ++m) {
     const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m*2), 4);
     _mm512_mask_store_ps((void*)(dst+m*8*2),Nremmask,tmp);
   }
@@ -866,7 +866,7 @@ void gather_transpose_ps_16_7_10_16(int M, int N, float *LIBXS_RESTRICT dst, int
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*10+n*16),Nremmask,tmp);
@@ -881,7 +881,7 @@ void gather_transpose_ps_16_9_12_16(int M, int N, float *LIBXS_RESTRICT dst, int
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*12+n*16),Nremmask,tmp);
@@ -896,7 +896,7 @@ void gather_transpose_ps_16_9_10_16(int M, int N, float *LIBXS_RESTRICT dst, int
   int m;
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
   LIBXS_PRAGMA_UNROLL_AND_JAM(4)
-  for(m = 0; m < 16; ++m) {
+  for (m = 0; m < 16; ++m) {
     int n = 0;
     const __m512 tmp = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nremmask, vindex, (const float*)(src+m+n*256), 4);
     _mm512_mask_store_ps((void*)(dst+m*10+n*16),Nremmask,tmp);
@@ -912,14 +912,14 @@ void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const 
   const __mmask16 Nmask = (__mmask16)((1 << remainder) - 1);
   int i;
   LIBXS_PRAGMA_UNROLL_AND_JAM(2)
-  for(i = 0; i < M; ++i) {
+  for (i = 0; i < M; ++i) {
     int j;
     LIBXS_PRAGMA_UNROLL_N(4)
-    for(j = 0; j < whole16s; ++j) {
+    for (j = 0; j < whole16s; ++j) {
       const __m512 res = _mm512_i32gather_ps(vindex, (const float*)(src+i+j*16*ldS), 4);
       _mm512_store_ps(dst + ldD*i+j*16, res);
     }
-    if(remainder) {
+    if (remainder) {
       const __m512 res = _mm512_mask_i32gather_ps(LIBXS_INTRINSICS_MM512_UNDEFINED(), Nmask, vindex, (const float*)(src+i+j*16*ldS), 4);
       _mm512_mask_store_ps(dst + ldD*i+j*16, Nmask, res);
     }
@@ -940,52 +940,52 @@ LIBXS_API_INTERN void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst
 LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS)
 {
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  if(M == 16 && N == 7 && ldD == 8 && ldS == 16) {
+  if (M == 16 && N == 7 && ldD == 8 && ldS == 16) {
     return gather_transpose_ps_16_7_8_16;
   }
-  if(M == 16 && N == 7 && ldD == 10 && ldS == 16) {
+  if (M == 16 && N == 7 && ldD == 10 && ldS == 16) {
     return gather_transpose_ps_16_7_10_16;
   }
-  if(M == 16 && N == 9 && ldD == 10 && ldS == 16) {
+  if (M == 16 && N == 9 && ldD == 10 && ldS == 16) {
     return gather_transpose_ps_16_9_10_16;
   }
-  if(M == 16 && N == 9 && ldD == 12 && ldS == 16) {
+  if (M == 16 && N == 9 && ldD == 12 && ldS == 16) {
     return gather_transpose_ps_16_9_12_16;
   }
-  if(M == 16 && N == 14 && ldD == 16 && ldS == 16) {
+  if (M == 16 && N == 14 && ldD == 16 && ldS == 16) {
     return gather_transpose_ps_16_14_16_16;
   }
-  if(M == 16 && N == 14 && ldD == 18 && ldS == 16) {
+  if (M == 16 && N == 14 && ldD == 18 && ldS == 16) {
     return gather_transpose_ps_16_14_18_16;
   }
-  if(M == 16 && N == 16 && ldD == 16 && ldS == 16) {
+  if (M == 16 && N == 16 && ldD == 16 && ldS == 16) {
     return gather_transpose_ps_16_16_16_16;
   }
-  if(M == 16 && N == 16 && ldD == 18 && ldS == 16) {
+  if (M == 16 && N == 16 && ldD == 18 && ldS == 16) {
     return gather_transpose_ps_16_16_18_16;
   }
-  if(M == 16 && N == 28 && ldD == 28 && ldS == 16) {
+  if (M == 16 && N == 28 && ldD == 28 && ldS == 16) {
     return gather_transpose_ps_16_28_28_16;
   }
-  if(M == 16 && N == 28 && ldD == 30 && ldS == 16) {
+  if (M == 16 && N == 28 && ldD == 30 && ldS == 16) {
     return gather_transpose_ps_16_28_30_16;
   }
-  if(M == 16 && N == 30 && ldD == 30 && ldS == 16) {
+  if (M == 16 && N == 30 && ldD == 30 && ldS == 16) {
     return gather_transpose_ps_16_30_30_16;
   }
-  if(M == 16 && N == 30 && ldD == 32 && ldS == 16) {
+  if (M == 16 && N == 30 && ldD == 32 && ldS == 16) {
     return gather_transpose_ps_16_30_32_16;
   }
-  if(M == 16 && N == 56 && ldD == 56 && ldS == 16) {
+  if (M == 16 && N == 56 && ldD == 56 && ldS == 16) {
     return gather_transpose_ps_16_56_56_16;
   }
-  if(M == 16 && N == 56 && ldD == 58 && ldS == 16) {
+  if (M == 16 && N == 56 && ldD == 58 && ldS == 16) {
     return gather_transpose_ps_16_56_58_16;
   }
-  if(M == 16 && N == 58 && ldD == 58 && ldS == 16) {
+  if (M == 16 && N == 58 && ldD == 58 && ldS == 16) {
     return gather_transpose_ps_16_58_58_16;
   }
-  if(M == 16 && N == 58 && ldD == 60 && ldS == 16) {
+  if (M == 16 && N == 58 && ldD == 60 && ldS == 16) {
     return gather_transpose_ps_16_58_60_16;
   }
 #else
