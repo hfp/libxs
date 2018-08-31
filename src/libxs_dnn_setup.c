@@ -189,6 +189,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
     ifmblock = (C >=16) ? 8 : C/2;
     ofmblock = (K >=16) ? 16 : K/2;
     lp_block = 2;
+    if (C == 3) {
+      ifmblock = C;
+      lp_block = 1;
+    }
     ifmblock_hp = ifmblock * lp_block;
     ofmblock_lp = ofmblock / lp_block;
   } else if ( (datatype_in == LIBXS_DNN_DATATYPE_I16) && ((datatype_out == LIBXS_DNN_DATATYPE_I32) || (datatype_out == LIBXS_DNN_DATATYPE_F32)) ) {
