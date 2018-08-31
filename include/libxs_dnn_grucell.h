@@ -159,8 +159,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bind_tensor(libxs_dnn_grucell* handl
 LIBXS_API libxs_dnn_tensor* libxs_dnn_grucell_get_tensor(libxs_dnn_grucell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_release_tensor(libxs_dnn_grucell* handle, const libxs_dnn_tensor_type type);
 
-LIBXS_API void libxs_dnn_grucell_matrix_transpose_b(libxs_dnn_grucell* gru, void* src, void* dst, int start_thread, int tid, int nthreads);
-
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_fwd(libxs_dnn_grucell* gru, int start_thread, int tid);
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bwd_upd_bu(libxs_dnn_grucell* gru, int start_thread, int tid, int pass);
 LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_execute_st(libxs_dnn_grucell* handle, libxs_dnn_compute_kind kind,

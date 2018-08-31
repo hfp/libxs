@@ -84,6 +84,7 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_ORDER   100030
 #define LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION  100031
 #define LIBXS_DNN_ERR_INVALID_FORMAT_FUSEDBN     100032
+#define LIBXS_DNN_ERR_UNSUPPORTED_POOLING        100033
 
 /** Kinds of supported compute flavor operations. */
 typedef enum libxs_dnn_compute_kind {
@@ -183,6 +184,8 @@ typedef enum libxs_dnn_tensor_type {
   LIBXS_DNN_MAX_STATS_FWD,
   LIBXS_DNN_MAX_STATS_BWD,
   LIBXS_DNN_MAX_STATS_UPD,
+  /** pooling mask */
+  LIBXS_DNN_POOLING_MASK,
    /** general type, if needed might cause API issues in copy in/out API */
   LIBXS_DNN_TENSOR,
 
