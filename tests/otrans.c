@@ -70,8 +70,8 @@ int main(void)
   b = (ELEM_TYPE*)libxs_malloc((size_t)(max_size_b * sizeof(ELEM_TYPE)));
   assert(0 != a && 0 != b);
 
-  LIBXS_MATRNG(ELEM_TYPE, 42, a, max_size_a, 1, max_size_a, 1.0);
-  LIBXS_MATRNG(ELEM_TYPE,  0, b, max_size_b, 1, max_size_b, 1.0);
+  LIBXS_MATRNG_OMP(ELEM_TYPE, 42, a, max_size_a, 1, max_size_a, 1.0);
+  LIBXS_MATRNG_OMP(ELEM_TYPE,  0, b, max_size_b, 1, max_size_b, 1.0);
 
   for (test = start; test < ntests; ++test) {
     OTRANS(b, a, sizeof(ELEM_TYPE), m[test], n[test], ldi[test], ldo[test]);
