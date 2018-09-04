@@ -122,9 +122,9 @@ int main(int argc, char* argv[])
       &alpha, &beta, &gemm_flags, NULL/*auto-prefetch*/, &order);
 
     if (0 != handle) {
-      LIBXS_MATRNG(ITYPE, 42, agold, m, k, lda, 1.0);
-      LIBXS_MATRNG(ITYPE, 24, bgold, k, n, ldb, 1.0);
-      LIBXS_MATRNG(ITYPE,  0, cgold, m, n, ldc, 1.0);
+      LIBXS_MATRNG_OMP(ITYPE, 42, agold, m, k, lda, 1.0);
+      LIBXS_MATRNG_OMP(ITYPE, 24, bgold, k, n, ldb, 1.0);
+      LIBXS_MATRNG_OMP(ITYPE,  0, cgold, m, n, ldc, 1.0);
       libxs_bgemm_copyin_a(handle, agold, &lda, a);
       libxs_bgemm_copyin_b(handle, bgold, &ldb, b);
       libxs_bgemm_copyin_c(handle, cgold, &ldc, c);

@@ -36,6 +36,7 @@
 #endif
 #include <string.h>
 #include <math.h>
+#include <float.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -49,14 +50,12 @@ libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32(libxs_dnn_pooling* handl
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
-#if 0
   typedef float element_input_type;
   typedef float element_output_type;
-  typedef int   element_mask_type;
 
   if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX ) {
 # define LIBXS_DNN_POOLING_BWD_MAX
+    typedef int   element_mask_type;
 # include "template/libxs_dnn_pooling_st_bwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_POOLING_BWD_MAX
   } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
@@ -66,7 +65,6 @@ libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32(libxs_dnn_pooling* handl
   } else {
     status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
   }
-#endif
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
@@ -115,14 +113,12 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom(libxs_dnn_pooli
     }
   } else {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
-#if 0
       typedef float element_input_type;
       typedef float element_output_type;
-      typedef int   element_mask_type;
 
       if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX ) {
 # define LIBXS_DNN_POOLING_BWD_MAX
+        typedef int   element_mask_type;
 # include "template/libxs_dnn_pooling_st_bwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_POOLING_BWD_MAX
       } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
@@ -132,7 +128,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom(libxs_dnn_pooli
       } else {
         status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
       }
-#endif
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
       /*status = libxs_dnn_pooling_st_bwd_custom_bf16_bf16( handle, start_thread, tid);*/
     } else {

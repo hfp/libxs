@@ -85,9 +85,9 @@ int main(int argc, char* argv[])
   if (0 == a || 0 == b || 0 == c) result = EXIT_FAILURE;
 
   if (EXIT_SUCCESS == result) {
-    LIBXS_MATRNG(ITYPE, 42, a, maxn, maxn, maxn, 1.0);
-    LIBXS_MATRNG(ITYPE, 24, b, maxn, maxn, maxn, 1.0);
-    LIBXS_MATRNG(ITYPE, 0, c, maxn, maxn, maxn, 1.0);
+    LIBXS_MATRNG_OMP(ITYPE, 42, a, maxn, maxn, maxn, 1.0);
+    LIBXS_MATRNG_OMP(ITYPE, 24, b, maxn, maxn, maxn, 1.0);
+    LIBXS_MATRNG_OMP(ITYPE, 0, c, maxn, maxn, maxn, 1.0);
 
 #if defined(_OPENMP)
 #   pragma omp parallel private(i)
