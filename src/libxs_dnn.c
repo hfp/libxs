@@ -835,7 +835,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
               layout->dim_size[0] = handle->ofmblock * handle->blocksofm;
               layout->dim_size[1] = handle->ifmblock * handle->blocksifm;
               layout->dim_size[2] = handle->desc.S;
-              layout->dim_size[3] = handle->desc.K;
+              layout->dim_size[3] = handle->desc.R;
             }
           } else {
             free(layout);
