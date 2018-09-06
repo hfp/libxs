@@ -249,8 +249,8 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbn_create_tensor_datalayou
         layout->tensor_type = LIBXS_DNN_CHANNEL_SCALAR;
 
         if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
-          if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 ) {
-            layout->datatype = handle->desc.datatype_in;
+          if ( handle->desc.datatype_stats == LIBXS_DNN_DATATYPE_F32 ) {
+            layout->datatype = handle->desc.datatype_stats;
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(2*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(2*sizeof(unsigned int));
 
@@ -271,8 +271,8 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbn_create_tensor_datalayou
             *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
           }
         } else if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0) {
-          if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 ) {
-            layout->datatype = handle->desc.datatype_out;
+          if ( handle->desc.datatype_stats == LIBXS_DNN_DATATYPE_F32 ) {
+            layout->datatype = handle->desc.datatype_stats;
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(1*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(1*sizeof(unsigned int));
 

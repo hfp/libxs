@@ -2024,6 +2024,30 @@ LIBXS_API libxs_wsmmfunction libxs_wsmmdispatch(libxs_blasint m, libxs_blasint n
 }
 
 
+LIBXS_API libxs_dmmfunction_reducebatch libxs_dmmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta)
+{
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_dgemm_descriptor_init(&blob,
+    m, n, k, 0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
+    0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
+    LIBXS_GEMM_FLAG_BATCH_REDUCE, LIBXS_GEMM_PREFETCH_NONE/*todo*/);
+  return libxs_xmmdispatch(desc).dmr;
+}
+
+
+LIBXS_API libxs_smmfunction_reducebatch libxs_smmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta)
+{
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_sgemm_descriptor_init(&blob,
+    m, n, k, 0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
+    0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
+    LIBXS_GEMM_FLAG_BATCH_REDUCE, LIBXS_GEMM_PREFETCH_NONE/*todo*/);
+  return libxs_xmmdispatch(desc).smr;
+}
+
+
 #if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__) && defined(__clang__) && !defined(LIBXS_INTEL_COMPILER)
 LIBXS_PRAGMA_OPTIMIZE_ON
 #endif

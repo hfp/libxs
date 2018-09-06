@@ -107,7 +107,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbn_st_fwd_custom(libxs_dnn_fused
   /* check if all required tensors are bound */
   if (handle->reg_input == 0 || handle->reg_output == 0 ||
       handle->reg_beta == 0  || handle->reg_gamma == 0  ||
-      handle->expvalue == 0  || handle->stddev             ) {
+      handle->expvalue == 0  || handle->stddev == 0        ) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
   }
