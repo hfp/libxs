@@ -1701,9 +1701,9 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
           flux_entry.pmm = 0;
           diff = 0;
         }
-      }
-      if (LIBXS_KERNEL_KIND_MATMUL == descriptor->iflags) {
-        internal_update_mmstatistic(descriptor, 1/*try*/, 0);
+        if (LIBXS_KERNEL_KIND_MATMUL == descriptor->iflags) {
+          internal_update_mmstatistic(descriptor, 1/*try*/, 0);
+        }
       }
     }
 #if defined(LIBXS_CAPACITY_CACHE) && (0 < (LIBXS_CAPACITY_CACHE))
