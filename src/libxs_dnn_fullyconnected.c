@@ -518,6 +518,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_release_tensor(libxs_dnn_full
 LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  LIBXS_UNUSED( start_thread );
+  LIBXS_UNUSED( tid );
 
   if (0 != handle) {
     switch (kind) {
