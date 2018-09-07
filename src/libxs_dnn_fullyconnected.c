@@ -522,6 +522,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullycon
   LIBXS_UNUSED( tid );
 
   if (0 != handle) {
+    LIBXS_UNUSED(kind);
     /*switch (kind)*/ {
 #if 0
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
