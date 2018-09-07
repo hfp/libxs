@@ -78,7 +78,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
       /* create barrier */
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
       /* calculate scratch size for batchstats */
-      handle->scratch_size = (sizeof(float) * (handle->desc.C + handle->desc.K) * handle->desc.N);
+      handle->scratch_size = (sizeof(float) * ((size_t)handle->desc.C + handle->desc.K) * handle->desc.N);
     } else {
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     }
@@ -522,7 +522,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullycon
   LIBXS_UNUSED( tid );
 
   if (0 != handle) {
-    switch (kind) {
+    /*switch (kind)*/ {
 #if 0
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
         if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
@@ -546,7 +546,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullycon
         }
       } break;
 #endif
-      default: {
+      /*default:*/ {
         status = LIBXS_DNN_ERR_INVALID_KIND;
       }
     }
