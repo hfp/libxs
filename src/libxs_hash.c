@@ -294,22 +294,23 @@ LIBXS_HASH_API_DEFINITION void libxs_hash_init(int target_arch)
   else
 # endif
 #endif
+#if (LIBXS_X86_SSE4 > LIBXS_STATIC_TARGET_ARCH)
   {
+# if !defined(LIBXS_INTRINSICS_SSE4)
+    static int error_once = 0;
+    if (0 == error_once && 0 != libxs_verbosity) { /* library code is expected to be mute */
+      fprintf(stderr, "LIBXS WARNING: unable to access CRC32 instructions due to the compiler used!\n");
+      error_once = 1; /* no need for atomics */
+    }
+# endif
     internal_hash_u32_function = libxs_crc32_u32_sw;
     internal_hash_u64_function = libxs_crc32_u64_sw;
     internal_hash_function = libxs_crc32_sw;
   }
+#endif
   LIBXS_ASSERT(0 != internal_hash_u32_function);
   LIBXS_ASSERT(0 != internal_hash_u64_function);
   LIBXS_ASSERT(0 != internal_hash_function);
-#if !defined(LIBXS_INTRINSICS_SSE4)
-  { static int error_once = 0;
-    if (0 == error_once && 0 != libxs_verbosity) { /* library code is expected to be mute */
-      fprintf(stderr, "LIBXS WARNING: unable to access CRC32 instructions due to the compiler used!\n");
-      error_once = 1; /* no need for atom*/
-    }
-  }
-#endif
 }
 
 
