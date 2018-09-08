@@ -234,7 +234,7 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
   LIBXS_ASSERT(size <= stride);
   for (i = hint; i < end; ++i) {
     const unsigned int j = (i % n); /* wrap around index */
-    if (0 == libxs_diff(a, (const char*)bn + j * stride, size)) {
+    if (0 == libxs_diff(a, (const char*)bn + (size_t)j * stride, size)) {
       return j;
     }
   }
@@ -253,7 +253,7 @@ LIBXS_API unsigned int libxs_diff_npot(const void* a, const void* bn, unsigned c
 #endif
   for (i = hint; i < end; ++i) {
     const unsigned int j = LIBXS_MOD2(i, n); /* wrap around index */
-    if (0 == libxs_diff(a, (const char*)bn + j * stride, size)) {
+    if (0 == libxs_diff(a, (const char*)bn + (size_t)j * stride, size)) {
       return j;
     }
   }
