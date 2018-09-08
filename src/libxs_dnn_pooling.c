@@ -38,7 +38,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
-
+#include <math.h>
 
 LIBXS_API libxs_dnn_pooling* libxs_dnn_create_pooling(libxs_dnn_pooling_desc pooling_desc, libxs_dnn_err_t* status) {
   libxs_dnn_pooling* handle = 0;
@@ -73,8 +73,8 @@ LIBXS_API libxs_dnn_pooling* libxs_dnn_create_pooling(libxs_dnn_pooling_desc poo
         handle->blocksofm_lp = handle->blocksofm;
       }
       /* setting ofh and ofw */
-      handle->ofh = (handle->desc.H + 2 * handle->desc.pad_h - handle->desc.R) / handle->desc.u + 1;
-      handle->ofw = (handle->desc.W + 2 * handle->desc.pad_w - handle->desc.S) / handle->desc.v + 1;
+      handle->ofh = ceil((float)(handle->desc.H + 2 * handle->desc.pad_h - handle->desc.R) / handle->desc.u) + 1;
+      handle->ofw = ceil((float)(handle->desc.W + 2 * handle->desc.pad_w - handle->desc.S) / handle->desc.v) + 1;
       /* create barrier */
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
       /* calculate scratch size for local pooling copies of one feature map block per thread */

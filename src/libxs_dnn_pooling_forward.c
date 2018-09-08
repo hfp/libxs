@@ -94,7 +94,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_fwd_custom(libxs_dnn_pooli
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check if we have input, output and mask */
-  if ( handle->grad_input == 0 || handle->grad_output == 0 ||
+  if ( handle->reg_input == 0 || handle->reg_output == 0 ||
        ( (handle->mask == 0) && (handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX) ) ) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
