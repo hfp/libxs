@@ -54,14 +54,16 @@
   const signed char libxs_math_diff_n_ = (signed char)LIBXS_MIN(NBYTES, 120); \
   const unsigned char* libxs_math_diff_au_ = (const unsigned char*)(A); \
   const unsigned char* libxs_math_diff_bu_ = (const unsigned char*)(B); \
+  union { unsigned long long u; unsigned int hi, lo; } libxs_math_diff_result_ = { 0 }; \
   unsigned char libxs_math_diff_r_, libxs_math_diff_u_; \
   signed char libxs_math_diff_i_; \
-  RESULT = 0; \
   for (libxs_math_diff_i_ = 0; libxs_math_diff_i_ < (libxs_math_diff_n_ - 7); libxs_math_diff_i_ += 8) { \
     const unsigned long long *const libxs_math_diff_ai_ = (const unsigned long long*)(libxs_math_diff_au_ + libxs_math_diff_i_); \
     const unsigned long long *const libxs_math_diff_bi_ = (const unsigned long long*)(libxs_math_diff_bu_ + libxs_math_diff_i_); \
-    LIBXS_MATH_DIFF_KERNEL(RESULT, *libxs_math_diff_ai_, *libxs_math_diff_bi_); \
+    LIBXS_MATH_DIFF_KERNEL(libxs_math_diff_result_.u, *libxs_math_diff_ai_, *libxs_math_diff_bi_); \
   } \
+  RESULT = 0; \
+  LIBXS_MATH_DIFF_KERNEL(RESULT, libxs_math_diff_result_.hi, libxs_math_diff_result_.lo); \
   libxs_math_diff_au_ += libxs_math_diff_i_; \
   libxs_math_diff_bu_ += libxs_math_diff_i_; \
   libxs_math_diff_r_ = (unsigned char)((NBYTES) - libxs_math_diff_i_); \
