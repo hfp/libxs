@@ -73,13 +73,13 @@ LIBXS_API libxs_dnn_pooling* libxs_dnn_create_pooling(libxs_dnn_pooling_desc poo
         handle->blocksofm_lp = handle->blocksofm;
       }
       /* setting ofh and ofw */
-      handle->ofh = ceil((float)(handle->desc.H + 2 * handle->desc.pad_h - handle->desc.R) / handle->desc.u) + 1;
-      handle->ofw = ceil((float)(handle->desc.W + 2 * handle->desc.pad_w - handle->desc.S) / handle->desc.v) + 1;
+      handle->ofh = (int)ceil((float)(handle->desc.H + 2 * handle->desc.pad_h - handle->desc.R) / handle->desc.u) + 1;
+      handle->ofw = (int)ceil((float)(handle->desc.W + 2 * handle->desc.pad_w - handle->desc.S) / handle->desc.v) + 1;
       /* create barrier */
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
       /* calculate scratch size for local pooling copies of one feature map block per thread */
-      handle->scratch_size = (sizeof(float) * ( handle->desc.H + 2*LIBXS_MAX(handle->desc.pad_h_in, handle->desc.pad_h_out ) )
-                                            * ( handle->desc.W + 2*LIBXS_MAX(handle->desc.pad_w_in, handle->desc.pad_w_out ) )
+      handle->scratch_size = (sizeof(float) * ( (size_t)handle->desc.H + (size_t)LIBXS_MAX(handle->desc.pad_h_in, handle->desc.pad_h_out)*2 )
+                                            * ( (size_t)handle->desc.W + (size_t)LIBXS_MAX(handle->desc.pad_w_in, handle->desc.pad_w_out)*2 )
                                             * LIBXS_MAX( handle->ofmblock, handle->ifmblock )
                                             * handle->desc.threads );
     } else {
