@@ -60,7 +60,7 @@
   for (libxs_math_diff_i_ = 0; libxs_math_diff_i_ < (libxs_math_diff_n_ - 7); libxs_math_diff_i_ += 8) { \
     const unsigned long long *const libxs_math_diff_ai_ = (const unsigned long long*)(libxs_math_diff_au_ + libxs_math_diff_i_); \
     const unsigned long long *const libxs_math_diff_bi_ = (const unsigned long long*)(libxs_math_diff_bu_ + libxs_math_diff_i_); \
-    LIBXS_MATH_DIFF_KERNEL(RESULT, libxs_math_diff_ai_[libxs_math_diff_i_], libxs_math_diff_bi_[libxs_math_diff_i_]); \
+    LIBXS_MATH_DIFF_KERNEL(RESULT, *libxs_math_diff_ai_, *libxs_math_diff_bi_); \
   } \
   libxs_math_diff_au_ += libxs_math_diff_i_; \
   libxs_math_diff_bu_ += libxs_math_diff_i_; \
@@ -231,6 +231,7 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
 {
   const unsigned int end = hint + n;
   unsigned int i;
+  LIBXS_ASSERT(size <= stride);
   for (i = hint; i < end; ++i) {
     const unsigned int j = (i % n); /* wrap around index */
     if (0 == libxs_diff(a, (const char*)bn + j * stride, size)) {
@@ -245,11 +246,11 @@ LIBXS_API unsigned int libxs_diff_npot(const void* a, const void* bn, unsigned c
   unsigned char stride, unsigned int hint, unsigned int n)
 {
   const unsigned int end = hint + n;
+  unsigned int i;
 #if !defined(NDEBUG)
   const unsigned int npot = LIBXS_UP2POT(n);
-  assert(n == npot); /* !LIBXS_ASSERT */
+  assert(size <= stride && n == npot); /* !LIBXS_ASSERT */
 #endif
-  unsigned int i;
   for (i = hint; i < end; ++i) {
     const unsigned int j = LIBXS_MOD2(i, n); /* wrap around index */
     if (0 == libxs_diff(a, (const char*)bn + j * stride, size)) {
