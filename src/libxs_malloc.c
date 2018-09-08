@@ -1096,7 +1096,7 @@ LIBXS_API_INLINE const void* internal_malloc_site(const char* site)
   if (NULL != site) {
 #if !defined(LIBXS_STRING_POOLING)
     if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != site) {
-      const uintptr_t hash = libxs_hash(site, strlen(site), LIBXS_MALLOC_SEED);
+      const uintptr_t hash = libxs_crc32(site, strlen(site), LIBXS_MALLOC_SEED);
       result = (const void*)((LIBXS_MALLOC_SCRATCH_INTERNAL_SITE) != hash ? hash : (hash - 1));
       assert((LIBXS_MALLOC_SCRATCH_INTERNAL) != result);
     }
@@ -1464,34 +1464,3 @@ LIBXS_API size_t libxs_get_scratch_limit(void)
   return libxs_scratch_limit;
 }
 
-
-LIBXS_API unsigned int libxs_hash(const void* data, size_t size, unsigned int seed)
-{
-  LIBXS_INIT
-  return libxs_crc32(data, size, seed);
-}
-
-
-#if defined(LIBXS_BUILD)
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* /*data*/, const int* /*size*/, const int* /*seed*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* data, const int* size, const int* seed)
-{
-#if !defined(NDEBUG)
-  static int error_once = 0;
-  if (NULL != hash && NULL != data && NULL != size && NULL != seed)
-#endif
-  {
-    *hash = (libxs_hash(data, *size, *seed) & 0x7FFFFFFF);
-  }
-#if !defined(NDEBUG)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_hash specified!\n");
-  }
-#endif
-}
-
-#endif /*defined(LIBXS_BUILD)*/

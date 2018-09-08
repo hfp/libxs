@@ -29,7 +29,7 @@
 
 #include <libxs_math.h>
 #include <libxs_mhd.h>
-#include "libxs_main.h"
+#include "libxs_hash.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -45,6 +45,30 @@
 
 #if !defined(LIBXS_MATH_MAXPRODUCT)
 # define LIBXS_MATH_MAXPRODUCT 1024
+#endif
+#if !defined(LIBXS_MATH_MEMCMP) && 0
+# define LIBXS_MATH_MEMCMP
+#else
+# define LIBXS_MATH_DIFF_KERNEL(RESULT, A, B) (RESULT |= (A) ^ (B))
+# define LIBXS_MATH_DIFF(RESULT, A, B, NBYTES) { \
+  const signed char libxs_math_diff_n_ = (signed char)LIBXS_MIN(NBYTES, 120); \
+  const unsigned char* libxs_math_diff_au_ = (const unsigned char*)(A); \
+  const unsigned char* libxs_math_diff_bu_ = (const unsigned char*)(B); \
+  unsigned char libxs_math_diff_r_, libxs_math_diff_u_; \
+  signed char libxs_math_diff_i_; \
+  RESULT = 0; \
+  for (libxs_math_diff_i_ = 0; libxs_math_diff_i_ < (libxs_math_diff_n_ - 7); libxs_math_diff_i_ += 8) { \
+    const unsigned long long *const libxs_math_diff_ai_ = (const unsigned long long*)(libxs_math_diff_au_ + libxs_math_diff_i_); \
+    const unsigned long long *const libxs_math_diff_bi_ = (const unsigned long long*)(libxs_math_diff_bu_ + libxs_math_diff_i_); \
+    LIBXS_MATH_DIFF_KERNEL(RESULT, libxs_math_diff_ai_[libxs_math_diff_i_], libxs_math_diff_bi_[libxs_math_diff_i_]); \
+  } \
+  libxs_math_diff_au_ += libxs_math_diff_i_; \
+  libxs_math_diff_bu_ += libxs_math_diff_i_; \
+  libxs_math_diff_r_ = (unsigned char)((NBYTES) - libxs_math_diff_i_); \
+  for (libxs_math_diff_u_ = 0; libxs_math_diff_u_ < libxs_math_diff_r_; ++libxs_math_diff_u_) { \
+    LIBXS_MATH_DIFF_KERNEL(RESULT, libxs_math_diff_au_[libxs_math_diff_u_], libxs_math_diff_bu_[libxs_math_diff_u_]); \
+  } \
+}
 #endif
 
 
@@ -159,6 +183,87 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
     output->l1_ref = input->l1_ref;
     output->l1_tst = input->l1_tst;
   }
+}
+
+
+#if !defined(LIBXS_MATH_MEMCMP) && (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
+LIBXS_API_INTERN unsigned int libxs_diff_sse3(const void* a, const void* b, unsigned char size);
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE3)
+unsigned int libxs_diff_sse3(const void* a, const void* b, unsigned char size)
+{
+  unsigned int result;
+  LIBXS_MATH_DIFF(result, a, b, size);
+  return result;
+}
+#endif
+
+
+#if !defined(LIBXS_MATH_MEMCMP) && (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)
+LIBXS_API_INTERN unsigned int libxs_diff_avx(const void* a, const void* b, unsigned char size);
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX)
+unsigned int libxs_diff_avx(const void* a, const void* b, unsigned char size)
+{
+  unsigned int result;
+  LIBXS_MATH_DIFF(result, a, b, size);
+  return result;
+}
+#endif
+
+
+LIBXS_API unsigned int libxs_diff(const void* a, const void* b, unsigned char size)
+{
+#if defined(LIBXS_MATH_MEMCMP)
+  return 0 != memcmp(a, b, size);
+#elif (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH)
+  return libxs_diff_avx(a, b, size);
+#elif (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
+  return libxs_diff_sse3(a, b, size);
+#else
+  unsigned int result;
+  LIBXS_MATH_DIFF(result, a, b, size);
+  return result;
+#endif
+}
+
+
+LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char size,
+  unsigned char stride, unsigned int hint, unsigned int n)
+{
+  const unsigned int end = hint + n;
+  unsigned int i;
+  for (i = hint; i < end; ++i) {
+    const unsigned int j = (i % n); /* wrap around index */
+    if (0 == libxs_diff(a, (const char*)bn + j * stride, size)) {
+      return j;
+    }
+  }
+  return n;
+}
+
+
+LIBXS_API unsigned int libxs_diff_npot(const void* a, const void* bn, unsigned char size,
+  unsigned char stride, unsigned int hint, unsigned int n)
+{
+  const unsigned int end = hint + n;
+#if !defined(NDEBUG)
+  const unsigned int npot = LIBXS_UP2POT(n);
+  assert(n == npot); /* !LIBXS_ASSERT */
+#endif
+  unsigned int i;
+  for (i = hint; i < end; ++i) {
+    const unsigned int j = LIBXS_MOD2(i, n); /* wrap around index */
+    if (0 == libxs_diff(a, (const char*)bn + j * stride, size)) {
+      return j;
+    }
+  }
+  return n;
+}
+
+
+LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed)
+{
+  LIBXS_INIT
+  return libxs_crc32(data, size, seed);
 }
 
 
@@ -574,3 +679,27 @@ LIBXS_API double libxs_rand_f64(void)
 #endif
 }
 
+
+#if defined(LIBXS_BUILD)
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* /*data*/, const int* /*size*/, const int* /*seed*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* data, const int* size, const int* seed)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != hash && NULL != data && NULL != size && NULL != seed)
+#endif
+  {
+    *hash = (libxs_hash(data, *size, *seed) & 0x7FFFFFFF);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_hash specified!\n");
+  }
+#endif
+}
+
+#endif /*defined(LIBXS_BUILD)*/

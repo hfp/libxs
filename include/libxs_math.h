@@ -55,6 +55,23 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
 
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input);
 
+/** Calculate whether there is a difference between two (short) buffers. */
+LIBXS_API unsigned int libxs_diff(const void* a, const void* b, unsigned char size);
+
+/**
+ * Calculate whether there is a difference between two series of items.
+ * Returns the index of the first match (or "n" in case of no match).
+ */
+LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char size,
+  unsigned char stride, unsigned int hint, unsigned int n);
+
+/** Similar to libxs_diff_n but expects n to be power of two. */
+LIBXS_API unsigned int libxs_diff_npot(const void* a, const void* bn, unsigned char size,
+  unsigned char stride, unsigned int hint, unsigned int n);
+
+/** Calculate a hash value for a given buffer. */
+LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed);
+
 /** Greatest common divisor. */
 LIBXS_API size_t libxs_gcd(size_t a, size_t b);
 /** Least common multiple. */

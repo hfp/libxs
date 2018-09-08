@@ -153,9 +153,6 @@ LIBXS_API void libxs_set_scratch_limit(size_t nbytes);
 /** Get the maximum size of the scratch memory domain. */
 LIBXS_API size_t libxs_get_scratch_limit(void);
 
-/** Calculate a hash value for a given buffer. */
-LIBXS_API unsigned int libxs_hash(const void* data, size_t size, unsigned int seed);
-
 /**
  * Calculate the linear offset of the n-dimensional (ndims) offset (can be NULL),
  * and the (optional) linear size of the corresponding shape.
