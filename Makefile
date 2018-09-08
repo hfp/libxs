@@ -268,7 +268,7 @@ INDICES ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py -1 $(THRESH
 NINDICES = $(words $(INDICES))
 
 HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
-          $(ROOTDIR)/$(SRCDIR)/libxs_hash.c $(ROOTDIR)/$(SRCDIR)/libxs_gemm_diff.c \
+          $(ROOTDIR)/$(SRCDIR)/libxs_hash.c \
           $(ROOTDIR)/include/libxs_bgemm.h \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \

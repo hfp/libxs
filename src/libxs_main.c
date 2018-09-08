@@ -26,7 +26,6 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include "libxs_gemm_diff.h"
 #include "libxs_trace.h"
 #include "libxs_trans.h"
 #include "libxs_gemm.h"
@@ -478,7 +477,6 @@ LIBXS_API_INLINE void internal_finalize(void)
   /* release scratch memory pool */
   libxs_release_scratch();
   /* release global services */
-  libxs_gemm_diff_finalize();
   libxs_hash_finalize();
 
 #if (0 != LIBXS_SYNC)
@@ -606,7 +604,6 @@ LIBXS_API_INLINE void internal_init(void)
       internal_registry_keys = (libxs_kernel_info*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_kernel_info));
       if (0 != new_registry && 0 != internal_registry_keys) {
         const char *const env = getenv("LIBXS_GEMM_PREFETCH");
-        libxs_gemm_diff_init(libxs_target_archid);
         libxs_trans_init(libxs_target_archid);
         libxs_hash_init(libxs_target_archid);
         libxs_dnn_init(libxs_target_archid);
@@ -1573,7 +1570,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
   unsigned int cache_index;
   assert(0 != descriptor);
   /* search small cache starting with the last hit on record */
-  cache_index = libxs_gemm_diffn(descriptor, &cache.keys, cache.hit, LIBXS_CAPACITY_CACHE, LIBXS_DESCRIPTOR_MAXSIZE);
+  cache_index = libxs_diff_npot(descriptor, &cache.keys, LIBXS_DESCRIPTOR_MAXSIZE, LIBXS_DESCRIPTOR_MAXSIZE, cache.hit, LIBXS_CAPACITY_CACHE);
   if ((LIBXS_CAPACITY_CACHE) > cache_index && cache.id == internal_teardown) { /* cache hit, and valid */
     flux_entry = cache.code[cache_index];
     cache.hit = cache_index;
@@ -1609,7 +1606,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
       LIBXS_LOCK_RELREAD(LIBXS_REG1LOCK, &internal_reglock);
 #endif
       if ((0 != flux_entry.ptr_const || 1 == mode) && 2 > mode) { /* check existing entry further */
-        diff = 0 != flux_entry.ptr_const ? libxs_gemm_diff(descriptor, &internal_registry_keys[i].xgemm) : 1;
+        diff = (NULL != flux_entry.ptr_const ? libxs_diff(descriptor, &internal_registry_keys[i].xgemm, LIBXS_DESCRIPTOR_MAXSIZE) : 1);
         if (0 != diff) { /* search for code version */
           if (0 == mode) { /* transition to higher mode */
             i0 = i; /* keep current position on record */
