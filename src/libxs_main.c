@@ -690,8 +690,6 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
     static int counter = 0, once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&counter, 1, LIBXS_ATOMIC_SEQ_CST)) {
 #endif
-      libxs_timer_tickint s1 = libxs_timer_tick_rtc(), t1 = libxs_timer_tick(); /* warm-up */
-      const libxs_timer_tickint s0 = libxs_timer_tick_rtc(), t0 = libxs_timer_tick();
 #if (0 != LIBXS_SYNC)
       const char *const env_trylock = getenv("LIBXS_TRYLOCK");
       LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK) attr_global;
@@ -726,9 +724,15 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGNLOCK, &attr);
 # endif
 #endif
-      s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick(); /* final timings */
-      if (LIBXS_FEQ(0, libxs_timer_scale) && s0 != s1 && t0 != t1) {
-        libxs_timer_scale = libxs_timer_duration(s0, s1) / (t0 < t1 ? (t1 - t0) : (t0 - t1));
+      { /* calibrate timer */
+        libxs_timer_tickint s0, t0, s1, t1;
+        libxs_timer_tick_rtc(); libxs_timer_tick(); /* warm-up */
+        s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick(); /* start timing */
+        internal_init();
+        s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick(); /* final timing */
+        if (LIBXS_FEQ(0, libxs_timer_scale) && s0 != s1 && t0 != t1) {
+          libxs_timer_scale = libxs_timer_duration(s0, s1) / (t0 < t1 ? (t1 - t0) : (t0 - t1));
+        }
       }
 #if (0 != LIBXS_SYNC)
       once = 1;
