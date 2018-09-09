@@ -85,6 +85,7 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION  100031
 #define LIBXS_DNN_ERR_INVALID_FORMAT_FUSEDBN     100032
 #define LIBXS_DNN_ERR_UNSUPPORTED_POOLING        100033
+#define LIBXS_DNN_ERR_INVALID_FORMAT_FC          100034
 
 /** Kinds of supported compute flavor operations. */
 typedef enum libxs_dnn_compute_kind {

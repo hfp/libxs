@@ -301,7 +301,8 @@ SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_dnn_fusedbatchnorm_backward.c \
           libxs_dnn_pooling.c libxs_dnn_pooling_forward.c \
           libxs_dnn_pooling_backward.c libxs_dnn_convolution_forward.c \
-          libxs_dnn_fullyconnected.c \
+          libxs_dnn_fullyconnected.c libxs_dnn_fullyconnected_forward.c \
+          libxs_dnn_fullyconnected_backward.c libxs_dnn_fullyconnected_weight_update.c \
           libxs_dnn_convolution_backward.c \
           libxs_dnn_convolution_weight_update.c \
           libxs_dnn_convolution_winograd_forward.c \

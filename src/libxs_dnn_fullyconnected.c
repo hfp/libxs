@@ -26,11 +26,9 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#if 0
 #include "libxs_dnn_fullyconnected_weight_update.h"
 #include "libxs_dnn_fullyconnected_backward.h"
 #include "libxs_dnn_fullyconnected_forward.h"
-#endif
 #include "libxs_dnn_setup.h"
 #include "libxs_main.h"
 
@@ -58,27 +56,28 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
       /* let's make the description persistent */
       handle->desc = fullyconnected_desc;
       /* we need to compute the memory layout given the */
-      *status = libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.C,
+      *status = libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.K,
                                                     &(handle->ifmblock), &(handle->ifmblock_hp),
                                                     &(handle->ofmblock), &(handle->ofmblock_lp),
                                                     &(handle->fm_lp_block), handle->desc.datatype_in, handle->desc.datatype_out, &noarch );
       /* compute the outer blocks */
       if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
         handle->blocksifm = handle->desc.C / handle->ifmblock_hp;
-        handle->blocksofm = handle->desc.C / handle->ofmblock;
+        handle->blocksofm = handle->desc.K / handle->ofmblock;
         handle->blocksifm_lp = handle->desc.C / handle->ifmblock_hp;
-        handle->blocksofm_lp = handle->desc.C / handle->ofmblock;
+        handle->blocksofm_lp = handle->desc.K / handle->ofmblock;
       } else {
         /* this is FP32 */
         handle->blocksifm = handle->desc.C / handle->ifmblock;
-        handle->blocksofm = handle->desc.C / handle->ofmblock;
+        handle->blocksofm = handle->desc.K / handle->ofmblock;
         handle->blocksifm_lp = handle->blocksifm;
         handle->blocksofm_lp = handle->blocksofm;
       }
       /* create barrier */
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
       /* calculate scratch size for batchstats */
-      handle->scratch_size = (sizeof(float) * ((size_t)handle->desc.C + handle->desc.K) * handle->desc.N);
+      handle->scratch_size = sizeof(float) * LIBXS_MAX( ((size_t)handle->desc.C + (size_t)handle->desc.K) * (size_t)handle->desc.N, 
+                                                           (size_t)handle->desc.C * (size_t)handle->desc.K                            ) ;
     } else {
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     }
@@ -522,32 +521,29 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullycon
   LIBXS_UNUSED( tid );
 
   if (0 != handle) {
-    LIBXS_UNUSED(kind);
-    /*switch (kind)*/ {
-#if 0
+    switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
         if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
           status = libxs_dnn_fullyconnected_st_fwd_custom( handle, start_thread, tid );
         } else {
-          status = LIBXS_DNN_ERR_INVALID_FORMAT;
+          status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
         }
       } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD: {
         if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
           status = libxs_dnn_fullyconnected_st_bwd_custom( handle, start_thread, tid );
         } else {
-          status = LIBXS_DNN_ERR_INVALID_FORMAT;
+          status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
         }
       } break;
       case LIBXS_DNN_COMPUTE_KIND_UPD: {
         if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
           status = libxs_dnn_fullyconnected_st_upd_custom( handle, start_thread, tid );
         } else {
-          status = LIBXS_DNN_ERR_INVALID_FORMAT;
+          status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
         }
       } break;
-#endif
-      /*default:*/ {
+      default: {
         status = LIBXS_DNN_ERR_INVALID_KIND;
       }
     }
