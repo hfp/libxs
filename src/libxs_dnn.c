@@ -137,6 +137,8 @@ LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: Unsupported format when requesting a fused batch norm!";
     case LIBXS_DNN_ERR_UNSUPPORTED_POOLING:
       return "LIBXS DNN Error: Unsupported pooling operations was requested!";
+    case LIBXS_DNN_ERR_INVALID_FORMAT_FC:
+      return "LIBXS DNN Error: Unsupported format when requesting a fullyconnected layer!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occurred!";
   }
