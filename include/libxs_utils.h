@@ -62,7 +62,7 @@
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
    && (!defined(__GNUC__)  || defined(__clang__) || defined(__INTEL_COMPILER) || defined(_CRAYC) \
                            || (LIBXS_VERSION3(5, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))) \
-   && (!defined(__clang__) || (LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
+   && (!defined(__clang__) || (LIBXS_VERSION3(4, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
                            || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))) \
    && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(8, 1, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_ICL
@@ -72,7 +72,7 @@
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
    && (!defined(__GNUC__)  || defined(__clang__) || defined(__INTEL_COMPILER) || defined(_CRAYC) \
                            || (LIBXS_VERSION3(5, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))) \
-   && (!defined(__clang__) || (LIBXS_VERSION3(3, 9, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
+   && (!defined(__clang__) || (LIBXS_VERSION3(4, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
                            || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))) \
    && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(8, 1, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
@@ -82,7 +82,7 @@
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
    && (!defined(__GNUC__)  || defined(__clang__) || defined(__INTEL_COMPILER) || defined(_CRAYC) \
                            || (LIBXS_VERSION3(5, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))) \
-   && (!defined(__clang__) || (LIBXS_VERSION3(3, 5, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
+   && (!defined(__clang__) || (LIBXS_VERSION3(4, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
                            || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))) \
    && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(8, 1, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
@@ -91,7 +91,7 @@
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
    && (!defined(__GNUC__)  || defined(__clang__) || defined(__INTEL_COMPILER) || defined(_CRAYC) \
                            || (LIBXS_VERSION3(5, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))) \
-   && (!defined(__clang__) || (LIBXS_VERSION3(3, 5, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
+   && (!defined(__clang__) || (LIBXS_VERSION3(4, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
                            || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))) \
    && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(8, 1, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 #   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512
