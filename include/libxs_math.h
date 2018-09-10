@@ -55,7 +55,10 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
 
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input);
 
-/** Calculate whether there is a difference between two (short) buffers. */
+/**
+ * Calculate whether there is a difference between two (short) buffers.
+ * Returns zero if there is no difference; otherwise non-zero.
+ */
 LIBXS_API unsigned int libxs_diff(const void* a, const void* b, unsigned char size);
 
 /**
