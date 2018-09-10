@@ -43,7 +43,8 @@
 
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32(libxs_dnn_pooling* handle, int start_thread, int tid);
-/*LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16(libxs_dnn_pooling* handle, int start_thread, int tid);*/
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16(libxs_dnn_pooling* handle, int start_thread, int tid);
+
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32(libxs_dnn_pooling* handle, int start_thread, int tid)
@@ -73,20 +74,34 @@ libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32(libxs_dnn_pooling* handl
 }
 
 
-#if 0
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16(libxs_dnn_pooling* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  /* @TODO */
+  typedef libxs_bfloat16 element_input_type;
+  typedef libxs_bfloat16 element_output_type;
+
+# define LIBXS_DNN_POOLING_BWD_BF16
+  if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX ) {
+# define LIBXS_DNN_POOLING_BWD_MAX
+    typedef int   element_mask_type;
+# include "template/libxs_dnn_pooling_st_bwd_custom_generic.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_MAX
+  } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
+# define LIBXS_DNN_POOLING_BWD_AVG
+# include "template/libxs_dnn_pooling_st_bwd_custom_generic.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_AVG
+  } else {
+    status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
+  }
+# undef LIBXS_DNN_POOLING_BWD_BF16
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
-  return status;
+  return status;;
 }
-#endif
 
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom(libxs_dnn_pooling* handle, int start_thread, int tid)
@@ -106,7 +121,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom(libxs_dnn_pooli
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_pooling_st_bwd_custom_f32_f32( handle, start_thread, tid);
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
-      /* @TODO */
+      status = libxs_dnn_pooling_st_bwd_custom_bf16_bf16( handle, start_thread, tid);
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -129,7 +144,23 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom(libxs_dnn_pooli
         status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
       }
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
-      /*status = libxs_dnn_pooling_st_bwd_custom_bf16_bf16( handle, start_thread, tid);*/
+      typedef libxs_bfloat16 element_input_type;
+      typedef libxs_bfloat16 element_output_type;
+
+# define LIBXS_DNN_POOLING_BWD_BF16
+      if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX ) {
+# define LIBXS_DNN_POOLING_BWD_MAX
+        typedef int   element_mask_type;
+# include "template/libxs_dnn_pooling_st_bwd_custom_generic.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_MAX
+      } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
+# define LIBXS_DNN_POOLING_BWD_AVG
+# include "template/libxs_dnn_pooling_st_bwd_custom_generic.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_AVG
+      } else {
+        status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
+      }
+# undef LIBXS_DNN_POOLING_BWD_BF16
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
