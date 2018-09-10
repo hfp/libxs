@@ -458,7 +458,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
 
   int *n_entries_fwd;
   int **compute_fwd_indices_ptrs;
-  int **bn_indices_ptrs;
+  int **bn_stats_indices_ptrs;
   char **kernel_fwd_variant_ptrs;
   int block_fwd_oj;
   int block_fwd_oi;
