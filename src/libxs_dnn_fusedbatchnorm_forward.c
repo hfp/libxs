@@ -92,7 +92,7 @@ libxs_dnn_err_t libxs_dnn_fusedbn_st_fwd_custom_bf16_bf16(libxs_dnn_fusedbn* han
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   typedef libxs_bfloat16 element_input_type;
   typedef libxs_bfloat16 element_output_type;
-  typedef libxs_bfloat16 element_stats_type;
+  typedef float element_stats_type;
 
 # define LIBXS_DNN_FUSEDBN_FWD_BF16
   if ( handle->desc.fuse_order != LIBXS_DNN_FUSEDBN_ORDER_BN_ELTWISE_RELU ) {
@@ -194,7 +194,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbn_st_fwd_custom(libxs_dnn_fused
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
       typedef libxs_bfloat16 element_input_type;
       typedef libxs_bfloat16 element_output_type;
-      typedef libxs_bfloat16 element_stats_type;
+      typedef float element_stats_type;
 
 # define LIBXS_DNN_FUSEDBN_FWD_BF16
       if ( handle->desc.fuse_order != LIBXS_DNN_FUSEDBN_ORDER_BN_ELTWISE_RELU ) {
