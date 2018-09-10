@@ -57,8 +57,10 @@ LIBXS_INLINE void unique(triplet* mnk, int* size)
     for (i = mnk + 1; mnk < last; ++mnk, i = mnk + 1) {
       while (i <= last) {
         if (i->m != mnk->m || i->n != mnk->n || i->k != mnk->k) {
-          i++; /* skip */        }
-        else { /* copy */          *i = *last--;
+          i++; /* skip */
+        }
+        else { /* copy */
+          *i = *last--;
         }
       }
     }
