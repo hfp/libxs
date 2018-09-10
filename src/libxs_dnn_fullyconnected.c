@@ -68,31 +68,29 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
         handle->fm_lp_block = 1;
         handle->ofmblock = 10;
         handle->ofmblock_lp = 10;
-
-        /* compute the outer blocks */
-        if ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) {
-          handle->blocksifm = handle->desc.C / handle->ifmblock_hp;
-          handle->blocksofm = handle->desc.K / handle->ofmblock;
-          handle->blocksifm_lp = handle->desc.C / handle->ifmblock_hp;
-          handle->blocksofm_lp = handle->desc.K / handle->ofmblock;
-        } else {
-          /* this is FP32 */
-          handle->blocksifm = handle->desc.C / handle->ifmblock;
-          handle->blocksofm = handle->desc.K / handle->ofmblock;
-          handle->blocksifm_lp = handle->blocksifm;
-          handle->blocksofm_lp = handle->blocksofm;
-        }
-
-        /* create barrier */
-        handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
-        /* calculate scratch size for batchstats */
-        handle->scratch_size = sizeof(float) * LIBXS_MAX(((size_t)handle->desc.C + (size_t)handle->desc.K) * (size_t)handle->desc.N,
-          (size_t)handle->desc.C * (size_t)handle->desc.K);
       } else {
         *status = LIBXS_DNN_ERR_CREATE_HANDLE;
         free( handle );
-        handle = NULL;
+        return 0;
       }
+      /* compute the outer blocks */
+      if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
+        handle->blocksifm = handle->desc.C / handle->ifmblock_hp;
+        handle->blocksofm = handle->desc.K / handle->ofmblock;
+        handle->blocksifm_lp = handle->desc.C / handle->ifmblock_hp;
+        handle->blocksofm_lp = handle->desc.K / handle->ofmblock;
+      } else {
+        /* this is FP32 */
+        handle->blocksifm = handle->desc.C / handle->ifmblock;
+        handle->blocksofm = handle->desc.K / handle->ofmblock;
+        handle->blocksifm_lp = handle->blocksifm;
+        handle->blocksofm_lp = handle->blocksofm;
+      }
+      /* create barrier */
+      handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
+      /* calculate scratch size for batchstats */
+      handle->scratch_size = sizeof(float) * LIBXS_MAX( ((size_t)handle->desc.C + (size_t)handle->desc.K) * (size_t)handle->desc.N,
+                                                           (size_t)handle->desc.C * (size_t)handle->desc.K                            ) ;
     } else {
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     }
