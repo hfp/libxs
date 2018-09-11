@@ -121,18 +121,18 @@ LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blas
     if (EXIT_SUCCESS == result) {
       const char *const env = getenv("LIBXS_DUMP");
       if (0 != env && 0 != *env && (('0' < *env && '9' >= *env) || '0' != *env)) {
-        const char *const basename = ('0' < *env && '9' >= *env) ? "libxs_dump" : env;
+        const char *const defaultname = ('0' < *env && '9' >= *env) ? "libxs_dump" : env;
         const libxs_mhd_elemtype type_src = (libxs_mhd_elemtype)datatype;
         const libxs_mhd_elemtype type_dst = LIBXS_MAX(LIBXS_MHD_ELEMTYPE_U8, type_src);
         char filename[256];
         size_t size[2], pr[2]; size[0] = mm; size[1] = nn; pr[0] = ldr; pr[1] = nn;
-        LIBXS_SNPRINTF(filename, sizeof(filename), "%s-ref%p.mhd", basename, ref);
+        LIBXS_SNPRINTF(filename, sizeof(filename), "%s-ref%p.mhd", defaultname, ref);
         libxs_mhd_write(filename, NULL/*offset*/, size, pr, 2/*ndims*/, 1/*ncomponents*/,
           type_src, &type_dst, ref, NULL/*header_size*/, NULL/*extension_header*/,
           NULL/*extension*/, 0/*extension_size*/);
         if (NULL != tst) {
           size_t pt[2]; pt[0] = ldt; pt[1] = nn;
-          LIBXS_SNPRINTF(filename, sizeof(filename), "%s-tst%p.mhd", basename, tst);
+          LIBXS_SNPRINTF(filename, sizeof(filename), "%s-tst%p.mhd", defaultname, tst);
           libxs_mhd_write(filename, NULL/*offset*/, size, pt, 2/*ndims*/, 1/*ncomponents*/,
             type_src, &type_dst, tst, NULL/*header_size*/, NULL/*extension_header*/,
             NULL/*extension*/, 0/*extension_size*/);
