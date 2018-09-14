@@ -58,19 +58,19 @@ libxs_dnn_err_t libxs_dnn_fusedbn_st_bwd_custom_f32_f32(libxs_dnn_fusedbn* handl
     status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_ORDER;
   } else {
     if ( (handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE) || (handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BN) ) {
-# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_f32_bf16_c16_avx512.tpl.c"
     } else if ( (handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE) || (handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BN_ELTWISE) ) {
 # define LIBXS_DNN_FUSEDBN_BWD_ENABLE_ELTWISE
-# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_f32_bf16_c16_avx512.tpl.c"
 # undef LIBXS_DNN_FUSEDBN_BWD_ENABLE_ELTWISE
     } else if ( (handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_RELU) || (handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BN_RELU) ) {
 # define LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
-# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_f32_bf16_c16_avx512.tpl.c"
 # undef LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
     } else if ( (handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE_RELU) || (handle->desc.fuse_ops == LIBXS_DNN_FUSEDBN_OPS_BN_ELTWISE_RELU) ) {
 # define LIBXS_DNN_FUSEDBN_BWD_ENABLE_ELTWISE
 # define LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
-# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_generic.tpl.c"
+# include "template/libxs_dnn_fusedbatchnorm_st_bwd_custom_f32_bf16_c16_avx512.tpl.c"
 # undef LIBXS_DNN_FUSEDBN_BWD_ENABLE_RELU
 # undef LIBXS_DNN_FUSEDBN_bWD_ENABLE_ELTWISE
     } else {
@@ -159,8 +159,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbn_st_bwd_custom(libxs_dnn_fused
   }
 
   /* check if we are on an AVX512 platform */
-  if ( libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
-       libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL    ) {
+  if ( (libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
+        libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL     ) && 
+       (handle->ofmblock == 16) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fusedbn_st_bwd_custom_f32_f32( handle, start_thread, tid );
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
