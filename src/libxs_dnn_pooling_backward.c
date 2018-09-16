@@ -57,11 +57,11 @@ libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32(libxs_dnn_pooling* handl
   if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX ) {
 # define LIBXS_DNN_POOLING_BWD_MAX
     typedef int   element_mask_type;
-# include "template/libxs_dnn_pooling_st_bwd_custom_generic.tpl.c"
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c16_avx512.tpl.c"
 # undef LIBXS_DNN_POOLING_BWD_MAX
   } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
 # define LIBXS_DNN_POOLING_BWD_AVG
-# include "template/libxs_dnn_pooling_st_bwd_custom_generic.tpl.c"
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c16_avx512.tpl.c"
 # undef LIBXS_DNN_POOLING_BWD_AVG
   } else {
     status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
@@ -86,11 +86,11 @@ libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16(libxs_dnn_pooling* han
   if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX ) {
 # define LIBXS_DNN_POOLING_BWD_MAX
     typedef int   element_mask_type;
-# include "template/libxs_dnn_pooling_st_bwd_custom_generic.tpl.c"
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c16_avx512.tpl.c"
 # undef LIBXS_DNN_POOLING_BWD_MAX
   } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
 # define LIBXS_DNN_POOLING_BWD_AVG
-# include "template/libxs_dnn_pooling_st_bwd_custom_generic.tpl.c"
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c16_avx512.tpl.c"
 # undef LIBXS_DNN_POOLING_BWD_AVG
   } else {
     status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
@@ -116,8 +116,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom(libxs_dnn_pooli
   }
 
   /* check if we are on an AVX512 platform */
-  if ( libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
-       libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL    ) {
+  if ( (libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
+        libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL    ) &&
+       (handle->ofmblock == 16) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_pooling_st_bwd_custom_f32_f32( handle, start_thread, tid);
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
