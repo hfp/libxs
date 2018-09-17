@@ -178,7 +178,7 @@ void scopy_from_temp ( int layout, float *A, int lda, int m, int n, float *Atemp
     }
 }
 
-#if !defined(USE_MKL_FOR_REFERENCE) && !defined(LIBXS_NOFORTRAN)
+#if !defined(USE_MKL_FOR_REFERENCE) && !defined(LIBXS_NOFORTRAN) && (!defined(__BLAS) || (0 != __BLAS))
 extern void dtrsm_();
 
 /* Reference code for compact dtrsm. Note that this just copies data into
@@ -226,7 +226,6 @@ if (++ntimes < 15 ) printf("Doing a dtrsm at place i=%d j=%d num=%d Ap[%d]=%g Bp
     }
 }
 
-#endif /*!defined(USE_MKL_FOR_REFERENCE) && !defined(LIBXS_NOFORTRAN)*/
 extern void strsm_();
 
 /* Reference code for compact strsm. Note that this just copies data into
@@ -260,6 +259,8 @@ void compact_strsm_ ( unsigned int *layout, char *side, char *uplo,
        }
     }
 }
+
+#endif
 
 LIBXS_INLINE
 void dfill_matrix ( double *matrix, unsigned int ld, unsigned int m, unsigned int n )
@@ -739,7 +740,7 @@ int main(int argc, char* argv[])
 
 #ifdef USE_MKL_FOR_REFERENCE
   mkl_dtrsm_compact ( CLAYOUT, SIDE, UPLO, TRANSA, DIAG, m, n, dalpha, da, lda, dc, ldb, CMP_FORMAT, nmatd );
-#elif !defined(LIBXS_NOFORTRAN)
+#elif !defined(LIBXS_NOFORTRAN) && (!defined(__BLAS) || (0 != __BLAS))
   if ( (layout == 101) && (nmatd!=VLEND) )
   {
      unsigned int lay = 102, m1 = n, n1 = m;
