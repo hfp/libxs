@@ -88,28 +88,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
   handle->use_bwd_generic = 1;
   handle->use_upd_generic = 1;
 
-  handle->use_thread_private_jit = 0;
-  /* If we have AVX512 arch consider kernel streams  */
-#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  if (/* If we use any options/fuse ops, keep kernel streams disabled */
-    0 >= (handle->desc.fuse_ops & LIBXS_DNN_CONV_FUSE_BIAS)
-    /* If we do not run on custom/custom format, keep kernel streams disabled */
-    && handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS
-    && handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)
-  {
-# if (LIBXS_X86_AVX512 > LIBXS_STATIC_TARGET_ARCH)
-    if (LIBXS_X86_AVX512 <= libxs_target_archid)
-# endif
-    {
-      handle->use_thread_private_jit = 1;
-    }
-  }
-#endif
-
   /* If we have AVX512 and kernel streams is enabled, then we generate specialized code */
-  if (handle->use_thread_private_jit != 0) {
-    LIBXS_ASSERT(LIBXS_X86_AVX512 <= libxs_target_archid);
-
+  if ( LIBXS_X86_AVX512 <= libxs_target_archid ) {
     /* This is basically a decision pertaining for all three passes: FWD, BWD and UPD */
     /* Initialize fields that control layer fusion */
     noarch = 0;
@@ -126,14 +106,19 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       return status;
     }
 
-    /* Forward path setup */
-    status = libxs_dnn_setup_fwd(handle, &noarch);
+    /* lets check if we actually want to setup kernel streams */
+    if ( ( 0 >= (handle->desc.fuse_ops & LIBXS_DNN_CONV_FUSE_BIAS) )
+         && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)
+         && (handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
+      /* Forward path setup */
+      status = libxs_dnn_setup_fwd(handle, &noarch);
 
-    /* Backward path setup */
-    status = libxs_dnn_setup_bwd(handle, &noarch);
+      /* Backward path setup */
+      status = libxs_dnn_setup_bwd(handle, &noarch);
 
-    /* Weight update path setup */
-    status = libxs_dnn_setup_upd(handle, &noarch);
+      /* Weight update path setup */
+      status = libxs_dnn_setup_upd(handle, &noarch);
+    }
 
     /* Calculate scratch requirements */
     libxs_dnn_setup_scratch(handle);
@@ -1310,4 +1295,100 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_
 
   return status;
 }
+
+
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_free_structs_code_conv_handle( const libxs_dnn_layer* handle ) {
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    /* deallocate data components; not an error to deallocate a NULL-pointer
+       deallocate code known to be not registered; no index attached
+       do not use libxs_release_kernel here! */
+    /* deallocate forward pass */
+    if ( handle->use_fwd_generic == 0 ) {
+      int loop;
+
+      if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
+        libxs_free(handle->code_fwd[0].pmm);
+      }
+      libxs_free(handle->code_fwd[1].pmm);
+      libxs_free(handle->code_fwd[2].pmm);
+
+      for (loop = 0; loop < handle->desc.threads; loop++) {
+        libxs_free( handle->compute_fwd_indices_ptrs[loop] );
+        libxs_free( handle->bn_stats_indices_ptrs[loop] );
+        libxs_free( handle->kernel_fwd_variant_ptrs[loop] );
+        libxs_free( handle->fwd_code_segments[loop] );
+      }
+
+      free( handle->n_entries_fwd );
+      free( handle->compute_fwd_indices_ptrs );
+      free( handle->bn_stats_indices_ptrs );
+      free( handle->kernel_fwd_variant_ptrs );
+      free( handle->n_fwd_code_segments );
+      free( handle->fwd_code_segments );
+      free( handle->ofh_fwd_start );
+      free( handle->ofh_fwd_end );
+    }
+
+    /* deallocate backward pass */
+    if ( handle->use_bwd_generic == 0 ) {
+      int loop;
+
+      if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
+        libxs_free(handle->code_bwd[0].pmm);
+      }
+      libxs_free(handle->code_bwd[1].pmm);
+      libxs_free(handle->code_bwd[2].pmm);
+
+      for (loop = 0; loop < handle->desc.threads; loop++) {
+        libxs_free( handle->compute_bwd_indices_ptrs[loop] );
+        libxs_free( handle->kernel_bwd_variant_ptrs[loop] );
+        libxs_free( handle->bwd_code_segments[loop] );
+        libxs_free( handle->transpose_bwd_indices_ptrs[loop]);
+      }
+
+      free( handle->n_entries_bwd );
+      free( handle->compute_bwd_indices_ptrs );
+      free( handle->kernel_bwd_variant_ptrs );
+      free( handle->n_bwd_code_segments );
+      free( handle->bwd_code_segments );
+      free( handle->n_entries_trans_bwd );
+      free( handle->transpose_bwd_indices_ptrs );
+      free( handle->ofh_bwd_start );
+      free( handle->ofh_bwd_end );
+    }
+
+    /* deallocate update pass */
+    if ( handle->use_upd_generic == 0 ) {
+      int loop;
+
+      if (handle->custom_format_type != LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
+        libxs_free(handle->code_upd[0].pmm);
+      }
+      libxs_free(handle->code_upd[1].pmm);
+
+      for (loop = 0; loop < handle->desc.threads; loop++) {
+        libxs_free( handle->compute_upd_indices_ptrs[loop] );
+        libxs_free( handle->kernel_upd_variant_ptrs[loop] );
+        libxs_free( handle->upd_code_segments[loop] );
+        libxs_free( handle->init_upd_indices_ptrs[loop] );
+        libxs_free( handle->copy_upd_indices_ptrs[loop] );
+      }
+
+      free( handle->n_entries_upd );
+      free( handle->compute_upd_indices_ptrs );
+      free( handle->kernel_upd_variant_ptrs );
+      free( handle->n_upd_code_segments );
+      free( handle->upd_code_segments );
+      free( handle->n_entries_init_upd );
+      free( handle->init_upd_indices_ptrs );
+      free( handle->n_entries_copy_upd );
+      free( handle->copy_upd_indices_ptrs );
+    }
+  }
+
+  return status;
+}
+
 
