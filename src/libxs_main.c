@@ -2394,9 +2394,9 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn,
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
-  const libxs_code_pointer* fn, const void* a, const void* b, void* c);
+  const libxs_xmmfunction* fn, const void* a, const void* b, void* c);
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
-  const libxs_code_pointer* fn, const void* a, const void* b, void* c)
+  const libxs_xmmfunction* fn, const void* a, const void* b, void* c)
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
@@ -2404,10 +2404,10 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
 #endif
   {
 #if !defined(NDEBUG)
-    if (0 != fn->xgemm.xmm)
+    if (0 != fn->xmm)
 #endif
     {
-      fn->xgemm.xmm(a, b, c);
+      fn->xmm(a, b, c);
     }
 #if !defined(NDEBUG)
     else if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -2429,10 +2429,10 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
-  const libxs_code_pointer* fn, const void* a, const void* b, void* c,
+  const libxs_xmmfunction* fn, const void* a, const void* b, void* c,
   const void* pa, const void* pb, const void* pc);
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
-  const libxs_code_pointer* fn, const void* a, const void* b, void* c,
+  const libxs_xmmfunction* fn, const void* a, const void* b, void* c,
   const void* pa, const void* pb, const void* pc)
 {
 #if !defined(NDEBUG)
@@ -2441,10 +2441,10 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
 #endif
   {
 #if !defined(NDEBUG)
-    if (0 != fn->xgemm.xmm)
+    if (0 != fn->xmm)
 #endif
     {
-      fn->xgemm.xmm(a, b, c, pa, pb, pc);
+      fn->xmm(a, b, c, pa, pb, pc);
     }
 #if !defined(NDEBUG)
     else if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -2466,10 +2466,10 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall)(
-  const libxs_code_pointer* fn, const void* a, const void* b, void* c,
+  const libxs_xmmfunction* fn, const void* a, const void* b, void* c,
   const void* pa, const void* pb, const void* pc);
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall)(
-  const libxs_code_pointer* fn, const void* a, const void* b, void* c,
+  const libxs_xmmfunction* fn, const void* a, const void* b, void* c,
   const void* pa, const void* pb, const void* pc)
 {
   LIBXS_FSYMBOL(libxs_xmmcall_prf)(fn, a, b, c, pa, pb, pc);
