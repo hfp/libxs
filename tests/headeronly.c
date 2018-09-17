@@ -50,9 +50,13 @@ int main(void)
   const LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) fb = mmdispatch(m, n, k);
   int result = EXIT_SUCCESS;
 
-  if (fa == fb) {
-    /* test unregistering and freeing kernel */
-    libxs_release_function(fa);
+  if (fa == fb) { /* test unregistering and freeing kernel */
+    union {
+      LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) f;
+      const void* p;
+    } kernel;
+    kernel.f = fa;
+    libxs_release_kernel(kernel.p);
   }
   else {
     result = EXIT_FAILURE;

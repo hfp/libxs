@@ -2266,35 +2266,26 @@ LIBXS_API libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* d
 
 LIBXS_API void libxs_release_kernel(const void* jit_kernel)
 {
-  void* extra = 0;
-  LIBXS_INIT
-  if (EXIT_SUCCESS == libxs_get_malloc_xinfo(jit_kernel, NULL/*size*/, NULL/*flags*/, &extra) && 0 != extra) {
-    const unsigned int regindex = *((const unsigned int*)extra);
-    if ((LIBXS_CAPACITY_REGISTRY) > regindex) { /* unregister kernel */
-      internal_registry[regindex].pmm = NULL;
+  if (NULL != jit_kernel) {
+    void* extra = 0;
+    LIBXS_INIT
+    if (EXIT_SUCCESS == libxs_get_malloc_xinfo(jit_kernel, NULL/*size*/, NULL/*flags*/, &extra) && NULL != extra) {
+      const unsigned int regindex = *((const unsigned int*)extra);
+      if ((LIBXS_CAPACITY_REGISTRY) > regindex) { /* unregister kernel */
+        internal_registry[regindex].pmm = NULL;
 #if !defined(NDEBUG)
-      memset(internal_registry_keys + regindex, 0, sizeof(libxs_kernel_info));
+        memset(internal_registry_keys + regindex, 0, sizeof(libxs_kernel_info));
 #endif
+      }
+      libxs_xfree(jit_kernel);
     }
-    libxs_xfree(jit_kernel);
-  }
-  else if (0 != libxs_verbosity) { /* library code is expected to be mute */
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: failed to release kernel!\n");
+    else if (0 != libxs_verbosity) { /* library code is expected to be mute */
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: failed to release kernel!\n");
+      }
     }
   }
-}
-
-
-LIBXS_API void libxs_release_function(void (*jit_kernel)(const void*, ...))
-{
-  union {
-    void (*f)(const void*, ...);
-    const void* p;
-  } kernel;
-  kernel.f = jit_kernel;
-  libxs_release_kernel(kernel.p);
 }
 
 
@@ -2313,6 +2304,28 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_finalize)(void);
 LIBXS_API void LIBXS_FSYMBOL(libxs_finalize)(void)
 {
   libxs_finalize();
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** jit_kernel)
+{
+#if !defined(NDEBUG)
+  if (NULL != jit_kernel)
+#endif
+  {
+    libxs_release_kernel(*jit_kernel);
+  }
+#if !defined(NDEBUG)
+  else {
+    static int error_once = 0;
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS ERROR: invalid argument passed into libxs_release_kernel!\n");
+    }
+  }
+#endif
 }
 
 
