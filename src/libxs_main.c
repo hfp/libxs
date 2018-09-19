@@ -63,6 +63,10 @@
 # define LIBXS_CAPACITY_CACHE 4
 #endif
 
+#if !defined(LIBXS_DENY_DEREG)
+# define LIBXS_DENY_DEREG
+#endif
+
 #if !defined(LIBXS_CODE_MAXSIZE)
 # define LIBXS_CODE_MAXSIZE 131072
 #endif
@@ -2267,23 +2271,35 @@ LIBXS_API libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* d
 LIBXS_API void libxs_release_kernel(const void* jit_kernel)
 {
   if (NULL != jit_kernel) {
+    static int error_once = 0;
     void* extra = 0;
     LIBXS_INIT
     if (EXIT_SUCCESS == libxs_get_malloc_xinfo(jit_kernel, NULL/*size*/, NULL/*flags*/, &extra) && NULL != extra) {
       const unsigned int regindex = *((const unsigned int*)extra);
-      if ((LIBXS_CAPACITY_REGISTRY) > regindex) { /* unregister kernel */
+      if ((LIBXS_CAPACITY_REGISTRY) <= regindex) {
+        libxs_xfree(jit_kernel);
+      }
+      else
+#if defined(LIBXS_DENY_DEREG)
+      if (0 != libxs_verbosity /* library code is expected to be mute */
+       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      {
+        fprintf(stderr, "LIBXS WARNING: attempt to unregister a JIT-kernel!\n");
+      }
+#else
+      { /* unregister kernel */
         internal_registry[regindex].pmm = NULL;
-#if !defined(NDEBUG)
+# if !defined(NDEBUG)
         memset(internal_registry_keys + regindex, 0, sizeof(libxs_kernel_info));
+# endif
+        libxs_xfree(jit_kernel);
+      }
 #endif
-      }
-      libxs_xfree(jit_kernel);
     }
-    else if (0 != libxs_verbosity) { /* library code is expected to be mute */
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: failed to release kernel!\n");
-      }
+    else if (0 != libxs_verbosity /* library code is expected to be mute */
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS ERROR: failed to release kernel!\n");
     }
   }
 }
