@@ -46,6 +46,7 @@
 /** Opaque handles which represents convolutions and LIBXS datatypes */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_layer libxs_dnn_layer;
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_tensor libxs_dnn_tensor;
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fusedbn libxs_dnn_fusedbn;
 typedef unsigned int libxs_dnn_err_t;
 
 /** Define error and warning codes */
@@ -336,6 +337,7 @@ typedef enum libxs_dnn_conv_fuse_op {
   LIBXS_DNN_CONV_FUSE_MAX_STATS = 16,
   LIBXS_DNN_CONV_FUSE_BATCH_STATS_BWD = 32,
   LIBXS_DNN_CONV_FUSE_ELTWISE_BWD = 64,
+  LIBXS_DNN_CONV_FUSE_BATCHNORM_STATS = 128,
   LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD_RELU_BWD = LIBXS_DNN_CONV_FUSE_RELU_BWD | LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD,
   LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD_RELU_BWD_AND_MAX = LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD_RELU_BWD | LIBXS_DNN_CONV_FUSE_MAX_STATS,
   LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD_AND_MAX = LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD |  LIBXS_DNN_CONV_FUSE_MAX_STATS,
@@ -385,6 +387,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   libxs_dnn_conv_algo algo;               /* convolution algorithm used */
   libxs_dnn_conv_option options;          /* additional options */
   libxs_dnn_conv_fuse_op fuse_ops;        /* used ops into convolutions */
+  libxs_dnn_fusedbn *pre_bn;              /* pointer to pre bn layer to accommodate bn fusion  */             
+  libxs_dnn_fusedbn *post_bn;             /* pointer to post bn layer to accommodate bn fusion  */  
 } libxs_dnn_conv_desc;
 
 /** these are some quantization definitions, not sure if we want to
