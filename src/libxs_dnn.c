@@ -903,9 +903,6 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
       } else if ( (type == LIBXS_DNN_BATCH_STATS) ) {
         layout->format = handle->buffer_format;
         layout->tensor_type = LIBXS_DNN_BATCH_STATS;
-#ifdef FP64_BN_STATS
-        layout->datatype = LIBXS_DNN_DATATYPE_F64;
-#endif
 
         if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
           if ( (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) || (handle->datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
