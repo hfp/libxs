@@ -320,6 +320,10 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_convolution_winograd_descriptor cwino_bwd;
   libxs_convolution_winograd_descriptor cwino_upd;
   libxs_dnn_internal_format custom_format_type;    /* Specifies internal LIBXS format to be used */
+  /* These are the batchnorm handles in case of fusion  */
+  libxs_dnn_fusedbn* pre_bn;
+  libxs_dnn_fusedbn* post_bn;
+
   /* additional size for internal data types */
   int ifhp;
   int ifwp;
@@ -452,8 +456,6 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_code_pointer matcopy_upd[3];
 
   /* Data structures and metadata related to per-thread private JITing */
-  int use_thread_private_jit;
-  int use_thread_private_filter;
   int trans_ofw_ifm;
 
   int *n_entries_fwd;

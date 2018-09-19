@@ -168,10 +168,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       const size_t size7 = (size_t)handle->desc.R * handle->desc.S * handle->ifmblock * handle->ofmblock * filter_typesize;
       handle->scratch7_size = LIBXS_UP2(size7, LIBXS_CACHELINE) * handle->desc.threads;
     }
-    else {
-      handle->scratch7_size = 0;
-    }
-    handle->scratch7 = 0;
 # endif
   }
 #endif
