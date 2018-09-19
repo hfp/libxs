@@ -33,9 +33,6 @@
 #include "libxs_typedefs.h"
 #include "libxs_dnn.h"
 
-/** Opaque handles which represents LIBXS fusedbn */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fusedbn libxs_dnn_fusedbn;
-
 typedef enum libxs_dnn_fusedbn_fuse_order {
   /* the fuse order is: 1. BN, 2. eltwise 3. RELU */
   LIBXS_DNN_FUSEDBN_ORDER_BN_ELTWISE_RELU = 0

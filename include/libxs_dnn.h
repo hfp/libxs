@@ -46,6 +46,7 @@
 /** Opaque handles which represents convolutions and LIBXS datatypes */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_layer libxs_dnn_layer;
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_tensor libxs_dnn_tensor;
+/** Opaque handles which represents LIBXS fusedbn */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fusedbn libxs_dnn_fusedbn;
 typedef unsigned int libxs_dnn_err_t;
 
