@@ -226,7 +226,7 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(
     /* Enable batchnorm fusion depending on the input */
     if (handle->fuse_ops & LIBXS_DNN_CONV_FUSE_BATCHNORM_STATS) {
       if (handle->desc.post_bn != NULL) {
-        handle->fuse_ops = handle->fuse_ops | LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD;
+        handle->fuse_ops = LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD;
       }
       /* TODO: Similar check/setup for bwd */
     }
