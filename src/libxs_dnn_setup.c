@@ -354,7 +354,7 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
   }
 
   /* Allocate scratch for auxiliary batchstats (sum and sum^2 for FWD)  */
-  if ( (handle->fuse_ops & LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD) > 0  ) {
+  if ( handle->fuse_batchstats_fwd == 1  ) {
     handle->scratch7 = 0;
     handle->scratch7_size = (size_t) 2 * handle->desc.K * handle->desc.N * sizeof(float);
   } else {
@@ -561,7 +561,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
     handle->fwd_img_par = 1;
   }
   /* when batch stats should be calculated -> no img par version */
-  if ( (handle->fuse_ops & LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD) > 0  ) {
+  if ( handle->fuse_batchstats_fwd == 1  ) {
     handle->fwd_img_par = 0;
   }
 
@@ -699,7 +699,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
     descriptor.format = (libxs_dnn_tensor_format)(handle->buffer_format | handle->filter_format);
     descriptor.perform_relu_in_kernel = 0;
 
-    if ( ((handle->fuse_ops & LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD) > 0) && (handle->use_nts_fwd == 1) && (handle->use_fwd_for_bwd == 0) ) {
+    if ( (handle->fuse_batchstats_fwd == 1) && (handle->use_nts_fwd == 1) && (handle->use_fwd_for_bwd == 0) ) {
       descriptor.compute_batch_stats = 1;
       handle->compute_batch_stats_in_kernel = 1;
     } else {

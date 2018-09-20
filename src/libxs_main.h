@@ -372,6 +372,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int compute_batch_stats_in_kernel;
   int compute_max_in_kernel_fwd;
   int compute_max_in_kernel_bwd;
+  int fuse_batchstats_fwd;
+  int fuse_batchstats_bwd;
   int perform_relu_in_kernel;
   int use_lp_kernel;
   int output_lp_padding;
