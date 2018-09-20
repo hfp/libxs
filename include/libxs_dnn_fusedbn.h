@@ -33,45 +33,6 @@
 #include "libxs_typedefs.h"
 #include "libxs_dnn.h"
 
-typedef enum libxs_dnn_fusedbn_fuse_order {
-  /* the fuse order is: 1. BN, 2. eltwise 3. RELU */
-  LIBXS_DNN_FUSEDBN_ORDER_BN_ELTWISE_RELU = 0
-} libxs_dnn_fusedbn_fuse_order;
-
-typedef enum libxs_dnn_fusedbn_fuse_op {
-  /* the fuse order is: 1. BN, 2. eltwise 3. RELU */
-  LIBXS_DNN_FUSEDBN_OPS_BN = 1,
-  LIBXS_DNN_FUSEDBN_OPS_BNSCALE = 2,
-  LIBXS_DNN_FUSEDBN_OPS_ELTWISE = 4,
-  LIBXS_DNN_FUSEDBN_OPS_RELU = 8,
-  LIBXS_DNN_FUSEDBN_OPS_BN_ELTWISE = LIBXS_DNN_FUSEDBN_OPS_BN | LIBXS_DNN_FUSEDBN_OPS_ELTWISE,
-  LIBXS_DNN_FUSEDBN_OPS_BN_RELU = LIBXS_DNN_FUSEDBN_OPS_BN | LIBXS_DNN_FUSEDBN_OPS_RELU,
-  LIBXS_DNN_FUSEDBN_OPS_BN_ELTWISE_RELU = LIBXS_DNN_FUSEDBN_OPS_BN | LIBXS_DNN_FUSEDBN_OPS_ELTWISE | LIBXS_DNN_FUSEDBN_OPS_RELU,
-  LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE = LIBXS_DNN_FUSEDBN_OPS_BNSCALE | LIBXS_DNN_FUSEDBN_OPS_ELTWISE,
-  LIBXS_DNN_FUSEDBN_OPS_BNSCALE_RELU = LIBXS_DNN_FUSEDBN_OPS_BNSCALE | LIBXS_DNN_FUSEDBN_OPS_RELU,
-  LIBXS_DNN_FUSEDBN_OPS_BNSCALE_ELTWISE_RELU = LIBXS_DNN_FUSEDBN_OPS_BNSCALE | LIBXS_DNN_FUSEDBN_OPS_ELTWISE | LIBXS_DNN_FUSEDBN_OPS_RELU
-} libxs_dnn_fusedbn_fuse_op;
-
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fusedbn_desc {
-  int N;                                     /* number of images in mini-batch */
-  int C;                                     /* number of input feature maps */
-  int H;                                     /* height of input image */
-  int W;                                     /* width of input image */
-  int u;                                     /* vertical stride */
-  int v;                                     /* horizontal stride */
-  int pad_h_in;                              /* height of physcial zero-padding in input buffer */
-  int pad_w_in;                              /* width of physical zero-padding in input buffer */
-  int pad_h_out;                             /* height of physical zero-padding in output buffer */
-  int pad_w_out;                             /* width of physical zero-padding in output buffer */
-  int threads;                               /* number of threads used */
-  libxs_dnn_datatype datatype_in;          /* datatype used for all input related buffers */
-  libxs_dnn_datatype datatype_out;         /* datatype used for all output related buffers */
-  libxs_dnn_datatype datatype_stats;       /* datatype used for all stats related buffers */
-  libxs_dnn_tensor_format buffer_format;   /* format which is for activation buffers */
-  libxs_dnn_fusedbn_fuse_order fuse_order; /* additional options */
-  libxs_dnn_fusedbn_fuse_op fuse_ops;      /* used ops into convolutions */
-} libxs_dnn_fusedbn_desc;
-
 LIBXS_API libxs_dnn_fusedbn* libxs_dnn_create_fusedbn(libxs_dnn_fusedbn_desc fusedbn_desc, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_fusedbn(const libxs_dnn_fusedbn* handle);
 
