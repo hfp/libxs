@@ -37,12 +37,13 @@
 # include <omp.h>
 #endif
 
-/* #define USE_BFLOAT */
-#ifdef USE_BFLOAT
+#if !defined(USE_BFLOAT) && 0
+# define USE_BFLOAT
 typedef uint16_t real;
 #else
 typedef float real;
 #endif
+
 
 LIBXS_INLINE
 void spmdm_check_c( const libxs_spmdm_handle* handle,
@@ -84,7 +85,7 @@ void spmdm_exec_fp32( const libxs_spmdm_handle* handle,
 
   int i;
 # if defined(_OPENMP)
-# pragma omp parallel
+# pragma omp parallel private(i)
 # endif
   {
 # if defined(_OPENMP)
@@ -98,13 +99,13 @@ void spmdm_exec_fp32( const libxs_spmdm_handle* handle,
 #   pragma omp for
 # endif
     for ( i = 0; i < num_createSparseSlice_blocks; i++ ) {
-      libxs_spmdm_createSparseSlice_fp32_thread( handle, transA, A, A_sparse, i, tid, nthreads);
+      libxs_spmdm_createSparseSlice_fp32_thread(handle, transA, A, A_sparse, i, tid, nthreads);
     }
 # if defined(_OPENMP)
 #   pragma omp for
 # endif
     for ( i = 0; i < num_compute_blocks; i++ ) {
-      libxs_spmdm_compute_fp32_thread( handle, transA, transB, alpha, A_sparse, B, transC, beta, C, i, tid, nthreads);
+      libxs_spmdm_compute_fp32_thread(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, i, tid, nthreads);
     }
   }
 }
@@ -125,7 +126,7 @@ void spmdm_exec_bfloat16( const libxs_spmdm_handle* handle,
 
   int i;
 # if defined(_OPENMP)
-# pragma omp parallel
+# pragma omp parallel private(i)
 # endif
   {
 # if defined(_OPENMP)
@@ -139,13 +140,13 @@ void spmdm_exec_bfloat16( const libxs_spmdm_handle* handle,
 #   pragma omp for
 # endif
     for ( i = 0; i < num_createSparseSlice_blocks; i++ ) {
-      libxs_spmdm_createSparseSlice_bfloat16_thread( handle, transA, A, A_sparse, i, tid, nthreads);
+      libxs_spmdm_createSparseSlice_bfloat16_thread(handle, transA, A, A_sparse, i, tid, nthreads);
     }
 # if defined(_OPENMP)
 #   pragma omp for
 # endif
     for ( i = 0; i < num_compute_blocks; i++ ) {
-      libxs_spmdm_compute_bfloat16_thread( handle, transA, transB, alpha, A_sparse, B, transC, beta, C, i, tid, nthreads);
+      libxs_spmdm_compute_bfloat16_thread(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, i, tid, nthreads);
     }
   }
 }
@@ -164,13 +165,13 @@ int main(int argc, char *argv[])
   int max_threads;
 
   /* Step 1: Read in args */
-  unsigned long long start, end;
+  libxs_timer_tickint start, end;
   double flops, duration;
   char transA, transB, transC;
   int i, j, k;
   size_t l;
 
-  /* Step 1: Initalize handle */
+  /* Step 1: Initialize handle */
   M = 0; N = 0; K = 0; alpha = (real)1.0; beta = (real)0.0;   reps = 0; transA = 'N'; transB = 'N';
 
   if (argc > 1 && !strncmp(argv[1], "-h", 3)) {
@@ -189,20 +190,20 @@ int main(int argc, char *argv[])
 
   /* reading new values from cli */
   i = 1;
-  if (argc > i) M      = atoi(argv[i++]);
-  if (argc > i) N      = atoi(argv[i++]);
-  if (argc > i) K      = atoi(argv[i++]);
+  if (argc > i) M = atoi(argv[i++]);
+  if (argc > i) N = atoi(argv[i++]);
+  if (argc > i) K = atoi(argv[i++]);
   if (argc > i) { transA = argv[i][0]; i++; }
   if (argc > i) { transB = argv[i][0]; i++; }
   if (argc > i) { transC = argv[i][0]; i++; }
-  if (argc > i) reps   = atoi(argv[i++]);
+  if (argc > i) reps = atoi(argv[i++]);
 
   /* Step 2: allocate data */
-  A_gold = (real*)libxs_aligned_malloc( M*K*sizeof(real), 64 );
-  B_gold = (real*)libxs_aligned_malloc( K*N*sizeof(real), 64 );
-  C_gold = (float*)libxs_aligned_malloc( M*N*sizeof(float), 64 );
+  A_gold  = (real*)libxs_aligned_malloc( M*K*sizeof(real), 64 );
+  B_gold  = (real*)libxs_aligned_malloc( K*N*sizeof(real), 64 );
+  C_gold  = (float*)libxs_aligned_malloc( M*N*sizeof(float), 64 );
   C0_gold = (float*)libxs_aligned_malloc( M*N*sizeof(float), 64 );
-  C      = (float*)libxs_aligned_malloc( M*N*sizeof(float), 64 );
+  C       = (float*)libxs_aligned_malloc( M*N*sizeof(float), 64 );
 
   /* Step 3: init data */
   libxs_srand(1);
@@ -235,12 +236,12 @@ int main(int argc, char *argv[])
     C_gold[l] = C0_gold[l];
   }
   for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
-    C[l]      = (float)C0_gold[l];
+    C[l] = (float)C0_gold[l];
   }
   flops = (double)M * (double)N * (double)K * 2.0;
 
   /*----------------------------------------------------------------------------------------------------------------------*/
-  /* Step 4: Initialize libxs for these sizes - allocates handle and temporary space for the sparse data structure for A */
+  /* Step 4: Initialize LIBXS for these sizes - allocates handle and temporary space for the sparse data structure for A */
 # if defined(_OPENMP)
   max_threads = omp_get_max_threads();
 # else
@@ -265,7 +266,7 @@ int main(int argc, char *argv[])
   /* Checks */
   /* Compute a "gold" answer sequentially - we can also use MKL; not using MKL now due to difficulty for bfloat16 */
 #if defined(_OPENMP)
-# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2)
+# pragma omp parallel for private(i, j, k) LIBXS_OPENMP_COLLAPSE(2)
 #endif
   for (i = 0; i < M; i++) {
     for (j = 0; j < N; j++) {
@@ -367,7 +368,7 @@ int main(int argc, char *argv[])
     }
   }
   for ( l = 0; l < (size_t)M * (size_t)N; l++ ) {
-    C[l]      = (float)C0_gold[l];
+    C[l] = (float)C0_gold[l];
   }
   /* The overall function that takes in matrix inputs in dense format, does the conversion of A to sparse format and does the matrix multiply */
   /* Currently ignores alpha */

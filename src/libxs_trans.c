@@ -179,14 +179,14 @@ LIBXS_API void libxs_matcopy_thread(void* out, const void* in, unsigned int type
       libxs_xmcopyfunction kernel = NULL;
       if (m < (libxs_blasint)tm || n < (libxs_blasint)tn) {
         if (1 < nthreads) {
-          const unsigned int tasksize = (((unsigned int)m) * n) / ((unsigned int)(nthreads * libxs_trans_tile_stretch));
+          const unsigned int tasksize = (((unsigned int)m) * (unsigned int)n) / ((unsigned int)(nthreads * libxs_trans_tile_stretch));
           const unsigned int nn = libxs_isqrt_u32(tasksize);
           const unsigned int mm = (unsigned int)(libxs_trans_tile_stretch * nn);
           tn = LIBXS_CLMP((unsigned int)n, 1, nn);
           tm = LIBXS_CLMP((unsigned int)m, 1, mm);
         }
         else {
-          tm = m; tn = n;
+          tm = (unsigned int)m; tn = (unsigned int)n;
         }
       }
       else {
@@ -307,7 +307,7 @@ LIBXS_API void libxs_otrans_thread(void* out, const void* in, unsigned int types
           const libxs_trans_descriptor* desc;
           libxs_descriptor_blob blob;
           if (1 < nthreads) {
-            const unsigned int tasksize = (((unsigned int)m) * n) / ((unsigned int)(nthreads * libxs_trans_tile_stretch));
+            const unsigned int tasksize = (((unsigned int)m) * (unsigned int)n) / ((unsigned int)(nthreads * libxs_trans_tile_stretch));
             const unsigned int nn = libxs_isqrt_u32(tasksize);
             const unsigned int mm = (unsigned int)(libxs_trans_tile_stretch * nn);
             tn = LIBXS_CLMP((unsigned int)n, 1, nn);
@@ -326,7 +326,7 @@ LIBXS_API void libxs_otrans_thread(void* out, const void* in, unsigned int types
               LIBXS_TCOPY_CALL(kernel, typesize, in, ldi, out, ldo);
               return; /* fast path */
             }
-            tm = m; tn = n;
+            tm = (unsigned int)m; tn = (unsigned int)n;
           }
         }
         libxs_otrans_thread_internal(out, in, typesize,

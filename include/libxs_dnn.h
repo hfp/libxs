@@ -200,14 +200,18 @@ typedef enum libxs_dnn_tensor_type {
   LIBXS_DNN_RNN_REGULAR_WEIGHT,
   /** regular recurrent weight */
   LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT,
-  /** regular gradient input buffer */
+  /** regular bias */
+  LIBXS_DNN_RNN_REGULAR_BIAS,
+  /** gradient input buffer */
   LIBXS_DNN_RNN_GRADIENT_INPUT,
-  /** regular gradient hidden state buffer */
+  /** gradient hidden state buffer */
   LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE,
-  /** regular gradient weight */
+  /** gradient weight */
   LIBXS_DNN_RNN_GRADIENT_WEIGHT,
-  /** regular gradient recurrent weight */
+  /** gradient recurrent weight */
   LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT,
+  /** gradient bias */
+  LIBXS_DNN_RNN_GRADIENT_BIAS,
 
   /** regular input buffer */
   LIBXS_DNN_LSTM_REGULAR_INPUT,
@@ -237,33 +241,33 @@ typedef enum libxs_dnn_tensor_type {
   LIBXS_DNN_LSTM_REGULAR_BIAS_O,
   /** regular bias c */
   LIBXS_DNN_LSTM_REGULAR_BIAS_C,
-  /** regular gradient input buffer */
+  /** gradient input buffer */
   LIBXS_DNN_LSTM_GRADIENT_INPUT,
-  /** regular gradient hidden state buffer */
+  /** gradient hidden state buffer */
   LIBXS_DNN_LSTM_GRADIENT_HIDDEN_STATE,
-  /** regular gradient weight i */
+  /** gradient weight i */
   LIBXS_DNN_LSTM_GRADIENT_WEIGHT_I,
-  /** regular gradient weight f */
+  /** gradient weight f */
   LIBXS_DNN_LSTM_GRADIENT_WEIGHT_F,
-  /** regular gradient weight o */
+  /** gradient weight o */
   LIBXS_DNN_LSTM_GRADIENT_WEIGHT_O,
-  /** regular gradient weight c */
+  /** gradient weight c */
   LIBXS_DNN_LSTM_GRADIENT_WEIGHT_C,
-  /** regular gradient recurrent weight i */
+  /** gradient recurrent weight i */
   LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_I,
-  /** regular gradient recurrent weight f */
+  /** gradient recurrent weight f */
   LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_F,
-  /** regular gradient recurrent weight o */
+  /** gradient recurrent weight o */
   LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_O,
-  /** regular gradient recurrent weight c */
+  /** gradient recurrent weight c */
   LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_C,
-  /** regular gradient bias i */
+  /** gradient bias i */
   LIBXS_DNN_LSTM_GRADIENT_BIAS_I,
-  /** regular gradient bias f */
+  /** gradient bias f */
   LIBXS_DNN_LSTM_GRADIENT_BIAS_F,
-  /** regular gradient bias o */
+  /** gradient bias o */
   LIBXS_DNN_LSTM_GRADIENT_BIAS_O,
-  /** regular gradient bias c */
+  /** gradient bias c */
   LIBXS_DNN_LSTM_GRADIENT_BIAS_C,
 
   /** regular input buffer */
@@ -288,27 +292,27 @@ typedef enum libxs_dnn_tensor_type {
   LIBXS_DNN_GRU_REGULAR_BIAS_Z,
   /** regular bias g */
   LIBXS_DNN_GRU_REGULAR_BIAS_G,
-  /** regular gradient input buffer */
+  /** gradient input buffer */
   LIBXS_DNN_GRU_GRADIENT_INPUT,
-  /** regular gradient hidden state buffer */
+  /** gradient hidden state buffer */
   LIBXS_DNN_GRU_GRADIENT_HIDDEN_STATE,
-  /** regular gradient weight r */
+  /** gradient weight r */
   LIBXS_DNN_GRU_GRADIENT_WEIGHT_R,
-  /** regular gradient weight z */
+  /** gradient weight z */
   LIBXS_DNN_GRU_GRADIENT_WEIGHT_Z,
-  /** regular gradient weight g */
+  /** gradient weight g */
   LIBXS_DNN_GRU_GRADIENT_WEIGHT_G,
-  /** regular gradient recurrent weight r */
+  /** gradient recurrent weight r */
   LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_R,
-  /** regular gradient recurrent weight z */
+  /** gradient recurrent weight z */
   LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_Z,
-  /** regular gradient recurrent weight g */
+  /** gradient recurrent weight g */
   LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_G,
-  /** regular gradient bias r */
+  /** gradient bias r */
   LIBXS_DNN_GRU_GRADIENT_BIAS_R,
-  /** regular gradient bias z */
+  /** gradient bias z */
   LIBXS_DNN_GRU_GRADIENT_BIAS_Z,
-  /** regular gradient bias g */
+  /** gradient bias g */
   LIBXS_DNN_GRU_GRADIENT_BIAS_G
 } libxs_dnn_tensor_type;
 
@@ -388,8 +392,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   libxs_dnn_conv_algo algo;               /* convolution algorithm used */
   libxs_dnn_conv_option options;          /* additional options */
   libxs_dnn_conv_fuse_op fuse_ops;        /* used ops into convolutions */
-  libxs_dnn_fusedbn *pre_bn;              /* pointer to pre bn layer to accommodate bn fusion  */             
-  libxs_dnn_fusedbn *post_bn;             /* pointer to post bn layer to accommodate bn fusion  */  
+  libxs_dnn_fusedbn *pre_bn;              /* pointer to pre bn layer to accommodate bn fusion  */
+  libxs_dnn_fusedbn *post_bn;             /* pointer to post bn layer to accommodate bn fusion  */
 } libxs_dnn_conv_desc;
 
 /** these are some quantization definitions, not sure if we want to

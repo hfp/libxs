@@ -45,6 +45,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
   int bk;    /* blocksize for k */
   int reuse; /* reuse/overwrite memory for FWD */
   int pass;  /* denotes whether it is FWD/BWD/UPD */
+  int nonlin;/* denotes which non-linear function to be used: tanh, relu, sigmoid */
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
   libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
   libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
@@ -57,30 +58,34 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_dnn_datatype datatype_out;
   libxs_dnn_tensor_format buffer_format;
   libxs_dnn_internal_format custom_format_type; /* required only for comparing layouts  */
-  int m;
-  int n;
-  int k;
-  int t;
-  int bm;
-  int bn;
-  int bk;
+  libxs_blasint m;
+  libxs_blasint n;
+  libxs_blasint k;
+  libxs_blasint t;
+  libxs_blasint bm;
+  libxs_blasint bn;
+  libxs_blasint bk;
   int reuse;
   int pass;
-  int b_m1;
-  int b_n1;
-  int b_k1;
-  int b_m2;
-  int b_n2;
-  int b_k2;
+  int nonlin;
+  libxs_blasint b_m1;
+  libxs_blasint b_n1;
+  libxs_blasint b_k1;
+  libxs_blasint b_m2;
+  libxs_blasint b_n2;
+  libxs_blasint b_k2;
   libxs_dnn_tensor* w;
   libxs_dnn_tensor* xt;
   libxs_dnn_tensor* u;
   libxs_dnn_tensor* h;
+  libxs_dnn_tensor* b;
   libxs_dnn_tensor* z;
   libxs_dnn_tensor* djdht;
   libxs_dnn_tensor* djdu;
   libxs_dnn_tensor* djdw;
   libxs_dnn_tensor* djdxt;
+  libxs_dnn_tensor* djdb;
+  libxs_dnn_tensor* bM;
   libxs_dnn_tensor* deltat;
   libxs_dnn_tensor* z1t;
   libxs_dnn_tensor* z2;

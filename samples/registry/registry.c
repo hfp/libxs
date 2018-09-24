@@ -32,6 +32,7 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #if defined(_OPENMP)
 # include <omp.h>
@@ -234,13 +235,14 @@ int main(int argc, char* argv[])
       double check = 0;
       for (i = 0; i < size; ++i) {
         const int j = (int)((shuffle * i) % size);
-        libxs_matdiff_info diff = { 0 };
+        libxs_matdiff_info diff;
 #if defined(mkl_jit_create_dgemm)
         const dgemm_jit_kernel_t kernel = mkl_jit_get_dgemm_ptr(jitter[j]);
 #else
         const libxs_dmmfunction kernel = libxs_dmmdispatch(rnd[j].m, rnd[j].n, rnd[j].k,
           &rnd[j].m, &rnd[j].k, &rnd[j].m, &alpha, &beta, &flags, &prefetch);
 #endif
+        memset(&diff, 0, sizeof(diff));
         if (NULL != kernel) {
 #if defined(mkl_jit_create_dgemm)
           kernel(jitter[j], a, b, c);
@@ -256,7 +258,7 @@ int main(int argc, char* argv[])
           if (check < diff.l1_tst) check = diff.l1_tst;
         }
         else {
-          printf(" m=%i n=%i k=%i", rnd[j].m, rnd[j].n, rnd[j].k);
+          printf(" m=%u n=%u k=%u", (unsigned int)rnd[j].m, (unsigned int)rnd[j].n, (unsigned int)rnd[j].k);
           i = size; /* break */
           check = -1;
         }
