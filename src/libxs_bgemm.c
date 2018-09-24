@@ -94,7 +94,7 @@ LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(/*unsigned*/ int nthread
       }
       if (0 != handle.kernel.xmm) {
         const size_t tls_size = LIBXS_UP2((size_t)mm * nn * LIBXS_TYPESIZE(oprec), LIBXS_CACHELINE) * nthreads;
-        const size_t size_locks = (size_t)handle.mb * handle.nb * sizeof(libxs_bgemm_lock);
+        const size_t size_locks = (size_t)handle.mb * (size_t)handle.nb * sizeof(libxs_bgemm_lock);
         handle.locks = (libxs_bgemm_lock*)libxs_aligned_malloc(size_locks, LIBXS_CACHELINE);
         handle.buffer = libxs_aligned_malloc(tls_size, LIBXS_CACHELINE);
         result = (libxs_bgemm_handle*)malloc(sizeof(libxs_bgemm_handle));

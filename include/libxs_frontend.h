@@ -129,21 +129,6 @@
 # define LIBXS_GEMM_CONST const
 #endif
 
-#if defined(LIBXS_BUILD_EXT)
-# define LIBXS_WEAK
-# define LIBXS_EXT_WEAK LIBXS_ATTRIBUTE_WEAK
-#else
-# define LIBXS_WEAK LIBXS_ATTRIBUTE_WEAK
-# define LIBXS_EXT_WEAK
-#endif
-#if defined(LIBXS_BUILD) && defined(__STATIC) /*&& defined(LIBXS_GEMM_WRAP)*/
-# define LIBXS_GEMM_WEAK LIBXS_WEAK
-# define LIBXS_EXT_GEMM_WEAK LIBXS_EXT_WEAK
-#else
-# define LIBXS_GEMM_WEAK
-# define LIBXS_EXT_GEMM_WEAK
-#endif
-
 #if !defined(LIBXS_NO_BLAS)
 # if !defined(__BLAS) || (0 != __BLAS)
 #   define LIBXS_NO_BLAS 0
@@ -158,6 +143,9 @@
 # elif defined(LIBXS_NO_BLAS) && (1 == LIBXS_NO_BLAS)
 #   define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_API
 # endif
+# define LIBXS_WEAK LIBXS_EXTERN_C
+#else
+# define LIBXS_WEAK LIBXS_API_INLINE
 #endif
 #if !defined(LIBXS_GEMM_SYMBOL_VISIBILITY)
 # define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
@@ -447,8 +435,8 @@ LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemv_function)(
   const double*, double*, const libxs_blasint*);
 
 /** The original GEMM functions (SGEMM and DGEMM). */
-LIBXS_API LIBXS_GEMM_WEAK libxs_dgemm_function libxs_original_dgemm(void);
-LIBXS_API LIBXS_GEMM_WEAK libxs_sgemm_function libxs_original_sgemm(void);
+LIBXS_WEAK libxs_dgemm_function libxs_original_dgemm(void);
+LIBXS_WEAK libxs_sgemm_function libxs_original_sgemm(void);
 
 /**
  * General dense matrix multiplication, which re-exposes LAPACK/BLAS

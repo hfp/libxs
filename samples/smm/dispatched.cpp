@@ -108,19 +108,15 @@ int main(int argc, char* argv[])
       struct raii { // avoid std::vector (first-touch init. causes NUMA issue)
         ITYPE *a, *b;
         OTYPE *c;
-        libxs_blasint *m_shuffle;
+        size_t m_size, m_shuffle;
         raii(libxs_blasint asize_, libxs_blasint bsize_, libxs_blasint csize_, libxs_blasint size_)
           : a(new ITYPE[static_cast<size_t>(asize_)]), b(new ITYPE[static_cast<size_t>(bsize_)])
-          , c(new OTYPE[static_cast<size_t>(csize_)]), m_shuffle(new libxs_blasint[size_])
-        {
-# if defined(_OPENMP)
-#         pragma omp parallel for schedule(static)
-# endif
-          for (libxs_blasint i = 0; i < size_; ++i) m_shuffle[i] = libxs_rand_u32(size_);
-        }
-        ~raii() { delete[] a; delete[] b; delete[] c; delete[] m_shuffle; }
+          , c(new OTYPE[static_cast<size_t>(csize_)])
+          , m_size(static_cast<size_t>(size_)), m_shuffle(libxs_shuffle(static_cast<unsigned int>(size_)))
+        {}
+        ~raii() { delete[] a; delete[] b; delete[] c; }
 #if defined(RANDOMIZED)
-        libxs_blasint shuffle(libxs_blasint i) const { return m_shuffle[i]; }
+        libxs_blasint shuffle(libxs_blasint i) const { return (i * m_shuffle) % m_size; }
 #else
         libxs_blasint shuffle(libxs_blasint i) const { return i; }
 #endif

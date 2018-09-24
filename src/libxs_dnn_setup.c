@@ -37,7 +37,6 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif

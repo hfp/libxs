@@ -58,21 +58,21 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_grucell {
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
   libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
   libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
-  int m;
-  int n;
-  int k;
-  int t;
-  int bm;
-  int bn;
-  int bk;
+  libxs_blasint m;
+  libxs_blasint n;
+  libxs_blasint k;
+  libxs_blasint t;
+  libxs_blasint bm;
+  libxs_blasint bn;
+  libxs_blasint bk;
   int reuse;
   int pass;
-  int b_m1;
-  int b_n1;
-  int b_k1;
-  int b_m2;
-  int b_n2;
-  int b_k2;
+  libxs_blasint b_m1;
+  libxs_blasint b_n1;
+  libxs_blasint b_k1;
+  libxs_blasint b_m2;
+  libxs_blasint b_n2;
+  libxs_blasint b_k2;
   libxs_dnn_tensor* wr;
   libxs_dnn_tensor* wz;
   libxs_dnn_tensor* wg;

@@ -44,7 +44,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <math.h>
 #if !defined(NDEBUG)
 # include <errno.h>
 #endif
@@ -554,7 +553,11 @@ LIBXS_API_INLINE void internal_init(void)
       assert(1 <= libxs_scratch_scale);
     }
 #endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
-    libxs_set_target_arch(getenv("LIBXS_TARGET")); /* set libxs_target_archid */
+#if defined(LIBXS_MAXTARGET)
+    libxs_set_target_arch(LIBXS_STRINGIFY(LIBXS_MAXTARGET));
+#else /* attempt to set libxs_target_archid per environment variable */
+    libxs_set_target_arch(getenv("LIBXS_TARGET"));
+#endif
     { const char *const env = getenv("LIBXS_SYNC");
       libxs_nosync = (0 == env || 0 == *env) ? 0/*default*/ : atoi(env);
     }
@@ -930,7 +933,8 @@ LIBXS_API const char* libxsf_get_target_arch(int* length)
 
 LIBXS_API void libxs_set_target_arch(const char* arch)
 {
-  int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
+  const int cpuid = libxs_cpuid();
+  int target_archid;
   if (0 != arch && 0 != *arch) {
     const int jit = atoi(arch);
     if (0 == strcmp("0", arch)) {
@@ -977,18 +981,20 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     else if (0 == strcmp("generic", arch) || 0 == strcmp("none", arch)) {
       target_archid = LIBXS_TARGET_ARCH_GENERIC;
     }
+    else {
+      target_archid = cpuid;
+    }
   }
-
-  if (LIBXS_TARGET_ARCH_UNKNOWN == target_archid || LIBXS_X86_AVX512_ICL < target_archid) {
-    target_archid = libxs_cpuid();
+  else {
+    target_archid = cpuid;
   }
-  else if (0 != libxs_verbosity) { /* library code is expected to be mute */
-    const int cpuid = libxs_cpuid();
-    if (cpuid < target_archid) {
+  if (cpuid < target_archid) { /* limit code path to what was identified per CPUID */
+    if (0 != libxs_verbosity) { /* library code is expected to be mute */
       const char *const target_arch = internal_get_target_arch(target_archid);
-      fprintf(stderr, "LIBXS WARNING: \"%s\" code will fail to run on \"%s\"!\n",
+      fprintf(stderr, "LIBXS WARNING: \"%s\" code would fail to run on \"%s\"!\n",
         target_arch, internal_get_target_arch(cpuid));
     }
+    target_archid = cpuid;
   }
   LIBXS_ATOMIC_STORE(&libxs_target_archid, target_archid, LIBXS_ATOMIC_RELAXED);
 }
@@ -2324,6 +2330,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_finalize)(void)
 
 
 /* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** jit_kernel);
 LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** jit_kernel)
 {
 #if !defined(NDEBUG)
