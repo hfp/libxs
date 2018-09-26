@@ -97,6 +97,7 @@
 #define LIBXS_TPREFIX_short LIBXS_TPREFIX_shortint
 
 /** Construct symbol name from a given real type name (float, double and short). */
+#define LIBXS_USEOMP(FUNCTION)        LIBXS_CONCATENATE(FUNCTION, _omp)
 #define LIBXS_GEMM_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_GEMV_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemv))
 #define LIBXS_GEMMFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm_function))
@@ -105,7 +106,7 @@
 #define LIBXS_MMDISPATCH_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmdispatch))
 #define LIBXS_XBLAS_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
-#define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(LIBXS_XGEMM_SYMBOL(TYPE), _omp)
+#define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_USEOMP(LIBXS_XGEMM_SYMBOL(TYPE))
 
 /* Construct prefix names, function type or dispatch function from given input and output types. */
 #define LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE)    LIBXS_MMFUNCTION_TYPE(LIBXS_CONCATENATE(ITYPE, OTYPE))

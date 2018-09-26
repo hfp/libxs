@@ -83,6 +83,9 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_grucell {
   libxs_dnn_tensor* br;
   libxs_dnn_tensor* bz;
   libxs_dnn_tensor* bg;
+  libxs_dnn_tensor* brm;
+  libxs_dnn_tensor* bzm;
+  libxs_dnn_tensor* bgm;
   libxs_dnn_tensor* h;
   libxs_dnn_tensor* r1t;
   libxs_dnn_tensor* r2t;

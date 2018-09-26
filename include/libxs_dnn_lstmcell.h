@@ -87,6 +87,10 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
   libxs_dnn_tensor* bo;
   libxs_dnn_tensor* bc;
   libxs_dnn_tensor* h;
+  libxs_dnn_tensor* bim;
+  libxs_dnn_tensor* bfm;
+  libxs_dnn_tensor* bom;
+  libxs_dnn_tensor* bcm;
   libxs_dnn_tensor* i1t;
   libxs_dnn_tensor* i1b;
   libxs_dnn_tensor* i2;
@@ -130,6 +134,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
   libxs_dnn_tensor* djdbf;
   libxs_dnn_tensor* djdbo;
   libxs_dnn_tensor* djdbc;
+  libxs_dnn_tensor* doutt;
   libxs_dnn_tensor* i4t;
   libxs_dnn_tensor* djdiMt;
   libxs_dnn_tensor* djdfMt;
