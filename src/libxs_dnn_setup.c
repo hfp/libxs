@@ -353,9 +353,9 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
   }
 
   /* Allocate scratch for auxiliary batchstats (sum and sum^2 for FWD)  */
-  if ( handle->fuse_batchstats_fwd == 1  ) {
+  if ( handle->fuse_batchstats_fwd == 1 || handle->fuse_batchstats_bwd == 1 ) {
     handle->scratch7 = 0;
-    handle->scratch7_size = (size_t) 2 * handle->desc.K * handle->desc.N * sizeof(float);
+    handle->scratch7_size = (size_t) 2 * LIBXS_MAX(handle->desc.K, handle->desc.C) * handle->desc.N * sizeof(float);
   } else {
     handle->scratch7 = 0;
     handle->scratch7_size = 0;
