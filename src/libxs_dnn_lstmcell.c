@@ -133,6 +133,10 @@ LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc 
         &alpha, &beta, &gemm_flags, &strategy, &order); /* W^T*delta */
     }
     /* Need to allocate space for scratch and internalstate libxs_dnn_tensor's */
+    handle->bim = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->bfm = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->bom = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->bcm = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->i1t = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->i1b = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->i2  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
@@ -176,13 +180,15 @@ LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc 
     handle->djdbf  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdbo  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdbc  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->doutt  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->i4t    = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdiMt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdfMt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdcMt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdoMt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->barrier = libxs_barrier_create(handle->nThreads, 1);
-    if (NULL == handle->i1t || NULL == handle->i1b || NULL == handle->i2 || NULL == handle->f1t || NULL == handle->f1b ||
+    if (NULL == handle->bim || NULL == handle->bfm || NULL == handle->bom || NULL == handle->bcm || NULL == handle->doutt ||
+        NULL == handle->i1t || NULL == handle->i1b || NULL == handle->i2 || NULL == handle->f1t || NULL == handle->f1b ||
         NULL == handle->f2 || NULL == handle->o1t || NULL == handle->o1b || NULL == handle->o2 || NULL == handle->c1t ||
         NULL == handle->c1b || NULL == handle->c2 || NULL == handle->i || NULL == handle->f || NULL == handle->o ||
         NULL == handle->c || NULL == handle->dh || NULL == handle->d1 || NULL == handle->d2 || NULL == handle->d ||
@@ -194,6 +200,7 @@ LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc 
         NULL == handle->djdbo || NULL == handle->djdbc || NULL == handle->i4t   || NULL == handle->djdiMt||
         NULL == handle->djdfMt|| NULL == handle->djdoMt|| NULL == handle->djdcMt|| NULL == handle->barrier)
     {
+      free(handle->bim); free(handle->bfm); free(handle->bom); free(handle->bcm); free(handle->doutt);
       free(handle->i1t); free(handle->i1b); free(handle->i2); free(handle->f1t); free(handle->f1b);
       free(handle->f2); free(handle->o1t); free(handle->o1b); free(handle->o2); free(handle->c1t);
       free(handle->c1b); free(handle->c2); free(handle->i); free(handle->f); free(handle->o);
@@ -218,6 +225,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_lstmcell(const libxs_dnn_lstmcell* h
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   if (0 != handle) {
+    free(handle->bim); free(handle->bfm); free(handle->bom); free(handle->bcm); free(handle->doutt);
     free(handle->i1t); free(handle->i1b); free(handle->i2); free(handle->f1t); free(handle->f1b);
     free(handle->f2); free(handle->o1t); free(handle->o1b); free(handle->o2); free(handle->c1t);
     free(handle->c1b); free(handle->c2); free(handle->i); free(handle->f); free(handle->o);
@@ -401,6 +409,14 @@ LIBXS_API size_t libxs_dnn_lstmcell_get_scratch_size(const libxs_dnn_lstmcell* h
                                            size += 64;
                                            size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* dh */
                                            size += 64;
+                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* bim */
+                                           size += 64;
+                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* bfm */
+                                           size += 64;
+                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* bom */
+                                           size += 64;
+                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* bcm */
+                                           size += 64;
 #if !defined(NON_FUSED_INPUT_GEMM)
                                            size += (size_t)handle->m * 4 * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* i4t */
                                            size += 64;
@@ -454,6 +470,8 @@ LIBXS_API size_t libxs_dnn_lstmcell_get_scratch_size(const libxs_dnn_lstmcell* h
                                            size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djdcMt */
                                            size += 64;
                                            size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djdoMt */
+                                           size += 64;
+                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* doutt */
                                            size += 64;
                                          } break;
       default: {
@@ -569,6 +587,38 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                            } else {
                                              offset = (64 - address % 64);
                                              handle->dh->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->bim->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->bim->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->bfm->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->bfm->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->bom->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->bom->data = (void*)(address+offset);
+                                           }
+                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->bcm->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->bcm->data = (void*)(address+offset);
                                            }
 #if !defined(NON_FUSED_INPUT_GEMM)
                                            scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
@@ -766,6 +816,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->djdcMt->data = (void*)(address+offset);
                                            }
+                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           address += scratch_size + 64;
+                                           if (address % 64 == 0) {
+                                             handle->doutt->data = (void*)address;
+                                           } else {
+                                             offset = (64 - address % 64);
+                                             handle->doutt->data = (void*)(address+offset);
+                                           }
                                          } break;
       default: {
                  status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -797,6 +855,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell*
                                            handle->d1->data = 0;
                                            handle->d2->data = 0;
                                            handle->dh->data = 0;
+                                           handle->bim->data = 0;
+                                           handle->bfm->data = 0;
+                                           handle->bom->data = 0;
+                                           handle->bcm->data = 0;
                                            handle->i4t->data = 0;
                                            handle->i1t = 0;
                                            handle->i2 = 0;
@@ -809,6 +871,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell*
                                            handle->d1 = 0;
                                            handle->d2 = 0;
                                            handle->dh = 0;
+                                           handle->bim = 0;
+                                           handle->bfm = 0;
+                                           handle->bom = 0;
+                                           handle->bcm = 0;
                                            handle->i4t = 0;
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
@@ -837,6 +903,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell*
                                            handle->djdfMt->data = 0;
                                            handle->djdoMt->data = 0;
                                            handle->djdcMt->data = 0;
+                                           handle->doutt->data = 0;
                                            handle->i1t = 0;
                                            handle->i1b = 0;
                                            handle->i2 = 0;
@@ -860,6 +927,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell*
                                            handle->djdfMt = 0;
                                            handle->djdoMt = 0;
                                            handle->djdcMt = 0;
+                                           handle->doutt = 0;
                                          } break;
       default: {
                  status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -1482,6 +1550,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   libxs_blasint m = lstm->m;
   libxs_blasint n = lstm->n;
+  libxs_blasint bm = lstm->bm;
+  libxs_blasint bn = lstm->bn;
   /*libxs_blasint k = lstm->k;*/
   libxs_blasint t = lstm->t;
 #if defined(LSTM_TIMING)
@@ -1506,6 +1576,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
   LIBXS_DNN_ELTWISE_FTYPE *bf  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bf->data;
   LIBXS_DNN_ELTWISE_FTYPE *bo  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bo->data;
   LIBXS_DNN_ELTWISE_FTYPE *bc  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bc->data;
+  LIBXS_DNN_ELTWISE_FTYPE *bim = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bim->data;
+  LIBXS_DNN_ELTWISE_FTYPE *bfm = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bfm->data;
+  LIBXS_DNN_ELTWISE_FTYPE *bom = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bom->data;
+  LIBXS_DNN_ELTWISE_FTYPE *bcm = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bcm->data;
   LIBXS_DNN_ELTWISE_FTYPE *i2t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i2->data;
   LIBXS_DNN_ELTWISE_FTYPE *f2t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f2->data;
   LIBXS_DNN_ELTWISE_FTYPE *o2t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o2->data;
@@ -1554,6 +1628,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
 #if defined(LSTM_TIMING)
   if (ltid == 0) { start = libxs_timer_tick(); }
 #endif
+  libxs_internal_matrix_1D_2D(m, n, bm, bn, bi, bim, start_thread, tid, lstm->nThreads);
+  libxs_internal_matrix_1D_2D(m, n, bm, bn, bf, bfm, start_thread, tid, lstm->nThreads);
+  libxs_internal_matrix_1D_2D(m, n, bm, bn, bo, bom, start_thread, tid, lstm->nThreads);
+  libxs_internal_matrix_1D_2D(m, n, bm, bn, bc, bcm, start_thread, tid, lstm->nThreads);
 
   if (reuse) {
 #if defined(LSTM_TIMING)
@@ -1582,10 +1660,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
 #if defined(LSTM_TIMING)
       if (ltid == 0) { Gbl_t_eltwise = libxs_timer_tick(); }
 #endif
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), bi, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), bf, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), bo, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), bc, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), bim, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), bfm, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), bom, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), bcm, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), start_thread, tid, lstm->nThreads);
       libxs_barrier_wait(lstm->barrier, ltid);
 #if defined(LSTM_TIMING)
       if (ltid == 0) {
@@ -1658,10 +1736,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
 #if defined(LSTM_TIMING)
       if (ltid == 0) { Gbl_t_eltwise = libxs_timer_tick(); }
 #endif
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), bi, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), bf, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), bo, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), bc, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), bim, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), bfm, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), bom, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), bcm, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), start_thread, tid, lstm->nThreads);
       libxs_barrier_wait(lstm->barrier, ltid);
 #if defined(LSTM_TIMING)
       if (ltid == 0) {
@@ -1731,6 +1809,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   libxs_blasint m = lstm->m;
   libxs_blasint n = lstm->n;
+  libxs_blasint bm = lstm->bm;
+  libxs_blasint bn = lstm->bn;
   libxs_blasint k = lstm->k;
   libxs_blasint t = lstm->t;
   LIBXS_DNN_ELTWISE_FTYPE *wi = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wi->data;
@@ -1786,6 +1866,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   LIBXS_DNN_ELTWISE_FTYPE *djdfMt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdfMt->data;
   LIBXS_DNN_ELTWISE_FTYPE *djdcMt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdcMt->data;
   LIBXS_DNN_ELTWISE_FTYPE *djdoMt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdoMt->data;
+  LIBXS_DNN_ELTWISE_FTYPE *doutt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->doutt->data;
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, h, ht, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i, it, m * n);
@@ -1805,141 +1886,155 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdfM, djdfMt, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdoM, djdoMt, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdcM, djdcMt, m * n);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, dout, doutt, m * n);
   libxs_bgemm_handle *handleud = lstm->handlewx;
   libxs_bgemm_handle *handledh = lstm->handleuh;
   libxs_bgemm_handle *handledx = lstm->handlett;
   libxs_bgemm_handle *handlewd = lstm->handlewd;
-  libxs_blasint j;
+  libxs_blasint j, s, q, l, p;
   const int ltid = tid - start_thread;
 
   libxs_barrier_init(lstm->barrier, ltid);
-  /* compute delta */
-  libxs_internal_matrix_copy(m * n, &LIBXS_VLA_ACCESS(2, djdh, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, t-1, 0, m * n), start_thread, tid, lstm->nThreads);
-  /* compute djdd */
-  libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, djdh, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, o, t-1, 0, m * n), d1, start_thread, tid, lstm->nThreads);
-  libxs_internal_matrix_tanh_inverse(m * n, &LIBXS_VLA_ACCESS(2, d, t-1, 0, m * n), d2, start_thread, tid, lstm->nThreads);
-  libxs_barrier_wait(lstm->barrier, ltid);
-  libxs_internal_matrix_eltwise_mult(m * n, d1, d2, &LIBXS_VLA_ACCESS(2, djdd, t-1, 0, m * n), start_thread, tid, lstm->nThreads);
-  /* compute djdc */
-  libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, djdd, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, i, t-1, 0, m * n), c1, start_thread, tid, lstm->nThreads);
-  libxs_internal_matrix_complement_square(m * n, &LIBXS_VLA_ACCESS(2, c, t-1, 0, m * n), c2, start_thread, tid, lstm->nThreads);
-  libxs_barrier_wait(lstm->barrier, ltid);
-  libxs_internal_matrix_eltwise_mult(m * n, c1, c2, &LIBXS_VLA_ACCESS(2, djdc, t-1, 0, m * n), start_thread, tid, lstm->nThreads);
-  /* compute djdi */
-  libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, djdd, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, c, t-1, 0, m * n), i1, start_thread, tid, lstm->nThreads);
-  libxs_internal_matrix_complement(m * n, &LIBXS_VLA_ACCESS(2, i, t-1, 0, m * n), i2, start_thread, tid, lstm->nThreads);
-  libxs_barrier_wait(lstm->barrier, ltid);
-  libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, i, t-1, 0, m * n), i2, i3, start_thread, tid, lstm->nThreads);
-  libxs_barrier_wait(lstm->barrier, ltid);
-  libxs_internal_matrix_eltwise_mult(m * n, i1, i3, &LIBXS_VLA_ACCESS(2, djdi, t-1, 0, m * n), start_thread, tid, lstm->nThreads);
-  /* compute djdf */
-  libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, djdd, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, d, t-2, 0, m * n), f1, start_thread, tid, lstm->nThreads);
-  libxs_internal_matrix_complement(m * n, &LIBXS_VLA_ACCESS(2, f, t-1, 0, m * n), f2, start_thread, tid, lstm->nThreads);
-  libxs_barrier_wait(lstm->barrier, ltid);
-  libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, f, t-1, 0, m * n), f2, f3, start_thread, tid, lstm->nThreads);
-  libxs_barrier_wait(lstm->barrier, ltid);
-  libxs_internal_matrix_eltwise_mult(m * n, f1, f3, &LIBXS_VLA_ACCESS(2, djdf, t-1, 0, m * n), start_thread, tid, lstm->nThreads);
-  /* compute djdo */
-  libxs_internal_matrix_tanh(m * n, &LIBXS_VLA_ACCESS(2, d, t-1, 0, m * n), o1, start_thread, tid, lstm->nThreads);
-  libxs_internal_matrix_complement(m * n, &LIBXS_VLA_ACCESS(2, o, t-1, 0, m * n), o2, start_thread, tid, lstm->nThreads);
-  libxs_barrier_wait(lstm->barrier, ltid);
-  libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, delta, t-1, 0, m * n), o1, o1, start_thread, tid, lstm->nThreads);
-  libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, o, t-1, 0, m * n), o2, o2, start_thread, tid, lstm->nThreads);
-  libxs_barrier_wait(lstm->barrier, ltid);
-  libxs_internal_matrix_eltwise_mult(m * n, o1, o2, &LIBXS_VLA_ACCESS(2, djdo, t-1, 0, m * n), start_thread, tid, lstm->nThreads);
-  libxs_barrier_wait(lstm->barrier, ltid);
-  if (pass == 1 || pass == 3) {
-    /* compute djdx */
-    libxs_bgemm_st(handlewd, wi, &LIBXS_VLA_ACCESS(2, djdi, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid);
-    libxs_bgemm_st(handlewd, wf, &LIBXS_VLA_ACCESS(2, djdf, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid);
-    libxs_bgemm_st(handlewd, wo, &LIBXS_VLA_ACCESS(2, djdo, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid);
-    libxs_bgemm_st(handlewd, wc, &LIBXS_VLA_ACCESS(2, djdc, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, t-1, 0, k * n), start_thread, tid);
-  }
-  for (j = t-2; j >= 0; --j) {
-    /* compute delta */
-    libxs_bgemm_st(handleud, ri, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handleud, rf, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handleud, ro, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handleud, rc, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), start_thread, tid);
-    libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, djdh, j, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), start_thread, tid, lstm->nThreads);
+  for (j = t-1; j >= 0; --j) {
+    /* compute deltagold */
+    if (j == t-1) {
+      libxs_internal_matrix_copy(m * n, &LIBXS_VLA_ACCESS(2, djdh, t-1, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, t-1, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_barrier_wait(lstm->barrier, ltid);
+    } else {
+      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, dout, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdh, j, 0, m * n), &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_barrier_wait(lstm->barrier, ltid);
+    }
     /* compute djdd */
-    libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, djdh, j, 0, m * n), &LIBXS_VLA_ACCESS(2, o, j, 0, m * n), d1, start_thread, tid, lstm->nThreads);
+    libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), &LIBXS_VLA_ACCESS(2, o, j, 0, m * n), d1, start_thread, tid, lstm->nThreads);
+    libxs_barrier_wait(lstm->barrier, ltid);
     libxs_internal_matrix_tanh_inverse(m * n, &LIBXS_VLA_ACCESS(2, d, j, 0, m * n), d2, start_thread, tid, lstm->nThreads);
     libxs_barrier_wait(lstm->barrier, ltid);
-    libxs_internal_matrix_eltwise_mult(m * n, d1, d2, d3, start_thread, tid, lstm->nThreads);
-    libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, f, j+1, 0, m * n), d4, start_thread, tid, lstm->nThreads);
-    libxs_barrier_wait(lstm->barrier, ltid);
-    libxs_internal_matrix_add(m * n, d3, d4, &LIBXS_VLA_ACCESS(2, djdd, j, 0, m * n), start_thread, tid, lstm->nThreads);
+    if (j == t-1) {
+      libxs_internal_matrix_eltwise_mult(m * n, d1, d2, &LIBXS_VLA_ACCESS(2, djdd, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_barrier_wait(lstm->barrier, ltid);
+    } else {
+      libxs_internal_matrix_eltwise_mult(m * n, d1, d2, d3, start_thread, tid, lstm->nThreads);
+      libxs_barrier_wait(lstm->barrier, ltid);
+      libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, delta, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, f, j+1, 0, m * n), d4, start_thread, tid, lstm->nThreads);
+      libxs_barrier_wait(lstm->barrier, ltid);
+      libxs_internal_matrix_add(m * n, d3, d4, &LIBXS_VLA_ACCESS(2, djdd, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_barrier_wait(lstm->barrier, ltid);
+    }
     /* compute djdc */
     libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, djdd, j, 0, m * n), &LIBXS_VLA_ACCESS(2, i, j, 0, m * n), c1, start_thread, tid, lstm->nThreads);
+    libxs_barrier_wait(lstm->barrier, ltid);
     libxs_internal_matrix_complement_square(m * n, &LIBXS_VLA_ACCESS(2, c, j, 0, m * n), c2, start_thread, tid, lstm->nThreads);
     libxs_barrier_wait(lstm->barrier, ltid);
     libxs_internal_matrix_eltwise_mult(m * n, c1, c2, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), start_thread, tid, lstm->nThreads);
+    libxs_barrier_wait(lstm->barrier, ltid);
     /* compute djdi */
     libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, djdd, j, 0, m * n), &LIBXS_VLA_ACCESS(2, c, j, 0, m * n), i1, start_thread, tid, lstm->nThreads);
+    libxs_barrier_wait(lstm->barrier, ltid);
     libxs_internal_matrix_complement(m * n, &LIBXS_VLA_ACCESS(2, i, j, 0, m * n), i2, start_thread, tid, lstm->nThreads);
     libxs_barrier_wait(lstm->barrier, ltid);
     libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, i, j, 0, m * n), i2, i3, start_thread, tid, lstm->nThreads);
     libxs_barrier_wait(lstm->barrier, ltid);
     libxs_internal_matrix_eltwise_mult(m * n, i1, i3, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), start_thread, tid, lstm->nThreads);
+    libxs_barrier_wait(lstm->barrier, ltid);
     /* compute djdf */
     if (j >= 1) {
       libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, djdd, j, 0, m * n), &LIBXS_VLA_ACCESS(2, d, j-1, 0, m * n), f1, start_thread, tid, lstm->nThreads);
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_internal_matrix_complement(m * n, &LIBXS_VLA_ACCESS(2, f, j, 0, m * n), f2, start_thread, tid, lstm->nThreads);
       libxs_barrier_wait(lstm->barrier, ltid);
       libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, f, j, 0, m * n), f2, f3, start_thread, tid, lstm->nThreads);
       libxs_barrier_wait(lstm->barrier, ltid);
       libxs_internal_matrix_eltwise_mult(m * n, f1, f3, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_barrier_wait(lstm->barrier, ltid);
     } else {
       /* djdf is zero for j == 0 */
       libxs_internal_matrix_zero(m * n, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), start_thread, tid, lstm->nThreads);
+      libxs_barrier_wait(lstm->barrier, ltid);
     }
     /* compute djdo */
     libxs_internal_matrix_tanh(m * n, &LIBXS_VLA_ACCESS(2, d, j, 0, m * n), o1, start_thread, tid, lstm->nThreads);
+    libxs_barrier_wait(lstm->barrier, ltid);
     libxs_internal_matrix_complement(m * n, &LIBXS_VLA_ACCESS(2, o, j, 0, m * n), o2, start_thread, tid, lstm->nThreads);
     libxs_barrier_wait(lstm->barrier, ltid);
     libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, delta, j, 0, m * n), o1, o1, start_thread, tid, lstm->nThreads);
+    libxs_barrier_wait(lstm->barrier, ltid);
     libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, o, j, 0, m * n), o2, o2, start_thread, tid, lstm->nThreads);
     libxs_barrier_wait(lstm->barrier, ltid);
     libxs_internal_matrix_eltwise_mult(m * n, o1, o2, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), start_thread, tid, lstm->nThreads);
     libxs_barrier_wait(lstm->barrier, ltid);
+    /* compute dout */
+    if (j >= 1) {
+      libxs_bgemm_st(handleud, ri, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, dout, j-1, 0, m * n), start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
+      libxs_bgemm_st(handleud, rf, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, dout, j-1, 0, m * n), start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
+      libxs_bgemm_st(handleud, ro, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, dout, j-1, 0, m * n), start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
+      libxs_bgemm_st(handleud, rc, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n),  &LIBXS_VLA_ACCESS(2, dout, j-1, 0, m * n), start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
+    }
     if (pass == 1 || pass == 3) {
       /* compute djdx */
       libxs_bgemm_st(handlewd, wi, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_st(handlewd, wf, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_st(handlewd, wo, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_st(handlewd, wc, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
     }
   }
   if (pass == 2 || pass == 3) {
     /* Reorganizing djdi, djdf, dfdo, djdc */
     for (j = 0; j < t; ++j) {
       libxs_bgemm_convert_b_to_a(handleud, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, djdiM, j, 0, m * n));
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_convert_b_to_a(handleud, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, djdfM, j, 0, m * n));
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_convert_b_to_a(handleud, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, djdoM, j, 0, m * n));
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_convert_b_to_a(handleud, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, djdcM, j, 0, m * n));
       libxs_barrier_wait(lstm->barrier, ltid);
     }
     /* compute djdw */
     for (j = 0; j < t; ++j) {
       libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdiM, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwi, start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdfM, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwf, start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdoM, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwo, start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_st(handledx, &LIBXS_VLA_ACCESS(2, djdcM, j, 0, m * n), &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdwc, start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
     }
     /* compute djdr */
     for (j = 0; j < t-1; ++j) {
       libxs_bgemm_st(handledh, &LIBXS_VLA_ACCESS(2, djdiM, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), djdri, start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_st(handledh, &LIBXS_VLA_ACCESS(2, djdfM, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), djdrf, start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_st(handledh, &LIBXS_VLA_ACCESS(2, djdoM, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), djdro, start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
       libxs_bgemm_st(handledh, &LIBXS_VLA_ACCESS(2, djdcM, j+1, 0, m * n), &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), djdrc, start_thread, tid);
+      libxs_barrier_wait(lstm->barrier, ltid);
     }
     /* compute djdb */
-    for (j = 0; j < t-1; j++) {
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, djdi, j, 0, m * n), djdbi, djdbi, start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, djdf, j, 0, m * n), djdbf, djdbf, start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, djdo, j, 0, m * n), djdbo, djdbo, start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, djdc, j, 0, m * n), djdbc, djdbc, start_thread, tid, lstm->nThreads);
+    if ((tid - start_thread) == 0) {
+      for (j = 0; j < t-1; j++) {
+        for (s = 0; s < n/bn; s++) {
+          for (q = 0; q < m/bm; q++) {
+            for (l = 0; l < bn; l++) {
+              for (p = 0; p < bm; p++) {
+                djdbi[q*bm+p] += LIBXS_VLA_ACCESS(2, djdi, j+1, (size_t)s*m*bn + (size_t)q*bm*bn + (size_t)l*bm+p, m * n);
+                djdbf[q*bm+p] += LIBXS_VLA_ACCESS(2, djdf, j+1, (size_t)s*m*bn + (size_t)q*bm*bn + (size_t)l*bm+p, m * n);
+                djdbo[q*bm+p] += LIBXS_VLA_ACCESS(2, djdo, j+1, (size_t)s*m*bn + (size_t)q*bm*bn + (size_t)l*bm+p, m * n);
+                djdbc[q*bm+p] += LIBXS_VLA_ACCESS(2, djdc, j+1, (size_t)s*m*bn + (size_t)q*bm*bn + (size_t)l*bm+p, m * n);
+              }
+            }
+          }
+        }
+      }
     }
     libxs_barrier_wait(lstm->barrier, ltid);
   }

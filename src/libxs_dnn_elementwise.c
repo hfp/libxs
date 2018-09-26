@@ -130,7 +130,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_relu(libxs_blasint size, LIBXS_DNN_E
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
-    dst[i] = (src[i] > 0) ? src[i] : 0;
+    dst[i] = (src[i] > 0.0f) ? src[i] : 0.0f;
   }
 }
 
@@ -181,7 +181,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_relu_inverse(libxs_blasint size, LIB
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
-    dst[i] = (LIBXS_DNN_ELTWISE_FTYPE)(src[i] > 0 ? 1 : 0);
+    dst[i] = (LIBXS_DNN_ELTWISE_FTYPE)(src[i] > 0.0f ? 1.0f : 0.0f);
   }
 }
 
