@@ -32,6 +32,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <math.h>
 #include <string.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
@@ -724,6 +725,34 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
   return status;
 }
 
+#if 0
+void sgemm_colmajor(LIBXS_DNN_ELTWISE_FTYPE *a, LIBXS_DNN_ELTWISE_FTYPE *b, LIBXS_DNN_ELTWISE_FTYPE *c, libxs_blasint m, libxs_blasint n, libxs_blasint k, int beta)
+{
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, a2D, a, m);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, b2D, b, k);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c2D, c, m);
+  libxs_blasint im, in, ik, jm, jn, jk, em, en, ek;
+  for (in = 0; in < n; in+=32) {
+    for (im = 0; im < m; im+=32) {
+      for (ik = 0; ik < k; ik+=32) {
+        for (jn = 0; jn < 32; jn++) {
+          for (jm = 0; jm < 32; jm++) {
+            en = in*32 + jn;
+            em = im*32 + jm;
+            if (beta == 0) {
+              c2D[en][em] = 0.0f;
+            }
+            for (jk = 0; jk < 32; jk++) {
+              ek = ik*32 + jk;
+              c2D[en][em] += (b2D[en][ek] * a2D[ek][em]);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+#endif
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int start_thread, int tid)
 {
@@ -750,14 +779,87 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   LIBXS_DNN_ELTWISE_FTYPE *z2t = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->z2->data;
   LIBXS_DNN_ELTWISE_FTYPE *z = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->z->data;
   LIBXS_DNN_ELTWISE_FTYPE *bM = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->bM->data;
-  /* libxs_bgemm_handle *handlewx = rnn->handlewx; */
-  libxs_bgemm_handle *handleuh = rnn->handleuh;
-  libxs_bgemm_handle *handlett = rnn->handlett;
+  /*libxs_bgemm_handle *handlewx = rnn->handlewx;*/
+  /*libxs_bgemm_handle *handleuh = rnn->handleuh;*/
+  /*libxs_bgemm_handle *handlett = rnn->handlett;*/
+  /*
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z1, z1t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z2, z2t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, hnr, h, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, znr, z, m * n);
+  */
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, w2D, w, m);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, u2D, u, m);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, x, xt, n, k);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, z1, z1t, n, m);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, z2, z2t, n, m);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, hnr, h, n, m);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, znr, z, n, m);
+  libxs_blasint i, im, in, ik, jm, jn, jk, em, en, ek, ih, ihn;
+  LIBXS_DNN_ELTWISE_FTYPE mid_value;
+  LIBXS_UNUSED(tid); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(bn); LIBXS_UNUSED(bm); LIBXS_UNUSED(bM); /* TODO: remove */
+  /* All data is in column-major format */
+  for (i = 0; i < t; ++i) {
+    /* z1 = W.x */
+    for (in = 0; in < n; in+=32) {
+      for (im = 0; im < m; im+=32) {
+        for (jn = 0; jn < 32; jn++) {
+          for (jm = 0; jm < 32; jm++) {
+            en = in + jn;
+            em = im + jm;
+            for (ik = 0; ik < k; ik+=32) {
+              for (jk = 0; jk < 32; jk++) {
+                ek = ik + jk;
+                LIBXS_VLA_ACCESS(3, z1, i, en, em, n, m) +=
+                  LIBXS_VLA_ACCESS(3, x, i, en, ek, n, k) * LIBXS_VLA_ACCESS(2, w2D, ek, em, m);
+              }
+            }
+          }
+        }
+      }
+    }
+    if (reuse) {
+      ih = 0;
+      ihn = 0;
+    } else {
+      ih = i;
+      ihn = i + 1;
+    }
+    /* z2 = U.h */
+    for (in = 0; in < n; in+=32) {
+      for (im = 0; im < m; im+=32) {
+        for (jn = 0; jn < 32; jn++) {
+          for (jm = 0; jm < 32; jm++) {
+            en = in + jn;
+            em = im + jm;
+            for (ik = 0; ik < m; ik+=32) {
+              for (jk = 0; jk < 32; jk++) {
+                ek = ik + jk;
+                LIBXS_VLA_ACCESS(3, z2, i, en, em, n, m) +=
+                  LIBXS_VLA_ACCESS(3, hnr, ih, en, ek, n, m) * LIBXS_VLA_ACCESS(2, u2D, ek, em, m);
+              }
+            }
+            /* z = z1 + z2 */
+            LIBXS_VLA_ACCESS(3, znr, i, en, em, n, m) = LIBXS_VLA_ACCESS(3, z1, i, en, em, n, m) + LIBXS_VLA_ACCESS(3, z2, i, en, em, n, m);
+            /* z += b */
+            LIBXS_VLA_ACCESS(3, znr, i, en, em, n, m) += b[em];
+            /* Apply non-linearity */
+            if (1 == nonlin) {
+              LIBXS_VLA_ACCESS(3, hnr, ihn, en, em, n, m) =
+                (LIBXS_VLA_ACCESS(3, znr, i, en, em, n, m) > 0) ? LIBXS_VLA_ACCESS(3, znr, i, en, em, n, m) : 0;
+            } else if (2 == nonlin) {
+              mid_value = (LIBXS_DNN_ELTWISE_FTYPE)exp((double) -LIBXS_VLA_ACCESS(3, znr, i, en, em, n, m));
+              LIBXS_VLA_ACCESS(3, hnr, ihn, en, em, n, m) = 1 / (1 + mid_value);
+            } else {
+              LIBXS_VLA_ACCESS(3, hnr, ihn, en, em, n, m) = (LIBXS_DNN_ELTWISE_FTYPE)tanh((double)LIBXS_VLA_ACCESS(3, znr, i, en, em, n, m));
+            }
+          }
+        }
+      }
+    }
+  }
+#if 0
 #if defined(LSTM_TIMING)
   unsigned long long start;
   double duration;
@@ -813,7 +915,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
     }
   }
 #endif
-
+#endif /* if 0 */
   return status;
 }
 

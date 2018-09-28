@@ -1426,6 +1426,7 @@ LIBXS_API int libxs_get_scratch_info(libxs_scratch_info* info)
     unsigned int i;
     assert(sizeof(internal_malloc_pool_type) <= (LIBXS_CACHELINE));
     memset(info, 0, sizeof(libxs_scratch_info));
+    info->internal = ((LIBXS_MALLOC_SCRATCH_INTERNAL) != pools[0].instance.site ? 0 : pools[0].instance.minsize);
     info->npending = pools[0].instance.counter;
     info->nmallocs = internal_malloc_scratch_nmallocs;
     info->npools = LIBXS_MIN(1, libxs_scratch_pools);
@@ -1437,6 +1438,9 @@ LIBXS_API int libxs_get_scratch_info(libxs_scratch_info* info)
       if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != pool->instance.site) {
         info->npools += (unsigned int)LIBXS_MIN(pool->instance.minsize, 1);
         info->npending += pool->instance.counter;
+      }
+      else {
+        info->internal += pool->instance.minsize;
       }
     }
 #endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
