@@ -1008,7 +1008,18 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
         fwd_equivalent_descriptor.compute_max = 0;
         handle->compute_max_in_kernel_bwd = 0;
       }
-      fwd_equivalent_descriptor.perform_relu_in_kernel = ((handle->fuse_relu_bwd > 0) && (handle->use_nts_bwd == 1)) ? 1 : 0;
+
+      if ( (handle->fuse_batchstats_bwd == 1) && (handle->use_nts_bwd == 1) ) {
+        fwd_equivalent_descriptor.compute_batch_stats_bwd = 1;
+        fwd_equivalent_descriptor.compute_batch_stats_fwd = 0;
+        handle->compute_batch_stats_in_kernel_bwd = 1;
+      } else {
+        fwd_equivalent_descriptor.compute_batch_stats_fwd = 0;
+        fwd_equivalent_descriptor.compute_batch_stats_bwd = 0;
+        handle->compute_batch_stats_in_kernel_bwd = 0;
+      }
+
+      fwd_equivalent_descriptor.perform_relu_in_kernel = (((handle->fuse_relu_bwd > 0) && (handle->use_nts_bwd == 1)) || handle->compute_batch_stats_in_kernel_bwd) ? 1 : 0;
       if (handle->padding_flag == 1) {
         matcopy_descriptor.n = handle->ofhp;
         matcopy_descriptor.m = handle->ofwp * handle->ofmblock;
