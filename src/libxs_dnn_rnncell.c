@@ -887,8 +887,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   LIBXS_DNN_ELTWISE_FTYPE *uD = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->u->data;
   LIBXS_DNN_ELTWISE_FTYPE *b = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->b->data;
   LIBXS_DNN_ELTWISE_FTYPE *ht = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->h->data;
+#if 0
   LIBXS_DNN_ELTWISE_FTYPE *z1D = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->z1->data;
   LIBXS_DNN_ELTWISE_FTYPE *z2D = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->z2->data;
+#endif
   LIBXS_DNN_ELTWISE_FTYPE *zt = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->z->data;
   LIBXS_DNN_ELTWISE_FTYPE *bM = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->bM->data;
 
@@ -897,8 +899,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
   LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, x, xt, N, C);
   LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, h, ht, N, K);
   LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, z, zt, N, K);
+#if 0
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z1, z1D, K);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z2, z2D, K);
+#endif
   libxs_blasint i, ik, in, ic;
   libxs_smmfunction gemmkernela = libxs_smmdispatch( bk, bn, bc, &K, &C, &K, NULL, NULL, NULL, NULL );
   libxs_smmfunction gemmkernelb = libxs_smmdispatch( bk, bn, bk, &K, &K, &K, NULL, NULL, NULL, NULL );
@@ -908,32 +912,43 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
     /* let's run the cell in blocks for good locality */
     for (in = 0; in < N; in += bn) {
       for (ik = 0; ik < K; ik += bk) {
+#if 0
         /* we nee to set z1 to zero */
         libxs_internal_matrix_zero_ld( bk, bn, K, &LIBXS_VLA_ACCESS(2, z1, in, ik, K));
-
+#endif
+        /* z = per_col(b) */
+        libxs_internal_matrix_bcst_colvector_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K), &b[ik] );
 
         /* z += W.x */
         for (ic = 0; ic < C; ic += bc) {
           /* this is a small matmul */
+#if 0
           gemmkernela( &LIBXS_VLA_ACCESS(2, w, ic, ik, K), &LIBXS_VLA_ACCESS(3, x, i, in, ic, N, C), &LIBXS_VLA_ACCESS(2, z1, in, ik, K) );
+#else
+          gemmkernela( &LIBXS_VLA_ACCESS(2, w, ic, ik, K), &LIBXS_VLA_ACCESS(3, x, i, in, ic, N, C), &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K) );
+#endif
         }
-
+#if 0
         /* we nee to set z2 to zero */
         libxs_internal_matrix_zero_ld( bk, bn, K, &LIBXS_VLA_ACCESS(2, z2, in, ik, K));
-
-        /* z2 = U.h */
+#endif
+        /* z2 += U.h */
         for (ic = 0; ic < K; ic += bk) {
           /* this is a small matmul */
+#if 0
           gemmkernelb( &LIBXS_VLA_ACCESS(2, u, ic, ik, K), &LIBXS_VLA_ACCESS(3, h, i, in, ic, N, K), &LIBXS_VLA_ACCESS(2, z2, in, ik, K) );
+#else
+          gemmkernelb( &LIBXS_VLA_ACCESS(2, u, ic, ik, K), &LIBXS_VLA_ACCESS(3, h, i, in, ic, N, K), &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K) );
+#endif
         }
-
+#if 0
         /* now let's run the elementwise kernels */
         libxs_internal_matrix_add_ld( bk, bn, K, &LIBXS_VLA_ACCESS(2, z1, in, ik, K),
                                                    &LIBXS_VLA_ACCESS(2, z2, in, ik, K),
                                                    &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K) );
 
         libxs_internal_matrix_add_colvector_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K), &b[ik] );
-
+#endif
         if (1 == nonlin) {
           libxs_internal_matrix_relu_ld(    bk, bn, K, &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K), &LIBXS_VLA_ACCESS(3, h, i+1, in, ik, N, K) );
         } else if (2 == nonlin) {
