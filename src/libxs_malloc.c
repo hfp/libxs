@@ -323,7 +323,7 @@ LIBXS_API_INTERN int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
   if (NULL == libxs_default_malloc_fn.function || NULL == libxs_default_free_fn.function) {
     const libxs_malloc_function null_malloc_fn = { NULL };
     const libxs_free_function null_free_fn = { NULL };
-    libxs_xset_default_allocator(lock, NULL/*context*/, null_malloc_fn, null_free_fn);
+    libxs_xset_default_allocator(NULL/*already locked*/, NULL/*context*/, null_malloc_fn, null_free_fn);
   }
   if (NULL == malloc_fn.function && NULL == free_fn.function) { /* adopt default allocator */
     libxs_scratch_allocator_context = libxs_default_allocator_context;
@@ -497,9 +497,12 @@ LIBXS_API_INLINE void* internal_xmap(const char* dir, size_t size, int flags, vo
 {
   void* result = MAP_FAILED;
   char filename[4096];
-  int i = LIBXS_SNPRINTF(filename, sizeof(filename), "%s/.libxs_XXXXXX.jit", dir);
+  int i = 0;
   assert(NULL != rx);
-  if (0 <= i && i < (int)sizeof(filename)) {
+  if (NULL != dir) {
+    i = LIBXS_SNPRINTF(filename, sizeof(filename), "%s/.libxs_XXXXXX.jit", dir);
+  }
+  if (0 < i && i < (int)sizeof(filename)) {
 #if defined(__GLIBC__) && defined(__GLIBC_MINOR__) && LIBXS_VERSION2(2, 19) <= LIBXS_VERSION2(__GLIBC__, __GLIBC_MINOR__)
     i = mkstemps(filename, 4/*.jit*/);
 #else

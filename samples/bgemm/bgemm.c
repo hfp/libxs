@@ -102,12 +102,12 @@ int main(int argc, char* argv[])
 # pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
   {
-    ITYPE* agold = (ITYPE*)libxs_malloc((size_t)(lda * k * sizeof(ITYPE)));
-    ITYPE* bgold = (ITYPE*)libxs_malloc((size_t)(ldb * n * sizeof(ITYPE)));
-    ITYPE* cgold = (ITYPE*)libxs_malloc((size_t)(ldc * n * sizeof(ITYPE)));
-    ITYPE* a = (ITYPE*)libxs_malloc((size_t)(m * k * sizeof(ITYPE)));
-    ITYPE* b = (ITYPE*)libxs_malloc((size_t)(k * n * sizeof(ITYPE)));
-    ITYPE* c = (ITYPE*)libxs_malloc((size_t)(m * n * sizeof(ITYPE)));
+    ITYPE* agold = (ITYPE*)libxs_malloc((size_t)lda * k * sizeof(ITYPE));
+    ITYPE* bgold = (ITYPE*)libxs_malloc((size_t)ldb * n * sizeof(ITYPE));
+    ITYPE* cgold = (ITYPE*)libxs_malloc((size_t)ldc * n * sizeof(ITYPE));
+    ITYPE* a = (ITYPE*)libxs_malloc((size_t)m * k * sizeof(ITYPE));
+    ITYPE* b = (ITYPE*)libxs_malloc((size_t)k * n * sizeof(ITYPE));
+    ITYPE* c = (ITYPE*)libxs_malloc((size_t)m * n * sizeof(ITYPE));
     libxs_bgemm_handle* handle = 0;
     unsigned long long start;
     double duration;
@@ -173,7 +173,7 @@ int main(int argc, char* argv[])
         libxs_free(a); a = 0;
         libxs_free(b); b = 0;
         /* allocate C-matrix in regular format, and perform copy-out */
-        ctest = (ITYPE*)libxs_malloc((size_t)(ldc * n * sizeof(ITYPE)));
+        ctest = (ITYPE*)libxs_malloc((size_t)ldc * n * sizeof(ITYPE));
         if (0 != ctest) {
           libxs_matdiff_info diff;
           libxs_bgemm_copyout_c(handle, c, &ldc, ctest);

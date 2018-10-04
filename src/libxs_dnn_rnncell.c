@@ -709,11 +709,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_internalstate(libxs_dnn_rnnce
 
   if (handle != 0 && zgoldtb != 0) {
     const libxs_blasint K = handle->desc.K, N = handle->desc.N, t = handle->desc.t;
-    /*LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, zgold, (const LIBXS_DNN_ELTWISE_FTYPE*)zgoldtb, K * N);*/
-    /*LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z, (LIBXS_DNN_ELTWISE_FTYPE*)handle->z->data, K * N);*/
+    LIBXS_VLA_DECL(2, /*const*/ LIBXS_DNN_ELTWISE_FTYPE, zgold, (/*const*/ LIBXS_DNN_ELTWISE_FTYPE*)zgoldtb, K * N);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z, (LIBXS_DNN_ELTWISE_FTYPE*)handle->z->data, K * N);
     libxs_blasint it;
+    /*libxs_internal_matrix_copy(K*N*t, (LIBXS_DNN_ELTWISE_FTYPE*)zgoldtb, (LIBXS_DNN_ELTWISE_FTYPE*)handle->z->data, 0, 0, 1);*/
     for (it = 0; it < t; ++it) {
-      libxs_internal_matrix_copy(K*N*t, (LIBXS_DNN_ELTWISE_FTYPE*)zgoldtb, (LIBXS_DNN_ELTWISE_FTYPE*)handle->z->data, 0, 0, 1);
+      libxs_internal_matrix_copy(K*N, &LIBXS_VLA_ACCESS(2, zgold, it, 0, K * N), &LIBXS_VLA_ACCESS(2, z, it, 0, K * N), 0, 0, 1);
       /* libxs_bgemm_copyin_b(handle->handlewx, &LIBXS_VLA_ACCESS(2, zgold, it, 0, K * N), &K, &LIBXS_VLA_ACCESS(2, z, it, 0, K * N)); */
     }
   } else {
@@ -1009,8 +1010,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
   /*const int ltid = tid - start_thread;*/
   /* initialization is done at the beginning */
   libxs_internal_matrix_zero(N*C*t, djdxt, start_thread, tid, nThreads);
-  libxs_internal_matrix_zero(C*K*t, djdwD, start_thread, tid, nThreads);
-  libxs_internal_matrix_zero(K*K*t, djduD, start_thread, tid, nThreads);
+  libxs_internal_matrix_zero(C*K,   djdwD, start_thread, tid, nThreads);
+  libxs_internal_matrix_zero(K*K,   djduD, start_thread, tid, nThreads);
   /* The following code is for time step t-1 */
   for (in = 0; in < N; in += bn) {
     for (ik = 0; ik < K; ik += bk) {
@@ -1024,36 +1025,36 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
       libxs_internal_matrix_eltwise_mult_ld( bk, bn, K, &LIBXS_VLA_ACCESS(2, zi, in, ik, K),
                                                           &LIBXS_VLA_ACCESS(3, djdh,  t-1, in, ik, N, K),
                                                           &LIBXS_VLA_ACCESS(3, delta, t-1, in, ik, N, K) );
-    }
-    for (jn = 0; jn < bn; jn++) {
-      for (jk = 0; jk < bk; jk++) {
-        en = in + jn;
-        ek = ik + jk;
-        if (1 == pass || 3 == pass) {
-          /* djdx = W^T * delta */
-          for (ic = 0; ic < C; ic += bc) {
-            for (jc = 0; jc < bc; jc++) {
-              ec = ic + jc;
-              LIBXS_VLA_ACCESS(3, djdx, t-1, en, ec, N, C) += LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K) * LIBXS_VLA_ACCESS(2, w, ec, ek, K);
+      for (jn = 0; jn < bn; jn++) {
+        for (jk = 0; jk < bk; jk++) {
+          en = in + jn;
+          ek = ik + jk;
+          if (1 == pass || 3 == pass) {
+            /* djdx = W^T * delta */
+            for (ic = 0; ic < C; ic += bc) {
+              for (jc = 0; jc < bc; jc++) {
+                ec = ic + jc;
+                LIBXS_VLA_ACCESS(3, djdx, t-1, en, ec, N, C) += LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K) * LIBXS_VLA_ACCESS(2, w, ec, ek, K);
+              }
             }
           }
-        }
-        if (2 == pass || 3 == pass) {
-          /* djdu = delta * h^T */
-          for (ic = 0; ic < K; ic += bk) {
-            for (jc = 0; jc < bk; jc++) {
-              ec = ic + jc;
-              LIBXS_VLA_ACCESS(2, djdu, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, t-1, en, ec, N, K) * LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K);
+          if (2 == pass || 3 == pass) {
+            /* djdu = delta * h^T */
+            for (ic = 0; ic < K; ic += bk) {
+              for (jc = 0; jc < bk; jc++) {
+                ec = ic + jc;
+                LIBXS_VLA_ACCESS(2, djdu, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, t-1, en, ec, N, K) * LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K);
+              }
             }
-          }
-          /* djdw = delta * x^T */
-          for (ic = 0; ic < C; ic += bc) {
-            for (jc = 0; jc < bc; jc++) {
-              ec = ic + jc;
-              LIBXS_VLA_ACCESS(2, djdw, ec, ek, K) += LIBXS_VLA_ACCESS(3, x, t-1, en, ec, N, C) * LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K);
+            /* djdw = delta * x^T */
+            for (ic = 0; ic < C; ic += bc) {
+              for (jc = 0; jc < bc; jc++) {
+                ec = ic + jc;
+                LIBXS_VLA_ACCESS(2, djdw, ec, ek, K) += LIBXS_VLA_ACCESS(3, x, t-1, en, ec, N, C) * LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K);
+              }
             }
+            djdb[ek] += LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K);
           }
-          djdb[ek] += LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K);
         }
       }
     }
