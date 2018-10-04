@@ -29,7 +29,6 @@
 #include "libxs_dnn_elementwise.h"
 #include "libxs_main.h"
 
-/* #define NON_FUSED_INPUT_GEMM */
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
@@ -38,105 +37,29 @@
 # pragma offload_attribute(pop)
 #endif
 
-/* #define LSTM_TIMING */
-#if defined(LSTM_TIMING)
-#include <stdio.h>
-double Gbl_t_input_total = 0., Gbl_t_recur_total = 0., Gbl_t_eltwise_total = 0., Gbl_t_nonlin_total = 0.;
-unsigned long long Gbl_t_input = 0, Gbl_t_recur = 0, Gbl_t_eltwise = 0, Gbl_t_nonlin = 0;
-double Gbl_duration_input = 0., Gbl_duration_recur = 0., Gbl_duration_eltwise = 0., Gbl_duration_nonlin = 0.;
-#endif
-
 
 LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc lstmcell_desc, libxs_dnn_err_t* status)
 {
   libxs_dnn_lstmcell* handle = 0;
-  const char *const env_b_m1 = getenv("LIBXS_BGEMM_M1");
-  const int b_m1 = (0 == env_b_m1) ? 1 : atoi(env_b_m1);
-  const char *const env_b_n1 = getenv("LIBXS_BGEMM_N1");
-  const int b_n1 = (0 == env_b_n1) ? 1 : atoi(env_b_n1);
-  const char *const env_b_k1 = getenv("LIBXS_BGEMM_K1");
-  const int b_k1 = (0 == env_b_k1) ? 1 : atoi(env_b_k1);
-  const char *const env_b_m2 = getenv("LIBXS_BGEMM_M2");
-  const int b_m2 = (0 == env_b_m2) ? 1 : atoi(env_b_m2);
-  const char *const env_b_n2 = getenv("LIBXS_BGEMM_N2");
-  const int b_n2 = (0 == env_b_n2) ? 1 : atoi(env_b_n2);
-  const char *const env_b_k2 = getenv("LIBXS_BGEMM_K2");
-  const int b_k2 = (0 == env_b_k2) ? 1 : atoi(env_b_k2);
-  const char transa = 'N', transb = 'N'; /* no transposes */
-  const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
-  const float alpha = 1, beta = 1;
-  const libxs_bgemm_order order = (libxs_bgemm_order)0; /* denotes order of execution for bgemm */
-  const libxs_gemm_prefetch_type strategy = (libxs_gemm_prefetch_type)LIBXS_PREFETCH_AUTO;
-
   handle = (libxs_dnn_lstmcell*)malloc(sizeof(libxs_dnn_lstmcell));
   if (0 != handle) {
     *status = LIBXS_DNN_SUCCESS;
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
     memset(handle, 0, sizeof(*handle));
     /* initialize known handle components */
-    handle->nThreads = lstmcell_desc.nThreads;
     handle->desc = lstmcell_desc;
-    handle->datatype_in = lstmcell_desc.datatype_in;
-    handle->datatype_out = lstmcell_desc.datatype_out;
-    handle->reuse = lstmcell_desc.reuse;
-    handle->pass = lstmcell_desc.pass;
     if ( (lstmcell_desc.datatype_in != LIBXS_DNN_DATATYPE_F32) || (lstmcell_desc.datatype_out != LIBXS_DNN_DATATYPE_F32) ) {
       /* error */
       *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return handle;
     }
-    handle->buffer_format = lstmcell_desc.buffer_format;
-    handle->m = lstmcell_desc.m;
-    handle->n = lstmcell_desc.n;
-    handle->k = lstmcell_desc.k;
-    handle->t = lstmcell_desc.t;
-    if (lstmcell_desc.t < 2) {
+    handle->bk = 64;
+    handle->bn = 64;
+    handle->bc = 64;
+    if (lstmcell_desc.t < 1) {
       *status = LIBXS_DNN_ERR_TIME_STEPS_TOO_SMALL;
     }
-    handle->bm = lstmcell_desc.bm;
-    handle->bn = lstmcell_desc.bn;
-    handle->bk = lstmcell_desc.bk;
-    handle->b_m1 = b_m1;
-    handle->b_n1 = b_n1;
-    handle->b_k1 = b_k1;
-    handle->b_m2 = b_m2;
-    handle->b_n2 = b_n2;
-    handle->b_k2 = b_k2;
-    if (handle->pass == 0) {
-      handle->handlewx = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
-        handle->m, handle->n, handle->k, &(handle->bm), &(handle->bn), &(handle->bk), &(handle->b_m1), &(handle->b_n1), &(handle->b_k1), &(handle->b_k2),
-        &alpha, &beta, &gemm_flags, &strategy, &order);
-      handle->handleuh = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
-        handle->m, handle->n, handle->m, &(handle->bm), &(handle->bn), &(handle->bm), &(handle->b_m1), &(handle->b_n1), &(handle->b_m1), &(handle->b_m2),
-        &alpha, &beta, &gemm_flags, &strategy, &order);
-#if defined(NON_FUSED_INPUT_GEMM)
-      handle->handlett = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
-        handle->m, handle->n*handle->t, handle->k, &(handle->bm), &(handle->bn), &(handle->bk), &(handle->b_m1), &(handle->b_n1), &(handle->b_k1), &(handle->b_k2),
-        &alpha, &beta, &gemm_flags, &strategy, &order);
-#else
-      handle->handlett = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
-        handle->m*4, handle->n*handle->t, handle->k, &(handle->bm), &(handle->bn), &(handle->bk), &(handle->b_m1), &(handle->b_n1), &(handle->b_k1), &(handle->b_k2),
-        &alpha, &beta, &gemm_flags, &strategy, &order);
-#endif
-    } else {
-      handle->handlewx = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
-        handle->m, handle->n, handle->m, &(handle->bm), &(handle->bn), &(handle->bm), &(handle->b_m1), &(handle->b_n1), &(handle->b_m1), &(handle->b_m2),
-        &alpha, &beta, &gemm_flags, &strategy, &order); /* U^T*delta */
-      handle->handleuh = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
-        handle->m, handle->m, handle->n, &(handle->bm), &(handle->bm), &(handle->bn), &(handle->b_m1), &(handle->b_m1), &(handle->b_n1), &(handle->b_n2),
-        &alpha, &beta, &gemm_flags, &strategy, &order); /* delta*h^T */
-      handle->handlett = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
-        handle->m, handle->k, handle->n, &(handle->bm), &(handle->bk), &(handle->bn), &(handle->b_m1), &(handle->b_k1), &(handle->b_n1), &(handle->b_n2),
-        &alpha, &beta, &gemm_flags, &strategy, &order); /* delta*x^T */
-      handle->handlewd = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
-        handle->k, handle->n, handle->m, &(handle->bk), &(handle->bn), &(handle->bm), &(handle->b_k1), &(handle->b_n1), &(handle->b_m1), &(handle->b_m2),
-        &alpha, &beta, &gemm_flags, &strategy, &order); /* W^T*delta */
-    }
     /* Need to allocate space for scratch and internalstate libxs_dnn_tensor's */
-    handle->bim = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->bfm = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->bom = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->bcm = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->i1t = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->i1b = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->i2  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
@@ -181,14 +104,8 @@ LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc 
     handle->djdbo  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->djdbc  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->doutt  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->i4t    = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->djdiMt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->djdfMt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->djdcMt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->djdoMt = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->barrier = libxs_barrier_create(handle->nThreads, 1);
-    if (NULL == handle->bim || NULL == handle->bfm || NULL == handle->bom || NULL == handle->bcm || NULL == handle->doutt ||
-        NULL == handle->i1t || NULL == handle->i1b || NULL == handle->i2 || NULL == handle->f1t || NULL == handle->f1b ||
+    handle->barrier = libxs_barrier_create(handle->desc.nThreads, 1);
+    if (NULL == handle->doutt || NULL == handle->i1t || NULL == handle->i1b || NULL == handle->i2 || NULL == handle->f1t || NULL == handle->f1b ||
         NULL == handle->f2 || NULL == handle->o1t || NULL == handle->o1b || NULL == handle->o2 || NULL == handle->c1t ||
         NULL == handle->c1b || NULL == handle->c2 || NULL == handle->i || NULL == handle->f || NULL == handle->o ||
         NULL == handle->c || NULL == handle->dh || NULL == handle->d1 || NULL == handle->d2 || NULL == handle->d ||
@@ -197,11 +114,9 @@ LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc 
         NULL == handle->djdot || NULL == handle->djdxt || NULL == handle->djdwi || NULL == handle->djdwf ||
         NULL == handle->djdwo || NULL == handle->djdwc || NULL == handle->djdri || NULL == handle->djdrf ||
         NULL == handle->djdro || NULL == handle->djdrc || NULL == handle->djdbi || NULL == handle->djdbf ||
-        NULL == handle->djdbo || NULL == handle->djdbc || NULL == handle->i4t   || NULL == handle->djdiMt||
-        NULL == handle->djdfMt|| NULL == handle->djdoMt|| NULL == handle->djdcMt|| NULL == handle->barrier)
+        NULL == handle->djdbo || NULL == handle->djdbc || NULL == handle->barrier)
     {
-      free(handle->bim); free(handle->bfm); free(handle->bom); free(handle->bcm); free(handle->doutt);
-      free(handle->i1t); free(handle->i1b); free(handle->i2); free(handle->f1t); free(handle->f1b);
+      free(handle->doutt); free(handle->i1t); free(handle->i1b); free(handle->i2); free(handle->f1t); free(handle->f1b);
       free(handle->f2); free(handle->o1t); free(handle->o1b); free(handle->o2); free(handle->c1t);
       free(handle->c1b); free(handle->c2); free(handle->i); free(handle->f); free(handle->o);
       free(handle->c); free(handle->dh); free(handle->d1); free(handle->d2); free(handle->d);
@@ -210,8 +125,7 @@ LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc 
       free(handle->djdot); free(handle->djdxt); free(handle->djdwi); free(handle->djdwf);
       free(handle->djdwo); free(handle->djdwc); free(handle->djdri); free(handle->djdrf);
       free(handle->djdro); free(handle->djdrc); free(handle->djdbi); free(handle->djdbf);
-      free(handle->djdbo); free(handle->djdbc); free(handle->i4t);
-      free(handle->djdiMt);free(handle->djdfMt);free(handle->djdoMt);free(handle->djdcMt);
+      free(handle->djdbo); free(handle->djdbc);
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     }
   } else {
@@ -225,8 +139,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_lstmcell(const libxs_dnn_lstmcell* h
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   if (0 != handle) {
-    free(handle->bim); free(handle->bfm); free(handle->bom); free(handle->bcm); free(handle->doutt);
-    free(handle->i1t); free(handle->i1b); free(handle->i2); free(handle->f1t); free(handle->f1b);
+    free(handle->doutt); free(handle->i1t); free(handle->i1b); free(handle->i2); free(handle->f1t); free(handle->f1b);
     free(handle->f2); free(handle->o1t); free(handle->o1b); free(handle->o2); free(handle->c1t);
     free(handle->c1b); free(handle->c2); free(handle->i); free(handle->f); free(handle->o);
     free(handle->c); free(handle->dh); free(handle->d1); free(handle->d2); free(handle->d);
@@ -235,8 +148,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_lstmcell(const libxs_dnn_lstmcell* h
     free(handle->djdot); free(handle->djdxt); free(handle->djdwi); free(handle->djdwf);
     free(handle->djdwo); free(handle->djdwc); free(handle->djdri); free(handle->djdrf);
     free(handle->djdro); free(handle->djdrc); free(handle->djdbi); free(handle->djdbf);
-    free(handle->djdbo); free(handle->djdbc); free(handle->i4t);
-    free(handle->djdiMt);free(handle->djdfMt);free(handle->djdoMt);free(handle->djdcMt);
+    free(handle->djdbo); free(handle->djdbc);
     /* Deallocate barrier */
     if (handle->barrier != 0 ) { libxs_barrier_release((const libxs_barrier*)handle->barrier); }
     /* deallocate handle structure */
@@ -270,11 +182,11 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
            (type == LIBXS_DNN_LSTM_REGULAR_BIAS_F)         || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_F)   ||
            (type == LIBXS_DNN_LSTM_REGULAR_BIAS_O)         || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_O)   ||
            (type == LIBXS_DNN_LSTM_REGULAR_BIAS_C)         || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_C) ) {
-        layout->format = handle->buffer_format;
+        layout->format = handle->desc.buffer_format;
         layout->tensor_type = LIBXS_DNN_ACTIVATION;
 
-        if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
-          if ( ((handle->datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) ) {
+        if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
+          if ( ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) ) ) {
             layout->datatype = LIBXS_DNN_DATATYPE_F32;
             if (1 /*handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_1*/) {
               layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
@@ -287,19 +199,19 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
                   layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
                   layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_RLK;
                   layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
-                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[0] = (unsigned int)handle->bc;
                   layout->dim_size[1] = (unsigned int)handle->bn;
-                  layout->dim_size[2] = (unsigned int)(handle->k / handle->bk);
-                  layout->dim_size[3] = (unsigned int)(handle->n / handle->bn);
+                  layout->dim_size[2] = (unsigned int)(handle->desc.C / handle->bc);
+                  layout->dim_size[3] = (unsigned int)(handle->desc.N / handle->bn);
                 } else if ( (type == LIBXS_DNN_LSTM_REGULAR_HIDDEN_STATE) || (type == LIBXS_DNN_LSTM_GRADIENT_HIDDEN_STATE) ) {
                   layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
                   layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
                   layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
                   layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
-                  layout->dim_size[0] = (unsigned int)handle->bm;
+                  layout->dim_size[0] = (unsigned int)handle->bk;
                   layout->dim_size[1] = (unsigned int)handle->bn;
-                  layout->dim_size[2] = (unsigned int)(handle->m / handle->bm);
-                  layout->dim_size[3] = (unsigned int)(handle->n / handle->bn);
+                  layout->dim_size[2] = (unsigned int)(handle->desc.K / handle->bk);
+                  layout->dim_size[3] = (unsigned int)(handle->desc.N / handle->bn);
                 } else if ( (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_I) || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_I) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_F) || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_F) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_WEIGHT_O) || (type == LIBXS_DNN_LSTM_GRADIENT_WEIGHT_O) ||
@@ -308,14 +220,10 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
                   layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLK;
                   layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_RLK;
                   layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
-                  layout->dim_size[0] = (unsigned int)handle->bm;
-                  layout->dim_size[1] = (unsigned int)handle->bk;
-                  layout->dim_size[2] = (unsigned int)(handle->k / handle->bk);
-#if defined(NON_FUSED_INPUT_GEMM)
-                  layout->dim_size[3] = (unsigned int)(handle->m / handle->bm);
-#else
-                  layout->dim_size[3] = (unsigned int)((handle->m * 4) / handle->bm);
-#endif
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)handle->bc;
+                  layout->dim_size[2] = (unsigned int)(handle->desc.C / handle->bc);
+                  layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk);
                 } else if ( (type == LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_I) || (type == LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_I) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_F) || (type == LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_F) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_RECUR_WEIGHT_O) || (type == LIBXS_DNN_LSTM_GRADIENT_RECUR_WEIGHT_O) ||
@@ -324,10 +232,10 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
                   layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
                   layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
                   layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
-                  layout->dim_size[0] = (unsigned int)handle->bm;
-                  layout->dim_size[1] = (unsigned int)handle->bm;
-                  layout->dim_size[2] = (unsigned int)(handle->m / handle->bm);
-                  layout->dim_size[3] = (unsigned int)(handle->m / handle->bm);
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)handle->bk;
+                  layout->dim_size[2] = (unsigned int)(handle->desc.K / handle->bk);
+                  layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk);
                 } else if ( (type == LIBXS_DNN_LSTM_REGULAR_BIAS_I) || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_I) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_BIAS_F) || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_F) ||
                             (type == LIBXS_DNN_LSTM_REGULAR_BIAS_O) || (type == LIBXS_DNN_LSTM_GRADIENT_BIAS_O) ||
@@ -336,10 +244,10 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_lstmcell_create_tensor_datalayo
                   layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
                   layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
                   layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
-                  layout->dim_size[0] = (unsigned int)handle->bm;
+                  layout->dim_size[0] = (unsigned int)handle->bk;
                   layout->dim_size[1] = (unsigned int)handle->bn;
-                  layout->dim_size[2] = (unsigned int)(handle->m / handle->bm);
-                  layout->dim_size[3] = (unsigned int)(handle->n / handle->bn);
+                  layout->dim_size[2] = (unsigned int)(handle->desc.K / handle->bk);
+                  layout->dim_size[3] = (unsigned int)(handle->desc.N / handle->bn);
                 } else {
                   free(layout->dim_type);
                   free(layout->dim_size);
@@ -387,91 +295,50 @@ LIBXS_API size_t libxs_dnn_lstmcell_get_scratch_size(const libxs_dnn_lstmcell* h
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* i1t */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* f1t */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* o1t */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* c1t */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* i2 */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* f2 */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* o2 */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* c2 */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* d1 */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* d2 */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* dh */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* bim */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* bfm */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* bom */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* bcm */
-                                           size += 64;
-#if !defined(NON_FUSED_INPUT_GEMM)
-                                           size += (size_t)handle->m * 4 * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* i4t */
-                                           size += 64;
-#endif
+                                           size += 0;
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* i1t */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* i1t */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* f1t */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* f1t */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* o1t */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* o1t */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* c1t */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* c1t */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* i1b */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* i1b */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* i2 */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* i2 */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* i3 */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* i3 */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* f1b */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* f1b */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* f2 */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* f2 */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* f3 */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* f3 */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* o1b */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* o1b */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* o2 */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* o2 */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* c1b */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* c1b */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* c2 */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* c2 */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* d1 */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* d1 */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* d2 */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* d2 */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* d3 (dh) */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* d3 (dh) */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype; /* d4 */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* d4 */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* delta */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* delta */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djdiMt */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djdfMt */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djdcMt */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djdoMt */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* doutt */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* doutt */
                                            size += 64;
                                          } break;
       default: {
@@ -502,134 +369,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           if (address % 64 == 0) {
-                                             handle->i1t->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->i1t->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->f1t->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->f1t->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->o1t->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->o1t->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->c1t->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->c1t->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->i2->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->i2->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->f2->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->f2->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->o2->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->o2->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->c2->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->c2->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->d1->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->d1->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->d2->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->d2->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->dh->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->dh->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->bim->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->bim->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->bfm->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->bfm->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->bom->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->bom->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->bcm->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->bcm->data = (void*)(address+offset);
-                                           }
-#if !defined(NON_FUSED_INPUT_GEMM)
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->i4t->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->i4t->data = (void*)(address+offset);
-                                           }
-#endif
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
@@ -640,7 +379,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->i1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f1t->data = (void*)address;
@@ -648,7 +387,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->f1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o1t->data = (void*)address;
@@ -656,7 +395,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->o1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c1t->data = (void*)address;
@@ -664,7 +403,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->c1t->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->i1b->data = (void*)address;
@@ -672,7 +411,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->i1b->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->i2->data = (void*)address;
@@ -680,7 +419,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->i2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->i3->data = (void*)address;
@@ -688,7 +427,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->i3->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f1b->data = (void*)address;
@@ -696,7 +435,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->f1b->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f2->data = (void*)address;
@@ -704,7 +443,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->f2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f3->data = (void*)address;
@@ -712,7 +451,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->f3->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o1b->data = (void*)address;
@@ -720,7 +459,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->o1b->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o2->data = (void*)address;
@@ -728,7 +467,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->o2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c1b->data = (void*)address;
@@ -736,7 +475,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->c1b->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c2->data = (void*)address;
@@ -744,7 +483,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->c2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d1->data = (void*)address;
@@ -752,7 +491,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->d1->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d2->data = (void*)address;
@@ -760,7 +499,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->d2->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->dh->data = (void*)address;
@@ -768,7 +507,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->dh->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d4->data = (void*)address;
@@ -776,7 +515,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->d4->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->deltat->data = (void*)address;
@@ -784,39 +523,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_scratch(libxs_dnn_lstmcell* ha
                                              offset = (64 - address % 64);
                                              handle->deltat->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdiMt->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdiMt->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdfMt->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdfMt->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdoMt->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdoMt->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdcMt->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdcMt->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->doutt->data = (void*)address;
@@ -844,38 +551,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell*
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           handle->i1t->data = 0;
-                                           handle->i2->data = 0;
-                                           handle->f1t->data = 0;
-                                           handle->f2->data = 0;
-                                           handle->o1t->data = 0;
-                                           handle->o2->data = 0;
-                                           handle->c1t->data = 0;
-                                           handle->c2->data = 0;
-                                           handle->d1->data = 0;
-                                           handle->d2->data = 0;
-                                           handle->dh->data = 0;
-                                           handle->bim->data = 0;
-                                           handle->bfm->data = 0;
-                                           handle->bom->data = 0;
-                                           handle->bcm->data = 0;
-                                           handle->i4t->data = 0;
-                                           handle->i1t = 0;
-                                           handle->i2 = 0;
-                                           handle->f1t = 0;
-                                           handle->f2 = 0;
-                                           handle->o1t = 0;
-                                           handle->o2 = 0;
-                                           handle->c1t = 0;
-                                           handle->c2 = 0;
-                                           handle->d1 = 0;
-                                           handle->d2 = 0;
-                                           handle->dh = 0;
-                                           handle->bim = 0;
-                                           handle->bfm = 0;
-                                           handle->bom = 0;
-                                           handle->bcm = 0;
-                                           handle->i4t = 0;
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
@@ -899,10 +574,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell*
                                            handle->f3->data = 0;
                                            handle->d4->data = 0;
                                            handle->deltat->data = 0;
-                                           handle->djdiMt->data = 0;
-                                           handle->djdfMt->data = 0;
-                                           handle->djdoMt->data = 0;
-                                           handle->djdcMt->data = 0;
                                            handle->doutt->data = 0;
                                            handle->i1t = 0;
                                            handle->i1b = 0;
@@ -923,10 +594,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell*
                                            handle->f3 = 0;
                                            handle->d4 = 0;
                                            handle->deltat = 0;
-                                           handle->djdiMt = 0;
-                                           handle->djdfMt = 0;
-                                           handle->djdoMt = 0;
-                                           handle->djdcMt = 0;
                                            handle->doutt = 0;
                                          } break;
       default: {
@@ -950,39 +617,29 @@ LIBXS_API size_t libxs_dnn_lstmcell_get_internalstate_size(const libxs_dnn_lstmc
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* i */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* i */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* f */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* f */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* o */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* o */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* c */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* c */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * ((size_t)handle->t + 1); /* d */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * ((size_t)handle->desc.t + 1); /* d */
                                            size += 64;
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-        size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* i */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* i */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* f */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* f */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* o */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* o */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* c */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* c */
                                            size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* d */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djddt */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djdit */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djdft */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djdct */
-                                           size += 64;
-                                           size += (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t; /* djdot */
+                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* d */
                                            size += 64;
                                          } break;
       default: {
@@ -1019,7 +676,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->i->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f->data = (void*)address;
@@ -1027,7 +684,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->f->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o->data = (void*)address;
@@ -1035,7 +692,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->o->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c->data = (void*)address;
@@ -1043,7 +700,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->c->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d->data = (void*)address;
@@ -1061,7 +718,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->i->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->f->data = (void*)address;
@@ -1069,7 +726,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->f->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->o->data = (void*)address;
@@ -1077,7 +734,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->o->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->c->data = (void*)address;
@@ -1085,53 +742,13 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmce
                                              offset = (64 - address % 64);
                                              handle->c->data = (void*)(address+offset);
                                            }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
+                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t;
                                            address += scratch_size + 64;
                                            if (address % 64 == 0) {
                                              handle->d->data = (void*)address;
                                            } else {
                                              offset = (64 - address % 64);
                                              handle->d->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djddt->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djddt->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdit->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdit->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdft->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdft->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdot->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdot->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->m * (size_t)handle->n * sizeof_datatype * (size_t)handle->t;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->djdct->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->djdct->data = (void*)(address+offset);
                                            }
                                          } break;
       default: {
@@ -1172,21 +789,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_internalstate(libxs_dnn_lst
                                            handle->o->data = 0;
                                            handle->c->data = 0;
                                            handle->d->data = 0;
-                                           handle->djddt->data = 0;
-                                           handle->djdit->data = 0;
-                                           handle->djdft->data = 0;
-                                           handle->djdot->data = 0;
-                                           handle->djdct->data = 0;
                                            handle->i = 0;
                                            handle->f = 0;
                                            handle->o = 0;
                                            handle->c = 0;
                                            handle->d = 0;
-                                           handle->djddt = 0;
-                                           handle->djdit = 0;
-                                           handle->djdft = 0;
-                                           handle->djdot = 0;
-                                           handle->djdct = 0;
                                          } break;
       default: {
                  status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -1205,24 +812,24 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_assign_internalstate(libxs_dnn_lstm
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (handle != 0 && igoldtb != 0 && fgoldtb != 0 && ogoldtb != 0 && cgoldtb != 0 && dgoldtb != 0) {
-    const libxs_blasint m = handle->m, n = handle->n, t = handle->t;
-    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, igold, (const LIBXS_DNN_ELTWISE_FTYPE*)igoldtb, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i, (LIBXS_DNN_ELTWISE_FTYPE*)handle->i->data, m * n);
-    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, fgold, (const LIBXS_DNN_ELTWISE_FTYPE*)fgoldtb, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f, (LIBXS_DNN_ELTWISE_FTYPE*)handle->f->data, m * n);
-    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, ogold, (const LIBXS_DNN_ELTWISE_FTYPE*)ogoldtb, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o, (LIBXS_DNN_ELTWISE_FTYPE*)handle->o->data, m * n);
-    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, cgold, (const LIBXS_DNN_ELTWISE_FTYPE*)cgoldtb, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c, (LIBXS_DNN_ELTWISE_FTYPE*)handle->c->data, m * n);
-    LIBXS_VLA_DECL(2, const LIBXS_DNN_ELTWISE_FTYPE, dgold, (const LIBXS_DNN_ELTWISE_FTYPE*)dgoldtb, m * n);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, d, (LIBXS_DNN_ELTWISE_FTYPE*)handle->d->data, m * n);
+    const libxs_blasint K = handle->desc.K, N = handle->desc.N, t = handle->desc.t;
+    LIBXS_VLA_DECL(2, /*const*/ LIBXS_DNN_ELTWISE_FTYPE, igold, (/*const*/ LIBXS_DNN_ELTWISE_FTYPE*)igoldtb, K * N);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i, (LIBXS_DNN_ELTWISE_FTYPE*)handle->i->data, K * N);
+    LIBXS_VLA_DECL(2, /*const*/ LIBXS_DNN_ELTWISE_FTYPE, fgold, (/*const*/ LIBXS_DNN_ELTWISE_FTYPE*)fgoldtb, K * N);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f, (LIBXS_DNN_ELTWISE_FTYPE*)handle->f->data, K * N);
+    LIBXS_VLA_DECL(2, /*const*/ LIBXS_DNN_ELTWISE_FTYPE, ogold, (/*const*/ LIBXS_DNN_ELTWISE_FTYPE*)ogoldtb, K * N);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o, (LIBXS_DNN_ELTWISE_FTYPE*)handle->o->data, K * N);
+    LIBXS_VLA_DECL(2, /*const*/ LIBXS_DNN_ELTWISE_FTYPE, cgold, (/*const*/ LIBXS_DNN_ELTWISE_FTYPE*)cgoldtb, K * N);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c, (LIBXS_DNN_ELTWISE_FTYPE*)handle->c->data, K * N);
+    LIBXS_VLA_DECL(2, /*const*/ LIBXS_DNN_ELTWISE_FTYPE, dgold, (/*const*/ LIBXS_DNN_ELTWISE_FTYPE*)dgoldtb, K * N);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, d, (LIBXS_DNN_ELTWISE_FTYPE*)handle->d->data, K * N);
     libxs_blasint it;
     for (it = 0; it < t; ++it) {
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, igold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, i, it, 0, m * n));
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, fgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, f, it, 0, m * n));
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, ogold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, o, it, 0, m * n));
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, cgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, c, it, 0, m * n));
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, dgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, d, it, 0, m * n));
+      libxs_internal_matrix_copy(K*N, &LIBXS_VLA_ACCESS(2, igold, it, 0, K * N), &LIBXS_VLA_ACCESS(2, i, it, 0, K * N), 0, 0, 1);
+      libxs_internal_matrix_copy(K*N, &LIBXS_VLA_ACCESS(2, fgold, it, 0, K * N), &LIBXS_VLA_ACCESS(2, f, it, 0, K * N), 0, 0, 1);
+      libxs_internal_matrix_copy(K*N, &LIBXS_VLA_ACCESS(2, ogold, it, 0, K * N), &LIBXS_VLA_ACCESS(2, o, it, 0, K * N), 0, 0, 1);
+      libxs_internal_matrix_copy(K*N, &LIBXS_VLA_ACCESS(2, cgold, it, 0, K * N), &LIBXS_VLA_ACCESS(2, c, it, 0, K * N), 0, 0, 1);
+      libxs_internal_matrix_copy(K*N, &LIBXS_VLA_ACCESS(2, dgold, it, 0, K * N), &LIBXS_VLA_ACCESS(2, d, it, 0, K * N), 0, 0, 1);
     }
   } else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE_TENSOR;
@@ -1312,7 +919,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_tensor(libxs_dnn_lstmcell* han
       } else if ( type == LIBXS_DNN_LSTM_GRADIENT_BIAS_O ) {
         handle->djdbo = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_LSTM_REGULAR_BIAS_C ) {
-        handle->bc = (libxs_dnn_tensor*)tensor;
+        handle->bd = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_LSTM_GRADIENT_BIAS_C ) {
         handle->djdbc = (libxs_dnn_tensor*)tensor;
       } else {
@@ -1409,7 +1016,7 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_lstmcell_get_tensor(libxs_dnn_lstmcell* ha
     } else if ( type == LIBXS_DNN_LSTM_GRADIENT_BIAS_O ) {
       tensor = handle->djdbo;
     } else if ( type == LIBXS_DNN_LSTM_REGULAR_BIAS_C ) {
-      tensor = handle->bc;
+      tensor = handle->bd;
     } else if ( type == LIBXS_DNN_LSTM_GRADIENT_BIAS_C ) {
       tensor = handle->djdbc;
     } else {
@@ -1498,7 +1105,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_tensor(libxs_dnn_lstmcell* 
     } else if ( type == LIBXS_DNN_LSTM_GRADIENT_BIAS_O ) {
       handle->djdbo = 0;
     } else if ( type == LIBXS_DNN_LSTM_REGULAR_BIAS_C ) {
-      handle->bc = 0;
+      handle->bd = 0;
     } else if ( type == LIBXS_DNN_LSTM_GRADIENT_BIAS_C ) {
       handle->djdbc = 0;
     } else {
@@ -1513,292 +1120,116 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_tensor(libxs_dnn_lstmcell* 
 }
 
 
-LIBXS_API void libxs_dnn_lstmcell_split_wx(libxs_dnn_lstmcell* lstm, libxs_blasint offset, void* src, void* dst, int start_thread, int tid, int nthreads)
-{
-  libxs_blasint job, i, j, k, l, p;
-  libxs_blasint m = lstm->m;
-  libxs_blasint n = lstm->n;
-  libxs_blasint t = lstm->t;
-  libxs_blasint bm = lstm->bm;
-  libxs_blasint bn = lstm->bn;
-  libxs_blasint mb = m / bm;
-  libxs_blasint nb = n / bn;
-  LIBXS_VLA_DECL(5, LIBXS_DNN_ELTWISE_FTYPE, real_src, (LIBXS_DNN_ELTWISE_FTYPE*)src, nb, mb*4, bn, bm);
-  LIBXS_VLA_DECL(5, LIBXS_DNN_ELTWISE_FTYPE, real_dst, (LIBXS_DNN_ELTWISE_FTYPE*)dst, nb, mb, bn, bm);
-  const int ltid = tid - start_thread;
-  /* number of tasks that could be run in parallel */
-  const libxs_blasint size = t * n * m;
-  /* compute chunk size */
-  const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
-  /* compute thr_begin and thr_end */
-  const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
-  for (job = thr_begin; job < thr_end; job++) {
-    i = job / (n * m);
-    j = (job % (n * m)) / (m * bn);
-    k = ((job % (n * m)) % (m * bn)) / (bn * bm);
-    l = (((job % (n * m)) % (m * bn)) % (bn * bm)) / bm;
-    p = (((job % (n * m)) % (m * bn)) % (bn * bm)) % bm;
-    LIBXS_VLA_ACCESS(5, real_dst, i, j, k, l, p, nb, mb, bn, bm) =
-      LIBXS_VLA_ACCESS(5, real_src, i, j, mb*offset + k, l, p, nb, mb*4, bn, bm);
-  }
-}
-
-
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  libxs_blasint m = lstm->m;
-  libxs_blasint n = lstm->n;
-  libxs_blasint bm = lstm->bm;
+  libxs_blasint K = lstm->desc.K;
+  libxs_blasint N = lstm->desc.N;
+  libxs_blasint C = lstm->desc.C;
+  libxs_blasint t = lstm->desc.t;
+  libxs_blasint bk = lstm->bk;
   libxs_blasint bn = lstm->bn;
-  /*libxs_blasint k = lstm->k;*/
-  libxs_blasint t = lstm->t;
-#if defined(LSTM_TIMING)
-  libxs_blasint k = lstm->k;
-  const double tflops = 12;
-  const double gflops = (((2.0 * m * n * k) + (2.0 * m * n * m) + (2.0 * m * n) + (tflops * m * n)) * 4.0 + (4.0 * m * n) + (tflops * m * n)) * (double)t * 1E-9;
-#endif
-  int reuse = lstm->reuse;
-  LIBXS_DNN_ELTWISE_FTYPE *wi  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wi->data;
-#if defined(NON_FUSED_INPUT_GEMM)
-  LIBXS_DNN_ELTWISE_FTYPE *wf  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wf->data;
-  LIBXS_DNN_ELTWISE_FTYPE *wo  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wo->data;
-  LIBXS_DNN_ELTWISE_FTYPE *wc  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wc->data;
-#endif
+  libxs_blasint bc = lstm->bc;
+  LIBXS_DNN_ELTWISE_FTYPE *wiD = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wi->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wfD = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wf->data;
+  LIBXS_DNN_ELTWISE_FTYPE *woD = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wo->data;
+  LIBXS_DNN_ELTWISE_FTYPE *wcD = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wc->data;
   LIBXS_DNN_ELTWISE_FTYPE *xt  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->xt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *ri  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->ri->data;
-  LIBXS_DNN_ELTWISE_FTYPE *rf  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->rf->data;
-  LIBXS_DNN_ELTWISE_FTYPE *ro  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->ro->data;
-  LIBXS_DNN_ELTWISE_FTYPE *rc  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->rc->data;
-  LIBXS_DNN_ELTWISE_FTYPE *h   = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->h->data;
+  LIBXS_DNN_ELTWISE_FTYPE *riD = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->ri->data;
+  LIBXS_DNN_ELTWISE_FTYPE *rfD = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->rf->data;
+  LIBXS_DNN_ELTWISE_FTYPE *roD = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->ro->data;
+  LIBXS_DNN_ELTWISE_FTYPE *rcD = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->rc->data;
+  LIBXS_DNN_ELTWISE_FTYPE *ht  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->h->data;
   LIBXS_DNN_ELTWISE_FTYPE *bi  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bi->data;
   LIBXS_DNN_ELTWISE_FTYPE *bf  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bf->data;
   LIBXS_DNN_ELTWISE_FTYPE *bo  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bo->data;
-  LIBXS_DNN_ELTWISE_FTYPE *bc  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bc->data;
-  LIBXS_DNN_ELTWISE_FTYPE *bim = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bim->data;
-  LIBXS_DNN_ELTWISE_FTYPE *bfm = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bfm->data;
-  LIBXS_DNN_ELTWISE_FTYPE *bom = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bom->data;
-  LIBXS_DNN_ELTWISE_FTYPE *bcm = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bcm->data;
-  LIBXS_DNN_ELTWISE_FTYPE *i2t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *f2t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *o2t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *c2t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *i   = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i->data;
-  LIBXS_DNN_ELTWISE_FTYPE *f   = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f->data;
-  LIBXS_DNN_ELTWISE_FTYPE *o   = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o->data;
-  LIBXS_DNN_ELTWISE_FTYPE *c   = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c->data;
-  LIBXS_DNN_ELTWISE_FTYPE *dh  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->dh->data;
-  LIBXS_DNN_ELTWISE_FTYPE *d1  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d1->data;
-  LIBXS_DNN_ELTWISE_FTYPE *d2  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d2->data;
-  LIBXS_DNN_ELTWISE_FTYPE *d   = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d->data;
-  /* LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n); */
-  LIBXS_DNN_ELTWISE_FTYPE *i1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i1t->data;
-  LIBXS_DNN_ELTWISE_FTYPE *f1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f1t->data;
-  LIBXS_DNN_ELTWISE_FTYPE *o1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o1t->data;
-  LIBXS_DNN_ELTWISE_FTYPE *c1t = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c1t->data;
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i1, i1t, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f1, f1t, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o1, o1t, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c1, c1t, m * n);
-  /* libxs_bgemm_handle *handlewx = lstm->handlewx; */
-  libxs_bgemm_handle *handleuh = lstm->handleuh;
-  libxs_bgemm_handle *handlett = lstm->handlett;
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, hnr, h, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, inr, i, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, fnr, f, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, onr, o, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, cnr, c, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, dnr, d, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i2, i2t, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, f2, f2t, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, o2, o2t, m * n);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, c2, c2t, m * n);
-#if defined(LSTM_TIMING)
-  unsigned long long start;
-  double duration;
-  Gbl_t_input_total = 0.; Gbl_t_recur_total = 0.; Gbl_t_eltwise_total = 0.; Gbl_t_nonlin_total = 0.;
-  Gbl_t_input = 0; Gbl_t_recur = 0; Gbl_t_eltwise = 0; Gbl_t_nonlin = 0;
-  Gbl_duration_input = 0.; Gbl_duration_recur = 0.; Gbl_duration_eltwise = 0.; Gbl_duration_nonlin = 0.;
-#endif
-  int j;
-  const int ltid = tid - start_thread;
+  LIBXS_DNN_ELTWISE_FTYPE *bd  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->bd->data;
+  LIBXS_DNN_ELTWISE_FTYPE *iD  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i->data;
+  LIBXS_DNN_ELTWISE_FTYPE *fD  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->f->data;
+  LIBXS_DNN_ELTWISE_FTYPE *oD  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->o->data;
+  LIBXS_DNN_ELTWISE_FTYPE *cD  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->c->data;
+  LIBXS_DNN_ELTWISE_FTYPE *dD  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->d->data;
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, wi, wiD, K);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, wf, wfD, K);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, wo, woD, K);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, wc, wcD, K);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, ri, riD, K);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, rf, rfD, K);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, ro, roD, K);
+  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, rc, rcD, K);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, x, xt, N, C);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, h, ht, N, K);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, i, iD, N, K);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, f, fD, N, K);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, o, oD, N, K);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, c, cD, N, K);
+  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, d, dD, N, K);
+  libxs_blasint j, ik, in, ic;
+  libxs_smmfunction gemmkernela = libxs_smmdispatch( bk, bn, bc, &K, &C, &K, NULL, NULL, NULL, NULL );
+  libxs_smmfunction gemmkernelb = libxs_smmdispatch( bk, bn, bk, &K, &K, &K, NULL, NULL, NULL, NULL );
+  LIBXS_UNUSED(tid); LIBXS_UNUSED(start_thread); /* TODO: remove */
+  /* All data is in column-major format */
+  for (j = 0; j < t; ++j) {
+    /* let's run the cell in blocks for good locality */
+    for (in = 0; in < N; in += bn) {
+      for (ik = 0; ik < K; ik += bk) {
+        /* initialize with bias */
+        libxs_internal_matrix_bcst_colvector_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, i, j, in, ik, N, K), &bi[ik] );
+        /* i += W.x */
+        for (ic = 0; ic < C; ic += bc) {
+          gemmkernela( &LIBXS_VLA_ACCESS(2, wi, ic, ik, K), &LIBXS_VLA_ACCESS(3, x, j, in, ic, N, C), &LIBXS_VLA_ACCESS(3, i, j, in, ik, N, K) );
+        }
+        /* i += U.h */
+        for (ic = 0; ic < K; ic += bk) {
+          gemmkernelb( &LIBXS_VLA_ACCESS(2, ri, ic, ik, K), &LIBXS_VLA_ACCESS(3, h, j, in, ic, N, K), &LIBXS_VLA_ACCESS(3, i, j, in, ik, N, K) );
+        }
+        libxs_internal_matrix_sigmoid_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, i, j, in, ik, N, K), &LIBXS_VLA_ACCESS(3, i, j, in, ik, N, K) );
 
-  libxs_barrier_init(lstm->barrier, ltid);
-#if defined(LSTM_TIMING)
-  if (ltid == 0) { start = libxs_timer_tick(); }
-#endif
-  libxs_internal_matrix_1D_2D(m, n, bm, bn, bi, bim, start_thread, tid, lstm->nThreads);
-  libxs_internal_matrix_1D_2D(m, n, bm, bn, bf, bfm, start_thread, tid, lstm->nThreads);
-  libxs_internal_matrix_1D_2D(m, n, bm, bn, bo, bom, start_thread, tid, lstm->nThreads);
-  libxs_internal_matrix_1D_2D(m, n, bm, bn, bc, bcm, start_thread, tid, lstm->nThreads);
+        /* initialize with bias */
+        libxs_internal_matrix_bcst_colvector_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, f, j, in, ik, N, K), &bf[ik] );
+        /* f += W.x */
+        for (ic = 0; ic < C; ic += bc) {
+          gemmkernela( &LIBXS_VLA_ACCESS(2, wf, ic, ik, K), &LIBXS_VLA_ACCESS(3, x, j, in, ic, N, C), &LIBXS_VLA_ACCESS(3, f, j, in, ik, N, K) );
+        }
+        /* f += U.h */
+        for (ic = 0; ic < K; ic += bk) {
+          gemmkernelb( &LIBXS_VLA_ACCESS(2, rf, ic, ik, K), &LIBXS_VLA_ACCESS(3, h, j, in, ic, N, K), &LIBXS_VLA_ACCESS(3, f, j, in, ik, N, K) );
+        }
+        libxs_internal_matrix_sigmoid_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, f, j, in, ik, N, K), &LIBXS_VLA_ACCESS(3, f, j, in, ik, N, K) );
 
-  if (reuse) {
-#if defined(LSTM_TIMING)
-    if (ltid == 0) { Gbl_t_input = libxs_timer_tick(); }
-#endif
-#if defined(NON_FUSED_INPUT_GEMM)
-    libxs_bgemm_st(handlett, wi, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, i1, 0, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handlett, wf, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, f1, 0, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handlett, wo, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, o1, 0, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handlett, wc, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, c1, 0, 0, m * n), start_thread, tid);
-#else
-    libxs_bgemm_st(handlett, wi, xt, (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i4t->data, start_thread, tid);
-    libxs_dnn_lstmcell_split_wx(lstm, 0, lstm->i4t->data, lstm->i1t->data, start_thread, tid, lstm->nThreads);
-    libxs_dnn_lstmcell_split_wx(lstm, 1, lstm->i4t->data, lstm->f1t->data, start_thread, tid, lstm->nThreads);
-    libxs_dnn_lstmcell_split_wx(lstm, 2, lstm->i4t->data, lstm->o1t->data, start_thread, tid, lstm->nThreads);
-    libxs_dnn_lstmcell_split_wx(lstm, 3, lstm->i4t->data, lstm->c1t->data, start_thread, tid, lstm->nThreads);
-    libxs_barrier_wait(lstm->barrier, ltid);
-#endif
-#if defined(LSTM_TIMING)
-    if (ltid == 0) {
-      Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
-      Gbl_t_input_total += Gbl_duration_input;
-    }
-#endif
-    for (j = 0; j < t; ++j) {
-#if defined(LSTM_TIMING)
-      if (ltid == 0) { Gbl_t_eltwise = libxs_timer_tick(); }
-#endif
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), bim, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), bfm, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), bom, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), bcm, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_barrier_wait(lstm->barrier, ltid);
-#if defined(LSTM_TIMING)
-      if (ltid == 0) {
-        Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
-        Gbl_t_eltwise_total += Gbl_duration_eltwise;
+        /* initialize with bias */
+        libxs_internal_matrix_bcst_colvector_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, o, j, in, ik, N, K), &bo[ik] );
+        /* o += W.x */
+        for (ic = 0; ic < C; ic += bc) {
+          gemmkernela( &LIBXS_VLA_ACCESS(2, wo, ic, ik, K), &LIBXS_VLA_ACCESS(3, x, j, in, ic, N, C), &LIBXS_VLA_ACCESS(3, o, j, in, ik, N, K) );
+        }
+        /* o += U.h */
+        for (ic = 0; ic < K; ic += bk) {
+          gemmkernelb( &LIBXS_VLA_ACCESS(2, ro, ic, ik, K), &LIBXS_VLA_ACCESS(3, h, j, in, ic, N, K), &LIBXS_VLA_ACCESS(3, o, j, in, ik, N, K) );
+        }
+        libxs_internal_matrix_sigmoid_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, o, j, in, ik, N, K), &LIBXS_VLA_ACCESS(3, o, j, in, ik, N, K) );
+
+        /* initialize with bias */
+        libxs_internal_matrix_bcst_colvector_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, c, j, in, ik, N, K), &bd[ik] );
+        /* c += W.x */
+        for (ic = 0; ic < C; ic += bc) {
+          gemmkernela( &LIBXS_VLA_ACCESS(2, wc, ic, ik, K), &LIBXS_VLA_ACCESS(3, x, j, in, ic, N, C), &LIBXS_VLA_ACCESS(3, c, j, in, ik, N, K) );
+        }
+        /* c += U.h */
+        for (ic = 0; ic < K; ic += bk) {
+          gemmkernelb( &LIBXS_VLA_ACCESS(2, rc, ic, ik, K), &LIBXS_VLA_ACCESS(3, h, j, in, ic, N, K), &LIBXS_VLA_ACCESS(3, c, j, in, ik, N, K) );
+        }
+        libxs_internal_matrix_tanh_ld(    bk, bn, K, &LIBXS_VLA_ACCESS(3, c, j, in, ik, N, K), &LIBXS_VLA_ACCESS(3, c, j, in, ik, N, K) );
+
+        /* d = f.d */
+        libxs_internal_matrix_eltwise_mult_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, f, j, in, ik, N, K), &LIBXS_VLA_ACCESS(3, d, j, in, ik, N, K), &LIBXS_VLA_ACCESS(3, d, j+1, in, ik, N, K) );
+        /* d += i.c */
+        libxs_internal_matrix_eltwise_fma_ld(  bk, bn, K, &LIBXS_VLA_ACCESS(3, i, j, in, ik, N, K), &LIBXS_VLA_ACCESS(3, c, j, in, ik, N, K), &LIBXS_VLA_ACCESS(3, d, j+1, in, ik, N, K) );
+        /* h = o.tanh(d) */
+        libxs_internal_matrix_elt_mult_tanh_ld(  bk, bn, K, &LIBXS_VLA_ACCESS(3, o, j, in, ik, N, K), &LIBXS_VLA_ACCESS(3, d, j+1, in, ik, N, K), &LIBXS_VLA_ACCESS(3, h, j+1, in, ik, N, K) );
       }
-#endif
-      libxs_internal_recursive_step(handleuh, ri, h, &LIBXS_VLA_ACCESS(2, i2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), i, i, 2, m * n, start_thread, tid); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, rf, h, &LIBXS_VLA_ACCESS(2, f2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), f, f, 2, m * n, start_thread, tid); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, ro, h, &LIBXS_VLA_ACCESS(2, o2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), o, o, 2, m * n, start_thread, tid); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, rc, h, &LIBXS_VLA_ACCESS(2, c2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), c, c, 3, m * n, start_thread, tid); /*tanh*/
-      libxs_barrier_wait(lstm->barrier, ltid);
-#if defined(LSTM_TIMING)
-      if (ltid == 0) { Gbl_t_eltwise = libxs_timer_tick(); }
-#endif
-      libxs_internal_matrix_eltwise_mult(m*n, f, d, d1, start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_eltwise_mult(m*n, i, c, d2, start_thread, tid, lstm->nThreads);
-      libxs_barrier_wait(lstm->barrier, ltid);
-      libxs_internal_matrix_add(m*n, d1, d2, d, start_thread, tid, lstm->nThreads);
-#if defined(LSTM_TIMING)
-      libxs_barrier_wait(lstm->barrier, ltid); /* Additional barrier introduced to measure time */
-      if (ltid == 0) {
-        Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
-        Gbl_t_eltwise_total += Gbl_duration_eltwise;
-        Gbl_t_nonlin = libxs_timer_tick();
-      }
-#endif
-      libxs_internal_matrix_tanh(m*n, d, dh, start_thread, tid, lstm->nThreads); /*tanh*/
-#if defined(LSTM_TIMING)
-      libxs_barrier_wait(lstm->barrier, ltid); /* Additional barrier introduced to measure time */
-      if (ltid == 0) {
-        Gbl_duration_nonlin = libxs_timer_duration(Gbl_t_nonlin, libxs_timer_tick());
-        Gbl_t_nonlin_total += Gbl_duration_nonlin;
-        Gbl_t_eltwise = libxs_timer_tick();
-      }
-#endif
-      libxs_internal_matrix_eltwise_mult(m*n, o, dh, h, start_thread, tid, lstm->nThreads);
-      libxs_barrier_wait(lstm->barrier, ltid);
-#if defined(LSTM_TIMING)
-      if (ltid == 0) {
-        Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
-        Gbl_t_eltwise_total += Gbl_duration_eltwise;
-      }
-#endif
-    }
-  } else {
-#if defined(LSTM_TIMING)
-    if (ltid == 0) { Gbl_t_input = libxs_timer_tick(); }
-#endif
-#if defined(NON_FUSED_INPUT_GEMM)
-    libxs_bgemm_st(handlett, wi, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, i1, 0, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handlett, wf, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, f1, 0, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handlett, wo, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, o1, 0, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handlett, wc, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, c1, 0, 0, m * n), start_thread, tid);
-#else
-    libxs_bgemm_st(handlett, wi, xt, (LIBXS_DNN_ELTWISE_FTYPE*)lstm->i4t->data, start_thread, tid);
-    libxs_dnn_lstmcell_split_wx(lstm, 0, lstm->i4t->data, lstm->i1t->data, start_thread, tid, lstm->nThreads);
-    libxs_dnn_lstmcell_split_wx(lstm, 1, lstm->i4t->data, lstm->f1t->data, start_thread, tid, lstm->nThreads);
-    libxs_dnn_lstmcell_split_wx(lstm, 2, lstm->i4t->data, lstm->o1t->data, start_thread, tid, lstm->nThreads);
-    libxs_dnn_lstmcell_split_wx(lstm, 3, lstm->i4t->data, lstm->c1t->data, start_thread, tid, lstm->nThreads);
-    libxs_barrier_wait(lstm->barrier, ltid);
-#endif
-#if defined(LSTM_TIMING)
-    if (ltid == 0) {
-      Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
-      Gbl_t_input_total += Gbl_duration_input;
-    }
-#endif
-    for (j = 0; j < t; ++j) {
-#if defined(LSTM_TIMING)
-      if (ltid == 0) { Gbl_t_eltwise = libxs_timer_tick(); }
-#endif
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), bim, &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), bfm, &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), bom, &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), bcm, &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_barrier_wait(lstm->barrier, ltid);
-#if defined(LSTM_TIMING)
-      if (ltid == 0) {
-        Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
-        Gbl_t_eltwise_total += Gbl_duration_eltwise;
-      }
-#endif
-      libxs_internal_recursive_step(handleuh, ri, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, i2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, i1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, inr, j, 0, m * n), 2, m * n, start_thread, tid); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, rf, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, f2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, f1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, fnr, j, 0, m * n), 2, m * n, start_thread, tid); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, ro, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, o2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, o1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, onr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, onr, j, 0, m * n), 2, m * n, start_thread, tid); /*sigmoid*/
-      libxs_internal_recursive_step(handleuh, rc, &LIBXS_VLA_ACCESS(2, hnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, c2, j, 0, m * n), &LIBXS_VLA_ACCESS(2, c1, j, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, j, 0, m * n), 3, m * n, start_thread, tid); /*tanh*/
-      libxs_barrier_wait(lstm->barrier, ltid);
-#if defined(LSTM_TIMING)
-      if (ltid == 0) { Gbl_t_eltwise = libxs_timer_tick(); }
-#endif
-      libxs_internal_matrix_eltwise_mult(m*n, &LIBXS_VLA_ACCESS(2, fnr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, dnr, j, 0, m * n), d1, start_thread, tid, lstm->nThreads);
-      libxs_internal_matrix_eltwise_mult(m*n, &LIBXS_VLA_ACCESS(2, inr, j, 0, m * n), &LIBXS_VLA_ACCESS(2, cnr, j, 0, m * n), d2, start_thread, tid, lstm->nThreads);
-      libxs_barrier_wait(lstm->barrier, ltid);
-      libxs_internal_matrix_add(m*n, d1, d2, &LIBXS_VLA_ACCESS(2, dnr, j+1, 0, m * n), start_thread, tid, lstm->nThreads);
-#if defined(LSTM_TIMING)
-      libxs_barrier_wait(lstm->barrier, ltid); /* Additional barrier introduced to measure time */
-      if (ltid == 0) {
-        Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
-        Gbl_t_eltwise_total += Gbl_duration_eltwise;
-        Gbl_t_nonlin = libxs_timer_tick();
-      }
-#endif
-      libxs_internal_matrix_tanh(m*n, &LIBXS_VLA_ACCESS(2, dnr, j+1, 0, m * n), dh, start_thread, tid, lstm->nThreads); /*tanh*/
-#if defined(LSTM_TIMING)
-      libxs_barrier_wait(lstm->barrier, ltid); /* Additional barrier introduced to measure time */
-      if (ltid == 0) {
-        Gbl_duration_nonlin = libxs_timer_duration(Gbl_t_nonlin, libxs_timer_tick());
-        Gbl_t_nonlin_total += Gbl_duration_nonlin;
-        Gbl_t_eltwise = libxs_timer_tick();
-      }
-#endif
-      libxs_internal_matrix_eltwise_mult(m*n, &LIBXS_VLA_ACCESS(2, onr, j, 0, m * n), dh, &LIBXS_VLA_ACCESS(2, hnr, j+1, 0, m * n), start_thread, tid, lstm->nThreads);
-      libxs_barrier_wait(lstm->barrier, ltid);
-#if defined(LSTM_TIMING)
-      if (ltid == 0) {
-        Gbl_duration_eltwise = libxs_timer_duration(Gbl_t_eltwise, libxs_timer_tick());
-        Gbl_t_eltwise_total += Gbl_duration_eltwise;
-      }
-#endif
     }
   }
-#if defined(LSTM_TIMING)
-  if (ltid == 0) {
-    duration = libxs_timer_duration(start, libxs_timer_tick());
-    if (0 < duration) {
-      fprintf(stdout, "\tLIBXS: %.1f GFLOPS/s\n", gflops / duration);
-      double t_total = Gbl_t_input_total + Gbl_t_recur_total + Gbl_t_eltwise_total + Gbl_t_nonlin_total;
-      fprintf(stdout, "Percentage of time spent in input matrix multiplication: %lf\n", Gbl_t_input_total*100.0/t_total);
-      fprintf(stdout, "Percentage of time spent in recurrence matrix multiplication: %lf\n", Gbl_t_recur_total*100.0/t_total);
-      fprintf(stdout, "Percentage of time spent in element-wise operations: %lf\n", Gbl_t_eltwise_total*100.0/t_total);
-      fprintf(stdout, "Percentage of time spent in non-linear operations: %lf\n", Gbl_t_nonlin_total*100.0/t_total);
-    }
-  }
-#endif
 
   return status;
 }
@@ -1807,12 +1238,13 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm, int start_thread, int tid, int pass)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  libxs_blasint m = lstm->m;
-  libxs_blasint n = lstm->n;
-  libxs_blasint bm = lstm->bm;
+  libxs_blasint K = lstm->desc.K;
+  libxs_blasint N = lstm->desc.N;
+  libxs_blasint C = lstm->desc.C;
+  libxs_blasint t = lstm->desc.t;
+  libxs_blasint bk = lstm->bk;
   libxs_blasint bn = lstm->bn;
-  libxs_blasint k = lstm->k;
-  libxs_blasint t = lstm->t;
+  libxs_blasint bc = lstm->bc;
   LIBXS_DNN_ELTWISE_FTYPE *wi = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wi->data;
   LIBXS_DNN_ELTWISE_FTYPE *wf = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wf->data;
   LIBXS_DNN_ELTWISE_FTYPE *wo = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->wo->data;
@@ -1862,11 +1294,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   LIBXS_DNN_ELTWISE_FTYPE *djdbf = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdbf->data;
   LIBXS_DNN_ELTWISE_FTYPE *djdbo = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdbo->data;
   LIBXS_DNN_ELTWISE_FTYPE *djdbc = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdbc->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdiMt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdiMt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdfMt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdfMt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdcMt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdcMt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdoMt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdoMt->data;
   LIBXS_DNN_ELTWISE_FTYPE *doutt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->doutt->data;
+#if 0
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, h, ht, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i, it, m * n);
@@ -2038,6 +1467,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
     }
     libxs_barrier_wait(lstm->barrier, ltid);
   }
+#endif
 
   return status;
 }
