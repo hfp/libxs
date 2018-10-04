@@ -1238,6 +1238,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int s
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm, int start_thread, int tid, int pass)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  LIBXS_UNUSED(lstm); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid); LIBXS_UNUSED(pass); /* TODO: remove */
+#if 0
   libxs_blasint K = lstm->desc.K;
   libxs_blasint N = lstm->desc.N;
   libxs_blasint C = lstm->desc.C;
@@ -1295,7 +1297,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   LIBXS_DNN_ELTWISE_FTYPE *djdbo = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdbo->data;
   LIBXS_DNN_ELTWISE_FTYPE *djdbc = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->djdbc->data;
   LIBXS_DNN_ELTWISE_FTYPE *doutt = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->doutt->data;
-#if 0
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, x, xt, k * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, h, ht, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, i, it, m * n);
