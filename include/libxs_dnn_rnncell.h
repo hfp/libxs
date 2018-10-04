@@ -40,9 +40,6 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
   int N;     /* size of the minibatch */
   int C;     /* number of inputs */
   int t;     /* number of time steps */
-  int bk;    /* blocksize for K */
-  int bn;    /* blocksize for N */
-  int bc;    /* blocksize for C */
   int pass;  /* denotes whether it is FWD/BWD/UPD */
   int nonlin;/* denotes which non-linear function to be used: relu, sigmoid, tanh */
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
