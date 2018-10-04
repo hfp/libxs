@@ -40,11 +40,9 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
   int N;     /* size of the minibatch */
   int C;     /* number of inputs */
   int t;     /* number of time steps */
-#if 0
-  int bm;    /* blocksize for m */
-  int bn;    /* blocksize for n */
-  int bk;    /* blocksize for k */
-#endif
+  int bk;    /* blocksize for K */
+  int bn;    /* blocksize for N */
+  int bc;    /* blocksize for C */
   int pass;  /* denotes whether it is FWD/BWD/UPD */
   int nonlin;/* denotes which non-linear function to be used: relu, sigmoid, tanh */
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
@@ -59,14 +57,6 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_blasint bk;
   libxs_blasint bn;
   libxs_blasint bc;
-#if 0
-  libxs_blasint b_m1;
-  libxs_blasint b_n1;
-  libxs_blasint b_k1;
-  libxs_blasint b_m2;
-  libxs_blasint b_n2;
-  libxs_blasint b_k2;
-#endif
   libxs_dnn_tensor* w;
   libxs_dnn_tensor* xt;
   libxs_dnn_tensor* u;
@@ -78,17 +68,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_dnn_tensor* djdw;
   libxs_dnn_tensor* djdxt;
   libxs_dnn_tensor* djdb;
-  libxs_dnn_tensor* bM;
+  libxs_dnn_tensor* zi;
   libxs_dnn_tensor* deltat;
-  libxs_dnn_tensor* z1;
-  libxs_dnn_tensor* z2;
-  libxs_dnn_tensor* di1;
-  libxs_dnn_tensor* di2;
-  libxs_dnn_tensor* deltaMt;
-  libxs_bgemm_handle* handlewx;
-  libxs_bgemm_handle* handleuh;
-  libxs_bgemm_handle* handlett;
-  libxs_bgemm_handle* handlewd;
   libxs_barrier* barrier; /* barrier */
 } libxs_dnn_rnncell;
 
