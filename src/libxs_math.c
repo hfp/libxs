@@ -51,10 +51,9 @@
 
 #define LIBXS_MATH_DIFF(DIFF, MOD, A, BN, ELEMSIZE, STRIDE, HINT, N) { \
   const char *const libxs_diff_b_ = (const char*)(BN); \
-  const unsigned int libxs_diff_end_ = (HINT) + (N); \
   unsigned int libxs_diff_i_; \
   LIBXS_PRAGMA_LOOP_COUNT(4, 1024, 4) \
-  for (libxs_diff_i_ = HINT; libxs_diff_i_ != libxs_diff_end_; ++libxs_diff_i_) { \
+  for (libxs_diff_i_ = HINT; libxs_diff_i_ != ((HINT) + (N)); ++libxs_diff_i_) { \
     const unsigned int libxs_diff_j_ = MOD(libxs_diff_i_, N); /* wrap around index */ \
     const unsigned int libxs_diff_k_ = libxs_diff_j_ * (STRIDE); \
     if (0 == (DIFF)(A, libxs_diff_b_ + libxs_diff_k_, ELEMSIZE)) return libxs_diff_j_; \

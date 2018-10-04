@@ -236,7 +236,7 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(
 
     if (handle->fuse_ops & LIBXS_DNN_CONV_FUSE_RELU_BWD) {
       handle->fuse_relu_bwd = 1;
-    } 
+    }
 
     /* Enable batchnorm fusion depending on the input */
     if (handle->fuse_ops & LIBXS_DNN_CONV_FUSE_BATCHNORM_STATS) {
@@ -310,6 +310,10 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(
   }
   else {
     *status = LIBXS_DNN_ERR_CREATE_HANDLE;
+  }
+  /* account for eventually deallocated handle */
+  if ( LIBXS_DNN_SUCCESS != *status ) {
+    handle = 0;
   }
   return handle;
 }
