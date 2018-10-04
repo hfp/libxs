@@ -1223,8 +1223,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_winograd_
         }
       }
 
-      wino_desc_wu.ur_ifm = 1;
-
+      wino_desc_wu.blocks_ifm = wino_desc_wu.ur_ifm = 1;
       handle->cwino_upd = wino_desc_wu;
       /* TODO check JIT errors */
       if (libxs_target_archid == LIBXS_X86_AVX512_MIC  ||
