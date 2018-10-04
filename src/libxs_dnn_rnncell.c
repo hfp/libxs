@@ -59,9 +59,9 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     if (rnncell_desc.t < 1) {
       *status = LIBXS_DNN_ERR_TIME_STEPS_TOO_SMALL;
     }
-    handle->bk = rnncell_desc.bk;
-    handle->bn = rnncell_desc.bn;
-    handle->bc = rnncell_desc.bc;
+    handle->bk = 64;
+    handle->bn = 64;
+    handle->bc = 64;
     /* Need to allocate space for scratch libxs_dnn_tensor's */
     handle->z  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->deltat = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
