@@ -35,44 +35,24 @@
 
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell_desc {
-  int N;
   int nThreads;
-  int m;     /* number of outputs */
-  int n;     /* size of the minibatch */
-  int k;     /* number of inputs */
+  int K;     /* number of outputs */
+  int N;     /* size of the minibatch */
+  int C;     /* number of inputs */
   int t;     /* number of time steps */
-  int bm;    /* blocksize for m */
-  int bn;    /* blocksize for n */
-  int bk;    /* blocksize for k */
-  int reuse; /* reuse/overwrite memory for FWD */
   int pass;  /* denotes whether it is FWD/BWD/UPD */
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
   libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
-  libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
+  libxs_dnn_tensor_format buffer_format;  /* format which is for activation buffers */
+  libxs_dnn_tensor_format filter_format;  /* format which is for filter buffers */
 } libxs_dnn_lstmcell_desc;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
-  int N;
-  int nThreads;
   libxs_dnn_lstmcell_desc desc;
-  libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
-  libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
-  libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
-  libxs_blasint m;
-  libxs_blasint n;
-  libxs_blasint k;
-  libxs_blasint t;
-  libxs_blasint bm;
-  libxs_blasint bn;
+  libxs_dnn_internal_format custom_format_type; /* required only for comparing layouts  */
   libxs_blasint bk;
-  int reuse;
-  int pass;
-  libxs_blasint b_m1;
-  libxs_blasint b_n1;
-  libxs_blasint b_k1;
-  libxs_blasint b_m2;
-  libxs_blasint b_n2;
-  libxs_blasint b_k2;
+  libxs_blasint bn;
+  libxs_blasint bc;
   libxs_dnn_tensor* wi;
   libxs_dnn_tensor* wf;
   libxs_dnn_tensor* wo;
@@ -85,35 +65,15 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
   libxs_dnn_tensor* bi;
   libxs_dnn_tensor* bf;
   libxs_dnn_tensor* bo;
-  libxs_dnn_tensor* bc;
+  libxs_dnn_tensor* bd;
   libxs_dnn_tensor* h;
-  libxs_dnn_tensor* bim;
-  libxs_dnn_tensor* bfm;
-  libxs_dnn_tensor* bom;
-  libxs_dnn_tensor* bcm;
-  libxs_dnn_tensor* i1t;
-  libxs_dnn_tensor* i1b;
-  libxs_dnn_tensor* i2;
-  libxs_dnn_tensor* f1t;
-  libxs_dnn_tensor* f1b;
-  libxs_dnn_tensor* f2;
-  libxs_dnn_tensor* o1t;
-  libxs_dnn_tensor* o1b;
-  libxs_dnn_tensor* o2;
-  libxs_dnn_tensor* c1t;
-  libxs_dnn_tensor* c1b;
-  libxs_dnn_tensor* c2;
+  libxs_dnn_tensor* t1;
+  libxs_dnn_tensor* t2;
   libxs_dnn_tensor* i;
   libxs_dnn_tensor* f;
   libxs_dnn_tensor* o;
   libxs_dnn_tensor* c;
-  libxs_dnn_tensor* dh;
-  libxs_dnn_tensor* d1;
-  libxs_dnn_tensor* d2;
   libxs_dnn_tensor* d;
-  libxs_dnn_tensor* i3;
-  libxs_dnn_tensor* f3;
-  libxs_dnn_tensor* d4;
   libxs_dnn_tensor* djdht;
   libxs_dnn_tensor* deltat;
   libxs_dnn_tensor* djddt;
@@ -135,15 +95,6 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
   libxs_dnn_tensor* djdbo;
   libxs_dnn_tensor* djdbc;
   libxs_dnn_tensor* doutt;
-  libxs_dnn_tensor* i4t;
-  libxs_dnn_tensor* djdiMt;
-  libxs_dnn_tensor* djdfMt;
-  libxs_dnn_tensor* djdcMt;
-  libxs_dnn_tensor* djdoMt;
-  libxs_bgemm_handle* handlewx;
-  libxs_bgemm_handle* handleuh;
-  libxs_bgemm_handle* handlett;
-  libxs_bgemm_handle* handlewd;
   libxs_barrier* barrier; /* barrier */
 } libxs_dnn_lstmcell;
 
@@ -165,8 +116,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_assign_internalstate(libxs_dnn_lstm
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type);
 LIBXS_API libxs_dnn_tensor* libxs_dnn_lstmcell_get_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor_type type);
-
-LIBXS_API void libxs_dnn_lstmcell_split_wx(libxs_dnn_lstmcell* lstm, libxs_blasint offset, void* src, void* dst, int start_thread, int tid, int nthreads);
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_fwd(libxs_dnn_lstmcell* lstm, int start_thread, int tid);
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm, int start_thread, int tid, int pass);

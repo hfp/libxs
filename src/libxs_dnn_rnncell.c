@@ -363,7 +363,7 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           size = 0;
+                                           size += 0;
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
@@ -766,7 +766,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int star
           /* this is a small matmul */
           gemmkernela( &LIBXS_VLA_ACCESS(2, w, ic, ik, K), &LIBXS_VLA_ACCESS(3, x, i, in, ic, N, C), &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K) );
         }
-        /* z2 += U.h */
+        /* z += U.h */
         for (ic = 0; ic < K; ic += bk) {
           /* this is a small matmul */
           gemmkernelb( &LIBXS_VLA_ACCESS(2, u, ic, ik, K), &LIBXS_VLA_ACCESS(3, h, i, in, ic, N, K), &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K) );
@@ -821,13 +821,17 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
   LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, h, ht, N, K);
   LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, djdx, djdxt, N, C);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, zi, ziD, K);
-
   libxs_blasint i, ik, in, ic, jk, jn, jc, ek, en, ec;
   /*const int ltid = tid - start_thread;*/
   /* initialization is done at the beginning */
-  libxs_internal_matrix_zero(N*C*t, djdxt, start_thread, tid, nThreads);
-  libxs_internal_matrix_zero(C*K,   djdwD, start_thread, tid, nThreads);
-  libxs_internal_matrix_zero(K*K,   djduD, start_thread, tid, nThreads);
+  if (1 == pass || 3 == pass) {
+    libxs_internal_matrix_zero(N*C*t, djdxt, start_thread, tid, nThreads);
+  }
+  if (2 == pass || 3 == pass) {
+    libxs_internal_matrix_zero(C*K,   djdwD, start_thread, tid, nThreads);
+    libxs_internal_matrix_zero(K*K,   djduD, start_thread, tid, nThreads);
+    libxs_internal_matrix_zero(K,     djdb,  start_thread, tid, nThreads);
+  }
   /* The following code is for time step t-1 */
   for (in = 0; in < N; in += bn) {
     for (ik = 0; ik < K; ik += bk) {
@@ -841,11 +845,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
       libxs_internal_matrix_eltwise_mult_ld( bk, bn, K, &LIBXS_VLA_ACCESS(2, zi, in, ik, K),
                                                           &LIBXS_VLA_ACCESS(3, djdh,  t-1, in, ik, N, K),
                                                           &LIBXS_VLA_ACCESS(3, delta, t-1, in, ik, N, K) );
-      for (jn = 0; jn < bn; jn++) {
-        for (jk = 0; jk < bk; jk++) {
-          en = in + jn;
-          ek = ik + jk;
-          if (1 == pass || 3 == pass) {
+      if (1 == pass || 3 == pass) {
+        for (jn = 0; jn < bn; jn++) {
+          for (jk = 0; jk < bk; jk++) {
+            en = in + jn;
+            ek = ik + jk;
             /* djdx = W^T * delta */
             for (ic = 0; ic < C; ic += bc) {
               for (jc = 0; jc < bc; jc++) {
@@ -854,7 +858,13 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
               }
             }
           }
-          if (2 == pass || 3 == pass) {
+        }
+      }
+      if (2 == pass || 3 == pass) {
+        for (jn = 0; jn < bn; jn++) {
+          for (jk = 0; jk < bk; jk++) {
+            en = in + jn;
+            ek = ik + jk;
             /* djdu = delta * h^T */
             for (ic = 0; ic < K; ic += bk) {
               for (jc = 0; jc < bk; jc++) {
