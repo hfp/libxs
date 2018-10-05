@@ -1235,10 +1235,16 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
               for (ic = 0; ic < K; ic += bk) {
                 for (jc = 0; jc < bk; jc++) {
                   ec = ic + jc;
+                  /*
                   LIBXS_VLA_ACCESS(3, dout, j-1, en, ek, N, K) += LIBXS_VLA_ACCESS(3, djdi, j, en, ec, N, K) * LIBXS_VLA_ACCESS(2, ri, ek, ec, K);
                   LIBXS_VLA_ACCESS(3, dout, j-1, en, ek, N, K) += LIBXS_VLA_ACCESS(3, djdf, j, en, ec, N, K) * LIBXS_VLA_ACCESS(2, rf, ek, ec, K);
                   LIBXS_VLA_ACCESS(3, dout, j-1, en, ek, N, K) += LIBXS_VLA_ACCESS(3, djdo, j, en, ec, N, K) * LIBXS_VLA_ACCESS(2, ro, ek, ec, K);
                   LIBXS_VLA_ACCESS(3, dout, j-1, en, ek, N, K) += LIBXS_VLA_ACCESS(3, djdc, j, en, ec, N, K) * LIBXS_VLA_ACCESS(2, rc, ek, ec, K);
+                  */
+                  LIBXS_VLA_ACCESS(3, dout, j-1, en, ec, N, K) += LIBXS_VLA_ACCESS(3, djdi, j, en, ek, N, K) * LIBXS_VLA_ACCESS(2, ri, ec, ek, K);
+                  LIBXS_VLA_ACCESS(3, dout, j-1, en, ec, N, K) += LIBXS_VLA_ACCESS(3, djdf, j, en, ek, N, K) * LIBXS_VLA_ACCESS(2, rf, ec, ek, K);
+                  LIBXS_VLA_ACCESS(3, dout, j-1, en, ec, N, K) += LIBXS_VLA_ACCESS(3, djdo, j, en, ek, N, K) * LIBXS_VLA_ACCESS(2, ro, ec, ek, K);
+                  LIBXS_VLA_ACCESS(3, dout, j-1, en, ec, N, K) += LIBXS_VLA_ACCESS(3, djdc, j, en, ek, N, K) * LIBXS_VLA_ACCESS(2, rc, ec, ek, K);
                 }
               }
             }
@@ -1256,14 +1262,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
             }
             if (2 == pass || 3 == pass) {
               /* djdr = delta * h^T */
-              if (j < t-1) {
+              if (j > 0) {
                 for (ic = 0; ic < K; ic += bk) {
                   for (jc = 0; jc < bk; jc++) {
                     ec = ic + jc;
-                    LIBXS_VLA_ACCESS(2, djdri, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, j, en, ec, N, K) * LIBXS_VLA_ACCESS(3, djdi, j+1, en, ek, N, K);
-                    LIBXS_VLA_ACCESS(2, djdrf, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, j, en, ec, N, K) * LIBXS_VLA_ACCESS(3, djdf, j+1, en, ek, N, K);
-                    LIBXS_VLA_ACCESS(2, djdro, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, j, en, ec, N, K) * LIBXS_VLA_ACCESS(3, djdo, j+1, en, ek, N, K);
-                    LIBXS_VLA_ACCESS(2, djdrc, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, j, en, ec, N, K) * LIBXS_VLA_ACCESS(3, djdc, j+1, en, ek, N, K);
+                    LIBXS_VLA_ACCESS(2, djdri, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, j-1, en, ec, N, K) * LIBXS_VLA_ACCESS(3, djdi, j, en, ek, N, K);
+                    LIBXS_VLA_ACCESS(2, djdrf, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, j-1, en, ec, N, K) * LIBXS_VLA_ACCESS(3, djdf, j, en, ek, N, K);
+                    LIBXS_VLA_ACCESS(2, djdro, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, j-1, en, ec, N, K) * LIBXS_VLA_ACCESS(3, djdo, j, en, ek, N, K);
+                    LIBXS_VLA_ACCESS(2, djdrc, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, j-1, en, ec, N, K) * LIBXS_VLA_ACCESS(3, djdc, j, en, ek, N, K);
                   }
                 }
               }
@@ -1277,11 +1283,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
                   LIBXS_VLA_ACCESS(2, djdwc, ec, ek, K) += LIBXS_VLA_ACCESS(3, x, j, en, ec, N, C) * LIBXS_VLA_ACCESS(3, djdc, j, en, ek, N, K);
                 }
               }
-              if (j < t-1) {
-                djdbi[ek] += LIBXS_VLA_ACCESS(3, djdi, j+1, en, ek, N, K);
-                djdbf[ek] += LIBXS_VLA_ACCESS(3, djdf, j+1, en, ek, N, K);
-                djdbo[ek] += LIBXS_VLA_ACCESS(3, djdo, j+1, en, ek, N, K);
-                djdbc[ek] += LIBXS_VLA_ACCESS(3, djdc, j+1, en, ek, N, K);
+              if (j > 0) {
+                djdbi[ek] += LIBXS_VLA_ACCESS(3, djdi, j, en, ek, N, K);
+                djdbf[ek] += LIBXS_VLA_ACCESS(3, djdf, j, en, ek, N, K);
+                djdbo[ek] += LIBXS_VLA_ACCESS(3, djdo, j, en, ek, N, K);
+                djdbc[ek] += LIBXS_VLA_ACCESS(3, djdc, j, en, ek, N, K);
               }
             }
           }
