@@ -579,6 +579,30 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_pooling {
   void* scratch;
 };
 
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
+  libxs_dnn_rnncell_desc desc;
+  libxs_dnn_internal_format custom_format_type; /* required only for comparing layouts  */
+  libxs_blasint bk;
+  libxs_blasint bn;
+  libxs_blasint bc;
+  libxs_dnn_tensor* w;
+  libxs_dnn_tensor* xt;
+  libxs_dnn_tensor* u;
+  libxs_dnn_tensor* h;
+  libxs_dnn_tensor* b;
+  libxs_dnn_tensor* z;
+  libxs_dnn_tensor* djdht;
+  libxs_dnn_tensor* djdu;
+  libxs_dnn_tensor* djdw;
+  libxs_dnn_tensor* djdxt;
+  libxs_dnn_tensor* djdb;
+  libxs_dnn_tensor* zi;
+  libxs_dnn_tensor* deltat;
+  int use_fwd_generic;
+  int use_bwdupd_generic; 
+  libxs_barrier* barrier; /* barrier */
+};
+
 struct LIBXS_RETARGETABLE libxs_dfsspmdm {
   int M;
   int N;

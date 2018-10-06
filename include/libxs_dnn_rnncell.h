@@ -34,6 +34,8 @@
 #include "libxs_dnn.h"
 
 
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell libxs_dnn_rnncell;
+
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
   int nThreads;
   int K;     /* number of outputs */
@@ -44,31 +46,9 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
   int nonlin;/* denotes which non-linear function to be used: relu, sigmoid, tanh */
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
   libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
-  libxs_dnn_tensor_format buffer_format;  /* format which is for buffer buffers */
-  libxs_dnn_tensor_format filter_format;  /* format which is for buffer buffers */
+  libxs_dnn_tensor_format buffer_format;  /* format which is for activation buffers */
+  libxs_dnn_tensor_format filter_format;  /* format which is for filter buffers */
 } libxs_dnn_rnncell_desc;
-
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
-  libxs_dnn_rnncell_desc desc;
-  libxs_dnn_internal_format custom_format_type; /* required only for comparing layouts  */
-  libxs_blasint bk;
-  libxs_blasint bn;
-  libxs_blasint bc;
-  libxs_dnn_tensor* w;
-  libxs_dnn_tensor* xt;
-  libxs_dnn_tensor* u;
-  libxs_dnn_tensor* h;
-  libxs_dnn_tensor* b;
-  libxs_dnn_tensor* z;
-  libxs_dnn_tensor* djdht;
-  libxs_dnn_tensor* djdu;
-  libxs_dnn_tensor* djdw;
-  libxs_dnn_tensor* djdxt;
-  libxs_dnn_tensor* djdb;
-  libxs_dnn_tensor* zi;
-  libxs_dnn_tensor* deltat;
-  libxs_barrier* barrier; /* barrier */
-} libxs_dnn_rnncell;
 
 LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnncell_desc, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_rnncell(const libxs_dnn_rnncell* handle);
