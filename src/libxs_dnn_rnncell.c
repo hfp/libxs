@@ -29,6 +29,7 @@
 
 #include <libxs.h>
 
+#include "libxs_dnn_rnncell_forward.h"
 #include "libxs_dnn_elementwise.h"
 #include "libxs_main.h"
 
@@ -62,11 +63,18 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     handle->bk = 64;
     handle->bn = 64;
     handle->bc = 64;
+    if ( LIBXS_X86_AVX512 <= libxs_target_archid ) {
+      handle->fwd_generic = 0;
+      handle->bwdupd_generic = 0;
+    } else {
+      handle->fwd_generic = 1;
+      handle->bwdupd_generic = 1;
+    }
     /* Need to allocate space for scratch libxs_dnn_tensor's */
     handle->z  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->deltat = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->zi = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->barrier = libxs_barrier_create(handle->desc.nThreads, 1);
+    handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
     if (NULL == handle->deltat || NULL == handle->z || NULL == handle->zi ||
         NULL == handle->barrier)
     {
@@ -393,36 +401,37 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
   size_t scratch_size = 0;
   const size_t sizeof_datatype = sizeof(float);
 
-  if (scratch == 0) {
-    status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
-    return status;
-  }
-
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                         } break;
+        /* forward only has no scratch need */
+      } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           if (address % 64 == 0) {
-                                             handle->zi->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->zi->data = (void*)(address+offset);
-                                           }
-                                           scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
-                                           address += scratch_size + 64;
-                                           if (address % 64 == 0) {
-                                             handle->deltat->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->deltat->data = (void*)(address+offset);
-                                           }
-                                         } break;
+        if (scratch == 0) {
+          status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
+          return status;
+        }
+
+        if (address % 64 == 0) {
+          handle->zi->data = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->zi->data = (void*)(address+offset);
+        }
+        scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
+        address += scratch_size + 64;
+        if (address % 64 == 0) {
+          handle->deltat->data = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->deltat->data = (void*)(address+offset);
+        }
+      } break;
       default: {
-                 status = LIBXS_DNN_ERR_INVALID_KIND;
-               }
+        status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
     }
   } else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE;
@@ -439,18 +448,19 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_scratch(libxs_dnn_rnncell* h
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                         } break;
+        /* forward only has no scratch need */
+      } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           handle->zi->data = 0;
-                                           handle->deltat->data = 0;
-                                           handle->zi = 0;
-                                           handle->deltat = 0;
-                                         } break;
+        handle->zi->data = 0;
+        handle->deltat->data = 0;
+        handle->zi = 0;
+        handle->deltat = 0;
+      } break;
       default: {
-                 status = LIBXS_DNN_ERR_INVALID_KIND;
-               }
+        status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
     }
   } else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE;
@@ -726,66 +736,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int start_thread, int tid)
-{
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  libxs_blasint K = rnn->desc.K;
-  libxs_blasint N = rnn->desc.N;
-  libxs_blasint C = rnn->desc.C;
-  libxs_blasint t = rnn->desc.t;
-  libxs_blasint bk = rnn->bk;
-  libxs_blasint bn = rnn->bn;
-  libxs_blasint bc = rnn->bc;
-  int nonlin = rnn->desc.nonlin;
-  /* The following code should be in template */
-  LIBXS_DNN_ELTWISE_FTYPE *wD = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->w->data;
-  LIBXS_DNN_ELTWISE_FTYPE *xt = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->xt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *uD = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->u->data;
-  LIBXS_DNN_ELTWISE_FTYPE *b = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->b->data;
-  LIBXS_DNN_ELTWISE_FTYPE *ht = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->h->data;
-  LIBXS_DNN_ELTWISE_FTYPE *zt = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->z->data;
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, w, wD, K);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, u, uD, K);
-  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, x, xt, N, C);
-  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, h, ht, N, K);
-  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, z, zt, N, K);
-  libxs_blasint i, ik, in, ic;
-  libxs_smmfunction gemmkernela = libxs_smmdispatch( bk, bn, bc, &K, &C, &K, NULL, NULL, NULL, NULL );
-  libxs_smmfunction gemmkernelb = libxs_smmdispatch( bk, bn, bk, &K, &K, &K, NULL, NULL, NULL, NULL );
-  LIBXS_UNUSED(tid); LIBXS_UNUSED(start_thread); /* TODO: remove */
-  /* All data is in column-major format */
-  for (i = 0; i < t; ++i) {
-    /* let's run the cell in blocks for good locality */
-    for (in = 0; in < N; in += bn) {
-      for (ik = 0; ik < K; ik += bk) {
-        /* z = per_col(b) */
-        libxs_internal_matrix_bcst_colvector_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K), &b[ik] );
-
-        /* z += W.x */
-        for (ic = 0; ic < C; ic += bc) {
-          /* this is a small matmul */
-          gemmkernela( &LIBXS_VLA_ACCESS(2, w, ic, ik, K), &LIBXS_VLA_ACCESS(3, x, i, in, ic, N, C), &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K) );
-        }
-        /* z += U.h */
-        for (ic = 0; ic < K; ic += bk) {
-          /* this is a small matmul */
-          gemmkernelb( &LIBXS_VLA_ACCESS(2, u, ic, ik, K), &LIBXS_VLA_ACCESS(3, h, i, in, ic, N, K), &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K) );
-        }
-        if (1 == nonlin) {
-          libxs_internal_matrix_relu_ld(    bk, bn, K, &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K), &LIBXS_VLA_ACCESS(3, h, i+1, in, ik, N, K) );
-        } else if (2 == nonlin) {
-          libxs_internal_matrix_sigmoid_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K), &LIBXS_VLA_ACCESS(3, h, i+1, in, ik, N, K) );
-        } else {
-          libxs_internal_matrix_tanh_ld(    bk, bn, K, &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K), &LIBXS_VLA_ACCESS(3, h, i+1, in, ik, N, K) );
-        }
-      }
-    }
-  }
-
-  return status;
-}
-
-
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, int start_thread, int tid, int pass)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -797,7 +747,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, i
   libxs_blasint bn = rnn->bn;
   libxs_blasint bc = rnn->bc;
   int nonlin = rnn->desc.nonlin;
-  int nThreads = rnn->desc.nThreads;
+  int nThreads = rnn->desc.threads;
   LIBXS_DNN_ELTWISE_FTYPE *djdht = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->djdht->data;
   LIBXS_DNN_ELTWISE_FTYPE *zt = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->z->data;
   LIBXS_DNN_ELTWISE_FTYPE *deltat = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->deltat->data;
@@ -954,21 +904,27 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           status = libxs_dnn_rnncell_fwd(handle, start_thread, tid);
-                                         } break;
+        if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CK) ) {
+          status = libxs_dnn_rnncell_st_fwd_nc_ck( handle, start_thread, tid );
+        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK)  ) {
+          status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
+          /*status = libxs_dnn_rnncell_st_fwd_ncnc_kcck( handle, start_thread, tid );*/
+        } else {
+          status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
+        }
+      } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD: {
-                                           status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 1);
-                                         } break;
+        status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 1);
+      } break;
       case LIBXS_DNN_COMPUTE_KIND_UPD: {
-                                           status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 2);
-                                         } break;
+        status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 2);
+      } break;
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 3);
-                                         } break;
-
+        status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 3);
+      } break;
       default: {
-                  status = LIBXS_DNN_ERR_INVALID_KIND;
-               }
+        status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
     }
   } else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE;

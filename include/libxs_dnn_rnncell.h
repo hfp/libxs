@@ -37,7 +37,7 @@
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell libxs_dnn_rnncell;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
-  int nThreads;
+  int threads;
   int K;     /* number of outputs */
   int N;     /* size of the minibatch */
   int C;     /* number of inputs */
@@ -69,7 +69,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_tensor(libxs_dnn_rnncell* handl
 LIBXS_API libxs_dnn_tensor* libxs_dnn_rnncell_get_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor_type type);
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_fwd(libxs_dnn_rnncell* rnn, int start_thread, int tid);
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, int start_thread, int tid, int pass);
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid);

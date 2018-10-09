@@ -598,8 +598,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_dnn_tensor* djdb;
   libxs_dnn_tensor* zi;
   libxs_dnn_tensor* deltat;
-  int use_fwd_generic;
-  int use_bwdupd_generic; 
+  int fwd_generic;
+  int bwdupd_generic; 
   libxs_barrier* barrier; /* barrier */
 };
 
