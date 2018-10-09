@@ -49,12 +49,24 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck_f32_f32(libxs_dnn_rnncell* handle
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-#if 0
   typedef float element_input_type;
   typedef float element_output_type;
   typedef float element_filter_type;
-#endif
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  if ( handle->desc.nonlin == 1 ) {
+#define LIBXS_DNN_RNN_RELU_FWD
+# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
+#undef LIBXS_DNN_RNN_RELU_FWD
+  } else if ( handle->desc.nonlin == 2 ) {
+#define LIBXS_DNN_RNN_SIGMOID_FWD
+# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
+#undef LIBXS_DNN_RNN_SIGMOID_FWD
+  } else if ( handle->desc.nonlin == 3 ) {
+#define LIBXS_DNN_RNN_TANH_FWD
+# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
+#undef LIBXS_DNN_RNN_TANH_FWD
+  } else {
+    /* should not happen */
+  }
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -99,14 +111,26 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck(libxs_dnn_rnncel
 #endif
 
   /* check if we have a kernel JITed */
-  if ( handle->use_fwd_generic != 0 ) {
+  if ( handle->fwd_generic != 0 ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-#if 0
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
-#endif
+      if ( handle->desc.nonlin == 1 ) {
+#define LIBXS_DNN_RNN_RELU_FWD
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
+#undef LIBXS_DNN_RNN_RELU_FWD
+      } else if ( handle->desc.nonlin == 2 ) {
+#define LIBXS_DNN_RNN_SIGMOID_FWD
+# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
+#undef LIBXS_DNN_RNN_SIGMOID_FWD
+      } else if ( handle->desc.nonlin == 3 ) {
+#define LIBXS_DNN_RNN_TANH_FWD
+# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
+#undef LIBXS_DNN_RNN_TANH_FWD
+      } else {
+        /* should not happen */
+      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -138,7 +162,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_ncnc_kcck(libxs_dnn_rn
 #endif
 
   /* check if we have a kernel JITed */
-  if ( handle->use_fwd_generic != 0 ) {
+  if ( handle->fwd_generic != 0 ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
 #if 0
       typedef float element_input_type;
