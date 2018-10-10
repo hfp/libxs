@@ -1258,21 +1258,15 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyin_tensor(const libxs_dnn_tensor* tensor
                                                                                                              } break;
                                                                               case LIBXS_DNN_DATATYPE_BF16: {
                                                                                                                typedef libxs_bfloat16 element_type;
-#define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_in_kcrs.tpl.c"
-#undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                              } break;
                                                                               case LIBXS_DNN_DATATYPE_I16: {
                                                                                                                typedef short element_type;
-#define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_in_kcrs.tpl.c"
-#undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                              } break;
                                                                               case LIBXS_DNN_DATATYPE_I8: {
                                                                                                               typedef char element_type;
-#define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_in_kcrs.tpl.c"
-#undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                             } break;
                                                                               default: {
                                                                                          status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -1464,9 +1458,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_tensor* tenso
 
                                                                               case LIBXS_DNN_DATATYPE_BF16: {
                                                                                                                typedef libxs_bfloat16 element_type;
-#define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
-#undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                              } break;
                                                                                    case LIBXS_DNN_DATATYPE_I32: {
                                                                                                                    typedef int element_type;
@@ -1474,15 +1466,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_copyout_tensor(const libxs_dnn_tensor* tenso
                                                                                                                  } break;
                                                                                    case LIBXS_DNN_DATATYPE_I16: {
                                                                                                                typedef short  element_type;
-#define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
-#undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                              } break;
                                                                               case LIBXS_DNN_DATATYPE_I8: {
                                                                                                               typedef char element_type;
-#define LIBXS_DNN_COPY_LOW_PRECISION
 #include "template/libxs_dnn_tensor_filter_copy_out_kcrs.tpl.c"
-#undef LIBXS_DNN_COPY_LOW_PRECISION
                                                                                                             } break;
                                                                               default: {
                                                                                          status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
