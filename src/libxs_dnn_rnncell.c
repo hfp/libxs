@@ -397,8 +397,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   uintptr_t address = (uintptr_t)scratch;
   size_t offset = 0;
+#if 0
   size_t scratch_size = 0;
   const size_t sizeof_datatype = sizeof(float);
+#endif
 
   if (0 != handle) {
     switch (kind) {
