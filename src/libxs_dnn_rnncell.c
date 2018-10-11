@@ -30,6 +30,7 @@
 #include <libxs.h>
 
 #include "libxs_dnn_rnncell_forward.h"
+#include "libxs_dnn_rnncell_backward_weight_update.h"
 #include "libxs_dnn_elementwise.h"
 #include "libxs_main.h"
 
@@ -73,12 +74,11 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     /* Need to allocate space for scratch libxs_dnn_tensor's */
     handle->z  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->deltat = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->zi = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
-    if (NULL == handle->deltat || NULL == handle->z || NULL == handle->zi ||
+    if (NULL == handle->deltat || NULL == handle->z ||
         NULL == handle->barrier)
     {
-      free(handle->deltat); free(handle->z); free(handle->zi);
+      free(handle->deltat); free(handle->z);
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     }
   } else {
@@ -92,7 +92,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_rnncell(const libxs_dnn_rnncell* han
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   if (0 != handle) {
-    free(handle->deltat); free(handle->z); free(handle->zi);
+    free(handle->deltat); free(handle->z);
     /* Deallocate barrier */
     if (handle->barrier != 0 ) { libxs_barrier_release((const libxs_barrier*)handle->barrier); }
     /* deallocate handle structure */
@@ -375,9 +375,8 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
+      case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype; /* zi */
-                                           size += 64;
                                            size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* deltat */
                                            size += 64;
                                          } break;
@@ -408,20 +407,13 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
       } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
+      case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
         if (scratch == 0) {
           status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
           return status;
         }
 
-        if (address % 64 == 0) {
-          handle->zi->data = (void*)address;
-        } else {
-          offset = (64 - address % 64);
-          handle->zi->data = (void*)(address+offset);
-        }
-        scratch_size = (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype;
-        address += scratch_size + 64;
         if (address % 64 == 0) {
           handle->deltat->data = (void*)address;
         } else {
@@ -452,10 +444,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_scratch(libxs_dnn_rnncell* h
       } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
+      case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-        handle->zi->data = 0;
         handle->deltat->data = 0;
-        handle->zi = 0;
         handle->deltat = 0;
       } break;
       default: {
@@ -478,18 +469,19 @@ LIBXS_API size_t libxs_dnn_rnncell_get_internalstate_size(const libxs_dnn_rnncel
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* zt */
-                                           size += 64;
-                                         } break;
+        size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* zt */
+        size += 64;
+      } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
+      case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* zt */
-                                           size += 64;
-                                         } break;
+        size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* zt */
+        size += 64;
+      } break;
       default: {
-                 *status = LIBXS_DNN_ERR_INVALID_KIND;
-               }
+        *status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
     }
   } else {
     *status = LIBXS_DNN_ERR_INVALID_HANDLE;
@@ -513,26 +505,27 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_internalstate(libxs_dnn_rnncell
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           if (address % 64 == 0) {
-                                             handle->z->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->z->data = (void*)(address+offset);
-                                           }
-                                         } break;
+        if (address % 64 == 0) {
+          handle->z->data = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->z->data = (void*)(address+offset);
+        }
+      } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
+      case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           if (address % 64 == 0) {
-                                             handle->z->data = (void*)address;
-                                           } else {
-                                             offset = (64 - address % 64);
-                                             handle->z->data = (void*)(address+offset);
-                                           }
-                                         } break;
+        if (address % 64 == 0) {
+          handle->z->data = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->z->data = (void*)(address+offset);
+        }
+      } break;
       default: {
-                 status = LIBXS_DNN_ERR_INVALID_KIND;
-               }
+        status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
     }
   } else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE;
@@ -549,18 +542,19 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           handle->z->data = 0;
-                                           handle->z = 0;
-                                         } break;
+        handle->z->data = 0;
+        handle->z = 0;
+      } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
+      case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           handle->z->data = 0;
-                                           handle->z = 0;
-                                         } break;
+        handle->z->data = 0;
+        handle->z = 0;
+      } break;
       default: {
-                 status = LIBXS_DNN_ERR_INVALID_KIND;
-               }
+        status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
     }
   } else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE;
@@ -736,166 +730,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bwd_upd_bu(libxs_dnn_rnncell* rnn, int start_thread, int tid, int pass)
-{
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  libxs_blasint K = rnn->desc.K;
-  libxs_blasint N = rnn->desc.N;
-  libxs_blasint C = rnn->desc.C;
-  libxs_blasint t = rnn->desc.t;
-  libxs_blasint bk = rnn->bk;
-  libxs_blasint bn = rnn->bn;
-  libxs_blasint bc = rnn->bc;
-  int nonlin = rnn->desc.nonlin;
-  int nThreads = rnn->desc.threads;
-  LIBXS_DNN_ELTWISE_FTYPE *djdht = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->djdht->data;
-  LIBXS_DNN_ELTWISE_FTYPE *zt = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->z->data;
-  LIBXS_DNN_ELTWISE_FTYPE *deltat = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->deltat->data;
-  LIBXS_DNN_ELTWISE_FTYPE *uD = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->u->data;
-  LIBXS_DNN_ELTWISE_FTYPE *xt = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->xt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *ht = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->h->data;
-  LIBXS_DNN_ELTWISE_FTYPE *wD = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->w->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djduD = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->djdu->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdwD = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->djdw->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdb = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->djdb->data;
-  LIBXS_DNN_ELTWISE_FTYPE *djdxt = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->djdxt->data;
-  LIBXS_DNN_ELTWISE_FTYPE* ziD = (LIBXS_DNN_ELTWISE_FTYPE*)rnn->zi->data;
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, u, uD, K);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, w, wD, K);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdu, djduD, K);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, djdw, djdwD, K);
-  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, djdh, djdht, N, K);
-  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, z, zt, N, K);
-  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, delta, deltat, N, K);
-  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, x, xt, N, C);
-  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, h, ht, N, K);
-  LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, djdx, djdxt, N, C);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, zi, ziD, K);
-  libxs_blasint i, ik, in, ic, jk, jn, jc, ek, en, ec;
-  /*const int ltid = tid - start_thread;*/
-  /* initialization is done at the beginning */
-  if (1 == pass || 3 == pass) {
-    libxs_internal_matrix_zero(N*C*t, djdxt, start_thread, tid, nThreads);
-  }
-  if (2 == pass || 3 == pass) {
-    libxs_internal_matrix_zero(C*K,   djdwD, start_thread, tid, nThreads);
-    libxs_internal_matrix_zero(K*K,   djduD, start_thread, tid, nThreads);
-    libxs_internal_matrix_zero(K,     djdb,  start_thread, tid, nThreads);
-  }
-  /* The following code is for time step t-1 */
-  for (in = 0; in < N; in += bn) {
-    for (ik = 0; ik < K; ik += bk) {
-      if (1 == nonlin) {
-        libxs_internal_matrix_relu_inverse_ld(    bk, bn, K, &LIBXS_VLA_ACCESS(3, z, t-1, in, ik, N, K), &LIBXS_VLA_ACCESS(2, zi, in, ik, K) );
-      } else if (2 == nonlin) {
-        libxs_internal_matrix_sigmoid_inverse_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, z, t-1, in, ik, N, K), &LIBXS_VLA_ACCESS(2, zi, in, ik, K) );
-      } else {
-        libxs_internal_matrix_tanh_inverse_ld(    bk, bn, K, &LIBXS_VLA_ACCESS(3, z, t-1, in, ik, N, K), &LIBXS_VLA_ACCESS(2, zi, in, ik, K) );
-      }
-      libxs_internal_matrix_eltwise_mult_ld( bk, bn, K, &LIBXS_VLA_ACCESS(2, zi, in, ik, K),
-                                                          &LIBXS_VLA_ACCESS(3, djdh,  t-1, in, ik, N, K),
-                                                          &LIBXS_VLA_ACCESS(3, delta, t-1, in, ik, N, K) );
-      if (1 == pass || 3 == pass) {
-        for (jn = 0; jn < bn; jn++) {
-          for (jk = 0; jk < bk; jk++) {
-            en = in + jn;
-            ek = ik + jk;
-            /* djdx = W^T * delta */
-            for (ic = 0; ic < C; ic += bc) {
-              for (jc = 0; jc < bc; jc++) {
-                ec = ic + jc;
-                LIBXS_VLA_ACCESS(3, djdx, t-1, en, ec, N, C) += LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K) * LIBXS_VLA_ACCESS(2, w, ec, ek, K);
-              }
-            }
-          }
-        }
-      }
-      if (2 == pass || 3 == pass) {
-        for (jn = 0; jn < bn; jn++) {
-          for (jk = 0; jk < bk; jk++) {
-            en = in + jn;
-            ek = ik + jk;
-            /* djdu = delta * h^T */
-            for (ic = 0; ic < K; ic += bk) {
-              for (jc = 0; jc < bk; jc++) {
-                ec = ic + jc;
-                LIBXS_VLA_ACCESS(2, djdu, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, t-1, en, ec, N, K) * LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K);
-              }
-            }
-            /* djdw = delta * x^T */
-            for (ic = 0; ic < C; ic += bc) {
-              for (jc = 0; jc < bc; jc++) {
-                ec = ic + jc;
-                LIBXS_VLA_ACCESS(2, djdw, ec, ek, K) += LIBXS_VLA_ACCESS(3, x, t-1, en, ec, N, C) * LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K);
-              }
-            }
-            djdb[ek] += LIBXS_VLA_ACCESS(3, delta, t-1, en, ek, N, K);
-          }
-        }
-      }
-    }
-  }
-  for (i = t-2; i >= 0; --i) {
-    /* let's run the cell in blocks for good locality */
-    for (in = 0; in < N; in += bn) {
-      for (ik = 0; ik < K; ik += bk) {
-        if (1 == nonlin) {
-          libxs_internal_matrix_relu_inverse_ld(    bk, bn, K, &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K), &LIBXS_VLA_ACCESS(2, zi, in, ik, K) );
-        } else if (2 == nonlin) {
-          libxs_internal_matrix_sigmoid_inverse_ld( bk, bn, K, &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K), &LIBXS_VLA_ACCESS(2, zi, in, ik, K) );
-        } else {
-          libxs_internal_matrix_tanh_inverse_ld(    bk, bn, K, &LIBXS_VLA_ACCESS(3, z, i, in, ik, N, K), &LIBXS_VLA_ACCESS(2, zi, in, ik, K) );
-        }
-        /* di1 = U^T * delta */
-        for (jn = 0; jn < bn; jn++) {
-          for (jk = 0; jk < bk; jk++) {
-            en = in + jn;
-            ek = ik + jk;
-            LIBXS_VLA_ACCESS(3, delta, i, en, ek, N, K) = (LIBXS_DNN_ELTWISE_FTYPE)0;
-            for (ic = 0; ic < K; ic += bk) {
-              for (jc = 0; jc < bk; jc++) {
-                ec = ic + jc;
-                LIBXS_VLA_ACCESS(3, delta, i, en, ek, N, K) += LIBXS_VLA_ACCESS(3, delta, i+1, en, ec, N, K) * LIBXS_VLA_ACCESS(2, u, ek, ec, K);
-              }
-            }
-            LIBXS_VLA_ACCESS(3, delta, i, en, ek, N, K) += LIBXS_VLA_ACCESS(3, djdh, i, en, ek, N, K);
-            LIBXS_VLA_ACCESS(3, delta, i, en, ek, N, K) *= LIBXS_VLA_ACCESS(2, zi, en, ek, K);
-            if (1 == pass || 3 == pass) {
-              /* djdx = W^T * delta */
-              for (ic = 0; ic < C; ic += bc) {
-                for (jc = 0; jc < bc; jc++) {
-                  ec = ic + jc;
-                  LIBXS_VLA_ACCESS(3, djdx, i, en, ec, N, C) += LIBXS_VLA_ACCESS(3, delta, i, en, ek, N, K) * LIBXS_VLA_ACCESS(2, w, ec, ek, K);
-                }
-              }
-            }
-            if (2 == pass || 3 == pass) {
-              /* djdu = delta * h^T */
-              for (ic = 0; ic < K; ic += bk) {
-                for (jc = 0; jc < bk; jc++) {
-                  ec = ic + jc;
-                  LIBXS_VLA_ACCESS(2, djdu, ec, ek, K) += LIBXS_VLA_ACCESS(3, h, i, en, ec, N, K) * LIBXS_VLA_ACCESS(3, delta, i, en, ek, N, K);
-                }
-              }
-              /* djdw = delta * x^T */
-              for (ic = 0; ic < C; ic += bc) {
-                for (jc = 0; jc < bc; jc++) {
-                  ec = ic + jc;
-                  LIBXS_VLA_ACCESS(2, djdw, ec, ek, K) += LIBXS_VLA_ACCESS(3, x, i, en, ec, N, C) * LIBXS_VLA_ACCESS(3, delta, i, en, ek, N, K);
-                }
-              }
-              djdb[ek] += LIBXS_VLA_ACCESS(3, delta, i, en, ek, N, K);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return status;
-}
-
-
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid)
 {
@@ -913,14 +747,17 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle
           status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }
       } break;
-      case LIBXS_DNN_COMPUTE_KIND_BWD: {
-        status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 1);
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_UPD: {
-        status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 2);
-      } break;
-      case LIBXS_DNN_COMPUTE_KIND_ALL: {
-        status = libxs_dnn_rnncell_bwd_upd_bu(handle, start_thread, tid, 3);
+      case LIBXS_DNN_COMPUTE_KIND_BWD:
+      case LIBXS_DNN_COMPUTE_KIND_UPD:
+      case LIBXS_DNN_COMPUTE_KIND_BWDUPD: {
+        if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CK) ) {
+          status = libxs_dnn_rnncell_st_bwdupd_nc_ck( handle, kind, start_thread, tid );
+        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK)  ) {
+          status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
+          /*status = libxs_dnn_rnncell_st_bwdupd_ncnc_kcck( handle, kind, start_thread, tid );*/
+        } else {
+          status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
+        }
       } break;
       default: {
         status = LIBXS_DNN_ERR_INVALID_KIND;
