@@ -27,8 +27,9 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_dnn_rnncell_forward.h"
-#include <libxs_intrinsics_x86.h>
+#include "libxs_dnn_elementwise.h"
 #include "libxs_main.h"
+#include <libxs_intrinsics_x86.h>
 #include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -52,15 +53,15 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck_f32_f32(libxs_dnn_rnncell* handle
   typedef float element_input_type;
   typedef float element_output_type;
   typedef float element_filter_type;
-  if ( handle->desc.nonlin == 1 ) {
+  if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_RELU ) {
 #define LIBXS_DNN_RNN_RELU_FWD
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
 #undef LIBXS_DNN_RNN_RELU_FWD
-  } else if ( handle->desc.nonlin == 2 ) {
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_SIGMOID ) {
 #define LIBXS_DNN_RNN_SIGMOID_FWD
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
 #undef LIBXS_DNN_RNN_SIGMOID_FWD
-  } else if ( handle->desc.nonlin == 3 ) {
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_TANH ) {
 #define LIBXS_DNN_RNN_TANH_FWD
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
 #undef LIBXS_DNN_RNN_TANH_FWD
@@ -116,15 +117,15 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck(libxs_dnn_rnncel
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
-      if ( handle->desc.nonlin == 1 ) {
+      if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_RELU ) {
 #define LIBXS_DNN_RNN_RELU_FWD
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
 #undef LIBXS_DNN_RNN_RELU_FWD
-      } else if ( handle->desc.nonlin == 2 ) {
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_SIGMOID ) {
 #define LIBXS_DNN_RNN_SIGMOID_FWD
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
 #undef LIBXS_DNN_RNN_SIGMOID_FWD
-      } else if ( handle->desc.nonlin == 3 ) {
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_TANH ) {
 #define LIBXS_DNN_RNN_TANH_FWD
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
 #undef LIBXS_DNN_RNN_TANH_FWD
