@@ -97,6 +97,8 @@ typedef enum libxs_dnn_compute_kind {
   LIBXS_DNN_COMPUTE_KIND_BWD,
   /** Updated weights. */
   LIBXS_DNN_COMPUTE_KIND_UPD,
+  /** Backward and weightupdate combined, useful for RNNs */
+  LIBXS_DNN_COMPUTE_KIND_BWDUPD,
   /** All routines, need for some init routines. */
   LIBXS_DNN_COMPUTE_KIND_ALL
 } libxs_dnn_compute_kind;
