@@ -72,13 +72,11 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
       handle->bwdupd_generic = 1;
     }
     /* Need to allocate space for scratch libxs_dnn_tensor's */
-    handle->z  = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
-    handle->deltat = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
+    handle->internal_z = 0;
+    handle->scratch_deltat = 0;
     handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
-    if (NULL == handle->deltat || NULL == handle->z ||
-        NULL == handle->barrier)
+    if (NULL == handle->barrier)
     {
-      free(handle->deltat); free(handle->z);
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     }
   } else {
@@ -92,7 +90,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_rnncell(const libxs_dnn_rnncell* han
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   if (0 != handle) {
-    free(handle->deltat); free(handle->z);
     /* Deallocate barrier */
     if (handle->barrier != 0 ) { libxs_barrier_release((const libxs_barrier*)handle->barrier); }
     /* deallocate handle structure */
@@ -364,25 +361,32 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
 
 LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status)
 {
-  const size_t sizeof_datatype = sizeof(float);
   size_t size = 0;
   *status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           size += 0;
-                                         } break;
+        size += 0;
+      } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-                                           size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t; /* deltat */
-                                           size += 64;
-                                         } break;
+        size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) * (size_t)handle->desc.t; /* deltat */
+        size += 64;
+        size += (size_t)handle->desc.C * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in); /* wT */
+        size += 64;
+        size += (size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in); /* uT */
+        size += 64;
+        size += (size_t)handle->desc.C * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_in); /* xT */
+        size += 64;
+        size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_in); /* hT */
+        size += 64;
+      } break;
       default: {
-                 *status = LIBXS_DNN_ERR_INVALID_KIND;
-               }
+        *status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
     }
   } else {
     *status = LIBXS_DNN_ERR_INVALID_HANDLE;
@@ -397,10 +401,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   uintptr_t address = (uintptr_t)scratch;
   size_t offset = 0;
-#if 0
-  size_t scratch_size = 0;
-  const size_t sizeof_datatype = sizeof(float);
-#endif
 
   if (0 != handle) {
     switch (kind) {
@@ -416,12 +416,46 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
           return status;
         }
 
+        /* deltat */
         if (address % 64 == 0) {
-          handle->deltat->data = (void*)address;
+          handle->scratch_deltat = (void*)address;
         } else {
           offset = (64 - address % 64);
-          handle->deltat->data = (void*)(address+offset);
+          handle->scratch_deltat = (void*)(address+offset);
         }
+        address += ((size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) * (size_t)handle->desc.t) + 64;
+        /* wT */
+        if (address % 64 == 0) {
+          handle->scratch_wT = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->scratch_wT = (void*)(address+offset);
+        }
+        address += ((size_t)handle->desc.C * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in)) + 64;
+        /* uT */
+        if (address % 64 == 0) {
+          handle->scratch_uT = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->scratch_uT = (void*)(address+offset);
+        }
+        address += ((size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in)) + 64;
+        /* xT */
+        if (address % 64 == 0) {
+          handle->scratch_xT = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->scratch_xT = (void*)(address+offset);
+        }
+        address += ((size_t)handle->desc.C * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_in)) + 64;
+        /* hT */
+        if (address % 64 == 0) {
+          handle->scratch_hT = (void*)address;
+        } else {
+          offset = (64 - address % 64);
+          handle->scratch_hT = (void*)(address+offset);
+        }
+        address += ((size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_in)) + 64;
       } break;
       default: {
         status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -448,8 +482,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_scratch(libxs_dnn_rnncell* h
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-        handle->deltat->data = 0;
-        handle->deltat = 0;
+        handle->scratch_deltat = 0;
+        handle->scratch_wT = 0;
+        handle->scratch_uT = 0;
+        handle->scratch_xT = 0;
+        handle->scratch_hT = 0;
       } break;
       default: {
         status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -508,10 +545,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_internalstate(libxs_dnn_rnncell
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
         if (address % 64 == 0) {
-          handle->z->data = (void*)address;
+          handle->internal_z = (void*)address;
         } else {
           offset = (64 - address % 64);
-          handle->z->data = (void*)(address+offset);
+          handle->internal_z = (void*)(address+offset);
         }
       } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
@@ -519,10 +556,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_internalstate(libxs_dnn_rnncell
       case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
         if (address % 64 == 0) {
-          handle->z->data = (void*)address;
+          handle->internal_z = (void*)address;
         } else {
           offset = (64 - address % 64);
-          handle->z->data = (void*)(address+offset);
+          handle->internal_z = (void*)(address+offset);
         }
       } break;
       default: {
@@ -544,15 +581,13 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-        handle->z->data = 0;
-        handle->z = 0;
+        handle->internal_z = 0;
       } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
       case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
       case LIBXS_DNN_COMPUTE_KIND_ALL: {
-        handle->z->data = 0;
-        handle->z = 0;
+        handle->internal_z = 0;
       } break;
       default: {
         status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -573,7 +608,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_internalstate(libxs_dnn_rnnce
   if (handle != 0 && zgoldtb != 0) {
     const libxs_blasint K = handle->desc.K, N = handle->desc.N, t = handle->desc.t;
     LIBXS_VLA_DECL(2, /*const*/ LIBXS_DNN_ELTWISE_FTYPE, zgold, (/*const*/ LIBXS_DNN_ELTWISE_FTYPE*)zgoldtb, K * N);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z, (LIBXS_DNN_ELTWISE_FTYPE*)handle->z->data, K * N);
+    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z, (LIBXS_DNN_ELTWISE_FTYPE*)handle->internal_z, K * N);
     libxs_blasint it;
     for (it = 0; it < t; ++it) {
       libxs_internal_matrix_copy(K*N, &LIBXS_VLA_ACCESS(2, zgold, it, 0, K * N), &LIBXS_VLA_ACCESS(2, z, it, 0, K * N), 0, 0, 1);
@@ -591,11 +626,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_tensor(libxs_dnn_rnncell* handl
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check for tensor type */
-  if ( (type != LIBXS_DNN_RNN_REGULAR_INPUT)       && (type != LIBXS_DNN_RNN_GRADIENT_INPUT)  &&
-      (type != LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE) && (type != LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE) &&
-      (type != LIBXS_DNN_RNN_REGULAR_WEIGHT)       && (type != LIBXS_DNN_RNN_GRADIENT_WEIGHT) &&
-      (type != LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT) && (type != LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT) &&
-      (type != LIBXS_DNN_RNN_REGULAR_BIAS)         && (type != LIBXS_DNN_RNN_GRADIENT_BIAS) ) {
+  if ( (type != LIBXS_DNN_RNN_REGULAR_INPUT)        && (type != LIBXS_DNN_RNN_GRADIENT_INPUT)  &&
+       (type != LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE) && (type != LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE) &&
+       (type != LIBXS_DNN_RNN_REGULAR_WEIGHT)       && (type != LIBXS_DNN_RNN_GRADIENT_WEIGHT) &&
+       (type != LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT) && (type != LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT) &&
+       (type != LIBXS_DNN_RNN_REGULAR_BIAS)         && (type != LIBXS_DNN_RNN_GRADIENT_BIAS) ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -609,7 +644,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_tensor(libxs_dnn_rnncell* handl
       } else if ( type == LIBXS_DNN_RNN_GRADIENT_INPUT ) {
         handle->djdxt = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE ) {
-        handle->h = (libxs_dnn_tensor*)tensor;
+        handle->ht = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE ) {
         handle->djdht = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_RNN_REGULAR_WEIGHT ) {
@@ -647,11 +682,11 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_rnncell_get_tensor(libxs_dnn_rnncell* hand
   LIBXS_UNUSED(status/*TODO*/);
 
   /* check for tensor type */
-  if ( (type != LIBXS_DNN_RNN_REGULAR_INPUT)       && (type != LIBXS_DNN_RNN_GRADIENT_INPUT)  &&
-      (type != LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE) && (type != LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE) &&
-      (type != LIBXS_DNN_RNN_REGULAR_WEIGHT)       && (type != LIBXS_DNN_RNN_GRADIENT_WEIGHT) &&
-      (type != LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT) && (type != LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT) &&
-      (type != LIBXS_DNN_RNN_REGULAR_BIAS)         && (type != LIBXS_DNN_RNN_GRADIENT_BIAS) ) {
+  if ( (type != LIBXS_DNN_RNN_REGULAR_INPUT)        && (type != LIBXS_DNN_RNN_GRADIENT_INPUT)  &&
+       (type != LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE) && (type != LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE) &&
+       (type != LIBXS_DNN_RNN_REGULAR_WEIGHT)       && (type != LIBXS_DNN_RNN_GRADIENT_WEIGHT) &&
+       (type != LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT) && (type != LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT) &&
+       (type != LIBXS_DNN_RNN_REGULAR_BIAS)         && (type != LIBXS_DNN_RNN_GRADIENT_BIAS) ) {
     return tensor;
   }
 
@@ -661,7 +696,7 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_rnncell_get_tensor(libxs_dnn_rnncell* hand
     } else if ( type == LIBXS_DNN_RNN_GRADIENT_INPUT ) {
       tensor = handle->djdxt;
     } else if ( type == LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE ) {
-      tensor = handle->h;
+      tensor = handle->ht;
     } else if ( type == LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE ) {
       tensor = handle->djdht;
     } else if ( type == LIBXS_DNN_RNN_REGULAR_WEIGHT ) {
@@ -691,10 +726,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
 
   /* check for tensor type */
   if ( (type != LIBXS_DNN_RNN_REGULAR_INPUT)       && (type != LIBXS_DNN_RNN_GRADIENT_INPUT)  &&
-      (type != LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE) && (type != LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE) &&
-      (type != LIBXS_DNN_RNN_REGULAR_WEIGHT)       && (type != LIBXS_DNN_RNN_GRADIENT_WEIGHT) &&
-      (type != LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT) && (type != LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT) &&
-      (type != LIBXS_DNN_RNN_REGULAR_BIAS)         && (type != LIBXS_DNN_RNN_GRADIENT_BIAS) ) {
+       (type != LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE) && (type != LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE) &&
+       (type != LIBXS_DNN_RNN_REGULAR_WEIGHT)       && (type != LIBXS_DNN_RNN_GRADIENT_WEIGHT) &&
+       (type != LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT) && (type != LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT) &&
+       (type != LIBXS_DNN_RNN_REGULAR_BIAS)         && (type != LIBXS_DNN_RNN_GRADIENT_BIAS) ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -705,7 +740,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
     } else if ( type == LIBXS_DNN_RNN_GRADIENT_INPUT ) {
       handle->djdxt = 0;
     } else if ( type == LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE ) {
-      handle->h = 0;
+      handle->ht = 0;
     } else if ( type == LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE ) {
       handle->djdht = 0;
     } else if ( type == LIBXS_DNN_RNN_REGULAR_WEIGHT ) {
