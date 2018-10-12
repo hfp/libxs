@@ -585,21 +585,29 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_blasint bk;
   libxs_blasint bn;
   libxs_blasint bc;
+  /* extrenal tensors */
   libxs_dnn_tensor* w;
   libxs_dnn_tensor* xt;
   libxs_dnn_tensor* u;
-  libxs_dnn_tensor* h;
+  libxs_dnn_tensor* ht;
   libxs_dnn_tensor* b;
-  libxs_dnn_tensor* z;
   libxs_dnn_tensor* djdht;
   libxs_dnn_tensor* djdu;
   libxs_dnn_tensor* djdw;
   libxs_dnn_tensor* djdxt;
   libxs_dnn_tensor* djdb;
-  libxs_dnn_tensor* zi;
-  libxs_dnn_tensor* deltat;
+  /* internal  state */
+  void* internal_z;
+  /* scratch pointers */
+  void* scratch_deltat;
+  void* scratch_wT;
+  void* scratch_uT;
+  void* scratch_xT;
+  void* scratch_hT;
+  /* options */
   int fwd_generic;
-  int bwdupd_generic; 
+  int bwdupd_generic;
+  /* barrier */ 
   libxs_barrier* barrier; /* barrier */
 };
 
