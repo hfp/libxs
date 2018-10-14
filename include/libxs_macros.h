@@ -421,10 +421,10 @@
  * Please note that the leading dimension (s0) is omitted in the above syntax!
  * TODO: support leading dimension (pitch/stride).
  */
-#if defined(_MSC_VER) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) /* account for incorrect handling of __VA_ARGS__ */
+#if defined(_MSC_VER) && !defined(__clang__) /* account for incorrect handling of __VA_ARGS__ */
 # define LIBXS_INDEX1(NDIMS, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)LIBXS_EXPAND((__VA_ARGS__))
 #else
-# define LIBXS_INDEX1(NDIMS, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)(__VA_ARGS__)
+# define LIBXS_INDEX1(NDIMS, I0, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)(I0, __VA_ARGS__)
 #endif
 #define LIBXS_INDEX1_1(I0) ((size_t)I0)
 #define LIBXS_INDEX1_2(I0, I1, S1) (LIBXS_INDEX1_1(I0) * ((size_t)S1) + (size_t)I1)
@@ -445,8 +445,10 @@
  * Syntax: LIBXS_VLA_ACCESS(<ndims>, <array>, <i0>, ..., <i(ndims-1)>, <s1>, ..., <s(ndims-1)>).
  * Please note that the syntax is similar to LIBXS_INDEX1, and the leading dimension (s0) is omitted!
  */
-#if defined(LIBXS_VLA)
+#if !defined(LIBXS_VLA_POSTFIX)
 # define LIBXS_VLA_POSTFIX _
+#endif
+#if defined(LIBXS_VLA)
 # define LIBXS_VLA_ACCESS(NDIMS, ARRAY, ...) LIBXS_VLA_ACCESS_Z(NDIMS, LIBXS_CONCATENATE(ARRAY, LIBXS_VLA_POSTFIX), LIBXS_VLA_ACCESS_X, __VA_ARGS__)
 # define LIBXS_VLA_ACCESS_X(S) + 0 * (S)
 # define LIBXS_VLA_ACCESS_Y(...)
@@ -464,9 +466,9 @@
     ELEMENT_TYPE LIBXS_VLA_ACCESS_Z(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7), *LIBXS_RESTRICT LIBXS_CONCATENATE(ARRAY_VAR, LIBXS_VLA_POSTFIX), LIBXS_VLA_ACCESS_Y, __VA_ARGS__/*bounds*/, __VA_ARGS__/*dummy*/) = \
    (ELEMENT_TYPE LIBXS_VLA_ACCESS_Z(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7), *, LIBXS_VLA_ACCESS_Y, __VA_ARGS__/*bounds*/, __VA_ARGS__/*dummy*/))(INIT_VALUE)
 #else /* calculate linear index */
-# define LIBXS_VLA_ACCESS(NDIMS, ARRAY, ...) (LIBXS_CONCATENATE(ARRAY, _)[LIBXS_INDEX1(NDIMS, __VA_ARGS__)])
+# define LIBXS_VLA_ACCESS(NDIMS, ARRAY, I0, ...) (LIBXS_CONCATENATE(ARRAY, LIBXS_VLA_POSTFIX)[LIBXS_INDEX1(NDIMS, I0, __VA_ARGS__)])
 # define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, ARRAY_VAR, INIT_VALUE, .../*bounds*/) \
-    ELEMENT_TYPE *LIBXS_RESTRICT LIBXS_CONCATENATE(ARRAY_VAR, _) = /*(ELEMENT_TYPE*)*/(INIT_VALUE)
+    ELEMENT_TYPE *LIBXS_RESTRICT LIBXS_CONCATENATE(ARRAY_VAR, LIBXS_VLA_POSTFIX) = /*(ELEMENT_TYPE*)*/(INIT_VALUE)
 #endif
 
 #if !defined(LIBXS_UNUSED)
