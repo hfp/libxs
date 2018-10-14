@@ -269,7 +269,7 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
           $(ROOTDIR)/include/libxs_bgemm.h \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \
-          $(ROOTDIR)/include/libxs_dnn_fusedbn.h \
+          $(ROOTDIR)/include/libxs_dnn_fusedbatchnorm.h \
           $(ROOTDIR)/include/libxs_dnn_pooling.h \
           $(ROOTDIR)/include/libxs_dnn_fullyconnected.h \
           $(ROOTDIR)/include/libxs_dnn_rnncell.h \
@@ -295,7 +295,7 @@ SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c \
           libxs_dnn_elementwise.c libxs_dnn_rnncell.c libxs_dnn_lstmcell.c libxs_dnn_grucell.c \
           libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c \
-          libxs_dnn_fusedbn.c libxs_dnn_fusedbatchnorm_forward.c \
+          libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c \
           libxs_dnn_fusedbatchnorm_backward.c \
           libxs_dnn_pooling.c libxs_dnn_pooling_forward.c \
           libxs_dnn_pooling_backward.c libxs_dnn_convolution_forward.c \
@@ -583,7 +583,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(ROOTDIR)/$(SRCDIR)/template/l
 	@$(CP) $(ROOTDIR)/include/libxs_bgemm.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_cpuid.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn.h $(INCDIR) 2>/dev/null || true
-	@$(CP) $(ROOTDIR)/include/libxs_dnn_fusedbn.h $(INCDIR) 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_dnn_fusedbatchnorm.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn_fullyconnected.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn_pooling.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn_rnncell.h $(INCDIR) 2>/dev/null || true

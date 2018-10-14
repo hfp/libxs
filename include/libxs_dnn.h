@@ -46,8 +46,8 @@
 /** Opaque handles which represents convolutions and LIBXS datatypes */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_layer libxs_dnn_layer;
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_tensor libxs_dnn_tensor;
-/** Opaque handles which represents LIBXS fusedbn */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fusedbn libxs_dnn_fusedbn;
+/** Opaque handles which represents LIBXS fusedbatchnorm */
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fusedbatchnorm libxs_dnn_fusedbatchnorm;
 typedef unsigned int libxs_dnn_err_t;
 
 /** Define error and warning codes */
@@ -181,7 +181,9 @@ typedef enum libxs_dnn_tensor_type {
   /* regular beta */
   LIBXS_DNN_CHANNEL_EXPECTVAL,
   /* regular beta */
-  LIBXS_DNN_CHANNEL_STDDEV,
+  LIBXS_DNN_CHANNEL_RCPSTDDEV,
+  /* variance */
+  LIBXS_DNN_CHANNEL_VARIANCE,
   /** general bias type */
   LIBXS_DNN_CHANNEL_SCALAR,
   /** batch stats */
@@ -394,8 +396,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   libxs_dnn_conv_algo algo;               /* convolution algorithm used */
   libxs_dnn_conv_option options;          /* additional options */
   libxs_dnn_conv_fuse_op fuse_ops;        /* used ops into convolutions */
-  libxs_dnn_fusedbn *pre_bn;              /* pointer to pre bn layer to accommodate bn fusion  */
-  libxs_dnn_fusedbn *post_bn;             /* pointer to post bn layer to accommodate bn fusion  */
+  libxs_dnn_fusedbatchnorm *pre_bn;       /* pointer to pre bn layer to accommodate bn fusion  */
+  libxs_dnn_fusedbatchnorm *post_bn;      /* pointer to post bn layer to accommodate bn fusion  */
 } libxs_dnn_conv_desc;
 
 /** these are some quantization definitions, not sure if we want to

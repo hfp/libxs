@@ -26,27 +26,27 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_DNN_FUSEDBN_H
-#define LIBXS_DNN_FUSEDBN_H
+#ifndef LIBXS_DNN_FUSEDBATCHNORM_H
+#define LIBXS_DNN_FUSEDBATCHNORM_H
 
 #include "libxs_macros.h"
 #include "libxs_typedefs.h"
 #include "libxs_dnn.h"
 
-LIBXS_API libxs_dnn_fusedbn* libxs_dnn_create_fusedbn(libxs_dnn_fusedbn_desc fusedbn_desc, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_fusedbn(const libxs_dnn_fusedbn* handle);
+LIBXS_API libxs_dnn_fusedbatchnorm* libxs_dnn_create_fusedbatchnorm(libxs_dnn_fusedbatchnorm_desc fusedbatchnorm_desc, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_fusedbatchnorm(const libxs_dnn_fusedbatchnorm* handle);
 
-LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbn_create_tensor_datalayout(const libxs_dnn_fusedbn* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_datalayout(const libxs_dnn_fusedbatchnorm* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
 
-LIBXS_API size_t libxs_dnn_fusedbn_get_scratch_size(const libxs_dnn_fusedbn* handle, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_scratch(libxs_dnn_fusedbn* handle, const void* scratch);
-LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_scratch(libxs_dnn_fusedbn* handle);
+LIBXS_API size_t libxs_dnn_fusedbatchnorm_get_scratch_size(const libxs_dnn_fusedbatchnorm* handle, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_bind_scratch(libxs_dnn_fusedbatchnorm* handle, const void* scratch);
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_release_scratch(libxs_dnn_fusedbatchnorm* handle);
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_tensor(libxs_dnn_fusedbn* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type);
-LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbn_get_tensor(libxs_dnn_fusedbn* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
-LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_tensor(libxs_dnn_fusedbn* handle, const libxs_dnn_tensor_type type);
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_bind_tensor(libxs_dnn_fusedbatchnorm* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type);
+LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbatchnorm_get_tensor(libxs_dnn_fusedbatchnorm* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_release_tensor(libxs_dnn_fusedbatchnorm* handle, const libxs_dnn_tensor_type type);
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_execute_st(libxs_dnn_fusedbn* handle, libxs_dnn_compute_kind kind,
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_execute_st(libxs_dnn_fusedbatchnorm* handle, libxs_dnn_compute_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid);
 
-#endif /*LIBXS_DNN_FUSEDBN_H*/
+#endif /*LIBXS_DNN_FUSEDBATCHNORM_H*/
