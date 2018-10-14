@@ -608,7 +608,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   /* options */
   int fwd_generic;
   int bwdupd_generic;
-  /* barrier */ 
+  /* barrier */
   libxs_barrier* barrier; /* barrier */
 };
 
