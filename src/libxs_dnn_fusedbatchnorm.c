@@ -40,20 +40,20 @@
 #endif
 
 
-LIBXS_API libxs_dnn_fusedbn* libxs_dnn_create_fusedbn(libxs_dnn_fusedbn_desc fusedbn_desc, libxs_dnn_err_t* status) {
-  libxs_dnn_fusedbn* handle = 0;
+LIBXS_API libxs_dnn_fusedbatchnorm* libxs_dnn_create_fusedbatchnorm(libxs_dnn_fusedbatchnorm_desc fusedbatchnorm_desc, libxs_dnn_err_t* status) {
+  libxs_dnn_fusedbatchnorm* handle = 0;
   int noarch;
 
-  if ( ((fusedbn_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fusedbn_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
-       ((fusedbn_desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (fusedbn_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
-    handle = (libxs_dnn_fusedbn*)malloc(sizeof(libxs_dnn_fusedbn));
+  if ( ((fusedbatchnorm_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fusedbatchnorm_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
+       ((fusedbatchnorm_desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (fusedbatchnorm_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
+    handle = (libxs_dnn_fusedbatchnorm*)malloc(sizeof(libxs_dnn_fusedbatchnorm));
 
     if (0 != handle) {
       *status = LIBXS_DNN_SUCCESS;
       /* zero entire content; not only safer but also sets data and code pointers to NULL */
       memset(handle, 0, sizeof(*handle));
       /* let's make the description persistent */
-      handle->desc = fusedbn_desc;
+      handle->desc = fusedbatchnorm_desc;
       /* we need to compute the memory layout given the */
       *status = libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.C,
                                                     &(handle->ifmblock), &(handle->ifmblock_hp),
@@ -87,14 +87,14 @@ LIBXS_API libxs_dnn_fusedbn* libxs_dnn_create_fusedbn(libxs_dnn_fusedbn_desc fus
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_fusedbn(const libxs_dnn_fusedbn* handle) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_fusedbatchnorm(const libxs_dnn_fusedbatchnorm* handle) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
     /* Deallocate barrier */
     if (handle->barrier != 0 ) { libxs_barrier_release((const libxs_barrier*)handle->barrier); }
     /* deallocate handle structure */
-    free(/*remove constness*/(libxs_dnn_fusedbn*)handle);
+    free(/*remove constness*/(libxs_dnn_fusedbatchnorm*)handle);
   } else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE;
   }
@@ -103,7 +103,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_fusedbn(const libxs_dnn_fusedbn* han
 }
 
 
-LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbn_create_tensor_datalayout(const libxs_dnn_fusedbn* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
+LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_datalayout(const libxs_dnn_fusedbatchnorm* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
   libxs_dnn_tensor_datalayout* layout;
 
   *status = LIBXS_DNN_SUCCESS;
@@ -243,9 +243,9 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbn_create_tensor_datalayou
           layout = 0; /* make sure a NULL is returned */
           *status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }
-      } else if ( (type == LIBXS_DNN_REGULAR_CHANNEL_BETA)  || (type == LIBXS_DNN_GRADIENT_CHANNEL_BETA)  || (type == LIBXS_DNN_CHANNEL_BETA)  ||
-                  (type == LIBXS_DNN_REGULAR_CHANNEL_GAMMA) || (type == LIBXS_DNN_GRADIENT_CHANNEL_GAMMA) || (type == LIBXS_DNN_CHANNEL_GAMMA) ||
-                  (type == LIBXS_DNN_CHANNEL_EXPECTVAL)     || (type == LIBXS_DNN_CHANNEL_STDDEV)                                                     ) {
+      } else if ( (type == LIBXS_DNN_REGULAR_CHANNEL_BETA)  || (type == LIBXS_DNN_GRADIENT_CHANNEL_BETA)  || (type == LIBXS_DNN_CHANNEL_BETA)     ||
+                  (type == LIBXS_DNN_REGULAR_CHANNEL_GAMMA) || (type == LIBXS_DNN_GRADIENT_CHANNEL_GAMMA) || (type == LIBXS_DNN_CHANNEL_GAMMA)    ||
+                  (type == LIBXS_DNN_CHANNEL_EXPECTVAL)     || (type == LIBXS_DNN_CHANNEL_RCPSTDDEV)      || (type == LIBXS_DNN_CHANNEL_VARIANCE)    ) {
         layout->tensor_type = LIBXS_DNN_CHANNEL_SCALAR;
 
         if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
@@ -311,7 +311,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbn_create_tensor_datalayou
   return layout;
 }
 
-LIBXS_API size_t libxs_dnn_fusedbn_get_scratch_size(const libxs_dnn_fusedbn* handle, libxs_dnn_err_t* status) {
+LIBXS_API size_t libxs_dnn_fusedbatchnorm_get_scratch_size(const libxs_dnn_fusedbatchnorm* handle, libxs_dnn_err_t* status) {
   size_t l_scratch_size = 0;
   *status = LIBXS_DNN_SUCCESS;
 
@@ -325,7 +325,7 @@ LIBXS_API size_t libxs_dnn_fusedbn_get_scratch_size(const libxs_dnn_fusedbn* han
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_scratch(libxs_dnn_fusedbn* handle, const void* scratch) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_bind_scratch(libxs_dnn_fusedbatchnorm* handle, const void* scratch) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   uintptr_t address = (uintptr_t)scratch;
   size_t offset = 0;
@@ -351,7 +351,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_scratch(libxs_dnn_fusedbn* hand
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_scratch(libxs_dnn_fusedbn* handle) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_release_scratch(libxs_dnn_fusedbatchnorm* handle) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
@@ -364,7 +364,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_scratch(libxs_dnn_fusedbn* h
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_tensor(libxs_dnn_fusedbn* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_bind_tensor(libxs_dnn_fusedbatchnorm* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check for tensor type */
@@ -373,13 +373,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_tensor(libxs_dnn_fusedbn* handl
        (type != LIBXS_DNN_REGULAR_INPUT_ADD)     && (type != LIBXS_DNN_GRADIENT_INPUT_ADD)     &&
        (type != LIBXS_DNN_REGULAR_CHANNEL_BETA)  && (type != LIBXS_DNN_GRADIENT_CHANNEL_BETA)  &&
        (type != LIBXS_DNN_REGULAR_CHANNEL_GAMMA) && (type != LIBXS_DNN_GRADIENT_CHANNEL_GAMMA) &&
-       (type != LIBXS_DNN_CHANNEL_EXPECTVAL)     && (type != LIBXS_DNN_CHANNEL_STDDEV)            ) {
+       (type != LIBXS_DNN_CHANNEL_EXPECTVAL)     && (type != LIBXS_DNN_CHANNEL_RCPSTDDEV)      &&
+       (type != LIBXS_DNN_CHANNEL_VARIANCE)                                                          ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
 
   if (handle != 0 && tensor != 0) {
-    libxs_dnn_tensor_datalayout* handle_layout = libxs_dnn_fusedbn_create_tensor_datalayout(handle, type, &status);
+    libxs_dnn_tensor_datalayout* handle_layout = libxs_dnn_fusedbatchnorm_create_tensor_datalayout(handle, type, &status);
 
     if ( libxs_dnn_compare_tensor_datalayout(handle_layout, tensor->layout, &status) == 0 ) {
       if ( type == LIBXS_DNN_REGULAR_INPUT ) {
@@ -404,8 +405,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_tensor(libxs_dnn_fusedbn* handl
         handle->grad_gamma = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_CHANNEL_EXPECTVAL ) {
         handle->expvalue = (libxs_dnn_tensor*)tensor;
-      } else if ( type == LIBXS_DNN_CHANNEL_STDDEV ) {
-        handle->stddev = (libxs_dnn_tensor*)tensor;
+      } else if ( type == LIBXS_DNN_CHANNEL_RCPSTDDEV ) {
+        handle->rcpstddev = (libxs_dnn_tensor*)tensor;
+      } else if ( type == LIBXS_DNN_CHANNEL_VARIANCE ) {
+        handle->variance = (libxs_dnn_tensor*)tensor;
       } else {
         /* cannot happen */
       }
@@ -423,7 +426,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_bind_tensor(libxs_dnn_fusedbn* handl
 }
 
 
-LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbn_get_tensor(libxs_dnn_fusedbn* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
+LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbatchnorm_get_tensor(libxs_dnn_fusedbatchnorm* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status) {
   libxs_dnn_tensor* return_tensor = 0;
 
   *status = LIBXS_DNN_SUCCESS;
@@ -434,7 +437,8 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbn_get_tensor(libxs_dnn_fusedbn* hand
        (type != LIBXS_DNN_REGULAR_INPUT_ADD)     && (type != LIBXS_DNN_GRADIENT_INPUT_ADD)     &&
        (type != LIBXS_DNN_REGULAR_CHANNEL_BETA)  && (type != LIBXS_DNN_GRADIENT_CHANNEL_BETA)  &&
        (type != LIBXS_DNN_REGULAR_CHANNEL_GAMMA) && (type != LIBXS_DNN_GRADIENT_CHANNEL_GAMMA) &&
-       (type != LIBXS_DNN_CHANNEL_EXPECTVAL)     && (type != LIBXS_DNN_CHANNEL_STDDEV)            ) {
+       (type != LIBXS_DNN_CHANNEL_EXPECTVAL)     && (type != LIBXS_DNN_CHANNEL_RCPSTDDEV)      &&
+       (type != LIBXS_DNN_CHANNEL_VARIANCE)                                                          ) {
     *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return return_tensor;
   }
@@ -462,8 +466,10 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbn_get_tensor(libxs_dnn_fusedbn* hand
       return_tensor = handle->grad_gamma;
     } else if ( type == LIBXS_DNN_CHANNEL_EXPECTVAL ) {
       return_tensor = handle->expvalue;
-    } else if ( type == LIBXS_DNN_CHANNEL_STDDEV ) {
-      return_tensor = handle->stddev;
+    } else if ( type == LIBXS_DNN_CHANNEL_RCPSTDDEV ) {
+      return_tensor = handle->rcpstddev;
+    } else if ( type == LIBXS_DNN_CHANNEL_VARIANCE ) {
+      return_tensor = handle->variance;
     } else {
       /* cannot happen */
     }
@@ -475,7 +481,7 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbn_get_tensor(libxs_dnn_fusedbn* hand
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_tensor(libxs_dnn_fusedbn* handle, const libxs_dnn_tensor_type type) {
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_release_tensor(libxs_dnn_fusedbatchnorm* handle, const libxs_dnn_tensor_type type) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check for tensor type */
@@ -484,7 +490,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_tensor(libxs_dnn_fusedbn* ha
        (type != LIBXS_DNN_REGULAR_INPUT_ADD)     && (type != LIBXS_DNN_GRADIENT_INPUT_ADD)     &&
        (type != LIBXS_DNN_REGULAR_CHANNEL_BETA)  && (type != LIBXS_DNN_GRADIENT_CHANNEL_BETA)  &&
        (type != LIBXS_DNN_REGULAR_CHANNEL_GAMMA) && (type != LIBXS_DNN_GRADIENT_CHANNEL_GAMMA) &&
-       (type != LIBXS_DNN_CHANNEL_EXPECTVAL)     && (type != LIBXS_DNN_CHANNEL_STDDEV)            ) {
+       (type != LIBXS_DNN_CHANNEL_EXPECTVAL)     && (type != LIBXS_DNN_CHANNEL_RCPSTDDEV)      &&
+       (type != LIBXS_DNN_CHANNEL_VARIANCE)                                                          ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -512,8 +519,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_tensor(libxs_dnn_fusedbn* ha
       handle->grad_gamma = 0;
     } else if ( type == LIBXS_DNN_CHANNEL_EXPECTVAL ) {
       handle->expvalue = 0;
-    } else if ( type == LIBXS_DNN_CHANNEL_STDDEV ) {
-      handle->stddev = 0;
+    } else if ( type == LIBXS_DNN_CHANNEL_RCPSTDDEV ) {
+      handle->rcpstddev = 0;
+    } else if ( type == LIBXS_DNN_CHANNEL_VARIANCE ) {
+      handle->variance = 0;
     } else {
       /* cannot happen */
     }
@@ -525,7 +534,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_release_tensor(libxs_dnn_fusedbn* ha
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_execute_st(libxs_dnn_fusedbn* handle, libxs_dnn_compute_kind kind,
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_execute_st(libxs_dnn_fusedbatchnorm* handle, libxs_dnn_compute_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
@@ -534,7 +543,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_execute_st(libxs_dnn_fusedbn* handle
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
         switch (handle->desc.buffer_format) {
           case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-            status = libxs_dnn_fusedbn_st_fwd_custom( handle, start_thread, tid );
+            status = libxs_dnn_fusedbatchnorm_st_fwd_custom( handle, start_thread, tid );
           } break;
           default: {
             status = LIBXS_DNN_ERR_INVALID_FORMAT_FUSEDBN;
@@ -544,7 +553,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbn_execute_st(libxs_dnn_fusedbn* handle
       case LIBXS_DNN_COMPUTE_KIND_BWD: {
         switch (handle->desc.buffer_format) {
           case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
-            status = libxs_dnn_fusedbn_st_bwd_custom( handle, start_thread, tid );
+            status = libxs_dnn_fusedbatchnorm_st_bwd_custom( handle, start_thread, tid );
           } break;
           default: {
             status = LIBXS_DNN_ERR_INVALID_FORMAT_FUSEDBN;

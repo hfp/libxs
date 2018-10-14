@@ -321,8 +321,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_convolution_winograd_descriptor cwino_upd;
   libxs_dnn_internal_format custom_format_type;    /* Specifies internal LIBXS format to be used */
   /* These are the batchnorm handles in case of fusion  */
-  libxs_dnn_fusedbn* pre_bn;
-  libxs_dnn_fusedbn* post_bn;
+  libxs_dnn_fusedbatchnorm* pre_bn;
+  libxs_dnn_fusedbatchnorm* post_bn;
 
   /* additional size for internal data types */
   int ifhp;
@@ -506,8 +506,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int **copy_upd_indices_ptrs;
 };
 
-LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedbn {
-  libxs_dnn_fusedbn_desc desc;
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedbatchnorm {
+  libxs_dnn_fusedbatchnorm_desc desc;
   libxs_dnn_tensor* reg_input;      /* input tensor */
   libxs_dnn_tensor* reg_output;     /* output tensor */
   libxs_dnn_tensor* grad_input;     /* grad input tensor */
@@ -519,7 +519,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedbn {
   libxs_dnn_tensor* grad_beta;      /* grad beta tensor */
   libxs_dnn_tensor* grad_gamma;     /* grad gamma tensor */
   libxs_dnn_tensor* expvalue;       /* expected value */
-  libxs_dnn_tensor* stddev;         /* standard derivation */
+  libxs_dnn_tensor* rcpstddev;      /* reciprocal of standard derivation */
+  libxs_dnn_tensor* variance;       /* variance */
   libxs_barrier* barrier;           /* barrier */
   int ifmblock;
   int ifmblock_hp;

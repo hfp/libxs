@@ -29,10 +29,10 @@
 #ifndef LIBXS_DNN_FUSEDBATCHNORM_FORWARD_H
 #define LIBXS_DNN_FUSEDBATCHNORM_FORWARD_H
 
-#include <libxs_dnn_fusedbn.h>
+#include <libxs_dnn_fusedbatchnorm.h>
 
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbn_st_fwd_custom(libxs_dnn_fusedbn* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_st_fwd_custom(libxs_dnn_fusedbatchnorm* handle, int start_thread, int tid);
 
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbn_st_fwd_nhwc(libxs_dnn_fusedbn* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_st_fwd_nhwc(libxs_dnn_fusedbatchnorm* handle, int start_thread, int tid);
 
 #endif /* LIBXS_DNN_FUSEDBATCHNORM_FORWARD_H */
