@@ -128,12 +128,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
     status = libxs_dnn_setup_generic(handle);
   }
 
-#if !(defined(LIBXS_DNN_VLA_TLS1) && defined(LIBXS_DNN_VLA_TLS2) && defined(LIBXS_DNN_VLA_TLS3))
 # if 0 /* TODO: Bf16 currently triggers error 90005 before but we want to continue */
   if (LIBXS_DNN_SUCCESS == status)
 # endif
   {
-# if !defined(LIBXS_DNN_VLA_TLS1)
     if (0 != handle->use_fwd_generic || 0 != handle->use_bwd_generic || 0 != handle->use_upd_generic) {
       const size_t padded_h = ((size_t)2 * handle->desc.pad_h) + handle->desc.H, padded_w = ((size_t)2 * handle->desc.pad_w) + handle->desc.W;
       const size_t size5_tensor = padded_h * padded_w * handle->ifmblock * libxs_dnn_typesize(handle->datatype_in);
@@ -141,8 +139,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       if (handle->max_scratch5_size < size5) handle->max_scratch5_size = size5;
     }
     handle->scratch5 = 0;
-# endif
-# if !defined(LIBXS_DNN_VLA_TLS2)
     handle->scratch6_size = 0;
 #   if 0 /* make float-accumulation scratch always available as it is referenced even if below property is false */
     if (handle->use_accumulation_scratch)
@@ -160,17 +156,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       if (handle->scratch6_size < size6) handle->scratch6_size = size6;
     }
     handle->scratch6 = 0;
-# endif
-# if !defined(LIBXS_DNN_VLA_TLS3)
     if (0 != handle->use_upd_generic) {
       /* FIXME: currently filter data-type is always smaller/equal output type */
       const size_t filter_typesize = libxs_dnn_typesize(handle->datatype_out);
       const size_t size7 = (size_t)handle->desc.R * handle->desc.S * handle->ifmblock * handle->ofmblock * filter_typesize;
       handle->scratch7_size = LIBXS_UP2(size7, LIBXS_CACHELINE) * handle->desc.threads;
     }
-# endif
   }
-#endif
   return status;
 }
 
