@@ -520,7 +520,10 @@
 # define LIBXS_MAY_ALIAS
 #endif
 
-#if defined(_WIN32)
+#if !defined(LIBXS_MKTEMP_PATTERN)
+# define LIBXS_MKTEMP_PATTERN "XXXXXX"
+#endif
+#if defined(_WIN32) && 0
 # define LIBXS_SNPRINTF(S, N, ...) _snprintf_s(S, N, _TRUNCATE, __VA_ARGS__)
 # define setenv(NAME, VALUE, OVERWRITE) _putenv(NAME "=" VALUE)
 #elif defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__ || defined(__GNUC__))
@@ -531,17 +534,15 @@
 #if (0 == LIBXS_SYNC)
 # define LIBXS_FLOCK(FILE)
 # define LIBXS_FUNLOCK(FILE)
-#else
-# if defined(_WIN32)
-#   define LIBXS_FLOCK(FILE) _lock_file(FILE)
-#   define LIBXS_FUNLOCK(FILE) _unlock_file(FILE)
-# elif !defined(__CYGWIN__)
-#   define LIBXS_FLOCK(FILE) flockfile(FILE)
-#   define LIBXS_FUNLOCK(FILE) funlockfile(FILE)
-# else /* Only available with __CYGWIN__ *and* C++0x. */
-#   define LIBXS_FLOCK(FILE)
-#   define LIBXS_FUNLOCK(FILE)
-# endif
+#elif defined(_WIN32)
+# define LIBXS_FLOCK(FILE) _lock_file(FILE)
+# define LIBXS_FUNLOCK(FILE) _unlock_file(FILE)
+#elif !defined(__CYGWIN__)
+# define LIBXS_FLOCK(FILE) flockfile(FILE)
+# define LIBXS_FUNLOCK(FILE) funlockfile(FILE)
+#else /* Only available with __CYGWIN__ *and* C++0x. */
+# define LIBXS_FLOCK(FILE)
+# define LIBXS_FUNLOCK(FILE)
 #endif
 
 /** Synchronize console output */

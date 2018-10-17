@@ -1722,21 +1722,15 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
                                              if (handle->padding_flag == 1) {
                                                l_scratch_size = handle->fwdbwd_scratch_size + 64;
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS1)
                                              if (handle->use_fwd_generic != 0) {
                                                l_scratch_size += handle->max_scratch5_size + 64;
                                              }
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS2)
                                              if (handle->scratch6_size != 0) {
                                                l_scratch_size += handle->scratch6_size + 64;
                                              }
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              if (handle->scratch7_size != 0) {
                                                l_scratch_size += handle->scratch7_size + 64;
                                              }
-#endif
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_BWD: {
                                              /* we need filter for transpose, + 64 to do alignment while performing bind, scratch1 */
@@ -1744,16 +1738,12 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
                                              if (handle->padding_flag == 1) {
                                                l_scratch_size += handle->fwdbwd_scratch_size + 64;
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS1)
                                              if (handle->use_bwd_generic != 0) {
                                                l_scratch_size += handle->max_scratch5_size + 64;
                                              }
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              if (handle->scratch7_size != 0) {
                                                l_scratch_size += handle->scratch7_size + 64;
                                              }
-#endif
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_UPD: {
                                              if (handle->use_lp_kernel == 1) {
@@ -1765,25 +1755,18 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
                                              if (handle->upd_use_thread_fil == 1) {
                                                l_scratch_size += handle->scratch4_size + 64;
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS1)
                                              if (handle->use_upd_generic != 0) {
                                                l_scratch_size += handle->max_scratch5_size + 64;
                                              }
-                                             else
-#endif
-                                             if (handle->padding_flag == 1) {
+                                             else if (handle->padding_flag == 1) {
                                                l_scratch_size += handle->minibatch_scratch_size + 64;
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS2)
                                              if (handle->scratch6_size != 0) {
                                                l_scratch_size += handle->scratch6_size + 64;
                                              }
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              if (handle->scratch7_size != 0) {
                                                l_scratch_size += handle->scratch7_size + 64;
                                              }
-#endif
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_ALL: {
                                              /* we need filter for transpose, + 64 to do alignment while performing bind, scratch1 */
@@ -1797,23 +1780,15 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
                                              if (handle->upd_use_thread_fil == 1) {
                                                l_scratch_size += handle->scratch4_size + 64;
                                              }
-                                             if (handle->padding_flag == 1
-#if !defined(LIBXS_DNN_VLA_TLS1)
-                                               || handle->use_fwd_generic != 0 || handle->use_bwd_generic != 0 || handle->use_upd_generic != 0
-#endif
-                                             ) {
+                                             if (handle->padding_flag == 1 || handle->use_fwd_generic != 0 || handle->use_bwd_generic != 0 || handle->use_upd_generic != 0) {
                                                l_scratch_size += handle->max_scratch5_size + 64;
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS2)
                                              if (handle->scratch6_size != 0) {
                                                l_scratch_size += handle->scratch6_size + 64;
                                              }
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              if (handle->scratch7_size != 0) {
                                                l_scratch_size += handle->scratch7_size + 64;
                                              }
-#endif
                                            } break;
         default: {
           *status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -1895,7 +1870,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
     } else {
       switch (kind) {
         case LIBXS_DNN_COMPUTE_KIND_FWD: {
-#if !defined(LIBXS_DNN_VLA_TLS1)
                                              if (handle->use_fwd_generic != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch5 = (void*)address;
@@ -1905,9 +1879,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->max_scratch5_size + 64;
                                              }
-                                             else
-#endif
-                                             if (handle->padding_flag == 1) {
+                                             else if (handle->padding_flag == 1) {
                                                if (address % 64 == 0) {
                                                  handle->scratch5 = (void*)address;
                                                } else {
@@ -1916,7 +1888,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->fwdbwd_scratch_size + 64;
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS2)
                                              if (handle->scratch6_size != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch6 = (void*)address;
@@ -1927,8 +1898,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch6_size + 64;
                                              }
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              if (handle->scratch7_size != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch7 = (void*)address;
@@ -1938,7 +1907,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch7_size + 64;
                                              }
-#endif
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_BWD: {
                                              /* we need filter for transpose, + 64 to do alignment while performing bind, scratch1 */
@@ -1948,7 +1916,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                offset = (64 - address % 64);
                                                handle->scratch1 = (void*)(address+offset);
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS1)
                                              if (handle->use_bwd_generic != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch5 = (void*)address;
@@ -1959,9 +1926,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->max_scratch5_size + 64;
                                              }
-                                             else
-#endif
-                                             if (handle->padding_flag == 1) {
+                                             else if (handle->padding_flag == 1) {
                                                address += handle->scratch1_size + 64;
                                                if (address % 64 == 0) {
                                                  handle->scratch5 = (void*)address;
@@ -1971,7 +1936,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->fwdbwd_scratch_size + 64;
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              if (handle->scratch7_size != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch7 = (void*)address;
@@ -1981,7 +1945,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch7_size + 64;
                                              }
-#endif
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_UPD: {
                                              /* we need a minibatch copy for transpose of input, scratch3 */
@@ -2012,7 +1975,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch4_size + 64;
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS1)
                                              if (0 != handle->use_upd_generic) {
                                                if (address % 64 == 0) {
                                                  handle->scratch5 = (void*)address;
@@ -2023,9 +1985,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->max_scratch5_size + 64;
                                              }
-                                             else
-#endif
-                                             if (handle->padding_flag == 1) {
+                                             else if (handle->padding_flag == 1) {
                                                if (address % 64 == 0) {
                                                  handle->scratch5 = (void*)address;
                                                }
@@ -2035,7 +1995,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->minibatch_scratch_size + 64;
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS2)
                                              if (handle->scratch6_size != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch6 = (void*)address;
@@ -2046,8 +2005,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch6_size + 64;
                                              }
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              if (handle->scratch7_size != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch7 = (void*)address;
@@ -2057,7 +2014,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch7_size + 64;
                                              }
-#endif
                                            } break;
         case LIBXS_DNN_COMPUTE_KIND_ALL: {
                                            /* we need filter for transpose, + 64 to do alignment while performing bind, scratch1 */
@@ -2096,11 +2052,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch4_size + 64;
                                              }
-                                             if (handle->padding_flag == 1
-#if !defined(LIBXS_DNN_VLA_TLS1)
-                                               || handle->use_fwd_generic != 0 || handle->use_bwd_generic != 0 || handle->use_upd_generic != 0
-#endif
-                                             ) {
+                                             if (handle->padding_flag == 1 || handle->use_fwd_generic != 0 || handle->use_bwd_generic != 0 || handle->use_upd_generic != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch5 = (void*)address;
                                                }
@@ -2110,7 +2062,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->max_scratch5_size + 64;
                                              }
-#if !defined(LIBXS_DNN_VLA_TLS2)
                                              if (handle->scratch6_size != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch6 = (void*)address;
@@ -2121,9 +2072,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                }
                                                address += handle->scratch6_size + 64;
                                              }
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS3)
-                                            if (handle->scratch7_size != 0) {
+                                             if (handle->scratch7_size != 0) {
                                                if (address % 64 == 0) {
                                                  handle->scratch7 = (void*)address;
                                                } else {
@@ -2131,8 +2080,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                                  handle->scratch7 = (void*)(address+offset);
                                                }
                                                address += handle->scratch7_size + 64;
-                                            }
-#endif
+                                             }
                                            } break;
         default: {
           status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -2163,31 +2111,21 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, con
       switch (kind) {
         case LIBXS_DNN_COMPUTE_KIND_FWD: {
                                              handle->scratch5 = 0;
-#if !defined(LIBXS_DNN_VLA_TLS2)
                                              handle->scratch6 = 0;
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              handle->scratch7 = 0;
-#endif
         } break;
         case LIBXS_DNN_COMPUTE_KIND_BWD: {
                                              handle->scratch1 = 0;
                                              handle->scratch5 = 0;
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              handle->scratch7 = 0;
-#endif
         } break;
         case LIBXS_DNN_COMPUTE_KIND_UPD: {
                                              handle->scratch2 = 0;
                                              handle->scratch3 = 0;
                                              handle->scratch4 = 0;
                                              handle->scratch5 = 0;
-#if !defined(LIBXS_DNN_VLA_TLS2)
                                              handle->scratch6 = 0;
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              handle->scratch7 = 0;
-#endif
         } break;
         case LIBXS_DNN_COMPUTE_KIND_ALL: {
                                              handle->scratch1 = 0;
@@ -2195,12 +2133,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, con
                                              handle->scratch3 = 0;
                                              handle->scratch4 = 0;
                                              handle->scratch5 = 0;
-#if !defined(LIBXS_DNN_VLA_TLS2)
                                              handle->scratch6 = 0;
-#endif
-#if !defined(LIBXS_DNN_VLA_TLS3)
                                              handle->scratch7 = 0;
-#endif
         } break;
         default: {
           status = LIBXS_DNN_ERR_INVALID_KIND;

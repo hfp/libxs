@@ -63,6 +63,9 @@
 #   define LIBXS_MAP_ANONYMOUS MAP_ANON
 # endif
 #endif
+#if !defined(LIBXS_MALLOC_FALLBACK)
+# define LIBXS_MALLOC_FINAL 3
+#endif
 #if defined(LIBXS_VTUNE)
 # if (2 <= LIBXS_VTUNE) /* no header file required */
 #   if !defined(LIBXS_VTUNE_JITVERSION)
@@ -105,13 +108,16 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #   define LIBXS_VTUNE_JIT_UNLOAD iJVM_EVENT_TYPE_METHOD_UNLOAD_START
 # endif
 # if !defined(LIBXS_MALLOC_FALLBACK)
-#   define LIBXS_MALLOC_FALLBACK 4
+#   define LIBXS_MALLOC_FALLBACK LIBXS_MALLOC_FINAL
 # endif
 #else
 # if !defined(LIBXS_MALLOC_FALLBACK)
 #   define LIBXS_MALLOC_FALLBACK 0
 # endif
 #endif /*defined(LIBXS_VTUNE)*/
+#if !defined(LIBXS_MALLOC_XMAP_TEMPLATE)
+# define LIBXS_MALLOC_XMAP_TEMPLATE ".libxs_jit." LIBXS_MKTEMP_PATTERN
+#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -496,27 +502,14 @@ LIBXS_API_INLINE void internal_mhint(void* buffer, size_t size)
 LIBXS_API_INLINE void* internal_xmap(const char* dir, size_t size, int flags, void** rx)
 {
   void* result = MAP_FAILED;
-  char filename[4096];
+  char filename[4096] = LIBXS_MALLOC_XMAP_TEMPLATE;
   int i = 0;
   assert(NULL != rx);
-  if (NULL != dir) {
-    i = LIBXS_SNPRINTF(filename, sizeof(filename), "%s/.libxs_XXXXXX.jit", dir);
+  if (NULL != dir && 0 != *dir) {
+    i = LIBXS_SNPRINTF(filename, sizeof(filename), "%s/" LIBXS_MALLOC_XMAP_TEMPLATE, dir);
   }
-  if (0 < i && i < (int)sizeof(filename)) {
-#if defined(__GLIBC__) && defined(__GLIBC_MINOR__) && LIBXS_VERSION2(2, 19) <= LIBXS_VERSION2(__GLIBC__, __GLIBC_MINOR__)
-    i = mkstemps(filename, 4/*.jit*/);
-#else
-    char *const xpos = strrchr(filename, 'X');
-    const char c = (char)(NULL != xpos ? *(xpos + 1) : 0);
-    if (0 != c) {
-      xpos[1] = 0;
-      i = mkstemp(filename);
-      xpos[1] = c;
-    }
-    else {
-      i = -1;
-    }
-#endif
+  if (0 <= i && i < (int)sizeof(filename)) {
+    i = mkstemp(filename);
     if (0 <= i && 0 == unlink(filename) && 0 == ftruncate(i, size)) {
       void *const xmap = mmap(NULL, size, PROT_READ | PROT_EXEC, flags | MAP_SHARED /*| LIBXS_MAP_ANONYMOUS*/, i, 0/*offset*/);
       if (MAP_FAILED != xmap) {
@@ -674,7 +667,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
             else { /* user's choice takes precedence */
               sevalue = atoi(env);
             }
-            fallback = (0 == sevalue ? 4 : LIBXS_MALLOC_FALLBACK);
+            fallback = (0 == sevalue ? LIBXS_MALLOC_FINAL : LIBXS_MALLOC_FALLBACK);
           }
           if (0 == fallback) {
             buffer = internal_xmap("/tmp", alloc_size, xflags, &reloc);
@@ -690,11 +683,16 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           }
           if (1 <= fallback) { /* continue with fall-back */
             if (1 == fallback) { /* 2nd try */
-              buffer = internal_xmap(".", alloc_size, xflags, &reloc);
+              static const char* envloc = NULL;
+              if (NULL == envloc) {
+                envloc = getenv("JITDUMPDIR");
+                if (NULL == envloc) envloc = "";
+              }
+              buffer = internal_xmap(envloc, alloc_size, xflags, &reloc);
               if (alloc_failed == buffer) {
 # if defined(MAP_32BIT)
                 if (0 != (MAP_32BIT & xflags)) {
-                  buffer = internal_xmap(".", alloc_size, xflags & ~MAP_32BIT, &reloc);
+                  buffer = internal_xmap(envloc, alloc_size, xflags & ~MAP_32BIT, &reloc);
                 }
                 if (alloc_failed != buffer) map32 = 0; else
 # endif
@@ -703,7 +701,11 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
             }
             if (2 <= fallback) { /* continue with fall-back */
               if (2 == fallback) { /* 3rd try */
-                const char *const envloc = getenv("HOME");
+                static const char* envloc = NULL;
+                if (NULL == envloc) {
+                  envloc = getenv("HOME");
+                  if (NULL == envloc) envloc = "";
+                }
                 buffer = internal_xmap(envloc, alloc_size, xflags, &reloc);
                 if (alloc_failed == buffer) {
 # if defined(MAP_32BIT)
@@ -717,36 +719,22 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
               }
               if (3 <= fallback) { /* continue with fall-back */
                 if (3 == fallback) { /* 4th try */
-                  const char *const envloc = getenv("JITDUMPDIR");
-                  buffer = internal_xmap(envloc, alloc_size, xflags, &reloc);
+                  buffer = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE | PROT_EXEC,
+                    MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | xflags, -1, 0/*offset*/);
                   if (alloc_failed == buffer) {
 # if defined(MAP_32BIT)
                     if (0 != (MAP_32BIT & xflags)) {
-                      buffer = internal_xmap(envloc, alloc_size, xflags & ~MAP_32BIT, &reloc);
+                      buffer = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE | PROT_EXEC,
+                        MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | (xflags & ~MAP_32BIT), -1, 0/*offset*/);
                     }
                     if (alloc_failed != buffer) map32 = 0; else
 # endif
                     fallback = 4;
                   }
                 }
-                if (4 <= fallback) { /* continue with fall-back */
-                  if (4 == fallback) { /* 5th try */
-                    buffer = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE | PROT_EXEC,
-                      MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | xflags, -1, 0/*offset*/);
-                    if (alloc_failed == buffer) {
-# if defined(MAP_32BIT)
-                      if (0 != (MAP_32BIT & xflags)) {
-                        buffer = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE | PROT_EXEC,
-                          MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | (xflags & ~MAP_32BIT), -1, 0/*offset*/);
-                      }
-                      if (alloc_failed != buffer) map32 = 0; else
-# endif
-                      fallback = 5;
-                    }
-                  }
-                  if (5 == fallback && alloc_failed != buffer) { /* final */
-                    buffer = alloc_failed; /* trigger final fall-back */
-                  }
+                if (4 == fallback && alloc_failed != buffer) { /* final */
+                  LIBXS_ASSERT(fallback == LIBXS_MALLOC_FINAL + 1);
+                  buffer = alloc_failed; /* trigger final fall-back */
                 }
               }
             }
