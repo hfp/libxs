@@ -364,6 +364,17 @@ LIBXS_API_INTERN void libxs_internal_matrix_zero_ld(libxs_blasint m, libxs_blasi
   }
 }
 
+LIBXS_API_INTERN void libxs_internal_matrix_copy_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst) {
+  libxs_blasint i, j;
+
+  for ( j = 0; j < n; ++j ) {
+    LIBXS_PRAGMA_SIMD
+    for ( i = 0; i < m; ++i ) {
+      dst[(j*ld)+i] = src[(j*ld)+i];
+    }
+  }
+}
+
 LIBXS_API_INTERN void libxs_internal_matrix_add_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src0, LIBXS_DNN_ELTWISE_FTYPE *src1, LIBXS_DNN_ELTWISE_FTYPE *dst) {
   libxs_blasint i, j;
 
@@ -499,6 +510,45 @@ LIBXS_API_INTERN void libxs_internal_matrix_relu_inverse_ld(libxs_blasint m, lib
     }
   }
 }
+
+LIBXS_API_INTERN void libxs_internal_matrix_sigmoid_inverse_inplace_eltwise_mult_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst) {
+  libxs_blasint i, j;
+
+  for ( j = 0; j < n; ++j ) {
+    LIBXS_PRAGMA_SIMD
+    for ( i = 0; i < m; ++i ) {
+      LIBXS_DNN_ELTWISE_FTYPE exp_value = (LIBXS_DNN_ELTWISE_FTYPE)exp((double) -src[(j*ld)+i]);
+      LIBXS_DNN_ELTWISE_FTYPE mid_value = (LIBXS_DNN_ELTWISE_FTYPE)1 / ((LIBXS_DNN_ELTWISE_FTYPE)1 + exp_value);
+      dst[(j*ld)+i] *= ((LIBXS_DNN_ELTWISE_FTYPE)1 - mid_value) * mid_value;
+    }
+  }
+}
+
+LIBXS_API_INTERN void libxs_internal_matrix_tanh_inverse_inplace_eltwise_mult_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst) {
+  libxs_blasint i, j;
+
+  for ( j = 0; j < n; ++j ) {
+    LIBXS_PRAGMA_SIMD
+    for ( i = 0; i < m; ++i ) {
+     LIBXS_DNN_ELTWISE_FTYPE tanh_value = (LIBXS_DNN_ELTWISE_FTYPE)tanh((double) src[i]);
+     dst[(j*ld)+i] *= (LIBXS_DNN_ELTWISE_FTYPE)1 - (tanh_value * tanh_value);
+    }
+  }
+}
+
+LIBXS_API_INTERN void libxs_internal_matrix_relu_inverse_inplace_eltwise_mult_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst) {
+  libxs_blasint i, j;
+
+  for ( j = 0; j < n; ++j ) {
+    LIBXS_PRAGMA_SIMD
+    for ( i = 0; i < m; ++i ) {
+      dst[(j*ld)+i] *= (src[(j*ld)+i] < 0) ? (LIBXS_DNN_ELTWISE_FTYPE)0 : (LIBXS_DNN_ELTWISE_FTYPE)1;
+    }
+  }
+}
+
+
+
 
 LIBXS_API_INTERN void libxs_internal_matrix_elt_mult_tanh_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src0, LIBXS_DNN_ELTWISE_FTYPE *src1, LIBXS_DNN_ELTWISE_FTYPE *dst) {
   libxs_blasint i, j;
