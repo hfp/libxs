@@ -549,7 +549,7 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
 # define LIBXS_INTRINSICS_MM512_QUANTIZE_NEAR_PS_EPI16( A, B ) _mm512_cvtepi32_epi16(_mm512_cvt_roundps_epi32( \
     _mm512_mul_ps(_mm512_load_ps(A), B), _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC))
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512i LIBXS_INTRINSICS_MM512_ROUNDRNE_BF16(__m512 a) {
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512i LIBXS_INTRINSICS_MM512_ROUNDNE_BF16(__m512 a) {
   const __m512i vnaninf = _mm512_set1_epi32(0x7f800000), vrneadd = _mm512_set1_epi32(0x00007fff);
   const __m512i vfixup = _mm512_set1_epi32(0x00000001), vfixupmask = _mm512_set1_epi32(0x00010000);
   const __m512i mm512_roundbf16rne_a_ = _mm512_castps_si512(a);
