@@ -68,9 +68,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck_f32_f32(libxs_dnn_rnncell* handle
   } else {
     /* should not happen */
   }
-  { /* open new scope for additional variable declarations (C89) */
-# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_ck_generic.tpl.c"
-  }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
