@@ -216,7 +216,8 @@ include $(ROOTDIR)/Makefile.inc
 VERSION_MAJOR ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 1)
 VERSION_MINOR ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 2)
 VERSION_UPDATE ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 3)
-VERSION_API ?= $(shell $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 0 $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_UPDATE))
+VERSION ?= $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_UPDATE)
+VERSION_API ?= $(shell $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 0 $(VERSION))
 VERSION_RELEASE ?= HEAD
 VERSION_PACKAGE ?= 1
 
@@ -898,7 +899,7 @@ endif
 
 .PHONY: clib_hst
 clib_hst: $(OUTDIR)/libxs.$(LIBEXT)
-$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING)
+$(OUTDIR)/libxs.$(LIBEXT): $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING) $(OUTDIR)/libxs.pc
 ifeq (0,$(STATIC))
 	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING) $(LDFLAGS) $(CLDFLAGS)
 else # static
@@ -928,11 +929,11 @@ endif
 ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
-$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
+$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/libxsf.pc
 	$(LIB_FLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(FLDFLAGS)
 else # static
-$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/.make
+$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxsf.pc
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
 endif
 else
@@ -957,7 +958,7 @@ endif
 .PHONY: ext_hst
 ext_hst: $(OUTDIR)/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
-$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST) $(OUTDIR)/libxs.$(LIBEXT)
+$(OUTDIR)/libxsext.$(LIBEXT): $(EXTOBJS_HST) $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/libxsext.pc
 ifneq (Darwin,$(UNAME))
 	$(LIB_LD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
@@ -969,7 +970,7 @@ else # osx
 			$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 endif
 else # static
-$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST)
+$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST) $(OUTDIR)/libxsext.pc
 	$(AR) -rs $@ $(EXTOBJS_HST)
 endif
 
@@ -1707,6 +1708,65 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@mkdir -p $(INSTALL_ROOT)/$(PDOCDIR)/artifacts
 	@$(CP) -v .state $(INSTALL_ROOT)/$(PDOCDIR)/artifacts/make.txt
 endif
+
+$(OUTDIR)/libxs.pc: $(OUTDIR)/.make
+	@echo "Name: libxs" > $@
+	@echo "Description: Matrix operations and deep learning primitives" >> $@
+	@echo "URL: https://github.com/hfp/libxs" >> $@
+	@echo "Version: $(VERSION)" >> $@
+	@echo >> $@
+	@echo "prefix=$(INSTALL_ROOT)" >> $@
+	@echo "includedir=\$${prefix}/$(PINCDIR)" >> $@
+	@echo "libdir=\$${prefix}/$(POUTDIR)" >> $@
+	@echo >> $@
+	@echo "Cflags: -I\$${includedir}" >> $@
+	@echo "Libs: -L\$${libdir} -lxsmm" >> $@
+	@echo -n "Libs.private:" >> $@
+ifeq (Windows_NT,$(UNAME))
+	@echo " -ldbghelp" >> $@
+else ifneq (Darwin,$(UNAME))
+ifneq (FreeBSD,$(UNAME))
+	@echo " -lpthread -lrt" >> $@
+endif
+	@echo " -ldl -lm -lc" >> $@
+endif
+
+$(OUTDIR)/libxsf.pc: $(OUTDIR)/libxs.pc
+	@echo "Name: libxs/f" > $@
+	@echo "Description: LIBXS for Fortran" >> $@
+	@echo "URL: https://github.com/hfp/libxs" >> $@
+	@echo "Version: $(VERSION)" >> $@
+	@echo >> $@
+	@echo "prefix=$(INSTALL_ROOT)" >> $@
+	@echo "includedir=\$${prefix}/$(PINCDIR)" >> $@
+	@echo "libdir=\$${prefix}/$(POUTDIR)" >> $@
+	@echo >> $@
+	@echo "Requires: libxs" >> $@
+	@echo "Cflags: -I\$${includedir}" >> $@
+	@echo "Libs: -L\$${libdir} -lxsmmf" >> $@
+
+$(OUTDIR)/libxsext.pc: $(OUTDIR)/libxs.pc
+	@echo "Name: libxs/ext" > $@
+	@echo "Description: LIBXS/multithreaded for OpenMP" >> $@
+	@echo "URL: https://github.com/hfp/libxs" >> $@
+	@echo "Version: $(VERSION)" >> $@
+	@echo >> $@
+	@echo "prefix=$(INSTALL_ROOT)" >> $@
+	@echo "includedir=\$${prefix}/$(PINCDIR)" >> $@
+	@echo "libdir=\$${prefix}/$(POUTDIR)" >> $@
+	@echo >> $@
+	@echo "Requires: libxs" >> $@
+	@echo "Cflags: -I\$${includedir}" >> $@
+	@echo "Libs: -L\$${libdir} -lxsmmext" >> $@
+ifneq (Darwin,$(UNAME))
+	@echo "Libs.private: -fopenmp" >> $@
+endif
+
+.PHONY: pkg-config
+pkg-config: $(OUTDIR)/libxs.pc $(OUTDIR)/libxsf.pc $(OUTDIR)/libxsext.pc
+
+.PHONY: pkg
+pkg: pkg-config
 
 .PHONY: deb
 deb:
