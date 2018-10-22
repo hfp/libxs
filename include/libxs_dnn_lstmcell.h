@@ -57,29 +57,31 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_lstmcell {
   libxs_dnn_tensor* csp;
   libxs_dnn_tensor* hp;
   libxs_dnn_tensor* w;
+  libxs_dnn_tensor* r;
   libxs_dnn_tensor* b;
   libxs_dnn_tensor* cst;
   libxs_dnn_tensor* ht;
   libxs_dnn_tensor* it;
   libxs_dnn_tensor* ft;
   libxs_dnn_tensor* ot;
-  libxs_dnn_tensor* ct;
+  libxs_dnn_tensor* cit;
+  libxs_dnn_tensor* cot;
   libxs_dnn_tensor* dxt;
-  libxs_dnn_tensor* dcsp;
-  libxs_dnn_tensor* dhp;
+  libxs_dnn_tensor* dcspt;
+  libxs_dnn_tensor* dhpt;
   libxs_dnn_tensor* dw;
+  libxs_dnn_tensor* dr;
   libxs_dnn_tensor* db;
-  libxs_dnn_tensor* dcst;
+  libxs_dnn_tensor* dcs;
   libxs_dnn_tensor* dht;
   libxs_dnn_tensor* dit;
   libxs_dnn_tensor* dft;
-  libxs_dnn_tensor* dct;
   libxs_dnn_tensor* dot;
-  libxs_dnn_tensor* deltat;
+  libxs_dnn_tensor* dcit;
   libxs_dnn_tensor* doutt;
   libxs_dnn_tensor* t1;
   libxs_dnn_tensor* t2;
-  libxs_barrier* barrier; /* barrier */
+  libxs_barrier* barrier;
 } libxs_dnn_lstmcell;
 
 LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc lstmcell_desc, libxs_dnn_err_t* status);
@@ -94,8 +96,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_scratch(libxs_dnn_lstmcell*
 LIBXS_API size_t libxs_dnn_lstmcell_get_internalstate_size(const libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_internalstate(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind, const void* internalstate);
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_release_internalstate(libxs_dnn_lstmcell* handle, const libxs_dnn_compute_kind kind);
-
-LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_assign_internalstate(libxs_dnn_lstmcell* handle, const void* igoldtb, const void* fgoldtb, const void* ogoldtb, const void* cgoldtb, const void* dgoldtb);
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bind_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type);
 LIBXS_API libxs_dnn_tensor* libxs_dnn_lstmcell_get_tensor(libxs_dnn_lstmcell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
