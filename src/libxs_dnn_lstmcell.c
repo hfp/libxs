@@ -69,7 +69,7 @@ LIBXS_API libxs_dnn_lstmcell* libxs_dnn_create_lstmcell(libxs_dnn_lstmcell_desc 
     handle->t2 = (libxs_dnn_tensor*)malloc(sizeof(libxs_dnn_tensor));
     handle->barrier = libxs_barrier_create(handle->desc.nThreads, 1);
     if (NULL == handle->dit  || NULL == handle->dft   || NULL == handle->dot ||
-        NULL == handle->dcit || NULL == handle->doutt || NULL == handle->t1  || 
+        NULL == handle->dcit || NULL == handle->doutt || NULL == handle->t1  ||
         NULL == handle->t2     || NULL == handle->barrier)
     {
       free(handle->dit);   free(handle->dft); free(handle->dot); free(handle->dcit);
@@ -879,8 +879,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   libxs_blasint bc = lstm->bc;
   int nThreads = lstm->desc.nThreads;
   LIBXS_DNN_ELTWISE_FTYPE *xt   = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->xt->data;
-  LIBXS_DNN_ELTWISE_FTYPE *csp  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->csp->data;
-  LIBXS_DNN_ELTWISE_FTYPE *hpD  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->hp->data;
+  /*LIBXS_DNN_ELTWISE_FTYPE *csp  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->csp->data;*/
+  /*LIBXS_DNN_ELTWISE_FTYPE *hpD  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->hp->data;*/
   LIBXS_DNN_ELTWISE_FTYPE *w    = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->w->data;
   LIBXS_DNN_ELTWISE_FTYPE *r    = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->r->data;
   LIBXS_DNN_ELTWISE_FTYPE *wiD  = &(w[0]);
@@ -916,7 +916,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   LIBXS_DNN_ELTWISE_FTYPE *dbc  = &(db[K]);
   LIBXS_DNN_ELTWISE_FTYPE *dbf  = &(db[2*K]);
   LIBXS_DNN_ELTWISE_FTYPE *dbo  = &(db[3*K]);
-  LIBXS_DNN_ELTWISE_FTYPE *dcsD = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->dcs->data;
+  /*LIBXS_DNN_ELTWISE_FTYPE *dcsD = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->dcs->data;*/
   LIBXS_DNN_ELTWISE_FTYPE *dht  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->dht->data;
   LIBXS_DNN_ELTWISE_FTYPE *dit  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->dit->data;
   LIBXS_DNN_ELTWISE_FTYPE *dft  = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->dft->data;
@@ -926,8 +926,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   LIBXS_DNN_ELTWISE_FTYPE *t1D = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->t1->data;
   LIBXS_DNN_ELTWISE_FTYPE *t2D = (LIBXS_DNN_ELTWISE_FTYPE*)lstm->t2->data;
   LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, x, xt, N, C);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, cp, csp, K);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, hp, hpD, K);
+  /*LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, cp, csp, K);*/
+  /*LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, hp, hpD, K);*/
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, wi, wiD, K);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, wf, wfD, K);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, wo, woD, K);
@@ -954,7 +954,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_lstmcell_bwd_upd_bu(libxs_dnn_lstmcell* lstm
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, drf, drfD, K);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, dro, droD, K);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, drc, drcD, K);
-  LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, dcs, dcsD, K);
+  /*LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, dcs, dcsD, K);*/
   LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, dh, dht, N, K);
   LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, di, dit, N, K);
   LIBXS_VLA_DECL(3, LIBXS_DNN_ELTWISE_FTYPE, df, dft, N, K);
