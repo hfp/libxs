@@ -899,7 +899,7 @@ endif
 
 .PHONY: clib_hst
 clib_hst: $(OUTDIR)/libxs.$(LIBEXT)
-$(OUTDIR)/libxs.$(LIBEXT): $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING) $(OUTDIR)/libxs.pc
+$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/libxs.pc
 ifeq (0,$(STATIC))
 	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING) $(LDFLAGS) $(CLDFLAGS)
 else # static
@@ -958,7 +958,7 @@ endif
 .PHONY: ext_hst
 ext_hst: $(OUTDIR)/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
-$(OUTDIR)/libxsext.$(LIBEXT): $(EXTOBJS_HST) $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/libxsext.pc
+$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/libxsext.pc
 ifneq (Darwin,$(UNAME))
 	$(LIB_LD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
@@ -970,7 +970,7 @@ else # osx
 			$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 endif
 else # static
-$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST) $(OUTDIR)/libxsext.pc
+$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(OUTDIR)/libxsext.pc
 	$(AR) -rs $@ $(EXTOBJS_HST)
 endif
 
@@ -1709,7 +1709,7 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@$(CP) -v .state $(INSTALL_ROOT)/$(PDOCDIR)/artifacts/make.txt
 endif
 
-$(OUTDIR)/libxs.pc: $(OUTDIR)/.make
+$(OUTDIR)/libxs.pc: $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING)
 	@echo "Name: libxs" > $@
 	@echo "Description: Matrix operations and deep learning primitives" >> $@
 	@echo "URL: https://github.com/hfp/libxs" >> $@
@@ -1721,14 +1721,14 @@ $(OUTDIR)/libxs.pc: $(OUTDIR)/.make
 	@echo >> $@
 	@echo "Cflags: -I\$${includedir}" >> $@
 	@echo "Libs: -L\$${libdir} -lxsmm" >> $@
-	@echo -n "Libs.private:" >> $@
 ifeq (Windows_NT,$(UNAME))
-	@echo " -ldbghelp" >> $@
+	@echo "Libs.private: -ldbghelp" >> $@
 else ifneq (Darwin,$(UNAME))
 ifneq (FreeBSD,$(UNAME))
-	@echo " -lpthread -lrt" >> $@
+	@echo "Libs.private: -lpthread -lrt -ldl -lm -lc" >> $@
+else
+	@echo "Libs.private: -ldl -lm -lc" >> $@
 endif
-	@echo " -ldl -lm -lc" >> $@
 endif
 
 $(OUTDIR)/libxsf.pc: $(OUTDIR)/libxs.pc
@@ -1745,7 +1745,7 @@ $(OUTDIR)/libxsf.pc: $(OUTDIR)/libxs.pc
 	@echo "Cflags: -I\$${includedir}" >> $@
 	@echo "Libs: -L\$${libdir} -lxsmmf" >> $@
 
-$(OUTDIR)/libxsext.pc: $(OUTDIR)/libxs.pc
+$(OUTDIR)/libxsext.pc: $(OUTDIR)/libxs.pc $(EXTOBJS_HST)
 	@echo "Name: libxs/ext" > $@
 	@echo "Description: LIBXS/multithreaded for OpenMP" >> $@
 	@echo "URL: https://github.com/hfp/libxs" >> $@
