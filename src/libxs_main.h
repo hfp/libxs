@@ -583,24 +583,41 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_blasint bn;
   libxs_blasint bc;
   /* extrenal tensors */
-  libxs_dnn_tensor* w;
   libxs_dnn_tensor* xt;
-  libxs_dnn_tensor* u;
-  libxs_dnn_tensor* ht;
+  libxs_dnn_tensor* csp;
+  libxs_dnn_tensor* hp;
+  libxs_dnn_tensor* w;
+  libxs_dnn_tensor* r;
   libxs_dnn_tensor* b;
-  libxs_dnn_tensor* djdht;
-  libxs_dnn_tensor* djdu;
-  libxs_dnn_tensor* djdw;
-  libxs_dnn_tensor* djdxt;
-  libxs_dnn_tensor* djdb;
+  libxs_dnn_tensor* cst;
+  libxs_dnn_tensor* ht;
+  libxs_dnn_tensor* dxt;
+  libxs_dnn_tensor* dcspt;
+  libxs_dnn_tensor* dhpt;
+  libxs_dnn_tensor* dw;
+  libxs_dnn_tensor* dr;
+  libxs_dnn_tensor* db;
+  libxs_dnn_tensor* dcs;
+  libxs_dnn_tensor* dht;
+  libxs_dnn_tensor* it;
+  libxs_dnn_tensor* ft;
+  libxs_dnn_tensor* ot;
+  libxs_dnn_tensor* cit;
+  libxs_dnn_tensor* cot;
   /* internal  state */
   void* internal_z;
   /* scratch pointers */
-  void* scratch_deltat;
   void* scratch_wT;
-  void* scratch_uT;
+  void* scratch_rT;
   void* scratch_xT;
   void* scratch_hT;
+  void* scratch_deltat;
+  void* scratch_dit;
+  void* scratch_dft;
+  void* scratch_dot;
+  void* scratch_dcit;
+  void* scratch_t1;
+  void* scratch_t2;
   /* options */
   int fwd_generic;
   int bwdupd_generic;
