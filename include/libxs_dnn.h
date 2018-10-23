@@ -88,6 +88,7 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_INVALID_FORMAT_FUSEDBN     100032
 #define LIBXS_DNN_ERR_UNSUPPORTED_POOLING        100033
 #define LIBXS_DNN_ERR_INVALID_FORMAT_FC          100034
+#define LIBXS_DNN_ERR_INVALID_RNN_TYPE           100035
 
 /** Kinds of supported compute flavor operations. */
 typedef enum libxs_dnn_compute_kind {
@@ -198,24 +199,46 @@ typedef enum libxs_dnn_tensor_type {
 
   /** regular input buffer */
   LIBXS_DNN_RNN_REGULAR_INPUT,
+  /** regular previous cell state buffer */
+  LIBXS_DNN_RNN_REGULAR_CS_PREV,
+  /** regular previous hidden state buffer */
+  LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE_PREV,
+  /** regular weight (LSTM: wi, wc, wf, wo) */
+  LIBXS_DNN_RNN_REGULAR_WEIGHT,
+  /** regular recurrent weight (LSTM: ri, rc, rf, ro) */
+  LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT,
+  /** regular bias (LSTM: bi, bc, bf, bo) */
+  LIBXS_DNN_RNN_REGULAR_BIAS,
+  /** regular output cell state buffer */
+  LIBXS_DNN_RNN_REGULAR_CS,
   /** regular hidden state buffer */
   LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE,
-  /** regular weight */
-  LIBXS_DNN_RNN_REGULAR_WEIGHT,
-  /** regular recurrent weight */
-  LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT,
-  /** regular bias */
-  LIBXS_DNN_RNN_REGULAR_BIAS,
   /** gradient input buffer */
   LIBXS_DNN_RNN_GRADIENT_INPUT,
-  /** gradient hidden state buffer */
-  LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE,
+  /** gradient previous cell state buffer */
+  LIBXS_DNN_RNN_GRADIENT_CS_PREV,
+  /** gradient previous hidden state buffer */
+  LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE_PREV,
   /** gradient weight */
   LIBXS_DNN_RNN_GRADIENT_WEIGHT,
   /** gradient recurrent weight */
   LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT,
   /** gradient bias */
   LIBXS_DNN_RNN_GRADIENT_BIAS,
+  /** gradient output cell state buffer */
+  LIBXS_DNN_RNN_GRADIENT_CS,
+  /** gradient hidden state buffer */
+  LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE,
+  /** internal i buffer */
+  LIBXS_DNN_RNN_INTERNAL_I,
+  /** internal f buffer */
+  LIBXS_DNN_RNN_INTERNAL_F,
+  /** internal o buffer */
+  LIBXS_DNN_RNN_INTERNAL_O,
+  /** internal ci buffer */
+  LIBXS_DNN_RNN_INTERNAL_CI,
+  /** internal co buffer */
+  LIBXS_DNN_RNN_INTERNAL_CO,
 
   /** regular input buffer */
   LIBXS_DNN_LSTM_REGULAR_INPUT,
@@ -259,7 +282,6 @@ typedef enum libxs_dnn_tensor_type {
   LIBXS_DNN_LSTM_GRADIENT_CS,
   /** gradient hidden state buffer */
   LIBXS_DNN_LSTM_GRADIENT_HIDDEN_STATE,
-
   /** regular input buffer */
   LIBXS_DNN_GRU_REGULAR_INPUT,
   /** regular hidden state buffer */
