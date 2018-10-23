@@ -123,8 +123,8 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
            (type == LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE_PREV) || (type == LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE_PREV) ||
            (type == LIBXS_DNN_RNN_REGULAR_CS) || (type == LIBXS_DNN_RNN_GRADIENT_CS) ||
            (type == LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE) || (type == LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE) ||
-           (type == LIBXS_DNN_RNN_INTERNAL_I) || (type == LIBXS_DNN_RNN_INTERNAL_F) || 
-           (LIBXS_DNN_RNN_INTERNAL_O) || (type == LIBXS_DNN_RNN_INTERNAL_CI) ||
+           (type == LIBXS_DNN_RNN_INTERNAL_I) || (type == LIBXS_DNN_RNN_INTERNAL_F) ||
+           (type == LIBXS_DNN_RNN_INTERNAL_O) || (type == LIBXS_DNN_RNN_INTERNAL_CI) ||
            (type == LIBXS_DNN_RNN_INTERNAL_CO) ) {
         layout->format = handle->desc.buffer_format;
         layout->tensor_type = LIBXS_DNN_ACTIVATION;
@@ -413,7 +413,7 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
             *status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       case  LIBXS_DNN_RNNCELL_LSTM: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -439,7 +439,7 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
             *status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       default: {
         *status = LIBXS_DNN_ERR_INVALID_RNN_TYPE;
       }
@@ -520,7 +520,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
             status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       case LIBXS_DNN_RNNCELL_LSTM: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -627,7 +627,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
             status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       default: {
         status = LIBXS_DNN_ERR_INVALID_RNN_TYPE;
       }
@@ -667,7 +667,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_scratch(libxs_dnn_rnncell* h
             status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       case LIBXS_DNN_RNNCELL_LSTM: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -693,7 +693,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_scratch(libxs_dnn_rnncell* h
             status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       default: {
         status = LIBXS_DNN_ERR_INVALID_RNN_TYPE;
       }
@@ -730,7 +730,7 @@ LIBXS_API size_t libxs_dnn_rnncell_get_internalstate_size(const libxs_dnn_rnncel
             *status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       case LIBXS_DNN_RNNCELL_LSTM: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -746,7 +746,7 @@ LIBXS_API size_t libxs_dnn_rnncell_get_internalstate_size(const libxs_dnn_rnncel
             *status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       default: {
         *status = LIBXS_DNN_ERR_INVALID_RNN_TYPE;
       }
@@ -798,7 +798,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_internalstate(libxs_dnn_rnncell
             status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       case LIBXS_DNN_RNNCELL_LSTM: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -812,7 +812,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_internalstate(libxs_dnn_rnncell
             status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       default: {
         status = LIBXS_DNN_ERR_INVALID_RNN_TYPE;
       }
@@ -848,7 +848,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
             status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       case LIBXS_DNN_RNNCELL_LSTM: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
@@ -862,7 +862,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
             status = LIBXS_DNN_ERR_INVALID_KIND;
           }
         }
-      }
+      } break;
       default: {
         status = LIBXS_DNN_ERR_INVALID_RNN_TYPE;
       }
@@ -909,7 +909,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_tensor(libxs_dnn_rnncell* handl
        (type != LIBXS_DNN_RNN_REGULAR_CS) && (type != LIBXS_DNN_RNN_GRADIENT_CS) &&
        (type != LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE) && (type != LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE) &&
        (type != LIBXS_DNN_RNN_INTERNAL_I) && (type != LIBXS_DNN_RNN_INTERNAL_F) &&
-       (type != LIBXS_DNN_RNN_INTERNAL_O) && (type != LIBXS_DNN_RNN_INTERNAL_CI) && 
+       (type != LIBXS_DNN_RNN_INTERNAL_O) && (type != LIBXS_DNN_RNN_INTERNAL_CI) &&
        (type != LIBXS_DNN_RNN_INTERNAL_CO) ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
@@ -993,7 +993,7 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_rnncell_get_tensor(libxs_dnn_rnncell* hand
        (type != LIBXS_DNN_RNN_REGULAR_CS) && (type != LIBXS_DNN_RNN_GRADIENT_CS) &&
        (type != LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE) && (type != LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE) &&
        (type != LIBXS_DNN_RNN_INTERNAL_I) && (type != LIBXS_DNN_RNN_INTERNAL_F) &&
-       (type != LIBXS_DNN_RNN_INTERNAL_O) && (type != LIBXS_DNN_RNN_INTERNAL_CI) && 
+       (type != LIBXS_DNN_RNN_INTERNAL_O) && (type != LIBXS_DNN_RNN_INTERNAL_CI) &&
        (type != LIBXS_DNN_RNN_INTERNAL_CO) ) {
     return tensor;
   }
@@ -1064,7 +1064,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
        (type != LIBXS_DNN_RNN_REGULAR_CS) && (type != LIBXS_DNN_RNN_GRADIENT_CS) &&
        (type != LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE) && (type != LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE) &&
        (type != LIBXS_DNN_RNN_INTERNAL_I) && (type != LIBXS_DNN_RNN_INTERNAL_F) &&
-       (type != LIBXS_DNN_RNN_INTERNAL_O) && (type != LIBXS_DNN_RNN_INTERNAL_CI) && 
+       (type != LIBXS_DNN_RNN_INTERNAL_O) && (type != LIBXS_DNN_RNN_INTERNAL_CI) &&
        (type != LIBXS_DNN_RNN_INTERNAL_CO) ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
