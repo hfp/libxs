@@ -65,6 +65,8 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_f32_f32(libxs_dnn_rnncell* han
 # define LIBXS_DNN_RNN_TANH_BWDUPD
 # include "template/libxs_dnn_rnncell_st_rnn_bwdupd_nc_ck_generic.tpl.c"
 # undef LIBXS_DNN_RNN_TANH_BWDUPD
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+# include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_ck_generic.tpl.c"
   } else {
     /* should not happen */
   }
@@ -128,6 +130,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck(libxs_dnn_rnn
 #define LIBXS_DNN_RNN_TANH_BWDUPD
 # include "template/libxs_dnn_rnncell_st_rnn_bwdupd_nc_ck_generic.tpl.c"
 #undef LIBXS_DNN_RNN_TANH_BWDUPD
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+# include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_ck_generic.tpl.c"
       } else {
         /* should not happen */
       }
