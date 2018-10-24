@@ -277,7 +277,6 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
           $(ROOTDIR)/include/libxs_dnn_pooling.h \
           $(ROOTDIR)/include/libxs_dnn_fullyconnected.h \
           $(ROOTDIR)/include/libxs_dnn_rnncell.h \
-          $(ROOTDIR)/include/libxs_dnn_lstmcell.h \
           $(ROOTDIR)/include/libxs_dnn_grucell.h \
           $(ROOTDIR)/include/libxs_frontend.h \
           $(ROOTDIR)/include/libxs_fsspmdm.h \
@@ -297,7 +296,7 @@ SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_gemm.c libxs_trans.c libxs_bgemm.c \
           libxs_spmdm.c libxs_fsspmdm.c \
           libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c \
-          libxs_dnn_elementwise.c libxs_dnn_rnncell.c libxs_dnn_lstmcell.c libxs_dnn_grucell.c \
+          libxs_dnn_elementwise.c libxs_dnn_rnncell.c libxs_dnn_grucell.c \
           libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c \
           libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c \
           libxs_dnn_fusedbatchnorm_backward.c \
@@ -594,7 +593,6 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(ROOTDIR)/$(SRCDIR)/template/l
 	@$(CP) $(ROOTDIR)/include/libxs_dnn_fullyconnected.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn_pooling.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn_rnncell.h $(INCDIR) 2>/dev/null || true
-	@$(CP) $(ROOTDIR)/include/libxs_dnn_lstmcell.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn_grucell.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_frontend.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_fsspmdm.h $(INCDIR) 2>/dev/null || true
