@@ -45,7 +45,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_zero(libxs_blasint size, LIBXS_DNN_E
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -61,7 +61,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_add(libxs_blasint size, LIBXS_DNN_EL
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -77,7 +77,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_eltwise_mult(libxs_blasint size, LIB
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -93,7 +93,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_sigmoid(libxs_blasint size, LIBXS_DN
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -110,7 +110,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_tanh(libxs_blasint size, LIBXS_DNN_E
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -126,7 +126,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_relu(libxs_blasint size, LIBXS_DNN_E
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -142,7 +142,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_sigmoid_inverse(libxs_blasint size, 
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -160,7 +160,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_tanh_inverse(libxs_blasint size, LIB
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -177,7 +177,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_relu_inverse(libxs_blasint size, LIB
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -195,7 +195,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_transpose(libxs_blasint rows, libxs_
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, src2D, src, cols);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, dst2D, dst, rows);
   libxs_blasint job;
@@ -215,7 +215,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_copy(libxs_blasint size, LIBXS_DNN_E
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -231,7 +231,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_complement(libxs_blasint size, LIBXS
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -247,7 +247,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_complement_square(libxs_blasint size
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -263,7 +263,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_inverse(libxs_blasint size, LIBXS_DN
   const libxs_blasint chunksize = (size % nthreads == 0) ? (size / nthreads) : (size / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < size) ? (ltid * chunksize) : size;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < size) ? ((ltid + 1) * chunksize) : size;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, size);
   libxs_blasint i;
 
   for (i = thr_begin; i < thr_end; i++) {
@@ -279,7 +279,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_1D_2D(libxs_blasint m, libxs_blasint
   const libxs_blasint chunksize = (m % nthreads == 0) ? (m / nthreads) : (m / nthreads) + 1;
   /* compute thr_begin and thr_end */
   const libxs_blasint thr_begin = (ltid * chunksize < m) ? (ltid * chunksize) : m;
-  const libxs_blasint thr_end = ((ltid + 1) * chunksize < m) ? ((ltid + 1) * chunksize) : m;
+  const libxs_blasint thr_end = LIBXS_MIN(ltid * chunksize + chunksize, m);
   libxs_blasint i, j;
   LIBXS_VLA_DECL(4, LIBXS_DNN_ELTWISE_FTYPE, real_dst, (LIBXS_DNN_ELTWISE_FTYPE*)dst, m/bm, bn, bm);
 
