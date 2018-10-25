@@ -150,7 +150,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_d
   /* check if we have a kernel JITed */
   if ( handle->use_fwd_generic != 0 ) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      const libxs_blasint ldx = (libxs_blasint)(handle->desc.v*handle->ifmblock);
+      const libxs_blasint ldx = (libxs_blasint)handle->desc.v*handle->ifmblock;
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
@@ -219,10 +219,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_custom(libxs_dnn
   /* check if we have a kernel JITed */
   if ( handle->use_fwd_generic != 0 ) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      const libxs_blasint lda = (libxs_blasint)(handle->ofmblock);
+      const libxs_blasint lda = (libxs_blasint)handle->ofmblock;
       const libxs_blasint ldb = (libxs_blasint)((handle->desc.pad_h == handle->desc.pad_h_in && handle->desc.pad_w == handle->desc.pad_w_in)
                         ? (handle->desc.v*handle->blocksifm*handle->ifmblock) : (handle->desc.v*handle->ifmblock));
-      const libxs_blasint ldc = (libxs_blasint)(handle->blocksofm*handle->ofmblock);
+      const libxs_blasint ldc = (libxs_blasint)handle->blocksofm*handle->ofmblock;
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
@@ -257,10 +257,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_nhwc_rsck(libxs_dnn_l
   /* check if we have a kernel JITed */
   if ( handle->use_fwd_generic != 0 ) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      const libxs_blasint lda = (libxs_blasint)(handle->blocksofm*handle->ofmblock);
+      const libxs_blasint lda = (libxs_blasint)handle->blocksofm*handle->ofmblock;
       const libxs_blasint ldb = (libxs_blasint)((handle->desc.pad_h == handle->desc.pad_h_in && handle->desc.pad_w == handle->desc.pad_w_in)
                         ? (handle->desc.v*handle->blocksifm*handle->ifmblock) : (handle->desc.v*handle->ifmblock));
-      const libxs_blasint ldc = (libxs_blasint)(handle->blocksofm*handle->ofmblock);
+      const libxs_blasint ldc = (libxs_blasint)handle->blocksofm*handle->ofmblock;
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;

@@ -140,37 +140,37 @@
   libxs_blasint libxs_xcopy_i_ = M0, libxs_xcopy_j_ = N0; \
   LIBXS_ASSERT_MSG(0 < (TILE_M) && 0 < (TILE_N), "XCOPY cannot make progress!"); \
   if (0 != (KERNEL)) { /* inner tiles with JIT */ \
-    for (; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
-      for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
+    for (; libxs_xcopy_i_ < (((libxs_blasint)M1) - ((libxs_blasint)TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
+      for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (((libxs_blasint)N1) - ((libxs_blasint)TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
         XKERNEL(char, TYPESIZE, OUT, IN, LDI, LDO, libxs_xcopy_i_, libxs_xcopy_j_, libxs_xcopy_src_, libxs_xcopy_dst_); \
         KERNEL_CALL(KERNEL, TYPESIZE, libxs_xcopy_src_, LDI, libxs_xcopy_dst_, LDO); \
       } \
     } \
   } \
   else { /* inner tiles without JIT */ \
-    for (; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
-      for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
+    for (; libxs_xcopy_i_ < (((libxs_blasint)M1) - ((libxs_blasint)TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
+      for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (((libxs_blasint)N1) - ((libxs_blasint)TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \
         LIBXS_XCOPY_NONJIT(XKERNEL, TYPESIZE, OUT, IN, LDI, LDO, \
           libxs_xcopy_i_, libxs_xcopy_i_ + (TILE_M), \
           libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N), XALIGN); \
       } \
     } \
   } \
-  LIBXS_XCOPY_PRECOND(if (libxs_xcopy_j_ < (N1))) { \
-    for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (libxs_blasint)((M1) - (TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
+  LIBXS_XCOPY_PRECOND(if (libxs_xcopy_j_ < ((libxs_blasint)N1))) { \
+    for (libxs_xcopy_i_ = M0; libxs_xcopy_i_ < (((libxs_blasint)M1) - ((libxs_blasint)TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
       LIBXS_XCOPY_NONJIT(XKERNEL, TYPESIZE, OUT, IN, LDI, LDO, \
         libxs_xcopy_i_, libxs_xcopy_i_ + (TILE_M), \
         libxs_xcopy_j_, N1, XALIGN); \
     } \
   } \
-  LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < (M1))) { \
-    for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (libxs_blasint)((N1) - (TILE_N)); libxs_xcopy_j_ += TILE_N) { \
+  LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < ((libxs_blasint)M1))) { \
+    for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (((libxs_blasint)N1) - ((libxs_blasint)TILE_N)); libxs_xcopy_j_ += TILE_N) { \
       LIBXS_XCOPY_NONJIT(XKERNEL, TYPESIZE, OUT, IN, LDI, LDO, \
         libxs_xcopy_i_, M1, \
         libxs_xcopy_j_, libxs_xcopy_j_ + (TILE_N), XALIGN); \
     } \
   } \
-  LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < (M1) && libxs_xcopy_j_ < (N1))) { \
+  LIBXS_XCOPY_PRECOND(if (libxs_xcopy_i_ < ((libxs_blasint)M1) && libxs_xcopy_j_ < ((libxs_blasint)N1))) { \
     LIBXS_XCOPY_NONJIT(XKERNEL, TYPESIZE, OUT, IN, LDI, LDO, \
       libxs_xcopy_i_, M1, \
       libxs_xcopy_j_, N1, XALIGN); \
