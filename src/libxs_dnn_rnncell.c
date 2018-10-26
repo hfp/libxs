@@ -875,26 +875,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
 }
 
 
-LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_assign_internalstate(libxs_dnn_rnncell* handle, const void* zgoldtb)
-{
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-
-  if (handle != 0 && zgoldtb != 0) {
-    const libxs_blasint K = handle->desc.K, N = handle->desc.N, t = handle->desc.t;
-    LIBXS_VLA_DECL(2, /*const*/ LIBXS_DNN_ELTWISE_FTYPE, zgold, (/*const*/ LIBXS_DNN_ELTWISE_FTYPE*)zgoldtb, K * N);
-    LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z, (LIBXS_DNN_ELTWISE_FTYPE*)handle->internal_z, K * N);
-    libxs_blasint it;
-    for (it = 0; it < t; ++it) {
-      libxs_internal_matrix_copy(K*N, &LIBXS_VLA_ACCESS(2, zgold, it, 0, K * N), &LIBXS_VLA_ACCESS(2, z, it, 0, K * N), 0, 0, 1);
-    }
-  } else {
-    status = LIBXS_DNN_ERR_INVALID_HANDLE_TENSOR;
-  }
-
-  return status;
-}
-
-
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
