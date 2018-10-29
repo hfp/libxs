@@ -158,6 +158,7 @@ LIBXS_APIVAR(unsigned int internal_statistic_med);
 LIBXS_APIVAR(unsigned int internal_statistic_mnk);
 LIBXS_APIVAR(unsigned int internal_statistic_num_mcopy);
 LIBXS_APIVAR(unsigned int internal_statistic_num_tcopy);
+LIBXS_APIVAR(unsigned int internal_statistic_num_trsm);
 LIBXS_APIVAR(unsigned int internal_teardown);
 LIBXS_APIVAR(int internal_dispatch_trylock_locked);
 LIBXS_APIVAR(int internal_gemm_auto_prefetch_locked);
@@ -860,6 +861,9 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           }
           else if (LIBXS_KERNEL_KIND_TRANS == registry_keys[i].xgemm.iflags) {
             ++internal_statistic_num_tcopy;
+          }
+          else if (LIBXS_KERNEL_KIND_TRSM == registry_keys[i].xgemm.iflags) {
+            ++internal_statistic_num_trsm;
           }
           else {
             fprintf(stderr, "LIBXS ERROR: code registry is corrupted!\n");
