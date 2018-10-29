@@ -124,6 +124,9 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 #   if !defined(LIBXS_REGNLOCK)
 #     define LIBXS_REGNLOCK LIBXS_LOCK_DEFAULT
 #   endif
+#   if !defined(LIBXS_CLEANUP_NTRY)
+#     define LIBXS_CLEANUP_NTRY 7
+#   endif
 #   if LIBXS_LOCK_TYPE_ISPOD(LIBXS_REGNLOCK)
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_reglocktype {
   char pad[LIBXS_CACHELINE];
@@ -813,9 +816,16 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     int i;
 #if (0 != LIBXS_SYNC)
     LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &libxs_lock_global);
-    /* acquire locks and thereby shortcut lazy initialization later on */
 # if (0 < INTERNAL_REGLOCK_MAXN)
-    for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_ACQUIRE(LIBXS_REGNLOCK, &internal_reglock[i].state);
+    { /* acquire locks and thereby shortcut lazy initialization later on */
+      int ntry = 0, n;
+      do {
+        for (i = 0, n = 0; i < internal_reglock_count; ++i) {
+          if (LIBXS_LOCK_ACQUIRED(LIBXS_REGNLOCK) == LIBXS_LOCK_TRYLOCK(LIBXS_REGNLOCK, &internal_reglock[i].state)) ++n;
+        }
+        ntry += (0 == n ? 1 : 0);
+      } while (n < internal_reglock_count && ntry < LIBXS_CLEANUP_NTRY);
+    }
 # else
     LIBXS_LOCK_ACQUIRE(LIBXS_REG1LOCK, &internal_reglock);
 # endif
