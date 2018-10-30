@@ -113,6 +113,7 @@ LIBXS_API void libxs_matcopy_thread_internal(void* out, const void* in, unsigned
   LIBXS_ASSERT_MSG(tm <= m && tn <= n, "Invalid problem size!");
   LIBXS_ASSERT_MSG(0 < tm && 0 < tn, "Invalid tile size!");
   LIBXS_ASSERT_MSG(typesize <= 255, "Invalid type-size!");
+  LIBXS_ASSERT(0 < mtasks);
 
   if (nthreads <= mtasks) { /* parallelized over M */
     const unsigned int mt = (m + nthreads - 1) / nthreads;
@@ -255,6 +256,7 @@ LIBXS_API void libxs_otrans_thread_internal(void* out, const void* in, unsigned 
   LIBXS_ASSERT_MSG(tm <= m && tn <= n, "Invalid problem size!");
   LIBXS_ASSERT_MSG(0 < tm && 0 < tn, "Invalid tile size!");
   LIBXS_ASSERT_MSG(typesize <= 255, "Invalid type-size!");
+  LIBXS_ASSERT(0 < mtasks);
 
   if (nthreads <= mtasks) { /* parallelized over M */
     const unsigned int mt = (m + nthreads - 1) / nthreads;
