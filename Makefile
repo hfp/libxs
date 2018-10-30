@@ -1714,6 +1714,20 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@$(CP) -v .state $(INSTALL_ROOT)/$(PDOCDIR)/artifacts/make.txt
 endif
 
+ifeq (Windows_NT,$(UNAME))
+  XSMM_PKG_CONFIG_LIBS_PRIVATE = "-ldbghelp"
+else ifneq (Darwin,$(UNAME))
+  ifneq (FreeBSD,$(UNAME))
+    XSMM_PKG_CONFIG_LIBS_PRIVATE = "-lpthread -lrt -ldl -lm -lc"
+  else
+    XSMM_PKG_CONFIG_LIBS_PRIVATE = "-ldl -lm -lc"
+  endif
+endif
+
+ifneq (Darwin,$(UNAME))
+  XSMMEXT_PKG_CONFIG_LIBS_PRIVATE = "-fopenmp"
+endif
+
 $(OUTDIR)/libxs.pc: $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING)
 	@echo "Name: libxs" > $@
 	@echo "Description: Matrix operations and deep learning primitives" >> $@
@@ -1725,15 +1739,13 @@ $(OUTDIR)/libxs.pc: $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJ
 	@echo "libdir=\$${prefix}/$(POUTDIR)" >> $@
 	@echo >> $@
 	@echo "Cflags: -I\$${includedir}" >> $@
+ifneq (0,$(SHARED))
 	@echo "Libs: -L\$${libdir} -lxsmm" >> $@
-ifeq (Windows_NT,$(UNAME))
-	@echo "Libs.private: -ldbghelp" >> $@
-else ifneq (Darwin,$(UNAME))
-ifneq (FreeBSD,$(UNAME))
-	@echo "Libs.private: -lpthread -lrt -ldl -lm -lc" >> $@
-else
-	@echo "Libs.private: -ldl -lm -lc" >> $@
+ifneq (0,$(STATIC))
+	@echo "Libs.private: $(XSMM_PKG_CONFIG_LIBS_PRIVATE)" >> $@
 endif
+else
+	@echo "Libs: -L\$${libdir} -lxsmm $(XSMM_PKG_CONFIG_LIBS_PRIVATE)" >> $@
 endif
 
 $(OUTDIR)/libxsf.pc: $(OUTDIR)/libxs.pc
@@ -1762,9 +1774,13 @@ $(OUTDIR)/libxsext.pc: $(OUTDIR)/libxs.pc $(EXTOBJS_HST)
 	@echo >> $@
 	@echo "Requires: libxs" >> $@
 	@echo "Cflags: -I\$${includedir}" >> $@
+ifneq (0,$(SHARED))
 	@echo "Libs: -L\$${libdir} -lxsmmext" >> $@
-ifneq (Darwin,$(UNAME))
-	@echo "Libs.private: -fopenmp" >> $@
+ifneq (0,$(STATIC))
+	@echo "Libs.private: $(XSMMEXT_PKG_CONFIG_LIBS_PRIVATE)" >> $@
+endif
+else
+	@echo "Libs: -L\$${libdir} -lxsmmext $(XSMMEXT_PKG_CONFIG_LIBS_PRIVATE)" >> $@
 endif
 
 .PHONY: pkg-config
