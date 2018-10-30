@@ -458,7 +458,7 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbatchnorm_get_tensor(libxs_dnn_fusedb
       return_tensor = handle->grad_add;
     } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BETA ) {
       return_tensor = handle->reg_beta;
-    } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BETA ) {
+    } else if ( type == LIBXS_DNN_GRADIENT_CHANNEL_BETA ) {
       return_tensor = handle->grad_beta;
     } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_GAMMA ) {
       return_tensor = handle->reg_gamma;
@@ -511,7 +511,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_release_tensor(libxs_dnn_fuse
       handle->grad_add = 0;
     } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BETA ) {
       handle->reg_beta = 0;
-    } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BETA ) {
+    } else if ( type == LIBXS_DNN_GRADIENT_CHANNEL_BETA ) {
       handle->grad_beta = 0;
     } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_GAMMA ) {
       handle->reg_gamma = 0;
