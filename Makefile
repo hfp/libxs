@@ -899,8 +899,8 @@ endif
 endif
 
 .PHONY: clib_hst
-clib_hst: $(OUTDIR)/libxs.$(LIBEXT)
-$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/libxs.pc
+clib_hst: $(OUTDIR)/libxs.pc
+$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING)
 ifeq (0,$(STATIC))
 	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING) $(LDFLAGS) $(CLDFLAGS)
 else # static
@@ -928,17 +928,17 @@ endif
 
 .PHONY: flib_hst
 ifneq (,$(strip $(FC)))
-flib_hst: $(OUTDIR)/libxsf.$(LIBEXT)
+flib_hst: $(OUTDIR)/libxsf.pc
 ifeq (0,$(STATIC))
-$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/libxsf.pc
+$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
 	$(LIB_FLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(FLDFLAGS)
 else # static
-$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxsf.pc
+$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
 endif
 else
-.PHONY: $(OUTDIR)/libxsf.$(LIBEXT)
+.PHONY: $(OUTDIR)/libxsf.pc
 endif
 
 .PHONY: ext_mic
@@ -957,9 +957,9 @@ endif
 endif
 
 .PHONY: ext_hst
-ext_hst: $(OUTDIR)/libxsext.$(LIBEXT)
+ext_hst: $(OUTDIR)/libxsext.pc
 ifeq (0,$(STATIC))
-$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/libxsext.pc
+$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/libxs.$(LIBEXT) $(EXTOBJS_HST)
 ifneq (Darwin,$(UNAME))
 	$(LIB_LD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
@@ -971,7 +971,7 @@ else # osx
 			$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
 endif
 else # static
-$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(OUTDIR)/libxsext.pc
+$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST)
 	$(AR) -rs $@ $(EXTOBJS_HST)
 endif
 
@@ -1715,20 +1715,19 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 endif
 
 ifeq (Windows_NT,$(UNAME))
-  XSMM_PKG_CONFIG_LIBS_PRIVATE = "-ldbghelp"
+  XSMM_PKG_CONFIG_LIBS_PRIVATE = -ldbghelp
 else ifneq (Darwin,$(UNAME))
   ifneq (FreeBSD,$(UNAME))
-    XSMM_PKG_CONFIG_LIBS_PRIVATE = "-lpthread -lrt -ldl -lm -lc"
+    XSMM_PKG_CONFIG_LIBS_PRIVATE = -lpthread -lrt -ldl -lm -lc
   else
-    XSMM_PKG_CONFIG_LIBS_PRIVATE = "-ldl -lm -lc"
+    XSMM_PKG_CONFIG_LIBS_PRIVATE = -ldl -lm -lc
   endif
 endif
-
 ifneq (Darwin,$(UNAME))
-  XSMMEXT_PKG_CONFIG_LIBS_PRIVATE = "-fopenmp"
+  XSMMEXT_PKG_CONFIG_LIBS_PRIVATE = -fopenmp
 endif
 
-$(OUTDIR)/libxs.pc: $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING)
+$(OUTDIR)/libxs.pc: $(OUTDIR)/libxs.$(LIBEXT)
 	@echo "Name: libxs" > $@
 	@echo "Description: Matrix operations and deep learning primitives" >> $@
 	@echo "URL: https://github.com/hfp/libxs" >> $@
@@ -1739,16 +1738,18 @@ $(OUTDIR)/libxs.pc: $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJ
 	@echo "libdir=\$${prefix}/$(POUTDIR)" >> $@
 	@echo >> $@
 	@echo "Cflags: -I\$${includedir}" >> $@
-ifneq (0,$(SHARED))
+ifneq (,$(XSMM_PKG_CONFIG_LIBS_PRIVATE))
+	@if [ -e $(OUTDIR)/libxs.$(DLIBEXT) ]; then \
+		echo "Libs: -L\$${libdir} -lxsmm" >> $@; \
+		echo "Libs.private: $(XSMM_PKG_CONFIG_LIBS_PRIVATE)" >> $@; \
+	else \
+		echo "Libs: -L\$${libdir} -lxsmm $(XSMM_PKG_CONFIG_LIBS_PRIVATE)" >> $@; \
+	fi
+else # no private libraries
 	@echo "Libs: -L\$${libdir} -lxsmm" >> $@
-ifneq (0,$(STATIC))
-	@echo "Libs.private: $(XSMM_PKG_CONFIG_LIBS_PRIVATE)" >> $@
-endif
-else
-	@echo "Libs: -L\$${libdir} -lxsmm $(XSMM_PKG_CONFIG_LIBS_PRIVATE)" >> $@
 endif
 
-$(OUTDIR)/libxsf.pc: $(OUTDIR)/libxs.pc
+$(OUTDIR)/libxsf.pc: $(OUTDIR)/libxsf.$(LIBEXT)
 	@echo "Name: libxs/f" > $@
 	@echo "Description: LIBXS for Fortran" >> $@
 	@echo "URL: https://github.com/hfp/libxs" >> $@
@@ -1762,7 +1763,7 @@ $(OUTDIR)/libxsf.pc: $(OUTDIR)/libxs.pc
 	@echo "Cflags: -I\$${includedir}" >> $@
 	@echo "Libs: -L\$${libdir} -lxsmmf" >> $@
 
-$(OUTDIR)/libxsext.pc: $(OUTDIR)/libxs.pc $(EXTOBJS_HST)
+$(OUTDIR)/libxsext.pc: $(OUTDIR)/libxsext.$(LIBEXT)
 	@echo "Name: libxs/ext" > $@
 	@echo "Description: LIBXS/multithreaded for OpenMP" >> $@
 	@echo "URL: https://github.com/hfp/libxs" >> $@
@@ -1774,20 +1775,16 @@ $(OUTDIR)/libxsext.pc: $(OUTDIR)/libxs.pc $(EXTOBJS_HST)
 	@echo >> $@
 	@echo "Requires: libxs" >> $@
 	@echo "Cflags: -I\$${includedir}" >> $@
-ifneq (0,$(SHARED))
+ifneq (,$(XSMMEXT_PKG_CONFIG_LIBS_PRIVATE))
+	@if [ -e $(OUTDIR)/libxsext.$(DLIBEXT) ]; then \
+		echo "Libs: -L\$${libdir} -lxsmmext" >> $@; \
+		echo "Libs.private: $(XSMMEXT_PKG_CONFIG_LIBS_PRIVATE)" >> $@; \
+	else \
+		echo "Libs: -L\$${libdir} -lxsmmext $(XSMMEXT_PKG_CONFIG_LIBS_PRIVATE)" >> $@; \
+	fi
+else # no private libraries
 	@echo "Libs: -L\$${libdir} -lxsmmext" >> $@
-ifneq (0,$(STATIC))
-	@echo "Libs.private: $(XSMMEXT_PKG_CONFIG_LIBS_PRIVATE)" >> $@
 endif
-else
-	@echo "Libs: -L\$${libdir} -lxsmmext $(XSMMEXT_PKG_CONFIG_LIBS_PRIVATE)" >> $@
-endif
-
-.PHONY: pkg-config
-pkg-config: $(OUTDIR)/libxs.pc $(OUTDIR)/libxsf.pc $(OUTDIR)/libxsext.pc
-
-.PHONY: pkg
-pkg: pkg-config
 
 .PHONY: deb
 deb:
