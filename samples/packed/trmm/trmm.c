@@ -26,7 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#if 1
+#if 0
 #define USE_KERNEL_GENERATION_DIRECTLY
 #endif
 #if 0
@@ -37,7 +37,9 @@
 
 #if !defined(USE_PREDEFINED_ASSEMBLY) && !defined(USE_XSMM_GENERATED) && !defined(TIME_MKL) && \
    (!defined(__linux__) || !defined(USE_KERNEL_GENERATION_DIRECTLY))
+# if 0 /* TODO: provide TRMM API */
 # define USE_XSMM_GENERATED
+# endif
 # include <libxs.h>
 #else
 # include <libxs_source.h>
