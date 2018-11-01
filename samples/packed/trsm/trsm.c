@@ -35,8 +35,8 @@
 #define TIME_MKL
 #endif
 
-#if !defined(USE_PREDEFINED_ASSEMBLY) && !defined(USE_XSMM_GENERATED) && !defined(TIME_MKL) \
- && (defined(_WIN32) || !defined(USE_KERNEL_GENERATION_DIRECTLY))
+#if !defined(USE_PREDEFINED_ASSEMBLY) && !defined(USE_XSMM_GENERATED) && !defined(TIME_MKL) && \
+   (!defined(__linux__) || !defined(USE_KERNEL_GENERATION_DIRECTLY))
 # define USE_XSMM_GENERATED
 # include <libxs.h>
 #else
@@ -481,7 +481,7 @@ int main(int argc, char* argv[])
     libxs_xtrsmfunction sp;
     const void* pv;
   } mykernel = { 0 };
-#if defined(USE_KERNEL_GENERATION_DIRECTLY) && !defined(_WIN32)
+#if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
   void (*opcode_routine)();
   unsigned char *routine_output;
   libxs_generated_code io_generated_code;
@@ -551,7 +551,7 @@ int main(int argc, char* argv[])
 #ifdef USE_PREDEFINED_ASSEMBLY
   printf("This code tests some predefined assembly kenrel\n");
 #endif
-#if defined(USE_KERNEL_GENERATION_DIRECTLY) && !defined(_WIN32)
+#if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
   printf("This code tests kernel generation directly\n");
 #endif
 #ifdef TIME_MKL
@@ -573,7 +573,7 @@ int main(int argc, char* argv[])
 #endif
 #endif
 
-#if defined(USE_KERNEL_GENERATION_DIRECTLY) && !defined(_WIN32)
+#if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
   libxs_generator_trsm_kernel ( &io_generated_code, desc8, "hsw" );
 #endif
 
@@ -617,7 +617,7 @@ int main(int argc, char* argv[])
 #ifdef USE_PREDEFINED_ASSEMBLY
   cptr = (const unsigned char*) trsm_xct_;
 #endif
-#if defined(USE_KERNEL_GENERATION_DIRECTLY) && !defined(_WIN32)
+#if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
   cptr = (const unsigned char*) &routine_output[0];
   opcode_routine = (void *) &cptr[0];
 #endif
@@ -694,7 +694,7 @@ int main(int argc, char* argv[])
 #ifdef USE_PREDEFINED_ASSEMBLY
      trsm_xct_ ( Ap, Bp, &one );
 #endif
-#if defined(USE_KERNEL_GENERATION_DIRECTLY) && !defined(_WIN32)
+#if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
      (*opcode_routine)( Ap, Bp );
 #endif
 #ifdef TIME_MKL
