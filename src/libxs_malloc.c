@@ -26,11 +26,6 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-
-/* must be defined *before* other files are included */
-#if !defined(_GNU_SOURCE)
-# define _GNU_SOURCE
-#endif
 #include "libxs_trace.h"
 #include "libxs_main.h"
 #include "libxs_hash.h"
