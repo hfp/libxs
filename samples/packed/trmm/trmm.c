@@ -26,7 +26,26 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include <libxs.h>
+#if 1
+#define USE_KERNEL_GENERATION_DIRECTLY
+#endif
+#if 0
+#define USE_PREDEFINED_ASSEMBLY
+#define USE_XSMM_GENERATED
+#define TIME_MKL
+#endif
+
+#if !defined(USE_PREDEFINED_ASSEMBLY) && !defined(USE_XSMM_GENERATED) && !defined(TIME_MKL) \
+ && (defined(_WIN32) || !defined(USE_KERNEL_GENERATION_DIRECTLY))
+# define USE_XSMM_GENERATED
+# include <libxs.h>
+#else
+# include <libxs_source.h>
+# include <unistd.h>
+# include <signal.h>
+# include <malloc.h>
+# include <sys/mman.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -428,26 +447,6 @@ double residual_s ( float *A, unsigned int lda, unsigned int m, unsigned int n,
    }
    return derror;
 }
-
-#if 1
-#define USE_KERNEL_GENERATION_DIRECTLY
-#endif
-#if 0
-#define USE_PREDEFINED_ASSEMBLY
-#define USE_XSMM_GENERATED
-#define TIME_MKL
-#endif
-
-#if !defined(USE_PREDEFINED_ASSEMBLY) && !defined(USE_XSMM_GENERATED) && !defined(TIME_MKL) \
- && (defined(_WIN32) || !defined(USE_KERNEL_GENERATION_DIRECTLY))
-# define USE_XSMM_GENERATED
-#else
-# include "../../../src/generator_packed_trmm_avx_avx512.h"
-# include <unistd.h>
-# include <signal.h>
-# include <malloc.h>
-# include <sys/mman.h>
-#endif
 
 #ifdef USE_PREDEFINED_ASSEMBLY
 extern void trmm_();
