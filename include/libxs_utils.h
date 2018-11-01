@@ -34,7 +34,11 @@
 /** Macro evaluates to LIBXS_ATTRIBUTE_TARGET_xxx (see below). */
 #define LIBXS_ATTRIBUTE_TARGET(TARGET) LIBXS_CONCATENATE(LIBXS_ATTRIBUTE_TARGET_, TARGET)
 
-#if !defined(LIBXS_INTRINSICS_STATIC) && /* GCC 4.4 (target-attribute) */ \
+#if defined(__PGI) /* no intrinsics: tested with 17.x and 18.x */
+# if !defined(LIBXS_INTRINSICS_NONE)
+#   define LIBXS_INTRINSICS_NONE
+# endif
+#elif !defined(LIBXS_INTRINSICS_STATIC) && /* GCC 4.4 (target-attribute) */ \
     (defined(__GNUC__) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) && !defined(_CRAYC) && \
      LIBXS_VERSION3(4, 4, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
  || (defined(__clang__) && LIBXS_VERSION3(3, 7, 0) > LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
@@ -45,11 +49,6 @@
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-
-/** PGI's intrinsic headers do not compile, __SSE4_x__/__AVX__ etc. are never defined (-tp=haswell, etc.) */
-#if !defined(LIBXS_INTRINSICS_NONE) && defined(__PGI)
-# define LIBXS_INTRINSICS_NONE
 #endif
 
 #if defined(__MIC__) && !defined(LIBXS_INTRINSICS_NONE)
@@ -136,7 +135,8 @@
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     define LIBXS_INTRINSICS_INCLUDE
 #     include <immintrin.h>
-#   elif (LIBXS_VERSION3(5, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) && !defined(__PGI)
+#   elif (defined(__GNUC__) && LIBXS_VERSION3(5, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
+      && !defined(__PGI)
       /* AVX-512 pseudo intrinsics are missing e.g., reductions */
 #     if !defined(LIBXS_INTRINSICS_AVX512_NOREDUCTIONS)
 #       define LIBXS_INTRINSICS_AVX512_NOREDUCTIONS
@@ -148,7 +148,8 @@
 #     endif
 #     define LIBXS_INTRINSICS_INCLUDE
 #     include <immintrin.h>
-#   elif (LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) && !defined(__PGI)
+#   elif (defined(__GNUC__) && LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
+      && !defined(__PGI)
       /* too many AVX-512 (pseudo-)intrinsics are missing e.g., reductions, or casts (_mm512_castps_si512) */
 #     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #     define LIBXS_INTRINSICS_INCLUDE
@@ -178,9 +179,6 @@
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
 #       if !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
 #         define LIBXS_INTRINSICS_STATIC
-#       endif
-#       if !defined(LIBXS_INTRINSICS_NONE) && defined(__PGI)
-#         define LIBXS_INTRINSICS_NONE
 #       endif
 #     endif
 #     if !defined(LIBXS_INTRINSICS_INCLUDE) && !defined(__PGI)
