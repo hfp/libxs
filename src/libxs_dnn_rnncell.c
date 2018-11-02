@@ -251,19 +251,33 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
                 layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
                 layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
                 layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_K;
-                layout->dim_size[0] = (unsigned int)handle->bk;
-                layout->dim_size[1] = (unsigned int)handle->bc;
-                layout->dim_size[2] = (unsigned int)(handle->desc.C / handle->bc);
-                layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk);
+                if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)handle->bc;
+                  layout->dim_size[2] = (unsigned int)(handle->desc.C / handle->bc) * 4;
+                  layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk) * 4;
+                } else {
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)handle->bc;
+                  layout->dim_size[2] = (unsigned int)(handle->desc.C / handle->bc);
+                  layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk);
+                }
               } else if ( (type == LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT) || (type == LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT) ) {
                 layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                 layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                 layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                 layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_K;
-                layout->dim_size[0] = (unsigned int)handle->bk;
-                layout->dim_size[1] = (unsigned int)handle->bk;
-                layout->dim_size[2] = (unsigned int)(handle->desc.K / handle->bk);
-                layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk);
+                if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)handle->bk;
+                  layout->dim_size[2] = (unsigned int)(handle->desc.K / handle->bk) * 4;
+                  layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk) * 4;
+                } else {
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)handle->bk;
+                  layout->dim_size[2] = (unsigned int)(handle->desc.K / handle->bk);
+                  layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk);
+                }
               } else {
                 free(layout->dim_type);
                 free(layout->dim_size);
@@ -295,19 +309,33 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
                 layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                 layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
                 layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-                layout->dim_size[0] = (unsigned int)handle->bk;
-                layout->dim_size[1] = (unsigned int)(handle->desc.K / handle->bk);
-                layout->dim_size[2] = (unsigned int)handle->bc;
-                layout->dim_size[3] = (unsigned int)(handle->desc.C / handle->bc);
+                if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)(handle->desc.K / handle->bk) * 4;
+                  layout->dim_size[2] = (unsigned int)handle->bc;
+                  layout->dim_size[3] = (unsigned int)(handle->desc.C / handle->bc) * 4;
+                } else {
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)(handle->desc.K / handle->bk);
+                  layout->dim_size[2] = (unsigned int)handle->bc;
+                  layout->dim_size[3] = (unsigned int)(handle->desc.C / handle->bc);
+                }
               } else if ( (type == LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT) || (type == LIBXS_DNN_RNN_GRADIENT_RECUR_WEIGHT) ) {
                 layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                 layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                 layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                 layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_K;
-                layout->dim_size[0] = (unsigned int)handle->bk;
-                layout->dim_size[1] = (unsigned int)(handle->desc.K / handle->bk);
-                layout->dim_size[2] = (unsigned int)handle->bk;
-                layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk);
+                if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)(handle->desc.K / handle->bk) * 4;
+                  layout->dim_size[2] = (unsigned int)handle->bk;
+                  layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk) * 4;
+                } else {
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)(handle->desc.K / handle->bk);
+                  layout->dim_size[2] = (unsigned int)handle->bk;
+                  layout->dim_size[3] = (unsigned int)(handle->desc.K / handle->bk);
+                }
               } else {
                 free(layout->dim_type);
                 free(layout->dim_size);
@@ -346,8 +374,13 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
               if ( (type == LIBXS_DNN_RNN_REGULAR_BIAS) || (type == LIBXS_DNN_RNN_GRADIENT_BIAS) ) {
                 layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                 layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_K;
-                layout->dim_size[0] = (unsigned int)handle->bk;
-                layout->dim_size[1] = (unsigned int)(handle->desc.K / handle->bk);
+                if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)(handle->desc.K / handle->bk) * 4;
+                } else {
+                  layout->dim_size[0] = (unsigned int)handle->bk;
+                  layout->dim_size[1] = (unsigned int)(handle->desc.K / handle->bk);
+                }
               } else {
                 free(layout->dim_type);
                 free(layout->dim_size);
