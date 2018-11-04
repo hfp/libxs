@@ -453,14 +453,17 @@ LIBXS_API_INLINE void internal_finalize(void)
         ngemms += (size_t)internal_statistic[0/*DP*/][i].nsta + internal_statistic[1/*SP*/][i].nsta;
         ngemms += (size_t)internal_statistic[0/*DP*/][i].njit + internal_statistic[1/*SP*/][i].njit;
       }
-      fprintf(stderr, " (gemm=%lu mcopy=%u tcopy=%u)", (unsigned long int)ngemms,
+      fprintf(stderr, " (gemm=%lu mcopy=%u tcopy=%u)\n", (unsigned long int)ngemms,
         internal_statistic_num_mcopy, internal_statistic_num_tcopy);
+    }
+    else {
+      fprintf(stderr, "\n");
     }
     if (EXIT_SUCCESS == libxs_get_scratch_info(&scratch_info)) {
       const unsigned int scratch_internal = (unsigned int)(((512ULL << 10)/*rounding*/ + scratch_info.internal) / (1ULL << 20));
       const unsigned int scratch_size = (unsigned int)(((512ULL << 10)/*rounding*/ + scratch_info.size) / (1ULL << 20));
       if (0 != scratch_size || (0 != verbose && 0 != scratch_internal)) {
-        fprintf(stderr, "\nScratch: %u MB", scratch_size);
+        fprintf(stderr, "Scratch: %u MB", scratch_size);
         if (0 != verbose) {
 #if (0 != LIBXS_SYNC)
           if (1 < libxs_threads_count) {
@@ -480,9 +483,6 @@ LIBXS_API_INLINE void internal_finalize(void)
           fprintf(stderr, "\n");
         }
       }
-    }
-    else {
-      fprintf(stderr, "\n");
     }
     /* synchronize I/O */
     LIBXS_STDIO_RELEASE();
