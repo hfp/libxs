@@ -198,7 +198,10 @@ endif
 DOCEXT = pdf
 
 # state to be excluded from tracking the (re-)build state
-EXCLUDE_STATE = PREFIX DESTDIR INSTALL_ROOT
+EXCLUDE_STATE = \
+  DESTDIR INSTALL_ROOT BINDIR CURDIR DOCDIR DOCEXT INCDIR LICFDIR \
+  OUTDIR PBINDIR PINCDIR PREFIX POUTDIR PSRCDIR PTSTDIR \
+  SCRDIR SPLDIR SRCDIR TEST TSTDIR
 
 # avoid to link with C++ standard library
 FORCE_CXX = 0
@@ -635,9 +638,8 @@ $(INCDIR)/libxs.f: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
 
 .PHONY: sources
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
-$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py $(SRCFILES_KERNELS) \
-                              $(INCDIR)/libxs.h
-	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py $(PRECISION) $(THRESHOLD) $(INDICES) > $@
+$(BLDDIR)/libxs_dispatch.h: $(INCDIR)/libxs.h $(SRCFILES_KERNELS) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py
+	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py $(abspath .state) $(PRECISION) $(THRESHOLD) $(INDICES) > $@
 
 $(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_gemm_generator $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py $(ROOTDIR)/$(SCRDIR)/libxs_specialized.py
 ifneq (,$(strip $(SRCFILES_KERNELS)))

@@ -32,11 +32,11 @@ HERE=$(cd $(dirname $0); pwd -P)
 DEPDIR=${HERE}/../..
 
 TMPF=$(${DEPDIR}/.mktmp.sh /tmp/.libxs_XXXXXX.out)
-UNAME=$(which uname)
-ECHO=$(which echo)
-GREP=$(which grep)
-SORT=$(which sort)
-RM=$(which rm)
+UNAME=$(command -v uname)
+ECHO=$(command -v echo)
+GREP=$(command -v grep)
+SORT=$(command -v sort)
+RM=$(command -v rm)
 
 if [ "Darwin" != "$(${UNAME})" ]; then
   LIBEXT=so
@@ -48,7 +48,7 @@ if [ -e ${HERE}/dgemm-blas ]; then
   ${ECHO} "============================="
   ${ECHO} "Running DGEMM (ORIGINAL BLAS)"
   ${ECHO} "============================="
-  { time ${HERE}/dgemm-blas.sh $* 2>${TMPF}; } 2>&1 | ${GREP} real
+  { time ${HERE}/dgemm-blas.sh "$@" 2>${TMPF}; } 2>&1 | ${GREP} real
   RESULT=$?
   if [ 0 != ${RESULT} ]; then
     ${ECHO} -n "FAILED(${RESULT}) "; ${SORT} -u ${TMPF}
@@ -67,7 +67,7 @@ if [ -e ${HERE}/dgemm-blas ]; then
     { time \
       LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${DEPDIR}/lib/libxsext.${LIBEXT} \
       DYLD_LIBRARY_PATH=${DEPDIR}/lib:${DYLD_LIBRARY_PATH} DYLD_INSERT_LIBRARIES=${DEPDIR}/lib/libxsext.${LIBEXT} \
-      ${HERE}/dgemm-blas.sh $* 2>${TMPF}; } 2>&1 | ${GREP} real
+      ${HERE}/dgemm-blas.sh "$@" 2>${TMPF}; } 2>&1 | ${GREP} real
     RESULT=$?
     if [ 0 != ${RESULT} ]; then
       ${ECHO} -n "FAILED(${RESULT}) "; ${SORT} -u ${TMPF}
@@ -85,7 +85,7 @@ if [ -e ${HERE}/dgemm-wrap ]; then
   ${ECHO} "============================="
   ${ECHO} "Running DGEMM (STATIC WRAP)"
   ${ECHO} "============================="
-  { time ${HERE}/dgemm-wrap.sh $* 2>${TMPF}; } 2>&1 | ${GREP} real
+  { time ${HERE}/dgemm-wrap.sh "$@" 2>${TMPF}; } 2>&1 | ${GREP} real
   RESULT=$?
   if [ 0 != ${RESULT} ]; then
     ${ECHO} -n "FAILED(${RESULT}) "; ${SORT} -u ${TMPF}
