@@ -165,6 +165,7 @@ LIBXS_APIVAR(unsigned int internal_statistic_num_trsm);
 LIBXS_APIVAR(unsigned int internal_teardown);
 LIBXS_APIVAR(int internal_dispatch_trylock_locked);
 LIBXS_APIVAR(int internal_gemm_auto_prefetch_locked);
+LIBXS_APIVAR(const char* internal_build_state);
 
 
 #if (0 == LIBXS_SYNC)
@@ -423,9 +424,9 @@ LIBXS_API_INLINE void internal_register_static_code(const libxs_gemm_descriptor*
 
 LIBXS_API_INLINE void internal_finalize(void)
 {
+  char *const env_dump_build = getenv("LIBXS_DUMP_BUILD");
   char *const env_dump_files = (NULL != getenv("LIBXS_DUMP_FILES")
-    ? getenv("LIBXS_DUMP_FILES")
-    : getenv("LIBXS_DUMP_FILE"));
+    ? getenv("LIBXS_DUMP_FILES") : getenv("LIBXS_DUMP_FILE"));
   libxs_finalize();
   if (0 != libxs_verbosity) { /* print statistic on termination */
     const char *const env_target_hidden = getenv("LIBXS_TARGET_HIDDEN");
@@ -492,7 +493,7 @@ LIBXS_API_INLINE void internal_finalize(void)
   /* release global services */
   libxs_hash_finalize();
   /* dump per-node info */
-  if (NULL != env_dump_files && 0 != *env_dump_files) {
+  if ((NULL != env_dump_build && NULL != internal_build_state) || NULL != env_dump_files) {
 #if defined(_WIN32)
     const HANDLE singleton = CreateMutex(NULL, TRUE, "GlobalLIBXS");
     const char *const delims = ";,";
@@ -503,20 +504,27 @@ LIBXS_API_INLINE void internal_finalize(void)
     if (0 <= singleton) /* valid descriptor? */
 #endif
     {
-      const char *filename = strtok(env_dump_files, delims);
       LIBXS_STDIO_ACQUIRE();
-      for (; NULL != filename; filename = strtok(NULL, delims)) {
-        FILE *const file = fopen(filename, "r"), *const ostream = stdout;
-        if (NULL != file) {
-          int c = fgetc(file);
-          fprintf(ostream, "\n\nLIBXS_DUMP_FILE: %s\n", filename);
-          while (EOF != c) {
-            fputc(c, ostream);
-            c = fgetc(file);
+      if (NULL != env_dump_files && 0 != *env_dump_files) {
+        const char *filename = strtok(env_dump_files, delims);
+        for (; NULL != filename; filename = strtok(NULL, delims)) {
+          FILE *const file = fopen(filename, "r");
+          if (NULL != file) {
+            int c = fgetc(file);
+            fprintf(stdout, "\n\nLIBXS_DUMP_FILE: %s\n", filename);
+            while (EOF != c) {
+              fputc(c, stdout);
+              c = fgetc(file);
+            }
+            fputc('\n', stdout);
+            fclose(file);
           }
-          fputc('\n', ostream);
-          fclose(file);
-        }
+        }        
+      }
+      if ( NULL != env_dump_build && 0 != *env_dump_build && '0' != *env_dump_build
+        && NULL != internal_build_state)
+      {
+        fprintf(stdout, "\n\n%s\n", internal_build_state);
       }
       LIBXS_STDIO_RELEASE();
 #if defined(_WIN32)
@@ -666,21 +674,8 @@ LIBXS_API_INLINE void internal_init(void)
         libxs_perf_init();
 #endif
         for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) new_registry[i].pmm = 0;
-        /* omit registering code if JIT is enabled and if an ISA extension is found
-         * which is beyond the static code path used to compile the library
-         */
 #if defined(LIBXS_BUILD)
-# if (0 != LIBXS_JIT) && !defined(__MIC__)
-        /* check if target arch. permits execution (arch. may be overridden) */
-        if (LIBXS_STATIC_TARGET_ARCH <= libxs_target_archid &&
-           (LIBXS_X86_SSE3 > libxs_target_archid /* JIT code gen. is not available */
-            /* condition allows to avoid JIT (if static code is good enough) */
-            || LIBXS_STATIC_TARGET_ARCH == libxs_target_archid))
-# endif
-        { /* opening a scope for eventually declaring variables */
-          /* setup the dispatch table for the statically generated code */
-#         include <libxs_dispatch.h>
-        }
+#       include <libxs_dispatch.h>
 #endif
 #if defined(_WIN32) || defined(__CYGWIN__) /* TODO: full support for Windows calling convention */
         libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
