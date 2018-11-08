@@ -638,7 +638,7 @@ $(INCDIR)/libxs.f: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
 
 .PHONY: sources
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
-$(BLDDIR)/libxs_dispatch.h: $(INCDIR)/libxs.h $(SRCFILES_KERNELS) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py
+$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(INCDIR)/libxs.h $(SRCFILES_KERNELS) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py $(abspath .state) $(PRECISION) $(THRESHOLD) $(INDICES) > $@
 
 $(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_gemm_generator $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py $(ROOTDIR)/$(SCRDIR)/libxs_specialized.py
