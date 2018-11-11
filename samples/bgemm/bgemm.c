@@ -102,12 +102,12 @@ int main(int argc, char* argv[])
 # pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
   {
-    ITYPE* agold = (ITYPE*)libxs_malloc((size_t)lda * k * sizeof(ITYPE));
-    ITYPE* bgold = (ITYPE*)libxs_malloc((size_t)ldb * n * sizeof(ITYPE));
-    ITYPE* cgold = (ITYPE*)libxs_malloc((size_t)ldc * n * sizeof(ITYPE));
-    ITYPE* a = (ITYPE*)libxs_malloc((size_t)m * k * sizeof(ITYPE));
-    ITYPE* b = (ITYPE*)libxs_malloc((size_t)k * n * sizeof(ITYPE));
-    ITYPE* c = (ITYPE*)libxs_malloc((size_t)m * n * sizeof(ITYPE));
+    ITYPE* agold = (ITYPE*)libxs_malloc((size_t)lda * (size_t)k * sizeof(ITYPE));
+    ITYPE* bgold = (ITYPE*)libxs_malloc((size_t)ldb * (size_t)n * sizeof(ITYPE));
+    ITYPE* cgold = (ITYPE*)libxs_malloc((size_t)ldc * (size_t)n * sizeof(ITYPE));
+    ITYPE* a = (ITYPE*)libxs_malloc((size_t)m * (size_t)k * sizeof(ITYPE));
+    ITYPE* b = (ITYPE*)libxs_malloc((size_t)k * (size_t)n * sizeof(ITYPE));
+    ITYPE* c = (ITYPE*)libxs_malloc((size_t)m * (size_t)n * sizeof(ITYPE));
     libxs_bgemm_handle* handle = 0;
     unsigned long long start;
     double duration;

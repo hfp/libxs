@@ -290,22 +290,14 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
 SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_main.c libxs_cpuid_x86.c libxs_malloc.c libxs_math.c libxs_sync.c \
           libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
-          libxs_gemm.c libxs_trans.c libxs_bgemm.c \
-          libxs_spmdm.c libxs_fsspmdm.c \
-          libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c \
-          libxs_dnn_elementwise.c libxs_dnn_rnncell.c libxs_dnn_grucell.c \
-          libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c \
-          libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c \
-          libxs_dnn_fusedbatchnorm_backward.c \
-          libxs_dnn_pooling.c libxs_dnn_pooling_forward.c \
-          libxs_dnn_pooling_backward.c libxs_dnn_convolution_forward.c \
-          libxs_dnn_fullyconnected.c libxs_dnn_fullyconnected_forward.c \
-          libxs_dnn_fullyconnected_backward.c libxs_dnn_fullyconnected_weight_update.c \
-          libxs_dnn_convolution_backward.c \
-          libxs_dnn_convolution_weight_update.c \
-          libxs_dnn_convolution_winograd_forward.c \
-          libxs_dnn_convolution_winograd_backward.c \
-          libxs_dnn_convolution_winograd_weight_update.o )
+          libxs_gemm.c libxs_trans.c libxs_bgemm.c libxs_spmdm.c libxs_fsspmdm.c \
+          libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c libxs_dnn_elementwise.c \
+          libxs_dnn_rnncell.c libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c libxs_dnn_grucell.c \
+          libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c libxs_dnn_fusedbatchnorm_backward.c \
+          libxs_dnn_pooling.c libxs_dnn_pooling_forward.c libxs_dnn_pooling_backward.c libxs_dnn_convolution_forward.c \
+          libxs_dnn_fullyconnected.c libxs_dnn_fullyconnected_forward.c libxs_dnn_fullyconnected_backward.c \
+          libxs_dnn_fullyconnected_weight_update.c libxs_dnn_convolution_backward.c libxs_dnn_convolution_weight_update.c \
+          libxs_dnn_convolution_winograd_forward.c libxs_dnn_convolution_winograd_backward.c libxs_dnn_convolution_winograd_weight_update.c)
 
 SRCFILES_KERNELS = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 SRCFILES_GEN_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c) libxs_generator.c libxs_trace.c)
@@ -317,7 +309,7 @@ OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $
 OBJFILES_GEN_CONVWINO_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_CONVWINO_BIN))))
 OBJFILES_GEN_CONV_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_CONV_BIN))))
 OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_LIB))))
-OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/%.o,$(basename $(notdir $(SRCFILES_LIB))))
+OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/%.o,$(basename $(notdir $(SRCFILES_LIB)))) $(BLDDIR)/mic/generator_common.o
 KRNOBJS_HST  = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
 KRNOBJS_MIC  = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
 EXTOBJS_HST  = $(BLDDIR)/intel64/libxs_ext.o \
