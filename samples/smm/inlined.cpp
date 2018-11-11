@@ -82,7 +82,8 @@ int main(int argc, char* argv[])
     const libxs_blasint max_size = ((2ULL << 30/*2 GB*/) / ((static_cast<size_t>(asize) + bsize) * sizeof(ITYPE) + csize * sizeof(OTYPE)));
     const libxs_blasint s = LIBXS_MIN(0 < q ? q : max_size, max_size);
     const libxs_blasint aspace = LIBXS_ALIGNMENT / sizeof(ITYPE);
-    const size_t bwsize = (static_cast<size_t>(asize)/*load*/ + bsize/*load*/) * sizeof(ITYPE) + sizeof(OTYPE) * csize * 2/*RFO*/;
+    const size_t bwsize = (static_cast<size_t>(asize)/*load*/ + static_cast<size_t>(bsize)/*load*/) * sizeof(ITYPE)
+                        + (sizeof(OTYPE) * static_cast<size_t>(csize) * 2/*RFO*/);
     const double gflops = 2E-9 * s * m * n * k;
 #if LIBXS_TYPEINFO(ITYPE, FP)
     const char *const ops = "FLOPS";

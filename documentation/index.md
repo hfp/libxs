@@ -87,7 +87,12 @@ make realclean
 
 ### Link Instructions
 
-The library is agnostic with respect to the threading-runtime, and therefore an application is free to use any threading runtime (e.g., OpenMP). The library is also thread-safe, and multiple application threads can call LIBXS's routines concurrently. Enabling OpenMP for LIBXS's main library is supported as well (OMP=1), and mostly affects the synchronization primitives used inside of the library. All of the "omp" functionality (function postfix) is served by the 'libxsext' library, which is automatically built with OpenMP enabled. When using this "omp" functionality, 'libxsext' needs to be present at the link line.
+The library is agnostic with respect to the threading-runtime, and therefore an application is free to use any threading runtime (e.g., OpenMP). The library is also thread-safe, and multiple application threads can call LIBXS's routines concurrently. Enabling OpenMP for LIBXS's main library is supported as well (OMP=1), and mostly affects the synchronization primitives used inside of the library. All of the "omp" functionality (function postfix) is served by the 'libxsext' library, which is automatically built with OpenMP enabled. When using this "omp" functionality, 'libxsext' needs to be present at the link line. To ease linking with LIBXS, `pkg-config` can be used. For example:
+
+```bash
+export PKG_CONFIG_PATH=/path/to/libxs/lib
+pkg-config libxs --libs
+```
 
 Similarly, an application is free to choose any BLAS or LAPACK library (if the link model available on the OS supports this), and therefore linking GEMM routines when linking LIBXS itself (by supplying BLAS=1&#124;2) may prevent a user from making this decision at the time of linking the actual application. To use LIBXS without GEMM-related functionality, any BLAS-dependency can be removed in two ways: (1)&#160;building a special library with `make BLAS=0`, or (2)&#160;linking the application against the 'libxsnoblas' library. If an application however uses BLAS already, the [Call Wrapper](libxs_mm.md#call-wrapper) can be used to intercept existing BLAS calls (and to rely on LIBXS instead).
 
