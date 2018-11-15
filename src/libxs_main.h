@@ -614,6 +614,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_dnn_tensor* ot;
   libxs_dnn_tensor* cit;
   libxs_dnn_tensor* cot;
+  float forget_bias;
   /* internal  state */
   void* internal_z;
   /* scratch pointers */
