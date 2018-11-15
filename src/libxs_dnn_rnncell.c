@@ -908,6 +908,20 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_internalstate(libxs_dnn_rnnc
 }
 
 
+LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_allocate_forget_bias(libxs_dnn_rnncell* handle, const float forget_bias)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (handle != 0) {
+    handle->forget_bias = forget_bias;
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE_TENSOR;
+  }
+
+  return status;
+}
+
+
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
