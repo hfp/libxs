@@ -441,6 +441,17 @@ LIBXS_API_INTERN void libxs_internal_matrix_bcst_colvector_ld(libxs_blasint m, l
   }
 }
 
+LIBXS_API_INTERN void libxs_internal_matrix_bcst_colvector_const_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *srcdst, LIBXS_DNN_ELTWISE_FTYPE *colv, LIBXS_DNN_ELTWISE_FTYPE const_bias) {
+  libxs_blasint i, j;
+
+  for ( j = 0; j < n; ++j ) {
+    LIBXS_PRAGMA_SIMD
+    for ( i = 0; i < m; ++i ) {
+      srcdst[(j*ld)+i] = colv[i] + const_bias;
+    }
+  }
+}
+
 LIBXS_API_INTERN void libxs_internal_matrix_sigmoid_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst) {
   libxs_blasint i, j;
 
