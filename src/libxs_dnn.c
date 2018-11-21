@@ -1126,6 +1126,28 @@ LIBXS_API unsigned int libxs_dnn_get_tensor_elements(const libxs_dnn_tensor_data
 }
 
 
+LIBXS_API libxs_dnn_err_t libxs_dnn_set_tensor_data_ptr(libxs_dnn_tensor* tensor, const void* data) {
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if ((0 != tensor) && (0 != data)) {
+    if (0 != tensor->layout) {
+      if (0 < tensor->layout->num_dims) { 
+        tensor->data = (void*)data;
+      } else {
+        status = LIBXS_DNN_ERR_INVALID_LAYOUT;
+      }
+    } else {
+      status = LIBXS_DNN_ERR_INVALID_LAYOUT;  
+    }
+  }
+  else {
+    status = LIBXS_DNN_ERR_INVALID_TENSOR;
+  }
+
+  return status;
+}
+
+
 LIBXS_API void* libxs_dnn_get_tensor_data_ptr(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status)
 {
   *status = LIBXS_DNN_SUCCESS;

@@ -414,6 +414,7 @@ LIBXS_API unsigned int libxs_dnn_get_tensor_elements(const libxs_dnn_tensor_data
 /** Create and manage buffers, filters and bias (non-NULL if successful) */
 LIBXS_API libxs_dnn_tensor* libxs_dnn_link_tensor(const libxs_dnn_tensor_datalayout* layout, const void* data, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_tensor* libxs_dnn_link_qtensor(const libxs_dnn_tensor_datalayout* layout, const void* data, const unsigned char exp, libxs_dnn_err_t* status);
+LIBXS_API libxs_dnn_err_t libxs_dnn_set_tensor_data_ptr(libxs_dnn_tensor* tensor, const void* data);
 LIBXS_API void* libxs_dnn_get_tensor_data_ptr(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status);
 LIBXS_API unsigned char libxs_dnn_get_qtensor_scf(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_set_qtensor_scf(libxs_dnn_tensor* tensor, const unsigned char scf);
