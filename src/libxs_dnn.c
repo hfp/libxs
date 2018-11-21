@@ -1131,13 +1131,13 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_set_tensor_data_ptr(libxs_dnn_tensor* tensor
 
   if ((0 != tensor) && (0 != data)) {
     if (0 != tensor->layout) {
-      if (0 < tensor->layout->num_dims) { 
+      if (0 < tensor->layout->num_dims) {
         tensor->data = (void*)data;
       } else {
         status = LIBXS_DNN_ERR_INVALID_LAYOUT;
       }
     } else {
-      status = LIBXS_DNN_ERR_INVALID_LAYOUT;  
+      status = LIBXS_DNN_ERR_INVALID_LAYOUT;
     }
   }
   else {
