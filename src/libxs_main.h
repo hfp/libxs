@@ -602,8 +602,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_dnn_tensor* cst;
   libxs_dnn_tensor* ht;
   libxs_dnn_tensor* dxt;
-  libxs_dnn_tensor* dcspt;
-  libxs_dnn_tensor* dhpt;
+  libxs_dnn_tensor* dcsp;
+  libxs_dnn_tensor* dhp;
   libxs_dnn_tensor* dw;
   libxs_dnn_tensor* dr;
   libxs_dnn_tensor* db;
@@ -623,10 +623,10 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   void* scratch_xT;
   void* scratch_hT;
   void* scratch_deltat;
-  void* scratch_dit;
-  void* scratch_dft;
-  void* scratch_dot;
-  void* scratch_dcit;
+  void* scratch_di;
+  void* scratch_df;
+  void* scratch_do;
+  void* scratch_dci;
   void* scratch_t1;
   void* scratch_t2;
   /* options */
