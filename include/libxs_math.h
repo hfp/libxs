@@ -75,7 +75,7 @@ LIBXS_API unsigned int libxs_diff_npot(const void* a, const void* bn, unsigned c
 /** Calculate a hash value for a given buffer. */
 LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed);
 
-/** Greatest common divisor. */
+/** Greatest common divisor (corner case: the GCD of 0 and 0 is 1). */
 LIBXS_API size_t libxs_gcd(size_t a, size_t b);
 /** Least common multiple. */
 LIBXS_API size_t libxs_lcm(size_t a, size_t b);
