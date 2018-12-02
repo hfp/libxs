@@ -1198,6 +1198,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_tensor(const libxs_dnn_tensor* tenso
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != tensor) { /* it is not an error attempting to destroy a NULL-handle */
+    /* free layout information stored in tensor */
+    if (0 != tensor->layout) {
+      libxs_dnn_destroy_tensor_datalayout( (libxs_dnn_tensor_datalayout*)tensor->layout );
+    }
     /* deallocate handle structure */
     free(/*remove constness*/(libxs_dnn_tensor*)tensor);
   }
