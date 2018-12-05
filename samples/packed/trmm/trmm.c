@@ -472,10 +472,10 @@ int main(int argc, char* argv[])
   const unsigned char *cptr = NULL;
   unsigned long op_count;
   unsigned int typesize8 = 8;
-  const libxs_trsm_descriptor* desc8 = NULL;
+  const libxs_trmm_descriptor* desc8 = NULL;
 #ifdef TEST_SINGLE
   unsigned int typesize4 = 4;
-  const libxs_trsm_descriptor* desc4 = NULL;
+  const libxs_trmm_descriptor* desc4 = NULL;
 #endif
   libxs_descriptor_blob blob;
   union {
@@ -560,9 +560,9 @@ int main(int argc, char* argv[])
   printf("This code tests MKL compact batch directly\n");
 #endif
 
-  desc8 = libxs_trsm_descriptor_init(&blob, typesize8, m, n, lda, ldb, &dalpha, trans, diag, side, uplo, layout);
+  desc8 = libxs_trmm_descriptor_init(&blob, typesize8, m, n, lda, ldb, &dalpha, trans, diag, side, uplo, layout);
 #ifdef TEST_SINGLE
-  desc4 = libxs_trsm_descriptor_init(&blob, typesize4, m, n, lda, ldb, &salpha, trans, diag, side, uplo, layout);
+  desc4 = libxs_trmm_descriptor_init(&blob, typesize4, m, n, lda, ldb, &salpha, trans, diag, side, uplo, layout);
 #endif
 #ifdef USE_XSMM_GENERATED
   printf("calling libxs_dispatch_trmm: typesize8=%u\n",typesize8);
@@ -570,7 +570,7 @@ int main(int argc, char* argv[])
   printf("done calling libxs_dispatch_trmm: typesize8=%u\n",typesize8);
   if ( mykernel.dp == NULL ) printf("R8 Kernel after the create call is null\n");
 #ifdef TEST_SINGLE
-  mykernel.sp = libxs_dispatch_trsm(desc4);
+  mykernel.sp = libxs_dispatch_trmm(desc4);
   if ( mykernel.sp == NULL ) printf("R4 kernel after the create call is null\n");
 #endif
 #endif
