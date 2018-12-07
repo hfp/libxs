@@ -52,7 +52,12 @@ typedef unsigned int libxs_dnn_err_t;
 
 /** Define error and warning codes */
 #define LIBXS_DNN_SUCCESS                             0
+
 #define LIBXS_DNN_WARN_FALLBACK                   90000
+#define LIBXS_DNN_WARN_RNN_SUBOPTIMAL_N_BLOCKING  90001
+#define LIBXS_DNN_WARN_RNN_SUBOPTIMAL_C_BLOCKING  90002
+#define LIBXS_DNN_WARN_RNN_SUBOPTIMAL_K_BLOCKING  90003
+
 #define LIBXS_DNN_ERR_GENERAL                    100000
 #define LIBXS_DNN_ERR_CREATE_HANDLE              100001
 #define LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE       100002
@@ -89,9 +94,6 @@ typedef unsigned int libxs_dnn_err_t;
 #define LIBXS_DNN_ERR_UNSUPPORTED_POOLING        100033
 #define LIBXS_DNN_ERR_INVALID_FORMAT_FC          100034
 #define LIBXS_DNN_ERR_INVALID_RNN_TYPE           100035
-#define LIBXS_DNN_ERR_RNN_N_BLOCKING             100036
-#define LIBXS_DNN_ERR_RNN_C_BLOCKING             100037
-#define LIBXS_DNN_ERR_RNN_K_BLOCKING             100038
 
 /** Kinds of supported compute flavor operations. */
 typedef enum libxs_dnn_compute_kind {
