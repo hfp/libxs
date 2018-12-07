@@ -75,6 +75,12 @@ LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Success!";
     case LIBXS_DNN_WARN_FALLBACK:
       return "LIBXS DNN Warning: Falling back to naive code as target is currently not supported by LIBXS!";
+    case LIBXS_DNN_WARN_RNN_SUBOPTIMAL_N_BLOCKING:
+      return "LIBXS DNN Warning: RNN cell suboptimal minibatch blocking!";
+    case LIBXS_DNN_WARN_RNN_SUBOPTIMAL_C_BLOCKING:
+      return "LIBXS DNN Warning: RNN cell suboptimal input feature blocking!";
+    case LIBXS_DNN_WARN_RNN_SUBOPTIMAL_K_BLOCKING:
+      return "LIBXS DNN Warning: RNN cell suboptimal output feature blocking!";
     case LIBXS_DNN_ERR_GENERAL:
       return "LIBXS DNN Error: General error occurred!";
     case LIBXS_DNN_ERR_CREATE_HANDLE:
@@ -139,12 +145,6 @@ LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: Unsupported pooling operations was requested!";
     case LIBXS_DNN_ERR_INVALID_FORMAT_FC:
       return "LIBXS DNN Error: Unsupported format when requesting a fullyconnected layer!";
-    case LIBXS_DNN_ERR_RNN_N_BLOCKING:
-      return "LIBXS DNN Error: RNN cell invalid minibatch blocking!";
-    case LIBXS_DNN_ERR_RNN_C_BLOCKING:
-      return "LIBXS DNN Error: RNN cell invalid input feature blocking!";
-    case LIBXS_DNN_ERR_RNN_K_BLOCKING:
-      return "LIBXS DNN Error: RNN cell invalid output feature blocking!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occurred!";
   }
