@@ -64,7 +64,22 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     handle->bk = 64;
     handle->bn = 64;
     handle->bc = 64;
-    if ( LIBXS_X86_AVX512 <= libxs_target_archid ) {
+    if ( handle->desc.N % handle->bn != 0 ) {
+      *status = LIBXS_DNN_ERR_RNN_N_BLOCKING;
+      free(handle);
+      return 0;
+    }
+    if ( handle->desc.C % handle->bc != 0 ) {
+      *status = LIBXS_DNN_ERR_RNN_C_BLOCKING;
+      free(handle);
+      return 0;
+    }
+    if ( handle->desc.K % handle->bk != 0 ) {
+      *status = LIBXS_DNN_ERR_RNN_K_BLOCKING;
+      free(handle);
+      return 0;
+    }
+     if ( LIBXS_X86_AVX512 <= libxs_target_archid ) {
       handle->fwd_generic = 0;
       handle->bwdupd_generic = 0;
     } else {
@@ -86,6 +101,8 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     if (NULL == handle->barrier)
     {
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
+      free(handle);
+      return 0;
     }
   } else {
     *status = LIBXS_DNN_ERR_CREATE_HANDLE;
