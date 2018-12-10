@@ -501,8 +501,8 @@ int main(int argc, char* argv[])
   double dtmp;
   const unsigned char *cptr;
   unsigned long op_count;
-  const libxs_trsm_descriptor* desc8 = NULL;
-  const libxs_trsm_descriptor* desc4 = NULL;
+  const libxs_pgemm_descriptor* desc8 = NULL;
+  const libxs_pgemm_descriptor* desc4 = NULL;
   libxs_descriptor_blob blob;
   union {
     libxs_xtrsmfunction dp;
@@ -613,11 +613,21 @@ printf("This is a real*%d tester for JIT compact DGEMM %c%c kernels! (m=%u n=%u 
 #ifdef TIME_MKL
   printf("This code tests MKL compact batch directly\n");
 #endif
-
-  desc8 = libxs_trsm_descriptor_init(&blob, typesize8, m, n, lda, ldb, &dalpha, transa, transb, side, uplo, k); /* Hack: replacing layout with k */
-#ifdef TEST_SINGLE
-  desc4 = libxs_trsm_descriptor_init(&blob, typesize4, m, n, lda, ldb, &salpha, transa, transb, side, uplo, k); /* Hack: replacing layout with k */
+#ifdef AVX512_TESTING
+  printf("This tests AVX512 binaries\n");
 #endif
+#ifdef AVX2_TESTING
+  printf("This tests AVX2 binaries\n");
+#endif
+
+  desc8 = libxs_pgemm_descriptor_init(&blob, typesize8, m, n, k, lda, ldb, ldc, &dalpha, transa, transb, layout ); 
+#ifdef TEST_SINGLE
+  desc4 = libxs_pgemm_descriptor_init(&blob, typesize4, m, n, k, lda, ldb, ldc, &dalpha, transa, transb, layout ); 
+#endif
+
+  printf("Descriptor set\n");
+
+
 #ifdef USE_XSMM_GENERATED
   printf("calling libxs_dispatch_trmm: typesize8=%u\n",typesize8);
   mykernel.dp = libxs_dispatch_gemm(desc8);

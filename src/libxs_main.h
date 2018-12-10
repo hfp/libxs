@@ -186,6 +186,15 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_trsm_descriptor { /* 30 Byte */
   char transa;
 };
 
+/** Structure storing arguments of packed GEMM. */
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_pgemm_descriptor { /* 30 Byte */
+  unsigned int m, n, k, lda, ldb, ldc;
+  unsigned char typesize;
+  unsigned char layout;
+  char transa, transb;
+  char alpha_val;
+};
+
 /** Structure storing arguments of packed TRSM. */
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_trmm_descriptor { /* 30 Byte */
   union { double d; float s; } alpha;
@@ -194,6 +203,13 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_trmm_descriptor { /* 30 Byte */
   unsigned char layout;
   char diag, side, uplo;
   char transa;
+};
+
+/** Structure storing arguments of packed GETRF. */
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_getrf_descriptor { /* 30 Byte */
+  unsigned int m, n, lda;
+  unsigned char typesize;
+  unsigned char layout;
 };
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
