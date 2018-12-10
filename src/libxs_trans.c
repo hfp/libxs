@@ -438,7 +438,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_matcopy)(void* out, const void* in, const uns
   libxs_blasint ldx;
   LIBXS_ASSERT(0 != typesize && 0 != m);
   ldx = *(0 != ldi ? ldi : m);
-  libxs_matcopy(out, in, *typesize, *m, *(n ? n : m), ldx, ldo ? *ldo : ldx, prefetch);
+  libxs_matcopy(out, in, *typesize, *m, *(0 != n ? n : m), ldx, 0 != ldo ? *ldo : ldx, prefetch);
 }
 
 
@@ -451,7 +451,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_otrans)(void* out, const void* in, const unsi
   libxs_blasint ldx;
   LIBXS_ASSERT(0 != typesize && 0 != m);
   ldx = *(0 != ldi ? ldi : m);
-  libxs_otrans(out, in, *typesize, *m, *(n ? n : m), ldx, ldo ? *ldo : ldx);
+  libxs_otrans(out, in, *typesize, *m, *(0 != n ? n : m), ldx, 0 != ldo ? *ldo : ldx);
 }
 
 
@@ -462,7 +462,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_itrans)(void* inout, const unsigned int* type
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* ld)
 {
   LIBXS_ASSERT(0 != typesize && 0 != m);
-  libxs_itrans(inout, *typesize, *m, *(n ? n : m), *(0 != ld ? ld : m));
+  libxs_itrans(inout, *typesize, *m, *(0 != n ? n : m), *(0 != ld ? ld : m));
 }
 
 #endif /*defined(LIBXS_BUILD)*/
