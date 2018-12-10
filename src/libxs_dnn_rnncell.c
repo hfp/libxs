@@ -65,7 +65,7 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     handle->bn = 64;
     handle->bc = 64;
     if ( handle->desc.N % handle->bn != 0 ) {
-      handle->bn = handle->desc.N; 
+      handle->bn = handle->desc.N;
       *status = LIBXS_DNN_WARN_RNN_SUBOPTIMAL_N_BLOCKING;
     }
     if ( handle->desc.C % handle->bc != 0 ) {
