@@ -61,9 +61,11 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     if (rnncell_desc.t < 1) {
       *status = LIBXS_DNN_ERR_TIME_STEPS_TOO_SMALL;
     }
-    handle->bk = 64;
-    handle->bn = 64;
-    handle->bc = 64;
+
+    handle->bk = (handle->desc.bk == 0) ? 64 : handle->desc.bk;
+    handle->bn = (handle->desc.bn == 0) ? 64 : handle->desc.bn;
+    handle->bc = (handle->desc.bc == 0) ? 64 : handle->desc.bc;
+
     if ( handle->desc.N % handle->bn != 0 ) {
       handle->bn = handle->desc.N;
       *status = LIBXS_DNN_WARN_RNN_SUBOPTIMAL_N_BLOCKING;
@@ -1177,8 +1179,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle
         if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CK) ) {
           status = libxs_dnn_rnncell_st_fwd_nc_ck( handle, start_thread, tid );
         } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK)  ) {
-          status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
-          /*status = libxs_dnn_rnncell_st_fwd_ncnc_kcck( handle, start_thread, tid );*/
+          /*status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;*/
+          status = libxs_dnn_rnncell_st_fwd_ncnc_kcck( handle, start_thread, tid );
         } else {
           status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }
