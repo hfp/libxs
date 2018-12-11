@@ -805,7 +805,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
       }
     }
     else {
-      if ((1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+      if ((2 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
         fprintf(stderr, "LIBXS WARNING: zero-sized memory allocation detected!\n");
