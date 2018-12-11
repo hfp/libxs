@@ -1792,7 +1792,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
     refdesc = &internal_registry_keys[i].xgemm;
 #endif
   }
-  LIBXS_ASSERT(0 == flux_entry.ptr_const || 0 == refdesc || 0 == memcmp(refdesc, descriptor, LIBXS_DESCRIPTOR_MAXSIZE));
+  assert(0 == flux_entry.ptr_const || 0 == refdesc || 0 == memcmp(refdesc, descriptor, LIBXS_DESCRIPTOR_MAXSIZE)); /* !LIBXS_ASSERT */
 #if defined(LIBXS_HASH_COLLISION)
   flux_entry.uval &= ~(LIBXS_CODE_STATIC | LIBXS_HASH_COLLISION); /* clear non-JIT and collision flag */
 #else
