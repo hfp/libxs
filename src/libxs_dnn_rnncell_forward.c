@@ -43,7 +43,7 @@
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck_f32_f32(libxs_dnn_rnncell* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_ncnc_kcck_f32_f32(libxs_dnn_rnncell* handle, int start_thread, int tid);
-
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck_f32_f32(libxs_dnn_rnncell* handle, int start_thread, int tid);
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck_f32_f32(libxs_dnn_rnncell* handle, int start_thread, int tid)
@@ -100,6 +100,38 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_ncnc_kcck_f32_f32(libxs_dnn_rnncell* ha
 # undef LIBXS_DNN_RNN_TANH_FWD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_ncnc_kcck.tpl.c"
+  } else {
+    /* should not happen */
+  }
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck_f32_f32(libxs_dnn_rnncell* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
+  typedef float element_input_type;
+  typedef float element_output_type;
+  typedef float element_filter_type;
+  if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_RELU ) {
+# define LIBXS_DNN_RNN_RELU_FWD
+# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_kcck.tpl.c"
+# undef LIBXS_DNN_RNN_RELU_FWD
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_SIGMOID ) {
+# define LIBXS_DNN_RNN_SIGMOID_FWD
+# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_kcck.tpl.c"
+# undef LIBXS_DNN_RNN_SIGMOID_FWD
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_TANH ) {
+# define LIBXS_DNN_RNN_TANH_FWD
+# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_kcck.tpl.c"
+# undef LIBXS_DNN_RNN_TANH_FWD
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_kcck.tpl.c"
   } else {
     /* should not happen */
   }
@@ -202,3 +234,40 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_ncnc_kcck(libxs_dnn_rn
   return status;
 }
 
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck(libxs_dnn_rnncell* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  /* check if we have input, output and filter */
+#if 0
+  if (handle->? == 0 ) {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
+  }
+#endif
+
+  /* check if we have a kernel JITed */
+  if ( handle->fwd_generic != 0 ) {
+    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+#if 0
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
+# include "template/libxs_dnn_rnncell_st_rnn_fwd_ncnc_kcck_generic.tpl.c"
+#endif
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  }
+  else {
+    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      status = libxs_dnn_rnncell_st_fwd_nc_kcck_f32_f32( handle, start_thread, tid);
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  }
+
+  return status;
+}

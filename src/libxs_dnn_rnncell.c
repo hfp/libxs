@@ -1179,8 +1179,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle
         if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CK) ) {
           status = libxs_dnn_rnncell_st_fwd_nc_ck( handle, start_thread, tid );
         } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK)  ) {
-          /*status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;*/
           status = libxs_dnn_rnncell_st_fwd_ncnc_kcck( handle, start_thread, tid );
+        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK)  ) {
+          status = libxs_dnn_rnncell_st_fwd_nc_kcck( handle, start_thread, tid );
         } else {
           status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }
