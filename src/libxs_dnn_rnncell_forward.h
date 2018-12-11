@@ -33,7 +33,7 @@
 #include <libxs_dnn_rnncell.h>
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck(libxs_dnn_rnncell* handle, int start_thread, int tid);
-
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_ncnc_kcck(libxs_dnn_rnncell* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck(libxs_dnn_rnncell* handle, int start_thread, int tid);
 
 #endif /* LIBXS_DNN_RNNCELL_FORWARD_H */
