@@ -54,6 +54,9 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
   int N;     /* size of the minibatch */
   int C;     /* number of inputs */
   int t;     /* number of time steps */
+  int bk;
+  int bn;
+  int bc;
   libxs_dnn_rnncell_type cell_type;       /* cell type RNN ReLU, RNN Sigmoid, RNN Tanh, LSTM */
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
   libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
