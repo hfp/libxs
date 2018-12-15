@@ -41,11 +41,11 @@
 #endif
 
 /* function prototypes for below implementations */
-LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle);
-LIBXS_API_INTERN void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle);
-LIBXS_API_INTERN void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS);
+LIBXS_API_INTERN void libxs_dnn_inout_transpose_lp(int ltid, libxs_dnn_layer* handle);
+LIBXS_API_INTERN void libxs_dnn_inout_transpose_resize_lp(int ltid, libxs_dnn_layer* handle);
+LIBXS_API_INTERN void libxs_dnn_transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS);
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*transposer)(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS);
-LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS);
+LIBXS_API_INTERN transposer libxs_dnn_transposer(int M, int N, int ldD, int ldS);
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid);
@@ -149,7 +149,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(
 
 #if defined(LIBXS_INTRINSICS_AVX512_CORE)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
-void lp_transpose_input_and_output_vperm(int my_img_start, int my_img_end, libxs_dnn_layer* handle)
+void libxs_dnn_inout_transpose_lp_vperm(int my_img_start, int my_img_end, libxs_dnn_layer* handle)
 {
   typedef short element_input_type;
   typedef short element_output_type;
@@ -302,7 +302,7 @@ void lp_transpose_input_and_output_vperm(int my_img_start, int my_img_end, libxs
 }
 #endif /*defined(LIBXS_INTRINSICS_AVX512_CORE)*/
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle)
+void libxs_dnn_inout_transpose_lp(int ltid, libxs_dnn_layer* handle)
 {
   typedef short element_input_type;
   typedef short element_output_type;
@@ -313,7 +313,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle)
 
 #if defined(LIBXS_INTRINSICS_AVX512_CORE)
   if (handle->use_vperm_transposes == 1) {
-    lp_transpose_input_and_output_vperm(my_img_start, my_img_end, handle);
+    libxs_dnn_inout_transpose_lp_vperm(my_img_start, my_img_end, handle);
   }
   else
 #endif
@@ -429,7 +429,7 @@ void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle)
 
 #if defined(LIBXS_INTRINSICS_AVX512_CORE)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
-void lp_transpose_and_resize_input_and_output_vperm(int my_img_start, int my_img_end, libxs_dnn_layer* handle)
+void libxs_dnn_inout_transpose_resize_lp_vperm(int my_img_start, int my_img_end, libxs_dnn_layer* handle)
 {
   /*typedef short element_input_type;*/
   typedef short element_output_type;
@@ -487,7 +487,7 @@ void lp_transpose_and_resize_input_and_output_vperm(int my_img_start, int my_img
 }
 #endif /*defined(LIBXS_INTRINSICS_AVX512_CORE)*/
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
+void libxs_dnn_inout_transpose_resize_lp(int ltid, libxs_dnn_layer* handle)
 {
   typedef short element_input_type;
   typedef short element_output_type;
@@ -576,7 +576,7 @@ void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
 
 #if defined(LIBXS_INTRINSICS_AVX512_CORE)
   if (handle->use_vperm_transposes == 1) {
-    lp_transpose_and_resize_input_and_output_vperm(my_img_start, my_img_end, handle);
+    libxs_dnn_inout_transpose_resize_lp_vperm(my_img_start, my_img_end, handle);
   }
   else
 #endif
@@ -617,10 +617,10 @@ void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle)
   }
 }
 #else
-LIBXS_API_INTERN void lp_transpose_and_resize_input_and_output(int ltid, libxs_dnn_layer* handle) {
+LIBXS_API_INTERN void libxs_dnn_inout_transpose_resize_lp(int ltid, libxs_dnn_layer* handle) {
   LIBXS_UNUSED(ltid); LIBXS_UNUSED(handle);
 }
-LIBXS_API_INTERN void lp_transpose_input_and_output(int ltid, libxs_dnn_layer* handle) {
+LIBXS_API_INTERN void libxs_dnn_inout_transpose_lp(int ltid, libxs_dnn_layer* handle) {
   LIBXS_UNUSED(ltid); LIBXS_UNUSED(handle);
 }
 #endif /*defined(LIBXS_INTRINSICS_AVX512)*/
@@ -903,7 +903,7 @@ void gather_transpose_ps_16_9_10_16(int M, int N, float *LIBXS_RESTRICT dst, int
 }
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS)
+void libxs_dnn_transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS)
 {
   const __m512i vindex_base = _mm512_set_epi32(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0);
   const __m512i vindex = _mm512_mullo_epi32(_mm512_set1_epi32(ldS), vindex_base);
@@ -925,7 +925,7 @@ void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const 
   }
 }
 #else
-LIBXS_API_INTERN void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS)
+LIBXS_API_INTERN void libxs_dnn_transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS)
 {
   int n, m;
   for (n = 0; n < N; ++n) {
@@ -936,7 +936,7 @@ LIBXS_API_INTERN void transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst
 }
 #endif
 
-LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS)
+LIBXS_API_INTERN transposer libxs_dnn_transposer(int M, int N, int ldD, int ldS)
 {
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if (M == 16 && N == 7 && ldD == 8 && ldS == 16) {
@@ -990,7 +990,7 @@ LIBXS_API_INTERN transposer get_transposer(int M, int N, int ldD, int ldS)
 #else
   LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ldD); LIBXS_UNUSED(ldS);
 #endif
-  return transpose_fallback;
+  return libxs_dnn_transpose_fallback;
 }
 
 

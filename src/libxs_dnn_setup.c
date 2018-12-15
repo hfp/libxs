@@ -48,8 +48,8 @@
 #define HWCK 4
 
 
-LIBXS_API_INTERN void tune_fwd_blockings(libxs_dnn_layer *handle);
-LIBXS_API_INTERN void tune_fwd_blockings(libxs_dnn_layer *handle) {
+LIBXS_API_INTERN void libxs_dnn_fwdblocking(libxs_dnn_layer *handle);
+LIBXS_API_INTERN void libxs_dnn_fwdblocking(libxs_dnn_layer *handle) {
   int BLOCKSIFM_BLOCKING = handle->blocksifm_blocking;
   /* Some cache blocking tuning here... */
   int loop_order = MIXED;
@@ -814,7 +814,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, i
     }
     if (LIBXS_DNN_SUCCESS == status) { /* check status for any previous error */
       /* Perform the dryrun and generate thread private jit indices to be used for the convolutions */
-      tune_fwd_blockings(handle);
+      libxs_dnn_fwdblocking(handle);
       status = libxs_dnn_perform_fwd_dryrun_direct(handle);
     }
 #if defined(LIBXS_DNN_HANDLE_DEBUG)
@@ -1136,7 +1136,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, i
       mirror_handle.perform_relu_in_kernel = ((handle->fuse_relu_bwd > 0) && (handle->use_nts_bwd == 1)) ? 1 : 0;
       handle->perform_relu_in_kernel = ((handle->fuse_relu_bwd > 0) && (handle->use_nts_bwd == 1)) ? 1 : 0;
 
-      tune_fwd_blockings(&mirror_handle);
+      libxs_dnn_fwdblocking(&mirror_handle);
       status = libxs_dnn_perform_fwd_dryrun_direct(&mirror_handle);
     }
 

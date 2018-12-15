@@ -56,8 +56,8 @@ int main(void)
     (ITYPE)1.10, (ITYPE)99.00, (ITYPE)11.0
   };
 
-  result = libxs_matdiff(LIBXS_DATATYPE(ITYPE), 3/*m*/, 3/*n*/,
-    a/*ref*/, b/*tst*/, NULL/*ldref*/, NULL/*ldtst*/, &diff);
+  result = libxs_matdiff(&diff, LIBXS_DATATYPE(ITYPE), 3/*m*/, 3/*n*/,
+    a/*ref*/, b/*tst*/, NULL/*ldref*/, NULL/*ldtst*/);
 
   if (EXIT_SUCCESS == result) {
     /* One-norm */
@@ -82,8 +82,8 @@ int main(void)
     if (2 != diff.linf_abs_n) result = EXIT_FAILURE;
   }
 
-  result = libxs_matdiff(LIBXS_DATATYPE(ITYPE), 1/*m*/, 3/*n*/,
-    x/*ref*/, y/*tst*/, NULL/*ldref*/, NULL/*ldtst*/, &diff);
+  result = libxs_matdiff(&diff, LIBXS_DATATYPE(ITYPE), 1/*m*/, 3/*n*/,
+    x/*ref*/, y/*tst*/, NULL/*ldref*/, NULL/*ldtst*/);
 
   if (EXIT_SUCCESS == result) {
     /* One-norm */
@@ -108,8 +108,8 @@ int main(void)
     if (2 != diff.linf_abs_n) result = EXIT_FAILURE;
   }
 
-  result = libxs_matdiff(LIBXS_DATATYPE(ITYPE), 3/*m*/, 1/*n*/,
-    x/*ref*/, y/*tst*/, NULL/*ldref*/, NULL/*ldtst*/, &diff);
+  result = libxs_matdiff(&diff, LIBXS_DATATYPE(ITYPE), 3/*m*/, 1/*n*/,
+    x/*ref*/, y/*tst*/, NULL/*ldref*/, NULL/*ldtst*/);
 
   if (EXIT_SUCCESS == result) {
     /* One-norm */

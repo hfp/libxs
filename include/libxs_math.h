@@ -49,11 +49,17 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_matdiff_info {
 } libxs_matdiff_info;
 
 /** Utility function to calculate the difference between two matrices. */
-LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blasint n,
-  const void* ref, const void* tst, const libxs_blasint* ldref, const libxs_blasint* ldtst,
-  libxs_matdiff_info* info);
+LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
+  libxs_datatype datatype, libxs_blasint m, libxs_blasint n, const void* ref, const void* tst,
+  const libxs_blasint* ldref, const libxs_blasint* ldtst);
 
+/**
+ * Reduces input into output such that the difference is maintained or increased (max function).
+ * The very first (initial) output should be zeroed (libxs_matdiff_clear).
+ */
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input);
+/** Clears the given info-structure e.g., for the initial reduction-value (libxs_matdiff_reduce). */
+LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info);
 
 /**
  * Calculate whether there is a difference between two (short) buffers.
