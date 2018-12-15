@@ -62,9 +62,9 @@
 }
 
 
-LIBXS_API int libxs_matdiff(libxs_datatype datatype, libxs_blasint m, libxs_blasint n,
-  const void* ref, const void* tst, const libxs_blasint* ldref, const libxs_blasint* ldtst,
-  libxs_matdiff_info* info)
+LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
+  libxs_datatype datatype, libxs_blasint m, libxs_blasint n, const void* ref, const void* tst,
+  const libxs_blasint* ldref, const libxs_blasint* ldtst)
 {
   int result = EXIT_SUCCESS, result_swap = 0;
   if (0 == ref && 0 != tst) { ref = tst; tst = NULL; result_swap = 1; }
@@ -173,6 +173,12 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
     output->l1_ref = input->l1_ref;
     output->l1_tst = input->l1_tst;
   }
+}
+
+
+LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info)
+{
+  if (NULL != info) memset(info, 0, sizeof(*info)); /* nullify */
 }
 
 
@@ -588,6 +594,39 @@ LIBXS_API double libxs_rand_f64(void)
 
 
 #if defined(LIBXS_BUILD)
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info* /*info*/,
+  const libxs_datatype* /*datatype*/, const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const void* /*ref*/, const void* /*tst*/,
+  const libxs_blasint* /*ldref*/, const libxs_blasint* /*ldtst*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info* info,
+  const libxs_datatype* datatype, const libxs_blasint* m, const libxs_blasint* n, const void* ref, const void* tst,
+  const libxs_blasint* ldref, const libxs_blasint* ldtst)
+{
+  static int error_once = 0;
+  if ((NULL == datatype || NULL == m || EXIT_SUCCESS != libxs_matdiff(info, *datatype, *m, *(NULL != n ? n : m), ref, tst, ldref, ldtst))
+    && 0 != libxs_verbosity && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_matdiff specified!\n");
+  }
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff_reduce)(libxs_matdiff_info* /*output*/, const libxs_matdiff_info* /*input*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff_reduce)(libxs_matdiff_info* output, const libxs_matdiff_info* input)
+{
+  libxs_matdiff_reduce(output, input);
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff_clear)(libxs_matdiff_info* /*info*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff_clear)(libxs_matdiff_info* info)
+{
+  libxs_matdiff_clear(info);
+}
+
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* /*data*/, const int* /*size*/, const int* /*seed*/);

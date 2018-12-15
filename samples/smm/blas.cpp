@@ -235,7 +235,7 @@ int main(int argc, char* argv[])
           for (libxs_blasint h = 0; h < s; ++h) {
             const OTYPE *const u = c + static_cast<size_t>(csize) * h, *const v = c_array[h];
             libxs_matdiff_info dv;
-            result = libxs_matdiff(LIBXS_DATATYPE(OTYPE), m, n, u, v, &ldc, &ldc, &dv);
+            result = libxs_matdiff(&dv, LIBXS_DATATYPE(OTYPE), m, n, u, v, &ldc, &ldc);
             if (EXIT_SUCCESS == result) {
               libxs_matdiff_reduce(&diff, &dv);
             }
@@ -457,7 +457,7 @@ int main(int argc, char* argv[])
       } /*switch*/
       if (0 != check) {
         libxs_matdiff_info diff;
-        result = libxs_matdiff(LIBXS_DATATYPE(OTYPE), m, n, 0 == (benchmark & 1) ? c : d, NULL, &ldc, &ldc, &diff);
+        result = libxs_matdiff(&diff, LIBXS_DATATYPE(OTYPE), m, n, 0 == (benchmark & 1) ? c : d, NULL, &ldc, &ldc);
         if (EXIT_SUCCESS == result) {
           fprintf(stdout, "\tcheck: %f\n", diff.l1_ref);
         }

@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
         if (0 != ctest) {
           libxs_matdiff_info diff;
           libxs_bgemm_copyout_c(handle, c, &ldc, ctest);
-          result = libxs_matdiff(LIBXS_DATATYPE(ITYPE), m, n, cgold, ctest, &ldc, &ldc, &diff);
+          result = libxs_matdiff(&diff, LIBXS_DATATYPE(ITYPE), m, n, cgold, ctest, &ldc, &ldc);
           if (EXIT_SUCCESS == result) {
             fprintf(stdout, "\tdiff: L2abs=%f Linf=%f\n", diff.l2_abs, diff.linf_abs);
             if (check < 100.0 * diff.normf_rel) {
