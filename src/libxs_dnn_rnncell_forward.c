@@ -131,7 +131,7 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck_f32_f32(libxs_dnn_rnncell* hand
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_kcck.tpl.c"
 # undef LIBXS_DNN_RNN_TANH_FWD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
-# include "template/libxs_dnn_rnncell_st_rnn_fwd_nc_kcck.tpl.c"
+# include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_kcck.tpl.c"
   } else {
     /* should not happen */
   }
