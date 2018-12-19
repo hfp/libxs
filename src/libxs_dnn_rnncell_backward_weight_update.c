@@ -99,7 +99,7 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32(libxs_dnn_rnncell* h
 # include "template/libxs_dnn_rnncell_st_rnn_bwdupd_nc_kcck.tpl.c"
 # undef LIBXS_DNN_RNN_TANH_BWDUPD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
-//# include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_kcck.tpl.c"
+# include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_kcck.tpl.c"
   } else {
     /* should not happen */
   }
