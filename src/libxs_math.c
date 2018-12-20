@@ -628,8 +628,28 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff_clear)(libxs_matdiff_info* info)
 }
 
 
+LIBXS_API void LIBXS_FSYMBOL(libxs_shuffle)(long long* /*coprime*/, const int* /*n*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_shuffle)(long long* coprime, const int* n)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != coprime && NULL != n)
+#endif
+  {
+    *coprime = (long long)(libxs_shuffle((unsigned int)(*n)) & 0x7FFFFFFF);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_shuffle specified!\n");
+  }
+#endif
+}
+
+
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* /*data*/, const int* /*size*/, const int* /*seed*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* /*hash*/, const void* /*data*/, const int* /*size*/, const int* /*seed*/);
 LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* data, const int* size, const int* seed)
 {
 #if !defined(NDEBUG)
@@ -637,13 +657,34 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* data, const int*
   if (NULL != hash && NULL != data && NULL != size && NULL != seed)
 #endif
   {
-    *hash = (libxs_hash(data, *size, *seed) & 0x7FFFFFFF);
+    *hash = (int)(libxs_hash(data, (unsigned int)(*size), (unsigned int)(*seed)) & 0x7FFFFFFF);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_hash specified!\n");
+  }
+#endif
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash2)(long long* /*hash*/, const void* /*data*/, const long long* /*size*/, const long long* /*seed*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash2)(long long* hash, const void* data, const long long* size, const long long* seed)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != hash && NULL != data && NULL != size && NULL != seed)
+#endif
+  {
+    *hash = (long long)(libxs_hash(data, (unsigned int)(*size), (unsigned int)(*seed)) & 0x7FFFFFFFFFFFFFFF);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_hash2 specified!\n");
   }
 #endif
 }
