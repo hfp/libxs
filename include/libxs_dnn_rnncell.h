@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2017-2018, Intel Corporation                                **
+** Copyright (c) 2017-2019, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -29,8 +29,6 @@
 #ifndef LIBXS_DNN_RNNCELL_H
 #define LIBXS_DNN_RNNCELL_H
 
-#include "libxs_macros.h"
-#include "libxs_typedefs.h"
 #include "libxs_dnn.h"
 
 

@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2017-2018, Intel Corporation                                **
+** Copyright (c) 2017-2019, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -29,9 +29,8 @@
 #ifndef LIBXS_DNN_POOLING_H
 #define LIBXS_DNN_POOLING_H
 
-#include "libxs_macros.h"
-#include "libxs_typedefs.h"
 #include "libxs_dnn.h"
+
 
 /** Opaque handles which represents LIBXS pooling */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_pooling libxs_dnn_pooling;

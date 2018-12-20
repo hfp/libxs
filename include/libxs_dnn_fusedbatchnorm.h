@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2017-2018, Intel Corporation                                **
+** Copyright (c) 2017-2019, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -29,9 +29,8 @@
 #ifndef LIBXS_DNN_FUSEDBATCHNORM_H
 #define LIBXS_DNN_FUSEDBATCHNORM_H
 
-#include "libxs_macros.h"
-#include "libxs_typedefs.h"
 #include "libxs_dnn.h"
+
 
 LIBXS_API libxs_dnn_fusedbatchnorm* libxs_dnn_create_fusedbatchnorm(libxs_dnn_fusedbatchnorm_desc fusedbatchnorm_desc, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_fusedbatchnorm(const libxs_dnn_fusedbatchnorm* handle);
