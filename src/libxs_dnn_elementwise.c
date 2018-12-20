@@ -581,6 +581,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_complement_square_ld(libxs_blasint m
 }
 
 LIBXS_API_INTERN void libxs_internal_compute_dcp_dci_di_df_dp_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, int timestep, int t, LIBXS_DNN_ELTWISE_FTYPE *dout, LIBXS_DNN_ELTWISE_FTYPE *dh, LIBXS_DNN_ELTWISE_FTYPE *o, LIBXS_DNN_ELTWISE_FTYPE *co, LIBXS_DNN_ELTWISE_FTYPE *dcs, LIBXS_DNN_ELTWISE_FTYPE *ii, LIBXS_DNN_ELTWISE_FTYPE *ci, LIBXS_DNN_ELTWISE_FTYPE *dci, LIBXS_DNN_ELTWISE_FTYPE *di, LIBXS_DNN_ELTWISE_FTYPE *cps, LIBXS_DNN_ELTWISE_FTYPE *f, LIBXS_DNN_ELTWISE_FTYPE *df, LIBXS_DNN_ELTWISE_FTYPE *dp, LIBXS_DNN_ELTWISE_FTYPE *dcp) {
+#if defined(LIBXS_INTRINSICS_AVX512) 
   libxs_blasint i, j;
   const float neg_ones[16] = { -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0 };
   const float ones[16]  = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
@@ -669,5 +670,12 @@ LIBXS_API_INTERN void libxs_internal_compute_dcp_dci_di_df_dp_ld(libxs_blasint m
       }
     }  
   }
+#else
+LIBXS_UNUSED(m);LIBXS_UNUSED(n);LIBXS_UNUSED(ld);LIBXS_UNUSED(timestep);
+LIBXS_UNUSED(t);LIBXS_UNUSED(dout);LIBXS_UNUSED(dh);LIBXS_UNUSED(o);
+LIBXS_UNUSED(co);LIBXS_UNUSED(dcs);LIBXS_UNUSED(ii);LIBXS_UNUSED(ci);
+LIBXS_UNUSED(dci);LIBXS_UNUSED(di);LIBXS_UNUSED(cps);LIBXS_UNUSED(f);
+LIBXS_UNUSED(df);LIBXS_UNUSED(dp);LIBXS_UNUSED(dcp);
+#endif
 }
 
