@@ -78,5 +78,7 @@ LIBXS_API_INTERN void libxs_internal_matrix_complement_ld(libxs_blasint m, libxs
 LIBXS_API_INTERN void libxs_internal_matrix_complement_square_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
 
 LIBXS_API_INTERN void libxs_internal_compute_dcp_dci_di_df_dp_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, int timestep, int t, LIBXS_DNN_ELTWISE_FTYPE *dout, LIBXS_DNN_ELTWISE_FTYPE *dh, LIBXS_DNN_ELTWISE_FTYPE *o, LIBXS_DNN_ELTWISE_FTYPE *co, LIBXS_DNN_ELTWISE_FTYPE *dcs, LIBXS_DNN_ELTWISE_FTYPE *ii, LIBXS_DNN_ELTWISE_FTYPE *ci, LIBXS_DNN_ELTWISE_FTYPE *dci, LIBXS_DNN_ELTWISE_FTYPE *di, LIBXS_DNN_ELTWISE_FTYPE *cps, LIBXS_DNN_ELTWISE_FTYPE *f, LIBXS_DNN_ELTWISE_FTYPE *df, LIBXS_DNN_ELTWISE_FTYPE *dp, LIBXS_DNN_ELTWISE_FTYPE *dcp);
- 
+
+LIBXS_API_INTERN void libxs_internal_compute_o_cs_co_h_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *f, LIBXS_DNN_ELTWISE_FTYPE *cps, LIBXS_DNN_ELTWISE_FTYPE *cs, LIBXS_DNN_ELTWISE_FTYPE *ii, LIBXS_DNN_ELTWISE_FTYPE *ci,LIBXS_DNN_ELTWISE_FTYPE *co, LIBXS_DNN_ELTWISE_FTYPE *o, LIBXS_DNN_ELTWISE_FTYPE *h);
+
 #endif /*LIBXS_DNN_ELEMENTWISE_H*/
