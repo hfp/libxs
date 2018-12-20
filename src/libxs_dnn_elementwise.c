@@ -631,7 +631,8 @@ LIBXS_API_INTERN void libxs_internal_compute_dcp_dci_di_df_dp_ld(libxs_blasint m
     }
   } else {
     for ( j = 0; j < n; ++j ) {
-      for ( i = 0; i < m; i += 16 ) {
+       LIBXS_PRAGMA_UNROLL_N(4)
+       for ( i = 0; i < m; i += 16 ) {
         _dout = LIBXS_INTRINSICS_MM512_LOAD_PS( &dout[(j*ld)+i] );
         _dh = LIBXS_INTRINSICS_MM512_LOAD_PS( &dh[(j*ld)+i] );
         _dout = _mm512_add_ps( _dout, _dh );
@@ -679,3 +680,35 @@ LIBXS_UNUSED(df);LIBXS_UNUSED(dp);LIBXS_UNUSED(dcp);
 #endif
 }
 
+LIBXS_API_INTERN void libxs_internal_compute_o_cs_co_h_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *f, LIBXS_DNN_ELTWISE_FTYPE *cps, LIBXS_DNN_ELTWISE_FTYPE *cs, LIBXS_DNN_ELTWISE_FTYPE *ii, LIBXS_DNN_ELTWISE_FTYPE *ci,LIBXS_DNN_ELTWISE_FTYPE *co, LIBXS_DNN_ELTWISE_FTYPE *o, LIBXS_DNN_ELTWISE_FTYPE *h) {
+#if defined(LIBXS_INTRINSICS_AVX512) 
+  libxs_blasint i, j;
+  __m512 _f, _cps, _cs, _ii, _ci, _co, _o, _h;
+  const float halves[16]  = { 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 };
+  __m512 _halves = LIBXS_INTRINSICS_MM512_LOAD_PS( halves );
+
+  for ( j = 0; j < n; ++j ) {
+    LIBXS_PRAGMA_UNROLL_N(4)
+      for ( i = 0; i < m; i += 16 ) {
+        _o = LIBXS_INTRINSICS_MM512_LOAD_PS( &o[(j*ld)+i] );
+        _o = _mm512_fmadd_ps( _mm512_tanh_ps( _mm512_mul_ps( _o, _halves ) ), _halves, _halves);
+        _f = LIBXS_INTRINSICS_MM512_LOAD_PS( &f[(j*ld)+i] );
+        _cps = LIBXS_INTRINSICS_MM512_LOAD_PS( &cps[(j*ld)+i] );
+        _cs = _mm512_mul_ps( _f, _cps );
+        _ii = LIBXS_INTRINSICS_MM512_LOAD_PS( &ii[(j*ld)+i] );
+        _ci = LIBXS_INTRINSICS_MM512_LOAD_PS( &ci[(j*ld)+i] );
+        _cs = _mm512_fmadd_ps( _ii, _ci, _cs );
+        _co = _mm512_tanh_ps( _cs );
+        _h = _mm512_mul_ps( _o, _co );
+        LIBXS_INTRINSICS_MM512_STREAM_PS( &h[(j*ld)+i], _h );
+        LIBXS_INTRINSICS_MM512_STREAM_PS( &cs[(j*ld)+i], _cs );
+        LIBXS_INTRINSICS_MM512_STREAM_PS( &co[(j*ld)+i], _co );
+        LIBXS_INTRINSICS_MM512_STREAM_PS( &o[(j*ld)+i], _o );
+      }
+  }
+#else
+LIBXS_UNUSED(m);LIBXS_UNUSED(n);LIBXS_UNUSED(ld);LIBXS_UNUSED(f);
+LIBXS_UNUSED(cps);LIBXS_UNUSED(cs);LIBXS_UNUSED(ii);LIBXS_UNUSED(ci);
+LIBXS_UNUSED(co);LIBXS_UNUSED(o);LIBXS_UNUSED(h);
+#endif
+}
