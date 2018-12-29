@@ -680,6 +680,7 @@ LIBXS_UNUSED(df);LIBXS_UNUSED(dp);LIBXS_UNUSED(dcp);
 #endif
 }
 
+
 LIBXS_API_INTERN void libxs_internal_compute_o_i_f_ci_cs_co_h_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *f, LIBXS_DNN_ELTWISE_FTYPE *cps, LIBXS_DNN_ELTWISE_FTYPE *cs, LIBXS_DNN_ELTWISE_FTYPE *ii, LIBXS_DNN_ELTWISE_FTYPE *ci,LIBXS_DNN_ELTWISE_FTYPE *co, LIBXS_DNN_ELTWISE_FTYPE *o, LIBXS_DNN_ELTWISE_FTYPE *h) {
 #if defined(LIBXS_INTRINSICS_AVX512) 
   libxs_blasint i, j;
