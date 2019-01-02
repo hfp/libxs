@@ -471,12 +471,15 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
       case  LIBXS_DNN_RNNCELL_LSTM: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
-            size += 0;
+            size += (size_t)handle->desc.C * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in) * 4 + 64; /* w */
+            size += (size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in) * 4 + 64; /* r */       
           } break;
           case LIBXS_DNN_COMPUTE_KIND_BWD:
           case LIBXS_DNN_COMPUTE_KIND_UPD:
           case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
           case LIBXS_DNN_COMPUTE_KIND_ALL: {
+            size += (size_t)handle->desc.C * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in) * 4 + 64; /* w */
+            size += (size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in) * 4 + 64; /* r */                                
             size += (size_t)handle->desc.C * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in) * 4 + 64; /* wT */
             size += (size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in) * 4 + 64; /* rT */
             size += (size_t)handle->desc.C * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_in)  + 64; /* xT */
@@ -523,7 +526,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
       case LIBXS_DNN_RNNCELL_RNN_TANH: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
-            /* forward only has no scratch need */
+            /* forward only has no scratch need */                                  
           } break;
           case LIBXS_DNN_COMPUTE_KIND_BWD:
           case LIBXS_DNN_COMPUTE_KIND_UPD:
@@ -582,7 +585,23 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
       case LIBXS_DNN_RNNCELL_LSTM: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
-            /* forward only has no scratch need */
+            /* w scratch */
+            if (address % 64 == 0) {
+              handle->scratch_w = (void*)address;
+            } else {
+              offset = (64 - address % 64);
+              handle->scratch_w = (void*)(address+offset);
+            }
+            address += ((size_t)handle->desc.C * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in)) * 4 + 64;
+            /* r scratch */
+            if (address % 64 == 0) {
+              handle->scratch_r = (void*)address;
+            } else {
+              offset = (64 - address % 64);
+              handle->scratch_r = (void*)(address+offset);
+            }
+            address += ((size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in)) * 4 + 64;
+                                 
           } break;
           case LIBXS_DNN_COMPUTE_KIND_BWD:
           case LIBXS_DNN_COMPUTE_KIND_UPD:
@@ -592,6 +611,22 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
               status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
               return status;
             }
+            /* w scratch */
+            if (address % 64 == 0) {
+              handle->scratch_w = (void*)address;
+            } else {
+              offset = (64 - address % 64);
+              handle->scratch_w = (void*)(address+offset);
+            }
+            address += ((size_t)handle->desc.C * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in)) * 4 + 64;
+            /* r scratch */
+            if (address % 64 == 0) {
+              handle->scratch_r = (void*)address;
+            } else {
+              offset = (64 - address % 64);
+              handle->scratch_r = (void*)(address+offset);
+            }
+            address += ((size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in)) * 4 + 64;
             /* wT */
             if (address % 64 == 0) {
               handle->scratch_wT = (void*)address;
