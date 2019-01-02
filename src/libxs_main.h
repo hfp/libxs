@@ -636,6 +636,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   /* scratch pointers */
   void* scratch_wT;
   void* scratch_rT;
+  void* scratch_w;
+  void* scratch_r;  
   void* scratch_xT;
   void* scratch_hT;
   void* scratch_deltat;
