@@ -29,7 +29,7 @@
 #ifndef LIBXS_DNN_GRUCELL_H
 #define LIBXS_DNN_GRUCELL_H
 
-#include "libxs_bgemm.h"
+#include "libxs_blocked_gemm.h"
 #include "libxs_sync.h"
 #include "libxs_dnn.h"
 
@@ -136,10 +136,10 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_grucell {
   libxs_dnn_tensor* djdbr;
   libxs_dnn_tensor* djdbz;
   libxs_dnn_tensor* djdbg;
-  libxs_bgemm_handle* handleux;
-  libxs_bgemm_handle* handlewh;
-  libxs_bgemm_handle* handlett;
-  libxs_bgemm_handle* handlewd;
+  libxs_blocked_gemm_handle* handleux;
+  libxs_blocked_gemm_handle* handlewh;
+  libxs_blocked_gemm_handle* handlett;
+  libxs_blocked_gemm_handle* handlewd;
   libxs_barrier* barrier; /* barrier */
 } libxs_dnn_grucell;
 

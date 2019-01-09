@@ -49,22 +49,22 @@ extern double Gbl_duration_input, Gbl_duration_recur, Gbl_duration_eltwise, Gbl_
 LIBXS_API libxs_dnn_grucell* libxs_dnn_create_grucell(libxs_dnn_grucell_desc grucell_desc, libxs_dnn_err_t* status)
 {
   libxs_dnn_grucell* handle = 0;
-  const char *const env_b_m1 = getenv("LIBXS_BGEMM_M1");
+  const char *const env_b_m1 = getenv("LIBXS_BLOCKED_GEMM_M1");
   const int b_m1 = (0 == env_b_m1) ? 1 : atoi(env_b_m1);
-  const char *const env_b_n1 = getenv("LIBXS_BGEMM_N1");
+  const char *const env_b_n1 = getenv("LIBXS_BLOCKED_GEMM_N1");
   const int b_n1 = (0 == env_b_n1) ? 1 : atoi(env_b_n1);
-  const char *const env_b_k1 = getenv("LIBXS_BGEMM_K1");
+  const char *const env_b_k1 = getenv("LIBXS_BLOCKED_GEMM_K1");
   const int b_k1 = (0 == env_b_k1) ? 1 : atoi(env_b_k1);
-  const char *const env_b_m2 = getenv("LIBXS_BGEMM_M2");
+  const char *const env_b_m2 = getenv("LIBXS_BLOCKED_GEMM_M2");
   const int b_m2 = (0 == env_b_m2) ? 1 : atoi(env_b_m2);
-  const char *const env_b_n2 = getenv("LIBXS_BGEMM_N2");
+  const char *const env_b_n2 = getenv("LIBXS_BLOCKED_GEMM_N2");
   const int b_n2 = (0 == env_b_n2) ? 1 : atoi(env_b_n2);
-  const char *const env_b_k2 = getenv("LIBXS_BGEMM_K2");
+  const char *const env_b_k2 = getenv("LIBXS_BLOCKED_GEMM_K2");
   const int b_k2 = (0 == env_b_k2) ? 1 : atoi(env_b_k2);
   const char transa = 'N', transb = 'N'; /* no transposes */
   const int gemm_flags = LIBXS_GEMM_FLAGS(transa, transb);
   const float alpha = 1, beta = 1;
-  const libxs_bgemm_order order = (libxs_bgemm_order)0; /* denotes order of execution for bgemm */
+  const libxs_blocked_gemm_order order = (libxs_blocked_gemm_order)0; /* denotes order of execution for bgemm */
   const libxs_gemm_prefetch_type strategy = (libxs_gemm_prefetch_type)LIBXS_PREFETCH_AUTO;
 
   handle = (libxs_dnn_grucell*)malloc(sizeof(libxs_dnn_grucell));
@@ -102,26 +102,26 @@ LIBXS_API libxs_dnn_grucell* libxs_dnn_create_grucell(libxs_dnn_grucell_desc gru
     handle->b_n2 = b_n2;
     handle->b_k2 = b_k2;
     if (handle->pass == 0) {
-      handle->handleux = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
+      handle->handleux = libxs_blocked_gemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
         handle->m, handle->n, handle->k, &(handle->bm), &(handle->bn), &(handle->bk), &(handle->b_m1), &(handle->b_n1), &(handle->b_k1), &(handle->b_k2),
         &alpha, &beta, &gemm_flags, &strategy, &order);
-      handle->handlewh = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
+      handle->handlewh = libxs_blocked_gemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
         handle->m, handle->n, handle->m, &(handle->bm), &(handle->bn), &(handle->bm), &(handle->b_m1), &(handle->b_n1), &(handle->b_m1), &(handle->b_m2),
         &alpha, &beta, &gemm_flags, &strategy, &order);
-      handle->handlett = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
+      handle->handlett = libxs_blocked_gemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
         handle->m, handle->n*handle->t, handle->k, &(handle->bm), &(handle->bn), &(handle->bk), &(handle->b_m1), &(handle->b_n1), &(handle->b_k1), &(handle->b_k2),
         &alpha, &beta, &gemm_flags, &strategy, &order);
     } else {
-      handle->handlewd = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
+      handle->handlewd = libxs_blocked_gemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
         handle->m, handle->n, handle->m, &(handle->bm), &(handle->bn), &(handle->bm), &(handle->b_m1), &(handle->b_n1), &(handle->b_m1), &(handle->b_m2),
         &alpha, &beta, &gemm_flags, &strategy, &order); /* W^T*delta */
-      handle->handlewh = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
+      handle->handlewh = libxs_blocked_gemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
         handle->m, handle->m, handle->n, &(handle->bm), &(handle->bm), &(handle->bn), &(handle->b_m1), &(handle->b_m1), &(handle->b_n1), &(handle->b_n2),
         &alpha, &beta, &gemm_flags, &strategy, &order); /* delta*h^T */
-      handle->handlett = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
+      handle->handlett = libxs_blocked_gemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
         handle->m, handle->k, handle->n, &(handle->bm), &(handle->bk), &(handle->bn), &(handle->b_m1), &(handle->b_k1), &(handle->b_n1), &(handle->b_n2),
         &alpha, &beta, &gemm_flags, &strategy, &order); /* delta*x^T */
-      handle->handleux = libxs_bgemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
+      handle->handleux = libxs_blocked_gemm_handle_create(handle->nThreads, LIBXS_GEMM_PRECISION(float), LIBXS_GEMM_PRECISION(float),
         handle->k, handle->n, handle->m, &(handle->bk), &(handle->bn), &(handle->bm), &(handle->b_k1), &(handle->b_n1), &(handle->b_m1), &(handle->b_m2),
         &alpha, &beta, &gemm_flags, &strategy, &order); /* U^T*delta */
     }
@@ -1076,9 +1076,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_assign_internalstate(libxs_dnn_gruce
     LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, g, (LIBXS_DNN_ELTWISE_FTYPE*)handle->g->data, m * n);
     libxs_blasint it;
     for (it = 0; it < t; ++it) {
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, rgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, r, it, 0, m * n));
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, zgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, z, it, 0, m * n));
-      libxs_bgemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, ggold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, g, it, 0, m * n));
+      libxs_blocked_gemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, rgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, r, it, 0, m * n));
+      libxs_blocked_gemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, zgold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, z, it, 0, m * n));
+      libxs_blocked_gemm_copyin_b(handle->handlewd, &LIBXS_VLA_ACCESS(2, ggold, it, 0, m * n), &m, &LIBXS_VLA_ACCESS(2, g, it, 0, m * n));
     }
   } else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE_TENSOR;
@@ -1373,9 +1373,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_fwd(libxs_dnn_grucell* gru, int star
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, r1, r1t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, z1, z1t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, g1, g1t, m * n);
-  /*libxs_bgemm_handle *handleux = gru->handleux;*/
-  libxs_bgemm_handle *handlewh = gru->handlewh;
-  libxs_bgemm_handle *handlett = gru->handlett;
+  /*libxs_blocked_gemm_handle *handleux = gru->handleux;*/
+  libxs_blocked_gemm_handle *handlewh = gru->handlewh;
+  libxs_blocked_gemm_handle *handlett = gru->handlett;
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, hnr, h, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, rnr, r, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, znr, z, m * n);
@@ -1405,9 +1405,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_fwd(libxs_dnn_grucell* gru, int star
 #if defined(LSTM_TIMING)
     if (ltid == 0) { Gbl_t_input = libxs_timer_tick(); }
 #endif
-    libxs_bgemm_st(handlett, ur, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, r1, 0, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handlett, uz, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handlett, ug, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, g1, 0, 0, m * n), start_thread, tid);
+    libxs_blocked_gemm_st(handlett, ur, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, r1, 0, 0, m * n), start_thread, tid);
+    libxs_blocked_gemm_st(handlett, uz, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), start_thread, tid);
+    libxs_blocked_gemm_st(handlett, ug, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, g1, 0, 0, m * n), start_thread, tid);
 #if defined(LSTM_TIMING)
     if (ltid == 0) {
       Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
@@ -1465,9 +1465,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_fwd(libxs_dnn_grucell* gru, int star
 #if defined(LSTM_TIMING)
     if (ltid == 0) { Gbl_t_input = libxs_timer_tick(); }
 #endif
-    libxs_bgemm_st(handlett, ur, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, r1, 0, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handlett, uz, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), start_thread, tid);
-    libxs_bgemm_st(handlett, ug, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, g1, 0, 0, m * n), start_thread, tid);
+    libxs_blocked_gemm_st(handlett, ur, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, r1, 0, 0, m * n), start_thread, tid);
+    libxs_blocked_gemm_st(handlett, uz, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, z1, 0, 0, m * n), start_thread, tid);
+    libxs_blocked_gemm_st(handlett, ug, &LIBXS_VLA_ACCESS(2, x, 0, 0, k * n), &LIBXS_VLA_ACCESS(2, g1, 0, 0, m * n), start_thread, tid);
 #if defined(LSTM_TIMING)
     if (ltid == 0) {
       Gbl_duration_input = libxs_timer_duration(Gbl_t_input, libxs_timer_tick());
@@ -1609,10 +1609,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bwd_upd_bu(libxs_dnn_grucell* gru, i
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, d13, d13t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, d15, d15t, m * n);
   LIBXS_VLA_DECL(2, LIBXS_DNN_ELTWISE_FTYPE, d21, d21t, m * n);
-  libxs_bgemm_handle *handleud = gru->handleux;
-  libxs_bgemm_handle *handledh = gru->handlewh;
-  libxs_bgemm_handle *handledx = gru->handlett;
-  libxs_bgemm_handle *handlewd = gru->handlewd;
+  libxs_blocked_gemm_handle *handleud = gru->handleux;
+  libxs_blocked_gemm_handle *handledh = gru->handlewh;
+  libxs_blocked_gemm_handle *handledx = gru->handlett;
+  libxs_blocked_gemm_handle *handlewd = gru->handlewd;
   libxs_blasint j, s, q, l, p;
   const int ltid = tid - start_thread;
 
@@ -1648,9 +1648,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bwd_upd_bu(libxs_dnn_grucell* gru, i
     libxs_internal_matrix_eltwise_mult(m * n, d9, d11, d11, start_thread, tid, gru->nThreads);
     libxs_barrier_wait(gru->barrier, ltid);
     /* d13 = Wg^T * d10 */
-    libxs_bgemm_st(handlewd, wg, d10, &LIBXS_VLA_ACCESS(2, d13, j, 0, m * n), start_thread, tid);
+    libxs_blocked_gemm_st(handlewd, wg, d10, &LIBXS_VLA_ACCESS(2, d13, j, 0, m * n), start_thread, tid);
     /* d15 = Wz^T * d11 */
-    libxs_bgemm_st(handlewd, wz, d11, &LIBXS_VLA_ACCESS(2, d15, j, 0, m * n), start_thread, tid);
+    libxs_blocked_gemm_st(handlewd, wz, d11, &LIBXS_VLA_ACCESS(2, d15, j, 0, m * n), start_thread, tid);
     /* d16 = d13.h */
     libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, d13, j, 0, m * n), &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), d16, start_thread, tid, gru->nThreads);
     /* d17 = d13.r */
@@ -1663,7 +1663,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bwd_upd_bu(libxs_dnn_grucell* gru, i
     /* d19 = d17 + d4 */
     libxs_internal_matrix_add(m * n, d17, d4, d19, start_thread, tid, gru->nThreads);
     /* d21 = Wr^T * d18 */
-    libxs_bgemm_st(handlewd, wr, d18, &LIBXS_VLA_ACCESS(2, d21, j, 0, m * n), start_thread, tid);
+    libxs_blocked_gemm_st(handlewd, wr, d18, &LIBXS_VLA_ACCESS(2, d21, j, 0, m * n), start_thread, tid);
     /* d22 = d21 + d15 */
     libxs_internal_matrix_add(m * n, &LIBXS_VLA_ACCESS(2, d21, j, 0, m * n), &LIBXS_VLA_ACCESS(2, d15, j, 0, m * n), d22, start_thread, tid, gru->nThreads);
     libxs_barrier_wait(gru->barrier, ltid); /* This barrier may be removed */
@@ -1671,36 +1671,36 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_grucell_bwd_upd_bu(libxs_dnn_grucell* gru, i
     libxs_internal_matrix_add(m * n, d19, d22, d23, start_thread, tid, gru->nThreads);
     if (1 == pass || 3 == pass) {
       /* d12 = Ug^T * d10 */
-      libxs_bgemm_st(handleud, ug, d10, &LIBXS_VLA_ACCESS(2, d12, j, 0, k * n), start_thread, tid);
+      libxs_blocked_gemm_st(handleud, ug, d10, &LIBXS_VLA_ACCESS(2, d12, j, 0, k * n), start_thread, tid);
       /* d14 = Uz^T * d11 */
-      libxs_bgemm_st(handleud, uz, d11, &LIBXS_VLA_ACCESS(2, d14, j, 0, k * n), start_thread, tid);
+      libxs_blocked_gemm_st(handleud, uz, d11, &LIBXS_VLA_ACCESS(2, d14, j, 0, k * n), start_thread, tid);
       /* d20 = Ur^T * d18 */
-      libxs_bgemm_st(handleud, ur, d18, &LIBXS_VLA_ACCESS(2, d20, j, 0, k * n), start_thread, tid);
+      libxs_blocked_gemm_st(handleud, ur, d18, &LIBXS_VLA_ACCESS(2, d20, j, 0, k * n), start_thread, tid);
       /* djdx = d12 + d14 + d20 */
       libxs_internal_matrix_add(k * n, &LIBXS_VLA_ACCESS(2, d12, j, 0, k * n), &LIBXS_VLA_ACCESS(2, d14, j, 0, k * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid, gru->nThreads);
       libxs_internal_matrix_add(k * n, &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), &LIBXS_VLA_ACCESS(2, d20, j, 0, k * n), &LIBXS_VLA_ACCESS(2, djdx, j, 0, k * n), start_thread, tid, gru->nThreads);
     }
     if (2 == pass || 3 == pass) {
       /* Reorganize d10, d11, d18 */
-      libxs_bgemm_convert_b_to_a(handlewd, d10, &m, d10M);
-      libxs_bgemm_convert_b_to_a(handlewd, d11, &m, d11M);
-      libxs_bgemm_convert_b_to_a(handlewd, d18, &m, d18M);
+      libxs_blocked_gemm_convert_b_to_a(handlewd, d10, &m, d10M);
+      libxs_blocked_gemm_convert_b_to_a(handlewd, d11, &m, d11M);
+      libxs_blocked_gemm_convert_b_to_a(handlewd, d18, &m, d18M);
       /* djdwr = djdwr + d18 * h^T */
-      libxs_bgemm_transpose_b(handledh, &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), &m, hrTp);
-      libxs_bgemm_st(handledh, d18M, hrTp, djdwr, start_thread, tid);
+      libxs_blocked_gemm_transpose_b(handledh, &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), &m, hrTp);
+      libxs_blocked_gemm_st(handledh, d18M, hrTp, djdwr, start_thread, tid);
       /* djdwz = djdwz + d11 * h^T */
-      libxs_bgemm_st(handledh, d11M, hrTp, djdwz, start_thread, tid);
+      libxs_blocked_gemm_st(handledh, d11M, hrTp, djdwz, start_thread, tid);
       /* djdwg = djdwg + d10 * (h.r)^T */
       libxs_internal_matrix_eltwise_mult(m * n, &LIBXS_VLA_ACCESS(2, h, j, 0, m * n), &LIBXS_VLA_ACCESS(2, r, j, 0, m * n), d4, start_thread, tid, gru->nThreads);
       libxs_barrier_wait(gru->barrier, ltid);
-      libxs_bgemm_transpose_b(handledh, d4, &m, hrTp);
-      libxs_bgemm_st(handledh, d10M, hrTp, djdwg, start_thread, tid);
+      libxs_blocked_gemm_transpose_b(handledh, d4, &m, hrTp);
+      libxs_blocked_gemm_st(handledh, d10M, hrTp, djdwg, start_thread, tid);
       /* djdur = djdur + d18 * x^T */
-      libxs_bgemm_st(handledx, d18M, &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdur, start_thread, tid);
+      libxs_blocked_gemm_st(handledx, d18M, &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdur, start_thread, tid);
       /* djduz = djduz + d11 * x^T */
-      libxs_bgemm_st(handledx, d11M, &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djduz, start_thread, tid);
+      libxs_blocked_gemm_st(handledx, d11M, &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djduz, start_thread, tid);
       /* djdug = djdug + d10 * x^T */
-      libxs_bgemm_st(handledx, d10M, &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdug, start_thread, tid);
+      libxs_blocked_gemm_st(handledx, d10M, &LIBXS_VLA_ACCESS(2, x, j, 0, k * n), djdug, start_thread, tid);
       if ((tid - start_thread) == 0) {
         for (s = 0; s < n/bn; s++) {
           for (q = 0; q < m/bm; q++) {

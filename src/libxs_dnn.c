@@ -81,6 +81,12 @@ LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Warning: RNN cell suboptimal input feature blocking!";
     case LIBXS_DNN_WARN_RNN_SUBOPTIMAL_K_BLOCKING:
       return "LIBXS DNN Warning: RNN cell suboptimal output feature blocking!";
+    case LIBXS_DNN_WARN_FC_SUBOPTIMAL_N_BLOCKING:
+      return "LIBXS DNN Warning: FC layer suboptimal minibatch blocking!";
+    case LIBXS_DNN_WARN_FC_SUBOPTIMAL_C_BLOCKING:
+      return "LIBXS DNN Warning: FC layer suboptimal input feature blocking!";
+    case LIBXS_DNN_WARN_FC_SUBOPTIMAL_K_BLOCKING:
+      return "LIBXS DNN Warning: FC layer suboptimal output feature blocking!";
     case LIBXS_DNN_ERR_GENERAL:
       return "LIBXS DNN Error: General error occurred!";
     case LIBXS_DNN_ERR_CREATE_HANDLE:

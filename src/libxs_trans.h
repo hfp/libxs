@@ -138,7 +138,7 @@
 
 #define LIBXS_XCOPY(XKERNEL, KERNEL_CALL, KERNEL, OUT, IN, TYPESIZE, LDI, LDO, TILE_M, TILE_N, M0, M1, N0, N1, XALIGN) { \
   libxs_blasint libxs_xcopy_i_ = M0, libxs_xcopy_j_ = N0; \
-  LIBXS_ASSERT_MSG(0 < (TILE_M) && 0 < (TILE_N), "XCOPY cannot make progress!"); \
+  LIBXS_ASSERT_MSG(0 < (TILE_M) && 0 < (TILE_N), "XCOPY cannot make progress"); \
   if (0 != (KERNEL)) { /* inner tiles with JIT */ \
     for (; libxs_xcopy_i_ < (((libxs_blasint)M1) - ((libxs_blasint)TILE_M) + 1); libxs_xcopy_i_ += TILE_M) { \
       for (libxs_xcopy_j_ = N0; libxs_xcopy_j_ < (((libxs_blasint)N1) - ((libxs_blasint)TILE_N) + 1); libxs_xcopy_j_ += TILE_N) { \

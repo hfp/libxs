@@ -190,7 +190,7 @@ private: /* no copy/assignment */
   explicit libxs_scoped_allocator(const libxs_scoped_allocator&);
   libxs_scoped_allocator& operator=(const libxs_scoped_allocator&);
 
-private: /* saved/previous allocator */
+protected: /* saved/previous allocator */
   void* m_context;
   libxs_malloc_function m_malloc;
   libxs_free_function m_free;
@@ -243,7 +243,15 @@ struct LIBXS_RETARGETABLE libxs_scratch_allocator {
 };
 
 /** Forward-declared types/functions used to implement libxs_tf_allocator. */
-namespace tensorflow { class Allocator; Allocator* cpu_allocator(); }
+namespace tensorflow {
+  class Allocator;
+#if defined(TF_VERSION_STRING) && LIBXS_VERSION3(1, 12, 0) > LIBXS_VERSION3(TF_MAJOR_VERSION, TF_MINOR_VERSION, TF_PATCH_VERSION)
+  Allocator* cpu_allocator();
+#else /* include tensorflow/core/public/version.h prior to LIBXS otherwise the current TensorFlow API is assumed */
+  class DeviceBase; int DeviceNumaNode(const DeviceBase* /*device*/);
+  Allocator* cpu_allocator(int /*numa_node*/);
+#endif
+}
 
 /**
  * An object of this type adopts a memory allocator from TensorFlow.
@@ -277,12 +285,20 @@ public:
 
   /** Global form of allocating memory (malloc signature). */
   static void* malloc(size_t size) {
+#if defined(TF_VERSION_STRING) && LIBXS_VERSION3(1, 12, 0) > LIBXS_VERSION3(TF_MAJOR_VERSION, TF_MINOR_VERSION, TF_PATCH_VERSION)
     return libxs_tf_allocator::allocate(tensorflow::cpu_allocator(), size);
+#else /* include tensorflow/core/public/version.h prior to LIBXS otherwise the current TensorFlow API is assumed */
+    return libxs_tf_allocator::allocate(tensorflow::cpu_allocator(-1/*kNUMANoAffinity*/), size);
+#endif
   }
 
   /** Global form of deallocating memory (free signature). */
   static void free(void* buffer) {
+#if defined(TF_VERSION_STRING) && LIBXS_VERSION3(1, 12, 0) > LIBXS_VERSION3(TF_MAJOR_VERSION, TF_MINOR_VERSION, TF_PATCH_VERSION)
     libxs_tf_allocator::deallocate(tensorflow::cpu_allocator(), buffer);
+#else /* include tensorflow/core/public/version.h prior to LIBXS otherwise the current TensorFlow API is assumed */
+    libxs_tf_allocator::deallocate(tensorflow::cpu_allocator(-1/*kNUMANoAffinity*/), buffer);
+#endif
   }
 
   /** Context based form of allocating memory. */
@@ -290,17 +306,24 @@ public:
     typedef typename context_type::WrappedAllocator::first_type allocator_ptr;
     context_type *const tf_context = static_cast<context_type*>(context);
     allocator_ptr allocator = 0;
-    if (0 != tf_context && 0 != tf_context->device()) {
-      if (0 < tf_context->num_outputs()) {
-        allocator = tf_context->device()->GetStepAllocator(
-          tf_context->output_alloc_attr(0),
-          tf_context->resource_manager());
+    if (0 != tf_context) {
+#if defined(TF_VERSION_STRING) && LIBXS_VERSION3(1, 12, 0) > LIBXS_VERSION3(TF_MAJOR_VERSION, TF_MINOR_VERSION, TF_PATCH_VERSION)
+      if (0 != tf_context->device()) {
+        if (0 < tf_context->num_outputs()) {
+          allocator = tf_context->device()->GetStepAllocator(
+            tf_context->output_alloc_attr(0),
+            tf_context->resource_manager());
+        }
+        else if (0 < tf_context->num_inputs()) {
+          allocator = tf_context->device()->GetStepAllocator(
+            tf_context->input_alloc_attr(0),
+            tf_context->resource_manager());
+        }
       }
-      else if (0 < tf_context->num_inputs()) {
-        allocator = tf_context->device()->GetStepAllocator(
-          tf_context->input_alloc_attr(0),
-          tf_context->resource_manager());
-      }
+#else /* include tensorflow/core/public/version.h prior to LIBXS otherwise the current TensorFlow API is assumed */
+      const int numa_node = DeviceNumaNode(tf_context->device());
+      allocator = tensorflow::cpu_allocator(numa_node);
+#endif
     }
     return libxs_tf_allocator::allocate(allocator, size);
   }
@@ -310,17 +333,24 @@ public:
     typedef typename context_type::WrappedAllocator::first_type allocator_ptr;
     context_type *const tf_context = static_cast<context_type*>(context);
     allocator_ptr allocator = 0;
-    if (0 != tf_context && 0 != tf_context->device()) {
-      if (0 < tf_context->num_outputs()) {
-        allocator = tf_context->device()->GetStepAllocator(
-          tf_context->output_alloc_attr(0),
-          tf_context->resource_manager());
+    if (0 != tf_context) {
+#if defined(TF_VERSION_STRING) && LIBXS_VERSION3(1, 12, 0) > LIBXS_VERSION3(TF_MAJOR_VERSION, TF_MINOR_VERSION, TF_PATCH_VERSION)
+      if (0 != tf_context->device()) {
+        if (0 < tf_context->num_outputs()) {
+          allocator = tf_context->device()->GetStepAllocator(
+            tf_context->output_alloc_attr(0),
+            tf_context->resource_manager());
+        }
+        else if (0 < tf_context->num_inputs()) {
+          allocator = tf_context->device()->GetStepAllocator(
+            tf_context->input_alloc_attr(0),
+            tf_context->resource_manager());
+        }
       }
-      else if (0 < tf_context->num_inputs()) {
-        allocator = tf_context->device()->GetStepAllocator(
-          tf_context->input_alloc_attr(0),
-          tf_context->resource_manager());
-      }
+#else /* include tensorflow/core/public/version.h prior to LIBXS otherwise the current TensorFlow API is assumed */
+      const int numa_node = DeviceNumaNode(tf_context->device());
+      allocator = tensorflow::cpu_allocator(numa_node);
+#endif
     }
     libxs_tf_allocator::deallocate(allocator, buffer);
   }
@@ -334,7 +364,7 @@ private:
       result = allocator->AllocateRaw(1/*alignment*/, size);
     }
     else {
-      LIBXS_ASSERT_MSG(0, "LIBXS ERROR: memory allocator is missing!");
+      LIBXS_ASSERT_MSG(0, "LIBXS ERROR: memory allocator is missing");
       result = 0;
     }
     return result;
@@ -342,7 +372,7 @@ private:
 
   template<typename allocator_ptr> /* break interface dependency with TF */
   static void deallocate(allocator_ptr allocator, void* buffer) {
-    LIBXS_ASSERT_MSG(0 != allocator, "LIBXS ERROR: memory allocator is missing!");
+    LIBXS_ASSERT_MSG(0 != allocator, "LIBXS ERROR: memory allocator is missing");
     if (0 != allocator) allocator->DeallocateRaw(buffer);
   }
 };

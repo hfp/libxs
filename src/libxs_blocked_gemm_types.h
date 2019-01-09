@@ -26,30 +26,30 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_BGEMM_TYPES_H
-#define LIBXS_BGEMM_TYPES_H
+#ifndef LIBXS_BLOCKED_GEMM_TYPES_H
+#define LIBXS_BLOCKED_GEMM_TYPES_H
 
 #include "libxs_gemm.h"
 
-#if !defined(LIBXS_BGEMM_CHECKS) && !defined(NDEBUG)
-# define LIBXS_BGEMM_CHECKS
+#if !defined(LIBXS_BLOCKED_GEMM_CHECKS) && !defined(NDEBUG)
+# define LIBXS_BLOCKED_GEMM_CHECKS
 #endif
 
 
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_bgemm_lock {
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_blocked_gemm_lock {
   char pad[LIBXS_CACHELINE];
   volatile LIBXS_ATOMIC_LOCKTYPE state;
-} libxs_bgemm_lock;
+} libxs_blocked_gemm_lock;
 
 
-LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_bgemm_handle {
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_blocked_gemm_handle {
   union { double d; float s; int w; } alpha, beta;
   libxs_gemm_precision iprec, oprec;
   libxs_xmmfunction kernel_pf;
   libxs_xmmfunction kernel;
   libxs_barrier* barrier;
-  libxs_bgemm_lock* locks;
-  libxs_bgemm_order order;
+  libxs_blocked_gemm_lock* locks;
+  libxs_blocked_gemm_order order;
   libxs_blasint m, n, k, bm, bn, bk;
   libxs_blasint b_m1, b_n1, b_k1, b_k2;
   libxs_blasint mb, nb, kb;
@@ -57,4 +57,4 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_bgemm_handle {
   int nthreads;
 };
 
-#endif /*LIBXS_BGEMM_TYPES_H*/
+#endif /*LIBXS_BLOCKED_GEMM_TYPES_H*/

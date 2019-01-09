@@ -26,27 +26,27 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_BGEMM_H
-#define LIBXS_BGEMM_H
+#ifndef LIBXS_BLOCKED_GEMM_H
+#define LIBXS_BLOCKED_GEMM_H
 
 #include "libxs_typedefs.h"
 
 
 /** Denotes the BGEMM data order. */
-typedef enum libxs_bgemm_order {
-  LIBXS_BGEMM_ORDER_JIK = 0,
-  LIBXS_BGEMM_ORDER_IJK = 1,
-  LIBXS_BGEMM_ORDER_JKI = 2,
-  LIBXS_BGEMM_ORDER_IKJ = 3,
-  LIBXS_BGEMM_ORDER_KJI = 4,
-  LIBXS_BGEMM_ORDER_KIJ = 5
-} libxs_bgemm_order;
+typedef enum libxs_blocked_gemm_order {
+  LIBXS_BLOCKED_GEMM_ORDER_JIK = 0,
+  LIBXS_BLOCKED_GEMM_ORDER_IJK = 1,
+  LIBXS_BLOCKED_GEMM_ORDER_JKI = 2,
+  LIBXS_BLOCKED_GEMM_ORDER_IKJ = 3,
+  LIBXS_BLOCKED_GEMM_ORDER_KJI = 4,
+  LIBXS_BLOCKED_GEMM_ORDER_KIJ = 5
+} libxs_blocked_gemm_order;
 
 /** Describes the Block-GEMM (BGEMM) operation. */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_bgemm_handle libxs_bgemm_handle;
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_blocked_gemm_handle libxs_blocked_gemm_handle;
 
 
-LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(
+LIBXS_API libxs_blocked_gemm_handle* libxs_blocked_gemm_handle_create(
   /** Number of threads used to run BGEMM. */
   /*unsigned*/ int nthreads, libxs_gemm_precision iprec, libxs_gemm_precision oprec,
   libxs_blasint m, libxs_blasint n, libxs_blasint k,
@@ -59,38 +59,38 @@ LIBXS_API libxs_bgemm_handle* libxs_bgemm_handle_create(
   /** See libxs_gemm_flags (LIBXS_FLAGS is used if NULL is given). */ const int* gemm_flags,
   /** See libxs_gemm_prefetch_type; a strategy chosen automatically if NULL is given. */
   const libxs_gemm_prefetch_type* prefetch,
-  /** See libxs_bgemm_order; an order is chosen automatically if NULL is given. */
-  const libxs_bgemm_order* order);
+  /** See libxs_blocked_gemm_order; an order is chosen automatically if NULL is given. */
+  const libxs_blocked_gemm_order* order);
 
-LIBXS_API void libxs_bgemm_handle_destroy(const libxs_bgemm_handle* handle);
+LIBXS_API void libxs_blocked_gemm_handle_destroy(const libxs_blocked_gemm_handle* handle);
 
 /** Copy-in functions for A, B, and C matrices. A leading dimension for the source buffer is optional and can be NULL. */
-LIBXS_API int libxs_bgemm_copyin_a(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
-LIBXS_API int libxs_bgemm_copyin_b(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
-LIBXS_API int libxs_bgemm_copyin_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+LIBXS_API int libxs_blocked_gemm_copyin_a(const libxs_blocked_gemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+LIBXS_API int libxs_blocked_gemm_copyin_b(const libxs_blocked_gemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+LIBXS_API int libxs_blocked_gemm_copyin_c(const libxs_blocked_gemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
 /** Copy-out function for the C-matrix. A leading dimension for the destination buffer is optional and can be NULL. */
-LIBXS_API int libxs_bgemm_copyout_c(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+LIBXS_API int libxs_blocked_gemm_copyout_c(const libxs_blocked_gemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
 
 /** Convert function required to reorganize elements in delta for BWD and UPD passes of RNN, LSTM and GRU */
-LIBXS_API int libxs_bgemm_convert_b_to_a(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+LIBXS_API int libxs_blocked_gemm_convert_b_to_a(const libxs_blocked_gemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
 /** Transpose matrix b for UPD pass of GRU */
-LIBXS_API int libxs_bgemm_transpose_b(const libxs_bgemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
+LIBXS_API int libxs_blocked_gemm_transpose_b(const libxs_blocked_gemm_handle* handle, const void* src, const libxs_blasint* ld, void* dst);
 
 /**
 * Fine grain parallelized block-GEMM (BGEMM), which uses a block structure
 * layout for the A and B matrices. The implementation is parallelized
 * among M, N, and K using fine-grained on-demand locks when writing C.
 */
-LIBXS_API void libxs_bgemm_st(const libxs_bgemm_handle* handle, const void* a, const void* b, void* c,
+LIBXS_API void libxs_blocked_gemm_st(const libxs_blocked_gemm_handle* handle, const void* a, const void* b, void* c,
   /*unsigned*/int start_thread, /*unsigned*/int tid);
 
 /**
- * Implementation of libxs_bgemm, which is parallelized with OpenMP
+ * Implementation of libxs_blocked_gemm, which is parallelized with OpenMP
  * and uses an OpenMP or custom barrier implementation. The function
  * allows to run multiple GEMMs, which is specified by 'count' (RNNs).
  * This function requires to link against libxsext.
  */
-LIBXS_APIEXT void libxs_bgemm_omp(const libxs_bgemm_handle* handle,
+LIBXS_APIEXT void libxs_blocked_gemm_omp(const libxs_blocked_gemm_handle* handle,
   const void* a, const void* b, void* c, /*unsigned*/int count);
 
-#endif /*LIBXS_BGEMM_H*/
+#endif /*LIBXS_BLOCKED_GEMM_H*/

@@ -53,15 +53,22 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom_f32_f32(libxs_dnn_fullyco
   typedef float element_output_type;
   typedef float element_filter_type;
   typedef libxs_smmfunction gemm_function;
-  libxs_blasint lda = (libxs_blasint)handle->ofmblock;
-  libxs_blasint ldb = (libxs_blasint)handle->desc.C;
-  libxs_blasint ldc = (libxs_blasint)handle->desc.K;
   element_input_type alpha = (element_input_type)1;
   element_input_type beta = (element_input_type)0;
-
   if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-    gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->desc.N, handle->desc.C, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+    if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK) ) {
+      libxs_blasint lda = (libxs_blasint)handle->bk;
+      libxs_blasint ldb = (libxs_blasint)handle->bc;
+      libxs_blasint ldc = (libxs_blasint)handle->bk;
+      libxs_smmfunction_reducebatch batchreduce_kernel = libxs_smmdispatch_reducebatch(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL);
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic.tpl.c"
+    } else {
+      libxs_blasint lda = (libxs_blasint)handle->ofmblock;
+      libxs_blasint ldb = (libxs_blasint)handle->desc.C;
+      libxs_blasint ldc = (libxs_blasint)handle->desc.K;
+      gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->desc.N, handle->desc.C, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_fwd_custom_generic.tpl.c"
+    }
   } else {
     status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
   }
@@ -73,7 +80,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom_f32_f32(libxs_dnn_fullyco
 }
 
 
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+  LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom_bf16_f32(libxs_dnn_fullyconnected* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -89,10 +96,15 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom_bf16_f32(libxs_dnn_fullyc
   float beta = (element_input_type)0;
 
   if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-    gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->desc.N, handle->desc.C, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+    if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK) ) {
+      /* @TODO */
+      status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+    } else {
+      gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->desc.N, handle->desc.C, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # define LIBXS_DNN_FULLYCONNECTED_FWD_BF16_F32
 # include "template/libxs_dnn_fullyconnected_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FULLYCONNECTED_FWD_BF16_F32
+    }
   } else {
     status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
   }
@@ -117,8 +129,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom(libxs_dn
 
   /* check if we are on an AVX512 platform */
   if ( libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
-       libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL ||
-       libxs_target_archid == LIBXS_X86_AVX512_KNM                                                        ) {
+      libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL ||
+      libxs_target_archid == LIBXS_X86_AVX512_KNM                                                        ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fullyconnected_st_fwd_custom_f32_f32( handle, start_thread, tid);
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
@@ -133,15 +145,24 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom(libxs_dn
       typedef float element_output_type;
       typedef float element_filter_type;
       typedef libxs_smmfunction gemm_function;
-      libxs_blasint lda = (libxs_blasint)handle->ofmblock;
-      libxs_blasint ldb = (libxs_blasint)handle->desc.C;
-      libxs_blasint ldc = (libxs_blasint)handle->desc.K;
       element_input_type alpha = (element_input_type)1;
-      element_input_type beta = (element_input_type)0;
 
       if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-        gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->desc.N, handle->desc.C, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+        if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK) ) {
+          libxs_blasint lda = (libxs_blasint)handle->bk;
+          libxs_blasint ldb = (libxs_blasint)handle->bc;
+          libxs_blasint ldc = (libxs_blasint)handle->bk;
+          element_input_type beta = (element_input_type)0;
+          libxs_smmfunction_reducebatch batchreduce_kernel = libxs_smmdispatch_reducebatch(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL);
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic.tpl.c"
+        } else {
+          libxs_blasint lda = (libxs_blasint)handle->ofmblock;
+          libxs_blasint ldb = (libxs_blasint)handle->desc.C;
+          libxs_blasint ldc = (libxs_blasint)handle->desc.K;
+          element_input_type beta = (element_input_type)0;
+          gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->desc.N, handle->desc.C, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_fwd_custom_generic.tpl.c"
+        }
       } else {
         status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
       }
@@ -157,10 +178,14 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom(libxs_dn
       float beta = (element_input_type)0;
 
       if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-        gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->desc.N, handle->desc.C, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+        if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK) ) {
+          status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+        } else {
+          gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->desc.N, handle->desc.C, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # define LIBXS_DNN_FULLYCONNECTED_FWD_BF16_F32
 # include "template/libxs_dnn_fullyconnected_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FULLYCONNECTED_FWD_BF16_F32
+        }
       } else {
         status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
       }

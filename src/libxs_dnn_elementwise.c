@@ -27,7 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 #include "libxs_dnn_elementwise.h"
-#include "libxs_bgemm_types.h"
+#include "libxs_blocked_gemm_types.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -302,14 +302,14 @@ extern unsigned long long Gbl_t_input, Gbl_t_recur, Gbl_t_eltwise, Gbl_t_nonlin;
 extern double Gbl_duration_input, Gbl_duration_recur, Gbl_duration_eltwise, Gbl_duration_nonlin;
 #endif
 
-LIBXS_API_INTERN void libxs_internal_recursive_step(libxs_bgemm_handle* handle, LIBXS_DNN_ELTWISE_FTYPE* u, LIBXS_DNN_ELTWISE_FTYPE* h, LIBXS_DNN_ELTWISE_FTYPE* op1, LIBXS_DNN_ELTWISE_FTYPE *op2,
+LIBXS_API_INTERN void libxs_internal_recursive_step(libxs_blocked_gemm_handle* handle, LIBXS_DNN_ELTWISE_FTYPE* u, LIBXS_DNN_ELTWISE_FTYPE* h, LIBXS_DNN_ELTWISE_FTYPE* op1, LIBXS_DNN_ELTWISE_FTYPE *op2,
   LIBXS_DNN_ELTWISE_FTYPE *temp, LIBXS_DNN_ELTWISE_FTYPE *dst, int act, libxs_blasint size, int start_thread, int tid)
 {
   const int ltid = tid - start_thread;
 #if defined(LSTM_TIMING)
   if (ltid == 0) { Gbl_t_recur = libxs_timer_tick(); }
 #endif
-  libxs_bgemm_st(handle, u, h, op1, start_thread, ltid);
+  libxs_blocked_gemm_st(handle, u, h, op1, start_thread, ltid);
 #if defined(LSTM_TIMING)
   if (ltid == 0) {
     Gbl_duration_recur = libxs_timer_duration(Gbl_t_recur, libxs_timer_tick());

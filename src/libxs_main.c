@@ -159,7 +159,7 @@ LIBXS_APIVAR(unsigned int internal_statistic_mnk);
 LIBXS_APIVAR(unsigned int internal_statistic_num_mcopy);
 LIBXS_APIVAR(unsigned int internal_statistic_num_tcopy);
 LIBXS_APIVAR(unsigned int internal_statistic_num_trsm);
-LIBXS_APIVAR(unsigned int internal_teardown);
+LIBXS_APIVAR(unsigned int internal_statistic_num_trmm);
 LIBXS_APIVAR(int internal_dispatch_trylock_locked);
 LIBXS_APIVAR(int internal_gemm_auto_prefetch_locked);
 LIBXS_APIVAR(const char* internal_build_state);
@@ -545,6 +545,16 @@ LIBXS_API_INLINE void internal_finalize(void)
 }
 
 
+LIBXS_API_INLINE size_t internal_strlen(const char* cstr, size_t maxlen)
+{
+  size_t result = 0;
+  if (NULL != cstr) {
+    while (0 != cstr[result] && result < maxlen) ++result;
+  }
+  return result;
+}
+
+
 LIBXS_API_INLINE void internal_init(void)
 {
 #if defined(LIBXS_TRACE)
@@ -585,7 +595,7 @@ LIBXS_API_INLINE void internal_init(void)
         libxs_scratch_limit = (size_t)limit;
       }
       else {
-        size_t u = strlen(env) - 1; /* 0 < strlen(env) */
+        size_t u = internal_strlen(env, 32) - 1;
         const char *const unit = "kmgKMG", *const hit = strchr(unit, env[u]);
         libxs_scratch_limit = (size_t)strtoul(env, 0, 10);
         u = (0 != hit ? ((hit - unit) % 3) : 3);
@@ -693,8 +703,9 @@ LIBXS_API_INLINE void internal_init(void)
           }
         }
         libxs_gemm_init(libxs_target_archid);
-        if (0 == internal_teardown) {
+        if (0 == libxs_ninit) {
           atexit(internal_finalize);
+          ++libxs_ninit;
         }
         {
           void *const pv_registry = &internal_registry;
@@ -830,7 +841,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       internal_registry_nbytes = (LIBXS_CAPACITY_REGISTRY) * (sizeof(libxs_code_pointer) + sizeof(libxs_kernel_info));
 
       /* serves as an ID to invalidate the thread-local cache; never decremented */
-      ++internal_teardown;
+      ++libxs_ninit;
 
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
         /*const*/ libxs_code_pointer code = registry[i];
@@ -866,6 +877,9 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           }
           else if (LIBXS_KERNEL_KIND_TRSM == registry_keys[i].xgemm.iflags) {
             ++internal_statistic_num_trsm;
+          }
+          else if (LIBXS_KERNEL_KIND_TRMM == registry_keys[i].xgemm.iflags) {
+            ++internal_statistic_num_trmm;
           }
           else {
             fprintf(stderr, "LIBXS ERROR: code registry is corrupted!\n");
@@ -1177,6 +1191,9 @@ LIBXS_API_INLINE const char* internal_get_typename(int datatype)
   }
   else if ( LIBXS_GEMM_PRECISION_I8 == LIBXS_GETENUM_INP( datatype ) && LIBXS_GEMM_PRECISION_I32 == LIBXS_GETENUM_OUT( datatype ) ) {
     return "i8i32";
+  }
+  else if ( LIBXS_GEMM_PRECISION_BF16 == LIBXS_GETENUM_INP( datatype ) && LIBXS_GEMM_PRECISION_F32 == LIBXS_GETENUM_OUT( datatype ) ) {
+    return "bf16f32";
   }
   else {
     return "void";
@@ -1582,6 +1599,22 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         }
       }
     } break;
+    case LIBXS_BUILD_KIND_TRMM: { /* compact trmm kernel */
+      unsigned int tsize;
+      LIBXS_ASSERT(0 != request->descriptor.trmm);
+      tsize = (unsigned int)request->descriptor.trmm->typesize;
+      if (4 == tsize || 8 == tsize) {
+        LIBXS_NO_OFFLOAD(void, libxs_generator_trmm_kernel, &generated_code, request->descriptor.trmm, target_arch);
+# if !defined(LIBXS_VTUNE)
+        if (0 > libxs_verbosity)
+# endif
+        {
+          const char *const tsizename = internal_get_typesize_string(tsize);
+          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_.trmm", target_arch, tsizename);
+        }
+      }
+    } break;
 # if !defined(NDEBUG) /* library code is expected to be mute */
     default: { /* unknown kind */
       static int error_once = 0;
@@ -1644,7 +1677,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
   LIBXS_ASSERT(0 != descriptor);
   /* search small cache starting with the last hit on record */
   cache_index = libxs_diff_npot(descriptor, &cache.keys, LIBXS_DESCRIPTOR_MAXSIZE, LIBXS_DESCRIPTOR_MAXSIZE, cache.hit, LIBXS_CAPACITY_CACHE);
-  if ((LIBXS_CAPACITY_CACHE) > cache_index && cache.id == internal_teardown) { /* cache hit, and valid */
+  if ((LIBXS_CAPACITY_CACHE) > cache_index && cache.id == libxs_ninit) { /* cache hit, and valid */
     flux_entry = cache.code[cache_index];
     cache.hit = cache_index;
 #if !defined(NDEBUG)
@@ -1671,8 +1704,12 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
 
     while (0 != diff) {
 #if (0 < INTERNAL_REGLOCK_MAXN) || (0 == LIBXS_SYNC) /* read registered code */
-      void *const fluxaddr = &internal_registry[i].pmm;
-      flux_entry.uval = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)fluxaddr, LIBXS_ATOMIC_RELAXED);
+# if 0
+      uintptr_t *const fluxaddr = &internal_registry[i].uval;
+      flux_entry.uval = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(fluxaddr, LIBXS_ATOMIC_RELAXED);
+# else /* omitting an atomic load is safe at this point */
+      flux_entry.uval = internal_registry[i].uval;
+# endif
 #else
       LIBXS_LOCK_ACQREAD(LIBXS_REG1LOCK, &internal_reglock);
       flux_entry.pmm = internal_registry[i].pmm; /* read registered code */
@@ -1784,9 +1821,9 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
       cache.hit = cache_index;
       LIBXS_ASSERT(0 == diff);
     }
-    if (cache.id != internal_teardown) {
+    if (cache.id != libxs_ninit) {
       memset(cache.keys, 0, sizeof(cache.keys));
-      cache.id = internal_teardown;
+      cache.id = libxs_ninit;
     }
 #endif
 #if !defined(NDEBUG)
@@ -2094,6 +2131,21 @@ LIBXS_API libxs_wsmmfunction libxs_wsmmdispatch(libxs_blasint m, libxs_blasint n
 }
 
 
+LIBXS_API libxs_bsmmfunction libxs_bsmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
+  const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (0 == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_bsgemm_descriptor_init(&blob, m, n, k,
+    0 != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
+    0 != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
+    0 != ldc ? *ldc : m, 0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
+    gemm_flags, libxs_get_gemm_xprefetch(prefetch));
+  return libxs_xmmdispatch(desc).bsmm;
+}
+
+
 LIBXS_API libxs_dmmfunction_reducebatch libxs_dmmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* prefetch)
 {
@@ -2115,6 +2167,18 @@ LIBXS_API libxs_smmfunction_reducebatch libxs_smmdispatch_reducebatch(libxs_blas
     0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
     LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
   return libxs_xmmdispatch(desc).smr;
+}
+
+
+LIBXS_API libxs_bsmmfunction_reducebatch libxs_bsmmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* prefetch)
+{
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_bsgemm_descriptor_init(&blob,
+    m, n, k, 0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
+    0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
+    LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
+  return libxs_xmmdispatch(desc).bsmr;
 }
 
 
@@ -2176,6 +2240,24 @@ LIBXS_API libxs_xtrsmfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* d
     query.trsm = *descriptor;
     query.xgemm.iflags = LIBXS_KERNEL_KIND_TRSM;
     result = internal_find_code(&query.xgemm).xtrsm;
+  }
+  else {
+    result = 0;
+  }
+  return result;
+}
+
+
+LIBXS_API libxs_xtrmmfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* descriptor)
+{
+  libxs_xtrmmfunction result;
+  if (0 != descriptor) {
+    libxs_kernel_info query;
+    LIBXS_INIT
+    memset(&query, 0, sizeof(query)); /* avoid warning "maybe used uninitialized" */
+    query.trmm = *descriptor;
+    query.xgemm.iflags = LIBXS_KERNEL_KIND_TRMM;
+    result = internal_find_code(&query.xgemm).xtrmm;
   }
   else {
     result = 0;

@@ -91,6 +91,7 @@
 #define LIBXS_TPREFIX_floatfloat s
 #define LIBXS_TPREFIX_shortfloat ws
 #define LIBXS_TPREFIX_shortint wi
+#define LIBXS_TPREFIX_libxs_bfloat16float bs
 /** Defaults if only the input type is specified. */
 #define LIBXS_TPREFIX_double LIBXS_TPREFIX_doubledouble
 #define LIBXS_TPREFIX_float LIBXS_TPREFIX_floatfloat
@@ -222,6 +223,8 @@
   LIBXS_INLINE_XGEMM(short, int, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #define LIBXS_BLAS_FUNCTION_wsgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
   LIBXS_INLINE_XGEMM(short, float, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+#define LIBXS_BLAS_FUNCTION_bsgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_INLINE_XGEMM(libxs_bfloat16, float, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (macro template). */
 #define LIBXS_BLAS_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \

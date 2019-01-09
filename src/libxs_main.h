@@ -80,10 +80,16 @@
 #endif
 
 /* Helper macro to eventually (if defined) call libxs_init */
-#if !defined(LIBXS_INIT) && !defined(LIBXS_CTOR)
-# define LIBXS_INIT libxs_init();
-#elif !defined(LIBXS_INIT)
-# define LIBXS_INIT
+#if !defined(LIBXS_INIT)
+# if !defined(LIBXS_CTOR)
+#   define LIBXS_INIT libxs_init();
+# elif !defined(NDEBUG)
+#   define LIBXS_INIT LIBXS_ASSERT_MSG( \
+      0 != libxs_ninit, \
+      "LIBXS is not initialized");
+# else
+#   define LIBXS_INIT
+# endif
 #endif
 
 /** Check if M, N, K, or LDx fits into the descriptor. */
@@ -317,6 +323,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   libxs_xtransfunction xtrans;
   libxs_xconvfunction xconv;
   libxs_xtrsmfunction xtrsm;
+  libxs_xtrmmfunction xtrmm;
 } libxs_code_pointer;
 
 /** Structure which describes all tensors in LIBXS's DNN module */
@@ -575,6 +582,9 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   int blocksifm_lp;  /* not used */
   int blocksofm_lp;  /* not used */
   int fm_lp_block;
+  int bn;
+  int bk;
+  int bc;
   size_t scratch_size;
   void* scratch;
 };
@@ -685,6 +695,7 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_MCOPY    = LIBXS_KERNEL_KIND_MCOPY,
   LIBXS_BUILD_KIND_TRANS    = LIBXS_KERNEL_KIND_TRANS,
   LIBXS_BUILD_KIND_TRSM     = LIBXS_KERNEL_KIND_TRSM,
+  LIBXS_BUILD_KIND_TRMM     = LIBXS_KERNEL_KIND_TRMM,
   LIBXS_BUILD_KIND_RMACSOA  = LIBXS_KERNEL_KIND_INVALID,
   LIBXS_BUILD_KIND_RMBCSOA,
   LIBXS_BUILD_KIND_SRSOA,
@@ -710,6 +721,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_mcopy_descriptor* matcopy;
   const libxs_trans_descriptor* trans;
   const libxs_trsm_descriptor* trsm;
+  const libxs_trmm_descriptor* trmm;
 } libxs_build_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
@@ -720,12 +732,13 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
 typedef enum libxs_malloc_flags {
   LIBXS_MALLOC_FLAG_DEFAULT = 0,
   LIBXS_MALLOC_FLAG_SCRATCH = 1,
-  LIBXS_MALLOC_FLAG_MMAP = 2,
-  LIBXS_MALLOC_FLAG_R = 4,
-  LIBXS_MALLOC_FLAG_W = 8,
-  LIBXS_MALLOC_FLAG_X = 16,
+  LIBXS_MALLOC_FLAG_PRIVATE = 2,
+  LIBXS_MALLOC_FLAG_MMAP    = 4,
+  LIBXS_MALLOC_FLAG_R       = 8,
+  LIBXS_MALLOC_FLAG_W       = 16,
+  LIBXS_MALLOC_FLAG_X       = 32,
   LIBXS_MALLOC_FLAG_RW  = LIBXS_MALLOC_FLAG_R | LIBXS_MALLOC_FLAG_W,
-  LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_RW | LIBXS_MALLOC_FLAG_X
+  LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_RW
 } libxs_malloc_flags;
 
 /** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */
@@ -781,6 +794,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_kernel_info {
   libxs_mcopy_descriptor mcopy;
   libxs_trans_descriptor trans;
   libxs_trsm_descriptor trsm;
+  libxs_trmm_descriptor trmm;
 } libxs_kernel_info;
 
 /** Attempts to receive information about JIT-generated code. */
