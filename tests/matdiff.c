@@ -78,8 +78,8 @@ int main(void)
     if (0.0000004 < LIBXS_ABS(diff.linf_abs - 0.9300000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(diff.linf_rel - 0.5600000)) result = EXIT_FAILURE;
     /* Location of maximum absolute error */
-    if (2 != diff.linf_abs_m) result = EXIT_FAILURE;
-    if (2 != diff.linf_abs_n) result = EXIT_FAILURE;
+    if (2 != diff.m) result = EXIT_FAILURE;
+    if (2 != diff.n) result = EXIT_FAILURE;
   }
 
   result = libxs_matdiff(&diff, LIBXS_DATATYPE(ITYPE), 1/*m*/, 3/*n*/,
@@ -104,8 +104,8 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(diff.linf_abs - 2.0000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(diff.linf_rel - 0.2222222)) result = EXIT_FAILURE;
     /* Location of maximum absolute error */
-    if (0 != diff.linf_abs_m) result = EXIT_FAILURE;
-    if (2 != diff.linf_abs_n) result = EXIT_FAILURE;
+    if (0 != diff.m) result = EXIT_FAILURE;
+    if (2 != diff.n) result = EXIT_FAILURE;
   }
 
   result = libxs_matdiff(&diff, LIBXS_DATATYPE(ITYPE), 3/*m*/, 1/*n*/,
@@ -130,8 +130,8 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(diff.linf_abs - 2.0000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(diff.linf_rel - 0.2222222)) result = EXIT_FAILURE;
     /* Location of maximum absolute error */
-    if (2 != diff.linf_abs_m) result = EXIT_FAILURE;
-    if (0 != diff.linf_abs_n) result = EXIT_FAILURE;
+    if (2 != diff.m) result = EXIT_FAILURE;
+    if (0 != diff.n) result = EXIT_FAILURE;
   }
 
   return result;

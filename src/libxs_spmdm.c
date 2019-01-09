@@ -17,7 +17,7 @@
 ** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
 ** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
 ** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
-** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
+** a PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
 ** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
 ** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
 ** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
@@ -33,7 +33,6 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -57,11 +56,11 @@
 LIBXS_APIVAR(void (*internal_spmdm_createSparseSlice_fp32_thread)(const libxs_spmdm_handle*, char,
   const float*, libxs_CSR_sparseslice*, int, int, int));
 LIBXS_APIVAR(void (*internal_spmdm_createSparseSlice_bfloat16_thread)(const libxs_spmdm_handle*, char,
-  const uint16_t*, libxs_CSR_sparseslice*, int, int, int));
+  const libxs_bfloat16*, libxs_CSR_sparseslice*, int, int, int));
 LIBXS_APIVAR(void (*internal_spmdm_compute_fp32_thread)(const libxs_spmdm_handle*, char, char,
   const float*, libxs_CSR_sparseslice*, const float*, char, const float*, float*, int, int, int));
 LIBXS_APIVAR(void (*internal_spmdm_compute_bfloat16_thread)(const libxs_spmdm_handle*, char, char,
-  const uint16_t*, libxs_CSR_sparseslice*, const uint16_t*, char, const uint16_t*, float*, int, int, int));
+  const libxs_bfloat16*, libxs_CSR_sparseslice*, const libxs_bfloat16*, char, const libxs_bfloat16*, float*, int, int, int));
 
 #if defined(LIBXS_SPMDM_AVX)
 LIBXS_APIVAR(__m256i* internal_spmdm_shufmasks_32);
@@ -115,12 +114,12 @@ LIBXS_API_INLINE void internal_spmdm_allocate_csr_a(libxs_spmdm_handle* handle, 
 
   /* use low-level scratch memory allocation since life-time of this buffer is unknown */
   if (EXIT_SUCCESS == libxs_xmalloc((void**)pv, sz_all_blocks, 2097152,
-    LIBXS_MALLOC_FLAG_SCRATCH, 0/*extra*/, 0/*extra_size*/))
+    LIBXS_MALLOC_FLAG_SCRATCH | LIBXS_MALLOC_FLAG_PRIVATE, 0/*extra*/, 0/*extra_size*/))
   {
     char* memory_head  = memory_block;
     libxs_CSR_sparseslice* libxs_output_csr_a = (libxs_CSR_sparseslice*)(memory_head);
     memory_head += (size_t)handle->mb * handle->kb * sizeof(libxs_CSR_sparseslice);
-    assert(0 != libxs_output_csr_a/*sanity check*/);
+    LIBXS_ASSERT(0 != libxs_output_csr_a/*sanity check*/);
 
     for (kb = 0; kb < k_blocks; kb++) {
       for (mb = 0; mb < m_blocks; mb++) {
@@ -133,7 +132,7 @@ LIBXS_API_INLINE void internal_spmdm_allocate_csr_a(libxs_spmdm_handle* handle, 
         memory_head += (size_t)handle->bm * handle->bk * sizeof(float);
       }
     }
-    assert(memory_head == (memory_block + sz_all_blocks));
+    LIBXS_ASSERT(memory_head == (memory_block + sz_all_blocks));
     *libxs_output_csr = libxs_output_csr_a;
   }
   else if (0 != libxs_verbosity) { /* library code is expected to be mute */
@@ -156,7 +155,7 @@ LIBXS_API_INLINE void internal_spmdm_allocate_scratch(libxs_spmdm_handle* handle
 
   /* use low-level scratch memory allocation since life-time of this buffer is unknown */
   if (EXIT_SUCCESS == libxs_xmalloc((void**)pv, sz_total_memory, 2097152,
-    LIBXS_MALLOC_FLAG_SCRATCH, 0/*extra*/, 0/*extra_size*/))
+    LIBXS_MALLOC_FLAG_SCRATCH | LIBXS_MALLOC_FLAG_PRIVATE, 0/*extra*/, 0/*extra_size*/))
   {
     handle->memory_for_scratch_per_thread = (int)sz_memory_for_scratch_per_thread;
   }
@@ -172,7 +171,7 @@ LIBXS_API_INLINE void internal_spmdm_allocate_scratch(libxs_spmdm_handle* handle
 LIBXS_API_INLINE void internal_spmdm_deallocate_csr_a(libxs_spmdm_handle* handle)
 {
   libxs_xfree(handle->base_ptr_scratch_A);
-  handle->base_ptr_scratch_A= NULL;
+  handle->base_ptr_scratch_A = NULL;
   libxs_xfree(handle->base_ptr_scratch_B_scratch_C);
   handle->base_ptr_scratch_B_scratch_C = NULL;
 }
@@ -199,8 +198,8 @@ LIBXS_API int libxs_spmdm_get_num_compute_blocks(const libxs_spmdm_handle* handl
 LIBXS_API_INLINE
 void internal_spmdm_createSparseSlice_fp32_thread_sw(
   const libxs_spmdm_handle* handle,
-  char transA,
-  const float* A,
+  char transa,
+  const float* a,
   libxs_CSR_sparseslice* libxs_output_csr_a,
   int block_id,
   int tid, int nthreads)
@@ -214,8 +213,8 @@ void internal_spmdm_createSparseSlice_fp32_thread_sw(
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_fp32_thread_avx2(
   const libxs_spmdm_handle* handle,
-  char transA,
-  const float* A,
+  char transa,
+  const float* a,
   libxs_CSR_sparseslice* libxs_output_csr_a,
   int block_id,
   int tid, int nthreads)
@@ -225,7 +224,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_fp32_thread_avx2(
 # include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-  internal_spmdm_createSparseSlice_fp32_thread_sw(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
+  internal_spmdm_createSparseSlice_fp32_thread_sw(handle, transa, a, libxs_output_csr_a, block_id, tid, nthreads);
 #endif
 }
 
@@ -233,8 +232,8 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_fp32_thread_avx2(
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_fp32_thread_avx512_core(
   const libxs_spmdm_handle* handle,
-  char transA,
-  const float* A,
+  char transa,
+  const float* a,
   libxs_CSR_sparseslice* libxs_output_csr_a,
   int block_id,
   int tid, int nthreads)
@@ -244,7 +243,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_fp32_thread_avx512_
 # include "template/libxs_spmdm_createSparseSlice_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-  internal_spmdm_createSparseSlice_fp32_thread_avx2(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
+  internal_spmdm_createSparseSlice_fp32_thread_avx2(handle, transa, a, libxs_output_csr_a, block_id, tid, nthreads);
 #endif
 }
 
@@ -252,21 +251,21 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_fp32_thread_avx512_
 LIBXS_API
 void libxs_spmdm_createSparseSlice_fp32_thread(
   const libxs_spmdm_handle* handle,
-  char transA,
-  const float* A,
+  char transa,
+  const float* a,
   libxs_CSR_sparseslice* libxs_output_csr_a,
   int block_id,
   int tid, int nthreads)
 {
   /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
-  internal_spmdm_createSparseSlice_fp32_thread_avx512_core(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
+  internal_spmdm_createSparseSlice_fp32_thread_avx512_core(handle, transa, a, libxs_output_csr_a, block_id, tid, nthreads);
 #elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) && /* eventually no need for an indirect call */ \
       (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH)
-  internal_spmdm_createSparseSlice_fp32_thread_avx2(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
+  internal_spmdm_createSparseSlice_fp32_thread_avx2(handle, transa, a, libxs_output_csr_a, block_id, tid, nthreads);
 #else /* pointer based function call */
-  assert(0 != internal_spmdm_createSparseSlice_fp32_thread);
-  internal_spmdm_createSparseSlice_fp32_thread(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
+  LIBXS_ASSERT(0 != internal_spmdm_createSparseSlice_fp32_thread);
+  internal_spmdm_createSparseSlice_fp32_thread(handle, transa, a, libxs_output_csr_a, block_id, tid, nthreads);
 #endif
 }
 
@@ -274,8 +273,8 @@ void libxs_spmdm_createSparseSlice_fp32_thread(
 LIBXS_API_INLINE
 void internal_spmdm_createSparseSlice_bfloat16_thread_sw(
   const libxs_spmdm_handle* handle,
-  char transA,
-  const uint16_t* A,
+  char transa,
+  const libxs_bfloat16* a,
   libxs_CSR_sparseslice* libxs_output_csr_a,
   int block_id,
   int tid, int nthreads)
@@ -289,8 +288,8 @@ void internal_spmdm_createSparseSlice_bfloat16_thread_sw(
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_bfloat16_thread_avx2(
   const libxs_spmdm_handle* handle,
-  char transA,
-  const uint16_t* A,
+  char transa,
+  const libxs_bfloat16* a,
   libxs_CSR_sparseslice* libxs_output_csr_a,
   int block_id,
   int tid, int nthreads)
@@ -300,7 +299,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_bfloat16_thread_avx
 # include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-  internal_spmdm_createSparseSlice_bfloat16_thread_sw(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
+  internal_spmdm_createSparseSlice_bfloat16_thread_sw(handle, transa, a, libxs_output_csr_a, block_id, tid, nthreads);
 #endif
 }
 
@@ -308,8 +307,8 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_bfloat16_thread_avx
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_bfloat16_thread_avx512_core(
   const libxs_spmdm_handle* handle,
-  char transA,
-  const uint16_t* A,
+  char transa,
+  const libxs_bfloat16* a,
   libxs_CSR_sparseslice* libxs_output_csr_a,
   int block_id,
   int tid, int nthreads)
@@ -319,7 +318,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_bfloat16_thread_avx
 # include "template/libxs_spmdm_createSparseSlice_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-  internal_spmdm_createSparseSlice_bfloat16_thread_avx2(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
+  internal_spmdm_createSparseSlice_bfloat16_thread_avx2(handle, transa, a, libxs_output_csr_a, block_id, tid, nthreads);
 #endif
 }
 
@@ -327,21 +326,21 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_createSparseSlice_bfloat16_thread_avx
 LIBXS_API
 void libxs_spmdm_createSparseSlice_bfloat16_thread(
   const libxs_spmdm_handle* handle,
-  char transA,
-  const uint16_t* A,
+  char transa,
+  const libxs_bfloat16* a,
   libxs_CSR_sparseslice* libxs_output_csr_a,
   int block_id,
   int tid, int nthreads)
 {
   /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
-  internal_spmdm_createSparseSlice_bfloat16_thread_avx512_core(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
+  internal_spmdm_createSparseSlice_bfloat16_thread_avx512_core(handle, transa, a, libxs_output_csr_a, block_id, tid, nthreads);
 #elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) && /* eventually no need for an indirect call */ \
       (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH)
-  internal_spmdm_createSparseSlice_bfloat16_thread_avx2(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
+  internal_spmdm_createSparseSlice_bfloat16_thread_avx2(handle, transa, a, libxs_output_csr_a, block_id, tid, nthreads);
 #else /* pointer based function call */
-  assert(0 != internal_spmdm_createSparseSlice_fp32_thread);
-  internal_spmdm_createSparseSlice_bfloat16_thread(handle, transA, A, libxs_output_csr_a, block_id, tid, nthreads);
+  LIBXS_ASSERT(0 != internal_spmdm_createSparseSlice_fp32_thread);
+  internal_spmdm_createSparseSlice_bfloat16_thread(handle, transa, a, libxs_output_csr_a, block_id, tid, nthreads);
 #endif
 }
 
@@ -349,14 +348,14 @@ void libxs_spmdm_createSparseSlice_bfloat16_thread(
 LIBXS_API_INLINE
 void internal_spmdm_compute_fp32_thread_sw(
   const libxs_spmdm_handle* handle,
-  char transA,
-  char transB,
+  char transa,
+  char transb,
   const float* alpha,
-  libxs_CSR_sparseslice* A_sparse,
-  const float* B,
-  char transC,
+  libxs_CSR_sparseslice* a_sparse,
+  const float* b,
+  char transc,
   const float* beta,
-  float* C,
+  float* c,
   int block_id,
   int tid, int nthreads)
 {
@@ -369,14 +368,14 @@ void internal_spmdm_compute_fp32_thread_sw(
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_fp32_thread_avx2(
   const libxs_spmdm_handle* handle,
-  char transA,
-  char transB,
+  char transa,
+  char transb,
   const float* alpha,
-  libxs_CSR_sparseslice* A_sparse,
-  const float* B,
-  char transC,
+  libxs_CSR_sparseslice* a_sparse,
+  const float* b,
+  char transc,
   const float* beta,
-  float* C,
+  float* c,
   int block_id,
   int tid, int nthreads)
 {
@@ -385,7 +384,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_fp32_thread_avx2(
 # include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-  internal_spmdm_compute_fp32_thread_sw(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
+  internal_spmdm_compute_fp32_thread_sw(handle, transa, transb, alpha, a_sparse, b, transc, beta, c, block_id, tid, nthreads);
 #endif
 }
 
@@ -393,14 +392,14 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_fp32_thread_avx2(
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_fp32_thread_avx512_core(
   const libxs_spmdm_handle* handle,
-  char transA,
-  char transB,
+  char transa,
+  char transb,
   const float* alpha,
-  libxs_CSR_sparseslice* A_sparse,
-  const float* B,
-  char transC,
+  libxs_CSR_sparseslice* a_sparse,
+  const float* b,
+  char transc,
   const float* beta,
-  float* C,
+  float* c,
   int block_id,
   int tid, int nthreads)
 {
@@ -409,7 +408,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_fp32_thread_avx512_core(
 # include "template/libxs_spmdm_compute_fp32_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-  internal_spmdm_compute_fp32_thread_avx2(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
+  internal_spmdm_compute_fp32_thread_avx2(handle, transa, transb, alpha, a_sparse, b, transc, beta, c, block_id, tid, nthreads);
 #endif
 }
 
@@ -417,26 +416,26 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_fp32_thread_avx512_core(
 LIBXS_API
 void libxs_spmdm_compute_fp32_thread(
   const libxs_spmdm_handle* handle,
-  char transA,
-  char transB,
+  char transa,
+  char transb,
   const float* alpha,
-  libxs_CSR_sparseslice* A_sparse,
-  const float* B,
-  char transC,
+  libxs_CSR_sparseslice* a_sparse,
+  const float* b,
+  char transc,
   const float* beta,
-  float* C,
+  float* c,
   int block_id,
   int tid, int nthreads)
 {
   /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
-  internal_spmdm_compute_fp32_thread_avx512_core(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
+  internal_spmdm_compute_fp32_thread_avx512_core(handle, transa, transb, alpha, a_sparse, b, transc, beta, c, block_id, tid, nthreads);
 #elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) && /* eventually no need for an indirect call */ \
       (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH)
-  internal_spmdm_compute_fp32_thread_avx2(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
+  internal_spmdm_compute_fp32_thread_avx2(handle, transa, transb, alpha, a_sparse, b, transc, beta, c, block_id, tid, nthreads);
 #else /* pointer based function call */
-  assert(0 != internal_spmdm_compute_fp32_thread);
-  internal_spmdm_compute_fp32_thread(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
+  LIBXS_ASSERT(0 != internal_spmdm_compute_fp32_thread);
+  internal_spmdm_compute_fp32_thread(handle, transa, transb, alpha, a_sparse, b, transc, beta, c, block_id, tid, nthreads);
 #endif
 }
 
@@ -444,14 +443,14 @@ void libxs_spmdm_compute_fp32_thread(
 LIBXS_API_INLINE
 void internal_spmdm_compute_bfloat16_thread_sw(
   const libxs_spmdm_handle* handle,
-  char transA,
-  char transB,
-  const uint16_t* alpha,
-  libxs_CSR_sparseslice* A_sparse,
-  const uint16_t* B,
-  char transC,
-  const uint16_t* beta,
-  float* C,
+  char transa,
+  char transb,
+  const libxs_bfloat16* alpha,
+  libxs_CSR_sparseslice* a_sparse,
+  const libxs_bfloat16* b,
+  char transc,
+  const libxs_bfloat16* beta,
+  float* c,
   int block_id,
   int tid, int nthreads)
 {
@@ -464,14 +463,14 @@ void internal_spmdm_compute_bfloat16_thread_sw(
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_bfloat16_thread_avx2(
   const libxs_spmdm_handle* handle,
-  char transA,
-  char transB,
-  const uint16_t* alpha,
-  libxs_CSR_sparseslice* A_sparse,
-  const uint16_t* B,
-  char transC,
-  const uint16_t* beta,
-  float* C,
+  char transa,
+  char transb,
+  const libxs_bfloat16* alpha,
+  libxs_CSR_sparseslice* a_sparse,
+  const libxs_bfloat16* b,
+  char transc,
+  const libxs_bfloat16* beta,
+  float* c,
   int block_id,
   int tid, int nthreads)
 {
@@ -480,7 +479,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_bfloat16_thread_avx2(
 # include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-  internal_spmdm_compute_bfloat16_thread_sw(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
+  internal_spmdm_compute_bfloat16_thread_sw(handle, transa, transb, alpha, a_sparse, b, transc, beta, c, block_id, tid, nthreads);
 #endif
 }
 
@@ -488,14 +487,14 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_bfloat16_thread_avx2(
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_bfloat16_thread_avx512_core(
   const libxs_spmdm_handle* handle,
-  char transA,
-  char transB,
-  const uint16_t* alpha,
-  libxs_CSR_sparseslice* A_sparse,
-  const uint16_t* B,
-  char transC,
-  const uint16_t* beta,
-  float* C,
+  char transa,
+  char transb,
+  const libxs_bfloat16* alpha,
+  libxs_CSR_sparseslice* a_sparse,
+  const libxs_bfloat16* b,
+  char transc,
+  const libxs_bfloat16* beta,
+  float* c,
   int block_id,
   int tid, int nthreads)
 {
@@ -504,7 +503,7 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_bfloat16_thread_avx512_core(
 # include "template/libxs_spmdm_compute_bfloat16_thread.tpl.c"
 # include "libxs_spmdm_end.h"
 #else
-  internal_spmdm_compute_bfloat16_thread_avx2(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
+  internal_spmdm_compute_bfloat16_thread_avx2(handle, transa, transb, alpha, a_sparse, b, transc, beta, c, block_id, tid, nthreads);
 #endif
 }
 
@@ -512,26 +511,26 @@ LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_compute_bfloat16_thread_avx512_core(
 LIBXS_API
 void libxs_spmdm_compute_bfloat16_thread(
   const libxs_spmdm_handle* handle,
-  char transA,
-  char transB,
-  const uint16_t* alpha,
-  libxs_CSR_sparseslice* A_sparse,
-  const uint16_t* B,
-  char transC,
-  const uint16_t* beta,
-  float* C,
+  char transa,
+  char transb,
+  const libxs_bfloat16* alpha,
+  libxs_CSR_sparseslice* a_sparse,
+  const libxs_bfloat16* b,
+  char transc,
+  const libxs_bfloat16* beta,
+  float* c,
   int block_id,
   int tid, int nthreads)
 {
   /* if highest implemented code path is statically present, no need for an indirect call (function pointer) */
 #if (LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH)
-  internal_spmdm_compute_bfloat16_thread_avx512_core(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
+  internal_spmdm_compute_bfloat16_thread_avx512_core(handle, transa, transb, alpha, a_sparse, b, transc, beta, c, block_id, tid, nthreads);
 #elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) && /* eventually no need for an indirect call */ \
       (LIBXS_STATIC_TARGET_ARCH == LIBXS_MAX_STATIC_TARGET_ARCH)
-  internal_spmdm_compute_bfloat16_thread_avx2(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
+  internal_spmdm_compute_bfloat16_thread_avx2(handle, transa, transb, alpha, a_sparse, b, transc, beta, c, block_id, tid, nthreads);
 #else /* pointer based function call */
-  assert(0 != internal_spmdm_compute_bfloat16_thread);
-  internal_spmdm_compute_bfloat16_thread(handle, transA, transB, alpha, A_sparse, B, transC, beta, C, block_id, tid, nthreads);
+  LIBXS_ASSERT(0 != internal_spmdm_compute_bfloat16_thread);
+  internal_spmdm_compute_bfloat16_thread(handle, transa, transb, alpha, a_sparse, b, transc, beta, c, block_id, tid, nthreads);
 #endif
 }
 
@@ -557,9 +556,7 @@ LIBXS_API void libxs_spmdm_init(int M, int N, int K, int max_threads,
   double avg_blocks_per_thread;
   double load_imbalance_1, load_imbalance_2, load_imbalance;
 
-  /* initialize internal library structures */
-  LIBXS_INIT
-
+  libxs_init(); /* !LIBXS_INIT */
   handle->m  = M;
   handle->n  = N;
   handle->k  = K;
@@ -621,23 +618,22 @@ LIBXS_API void libxs_spmdm_init(int M, int N, int K, int max_threads,
     load_imbalance        = load_imbalance_1 * load_imbalance_2;
   }
 
-  /* This is temporary space needed; allocate for each different size of A */
+  /* This is temporary space needed; allocate for each different size of a */
   internal_spmdm_allocate_csr_a(handle, libxs_output_csr);
   internal_spmdm_allocate_scratch(handle, max_threads);
 
   /* Initialize shuffle masks for the computation */
 #if defined(LIBXS_SPMDM_AVX)
-  if (LIBXS_X86_AVX <= libxs_target_archid) {
+  if (LIBXS_X86_AVX <= libxs_target_archid || LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH) {
     internal_spmdm_init_shufmask_avx();
+    LIBXS_ASSERT(0 != internal_spmdm_shufmasks_32);
+    LIBXS_ASSERT(0 != internal_spmdm_shufmasks_16);
   }
-  assert(0 != internal_spmdm_shufmasks_32);
-  assert(0 != internal_spmdm_shufmasks_16);
 #endif
-
   /* post-conditions */
-  assert(0 != internal_spmdm_createSparseSlice_fp32_thread);
-  assert(0 != internal_spmdm_createSparseSlice_bfloat16_thread);
-  assert(0 != internal_spmdm_compute_fp32_thread);
-  assert(0 != internal_spmdm_compute_bfloat16_thread);
+  LIBXS_ASSERT(0 != internal_spmdm_createSparseSlice_fp32_thread);
+  LIBXS_ASSERT(0 != internal_spmdm_createSparseSlice_bfloat16_thread);
+  LIBXS_ASSERT(0 != internal_spmdm_compute_fp32_thread);
+  LIBXS_ASSERT(0 != internal_spmdm_compute_bfloat16_thread);
 }
 

@@ -242,7 +242,7 @@ int main(int argc, char* argv[])
         const libxs_dmmfunction kernel = libxs_dmmdispatch(rnd[j].m, rnd[j].n, rnd[j].k,
           &rnd[j].m, &rnd[j].k, &rnd[j].m, &alpha, &beta, &flags, &prefetch);
 #endif
-        memset(&diff, 0, sizeof(diff));
+        libxs_matdiff_clear(&diff);
         if (NULL != kernel) {
 #if defined(mkl_jit_create_dgemm)
           kernel(jitter[j], a, b, c);

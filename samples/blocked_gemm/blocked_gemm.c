@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
   const libxs_blasint bm = (4 < argc ? atoi(argv[4]) : 32);
   const libxs_blasint bk = (6 < argc ? atoi(argv[6]) : bm);
   const libxs_blasint bn = (5 < argc ? atoi(argv[5]) : bk);
-  const libxs_bgemm_order order = (libxs_bgemm_order)(7 < argc ? atoi(argv[7]) : 0);
+  const libxs_blocked_gemm_order order = (libxs_blocked_gemm_order)(7 < argc ? atoi(argv[7]) : 0);
   const int nrepeat = (8 < argc ? atoi(argv[8]) : 100);
   const libxs_blasint b_m1 = (9 < argc ? atoi(argv[9]) : 1);
   const libxs_blasint b_n1  = (10 < argc ? atoi(argv[10]) : 1);
@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
     ITYPE* a = (ITYPE*)libxs_malloc((size_t)m * (size_t)k * sizeof(ITYPE));
     ITYPE* b = (ITYPE*)libxs_malloc((size_t)k * (size_t)n * sizeof(ITYPE));
     ITYPE* c = (ITYPE*)libxs_malloc((size_t)m * (size_t)n * sizeof(ITYPE));
-    libxs_bgemm_handle* handle = 0;
+    libxs_blocked_gemm_handle* handle = 0;
     unsigned long long start;
     double duration;
 #if defined(_OPENMP)
@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
 #else
     const int nthreads = 1;
 #endif
-    handle = libxs_bgemm_handle_create(nthreads,
+    handle = libxs_blocked_gemm_handle_create(nthreads,
       LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(ITYPE),
       m, n, k, &bm, &bn, &bk, &b_m1, &b_n1, &b_k1, &b_k2,
       &alpha, &beta, &gemm_flags, NULL/*auto-prefetch*/, &order);
@@ -125,14 +125,14 @@ int main(int argc, char* argv[])
       LIBXS_MATRNG_OMP(ITYPE, 42, agold, m, k, lda, 1.0);
       LIBXS_MATRNG_OMP(ITYPE, 24, bgold, k, n, ldb, 1.0);
       LIBXS_MATRNG_OMP(ITYPE,  0, cgold, m, n, ldc, 1.0);
-      libxs_bgemm_copyin_a(handle, agold, &lda, a);
-      libxs_bgemm_copyin_b(handle, bgold, &ldb, b);
-      libxs_bgemm_copyin_c(handle, cgold, &ldc, c);
+      libxs_blocked_gemm_copyin_a(handle, agold, &lda, a);
+      libxs_blocked_gemm_copyin_b(handle, bgold, &ldb, b);
+      libxs_blocked_gemm_copyin_c(handle, cgold, &ldc, c);
 #if defined(MKL_ENABLE_AVX512)
       mkl_enable_instructions(MKL_ENABLE_AVX512);
 #endif
       /* warm-up OpenMP (populate thread pool) */
-      libxs_bgemm_omp(handle, a, b, c, 1);
+      libxs_blocked_gemm_omp(handle, a, b, c, 1);
 #if defined(CHECK) && (!defined(__BLAS) || (0 != __BLAS))
       if (!LIBXS_FEQ(0, check)) {
         LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k, &alpha, agold, &lda, bgold, &ldb, &beta, cgold, &ldc);
@@ -144,7 +144,7 @@ int main(int argc, char* argv[])
       fprintf(stdout, "\n\n");
       }
       start = libxs_timer_tick();
-      libxs_bgemm_omp(handle, a, b, c, nrepeat);
+      libxs_blocked_gemm_omp(handle, a, b, c, nrepeat);
       duration = libxs_timer_duration(start, libxs_timer_tick());
       if (0 < duration) {
         if (ab) {
@@ -176,7 +176,7 @@ int main(int argc, char* argv[])
         ctest = (ITYPE*)libxs_malloc((size_t)ldc * n * sizeof(ITYPE));
         if (0 != ctest) {
           libxs_matdiff_info diff;
-          libxs_bgemm_copyout_c(handle, c, &ldc, ctest);
+          libxs_blocked_gemm_copyout_c(handle, c, &ldc, ctest);
           result = libxs_matdiff(&diff, LIBXS_DATATYPE(ITYPE), m, n, cgold, ctest, &ldc, &ldc);
           if (EXIT_SUCCESS == result) {
             fprintf(stdout, "\tdiff: L2abs=%f Linf=%f\n", diff.l2_abs, diff.linf_abs);
@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
         }
       }
 #endif
-      libxs_bgemm_handle_destroy(handle);
+      libxs_blocked_gemm_handle_destroy(handle);
     }
     else {
       fprintf(stderr, "FAILED to create BGEMM-handle! For details retry with LIBXS_VERBOSE=1.\n");

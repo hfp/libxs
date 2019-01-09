@@ -109,10 +109,10 @@ LIBXS_API void libxs_matcopy_thread_internal(void* out, const void* in, unsigned
   const int mtasks = (m + tm - 1) / tm;
   unsigned int m0, m1, n0, n1;
 
-  LIBXS_ASSERT_MSG(tid < nthreads && 0 < nthreads, "Invalid task setup!");
-  LIBXS_ASSERT_MSG(tm <= m && tn <= n, "Invalid problem size!");
-  LIBXS_ASSERT_MSG(0 < tm && 0 < tn, "Invalid tile size!");
-  LIBXS_ASSERT_MSG(typesize <= 255, "Invalid type-size!");
+  LIBXS_ASSERT_MSG(tid < nthreads && 0 < nthreads, "Invalid task setup");
+  LIBXS_ASSERT_MSG(tm <= m && tn <= n, "Invalid problem size");
+  LIBXS_ASSERT_MSG(0 < tm && 0 < tn, "Invalid tile size");
+  LIBXS_ASSERT_MSG(typesize <= 255, "Invalid type-size");
   LIBXS_ASSERT(0 < mtasks);
 
   if (nthreads <= mtasks) { /* parallelized over M */
@@ -128,8 +128,8 @@ LIBXS_API void libxs_matcopy_thread_internal(void* out, const void* in, unsigned
     n0 = LIBXS_MIN(ntid * nt, n); n1 = LIBXS_MIN(n0 + nt, n);
   }
 
-  LIBXS_ASSERT_MSG(m0 <= m1 && m1 <= m, "Invalid task size!");
-  LIBXS_ASSERT_MSG(n0 <= n1 && n1 <= n, "Invalid task size!");
+  LIBXS_ASSERT_MSG(m0 <= m1 && m1 <= m, "Invalid task size");
+  LIBXS_ASSERT_MSG(n0 <= n1 && n1 <= n, "Invalid task size");
 
   if (0 != prefetch && 0 != *prefetch) { /* prefetch */
     libxs_matcopy_internal_pf(out, in, typesize, ldi, ldo,
@@ -252,10 +252,10 @@ LIBXS_API void libxs_otrans_thread_internal(void* out, const void* in, unsigned 
   const int mtasks = (m + tm - 1) / tm;
   unsigned int m0, m1, n0, n1;
 
-  LIBXS_ASSERT_MSG(tid < nthreads && 0 < nthreads, "Invalid task setup!");
-  LIBXS_ASSERT_MSG(tm <= m && tn <= n, "Invalid problem size!");
-  LIBXS_ASSERT_MSG(0 < tm && 0 < tn, "Invalid tile size!");
-  LIBXS_ASSERT_MSG(typesize <= 255, "Invalid type-size!");
+  LIBXS_ASSERT_MSG(tid < nthreads && 0 < nthreads, "Invalid task setup");
+  LIBXS_ASSERT_MSG(tm <= m && tn <= n, "Invalid problem size");
+  LIBXS_ASSERT_MSG(0 < tm && 0 < tn, "Invalid tile size");
+  LIBXS_ASSERT_MSG(typesize <= 255, "Invalid type-size");
   LIBXS_ASSERT(0 < mtasks);
 
   if (nthreads <= mtasks) { /* parallelized over M */
@@ -271,8 +271,8 @@ LIBXS_API void libxs_otrans_thread_internal(void* out, const void* in, unsigned 
     n0 = LIBXS_MIN(ntid * nt, n); n1 = LIBXS_MIN(n0 + nt, n);
   }
 
-  LIBXS_ASSERT_MSG(m0 <= m1 && m1 <= m, "Invalid task size!");
-  LIBXS_ASSERT_MSG(n0 <= n1 && n1 <= n, "Invalid task size!");
+  LIBXS_ASSERT_MSG(m0 <= m1 && m1 <= m, "Invalid task size");
+  LIBXS_ASSERT_MSG(n0 <= n1 && n1 <= n, "Invalid task size");
 
   libxs_otrans_internal(out, in, typesize, ldi, ldo, m0, m1, n0, n1, tm, tn, kernel);
 }

@@ -267,7 +267,7 @@ NINDICES = $(words $(INDICES))
 
 HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
           $(ROOTDIR)/$(SRCDIR)/libxs_hash.c \
-          $(ROOTDIR)/include/libxs_bgemm.h \
+          $(ROOTDIR)/include/libxs_blocked_gemm.h \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \
           $(ROOTDIR)/include/libxs_dnn_fusedbatchnorm.h \
@@ -290,7 +290,7 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
 SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_main.c libxs_cpuid_x86.c libxs_malloc.c libxs_math.c libxs_sync.c \
           libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
-          libxs_gemm.c libxs_trans.c libxs_bgemm.c libxs_spmdm.c libxs_fsspmdm.c \
+          libxs_gemm.c libxs_trans.c libxs_blocked_gemm.c libxs_spmdm.c libxs_fsspmdm.c \
           libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c libxs_dnn_elementwise.c \
           libxs_dnn_rnncell.c libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c libxs_dnn_grucell.c \
           libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c libxs_dnn_fusedbatchnorm_backward.c \
@@ -314,11 +314,11 @@ KRNOBJS_HST  = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
 KRNOBJS_MIC  = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
 EXTOBJS_HST  = $(BLDDIR)/intel64/libxs_ext.o \
                $(BLDDIR)/intel64/libxs_ext_trans.o \
-               $(BLDDIR)/intel64/libxs_ext_bgemm.o \
+               $(BLDDIR)/intel64/libxs_ext_blocked_gemm.o \
                $(BLDDIR)/intel64/libxs_ext_gemm.o
 EXTOBJS_MIC  = $(BLDDIR)/mic/libxs_ext.o \
                $(BLDDIR)/mic/libxs_ext_trans.o \
-               $(BLDDIR)/mic/libxs_ext_bgemm.o \
+               $(BLDDIR)/mic/libxs_ext_blocked_gemm.o \
                $(BLDDIR)/mic/libxs_ext_gemm.o
 NOBLAS_HST   = $(BLDDIR)/intel64/libxs_noblas.o
 NOBLAS_MIC   = $(BLDDIR)/mic/libxs_noblas.o
@@ -575,7 +575,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(ROOTDIR)/$(SRCDIR)/template/l
 	@if [ -e $(ROOTDIR)/.github/install.sh ]; then \
 		$(ROOTDIR)/.github/install.sh; \
 	fi
-	@$(CP) $(ROOTDIR)/include/libxs_bgemm.h $(INCDIR) 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_blocked_gemm.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_cpuid.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_dnn_fusedbatchnorm.h $(INCDIR) 2>/dev/null || true
