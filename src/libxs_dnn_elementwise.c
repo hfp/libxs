@@ -583,13 +583,9 @@ LIBXS_API_INTERN void libxs_internal_matrix_complement_square_ld(libxs_blasint m
 LIBXS_API_INTERN void libxs_internal_compute_dcp_dci_di_df_dp_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, int timestep, int t, LIBXS_DNN_ELTWISE_FTYPE *dout, LIBXS_DNN_ELTWISE_FTYPE *dh, LIBXS_DNN_ELTWISE_FTYPE *o, LIBXS_DNN_ELTWISE_FTYPE *co, LIBXS_DNN_ELTWISE_FTYPE *dcs, LIBXS_DNN_ELTWISE_FTYPE *ii, LIBXS_DNN_ELTWISE_FTYPE *ci, LIBXS_DNN_ELTWISE_FTYPE *dci, LIBXS_DNN_ELTWISE_FTYPE *di, LIBXS_DNN_ELTWISE_FTYPE *cps, LIBXS_DNN_ELTWISE_FTYPE *f, LIBXS_DNN_ELTWISE_FTYPE *df, LIBXS_DNN_ELTWISE_FTYPE *dp, LIBXS_DNN_ELTWISE_FTYPE *dcp) {
 #if defined(LIBXS_INTRINSICS_AVX512) 
   libxs_blasint i, j;
-  const float neg_ones[16] = { -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0 };
-  const float ones[16]  = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
-
   __m512 _dout, _dh, _o, _t1, _t2, _co, _dcs, _dcp, _ii, _ci, _dci, _di, _cps, _f, _df, _dp;
-  __m512 _neg_ones = LIBXS_INTRINSICS_MM512_LOAD_PS( neg_ones );
-  __m512 _ones = LIBXS_INTRINSICS_MM512_LOAD_PS( ones );
-
+  const __m512 _neg_ones = _mm512_set1_ps( (float)-1.0 );    
+  const __m512 _ones = _mm512_set1_ps( (float)1.0 ); 
   if (timestep == t-1) {
     for ( j = 0; j < n; ++j ) {
       LIBXS_PRAGMA_UNROLL_N(4)
@@ -683,12 +679,9 @@ LIBXS_UNUSED(df);LIBXS_UNUSED(dp);LIBXS_UNUSED(dcp);
 LIBXS_API_INTERN void libxs_internal_compute_dcp_dci_di_df_dp_ld_and_reformat_dci_di_df_dp_ld2(libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_blasint ld2, int timestep, int t, LIBXS_DNN_ELTWISE_FTYPE *dout, LIBXS_DNN_ELTWISE_FTYPE *dh, LIBXS_DNN_ELTWISE_FTYPE *o, LIBXS_DNN_ELTWISE_FTYPE *co, LIBXS_DNN_ELTWISE_FTYPE *dcs, LIBXS_DNN_ELTWISE_FTYPE *ii, LIBXS_DNN_ELTWISE_FTYPE *ci, LIBXS_DNN_ELTWISE_FTYPE *dci, LIBXS_DNN_ELTWISE_FTYPE *di, LIBXS_DNN_ELTWISE_FTYPE *cps, LIBXS_DNN_ELTWISE_FTYPE *f, LIBXS_DNN_ELTWISE_FTYPE *df, LIBXS_DNN_ELTWISE_FTYPE *dp, LIBXS_DNN_ELTWISE_FTYPE *dcp, LIBXS_DNN_ELTWISE_FTYPE *dciB, LIBXS_DNN_ELTWISE_FTYPE *diB, LIBXS_DNN_ELTWISE_FTYPE *dfB, LIBXS_DNN_ELTWISE_FTYPE *dpB) {
 #if defined(LIBXS_INTRINSICS_AVX512) 
   libxs_blasint i, j;
-  const float neg_ones[16] = { -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0 };
-  const float ones[16]  = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
-
   __m512 _dout, _dh, _o, _t1, _t2, _co, _dcs, _dcp, _ii, _ci, _dci, _di, _cps, _f, _df, _dp;
-  __m512 _neg_ones = LIBXS_INTRINSICS_MM512_LOAD_PS( neg_ones );
-  __m512 _ones = LIBXS_INTRINSICS_MM512_LOAD_PS( ones );
+  const __m512 _neg_ones = _mm512_set1_ps( (float)-1.0 );    
+  const __m512 _ones = _mm512_set1_ps( (float)1.0 );    
 
   if (timestep == t-1) {
     for ( j = 0; j < n; ++j ) {
@@ -788,15 +781,30 @@ LIBXS_UNUSED(df);LIBXS_UNUSED(dp);LIBXS_UNUSED(dcp);
 #endif
 }
 
-
+#if defined(LIBXS_INTRINSICS_AVX512)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 _mm512_tanh_generic_ps( __m512 x ) {
+  int i;
+  LIBXS_DNN_ELTWISE_FTYPE _x[16];
+  _mm512_store_ps( _x, x );
+  LIBXS_PRAGMA_SIMD
+  for (i = 0; i < 16; i++) {
+    _x[i] = (LIBXS_DNN_ELTWISE_FTYPE) tanh((double) _x[i] ); 
+  }
+  __m512 result = _mm512_loadu_ps( _x );
+  return result;
+}
+#endif
 
 LIBXS_API_INTERN void libxs_internal_compute_o_i_f_ci_cs_co_h_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *f, LIBXS_DNN_ELTWISE_FTYPE *cps, LIBXS_DNN_ELTWISE_FTYPE *cs, LIBXS_DNN_ELTWISE_FTYPE *ii, LIBXS_DNN_ELTWISE_FTYPE *ci,LIBXS_DNN_ELTWISE_FTYPE *co, LIBXS_DNN_ELTWISE_FTYPE *o, LIBXS_DNN_ELTWISE_FTYPE *h) {
-#if defined(LIBXS_INTRINSICS_AVX512) 
+#if defined(LIBXS_INTRINSICS_AVX512)
+#if defined(LIBXS_INTEL_COMPILER)
+#define _MM512_TANH_PS(A) _mm512_tanh_ps(A)
+#else
+#define _MM512_TANH_PS(A) _mm512_tanh_generic_ps(A)
+#endif
   libxs_blasint i, j;
   __m512 _f, _cps, _cs, _ii, _ci, _co, _o, _h;
-  const float halves[16]  = { 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 };
-  __m512 _halves = LIBXS_INTRINSICS_MM512_LOAD_PS( halves );
-
+  const __m512 _halves = _mm512_set1_ps( (float)0.5 );    
     for ( j = 0; j < n; ++j ) {
        LIBXS_PRAGMA_UNROLL_N(4)
        for ( i = 0; i < m; i += 16 ) {
@@ -805,13 +813,13 @@ LIBXS_API_INTERN void libxs_internal_compute_o_i_f_ci_cs_co_h_ld(libxs_blasint m
         _ci = LIBXS_INTRINSICS_MM512_LOAD_PS( &ci[(j*ld)+i] );
         _f = LIBXS_INTRINSICS_MM512_LOAD_PS( &f[(j*ld)+i] );
         _cps = LIBXS_INTRINSICS_MM512_LOAD_PS( &cps[(j*ld)+i] );
-        _o = _mm512_fmadd_ps( _mm512_tanh_ps( _mm512_mul_ps( _o, _halves ) ), _halves, _halves);
-        _ii = _mm512_fmadd_ps( _mm512_tanh_ps( _mm512_mul_ps( _ii, _halves ) ), _halves, _halves);
-        _ci = _mm512_tanh_ps( _ci );
-        _f = _mm512_fmadd_ps( _mm512_tanh_ps( _mm512_mul_ps( _f, _halves ) ), _halves, _halves);
+        _o = _mm512_fmadd_ps( _MM512_TANH_PS( _mm512_mul_ps( _o, _halves ) ), _halves, _halves);
+        _ii = _mm512_fmadd_ps( _MM512_TANH_PS( _mm512_mul_ps( _ii, _halves ) ), _halves, _halves);
+        _ci = _MM512_TANH_PS( _ci );
+        _f = _mm512_fmadd_ps( _MM512_TANH_PS( _mm512_mul_ps( _f, _halves ) ), _halves, _halves);
         _cs = _mm512_mul_ps( _f, _cps );
         _cs = _mm512_fmadd_ps( _ii, _ci, _cs );
-        _co = _mm512_tanh_ps( _cs );
+        _co = _MM512_TANH_PS( _cs );
         _h = _mm512_mul_ps( _o, _co );
         _mm512_store_ps( &o[(j*ld)+i], _o );
         _mm512_store_ps( &ii[(j*ld)+i], _ii );
@@ -822,6 +830,7 @@ LIBXS_API_INTERN void libxs_internal_compute_o_i_f_ci_cs_co_h_ld(libxs_blasint m
         LIBXS_INTRINSICS_MM512_STREAM_PS( &h[(j*ld)+i], _h );
       }
   }
+#undef _MM512_TANH_PS
 #else
 LIBXS_UNUSED(m);LIBXS_UNUSED(n);LIBXS_UNUSED(ld);LIBXS_UNUSED(f);
 LIBXS_UNUSED(cps);LIBXS_UNUSED(cs);LIBXS_UNUSED(ii);LIBXS_UNUSED(ci);
