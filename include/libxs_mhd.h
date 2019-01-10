@@ -34,26 +34,47 @@
 
 /** Denotes the element/pixel type of an image/channel. */
 typedef enum libxs_mhd_elemtype {
-  LIBXS_MHD_ELEMTYPE_F64  = LIBXS_DATATYPE_F64,     /* MET_DOUBLE */
-  LIBXS_MHD_ELEMTYPE_F32  = LIBXS_DATATYPE_F32,     /* MET_FLOAT */
-  LIBXS_MHD_ELEMTYPE_I32  = LIBXS_DATATYPE_I32,     /* MET_INT */
-  LIBXS_MHD_ELEMTYPE_I16  = LIBXS_DATATYPE_I16,     /* MET_SHORT */
-  LIBXS_MHD_ELEMTYPE_U8   = LIBXS_DATATYPE_I8,      /* MET_UCHAR */
-  LIBXS_MHD_ELEMTYPE_I8,                              /* MET_CHAR */
-  LIBXS_MHD_ELEMTYPE_CHAR = LIBXS_MHD_ELEMTYPE_I8,  /* MET_CHAR */
-  LIBXS_MHD_ELEMTYPE_U16, LIBXS_MHD_ELEMTYPE_U32,   /* MET_USHORT, MET_UINT */
-  LIBXS_MHD_ELEMTYPE_U64, LIBXS_MHD_ELEMTYPE_I64,   /* MET_ULONG,  MET_LONG */
+  LIBXS_MHD_ELEMTYPE_F64  = LIBXS_DATATYPE_F64,         /* MET_DOUBLE */
+  LIBXS_MHD_ELEMTYPE_F32  = LIBXS_DATATYPE_F32,         /* MET_FLOAT */
+  LIBXS_MHD_ELEMTYPE_BF16 = LIBXS_DATATYPE_BF16,        /* MET_BFLOAT */
+  LIBXS_MHD_ELEMTYPE_I64  = LIBXS_DATATYPE_I64,         /* MET_LONG */
+  LIBXS_MHD_ELEMTYPE_I32  = LIBXS_DATATYPE_I32,         /* MET_INT */
+  LIBXS_MHD_ELEMTYPE_I16  = LIBXS_DATATYPE_I16,         /* MET_SHORT */
+  LIBXS_MHD_ELEMTYPE_I8   = LIBXS_DATATYPE_I8,          /* MET_CHAR */
+  LIBXS_MHD_ELEMTYPE_U64  = LIBXS_DATATYPE_UNSUPPORTED, /* MET_ULONG */
+  LIBXS_MHD_ELEMTYPE_U32, /* MET_UINT */
+  LIBXS_MHD_ELEMTYPE_U16, /* MET_USHORT */
+  LIBXS_MHD_ELEMTYPE_U8,  /* MET_UCHAR */
   LIBXS_MHD_ELEMTYPE_UNKNOWN
 } libxs_mhd_elemtype;
 
 
-/** Function type used for custom data-handler or element conversion. */
+/**
+ * Function type used for custom data-handler or element conversion.
+ * The value-range (src_min, src_max) may be used to scale values
+ * in case of a type-conversion.
+ */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE int (*libxs_mhd_element_handler)(
-  void* dst, libxs_mhd_elemtype dst_type,
-  const void* src, libxs_mhd_elemtype src_type);
+  void* dst, libxs_mhd_elemtype dst_type, libxs_mhd_elemtype src_type,
+  const void* src, const void* src_min, const void* src_max);
 
-/** Predefined function to check a buffer against file content. */
-LIBXS_API int libxs_mhd_element_comparison(void* dst, libxs_mhd_elemtype dst_type, const void* src, libxs_mhd_elemtype src_type);
+/**
+ * Predefined function to perform element data conversion.
+ * Scales source-values in case of non-NULL src_min and src_max,
+ * or otherwise clamps to the destination-type.
+ */
+LIBXS_API int libxs_mhd_element_conversion(
+  void* dst, libxs_mhd_elemtype dst_type, libxs_mhd_elemtype src_type,
+  const void* src, const void* src_min, const void* src_max);
+
+/**
+ * Predefined function to check a buffer against file content.
+ * In case of different types, libxs_mhd_element_conversion
+ * is performed to compare values using the source-type.
+ */
+LIBXS_API int libxs_mhd_element_comparison(
+  void* dst, libxs_mhd_elemtype dst_type, libxs_mhd_elemtype src_type,
+  const void* src, const void* src_min, const void* src_max);
 
 
 /** Returns the name and size of the element type; result may be NULL/0 in case of an unknown type. */
@@ -79,7 +100,7 @@ LIBXS_API int libxs_mhd_read_header(
   size_t* ndims,
   /* Image extents ("ndims" number of entries). */
   size_t size[],
-  /* Number of image components (channels). */
+  /* Number of interleaved image channels. */
   size_t* ncomponents,
   /* Type of the image elements (pixel type). */
   libxs_mhd_elemtype* type,
@@ -107,7 +128,7 @@ LIBXS_API int libxs_mhd_read(
   const size_t pitch[],
   /* Dimensionality (number of entries in size). */
   size_t ndims,
-  /* Number of image components (channels). */
+  /* Number of interleaved image channels. */
   size_t ncomponents,
   /* Used to skip the header, and to only read the data. */
   size_t header_size,

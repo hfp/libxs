@@ -33,6 +33,8 @@
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_custom(libxs_dnn_fullyconnected* handle, int start_thread, int tid);
 
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_ncnc_kcck(libxs_dnn_fullyconnected* handle, int start_thread, int tid);
+
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_nhwc(libxs_dnn_fullyconnected* handle, int start_thread, int tid);
 
 #endif /* LIBXS_DNN_FULLYCONNECTED_BACKWARD_H */

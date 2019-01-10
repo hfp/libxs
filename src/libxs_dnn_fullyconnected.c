@@ -670,7 +670,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullycon
         if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
           status = libxs_dnn_fullyconnected_st_fwd_custom( handle, start_thread, tid );
         } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK) ) {
-          status = libxs_dnn_fullyconnected_st_fwd_custom( handle, start_thread, tid );
+          status = libxs_dnn_fullyconnected_st_fwd_ncnc_kcck( handle, start_thread, tid );
         } else {
           status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
         }
@@ -679,7 +679,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullycon
         if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
           status = libxs_dnn_fullyconnected_st_bwd_custom( handle, start_thread, tid );
         } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK) ) {
-          status = libxs_dnn_fullyconnected_st_bwd_custom( handle, start_thread, tid );
+          status = libxs_dnn_fullyconnected_st_bwd_ncnc_kcck( handle, start_thread, tid );
         } else {
           status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
         }
@@ -688,7 +688,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullycon
         if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
           status = libxs_dnn_fullyconnected_st_upd_custom( handle, start_thread, tid );
         } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCNC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_KCCK) ) {
-          status = libxs_dnn_fullyconnected_st_upd_custom( handle, start_thread, tid );
+          status = libxs_dnn_fullyconnected_st_upd_ncnc_kcck( handle, start_thread, tid );
         } else {
           status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
         }

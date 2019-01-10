@@ -1119,6 +1119,7 @@ LIBXS_API_INTERN unsigned char libxs_typesize(libxs_datatype datatype)
     case LIBXS_DATATYPE_F64:  return 8;
     case LIBXS_DATATYPE_F32:  return 4;
     case LIBXS_DATATYPE_BF16: return 2;
+    case LIBXS_DATATYPE_I64:  return 8;
     case LIBXS_DATATYPE_I32:  return 4;
     case LIBXS_DATATYPE_I16:  return 2;
     case LIBXS_DATATYPE_I8:   return 1;
