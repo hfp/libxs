@@ -211,12 +211,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_ncnc_kcck(libxs_dnn_rn
   /* check if we have a kernel JITed */
   if ( handle->fwd_generic != 0 ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-#if 0
-      typedef float element_input_type;
-      typedef float element_output_type;
-      typedef float element_filter_type;
-# include "template/libxs_dnn_rnncell_st_rnn_fwd_ncnc_kcck_generic.tpl.c"
-#endif
+      status = libxs_dnn_rnncell_st_fwd_ncnc_kcck_f32_f32( handle, start_thread, tid);
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -249,12 +244,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck(libxs_dnn_rnnc
   /* check if we have a kernel JITed */
   if ( handle->fwd_generic != 0 ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-#if 0
-      typedef float element_input_type;
-      typedef float element_output_type;
-      typedef float element_filter_type;
-# include "template/libxs_dnn_rnncell_st_rnn_fwd_ncnc_kcck_generic.tpl.c"
-#endif
+      status = libxs_dnn_rnncell_st_fwd_nc_kcck_f32_f32( handle, start_thread, tid);
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
