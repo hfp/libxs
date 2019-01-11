@@ -796,12 +796,15 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_scratch(libxs_dnn_rnncell* h
       case LIBXS_DNN_RNNCELL_LSTM: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
-            /* forward only has no scratch need */
+            handle->scratch_w  = 0;
+            handle->scratch_r  = 0;
           } break;
           case LIBXS_DNN_COMPUTE_KIND_BWD:
           case LIBXS_DNN_COMPUTE_KIND_UPD:
           case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
           case LIBXS_DNN_COMPUTE_KIND_ALL: {
+            handle->scratch_w  = 0;
+            handle->scratch_r  = 0;                                 
             handle->scratch_wT = 0;
             handle->scratch_rT = 0;
             handle->scratch_xT = 0;
@@ -811,6 +814,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_scratch(libxs_dnn_rnncell* h
             handle->scratch_df = 0;
             handle->scratch_do = 0;
             handle->scratch_dci = 0;
+            handle->scratch_diB = 0;
+            handle->scratch_dfB = 0;
+            handle->scratch_dpB = 0;
+            handle->scratch_dciB = 0;
             handle->scratch_t1 = 0;
             handle->scratch_t2 = 0;
           } break;
