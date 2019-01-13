@@ -513,6 +513,22 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
 }
 
 
+LIBXS_API void* libxs_dnn_rnncell_get_scratch_ptr(const libxs_dnn_rnncell* handle, libxs_dnn_err_t* status)
+{
+  size_t size = 0;
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    return handle->scratch_base;
+  } else {
+    *status = LIBXS_DNN_ERR_INVALID_HANDLE;
+    return 0;
+  }
+
+  return 0;
+}
+
+
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind, const void* scratch)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -526,7 +542,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
       case LIBXS_DNN_RNNCELL_RNN_TANH: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
-            /* forward only has no scratch need */                                  
+            /* forward only has no scratch need */ 
           } break;
           case LIBXS_DNN_COMPUTE_KIND_BWD:
           case LIBXS_DNN_COMPUTE_KIND_UPD:
@@ -536,6 +552,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
               status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
               return status;
             }
+            handle->scratch_base = (void*)address; 
             /* wT */
             if (address % 64 == 0) {
               handle->scratch_wT = (void*)address;
@@ -585,6 +602,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
       case LIBXS_DNN_RNNCELL_LSTM: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
+            if (scratch == 0) {
+              status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
+              return status;
+            }
+            handle->scratch_base = (void*)address; 
             /* w scratch */
             if (address % 64 == 0) {
               handle->scratch_w = (void*)address;
@@ -611,6 +633,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
               status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
               return status;
             }
+            handle->scratch_base = (void*)address; 
             /* w scratch */
             if (address % 64 == 0) {
               handle->scratch_w = (void*)address;
@@ -888,6 +911,22 @@ LIBXS_API size_t libxs_dnn_rnncell_get_internalstate_size(const libxs_dnn_rnncel
   }
 
   return size;
+}
+
+
+LIBXS_API void* libxs_dnn_rnncell_get_internalstate_ptr(const libxs_dnn_rnncell* handle, libxs_dnn_err_t* status)
+{
+  size_t size = 0;
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    return handle->internal_z;
+  } else {
+    *status = LIBXS_DNN_ERR_INVALID_HANDLE;
+    return 0;
+  }
+
+  return 0;
 }
 
 
