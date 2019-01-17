@@ -312,6 +312,7 @@ libxs_matdiff_reduce
 libxs_matdiff_reduce_
 libxs_mcopy_descriptor_init
 libxs_mhd_element_comparison
+libxs_mhd_element_conversion
 libxs_mhd_read
 libxs_mhd_read_header
 libxs_mhd_typeinfo

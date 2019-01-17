@@ -1,6 +1,6 @@
 # Getting and Setting the Target Architecture
 
-This functionality is available for the C and Fortran interface. There are [ID based](https://github.com/hfp/libxs/blob/master/include/libxs_cpuid.h#L47) (same for C and Fortran) and string based functions to query the code path (as determined by the CPUID), or to set the code path regardless of the presented CPUID features. The latter may degrade performance (if a lower set of instruction set extensions is requested), which can be still useful for studying the performance impact of different instruction set extensions.  
+This functionality is available for the C and Fortran interface. There are [ID based](https://github.com/hfp/libxs/blob/master/include/libxs_cpuid.h#L47) (same for C and Fortran) and string based functions to query the code path (as determined by the CPUID), or to set the code path regardless of the presented CPUID features. The latter may degrade performance if a lower set of instruction set extensions is requested, which can be still useful for studying the performance impact of different instruction set extensions.  
 **NOTE**: There is no additional check performed if an unsupported instruction set extension is requested, and incompatible JIT-generated code may be executed (unknown instruction signaled).
 
 ```C
@@ -14,16 +14,15 @@ void libxs_set_target_arch(const char* arch);
 Available code paths (IDs and corresponding strings):
 
 * LIBXS_TARGET_ARCH_GENERIC: "**generic**", "none", "0"
-* LIBXS_X86_GENERIC: "**x86**", "sse2"
-* LIBXS_X86_SSE3: "**sse3**"
-* LIBXS_X86_SSE4: "**wsm**", "nhm", "sse", "sse4", "sse4_2", "sse4.2"
+* LIBXS_X86_GENERIC: "**x86**", "x64", "sse2"
+* LIBXS_X86_SSE3: "**sse3**", "sse", "ssse3", "ssse"
+* LIBXS_X86_SSE4: "**wsm**", "nhm", "sse4", "sse4_1", "sse4.1", "sse4_2", "sse4.2"
 * LIBXS_X86_AVX: "**snb**", "avx"
 * LIBXS_X86_AVX2: "**hsw**", "avx2"
-* LIBXS_X86_AVX512: "**avx3**", "avx512"
 * LIBXS_X86_AVX512_MIC: "**knl**", "mic"
 * LIBXS_X86_AVX512_KNM: "**knm**"
-* LIBXS_X86_AVX512_CORE: "**skx**", "skl"
-* LIBXS_X86_AVX512_ICL: "**icl**"
+* LIBXS_X86_AVX512_CORE: "**skx**", "skl", "avx3", "avx512"
+* LIBXS_X86_AVX512_ICL: "**icl**", "icx"
 
 The **bold** names are returned by `libxs_get_target_arch` whereas `libxs_set_target_arch` accepts all of the above strings (similar to the environment variable LIBXS_TARGET).
 
@@ -38,12 +37,15 @@ void libxs_set_verbosity(int level);
 
 ### Timer Facility
 
-Due to the performance oriented nature of LIBXS, timer-related functionality is available for the C and Fortran interface ([libxs_timer.h](https://github.com/hfp/libxs/blob/master/include/libxs_timer.h#L37) and [libxs.f](https://github.com/hfp/libxs/blob/master/src/template/libxs.f#L32)). The timer is used in many of the [code samples](https://github.com/hfp/libxs/tree/master/samples) to measure the duration of executing various code regions. The timer is based on monotonic clock tick, which uses a platform-specific resolution. The counter may rely on the time stamp counter instruction (RDTSC), but this is not necessarily counting CPU cycles due to varying CPU clock speed (Turbo Boost), different clock domains (e.g., depending on the instructions executed), and other reasons (which are out of scope in this context).
+Due to the performance oriented nature of LIBXS, timer-related functionality is available for the C and Fortran interface ([libxs_timer.h](https://github.com/hfp/libxs/blob/master/include/libxs_timer.h#L37) and [libxs.f](https://github.com/hfp/libxs/blob/master/src/template/libxs.f#L32)). The timer is used in many of the [code samples](https://github.com/hfp/libxs/tree/master/samples) to measure the duration of executing a region of the code. The timer is based on a monotonic clock tick, which uses a platform-specific resolution. The counter may rely on the time stamp counter instruction (RDTSC), which is not necessarily counting CPU cycles (reasons are out of scope in this context). However, `libxs_timer_cycles` delivers raw clock ticks (RDTSC).
 
 ```C
 typedef unsigned long long libxs_timer_tickint;
 libxs_timer_tickint libxs_timer_tick(void);
 double libxs_timer_duration(
+  libxs_timer_tickint tick0,
+  libxs_timer_tickint tick1);
+libxs_timer_tickint libxs_timer_cycles(
   libxs_timer_tickint tick0,
   libxs_timer_tickint tick1);
 ```

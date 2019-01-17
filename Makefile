@@ -246,20 +246,16 @@ else
   GENTARGET = noarch
 endif
 
-ifeq (0,$(STATIC))
-  ifneq (Darwin,$(UNAME))
-    GENGEMM = @$(ENV) \
-      LD_LIBRARY_PATH=$(OUTDIR):$${LD_LIBRARY_PATH} \
-      PATH=$(OUTDIR):$${PATH} \
-    $(BINDIR)/libxs_gemm_generator
-  else # osx
-    GENGEMM = @$(ENV) \
-      DYLD_LIBRARY_PATH=$(OUTDIR):$${DYLD_LIBRARY_PATH} \
-      PATH=$(OUTDIR):$${PATH} \
-    $(BINDIR)/libxs_gemm_generator
-  endif
-else
-  GENGEMM = $(BINDIR)/libxs_gemm_generator
+ifneq (Darwin,$(UNAME))
+  GENGEMM = @$(ENV) \
+    LD_LIBRARY_PATH=$(OUTDIR):$${LD_LIBRARY_PATH} \
+    PATH=$(OUTDIR):$${PATH} \
+  $(BINDIR)/libxs_gemm_generator
+else # osx
+  GENGEMM = @$(ENV) \
+    DYLD_LIBRARY_PATH=$(OUTDIR):$${DYLD_LIBRARY_PATH} \
+    PATH=$(OUTDIR):$${PATH} \
+  $(BINDIR)/libxs_gemm_generator
 endif
 
 INDICES ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
@@ -290,7 +286,7 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
 SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_main.c libxs_cpuid_x86.c libxs_malloc.c libxs_math.c libxs_sync.c \
           libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
-          libxs_gemm.c libxs_trans.c libxs_blocked_gemm.c libxs_spmdm.c libxs_fsspmdm.c \
+          libxs_gemm.c libxs_xcopy.c libxs_blocked_gemm.c libxs_spmdm.c libxs_fsspmdm.c \
           libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c libxs_dnn_elementwise.c \
           libxs_dnn_rnncell.c libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c libxs_dnn_grucell.c \
           libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c libxs_dnn_fusedbatchnorm_backward.c \
@@ -313,11 +309,11 @@ OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/%.o,$(basename $(notdir $(SRCFILES_LIB
 KRNOBJS_HST  = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
 KRNOBJS_MIC  = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
 EXTOBJS_HST  = $(BLDDIR)/intel64/libxs_ext.o \
-               $(BLDDIR)/intel64/libxs_ext_trans.o \
+               $(BLDDIR)/intel64/libxs_ext_xcopy.o \
                $(BLDDIR)/intel64/libxs_ext_blocked_gemm.o \
                $(BLDDIR)/intel64/libxs_ext_gemm.o
 EXTOBJS_MIC  = $(BLDDIR)/mic/libxs_ext.o \
-               $(BLDDIR)/mic/libxs_ext_trans.o \
+               $(BLDDIR)/mic/libxs_ext_xcopy.o \
                $(BLDDIR)/mic/libxs_ext_blocked_gemm.o \
                $(BLDDIR)/mic/libxs_ext_gemm.o
 NOBLAS_HST   = $(BLDDIR)/intel64/libxs_noblas.o
@@ -867,7 +863,8 @@ module: module_hst module_mic
 build_generator_lib: $(OUTDIR)/libxsgen.$(LIBEXT)
 $(OUTDIR)/libxsgen.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_GEN_LIB)
 ifeq (0,$(STATIC))
-	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_GEN_LIB) $(LDFLAGS) $(CLDFLAGS) $(LIBRT)
+	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(OBJFILES_GEN_LIB) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS) $(LIBRT)
 else # static
 	$(AR) -rs $@ $(OBJFILES_GEN_LIB)
 endif
@@ -875,11 +872,11 @@ endif
 .PHONY: generator
 generator: $(BINDIR)/libxs_gemm_generator $(BINDIR)/libxs_conv_generator $(BINDIR)/libxs_convwino_generator
 $(BINDIR)/libxs_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
-	$(LD) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(ILIBEXT)) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 $(BINDIR)/libxs_conv_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONV_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
-	$(LD) -o $@ $(OBJFILES_GEN_CONV_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_GEN_CONV_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(ILIBEXT)) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 $(BINDIR)/libxs_convwino_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONVWINO_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
-	$(LD) -o $@ $(OBJFILES_GEN_CONVWINO_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(OBJFILES_GEN_CONVWINO_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(ILIBEXT)) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 
 ifneq (,$(strip $(LIBJITPROFILING)))
 $(LIBJITPROFILING): $(BLDDIR)/jitprofiling/.make
@@ -917,7 +914,7 @@ flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/libxs.$(LIBEXT)
 	$(LIB_FLD) -mmic $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(IMPEXT)) $(LDFLAGS) $(FLDFLAGS)
+		$(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(LDFLAGS) $(FLDFLAGS)
 else # static
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/.make
 	$(AR) -rs $@ $(BLDDIR)/mic/libxs-mod.o
@@ -934,7 +931,7 @@ flib_hst: $(OUTDIR)/libxsf.pc
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
 	$(LIB_FLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(FLDFLAGS)
+		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(LDFLAGS) $(FLDFLAGS)
 else # static
 $(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
@@ -950,7 +947,7 @@ ext_mic: $(OUTDIR)/mic/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(LIBEXT)
 	$(LIB_LD) -mmic $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
+		$(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 else # static
 $(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC)
 	$(AR) -rs $@ $(EXTOBJS_MIC)
@@ -964,13 +961,13 @@ ifeq (0,$(STATIC))
 $(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/libxs.$(LIBEXT) $(EXTOBJS_HST)
 ifneq (Darwin,$(UNAME))
 	$(LIB_LD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
+		$(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 else ifneq (0,$(INTEL)) # intel @ osx
 	$(LIB_LD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-			$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
+			$(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 else # osx
-	$(LIB_LD)               $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-			$(EXTOBJS_HST)  $(call abslib,$(OUTDIR)/libxs.$(IMPEXT)) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+			$(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 endif
 else # static
 $(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST)
@@ -983,7 +980,8 @@ ifneq (0,$(MPSS))
 noblas_mic: $(OUTDIR)/mic/libxsnoblas.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsnoblas.$(LIBEXT): $(OUTDIR)/mic/.make $(NOBLAS_MIC)
-	$(LIB_LD) -mmic $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_MIC) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) -mmic $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(NOBLAS_MIC) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 else # static
 $(OUTDIR)/mic/libxsnoblas.$(LIBEXT): $(OUTDIR)/mic/.make $(NOBLAS_MIC)
 	$(AR) -rs $@ $(NOBLAS_MIC)
@@ -996,11 +994,14 @@ noblas_hst: $(OUTDIR)/libxsnoblas.$(LIBEXT)
 ifeq (0,$(STATIC))
 $(OUTDIR)/libxsnoblas.$(LIBEXT): $(OUTDIR)/.make $(NOBLAS_HST)
 ifneq (Darwin,$(UNAME))
-	$(LIB_LD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_HST) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(NOBLAS_HST) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 else ifneq (0,$(INTEL)) # intel @ osx
-	$(LIB_LD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_HST) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(NOBLAS_HST) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 else # osx
-	$(LIB_LD)               $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(NOBLAS_HST) $(LDFLAGS) $(CLDFLAGS)
+	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(NOBLAS_HST) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 endif
 else # static
 $(OUTDIR)/libxsnoblas.$(LIBEXT): $(OUTDIR)/.make $(NOBLAS_HST)
@@ -1027,11 +1028,11 @@ cp2k_mic: lib_mic
 
 .PHONY: wrap
 wrap: lib_hst
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/wrap "$(MAKE) --no-print-directory DEPSTATIC=$(STATIC) TRACE=0"
+	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/utilities/wrap "$(MAKE) --no-print-directory DEPSTATIC=$(STATIC) TRACE=0"
 
 .PHONY: wrap_mic
 wrap_mic: lib_mic
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/wrap "$(MAKE) --no-print-directory DEPSTATIC=$(STATIC) KNC=1 TRACE=0"
+	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/utilities/wrap "$(MAKE) --no-print-directory DEPSTATIC=$(STATIC) KNC=1 TRACE=0"
 
 .PHONY: nek
 nek: lib_hst
@@ -1067,7 +1068,7 @@ $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/$(SPLDIR)/cp2k/.make $(ROOTDI
 	@echo "#!/bin/sh" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
-	@echo "ECHO=\$$(which echo)" >> $@
+	@echo "ECHO=\$$(command -v echo)" >> $@
 	@echo "FILE=cp2k-perf.txt" >> $@
 ifneq (,$(strip $(INDICES)))
 	@echo "RUNS=\"$(INDICES)\"" >> $@
@@ -1112,7 +1113,7 @@ $(ROOTDIR)/$(SPLDIR)/smm/smmf-perf.sh: $(ROOTDIR)/$(SPLDIR)/smm/.make $(ROOTDIR)
 	@echo "#!/bin/sh" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
-	@echo "ECHO=\$$(which echo)" >> $@
+	@echo "ECHO=\$$(command -v echo)" >> $@
 	@echo "FILE=\$${HERE}/smmf-perf.txt" >> $@
 ifneq (,$(strip $(INDICES)))
 	@echo "RUNS=\"$(INDICES)\"" >> $@
@@ -1151,7 +1152,7 @@ $(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.sh: $(ROOTDIR)/$(SPLDIR)/nek/.make $(ROOTDIR)
 	@echo "#!/bin/sh" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
-	@echo "ECHO=\$$(which echo)" >> $@
+	@echo "ECHO=\$$(command -v echo)" >> $@
 	@echo "FILE=\$${HERE}/axhm-perf.txt" >> $@
 ifneq (,$(strip $(INDICES)))
 	@echo "RUNS=\"$(INDICES)\"" >> $@
@@ -1190,7 +1191,7 @@ $(ROOTDIR)/$(SPLDIR)/nek/grad-perf.sh: $(ROOTDIR)/$(SPLDIR)/nek/.make $(ROOTDIR)
 	@echo "#!/bin/sh" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
-	@echo "ECHO=\$$(which echo)" >> $@
+	@echo "ECHO=\$$(command -v echo)" >> $@
 	@echo "FILE=\$${HERE}/grad-perf.txt" >> $@
 ifneq (,$(strip $(INDICES)))
 	@echo "RUNS=\"$(INDICES)\"" >> $@
@@ -1229,7 +1230,7 @@ $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.sh: $(ROOTDIR)/$(SPLDIR)/nek/.make $(ROOTDIR)
 	@echo "#!/bin/sh" > $@
 	@echo >> $@
 	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
-	@echo "ECHO=\$$(which echo)" >> $@
+	@echo "ECHO=\$$(command -v echo)" >> $@
 	@echo "FILE=\$${HERE}/rstr-perf.txt" >> $@
 ifneq (,$(strip $(INDICES)))
 	@echo "RUNS=\"$(INDICES)\"" >> $@
@@ -1315,7 +1316,7 @@ $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.txt: $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh 
 
 .PHONY: test-wrap
 test-wrap: wrap
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/wrap "$(MAKE) --no-print-directory DEPSTATIC=$(STATIC) TRACE=0 test"
+	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/utilities/wrap "$(MAKE) --no-print-directory DEPSTATIC=$(STATIC) TRACE=0 test"
 
 .PHONY: test-smm
 ifneq (,$(strip $(FC)))
@@ -1407,8 +1408,8 @@ $(ROOTDIR)/documentation/libxs_prof.md $(ROOTDIR)/documentation/libxs_tune.md $(
 		-o $(notdir $@)
 	@rm $(TMPFILE)
 
-$(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md $(ROOTDIR)/$(SPLDIR)/deeplearning/*/README.md
-	@cat $(ROOTDIR)/$(SPLDIR)/*/README.md $(ROOTDIR)/$(SPLDIR)/deeplearning/*/README.md \
+$(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md $(ROOTDIR)/$(SPLDIR)/deeplearning/*/README.md $(ROOTDIR)/$(SPLDIR)/packed/*/README.md
+	@cat $(ROOTDIR)/$(SPLDIR)/*/README.md $(ROOTDIR)/$(SPLDIR)/deeplearning/*/README.md $(ROOTDIR)/$(SPLDIR)/packed/*/README.md \
 	| sed \
 		-e 's/^#/##/' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
@@ -1582,12 +1583,12 @@ endif
 .PHONY: clean-all
 clean-all: clean
 	@find $(ROOTDIR) -type f -name Makefile -exec $(FLOCK) {} \
-		"$(MAKE) --no-print-directory clean 2>/dev/null || true" \;
+		"$(MAKE) --no-print-directory clean" \; 2>/dev/null || true
 
 .PHONY: realclean-all
 realclean-all: realclean
 	@find $(ROOTDIR) -type f -name Makefile -exec $(FLOCK) {} \
-		"$(MAKE) --no-print-directory realclean 2>/dev/null || true" \;
+		"$(MAKE) --no-print-directory realclean" \; 2>/dev/null || true
 
 .PHONY: distclean
 distclean: realclean-all
@@ -1795,7 +1796,7 @@ endif
 
 .PHONY: deb
 deb:
-	@if [ "" != "$$(which git)" ]; then \
+	@if [ "" != "$$(command -v git)" ]; then \
 		VERSION_ARCHIVE=$$(git describe --tags --abbrev=0 2>/dev/null); \
 		VERSION_ARCHIVE_SONAME=$$($(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 0 $${VERSION_ARCHIVE}); \
 	fi; \

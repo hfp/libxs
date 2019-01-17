@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #############################################################################
 # Copyright (c) 2015-2019, Intel Corporation                                #
 # All rights reserved.                                                      #
@@ -29,73 +29,59 @@
 #############################################################################
 
 HERE=$(cd $(dirname $0); pwd -P)
-DEPDIR=${HERE}/../..
-
-TMPF=$(${DEPDIR}/.mktmp.sh /tmp/.libxs_XXXXXX.out)
-UNAME=$(command -v uname)
+NAME=$(basename $0 .sh)
 ECHO=$(command -v echo)
 GREP=$(command -v grep)
-SORT=$(command -v sort)
-RM=$(command -v rm)
+ENV=$(command -v env)
 
-if [ "Darwin" != "$(${UNAME})" ]; then
-  LIBEXT=so
+if [ "Windows_NT" = "${OS}" ]; then
+  # Cygwin's "env" does not set PATH ("Files/Black: No such file or directory")
+  export PATH=${PATH}:${HERE}/../../lib:/usr/x86_64-w64-mingw32/sys-root/mingw/bin
+  # Cygwin's ldd hangs with dyn. linked executables or certain shared libraries
+  LDD=$(command -v cygcheck)
+  EXE=.exe
 else
-  LIBEXT=dylib
-fi
-
-if [ -e ${HERE}/dgemm-blas ]; then
-  ${ECHO} "============================="
-  ${ECHO} "Running DGEMM (ORIGINAL BLAS)"
-  ${ECHO} "============================="
-  { time ${HERE}/dgemm-blas.sh "$@" 2>${TMPF}; } 2>&1 | ${GREP} real
-  RESULT=$?
-  if [ 0 != ${RESULT} ]; then
-    ${ECHO} -n "FAILED(${RESULT}) "; ${SORT} -u ${TMPF}
-    ${RM} -f ${TMPF}
-    exit ${RESULT}
+  if [ "" != "$(command -v ldd)" ]; then
+    LDD=ldd
+  elif [ "" != "$(command -v otool)" ]; then
+    LDD="otool -L"
   else
-    ${ECHO} -n "OK "; ${SORT} -u ${TMPF}
-  fi
-  ${ECHO}
-
-  if [ -e ${DEPDIR}/lib/libxsext.${LIBEXT} ]; then
-    ${ECHO}
-    ${ECHO} "============================="
-    ${ECHO} "Running DGEMM (LD_PRELOAD)"
-    ${ECHO} "============================="
-    { time \
-      LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${DEPDIR}/lib/libxsext.${LIBEXT} \
-      DYLD_LIBRARY_PATH=${DEPDIR}/lib:${DYLD_LIBRARY_PATH} DYLD_INSERT_LIBRARIES=${DEPDIR}/lib/libxsext.${LIBEXT} \
-      ${HERE}/dgemm-blas.sh "$@" 2>${TMPF}; } 2>&1 | ${GREP} real
-    RESULT=$?
-    if [ 0 != ${RESULT} ]; then
-      ${ECHO} -n "FAILED(${RESULT}) "; ${SORT} -u ${TMPF}
-      ${RM} -f ${TMPF}
-      exit ${RESULT}
-    else
-      ${ECHO} -n "OK "; ${SORT} -u ${TMPF}
-    fi
-    ${ECHO}
+    LDD=${ECHO}
   fi
 fi
 
-if [ -e ${HERE}/dgemm-wrap ]; then
-  ${ECHO}
-  ${ECHO} "============================="
-  ${ECHO} "Running DGEMM (STATIC WRAP)"
-  ${ECHO} "============================="
-  { time ${HERE}/dgemm-wrap.sh "$@" 2>${TMPF}; } 2>&1 | ${GREP} real
-  RESULT=$?
-  if [ 0 != ${RESULT} ]; then
-    ${ECHO} -n "FAILED(${RESULT}) "; ${SORT} -u ${TMPF}
-    ${RM} -f ${TMPF}
-    exit ${RESULT}
+MICINFO=$(command -v micinfo 2>/dev/null)
+if [ "" != "${MICINFO}" ]; then
+  MICCORES=$(${MICINFO} 2>/dev/null | sed -n "0,/\s\+Total No of Active Cores :\s\+\([0-9]\+\)/s//\1/p")
+fi
+if [ "" = "${MICCORES}" ]; then
+  MICCORES=61
+fi
+MICTPERC=3
+
+if [ "-mic" != "$1" ]; then
+  if [ "" != "$(${LDD} ${HERE}/${NAME}${EXE} 2>/dev/null | ${GREP} libiomp5\.)" ]; then
+    ${ENV} LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${HERE}/../../lib \
+      DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH}:${HERE}/../../lib \
+      KMP_AFFINITY=compact,granularity=fine,1 \
+      MIC_KMP_AFFINITY=compact,granularity=fine \
+      MIC_KMP_HW_SUBSET=$((MICCORES-1))c${MICTPERC}t \
+      MIC_ENV_PREFIX=MIC \
+      OFFLOAD_INIT=on_start \
+    ${TOOL_COMMAND} ${HERE}/${NAME}${EXE} "$@"
   else
-    ${ECHO} -n "OK "; ${SORT} -u ${TMPF}
+    ${ENV} LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${HERE}/../../lib \
+      DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH}:${HERE}/../../lib \
+      OMP_PROC_BIND=TRUE \
+    ${TOOL_COMMAND} ${HERE}/${NAME}${EXE} "$@"
   fi
-  ${ECHO}
+else
+  shift
+  ${ENV} \
+    SINK_LD_LIBRARY_PATH=${SINK_LD_LIBRARY_PATH}:${MIC_LD_LIBRARY_PATH}:${HERE}/../../lib \
+  micnativeloadex \
+    ${HERE}/${NAME}${EXE} -a "$*" \
+    -e "KMP_AFFINITY=compact,granularity=fine" \
+    -e "MIC_KMP_HW_SUBSET=$((MICCORES-1))${MICTPERC}t"
 fi
-
-${RM} -f ${TMPF}
 

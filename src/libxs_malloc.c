@@ -876,8 +876,8 @@ LIBXS_API_INTERN int libxs_xfree(const void* memory)
              && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
             {
               const char *const error_message = strerror(errno);
-              fprintf(stderr, "LIBXS ERROR: %s (munmap error #%i for range %p+%llu)!\n",
-                error_message, errno, buffer, (unsigned long long)alloc_size);
+              fprintf(stderr, "LIBXS ERROR: %s (munmap error #%i for range %p+%" PRIuPTR ")!\n",
+                error_message, errno, buffer, (uintptr_t)alloc_size);
             }
             result = EXIT_FAILURE;
           }
@@ -889,8 +889,8 @@ LIBXS_API_INTERN int libxs_xfree(const void* memory)
              && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
             {
               const char *const error_message = strerror(errno);
-              fprintf(stderr, "LIBXS ERROR: %s (munmap error #%i for range %p+%llu)!\n",
-                error_message, errno, reloc, (unsigned long long)alloc_size);
+              fprintf(stderr, "LIBXS ERROR: %s (munmap error #%i for range %p+%" PRIuPTR ")!\n",
+                error_message, errno, reloc, (uintptr_t)alloc_size);
             }
             result = EXIT_FAILURE;
           }
