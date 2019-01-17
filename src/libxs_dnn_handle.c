@@ -88,8 +88,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
   handle->use_bwd_generic = 1;
   handle->use_upd_generic = 1;
 
-  /* If we have AVX512 and kernel streams is enabled, then we generate specialized code */
-  if ( LIBXS_X86_AVX512 <= libxs_target_archid ) {
+  /* If we have AVX512 and kernel streams is enabled, and we use libxs's custom format, then we generate specialized code */
+  if ( (LIBXS_X86_AVX512 <= libxs_target_archid)                &&
+       (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) &&
+       (handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)    ) {
     /* This is basically a decision pertaining for all three passes: FWD, BWD and UPD */
     /* Initialize fields that control layer fusion */
     noarch = 0;
@@ -106,22 +108,20 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       return status;
     }
 
-    /* lets check if we actually want to setup kernel streams */
-    if ( ( 0 >= (handle->desc.fuse_ops & LIBXS_DNN_CONV_FUSE_BIAS) )
-         && (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS)
-         && (handle->filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
-      /* Forward path setup */
+    /* only continue if we could block data in LIBXS's custom format, otherwise use generic code */
+    if ( noarch == 0 ) {
+      /* Forward path setup, @TODO check status */
       status = libxs_dnn_setup_fwd(handle, &noarch);
 
-      /* Backward path setup */
+      /* Backward path setup, @TODO check status */
       status = libxs_dnn_setup_bwd(handle, &noarch);
 
-      /* Weight update path setup */
+      /* Weight update path setup, @TODO check status */
       status = libxs_dnn_setup_upd(handle, &noarch);
-    }
 
-    /* Calculate scratch requirements */
-    libxs_dnn_setup_scratch(handle);
+      /* Calculate scratch requirements */
+      libxs_dnn_setup_scratch(handle);
+    }
   }
 
   if (0 != noarch) { /* Setup generic code generation */

@@ -363,11 +363,21 @@
 #define LIBXS_SQRT2(N) (0 < (N) ? ((unsigned int)(1ULL << (LIBXS_LOG2(((N) << 1) - 1) >> 1))) : 0)
 #define LIBXS_HASH2(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
 #define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
-/** Compares floating point values but avoids warning about unreliable comparison. */
-#define LIBXS_NOTNAN(A) (LIBXS_NEQ(0, (A) - (A)) || 0 == ((int)((A) - (A))))
-#define LIBXS_ISNAN(A)  (!LIBXS_NOTNAN(A))
-#define LIBXS_NEQ(A, B) ((A) != (B))
 #define LIBXS_FEQ(A, B) ((A) == (B))
+#define LIBXS_NEQ(A, B) ((A) != (B))
+#define LIBXS_ISNAN(A)  LIBXS_NEQ(A, A)
+#define LIBXS_NOTNAN(A) LIBXS_FEQ(A, A)
+#if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
+# define LIBXS_ROUND(A) round(A)
+# define LIBXS_ROUNDF(A) roundf(A)
+# define LIBXS_FREXPF(A, B) frexpf(A, B)
+# define LIBXS_POWF(A, B) powf(A, B)
+#else
+# define LIBXS_ROUND(A) ((double)((long long)(0 < (A) ? ((double)(A) + 0.5) : ((double)(A) - 0.5))))
+# define LIBXS_ROUNDF(A) ((float)((long long)(0 < (A) ? ((float)(A) + 0.5f) : ((float)(A) - 0.5f))))
+# define LIBXS_FREXPF(A, B) ((float)frexp((double)(A), B))
+# define LIBXS_POWF(A, B) ((float)pow((double)(A), (double)(B)))
+#endif
 
 #if defined(LIBXS_INTEL_COMPILER)
 # if (1600 <= LIBXS_INTEL_COMPILER)

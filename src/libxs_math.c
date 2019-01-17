@@ -118,22 +118,32 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
     LIBXS_ASSERT(info->m < mm && info->n < nn);
     if (EXIT_SUCCESS == result) {
       const char *const env = getenv("LIBXS_DUMP");
-      if (0 != env && 0 != *env && '0' != *env && ('-' != *env || (0 <= info->m && 0 <= info->n))) {
-        const char *const defaultname = (('0' < *env && '9' >= *env) || '-' == *env) ? "libxs_dump" : env;
-        const libxs_mhd_elemtype type_src = (libxs_mhd_elemtype)datatype;
-        const libxs_mhd_elemtype type_dst = LIBXS_MAX(LIBXS_MHD_ELEMTYPE_U8, type_src);
-        char filename[256];
-        size_t size[2], pr[2]; size[0] = (size_t)mm; size[1] = (size_t)nn; pr[0] = (size_t)ldr; pr[1] = (size_t)nn;
-        LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-ref.mhd", defaultname, ref);
-        libxs_mhd_write(filename, NULL/*offset*/, size, pr, 2/*ndims*/, 1/*ncomponents*/,
-          type_src, &type_dst, ref, NULL/*header_size*/, NULL/*extension_header*/,
-          NULL/*extension*/, 0/*extension_size*/);
-        if (NULL != tst) {
-          size_t pt[2]; pt[0] = (size_t)ldt; pt[1] = (size_t)nn;
-          LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-tst.mhd", defaultname, ref/*adopt ref-ptr*/);
-          libxs_mhd_write(filename, NULL/*offset*/, size, pt, 2/*ndims*/, 1/*ncomponents*/,
-            type_src, &type_dst, tst, NULL/*header_size*/, NULL/*extension_header*/,
+      if (0 != env && 0 != *env && '0' != *env) {
+        if ('-' != *env || (0 <= info->m && 0 <= info->n)) {
+          const char *const defaultname = (('0' < *env && '9' >= *env) || '-' == *env) ? "libxs_dump" : env;
+          const libxs_mhd_elemtype type_src = (libxs_mhd_elemtype)datatype;
+          const libxs_mhd_elemtype type_dst = LIBXS_MIN(LIBXS_MHD_ELEMTYPE_F32, type_src);
+          char filename[256];
+          size_t size[2], pr[2]; size[0] = (size_t)mm; size[1] = (size_t)nn; pr[0] = (size_t)ldr; pr[1] = (size_t)nn;
+          LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-ref.mhd", defaultname, ref);
+          libxs_mhd_write(filename, NULL/*offset*/, size, pr, 2/*ndims*/, 1/*ncomponents*/,
+            type_src, &type_dst, ref, NULL/*header_size*/, NULL/*extension_header*/,
             NULL/*extension*/, 0/*extension_size*/);
+          if (NULL != tst) {
+            size_t pt[2]; pt[0] = (size_t)ldt; pt[1] = (size_t)nn;
+            LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-tst.mhd", defaultname, ref/*adopt ref-ptr*/);
+            libxs_mhd_write(filename, NULL/*offset*/, size, pt, 2/*ndims*/, 1/*ncomponents*/,
+              type_src, &type_dst, tst, NULL/*header_size*/, NULL/*extension_header*/,
+              NULL/*extension*/, 0/*extension_size*/);
+            if ('-' == *env && '1' < env[1]) {
+              printf("LIBXS MATDIFF (%s): m=%i n=%i ldi=%i ldo=%i failed.\n",
+                libxs_typename(datatype), m, n, ldr, ldt);
+            }
+          }
+        }
+        else if ('-' == *env && '1' < env[1] && NULL != tst) {
+          printf("LIBXS MATDIFF (%s): m=%i n=%i ldi=%i ldo=%i passed.\n",
+            libxs_typename(datatype), m, n, ldr, ldt);
         }
       }
       if (0 == result_nan) {
@@ -496,7 +506,7 @@ LIBXS_API float libxs_sexp2(float x)
 #if defined(LIBXS_NO_LIBM)
   return libxs_sexp2_fast(x, 20/*compromise*/);
 #else
-  return powf(2.f, x);
+  return LIBXS_POWF(2.f, x);
 #endif
 }
 

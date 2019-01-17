@@ -199,16 +199,17 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
   int lp_block;
   int ifmblock_hp;
   int ofmblock_lp;
+  LIBXS_UNUSED(K);
 
   if ( (datatype_in == LIBXS_DNN_DATATYPE_F32) && (datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
     ifmblock = (C >=16) ? 16 : C;
-    ofmblock = (K >=16) ? 16 : K;
+    ofmblock = 16;
     lp_block = 1;
     ifmblock_hp = ifmblock * lp_block;
     ofmblock_lp = ofmblock / lp_block;
   } else if ( (datatype_in == LIBXS_DNN_DATATYPE_BF16) && (datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
     ifmblock = (C >=16) ? 8 : C/2;
-    ofmblock = (K >=16) ? 16 : K/2;
+    ofmblock = 16;
     lp_block = 2;
     if (C == 3) {
       ifmblock = C;
@@ -218,7 +219,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
     ofmblock_lp = ofmblock / lp_block;
   } else if ( (datatype_in == LIBXS_DNN_DATATYPE_I16) && ((datatype_out == LIBXS_DNN_DATATYPE_I32) || (datatype_out == LIBXS_DNN_DATATYPE_F32)) ) {
     ifmblock = (C >=16) ? 8 : (C/2);
-    ofmblock = (K >=16) ? 16 : (K/2);
+    ofmblock = 16;
     lp_block = 2;
     ifmblock_hp = ifmblock * lp_block;
     ofmblock_lp = ofmblock / lp_block;
@@ -227,7 +228,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
     }
   } else if ( (datatype_in == LIBXS_DNN_DATATYPE_I8) && (datatype_out == LIBXS_DNN_DATATYPE_I32)) {
     ifmblock = (C >=16) ? 4 : (C/4);
-    ofmblock = (K >=16) ? 16 : (K/4);
+    ofmblock = 16;
     lp_block = 4;
     ifmblock_hp = ifmblock * lp_block;
     ofmblock_lp = ofmblock / lp_block;
