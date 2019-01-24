@@ -81,8 +81,9 @@
 
 #if defined(__cplusplus)
 # define LIBXS_VARIADIC ...
-# define LIBXS_EXTERN extern "C"
-# define LIBXS_EXTERN_C LIBXS_EXTERN
+# define LIBXS_EXTERN_KEYWORD extern "C"
+# define LIBXS_EXTERN LIBXS_EXTERN_KEYWORD
+# define LIBXS_EXTERN_C LIBXS_EXTERN_KEYWORD
 # define LIBXS_INLINE_KEYWORD inline
 # define LIBXS_INLINE LIBXS_INLINE_KEYWORD
 # if defined(__GNUC__)
@@ -95,7 +96,8 @@
 # endif
 #else
 # define LIBXS_VARIADIC
-# define LIBXS_EXTERN extern
+# define LIBXS_EXTERN_KEYWORD extern
+# define LIBXS_EXTERN LIBXS_EXTERN_KEYWORD
 # define LIBXS_EXTERN_C
 # if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
 #   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
@@ -166,22 +168,13 @@
 #if !defined(__STATIC) && !defined(_WINDLL) && !defined(__MINGW32__) && (defined(_WIN32) || defined(__CYGWIN__))
 # define __STATIC
 #endif
-#if !defined(__STATIC) && (defined(_WIN32) || defined(__CYGWIN__)) /* Dynamic Link Library (DLL) */
-# define LIBXS_VISIBILITY_EXPORT LIBXS_ATTRIBUTE(dllexport)
-# define LIBXS_VISIBILITY_IMPORT LIBXS_ATTRIBUTE(dllimport)
-#endif
 
-#if !defined(LIBXS_VISIBILITY_EXPORT) && !defined(LIBXS_VISIBILITY_IMPORT)
 /* may include Clang and other compatible compilers */
-# if defined(__GNUC__) && !defined(_WIN32) && !defined(__CYGWIN__)
-#   define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
-#   define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
-#   define LIBXS_VISIBILITY_PUBLIC LIBXS_ATTRIBUTE(visibility("default"))
-# endif
-# define LIBXS_VISIBILITY_EXPORT LIBXS_VISIBILITY_PUBLIC
-# define LIBXS_VISIBILITY_IMPORT LIBXS_EXTERN LIBXS_VISIBILITY_PUBLIC
+#if defined(__GNUC__) && !defined(_WIN32) && !defined(__CYGWIN__)
+# define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
+# define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
+# define LIBXS_VISIBILITY_PUBLIC LIBXS_ATTRIBUTE(visibility("default"))
 #endif
-
 #if !defined(LIBXS_VISIBILITY_INTERNAL)
 # define LIBXS_VISIBILITY_INTERNAL
 #endif
@@ -193,6 +186,18 @@
 #endif
 #if !defined(LIBXS_VISIBILITY_PRIVATE)
 # define LIBXS_VISIBILITY_PRIVATE LIBXS_VISIBILITY_HIDDEN
+#endif
+
+/* Windows Dynamic Link Library (DLL) */
+#if !defined(__STATIC) && (defined(_WIN32) || defined(__CYGWIN__))
+# define LIBXS_VISIBILITY_EXPORT LIBXS_ATTRIBUTE(dllexport)
+# define LIBXS_VISIBILITY_IMPORT LIBXS_ATTRIBUTE(dllimport)
+#endif
+#if !defined(LIBXS_VISIBILITY_EXPORT)
+# define LIBXS_VISIBILITY_EXPORT LIBXS_EXTERN_C LIBXS_VISIBILITY_PUBLIC
+#endif
+#if !defined(LIBXS_VISIBILITY_IMPORT)
+# define LIBXS_VISIBILITY_IMPORT LIBXS_EXTERN_KEYWORD LIBXS_VISIBILITY_PUBLIC
 #endif
 
 #if defined(LIBXS_API) /* header-only mode */
@@ -212,14 +217,14 @@
 #   define LIBXS_APIVAR(DECL) LIBXS_EXTERN_C LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL; \
                                 LIBXS_EXTERN_C LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL
 #   define LIBXS_EXTVAR(DECL) LIBXS_APIVAR(DECL)
-#   define LIBXS_APIEXT LIBXS_EXTERN_C LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE
+#   define LIBXS_APIEXT LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE
 #   define LIBXS_APIEXT_INTERN LIBXS_API_INTERN
 # elif defined(LIBXS_BUILD)
-#   define LIBXS_API LIBXS_EXTERN_C LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE
+#   define LIBXS_API LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE
 #   define LIBXS_API_INTERN LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE
 #   define LIBXS_API_EXPORT LIBXS_API
-#   define LIBXS_APIVAR_PUBLIC(DECL) LIBXS_EXTERN_C LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE DECL; \
-                                       LIBXS_EXTERN_C LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE DECL
+#   define LIBXS_APIVAR_PUBLIC(DECL) LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE DECL; \
+                                       LIBXS_VISIBILITY_EXPORT LIBXS_RETARGETABLE DECL
 #   define LIBXS_APIVAR(DECL) LIBXS_EXTERN_C LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL; \
                                 LIBXS_EXTERN_C LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL
 #   define LIBXS_APIEXT LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
@@ -227,12 +232,17 @@
 #   define LIBXS_API LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
 #   define LIBXS_API_INTERN LIBXS_API
 #   define LIBXS_API_EXPORT LIBXS_API
-#   define LIBXS_APIVAR_PUBLIC(DECL) LIBXS_EXTERN_C LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE DECL; \
-                                       LIBXS_EXTERN_C LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE DECL
+#   define LIBXS_APIVAR_PUBLIC(DECL) LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE DECL; \
+                                       LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE DECL
 #   define LIBXS_APIVAR(DECL) LIBXS_EXTERN_C LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL; \
                                 LIBXS_EXTERN_C LIBXS_VISIBILITY_PRIVATE LIBXS_RETARGETABLE DECL
 #   define LIBXS_APIEXT LIBXS_API
 # endif
+#endif
+#if !defined(_WIN32)
+# define LIBXS_APIVAR_ALIGNED(DECL) LIBXS_APIVAR_PUBLIC(LIBXS_ALIGNED(DECL, 32))
+#else /* Windows */
+# define LIBXS_APIVAR_ALIGNED LIBXS_APIVAR_PUBLIC
 #endif
 #define LIBXS_API_INLINE LIBXS_EXTERN_C LIBXS_INLINE LIBXS_RETARGETABLE
 
@@ -367,16 +377,18 @@
 #define LIBXS_NEQ(A, B) ((A) != (B))
 #define LIBXS_ISNAN(A)  LIBXS_NEQ(A, A)
 #define LIBXS_NOTNAN(A) LIBXS_FEQ(A, A)
+
+#define LIBXS_ROUNDX(TYPE, A) ((TYPE)((long long)(0 <= (A) ? ((double)(A) + 0.5) : ((double)(A) - 0.5))))
 #if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
-# define LIBXS_ROUND(A) round(A)
-# define LIBXS_ROUNDF(A) roundf(A)
 # define LIBXS_FREXPF(A, B) frexpf(A, B)
 # define LIBXS_POWF(A, B) powf(A, B)
+# define LIBXS_ROUNDF(A) roundf(A)
+# define LIBXS_ROUND(A) round(A)
 #else
-# define LIBXS_ROUND(A) ((double)((long long)(0 < (A) ? ((double)(A) + 0.5) : ((double)(A) - 0.5))))
-# define LIBXS_ROUNDF(A) ((float)((long long)(0 < (A) ? ((float)(A) + 0.5f) : ((float)(A) - 0.5f))))
 # define LIBXS_FREXPF(A, B) ((float)frexp((double)(A), B))
 # define LIBXS_POWF(A, B) ((float)pow((double)(A), (double)(B)))
+# define LIBXS_ROUNDF(A) LIBXS_ROUNDX(float, A)
+# define LIBXS_ROUND(A) LIBXS_ROUNDX(double, A)
 #endif
 
 #if defined(LIBXS_INTEL_COMPILER)
@@ -484,6 +496,9 @@
 # define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, ARRAY_VAR, INIT_VALUE, .../*bounds*/) \
     ELEMENT_TYPE *LIBXS_RESTRICT LIBXS_CONCATENATE(ARRAY_VAR, LIBXS_VLA_POSTFIX) = /*(ELEMENT_TYPE*)*/(INIT_VALUE)
 #endif
+
+/** Access an array of TYPE with Byte-measured stride. */
+#define LIBXS_ACCESS(TYPE, ARRAY, STRIDE) (*(TYPE*)((char*)(ARRAY) + (STRIDE)))
 
 #if !defined(LIBXS_UNUSED)
 # if 0

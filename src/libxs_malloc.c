@@ -137,8 +137,8 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 # define LIBXS_MALLOC_SEED 1051981
 #endif
 /* allows to reclaim a pool for a different thread */
-#if !defined(LIBXS_MALLOC_NO_AFFINITY)
-# define LIBXS_MALLOC_NO_AFFINITY ((unsigned int)-1)
+#if !defined(LIBXS_MALLOC_AFFINITY) && 1
+# define LIBXS_MALLOC_AFFINITY
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_JOIN) && 0
 # define LIBXS_MALLOC_SCRATCH_JOIN
@@ -172,7 +172,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_malloc_pool_type {
     char *buffer, *head;
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     const void* site;
-# if (0 != LIBXS_SYNC)
+# if defined(LIBXS_MALLOC_AFFINITY) && (0 != LIBXS_SYNC)
     size_t tid;
 # endif
 #endif
@@ -1160,21 +1160,21 @@ LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* 
     const void *const site = internal_malloc_site(caller);
     const size_t align_size = (0 == alignment ? libxs_alignment(size, alignment) : alignment);
     const size_t alloc_size = size + align_size - 1;
-#if (0 != LIBXS_SYNC)
+#if defined(LIBXS_MALLOC_AFFINITY) && (0 != LIBXS_SYNC)
     const unsigned int tid = libxs_get_tid();
 #endif
     LIBXS_ASSERT(sizeof(internal_malloc_pool_type) <= (LIBXS_CACHELINE));
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-    for (; pool != end; ++pool) { /* find exact matching pool */
-# if (0 != LIBXS_SYNC)
-      if (site == pool->instance.site && (tid == pool->instance.tid
-#   if defined(LIBXS_MALLOC_NO_AFFINITY)
-        || (LIBXS_MALLOC_NO_AFFINITY) == pool->instance.tid
-#   endif
-      )) break;
+    for (; pool != end; ++pool) { /* find matching pool */
+      if (site == pool->instance.site
+# if defined(LIBXS_MALLOC_AFFINITY) && (0 != LIBXS_SYNC)
+        && tid == pool->instance.tid
+# elif 0
+        && (NULL == pool->instance.buffer || size <= internal_malloc_info(pool->instance.buffer)->size)
 # else
-      if (site == pool->instance.site) break;
+        && (NULL != pool->instance.buffer || 1 != pool->instance.counter)
 # endif
+      ) break;
       if (end == pool0 && NULL == pool->instance.site) pool0 = pool;
     }
 #endif
@@ -1182,7 +1182,27 @@ LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* 
     if (end != pool) {
       const size_t counter = LIBXS_ATOMIC_ADD_FETCH(&pool->instance.counter, (size_t)1, LIBXS_ATOMIC_SEQ_CST);
 
-      if (NULL == pool->instance.buffer && 1 == counter) {
+      if (NULL != pool->instance.buffer || 1 != counter) {
+        const internal_malloc_info_type *const info = internal_malloc_info(pool->instance.buffer);
+        const size_t used_size = pool->instance.head - pool->instance.buffer;
+        const size_t pool_size = (NULL != info ? info->size : 0);
+        const size_t req_size = alloc_size + used_size;
+        LIBXS_ASSERT(used_size <= pool_size);
+
+        if (req_size <= pool_size) { /* fast path: draw from pool-buffer */
+          void *const headaddr = &pool->instance.head;
+          uintptr_t headptr = LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)((uintptr_t*)headaddr, alloc_size, LIBXS_ATOMIC_SEQ_CST);
+          char *const head = (char*)headptr;
+          result = LIBXS_ALIGN(head - alloc_size, align_size);
+        }
+        else { /* fall-back to local memory allocation */
+          const size_t incsize = req_size - LIBXS_MIN(pool_size, req_size);
+          pool->instance.incsize = LIBXS_MAX(pool->instance.incsize, incsize);
+          LIBXS_ATOMIC_SUB_FETCH(&pool->instance.counter, 1, LIBXS_ATOMIC_SEQ_CST);
+          local_size = size;
+        }
+      }
+      else {
         const size_t scratch_size = internal_get_scratch_size(pool);
         const size_t limit_size = libxs_scratch_limit - LIBXS_MIN(scratch_size, libxs_scratch_limit);
         const size_t scale_size = (size_t)(libxs_scratch_scale * alloc_size);
@@ -1200,7 +1220,7 @@ LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* 
         pool->instance.minsize = minsize;
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
         pool->instance.site = site;
-# if (0 != LIBXS_SYNC)
+# if defined(LIBXS_MALLOC_AFFINITY) && (0 != LIBXS_SYNC)
         pool->instance.tid = tid;
 # endif
 #endif
@@ -1243,26 +1263,6 @@ LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* 
             }
 #endif
           }
-          local_size = size;
-        }
-      }
-      else {
-        const internal_malloc_info_type *const info = internal_malloc_info(pool->instance.buffer);
-        const size_t used_size = pool->instance.head - pool->instance.buffer;
-        const size_t pool_size = (NULL != info ? info->size : 0);
-        const size_t req_size = alloc_size + used_size;
-        LIBXS_ASSERT(used_size <= pool_size);
-
-        if (req_size <= pool_size) { /* fast path: draw from pool-buffer */
-          void *const headaddr = &pool->instance.head;
-          uintptr_t headptr = LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)((uintptr_t*)headaddr, alloc_size, LIBXS_ATOMIC_SEQ_CST);
-          char *const head = (char*)headptr;
-          result = LIBXS_ALIGN(head - alloc_size, align_size);
-        }
-        else { /* fall-back to local memory allocation */
-          const size_t incsize = req_size - LIBXS_MIN(pool_size, req_size);
-          pool->instance.incsize = LIBXS_MAX(pool->instance.incsize, incsize);
-          LIBXS_ATOMIC_SUB_FETCH(&pool->instance.counter, 1, LIBXS_ATOMIC_SEQ_CST);
           local_size = size;
         }
       }
@@ -1328,26 +1328,21 @@ LIBXS_API void libxs_free(const void* memory)
           const size_t maxsize = pool->instance.minsize + pool->instance.incsize;
           const size_t minsize = LIBXS_MIN(maxsize, limit_size);
 
-          if (pool->instance.minsize < minsize) {
+          if (minsize <= pool->instance.minsize) { /* reuse scratch domain */
+            pool->instance.head = (char*)LIBXS_MIN(pool->instance.head, buffer);
+          }
+          else {
             const void *const pool_buffer = pool->instance.buffer;
             pool->instance.buffer = pool->instance.head = NULL;
-# if (0 != LIBXS_SYNC)
-#   if !defined(NDEBUG) /* library code is expected to be mute */
+# if defined(LIBXS_MALLOC_AFFINITY) && (0 != LIBXS_SYNC) && !defined(NDEBUG) /* library code is expected to be mute */
             if ((1 < libxs_verbosity || 0 > libxs_verbosity) && libxs_get_tid() != pool->instance.tid) {
               static int error_once = 0;
               if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
                 fprintf(stderr, "LIBXS WARNING: thread-id differs between allocation and deallocation!\n");
               }
             }
-#   endif
-#   if defined(LIBXS_MALLOC_NO_AFFINITY) /* allow to reclaim the pool for any tid */
-            if (limit_size < maxsize) pool->instance.tid = LIBXS_MALLOC_NO_AFFINITY;
-#   endif
 # endif
             libxs_xfree(pool_buffer);
-          }
-          else { /* reuse scratch domain */
-            pool->instance.head = (char*)LIBXS_MIN(pool->instance.head, buffer);
           }
         }
         /* TODO: document/check that allocation/deallocation must follow the linear/scoped allocator policy */
