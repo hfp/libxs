@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
 #endif
 #if !defined(_DEBUG)
     const char *const env_check = getenv("CHECK");
-    const int check = (0 == env_check ? 0 : atoi(env_check));
+    const int check = (NULL == env_check ? 0 : atoi(env_check));
 #else
     /*const*/ int check = 1;
 #endif
@@ -194,8 +194,8 @@ int main(int argc, char* argv[])
         fprintf(stdout, "Indirect (A,B,C)...\n");
         for (libxs_blasint i = 0; i < s; ++i) {
           a_array[i] = a + static_cast<size_t>(asize) * helper.shuffle(i);
-        b_array[i] = b + static_cast<size_t>(bsize) * helper.shuffle(i);
-        c_array[i] = d + static_cast<size_t>(csize) * i;
+          b_array[i] = b + static_cast<size_t>(bsize) * helper.shuffle(i);
+          c_array[i] = d + static_cast<size_t>(csize) * i;
         }
         const libxs_blasint ptrsize = sizeof(void*);
         const unsigned long long start = libxs_timer_tick();

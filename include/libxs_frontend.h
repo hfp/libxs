@@ -273,6 +273,17 @@
 
 /** Calculate problem size from M, N, and K using the correct integer type in order to cover the general case. */
 #define LIBXS_MNK_SIZE(M, N, K) (((unsigned long long)(M)) * ((unsigned long long)(N)) * ((unsigned long long)(K)))
+/** Calculate the total number of elements (S=1) and optionally emphasize C's size. */
+#define LIBXS_SIZE(M, N, K, S) ((M) * (K) + (K) * (N) + (S) * (M) * (N))
+/** Condition based on arithmetic intensity (DP) */
+#define LIBXS_SMM_AI(M, N, K) ((LIBXS_MNK_SIZE(M, N, K) * LIBXS_SIZE(LIBXS_MAX_M, LIBXS_MAX_N, LIBXS_MAX_K, 2)) \
+                                                       <= 4 * LIBXS_SIZE(M, N, K, 2) * (LIBXS_MAX_MNK))
+/** Determine whether an SMM is suitable i.e., small enough. */
+#if !defined(LIBXS_THRESHOLD_AI) /* traditional MNK-threshold */
+# define LIBXS_SMM(M, N, K) (LIBXS_MNK_SIZE(M, N, K) <= (LIBXS_MAX_MNK))
+#else /* threshold based on arithmetic intensity (DP) */
+# define LIBXS_SMM LIBXS_SMM_AI
+#endif
 
 /** Fall-back code paths: LIBXS_XGEMM_FALLBACK0, and LIBXS_XGEMM_FALLBACK1 (macro template). */
 #if !defined(LIBXS_XGEMM_FALLBACK0)
@@ -298,7 +309,7 @@
   const libxs_blasint *const libxs_xgemm_ldb_ = (NULL != ((void*)(LDB)) ? (LDB) : \
     (0 == (LIBXS_GEMM_FLAG_TRANS_B & libxs_xgemm_flags_) ? libxs_xgemm_k_ : libxs_xgemm_n_)); \
   const libxs_blasint *const libxs_xgemm_ldc_ = (NULL != (LDC) ? (LDC) : (M)); \
-  if (((unsigned long long)(LIBXS_MAX_MNK)) >= LIBXS_MNK_SIZE(*(M), *libxs_xgemm_n_, *libxs_xgemm_k_)) { \
+  if (LIBXS_SMM(*(M), *libxs_xgemm_n_, *libxs_xgemm_k_)) { \
     const LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) libxs_mmfunction_ = LIBXS_MMDISPATCH_SYMBOL2(ITYPE, OTYPE)( \
       *(M), *libxs_xgemm_n_, *libxs_xgemm_k_, libxs_xgemm_lda_, libxs_xgemm_ldb_, libxs_xgemm_ldc_, \
       (const OTYPE*)(ALPHA), (const OTYPE*)(BETA), &libxs_xgemm_flags_, NULL); \

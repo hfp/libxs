@@ -842,13 +842,13 @@ LIBXS_API_INTERN void* libxs_create_xconv_wino_backward(const libxs_convolution_
 LIBXS_API_INTERN void* libxs_create_xconv_wino_update_weights(const libxs_convolution_winograd_descriptor* descriptor);
 
 /** Global lock; create an own lock for an independent domain. */
-LIBXS_APIVAR_PUBLIC(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
+LIBXS_APIVAR_ALIGNED(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 /** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
-LIBXS_APIVAR_PUBLIC(int libxs_target_archid);
+LIBXS_APIVAR_ALIGNED(int libxs_target_archid);
 /** Determines whether a threaded implementation is synchronized or not. */
-LIBXS_APIVAR_PUBLIC(int libxs_nosync);
+LIBXS_APIVAR_ALIGNED(int libxs_nosync);
 /** Number of threads per core. */
-LIBXS_APIVAR_PUBLIC(int libxs_nt);
+LIBXS_APIVAR_ALIGNED(int libxs_nt);
 
 /** Function used to allocate default memory. */
 LIBXS_APIVAR(libxs_malloc_function libxs_default_malloc_fn);

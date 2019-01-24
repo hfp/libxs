@@ -915,7 +915,7 @@ LIBXS_API int libxs_mhd_write(const char filename[],
       }
       if (EXIT_SUCCESS == result) {
         if (NULL != header_size) *header_size = file_position;
-        LIBXS_ASSERT(file_position == ftell(file));
+        assert(file_position == ftell(file)); /* !LIBXS_ASSERT */
         result = internal_mhd_write(file, input, size, shape, ndims, ncomponents, type_data, elemtype, typesize_data, typesize,
           0/*use min-max*/, minmax, minmax + (LIBXS_MHD_MAX_ELEMSIZE));
       }

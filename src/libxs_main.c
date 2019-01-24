@@ -427,7 +427,7 @@ LIBXS_API_INLINE void internal_finalize(void)
   libxs_finalize();
   if (0 != libxs_verbosity) { /* print statistic on termination */
     const char *const env_target_hidden = getenv("LIBXS_TARGET_HIDDEN");
-    const char *const target_arch = (0 == env_target_hidden || 0 == atoi(env_target_hidden))
+    const char *const target_arch = (NULL == env_target_hidden || 0 == atoi(env_target_hidden))
       ? internal_get_target_arch(libxs_target_archid)
       : NULL/*hidden*/;
     const double regsize = 1.0 * internal_registry_nbytes / (1ULL << 20);
@@ -590,7 +590,7 @@ LIBXS_API_INLINE void internal_init(void)
     libxs_xset_scratch_allocator(NULL/*lock*/, NULL/*context*/, null_malloc_fn, null_free_fn);
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     { const char *const env = getenv("LIBXS_SCRATCH_POOLS");
-      if (0 == env || 0 == *env) {
+      if (NULL == env || 0 == *env) {
         libxs_scratch_pools = LIBXS_MALLOC_SCRATCH_MAX_NPOOLS;
       }
       else {
@@ -600,7 +600,7 @@ LIBXS_API_INLINE void internal_init(void)
       LIBXS_ASSERT(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
     }
     { const char *const env = getenv("LIBXS_SCRATCH_LIMIT");
-      if (0 == env || 0 == *env) {
+      if (NULL == env || 0 == *env) {
         /*const*/ unsigned long long limit = LIBXS_MALLOC_SCRATCH_LIMIT;
         libxs_scratch_limit = (size_t)limit;
       }
@@ -616,7 +616,7 @@ LIBXS_API_INLINE void internal_init(void)
       }
     }
     { const char *const env = getenv("LIBXS_SCRATCH_SCALE");
-      if (0 == env || 0 == *env) {
+      if (NULL == env || 0 == *env) {
         libxs_scratch_scale = LIBXS_MALLOC_SCRATCH_SCALE;
       }
       else {
@@ -632,7 +632,7 @@ LIBXS_API_INLINE void internal_init(void)
     libxs_set_target_arch(getenv("LIBXS_TARGET"));
 #endif
     { const char *const env = getenv("LIBXS_SYNC");
-      libxs_nosync = (0 == env || 0 == *env) ? 0/*default*/ : atoi(env);
+      libxs_nosync = (NULL == env || 0 == *env) ? 0/*default*/ : atoi(env);
     }
     /* clear internal counters/statistic */
     for (i = 0; i < 4/*sml/med/big/xxx*/; ++i) {
@@ -764,7 +764,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       LIBXS_LOCK_INIT(LIBXS_LOCK, &libxs_lock_global, &attr_global);
       LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK, &attr_global);
       /* control number of locks needed; LIBXS_TRYLOCK implies only 1 lock */
-      if (0 == env_trylock || 0 == *env_trylock) { /* no LIBXS_TRYLOCK */
+      if (NULL == env_trylock || 0 == *env_trylock) { /* no LIBXS_TRYLOCK */
 #if defined(LIBXS_VTUNE)
         internal_reglock_count = 1; /* avoid duplicated kernels */
 #else

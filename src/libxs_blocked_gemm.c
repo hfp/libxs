@@ -53,9 +53,9 @@ LIBXS_API libxs_blocked_gemm_handle* libxs_blocked_gemm_handle_create(/*unsigned
   const libxs_blocked_gemm_order* order)
 {
   const char *const env_m = getenv("LIBXS_BLOCKED_GEMM_M"), *const env_n = getenv("LIBXS_BLOCKED_GEMM_N"), *const env_k = getenv("LIBXS_BLOCKED_GEMM_K");
-  const libxs_blasint mm = LIBXS_MIN(0 == bm ? ((0 == env_m || 0 == *env_m) ? 32 : atoi(env_m)) : *bm, m);
-  const libxs_blasint kk = LIBXS_MIN(0 == bk ? ((0 == env_k || 0 == *env_k) ? mm : atoi(env_k)) : *bk, k);
-  const libxs_blasint nn = LIBXS_MIN(0 == bn ? ((0 == env_n || 0 == *env_n) ? kk : atoi(env_n)) : *bn, n);
+  const libxs_blasint mm = LIBXS_MIN(0 == bm ? ((NULL == env_m || 0 == *env_m) ? 32 : atoi(env_m)) : *bm, m);
+  const libxs_blasint kk = LIBXS_MIN(0 == bk ? ((NULL == env_k || 0 == *env_k) ? mm : atoi(env_k)) : *bk, k);
+  const libxs_blasint nn = LIBXS_MIN(0 == bn ? ((NULL == env_n || 0 == *env_n) ? kk : atoi(env_n)) : *bn, n);
   libxs_blocked_gemm_handle* result = 0;
   static int error_once = 0;
 
@@ -74,7 +74,7 @@ LIBXS_API libxs_blocked_gemm_handle* libxs_blocked_gemm_handle_create(/*unsigned
         const char *const env_p = getenv("LIBXS_BLOCKED_GEMM_PREFETCH");
         desc = libxs_gemm_descriptor_init2(&blob, iprec, oprec, mm, nn, kk, mm/*lda*/, kk/*ldb*/, mm/*ldc*/,
           alpha, beta, 0 == gemm_flags ? LIBXS_GEMM_FLAG_NONE : *gemm_flags,
-          (0 == env_p || 0 == *env_p) ? prefetch_default : libxs_gemm_uid2prefetch(atoi(env_p)));
+          (NULL == env_p || 0 == *env_p) ? prefetch_default : libxs_gemm_uid2prefetch(atoi(env_p)));
       }
       else { /* user-defined */
         desc = libxs_gemm_descriptor_init2(&blob, iprec, oprec, mm, nn, kk, mm/*lda*/, kk/*ldb*/, mm/*ldc*/,
