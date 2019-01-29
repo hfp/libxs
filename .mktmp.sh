@@ -28,9 +28,9 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              #
 #############################################################################
 
-MKTEMP=$(command -v mktemp 2>/dev/null)
-ECHO=$(command -v echo 2>/dev/null)
-MV=$(command -v mv 2>/dev/null)
+MKTEMP=$(command -v mktemp)
+ECHO=$(command -v echo)
+MV=$(command -v mv)
 
 if [ "" != "${MKTEMP}" ] && [ "" != "${ECHO}" ] && [ "" != "${MV}" ]; then
   TEMPLATE=${1/XXXXXX/}.XXXXXX
