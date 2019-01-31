@@ -47,14 +47,14 @@ typedef enum libxs_dnn_rnncell_type {
 } libxs_dnn_rnncell_type;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
-  int threads;
-  int K;     /* number of outputs */
-  int N;     /* size of the minibatch */
-  int C;     /* number of inputs */
-  int t;     /* number of time steps */
-  int bk;
-  int bn;
-  int bc;
+  libxs_blasint threads;
+  libxs_blasint K;         /* number of outputs */
+  libxs_blasint N;         /* size of the minibatch */
+  libxs_blasint C;         /* number of inputs */
+  libxs_blasint max_T;     /* number of time steps */
+  libxs_blasint bk;
+  libxs_blasint bn;
+  libxs_blasint bc;
   libxs_dnn_rnncell_type cell_type;       /* cell type RNN ReLU, RNN Sigmoid, RNN Tanh, LSTM */
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
   libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
@@ -81,6 +81,9 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_allocate_forget_bias(libxs_dnn_rnnce
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type);
 LIBXS_API libxs_dnn_tensor* libxs_dnn_rnncell_get_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* handle, const libxs_dnn_tensor_type type);
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_set_sequence_length( libxs_dnn_rnncell* handle, const libxs_blasint T );
+LIBXS_API libxs_blasint libxs_dnn_rnncell_get_sequence_length( libxs_dnn_rnncell* handle, libxs_dnn_err_t* status );
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid);
