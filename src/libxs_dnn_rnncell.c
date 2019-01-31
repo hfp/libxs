@@ -58,9 +58,11 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
       *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return handle;
     }
-    if (rnncell_desc.t < 1) {
+    if (rnncell_desc.max_T < 1) {
       *status = LIBXS_DNN_ERR_TIME_STEPS_TOO_SMALL;
     }
+    /* set current seq length to max length */
+    handle->T = rnncell_desc.max_T;
 
     handle->bk = (handle->desc.bk == 0) ? 64 : handle->desc.bk;
     handle->bn = (handle->desc.bn == 0) ? 64 : handle->desc.bn;
@@ -461,7 +463,7 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
             size += (size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in)  + 64; /* rT */
             size += (size_t)handle->desc.C * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_in)  + 64; /* xT */
             size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) + 64; /* hT */
-            size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) * (size_t)handle->desc.t + 64; /* deltat */
+            size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) * (size_t)handle->desc.max_T + 64; /* deltat */
           } break;
           default: {
             *status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -592,7 +594,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
               offset = (64 - address % 64);
               handle->scratch_deltat = (void*)(address+offset);
             }
-            address += ((size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) * (size_t)handle->desc.t) + 64;
+            address += ((size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) * (size_t)handle->desc.max_T) + 64;
           } break;
           default: {
             status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -873,13 +875,13 @@ LIBXS_API size_t libxs_dnn_rnncell_get_internalstate_size(const libxs_dnn_rnncel
       case LIBXS_DNN_RNNCELL_RNN_TANH: {
         switch (kind) {
           case LIBXS_DNN_COMPUTE_KIND_FWD: {
-            size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t + 64; /* zt */
+            size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.max_T + 64; /* zt */
           } break;
           case LIBXS_DNN_COMPUTE_KIND_BWD:
           case LIBXS_DNN_COMPUTE_KIND_UPD:
           case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
           case LIBXS_DNN_COMPUTE_KIND_ALL: {
-            size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.t + 64; /* zt */
+            size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof_datatype * (size_t)handle->desc.max_T + 64; /* zt */
           } break;
           default: {
             *status = LIBXS_DNN_ERR_INVALID_KIND;
@@ -1287,6 +1289,36 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_tensor(libxs_dnn_rnncell* ha
   }
 
   return status;
+}
+
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_set_sequence_length( libxs_dnn_rnncell* handle, const libxs_blasint T ) {
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    if ( handle->desc.max_T < T ) {
+      status = LIBXS_DNN_ERR_RNN_INVALID_SEQ_LEN;
+    } else {
+      handle->T = T;
+    }
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return status;
+}
+
+
+LIBXS_API libxs_blasint libxs_dnn_rnncell_get_sequence_length( libxs_dnn_rnncell* handle, libxs_dnn_err_t* status ) {
+  *status = LIBXS_DNN_SUCCESS;
+  
+  if (0 != handle) {
+    return handle->T;
+  } else {
+    *status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return 0;
 }
 
 
