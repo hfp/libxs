@@ -200,7 +200,26 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck(libxs_dnn_r
   /* check if we have a kernel JITed */
   if ( handle->fwd_generic != 0 ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32( handle, kind, start_thread, tid );
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
+      if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_RELU ) {
+#define LIBXS_DNN_RNN_RELU_BWDUPD
+# include "template/libxs_dnn_rnncell_st_rnn_bwdupd_nc_kcck.tpl.c"
+#undef LIBXS_DNN_RNN_RELU_BWDUPD
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_SIGMOID ) {
+#define LIBXS_DNN_RNN_SIGMOID_BWDUPD
+# include "template/libxs_dnn_rnncell_st_rnn_bwdupd_nc_kcck.tpl.c"
+#undef LIBXS_DNN_RNN_SIGMOID_BWDUPD
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_TANH ) {
+#define LIBXS_DNN_RNN_TANH_BWDUPD
+# include "template/libxs_dnn_rnncell_st_rnn_bwdupd_nc_kcck.tpl.c"
+#undef LIBXS_DNN_RNN_TANH_BWDUPD
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+# include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_kcck.tpl.c"
+      } else {
+        /* should not happen */
+      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -234,7 +253,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_ncnc_kcck(libxs_dnn
   /* check if we have a kernel JITed */
   if ( handle->fwd_generic != 0 ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_rnncell_st_bwdupd_ncnc_kcck_f32_f32( handle, kind, start_thread, tid );
+      LIBXS_UNUSED(kind); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+      status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
