@@ -80,7 +80,7 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
       handle->bk = handle->desc.K;
       *status = LIBXS_DNN_WARN_RNN_SUBOPTIMAL_K_BLOCKING;
     }
-     if ( LIBXS_X86_AVX512 <= libxs_target_archid ) {
+    if ( LIBXS_X86_AVX512 <= libxs_target_archid ) {
       handle->fwd_generic = 0;
       handle->bwdupd_generic = 0;
     } else {
