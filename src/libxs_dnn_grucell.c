@@ -268,19 +268,19 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_grucell_create_tensor_datalayou
               if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
                 layout->num_dims = 4;
                 if ( (type == LIBXS_DNN_GRU_REGULAR_INPUT) || (type == LIBXS_DNN_GRU_GRADIENT_INPUT) ) {
-                  layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_RLK;
-                  layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
-                  layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_RLK;
-                  layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
+                  layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+                  layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+                  layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+                  layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_N;
                   layout->dim_size[0] = (unsigned int)handle->bk;
                   layout->dim_size[1] = (unsigned int)handle->bn;
                   layout->dim_size[2] = (unsigned int)(handle->k / handle->bk);
                   layout->dim_size[3] = (unsigned int)(handle->n / handle->bn);
                 } else if ( (type == LIBXS_DNN_GRU_REGULAR_HIDDEN_STATE) || (type == LIBXS_DNN_GRU_GRADIENT_HIDDEN_STATE) ) {
-                  layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
-                  layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
-                  layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
-                  layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
+                  layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                  layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+                  layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                  layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_N;
                   layout->dim_size[0] = (unsigned int)handle->bm;
                   layout->dim_size[1] = (unsigned int)handle->bn;
                   layout->dim_size[2] = (unsigned int)(handle->m / handle->bm);
@@ -288,10 +288,10 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_grucell_create_tensor_datalayou
                 } else if ( (type == LIBXS_DNN_GRU_REGULAR_WEIGHT_R) || (type == LIBXS_DNN_GRU_GRADIENT_WEIGHT_R) ||
                             (type == LIBXS_DNN_GRU_REGULAR_WEIGHT_Z) || (type == LIBXS_DNN_GRU_GRADIENT_WEIGHT_Z) ||
                             (type == LIBXS_DNN_GRU_REGULAR_WEIGHT_G) || (type == LIBXS_DNN_GRU_GRADIENT_WEIGHT_G) ) {
-                  layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
-                  layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLK;
-                  layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_RLK;
-                  layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
+                  layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                  layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+                  layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+                  layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                   layout->dim_size[0] = (unsigned int)handle->bm;
                   layout->dim_size[1] = (unsigned int)handle->bk;
                   layout->dim_size[2] = (unsigned int)(handle->k / handle->bk);
@@ -299,10 +299,10 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_grucell_create_tensor_datalayou
                 } else if ( (type == LIBXS_DNN_GRU_REGULAR_RECUR_WEIGHT_R) || (type == LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_R) ||
                             (type == LIBXS_DNN_GRU_REGULAR_RECUR_WEIGHT_Z) || (type == LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_Z) ||
                             (type == LIBXS_DNN_GRU_REGULAR_RECUR_WEIGHT_G) || (type == LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_G) ) {
-                  layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
-                  layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
-                  layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
-                  layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
+                  layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                  layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                  layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                  layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_K;
                   layout->dim_size[0] = (unsigned int)handle->bm;
                   layout->dim_size[1] = (unsigned int)handle->bm;
                   layout->dim_size[2] = (unsigned int)(handle->m / handle->bm);
@@ -310,10 +310,10 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_grucell_create_tensor_datalayou
                 } else if ( (type == LIBXS_DNN_GRU_REGULAR_BIAS_R) || (type == LIBXS_DNN_GRU_GRADIENT_BIAS_R) ||
                             (type == LIBXS_DNN_GRU_REGULAR_BIAS_Z) || (type == LIBXS_DNN_GRU_GRADIENT_BIAS_Z) ||
                             (type == LIBXS_DNN_GRU_REGULAR_BIAS_G) || (type == LIBXS_DNN_GRU_GRADIENT_BIAS_G) ) {
-                  layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
-                  layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
-                  layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_RLM;
-                  layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_RLN;
+                  layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                  layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+                  layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                  layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_N;
                   layout->dim_size[0] = (unsigned int)handle->bm;
                   layout->dim_size[1] = (unsigned int)handle->bn;
                   layout->dim_size[2] = (unsigned int)(handle->m / handle->bm);

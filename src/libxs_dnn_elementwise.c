@@ -580,3 +580,34 @@ LIBXS_API_INTERN void libxs_internal_matrix_complement_square_ld(libxs_blasint m
   }
 }
 
+LIBXS_API_INTERN void libxs_internal_matrix_rne_mask_fp32_bfp16_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, float* src, float* dst) {
+  libxs_blasint i,j;
+
+  /* rnaz buffer to bfp16 */
+  for ( j = 0; j < n; ++j ) {
+    for ( i = 0; i < m; ++i ) {
+      unsigned int int_round = 0;
+      unsigned int do_round = 1;
+      const void *const ptr = &int_round;
+
+      int_round = *((unsigned int*)&(src[(j*ld)+i]));
+
+      /* we don't round NaN and inf */
+      if ( (int_round & 0x7f800000) == 0x7f800000 ) {
+        do_round = 0;
+      }
+
+      /* perform round nearest tie even */
+      if ( do_round != 0 ) {
+        unsigned int fixup = (int_round >> 16) & 1;
+        int_round = int_round + 0x00007fff + fixup;
+      }
+
+      /* chop bits to create BFP16 in FP32 */
+      int_round = int_round & 0xffff0000;
+
+      dst[(j*ld)+i] = *((float*)ptr);
+    }
+  }
+}
+
