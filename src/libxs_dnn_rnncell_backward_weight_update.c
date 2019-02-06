@@ -67,7 +67,10 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_f32_f32(libxs_dnn_rnncell* han
 # include "template/libxs_dnn_rnncell_st_rnn_bwdupd_nc_ck_generic.tpl.c"
 # undef LIBXS_DNN_RNN_TANH_BWDUPD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+#define LIBXS_RNN_CELL_AVX512
+# include "template/libxs_internal_lstm_bwdupd_fused_eltwise.tpl.c"
 # include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_ck_generic.tpl.c"
+#undef LIBXS_RNN_CELL_AVX512
   } else {
     /* should not happen */
   }
@@ -99,7 +102,10 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32(libxs_dnn_rnncell* h
 # include "template/libxs_dnn_rnncell_st_rnn_bwdupd_nc_kcck.tpl.c"
 # undef LIBXS_DNN_RNN_TANH_BWDUPD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+#define LIBXS_RNN_CELL_AVX512
+# include "template/libxs_internal_lstm_bwdupd_fused_eltwise.tpl.c"
 # include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_kcck.tpl.c"
+#undef LIBXS_RNN_CELL_AVX512
   } else {
     /* should not happen */
   }
