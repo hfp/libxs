@@ -53,11 +53,13 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     memset(handle, 0, sizeof(*handle));
     /* initialize known handle components */
     handle->desc = rnncell_desc;
-    if ( (rnncell_desc.datatype_in != LIBXS_DNN_DATATYPE_F32) || (rnncell_desc.datatype_out != LIBXS_DNN_DATATYPE_F32) ) {
+#if 0
+    if ( (rnncell_desc.datatype_in != LIBXS_DNN_DATATYPE_F32) || (rnncell_desc.datatype_out != LIBXS_DNN_DATATYPE_F32)) {
       /* error */
       *status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return handle;
     }
+#endif
     if (rnncell_desc.max_T < 1) {
       *status = LIBXS_DNN_ERR_TIME_STEPS_TOO_SMALL;
     }
