@@ -79,5 +79,6 @@ LIBXS_API_INTERN void libxs_internal_matrix_complement_ld(libxs_blasint m, libxs
 LIBXS_API_INTERN void libxs_internal_matrix_complement_square_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
 LIBXS_API_INTERN void libxs_internal_matrix_rne_mask_fp32_bfp16_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, float* src, float* dst);
 LIBXS_API_INTERN void libxs_internal_matrix_rne_cvt_fp32_bfp16_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, float* src, libxs_bfloat16* dst);
+LIBXS_API_INTERN libxs_bfloat16 libxs_internal_scalar_rne_cvt_fp32_bfp16(float src);
 LIBXS_API_INTERN void libxs_internal_matrix_cvt_bf16_fp32_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_bfloat16 *src, LIBXS_DNN_ELTWISE_FTYPE *dst);
 #endif /*LIBXS_DNN_ELEMENTWISE_H*/

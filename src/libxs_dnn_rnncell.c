@@ -488,20 +488,21 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
             /*  The scratches below are needed only for BF16 code for the intermediate results  */
             if (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) {
               size += (size_t)7 *((size_t)handle->desc.K * (size_t)handle->desc.N * sizeof(float) * (size_t)handle->desc.max_T + 64); /* intermediate scratches */
-              size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof(float) + 64; /* intermediate scratches */
+              size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof(float) + 64;                                           /* intermediate scratches */
             }
           } break;
           case LIBXS_DNN_COMPUTE_KIND_BWD:
           case LIBXS_DNN_COMPUTE_KIND_UPD:
           case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
           case LIBXS_DNN_COMPUTE_KIND_ALL: {
-            size += (size_t)handle->desc.C * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in) * 4 + 4 * 64; /* w */
-            size += (size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in) * 4 + 4 * 64; /* r */
+            size_t dwdr_typesize = (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ? sizeof(float) : libxs_dnn_typesize(handle->desc.datatype_in) ;
+            size += (size_t)handle->desc.C * (size_t)handle->desc.K * dwdr_typesize * 4 + 4 * 64; /* w */
+            size += (size_t)handle->desc.K * (size_t)handle->desc.K * dwdr_typesize * 4 + 4 * 64; /* r */
             size += (size_t)handle->desc.C * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in) * 4 + 4 * 64; /* wT */
             size += (size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in) * 4 + 4 * 64; /* rT */
             size += (size_t)handle->desc.C * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_in)  + 64; /* xT */
             size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) + 64; /* hT */
-            size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) + 64; /* deltat */
+            size += (size_t)handle->desc.K * (size_t)handle->desc.N * dwdr_typesize + 64; /* deltat */
             size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) + 64; /* di */
             size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) + 64; /* df */
             size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) + 64; /* do */
@@ -514,8 +515,10 @@ LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* han
             size += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) + 64; /* t2 */
             /*  The scratches below are needed only for BF16 code for the intermediate results  */
             if (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) {
+              size += (size_t)4 *((size_t)handle->desc.K * sizeof(float) + 64); /* intermediate db scratch */
+              size += (size_t)handle->desc.C * (size_t)handle->desc.N * sizeof(float) * (size_t)handle->desc.max_T + 64; /* intermediate dx scratches */
               size += (size_t)7 *((size_t)handle->desc.K * (size_t)handle->desc.N * sizeof(float) * (size_t)handle->desc.max_T + 64); /* intermediate scratches */
-              size += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof(float) + 64; /* intermediate scratches */
+              size += (size_t)2 *((size_t)handle->desc.K * (size_t)handle->desc.N * sizeof(float) + 64); /* intermediate scratches */
             }
           } break;
           default: {
@@ -722,6 +725,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
               return status;
             }
             handle->scratch_base = (void*)address;
+            size_t dwdr_typesize = (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ? sizeof(float) : libxs_dnn_typesize(handle->desc.datatype_in) ;
             /* w scratch */
             if (address % 64 == 0) {
               handle->scratch_w = (void*)address;
@@ -729,7 +733,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
               offset = (64 - address % 64);
               handle->scratch_w = (void*)(address+offset);
             }
-            address += ((size_t)handle->desc.C * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in)) * 4 + 64;
+            address += ((size_t)handle->desc.C * (size_t)handle->desc.K * dwdr_typesize) * 4 + 64;
             /* r scratch */
             if (address % 64 == 0) {
               handle->scratch_r = (void*)address;
@@ -737,7 +741,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
               offset = (64 - address % 64);
               handle->scratch_r = (void*)(address+offset);
             }
-            address += ((size_t)handle->desc.K * (size_t)handle->desc.K * libxs_dnn_typesize(handle->desc.datatype_in)) * 4 + 64;
+            address += ((size_t)handle->desc.K * (size_t)handle->desc.K * dwdr_typesize) * 4 + 64;
             /* wT */
             if (address % 64 == 0) {
               handle->scratch_wT = (void*)address;
@@ -777,7 +781,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
               offset = (64 - address % 64);
               handle->scratch_deltat = (void*)(address+offset);
             }
-            address += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) + 64;
+            address += (size_t)handle->desc.K * (size_t)handle->desc.N * dwdr_typesize + 64;
             /* di */
             if (address % 64 == 0) {
               handle->scratch_di = (void*)address;
@@ -860,6 +864,30 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
             address += (size_t)handle->desc.K * (size_t)handle->desc.N * libxs_dnn_typesize(handle->desc.datatype_out) + 64;
             /*  The scratches below are needed only for BF16 code for the intermediate results  */
             if (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) {
+              /* dx scratch */
+              if (address % 64 == 0) {
+                handle->scratch_dx = (void*)address;
+              } else {
+                offset = (64 - address % 64);
+                handle->scratch_dx = (void*)(address+offset);
+              }
+              address += (size_t)handle->desc.C * (size_t)handle->desc.N * sizeof(float) * (size_t)handle->desc.max_T + 64;
+              /* dhp scratch */
+              if (address % 64 == 0) {
+                handle->scratch_dhp = (void*)address;
+              } else {
+                offset = (64 - address % 64);
+                handle->scratch_dhp = (void*)(address+offset);
+              }
+              address += (size_t)handle->desc.K * (size_t)handle->desc.N * sizeof(float) + 64;
+              /* db scratch */
+              if (address % 64 == 0) {
+                handle->scratch_db = (void*)address;
+              } else {
+                offset = (64 - address % 64);
+                handle->scratch_db = (void*)(address+offset);
+              }
+              address += (size_t)handle->desc.K * 4 * sizeof(float) + 64;
               /* cst scratch */
               if (address % 64 == 0) {
                 handle->cst_scratch = (void*)address;

@@ -42,6 +42,7 @@
 
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_f32_f32(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_ncnc_kcck_f32_f32(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid);
 
@@ -81,7 +82,36 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_f32_f32(libxs_dnn_rnncell* han
   return status;
 }
 
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+  LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
+#define LIBXS_RNN_CELL_AVX512
+  typedef libxs_bfloat16 element_input_type;
+  typedef libxs_bfloat16 element_output_type;
+  typedef libxs_bfloat16 element_filter_type;
+  if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_RELU ) {
+    status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_SIGMOID ) {
+    status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_TANH ) {
+    status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+# include "template/libxs_internal_lstm_bwdupd_fused_eltwise.tpl.c"
+# include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_ck_generic_bf16.tpl.c"
+  } else {
+    /* should not happen */
+  }
+#undef LIBXS_RNN_CELL_AVX512
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid); LIBXS_UNUSED(kind);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+  LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -117,7 +147,7 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32(libxs_dnn_rnncell* h
 }
 
 
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+  LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_ncnc_kcck_f32_f32(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -182,7 +212,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck(libxs_dnn_rnn
   else {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_rnncell_st_bwdupd_nc_ck_f32_f32( handle, kind, start_thread, tid );
-    } else {
+    } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
+      status = libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16( handle, kind, start_thread, tid );
+    } else  {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }

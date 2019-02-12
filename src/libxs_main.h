@@ -661,6 +661,9 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   void* scratch_dfB;
   void* scratch_dpB;
   void* scratch_dciB;
+  void* scratch_dx;
+  void* scratch_dhp;
+  void* scratch_db;
   void* scratch_t1;
   void* scratch_t2;
   void* csp_scratch;
