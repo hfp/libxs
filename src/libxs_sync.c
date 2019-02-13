@@ -73,7 +73,7 @@ struct LIBXS_RETARGETABLE libxs_barrier {
   internal_sync_core_tag** cores;
   internal_sync_thread_tag** threads;
   int ncores, nthreads_per_core;
-  int nthreads, ncores_log2;
+  int nthreads, ncores_nbits; /* nbits(ncores) != log2(ncores) */
   /* internal counter type which is guaranteed to be atomic when using certain methods */
   volatile int threads_waiting;
   /* thread-safety during initialization */
@@ -89,7 +89,7 @@ LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core)
 #else
   if (NULL != barrier && 1 < ncores && 1 <= nthreads_per_core) {
     barrier->ncores = ncores;
-    barrier->ncores_log2 = (int)LIBXS_LOG2(((unsigned long long)ncores << 1) - 1);
+    barrier->ncores_nbits = (int)LIBXS_NBITS(ncores);
     barrier->nthreads_per_core = nthreads_per_core;
     barrier->nthreads = ncores * nthreads_per_core;
     barrier->threads = (internal_sync_thread_tag**)libxs_aligned_malloc(
@@ -142,10 +142,10 @@ LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid)
 
       for (i = 0; i < 2; ++i) {
         core->my_flags[i] = (uint8_t*)libxs_aligned_malloc(
-          barrier->ncores_log2 * sizeof(uint8_t) * LIBXS_CACHELINE,
+          barrier->ncores_nbits * sizeof(uint8_t) * LIBXS_CACHELINE,
           LIBXS_CACHELINE);
         core->partner_flags[i] = (uint8_t**)libxs_aligned_malloc(
-          barrier->ncores_log2 * sizeof(uint8_t*),
+          barrier->ncores_nbits * sizeof(uint8_t*),
           LIBXS_CACHELINE);
       }
 
@@ -169,7 +169,7 @@ LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid)
     /* each core's thread 0 completes setup */
     if (0 == thread->core_tid) {
       int di;
-      for (i = di = 0; i < barrier->ncores_log2; ++i, di += LIBXS_CACHELINE) {
+      for (i = di = 0; i < barrier->ncores_nbits; ++i, di += LIBXS_CACHELINE) {
         /* find dissemination partner and link to it */
         const int dissem_cid = (cid + (1 << i)) % barrier->ncores;
         assert(0 != core); /* initialized under the same condition; see above */
@@ -233,7 +233,7 @@ void libxs_barrier_wait(libxs_barrier* barrier, int tid)
         m512d = LIBXS_INTRINSICS_MM512_LOAD_PD(sendbuf);
 # endif
 
-        for (i = di = 0; i < barrier->ncores_log2 - 1; ++i, di += LIBXS_CACHELINE) {
+        for (i = di = 0; i < barrier->ncores_nbits - 1; ++i, di += LIBXS_CACHELINE) {
 # if defined(__MIC__)
           _mm_prefetch((const char*)core->partner_flags[core->parity][i+1], _MM_HINT_ET1);
           _mm512_storenrngo_pd(core->partner_flags[core->parity][i], m512d);

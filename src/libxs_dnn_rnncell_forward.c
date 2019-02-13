@@ -68,7 +68,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck_f32_f32(libxs_dnn_rnncell* handle
 # undef LIBXS_DNN_RNN_TANH_FWD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 #define LIBXS_RNN_CELL_AVX512
-# include "template/libxs_internal_lstm_fwd_fused_eltwise.tpl.c"
 # include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_ck_generic.tpl.c"
 #undef LIBXS_RNN_CELL_AVX512
   } else {
@@ -97,7 +96,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck_bf16_bf16(libxs_dnn_rnncell* hand
     status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 #define LIBXS_RNN_CELL_AVX512
-# include "template/libxs_internal_lstm_fwd_fused_eltwise.tpl.c"
 # include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_ck_generic_bf16.tpl.c"
 #undef LIBXS_RNN_CELL_AVX512
   } else {
@@ -165,7 +163,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck_f32_f32(libxs_dnn_rnncell* hand
 # undef LIBXS_DNN_RNN_TANH_FWD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 #define LIBXS_RNN_CELL_AVX512
-# include "template/libxs_internal_lstm_fwd_fused_eltwise.tpl.c"
 # include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_kcck.tpl.c"
 #undef LIBXS_RNN_CELL_AVX512
   } else {

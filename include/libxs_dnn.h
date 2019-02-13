@@ -210,6 +210,10 @@ typedef enum libxs_dnn_tensor_type {
   LIBXS_DNN_RNN_REGULAR_WEIGHT,
   /** regular recurrent weight (LSTM: ri, rc, rf, ro) */
   LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT,
+  /** regular weight (LSTM: wi, wc, wf, wo) */
+  LIBXS_DNN_RNN_REGULAR_WEIGHT_TRANS,
+  /** regular recurrent weight (LSTM: ri, rc, rf, ro) */
+  LIBXS_DNN_RNN_REGULAR_RECUR_WEIGHT_TRANS,
   /** regular bias (LSTM: bi, bc, bf, bo) */
   LIBXS_DNN_RNN_REGULAR_BIAS,
   /** regular output cell state buffer */
