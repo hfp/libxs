@@ -69,7 +69,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_f32_f32(libxs_dnn_rnncell* han
 # include "template/libxs_dnn_rnncell_st_rnn_bwdupd_nc_ck_generic.tpl.c"
 # undef LIBXS_DNN_RNN_TANH_BWDUPD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
-# include "template/libxs_internal_lstm_bwdupd_fused_eltwise.tpl.c"
 # include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_ck_generic.tpl.c"
   } else {
     /* should not happen */
@@ -98,7 +97,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16(libxs_dnn_rnncell* h
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_RNN_TANH ) {
     status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
-# include "template/libxs_internal_lstm_bwdupd_fused_eltwise.tpl.c"
 # include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_ck_generic_bf16.tpl.c"
   } else {
     /* should not happen */
@@ -133,7 +131,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32(libxs_dnn_rnncell* h
 # include "template/libxs_dnn_rnncell_st_rnn_bwdupd_nc_kcck.tpl.c"
 # undef LIBXS_DNN_RNN_TANH_BWDUPD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
-# include "template/libxs_internal_lstm_bwdupd_fused_eltwise.tpl.c"
 # include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_kcck.tpl.c"
   } else {
     /* should not happen */

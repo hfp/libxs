@@ -144,6 +144,9 @@ LIBXS_API float libxs_sexp2_i8(signed char x);
 /** Similar to libxs_sexp2_i8, but takes an integer as signed 8-bit value (check). */
 LIBXS_API float libxs_sexp2_i8i(int x);
 
+/** Makes log2 available independent of C99 support. */
+LIBXS_API double libxs_log2(double x);
+
 /** Function to seed libxs_rand_u32 (similar to srand). */
 LIBXS_API void libxs_srand(unsigned int seed);
 

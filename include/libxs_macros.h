@@ -341,14 +341,11 @@
 # define LIBXS_OPENMP_COLLAPSE(N)
 #endif
 
-/** Binary Logarithm (based on Stackoverflow's NBITSx macro). */
-#define LIBXS_LOG2_02(N) (0 != ((N) & 0x2/*0b10*/) ? 1 : 0)
-#define LIBXS_LOG2_04(N) (0 != ((N) & 0xC/*0b1100*/) ? (2 | LIBXS_LOG2_02((N) >> 2)) : LIBXS_LOG2_02(N))
-#define LIBXS_LOG2_08(N) (0 != ((N) & 0xF0/*0b11110000*/) ? (4 | LIBXS_LOG2_04((N) >> 4)) : LIBXS_LOG2_04(N))
-#define LIBXS_LOG2_16(N) (0 != ((N) & 0xFF00) ? (8 | LIBXS_LOG2_08((N) >> 8)) : LIBXS_LOG2_08(N))
-#define LIBXS_LOG2_32(N) (0 != ((N) & 0xFFFF0000) ? (16 | LIBXS_LOG2_16((N) >> 16)) : LIBXS_LOG2_16(N))
-#define LIBXS_LOG2_64(N) (0 != ((N) & 0xFFFFFFFF00000000) ? (32 | LIBXS_LOG2_32((N) >> 32)) : LIBXS_LOG2_32(N))
-#define LIBXS_LOG2(N) LIBXS_MAX((unsigned int)LIBXS_LOG2_64((unsigned long long)N), 1U)
+/** LIBXS_NBITS determines the minimum number of bits needed to represent N. */
+#define LIBXS_NBITS(N) (LIBXS_INTRINSICS_BITSCANBWD64(N) + LIBXS_MIN(1, N))
+/** LIBXS_LOG2 definition matches ceil(log2(N)). */
+#define LIBXS_LOG2(N) (1 < (N) ? (LIBXS_INTRINSICS_BITSCANBWD64(N) + \
+  (LIBXS_INTRINSICS_BITSCANBWD64((N) - 1) != LIBXS_INTRINSICS_BITSCANBWD64(N) ? 0 : 1)) : 0)
 
 /** LIBXS_UP2POT rounds up to the next power of two (POT). */
 #define LIBXS_UP2POT_01(N) ((N) | ((N) >> 1))
@@ -357,7 +354,8 @@
 #define LIBXS_UP2POT_08(N) (LIBXS_UP2POT_04(N) | (LIBXS_UP2POT_04(N) >> 8))
 #define LIBXS_UP2POT_16(N) (LIBXS_UP2POT_08(N) | (LIBXS_UP2POT_08(N) >> 16))
 #define LIBXS_UP2POT_32(N) (LIBXS_UP2POT_16(N) | (LIBXS_UP2POT_16(N) >> 32))
-#define LIBXS_UP2POT(N) (LIBXS_UP2POT_32((unsigned long long)(N) - 1) + 1)
+#define LIBXS_UP2POT(N) (LIBXS_UP2POT_32((unsigned long long)(N) - LIBXS_MIN(1, N)) + LIBXS_MIN(1, N))
+#define LIBXS_LO2POT(N) (LIBXS_UP2POT_32((unsigned long long)(N) >> 1) + LIBXS_MIN(1, N))
 
 #define LIBXS_UP2(N, NPOT) ((((uintptr_t)N) + ((NPOT) - 1)) & ~((NPOT) - 1))
 #define LIBXS_UP(N, UP) (((((uintptr_t)N) + (UP) - 1) / (UP)) * (UP))
@@ -368,9 +366,7 @@
 #define LIBXS_MOD2(A, NPOT) ((A) & ((NPOT) - 1))
 #define LIBXS_DIFF(T0, T1) ((T0) < (T1) ? ((T1) - (T0)) : ((T0) - (T1)))
 #define LIBXS_CLMP(VALUE, LO, HI) ((LO) < (VALUE) ? ((VALUE) <= (HI) ? (VALUE) : LIBXS_MIN(VALUE, HI)) : LIBXS_MAX(LO, VALUE))
-#define LIBXS_MUL2(N, NPOT) (((unsigned long long)N) << LIBXS_LOG2(NPOT))
-#define LIBXS_DIV2(N, NPOT) (((unsigned long long)N) >> LIBXS_LOG2(NPOT))
-#define LIBXS_SQRT2(N) (0 < (N) ? ((unsigned int)(1ULL << (LIBXS_LOG2(((N) << 1) - 1) >> 1))) : 0)
+#define LIBXS_SQRT2(N) ((unsigned int)((1ULL << (LIBXS_NBITS(N) >> 1)) /*+ LIBXS_MIN(1, N)*/))
 #define LIBXS_HASH2(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
 #define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
 #define LIBXS_FEQ(A, B) ((A) == (B))
@@ -411,7 +407,7 @@
 # define LIBXS_ASSUME_ALIGNED(A, N) assert(0 == ((uintptr_t)(A)) % (N))
 #endif
 #define LIBXS_ALIGN(POINTER, ALIGNMENT/*POT*/) ((POINTER) + (LIBXS_UP2((uintptr_t)(POINTER), ALIGNMENT) - ((uintptr_t)(POINTER))) / sizeof(*(POINTER)))
-#define LIBXS_FOLD2(POINTER, ALIGNMENT/*POT*/, NPOT) LIBXS_MOD2(LIBXS_DIV2((uintptr_t)(POINTER), ALIGNMENT), NPOT)
+#define LIBXS_FOLD2(POINTER, ALIGNMENT, NPOT) LIBXS_MOD2(((uintptr_t)(POINTER) / (ALIGNMENT)), NPOT)
 
 #if defined(_MSC_VER) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) /* account for incorrect handling of __VA_ARGS__ */
 # define LIBXS_SELECT_ELEMENT(INDEX1/*one-based*/, .../*elements*/) LIBXS_CONCATENATE(LIBXS_SELECT_ELEMENT_, INDEX1)LIBXS_EXPAND((__VA_ARGS__))
