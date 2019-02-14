@@ -298,6 +298,7 @@ libxs_isqrt_u64
 libxs_itrans
 libxs_itrans_
 libxs_lcm
+libxs_log2
 libxs_malloc
 libxs_matcopy
 libxs_matcopy_
@@ -346,13 +347,15 @@ libxs_otrans_thread_internal
 libxs_pgemm_descriptor_init
 libxs_primes_u32
 libxs_product_limit
-libxs_rand_f64
-libxs_rand_u32
 libxs_release_kernel
 libxs_release_kernel_
 libxs_release_scratch
 libxs_rnaz_convert_fp32_bfp16
 libxs_rne_convert_fp32_bfp16
+libxs_rng_f32_seq
+libxs_rng_f64
+libxs_rng_set_seed
+libxs_rng_u32
 libxs_rwlock_acqread
 libxs_rwlock_acquire
 libxs_rwlock_create
@@ -365,6 +368,7 @@ libxs_scratch_malloc
 libxs_set_default_allocator
 libxs_set_dispatch_trylock
 libxs_set_gemm_auto_prefetch
+libxs_set_gemm_batchflag
 libxs_set_scratch_allocator
 libxs_set_scratch_limit
 libxs_set_target_arch
@@ -400,7 +404,6 @@ libxs_spmdm_destroy
 libxs_spmdm_get_num_compute_blocks
 libxs_spmdm_get_num_createSparseSlice_blocks
 libxs_spmdm_init
-libxs_srand
 libxs_ssqrt
 libxs_strerror
 libxs_timer_cycles

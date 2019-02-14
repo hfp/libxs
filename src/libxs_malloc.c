@@ -656,7 +656,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
             const char *const env = getenv("LIBXS_SE");
             if (NULL != selinux) {
               if (1 == fread(&internal_malloc_secured, 1/*sizeof(char)*/, 1/*count*/, selinux)) {
-                internal_malloc_secured -= '0';
+                internal_malloc_secured = ('0' != internal_malloc_secured ? 1 : 0);
               }
               else { /* conservative assumption in case of read-error */
                 internal_malloc_secured = 1;
@@ -968,8 +968,12 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
         /* TODO: implement memory protection under Microsoft Windows */
         LIBXS_UNUSED(alloc_size);
 #else
-        /* treat memory protection errors as soft error; ignore return value */
-        mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ);
+        if (EXIT_SUCCESS != mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ)
+          && (2 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
+          fprintf(stderr, "LIBXS WARNING: read-only request for buffer failed!\n");
+        }
 #endif
       }
       else { /* executable buffer requested */
@@ -1051,14 +1055,20 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
             (unsigned int)(((char*)&info->hash) - ((char*)info)), LIBXS_MALLOC_SEED);
 # endif   /* treat memory protection errors as soft error; ignore return value */
           mprotect_result = mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ | PROT_EXEC);
-          if (0 != internal_malloc_secured) { /* hard-error in case of SELinux */
-            if (0 != libxs_verbosity /* library code is expected to be mute */
-              && EXIT_SUCCESS != mprotect_result
+          if (EXIT_SUCCESS != mprotect_result) {
+            if (0 != internal_malloc_secured) { /* hard-error in case of SELinux */
+              if (0 != libxs_verbosity /* library code is expected to be mute */
+                && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+              {
+                fprintf(stderr, "LIBXS ERROR: failed to allocate an executable buffer!\n");
+              }
+              result = mprotect_result;
+            }
+            else if ((2 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
               && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
             {
-              fprintf(stderr, "LIBXS ERROR: cannot allocate executable buffer!\n");
+              fprintf(stderr, "LIBXS WARNING: read-only request for JIT-buffer failed!\n");
             }
-            result = mprotect_result;
           }
         }
 #endif
