@@ -693,7 +693,6 @@ LIBXS_API void* libxs_dnn_rnncell_get_scratch_ptr(const libxs_dnn_rnncell* handl
     return handle->scratch_base;
   } else {
     *status = LIBXS_DNN_ERR_INVALID_HANDLE;
-    return 0;
   }
 
   return 0;
@@ -1267,7 +1266,6 @@ LIBXS_API void* libxs_dnn_rnncell_get_internalstate_ptr(const libxs_dnn_rnncell*
     return handle->internal_z;
   } else {
     *status = LIBXS_DNN_ERR_INVALID_HANDLE;
-    return 0;
   }
 
   return 0;
