@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2019, Intel Corporation                                **
+** Copyright (c) 2019, Intel Corporation                                     **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -35,23 +35,34 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <stdint.h>
-#if !defined(NDEBUG)
-# include <stdio.h>
-#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
 
-/* set the seed of the rng */
-LIBXS_API void libxs_rng_float_set_seed( const uint32_t seed );
+/** Set the seed of libxs_rng_* (similar to srand). */
+LIBXS_API void libxs_rng_set_seed(unsigned int/*uint32_t*/ seed);
 
-/* This float rng is using xoshiro128+ 1.0, work done by
-   David Blackman and Sebastiano Vigna (vigna@acm.org)
-   It's their best and fastest 32-bit generator for 32-bit
-   floating-point numbers. They suggest to use its upper bits for
-   floating-point generation, what we do here and generate numbers in
-   [0,1(.
+/**
+ * Returns a (pseudo-)random value based on rand/rand48 in the interval [0, n).
+ * This function compensates for an n, which is not a factor of RAND_MAX.
+ * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
  */
-LIBXS_API void libxs_rng_float_seq( float* rngs, const libxs_blasint count );
+LIBXS_API unsigned int libxs_rng_u32(unsigned int n);
+
+/**
+ * Similar to libxs_rng_u32, but returns a DP-value in the interval [0, 1).
+ * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
+ */
+LIBXS_API double libxs_rng_f64(void);
+
+/**
+ * This SP-RNG is using xoshiro128+ 1.0, work done by
+ * David Blackman and Sebastiano Vigna (vigna@acm.org).
+ * It is their best and fastest 32-bit generator for
+ * 32-bit floating-point numbers. They suggest to use
+ * its upper bits for floating-point generation, what
+ * we do here and generate numbers in [0,1(.
+ */
+LIBXS_API void libxs_rng_f32_seq(float* rngs, libxs_blasint count);
 
 #endif /* LIBXS_RNG_H */

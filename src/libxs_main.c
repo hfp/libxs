@@ -65,11 +65,14 @@
 #if !defined(LIBXS_HASH_SEED)
 # define LIBXS_HASH_SEED 25071975
 #endif
+#if !defined(LIBXS_HASH_SEED2)
+# define LIBXS_HASH_SEED2 151981
+#endif
 #if !defined(LIBXS_CAPACITY_CACHE)
 # define LIBXS_CAPACITY_CACHE 4
 #endif
-#if !defined(LIBXS_DENY_DEREG)
-# define LIBXS_DENY_DEREG
+#if !defined(LIBXS_ENABLE_DEREG) && 0
+# define LIBXS_ENABLE_DEREG
 #endif
 
 #if 0
@@ -391,7 +394,7 @@ LIBXS_API_INLINE void internal_register_static_code(const libxs_gemm_descriptor*
 
   if (0 != dst_entry->ptr_const) { /* collision? */
     /* start at a re-hashed index position */
-    const unsigned int start = LIBXS_HASH_MOD(libxs_crc32_u32(151981/*seed*/, hash), LIBXS_CAPACITY_REGISTRY);
+    const unsigned int start = LIBXS_HASH_MOD(libxs_crc32_u32(LIBXS_HASH_SEED2, hash), LIBXS_CAPACITY_REGISTRY);
     unsigned int i0, i, next;
 #if defined(LIBXS_HASH_COLLISION)
     /* mark current entry as a collision (this might be already the case) */
@@ -1635,17 +1638,24 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   if (0 != generated_code.generated_code) {
     if (0 == generated_code.last_error) { /* no error raised */
       if (0 < generated_code.code_size) { /* sanity check */
+        void* code_buffer = NULL;
         /* attempt to create executable buffer */
-        result = libxs_xmalloc(&code->pmm, generated_code.code_size, 0/*auto*/,
+        result = libxs_xmalloc(&code_buffer, generated_code.code_size, 0/*auto*/,
           /* flag must be a superset of what's populated by libxs_malloc_attrib */
           LIBXS_MALLOC_FLAG_RWX, &regindex, sizeof(regindex));
         if (EXIT_SUCCESS == result) { /* check for success */
-          LIBXS_ASSERT(0 != code->pmm && 0 == (LIBXS_CODE_STATIC & code->uval));
           LIBXS_ASSERT(0 != generated_code.generated_code/*sanity check*/);
           /* copy temporary buffer into the prepared executable buffer */
-          memcpy(code->pmm, generated_code.generated_code, generated_code.code_size);
+          memcpy(code_buffer, generated_code.generated_code, generated_code.code_size);
           /* attribute/protect buffer and revoke unnecessary flags */
-          result = libxs_malloc_attrib(&code->pmm, LIBXS_MALLOC_FLAG_X, jit_name);
+          result = libxs_malloc_attrib(&code_buffer, LIBXS_MALLOC_FLAG_X, jit_name);
+          if (EXIT_SUCCESS == result) { /* check for success */
+            code->pmm = code_buffer; /* commit buffer */
+            LIBXS_ASSERT(NULL != code->pmm && 0 == (LIBXS_CODE_STATIC & code->uval));
+          }
+          else { /* release buffer */
+            libxs_xfree(code_buffer);
+          }
         }
       }
     }
@@ -2432,7 +2442,7 @@ LIBXS_API void libxs_release_kernel(const void* jit_kernel)
         libxs_xfree(jit_kernel);
       }
       else
-#if defined(LIBXS_DENY_DEREG)
+#if !defined(LIBXS_ENABLE_DEREG)
       if (0 != libxs_verbosity /* library code is expected to be mute */
        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {

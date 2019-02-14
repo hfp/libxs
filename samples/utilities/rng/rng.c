@@ -63,10 +63,10 @@ int main(int argc, char* argv[])
 
   rngs = (float*)malloc( num_rngs*sizeof(float) );
 
-  libxs_rng_float_set_seed( (uint32_t)(time(0)));
+  libxs_rng_set_seed( (uint32_t)(time(0)));
 
   /* fill array with random floats */
-  libxs_rng_float_seq( rngs, num_rngs );
+  libxs_rng_f32_seq( rngs, num_rngs );
 
   /* calculate quality of random numbers */
   rng_sum = 0.0;
@@ -90,14 +90,14 @@ int main(int argc, char* argv[])
 
   start = libxs_timer_tick();
   for (i = 0; i < num_rngs; ++i) {
-    libxs_rng_float_seq( rngs, 1 );
+    libxs_rng_f32_seq( rngs, 1 );
   }
   printf("\nlibxs_rng_float:  %llu cycles per random number (scalar)\n",
     libxs_timer_cycles(start, libxs_timer_tick()) / num_rngs);
 
   start = libxs_timer_tick();
   for (i = 0; i < num_rngs; ++i) {
-    libxs_rng_float_seq( vrng, 16 );
+    libxs_rng_f32_seq( vrng, 16 );
   }
   printf("\nlibxs_rng_float:  %llu cycles per random number (vlen=16)\n",
     libxs_timer_cycles(start, libxs_timer_tick()) / (num_rngs*16));
