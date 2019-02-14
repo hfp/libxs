@@ -662,27 +662,6 @@ LIBXS_API_INTERN void libxs_internal_matrix_rne_cvt_fp32_bfp16_ld(libxs_blasint 
   }
 }
 
-LIBXS_API_INTERN libxs_bfloat16 libxs_internal_scalar_rne_cvt_fp32_bfp16(float src) {
-  float in = src;
-  libxs_bfloat16 result;
-  unsigned int int_round = 0;
-  unsigned int do_round = 1;
-  int_round = *((unsigned int*)&in);
-  /* we don't round NaN and inf */
-  if ( (int_round & 0x7f800000) == 0x7f800000 ) {
-    do_round = 0;
-  }
-  /* perform round nearest tie even */
-  if ( do_round != 0 ) {
-    unsigned int fixup = (int_round >> 16) & 1;
-    int_round = int_round + 0x00007fff + fixup;
-  }
-  /* create the bfp16 value by shifting out the lower 16bits */
-  int_round = int_round >> 16;
-  result = (unsigned short)int_round;
-  return result;
-}
-
 LIBXS_API_INTERN void libxs_internal_matrix_cvt_bf16_fp32_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_bfloat16 *src, LIBXS_DNN_ELTWISE_FTYPE *dst) {
   libxs_blasint i, j;
   union libxs_bfloat16_hp t;
