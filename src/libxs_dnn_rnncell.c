@@ -167,7 +167,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
                 layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_N;
                 layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
                 layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_N;
-                layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_T;
+                layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_T;
                 layout->dim_size[0] = (unsigned int)handle->bc;
                 layout->dim_size[1] = (unsigned int)handle->bn;
                 layout->dim_size[2] = (unsigned int)(handle->desc.C / handle->bc);
