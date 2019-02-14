@@ -147,17 +147,4 @@ LIBXS_API float libxs_sexp2_i8i(int x);
 /** Makes log2 available independent of C99 support. */
 LIBXS_API double libxs_log2(double x);
 
-/** Function to seed libxs_rand_u32 (similar to srand). */
-LIBXS_API void libxs_srand(unsigned int seed);
-
-/**
- * Returns a (pseudo-)random value based on rand/rand48 in the interval [0, n).
- * This function compensates for an n, which is not a factor of RAND_MAX.
- * Note: libxs_srand must be used if one wishes to seed the generator.
- */
-LIBXS_API unsigned int libxs_rand_u32(unsigned int n);
-
-/** Similar to libxs_rand_u32, but return a DP-value in the interval [0, 1). */
-LIBXS_API double libxs_rand_f64(void);
-
 #endif /*LIBXS_MATH_H*/
