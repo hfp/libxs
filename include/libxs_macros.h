@@ -606,7 +606,7 @@
 # if !defined(NOMINMAX)
 #   define NOMINMAX 1
 # endif
-# if defined(LIBXS_INTEL_COMPILER) && (190023506 <= _MSC_FULL_VER)
+# if defined(__INTEL_COMPILER) && (190023506 <= _MSC_FULL_VER)
 #   define __builtin_huge_val() HUGE_VAL
 #   define __builtin_huge_valf() HUGE_VALF
 #   define __builtin_nan nan
@@ -659,20 +659,24 @@
   || defined(LIBXS_INTEL_COMPILER)) /* TODO */
 # define _Float32 float
 #endif
-#if !defined(_Float32X) && defined(__GNUC__) && !defined(__cplusplus) \
+#if !defined(_Float32x) && defined(__GNUC__) && !defined(__cplusplus) \
   && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
   || defined(LIBXS_INTEL_COMPILER)) /* TODO */
-# define _Float32X float
+# define _Float32x float
 #endif
 #if !defined(_Float64) && defined(__GNUC__) && !defined(__cplusplus) \
   && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
   || defined(LIBXS_INTEL_COMPILER)) /* TODO */
-# define _Float32 double
+# define _Float64 double
 #endif
-#if !defined(_Float64X) && defined(__GNUC__) && !defined(__cplusplus) \
+#if !defined(_Float64x) && defined(__GNUC__) && !defined(__cplusplus) \
   && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
   || defined(LIBXS_INTEL_COMPILER)) /* TODO */
-# define _Float64X double
+# define _Float64x double
+#endif
+#if /* !LIBXS_INTEL_COMPILER */defined(__INTEL_COMPILER) && !defined(__clang__) /* TODO */
+# define __has_feature(A) 0
+# define __has_builtin(A) 0
 #endif
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -701,6 +705,14 @@
 #   define LIBXS_EXPECT_NOT(RESULT, EXPR) (EXPR)
 # else
 #   define LIBXS_EXPECT_NOT(RESULT, EXPR) LIBXS_ASSERT((RESULT) != (EXPR))
+# endif
+#endif
+#if defined(LIBXS_INTEL_COMPILER) /* TODO */
+# if defined(__cplusplus)
+#   undef __USE_MISC
+#   include <math.h>
+# elif !defined(__PURE_INTEL_C99_HEADERS__)
+#   define __PURE_INTEL_C99_HEADERS__
 # endif
 #endif
 #include <stddef.h>
