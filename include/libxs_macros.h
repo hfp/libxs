@@ -636,7 +636,7 @@
 #endif
 
 /* _Float128 was introduced with GNU GCC 7.0. */
-#if !defined(_Float128) && defined(__GNUC__) && !defined(__cplusplus) \
+#if !defined(_Float128) && defined(__GNUC__) && !defined(__cplusplus) && defined(__linux__) \
   && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
   || (defined(LIBXS_INTEL_COMPILER) && defined(LIBXS_INTEL_COMPILER_UPDATE) && ( \
         ((1800 <= ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE))) \
@@ -645,34 +645,25 @@
       &&    (0 != ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE)))))))
 # define _Float128 __float128
 #endif
-#if !defined(_Float128X) && defined(__GNUC__) && !defined(__cplusplus) \
-  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
-  || (defined(LIBXS_INTEL_COMPILER) && defined(LIBXS_INTEL_COMPILER_UPDATE) && ( \
-        ((1800 <= ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE))) \
-      && (1801  > ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE)))) || \
-        ((1706  > ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE))) \
-      &&    (0 != ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE)))))))
-# define _Float128X __float128
-#endif
-#if !defined(_Float32) && defined(__GNUC__) && !defined(__cplusplus) \
+#if !defined(LIBXS_GLIBC_FPTYPES) && defined(__GNUC__) && !defined(__cplusplus) && defined(__linux__) \
   && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
   || defined(LIBXS_INTEL_COMPILER)) /* TODO */
+# define LIBXS_GLIBC_FPTYPES
+#endif
+#if !defined(_Float128X) && defined(LIBXS_GLIBC_FPTYPES)
+# define _Float128X _Float128
+#endif
+#if !defined(_Float32) && defined(LIBXS_GLIBC_FPTYPES)
 # define _Float32 float
 #endif
-#if !defined(_Float32x) && defined(__GNUC__) && !defined(__cplusplus) \
-  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
-  || defined(LIBXS_INTEL_COMPILER)) /* TODO */
-# define _Float32x float
+#if !defined(_Float32x) && defined(LIBXS_GLIBC_FPTYPES)
+# define _Float32x _Float32
 #endif
-#if !defined(_Float64) && defined(__GNUC__) && !defined(__cplusplus) \
-  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
-  || defined(LIBXS_INTEL_COMPILER)) /* TODO */
+#if !defined(_Float64) && defined(LIBXS_GLIBC_FPTYPES)
 # define _Float64 double
 #endif
-#if !defined(_Float64x) && defined(__GNUC__) && !defined(__cplusplus) \
-  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
-  || defined(LIBXS_INTEL_COMPILER)) /* TODO */
-# define _Float64x double
+#if !defined(_Float64x) && defined(LIBXS_GLIBC_FPTYPES)
+# define _Float64x _Float64
 #endif
 #if /* !LIBXS_INTEL_COMPILER */defined(__INTEL_COMPILER) && !defined(__clang__) /* TODO */
 # define __has_feature(A) 0
@@ -707,10 +698,16 @@
 #   define LIBXS_EXPECT_NOT(RESULT, EXPR) LIBXS_ASSERT((RESULT) != (EXPR))
 # endif
 #endif
-#if defined(LIBXS_INTEL_COMPILER) /* TODO */
+#if defined(LIBXS_GLIBC_FPTYPES)
 # if defined(__cplusplus)
 #   undef __USE_MISC
 #   include <math.h>
+#   if !defined(_DEFAULT_SOURCE)
+#     define _DEFAULT_SOURCE
+#   endif
+#   if !defined(_BSD_SOURCE)
+#     define _BSD_SOURCE
+#   endif
 # elif !defined(__PURE_INTEL_C99_HEADERS__)
 #   define __PURE_INTEL_C99_HEADERS__
 # endif
