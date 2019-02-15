@@ -343,8 +343,8 @@
 
 /** LIBXS_NBITS determines the minimum number of bits needed to represent N. */
 #define LIBXS_NBITS(N) (LIBXS_INTRINSICS_BITSCANBWD64(N) + LIBXS_MIN(1, N))
-/** LIBXS_LOG2 definition matches ceil(log2(N)). */
-#define LIBXS_LOG2(N) (1 < (N) ? (LIBXS_INTRINSICS_BITSCANBWD64(N) + \
+/** LIBXS_ILOG2 definition matches ceil(log2(N)). */
+#define LIBXS_ILOG2(N) (1 < (N) ? (LIBXS_INTRINSICS_BITSCANBWD64(N) + \
   (LIBXS_INTRINSICS_BITSCANBWD64((N) - 1) != LIBXS_INTRINSICS_BITSCANBWD64(N) ? 0 : 1)) : 0)
 
 /** LIBXS_UP2POT rounds up to the next power of two (POT). */
@@ -373,18 +373,25 @@
 #define LIBXS_NEQ(A, B) ((A) != (B))
 #define LIBXS_ISNAN(A)  LIBXS_NEQ(A, A)
 #define LIBXS_NOTNAN(A) LIBXS_FEQ(A, A)
-
 #define LIBXS_ROUNDX(TYPE, A) ((TYPE)((long long)(0 <= (A) ? ((double)(A) + 0.5) : ((double)(A) - 0.5))))
+
+/** Makes some functions available independent of C99 support. */
 #if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
 # define LIBXS_FREXPF(A, B) frexpf(A, B)
 # define LIBXS_POWF(A, B) powf(A, B)
 # define LIBXS_ROUNDF(A) roundf(A)
 # define LIBXS_ROUND(A) round(A)
+# define LIBXS_TANHF(A) tanhf(A)
+# define LIBXS_LOG2(A) log2(A)
+# define LIBXS_LOGF(A) logf(A)
 #else
 # define LIBXS_FREXPF(A, B) ((float)frexp((double)(A), B))
 # define LIBXS_POWF(A, B) ((float)pow((double)(A), (double)(B)))
 # define LIBXS_ROUNDF(A) LIBXS_ROUNDX(float, A)
 # define LIBXS_ROUND(A) LIBXS_ROUNDX(double, A)
+# define LIBXS_TANHF(A) ((float)tanh((double)(A)))
+# define LIBXS_LOG2(A) (log(A) * (1.0 / (M_LN2)))
+# define LIBXS_LOGF(A) ((float)log((double)(A)))
 #endif
 
 #if defined(LIBXS_INTEL_COMPILER)
