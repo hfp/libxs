@@ -482,16 +482,20 @@ LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flag
 LIBXS_API_INLINE void internal_mhint(void* buffer, size_t size)
 {
   LIBXS_ASSERT((MAP_FAILED != buffer && NULL != buffer) || 0 == size);
+#if defined(_DEFAULT_SOURCE) || defined(_BSD_SOURCE)
   /* proceed after failed madvise (even in case of an error; take what we got) */
   /* issue no warning as a failure seems to be related to the kernel version */
   madvise(buffer, size, MADV_NORMAL/*MADV_RANDOM*/
-#if defined(MADV_NOHUGEPAGE) /* if not available, we then take what we got (THP) */
+# if defined(MADV_NOHUGEPAGE) /* if not available, we then take what we got (THP) */
     | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? MADV_NOHUGEPAGE : 0)
-#endif
-#if defined(MADV_DONTDUMP)
+# endif
+# if defined(MADV_DONTDUMP)
     | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? 0 : MADV_DONTDUMP)
-#endif
+# endif
   );
+#else
+  LIBXS_UNUSED(buffer); LIBXS_UNUSED(size);
+#endif
 }
 
 
