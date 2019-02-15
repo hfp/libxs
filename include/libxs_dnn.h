@@ -245,52 +245,7 @@ typedef enum libxs_dnn_tensor_type {
   /** internal ci buffer */
   LIBXS_DNN_RNN_INTERNAL_CI,
   /** internal co buffer */
-  LIBXS_DNN_RNN_INTERNAL_CO,
-
-  /** regular input buffer */
-  LIBXS_DNN_GRU_REGULAR_INPUT,
-  /** regular hidden state buffer */
-  LIBXS_DNN_GRU_REGULAR_HIDDEN_STATE,
-  /** regular weight r */
-  LIBXS_DNN_GRU_REGULAR_WEIGHT_R,
-  /** regular weight z */
-  LIBXS_DNN_GRU_REGULAR_WEIGHT_Z,
-  /** regular weight g */
-  LIBXS_DNN_GRU_REGULAR_WEIGHT_G,
-  /** regular recurrent weight r */
-  LIBXS_DNN_GRU_REGULAR_RECUR_WEIGHT_R,
-  /** regular recurrent weight z */
-  LIBXS_DNN_GRU_REGULAR_RECUR_WEIGHT_Z,
-  /** regular recurrent weight g */
-  LIBXS_DNN_GRU_REGULAR_RECUR_WEIGHT_G,
-  /** regular bias r */
-  LIBXS_DNN_GRU_REGULAR_BIAS_R,
-  /** regular bias z */
-  LIBXS_DNN_GRU_REGULAR_BIAS_Z,
-  /** regular bias g */
-  LIBXS_DNN_GRU_REGULAR_BIAS_G,
-  /** gradient input buffer */
-  LIBXS_DNN_GRU_GRADIENT_INPUT,
-  /** gradient hidden state buffer */
-  LIBXS_DNN_GRU_GRADIENT_HIDDEN_STATE,
-  /** gradient weight r */
-  LIBXS_DNN_GRU_GRADIENT_WEIGHT_R,
-  /** gradient weight z */
-  LIBXS_DNN_GRU_GRADIENT_WEIGHT_Z,
-  /** gradient weight g */
-  LIBXS_DNN_GRU_GRADIENT_WEIGHT_G,
-  /** gradient recurrent weight r */
-  LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_R,
-  /** gradient recurrent weight z */
-  LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_Z,
-  /** gradient recurrent weight g */
-  LIBXS_DNN_GRU_GRADIENT_RECUR_WEIGHT_G,
-  /** gradient bias r */
-  LIBXS_DNN_GRU_GRADIENT_BIAS_R,
-  /** gradient bias z */
-  LIBXS_DNN_GRU_GRADIENT_BIAS_Z,
-  /** gradient bias g */
-  LIBXS_DNN_GRU_GRADIENT_BIAS_G
+  LIBXS_DNN_RNN_INTERNAL_CO
 } libxs_dnn_tensor_type;
 
 /** layout descriptor to allow external data handling
