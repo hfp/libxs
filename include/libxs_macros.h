@@ -646,7 +646,7 @@
 #endif
 #if !defined(LIBXS_GLIBC_FPTYPES) && defined(__GNUC__) && !defined(__cplusplus) && defined(__linux__) \
   && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
-  || defined(LIBXS_INTEL_COMPILER)) /* TODO */
+  || defined(LIBXS_INTEL_COMPILER)) && 0 /* TODO */
 # define LIBXS_GLIBC_FPTYPES
 #endif
 #if !defined(_Float128X) && defined(LIBXS_GLIBC_FPTYPES)
