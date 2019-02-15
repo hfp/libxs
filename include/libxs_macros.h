@@ -645,6 +645,35 @@
       &&    (0 != ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE)))))))
 # define _Float128 __float128
 #endif
+#if !defined(_Float128X) && defined(__GNUC__) && !defined(__cplusplus) \
+  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
+  || (defined(LIBXS_INTEL_COMPILER) && defined(LIBXS_INTEL_COMPILER_UPDATE) && ( \
+        ((1800 <= ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE))) \
+      && (1801  > ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE)))) || \
+        ((1706  > ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE))) \
+      &&    (0 != ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE)))))))
+# define _Float128X __float128
+#endif
+#if !defined(_Float32) && defined(__GNUC__) && !defined(__cplusplus) \
+  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
+  || defined(LIBXS_INTEL_COMPILER)) /* TODO */
+# define _Float32 float
+#endif
+#if !defined(_Float32X) && defined(__GNUC__) && !defined(__cplusplus) \
+  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
+  || defined(LIBXS_INTEL_COMPILER)) /* TODO */
+# define _Float32X float
+#endif
+#if !defined(_Float64) && defined(__GNUC__) && !defined(__cplusplus) \
+  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
+  || defined(LIBXS_INTEL_COMPILER)) /* TODO */
+# define _Float32 double
+#endif
+#if !defined(_Float64X) && defined(__GNUC__) && !defined(__cplusplus) \
+  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
+  || defined(LIBXS_INTEL_COMPILER)) /* TODO */
+# define _Float64X double
+#endif
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
