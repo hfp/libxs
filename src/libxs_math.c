@@ -572,17 +572,6 @@ LIBXS_API float libxs_sexp2_i8i(int x)
 }
 
 
-LIBXS_API double libxs_log2(double x)
-{
-#if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
-  return log2(x);
-#else
-  static const double rcp_ln2 = 1.0 / (M_LN2);
-  return log(x) * rcp_ln2;
-#endif
-}
-
-
 #if defined(LIBXS_BUILD)
 
 /* implementation provided for Fortran 77 compatibility */

@@ -36,7 +36,7 @@ LIBXS_INLINE unsigned int ref_icbrt_u64(unsigned long long u64)
 
 LIBXS_INLINE unsigned int ref_ilog2_u32(unsigned int u32)
 {
-  return (unsigned int)ceil(libxs_log2(u32));
+  return (unsigned int)ceil(LIBXS_LOG2(u32));
 }
 
 
@@ -139,10 +139,10 @@ int main(int argc, char* argv[])
     b = LIBXS_INTRINSICS_BITSCANBWD64_SW(r64);
     if (a != b) exit(EXIT_FAILURE);
 
-    a = LIBXS_LOG2(i);
+    a = LIBXS_ILOG2(i);
     b = ref_ilog2_u32(i);
     if (0 != i && a != b) exit(EXIT_FAILURE);
-    a = LIBXS_LOG2(r32);
+    a = LIBXS_ILOG2(r32);
     b = ref_ilog2_u32(r32);
     if (0 != r32 && a != b) exit(EXIT_FAILURE);
 
