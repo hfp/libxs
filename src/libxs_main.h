@@ -615,7 +615,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_pooling {
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_dnn_rnncell_desc desc;
   libxs_dnn_internal_format custom_format_type; /* required only for comparing layouts  */
-  libxs_blasint T;                                 /* sequnece length, must be smaller than max sequence length in desc */
+  libxs_blasint T;                              /* sequnece length, must be smaller than max sequence length in desc */
   libxs_blasint bk;
   libxs_blasint bn;
   libxs_blasint bc;
