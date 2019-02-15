@@ -1216,6 +1216,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, i
       memset( &descriptor, 0, sizeof(libxs_convolution_weight_update_descriptor) );
       memset( &matcopy_descriptor, 0, sizeof(libxs_mcopy_descriptor) );
       memset( &matzero_descriptor, 0, sizeof(libxs_mcopy_descriptor) );
+      descriptor.f32_bf16_cvt_rne = handle->f32_bf16_cvt_rne;
 
       if (handle->padding_flag == 1) {
         descriptor.ifh_padded = handle->ifhp + 2 * handle->desc.pad_h;
