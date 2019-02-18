@@ -573,6 +573,30 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM51
   return _mm512_loadu_ps(a16);
 }
 #endif /* SVML */
+/** 2048 bit state for AVX512 RNG */
+LIBXS_APIVAR(__m512i libxs_rng_avx512_state_0);
+LIBXS_APIVAR(__m512i libxs_rng_avx512_state_1);
+LIBXS_APIVAR(__m512i libxs_rng_avx512_state_2);
+LIBXS_APIVAR(__m512i libxs_rng_avx512_state_3);
+
+/** Generate random number in the interval [0, 1); not thread-safe. */
+LIBXS_API_INLINE __m512 LIBXS_INTRINSICS_MM512_RNG_PS(void) {
+  const __m512i rng_mantissa = _mm512_srli_epi32(_mm512_add_epi32(libxs_rng_avx512_state_0, libxs_rng_avx512_state_3), 9);
+  const __m512i s = _mm512_slli_epi32(libxs_rng_avx512_state_1, 9);
+  const __m512i t = _mm512_slli_epi32(libxs_rng_avx512_state_3, 11);
+
+  libxs_rng_avx512_state_2 = _mm512_xor_epi32(libxs_rng_avx512_state_2, libxs_rng_avx512_state_0);
+  libxs_rng_avx512_state_3 = _mm512_xor_epi32(libxs_rng_avx512_state_3, libxs_rng_avx512_state_1);
+  libxs_rng_avx512_state_1 = _mm512_xor_epi32(libxs_rng_avx512_state_1, libxs_rng_avx512_state_2);
+  libxs_rng_avx512_state_0 = _mm512_xor_epi32(libxs_rng_avx512_state_0, libxs_rng_avx512_state_3);
+  libxs_rng_avx512_state_2 = _mm512_xor_epi32(libxs_rng_avx512_state_2, s);
+  libxs_rng_avx512_state_3 = _mm512_or_epi32(t, _mm512_srli_epi32(libxs_rng_avx512_state_3, 32 - 11));
+
+  return _mm512_sub_ps(_mm512_castsi512_ps(_mm512_or_epi32(_mm512_set1_epi32(0x3f800000), rng_mantissa)),
+    _mm512_set1_ps(1.0f));
+}
+
+
 #endif /*__AVX512F__*/
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
