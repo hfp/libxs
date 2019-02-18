@@ -33,8 +33,6 @@
 
 /** Macro evaluates to LIBXS_ATTRIBUTE_TARGET_xxx (see below). */
 #define LIBXS_ATTRIBUTE_TARGET(TARGET) LIBXS_CONCATENATE(LIBXS_ATTRIBUTE_TARGET_, TARGET)
-/** Helper macro to access 2048-bit RNG-state. */
-#define LIBXS_INTRINSICS_RNG_STATE(IDX) LIBXS_CONCATENATE(libxs_rng_state_, IDX)
 
 #if defined(__PGI) /* no intrinsics: tested with 17.x and 18.x */
 # if !defined(LIBXS_INTRINSICS_NONE)
@@ -547,12 +545,6 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
 # define LIBXS_INTRINSICS_AVX512_ICL
 #endif
 
-/** 2048-bit state for RNG */
-LIBXS_APIVAR(unsigned int libxs_rng_state_0[16]);
-LIBXS_APIVAR(unsigned int libxs_rng_state_1[16]);
-LIBXS_APIVAR(unsigned int libxs_rng_state_2[16]);
-LIBXS_APIVAR(unsigned int libxs_rng_state_3[16]);
-
 /**
  * Pseudo intrinsics (AVX-512)
  */
@@ -581,8 +573,15 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM51
   return _mm512_loadu_ps(a16);
 }
 #endif /* SVML */
-/** Helper macro to access 2048-bit RNG-state. */
-#define LIBXS_INTRINSICS_MM512_RNG_STATE(IDX) (*(__m512i*)LIBXS_CONCATENATE(libxs_rng_state_, IDX))
+/** 2048-bit state for RNG */
+LIBXS_APIVAR_AUX(__m512i libxs_rng_state_0);
+LIBXS_APIVAR_AUX(__m512i libxs_rng_state_1);
+LIBXS_APIVAR_AUX(__m512i libxs_rng_state_2);
+LIBXS_APIVAR_AUX(__m512i libxs_rng_state_3);
+
+/** Helper macros to access 2048-bit RNG-state. */
+# define LIBXS_INTRINSICS_MM512_RNG_STATE(IDX) LIBXS_CONCATENATE(libxs_rng_state_, IDX)
+# define LIBXS_INTRINSICS_RNG_STATE(IDX) ((unsigned int*)&LIBXS_INTRINSICS_MM512_RNG_STATE(IDX))
 
 /** Generate random number in the interval [0, 1); not thread-safe. */
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM512_RNG_PS(void) {
@@ -600,6 +599,14 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM51
   return _mm512_sub_ps(_mm512_castsi512_ps(_mm512_or_epi32(_mm512_set1_epi32(0x3f800000), rng_mantissa)),
     _mm512_set1_ps(1.0f));
 }
+#else
+/** Helper macro to access 2048-bit RNG-state. */
+# define LIBXS_INTRINSICS_RNG_STATE(IDX) LIBXS_CONCATENATE(libxs_rng_state_, IDX)
+/** 2048-bit state for RNG */
+LIBXS_APIVAR(unsigned int libxs_rng_state_0[16]);
+LIBXS_APIVAR(unsigned int libxs_rng_state_1[16]);
+LIBXS_APIVAR(unsigned int libxs_rng_state_2[16]);
+LIBXS_APIVAR(unsigned int libxs_rng_state_3[16]);
 #endif /*__AVX512F__*/
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
