@@ -65,4 +65,10 @@ LIBXS_API double libxs_rng_f64(void);
  */
 LIBXS_API void libxs_rng_f32_seq(float* rngs, libxs_blasint count);
 
+/** 2048-bit state for RNG */
+LIBXS_APIVAR(unsigned int libxs_rng_state_0[16]);
+LIBXS_APIVAR(unsigned int libxs_rng_state_1[16]);
+LIBXS_APIVAR(unsigned int libxs_rng_state_2[16]);
+LIBXS_APIVAR(unsigned int libxs_rng_state_3[16]);
+
 #endif /* LIBXS_RNG_H */
