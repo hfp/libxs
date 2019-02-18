@@ -235,18 +235,18 @@
     (0 == (LIBXS_GEMM_FLAG_TRANS_B & LIBXS_FLAGS) ? 'n' : 't')); \
   const libxs_blasint *const libxs_blas_xgemm_k_ = (NULL != ((void*)(K)) ? (K) : (M)); \
   const libxs_blasint *const libxs_blas_xgemm_n_ = (NULL != ((void*)(N)) ? (N) : libxs_blas_xgemm_k_); \
-  const libxs_blasint *const libxs_blas_xgemm_lda_ = (NULL != ((void*)(LDA)) ? (LDA) : \
-    (('n' == libxs_blas_xgemm_transa_ || *"N" == libxs_blas_xgemm_transa_) ? (M) : libxs_blas_xgemm_k_)); \
-  const libxs_blasint *const libxs_blas_xgemm_ldb_ = (NULL != ((void*)(LDB)) ? (LDB) : \
-    (('n' == libxs_blas_xgemm_transb_ || *"N" == libxs_blas_xgemm_transb_) ? libxs_blas_xgemm_k_ : libxs_blas_xgemm_n_)); \
-  const libxs_blasint *const libxs_blas_xgemm_ldc_ = (NULL != ((void*)(LDC)) ? (LDC) : (M)); \
+  const libxs_blasint libxs_blas_xgemm_lda_ = LIBXS_MAX(*(NULL != ((void*)(LDA)) ? (LDA) : \
+    (('n' == libxs_blas_xgemm_transa_ || *"N" == libxs_blas_xgemm_transa_) ? (M) : libxs_blas_xgemm_k_)), 1); \
+  const libxs_blasint libxs_blas_xgemm_ldb_ = LIBXS_MAX(*(NULL != ((void*)(LDB)) ? (LDB) : \
+    (('n' == libxs_blas_xgemm_transb_ || *"N" == libxs_blas_xgemm_transb_) ? libxs_blas_xgemm_k_ : libxs_blas_xgemm_n_)), 1); \
+  const libxs_blasint libxs_blas_xgemm_ldc_ = LIBXS_MAX(*(NULL != ((void*)(LDC)) ? (LDC) : (M)), 1); \
   const OTYPE libxs_blas_xgemm_alpha_ = (NULL != ((void*)(ALPHA)) ? (*(const OTYPE*)(ALPHA)) : ((OTYPE)LIBXS_ALPHA)); \
   const OTYPE libxs_blas_xgemm_beta_  = (NULL != ((void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
   LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, gemm)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
     M, libxs_blas_xgemm_n_, libxs_blas_xgemm_k_, \
-    &libxs_blas_xgemm_alpha_, (const ITYPE*)(A), libxs_blas_xgemm_lda_, \
-                                (const ITYPE*)(B), libxs_blas_xgemm_ldb_, \
-     &libxs_blas_xgemm_beta_,       (ITYPE*)(C), libxs_blas_xgemm_ldc_); \
+    &libxs_blas_xgemm_alpha_, (const ITYPE*)(A), &libxs_blas_xgemm_lda_, \
+                                (const ITYPE*)(B), &libxs_blas_xgemm_ldb_, \
+     &libxs_blas_xgemm_beta_,       (ITYPE*)(C), &libxs_blas_xgemm_ldc_); \
 }
 
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
