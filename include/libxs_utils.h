@@ -33,6 +33,8 @@
 
 /** Macro evaluates to LIBXS_ATTRIBUTE_TARGET_xxx (see below). */
 #define LIBXS_ATTRIBUTE_TARGET(TARGET) LIBXS_CONCATENATE(LIBXS_ATTRIBUTE_TARGET_, TARGET)
+/** Helper macro to access 2048-bit RNG-state. */
+#define LIBXS_INTRINSICS_RNG_STATE(IDX) LIBXS_CONCATENATE(libxs_rng_state_, IDX)
 
 #if defined(__PGI) /* no intrinsics: tested with 17.x and 18.x */
 # if !defined(LIBXS_INTRINSICS_NONE)
@@ -545,6 +547,12 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
 # define LIBXS_INTRINSICS_AVX512_ICL
 #endif
 
+/** 2048-bit state for RNG */
+LIBXS_APIVAR(unsigned int libxs_rng_state_0[16]);
+LIBXS_APIVAR(unsigned int libxs_rng_state_1[16]);
+LIBXS_APIVAR(unsigned int libxs_rng_state_2[16]);
+LIBXS_APIVAR(unsigned int libxs_rng_state_3[16]);
+
 /**
  * Pseudo intrinsics (AVX-512)
  */
@@ -592,8 +600,6 @@ LIBXS_API_INLINE __m512 LIBXS_INTRINSICS_MM512_RNG_PS(void) {
   return _mm512_sub_ps(_mm512_castsi512_ps(_mm512_or_epi32(_mm512_set1_epi32(0x3f800000), rng_mantissa)),
     _mm512_set1_ps(1.0f));
 }
-
-
 #endif /*__AVX512F__*/
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
