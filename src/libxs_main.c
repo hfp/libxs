@@ -137,7 +137,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_reglocktype {
   LIBXS_LOCK_TYPE(LIBXS_REGNLOCK) state;
 } internal_reglocktype;
 #   endif
-LIBXS_APIVAR(internal_reglocktype internal_reglock[INTERNAL_REGLOCK_MAXN]);
+LIBXS_APIVAR_ARRAY(internal_reglocktype internal_reglock, INTERNAL_REGLOCK_MAXN);
 # else /* RW-lock */
 #   if !defined(LIBXS_REG1LOCK)
 #     if defined(_MSC_VER)
@@ -155,7 +155,7 @@ LIBXS_APIVAR(int internal_reglock_count);
 LIBXS_APIVAR(size_t internal_registry_nbytes);
 LIBXS_APIVAR(libxs_kernel_info* internal_registry_keys);
 LIBXS_APIVAR(libxs_code_pointer* internal_registry);
-LIBXS_APIVAR(internal_statistic_type internal_statistic[2/*DP/SP*/][4/*sml/med/big/xxx*/]);
+LIBXS_APIVAR_ARRAY(internal_statistic_type internal_statistic[2/*DP/SP*/], 4/*sml/med/big/xxx*/);
 LIBXS_APIVAR(unsigned int internal_statistic_sml);
 LIBXS_APIVAR(unsigned int internal_statistic_med);
 LIBXS_APIVAR(unsigned int internal_statistic_mnk);
