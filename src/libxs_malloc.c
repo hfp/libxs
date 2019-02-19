@@ -186,7 +186,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_malloc_pool_type {
 /** Scratch pool, which supports up to MAX_NSCRATCH allocation sites. */
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
 /* LIBXS_ALIGNED appears to contradict LIBXS_APIVAR, and causes multiple defined symbols (if below is seen in multiple translation units) */
-LIBXS_APIVAR(char internal_malloc_pool_buffer[(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)*sizeof(internal_malloc_pool_type)+(LIBXS_CACHELINE)-1]);
+LIBXS_APIVAR_ARRAY(char internal_malloc_pool_buffer, (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) * sizeof(internal_malloc_pool_type) + (LIBXS_CACHELINE) - 1);
 #endif
 LIBXS_APIVAR(size_t internal_malloc_scratch_size_private);
 LIBXS_APIVAR(size_t internal_malloc_scratch_size_public);

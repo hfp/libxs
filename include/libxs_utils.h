@@ -574,10 +574,10 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM51
 }
 #endif /* SVML */
 /** 2048-bit state for RNG */
-LIBXS_APIVAR_AUX(__m512i libxs_intrinsics_mm512_rng_state0);
-LIBXS_APIVAR_AUX(__m512i libxs_intrinsics_mm512_rng_state1);
-LIBXS_APIVAR_AUX(__m512i libxs_intrinsics_mm512_rng_state2);
-LIBXS_APIVAR_AUX(__m512i libxs_intrinsics_mm512_rng_state3);
+LIBXS_APIVAR(__m512i libxs_intrinsics_mm512_rng_state0);
+LIBXS_APIVAR(__m512i libxs_intrinsics_mm512_rng_state1);
+LIBXS_APIVAR(__m512i libxs_intrinsics_mm512_rng_state2);
+LIBXS_APIVAR(__m512i libxs_intrinsics_mm512_rng_state3);
 
 /** Generate random number in the interval [0, 1); not thread-safe. */
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM512_RNG_PS(void) {
