@@ -235,11 +235,11 @@
     (0 == (LIBXS_GEMM_FLAG_TRANS_B & LIBXS_FLAGS) ? 'n' : 't')); \
   const libxs_blasint *const libxs_blas_xgemm_k_ = (NULL != ((void*)(K)) ? (K) : (M)); \
   const libxs_blasint *const libxs_blas_xgemm_n_ = (NULL != ((void*)(N)) ? (N) : libxs_blas_xgemm_k_); \
-  const libxs_blasint libxs_blas_xgemm_lda_ = LIBXS_MAX(*(NULL != ((void*)(LDA)) ? (LDA) : \
-    (('n' == libxs_blas_xgemm_transa_ || *"N" == libxs_blas_xgemm_transa_) ? (M) : libxs_blas_xgemm_k_)), 1); \
-  const libxs_blasint libxs_blas_xgemm_ldb_ = LIBXS_MAX(*(NULL != ((void*)(LDB)) ? (LDB) : \
-    (('n' == libxs_blas_xgemm_transb_ || *"N" == libxs_blas_xgemm_transb_) ? libxs_blas_xgemm_k_ : libxs_blas_xgemm_n_)), 1); \
-  const libxs_blasint libxs_blas_xgemm_ldc_ = LIBXS_MAX(*(NULL != ((void*)(LDC)) ? (LDC) : (M)), 1); \
+  const libxs_blasint libxs_blas_xgemm_lda_ = LIBXS_MAX(NULL != ((void*)(LDA)) ? *(LDA) : \
+    *(('n' == libxs_blas_xgemm_transa_ || *"N" == libxs_blas_xgemm_transa_) ? (M) : libxs_blas_xgemm_k_), 1); \
+  const libxs_blasint libxs_blas_xgemm_ldb_ = LIBXS_MAX(NULL != ((void*)(LDB)) ? *(LDB) : \
+    *(('n' == libxs_blas_xgemm_transb_ || *"N" == libxs_blas_xgemm_transb_) ? libxs_blas_xgemm_k_ : libxs_blas_xgemm_n_), 1); \
+  const libxs_blasint libxs_blas_xgemm_ldc_ = LIBXS_MAX(NULL != ((void*)(LDC)) ? *(LDC) : *(M), 1); \
   const OTYPE libxs_blas_xgemm_alpha_ = (NULL != ((void*)(ALPHA)) ? (*(const OTYPE*)(ALPHA)) : ((OTYPE)LIBXS_ALPHA)); \
   const OTYPE libxs_blas_xgemm_beta_  = (NULL != ((void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
   LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, gemm)(&libxs_blas_xgemm_transa_, &libxs_blas_xgemm_transb_, \
@@ -304,18 +304,18 @@
   const int libxs_xgemm_flags_ = LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, LIBXS_FLAGS); \
   const libxs_blasint *const libxs_xgemm_k_ = (NULL != (K) ? (K) : (M)); \
   const libxs_blasint *const libxs_xgemm_n_ = (NULL != (N) ? (N) : libxs_xgemm_k_); \
-  const libxs_blasint *const libxs_xgemm_lda_ = (NULL != ((void*)(LDA)) ? (LDA) : \
-    (0 == (LIBXS_GEMM_FLAG_TRANS_A & libxs_xgemm_flags_) ? (M) : libxs_xgemm_k_)); \
-  const libxs_blasint *const libxs_xgemm_ldb_ = (NULL != ((void*)(LDB)) ? (LDB) : \
-    (0 == (LIBXS_GEMM_FLAG_TRANS_B & libxs_xgemm_flags_) ? libxs_xgemm_k_ : libxs_xgemm_n_)); \
-  const libxs_blasint *const libxs_xgemm_ldc_ = (NULL != (LDC) ? (LDC) : (M)); \
+  const libxs_blasint libxs_xgemm_lda_ = LIBXS_MAX(NULL != ((void*)(LDA)) ? *(LDA) : \
+    *(0 == (LIBXS_GEMM_FLAG_TRANS_A & libxs_xgemm_flags_) ? (M) : libxs_xgemm_k_), 1); \
+  const libxs_blasint libxs_xgemm_ldb_ = LIBXS_MAX(NULL != ((void*)(LDB)) ? *(LDB) : \
+    *(0 == (LIBXS_GEMM_FLAG_TRANS_B & libxs_xgemm_flags_) ? libxs_xgemm_k_ : libxs_xgemm_n_), 1); \
+  const libxs_blasint libxs_xgemm_ldc_ = LIBXS_MAX(NULL != (LDC) ? *(LDC) : *(M), 1); \
   if (LIBXS_SMM(*(M), *libxs_xgemm_n_, *libxs_xgemm_k_)) { \
     const LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) libxs_mmfunction_ = LIBXS_MMDISPATCH_SYMBOL2(ITYPE, OTYPE)( \
-      *(M), *libxs_xgemm_n_, *libxs_xgemm_k_, libxs_xgemm_lda_, libxs_xgemm_ldb_, libxs_xgemm_ldc_, \
+      *(M), *libxs_xgemm_n_, *libxs_xgemm_k_, &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
       (const OTYPE*)(ALPHA), (const OTYPE*)(BETA), &libxs_xgemm_flags_, NULL); \
     if (NULL != libxs_mmfunction_) { \
       LIBXS_MMCALL_LDX(libxs_mmfunction_, (const ITYPE*)(A), (const ITYPE*)(B), (OTYPE*)(C), \
-        *(M), *libxs_xgemm_n_, *libxs_xgemm_k_, *libxs_xgemm_lda_, *libxs_xgemm_ldb_, *libxs_xgemm_ldc_); \
+        *(M), *libxs_xgemm_n_, *libxs_xgemm_k_, libxs_xgemm_lda_, libxs_xgemm_ldb_, libxs_xgemm_ldc_); \
     } \
     else { \
       const char libxs_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & libxs_xgemm_flags_) ? 'n' : 't'); \
@@ -324,9 +324,9 @@
       const OTYPE libxs_xgemm_beta_  = (NULL != ((void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
       LIBXS_XGEMM_FALLBACK0(ITYPE, OTYPE, &libxs_xgemm_transa_, &libxs_xgemm_transb_, \
         M, libxs_xgemm_n_, libxs_xgemm_k_, \
-        &libxs_xgemm_alpha_, A, libxs_xgemm_lda_, \
-                               B, libxs_xgemm_ldb_, \
-         &libxs_xgemm_beta_, C, libxs_xgemm_ldc_); \
+        &libxs_xgemm_alpha_, A, &libxs_xgemm_lda_, \
+                               B, &libxs_xgemm_ldb_, \
+         &libxs_xgemm_beta_, C, &libxs_xgemm_ldc_); \
     } \
   } \
   else { \
@@ -336,9 +336,9 @@
     const OTYPE libxs_xgemm_beta_  = (NULL != ((void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
     LIBXS_XGEMM_FALLBACK1(ITYPE, OTYPE, &libxs_xgemm_transa_, &libxs_xgemm_transb_, \
       M, libxs_xgemm_n_, libxs_xgemm_k_, \
-      &libxs_xgemm_alpha_, A, libxs_xgemm_lda_, \
-                             B, libxs_xgemm_ldb_, \
-       &libxs_xgemm_beta_, C, libxs_xgemm_ldc_); \
+      &libxs_xgemm_alpha_, A, &libxs_xgemm_lda_, \
+                             B, &libxs_xgemm_ldb_, \
+       &libxs_xgemm_beta_, C, &libxs_xgemm_ldc_); \
   } \
 }
 
