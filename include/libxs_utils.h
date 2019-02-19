@@ -580,6 +580,9 @@ LIBXS_APIVAR(__m512i libxs_intrinsics_mm512_rng_state2);
 LIBXS_APIVAR(__m512i libxs_intrinsics_mm512_rng_state3);
 
 /** Generate random number in the interval [0, 1); not thread-safe. */
+# if defined(__GNUC__) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) && !defined(_CRAYC)
+LIBXS_PRAGMA_OPTIMIZE_OFF /* avoid ICE in case of symbols (-g) */
+# endif
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM512_RNG_PS(void) {
   const __m512i rng_mantissa = _mm512_srli_epi32(_mm512_add_epi32(libxs_intrinsics_mm512_rng_state0, libxs_intrinsics_mm512_rng_state3), 9);
   const __m512i s = _mm512_slli_epi32(libxs_intrinsics_mm512_rng_state1, 9);
@@ -594,6 +597,9 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM51
   libxs_intrinsics_mm512_rng_state3 = _mm512_or_epi32(t, _mm512_srli_epi32(libxs_intrinsics_mm512_rng_state3, 32 - 11));
   return _mm512_sub_ps(_mm512_castsi512_ps(_mm512_or_epi32(_mm512_set1_epi32(0x3f800000), rng_mantissa)), one);
 }
+# if defined(__GNUC__) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) && !defined(_CRAYC)
+LIBXS_PRAGMA_OPTIMIZE_ON
+# endif
 #endif /*__AVX512F__*/
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
