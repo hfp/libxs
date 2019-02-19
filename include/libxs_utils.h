@@ -574,39 +574,26 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM51
 }
 #endif /* SVML */
 /** 2048-bit state for RNG */
-LIBXS_APIVAR_AUX(__m512i libxs_rng_state_0);
-LIBXS_APIVAR_AUX(__m512i libxs_rng_state_1);
-LIBXS_APIVAR_AUX(__m512i libxs_rng_state_2);
-LIBXS_APIVAR_AUX(__m512i libxs_rng_state_3);
-
-/** Helper macros to access 2048-bit RNG-state. */
-# define LIBXS_INTRINSICS_MM512_RNG_STATE(IDX) LIBXS_CONCATENATE(libxs_rng_state_, IDX)
-# define LIBXS_INTRINSICS_RNG_STATE(IDX) ((unsigned int*)&LIBXS_INTRINSICS_MM512_RNG_STATE(IDX))
+LIBXS_APIVAR_AUX(__m512i libxs_intrinsics_mm512_rng_state0);
+LIBXS_APIVAR_AUX(__m512i libxs_intrinsics_mm512_rng_state1);
+LIBXS_APIVAR_AUX(__m512i libxs_intrinsics_mm512_rng_state2);
+LIBXS_APIVAR_AUX(__m512i libxs_intrinsics_mm512_rng_state3);
 
 /** Generate random number in the interval [0, 1); not thread-safe. */
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM512_RNG_PS(void) {
-  const __m512i rng_mantissa = _mm512_srli_epi32(_mm512_add_epi32(LIBXS_INTRINSICS_MM512_RNG_STATE(0), LIBXS_INTRINSICS_MM512_RNG_STATE(3)), 9);
-  const __m512i s = _mm512_slli_epi32(LIBXS_INTRINSICS_MM512_RNG_STATE(1), 9);
-  const __m512i t = _mm512_slli_epi32(LIBXS_INTRINSICS_MM512_RNG_STATE(3), 11);
-
-  LIBXS_INTRINSICS_MM512_RNG_STATE(2) = _mm512_xor_epi32(LIBXS_INTRINSICS_MM512_RNG_STATE(2), LIBXS_INTRINSICS_MM512_RNG_STATE(0));
-  LIBXS_INTRINSICS_MM512_RNG_STATE(3) = _mm512_xor_epi32(LIBXS_INTRINSICS_MM512_RNG_STATE(3), LIBXS_INTRINSICS_MM512_RNG_STATE(1));
-  LIBXS_INTRINSICS_MM512_RNG_STATE(1) = _mm512_xor_epi32(LIBXS_INTRINSICS_MM512_RNG_STATE(1), LIBXS_INTRINSICS_MM512_RNG_STATE(2));
-  LIBXS_INTRINSICS_MM512_RNG_STATE(0) = _mm512_xor_epi32(LIBXS_INTRINSICS_MM512_RNG_STATE(0), LIBXS_INTRINSICS_MM512_RNG_STATE(3));
-  LIBXS_INTRINSICS_MM512_RNG_STATE(2) = _mm512_xor_epi32(LIBXS_INTRINSICS_MM512_RNG_STATE(2), s);
-  LIBXS_INTRINSICS_MM512_RNG_STATE(3) = _mm512_or_epi32(t, _mm512_srli_epi32(LIBXS_INTRINSICS_MM512_RNG_STATE(3), 32 - 11));
-
-  return _mm512_sub_ps(_mm512_castsi512_ps(_mm512_or_epi32(_mm512_set1_epi32(0x3f800000), rng_mantissa)),
-    _mm512_set1_ps(1.0f));
+  const __m512i rng_mantissa = _mm512_srli_epi32(_mm512_add_epi32(libxs_intrinsics_mm512_rng_state0, libxs_intrinsics_mm512_rng_state3), 9);
+  const __m512i s = _mm512_slli_epi32(libxs_intrinsics_mm512_rng_state1, 9);
+  const __m512 one = _mm512_set1_ps(1.0f);
+  __m512i t;
+  libxs_intrinsics_mm512_rng_state2 = _mm512_xor_epi32(libxs_intrinsics_mm512_rng_state2, libxs_intrinsics_mm512_rng_state0);
+  libxs_intrinsics_mm512_rng_state3 = _mm512_xor_epi32(libxs_intrinsics_mm512_rng_state3, libxs_intrinsics_mm512_rng_state1);
+  libxs_intrinsics_mm512_rng_state1 = _mm512_xor_epi32(libxs_intrinsics_mm512_rng_state1, libxs_intrinsics_mm512_rng_state2);
+  libxs_intrinsics_mm512_rng_state0 = _mm512_xor_epi32(libxs_intrinsics_mm512_rng_state0, libxs_intrinsics_mm512_rng_state3);
+  libxs_intrinsics_mm512_rng_state2 = _mm512_xor_epi32(libxs_intrinsics_mm512_rng_state2, s);
+  t = _mm512_slli_epi32(libxs_intrinsics_mm512_rng_state3, 11);
+  libxs_intrinsics_mm512_rng_state3 = _mm512_or_epi32(t, _mm512_srli_epi32(libxs_intrinsics_mm512_rng_state3, 32 - 11));
+  return _mm512_sub_ps(_mm512_castsi512_ps(_mm512_or_epi32(_mm512_set1_epi32(0x3f800000), rng_mantissa)), one);
 }
-#else
-/** Helper macro to access 2048-bit RNG-state. */
-# define LIBXS_INTRINSICS_RNG_STATE(IDX) LIBXS_CONCATENATE(libxs_rng_state_, IDX)
-/** 2048-bit state for RNG */
-LIBXS_APIVAR(unsigned int libxs_rng_state_0[16]);
-LIBXS_APIVAR(unsigned int libxs_rng_state_1[16]);
-LIBXS_APIVAR(unsigned int libxs_rng_state_2[16]);
-LIBXS_APIVAR(unsigned int libxs_rng_state_3[16]);
 #endif /*__AVX512F__*/
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
