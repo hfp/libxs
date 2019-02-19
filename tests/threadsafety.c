@@ -54,7 +54,7 @@ int main(void)
   const int prefetch = LIBXS_GEMM_PREFETCH_NONE;
   libxs_generated_code generated_code;
   libxs_registry_info registry_info;
-  const int max_shape = LIBXS_AVG_M;
+  const int max_shape = LIBXS_MAX_M;
   const int flags = LIBXS_FLAGS;
   int nkernels = MAX_NKERNELS;
   int result = EXIT_SUCCESS;
