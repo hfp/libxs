@@ -119,7 +119,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
           const char *const defaultname = (('0' < *env && '9' >= *env) || '-' == *env) ? "libxs_dump" : env;
           const libxs_mhd_elemtype type_src = (libxs_mhd_elemtype)datatype;
           const libxs_mhd_elemtype type_dst = LIBXS_MIN(LIBXS_MHD_ELEMTYPE_F32, type_src);
-          const int reshape = (1 < atoi(env + 1));
+          const int envi = atoi(env), reshape = (1 < envi || -1 > envi);
           size_t shape[2], size[2];
           char filename[256];
           if (0 == reshape) {
@@ -128,8 +128,9 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
           }
           else { /* reshape */
             const size_t x = mm * nn, y = libxs_isqrt2_u32((unsigned int)x);
-            shape[0] = y; shape[1] = x / y;
-            size[0] = y; size[1] = shape[1];
+            shape[0] = x / y; shape[1] = y;
+            size[0] = shape[0];
+            size[1] = shape[1];
           }
           LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-ref.mhd", defaultname, ref);
           libxs_mhd_write(filename, NULL/*offset*/, shape, size, 2/*ndims*/, 1/*ncomponents*/,
