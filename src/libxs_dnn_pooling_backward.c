@@ -99,7 +99,7 @@ libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16(libxs_dnn_pooling* han
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
-  return status;;
+  return status;
 }
 
 
