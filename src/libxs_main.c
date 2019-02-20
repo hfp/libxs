@@ -525,9 +525,9 @@ LIBXS_API_INLINE void internal_finalize(void)
       if ( NULL != env_dump_build && 0 != *env_dump_build && '0' != *env_dump_build
         && NULL != internal_build_state)
       {
-        fprintf(stdout, "\n\nREPORTED_VERSION=%i.%i.%i-%i\n",
+        fprintf(stdout, "\n\nREPORTED_VERSION=%i\n", LIBXS_VERSION4(
           LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE,
-          LIBXS_VERSION_PATCH);
+          LIBXS_VERSION_PATCH));
         fprintf(stdout, "%s\n", internal_build_state);
       }
       LIBXS_STDIO_RELEASE();
