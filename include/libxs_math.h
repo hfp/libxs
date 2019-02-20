@@ -112,6 +112,8 @@ LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int li
 LIBXS_API unsigned int libxs_isqrt_u64(unsigned long long x);
 /* SQRT with Newton's method using integer arithmetic. */
 LIBXS_API unsigned int libxs_isqrt_u32(unsigned int x);
+/* Based on libxs_isqrt_u32, but actual factor of x. */
+LIBXS_API unsigned int libxs_isqrt2_u32(unsigned int x);
 /* SQRT with Newton's method using double-precision. */
 LIBXS_API double libxs_dsqrt(double x);
 /* SQRT with Newton's method using single-precision. */

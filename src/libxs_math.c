@@ -396,6 +396,12 @@ LIBXS_API unsigned int libxs_isqrt_u32(unsigned int x)
 }
 
 
+LIBXS_API unsigned int libxs_isqrt2_u32(unsigned int x)
+{
+  return libxs_product_limit(x, libxs_isqrt_u32(x), 0/*is_lower*/);
+}
+
+
 LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC) double libxs_dsqrt(double x)
 {
 #if defined(LIBXS_INTRINSICS_X86)
