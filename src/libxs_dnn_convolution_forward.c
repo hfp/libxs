@@ -151,12 +151,15 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_d
   if ( handle->use_fwd_generic != 0 ) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       const libxs_blasint ldx = (libxs_blasint)handle->desc.v*handle->ifmblock;
+      const libxs_blasint ldA = handle->ofmblock;
+      const libxs_blasint ldC = handle->ofmblock;
+      const float  beta = (handle->avoid_acc_load) ? 0.0 : 1.0;
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
-      typedef libxs_smmfunction gemm_function;
+      typedef libxs_smmfunction_reducebatch gemm_br_function;
       /* let's do a ofmblock x ofw_rb x ifmblock GEMM :-) or in other words M=nbOfm, N=ofw, K=nbIfm (col-major) */
-      gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ofw, handle->ifmblock, NULL, &ldx, NULL, NULL, NULL, NULL, NULL);
+      gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch(handle->ofmblock, handle->fwd_ofh_rb*handle->fwd_ofw_rb, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, NULL);
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic.tpl.c"
 #if 0
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
