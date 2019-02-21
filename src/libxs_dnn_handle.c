@@ -88,6 +88,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
   handle->use_bwd_generic = 1;
   handle->use_upd_generic = 1;
 
+#if 0
   /* If we have AVX512 and kernel streams is enabled, and we use libxs's custom format, then we generate specialized code */
   if ( (LIBXS_X86_AVX512 <= libxs_target_archid)                &&
        (handle->buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) &&
@@ -123,6 +124,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       libxs_dnn_setup_scratch(handle);
     }
   }
+#endif
 
   if (0 != noarch) { /* Setup generic code generation */
     status = libxs_dnn_setup_generic(handle);
