@@ -372,6 +372,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   int blockifm = 8;
   int block_j = 14;
   int loop_order = 0;
+  handle->pack_input = 0;
 
   handle->fwd_ofh_rb = 1;
   handle->fwd_ofw_rb = handle->ofw;
@@ -416,6 +417,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
     if (handle->desc.u == 1 && handle->desc.v == 1 && handle->desc.R == 1 && handle->desc.S == 1) {
       handle->fwd_ofh_rb = 7;
     }
+    if (handle->desc.u == 2 && handle->desc.v ==2 && handle->ifhp == 14 && handle->ifwp == 14 && handle->desc.R == 1 && handle->desc.S == 1) {
+      handle->fwd_ofh_rb = 7;
+      handle->pack_input = 1;
+    }
     handle->fwd_ofw_rb = 7;
   }
 
@@ -440,10 +445,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   if (handle->desc.R == 1 && handle->desc.S == 1) {
     handle->blocksifm_blocking = handle->blocksifm;
     if ( (handle->desc.C == 1024 && handle->desc.K == 256) || (handle->desc.C == 2048 && handle->desc.K == 512) ) {
-      handle->blocksifm_blocking = 2;
+      /*handle->blocksifm_blocking = 2;*/
     }
   } else {
     handle->blocksifm_blocking = 1;
+    if (handle->desc.R == 3 && handle->desc.S == 3 && handle->ofh == 7 && handle->ofw == 7) {
+      handle->blocksifm_blocking = 2;
+    }
   }
 
   handle->avoid_acc_load = 0;
@@ -459,7 +467,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->block_fwd_ifm = blockifm;
 
   /* Spatial dimension block tuning  */
-  if ((handle->ofh == 7 && handle->desc.u == 2) || (handle->ofh == 14 && handle->desc.R != 3 ) ||  handle->ofh == 27 || (handle->ofh == 28 && handle->desc.R == 1) || handle->ofh == 48 || handle->ofh == 54 || handle->ofh == 56 || handle->ofh == 112 ) {
+  if ((handle->ofh == 14 && handle->desc.R != 3 ) ||  handle->ofh == 27 || (handle->ofh == 28 && handle->desc.R == 1) || handle->ofh == 48 || handle->ofh == 54 || handle->ofh == 56 || handle->ofh == 112 ) {
     block_j = 4;
   }
   while ( block_j % handle->fwd_ofh_rb != 0 ) {
@@ -522,7 +530,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   /* backward transpose filters, as we want to call small GEMMs we need that scratch */
   handle->scratch1 = 0;
   handle->scratch1_size = (size_t)handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
-    * handle->desc.R * handle->desc.S * libxs_dnn_typesize(handle->datatype_in);
+    * handle->desc.R * handle->desc.S * libxs_dnn_typesize(handle->datatype_in) + (size_t)handle->desc.N * handle->ofwp * handle->ofhp * handle->desc.C;
   if (handle->fm_lp_block > 1) {
     /* If low precision, we need extra buffer to store intermediate weight tensor */
     handle->scratch1_size *= 2;
