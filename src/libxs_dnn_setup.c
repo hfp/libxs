@@ -373,6 +373,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   int block_j = 14;
   int loop_order = 0;
   handle->pack_input = 0;
+  handle->use_ofm_parallelization = 0;
 
   handle->fwd_ofh_rb = 1;
   handle->fwd_ofw_rb = handle->ofw;
@@ -461,6 +462,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->avoid_acc_load = 0;
   if (handle->blocksifm_blocking == handle->blocksifm && (handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) {
     handle->avoid_acc_load = 1;
+  }
+
+  if (handle->desc.R == 3 && handle->desc.S == 3 && handle->desc.W == 7 && handle->desc.H == 7 && handle->desc.threads == 56) {
+    handle->use_ofm_parallelization = 1;
   }
 
   /* Feature map block tuning */

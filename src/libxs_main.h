@@ -427,6 +427,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int loop_order;
   int f32_bf16_cvt_rne;
   int fwd_img_par;
+  int use_ofm_parallelization;
 
   /* internal data representation */
   libxs_dnn_tensor* reg_input;
