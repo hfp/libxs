@@ -459,7 +459,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   }
 
   handle->avoid_acc_load = 0;
-  if (handle->desc.R == 1 && handle->desc.S == 1 && handle->blocksifm_blocking == handle->blocksifm && (handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) {
+  if (handle->blocksifm_blocking == handle->blocksifm && (handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) {
     handle->avoid_acc_load = 1;
   }
 
