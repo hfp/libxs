@@ -456,7 +456,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   } else {
     handle->blocksifm_blocking = 1;
     if (handle->desc.R == 3 && handle->desc.S == 3 && handle->ofh == 7 && handle->ofw == 7) {
-      handle->blocksifm_blocking = handle->blocksifm;
+      handle->blocksifm_blocking = 2;
       handle->avoid_fmas_in_rim = 1;
     }
   }
