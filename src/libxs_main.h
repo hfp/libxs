@@ -79,19 +79,6 @@
 # define LIBXS_NOOP
 #endif
 
-/* Helper macro to eventually (if defined) call libxs_init */
-#if !defined(LIBXS_INIT)
-# if !defined(LIBXS_CTOR)
-#   define LIBXS_INIT libxs_init();
-# elif !defined(NDEBUG)
-#   define LIBXS_INIT LIBXS_ASSERT_MSG( \
-      0 != libxs_ninit, \
-      "LIBXS is not initialized");
-# else
-#   define LIBXS_INIT
-# endif
-#endif
-
 /** Check if M, N, K, or LDx fits into the descriptor. */
 #if (0 != LIBXS_ILP64)
 # define LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) ( \

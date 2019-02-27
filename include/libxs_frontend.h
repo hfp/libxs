@@ -99,8 +99,8 @@
 
 /** Construct symbol name from a given real type name (float, double and short). */
 #define LIBXS_USEOMP(FUNCTION)        LIBXS_CONCATENATE(FUNCTION, _omp)
-#define LIBXS_GEMM_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemm))
-#define LIBXS_GEMV_SYMBOL(TYPE)       LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemv))
+#define LIBXS_GEMM_SYMBOL_NAME(TYPE)  LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemm))
+#define LIBXS_GEMV_SYMBOL_NAME(TYPE)  LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, gemv))
 #define LIBXS_GEMMFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm_function))
 #define LIBXS_GEMVFUNCTION_TYPE(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemv_function))
 #define LIBXS_MMFUNCTION_TYPE(TYPE)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmfunction))
@@ -151,7 +151,7 @@
 #endif
 
 #define LIBXS_GEMM_SYMBOL_BLAS(CONST, TYPE) LIBXS_GEMM_SYMBOL_VISIBILITY \
-  void LIBXS_GEMM_SYMBOL(TYPE)(CONST char*, CONST char*, \
+  void LIBXS_GEMM_SYMBOL_NAME(TYPE)(CONST char*, CONST char*, \
     CONST libxs_blasint*, CONST libxs_blasint*, CONST libxs_blasint*, \
     CONST TYPE*, CONST TYPE*, CONST libxs_blasint*, \
     CONST TYPE*, CONST libxs_blasint*, \
@@ -446,9 +446,25 @@ LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemv_function)(
   const double*, const double*, const libxs_blasint*, const double*, const libxs_blasint*,
   const double*, double*, const libxs_blasint*);
 
-/** The original GEMM functions (SGEMM and DGEMM). */
+/** The original BLAS functions. */
+LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_dgemm_function libxs_original_dgemm_function);
+LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_sgemm_function libxs_original_sgemm_function);
+LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_dgemv_function libxs_original_dgemv_function);
+LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_sgemv_function libxs_original_sgemv_function);
 LIBXS_API_EXPORT libxs_dgemm_function libxs_original_dgemm(void);
 LIBXS_API_EXPORT libxs_sgemm_function libxs_original_sgemm(void);
+
+/* Helper macro to eventually (if defined) call libxs_init */
+#if defined(LIBXS_INIT) || defined(LIBXS_CTOR)
+# define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemm_function))
+# define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemv_function))
+# undef LIBXS_INIT
+# define LIBXS_INIT LIBXS_ASSERT_MSG(0 != libxs_ninit, "LIBXS is not initialized");
+#else
+# define LIBXS_INIT libxs_init();
+# define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION(TYPE, TYPE, gemm)
+# define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION(TYPE, TYPE, gemv)
+#endif
 
 /**
  * General dense matrix multiplication, which re-exposes LAPACK/BLAS
