@@ -29,6 +29,7 @@ libxs_bsgemm_
 libxs_bsgemm_descriptor_init
 libxs_bsmmdispatch
 libxs_bsmmdispatch_reducebatch
+libxs_cast
 libxs_convert_bf16_f32
 libxs_cpuid
 libxs_cpuid_x86
@@ -56,7 +57,6 @@ libxs_dispatch_trans
 libxs_dispatch_trmm
 libxs_dispatch_trsm
 libxs_dmmavailable
-libxs_dmmbatch_blas
 libxs_dmmcall
 libxs_dmmcall_abc
 libxs_dmmcall_prf
@@ -168,6 +168,7 @@ libxs_gemm_dprint
 libxs_gemm_dprint2
 libxs_gemm_handle_get_scratch_size
 libxs_gemm_handle_init
+libxs_gemm_internal_set_batchflag
 libxs_gemm_print
 libxs_gemm_print2
 libxs_gemm_thread
@@ -262,6 +263,7 @@ libxs_mmbatch_begin_
 libxs_mmbatch_end
 libxs_mmbatch_end_
 libxs_mmbatch_internal
+libxs_mmbatch_internal_blas
 libxs_mmbatch_omp
 libxs_mmbatch_omp_
 libxs_mutex_acquire
@@ -324,7 +326,6 @@ libxs_scratch_malloc
 libxs_set_default_allocator
 libxs_set_dispatch_trylock
 libxs_set_gemm_auto_prefetch
-libxs_set_gemm_batchflag
 libxs_set_scratch_allocator
 libxs_set_scratch_limit
 libxs_set_target_arch
@@ -348,7 +349,6 @@ libxs_sgemm_omp_
 libxs_shuffle
 libxs_shuffle_
 libxs_smmavailable
-libxs_smmbatch_blas
 libxs_smmcall
 libxs_smmcall_abc
 libxs_smmcall_prf
@@ -380,6 +380,8 @@ libxs_trans_descriptor_init
 libxs_trmm_descriptor_init
 libxs_trsm_descriptor_init
 libxs_truncate_convert_f32_bf16
+libxs_typename
+libxs_typesize
 libxs_update_mmstatistic
 libxs_wigemm
 libxs_wigemm0

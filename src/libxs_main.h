@@ -761,6 +761,18 @@ typedef enum libxs_malloc_flags {
   LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_RW
 } libxs_malloc_flags;
 
+/** Returns the type-size of data-type (can be also libxs_gemm_precision). */
+LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
+
+/** Returns the type-name of data-type (can be also libxs_gemm_precision). */
+LIBXS_API const char* libxs_typename(libxs_datatype datatype);
+
+/** Determines the generic value given in double-precision. */
+LIBXS_API int libxs_cast(libxs_datatype datatype, double dvalue, void* value);
+
+/** Retrieve internal information about a buffer (default memory domain). */
+LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flags, void** extra);
+
 /** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */
 LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment);
 
@@ -778,16 +790,6 @@ LIBXS_API_INTERN int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
 LIBXS_API_INTERN int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
-/** Retrieve internal information about a buffer (default memory domain). */
-LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flags, void** extra);
-
-/** Allocate memory of the requested size, which is aligned according to the given alignment. */
-LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment, int flags,
-  /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
-  const void* extra, size_t extra_size);
-/** Release memory, which was allocated using libxs_[*]malloc. */
-LIBXS_API_INTERN int libxs_xfree(const void* memory);
-
 /**
  * Attribute memory allocation and protect with only the necessary flags.
  * This procedure is expected to run only one time per buffer, and may
@@ -797,17 +799,15 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags,
   /** If a name is given, an executable buffer will be dumped into a file. */
   const char* name);
 
-/** Returns the type-size of data-type (can be also libxs_gemm_precision). */
-LIBXS_API_INTERN unsigned char libxs_typesize(libxs_datatype datatype);
-
-/** Returns the type-name of data-type (can be also libxs_gemm_precision). */
-LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype);
+/** Allocate memory of the requested size, which is aligned according to the given alignment. */
+LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment, int flags,
+  /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
+  const void* extra, size_t extra_size);
+/** Release memory, which was allocated using libxs_[*]malloc. */
+LIBXS_API_INTERN int libxs_xfree(const void* memory);
 
 /** Determines the given value in double-precision based on the given type. */
 LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
-
-/** Determines the generic value given in double-precision. */
-LIBXS_API_INTERN int libxs_cast(libxs_datatype datatype, double dvalue, void* value);
 
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
