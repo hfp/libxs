@@ -36,7 +36,7 @@
 #endif
 #if !defined(GEMM)
 # if defined(WRAP)
-#   define GEMM LIBXS_GEMM_SYMBOL(ITYPE)
+#   define GEMM LIBXS_GEMM_SYMBOL_NAME(ITYPE)
 # else /* prototype for LIBXS's wrapped GEMM; this way auto-batch can be tested as if GEMM calls are intercepted */
 #   define GEMM LIBXS_FSYMBOL(LIBXS_CONCATENATE(__wrap_, LIBXS_TPREFIX(ITYPE, gemm)))
 # endif
