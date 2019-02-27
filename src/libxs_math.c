@@ -114,6 +114,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
     LIBXS_ASSERT(info->m < mm && info->n < nn);
     if (EXIT_SUCCESS == result) {
       const char *const env = getenv("LIBXS_DUMP");
+      LIBXS_INIT
       if (0 != env && 0 != *env && '0' != *env) {
         if ('-' != *env || (0 <= info->m && 0 <= info->n)) {
           const char *const defaultname = (('0' < *env && '9' >= *env) || '-' == *env) ? "libxs_dump" : env;

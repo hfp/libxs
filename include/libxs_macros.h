@@ -77,7 +77,12 @@
 
 #define LIBXS_VERSION2(MAJOR, MINOR) ((MAJOR) * 10000 + (MINOR) * 100)
 #define LIBXS_VERSION3(MAJOR, MINOR, UPDATE) (LIBXS_VERSION2(MAJOR, MINOR) + (UPDATE))
-#define LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH) ((MAJOR) * 100000000 + (MINOR) * 1000000 + (UPDATE) * 10000 + (PATCH))
+#define LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH) \
+  (((MAJOR/*7b*/) << 24) | ((MINOR/*5b*/) << 19) | ((UPDATE/*5b*/) << 14) | (PATCH/*14b*/))
+#define LIBXS_VERSION41(VERSION) (((VERSION) >> 24))
+#define LIBXS_VERSION42(VERSION) (((VERSION) >> 19) & 0x1F)
+#define LIBXS_VERSION43(VERSION) (((VERSION) >> 14) & 0x1F)
+#define LIBXS_VERSION44(VERSION) (((VERSION)) & 0x3FFF)
 
 #if defined(__cplusplus)
 # define LIBXS_VARIADIC ...
@@ -317,8 +322,14 @@
 # define LIBXS_PRAGMA_FORCEINLINE
 # define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG)
 # define LIBXS_PRAGMA_UNROLL_AND_JAM(N)
-# define LIBXS_PRAGMA_UNROLL_N(N)
 # define LIBXS_PRAGMA_UNROLL
+#endif
+#if !defined(LIBXS_PRAGMA_UNROLL_N)
+# if defined(__GNUC__) && (LIBXS_VERSION3(8, 3, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#   define LIBXS_PRAGMA_UNROLL_N(N) LIBXS_PRAGMA(GCC unroll N)
+# else
+#   define LIBXS_PRAGMA_UNROLL_N(N)
+# endif
 #endif
 
 #if defined(LIBXS_INTEL_COMPILER)
@@ -664,8 +675,10 @@
 #if !defined(_Float64x) && defined(LIBXS_GLIBC_FPTYPES)
 # define _Float64x _Float64
 #endif
-#if /* !LIBXS_INTEL_COMPILER */defined(__INTEL_COMPILER) && !defined(__clang__) /* TODO */
+#if !defined(__has_feature) && !defined(__clang__)
 # define __has_feature(A) 0
+#endif
+#if !defined(__has_builtin) && !defined(__clang__)
 # define __has_builtin(A) 0
 #endif
 
