@@ -430,6 +430,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
     handle->fwd_ofw_rb = 7;
   }
 
+  if (handle->desc.N != handle->desc.threads) {
+    handle->fwd_ofh_rb = 1;
+    handle->pack_input = 0;
+  }
+
   if ( handle->desc.C < tmp_max_c_block ) {
     handle->ifmblock = handle->desc.C;
   } else {
