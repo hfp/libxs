@@ -64,7 +64,7 @@
    && (!defined(__clang__) || (LIBXS_VERSION3(4, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
                            || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))) \
    && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(8, 1, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
-#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_ICL
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
 #   define LIBXS_INTRINSICS_INCLUDE
 # elif  defined(__AVX512F__)  && defined(__AVX512CD__) \
    &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
@@ -264,7 +264,7 @@
 #         undef __AVX512BW__
 #         undef __AVX512VL__
 #       endif
-#       if (LIBXS_X86_AVX512_ICL > (LIBXS_STATIC_TARGET_ARCH))
+#       if (LIBXS_X86_AVX512_CLX > (LIBXS_STATIC_TARGET_ARCH))
 #         undef __AVX512VNNI__
 #       endif
 #     endif /*defined(LIBXS_INTRINSICS_INCLUDE)*/
@@ -317,7 +317,7 @@
 #       else /* LIBXS_X86_AVX512 */
 #         define LIBXS_ATTRIBUTE_TARGET_1020 LIBXS_ATTRIBUTE_TARGET_1007
 #       endif
-#       if (LIBXS_X86_AVX512_ICL <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#       if (LIBXS_X86_AVX512_CLX <= LIBXS_MAX_STATIC_TARGET_ARCH)
 #         define LIBXS_ATTRIBUTE_TARGET_1022 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni")
 #       else /* LIBXS_X86_AVX512_CORE */
 #         define LIBXS_ATTRIBUTE_TARGET_1022 LIBXS_ATTRIBUTE_TARGET_1020
@@ -530,8 +530,8 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
 # define LIBXS_INTRINSICS_AVX512_CORE
 #endif
 /** LIBXS_INTRINSICS_AVX512_ICL is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_AVX512_ICL) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512_ICL <= LIBXS_STATIC_TARGET_ARCH || \
-   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX512_ICL <= LIBXS_MAX_STATIC_TARGET_ARCH))
+#if !defined(LIBXS_INTRINSICS_AVX512_ICL) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512_CLX <= LIBXS_STATIC_TARGET_ARCH || \
+   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX512_CLX <= LIBXS_MAX_STATIC_TARGET_ARCH))
 # define LIBXS_INTRINSICS_AVX512_ICL
 #endif
 

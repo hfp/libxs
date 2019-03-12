@@ -238,7 +238,6 @@ LIBXS_API_INLINE const char* internal_get_target_arch(int id)
 {
   const char* target_arch = NULL;
   switch (id) {
-    case LIBXS_X86_AVX512_ICL:
     case LIBXS_X86_AVX512_CLX: {
       target_arch = "clx";
     } break;
@@ -438,8 +437,8 @@ LIBXS_API_INLINE void internal_finalize(void)
     LIBXS_STDIO_ACQUIRE();
     fprintf(stderr, "\nLIBXS_VERSION: %s-%s (%i)", LIBXS_BRANCH, LIBXS_VERSION, LIBXS_VERSION4(
       LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH));
-    if (1 < libxs_verbosity || 0 > libxs_verbosity) {
-      const int high_verbosity = (2 < libxs_verbosity || 0 > libxs_verbosity);
+    if (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) {
+      const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
       const double regsize = 1.0 * internal_registry_nbytes / (1ULL << 20);
       libxs_scratch_info scratch_info;
       unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
@@ -951,7 +950,6 @@ LIBXS_API void libxs_set_target_archid(int id)
 {
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
   switch (id) {
-    case LIBXS_X86_AVX512_ICL:
     case LIBXS_X86_AVX512_CLX:
     case LIBXS_X86_AVX512_CORE:
     case LIBXS_X86_AVX512_KNM:
@@ -1014,8 +1012,8 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     else if (0 < jit) {
       target_archid = LIBXS_X86_GENERIC + jit;
     }
-    else if (0 == strcmp("icl", arch) || 0 == strcmp("clx", arch)) {
-      target_archid = LIBXS_X86_AVX512_ICL;
+    else if (0 == strcmp("clx", arch)) {
+      target_archid = LIBXS_X86_AVX512_CLX;
     }
     else if (0 == strcmp("skx", arch) || 0 == strcmp("skl", arch)
           /* "avx3"/"avx512" previously enabled LIBXS_X86_AVX512 */
@@ -2071,7 +2069,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     }
     result = internal_find_code(descriptor).xgemm;
 #if defined(_DEBUG)
-    if (2 < libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.xmm) {
+    if (LIBXS_VERBOSITY_HIGH <= libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.xmm) {
       LIBXS_STDIO_ACQUIRE();
       fprintf(stderr, "LIBXS: ");
       libxs_gemm_xprint(stderr, result, NULL/*a*/, NULL/*b*/, NULL/*c*/);
@@ -2179,13 +2177,15 @@ LIBXS_API libxs_dmmfunction_reducebatch libxs_dmmdispatch_reducebatch(libxs_blas
 
 
 LIBXS_API libxs_smmfunction_reducebatch libxs_smmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* prefetch)
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags)
 {
   libxs_descriptor_blob blob;
+  const int br_flags = (*flags) | LIBXS_GEMM_FLAG_BATCH_REDUCE;
+
   const libxs_gemm_descriptor *const desc = libxs_sgemm_descriptor_init(&blob,
     m, n, k, 0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
     0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
-    LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
+    br_flags, libxs_get_gemm_xprefetch(NULL));
   return libxs_xmmdispatch(desc).smr;
 }
 
@@ -2548,7 +2548,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
       result = internal_find_code(descriptor);
       *fn = result.ival;
 #if defined(_DEBUG)
-      if (2 < libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.pmm) {
+      if (LIBXS_VERBOSITY_HIGH <= libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.pmm) {
         LIBXS_STDIO_ACQUIRE();
         fprintf(stderr, "LIBXS: ");
         libxs_gemm_xprint(stderr, result.xgemm, NULL/*a*/, NULL/*b*/, NULL/*c*/);

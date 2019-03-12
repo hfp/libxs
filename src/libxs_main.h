@@ -62,6 +62,13 @@
 # define LIBXS_MALLOC_SCRATCH_INTERNAL ((const char*)(LIBXS_MALLOC_SCRATCH_INTERNAL_SITE))
 #endif
 
+#if !defined(LIBXS_VERBOSITY_HIGH)
+# define LIBXS_VERBOSITY_HIGH 3 /* secondary warning or info-verbosity */
+#endif
+#if !defined(LIBXS_VERBOSITY_WARN)
+# define LIBXS_VERBOSITY_WARN ((LIBXS_VERBOSITY_HIGH) - LIBXS_MIN(1, LIBXS_VERBOSITY_HIGH))
+#endif
+
 #if !defined(LIBXS_LOCK)
 # define LIBXS_LOCK LIBXS_LOCK_DEFAULT
 #endif
@@ -382,6 +389,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int use_nts_upd;
   int avoid_acc_load;
   int pack_input;
+  int pack_input_bwd;
+  int spread_input_bwd;
   int use_fwd_for_bwd;
   int exploit_duality;
   int qfma_input_pad;
@@ -415,7 +424,15 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int f32_bf16_cvt_rne;
   int fwd_img_par;
   int use_ofm_parallelization;
+  int use_ifm_parallelization;
   int avoid_fmas_in_rim;
+  int avoid_init_weights;
+  int upd_use_batchreduce;
+  int upd_pack_input;
+  int upd_img_br_block;
+  int upd_loop_order;
+  int upd_linearized_tasklist;
+  int upd_avoid_rim_fmas;
 
   /* internal data representation */
   libxs_dnn_tensor* reg_input;

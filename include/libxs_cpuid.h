@@ -48,8 +48,6 @@
 #define LIBXS_X86_AVX512_KNM   1011
 #define LIBXS_X86_AVX512_CORE  1020
 #define LIBXS_X86_AVX512_CLX   1021
-#define LIBXS_X86_AVX512_ICL   1022
-
 
 /**
  * Returns the target architecture and instruction set extensions, but *not* necessarily the
