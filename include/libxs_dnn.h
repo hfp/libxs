@@ -289,9 +289,7 @@ typedef enum libxs_dnn_conv_algo {
   /** let the library decide */
   LIBXS_DNN_CONV_ALGO_AUTO,
   /** direct convolution. */
-  LIBXS_DNN_CONV_ALGO_DIRECT,
-  /** Winograd convolution. */
-  LIBXS_DNN_CONV_ALGO_WINOGRAD
+  LIBXS_DNN_CONV_ALGO_DIRECT
 } libxs_dnn_conv_algo;
 
 /** Structure which describes the input and output of data (DNN). */

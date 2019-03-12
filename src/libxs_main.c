@@ -74,6 +74,12 @@
 #if !defined(LIBXS_ENABLE_DEREG) && 0
 # define LIBXS_ENABLE_DEREG
 #endif
+#if !defined(LIBXS_REGLOCK_TRY) && 0
+# define LIBXS_REGLOCK_TRY
+#endif
+#if !defined(LIBXS_REGTWEAK) && 1
+# define LIBXS_REGTWEAK
+#endif
 
 #if 0
 # define LIBXS_HASH_MOD(N, NGEN) ((N) % (NGEN))
@@ -120,7 +126,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 #     define INTERNAL_REGLOCK_MAXN 256
 #   endif
 # endif
-# if (0 < INTERNAL_REGLOCK_MAXN)
+# if (1 < INTERNAL_REGLOCK_MAXN)
 #   if !defined(LIBXS_REGNLOCK)
 #     define LIBXS_REGNLOCK LIBXS_LOCK_DEFAULT
 #   endif
@@ -146,7 +152,7 @@ LIBXS_APIVAR_ARRAY(internal_reglocktype internal_reglock, INTERNAL_REGLOCK_MAXN)
 #       define LIBXS_REG1LOCK LIBXS_LOCK_RWLOCK
 #     endif
 #   endif
-LIBXS_APIVAR(LIBXS_LOCK_TYPE(LIBXS_REG1LOCK) internal_reglock);
+LIBXS_APIVAR_PRIVATE(LIBXS_LOCK_TYPE(LIBXS_REG1LOCK) internal_reglock);
 # endif
 #endif
 
@@ -163,20 +169,16 @@ LIBXS_APIVAR(unsigned int internal_statistic_num_mcopy);
 LIBXS_APIVAR(unsigned int internal_statistic_num_tcopy);
 LIBXS_APIVAR(unsigned int internal_statistic_num_trsm);
 LIBXS_APIVAR(unsigned int internal_statistic_num_trmm);
-LIBXS_APIVAR(int internal_dispatch_trylock_locked);
 LIBXS_APIVAR(int internal_gemm_auto_prefetch_locked);
 LIBXS_APIVAR(const char* internal_build_state);
 
 
 #if (0 == LIBXS_SYNC)
-# define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX, DIFF, CODE)
-# define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX)
-#elif (0 < INTERNAL_REGLOCK_MAXN)
-# define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX, DIFF, CODE) { \
-  const unsigned int LOCKINDEX = (0 <= libxs_verbosity \
-    ? LIBXS_MOD2(INDEX, internal_reglock_count) \
-    : 0); /* dump: avoid duplicated kernels */ \
-  if (LIBXS_LOCK_ACQUIRED(LIBXS_REGNLOCK) != LIBXS_LOCK_TRYLOCK(LIBXS_REGNLOCK, &internal_reglock[LOCKINDEX].state)) { \
+# define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX, DIFF, CODE) {
+# define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) }
+#else
+# if defined(LIBXS_REGLOCK_TRY)
+#   define INTERNAL_REGLOCK_TRY(DIFF, CODE) \
     if (1 != internal_reglock_count) { /* (re-)try and get (meanwhile) generated code */ \
       LIBXS_ASSERT(0 != internal_registry); /* engine is not shut down */ \
       continue; \
@@ -184,22 +186,26 @@ LIBXS_APIVAR(const char* internal_build_state);
     else { /* exit dispatch and let client fall back */ \
       DIFF = 0; CODE = 0; \
       break; \
-    } \
+    }
+# else
+#   define INTERNAL_REGLOCK_TRY(DIFF, CODE) \
+      LIBXS_ASSERT(0 != internal_registry); /* engine is not shut down */ \
+      continue
+# endif
+# if (1 < INTERNAL_REGLOCK_MAXN)
+# define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX, DIFF, CODE) { \
+  const unsigned int LOCKINDEX = (0 != internal_reglock_count ? LIBXS_MOD2(INDEX, internal_reglock_count) : 0); \
+  if (LIBXS_LOCK_ACQUIRED(LIBXS_REGNLOCK) != LIBXS_LOCK_TRYLOCK(LIBXS_REGNLOCK, &internal_reglock[LOCKINDEX].state)) { \
+    INTERNAL_REGLOCK_TRY(DIFF, CODE); \
   }
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(LIBXS_REGNLOCK, &internal_reglock[LOCKINDEX].state); }
-#else /* RW-lock */
+  #else /* RW-lock */
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX, DIFF, CODE) { \
   if (LIBXS_LOCK_ACQUIRED(LIBXS_REG1LOCK) != LIBXS_LOCK_TRYLOCK(LIBXS_REG1LOCK, &internal_reglock)) { \
-    if (1 != internal_reglock_count) { /* (re-)try and get (meanwhile) generated code */ \
-      LIBXS_ASSERT(0 != internal_registry); /* engine is not shut down */ \
-      continue; \
-    } \
-    else { /* exit dispatch and let client fall back */ \
-      DIFF = 0; CODE = 0; \
-      break; \
-    } \
+    INTERNAL_REGLOCK_TRY(DIFF, CODE); \
   }
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(LIBXS_REG1LOCK, &internal_reglock); }
+# endif
 #endif
 
 
@@ -230,59 +236,6 @@ LIBXS_API_INLINE unsigned int internal_update_mmstatistic(const libxs_gemm_descr
 {
   LIBXS_ASSERT(0 != desc && LIBXS_KERNEL_KIND_MATMUL == desc->iflags);
   return libxs_update_mmstatistic((libxs_gemm_precision)desc->datatype, desc->m, desc->n, desc->k, ntry, ncol);
-}
-
-
-LIBXS_API_INLINE const char* internal_get_target_arch(int id);
-LIBXS_API_INLINE const char* internal_get_target_arch(int id)
-{
-  const char* target_arch = NULL;
-  switch (id) {
-    case LIBXS_X86_AVX512_CLX: {
-      target_arch = "clx";
-    } break;
-    case LIBXS_X86_AVX512_CORE: {
-      target_arch = "skx";
-    } break;
-    case LIBXS_X86_AVX512_KNM: {
-      target_arch = "knm";
-    } break;
-    case LIBXS_X86_AVX512_MIC: {
-      target_arch = "knl";
-    } break;
-    case LIBXS_X86_AVX512: {
-      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "avx3") */
-      target_arch = "hsw";
-    } break;
-    case LIBXS_X86_AVX2: {
-      target_arch = "hsw";
-    } break;
-    case LIBXS_X86_AVX: {
-      target_arch = "snb";
-    } break;
-    case LIBXS_X86_SSE4: {
-      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "sse4") */
-      target_arch = "wsm";
-    } break;
-    case LIBXS_X86_SSE3: {
-      /* WSM includes SSE4, but BE relies on SSE3 only,
-       * hence we enter "wsm" path starting with SSE3.
-       */
-      target_arch = "wsm";
-    } break;
-    case LIBXS_TARGET_ARCH_GENERIC: {
-      target_arch = "generic";
-    } break;
-    default: if (LIBXS_X86_GENERIC <= id) {
-      target_arch = "x86";
-    }
-    else {
-      target_arch = "unknown";
-    }
-  }
-
-  LIBXS_ASSERT(NULL != target_arch);
-  return target_arch;
 }
 
 
@@ -431,7 +384,7 @@ LIBXS_API_INLINE void internal_finalize(void)
   if (0 != libxs_verbosity) { /* print statistic on termination */
     const char *const env_target_hidden = getenv("LIBXS_TARGET_HIDDEN");
     const char *const target_arch = (NULL == env_target_hidden || 0 == atoi(env_target_hidden))
-      ? internal_get_target_arch(libxs_target_archid)
+      ? libxs_cpuid_name(libxs_target_archid)
       : NULL/*hidden*/;
     /* synchronize I/O */
     LIBXS_STDIO_ACQUIRE();
@@ -540,7 +493,7 @@ LIBXS_API_INLINE void internal_finalize(void)
   }
 #if (0 != LIBXS_SYNC)
   { /* release locks */
-# if (0 < INTERNAL_REGLOCK_MAXN)
+# if (1 < INTERNAL_REGLOCK_MAXN)
     int i; for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_DESTROY(LIBXS_REGNLOCK, &internal_reglock[i].state);
 # else
     LIBXS_LOCK_DESTROY(LIBXS_REG1LOCK, &internal_reglock);
@@ -561,26 +514,30 @@ LIBXS_API_INLINE size_t internal_strlen(const char* cstr, size_t maxlen)
 }
 
 
-LIBXS_API_INLINE void internal_init(void)
-{
-#if defined(LIBXS_TRACE)
-  int filter_threadid = 0, filter_mindepth = -1, filter_maxnsyms = 0, init_code = EXIT_SUCCESS;
+LIBXS_API_INTERN
+#if defined(__GNUC__)
+LIBXS_ATTRIBUTE(no_instrument_function)
 #endif
+void internal_init(void);
+
+LIBXS_API_INTERN void internal_init(void)
+{
   int i;
   const libxs_malloc_function null_malloc_fn = { 0 };
   const libxs_free_function null_free_fn = { 0 };
 #if (0 != LIBXS_SYNC) /* setup the locks in a thread-safe fashion */
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &libxs_lock_global);
-# if (0 < INTERNAL_REGLOCK_MAXN)
+# if (1 < INTERNAL_REGLOCK_MAXN)
   for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_ACQUIRE(LIBXS_REGNLOCK, &internal_reglock[i].state);
 # else
   LIBXS_LOCK_ACQUIRE(LIBXS_REG1LOCK, &internal_reglock);
 # endif
 #endif
-  if (0 == internal_registry) { /* double-check after acquiring the lock(s) */
+  if (NULL == internal_registry) { /* double-check after acquiring the lock(s) */
+    libxs_code_pointer* new_registry;
     /* setup verbosity as early as possible since below code may rely on verbose output */
     const char *const env_verbose = getenv("LIBXS_VERBOSE");
-    if (0 != env_verbose && 0 != *env_verbose) {
+    if (NULL != env_verbose && 0 != *env_verbose) {
       libxs_verbosity = atoi(env_verbose);
     }
 #if !defined(NDEBUG)
@@ -655,88 +612,59 @@ LIBXS_API_INLINE void internal_init(void)
     internal_statistic_mnk = libxs_icbrt_u32(LIBXS_MAX_MNK);
     internal_statistic_sml = 13;
     internal_statistic_med = 23;
-#if defined(LIBXS_TRACE)
-    { const char *const env = getenv("LIBXS_TRACE");
-      if (0 != env && 0 != *env) {
-        char buffer[32] = { 0 };
-        if (1 == sscanf(env, "%32[^,],", buffer)) {
-          init_code = (0 <= sscanf(buffer, "%i", &filter_threadid) ? EXIT_SUCCESS : EXIT_FAILURE);
-        }
-        if (1 == sscanf(env, "%*[^,],%32[^,],", buffer)) {
-          init_code = (0 <= sscanf(buffer, "%i", &filter_mindepth) ? EXIT_SUCCESS : EXIT_FAILURE);
-        }
-        if (1 == sscanf(env, "%*[^,],%*[^,],%32s", buffer)) {
-          init_code = (0 <= sscanf(buffer, "%i", &filter_maxnsyms) ? EXIT_SUCCESS : EXIT_FAILURE);
-        }
-        else {
-          filter_maxnsyms = -1; /* all */
-        }
-      }
-    }
-    if (EXIT_SUCCESS == init_code) {
-#endif
-      libxs_code_pointer *const new_registry = (libxs_code_pointer*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer));
-      internal_registry_keys = (libxs_kernel_info*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_kernel_info));
-      if (0 != new_registry && 0 != internal_registry_keys) {
-        const char *const env = getenv("LIBXS_GEMM_PREFETCH");
-        libxs_trans_init(libxs_target_archid);
-        libxs_hash_init(libxs_target_archid);
-        libxs_dnn_init(libxs_target_archid);
+
+    new_registry = (libxs_code_pointer*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer));
+    internal_registry_keys = (libxs_kernel_info*)malloc((LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_kernel_info));
+    if (NULL != new_registry && NULL != internal_registry_keys) {
+      const char *const env = getenv("LIBXS_GEMM_PREFETCH");
+      libxs_trans_init(libxs_target_archid);
+      libxs_hash_init(libxs_target_archid);
+      libxs_dnn_init(libxs_target_archid);
 #if defined(LIBXS_PERF)
-        libxs_perf_init();
+      libxs_perf_init();
 #endif
-        for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) new_registry[i].pmm = 0;
+      for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) new_registry[i].pmm = 0;
 #if defined(LIBXS_BUILD)
 #       include <libxs_dispatch.h>
 #endif
 #if defined(_WIN32) || defined(__CYGWIN__) /* TODO: full support for Windows calling convention */
-        libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
+      libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
 #else
-        libxs_gemm_auto_prefetch_default = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
-          /* avoid special prefetch if static code is present, since such code uses INTERNAL_PREFETCH */
-          ? (((LIBXS_X86_AVX512 >= libxs_target_archid || LIBXS_X86_AVX512_CORE <= libxs_target_archid))
-            ? LIBXS_GEMM_PREFETCH_AL2BL2_VIA_C : LIBXS_GEMM_PREFETCH_BL2_VIA_C)
-          : INTERNAL_PREFETCH;
+      libxs_gemm_auto_prefetch_default = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
+        /* avoid special prefetch if static code is present, since such code uses INTERNAL_PREFETCH */
+        ? (((LIBXS_X86_AVX512 >= libxs_target_archid || LIBXS_X86_AVX512_CORE <= libxs_target_archid))
+          ? LIBXS_GEMM_PREFETCH_AL2BL2_VIA_C : LIBXS_GEMM_PREFETCH_BL2_VIA_C)
+        : INTERNAL_PREFETCH;
 #endif
-        libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
-        if (0 != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
-          const int uid = atoi(env);
-          if (0 <= uid) {
-            libxs_gemm_auto_prefetch_default = libxs_gemm_uid2prefetch(uid);
-            libxs_gemm_auto_prefetch = libxs_gemm_auto_prefetch_default;
-            internal_gemm_auto_prefetch_locked = 1;
-          }
-        }
-        libxs_gemm_init(libxs_target_archid);
-        if (0 == libxs_ninit) {
-          atexit(internal_finalize);
-          ++libxs_ninit;
-        }
-        {
-          void *const pv_registry = &internal_registry;
-          LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)((void**)pv_registry, (void*)new_registry, LIBXS_ATOMIC_SEQ_CST);
+      libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
+      if (NULL != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
+        const int uid = atoi(env);
+        if (0 <= uid) {
+          libxs_gemm_auto_prefetch_default = libxs_gemm_uid2prefetch(uid);
+          libxs_gemm_auto_prefetch = libxs_gemm_auto_prefetch_default;
+          internal_gemm_auto_prefetch_locked = 1;
         }
       }
-      else {
-        if (0 != libxs_verbosity) { /* library code is expected to be mute */
-          fprintf(stderr, "LIBXS ERROR: failed to allocate code registry!\n");
-        }
-        free(internal_registry_keys);
-        free(new_registry);
+      libxs_gemm_init(libxs_target_archid);
+      if (0 == libxs_ninit) {
+        atexit(internal_finalize);
+        ++libxs_ninit;
       }
-#if defined(LIBXS_TRACE)
-      init_code = libxs_trace_init(filter_threadid - 1, filter_mindepth, filter_maxnsyms);
-      if (EXIT_SUCCESS != init_code && 0 != libxs_verbosity) { /* library code is expected to be mute */
-        fprintf(stderr, "LIBXS ERROR: failed to initialize TRACE (error #%i)!\n", init_code);
+      {
+        void *const pv_registry = &internal_registry;
+        LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)((void**)pv_registry, (void*)new_registry, LIBXS_ATOMIC_SEQ_CST);
       }
     }
-    else if (0 != libxs_verbosity) { /* library code is expected to be mute */
-      fprintf(stderr, "LIBXS ERROR: failed to parse LIBXS_TRACE!\n");
+    else {
+      if (0 != libxs_verbosity) { /* library code is expected to be mute */
+        fprintf(stderr, "LIBXS ERROR: failed to allocate code registry!\n");
+      }
+      free(internal_registry_keys);
+      free(new_registry);
     }
-#endif
   }
 #if (0 != LIBXS_SYNC) /* release locks */
-# if (0 < INTERNAL_REGLOCK_MAXN)
+# if (1 < INTERNAL_REGLOCK_MAXN)
   for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_RELEASE(LIBXS_REGNLOCK, &internal_reglock[i].state);
 # else
   LIBXS_LOCK_RELEASE(LIBXS_REG1LOCK, &internal_reglock);
@@ -754,9 +682,11 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&counter, 1, LIBXS_ATOMIC_SEQ_CST)) {
 #endif
 #if (0 != LIBXS_SYNC)
+# if defined(LIBXS_REGLOCK_TRY)
       const char *const env_trylock = getenv("LIBXS_TRYLOCK");
+# endif
       LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK) attr_global;
-# if (0 < INTERNAL_REGLOCK_MAXN)
+# if (1 < INTERNAL_REGLOCK_MAXN)
       int i;
       LIBXS_LOCK_ATTR_TYPE(LIBXS_REGNLOCK) attr;
       LIBXS_LOCK_ATTR_INIT(LIBXS_REGNLOCK, &attr);
@@ -770,18 +700,31 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       LIBXS_LOCK_INIT(LIBXS_LOCK, &libxs_lock_global, &attr_global);
       LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK, &attr_global);
       /* control number of locks needed; LIBXS_TRYLOCK implies only 1 lock */
-      if (NULL == env_trylock || 0 == *env_trylock) { /* no LIBXS_TRYLOCK */
-#if defined(LIBXS_VTUNE)
+# if defined(LIBXS_REGLOCK_TRY)
+      if (NULL == env_trylock || 0 == *env_trylock)
+# endif
+      { /* no LIBXS_TRYLOCK */
+# if defined(LIBXS_VTUNE)
         internal_reglock_count = 1; /* avoid duplicated kernels */
-#else
-        internal_reglock_count = INTERNAL_REGLOCK_MAXN;
-#endif
+# else
+        internal_reglock_count = (1 < INTERNAL_REGLOCK_MAXN ? (INTERNAL_REGLOCK_MAXN) : 0);
+# endif
       }
+# if defined(LIBXS_REGLOCK_TRY)
       else { /* LIBXS_TRYLOCK environment variable specified */
-        internal_reglock_count = (0 != atoi(env_trylock) ? 1 : (INTERNAL_REGLOCK_MAXN));
-        internal_dispatch_trylock_locked = 1;
+        internal_reglock_count = (0 != atoi(env_trylock)
+          ? 1 : (1 < INTERNAL_REGLOCK_MAXN ? (INTERNAL_REGLOCK_MAXN) : 0));
       }
-# if (0 < INTERNAL_REGLOCK_MAXN)
+# endif
+# if defined(LIBXS_TRACE)
+      { int filter_threadid = 0/*only main-thread*/, filter_mindepth = 0, filter_maxnsyms = 0;
+        const int init_code = libxs_trace_init(filter_threadid, filter_mindepth, filter_maxnsyms);
+        if (EXIT_SUCCESS != init_code && 0 != libxs_verbosity) { /* library code is expected to be mute */
+          fprintf(stderr, "LIBXS ERROR: failed to initialize TRACE (error #%i)!\n", init_code);
+        }
+      }
+# endif
+# if (1 < INTERNAL_REGLOCK_MAXN)
       LIBXS_ASSERT(1 <= internal_reglock_count);
       for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_INIT(LIBXS_REGNLOCK, &internal_reglock[i].state, &attr);
       LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGNLOCK, &attr);
@@ -824,7 +767,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     int i;
 #if (0 != LIBXS_SYNC)
     LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &libxs_lock_global);
-# if (0 < INTERNAL_REGLOCK_MAXN)
+# if (1 < INTERNAL_REGLOCK_MAXN)
     { /* acquire locks and thereby shortcut lazy initialization later on */
       int ntry = 0, n;
       do {
@@ -924,7 +867,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       free(registry);
     }
 #if (0 != LIBXS_SYNC) /* LIBXS_LOCK_RELEASE, but no LIBXS_LOCK_DESTROY */
-# if (0 < INTERNAL_REGLOCK_MAXN)
+# if (1 < INTERNAL_REGLOCK_MAXN)
     for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_RELEASE(LIBXS_REGNLOCK, &internal_reglock[i].state);
 # else
     LIBXS_LOCK_RELEASE(LIBXS_REG1LOCK, &internal_reglock);
@@ -973,9 +916,9 @@ LIBXS_API void libxs_set_target_archid(int id)
   if (0 != libxs_verbosity) { /* library code is expected to be mute */
     const int cpuid = libxs_cpuid();
     if (cpuid < target_archid) {
-      const char *const target_arch = internal_get_target_arch(target_archid);
+      const char *const target_arch = libxs_cpuid_name(target_archid);
       fprintf(stderr, "LIBXS WARNING: \"%s\" code will fail to run on \"%s\"!\n",
-        target_arch, internal_get_target_arch(cpuid));
+        target_arch, libxs_cpuid_name(cpuid));
     }
   }
 }
@@ -984,7 +927,7 @@ LIBXS_API void libxs_set_target_archid(int id)
 LIBXS_API const char* libxs_get_target_arch(void)
 {
   LIBXS_INIT
-  return internal_get_target_arch(libxs_target_archid);
+  return libxs_cpuid_name(libxs_target_archid);
 }
 
 
@@ -1059,9 +1002,9 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
   }
   if (cpuid < target_archid) { /* limit code path to what was identified per CPUID */
     if (0 != libxs_verbosity) { /* library code is expected to be mute */
-      const char *const target_arch = internal_get_target_arch(target_archid);
+      const char *const target_arch = libxs_cpuid_name(target_archid);
       fprintf(stderr, "LIBXS WARNING: \"%s\" code would fail to run on \"%s\"!\n",
-        target_arch, internal_get_target_arch(cpuid));
+        target_arch, libxs_cpuid_name(cpuid));
     }
 #if defined(NDEBUG) /* allow to debug with higher code path */
     target_archid = cpuid;
@@ -1082,26 +1025,6 @@ LIBXS_API void libxs_set_verbosity(int level)
 {
   LIBXS_INIT
   LIBXS_ATOMIC_STORE(&libxs_verbosity, level, LIBXS_ATOMIC_RELAXED);
-}
-
-
-LIBXS_API int libxs_get_dispatch_trylock(void)
-{
-  LIBXS_INIT
-  return 1 == internal_reglock_count ? 1 : 0;
-}
-
-
-LIBXS_API void libxs_set_dispatch_trylock(int trylock)
-{
-#if (0 == LIBXS_SYNC)
-  LIBXS_UNUSED(trylock);
-#else
-  LIBXS_INIT
-  if (0 == internal_dispatch_trylock_locked) { /* LIBXS_TRYLOCK environment takes precedence */
-    LIBXS_ATOMIC_STORE(&internal_reglock_count, 0 != trylock ? 1 : INTERNAL_REGLOCK_MAXN, LIBXS_ATOMIC_RELAXED);
-  }
-#endif
 }
 
 
@@ -1231,7 +1154,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 {
   int result = EXIT_SUCCESS;
 #if !defined(__MIC__)
-  const char* target_arch = internal_get_target_arch(libxs_target_archid);
+  const char* target_arch = libxs_cpuid_name(libxs_target_archid);
   libxs_generated_code generated_code;
   char jit_name[256] = { 0 };
 
@@ -1249,6 +1172,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   /* setup code generation */
   generated_code.code_type = 2;
 
+  LIBXS_ASSERT(0 != generated_code.generated_code || 0 == generated_code.buffer_size);
   LIBXS_ASSERT(0 != request && 0 != libxs_target_archid);
   LIBXS_ASSERT(0 != code && 0 == code->ptr_const);
 
@@ -1279,10 +1203,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
             request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
-            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1,
-            uid,
-            0 == (LIBXS_GEMM_FLAG_BATCH_REDUCE  & request->descriptor.gemm->flags) ? 0 : 1);
+          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.gemm->flags) ? 0 : */1,
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid,
+            0 == (LIBXS_GEMM_FLAG_BATCH_REDUCE & request->descriptor.gemm->flags) ? 0 : 1);
         }
       }
     } break;
@@ -1307,7 +1230,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.srsoa->gemm->flags) ? 'n' : 't',
             request->descriptor.srsoa->gemm->m,   request->descriptor.srsoa->gemm->n,   request->descriptor.srsoa->gemm->k,
             request->descriptor.srsoa->gemm->lda, request->descriptor.srsoa->gemm->ldb, request->descriptor.srsoa->gemm->ldc,
-            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.srsoa->gemm->flags) ? 0 : */1,
+          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.srsoa->gemm->flags) ? 0 : */1,
             0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.srsoa->gemm->flags) ? 0 : 1,
             uid, nnz);
         }
@@ -1334,7 +1257,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.scsoa->gemm->flags) ? 'n' : 't',
             request->descriptor.scsoa->gemm->m,   request->descriptor.scsoa->gemm->n,   request->descriptor.scsoa->gemm->k,
             request->descriptor.scsoa->gemm->lda, request->descriptor.scsoa->gemm->ldb, request->descriptor.scsoa->gemm->ldc,
-            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.scsoa->gemm->flags) ? 0 : */1,
+          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.scsoa->gemm->flags) ? 0 : */1,
             0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.scsoa->gemm->flags) ? 0 : 1,
             uid, nnz);
         }
@@ -1357,7 +1280,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.rmacsoa->gemm->flags) ? 'n' : 't',
             request->descriptor.rmacsoa->gemm->m,   request->descriptor.rmacsoa->gemm->n,   request->descriptor.rmacsoa->gemm->k,
             request->descriptor.rmacsoa->gemm->lda, request->descriptor.rmacsoa->gemm->ldb, request->descriptor.rmacsoa->gemm->ldc,
-            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.rmacsoa->gemm->flags) ? 0 : */1,
+          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.rmacsoa->gemm->flags) ? 0 : */1,
             0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.rmacsoa->gemm->flags) ? 0 : 1,
             uid);
         }
@@ -1380,7 +1303,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.rmbcsoa->gemm->flags) ? 'n' : 't',
             request->descriptor.rmbcsoa->gemm->m,   request->descriptor.rmbcsoa->gemm->n,   request->descriptor.rmbcsoa->gemm->k,
             request->descriptor.rmbcsoa->gemm->lda, request->descriptor.rmbcsoa->gemm->ldb, request->descriptor.rmbcsoa->gemm->ldc,
-            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.rmbcsoa->gemm->flags) ? 0 : */1,
+          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.rmbcsoa->gemm->flags) ? 0 : */1,
             0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.rmbcsoa->gemm->flags) ? 0 : 1,
             uid);
         }
@@ -1407,7 +1330,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.sreg->gemm->flags) ? 'n' : 't',
             request->descriptor.sreg->gemm->m,   request->descriptor.sreg->gemm->n,   request->descriptor.sreg->gemm->k,
             request->descriptor.sreg->gemm->lda, request->descriptor.sreg->gemm->ldb, request->descriptor.sreg->gemm->ldc,
-            /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.sreg->gemm->flags) ? 0 : */1,
+          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.sreg->gemm->flags) ? 0 : */1,
             0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.sreg->gemm->flags) ? 0 : 1,
             uid);
         }
@@ -1493,75 +1416,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         }
       }
     } break;
-    case LIBXS_BUILD_KIND_CWFWD: { /* convolution Winograd forward */
-      LIBXS_ASSERT(0 != request->descriptor.cwino);
-      if (0 < request->descriptor.cwino->itiles && 0 < request->descriptor.cwino->jtiles &&
-          0 < request->descriptor.cwino->bimg && 0 < request->descriptor.cwino->ur)
-      {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_convolution_winograd_forward_kernel, &generated_code, request->descriptor.cwino, target_arch);
-# if !defined(LIBXS_VTUNE)
-        if (0 > libxs_verbosity)
-# endif
-        {
-          const char *const precision_in  = libxs_typename((libxs_datatype)LIBXS_DNN_DATATYPE_F32);
-          const char *const precision_out = libxs_typename((libxs_datatype)LIBXS_DNN_DATATYPE_F32);
-          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_wfwd_%s_%s_t%ux%u_mb%u_u%u_p%i.convwino",
-            target_arch/*code path name*/, precision_in, precision_out,
-            (unsigned int)request->descriptor.cwino->itiles/*itiles*/,
-            (unsigned int)request->descriptor.cwino->jtiles/*jtiles*/,
-            (unsigned int)request->descriptor.cwino->bimg/*image block*/,
-            (unsigned int)request->descriptor.cwino->ur/*unrolling*/,
-            (int)request->descriptor.cwino->prefetch/*binary OR'd prefetch flags*/);
-        }
-      }
-    } break;
-    case LIBXS_BUILD_KIND_CWBWD: { /* convolution Winograd backward */
-      LIBXS_ASSERT(0 != request->descriptor.cwino);
-      if (0 < request->descriptor.cwino->itiles && 0 < request->descriptor.cwino->jtiles &&
-          0 < request->descriptor.cwino->bimg && 0 < request->descriptor.cwino->ur)
-      {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_convolution_winograd_forward_kernel, &generated_code, request->descriptor.cwino, target_arch);
-# if !defined(LIBXS_VTUNE)
-        if (0 > libxs_verbosity)
-# endif
-        {
-          const char *const precision_in  = libxs_typename((libxs_datatype)LIBXS_DNN_DATATYPE_F32);
-          const char *const precision_out = libxs_typename((libxs_datatype)LIBXS_DNN_DATATYPE_F32);
-          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_wbwd_%s_%s_t%ux%u_mb%u_u%u_p%i.convwino",
-            target_arch/*code path name*/, precision_in, precision_out,
-            (unsigned int)request->descriptor.cwino->itiles/*itiles*/,
-            (unsigned int)request->descriptor.cwino->jtiles/*jtiles*/,
-            (unsigned int)request->descriptor.cwino->bimg/*image block*/,
-            (unsigned int)request->descriptor.cwino->ur/*unrolling*/,
-            (int)request->descriptor.cwino->prefetch/*binary OR'd prefetch flags*/);
-        }
-      }
-    } break;
-    case LIBXS_BUILD_KIND_CWUPD: { /* convolution Winograd update */
-      LIBXS_ASSERT(0 != request->descriptor.cwino);
-      if (0 < request->descriptor.cwino->itiles && 0 < request->descriptor.cwino->jtiles &&
-          0 < request->descriptor.cwino->bimg && 0 < request->descriptor.cwino->ur)
-      {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_convolution_winograd_weight_update_kernel, &generated_code, request->descriptor.cwino, target_arch);
-# if !defined(LIBXS_VTUNE)
-        if (0 > libxs_verbosity)
-# endif
-        {
-          const char *const precision_in  = libxs_typename((libxs_datatype)LIBXS_DNN_DATATYPE_F32);
-          const char *const precision_out = libxs_typename((libxs_datatype)LIBXS_DNN_DATATYPE_F32);
-          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_wupd_%s_%s_t%ux%u_mb%u_u%u_p%i.convwino",
-            target_arch/*code path name*/, precision_in, precision_out,
-            (unsigned int)request->descriptor.cwino->itiles/*itiles*/,
-            (unsigned int)request->descriptor.cwino->jtiles/*jtiles*/,
-            (unsigned int)request->descriptor.cwino->bimg/*image block*/,
-            (unsigned int)request->descriptor.cwino->ur/*unrolling*/,
-            (int)request->descriptor.cwino->prefetch/*binary OR'd prefetch flags*/);
-        }
-      }
-    } break;
     case LIBXS_BUILD_KIND_MCOPY: { /* matcopy kernel */
       LIBXS_ASSERT(0 != request->descriptor.matcopy);
       if (4 == request->descriptor.matcopy->typesize) {
@@ -1582,7 +1436,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     case LIBXS_BUILD_KIND_TRANS: { /* transpose kernel */
       LIBXS_ASSERT(0 != request->descriptor.trans);
       if (4 == request->descriptor.trans->typesize || 8 == request->descriptor.trans->typesize) {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_transpose_kernel, &generated_code, request->descriptor.trans, target_arch);
+        LIBXS_NO_OFFLOAD(void, libxs_generator_transpose_kernel, &generated_code, request->descriptor.trans, libxs_target_archid);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
@@ -1638,27 +1492,25 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   }
 
   /* handle an eventual error in the else-branch */
-  if (0 != generated_code.generated_code) {
+  if (0 < generated_code.code_size) {
     if (0 == generated_code.last_error) { /* no error raised */
-      if (0 < generated_code.code_size) { /* sanity check */
-        void* code_buffer = NULL;
-        /* attempt to create executable buffer */
-        result = libxs_xmalloc(&code_buffer, generated_code.code_size, 0/*auto*/,
-          /* flag must be a superset of what's populated by libxs_malloc_attrib */
-          LIBXS_MALLOC_FLAG_RWX, &regindex, sizeof(regindex));
+      void* code_buffer = NULL;
+      /* attempt to create executable buffer */
+      result = libxs_xmalloc(&code_buffer, generated_code.code_size, 0/*auto*/,
+        /* flag must be a superset of what's populated by libxs_malloc_attrib */
+        LIBXS_MALLOC_FLAG_RWX, &regindex, sizeof(regindex));
+      if (EXIT_SUCCESS == result) { /* check for success */
+        LIBXS_ASSERT(NULL != code_buffer);
+        /* copy temporary buffer into the prepared executable buffer */
+        memcpy(code_buffer, generated_code.generated_code, generated_code.code_size);
+        /* attribute/protect buffer and revoke unnecessary flags */
+        result = libxs_malloc_attrib(&code_buffer, LIBXS_MALLOC_FLAG_X, jit_name);
         if (EXIT_SUCCESS == result) { /* check for success */
-          LIBXS_ASSERT(0 != generated_code.generated_code/*sanity check*/);
-          /* copy temporary buffer into the prepared executable buffer */
-          memcpy(code_buffer, generated_code.generated_code, generated_code.code_size);
-          /* attribute/protect buffer and revoke unnecessary flags */
-          result = libxs_malloc_attrib(&code_buffer, LIBXS_MALLOC_FLAG_X, jit_name);
-          if (EXIT_SUCCESS == result) { /* check for success */
-            code->pmm = code_buffer; /* commit buffer */
-            LIBXS_ASSERT(NULL != code->pmm && 0 == (LIBXS_CODE_STATIC & code->uval));
-          }
-          else { /* release buffer */
-            libxs_xfree(code_buffer);
-          }
+          code->pmm = code_buffer; /* commit buffer */
+          LIBXS_ASSERT(NULL != code->pmm && 0 == (LIBXS_CODE_STATIC & code->uval));
+        }
+        else { /* release buffer */
+          libxs_xfree(code_buffer);
         }
       }
     }
@@ -1669,11 +1521,15 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     free(generated_code.generated_code); /* free temporary/initial code buffer */
 # endif
   }
+  else {
+    result = EXIT_FAILURE;
+  }
 #else /* unsupported platform */
   LIBXS_UNUSED(request); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
   if (LIBXS_X86_SSE3 <= libxs_target_archid) result = EXIT_FAILURE;
 #endif
+  LIBXS_ASSERT(NULL != code->pmm || EXIT_FAILURE == result);
   return result;
 }
 
@@ -1684,6 +1540,9 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
   unsigned int hash, i0, i = 0, mode = 0, diff = 1;
 #if !defined(NDEBUG)
   const libxs_gemm_descriptor* refdesc = 0;
+# if (0 != LIBXS_JIT)
+  int build = EXIT_SUCCESS;
+# endif
 #endif
 #if defined(LIBXS_CAPACITY_CACHE) && (0 < (LIBXS_CAPACITY_CACHE))
   static LIBXS_TLS struct {
@@ -1721,7 +1580,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
     i = i0 = LIBXS_HASH_MOD(hash, LIBXS_CAPACITY_REGISTRY);
 
     while (0 != diff) {
-#if (0 < INTERNAL_REGLOCK_MAXN) || (0 == LIBXS_SYNC) /* read registered code */
+#if (1 < INTERNAL_REGLOCK_MAXN) || (0 == LIBXS_SYNC) /* read registered code */
 # if 0
       uintptr_t *const fluxaddr = &internal_registry[i].uval;
       flux_entry.uval = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(fluxaddr, LIBXS_ATOMIC_RELAXED);
@@ -1763,6 +1622,11 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
           }
           LIBXS_ASSERT(0 != diff); /* continue */
         }
+#if defined(LIBXS_REGTWEAK)
+        else {
+          flux_entry.pmm = internal_registry[i].pmm;
+        }
+#endif
       }
       else { /* enter code generation (there is no code version yet) */
         LIBXS_ASSERT(0 == mode || 1 < mode);
@@ -1777,9 +1641,15 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
             LIBXS_ASSERT(descriptor->iflags < LIBXS_KERNEL_KIND_INVALID);
             request.kind = (libxs_build_kind)descriptor->iflags;
             request.descriptor.gemm = descriptor;
-            if (EXIT_SUCCESS == libxs_build(&request, i, &flux_entry) && 0 != flux_entry.ptr_const) {
+#if defined(NDEBUG)
+            if (EXIT_SUCCESS == libxs_build(&request, i, &flux_entry) && 0 != flux_entry.ptr_const)
+#else
+            build = libxs_build(&request, i, &flux_entry);
+            if (EXIT_SUCCESS == build && 0 != flux_entry.ptr_const)
+#endif
+            {
               internal_registry_keys[i].xgemm = *descriptor;
-# if (0 < INTERNAL_REGLOCK_MAXN)
+# if (1 < INTERNAL_REGLOCK_MAXN)
               LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_registry[i].pmm, flux_entry.pmm, LIBXS_ATOMIC_RELAXED);
 # else
               internal_registry[i].pmm = flux_entry.pmm;
@@ -1787,7 +1657,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
 # if defined(LIBXS_HASH_COLLISION)
               if (2 < mode) { /* arrived from collision state; now mark as collision */
                 libxs_code_pointer fix_entry;
-#   if (0 < INTERNAL_REGLOCK_MAXN)
+#   if (1 < INTERNAL_REGLOCK_MAXN)
                 fix_entry.pmm = LIBXS_ATOMIC_LOAD(&internal_registry[i0].pmm, LIBXS_ATOMIC_RELAXED);
 #   else
                 fix_entry.pmm = internal_registry[i0].pmm;
@@ -1795,7 +1665,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
                 LIBXS_ASSERT(0 != fix_entry.ptr_const);
                 if (0 == (LIBXS_HASH_COLLISION & fix_entry.uval)) {
                   fix_entry.uval |= LIBXS_HASH_COLLISION; /* mark current entry as collision */
-#   if (0 < INTERNAL_REGLOCK_MAXN)
+#   if (1 < INTERNAL_REGLOCK_MAXN)
                   LIBXS_ATOMIC_STORE(&internal_registry[i0].pmm, fix_entry.pmm, LIBXS_ATOMIC_RELAXED);
 #   else
                   internal_registry[i0].pmm = fix_entry.pmm;
@@ -1804,8 +1674,15 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
               }
 # endif
             }
-            diff = 0; /* inside of locked region (do not use break!) */
+            /* leave here even in case of a build-error; do not use break (inside of locked region) */
+            diff = 0;
           }
+# if defined(LIBXS_REGTWEAK)
+          else { /* check if other thread fulfilled this request */
+            diff = libxs_diff(descriptor, &internal_registry_keys[i].xgemm, LIBXS_DESCRIPTOR_MAXSIZE);
+            flux_entry.pmm = (0 != diff ? NULL : internal_registry[i].pmm);
+        }
+# endif
           INTERNAL_FIND_CODE_UNLOCK(lock);
           if (0 != diff) { /* acquire registry slot */
             if (0 == mode) { /* initial condition */
@@ -1854,6 +1731,9 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
 #else
   flux_entry.uval &= ~LIBXS_CODE_STATIC; /* clear non-JIT flag */
 #endif
+#if (0 != LIBXS_JIT)
+  assert(LIBXS_BUILD_KIND_GEMM != descriptor->iflags || NULL != flux_entry.ptr_const || EXIT_SUCCESS != build || 1 == internal_reglock_count); /*!LIBXS_ASSERT*/
+#endif
   return flux_entry;
 }
 
@@ -1861,20 +1741,23 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(const libxs_gemm_descript
 LIBXS_API const libxs_kernel_info* libxs_get_kernel_info(libxs_code_pointer code, libxs_kernel_kind* kind, size_t* size)
 {
   const libxs_kernel_info* result;
-  void* extra = 0;
-  if (0 != code.ptr_const && 0 != internal_registry && 0 != internal_registry_keys
+  void* extra = NULL;
+  if (NULL != code.ptr_const && NULL != internal_registry && NULL != internal_registry_keys
     && EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, size, NULL/*flags*/, &extra)
-    && 0 != extra && *((const unsigned int*)extra) < (LIBXS_CAPACITY_REGISTRY)
+    && NULL != extra && *((const unsigned int*)extra) < (LIBXS_CAPACITY_REGISTRY)
     && code.ptr_const == internal_registry[*((const unsigned int*)extra)].ptr_const
     /* the kernel kind is stored in the internal flags of the libxs_gemm_descriptor (iflags). */
     && internal_registry_keys[*((const unsigned int*)extra)].xgemm.iflags < LIBXS_KERNEL_KIND_INVALID)
   {
-    if (0 != kind) *kind = (libxs_kernel_kind)internal_registry_keys[*((const unsigned int*)extra)].xgemm.iflags;
+    if (NULL != kind) {
+      const int iflags = internal_registry_keys[*((const unsigned int*)extra)].xgemm.iflags;
+      *kind = (libxs_kernel_kind)iflags;
+    }
     result = internal_registry_keys + *((const unsigned int*)extra);
   }
   else {
-    if (0 != kind) *kind = LIBXS_KERNEL_KIND_INVALID;
-    result = 0;
+    if (NULL != kind) *kind = LIBXS_KERNEL_KIND_INVALID;
+    result = NULL;
   }
   return result;
 }
@@ -2059,7 +1942,7 @@ LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
 LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   libxs_xmmfunction result;
-  if (0 != descriptor) {
+  if (NULL != descriptor) {
     libxs_gemm_descriptor backend_descriptor;
     /* LIBXS_INIT: assume initialization completed by descriptor initialization function */
     if (0 != (0x8000 & descriptor->prefetch)) { /* "sign"-bit of unsigned short is set */
@@ -2069,7 +1952,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     }
     result = internal_find_code(descriptor).xgemm;
 #if defined(_DEBUG)
-    if (LIBXS_VERBOSITY_HIGH <= libxs_verbosity && INT_MAX != libxs_verbosity && 0 != result.xmm) {
+    if (LIBXS_VERBOSITY_HIGH <= libxs_verbosity && INT_MAX != libxs_verbosity && NULL != result.xmm) {
       LIBXS_STDIO_ACQUIRE();
       fprintf(stderr, "LIBXS: ");
       libxs_gemm_xprint(stderr, result, NULL/*a*/, NULL/*b*/, NULL/*c*/);
@@ -2079,7 +1962,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
 #endif
   }
   else { /* quietly accept NULL-descriptor */
-    result.xmm = 0;
+    result.xmm = NULL;
   }
   return result;
 }
@@ -2100,7 +1983,8 @@ LIBXS_API libxs_dmmfunction libxs_dmmdispatch(libxs_blasint m, libxs_blasint n, 
     0 != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
     0 != ldc ? *ldc : m, 0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
     gemm_flags, libxs_get_gemm_xprefetch(prefetch));
-  return libxs_xmmdispatch(desc).dmm;
+  const libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.dmm;
 }
 
 
@@ -2115,7 +1999,8 @@ LIBXS_API libxs_smmfunction libxs_smmdispatch(libxs_blasint m, libxs_blasint n, 
     0 != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
     0 != ldc ? *ldc : m, 0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
     gemm_flags, libxs_get_gemm_xprefetch(prefetch));
-  return libxs_xmmdispatch(desc).smm;
+  const libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.smm;
 }
 
 
@@ -2130,7 +2015,8 @@ LIBXS_API libxs_wimmfunction libxs_wimmdispatch(libxs_blasint m, libxs_blasint n
     0 != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
     0 != ldc ? *ldc : m, 0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
     gemm_flags, libxs_get_gemm_xprefetch(prefetch));
-  return libxs_xmmdispatch(desc).wimm;
+  const libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.wimm;
 }
 
 
@@ -2145,7 +2031,8 @@ LIBXS_API libxs_wsmmfunction libxs_wsmmdispatch(libxs_blasint m, libxs_blasint n
     0 != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
     0 != ldc ? *ldc : m, 0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
     gemm_flags, libxs_get_gemm_xprefetch(prefetch));
-  return libxs_xmmdispatch(desc).wsmm;
+  const libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.wsmm;
 }
 
 
@@ -2160,45 +2047,52 @@ LIBXS_API libxs_bsmmfunction libxs_bsmmdispatch(libxs_blasint m, libxs_blasint n
     0 != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
     0 != ldc ? *ldc : m, 0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
     gemm_flags, libxs_get_gemm_xprefetch(prefetch));
-  return libxs_xmmdispatch(desc).bsmm;
+  const libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.bsmm;
 }
 
 
 LIBXS_API libxs_dmmfunction_reducebatch libxs_dmmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* prefetch)
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch)
 {
+  const int gemm_flags = (0 == flags ? LIBXS_FLAGS : *flags);
   libxs_descriptor_blob blob;
   const libxs_gemm_descriptor *const desc = libxs_dgemm_descriptor_init(&blob,
     m, n, k, 0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
     0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
-    LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
-  return libxs_xmmdispatch(desc).dmr;
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
+  const libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.dmr;
 }
 
 
 LIBXS_API libxs_smmfunction_reducebatch libxs_smmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags)
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
 {
+  const int gemm_flags = (0 == flags ? LIBXS_FLAGS : *flags);
   libxs_descriptor_blob blob;
   const int br_flags = (*flags) | LIBXS_GEMM_FLAG_BATCH_REDUCE;
 
   const libxs_gemm_descriptor *const desc = libxs_sgemm_descriptor_init(&blob,
     m, n, k, 0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
     0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
-    br_flags, libxs_get_gemm_xprefetch(NULL));
-  return libxs_xmmdispatch(desc).smr;
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
+  const libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.smr;
 }
 
 
 LIBXS_API libxs_bsmmfunction_reducebatch libxs_bsmmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* prefetch)
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
 {
+  const int gemm_flags = (0 == flags ? LIBXS_FLAGS : *flags);
   libxs_descriptor_blob blob;
   const libxs_gemm_descriptor *const desc = libxs_bsgemm_descriptor_init(&blob,
     m, n, k, 0 != lda ? *lda : m, 0 != ldb ? *ldb : k, 0 != ldc ? *ldc : m,
     0 != alpha ? *alpha : LIBXS_ALPHA, 0 != beta ? *beta : LIBXS_BETA,
-    LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
-  return libxs_xmmdispatch(desc).bsmr;
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
+  const libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.bsmr;
 }
 
 

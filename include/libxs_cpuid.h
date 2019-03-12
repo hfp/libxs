@@ -37,7 +37,6 @@
  */
 #define LIBXS_TARGET_ARCH_UNKNOWN 0
 #define LIBXS_TARGET_ARCH_GENERIC 1
-#define LIBXS_X86_IMCI         1001
 #define LIBXS_X86_GENERIC      1002
 #define LIBXS_X86_SSE3         1003
 #define LIBXS_X86_SSE4         1004
@@ -59,5 +58,8 @@ LIBXS_API int libxs_cpuid_x86(void);
 
 /** Similar to libxs_cpuid_x86, but conceptually not x86-specific. */
 LIBXS_API int libxs_cpuid(void);
+
+/** Names the CPU architecture given by CPUID. */
+LIBXS_API const char* libxs_cpuid_name(int id);
 
 #endif /*LIBXS_CPUID_H*/

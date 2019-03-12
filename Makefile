@@ -261,6 +261,10 @@ endif
 INDICES ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 NINDICES = $(words $(INDICES))
 
+SRCFILES_KERNELS = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
+KRNOBJS_HST = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
+KRNOBJS_MIC = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
+
 HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
           $(ROOTDIR)/$(SRCDIR)/libxs_hash.c \
           $(ROOTDIR)/include/libxs_blocked_gemm.h \
@@ -284,7 +288,7 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
           $(ROOTDIR)/include/libxs_timer.h \
           $(ROOTDIR)/include/libxs_typedefs.h
 SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
-          libxs_main.c libxs_cpuid_x86.c libxs_malloc.c libxs_math.c libxs_sync.c \
+          libxs_main.c libxs_malloc.c libxs_math.c libxs_sync.c \
           libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
           libxs_gemm.c libxs_xcopy.c libxs_blocked_gemm.c libxs_spmdm.c libxs_fsspmdm.c libxs_rng.c\
           libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c libxs_dnn_elementwise.c \
@@ -292,22 +296,15 @@ SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c libxs_dnn_fusedbatchnorm_backward.c \
           libxs_dnn_pooling.c libxs_dnn_pooling_forward.c libxs_dnn_pooling_backward.c libxs_dnn_convolution_forward.c \
           libxs_dnn_fullyconnected.c libxs_dnn_fullyconnected_forward.c libxs_dnn_fullyconnected_backward.c \
-          libxs_dnn_fullyconnected_weight_update.c libxs_dnn_convolution_backward.c libxs_dnn_convolution_weight_update.c \
-          libxs_dnn_convolution_winograd_forward.c libxs_dnn_convolution_winograd_backward.c libxs_dnn_convolution_winograd_weight_update.c)
+          libxs_dnn_fullyconnected_weight_update.c libxs_dnn_convolution_backward.c libxs_dnn_convolution_weight_update.c)
+SRCFILES_GEN_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c) \
+          libxs_cpuid_x86.c libxs_generator.c libxs_trace.c)
 
-SRCFILES_KERNELS = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
-SRCFILES_GEN_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c) libxs_generator.c libxs_trace.c)
 SRCFILES_GEN_GEMM_BIN = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,libxs_generator_gemm_driver.c)
-SRCFILES_GEN_CONVWINO_BIN = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,libxs_generator_convolution_winograd_driver.c)
-SRCFILES_GEN_CONV_BIN = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,libxs_generator_convolution_driver.c)
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
-OBJFILES_GEN_CONVWINO_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_CONVWINO_BIN))))
-OBJFILES_GEN_CONV_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_CONV_BIN))))
 OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_LIB))))
 OBJFILES_MIC = $(patsubst %,$(BLDDIR)/mic/%.o,$(basename $(notdir $(SRCFILES_LIB)))) $(BLDDIR)/mic/generator_common.o
-KRNOBJS_HST  = $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
-KRNOBJS_MIC  = $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
 EXTOBJS_HST  = $(BLDDIR)/intel64/libxs_ext.o \
                $(BLDDIR)/intel64/libxs_ext_xcopy.o \
                $(BLDDIR)/intel64/libxs_ext_blocked_gemm.o \
@@ -320,7 +317,7 @@ NOBLAS_HST   = $(BLDDIR)/intel64/libxs_noblas.o
 NOBLAS_MIC   = $(BLDDIR)/mic/libxs_noblas.o
 
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
-OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_GEN_CONV_BIN) $(OBJFILES_GEN_CONVWINO_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) \
+OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_GEN_CONV_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) \
           $(KRNOBJS_HST) $(KRNOBJS_MIC) $(EXTOBJS_HST) $(EXTOBJS_MIC) $(NOBLAS_HST) $(NOBLAS_MIC)
 ifneq (,$(strip $(FC)))
   FTNOBJS = $(BLDDIR)/intel64/libxs-mod.o $(BLDDIR)/mic/libxs-mod.o
@@ -641,16 +638,6 @@ ifneq (,$(strip $(SRCFILES_KERNELS)))
 	$(eval NMVALUE := $(NVALUE))
 	@echo "#include <libxs.h>" > $@
 	@echo >> $@
-ifneq (0,$(MIC))
-ifneq (0,$(MPSS))
-ifneq (2,$(PRECISION))
-	@echo "#define LIBXS_GENTARGET_knc_sp" >> $@
-endif
-ifneq (1,$(PRECISION))
-	@echo "#define LIBXS_GENTARGET_knc_dp" >> $@
-endif
-endif
-endif
 ifeq (noarch,$(GENTARGET))
 ifneq (,$(CTARGET))
 ifneq (2,$(PRECISION))
@@ -696,16 +683,6 @@ ifneq (1,$(PRECISION))
 	$(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 $(GENTARGET) $(PREFETCH_SCHEME) DP
 endif
 endif # noarch
-ifneq (0,$(MIC))
-ifneq (0,$(MPSS))
-ifneq (2,$(PRECISION))
-	$(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_knc $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 knc $(PREFETCH_SCHEME_MIC) SP
-endif
-ifneq (1,$(PRECISION))
-	$(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_knc $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 knc $(PREFETCH_SCHEME_MIC) DP
-endif
-endif
-endif
 	$(eval TMPFILE = $(shell $(MKTEMP) /tmp/.libxs_XXXXXX.mak))
 	@cat $@ | sed \
 		-e "s/void libxs_/LIBXS_INLINE LIBXS_RETARGETABLE void libxs_/" \
@@ -794,14 +771,6 @@ $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(TGT_FLAGS) $(CFLAGS) $(DFLAGS) $(IFLAGS))))
-$(foreach OBJ,$(OBJFILES_GEN_CONVWINO_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
-  $(TGT_FLAGS) $(CFLAGS) $(DFLAGS) $(IFLAGS))))
-$(foreach OBJ,$(OBJFILES_GEN_CONV_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
-  $(TGT_FLAGS) $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 
 .PHONY: compile_mic
 ifneq (0,$(MIC))
@@ -873,13 +842,9 @@ else # static
 endif
 
 .PHONY: generator
-generator: $(BINDIR)/libxs_gemm_generator $(BINDIR)/libxs_conv_generator $(BINDIR)/libxs_convwino_generator
+generator: $(BINDIR)/libxs_gemm_generator
 $(BINDIR)/libxs_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
 	$(LD) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(ILIBEXT)) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
-$(BINDIR)/libxs_conv_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONV_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
-	$(LD) -o $@ $(OBJFILES_GEN_CONV_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(ILIBEXT)) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
-$(BINDIR)/libxs_convwino_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONVWINO_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
-	$(LD) -o $@ $(OBJFILES_GEN_CONVWINO_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(ILIBEXT)) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 
 ifneq (,$(strip $(LIBJITPROFILING)))
 $(LIBJITPROFILING): $(BLDDIR)/jitprofiling/.make

@@ -28,14 +28,6 @@
 ******************************************************************************/
 #include <libxs_intrinsics_x86.h>
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <assert.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
-
 /** Execute CPUID, and receive results (EAX, EBX, ECX, EDX) for requested FUNCTION. */
 #if defined(__GNUC__) || defined(__PGI)
 # if (64 > (LIBXS_BITS))
@@ -145,3 +137,54 @@ LIBXS_API int libxs_cpuid(void)
   return libxs_cpuid_x86();
 }
 
+
+LIBXS_API const char* libxs_cpuid_name(int id)
+{
+  const char* target_arch = NULL;
+  switch (id) {
+    case LIBXS_X86_AVX512_CLX: {
+      target_arch = "clx";
+    } break;
+    case LIBXS_X86_AVX512_CORE: {
+      target_arch = "skx";
+    } break;
+    case LIBXS_X86_AVX512_KNM: {
+      target_arch = "knm";
+    } break;
+    case LIBXS_X86_AVX512_MIC: {
+      target_arch = "knl";
+    } break;
+    case LIBXS_X86_AVX512: {
+      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "avx3") */
+      target_arch = "hsw";
+    } break;
+    case LIBXS_X86_AVX2: {
+      target_arch = "hsw";
+    } break;
+    case LIBXS_X86_AVX: {
+      target_arch = "snb";
+    } break;
+    case LIBXS_X86_SSE4: {
+      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "sse4") */
+      target_arch = "wsm";
+    } break;
+    case LIBXS_X86_SSE3: {
+      /* WSM includes SSE4, but BE relies on SSE3 only,
+       * hence we enter "wsm" path starting with SSE3.
+       */
+      target_arch = "wsm";
+    } break;
+    case LIBXS_TARGET_ARCH_GENERIC: {
+      target_arch = "generic";
+    } break;
+    default: if (LIBXS_X86_GENERIC <= id) {
+      target_arch = "x86";
+    }
+    else {
+      target_arch = "unknown";
+    }
+  }
+
+  LIBXS_ASSERT(NULL != target_arch);
+  return target_arch;
+}

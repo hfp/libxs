@@ -114,13 +114,14 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_ncnc_kcck_f32_f32(libxs_dnn_full
   typedef float element_output_type;
   typedef float element_filter_type;
   libxs_blasint lda = (libxs_blasint)handle->bk;
-  libxs_blasint ldb = (libxs_blasint)handle->bn;
+  libxs_blasint ldb = (libxs_blasint)handle->bc;
   libxs_blasint ldc = (libxs_blasint)handle->bk;
   element_input_type alpha = (element_input_type)1;
   element_input_type beta = (element_input_type)0;
+  libxs_blasint l_flags = LIBXS_GEMM_FLAGS('N', 'T');
 
   if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-     libxs_smmfunction_reducebatch batchreduce_kernel = libxs_smmdispatch_reducebatch(handle->bk, handle->bc, handle->bn, &lda, &ldb, &ldc, &alpha, &beta, NULL);
+    libxs_smmfunction_reducebatch batchreduce_kernel = libxs_smmdispatch_reducebatch(handle->bk, handle->bc, handle->bn, &lda, &ldb, &ldc, &alpha, &beta, &l_flags, NULL);
 # include "template/libxs_dnn_fullyconnected_st_upd_ncnc_kcck_generic.tpl.c"
   } else {
     status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
@@ -230,13 +231,14 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_ncnc_kcck(libxs
       typedef float element_output_type;
       typedef float element_filter_type;
       libxs_blasint lda = (libxs_blasint)handle->bk;
-      libxs_blasint ldb = (libxs_blasint)handle->bn;
+      libxs_blasint ldb = (libxs_blasint)handle->bc;
       libxs_blasint ldc = (libxs_blasint)handle->bk;
       element_input_type alpha = (element_input_type)1;
       element_input_type beta = (element_input_type)0;
+      libxs_blasint l_flags = LIBXS_GEMM_FLAGS('N', 'T');
 
       if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-        libxs_smmfunction_reducebatch batchreduce_kernel = libxs_smmdispatch_reducebatch(handle->bk, handle->bc, handle->bn, &lda, &ldb, &ldc, &alpha, &beta, NULL);
+        libxs_smmfunction_reducebatch batchreduce_kernel = libxs_smmdispatch_reducebatch(handle->bk, handle->bc, handle->bn, &lda, &ldb, &ldc, &alpha, &beta, &l_flags, NULL);
 # include "template/libxs_dnn_fullyconnected_st_upd_ncnc_kcck_generic.tpl.c"
       } else {
         status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
