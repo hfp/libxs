@@ -146,7 +146,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_custom(libxs_dn
 
   /* check if we are on an AVX512 platform */
   if ( libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
-      libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL ||
+      libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_CLX ||
       libxs_target_archid == LIBXS_X86_AVX512_KNM                                                        ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fullyconnected_st_upd_custom_f32_f32( handle, start_thread, tid);
@@ -167,7 +167,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_custom(libxs_dn
       libxs_blasint ldc = (libxs_blasint)handle->ofmblock;
       element_input_type alpha = (element_input_type)1;
       element_input_type beta = (element_input_type)0;
- 
+
      if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
        gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ifmblock, handle->desc.N, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_upd_custom_generic.tpl.c"
@@ -216,7 +216,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_ncnc_kcck(libxs
 
   /* check if we are on an AVX512 platform */
   if ( libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
-      libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_ICL ||
+      libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_CLX ||
       libxs_target_archid == LIBXS_X86_AVX512_KNM                                                        ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fullyconnected_st_upd_ncnc_kcck_f32_f32( handle, start_thread, tid);

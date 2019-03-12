@@ -170,12 +170,12 @@
 #endif
 #define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
 
-#if !defined(__STATIC) && !defined(_WINDLL) && !defined(__MINGW32__) && (defined(_WIN32) || defined(__CYGWIN__))
+#if !defined(__STATIC) && !defined(_WINDLL) && (defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__))
 # define __STATIC
 #endif
 
 /* may include Clang and other compatible compilers */
-#if defined(__GNUC__) && !defined(_WIN32) && !defined(__CYGWIN__)
+#if defined(__GNUC__) && !defined(_WIN32) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 # define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
 # define LIBXS_VISIBILITY_HIDDEN LIBXS_ATTRIBUTE(visibility("hidden"))
 # define LIBXS_VISIBILITY_PUBLIC LIBXS_ATTRIBUTE(visibility("default"))
@@ -194,7 +194,7 @@
 #endif
 
 /* Windows Dynamic Link Library (DLL) */
-#if !defined(__STATIC) && (defined(_WIN32) || defined(__CYGWIN__))
+#if !defined(__STATIC) && (defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__))
 # define LIBXS_VISIBILITY_EXPORT LIBXS_ATTRIBUTE(dllexport)
 # define LIBXS_VISIBILITY_IMPORT LIBXS_ATTRIBUTE(dllimport)
 #endif
@@ -388,16 +388,20 @@
 
 /** Makes some functions available independent of C99 support. */
 #if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
+# if defined(__PGI)
+#   define LIBXS_POWF(A, B) ((float)pow((double)(A), (double)(B)))
+# else
+#   define LIBXS_POWF(A, B) powf(A, B)
+# endif
 # define LIBXS_FREXPF(A, B) frexpf(A, B)
-# define LIBXS_POWF(A, B) powf(A, B)
 # define LIBXS_ROUNDF(A) roundf(A)
 # define LIBXS_ROUND(A) round(A)
 # define LIBXS_TANHF(A) tanhf(A)
 # define LIBXS_LOG2(A) log2(A)
 # define LIBXS_LOGF(A) logf(A)
 #else
-# define LIBXS_FREXPF(A, B) ((float)frexp((double)(A), B))
 # define LIBXS_POWF(A, B) ((float)pow((double)(A), (double)(B)))
+# define LIBXS_FREXPF(A, B) ((float)frexp((double)(A), B))
 # define LIBXS_ROUNDF(A) LIBXS_ROUNDX(float, A)
 # define LIBXS_ROUND(A) LIBXS_ROUNDX(double, A)
 # define LIBXS_TANHF(A) ((float)tanh((double)(A)))
@@ -450,8 +454,8 @@
  * VLA-support is signaled by LIBXS_VLA.
  */
 #if !defined(LIBXS_VLA) && !defined(LIBXS_NO_VLA) && !defined(__PGI) && ((defined(__STDC_VERSION__) && (199901L/*C99*/ == __STDC_VERSION__ || \
-   (!defined(__STDC_NO_VLA__) && 199901L/*C99*/ < __STDC_VERSION__))) || (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32) && !defined(__cplusplus)) || \
-    (defined(__INTEL_COMPILER) && !defined(_WIN32)) || (defined(__GNUC__) && !defined(__STRICT_ANSI__) && !defined(__cplusplus))/*depends on prior C99-check*/)
+   (!defined(__STDC_NO_VLA__) && 199901L/*C99*/ < __STDC_VERSION__))) || (defined(__GNUC__) && !defined(__STRICT_ANSI__) && !defined(__cplusplus)) /*|| \
+    (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32) && !defined(__cplusplus)) || (defined(__INTEL_COMPILER) && !defined(_WIN32))*/)
 # define LIBXS_VLA
 #endif
 

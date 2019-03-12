@@ -334,7 +334,7 @@ LIBXS_API_INTERN int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
   }
   else if (NULL != malloc_fn.function) {
     if (NULL == free_fn.function
-      && /*warning*/(1 < libxs_verbosity || 0 > libxs_verbosity)
+      && /*warning*/(LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity)
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       fprintf(stderr, "LIBXS WARNING: scratch allocator setup without free function!\n");
@@ -451,7 +451,7 @@ LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flag
     }
     else {
 #if !defined(LIBXS_MALLOC_NOCRC)
-      if (NULL != memory && (1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+      if (NULL != memory && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
         fprintf(stderr, "LIBXS WARNING: checksum error for memory buffer %p!\n", memory);
@@ -823,7 +823,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
       }
     }
     else {
-      if ((2 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+      if ((LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
         fprintf(stderr, "LIBXS WARNING: zero-sized memory allocation detected!\n");
@@ -907,7 +907,7 @@ LIBXS_API_INTERN int libxs_xfree(const void* memory)
       }
     }
 #if !defined(LIBXS_BUILD)
-    else if ((1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+    else if ((LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       fprintf(stderr, "LIBXS WARNING: attempt to release memory from non-matching implementation!\n");
@@ -915,7 +915,7 @@ LIBXS_API_INTERN int libxs_xfree(const void* memory)
 #endif
   }
 #if !defined(LIBXS_MALLOC_NOCRC)
-  else if (NULL != memory && (1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+  else if (NULL != memory && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS WARNING: checksum error for memory buffer %p!\n", memory);
@@ -973,7 +973,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
         LIBXS_UNUSED(alloc_size);
 #else
         if (EXIT_SUCCESS != mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ)
-          && (2 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+          && (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
           && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
           fprintf(stderr, "LIBXS WARNING: read-only request for buffer failed!\n");
@@ -1068,7 +1068,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
               }
               result = mprotect_result;
             }
-            else if ((2 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+            else if ((LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
               && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
             {
               fprintf(stderr, "LIBXS WARNING: read-only request for JIT-buffer failed!\n");
@@ -1088,7 +1088,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
     result = EXIT_FAILURE;
   }
 #if !defined(LIBXS_MALLOC_NOCRC)
-  else if (NULL != memory && (1 < libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+  else if (NULL != memory && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS WARNING: checksum error for %s buffer %p!\n",
@@ -1259,7 +1259,7 @@ LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* 
           result = LIBXS_ALIGN((char*)result, align_size);
           LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_scratch_nmallocs, 1, LIBXS_ATOMIC_RELAXED);
 #if defined(LIBXS_MALLOC_SCRATCH_JOIN) /* library code is expected to be mute */
-          if (limit_size < maxsize && (1 < libxs_verbosity || 0 > libxs_verbosity)
+          if (limit_size < maxsize && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity)
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
             fprintf(stderr, "LIBXS WARNING: scratch memory domain exhausted!\n");
@@ -1279,7 +1279,7 @@ LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* 
             }
 #if !defined(LIBXS_MALLOC_SCRATCH_JOIN)
             else if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != caller
-              && (1 < libxs_verbosity || 0 > libxs_verbosity))
+              && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity))
             {
               fprintf(stderr, "LIBXS WARNING: scratch memory domain exhausted!\n");
             }
@@ -1357,7 +1357,7 @@ LIBXS_API void libxs_free(const void* memory)
             const void *const pool_buffer = pool->instance.buffer;
             pool->instance.buffer = pool->instance.head = NULL;
 # if defined(LIBXS_MALLOC_AFFINITY) && (0 != LIBXS_SYNC) && !defined(NDEBUG) /* library code is expected to be mute */
-            if ((1 < libxs_verbosity || 0 > libxs_verbosity) && libxs_get_tid() != pool->instance.tid) {
+            if ((LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) && libxs_get_tid() != pool->instance.tid) {
               static int error_once = 0;
               if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
                 fprintf(stderr, "LIBXS WARNING: thread-id differs between allocation and deallocation!\n");
@@ -1433,7 +1433,7 @@ LIBXS_API int libxs_get_scratch_info(libxs_scratch_info* info)
     unsigned int i;
     LIBXS_ASSERT(sizeof(internal_malloc_pool_type) <= (LIBXS_CACHELINE));
     memset(info, 0, sizeof(libxs_scratch_info));
-    info->npools = LIBXS_MIN(1, libxs_scratch_pools);
+    info->npools = (unsigned int)LIBXS_MIN(internal_malloc_scratch_nmallocs, libxs_scratch_pools);
     info->npending = pools[0].instance.counter;
     info->nmallocs = internal_malloc_scratch_nmallocs;
     info->internal = internal_malloc_scratch_size_private;

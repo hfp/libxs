@@ -3015,8 +3015,7 @@ LIBXS_API void libxs_truncate_convert_f32_bf16(const float* in, libxs_bfloat16* 
 
   /* truncate buffer to bfp16 */
   for ( i = 0; i < length; ++i ) {
-    union libxs_bfloat16_hp t;
-
+    libxs_bfloat16_hp t;
     t.f = in[i];
     out[i] = t.i[1];
   }
@@ -3085,8 +3084,7 @@ LIBXS_API void libxs_convert_bf16_f32(const libxs_bfloat16* in, float* out, unsi
 
   /* up-convert is super simple */
   for ( i = 0; i < length; ++i ) {
-    union libxs_bfloat16_hp t;
-
+    libxs_bfloat16_hp t;
     t.i[1] = in[i];
     t.i[0] = 0;
     out[i] = t.f;

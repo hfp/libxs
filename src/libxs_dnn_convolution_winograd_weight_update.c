@@ -205,7 +205,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_winograd_st_upd_custom_custo
          alternative GEMM:
          let's do a ifmblock x ofmblock x ofw_rb GEMM :-) or in other words M=nbIfm, N=nbOfm, K=ofw (col-major) */
       gemm_function gemm_kernel_alt = libxs_smmdispatch(handle->ifmblock, handle->ofmblock, handle->ofw, &ldx_alt, &ldb_alt, NULL, NULL, NULL, NULL, NULL);
-# include "template/libxs_dnn_convolve_st_upd_custom_custom_generic.tpl.c"
+//# include "template/libxs_dnn_convolve_st_upd_custom_custom_generic.tpl.c"
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;

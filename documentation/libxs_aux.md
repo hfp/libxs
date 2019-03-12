@@ -22,7 +22,7 @@ Available code paths (IDs and corresponding strings):
 * LIBXS_X86_AVX512_MIC: "**knl**", "mic"
 * LIBXS_X86_AVX512_KNM: "**knm**"
 * LIBXS_X86_AVX512_CORE: "**skx**", "skl", "avx3", "avx512"
-* LIBXS_X86_AVX512_ICL: "**icl**", "icx"
+* LIBXS_X86_AVX512_CLX: "**clx**"
 
 The **bold** names are returned by `libxs_get_target_arch` whereas `libxs_set_target_arch` accepts all of the above strings (similar to the environment variable LIBXS_TARGET).
 
