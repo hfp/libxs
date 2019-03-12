@@ -160,8 +160,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_d
       typedef libxs_smmfunction_reducebatch gemm_br_function;
       int l_flags = LIBXS_GEMM_FLAGS('N', 'N');
       /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
-      gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags);
-      gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags);
+      gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+      gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
 # include "template/libxs_dnn_convolve_st_bwd_custom_custom_generic.tpl.c"
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
