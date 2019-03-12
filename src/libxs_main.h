@@ -343,9 +343,6 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_tensor_format filter_format;
   libxs_dnn_conv_fuse_op fuse_ops;
   libxs_dnn_conv_option options;
-  libxs_convolution_winograd_descriptor cwino_fwd;
-  libxs_convolution_winograd_descriptor cwino_bwd;
-  libxs_convolution_winograd_descriptor cwino_upd;
   libxs_dnn_internal_format custom_format_type;    /* Specifies internal LIBXS format to be used */
   /* These are the batchnorm handles in case of fusion  */
   libxs_dnn_fusedbatchnorm* pre_bn;
@@ -725,10 +722,7 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_SCSOA,
   LIBXS_BUILD_KIND_SREG,
   LIBXS_BUILD_KIND_CFWD,
-  LIBXS_BUILD_KIND_CUPD,
-  LIBXS_BUILD_KIND_CWFWD,
-  LIBXS_BUILD_KIND_CWBWD,
-  LIBXS_BUILD_KIND_CWUPD
+  LIBXS_BUILD_KIND_CUPD
 } libxs_build_kind;
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
@@ -740,7 +734,6 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
   const libxs_csr_reg_descriptor* sreg;
   const libxs_convolution_forward_descriptor* cfwd;
   const libxs_convolution_weight_update_descriptor* cupd;
-  const libxs_convolution_winograd_descriptor* cwino;
   const libxs_mcopy_descriptor* matcopy;
   const libxs_trans_descriptor* trans;
   const libxs_trsm_descriptor* trsm;
@@ -840,29 +833,14 @@ LIBXS_API_INTERN void libxs_dnn_finalize(void);
 /** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
 LIBXS_API_INTERN libxs_sconvfunction libxs_create_sconv_forward(const libxs_convolution_forward_descriptor* descriptor);
 
-/** Code generation routine for a backward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
-LIBXS_API_INTERN libxs_sconvfunction libxs_create_sconv_backward(const libxs_convolution_backward_descriptor* descriptor);
-
 /** Code generation routine for a convolution kernel as specified by descriptor. */
 LIBXS_API_INTERN libxs_sconvfunction libxs_create_sconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor);
 
 /** Code generation routine for a forward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
 LIBXS_API_INTERN void* libxs_create_xconv_forward(const libxs_convolution_forward_descriptor* descriptor);
 
-/** Code generation routine for a backward-convolution kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
-LIBXS_API_INTERN void* libxs_create_xconv_backward(const libxs_convolution_backward_descriptor* descriptor);
-
 /** Code generation routine for a convolution kernel as specified by descriptor. */
 LIBXS_API_INTERN void* libxs_create_xconv_update_weights(const libxs_convolution_weight_update_descriptor* descriptor);
-
-/** Code generation routine for a forward-convolution Winograd kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
-LIBXS_API_INTERN void* libxs_create_xconv_wino_forward(const libxs_convolution_winograd_descriptor* descriptor);
-
-/** Code generation routine for a backward-convolution Winograd kernel. Call libxs_release_kernel in order to deallocate the JIT'ted code. */
-LIBXS_API_INTERN void* libxs_create_xconv_wino_backward(const libxs_convolution_winograd_descriptor* descriptor);
-
-/** Code generation routine for a weight-update-convolution Winograd kernel as specified by descriptor. */
-LIBXS_API_INTERN void* libxs_create_xconv_wino_update_weights(const libxs_convolution_winograd_descriptor* descriptor);
 
 /** Global lock; create an own lock for an independent domain. */
 LIBXS_APIVAR_ALIGNED(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);

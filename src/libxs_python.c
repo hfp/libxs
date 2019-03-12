@@ -142,7 +142,6 @@ PyMODINIT_FUNC initlibxs(void)
   PyModule_AddStringConstant(pymod, "BRANCH", LIBXS_BRANCH);
   PyModule_AddIntConstant(pymod, "TARGET_ARCH_UNKNOWN", LIBXS_TARGET_ARCH_UNKNOWN);
   PyModule_AddIntConstant(pymod, "TARGET_ARCH_GENERIC", LIBXS_TARGET_ARCH_GENERIC);
-  PyModule_AddIntConstant(pymod, "X86_IMCI", LIBXS_X86_IMCI);
   PyModule_AddIntConstant(pymod, "X86_GENERIC", LIBXS_X86_GENERIC);
   PyModule_AddIntConstant(pymod, "X86_SSE3", LIBXS_X86_SSE3);
   PyModule_AddIntConstant(pymod, "X86_SSE4", LIBXS_X86_SSE4);

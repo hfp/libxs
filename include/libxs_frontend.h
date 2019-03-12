@@ -461,7 +461,7 @@ LIBXS_API_EXPORT libxs_sgemm_function libxs_original_sgemm(void);
 # undef LIBXS_INIT
 # define LIBXS_INIT LIBXS_ASSERT_MSG(0 != libxs_ninit, "LIBXS is not initialized");
 #else
-# define LIBXS_INIT libxs_init();
+# define LIBXS_INIT if (0 == libxs_ninit) libxs_init();
 # define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION(TYPE, TYPE, gemm)
 # define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION(TYPE, TYPE, gemv)
 #endif

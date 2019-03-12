@@ -234,7 +234,7 @@ LIBXS_API_INTERN int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
 {
   int result = EXIT_SUCCESS;
   if (NULL != lock) {
-    libxs_init(); /* !LIBXS_INIT */
+    if (0 == libxs_ninit) libxs_init(); /* !LIBXS_INIT */
     LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
   }
   if (NULL != malloc_fn.function && NULL != free_fn.function) {
@@ -290,7 +290,7 @@ LIBXS_API_INTERN int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
   int result = EXIT_SUCCESS;
   if (NULL != context || NULL != malloc_fn || NULL != free_fn) {
     if (NULL != lock) {
-      libxs_init(); /* !LIBXS_INIT */
+      if (0 == libxs_ninit) libxs_init(); /* !LIBXS_INIT */
       LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     }
     if (context) *context = libxs_default_allocator_context;
@@ -318,7 +318,7 @@ LIBXS_API_INTERN int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
   int result = EXIT_SUCCESS;
   static int error_once = 0;
   if (NULL != lock) {
-    libxs_init(); /* !LIBXS_INIT */
+    if (0 == libxs_ninit) libxs_init(); /* !LIBXS_INIT */
     LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
   }
   /* make sure the default allocator is setup before adopting it eventually */
@@ -371,7 +371,7 @@ LIBXS_API_INTERN int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
   int result = EXIT_SUCCESS;
   if (NULL != context || NULL != malloc_fn || NULL != free_fn) {
     if (NULL != lock) {
-      libxs_init(); /* !LIBXS_INIT */
+      if (0 == libxs_ninit) libxs_init(); /* !LIBXS_INIT */
       LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     }
     if (context) *context = libxs_scratch_allocator_context;
@@ -1125,17 +1125,14 @@ LIBXS_API_INLINE const void* internal_malloc_site(const char* site)
     }
   }
   else {
+    const void* stacktrace[4];
+    const unsigned int n = libxs_backtrace(stacktrace, sizeof(stacktrace) / sizeof(*stacktrace), 0/*skip*/);
 #if defined(NDEBUG) /* internal_malloc_site is inlined */
-# if defined(_WIN32) || defined(__CYGWIN__)
-    void* stacktrace[] = { 0, 0, 0 };
-# else
-    void* stacktrace[] = { 0, 0 };
-# endif
+    if (0 < n) result = stacktrace[0];
 #else /* not inlined */
-    void* stacktrace[] = { 0, 0, 0, 0 };
+    if (2 < n) result = stacktrace[2];
 #endif
-    const unsigned int size = sizeof(stacktrace) / sizeof(*stacktrace);
-    result = (size == libxs_backtrace(stacktrace, size) ? stacktrace[size-1] : 0);
+    else result = NULL;
   }
   return result;
 }
