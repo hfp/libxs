@@ -386,6 +386,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->bwd_ofw_rb = handle->ofw;
   handle->fm_lp_block = 1;
 
+  const libxs_trans_descriptor* tr_desc = 0;
+  libxs_descriptor_blob blob;
+  tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), 64, 64, 64);
+  handle->tr_kernel = libxs_dispatch_trans(tr_desc);
+
   /* Loop order tuning  */
   if (handle->desc.H >= 28 && handle->desc.R == 1) {
     loop_order = 1;

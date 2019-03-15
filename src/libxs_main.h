@@ -431,6 +431,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int upd_linearized_tasklist;
   int upd_avoid_rim_fmas;
 
+  libxs_xtransfunction tr_kernel;
+
   /* internal data representation */
   libxs_dnn_tensor* reg_input;
   libxs_dnn_tensor* reg_output;
