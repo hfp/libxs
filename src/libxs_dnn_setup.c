@@ -388,7 +388,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
 
   const libxs_trans_descriptor* tr_desc = 0;
   libxs_descriptor_blob blob;
-  tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), 64, 64, 64);
+  tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), 64, 16, 64);
   handle->tr_kernel = libxs_dispatch_trans(tr_desc);
 
   /* Loop order tuning  */
