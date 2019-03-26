@@ -41,12 +41,16 @@
 #endif
 
 
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32(libxs_dnn_pooling* handle, int start_thread, int tid);
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16(libxs_dnn_pooling* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32_c16(libxs_dnn_pooling* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32_c32(libxs_dnn_pooling* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32_c64(libxs_dnn_pooling* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16_c16(libxs_dnn_pooling* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16_c32(libxs_dnn_pooling* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16_c64(libxs_dnn_pooling* handle, int start_thread, int tid);
 
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32(libxs_dnn_pooling* handle, int start_thread, int tid)
+libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32_c16(libxs_dnn_pooling* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
@@ -74,7 +78,63 @@ libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32(libxs_dnn_pooling* handl
 
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16(libxs_dnn_pooling* handle, int start_thread, int tid)
+libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32_c32(libxs_dnn_pooling* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
+  typedef float element_input_type;
+  typedef float element_output_type;
+
+  if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX ) {
+# define LIBXS_DNN_POOLING_BWD_MAX
+    typedef int   element_mask_type;
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c32_avx512.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_MAX
+  } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
+# define LIBXS_DNN_POOLING_BWD_AVG
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c32_avx512.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_AVG
+  } else {
+    status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
+  }
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_f32_f32_c64(libxs_dnn_pooling* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
+  typedef float element_input_type;
+  typedef float element_output_type;
+
+  if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX ) {
+# define LIBXS_DNN_POOLING_BWD_MAX
+    typedef int   element_mask_type;
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c64_avx512.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_MAX
+  } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
+# define LIBXS_DNN_POOLING_BWD_AVG
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c64_avx512.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_AVG
+  } else {
+    status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
+  }
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16_c16(libxs_dnn_pooling* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
@@ -90,6 +150,66 @@ libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16(libxs_dnn_pooling* han
   } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
 # define LIBXS_DNN_POOLING_BWD_AVG
 # include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c16_avx512.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_AVG
+  } else {
+    status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
+  }
+# undef LIBXS_DNN_POOLING_BWD_BF16
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16_c32(libxs_dnn_pooling* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
+  typedef libxs_bfloat16 element_input_type;
+  typedef libxs_bfloat16 element_output_type;
+
+# define LIBXS_DNN_POOLING_BWD_BF16
+  if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX ) {
+# define LIBXS_DNN_POOLING_BWD_MAX
+    typedef int   element_mask_type;
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c32_avx512.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_MAX
+  } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
+# define LIBXS_DNN_POOLING_BWD_AVG
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c32_avx512.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_AVG
+  } else {
+    status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
+  }
+# undef LIBXS_DNN_POOLING_BWD_BF16
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom_bf16_bf16_c64(libxs_dnn_pooling* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
+  typedef libxs_bfloat16 element_input_type;
+  typedef libxs_bfloat16 element_output_type;
+
+# define LIBXS_DNN_POOLING_BWD_BF16
+  if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_MAX ) {
+# define LIBXS_DNN_POOLING_BWD_MAX
+    typedef int   element_mask_type;
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c64_avx512.tpl.c"
+# undef LIBXS_DNN_POOLING_BWD_MAX
+  } else if ( handle->desc.pooling_type == LIBXS_DNN_POOLING_AVG ) {
+# define LIBXS_DNN_POOLING_BWD_AVG
+# include "template/libxs_dnn_pooling_st_bwd_custom_f32_bf16_c64_avx512.tpl.c"
 # undef LIBXS_DNN_POOLING_BWD_AVG
   } else {
     status = LIBXS_DNN_ERR_UNSUPPORTED_POOLING;
@@ -120,9 +240,33 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom(libxs_dnn_pooli
         libxs_target_archid == LIBXS_X86_AVX512_KNM                                                        ) &&
        (handle->ofmblock == 16) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_pooling_st_bwd_custom_f32_f32( handle, start_thread, tid);
+      status = libxs_dnn_pooling_st_bwd_custom_f32_f32_c16( handle, start_thread, tid);
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
-      status = libxs_dnn_pooling_st_bwd_custom_bf16_bf16( handle, start_thread, tid);
+      status = libxs_dnn_pooling_st_bwd_custom_bf16_bf16_c16( handle, start_thread, tid);
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  } else if ( (libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
+        libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_CLX ||
+        libxs_target_archid == LIBXS_X86_AVX512_KNM                                                        ) &&
+       (handle->ofmblock == 32) ) {
+    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      status = libxs_dnn_pooling_st_bwd_custom_f32_f32_c32( handle, start_thread, tid);
+    } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
+      status = libxs_dnn_pooling_st_bwd_custom_bf16_bf16_c32( handle, start_thread, tid);
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  } else if ( (libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
+        libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_CLX ||
+        libxs_target_archid == LIBXS_X86_AVX512_KNM                                                        ) &&
+       (handle->ofmblock == 64) ) {
+    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      status = libxs_dnn_pooling_st_bwd_custom_f32_f32_c64( handle, start_thread, tid);
+    } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
+      status = libxs_dnn_pooling_st_bwd_custom_bf16_bf16_c64( handle, start_thread, tid);
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
