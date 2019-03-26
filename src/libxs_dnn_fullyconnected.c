@@ -88,6 +88,13 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
                                                           &(handle->ofmblock), &(handle->ofmblock_lp),
                                                           &(handle->fm_lp_block), handle->desc.datatype_in, handle->desc.datatype_out, &noarch );
           }
+        } else if ( (handle->desc.C % 64 == 0) && (handle->desc.K == 1000) ) {
+          /* @TODO this a hack for the last FC layer */
+          handle->ifmblock = 64;
+          handle->ifmblock_hp = 64;
+          handle->fm_lp_block = 1;
+          handle->ofmblock = 10;
+          handle->ofmblock_lp = 10;
         } else if ( (handle->desc.C % 16 == 0) && (handle->desc.K == 1000) ) {
           /* @TODO this a hack for the last FC layer */
           handle->ifmblock = 16;
