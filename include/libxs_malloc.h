@@ -76,10 +76,10 @@ LIBXS_API int libxs_get_scratch_allocator(void** context,
   libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /** Allocate memory (malloc/free interface). */
-LIBXS_API void* libxs_malloc(size_t size);
+LIBXS_API LIBXS_ATTRIBUTE_MALLOC void* libxs_malloc(size_t size);
 
 /** Allocate aligned default memory. */
-LIBXS_API void* libxs_aligned_malloc(size_t size,
+LIBXS_API LIBXS_ATTRIBUTE_MALLOC void* libxs_aligned_malloc(size_t size,
   /**
    * =0: align automatically according to the size
    * 0<: align according to the alignment value

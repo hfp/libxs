@@ -34,7 +34,7 @@
 #endif
 
 #if !defined(LOCK_KIND)
-# define LOCK_KIND LIBXS_LOCK_SPINLOCK
+# define LOCK_KIND LIBXS_LOCK_DEFAULT
 #endif
 
 
@@ -77,7 +77,13 @@ int main(int argc, char* argv[])
   LIBXS_LOCK_ATTR_DESTROY(LOCK_KIND, &attr);
 
   assert(0 < (nthreads * nrepeat));
-  fprintf(stdout, "Latency and throughput for nthreads=%i wratio=%i%% work_r=%i work_w=%i nrepeat=%i\n",
+  fprintf(stdout, "Latency and throughput of %s (%s) for nthreads=%i wratio=%i%% work_r=%i work_w=%i nrepeat=%i\n",
+    LIBXS_STRINGIFY(LOCK_KIND),
+#if defined(LIBXS_SYNC_SYSTEM)
+    "OS-native",
+#else
+    "LIBXS",
+#endif
     nthreads, wratioperc, work_r, work_w, nrepeat);
 
   { /* measure non-contended latency of RO-lock */

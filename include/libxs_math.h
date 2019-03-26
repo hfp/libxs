@@ -71,7 +71,7 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info);
  * Calculate whether there is a difference between two (short) buffers.
  * Returns zero if there is no difference; otherwise non-zero.
  */
-LIBXS_API unsigned int libxs_diff(const void* a, const void* b, unsigned char size);
+LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char size);
 
 /**
  * Calculate whether there is a difference between two series of items.
@@ -108,29 +108,23 @@ LIBXS_API size_t libxs_shuffle(unsigned int n);
  */
 LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int limit, int is_lower);
 
-/* SQRT with Newton's method using integer arithmetic. */
+/** SQRT with Newton's method using integer arithmetic. */
 LIBXS_API unsigned int libxs_isqrt_u64(unsigned long long x);
-/* SQRT with Newton's method using integer arithmetic. */
+/** SQRT with Newton's method using integer arithmetic. */
 LIBXS_API unsigned int libxs_isqrt_u32(unsigned int x);
-/* Based on libxs_isqrt_u32, but actual factor of x. */
+/** Based on libxs_isqrt_u32, but actual factor of x. */
 LIBXS_API unsigned int libxs_isqrt2_u32(unsigned int x);
-/* SQRT with Newton's method using double-precision. */
+/** SQRT with Newton's method using double-precision. */
 LIBXS_API double libxs_dsqrt(double x);
-/* SQRT with Newton's method using single-precision. */
+/** SQRT with Newton's method using single-precision. */
 LIBXS_API float libxs_ssqrt(float x);
 
-/* CBRT with Newton's method using integer arithmetic. */
+/** CBRT with Newton's method using integer arithmetic. */
 LIBXS_API unsigned int libxs_icbrt_u64(unsigned long long x);
-/* CBRT with Newton's method using integer arithmetic. */
+/** CBRT with Newton's method using integer arithmetic. */
 LIBXS_API unsigned int libxs_icbrt_u32(unsigned int x);
 
-/**
- * Exponential function, which exposes the number of iterations taken in the main case (1...22). For example,
- * a value of maxiter=13 yields fast (but reasonable results), whereas maxiter=20 yields more accurate results.
- */
-LIBXS_API float libxs_sexp2_fast(float x, int maxiter);
-
-/* A wrapper around libxs_sexp2_fast (or powf), which aims for accuracy. */
+/** Single-precision approximation of exponential function (base 2). */
 LIBXS_API float libxs_sexp2(float x);
 
 /**

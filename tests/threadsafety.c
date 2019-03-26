@@ -35,8 +35,11 @@
 #if !defined(MAX_NKERNELS)
 # define MAX_NKERNELS 1000
 #endif
-#if !defined(USE_PARALLEL_JIT)
-# define USE_PARALLEL_JIT
+#if !defined(CHECK_PARALLEL_INIT)
+# define CHECK_PARALLEL_INIT
+#endif
+#if !defined(CHECK_PARALLEL_JIT)
+# define CHECK_PARALLEL_JIT
 #endif
 #if !defined(USE_VERBOSE)
 # define USE_VERBOSE
@@ -72,9 +75,10 @@ int main(void)
     r[i+2] = rand();
   }
 
-#if defined(_OPENMP)
+#if defined(CHECK_PARALLEL_INIT)
+# if defined(_OPENMP)
 # pragma omp parallel for default(none) private(i)
-#endif
+# endif
   for (i = 0; i < MAX_NKERNELS; ++i) {
     if (0 == (i % 2)) {
       libxs_init();
@@ -83,6 +87,7 @@ int main(void)
       libxs_finalize();
     }
   }
+#endif
   libxs_init();
 
   result = libxs_get_registry_info(&registry_info);
@@ -90,7 +95,7 @@ int main(void)
     nkernels = (int)LIBXS_MIN((size_t)nkernels, registry_info.capacity);
   }
 
-#if defined(_OPENMP) && defined(USE_PARALLEL_JIT)
+#if defined(_OPENMP) && defined(CHECK_PARALLEL_JIT)
 # pragma omp parallel for private(i)
 #endif
   for (i = 0; i < MAX_NKERNELS; ++i) {
@@ -102,7 +107,7 @@ int main(void)
       &flags, &prefetch);
   }
 
-#if defined(_OPENMP) && !defined(USE_PARALLEL_JIT)
+#if defined(_OPENMP) && !defined(CHECK_PARALLEL_JIT)
 # pragma omp parallel for private(i)
 #endif
   for (i = 0; i < nkernels; ++i) {
@@ -134,7 +139,7 @@ int main(void)
                 fprintf(stderr, "Error: the %" PRIuPTR "x%" PRIuPTR "x%" PRIuPTR "-kernel does not match!\n",
                   (uintptr_t)m, (uintptr_t)n, (uintptr_t)k);
 #endif
-#if defined(_OPENMP) && !defined(USE_PARALLEL_JIT)
+#if defined(_OPENMP) && !defined(CHECK_PARALLEL_JIT)
 # if (201107 <= _OPENMP)
 #               pragma omp atomic write
 # else
@@ -161,7 +166,7 @@ int main(void)
             fprintf(stderr, "Error: no code generated for %" PRIuPTR "x%" PRIuPTR "x%" PRIuPTR "-kernel!\n",
               (uintptr_t)m, (uintptr_t)n, (uintptr_t)k);
 # endif
-# if defined(_OPENMP) && !defined(USE_PARALLEL_JIT)
+# if defined(_OPENMP) && !defined(CHECK_PARALLEL_JIT)
 #   if (201107 <= _OPENMP)
 #           pragma omp atomic write
 #   else
@@ -178,7 +183,7 @@ int main(void)
           fprintf(stderr, "Error: cannot find %" PRIuPTR "x%" PRIuPTR "x%" PRIuPTR "-kernel!\n",
             (uintptr_t)m, (uintptr_t)n, (uintptr_t)k);
 # endif
-# if defined(_OPENMP) && !defined(USE_PARALLEL_JIT)
+# if defined(_OPENMP) && !defined(CHECK_PARALLEL_JIT)
 #   if (201107 <= _OPENMP)
 #         pragma omp atomic write
 #   else

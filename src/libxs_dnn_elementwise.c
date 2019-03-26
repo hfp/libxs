@@ -386,6 +386,17 @@ LIBXS_API_INTERN void libxs_internal_matrix_add_ld(libxs_blasint m, libxs_blasin
   }
 }
 
+LIBXS_API_INTERN void libxs_internal_matrix_sub_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src0, LIBXS_DNN_ELTWISE_FTYPE *src1, LIBXS_DNN_ELTWISE_FTYPE *dst) {
+  libxs_blasint i, j;
+
+  for ( j = 0; j < n; ++j ) {
+    LIBXS_PRAGMA_SIMD
+    for ( i = 0; i < m; ++i ) {
+      dst[(j*ld)+i] = src0[(j*ld)+i] - src1[(j*ld)+i];
+    }
+  }
+}
+
 LIBXS_API_INTERN void libxs_internal_matrix_eltwise_mult_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *src0, LIBXS_DNN_ELTWISE_FTYPE *src1, LIBXS_DNN_ELTWISE_FTYPE *dst) {
   libxs_blasint i, j;
 

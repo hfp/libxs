@@ -70,6 +70,8 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck_f32_f32(libxs_dnn_rnncell* handle
 #define LIBXS_RNN_CELL_AVX512
 # include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_ck_generic.tpl.c"
 #undef LIBXS_RNN_CELL_AVX512
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+# include "template/libxs_dnn_rnncell_st_gru_fwd_nc_ck_generic.tpl.c"
   } else {
     /* should not happen */
   }
@@ -98,6 +100,8 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck_bf16_bf16(libxs_dnn_rnncell* hand
 #define LIBXS_RNN_CELL_AVX512
 # include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_ck_generic_bf16.tpl.c"
 #undef LIBXS_RNN_CELL_AVX512
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+    status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
   } else {
     /* should not happen */
   }
@@ -130,6 +134,8 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_ncnc_kcck_f32_f32(libxs_dnn_rnncell* ha
 # include "template/libxs_dnn_rnncell_st_rnn_fwd_ncnc_kcck.tpl.c"
 # undef LIBXS_DNN_RNN_TANH_FWD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
+    status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
     status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
   } else {
     /* should not happen */
@@ -165,6 +171,8 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck_f32_f32(libxs_dnn_rnncell* hand
 #define LIBXS_RNN_CELL_AVX512
 # include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_kcck.tpl.c"
 #undef LIBXS_RNN_CELL_AVX512
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+    status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
   } else {
     /* should not happen */
   }
@@ -208,6 +216,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck(libxs_dnn_rnncel
 #undef LIBXS_DNN_RNN_TANH_FWD
       } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 # include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_ck_generic.tpl.c"
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+# include "template/libxs_dnn_rnncell_st_gru_fwd_nc_ck_generic.tpl.c"
       } else {
         /* should not happen */
       }
@@ -263,6 +273,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_ncnc_kcck(libxs_dnn_rn
 #undef LIBXS_DNN_RNN_TANH_FWD
       } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
         status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+        status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
       } else {
         /* should not happen */
       }
@@ -315,6 +327,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck(libxs_dnn_rnnc
 #undef LIBXS_DNN_RNN_TANH_FWD
       } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 # include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_kcck.tpl.c"
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+        status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
       } else {
         /* should not happen */
       }

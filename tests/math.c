@@ -40,22 +40,21 @@ LIBXS_INLINE unsigned int ref_ilog2_u32(unsigned int u32)
 }
 
 
-int main(int argc, char* argv[])
+int main(/*int argc, char* argv[]*/)
 {
-  const int exp_maxiter = (1 < argc ? atoi(argv[1]) : 20);
   const unsigned long long scale64 = ((unsigned long long)-1) / (RAND_MAX) - 1;
   const unsigned int scale32 = ((unsigned int)-1) / (RAND_MAX) - 1;
   int warn_dsqrt = 0, warn_ssqrt = 0, i;
 
   for (i = 0; i < 256; ++i) {
     const float a = libxs_sexp2_u8((unsigned char)i);
-    const float b = LIBXS_POWF(2, i);
+    const float b = LIBXS_EXP2F(i);
     if (LIBXS_NEQ(a, b)) exit(EXIT_FAILURE);
   }
 
   for (i = -128; i < 127; ++i) {
     const float a = libxs_sexp2_i8((signed char)i);
-    const float b = LIBXS_POWF(2, i);
+    const float b = LIBXS_EXP2F(i);
     if (LIBXS_NEQ(a, b)) exit(EXIT_FAILURE);
   }
 
@@ -79,8 +78,8 @@ int main(int argc, char* argv[])
     if (LIBXS_NEQ(LIBXS_ROUNDF(r2), LIBXS_ROUNDX(float, r2))) exit(EXIT_FAILURE);
     if (LIBXS_NEQ(LIBXS_ROUNDF(rd), LIBXS_ROUNDX(float, rd))) exit(EXIT_FAILURE);
 
-    d1 = libxs_sexp2_fast((float)rd, exp_maxiter);
-    d2 = LIBXS_POWF(2, rd);
+    d1 = libxs_sexp2((float)rd);
+    d2 = LIBXS_EXP2F(rd);
     e1 = fabs(d1 - d2); e2 = fabs(d2);
     e3 = 0 < e2 ? (e1 / e2) : 0.0;
     if (1E-4 < fmin(e1, e3)) exit(EXIT_FAILURE);
@@ -93,7 +92,7 @@ int main(int argc, char* argv[])
     if (a != b) exit(EXIT_FAILURE);
     d1 = libxs_ssqrt((float)fabs(rd));
     e1 = fabs(d1 * d1 - fabs(rd));
-    d2 = sqrtf((float)fabs(rd));
+    d2 = LIBXS_SQRTF(fabs(rd));
     e2 = fabs(d2 * d2 - fabs(rd));
     if (e2 < e1) {
       e3 = 0 < e2 ? (e1 / e2) : 0.f;
@@ -146,19 +145,30 @@ int main(int argc, char* argv[])
     b = ref_ilog2_u32(r32);
     if (0 != r32 && a != b) exit(EXIT_FAILURE);
 
-    a = LIBXS_SQRT2(i);
+    a = LIBXS_ISQRT2(i);
     b = libxs_isqrt_u32(i);
     if (a < LIBXS_DIFF(a, b)) exit(EXIT_FAILURE);
-    a = LIBXS_SQRT2(r32);
+    a = LIBXS_ISQRT2(r32);
     b = libxs_isqrt_u32(r32);
     if (a < LIBXS_DIFF(a, b)) exit(EXIT_FAILURE);
-    a = LIBXS_SQRT2(r64);
+    a = LIBXS_ISQRT2(r64);
     b = libxs_isqrt_u64(r64);
     if (0 != a/*u32-overflow*/ && a < LIBXS_DIFF(a, b)) exit(EXIT_FAILURE);
   }
 
   if (0 < warn_ssqrt || 0 < warn_dsqrt) {
     fprintf(stderr, "missed bitwise exact result in %.0f%% of the cases!\n", 100.0 * LIBXS_MAX(warn_ssqrt, warn_dsqrt) / N);
+  }
+
+  { /* check LIBXS_UP2POT and LIBXS_LO2POT */
+    const size_t a[] = { 0, 1, 10, 100, 127, 128, 129 };
+    const size_t b[] = { 0, 1, 16, 128, 128, 128, 256 };
+    const size_t c[] = { 0, 1,  8,  64,  64, 128, 128 };
+    const int n = sizeof(a) / sizeof(*a);
+    for (i = 0; i < n; ++i) {
+      if (LIBXS_UP2POT(a[i]) != b[i]) exit(EXIT_FAILURE);
+      if (LIBXS_LO2POT(a[i]) != c[i]) exit(EXIT_FAILURE);
+    }
   }
 
   { /* check GCD */

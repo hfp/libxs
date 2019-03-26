@@ -70,6 +70,8 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_f32_f32(libxs_dnn_rnncell* han
 # undef LIBXS_DNN_RNN_TANH_BWDUPD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 # include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_ck_generic.tpl.c"
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+# include "template/libxs_dnn_rnncell_st_gru_bwdupd_nc_ck_generic.tpl.c"
   } else {
     /* should not happen */
   }
@@ -98,6 +100,8 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16(libxs_dnn_rnncell* h
     status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 # include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_ck_generic_bf16.tpl.c"
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+    status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
   } else {
     /* should not happen */
   }
@@ -132,6 +136,8 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32(libxs_dnn_rnncell* h
 # undef LIBXS_DNN_RNN_TANH_BWDUPD
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 # include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_kcck.tpl.c"
+  } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+    status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
   } else {
     /* should not happen */
   }
@@ -198,6 +204,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck(libxs_dnn_rnn
 #undef LIBXS_DNN_RNN_TANH_BWDUPD
       } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 # include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_ck_generic.tpl.c"
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+# include "template/libxs_dnn_rnncell_st_gru_bwdupd_nc_ck_generic.tpl.c"
       } else {
         /* should not happen */
       }
@@ -252,6 +260,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck(libxs_dnn_r
 #undef LIBXS_DNN_RNN_TANH_BWDUPD
       } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 # include "template/libxs_dnn_rnncell_st_lstm_bwdupd_nc_kcck.tpl.c"
+      } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
+        status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
       } else {
         /* should not happen */
       }
