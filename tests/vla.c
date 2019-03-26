@@ -28,7 +28,6 @@
 ******************************************************************************/
 #include <libxs_macros.h>
 #include <stdlib.h>
-#include <assert.h>
 
 #if !defined(ELEM_TYPE)
 # define ELEM_TYPE short
@@ -38,11 +37,11 @@
 int main(/*int argc, char* argv[]*/)
 {
   int ni = 9, nj = 7, nk = 3, i, j, k, linear = 0, result = EXIT_SUCCESS;
-  ELEM_TYPE* input = (ELEM_TYPE*)malloc(ni * nj * nk * sizeof(ELEM_TYPE));
-  LIBXS_VLA_DECL(1, const ELEM_TYPE, in1, input, nj, nk);
+  ELEM_TYPE *const input = (ELEM_TYPE*)malloc(sizeof(ELEM_TYPE) * ni * nj * nk);
+  LIBXS_VLA_DECL(1, const ELEM_TYPE, in1, input);
   LIBXS_VLA_DECL(3, const ELEM_TYPE, in3, input, nj, nk);
 
-  assert(NULL != input);
+  LIBXS_ASSERT(NULL != input);
   for (i = 0; i < (ni * nj * nk); ++i) input[i] = (ELEM_TYPE)i;
   for (i = 0; i < ni; ++i) {
     for (j = 0; j < nj; ++j) {

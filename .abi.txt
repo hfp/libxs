@@ -316,7 +316,6 @@ libxs_set_target_arch
 libxs_set_target_archid
 libxs_set_verbosity
 libxs_sexp2
-libxs_sexp2_fast
 libxs_sexp2_i8
 libxs_sexp2_i8i
 libxs_sexp2_u8

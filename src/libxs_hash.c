@@ -44,85 +44,82 @@
 # define LIBXS_HASH_ALIGNMENT 8
 #endif
 
-#define LIBXS_HASH_U64(FN, SEED, BEGIN, END) { \
+#define LIBXS_HASH_U64(FN, BEGIN, END, SEED) { \
   for (; (BEGIN) < ((END) - 7); (BEGIN) += 8) { LIBXS_ASSERT(NULL != (BEGIN)); \
-    SEED = (uint32_t)FN(SEED, *(const uint64_t*)(BEGIN)); \
+    SEED = (uint32_t)FN(BEGIN, SEED); \
   } \
 }
-#define LIBXS_HASH_U32(FN, SEED, BEGIN, END) { \
-  const unsigned char *const next = (BEGIN) + 4; \
+#define LIBXS_HASH_U32(FN, BEGIN, END, SEED) { \
+  const uint8_t *const next = (BEGIN) + 4; \
   if (next <= (END)) { LIBXS_ASSERT(NULL != (BEGIN)); \
-    SEED = FN(SEED, *(const uint32_t*)(BEGIN)); \
-    BEGIN = next; \
+    SEED = FN(BEGIN, SEED); BEGIN = next; \
   } \
 }
-#define LIBXS_HASH_U16(FN, SEED, BEGIN, END) { \
-  const unsigned char *const next = (BEGIN) + 2; \
+#define LIBXS_HASH_U16(FN, BEGIN, END, SEED) { \
+  const uint8_t *const next = (BEGIN) + 2; \
   if (next <= (END)) { LIBXS_ASSERT(NULL != (BEGIN)); \
-    SEED = FN(SEED, *(const uint16_t*)(BEGIN)); \
-    BEGIN = next; \
+    SEED = FN(BEGIN, SEED); BEGIN = next; \
   } \
 }
-#define LIBXS_HASH_U8(FN, SEED, BEGIN, END) { \
+#define LIBXS_HASH_U8(FN, BEGIN, END, SEED) { \
   if ((BEGIN) < (END)) { LIBXS_ASSERT(NULL != (BEGIN)); \
-    SEED = FN(SEED, *(BEGIN)); \
-    ++(BEGIN); \
+    SEED = FN(BEGIN, SEED); ++(BEGIN); \
   } \
 }
 
-#define LIBXS_HASH_CRC32_U8(SEED, VALUE) _mm_crc32_u8(SEED, VALUE)
-#define LIBXS_HASH_CRC32_U16(SEED, VALUE) _mm_crc32_u16(SEED, VALUE)
-#define LIBXS_HASH_CRC32_U32(SEED, VALUE) _mm_crc32_u32(SEED, VALUE)
+#define LIBXS_HASH_CRC32_U8(PVALUE, SEED) _mm_crc32_u8(SEED, *(const uint8_t*)(PVALUE))
+#define LIBXS_HASH_CRC32_U16(PVALUE, SEED) _mm_crc32_u16(SEED, *(const uint16_t*)(PVALUE))
+#define LIBXS_HASH_CRC32_U32(PVALUE, SEED) _mm_crc32_u32(SEED, *(const uint32_t*)(PVALUE))
 
 #if (64 > (LIBXS_BITS))
-# define LIBXS_HASH_CRC32_U64(SEED, VALUE) LIBXS_HASH_CRC32_U32( \
-    LIBXS_HASH_CRC32_U32((uint32_t)(SEED), (uint32_t)(VALUE)), \
-    (uint32_t)((VALUE) >> 32))
+# define LIBXS_HASH_CRC32_U64(PVALUE, SEED) \
+    LIBXS_HASH_CRC32_U32(((const uint32_t*)(PVALUE))[1], \
+    LIBXS_HASH_CRC32_U32(((const uint32_t*)(PVALUE))[0], (uint32_t)(SEED)))
 #else
-# define LIBXS_HASH_CRC32_U64(SEED, VALUE) _mm_crc32_u64(SEED, VALUE)
+# define LIBXS_HASH_CRC32_U64(PVALUE, SEED) _mm_crc32_u64(SEED, *(const uint64_t*)(PVALUE))
 #endif
 
 #define LIBXS_HASH_UNALIGNED(FN64, FN32, FN16, FN8, DATA, SIZE, SEED) { \
-  const unsigned char *begin = (const unsigned char*)(DATA); \
-  const unsigned char *const endb = begin + (SIZE); \
-  LIBXS_HASH_U64(FN64, SEED, begin, endb); \
-  LIBXS_HASH_U32(FN32, SEED, begin, endb); \
-  LIBXS_HASH_U16(FN16, SEED, begin, endb); \
-  return begin == endb ? (SEED) : FN8(SEED, *begin); \
+  const uint8_t *begin = (const uint8_t*)(DATA); \
+  const uint8_t *const endb = begin + (SIZE); \
+  LIBXS_HASH_U64(FN64, begin, endb, SEED); \
+  LIBXS_HASH_U32(FN32, begin, endb, SEED); \
+  LIBXS_HASH_U16(FN16, begin, endb, SEED); \
+  return begin == endb ? (SEED) : FN8(begin, SEED); \
 }
 
 #if defined(LIBXS_HASH_ALIGNMENT) && 8 < (LIBXS_HASH_ALIGNMENT)
 # define LIBXS_HASH(FN64, FN32, FN16, FN8, DATA, SIZE, SEED) { \
-    const unsigned char *begin = (const unsigned char*)(DATA); \
-    const unsigned char *const endb = begin + (SIZE); \
-    const unsigned char *const enda = LIBXS_ALIGN(begin, LIBXS_HASH_ALIGNMENT); \
+    const uint8_t *begin = (const uint8_t*)(DATA); \
+    const uint8_t *const endb = begin + (SIZE); \
+    const uint8_t *const enda = LIBXS_ALIGN(begin, LIBXS_HASH_ALIGNMENT); \
     if ((SIZE) > (size_t)(endb - enda)) { \
-      LIBXS_HASH_U64(FN64, SEED, begin, enda); \
-      LIBXS_HASH_U32(FN32, SEED, begin, enda); \
-      LIBXS_HASH_U16(FN16, SEED, begin, enda); \
-      LIBXS_HASH_U8(FN8, SEED, begin, enda); \
+      LIBXS_HASH_U64(FN64, begin, enda, SEED); \
+      LIBXS_HASH_U32(FN32, begin, enda, SEED); \
+      LIBXS_HASH_U16(FN16, begin, enda, SEED); \
+      LIBXS_HASH_U8(FN8, begin, enda, SEED); \
     } \
     LIBXS_ASSUME_ALIGNED(begin, LIBXS_HASH_ALIGNMENT); \
-    LIBXS_HASH_U64(FN64, SEED, begin, endb); \
-    LIBXS_HASH_U32(FN32, SEED, begin, endb); \
-    LIBXS_HASH_U16(FN16, SEED, begin, endb); \
-    return begin == endb ? (SEED) : FN8(SEED, *begin); \
+    LIBXS_HASH_U64(FN64, begin, endb, SEED); \
+    LIBXS_HASH_U32(FN32, begin, endb, SEED); \
+    LIBXS_HASH_U16(FN16, begin, endb, SEED); \
+    return begin == endb ? (SEED) : FN8(begin, SEED); \
   }
 #elif defined(LIBXS_HASH_ALIGNMENT) && 1 < (LIBXS_HASH_ALIGNMENT)
 # define LIBXS_HASH(FN64, FN32, FN16, FN8, DATA, SIZE, SEED) { \
-    const unsigned char *begin = (const unsigned char*)(DATA); \
-    const unsigned char *const endb = begin + (SIZE); \
-    const unsigned char *const enda = LIBXS_ALIGN(begin, LIBXS_HASH_ALIGNMENT); \
+    const uint8_t *begin = (const uint8_t*)(DATA); \
+    const uint8_t *const endb = begin + (SIZE); \
+    const uint8_t *const enda = LIBXS_ALIGN(begin, LIBXS_HASH_ALIGNMENT); \
     if ((SIZE) > (size_t)(endb - enda)) { \
-      LIBXS_HASH_U32(FN32, SEED, begin, enda); \
-      LIBXS_HASH_U16(FN16, SEED, begin, enda); \
-      LIBXS_HASH_U8(FN8, SEED, begin, enda); \
+      LIBXS_HASH_U32(FN32, begin, enda, SEED); \
+      LIBXS_HASH_U16(FN16, begin, enda, SEED); \
+      LIBXS_HASH_U8(FN8, begin, enda, SEED); \
     } \
     LIBXS_ASSUME_ALIGNED(begin, LIBXS_HASH_ALIGNMENT); \
-    LIBXS_HASH_U64(FN64, SEED, begin, endb); \
-    LIBXS_HASH_U32(FN32, SEED, begin, endb); \
-    LIBXS_HASH_U16(FN16, SEED, begin, endb); \
-    return begin == endb ? (SEED) : FN8(SEED, *begin); \
+    LIBXS_HASH_U64(FN64, begin, endb, SEED); \
+    LIBXS_HASH_U32(FN32, begin, endb, SEED); \
+    LIBXS_HASH_U16(FN16, begin, endb, SEED); \
+    return begin == endb ? (SEED) : FN8(begin, SEED); \
   }
 #else
 # define LIBXS_HASH LIBXS_HASH_UNALIGNED
@@ -130,8 +127,11 @@
 
 typedef uint32_t internal_crc32_entry_type[256];
 LIBXS_APIVAR(const internal_crc32_entry_type* internal_crc32_table);
-LIBXS_APIVAR(libxs_hash_u32_function internal_hash_u32_function);
-LIBXS_APIVAR(libxs_hash_u64_function internal_hash_u64_function);
+LIBXS_APIVAR(libxs_hash_value_function internal_hash_u32_function);
+LIBXS_APIVAR(libxs_hash_value_function internal_hash_u64_function);
+LIBXS_APIVAR(libxs_hash_value_function internal_hash_u128_function);
+LIBXS_APIVAR(libxs_hash_value_function internal_hash_u256_function);
+LIBXS_APIVAR(libxs_hash_value_function internal_hash_u512_function);
 LIBXS_APIVAR(libxs_hash_function internal_hash_function);
 
 
@@ -288,6 +288,9 @@ LIBXS_HASH_API_DEFINITION void libxs_hash_init(int target_arch)
   {
     internal_hash_u32_function = libxs_crc32_u32_sse4;
     internal_hash_u64_function = libxs_crc32_u64_sse4;
+    internal_hash_u128_function = libxs_crc32_u128_sse4;
+    internal_hash_u256_function = libxs_crc32_u256_sse4;
+    internal_hash_u512_function = libxs_crc32_u512_sse4;
     internal_hash_function = libxs_crc32_sse4;
   }
 # if (LIBXS_X86_SSE4 > LIBXS_STATIC_TARGET_ARCH)
@@ -305,12 +308,18 @@ LIBXS_HASH_API_DEFINITION void libxs_hash_init(int target_arch)
 # endif
     internal_hash_u32_function = libxs_crc32_u32_sw;
     internal_hash_u64_function = libxs_crc32_u64_sw;
+    internal_hash_u128_function = libxs_crc32_u128_sw;
+    internal_hash_u256_function = libxs_crc32_u256_sw;
+    internal_hash_u512_function = libxs_crc32_u512_sw;
     internal_hash_function = libxs_crc32_sw;
   }
 #endif
-  LIBXS_ASSERT(0 != internal_hash_u32_function);
-  LIBXS_ASSERT(0 != internal_hash_u64_function);
-  LIBXS_ASSERT(0 != internal_hash_function);
+  LIBXS_ASSERT(NULL != internal_hash_u32_function);
+  LIBXS_ASSERT(NULL != internal_hash_u64_function);
+  LIBXS_ASSERT(NULL != internal_hash_u128_function);
+  LIBXS_ASSERT(NULL != internal_hash_u256_function);
+  LIBXS_ASSERT(NULL != internal_hash_u512_function);
+  LIBXS_ASSERT(NULL != internal_hash_function);
 }
 
 
@@ -320,40 +329,45 @@ LIBXS_HASH_API_DEFINITION void libxs_hash_finalize(void)
   internal_crc32_table = NULL;
   internal_hash_u32_function = NULL;
   internal_hash_u64_function = NULL;
+  internal_hash_u128_function = NULL;
+  internal_hash_u256_function = NULL;
+  internal_hash_u512_function = NULL;
   internal_hash_function = NULL;
 #endif
 }
 
 
-LIBXS_API_INLINE unsigned int internal_crc32_u8_sw(unsigned int seed, unsigned char value)
+LIBXS_API_INLINE unsigned int internal_crc32_u8_sw(const void* value, unsigned int seed)
 {
+  const uint8_t u8 = *(const uint8_t*)value;
   LIBXS_ASSERT(NULL != internal_crc32_table);
-  return internal_crc32_table[0][(seed^value)&0xFF] ^ (seed >> 8);
+  return internal_crc32_table[0][(seed^u8)&0xFF] ^ (seed >> 8);
 }
 
 
-LIBXS_API_INLINE unsigned int internal_crc32_u16_sw(unsigned int seed, unsigned short value)
+LIBXS_API_INLINE unsigned int internal_crc32_u16_sw(const void* value, unsigned int seed)
 {
-  seed = internal_crc32_u8_sw(seed, (uint8_t)value);
-  seed = internal_crc32_u8_sw(seed, (uint8_t)(value >> 8));
+  const uint8_t *const pu8 = (const uint8_t*)value;
+  seed = internal_crc32_u8_sw(pu8 + 0, seed);
+  seed = internal_crc32_u8_sw(pu8 + 1, seed);
   return seed;
 }
 
 
-LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u32(unsigned int seed, unsigned int value)
+LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u32(const void* value, unsigned int seed)
 {
 #if (LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
-  return LIBXS_HASH_CRC32_U32(seed, value);
+  return LIBXS_HASH_CRC32_U32(value, seed);
 #else /* pointer based function call */
   LIBXS_ASSERT(NULL != internal_hash_u32_function);
-  return internal_hash_u32_function(seed, value);
+  return internal_hash_u32_function(value, seed);
 #endif
 }
 
 
-LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u32_sw(unsigned int seed, unsigned int value)
+LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u32_sw(const void* value, unsigned int seed)
 {
-  const unsigned int s = seed ^ value;
+  const uint32_t u32 = *(const uint32_t*)value, s = seed ^ u32;
   uint32_t c0, c1, c2, c3;
   LIBXS_ASSERT(NULL != internal_crc32_table);
   c0 = internal_crc32_table[0][(s>>24)&0xFF];
@@ -365,42 +379,143 @@ LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u32_sw(unsigned int seed, uns
 
 
 LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE4)
-unsigned int libxs_crc32_u32_sse4(unsigned int seed, unsigned int value)
+unsigned int libxs_crc32_u32_sse4(const void* value, unsigned int seed)
 {
 #if defined(LIBXS_INTRINSICS_SSE4)
-  return LIBXS_HASH_CRC32_U32(seed, value);
+  return LIBXS_HASH_CRC32_U32(value, seed);
 #else
-  return libxs_crc32_u32_sw(seed, value);
+  return libxs_crc32_u32_sw(value, seed);
 #endif
 }
 
 
-LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u64(unsigned int seed, unsigned long long value)
+LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u64(const void* value, unsigned int seed)
 {
 #if (LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
-  return (unsigned int)LIBXS_HASH_CRC32_U64(seed, value);
+  return (unsigned int)LIBXS_HASH_CRC32_U64(value, seed);
 #else /* pointer based function call */
   LIBXS_ASSERT(NULL != internal_hash_u64_function);
-  return internal_hash_u64_function(seed, value);
+  return internal_hash_u64_function(value, seed);
 #endif
 }
 
 
-LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u64_sw(unsigned int seed, unsigned long long value)
+LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u64_sw(const void* value, unsigned int seed)
 {
-  seed = libxs_crc32_u32_sw(seed, (uint32_t)(value));
-  seed = libxs_crc32_u32_sw(seed, (uint32_t)(value >> 32));
+  const uint32_t *const pu32 = (const uint32_t*)value;
+  seed = libxs_crc32_u32_sw(pu32 + 0, seed);
+  seed = libxs_crc32_u32_sw(pu32 + 1, seed);
   return seed;
 }
 
 
 LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE4)
-unsigned int libxs_crc32_u64_sse4(unsigned int seed, unsigned long long value)
+unsigned int libxs_crc32_u64_sse4(const void* value, unsigned int seed)
 {
 #if defined(LIBXS_INTRINSICS_SSE4)
-  return (unsigned int)LIBXS_HASH_CRC32_U64(seed, value);
+  return (unsigned int)LIBXS_HASH_CRC32_U64(value, seed);
 #else
-  return libxs_crc32_u64_sw(seed, value);
+  return libxs_crc32_u64_sw(value, seed);
+#endif
+}
+
+
+LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u128(const void* value, unsigned int seed)
+{
+#if (LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
+  return libxs_crc32_u128_sse4(value, seed);
+#else /* pointer based function call */
+  LIBXS_ASSERT(NULL != internal_hash_u128_function);
+  return internal_hash_u128_function(value, seed);
+#endif
+}
+
+
+LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u128_sw(const void* value, unsigned int seed)
+{
+  const uint64_t *const pu64 = (const uint64_t*)value;
+  seed = libxs_crc32_u64_sw(pu64 + 0, seed);
+  seed = libxs_crc32_u64_sw(pu64 + 1, seed);
+  return seed;
+}
+
+
+LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE4)
+unsigned int libxs_crc32_u128_sse4(const void* value, unsigned int seed)
+{
+#if defined(LIBXS_INTRINSICS_SSE4)
+  const uint64_t *const pu64 = (const uint64_t*)value;
+  return (unsigned int)LIBXS_HASH_CRC32_U64(pu64 + 1, LIBXS_HASH_CRC32_U64(pu64, seed));
+#else
+  return libxs_crc32_u128_sw(value, seed);
+#endif
+}
+
+
+LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u256(const void* value, unsigned int seed)
+{
+#if (LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
+  return libxs_crc32_u256_sse4(value, seed);
+#else /* pointer based function call */
+  LIBXS_ASSERT(NULL != internal_hash_u256_function);
+  return internal_hash_u256_function(value, seed);
+#endif
+}
+
+
+LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u256_sw(const void* value, unsigned int seed)
+{
+  const uint8_t *const pu8 = (const uint8_t*)value;
+  seed = libxs_crc32_u128_sw(pu8 + 0x00, seed);
+  seed = libxs_crc32_u128_sw(pu8 + 0x10, seed);
+  return seed;
+}
+
+
+LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE4)
+unsigned int libxs_crc32_u256_sse4(const void* value, unsigned int seed)
+{
+#if defined(LIBXS_INTRINSICS_SSE4)
+  const uint8_t *const pu8 = (const uint8_t*)value;
+  seed = libxs_crc32_u128_sse4(pu8 + 0x00, seed);
+  seed = libxs_crc32_u128_sse4(pu8 + 0x10, seed);
+  return seed;
+#else
+  return libxs_crc32_u256_sw(value, seed);
+#endif
+}
+
+
+LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u512(const void* value, unsigned int seed)
+{
+#if (LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_HASH_SW)
+  return libxs_crc32_u512_sse4(value, seed);
+#else /* pointer based function call */
+  LIBXS_ASSERT(NULL != internal_hash_u256_function);
+  return internal_hash_u512_function(value, seed);
+#endif
+}
+
+
+LIBXS_HASH_API_DEFINITION unsigned int libxs_crc32_u512_sw(const void* value, unsigned int seed)
+{
+  const uint8_t *const pu8 = (const uint8_t*)value;
+  seed = libxs_crc32_u256_sw(pu8 + 0x00, seed);
+  seed = libxs_crc32_u256_sw(pu8 + 0x20, seed);
+  return seed;
+}
+
+
+LIBXS_HASH_API_DEFINITION LIBXS_INTRINSICS(LIBXS_X86_SSE4)
+unsigned int libxs_crc32_u512_sse4(const void* value, unsigned int seed)
+{
+#if defined(LIBXS_INTRINSICS_SSE4)
+  const uint8_t *const pu8 = (const uint8_t*)value;
+  seed = libxs_crc32_u256_sse4(pu8 + 0x00, seed);
+  seed = libxs_crc32_u256_sse4(pu8 + 0x20, seed);
+  return seed;
+#else
+  return libxs_crc32_u512_sw(value, seed);
 #endif
 }
 

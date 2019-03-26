@@ -40,37 +40,40 @@
  */
 int main(void)
 {
-  const unsigned int size = 2507, seed = 1975;
-  const unsigned int nbytes = size * sizeof(int);
-  unsigned int hash1, hash2, hash3, i;
+  const unsigned int seed = 1975;
+  unsigned int size = 2507, i, h1, h2;
   int result = EXIT_SUCCESS;
+  const int* value;
 
-  int *const data = (int*)libxs_malloc(nbytes);
-  assert(0 != data);
+  int *const data = (int*)libxs_malloc(sizeof(int) * size);
+  if (NULL == data) size = 0;
+  for (i = 0; i < size; ++i) data[i] = (rand() - ((RAND_MAX) >> 1));
 
-  for (i = 0; i < size; ++i) {
-    data[i] = rand() - ((RAND_MAX) >> 1);
+  h1 = libxs_crc32(data, sizeof(int) * size, seed);
+  h2 = libxs_crc32_sw(data, sizeof(int) * size, seed);
+  if (h1 != h2) {
+#if defined(_DEBUG)
+    fprintf(stderr, "(crc32=%u) != (crc32_sw=%u)\n", h1, h2);
+#endif
+    result = EXIT_FAILURE;
   }
 
-  hash1 = libxs_crc32(data, nbytes, seed);
-  hash2 = libxs_crc32_sw(data, nbytes, seed);
-  hash3 = libxs_hash(data, nbytes, seed);
+  size >>= 4;
+  value = data;
+  h1 = h2 = seed;
+  for (i = 0; i < size; ++i) {
+    h1 = libxs_crc32_u512(value, h1);
+    h2 = libxs_crc32_u512_sw(value, h2);
+    value += 16;
+  }
+  if (h1 != h2 || h1 != libxs_crc32(data, sizeof(int) * 16 * size, seed)) {
+#if defined(_DEBUG)
+    fprintf(stderr, "(crc32=%u) != (crc32_sw=%u)\n", h1, h2);
+#endif
+    result = EXIT_FAILURE;
+  }
 
   libxs_free(data);
-
-  if (hash1 != hash2) {
-#if defined(_DEBUG)
-    fprintf(stderr, "(crc32=%u) != (crc32_sw=%u)\n", hash1, hash2);
-#endif
-    result = EXIT_FAILURE;
-  }
-
-  if (hash1 != hash3) {
-#if defined(_DEBUG)
-    fprintf(stderr, "(crc32=%u) != (hash=%u)\n", hash1, hash3);
-#endif
-    result = EXIT_FAILURE;
-  }
 
   return result;
 }

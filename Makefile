@@ -709,14 +709,6 @@ $(1): $(2) $(3) $(dir $(1))/.make
 endef
 
 EXTCFLAGS = -DLIBXS_BUILD_EXT
-ifneq (0,$(STATIC))
-ifneq (0,$(WRAP))
-ifneq (,$(strip $(WRAP)))
-  EXTCFLAGS += -DLIBXS_GEMM_WRAP=$(WRAP)
-endif
-endif
-endif
-
 ifeq (0,$(OMP))
 ifeq (,$(filter environment% override command%,$(origin OMP)))
   EXTCFLAGS += $(OMPFLAG)
@@ -838,6 +830,7 @@ ifeq (0,$(STATIC))
 	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(OBJFILES_GEN_LIB) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS) $(LIBRT)
 else # static
+	@rm -f $@
 	$(AR) -rs $@ $(OBJFILES_GEN_LIB)
 endif
 
@@ -860,6 +853,7 @@ $(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC) $(KRNOBJS_MIC
 ifeq (0,$(STATIC))
 	$(LIB_LD) -mmic $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_MIC) $(KRNOBJS_MIC) $(LDFLAGS) $(CLDFLAGS)
 else # static
+	@rm -f $@
 	$(AR) -rs $@ $(OBJFILES_MIC) $(KRNOBJS_MIC)
 endif
 endif
@@ -871,6 +865,7 @@ $(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $
 ifeq (0,$(STATIC))
 	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING) $(LDFLAGS) $(CLDFLAGS)
 else # static
+	@rm -f $@
 	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(OBJJITPROFILING)
 endif
 
@@ -879,12 +874,12 @@ ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ifneq (,$(strip $(FC)))
 flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
-ifeq (0,$(STATIC))
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/libxs.$(LIBEXT)
+ifeq (0,$(STATIC))
 	$(LIB_FLD) -mmic $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(LDFLAGS) $(FLDFLAGS)
 else # static
-$(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/.make
+	@rm -f $@
 	$(AR) -rs $@ $(BLDDIR)/mic/libxs-mod.o
 endif
 else
@@ -896,12 +891,12 @@ endif
 .PHONY: flib_hst
 ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/libxsf.pc
-ifeq (0,$(STATIC))
 $(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
+ifeq (0,$(STATIC))
 	$(LIB_FLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(LDFLAGS) $(FLDFLAGS)
 else # static
-$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod
+	@rm -f $@
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
 endif
 else
@@ -912,12 +907,12 @@ endif
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ext_mic: $(OUTDIR)/mic/libxsext.$(LIBEXT)
+$(OUTDIR)/mic/libxsext.$(LIBEXT): $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(LIBEXT)
 ifeq (0,$(STATIC))
-$(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(LIBEXT)
 	$(LIB_LD) -mmic $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 else # static
-$(OUTDIR)/mic/libxsext.$(LIBEXT): $(OUTDIR)/mic/.make $(EXTOBJS_MIC)
+	@rm -f $@
 	$(AR) -rs $@ $(EXTOBJS_MIC)
 endif
 endif
@@ -925,8 +920,8 @@ endif
 
 .PHONY: ext_hst
 ext_hst: $(OUTDIR)/libxsext.pc
-ifeq (0,$(STATIC))
 $(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/libxs.$(LIBEXT) $(EXTOBJS_HST)
+ifeq (0,$(STATIC))
 ifneq (Darwin,$(UNAME))
 	$(LIB_LD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(LDFLAGS) $(CLDFLAGS)
@@ -938,7 +933,7 @@ else # osx
 			$(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 endif
 else # static
-$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/.make $(EXTOBJS_HST)
+	@rm -f $@
 	$(AR) -rs $@ $(EXTOBJS_HST)
 endif
 
@@ -946,12 +941,12 @@ endif
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 noblas_mic: $(OUTDIR)/mic/libxsnoblas.$(LIBEXT)
+$(OUTDIR)/mic/libxsnoblas.$(LIBEXT): $(OUTDIR)/mic/libxs.$(LIBEXT) $(NOBLAS_MIC)
 ifeq (0,$(STATIC))
-$(OUTDIR)/mic/libxsnoblas.$(LIBEXT): $(OUTDIR)/mic/.make $(NOBLAS_MIC)
 	$(LIB_LD) -mmic $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(NOBLAS_MIC) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
+		$(NOBLAS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 else # static
-$(OUTDIR)/mic/libxsnoblas.$(LIBEXT): $(OUTDIR)/mic/.make $(NOBLAS_MIC)
+	@rm -f $@
 	$(AR) -rs $@ $(NOBLAS_MIC)
 endif
 endif
@@ -959,20 +954,20 @@ endif
 
 .PHONY: noblas_hst
 noblas_hst: $(OUTDIR)/libxsnoblas.$(LIBEXT)
+$(OUTDIR)/libxsnoblas.$(LIBEXT): $(OUTDIR)/libxs.$(LIBEXT) $(NOBLAS_HST)
 ifeq (0,$(STATIC))
-$(OUTDIR)/libxsnoblas.$(LIBEXT): $(OUTDIR)/.make $(NOBLAS_HST)
 ifneq (Darwin,$(UNAME))
 	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(NOBLAS_HST) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
+		$(NOBLAS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 else ifneq (0,$(INTEL)) # intel @ osx
 	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(NOBLAS_HST) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
+		$(NOBLAS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 else # osx
 	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(NOBLAS_HST) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
+		$(NOBLAS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS)
 endif
 else # static
-$(OUTDIR)/libxsnoblas.$(LIBEXT): $(OUTDIR)/.make $(NOBLAS_HST)
+	@rm -f $@
 	$(AR) -rs $@ $(NOBLAS_HST)
 endif
 

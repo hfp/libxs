@@ -655,7 +655,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
         }
         else { /* executable buffer requested */
           static /*LIBXS_TLS*/ int fallback = -1;
-          if (0 > fallback) { /* initialize fall-back allocation method */
+          if (0 > LIBXS_ATOMIC_LOAD(&fallback, LIBXS_ATOMIC_RELAXED)) { /* initialize fall-back allocation method */
             FILE *const selinux = fopen("/sys/fs/selinux/enforce", "rb");
             const char *const env = getenv("LIBXS_SE");
             if (NULL != selinux) {
@@ -667,12 +667,12 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
               }
               fclose(selinux);
             }
-            if (NULL == env) { /* internal_malloc_secured decides */
-              fallback = (0 == internal_malloc_secured ? LIBXS_MALLOC_FINAL : LIBXS_MALLOC_FALLBACK);
-            }
-            else { /* user's choice takes precedence */
-              fallback = ('0' != *env ? LIBXS_MALLOC_FALLBACK : LIBXS_MALLOC_FINAL);
-            }
+            LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&fallback, NULL == env
+              /* internal_malloc_secured decides */
+              ? (0 == internal_malloc_secured ? LIBXS_MALLOC_FINAL : LIBXS_MALLOC_FALLBACK)
+              /* user's choice takes precedence */
+              : ('0' != *env ? LIBXS_MALLOC_FALLBACK : LIBXS_MALLOC_FINAL),
+              LIBXS_ATOMIC_SEQ_CST);
             LIBXS_ASSERT(0 <= fallback);
           }
           if (0 == fallback) {
@@ -1099,7 +1099,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
 }
 
 
-LIBXS_API void* libxs_aligned_malloc(size_t size, size_t alignment)
+LIBXS_API LIBXS_ATTRIBUTE_MALLOC void* libxs_aligned_malloc(size_t size, size_t alignment)
 {
   void* result = NULL;
   LIBXS_INIT
@@ -1314,7 +1314,7 @@ LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* 
 }
 
 
-LIBXS_API void* libxs_malloc(size_t size)
+LIBXS_API LIBXS_ATTRIBUTE_MALLOC void* libxs_malloc(size_t size)
 {
   return libxs_aligned_malloc(size, 0/*auto*/);
 }

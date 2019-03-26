@@ -41,12 +41,10 @@
 /** Parameters of GEMM domain (static kernels, etc). */
 #define LIBXS_PREFETCH LIBXS_CONFIG_PREFETCH
 #define LIBXS_MAX_MNK LIBXS_CONFIG_MAX_MNK
+#define LIBXS_MAX_DIM LIBXS_CONFIG_MAX_DIM
 #define LIBXS_MAX_M LIBXS_CONFIG_MAX_M
 #define LIBXS_MAX_N LIBXS_CONFIG_MAX_N
 #define LIBXS_MAX_K LIBXS_CONFIG_MAX_K
-#define LIBXS_AVG_M LIBXS_CONFIG_AVG_M
-#define LIBXS_AVG_N LIBXS_CONFIG_AVG_N
-#define LIBXS_AVG_K LIBXS_CONFIG_AVG_K
 #define LIBXS_FLAGS LIBXS_CONFIG_FLAGS
 #define LIBXS_ALPHA LIBXS_CONFIG_ALPHA
 #define LIBXS_BETA LIBXS_CONFIG_BETA
@@ -138,16 +136,19 @@
 #   define LIBXS_INLINE_ALWAYS static __forceinline
 # endif
 # define LIBXS_ALIGNED(DECL, N) LIBXS_ATTRIBUTE(align(N)) DECL
+# define LIBXS_PACKED(TYPE, NAME) LIBXS_PRAGMA(pack(1)) TYPE NAME
 # define LIBXS_CDECL __cdecl
 #elif defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __attribute__((A))
 # define LIBXS_INLINE_ALWAYS LIBXS_ATTRIBUTE(always_inline) LIBXS_INLINE
 # define LIBXS_ALIGNED(DECL, N) DECL LIBXS_ATTRIBUTE(aligned(N))
+# define LIBXS_PACKED(TYPE, NAME) TYPE LIBXS_ATTRIBUTE(__packed__) NAME
 # define LIBXS_CDECL LIBXS_ATTRIBUTE(cdecl)
 #else
 # define LIBXS_ATTRIBUTE(A)
 # define LIBXS_INLINE_ALWAYS LIBXS_INLINE
 # define LIBXS_ALIGNED(DECL, N) DECL
+# define LIBXS_PACKED(TYPE, NAME) TYPE NAME
 # define LIBXS_CDECL
 #endif
 
@@ -379,8 +380,7 @@
 #define LIBXS_MOD2(A, NPOT) ((A) & ((NPOT) - 1))
 #define LIBXS_DIFF(T0, T1) ((T0) < (T1) ? ((T1) - (T0)) : ((T0) - (T1)))
 #define LIBXS_CLMP(VALUE, LO, HI) ((LO) < (VALUE) ? ((VALUE) <= (HI) ? (VALUE) : LIBXS_MIN(VALUE, HI)) : LIBXS_MAX(LO, VALUE))
-#define LIBXS_SQRT2(N) ((unsigned int)((1ULL << (LIBXS_NBITS(N) >> 1)) /*+ LIBXS_MIN(1, N)*/))
-#define LIBXS_HASH2(N) ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) ^ ((((N) ^ ((N) >> 12)) ^ (((N) ^ ((N) >> 12)) << 25)) >> 27))
+#define LIBXS_ISQRT2(N) ((unsigned int)((1ULL << (LIBXS_NBITS(N) >> 1)) /*+ LIBXS_MIN(1, N)*/))
 #define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
 #define LIBXS_FEQ(A, B) ((A) == (B))
 #define LIBXS_NEQ(A, B) ((A) != (B))
@@ -399,7 +399,12 @@
 # define LIBXS_ROUNDF(A) roundf(A)
 # define LIBXS_ROUND(A) round(A)
 # define LIBXS_TANHF(A) tanhf(A)
+# define LIBXS_SQRTF(A) sqrtf(A)
+# define LIBXS_EXP2F(A) exp2f(A)
+# define LIBXS_LOG2F(A) log2f(A)
+# define LIBXS_EXP2(A) exp2(A)
 # define LIBXS_LOG2(A) log2(A)
+# define LIBXS_EXPF(A) expf(A)
 # define LIBXS_LOGF(A) logf(A)
 #else
 # define LIBXS_POWF(A, B) ((float)pow((double)(A), (double)(B)))
@@ -407,8 +412,14 @@
 # define LIBXS_ROUNDF(A) LIBXS_ROUNDX(float, A)
 # define LIBXS_ROUND(A) LIBXS_ROUNDX(double, A)
 # define LIBXS_TANHF(A) ((float)tanh((double)(A)))
+# define LIBXS_SQRTF(A) ((float)sqrt((double)(A)))
+# define LIBXS_EXP2F(A) LIBXS_POWF(2, A)
+# define LIBXS_LOG2F(A) ((float)LIBXS_LOG2((double)(A)))
+# define LIBXS_EXP2(A) pow(2.0, (double)(A))
 # define LIBXS_LOG2(A) (log(A) * (1.0 / (M_LN2)))
+# define LIBXS_EXPF(A) ((float)exp((double)(A)))
 # define LIBXS_LOGF(A) ((float)log((double)(A)))
+
 #endif
 
 #if defined(LIBXS_INTEL_COMPILER)
@@ -446,7 +457,8 @@
 #define LIBXS_SELECT_ELEMENT_6(E0, E1, E2, E3, E4, E5, E6, E7) E5
 #define LIBXS_SELECT_ELEMENT_7(E0, E1, E2, E3, E4, E5, E6, E7) E6
 #define LIBXS_SELECT_ELEMENT_8(E0, E1, E2, E3, E4, E5, E6, E7) E7
-#define LIBXS_SELECT_HEAD(A, ...) A
+#define LIBXS_SELECT_HEAD_AUX(A, ...) (A)
+#define LIBXS_SELECT_HEAD(...) LIBXS_EXPAND(LIBXS_SELECT_HEAD_AUX(__VA_ARGS__, 0/*dummy*/))
 #define LIBXS_SELECT_TAIL(A, ...) __VA_ARGS__
 
 /**
@@ -472,7 +484,7 @@
 #else
 # define LIBXS_INDEX1(NDIMS, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)(__VA_ARGS__)
 #endif
-#define LIBXS_INDEX1_1(I0) ((size_t)I0)
+#define LIBXS_INDEX1_1(...) ((size_t)LIBXS_SELECT_HEAD(__VA_ARGS__))
 #define LIBXS_INDEX1_2(I0, I1, S1) (LIBXS_INDEX1_1(I0) * ((size_t)S1) + (size_t)I1)
 #define LIBXS_INDEX1_3(I0, I1, I2, S1, S2) (LIBXS_INDEX1_2(I0, I1, S1) * ((size_t)S2) + (size_t)I2)
 #define LIBXS_INDEX1_4(I0, I1, I2, I3, S1, S2, S3) (LIBXS_INDEX1_3(I0, I1, I2, S1, S2) * ((size_t)S3) + (size_t)I3)
@@ -500,7 +512,7 @@
 # define LIBXS_VLA_ACCESS_Y(...)
 # define LIBXS_VLA_ACCESS_Z(NDIMS, ARRAY, XY, ...) LIBXS_CONCATENATE(LIBXS_VLA_ACCESS_, NDIMS)(ARRAY, XY, __VA_ARGS__)
 # define LIBXS_VLA_ACCESS_0(ARRAY, XY, ...) (ARRAY)/*scalar*/
-# define LIBXS_VLA_ACCESS_1(ARRAY, XY, ...) ((ARRAY)[LIBXS_SELECT_HEAD(__VA_ARGS__, 0/*dummy*/)])
+# define LIBXS_VLA_ACCESS_1(ARRAY, XY, ...) ((ARRAY)[LIBXS_SELECT_HEAD(__VA_ARGS__)])
 # define LIBXS_VLA_ACCESS_2(ARRAY, XY, I0, I1, ...) (((ARRAY) XY(__VA_ARGS__))[I0][I1])
 # define LIBXS_VLA_ACCESS_3(ARRAY, XY, I0, I1, I2, S1, ...) (((ARRAY) XY(S1) XY(__VA_ARGS__))[I0][I1][I2])
 # define LIBXS_VLA_ACCESS_4(ARRAY, XY, I0, I1, I2, I3, S1, S2, ...) (((ARRAY) XY(S1) XY(S2) XY(__VA_ARGS__))[I0][I1][I2][I3])
@@ -508,13 +520,16 @@
 # define LIBXS_VLA_ACCESS_6(ARRAY, XY, I0, I1, I2, I3, I4, I5, S1, S2, S3, S4, ...) (((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][I5])
 # define LIBXS_VLA_ACCESS_7(ARRAY, XY, I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, ...) (((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(S5) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][I5][I6])
 # define LIBXS_VLA_ACCESS_8(ARRAY, XY, I0, I1, I2, I3, I4, I5, I6, I7, S1, S2, S3, S4, S5, S6, ...) (((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(S5) XY(S6) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][I5][I6][I7])
-# define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, ARRAY_VAR, INIT_VALUE, .../*bounds*/) \
-    ELEMENT_TYPE LIBXS_VLA_ACCESS_Z(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7), *LIBXS_RESTRICT LIBXS_CONCATENATE(ARRAY_VAR, LIBXS_VLA_POSTFIX), LIBXS_VLA_ACCESS_Y, __VA_ARGS__/*bounds*/, __VA_ARGS__/*dummy*/) = \
-   (ELEMENT_TYPE LIBXS_VLA_ACCESS_Z(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7), *, LIBXS_VLA_ACCESS_Y, __VA_ARGS__/*bounds*/, __VA_ARGS__/*dummy*/))(INIT_VALUE)
+# define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, ARRAY_VAR, .../*initial value, and bounds*/) \
+    ELEMENT_TYPE LIBXS_VLA_ACCESS_Z(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7), *LIBXS_RESTRICT LIBXS_CONCATENATE(ARRAY_VAR, LIBXS_VLA_POSTFIX), \
+      LIBXS_VLA_ACCESS_Y, LIBXS_SELECT_TAIL(__VA_ARGS__, 0)/*bounds*/, LIBXS_SELECT_TAIL(__VA_ARGS__, 0)/*dummy*/) = \
+   (ELEMENT_TYPE LIBXS_VLA_ACCESS_Z(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7), *, \
+      LIBXS_VLA_ACCESS_Y, LIBXS_SELECT_TAIL(__VA_ARGS__, 0)/*bounds*/, LIBXS_SELECT_TAIL(__VA_ARGS__, 0)/*dummy*/))LIBXS_SELECT_HEAD(__VA_ARGS__)
 #else /* calculate linear index */
 # define LIBXS_VLA_ACCESS(NDIMS, ARRAY, ...) (LIBXS_CONCATENATE(ARRAY, LIBXS_VLA_POSTFIX)[LIBXS_INDEX1(NDIMS, __VA_ARGS__)])
-# define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, ARRAY_VAR, INIT_VALUE, .../*bounds*/) \
-    ELEMENT_TYPE *LIBXS_RESTRICT LIBXS_CONCATENATE(ARRAY_VAR, LIBXS_VLA_POSTFIX) = /*(ELEMENT_TYPE*)*/(INIT_VALUE)
+# define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, ARRAY_VAR, .../*initial value, and bounds*/) \
+    ELEMENT_TYPE *LIBXS_RESTRICT LIBXS_CONCATENATE(ARRAY_VAR, LIBXS_VLA_POSTFIX) = /*(ELEMENT_TYPE*)*/LIBXS_SELECT_HEAD(__VA_ARGS__) \
+    + 0 * LIBXS_INDEX1(NDIMS, LIBXS_SELECT_TAIL(__VA_ARGS__, LIBXS_SELECT_TAIL(__VA_ARGS__, 0))) /* dummy-shift to "sink" unused arguments */
 #endif
 
 /** Access an array of TYPE with Byte-measured stride. */
@@ -559,9 +574,13 @@
 #endif
 
 #if defined(__GNUC__) || (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32))
+# define LIBXS_ATTRIBUTE_MALLOC LIBXS_ATTRIBUTE(malloc)
 # define LIBXS_ATTRIBUTE_UNUSED LIBXS_ATTRIBUTE(unused)
+# define LIBXS_ATTRIBUTE_USED LIBXS_ATTRIBUTE(used)
 #else
+# define LIBXS_ATTRIBUTE_MALLOC
 # define LIBXS_ATTRIBUTE_UNUSED
+# define LIBXS_ATTRIBUTE_USED
 #endif
 #if defined(__GNUC__)
 # define LIBXS_MAY_ALIAS LIBXS_ATTRIBUTE(__may_alias__)
