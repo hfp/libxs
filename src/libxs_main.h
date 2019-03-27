@@ -439,6 +439,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int upd_loop_order;
   int upd_linearized_tasklist;
   int upd_avoid_rim_fmas;
+  int fwd_flags;
 
   libxs_xtransfunction tr_kernel;
 

@@ -379,6 +379,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->avoid_fmas_in_rim = 0;
   handle->block_upd_ofm = 1;
   handle->block_upd_ifm = 1;
+  handle->fwd_flags = 0;
 
   handle->fwd_ofh_rb = 1;
   handle->fwd_ofw_rb = handle->ofw;
@@ -390,6 +391,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   libxs_descriptor_blob blob;
   tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), 64, 16, 64);
   handle->tr_kernel = libxs_dispatch_trans(tr_desc);
+
+  /* Tune here flags for fwd streaming stores */
+  if (handle->ofw == 56 && handle->desc.C == 64 && handle->desc.K == 256) {
+    handle->fwd_flags = LIBXS_GEMM_FLAG_ALIGN_C_NTS_HINT;
+  }
 
   /* Loop order tuning  */
   if (handle->desc.H >= 28 && handle->desc.R == 1) {
