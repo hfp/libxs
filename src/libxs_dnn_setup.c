@@ -587,6 +587,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->bwd_ofh_rb = handle->fwd_ofh_rb;
   handle->bwd_ofw_rb = handle->fwd_ofw_rb;
   handle->use_ifm_parallelization = handle->use_ofm_parallelization;
+  if (handle->ofw == 7) {
+    handle->use_ifm_parallelization = 1;
+  }
   /* Feature map block tuning */
   while (blockofm % handle->blocksofm_blocking != 0) {
     blockofm++;
