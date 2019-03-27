@@ -629,6 +629,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
     } else {
       handle->upd_loop_order = 1;
     }
+    if (handle->ofh == 56 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v == 1) {
+      handle->upd_ofh_rb = 2;
+      handle->block_upd_ofm = 1;
+      handle->block_upd_ifm = 4;
+    }
   }
 
   if (handle->ofh == 28 && handle->desc.u == 1 && handle->desc.R == 1 && handle->desc.S == 1) {
