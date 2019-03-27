@@ -159,6 +159,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_d
       typedef float element_filter_type;
       typedef libxs_smmfunction_reducebatch gemm_br_function;
       int l_flags = LIBXS_GEMM_FLAGS('N', 'N');
+      /* @TODO this needs to be cleaned-up */
       if (handle->ofw == 56 && handle->desc.C == 64 && handle->desc.K == 256) {
         l_flags = l_flags | LIBXS_GEMM_FLAG_ALIGN_C_NTS_HINT;
       }
