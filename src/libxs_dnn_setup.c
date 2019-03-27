@@ -501,6 +501,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
 
   if (handle->desc.R == 3 && handle->desc.S == 3 && handle->desc.W == 7 && handle->desc.H == 7 && handle->desc.threads == 56) {
     handle->use_ofm_parallelization = 1;
+    handle->shuffle_filter_accesses = 0;
   }
 
   /* Feature map block tuning */
@@ -599,6 +600,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   }
   if (handle->ofw == 7 && handle->desc.C == 1024 && handle->desc.K == 512) {
     handle->use_ofm_parallelization = 1;
+    handle->shuffle_filter_accesses = 0;
   }
   /* Feature map block tuning */
   while (blockofm % handle->blocksofm_blocking != 0) {
