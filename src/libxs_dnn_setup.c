@@ -678,13 +678,17 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   if (handle->ofh == 14 && handle->desc.R == 3 && handle->desc.S == 3) {
     handle->upd_ofh_rb = 14;
     handle->upd_use_batchreduce = 1;
-    handle->weight_copies = 7;
+    handle->weight_copies = 9;
   }
 
   if (handle->ofh == 14 && handle->desc.u == 1 && handle->desc.v == 1) {
     handle->upd_ofh_rb = 14;
     handle->upd_use_batchreduce = 1;
-    handle->weight_copies = 7;
+    handle->weight_copies = 9;
+    /* FIXME: Add better logic */
+    if (handle->desc.C == 1024 && handle->desc.K == 256 && handle->desc.threads == 27 && handle->desc.N == 27) {
+      handle->upd_loop_order = 1;
+    }
   }
 
   if (handle->ofh == 7 && handle->desc.u == 2 && handle->desc.v == 2 && handle->desc.K == 2048 ) {
@@ -733,6 +737,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
 
   while (handle->desc.threads % handle->weight_copies != 0) {
     handle->weight_copies = handle->weight_copies - 1;
+  }
+
+  /* FIXME: Hardcoded logic for N=27  */
+  if (handle->desc.N == 27 && handle->desc.threads == 27 && handle->desc.R == 1 && handle->ofw == 14 && handle->desc.u == 1) {
+    handle->weight_copies = 7;
   }
 
   /* handle->avoid_init_weights = ((handle->upd_ofw_rb*handle->upd_ofh_rb == handle->ofw*handle->ofh) && (handle->weight_copies == handle->desc.threads)) ? 1 : 0;*/
