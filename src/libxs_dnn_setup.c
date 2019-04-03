@@ -679,6 +679,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
     handle->upd_ofh_rb = 14;
     handle->upd_use_batchreduce = 1;
     handle->weight_copies = 9;
+    if (handle->desc.N == 26) {
+      handle->weight_copies = 13;
+    }
   }
 
   if (handle->ofh == 14 && handle->desc.u == 1 && handle->desc.v == 1) {
@@ -686,6 +689,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
     handle->upd_use_batchreduce = 1;
     handle->weight_copies = 9;
     /* FIXME: Add better logic */
+    if (handle->desc.N == 26) {
+      handle->weight_copies = 13;
+    }
     if (handle->desc.C == 1024 && handle->desc.K == 256 && handle->desc.threads == 27 && handle->desc.N == 27) {
       handle->upd_loop_order = 1;
     }
