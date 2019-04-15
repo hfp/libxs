@@ -50,16 +50,16 @@
 #else
 # define LIBXS_DIFF_32_DECL(A) LIBXS_DIFF_16_DECL(A); LIBXS_DIFF_16_DECL(LIBXS_CONCATENATE2(libxs_diff_32_, A, _))
 # define LIBXS_DIFF_32_LOAD(A, SRC) LIBXS_DIFF_16_LOAD(A, SRC); LIBXS_DIFF_16_LOAD(LIBXS_CONCATENATE2(libxs_diff_32_, A, _), (const uint64_t*)(SRC) + 2)
-# define LIBXS_DIFF_32(A, B, ...) (0 != LIBXS_DIFF_16(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_16(LIBXS_CONCATENATE2(libxs_diff_32_, A, _), (const uint64_t*)(B) + 2, __VA_ARGS__))
+# define LIBXS_DIFF_32(A, B, ...) ((unsigned char)(0 != LIBXS_DIFF_16(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_16(LIBXS_CONCATENATE2(libxs_diff_32_, A, _), (const uint64_t*)(B) + 2, __VA_ARGS__)))
 #endif
 
 #define LIBXS_DIFF_48_DECL(A) LIBXS_DIFF_16_DECL(A); LIBXS_DIFF_32_DECL(LIBXS_CONCATENATE2(libxs_diff_48_, A, _))
 #define LIBXS_DIFF_48_LOAD(A, SRC) LIBXS_DIFF_16_LOAD(A, SRC); LIBXS_DIFF_32_LOAD(LIBXS_CONCATENATE2(libxs_diff_48_, A, _), (const uint64_t*)(SRC) + 2)
-#define LIBXS_DIFF_48(A, B, ...) (0 != LIBXS_DIFF_16(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_32(LIBXS_CONCATENATE2(libxs_diff_48_, A, _), (const uint64_t*)(B) + 2, __VA_ARGS__))
+#define LIBXS_DIFF_48(A, B, ...) ((unsigned char)(0 != LIBXS_DIFF_16(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_32(LIBXS_CONCATENATE2(libxs_diff_48_, A, _), (const uint64_t*)(B) + 2, __VA_ARGS__)))
 
 #define LIBXS_DIFF_64_DECL(A) LIBXS_DIFF_32_DECL(A); LIBXS_DIFF_32_DECL(LIBXS_CONCATENATE2(libxs_diff_64_, A, _))
 #define LIBXS_DIFF_64_LOAD(A, SRC) LIBXS_DIFF_32_LOAD(A, SRC); LIBXS_DIFF_32_LOAD(LIBXS_CONCATENATE2(libxs_diff_64_, A, _), (const uint64_t*)(SRC) + 4)
-#define LIBXS_DIFF_64(A, B, ...) (0 != LIBXS_DIFF_32(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_32(LIBXS_CONCATENATE2(libxs_diff_64_, A, _), (const uint64_t*)(B) + 4, __VA_ARGS__))
+#define LIBXS_DIFF_64(A, B, ...) ((unsigned char)(0 != LIBXS_DIFF_32(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_32(LIBXS_CONCATENATE2(libxs_diff_64_, A, _), (const uint64_t*)(B) + 4, __VA_ARGS__)))
 
 #define LIBXS_DIFF_DECL(N, A) LIBXS_CONCATENATE2(LIBXS_DIFF_, N, _DECL)(A)
 #define LIBXS_DIFF_LOAD(N, A, SRC) LIBXS_CONCATENATE2(LIBXS_DIFF_, N, _LOAD)(A, SRC)
