@@ -26,8 +26,8 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include <libxs_math.h>
 #include <libxs_mhd.h>
+#include "libxs_main.h"
 #include "libxs_hash.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -41,38 +41,6 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
-
-#if !defined(LIBXS_MATH_DISPATCH1) && 0
-# define LIBXS_MATH_DISPATCH1
-#endif
-#if !defined(LIBXS_MATH_DISPATCH) && 0
-# define LIBXS_MATH_DISPATCH
-#endif
-#if !defined(LIBXS_MATH_MEMCMP) && 0
-# define LIBXS_MATH_MEMCMP
-#endif
-
-#define LIBXS_MATH_DIFF(DIFF, MOD, A, BN, ELEMSIZE, STRIDE, HINT, N) { \
-  const char *const libxs_diff_b_ = (const char*)(BN); \
-  unsigned int libxs_diff_i_; \
-  if (0 != (HINT)) { \
-    LIBXS_PRAGMA_LOOP_COUNT(4, 1024, 4) \
-    for (libxs_diff_i_ = HINT; libxs_diff_i_ < ((HINT) + (N)); ++libxs_diff_i_) { \
-      const unsigned int libxs_diff_j_ = MOD(libxs_diff_i_, N); /* wrap around index */ \
-      const unsigned int libxs_diff_k_ = libxs_diff_j_ * (STRIDE); \
-      if (0 == (DIFF)(A, libxs_diff_b_ + libxs_diff_k_, ELEMSIZE)) return libxs_diff_j_; \
-    } \
-  } \
-  else { /* fast-path */ \
-    unsigned int libxs_diff_j_ = 0; \
-    LIBXS_PRAGMA_LOOP_COUNT(4, 1024, 4) \
-    for (libxs_diff_i_ = 0; libxs_diff_i_ < (N); ++libxs_diff_i_) { \
-      if (0 == (DIFF)(A, libxs_diff_b_ + libxs_diff_j_, ELEMSIZE)) return libxs_diff_i_; \
-      libxs_diff_j_ += STRIDE; \
-    } \
-  } \
-  return N; \
-}
 
 
 LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
@@ -286,128 +254,10 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info)
 }
 
 
-LIBXS_API_INTERN unsigned char libxs_diff_sw(const void* a, const void* b, unsigned char size);
-LIBXS_API_INTERN unsigned char libxs_diff_sw(const void* a, const void* b, unsigned char size)
-{
-  unsigned char i;
-#if (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
-  const __m128i *const a128 = (const __m128i*)a;
-  const __m128i *const b128 = (const __m128i*)b;
-  const unsigned char n = (unsigned char)(size >> 4);
-  for (i = 0; i < n; ++i) {
-    const __m128i ai = _mm_loadu_si128(a128 + i), bi = _mm_loadu_si128(b128 + i);
-    if (0xFFFF != _mm_movemask_epi8(_mm_cmpeq_epi8(ai, bi))) return 1;
-  }
-  i <<= 4;
-#else
-  const unsigned long long *const a2 = (const unsigned long long*)a;
-  const unsigned long long *const b2 = (const unsigned long long*)b;
-  const unsigned char n = (unsigned char)(size >> 3);
-  for (i = 0; i < n; ++i) if (a2[i] ^ b2[i]) return 1;
-  i <<= 3;
-#endif
-  for (; i < size; ++i) {
-    if (*((const unsigned char*)a + i) ^ *((const unsigned char*)b + i)) return 1;
-  }
-  return 0;
-}
-
-
-#if !defined(LIBXS_MATH_MEMCMP)
-LIBXS_API_INTERN unsigned char libxs_diff_avx2(const void* a, const void* b, unsigned char size);
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-unsigned char libxs_diff_avx2(const void* a, const void* b, unsigned char size)
-{
-#if defined(LIBXS_INTRINSICS_AVX2)
-  const __m256i *const a256 = (const __m256i*)a;
-  const __m256i *const b256 = (const __m256i*)b;
-  const unsigned char n = (unsigned char)(size >> 5);
-  unsigned char i;
-  for (i = 0; i < n; ++i) {
-    const __m256i ai = _mm256_loadu_si256(a256 + i), bi = _mm256_loadu_si256(b256 + i);
-    if (-1 != _mm256_movemask_epi8(_mm256_cmpeq_epi8(ai, bi))) return 1;
-  }
-  for (i <<= 5; i < size; ++i) {
-    if (*((const unsigned char*)a + i) ^ *((const unsigned char*)b + i)) return 1;
-  }
-  return 0;
-#else
-  return libxs_diff_sw(a, b, size);
-#endif
-}
-#endif
-
-
-LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char size)
-{
-  unsigned char result;
-#if defined(LIBXS_MATH_MEMCMP)
-  const int diff = memcmp(a, b, size);
-  result = LIBXS_ABS(diff);
-#elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
-  result = libxs_diff_avx2(a, b, size);
-#else
-# if defined(LIBXS_MATH_DISPATCH1)
-  if (LIBXS_X86_AVX2 <= libxs_target_archid) {
-    result = libxs_diff_avx2(a, b, size);
-  }
-  else
-# endif
-  {
-    result = libxs_diff_sw(a, b, size);
-  }
-#endif
-  return result;
-}
-
-
-LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char size,
-  unsigned char stride, unsigned int hint, unsigned int n)
-{
-  LIBXS_ASSERT(size <= stride);
-#if (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
-  LIBXS_MATH_DIFF(libxs_diff_avx2, LIBXS_MOD, a, bn, size, stride, hint, n);
-#else
-# if defined(LIBXS_MATH_DISPATCH)
-  if (LIBXS_X86_AVX2 <= libxs_target_archid) {
-    LIBXS_MATH_DIFF(libxs_diff_avx2, LIBXS_MOD, a, bn, size, stride, hint, n);
-  }
-  else
-# endif
-  {
-    LIBXS_MATH_DIFF(libxs_diff_sw, LIBXS_MOD, a, bn, size, stride, hint, n);
-  }
-#endif
-}
-
-
-LIBXS_API unsigned int libxs_diff_npot(const void* a, const void* bn, unsigned char size,
-  unsigned char stride, unsigned int hint, unsigned int n)
-{
-#if !defined(NDEBUG)
-  const unsigned int npot = LIBXS_UP2POT(n);
-  assert(size <= stride && n == npot); /* !LIBXS_ASSERT */
-#endif
-#if (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
-  LIBXS_MATH_DIFF(libxs_diff_avx2, LIBXS_MOD2, a, bn, size, stride, hint, n);
-#else
-# if defined(LIBXS_MATH_DISPATCH)
-  if (LIBXS_X86_AVX2 <= libxs_target_archid) {
-    LIBXS_MATH_DIFF(libxs_diff_avx2, LIBXS_MOD2, a, bn, size, stride, hint, n);
-  }
-  else
-# endif
-  {
-    LIBXS_MATH_DIFF(libxs_diff_sw, LIBXS_MOD2, a, bn, size, stride, hint, n);
-  }
-#endif
-}
-
-
-LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed)
+LIBXS_API unsigned int libxs_hash(unsigned int seed, const void* data, unsigned int size)
 {
   LIBXS_INIT
-  return libxs_crc32(data, size, seed);
+  return libxs_crc32(seed, data, size);
 }
 
 
@@ -724,42 +574,22 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_shuffle)(long long* coprime, const int* n)
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* /*hash*/, const void* /*data*/, const int* /*size*/, const int* /*seed*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(int* hash, const void* data, const int* size, const int* seed)
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(void* /*hash_seed*/, const void* /*data*/, const int* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(void* hash_seed, const void* data, const int* size)
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
-  if (NULL != hash && NULL != data && NULL != size && NULL != seed)
+  if (NULL != hash_seed && NULL != data && NULL != size)
 #endif
   {
-    *hash = (int)(libxs_hash(data, (unsigned int)(*size), (unsigned int)(*seed)) & 0x7FFFFFFF);
+    unsigned int *const hash_seed_ui32 = (unsigned int*)hash_seed;
+    *hash_seed_ui32 = (libxs_hash(*hash_seed_ui32, data, (unsigned int)(*size)) & 0x7FFFFFFF/*sign-bit*/);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_hash specified!\n");
-  }
-#endif
-}
-
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_hash2)(long long* /*hash*/, const void* /*data*/, const long long* /*size*/, const long long* /*seed*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_hash2)(long long* hash, const void* data, const long long* size, const long long* seed)
-{
-#if !defined(NDEBUG)
-  static int error_once = 0;
-  if (NULL != hash && NULL != data && NULL != size && NULL != seed)
-#endif
-  {
-    *hash = (long long)(libxs_hash(data, (unsigned int)(*size), (unsigned int)(*seed)) & 0x7FFFFFFFFFFFFFFF);
-  }
-#if !defined(NDEBUG)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_hash2 specified!\n");
   }
 #endif
 }

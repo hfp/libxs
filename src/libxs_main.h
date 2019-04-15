@@ -35,6 +35,9 @@
 #if !defined(LIBXS_CAPACITY_REGISTRY) /* must be POT */
 # define LIBXS_CAPACITY_REGISTRY 131072
 #endif
+#if !defined(LIBXS_CAPACITY_CACHE) /* must be POT */
+# define LIBXS_CAPACITY_CACHE 16
+#endif
 
 #if !defined(LIBXS_MAX_NTHREADS)
 # define LIBXS_MAX_NTHREADS 1024
@@ -102,25 +105,16 @@
 # define LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K)
 #endif
 
-#if (defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__)) /* TODO: full support for Windows calling convention */
-# define LIBXS_GEMM_DESCRIPTOR_PREFETCH(DESCRIPTOR, PREFETCH) LIBXS_UNUSED(PREFETCH); \
-            (DESCRIPTOR).prefetch = (unsigned short)(LIBXS_GEMM_PREFETCH_NONE)
-#else
-# define LIBXS_GEMM_DESCRIPTOR_PREFETCH(DESCRIPTOR, PREFETCH) (DESCRIPTOR).prefetch = (unsigned short)(PREFETCH)
-#endif
-
 /** Low-level/internal GEMM descriptor initialization. */
 #define LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
   LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K); LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(LDA, LDB, LDC); \
-  (DESCRIPTOR).lda = (unsigned int)(LDA); (DESCRIPTOR).ldb = (unsigned int)(LDB); (DESCRIPTOR).ldc = (unsigned int)(LDC); \
-  (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
+  (DESCRIPTOR).datatype = (unsigned char)(DATA_TYPE); \
   (DESCRIPTOR).flags = (unsigned short)((FLAGS) \
     /*| (LIBXS_NEQ(0, ALPHA) ? 0 : LIBXS_GEMM_FLAG_ALPHA_0)*/ \
-    | (LIBXS_NEQ(0, BETA)  ? 0 : LIBXS_GEMM_FLAG_BETA_0)); \
-  LIBXS_GEMM_DESCRIPTOR_PREFETCH(DESCRIPTOR, PREFETCH); (DESCRIPTOR).datatype = (unsigned char)(DATA_TYPE); \
-  for ((DESCRIPTOR).iflags = 0; (DESCRIPTOR).iflags < sizeof((DESCRIPTOR).pad); ++((DESCRIPTOR).iflags)) \
-  (DESCRIPTOR).pad[(DESCRIPTOR).iflags] = 0; \
-  (DESCRIPTOR).iflags = 0
+    | (LIBXS_NEQ(0, BETA) ? 0 : LIBXS_GEMM_FLAG_BETA_0)); \
+  (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
+  (DESCRIPTOR).lda = (unsigned int)(LDA); (DESCRIPTOR).ldb = (unsigned int)(LDB); (DESCRIPTOR).ldc = (unsigned int)(LDC); \
+  (DESCRIPTOR).prefetch = (unsigned char)(PREFETCH)
 
 /** Similar to LIBXS_GEMM_DESCRIPTOR, but separately taking the input-/output-precision. */
 #define LIBXS_GEMM_DESCRIPTOR2(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
@@ -135,36 +129,34 @@
 #define LIBXS_GEMM_DESCRIPTOR2_TYPE(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
   LIBXS_GEMM_DESCRIPTOR_TYPE(DESCRIPTOR, LIBXS_GETENUM(IPREC, OPREC), FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH)
 
-/** This structure must be ordered by the size of the members(packed). */
-#define LIBXS_GEMM_DESCRIPTOR_STRUCT \
-  /** Leading dimensions are general offsets. */ \
-  unsigned int lda, ldb, ldc; \
-  /** Extents of the matrix. */ \
-  unsigned int m, n, k; \
-  /** Set of flags. */ \
-  unsigned short flags; \
-  /** Prefetch strategy enumeration. */ \
-  unsigned short prefetch; \
-  /** Denotes the data-type. */ \
-  unsigned char datatype; \
-  /** INTERNAL (last member!) */ \
-  unsigned char iflags
+#define LIBXS_REGDESC_DEFAULT
+#define LIBXS_REGDESC(START, MODIFIER) \
+  START libxs_gemm_descriptor MODIFIER gemm; \
+  START libxs_mcopy_descriptor MODIFIER mcopy; \
+  START libxs_trans_descriptor MODIFIER trans; \
+  START libxs_trsm_descriptor MODIFIER trsm; \
+  START libxs_trmm_descriptor MODIFIER trmm
 
-
-/** Auxiliary structure to determine the (packed) size of its members. */
-LIBXS_PACKED(struct, libxs_gemm_descriptor_struct) { LIBXS_GEMM_DESCRIPTOR_STRUCT; };
 
 /**
 * Packed structure, which stores the argument description of GEMM routines.
 * The size of the structure is padded to LIBXS_DESCRIPTOR_MAXSIZE.
 */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_gemm_descriptor) {
-  LIBXS_GEMM_DESCRIPTOR_STRUCT; /** structure member documentation: see macro definition. */
-  unsigned char pad[LIBXS_DESCRIPTOR_MAXSIZE - sizeof(struct libxs_gemm_descriptor_struct)];
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
+  /** Denotes the data-type. */
+  unsigned char datatype;
+  /** Set of flags. */
+  unsigned short flags;
+  /** Extents of the matrix. */
+  unsigned int m, n, k;
+  /** Leading dimensions. */
+  unsigned int lda, ldb, ldc;
+  /** Prefetch strategy. */
+  unsigned char prefetch;
 };
 
 /** Packed structure storing the matcopy argument description. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_mcopy_descriptor) {
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_mcopy_descriptor {
   /** LDx, M, and N. */
   unsigned int m, n, ldi, ldo;
   /** Size of data element. */
@@ -178,7 +170,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_mcopy_descriptor) {
 };
 
 /** Packed structure storing the transpose argument description. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_trans_descriptor) {
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trans_descriptor {
   /** LD, M, and N. */
   unsigned int m, n, ldo;
   /** Size of data element. */
@@ -186,7 +178,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_trans_descriptor) {
 };
 
 /** Packed structure storing arguments of packed TRSM. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_trsm_descriptor) {
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trsm_descriptor {
   union { double d; float s; } alpha;
   unsigned int m, n, lda, ldb;
   unsigned char typesize;
@@ -196,7 +188,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_trsm_descriptor) {
 };
 
 /** Packed structure storing arguments of packed GEMM. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_pgemm_descriptor) {
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_pgemm_descriptor {
   unsigned int m, n, k, lda, ldb, ldc;
   unsigned char typesize;
   unsigned char layout;
@@ -205,7 +197,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_pgemm_descriptor) {
 };
 
 /** Packed structure storing arguments of packed TRSM. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_trmm_descriptor) {
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trmm_descriptor {
   union { double d; float s; } alpha;
   unsigned int m, n, lda, ldb;
   unsigned char typesize;
@@ -215,7 +207,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_trmm_descriptor) {
 };
 
 /** Packed structure storing arguments of packed GETRF. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE, libxs_getrf_descriptor) {
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_getrf_descriptor {
   unsigned int m, n, lda;
   unsigned char typesize;
   unsigned char layout;
@@ -336,7 +328,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_tensor {
   unsigned char scf;                               /* fix point scaling factor for this tensor */
 };
 
-/* Structure to record segment in stream of code  */
+/* Structure to record segment in stream of code */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE segment_t {
   int segment_type;
   int n_convs;
@@ -353,7 +345,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_conv_fuse_op fuse_ops;
   libxs_dnn_conv_option options;
   libxs_dnn_internal_format custom_format_type;    /* Specifies internal LIBXS format to be used */
-  /* These are the batchnorm handles in case of fusion  */
+  /* These are the batchnorm handles in case of fusion */
   libxs_dnn_fusedbatchnorm* pre_bn;
   libxs_dnn_fusedbatchnorm* post_bn;
 
@@ -632,7 +624,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_pooling {
 
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_dnn_rnncell_desc desc;
-  libxs_dnn_internal_format custom_format_type; /* required only for comparing layouts  */
+  libxs_dnn_internal_format custom_format_type; /* required only for comparing layouts */
   libxs_blasint T;                              /* sequnece length, must be smaller than max sequence length in desc */
   libxs_blasint bk;
   libxs_blasint bn;
@@ -738,23 +730,32 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_CUPD
 } libxs_build_kind;
 
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_build_descriptor {
-  const libxs_gemm_descriptor* gemm;
-  const libxs_csr_soa_descriptor* srsoa;
-  const libxs_csc_soa_descriptor* scsoa;
-  const libxs_rm_ac_soa_descriptor* rmacsoa;
-  const libxs_rm_bc_soa_descriptor* rmbcsoa;
-  const libxs_csr_reg_descriptor* sreg;
-  const libxs_convolution_forward_descriptor* cfwd;
-  const libxs_convolution_weight_update_descriptor* cupd;
-  const libxs_mcopy_descriptor* matcopy;
-  const libxs_trans_descriptor* trans;
-  const libxs_trsm_descriptor* trsm;
-  const libxs_trmm_descriptor* trmm;
-} libxs_build_descriptor;
+/** Integral type (libxs_kernel_kind, libxs_build_kind). */
+#if defined(LIBXS_UNPACKED) || defined(_CRAYC)
+typedef int libxs_descriptor_kind;
+#else
+typedef unsigned char libxs_descriptor_kind;
+#endif
+
+/** All descriptor types, which are valid for code-registration. */
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_descriptor {
+  char data[LIBXS_DESCRIPTOR_MAXSIZE];
+  libxs_descriptor_kind kind; /* kind: must be the first member */
+  LIBXS_REGDESC(LIBXS_PACKED(struct) { libxs_descriptor_kind /*repeated kind*/ pad; , desc; });
+} libxs_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
-  libxs_build_descriptor descriptor;
+  union {
+    const void* ptr; /* raw content */
+    LIBXS_REGDESC(LIBXS_REGDESC_DEFAULT, const*);
+    const libxs_csr_soa_descriptor* srsoa;
+    const libxs_csc_soa_descriptor* scsoa;
+    const libxs_rm_ac_soa_descriptor* rmacsoa;
+    const libxs_rm_bc_soa_descriptor* rmbcsoa;
+    const libxs_csr_reg_descriptor* sreg;
+    const libxs_convolution_forward_descriptor* cfwd;
+    const libxs_convolution_weight_update_descriptor* cupd;
+  } descriptor;
   libxs_build_kind kind;
 } libxs_build_request;
 
@@ -822,19 +823,11 @@ LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, do
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_kernel_info {
-  libxs_gemm_descriptor xgemm;
-  libxs_mcopy_descriptor mcopy;
-  libxs_trans_descriptor trans;
-  libxs_trsm_descriptor trsm;
-  libxs_trmm_descriptor trmm;
-} libxs_kernel_info;
-
 /** Attempts to receive information about JIT-generated code. */
-LIBXS_API const libxs_kernel_info* libxs_get_kernel_info(libxs_code_pointer code, libxs_kernel_kind* kind, size_t* size);
+LIBXS_API const libxs_descriptor* libxs_get_kernel_info(libxs_code_pointer code, size_t* size);
 
 /** Updates counters of the statistic, which is shown at program termination. */
-LIBXS_API unsigned int libxs_update_mmstatistic(libxs_gemm_precision precision,
+LIBXS_API_INTERN unsigned int libxs_update_mmstatistic(libxs_gemm_precision precision,
   libxs_blasint m, libxs_blasint n, libxs_blasint k, unsigned int ntry, unsigned int ncol);
 
 /** Returns the current tick of a (monotonic) platform-specific counter; not necessarily CPU cycles. */

@@ -322,8 +322,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   libxs_dnn_conv_algo algo;               /* convolution algorithm used */
   libxs_dnn_conv_option options;          /* additional options */
   libxs_dnn_conv_fuse_op fuse_ops;        /* used ops into convolutions */
-  libxs_dnn_fusedbatchnorm *pre_bn;       /* pointer to pre bn layer to accommodate bn fusion  */
-  libxs_dnn_fusedbatchnorm *post_bn;      /* pointer to post bn layer to accommodate bn fusion  */
+  libxs_dnn_fusedbatchnorm *pre_bn;       /* pointer to pre bn layer to accommodate bn fusion */
+  libxs_dnn_fusedbatchnorm *post_bn;      /* pointer to post bn layer to accommodate bn fusion */
 } libxs_dnn_conv_desc;
 
 /** these are some quantization definitions, not sure if we want to

@@ -83,7 +83,7 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_f32_f32(libxs_dnn_rnncell* han
   return status;
 }
 
-  LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -113,7 +113,7 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16(libxs_dnn_rnncell* h
   return status;
 }
 
-  LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -150,7 +150,7 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32(libxs_dnn_rnncell* h
 }
 
 
-  LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_ncnc_kcck_f32_f32(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;

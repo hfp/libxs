@@ -152,6 +152,7 @@ PyMODINIT_FUNC initlibxs(void)
   PyModule_AddIntConstant(pymod, "X86_AVX512_KNM", LIBXS_X86_AVX512_KNM);
   PyModule_AddIntConstant(pymod, "X86_AVX512_CORE", LIBXS_X86_AVX512_CORE);
   PyModule_AddIntConstant(pymod, "X86_AVX512_CLX", LIBXS_X86_AVX512_CLX);
+  PyModule_AddIntConstant(pymod, "X86_AVX512_CPX", LIBXS_X86_AVX512_CPX);
   libxs_init(); /* initialize LIBXS */
 }
 

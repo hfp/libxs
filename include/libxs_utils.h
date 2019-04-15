@@ -208,6 +208,12 @@
 #       if !defined(__AVX512ER__)
 #         define __AVX512ER__ 1
 #       endif
+#       if !defined(__AVX5124VNNIW__)
+#         define __AVX5124VNNIW__ 1
+#       endif
+#       if !defined(__AVX5124FMAPS__)
+#         define __AVX5124FMAPS__ 1
+#       endif
 #       if !defined(__AVX512DQ__)
 #         define __AVX512DQ__ 1
 #       endif
@@ -219,6 +225,9 @@
 #       endif
 #       if !defined(__AVX512VNNI__)
 #         define __AVX512VNNI__ 1
+#       endif
+#       if !defined(__AVX512BF16__)
+#         define __AVX512BF16__ 1
 #       endif
 #       if defined(__GNUC__) && !defined(__clang__)
 #         pragma GCC push_options
@@ -252,20 +261,23 @@
 #         undef __AVX512CD__
 #       endif
 #       if (LIBXS_X86_AVX512_MIC > (LIBXS_STATIC_TARGET_ARCH))
-#         undef __AVX512F__
-#         undef __AVX512CD__
 #         undef __AVX512PF__
 #         undef __AVX512ER__
 #       endif
+#       if (LIBXS_X86_AVX512_KNM > (LIBXS_STATIC_TARGET_ARCH))
+#         undef __AVX5124VNNIW__
+#         undef __AVX5124FMAPS__
+#       endif
 #       if (LIBXS_X86_AVX512_CORE > (LIBXS_STATIC_TARGET_ARCH))
-#         undef __AVX512F__
-#         undef __AVX512CD__
 #         undef __AVX512DQ__
 #         undef __AVX512BW__
 #         undef __AVX512VL__
 #       endif
 #       if (LIBXS_X86_AVX512_CLX > (LIBXS_STATIC_TARGET_ARCH))
 #         undef __AVX512VNNI__
+#       endif
+#       if (LIBXS_X86_AVX512_CPX > (LIBXS_STATIC_TARGET_ARCH))
+#         undef __AVX512BF16__
 #       endif
 #     endif /*defined(LIBXS_INTRINSICS_INCLUDE)*/
 #   endif /* GCC/legacy incl. Clang */
@@ -307,8 +319,8 @@
 #       else /* LIBXS_X86_AVX512 */
 #         define LIBXS_ATTRIBUTE_TARGET_1010 LIBXS_ATTRIBUTE_TARGET_1007
 #       endif
-#       if (LIBXS_X86_AVX512_KNM <= LIBXS_MAX_STATIC_TARGET_ARCH) /* TODO: add compiler flags */
-#         define LIBXS_ATTRIBUTE_TARGET_1011 target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er")
+#       if (LIBXS_X86_AVX512_KNM <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1011 target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er,avx5124vnniw,avx5124fmaps")
 #       else /* LIBXS_X86_AVX512_MIC */
 #         define LIBXS_ATTRIBUTE_TARGET_1011 LIBXS_ATTRIBUTE_TARGET_1010
 #       endif
@@ -318,9 +330,14 @@
 #         define LIBXS_ATTRIBUTE_TARGET_1020 LIBXS_ATTRIBUTE_TARGET_1007
 #       endif
 #       if (LIBXS_X86_AVX512_CLX <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1022 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni")
+#         define LIBXS_ATTRIBUTE_TARGET_1021 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni")
 #       else /* LIBXS_X86_AVX512_CORE */
-#         define LIBXS_ATTRIBUTE_TARGET_1022 LIBXS_ATTRIBUTE_TARGET_1020
+#         define LIBXS_ATTRIBUTE_TARGET_1021 LIBXS_ATTRIBUTE_TARGET_1020
+#       endif
+#       if (LIBXS_X86_AVX512_CPX <= LIBXS_MAX_STATIC_TARGET_ARCH) /* TODO: verify compiler flag */
+#         define LIBXS_ATTRIBUTE_TARGET_1022 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni,avx512bf16")
+#       else /* LIBXS_X86_AVX512_CORE */
+#         define LIBXS_ATTRIBUTE_TARGET_1022 LIBXS_ATTRIBUTE_TARGET_1021
 #       endif
 #     else
 #       define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
@@ -478,6 +495,17 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
 # define LIBXS_INTRINSICS_BITSCANBWD64 LIBXS_INTRINSICS_BITSCANBWD64_SW
 #endif
 
+/** LIBXS_NBITS determines the minimum number of bits needed to represent N. */
+#define LIBXS_NBITS(N) (LIBXS_INTRINSICS_BITSCANBWD64(N) + LIBXS_MIN(1, N))
+#define LIBXS_ISQRT2(N) ((unsigned int)((1ULL << (LIBXS_NBITS(N) >> 1)) /*+ LIBXS_MIN(1, N)*/))
+/** LIBXS_ILOG2 definition matches ceil(log2(N)). */
+LIBXS_API_INLINE unsigned int LIBXS_ILOG2(unsigned long long n) {
+  unsigned int result = 0; if (1 < n) {
+    const unsigned int m = LIBXS_INTRINSICS_BITSCANBWD64(n);
+    result = m + ((unsigned int)LIBXS_INTRINSICS_BITSCANBWD64(n - 1) == m);
+  } return result;
+}
+
 /**
  * Target attribution
  */
@@ -529,11 +557,17 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
    (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH))
 # define LIBXS_INTRINSICS_AVX512_CORE
 #endif
-/** LIBXS_INTRINSICS_AVX512_ICL is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_AVX512_ICL) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512_CLX <= LIBXS_STATIC_TARGET_ARCH || \
+/** LIBXS_INTRINSICS_AVX512_CLX is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX512_CLX) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512_CLX <= LIBXS_STATIC_TARGET_ARCH || \
    (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX512_CLX <= LIBXS_MAX_STATIC_TARGET_ARCH))
-# define LIBXS_INTRINSICS_AVX512_ICL
+# define LIBXS_INTRINSICS_AVX512_CLX
 #endif
+/** LIBXS_INTRINSICS_AVX512_CPX is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX512_CPX) && !defined(LIBXS_INTRINSICS_NONE) && defined(LIBXS_X86_AVX512_CPX) && \
+    !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_AVX512_CPX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+# define LIBXS_INTRINSICS_AVX512_CPX
+#endif
+
 
 /**
  * Pseudo intrinsics (AVX-512)

@@ -80,12 +80,8 @@ LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char s
 LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char size,
   unsigned char stride, unsigned int hint, unsigned int n);
 
-/** Similar to libxs_diff_n but expects n to be power of two. */
-LIBXS_API unsigned int libxs_diff_npot(const void* a, const void* bn, unsigned char size,
-  unsigned char stride, unsigned int hint, unsigned int n);
-
 /** Calculate a hash value for a given buffer. */
-LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed);
+LIBXS_API unsigned int libxs_hash(unsigned int seed, const void* data, unsigned int size);
 
 /** Greatest common divisor (corner case: the GCD of 0 and 0 is 1). */
 LIBXS_API size_t libxs_gcd(size_t a, size_t b);
