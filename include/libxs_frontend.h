@@ -132,11 +132,21 @@
 #endif
 
 #if !defined(LIBXS_NO_BLAS)
-# if !defined(__BLAS) || (0 != __BLAS)
+# if (!defined(__BLAS) || (0 != __BLAS))
 #   define LIBXS_NO_BLAS 0
 # else
 #   define LIBXS_NO_BLAS 1
 # endif
+#endif
+
+#if defined(__BLAS) && (1 == __BLAS)
+# if defined(__OPENBLAS)
+    LIBXS_EXTERN void openblas_set_num_threads(int num_threads);
+#   define LIBXS_BLAS_INIT openblas_set_num_threads(1);
+# endif
+#endif
+#if !defined(LIBXS_BLAS_INIT)
+# define LIBXS_BLAS_INIT
 #endif
 
 #if defined(LIBXS_BUILD)
@@ -150,19 +160,20 @@
 # define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
 #endif
 
-#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm(CONST, TYPE) CONST char*, CONST char*, \
-  CONST libxs_blasint*, CONST libxs_blasint*, CONST libxs_blasint*, CONST TYPE*, CONST TYPE*, CONST libxs_blasint*, \
-  CONST TYPE*, CONST libxs_blasint*, CONST TYPE*, TYPE*, CONST libxs_blasint*
-#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemv(CONST, TYPE) CONST char*, CONST libxs_blasint*, CONST libxs_blasint*, \
-  CONST TYPE*, CONST TYPE*, CONST libxs_blasint*, CONST TYPE*, CONST libxs_blasint*, \
-  CONST TYPE*, TYPE*, CONST libxs_blasint*
-#define LIBXS_BLAS_SYMBOL_SIGNATURE(CONST, TYPE, KIND) LIBXS_CONCATENATE(LIBXS_BLAS_SYMBOL_SIGNATURE_, KIND)(CONST, TYPE)
-#define LIBXS_BLAS_SYMBOL_DECL(CONST, TYPE, KIND) LIBXS_GEMM_SYMBOL_VISIBILITY \
-  void LIBXS_BLAS_SYMBOL(TYPE, KIND)(LIBXS_BLAS_SYMBOL_SIGNATURE(CONST, TYPE, KIND));
-#if (!defined(__BLAS) || (0 != __BLAS)) /* BLAS available */
-# define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE) LIBXS_BLAS_SYMBOL_DECL(CONST, TYPE, gemm)
+#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm(CONST_STAR, STAR, TYPE) char CONST_STAR, char CONST_STAR, \
+  libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, \
+  TYPE CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, TYPE STAR, libxs_blasint CONST_STAR
+#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemv(CONST_STAR, STAR, TYPE) char CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, \
+  TYPE CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, \
+  TYPE CONST_STAR, TYPE STAR, libxs_blasint CONST_STAR
+#define LIBXS_BLAS_SYMBOL_SIGNATURE(CONST_STAR, STAR, TYPE, KIND) LIBXS_CONCATENATE(LIBXS_BLAS_SYMBOL_SIGNATURE_, KIND)(CONST_STAR, STAR, TYPE)
+#define LIBXS_BLAS_SYMBOL_XDECL(CONST_STAR, STAR, TYPE, KIND) LIBXS_GEMM_SYMBOL_VISIBILITY \
+  void LIBXS_BLAS_SYMBOL(TYPE, KIND)(LIBXS_BLAS_SYMBOL_SIGNATURE(CONST_STAR, STAR, TYPE, KIND))
+
+#if (0 == LIBXS_NO_BLAS) /* BLAS available */
+# define LIBXS_BLAS_SYMBOL_DECL(TYPE, KIND) LIBXS_BLAS_SYMBOL_XDECL(LIBXS_GEMM_CONST*, *, TYPE, KIND);
 #else
-# define LIBXS_GEMM_SYMBOL_DECL(CONST, TYPE)
+# define LIBXS_BLAS_SYMBOL_DECL(TYPE, KIND)
 #endif
 
 /** Helper macro consolidating the transpose requests into a set of flags. */
@@ -213,7 +224,7 @@
 
 /** Map to appropriate BLAS function (or fall-back). The mapping is used e.g., inside of LIBXS_BLAS_XGEMM. */
 #define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
-#if !defined(__BLAS) || (0 != __BLAS)
+#if (0 == LIBXS_NO_BLAS)
 # define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm()
 # define LIBXS_BLAS_FUNCTION_sgemm libxs_original_sgemm()
 #else /* no BLAS */
@@ -350,6 +361,7 @@
   const double libxs_matrng_scale_ = (SCALE) * libxs_matrng_seed_ + (SCALE); \
   const libxs_blasint libxs_matrng_ld_ = (libxs_blasint)LD; \
   libxs_blasint libxs_matrng_i_, libxs_matrng_j_; \
+  LIBXS_OMP_VAR(libxs_matrng_i_); LIBXS_OMP_VAR(libxs_matrng_j_); \
   if (0 != libxs_matrng_seed_) { \
     OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
     for (libxs_matrng_i_ = 0; libxs_matrng_i_ < ((libxs_blasint)NCOLS); ++libxs_matrng_i_) { \
@@ -367,7 +379,7 @@
     const unsigned int libxs_matrng_maxval_ = ((unsigned int)NCOLS) * ((unsigned int)libxs_matrng_ld_); \
     const TYPE libxs_matrng_maxval2_ = (TYPE)(libxs_matrng_maxval_ / 2), libxs_matrng_inv_ = (TYPE)((SCALE) / libxs_matrng_maxval2_); \
     const size_t libxs_matrng_shuffle_ = libxs_shuffle(libxs_matrng_maxval_); \
-    LIBXS_OMP_VAR(libxs_matrng_j_); OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
+    OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
     for (libxs_matrng_i_ = 0; libxs_matrng_i_ < ((libxs_blasint)NCOLS); ++libxs_matrng_i_) { \
       for (libxs_matrng_j_ = 0; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
@@ -429,11 +441,11 @@ LIBXS_API void libxs_gemm_xprint(void* ostream,
   libxs_xmmfunction kernel, const void* a, const void* b, void* c);
 
 /** GEMM: fall-back prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const, double, gemm));
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const, float,  gemm));
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm));
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemm));
 /** GEMV: fall-back prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const, double, gemv));
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const, float,  gemv));
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemv));
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemv));
 
 /** The original BLAS functions. */
 LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_dgemm_function libxs_original_dgemm_function);

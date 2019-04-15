@@ -31,64 +31,29 @@
 
 #include <libxs.h>
 
-#if !defined(LIBXS_HASH_SW) && 0
-# define LIBXS_HASH_SW
-#endif
-
-#if defined(LIBXS_BUILD) && !defined(LIBXS_HASH_NOINLINE)
-# define LIBXS_HASH_API LIBXS_API_INLINE
-# define LIBXS_HASH_API_DEFINITION LIBXS_HASH_API LIBXS_ATTRIBUTE_UNUSED
-#else
-# define LIBXS_HASH_API LIBXS_API
-# define LIBXS_HASH_API_DEFINITION LIBXS_API
-#endif
-
 /* Map number of Bytes to number of bits. */
+#define libxs_crc32_b16 libxs_crc32_u128
 #define libxs_crc32_b32 libxs_crc32_u256
+#define libxs_crc32_b48 libxs_crc32_u384
 #define libxs_crc32_b64 libxs_crc32_u512
 
 
-/** Function type representing the CRC32 functionality (elemental/value form). */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE unsigned int (*libxs_hash_value_function)(
-  const void* /*value*/, unsigned int /*seed*/);
-/** Function type representing the CRC32 functionality (taking an entire buffer). */
+/** Function type representing the CRC32 functionality. */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE unsigned int (*libxs_hash_function)(
-  const void* /*data*/, size_t /*size*/, unsigned int /*seed*/);
+  unsigned int /*seed*/, const void* /*data*/, ... /*size*/);
 
 /** Initialize hash function module; not thread-safe. */
-LIBXS_HASH_API void libxs_hash_init(int target_arch);
-LIBXS_HASH_API void libxs_hash_finalize(void);
+LIBXS_API_INTERN void libxs_hash_init(int target_arch);
+LIBXS_API_INTERN void libxs_hash_finalize(void);
 
-LIBXS_HASH_API unsigned int libxs_crc32_u32(const void* value, unsigned int seed);
-LIBXS_HASH_API unsigned int libxs_crc32_u32_sw(const void* value, unsigned int seed);
-LIBXS_HASH_API unsigned int libxs_crc32_u32_sse4(const void* value, unsigned int seed);
+LIBXS_API_INTERN unsigned int libxs_crc32_u32(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int libxs_crc32_u64(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int libxs_crc32_u128(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int libxs_crc32_u256(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int libxs_crc32_u384(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int libxs_crc32_u512(unsigned int seed, const void* value, ...);
 
-LIBXS_HASH_API unsigned int libxs_crc32_u64(const void* value, unsigned int seed);
-LIBXS_HASH_API unsigned int libxs_crc32_u64_sw(const void* value, unsigned int seed);
-LIBXS_HASH_API unsigned int libxs_crc32_u64_sse4(const void* value, unsigned int seed);
-
-LIBXS_HASH_API unsigned int libxs_crc32_u128(const void* value, unsigned int seed);
-LIBXS_HASH_API unsigned int libxs_crc32_u128_sw(const void* value, unsigned int seed);
-LIBXS_HASH_API unsigned int libxs_crc32_u128_sse4(const void* value, unsigned int seed);
-
-LIBXS_HASH_API unsigned int libxs_crc32_u256(const void* value, unsigned int seed);
-LIBXS_HASH_API unsigned int libxs_crc32_u256_sw(const void* value, unsigned int seed);
-LIBXS_HASH_API unsigned int libxs_crc32_u256_sse4(const void* value, unsigned int seed);
-
-LIBXS_HASH_API unsigned int libxs_crc32_u512(const void* value, unsigned int seed);
-LIBXS_HASH_API unsigned int libxs_crc32_u512_sw(const void* value, unsigned int seed);
-LIBXS_HASH_API unsigned int libxs_crc32_u512_sse4(const void* value, unsigned int seed);
-
-/** Dispatched implementation which may (or may not) use a SIMD extension. */
-LIBXS_HASH_API unsigned int libxs_crc32(const void* data, size_t size, unsigned int seed);
 /** Calculate the CRC32 for a given quantity (size) of raw data according to the seed. */
-LIBXS_HASH_API unsigned int libxs_crc32_sw(const void* data, size_t size, unsigned int seed);
-/** Similar to libxs_crc32_sw (uses CRC32 instructions available since SSE4.2). */
-LIBXS_HASH_API unsigned int libxs_crc32_sse4(const void* data, size_t size, unsigned int seed);
-
-
-#if defined(LIBXS_BUILD) && !defined(LIBXS_HASH_NOINLINE)
-# include "libxs_hash.c"
-#endif
+LIBXS_API_INTERN unsigned int libxs_crc32(unsigned int seed, const void* data, size_t size);
 
 #endif /*LIBXS_HASH_H*/

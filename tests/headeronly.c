@@ -59,7 +59,11 @@ int main(void)
     libxs_release_kernel(kernel.p);
   }
   else {
-    result = EXIT_FAILURE;
+    libxs_registry_info registry_info;
+    result = libxs_get_registry_info(&registry_info);
+    if (EXIT_SUCCESS == result && 2 != registry_info.size) {
+      result = EXIT_FAILURE;
+    }
   }
   return result;
 }

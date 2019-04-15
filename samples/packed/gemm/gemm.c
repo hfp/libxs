@@ -26,7 +26,26 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include <libxs.h>
+#if 1
+#define USE_KERNEL_GENERATION_DIRECTLY
+#endif
+#if 0
+#define USE_PREDEFINED_ASSEMBLY
+#define USE_XSMM_GENERATED
+#define TIME_MKL
+#endif
+
+#if !defined(USE_PREDEFINED_ASSEMBLY) && !defined(USE_XSMM_GENERATED) && !defined(TIME_MKL) && \
+   (!defined(__linux__) || !defined(USE_KERNEL_GENERATION_DIRECTLY))
+# define USE_XSMM_GENERATED
+# include <libxs.h>
+#else
+# include <libxs_source.h>
+# include <unistd.h>
+# include <signal.h>
+# include <malloc.h>
+# include <sys/mman.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -211,7 +230,6 @@ void compact_dgemm_ ( unsigned int *layout, char *transa, char *transb,
     double *Cp, Ctemp[BUFSIZE];
     static int ntimes = 0;
     char ntrans='N';
-    extern void dgemm();
 
     if ( ++ntimes < 3 ) printf("Inside reference compact_dgemm_()\n");
     if ( ++ntimes < 3 ) printf("layout=%d m/n/k=%d %d %d lda/b/c=%d %d %d nmat=%d VLEN=%d\n",*layout,*m,*n,*k,*lda,*ldb,*ldc,*nmat,*VLEN);
@@ -254,7 +272,6 @@ void compact_sgemm_ ( char *transa, char *transb,
     float *Cp, Ctemp[BUFSIZE];
     static int ntimes = 0;
     char ntrans='N';
-    extern void sgemm();
 
     if ( ++ntimes < 3 ) printf("Inside reference compact_sgemm_()\n");
     if ( ++ntimes < 3 ) printf("layout=%d m/n/k=%d %d %d lda/b/c=%d %d %d nmat=%d VLEN=%d\n",*layout,*m,*n,*k,*lda,*ldb,*ldc,*nmat,*VLEN);
@@ -286,7 +303,7 @@ void dfill_matrix ( double *matrix, unsigned int ld, unsigned int m, unsigned in
 
   if ( ld < m )
   {
-     fprintf(stderr,"Error is dfill_matrix: ld=%u m=%u mismatched!\n",ld,m);
+     fprintf(stderr,"Error in dfill_matrix: ld=%u m=%u mismatched!\n",ld,m);
      exit(-1);
   }
   for ( j = 1 ; j <= n ; j++ )
@@ -458,17 +475,6 @@ double residual_s ( float *A, unsigned int lda, unsigned int m, unsigned int n,
    return ( derror );
 }
 
-#if !defined(USE_PREDEFINED_ASSEMBLY) && !defined(USE_XSMM_GENERATED) && !defined(USE_KERNEL_GENERATION_DIRECTLY) && !defined(TIME_MKL) && defined(__linux__)
-  #define USE_KERNEL_GENERATION_DIRECTLY
-#endif
-
-#if 0
-  #define USE_PREDEFINED_ASSEMBLY
-  #define USE_XSMM_GENERATED
-  #define USE_KERNEL_GENERATION_DIRECTLY
-  #define TIME_MKL
-#endif
-
 #ifdef USE_PREDEFINED_ASSEMBLY
 extern void gemm_();
 #endif
@@ -482,10 +488,10 @@ int main(int argc, char* argv[])
   unsigned int layout, asize, bsize, ntest, ncorr;
 #ifdef AVX512_TESTING
   unsigned int VLEND=8, VLENS=16;
-  char arch[4]="skx";
+  int arch=LIBXS_X86_AVX512_CORE;
 #else
   unsigned int VLEND=4, VLENS=8;
-  char arch[4]="hsw";
+  int arch=LIBXS_X86_AVX2;
 #endif
   int nmats, nmatd;
   int i, j, l, iunroll, junroll, loopi, loopj;
@@ -499,25 +505,20 @@ int main(int argc, char* argv[])
   double dbeta = 1.0;
   float  sbeta = (float)dbeta;
   double dtmp;
-  const unsigned char *cptr;
+  const unsigned char *cptr = NULL;
   unsigned long op_count;
   const libxs_pgemm_descriptor* desc8 = NULL;
   const libxs_pgemm_descriptor* desc4 = NULL;
   libxs_descriptor_blob blob;
+#ifdef USE_XSMM_GENERATED
   union {
-    libxs_xtrsmfunction dp;
-    libxs_xtrsmfunction sp;
+    libxs_dpmmfunction dp;
+    libxs_spmmfunction sp;
     const void* pv;
   } mykernel = { 0 };
-#ifdef USE_KERNEL_GENERATION_DIRECTLY
-  void (*opcode_routine)();
 #endif
-#ifdef USE_KERNEL_GENERATION_DIRECTLY
-  #include <unistd.h>
-  #include <signal.h>
-  #include <malloc.h>
-  #include <sys/mman.h>
-  /* #include "../../src/generator_packed_trsm_avx_avx512.h" */
+#if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
+  void (*opcode_routine)();
   unsigned char *routine_output;
   libxs_generated_code io_generated_code;
   int pagesize = sysconf(_SC_PAGE_SIZE);
@@ -593,7 +594,7 @@ int main(int argc, char* argv[])
   nmat = nmatd;
 #endif
 
-  op_count = nmat * 2.0 * (double)m * (double)n * (double)k;
+  op_count = (unsigned long)(nmat * 2.0 * (double)m * (double)n * (double)k);
 
 #ifdef TEST_SINGLE
 printf("This is a real*%d tester for JIT compact SGEMM %c%c kernels! (m=%u n=%u k=%u lda=%u ldb=%u ldc=%u layout=%d nmat=%d alpha=%g beta=%g iun=%d jun=%d loopi=%d loopj=%d VLEN=%d)\n",typesize4,transa,transb,m,n,k,lda,ldb,ldc,layout,nmat,dalpha,dbeta,iunroll,junroll,loopi,loopj,VLENS);
@@ -607,7 +608,7 @@ printf("This is a real*%d tester for JIT compact DGEMM %c%c kernels! (m=%u n=%u 
 #ifdef USE_PREDEFINED_ASSEMBLY
   printf("This code tests some predefined assembly kenrel\n");
 #endif
-#ifdef USE_KERNEL_GENERATION_DIRECTLY
+#if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
   printf("This code tests kernel generation directly\n");
 #endif
 #ifdef TIME_MKL
@@ -630,7 +631,7 @@ printf("This is a real*%d tester for JIT compact DGEMM %c%c kernels! (m=%u n=%u 
 
 #ifdef USE_XSMM_GENERATED
   printf("calling libxs_dispatch_trmm: typesize8=%u\n",typesize8);
-  mykernel.dp = libxs_dispatch_gemm(desc8);
+  mykernel.dp = libxs_xmmdispatch(desc8).dmm;
   printf("done calling libxs_dispatch_trmm: typesize8=%u\n",typesize8);
   if ( mykernel.dp == NULL ) printf("R8 Kernel after the create call is null\n");
 #ifdef TEST_SINGLE
@@ -639,8 +640,8 @@ printf("This is a real*%d tester for JIT compact DGEMM %c%c kernels! (m=%u n=%u 
 #endif
 #endif
 
-#ifdef USE_KERNEL_GENERATION_DIRECTLY
-  libxs_generator_packed_gemm_avx_avx512_kernel ( &io_generated_code, desc8, arch, iunroll, junroll, loopi, loopj );
+#if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
+  libxs_generator_pgemm_kernel( &io_generated_code, desc8, arch, iunroll, junroll, loopi, loopj );
 #endif
 
 #ifndef NO_ACCURACY_CHECK
@@ -681,13 +682,13 @@ printf("This is a real*%d tester for JIT compact DGEMM %c%c kernels! (m=%u n=%u 
 #ifdef USE_PREDEFINED_ASSEMBLY
   cptr = (const unsigned char*) gemm_;
 #endif
-#ifdef USE_KERNEL_GENERATION_DIRECTLY
+#if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
   cptr = (const unsigned char*) &routine_output[0];
   opcode_routine = (void *) &cptr[0];
 #endif
 
 #ifndef TIME_MKL
-  #define DUMP_ASSEMBLY_FILE
+# define DUMP_ASSEMBLY_FILE
 #endif
 
 #ifdef DUMP_ASSEMBLY_FILE
@@ -710,7 +711,7 @@ printf("This is a real*%d tester for JIT compact DGEMM %c%c kernels! (m=%u n=%u 
 #endif
 
 #if defined(USE_MKL_FOR_REFERENCE) || defined(TIME_MKL)
-  #include "mkl.h"
+# include <mkl.h>
   MKL_LAYOUT CLAYOUT = (layout == 101) ? MKL_ROW_MAJOR : MKL_COL_MAJOR;
   MKL_SIDE SIDE = (side == 'R' || side == 'r') ? MKL_RIGHT : MKL_LEFT;
   MKL_UPLO UPLO = (uplo == 'U' || uplo == 'u') ? MKL_UPPER : MKL_LOWER;
@@ -729,7 +730,7 @@ printf("This is a real*%d tester for JIT compact DGEMM %c%c kernels! (m=%u n=%u 
 #ifdef USE_PREDEFINED_ASSEMBLY
   double one = 1.0;
 #endif
-  double timer, firsttime;
+  double timer, firsttime = 0;
 #ifdef MKL_TIMER
   double tmptimer;
   tmptimer = dsecnd_();
@@ -880,3 +881,4 @@ printf("This is a real*%d tester for JIT compact DGEMM %c%c kernels! (m=%u n=%u 
 
   return 0;
 }
+

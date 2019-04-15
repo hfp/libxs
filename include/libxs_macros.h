@@ -136,20 +136,29 @@
 #   define LIBXS_INLINE_ALWAYS static __forceinline
 # endif
 # define LIBXS_ALIGNED(DECL, N) LIBXS_ATTRIBUTE(align(N)) DECL
-# define LIBXS_PACKED(TYPE, NAME) LIBXS_PRAGMA(pack(1)) TYPE NAME
+# if !defined(LIBXS_UNPACKED)
+#   define LIBXS_PACKED(TYPE) LIBXS_PRAGMA(pack(1)) TYPE
+# endif
 # define LIBXS_CDECL __cdecl
-#elif defined(__GNUC__)
+#elif (defined(__GNUC__) || defined(__clang__) || defined(__PGI))
 # define LIBXS_ATTRIBUTE(A) __attribute__((A))
 # define LIBXS_INLINE_ALWAYS LIBXS_ATTRIBUTE(always_inline) LIBXS_INLINE
 # define LIBXS_ALIGNED(DECL, N) DECL LIBXS_ATTRIBUTE(aligned(N))
-# define LIBXS_PACKED(TYPE, NAME) TYPE LIBXS_ATTRIBUTE(__packed__) NAME
+# if !defined(LIBXS_UNPACKED)
+#   define LIBXS_PACKED(TYPE) TYPE LIBXS_ATTRIBUTE(__packed__)
+# endif
 # define LIBXS_CDECL LIBXS_ATTRIBUTE(cdecl)
 #else
 # define LIBXS_ATTRIBUTE(A)
 # define LIBXS_INLINE_ALWAYS LIBXS_INLINE
 # define LIBXS_ALIGNED(DECL, N) DECL
-# define LIBXS_PACKED(TYPE, NAME) TYPE NAME
 # define LIBXS_CDECL
+#endif
+#if !defined(LIBXS_PACKED)
+# define LIBXS_PACKED(TYPE) TYPE
+# if !defined(LIBXS_UNPACKED)
+#   define LIBXS_UNPACKED
+# endif
 #endif
 
 #if defined(__INTEL_COMPILER)
@@ -349,17 +358,12 @@
 # define LIBXS_PRAGMA_OPTIMIZE_ON
 #endif
 
-#if defined(_OPENMP) && (200805 <= _OPENMP) /*OpenMP 3.0*/
+#if defined(_OPENMP) && (200805 <= _OPENMP) /*OpenMP 3.0*/ \
+ && defined(NDEBUG) /* CCE complains for debug builds */
 # define LIBXS_OPENMP_COLLAPSE(N) collapse(N)
 #else
 # define LIBXS_OPENMP_COLLAPSE(N)
 #endif
-
-/** LIBXS_NBITS determines the minimum number of bits needed to represent N. */
-#define LIBXS_NBITS(N) (LIBXS_INTRINSICS_BITSCANBWD64(N) + LIBXS_MIN(1, N))
-/** LIBXS_ILOG2 definition matches ceil(log2(N)). */
-#define LIBXS_ILOG2(N) (1 < (N) ? (LIBXS_INTRINSICS_BITSCANBWD64(N) + \
-  (LIBXS_INTRINSICS_BITSCANBWD64((N) - 1) != LIBXS_INTRINSICS_BITSCANBWD64(N) ? 0 : 1)) : 0)
 
 /** LIBXS_UP2POT rounds up to the next power of two (POT). */
 #define LIBXS_UP2POT_01(N) ((N) | ((N) >> 1))
@@ -378,9 +382,8 @@
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
 #define LIBXS_MOD(A, N) ((A) % (N))
 #define LIBXS_MOD2(A, NPOT) ((A) & ((NPOT) - 1))
-#define LIBXS_DIFF(T0, T1) ((T0) < (T1) ? ((T1) - (T0)) : ((T0) - (T1)))
+#define LIBXS_DELTA(T0, T1) ((T0) < (T1) ? ((T1) - (T0)) : ((T0) - (T1)))
 #define LIBXS_CLMP(VALUE, LO, HI) ((LO) < (VALUE) ? ((VALUE) <= (HI) ? (VALUE) : LIBXS_MIN(VALUE, HI)) : LIBXS_MAX(LO, VALUE))
-#define LIBXS_ISQRT2(N) ((unsigned int)((1ULL << (LIBXS_NBITS(N) >> 1)) /*+ LIBXS_MIN(1, N)*/))
 #define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
 #define LIBXS_FEQ(A, B) ((A) == (B))
 #define LIBXS_NEQ(A, B) ((A) != (B))
@@ -653,7 +656,7 @@
 #   endif
 # endif
 #endif
-#if defined(__GNUC__) && !defined(_GNU_SOURCE)
+#if !defined(_GNU_SOURCE) /*&& defined(__GNUC__)*/
 # define _GNU_SOURCE
 #endif
 #if !defined(__STDC_FORMAT_MACROS)

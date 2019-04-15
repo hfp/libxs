@@ -59,6 +59,7 @@ LIBXS_APIVAR(int internal_timer_init_rtc);
 LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void)
 {
   libxs_timer_tickint result;
+  int dummy;
 #if defined(_WIN32)
   LARGE_INTEGER t;
   QueryPerformanceCounter(&t);
@@ -72,7 +73,8 @@ LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void)
   gettimeofday(&t, 0);
   result = 1000000ULL * t.tv_sec + t.tv_usec;
 #endif
-  LIBXS_ATOMIC_ADD_FETCH(&internal_timer_init_rtc, 1, LIBXS_ATOMIC_RELAXED);
+  dummy = LIBXS_ATOMIC_ADD_FETCH(&internal_timer_init_rtc, 1, LIBXS_ATOMIC_RELAXED);
+  LIBXS_UNUSED(dummy);
   return result;
 }
 
@@ -92,13 +94,13 @@ libxs_timer_tickint libxs_timer_tick(void)
 
 LIBXS_API libxs_timer_tickint libxs_timer_cycles(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
 {
-  return LIBXS_DIFF(tick0, tick1);
+  return LIBXS_DELTA(tick0, tick1);
 }
 
 
 LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
 {
-  double result = (double)LIBXS_DIFF(tick0, tick1);
+  double result = (double)LIBXS_DELTA(tick0, tick1);
 #if defined(LIBXS_TIMER_RDTSC)
 # if defined(LIBXS_INIT_COMPLETED)
   LIBXS_ASSERT_MSG(0 != internal_timer_init_rtc, "LIBXS is not initialized");

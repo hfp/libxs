@@ -52,7 +52,7 @@
 #endif
 
 #if !defined(CHECK) && (LIBXS_EQUAL(ITYPE, float) || LIBXS_EQUAL(ITYPE, double))
-LIBXS_GEMM_SYMBOL_DECL(LIBXS_GEMM_CONST, ITYPE)
+LIBXS_BLAS_SYMBOL_DECL(ITYPE, gemm)
 # define CHECK
 #endif
 

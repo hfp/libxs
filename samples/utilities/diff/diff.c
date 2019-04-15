@@ -38,65 +38,57 @@
 int main(int argc, char* argv[])
 {
   const int insize = (1 < argc ? atoi(argv[1]) : 0);
-  const int incrmt = (2 < argc ? atoi(argv[2]) : insize);
+  const int incrmt = (2 < argc ? atoi(argv[2]) : 0);
   const int nelems = (3 < argc ? atoi(argv[3]) : 0);
   const int niters = (4 < argc ? atoi(argv[4]) : 1);
-  const int size = (0 >= insize ? LIBXS_DESCRIPTOR_MAXSIZE : insize);
-  const int stride = LIBXS_MAX(incrmt, size);
+  const int elsize = (0 >= insize ? LIBXS_DESCRIPTOR_SIGSIZE : insize);
+  const int stride = (0 >= incrmt ? LIBXS_MAX(LIBXS_DESCRIPTOR_MAXSIZE, elsize) : LIBXS_MAX(incrmt, elsize));
   const size_t n = (0 >= nelems ? (((size_t)2 << 30/*2 GB*/) / stride) : ((size_t)nelems));
+  int result = EXIT_SUCCESS;
+  size_t nbytes, size, nrpt;
   unsigned char* input;
-  size_t npot, nrpt;
-  int result;
 
   if (0 < niters) {
-    npot = LIBXS_UP2POT(n);
+    size = n;
     nrpt = niters;
   }
   else {
-    npot = LIBXS_UP2POT(LIBXS_MAX(LIBXS_ABS(niters), 1));
+    size = LIBXS_MAX(LIBXS_ABS(niters), 1);
     nrpt = n;
   }
-  input = (unsigned char*)(malloc(npot * stride));
+  nbytes = size * stride;
+  input = (unsigned char*)(0 != nbytes ? malloc(nbytes) : NULL);
 
   if (NULL != input) {
-    unsigned char *const ref = input + (npot - 1) * stride; /* last item */
+    unsigned char *const ref = input + (size - 1) * stride; /* last item */
     libxs_timer_tickint start;
     size_t i, j = 0;
 
     /* initialize the input data */
-    for (i = 0; i < npot * stride; ++i) input[i] = LIBXS_MOD2(i, 128);
-    for (i = 0; i < (size_t)size; ++i) ref[i] = 255;
-
+    for (i = 0; i < nbytes; ++i) input[i] = LIBXS_MOD2(i, 128);
+    for (i = 0; i < (size_t)elsize; ++i) ref[i] = 255;
     { /* benchmark libxs_diff_n */
-      start = libxs_timer_tick();
-      for (i = 0; i < nrpt; ++i) {
-        j = libxs_diff_n(ref, input, (unsigned char)size, (unsigned char)stride, 0/*hint*/, (unsigned int)npot);
-      }
-      printf("libxs_diff_n:\t\t%.3f s\n", libxs_timer_duration(start, libxs_timer_tick()));
-      result = ((npot == (j + 1) && 0 == memcmp(ref, input + j * stride, size)) ? EXIT_SUCCESS : EXIT_FAILURE);
-    }
-
-    if (EXIT_SUCCESS == result) { /* benchmark libxs_diff_npot */
 #if defined(USE_HASH)
-      const unsigned int hashref = libxs_hash(ref, size, 0/*seed*/);
+      const unsigned int hashref = libxs_hash(0/*seed*/, ref, elsize);
 #endif
       start = libxs_timer_tick();
       for (i = 0; i < nrpt; ++i) {
 #if !defined(USE_HASH)
-        j = libxs_diff_npot(ref, input, (unsigned char)size, (unsigned char)stride, 0/*hint*/, (unsigned int)npot);
+        j = libxs_diff_n(ref, input, (unsigned char)elsize, (unsigned char)stride,
+          (unsigned int)LIBXS_MIN(i, size)/*hint*/, (unsigned int)size);
 #else
         const unsigned char* tst = input;
-        for (j = 0; j < npot; ++j) {
-          const unsigned int hashtst = libxs_hash(tst, size, 0/*seed*/);
-          if (hashref == hashtst && 0 == libxs_diff(ref, tst, (unsigned char)size)) {
+        for (j = 0; j < size; ++j) {
+          const unsigned int hashtst = libxs_hash(0/*seed*/, tst, elsize);
+          if (hashref == hashtst && 0 == libxs_diff(ref, tst, (unsigned char)elsize)) {
             break;
           }
           tst += stride;
         }
 #endif
       }
-      printf("libxs_diff_npot:\t%.3f s\n", libxs_timer_duration(start, libxs_timer_tick()));
-      result = ((npot == (j + 1) && 0 == memcmp(ref, input + j * stride, size)) ? EXIT_SUCCESS : EXIT_FAILURE);
+      printf("libxs_diff_n:\t\t%.3f s\n", libxs_timer_duration(start, libxs_timer_tick()));
+      result = ((size == (j + 1) && 0 == memcmp(ref, input + j * stride, elsize)) ? EXIT_SUCCESS : EXIT_FAILURE);
     }
 
     free(input);

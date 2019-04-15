@@ -79,19 +79,22 @@
 #if !defined(LIBXS_ATOMIC_ZERO_STORE) && defined(_CRAYC)
 # define LIBXS_ATOMIC_ZERO_STORE
 #endif
-#if defined(__ATOMIC_RELAXED)
-# define LIBXS_ATOMIC_RELAXED __ATOMIC_RELAXED
-#else
-# define LIBXS_ATOMIC_RELAXED 0
-#endif
-#if defined(__ATOMIC_SEQ_CST)
-# define LIBXS_ATOMIC_SEQ_CST __ATOMIC_SEQ_CST
-#else
-# define LIBXS_ATOMIC_SEQ_CST 0
-#endif
 #if !defined(LIBXS_ATOMIC_LOCKTYPE)
 # define LIBXS_ATOMIC_LOCKTYPE char
 #endif
+
+typedef enum libxs_atomic_kind {
+#if defined(__ATOMIC_SEQ_CST)
+  LIBXS_ATOMIC_SEQ_CST = __ATOMIC_SEQ_CST,
+#else
+  LIBXS_ATOMIC_SEQ_CST = 0,
+#endif
+#if defined(__ATOMIC_RELAXED)
+  LIBXS_ATOMIC_RELAXED = __ATOMIC_RELAXED
+#else
+  LIBXS_ATOMIC_RELAXED = LIBXS_ATOMIC_SEQ_CST
+#endif
+} libxs_atomic_kind;
 
 #define LIBXS_NONATOMIC_LOCKTYPE LIBXS_ATOMIC_LOCKTYPE
 #define LIBXS_NONATOMIC_LOAD(SRC_PTR, KIND) (*(SRC_PTR))
