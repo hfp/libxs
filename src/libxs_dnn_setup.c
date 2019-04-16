@@ -381,6 +381,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->block_upd_ifm = 1;
   handle->fwd_flags = 0;
   handle->shuffle_filter_accesses = 0;
+  handle->use_generic_fwd_loops = 0;
 
   handle->fwd_ofh_rb = 1;
   handle->fwd_ofw_rb = handle->ofw;
@@ -444,6 +445,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   if (handle->desc.N != handle->desc.threads) {
     handle->fwd_ofh_rb = 1;
     handle->pack_input = 0;
+    handle->use_generic_fwd_loops = 1;
   }
 
   if ( handle->desc.C < tmp_max_c_block ) {
@@ -504,6 +506,19 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
     handle->shuffle_filter_accesses = 0;
   }
 
+  if (handle->ofw == 7 && handle->desc.C == 1024 && handle->desc.K == 512) {
+    handle->use_ofm_parallelization = 1;
+    handle->shuffle_filter_accesses = 0;
+    if (handle->desc.u == 2) {
+      handle->pack_input = 0;
+      handle->fwd_ofh_rb = 1;
+    }
+  }
+
+  if (handle->ofw == 7 && handle->use_ofm_parallelization == 0) {
+    handle->shuffle_filter_accesses = 1;
+  }
+
   /* Feature map block tuning */
   while (blockifm % handle->blocksifm_blocking != 0) {
     blockifm++;
@@ -519,6 +534,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
     block_j--;
   }
   handle->block_fwd_oj = block_j;
+
+#if 0
+   /* FIXME: Set it under some conditions...  */
+   handle->use_generic_fwd_loops = 1;
+   handle->avoid_fmas_in_rim = 0;
+   handle->fwd_ofh_rb = 1;
+#endif
 
   /* here we need to handle BF16 again */
   if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.C % 2 == 0) && (handle->desc.K % 2 == 0) ) {
@@ -598,13 +620,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   if (handle->ofw == 7) {
     handle->use_ifm_parallelization = 1;
   }
-  if (handle->ofw == 7 && handle->desc.C == 1024 && handle->desc.K == 512) {
-    handle->use_ofm_parallelization = 1;
-    handle->shuffle_filter_accesses = 0;
-  }
-  if (handle->ofw == 7 && handle->use_ofm_parallelization == 0) {
-    handle->shuffle_filter_accesses = 1;
-  }
+
   /* Feature map block tuning */
   while (blockofm % handle->blocksofm_blocking != 0) {
     blockofm++;
