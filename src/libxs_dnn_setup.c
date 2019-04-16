@@ -364,6 +364,254 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
 
 }
 
+/**********************************************************/
+/* Helper functions for convolutions' general param setup */
+/**********************************************************/
+LIBXS_API_INLINE int libxs_dnn_setup_generic_c_block( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_k_block( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_fm_lp_block( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_fallback_loops_fwd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_blocksifm( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_blocksofm( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+/**********************************************************/
+/* Helper functions for FWD convolutions' parameter setup */
+/**********************************************************/
+LIBXS_API_INLINE int libxs_dnn_setup_generic_fwd_ofw_rb( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_fwd_ofh_rb( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_loop_order_fwd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_block_fwd_IFM( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_block_fwd_OFM( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_pack_input_fwd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_use_ofm_parallelization( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_avoid_rim_fmas_fwd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_shuffle_filter_accesses( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_avoid_acc_load( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_blocksifm_blocking( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_init_fwd_gemm_flags( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+/**********************************************************/
+/* Helper functions for BWD convolutions' parameter setup */
+/**********************************************************/
+LIBXS_API_INLINE int libxs_dnn_setup_generic_bwd_ofw_rb( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_bwd_ofh_rb( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_loop_order_bwd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_block_bwd_IFM( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_block_bwd_OFM( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_pack_input_bwd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_use_ifm_parallelization( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_avoid_rim_fmas_bwd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_blocksofm_blocking( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_init_bwd_gemm_flags( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_spread_input_bwd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+/**********************************************************/
+/* Helper functions for UPD convolutions' parameter setup */
+/**********************************************************/
+LIBXS_API_INLINE int libxs_dnn_setup_generic_loop_order_upd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_pack_input_upd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_avoid_rim_fmas_upd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_upd_ofw_rb( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_upd_ofh_rb( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_img_batchreduce_block( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_use_batchreduce_upd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_weight_copies_upd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_linearized_tasklist_upd( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+LIBXS_API_INLINE int libxs_dnn_setup_generic_init_upd_gemm_flags( libxs_dnn_layer* handle ) {
+  int result = 0;
+
+  return result;
+}
+
+
+
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handle ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   int tmp_max_c_block = 64;
