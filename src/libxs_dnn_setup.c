@@ -454,6 +454,10 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_fwd_ofh_rb( libxs_dnn_layer* handle
   if ((handle->pack_input == 0) && ((handle->desc.u !=1 ) || (handle->desc.v != 1))) {
     result = 1;
   }
+  /* In this case we will be using fallback generic loops, thus ofh_rb should be 1 */
+  if (handle->desc.N % handle->desc.threads != 0) {
+    result = 1;
+  }
   return result;
 }
 
