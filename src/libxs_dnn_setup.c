@@ -583,70 +583,86 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_init_fwd_gemm_flags( libxs_dnn_laye
 /* Helper functions for BWD convolutions' parameter setup */
 /**********************************************************/
 LIBXS_API_INLINE int libxs_dnn_setup_generic_bwd_ofw_rb( libxs_dnn_layer* handle ) {
-  int result = 0;
-
-  result = handle->ofw;
-
+  int result = libxs_dnn_setup_generic_fwd_ofw_rb(handle);
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_bwd_ofh_rb( libxs_dnn_layer* handle ) {
-  int result = 0;
+  int result = libxs_dnn_setup_generic_fwd_ofh_rb(handle);
+  return result;
+}
 
+LIBXS_API_INLINE int libxs_dnn_setup_generic_bwd_block_H( libxs_dnn_layer* handle ) {
+  int result = 0;
+  result = libxs_dnn_setup_generic_fwd_block_H(handle);
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_loop_order_bwd( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  result = libxs_dnn_setup_generic_loop_order_fwd(handle);
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_block_bwd_IFM( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  result = LIBXS_MIN(handle->blocksifm, 16);
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_block_bwd_OFM( libxs_dnn_layer* handle ) {
-  int result = 0;
-
+  int result = 8;
+  while (result % handle->blocksofm_blocking != 0) {
+    result++;
+  }
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_pack_input_bwd( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  if ((handle->desc.u != 1) && (handle->bwd_ofh_rb != 1)) {
+    result = 1;
+  }
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_use_ifm_parallelization( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  if (handle->ofw <= 7) {
+    result = 1;
+  }
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_avoid_rim_fmas_bwd( libxs_dnn_layer* handle ) {
-  int result = 0;
-
+  int result = libxs_dnn_setup_generic_avoid_rim_fmas_fwd(handle);
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_blocksofm_blocking( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  if (handle->desc.R == 1 && handle->desc.S == 1) {
+    result = handle->blocksofm;
+  } else {
+    result = 1;
+    if (handle->desc.R == 3 && handle->desc.S == 3 && handle->ofh == 7 && handle->ofw == 7) {
+      result = 2;
+    }
+  }
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_init_bwd_gemm_flags( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  /* TODO: May want to experiment with streaming stores */
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_spread_input_bwd( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  if (((handle->desc.u != 1) || (handle->desc.v != 1)) && (handle->bwd_ofh_rb == 1)) {
+    result = 1;
+  }
   return result;
 }
 
@@ -718,10 +734,8 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_init_upd_gemm_flags( libxs_dnn_laye
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handle ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   /* Initialize all the setup values  */
-  handle->pack_input_bwd = 0;
   handle->block_upd_ofm = 1;
   handle->block_upd_ifm = 1;
-  int blockofm = 8;
 
   /* Generic parameter setup  */
   handle->ifmblock = libxs_dnn_setup_generic_ifmblock(handle);
@@ -751,17 +765,17 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
 
   /* BWD parameter setup  */
   handle->bwd_ofw_rb = libxs_dnn_setup_generic_bwd_ofw_rb(handle);
-  handle->pack_input_bwd = libxs_dnn_setup_generic_pack_input_bwd(handle);
   handle->bwd_ofh_rb = libxs_dnn_setup_generic_bwd_ofh_rb(handle);
-
-  if (handle->desc.R == 1 && handle->desc.S == 1) {
-    handle->blocksofm_blocking = handle->blocksofm;
-  } else {
-    handle->blocksofm_blocking = 1;
-    if (handle->desc.R == 3 && handle->desc.S == 3 && handle->ofh == 7 && handle->ofw == 7) {
-      handle->blocksofm_blocking = 2;
-    }
-  }
+  handle->pack_input_bwd = libxs_dnn_setup_generic_pack_input_bwd(handle);
+  handle->spread_input_bwd = libxs_dnn_setup_generic_spread_input_bwd(handle);
+  handle->blocksofm_blocking = libxs_dnn_setup_generic_blocksofm_blocking(handle);
+  handle->use_ifm_parallelization = libxs_dnn_setup_generic_use_ifm_parallelization(handle);
+  handle->block_bwd_ofm = libxs_dnn_setup_generic_block_bwd_OFM(handle);
+  handle->block_bwd_ifm = libxs_dnn_setup_generic_block_bwd_IFM(handle);
+  handle->block_bwd_oj = libxs_dnn_setup_generic_bwd_block_H(handle);
+  handle->code_bwd[0].xconv.sconv = 0;
+  handle->code_bwd[1].xconv.sconv = 0;
+  handle->code_bwd[2].xconv.sconv = 0;
 
   /* Transpose kernel used for filter transpose in bwd pass  */
   const libxs_trans_descriptor* tr_desc = 0;
@@ -769,18 +783,12 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), 64, 16, 64);
   handle->tr_kernel = libxs_dispatch_trans(tr_desc);
 
-  /* Backward path */
-  handle->code_bwd[0].xconv.sconv = 0;
-  handle->code_bwd[1].xconv.sconv = 0;
-  handle->code_bwd[2].xconv.sconv = 0;
-  /* weight update path */
-  handle->code_upd[0].xconv.sconv = 0;
-  handle->code_upd[1].xconv.sconv = 0;
-
+  /*****************************/
+  /* Barrier and scratch setup */
+  /*****************************/
   /* prepare barrier */
   handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
-
-  /* backward transpose filters, as we want to call small GEMMs we need that scratch */
+  /* backward transpose filters, as we want to call small GEMMs we need that scratch AND also scratch to potentially pack input if requested*/
   handle->scratch1 = 0;
   handle->scratch1_size = (size_t)handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
     * handle->desc.R * handle->desc.S * libxs_dnn_typesize(handle->datatype_in) + (size_t)handle->desc.N * handle->ofwp * handle->ofhp * handle->desc.C;
@@ -788,30 +796,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
     /* If low precision, we need extra buffer to store intermediate weight tensor */
     handle->scratch1_size *= 2;
   }
-
   handle->scratch3 = 0;
   handle->scratch3_size = 0;
   handle->scratch4 = 0;
   handle->scratch4_size = 0;
-
-  /* Setup bwd parameters based on duality */
-  handle->bwd_ofh_rb = handle->fwd_ofh_rb;
-  handle->bwd_ofw_rb = handle->fwd_ofw_rb;
-  handle->use_ifm_parallelization = handle->use_ofm_parallelization;
-  if (handle->ofw == 7) {
-    handle->use_ifm_parallelization = 1;
-  }
-
-  /* Feature map block tuning */
-  while (blockofm % handle->blocksofm_blocking != 0) {
-    blockofm++;
-  }
-
-  handle->pack_input_bwd = (handle->desc.u != 1 && handle->bwd_ofh_rb != 1) ? 1 : 0;
-  handle->spread_input_bwd = ((handle->desc.u != 1 || handle->desc.v != 1) && handle->bwd_ofh_rb == 1) ? 1 : 0;
-  handle->block_bwd_ifm = LIBXS_MIN(handle->blocksifm, 16);
-  handle->block_bwd_ofm = blockofm;
-  handle->block_bwd_oj = handle->block_fwd_oj;
 
   /* Setup upd parameters and use algorithms on a per layer basis */
   handle->upd_ofh_rb = 1;
@@ -935,6 +923,10 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   if (handle->desc.N == 27 && handle->desc.threads == 27 && handle->desc.R == 1 && handle->ofw == 14 && handle->desc.u == 1) {
     handle->weight_copies = 7;
   }
+
+  /* weight update path */
+  handle->code_upd[0].xconv.sconv = 0;
+  handle->code_upd[1].xconv.sconv = 0;
 
   return status;
 }
