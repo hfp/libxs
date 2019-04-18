@@ -702,31 +702,46 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_avoid_acc_load_bwd( libxs_dnn_layer
 /**********************************************************/
 LIBXS_API_INLINE int libxs_dnn_setup_generic_loop_order_upd( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  if (handle->ofh >= 28) {
+    result = 1;
+  }
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_pack_input_upd( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  /* Pack input only for very small images, 1x1 convs, with large K to amortize the relevant overhead */
+  if ((handle->ofh <= 7) && (handle->desc.R == 1) && (handle->desc.S == 1) && (handle->desc.u != 1) && (handle->desc.v != 1) && (handle->desc.K >= 2048)) {
+    result = 1;
+  }
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_avoid_rim_fmas_upd( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  /* Avoid rim FMAs only for small images  */
+  if ( (handle->ofh <= 7) && (handle->desc.R == 3) && (handle->desc.S == 3)) {
+    result = 1;
+  }
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_upd_ofw_rb( libxs_dnn_layer* handle ) {
-  int result = 0;
-
+  int result = 1;
+  result = handle->ofw;
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_upd_ofh_rb( libxs_dnn_layer* handle ) {
-  int result = 0;
-
+  int result = 1;
+  /* Restrict the reduction chain which is ofw_rb*ofh_rb*/
+  if (handle->ofh <= 28 ) {
+    result = handle->ofh;
+  }
+  /* In the following scenario with strided convolutions and non batch reduce kernel make sure we have ofh_rb = 1  */
+  if ((handle->desc.u != 1) && (handle->desc.v != 1) && (handle->upd_use_batchreduce == 0) && (handle->upd_pack_input == 0)) {
+    result = 1;
+  }
   return result;
 }
 
@@ -737,8 +752,15 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_img_batchreduce_block( libxs_dnn_la
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_use_batchreduce_upd( libxs_dnn_layer* handle ) {
-  int result = 0;
-
+  int result = 1;
+  /* If W is large, no need for batchreduce kernel */
+  if (handle->ofw >= 56) {
+    result = 0;
+  }
+  /* If we have packed the input, then disable batch-reduce GEMM */
+  if (handle->upd_pack_input == 1) {
+    result = 0;
+  }
   return result;
 }
 
@@ -750,21 +772,23 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_weight_copies_upd( libxs_dnn_layer*
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_linearized_tasklist_upd( libxs_dnn_layer* handle ) {
   int result = 0;
-
+  /* Use linearized task-list (i.e. no reduction) only if small images and large filters */
+  if (handle->ofh <= 7) {
+    result = 1;
+  }
+  if (handle->desc.u == 2 && handle->desc.v == 2 && handle->desc.K == 512) {
+    result = 0;
+  }
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_init_upd_gemm_flags( libxs_dnn_layer* handle ) {
   int result = 0;
-
   return result;
 }
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handle ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  /* Initialize all the setup values  */
-  handle->block_upd_ofm = 1;
-  handle->block_upd_ifm = 1;
 
   /* Generic parameter setup  */
   handle->ifmblock = libxs_dnn_setup_generic_ifmblock(handle);
@@ -807,12 +831,28 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->code_bwd[0].xconv.sconv = 0;
   handle->code_bwd[1].xconv.sconv = 0;
   handle->code_bwd[2].xconv.sconv = 0;
-
   /* Transpose kernel used for filter transpose in bwd pass  */
   const libxs_trans_descriptor* tr_desc = 0;
   libxs_descriptor_blob blob;
   tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), 64, 16, 64);
   handle->tr_kernel = libxs_dispatch_trans(tr_desc);
+
+  /* UPD parameter setup */
+  handle->upd_linearized_tasklist = libxs_dnn_setup_generic_linearized_tasklist_upd(handle);
+  handle->upd_avoid_rim_fmas = libxs_dnn_setup_generic_avoid_rim_fmas_upd(handle);
+  handle->upd_pack_input = libxs_dnn_setup_generic_pack_input_upd(handle);
+  handle->upd_use_batchreduce = libxs_dnn_setup_generic_use_batchreduce_upd(handle);
+  handle->upd_ofw_rb = libxs_dnn_setup_generic_upd_ofw_rb(handle);
+  handle->upd_ofh_rb = libxs_dnn_setup_generic_upd_ofh_rb(handle);
+  /* More work on the loop ordering */
+  handle->upd_loop_order = libxs_dnn_setup_generic_loop_order_upd(handle);
+
+  handle->block_upd_ofm = 1;
+  handle->block_upd_ifm = 1;
+  handle->code_upd[0].xconv.sconv = 0;
+  handle->code_upd[1].xconv.sconv = 0;
+
+  /* TODO: Add function to validate the configurations */
 
   /*****************************/
   /* Barrier and scratch setup */
@@ -833,19 +873,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->scratch4_size = 0;
 
   /* Setup upd parameters and use algorithms on a per layer basis */
-  handle->upd_ofh_rb = 1;
   handle->upd_img_br_block = 1;
-  handle->upd_use_batchreduce = 0;
   handle->weight_copies = 1;
   handle->upd_loop_order = 0;
-  handle->upd_pack_input = 0;
-  handle->upd_linearized_tasklist = 0;
-  handle->upd_avoid_rim_fmas = 0;
-  handle->upd_ofw_rb = handle->ofw;
 
   if (handle->ofh == 112 || handle->ofh == 56 || (handle->desc.H == 56 && handle->desc.u == 2)) {
-    handle->upd_ofh_rb = 1;
-    handle->upd_use_batchreduce = 0;
     handle->weight_copies = handle->desc.threads;
     if (handle->desc.H == 56 && handle->desc.u == 2 && handle->desc.C == 512) {
       handle->upd_loop_order = 0;
@@ -853,15 +885,12 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
       handle->upd_loop_order = 1;
     }
     if (handle->ofh == 56 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v == 1) {
-      handle->upd_ofh_rb = 2;
       handle->block_upd_ofm = 1;
       handle->block_upd_ifm = 4;
     }
   }
 
   if (handle->ofh == 28 && handle->desc.u == 1 && handle->desc.R == 1 && handle->desc.S == 1) {
-    handle->upd_ofh_rb = 28;
-    handle->upd_use_batchreduce = 1;
     handle->weight_copies = handle->desc.threads;
     if (handle->desc.K == 512) {
       handle->upd_loop_order = 0;
@@ -871,29 +900,19 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   }
 
   if (handle->ofh == 28 && handle->desc.R == 3 && handle->desc.S == 3) {
-    handle->upd_ofh_rb = 28;
-    handle->upd_use_batchreduce = 1;
     handle->weight_copies = handle->desc.threads;
   }
 
   if (handle->ofh == 14 && handle->desc.u == 2 && handle->desc.v == 2 && handle->desc.K == 256) {
-    handle->upd_ofh_rb = 14;
-    handle->upd_use_batchreduce = 1;
     handle->weight_copies = handle->desc.threads;
   }
 
   if (handle->ofh == 14 && handle->desc.u == 2 && handle->desc.v == 2 && handle->desc.K == 1024) {
-    handle->upd_ofh_rb = 14;
-    handle->upd_pack_input = 0;
-    handle->upd_linearized_tasklist = 0;
     handle->weight_copies = 7;
-    handle->upd_use_batchreduce = 1;
     handle->upd_loop_order = 1;
   }
 
   if (handle->ofh == 14 && handle->desc.R == 3 && handle->desc.S == 3) {
-    handle->upd_ofh_rb = 14;
-    handle->upd_use_batchreduce = 1;
     handle->weight_copies = 9;
     if (handle->desc.N == 26) {
       handle->weight_copies = 13;
@@ -901,8 +920,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   }
 
   if (handle->ofh == 14 && handle->desc.u == 1 && handle->desc.v == 1) {
-    handle->upd_ofh_rb = 14;
-    handle->upd_use_batchreduce = 1;
     handle->weight_copies = 9;
     /* FIXME: Add better logic */
     if (handle->desc.N == 26) {
@@ -914,36 +931,20 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   }
 
   if (handle->ofh == 7 && handle->desc.u == 2 && handle->desc.v == 2 && handle->desc.K == 2048 ) {
-    handle->upd_ofh_rb = 7;
-    handle->upd_pack_input = 1;
-    handle->upd_linearized_tasklist = 1;
     handle->weight_copies = 1;
-    handle->upd_use_batchreduce = 0;
   }
 
   if (handle->ofh == 7 && handle->desc.u == 2 && handle->desc.v == 2 && handle->desc.K == 512 ) {
-    handle->upd_ofh_rb = 7;
-    handle->upd_pack_input = 0;
-    handle->upd_linearized_tasklist = 0;
     handle->weight_copies = 7;
-    handle->upd_use_batchreduce = 1;
     handle->upd_loop_order = 0;
   }
 
   if (handle->ofh == 7 && handle->desc.u == 1 && handle->desc.v == 1) {
-    handle->upd_ofh_rb = 7;
-    handle->upd_pack_input = 0;
-    handle->upd_linearized_tasklist = 1;
     handle->weight_copies = 1;
-    handle->upd_use_batchreduce = 0;
   }
 
   if (handle->ofh == 7 && handle->desc.R == 3 && handle->desc.S == 3) {
-    handle->upd_ofh_rb = 7;
-    handle->upd_linearized_tasklist = 1;
     handle->weight_copies = 1;
-    handle->upd_use_batchreduce = 1;
-    handle->upd_avoid_rim_fmas = 1;
   }
 
   while (handle->desc.threads % handle->weight_copies != 0) {
@@ -954,10 +955,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   if (handle->desc.N == 27 && handle->desc.threads == 27 && handle->desc.R == 1 && handle->ofw == 14 && handle->desc.u == 1) {
     handle->weight_copies = 7;
   }
-
-  /* weight update path */
-  handle->code_upd[0].xconv.sconv = 0;
-  handle->code_upd[1].xconv.sconv = 0;
 
   return status;
 }
