@@ -537,7 +537,7 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_use_ofm_parallelization( libxs_dnn_
 LIBXS_API_INLINE int libxs_dnn_setup_generic_avoid_rim_fmas_fwd( libxs_dnn_layer* handle ) {
   int result = 0;
   /* Avoid rim FMA if the convolution is 3x3 (non-strided) and the image is "small" */
-  if ((handle->desc.R == 3) && (handle->desc.S == 3) && (handle->desc.u  == 1) && (handle->desc.v == 1)) {
+  if ((handle->desc.R == 3) && (handle->desc.S == 3) && (handle->desc.u  == 1) && (handle->desc.v == 1) && (handle->desc.pad_h_in == 1) && (handle->desc.pad_w_in == 1)) {
     if (handle->ofw <= 28) {
       result = 1;
     }
@@ -582,6 +582,21 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_init_fwd_gemm_flags( libxs_dnn_laye
 /**********************************************************/
 /* Helper functions for BWD convolutions' parameter setup */
 /**********************************************************/
+LIBXS_API_INLINE int libxs_dnn_setup_generic_fallback_loops_bwd( libxs_dnn_layer* handle ) {
+  int result = 0;
+  /* FIXME: Fallback if MB is not divisible by number of threads */
+  if (handle->desc.N % handle->desc.threads != 0) {
+    result = 1;
+  }
+  if (handle->desc.R == 1 && handle->desc.S == 1 && (handle->desc.pad_h != 0 ||  handle->desc.pad_w != 0)) {
+    result = 1;
+  }
+  if ((handle->desc.R > 1 && handle->desc.pad_h == 0) || (handle->desc.S > 1 && handle->desc.pad_w == 0)) {
+    result = 1;
+  }
+  return result;
+}
+
 LIBXS_API_INLINE int libxs_dnn_setup_generic_bwd_ofw_rb( libxs_dnn_layer* handle ) {
   int result = libxs_dnn_setup_generic_fwd_ofw_rb(handle);
   return result;
@@ -666,6 +681,22 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_spread_input_bwd( libxs_dnn_layer* 
   return result;
 }
 
+LIBXS_API_INLINE int libxs_dnn_setup_generic_avoid_acc_load_bwd( libxs_dnn_layer* handle ) {
+  int result = 0;
+  if ((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) {
+    if ((handle->desc.R == 1) && (handle->desc.S == 1)) {
+      if (handle->blocksofm_blocking == handle->blocksofm) {
+        result = 1;
+      }
+    } else {
+      if ((handle->blocksofm_blocking == handle->blocksofm) && (handle->avoid_fmas_in_rim == 0)) {
+        result = 1;
+      }
+    }
+  }
+  return result;
+}
+
 /**********************************************************/
 /* Helper functions for UPD convolutions' parameter setup */
 /**********************************************************/
@@ -729,8 +760,6 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_init_upd_gemm_flags( libxs_dnn_laye
   return result;
 }
 
-
-
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handle ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   /* Initialize all the setup values  */
@@ -758,7 +787,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->shuffle_filter_accesses = libxs_dnn_setup_generic_shuffle_filter_accesses(handle);
   handle->avoid_acc_load = libxs_dnn_setup_generic_avoid_acc_load(handle);
   handle->fwd_flags = libxs_dnn_setup_generic_init_fwd_gemm_flags(handle);
-  handle->use_generic_fwd_loops = libxs_dnn_setup_generic_fallback_loops_fwd(handle);
+  handle->use_fallback_fwd_loops = libxs_dnn_setup_generic_fallback_loops_fwd(handle);
   handle->code_fwd[0].xconv.sconv = 0;
   handle->code_fwd[1].xconv.sconv = 0;
   handle->code_fwd[2].xconv.sconv = 0;
@@ -769,10 +798,12 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->pack_input_bwd = libxs_dnn_setup_generic_pack_input_bwd(handle);
   handle->spread_input_bwd = libxs_dnn_setup_generic_spread_input_bwd(handle);
   handle->blocksofm_blocking = libxs_dnn_setup_generic_blocksofm_blocking(handle);
+  handle->avoid_acc_load_bwd = libxs_dnn_setup_generic_avoid_acc_load_bwd(handle);
   handle->use_ifm_parallelization = libxs_dnn_setup_generic_use_ifm_parallelization(handle);
   handle->block_bwd_ofm = libxs_dnn_setup_generic_block_bwd_OFM(handle);
   handle->block_bwd_ifm = libxs_dnn_setup_generic_block_bwd_IFM(handle);
   handle->block_bwd_oj = libxs_dnn_setup_generic_bwd_block_H(handle);
+  handle->use_fallback_bwd_loops = libxs_dnn_setup_generic_fallback_loops_bwd(handle);
   handle->code_bwd[0].xconv.sconv = 0;
   handle->code_bwd[1].xconv.sconv = 0;
   handle->code_bwd[2].xconv.sconv = 0;
