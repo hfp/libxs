@@ -386,6 +386,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int use_nts_bwd;
   int use_nts_upd;
   int avoid_acc_load;
+  int avoid_acc_load_bwd;
   int pack_input;
   int pack_input_bwd;
   int spread_input_bwd;
@@ -433,7 +434,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int upd_avoid_rim_fmas;
   int fwd_flags;
   int shuffle_filter_accesses;
-  int use_generic_fwd_loops;
+  int use_fallback_fwd_loops;
+  int use_fallback_bwd_loops;
 
   libxs_xtransfunction tr_kernel;
 

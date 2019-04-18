@@ -150,19 +150,30 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_d
   /* check if we have a kernel JITed */
   if ( handle->use_bwd_generic != 0 ) {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      const libxs_blasint ldx = ((libxs_blasint)handle->ifmblock);
-      const libxs_blasint ldA = handle->ofmblock;
-      const libxs_blasint ldC = (handle->spread_input_bwd == 1) ? handle->ofmblock * handle->desc.v : handle->ofmblock;
-      const float  beta = (handle->avoid_acc_load) ? 0.0 : 1.0;
-      typedef float element_input_type;
-      typedef float element_output_type;
-      typedef float element_filter_type;
-      typedef libxs_smmfunction_reducebatch gemm_br_function;
-      int l_flags = LIBXS_GEMM_FLAGS('N', 'N');
-      /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
-      gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
-      gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+      if (handle->use_fallback_bwd_loops == 0) {
+        const libxs_blasint ldx = ((libxs_blasint)handle->ofmblock);
+        const libxs_blasint ldA = handle->ifmblock;
+        const libxs_blasint ldC = (handle->spread_input_bwd == 1) ? handle->ifmblock * handle->desc.v : handle->ifmblock;
+        const float  beta = (handle->avoid_acc_load_bwd) ? 0.0 : 1.0;
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_smmfunction_reducebatch gemm_br_function;
+        int l_flags = LIBXS_GEMM_FLAGS('N', 'N');
+        /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
+        gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+        gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
 # include "template/libxs_dnn_convolve_st_bwd_custom_custom_generic.tpl.c"
+      } else {
+        const libxs_blasint ldx = ((libxs_blasint)handle->desc.v*handle->ifmblock);
+        typedef float element_input_type;
+        typedef float element_output_type;
+        typedef float element_filter_type;
+        typedef libxs_smmfunction gemm_function;
+        /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
+        gemm_function gemm_kernel = libxs_smmdispatch(handle->ifmblock, handle->ofw, handle->ofmblock, NULL, NULL, &ldx, NULL, NULL, NULL, NULL);
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback_generic.tpl.c"
+      }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -205,8 +216,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_l
       const libxs_blasint lda = (libxs_blasint)handle->ifmblock;
       const libxs_blasint ldb = (libxs_blasint)handle->blocksofm*handle->ofmblock;
       const libxs_blasint ldc = ((handle->desc.pad_h == handle->desc.pad_h_in && handle->desc.pad_w == handle->desc.pad_w_in)
-        ? ((libxs_blasint)handle->desc.v*handle->blocksifm*handle->ifmblock)
-        : ((libxs_blasint)handle->desc.v*handle->ifmblock));
+          ? ((libxs_blasint)handle->desc.v*handle->blocksifm*handle->ifmblock)
+          : ((libxs_blasint)handle->desc.v*handle->ifmblock));
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
@@ -245,7 +256,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs_dnn
       const libxs_blasint lda = (libxs_blasint)handle->ifmblock;
       const libxs_blasint ldb = (libxs_blasint)handle->blocksofm*handle->ofmblock;
       const libxs_blasint ldc = (libxs_blasint)((handle->desc.pad_h == handle->desc.pad_h_in && handle->desc.pad_w == handle->desc.pad_w_in)
-                        ? (handle->desc.v*handle->blocksifm*handle->ifmblock) : (handle->desc.v*handle->ifmblock));
+          ? (handle->desc.v*handle->blocksifm*handle->ifmblock) : (handle->desc.v*handle->ifmblock));
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
