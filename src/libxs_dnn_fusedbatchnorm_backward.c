@@ -326,7 +326,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_st_bwd_custom(libxs_dn
   }
 
   /* check if we are on an AVX512 platform */
-  if ( (libxs_target_archid >= LIBXS_X86_AVX512 ) &&
+  if ( ( libxs_target_archid >= LIBXS_X86_AVX512 ) &&
        (handle->ofmblock == 16) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fusedbatchnorm_st_bwd_custom_f32_f32_c16( handle, start_thread, tid );
@@ -336,9 +336,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_st_bwd_custom(libxs_dn
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  } else if ( (libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
-        libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_CLX ||
-        libxs_target_archid == LIBXS_X86_AVX512_KNM                                                        ) &&
+  } else if ( ( libxs_target_archid >= LIBXS_X86_AVX512 ) &&
        (handle->ofmblock == 32) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fusedbatchnorm_st_bwd_custom_f32_f32_c32( handle, start_thread, tid );
@@ -348,9 +346,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_st_bwd_custom(libxs_dn
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  } else if ( (libxs_target_archid == LIBXS_X86_AVX512      || libxs_target_archid == LIBXS_X86_AVX512_MIC ||
-        libxs_target_archid == LIBXS_X86_AVX512_CORE || libxs_target_archid == LIBXS_X86_AVX512_CLX ||
-        libxs_target_archid == LIBXS_X86_AVX512_KNM                                                        ) &&
+  } else if ( ( libxs_target_archid >= LIBXS_X86_AVX512 ) &&
        (handle->ofmblock == 64) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fusedbatchnorm_st_bwd_custom_f32_f32_c64( handle, start_thread, tid );

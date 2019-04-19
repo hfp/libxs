@@ -600,7 +600,7 @@
 #elif defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__ || defined(__GNUC__))
 # define LIBXS_SNPRINTF(S, N, ...) snprintf(S, N, __VA_ARGS__)
 #else
-# define LIBXS_SNPRINTF(S, N, ...) sprintf(S, __VA_ARGS__); LIBXS_UNUSED(N)
+# define LIBXS_SNPRINTF(S, N, ...) sprintf((S) + /*unused*/(N) * 0, __VA_ARGS__)
 #endif
 #if (0 == LIBXS_SYNC)
 # define LIBXS_FLOCK(FILE)

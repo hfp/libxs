@@ -62,10 +62,12 @@
 
 #if defined(__MIC__)
 # define LIBXS_SYNC_PAUSE _mm_delay_32(8/*delay*/)
-#elif !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_STATIC)
-# define LIBXS_SYNC_PAUSE _mm_pause()
-#elif defined(LIBXS_GCC_BASELINE) && !defined(__PGI)
-# define LIBXS_SYNC_PAUSE __builtin_ia32_pause()
+#elif !defined(LIBXS_INTRINSICS_NONE)
+# if defined(LIBXS_GCC_BASELINE) && !defined(__INTEL_COMPILER)
+#   define LIBXS_SYNC_PAUSE __builtin_ia32_pause()
+# else
+#   define LIBXS_SYNC_PAUSE _mm_pause()
+# endif
 #else
 # define LIBXS_SYNC_PAUSE
 #endif

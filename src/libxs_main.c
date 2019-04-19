@@ -51,6 +51,7 @@
 #if defined(_WIN32)
 # include <Windows.h>
 #else
+# include <sys/types.h>
 # include <sys/mman.h>
 # include <sys/stat.h>
 # include <unistd.h>
@@ -395,9 +396,18 @@ LIBXS_API_INLINE void internal_finalize(void)
   const char *const delims = ";,";
   const int singleton = (NULL != handle ? 1 : 0);
 #else
-  const char *const delims = ";,:", *const filename_global = "/tmp/GlobalLIBXS";
-  const int handle = open(filename_global, O_CREAT | O_EXCL, S_IRUSR);
-  const int singleton = (0 <= handle ? 1 : 0);
+  const char *const delims = ";,:";
+  char singleton_fname[64];
+  const int result = LIBXS_SNPRINTF(singleton_fname, sizeof(singleton_fname), "/tmp/.libxs.%u", (unsigned int)getuid());
+  int handle, singleton;
+  struct flock singleton_flock;
+  singleton_flock.l_start = 0;
+  singleton_flock.l_len = 0/*all*/;
+  singleton_flock.l_type = F_RDLCK;
+  singleton_flock.l_whence = SEEK_SET;
+  handle = ((0 < result && (int)sizeof(singleton_fname) > result) ? fcntl(open( /* attempt to lock file */
+    singleton_fname, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR), F_SETLK, &singleton_flock) : -1);
+  singleton = (0 <= handle ? 1 : 0);
 #endif
   libxs_finalize();
   if (0 != libxs_verbosity) { /* print statistic on termination */
@@ -407,6 +417,9 @@ LIBXS_API_INLINE void internal_finalize(void)
       : NULL/*hidden*/;
     /* synchronize I/O */
     LIBXS_STDIO_ACQUIRE();
+#if !defined(NDEBUG) && defined(__OPTIMIZE__)
+    fprintf(stderr, "LIBXS WARNING: library was built without -DNDEBUG and contains debug code!\n");
+#endif
     if (0 != singleton) {
       fprintf(stderr, "\nLIBXS_VERSION: %s-%s (%i)", LIBXS_BRANCH, LIBXS_VERSION, LIBXS_VERSION4(
         LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH));
@@ -499,7 +512,7 @@ LIBXS_API_INLINE void internal_finalize(void)
 #if defined(_WIN32)
     ReleaseMutex(handle);
 #else
-    unlink(filename_global);
+    unlink(singleton_fname);
     close(handle);
 #endif
   }
@@ -746,19 +759,19 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 #   endif
       }
 # endif
-# if defined(LIBXS_TRACE)
+# if (1 < INTERNAL_REGLOCK_MAXN)
+      LIBXS_ASSERT(1 <= internal_reglock_count);
+      for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_INIT(LIBXS_REGLOCK, &internal_reglock[i].state, &attr);
+      LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGLOCK, &attr);
+# endif
+#endif
+#if defined(LIBXS_TRACE)
       { int filter_threadid = 0/*only main-thread*/, filter_mindepth = 0, filter_maxnsyms = 0;
         const int init_code = libxs_trace_init(filter_threadid, filter_mindepth, filter_maxnsyms);
         if (EXIT_SUCCESS != init_code && 0 != libxs_verbosity) { /* library code is expected to be mute */
           fprintf(stderr, "LIBXS ERROR: failed to initialize TRACE (error #%i)!\n", init_code);
         }
       }
-# endif
-# if (1 < INTERNAL_REGLOCK_MAXN)
-      LIBXS_ASSERT(1 <= internal_reglock_count);
-      for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_INIT(LIBXS_REGLOCK, &internal_reglock[i].state, &attr);
-      LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGLOCK, &attr);
-# endif
 #endif
       { /* calibrate timer */
         libxs_timer_tickint s0, t0, s1, t1;
@@ -901,7 +914,6 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           }
         }
       }
-
 #if defined(LIBXS_TRACE)
       i = libxs_trace_finalize();
       if (EXIT_SUCCESS != i && 0 != libxs_verbosity) { /* library code is expected to be mute */
@@ -914,7 +926,6 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       libxs_gemm_finalize();
       libxs_trans_finalize();
       libxs_dnn_finalize();
-
       /* make internal registry globally unavailable */
       LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
       internal_registry_keys = NULL;
@@ -2077,10 +2088,6 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
 }
 
 
-#if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__) && defined(__clang__) && !defined(LIBXS_INTEL_COMPILER)
-LIBXS_PRAGMA_OPTIMIZE_OFF
-#endif
-
 LIBXS_API libxs_dmmfunction libxs_dmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
   const double* alpha, const double* beta, const int* flags, const int* prefetch)
@@ -2196,8 +2203,6 @@ LIBXS_API libxs_smmfunction_reducebatch libxs_smmdispatch_reducebatch(libxs_blas
 {
   const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
   libxs_descriptor_blob blob;
-  const int br_flags = (*flags) | LIBXS_GEMM_FLAG_BATCH_REDUCE;
-
   const libxs_gemm_descriptor *const desc = libxs_sgemm_descriptor_init(&blob,
     m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
@@ -2234,10 +2239,6 @@ LIBXS_API libxs_bmmfunction_reducebatch libxs_bmmdispatch_reducebatch(libxs_blas
   return result.bmr;
 }
 
-
-#if !defined(LIBXS_BUILD) && defined(__APPLE__) && defined(__MACH__) && defined(__clang__) && !defined(LIBXS_INTEL_COMPILER)
-LIBXS_PRAGMA_OPTIMIZE_ON
-#endif
 
 LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor* descriptor)
 {

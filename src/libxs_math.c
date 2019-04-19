@@ -254,7 +254,7 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info)
 }
 
 
-LIBXS_API unsigned int libxs_hash(unsigned int seed, const void* data, unsigned int size)
+LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed)
 {
   LIBXS_INIT
   return libxs_crc32(seed, data, size);
@@ -583,7 +583,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(void* hash_seed, const void* data, cons
 #endif
   {
     unsigned int *const hash_seed_ui32 = (unsigned int*)hash_seed;
-    *hash_seed_ui32 = (libxs_hash(*hash_seed_ui32, data, (unsigned int)(*size)) & 0x7FFFFFFF/*sign-bit*/);
+    *hash_seed_ui32 = (libxs_hash(data, (unsigned int)*size, *hash_seed_ui32) & 0x7FFFFFFF/*sign-bit*/);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
