@@ -35,10 +35,10 @@
 #define LIBXS_ATTRIBUTE_TARGET(TARGET) LIBXS_CONCATENATE(LIBXS_ATTRIBUTE_TARGET_, TARGET)
 
 #if defined(__PGI) /* no intrinsics: tested with 17.x and 18.x */
-# if !defined(LIBXS_INTRINSICS_NONE)
+# if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_STATIC)
 #   define LIBXS_INTRINSICS_NONE
 # endif
-#elif !defined(LIBXS_INTRINSICS_STATIC) && /* GCC 4.4 (target-attribute) */ \
+#elif !defined(LIBXS_INTRINSICS_STATIC) && !defined(LIBXS_INTRINSICS_NONE) && /* GCC 4.4 (target-attribute) */ \
     (defined(__GNUC__) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) && !defined(_CRAYC) && \
      LIBXS_VERSION3(4, 4, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
  || (defined(__clang__) && LIBXS_VERSION3(3, 7, 0) > LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)) \
@@ -346,7 +346,7 @@
 # endif /*defined(LIBXS_STATIC_TARGET_ARCH)*/
 #endif /*!defined(LIBXS_INTRINSICS_NONE)*/
 #if !defined(LIBXS_STATIC_TARGET_ARCH)
-# if !defined(LIBXS_INTRINSICS_NONE)
+# if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_STATIC)
 #   define LIBXS_INTRINSICS_NONE
 # endif
 # define LIBXS_STATIC_TARGET_ARCH LIBXS_TARGET_ARCH_GENERIC
@@ -567,7 +567,6 @@ LIBXS_API_INLINE unsigned int LIBXS_ILOG2(unsigned long long n) {
     !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_X86_AVX512_CPX <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define LIBXS_INTRINSICS_AVX512_CPX
 #endif
-
 
 /**
  * Pseudo intrinsics (AVX-512)

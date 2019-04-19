@@ -226,6 +226,7 @@ libxs_icbrt_u32
 libxs_icbrt_u64
 libxs_init
 libxs_init_
+libxs_internal_gemm_error
 libxs_isqrt2_u32
 libxs_isqrt_u32
 libxs_isqrt_u64
