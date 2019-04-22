@@ -670,8 +670,8 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_blocksofm_blocking( libxs_dnn_layer
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_init_bwd_gemm_flags( libxs_dnn_layer* handle ) {
   int result = 0;
-  
-/* TODO: May want to experiment with streaming stores */
+
+  /* TODO: May want to experiment with streaming stores */
   LIBXS_UNUSED( handle );
 
   return result;
