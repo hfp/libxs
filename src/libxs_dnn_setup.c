@@ -368,7 +368,7 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
 /* Helper functions for convolutions' general param setup */
 /**********************************************************/
 LIBXS_API_INLINE int libxs_dnn_setup_generic_ifmblock( libxs_dnn_layer* handle ) {
-  int result, tmp_max_c_block = 32, tmp_block;
+  int result = 1, tmp_max_c_block = 32, tmp_block;
   if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
     tmp_max_c_block = 64;
   }
@@ -383,7 +383,7 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_ifmblock( libxs_dnn_layer* handle )
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_ofmblock( libxs_dnn_layer* handle ) {
-  int result, tmp_max_k_block = 32, tmp_block;
+  int result = 1, tmp_max_k_block = 32, tmp_block;
   if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
     tmp_max_k_block = 64;
   }
@@ -400,6 +400,7 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_ofmblock( libxs_dnn_layer* handle )
 LIBXS_API_INLINE int libxs_dnn_setup_generic_fm_lp_block( libxs_dnn_layer* handle ) {
   int result = 1;
   /* FIXME: Fix this when requesting BF16 convolutions */
+  LIBXS_UNUSED(handle);
   return result;
 }
 
@@ -675,6 +676,7 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_init_bwd_gemm_flags( libxs_dnn_laye
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_spread_input_bwd( libxs_dnn_layer* handle ) {
   int result = 0;
+  LIBXS_UNUSED(handle);
   if (((handle->desc.u != 1) || (handle->desc.v != 1)) && (handle->bwd_ofh_rb == 1)) {
     result = 1;
   }
@@ -765,11 +767,13 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_block_upd_IFM( libxs_dnn_layer* han
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_block_upd_OFM( libxs_dnn_layer* handle ) {
   int result = 1;
+  LIBXS_UNUSED(handle);
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_img_batchreduce_block( libxs_dnn_layer* handle ) {
   int result = 1;
+  LIBXS_UNUSED(handle);
   return result;
 }
 
@@ -832,11 +836,14 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_linearized_tasklist_upd( libxs_dnn_
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_init_upd_gemm_flags( libxs_dnn_layer* handle ) {
   int result = 0;
+  LIBXS_UNUSED(handle);
   return result;
 }
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handle ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  const libxs_trans_descriptor* tr_desc = 0;
+  libxs_descriptor_blob blob;
 
   /* Generic parameter setup  */
   handle->ifmblock = libxs_dnn_setup_generic_ifmblock(handle);
@@ -880,8 +887,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->code_bwd[1].xconv.sconv = 0;
   handle->code_bwd[2].xconv.sconv = 0;
   /* Transpose kernel used for filter transpose in bwd pass  */
-  const libxs_trans_descriptor* tr_desc = 0;
-  libxs_descriptor_blob blob;
   tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), 64, 16, 64);
   handle->tr_kernel = libxs_dispatch_trans(tr_desc);
 
