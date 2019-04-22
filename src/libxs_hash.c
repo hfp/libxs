@@ -554,7 +554,7 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u512(unsigned int seed, const void* va
 #if (LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH)
   return internal_crc32_u512_sse4(seed, value);
 #else /* pointer based function call */
-  LIBXS_ASSERT(NULL != internal_hash_u256_function);
+  LIBXS_ASSERT(NULL != internal_hash_u512_function);
   return internal_hash_u512_function(seed, value);
 #endif
 }

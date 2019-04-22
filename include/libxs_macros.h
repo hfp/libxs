@@ -128,6 +128,10 @@
 # define LIBXS_CALLER LIBXS_CALLER_ID
 #endif
 
+#if !defined(LIBXS_UNPACKED) && defined(_CRAYC)
+# define LIBXS_UNPACKED
+#endif
+
 #if defined(_WIN32) && !defined(__GNUC__)
 # define LIBXS_ATTRIBUTE(A) __declspec(A)
 # if defined(__cplusplus)
