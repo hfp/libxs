@@ -182,10 +182,10 @@ LIBXS_APIVAR(int internal_gemm_auto_prefetch_locked);
 LIBXS_APIVAR(const char* internal_build_state);
 
 #if defined(_WIN32)
-LIBXS_APIVAR(const char* internal_delims);
+# define INTERNAL_DELIMS ";,"
 LIBXS_APIVAR(HANDLE internal_singleton_handle);
 #else
-LIBXS_APIVAR(const char* internal_delims);
+# define INTERNAL_DELIMS ";,:"
 LIBXS_APIVAR_ARRAY(char internal_singleton_fname, 64);
 LIBXS_APIVAR(int internal_singleton_handle);
 #endif
@@ -430,7 +430,7 @@ LIBXS_API_INLINE void internal_finalize(void)
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
         fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
       }
-      fprintf(stderr, "Registry: %.f MB", regsize);
+      fprintf(stderr, "Registry (%u): %.f MB", libxs_get_pid(), regsize);
       if (0 != high_verbosity) {
         size_t ngemms = 0;
         int i; for (i = 0; i < 4; ++i) {
@@ -485,12 +485,11 @@ LIBXS_API_INLINE void internal_finalize(void)
   if (0 <= internal_singleton_handle && 0 != *internal_singleton_fname)
 #endif
   { /* dump per-node info */
-    LIBXS_ASSERT(NULL != internal_delims);
     if (NULL != env_dump_build || NULL != env_dump_files) {
       LIBXS_STDIO_ACQUIRE();
       if (NULL != env_dump_files && 0 != *env_dump_files) {
-        const char *filename = strtok(env_dump_files, internal_delims);
-        for (; NULL != filename; filename = strtok(NULL, internal_delims)) {
+        const char *filename = strtok(env_dump_files, INTERNAL_DELIMS);
+        for (; NULL != filename; filename = strtok(NULL, INTERNAL_DELIMS)) {
           FILE *const file = fopen(filename, "r");
           if (NULL != file) {
             int c = fgetc(file);
@@ -680,10 +679,14 @@ LIBXS_API_INTERN void internal_init(void)
 #     include <libxs_dispatch.h>
 #endif
       libxs_gemm_init(libxs_target_archid);
-      if (0 == libxs_ninit) {
-        atexit(internal_finalize);
-        ++libxs_ninit;
+#if defined(LIBXS_TRACE)
+      { int filter_threadid = 0/*only main-thread*/, filter_mindepth = 0, filter_maxnsyms = 0;
+        const int init_code = libxs_trace_init(filter_threadid, filter_mindepth, filter_maxnsyms);
+        if (EXIT_SUCCESS != init_code && 0 != libxs_verbosity) { /* library code is expected to be mute */
+          fprintf(stderr, "LIBXS ERROR: failed to initialize TRACE (error #%i)!\n", init_code);
+        }
       }
+#endif
       { void *const pv_registry = &internal_registry;
         LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)((void**)pv_registry, (void*)new_registry, LIBXS_ATOMIC_SEQ_CST);
       }
@@ -711,8 +714,9 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)) {
 #if (0 != LIBXS_SYNC)
-    static int counter = 0, once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&counter, 1, LIBXS_ATOMIC_SEQ_CST)) {
+    static int once = 0;
+    /* libxs_ninit: serves as an ID to invalidate the thread-local cache; never decremented */
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST)) {
 # if defined(LIBXS_REGLOCK_TRY)
       const char *const env_trylock = getenv("LIBXS_TRYLOCK");
 # endif
@@ -766,38 +770,26 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGLOCK, &attr);
 # endif
 #endif
-#if defined(_WIN32)
-      internal_delims = ";,";
-#else
-      internal_delims = ";,:";
-#endif
       { /* determine whether this instance is unique or not */
 #if defined(_WIN32)
         internal_singleton_handle = CreateMutex(NULL, TRUE, "GlobalLIBXS");
 #else
-        const int result = LIBXS_SNPRINTF(internal_singleton_fname, sizeof(internal_singleton_fname), "/tmp/.libxs.%u", (unsigned int)getuid());
+        const int result = LIBXS_SNPRINTF(internal_singleton_fname, sizeof(internal_singleton_fname), "/tmp/.libxs.%u", (unsigned int)getppid());
         struct flock singleton_flock;
         singleton_flock.l_start = 0;
-        singleton_flock.l_len = 0/*all*/;
-        singleton_flock.l_type = F_RDLCK;
+        singleton_flock.l_len = 0; /* entire file */
+        singleton_flock.l_type = F_WRLCK; /* exclusive across PIDs */
         singleton_flock.l_whence = SEEK_SET;
         internal_singleton_handle = ((0 < result && (int)sizeof(internal_singleton_fname) > result) ? fcntl(open( /* attempt to lock file */
-          internal_singleton_fname, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR), F_SETLK, &singleton_flock) : -1);
+          internal_singleton_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR), F_SETLK, &singleton_flock) : -1);
 #endif
       }
-#if defined(LIBXS_TRACE)
-      { int filter_threadid = 0/*only main-thread*/, filter_mindepth = 0, filter_maxnsyms = 0;
-        const int init_code = libxs_trace_init(filter_threadid, filter_mindepth, filter_maxnsyms);
-        if (EXIT_SUCCESS != init_code && 0 != libxs_verbosity) { /* library code is expected to be mute */
-          fprintf(stderr, "LIBXS ERROR: failed to initialize TRACE (error #%i)!\n", init_code);
-        }
-      }
-#endif
       { /* calibrate timer */
         libxs_timer_tickint s0, t0, s1, t1;
         libxs_timer_tick_rtc(); libxs_timer_tick(); /* warm-up */
         s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick(); /* start timing */
         internal_init();
+        atexit(internal_finalize); /* once */
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick(); /* final timing */
         if (LIBXS_FEQ(0, libxs_timer_scale) && s0 != s1 && t0 != t1) {
           libxs_timer_scale = libxs_timer_duration(s0, s1) / (t0 < t1 ? (t1 - t0) : (t0 - t1));
@@ -858,10 +850,6 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       libxs_descriptor *const registry_keys = internal_registry_keys;
       unsigned int rest = 0, errors = 0;
       internal_registry_nbytes = (LIBXS_CAPACITY_REGISTRY) * (sizeof(libxs_code_pointer) + sizeof(libxs_descriptor));
-
-      /* serves as an ID to invalidate the thread-local cache; never decremented */
-      ++libxs_ninit;
-
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
         /*const*/ libxs_code_pointer code = registry[i];
         if (NULL != code.ptr_const) {
