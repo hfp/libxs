@@ -1249,6 +1249,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 #endif
   /* setup code generation */
   generated_code.code_type = 2;
+  generated_code.arch = libxs_target_archid;
 
   LIBXS_ASSERT(NULL != generated_code.generated_code || 0 == generated_code.buffer_size);
   LIBXS_ASSERT(NULL != request && 0 != libxs_target_archid);
@@ -1266,10 +1267,10 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
            (LIBXS_GEMM_PRECISION_F64 == request->descriptor.gemm->datatype || LIBXS_GEMM_PRECISION_F32 == request->descriptor.gemm->datatype) &&
            (16 >= (m * k) || 16 >= (k * n) || 16 >= (m * n)))
         {
-          target_arch = "hsw";
+          generated_code.arch = LIBXS_X86_AVX2;
         }
 # endif
-        LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_kernel, &generated_code, request->descriptor.gemm, target_arch);
+        LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_kernel, &generated_code, request->descriptor.gemm);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
