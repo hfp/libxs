@@ -105,9 +105,17 @@
 # define LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K)
 #endif
 
+#if defined(LIBXS_UNPACKED)
+# define LIBXS_DESCRIPTOR_CLEAR(BLOB) memset(BLOB, 0, LIBXS_DESCRIPTOR_MAXSIZE)
+#else
+# define LIBXS_DESCRIPTOR_CLEAR(BLOB) LIBXS_ASSERT(BLOB)
+#endif
+
 /** Low-level/internal GEMM descriptor initialization. */
 #define LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
-  LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K); LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(LDA, LDB, LDC); \
+  LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(LDA, LDB, LDC); \
+  LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K); \
+  LIBXS_DESCRIPTOR_CLEAR(&(DESCRIPTOR)); \
   (DESCRIPTOR).datatype = (unsigned char)(DATA_TYPE); \
   (DESCRIPTOR).flags = (unsigned short)((FLAGS) \
     /*| (LIBXS_NEQ(0, ALPHA) ? 0 : LIBXS_GEMM_FLAG_ALPHA_0)*/ \
@@ -628,11 +636,11 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_pooling {
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_dnn_rnncell_desc desc;
   libxs_dnn_internal_format custom_format_type; /* required only for comparing layouts */
-  libxs_blasint T;                              /* sequnece length, must be smaller than max sequence length in desc */
+  libxs_blasint T;                              /* sequence length, must be smaller than max sequence length in desc */
   libxs_blasint bk;
   libxs_blasint bn;
   libxs_blasint bc;
-  /* extrenal tensors */
+  /* external tensors */
   libxs_dnn_tensor* xt;
   libxs_dnn_tensor* csp;
   libxs_dnn_tensor* hp;
@@ -734,8 +742,8 @@ typedef enum libxs_build_kind {
 } libxs_build_kind;
 
 /** Integral type (libxs_kernel_kind, libxs_build_kind). */
-#if defined(LIBXS_UNPACKED) || defined(_CRAYC)
-typedef int libxs_descriptor_kind;
+#if defined(LIBXS_UNPACKED)
+typedef unsigned int libxs_descriptor_kind;
 #else
 typedef unsigned char libxs_descriptor_kind;
 #endif

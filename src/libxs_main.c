@@ -82,6 +82,9 @@
 #if !defined(LIBXS_REGLOCK_TRY) && 0
 # define LIBXS_REGLOCK_TRY
 #endif
+#if !defined(LIBXS_DIFF_INLINE) && 0
+# define LIBXS_DIFF_INLINE
+#endif
 #if !defined(LIBXS_DESC_INLINE) && 0
 # define LIBXS_DESC_INLINE
 #endif
@@ -178,6 +181,14 @@ LIBXS_APIVAR(unsigned int internal_statistic_num_trmm);
 LIBXS_APIVAR(int internal_gemm_auto_prefetch_locked);
 LIBXS_APIVAR(const char* internal_build_state);
 
+#if defined(_WIN32)
+LIBXS_APIVAR(const char* internal_delims);
+LIBXS_APIVAR(HANDLE internal_singleton_handle);
+#else
+LIBXS_APIVAR(const char* internal_delims);
+LIBXS_APIVAR_ARRAY(char internal_singleton_fname, 64);
+LIBXS_APIVAR(int internal_singleton_handle);
+#endif
 
 #if (0 == LIBXS_SYNC)
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX, DIFF, CODE) {
@@ -391,24 +402,6 @@ LIBXS_API_INLINE void internal_finalize(void)
   char *const env_dump_build = getenv("LIBXS_DUMP_BUILD");
   char *const env_dump_files = (NULL != getenv("LIBXS_DUMP_FILES")
     ? getenv("LIBXS_DUMP_FILES") : getenv("LIBXS_DUMP_FILE"));
-#if defined(_WIN32)
-  const HANDLE handle = CreateMutex(NULL, TRUE, "GlobalLIBXS");
-  const char *const delims = ";,";
-  const int singleton = (NULL != handle ? 1 : 0);
-#else
-  const char *const delims = ";,:";
-  char singleton_fname[64];
-  const int result = LIBXS_SNPRINTF(singleton_fname, sizeof(singleton_fname), "/tmp/.libxs.%u", (unsigned int)getuid());
-  int handle, singleton;
-  struct flock singleton_flock;
-  singleton_flock.l_start = 0;
-  singleton_flock.l_len = 0/*all*/;
-  singleton_flock.l_type = F_RDLCK;
-  singleton_flock.l_whence = SEEK_SET;
-  handle = ((0 < result && (int)sizeof(singleton_fname) > result) ? fcntl(open( /* attempt to lock file */
-    singleton_fname, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR), F_SETLK, &singleton_flock) : -1);
-  singleton = (0 <= handle ? 1 : 0);
-#endif
   libxs_finalize();
   if (0 != libxs_verbosity) { /* print statistic on termination */
     const char *const env_target_hidden = getenv("LIBXS_TARGET_HIDDEN");
@@ -420,7 +413,12 @@ LIBXS_API_INLINE void internal_finalize(void)
 #if !defined(NDEBUG) && defined(__OPTIMIZE__)
     fprintf(stderr, "LIBXS WARNING: library was built without -DNDEBUG and contains debug code!\n");
 #endif
-    if (0 != singleton) {
+#if defined(_WIN32)
+    if (NULL != internal_singleton_handle)
+#else
+    if (0 <= internal_singleton_handle && 0 != *internal_singleton_fname)
+#endif
+    {
       fprintf(stderr, "\nLIBXS_VERSION: %s-%s (%i)", LIBXS_BRANCH, LIBXS_VERSION, LIBXS_VERSION4(
         LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH));
     }
@@ -481,12 +479,18 @@ LIBXS_API_INLINE void internal_finalize(void)
   libxs_release_scratch();
   /* release global services */
   libxs_hash_finalize();
-  if (0 != singleton) { /* dump per-node info */
+#if defined(_WIN32)
+  if (NULL != internal_singleton_handle)
+#else
+  if (0 <= internal_singleton_handle && 0 != *internal_singleton_fname)
+#endif
+  { /* dump per-node info */
+    LIBXS_ASSERT(NULL != internal_delims);
     if (NULL != env_dump_build || NULL != env_dump_files) {
       LIBXS_STDIO_ACQUIRE();
       if (NULL != env_dump_files && 0 != *env_dump_files) {
-        const char *filename = strtok(env_dump_files, delims);
-        for (; NULL != filename; filename = strtok(NULL, delims)) {
+        const char *filename = strtok(env_dump_files, internal_delims);
+        for (; NULL != filename; filename = strtok(NULL, internal_delims)) {
           FILE *const file = fopen(filename, "r");
           if (NULL != file) {
             int c = fgetc(file);
@@ -510,10 +514,10 @@ LIBXS_API_INLINE void internal_finalize(void)
     }
     /* cleanup singleton */
 #if defined(_WIN32)
-    ReleaseMutex(handle);
+    ReleaseMutex(internal_singleton_handle);
 #else
-    unlink(singleton_fname);
-    close(handle);
+    unlink(internal_singleton_fname);
+    close(internal_singleton_handle);
 #endif
   }
 #if (0 != LIBXS_SYNC)
@@ -578,40 +582,40 @@ LIBXS_API_INTERN void internal_init(void)
     libxs_xset_scratch_allocator(NULL/*lock*/, NULL/*context*/, null_malloc_fn, null_free_fn);
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     { const char *const env = getenv("LIBXS_SCRATCH_POOLS");
-    if (NULL == env || 0 == *env) {
-      libxs_scratch_pools = LIBXS_MALLOC_SCRATCH_MAX_NPOOLS;
-    }
-    else {
-      libxs_scratch_pools = LIBXS_CLMP(atoi(env), 0, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
-      /*libxs_scratch_pools_locked = 1;*/
-    }
-    LIBXS_ASSERT(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+      if (NULL == env || 0 == *env) {
+        libxs_scratch_pools = LIBXS_MALLOC_SCRATCH_MAX_NPOOLS;
+      }
+      else {
+        libxs_scratch_pools = LIBXS_CLMP(atoi(env), 0, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
+        /*libxs_scratch_pools_locked = 1;*/
+      }
+      LIBXS_ASSERT(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
     }
     { const char *const env = getenv("LIBXS_SCRATCH_LIMIT");
-    if (NULL == env || 0 == *env) {
-      /*const*/ unsigned long long limit = LIBXS_MALLOC_SCRATCH_LIMIT;
-      libxs_scratch_limit = (size_t)limit;
-    }
-    else {
-      size_t u = internal_strlen(env, 32) - 1;
-      const char *const unit = "kmgKMG", *const hit = strchr(unit, env[u]);
-      libxs_scratch_limit = (size_t)strtoul(env, 0, 10);
-      u = (0 != hit ? ((hit - unit) % 3) : 3);
-      if (u < 3) {
-        libxs_scratch_limit <<= (u + 1) * 10;
+      if (NULL == env || 0 == *env) {
+        /*const*/ unsigned long long limit = LIBXS_MALLOC_SCRATCH_LIMIT;
+        libxs_scratch_limit = (size_t)limit;
       }
-      /*libxs_scratch_limit_locked = 1;*/
-    }
+      else {
+        size_t u = internal_strlen(env, 32) - 1;
+        const char *const unit = "kmgKMG", *const hit = strchr(unit, env[u]);
+        libxs_scratch_limit = (size_t)strtoul(env, 0, 10);
+        u = (0 != hit ? ((hit - unit) % 3) : 3);
+        if (u < 3) {
+          libxs_scratch_limit <<= (u + 1) * 10;
+        }
+        /*libxs_scratch_limit_locked = 1;*/
+      }
     }
     { const char *const env = getenv("LIBXS_SCRATCH_SCALE");
-    if (NULL == env || 0 == *env) {
-      libxs_scratch_scale = LIBXS_MALLOC_SCRATCH_SCALE;
-    }
-    else {
-      libxs_scratch_scale = LIBXS_CLMP(atof(env), 1.1, 3.0);
-      /*libxs_scratch_scale_locked = 1;*/
-    }
-    LIBXS_ASSERT(1 <= libxs_scratch_scale);
+      if (NULL == env || 0 == *env) {
+        libxs_scratch_scale = LIBXS_MALLOC_SCRATCH_SCALE;
+      }
+      else {
+        libxs_scratch_scale = LIBXS_CLMP(atof(env), 1.1, 3.0);
+        /*libxs_scratch_scale_locked = 1;*/
+      }
+      LIBXS_ASSERT(1 <= libxs_scratch_scale);
     }
 #endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
 #if defined(LIBXS_MAXTARGET)
@@ -680,8 +684,7 @@ LIBXS_API_INTERN void internal_init(void)
         atexit(internal_finalize);
         ++libxs_ninit;
       }
-      {
-        void *const pv_registry = &internal_registry;
+      { void *const pv_registry = &internal_registry;
         LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)((void**)pv_registry, (void*)new_registry, LIBXS_ATOMIC_SEQ_CST);
       }
     }
@@ -710,8 +713,6 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 #if (0 != LIBXS_SYNC)
     static int counter = 0, once = 0;
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&counter, 1, LIBXS_ATOMIC_SEQ_CST)) {
-#endif
-#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_REGLOCK_TRY)
       const char *const env_trylock = getenv("LIBXS_TRYLOCK");
 # endif
@@ -765,6 +766,25 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGLOCK, &attr);
 # endif
 #endif
+#if defined(_WIN32)
+      internal_delims = ";,";
+#else
+      internal_delims = ";,:";
+#endif
+      { /* determine whether this instance is unique or not */
+#if defined(_WIN32)
+        internal_singleton_handle = CreateMutex(NULL, TRUE, "GlobalLIBXS");
+#else
+        const int result = LIBXS_SNPRINTF(internal_singleton_fname, sizeof(internal_singleton_fname), "/tmp/.libxs.%u", (unsigned int)getuid());
+        struct flock singleton_flock;
+        singleton_flock.l_start = 0;
+        singleton_flock.l_len = 0/*all*/;
+        singleton_flock.l_type = F_RDLCK;
+        singleton_flock.l_whence = SEEK_SET;
+        internal_singleton_handle = ((0 < result && (int)sizeof(internal_singleton_fname) > result) ? fcntl(open( /* attempt to lock file */
+          internal_singleton_fname, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR), F_SETLK, &singleton_flock) : -1);
+#endif
+      }
 #if defined(LIBXS_TRACE)
       { int filter_threadid = 0/*only main-thread*/, filter_mindepth = 0, filter_maxnsyms = 0;
         const int init_code = libxs_trace_init(filter_threadid, filter_mindepth, filter_maxnsyms);
@@ -784,17 +804,17 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         }
       }
 #if (0 != LIBXS_SYNC)
-      once = 1;
+      LIBXS_ATOMIC_STORE(&once, 1, LIBXS_ATOMIC_RELAXED); /* inc? */
     }
     else while (1) {
       if (0 != LIBXS_ATOMIC_LOAD(&once, LIBXS_ATOMIC_RELAXED)) {
         break;
       }
-#if 1
+# if 1
       else LIBXS_SYNC_YIELD();
-#else
+# else
       else LIBXS_SYNC_PAUSE;
-#endif
+# endif
     }
 #endif
     internal_init();
@@ -1638,17 +1658,17 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   } cache;
   unsigned char cache_index;
 # if defined(LIBXS_DESC_PAD)
-# if defined(LIBXS_DESC_INLINE)
+#   if defined(LIBXS_DESC_INLINE)
   LIBXS_DIFF_DECL(LIBXS_DIFF_SIZE, xdesc);
   internal_pad_descriptor(desc, size);
   LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
   LIBXS_DIFF_N(unsigned char, cache_index, LIBXS_DIFF(LIBXS_DIFF_SIZE),
     xdesc, &cache.keys, LIBXS_DIFF_SIZE, LIBXS_DESCRIPTOR_MAXSIZE, cache.hit, cache.size);
-# else
+#   else
   internal_pad_descriptor(desc, size);
   cache_index = (unsigned char)libxs_diff_n(desc, &cache.keys,
     LIBXS_DIFF_SIZE, LIBXS_DESCRIPTOR_MAXSIZE, cache.hit, cache.size);
-# endif
+#   endif
 # else
   LIBXS_ASSERT(NULL != desc);
   cache_index = (unsigned char)libxs_diff_n(desc, &cache.keys,
@@ -1696,11 +1716,15 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
       if ((NULL != flux_entry.ptr_const || 1 == mode) && 2 > mode) { /* check existing entry further */
         if (NULL != flux_entry.ptr_const) {
 #if defined(LIBXS_DESC_PAD)
-# if !defined(LIBXS_DESC_INLINE)
+# if defined(LIBXS_DIFF_INLINE)
+#   if !defined(LIBXS_DESC_INLINE)
           LIBXS_DIFF_DECL(LIBXS_DIFF_SIZE, xdesc);
           LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
-# endif
+#   endif
           diff = LIBXS_DIFF(LIBXS_DIFF_SIZE)(xdesc, internal_registry_keys + i, 0/*dummy*/);
+# else
+          diff = libxs_diff(desc, internal_registry_keys + i, LIBXS_DIFF_SIZE);
+# endif
 #else
           diff = libxs_diff(desc, internal_registry_keys + i, LIBXS_MIN(size, LIBXS_DIFF_SIZE));
 #endif
@@ -2068,7 +2092,6 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     wrap.gemm.desc = *descriptor;
     wrap.kind = LIBXS_KERNEL_KIND_MATMUL;
     if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
-      wrap.gemm.desc = *descriptor;
       wrap.gemm.desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
     }
     result = internal_find_code(&wrap, sizeof(*descriptor)).xgemm;
