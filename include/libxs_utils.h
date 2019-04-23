@@ -34,7 +34,7 @@
 /** Macro evaluates to LIBXS_ATTRIBUTE_TARGET_xxx (see below). */
 #define LIBXS_ATTRIBUTE_TARGET(TARGET) LIBXS_CONCATENATE(LIBXS_ATTRIBUTE_TARGET_, TARGET)
 
-#if defined(__PGI) /* no intrinsics: tested with 17.x and 18.x */
+#if /*no intrinsics: tested with 17.x and 18.x*/defined(__PGI) || /*legacy*/(defined(_CRAYC) && !defined(__GNUC__))
 # if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_STATIC)
 #   define LIBXS_INTRINSICS_NONE
 # endif

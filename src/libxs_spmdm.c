@@ -52,15 +52,15 @@
 #endif
 
 
-/* function pointer for the CPUID-dispatched implementation */
-LIBXS_APIVAR(void (*internal_spmdm_createSparseSlice_fp32_thread)(const libxs_spmdm_handle*, char,
-  const float*, libxs_CSR_sparseslice*, int, int, int));
-LIBXS_APIVAR(void (*internal_spmdm_createSparseSlice_bfloat16_thread)(const libxs_spmdm_handle*, char,
-  const libxs_bfloat16*, libxs_CSR_sparseslice*, int, int, int));
-LIBXS_APIVAR(void (*internal_spmdm_compute_fp32_thread)(const libxs_spmdm_handle*, char, char,
-  const float*, libxs_CSR_sparseslice*, const float*, char, const float*, float*, int, int, int));
-LIBXS_APIVAR(void (*internal_spmdm_compute_bfloat16_thread)(const libxs_spmdm_handle*, char, char,
-  const libxs_bfloat16*, libxs_CSR_sparseslice*, const libxs_bfloat16*, char, const libxs_bfloat16*, float*, int, int, int));
+/* function pointer for the CPUID-dispatched implementation (separate typedef for legacy Cray C++ needed) */
+typedef void (*internal_spmdm_createSparseSlice_fp32_thread_fn)(const libxs_spmdm_handle*, char, const float*, libxs_CSR_sparseslice*, int, int, int);
+LIBXS_APIVAR(internal_spmdm_createSparseSlice_fp32_thread_fn internal_spmdm_createSparseSlice_fp32_thread);
+typedef void (*internal_spmdm_createSparseSlice_bfloat16_thread_fn)(const libxs_spmdm_handle*, char, const libxs_bfloat16*, libxs_CSR_sparseslice*, int, int, int);
+LIBXS_APIVAR(internal_spmdm_createSparseSlice_bfloat16_thread_fn internal_spmdm_createSparseSlice_bfloat16_thread);
+typedef void (*internal_spmdm_compute_fp32_thread_fn)(const libxs_spmdm_handle*, char, char, const float*, libxs_CSR_sparseslice*, const float*, char, const float*, float*, int, int, int);
+LIBXS_APIVAR(internal_spmdm_compute_fp32_thread_fn internal_spmdm_compute_fp32_thread);
+typedef void (*internal_spmdm_compute_bfloat16_thread_fn)(const libxs_spmdm_handle*, char, char, const libxs_bfloat16*, libxs_CSR_sparseslice*, const libxs_bfloat16*, char, const libxs_bfloat16*, float*, int, int, int);
+LIBXS_APIVAR(internal_spmdm_compute_bfloat16_thread_fn internal_spmdm_compute_bfloat16_thread);
 
 #if defined(LIBXS_SPMDM_AVX)
 LIBXS_APIVAR(__m256i* internal_spmdm_shufmasks_32);

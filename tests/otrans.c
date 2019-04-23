@@ -67,9 +67,9 @@ int main(void)
     max_size_a = LIBXS_MAX(max_size_a, size_a);
     max_size_b = LIBXS_MAX(max_size_b, size_b);
   }
-  a = (ELEM_TYPE*)libxs_malloc(sizeof(ELEM_TYPE) * max_size_a);
-  b = (ELEM_TYPE*)libxs_malloc(sizeof(ELEM_TYPE) * max_size_b);
-  c = (ELEM_TYPE*)libxs_malloc(sizeof(ELEM_TYPE) * max_size_b);
+  a = (ELEM_TYPE*)libxs_malloc((size_t)(sizeof(ELEM_TYPE) * max_size_a));
+  b = (ELEM_TYPE*)libxs_malloc((size_t)(sizeof(ELEM_TYPE) * max_size_b));
+  c = (ELEM_TYPE*)libxs_malloc((size_t)(sizeof(ELEM_TYPE) * max_size_b));
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
 
   /* initialize data */
@@ -81,7 +81,7 @@ int main(void)
     { /* validation */
       unsigned int testerrors = 0;
       libxs_blasint i, j;
-      memcpy(c, b, sizeof(ELEM_TYPE) * max_size_b);
+      memcpy(c, b, (size_t)(sizeof(ELEM_TYPE) * max_size_b));
       for (i = 0; i < n[test]; ++i) {
         for (j = 0; j < m[test]; ++j) {
           const libxs_blasint u = i * ldi[test] + j;

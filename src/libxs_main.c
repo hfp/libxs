@@ -356,7 +356,7 @@ LIBXS_API_INLINE void internal_register_static_code(
   libxs_xmmfunction xgemm, libxs_code_pointer* registry)
 {
   const libxs_blasint lda = m, ldb = k, ldc = m;
-  /*const*/ int precondition = LIBXS_GEMM_NO_BYPASS_DIMS(m, n, k) && LIBXS_GEMM_NO_BYPASS_DIMS(lda, ldb, lc);
+  /*const*/ int precondition = LIBXS_GEMM_NO_BYPASS_DIMS(m, n, k) && LIBXS_GEMM_NO_BYPASS_DIMS(lda, ldb, ldc);
   if (precondition) {
     const size_t size = (LIBXS_HASH_SIZE)-sizeof(libxs_descriptor_kind);
     libxs_descriptor_blob blob;
@@ -413,15 +413,8 @@ LIBXS_API_INLINE void internal_finalize(void)
 #if !defined(NDEBUG) && defined(__OPTIMIZE__)
     fprintf(stderr, "LIBXS WARNING: library was built without -DNDEBUG and contains debug code!\n");
 #endif
-#if defined(_WIN32)
-    if (NULL != internal_singleton_handle)
-#else
-    if (0 <= internal_singleton_handle && 0 != *internal_singleton_fname)
-#endif
-    {
-      fprintf(stderr, "\nLIBXS_VERSION: %s-%s (%i)", LIBXS_BRANCH, LIBXS_VERSION, LIBXS_VERSION4(
-        LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH));
-    }
+    fprintf(stderr, "\nLIBXS_VERSION: %s-%s (%i)", LIBXS_BRANCH, LIBXS_VERSION, LIBXS_VERSION4(
+      LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH));
     if (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) {
       const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
       const double regsize = 1.0 * internal_registry_nbytes / (1ULL << 20);
@@ -430,7 +423,7 @@ LIBXS_API_INLINE void internal_finalize(void)
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
         fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
       }
-      fprintf(stderr, "Registry (%u): %.f MB", libxs_get_pid(), regsize);
+      fprintf(stderr, "Registry: %.f MB", regsize);
       if (0 != high_verbosity) {
         size_t ngemms = 0;
         int i; for (i = 0; i < 4; ++i) {
@@ -774,7 +767,8 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 #if defined(_WIN32)
         internal_singleton_handle = CreateMutex(NULL, TRUE, "GlobalLIBXS");
 #else
-        const int result = LIBXS_SNPRINTF(internal_singleton_fname, sizeof(internal_singleton_fname), "/tmp/.libxs.%u", (unsigned int)getppid());
+        const int result = LIBXS_SNPRINTF(internal_singleton_fname, sizeof(internal_singleton_fname), "/tmp/.libxs.%u",
+          /*rely on user id to avoid permission issues in case of left-over files*/(unsigned int)getuid());
         struct flock singleton_flock;
         singleton_flock.l_start = 0;
         singleton_flock.l_len = 0; /* entire file */

@@ -110,7 +110,8 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
             size[0] = (size_t)ldr; size[1] = (size_t)nn;
           }
           else { /* reshape */
-            const size_t x = (size_t)mm * nn, y = libxs_isqrt2_u32((unsigned int)x);
+            const size_t x = (size_t)(mm * nn);
+            const size_t y = (size_t)libxs_isqrt2_u32((unsigned int)x);
             shape[0] = x / y; shape[1] = y;
             size[0] = shape[0];
             size[1] = shape[1];
@@ -129,14 +130,14 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
               type_src, &type_dst, tst, NULL/*header_size*/, NULL/*extension_header*/,
               NULL/*extension*/, 0/*extension_size*/);
             if ('-' == *env && '1' < env[1]) {
-              printf("LIBXS MATDIFF (%s): m=%i n=%i ldi=%i ldo=%i failed.\n",
-                libxs_typename(datatype), m, n, ldr, ldt);
+              printf("LIBXS MATDIFF (%s): m=%lli n=%lli ldi=%lli ldo=%lli failed.\n",
+                libxs_typename(datatype), (long long)m, (long long)n, (long long)ldr, (long long)ldt);
             }
           }
         }
         else if ('-' == *env && '1' < env[1] && NULL != tst) {
-          printf("LIBXS MATDIFF (%s): m=%i n=%i ldi=%i ldo=%i passed.\n",
-            libxs_typename(datatype), m, n, ldr, ldt);
+          printf("LIBXS MATDIFF (%s): m=%lli n=%lli ldi=%lli ldo=%lli passed.\n",
+            libxs_typename(datatype), (long long)m, (long long)n, (long long)ldr, (long long)ldt);
         }
       }
       if (0 == result_nan) {
@@ -239,8 +240,8 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info)
 {
   if (NULL != info) {
     union { int raw; float value; } inf;
-#if defined(INFINITY)
-    inf.value = INFINITY;
+#if defined(INFINITY) && /*overflow warning*/!defined(_CRAYC)
+    inf.value = (float)(INFINITY);
 #else
     inf.raw = 0x7F800000;
 #endif
@@ -425,8 +426,8 @@ LIBXS_API_INLINE float internal_math_sexp2(float x, int maxiter)
         }
       }
       else { /* out of range */
-#if defined(INFINITY)
-        result.s = (0 == sign ? (INFINITY) : 0.f);
+#if defined(INFINITY) && /*overflow warning*/!defined(_CRAYC)
+        result.s = (0 == sign ? ((float)(INFINITY)) : 0.f);
 #else
         result.i = (0 == sign ? 0x7F800000 : 0);
 #endif
@@ -473,8 +474,8 @@ LIBXS_API float libxs_sexp2_u8(unsigned char x)
     }
   }
   else {
-#if defined(INFINITY)
-    result.s = INFINITY;
+#if defined(INFINITY) && /*overflow warning*/!defined(_CRAYC)
+    result.s = (float)(INFINITY);
 #else
     result.i = 0x7F800000;
 #endif

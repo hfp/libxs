@@ -231,7 +231,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_ncnc_kcck(libxs
       libxs_blasint ldc = (libxs_blasint)handle->bk;
       element_input_type alpha = (element_input_type)1;
       element_input_type beta = (element_input_type)0;
-      libxs_blasint l_flags = LIBXS_GEMM_FLAGS('N', 'T');
+      int l_flags = LIBXS_GEMM_FLAGS('N', 'T');
 
       if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
         libxs_smmfunction_reducebatch batchreduce_kernel = libxs_smmdispatch_reducebatch(handle->bk, handle->bc, handle->bn, &lda, &ldb, &ldc, &alpha, &beta, &l_flags, NULL);
