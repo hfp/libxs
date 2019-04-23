@@ -49,7 +49,7 @@ typedef enum libxs_dnn_rnncell_type {
 } libxs_dnn_rnncell_type;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
-  libxs_blasint threads;
+  int threads;
   libxs_blasint K;         /* number of outputs */
   libxs_blasint N;         /* size of the minibatch */
   libxs_blasint C;         /* number of inputs */

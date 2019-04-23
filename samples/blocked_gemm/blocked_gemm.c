@@ -173,7 +173,7 @@ int main(int argc, char* argv[])
         libxs_free(a); a = 0;
         libxs_free(b); b = 0;
         /* allocate C-matrix in regular format, and perform copy-out */
-        ctest = (ITYPE*)libxs_malloc((size_t)ldc * n * sizeof(ITYPE));
+        ctest = (ITYPE*)libxs_malloc((size_t)(sizeof(ITYPE) * ldc * n));
         if (0 != ctest) {
           libxs_matdiff_info diff;
           libxs_blocked_gemm_copyout_c(handle, c, &ldc, ctest);

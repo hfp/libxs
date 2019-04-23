@@ -37,37 +37,43 @@
 # pragma offload_attribute(pop)
 #endif
 
+#if defined(LIBXS_PLATFORM_SUPPORTED)
 /* XGETBV: receive results (EAX, EDX) for eXtended Control Register (XCR). */
 /* CPUID, receive results (EAX, EBX, ECX, EDX) for requested FUNCTION/SUBFN. */
-#if defined(_MSC_VER) /*defined(_WIN32) && !defined(__GNUC__)*/
-# define LIBXS_XGETBV(XCR, EAX, EDX) { \
-    unsigned long long libxs_xgetbv_ = _xgetbv(XCR); \
-    EAX = (int)libxs_xgetbv_; \
-    EDX = (int)(libxs_xgetbv_ >> 32); \
-  }
-# define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) { \
-    int libxs_cpuid_x86_[/*4*/] = { 0, 0, 0, 0 }; \
-    __cpuidex(libxs_cpuid_x86_, FUNCTION, SUBFN); \
-    EAX = (unsigned int)libxs_cpuid_x86_[0]; \
-    EBX = (unsigned int)libxs_cpuid_x86_[1]; \
-    ECX = (unsigned int)libxs_cpuid_x86_[2]; \
-    EDX = (unsigned int)libxs_cpuid_x86_[3]; \
-  }
-#else
-# define LIBXS_XGETBV(XCR, EAX, EDX) __asm__ __volatile__( \
-    ".byte 0x0f, 0x01, 0xd0" /*xgetbv*/ : "=a"(EAX), "=d"(EDX) : "c"(XCR) \
-  )
-# if (64 > (LIBXS_BITS))
-LIBXS_EXTERN LIBXS_RETARGETABLE int __get_cpuid(unsigned int, unsigned int*, unsigned int*, unsigned int*, unsigned int*);
-#   define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) \
-      EAX = (EBX) = (EDX) = 0; ECX = (SUBFN); \
-      __get_cpuid(FUNCTION, &(EAX), &(EBX), &(ECX), &(EDX))
-# else
-#   define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) \
-      __asm__ __volatile__ (".byte 0x0f, 0xa2" /*cpuid*/ \
-      : "=a"(EAX), "=b"(EBX), "=c"(ECX), "=d"(EDX) \
-      : "a"(FUNCTION), "b"(0), "c"(SUBFN), "d"(0) \
-    )
+  #if defined(_MSC_VER) /*defined(_WIN32) && !defined(__GNUC__)*/
+#   define LIBXS_XGETBV(XCR, EAX, EDX) { \
+      unsigned long long libxs_xgetbv_ = _xgetbv(XCR); \
+      EAX = (int)libxs_xgetbv_; \
+      EDX = (int)(libxs_xgetbv_ >> 32); \
+    }
+#   define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) { \
+      int libxs_cpuid_x86_[/*4*/] = { 0, 0, 0, 0 }; \
+      __cpuidex(libxs_cpuid_x86_, FUNCTION, SUBFN); \
+      EAX = (unsigned int)libxs_cpuid_x86_[0]; \
+      EBX = (unsigned int)libxs_cpuid_x86_[1]; \
+      ECX = (unsigned int)libxs_cpuid_x86_[2]; \
+      EDX = (unsigned int)libxs_cpuid_x86_[3]; \
+    }
+# elif defined(__GNUC__) || !defined(_CRAYC)
+#   if (64 > (LIBXS_BITS))
+      LIBXS_EXTERN LIBXS_RETARGETABLE int __get_cpuid(unsigned int, unsigned int*, unsigned int*, unsigned int*, unsigned int*);
+#     define LIBXS_XGETBV(XCR, EAX, EDX) EAX = (EDX) = 0xFFFFFFFF
+#     define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) \
+        EAX = (EBX) = (EDX) = 0; ECX = (SUBFN); \
+        __get_cpuid(FUNCTION, &(EAX), &(EBX), &(ECX), &(EDX))
+#   else /* 64-bit */
+#     define LIBXS_XGETBV(XCR, EAX, EDX) __asm__ __volatile__( \
+        ".byte 0x0f, 0x01, 0xd0" /*xgetbv*/ : "=a"(EAX), "=d"(EDX) : "c"(XCR) \
+      )
+#     define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) \
+        __asm__ __volatile__ (".byte 0x0f, 0xa2" /*cpuid*/ \
+        : "=a"(EAX), "=b"(EBX), "=c"(ECX), "=d"(EDX) \
+        : "a"(FUNCTION), "b"(0), "c"(SUBFN), "d"(0) \
+      )
+#   endif
+# else /* legacy Cray Compiler */
+#   define LIBXS_XGETBV(XCR, EAX, EDX) EAX = (EDX) = 0
+#   define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) EAX = (EBX) = (ECX) = (EDX) = 0
 # endif
 #endif
 
@@ -77,33 +83,28 @@ LIBXS_EXTERN LIBXS_RETARGETABLE int __get_cpuid(unsigned int, unsigned int*, uns
 LIBXS_API int libxs_cpuid_x86(void)
 {
   int target_arch = LIBXS_STATIC_TARGET_ARCH;
+#if defined(LIBXS_PLATFORM_SUPPORTED)
   unsigned int eax, ebx, ecx, edx;
-
   LIBXS_CPUID_X86(0, 0/*ecx*/, eax, ebx, ecx, edx);
   if (1 <= eax) { /* CPUID */
     static int error_once = 0;
     LIBXS_CPUID_X86(1, 0/*ecx*/, eax, ebx, ecx, edx);
-
     /* Check for CRC32 (this is not a proper test for SSE 4.2 as a whole!) */
     if (LIBXS_CPUID_CHECK(ecx, 0x00100000)) {
       target_arch = LIBXS_X86_SSE4;
     }
-
     /* XSAVE/XGETBV(0x04000000), OSXSAVE(0x08000000) */
     if (LIBXS_CPUID_CHECK(ecx, 0x0C000000)) {
       LIBXS_XGETBV(0, eax, edx);
-
       if (LIBXS_CPUID_CHECK(eax, 0x00000006)) { /* OS XSAVE 256-bit */
         if (LIBXS_CPUID_CHECK(eax, 0x000000E0)) { /* OS XSAVE 512-bit */
           LIBXS_CPUID_X86(7, 0/*ecx*/, eax, ebx, ecx, edx);
-
           /* AVX512F(0x00010000), AVX512CD(0x10000000) */
           if (LIBXS_CPUID_CHECK(ebx, 0x10010000)) { /* Common */
             /* AVX512DQ(0x00020000), AVX512BW(0x40000000), AVX512VL(0x80000000) */
             if (LIBXS_CPUID_CHECK(ebx, 0xC0020000)) { /* AVX512-Core */
               if (LIBXS_CPUID_CHECK(ecx, 0x00000800)) { /* VNNI */
                 LIBXS_CPUID_X86(7, 1/*ecx*/, eax, ebx, ecx, edx);
-
                 if (LIBXS_CPUID_CHECK(eax, 0x00000020)) { /* BF16 */
                   target_arch = LIBXS_X86_AVX512_CPX;
                 }
@@ -145,10 +146,9 @@ LIBXS_API int libxs_cpuid_x86(void)
       fprintf(stderr, "LIBXS WARNING: detected CPU features are not permitted by the OS!\n");
     }
   }
-
   /* check if procedure obviously failed to detect the highest available instruction set extension */
   LIBXS_ASSERT(LIBXS_STATIC_TARGET_ARCH <= target_arch);
-
+#endif
   return LIBXS_MAX(target_arch, LIBXS_STATIC_TARGET_ARCH);
 }
 

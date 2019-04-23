@@ -72,7 +72,9 @@
 # define LIBXS_SYNC_PAUSE
 #endif
 
-#if !defined(LIBXS_SYNC_SYSTEM) && (defined(__MINGW32__) || defined(__PGI))
+#if !defined(LIBXS_SYNC_SYSTEM) && \
+  (defined(__MINGW32__) || defined(__PGI) || \
+  (defined(_CRAYC) && !defined(__GNUC__)))
 # define LIBXS_SYNC_SYSTEM
 #endif
 #if !defined(LIBXS_ATOMIC_TRYLOCK_CMPSWP) && 0
