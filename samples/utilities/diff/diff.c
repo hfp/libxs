@@ -67,6 +67,7 @@ int main(int argc, char* argv[])
     /* initialize the input data */
     for (i = 0; i < nbytes; ++i) input[i] = LIBXS_MOD2(i, 128);
     for (i = 0; i < (size_t)elsize; ++i) ref[i] = 255;
+
     { /* benchmark libxs_diff_n */
 #if defined(USE_HASH)
       const unsigned int hashref = libxs_hash(ref, elsize, 0/*seed*/);
@@ -87,8 +88,23 @@ int main(int argc, char* argv[])
         }
 #endif
       }
-      printf("libxs_diff_n:\t\t%.3f s\n", libxs_timer_duration(start, libxs_timer_tick()));
-      result = ((size == (j + 1) && 0 == memcmp(ref, input + j * stride, elsize)) ? EXIT_SUCCESS : EXIT_FAILURE);
+      printf("libxs_diff_n:\t\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
+    }
+
+    if (size == (j + 1) && 0 == memcmp(ref, input + j * stride, elsize)) { /* benchmark memcmp */
+      void *const icopy = (elsize == stride ? malloc(nbytes) : NULL);
+      if (NULL != icopy) {
+        memcpy(icopy, input, nbytes);
+        start = libxs_timer_tick();
+        for (i = 0; i < nrpt; ++i) {
+          j = memcmp(input, icopy, nbytes); /* ignore result */
+        }
+        printf("stdlib memcmp:\t\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
+        free(icopy);
+      }
+    }
+    else {
+      result = EXIT_FAILURE;
     }
 
     free(input);

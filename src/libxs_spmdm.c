@@ -535,17 +535,6 @@ void libxs_spmdm_compute_bfloat16_thread(
 }
 
 
-LIBXS_API_INLINE void internal_spmdm_init_check(int archid)
-{
-  if (archid < libxs_target_archid && 0 != libxs_verbosity) { /* library code is expected to be mute */
-    static int error_once = 0;
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: missed to enter \"%s\" code path due to the compiler used!\n", libxs_get_target_arch());
-    }
-  }
-}
-
-
 LIBXS_API void libxs_spmdm_init(int M, int N, int K, int max_threads,
   libxs_spmdm_handle* handle, libxs_CSR_sparseslice** libxs_output_csr)
 {
@@ -564,7 +553,6 @@ LIBXS_API void libxs_spmdm_init(int M, int N, int K, int max_threads,
 
 #if defined(LIBXS_SPMDM_AVX512_CORE)
   if (LIBXS_X86_AVX512_CORE <= libxs_target_archid || LIBXS_X86_AVX512_CORE <= LIBXS_STATIC_TARGET_ARCH) {
-    internal_spmdm_init_check(LIBXS_X86_AVX512_CORE);
     internal_spmdm_createSparseSlice_fp32_thread = internal_spmdm_createSparseSlice_fp32_thread_avx512_core;
     internal_spmdm_createSparseSlice_bfloat16_thread = internal_spmdm_createSparseSlice_bfloat16_thread_avx512_core;
     internal_spmdm_compute_fp32_thread = internal_spmdm_compute_fp32_thread_avx512_core;
@@ -575,7 +563,6 @@ LIBXS_API void libxs_spmdm_init(int M, int N, int K, int max_threads,
 #endif
 #if defined(LIBXS_SPMDM_AVX2)
   if (LIBXS_X86_AVX2 <= libxs_target_archid || LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH) {
-    internal_spmdm_init_check(LIBXS_X86_AVX512_MIC);
     internal_spmdm_createSparseSlice_fp32_thread = internal_spmdm_createSparseSlice_fp32_thread_avx2;
     internal_spmdm_createSparseSlice_bfloat16_thread = internal_spmdm_createSparseSlice_bfloat16_thread_avx2;
     internal_spmdm_compute_fp32_thread = internal_spmdm_compute_fp32_thread_avx2;
@@ -585,7 +572,6 @@ LIBXS_API void libxs_spmdm_init(int M, int N, int K, int max_threads,
   else
 #endif
   {
-    internal_spmdm_init_check(LIBXS_X86_AVX);
     internal_spmdm_createSparseSlice_fp32_thread = internal_spmdm_createSparseSlice_fp32_thread_sw;
     internal_spmdm_createSparseSlice_bfloat16_thread = internal_spmdm_createSparseSlice_bfloat16_thread_sw;
     internal_spmdm_compute_fp32_thread = internal_spmdm_compute_fp32_thread_sw;

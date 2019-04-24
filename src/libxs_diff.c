@@ -29,6 +29,18 @@
 #include <libxs_math.h>
 #include "libxs_diff.h"
 
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <string.h>
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
+
+#if !defined(LIBXS_DIFF_MEMCMP) && 0
+# define LIBXS_DIFF_MEMCMP
+#endif
+
 
 LIBXS_API unsigned char libxs_diff_16(const void* a, const void* b, ...)
 {
@@ -81,6 +93,9 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
 {
   unsigned int result;
   LIBXS_ASSERT(size <= stride);
+#if defined(LIBXS_DIFF_MEMCMP)
+  LIBXS_DIFF_N(unsigned int, result, memcmp, a, bn, size, stride, hint, n);
+#else
   switch (size) {
     case 64: {
       LIBXS_DIFF_64_DECL(a64);
@@ -106,6 +121,7 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
       LIBXS_DIFF_N(unsigned int, result, libxs_diff, a, bn, size, stride, hint, n);
     }
   }
+#endif
   return result;
 }
 

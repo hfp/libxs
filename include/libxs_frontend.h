@@ -68,7 +68,7 @@
 #endif
 
 /** MKL_DIRECT_CALL requires to include the MKL interface. */
-#if defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
+#if (defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL))
 # if (0 != LIBXS_ILP64 && !defined(MKL_ILP64))
 #   error "Inconsistent ILP64 configuration detected!"
 # endif
@@ -106,8 +106,19 @@
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_USEOMP(LIBXS_XGEMM_SYMBOL(TYPE))
 #define LIBXS_USEOMP(FUNCTION)        LIBXS_CONCATENATE(FUNCTION, _omp)
 #define LIBXS_BLAS_SYMBOL(TYPE, KIND) LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, KIND))
-#define LIBXS_GEMM_SYMBOL_NAME(TYPE)  LIBXS_BLAS_SYMBOL(TYPE, gemm)
-#define LIBXS_GEMV_SYMBOL_NAME(TYPE)  LIBXS_BLAS_SYMBOL(TYPE, gemv)
+
+#define LIBXS_BLAS_DECL(TYPE, KIND, DECL) LIBXS_CONCATENATE(LIBXS_BLAS_, LIBXS_TPREFIX(TYPE, KIND))(DECL)
+#if !defined(MKL_DIRECT_CALL_SEQ) && !defined(MKL_DIRECT_CALL)
+# define LIBXS_BLAS_dgemm(DECL) DECL;
+# define LIBXS_BLAS_sgemm(DECL) DECL;
+# define LIBXS_BLAS_dgemv(DECL) DECL;
+# define LIBXS_BLAS_sgemv(DECL) DECL;
+#else
+# define LIBXS_BLAS_dgemm
+# define LIBXS_BLAS_sgemm
+# define LIBXS_BLAS_dgemv
+# define LIBXS_BLAS_sgemv
+#endif
 
 /* Construct prefix names, function type or dispatch function from given input and output types. */
 #define LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE)    LIBXS_MMFUNCTION_TYPE(LIBXS_CONCATENATE(ITYPE, OTYPE))
@@ -171,7 +182,7 @@
   void LIBXS_BLAS_SYMBOL(TYPE, KIND)(LIBXS_BLAS_SYMBOL_SIGNATURE(CONST_STAR, STAR, TYPE, KIND))
 
 #if (0 == LIBXS_NO_BLAS) /* BLAS available */
-# define LIBXS_BLAS_SYMBOL_DECL(TYPE, KIND) LIBXS_BLAS_SYMBOL_XDECL(LIBXS_GEMM_CONST*, *, TYPE, KIND);
+# define LIBXS_BLAS_SYMBOL_DECL(TYPE, KIND) LIBXS_BLAS_DECL(TYPE, KIND, LIBXS_BLAS_SYMBOL_XDECL(LIBXS_GEMM_CONST*, *, TYPE, KIND))
 #else
 # define LIBXS_BLAS_SYMBOL_DECL(TYPE, KIND)
 #endif
