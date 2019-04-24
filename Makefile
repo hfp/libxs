@@ -190,8 +190,8 @@ DOCEXT = pdf
 # state to be excluded from tracking the (re-)build state
 EXCLUDE_STATE = \
   DESTDIR INSTALL_ROOT BINDIR CURDIR DOCDIR DOCEXT INCDIR LICFDIR OUTDIR \
-  PBINDIR PINCDIR PREFIX POUTDIR PSRCDIR PTSTDIR PDOCDIR SCRDIR SPLDIR \
-  SRCDIR VERSION TEST TSTDIR DEPSTATIC BLAS %_TARGET %ROOT MPSS KNC
+  PBINDIR PINCDIR PREFIX POUTDIR PSRCDIR PTSTDIR PDOCDIR SCRDIR SPLDIR SRCDIR \
+  VERSION TEST TSTDIR DEPSTATIC BLAS %_TARGET %ROOT MPSS KNC
 
 ifeq (,$(M)$(N)$(K))
 ifneq (,$(filter 0,$(MNK) 0))
@@ -402,7 +402,6 @@ else ifeq (, $(filter _0_,_$(LNKSOFT)_))
 	$(info Forcing a specific library can take away a user's choice.)
 	$(info --------------------------------------------------------------------------------)
 endif
-
 ifneq (2,$(INTRINSICS))
 ifeq (0,$(AVX))
 	$(info INTRINSICS=$(INTRINSICS) without setting AVX can reduce performance of certain code paths.)
@@ -1587,18 +1586,14 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo "LIBXS installing libraries..."
 	@$(CP) -va $(OUTDIR)/libxsnoblas.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsnoblas.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -v  $(OUTDIR)/libxsnoblas.pc          $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -va $(OUTDIR)/libxsgen.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsgen.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -va $(OUTDIR)/libxsext.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsext.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -v  $(OUTDIR)/libxsext.pc          $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -va $(OUTDIR)/libxsf.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsf.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -v  $(OUTDIR)/libxsf.pc          $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -va $(OUTDIR)/libxs.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxs.$(SLIBEXT)  $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -v  $(OUTDIR)/libxs.pc          $(INSTALL_ROOT)/$(POUTDIR) 2>/dev/null || true
 	@if [ -e $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT) ]; then \
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 		$(CP) -va $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT)* $(INSTALL_ROOT)/$(POUTDIR)/mic; \
@@ -1631,6 +1626,10 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 		$(CP) -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxsnoblas.pc > $(INSTALL_ROOT)/$(POUTDIR)/libxsnoblas.pc 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxsext.pc > $(INSTALL_ROOT)/$(POUTDIR)/libxsext.pc 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxsf.pc > $(INSTALL_ROOT)/$(POUTDIR)/libxsf.pc 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxs.pc > $(INSTALL_ROOT)/$(POUTDIR)/libxs.pc 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing stand-alone generators..."
 	@$(CP) -v $(BINDIR)/libxs_*_generator $(INSTALL_ROOT)/$(PBINDIR) 2>/dev/null || true
@@ -1715,7 +1714,7 @@ $(OUTDIR)/libxs.pc: $(OUTDIR)/libxs.$(LIBEXT)
 	@echo "URL: https://github.com/hfp/libxs" >> $@
 	@echo "Version: $(VERSION)" >> $@
 	@echo >> $@
-	@echo "prefix=$(INSTALL_ROOT)" >> $@
+	@echo "prefix=$(abspath .)" >> $@
 	@echo "includedir=\$${prefix}/$(PINCDIR)" >> $@
 	@echo "libdir=\$${prefix}/$(POUTDIR)" >> $@
 	@echo >> $@
@@ -1737,7 +1736,7 @@ $(OUTDIR)/libxsf.pc: $(OUTDIR)/libxsf.$(LIBEXT)
 	@echo "URL: https://github.com/hfp/libxs" >> $@
 	@echo "Version: $(VERSION)" >> $@
 	@echo >> $@
-	@echo "prefix=$(INSTALL_ROOT)" >> $@
+	@echo "prefix=$(abspath .)" >> $@
 	@echo "includedir=\$${prefix}/$(PINCDIR)" >> $@
 	@echo "libdir=\$${prefix}/$(POUTDIR)" >> $@
 	@echo >> $@
@@ -1751,7 +1750,7 @@ $(OUTDIR)/libxsext.pc: $(OUTDIR)/libxsext.$(LIBEXT)
 	@echo "URL: https://github.com/hfp/libxs" >> $@
 	@echo "Version: $(VERSION)" >> $@
 	@echo >> $@
-	@echo "prefix=$(INSTALL_ROOT)" >> $@
+	@echo "prefix=$(abspath .)" >> $@
 	@echo "includedir=\$${prefix}/$(PINCDIR)" >> $@
 	@echo "libdir=\$${prefix}/$(POUTDIR)" >> $@
 	@echo >> $@
@@ -1774,7 +1773,7 @@ $(OUTDIR)/libxsnoblas.pc: $(OUTDIR)/libxsnoblas.$(LIBEXT)
 	@echo "URL: https://github.com/hfp/libxs" >> $@
 	@echo "Version: $(VERSION)" >> $@
 	@echo >> $@
-	@echo "prefix=$(INSTALL_ROOT)" >> $@
+	@echo "prefix=$(abspath .)" >> $@
 	@echo "includedir=\$${prefix}/$(PINCDIR)" >> $@
 	@echo "libdir=\$${prefix}/$(POUTDIR)" >> $@
 	@echo >> $@

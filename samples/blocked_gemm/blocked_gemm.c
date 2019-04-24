@@ -52,7 +52,9 @@
 #endif
 
 #if !defined(CHECK) && (LIBXS_EQUAL(ITYPE, float) || LIBXS_EQUAL(ITYPE, double))
+# if !defined(MKL_DIRECT_CALL_SEQ) && !defined(MKL_DIRECT_CALL)
 LIBXS_BLAS_SYMBOL_DECL(ITYPE, gemm)
+# endif
 # define CHECK
 #endif
 

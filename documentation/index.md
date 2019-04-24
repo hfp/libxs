@@ -87,7 +87,7 @@ make realclean
 
 ### Link Instructions
 
-The library is agnostic with respect to the threading-runtime, and therefore an application is free to use any threading runtime (e.g., OpenMP). The library is also thread-safe, and multiple application threads can call LIBXS's routines concurrently. Enabling OpenMP for LIBXS's main library is supported as well (OMP=1), and mostly affects the synchronization primitives used inside of the library. All of the "omp" functionality (function postfix) is served by the 'libxsext' library, which is automatically built with OpenMP enabled. When using this "omp" functionality, 'libxsext' needs to be present at the link line. To ease linking with LIBXS, `pkg-config` can be used. For example:
+The library is agnostic with respect to the threading-runtime, and therefore an application is free to use any threading runtime (e.g., OpenMP). The library is also thread-safe, and multiple application threads can call LIBXS's routines concurrently. Enabling OpenMP for LIBXS's main library is supported as well (OMP=1), and mostly affects the synchronization primitives used inside of the library. All of the "omp" functionality (function postfix) is served by the 'libxsext' library, which is automatically built with OpenMP enabled. When using this "omp" functionality, 'libxsext' needs to be present at the link line. <a name="pkg-config"></a>To ease linking with LIBXS, `pkg-config` can be used. For example:
 
 ```bash
 export PKG_CONFIG_PATH=/path/to/libxs/lib
@@ -114,20 +114,22 @@ make header-only
 
 Installing LIBXS makes possibly the most sense when combining the JIT backend ([enabled by default](libxs_be.md)) with a collection of statically generated SSE kernels (by specifying M, N, K, or MNK). If the JIT backend is not disabled, statically generated kernels are only registered for dispatch if the CPUID flags at runtime are not supporting a more specific instruction set extension (code path). Since the JIT backend does not support or generate SSE code by itself, the library is compiled by selecting SSE code generation if not specified otherwise (AVX=1&#124;2&#124;3, or with SSE=0 falling back to an "arch-native" approach). Limiting the static code path to SSE4.2 allows to practically target any deployed system, however using SSE=0 and AVX=0 together is falling back to generic code, and any static kernels are not specialized using the assembly code generator.
 
-There are two main mechanisms to install LIBXS (both mechanisms can be combined): (1)&#160;building the library in an out&#8209;of&#8209;tree fashion, and (2)&#160;installing into a certain location. Building in an out&#8209;of&#8209;tree fashion looks like:
+There are two main mechanisms to install LIBXS (both mechanisms can be combined): (1)&#160;building the library in an out&#8209;of&#8209;tree fashion, and (2)&#160;installing into a certain location. <a name="install-build"></a>Building in an out&#8209;of&#8209;tree fashion looks like:
 
 ```bash
 cd libxs-install
 make -f /path/to/libxs/Makefile
 ```
 
-For example, installing into a specific location (incl. a selection of statically generated Intel&#160;SSE kernels) looks like:
+<a name="install-prefix"></a>Installation into a specific location looks like (`PREFIX` or `DESTDIR`):
 
 ```bash
 make MNK="1 2 3 4 5" PREFIX=/path/to/libxs-install install
 ```
 
-Performing `make install-minimal` omits the documentation (default: 'PREFIX/share/libxs'). Moreover, PINCDIR, POUTDIR, PBINDIR, and PDOCDIR allow to customize the locations underneath of the PREFIX location. To build a general package for an unpredictable audience (Linux distribution, or similar), it is advised to not over-specify or customize the build step i.e., JIT, SSE, AVX, OMP, BLAS, etc. should not be used. The following is building and installing a complete set of libraries where the generated interface matches both the static and the shared libraries:
+<a name="install-destdir"></a>Both `PREFIX` and `DESTDIR` not only behave equally, but can be relative or absolute directories. The latter of which may work out of the box for utilities generating installer-packages (e.g., `debuild`). An installation can be repeated for different locations without triggering a rebuild. The prefix directory inside of each of the [package configuration files](#pkg-config) is updated accordingly.
+
+Further, performing `make install-minimal` omits the documentation (default: 'PREFIX/share/libxs'). Moreover, PINCDIR, POUTDIR, PBINDIR, and PDOCDIR allow to customize the locations underneath of the PREFIX location. To build a general package for an unpredictable audience (Linux distribution, or similar), it is advised to not over-specify or customize the build step i.e., JIT, SSE, AVX, OMP, BLAS, etc. should not be used. The following is building and installing a complete set of libraries where the generated interface matches both the static and the shared libraries:
 
 ```bash
 make PREFIX=/path/to/libxs-install STATIC=0 install
