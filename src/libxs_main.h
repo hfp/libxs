@@ -142,8 +142,10 @@
   START libxs_gemm_descriptor MODIFIER gemm; \
   START libxs_mcopy_descriptor MODIFIER mcopy; \
   START libxs_trans_descriptor MODIFIER trans; \
-  START libxs_trsm_descriptor MODIFIER trsm; \
-  START libxs_trmm_descriptor MODIFIER trmm
+  START libxs_pgemm_descriptor MODIFIER pgemm; \
+  START libxs_getrf_descriptor MODIFIER getrf; \
+  START libxs_trmm_descriptor MODIFIER trmm; \
+  START libxs_trsm_descriptor MODIFIER trsm
 
 
 /**
@@ -185,16 +187,6 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trans_descriptor {
   unsigned char typesize;
 };
 
-/** Packed structure storing arguments of packed TRSM. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trsm_descriptor {
-  union { double d; float s; } alpha;
-  unsigned int m, n, lda, ldb;
-  unsigned char typesize;
-  unsigned char layout;
-  char diag, side, uplo;
-  char transa;
-};
-
 /** Packed structure storing arguments of packed GEMM. */
 LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_pgemm_descriptor {
   unsigned int m, n, k, lda, ldb, ldc;
@@ -202,6 +194,13 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_pgemm_descriptor {
   unsigned char layout;
   char transa, transb;
   char alpha_val;
+};
+
+/** Packed structure storing arguments of packed GETRF. */
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_getrf_descriptor {
+  unsigned int m, n, lda;
+  unsigned char typesize;
+  unsigned char layout;
 };
 
 /** Packed structure storing arguments of packed TRSM. */
@@ -214,11 +213,14 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trmm_descriptor {
   char transa;
 };
 
-/** Packed structure storing arguments of packed GETRF. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_getrf_descriptor {
-  unsigned int m, n, lda;
+/** Packed structure storing arguments of packed TRSM. */
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trsm_descriptor {
+  union { double d; float s; } alpha;
+  unsigned int m, n, lda, ldb;
   unsigned char typesize;
   unsigned char layout;
+  char diag, side, uplo;
+  char transa;
 };
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
@@ -325,8 +327,10 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   libxs_xmcopyfunction xmatcopy;
   libxs_xtransfunction xtrans;
   libxs_xconvfunction xconv;
-  libxs_xtrsmfunction xtrsm;
-  libxs_xtrmmfunction xtrmm;
+  libxs_pgemm_xfunction xpgemm;
+  libxs_getrf_xfunction xgetrf;
+  libxs_trmm_xfunction xtrmm;
+  libxs_trsm_xfunction xtrsm;
 } libxs_code_pointer;
 
 /** Structure which describes all tensors in LIBXS's DNN module */
@@ -730,8 +734,10 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GEMM     = LIBXS_KERNEL_KIND_MATMUL,
   LIBXS_BUILD_KIND_MCOPY    = LIBXS_KERNEL_KIND_MCOPY,
   LIBXS_BUILD_KIND_TRANS    = LIBXS_KERNEL_KIND_TRANS,
-  LIBXS_BUILD_KIND_TRSM     = LIBXS_KERNEL_KIND_TRSM,
+  LIBXS_BUILD_KIND_PGEMM    = LIBXS_KERNEL_KIND_PGEMM,
+  LIBXS_BUILD_KIND_GETRF    = LIBXS_KERNEL_KIND_GETRF,
   LIBXS_BUILD_KIND_TRMM     = LIBXS_KERNEL_KIND_TRMM,
+  LIBXS_BUILD_KIND_TRSM     = LIBXS_KERNEL_KIND_TRSM,
   LIBXS_BUILD_KIND_RMACSOA  = LIBXS_KERNEL_KIND_INVALID,
   LIBXS_BUILD_KIND_RMBCSOA,
   LIBXS_BUILD_KIND_SRSOA,

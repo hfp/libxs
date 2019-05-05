@@ -84,6 +84,9 @@
 /** Automatically select a prefetch-strategy (libxs_get_gemm_xprefetch, etc.). */
 #define LIBXS_PREFETCH_AUTO -1
 
+/** Append "_omp" postfix to the given symbol. */
+#define LIBXS_USEOMP(FUNCTION) LIBXS_CONCATENATE(FUNCTION, _omp)
+
 /** Helper macro for BLAS-style prefixes. */
 #define LIBXS_TPREFIX_NAME(TYPE) LIBXS_CONCATENATE(LIBXS_TPREFIX_, TYPE)
 #define LIBXS_TPREFIX(TYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_TPREFIX_NAME(TYPE), FUNCTION)
@@ -104,7 +107,6 @@
 #define LIBXS_XBLAS_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_USEOMP(LIBXS_XGEMM_SYMBOL(TYPE))
-#define LIBXS_USEOMP(FUNCTION)        LIBXS_CONCATENATE(FUNCTION, _omp)
 #define LIBXS_BLAS_SYMBOL(TYPE, KIND) LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, KIND))
 
 #define LIBXS_BLAS_DECL(TYPE, KIND, DECL) LIBXS_CONCATENATE(LIBXS_BLAS_, LIBXS_TPREFIX(TYPE, KIND))(DECL)
@@ -171,6 +173,10 @@
 # define LIBXS_GEMM_SYMBOL_VISIBILITY LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
 #endif
 
+#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm_batch(CONST_STAR, STAR, TYPE) char CONST_STAR, char CONST_STAR, \
+  libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, \
+  TYPE CONST_STAR, TYPE CONST_STAR STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR STAR, libxs_blasint CONST_STAR, \
+  TYPE CONST_STAR, TYPE STAR STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR
 #define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm(CONST_STAR, STAR, TYPE) char CONST_STAR, char CONST_STAR, \
   libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, \
   TYPE CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, TYPE STAR, libxs_blasint CONST_STAR
@@ -235,21 +241,54 @@
 
 /** Map to appropriate BLAS function (or fall-back). The mapping is used e.g., inside of LIBXS_BLAS_XGEMM. */
 #define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
-#if (0 == LIBXS_NO_BLAS)
-# define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm()
-# define LIBXS_BLAS_FUNCTION_sgemm libxs_original_sgemm()
+#if (0 == LIBXS_NO_BLAS) /* Helper macro to eventually (if defined) call libxs_init */
+# if (defined(LIBXS_INIT) || defined(LIBXS_CTOR))
+#   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch_function
+#   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch_function
+#   define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm_function
+#   define LIBXS_BLAS_FUNCTION_sgemm libxs_original_sgemm_function
+#   define LIBXS_BLAS_FUNCTION_dgemv libxs_original_dgemv_function
+#   define LIBXS_BLAS_FUNCTION_sgemv libxs_original_sgemv_function
+#   undef LIBXS_INIT
+#   define LIBXS_INIT LIBXS_ASSERT_MSG(0 != libxs_ninit, "LIBXS is not initialized");
+#   define LIBXS_INIT_COMPLETED
+# else
+#   define LIBXS_INIT if (0 == libxs_ninit) libxs_init();
+#   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch()
+#   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch()
+#   define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm()
+#   define LIBXS_BLAS_FUNCTION_sgemm libxs_original_sgemm()
+#   define LIBXS_BLAS_FUNCTION_dgemv libxs_original_dgemv()
+#   define LIBXS_BLAS_FUNCTION_sgemv libxs_original_sgemv()
+# endif
 #else /* no BLAS */
-# define LIBXS_BLAS_FUNCTION_dgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_INLINE_XGEMM(double, double, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-# define LIBXS_BLAS_FUNCTION_sgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-    LIBXS_INLINE_XGEMM(float, float, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+# if (defined(LIBXS_INIT) || defined(LIBXS_CTOR))
+#   undef LIBXS_INIT
+#   define LIBXS_INIT LIBXS_ASSERT_MSG(0 != libxs_ninit, "LIBXS is not initialized");
+#   define LIBXS_INIT_COMPLETED
+# else
+#   define LIBXS_INIT if (0 == libxs_ninit) libxs_init();
+# endif
+# define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_blas_error("dgemm_batch")
+# define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_blas_error("sgemm_batch")
+# define LIBXS_BLAS_FUNCTION_dgemm libxs_blas_error("dgemm")
+# define LIBXS_BLAS_FUNCTION_sgemm libxs_blas_error("sgemm")
+# define LIBXS_BLAS_FUNCTION_dgemv libxs_blas_error("dgemv")
+# define LIBXS_BLAS_FUNCTION_sgemv libxs_blas_error("sgemv")
 #endif
+/** Low-precision (BLAS-like) function symbols. */
 #define LIBXS_BLAS_FUNCTION_wigemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
   LIBXS_INLINE_XGEMM(short, int, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #define LIBXS_BLAS_FUNCTION_wsgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
   LIBXS_INLINE_XGEMM(short, float, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #define LIBXS_BLAS_FUNCTION_bsgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
   LIBXS_INLINE_XGEMM(libxs_bfloat16, float, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+
+/** Short-cut macros to construct desired BLAS function symbol. */
+#define LIBXS_BLAS_FUNCTION1(TYPE, FUNCTION) LIBXS_BLAS_FUNCTION(TYPE, TYPE, FUNCTION)
+#define LIBXS_GEMM_BATCH_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION1(TYPE, gemm_batch)
+#define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION1(TYPE, gemm)
+#define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION1(TYPE, gemv)
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (macro template). */
 #define LIBXS_BLAS_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
@@ -301,7 +340,7 @@
 /** Calculate total number of matrix-elements; matrices A, B, C are given per M, N, K, and emphasize (S) the C-size. */
 #define LIBXS_SIZE(M, N, K, S) (((size_t)(M) * (K)) + ((size_t)(K) * (N)) + ((size_t)(S) * (M) * (N)))
 /** Condition based on arithmetic intensity (AI) */
-#define LIBXS_SMM_AI(M, N, K, S, TYPESIZE) ((LIBXS_MNK_SIZE(M, N, K) * 2) <= ((size_t)(TYPESIZE) * 3/*AI*/ * LIBXS_SIZE(M, N, K, S)))
+#define LIBXS_SMM_AI(M, N, K, S, TYPESIZE) ((LIBXS_MNK_SIZE(M, N, K) * 2) <= ((size_t)(TYPESIZE) * 4/*AI*/ * LIBXS_SIZE(M, N, K, S)))
 /** Determine whether an SMM is suitable i.e., small enough. */
 #if !defined(LIBXS_THRESHOLD_AI) /* traditional MNK-threshold */
 # define LIBXS_SMM(M, N, K, S, TYPESIZE) (LIBXS_MNK_SIZE(M, N, K) <= (LIBXS_MAX_MNK))
@@ -451,33 +490,33 @@ LIBXS_API void libxs_gemm_dprint2(void* ostream,
 LIBXS_API void libxs_gemm_xprint(void* ostream,
   libxs_xmmfunction kernel, const void* a, const void* b, void* c);
 
+/** GEMM_BATCH: fall-back prototype functions served by any compliant LAPACK/BLAS. */
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch));
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch));
 /** GEMM: fall-back prototype functions served by any compliant LAPACK/BLAS. */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm));
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemm));
 /** GEMV: fall-back prototype functions served by any compliant LAPACK/BLAS. */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemv));
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemv));
+/** Helper function to consume arguments when called. */
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sink_function)(LIBXS_VARIADIC);
 
 /** The original BLAS functions. */
+LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_dgemm_batch_function libxs_original_dgemm_batch_function);
+LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_sgemm_batch_function libxs_original_sgemm_batch_function);
 LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_dgemm_function libxs_original_dgemm_function);
 LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_sgemm_function libxs_original_sgemm_function);
 LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_dgemv_function libxs_original_dgemv_function);
 LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_sgemv_function libxs_original_sgemv_function);
+LIBXS_API_EXPORT libxs_dgemm_batch_function libxs_original_dgemm_batch(void);
+LIBXS_API_EXPORT libxs_sgemm_batch_function libxs_original_sgemm_batch(void);
 LIBXS_API_EXPORT libxs_dgemm_function libxs_original_dgemm(void);
 LIBXS_API_EXPORT libxs_sgemm_function libxs_original_sgemm(void);
-
-/* Helper macro to eventually (if defined) call libxs_init */
-#if defined(LIBXS_INIT) || defined(LIBXS_CTOR)
-# define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemm_function))
-# define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_original_, LIBXS_TPREFIX(TYPE, gemv_function))
-# undef LIBXS_INIT
-# define LIBXS_INIT LIBXS_ASSERT_MSG(0 != libxs_ninit, "LIBXS is not initialized");
-# define LIBXS_INIT_COMPLETED
-#else
-# define LIBXS_INIT if (0 == libxs_ninit) libxs_init();
-# define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION(TYPE, TYPE, gemm)
-# define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION(TYPE, TYPE, gemv)
-#endif
+LIBXS_API_EXPORT libxs_dgemv_function libxs_original_dgemv(void);
+LIBXS_API_EXPORT libxs_sgemv_function libxs_original_sgemv(void);
+LIBXS_API libxs_sink_function libxs_blas_error(const char* symbol);
+LIBXS_API void libxs_sink(LIBXS_VARIADIC);
 
 /**
  * General dense matrix multiplication, which re-exposes LAPACK/BLAS

@@ -455,12 +455,11 @@ LIBXS_API_INTERN void libxs_internal_matrix_bcst_colvector_ld(libxs_blasint m, l
 LIBXS_API_INTERN void libxs_internal_matrix_bcst_cvt_bf16_fp32_colvector_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *srcdst, libxs_bfloat16 *colv) {
   libxs_blasint i, j;
   libxs_bfloat16_hp t;
-  libxs_bfloat16 *const ti1 = t.i + 1;
+
   t.i[0] = 0;
   for ( j = 0; j < n; ++j ) {
-    LIBXS_PRAGMA_SIMD
     for ( i = 0; i < m; ++i ) {
-      *ti1 = colv[i];
+      t.i[1] = colv[i];
       srcdst[(j*ld)+i] = t.f;
     }
   }
@@ -480,12 +479,11 @@ LIBXS_API_INTERN void libxs_internal_matrix_bcst_colvector_const_ld(libxs_blasin
 LIBXS_API_INTERN void libxs_internal_matrix_bcst_cvt_bf16_fp32_colvector_const_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, LIBXS_DNN_ELTWISE_FTYPE *srcdst, libxs_bfloat16 *colv, LIBXS_DNN_ELTWISE_FTYPE const_bias) {
   libxs_blasint i, j;
   libxs_bfloat16_hp t;
-  libxs_bfloat16 *const ti1 = t.i + 1;
+
   t.i[0] = 0;
   for ( j = 0; j < n; ++j ) {
-    LIBXS_PRAGMA_SIMD
     for ( i = 0; i < m; ++i ) {
-      *ti1 = colv[i];
+      t.i[1] = colv[i];
       srcdst[(j*ld)+i] = t.f + const_bias;
     }
   }
@@ -678,12 +676,11 @@ LIBXS_API_INTERN void libxs_internal_matrix_rne_cvt_fp32_bfp16_ld(libxs_blasint 
 LIBXS_API_INTERN void libxs_internal_matrix_cvt_bf16_fp32_ld(libxs_blasint m, libxs_blasint n, libxs_blasint ld, libxs_bfloat16 *src, LIBXS_DNN_ELTWISE_FTYPE *dst) {
   libxs_blasint i, j;
   libxs_bfloat16_hp t;
-  libxs_bfloat16 *const ti1 = t.i + 1;
+
   t.i[0] = 0;
   for ( j = 0; j < n; ++j ) {
-    LIBXS_PRAGMA_SIMD
     for ( i = 0; i < m; ++i ) {
-      *ti1 = src[(j*ld)+i];
+      t.i[1] = src[(j*ld)+i];
       dst[(j*ld)+i] = t.f;
     }
   }

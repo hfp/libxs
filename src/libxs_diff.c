@@ -125,3 +125,21 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
   return result;
 }
 
+
+LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size)
+{
+#if defined(LIBXS_DIFF_MEMCMP)
+  return memcmp(a, b, size);
+#else
+  const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
+  LIBXS_DIFF_32_DECL(aa);
+  size_t i;
+  for (i = 0; i < (size & 0xFFFFFFFFFFFFFFE0); i += 32) {
+    LIBXS_DIFF_32_LOAD(aa, a8 + i);
+    if (LIBXS_DIFF_32(aa, b8 + i, 0/*dummy*/)) return 1;
+  }
+  for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
+  return 0;
+#endif
+}
+
