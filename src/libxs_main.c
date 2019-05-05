@@ -411,7 +411,7 @@ LIBXS_API_INLINE void internal_finalize(void)
     /* synchronize I/O */
     LIBXS_STDIO_ACQUIRE();
 #if !defined(NDEBUG) && defined(__OPTIMIZE__)
-    fprintf(stderr, "LIBXS WARNING: library was built without -DNDEBUG and contains debug code!\n");
+    fprintf(stderr, "LIBXS WARNING: library is optimized without -DNDEBUG and contains debug code!\n");
 #endif
     fprintf(stderr, "\nLIBXS_VERSION: %s-%s (%i)", LIBXS_BRANCH, LIBXS_VERSION, LIBXS_VERSION4(
       LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH));
@@ -770,12 +770,15 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         const int result = LIBXS_SNPRINTF(internal_singleton_fname, sizeof(internal_singleton_fname), "/tmp/.libxs.%u",
           /*rely on user id to avoid permission issues in case of left-over files*/(unsigned int)getuid());
         struct flock singleton_flock;
+        int singleton_handle;
         singleton_flock.l_start = 0;
         singleton_flock.l_len = 0; /* entire file */
         singleton_flock.l_type = F_WRLCK; /* exclusive across PIDs */
         singleton_flock.l_whence = SEEK_SET;
-        internal_singleton_handle = ((0 < result && (int)sizeof(internal_singleton_fname) > result) ? fcntl(open( /* attempt to lock file */
-          internal_singleton_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR), F_SETLK, &singleton_flock) : -1);
+        singleton_handle = ((0 < result && (int)sizeof(internal_singleton_fname) > result) ? open(
+          internal_singleton_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR) : -1);
+        internal_singleton_handle = fcntl(singleton_handle, F_SETLK, &singleton_flock);
+        if (0 > internal_singleton_handle && 0 <= singleton_handle) close(singleton_handle);
 #endif
       }
       { /* calibrate timer */
@@ -943,6 +946,13 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     LIBXS_LOCK_RELEASE(LIBXS_LOCK, &libxs_lock_global);
 #endif
   }
+}
+
+
+
+LIBXS_API void libxs_sink(LIBXS_VARIADIC)
+{
+  /* does nothing else but sink the given arguments */
 }
 
 
@@ -1132,7 +1142,8 @@ LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype)
       }
     } break;
   }
-  return 0;
+  LIBXS_ASSERT_MSG(0, "unsupported data type");
+  return 1; /* avoid to return 0 to avoid div-by-zero in static analysis of depending code */
 }
 
 
@@ -1519,23 +1530,44 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         }
       }
     } break;
-    case LIBXS_BUILD_KIND_TRSM: { /* compact trsm kernel */
+    case LIBXS_BUILD_KIND_PGEMM: { /* compact P/GEMM-kernel (packed) */
       unsigned int tsize;
-      LIBXS_ASSERT(NULL != request->descriptor.trsm);
-      tsize = (unsigned int)request->descriptor.trsm->typesize;
+      LIBXS_ASSERT(NULL != request->descriptor.pgemm);
+      tsize = (unsigned int)request->descriptor.pgemm->typesize;
       if (4 == tsize || 8 == tsize) {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_trsm_kernel, &generated_code, request->descriptor.trsm, target_arch);
+        LIBXS_NO_OFFLOAD(void, libxs_generator_pgemm_kernel, &generated_code, request->descriptor.pgemm, libxs_target_archid);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
         {
           const char *const tsizename = internal_get_typesize_string(tsize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_.trsm", target_arch, tsizename);
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c_%ux%ux%u_%u_%u_%u_%i.pgemm", target_arch, tsizename,
+            request->descriptor.pgemm->transa, request->descriptor.pgemm->transb, request->descriptor.pgemm->layout,
+            request->descriptor.pgemm->m, request->descriptor.pgemm->n, request->descriptor.pgemm->k,
+            request->descriptor.pgemm->lda, request->descriptor.pgemm->ldb, request->descriptor.pgemm->ldc,
+            (int)request->descriptor.pgemm->alpha_val);
         }
       }
     } break;
-    case LIBXS_BUILD_KIND_TRMM: { /* compact trmm kernel */
+    case LIBXS_BUILD_KIND_GETRF: { /* compact GETRF kernel (packed) */
+      unsigned int tsize;
+      LIBXS_ASSERT(NULL != request->descriptor.getrf);
+      tsize = (unsigned int)request->descriptor.getrf->typesize;
+      if (4 == tsize || 8 == tsize) {
+        LIBXS_NO_OFFLOAD(void, libxs_generator_getrf_kernel, &generated_code, request->descriptor.getrf, libxs_target_archid);
+# if !defined(LIBXS_VTUNE)
+        if (0 > libxs_verbosity)
+# endif
+        {
+          const char *const tsizename = internal_get_typesize_string(tsize);
+          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c_%ux%u_%u.getrf", target_arch, tsizename,
+            request->descriptor.getrf->layout, request->descriptor.getrf->m, request->descriptor.getrf->n, request->descriptor.getrf->lda);
+        }
+      }
+    } break;
+    case LIBXS_BUILD_KIND_TRMM: { /* compact TRMM kernel (packed) */
       unsigned int tsize;
       LIBXS_ASSERT(NULL != request->descriptor.trmm);
       tsize = (unsigned int)request->descriptor.trmm->typesize;
@@ -1547,7 +1579,27 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         {
           const char *const tsizename = internal_get_typesize_string(tsize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_.trmm", target_arch, tsizename);
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c%c_%ux%u_%u_%u.trmm", target_arch, tsizename,
+            request->descriptor.trmm->transa, request->descriptor.trmm->layout, request->descriptor.trmm->side, request->descriptor.trmm->uplo,
+            request->descriptor.trmm->m, request->descriptor.trmm->n, request->descriptor.trmm->lda, request->descriptor.trmm->ldb); /* TODO: alpha */
+        }
+      }
+    } break;
+    case LIBXS_BUILD_KIND_TRSM: { /* compact TRSM kernel (packed) */
+      unsigned int tsize;
+      LIBXS_ASSERT(NULL != request->descriptor.trsm);
+      tsize = (unsigned int)request->descriptor.trsm->typesize;
+      if (4 == tsize || 8 == tsize) {
+        LIBXS_NO_OFFLOAD(void, libxs_generator_trsm_kernel, &generated_code, request->descriptor.trsm, target_arch);
+# if !defined(LIBXS_VTUNE)
+        if (0 > libxs_verbosity)
+# endif
+        {
+          const char *const tsizename = internal_get_typesize_string(tsize);
+          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c%c_%ux%u_%u_%u.trsm", target_arch, tsizename,
+            request->descriptor.trsm->transa, request->descriptor.trsm->layout, request->descriptor.trsm->side, request->descriptor.trsm->uplo,
+            request->descriptor.trsm->m, request->descriptor.trsm->n, request->descriptor.trsm->lda, request->descriptor.trsm->ldb); /* TODO: alpha */
         }
       }
     } break;
@@ -2283,15 +2335,15 @@ LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor
 }
 
 
-LIBXS_API libxs_xtrsmfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* descriptor)
+LIBXS_API libxs_pgemm_xfunction libxs_dispatch_pgemm(const libxs_pgemm_descriptor* descriptor)
 {
-  libxs_xtrsmfunction result;
+  libxs_trmm_xfunction result;
   if (NULL != descriptor) {
     libxs_descriptor wrap;
     LIBXS_INIT
-    wrap.trsm.desc = *descriptor;
-    wrap.kind = LIBXS_KERNEL_KIND_TRSM;
-    result = internal_find_code(&wrap, sizeof(*descriptor)).xtrsm;
+    wrap.pgemm.desc = *descriptor;
+    wrap.kind = LIBXS_KERNEL_KIND_PGEMM;
+    result = internal_find_code(&wrap, sizeof(*descriptor)).xpgemm;
   }
   else {
     result = NULL;
@@ -2300,15 +2352,49 @@ LIBXS_API libxs_xtrsmfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* d
 }
 
 
-LIBXS_API libxs_xtrmmfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* descriptor)
+LIBXS_API libxs_getrf_xfunction libxs_dispatch_getrf(const libxs_getrf_descriptor* descriptor)
 {
-  libxs_xtrmmfunction result;
+  libxs_trmm_xfunction result;
+  if (NULL != descriptor) {
+    libxs_descriptor wrap;
+    LIBXS_INIT
+    wrap.getrf.desc = *descriptor;
+    wrap.kind = LIBXS_KERNEL_KIND_GETRF;
+    result = internal_find_code(&wrap, sizeof(*descriptor)).xgetrf;
+  }
+  else {
+    result = NULL;
+  }
+  return result;
+}
+
+
+LIBXS_API libxs_trmm_xfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* descriptor)
+{
+  libxs_trmm_xfunction result;
   if (NULL != descriptor) {
     libxs_descriptor wrap;
     LIBXS_INIT
     wrap.trmm.desc = *descriptor;
     wrap.kind = LIBXS_KERNEL_KIND_TRMM;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xtrmm;
+  }
+  else {
+    result = NULL;
+  }
+  return result;
+}
+
+
+LIBXS_API libxs_trsm_xfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* descriptor)
+{
+  libxs_trsm_xfunction result;
+  if (NULL != descriptor) {
+    libxs_descriptor wrap;
+    LIBXS_INIT
+    wrap.trsm.desc = *descriptor;
+    wrap.kind = LIBXS_KERNEL_KIND_TRSM;
+    result = internal_find_code(&wrap, sizeof(*descriptor)).xtrsm;
   }
   else {
     result = NULL;

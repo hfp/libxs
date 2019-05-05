@@ -9,6 +9,7 @@ libxs_blas_dgemm0
 libxs_blas_dgemm1
 libxs_blas_dgemm2
 libxs_blas_dgemm_
+libxs_blas_error
 libxs_blas_sgemm0
 libxs_blas_sgemm1
 libxs_blas_sgemm2
@@ -54,12 +55,19 @@ libxs_dgemm_
 libxs_dgemm_descriptor_init
 libxs_dgemm_omp_
 libxs_diff
+libxs_diff_
 libxs_diff_16
 libxs_diff_32
 libxs_diff_48
 libxs_diff_64
+libxs_diff_char
+libxs_diff_i32
+libxs_diff_i64
+libxs_diff_i8
 libxs_diff_n
+libxs_dispatch_getrf
 libxs_dispatch_mcopy
+libxs_dispatch_pgemm
 libxs_dispatch_trans
 libxs_dispatch_trmm
 libxs_dispatch_trsm
@@ -222,11 +230,11 @@ libxs_hash_
 libxs_hash_char
 libxs_hash_i32
 libxs_hash_i64
+libxs_hash_i8
 libxs_icbrt_u32
 libxs_icbrt_u64
 libxs_init
 libxs_init_
-libxs_internal_gemm_error
 libxs_isqrt2_u32
 libxs_isqrt_u32
 libxs_isqrt_u64
@@ -246,6 +254,7 @@ libxs_matdiff_clear_
 libxs_matdiff_reduce
 libxs_matdiff_reduce_
 libxs_mcopy_descriptor_init
+libxs_memcmp
 libxs_mhd_element_comparison
 libxs_mhd_element_conversion
 libxs_mhd_read
@@ -268,7 +277,9 @@ libxs_mutex_release
 libxs_mutex_trylock
 libxs_offset
 libxs_original_dgemm
+libxs_original_dgemv
 libxs_original_sgemm
+libxs_original_sgemv
 libxs_otrans
 libxs_otrans_
 libxs_otrans_omp
@@ -290,6 +301,9 @@ libxs_ptr_d2
 libxs_ptr_i0
 libxs_ptr_i1
 libxs_ptr_i2
+libxs_ptr_j0
+libxs_ptr_j1
+libxs_ptr_j2
 libxs_ptr_l0
 libxs_ptr_l1
 libxs_ptr_l2
@@ -347,6 +361,7 @@ libxs_sgemm_descriptor_init
 libxs_sgemm_omp_
 libxs_shuffle
 libxs_shuffle_
+libxs_sink
 libxs_smmavailable
 libxs_smmcall
 libxs_smmcall_abc

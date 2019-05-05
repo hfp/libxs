@@ -110,7 +110,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
             size[0] = (size_t)ldr; size[1] = (size_t)nn;
           }
           else { /* reshape */
-            const size_t x = (size_t)(mm * nn);
+            const size_t x = (size_t)mm * (size_t)nn;
             const size_t y = (size_t)libxs_isqrt2_u32((unsigned int)x);
             shape[0] = x / y; shape[1] = y;
             size[0] = shape[0];
@@ -340,7 +340,7 @@ LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC) float libxs_ssqrt(float x)
 #if defined(LIBXS_INTRINSICS_X86)
   const float result = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(x)));
 #elif !defined(LIBXS_NO_LIBM)
-  const double result = LIBXS_SQRTF(x);
+  const float result = LIBXS_SQRTF(x);
 #else /* fall-back */
   float result, y = x;
   if (LIBXS_NEQ(0, x)) {
@@ -559,7 +559,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_shuffle)(long long* coprime, const int* n)
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
-  if (NULL != coprime && NULL != n)
+  if (NULL != coprime && NULL != n && 0 <= *n)
 #endif
   {
     *coprime = (long long)(libxs_shuffle((unsigned int)(*n)) & 0x7FFFFFFF);
@@ -580,7 +580,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(void* hash_seed, const void* data, cons
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
-  if (NULL != hash_seed && NULL != data && NULL != size)
+  if (NULL != hash_seed && NULL != data && NULL != size && 0 <= *size)
 #endif
   {
     unsigned int *const hash_seed_ui32 = (unsigned int*)hash_seed;
@@ -591,6 +591,27 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(void* hash_seed, const void* data, cons
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_hash specified!\n");
+  }
+#endif
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff)(int* /*result*/, const void* /*a*/, const void* /*b*/, const long long* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff)(int* result, const void* a, const void* b, const long long* size)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != result && NULL != a && NULL != b && NULL != size && 0 <= *size)
+#endif
+  {
+    *result = libxs_memcmp(a, b, (size_t)*size);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_memcmp specified!\n");
   }
 #endif
 }

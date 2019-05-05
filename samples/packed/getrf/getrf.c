@@ -34,6 +34,9 @@
 #define USE_XSMM_GENERATED
 #define TIME_MKL
 #endif
+#if 0
+#define TEST_SINGLE
+#endif
 
 #if !defined(USE_PREDEFINED_ASSEMBLY) && !defined(USE_XSMM_GENERATED) && !defined(TIME_MKL) && \
    (!defined(__linux__) || !defined(USE_KERNEL_GENERATION_DIRECTLY))
@@ -200,7 +203,7 @@ void scopy_from_temp ( int layout, float *A, int lda, int m, int n, float *Atemp
 void
 show_real_matrix ( unsigned int m, unsigned int n, double *A, unsigned int lda )
 {
-    int i, j;
+    unsigned int i, j;
 
     for ( i = 1 ; i <= m; i++ )
     {
@@ -224,7 +227,7 @@ void compact_dgetrf_ ( unsigned int *layout, unsigned int *m,
                       unsigned int *n, double *A, unsigned int *lda,
                       unsigned int *nmat, unsigned int *VLEN )
 {
-    int i, j, num, info, col;
+    unsigned int i, j, num, info, col;
     double *Ap, Atemp[BUFSIZE];
     static int ntimes = 0;
 
@@ -277,7 +280,7 @@ void compact_sgetrf_ ( unsigned int *layout, unsigned int *m,
                       unsigned int *n, float *A, unsigned int *lda,
                       unsigned int *nmat, unsigned int *VLEN )
 {
-    int i, j, num, info;
+    unsigned int i, j, num, info;
     float *Ap, Atemp[BUFSIZE];
     static int ntimes = 0;
 
@@ -307,7 +310,7 @@ void dfill_matrix ( int layout, double *matrix, unsigned int nmat, unsigned int 
 {
   unsigned int i, j, k, k1, row, col;
   size_t address;
-  double dtmp;
+  double dtmp = 0;
 
   if ( layout == 102 ) { row = m; col = n; } else { row = n; col = m; }
   if ( ld < row )
@@ -337,7 +340,7 @@ LIBXS_INLINE
 void dfill_identity ( double *matrix, unsigned int ld, unsigned int m, unsigned int n, int VLEN, int number_of_cases )
 {
   unsigned int h, i, j, k, ia;
-  double dtmp;
+  double dtmp = 0;
 
   if ( ld < m ) {
      fprintf(stderr,"Error in dfill_identity: ld=%u m=%u mismatched!\n",ld,m);
@@ -358,7 +361,7 @@ void sfill_matrix ( int layout, float *matrix, unsigned int nmat, unsigned int l
 {
   unsigned int i, j, k, k1, row, col;
   size_t address;
-  double dtmp;
+  double dtmp = 0;
 
   if ( layout == 102 ) { row = m; col = n; } else { row = n; col = m; }
   if ( ld < row )
@@ -529,7 +532,7 @@ int main(int argc, char* argv[])
   int arch=LIBXS_X86_AVX2;
 #endif
   unsigned int ncorr;
-  int i, j, large_entry;
+  unsigned int i, j, large_entry;
   char side='L', uplo='L', trans='N', diag='N';
   float  *sa, *sb, *sc, *sd;
   double *da, *db, *dc, *dd, *tmpbuf;
@@ -545,13 +548,9 @@ int main(int argc, char* argv[])
   unsigned int typesize4 = 4;
   const libxs_getrf_descriptor* desc4 = NULL;
 #endif
-  libxs_descriptor_blob blob;
 #ifdef USE_XSMM_GENERATED
-  union {
-    libxs_xtrsmfunction dp;
-    libxs_xtrsmfunction sp;
-    const void* pv;
-  } mykernel = { 0 };
+  libxs_descriptor_blob blob;
+  libxs_getrf_xfunction mykernel = NULL;
 #endif
 #if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
   void (*opcode_routine)();
@@ -612,7 +611,7 @@ int main(int argc, char* argv[])
   printf("This code tests the LIBXS generated kernels\n");
 #endif
 #ifdef USE_PREDEFINED_ASSEMBLY
-  printf("This code tests some predefined assembly kenrel\n");
+  printf("This code tests some predefined assembly kernel\n");
 #endif
 #if defined(USE_KERNEL_GENERATION_DIRECTLY) && defined(__linux__)
   printf("This code tests kernel generation directly\n");
@@ -632,13 +631,13 @@ int main(int argc, char* argv[])
   desc4 = libxs_getrf_descriptor_init(&blob, typesize4, m, n, lda, layout);
 #endif
 #ifdef USE_XSMM_GENERATED
-  printf("calling libxs_dispatch_trmm: typesize8=%u\n",typesize8);
-  mykernel.dp = libxs_dispatch_getrf(desc8);
-  printf("done calling libxs_dispatch_trmm: typesize8=%u\n",typesize8);
-  if ( mykernel.dp == NULL ) printf("R8 Kernel after the create call is null\n");
+  printf("calling libxs_dispatch_getrf: typesize8=%u\n",typesize8);
+  mykernel = libxs_dispatch_getrf(desc8);
+  printf("done calling libxs_dispatch_getrf: typesize8=%u\n",typesize8);
+  if ( mykernel == NULL ) printf("R8 Kernel after the create call is null\n");
 #ifdef TEST_SINGLE
-  mykernel.sp = libxs_dispatch_getrf(desc4);
-  if ( mykernel.sp == NULL ) printf("R4 kernel after the create call is null\n");
+  mykernel = libxs_dispatch_getrf(desc4);
+  if ( mykernel == NULL ) printf("R4 kernel after the create call is null\n");
 #endif
 #endif
 
@@ -686,7 +685,7 @@ int main(int argc, char* argv[])
 #endif
 
 #ifdef USE_XSMM_GENERATED
-  cptr = (const unsigned char*) mykernel.pv;
+  cptr = (const unsigned char*) mykernel;
 #endif
 #ifdef USE_PREDEFINED_ASSEMBLY
   cptr = (const unsigned char*) getrf_;
@@ -740,7 +739,7 @@ int main(int argc, char* argv[])
 #ifdef USE_PREDEFINED_ASSEMBLY
   double one = 1.0;
 #endif
-  double timer, firsttime;
+  double timer, firsttime = 0;
 #ifdef MKL_TIMER
   double tmptimer;
   tmptimer = dsecnd_();
@@ -770,7 +769,7 @@ int main(int argc, char* argv[])
      gen_compact_dgetrf_ ( &layout, &m, &n, Ap, &lda, &VLEND );
 #endif
 #ifdef USE_XSMM_GENERATED
-     mykernel.dp ( Ap, Ap, NULL );
+     mykernel ( Ap, Ap, NULL );
 #endif
 #ifdef USE_PREDEFINED_ASSEMBLY
      getrf_ ( Ap, Ap, &one );
@@ -822,7 +821,7 @@ int main(int argc, char* argv[])
      if ( layout == 102 ) Ap = &sc[num*lda*n*VLENS];
      else                 Ap = &sc[num*lda*m*VLENS];
 #ifdef USE_XSMM_GENERATED
-     mykernel.sp ( Ap );
+     mykernel ( Ap, Ap, NULL );
 #endif
 #ifdef USE_KERNEL_GENERATION_DIRECTLY
      (*opcode_routine)( Ap );
@@ -851,9 +850,9 @@ int main(int argc, char* argv[])
   l_start = libxs_timer_tick();
 #endif
 
-#ifndef USE_MKL_FOR_REFERENCE
+#if !defined(USE_MKL_FOR_REFERENCE) && !defined(LIBXS_NOFORTRAN) && (!defined(__BLAS) || (0 != __BLAS))
   compact_dgetrf_ ( &layout, &m, &n, dd, &lda, &nmat, &VLEND );
-#else
+#elif defined(USE_MKL_FOR_REFERENCE)
   mkl_dgetrfnp_compact ( CLAYOUT, m, n, dd, lda, info, CMP_FORMAT, nmat );
 #endif
 

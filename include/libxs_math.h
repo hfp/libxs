@@ -80,6 +80,9 @@ LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char s
 LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char size,
   unsigned char stride, unsigned int hint, unsigned int n);
 
+/** Similar to memcmp (C standard library), but the result is conceptually only a boolean. */
+LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size);
+
 /** Calculate a hash value for a given buffer. */
 LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed);
 
