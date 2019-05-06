@@ -575,6 +575,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedbatchnorm {
   libxs_dnn_tensor* expvalue;       /* expected value */
   libxs_dnn_tensor* rcpstddev;      /* reciprocal of standard derivation */
   libxs_dnn_tensor* variance;       /* variance */
+  libxs_dnn_tensor* relumask;       /* relumask */
   libxs_barrier* barrier;           /* barrier */
   int ifmblock;
   int ifmblock_hp;
