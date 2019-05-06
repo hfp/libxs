@@ -940,6 +940,22 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->block_bwd_ifm = libxs_dnn_setup_generic_block_bwd_IFM(handle);
   handle->block_bwd_oj = libxs_dnn_setup_generic_bwd_block_H(handle);
   handle->use_fallback_bwd_loops = libxs_dnn_setup_generic_fallback_loops_bwd(handle);
+
+#if 0
+  /* Spit out BWD parameters that are selected...  */
+  printf("BWD params...\n");
+  printf("Bwd_ofw_rb = %d\n", handle->bwd_ofw_rb);
+  printf("Bwd_ofh_rb = %d\n", handle->bwd_ofh_rb);
+  printf("Pack input = %d\n", handle->pack_input_bwd);
+  printf("Spread input = %d\n", handle->spread_input_bwd);
+  printf("Blocksofm_blocking = %d\n", handle->blocksofm_blocking);
+  printf("Avoid acc load = %d\n", handle->avoid_acc_load_bwd);
+  printf("Ifm parallelization = %d\n", handle->use_ifm_parallelization);
+  printf("Block bwd ofm = %d\n", handle->block_bwd_ofm);
+  printf("Block bwd ifm = %d\n", handle->block_bwd_ifm);
+  printf("Block oj = %d\n", handle->block_bwd_oj);
+#endif
+
   handle->code_bwd[0].xconv.sconv = 0;
   handle->code_bwd[1].xconv.sconv = 0;
   handle->code_bwd[2].xconv.sconv = 0;
