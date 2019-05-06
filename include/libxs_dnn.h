@@ -197,7 +197,9 @@ typedef enum libxs_dnn_tensor_type {
   LIBXS_DNN_MAX_STATS_UPD,
   /** pooling mask */
   LIBXS_DNN_POOLING_MASK,
-   /** general type, if needed might cause API issues in copy in/out API */
+  /** ReLU mask */
+  LIBXS_DNN_RELU_MASK,
+  /** general type, if needed might cause API issues in copy in/out API */
   LIBXS_DNN_TENSOR,
 
   /** regular input buffer */

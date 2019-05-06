@@ -295,6 +295,59 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_da
           layout = 0; /* make sure a NULL is returned */
           *status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }
+      } else if ( (type == LIBXS_DNN_RELU_MASK) ) {
+        layout->tensor_type = LIBXS_DNN_RELU_MASK;
+
+        if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
+          layout->datatype = LIBXS_DNN_DATATYPE_I8;
+          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
+          layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
+
+          if (0 != layout->dim_type && 0 != layout->dim_size) {
+            layout->num_dims = 6;
+            layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+            layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+            layout->dim_size[0] = handle->fm_lp_block;
+            layout->dim_size[1] = handle->ofmblock_lp;
+            layout->dim_size[2] = (handle->desc.W/handle->desc.v) + (2*handle->desc.pad_w_out);
+            layout->dim_size[3] = (handle->desc.H/handle->desc.u) + (2*handle->desc.pad_h_out);
+            layout->dim_size[4] = handle->blocksofm;
+            layout->dim_size[5] = handle->desc.N;
+          } else {
+            free(layout);
+            layout = 0; /* make sure a NULL is returned */
+            *status = LIBXS_DNN_ERR_CREATE_LAYOUT_ARRAYS;
+          }
+        } else if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0) {
+          layout->datatype = LIBXS_DNN_DATATYPE_I8;
+          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
+          layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
+
+          if (0 != layout->dim_type && 0 != layout->dim_size) {
+            layout->num_dims = 6;
+            layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+            layout->dim_size[0] = handle->ofmblock*handle->blocksofm;
+            layout->dim_size[1] = (handle->desc.W/handle->desc.v) + (2*handle->desc.pad_w_out);
+            layout->dim_size[2] = (handle->desc.H/handle->desc.u) + (2*handle->desc.pad_h_out);
+            layout->dim_size[3] = handle->desc.N;
+          } else {
+            free(layout);
+            layout = 0; /* make sure a NULL is returned */
+            *status = LIBXS_DNN_ERR_CREATE_LAYOUT_ARRAYS;
+          }
+        } else {
+          free(layout);
+          layout = 0; /* make sure a NULL is returned */
+          *status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
+        }
+
       } else {
         free(layout);
         layout = 0; /* make sure a NULL is returned */
@@ -374,7 +427,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_bind_tensor(libxs_dnn_fusedba
        (type != LIBXS_DNN_REGULAR_CHANNEL_BETA)  && (type != LIBXS_DNN_GRADIENT_CHANNEL_BETA)  &&
        (type != LIBXS_DNN_REGULAR_CHANNEL_GAMMA) && (type != LIBXS_DNN_GRADIENT_CHANNEL_GAMMA) &&
        (type != LIBXS_DNN_CHANNEL_EXPECTVAL)     && (type != LIBXS_DNN_CHANNEL_RCPSTDDEV)      &&
-       (type != LIBXS_DNN_CHANNEL_VARIANCE)                                                          ) {
+       (type != LIBXS_DNN_CHANNEL_VARIANCE)      && (type != LIBXS_DNN_RELU_MASK)                  ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -409,6 +462,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_bind_tensor(libxs_dnn_fusedba
         handle->rcpstddev = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_CHANNEL_VARIANCE ) {
         handle->variance = (libxs_dnn_tensor*)tensor;
+      } else if ( type == LIBXS_DNN_RELU_MASK ) {
+        handle->relumask = (libxs_dnn_tensor*)tensor;
       } else {
         /* cannot happen */
       }
@@ -438,7 +493,7 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbatchnorm_get_tensor(libxs_dnn_fusedb
        (type != LIBXS_DNN_REGULAR_CHANNEL_BETA)  && (type != LIBXS_DNN_GRADIENT_CHANNEL_BETA)  &&
        (type != LIBXS_DNN_REGULAR_CHANNEL_GAMMA) && (type != LIBXS_DNN_GRADIENT_CHANNEL_GAMMA) &&
        (type != LIBXS_DNN_CHANNEL_EXPECTVAL)     && (type != LIBXS_DNN_CHANNEL_RCPSTDDEV)      &&
-       (type != LIBXS_DNN_CHANNEL_VARIANCE)                                                          ) {
+       (type != LIBXS_DNN_CHANNEL_VARIANCE)      && (type != LIBXS_DNN_RELU_MASK)                 ) {
     *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return return_tensor;
   }
@@ -470,6 +525,8 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_fusedbatchnorm_get_tensor(libxs_dnn_fusedb
       return_tensor = handle->rcpstddev;
     } else if ( type == LIBXS_DNN_CHANNEL_VARIANCE ) {
       return_tensor = handle->variance;
+    } else if ( type == LIBXS_DNN_RELU_MASK ) {
+      return_tensor = handle->relumask;
     } else {
       /* cannot happen */
     }
@@ -491,7 +548,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_release_tensor(libxs_dnn_fuse
        (type != LIBXS_DNN_REGULAR_CHANNEL_BETA)  && (type != LIBXS_DNN_GRADIENT_CHANNEL_BETA)  &&
        (type != LIBXS_DNN_REGULAR_CHANNEL_GAMMA) && (type != LIBXS_DNN_GRADIENT_CHANNEL_GAMMA) &&
        (type != LIBXS_DNN_CHANNEL_EXPECTVAL)     && (type != LIBXS_DNN_CHANNEL_RCPSTDDEV)      &&
-       (type != LIBXS_DNN_CHANNEL_VARIANCE)                                                          ) {
+       (type != LIBXS_DNN_CHANNEL_VARIANCE)      && (type != LIBXS_DNN_RELU_MASK)                 ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -523,6 +580,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedbatchnorm_release_tensor(libxs_dnn_fuse
       handle->rcpstddev = 0;
     } else if ( type == LIBXS_DNN_CHANNEL_VARIANCE ) {
       handle->variance = 0;
+    } else if ( type == LIBXS_DNN_RELU_MASK ) {
+      handle->relumask = 0;
     } else {
       /* cannot happen */
     }
