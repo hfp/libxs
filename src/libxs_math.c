@@ -249,8 +249,8 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info)
     /* no location discovered yet with a difference */
     info->m = info->n = -1;
     /* initial minimum/maximum of reference/test */
-    info->min_ref = +inf.value;
-    info->max_ref = -inf.value;
+    info->min_ref = info->min_tst = +inf.value;
+    info->max_ref = info->max_tst = -inf.value;
   }
 }
 

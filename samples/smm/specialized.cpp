@@ -131,8 +131,11 @@ int main(int argc, char* argv[])
       ITYPE *const b = LIBXS_ALIGN(helper.b, LIBXS_ALIGNMENT);
       OTYPE *const c = LIBXS_ALIGN(helper.c, LIBXS_ALIGNMENT);
       OTYPE *const d = LIBXS_ALIGN(helper.d, LIBXS_ALIGNMENT);
-#if defined(_OPENMP)
-#     pragma omp parallel for schedule(static)
+#if !defined(_OPENMP)
+      const int nthreads = 1;
+#else
+      const int nthreads = omp_get_max_threads();
+#     pragma omp parallel for num_threads(nthreads) schedule(static)
 #endif
       for (libxs_blasint i = 0; i < s; ++i) {
         LIBXS_MATRNG(ITYPE, 42 + helper.shuffle(i), a + static_cast<size_t>(asize) * helper.shuffle(i), m, k, lda, scale);
@@ -169,7 +172,7 @@ int main(int argc, char* argv[])
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
-#         pragma omp parallel for schedule(static)
+#         pragma omp parallel for num_threads(nthreads) schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
             const ITYPE *const ai = a + static_cast<size_t>(asize) * helper.shuffle(i), *const bi = b + static_cast<size_t>(bsize) * helper.shuffle(i);
@@ -215,18 +218,20 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1ULL << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-        if (0 == benchmark) { /* Gold result is available */
+        if (0 == (benchmark & 1) && 0 != check) { /* Gold result is available */
           libxs_matdiff_info diff;
           libxs_matdiff_clear(&diff);
           for (libxs_blasint h = 0; h < s; ++h) {
             const OTYPE *const u = c + static_cast<size_t>(csize) * h, *const v = c_array[h];
             libxs_matdiff_info dv;
             result = libxs_matdiff(&dv, LIBXS_DATATYPE(OTYPE), m, n, u, v, &ldc, &ldc);
-            if (EXIT_SUCCESS == result) {
-              libxs_matdiff_reduce(&diff, &dv);
-            }
+            if (EXIT_SUCCESS == result) libxs_matdiff_reduce(&diff, &dv);
           }
-          if (0 < diff.normf_rel) fprintf(stdout, "\tdiff: %.0f%%\n", 100.0 * diff.normf_rel);
+          fprintf(stdout, "\tdiff: L2abs=%f Linf=%f\n", diff.l2_abs, diff.linf_abs);
+          if (check < diff.l2_rel) {
+            fprintf(stderr, "FAILED.\n");
+            result = EXIT_FAILURE;
+          }
         }
       } break;
 
@@ -235,7 +240,7 @@ int main(int argc, char* argv[])
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
-#         pragma omp parallel for schedule(static)
+#         pragma omp parallel for num_threads(nthreads) schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
             const ITYPE *const ai = a + static_cast<size_t>(asize) * helper.shuffle(i);
@@ -280,17 +285,21 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * (bwsize - bsize * sizeof(ITYPE)) / (duration * (1ULL << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-        libxs_matdiff_info diff;
-        libxs_matdiff_clear(&diff);
-        for (libxs_blasint h = 0; h < s; ++h) {
-          const OTYPE *const u = c + static_cast<size_t>(csize) * h, *const v = c_array[h];
-          libxs_matdiff_info dv;
-          result = libxs_matdiff(&dv, LIBXS_DATATYPE(OTYPE), m, n, u, v, &ldc, &ldc);
-          if (EXIT_SUCCESS == result) {
-            libxs_matdiff_reduce(&diff, &dv);
+        if (0 == (benchmark & 1) && 0 != check) { /* Gold result is available */
+          libxs_matdiff_info diff;
+          libxs_matdiff_clear(&diff);
+          for (libxs_blasint h = 0; h < s; ++h) {
+            const OTYPE *const u = c + static_cast<size_t>(csize) * h, *const v = c_array[h];
+            libxs_matdiff_info dv;
+            result = libxs_matdiff(&dv, LIBXS_DATATYPE(OTYPE), m, n, u, v, &ldc, &ldc);
+            if (EXIT_SUCCESS == result) libxs_matdiff_reduce(&diff, &dv);
+          }
+          fprintf(stdout, "\tdiff: L2abs=%f Linf=%f\n", diff.l2_abs, diff.linf_abs);
+          if (check < diff.l2_rel) {
+            fprintf(stderr, "FAILED.\n");
+            result = EXIT_FAILURE;
           }
         }
-        if (0 < diff.normf_rel) fprintf(stdout, "\tdiff: %.0f%%\n", 100.0 * diff.normf_rel);
       } break;
 
       case 4: { // streaming B and C
@@ -298,7 +307,7 @@ int main(int argc, char* argv[])
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
-#         pragma omp parallel for schedule(static)
+#         pragma omp parallel for num_threads(nthreads) schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
             const ITYPE *const bi = b + static_cast<size_t>(bsize) * helper.shuffle(i);
@@ -343,17 +352,21 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * (bwsize - asize * sizeof(ITYPE)) / (duration * (1ULL << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
-        libxs_matdiff_info diff;
-        libxs_matdiff_clear(&diff);
-        for (libxs_blasint h = 0; h < s; ++h) {
-          const OTYPE *const u = c + static_cast<size_t>(csize) * h, *const v = c_array[h];
-          libxs_matdiff_info dv;
-          result = libxs_matdiff(&dv, LIBXS_DATATYPE(OTYPE), m, n, u, v, &ldc, &ldc);
-          if (EXIT_SUCCESS == result) {
-            libxs_matdiff_reduce(&diff, &dv);
+        if (0 == (benchmark & 1) && 0 != check) { /* Gold result is available */
+          libxs_matdiff_info diff;
+          libxs_matdiff_clear(&diff);
+          for (libxs_blasint h = 0; h < s; ++h) {
+            const OTYPE *const u = c + static_cast<size_t>(csize) * h, *const v = c_array[h];
+            libxs_matdiff_info dv;
+            result = libxs_matdiff(&dv, LIBXS_DATATYPE(OTYPE), m, n, u, v, &ldc, &ldc);
+            if (EXIT_SUCCESS == result) libxs_matdiff_reduce(&diff, &dv);
+          }
+          fprintf(stdout, "\tdiff: L2abs=%f Linf=%f\n", diff.l2_abs, diff.linf_abs);
+          if (check < diff.l2_rel) {
+            fprintf(stderr, "FAILED.\n");
+            result = EXIT_FAILURE;
           }
         }
-        if (0 < diff.normf_rel) fprintf(stdout, "\tdiff: %.0f%%\n", 100.0 * diff.normf_rel);
       } break;
 
       case 6: { // streaming A and B
@@ -361,13 +374,12 @@ int main(int argc, char* argv[])
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
-#         pragma omp parallel for schedule(static)
+#         pragma omp parallel for num_threads(0 == check ? nthreads : 1) schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
+            libxs_blasint j = 0;
 #if defined(_OPENMP) /* attempt to write to disjunct cachelines */
-            const libxs_blasint j = omp_get_thread_num() * chunksize * csize;
-#else
-            const libxs_blasint j = 0;
+            if (0 == check) j = omp_get_thread_num() * chunksize * csize;
 #endif
             const ITYPE *const ai = a + static_cast<size_t>(asize) * helper.shuffle(i), *const bi = b + static_cast<size_t>(bsize) * helper.shuffle(i);
 #if (0 != LIBXS_PREFETCH)
@@ -392,23 +404,25 @@ int main(int argc, char* argv[])
       case 7: { // indirect A and B
         fprintf(stdout, "Indirect (A,B)...\n");
 #if defined(_OPENMP)
-#       pragma omp parallel for schedule(static)
+#       pragma omp parallel for num_threads(0 == check ? nthreads : 1) schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
           a_array[i] = a + static_cast<size_t>(asize) * helper.shuffle(i);
           b_array[i] = b + static_cast<size_t>(bsize) * helper.shuffle(i);
 #if defined(_OPENMP) /* attempt to write to disjunct cachelines */
-          c_array[i] = d + static_cast<size_t>(csize) * chunksize * omp_get_thread_num();
-#else
-          c_array[i] = d;
+          if (0 == check) {
+            c_array[i] = d + static_cast<size_t>(csize) * chunksize * omp_get_thread_num();
+          }
+          else
 #endif
+          c_array[i] = d;
         }
         const libxs_blasint ptrsize = sizeof(void*);
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
           USEOMP(libxs_gemm_batch)(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
-            0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
+            0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, 0 == check ? -s : s);
         }
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
@@ -418,6 +432,15 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * (bwsize - sizeof(OTYPE) * csize * 2) / (duration * (1ULL << 30)));
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        if (0 == (benchmark & 1) && 0 != check) { /* Gold result is available */
+          libxs_matdiff_info diff;
+          result = libxs_matdiff(&diff, LIBXS_DATATYPE(OTYPE), m, n, c, d, &ldc, &ldc);
+          fprintf(stdout, "\tdiff: L2abs=%f Linf=%f\n", diff.l2_abs, diff.linf_abs);
+          if (check < diff.l2_rel) {
+            fprintf(stderr, "FAILED.\n");
+            result = EXIT_FAILURE;
+          }
+        }
       } break;
 
       case 8: { // cached
@@ -425,13 +448,12 @@ int main(int argc, char* argv[])
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
-#         pragma omp parallel for schedule(static)
+#         pragma omp parallel for num_threads(0 == check ? nthreads : 1) schedule(static)
 #endif
           for (libxs_blasint i = 0; i < s; ++i) {
+            libxs_blasint j = 0;
 #if defined(_OPENMP) /* attempt to write to disjunct cachelines */
-            const libxs_blasint j = omp_get_thread_num() * chunksize * csize;
-#else
-            const libxs_blasint j = 0;
+            if (0 == check) j = omp_get_thread_num() * chunksize * csize;
 #endif
 #if (0 != LIBXS_PREFETCH)
             xmm(a, b, c + j,
@@ -454,22 +476,24 @@ int main(int argc, char* argv[])
       case 9: { // indirect cached
         fprintf(stdout, "Indirect cached...\n");
 #if defined(_OPENMP)
-#       pragma omp parallel for schedule(static)
+#       pragma omp parallel for num_threads(0 == check ? nthreads : 1) schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
           a_array[i] = a; b_array[i] = b;
 #if defined(_OPENMP) /* attempt to write to disjunct cachelines */
-          c_array[i] = d + static_cast<size_t>(csize) * chunksize * omp_get_thread_num();
-#else
-          c_array[i] = d;
+          if (0 == check) {
+            c_array[i] = d + static_cast<size_t>(csize) * chunksize * omp_get_thread_num();
+          }
+          else
 #endif
+          c_array[i] = d;
         }
         const libxs_blasint ptrsize = sizeof(void*);
         const unsigned long long start = libxs_timer_tick();
         for (libxs_blasint r = 0; r < nrepeat; ++r) {
           USEOMP(libxs_gemm_batch)(LIBXS_GEMM_PRECISION(ITYPE), LIBXS_GEMM_PRECISION(OTYPE), &transa, &transb,
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
-            0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
+            0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, 0 == check ? -s : s);
         }
         const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
@@ -478,16 +502,18 @@ int main(int argc, char* argv[])
           fprintf(stdout, "\tperformance: %.1f G%s/s\n", gflops / duration, ops);
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
+        if (0 == (benchmark & 1) && 0 != check) { /* Gold result is available */
+          libxs_matdiff_info diff;
+          result = libxs_matdiff(&diff, LIBXS_DATATYPE(OTYPE), m, n, c, d, &ldc, &ldc);
+          fprintf(stdout, "\tdiff: L2abs=%f Linf=%f\n", diff.l2_abs, diff.linf_abs);
+          if (check < diff.l2_rel) {
+            fprintf(stderr, "FAILED.\n");
+            result = EXIT_FAILURE;
+          }
+        }
       } break;
       default: throw "invalid case selected!";
       } /*switch*/
-      if (0 != check) {
-        libxs_matdiff_info diff;
-        result = libxs_matdiff(&diff, LIBXS_DATATYPE(OTYPE), m, n, 0 == (benchmark & 1) ? c : d, NULL, &ldc, &ldc);
-        if (EXIT_SUCCESS == result) {
-          fprintf(stdout, "\tcheck: %f\n", diff.l1_ref);
-        }
-      }
       // finalize LIBXS
       libxs_finalize();
       fprintf(stdout, "Finished\n");

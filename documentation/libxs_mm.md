@@ -66,6 +66,8 @@ xmm = libxs_dmmdispatch(23/*m*/, 23/*n*/, 23/*k*/,
 
 Above, pointer-arguments of `libxs_dmmdispatch` can be NULL (or OPTIONAL in FORTRAN): for LDx this means a "tight" leading dimension, alpha, beta, and flags are given by a [default value](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h) (which is selected at compile-time), and for the prefetch strategy a NULL-argument refers to "no prefetch" (which is equivalent to an explicit `LIBXS_PREFETCH_NONE`). By design, the prefetch strategy can be changed at runtime (as soon as valid next-locations are used) without changing the call-site (kernel-signature with six arguments).
 
+<a name="implicit-batches"></a>
+
 ```C
 if (0 < n) { /* check that n is at least 1 */
 # pragma parallel omp private(i)
@@ -101,7 +103,7 @@ int libxs_mmbatch(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
   int tid, int nthreads);
 ```
 
-To further simplify the multiplication of matrices in a batch, the above interface can help if an explicit data representation is available. This low-level form or expert interface is also able to employ a user-defined threading runtime. In case of OpenMP, `libxs_mmbatch_omp` is ready-to-use and hosted by the extension library (libxsext). Of course, `libxs_mmbatch_omp` does not take `tid` and `nthreads` since both arguments are given by OpenMP. A sequential version is available with `libxs_gemm_batch` (libxs).
+To further simplify the multiplication of matrices in a batch, the above interface can help if an explicit data representation is available. This expert interface can employ a user-defined threading runtime (`tid` and `nthreads`). In case of OpenMP, `libxs_mmbatch_omp` is ready-to-use and hosted by the extension library (libxsext). Of course, `libxs_mmbatch_omp` does not take `tid` and `nthreads` since both arguments are given by OpenMP. Similarly, a sequential version (shown below) is available per `libxs_gemm_batch` (libxs).
 
 ```C
 void libxs_gemm_batch(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
@@ -117,7 +119,7 @@ void libxs_gemm_batch(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
   libxs_blasint batchsize);
 ```
 
-Please note that an explicit data representation is not actually necessary to process a series of matrix multiplications. A "chain" of multiplications can be algorithmically described without the need for arrays of operands or indexes.
+Please note that an explicit data representation is not necessary to process a series of matrix multiplications (see [self-hosted batch loop](#implicit-batches)). A "chain" of multiplications can be often algorithmically described (without the need to build arrays of operands or indexes). However, since such data structures often exist for multiple purposes, it can be handy to call an interface that can handle it right away. LIBXS provides an interface that allows an implementation to perform well but describe and extract the necessary input from a variety of different structures (integer indexes, array of pointers both with Byte sized strides).
 
 ## Overview
 
