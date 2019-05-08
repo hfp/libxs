@@ -370,6 +370,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int ofwp;
   int ifmblock;
   int ifmblock_hp;
+  int ifmblock_lp;
   int ofmblock;
   int ofmblock_lp;
   int blocksifm;

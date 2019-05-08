@@ -399,8 +399,9 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_ofmblock( libxs_dnn_layer* handle )
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_fm_lp_block( libxs_dnn_layer* handle ) {
   int result = 1;
-  /* FIXME: Fix this when requesting BF16 convolutions */
-  LIBXS_UNUSED(handle);
+  if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
+    result = 2;
+  }
   return result;
 }
 
@@ -900,6 +901,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->ifmblock = libxs_dnn_setup_generic_ifmblock(handle);
   handle->ofmblock = libxs_dnn_setup_generic_ofmblock(handle);
   handle->fm_lp_block = libxs_dnn_setup_generic_fm_lp_block(handle);
+  handle->ifmblock_lp = handle->ifmblock/handle->fm_lp_block;
+  handle->ofmblock_lp = handle->ofmblock/handle->fm_lp_block;
   handle->blocksifm = libxs_dnn_setup_generic_blocksifm(handle);
   handle->blocksofm = libxs_dnn_setup_generic_blocksofm(handle);
 
@@ -1023,6 +1026,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->scratch3_size = 0;
   handle->scratch4 = 0;
   handle->scratch4_size = 0;
+  handle->scratch6 = 0;
+  handle->scratch6_size = 0;
+
+  /* In this case, allocate scratch for output in fp32 precision (to use when we don't fully accumulate) + a scratchpad (when we fully accumulate)  */
+  if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
+    handle->scratch6_size = (size_t) (handle->desc.N * handle->ofwp * handle->ofhp * handle->desc.K + handle->desc.threads * handle->fwd_ofw_rb * handle->fwd_ofh_rb * handle->ofmblock)* sizeof(float);
+  }
 
   return status;
 }
