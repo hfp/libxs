@@ -163,16 +163,21 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_d
       gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch(handle->ofmblock, handle->fwd_ofh_rb*handle->fwd_ofw_rb, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
       gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch(handle->ofmblock, handle->fwd_ofh_rb*(handle->fwd_ofw_rb-1), handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic.tpl.c"
-#if 0
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
-      const int ldx = (int)(handle->desc.v*handle->ifmblock*handle->fm_lp_block);
+      const libxs_blasint ldx = (handle->pack_input == 1) ? (libxs_blasint)handle->ifmblock : (libxs_blasint)handle->desc.v*handle->ifmblock;
+      const libxs_blasint ldA = handle->ofmblock;
+      const libxs_blasint ldC = handle->ofmblock;
+      const float  beta = (handle->avoid_acc_load) ? 0.0 : 1.0;
       typedef libxs_bfloat16 element_input_type;
       typedef libxs_bfloat16 element_output_type;
       typedef libxs_bfloat16 element_filter_type;
-      typedef libxs_smmfunction gemm_function;
+      typedef libxs_bsmmfunction_reducebatch gemm_br_function;
+      int l_flags = ( LIBXS_GEMM_FLAGS('N', 'N') ) | handle->fwd_flags;
       /* let's do a ofmblock x ofw_rb x ifmblock GEMM :-) or in other words M=nbOfm, N=ofw, K=nbIfm (col-major) */
-      gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock*handle->fm_lp_block, handle->ofw, handle->ifmblock*handle->fm_lp_block, NULL, &ldx, NULL, NULL, NULL, NULL, NULL);
+      gemm_br_function br_gemm_kernel = libxs_bsmmdispatch_reducebatch(handle->ofmblock, handle->fwd_ofh_rb*handle->fwd_ofw_rb, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+      gemm_br_function br_gemm_kernel2 = libxs_bsmmdispatch_reducebatch(handle->ofmblock, handle->fwd_ofh_rb*(handle->fwd_ofw_rb-1), handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic_bf16.tpl.c"
+#if 0
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) {
       typedef short element_input_type;
       typedef int element_output_type;

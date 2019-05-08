@@ -141,7 +141,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       if (handle->max_scratch5_size < size5) handle->max_scratch5_size = size5;
     }
     handle->scratch5 = 0;
-    handle->scratch6_size = 0;
 #   if 0 /* make float-accumulation scratch always available as it is referenced even if below property is false */
     if (handle->use_accumulation_scratch)
 #   endif
@@ -149,7 +148,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       const size_t size6a = (size_t)handle->ofmblock * handle->ofw * handle->ofh * sizeof(float);
       const size_t size6b = (size_t)handle->ifmblock * handle->fm_lp_block *  handle->desc.W * handle->desc.H * sizeof(float);
       const size_t size6 = ( size6a > size6b ) ? size6a : size6b;
-      handle->scratch6_size = LIBXS_UP2(size6, LIBXS_CACHELINE) * handle->desc.threads;
+      handle->scratch6_size = LIBXS_MAX(LIBXS_UP2(size6, LIBXS_CACHELINE) * handle->desc.threads, handle->scratch6_size);
     }
     if (0 != handle->use_upd_generic) {
       const size_t output_typesize = libxs_dnn_typesize(handle->datatype_out);
