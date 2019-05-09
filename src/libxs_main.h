@@ -646,6 +646,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_blasint bk;
   libxs_blasint bn;
   libxs_blasint bc;
+  libxs_blasint lpb;
+
   /* external tensors */
   libxs_dnn_tensor* xt;
   libxs_dnn_tensor* csp;
