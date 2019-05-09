@@ -17,6 +17,7 @@ DOCDIR = documentation
 PINCDIR ?= $(INCDIR)
 PSRCDIR ?= $(PINCDIR)/libxs
 POUTDIR ?= $(OUTDIR)
+PPKGDIR ?= $(OUTDIR)
 PBINDIR ?= $(BINDIR)
 PTSTDIR ?= $(TSTDIR)
 PDOCDIR ?= share/libxs
@@ -189,13 +190,16 @@ DOCEXT = pdf
 # state to be excluded from tracking the (re-)build state
 EXCLUDE_STATE = \
   PREFIX INSTALL_ROOT BINDIR CURDIR DOCDIR DOCEXT INCDIR LICFDIR OUTDIR TSTDIR \
-  PBINDIR PINCDIR POUTDIR PSRCDIR PTSTDIR PDOCDIR SCRDIR SPLDIR SRCDIR TEST \
-  VERSION_STRING DEPSTATIC BLAS %_TARGET %ROOT MPSS KNC PKG_CONFIG_%
+  PBINDIR PINCDIR POUTDIR PPKGDIR PSRCDIR PTSTDIR PDOCDIR SCRDIR SPLDIR SRCDIR \
+  TEST VERSION_STRING DEPSTATIC BLAS %_TARGET %ROOT MPSS KNC PKG_CONFIG_%
 
 # in contrast to PREFIX, DESTDIR matters at this point
 ifneq (,$(strip $(DESTDIR)))
 ifneq ($(abspath .),$(abspath $(DESTDIR)))
   PKG_CONFIG_PREFIX = $(DESTDIR)
+  ifeq (FreeBSD,$(UNAME))
+    PPKGDIR = libdata/pkgconfig
+  endif
 endif
 endif
 ifeq (,$(strip $(PKG_CONFIG_PREFIX)))
@@ -1636,10 +1640,11 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 		mkdir -p $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 		$(CP) -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(INSTALL_ROOT)/$(POUTDIR)/mic; \
 	fi
-	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxsnoblas.pc > $(INSTALL_ROOT)/$(POUTDIR)/libxsnoblas.pc 2>/dev/null || true
-	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxsext.pc > $(INSTALL_ROOT)/$(POUTDIR)/libxsext.pc 2>/dev/null || true
-	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxsf.pc > $(INSTALL_ROOT)/$(POUTDIR)/libxsf.pc 2>/dev/null || true
-	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxs.pc > $(INSTALL_ROOT)/$(POUTDIR)/libxs.pc 2>/dev/null || true
+	@mkdir -p $(INSTALL_ROOT)/$(PPKGDIR)
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxsnoblas.pc > $(INSTALL_ROOT)/$(PPKGDIR)/libxsnoblas.pc 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxsext.pc > $(INSTALL_ROOT)/$(PPKGDIR)/libxsext.pc 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxsf.pc > $(INSTALL_ROOT)/$(PPKGDIR)/libxsf.pc 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(INSTALL_ROOT))/" $(OUTDIR)/libxs.pc > $(INSTALL_ROOT)/$(PPKGDIR)/libxs.pc 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing stand-alone generators..."
 	@$(CP) -v $(BINDIR)/libxs_*_generator $(INSTALL_ROOT)/$(PBINDIR) 2>/dev/null || true
