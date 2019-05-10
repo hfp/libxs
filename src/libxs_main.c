@@ -251,7 +251,7 @@ LIBXS_API_INLINE unsigned int internal_update_mmstatistic(const libxs_gemm_descr
   unsigned int ntry, unsigned int ncol)
 {
   LIBXS_ASSERT(NULL != desc);
-  return libxs_update_mmstatistic((libxs_gemm_precision)desc->datatype,
+  return libxs_update_mmstatistic((libxs_gemm_precision)LIBXS_GETENUM_OUT(desc->datatype),
     desc->m, desc->n, desc->k, ntry, ncol);
 }
 
@@ -1198,16 +1198,24 @@ LIBXS_API const char* libxs_typename(libxs_datatype datatype)
     case LIBXS_DATATYPE_I16:  return "i16";
     case LIBXS_DATATYPE_I8:   return "i8";
     default: {
-      if ( LIBXS_GEMM_PRECISION_I16 == LIBXS_GETENUM_INP( datatype ) && LIBXS_GEMM_PRECISION_I32 == LIBXS_GETENUM_OUT( datatype ) ) {
+      if (LIBXS_GEMM_PRECISION_I16 == LIBXS_GETENUM_INP(datatype) &&
+          LIBXS_GEMM_PRECISION_I32 == LIBXS_GETENUM_OUT(datatype))
+      {
         return "i16i32";
       }
-      else if ( LIBXS_GEMM_PRECISION_I16 == LIBXS_GETENUM_INP( datatype ) && LIBXS_GEMM_PRECISION_F32 == LIBXS_GETENUM_OUT( datatype ) ) {
+      else if (LIBXS_GEMM_PRECISION_I16 == LIBXS_GETENUM_INP(datatype) &&
+               LIBXS_GEMM_PRECISION_F32 == LIBXS_GETENUM_OUT(datatype))
+      {
         return "i16f32";
       }
-      else if ( LIBXS_GEMM_PRECISION_I8 == LIBXS_GETENUM_INP( datatype ) && LIBXS_GEMM_PRECISION_I32 == LIBXS_GETENUM_OUT( datatype ) ) {
+      else if (LIBXS_GEMM_PRECISION_I8 == LIBXS_GETENUM_INP(datatype) &&
+               LIBXS_GEMM_PRECISION_I32 == LIBXS_GETENUM_OUT(datatype))
+      {
         return "i8i32";
       }
-      else if ( LIBXS_GEMM_PRECISION_BF16 == LIBXS_GETENUM_INP( datatype ) && LIBXS_GEMM_PRECISION_F32 == LIBXS_GETENUM_OUT( datatype ) ) {
+      else if (LIBXS_GEMM_PRECISION_BF16 == LIBXS_GETENUM_INP(datatype) &&
+               LIBXS_GEMM_PRECISION_F32 == LIBXS_GETENUM_OUT(datatype))
+      {
         return "bf16f32";
       }
       else {
@@ -1269,7 +1277,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         const unsigned int m = request->descriptor.gemm->m, n = request->descriptor.gemm->n, k = request->descriptor.gemm->k;
 # if !defined(LIBXS_DENY_RETARGET) /* disable: ECFLAGS=-DLIBXS_DENY_RETARGET */
         if (LIBXS_X86_AVX2 < libxs_target_archid &&
-           (LIBXS_GEMM_PRECISION_F64 == request->descriptor.gemm->datatype || LIBXS_GEMM_PRECISION_F32 == request->descriptor.gemm->datatype) &&
+           (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype) ||
+            LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype)) &&
            (16 >= (m * k) || 16 >= (k * n) || 16 >= (m * n)))
         {
           generated_code.arch = LIBXS_X86_AVX2;
@@ -1297,7 +1306,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       LIBXS_ASSERT(NULL != request->descriptor.srsoa && 0 != request->descriptor.srsoa->gemm);
       LIBXS_ASSERT(NULL != request->descriptor.srsoa->row_ptr && 0 != request->descriptor.srsoa->column_idx && 0 != request->descriptor.srsoa->values);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == request->descriptor.srsoa->gemm->datatype || LIBXS_GEMM_PRECISION_F32 == request->descriptor.srsoa->gemm->datatype) {
+      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.srsoa->gemm->datatype) ||
+          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.srsoa->gemm->datatype))
+      {
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_soa_kernel, &generated_code, request->descriptor.srsoa->gemm, target_arch,
           request->descriptor.srsoa->row_ptr, request->descriptor.srsoa->column_idx, request->descriptor.srsoa->values);
 # if !defined(LIBXS_VTUNE)
@@ -1324,7 +1335,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       LIBXS_ASSERT(NULL != request->descriptor.scsoa && 0 != request->descriptor.scsoa->gemm);
       LIBXS_ASSERT(NULL != request->descriptor.scsoa->row_idx && 0 != request->descriptor.scsoa->column_ptr && 0 != request->descriptor.scsoa->values);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == request->descriptor.scsoa->gemm->datatype || LIBXS_GEMM_PRECISION_F32 == request->descriptor.scsoa->gemm->datatype) {
+      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.scsoa->gemm->datatype) ||
+          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.scsoa->gemm->datatype))
+      {
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csc_soa_kernel, &generated_code, request->descriptor.scsoa->gemm, target_arch,
           request->descriptor.scsoa->row_idx, request->descriptor.scsoa->column_ptr, request->descriptor.scsoa->values);
 # if !defined(LIBXS_VTUNE)
@@ -1350,7 +1363,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     case LIBXS_BUILD_KIND_RMACSOA: { /* dense SOA kernel, CSC format */
       LIBXS_ASSERT(NULL != request->descriptor.rmacsoa && 0 != request->descriptor.rmacsoa->gemm);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == request->descriptor.rmacsoa->gemm->datatype || LIBXS_GEMM_PRECISION_F32 == request->descriptor.rmacsoa->gemm->datatype) {
+      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.rmacsoa->gemm->datatype) ||
+          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.rmacsoa->gemm->datatype))
+      {
         LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_rm_ac_soa, &generated_code, request->descriptor.rmacsoa->gemm, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1373,7 +1388,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     case LIBXS_BUILD_KIND_RMBCSOA: { /* sparse SOA kernel, CSC format */
       LIBXS_ASSERT(NULL != request->descriptor.rmbcsoa && 0 != request->descriptor.rmbcsoa->gemm);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == request->descriptor.rmbcsoa->gemm->datatype || LIBXS_GEMM_PRECISION_F32 == request->descriptor.rmbcsoa->gemm->datatype) {
+      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.rmbcsoa->gemm->datatype) ||
+          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.rmbcsoa->gemm->datatype))
+      {
         LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_rm_bc_soa, &generated_code, request->descriptor.rmbcsoa->gemm, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1397,8 +1414,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       LIBXS_ASSERT(NULL != request->descriptor.sreg && 0 != request->descriptor.sreg->gemm);
       LIBXS_ASSERT(NULL != request->descriptor.sreg->row_ptr && 0 != request->descriptor.sreg->column_idx && 0 != request->descriptor.sreg->values);
 #if 1
-      if (LIBXS_GEMM_PRECISION_F64 == request->descriptor.sreg->gemm->datatype) { /* only double-precision */
+      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.sreg->gemm->datatype)) /* only double-precision */
 #endif
+      {
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_reg_kernel, &generated_code, request->descriptor.sreg->gemm, target_arch,
           request->descriptor.sreg->row_ptr, request->descriptor.sreg->column_idx,
           (const double*)request->descriptor.sreg->values);
@@ -1418,9 +1436,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.sreg->gemm->flags) ? 0 : 1,
             uid);
         }
-#if 1
       }
-#endif
     } break;
     case LIBXS_BUILD_KIND_CFWD: { /* forward convolution */
       LIBXS_ASSERT(NULL != request->descriptor.cfwd);
