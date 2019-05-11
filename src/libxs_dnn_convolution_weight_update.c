@@ -1132,6 +1132,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_d
       typedef libxs_smmfunction gemm_function;
       typedef libxs_smmfunction_reducebatch gemm_br_function;
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_generic.tpl.c"
+    } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
+      typedef libxs_bfloat16 element_input_type;
+      typedef libxs_bfloat16 element_output_type;
+      typedef libxs_bfloat16 element_filter_type;
+      typedef libxs_bsmmfunction gemm_function;
+      typedef libxs_bsmmfunction_reducebatch gemm_br_function;
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16.tpl.c"
     }
     else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
