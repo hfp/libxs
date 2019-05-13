@@ -992,10 +992,21 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->upd_loop_order = libxs_dnn_setup_generic_loop_order_upd(handle);
 
   if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
-    handle->input_pixels = handle->ifwp * handle->ifhp;
-    handle->output_pixels = handle->ofwp * handle->ofhp;
-    handle->pixel_blocking = handle->ofw * handle->ofh;
-    handle->n_used_pixels = handle->ofw * handle->ofh;
+    const int multiple_target = 2;
+    /* Logistics to pad accumulation chainlength */
+    int compute_pixels = handle->ofw * handle->ofh + 2 * handle->desc.pad_w * (handle->ofh-1);
+    int remainder_pixels = (compute_pixels % multiple_target == 0) ? 0 : (compute_pixels/multiple_target+1)*multiple_target - compute_pixels;
+    int accum_length_pixels = compute_pixels + remainder_pixels;
+
+    /* Logistics for input transpose and additional pixel padding */
+    int max_init_offset = 2 * handle->desc.pad_h * handle->ifwp + 2 * handle->desc.pad_w;
+    int max_compute_offset_input = max_init_offset + accum_length_pixels;
+    int input_compute_pad = (max_compute_offset_input > handle->ifwp*handle->ifhp) ? max_compute_offset_input - handle->ifwp*handle->ifhp : 0;
+
+    handle->input_pixels = handle->ifwp * handle->ifhp + input_compute_pad;
+    handle->output_pixels = accum_length_pixels;
+    handle->pixel_blocking = accum_length_pixels;
+    handle->n_used_pixels = accum_length_pixels;
     handle->weight_copies = handle->desc.threads;
   }
 
