@@ -453,6 +453,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int output_pixels;
   int n_used_pixels;
   int pixel_blocking;
+  int use_intermediate_f32_wt_tensor;
 
   libxs_xtransfunction tr_kernel;
 
