@@ -896,7 +896,6 @@ LIBXS_API_INLINE void libxs_dnn_setup_generic_bf16_upd( libxs_dnn_layer* handle 
   int remainder_pixels, max_init_offset, max_compute_offset_input, input_compute_pad, accum_length_pixels, compute_pixels;
   const int multiple_target = 2;
   handle->upd_linearized_pixels = 1;
-
   if (handle->desc.S != 1 && handle->desc.v != 1) {
     handle->upd_linearized_pixels = 0;
   }
@@ -905,6 +904,7 @@ LIBXS_API_INLINE void libxs_dnn_setup_generic_bf16_upd( libxs_dnn_layer* handle 
   handle->on_the_fly_input_packing = 0;
   handle->upd_pack_input_upfront = 0;
   handle->use_hybrid_imgofm_parallelization = 0;
+  handle->upd_linearized_tasklist = 0;
 
   if (handle->upd_linearized_pixels == 1) {
     /* Logistics to pad accumulation chainlength */
@@ -936,12 +936,15 @@ LIBXS_API_INLINE void libxs_dnn_setup_generic_bf16_upd( libxs_dnn_layer* handle 
     }
     handle->scratch3_size = (size_t) (handle->desc.N * handle->input_pixels * handle->desc.C * sizeof(float)/2);
 
-    if (handle->upd_use_batchreduce == 1 && handle->upd_linearized_tasklist == 0) {
+    if (handle->ofw <= 14) {
       handle->use_hybrid_imgofm_parallelization = 1;
+    } else {
+      handle->weight_copies = handle->desc.threads;
     }
   }
 
   if (handle->upd_linearized_pixels == 0) {
+    handle->weight_copies = handle->desc.threads;
     if (handle->desc.v !=1) {
       handle->on_the_fly_input_packing = 1;
     }
