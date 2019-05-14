@@ -459,6 +459,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int ofwp_extended;
   int batchreduce_h_pixels;
   int on_the_fly_input_packing;
+  int upd_pack_input_upfront;
 
   libxs_xtransfunction tr_kernel;
 
