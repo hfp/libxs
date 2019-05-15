@@ -35,8 +35,5 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_feature_map_blocks( libxs_dnn_layer* handle, int *noarch );
 LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle );
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handle );
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_fwd( libxs_dnn_layer* handle, int *noarch );
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_bwd( libxs_dnn_layer* handle, int *noarch );
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_upd( libxs_dnn_layer* handle, int *noarch );
 
 #endif /* LIBXS_DNN_SETUP_H */

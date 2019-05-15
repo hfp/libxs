@@ -314,7 +314,7 @@ SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_main.c libxs_malloc.c libxs_hash.c libxs_diff.c libxs_math.c \
           libxs_sync.c libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
           libxs_gemm.c libxs_xcopy.c libxs_blocked_gemm.c libxs_spmdm.c libxs_fsspmdm.c libxs_rng.c\
-          libxs_dnn.c libxs_dnn_dryruns.c libxs_dnn_setup.c libxs_dnn_handle.c libxs_dnn_elementwise.c \
+          libxs_dnn.c libxs_dnn_setup.c libxs_dnn_handle.c libxs_dnn_elementwise.c \
           libxs_dnn_rnncell.c libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c \
           libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c libxs_dnn_fusedbatchnorm_backward.c \
           libxs_dnn_pooling.c libxs_dnn_pooling_forward.c libxs_dnn_pooling_backward.c libxs_dnn_convolution_forward.c \
