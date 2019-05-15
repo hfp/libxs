@@ -41,18 +41,23 @@
 #endif
 
 /* function prototypes for below implementations */
+#if 0
 LIBXS_API_INTERN void libxs_dnn_inout_transpose_lp(int ltid, libxs_dnn_layer* handle);
 LIBXS_API_INTERN void libxs_dnn_inout_transpose_resize_lp(int ltid, libxs_dnn_layer* handle);
 LIBXS_API_INTERN void libxs_dnn_transpose_fallback(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS);
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*transposer)(int M, int N, float *LIBXS_RESTRICT dst, int ldD, const float *LIBXS_RESTRICT src, int ldS);
 LIBXS_API_INTERN transposer libxs_dnn_transposer(int M, int N, int ldD, int ldS);
+#endif
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid);
+#if 0
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid);
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid);
+#endif
 
+#if 0
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
 #define TRANSPOSE_W_CHUNK(img, ifm1, ij, w_offset, ifm2) \
         base_addr = &LIBXS_VLA_ACCESS(6, input_nopad, img, ifm1, ij, w_offset, ifm2, 0, handle->blocksifm_lp, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block); \
@@ -992,7 +997,7 @@ LIBXS_API_INTERN transposer libxs_dnn_transposer(int M, int N, int ldD, int ldS)
 #endif
   return libxs_dnn_transpose_fallback;
 }
-
+#endif
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid)
@@ -1002,8 +1007,9 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer*
   typedef float element_input_type;
   typedef float element_output_type;
   typedef float element_filter_type;
-  typedef libxs_sconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_upd_custom_custom.tpl.c"
+  typedef libxs_smmfunction gemm_function;
+  typedef libxs_smmfunction_reducebatch gemm_br_function;
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_generic.tpl.c"
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
@@ -1012,6 +1018,25 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer*
 }
 
 
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
+  typedef libxs_bfloat16 element_input_type;
+  typedef libxs_bfloat16 element_output_type;
+  typedef libxs_bfloat16 element_filter_type;
+  typedef libxs_bsmmfunction gemm_function;
+  typedef libxs_bsmmfunction_reducebatch gemm_br_function;
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16.tpl.c"
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+
+#if 0
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
@@ -1053,35 +1078,6 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i16_f32(libxs_dnn_layer*
 }
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid)
-{
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  if (handle->upd_use_thread_fil > 0) {
-    typedef libxs_bfloat16 element_input_type;
-    typedef libxs_bfloat16 element_output_type;
-    typedef float element_filter_type;
-    typedef libxs_bf16f32convfunction libxs_convfunction;
-    if (handle->use_fastpath) {
-      if ( handle->use_hybrid_wu_parallelism == 1) {
-# include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_bf16.tpl.c"
-      }
-      else {
-# include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_opt_bf16.tpl.c"
-      }
-    } else {
-      /* We come here only when we have C=3  */
-# include "template/libxs_dnn_convolve_st_upd_custom_custom_stream_bf16.tpl.c"
-    }
-  }
-#else /* should not happen */
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
-  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
-#endif
-  return status;
-}
-
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -1106,6 +1102,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_i8_i32(libxs_dnn_layer* 
 #endif
   return status;
 }
+#endif
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid)
 {
@@ -1155,12 +1152,14 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_d
     else if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
       status = libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16( handle, start_thread, tid );
     }
+#if 0
     else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_convolve_st_upd_custom_custom_i16_f32( handle, start_thread, tid );
     }
     else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) {
       status = libxs_dnn_convolve_st_upd_custom_custom_i8_i32( handle, start_thread, tid );
     }
+#endif
     else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
