@@ -722,9 +722,7 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_RMBCSOA,
   LIBXS_BUILD_KIND_SRSOA,
   LIBXS_BUILD_KIND_SCSOA,
-  LIBXS_BUILD_KIND_SREG,
-  LIBXS_BUILD_KIND_CFWD,
-  LIBXS_BUILD_KIND_CUPD
+  LIBXS_BUILD_KIND_SREG
 } libxs_build_kind;
 
 /** Integral type (libxs_kernel_kind, libxs_build_kind). */

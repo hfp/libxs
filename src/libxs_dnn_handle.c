@@ -58,8 +58,6 @@
 
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dnn_layer* handle ) {
-  /* flag to test if we found an architecture which is supported */
-  int noarch = 1;
   int internal_format_type;
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   const char *const env = getenv("LIBXS_DNN_INTERNAL_FORMAT");
