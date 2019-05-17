@@ -490,6 +490,9 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_fallback_loops_bwd( libxs_dnn_layer
   if ((handle->desc.R > 1 && handle->desc.pad_h == 0) || (handle->desc.S > 1 && handle->desc.pad_w == 0)) {
     result = 1;
   }
+  if ((handle->desc.R > 1 && handle->desc.u > 1) || (handle->desc.S > 1 && handle->desc.v > 1)) {
+    result = 1;
+  }
   return result;
 }
 
@@ -964,7 +967,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
 
   /* In this case, allocate scratch for output in fp32 precision (to use when we don't fully accumulate) + a scratchpad (when we fully accumulate)  */
   if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
-    handle->scratch6_size = (size_t) (handle->desc.N * handle->ofwp * handle->ofhp * handle->desc.K + handle->desc.threads * handle->fwd_ofw_rb * handle->fwd_ofh_rb * handle->ofmblock)* sizeof(float);
+    handle->scratch6_size = (size_t) (handle->desc.N * LIBXS_MAX(handle->ofwp * handle->ofhp * handle->desc.K, handle->desc.W * handle->desc.H * handle->desc.C) + handle->desc.threads * LIBXS_MAX(handle->fwd_ofw_rb * handle->fwd_ofh_rb * handle->ofmblock, handle->bwd_ofw_rb * handle->bwd_ofh_rb * handle->ifmblock))* sizeof(float);
   }
 
   return status;
