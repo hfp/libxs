@@ -860,5 +860,7 @@ LIBXS_APIVAR(size_t libxs_scratch_limit);
 LIBXS_APIVAR(double libxs_scratch_scale);
 /** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wall-clock) */
 LIBXS_APIVAR(double libxs_timer_scale);
+/** Security-enhanced environment */
+LIBXS_APIVAR(int libxs_se);
 
 #endif /*LIBXS_MAIN_H*/
