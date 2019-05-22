@@ -191,7 +191,6 @@ LIBXS_APIVAR_ARRAY(char internal_malloc_pool_buffer, (LIBXS_MALLOC_SCRATCH_MAX_N
 LIBXS_APIVAR(size_t internal_malloc_scratch_size_private);
 LIBXS_APIVAR(size_t internal_malloc_scratch_size_public);
 LIBXS_APIVAR(size_t internal_malloc_scratch_nmallocs);
-LIBXS_APIVAR(int internal_malloc_secured);
 
 
 LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment)
@@ -658,17 +657,17 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
             FILE *const selinux = fopen("/sys/fs/selinux/enforce", "rb");
             const char *const env = getenv("LIBXS_SE");
             if (NULL != selinux) {
-              if (1 == fread(&internal_malloc_secured, 1/*sizeof(char)*/, 1/*count*/, selinux)) {
-                internal_malloc_secured = ('0' != internal_malloc_secured ? 1 : 0);
+              if (1 == fread(&libxs_se, 1/*sizeof(char)*/, 1/*count*/, selinux)) {
+                libxs_se = ('0' != libxs_se ? 1 : 0);
               }
               else { /* conservative assumption in case of read-error */
-                internal_malloc_secured = 1;
+                libxs_se = 1;
               }
               fclose(selinux);
             }
             LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&fallback, NULL == env
-              /* internal_malloc_secured decides */
-              ? (0 == internal_malloc_secured ? LIBXS_MALLOC_FINAL : LIBXS_MALLOC_FALLBACK)
+              /* libxs_se decides */
+              ? (0 == libxs_se ? LIBXS_MALLOC_FINAL : LIBXS_MALLOC_FALLBACK)
               /* user's choice takes precedence */
               : ('0' != *env ? LIBXS_MALLOC_FALLBACK : LIBXS_MALLOC_FINAL),
               LIBXS_ATOMIC_SEQ_CST);
@@ -1069,7 +1068,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
 # endif   /* treat memory protection errors as soft error; ignore return value */
           mprotect_result = mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ | PROT_EXEC);
           if (EXIT_SUCCESS != mprotect_result) {
-            if (0 != internal_malloc_secured) { /* hard-error in case of SELinux */
+            if (0 != libxs_se) { /* hard-error in case of SELinux */
               if (0 != libxs_verbosity /* library code is expected to be mute */
                 && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
               {
@@ -1117,13 +1116,21 @@ LIBXS_API LIBXS_ATTRIBUTE_MALLOC void* libxs_aligned_malloc(size_t size, size_t 
 }
 
 
-LIBXS_API_INLINE const void* internal_malloc_site(const char* site)
+LIBXS_API void* libxs_realloc(size_t size, void* ptr)
+{
+  LIBXS_UNUSED(size); LIBXS_UNUSED(ptr);
+  LIBXS_ASSERT_MSG(0, "libxs_realloc is not yet implemented");
+  return NULL;
+}
+
+
+LIBXS_API_INLINE const void* internal_malloc_site(const void* site)
 {
   const void* result;
   if (NULL != site) {
 #if !defined(LIBXS_STRING_POOLING)
     if ((LIBXS_MALLOC_SCRATCH_INTERNAL) != site) {
-      const uintptr_t hash = libxs_crc32(LIBXS_MALLOC_SEED, site, strlen(site));
+      const uintptr_t hash = libxs_crc32(LIBXS_MALLOC_SEED, site, strlen((const char*)site));
       result = (const void*)((LIBXS_MALLOC_SCRATCH_INTERNAL_SITE) != hash ? hash : (hash - 1));
       LIBXS_ASSERT((LIBXS_MALLOC_SCRATCH_INTERNAL) != result);
     }
@@ -1175,7 +1182,7 @@ LIBXS_API_INLINE size_t internal_get_scratch_size(const internal_malloc_pool_typ
 }
 
 
-LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const char* caller)
+LIBXS_API void* libxs_scratch_malloc(size_t size, size_t alignment, const void* caller)
 {
   static int error_once = 0;
   size_t local_size = 0;

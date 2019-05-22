@@ -421,7 +421,12 @@ LIBXS_API_INLINE void internal_finalize(void)
       libxs_scratch_info scratch_info;
       unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
-        fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
+        if (0 == libxs_se) {
+          fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
+        }
+        else {
+          fprintf(stderr, "\nLIBXS_TARGET: %s*\n", target_arch);
+        }
       }
       fprintf(stderr, "Registry: %.f MB", regsize);
       if (0 != high_verbosity) {
