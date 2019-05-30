@@ -40,13 +40,13 @@ int main(void)
   libxs_malloc_function malloc_fn;
   libxs_free_function free_fn;
   malloc_fn.function = malloc; free_fn.function = free;
-  libxs_set_default_allocator(0/*context*/, malloc_fn/*malloc*/, free_fn/*free*/);
-  malloc_fn.function = 0; free_fn.function = 0;
-  libxs_set_scratch_allocator(0, malloc_fn/*0*/, free_fn/*0*/);
+  libxs_set_default_allocator(NULL/*context*/, malloc_fn/*malloc*/, free_fn/*free*/);
+  malloc_fn.function = NULL; free_fn.function = NULL;
+  libxs_set_scratch_allocator(NULL/*context*/, malloc_fn, free_fn);
 
   /* check adoption of the default allocator */
   libxs_get_scratch_allocator(&context, &malloc_fn, &free_fn);
-  if (0 != context || malloc != malloc_fn.function || free != free_fn.function) {
+  if (NULL != context || malloc != malloc_fn.function || free != free_fn.function) {
     ++nerrors;
   }
 
@@ -54,7 +54,25 @@ int main(void)
   p = libxs_malloc(size);
 
   /* query and check the size of the buffer */
-  if (0 != p && (EXIT_SUCCESS != libxs_get_malloc_info(p, &malloc_info) || size != malloc_info.size)) {
+  if (NULL != p && (EXIT_SUCCESS != libxs_get_malloc_info(p, &malloc_info) || malloc_info.size < size)) {
+    ++nerrors;
+  }
+
+  { /* reallocate larger amount of memory */
+    unsigned char* c = (unsigned char*)p;
+    size_t i;
+    for (i = 0; i < size; ++i) c[i] = (unsigned char)LIBXS_MOD2(i, 256);
+    p = libxs_realloc(size * 2, p);
+    /* reallocate again with same size */
+    p = libxs_realloc(size * 2, p);
+    c = (unsigned char*)p;
+    for (i = 0; i < size; ++i) { /* check that content is preserved */
+      nerrors += (c[i] == (unsigned char)LIBXS_MOD2(i, 256) ? 0 : 1);
+    }
+  }
+
+  /* query and check the size of the buffer */
+  if (NULL != p && (EXIT_SUCCESS != libxs_get_malloc_info(p, &malloc_info) || malloc_info.size < 2 * size)) {
     ++nerrors;
   }
 
@@ -64,7 +82,7 @@ int main(void)
   }
 
   /* release a NULL pointer */
-  libxs_free(0);
+  libxs_free(NULL);
 
   /* release a buffer */
   libxs_free(p);
