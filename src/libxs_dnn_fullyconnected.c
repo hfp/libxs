@@ -288,7 +288,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
                 layout->dim_size[2] = 1;
                 layout->dim_size[3] = handle->desc.N;
               } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT) )   {
-                layout->dim_size[0] = handle->desc.C;
+                layout->dim_size[0] = handle->desc.K;
                 layout->dim_size[1] = 1;
                 layout->dim_size[2] = 1;
                 layout->dim_size[3] = handle->desc.N;
@@ -324,9 +324,9 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
                 layout->dim_size[2] = (unsigned int)(handle->desc.C / handle->bc);
                 layout->dim_size[3] = (unsigned int)(handle->desc.N / handle->bn);
               } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) ) {
-                layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
                 layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_N;
-                layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_K;
+                layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_C;
                 layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_N;
                 layout->dim_size[0] = (unsigned int)handle->bk;
                 layout->dim_size[1] = (unsigned int)handle->bn;
