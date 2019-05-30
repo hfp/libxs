@@ -756,10 +756,11 @@ typedef enum libxs_malloc_flags {
   LIBXS_MALLOC_FLAG_DEFAULT = 0,
   LIBXS_MALLOC_FLAG_SCRATCH = 1,
   LIBXS_MALLOC_FLAG_PRIVATE = 2,
-  LIBXS_MALLOC_FLAG_MMAP    = 4,
-  LIBXS_MALLOC_FLAG_R       = 8,
-  LIBXS_MALLOC_FLAG_W       = 16,
-  LIBXS_MALLOC_FLAG_X       = 32,
+  LIBXS_MALLOC_FLAG_REALLOC = 4,
+  LIBXS_MALLOC_FLAG_MMAP    = 8,
+  LIBXS_MALLOC_FLAG_R       = 16,
+  LIBXS_MALLOC_FLAG_W       = 32,
+  LIBXS_MALLOC_FLAG_X       = 64,
   LIBXS_MALLOC_FLAG_RW  = LIBXS_MALLOC_FLAG_R | LIBXS_MALLOC_FLAG_W,
   LIBXS_MALLOC_FLAG_WX  = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_W,
   LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_RW
@@ -858,6 +859,9 @@ LIBXS_APIVAR(unsigned int libxs_scratch_pools);
 LIBXS_APIVAR(size_t libxs_scratch_limit);
 /** Growth factor used to scale the scratch memory in case of reallocation. */
 LIBXS_APIVAR(double libxs_scratch_scale);
+/** Non-zero value turns all allocations into scratch allocations. */
+LIBXS_APIVAR(int libxs_scratch);
+
 /** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wall-clock) */
 LIBXS_APIVAR(double libxs_timer_scale);
 /** Security-enhanced environment */

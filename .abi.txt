@@ -52,6 +52,8 @@ libxs_dgemm0
 libxs_dgemm1
 libxs_dgemm2
 libxs_dgemm_
+libxs_dgemm_batch
+libxs_dgemm_batch_omp
 libxs_dgemm_descriptor_init
 libxs_dgemm_omp_
 libxs_diff
@@ -277,8 +279,10 @@ libxs_mutex_release
 libxs_mutex_trylock
 libxs_offset
 libxs_original_dgemm
+libxs_original_dgemm_batch
 libxs_original_dgemv
 libxs_original_sgemm
+libxs_original_sgemm_batch
 libxs_original_sgemv
 libxs_otrans
 libxs_otrans_
@@ -316,6 +320,7 @@ libxs_ptr_w2
 libxs_ptr_z0
 libxs_ptr_z1
 libxs_ptr_z2
+libxs_realloc
 libxs_release_dmmkernel
 libxs_release_kernel
 libxs_release_kernel_
@@ -357,6 +362,8 @@ libxs_sgemm0
 libxs_sgemm1
 libxs_sgemm2
 libxs_sgemm_
+libxs_sgemm_batch
+libxs_sgemm_batch_omp
 libxs_sgemm_descriptor_init
 libxs_sgemm_omp_
 libxs_shuffle

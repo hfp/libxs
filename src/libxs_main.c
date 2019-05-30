@@ -614,6 +614,9 @@ LIBXS_API_INTERN void internal_init(void)
       }
       LIBXS_ASSERT(1 <= libxs_scratch_scale);
     }
+    { const char *const env = getenv("LIBXS_SCRATCH");
+      if (NULL != env && 0 != *env) libxs_scratch = atoi(env);
+    }
 #endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
 #if defined(LIBXS_MAXTARGET)
     libxs_set_target_arch(LIBXS_STRINGIFY(LIBXS_MAXTARGET));
