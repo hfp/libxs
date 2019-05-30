@@ -113,7 +113,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
       /* FIXME: currently filter data-type is always smaller/equal output type */
       const size_t filter_typesize = libxs_dnn_typesize(handle->datatype_out);
       const size_t size7 = (size_t)handle->desc.R * handle->desc.S * handle->desc.C * handle->desc.K * filter_typesize + handle->ifmblock * handle->ofmblock * sizeof(float);
-      handle->scratch7_size = LIBXS_UP2(size7, LIBXS_CACHELINE) * handle->desc.threads;
+      handle->scratch7_size = LIBXS_UP2(size7, LIBXS_CACHELINE) * LIBXS_MAX(handle->desc.threads, handle->desc.N);
     }
   }
   return status;
