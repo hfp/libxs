@@ -644,6 +644,9 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_avoid_rim_fmas_upd( libxs_dnn_layer
   if ( (handle->ofh <= 7) && (handle->desc.R == 3) && (handle->desc.S == 3) && (handle->desc.pad_w == 1) && (handle->desc.pad_h == 1)) {
     result = 1;
   }
+  if (handle->desc.N != handle->desc.threads) {
+    result = 0;
+  }
   return result;
 }
 
@@ -675,6 +678,9 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_upd_ofh_rb( libxs_dnn_layer* handle
   }
   if (handle->ofw == 56 && handle->desc.R == 1) {
     result = 2;
+  }
+  if (handle->upd_linearized_tasklist == 1 && handle->upd_use_batchreduce == 1 && handle->upd_avoid_rim_fmas == 1) {
+    result = handle->ofh;
   }
   return result;
 }
@@ -712,6 +718,10 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_use_batchreduce_upd( libxs_dnn_laye
   if (handle->upd_linearized_tasklist == 1 && handle->upd_avoid_rim_fmas == 0) {
     result = 0;
   }
+  if (handle->upd_linearized_tasklist == 1 && handle->upd_avoid_rim_fmas == 1) {
+    result = 1;
+  }
+
   return result;
 }
 
@@ -745,7 +755,7 @@ LIBXS_API_INLINE int libxs_dnn_setup_generic_weight_copies_upd( libxs_dnn_layer*
 LIBXS_API_INLINE int libxs_dnn_setup_generic_linearized_tasklist_upd( libxs_dnn_layer* handle ) {
   int result = 0;
   /* Use linearized task-list (i.e. no reduction) only if small images and large filters */
-  if (handle->ofh <= 10) {
+  if (handle->ofh <= 10 && handle->ofw <= 10) {
     result = 1;
   }
 #if 0
