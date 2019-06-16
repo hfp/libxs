@@ -518,7 +518,7 @@ LIBXS_API float libxs_sexp2_i8i(int x)
 }
 
 
-#if defined(LIBXS_BUILD)
+#if defined(LIBXS_BUILD) && !defined(LIBXS_NOFORTRAN)
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info* /*info*/,

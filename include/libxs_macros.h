@@ -317,7 +317,7 @@
 #   define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(omp simd collapse(N))
 #   define LIBXS_PRAGMA_SIMD_PRIVATE(A, ...) LIBXS_PRAGMA(omp simd private(A, __VA_ARGS__))
 #   define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(omp simd)
-# elif defined(LIBXS_INTEL_COMPILER)
+# elif defined(__INTEL_COMPILER)
 #   define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(simd reduction(EXPRESSION))
 #   define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(simd collapse(N))
 #   define LIBXS_PRAGMA_SIMD_PRIVATE(A, ...) LIBXS_PRAGMA(simd private(A, __VA_ARGS__))

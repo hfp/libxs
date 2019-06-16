@@ -48,21 +48,21 @@
 #if !defined(LIBXS_MALLOC_SCRATCH_LIMIT)
 # define LIBXS_MALLOC_SCRATCH_LIMIT (4ULL << 30) /* 4 GB */
 #endif
-#if !defined(LIBXS_MALLOC_SCRATCH_MMAP) && 0
-# define LIBXS_MALLOC_SCRATCH_MMAP
+#if !defined(LIBXS_MALLOC_MMAP_SCRATCH) && 0
+# define LIBXS_MALLOC_MMAP_SCRATCH
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_SCALE)
-# if defined(LIBXS_MALLOC_SCRATCH_MMAP)
+# if defined(LIBXS_MALLOC_MMAP_SCRATCH)
 #   define LIBXS_MALLOC_SCRATCH_SCALE 1.3
 # else
 #   define LIBXS_MALLOC_SCRATCH_SCALE 1.0
 # endif
 #endif
-#if !defined(LIBXS_MALLOC_SCRATCH_INTERNAL_SITE)
-# define LIBXS_MALLOC_SCRATCH_INTERNAL_SITE ((uintptr_t)-1)
+#if !defined(LIBXS_MALLOC_INTERNAL_CALLER_ID)
+# define LIBXS_MALLOC_INTERNAL_CALLER_ID ((uintptr_t)-1)
 #endif
-#if !defined(LIBXS_MALLOC_SCRATCH_INTERNAL)
-# define LIBXS_MALLOC_SCRATCH_INTERNAL ((const char*)(LIBXS_MALLOC_SCRATCH_INTERNAL_SITE))
+#if !defined(LIBXS_MALLOC_INTERNAL_CALLER)
+# define LIBXS_MALLOC_INTERNAL_CALLER ((const void*)(LIBXS_MALLOC_INTERNAL_CALLER_ID))
 #endif
 
 #if !defined(LIBXS_VERBOSITY_HIGH)
@@ -783,17 +783,17 @@ LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment);
 
 /** Same as libxs_set_default_allocator, but takes a lock (can be NULL). */
 LIBXS_API_INTERN int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
-  void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
+  const void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 /** Same as libxs_get_default_allocator, but takes a lock (can be NULL). */
 LIBXS_API_INTERN int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
-  void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
+  const void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /** Same as libxs_set_scratch_allocator, but takes a lock (can be NULL). */
 LIBXS_API_INTERN int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
-  void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
+  const void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
 /** Same as libxs_get_scratch_allocator, but takes a lock (can be NULL). */
 LIBXS_API_INTERN int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
-  void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
+  const void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /**
  * Attribute memory allocation and protect with only the necessary flags.
@@ -809,7 +809,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
   /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
   const void* extra, size_t extra_size);
 /** Release memory, which was allocated using libxs_[*]malloc. */
-LIBXS_API_INTERN int libxs_xfree(const void* memory);
+LIBXS_API_INTERN void libxs_xfree(const void* memory);
 
 /** Determines the given value in double-precision based on the given type. */
 LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
@@ -848,9 +848,9 @@ LIBXS_APIVAR(libxs_free_function libxs_default_free_fn);
 /** Function used to release scratch memory. */
 LIBXS_APIVAR(libxs_free_function libxs_scratch_free_fn);
 /** If non-NULL, this context is used by the context-form of memory allocation. */
-LIBXS_APIVAR(void* libxs_default_allocator_context);
+LIBXS_APIVAR(const void* libxs_default_allocator_context);
 /** If non-NULL, this context is used by the context-form of memory allocation. */
-LIBXS_APIVAR(void* libxs_scratch_allocator_context);
+LIBXS_APIVAR(const void* libxs_scratch_allocator_context);
 /** Number of discovered threads (per libxs_get_tid) */
 LIBXS_APIVAR(unsigned int libxs_threads_count);
 /** Number of scratch memory pools used; clamped against internal maximum. */
@@ -859,8 +859,8 @@ LIBXS_APIVAR(unsigned int libxs_scratch_pools);
 LIBXS_APIVAR(size_t libxs_scratch_limit);
 /** Growth factor used to scale the scratch memory in case of reallocation. */
 LIBXS_APIVAR(double libxs_scratch_scale);
-/** Non-zero value turns all allocations into scratch allocations. */
-LIBXS_APIVAR(int libxs_scratch);
+/** even: regular, odd: scratch, >1: intercept */
+LIBXS_APIVAR(int libxs_malloc_kind);
 
 /** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wall-clock) */
 LIBXS_APIVAR(double libxs_timer_scale);

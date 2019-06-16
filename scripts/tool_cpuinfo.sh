@@ -1,6 +1,6 @@
 #!/bin/bash
 #############################################################################
-# Copyright (c) 2017-2019, Intel Corporation                                #
+# Copyright (c) 2016-2019, Intel Corporation                                #
 # All rights reserved.                                                      #
 #                                                                           #
 # Redistribution and use in source and binary forms, with or without        #
@@ -28,32 +28,55 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              #
 #############################################################################
 
-MAKE=$(command -v make)
 GREP=$(command -v grep)
 SORT=$(command -v sort)
-CXX=$(command -v clang++)
-CC=$(command -v clang)
+CUT=$(command -v cut)
+TR=$(command -v tr)
+WC=$(command -v wc)
 
-if [ "" != "${MAKE}" ] && [ "" != "${CXX}" ] && [ "" != "${CC}" ] && \
-   [ "" != "${GREP}" ] && [ "" != "${SORT}" ];
+if [ "" != "${GREP}" ] && \
+   [ "" != "${SORT}" ] && \
+   [ "" != "${CUT}" ] && \
+   [ "" != "${TR}" ] && \
+   [ "" != "${WC}" ];
 then
-  HERE=$(cd $(dirname $0); pwd -P)
-  cd ${HERE}/..
-  ARG=$*
-  if [ "" = "${ARG}" ]; then
-    ARG=lib
+  if [ -e /proc/cpuinfo ]; then
+    NS=$(${GREP} "physical id" /proc/cpuinfo | ${SORT} -u | ${WC} -l | ${TR} -d " ")
+    NC=$((NS*$(${GREP} -m1 "cpu cores" /proc/cpuinfo | ${TR} -d " " | ${CUT} -d: -f2)))
+    NT=$(${GREP} "core id" /proc/cpuinfo | ${WC} -l | ${TR} -d " ")
+  elif [ "Darwin" = "$(uname)" ]; then
+    NS=$(sysctl hw.packages | ${CUT} -d: -f2 | tr -d " ")
+    NC=$(sysctl hw.physicalcpu | ${CUT} -d: -f2 | tr -d " ")
+    NT=$(sysctl hw.logicalcpu | ${CUT} -d: -f2 | tr -d " ")
   fi
-  ${MAKE} CXX=${CXX} CC=${CC} FC= DBG=1 EFLAGS=--analyze ${ARG} 2> .analyze.log
-  ISSUES=$(${GREP} -e "error:" -e "warning:" .analyze.log | ${GREP} -v "is never read" | ${SORT} -u)
-  echo
-  echo   "================================================================================"
-  if [ "" = "${ISSUES}" ]; then
-    echo "SUCCESS"
-    echo "================================================================================"
+  if [ "" != "${NC}" ] && [ "" != "${NT}" ]; then
+    HT=$((NT/NC))
   else
-    echo "Errors (warnings)"
-    echo "================================================================================"
-    echo "${ISSUES}"
+    NS=1 NC=1 NT=1 HT=1
+  fi
+  if [ "" != "$(command -v numactl)" ]; then
+    NN=$(numactl -H | ${GREP} available: | ${CUT} -d' ' -f2)
+  else
+    NN=${NS}
+  fi
+  if [ "-ns" = "$1" ] || [ "--sockets" = "$1" ]; then
+    echo "${NS}"
+  elif [ "-nc" = "$1" ] || [ "--cores" = "$1" ]; then
+    echo "${NC}"
+  elif [ "-nt" = "$1" ] || [ "--threads" = "$1" ]; then
+    echo "${NT}"
+  elif [ "-ht" = "$1" ] || [ "--smt" = "$1" ]; then
+    echo "${HT}"
+  elif [ "-nn" = "$1" ] || [ "--numa" = "$1" ]; then
+    echo "${NN}"
+  elif [ "-h" = "$1" ] || [ "--help" = "$1" ]; then
+    echo "$0 [-ns|--sockets] [-nc|--cores] [-nt|--threads] [-ht|--smt] [-nn|--numa]"
+  else
+    echo -e "sockets\t: ${NS}"
+    echo -e "cores\t: ${NC}"
+    echo -e "threads\t: ${NT}"
+    echo -e "smt\t: ${HT}"
+    echo -e "numa:\t: ${NN}"
   fi
 else
   echo "Error: missing prerequisites!"
