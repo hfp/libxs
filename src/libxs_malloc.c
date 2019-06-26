@@ -273,7 +273,8 @@ LIBXS_API_INLINE const void* internal_malloc_site(const void* site)
   if (NULL != site) {
 #if !defined(LIBXS_STRING_POOLING)
     if ((LIBXS_MALLOC_INTERNAL_CALLER) != site) {
-      const uintptr_t hash = libxs_crc32(LIBXS_MALLOC_SEED, site, strlen((const char*)site));
+      const size_t length = strlen((const char*)site);
+      const uintptr_t hash = (sizeof(void*) < length ? libxs_crc32(LIBXS_MALLOC_SEED, site, length) : ((uintptr_t)site));
       result = (const void*)((LIBXS_MALLOC_INTERNAL_CALLER_ID) != hash ? hash : (hash - 1));
       LIBXS_ASSERT((LIBXS_MALLOC_INTERNAL_CALLER) != result);
     }

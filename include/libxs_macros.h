@@ -691,36 +691,6 @@
 # define _REENTRANT
 #endif
 
-/* _Float128 was introduced with GNU GCC 7.0. */
-#if !defined(_Float128) && defined(__GNUC__) && !defined(__cplusplus) && defined(__linux__) \
-  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
-  || (defined(LIBXS_INTEL_COMPILER) && defined(LIBXS_INTEL_COMPILER_UPDATE) && ( \
-        ((1800 <= ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE))) \
-      && (1801  > ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE)))) || \
-        ((1706  > ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE))) \
-      &&    (0 != ((LIBXS_INTEL_COMPILER) + (LIBXS_INTEL_COMPILER_UPDATE)))))))
-# define _Float128 __float128
-#endif
-#if !defined(LIBXS_GLIBC_FPTYPES) && defined(__GNUC__) && !defined(__cplusplus) && defined(__linux__) \
-  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
-  || defined(LIBXS_INTEL_COMPILER)) && 0 /* TODO */
-# define LIBXS_GLIBC_FPTYPES
-#endif
-#if !defined(_Float128X) && defined(LIBXS_GLIBC_FPTYPES)
-# define _Float128X _Float128
-#endif
-#if !defined(_Float32) && defined(LIBXS_GLIBC_FPTYPES)
-# define _Float32 float
-#endif
-#if !defined(_Float32x) && defined(LIBXS_GLIBC_FPTYPES)
-# define _Float32x _Float32
-#endif
-#if !defined(_Float64) && defined(LIBXS_GLIBC_FPTYPES)
-# define _Float64 double
-#endif
-#if !defined(_Float64x) && defined(LIBXS_GLIBC_FPTYPES)
-# define _Float64x _Float64
-#endif
 #if !defined(__has_feature) && !defined(__clang__)
 # define __has_feature(A) 0
 #endif
@@ -774,6 +744,34 @@
 #include <stdint.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
+#endif
+
+/* block must be after including above header files */
+#if defined(__GLIBC__) && defined(__GLIBC_MINOR__) && LIBXS_VERSION2(__GLIBC__, __GLIBC_MINOR__) < LIBXS_VERSION2(2, 26)
+/* _Float128 was introduced with GNU GCC 7.0. */
+# if !defined(_Float128) && !defined(__SIZEOF_FLOAT128__) && defined(__GNUC__) && !defined(__cplusplus) && defined(__linux__)
+#   define _Float128 __float128
+# endif
+# if !defined(LIBXS_GLIBC_FPTYPES) && defined(__GNUC__) && !defined(__cplusplus) && defined(__linux__) \
+  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) \
+  || defined(LIBXS_INTEL_COMPILER)) && 0 /* TODO */
+#   define LIBXS_GLIBC_FPTYPES
+# endif
+# if !defined(_Float128X) && defined(LIBXS_GLIBC_FPTYPES)
+#   define _Float128X _Float128
+# endif
+# if !defined(_Float32) && defined(LIBXS_GLIBC_FPTYPES)
+#   define _Float32 float
+# endif
+# if !defined(_Float32x) && defined(LIBXS_GLIBC_FPTYPES)
+#   define _Float32x _Float32
+# endif
+# if !defined(_Float64) && defined(LIBXS_GLIBC_FPTYPES)
+#   define _Float64 double
+# endif
+# if !defined(_Float64x) && defined(LIBXS_GLIBC_FPTYPES)
+#   define _Float64x _Float64
+# endif
 #endif
 
 #endif /*LIBXS_MACROS_H*/
