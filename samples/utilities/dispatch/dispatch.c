@@ -103,9 +103,6 @@ int main(int argc, char* argv[])
   const libxs_blasint maxsize = LIBXS_CLMP(5 < argc ? atoi(argv[5]) : default_maxsize, 1, MAXSIZE);
   const libxs_blasint minsize = LIBXS_CLMP(6 < argc ? atoi(argv[6]) : default_minsize, 1, maxsize);
   const libxs_blasint range = maxsize - minsize;
-  double a[LIBXS_MAX_M*LIBXS_MAX_M];
-  double b[LIBXS_MAX_M*LIBXS_MAX_M];
-  double c[LIBXS_MAX_M*LIBXS_MAX_M];
   double tcall, tcgen, tdsp0 = 0, tdsp1 = 0;
   libxs_timer_tickint start;
   int result = EXIT_SUCCESS;
@@ -117,9 +114,6 @@ int main(int argc, char* argv[])
 #else
   fprintf(stderr, "\n\tWarning: JIT support has been disabled at build time!\n");
 #endif
-  LIBXS_MATRNG(double, 0, a, maxsize, maxsize, maxsize, 1.0);
-  LIBXS_MATRNG(double, 0, b, maxsize, maxsize, maxsize, 1.0);
-  LIBXS_MATRNG(double, 0, c, maxsize, maxsize, maxsize, 1.0);
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload target(LIBXS_OFFLOAD_TARGET)
 #endif
@@ -138,7 +132,7 @@ int main(int argc, char* argv[])
 #endif
     if (NULL == rnd) exit(EXIT_FAILURE);
 
-    /* generate a set of random numbers outside of any parallel region */
+    /* generate set of random numbers outside of any parallel region */
     for (i = 0; i < size_total; ++i) {
       const int r1 = rand(), r2 = rand(), r3 = rand();
       rnd[i].m = (1 < range ? (LIBXS_MOD(r1, range) + minsize) : minsize);
@@ -254,8 +248,14 @@ int main(int argc, char* argv[])
 
 #if defined(CHECK)
     { /* calculate l1-norm for manual validation */
+      double a[LIBXS_MAX_M*LIBXS_MAX_M];
+      double b[LIBXS_MAX_M*LIBXS_MAX_M];
+      double c[LIBXS_MAX_M*LIBXS_MAX_M];
       libxs_matdiff_info check;
       libxs_matdiff_clear(&check);
+      LIBXS_MATRNG(double, 0, a, maxsize, maxsize, maxsize, 1.0);
+      LIBXS_MATRNG(double, 0, b, maxsize, maxsize, maxsize, 1.0);
+      LIBXS_MATRNG(double, 0, c, maxsize, maxsize, maxsize, 1.0);
       for (i = 0; i < size_total; ++i) {
         const int j = (int)LIBXS_MOD(shuffle * i, size_total);
         libxs_matdiff_info diff;
