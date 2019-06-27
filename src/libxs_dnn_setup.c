@@ -109,8 +109,8 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
   handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
   /* backward transpose filters */
   handle->scratch1 = 0;
-  handle->scratch1_size = (size_t)handle->blocksifm_lp * handle->ifmblock * handle->blocksofm * handle->ofmblock
-    * handle->desc.R * handle->desc.S * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in);
+  handle->scratch1_size = (size_t)handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
+    * handle->desc.R * handle->desc.S * libxs_dnn_typesize(handle->datatype_in);
   if (handle->fm_lp_block > 1) {
     /* If low precision, we need extra buffer to store intermediate weight tensor */
     handle->scratch1_size *= 2;
@@ -118,8 +118,8 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
 
   /* weight update transpose of minibatch */
   handle->scratch3 = 0;
-  handle->scratch3_size = (size_t)handle->desc.N * handle->blocksifm_lp * handle->ifmblock * handle->ifhp * ((size_t)handle->ifwp + 8)
-    * handle->fm_lp_block * libxs_dnn_typesize(handle->datatype_in);
+  handle->scratch3_size = (size_t)handle->desc.N * handle->blocksifm * handle->ifmblock * handle->ifhp * ((size_t)handle->ifwp + 8)
+    * libxs_dnn_typesize(handle->datatype_in);
 
   /* minibatch parallel execution of weight update kernel */
   if ( ((handle->blocksifm * handle->blocksofm) < handle->desc.threads) || ( handle->use_upd_generic == 0 ) ) {
@@ -803,8 +803,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->ifmblock = libxs_dnn_setup_generic_ifmblock(handle);
   handle->ofmblock = libxs_dnn_setup_generic_ofmblock(handle);
   handle->fm_lp_block = libxs_dnn_setup_generic_fm_lp_block(handle);
-  handle->ifmblock_lp = handle->ifmblock/handle->fm_lp_block;
-  handle->ofmblock_lp = handle->ofmblock/handle->fm_lp_block;
   handle->blocksifm = libxs_dnn_setup_generic_blocksifm(handle);
   handle->blocksofm = libxs_dnn_setup_generic_blocksofm(handle);
 
