@@ -104,58 +104,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
   return status;
 }
 
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_feature_map_blocks( libxs_dnn_layer* handle, int *noarch ) {
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  /* Determine if we have low precision kernel generation */
-  if ((handle->datatype_out != LIBXS_DNN_DATATYPE_F32) || (handle->datatype_in != LIBXS_DNN_DATATYPE_F32)) {
-    handle->use_lp_kernel = 1;
-  } else {
-    handle->use_lp_kernel = 0;
-  }
-
-  status = libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.K,
-                                               &(handle->ifmblock), &(handle->ifmblock_hp),
-                                               &(handle->ofmblock), &(handle->ofmblock_lp),
-                                               &(handle->fm_lp_block), handle->datatype_in, handle->datatype_out, noarch );
-
-  /* @TODO we need to find a better home from this if.... */
-  if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
-    if ( (handle->desc.options & LIBXS_DNN_CONV_OPTION_F32_BF16_CVT_RNE) == LIBXS_DNN_CONV_OPTION_F32_BF16_CVT_RNE ) {
-      handle->f32_bf16_cvt_rne = 1;
-    }
-  }
-
-  /* Let's calculate how many blocks we need for the feature maps */
-  if (handle->use_lp_kernel == 1) {
-    if ( (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
-      handle->blocksifm = handle->desc.C / handle->ifmblock_hp;
-      handle->blocksofm = handle->desc.K / handle->ofmblock;
-      handle->blocksifm_lp = handle->desc.C / handle->ifmblock_hp;
-      handle->blocksofm_lp = handle->desc.K / handle->ofmblock;
-    } else {
-      handle->blocksifm = handle->desc.C / handle->ifmblock_hp;
-      handle->blocksofm = handle->desc.K / handle->ofmblock;
-      handle->blocksifm_lp = handle->desc.C / handle->ifmblock_hp;
-      handle->blocksofm_lp = handle->desc.K / handle->ofmblock;
-    }
-  } else {
-    handle->blocksifm = handle->desc.C / handle->ifmblock;
-    handle->blocksofm = handle->desc.K / handle->ofmblock;
-    handle->blocksifm_lp = handle->blocksifm;
-    handle->blocksofm_lp = handle->blocksofm;
-  }
-
-  handle->block_fwd_ofm = 16;
-  handle->block_bwd_ifm = 16;
-
-  /* Let's check one more time that we can actually block */
-  if ( (handle->desc.C % (handle->ifmblock * handle->fm_lp_block) != 0) || (handle->desc.K % (handle->ofmblock) != 0)) {
-    handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
-    *noarch = 1;
-  }
-
-  return status;
-}
 
 LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
   handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
