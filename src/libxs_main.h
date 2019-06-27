@@ -590,6 +590,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   int bc;
   size_t scratch_size;
   void* scratch;
+
+  libxs_code_pointer gemm_fwd;     /* ability to hoist forward GEMMs */
 };
 
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_pooling {

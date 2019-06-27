@@ -134,6 +134,36 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
         handle->scratch_size = sizeof(float) * LIBXS_MAX( ((size_t)handle->desc.C + (size_t)handle->desc.K) * (size_t)handle->desc.N,
                                                            (size_t)handle->desc.C * (size_t)handle->desc.K                            ) ;
       }
+      /* create code pointers in some special cases */
+      if ( ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NCPACKED) > 0) && ((handle->desc.filter_format & LIBXS_DNN_TENSOR_FORMAT_CKPACKED) > 0)  ) {
+        if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
+          float alpha = 1.0f;
+          float beta  = 0.0f;
+          libxs_blasint lda = (libxs_blasint)handle->bk;
+          libxs_blasint ldb = (libxs_blasint)handle->bc;
+          libxs_blasint ldc = (libxs_blasint)handle->bk;
+
+          if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+            handle->gemm_fwd.pmm = (void*)libxs_smmdispatch_reducebatch(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+          } else {
+            /* should not happen */
+          }
+        } else if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
+          float alpha = 1.0f;
+          float beta  = 0.0f;
+          libxs_blasint lda = (libxs_blasint)handle->bk;
+          libxs_blasint ldb = (libxs_blasint)handle->bc;
+          libxs_blasint ldc = (libxs_blasint)handle->bk;
+
+          if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+            handle->gemm_fwd.pmm = (void*)libxs_bsmmdispatch_reducebatch(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+          } else {
+            /* should not happen */
+          }
+        } else {
+
+        }
+      }
     } else {
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     }
