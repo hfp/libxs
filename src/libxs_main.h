@@ -550,14 +550,9 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedbatchnorm {
   libxs_dnn_tensor* relumask;       /* relumask */
   libxs_barrier* barrier;           /* barrier */
   int ifmblock;
-  int ifmblock_hp;
   int ofmblock;
-  int ofmblock_lp;
   int blocksifm;
   int blocksofm;
-  int blocksifm_lp;  /* not used */
-  int blocksofm_lp;  /* not used */
-  int fm_lp_block;
   size_t scratch_size;
   void* scratch;
 };
@@ -572,13 +567,9 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   libxs_dnn_tensor* grad_filter;    /* grad filter tensor */
   libxs_barrier* barrier;           /* barrier */
   int ifmblock;
-  int ifmblock_hp;
   int ofmblock;
-  int ofmblock_lp;
   int blocksifm;
   int blocksofm;
-  int blocksifm_lp;  /* not used */
-  int blocksofm_lp;  /* not used */
   int fm_lp_block;
   int bn;
   int bk;
@@ -598,14 +589,9 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_pooling {
   libxs_dnn_tensor* mask;           /* elementwise tensor */
   libxs_barrier* barrier;           /* barrier */
   int ifmblock;
-  int ifmblock_hp;
   int ofmblock;
-  int ofmblock_lp;
   int blocksifm;
   int blocksofm;
-  int blocksifm_lp;  /* not used */
-  int blocksofm_lp;  /* not used */
-  int fm_lp_block;
   int ofh;
   int ofw;
   size_t scratch_size;

@@ -42,7 +42,7 @@
 
 LIBXS_API libxs_dnn_fusedbatchnorm* libxs_dnn_create_fusedbatchnorm(libxs_dnn_fusedbatchnorm_desc fusedbatchnorm_desc, libxs_dnn_err_t* status) {
   libxs_dnn_fusedbatchnorm* handle = 0;
-  int noarch;
+  int lpb;
 
   if ( ((fusedbatchnorm_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fusedbatchnorm_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
        ((fusedbatchnorm_desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (fusedbatchnorm_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
@@ -56,22 +56,11 @@ LIBXS_API libxs_dnn_fusedbatchnorm* libxs_dnn_create_fusedbatchnorm(libxs_dnn_fu
       handle->desc = fusedbatchnorm_desc;
       /* we need to compute the memory layout given the */
       *status = libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.C,
-                                                    &(handle->ifmblock), &(handle->ifmblock_hp),
-                                                    &(handle->ofmblock), &(handle->ofmblock_lp),
-                                                    &(handle->fm_lp_block), handle->desc.datatype_in, handle->desc.datatype_out, &noarch );
+                                                    &(handle->ifmblock), &(handle->ofmblock), &lpb,
+                                                    handle->desc.datatype_in, handle->desc.datatype_out );
       /* compute the outer blocks */
-      if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
-        handle->blocksifm = handle->desc.C / handle->ifmblock_hp;
-        handle->blocksofm = handle->desc.C / handle->ofmblock;
-        handle->blocksifm_lp = handle->desc.C / handle->ifmblock_hp;
-        handle->blocksofm_lp = handle->desc.C / handle->ofmblock;
-      } else {
-        /* this is FP32 */
-        handle->blocksifm = handle->desc.C / handle->ifmblock;
-        handle->blocksofm = handle->desc.C / handle->ofmblock;
-        handle->blocksifm_lp = handle->blocksifm;
-        handle->blocksofm_lp = handle->blocksofm;
-      }
+      handle->blocksifm = handle->desc.C / handle->ifmblock;
+      handle->blocksofm = handle->desc.C / handle->ofmblock;
       /* create barrier */
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
       /* calculate scratch size for batchstats */
@@ -160,31 +149,28 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_da
             }
           } else if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
             layout->datatype = LIBXS_DNN_DATATYPE_BF16;
-            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
-            layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
+            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(5*sizeof(libxs_dnn_tensor_dimtype));
+            layout->dim_size = (unsigned int*) malloc(5*sizeof(unsigned int));
             if (0 != layout->dim_type && 0 != layout->dim_size) {
-              layout->num_dims = 6;
+              layout->num_dims = 5;
               layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_W;
-              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_H;
-              layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-              layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_N;
               if ( (type == LIBXS_DNN_REGULAR_INPUT)     || (type == LIBXS_DNN_GRADIENT_INPUT)     || (type == LIBXS_DNN_INPUT) ||
                    (type == LIBXS_DNN_REGULAR_INPUT_ADD) || (type == LIBXS_DNN_GRADIENT_INPUT_ADD)                                   ) {
-                layout->dim_size[0] = handle->fm_lp_block;
-                layout->dim_size[1] = handle->ifmblock;
-                layout->dim_size[2] = handle->desc.W + (2*handle->desc.pad_w_in);
-                layout->dim_size[3] = handle->desc.H + (2*handle->desc.pad_h_in);
-                layout->dim_size[4] = handle->blocksifm;
-                layout->dim_size[5] = handle->desc.N;
+                layout->dim_size[0] = handle->ifmblock;
+                layout->dim_size[1] = handle->desc.W + (2*handle->desc.pad_w_in);
+                layout->dim_size[2] = handle->desc.H + (2*handle->desc.pad_h_in);
+                layout->dim_size[3] = handle->blocksifm;
+                layout->dim_size[4] = handle->desc.N;
               } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
-                layout->dim_size[0] = handle->fm_lp_block;
-                layout->dim_size[1] = handle->ofmblock_lp;
-                layout->dim_size[2] = (handle->desc.W/handle->desc.v) + (2*handle->desc.pad_w_out);
-                layout->dim_size[3] = (handle->desc.H/handle->desc.u) + (2*handle->desc.pad_h_out);
-                layout->dim_size[4] = handle->blocksofm;
-                layout->dim_size[5] = handle->desc.N;
+                layout->dim_size[0] = handle->ofmblock;
+                layout->dim_size[1] = (handle->desc.W/handle->desc.v) + (2*handle->desc.pad_w_out);
+                layout->dim_size[2] = (handle->desc.H/handle->desc.u) + (2*handle->desc.pad_h_out);
+                layout->dim_size[3] = handle->blocksofm;
+                layout->dim_size[4] = handle->desc.N;
               } else {
                 free(layout->dim_type);
                 free(layout->dim_size);
@@ -258,7 +244,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_da
               layout->num_dims = 2;
               layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
               layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-              layout->dim_size[0] = handle->ifmblock*handle->fm_lp_block;
+              layout->dim_size[0] = handle->ifmblock;
               layout->dim_size[1] = handle->blocksifm;
             } else {
               free(layout);
@@ -300,23 +286,21 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_da
 
         if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
           layout->datatype = LIBXS_DNN_DATATYPE_I8;
-          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
-          layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
+          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(5*sizeof(libxs_dnn_tensor_dimtype));
+          layout->dim_size = (unsigned int*) malloc(5*sizeof(unsigned int));
 
           if (0 != layout->dim_type && 0 != layout->dim_size) {
-            layout->num_dims = 6;
+            layout->num_dims = 5;
             layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_W;
-            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_H;
-            layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-            layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_N;
-            layout->dim_size[0] = handle->fm_lp_block;
-            layout->dim_size[1] = handle->ofmblock_lp;
-            layout->dim_size[2] = (handle->desc.W/handle->desc.v) + (2*handle->desc.pad_w_out);
-            layout->dim_size[3] = (handle->desc.H/handle->desc.u) + (2*handle->desc.pad_h_out);
-            layout->dim_size[4] = handle->blocksofm;
-            layout->dim_size[5] = handle->desc.N;
+            layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+            layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+            layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+            layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+            layout->dim_size[0] = handle->ofmblock;
+            layout->dim_size[1] = (handle->desc.W/handle->desc.v) + (2*handle->desc.pad_w_out);
+            layout->dim_size[2] = (handle->desc.H/handle->desc.u) + (2*handle->desc.pad_h_out);
+            layout->dim_size[3] = handle->blocksofm;
+            layout->dim_size[4] = handle->desc.N;
           } else {
             free(layout);
             layout = 0; /* make sure a NULL is returned */

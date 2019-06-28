@@ -30,8 +30,7 @@
 #define LIBXS_DNN_SETUP_H
 
 #include <libxs_dnn.h>
-
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K, int* C_block, int* C_block_hp, int* K_block, int* K_block_lp, int* fm_lp_block, libxs_dnn_datatype datatype_in, libxs_dnn_datatype datatype_out, int* noarch);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K, int* C_block, int* K_block, int* fm_lp_block, libxs_dnn_datatype datatype_in, libxs_dnn_datatype datatype_out );
 LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle );
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handle );
 

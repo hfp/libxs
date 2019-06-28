@@ -47,49 +47,48 @@
 #define HWCK 4
 
 
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K, int* C_block, int* C_block_hp, int* K_block, int* K_block_lp, int* fm_lp_block, libxs_dnn_datatype datatype_in, libxs_dnn_datatype datatype_out, int* noarch) {
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K, int* C_block, int* K_block, int* fm_lp_block, libxs_dnn_datatype datatype_in, libxs_dnn_datatype datatype_out ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  int ifmblock;
-  int ofmblock;
-  int lp_block;
-  int ifmblock_hp;
-  int ofmblock_lp;
-  LIBXS_UNUSED(K);
+  int ifmblock = 0;
+  int ofmblock = 0;
+  int lp_block = 0;
+  int tmp_max_c_block = 32;
+  int tmp_max_k_block = 32;
+  int tmp_block = 0;
 
+  /* C */
+  if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
+    tmp_max_c_block = 64;
+  }
+  if ( C < tmp_max_c_block ) {
+    ifmblock = C;
+  } else {
+    for ( tmp_block = 1; tmp_block <= tmp_max_c_block; tmp_block *= 2 ) {
+      if ( C % tmp_block == 0 ) ifmblock = tmp_block;
+    }
+  }
+
+  /* K */
+  if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
+    tmp_max_k_block = 64;
+  }
+  if ( K < tmp_max_k_block ) {
+    ofmblock = K;
+  } else {
+    for ( tmp_block = 1; tmp_block <= tmp_max_k_block; tmp_block *= 2 ) {
+      if ( K % tmp_block == 0 ) ofmblock = tmp_block;
+    }
+  }
+
+  /* when do we need VNNI format? */
   if ( (datatype_in == LIBXS_DNN_DATATYPE_F32) && (datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
-    ifmblock = (C >=64) ? 64 : C;
-    ofmblock = 64;
     lp_block = 1;
-    ifmblock_hp = ifmblock * lp_block;
-    ofmblock_lp = ofmblock / lp_block;
   } else if ( (datatype_in == LIBXS_DNN_DATATYPE_BF16) && (datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
-    ifmblock = (C >=64) ? 32 : C/2;
-    ofmblock = 64;
     lp_block = 2;
-    if (C == 3) {
-      ifmblock = C;
-      lp_block = 1;
-    }
-    ifmblock_hp = ifmblock * lp_block;
-    ofmblock_lp = ofmblock / lp_block;
   } else if ( (datatype_in == LIBXS_DNN_DATATYPE_I16) && ((datatype_out == LIBXS_DNN_DATATYPE_I32) || (datatype_out == LIBXS_DNN_DATATYPE_F32)) ) {
-    ifmblock = (C >=64) ? 32 : (C/2);
-    ofmblock = 64;
     lp_block = 2;
-    ifmblock_hp = ifmblock * lp_block;
-    ofmblock_lp = ofmblock / lp_block;
-    if ( libxs_target_archid == LIBXS_X86_AVX512_MIC ) {
-      *noarch = 1;
-    }
   } else if ( (datatype_in == LIBXS_DNN_DATATYPE_I8) && (datatype_out == LIBXS_DNN_DATATYPE_I32)) {
-    ifmblock = (C >=64) ? 16 : (C/4);
-    ofmblock = 64;
     lp_block = 4;
-    ifmblock_hp = ifmblock * lp_block;
-    ofmblock_lp = ofmblock / lp_block;
-    if ( libxs_target_archid == LIBXS_X86_AVX512_MIC || libxs_target_archid == LIBXS_X86_AVX512_KNM ) {
-      *noarch = 1;
-    }
   } else {
     status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
     return status;
@@ -98,8 +97,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
   *C_block = ifmblock;
   *K_block = ofmblock;
   *fm_lp_block = lp_block;
-  *C_block_hp = ifmblock_hp;
-  *K_block_lp = ofmblock_lp;
 
   return status;
 }
@@ -171,40 +168,29 @@ LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
 /* Helper functions for convolutions' general param setup */
 /**********************************************************/
 LIBXS_API_INLINE int libxs_dnn_setup_generic_ifmblock( libxs_dnn_layer* handle ) {
-  int result = 1, tmp_max_c_block = 32, tmp_block;
-  if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
-    tmp_max_c_block = 64;
-  }
-  if ( handle->desc.C < tmp_max_c_block ) {
-    result = handle->desc.C;
-  } else {
-    for ( tmp_block = 1; tmp_block <= tmp_max_c_block; tmp_block *= 2 ) {
-      if ( handle->desc.C % tmp_block == 0 ) result = tmp_block;
-    }
-  }
+  int result = 1;
+  int ofm, lp;
+
+  libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.K, &result, &ofm, &lp, handle->desc.datatype_in, handle->desc.datatype_out );
+
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_ofmblock( libxs_dnn_layer* handle ) {
-  int result = 1, tmp_max_k_block = 32, tmp_block;
-  if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
-    tmp_max_k_block = 64;
-  }
-  if ( handle->desc.K < tmp_max_k_block ) {
-    result = handle->desc.K;
-  } else {
-    for ( tmp_block = 1; tmp_block <= tmp_max_k_block; tmp_block *= 2 ) {
-      if ( handle->desc.K % tmp_block == 0 ) result = tmp_block;
-    }
-  }
+  int result = 1;
+  int ifm, lp;
+
+  libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.K, &ifm, &result, &lp, handle->desc.datatype_in, handle->desc.datatype_out );
+
   return result;
 }
 
 LIBXS_API_INLINE int libxs_dnn_setup_generic_fm_lp_block( libxs_dnn_layer* handle ) {
   int result = 1;
-  if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
-    result = 2;
-  }
+  int ifm, ofm;
+
+  libxs_dnn_get_feature_map_blocks( handle->desc.C, handle->desc.K, &ifm, &ofm, &result, handle->desc.datatype_in, handle->desc.datatype_out );
+
   return result;
 }
 
