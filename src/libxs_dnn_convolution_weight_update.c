@@ -1008,7 +1008,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer*
   typedef float element_output_type;
   typedef float element_filter_type;
   typedef libxs_smmfunction gemm_function;
-  typedef libxs_smmfunction_reducebatch gemm_br_function;
+  typedef libxs_smmfunction_reducebatch_addr gemm_br_function;
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_generic.tpl.c"
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -1027,7 +1027,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_laye
   typedef libxs_bfloat16 element_output_type;
   typedef libxs_bfloat16 element_filter_type;
   typedef libxs_bsmmfunction gemm_function;
-  typedef libxs_bsmmfunction_reducebatch gemm_br_function;
+  typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16.tpl.c"
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -1127,7 +1127,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_d
       typedef float element_output_type;
       typedef float element_filter_type;
       typedef libxs_smmfunction gemm_function;
-      typedef libxs_smmfunction_reducebatch gemm_br_function;
+      typedef libxs_smmfunction_reducebatch_addr gemm_br_function;
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_generic.tpl.c"
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
@@ -1135,7 +1135,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_d
       typedef libxs_bfloat16 element_output_type;
       typedef libxs_bfloat16 element_filter_type;
       typedef libxs_bsmmfunction gemm_function;
-      typedef libxs_bsmmfunction_reducebatch gemm_br_function;
+      typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16.tpl.c"
 #else
 #endif

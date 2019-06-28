@@ -120,7 +120,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_f32_f32(libxs_dnn_full
   element_input_type beta = (element_input_type)0;
 
   if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-    libxs_smmfunction_reducebatch batchreduce_kernel = libxs_smmdispatch_reducebatch(handle->bc, handle->bn, handle->bk, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+    libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bc, handle->bn, handle->bk, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_generic.tpl.c"
   } else {
     status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
@@ -231,7 +231,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_ncnc_kcck(libxs
       element_input_type beta = (element_input_type)0;
 
       if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-        libxs_smmfunction_reducebatch batchreduce_kernel = libxs_smmdispatch_reducebatch(handle->bc, handle->bn, handle->bk, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+        libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bc, handle->bn, handle->bk, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_generic.tpl.c"
       } else {
         status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
