@@ -62,11 +62,11 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_f32_f32(libxs_dnn_layer*
     typedef float element_input_type;
     typedef float element_output_type;
     typedef float element_filter_type;
-    typedef libxs_smmfunction_reducebatch gemm_br_function;
+    typedef libxs_smmfunction_reducebatch_addr gemm_br_function;
     int l_flags = LIBXS_GEMM_FLAGS('N', 'N');
     /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
-    gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
-    gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+    gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+    gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
 # include "template/libxs_dnn_convolve_st_bwd_custom_custom_generic.tpl.c"
   } else {
     const libxs_blasint ldx = ((libxs_blasint)handle->desc.v*handle->ifmblock);
@@ -179,11 +179,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_d
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
-        typedef libxs_smmfunction_reducebatch gemm_br_function;
+        typedef libxs_smmfunction_reducebatch_addr gemm_br_function;
         int l_flags = LIBXS_GEMM_FLAGS('N', 'N');
         /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
-        gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
-        gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+        gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+        gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
 # include "template/libxs_dnn_convolve_st_bwd_custom_custom_generic.tpl.c"
       } else {
         const libxs_blasint ldx = ((libxs_blasint)handle->desc.v*handle->ifmblock);
@@ -204,11 +204,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_d
         typedef libxs_bfloat16 element_input_type;
         typedef libxs_bfloat16 element_output_type;
         typedef libxs_bfloat16 element_filter_type;
-        typedef libxs_bsmmfunction_reducebatch gemm_br_function;
+        typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
         int l_flags = LIBXS_GEMM_FLAGS('N', 'N');
         /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
-        gemm_br_function br_gemm_kernel = libxs_bsmmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
-        gemm_br_function br_gemm_kernel2 = libxs_bsmmdispatch_reducebatch(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+        gemm_br_function br_gemm_kernel = libxs_bsmmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+        gemm_br_function br_gemm_kernel2 = libxs_bsmmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
 # include "template/libxs_dnn_convolve_st_bwd_custom_custom_generic_bf16.tpl.c"
       } else {
         status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;

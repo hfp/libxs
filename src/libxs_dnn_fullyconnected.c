@@ -127,7 +127,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           libxs_blasint ldc = (libxs_blasint)handle->bk;
 
           if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-            handle->gemm_fwd.xgemm.smr = libxs_smmdispatch_reducebatch(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+            handle->gemm_fwd.xgemm.smra = libxs_smmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
           } else {
             /* should not happen */
           }
@@ -139,7 +139,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           libxs_blasint ldc = (libxs_blasint)handle->bk;
 
           if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-            handle->gemm_fwd.xgemm.bsmr = libxs_bsmmdispatch_reducebatch(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+            handle->gemm_fwd.xgemm.bsmra = libxs_bsmmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
           } else {
             /* should not happen */
           }

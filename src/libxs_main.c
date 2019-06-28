@@ -1303,14 +1303,23 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         {
           const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.gemm->prefetch);
           const char *const tname = libxs_typename((libxs_datatype)request->descriptor.gemm->datatype);
+          int br = 0;
+          if ( (LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS & request->descriptor.gemm->flags) > 1 ) {
+            br = 1;
+          } else if ( (LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET & request->descriptor.gemm->flags) > 1 ) {
+            br = 2;
+          } else if ( (LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE & request->descriptor.gemm->flags) > 1 ) {
+            br = 3;
+          } else {
+            br = 0;
+          }
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i.mxm", target_arch, tname,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
             request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
           /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid,
-            0 == (LIBXS_GEMM_FLAG_BATCH_REDUCE & request->descriptor.gemm->flags) ? 0 : 1);
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid, br);
         }
       }
     } break;
@@ -2193,7 +2202,7 @@ LIBXS_API libxs_bmmfunction libxs_bmmdispatch(libxs_blasint m, libxs_blasint n, 
 }
 
 
-LIBXS_API libxs_dmmfunction_reducebatch libxs_dmmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+LIBXS_API libxs_dmmfunction_reducebatch_addr libxs_dmmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch)
 {
   const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
@@ -2201,13 +2210,13 @@ LIBXS_API libxs_dmmfunction_reducebatch libxs_dmmdispatch_reducebatch(libxs_blas
   const libxs_gemm_descriptor *const desc = libxs_dgemm_descriptor_init(&blob,
     m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
-    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
-  return result.dmr;
+  return result.dmra;
 }
 
 
-LIBXS_API libxs_smmfunction_reducebatch libxs_smmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+LIBXS_API libxs_smmfunction_reducebatch_addr libxs_smmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
 {
   const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
@@ -2215,13 +2224,13 @@ LIBXS_API libxs_smmfunction_reducebatch libxs_smmdispatch_reducebatch(libxs_blas
   const libxs_gemm_descriptor *const desc = libxs_sgemm_descriptor_init(&blob,
     m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
-    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
-  return result.smr;
+  return result.smra;
 }
 
 
-LIBXS_API libxs_bsmmfunction_reducebatch libxs_bsmmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+LIBXS_API libxs_bsmmfunction_reducebatch_addr libxs_bsmmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
 {
   const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
@@ -2229,13 +2238,13 @@ LIBXS_API libxs_bsmmfunction_reducebatch libxs_bsmmdispatch_reducebatch(libxs_bl
   const libxs_gemm_descriptor *const desc = libxs_bsgemm_descriptor_init(&blob,
     m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
-    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
-  return result.bsmr;
+  return result.bsmra;
 }
 
 
-LIBXS_API libxs_bmmfunction_reducebatch libxs_bmmdispatch_reducebatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+LIBXS_API libxs_bmmfunction_reducebatch_addr libxs_bmmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
 {
   const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
@@ -2243,9 +2252,184 @@ LIBXS_API libxs_bmmfunction_reducebatch libxs_bmmdispatch_reducebatch(libxs_blas
   const libxs_gemm_descriptor *const desc = libxs_bgemm_descriptor_init(&blob,
     m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
-    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE, libxs_get_gemm_xprefetch(prefetch));
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
-  return result.bmr;
+  return result.bmra;
+}
+
+
+LIBXS_API libxs_dmmfunction_reducebatch_offs libxs_dmmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_dgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.dmro;
+}
+
+
+LIBXS_API libxs_smmfunction_reducebatch_offs libxs_smmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_sgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.smro;
+}
+
+
+LIBXS_API libxs_bsmmfunction_reducebatch_offs libxs_bsmmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_bsgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.bsmro;
+}
+
+
+LIBXS_API libxs_bmmfunction_reducebatch_offs libxs_bmmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_bgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.bmro;
+}
+
+
+LIBXS_API libxs_dmmfunction_reducebatch_strd libxs_dmmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch)
+{
+#if 0
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_dgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.dmrs;
+#else
+  LIBXS_UNUSED( m );
+  LIBXS_UNUSED( n );
+  LIBXS_UNUSED( k );
+  LIBXS_UNUSED( stride_a );
+  LIBXS_UNUSED( stride_b );
+  LIBXS_UNUSED( lda );
+  LIBXS_UNUSED( ldb );
+  LIBXS_UNUSED( ldc );
+  LIBXS_UNUSED( alpha );
+  LIBXS_UNUSED( beta );
+  LIBXS_UNUSED( flags );
+  LIBXS_UNUSED( prefetch );
+  return 0;
+#endif
+}
+
+
+LIBXS_API libxs_smmfunction_reducebatch_strd libxs_smmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+#if 0
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_sgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.smrs;
+#else
+  LIBXS_UNUSED( m );
+  LIBXS_UNUSED( n );
+  LIBXS_UNUSED( k );
+  LIBXS_UNUSED( stride_a );
+  LIBXS_UNUSED( stride_b );
+  LIBXS_UNUSED( lda );
+  LIBXS_UNUSED( ldb );
+  LIBXS_UNUSED( ldc );
+  LIBXS_UNUSED( alpha );
+  LIBXS_UNUSED( beta );
+  LIBXS_UNUSED( flags );
+  LIBXS_UNUSED( prefetch );
+  return 0;
+#endif
+}
+
+
+LIBXS_API libxs_bsmmfunction_reducebatch_strd libxs_bsmmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+#if 0
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_bsgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.bsmrs;
+#else
+  LIBXS_UNUSED( m );
+  LIBXS_UNUSED( n );
+  LIBXS_UNUSED( k );
+  LIBXS_UNUSED( stride_a );
+  LIBXS_UNUSED( stride_b );
+  LIBXS_UNUSED( lda );
+  LIBXS_UNUSED( ldb );
+  LIBXS_UNUSED( ldc );
+  LIBXS_UNUSED( alpha );
+  LIBXS_UNUSED( beta );
+  LIBXS_UNUSED( flags );
+  return 0;
+#endif
+}
+
+
+LIBXS_API libxs_bmmfunction_reducebatch_strd libxs_bmmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+#if 0
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_bgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.bmrs;
+#else
+  LIBXS_UNUSED( m );
+  LIBXS_UNUSED( n );
+  LIBXS_UNUSED( k );
+  LIBXS_UNUSED( stride_a );
+  LIBXS_UNUSED( stride_b );
+  LIBXS_UNUSED( lda );
+  LIBXS_UNUSED( ldb );
+  LIBXS_UNUSED( ldc );
+  LIBXS_UNUSED( alpha );
+  LIBXS_UNUSED( beta );
+  LIBXS_UNUSED( flags );
+  LIBXS_UNUSED( prefetch );
+  return 0;
+#endif
 }
 
 
