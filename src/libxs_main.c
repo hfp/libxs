@@ -2398,6 +2398,7 @@ LIBXS_API libxs_bsmmfunction_reducebatch_strd libxs_bsmmdispatch_reducebatch_str
   LIBXS_UNUSED( alpha );
   LIBXS_UNUSED( beta );
   LIBXS_UNUSED( flags );
+  LIBXS_UNUSED( prefetch );
   return 0;
 #endif
 }
