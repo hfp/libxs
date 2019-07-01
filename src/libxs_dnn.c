@@ -2292,17 +2292,17 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_layer* handle,
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           if (handle->code_fwd[0].xconv.sconv == 0) {
+                                           if (handle->code_fwd[0].pmm == 0) {
                                              status = LIBXS_DNN_WARN_FALLBACK;
                                            }
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD: {
-                                           if (handle->code_bwd[0].xconv.sconv == 0) {
+                                           if (handle->code_bwd[0].pmm == 0) {
                                              status = LIBXS_DNN_WARN_FALLBACK;
                                            }
                                          } break;
       case LIBXS_DNN_COMPUTE_KIND_UPD: {
-                                           if (handle->code_upd[0].xconv.sconv == 0) {
+                                           if (handle->code_upd[0].pmm == 0) {
                                              status = LIBXS_DNN_WARN_FALLBACK;
                                            }
                                          } break;
