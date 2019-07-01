@@ -258,71 +258,6 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_d
   const void* values;
 } libxs_csr_reg_descriptor;
 
-/** Function type used for convolutions (single-precision); the actual signature depends on the kind of convolution. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sconvfunction)(
-  const float* input1, const float* input2, float* output,
-  const float* ipf1, const float* ipf2, const float* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_bf16convfunction)(
-  const libxs_bfloat16* input1, const libxs_bfloat16* input2, libxs_bfloat16* output,
-  const libxs_bfloat16* ipf1, const libxs_bfloat16* ipf2, const libxs_bfloat16* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_bf16f32convfunction)(
-  const libxs_bfloat16* input1, const float* input2, libxs_bfloat16* output,
-  const libxs_bfloat16* ipf1, const float* ipf2, const libxs_bfloat16* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction)(
-  const short* input1, const short* input2, int* output,
-  const short* ipf1, const short* ipf2, const int* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_wsconvfunction)(
-  const short* input1, const short* input2, float* output,
-  const short* ipf1, const short* ipf2, const float* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_uwsconvfunction)(
-  short* input1, float* input2, short* output,
-  short* ipf1, float* ipf2, short* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_bdbconvfunction)(
-  unsigned char* input1, int* input2, unsigned char* output,
-  unsigned char* ipf1, int* ipf2, unsigned char* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction)(
-  const unsigned char* input1, const char* input2, short* output,
-  const unsigned char* ipf1, const char* ipf2, const short* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction)(
-  const unsigned char* input1, const char* input2, int* output,
-  const unsigned char* ipf1, const char* ipf2, const int* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_wconvfunction_bwd)(
-  int* input1, const short* input2, const short* output,
-  const int* ipf1, const short* ipf2, const short* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_busconvfunction_bwd)(
-  const unsigned short* input1, const char* input2, const char* output,
-  const unsigned short* ipf1, const char* ipf2, const char* opf, ...);
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_budconvfunction_bwd)(
-  const unsigned int* input1, const char* input2, const char* output,
-  const unsigned int* ipf1, const char* ipf2, const char* opf, ...);
-
-/** Function type which is either libxs_sconvfunction or libxs_wconvfunction (weak-typed). */
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_xconvfunction {
-  libxs_sconvfunction sconv;
-  libxs_bf16convfunction bf16conv;
-  libxs_bf16f32convfunction bf1632conv;
-  libxs_wsconvfunction wsconv;
-  libxs_uwsconvfunction uwsconv;
-  libxs_wconvfunction wconv;
-  libxs_bdbconvfunction bdbconv;
-  libxs_busconvfunction busconv;
-  libxs_budconvfunction budconv;
-  libxs_wconvfunction_bwd wconvb;
-  libxs_busconvfunction_bwd busconvb;
-  libxs_budconvfunction_bwd budconvb;
-} libxs_xconvfunction;
-
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   void (*ptr_fn)(LIBXS_VARIADIC);
   const void* ptr_const;
@@ -332,7 +267,6 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, wsmm, or void-function */
   libxs_xmcopyfunction xmatcopy;
   libxs_xtransfunction xtrans;
-  libxs_xconvfunction xconv;
   libxs_pgemm_xfunction xpgemm;
   libxs_getrf_xfunction xgetrf;
   libxs_trmm_xfunction xtrmm;

@@ -807,9 +807,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   handle->avoid_acc_load = libxs_dnn_setup_generic_avoid_acc_load(handle);
   handle->fwd_flags = libxs_dnn_setup_generic_init_fwd_gemm_flags(handle);
   handle->use_fallback_fwd_loops = libxs_dnn_setup_generic_fallback_loops_fwd(handle);
-  handle->code_fwd[0].xconv.sconv = 0;
-  handle->code_fwd[1].xconv.sconv = 0;
-  handle->code_fwd[2].xconv.sconv = 0;
+  handle->code_fwd[0].pmm = 0;
+  handle->code_fwd[1].pmm = 0;
+  handle->code_fwd[2].pmm = 0;
 
 #if 0
   /* Spit out FWD parameters that are selected...  */
@@ -857,9 +857,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   printf("Block oj = %d\n", handle->block_bwd_oj);
 #endif
 
-  handle->code_bwd[0].xconv.sconv = 0;
-  handle->code_bwd[1].xconv.sconv = 0;
-  handle->code_bwd[2].xconv.sconv = 0;
+  handle->code_bwd[0].pmm = 0;
+  handle->code_bwd[1].pmm = 0;
+  handle->code_bwd[2].pmm = 0;
   /* Transpose kernel used for filter transpose in bwd pass  */
   tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), 64, 16, 64);
   handle->tr_kernel = libxs_dispatch_trans(tr_desc);
@@ -896,8 +896,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handl
   printf("Block upd ifm = %d\n", handle->block_upd_ifm);
 #endif
 
-  handle->code_upd[0].xconv.sconv = 0;
-  handle->code_upd[1].xconv.sconv = 0;
+  handle->code_upd[0].pmm = 0;
+  handle->code_upd[1].pmm = 0;
 
   /*****************************/
   /* Barrier and scratch setup */
