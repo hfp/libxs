@@ -43,10 +43,9 @@
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid);
 #if 0
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid);
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid);
 #endif
+
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid)
@@ -98,57 +97,15 @@ libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_bf16_bf16(libxs_dnn_laye
 #endif
   return status;
 }
+
+
 #if 0
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_i32(libxs_dnn_layer* handle, int start_thread, int tid)
-{
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  typedef short element_input_type;
-  typedef int element_output_type;
-  typedef short element_filter_type;
-  typedef libxs_wconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#else /* should not happen */
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
-  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
-#endif
-  return status;
-}
-
-
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i16_f32(libxs_dnn_layer* handle, int start_thread, int tid)
-{
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  typedef short element_input_type;
-  typedef float element_output_type;
-  typedef short element_filter_type;
-  typedef libxs_wsconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#else /* should not happen */
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
-  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
-#endif
-  return status;
-}
-
-
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_i8_i32(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  typedef unsigned char element_input_type;
-  typedef int element_output_type;
-  typedef char element_filter_type;
-  typedef libxs_budconvfunction libxs_convfunction;
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom.tpl.c"
-#else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
-#endif
   return status;
 }
 #endif
@@ -195,11 +152,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_d
       gemm_br_function br_gemm_kernel2 = libxs_bsmmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*(handle->fwd_ofw_rb-1), handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic_bf16.tpl.c"
 #if 0
-    } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) {
-      typedef short element_input_type;
-      typedef int element_output_type;
-      typedef short element_filter_type;
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic.tpl.c"
     } else if (handle->datatype_in ==  LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
       typedef unsigned char element_input_type;
       typedef int element_output_type;
@@ -218,10 +170,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_d
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
       status = libxs_dnn_convolve_st_fwd_custom_custom_bf16_bf16( handle, start_thread, tid);
 #if 0
-    } else if (handle->datatype_in ==  LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 ) {
-      status = libxs_dnn_convolve_st_fwd_custom_custom_i16_i32( handle, start_thread, tid);
-    } else if (handle->datatype_in ==  LIBXS_DNN_DATATYPE_I16 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_convolve_st_fwd_custom_custom_i16_f32( handle, start_thread, tid);
     } else if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8 && handle->datatype_out == LIBXS_DNN_DATATYPE_I32 && (handle->desc.options & LIBXS_DNN_CONV_OPTION_ACTIVATION_UNSIGNED) > 0 ) {
       status = libxs_dnn_convolve_st_fwd_custom_custom_i8_i32( handle, start_thread, tid);
 #endif
