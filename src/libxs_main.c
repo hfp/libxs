@@ -2317,120 +2317,80 @@ LIBXS_API libxs_bmmfunction_reducebatch_offs libxs_bmmdispatch_reducebatch_offs(
 LIBXS_API libxs_dmmfunction_reducebatch_strd libxs_dmmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch)
 {
-#if 0
   const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
   libxs_descriptor_blob blob;
-  const libxs_gemm_descriptor *const desc = libxs_dgemm_descriptor_init(&blob,
+  /*const*/libxs_gemm_descriptor* desc = libxs_dgemm_descriptor_init(&blob,
     m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
-  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  desc->c1 = (unsigned long long)stride_a;
+  desc->c2 = (unsigned long long)stride_b;
+  /*const*/ libxs_xmmfunction result;
+  if ( (stride_a < 0) || (stride_b < 0) ) {
+    return NULL;
+  }
+  result = libxs_xmmdispatch(desc);
   return result.dmrs;
-#else
-  LIBXS_UNUSED( m );
-  LIBXS_UNUSED( n );
-  LIBXS_UNUSED( k );
-  LIBXS_UNUSED( stride_a );
-  LIBXS_UNUSED( stride_b );
-  LIBXS_UNUSED( lda );
-  LIBXS_UNUSED( ldb );
-  LIBXS_UNUSED( ldc );
-  LIBXS_UNUSED( alpha );
-  LIBXS_UNUSED( beta );
-  LIBXS_UNUSED( flags );
-  LIBXS_UNUSED( prefetch );
-  return 0;
-#endif
 }
 
 
 LIBXS_API libxs_smmfunction_reducebatch_strd libxs_smmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
 {
-#if 0
   const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
   libxs_descriptor_blob blob;
-  const libxs_gemm_descriptor *const desc = libxs_sgemm_descriptor_init(&blob,
+  /*const*/ libxs_gemm_descriptor* desc = libxs_sgemm_descriptor_init(&blob,
     m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
-  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  desc->c1 = (unsigned long long)stride_a;
+  desc->c2 = (unsigned long long)stride_b;
+  /*const*/ libxs_xmmfunction result;
+  if ( (stride_a < 0) || (stride_b < 0) ) {
+    return NULL;
+  }
+  result = libxs_xmmdispatch(desc);
   return result.smrs;
-#else
-  LIBXS_UNUSED( m );
-  LIBXS_UNUSED( n );
-  LIBXS_UNUSED( k );
-  LIBXS_UNUSED( stride_a );
-  LIBXS_UNUSED( stride_b );
-  LIBXS_UNUSED( lda );
-  LIBXS_UNUSED( ldb );
-  LIBXS_UNUSED( ldc );
-  LIBXS_UNUSED( alpha );
-  LIBXS_UNUSED( beta );
-  LIBXS_UNUSED( flags );
-  LIBXS_UNUSED( prefetch );
-  return 0;
-#endif
 }
 
 
 LIBXS_API libxs_bsmmfunction_reducebatch_strd libxs_bsmmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
 {
-#if 0
   const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
   libxs_descriptor_blob blob;
-  const libxs_gemm_descriptor *const desc = libxs_bsgemm_descriptor_init(&blob,
+  /*const*/ libxs_gemm_descriptor* desc = libxs_bsgemm_descriptor_init(&blob,
     m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
-  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  desc->c1 = (unsigned long long)stride_a;
+  desc->c2 = (unsigned long long)stride_b;
+  /*const*/ libxs_xmmfunction result;
+  if ( (stride_a < 0) || (stride_b < 0) ) {
+    return NULL;
+  }
+  result = libxs_xmmdispatch(desc);
   return result.bsmrs;
-#else
-  LIBXS_UNUSED( m );
-  LIBXS_UNUSED( n );
-  LIBXS_UNUSED( k );
-  LIBXS_UNUSED( stride_a );
-  LIBXS_UNUSED( stride_b );
-  LIBXS_UNUSED( lda );
-  LIBXS_UNUSED( ldb );
-  LIBXS_UNUSED( ldc );
-  LIBXS_UNUSED( alpha );
-  LIBXS_UNUSED( beta );
-  LIBXS_UNUSED( flags );
-  LIBXS_UNUSED( prefetch );
-  return 0;
-#endif
 }
 
 
 LIBXS_API libxs_bmmfunction_reducebatch_strd libxs_bmmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
 {
-#if 0
   const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
   libxs_descriptor_blob blob;
-  const libxs_gemm_descriptor *const desc = libxs_bgemm_descriptor_init(&blob,
+  /*const*/ libxs_gemm_descriptor* desc = libxs_bgemm_descriptor_init(&blob,
     m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
-  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  desc->c1 = (unsigned long long)stride_a;
+  desc->c2 = (unsigned long long)stride_b;
+  /*const*/ libxs_xmmfunction result;
+  if ( (stride_a < 0) || (stride_b < 0) ) {
+    return NULL;
+  }
+  result = libxs_xmmdispatch(desc);
   return result.bmrs;
-#else
-  LIBXS_UNUSED( m );
-  LIBXS_UNUSED( n );
-  LIBXS_UNUSED( k );
-  LIBXS_UNUSED( stride_a );
-  LIBXS_UNUSED( stride_b );
-  LIBXS_UNUSED( lda );
-  LIBXS_UNUSED( ldb );
-  LIBXS_UNUSED( ldc );
-  LIBXS_UNUSED( alpha );
-  LIBXS_UNUSED( beta );
-  LIBXS_UNUSED( flags );
-  LIBXS_UNUSED( prefetch );
-  return 0;
-#endif
 }
 
 
