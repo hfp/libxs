@@ -116,13 +116,13 @@
   LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(LDA, LDB, LDC); \
   LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K); \
   LIBXS_DESCRIPTOR_CLEAR(&(DESCRIPTOR)); \
-  (DESCRIPTOR).datatype = (unsigned char)(DATA_TYPE); \
+  (DESCRIPTOR).datatype = (unsigned char)(DATA_TYPE); (DESCRIPTOR).prefetch = (unsigned char)(PREFETCH); \
   (DESCRIPTOR).flags = (unsigned short)((FLAGS) \
     /*| (LIBXS_NEQ(0, ALPHA) ? 0 : LIBXS_GEMM_FLAG_ALPHA_0)*/ \
     | (LIBXS_NEQ(0, BETA) ? 0 : LIBXS_GEMM_FLAG_BETA_0)); \
   (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
   (DESCRIPTOR).lda = (unsigned int)(LDA); (DESCRIPTOR).ldb = (unsigned int)(LDB); (DESCRIPTOR).ldc = (unsigned int)(LDC); \
-  (DESCRIPTOR).prefetch = (unsigned char)(PREFETCH)
+  (DESCRIPTOR).pad = 0; (DESCRIPTOR).c1 = 0; (DESCRIPTOR).c2 = 0
 
 /** Similar to LIBXS_GEMM_DESCRIPTOR, but separately taking the input-/output-precision. */
 #define LIBXS_GEMM_DESCRIPTOR2(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
@@ -155,14 +155,20 @@
 LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
   /** Denotes the data-type. */
   unsigned char datatype;
+  /** Prefetch strategy. */
+  unsigned char prefetch;
   /** Set of flags. */
   unsigned short flags;
   /** Extents of the matrix. */
   unsigned int m, n, k;
   /** Leading dimensions. */
   unsigned int lda, ldb, ldc;
-  /** Prefetch strategy. */
-  unsigned char prefetch;
+  /** Ignored entry. */
+  unsigned int pad;
+  /** Description. */
+  unsigned long long c1;
+  /** Description. */
+  unsigned long long c2;
 };
 
 /** Packed structure storing the matcopy argument description. */
