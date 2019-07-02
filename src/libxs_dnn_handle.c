@@ -128,6 +128,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( l
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_free_structs_code_conv_handle( const libxs_dnn_layer* handle ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  LIBXS_UNUSED( handle );
   return status;
 }
 
