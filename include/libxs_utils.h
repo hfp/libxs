@@ -57,6 +57,16 @@
 # define LIBXS_INTRINSICS_INCLUDE
 #elif !defined(LIBXS_INTRINSICS_NONE) /*!defined(__MIC__)*/
 # if    defined(__AVX512F__)  && defined(__AVX512CD__) \
+   &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) && defined(__AVX512VNNI__) && defined(__AVX512BF16__) \
+   &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
+   && (!defined(__GNUC__)  || defined(__clang__) || defined(__INTEL_COMPILER) || defined(_CRAYC) /* TODO: check GCC, Clang, etc. */ \
+                           || (LIBXS_VERSION3(10, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))) \
+   && (!defined(__clang__) || (LIBXS_VERSION3(9, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
+                           || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))) \
+   && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(99, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+#   define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
+#   define LIBXS_INTRINSICS_INCLUDE
+# elif  defined(__AVX512F__)  && defined(__AVX512CD__) \
    &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) && defined(__AVX512VNNI__) \
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
    && (!defined(__GNUC__)  || defined(__clang__) || defined(__INTEL_COMPILER) || defined(_CRAYC) \
@@ -113,7 +123,11 @@
 # if defined(LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_INTRINSICS_STATIC)
 #   if defined(__INTEL_COMPILER)
       /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
-#     if 1500 <= (LIBXS_INTEL_COMPILER)
+#     if 1904 <= (LIBXS_INTEL_COMPILER)
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
+#     elif 1801 <= (LIBXS_INTEL_COMPILER)
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
+#     elif 1500 <= (LIBXS_INTEL_COMPILER)
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
 #     elif 1400 <= (LIBXS_INTEL_COMPILER)
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
