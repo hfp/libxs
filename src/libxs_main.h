@@ -447,9 +447,6 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   size_t scratchVk_size;
 
   /* JIT-generated convolution code */
-  int use_fwd_generic;
-  int use_bwd_generic;
-  int use_upd_generic;
   libxs_code_pointer code_fwd[3];
   libxs_code_pointer code_bwd[3];
   libxs_code_pointer code_upd[2];
