@@ -235,11 +235,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck(libxs
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
-      libxs_blasint lda = (libxs_blasint)handle->bk;
-      libxs_blasint ldb = (libxs_blasint)handle->bc;
-      libxs_blasint ldc = (libxs_blasint)handle->bk;
-      element_input_type beta = (element_input_type)0;
-      element_input_type alpha = (element_input_type)1;
 
       if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
 #ifdef ADDRESS_BRGEMM
