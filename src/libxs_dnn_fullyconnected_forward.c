@@ -30,6 +30,7 @@
 #include <libxs_intrinsics_x86.h>
 #include "libxs_main.h"
 #include <libxs.h>
+#define STRIDE_BRGEMM
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -120,7 +121,15 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_f32_f32(libxs_dnn_full
   libxs_blasint ldc = (libxs_blasint)handle->bk;
 
   if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-    libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+#ifdef ADDRESS_BRGEMM
+    libxs_smmfunction_reducebatch_addr batchreduce_kernel = handle->gemm_fwd.xgemm.smra;
+#endif
+#ifdef OFFSET_BRGEMM
+    libxs_smmfunction_reducebatch_offs batchreduce_kernel = handle->gemm_fwd.xgemm.smro;
+#endif
+#ifdef STRIDE_BRGEMM
+    libxs_smmfunction_reducebatch_strd batchreduce_kernel = handle->gemm_fwd.xgemm.smrs;
+#endif
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic.tpl.c"
   } else {
     status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
@@ -243,7 +252,15 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck(libxs
       element_input_type alpha = (element_input_type)1;
 
       if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-        libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+#ifdef ADDRESS_BRGEMM
+        libxs_smmfunction_reducebatch_addr batchreduce_kernel = handle->gemm_fwd.xgemm.smra;
+#endif
+#ifdef OFFSET_BRGEMM
+        libxs_smmfunction_reducebatch_offs batchreduce_kernel = handle->gemm_fwd.xgemm.smro;
+#endif
+#ifdef STRIDE_BRGEMM
+        libxs_smmfunction_reducebatch_strd batchreduce_kernel = handle->gemm_fwd.xgemm.smrs;
+#endif
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic.tpl.c"
       } else {
         status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
