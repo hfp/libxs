@@ -131,7 +131,9 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16(libxs_dnn_laye
     /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
     gemm_br_function br_gemm_kernel = libxs_bsmmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
     gemm_br_function br_gemm_kernel2 = libxs_bsmmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+#define LIBXS_DNN_CONVOLUTION_BWD_AVX512_CPX
 # include "template/libxs_dnn_convolve_st_bwd_custom_custom_generic_bf16.tpl.c"
+#undef LIBXS_DNN_CONVOLUTION_BWD_AVX512_CPX
   } else {
     status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
     return status;
