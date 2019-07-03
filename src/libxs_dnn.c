@@ -1067,8 +1067,8 @@ LIBXS_API void* libxs_dnn_get_tensor_data_ptr(const libxs_dnn_tensor* tensor, li
 
 
 LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_get_tensor_datalayout(const libxs_dnn_tensor* tensor, libxs_dnn_err_t* status) {
-  *status = LIBXS_DNN_SUCCESS;
   libxs_dnn_tensor_datalayout* dst_layout = NULL;
+  *status = LIBXS_DNN_SUCCESS;
 
   if (0 != tensor) {
     dst_layout = libxs_dnn_duplicate_tensor_datalayout( tensor->layout, status );
