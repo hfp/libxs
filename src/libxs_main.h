@@ -243,13 +243,13 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csc_soa_d
   const void* values;
 } libxs_csc_soa_descriptor;
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_rm_ac_soa_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pgemm_ac_rm_descriptor {
   const libxs_gemm_descriptor* gemm;
-} libxs_rm_ac_soa_descriptor;
+} libxs_pgemm_ac_rm_descriptor;
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_rm_bc_soa_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pgemm_bc_rm_descriptor {
   const libxs_gemm_descriptor* gemm;
-} libxs_rm_bc_soa_descriptor;
+} libxs_pgemm_bc_rm_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
   const libxs_gemm_descriptor* gemm;
@@ -597,15 +597,15 @@ struct LIBXS_RETARGETABLE libxs_sfsspmdm {
 };
 
 typedef enum libxs_build_kind {
-  LIBXS_BUILD_KIND_GEMM     = LIBXS_KERNEL_KIND_MATMUL,
-  LIBXS_BUILD_KIND_MCOPY    = LIBXS_KERNEL_KIND_MCOPY,
-  LIBXS_BUILD_KIND_TRANS    = LIBXS_KERNEL_KIND_TRANS,
-  LIBXS_BUILD_KIND_PGEMM    = LIBXS_KERNEL_KIND_PGEMM,
-  LIBXS_BUILD_KIND_GETRF    = LIBXS_KERNEL_KIND_GETRF,
-  LIBXS_BUILD_KIND_TRMM     = LIBXS_KERNEL_KIND_TRMM,
-  LIBXS_BUILD_KIND_TRSM     = LIBXS_KERNEL_KIND_TRSM,
-  LIBXS_BUILD_KIND_RMACSOA  = LIBXS_KERNEL_KIND_INVALID,
-  LIBXS_BUILD_KIND_RMBCSOA,
+  LIBXS_BUILD_KIND_GEMM       = LIBXS_KERNEL_KIND_MATMUL,
+  LIBXS_BUILD_KIND_MCOPY      = LIBXS_KERNEL_KIND_MCOPY,
+  LIBXS_BUILD_KIND_TRANS      = LIBXS_KERNEL_KIND_TRANS,
+  LIBXS_BUILD_KIND_PGEMM      = LIBXS_KERNEL_KIND_PGEMM,
+  LIBXS_BUILD_KIND_GETRF      = LIBXS_KERNEL_KIND_GETRF,
+  LIBXS_BUILD_KIND_TRMM       = LIBXS_KERNEL_KIND_TRMM,
+  LIBXS_BUILD_KIND_TRSM       = LIBXS_KERNEL_KIND_TRSM,
+  LIBXS_BUILD_KIND_PGEMMRMAC  = LIBXS_KERNEL_KIND_INVALID,
+  LIBXS_BUILD_KIND_PGEMMRMBC,
   LIBXS_BUILD_KIND_SRSOA,
   LIBXS_BUILD_KIND_SCSOA,
   LIBXS_BUILD_KIND_SREG
@@ -631,8 +631,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
     LIBXS_REGDESC(LIBXS_REGDESC_DEFAULT, const*);
     const libxs_csr_soa_descriptor* srsoa;
     const libxs_csc_soa_descriptor* scsoa;
-    const libxs_rm_ac_soa_descriptor* rmacsoa;
-    const libxs_rm_bc_soa_descriptor* rmbcsoa;
+    const libxs_pgemm_ac_rm_descriptor* pgemmacrm;
+    const libxs_pgemm_bc_rm_descriptor* pgemmbcrm;
     const libxs_csr_reg_descriptor* sreg;
   } descriptor;
   libxs_build_kind kind;
