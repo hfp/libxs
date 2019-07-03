@@ -104,7 +104,6 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_da
     if (layout != 0) {
       memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
       layout->format = handle->desc.buffer_format;
-      layout->custom_format = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
 
       if ( (type == LIBXS_DNN_REGULAR_INPUT)     || (type == LIBXS_DNN_GRADIENT_INPUT)  || (type == LIBXS_DNN_INPUT)  ||
            (type == LIBXS_DNN_REGULAR_OUTPUT)    || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ||

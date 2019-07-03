@@ -369,7 +369,6 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
 
     if (layout != 0) {
       memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
-      layout->custom_format = handle->custom_format_type;
       if ( (type == LIBXS_DNN_REGULAR_INPUT)  || (type == LIBXS_DNN_GRADIENT_INPUT)  || (type == LIBXS_DNN_INPUT)  ||
            (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT)    ) {
         layout->format = handle->buffer_format;
@@ -378,69 +377,34 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_create_tensor_datalayout(const 
         if ((handle->buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
           if ( ((handle->datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->datatype_out == LIBXS_DNN_DATATYPE_F32) ) ) {
             layout->datatype = LIBXS_DNN_DATATYPE_F32;
-            if (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_1) {
-              layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(5*sizeof(libxs_dnn_tensor_dimtype));
-              layout->dim_size = (unsigned int*) malloc(5*sizeof(unsigned int));
+            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(5*sizeof(libxs_dnn_tensor_dimtype));
+            layout->dim_size = (unsigned int*) malloc(5*sizeof(unsigned int));
 
-              if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
-                layout->num_dims = 5;
-                layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-                layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
-                layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
-                layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-                layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_N;
-                if ( (type == LIBXS_DNN_REGULAR_INPUT) || (type == LIBXS_DNN_GRADIENT_INPUT) || (type == LIBXS_DNN_INPUT) ) {
-                  layout->dim_size[0] = handle->ifmblock;
-                  layout->dim_size[1] = handle->ifwp;
-                  layout->dim_size[2] = handle->ifhp;
-                  layout->dim_size[3] = handle->blocksifm;
-                  layout->dim_size[4] = handle->desc.N;
-                } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
-                  layout->dim_size[0] = handle->ofmblock;
-                  layout->dim_size[1] = handle->ofwp;
-                  layout->dim_size[2] = handle->ofhp;
-                  layout->dim_size[3] = handle->blocksofm;
-                  layout->dim_size[4] = handle->desc.N;
-                } else {
-                  free(layout->dim_type);
-                  free(layout->dim_size);
-                  free(layout);
-                  layout = 0; /* make sure a NULL is returned */
-                  *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
-                }
-              }
-            } else if (handle->custom_format_type == LIBXS_DNN_TENSOR_FORMAT_LIBXS_2) {
-              layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(6*sizeof(libxs_dnn_tensor_dimtype));
-              layout->dim_size = (unsigned int*) malloc(6*sizeof(unsigned int));
-              if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
-                layout->num_dims = 6;
-                layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-                layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_N;
-                layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_W;
-                layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_H;
-                layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_N;
-                layout->dim_type[5] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-                if ( (type == LIBXS_DNN_REGULAR_INPUT) || (type == LIBXS_DNN_GRADIENT_INPUT) || (type == LIBXS_DNN_INPUT) ) {
-                  layout->dim_size[0] = handle->ifmblock;
-                  layout->dim_size[1] = handle->nbImg;
-                  layout->dim_size[2] = handle->ifwp;
-                  layout->dim_size[3] = handle->ifhp;
-                  layout->dim_size[4] = handle->desc.N/handle->nbImg;
-                  layout->dim_size[5] = handle->blocksifm;
-                } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
-                  layout->dim_size[0] = handle->ofmblock;
-                  layout->dim_size[1] = handle->nbImg;
-                  layout->dim_size[2] = handle->ofwp;
-                  layout->dim_size[3] = handle->ofhp;
-                  layout->dim_size[4] = handle->desc.N/handle->nbImg;
-                  layout->dim_size[5] = handle->blocksofm;
-                } else {
-                  free(layout->dim_type);
-                  free(layout->dim_size);
-                  free(layout);
-                  layout = 0; /* make sure a NULL is returned */
-                  *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
-                }
+            if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+              layout->num_dims = 5;
+              layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_W;
+              layout->dim_type[2] = LIBXS_DNN_TENSOR_DIMTYPE_H;
+              layout->dim_type[3] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[4] = LIBXS_DNN_TENSOR_DIMTYPE_N;
+              if ( (type == LIBXS_DNN_REGULAR_INPUT) || (type == LIBXS_DNN_GRADIENT_INPUT) || (type == LIBXS_DNN_INPUT) ) {
+                layout->dim_size[0] = handle->ifmblock;
+                layout->dim_size[1] = handle->ifwp;
+                layout->dim_size[2] = handle->ifhp;
+                layout->dim_size[3] = handle->blocksifm;
+                layout->dim_size[4] = handle->desc.N;
+              } else if ( (type == LIBXS_DNN_REGULAR_OUTPUT) || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT) ) {
+                layout->dim_size[0] = handle->ofmblock;
+                layout->dim_size[1] = handle->ofwp;
+                layout->dim_size[2] = handle->ofhp;
+                layout->dim_size[3] = handle->blocksofm;
+                layout->dim_size[4] = handle->desc.N;
+              } else {
+                free(layout->dim_type);
+                free(layout->dim_size);
+                free(layout);
+                layout = 0; /* make sure a NULL is returned */
+                *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
               }
             } else {
               free(layout);
@@ -965,7 +929,6 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_duplicate_tensor_datalayout(con
       dst_layout->dim_size = (unsigned int*)malloc(layout->num_dims * sizeof(unsigned int));
       dst_layout->num_dims = layout->num_dims;
       dst_layout->format = layout->format;
-      dst_layout->custom_format = layout->custom_format;
       dst_layout->datatype = layout->datatype;
       dst_layout->tensor_type = layout->tensor_type;
       if (0 != dst_layout->dim_type && 0 != dst_layout->dim_size) {
@@ -996,7 +959,6 @@ LIBXS_API unsigned int libxs_dnn_compare_tensor_datalayout(const libxs_dnn_tenso
 
     if (layout_a->num_dims      != layout_b->num_dims)      { result = 1; }
     if (layout_a->format        != layout_b->format)        { result = 1; }
-    if (layout_a->custom_format != layout_b->custom_format) { result = 1; }
     if (layout_a->datatype      != layout_b->datatype)      { result = 1; }
 
     if (result == 0) {

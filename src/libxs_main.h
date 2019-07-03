@@ -296,7 +296,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_tensor_format filter_format;
   libxs_dnn_conv_fuse_op fuse_ops;
   libxs_dnn_conv_option options;
-  libxs_dnn_internal_format custom_format_type;    /* Specifies internal LIBXS format to be used */
+
   /* These are the batchnorm handles in case of fusion */
   libxs_dnn_fusedbatchnorm* pre_bn;
   libxs_dnn_fusedbatchnorm* post_bn;
@@ -504,7 +504,6 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_pooling {
 
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   libxs_dnn_rnncell_desc desc;
-  libxs_dnn_internal_format custom_format_type; /* required only for comparing layouts */
   libxs_blasint T;                              /* sequence length, must be smaller than max sequence length in desc */
   libxs_blasint bk;
   libxs_blasint bn;
