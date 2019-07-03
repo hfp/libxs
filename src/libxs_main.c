@@ -1381,52 +1381,52 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         }
       }
     } break;
-    case LIBXS_BUILD_KIND_RMACSOA: { /* dense SOA kernel, CSC format */
-      LIBXS_ASSERT(NULL != request->descriptor.rmacsoa && 0 != request->descriptor.rmacsoa->gemm);
+    case LIBXS_BUILD_KIND_PGEMMRMAC: { /* packed GEMM, B regular matrix, row-major */
+      LIBXS_ASSERT(NULL != request->descriptor.pgemmacrm && 0 != request->descriptor.pgemmacrm->gemm);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.rmacsoa->gemm->datatype) ||
-          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.rmacsoa->gemm->datatype))
+      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype) ||
+          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype))
       {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_rm_ac_soa, &generated_code, request->descriptor.rmacsoa->gemm, target_arch);
+        LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_ac_rm, &generated_code, request->descriptor.pgemmacrm->gemm, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
         {
-          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.rmacsoa->gemm->prefetch);
-          const char *const tname = libxs_typename((libxs_datatype)request->descriptor.rmacsoa->gemm->datatype);
+          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.pgemmacrm->gemm->prefetch);
+          const char *const tname = libxs_typename((libxs_datatype)request->descriptor.pgemmacrm->gemm->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.rmacsoa", target_arch, tname,
-            0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.rmacsoa->gemm->flags) ? 'n' : 't',
-            0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.rmacsoa->gemm->flags) ? 'n' : 't',
-            request->descriptor.rmacsoa->gemm->m,   request->descriptor.rmacsoa->gemm->n,   request->descriptor.rmacsoa->gemm->k,
-            request->descriptor.rmacsoa->gemm->lda, request->descriptor.rmacsoa->gemm->ldb, request->descriptor.rmacsoa->gemm->ldc,
-          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.rmacsoa->gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.rmacsoa->gemm->flags) ? 0 : 1,
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.pgemmacrm", target_arch, tname,
+            0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.pgemmacrm->gemm->flags) ? 'n' : 't',
+            0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.pgemmacrm->gemm->flags) ? 'n' : 't',
+            request->descriptor.pgemmacrm->gemm->m,   request->descriptor.pgemmacrm->gemm->n,   request->descriptor.pgemmacrm->gemm->k,
+            request->descriptor.pgemmacrm->gemm->lda, request->descriptor.pgemmacrm->gemm->ldb, request->descriptor.pgemmacrm->gemm->ldc,
+          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.pgemmacrm->gemm->flags) ? 0 : */1,
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pgemmacrm->gemm->flags) ? 0 : 1,
             uid);
         }
       }
     } break;
-    case LIBXS_BUILD_KIND_RMBCSOA: { /* sparse SOA kernel, CSC format */
-      LIBXS_ASSERT(NULL != request->descriptor.rmbcsoa && 0 != request->descriptor.rmbcsoa->gemm);
+    case LIBXS_BUILD_KIND_PGEMMRMBC: { /* packed GEMM, A regular matrix, row-major */
+      LIBXS_ASSERT(NULL != request->descriptor.pgemmbcrm && 0 != request->descriptor.pgemmbcrm->gemm);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.rmbcsoa->gemm->datatype) ||
-          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.rmbcsoa->gemm->datatype))
+      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype) ||
+          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype))
       {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_rm_bc_soa, &generated_code, request->descriptor.rmbcsoa->gemm, target_arch);
+        LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_bc_rm, &generated_code, request->descriptor.pgemmbcrm->gemm, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
         {
-          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.rmbcsoa->gemm->prefetch);
-          const char *const tname = libxs_typename((libxs_datatype)request->descriptor.rmbcsoa->gemm->datatype);
+          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.pgemmbcrm->gemm->prefetch);
+          const char *const tname = libxs_typename((libxs_datatype)request->descriptor.pgemmbcrm->gemm->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.rmbcsoa", target_arch, tname,
-            0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.rmbcsoa->gemm->flags) ? 'n' : 't',
-            0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.rmbcsoa->gemm->flags) ? 'n' : 't',
-            request->descriptor.rmbcsoa->gemm->m,   request->descriptor.rmbcsoa->gemm->n,   request->descriptor.rmbcsoa->gemm->k,
-            request->descriptor.rmbcsoa->gemm->lda, request->descriptor.rmbcsoa->gemm->ldb, request->descriptor.rmbcsoa->gemm->ldc,
-          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.rmbcsoa->gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.rmbcsoa->gemm->flags) ? 0 : 1,
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.pgemmbcrm", target_arch, tname,
+            0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.pgemmbcrm->gemm->flags) ? 'n' : 't',
+            0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.pgemmbcrm->gemm->flags) ? 'n' : 't',
+            request->descriptor.pgemmbcrm->gemm->m,   request->descriptor.pgemmbcrm->gemm->n,   request->descriptor.pgemmbcrm->gemm->k,
+            request->descriptor.pgemmbcrm->gemm->lda, request->descriptor.pgemmbcrm->gemm->ldb, request->descriptor.pgemmbcrm->gemm->ldc,
+          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.pgemmbcrm->gemm->flags) ? 0 : */1,
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pgemmbcrm->gemm->flags) ? 0 : 1,
             uid);
         }
       }
@@ -2553,46 +2553,46 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_descriptor* d
 }
 
 
-LIBXS_API libxs_xmmfunction libxs_create_rm_ac_soa(const libxs_gemm_descriptor* descriptor)
+LIBXS_API libxs_xmmfunction libxs_create_pgemm_ac_rm(const libxs_gemm_descriptor* descriptor)
 {
   libxs_code_pointer result = { 0 };
   if (NULL != descriptor) {
-    libxs_rm_ac_soa_descriptor rmacsoa;
+    libxs_pgemm_ac_rm_descriptor pgemmacrm;
     libxs_build_request request;
     libxs_gemm_descriptor desc;
     if (0 == (0x80 & descriptor->prefetch)) {
-      rmacsoa.gemm = descriptor;
+      pgemmacrm.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
       desc = *descriptor;
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
-      rmacsoa.gemm = &desc;
+      pgemmacrm.gemm = &desc;
     }
-    request.descriptor.rmacsoa = &rmacsoa;
-    request.kind = LIBXS_BUILD_KIND_RMACSOA;
+    request.descriptor.pgemmacrm = &pgemmacrm;
+    request.kind = LIBXS_BUILD_KIND_PGEMMRMAC;
     libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
   }
   return result.xgemm;
 }
 
 
-LIBXS_API libxs_xmmfunction libxs_create_rm_bc_soa(const libxs_gemm_descriptor* descriptor)
+LIBXS_API libxs_xmmfunction libxs_create_pgemm_bc_rm(const libxs_gemm_descriptor* descriptor)
 {
   libxs_code_pointer result = { 0 };
   if (NULL != descriptor) {
-    libxs_rm_bc_soa_descriptor rmbcsoa;
+    libxs_pgemm_bc_rm_descriptor pgemmbcrm;
     libxs_build_request request;
     libxs_gemm_descriptor desc;
     if (0 == (0x80 & descriptor->prefetch)) {
-      rmbcsoa.gemm = descriptor;
+      pgemmbcrm.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
       desc = *descriptor;
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
-      rmbcsoa.gemm = &desc;
+      pgemmbcrm.gemm = &desc;
     }
-    request.descriptor.rmbcsoa = &rmbcsoa;
-    request.kind = LIBXS_BUILD_KIND_RMBCSOA;
+    request.descriptor.pgemmbcrm = &pgemmbcrm;
+    request.kind = LIBXS_BUILD_KIND_PGEMMRMBC;
     libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
   }
   return result.xgemm;
