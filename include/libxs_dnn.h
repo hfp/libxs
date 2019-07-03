@@ -257,7 +257,6 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_tensor_datalayout {
   unsigned int* dim_size;
   unsigned int num_dims;
   libxs_dnn_tensor_format format;                /* format of activation buffer */
-  libxs_dnn_internal_format custom_format;       /* internal classifier of format, an internal subgroup */
   libxs_dnn_datatype datatype;                   /* data type */
   libxs_dnn_tensor_type tensor_type;             /* tensor type */
 } libxs_dnn_tensor_datalayout;

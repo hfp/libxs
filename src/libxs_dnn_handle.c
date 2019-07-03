@@ -58,27 +58,8 @@
 
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_internal_create_conv_handle_direct( libxs_dnn_layer* handle ) {
-  int internal_format_type;
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  const char *const env = getenv("LIBXS_DNN_INTERNAL_FORMAT");
   LIBXS_ASSERT(0 != handle);
-
-  if ( 0 == env || 0 == *env) {
-    /* Default internal format type */
-    handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
-  } else {
-    internal_format_type = atoi(env);
-    if (internal_format_type == 1) {
-      handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_1;
-    } else if ( internal_format_type == 2) {
-      handle->custom_format_type = LIBXS_DNN_TENSOR_FORMAT_LIBXS_2;
-    } else {
-      status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
-      free(handle);
-      handle = 0;
-      return status;
-    }
-  }
 
   /* we only support physical paddind in these days */
   /* @TODO: add logical padding support */
