@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2016-2019, Intel Corporation                                **
+** Copyright (c) 2017-2019, Intel Corporation                                **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -26,12 +26,32 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#ifndef LIBXS_DNN_SETUP_H
-#define LIBXS_DNN_SETUP_H
+#ifndef LIBXS_MEM_H
+#define LIBXS_MEM_H
 
-#include <libxs_dnn.h>
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K, int* C_block, int* K_block, int* fm_lp_block, libxs_dnn_datatype datatype_in, libxs_dnn_datatype datatype_out );
-LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle );
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_setup_generic( libxs_dnn_layer* handle );
+#include "libxs_macros.h"
 
-#endif /* LIBXS_DNN_SETUP_H */
+
+/**
+ * Calculate if there is a difference between two (short) buffers.
+ * Returns zero if there is no difference; otherwise non-zero.
+ */
+LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char size);
+
+/**
+ * Calculate if there is a difference between "a" and "n x b".
+ * Returns the index of the first match (or "n" in case of no match).
+ */
+LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char size,
+  unsigned char stride, unsigned int hint, unsigned int n);
+
+/** Similar to memcmp (C standard library), but the result is conceptually only a boolean. */
+LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size);
+
+/** Calculate a hash value for the given buffer and seed; accepts NULL-buffer. */
+LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed);
+
+/** Calculate a 64-bit hash for the given character string; accepts NULL-string. */
+LIBXS_API unsigned long long libxs_hash_string(const char* string);
+
+#endif /*LIBXS_MEM_H*/

@@ -28,7 +28,6 @@
 ******************************************************************************/
 #include <libxs_mhd.h>
 #include "libxs_main.h"
-#include "libxs_hash.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -255,13 +254,6 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info)
 }
 
 
-LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed)
-{
-  LIBXS_INIT
-  return libxs_crc32(seed, data, size);
-}
-
-
 LIBXS_API size_t libxs_shuffle(unsigned int n)
 {
   const unsigned int s = (0 != (n & 1) ? ((n / 2 - 1) | 1) : ((n / 2) & ~1));
@@ -316,7 +308,7 @@ LIBXS_API unsigned int libxs_isqrt2_u32(unsigned int x)
 
 LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC) double libxs_dsqrt(double x)
 {
-#if defined(LIBXS_INTRINSICS_X86)
+#if defined(LIBXS_INTRINSICS_X86) && !defined(__PGI)
   const __m128d a = LIBXS_INTRINSICS_MM_UNDEFINED_PD();
   const double result = _mm_cvtsd_f64(_mm_sqrt_sd(a, _mm_set_sd(x)));
 #elif !defined(LIBXS_NO_LIBM)
@@ -376,6 +368,7 @@ LIBXS_API unsigned int libxs_icbrt_u32(unsigned int x)
   return y;
 }
 
+#if defined(LIBXS_NO_LIBM)
 /* Implementation based on Claude Baumann's product (http://www.convict.lu/Jeunes/ultimate_stuff/exp_ln_2.htm).
  * Exponential function, which exposes the number of iterations taken in the main case (1...22).
  */
@@ -445,6 +438,7 @@ LIBXS_API_INLINE float internal_math_sexp2(float x, int maxiter)
   }
   return result.s;
 }
+#endif
 
 
 LIBXS_API float libxs_sexp2(float x)
@@ -518,18 +512,19 @@ LIBXS_API float libxs_sexp2_i8i(int x)
 }
 
 
-#if defined(LIBXS_BUILD) && !defined(LIBXS_NOFORTRAN)
+#if defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info* /*info*/,
-  const libxs_datatype* /*datatype*/, const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const void* /*ref*/, const void* /*tst*/,
+  const int* /*datatype*/, const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const void* /*ref*/, const void* /*tst*/,
   const libxs_blasint* /*ldref*/, const libxs_blasint* /*ldtst*/);
 LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info* info,
-  const libxs_datatype* datatype, const libxs_blasint* m, const libxs_blasint* n, const void* ref, const void* tst,
+  const int* datatype, const libxs_blasint* m, const libxs_blasint* n, const void* ref, const void* tst,
   const libxs_blasint* ldref, const libxs_blasint* ldtst)
 {
   static int error_once = 0;
-  if ((NULL == datatype || NULL == m || EXIT_SUCCESS != libxs_matdiff(info, *datatype, *m, *(NULL != n ? n : m), ref, tst, ldref, ldtst))
+  if ((NULL == datatype || LIBXS_DATATYPE_UNSUPPORTED <= *datatype || 0 > *datatype || NULL == m
+    || EXIT_SUCCESS != libxs_matdiff(info, (libxs_datatype)*datatype, *m, *(NULL != n ? n : m), ref, tst, ldref, ldtst))
     && 0 != libxs_verbosity && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_matdiff specified!\n");
@@ -573,47 +568,4 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_shuffle)(long long* coprime, const int* n)
 #endif
 }
 
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(void* /*hash_seed*/, const void* /*data*/, const int* /*size*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(void* hash_seed, const void* data, const int* size)
-{
-#if !defined(NDEBUG)
-  static int error_once = 0;
-  if (NULL != hash_seed && NULL != data && NULL != size && 0 <= *size)
-#endif
-  {
-    unsigned int *const hash_seed_ui32 = (unsigned int*)hash_seed;
-    *hash_seed_ui32 = (libxs_hash(data, (unsigned int)*size, *hash_seed_ui32) & 0x7FFFFFFF/*sign-bit*/);
-  }
-#if !defined(NDEBUG)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_hash specified!\n");
-  }
-#endif
-}
-
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_diff)(int* /*result*/, const void* /*a*/, const void* /*b*/, const long long* /*size*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_diff)(int* result, const void* a, const void* b, const long long* size)
-{
-#if !defined(NDEBUG)
-  static int error_once = 0;
-  if (NULL != result && NULL != a && NULL != b && NULL != size && 0 <= *size)
-#endif
-  {
-    *result = libxs_memcmp(a, b, (size_t)*size);
-  }
-#if !defined(NDEBUG)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_memcmp specified!\n");
-  }
-#endif
-}
-
-#endif /*defined(LIBXS_BUILD)*/
+#endif /*defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))*/

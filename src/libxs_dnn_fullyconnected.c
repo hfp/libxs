@@ -29,7 +29,6 @@
 #include "libxs_dnn_fullyconnected_weight_update.h"
 #include "libxs_dnn_fullyconnected_backward.h"
 #include "libxs_dnn_fullyconnected_forward.h"
-#include "libxs_dnn_setup.h"
 #include "libxs_main.h"
 #define STRIDE_BRGEMM
 
@@ -122,7 +121,8 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
       if ( ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NCPACKED) > 0) && ((handle->desc.filter_format & LIBXS_DNN_TENSOR_FORMAT_CKPACKED) > 0)  ) {
         if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
           float alpha = 1.0f;
-          float beta  = 0.0f;
+          /* beta is set to 1 for ncnc kcck format because ifm is split into 2 blocks */
+          float beta  = 1.0f;
           libxs_blasint lda = (libxs_blasint)handle->bk;
           libxs_blasint ldb = (libxs_blasint)handle->bc;
           libxs_blasint ldc = (libxs_blasint)handle->bk;
@@ -148,7 +148,15 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           libxs_blasint ldc = (libxs_blasint)handle->bk;
 
           if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+#ifdef ADDRESS_BRGEMM
             handle->gemm_fwd.xgemm.bsmra = libxs_bsmmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+#endif
+#ifdef OFFSET_BRGEMM
+            handle->gemm_fwd.xgemm.bsmro = libxs_bsmmdispatch_reducebatch_offs(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+#endif
+#ifdef STRIDE_BRGEMM
+            handle->gemm_fwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+#endif
           } else {
             /* should not happen */
           }

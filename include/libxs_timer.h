@@ -31,8 +31,6 @@
 
 #include "libxs_macros.h"
 
-#define libxs_timer_diff(TICK0, TICK1) libxs_timer_cycles(TICK0, TICK1)
-
 
 typedef unsigned long long libxs_timer_tickint;
 
@@ -42,8 +40,10 @@ typedef unsigned long long libxs_timer_tickint;
  */
 LIBXS_API libxs_timer_tickint libxs_timer_tick(void);
 
-/** Returns the difference between two timer ticks (cycles); avoids potential side-effects of LIBXS_DIFF. */
-LIBXS_API libxs_timer_tickint libxs_timer_cycles(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
+/** Returns the difference between two timer ticks (cycles); avoids potential side-effects/assumptions of LIBXS_DIFF. */
+LIBXS_API_INLINE libxs_timer_tickint libxs_timer_ncycles(libxs_timer_tickint tick0, libxs_timer_tickint tick1) {
+  return LIBXS_DELTA(tick0, tick1);
+}
 
 /** Returns the duration (in seconds) between two values received by libxs_timer_tick. */
 LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1);

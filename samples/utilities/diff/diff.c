@@ -87,6 +87,8 @@ int main(int argc, char* argv[])
           tst += stride;
         }
 #endif
+        /* memcmp may be pure and without touching input it is not repeated (nrpt) */
+        ref[i%elsize] = 255;
       }
       printf("libxs_diff_n:\t\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
     }

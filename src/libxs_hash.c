@@ -42,24 +42,25 @@
 #endif
 
 #define LIBXS_HASH_U64(FN, SEED, BEGIN, END) { \
-  for (; (BEGIN) < ((END) - 7); (BEGIN) += 8) { LIBXS_ASSERT(NULL != (BEGIN)); \
+  const uint8_t *const end = (NULL != (END) ? ((END) - 7) : NULL); \
+  for (; (BEGIN) < end; (BEGIN) += 8) { LIBXS_ASSERT(NULL != (BEGIN) || NULL == (END)); \
     SEED = (uint32_t)FN(SEED, BEGIN); \
   } \
 }
 #define LIBXS_HASH_U32(FN, SEED, BEGIN, END) { \
   const uint8_t *const next = (BEGIN) + 4; \
-  if (next <= (END)) { LIBXS_ASSERT(NULL != (BEGIN)); \
+  if (next <= (END)) { LIBXS_ASSERT(NULL != (BEGIN) || NULL == (END)); \
     SEED = FN(SEED, BEGIN); BEGIN = next; \
   } \
 }
 #define LIBXS_HASH_U16(FN, SEED, BEGIN, END) { \
   const uint8_t *const next = (BEGIN) + 2; \
-  if (next <= (END)) { LIBXS_ASSERT(NULL != (BEGIN)); \
+  if (next <= (END)) { LIBXS_ASSERT(NULL != (BEGIN) || NULL == (END)); \
     SEED = FN(SEED, BEGIN); BEGIN = next; \
   } \
 }
 #define LIBXS_HASH_U8(FN, SEED, BEGIN, END) { \
-  if ((BEGIN) < (END)) { LIBXS_ASSERT(NULL != (BEGIN)); \
+  if ((BEGIN) < (END)) { LIBXS_ASSERT(NULL != (BEGIN) || NULL == (END)); \
     SEED = FN(SEED, BEGIN); ++(BEGIN); \
   } \
 }
@@ -68,10 +69,9 @@
 #define LIBXS_HASH_CRC32_U16(SEED, PVALUE) _mm_crc32_u16(SEED, *(const uint16_t*)(PVALUE))
 #define LIBXS_HASH_CRC32_U32(SEED, PVALUE) _mm_crc32_u32(SEED, *(const uint32_t*)(PVALUE))
 
-#if (64 > (LIBXS_BITS))
+#if (64 > (LIBXS_BITS)) || defined(__PGI)
 # define LIBXS_HASH_CRC32_U64(SEED, PVALUE) \
-    LIBXS_HASH_CRC32_U32(((const uint32_t*)(PVALUE))[1], \
-    LIBXS_HASH_CRC32_U32(((const uint32_t*)(PVALUE))[0], (uint32_t)(SEED)))
+  LIBXS_HASH_CRC32_U32(LIBXS_HASH_CRC32_U32((uint32_t)(SEED), PVALUE), (const uint32_t*)(PVALUE) + 1)
 #else
 # define LIBXS_HASH_CRC32_U64(SEED, PVALUE) _mm_crc32_u64(SEED, *(const uint64_t*)(PVALUE))
 #endif
@@ -208,10 +208,12 @@ unsigned int internal_crc32_u128_sse4(unsigned int seed, const void* value, ...)
 {
 #if defined(LIBXS_INTRINSICS_SSE4)
   const uint64_t *const pu64 = (const uint64_t*)value;
-  return (unsigned int)LIBXS_HASH_CRC32_U64(LIBXS_HASH_CRC32_U64(seed, pu64), pu64 + 1);
+  seed = (unsigned int)LIBXS_HASH_CRC32_U64(seed, pu64);
+  seed = (unsigned int)LIBXS_HASH_CRC32_U64(seed, pu64 + 1);
 #else
-  return internal_crc32_u128(seed, value);
+  seed = internal_crc32_u128(seed, value);
 #endif
+  return seed;
 }
 
 
@@ -545,6 +547,17 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u256(unsigned int seed, const void* va
 #else /* pointer based function call */
   LIBXS_ASSERT(NULL != internal_hash_u256_function);
   return internal_hash_u256_function(seed, value);
+#endif
+}
+
+
+LIBXS_API_INTERN unsigned int libxs_crc32_u384(unsigned int seed, const void* value, ...)
+{
+#if (LIBXS_X86_SSE4 <= LIBXS_STATIC_TARGET_ARCH)
+  return internal_crc32_u384_sse4(seed, value);
+#else /* pointer based function call */
+  LIBXS_ASSERT(NULL != internal_hash_u384_function);
+  return internal_hash_u384_function(seed, value);
 #endif
 }
 

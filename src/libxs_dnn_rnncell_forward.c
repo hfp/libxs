@@ -172,7 +172,7 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck_f32_f32(libxs_dnn_rnncell* hand
 # include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_kcck.tpl.c"
 #undef LIBXS_RNN_CELL_AVX512
   } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
-    status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
+# include "template/libxs_dnn_rnncell_st_gru_fwd_nc_kcck.tpl.c"
   } else {
     /* should not happen */
   }
@@ -357,7 +357,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck(libxs_dnn_rnnc
       } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_LSTM ) {
 # include "template/libxs_dnn_rnncell_st_lstm_fwd_nc_kcck.tpl.c"
       } else if ( handle->desc.cell_type == LIBXS_DNN_RNNCELL_GRU ) {
-        status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
+# include "template/libxs_dnn_rnncell_st_gru_fwd_nc_kcck.tpl.c"
       } else {
         /* should not happen */
       }

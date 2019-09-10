@@ -30,6 +30,9 @@
 #include <stdlib.h>
 #if defined(_DEBUG)
 # include <stdio.h>
+# define FPRINTF(STREAM, ...) fprintf(STREAM, __VA_ARGS__)
+#else
+# define FPRINTF(STREAM, ...)
 #endif
 
 #if !defined(ELEM_TYPE)
@@ -54,15 +57,29 @@ int main(void)
   if (NULL == data) s = 0;
   for (i = 0; i < s; ++i) data[i] = (rand() - ((RAND_MAX) >> 1));
 
+  h1 = libxs_crc32_u64(seed, data);
+  h2 = libxs_crc32_u32(seed, data);
+  h2 = libxs_crc32_u32(h2, (unsigned int*)data + 1);
+  if (h1 != h2) {
+    FPRINTF(stderr, "crc32_u32 or crc32_u64 is wrong\n");
+    result = EXIT_FAILURE;
+  }
+
   h1 = libxs_crc32(seed, data, sizeof(ELEM_TYPE) * s);
   h2 = seed; value = data;
   for (i = 0; i < s; i += n512) {
     h2 = libxs_crc32_u512(h2, value + i);
   }
   if (h1 != h2) {
-#if defined(_DEBUG)
-    fprintf(stderr, "(crc32=%u) != (crc32_sw=%u)\n", h1, h2);
-#endif
+    FPRINTF(stderr, "(crc32=%u) != (crc32_sw=%u)\n", h1, h2);
+    result = EXIT_FAILURE;
+  }
+
+  if (seed != libxs_hash(NULL/*data*/, 0/*size*/, seed)) {
+    result = EXIT_FAILURE;
+  }
+
+  if (0 != libxs_hash_string(NULL/*string*/)) {
     result = EXIT_FAILURE;
   }
 

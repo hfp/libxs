@@ -29,7 +29,7 @@
 #ifndef LIBXS_DNN_CONVOLUTION_FORWARD_H
 #define LIBXS_DNN_CONVOLUTION_FORWARD_H
 
-#include <libxs_dnn.h>
+#include <libxs_dnn_convolution.h>
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_dnn_layer* handle, int start_thread, int tid);
 

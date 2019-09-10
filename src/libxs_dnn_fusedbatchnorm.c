@@ -28,7 +28,6 @@
 ******************************************************************************/
 #include "libxs_dnn_fusedbatchnorm_backward.h"
 #include "libxs_dnn_fusedbatchnorm_forward.h"
-#include "libxs_dnn_setup.h"
 #include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)

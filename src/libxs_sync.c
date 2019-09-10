@@ -749,10 +749,14 @@ LIBXS_API unsigned int libxs_get_pid(void)
 
 LIBXS_API unsigned int libxs_get_tid(void)
 {
+#if (0 != LIBXS_SYNC)
   static LIBXS_TLS unsigned int tid = (unsigned int)(-1);
   if ((unsigned int)(-1) == tid) {
-    tid = LIBXS_ATOMIC_ADD_FETCH(&libxs_threads_count, 1, LIBXS_ATOMIC_RELAXED) - 1;
+    tid = LIBXS_ATOMIC_ADD_FETCH(&libxs_thread_count, 1, LIBXS_ATOMIC_RELAXED) - 1;
   }
   return tid;
+#else
+  return 0;
+#endif
 }
 

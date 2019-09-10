@@ -37,9 +37,9 @@
 #     define LIBXS_NO_TLS
 #     define LIBXS_TLS
 #   else
-#     if (defined(_WIN32) && !defined(__GNUC__)) || (defined(__PGI) && !defined(__cplusplus))
+#     if (defined(_WIN32) && !defined(__GNUC__) && !defined(__clang__)) || (defined(__PGI) && !defined(__cplusplus))
 #       define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
-#     elif defined(__GNUC__) || defined(_CRAYC)
+#     elif defined(__GNUC__) || defined(__clang__) || defined(_CRAYC)
 #       define LIBXS_TLS __thread
 #     elif defined(__cplusplus)
 #       define LIBXS_TLS thread_local
@@ -55,8 +55,9 @@
 # endif
 #endif
 
-#if !defined(LIBXS_GCC_BASELINE) && !defined(LIBXS_SYNC_LEGACY) && defined(__GNUC__) && \
-  LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#if !defined(LIBXS_GCC_BASELINE) && !defined(LIBXS_SYNC_LEGACY) && ((defined(__GNUC__) && \
+  LIBXS_VERSION3(4, 7, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
+  || (defined(_WIN32) && defined(__clang__)))
 # define LIBXS_GCC_BASELINE
 #endif
 
@@ -141,8 +142,8 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_SYNC_NPAUSE 0
 # endif
 #else
-# if defined(__GNUC__) && !defined(LIBXS_SYNC_SYSTEM) && /* check for legacy GCC (no atomics) */ \
-  LIBXS_VERSION3(4, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+# if !defined(LIBXS_SYNC_SYSTEM) && (defined(LIBXS_GCC_BASELINE) || (defined(__GNUC__) && \
+  LIBXS_VERSION3(4, 1, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)))
 #   define LIBXS_ATOMIC(FN, BITS) FN
 #   if defined(LIBXS_GCC_BASELINE)
 #     define LIBXS_ATOMIC_LOAD(SRC_PTR, KIND) __atomic_load_n(SRC_PTR, KIND)
@@ -241,6 +242,7 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_ATOMIC_FETCH_ADD(DST_PTR, VALUE, KIND) InterlockedExchangeAdd((volatile LONG*)(DST_PTR), VALUE)
 #   define LIBXS_ATOMIC_FETCH_ADD64(DST_PTR, VALUE, KIND) InterlockedExchangeAdd64((volatile LONGLONG*)(DST_PTR), VALUE)
 #   define LIBXS_ATOMIC_FETCH_SUB(DST_PTR, VALUE, KIND) LIBXS_ATOMIC_FETCH_ADD(DST_PTR, -1 * (VALUE), KIND)
+#   define LIBXS_ATOMIC_FETCH_SUB64(DST_PTR, VALUE, KIND) LIBXS_ATOMIC_FETCH_ADD64(DST_PTR, -1 * (VALUE), KIND)
 #   define LIBXS_ATOMIC_CMPSWP(DST_PTR, OLDVAL, NEWVAL, KIND) (((LONG)(OLDVAL)) == InterlockedCompareExchange((volatile LONG*)(DST_PTR), NEWVAL, OLDVAL))
 #   define LIBXS_ATOMIC_CMPSWP8(DST_PTR, OLDVAL, NEWVAL, KIND) ((OLDVAL) == _InterlockedCompareExchange8((volatile char*)(DST_PTR), NEWVAL, OLDVAL))
 #   if defined(LIBXS_ATOMIC_TRYLOCK_CMPSWP)
@@ -350,10 +352,10 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_LOCK_SPINLOCK spin
 #   define LIBXS_LOCK_MUTEX mutex
 #   define LIBXS_LOCK_RWLOCK rwlock
-#   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) || !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) || !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_ACQUIRED_spin TRUE
 #   endif
-#   if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_TYPE_ISPOD_spin 0
 #     define LIBXS_LOCK_TYPE_spin CRITICAL_SECTION
 #     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); InitializeCriticalSection(LOCK); }
@@ -368,10 +370,10 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
 #     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
 #   endif
-#   if !defined(LIBXS_LOCK_SYSTEM_MUTEX) || !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if !defined(LIBXS_LOCK_SYSTEM_MUTEX) || !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_ACQUIRED_mutex WAIT_OBJECT_0
 #   endif
-#   if defined(LIBXS_LOCK_SYSTEM_MUTEX) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if defined(LIBXS_LOCK_SYSTEM_MUTEX) && !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_TYPE_ISPOD_mutex 0
 #     define LIBXS_LOCK_TYPE_ISRW_mutex 0
 #     define LIBXS_LOCK_TYPE_mutex HANDLE
@@ -387,10 +389,10 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) (*(ATTR) = NULL)
 #     define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_UNUSED(ATTR)
 #   endif
-#   if !defined(LIBXS_LOCK_SYSTEM_RWLOCK) || !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if !defined(LIBXS_LOCK_SYSTEM_RWLOCK) || !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_ACQUIRED_rwlock TRUE
 #   endif
-#   if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_TYPE_ISPOD_rwlock 1
 #     define LIBXS_LOCK_TYPE_ISRW_rwlock 1
 #     define LIBXS_LOCK_TYPE_rwlock SRWLOCK
@@ -417,17 +419,17 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_SYNC_YIELD LIBXS_PTHREAD_FN(pthread_yield)
 #   if defined(__APPLE__) && defined(__MACH__) && \
        defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && \
-     !(defined(_OPENMP) && defined(LIBXS_OMP))
+     !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_SPINLOCK mutex
 #   else
 #     define LIBXS_LOCK_SPINLOCK spin
 #   endif
 #   define LIBXS_LOCK_MUTEX mutex
 #   define LIBXS_LOCK_RWLOCK rwlock
-#   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) || !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) || !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_ACQUIRED_spin 0
 #   endif
-#   if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_TYPE_ISPOD_spin 0
 #     define LIBXS_LOCK_TYPE_ISRW_spin 0
 #     define LIBXS_LOCK_TYPE_spin pthread_spinlock_t
@@ -443,35 +445,35 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) (*(ATTR) = 0)
 #     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
 #   endif
-#   if !defined(LIBXS_LOCK_SYSTEM_MUTEX) || !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if !defined(LIBXS_LOCK_SYSTEM_MUTEX) || !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_ACQUIRED_mutex 0
 #   endif
-#   if defined(LIBXS_LOCK_SYSTEM_MUTEX) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if defined(LIBXS_LOCK_SYSTEM_MUTEX) && !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_TYPE_ISPOD_mutex 0
 #     define LIBXS_LOCK_TYPE_ISRW_mutex 0
 #     define LIBXS_LOCK_TYPE_mutex pthread_mutex_t
 #     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) LIBXS_EXPECT(0, pthread_mutex_init(LOCK, ATTR))
 #     define LIBXS_LOCK_DESTROY_mutex(LOCK) LIBXS_EXPECT(0, pthread_mutex_destroy(LOCK))
-#     define LIBXS_LOCK_TRYLOCK_mutex(LOCK) pthread_mutex_trylock(LOCK)
+#     define LIBXS_LOCK_TRYLOCK_mutex(LOCK) pthread_mutex_trylock(LOCK) /*!LIBXS_EXPECT*/
 #     define LIBXS_LOCK_ACQUIRE_mutex(LOCK) LIBXS_EXPECT(0, pthread_mutex_lock(LOCK))
 #     define LIBXS_LOCK_RELEASE_mutex(LOCK) LIBXS_EXPECT(0, pthread_mutex_unlock(LOCK))
 #     define LIBXS_LOCK_TRYREAD_mutex(LOCK) LIBXS_LOCK_TRYLOCK_mutex(LOCK)
 #     define LIBXS_LOCK_ACQREAD_mutex(LOCK) LIBXS_LOCK_ACQUIRE_mutex(LOCK)
 #     define LIBXS_LOCK_RELREAD_mutex(LOCK) LIBXS_LOCK_RELEASE_mutex(LOCK)
 #     define LIBXS_LOCK_ATTR_TYPE_mutex pthread_mutexattr_t
-#     if defined(NDEBUG)
-#       define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) (pthread_mutexattr_init(ATTR), \
-                          pthread_mutexattr_settype(ATTR, PTHREAD_MUTEX_NORMAL))
-#     else
+#     if defined(_DEBUG)
 #       define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) (LIBXS_EXPECT(0, pthread_mutexattr_init(ATTR)), \
                       LIBXS_EXPECT(0, pthread_mutexattr_settype(ATTR, PTHREAD_MUTEX_ERRORCHECK)))
+#     else
+#       define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) (pthread_mutexattr_init(ATTR), \
+                          pthread_mutexattr_settype(ATTR, PTHREAD_MUTEX_NORMAL))
 #     endif
 #     define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_EXPECT(0, pthread_mutexattr_destroy(ATTR))
 #   endif
-#   if !defined(LIBXS_LOCK_SYSTEM_RWLOCK) || !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if !defined(LIBXS_LOCK_SYSTEM_RWLOCK) || !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_ACQUIRED_rwlock 0
 #   endif
-#   if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && !(defined(_OPENMP) && defined(LIBXS_OMP))
+#   if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
 #     define LIBXS_LOCK_TYPE_ISPOD_rwlock 0
 #     define LIBXS_LOCK_TYPE_ISRW_rwlock 1
 #     define LIBXS_LOCK_TYPE_rwlock pthread_rwlock_t
@@ -491,7 +493,7 @@ typedef enum libxs_atomic_kind {
 /* OpenMP based locks need to stay disabled unless both
  * libxs and libxsext are built with OpenMP support.
  */
-# if defined(_OPENMP) && defined(LIBXS_OMP)
+# if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
 #   include <omp.h>
 # endif
 # if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
@@ -526,12 +528,11 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
 #     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
 #   endif
-# elif defined(_OPENMP) && defined(LIBXS_OMP)
+# elif defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
 #   define LIBXS_LOCK_ACQUIRED_spin 1
 #   define LIBXS_LOCK_TYPE_ISPOD_spin 0
 #   define LIBXS_LOCK_TYPE_ISRW_spin 0
 #   define LIBXS_LOCK_TYPE_spin omp_lock_t
-#   define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); omp_init_lock(LOCK); }
 #   define LIBXS_LOCK_DESTROY_spin(LOCK) omp_destroy_lock(LOCK)
 #   define LIBXS_LOCK_TRYLOCK_spin(LOCK) omp_test_lock(LOCK)
 #   define LIBXS_LOCK_ACQUIRE_spin(LOCK) omp_set_lock(LOCK)
@@ -539,8 +540,15 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_LOCK_TRYREAD_spin(LOCK) LIBXS_LOCK_TRYLOCK_spin(LOCK)
 #   define LIBXS_LOCK_ACQREAD_spin(LOCK) LIBXS_LOCK_ACQUIRE_spin(LOCK)
 #   define LIBXS_LOCK_RELREAD_spin(LOCK) LIBXS_LOCK_RELEASE_spin(LOCK)
-#   define LIBXS_LOCK_ATTR_TYPE_spin const void*
-#   define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
+#   if (201811/*OpenMP 5.0*/ <= _OPENMP)
+#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) omp_init_lock_with_hint(LOCK, *(ATTR))
+#     define LIBXS_LOCK_ATTR_TYPE_spin omp_lock_hint_t
+#     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) (*(ATTR) = omp_lock_hint_none)
+#   else
+#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); omp_init_lock(LOCK); }
+#     define LIBXS_LOCK_ATTR_TYPE_spin const void*
+#     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
+#   endif
 #   define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
 # endif
 # if !defined(LIBXS_LOCK_SYSTEM_MUTEX)
@@ -558,12 +566,11 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_LOCK_ATTR_TYPE_mutex int
 #   define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) LIBXS_UNUSED(ATTR)
 #   define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_UNUSED(ATTR)
-# elif defined(_OPENMP) && defined(LIBXS_OMP)
+# elif defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
 #   define LIBXS_LOCK_ACQUIRED_mutex 1
 #   define LIBXS_LOCK_TYPE_ISPOD_mutex 0
 #   define LIBXS_LOCK_TYPE_ISRW_mutex 0
 #   define LIBXS_LOCK_TYPE_mutex omp_lock_t
-#   define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) { LIBXS_UNUSED(ATTR); omp_init_lock(LOCK); }
 #   define LIBXS_LOCK_DESTROY_mutex(LOCK) omp_destroy_lock(LOCK)
 #   define LIBXS_LOCK_TRYLOCK_mutex(LOCK) omp_test_lock(LOCK)
 #   define LIBXS_LOCK_ACQUIRE_mutex(LOCK) omp_set_lock(LOCK)
@@ -571,8 +578,15 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_LOCK_TRYREAD_mutex(LOCK) LIBXS_LOCK_TRYLOCK_mutex(LOCK)
 #   define LIBXS_LOCK_ACQREAD_mutex(LOCK) LIBXS_LOCK_ACQUIRE_mutex(LOCK)
 #   define LIBXS_LOCK_RELREAD_mutex(LOCK) LIBXS_LOCK_RELEASE_mutex(LOCK)
-#   define LIBXS_LOCK_ATTR_TYPE_mutex const void*
-#   define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) LIBXS_UNUSED(ATTR)
+#   if (201811/*OpenMP 5.0*/ <= _OPENMP)
+#     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) omp_init_lock_with_hint(LOCK, *(ATTR))
+#     define LIBXS_LOCK_ATTR_TYPE_mutex omp_lock_hint_t
+#     define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) (*(ATTR) = omp_lock_hint_none)
+#   else
+#     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) { LIBXS_UNUSED(ATTR); omp_init_lock(LOCK); }
+#     define LIBXS_LOCK_ATTR_TYPE_mutex const void*
+#     define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) LIBXS_UNUSED(ATTR)
+#   endif
 #   define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_UNUSED(ATTR)
 # endif
 # if !defined(LIBXS_LOCK_SYSTEM_RWLOCK)
@@ -590,12 +604,11 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_LOCK_ATTR_TYPE_rwlock int
 #   define LIBXS_LOCK_ATTR_INIT_rwlock(ATTR) LIBXS_UNUSED(ATTR)
 #   define LIBXS_LOCK_ATTR_DESTROY_rwlock(ATTR) LIBXS_UNUSED(ATTR)
-# elif defined(_OPENMP) && defined(LIBXS_OMP)
+# elif defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
 #   define LIBXS_LOCK_ACQUIRED_rwlock 1
 #   define LIBXS_LOCK_TYPE_ISPOD_rwlock 0
 #   define LIBXS_LOCK_TYPE_ISRW_rwlock 0
 #   define LIBXS_LOCK_TYPE_rwlock omp_lock_t
-#   define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) { LIBXS_UNUSED(ATTR); omp_init_lock(LOCK); }
 #   define LIBXS_LOCK_DESTROY_rwlock(LOCK) omp_destroy_lock(LOCK)
 #   define LIBXS_LOCK_TRYLOCK_rwlock(LOCK) omp_test_lock(LOCK)
 #   define LIBXS_LOCK_ACQUIRE_rwlock(LOCK) omp_set_lock(LOCK)
@@ -603,8 +616,15 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_LOCK_TRYREAD_rwlock(LOCK) LIBXS_LOCK_TRYLOCK_rwlock(LOCK)
 #   define LIBXS_LOCK_ACQREAD_rwlock(LOCK) LIBXS_LOCK_ACQUIRE_rwlock(LOCK)
 #   define LIBXS_LOCK_RELREAD_rwlock(LOCK) LIBXS_LOCK_RELEASE_rwlock(LOCK)
-#   define LIBXS_LOCK_ATTR_TYPE_rwlock const void*
-#   define LIBXS_LOCK_ATTR_INIT_rwlock(ATTR) LIBXS_UNUSED(ATTR)
+#   if (201811/*OpenMP 5.0*/ <= _OPENMP)
+#     define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) omp_init_lock_with_hint(LOCK, *(ATTR))
+#     define LIBXS_LOCK_ATTR_TYPE_rwlock omp_lock_hint_t
+#     define LIBXS_LOCK_ATTR_INIT_rwlock(ATTR) (*(ATTR) = omp_lock_hint_none)
+#   else
+#     define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) { LIBXS_UNUSED(ATTR); omp_init_lock(LOCK); }
+#     define LIBXS_LOCK_ATTR_TYPE_rwlock const void*
+#     define LIBXS_LOCK_ATTR_INIT_rwlock(ATTR) LIBXS_UNUSED(ATTR)
+#   endif
 #   define LIBXS_LOCK_ATTR_DESTROY_rwlock(ATTR) LIBXS_UNUSED(ATTR)
 # endif
 #else

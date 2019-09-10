@@ -26,13 +26,15 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-#include <libxs_math.h>
+#include <libxs_mem.h>
+#include "libxs_hash.h"
 #include "libxs_diff.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <string.h>
+#include <stdio.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -143,3 +145,77 @@ LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size)
 #endif
 }
 
+
+LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed)
+{
+  LIBXS_INIT
+  return libxs_crc32(seed, data, size);
+}
+
+
+LIBXS_API unsigned long long libxs_hash_string(const char* string)
+{
+  unsigned long long result;
+  const size_t length = NULL != string ? strlen(string) : 0;
+  if (sizeof(result) < length) {
+    const size_t length2 = length / 2;
+    unsigned int seed32 = 0; /* seed=0: match else-optimization */
+    LIBXS_INIT
+    seed32 = libxs_crc32(seed32, string, length2);
+    result = libxs_crc32(seed32, string + length2, length - length2);
+    result = (result << 32) | seed32;
+  }
+  else { /* reinterpret directly as hash value */
+    char *const s = (char*)&result; signed char i;
+    for (i = 0; i < (signed char)length; ++i) s[i] = string[i];
+    for (; i < (signed char)sizeof(result); ++i) s[i] = 0;
+  }
+  return result;
+}
+
+
+#if defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(void* /*hash_seed*/, const void* /*data*/, const int* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(void* hash_seed, const void* data, const int* size)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != hash_seed && NULL != data && NULL != size && 0 <= *size)
+#endif
+  {
+    unsigned int *const hash_seed_ui32 = (unsigned int*)hash_seed;
+    *hash_seed_ui32 = (libxs_hash(data, (unsigned int)*size, *hash_seed_ui32) & 0x7FFFFFFF/*sign-bit*/);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_hash specified!\n");
+  }
+#endif
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff)(int* /*result*/, const void* /*a*/, const void* /*b*/, const long long* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff)(int* result, const void* a, const void* b, const long long* size)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != result && NULL != a && NULL != b && NULL != size && 0 <= *size)
+#endif
+  {
+    *result = libxs_memcmp(a, b, (size_t)*size);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_memcmp specified!\n");
+  }
+#endif
+}
+
+#endif /*defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))*/

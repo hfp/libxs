@@ -90,10 +90,10 @@ int main(int argc, char* argv[])
                         + (sizeof(OTYPE) * static_cast<size_t>(csize) * 2/*RFO*/);
     const double gflops = 2E-9 * s * m * n * k;
 #if LIBXS_TYPEINFO(ITYPE, FP)
-    const char *const ops = "FLOPS";
+    const char ops[] = "FLOPS";
     const double scale = 1.0 / s;
 #else
-    const char *const ops = "OPS";
+    const char ops[] = "OPS";
     const double scale = 1;
 #endif
 #if !defined(_DEBUG)
@@ -131,9 +131,7 @@ int main(int argc, char* argv[])
       ITYPE *const b = LIBXS_ALIGN(helper.b, LIBXS_ALIGNMENT);
       OTYPE *const c = LIBXS_ALIGN(helper.c, LIBXS_ALIGNMENT);
       OTYPE *const d = LIBXS_ALIGN(helper.d, LIBXS_ALIGNMENT);
-#if !defined(_OPENMP)
-      const int nthreads = 1;
-#else
+#if defined(_OPENMP)
       const int nthreads = omp_get_max_threads();
 #     pragma omp parallel for num_threads(nthreads) schedule(static)
 #endif
@@ -144,9 +142,6 @@ int main(int argc, char* argv[])
         LIBXS_MATRNG(OTYPE, 22 + i, d + static_cast<size_t>(csize) * i, m, n, ldc, scale);
       }
 
-#if defined(MKL_ENABLE_AVX512)
-      mkl_enable_instructions(MKL_ENABLE_AVX512);
-#endif
       // initialize LIBXS
       libxs_init();
 
@@ -187,7 +182,7 @@ int main(int argc, char* argv[])
 #endif
           }
         }
-        const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
+        const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
           fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -210,7 +205,7 @@ int main(int argc, char* argv[])
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
             0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
         }
-        const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
+        const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
           fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -254,7 +249,7 @@ int main(int argc, char* argv[])
 #endif
           }
         }
-        const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
+        const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
           fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -277,7 +272,7 @@ int main(int argc, char* argv[])
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
             0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
         }
-        const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
+        const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
           fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -321,7 +316,7 @@ int main(int argc, char* argv[])
 #endif
           }
         }
-        const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
+        const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
           fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -344,7 +339,7 @@ int main(int argc, char* argv[])
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
             0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, s);
         }
-        const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
+        const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
           fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -392,7 +387,7 @@ int main(int argc, char* argv[])
 #endif
           }
         }
-        const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
+        const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
           fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -424,7 +419,7 @@ int main(int argc, char* argv[])
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
             0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, 0 == check ? -s : s);
         }
-        const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
+        const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
           fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -465,7 +460,7 @@ int main(int argc, char* argv[])
 #endif
           }
         }
-        const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
+        const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
           fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -495,7 +490,7 @@ int main(int argc, char* argv[])
             m, n, k, &alpha, &a_array[0], &lda, &b_array[0], &ldb, &beta, &c_array[0], &ldc,
             0/*index_base*/, 0/*index_stride*/, &ptrsize, &ptrsize, &ptrsize, 0 == check ? -s : s);
         }
-        const unsigned long long ncycles = libxs_timer_diff(start, libxs_timer_tick());
+        const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
         const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
         if (0 < duration && 0 != ncycles) {
           fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);

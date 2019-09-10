@@ -29,7 +29,7 @@
 #ifndef LIBXS_MALLOC_H
 #define LIBXS_MALLOC_H
 
-#include "libxs_macros.h"
+#include "libxs_mem.h"
 
 
 /** Function types accepted for memory allocation (see libxs_*_allocator). */
@@ -112,7 +112,8 @@ LIBXS_API void* libxs_scratch_malloc(size_t size,
  * macro is intentionally lower case.
  */
 #define libxs_aligned_scratch(size, alignment) \
-  libxs_scratch_malloc(size, alignment, LIBXS_CALLER_ID)
+  libxs_scratch_malloc(size, alignment, \
+    LIBXS_CALLER_ID)
 
 /** Deallocate memory (malloc/free interface). */
 LIBXS_API void libxs_free(const void* memory);
@@ -134,8 +135,8 @@ LIBXS_API int libxs_get_malloc_info(const void* memory, libxs_malloc_info* info)
 
 /** Information about the scratch memory domain. */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_scratch_info {
-  /** Allocated memory in all pools (size), and library-internal memory (internal). */
-  size_t size, internal;
+  /** Watermark memory across pools (size), unsatisfied (local), and library-internal memory. */
+  size_t size, local, internal;
   /** Pending allocations (not released). */
   size_t npending;
   /** Number of allocations so far. */

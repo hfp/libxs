@@ -30,7 +30,7 @@
 #define LIBXS_DNN_FULLYCONNECTED_H
 
 #include "libxs_dnn.h"
-
+#include "libxs_dnn_tensor.h"
 
 /** Opaque handles which represents LIBXS fullyconnected */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected libxs_dnn_fullyconnected;
