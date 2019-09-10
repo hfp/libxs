@@ -37,6 +37,9 @@
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
+#if defined(__TBB)
+# include <tbb/scalable_allocator.h>
+#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -54,7 +57,6 @@ void* malloc_offsite(size_t size);
 
 int main(int argc, char* argv[])
 {
-  const int ncalls = 1000000;
 #if defined(_OPENMP)
   const int max_nthreads = omp_get_max_threads();
 #else
@@ -63,15 +65,25 @@ int main(int argc, char* argv[])
   const int ncycles = LIBXS_MAX(1 < argc ? atoi(argv[1]) : 100, 1);
   const int max_nallocs = LIBXS_CLMP(2 < argc ? atoi(argv[2]) : 4, 1, MAX_MALLOC_N);
   const int nthreads = LIBXS_CLMP(3 < argc ? atoi(argv[3]) : 1, 1, max_nthreads);
-  unsigned int nallocs = 0, nerrors = 0;
+  const char *const env_check = getenv("CHECK");
+  const double check = LIBXS_ABS(NULL == env_check ? 0 : atof(env_check));
+  unsigned int nallocs = 0, nerrors0 = 0, nerrors1 = 0;
   int r[MAX_MALLOC_N], i;
+  int max_size = 0;
 
   /* generate set of random number for parallel region */
   for (i = 0; i < (MAX_MALLOC_N); ++i) r[i] = rand();
 
   /* count number of calls according to randomized scheme */
   for (i = 0; i < ncycles; ++i) {
-    nallocs += r[i%(MAX_MALLOC_N)] % max_nallocs + 1;
+    const int count = r[i%(MAX_MALLOC_N)] % max_nallocs + 1;
+    int mbytes = 0, j;
+    for (j = 0; j < count; ++j) {
+      const int k = (i * count + j) % (MAX_MALLOC_N);
+      mbytes += (r[k] % (MAX_MALLOC_MB) + 1);
+    }
+    if (max_size < mbytes) max_size = mbytes;
+    nallocs += count;
   }
   assert(0 != nallocs);
 
@@ -83,20 +95,16 @@ int main(int argc, char* argv[])
 #endif
   {
     const char *const longlife_env = getenv("LONGLIFE");
-    const int enable_longlife = ((0 == longlife_env || 0 == *longlife_env) ? 0 : atoi(longlife_env));
-    void *const longlife = (0 == enable_longlife ? 0 : malloc_offsite((MAX_MALLOC_MB) << 20));
-    unsigned long long d0, d1 = 0;
+    const int enable_longlife = ((NULL == longlife_env || 0 == *longlife_env) ? 0 : atoi(longlife_env));
+    void* longlife = (0 == enable_longlife ? NULL : malloc_offsite((MAX_MALLOC_MB) << 20));
+    libxs_timer_tickint d0 = 0, d1 = 0;
+    int scratch = 0, local = 0;
     libxs_scratch_info info;
 
-    /* run non-inline function to measure call overhead of an "empty" function */
-    const unsigned long long t0 = libxs_timer_tick();
-    for (i = 0; i < ncalls; ++i) {
-      libxs_init(); /* subsequent calls are not doing any work */
-    }
-    d0 = libxs_timer_diff(t0, libxs_timer_tick());
+    libxs_init();
 
 #if defined(_OPENMP)
-#   pragma omp parallel for num_threads(nthreads) private(i) reduction(+:d1,nerrors)
+#   pragma omp parallel for num_threads(nthreads) private(i) reduction(+:d1,nerrors1)
 #endif
     for (i = 0; i < ncycles; ++i) {
       const int count = r[i%(MAX_MALLOC_N)] % max_nallocs + 1;
@@ -106,14 +114,14 @@ int main(int argc, char* argv[])
       for (j = 0; j < count; ++j) {
         const int k = (i * count + j) % (MAX_MALLOC_N);
         const size_t nbytes = ((size_t)r[k] % (MAX_MALLOC_MB) + 1) << 20;
-        const unsigned long long t1 = libxs_timer_tick();
+        const libxs_timer_tickint t1 = libxs_timer_tick();
         p[j] = libxs_aligned_scratch(nbytes, 0/*auto*/);
-        d1 += libxs_timer_diff(t1, libxs_timer_tick());
-        if (0 != p[j]) {
-          memset(p[j], j, nbytes);
+        d1 += libxs_timer_ncycles(t1, libxs_timer_tick());
+        if (NULL == p[j]) {
+          ++nerrors1;
         }
-        else {
-          ++nerrors;
+        else if (0 != check) {
+          memset(p[j], j, nbytes);
         }
       }
       for (j = 0; j < count; ++j) {
@@ -121,33 +129,79 @@ int main(int argc, char* argv[])
       }
     }
     libxs_free(longlife);
+    if (EXIT_SUCCESS == libxs_get_scratch_info(&info) && 0 < info.size) {
+      scratch = (int)(1.0 * info.size / (1ULL << 20) + 0.5);
+      local = (int)(1.0 * info.local / (1ULL << 20) + 0.5);
+      fprintf(stdout, "\nScratch: %i+%i MB (mallocs=%lu, pools=%u)\n",
+        scratch, local, (unsigned long int)info.nmallocs, info.npools);
+      libxs_release_scratch(); /* suppress LIBXS's termination message about scratch */
+    }
+
+#if defined(__TBB)
+    longlife = (0 == enable_longlife ? NULL : scalable_malloc((MAX_MALLOC_MB) << 20));
+#else
+    longlife = (0 == enable_longlife ? NULL : malloc((MAX_MALLOC_MB) << 20));
+#endif
+#if defined(_OPENMP)
+#   pragma omp parallel for num_threads(nthreads) private(i) reduction(+:d0,nerrors0)
+#endif
+    for (i = 0; i < ncycles; ++i) {
+      const int count = r[i % (MAX_MALLOC_N)] % max_nallocs + 1;
+      void* p[MAX_MALLOC_N];
+      int j;
+      assert(count <= MAX_MALLOC_N);
+      for (j = 0; j < count; ++j) {
+        const int k = (i * count + j) % (MAX_MALLOC_N);
+        const size_t nbytes = ((size_t)r[k] % (MAX_MALLOC_MB) + 1) << 20;
+        const libxs_timer_tickint t1 = libxs_timer_tick();
+#if defined(__TBB)
+        p[j] = scalable_malloc(nbytes);
+#else
+        p[j] = malloc(nbytes);
+#endif
+        d0 += libxs_timer_ncycles(t1, libxs_timer_tick());
+        if (NULL == p[j]) {
+          ++nerrors0;
+        }
+        else if (0 != check) {
+          memset(p[j], j, nbytes);
+        }
+      }
+      for (j = 0; j < count; ++j) {
+#if defined(__TBB)
+        scalable_free(p[j]);
+#else
+        free(p[j]);
+#endif
+      }
+    }
+#if defined(__TBB)
+    scalable_free(longlife);
+#else
+    free(longlife);
+#endif
 
     if (0 != d0 && 0 != d1 && 0 < nallocs) {
       const double dcalls = libxs_timer_duration(0, d0);
       const double dalloc = libxs_timer_duration(0, d1);
-      const double alloc_freq = 1E-3 * nallocs / dalloc;
-      const double empty_freq = 1E-3 * ncalls / dcalls;
-      fprintf(stdout, "\tallocation+free calls/s: %.1f kHz\n", alloc_freq);
-      fprintf(stdout, "\tempty calls/s: %.1f MHz\n", 1E-3 * empty_freq);
-      fprintf(stdout, "\toverhead: %.1fx\n", empty_freq / alloc_freq);
-    }
-
-    if (EXIT_SUCCESS == libxs_get_scratch_info(&info) && 0 < info.size) {
-      fprintf(stdout, "\nScratch: %.f MB (mallocs=%lu, pools=%u",
-        1.0 * info.size / (1ULL << 20), (unsigned long int)info.nmallocs, info.npools);
-      if (1 < nthreads) fprintf(stdout, ", threads=%i)\n", nthreads); else fprintf(stdout, ")\n");
-      libxs_release_scratch(); /* suppress LIBXS's termination message about scratch */
+      const double scratch_freq = 1E-3 * nallocs / dalloc;
+      const double malloc_freq = 1E-3 * nallocs / dcalls;
+      const double speedup = scratch_freq / malloc_freq;
+      fprintf(stdout, "\tlibxs scratch calls/s: %.1f kHz\n", scratch_freq);
+      fprintf(stdout, "Malloc: %i MB\n", max_size);
+      fprintf(stdout, "\tstd.malloc+free calls/s: %.1f kHz\n", malloc_freq);
+      fprintf(stdout, "Fair (size vs. speed): %.1fx\n",
+        max_size * speedup / LIBXS_MAX(scratch + local, max_size));
+      fprintf(stdout, "Scratch Speedup: %.1fx\n", speedup);
     }
   }
 
-  if (0 == nerrors) {
-    fprintf(stdout, "Finished\n");
-    return EXIT_SUCCESS;
-  }
-  else {
-    fprintf(stdout, "FAILED (%u errors)\n", nerrors);
+  if (0 != nerrors0 || 0 != nerrors1) {
+    fprintf(stdout, "FAILED (errors: malloc=%u libxs=%u)\n", nerrors0, nerrors1);
     return EXIT_FAILURE;
   }
+
+  return EXIT_SUCCESS;
 }
 
 

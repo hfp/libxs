@@ -76,6 +76,12 @@
 #if !defined(LIBXS_UNIFY_LOCKS)
 # define LIBXS_UNIFY_LOCKS
 #endif
+#if !defined(LIBXS_CACHE_PAD) && 1
+# define LIBXS_CACHE_PAD
+#endif
+#if !defined(LIBXS_CACHE_GLOBAL) && 1
+# define LIBXS_CACHE_GLOBAL
+#endif
 #if !defined(LIBXS_ENABLE_DEREG) && 0
 # define LIBXS_ENABLE_DEREG
 #endif
@@ -152,6 +158,8 @@ LIBXS_APIVAR_ARRAY(internal_reglocktype internal_reglock, INTERNAL_REGLOCK_MAXN)
 #   endif
 LIBXS_APIVAR(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
 # endif
+#elif !defined(LIBXS_CACHE_MAXSIZE)
+# define LIBXS_CACHE_MAXSIZE LIBXS_CAPACITY_CACHE
 #endif
 
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
@@ -165,6 +173,28 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
   unsigned int ntry, ncol, njit, nsta;
 } internal_statistic_type;
 
+#if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_cache_entry_type {
+  libxs_descriptor keys[LIBXS_CACHE_MAXSIZE];
+  libxs_code_pointer code[LIBXS_CACHE_MAXSIZE];
+# if !defined(LIBXS_CACHE_GLOBAL)
+  unsigned int id; /* to invalidate */
+# endif
+  unsigned char size, hit;
+} internal_cache_entry_type;
+
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_cache_type {
+# if defined(LIBXS_CACHE_PAD)
+  char pad[LIBXS_UP2(sizeof(internal_cache_entry_type),LIBXS_CACHELINE)];
+# endif
+  internal_cache_entry_type entry;
+} internal_cache_type;
+
+# if defined(LIBXS_CACHE_GLOBAL)
+LIBXS_APIVAR(internal_cache_type* internal_cache_buffer);
+# endif
+#endif /*defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))*/
+
 /** Determines the try-lock property (1<N: disabled, N=1: enabled [N=0: disabled in case of RW-lock]). */
 LIBXS_APIVAR(int internal_reglock_count);
 LIBXS_APIVAR(size_t internal_registry_nbytes);
@@ -174,6 +204,7 @@ LIBXS_APIVAR_ARRAY(internal_statistic_type internal_statistic[2/*DP/SP*/], 4/*sm
 LIBXS_APIVAR(unsigned int internal_statistic_sml);
 LIBXS_APIVAR(unsigned int internal_statistic_med);
 LIBXS_APIVAR(unsigned int internal_statistic_mnk);
+LIBXS_APIVAR(unsigned int internal_statistic_num_gemv);
 LIBXS_APIVAR(unsigned int internal_statistic_num_mcopy);
 LIBXS_APIVAR(unsigned int internal_statistic_num_tcopy);
 LIBXS_APIVAR(unsigned int internal_statistic_num_trsm);
@@ -225,34 +256,32 @@ LIBXS_APIVAR(int internal_singleton_handle);
 #endif
 
 
-LIBXS_API_INTERN unsigned int libxs_update_mmstatistic(libxs_gemm_precision precision,
-  libxs_blasint m, libxs_blasint n, libxs_blasint k, unsigned int ntry, unsigned int ncol)
-{
-  const unsigned long long kernel_size = LIBXS_MNK_SIZE(m, n, k);
-  const int idx = (LIBXS_GEMM_PRECISION_F64 == precision ? 0 : 1);
-  int bucket = 3/*huge*/;
-
-  if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= kernel_size) {
-    bucket = 0;
-  }
-  else if (LIBXS_MNK_SIZE(internal_statistic_med, internal_statistic_med, internal_statistic_med) >= kernel_size) {
-    bucket = 1;
-  }
-  else if (LIBXS_MNK_SIZE(internal_statistic_mnk, internal_statistic_mnk, internal_statistic_mnk) >= kernel_size) {
-    bucket = 2;
-  }
-
-  LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
-  return LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
-}
-
-
-LIBXS_API_INLINE unsigned int internal_update_mmstatistic(const libxs_gemm_descriptor* desc,
-  unsigned int ntry, unsigned int ncol)
+LIBXS_API_INLINE void internal_update_mmstatistic(const libxs_gemm_descriptor* desc,
+  unsigned int ntry, unsigned int ncol, unsigned int njit, unsigned int nsta)
 {
   LIBXS_ASSERT(NULL != desc);
-  return libxs_update_mmstatistic((libxs_gemm_precision)LIBXS_GETENUM_OUT(desc->datatype),
-    desc->m, desc->n, desc->k, ntry, ncol);
+  if (1 < desc->m && 1 < desc->n) { /* only record matrix-matrix multiplication */
+    const unsigned long long kernel_size = LIBXS_MNK_SIZE(desc->m, desc->n, desc->k);
+    const int idx = (LIBXS_GEMM_PRECISION_F64 == LIBXS_GETENUM_OUT(desc->datatype) ? 0 : 1);
+    int bucket;
+    if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= kernel_size) {
+      bucket = 0;
+    }
+    else if (LIBXS_MNK_SIZE(internal_statistic_med, internal_statistic_med, internal_statistic_med) >= kernel_size) {
+      bucket = 1;
+    }
+    else if (LIBXS_MNK_SIZE(internal_statistic_mnk, internal_statistic_mnk, internal_statistic_mnk) >= kernel_size) {
+      bucket = 2;
+    }
+    else { /*huge*/
+      bucket = 3;
+    }
+    if (0 != ncol) LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
+    if (0 != ntry) LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
+    /* the following counters are not manipulated concurrently (no need for atomic increment) */
+    if (0 != njit) internal_statistic[idx][bucket].njit += njit;
+    if (0 != nsta) internal_statistic[idx][bucket].nsta += nsta;
+  }
 }
 
 
@@ -344,13 +373,16 @@ LIBXS_API_INLINE unsigned int internal_print_statistic(FILE* ostream,
 }
 
 
+#if !(defined(_WIN32) || defined(__CYGWIN__))
 LIBXS_API_INLINE unsigned int internal_statistic_ntry(int precision)
 {
   return internal_statistic[precision][0/*SML*/].ntry + internal_statistic[precision][1/*MED*/].ntry
        + internal_statistic[precision][2/*BIG*/].ntry + internal_statistic[precision][3/*XXX*/].ntry;
 }
+#endif
 
 
+#if !defined(_WIN32)
 LIBXS_API_INLINE void internal_register_static_code(
   libxs_gemm_precision precision, libxs_blasint m, libxs_blasint n, libxs_blasint k,
   libxs_xmmfunction xgemm, libxs_code_pointer* registry)
@@ -381,7 +413,7 @@ LIBXS_API_INLINE void internal_register_static_code(
       dst_entry->uval |= LIBXS_HASH_COLLISION;
 #endif
       dst_entry = registry + i; /* update destination */
-      internal_update_mmstatistic(desc, 0, 1/*collision*/);
+      internal_update_mmstatistic(desc, 0, 1/*collision*/, 0, 0);
       /* out of capacity (no registry slot available) */
       LIBXS_ASSERT(NULL == dst_entry->ptr_const || i == i0);
     }
@@ -392,12 +424,14 @@ LIBXS_API_INLINE void internal_register_static_code(
       /* mark current entry as static code (non-JIT) */
       dst_entry->uval |= LIBXS_CODE_STATIC;
     }
-    internal_update_mmstatistic(desc, 1/*try*/, 0);
+    internal_update_mmstatistic(desc, 1/*try*/, 0, 0, 0);
   }
 }
+#endif
 
 
-LIBXS_API_INLINE void internal_finalize(void)
+LIBXS_API_INTERN void internal_finalize(void);
+LIBXS_API_INTERN void internal_finalize(void)
 {
   char *const env_dump_build = getenv("LIBXS_DUMP_BUILD");
   char *const env_dump_files = (NULL != getenv("LIBXS_DUMP_FILES")
@@ -408,8 +442,7 @@ LIBXS_API_INLINE void internal_finalize(void)
     const char *const target_arch = (NULL == env_target_hidden || 0 == atoi(env_target_hidden))
       ? libxs_cpuid_name(libxs_target_archid)
       : NULL/*hidden*/;
-    /* synchronize I/O */
-    LIBXS_STDIO_ACQUIRE();
+    LIBXS_STDIO_ACQUIRE(); /* synchronize I/O */
 #if !defined(NDEBUG) && defined(__OPTIMIZE__)
     fprintf(stderr, "LIBXS WARNING: library is optimized without -DNDEBUG and contains debug code!\n");
 #endif
@@ -431,26 +464,35 @@ LIBXS_API_INLINE void internal_finalize(void)
         size_private = scratch_info.internal;
         size_scratch = scratch_info.size;
       }
-      fprintf(stderr, "Memory: %.f MB", 1.0 * (internal_registry_nbytes + size_private) / (1ULL << 20));
+      fprintf(stderr, "Memory: %.f MB", 1.0 * ((unsigned long long)internal_registry_nbytes + size_private) / (1ULL << 20));
       if (0 != high_verbosity) {
         size_t ngemms = 0;
         int i; for (i = 0; i < 4; ++i) {
           ngemms += (size_t)internal_statistic[0/*DP*/][i].nsta + internal_statistic[1/*SP*/][i].nsta;
           ngemms += (size_t)internal_statistic[0/*DP*/][i].njit + internal_statistic[1/*SP*/][i].njit;
         }
-        fprintf(stderr, " (gemm=%lu mcopy=%u tcopy=%u)\n", (unsigned long int)ngemms,
-          internal_statistic_num_mcopy, internal_statistic_num_tcopy);
+        if (0 != ngemms || 0 != internal_statistic_num_gemv
+          || 0 != internal_statistic_num_mcopy || 0 != internal_statistic_num_tcopy
+          || 0 != libxs_statistic_num_spmdm)
+        {
+          const char sep[] = " ", *s = "";
+          fprintf(stderr, " (");
+          if (0 != ngemms) { fprintf(stderr, "gemm=%lu", (unsigned long int)ngemms); s = sep; }
+          if (0 != internal_statistic_num_gemv) { fprintf(stderr, "%sgemv=%u", s, internal_statistic_num_gemv); s = sep; }
+          if (0 != internal_statistic_num_mcopy) { fprintf(stderr, "%smcopy=%u", s, internal_statistic_num_mcopy); s = sep; }
+          if (0 != internal_statistic_num_tcopy) { fprintf(stderr, "%stcopy=%u", s, internal_statistic_num_tcopy); s = sep; }
+          if (0 != libxs_statistic_num_spmdm) { fprintf(stderr, "%sspmdm=%u", s, libxs_statistic_num_spmdm); s = sep; }
+          fprintf(stderr, ")");
+        }
       }
-      else {
-        fprintf(stderr, "\n");
-      }
+      fprintf(stderr, "\n");
       if (0 != size_scratch) {
         fprintf(stderr, "Scratch: %.f MB", 1.0 * size_scratch / (1ULL << 20));
         if (0 != high_verbosity) {
 #if (0 != LIBXS_SYNC)
-          if (1 < libxs_threads_count) {
+          if (1 < libxs_thread_count) {
             fprintf(stderr, " (mallocs=%lu, pools=%u, threads=%u)\n",
-              (unsigned long int)scratch_info.nmallocs, scratch_info.npools, libxs_threads_count);
+              (unsigned long int)scratch_info.nmallocs, scratch_info.npools, libxs_thread_count);
           }
           else
 #endif
@@ -467,13 +509,10 @@ LIBXS_API_INLINE void internal_finalize(void)
     else {
       fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
     }
-    /* synchronize I/O */
-    LIBXS_STDIO_RELEASE();
+    LIBXS_STDIO_RELEASE(); /* synchronize I/O */
   }
   /* release scratch memory pool */
-  libxs_release_scratch();
-  /* turn-off redirected memory allocations */
-  libxs_malloc_kind = 0;
+  libxs_xrelease_scratch(NULL/*lock*/);
   /* release global services */
   libxs_hash_finalize();
 #if defined(_WIN32)
@@ -511,11 +550,16 @@ LIBXS_API_INLINE void internal_finalize(void)
     /* cleanup singleton */
 #if defined(_WIN32)
     ReleaseMutex(internal_singleton_handle);
+    CloseHandle(internal_singleton_handle);
 #else
     unlink(internal_singleton_fname);
     close(internal_singleton_handle);
 #endif
   }
+  /* turn-off redirected memory allocations */
+  libxs_malloc_kind = 0;
+  /* signal shutdown */
+  libxs_ninit = 0;
 #if (0 != LIBXS_SYNC)
   { /* release locks */
 # if (1 < INTERNAL_REGLOCK_MAXN)
@@ -529,11 +573,29 @@ LIBXS_API_INLINE void internal_finalize(void)
 }
 
 
-LIBXS_API_INLINE size_t internal_strlen(const char* cstr, size_t maxlen)
+LIBXS_API_INTERN size_t internal_strlen(const char* /*cstr*/, size_t /*maxlen*/);
+LIBXS_API_INTERN size_t internal_strlen(const char* cstr, size_t maxlen)
 {
   size_t result = 0;
   if (NULL != cstr) {
     while (0 != cstr[result] && result < maxlen) ++result;
+  }
+  return result;
+}
+
+
+LIBXS_API_INTERN size_t internal_parse_nbytes(const char* /*nbytes*/, size_t /*ndefault*/);
+LIBXS_API_INTERN size_t internal_parse_nbytes(const char* nbytes, size_t ndefault)
+{
+  size_t result = ndefault;
+  if (NULL != nbytes && 0 != *nbytes) {
+    size_t u = internal_strlen(nbytes, 32) - 1;
+    const char unit[] = "kmgKMG", * const hit = strchr(unit, nbytes[u]);
+    result = (size_t)strtoul(nbytes, 0, 10);
+    u = (0 != hit ? ((hit - unit) % 3) : 3);
+    if (u < 3) {
+      result <<= (u + 1) * 10;
+    }
   }
   return result;
 }
@@ -557,7 +619,7 @@ LIBXS_API_INTERN void internal_init(void)
 # endif
 #endif
   if (NULL == internal_registry) { /* double-check after acquiring the lock(s) */
-    libxs_code_pointer* new_registry;
+    libxs_code_pointer* new_registry = NULL;
     /* setup verbosity as early as possible since below code may rely on verbose output */
     const char *const env_verbose = getenv("LIBXS_VERBOSE");
     if (NULL != env_verbose && 0 != *env_verbose) {
@@ -583,22 +645,6 @@ LIBXS_API_INTERN void internal_init(void)
       }
       LIBXS_ASSERT(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
     }
-    { const char *const env = getenv("LIBXS_SCRATCH_LIMIT");
-      if (NULL == env || 0 == *env) {
-        /*const*/ unsigned long long limit = LIBXS_MALLOC_SCRATCH_LIMIT;
-        libxs_scratch_limit = (size_t)limit;
-      }
-      else {
-        size_t u = internal_strlen(env, 32) - 1;
-        const char *const unit = "kmgKMG", *const hit = strchr(unit, env[u]);
-        libxs_scratch_limit = (size_t)strtoul(env, 0, 10);
-        u = (0 != hit ? ((hit - unit) % 3) : 3);
-        if (u < 3) {
-          libxs_scratch_limit <<= (u + 1) * 10;
-        }
-        /*libxs_scratch_limit_locked = 1;*/
-      }
-    }
     { const char *const env = getenv("LIBXS_SCRATCH_SCALE");
       if (NULL == env || 0 == *env) {
         libxs_scratch_scale = LIBXS_MALLOC_SCRATCH_SCALE;
@@ -609,6 +655,8 @@ LIBXS_API_INTERN void internal_init(void)
       }
       LIBXS_ASSERT(1 <= libxs_scratch_scale);
     }
+    libxs_scratch_limit = internal_parse_nbytes(
+      getenv("LIBXS_SCRATCH_LIMIT"), LIBXS_MALLOC_SCRATCH_LIMIT);
 #endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
 #if defined(LIBXS_MAXTARGET)
     libxs_set_target_arch(LIBXS_STRINGIFY(LIBXS_MAXTARGET));
@@ -639,12 +687,21 @@ LIBXS_API_INTERN void internal_init(void)
     }
 #endif
     libxs_hash_init(libxs_target_archid); /* used by debug memory allocation (checksum) */
-    if  ((EXIT_SUCCESS == libxs_xmalloc((void**)&new_registry, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer), 0/*auto-align*/,
-          LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/))
-      && (EXIT_SUCCESS == libxs_xmalloc((void**)&internal_registry_keys, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_descriptor), 0/*auto-align*/,
-          LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/)))
+    if (
+#if defined(LIBXS_CACHE_GLOBAL) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+      (EXIT_SUCCESS == libxs_xmalloc((void**)&internal_cache_buffer, (LIBXS_MAX_NTHREADS) * sizeof(internal_cache_type), LIBXS_CACHELINE/*alignment*/,
+        LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/)) &&
+#endif
+      (EXIT_SUCCESS == libxs_xmalloc((void**)&new_registry, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer), 0/*auto-align*/,
+        LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/)) &&
+      (EXIT_SUCCESS == libxs_xmalloc((void**)&internal_registry_keys, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_descriptor), 0/*auto-align*/,
+        LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/)))
     {
       LIBXS_ASSERT(NULL != new_registry && NULL != internal_registry_keys);
+#if defined(LIBXS_CACHE_GLOBAL) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+      LIBXS_ASSERT(NULL != internal_cache_buffer);
+      memset(internal_cache_buffer, 0, (LIBXS_MAX_NTHREADS) * sizeof(internal_cache_type));
+#endif
       libxs_trans_init(libxs_target_archid);
       libxs_dnn_init(libxs_target_archid);
 #if defined(LIBXS_PERF)
@@ -686,8 +743,14 @@ LIBXS_API_INTERN void internal_init(void)
       { /* setup libxs_malloc_kind after internal allocations */
         const libxs_malloc_function null_malloc_fn = { 0 };
         const libxs_free_function null_free_fn = { 0 };
-        const char *const env = getenv("LIBXS_MALLOC");
-        if (NULL != env && 0 != *env) libxs_malloc_kind = atoi(env);
+        const char *const env_k = getenv("LIBXS_MALLOC");
+        char *const env_t = getenv("LIBXS_MALLOC_LIMIT");
+        const char* env_i = (NULL != env_t ? strtok(env_t, INTERNAL_DELIMS) : NULL);
+        size_t limit = libxs_scratch_limit;
+        if (NULL != env_k && 0 != *env_k) libxs_malloc_kind = atoi(env_k);
+        libxs_malloc_limit[0] = internal_parse_nbytes(env_i, LIBXS_MALLOC_LIMIT);
+        if (NULL != env_i) limit = internal_parse_nbytes(strtok(NULL, INTERNAL_DELIMS), libxs_scratch_limit);
+        libxs_malloc_limit[1] = LIBXS_MAX(limit, libxs_malloc_limit[0]);
         libxs_xset_default_allocator(NULL/*lock*/, NULL/*context*/, null_malloc_fn, null_free_fn);
         libxs_xset_scratch_allocator(NULL/*lock*/, NULL/*context*/, null_malloc_fn, null_free_fn);
       }
@@ -698,10 +761,13 @@ LIBXS_API_INTERN void internal_init(void)
     }
     else {
       if (0 != libxs_verbosity) { /* library code is expected to be mute */
-        fprintf(stderr, "LIBXS ERROR: failed to allocate code registry!\n");
+        fprintf(stderr, "LIBXS ERROR: failed to allocate internal buffers!\n");
       }
-      libxs_xfree(internal_registry_keys);
-      libxs_xfree(new_registry);
+#if defined(LIBXS_CACHE_GLOBAL) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+      libxs_xfree(internal_cache_buffer, 0/*no check*/);
+#endif
+      libxs_xfree(internal_registry_keys, 0/*no check*/);
+      libxs_xfree(new_registry, 0/*no check*/);
     }
   }
 #if (0 != LIBXS_SYNC) /* release locks */
@@ -718,10 +784,9 @@ LIBXS_API_INTERN void internal_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)) {
-#if (0 != LIBXS_SYNC)
-    static int once = 0;
-    /* libxs_ninit: serves as an ID to invalidate the thread-local cache; never decremented */
+    /* libxs_ninit (1: started, 2: library initialized), invalidate code-TLS */
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST)) {
+#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_REGLOCK_TRY)
       const char *const env_trylock = getenv("LIBXS_TRYLOCK");
 # endif
@@ -800,15 +865,22 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         internal_init();
         atexit(internal_finalize); /* once */
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick(); /* final timing */
-        if (LIBXS_FEQ(0, libxs_timer_scale) && s0 != s1 && t0 != t1) {
-          libxs_timer_scale = libxs_timer_duration(s0, s1) / (t0 < t1 ? (t1 - t0) : (t0 - t1));
+        if (LIBXS_FEQ(0, libxs_timer_scale) && t0 != t1) {
+          const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
+          libxs_timer_scale = libxs_timer_duration(s0, s1) / dt;
+          if (0 != libxs_verbosity) { /* library code is expected to be mute */
+            const libxs_timer_tickint ds = LIBXS_DELTA(s0, s1);
+            if (ds > LIBXS_DELTA(ds, dt)) { /* no LIBXS_TIMER_RDTSC/cycles */
+              fprintf(stderr, "LIBXS WARNING: libxs_timer_ncycles may not measure in cycles!\n");
+            }
+          }
         }
       }
-#if (0 != LIBXS_SYNC)
-      LIBXS_ATOMIC_STORE(&once, 1, LIBXS_ATOMIC_RELAXED); /* inc? */
+      LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     }
+#if (0 != LIBXS_SYNC)
     else while (1) {
-      if (0 != LIBXS_ATOMIC_LOAD(&once, LIBXS_ATOMIC_RELAXED)) {
+      if (1 < LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) {
         break;
       }
 # if 1
@@ -817,7 +889,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       else LIBXS_SYNC_PAUSE;
 # endif
     }
-#endif
+#endif /*0 != LIBXS_SYNC*/
     internal_init();
   }
 }
@@ -866,24 +938,14 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           switch (registry_keys[i].kind) {
             case LIBXS_KERNEL_KIND_MATMUL: {
               const libxs_gemm_descriptor *const desc = &registry_keys[i].gemm.desc;
-              const unsigned long long kernel_size = LIBXS_MNK_SIZE(desc->m, desc->n, desc->k);
-              const int precision = (LIBXS_GEMM_PRECISION_F64 == desc->datatype ? 0 : 1);
-              int bucket = 3/*huge*/;
-              LIBXS_ASSERT(0 < kernel_size);
-              if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= kernel_size) {
-                bucket = 0;
-              }
-              else if (LIBXS_MNK_SIZE(internal_statistic_med, internal_statistic_med, internal_statistic_med) >= kernel_size) {
-                bucket = 1;
-              }
-              else if (LIBXS_MNK_SIZE(internal_statistic_mnk, internal_statistic_mnk, internal_statistic_mnk) >= kernel_size) {
-                bucket = 2;
-              }
-              if (0 == (LIBXS_CODE_STATIC & code.uval)) { /* count whether kernel is static or JIT-code */
-                ++internal_statistic[precision][bucket].njit;
+              if (1 < desc->m && 1 < desc->n) {
+                const unsigned int njit = (0 == (LIBXS_CODE_STATIC & code.uval) ? 1 : 0);
+                const unsigned int nsta = (0 != (LIBXS_CODE_STATIC & code.uval) ? 1 : 0);
+                /* count whether kernel is static or JIT-code */
+                internal_update_mmstatistic(desc, 0, 0, njit, nsta);
               }
               else {
-                ++internal_statistic[precision][bucket].nsta;
+                ++internal_statistic_num_gemv;
               }
               ++rest;
             } break;
@@ -910,7 +972,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             if (0 != errors) {
               fprintf(stderr, "LIBXS ERROR: code registry is corrupted!\n");
             }
-            if (LIBXS_CAPACITY_REGISTRY == (rest + errors +
+            if (LIBXS_CAPACITY_REGISTRY == (rest + errors + internal_statistic_num_gemv +
               internal_statistic_num_mcopy + internal_statistic_num_tcopy +
               internal_statistic_num_trsm + internal_statistic_num_trmm))
             {
@@ -924,7 +986,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             code.uval &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 #endif
             if (EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, &size, NULL/*flags*/, &buffer)) {
-              libxs_xfree(code.ptr_const);
+              libxs_xfree(code.ptr_const, 0/*no check*/);
               /* round-up size (it is fine to assume 4 KB pages since it is likely more accurate than not rounding up) */
               internal_registry_nbytes += (unsigned int)LIBXS_UP2(size + (((char*)code.ptr_const) - (char*)buffer), 4096/*4KB*/);
             }
@@ -946,9 +1008,12 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       /* make internal registry globally unavailable */
       LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
       internal_registry_keys = NULL;
-      libxs_xfree(registry_keys);
-      libxs_xfree(registry);
-    }
+      libxs_xfree(registry_keys, 0/*no check*/);
+      libxs_xfree(registry, 0/*no check*/);
+#if defined(LIBXS_CACHE_GLOBAL) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+      libxs_xfree(internal_cache_buffer, 0/*no check*/);
+#endif
+      }
 #if (0 != LIBXS_SYNC) /* LIBXS_LOCK_RELEASE, but no LIBXS_LOCK_DESTROY */
 # if (1 < INTERNAL_REGLOCK_MAXN)
     for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, &internal_reglock[i].state);
@@ -1253,6 +1318,61 @@ LIBXS_API_INLINE const char* internal_get_typesize_string(size_t typesize)
 }
 
 
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K, int* C_block, int* K_block, int* fm_lp_block, libxs_dnn_datatype datatype_in, libxs_dnn_datatype datatype_out ) {
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  int ifmblock = 0;
+  int ofmblock = 0;
+  int lp_block = 0;
+  int tmp_max_c_block = 32;
+  int tmp_max_k_block = 32;
+  int tmp_block = 0;
+
+  /* C */
+  if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
+    tmp_max_c_block = 64;
+  }
+  if ( C < tmp_max_c_block ) {
+    ifmblock = C;
+  } else {
+    for ( tmp_block = 1; tmp_block <= tmp_max_c_block; tmp_block *= 2 ) {
+      if ( C % tmp_block == 0 ) ifmblock = tmp_block;
+    }
+  }
+
+  /* K */
+  if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
+    tmp_max_k_block = 64;
+  }
+  if ( K < tmp_max_k_block ) {
+    ofmblock = K;
+  } else {
+    for ( tmp_block = 1; tmp_block <= tmp_max_k_block; tmp_block *= 2 ) {
+      if ( K % tmp_block == 0 ) ofmblock = tmp_block;
+    }
+  }
+
+  /* when do we need VNNI format? */
+  if ( (datatype_in == LIBXS_DNN_DATATYPE_F32) && (datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
+    lp_block = 1;
+  } else if ( (datatype_in == LIBXS_DNN_DATATYPE_BF16) && (datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
+    lp_block = 2;
+  } else if ( (datatype_in == LIBXS_DNN_DATATYPE_I16) && ((datatype_out == LIBXS_DNN_DATATYPE_I32) || (datatype_out == LIBXS_DNN_DATATYPE_F32)) ) {
+    lp_block = 2;
+  } else if ( (datatype_in == LIBXS_DNN_DATATYPE_I8) && (datatype_out == LIBXS_DNN_DATATYPE_I32)) {
+    lp_block = 4;
+  } else {
+    status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+    return status;
+  }
+
+  *C_block = ifmblock;
+  *K_block = ofmblock;
+  *fm_lp_block = lp_block;
+
+  return status;
+}
+
+
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code)
 {
   int result = EXIT_SUCCESS;
@@ -1314,12 +1434,12 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             br = 0;
           }
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i.mxm", target_arch, tname,
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u.mxm", target_arch, tname,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
             request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
           /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid, br);
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid, br, (unsigned int)request->descriptor.gemm->c3);
         }
       }
     } break;
@@ -1387,7 +1507,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype) ||
           LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype))
       {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_ac_rm, &generated_code, request->descriptor.pgemmacrm->gemm, target_arch);
+        LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_ac_rm, &generated_code, request->descriptor.pgemmacrm->gemm, request->descriptor.pgemmacrm->packed_width, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
@@ -1395,11 +1515,12 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.pgemmacrm->gemm->prefetch);
           const char *const tname = libxs_typename((libxs_datatype)request->descriptor.pgemmacrm->gemm->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.pgemmacrm", target_arch, tname,
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_p%u_a%i_b%i_p%i.pgemmacrm", target_arch, tname,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.pgemmacrm->gemm->flags) ? 'n' : 't',
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.pgemmacrm->gemm->flags) ? 'n' : 't',
             request->descriptor.pgemmacrm->gemm->m,   request->descriptor.pgemmacrm->gemm->n,   request->descriptor.pgemmacrm->gemm->k,
             request->descriptor.pgemmacrm->gemm->lda, request->descriptor.pgemmacrm->gemm->ldb, request->descriptor.pgemmacrm->gemm->ldc,
+            request->descriptor.pgemmacrm->packed_width,
           /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.pgemmacrm->gemm->flags) ? 0 : */1,
             0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pgemmacrm->gemm->flags) ? 0 : 1,
             uid);
@@ -1412,7 +1533,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype) ||
           LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype))
       {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_bc_rm, &generated_code, request->descriptor.pgemmbcrm->gemm, target_arch);
+        LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_bc_rm, &generated_code, request->descriptor.pgemmbcrm->gemm, request->descriptor.pgemmbcrm->packed_width, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
@@ -1420,11 +1541,12 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.pgemmbcrm->gemm->prefetch);
           const char *const tname = libxs_typename((libxs_datatype)request->descriptor.pgemmbcrm->gemm->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.pgemmbcrm", target_arch, tname,
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_p%u_a%i_b%i_p%i.pgemmbcrm", target_arch, tname,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.pgemmbcrm->gemm->flags) ? 'n' : 't',
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.pgemmbcrm->gemm->flags) ? 'n' : 't',
             request->descriptor.pgemmbcrm->gemm->m,   request->descriptor.pgemmbcrm->gemm->n,   request->descriptor.pgemmbcrm->gemm->k,
             request->descriptor.pgemmbcrm->gemm->lda, request->descriptor.pgemmbcrm->gemm->ldb, request->descriptor.pgemmbcrm->gemm->ldc,
+            request->descriptor.pgemmbcrm->packed_width,
           /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.pgemmbcrm->gemm->flags) ? 0 : */1,
             0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pgemmbcrm->gemm->flags) ? 0 : 1,
             uid);
@@ -1602,7 +1724,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           LIBXS_ASSERT(NULL != code->pmm && 0 == (LIBXS_CODE_STATIC & code->uval));
         }
         else { /* release buffer */
-          libxs_xfree(code_buffer);
+          libxs_xfree(code_buffer, 0/*no check*/);
         }
       }
     }
@@ -1645,33 +1767,46 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   int build = EXIT_SUCCESS;
 #endif
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-  static LIBXS_TLS struct {
-    libxs_descriptor keys[LIBXS_CACHE_MAXSIZE];
-    libxs_code_pointer code[LIBXS_CACHE_MAXSIZE];
-    unsigned int id; /* to invalidate cache */
-    unsigned char size, hit;
-  } cache;
+# if defined(LIBXS_CACHE_GLOBAL)
+  const unsigned int tid = libxs_get_tid();
+  internal_cache_type *const cache = internal_cache_buffer + tid;
+# else
+  static LIBXS_TLS internal_cache_type internal_cache_buffer;
+  internal_cache_type *const cache = &internal_cache_buffer;
+# endif
   unsigned char cache_index;
 # if defined(LIBXS_DESC_PAD)
 #   if defined(LIBXS_DESC_INLINE)
   LIBXS_DIFF_DECL(LIBXS_DIFF_SIZE, xdesc);
   internal_pad_descriptor(desc, size);
   LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
-  LIBXS_DIFF_N(unsigned char, cache_index, LIBXS_DIFF(LIBXS_DIFF_SIZE),
-    xdesc, &cache.keys, LIBXS_DIFF_SIZE, LIBXS_DESCRIPTOR_MAXSIZE, cache.hit, cache.size);
+  LIBXS_DIFF_N(unsigned char, cache_index, LIBXS_DIFF(LIBXS_DIFF_SIZE), xdesc, &cache->entry.keys,
+    LIBXS_DIFF_SIZE, LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
 #   else
   internal_pad_descriptor(desc, size);
-  cache_index = (unsigned char)libxs_diff_n(desc, &cache.keys,
-    LIBXS_DIFF_SIZE, LIBXS_DESCRIPTOR_MAXSIZE, cache.hit, cache.size);
+  cache_index = (unsigned char)libxs_diff_n(desc, &cache->entry.keys,
+    LIBXS_DIFF_SIZE, LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
 #   endif
 # else
+#   if defined(LIBXS_DESC_INLINE)
+  LIBXS_DIFF_DECL(LIBXS_DIFF_SIZE, xdesc);
+  LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
+  LIBXS_DIFF_N(unsigned char, cache_index, LIBXS_DIFF(LIBXS_DIFF_SIZE), xdesc, &cache->entry.keys,
+    LIBXS_MIN(size, LIBXS_DIFF_SIZE), LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
+#   else
   LIBXS_ASSERT(NULL != desc);
-  cache_index = (unsigned char)libxs_diff_n(desc, &cache.keys,
-    LIBXS_MIN(size, LIBXS_DIFF_SIZE), LIBXS_DESCRIPTOR_MAXSIZE, cache.hit, cache.size);
+  cache_index = (unsigned char)libxs_diff_n(desc, &cache->entry.keys,
+    LIBXS_MIN(size, LIBXS_DIFF_SIZE), LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
+#   endif
 # endif
-  if (cache_index < cache.size && cache.id == libxs_ninit) { /* valid hit */
-    flux_entry = cache.code[cache_index];
-    cache.hit = cache_index;
+  if (
+# if !defined(LIBXS_CACHE_GLOBAL)
+    cache->entry.id == libxs_ninit &&
+# endif
+    cache_index < cache->entry.size)
+  { /* valid hit */
+    flux_entry = cache->entry.code[cache_index];
+    cache->entry.hit = cache_index;
   }
   else
 #else
@@ -1748,7 +1883,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
             mode = 2; /* enter code generation */
 #endif
             if (LIBXS_KERNEL_KIND_MATMUL == desc->kind) {
-              internal_update_mmstatistic(&desc->gemm.desc, 0, 1/*collision*/);
+              internal_update_mmstatistic(&desc->gemm.desc, 0, 1/*collision*/, 0, 0);
             }
           }
           LIBXS_ASSERT(0 != diff); /* continue */
@@ -1829,27 +1964,34 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
           diff = 0;
         }
         if (((int)LIBXS_KERNEL_KIND_MATMUL) == desc->kind) {
-          internal_update_mmstatistic(&desc->gemm.desc, 1/*try*/, 0);
+          internal_update_mmstatistic(&desc->gemm.desc, 1/*try*/, 0, 0, 0);
         }
       }
     } while (0 != diff);
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
     if (NULL != flux_entry.ptr_const) { /* keep code version on record (cache) */
-      if (cache.id != libxs_ninit) { /* invalidate */
-        memset(cache.keys, 0, sizeof(cache.keys));
-        cache.id = libxs_ninit;
-        cache.size = cache.hit = 0;
+# if !defined(LIBXS_CACHE_GLOBAL)
+      if (cache->entry.id == libxs_ninit)
+# endif
+      {
+        if (cache->entry.size < (LIBXS_CACHE_MAXSIZE)) { /* grow */
+          INTERNAL_FIND_CODE_CACHE_GROW(cache_index, cache->entry.size);
+          LIBXS_ASSERT(cache->entry.size <= LIBXS_CACHE_MAXSIZE);
+        }
+        else { /* evict */
+          INTERNAL_FIND_CODE_CACHE_EVICT(cache_index, cache->entry.size, cache->entry.hit);
+        }
       }
-      if (cache.size < (LIBXS_CACHE_MAXSIZE)) { /* grow */
-        INTERNAL_FIND_CODE_CACHE_GROW(cache_index, cache.size);
-        LIBXS_ASSERT(cache.size <= LIBXS_CACHE_MAXSIZE);
+# if !defined(LIBXS_CACHE_GLOBAL)
+      else { /* invalidate */
+        LIBXS_ASSERT(0 == cache_index);
+        cache->entry.id = libxs_ninit;
+        cache->entry.size = 1;
       }
-      else { /* evict */
-        INTERNAL_FIND_CODE_CACHE_EVICT(cache_index, cache.size, cache.hit);
-      }
-      cache.keys[cache_index] = *desc;
-      cache.code[cache_index] = flux_entry;
-      cache.hit = cache_index;
+# endif
+      cache->entry.keys[cache_index] = *desc;
+      cache->entry.code[cache_index] = flux_entry;
+      cache->entry.hit = cache_index;
       LIBXS_ASSERT(0 == diff);
     }
 #endif
@@ -2258,6 +2400,38 @@ LIBXS_API libxs_bmmfunction_reducebatch_addr libxs_bmmdispatch_reducebatch_addr(
 }
 
 
+LIBXS_API libxs_bsmmfunction_reducebatch_addr libxs_bsmmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  /*const*/ libxs_gemm_descriptor* desc = libxs_bsgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result;
+  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  result = libxs_xmmdispatch(desc);
+  return result.bsmra;
+}
+
+
+LIBXS_API libxs_bmmfunction_reducebatch_addr libxs_bmmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  /*const*/ libxs_gemm_descriptor* desc = libxs_bgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result;
+  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  result = libxs_xmmdispatch(desc);
+  return result.bmra;
+}
+
+
 LIBXS_API libxs_dmmfunction_reducebatch_offs libxs_dmmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch)
 {
@@ -2310,6 +2484,38 @@ LIBXS_API libxs_bmmfunction_reducebatch_offs libxs_bmmdispatch_reducebatch_offs(
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.bmro;
+}
+
+
+LIBXS_API libxs_bsmmfunction_reducebatch_offs libxs_bsmmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  /*const*/ libxs_gemm_descriptor* desc = libxs_bsgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result;
+  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  result = libxs_xmmdispatch(desc);
+  return result.bsmro;
+}
+
+
+LIBXS_API libxs_bmmfunction_reducebatch_offs libxs_bmmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  /*const*/ libxs_gemm_descriptor* desc = libxs_bgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result;
+  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  result = libxs_xmmdispatch(desc);
   return result.bmro;
 }
 
@@ -2386,6 +2592,48 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd libxs_bmmdispatch_reducebatch_strd(
   /*const*/ libxs_xmmfunction result;
   desc->c1 = (unsigned long long)stride_a;
   desc->c2 = (unsigned long long)stride_b;
+  if ( (stride_a < 0) || (stride_b < 0) ) {
+    return NULL;
+  }
+  result = libxs_xmmdispatch(desc);
+  return result.bmrs;
+}
+
+
+LIBXS_API libxs_bsmmfunction_reducebatch_strd libxs_bsmmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  /*const*/ libxs_gemm_descriptor* desc = libxs_bsgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result;
+  desc->c1 = (unsigned long long)stride_a;
+  desc->c2 = (unsigned long long)stride_b;
+  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  if ( (stride_a < 0) || (stride_b < 0) ) {
+    return NULL;
+  }
+  result = libxs_xmmdispatch(desc);
+  return result.bsmrs;
+}
+
+
+LIBXS_API libxs_bmmfunction_reducebatch_strd libxs_bmmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  /*const*/ libxs_gemm_descriptor* desc = libxs_bgemm_descriptor_init(&blob,
+    m, n, k, NULL != lda ? *lda : m, NULL != ldb ? *ldb : k, NULL != ldc ? *ldc : m,
+    NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result;
+  desc->c1 = (unsigned long long)stride_a;
+  desc->c2 = (unsigned long long)stride_b;
+  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
   if ( (stride_a < 0) || (stride_b < 0) ) {
     return NULL;
   }
@@ -2553,7 +2801,7 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_descriptor* d
 }
 
 
-LIBXS_API libxs_xmmfunction libxs_create_pgemm_ac_rm(const libxs_gemm_descriptor* descriptor)
+LIBXS_API libxs_xmmfunction libxs_create_pgemm_ac_rm(const libxs_gemm_descriptor* descriptor, const unsigned int packed_width)
 {
   libxs_code_pointer result = { 0 };
   if (NULL != descriptor) {
@@ -2568,6 +2816,7 @@ LIBXS_API libxs_xmmfunction libxs_create_pgemm_ac_rm(const libxs_gemm_descriptor
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       pgemmacrm.gemm = &desc;
     }
+    pgemmacrm.packed_width = packed_width;
     request.descriptor.pgemmacrm = &pgemmacrm;
     request.kind = LIBXS_BUILD_KIND_PGEMMRMAC;
     libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
@@ -2576,7 +2825,7 @@ LIBXS_API libxs_xmmfunction libxs_create_pgemm_ac_rm(const libxs_gemm_descriptor
 }
 
 
-LIBXS_API libxs_xmmfunction libxs_create_pgemm_bc_rm(const libxs_gemm_descriptor* descriptor)
+LIBXS_API libxs_xmmfunction libxs_create_pgemm_bc_rm(const libxs_gemm_descriptor* descriptor, const unsigned int packed_width)
 {
   libxs_code_pointer result = { 0 };
   if (NULL != descriptor) {
@@ -2591,6 +2840,7 @@ LIBXS_API libxs_xmmfunction libxs_create_pgemm_bc_rm(const libxs_gemm_descriptor
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       pgemmbcrm.gemm = &desc;
     }
+    pgemmbcrm.packed_width = packed_width;
     request.descriptor.pgemmbcrm = &pgemmbcrm;
     request.kind = LIBXS_BUILD_KIND_PGEMMRMBC;
     libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
@@ -2670,7 +2920,7 @@ LIBXS_API void libxs_release_kernel(const void* jit_kernel)
     if (EXIT_SUCCESS == libxs_get_malloc_xinfo(jit_kernel, NULL/*size*/, NULL/*flags*/, &extra) && NULL != extra) {
       const unsigned int regindex = *((const unsigned int*)extra);
       if ((LIBXS_CAPACITY_REGISTRY) <= regindex) {
-        libxs_xfree(jit_kernel);
+        libxs_xfree(jit_kernel, 0/*no check*/);
       }
       else
 #if !defined(LIBXS_ENABLE_DEREG)
@@ -2685,7 +2935,7 @@ LIBXS_API void libxs_release_kernel(const void* jit_kernel)
 # if !defined(NDEBUG)
         memset(internal_registry_keys + regindex, 0, sizeof(libxs_descriptor));
 # endif
-        libxs_xfree(jit_kernel);
+        libxs_xfree(jit_kernel, 0/*no check*/);
       }
 #endif
     }
@@ -2698,7 +2948,7 @@ LIBXS_API void libxs_release_kernel(const void* jit_kernel)
 }
 
 
-#if defined(LIBXS_BUILD) && !defined(LIBXS_NOFORTRAN)
+#if defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_init)(void);
@@ -2717,7 +2967,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_finalize)(void)
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** jit_kernel);
+LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** /*jit_kernel*/);
 LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** jit_kernel)
 {
 #if !defined(NDEBUG)
@@ -2740,27 +2990,27 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** jit_kernel)
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
-  const libxs_gemm_precision* iprec, const libxs_gemm_precision* oprec,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const void* alpha, const void* beta, const int* flags, const int* prefetch);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
-  const libxs_gemm_precision* iprec, const libxs_gemm_precision* oprec,
+LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* /*fn*/, const int* /*iprec*/, const int* /*oprec*/,
+  const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const libxs_blasint* /*k*/,
+  const libxs_blasint* /*lda*/, const libxs_blasint* /*ldb*/, const libxs_blasint* /*ldc*/,
+  const void* /*alpha*/, const void* /*beta*/, const int* /*flags*/, const int* /*prefetch*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn, const int* iprec, const int* oprec,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
   const void* alpha, const void* beta, const int* flags, const int* prefetch)
 {
 #if !defined(NDEBUG)
-  if (NULL != fn && NULL != m)
+  if (NULL != fn && NULL != m
+    && (NULL == iprec || (0 <= *iprec && *iprec < LIBXS_DATATYPE_UNSUPPORTED))
+    && (NULL == oprec || (0 <= *oprec && *oprec < LIBXS_DATATYPE_UNSUPPORTED)))
 #endif
   {
-    const libxs_gemm_precision precision = (NULL != iprec ? *iprec : LIBXS_GEMM_PRECISION_F64);
+    const libxs_gemm_precision precision = (NULL != iprec ? ((libxs_gemm_precision)*iprec) : LIBXS_GEMM_PRECISION_F64);
     const libxs_blasint kk = *(NULL != k ? k : m), nn = (NULL != n ? *n : kk);
     const int gemm_flags = (NULL != flags ? *flags : LIBXS_FLAGS);
     libxs_descriptor_blob blob;
     libxs_gemm_descriptor *descriptor = libxs_gemm_descriptor_init2(&blob,
-      precision, NULL != oprec ? *oprec : precision, *m, nn, kk,
+      precision, NULL != oprec ? ((libxs_gemm_precision)*oprec) : precision, *m, nn, kk,
       NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? *m : kk),
       NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? kk : nn),
       *(NULL != ldc ? ldc : m), alpha, beta, gemm_flags, libxs_get_gemm_xprefetch(prefetch));
@@ -2788,12 +3038,12 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn,
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn,
-  const libxs_gemm_precision* precision, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const void* alpha, const void* beta, const int* flags, const int* prefetch);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn,
-  const libxs_gemm_precision* precision, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* /*fn*/, const int* /*precision*/,
+  const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const libxs_blasint* /*k*/,
+  const libxs_blasint* /*lda*/, const libxs_blasint* /*ldb*/, const libxs_blasint* /*ldc*/,
+  const void* /*alpha*/, const void* /*beta*/, const int* /*flags*/, const int* /*prefetch*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn, const int* precision,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
   const void* alpha, const void* beta, const int* flags, const int* prefetch)
 {
@@ -2803,7 +3053,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn,
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
-  const libxs_xmmfunction* fn, const void* a, const void* b, void* c);
+  const libxs_xmmfunction* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/);
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
   const libxs_xmmfunction* fn, const void* a, const void* b, void* c)
 {
@@ -2838,8 +3088,8 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
-  const libxs_xmmfunction* fn, const void* a, const void* b, void* c,
-  const void* pa, const void* pb, const void* pc);
+  const libxs_xmmfunction* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/,
+  const void* /*pa*/, const void* /*pb*/, const void* /*pc*/);
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
   const libxs_xmmfunction* fn, const void* a, const void* b, void* c,
   const void* pa, const void* pb, const void* pc)
@@ -2875,8 +3125,8 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall)(
-  const libxs_xmmfunction* fn, const void* a, const void* b, void* c,
-  const void* pa, const void* pb, const void* pc);
+  const libxs_xmmfunction* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/,
+  const void* /*pa*/, const void* /*pb*/, const void* /*pc*/);
 LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall)(
   const libxs_xmmfunction* fn, const void* a, const void* b, void* c,
   const void* pa, const void* pb, const void* pc)
@@ -2884,4 +3134,4 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall)(
   LIBXS_FSYMBOL(libxs_xmmcall_prf)(fn, a, b, c, pa, pb, pc);
 }
 
-#endif /*defined(LIBXS_BUILD)*/
+#endif /*defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))*/

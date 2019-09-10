@@ -279,6 +279,8 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
           $(ROOTDIR)/include/libxs_blocked_gemm.h \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \
+          $(ROOTDIR)/include/libxs_dnn_tensor.h \
+          $(ROOTDIR)/include/libxs_dnn_convolution.h \
           $(ROOTDIR)/include/libxs_dnn_fusedbatchnorm.h \
           $(ROOTDIR)/include/libxs_dnn_pooling.h \
           $(ROOTDIR)/include/libxs_dnn_fullyconnected.h \
@@ -291,16 +293,17 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
           $(ROOTDIR)/include/libxs_macros.h \
           $(ROOTDIR)/include/libxs_malloc.h \
           $(ROOTDIR)/include/libxs_math.h \
+          $(ROOTDIR)/include/libxs_mem.h \
           $(ROOTDIR)/include/libxs_mhd.h \
           $(ROOTDIR)/include/libxs_spmdm.h \
           $(ROOTDIR)/include/libxs_sync.h \
           $(ROOTDIR)/include/libxs_timer.h \
           $(ROOTDIR)/include/libxs_typedefs.h
 SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
-          libxs_main.c libxs_malloc.c libxs_hash.c libxs_diff.c libxs_math.c \
+          libxs_main.c libxs_mem.c libxs_malloc.c libxs_hash.c libxs_math.c \
           libxs_sync.c libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
           libxs_gemm.c libxs_xcopy.c libxs_blocked_gemm.c libxs_spmdm.c libxs_fsspmdm.c libxs_rng.c\
-          libxs_dnn.c libxs_dnn_setup.c libxs_dnn_handle.c libxs_dnn_elementwise.c \
+          libxs_dnn.c libxs_dnn_tensor.c libxs_dnn_convolution.c  libxs_dnn_elementwise.c \
           libxs_dnn_rnncell.c libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c \
           libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c libxs_dnn_fusedbatchnorm_backward.c \
           libxs_dnn_pooling.c libxs_dnn_pooling_forward.c libxs_dnn_pooling_backward.c libxs_dnn_convolution_forward.c \
@@ -334,6 +337,7 @@ endif
 
 MSGJITPROFILING = 0
 ifneq (0,$(JIT))
+ifneq (0,$(VTUNE))
 ifeq (,$(filter Darwin,$(UNAME)))
   ifneq (0,$(PERF))
     DFLAGS += -DLIBXS_PERF
@@ -358,6 +362,7 @@ ifeq (,$(filter Darwin,$(UNAME)))
     endif
     MSGJITPROFILING = 1
   endif
+endif
 endif
 endif
 
@@ -397,9 +402,11 @@ endif
 endif
 	$(information)
 ifneq (,$(filter _0_,_$(LNKSOFT)_))
+ifeq (0,$(DEPSTATIC))
 	$(info Building a shared library requires to link against BLAS)
 	$(info since a deferred choice is not implemented for this OS.)
 	$(info --------------------------------------------------------------------------------)
+endif
 endif
 ifneq (,$(filter _0_,_$(BLAS)_))
 ifeq (,$(filter _0_,_$(NOBLAS)_))
@@ -607,6 +614,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(ROOTDIR)/$(SRCDIR)/template/l
 	@$(CP) $(ROOTDIR)/include/libxs_macros.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_malloc.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_math.h $(INCDIR) 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/include/libxs_mem.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_mhd.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_rng.h $(INCDIR) 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/include/libxs_spmdm.h $(INCDIR) 2>/dev/null || true
@@ -749,11 +757,11 @@ endef
 EXTCFLAGS = -DLIBXS_BUILD_EXT
 ifeq (0,$(OMP))
 ifeq (,$(filter environment% override command%,$(origin OMP)))
-  EXTCFLAGS += $(OMPFLAG) -DLIBXS_OMP
+  EXTCFLAGS += $(OMPFLAG)
   EXTLDFLAGS += $(OMPFLAG)
 endif
 else # OpenMP
-  DFLAGS += -DLIBXS_OMP
+  DFLAGS += -DLIBXS_SYNC_OMP
 endif
 
 ifneq (0,$(MIC))
@@ -1539,6 +1547,7 @@ realclean-all: realclean
 
 .PHONY: distclean
 distclean: realclean-all
+	@rm -rf libxs*
 
 # PREFIX and DESTDIR are equivalent
 # - DESTDIR rules if PREFIX is also specified

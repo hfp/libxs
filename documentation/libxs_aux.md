@@ -38,7 +38,7 @@ void libxs_set_verbosity(int level);
 
 ### Timer Facility
 
-Due to the performance oriented nature of LIBXS, timer-related functionality is available for the C and Fortran interface ([libxs_timer.h](https://github.com/hfp/libxs/blob/master/include/libxs_timer.h#L37) and [libxs.f](https://github.com/hfp/libxs/blob/master/src/template/libxs.f#L32)). The timer is used in many of the [code samples](https://github.com/hfp/libxs/tree/master/samples) to measure the duration of executing a region of the code. The timer is based on a monotonic clock tick, which uses a platform-specific resolution. The counter may rely on the time stamp counter instruction (RDTSC), which is not necessarily counting CPU cycles (reasons are out of scope in this context). However, `libxs_timer_cycles` delivers raw clock ticks (RDTSC).
+Due to the performance oriented nature of LIBXS, timer-related functionality is available for the C and Fortran interface ([libxs_timer.h](https://github.com/hfp/libxs/blob/master/include/libxs_timer.h#L37) and [libxs.f](https://github.com/hfp/libxs/blob/master/src/template/libxs.f#L32)). The timer is used in many of the [code samples](https://github.com/hfp/libxs/tree/master/samples) to measure the duration of executing a region of the code. The timer is based on a monotonic clock tick, which uses a platform-specific resolution. The counter may rely on the time stamp counter instruction (RDTSC), which is not necessarily counting CPU cycles (reasons are out of scope in this context). However, `libxs_timer_ncycles` delivers raw clock ticks (RDTSC).
 
 ```C
 typedef unsigned long long libxs_timer_tickint;
@@ -46,7 +46,7 @@ libxs_timer_tickint libxs_timer_tick(void);
 double libxs_timer_duration(
   libxs_timer_tickint tick0,
   libxs_timer_tickint tick1);
-libxs_timer_tickint libxs_timer_cycles(
+libxs_timer_tickint libxs_timer_ncycles(
   libxs_timer_tickint tick0,
   libxs_timer_tickint tick1);
 ```
@@ -157,5 +157,14 @@ LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_RWLOCK, &rwlock);
 LIBXS_LOCK_RELEASE(LIBXS_LOCK_RWLOCK, &rwlock);
 ```
 
-Depending on the platform or when using OpenMP to implement the low-level synchronization primitives, the LIBXS_LOCK_RWLOCK may be not implemented (OSX) or not available (OMP). In any case, LIBXS also implements own lock primitives which are available per API (libxs_mutex_\*, and libxs_rwlock_\*). This experimental implementation can be used independently of the LIBXS_LOCK_\* macros. Future versions of the library eventually map the macros to LIBXS's own low-level primitives.
+For a lock not backed by an OS level primitive (fully featured lock), the synchronization layer also provides a simple lock based on atomic operations:
+
+```C
+static union { char pad[LIBXS_CACHELINE]; volatile LIBXS_ATOMIC_LOCKTYPE state; } lock;
+LIBXS_ATOMIC_ACQUIRE(&lock.state, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED);
+/* locked code section */
+LIBXS_ATOMIC_RELEASE(&lock.state, LIBXS_ATOMIC_RELAXED);
+```
+
+In addition to the LIBXS_LOCK_\* macros or LIBXS_ATOMIC_LOCKTYPE, API-based lock primitives are also available (libxs_mutex_\*, and libxs_rwlock_\*). However, the underlying implementation of the latter is experimental.
 

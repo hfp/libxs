@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
   }
 
   printf("libxs_barrier_wait(): %llu cycles (%d threads)\n",
-    libxs_timer_cycles(start, libxs_timer_tick()) / num_iterations,
+    libxs_timer_ncycles(start, libxs_timer_tick()) / num_iterations,
     num_threads);
 
   libxs_barrier_destroy(barrier);

@@ -39,8 +39,8 @@ libxs_cpuid
 libxs_cpuid_name
 libxs_cpuid_x86
 libxs_create_dcsr_reg
-libxs_create_rm_ac_soa
-libxs_create_rm_bc_soa
+libxs_create_pgemm_ac_rm
+libxs_create_pgemm_bc_rm
 libxs_create_scsr_reg
 libxs_create_xcsc_soa
 libxs_create_xcsr_soa
@@ -192,10 +192,10 @@ libxs_generator_convolution_weight_update_kernel
 libxs_generator_gemm_directasm
 libxs_generator_gemm_inlineasm
 libxs_generator_gemm_kernel
-libxs_generator_gemm_rm_ac_soa
-libxs_generator_gemm_rm_bc_soa
 libxs_generator_getrf_kernel
 libxs_generator_matcopy_kernel
+libxs_generator_packed_gemm_ac_rm
+libxs_generator_packed_gemm_bc_rm
 libxs_generator_pgemm_kernel
 libxs_generator_spgemm
 libxs_generator_spgemm_csc_kernel
@@ -233,6 +233,7 @@ libxs_hash_char
 libxs_hash_i32
 libxs_hash_i64
 libxs_hash_i8
+libxs_hash_string
 libxs_icbrt_u32
 libxs_icbrt_u64
 libxs_init
@@ -328,8 +329,8 @@ libxs_release_scratch
 libxs_release_smmkernel
 libxs_release_wimmkernel
 libxs_release_wsmmkernel
-libxs_rnaz_convert_fp32_bfp16
-libxs_rne_convert_fp32_bfp16
+libxs_rnaz_convert_fp32_bf16
+libxs_rne_convert_fp32_bf16
 libxs_rng_f32_seq
 libxs_rng_f64
 libxs_rng_set_seed
@@ -390,8 +391,9 @@ libxs_spmdm_get_num_createSparseSlice_blocks
 libxs_spmdm_init
 libxs_ssqrt
 libxs_strerror
-libxs_timer_cycles
 libxs_timer_duration
+libxs_timer_ncycles
+libxs_timer_ncycles_
 libxs_timer_tick
 libxs_trace
 libxs_trace_finalize
@@ -428,7 +430,9 @@ libxs_wsmmdispatch
 libxs_xgemm_omp
 libxs_xgemm_omp_
 libxs_xmmcall_
+libxs_xmmcall_abc
 libxs_xmmcall_abc_
+libxs_xmmcall_prf
 libxs_xmmcall_prf_
 libxs_xmmdispatch
 libxs_xmmdispatch2_

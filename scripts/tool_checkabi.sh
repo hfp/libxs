@@ -73,9 +73,13 @@ then
             then
               echo "${SYMBOL}" >> ${ABINEW}
             elif [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^__libxs_MOD___/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^__wrap_..*_/p")" ] && \
+                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^__wrap_..*/p")" ] && \
                  [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^libxs._/p")" ] && \
                  [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^.gem._/p")" ] && \
+                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^memalign/p")" ] && \
+                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^realloc/p")" ] && \
+                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^malloc/p")" ] && \
+                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^free/p")" ] && \
                  [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^_init/p")" ] && \
                  [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^_fini/p")" ];
             then
@@ -89,7 +93,7 @@ then
               OBJECT=$(echo "${LOCATION}" | ${SED} -e "s/:$//")
             fi
           fi
-        done < <(${NM} ${LIBFILE})
+        done < <(${NM} -D ${LIBFILE})
       else
         echo "Excluded ${LIB}"
       fi

@@ -40,29 +40,36 @@
 #endif
 
 #if !defined(LIBXS_MAX_NTHREADS)
-# define LIBXS_MAX_NTHREADS 1024
+# if (0 != LIBXS_SYNC)
+#   define LIBXS_MAX_NTHREADS 1024
+# else
+#   define LIBXS_MAX_NTHREADS 1
+# endif
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
 # define LIBXS_MALLOC_SCRATCH_MAX_NPOOLS LIBXS_MAX_NTHREADS
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_LIMIT)
-# define LIBXS_MALLOC_SCRATCH_LIMIT (4ULL << 30) /* 4 GB */
-#endif
-#if !defined(LIBXS_MALLOC_MMAP_SCRATCH) && 0
-# define LIBXS_MALLOC_MMAP_SCRATCH
+# define LIBXS_MALLOC_SCRATCH_LIMIT 0xFFFFFFFF /* ~4 GB */
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_SCALE)
-# if defined(LIBXS_MALLOC_MMAP_SCRATCH)
-#   define LIBXS_MALLOC_SCRATCH_SCALE 1.3
-# else
-#   define LIBXS_MALLOC_SCRATCH_SCALE 1.0
-# endif
+# define LIBXS_MALLOC_SCRATCH_SCALE 1.0
+#endif
+#if !defined(LIBXS_MALLOC_LIMIT) && 1
+# define LIBXS_MALLOC_LIMIT (2U << 20)
 #endif
 #if !defined(LIBXS_MALLOC_INTERNAL_CALLER_ID)
 # define LIBXS_MALLOC_INTERNAL_CALLER_ID ((uintptr_t)-1)
 #endif
 #if !defined(LIBXS_MALLOC_INTERNAL_CALLER)
 # define LIBXS_MALLOC_INTERNAL_CALLER ((const void*)(LIBXS_MALLOC_INTERNAL_CALLER_ID))
+#endif
+
+#if !defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_BUILD) && \
+  (defined(__GNUC__) || defined(_CRAYC)) && !defined(_WIN32) && !defined(__CYGWIN__) && \
+  !(defined(__APPLE__) && defined(__MACH__) && LIBXS_VERSION3(6, 1, 0) >= \
+    LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+# define LIBXS_INTERCEPT_DYNAMIC
 #endif
 
 #if !defined(LIBXS_VERBOSITY_HIGH)
@@ -122,7 +129,7 @@
     | (LIBXS_NEQ(0, BETA) ? 0 : LIBXS_GEMM_FLAG_BETA_0)); \
   (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
   (DESCRIPTOR).lda = (unsigned int)(LDA); (DESCRIPTOR).ldb = (unsigned int)(LDB); (DESCRIPTOR).ldc = (unsigned int)(LDC); \
-  (DESCRIPTOR).pad = 0; (DESCRIPTOR).c1 = 0; (DESCRIPTOR).c2 = 0
+  (DESCRIPTOR).pad = 0; (DESCRIPTOR).c1 = 0; (DESCRIPTOR).c2 = 0; (DESCRIPTOR).c3 = 0
 
 /** Similar to LIBXS_GEMM_DESCRIPTOR, but separately taking the input-/output-precision. */
 #define LIBXS_GEMM_DESCRIPTOR2(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
@@ -165,10 +172,12 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
   unsigned int lda, ldb, ldc;
   /** Ignored entry. */
   unsigned int pad;
-  /** Description. */
+  /** multipurpose 64bit field, currently used for: a) stride_a in brgemm */
   unsigned long long c1;
-  /** Description. */
+  /** multipurpose 64bit field, currently used for: a) stride_b in brgemm */
   unsigned long long c2;
+  /** multipurpose 8bit field, currently used for: a) unroll hint in brgemm */
+  unsigned char c3;
 };
 
 /** Packed structure storing the matcopy argument description. */
@@ -245,10 +254,12 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csc_soa_d
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pgemm_ac_rm_descriptor {
   const libxs_gemm_descriptor* gemm;
+  unsigned int packed_width;
 } libxs_pgemm_ac_rm_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pgemm_bc_rm_descriptor {
   const libxs_gemm_descriptor* gemm;
+  unsigned int packed_width;
 } libxs_pgemm_bc_rm_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
@@ -366,6 +377,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int on_the_fly_input_packing;
   int upd_pack_input_upfront;
   int use_hybrid_imgofm_parallelization;
+  int compute_pixels;
+  int upd_trans_w_only;
 
   libxs_xtransfunction tr_kernel;
 
@@ -649,7 +662,10 @@ typedef enum libxs_malloc_flags {
   LIBXS_MALLOC_FLAG_X       = 64,
   LIBXS_MALLOC_FLAG_RW  = LIBXS_MALLOC_FLAG_R | LIBXS_MALLOC_FLAG_W,
   LIBXS_MALLOC_FLAG_WX  = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_W,
-  LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_RW
+  LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_RW,
+  LIBXS_MALLOC_FLAG_VALID       = LIBXS_MALLOC_FLAG_SCRATCH |
+      LIBXS_MALLOC_FLAG_PRIVATE | LIBXS_MALLOC_FLAG_REALLOC |
+      LIBXS_MALLOC_FLAG_MMAP    | LIBXS_MALLOC_FLAG_RWX
 } libxs_malloc_flags;
 
 /** Returns the type-size of data-type (can be also libxs_gemm_precision). */
@@ -681,6 +697,9 @@ LIBXS_API_INTERN int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
 LIBXS_API_INTERN int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   const void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
+/** intern function to calculate blockings, that's private API hence it's in this function */
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K, int* C_block, int* K_block, int* fm_lp_block, libxs_dnn_datatype datatype_in, libxs_dnn_datatype datatype_out );
+
 /**
  * Attribute memory allocation and protect with only the necessary flags.
  * This procedure is expected to run only one time per buffer, and may
@@ -695,7 +714,10 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
   /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
   const void* extra, size_t extra_size);
 /** Release memory, which was allocated using libxs_[*]malloc. */
-LIBXS_API_INTERN void libxs_xfree(const void* memory);
+LIBXS_API_INTERN void libxs_xfree(const void* memory, int check);
+
+/** Like libxs_release_scratch, but takes a lock (can be NULL). */
+LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock);
 
 /** Determines the given value in double-precision based on the given type. */
 LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
@@ -705,10 +727,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 
 /** Attempts to receive information about JIT-generated code. */
 LIBXS_API const libxs_descriptor* libxs_get_kernel_info(libxs_code_pointer code, size_t* size);
-
-/** Updates counters of the statistic, which is shown at program termination. */
-LIBXS_API_INTERN unsigned int libxs_update_mmstatistic(libxs_gemm_precision precision,
-  libxs_blasint m, libxs_blasint n, libxs_blasint k, unsigned int ntry, unsigned int ncol);
 
 /** Returns the current tick of a (monotonic) platform-specific counter; not necessarily CPU cycles. */
 LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void);
@@ -737,20 +755,26 @@ LIBXS_APIVAR(libxs_free_function libxs_scratch_free_fn);
 LIBXS_APIVAR(const void* libxs_default_allocator_context);
 /** If non-NULL, this context is used by the context-form of memory allocation. */
 LIBXS_APIVAR(const void* libxs_scratch_allocator_context);
-/** Number of discovered threads (per libxs_get_tid) */
-LIBXS_APIVAR(unsigned int libxs_threads_count);
 /** Number of scratch memory pools used; clamped against internal maximum. */
 LIBXS_APIVAR(unsigned int libxs_scratch_pools);
 /** Maximum total size of the scratch memory domain. */
 LIBXS_APIVAR(size_t libxs_scratch_limit);
 /** Growth factor used to scale the scratch memory in case of reallocation. */
 LIBXS_APIVAR(double libxs_scratch_scale);
-/** even: regular, odd: scratch, >1: intercept */
+/** Minimum number of bytes needed for interception (libxs_malloc_kind) */
+LIBXS_APIVAR_ARRAY(size_t libxs_malloc_limit, 2);
+/** 0: regular, 1/odd: intercept/scratch, otherwise: all/scratch */
 LIBXS_APIVAR(int libxs_malloc_kind);
-
+/** Counts the number of attempts to create an SPMDM-handle */
+LIBXS_APIVAR(unsigned int libxs_statistic_num_spmdm);
 /** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wall-clock) */
 LIBXS_APIVAR(double libxs_timer_scale);
 /** Security-enhanced environment */
 LIBXS_APIVAR(int libxs_se);
+
+#if (0 != LIBXS_SYNC)
+/** Number of discovered threads (per libxs_get_tid) */
+LIBXS_APIVAR(unsigned int libxs_thread_count);
+#endif
 
 #endif /*LIBXS_MAIN_H*/

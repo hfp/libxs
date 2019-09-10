@@ -30,7 +30,7 @@
 #define LIBXS_DNN_RNNCELL_H
 
 #include "libxs_dnn.h"
-
+#include "libxs_dnn_tensor.h"
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell libxs_dnn_rnncell;
 

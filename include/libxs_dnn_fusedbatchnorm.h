@@ -30,7 +30,10 @@
 #define LIBXS_DNN_FUSEDBATCHNORM_H
 
 #include "libxs_dnn.h"
+#include "libxs_dnn_tensor.h"
 
+/** Opaque handles which represents LIBXS fusedbatchnorm */
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fusedbatchnorm libxs_dnn_fusedbatchnorm;
 
 LIBXS_API libxs_dnn_fusedbatchnorm* libxs_dnn_create_fusedbatchnorm(libxs_dnn_fusedbatchnorm_desc fusedbatchnorm_desc, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_fusedbatchnorm(const libxs_dnn_fusedbatchnorm* handle);

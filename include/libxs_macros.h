@@ -96,57 +96,11 @@
 #define LIBXS_VERSION43(VERSION) (((VERSION) >> 14) & 0x1F)
 #define LIBXS_VERSION44(VERSION) (((VERSION)) & 0x3FFF)
 
-#if defined(__cplusplus)
-# define LIBXS_VARIADIC ...
-# define LIBXS_EXTERN_KEYWORD extern "C"
-# define LIBXS_EXTERN LIBXS_EXTERN_KEYWORD
-# define LIBXS_EXTERN_C LIBXS_EXTERN_KEYWORD
-# define LIBXS_INLINE_KEYWORD inline
-# define LIBXS_INLINE LIBXS_INLINE_KEYWORD
-# if defined(__GNUC__) || defined(_CRAYC)
-#   define LIBXS_CALLER_ID __PRETTY_FUNCTION__
-# elif defined(_MSC_VER)
-#   define LIBXS_CALLER_ID __FUNCDNAME__
-#   define LIBXS_CALLER __FUNCTION__
-# else
-#   define LIBXS_CALLER_ID __FUNCNAME__
-# endif
-#else
-# define LIBXS_VARIADIC
-# define LIBXS_EXTERN_KEYWORD extern
-# define LIBXS_EXTERN LIBXS_EXTERN_KEYWORD
-# define LIBXS_EXTERN_C
-# if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
-#   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
-#   define LIBXS_CALLER_ID __func__
-#   define LIBXS_RESTRICT restrict
-#   define LIBXS_INLINE_KEYWORD inline
-# elif defined(_MSC_VER)
-#   define LIBXS_CALLER_ID __FUNCDNAME__
-#   define LIBXS_CALLER __FUNCTION__
-#   define LIBXS_INLINE_KEYWORD __inline
-#   define LIBXS_INLINE_FIXUP
-# elif defined(__GNUC__) && !defined(__STRICT_ANSI__)
-#   define LIBXS_CALLER_ID __PRETTY_FUNCTION__
-# endif
-# if !defined(LIBXS_INLINE_KEYWORD)
-#   define LIBXS_INLINE_KEYWORD
-#   define LIBXS_INLINE_FIXUP
-# endif
-# define LIBXS_INLINE static LIBXS_INLINE_KEYWORD
-#endif /*__cplusplus*/
-#if !defined(LIBXS_CALLER_ID)
-# define LIBXS_CALLER_ID NULL
-#endif
-#if !defined(LIBXS_CALLER)
-# define LIBXS_CALLER LIBXS_CALLER_ID
-#endif
-
-#if !defined(LIBXS_UNPACKED) && (defined(_CRAYC) || defined(LIBXS_OFFLOAD_BUILD))
+#if !defined(LIBXS_UNPACKED) && (defined(_CRAYC) || defined(LIBXS_OFFLOAD_BUILD) || \
+  (0 == LIBXS_SYNC)/*Windows: missing pack(pop) error*/)
 # define LIBXS_UNPACKED
 #endif
-
-#if defined(_WIN32) && !defined(__GNUC__)
+#if defined(_WIN32) && !defined(__GNUC__) && !defined(__clang__)
 # define LIBXS_ATTRIBUTE(A) __declspec(A)
 # if defined(__cplusplus)
 #   define LIBXS_INLINE_ALWAYS __forceinline
@@ -176,6 +130,71 @@
 # define LIBXS_PACKED(TYPE) TYPE
 # if !defined(LIBXS_UNPACKED)
 #   define LIBXS_UNPACKED
+# endif
+#endif
+
+/* LIBXS_ATTRIBUTE_USED: mark library functions as used to avoid warning */
+#if defined(__GNUC__) || (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32))
+# define LIBXS_ATTRIBUTE_MALLOC LIBXS_ATTRIBUTE(malloc)
+# define LIBXS_ATTRIBUTE_UNUSED LIBXS_ATTRIBUTE(unused)
+# define LIBXS_ATTRIBUTE_USED LIBXS_ATTRIBUTE(used)
+#else
+# define LIBXS_ATTRIBUTE_MALLOC
+# define LIBXS_ATTRIBUTE_UNUSED
+# define LIBXS_ATTRIBUTE_USED
+#endif
+
+#if defined(__cplusplus)
+# define LIBXS_VARIADIC ...
+# define LIBXS_EXTERN_KEYWORD extern "C"
+# define LIBXS_EXTERN LIBXS_EXTERN_KEYWORD
+# define LIBXS_EXTERN_C LIBXS_EXTERN_KEYWORD
+# define LIBXS_INLINE_KEYWORD inline
+# define LIBXS_INLINE LIBXS_INLINE_KEYWORD
+# if defined(__GNUC__) || defined(_CRAYC)
+#   define LIBXS_CALLER __PRETTY_FUNCTION__
+# elif defined(_MSC_VER)
+#   define LIBXS_CALLER __FUNCDNAME__
+#   define LIBXS_FUNCNAME __FUNCTION__
+# else
+#   define LIBXS_CALLER __FUNCNAME__
+# endif
+#else
+# define LIBXS_VARIADIC
+# define LIBXS_EXTERN_KEYWORD extern
+# define LIBXS_EXTERN LIBXS_EXTERN_KEYWORD
+# define LIBXS_EXTERN_C
+# if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
+#   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
+#   define LIBXS_CALLER __func__
+#   define LIBXS_RESTRICT restrict
+#   define LIBXS_INLINE_KEYWORD inline
+# elif defined(_MSC_VER)
+#   define LIBXS_CALLER __FUNCDNAME__
+#   define LIBXS_FUNCNAME __FUNCTION__
+#   define LIBXS_INLINE_KEYWORD __inline
+#   define LIBXS_INLINE_FIXUP
+# elif defined(__GNUC__) && !defined(__STRICT_ANSI__)
+#   define LIBXS_CALLER __PRETTY_FUNCTION__
+# endif
+# if !defined(LIBXS_INLINE_KEYWORD)
+#   define LIBXS_INLINE_KEYWORD
+#   define LIBXS_INLINE_FIXUP
+# endif
+/* LIBXS_ATTRIBUTE_USED: increases compile-time of header-only by a large factor */
+# define LIBXS_INLINE static LIBXS_INLINE_KEYWORD LIBXS_ATTRIBUTE_UNUSED
+#endif /*__cplusplus*/
+#if !defined(LIBXS_CALLER)
+# define LIBXS_CALLER NULL
+#endif
+#if !defined(LIBXS_FUNCNAME)
+# define LIBXS_FUNCNAME LIBXS_CALLER
+#endif
+#if !defined(LIBXS_CALLER_ID)
+# if defined(__GNUC__) || 1
+#   define LIBXS_CALLER_ID ((const void*)((uintptr_t)libxs_hash_string(LIBXS_CALLER)))
+# else /* assume no string-pooling (perhaps unsafe) */
+#   define LIBXS_CALLER_ID LIBXS_CALLER
 # endif
 #endif
 
@@ -461,7 +480,7 @@
 # define LIBXS_ASSUME(EXPRESSION) assert(EXPRESSION)
 #endif
 
-#if defined(LIBXS_INTEL_COMPILER)
+#if defined(__INTEL_COMPILER)
 # define LIBXS_ASSUME_ALIGNED(A, N) __assume_aligned(A, N)
 #else
 # define LIBXS_ASSUME_ALIGNED(A, N) assert(0 == ((uintptr_t)(A)) % (N))
@@ -579,7 +598,7 @@
 # define LIBXS_OMP_VAR(A)
 #endif
 
-#if (defined(__GNUC__) || defined(__clang__)) && !defined(__CYGWIN__) && !defined(__MINGW32__)
+#if defined(LIBXS_BUILD) && (defined(__GNUC__) || defined(__clang__)) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT LIBXS_ATTRIBUTE(weak_import)
 # define LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE(weak)
 #else
@@ -587,26 +606,17 @@
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT
 #endif
 
-#if !defined(LIBXS_NO_CTOR) && defined(__GNUC__) && !defined(LIBXS_CTOR)
+#if !defined(LIBXS_NO_CTOR) && !defined(LIBXS_CTOR) && \
+    (defined(LIBXS_BUILD) && !defined(__STATIC)) && \
+    (defined(__GNUC__) || defined(__clang__))
 # define LIBXS_ATTRIBUTE_CTOR LIBXS_ATTRIBUTE(constructor)
 # define LIBXS_ATTRIBUTE_DTOR LIBXS_ATTRIBUTE(destructor)
-# if defined(LIBXS_BUILD) && !defined(__STATIC)
-#   define LIBXS_CTOR
-# endif
+# define LIBXS_CTOR
 #else
 # define LIBXS_ATTRIBUTE_CTOR
 # define LIBXS_ATTRIBUTE_DTOR
 #endif
 
-#if defined(__GNUC__) || (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32))
-# define LIBXS_ATTRIBUTE_MALLOC LIBXS_ATTRIBUTE(malloc)
-# define LIBXS_ATTRIBUTE_UNUSED LIBXS_ATTRIBUTE(unused)
-# define LIBXS_ATTRIBUTE_USED LIBXS_ATTRIBUTE(used)
-#else
-# define LIBXS_ATTRIBUTE_MALLOC
-# define LIBXS_ATTRIBUTE_UNUSED
-# define LIBXS_ATTRIBUTE_USED
-#endif
 #if defined(__GNUC__)
 # define LIBXS_MAY_ALIAS LIBXS_ATTRIBUTE(__may_alias__)
 #else
@@ -641,13 +651,6 @@
 /** Synchronize console output */
 #define LIBXS_STDIO_ACQUIRE() LIBXS_FLOCK(stdout); LIBXS_FLOCK(stderr)
 #define LIBXS_STDIO_RELEASE() LIBXS_FUNLOCK(stderr); LIBXS_FUNLOCK(stdout)
-
-/** Determines whether constant-folding is available or not. */
-#if !defined(LIBXS_STRING_POOLING)
-# if defined(__GNUC__) /*&& !defined(_MSC_VER)*/
-#   define LIBXS_STRING_POOLING
-# endif
-#endif
 
 /** Below group is to fix-up some platform/compiler specifics. */
 #if defined(_WIN32)
@@ -733,7 +736,9 @@
 #if defined(LIBXS_GLIBC_FPTYPES)
 # if defined(__cplusplus)
 #   undef __USE_MISC
-#   include <math.h>
+#   if !defined(LIBXS_NO_LIBM)
+#     include <math.h>
+#   endif
 #   if !defined(_DEFAULT_SOURCE)
 #     define _DEFAULT_SOURCE
 #   endif
