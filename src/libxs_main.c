@@ -430,6 +430,19 @@ LIBXS_API_INLINE void internal_register_static_code(
 #endif
 
 
+LIBXS_API_INTERN void internal_release_scratch(void);
+LIBXS_API_INTERN void internal_release_scratch(void)
+{
+  libxs_xrelease_scratch(NULL/*lock*/);
+  /* release global services */
+  libxs_hash_finalize();
+#if !defined(NDEBUG)
+  /* turn-off redirected memory allocations */
+  libxs_malloc_kind = 0;
+#endif
+}
+
+
 LIBXS_API_INTERN void internal_finalize(void);
 LIBXS_API_INTERN void internal_finalize(void)
 {
@@ -512,9 +525,7 @@ LIBXS_API_INTERN void internal_finalize(void)
     LIBXS_STDIO_RELEASE(); /* synchronize I/O */
   }
   /* release scratch memory pool */
-  libxs_xrelease_scratch(NULL/*lock*/);
-  /* release global services */
-  libxs_hash_finalize();
+  atexit(internal_release_scratch);
 #if defined(_WIN32)
   if (NULL != internal_singleton_handle)
 #else
@@ -556,8 +567,6 @@ LIBXS_API_INTERN void internal_finalize(void)
     close(internal_singleton_handle);
 #endif
   }
-  /* turn-off redirected memory allocations */
-  libxs_malloc_kind = 0;
   /* signal shutdown */
   libxs_ninit = 0;
 #if (0 != LIBXS_SYNC)
@@ -619,7 +628,10 @@ LIBXS_API_INTERN void internal_init(void)
 # endif
 #endif
   if (NULL == internal_registry) { /* double-check after acquiring the lock(s) */
-    libxs_code_pointer* new_registry = NULL;
+    void *new_registry = NULL, *new_keys = &internal_registry_keys;
+#if defined(LIBXS_CACHE_GLOBAL) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+    void* new_cache = &internal_cache_buffer;
+#endif
     /* setup verbosity as early as possible since below code may rely on verbose output */
     const char *const env_verbose = getenv("LIBXS_VERBOSE");
     if (NULL != env_verbose && 0 != *env_verbose) {
@@ -689,12 +701,12 @@ LIBXS_API_INTERN void internal_init(void)
     libxs_hash_init(libxs_target_archid); /* used by debug memory allocation (checksum) */
     if (
 #if defined(LIBXS_CACHE_GLOBAL) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-      (EXIT_SUCCESS == libxs_xmalloc((void**)&internal_cache_buffer, (LIBXS_MAX_NTHREADS) * sizeof(internal_cache_type), LIBXS_CACHELINE/*alignment*/,
+      (EXIT_SUCCESS == libxs_xmalloc((void**)new_cache, (LIBXS_MAX_NTHREADS) * sizeof(internal_cache_type), LIBXS_CACHELINE/*alignment*/,
         LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/)) &&
 #endif
-      (EXIT_SUCCESS == libxs_xmalloc((void**)&new_registry, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer), 0/*auto-align*/,
+      (EXIT_SUCCESS == libxs_xmalloc(&new_registry, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer), 0/*auto-align*/,
         LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/)) &&
-      (EXIT_SUCCESS == libxs_xmalloc((void**)&internal_registry_keys, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_descriptor), 0/*auto-align*/,
+      (EXIT_SUCCESS == libxs_xmalloc((void**)new_keys, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_descriptor), 0/*auto-align*/,
         LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/)))
     {
       LIBXS_ASSERT(NULL != new_registry && NULL != internal_registry_keys);
@@ -727,7 +739,7 @@ LIBXS_API_INTERN void internal_init(void)
           }
         }
       }
-      for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) new_registry[i].pmm = NULL;
+      for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) ((libxs_code_pointer*)new_registry)[i].pmm = NULL;
 #if defined(LIBXS_BUILD)
 #     include <libxs_dispatch.h>
 #endif
@@ -1024,7 +1036,6 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 #endif
   }
 }
-
 
 
 LIBXS_API void libxs_sink(LIBXS_VARIADIC)

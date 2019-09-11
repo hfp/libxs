@@ -81,6 +81,8 @@ int main(void)
     if (0 != (((uintptr_t)p) % palign)) {
       ++nerrors;
     }
+    c = (unsigned char*)p;
+    for (i = size; i < (size * 2); ++i) c[i] = (unsigned char)LIBXS_MOD2(i, 256);
     /* reallocate again with same size */
     p = libxs_realloc(size * 2, p);
     /* check that alignment is preserved */
@@ -88,7 +90,7 @@ int main(void)
       ++nerrors;
     }
     c = (unsigned char*)p;
-    for (i = 0; i < size; ++i) { /* check that content is preserved */
+    for (i = 0; i < (size * 2); ++i) { /* check that content is preserved */
       nerrors += (c[i] == (unsigned char)LIBXS_MOD2(i, 256) ? 0 : 1);
     }
     /* reallocate with smaller size */
@@ -138,11 +140,9 @@ int main(void)
   libxs_free(p);
 
   /* check foreign memory */
-  p = malloc(size);
-  if (NULL != p && EXIT_SUCCESS == libxs_get_malloc_info(p, &malloc_info)) {
+  if (EXIT_SUCCESS == libxs_get_malloc_info(&size/*faulty pointer*/, &malloc_info)) {
     ++nerrors;
   }
-  free(p);
 
   return 0 == nerrors ? EXIT_SUCCESS : EXIT_FAILURE;
 }

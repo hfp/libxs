@@ -224,6 +224,9 @@
 #   if !defined(LIBXS_STATIC_TARGET_ARCH)
 #     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_GENERIC
 #   endif
+#   if defined(__GNUC__)
+#     define LIBXS_INTRINSICS_INCLUDE
+#   endif
 # endif
 # if defined(LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_INTRINSICS_STATIC)
 #   if defined(__INTEL_COMPILER)
