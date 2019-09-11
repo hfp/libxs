@@ -584,6 +584,14 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_rnncell {
   int fwd_generic;
   int bwdupd_generic;
   /* barrier */
+  /* Ability to hoist GEMMs */
+  libxs_bsmmfunction_reducebatch_strd fwd_kernela;
+  libxs_bsmmfunction_reducebatch_strd fwd_kernelb;
+  libxs_bsmmfunction_reducebatch_strd bwdupd_kernela;
+  libxs_bsmmfunction_reducebatch_strd bwdupd_kernelb;
+  libxs_bsmmfunction_reducebatch_strd bwdupd_kernelc;
+  libxs_bsmmfunction_reducebatch_strd bwdupd_kerneld;
+
   libxs_barrier* barrier; /* barrier */
 };
 
