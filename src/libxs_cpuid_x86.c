@@ -32,6 +32,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <limits.h>
 #include <stdio.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
@@ -83,80 +84,83 @@
 LIBXS_API int libxs_cpuid_x86(void)
 {
 #if defined(LIBXS_INTRINSICS_DEBUG)
-  int target_arch = LIBXS_X86_GENERIC;
+  int result = LIBXS_X86_GENERIC;
 #else
-  int target_arch = LIBXS_STATIC_TARGET_ARCH;
+  int result = LIBXS_STATIC_TARGET_ARCH;
 #endif
 #if defined(LIBXS_PLATFORM_SUPPORTED)
   unsigned int eax, ebx, ecx, edx;
   LIBXS_CPUID_X86(0, 0/*ecx*/, eax, ebx, ecx, edx);
   if (1 <= eax) { /* CPUID max. leaf */
-    const unsigned int maxleaf = eax;
-    static int error_once = 0;
+    int feature_cpu = result, feature_os = result;
+    unsigned int maxleaf = eax, ecx2, ecx3;
     LIBXS_CPUID_X86(1, 0/*ecx*/, eax, ebx, ecx, edx);
     /* Check for CRC32 (this is not a proper test for SSE 4.2 as a whole!) */
     if (LIBXS_CPUID_CHECK(ecx, 0x00100000)) {
-      target_arch = LIBXS_X86_SSE4;
-    }
-    /* XSAVE/XGETBV(0x04000000), OSXSAVE(0x08000000) */
-    if (LIBXS_CPUID_CHECK(ecx, 0x0C000000)) {
-      LIBXS_XGETBV(0, eax, edx);
-      if (LIBXS_CPUID_CHECK(eax, 0x00000006)) { /* OS XSAVE 256-bit */
-        if (7 <= maxleaf && LIBXS_CPUID_CHECK(eax, 0x000000E0)) { /* OS XSAVE 512-bit */
-          LIBXS_CPUID_X86(7, 0/*ecx*/, eax, ebx, ecx, edx);
+      if (LIBXS_CPUID_CHECK(ecx, 0x10000000)) { /* AVX(0x10000000) */
+        if (LIBXS_CPUID_CHECK(ecx, 0x00001000)) { /* FMA(0x00001000) */
+          LIBXS_CPUID_X86(7, 0/*ecx*/, eax, ebx, ecx2, edx);
           /* AVX512F(0x00010000), AVX512CD(0x10000000) */
           if (LIBXS_CPUID_CHECK(ebx, 0x10010000)) { /* Common */
             /* AVX512DQ(0x00020000), AVX512BW(0x40000000), AVX512VL(0x80000000) */
             if (LIBXS_CPUID_CHECK(ebx, 0xC0020000)) { /* AVX512-Core */
-              if (LIBXS_CPUID_CHECK(ecx, 0x00000800)) { /* VNNI */
-                LIBXS_CPUID_X86(7, 1/*ecx*/, eax, ebx, ecx, edx);
+              if (LIBXS_CPUID_CHECK(ecx2, 0x00000800)) { /* VNNI */
+                LIBXS_CPUID_X86(7, 1/*ecx*/, eax, ebx, ecx3, edx);
                 if (LIBXS_CPUID_CHECK(eax, 0x00000020)) { /* BF16 */
-                  target_arch = LIBXS_X86_AVX512_CPX;
+                  feature_cpu = LIBXS_X86_AVX512_CPX;
                 }
-                else { /* CLX */
-                  target_arch = LIBXS_X86_AVX512_CLX;
-                }
+                else feature_cpu = LIBXS_X86_AVX512_CLX; /* CLX */
               }
-              else { /* SKX */
-                target_arch = LIBXS_X86_AVX512_CORE;
-              }
+              else feature_cpu = LIBXS_X86_AVX512_CORE; /* SKX */
             }
             /* AVX512PF(0x04000000), AVX512ER(0x08000000) */
             else if (LIBXS_CPUID_CHECK(ebx, 0x0C000000)) { /* AVX512-MIC */
               if (LIBXS_CPUID_CHECK(edx, 0x0000000C)) { /* KNM */
-                target_arch = LIBXS_X86_AVX512_KNM;
+                feature_cpu = LIBXS_X86_AVX512_KNM;
               }
-              else { /* KNL */
-                target_arch = LIBXS_X86_AVX512_MIC;
-              }
+              else feature_cpu = LIBXS_X86_AVX512_MIC; /* KNL */
             }
-            else { /* AVX512-Common */
-              target_arch = LIBXS_X86_AVX512;
-            }
+            else feature_cpu = LIBXS_X86_AVX512; /* AVX512-Common */
           }
+          else feature_cpu = LIBXS_X86_AVX2;
         }
-        else if (LIBXS_CPUID_CHECK(ecx, 0x10000000)) { /* AVX(0x10000000) */
-          if (LIBXS_CPUID_CHECK(ecx, 0x00001000)) { /* FMA(0x00001000) */
-            target_arch = LIBXS_X86_AVX2;
-          }
-          else {
-            target_arch = LIBXS_X86_AVX;
+        else feature_cpu = LIBXS_X86_AVX;
+      }
+      else feature_cpu = LIBXS_X86_SSE4;
+    }
+    /* XSAVE/XGETBV(0x04000000), OSXSAVE(0x08000000) */
+    if (LIBXS_X86_SSE3 <= feature_cpu && LIBXS_CPUID_CHECK(ecx, 0x0C000000)) { /* OS SSE support */
+      feature_os = LIBXS_X86_SSE4;
+      if (LIBXS_X86_AVX <= feature_cpu) {
+        LIBXS_XGETBV(0, eax, edx);
+        if (LIBXS_CPUID_CHECK(eax, 0x00000006)) { /* OS XSAVE 256-bit */
+          feature_os = LIBXS_X86_AVX2;
+          if (LIBXS_X86_AVX512 <= feature_cpu && 7 <= maxleaf
+           && LIBXS_CPUID_CHECK(eax, 0x000000E0)) /* OS XSAVE 512-bit */
+          {
+            feature_os = INT_MAX; /* unlimited */
           }
         }
       }
     }
-    else if (LIBXS_STATIC_TARGET_ARCH < target_arch &&
-      0 != libxs_verbosity && 1 == ++error_once) /* library code is expected to be mute */
+    else feature_os = LIBXS_X86_GENERIC;
+#if 0
+    result = LIBXS_MIN(feature_os, feature_cpu);
+#else
+    if (LIBXS_STATIC_TARGET_ARCH < feature_cpu && feature_os < feature_cpu
+      && 0 != libxs_verbosity) /* library code is expected to be mute */
     {
       fprintf(stderr, "LIBXS WARNING: detected CPU features are not permitted by the OS!\n");
     }
+    result = feature_cpu;
+#endif
   }
 #endif
 #if defined(LIBXS_INTRINSICS_DEBUG)
-  return target_arch;
+  return result;
 #else /* check if procedure obviously failed to detect the highest available instruction set extension */
-  LIBXS_ASSERT(LIBXS_STATIC_TARGET_ARCH <= target_arch);
-  return LIBXS_MAX(target_arch, LIBXS_STATIC_TARGET_ARCH);
+  LIBXS_ASSERT(LIBXS_STATIC_TARGET_ARCH <= result);
+  return LIBXS_MAX(result, LIBXS_STATIC_TARGET_ARCH);
 #endif
 }
 
@@ -169,55 +173,55 @@ LIBXS_API int libxs_cpuid(void)
 
 LIBXS_API const char* libxs_cpuid_name(int id)
 {
-  const char* target_arch = NULL;
+  const char* feature_cpu = NULL;
   switch (id) {
     case LIBXS_X86_AVX512_CPX: {
-      target_arch = "cpx";
+      feature_cpu = "cpx";
     } break;
     case LIBXS_X86_AVX512_CLX: {
-      target_arch = "clx";
+      feature_cpu = "clx";
     } break;
     case LIBXS_X86_AVX512_CORE: {
-      target_arch = "skx";
+      feature_cpu = "skx";
     } break;
     case LIBXS_X86_AVX512_KNM: {
-      target_arch = "knm";
+      feature_cpu = "knm";
     } break;
     case LIBXS_X86_AVX512_MIC: {
-      target_arch = "knl";
+      feature_cpu = "knl";
     } break;
     case LIBXS_X86_AVX512: {
-      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "avx3") */
-      target_arch = "hsw";
+      /* TODO: rework BE to use target ID instead of set of strings (feature_cpu = "avx3") */
+      feature_cpu = "hsw";
     } break;
     case LIBXS_X86_AVX2: {
-      target_arch = "hsw";
+      feature_cpu = "hsw";
     } break;
     case LIBXS_X86_AVX: {
-      target_arch = "snb";
+      feature_cpu = "snb";
     } break;
     case LIBXS_X86_SSE4: {
-      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "sse4") */
-      target_arch = "wsm";
+      /* TODO: rework BE to use target ID instead of set of strings (feature_cpu = "sse4") */
+      feature_cpu = "wsm";
     } break;
     case LIBXS_X86_SSE3: {
       /* WSM includes SSE4, but BE relies on SSE3 only,
        * hence we enter "wsm" path starting with SSE3.
        */
-      target_arch = "wsm";
+      feature_cpu = "wsm";
     } break;
     case LIBXS_TARGET_ARCH_GENERIC: {
-      target_arch = "generic";
+      feature_cpu = "generic";
     } break;
     default: if (LIBXS_X86_GENERIC <= id) {
-      target_arch = "x86";
+      feature_cpu = "x86";
     }
     else {
-      target_arch = "unknown";
+      feature_cpu = "unknown";
     }
   }
 
-  LIBXS_ASSERT(NULL != target_arch);
-  return target_arch;
+  LIBXS_ASSERT(NULL != feature_cpu);
+  return feature_cpu;
 }
 
