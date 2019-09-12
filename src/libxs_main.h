@@ -55,8 +55,8 @@
 #if !defined(LIBXS_MALLOC_SCRATCH_SCALE)
 # define LIBXS_MALLOC_SCRATCH_SCALE 1.0
 #endif
-#if !defined(LIBXS_MALLOC_LIMIT) && 1
-# define LIBXS_MALLOC_LIMIT (2U << 20)
+#if !defined(LIBXS_MALLOC_LIMIT)
+# define LIBXS_MALLOC_LIMIT (16U << 10) /* 16 KB */
 #endif
 #if !defined(LIBXS_MALLOC_INTERNAL_CALLER_ID)
 # define LIBXS_MALLOC_INTERNAL_CALLER_ID ((uintptr_t)-1)
