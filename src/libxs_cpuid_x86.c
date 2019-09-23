@@ -173,55 +173,55 @@ LIBXS_API int libxs_cpuid(void)
 
 LIBXS_API const char* libxs_cpuid_name(int id)
 {
-  const char* feature_cpu = NULL;
+  const char* target_arch = NULL;
   switch (id) {
     case LIBXS_X86_AVX512_CPX: {
-      feature_cpu = "cpx";
+      target_arch = "cpx";
     } break;
     case LIBXS_X86_AVX512_CLX: {
-      feature_cpu = "clx";
+      target_arch = "clx";
     } break;
     case LIBXS_X86_AVX512_CORE: {
-      feature_cpu = "skx";
+      target_arch = "skx";
     } break;
     case LIBXS_X86_AVX512_KNM: {
-      feature_cpu = "knm";
+      target_arch = "knm";
     } break;
     case LIBXS_X86_AVX512_MIC: {
-      feature_cpu = "knl";
+      target_arch = "knl";
     } break;
     case LIBXS_X86_AVX512: {
-      /* TODO: rework BE to use target ID instead of set of strings (feature_cpu = "avx3") */
-      feature_cpu = "hsw";
+      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "avx3") */
+      target_arch = "hsw";
     } break;
     case LIBXS_X86_AVX2: {
-      feature_cpu = "hsw";
+      target_arch = "hsw";
     } break;
     case LIBXS_X86_AVX: {
-      feature_cpu = "snb";
+      target_arch = "snb";
     } break;
     case LIBXS_X86_SSE4: {
-      /* TODO: rework BE to use target ID instead of set of strings (feature_cpu = "sse4") */
-      feature_cpu = "wsm";
+      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "sse4") */
+      target_arch = "wsm";
     } break;
     case LIBXS_X86_SSE3: {
       /* WSM includes SSE4, but BE relies on SSE3 only,
        * hence we enter "wsm" path starting with SSE3.
        */
-      feature_cpu = "wsm";
+      target_arch = "wsm";
     } break;
     case LIBXS_TARGET_ARCH_GENERIC: {
-      feature_cpu = "generic";
+      target_arch = "generic";
     } break;
     default: if (LIBXS_X86_GENERIC <= id) {
-      feature_cpu = "x86";
+      target_arch = "x86";
     }
     else {
-      feature_cpu = "unknown";
+      target_arch = "unknown";
     }
   }
 
-  LIBXS_ASSERT(NULL != feature_cpu);
-  return feature_cpu;
+  LIBXS_ASSERT(NULL != target_arch);
+  return target_arch;
 }
 

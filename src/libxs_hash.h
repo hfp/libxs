@@ -31,7 +31,12 @@
 
 #include <libxs.h>
 
+/* Map number of Bits to corresponding routine. */
+#define LIBXS_CRC32U(N) LIBXS_CONCATENATE(libxs_crc32_u, N)
 /* Map number of Bytes to number of bits. */
+#define LIBXS_CRC32(N) LIBXS_CONCATENATE(libxs_crc32_b, N)
+#define libxs_crc32_b4 libxs_crc32_u32
+#define libxs_crc32_b8 libxs_crc32_u64
 #define libxs_crc32_b16 libxs_crc32_u128
 #define libxs_crc32_b32 libxs_crc32_u256
 #define libxs_crc32_b48 libxs_crc32_u384

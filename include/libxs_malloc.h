@@ -31,6 +31,10 @@
 
 #include "libxs_mem.h"
 
+/** Can be used with libxs_[get|set]_scratch_limit. */
+#define LIBXS_SCRATCH_UNLIMITED ((size_t)LIBXS_UNLIMITED)
+#define LIBXS_SCRATCH_DEFAULT 0
+
 
 /** Function types accepted for memory allocation (see libxs_*_allocator). */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void* (*libxs_malloc_ctx)(size_t /*size*/, const void* /*context*/);
@@ -152,12 +156,28 @@ LIBXS_API int libxs_get_scratch_info(libxs_scratch_info* info);
 
 /**
  * Limit the total size (Bytes) of the scratch memory.
- * The environment variable LIBXS_SCRATCH_LIMIT takes
- * the following units: none (Bytes), k/K, m/M, and g/G.
+ * LIBXS_SCRATCH_UNLIMITED removes any limit, and
+ * LIBXS_SCRATCH_DEFAULT populates the default.
+ * The related environment variable LIBXS_SCRATCH_LIMIT
+ * allows units: <none>/b/B (Bytes), k/K, m/M, and g/G.
  */
 LIBXS_API void libxs_set_scratch_limit(size_t nbytes);
 /** Get the maximum size of the scratch memory domain. */
 LIBXS_API size_t libxs_get_scratch_limit(void);
+
+/**
+ * Intercepts malloc/free to use scratch memory allocator.
+ * (related environment variable LIBXS_MALLOC).
+ * Optionally set the range of malloc-sizes to be intercepted.
+ * The related environment variable LIBXS_MALLOC_LIMIT
+ * allows units: <none>/b/B (Bytes), k/K, m/M, and g/G.
+ */
+LIBXS_API void libxs_set_malloc(int enabled, const size_t* lo, const size_t* hi);
+/**
+ * Determines if malloc/free are (and can be) intercepted.
+ * Optionally gets the range of enabled malloc-sizes.
+ */
+LIBXS_API int libxs_get_malloc(size_t* lo, size_t* hi);
 
 /**
  * Calculate the linear offset of the n-dimensional (ndims) offset (can be NULL),
