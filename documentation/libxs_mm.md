@@ -153,7 +153,7 @@ Intercepted GEMMs can also build a sophisticated statistic (histogram) with LIBX
 
 #### Static Linkage
 
-An application which is linked statically against BLAS requires to wrap the 'sgemm_' and the 'dgemm_' symbol (an alternative is to wrap only 'dgemm_'). To relink the application (without editing the build system) can often be accomplished by copying and pasting the linker command as it appeared in the console output of the build system, and then re-invoking a modified link step:
+An application which is linked statically against BLAS requires to wrap the 'sgemm_' and the 'dgemm_' symbol (an alternative is to wrap only 'dgemm_'). To relink the application (without editing the build system) can often be accomplished by copying and pasting the linker command as it appeared in the console output of the build system, and then re-invoking a modified link step (please also consider `-Wl,--export-dynamic`).
 
 ```bash
 gcc [...] -Wl,--wrap=dgemm_,--wrap=sgemm_ \
@@ -180,8 +180,8 @@ Above, GEMM and GEMM_BATCH are intercepted both, however this can be chosen inde
 An application that is dynamically linked against BLAS allows to intercept the GEMM calls at startup time (runtime) of the unmodified executable by using the LD_PRELOAD mechanism. The shared library of LIBXSext (`make STATIC=0`) can be used to intercept GEMM calls:
 
 ```bash
-LD_PRELOAD=/path/to/libxs/lib/libxsext.so \
 LD_LIBRARY_PATH=/path/to/libxs/lib:${LD_LIBRARY_PATH} \
+LD_PRELOAD=libxsext.so \
    ./myapplication
 ```
 

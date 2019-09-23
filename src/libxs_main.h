@@ -49,17 +49,14 @@
 #if !defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
 # define LIBXS_MALLOC_SCRATCH_MAX_NPOOLS LIBXS_MAX_NTHREADS
 #endif
-#if !defined(LIBXS_MALLOC_SCRATCH_LIMIT)
-# define LIBXS_MALLOC_SCRATCH_LIMIT 0xFFFFFFFF /* ~4 GB */
-#endif
 #if !defined(LIBXS_MALLOC_SCRATCH_SCALE)
 # define LIBXS_MALLOC_SCRATCH_SCALE 1.0
 #endif
 #if !defined(LIBXS_MALLOC_LIMIT)
-# define LIBXS_MALLOC_LIMIT (16U << 10) /* 16 KB */
+# define LIBXS_MALLOC_LIMIT (2U << 20) /* 2 MB */
 #endif
 #if !defined(LIBXS_MALLOC_INTERNAL_CALLER_ID)
-# define LIBXS_MALLOC_INTERNAL_CALLER_ID ((uintptr_t)-1)
+# define LIBXS_MALLOC_INTERNAL_CALLER_ID ((uintptr_t)LIBXS_UNLIMITED)
 #endif
 #if !defined(LIBXS_MALLOC_INTERNAL_CALLER)
 # define LIBXS_MALLOC_INTERNAL_CALLER ((const void*)(LIBXS_MALLOC_INTERNAL_CALLER_ID))
@@ -98,10 +95,7 @@
 
 /** Check if M, N, K, or LDx fits into the descriptor. */
 #if (0 != LIBXS_ILP64)
-# define LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) ( \
-    ((unsigned int)(-1)) >= ((unsigned int)(M)) && \
-    ((unsigned int)(-1)) >= ((unsigned int)(N)) && \
-    ((unsigned int)(-1)) >= ((unsigned int)(K)))
+# define LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) (0xFFFFFFFF >= (M) && 0xFFFFFFFF >= (N) && 0xFFFFFFFF >= (K))
 #else /* always fits */
 # define LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) 1
 #endif
@@ -688,6 +682,10 @@ LIBXS_API int libxs_cast(libxs_datatype datatype, double dvalue, void* value);
 /** Retrieve internal information about a buffer (default memory domain). */
 LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flags, void** extra);
 
+/** Initializes malloc hooks and other internals. */
+LIBXS_API_INTERN void libxs_malloc_init(void);
+LIBXS_API_INTERN void libxs_malloc_finalize(void);
+
 /** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */
 LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment);
 
@@ -765,14 +763,8 @@ LIBXS_APIVAR(const void* libxs_default_allocator_context);
 LIBXS_APIVAR(const void* libxs_scratch_allocator_context);
 /** Number of scratch memory pools used; clamped against internal maximum. */
 LIBXS_APIVAR(unsigned int libxs_scratch_pools);
-/** Maximum total size of the scratch memory domain. */
-LIBXS_APIVAR(size_t libxs_scratch_limit);
 /** Growth factor used to scale the scratch memory in case of reallocation. */
 LIBXS_APIVAR(double libxs_scratch_scale);
-/** Minimum number of bytes needed for interception (libxs_malloc_kind) */
-LIBXS_APIVAR_ARRAY(size_t libxs_malloc_limit, 2);
-/** 0: regular, 1/odd: intercept/scratch, otherwise: all/scratch */
-LIBXS_APIVAR(int libxs_malloc_kind);
 /** Counts the number of attempts to create an SPMDM-handle */
 LIBXS_APIVAR(unsigned int libxs_statistic_num_spmdm);
 /** Number of seconds per RDTSC-cycle (zero if RDTSC is not used for wall-clock) */
