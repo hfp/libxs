@@ -169,8 +169,7 @@ bazel-bin/tensorflow/models/convnetbenchmarks/benchmark_alexnet \
 
 ### Running Inception-v3
 
-This section may be outdated, or data source may have moved to a different location! To run Inception-v3 inference on the ImageNet dataset, please follow the instructions at the following [link](https://github.com/tensorflow/models/blob/master/inception/README.md#getting-started) to download and preprocess the Inception-v3 dataset:
-The relevant part of the instructions are duplicated below for convenience.
+This section may be outdated, or data source may have moved to a different location! To run Inception-v3 inference on the ImageNet dataset, please follow the [instructions](https://github.com/tensorflow/models/tree/master/research/inception#getting-started) to download and preprocess the Inception-v3 dataset. The relevant part of the instructions are duplicated below for convenience.
 
 ```bash
 # location of where to place the ImageNet data
