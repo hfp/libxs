@@ -82,7 +82,8 @@
 #if !defined(LIBXS_CACHE_PAD) && 1
 # define LIBXS_CACHE_PAD
 #endif
-#if !defined(LIBXS_CACHE_GLOBAL) && 1
+#if !defined(LIBXS_CACHE_GLOBAL) && \
+    !defined(_CRAYC) /* investigate */
 # define LIBXS_CACHE_GLOBAL
 #endif
 #if !defined(LIBXS_ENABLE_DEREG) && 0
