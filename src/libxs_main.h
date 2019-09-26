@@ -107,7 +107,9 @@
 #endif
 
 #if defined(LIBXS_UNPACKED)
-# define LIBXS_DESCRIPTOR_CLEAR(BLOB) memset(BLOB, 0, LIBXS_DESCRIPTOR_MAXSIZE)
+# define LIBXS_DESCRIPTOR_CLEAR(BLOB) \
+  LIBXS_ASSERT((LIBXS_DESCRIPTOR_MAXSIZE) == sizeof(*(BLOB))); \
+  memset(BLOB, 0, LIBXS_DESCRIPTOR_MAXSIZE)
 #else
 # define LIBXS_DESCRIPTOR_CLEAR(BLOB) LIBXS_ASSERT(BLOB)
 #endif
@@ -123,7 +125,7 @@
     | (LIBXS_NEQ(0, BETA) ? 0 : LIBXS_GEMM_FLAG_BETA_0)); \
   (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
   (DESCRIPTOR).lda = (unsigned int)(LDA); (DESCRIPTOR).ldb = (unsigned int)(LDB); (DESCRIPTOR).ldc = (unsigned int)(LDC); \
-  (DESCRIPTOR).pad = 0; (DESCRIPTOR).c1 = 0; (DESCRIPTOR).c2 = 0; (DESCRIPTOR).c3 = 0
+  LIBXS_PAD((DESCRIPTOR).pad = 0) (DESCRIPTOR).c1 = 0; (DESCRIPTOR).c2 = 0; (DESCRIPTOR).c3 = 0
 
 /** Similar to LIBXS_GEMM_DESCRIPTOR, but separately taking the input-/output-precision. */
 #define LIBXS_GEMM_DESCRIPTOR2(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
@@ -165,7 +167,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
   /** Leading dimensions. */
   unsigned int lda, ldb, ldc;
   /** Ignored entry. */
-  unsigned int pad;
+  LIBXS_PAD(unsigned int pad)
   /** multipurpose 64bit field, currently used for: a) stride_a in brgemm */
   unsigned long long c1;
   /** multipurpose 64bit field, currently used for: a) stride_b in brgemm */
@@ -670,14 +672,14 @@ typedef enum libxs_malloc_flags {
       LIBXS_MALLOC_FLAG_MMAP    | LIBXS_MALLOC_FLAG_RWX
 } libxs_malloc_flags;
 
-/** Returns the type-size of data-type (can be also libxs_gemm_precision). */
-LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
+/** Format for instance an amount of Bytes like libxs_format_size(nbytes, "KMGT", "B", 10). */
+LIBXS_API_INTERN const char* libxs_format_size(size_t nbytes, const char scale[], const char* unit, int base);
 
 /** Returns the type-name of data-type (can be also libxs_gemm_precision). */
-LIBXS_API const char* libxs_typename(libxs_datatype datatype);
+LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype);
 
-/** Determines the generic value given in double-precision. */
-LIBXS_API int libxs_cast(libxs_datatype datatype, double dvalue, void* value);
+/** Returns the type-size of data-type (can be also libxs_gemm_precision). */
+LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 
 /** Retrieve internal information about a buffer (default memory domain). */
 LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flags, void** extra);
