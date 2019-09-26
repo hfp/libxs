@@ -33,7 +33,6 @@ libxs_bsgemm_
 libxs_bsgemm_descriptor_init
 libxs_bsmmdispatch
 libxs_bsmmdispatch_reducebatch
-libxs_cast
 libxs_convert_bf16_f32
 libxs_cpuid
 libxs_cpuid_name
@@ -405,7 +404,6 @@ libxs_trans_descriptor_init
 libxs_trmm_descriptor_init
 libxs_trsm_descriptor_init
 libxs_truncate_convert_f32_bf16
-libxs_typename
 libxs_typesize
 libxs_wigemm
 libxs_wigemm0

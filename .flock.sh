@@ -27,7 +27,6 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        #
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              #
 #############################################################################
-
 FLOCK=$(command -v flock)
 
 if [ -d $1 ]; then
@@ -41,8 +40,8 @@ fi
 shift
 cd ${ABSDIR}
 if [ "" != "${FLOCK}" ]; then
-  ${FLOCK} ${ABSDIR} bash -c "$*"
+  ${FLOCK} ${ABSDIR} -c "$@"
 else
-  eval "$*"
+  eval "$@"
 fi
 
