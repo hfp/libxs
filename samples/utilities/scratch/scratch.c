@@ -50,7 +50,7 @@
 #elif defined(_OPENMP) && defined(LIBXS_INTEL_COMPILER) && (1901 > LIBXS_INTEL_COMPILER)
 # define MALLOC kmp_malloc
 # define FREE kmp_free
-#else
+#elif 1
 # define MALLOC malloc
 # define FREE free
 #endif
@@ -147,6 +147,7 @@ int main(int argc, char* argv[])
       libxs_release_scratch(); /* suppress LIBXS's termination message about scratch */
     }
 
+#if (defined(MALLOC) && defined(FREE))
     longlife = (0 == enable_longlife ? NULL : MALLOC((MAX_MALLOC_MB) << 20));
     if (NULL == longlife) max_size += MAX_MALLOC_MB;
 #if defined(_OPENMP)
@@ -173,7 +174,7 @@ int main(int argc, char* argv[])
       for (j = 0; j < count; ++j) FREE(p[j]);
     }
     FREE(longlife);
-
+#endif /*(defined(MALLOC) && defined(FREE))*/
     if (0 != d0 && 0 != d1 && 0 < nallocs) {
       const double dcalls = libxs_timer_duration(0, d0);
       const double dalloc = libxs_timer_duration(0, d1);
