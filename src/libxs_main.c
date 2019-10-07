@@ -175,6 +175,15 @@ LIBXS_APIVAR(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
     RESULT_INDEX = (unsigned char)LIBXS_MOD2((CACHE_HIT) + ((CACHE_SIZE) - 1), CACHE_SIZE)
 #endif
 
+#define INTERNAL_MEMCPY127(PTRDST, PTRSRC) { \
+  const unsigned char *const internal_memcpy127_src_ = (const unsigned char*)(PTRSRC); \
+  unsigned char *const internal_memcpy127_dst_ = (unsigned char*)(PTRDST); signed char internal_memcpy127_i_; \
+  LIBXS_ASSERT(sizeof(*(PTRSRC)) <= sizeof(*(PTRDST)) && sizeof(*(PTRSRC)) <= 127); \
+  for (internal_memcpy127_i_ = 0; internal_memcpy127_i_ < (signed char)sizeof(*(PTRSRC)); ++internal_memcpy127_i_) { \
+    internal_memcpy127_dst_[internal_memcpy127_i_] = internal_memcpy127_src_[internal_memcpy127_i_]; \
+  } \
+}
+
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
   unsigned int ntry, ncol, njit, nsta;
 } internal_statistic_type;
@@ -427,7 +436,7 @@ LIBXS_API_INLINE void internal_register_static_code(
     }
     if (NULL == dst_entry->ptr_const) { /* registry not exhausted */
       internal_registry_keys[i].kind = LIBXS_KERNEL_KIND_MATMUL;
-      internal_registry_keys[i].gemm.desc = *desc;
+      INTERNAL_MEMCPY127(&internal_registry_keys[i].gemm.desc, desc);
       dst_entry->xgemm = xgemm;
       /* mark current entry as static code (non-JIT) */
       dst_entry->uval |= LIBXS_CODE_STATIC;
@@ -610,7 +619,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void _gfortran_stop_string(const char* message, i
     if (NULL != stop.dlsym) {
       stop.ptr(message, len, quiet);
     }
-    else exit(EXIT_FAILURE); /* statically linked runtime */
+    else exit(EXIT_SUCCESS); /* statically linked runtime */
   }
 }
 
@@ -625,7 +634,22 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core(const char* message, int len)
     if (NULL != stop.dlsym) {
       stop.ptr(message, len);
     }
-    else exit(EXIT_FAILURE); /* statically linked runtime */
+    else exit(EXIT_SUCCESS); /* statically linked runtime */
+  }
+}
+
+LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void);
+LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void)
+{ /* STOP termination handler for Intel Fortran runtime */
+  static int once = 0;
+  if (1 == LIBXS_ATOMIC_ADD_FETCH(&once, 1, LIBXS_ATOMIC_RELAXED)) {
+    union { const void* dlsym; void (*ptr)(void); } stop;
+    dlerror(); /* clear an eventual error status */
+    stop.dlsym = dlsym(RTLD_NEXT, "for_stop_core_quiet");
+    if (NULL != stop.dlsym) {
+      stop.ptr();
+    }
+    else exit(EXIT_SUCCESS); /* statically linked runtime */
   }
 }
 #endif
@@ -1432,16 +1456,16 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   char jit_name[256] = { 0 };
 
   /* large enough temporary buffer for generated code */
-#if defined(NDEBUG)
+# if defined(NDEBUG)
   char jit_buffer[LIBXS_CODE_MAXSIZE];
   memset(&generated_code, 0, sizeof(generated_code));
   generated_code.generated_code = jit_buffer;
   generated_code.buffer_size = sizeof(jit_buffer);
-#else
+# else
   memset(&generated_code, 0, sizeof(generated_code));
   generated_code.generated_code = malloc(LIBXS_CODE_MAXSIZE);
   generated_code.buffer_size = (NULL != generated_code.generated_code ? LIBXS_CODE_MAXSIZE : 0);
-#endif
+# endif
   /* setup code generation */
   generated_code.code_type = 2;
   generated_code.arch = libxs_target_archid;
@@ -1453,8 +1477,10 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   switch (request->kind) { /* generate kernel */
     case LIBXS_BUILD_KIND_GEMM: { /* small MxM kernel */
       LIBXS_ASSERT(NULL != request->descriptor.gemm);
+# if 0 /* dummy kernel for an empty shape is desired */
       if (0 < request->descriptor.gemm->m   && 0 < request->descriptor.gemm->n   && 0 < request->descriptor.gemm->k &&
           0 < request->descriptor.gemm->lda && 0 < request->descriptor.gemm->ldb && 0 < request->descriptor.gemm->ldc)
+# endif
       {
         const unsigned int m = request->descriptor.gemm->m, n = request->descriptor.gemm->n, k = request->descriptor.gemm->k;
 # if !defined(LIBXS_DENY_RETARGET) /* disable: ECFLAGS=-DLIBXS_DENY_RETARGET */
@@ -1633,7 +1659,10 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     } break;
     case LIBXS_BUILD_KIND_MCOPY: { /* matcopy kernel */
       LIBXS_ASSERT(NULL != request->descriptor.mcopy);
-      if (4 == request->descriptor.mcopy->typesize) {
+# if 0 /* TODO: backend supports typesize <= 4, but kernels for typesize < 4 are incorrect */
+      if (4 == request->descriptor.mcopy->typesize)
+# endif
+      {
         LIBXS_NO_OFFLOAD(void, libxs_generator_matcopy_kernel, &generated_code, request->descriptor.mcopy, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1801,10 +1830,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 #if defined(LIBXS_DESC_PAD)
 LIBXS_API_INLINE void internal_pad_descriptor(libxs_descriptor* desc, size_t size)
 {
-  size_t i = size;
-  size = LIBXS_MAX(LIBXS_DIFF_SIZE, LIBXS_HASH_SIZE);
-  LIBXS_ASSERT(NULL != desc && i <= size && size <= LIBXS_DESCRIPTOR_MAXSIZE);
-  for (; i < size; ++i) desc->data[i] = 0;
+  const signed char s = (signed char)LIBXS_MAX(LIBXS_DIFF_SIZE, LIBXS_HASH_SIZE); signed char i;
+  LIBXS_ASSERT(NULL != desc && s <= LIBXS_DESCRIPTOR_MAXSIZE);
+  for (i = (signed char)size; i < s; ++i) desc->data[i] = 0;
 }
 #endif
 
@@ -1957,7 +1985,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
             if (EXIT_SUCCESS == build && NULL != flux_entry.ptr_const)
 #endif
             {
-              internal_registry_keys[i] = *desc;
+              INTERNAL_MEMCPY127(internal_registry_keys + i, desc);
 # if (1 < INTERNAL_REGLOCK_MAXN)
               LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_registry[i].pmm, flux_entry.pmm, LIBXS_ATOMIC_SEQ_CST);
 # else
@@ -2037,7 +2065,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         cache->entry.size = 1;
       }
 # endif
-      cache->entry.keys[cache_index] = *desc;
+      INTERNAL_MEMCPY127(cache->entry.keys + cache_index, desc);
       cache->entry.code[cache_index] = flux_entry;
       cache->entry.hit = cache_index;
       LIBXS_ASSERT(0 == diff);
@@ -2282,7 +2310,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    wrap.gemm.desc = *descriptor;
+    INTERNAL_MEMCPY127(&wrap.gemm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_MATMUL;
     if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
       wrap.gemm.desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
@@ -2707,7 +2735,7 @@ LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    wrap.mcopy.desc = *descriptor;
+    INTERNAL_MEMCPY127(&wrap.mcopy.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_MCOPY;
 #if defined(_WIN32) || defined(__CYGWIN__)
     wrap.mcopy.desc.prefetch = 0;
@@ -2730,7 +2758,7 @@ LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    wrap.trans.desc = *descriptor;
+    INTERNAL_MEMCPY127(&wrap.trans.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_TRANS;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xtrans;
   }
@@ -2750,7 +2778,7 @@ LIBXS_API libxs_pgemm_xfunction libxs_dispatch_pgemm(const libxs_pgemm_descripto
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    wrap.pgemm.desc = *descriptor;
+    INTERNAL_MEMCPY127(&wrap.pgemm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_PGEMM;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xpgemm;
   }
@@ -2770,7 +2798,7 @@ LIBXS_API libxs_getrf_xfunction libxs_dispatch_getrf(const libxs_getrf_descripto
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    wrap.getrf.desc = *descriptor;
+    INTERNAL_MEMCPY127(&wrap.getrf.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_GETRF;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xgetrf;
   }
@@ -2790,7 +2818,7 @@ LIBXS_API libxs_trmm_xfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* 
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    wrap.trmm.desc = *descriptor;
+    INTERNAL_MEMCPY127(&wrap.trmm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_TRMM;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xtrmm;
   }
@@ -2810,7 +2838,7 @@ LIBXS_API libxs_trsm_xfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* 
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    wrap.trsm.desc = *descriptor;
+    INTERNAL_MEMCPY127(&wrap.trsm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_TRSM;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xtrsm;
   }
@@ -2833,7 +2861,7 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_descriptor* d
       srsoa.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
-      desc = *descriptor;
+      INTERNAL_MEMCPY127(&desc, descriptor);
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       srsoa.gemm = &desc;
     }
@@ -2860,7 +2888,7 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_descriptor* d
       scsoa.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
-      desc = *descriptor;
+      INTERNAL_MEMCPY127(&desc, descriptor);
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       scsoa.gemm = &desc;
     }
@@ -2886,7 +2914,7 @@ LIBXS_API libxs_xmmfunction libxs_create_pgemm_ac_rm(const libxs_gemm_descriptor
       pgemmacrm.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
-      desc = *descriptor;
+      INTERNAL_MEMCPY127(&desc, descriptor);
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       pgemmacrm.gemm = &desc;
     }
@@ -2910,7 +2938,7 @@ LIBXS_API libxs_xmmfunction libxs_create_pgemm_bc_rm(const libxs_gemm_descriptor
       pgemmbcrm.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
-      desc = *descriptor;
+      INTERNAL_MEMCPY127(&desc, descriptor);
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       pgemmbcrm.gemm = &desc;
     }
@@ -2935,7 +2963,7 @@ LIBXS_API libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_descriptor* d
       sreg.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
-      desc = *descriptor;
+      INTERNAL_MEMCPY127(&desc, descriptor);
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       sreg.gemm = &desc;
     }
@@ -2968,7 +2996,7 @@ LIBXS_API libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* d
         sreg.gemm = descriptor;
       }
       else { /* "sign"-bit of byte-value is set */
-        desc = *descriptor;
+        INTERNAL_MEMCPY127(&desc, descriptor);
         desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
         sreg.gemm = &desc;
       }
@@ -3079,23 +3107,39 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn, const int* iprec,
     && (NULL == oprec || (0 <= *oprec && *oprec < LIBXS_DATATYPE_UNSUPPORTED)))
 #endif
   {
-    const libxs_gemm_precision precision = (NULL != iprec ? ((libxs_gemm_precision)*iprec) : LIBXS_GEMM_PRECISION_F64);
-    const libxs_blasint kk = *(NULL != k ? k : m), nn = (NULL != n ? *n : kk);
     const int gemm_flags = (NULL != flags ? *flags : LIBXS_FLAGS);
+    const libxs_gemm_descriptor* descriptor;
+    libxs_gemm_prefetch_type gemm_prefetch;
     libxs_descriptor_blob blob;
-    libxs_gemm_descriptor *descriptor = libxs_gemm_descriptor_init2(&blob,
-      precision, NULL != oprec ? ((libxs_gemm_precision)*oprec) : precision, *m, nn, kk,
-      NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? *m : kk),
-      NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? kk : nn),
-      *(NULL != ldc ? ldc : m), alpha, beta, gemm_flags, libxs_get_gemm_xprefetch(prefetch));
-    if (NULL != descriptor) {
-      libxs_code_pointer result;
+    libxs_code_pointer result;
+#if !defined(NDEBUG)
+    const libxs_gemm_precision itype = (NULL != iprec ? ((libxs_gemm_precision)*iprec) : LIBXS_GEMM_PRECISION_F64);
+    const libxs_gemm_precision otype = (NULL != oprec ? ((libxs_gemm_precision)*oprec) : itype);
+    const libxs_blasint kk = *(NULL != k ? k : m), nn = (NULL != n ? *n : kk);
+#else
+    const libxs_gemm_precision itype = (libxs_gemm_precision)*iprec, otype = (libxs_gemm_precision)*oprec;
+    const libxs_blasint kk = *k, nn = *n;
+#endif
+    LIBXS_PRAGMA_FORCEINLINE
+    gemm_prefetch = libxs_get_gemm_xprefetch(prefetch);
+    LIBXS_PRAGMA_FORCEINLINE
+    descriptor = libxs_gemm_descriptor_init2(&blob, itype, otype, *m, nn, kk,
+        NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? *m : kk),
+        NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? kk : nn),
+      *(NULL != ldc ? ldc : m), alpha, beta, gemm_flags, gemm_prefetch);
+#if !defined(NDEBUG)
+    if (NULL != descriptor)
+#endif
+    {
+      LIBXS_PRAGMA_FORCEINLINE
       result.xgemm = libxs_xmmdispatch(descriptor);
       *fn = result.ival;
     }
+#if !defined(NDEBUG)
     else { /* quiet */
       *fn = 0;
     }
+#endif
   }
 #if !defined(NDEBUG)
   else {

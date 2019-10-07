@@ -135,6 +135,8 @@
 #define LIBXS_EQUAL_doubledouble 1
 #define LIBXS_EQUAL_floatdouble 0
 #define LIBXS_EQUAL_doublefloat 0
+#define LIBXS_EQUAL_shortdouble 0
+#define LIBXS_EQUAL_shortfloat 0
 
 #if defined(LIBXS_GEMM_CONST)
 # undef LIBXS_GEMM_CONST
