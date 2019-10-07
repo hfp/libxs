@@ -175,14 +175,6 @@ LIBXS_APIVAR(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
     RESULT_INDEX = (unsigned char)LIBXS_MOD2((CACHE_HIT) + ((CACHE_SIZE) - 1), CACHE_SIZE)
 #endif
 
-#define INTERNAL_MEMCPY127(PTRDST, PTRSRC) { \
-  const unsigned char *const internal_memcpy127_src_ = (const unsigned char*)(PTRSRC); \
-  unsigned char *const internal_memcpy127_dst_ = (unsigned char*)(PTRDST); signed char internal_memcpy127_i_; \
-  LIBXS_ASSERT(sizeof(*(PTRSRC)) <= sizeof(*(PTRDST)) && sizeof(*(PTRSRC)) <= 127); \
-  for (internal_memcpy127_i_ = 0; internal_memcpy127_i_ < (signed char)sizeof(*(PTRSRC)); ++internal_memcpy127_i_) { \
-    internal_memcpy127_dst_[internal_memcpy127_i_] = internal_memcpy127_src_[internal_memcpy127_i_]; \
-  } \
-}
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
   unsigned int ntry, ncol, njit, nsta;
@@ -436,7 +428,7 @@ LIBXS_API_INLINE void internal_register_static_code(
     }
     if (NULL == dst_entry->ptr_const) { /* registry not exhausted */
       internal_registry_keys[i].kind = LIBXS_KERNEL_KIND_MATMUL;
-      INTERNAL_MEMCPY127(&internal_registry_keys[i].gemm.desc, desc);
+      LIBXS_ASSIGN127(&internal_registry_keys[i].gemm.desc, desc);
       dst_entry->xgemm = xgemm;
       /* mark current entry as static code (non-JIT) */
       dst_entry->uval |= LIBXS_CODE_STATIC;
@@ -1985,7 +1977,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
             if (EXIT_SUCCESS == build && NULL != flux_entry.ptr_const)
 #endif
             {
-              INTERNAL_MEMCPY127(internal_registry_keys + i, desc);
+              LIBXS_ASSIGN127(internal_registry_keys + i, desc);
 # if (1 < INTERNAL_REGLOCK_MAXN)
               LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_registry[i].pmm, flux_entry.pmm, LIBXS_ATOMIC_SEQ_CST);
 # else
@@ -2065,7 +2057,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         cache->entry.size = 1;
       }
 # endif
-      INTERNAL_MEMCPY127(cache->entry.keys + cache_index, desc);
+      LIBXS_ASSIGN127(cache->entry.keys + cache_index, desc);
       cache->entry.code[cache_index] = flux_entry;
       cache->entry.hit = cache_index;
       LIBXS_ASSERT(0 == diff);
@@ -2310,7 +2302,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    INTERNAL_MEMCPY127(&wrap.gemm.desc, descriptor);
+    LIBXS_ASSIGN127(&wrap.gemm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_MATMUL;
     if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
       wrap.gemm.desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
@@ -2735,7 +2727,7 @@ LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    INTERNAL_MEMCPY127(&wrap.mcopy.desc, descriptor);
+    LIBXS_ASSIGN127(&wrap.mcopy.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_MCOPY;
 #if defined(_WIN32) || defined(__CYGWIN__)
     wrap.mcopy.desc.prefetch = 0;
@@ -2758,7 +2750,7 @@ LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    INTERNAL_MEMCPY127(&wrap.trans.desc, descriptor);
+    LIBXS_ASSIGN127(&wrap.trans.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_TRANS;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xtrans;
   }
@@ -2778,7 +2770,7 @@ LIBXS_API libxs_pgemm_xfunction libxs_dispatch_pgemm(const libxs_pgemm_descripto
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    INTERNAL_MEMCPY127(&wrap.pgemm.desc, descriptor);
+    LIBXS_ASSIGN127(&wrap.pgemm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_PGEMM;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xpgemm;
   }
@@ -2798,7 +2790,7 @@ LIBXS_API libxs_getrf_xfunction libxs_dispatch_getrf(const libxs_getrf_descripto
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    INTERNAL_MEMCPY127(&wrap.getrf.desc, descriptor);
+    LIBXS_ASSIGN127(&wrap.getrf.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_GETRF;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xgetrf;
   }
@@ -2818,7 +2810,7 @@ LIBXS_API libxs_trmm_xfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* 
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    INTERNAL_MEMCPY127(&wrap.trmm.desc, descriptor);
+    LIBXS_ASSIGN127(&wrap.trmm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_TRMM;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xtrmm;
   }
@@ -2838,7 +2830,7 @@ LIBXS_API libxs_trsm_xfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* 
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     memset(&wrap, 0, sizeof(*descriptor));
 #endif
-    INTERNAL_MEMCPY127(&wrap.trsm.desc, descriptor);
+    LIBXS_ASSIGN127(&wrap.trsm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_TRSM;
     result = internal_find_code(&wrap, sizeof(*descriptor)).xtrsm;
   }
@@ -2861,7 +2853,7 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_descriptor* d
       srsoa.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
-      INTERNAL_MEMCPY127(&desc, descriptor);
+      LIBXS_ASSIGN127(&desc, descriptor);
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       srsoa.gemm = &desc;
     }
@@ -2888,7 +2880,7 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_descriptor* d
       scsoa.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
-      INTERNAL_MEMCPY127(&desc, descriptor);
+      LIBXS_ASSIGN127(&desc, descriptor);
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       scsoa.gemm = &desc;
     }
@@ -2914,7 +2906,7 @@ LIBXS_API libxs_xmmfunction libxs_create_pgemm_ac_rm(const libxs_gemm_descriptor
       pgemmacrm.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
-      INTERNAL_MEMCPY127(&desc, descriptor);
+      LIBXS_ASSIGN127(&desc, descriptor);
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       pgemmacrm.gemm = &desc;
     }
@@ -2938,7 +2930,7 @@ LIBXS_API libxs_xmmfunction libxs_create_pgemm_bc_rm(const libxs_gemm_descriptor
       pgemmbcrm.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
-      INTERNAL_MEMCPY127(&desc, descriptor);
+      LIBXS_ASSIGN127(&desc, descriptor);
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       pgemmbcrm.gemm = &desc;
     }
@@ -2963,7 +2955,7 @@ LIBXS_API libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_descriptor* d
       sreg.gemm = descriptor;
     }
     else { /* "sign"-bit of byte-value is set */
-      INTERNAL_MEMCPY127(&desc, descriptor);
+      LIBXS_ASSIGN127(&desc, descriptor);
       desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
       sreg.gemm = &desc;
     }
@@ -2996,7 +2988,7 @@ LIBXS_API libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* d
         sreg.gemm = descriptor;
       }
       else { /* "sign"-bit of byte-value is set */
-        INTERNAL_MEMCPY127(&desc, descriptor);
+        LIBXS_ASSIGN127(&desc, descriptor);
         desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
         sreg.gemm = &desc;
       }

@@ -31,6 +31,17 @@
 
 #include "libxs_macros.h"
 
+#define LIBXS_MEMCPY127(PTRDST, PTRSRC, SIZE) { \
+  const unsigned char *const internal_memcpy127_src_ = (const unsigned char*)(PTRSRC); \
+  unsigned char *const internal_memcpy127_dst_ = (unsigned char*)(PTRDST); \
+  signed char internal_memcpy127_i_; LIBXS_ASSERT((SIZE) <= 127); \
+  for (internal_memcpy127_i_ = 0; internal_memcpy127_i_ < (signed char)(SIZE); ++internal_memcpy127_i_) { \
+    internal_memcpy127_dst_[internal_memcpy127_i_] = internal_memcpy127_src_[internal_memcpy127_i_]; \
+  } \
+}
+#define LIBXS_ASSIGN127(PTRDST, PTRSRC) LIBXS_ASSERT(sizeof(*(PTRSRC)) <= sizeof(*(PTRDST))); \
+  LIBXS_MEMCPY127(PTRDST, PTRSRC, sizeof(*(PTRSRC)))
+
 
 /**
  * Calculate if there is a difference between two (short) buffers.
