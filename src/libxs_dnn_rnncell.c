@@ -97,14 +97,6 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
       handle->bk = handle->desc.K;
       *status = LIBXS_DNN_WARN_RNN_SUBOPTIMAL_K_BLOCKING;
     }
-    /* determining if we have optimized-tensorize-vectorized elementwise cell sub-parts */
-    if ( LIBXS_X86_AVX512 <= libxs_target_archid ) {
-      handle->fwd_generic = 0;
-      handle->bwdupd_generic = 0;
-    } else {
-      handle->fwd_generic = 1;
-      handle->bwdupd_generic = 1;
-    }
 
      /* In case of BF16 for now hoist the BRGEMM and make them to use STRIDED variant by default */
     if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
