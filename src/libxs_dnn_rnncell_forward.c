@@ -225,8 +225,17 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck(libxs_dnn_rnncel
   }
 #endif
 
-  /* check if we have a kernel JITed */
-  if ( handle->fwd_generic != 0 ) {
+  /* check if we are on AVX512 */
+  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
+    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      status = libxs_dnn_rnncell_st_fwd_nc_ck_f32_f32( handle, start_thread, tid);
+    } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
+      status = libxs_dnn_rnncell_st_fwd_nc_ck_bf16_bf16( handle, start_thread, tid);
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  } else {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
@@ -255,16 +264,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck(libxs_dnn_rnncel
       return status;
     }
   }
-  else {
-    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_rnncell_st_fwd_nc_ck_f32_f32( handle, start_thread, tid);
-    } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
-      status = libxs_dnn_rnncell_st_fwd_nc_ck_bf16_bf16( handle, start_thread, tid);
-    } else {
-      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-      return status;
-    }
-  }
 
   return status;
 }
@@ -282,8 +281,15 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_ncnc_kcck(libxs_dnn_rn
   }
 #endif
 
-  /* check if we have a kernel JITed */
-  if ( handle->fwd_generic != 0 ) {
+  /* check if we are on AVX512 */
+  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
+    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      status = libxs_dnn_rnncell_st_fwd_ncnc_kcck_f32_f32( handle, start_thread, tid);
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  } else {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
@@ -312,14 +318,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_ncnc_kcck(libxs_dnn_rn
       return status;
     }
   }
-  else {
-    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_rnncell_st_fwd_ncnc_kcck_f32_f32( handle, start_thread, tid);
-    } else {
-      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-      return status;
-    }
-  }
 
   return status;
 }
@@ -336,8 +334,17 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck(libxs_dnn_rnnc
   }
 #endif
 
-  /* check if we have a kernel JITed */
-  if ( handle->fwd_generic != 0 ) {
+  /* check if we are on AVX512 */
+  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
+    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      status = libxs_dnn_rnncell_st_fwd_nc_kcck_f32_f32( handle, start_thread, tid);
+    } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
+      status = libxs_dnn_rnncell_st_fwd_nc_kcck_bf16_bf16( handle, start_thread, tid);
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  } else {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
@@ -361,16 +368,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_kcck(libxs_dnn_rnnc
       } else {
         /* should not happen */
       }
-    } else {
-      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-      return status;
-    }
-  }
-  else {
-    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_rnncell_st_fwd_nc_kcck_f32_f32( handle, start_thread, tid);
-    } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
-      status = libxs_dnn_rnncell_st_fwd_nc_kcck_bf16_bf16( handle, start_thread, tid);
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;

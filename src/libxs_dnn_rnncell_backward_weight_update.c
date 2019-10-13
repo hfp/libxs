@@ -215,8 +215,21 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck(libxs_dnn_rnn
   }
 #endif
 
-  /* check if we have a kernel JITed */
-  if ( handle->fwd_generic != 0 ) {
+  /* check if we are on AVX512 */
+  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
+    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      status = libxs_dnn_rnncell_st_bwdupd_nc_ck_f32_f32( handle, kind, start_thread, tid );
+    } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
+      if ( handle->desc.N % 2 != 0 ) {
+        status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
+      } else {
+        status = libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16( handle, kind, start_thread, tid );
+      }
+    } else  {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  } else {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
@@ -245,20 +258,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck(libxs_dnn_rnn
       return status;
     }
   }
-  else {
-    if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_rnncell_st_bwdupd_nc_ck_f32_f32( handle, kind, start_thread, tid );
-    } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
-      if ( handle->desc.N % 2 != 0 ) {
-        status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
-      } else {
-        status = libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16( handle, kind, start_thread, tid );
-      }
-    } else  {
-      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-      return status;
-    }
-  }
 
   return status;
 }
@@ -275,8 +274,21 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck(libxs_dnn_r
   }
 #endif
 
-  /* check if we have a kernel JITed */
-  if ( handle->fwd_generic != 0 ) {
+  /* check if we are on AVX512 */
+  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
+    if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      status = libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32( handle, kind, start_thread, tid );
+    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
+      if ( handle->desc.N % 2 != 0 ) {
+        status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
+      } else {
+        status = libxs_dnn_rnncell_st_bwdupd_nc_kcck_bf16_bf16( handle, kind, start_thread, tid );
+      }
+    } else {
+      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
+      return status;
+    }
+  } else {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
@@ -305,20 +317,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck(libxs_dnn_r
       return status;
     }
   }
-  else {
-    if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32( handle, kind, start_thread, tid );
-    } else   if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
-      if ( handle->desc.N % 2 != 0 ) {
-        status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
-      } else {
-        status = libxs_dnn_rnncell_st_bwdupd_nc_kcck_bf16_bf16( handle, kind, start_thread, tid );
-      }
-    } else {
-      status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-      return status;
-    }
-  }
 
   return status;
 }
@@ -336,19 +334,18 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_ncnc_kcck(libxs_dnn
   }
 #endif
 
-  /* check if we have a kernel JITed */
-  if ( handle->fwd_generic != 0 ) {
+  /* check if we are on AVX512 */
+  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      LIBXS_UNUSED(kind); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
-      status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
+      status = libxs_dnn_rnncell_st_bwdupd_ncnc_kcck_f32_f32( handle, kind, start_thread, tid );
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  }
-  else {
+  } else {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
-      status = libxs_dnn_rnncell_st_bwdupd_ncnc_kcck_f32_f32( handle, kind, start_thread, tid );
+      LIBXS_UNUSED(kind); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+      status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
