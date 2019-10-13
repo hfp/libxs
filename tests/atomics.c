@@ -36,7 +36,7 @@
 
 int main(void)
 {
-  LIBXS_ATOMIC_LOCKTYPE lock = 0/*unlocked*/;
+  LIBXS_ALIGNED(LIBXS_ATOMIC_LOCKTYPE lock = 0/*unlocked*/, LIBXS_ALIGNMENT);
   int result = EXIT_SUCCESS;
   int mh = 1051981, hp, tmp;
 
@@ -64,10 +64,23 @@ int main(void)
       result = EXIT_FAILURE;
     }
     LIBXS_NONATOMIC_RELEASE(&lock, ATOMIC_KIND);
+    if (0 != lock) result = EXIT_FAILURE;
   }
   else {
     result = EXIT_FAILURE;
   }
+
+  LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, ATOMIC_KIND);
+  if (0 == lock) result = EXIT_FAILURE;
+  if (LIBXS_ATOMIC_TRYLOCK(&lock, ATOMIC_KIND)) {
+    result = EXIT_FAILURE;
+  }
+  if (LIBXS_ATOMIC_TRYLOCK(&lock, ATOMIC_KIND)) {
+    result = EXIT_FAILURE;
+  }
+  if (0 == lock) result = EXIT_FAILURE;
+  LIBXS_ATOMIC_RELEASE(&lock, ATOMIC_KIND);
+  if (0 != lock) result = EXIT_FAILURE;
 
   return result;
 }

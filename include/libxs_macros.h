@@ -118,7 +118,7 @@
 #elif (defined(__GNUC__) || defined(__clang__) || defined(__PGI))
 # define LIBXS_ATTRIBUTE(A) __attribute__((A))
 # define LIBXS_INLINE_ALWAYS LIBXS_ATTRIBUTE(always_inline) LIBXS_INLINE
-# define LIBXS_ALIGNED(DECL, N) DECL LIBXS_ATTRIBUTE(aligned(N))
+# define LIBXS_ALIGNED(DECL, N) LIBXS_ATTRIBUTE(aligned(N)) DECL
 # if !defined(LIBXS_UNPACKED)
 #   define LIBXS_PACKED(TYPE) TYPE LIBXS_ATTRIBUTE(__packed__)
 # endif
@@ -323,7 +323,7 @@
 #endif /*LIBXS_RESTRICT*/
 #if !defined(LIBXS_PRAGMA)
 # if defined(LIBXS_INTEL_COMPILER) || defined(_MSC_VER)
-#   define LIBXS_PRAGMA(DIRECTIVE) __pragma(DIRECTIVE)
+#   define LIBXS_PRAGMA(DIRECTIVE) __pragma(LIBXS_EXPAND(DIRECTIVE))
 # else
 #   define LIBXS_PRAGMA(DIRECTIVE)
 # endif
