@@ -379,11 +379,10 @@ LIBXS_API void libxs_spinlock_acquire(libxs_spinlock* spinlock)
   assert(0 != spinlock);
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_SPINLOCK, &spinlock->impl);
 # else
-  LIBXS_SYNC_CYCLE_DECL(counter);
   assert(0 != spinlock);
   for (;;) {
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&spinlock->state, 1, LIBXS_ATOMIC_RELAXED)) break;
-    while (INTERNAL_SYNC_LOCK_FREE != spinlock->state) LIBXS_SYNC_CYCLE(counter, LIBXS_SYNC_NPAUSE);
+    LIBXS_SYNC_CYCLE(&spinlock->state, INTERNAL_SYNC_LOCK_FREE, LIBXS_SYNC_NPAUSE);
   }
   LIBXS_ATOMIC_SYNC(LIBXS_ATOMIC_SEQ_CST);
 # endif
@@ -476,20 +475,18 @@ LIBXS_API void libxs_mutex_acquire(libxs_mutex* mutex)
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_MUTEX, &mutex->impl);
 # else
 #   if defined(_WIN32)
-  LIBXS_SYNC_CYCLE_DECL(counter);
   assert(0 != mutex);
   while (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_MUTEX) != libxs_mutex_trylock(mutex)) {
-    while (0 != (mutex->state & 1)) LIBXS_SYNC_CYCLE(counter, LIBXS_SYNC_NPAUSE);
+    LIBXS_SYNC_CYCLE(&mutex->state, 0/*free*/, LIBXS_SYNC_NPAUSE);
   }
 #   else
   libxs_mutex_state lock_free = INTERNAL_SYNC_LOCK_FREE, lock_state = INTERNAL_SYNC_LOCK_LOCKED;
-  LIBXS_SYNC_CYCLE_DECL(counter);
   assert(0 != mutex);
   while (0/*false*/ == LIBXS_ATOMIC_CMPSWP(&mutex->state, lock_free, lock_state, LIBXS_ATOMIC_RELAXED)) {
     libxs_mutex_state state;
     for (state = mutex->state; INTERNAL_SYNC_LOCK_FREE != state; state = mutex->state) {
 #     if defined(LIBXS_SYNC_FUTEX) && defined(__linux__)
-      LIBXS_SYNC_CYCLE_ELSE(counter, LIBXS_SYNC_NPAUSE, {
+      LIBXS_SYNC_CYCLE_ELSE(&mutex->state, INTERNAL_SYNC_LOCK_FREE, LIBXS_SYNC_NPAUSE, {
         /*const*/ libxs_mutex_state state_locked = INTERNAL_SYNC_LOCK_LOCKED;
         if (INTERNAL_SYNC_LOCK_LOCKED != state || LIBXS_ATOMIC_CMPSWP(&mutex->state,
           state_locked, INTERNAL_SYNC_LOCK_CONTESTED, LIBXS_ATOMIC_RELAXED))
@@ -500,7 +497,7 @@ LIBXS_API void libxs_mutex_acquire(libxs_mutex* mutex)
       );
       break;
 #     else
-      LIBXS_SYNC_CYCLE(counter, LIBXS_SYNC_NPAUSE);
+      LIBXS_SYNC_CYCLE(&mutex->state, INTERNAL_SYNC_LOCK_FREE, LIBXS_SYNC_NPAUSE);
 #     endif
     }
     lock_free = INTERNAL_SYNC_LOCK_FREE;
@@ -572,11 +569,11 @@ LIBXS_API libxs_rwlock* libxs_rwlock_create(void)
     LIBXS_LOCK_INIT(LIBXS_LOCK_RWLOCK, &result->impl, &attr);
     LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK_RWLOCK, &attr);
 # else
-    memset((void*)&result->completions, 0, sizeof(internal_sync_counter));
-    memset((void*)&result->requests, 0, sizeof(internal_sync_counter));
+    LIBXS_MEMZERO127(&result->completions);
+    LIBXS_MEMZERO127(&result->requests);
 # endif
 #else
-    memset(result, 0, sizeof(libxs_rwlock));
+    LIBXS_MEMZERO127(result);
 #endif
   }
   return result;
@@ -636,8 +633,9 @@ LIBXS_API void libxs_rwlock_acquire(libxs_rwlock* rwlock)
 # else
   internal_sync_counter prev;
   if (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK) != internal_rwlock_trylock(rwlock, &prev)) {
-    LIBXS_SYNC_CYCLE_DECL(counter);
-    while (rwlock->completions.bits != prev.bits) LIBXS_SYNC_CYCLE(counter, LIBXS_SYNC_NPAUSE);
+    while (rwlock->completions.bits != prev.bits) {
+      LIBXS_SYNC_CYCLE(&rwlock->completions.bits, prev.bits, LIBXS_SYNC_NPAUSE);
+    }
   }
 # endif
 #else
@@ -710,8 +708,9 @@ LIBXS_API void libxs_rwlock_acqread(libxs_rwlock* rwlock)
 # else
   internal_sync_counter prev;
   if (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK) != internal_rwlock_tryread(rwlock, &prev)) {
-    LIBXS_SYNC_CYCLE_DECL(counter);
-    while (rwlock->completions.kind.writer != prev.kind.writer) LIBXS_SYNC_CYCLE(counter, LIBXS_SYNC_NPAUSE);
+    while (rwlock->completions.kind.writer != prev.kind.writer) {
+      LIBXS_SYNC_CYCLE(&rwlock->completions.kind.writer, prev.kind.writer, LIBXS_SYNC_NPAUSE);
+    }
   }
 # endif
 #else
@@ -752,7 +751,20 @@ LIBXS_API unsigned int libxs_get_tid(void)
 #if (0 != LIBXS_SYNC)
   static LIBXS_TLS unsigned int tid = 0xFFFFFFFF;
   if (0xFFFFFFFF == tid) {
-    tid = LIBXS_ATOMIC_ADD_FETCH(&libxs_thread_count, 1, LIBXS_ATOMIC_RELAXED) - 1;
+    static unsigned int libxs_thread_count = 0;
+    const unsigned int nthreads = LIBXS_ATOMIC_ADD_FETCH(&libxs_thread_count, 1, LIBXS_ATOMIC_RELAXED);
+# if defined(LIBXS_NTHREADS_USE)
+    static int error_once = 0;
+    if (LIBXS_NTHREADS_MAX < nthreads
+      && 0 != libxs_verbosity /* library code is expected to be mute */
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS ERROR: maximum number of threads is exhausted!\n");
+    }
+    tid = (nthreads - 1) % LIBXS_NTHREADS_MAX;
+# else
+    tid = (nthreads - 1);
+# endif
   }
   return tid;
 #else

@@ -31,12 +31,26 @@
 
 #include "libxs_macros.h"
 
+#if defined(__clang_analyzer__)
+# define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) memset(PTRDST, VALUE, SIZE)
+#else
+# define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) { \
+  char *const libxs_memset127_dst_ = (char*)(PTRDST); \
+  union { size_t size; signed char value; } libxs_memset127_size_ = { (SIZE) }; \
+  signed char libxs_memset127_i_; LIBXS_ASSERT((SIZE) <= 127); \
+  for (libxs_memset127_i_ = 0; libxs_memset127_i_ < libxs_memset127_size_.value; ++libxs_memset127_i_) { \
+    libxs_memset127_dst_[libxs_memset127_i_] = (char)(VALUE); \
+  } \
+}
+#endif
+#define LIBXS_MEMZERO127(PTRDST) LIBXS_MEMSET127(PTRDST, '\0', sizeof(*(PTRDST)))
+
 #define LIBXS_MEMCPY127(PTRDST, PTRSRC, SIZE) { \
-  const unsigned char *const internal_memcpy127_src_ = (const unsigned char*)(PTRSRC); \
-  unsigned char *const internal_memcpy127_dst_ = (unsigned char*)(PTRDST); \
-  signed char internal_memcpy127_i_; LIBXS_ASSERT((SIZE) <= 127); \
-  for (internal_memcpy127_i_ = 0; internal_memcpy127_i_ < (signed char)(SIZE); ++internal_memcpy127_i_) { \
-    internal_memcpy127_dst_[internal_memcpy127_i_] = internal_memcpy127_src_[internal_memcpy127_i_]; \
+  const unsigned char *const libxs_memcpy127_src_ = (const unsigned char*)(PTRSRC); \
+  unsigned char *const libxs_memcpy127_dst_ = (unsigned char*)(PTRDST); \
+  signed char libxs_memcpy127_i_; LIBXS_ASSERT((SIZE) <= 127); \
+  for (libxs_memcpy127_i_ = 0; libxs_memcpy127_i_ < (signed char)(SIZE); ++libxs_memcpy127_i_) { \
+    libxs_memcpy127_dst_[libxs_memcpy127_i_] = libxs_memcpy127_src_[libxs_memcpy127_i_]; \
   } \
 }
 #define LIBXS_ASSIGN127(PTRDST, PTRSRC) LIBXS_ASSERT(sizeof(*(PTRSRC)) <= sizeof(*(PTRDST))); \

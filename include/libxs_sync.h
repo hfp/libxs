@@ -139,7 +139,7 @@ typedef enum libxs_atomic_kind {
 # define LIBXS_ATOMIC_ACQUIRE LIBXS_NONATOMIC_ACQUIRE
 # define LIBXS_ATOMIC_RELEASE LIBXS_NONATOMIC_RELEASE
 # define LIBXS_ATOMIC_SYNC LIBXS_NONATOMIC_SYNC
-# define LIBXS_SYNC_CYCLE(COUNTER, NPAUSE)
+# define LIBXS_SYNC_CYCLE(DST_PTR, EXP_STATE, NPAUSE)
 # if !defined(LIBXS_SYNC_NPAUSE)
 #   define LIBXS_SYNC_NPAUSE 0
 # endif
@@ -268,10 +268,10 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND) /* matches bit-width of LIBXS_ATOMIC_LOCKTYPE */ \
               (0 == LIBXS_ATOMIC(LIBXS_ATOMIC_FETCH_OR, 8)(DST_PTR, 1, KIND))
 #   endif
-#   define LIBXS_ATOMIC_ACQUIRE(DST_PTR, NPAUSE, KIND) { LIBXS_SYNC_CYCLE_DECL(libxs_atomic_acquire_counter_); \
+#   define LIBXS_ATOMIC_ACQUIRE(DST_PTR, NPAUSE, KIND) \
             LIBXS_ASSERT(1 == sizeof(LIBXS_ATOMIC_LOCKTYPE)); LIBXS_ASSERT(0 == LIBXS_MOD2((uintptr_t)(DST_PTR), 4)); \
-            while (!LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND)) LIBXS_SYNC_CYCLE(libxs_atomic_acquire_counter_, NPAUSE); \
-            LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_ACQUIRE"); }
+            while (!LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND)) LIBXS_SYNC_CYCLE(DST_PTR, 0/*free*/, NPAUSE); \
+            LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_ACQUIRE")
 #   define LIBXS_ATOMIC_SYNC_NOFENCE(KIND) __asm__ __volatile__ ("" ::: "memory")
 #   if !defined(LIBXS_SYNC_NPAUSE)
 #     define LIBXS_SYNC_NPAUSE 4096
@@ -314,10 +314,10 @@ typedef enum libxs_atomic_kind {
 #   else
 #     define LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND) (0 == LIBXS_ATOMIC(LIBXS_ATOMIC_FETCH_OR, 8)(DST_PTR, 1, KIND))
 #   endif
-#   define LIBXS_ATOMIC_ACQUIRE(DST_PTR, NPAUSE, KIND) { LIBXS_SYNC_CYCLE_DECL(libxs_atomic_acquire_counter_); \
+#   define LIBXS_ATOMIC_ACQUIRE(DST_PTR, NPAUSE, KIND) \
             LIBXS_ASSERT(1 == sizeof(LIBXS_ATOMIC_LOCKTYPE)); LIBXS_ASSERT(0 == LIBXS_MOD2((uintptr_t)(DST_PTR), 4)); \
-            while (!LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND)) LIBXS_SYNC_CYCLE(libxs_atomic_acquire_counter_, NPAUSE); \
-            LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_ACQUIRE"); }
+            while (!LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND)) LIBXS_SYNC_CYCLE(DST_PTR, 0/*free*/, NPAUSE); \
+            LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_ACQUIRE")
 #   define LIBXS_ATOMIC_RELEASE(DST_PTR, KIND) { \
             LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_RELEASE"); \
             LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, 8)(DST_PTR, KIND); }
@@ -347,29 +347,31 @@ typedef enum libxs_atomic_kind {
 #   error LIBXS is missing atomic compiler builtins!
 # endif
 # if (0 < LIBXS_SYNC_NPAUSE)
-#   define LIBXS_SYNC_CYCLE_ELSE(COUNTER, NPAUSE, ELSE) if (0 <= ((NPAUSE) - (++(COUNTER)))) { \
-      LIBXS_SYNC_PAUSE; \
-    } \
-    else { \
-      LIBXS_SYNC_YIELD(); ELSE \
-    }
-#   define LIBXS_SYNC_CYCLE_DECL(NAME) int NAME = 0
+#   define LIBXS_SYNC_CYCLE_ELSE(DST_PTR, EXP_STATE, NPAUSE, ELSE) do { int libxs_sync_cycle_npause_ = 1; \
+      do { int libxs_sync_cycle_counter_ = 0; \
+        for (; libxs_sync_cycle_counter_ < libxs_sync_cycle_npause_; ++libxs_sync_cycle_counter_) LIBXS_SYNC_PAUSE; \
+        if (libxs_sync_cycle_npause_ < (NPAUSE)) { \
+          libxs_sync_cycle_npause_ *= 2; \
+        } \
+        else { \
+          libxs_sync_cycle_npause_ = (NPAUSE); \
+          LIBXS_SYNC_YIELD(); \
+          ELSE \
+        } \
+      } while(((EXP_STATE) & 1) != (*(DST_PTR) & 1)); \
+    } while(0)
 # else
-#   define LIBXS_SYNC_CYCLE_ELSE(COUNTER, NPAUSE, ELSE) LIBXS_SYNC_PAUSE
-#   define LIBXS_SYNC_CYCLE_DECL(NAME)
+#   define LIBXS_SYNC_CYCLE_ELSE(DST_PTR, EXP_STATE, NPAUSE, ELSE) LIBXS_SYNC_PAUSE
 # endif
-# define LIBXS_SYNC_CYCLE(COUNTER, NPAUSE) LIBXS_SYNC_CYCLE_ELSE(COUNTER, NPAUSE, ;)
+# define LIBXS_SYNC_CYCLE(DST_PTR, EXP_STATE, NPAUSE) \
+    LIBXS_SYNC_CYCLE_ELSE(DST_PTR, EXP_STATE, NPAUSE, /*else*/;)
 #endif
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #if (0 != LIBXS_SYNC) /** Default lock-kind */
-# if defined(_MSC_VER)
-#   define LIBXS_LOCK_DEFAULT LIBXS_LOCK_SPINLOCK
-# else
-#   define LIBXS_LOCK_DEFAULT LIBXS_LOCK_MUTEX
-# endif
+# define LIBXS_LOCK_DEFAULT LIBXS_LOCK_MUTEX
 # if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && (defined(LIBXS_SYNC_SYSTEM) || 1)
 #   define LIBXS_LOCK_SYSTEM_SPINLOCK
 # endif

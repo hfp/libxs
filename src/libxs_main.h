@@ -39,15 +39,19 @@
 # define LIBXS_CAPACITY_CACHE 16
 #endif
 
-#if !defined(LIBXS_MAX_NTHREADS)
+#if !defined(LIBXS_NTHREADS_MAX)
 # if (0 != LIBXS_SYNC)
-#   define LIBXS_MAX_NTHREADS 1024
+#   define LIBXS_NTHREADS_MAX 1024
 # else
-#   define LIBXS_MAX_NTHREADS 1
+#   define LIBXS_NTHREADS_MAX 1
 # endif
 #endif
+/* determines if code relies on LIBXS_NTHREADS_MAX */
+#if !defined(LIBXS_NTHREADS_USE) && 0
+# define LIBXS_NTHREADS_USE
+#endif
 #if !defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
-# define LIBXS_MALLOC_SCRATCH_MAX_NPOOLS LIBXS_MAX_NTHREADS
+# define LIBXS_MALLOC_SCRATCH_MAX_NPOOLS LIBXS_NTHREADS_MAX
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_SCALE)
 # define LIBXS_MALLOC_SCRATCH_SCALE 1.0
@@ -107,7 +111,7 @@
 #endif
 
 #if defined(LIBXS_UNPACKED)
-# define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE) memset(DST, 0, SIZE)
+# define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE) LIBXS_MEMSET127(DST, 0, SIZE)
 #else
 # define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE)
 #endif
@@ -749,8 +753,6 @@ LIBXS_APIVAR_ALIGNED(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 LIBXS_APIVAR_ALIGNED(int libxs_target_archid);
 /** Determines whether a threaded implementation is synchronized or not. */
 LIBXS_APIVAR_ALIGNED(int libxs_nosync);
-/** Number of threads per core. */
-LIBXS_APIVAR_ALIGNED(int libxs_nt);
 
 /** Function used to allocate default memory. */
 LIBXS_APIVAR(libxs_malloc_function libxs_default_malloc_fn);
@@ -774,10 +776,5 @@ LIBXS_APIVAR(unsigned int libxs_statistic_num_spmdm);
 LIBXS_APIVAR(double libxs_timer_scale);
 /** Security-enhanced environment */
 LIBXS_APIVAR(int libxs_se);
-
-#if (0 != LIBXS_SYNC)
-/** Number of discovered threads (per libxs_get_tid) */
-LIBXS_APIVAR(unsigned int libxs_thread_count);
-#endif
 
 #endif /*LIBXS_MAIN_H*/
