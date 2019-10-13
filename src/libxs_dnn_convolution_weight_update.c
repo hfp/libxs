@@ -208,7 +208,7 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
   const __m512i idx_hi         = _mm512_set_epi64(7, 6, 15, 14, 3, 2, 11, 10);
   __mmask16 store_mask         = LIBXS_INTRINSICS_MM512_CVTU32_MASK16(((unsigned int)1 << col) - 1);
 
-  rf = _mm512_setzero_si512();
+  rf = _mm512_undefined_epi32();
   if (col == 15) {
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
@@ -226,6 +226,7 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
     rd = _mm512_load_epi32(in + 13*in_width);
     re = _mm512_load_epi32(in + 14*in_width);
   } else if (col == 14) {
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
@@ -241,6 +242,8 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
     rc = _mm512_load_epi32(in + 12*in_width);
     rd = _mm512_load_epi32(in + 13*in_width);
   } else if (col == 13) {
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
@@ -255,6 +258,9 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
     rb = _mm512_load_epi32(in + 11*in_width);
     rc = _mm512_load_epi32(in + 12*in_width);
   } else if (col == 12) {
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
@@ -268,6 +274,10 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
     ra = _mm512_load_epi32(in + 10*in_width);
     rb = _mm512_load_epi32(in + 11*in_width);
   } else if (col == 11) {
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
@@ -280,6 +290,11 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
     r9 = _mm512_load_epi32(in + 9*in_width);
     ra = _mm512_load_epi32(in + 10*in_width);
   } else if (col == 10) {
+    ra = _mm512_undefined_epi32();
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
@@ -291,6 +306,12 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
     r8 = _mm512_load_epi32(in + 8*in_width);
     r9 = _mm512_load_epi32(in + 9*in_width);
   } else if (col == 9) {
+    r9 = _mm512_undefined_epi32();
+    ra = _mm512_undefined_epi32();
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
@@ -301,6 +322,13 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
     r7 = _mm512_load_epi32(in + 7*in_width);
     r8 = _mm512_load_epi32(in + 8*in_width);
   } else if (col == 8) {
+    r8 = _mm512_undefined_epi32();
+    r9 = _mm512_undefined_epi32();
+    ra = _mm512_undefined_epi32();
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
@@ -310,6 +338,14 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
     r6 = _mm512_load_epi32(in + 6*in_width);
     r7 = _mm512_load_epi32(in + 7*in_width);
   } else if (col == 7) {
+    r7 = _mm512_undefined_epi32();
+    r8 = _mm512_undefined_epi32();
+    r9 = _mm512_undefined_epi32();
+    ra = _mm512_undefined_epi32();
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
@@ -318,6 +354,15 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
     r5 = _mm512_load_epi32(in + 5*in_width);
     r6 = _mm512_load_epi32(in + 6*in_width);
   } else if (col == 6) {
+    r6 = _mm512_undefined_epi32();
+    r7 = _mm512_undefined_epi32();
+    r8 = _mm512_undefined_epi32();
+    r9 = _mm512_undefined_epi32();
+    ra = _mm512_undefined_epi32();
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
@@ -325,24 +370,84 @@ void transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, int ld_
     r4 = _mm512_load_epi32(in + 4*in_width);
     r5 = _mm512_load_epi32(in + 5*in_width);
   } else if (col == 5) {
+    r5 = _mm512_undefined_epi32();
+    r6 = _mm512_undefined_epi32();
+    r7 = _mm512_undefined_epi32();
+    r8 = _mm512_undefined_epi32();
+    r9 = _mm512_undefined_epi32();
+    ra = _mm512_undefined_epi32();
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
     r3 = _mm512_load_epi32(in + 3*in_width);
     r4 = _mm512_load_epi32(in + 4*in_width);
   } else if (col == 4) {
+    r4 = _mm512_undefined_epi32();
+    r5 = _mm512_undefined_epi32();
+    r6 = _mm512_undefined_epi32();
+    r7 = _mm512_undefined_epi32();
+    r8 = _mm512_undefined_epi32();
+    r9 = _mm512_undefined_epi32();
+    ra = _mm512_undefined_epi32();
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
     r3 = _mm512_load_epi32(in + 3*in_width);
   } else if (col == 3) {
+    r3 = _mm512_undefined_epi32();
+    r4 = _mm512_undefined_epi32();
+    r5 = _mm512_undefined_epi32();
+    r6 = _mm512_undefined_epi32();
+    r7 = _mm512_undefined_epi32();
+    r8 = _mm512_undefined_epi32();
+    r9 = _mm512_undefined_epi32();
+    ra = _mm512_undefined_epi32();
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
     r2 = _mm512_load_epi32(in + 2*in_width);
   } else if (col == 2) {
+    r2 = _mm512_undefined_epi32();
+    r3 = _mm512_undefined_epi32();
+    r4 = _mm512_undefined_epi32();
+    r5 = _mm512_undefined_epi32();
+    r6 = _mm512_undefined_epi32();
+    r7 = _mm512_undefined_epi32();
+    r8 = _mm512_undefined_epi32();
+    r9 = _mm512_undefined_epi32();
+    ra = _mm512_undefined_epi32();
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
     r1 = _mm512_load_epi32(in + 1*in_width);
   } else if (col == 1) {
+    r1 = _mm512_undefined_epi32();
+    r2 = _mm512_undefined_epi32();
+    r3 = _mm512_undefined_epi32();
+    r4 = _mm512_undefined_epi32();
+    r5 = _mm512_undefined_epi32();
+    r6 = _mm512_undefined_epi32();
+    r7 = _mm512_undefined_epi32();
+    r8 = _mm512_undefined_epi32();
+    r9 = _mm512_undefined_epi32();
+    ra = _mm512_undefined_epi32();
+    rb = _mm512_undefined_epi32();
+    rc = _mm512_undefined_epi32();
+    rd = _mm512_undefined_epi32();
+    re = _mm512_undefined_epi32();
     r0 = _mm512_load_epi32(in + 0*in_width);
   }
 
@@ -556,19 +661,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_laye
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid)
 {
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#if defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
-  typedef libxs_bfloat16 element_input_type;
-  typedef libxs_bfloat16 element_output_type;
-  typedef libxs_bfloat16 element_filter_type;
-  typedef libxs_bsmmfunction gemm_function;
-  typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
-# include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16.tpl.c"
-#else /* should not happen */
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
-  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
-#endif
-  return status;
+  return libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu( handle, start_thread, tid );
 }
 #endif
 

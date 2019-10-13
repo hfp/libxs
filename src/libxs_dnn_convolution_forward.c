@@ -140,29 +140,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_bf16_bf16(libxs_dnn_laye
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid)
 {
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#if defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
-  const libxs_blasint ldx = (handle->pack_input == 1) ? (libxs_blasint)handle->ifmblock : (libxs_blasint)handle->desc.v*handle->ifmblock;
-  const libxs_blasint ldA = handle->ofmblock;
-  const libxs_blasint ldC = handle->ofmblock;
-  const float beta = (handle->avoid_acc_load) ? 0.f : 1.f;
-  typedef libxs_bfloat16 element_input_type;
-  typedef libxs_bfloat16 element_output_type;
-  typedef libxs_bfloat16 element_filter_type;
-  typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
-  typedef libxs_bmmfunction_reducebatch_addr gemm_br_function_bf16bf16;
-  int l_flags = ( LIBXS_GEMM_FLAGS('N', 'N') ) | handle->fwd_flags;
-  /* let's do a ofmblock x ofw_rb x ifmblock GEMM :-) or in other words M=nbOfm, N=ofw, K=nbIfm (col-major) */
-  gemm_br_function br_gemm_kernel = libxs_bsmmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*handle->fwd_ofw_rb, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
-  gemm_br_function br_gemm_kernel2 = libxs_bsmmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*(handle->fwd_ofw_rb-1), handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
-  gemm_br_function_bf16bf16 br_gemm_kernel_bf16bf16 = libxs_bmmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*handle->fwd_ofw_rb, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
-  gemm_br_function_bf16bf16 br_gemm_kernel2_bf16bf16 = libxs_bmmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*(handle->fwd_ofw_rb-1), handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
-# include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic_bf16.tpl.c"
-#else /* should not happen */
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
-  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
-#endif
-  return status;
+  return libxs_dnn_convolve_st_fwd_custom_custom_bf16_bf16_emu( handle, start_thread, tid );
 }
 #endif
 
