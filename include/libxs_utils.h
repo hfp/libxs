@@ -573,7 +573,7 @@
                                  ((E7) << 16) |  (E6),  ((E5) << 16) |  (E4),  ((E3) << 16) |  (E2),  ((E1) << 16) |  (E0))
 #endif
 #if defined(LIBXS_INTEL_COMPILER) \
-  || (defined(__GNUC__) && LIBXS_VERSION3(6, 2, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
+  || (defined(__GNUC__) && LIBXS_VERSION3(7, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
   || (defined(__clang__) && (!defined(__APPLE__) || !defined(__MACH__)) \
       && LIBXS_VERSION3(4, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 # define LIBXS_INTRINSICS_MM512_MASK_I32GATHER_EPI32(A, B, C, D, E) _mm512_mask_i32gather_epi32(A, B, C, D, E)
