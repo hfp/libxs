@@ -564,12 +564,6 @@
          _mm512_castps_si512(_mm512_set_epi16(E31, E30, E29, E28, E27, E26, E25, E24, E23, E22, E21, E20, E19, E18, E17, E16, \
                                                         E15, E14, E13, E12, E11, E10, E9, E8, E7, E6, E5, E4, E3, E2, E1, E0))
 # endif
-# define LIBXS_INTRINSICS_MM512_MASK_I32GATHER_EPI32(A, B, C, D, E) _mm512_mask_i32gather_epi32(A, B, C, D, E)
-# define LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(A, B) _mm512_extracti64x4_epi64(A, B)
-# define LIBXS_INTRINSICS_MM512_ABS_PS(A) _mm512_abs_ps(A)
-# define LIBXS_INTRINSICS_MM512_UNDEFINED_EPI32() _mm512_undefined_epi32()
-# define LIBXS_INTRINSICS_MM512_UNDEFINED() _mm512_undefined()
-# define LIBXS_INTRINSICS_MM_UNDEFINED_PD() _mm_undefined_pd()
 #else
 # define LIBXS_INTRINSICS_MM512_SET_EPI16(E31, E30, E29, E28, E27, E26, E25, E24, E23, E22, E21, E20, E19, E18, E17, E16, \
                                                       E15, E14, E13, E12, E11, E10, E9, E8, E7, E6, E5, E4, E3, E2, E1, E0) \
@@ -577,6 +571,18 @@
                                 ((E23) << 16) | (E22), ((E21) << 16) | (E20), ((E19) << 16) | (E18), ((E17) << 16) | (E16), \
                                 ((E15) << 16) | (E14), ((E13) << 16) | (E12), ((E11) << 16) | (E10),  ((E9) << 16) |  (E8), \
                                  ((E7) << 16) |  (E6),  ((E5) << 16) |  (E4),  ((E3) << 16) |  (E2),  ((E1) << 16) |  (E0))
+#endif
+#if defined(LIBXS_INTEL_COMPILER) \
+  || (defined(__GNUC__) && LIBXS_VERSION3(6, 2, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
+  || (defined(__clang__) && (!defined(__APPLE__) || !defined(__MACH__)) \
+      && LIBXS_VERSION3(4, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+# define LIBXS_INTRINSICS_MM512_MASK_I32GATHER_EPI32(A, B, C, D, E) _mm512_mask_i32gather_epi32(A, B, C, D, E)
+# define LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(A, B) _mm512_extracti64x4_epi64(A, B)
+# define LIBXS_INTRINSICS_MM512_ABS_PS(A) _mm512_abs_ps(A)
+# define LIBXS_INTRINSICS_MM512_UNDEFINED_EPI32() _mm512_undefined_epi32()
+# define LIBXS_INTRINSICS_MM512_UNDEFINED() _mm512_undefined()
+# define LIBXS_INTRINSICS_MM_UNDEFINED_PD() _mm_undefined_pd()
+#else
 # define LIBXS_INTRINSICS_MM512_MASK_I32GATHER_EPI32(A, B, C, D, E) _mm512_castps_si512(_mm512_mask_i32gather_ps( \
                            _mm512_castsi512_ps(A), B, C, (const float*)(D), E))
 # define LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(A, B) _mm256_castpd_si256(_mm512_extractf64x4_pd(_mm512_castsi512_pd(A), B))
