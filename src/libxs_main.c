@@ -2056,9 +2056,10 @@ LIBXS_API const libxs_descriptor* libxs_get_kernel_info(libxs_code_pointer code,
 {
   const libxs_descriptor* result;
   void* extra = NULL;
+  int flags = LIBXS_MALLOC_FLAG_X;
   if (NULL != size) *size = 0;
   if (NULL != code.ptr_const && NULL != internal_registry && NULL != internal_registry_keys
-    && EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, size, NULL/*flags*/, &extra)
+    && EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, size, &flags, &extra)
     && NULL != extra && *((const unsigned int*)extra) < (LIBXS_CAPACITY_REGISTRY)
 #if defined(LIBXS_HASH_COLLISION)
     && code.uval == (~LIBXS_HASH_COLLISION & internal_registry[*((const unsigned int*)extra)].uval)
