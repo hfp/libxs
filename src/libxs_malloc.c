@@ -409,7 +409,7 @@ LIBXS_API_INLINE internal_malloc_info_type* internal_malloc_info(const void* mem
         || result->hash != LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &result)
 # else
         || result->hash != libxs_crc32(LIBXS_MALLOC_SEED, result,
-            (const char*)& result->hash - (const char*)result)
+            (const char*)&result->hash - (const char*)result)
 # endif
 #endif
       ) { /* mismatch */
@@ -1609,11 +1609,12 @@ LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flag
   if (NULL != size || NULL != extra)
 #endif
   {
-    const internal_malloc_info_type *const info = internal_malloc_info(memory, 2/*check*/);
+    const int check = ((NULL == flags || 0 == (LIBXS_MALLOC_FLAG_X & *flags)) ? 2 : 1);
+    const internal_malloc_info_type *const info = internal_malloc_info(memory, check);
     if (NULL != info) {
-      if (size) *size = info->size;
-      if (flags) *flags = info->flags;
-      if (extra) *extra = info->pointer;
+      if (NULL != size) *size = info->size;
+      if (NULL != flags) *flags = info->flags;
+      if (NULL != extra) *extra = info->pointer;
       result = EXIT_SUCCESS;
     }
     else { /* potentially foreign buffer */
@@ -2313,7 +2314,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
           info->reloc = NULL;
 # if !defined(LIBXS_MALLOC_CRC_OFF) /* update checksum */
 #   if defined(LIBXS_MALLOC_CRC_LIGHT)
-          info->hash = LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &info);
+          LIBXS_ASSERT(info->hash == LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &info));
 #   else
           info->hash = libxs_crc32(LIBXS_MALLOC_SEED, info,
             /* info size minus actual hash value */
@@ -2326,13 +2327,13 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
 #if !defined(_WIN32)
         else { /* malloc-based fall-back */
           int mprotect_result;
-# if !defined(LIBXS_MALLOC_CRC_OFF) && defined(LIBXS_VTUNE) /* update checksum */
+# if !defined(LIBXS_MALLOC_CRC_OFF) && defined(LIBXS_VTUNE) /* check checksum */
 #   if defined(LIBXS_MALLOC_CRC_LIGHT)
-          info->hash = LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &info);
+          LIBXS_ASSERT(info->hash == LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &info));
 #   else
-          info->hash = libxs_crc32(LIBXS_MALLOC_SEED, info,
+          LIBXS_ASSERT(info->hash == libxs_crc32(LIBXS_MALLOC_SEED, info,
             /* info size minus actual hash value */
-            (unsigned int)(((char*)&info->hash) - ((char*)info)));
+            (unsigned int)(((char*)&info->hash) - ((char*)info))));
 #   endif
 # endif   /* treat memory protection errors as soft error; ignore return value */
           mprotect_result = mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ | PROT_EXEC);
