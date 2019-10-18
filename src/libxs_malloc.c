@@ -2314,7 +2314,9 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
           info->reloc = NULL;
 # if !defined(LIBXS_MALLOC_CRC_OFF) /* update checksum */
 #   if defined(LIBXS_MALLOC_CRC_LIGHT)
-          LIBXS_ASSERT(info->hash == LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &info));
+          { const internal_malloc_info_type *const code_info = internal_malloc_info(code_ptr, 0/*no check*/);
+            info->hash = LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &code_info);
+          }
 #   else
           info->hash = libxs_crc32(LIBXS_MALLOC_SEED, info,
             /* info size minus actual hash value */

@@ -265,10 +265,14 @@
 #     endif
 #   elif (defined(__GNUC__) && LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)) \
       && (!defined(__PGI) || LIBXS_VERSION3(19, 0, 0) <= LIBXS_VERSION3(__PGIC__, __PGIC_MINOR__, __PGIC_PATCHLEVEL__))
-#     if LIBXS_X86_AVX2 < LIBXS_STATIC_TARGET_ARCH && !defined(__CYGWIN__)
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
-#     else /* Cygwin: invalid register for .seh_savexmm */
+#     if defined(__CYGWIN__) /* Cygwin: invalid register for .seh_savexmm */
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     elif LIBXS_X86_AVX2 < LIBXS_STATIC_TARGET_ARCH
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
+#     elif LIBXS_VERSION3(6, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#     elif LIBXS_VERSION3(5, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512
 #     endif
 #     define LIBXS_INTRINSICS_INCLUDE
 #     if !defined(LIBXS_INTRINSICS_DEBUG)
