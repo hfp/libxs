@@ -2055,8 +2055,8 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 LIBXS_API const libxs_descriptor* libxs_get_kernel_info(libxs_code_pointer code, size_t* size)
 {
   const libxs_descriptor* result;
-  void* extra = NULL;
   int flags = LIBXS_MALLOC_FLAG_X;
+  void* extra = NULL;
   if (NULL != size) *size = 0;
   if (NULL != code.ptr_const && NULL != internal_registry && NULL != internal_registry_keys
     && EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, size, &flags, &extra)
