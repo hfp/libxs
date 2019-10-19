@@ -472,13 +472,19 @@ LIBXS_API_INTERN void internal_finalize(void)
     const char *const env_target_hidden = getenv("LIBXS_TARGET_HIDDEN");
     const char *const target_arch = (NULL == env_target_hidden || 0 == atoi(env_target_hidden))
       ? libxs_cpuid_name(libxs_target_archid) : NULL/*hidden*/;
+    const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
 #if !defined(NDEBUG) && defined(__OPTIMIZE__)
     fprintf(stderr, "LIBXS WARNING: library is optimized without -DNDEBUG and contains debug code!\n");
 #endif
+    if (libxs_cpuid_vlen32(LIBXS_MAX_STATIC_TARGET_ARCH) < libxs_cpuid_vlen32(libxs_target_archid)) {
+      fprintf(stderr, "LIBXS WARNING: missing compiler support for optimized code paths!\n");
+    }
+    else if (0 != high_verbosity && LIBXS_MAX_STATIC_TARGET_ARCH < libxs_target_archid) {
+      fprintf(stderr, "LIBXS WARNING: missing compiler support for highly optimized code paths!\n");
+    }
     fprintf(stderr, "\nLIBXS_VERSION: %s-%s (%i)", LIBXS_BRANCH, LIBXS_VERSION, LIBXS_VERSION4(
       LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH));
     if (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) {
-      const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
       libxs_scratch_info scratch_info; size_t size_scratch = 0, size_private = 0;
       unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {

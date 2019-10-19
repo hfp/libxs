@@ -225,3 +225,22 @@ LIBXS_API const char* libxs_cpuid_name(int id)
   return target_arch;
 }
 
+
+LIBXS_API int libxs_cpuid_vlen32(int id)
+{
+  int result;
+  if (LIBXS_X86_AVX512 <= id) {
+    result = 16;
+  }
+  else if (LIBXS_X86_AVX <= id) {
+    result = 8;
+  }
+  else if (LIBXS_X86_SSE3 <= id) {
+    result = 4;
+  }
+  else { /* scalar */
+    result = 1;
+  }
+  return result;
+}
+
