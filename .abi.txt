@@ -36,6 +36,7 @@ libxs_bsmmdispatch_reducebatch
 libxs_convert_bf16_f32
 libxs_cpuid
 libxs_cpuid_name
+libxs_cpuid_vlen32
 libxs_cpuid_x86
 libxs_create_dcsr_reg
 libxs_create_pgemm_ac_rm

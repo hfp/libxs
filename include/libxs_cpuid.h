@@ -63,4 +63,7 @@ LIBXS_API int libxs_cpuid(void);
 /** Names the CPU architecture given by CPUID. */
 LIBXS_API const char* libxs_cpuid_name(int id);
 
+/** SIMD vector length (VLEN) in 32-bit elements. */
+LIBXS_API int libxs_cpuid_vlen32(int id);
+
 #endif /*LIBXS_CPUID_H*/
