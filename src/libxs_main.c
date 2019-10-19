@@ -781,7 +781,7 @@ LIBXS_API_INTERN void internal_init(void)
       LIBXS_ASSERT(NULL != internal_cache_buffer);
       memset(internal_cache_buffer, 0, (LIBXS_NTHREADS_MAX) * sizeof(internal_cache_type));
 #endif
-      libxs_trans_init(libxs_target_archid);
+      libxs_xcopy_init(libxs_target_archid);
       libxs_dnn_init(libxs_target_archid);
 #if defined(LIBXS_PERF)
       libxs_perf_init();
@@ -1070,7 +1070,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       libxs_perf_finalize();
 #endif
       libxs_gemm_finalize();
-      libxs_trans_finalize();
+      libxs_xcopy_finalize();
       libxs_dnn_finalize();
       /* make internal registry globally unavailable */
       LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
