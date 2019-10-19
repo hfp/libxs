@@ -137,11 +137,11 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_f32_f32(libxs_dnn_full
 }
 
 
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CPX)
 libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_bf16_bf16(libxs_dnn_fullyconnected* handle, int start_thread, int tid)
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-#if defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
+#if defined(LIBXS_INTRINSICS_AVX512_CPX) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
   typedef libxs_bfloat16 element_input_type;
   typedef libxs_bfloat16 element_output_type;
   typedef libxs_bfloat16 element_filter_type;
