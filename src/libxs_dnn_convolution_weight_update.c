@@ -741,18 +741,29 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_d
   }
 
   /* check if we are on AVX512 */
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
     if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_convolve_st_upd_custom_custom_f32_f32( handle, start_thread, tid);
-    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE && libxs_target_archid < LIBXS_X86_AVX512_CPX) {
+    }
+#if defined(LIBXS_INTRINSICS_AVX512_CPX) /*__AVX512F__,__AVX512BW__,__AVX512DQ__,__AVX512BF16__*/
+    else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE && libxs_target_archid < LIBXS_X86_AVX512_CPX ) {
       status = libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu( handle, start_thread, tid);
     } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CPX ) {
       status = libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16( handle, start_thread, tid);
-    } else {
+    }
+#elif defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
+    else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE ) {
+      status = libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu( handle, start_thread, tid);
+    }
+#endif
+    else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  } else {
+  } else
+#endif
+  {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
@@ -788,6 +799,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs_dnn
   }
 
   /* check if we are on AVX512 */
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
     if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_convolve_st_upd_nhwc_custom_f32_f32( handle, start_thread, tid);
@@ -795,7 +807,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs_dnn
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  } else {
+  } else
+#endif
+  {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
@@ -833,6 +847,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_dnn_l
   }
 
   /* check if we are on AVX512 */
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
     if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_convolve_st_upd_nhwc_rsck_f32_f32( handle, start_thread, tid);
@@ -840,7 +855,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_dnn_l
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  } else {
+  } else
+#endif
+  {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;

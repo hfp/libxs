@@ -144,16 +144,23 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_custom(libxs_dn
   }
 
   /* check if we are on an AVX512 platform */
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fullyconnected_st_bwd_custom_f32_f32( handle, start_thread, tid);
-    } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+    }
+#if defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__*/
+    else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fullyconnected_st_bwd_custom_bf16_f32( handle, start_thread, tid);
-    } else {
+    }
+#endif
+    else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  } else {
+  } else
+#endif
+  {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
@@ -212,6 +219,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_ncnc_kcck(libxs
   }
 
   /* check if we are on an AVX512 platform */
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_f32_f32( handle, start_thread, tid);
@@ -219,7 +227,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_ncnc_kcck(libxs
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  } else {
+  } else
+#endif
+  {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
