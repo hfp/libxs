@@ -72,14 +72,13 @@
 # define LIBXS_SYNC_PAUSE
 #endif
 
-#if !defined(LIBXS_SYNC_SYSTEM) && \
-  ((defined(_CRAYC) && !defined(__GNUC__)) || defined(__MINGW32__))
+#if !defined(LIBXS_SYNC_SYSTEM) && ( \
+  (defined(__PGI) && (!defined(LIBXS_LIBATOMIC) || !defined(__STATIC))) || \
+  (defined(_CRAYC) && !defined(__GNUC__)) || \
+  (defined(__MINGW32__)))
 # define LIBXS_SYNC_SYSTEM
 #endif
-/* disabled atomics: incomplete support for libatomic in compiler */
-#if !defined(LIBXS_SYNC_SYSTEM) && defined(__PGI) && 1
-# define LIBXS_SYNC_SYSTEM
-#endif
+
 #if !defined(LIBXS_ATOMIC_TRYLOCK_CMPSWP) && 0
 # define LIBXS_ATOMIC_TRYLOCK_CMPSWP
 #endif
@@ -171,26 +170,26 @@ typedef enum libxs_atomic_kind {
 #       define LIBXS_ATOMIC_STORE16(DST_PTR, VALUE, KIND) __atomic_store_2(DST_PTR, (unsigned short)(VALUE), KIND)
 #       define LIBXS_ATOMIC_STORE64(DST_PTR, VALUE, KIND) __atomic_store_8(DST_PTR, (unsigned long long)(VALUE), KIND)
 #     endif
-#     define LIBXS_ATOMIC_FETCH_OR(DST_PTR, VALUE, KIND) __atomic_fetch_or_4(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_OR8(DST_PTR, VALUE, KIND) __atomic_fetch_or_1(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_OR16(DST_PTR, VALUE, KIND) __atomic_fetch_or_2(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_OR64(DST_PTR, VALUE, KIND) __atomic_fetch_or_8(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) __atomic_add_fetch_4(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_ADD_FETCH8(DST_PTR, VALUE, KIND) __atomic_add_fetch_1(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_ADD_FETCH16(DST_PTR, VALUE, KIND) __atomic_add_fetch_2(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_ADD_FETCH64(DST_PTR, VALUE, KIND) __atomic_add_fetch_8(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) __atomic_sub_fetch_4(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_SUB_FETCH8(DST_PTR, VALUE, KIND) __atomic_sub_fetch_1(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_SUB_FETCH16(DST_PTR, VALUE, KIND) __atomic_sub_fetch_2(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_SUB_FETCH64(DST_PTR, VALUE, KIND) __atomic_sub_fetch_8(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_ADD(DST_PTR, VALUE, KIND) __atomic_fetch_add_4(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_ADD8(DST_PTR, VALUE, KIND) __atomic_fetch_add_1(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_ADD16(DST_PTR, VALUE, KIND) __atomic_fetch_add_2(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_ADD64(DST_PTR, VALUE, KIND) __atomic_fetch_add_8(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_SUB(DST_PTR, VALUE, KIND) __atomic_fetch_sub_4(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_SUB8(DST_PTR, VALUE, KIND) __atomic_fetch_sub_1(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_SUB16(DST_PTR, VALUE, KIND) __atomic_fetch_sub_2(DST_PTR, VALUE, KIND)
-#     define LIBXS_ATOMIC_FETCH_SUB64(DST_PTR, VALUE, KIND) __atomic_fetch_sub_8(DST_PTR, VALUE, KIND)
+#     define LIBXS_ATOMIC_FETCH_OR(DST_PTR, VALUE, KIND) __atomic_fetch_or_4(DST_PTR, (unsigned int)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_OR8(DST_PTR, VALUE, KIND) __atomic_fetch_or_1(DST_PTR, (unsigned char)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_OR16(DST_PTR, VALUE, KIND) __atomic_fetch_or_2(DST_PTR, (unsigned short)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_OR64(DST_PTR, VALUE, KIND) __atomic_fetch_or_8(DST_PTR, (unsigned long long)(VALUE), KIND)
+#     define LIBXS_ATOMIC_ADD_FETCH(DST_PTR, VALUE, KIND) __atomic_add_fetch_4(DST_PTR, (int)(VALUE), KIND)
+#     define LIBXS_ATOMIC_ADD_FETCH8(DST_PTR, VALUE, KIND) __atomic_add_fetch_1(DST_PTR, (signed char)(VALUE), KIND)
+#     define LIBXS_ATOMIC_ADD_FETCH16(DST_PTR, VALUE, KIND) __atomic_add_fetch_2(DST_PTR, (short)(VALUE), KIND)
+#     define LIBXS_ATOMIC_ADD_FETCH64(DST_PTR, VALUE, KIND) __atomic_add_fetch_8(DST_PTR, (long long)(VALUE), KIND)
+#     define LIBXS_ATOMIC_SUB_FETCH(DST_PTR, VALUE, KIND) __atomic_sub_fetch_4(DST_PTR, (int)(VALUE), KIND)
+#     define LIBXS_ATOMIC_SUB_FETCH8(DST_PTR, VALUE, KIND) __atomic_sub_fetch_1(DST_PTR, (signed char)(VALUE), KIND)
+#     define LIBXS_ATOMIC_SUB_FETCH16(DST_PTR, VALUE, KIND) __atomic_sub_fetch_2(DST_PTR, (short)(VALUE), KIND)
+#     define LIBXS_ATOMIC_SUB_FETCH64(DST_PTR, VALUE, KIND) __atomic_sub_fetch_8(DST_PTR, (long long)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_ADD(DST_PTR, VALUE, KIND) __atomic_fetch_add_4(DST_PTR, (int)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_ADD8(DST_PTR, VALUE, KIND) __atomic_fetch_add_1(DST_PTR, (signed char)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_ADD16(DST_PTR, VALUE, KIND) __atomic_fetch_add_2(DST_PTR, (short)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_ADD64(DST_PTR, VALUE, KIND) __atomic_fetch_add_8(DST_PTR, (long long)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_SUB(DST_PTR, VALUE, KIND) __atomic_fetch_sub_4(DST_PTR, (int)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_SUB8(DST_PTR, VALUE, KIND) __atomic_fetch_sub_1(DST_PTR, (signed char)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_SUB16(DST_PTR, VALUE, KIND) __atomic_fetch_sub_2(DST_PTR, (short)(VALUE), KIND)
+#     define LIBXS_ATOMIC_FETCH_SUB64(DST_PTR, VALUE, KIND) __atomic_fetch_sub_8(DST_PTR, (long long)(VALUE), KIND)
 #     define LIBXS_ATOMIC_CMPSWP(DST_PTR, OLDVAL, NEWVAL, KIND) \
               __atomic_compare_exchange_4(DST_PTR, &(OLDVAL), (NEWVAL), 0/*false*/, KIND, LIBXS_ATOMIC_RELAXED)
 #     define LIBXS_ATOMIC_CMPSWP8(DST_PTR, OLDVAL, NEWVAL, KIND) \
@@ -694,9 +693,9 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_LOCK_ATTR_DESTROY_rwlock(ATTR) LIBXS_UNUSED(ATTR)
 # endif
 #else
-# define LIBXS_LOCK_SPINLOCK
-# define LIBXS_LOCK_MUTEX
-# define LIBXS_LOCK_RWLOCK
+# define LIBXS_LOCK_SPINLOCK spinlock_dummy
+# define LIBXS_LOCK_MUTEX mutex_dummy
+# define LIBXS_LOCK_RWLOCK rwlock_dummy
 # define LIBXS_LOCK_ACQUIRED(KIND) 0
 # define LIBXS_LOCK_TYPE_ISPOD(KIND) 1
 # define LIBXS_LOCK_TYPE_ISRW(KIND) 0

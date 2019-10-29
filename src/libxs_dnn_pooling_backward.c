@@ -235,6 +235,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom(libxs_dnn_pooli
   }
 
   /* check if we are on an AVX512 platform */
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if ( ( libxs_target_archid >= LIBXS_X86_AVX512 ) &&
        (handle->ofmblock == 16) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
@@ -265,7 +266,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_bwd_custom(libxs_dnn_pooli
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  } else {
+  } else
+#endif
+  {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;

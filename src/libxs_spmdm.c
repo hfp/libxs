@@ -44,10 +44,12 @@
 #if defined(LIBXS_INTRINSICS_AVX) && !defined(LIBXS_SPMDM_AVX)
 # define LIBXS_SPMDM_AVX
 #endif
-#if defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_SPMDM_AVX2)
+#if defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_SPMDM_AVX2) && \
+  !(defined(__PGI) && defined(__cplusplus))
 # define LIBXS_SPMDM_AVX2
 #endif
-#if defined(LIBXS_INTRINSICS_AVX512_CORE) && !defined(LIBXS_SPMDM_AVX512_CORE)
+#if defined(LIBXS_INTRINSICS_AVX512_CORE) && !defined(LIBXS_SPMDM_AVX512_CORE) && \
+  !(defined(__PGI) && defined(__cplusplus))
 # define LIBXS_SPMDM_AVX512_CORE
 #endif
 

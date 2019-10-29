@@ -47,7 +47,7 @@
 # endif
 #endif
 /* determines if code relies on LIBXS_NTHREADS_MAX */
-#if !defined(LIBXS_NTHREADS_USE) && 0
+#if !defined(LIBXS_NTHREADS_USE) && 1
 # define LIBXS_NTHREADS_USE
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
@@ -632,7 +632,7 @@ typedef enum libxs_build_kind {
 
 /** Integral type (libxs_kernel_kind, libxs_build_kind). */
 #if defined(LIBXS_UNPACKED)
-typedef unsigned int libxs_descriptor_kind;
+typedef size_t libxs_descriptor_kind;
 #else
 typedef unsigned char libxs_descriptor_kind;
 #endif

@@ -392,6 +392,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_st_fwd_custom(libxs_dn
   }
 
   /* check if we are on an AVX512 platform */
+#if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if ( ( libxs_target_archid >= LIBXS_X86_AVX512 ) &&
        (handle->ofmblock == 16) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
@@ -422,7 +423,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_st_fwd_custom(libxs_dn
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
     }
-  } else {
+  } else
+#endif
+  {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
@@ -519,6 +522,120 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_st_fwd_nhwc(libxs_dnn_
   LIBXS_UNUSED( handle );
   LIBXS_UNUSED( start_thread );
   LIBXS_UNUSED( tid );
+  return status;
+}
+
+
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_reduce_stats_st_fwd_custom(libxs_dnn_fusedbatchnorm** handles, int num_handles, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  int l_count;
+
+  /* check if all required tensors are bound */
+  for ( l_count = 0; l_count < num_handles; ++l_count ) {
+    if ( handles[l_count]->expvalue == 0  || handles[l_count]->rcpstddev == 0  || handles[l_count]->variance == 0 || handles[l_count]->scratch == 0 ) {
+      status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+      return status;
+    }
+  }
+
+#if 0
+  /* check if we are on an AVX512 platform */
+  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
+    status = libxs_dnn_fusedbatchnorm_reduce_stats_st_fwd_custom_avx512( handles, num_handles, start_thread, tid );
+  } else
+#endif
+  {
+    const int nImg = handles[0]->desc.partN;
+    const int nBlocksFm = handles[0]->blocksifm;
+    const int nFmBlock = handles[0]->ifmblock;
+    /* computing first logical thread */
+    const int ltid = tid - start_thread;
+    /* number of tasks that could be run in parallel */
+    const int work2 = nBlocksFm;
+    /* compute chunk size */
+    const int chunksize2 = (work2 % handles[0]->desc.threads == 0) ? (work2 / handles[0]->desc.threads) : ((work2 / handles[0]->desc.threads) + 1);
+    /* compute thr_begin and thr_end */
+    const int thr_begin2 = (ltid * chunksize2 < work2) ? (ltid * chunksize2) : work2;
+    const int thr_end2 = ((ltid + 1) * chunksize2 < work2) ? ((ltid + 1) * chunksize2) : work2;
+    int v, fm;
+    const float sqrt_eps = 1e-7f;
+    const float nhw = (float)(handles[0]->desc.fullN * handles[0]->desc.H * handles[0]->desc.W);
+    const float recp_nhw = 1.0f/nhw;
+
+    LIBXS_VLA_DECL(2, float, bmean0,     (float*)handles[0]->expvalue->data,    nFmBlock);
+    LIBXS_VLA_DECL(2, float, brstd0,     (float*)handles[0]->rcpstddev->data,   nFmBlock);
+    LIBXS_VLA_DECL(2, float, variance0,  (float*)handles[0]->variance->data,    nFmBlock);
+    LIBXS_VLA_DECL(3, float, sum_img0,   (float*)handles[0]->scratch,                                                           nImg, nFmBlock);
+    LIBXS_VLA_DECL(3, float, sumsq_img0, ((float*)handles[0]->scratch) + ((size_t)nImg * (size_t)nBlocksFm * (size_t)nFmBlock), nImg, nFmBlock);
+
+    /* lazy barrier init */
+    libxs_barrier_init(handles[0]->barrier, ltid);
+
+    /* now we need to reduce the sum and sum^2, we use the final  */
+    for ( l_count = 1; l_count < num_handles; ++l_count ) {
+      LIBXS_VLA_DECL(3, float, sum_imgr,   (float*)handles[l_count]->scratch,                                                           nImg, nFmBlock);
+      LIBXS_VLA_DECL(3, float, sumsq_imgr, ((float*)handles[l_count]->scratch) + ((size_t)nImg * (size_t)nBlocksFm * (size_t)nFmBlock), nImg, nFmBlock);
+
+      for ( fm = thr_begin2; fm < thr_end2; ++fm ) {
+        float* sum_img0_ptr   = &LIBXS_VLA_ACCESS(3, sum_img0,   fm, 0, 0, nImg, nFmBlock);
+        float* sumsq_img0_ptr = &LIBXS_VLA_ACCESS(3, sumsq_img0, fm, 0, 0, nImg, nFmBlock);
+        float* sum_imgr_ptr   = &LIBXS_VLA_ACCESS(3, sum_imgr,   fm, 0, 0, nImg, nFmBlock);
+        float* sumsq_imgr_ptr = &LIBXS_VLA_ACCESS(3, sumsq_imgr, fm, 0, 0, nImg, nFmBlock);
+
+        LIBXS_PRAGMA_SIMD
+        for ( v=0; v < nFmBlock; v++ ) {
+          sum_img0_ptr[v] += sum_imgr_ptr[v];
+          sumsq_img0_ptr[v] += sumsq_imgr_ptr[v];
+        }
+      }
+    }
+
+    for ( fm = thr_begin2; fm < thr_end2; ++fm ) {
+      float* bmean0_ptr      = &LIBXS_VLA_ACCESS(2, bmean0,     fm, 0, nFmBlock);
+      float* brstd0_ptr      = &LIBXS_VLA_ACCESS(2, brstd0,     fm, 0, nFmBlock);
+      float* tvar0_ptr       = &LIBXS_VLA_ACCESS(2, variance0,  fm, 0, nFmBlock);
+      float* sum_img0_ptr   = &LIBXS_VLA_ACCESS(3, sum_img0,   fm, 0, 0, nImg, nFmBlock);
+      float* sumsq_img0_ptr = &LIBXS_VLA_ACCESS(3, sumsq_img0, fm, 0, 0, nImg, nFmBlock);
+
+      LIBXS_PRAGMA_SIMD
+      for ( v=0; v < nFmBlock; v++ ) {
+        const float tbmean = (recp_nhw * sum_img0_ptr[v]) ;
+        const float tbmeansq = tbmean * tbmean;
+        const float tsqbmean = recp_nhw * sumsq_img0_ptr[v];
+        const float tvar     = tsqbmean - tbmeansq;
+        const float tbrstd = (float)(1.0/sqrt((double)tvar + sqrt_eps));
+        bmean0_ptr[v] = tbmean;
+        brstd0_ptr[v] = tbrstd;
+        tvar0_ptr[v] = tvar;
+      }
+    }
+
+    for ( l_count = 1; l_count < num_handles; ++l_count ) {
+      LIBXS_VLA_DECL(2, float, bmeanr,     (float*)handles[l_count]->expvalue->data,    nFmBlock);
+      LIBXS_VLA_DECL(2, float, brstdr,     (float*)handles[l_count]->rcpstddev->data,   nFmBlock);
+      LIBXS_VLA_DECL(2, float, variancer,  (float*)handles[l_count]->variance->data,    nFmBlock);
+
+      for ( fm = thr_begin2; fm < thr_end2; ++fm ) {
+        float* bmean0_ptr      = &LIBXS_VLA_ACCESS(2, bmean0,     fm, 0, nFmBlock);
+        float* brstd0_ptr      = &LIBXS_VLA_ACCESS(2, brstd0,     fm, 0, nFmBlock);
+        float* tvar0_ptr       = &LIBXS_VLA_ACCESS(2, variance0,  fm, 0, nFmBlock);
+        float* bmeanr_ptr      = &LIBXS_VLA_ACCESS(2, bmeanr,     fm, 0, nFmBlock);
+        float* brstdr_ptr      = &LIBXS_VLA_ACCESS(2, brstdr,     fm, 0, nFmBlock);
+        float* tvarr_ptr       = &LIBXS_VLA_ACCESS(2, variancer,  fm, 0, nFmBlock);
+
+        LIBXS_PRAGMA_SIMD
+        for ( v=0; v < nFmBlock; v++ ) {
+          bmeanr_ptr[v] = bmean0_ptr[v];
+          brstdr_ptr[v] = brstd0_ptr[v];
+          tvarr_ptr[v] = tvar0_ptr[v];
+        }
+      }
+    }
+
+    libxs_barrier_wait(handles[0]->barrier, ltid);
+  }
+
   return status;
 }
 

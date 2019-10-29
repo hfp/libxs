@@ -472,19 +472,10 @@ LIBXS_API_INTERN void internal_finalize(void)
     const char *const env_target_hidden = getenv("LIBXS_TARGET_HIDDEN");
     const char *const target_arch = (NULL == env_target_hidden || 0 == atoi(env_target_hidden))
       ? libxs_cpuid_name(libxs_target_archid) : NULL/*hidden*/;
-    const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
-#if !defined(NDEBUG) && defined(__OPTIMIZE__)
-    fprintf(stderr, "LIBXS WARNING: library is optimized without -DNDEBUG and contains debug code!\n");
-#endif
-    if (libxs_cpuid_vlen32(LIBXS_MAX_STATIC_TARGET_ARCH) < libxs_cpuid_vlen32(libxs_target_archid)) {
-      fprintf(stderr, "LIBXS WARNING: missing compiler support for optimized code paths!\n");
-    }
-    else if (0 != high_verbosity && LIBXS_MAX_STATIC_TARGET_ARCH < libxs_target_archid) {
-      fprintf(stderr, "LIBXS WARNING: missing compiler support for highly optimized code paths!\n");
-    }
     fprintf(stderr, "\nLIBXS_VERSION: %s-%s (%i)", LIBXS_BRANCH, LIBXS_VERSION, LIBXS_VERSION4(
       LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH));
     if (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) {
+      const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
       libxs_scratch_info scratch_info; size_t size_scratch = 0, size_private = 0;
       unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
@@ -1232,7 +1223,10 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     target_archid = cpuid;
   }
   if (cpuid < target_archid) { /* warn about code path if beyond CPUID */
-    if (0 != libxs_verbosity) { /* library code is expected to be mute */
+    static int error_once = 0;
+    if ( 0 != libxs_verbosity /* library code is expected to be mute */
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
       const char *const target_arch = libxs_cpuid_name(target_archid);
       fprintf(stderr, "LIBXS WARNING: \"%s\" code will fail to run on \"%s\"!\n",
         target_arch, libxs_cpuid_name(cpuid));
@@ -1999,7 +1993,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
               if (NULL == internal_registry[i].ptr_const) break;
             } while (i != i0);
             if (i == i0) { /* out of capacity (no registry slot available) */
-              diff = 0; /* inside of locked region (do not use break!) */
+              diff = 0; /* do not use break if inside of locked region */
             }
             flux_entry.pmm = NULL; /* no result */
           }
@@ -2020,8 +2014,9 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
     } while (0 != diff);
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
     if (NULL != flux_entry.ptr_const) { /* keep code version on record (cache) */
+      LIBXS_ASSERT(0 == diff);
 # if !defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR)
-      if (cache->entry.id == libxs_ninit)
+      if (cache->entry.id == libxs_ninit) /* maintain cache */
 # endif
       {
         if (cache->entry.size < (LIBXS_CACHE_MAXSIZE)) { /* grow */
@@ -2033,16 +2028,15 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         }
       }
 # if !defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR)
-      else { /* invalidate */
-        LIBXS_ASSERT(0 == cache_index);
+      else { /* reset cache */
         cache->entry.id = libxs_ninit;
         cache->entry.size = 1;
+        cache_index = 0;
       }
 # endif
       LIBXS_ASSIGN127(cache->entry.keys + cache_index, desc);
       cache->entry.code[cache_index] = flux_entry;
       cache->entry.hit = cache_index;
-      LIBXS_ASSERT(0 == diff);
     }
 #endif
   }

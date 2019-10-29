@@ -43,10 +43,10 @@ LIBXS_API libxs_dnn_fusedbatchnorm* libxs_dnn_create_fusedbatchnorm(libxs_dnn_fu
   libxs_dnn_fusedbatchnorm* handle = 0;
   int lpb;
 
-  if ( (fusedbatchnorm_desc.partN > fusedbatchnorm_desc.fullN) && ((fusedbatchnorm_desc.fuse_ops & LIBXS_DNN_FUSEDBN_OPS_BNSTATS_NORED) > 0 ) ) {
+  if ( fusedbatchnorm_desc.partN > fusedbatchnorm_desc.fullN ) {
     *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     return handle;
-  } else if ( ( fusedbatchnorm_desc.partN != fusedbatchnorm_desc.fullN ) && ((fusedbatchnorm_desc.fuse_ops & LIBXS_DNN_FUSEDBN_OPS_BN) > 0 ) ) {
+  } else if ( (fusedbatchnorm_desc.partN != fusedbatchnorm_desc.fullN) && ((fusedbatchnorm_desc.fuse_ops & LIBXS_DNN_FUSEDBN_OPS_BNSTATS_NORED) == 0 ) && ((fusedbatchnorm_desc.fuse_ops & LIBXS_DNN_FUSEDBN_OPS_BNSCALE) == 0 ) ) {
     *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     return handle;
   } else {
