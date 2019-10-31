@@ -64,7 +64,19 @@ int main(int argc, char* argv[])
     libxs_rng_seq(a, (libxs_blasint)nbytes);
     libxs_rng_seq(b, (libxs_blasint)nbytes);
 
-    { /* benchmark libxs_hash */
+    { /* benchmark libxs_hash/pure */
+      size_t diff = 0, i;
+      start = libxs_timer_tick();
+      for (i = 0; i < nrpt; ++i) {
+        const unsigned int hash_a = libxs_hash(a, (unsigned int)nbytes, 0/*seed*/);
+        const unsigned int hash_b = libxs_hash(b, (unsigned int)nbytes, 0/*seed*/);
+        diff += (hash_a != hash_b);
+      }
+      printf("libxs_hash/pure:\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
+      result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
+    }
+
+    { /* benchmark libxs_hash/cmp */
       size_t diff = 0, i, j;
       start = libxs_timer_tick();
       for (i = 0; i < nrpt; ++i) {
@@ -74,10 +86,8 @@ int main(int argc, char* argv[])
           const unsigned int hash_b = libxs_hash(bj, elsize, 0/*seed*/);
           diff += (hash_a != hash_b || libxs_diff(aj, bj, (unsigned char)elsize));
         }
-        /* memcmp may be pure and without touching a it is not repeated (nrpt) */
-        a[i%nbytes] = 255;
       }
-      printf("libxs_hash:\t\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
+      printf("libxs_hash/cmp:\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
       result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
     }
 
@@ -90,8 +100,6 @@ int main(int argc, char* argv[])
           const void *const aj = a + j, *const bj = b + j;
           diff += libxs_memcmp(aj, bj, elsize);
         }
-        /* memcmp may be pure and without touching a it is not repeated (nrpt) */
-        a[i%nbytes] = 255;
       }
       printf("libxs_memcmp:\t\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
       result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
