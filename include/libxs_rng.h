@@ -52,6 +52,9 @@ LIBXS_API void libxs_rng_f32_seq(float* rngs, libxs_blasint count);
  */
 LIBXS_API unsigned int libxs_rng_u32(unsigned int n);
 
+/** Sequence of random data based on libxs_rng_u32. */
+LIBXS_API void libxs_rng_seq(void* data, libxs_blasint count);
+
 /**
  * Similar to libxs_rng_u32, but returns a DP-value in the interval [0, 1).
  * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
