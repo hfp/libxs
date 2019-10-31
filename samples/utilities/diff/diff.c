@@ -43,6 +43,7 @@ int main(int argc, char* argv[])
   int result = EXIT_SUCCESS;
   size_t nbytes, size, nrpt;
   unsigned char *a, *b;
+  double duration;
 
   LIBXS_ASSERT(elsize <= stride);
   if (0 < niters) {
@@ -58,27 +59,27 @@ int main(int argc, char* argv[])
   b = (unsigned char*)(0 != nbytes ? malloc(nbytes) : NULL);
 
   if (NULL != a && NULL != b) {
-    libxs_timer_tickint start;
-
     /* initialize the data */
     libxs_rng_seq(a, (libxs_blasint)nbytes);
     libxs_rng_seq(b, (libxs_blasint)nbytes);
 
     { /* benchmark libxs_hash/pure */
       size_t diff = 0, i;
-      start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (i = 0; i < nrpt; ++i) {
         const unsigned int hash_a = libxs_hash(a, (unsigned int)nbytes, 0/*seed*/);
         const unsigned int hash_b = libxs_hash(b, (unsigned int)nbytes, 0/*seed*/);
         diff += (hash_a != hash_b);
       }
-      printf("libxs_hash/pure:\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
+      duration = libxs_timer_duration(start, libxs_timer_tick());
+      if (0 < duration) printf("libxs_hash/pure:\t%.8f s (%i MB/s)\n", duration,
+        (int)LIBXS_ROUND((2.0 * nrpt * nbytes) / ((1024.0 * 1024.0) * duration)));
       result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
     }
 
     { /* benchmark libxs_hash/cmp */
       size_t diff = 0, i, j;
-      start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (i = 0; i < nrpt; ++i) {
         for (j = 0; j < nbytes; j += stride) {
           const void *const aj = a + j, *const bj = b + j;
@@ -87,27 +88,30 @@ int main(int argc, char* argv[])
           diff += (hash_a != hash_b || libxs_diff(aj, bj, (unsigned char)elsize));
         }
       }
-      printf("libxs_hash/cmp:\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
+      duration = libxs_timer_duration(start, libxs_timer_tick());
+      if (0 < duration) printf("libxs_hash/cmp:\t%.8f s (%i MB/s)\n", duration,
+        (int)LIBXS_ROUND((2.0 * nrpt * nbytes) / ((1024.0 * 1024.0) * duration)));
       result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
     }
 
     { /* benchmark libxs_memcmp */
       size_t diff = 0, i, j;
-      memcpy(b, a, nbytes);
-      start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (i = 0; i < nrpt; ++i) {
         for (j = 0; j < nbytes; j += stride) {
           const void *const aj = a + j, *const bj = b + j;
           diff += libxs_memcmp(aj, bj, elsize);
         }
       }
-      printf("libxs_memcmp:\t\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
+      duration = libxs_timer_duration(start, libxs_timer_tick());
+      if (0 < duration) printf("libxs_memcmp:\t\t%.8f s (%i MB/s)\n", duration,
+        (int)LIBXS_ROUND((2.0 * nrpt * nbytes) / ((1024.0 * 1024.0) * duration)));
       result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
     }
 
     { /* benchmark stdlib's memcmp */
       size_t diff = 0, i, j;
-      start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (i = 0; i < nrpt; ++i) {
         for (j = 0; j < nbytes; j += stride) {
           const void *const aj = a + j, *const bj = b + j;
@@ -123,7 +127,9 @@ int main(int argc, char* argv[])
         /* memcmp is likely pure and without touching a it is not repeated (nrpt) */
         a[i%nbytes] = 255;
       }
-      printf("stdlib memcmp:\t\t%.8f s\n", libxs_timer_duration(start, libxs_timer_tick()));
+      duration = libxs_timer_duration(start, libxs_timer_tick());
+      if (0 < duration) printf("stdlib memcmp:\t\t%.8f s (%i MB/s)\n", duration,
+        (int)LIBXS_ROUND((2.0 * nrpt * nbytes) / ((1024.0 * 1024.0) * duration)));
       result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
     }
   }
