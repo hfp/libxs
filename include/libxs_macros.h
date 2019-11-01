@@ -141,6 +141,16 @@
 # define LIBXS_PAD(EXPR) EXPR;
 #endif
 
+#if defined(__INTEL_COMPILER)
+# if !defined(__INTEL_COMPILER_UPDATE)
+#   define LIBXS_INTEL_COMPILER __INTEL_COMPILER
+# else
+#   define LIBXS_INTEL_COMPILER (__INTEL_COMPILER + __INTEL_COMPILER_UPDATE)
+# endif
+#elif defined(__INTEL_COMPILER_BUILD_DATE)
+# define LIBXS_INTEL_COMPILER ((__INTEL_COMPILER_BUILD_DATE / 10000 - 2000) * 100)
+#endif
+
 /* LIBXS_ATTRIBUTE_USED: mark library functions as used to avoid warning */
 #if defined(__GNUC__) || (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32))
 # define LIBXS_ATTRIBUTE_MALLOC LIBXS_ATTRIBUTE(malloc)
@@ -204,16 +214,6 @@
 # else /* assume no string-pooling (perhaps unsafe) */
 #   define LIBXS_CALLER_ID LIBXS_CALLER
 # endif
-#endif
-
-#if defined(__INTEL_COMPILER)
-# if !defined(__INTEL_COMPILER_UPDATE)
-#   define LIBXS_INTEL_COMPILER __INTEL_COMPILER
-# else
-#   define LIBXS_INTEL_COMPILER (__INTEL_COMPILER + __INTEL_COMPILER_UPDATE)
-# endif
-#elif defined(__INTEL_COMPILER_BUILD_DATE)
-# define LIBXS_INTEL_COMPILER ((__INTEL_COMPILER_BUILD_DATE / 10000 - 2000) * 100)
 #endif
 
 #if defined(LIBXS_OFFLOAD_BUILD) && \
