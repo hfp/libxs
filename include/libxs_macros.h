@@ -55,7 +55,8 @@
       (defined(__amd64__) && 0 != (__amd64__)) || \
       (defined(_M_X64) || defined(_M_AMD64)) || \
       (defined(__i386__) && 0 != (__i386__)) || \
-      (defined(_M_IX86))
+      (defined(_M_IX86)) || \
+      (defined(__powerpc64__))
 #   define LIBXS_PLATFORM_SUPPORTED
 # else /* JIT-generated code (among other issues) is not supported! */
 #   error Intel Architecture or compatible CPU required!
@@ -67,7 +68,8 @@
       (defined(__x86_64__) && 0 != (__x86_64__)) || \
       (defined(__amd64__) && 0 != (__amd64__)) || \
       (defined(_M_X64) || defined(_M_AMD64)) || \
-      (defined(_WIN64))
+      (defined(_WIN64)) || \
+      (defined(__powerpc64))
 #   define LIBXS_UNLIMITED 0xFFFFFFFFFFFFFFFF
 #   define LIBXS_BITS 64
 # elif defined(NDEBUG) /* not for production use! */
