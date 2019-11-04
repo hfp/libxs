@@ -43,7 +43,15 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if ((defined(__GNUC__) || defined(LIBXS_INTEL_COMPILER) || defined(__PGI)) && (64 <= (LIBXS_BITS)))
+#if defined(__powerpc64__)
+# include <sys/platform/ppc.h>
+#endif
+
+#if defined(__powerpc64__)
+# define LIBXS_TIMER_RDTSC(CYCLE) { \
+    CYCLE = __ppc_get_timebase(); \
+  }
+#elif ((defined(__GNUC__) || defined(LIBXS_INTEL_COMPILER) || defined(__PGI)) && (64 <= (LIBXS_BITS)))
 # define LIBXS_TIMER_RDTSC(CYCLE) { libxs_timer_tickint libxs_timer_rdtsc_hi_; \
     __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
     CYCLE |= libxs_timer_rdtsc_hi_ << 32; \
