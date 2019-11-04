@@ -199,6 +199,38 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_hash)(void* hash_seed, const void* data, cons
 
 
 /* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash_char)(void* /*hash_seed*/, const void* /*data*/, const int* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash_char)(void* hash_seed, const void* data, const int* size)
+{
+  LIBXS_FSYMBOL(libxs_hash)(hash_seed, data, size);
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash_i8)(void* /*hash_seed*/, const void* /*data*/, const int* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash_i8)(void* hash_seed, const void* data, const int* size)
+{
+  LIBXS_FSYMBOL(libxs_hash)(hash_seed, data, size);
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash_i32)(void* /*hash_seed*/, const void* /*data*/, const int* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash_i32)(void* hash_seed, const void* data, const int* size)
+{
+  LIBXS_FSYMBOL(libxs_hash)(hash_seed, data, size);
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash_i64)(void* /*hash_seed*/, const void* /*data*/, const int* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_hash_i64)(void* hash_seed, const void* data, const int* size)
+{
+  LIBXS_FSYMBOL(libxs_hash)(hash_seed, data, size);
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_diff)(int* /*result*/, const void* /*a*/, const void* /*b*/, const long long* /*size*/);
 LIBXS_API void LIBXS_FSYMBOL(libxs_diff)(int* result, const void* a, const void* b, const long long* size)
 {
@@ -216,6 +248,38 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_diff)(int* result, const void* a, const void*
     fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_memcmp specified!\n");
   }
 #endif
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff_char)(int* /*result*/, const void* /*a*/, const void* /*b*/, const long long* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff_char)(int* result, const void* a, const void* b, const long long* size)
+{
+  LIBXS_FSYMBOL(libxs_diff)(result, a, b, size);
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff_i8)(int* /*result*/, const void* /*a*/, const void* /*b*/, const long long* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff_i8)(int* result, const void* a, const void* b, const long long* size)
+{
+  LIBXS_FSYMBOL(libxs_diff)(result, a, b, size);
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff_i32)(int* /*result*/, const void* /*a*/, const void* /*b*/, const long long* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff_i32)(int* result, const void* a, const void* b, const long long* size)
+{
+  LIBXS_FSYMBOL(libxs_diff)(result, a, b, size);
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff_i64)(int* /*result*/, const void* /*a*/, const void* /*b*/, const long long* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_diff_i64)(int* result, const void* a, const void* b, const long long* size)
+{
+  LIBXS_FSYMBOL(libxs_diff)(result, a, b, size);
 }
 
 #endif /*defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))*/
