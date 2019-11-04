@@ -172,6 +172,11 @@ STATIC ?= 0
 # PIC: PIC or pic
 PIC ?= pic
 
+PLATFORM ?= 0
+ifneq (0,$(PLATFORM))
+  DFLAGS += -DLIBXS_PLATFORM_FORCE
+endif
+
 # Intrinsics support level
 INTRINSICS ?= 2
 ifneq (0,$(INTRINSICS))
