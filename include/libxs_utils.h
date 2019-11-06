@@ -220,7 +220,7 @@
 #     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_SSE3
 #   endif
 #   define LIBXS_INTRINSICS_INCLUDE
-# elif defined(__x86_64__) || defined(_WIN32) || defined(_WIN64)
+# elif defined(LIBXS_PLATFORM_X86)
 #   if !defined(LIBXS_STATIC_TARGET_ARCH)
 #     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_GENERIC
 #   endif
