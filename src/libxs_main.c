@@ -2463,7 +2463,7 @@ LIBXS_API libxs_bsmmfunction_reducebatch_addr libxs_bsmmdispatch_reducebatch_add
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
-  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
   result = libxs_xmmdispatch(desc);
   return result.bsmra;
 }
@@ -2479,7 +2479,7 @@ LIBXS_API libxs_bmmfunction_reducebatch_addr libxs_bmmdispatch_reducebatch_addr_
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
-  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
   result = libxs_xmmdispatch(desc);
   return result.bmra;
 }
@@ -2551,7 +2551,7 @@ LIBXS_API libxs_bsmmfunction_reducebatch_offs libxs_bsmmdispatch_reducebatch_off
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
-  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
   result = libxs_xmmdispatch(desc);
   return result.bsmro;
 }
@@ -2567,7 +2567,7 @@ LIBXS_API libxs_bmmfunction_reducebatch_offs libxs_bmmdispatch_reducebatch_offs_
     NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
-  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
   result = libxs_xmmdispatch(desc);
   return result.bmro;
 }
@@ -2665,7 +2665,7 @@ LIBXS_API libxs_bsmmfunction_reducebatch_strd libxs_bsmmdispatch_reducebatch_str
   /*const*/ libxs_xmmfunction result;
   desc->c1 = (unsigned long long)stride_a;
   desc->c2 = (unsigned long long)stride_b;
-  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
   if ( (stride_a < 0) || (stride_b < 0) ) {
     return NULL;
   }
@@ -2686,7 +2686,7 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd libxs_bmmdispatch_reducebatch_strd_
   /*const*/ libxs_xmmfunction result;
   desc->c1 = (unsigned long long)stride_a;
   desc->c2 = (unsigned long long)stride_b;
-  desc->c3 = (unroll_hint < 127) ? (unsigned char)unroll_hint : 0;
+  desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
   if ( (stride_a < 0) || (stride_b < 0) ) {
     return NULL;
   }
