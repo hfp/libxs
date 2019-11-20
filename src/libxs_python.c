@@ -110,8 +110,8 @@ LIBXS_API PyObject* libxspy_set_verbosity(PyObject* self, PyObject* args)
 }
 
 
-PyMODINIT_FUNC initlibxs(void);
-PyMODINIT_FUNC initlibxs(void)
+LIBXS_API PyMODINIT_FUNC initlibxs(void);
+LIBXS_API PyMODINIT_FUNC initlibxs(void)
 {
   static PyMethodDef pymethod_def[] = {
     { "GetTargetArch", libxspy_get_target_arch, METH_NOARGS,
