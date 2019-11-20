@@ -68,7 +68,7 @@ LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void)
 {
   libxs_timer_tickint result;
 #if !(defined(__PGI) && defined(__cplusplus))
-  int dummy;
+  int dummy = 0;
 #endif
 #if defined(_WIN32)
 # if 1

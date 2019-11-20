@@ -56,7 +56,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_f32_f32(libxs_dnn_layer*
     const libxs_blasint ldB = (libxs_blasint)handle->ofmblock;
     const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
     const libxs_blasint ldC = (handle->spread_input_bwd == 1) ? (libxs_blasint)(handle->ifmblock * handle->desc.v) : (libxs_blasint)handle->ifmblock;
-    const float  beta = (handle->avoid_acc_load_bwd) ? 0.0 : 1.0;
+    const float  beta = (handle->avoid_acc_load_bwd ? 0.f : 1.f);
     typedef float element_input_type;
     typedef float element_output_type;
     typedef float element_filter_type;
@@ -93,7 +93,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16_emu(libxs_dnn_
     const libxs_blasint ldB = (libxs_blasint)handle->ofmblock;
     const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
     const libxs_blasint ldC = (handle->spread_input_bwd == 1) ? (libxs_blasint)(handle->ifmblock * handle->desc.v) : (libxs_blasint)handle->ifmblock;
-    const float  beta = (handle->avoid_acc_load_bwd) ? 0.0 : 1.0;
+    const float  beta = (handle->avoid_acc_load_bwd ? 0.f : 1.f);
     typedef libxs_bfloat16 element_input_type;
     typedef libxs_bfloat16 element_output_type;
     typedef libxs_bfloat16 element_filter_type;
@@ -128,7 +128,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16(libxs_dnn_laye
     const libxs_blasint ldB = (libxs_blasint)handle->ofmblock;
     const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
     const libxs_blasint ldC = (handle->spread_input_bwd == 1) ? (libxs_blasint)(handle->ifmblock * handle->desc.v) : (libxs_blasint)handle->ifmblock;
-    const float  beta = (handle->avoid_acc_load_bwd) ? 0.0 : 1.0;
+    const float  beta = (handle->avoid_acc_load_bwd ? 0.f : 1.f);
     typedef libxs_bfloat16 element_input_type;
     typedef libxs_bfloat16 element_output_type;
     typedef libxs_bfloat16 element_filter_type;
@@ -171,7 +171,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom_f32_f32(libxs_dnn_layer* h
     const libxs_blasint ldB = (libxs_blasint)(handle->blocksofm * handle->ofmblock);
     const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
     const libxs_blasint ldC = (handle->spread_input_bwd == 1) ? (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v) : (libxs_blasint)(handle->blocksifm * handle->ifmblock);
-    const float  beta = (handle->avoid_acc_load_bwd) ? 0.0 : 1.0;
+    const float  beta = (handle->avoid_acc_load_bwd ? 0.f : 1.f);
     typedef float element_input_type;
     typedef float element_output_type;
     typedef float element_filter_type;
@@ -214,7 +214,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck_f32_f32(libxs_dnn_layer* han
     const libxs_blasint ldB = (libxs_blasint)(handle->blocksofm * handle->ofmblock);
     const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
     const libxs_blasint ldC = (handle->spread_input_bwd == 1) ? (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v) : (libxs_blasint)(handle->blocksifm * handle->ifmblock);
-    const float  beta = (handle->avoid_acc_load_bwd) ? 0.0 : 1.0;
+    const float  beta = (handle->avoid_acc_load_bwd ? 0.f : 1.f);
     typedef float element_input_type;
     typedef float element_output_type;
     typedef float element_filter_type;
@@ -344,7 +344,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_l
         const libxs_blasint ldB = (libxs_blasint)(handle->blocksofm * handle->ofmblock);
         const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
         const libxs_blasint ldC = (handle->spread_input_bwd == 1) ? (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v) : (libxs_blasint)(handle->blocksifm * handle->ifmblock);
-        const float  beta = (handle->avoid_acc_load_bwd) ? 0.0 : 1.0;
+        const float  beta = (handle->avoid_acc_load_bwd ? 0.f : 1.f);
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
@@ -407,7 +407,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs_dnn
         const libxs_blasint ldB = (libxs_blasint)(handle->blocksofm * handle->ofmblock);
         const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
         const libxs_blasint ldC = (handle->spread_input_bwd == 1) ? (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v) : (libxs_blasint)(handle->blocksifm * handle->ifmblock);
-        const float  beta = (handle->avoid_acc_load_bwd) ? 0.0 : 1.0;
+        const float  beta = (handle->avoid_acc_load_bwd ? 0.f : 1.f);
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
