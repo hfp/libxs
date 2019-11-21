@@ -38,6 +38,7 @@
   char *const libxs_memset127_dst_ = (char*)(PTRDST); \
   union { size_t size; signed char value; } libxs_memset127_size_ = { (SIZE) }; \
   signed char libxs_memset127_i_; LIBXS_ASSERT((SIZE) <= 127); \
+  LIBXS_PRAGMA_UNROLL \
   for (libxs_memset127_i_ = 0; libxs_memset127_i_ < libxs_memset127_size_.value; ++libxs_memset127_i_) { \
     libxs_memset127_dst_[libxs_memset127_i_] = (char)(VALUE); \
   } \
@@ -49,6 +50,7 @@
   const unsigned char *const libxs_memcpy127_src_ = (const unsigned char*)(PTRSRC); \
   unsigned char *const libxs_memcpy127_dst_ = (unsigned char*)(PTRDST); \
   signed char libxs_memcpy127_i_; LIBXS_ASSERT((SIZE) <= 127); \
+  LIBXS_PRAGMA_UNROLL \
   for (libxs_memcpy127_i_ = 0; libxs_memcpy127_i_ < (signed char)(SIZE); ++libxs_memcpy127_i_) { \
     libxs_memcpy127_dst_[libxs_memcpy127_i_] = libxs_memcpy127_src_[libxs_memcpy127_i_]; \
   } \
