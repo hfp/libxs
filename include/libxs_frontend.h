@@ -101,7 +101,7 @@
 #define LIBXS_TPREFIX_short LIBXS_TPREFIX_shortint
 
 /** Construct symbol name from a given real type name (float, double and short). */
-#define LIBXS_BLAS_FNTYPE(TYPE, KIND) LIBXS_CONCATENATE2(libxs_, LIBXS_TPREFIX(TYPE, KIND), _function)
+#define LIBXS_BLAS_FNTYPE(TYPE, KIND) LIBXS_CONCATENATE3(libxs_, LIBXS_TPREFIX(TYPE, KIND), _function)
 #define LIBXS_MMFUNCTION_TYPE(TYPE)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmfunction))
 #define LIBXS_MMDISPATCH_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmdispatch))
 #define LIBXS_XBLAS_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(TYPE, gemm))
@@ -130,7 +130,7 @@
 #define LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION)  LIBXS_TPREFIX(LIBXS_CONCATENATE(ITYPE, OTYPE), FUNCTION)
 
 /** Helper macro for comparing selected types. */
-#define LIBXS_EQUAL(T1, T2) LIBXS_CONCATENATE2(LIBXS_EQUAL_, T1, T2)
+#define LIBXS_EQUAL(T1, T2) LIBXS_CONCATENATE3(LIBXS_EQUAL_, T1, T2)
 #define LIBXS_EQUAL_floatfloat 1
 #define LIBXS_EQUAL_doubledouble 1
 #define LIBXS_EQUAL_floatdouble 0
