@@ -160,7 +160,7 @@
                            || (LIBXS_VERSION3(8, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))) \
    && (!defined(__clang__) || (LIBXS_VERSION3(6, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
                            || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))) \
-   && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(8, 1, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+   && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(10, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 #   if !defined(LIBXS_STATIC_TARGET_ARCH)
 #     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
 #   endif
@@ -172,7 +172,7 @@
                            || (LIBXS_VERSION3(5, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))) \
    && (!defined(__clang__) || (LIBXS_VERSION3(4, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
                            || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))) \
-   && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(8, 1, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+   && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(9, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 #   if !defined(LIBXS_STATIC_TARGET_ARCH)
 #     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
 #   endif
@@ -184,7 +184,7 @@
                            || (LIBXS_VERSION3(5, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))) \
    && (!defined(__clang__) || (LIBXS_VERSION3(4, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
                            || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))) \
-   && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(8, 1, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+   && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(9, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 #   if !defined(LIBXS_STATIC_TARGET_ARCH)
 #     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
 #   endif
@@ -195,7 +195,7 @@
                            || (LIBXS_VERSION3(5, 0, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))) \
    && (!defined(__clang__) || (LIBXS_VERSION3(4, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__) \
                            || (LIBXS_VERSION3(0, 0, 0) == LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__)))) \
-   && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(8, 1, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+   && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION3(9, 0, 0) <= LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 #   if !defined(LIBXS_STATIC_TARGET_ARCH)
 #     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512
 #   endif
@@ -472,7 +472,7 @@
 #       else /* LIBXS_X86_AVX512_CORE */
 #         define LIBXS_ATTRIBUTE_TARGET_1021 LIBXS_ATTRIBUTE_TARGET_1020
 #       endif
-#       if (LIBXS_X86_AVX512_CPX <= LIBXS_MAX_STATIC_TARGET_ARCH) /* TODO: verify compiler flag */
+#       if (LIBXS_X86_AVX512_CPX <= LIBXS_MAX_STATIC_TARGET_ARCH)
 #         define LIBXS_ATTRIBUTE_TARGET_1022 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni,avx512bf16")
 #       else /* LIBXS_X86_AVX512_CORE */
 #         define LIBXS_ATTRIBUTE_TARGET_1022 LIBXS_ATTRIBUTE_TARGET_1021
