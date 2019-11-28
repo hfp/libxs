@@ -798,7 +798,7 @@ LIBXS_API_INTERN void internal_init(void)
         }
       }
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) ((libxs_code_pointer*)new_registry)[i].pmm = NULL;
-#if defined(LIBXS_BUILD)
+#if defined(LIBXS_BUILD) && !defined(LIBXS_DEFAULT_CONFIG)
 #     include <libxs_dispatch.h>
 #endif
       libxs_gemm_init(libxs_target_archid);
