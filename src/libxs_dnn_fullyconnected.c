@@ -573,6 +573,20 @@ LIBXS_API size_t libxs_dnn_fullyconnected_get_scratch_size(const libxs_dnn_fully
 }
 
 
+LIBXS_API void* libxs_dnn_fullyconnected_get_scratch_ptr(const libxs_dnn_fullyconnected* handle, libxs_dnn_err_t* status)
+{
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    return handle->scratch;
+  } else {
+    *status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return 0;
+}
+
+
 LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_bind_scratch(libxs_dnn_fullyconnected* handle, const void* scratch) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   uintptr_t address = (uintptr_t)scratch;

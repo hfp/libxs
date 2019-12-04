@@ -60,6 +60,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_destroy_fullyconnected(const libxs_dnn_fully
 
 LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_datalayout(const libxs_dnn_fullyconnected* handle, const libxs_dnn_tensor_type type, libxs_dnn_err_t* status);
 
+LIBXS_API void*  libxs_dnn_fullyconnected_get_scratch_ptr (const libxs_dnn_fullyconnected* handle, libxs_dnn_err_t* status);
 LIBXS_API size_t libxs_dnn_fullyconnected_get_scratch_size(const libxs_dnn_fullyconnected* handle, libxs_dnn_err_t* status);
 LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_bind_scratch(libxs_dnn_fullyconnected* handle, const void* scratch);
 LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_release_scratch(libxs_dnn_fullyconnected* handle);
