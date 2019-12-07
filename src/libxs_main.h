@@ -125,7 +125,7 @@
   LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K); \
   LIBXS_DESCRIPTOR_CLEAR_AUX(&(DESCRIPTOR), sizeof(DESCRIPTOR)); \
   (DESCRIPTOR).datatype = (unsigned char)(DATA_TYPE); (DESCRIPTOR).prefetch = (unsigned char)(PREFETCH); \
-  (DESCRIPTOR).flags = (unsigned short)((FLAGS) \
+  (DESCRIPTOR).flags = (unsigned int)((FLAGS) \
     /*| (LIBXS_NEQ(0, ALPHA) ? 0 : LIBXS_GEMM_FLAG_ALPHA_0)*/ \
     | (LIBXS_NEQ(0, BETA) ? 0 : LIBXS_GEMM_FLAG_BETA_0)); \
   (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
@@ -161,18 +161,18 @@
 * The size of the structure is padded to LIBXS_DESCRIPTOR_MAXSIZE.
 */
 LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
-  /** Denotes the data-type. */
-  unsigned char datatype;
-  /** Prefetch strategy. */
-  unsigned char prefetch;
-  /** Set of flags. */
-  unsigned short flags;
   /** Extents of the matrix. */
   unsigned int m, n, k;
   /** Leading dimensions. */
   unsigned int lda, ldb, ldc;
+  /** Set of flags. */
+  unsigned int flags;
+  /** Prefetch strategy. */
+  unsigned char prefetch;
+  /** Denotes the data-type. */
+  unsigned char datatype;
   /** Ignored entry. */
-  LIBXS_PAD(unsigned int pad)
+  LIBXS_PAD(unsigned short pad)
   /** multipurpose 64bit field, currently used for: a) stride_a in brgemm */
   unsigned long long c1;
   /** multipurpose 64bit field, currently used for: a) stride_b in brgemm */
