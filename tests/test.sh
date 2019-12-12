@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
 
-HERE=$(cd $(dirname $0); pwd -P)
+HERE=$(cd "$(dirname $0)"; pwd -P)
 GREP=$(command -v grep)
 SED=$(command -v sed)
 ENV=$(command -v env)
@@ -54,7 +54,7 @@ echo "============="
 NTEST=1
 NMAX=$(echo "${TESTS}" | ${WC} -w | ${TR} -d " ")
 for TEST in ${TESTS}; do
-  NAME=$(basename ${TEST} .c)
+  NAME=$(basename "${TEST}" .c)
   echo -n "${NTEST} of ${NMAX} (${NAME})... "
   if [ "0" != "$(echo ${TESTS_DISABLED} | ${GREP} -q ${NAME}; echo $?)" ]; then
     cd ${HERE}
