@@ -36,57 +36,10 @@
 #define CHWK 3
 #define HWCK 4
 
-LIBXS_API_INTERN void libxs_dnn_setup_scratch( libxs_dnn_layer* handle ) {
-  handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
-  /* backward transpose filters */
-  handle->scratch1 = 0;
-  handle->scratch1_size = (size_t)handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
-    * handle->desc.R * handle->desc.S * libxs_dnn_typesize(handle->datatype_in);
-  if (handle->fm_lp_block > 1) {
-    /* If low precision, we need extra buffer to store intermediate weight tensor */
-    handle->scratch1_size *= 2;
-  }
-
-  /* weight update transpose of minibatch */
-  handle->scratch3 = 0;
-  handle->scratch3_size = (size_t)handle->desc.N * handle->blocksifm * handle->ifmblock * handle->ifhp * ((size_t)handle->ifwp + 8)
-    * libxs_dnn_typesize(handle->datatype_in);
-
-  handle->scratch4 = 0;
-  handle->scratch4_size = 0;
-  handle->upd_use_thread_fil = 0;
-
-  /* Allocate scratch for additional output transpose */
-  if (handle->use_lp_kernel == 1) {
-    handle->scratch2 = 0;
-    handle->scratch2_size = (size_t)handle->desc.N * handle->blocksofm * handle->ofmblock
-      * ((size_t)handle->ofhp     + (size_t)2 * handle->desc.pad_h)
-      * ((size_t)handle->ofwp + 8 + (size_t)2 * handle->desc.pad_w)
-      * libxs_dnn_typesize(handle->datatype_in);
-    if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
-      /* Allocate scratch to dump results before down-convert  */
-      handle->scratch2_size += (size_t)handle->desc.C * handle->desc.K * handle->desc.R * handle->desc.S * sizeof(float);
-    }
-  } else {
-    handle->scratch2 = 0;
-    handle->scratch2_size = 0;
-  }
-
-  /* Allocate scratch for auxiliary batchstats (sum and sum^2 for FWD)  */
-  if ( handle->fuse_batchstats_fwd == 1 || handle->fuse_batchstats_bwd == 1 ) {
-    handle->scratch7 = 0;
-    handle->scratch7_size = (size_t) 2 * LIBXS_MAX(handle->desc.K, handle->desc.C) * handle->desc.N * sizeof(float);
-  } else {
-    handle->scratch7 = 0;
-    handle->scratch7_size = 0;
-  }
-
-}
-
 /**********************************************************/
 /* Helper functions for convolutions' general param setup */
 /**********************************************************/
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_ifmblock( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_ifmblock( libxs_dnn_layer* handle ) {
   int result = 1;
   int ofm, lp;
 
@@ -95,7 +48,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_ifmblock( libxs_dnn_layer* hand
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_ofmblock( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_ofmblock( libxs_dnn_layer* handle ) {
   int result = 1;
   int ifm, lp;
 
@@ -104,7 +57,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_ofmblock( libxs_dnn_layer* hand
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_fm_lp_block( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_fm_lp_block( libxs_dnn_layer* handle ) {
   int result = 1;
   int ifm, ofm;
 
@@ -113,7 +66,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_fm_lp_block( libxs_dnn_layer* h
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_fallback_loops_fwd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_fallback_loops_fwd( libxs_dnn_layer* handle ) {
   int result = 0;
   /* FIXME: For now fallback only if MB is not divisible by number of threads */
   if (handle->desc.N % handle->desc.threads != 0) {
@@ -122,12 +75,12 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_fallback_loops_fwd( libxs_dnn_l
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_blocksifm( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_blocksifm( libxs_dnn_layer* handle ) {
   int result = handle->desc.C / handle->ifmblock;
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_blocksofm( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_blocksofm( libxs_dnn_layer* handle ) {
   int result = handle->desc.K / handle->ofmblock;
   return result;
 }
