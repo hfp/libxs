@@ -162,7 +162,7 @@ LIBXS_API size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype)
 }
 
 
-LIBXS_API_INTERN float libxs_internal_get_max( float* in_buffer, int length ) {
+LIBXS_API_INLINE float libxs_internal_get_max( float* in_buffer, int length ) {
   float absmax_value = LIBXS_ABS(in_buffer[0]);
   int i = 0;
 #ifdef _OPENMP
