@@ -121,7 +121,7 @@
 #if defined(LIBXS_GEMM_CONST)
 # undef LIBXS_GEMM_CONST
 # define LIBXS_GEMM_CONST const
-#elif defined(LIBXS_GEMM_NONCONST) || defined(__OPENBLAS)
+#elif defined(LIBXS_GEMM_NONCONST) || defined(__OPENBLAS) || defined(__OPENBLAS77)
 # define LIBXS_GEMM_CONST
 #else
 # define LIBXS_GEMM_CONST const
