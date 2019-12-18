@@ -644,13 +644,21 @@
 #if !defined(LIBXS_MKTEMP_PATTERN)
 # define LIBXS_MKTEMP_PATTERN "XXXXXX"
 #endif
+
 #if defined(_WIN32) && 0
 # define LIBXS_SNPRINTF(S, N, ...) _snprintf_s(S, N, _TRUNCATE, __VA_ARGS__)
-# define setenv(NAME, VALUE, OVERWRITE) _putenv(NAME "=" VALUE)
 #elif defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__ || defined(__GNUC__))
 # define LIBXS_SNPRINTF(S, N, ...) snprintf(S, N, __VA_ARGS__)
 #else
 # define LIBXS_SNPRINTF(S, N, ...) sprintf((S) + /*unused*/(N) * 0, __VA_ARGS__)
+#endif
+#if defined(_WIN32)
+# define LIBXS_PUTENV _putenv
+# define LIBXS_SETENV(NAME, VALUE, OVERWRITE) \
+    if (NULL == getenv(NAME) || (OVERWRITE)) LIBXS_PUTENV(NAME "=" VALUE)
+#else
+# define LIBXS_PUTENV putenv
+# define LIBXS_SETENV setenv
 #endif
 #if (0 == LIBXS_SYNC)
 # define LIBXS_FLOCK(FILE)
@@ -747,7 +755,10 @@
 #endif
 #if !defined(LIBXS_EXPECT)
 # if defined(NDEBUG)
-#   define LIBXS_EXPECT(RESULT, EXPR) (EXPR)
+#   define LIBXS_EXPECT(RESULT, EXPR) do { \
+      /*const*/ int libxs_expect_result_ = (EXPR); \
+      LIBXS_UNUSED(libxs_expect_result_); \
+    } while(0)
 # else
 #   define LIBXS_EXPECT(RESULT, EXPR) LIBXS_ASSERT((RESULT) == (EXPR))
 # endif
