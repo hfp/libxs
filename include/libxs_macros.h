@@ -482,7 +482,6 @@
 # define LIBXS_LOG2(A) (log(A) * (1.0 / (M_LN2)))
 # define LIBXS_EXPF(A) ((float)exp((double)(A)))
 # define LIBXS_LOGF(A) ((float)log((double)(A)))
-
 #endif
 
 #if defined(LIBXS_INTEL_COMPILER)
@@ -625,6 +624,7 @@
 #endif
 
 #if !defined(LIBXS_NO_CTOR) && !defined(LIBXS_CTOR) && \
+    (defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__)) && \
     (defined(LIBXS_BUILD) && !defined(__STATIC)) && \
     (defined(__GNUC__) || defined(__clang__))
 # define LIBXS_ATTRIBUTE_CTOR LIBXS_ATTRIBUTE(constructor)
