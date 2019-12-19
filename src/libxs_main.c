@@ -678,6 +678,17 @@ LIBXS_API_INTERN void internal_init(void)
 #if !defined(_WIN32) && 0
     umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
 #endif
+    { /* setup some viable affinity if nothing else is present */
+      const char *const gomp_cpu_affinity = getenv("GOMP_CPU_AFFINITY");
+      const char *const kmp_affinity = getenv("KMP_AFFINITY");
+      const char *const omp_proc_bind = getenv("OMP_PROC_BIND");
+      if  ((NULL == gomp_cpu_affinity || 0 == *gomp_cpu_affinity)
+        && (NULL == kmp_affinity || 0 == *kmp_affinity)
+        && (NULL == omp_proc_bind || 0 == *omp_proc_bind))
+      {
+        LIBXS_EXPECT(EXIT_SUCCESS, LIBXS_PUTENV("OMP_PROC_BIND=TRUE"));
+      }
+    }
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     { const char *const env = getenv("LIBXS_SCRATCH_POOLS");
       if (NULL == env || 0 == *env) {
@@ -720,17 +731,6 @@ LIBXS_API_INTERN void internal_init(void)
 #else /* attempt to set libxs_target_archid per environment variable */
     libxs_set_target_arch(getenv("LIBXS_TARGET"));
 #endif
-    { /* setup some viable affinity if nothing else is present */
-      const char *const gomp_cpu_affinity = getenv("GOMP_CPU_AFFINITY");
-      const char *const kmp_affinity = getenv("KMP_AFFINITY");
-      const char *const omp_proc_bind = getenv("OMP_PROC_BIND");
-      if  ((NULL == gomp_cpu_affinity || 0 == *gomp_cpu_affinity)
-        && (NULL == kmp_affinity || 0 == *kmp_affinity)
-        && (NULL == omp_proc_bind || 0 == *omp_proc_bind))
-      {
-        LIBXS_EXPECT(EXIT_SUCCESS, LIBXS_PUTENV("OMP_PROC_BIND=TRUE"));
-      }
-    }
     { const char *const env = getenv("LIBXS_SYNC");
       libxs_nosync = (NULL == env || 0 == *env) ? 0/*default*/ : atoi(env);
     }
