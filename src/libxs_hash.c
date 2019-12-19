@@ -442,10 +442,7 @@ LIBXS_API_INTERN void libxs_hash_init(int target_arch)
     internal_hash_function = (libxs_hash_function)internal_crc32_sse4;
   }
 #if (LIBXS_X86_SSE4 > LIBXS_STATIC_TARGET_ARCH)
-  else
-#endif
-#if (LIBXS_X86_SSE4 > LIBXS_STATIC_TARGET_ARCH)
-  {
+  else {
 # if !defined(LIBXS_INTRINSICS_SSE4)
     static int error_once = 0;
     if (0 == error_once && 0 != libxs_verbosity) { /* library code is expected to be mute */
