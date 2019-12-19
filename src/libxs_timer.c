@@ -27,24 +27,25 @@
 # include <sys/platform/ppc.h>
 #endif
 
-#if defined(__powerpc64__)
-# define LIBXS_TIMER_RDTSC(CYCLE) { \
-    CYCLE = __ppc_get_timebase(); \
-  }
-#elif ((defined(__GNUC__) || defined(LIBXS_INTEL_COMPILER) || defined(__PGI)) && (64 <= (LIBXS_BITS)))
-# define LIBXS_TIMER_RDTSC(CYCLE) { libxs_timer_tickint libxs_timer_rdtsc_hi_; \
-    __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
-    CYCLE |= libxs_timer_rdtsc_hi_ << 32; \
-  }
-#elif (defined(_rdtsc) || defined(_WIN32))
-# define LIBXS_TIMER_RDTSC(CYCLE) (CYCLE = __rdtsc())
+#if 1 /* TSC */
+# if defined(__powerpc64__)
+#   define LIBXS_TIMER_RDTSC(CYCLE) { \
+      CYCLE = __ppc_get_timebase(); \
+    }
+# elif ((defined(__GNUC__) || defined(LIBXS_INTEL_COMPILER) || defined(__PGI)) && (64 <= (LIBXS_BITS)))
+#   define LIBXS_TIMER_RDTSC(CYCLE) { libxs_timer_tickint libxs_timer_rdtsc_hi_; \
+      __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
+      CYCLE |= libxs_timer_rdtsc_hi_ << 32; \
+    }
+# elif (defined(_rdtsc) || defined(_WIN32))
+#   define LIBXS_TIMER_RDTSC(CYCLE) (CYCLE = __rdtsc())
+# endif
 #endif
-
 
 LIBXS_APIVAR(int internal_timer_init_rtc);
 
 
-LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void)
+LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(int* tsc)
 {
   libxs_timer_tickint result;
 #if !(defined(__PGI) && defined(__cplusplus))
@@ -67,6 +68,11 @@ LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void)
   gettimeofday(&t, 0);
   result = 1000000ULL * t.tv_sec + t.tv_usec;
 #endif
+#if defined(LIBXS_TIMER_RDTSC)
+  if (NULL != tsc) *tsc = 1;
+#else
+  if (NULL != tsc) *tsc = 0;
+#endif
 #if !(defined(__PGI) && defined(__cplusplus))
   LIBXS_UNUSED(dummy);
   dummy =
@@ -83,7 +89,7 @@ libxs_timer_tickint libxs_timer_tick(void)
 #if defined(LIBXS_TIMER_RDTSC)
   LIBXS_TIMER_RDTSC(result);
 #else
-  result = libxs_timer_tick_rtc();
+  result = libxs_timer_tick_rtc(NULL/*tsc*/);
 #endif
   return result;
 }
