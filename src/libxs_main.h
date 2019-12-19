@@ -719,7 +719,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 LIBXS_API const libxs_descriptor* libxs_get_kernel_info(libxs_code_pointer code, size_t* size);
 
 /** Returns the current tick of a (monotonic) platform-specific counter; not necessarily CPU cycles. */
-LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void);
+LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(int* tsc);
 
 LIBXS_API_INTERN void libxs_dnn_init(int target_arch);
 LIBXS_API_INTERN void libxs_dnn_finalize(void);
