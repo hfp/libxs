@@ -1494,7 +1494,6 @@ endif
 	@rm -f $(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.sh
 	@rm -f $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.sh
 	@rm -f $(INCDIR)/libxs_config.h
-	@rm -f $(INCDIR)/libxs_source.h
 	@rm -f $(INCDIR)/libxs.modmic
 	@rm -f $(INCDIR)/libxs.mod
 	@rm -f $(INCDIR)/libxs.f
