@@ -642,12 +642,7 @@ LIBXS_API_INTERN size_t internal_parse_nbytes(const char* nbytes, size_t ndefaul
 }
 
 
-LIBXS_API_INTERN
-#if defined(__GNUC__) && !defined(__PGI) && !defined(__ibmxl__)
-LIBXS_ATTRIBUTE(no_instrument_function)
-#endif
-void internal_init(void);
-
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_init(void);
 LIBXS_API_INTERN void internal_init(void)
 {
   int i;
@@ -942,12 +937,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 }
 
 
-LIBXS_API
-#if defined(__GNUC__) && !defined(__PGI) && !defined(__ibmxl__)
-LIBXS_ATTRIBUTE(no_instrument_function)
-#endif
-void libxs_finalize(void);
-
+LIBXS_API LIBXS_ATTRIBUTE_NO_TRACE void libxs_finalize(void);
 LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 {
   void *const regaddr = &internal_registry;
