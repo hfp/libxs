@@ -635,6 +635,12 @@
 # define LIBXS_ATTRIBUTE_DTOR
 #endif
 
+#if defined(__GNUC__) && !defined(__PGI) && !defined(__ibmxl__)
+# define LIBXS_ATTRIBUTE_NO_TRACE LIBXS_ATTRIBUTE(no_instrument_function)
+#else
+# define LIBXS_ATTRIBUTE_NO_TRACE
+#endif
+
 #if defined(__GNUC__)
 # define LIBXS_MAY_ALIAS LIBXS_ATTRIBUTE(__may_alias__)
 #else
