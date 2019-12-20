@@ -1079,9 +1079,9 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 }
 
 
-LIBXS_API void libxs_sink(LIBXS_VARIADIC)
+LIBXS_API_EXPORT void libxs_sink(LIBXS_VARIADIC)
 {
-  /* does nothing else but sink the given arguments */
+  /* does nothing else but sinking given arguments */
 }
 
 
