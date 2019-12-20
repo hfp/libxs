@@ -130,8 +130,10 @@
 #if !defined(LIBXS_NO_BLAS)
 # if (!defined(__BLAS) || (0 != __BLAS))
 #   define LIBXS_NO_BLAS 0
+#   define LIBXS_BLAS 1
 # else
 #   define LIBXS_NO_BLAS 1
+#   define LIBXS_BLAS 0
 # endif
 #endif
 
@@ -172,7 +174,7 @@
 #define LIBXS_BLAS_SYMBOL_CDECL(CONST_STAR, STAR, TYPE, KIND) LIBXS_GEMM_SYMBOL_VISIBILITY \
   void LIBXS_CBLAS_SYMBOL(TYPE, KIND)(LIBXS_BLAS_SYMBOL_SIGNATURE(CONST_STAR, STAR, TYPE, KIND))
 
-#if (0 == LIBXS_NO_BLAS) /* BLAS available */
+#if (0 != LIBXS_BLAS) /* BLAS available */
 # define LIBXS_BLAS_SYMBOL_DECL(TYPE, KIND) LIBXS_BLAS_DECL(TYPE, KIND, LIBXS_BLAS_SYMBOL_FDECL(LIBXS_GEMM_CONST*, *, TYPE, KIND))
 #else
 # define LIBXS_BLAS_SYMBOL_DECL(TYPE, KIND)
@@ -226,7 +228,7 @@
 
 /** Map to appropriate BLAS function (or fall-back). The mapping is used e.g., inside of LIBXS_BLAS_XGEMM. */
 #define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
-#if (0 == LIBXS_NO_BLAS) /* Helper macro to eventually (if defined) call libxs_init */
+#if (0 != LIBXS_BLAS) /* Helper macro to eventually (if defined) call libxs_init */
 # if (defined(LIBXS_INIT) || defined(LIBXS_CTOR))
 #   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch_function
 #   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch_function
@@ -503,8 +505,8 @@ LIBXS_API_EXPORT libxs_dgemm_function libxs_original_dgemm(void);
 LIBXS_API_EXPORT libxs_sgemm_function libxs_original_sgemm(void);
 LIBXS_API_EXPORT libxs_dgemv_function libxs_original_dgemv(void);
 LIBXS_API_EXPORT libxs_sgemv_function libxs_original_sgemv(void);
-LIBXS_API libxs_sink_function libxs_blas_error(const char* symbol);
-LIBXS_API void libxs_sink(LIBXS_VARIADIC);
+LIBXS_API_EXPORT libxs_sink_function libxs_blas_error(const char* symbol);
+LIBXS_API_EXPORT void libxs_sink(LIBXS_VARIADIC);
 
 /**
  * General dense matrix multiplication, which re-exposes LAPACK/BLAS
