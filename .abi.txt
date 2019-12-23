@@ -352,7 +352,6 @@ libxs_release_kernel_
 libxs_release_scratch
 libxs_release_smmkernel
 libxs_release_wimmkernel
-libxs_release_wsmmkernel
 libxs_rnaz_convert_fp32_bf16
 libxs_rne_convert_fp32_bf16
 libxs_rng_f32_seq
@@ -443,17 +442,6 @@ libxs_wimmcall
 libxs_wimmcall_abc
 libxs_wimmcall_prf
 libxs_wimmdispatch
-libxs_wsgemm
-libxs_wsgemm0
-libxs_wsgemm1
-libxs_wsgemm2
-libxs_wsgemm_
-libxs_wsgemm_descriptor_init
-libxs_wsmmavailable
-libxs_wsmmcall
-libxs_wsmmcall_abc
-libxs_wsmmcall_prf
-libxs_wsmmdispatch
 libxs_xgemm
 libxs_xgemm_omp
 libxs_xgemm_omp_
