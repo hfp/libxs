@@ -256,7 +256,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   void* pmm;
   uintptr_t uval;
   intptr_t ival;
-  libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, wsmm, or void-function */
+  libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, or void-function */
   libxs_xmcopyfunction xmatcopy;
   libxs_xtransfunction xtrans;
   libxs_pgemm_xfunction xpgemm;

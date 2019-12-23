@@ -514,17 +514,9 @@ LIBXS_API void libxs_blocked_gemm_st(const libxs_blocked_gemm_handle* handle, co
       } break;
       case LIBXS_GEMM_PRECISION_I16: {
 #       define LIBXS_BLOCKED_GEMM_TEMPLATE_TYPE_AB short
-        if (LIBXS_GEMM_PRECISION_I32 == handle->oprec) {
-#         define LIBXS_BLOCKED_GEMM_TEMPLATE_TYPE_C int
-#         include "template/libxs_blocked_gemm.tpl.c"
-#         undef LIBXS_BLOCKED_GEMM_TEMPLATE_TYPE_C
-        }
-        else { /* WSMM */
-#         define LIBXS_BLOCKED_GEMM_TEMPLATE_TYPE_C float
-#         include "template/libxs_blocked_gemm.tpl.c"
-#         undef LIBXS_BLOCKED_GEMM_TEMPLATE_TYPE_C
-          LIBXS_ASSERT(LIBXS_GEMM_PRECISION_F32 == handle->oprec);
-        }
+#       define LIBXS_BLOCKED_GEMM_TEMPLATE_TYPE_C  int
+#       include "template/libxs_blocked_gemm.tpl.c"
+#       undef LIBXS_BLOCKED_GEMM_TEMPLATE_TYPE_C
 #       undef LIBXS_BLOCKED_GEMM_TEMPLATE_TYPE_AB
       } break;
       default: if (0 != libxs_verbosity /* library code is expected to be mute */

@@ -2328,22 +2328,6 @@ LIBXS_API libxs_wimmfunction libxs_wimmdispatch(libxs_blasint m, libxs_blasint n
 }
 
 
-LIBXS_API libxs_wsmmfunction libxs_wsmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const float* alpha, const float* beta, const int* flags, const int* prefetch)
-{
-  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
-  libxs_descriptor_blob blob;
-  const libxs_gemm_descriptor *const desc = libxs_wsgemm_descriptor_init(&blob, m, n, k,
-    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
-    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
-    NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
-    gemm_flags, libxs_get_gemm_xprefetch(prefetch));
-  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
-  return result.wsmm;
-}
-
-
 LIBXS_API libxs_bsmmfunction libxs_bsmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
   const float* alpha, const float* beta, const int* flags, const int* prefetch)
