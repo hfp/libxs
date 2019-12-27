@@ -1451,6 +1451,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.gemm->prefetch);
           const char *const tname = libxs_typename((libxs_datatype)request->descriptor.gemm->datatype);
           int br = 0;
+          int typesigns = 0;
+
+          /* query batch reduce variant */
           if ( (LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS & request->descriptor.gemm->flags) > 1 ) {
             br = 1;
           } else if ( (LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET & request->descriptor.gemm->flags) > 1 ) {
@@ -1460,13 +1463,24 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           } else {
             br = 0;
           }
+          /* query A/B sign combindations */
+          if ( (LIBXS_GEMM_FLAG_A_UNSIGNED & request->descriptor.gemm->flags) > 1 ) {
+            typesigns = 1;
+          } else if ( (LIBXS_GEMM_FLAG_B_UNSIGNED & request->descriptor.gemm->flags) > 1 ) {
+            typesigns = 2;
+          } else if ( (LIBXS_GEMM_FLAG_AB_UNSIGNED & request->descriptor.gemm->flags) > 1 ) {
+            typesigns = 3;
+          } else {
+            typesigns = 0;
+          }
+
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u.mxm", target_arch, tname,
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i.mxm", target_arch, tname,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
             request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
           /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid, br, (unsigned int)request->descriptor.gemm->c3);
+            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid, br, (unsigned int)request->descriptor.gemm->c3, typesigns);
         }
       }
     } break;
@@ -2325,6 +2339,70 @@ LIBXS_API libxs_wimmfunction libxs_wimmdispatch(libxs_blasint m, libxs_blasint n
     gemm_flags, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
   return result.wimm;
+}
+
+
+LIBXS_API libxs_ssbimmfunction libxs_ssbimmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
+  const int* alpha, const int* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_bigemm_descriptor_init(&blob, m, n, k,
+    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
+    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
+    NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.ssbimm;
+}
+
+
+LIBXS_API libxs_usbimmfunction libxs_usbimmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
+  const int* alpha, const int* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_bigemm_descriptor_init(&blob, m, n, k,
+    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
+    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
+    NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_A_UNSIGNED, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.usbimm;
+}
+
+
+LIBXS_API libxs_subimmfunction libxs_subimmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
+  const int* alpha, const int* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_bigemm_descriptor_init(&blob, m, n, k,
+    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
+    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
+    NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_B_UNSIGNED, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.subimm;
+}
+
+
+LIBXS_API libxs_uubimmfunction libxs_uubimmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
+  const int* alpha, const int* beta, const int* flags, const int* prefetch)
+{
+  const int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_bigemm_descriptor_init(&blob, m, n, k,
+    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
+    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
+    NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_AB_UNSIGNED, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.uubimm;
 }
 
 
