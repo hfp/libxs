@@ -43,6 +43,10 @@ libxs_bsmmdispatch_reducebatch_offs
 libxs_bsmmdispatch_reducebatch_offs_unroll
 libxs_bsmmdispatch_reducebatch_strd
 libxs_bsmmdispatch_reducebatch_strd_unroll
+libxs_ssbimmdispatch
+libxs_usbimmdispatch
+libxs_subimmdispatch
+libxs_uubimmdispatch
 libxs_convert_bf16_f32
 libxs_cpuid
 libxs_cpuid_name
