@@ -2052,7 +2052,6 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
         LIBXS_ASSERT(0 < alloc_alignment);
         /* former content must be preserved prior to setup of buffer_info */
         if (NULL != *memory) { /* preserve/copy previous content */
-          LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_REALLOC & flags));
           /* content behind foreign pointers is not explicitly preserved; buffers may overlap */
           memmove(aligned, *memory, LIBXS_MIN(max_preserve, size));
           if (NULL != info /* known allocation (non-foreign pointer) */

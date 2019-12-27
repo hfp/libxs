@@ -238,20 +238,20 @@
 #     if !defined(LIBXS_INTRINSICS_DEBUG)
 #       include <immintrin.h>
 #     endif
-#   elif (defined(__GNUC__)  && LIBXS_VERSION2( 4, 9) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
-     && (!defined(__PGI)     || LIBXS_VERSION2(19, 0) <= LIBXS_VERSION2(__PGIC__, __PGIC_MINOR__)) \
-     && (!defined(__clang__) || LIBXS_VERSION2( 4, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)) \
-     && (!defined(__APPLE__) || !defined(__MACH__)) /* TODO */
+#   elif ((defined(__GNUC__)  && LIBXS_VERSION2( 4, 9) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) || defined(_MSC_VER)) \
+      && (!defined(__PGI)     || LIBXS_VERSION2(19, 0) <= LIBXS_VERSION2(__PGIC__, __PGIC_MINOR__)) \
+      && (!defined(__clang__) || LIBXS_VERSION2( 4, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)) \
+      && (!defined(__APPLE__) || !defined(__MACH__)) /* TODO */
 #     if defined(__CYGWIN__) && !defined(LIBXS_INTRINSICS_DEBUG) /* Cygwin: invalid register for .seh_savexmm */
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #     elif (defined(__GNUC__)  && LIBXS_VERSION2(10, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
-        || (defined(__clang__) && LIBXS_VERSION2( 9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+        || (defined(__clang__) && LIBXS_VERSION2( 9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) && !defined(_MSC_VER))
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
 #     elif (defined(__GNUC__)  && LIBXS_VERSION2(8, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
-        || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+        || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) && !defined(_MSC_VER))
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
 #     elif (defined(__GNUC__) && LIBXS_VERSION2(5, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
-        || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+        || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) && !defined(_MSC_VER))
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
 #     else
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
