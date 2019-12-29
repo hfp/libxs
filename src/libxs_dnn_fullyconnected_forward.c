@@ -45,7 +45,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom_f32_f32(libxs_dnn_fullyco
     gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->desc.N, handle->desc.C, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_fwd_custom_generic.tpl.c"
   } else {
-    status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -76,7 +76,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom_bf16_f32(libxs_dnn_fullyc
 # include "template/libxs_dnn_fullyconnected_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FULLYCONNECTED_FWD_BF16_F32
   } else {
-    status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -107,7 +107,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_f32_f32(libxs_dnn_full
 #endif
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic.tpl.c"
   } else {
-    status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -138,7 +138,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_bf16_bf16(libxs_dnn_fu
 #endif
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16.tpl.c"
   } else {
-    status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -192,7 +192,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom(libxs_dn
         gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->desc.N, handle->desc.C, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_fwd_custom_generic.tpl.c"
       } else {
-        status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+        status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
       }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -250,7 +250,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck(libxs
 #endif
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic.tpl.c"
       } else {
-        status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+        status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
       }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;

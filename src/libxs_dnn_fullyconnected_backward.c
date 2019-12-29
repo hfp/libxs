@@ -44,7 +44,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_custom_f32_f32(libxs_dnn_fullyco
     gemm_function gemm_kernel = libxs_smmdispatch(handle->ifmblock, handle->desc.N, handle->desc.K, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_bwd_custom_generic.tpl.c"
   } else {
-    status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -75,7 +75,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_custom_bf16_f32(libxs_dnn_fullyc
 # include "template/libxs_dnn_fullyconnected_st_bwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FULLYCONNECTED_BWD_BF16_F32
   } else {
-    status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -103,7 +103,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_f32_f32(libxs_dnn_full
     libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bc, handle->bn, handle->bk, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_generic.tpl.c"
   } else {
-    status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -156,7 +156,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_custom(libxs_dn
         gemm_function gemm_kernel = libxs_smmdispatch(handle->ifmblock, handle->desc.N, handle->desc.K, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_bwd_custom_generic.tpl.c"
       } else {
-        status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+        status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
       }
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       typedef libxs_bfloat16 element_input_type;
@@ -175,7 +175,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_custom(libxs_dn
 # include "template/libxs_dnn_fullyconnected_st_bwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FULLYCONNECTED_BWD_BF16_F32
       } else {
-        status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+        status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
       }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -224,7 +224,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_ncnc_kcck(libxs
         libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bc, handle->bn, handle->bk, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # include "template/libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_generic.tpl.c"
       } else {
-        status = LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION;
+        status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
       }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;

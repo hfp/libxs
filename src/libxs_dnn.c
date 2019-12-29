@@ -111,9 +111,9 @@ LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: failed to create internal layout arrays!";
     case LIBXS_DNN_ERR_NOT_IMPLEMENTED:
       return "LIBXS DNN Error: the requested functionality is right now not implemented!";
-    case LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_ORDER:
+    case LIBXS_DNN_ERR_FUSEDBN_UNSUPPORTED_ORDER:
       return "LIBXS DNN Error: the requested order of fusion in batch norm is right now not implemented!";
-    case LIBXS_DNN_ERR_FUSEBN_UNSUPPORTED_FUSION:
+    case LIBXS_DNN_ERR_FUSEDBN_UNSUPPORTED_FUSION:
       return "LIBXS DNN Error: the requested fusion in batch norm is right now not implemented!";
     case LIBXS_DNN_ERR_INVALID_FORMAT_FUSEDBN:
       return "LIBXS DNN Error: Unsupported format when requesting a fused batch norm!";
@@ -123,6 +123,12 @@ LIBXS_API const char* libxs_dnn_get_error(libxs_dnn_err_t code)
       return "LIBXS DNN Error: Unsupported format when requesting a fullyconnected layer!";
     case LIBXS_DNN_ERR_RNN_INVALID_SEQ_LEN:
       return "LIBXS DNN Error: max sequence length is shorter than sequence length we attempt to set!";
+    case LIBXS_DNN_ERR_FUSEDGN_UNSUPPORTED_ORDER:
+      return "LIBXS DNN Error: the requested order of fusion in group norm is right now not implemented!";
+    case LIBXS_DNN_ERR_FUSEDGN_UNSUPPORTED_FUSION:
+      return "LIBXS DNN Error: the requested fusion in group norm is right now not implemented!";
+    case LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION:
+      return "LIBXS DNN Error: the requested fusion in fullyconnected is right now not implemented!";
     default:
       return "LIBXS DNN Error: Unknown error or warning occurred!";
   }
