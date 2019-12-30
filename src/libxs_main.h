@@ -455,6 +455,31 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedbatchnorm {
   void* scratch;
 };
 
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedgroupnorm {
+  libxs_dnn_fusedgroupnorm_desc desc;
+  libxs_dnn_tensor* reg_input;      /* input tensor */
+  libxs_dnn_tensor* reg_output;     /* output tensor */
+  libxs_dnn_tensor* grad_input;     /* grad input tensor */
+  libxs_dnn_tensor* grad_output;    /* grad output tensor */
+  libxs_dnn_tensor* reg_add;        /* elementwise tensor */
+  libxs_dnn_tensor* grad_add;       /* grad elementwise tensor */
+  libxs_dnn_tensor* reg_beta;       /* beta tensor */
+  libxs_dnn_tensor* reg_gamma;      /* gamma tensor */
+  libxs_dnn_tensor* grad_beta;      /* grad beta tensor */
+  libxs_dnn_tensor* grad_gamma;     /* grad gamma tensor */
+  libxs_dnn_tensor* expvalue;       /* expected value */
+  libxs_dnn_tensor* rcpstddev;      /* reciprocal of standard derivation */
+  libxs_dnn_tensor* variance;       /* variance */
+  libxs_dnn_tensor* relumask;       /* relumask */
+  libxs_barrier* barrier;           /* barrier */
+  int ifmblock;
+  int ofmblock;
+  int blocksifm;
+  int blocksofm;
+  size_t scratch_size;
+  void* scratch;
+};
+
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   libxs_dnn_fullyconnected_desc desc;
   libxs_dnn_tensor* reg_input;      /* input tensor */
