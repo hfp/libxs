@@ -43,6 +43,8 @@ typedef enum libxs_dnn_tensor_dimtype {
   LIBXS_DNN_TENSOR_DIMTYPE_S,
   /** sequence lenth counter */
   LIBXS_DNN_TENSOR_DIMTYPE_T,
+  /** channle group counter */
+  LIBXS_DNN_TENSOR_DIMTYPE_G,
   /** general counter */
   LIBXS_DNN_TENSOR_DIMTYPE_X
 } libxs_dnn_tensor_dimtype;

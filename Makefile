@@ -288,6 +288,7 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
           $(ROOTDIR)/include/libxs_dnn_tensor.h \
           $(ROOTDIR)/include/libxs_dnn_convolution.h \
           $(ROOTDIR)/include/libxs_dnn_fusedbatchnorm.h \
+          $(ROOTDIR)/include/libxs_dnn_fusedgroupnorm.h \
           $(ROOTDIR)/include/libxs_dnn_pooling.h \
           $(ROOTDIR)/include/libxs_dnn_fullyconnected.h \
           $(ROOTDIR)/include/libxs_dnn_rnncell.h \
@@ -312,6 +313,7 @@ SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_dnn.c libxs_dnn_tensor.c libxs_dnn_convolution.c  libxs_dnn_elementwise.c \
           libxs_dnn_rnncell.c libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c \
           libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c libxs_dnn_fusedbatchnorm_backward.c \
+          libxs_dnn_fusedgroupnorm.c libxs_dnn_fusedgroupnorm_forward.c libxs_dnn_fusedgroupnorm_backward.c \
           libxs_dnn_pooling.c libxs_dnn_pooling_forward.c libxs_dnn_pooling_backward.c libxs_dnn_convolution_forward.c \
           libxs_dnn_fullyconnected.c libxs_dnn_fullyconnected_forward.c libxs_dnn_fullyconnected_backward.c \
           libxs_dnn_fullyconnected_weight_update.c libxs_dnn_convolution_backward.c libxs_dnn_convolution_weight_update.c)
