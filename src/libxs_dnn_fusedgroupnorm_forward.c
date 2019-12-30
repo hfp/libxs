@@ -412,27 +412,27 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedgroupnorm_st_fwd_custom(libxs_dn
       } else {
         if ( (handle->desc.fuse_ops == LIBXS_DNN_FUSEDGN_OPS_GN) ) {
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
-        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU) > 0 ) {
+        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU) == LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
-        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU_WITH_MASK) > 0 ) {
+        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU_WITH_MASK) == LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU_WITH_MASK ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU_WITH_MASK
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU_WITH_MASK
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
-        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE) > 0 ) {
+        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE) == LIBXS_DNN_FUSEDGN_OPS_ELTWISE ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
-        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_RELU) > 0 ) {
+        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_RELU) == LIBXS_DNN_FUSEDGN_OPS_RELU ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU
-        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_RELU_WITH_MASK) > 0 ) {
+        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_RELU_WITH_MASK) == LIBXS_DNN_FUSEDGN_OPS_RELU_WITH_MASK ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU_WITH_MASK
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU_WITH_MASK
@@ -451,27 +451,27 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedgroupnorm_st_fwd_custom(libxs_dn
       } else {
         if ( (handle->desc.fuse_ops == LIBXS_DNN_FUSEDGN_OPS_GN) ) {
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
-        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU) > 0 ) {
+        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU) == LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
-        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU_WITH_MASK) > 0 ) {
+        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU_WITH_MASK) == LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU_WITH_MASK ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU_WITH_MASK
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU_WITH_MASK
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
-        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE) > 0 ) {
+        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE) == LIBXS_DNN_FUSEDGN_OPS_ELTWISE ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
-        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_RELU) > 0 ) {
+        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_RELU) == LIBXS_DNN_FUSEDGN_OPS_RELU ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU
-        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_RELU_WITH_MASK) > 0 ) {
+        } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_RELU_WITH_MASK) == LIBXS_DNN_FUSEDGN_OPS_RELU_WITH_MASK ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU_WITH_MASK
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FUSEDGN_FWD_ENABLE_RELU_WITH_MASK
