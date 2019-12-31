@@ -410,7 +410,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedgroupnorm_st_fwd_custom(libxs_dn
       if ( handle->desc.fuse_order != LIBXS_DNN_FUSEDGN_ORDER_GN_ELTWISE_RELU ) {
         status = LIBXS_DNN_ERR_FUSEDGN_UNSUPPORTED_ORDER;
       } else {
-        if ( (handle->desc.fuse_ops == LIBXS_DNN_FUSEDGN_OPS_GN) ) {
+        if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDGN_OPS_GN ) {
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
         } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU) == LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
@@ -449,7 +449,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedgroupnorm_st_fwd_custom(libxs_dn
       if ( handle->desc.fuse_order != LIBXS_DNN_FUSEDGN_ORDER_GN_ELTWISE_RELU ) {
         status = LIBXS_DNN_ERR_FUSEDGN_UNSUPPORTED_ORDER;
       } else {
-        if ( (handle->desc.fuse_ops == LIBXS_DNN_FUSEDGN_OPS_GN) ) {
+        if ( handle->desc.fuse_ops == LIBXS_DNN_FUSEDGN_OPS_GN ) {
 # include "template/libxs_dnn_fusedgroupnorm_st_fwd_custom_generic.tpl.c"
         } else if ( (handle->desc.fuse_ops & LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU) == LIBXS_DNN_FUSEDGN_OPS_ELTWISE_RELU ) {
 # define LIBXS_DNN_FUSEDGN_FWD_ENABLE_ELTWISE
