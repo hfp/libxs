@@ -12,6 +12,8 @@ HERE=$(cd "$(dirname $0)"; pwd -P)
 LIBS=${HERE}/../lib
 
 #EXCLUDE="libxsgen"
+INCLUDE="libxsf"
+#INCLUDE="*"
 ABINEW=.abi.log
 ABITMP=.abi.tmp
 ABICUR=.abi.txt
@@ -23,23 +25,21 @@ DIFF=$(command -v diff)
 SED=$(command -v sed)
 CUT=$(command -v cut)
 LS=$(command -v ls)
+WC=$(command -v wc)
 CP=$(command -v cp)
 MV=$(command -v mv)
 NM=$(command -v nm)
 
 if [ "" != "${NM}"   ] && [ "" != "${SED}"  ] && [ "" != "${CUT}" ] && \
    [ "" != "${LS}"   ] && [ "" != "${CP}"   ] && [ "" != "${MV}"  ] && \
-   [ "" != "${SORT}" ] && [ "" != "${DIFF}" ];
+   [ "" != "${WC}" ] && [ "" != "${SORT}" ] && [ "" != "${DIFF}" ];
 then
   # determine behavior of sort command
-  export LC_ALL=C
-  for LIBFILE in $(${LS} -1 ${LIBS}/*.${LIBTYPE} 2>/dev/null); do
-    LIBFILES="${LIBFILES} ${LIBFILE}"
-  done
-  if [ "" != "${LIBFILES}" ]; then
+  export LC_ALL=C IFS=$'\n'
+  if [ "0" != "$(${LS} -1 "${LIBS}"/${INCLUDE}.${LIBTYPE} 2>/dev/null | ${WC} -l)" ]; then
     ${CP} /dev/null ${ABINEW}
-    for LIBFILE in ${LIBFILES}; do
-      LIB=$(${BASENAME} ${LIBFILE} .${LIBTYPE})
+    for LIBFILE in $(${LS} -1 "${LIBS}"/*.${LIBTYPE} 2>/dev/null); do
+      LIB=$(${BASENAME} "${LIBFILE}" .${LIBTYPE})
       if [ "" = "${EXCLUDE}" ] || [ "" != "$(echo "${EXCLUDE}" | ${SED} "/\b${LIB}\b/d")" ]; then
         echo "Checking ${LIB}..."
         while read LINE; do
@@ -73,7 +73,7 @@ then
               OBJECT=$(echo "${LOCATION}" | ${SED} -e "s/:$//")
             fi
           fi
-        done < <(${NM} -D ${LIBFILE})
+        done < <(${NM} -D "${LIBFILE}")
       else
         echo "Excluded ${LIB}"
       fi
@@ -88,8 +88,10 @@ then
       echo "Error: removed or renamed function(s)"
       echo "${REMOVED}"
     fi
+  elif [ -e "${LIBS}"/${INCLUDE}.${LIBTYPE} ]; then
+    echo "Error: ABI checker requires shared libraries (${LIBTYPE})."
   else
-    echo "Warning: ABI checker requires shared libraries (${LIBTYPE})."
+    echo "Error: ABI checker requires Fortran interface (${INCLUDE})."
   fi
 else
   echo "Error: missing prerequisites!"
