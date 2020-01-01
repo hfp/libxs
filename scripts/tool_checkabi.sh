@@ -17,7 +17,16 @@ INCLUDE="libxsf"
 ABINEW=.abi.log
 ABITMP=.abi.tmp
 ABICUR=.abi.txt
-LIBTYPE=so
+
+LIBARGS="--defined-only"
+if [ -e "${LIBS}"/${INCLUDE}.so ]; then
+  LIBARGS="${LIBARGS} -D"
+  LIBTYPE=so
+elif [ -e "${LIBS}"/${INCLUDE}.a ]; then
+  LIBTYPE=a
+else
+  LIBTYPE=lib
+fi
 
 BASENAME=$(command -v basename)
 SORT=$(command -v sort)
@@ -54,6 +63,7 @@ then
               echo "${SYMBOL}" >> ${ABINEW}
             elif [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^__libxs_MOD___/p")" ] && \
                  [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^__wrap_..*/p")" ] && \
+                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^internal_/p")" ] && \
                  [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^libxs._/p")" ] && \
                  [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^.gem._/p")" ] && \
                  [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^memalign/p")" ] && \
@@ -73,7 +83,7 @@ then
               OBJECT=$(echo "${LOCATION}" | ${SED} -e "s/:$//")
             fi
           fi
-        done < <(${NM} -D "${LIBFILE}")
+        done < <(${NM} ${LIBARGS} "${LIBFILE}" 2>/dev/null)
       else
         echo "Excluded ${LIB}"
       fi
