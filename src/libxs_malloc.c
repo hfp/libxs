@@ -1902,7 +1902,9 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
         alloc_size = size + extra_size + sizeof(internal_malloc_info_type) + alloc_alignment - 1;
         alloc_failed = MAP_FAILED;
         if (0 == (LIBXS_MALLOC_FLAG_X & flags)) { /* anonymous and non-executable */
+# if 0
           LIBXS_ASSERT(NULL != info || NULL == *memory); /* no memory mapping of foreign pointer */
+# endif
           buffer = mmap(NULL == info ? NULL : info->pointer, alloc_size, PROT_READ | PROT_WRITE,
             MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | prefault | xflags, -1, 0/*offset*/);
         }
@@ -2052,6 +2054,9 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
         LIBXS_ASSERT(0 < alloc_alignment);
         /* former content must be preserved prior to setup of buffer_info */
         if (NULL != *memory) { /* preserve/copy previous content */
+#if 0
+          LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_REALLOC & flags));
+#endif
           /* content behind foreign pointers is not explicitly preserved; buffers may overlap */
           memmove(aligned, *memory, LIBXS_MIN(max_preserve, size));
           if (NULL != info /* known allocation (non-foreign pointer) */
