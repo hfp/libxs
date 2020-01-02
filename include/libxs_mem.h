@@ -12,7 +12,7 @@
 #include "libxs_macros.h"
 
 #if defined(__clang_analyzer__)
-# define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) memset(PTRDST, VALUE, SIZE)
+# define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) memset((void*)(PTRDST), VALUE, SIZE)
 #else
 # define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) { \
   char *const libxs_memset127_dst_ = (char*)(PTRDST); \
