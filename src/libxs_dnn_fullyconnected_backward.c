@@ -10,6 +10,7 @@
 #include <libxs_intrinsics_x86.h>
 #include "libxs_main.h"
 #include <libxs.h>
+#define STRIDE_BRGEMM
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -93,14 +94,17 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_f32_f32(libxs_dnn_full
   typedef float element_input_type;
   typedef float element_output_type;
   typedef float element_filter_type;
-  libxs_blasint lda = (libxs_blasint)handle->bc;
-  libxs_blasint ldb = (libxs_blasint)handle->bk;
-  libxs_blasint ldc = (libxs_blasint)handle->bc;
-  element_input_type alpha = (element_input_type)1;
-  element_input_type beta = (element_input_type)0;
 
   if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-    libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bc, handle->bn, handle->bk, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+#ifdef ADDRESS_BRGEMM
+    libxs_smmfunction_reducebatch_addr batchreduce_kernel = handle->gemm_bwd.xgemm.smra;
+#endif
+#ifdef OFFSET_BRGEMM
+    libxs_smmfunction_reducebatch_offs batchreduce_kernel = handle->gemm_bwd.xgemm.smro;
+#endif
+#ifdef STRIDE_BRGEMM
+    libxs_smmfunction_reducebatch_strd batchreduce_kernel = handle->gemm_bwd.xgemm.smrs;
+#endif
 # include "template/libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_generic.tpl.c"
   } else {
     status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
@@ -214,14 +218,17 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_ncnc_kcck(libxs
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
-      libxs_blasint lda = (libxs_blasint)handle->bc;
-      libxs_blasint ldb = (libxs_blasint)handle->bk;
-      libxs_blasint ldc = (libxs_blasint)handle->bc;
-      element_input_type alpha = (element_input_type)1;
-      element_input_type beta = (element_input_type)0;
 
       if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-        libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bc, handle->bn, handle->bk, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+#ifdef ADDRESS_BRGEMM
+        libxs_smmfunction_reducebatch_addr batchreduce_kernel = handle->gemm_bwd.xgemm.smra;
+#endif
+#ifdef OFFSET_BRGEMM
+        libxs_smmfunction_reducebatch_offs batchreduce_kernel = handle->gemm_bwd.xgemm.smro;
+#endif
+#ifdef STRIDE_BRGEMM
+        libxs_smmfunction_reducebatch_strd batchreduce_kernel = handle->gemm_bwd.xgemm.smrs;
+#endif
 # include "template/libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_generic.tpl.c"
       } else {
         status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
