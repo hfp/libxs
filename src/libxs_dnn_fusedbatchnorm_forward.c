@@ -580,7 +580,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_reduce_stats_st_fwd_cu
 
       LIBXS_PRAGMA_SIMD
       for ( v=0; v < nFmBlock; v++ ) {
-        const float tbmean = (recp_nhw * sum_img0_ptr[v]) ;
+        const float tbmean = (recp_nhw * sum_img0_ptr[v]);
         const float tbmeansq = tbmean * tbmean;
         const float tsqbmean = recp_nhw * sumsq_img0_ptr[v];
         const float tvar     = tsqbmean - tbmeansq;
