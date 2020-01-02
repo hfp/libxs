@@ -874,7 +874,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
 LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status)
 {
   size_t size = 0;
-  size_t dwdr_typesize = (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ? sizeof(float) : libxs_dnn_typesize(handle->desc.datatype_in) ;
+  size_t dwdr_typesize = (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ? sizeof(float) : libxs_dnn_typesize(handle->desc.datatype_in);
   *status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
@@ -1009,7 +1009,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_bind_scratch(libxs_dnn_rnncell* hand
 {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   uintptr_t address = (uintptr_t)scratch;
-  size_t dwdr_typesize = (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ? sizeof(float) : libxs_dnn_typesize(handle->desc.datatype_in) ;
+  size_t dwdr_typesize = (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ? sizeof(float) : libxs_dnn_typesize(handle->desc.datatype_in);
   size_t offset = 0;
 
   if (0 != handle) {
