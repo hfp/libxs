@@ -42,7 +42,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_custom_f32_f32(libxs_dnn_fullyco
   if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
     typedef libxs_smmfunction gemm_function;
     gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ifmblock, handle->desc.N, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
-# include "template/libxs_dnn_fullyconnected_st_upd_custom_generic.tpl.c"
+#   include "template/libxs_dnn_fullyconnected_st_upd_custom_generic.tpl.c"
   } else {
     status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
@@ -72,7 +72,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_custom_bf16_f32(libxs_dnn_fullyc
   if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
     gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ifmblock, handle->desc.N, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # define LIBXS_DNN_FULLYCONNECTED_UPD_BF16_F32
-# include "template/libxs_dnn_fullyconnected_st_upd_custom_generic.tpl.c"
+#   include "template/libxs_dnn_fullyconnected_st_upd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FULLYCONNECTED_UPD_BF16_F32
   } else {
     status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
@@ -98,11 +98,11 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_ncnc_kcck_f32_f32(libxs_dnn_full
   libxs_blasint ldc = (libxs_blasint)handle->bk;
   element_input_type alpha = (element_input_type)1;
   element_input_type beta = (element_input_type)0;
-  libxs_blasint l_flags = LIBXS_GEMM_FLAGS('N', 'T');
+  int l_flags = LIBXS_GEMM_FLAGS('N', 'T');
 
   if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
     libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bk, handle->bc, handle->bn, &lda, &ldb, &ldc, &alpha, &beta, &l_flags, NULL);
-# include "template/libxs_dnn_fullyconnected_st_upd_ncnc_kcck_generic.tpl.c"
+#   include "template/libxs_dnn_fullyconnected_st_upd_ncnc_kcck_generic.tpl.c"
   } else {
     status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
@@ -155,8 +155,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_custom(libxs_dn
       element_input_type beta = (element_input_type)0;
 
      if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
-       gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ifmblock, handle->desc.N, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
-# include "template/libxs_dnn_fullyconnected_st_upd_custom_generic.tpl.c"
+        gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ifmblock, handle->desc.N, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+#       include "template/libxs_dnn_fullyconnected_st_upd_custom_generic.tpl.c"
       } else {
         status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
       }
@@ -174,7 +174,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_custom(libxs_dn
       if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
         gemm_function gemm_kernel = libxs_smmdispatch(handle->ofmblock, handle->ifmblock, handle->desc.N, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
 # define LIBXS_DNN_FULLYCONNECTED_UPD_BF16_F32
-# include "template/libxs_dnn_fullyconnected_st_upd_custom_generic.tpl.c"
+#       include "template/libxs_dnn_fullyconnected_st_upd_custom_generic.tpl.c"
 # undef LIBXS_DNN_FULLYCONNECTED_UPD_BF16_F32
       } else {
         status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
@@ -225,7 +225,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_ncnc_kcck(libxs
 
       if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
         libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bk, handle->bc, handle->bn, &lda, &ldb, &ldc, &alpha, &beta, &l_flags, NULL);
-# include "template/libxs_dnn_fullyconnected_st_upd_ncnc_kcck_generic.tpl.c"
+#       include "template/libxs_dnn_fullyconnected_st_upd_ncnc_kcck_generic.tpl.c"
       } else {
         status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
       }
