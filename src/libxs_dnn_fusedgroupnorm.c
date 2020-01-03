@@ -621,3 +621,32 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedgroupnorm_execute_st(libxs_dnn_fusedgro
 
   return status;
 }
+
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedgroupnorm_reduce_stats_st(libxs_dnn_fusedgroupnorm** handles, int num_handles, libxs_dnn_compute_kind kind,
+  /*unsigned*/int start_thread, /*unsigned*/int tid) {
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handles && num_handles > 0) {
+    switch (kind) {
+      case LIBXS_DNN_COMPUTE_KIND_BWD: {
+        switch (handles[0]->desc.buffer_format) {
+          case LIBXS_DNN_TENSOR_FORMAT_LIBXS: {
+            status = libxs_dnn_fusedgroupnorm_reduce_stats_st_bwd_custom( handles, num_handles, start_thread, tid );
+          } break;
+          default: {
+            status = LIBXS_DNN_ERR_INVALID_FORMAT_FUSEDBN;
+          }
+        }
+      } break;
+      default: {
+        status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
+    }
+  }
+  else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return status;
+}
