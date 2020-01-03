@@ -15,4 +15,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedgroupnorm_st_bwd_custom(libxs_dn
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedgroupnorm_st_bwd_nhwc(libxs_dnn_fusedgroupnorm* handle, int start_thread, int tid);
 
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedgroupnorm_reduce_stats_st_bwd_custom(libxs_dnn_fusedgroupnorm** handles, int num_handles, int start_thread, int tid);
+
 #endif /* LIBXS_DNN_FUSEDGROUPNORM_BACKWARD_H */

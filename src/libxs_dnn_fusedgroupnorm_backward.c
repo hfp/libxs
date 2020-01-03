@@ -506,3 +506,85 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedgroupnorm_st_bwd_nhwc(libxs_dnn_
   return status;
 }
 
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedgroupnorm_reduce_stats_st_bwd_custom(libxs_dnn_fusedgroupnorm** handles, int num_handles, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  int l_count;
+
+  /* check if all required tensors are bound */
+  for ( l_count = 0; l_count < num_handles; ++l_count ) {
+    if ( handles[l_count]->grad_beta == 0  || handles[l_count]->grad_gamma == 0 ) {
+      status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+      return status;
+    }
+  }
+
+#if 0
+  /* check if we are on an AVX512 platform */
+  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
+    status = libxs_dnn_fusedgroupnorm_reduce_stats_st_bwd_custom_avx512( handles, num_handles, start_thread, tid );
+  } else
+#endif
+  {
+    const int nBlocksFm = handles[0]->blocksifm;
+    const int nFmBlock = handles[0]->ifmblock;
+    /* computing first logical thread */
+    const int ltid = tid - start_thread;
+    /* number of tasks that could be run in parallel */
+    const int work2 = nBlocksFm;
+    /* compute chunk size */
+    const int chunksize2 = (work2 % handles[0]->desc.threads == 0) ? (work2 / handles[0]->desc.threads) : ((work2 / handles[0]->desc.threads) + 1);
+    /* compute thr_begin and thr_end */
+    const int thr_begin2 = (ltid * chunksize2 < work2) ? (ltid * chunksize2) : work2;
+    const int thr_end2 = ((ltid + 1) * chunksize2 < work2) ? ((ltid + 1) * chunksize2) : work2;
+    int v, fm;
+
+    LIBXS_VLA_DECL(2, float, dgamma0,      (float*)handles[0]->grad_gamma->data, nFmBlock);
+    LIBXS_VLA_DECL(2, float, dbeta0,       (float*)handles[0]->grad_beta->data,  nFmBlock);
+
+    /* lazy barrier init */
+    libxs_barrier_init(handles[0]->barrier, ltid);
+
+    /* now we need to reduce the dgamma and dbeta  */
+    for ( l_count = 1; l_count < num_handles; ++l_count ) {
+      LIBXS_VLA_DECL(2, float, dgammar, (float*)handles[l_count]->grad_gamma->data, nFmBlock);
+      LIBXS_VLA_DECL(2, float, dbetar,  (float*)handles[l_count]->grad_beta->data,  nFmBlock);
+
+      for ( fm = thr_begin2; fm < thr_end2; ++fm ) {
+        float* dgamma0_ptr = &LIBXS_VLA_ACCESS(2, dgamma0, fm, 0, nFmBlock);
+        float* dbeta0_ptr  = &LIBXS_VLA_ACCESS(2, dbeta0,  fm, 0, nFmBlock);
+        float* dgammar_ptr = &LIBXS_VLA_ACCESS(2, dgammar, fm, 0, nFmBlock);
+        float* dbetar_ptr  = &LIBXS_VLA_ACCESS(2, dbetar,  fm, 0, nFmBlock);
+
+        LIBXS_PRAGMA_SIMD
+        for ( v=0; v < nFmBlock; v++ ) {
+          dgamma0_ptr[v] += dgammar_ptr[v];
+          dbeta0_ptr[v]  += dbetar_ptr[v];
+        }
+      }
+    }
+
+    for ( l_count = 1; l_count < num_handles; ++l_count ) {
+      LIBXS_VLA_DECL(2, float, dgammar, (float*)handles[l_count]->grad_gamma->data, nFmBlock);
+      LIBXS_VLA_DECL(2, float, dbetar,  (float*)handles[l_count]->grad_beta->data,  nFmBlock);
+
+      for ( fm = thr_begin2; fm < thr_end2; ++fm ) {
+        float* dgamma0_ptr = &LIBXS_VLA_ACCESS(2, dgamma0, fm, 0, nFmBlock);
+        float* dbeta0_ptr  = &LIBXS_VLA_ACCESS(2, dbeta0,  fm, 0, nFmBlock);
+        float* dgammar_ptr = &LIBXS_VLA_ACCESS(2, dgammar, fm, 0, nFmBlock);
+        float* dbetar_ptr  = &LIBXS_VLA_ACCESS(2, dbetar,  fm, 0, nFmBlock);
+
+        LIBXS_PRAGMA_SIMD
+        for ( v=0; v < nFmBlock; v++ ) {
+          dgammar_ptr[v] = dgamma0_ptr[v];
+          dbetar_ptr[v]  = dbeta0_ptr[v];
+        }
+      }
+    }
+
+    libxs_barrier_wait(handles[0]->barrier, ltid);
+  }
+
+  return status;
+}
+

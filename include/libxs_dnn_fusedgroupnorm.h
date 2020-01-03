@@ -30,5 +30,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fusedgroupnorm_release_tensor(libxs_dnn_fuse
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_fusedgroupnorm_execute_st(libxs_dnn_fusedgroupnorm* handle, libxs_dnn_compute_kind kind,
   /*unsigned*/int start_thread, /*unsigned*/int tid);
+LIBXS_API libxs_dnn_err_t libxs_dnn_fusedgroupnorm_reduce_stats_st(libxs_dnn_fusedgroupnorm** handles, int num_handles, libxs_dnn_compute_kind kind,
+  /*unsigned*/int start_thread, /*unsigned*/int tid);
 
 #endif /*LIBXS_DNN_FUSEDGROUPNORM_H*/
