@@ -88,7 +88,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_blocksofm( libxs_dnn_layer* han
 /**********************************************************/
 /* Helper functions for FWD convolutions' parameter setup */
 /**********************************************************/
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_fwd_ofw_rb( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_ofw_rb( libxs_dnn_layer* handle ) {
   int result = 0;
   result = handle->ofw;
   if (handle->ofw == 56) {
@@ -97,7 +97,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_fwd_ofw_rb( libxs_dnn_layer* ha
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_pack_input_fwd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_pack_input_fwd( libxs_dnn_layer* handle ) {
   int result = 0;
   /* Pack only for small images and when having large K to amortize */
   if ((handle->ofw <= 14) && (handle->desc.K > 512) && (handle->desc.R == 1) && (handle->desc.S == 1) && (handle->desc.u == 2) && (handle->desc.v == 2)) {
@@ -110,7 +110,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_pack_input_fwd( libxs_dnn_layer
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_fwd_ofh_rb( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_ofh_rb( libxs_dnn_layer* handle ) {
   int result = 1;
   /* Multiple rows for "small" images and 1x1 convolutions */
   if ((handle->ofh <= 14) && (handle->desc.R == 1) && (handle->desc.S == 1)) {
@@ -127,7 +127,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_fwd_ofh_rb( libxs_dnn_layer* ha
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_fwd_block_H( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_block_H( libxs_dnn_layer* handle ) {
   int result = 14;
   /* Block H only for large images  */
   if (handle->ofh >= 28) {
@@ -143,7 +143,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_fwd_block_H( libxs_dnn_layer* h
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_blocksifm_blocking( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_blocksifm_blocking( libxs_dnn_layer* handle ) {
   int result = 1;
   /* For 1x1 Convolutions bring in kernel all IFMs unless filters are huge*/
   if ((handle->desc.R == 1) && (handle->desc.S == 1) ) {
@@ -167,7 +167,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_blocksifm_blocking( libxs_dnn_l
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_loop_order_fwd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_loop_order_fwd( libxs_dnn_layer* handle ) {
   int result = 0;
   /* Switch to loop order 1 only if 1x1 convolution with "large" input image and "small" K */
   if ((handle->desc.H >= 28) && (handle->desc.R == 1) && (handle->desc.S == 1) && (handle->desc.C >=512) && (handle->desc.K <=512)) {
@@ -182,7 +182,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_loop_order_fwd( libxs_dnn_layer
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_block_fwd_IFM( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_block_fwd_IFM( libxs_dnn_layer* handle ) {
   int result = 8;
   if (handle->ofw == 7 && handle->desc.C == 2048 && handle->desc.K == 512) {
     result = 4;
@@ -195,7 +195,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_block_fwd_IFM( libxs_dnn_layer*
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_block_fwd_OFM( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_block_fwd_OFM( libxs_dnn_layer* handle ) {
   int result = 8;
   if (handle->ofw == 14 && handle->desc.K == 1024) {
     result = 16;
@@ -207,7 +207,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_block_fwd_OFM( libxs_dnn_layer*
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_use_ofm_parallelization( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_use_ofm_parallelization( libxs_dnn_layer* handle ) {
   int result = 0;
 #if 0
   /* Use "hybrid" minibatch/ofm parallelization if we have huge filters */
@@ -221,7 +221,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_use_ofm_parallelization( libxs_
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_avoid_rim_fmas_fwd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_avoid_rim_fmas_fwd( libxs_dnn_layer* handle ) {
   int result = 0;
   /* Avoid rim FMA if the convolution is 3x3 (non-strided) and the image is "small" */
   if ((handle->desc.R == 3) && (handle->desc.S == 3) &&
@@ -235,7 +235,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_avoid_rim_fmas_fwd( libxs_dnn_l
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_shuffle_filter_accesses( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_shuffle_filter_accesses( libxs_dnn_layer* handle ) {
   int result = 0;
   /* Shuffle filter accesses only if "pure minibatch" parallelization and large filters are involved */
   if ((handle->use_ofm_parallelization == 0) && (handle->desc.C > 512) && (handle->desc.K > 512)) {
@@ -253,7 +253,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_shuffle_filter_accesses( libxs_
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_avoid_acc_load( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_avoid_acc_load( libxs_dnn_layer* handle ) {
   int result = 0;
   if ((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) {
     if ((handle->desc.R == 1) && (handle->desc.S == 1)) {
@@ -269,7 +269,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_avoid_acc_load( libxs_dnn_layer
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_init_fwd_gemm_flags( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_init_fwd_gemm_flags( libxs_dnn_layer* handle ) {
   int result = 0;
   /* If large image and NOT already loaded in accumulators, tnen use streaming stores */
   if ((handle->ofw >= 56) && (handle->desc.K >= 256) && (handle->avoid_acc_load == 1) && (handle->desc.R == 1) && (handle->desc.S == 1)) {
@@ -292,7 +292,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_init_fwd_gemm_flags( libxs_dnn_
 /**********************************************************/
 /* Helper functions for BWD convolutions' parameter setup */
 /**********************************************************/
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_fallback_loops_bwd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_fallback_loops_bwd( libxs_dnn_layer* handle ) {
   int result = 0;
   /* FIXME: Fallback if MB is not divisible by number of threads */
   if (handle->desc.N % handle->desc.threads != 0) {
@@ -310,35 +310,35 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_fallback_loops_bwd( libxs_dnn_l
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_bwd_ofw_rb( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_bwd_ofw_rb( libxs_dnn_layer* handle ) {
   int result = libxs_dnn_convolution_setup_fwd_ofw_rb(handle);
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_bwd_ofh_rb( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_bwd_ofh_rb( libxs_dnn_layer* handle ) {
   int result = libxs_dnn_convolution_setup_fwd_ofh_rb(handle);
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_bwd_block_H( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_bwd_block_H( libxs_dnn_layer* handle ) {
   int result = 0;
   result = libxs_dnn_convolution_setup_fwd_block_H(handle);
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_loop_order_bwd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_loop_order_bwd( libxs_dnn_layer* handle ) {
   int result = 0;
   result = libxs_dnn_convolution_setup_loop_order_fwd(handle);
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_block_bwd_IFM( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_block_bwd_IFM( libxs_dnn_layer* handle ) {
   int result = 0;
   result = LIBXS_MIN(handle->blocksifm, 16);
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_block_bwd_OFM( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_block_bwd_OFM( libxs_dnn_layer* handle ) {
   int result = 8;
   while (result % handle->blocksofm_blocking != 0) {
     result++;
@@ -346,7 +346,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_block_bwd_OFM( libxs_dnn_layer*
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_pack_input_bwd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_pack_input_bwd( libxs_dnn_layer* handle ) {
   int result = 0;
   if ((handle->desc.u != 1) && (handle->bwd_ofh_rb != 1)) {
     result = 1;
@@ -354,7 +354,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_pack_input_bwd( libxs_dnn_layer
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_use_ifm_parallelization( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_use_ifm_parallelization( libxs_dnn_layer* handle ) {
   int result = 0;
   if (handle->ofw <= 7) {
     result = 1;
@@ -362,12 +362,12 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_use_ifm_parallelization( libxs_
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_avoid_rim_fmas_bwd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_avoid_rim_fmas_bwd( libxs_dnn_layer* handle ) {
   int result = libxs_dnn_convolution_setup_avoid_rim_fmas_fwd(handle);
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_blocksofm_blocking( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_blocksofm_blocking( libxs_dnn_layer* handle ) {
   int result = 0;
   if (handle->desc.R == 1 && handle->desc.S == 1) {
     result = handle->blocksofm;
@@ -383,7 +383,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_blocksofm_blocking( libxs_dnn_l
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_init_bwd_gemm_flags( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_init_bwd_gemm_flags( libxs_dnn_layer* handle ) {
   int result = 0;
 
   /* TODO: May want to experiment with streaming stores */
@@ -392,7 +392,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_init_bwd_gemm_flags( libxs_dnn_
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_spread_input_bwd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_spread_input_bwd( libxs_dnn_layer* handle ) {
   int result = 0;
   LIBXS_UNUSED(handle);
   if (((handle->desc.u != 1) || (handle->desc.v != 1)) && (handle->bwd_ofh_rb == 1)) {
@@ -401,7 +401,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_spread_input_bwd( libxs_dnn_lay
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_avoid_acc_load_bwd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_avoid_acc_load_bwd( libxs_dnn_layer* handle ) {
   int result = 0;
   if ((handle->options & LIBXS_DNN_CONV_OPTION_OVERWRITE) > 0) {
     if ((handle->desc.R == 1) && (handle->desc.S == 1)) {
@@ -420,7 +420,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_avoid_acc_load_bwd( libxs_dnn_l
 /**********************************************************/
 /* Helper functions for UPD convolutions' parameter setup */
 /**********************************************************/
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_loop_order_upd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_loop_order_upd( libxs_dnn_layer* handle ) {
   int result = 1;
   if (handle->ofh == 28 && handle->desc.R == 1 && handle->desc.u == 1 && handle->desc.C == 128 && handle->desc.K == 512) {
     result = 0;
@@ -440,7 +440,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_loop_order_upd( libxs_dnn_layer
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_pack_input_upd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_pack_input_upd( libxs_dnn_layer* handle ) {
   int result = 0;
   /* Pack input only for very small images, 1x1 convs, with large K to amortize the relevant overhead */
   if ((handle->ofh <= 7) && (handle->desc.R == 1) && (handle->desc.S == 1) && (handle->desc.u != 1) && (handle->desc.v != 1) && (handle->desc.K >= 2048)) {
@@ -449,7 +449,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_pack_input_upd( libxs_dnn_layer
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_avoid_rim_fmas_upd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_avoid_rim_fmas_upd( libxs_dnn_layer* handle ) {
   int result = 0;
   /* Avoid rim FMAs only for small images  */
   if ( (handle->ofh <= 7) && (handle->desc.R == 3) && (handle->desc.S == 3) && (handle->desc.pad_w == 1) && (handle->desc.pad_h == 1)) {
@@ -461,13 +461,13 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_avoid_rim_fmas_upd( libxs_dnn_l
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_upd_ofw_rb( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_upd_ofw_rb( libxs_dnn_layer* handle ) {
   int result = 1;
   result = handle->ofw;
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_upd_ofh_rb( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_upd_ofh_rb( libxs_dnn_layer* handle ) {
   int result = 1;
   /* Restrict the reduction chain which is ofw_rb*ofh_rb*/
   if (handle->ofh <= 28 ) {
@@ -496,7 +496,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_upd_ofh_rb( libxs_dnn_layer* ha
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_block_upd_IFM( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_block_upd_IFM( libxs_dnn_layer* handle ) {
   int result = 1;
   if (handle->ofh == 56 && handle->desc.R == 1 && handle->desc.S == 1 && handle->desc.u == 1 && handle->desc.v == 1) {
     result = 4;
@@ -504,19 +504,19 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_block_upd_IFM( libxs_dnn_layer*
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_block_upd_OFM( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_block_upd_OFM( libxs_dnn_layer* handle ) {
   int result = 1;
   LIBXS_UNUSED(handle);
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_img_batchreduce_block( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_img_batchreduce_block( libxs_dnn_layer* handle ) {
   int result = 1;
   LIBXS_UNUSED(handle);
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_use_batchreduce_upd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_use_batchreduce_upd( libxs_dnn_layer* handle ) {
   int result = 1;
   /* If W is large, no need for batchreduce kernel */
   if (handle->ofw >= 56) {
@@ -536,7 +536,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_use_batchreduce_upd( libxs_dnn_
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_weight_copies_upd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_weight_copies_upd( libxs_dnn_layer* handle ) {
   int result = handle->desc.threads;
   if (handle->ofw <= 14) {
     result = 9;
@@ -569,7 +569,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_weight_copies_upd( libxs_dnn_la
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_linearized_tasklist_upd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_linearized_tasklist_upd( libxs_dnn_layer* handle ) {
   int result = 0;
   /* Use linearized task-list (i.e. no reduction) only if small images and large filters */
   if (handle->ofh <= 10 && handle->ofw <= 10) {
@@ -592,13 +592,13 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_linearized_tasklist_upd( libxs_
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_init_upd_gemm_flags( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_init_upd_gemm_flags( libxs_dnn_layer* handle ) {
   int result = 0;
   LIBXS_UNUSED(handle);
   return result;
 }
 
-LIBXS_API_INTERN void libxs_dnn_convolution_setup_bf16_upd( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd( libxs_dnn_layer* handle ) {
   int remainder_pixels, max_init_offset, max_compute_offset_input, input_compute_pad, accum_length_pixels, compute_pixels;
   const int multiple_target = 2;
   handle->upd_linearized_pixels = 1;
@@ -682,7 +682,7 @@ LIBXS_API_INTERN void libxs_dnn_convolution_setup_bf16_upd( libxs_dnn_layer* han
 }
 
 
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* handle ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   const libxs_trans_descriptor* tr_desc = 0;
   libxs_descriptor_blob blob;
