@@ -544,7 +544,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_reduce_stats_st_bwd_cu
     /* compute thr_begin and thr_end */
     const int thr_begin2 = (ltid * chunksize2 < work2) ? (ltid * chunksize2) : work2;
     const int thr_end2 = ((ltid + 1) * chunksize2 < work2) ? ((ltid + 1) * chunksize2) : work2;
-    int v, fm;
+    int v = 0, fm;
 
     LIBXS_VLA_DECL(2, float, dgamma0,      (float*)handles[0]->grad_gamma->data, nFmBlock);
     LIBXS_VLA_DECL(2, float, dbeta0,       (float*)handles[0]->grad_beta->data,  nFmBlock);
@@ -609,5 +609,4 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fusedbatchnorm_reduce_stats_st_bwd_cu
 
   return status;
 }
-
 
