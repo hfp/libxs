@@ -208,7 +208,7 @@
   const libxs_blasint libxs_inline_xgemm_ldc_ = (NULL != ((void*)(LDC)) ? (*(const libxs_blasint*)(LDC)) : libxs_inline_xgemm_m_); \
   const OTYPE libxs_inline_xgemm_alpha_ = (NULL != ((void*)(ALPHA)) ? (*(const OTYPE*)(ALPHA)) : ((OTYPE)LIBXS_ALPHA)); \
   const OTYPE libxs_inline_xgemm_beta_  = (NULL != ((void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
-  libxs_blasint libxs_inline_xgemm_ni_, libxs_inline_xgemm_mi_, libxs_inline_xgemm_ki_; /* loop induction variables */ \
+  libxs_blasint libxs_inline_xgemm_ni_, libxs_inline_xgemm_mi_ = 0, libxs_inline_xgemm_ki_; /* loop induction variables */ \
   LIBXS_ASSERT('n' == libxs_inline_xgemm_transa_ || *"N" == libxs_inline_xgemm_transa_); \
   LIBXS_ASSERT('n' == libxs_inline_xgemm_transb_ || *"N" == libxs_inline_xgemm_transb_); \
   LIBXS_PRAGMA_SIMD \
