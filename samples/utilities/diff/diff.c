@@ -36,6 +36,8 @@ int main(int argc, char* argv[])
     nrpt = n;
   }
   nbytes = size * stride;
+
+  libxs_init();
   a = (unsigned char*)(0 != nbytes ? malloc(nbytes) : NULL);
   b = (unsigned char*)(0 != nbytes ? malloc(nbytes) : NULL);
 
@@ -58,7 +60,7 @@ int main(int argc, char* argv[])
       result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
     }
 
-    { /* benchmark libxs_hash/cmp */
+    if (elsize < 128) { /* benchmark libxs_hash/cmp */
       size_t diff = 0, i, j;
       const libxs_timer_tickint start = libxs_timer_tick();
       for (i = 0; i < nrpt; ++i) {
@@ -75,13 +77,33 @@ int main(int argc, char* argv[])
       result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
     }
 
-    { /* benchmark libxs_memcmp */
+    if (elsize < 128) { /* benchmark libxs_diff */
       size_t diff = 0, i, j;
       const libxs_timer_tickint start = libxs_timer_tick();
       for (i = 0; i < nrpt; ++i) {
         for (j = 0; j < nbytes; j += stride) {
           const void *const aj = a + j, *const bj = b + j;
-          diff += libxs_memcmp(aj, bj, elsize);
+          diff += libxs_diff(aj, bj, (unsigned char)elsize);
+        }
+      }
+      duration = libxs_timer_duration(start, libxs_timer_tick());
+      if (0 < duration) printf("libxs_diff:\t\t%.8f s (%i MB/s)\n", duration,
+        (int)LIBXS_ROUND((2.0 * nrpt * nbytes) / ((1024.0 * 1024.0) * duration)));
+      result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
+    }
+
+    { /* benchmark libxs_memcmp */
+      size_t diff = 0, i, j;
+      const libxs_timer_tickint start = libxs_timer_tick();
+      for (i = 0; i < nrpt; ++i) {
+        if (stride == elsize) {
+          diff += libxs_memcmp(a, b, nbytes);
+        }
+        else {
+          for (j = 0; j < nbytes; j += stride) {
+            const void *const aj = a + j, *const bj = b + j;
+            diff += libxs_memcmp(aj, bj, elsize);
+          }
         }
       }
       duration = libxs_timer_duration(start, libxs_timer_tick());
@@ -94,16 +116,21 @@ int main(int argc, char* argv[])
       size_t diff = 0, i, j;
       const libxs_timer_tickint start = libxs_timer_tick();
       for (i = 0; i < nrpt; ++i) {
-        for (j = 0; j < nbytes; j += stride) {
-          const void *const aj = a + j, *const bj = b + j;
+        if (stride == elsize) {
+          diff += libxs_memcmp(a, b, nbytes);
+        }
+        else {
+          for (j = 0; j < nbytes; j += stride) {
+            const void *const aj = a + j, *const bj = b + j;
 #if defined(_MSC_VER)
-#         pragma warning(push)
-#         pragma warning(disable: 6385)
+#           pragma warning(push)
+#           pragma warning(disable: 6385)
 #endif
-          diff += (0 != memcmp(aj, bj, elsize));
+            diff += (0 != memcmp(aj, bj, elsize));
 #if defined(_MSC_VER)
-#         pragma warning(pop)
+#           pragma warning(pop)
 #endif
+          }
         }
         /* memcmp is likely pure and without touching a it is not repeated (nrpt) */
         a[i%nbytes] = 255;
