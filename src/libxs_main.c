@@ -421,6 +421,7 @@ LIBXS_API_INTERN void internal_release_scratch(void)
 {
   libxs_xrelease_scratch(NULL/*lock*/);
   /* release global services */
+  libxs_memory_finalize();
   libxs_hash_finalize();
   libxs_malloc_finalize();
 }
@@ -744,6 +745,7 @@ LIBXS_API_INTERN void internal_init(void)
     }
 #endif
     libxs_hash_init(libxs_target_archid); /* used by debug memory allocation (checksum) */
+    libxs_memory_init(libxs_target_archid);
     if (
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
       (EXIT_SUCCESS == libxs_xmalloc((void**)new_cache, (LIBXS_NTHREADS_MAX) * sizeof(internal_cache_type), LIBXS_CACHELINE/*alignment*/,

@@ -15,12 +15,17 @@
 # define LIBXS_DIFF_AVX512
 #endif
 
+#define LIBXS_DIFF_SSE3_DECL(A) __m128i A
+#define LIBXS_DIFF_SSE3_ASSIGN(A, B) (A) = (B)
+#define LIBXS_DIFF_SSE3_LOAD(A, SRC) A = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)(SRC))
+#define LIBXS_DIFF_SSE3(A, B, ...) ((unsigned char)(0xFFFF != _mm_movemask_epi8(_mm_cmpeq_epi8( \
+  A, LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)(B))))))
+
 #if (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH) /*|| defined(LIBXS_INTRINSICS_TARGET)*/
-# define LIBXS_DIFF_16_DECL(A) __m128i A
-# define LIBXS_DIFF_16_ASSIGN(A, B) (A) = (B)
-# define LIBXS_DIFF_16_LOAD(A, SRC) A = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)(SRC))
-# define LIBXS_DIFF_16(A, B, ...) ((unsigned char)(0xFFFF != _mm_movemask_epi8(_mm_cmpeq_epi8( \
-    A, LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)(B))))))
+# define LIBXS_DIFF_16_DECL LIBXS_DIFF_SSE3_DECL
+# define LIBXS_DIFF_16_ASSIGN LIBXS_DIFF_SSE3_ASSIGN
+# define LIBXS_DIFF_16_LOAD LIBXS_DIFF_SSE3_LOAD
+# define LIBXS_DIFF_16 LIBXS_DIFF_SSE3
 #else
 # define LIBXS_DIFF_16_DECL(A) const uint64_t */*const*/ A
 # define LIBXS_DIFF_16_ASSIGN(A, B) (A) = (B)
@@ -28,12 +33,18 @@
 # define LIBXS_DIFF_16(A, B, ...) ((unsigned char)(0 != (((A)[0] ^ (*(const uint64_t*)(B))) | \
     ((A)[1] ^ ((const uint64_t*)(B))[1]))))
 #endif
+
+#define LIBXS_DIFF_AVX2_DECL(A) __m256i A
+#define LIBXS_DIFF_AVX2_ASSIGN(A, B) (A) = (B)
+#define LIBXS_DIFF_AVX2_LOAD(A, SRC) A = _mm256_loadu_si256((const __m256i*)(SRC))
+#define LIBXS_DIFF_AVX2(A, B, ...) ((unsigned char)(-1 != _mm256_movemask_epi8(_mm256_cmpeq_epi8( \
+  A, _mm256_loadu_si256((const __m256i*)(B))))))
+
 #if (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
-# define LIBXS_DIFF_32_DECL(A) __m256i A
-# define LIBXS_DIFF_32_ASSIGN(A, B) (A) = (B)
-# define LIBXS_DIFF_32_LOAD(A, SRC) A = _mm256_loadu_si256((const __m256i*)(SRC))
-# define LIBXS_DIFF_32(A, B, ...) ((unsigned char)(-1 != _mm256_movemask_epi8(_mm256_cmpeq_epi8( \
-    A, _mm256_loadu_si256((const __m256i*)(B))))))
+# define LIBXS_DIFF_32_DECL LIBXS_DIFF_AVX2_DECL
+# define LIBXS_DIFF_32_ASSIGN LIBXS_DIFF_AVX2_ASSIGN
+# define LIBXS_DIFF_32_LOAD LIBXS_DIFF_AVX2_LOAD
+# define LIBXS_DIFF_32 LIBXS_DIFF_AVX2
 #else
 # define LIBXS_DIFF_32_DECL(A) LIBXS_DIFF_16_DECL(A); LIBXS_DIFF_16_DECL(LIBXS_CONCATENATE3(libxs_diff_32_, A, _))
 # define LIBXS_DIFF_32_ASSIGN(A, B) LIBXS_DIFF_16_ASSIGN(A, B); LIBXS_DIFF_16_ASSIGN(LIBXS_CONCATENATE3(libxs_diff_32_, A, _), LIBXS_CONCATENATE3(libxs_diff_32_, B, _))
@@ -46,12 +57,17 @@
 #define LIBXS_DIFF_48_LOAD(A, SRC) LIBXS_DIFF_16_LOAD(A, SRC); LIBXS_DIFF_32_LOAD(LIBXS_CONCATENATE3(libxs_diff_48_, A, _), (const uint64_t*)(SRC) + 2)
 #define LIBXS_DIFF_48(A, B, ...) ((unsigned char)(0 != LIBXS_DIFF_16(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_32(LIBXS_CONCATENATE3(libxs_diff_48_, A, _), (const uint64_t*)(B) + 2, __VA_ARGS__)))
 
+#define LIBXS_DIFF_AVX512_DECL(A) __m512i A
+#define LIBXS_DIFF_AVX512_ASSIGN(A, B) (A) = (B)
+#define LIBXS_DIFF_AVX512_LOAD(A, SRC) A = _mm512_loadu_si512((const __m512i*)(SRC))
+#define LIBXS_DIFF_AVX512(A, B, ...) ((unsigned char)(0xFFFF != _cvtmask16_u32(_mm512_cmpeq_epi32_mask( \
+  A, _mm512_loadu_si512((const __m512i*)(B))))))
+
 #if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512)
-# define LIBXS_DIFF_64_DECL(A) __m512i A
-# define LIBXS_DIFF_64_ASSIGN(A, B) (A) = (B)
-# define LIBXS_DIFF_64_LOAD(A, SRC) A = _mm512_loadu_si512((const __m512i*)(SRC))
-# define LIBXS_DIFF_64(A, B, ...) ((unsigned char)(0xFFFF != _cvtmask16_u32(_mm512_cmpeq_epi32_mask( \
-    A, _mm512_loadu_si512((const __m512i*)(B))))))
+# define LIBXS_DIFF_64_DECL LIBXS_DIFF_AVX512_DECL
+# define LIBXS_DIFF_64_ASSIGN LIBXS_DIFF_AVX512_ASSIGN
+# define LIBXS_DIFF_64_LOAD LIBXS_DIFF_AVX512_LOAD
+# define LIBXS_DIFF_64 LIBXS_DIFF_AVX512
 #else
 # define LIBXS_DIFF_64_DECL(A) LIBXS_DIFF_32_DECL(A); LIBXS_DIFF_32_DECL(LIBXS_CONCATENATE3(libxs_diff_64_, A, _))
 # define LIBXS_DIFF_64_ASSIGN(A, B) LIBXS_DIFF_32_ASSIGN(A, B); LIBXS_DIFF_32_ASSIGN(LIBXS_CONCATENATE3(libxs_diff_64_, A, _), LIBXS_CONCATENATE3(libxs_diff_64_, B, _))
