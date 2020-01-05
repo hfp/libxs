@@ -11,8 +11,8 @@
 
 #include <libxs_intrinsics_x86.h>
 
-#if !defined(LIBXS_DIFF_AVX512) && 0
-# define LIBXS_DIFF_AVX512
+#if !defined(LIBXS_DIFF_AVX512_ENABLED) && 0
+# define LIBXS_DIFF_AVX512_ENABLED
 #endif
 
 #define LIBXS_DIFF_SSE3_DECL(A) __m128i A
@@ -63,7 +63,7 @@
 #define LIBXS_DIFF_AVX512(A, B, ...) ((unsigned char)(0xFFFF != _cvtmask16_u32(_mm512_cmpeq_epi32_mask( \
   A, _mm512_loadu_si512((const __m512i*)(B))))))
 
-#if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512)
+#if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512_ENABLED)
 # define LIBXS_DIFF_64_DECL LIBXS_DIFF_AVX512_DECL
 # define LIBXS_DIFF_64_ASSIGN LIBXS_DIFF_AVX512_ASSIGN
 # define LIBXS_DIFF_64_LOAD LIBXS_DIFF_AVX512_LOAD

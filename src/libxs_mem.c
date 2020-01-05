@@ -22,9 +22,6 @@
 #if !defined(LIBXS_MEM_MEMCMP) && 0
 # define LIBXS_MEM_MEMCMP
 #endif
-#if !defined(LIBXS_MEM_AVX512) && 0
-# define LIBXS_MEM_AVX512
-#endif
 
 
 LIBXS_APIVAR_PRIVATE(int (*internal_memcmp_function)(const void*, const void*, size_t));
@@ -104,7 +101,7 @@ int internal_memcmp_avx512(const void* a, const void* b, size_t size)
 
 LIBXS_API_INTERN void libxs_memory_init(int target_arch)
 {
-#if defined(LIBXS_MEM_AVX512)
+#if defined(LIBXS_DIFF_AVX512_ENABLED)
   if (LIBXS_X86_AVX512 <= target_arch) {
     internal_memcmp_function = internal_memcmp_avx512;
   }
@@ -167,10 +164,10 @@ LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char s
 {
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   unsigned char i;
-  for (i = 0; i < (size & 0xF0); i += 16) {
-    LIBXS_DIFF_16_DECL(a16);
-    LIBXS_DIFF_16_LOAD(a16, a8 + i);
-    if (LIBXS_DIFF_16(a16, b8 + i, 0/*dummy*/)) return 1;
+  for (i = 0; i < (size & 0xE0); i += 32) {
+    LIBXS_DIFF_16_DECL(aa);
+    LIBXS_DIFF_16_LOAD(aa, a8 + i);
+    if (LIBXS_DIFF_16(aa, b8 + i, 0/*dummy*/)) return 1;
   }
   for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
   return 0;
@@ -219,14 +216,17 @@ LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_MEM_MEMCMP)
   return memcmp(a, b, size);
-#elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_MEM_AVX512)
+#elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512_ENABLED)
   return internal_memcmp_avx512(a, b, size);
 #elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   return internal_memcmp_avx2(a, b, size);
-#else /* pointer based function call */
-  LIBXS_INIT
+#elif defined(LIBXS_INIT_COMPLETED) /* pointer based function call */
   LIBXS_ASSERT(NULL != internal_memcmp_function);
   return internal_memcmp_function(a, b, size);
+#else
+  return NULL != internal_memcmp_function
+    ? internal_memcmp_function(a, b, size)
+    : internal_memcmp_sw(a, b, size);
 #endif
 }
 
