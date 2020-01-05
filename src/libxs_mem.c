@@ -19,8 +19,11 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(LIBXS_DIFF_MEMCMP) && 0
-# define LIBXS_DIFF_MEMCMP
+#if !defined(LIBXS_MEM_MEMCMP) && 0
+# define LIBXS_MEM_MEMCMP
+#endif
+#if !defined(LIBXS_MEM_AVX512) && 0
+# define LIBXS_MEM_AVX512
 #endif
 
 
@@ -101,10 +104,13 @@ int internal_memcmp_avx512(const void* a, const void* b, size_t size)
 
 LIBXS_API_INTERN void libxs_memory_init(int target_arch)
 {
+#if defined(LIBXS_MEM_AVX512)
   if (LIBXS_X86_AVX512 <= target_arch) {
     internal_memcmp_function = internal_memcmp_avx512;
   }
-  else if (LIBXS_X86_AVX2 <= target_arch) {
+  else
+#endif
+  if (LIBXS_X86_AVX2 <= target_arch) {
     internal_memcmp_function = internal_memcmp_avx2;
   }
   else if (LIBXS_X86_SSE3 <= target_arch) {
@@ -176,7 +182,7 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
 {
   unsigned int result;
   LIBXS_ASSERT(size <= stride);
-#if defined(LIBXS_DIFF_MEMCMP)
+#if defined(LIBXS_MEM_MEMCMP)
   LIBXS_DIFF_N(unsigned int, result, memcmp, a, bn, size, stride, hint, n);
 #else
   switch (size) {
@@ -211,9 +217,9 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
 
 LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size)
 {
-#if defined(LIBXS_DIFF_MEMCMP)
+#if defined(LIBXS_MEM_MEMCMP)
   return memcmp(a, b, size);
-#elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && 0
+#elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_MEM_AVX512)
   return internal_memcmp_avx512(a, b, size);
 #elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   return internal_memcmp_avx2(a, b, size);
