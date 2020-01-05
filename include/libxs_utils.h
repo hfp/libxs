@@ -242,7 +242,7 @@
         || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) \
         && !defined(_MSC_VER))
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
-#     elif (defined(__GNUC__)  && LIBXS_VERSION2(7, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
+#     elif (defined(__GNUC__)  && LIBXS_VERSION2(5, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
         || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) \
         && !defined(_MSC_VER))
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
