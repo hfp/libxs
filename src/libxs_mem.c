@@ -255,7 +255,7 @@ LIBXS_API unsigned char libxs_diff_64(const void* a, const void* b, ...)
 LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char size)
 {
 #if defined(LIBXS_MEM_MEMCMP)
-  return memcmp(a, b, size);
+  return 0 != memcmp(a, b, size);
 #elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512_ENABLED)
   return internal_diff_avx512(a, b, size);
 #elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
