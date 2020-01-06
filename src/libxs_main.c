@@ -178,7 +178,6 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_cache_type {
 LIBXS_APIVAR(internal_cache_type* internal_cache_buffer);
 # endif
 #endif /*defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))*/
-
 /** Determines the try-lock property (1<N: disabled, N=1: enabled [N=0: disabled in case of RW-lock]). */
 LIBXS_APIVAR(int internal_reglock_count);
 LIBXS_APIVAR(size_t internal_registry_nbytes);
@@ -195,6 +194,9 @@ LIBXS_APIVAR(unsigned int internal_statistic_num_trsm);
 LIBXS_APIVAR(unsigned int internal_statistic_num_trmm);
 LIBXS_APIVAR(int internal_gemm_auto_prefetch_locked);
 LIBXS_APIVAR(const char* internal_build_state);
+
+/** Time stamp (startup time of library). */
+LIBXS_APIVAR(libxs_timer_tickint internal_timer_start);
 
 #if !defined(INTERNAL_DELIMS)
 # define INTERNAL_DELIMS ";,:"
@@ -501,6 +503,9 @@ LIBXS_API_INTERN void internal_finalize(void)
         else {
           fprintf(stderr, "\n");
         }
+      }
+      if (LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) {
+        fprintf(stderr, "Uptime: %f s", libxs_timer_duration(internal_timer_start, libxs_timer_tick()));
       }
     }
     else {
@@ -919,6 +924,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
             fprintf(stderr, "LIBXS WARNING: libxs_timer_ncycles may not measure in cycles!\n");
           }
         }
+        internal_timer_start = libxs_timer_tick();
       }
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     }
