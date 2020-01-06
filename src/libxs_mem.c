@@ -9,6 +9,7 @@
 #include <libxs_mem.h>
 #include "libxs_hash.h"
 #include "libxs_diff.h"
+#include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -264,9 +265,9 @@ LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char s
   LIBXS_ASSERT(NULL != internal_diff_function);
   return internal_diff_function(a, b, size);
 #else
-  return NULL != internal_diff_function
+  return (unsigned char)(NULL != internal_diff_function
     ? internal_diff_function(a, b, size)
-    : internal_diff_sw(a, b, size);
+    : internal_diff_sw(a, b, size));
 #endif
 }
 
