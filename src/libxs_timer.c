@@ -42,15 +42,10 @@
 # endif
 #endif
 
-LIBXS_APIVAR(int internal_timer_init_rtc);
-
 
 LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(int* tsc)
 {
   libxs_timer_tickint result;
-#if !(defined(__PGI) && defined(__cplusplus))
-  int dummy = 0;
-#endif
 #if defined(_WIN32)
 # if 1
   LARGE_INTEGER t;
@@ -73,11 +68,6 @@ LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(int* tsc)
 #else
   if (NULL != tsc) *tsc = 0;
 #endif
-#if !(defined(__PGI) && defined(__cplusplus))
-  LIBXS_UNUSED(dummy);
-  dummy =
-#endif
-  LIBXS_ATOMIC_ADD_FETCH(&internal_timer_init_rtc, 1, LIBXS_ATOMIC_RELAXED);
   return result;
 }
 
@@ -99,11 +89,7 @@ LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tic
 {
   double result = (double)LIBXS_DELTA(tick0, tick1);
 #if defined(LIBXS_TIMER_RDTSC)
-# if defined(LIBXS_INIT_COMPLETED)
-  LIBXS_ASSERT_MSG(0 != internal_timer_init_rtc, "LIBXS is not initialized");
-# else
-  if (0 == internal_timer_init_rtc) libxs_init();
-# endif
+  LIBXS_INIT
   if (0 < libxs_timer_scale) {
     result *= libxs_timer_scale;
   }
