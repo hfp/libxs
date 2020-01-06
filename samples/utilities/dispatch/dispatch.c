@@ -156,7 +156,7 @@ int main(int argc, char* argv[])
     start = libxs_timer_tick();
     for (i = 0; i < size_local; ++i) {
 #if defined(MKLJIT)
-      LIBXS_EXPECT(MKL_JIT_SUCCESS, mkl_cblas_jit_create_dgemm(jitter,
+      LIBXS_EXPECT(MKL_JIT_SUCCESS, mkl_cblas_jit_create_dgemm(jitter + i,
         MKL_COL_MAJOR, MKL_NOTRANS/*transa*/, MKL_NOTRANS/*transb*/,
         rnd[i].m, rnd[i].n, rnd[i].k, alpha, rnd[i].m, rnd[i].k, beta, rnd[i].m));
       mkl_jit_get_dgemm_ptr(jitter[i]); /* to include lookup time */
