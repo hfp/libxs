@@ -182,14 +182,19 @@ int internal_memcmp_avx512(const void* a, const void* b, size_t size)
 
 LIBXS_API_INTERN void libxs_memory_init(int target_arch)
 {
-#if defined(LIBXS_DIFF_AVX512_ENABLED)
   if (LIBXS_X86_AVX512 <= target_arch) {
+#if defined(LIBXS_DIFF_AVX512_ENABLED)
     internal_diff_function = internal_diff_avx512;
-    internal_memcmp_function = internal_memcmp_avx512;
-  }
-  else
+#else
+    internal_diff_function = internal_diff_avx2;
 #endif
-  if (LIBXS_X86_AVX2 <= target_arch) {
+#if defined(LIBXS_DIFF_AVX512_ENABLED)
+    internal_memcmp_function = internal_memcmp_avx512;
+#else
+    internal_memcmp_function = internal_memcmp_avx2;
+#endif
+  }
+  else if (LIBXS_X86_AVX2 <= target_arch) {
     internal_diff_function = internal_diff_avx2;
     internal_memcmp_function = internal_memcmp_avx2;
   }
