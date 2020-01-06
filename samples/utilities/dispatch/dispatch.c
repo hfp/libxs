@@ -83,12 +83,14 @@ int main(int argc, char* argv[])
 #else
   const int default_maxsize = 16;
 #endif
+  const int default_multiple = 1;
   int size_total = LIBXS_MAX((1 < argc && 0 < atoi(argv[1])) ? atoi(argv[1]) : 10000/*default*/, 2);
   const int size_local = LIBXS_CLMP((2 < argc && 0 < atoi(argv[2])) ? atoi(argv[2]) : 4/*default*/, 1, size_total);
   const int nthreads = LIBXS_CLMP(3 < argc ? atoi(argv[3]) : 1/*default*/, 1, max_nthreads);
   const int nrepeat = LIBXS_MAX(4 < argc ? atoi(argv[4]) : 1/*default*/, 1);
-  const libxs_blasint maxsize = LIBXS_CLMP((5 < argc && 0 < atoi(argv[5])) ? atoi(argv[5]) : default_maxsize, 1, MAXSIZE);
-  const libxs_blasint minsize = LIBXS_CLMP((6 < argc && 0 < atoi(argv[6])) ? atoi(argv[6]) : default_minsize, 1, maxsize);
+  const libxs_blasint multiple = LIBXS_MAX((5 < argc && 0 < atoi(argv[5])) ? atoi(argv[5]) : default_multiple, 1);
+  const libxs_blasint maxsize = LIBXS_CLMP((6 < argc && 0 < atoi(argv[6])) ? atoi(argv[6]) : default_maxsize, 1, MAXSIZE);
+  const libxs_blasint minsize = LIBXS_CLMP((7 < argc && 0 < atoi(argv[7])) ? atoi(argv[7]) : default_minsize, 1, maxsize);
   const libxs_blasint range = maxsize - minsize + 1;
   libxs_timer_tickint start, tcall, tcgen, tdsp0 = 0, tdsp1 = 0;
   int result = EXIT_SUCCESS;
@@ -124,6 +126,11 @@ int main(int argc, char* argv[])
       rnd[i].m = (1 < range ? (LIBXS_MOD(r1, range) + minsize) : minsize);
       rnd[i].n = (1 < range ? (LIBXS_MOD(r2, range) + minsize) : minsize);
       rnd[i].k = (1 < range ? (LIBXS_MOD(r3, range) + minsize) : minsize);
+      if (1 != multiple) {
+        rnd[i].m = LIBXS_MAX((rnd[i].m / multiple) * multiple, minsize);
+        rnd[i].n = LIBXS_MAX((rnd[i].n / multiple) * multiple, minsize);
+        rnd[i].k = LIBXS_MAX((rnd[i].k / multiple) * multiple, minsize);
+      }
 #if defined(MKLJIT)
       jitter[i] = NULL;
 #endif
@@ -149,9 +156,9 @@ int main(int argc, char* argv[])
     start = libxs_timer_tick();
     for (i = 0; i < size_local; ++i) {
 #if defined(MKLJIT)
-      mkl_cblas_jit_create_dgemm(jitter,
+      LIBXS_EXPECT(MKL_JIT_SUCCESS, mkl_cblas_jit_create_dgemm(jitter,
         MKL_COL_MAJOR, MKL_NOTRANS/*transa*/, MKL_NOTRANS/*transb*/,
-        rnd[i].m, rnd[i].n, rnd[i].k, alpha, rnd[i].m, rnd[i].k, beta, rnd[i].m);
+        rnd[i].m, rnd[i].n, rnd[i].k, alpha, rnd[i].m, rnd[i].k, beta, rnd[i].m));
       mkl_jit_get_dgemm_ptr(jitter[i]); /* to include lookup time */
 #else
       libxs_dmmdispatch(rnd[i].m, rnd[i].n, rnd[i].k, &rnd[i].m, &rnd[i].k, &rnd[i].m, &alpha, &beta, &flags, &prefetch);
@@ -208,9 +215,9 @@ int main(int argc, char* argv[])
 #       pragma omp for
         for (i = size_local; i < size_total; ++i) {
 #if defined(MKLJIT)
-          mkl_cblas_jit_create_dgemm(jitter + i,
+          LIBXS_EXPECT(MKL_JIT_SUCCESS, mkl_cblas_jit_create_dgemm(jitter + i,
             MKL_COL_MAJOR, MKL_NOTRANS/*transa*/, MKL_NOTRANS/*transb*/,
-            rnd[i].m, rnd[i].n, rnd[i].k, alpha, rnd[i].m, rnd[i].k, beta, rnd[i].m);
+            rnd[i].m, rnd[i].n, rnd[i].k, alpha, rnd[i].m, rnd[i].k, beta, rnd[i].m));
           mkl_jit_get_dgemm_ptr(jitter[i]);
 #else
           libxs_dmmdispatch(rnd[i].m, rnd[i].n, rnd[i].k, &rnd[i].m, &rnd[i].k, &rnd[i].m, &alpha, &beta, &flags, &prefetch);
@@ -226,9 +233,9 @@ int main(int argc, char* argv[])
       start = libxs_timer_tick();
       for (i = size_local; i < size_total; ++i) {
 #if defined(MKLJIT)
-        mkl_cblas_jit_create_dgemm(jitter + i,
+        LIBXS_EXPECT(MKL_JIT_SUCCESS, mkl_cblas_jit_create_dgemm(jitter + i,
           MKL_COL_MAJOR, MKL_NOTRANS/*transa*/, MKL_NOTRANS/*transb*/,
-          rnd[i].m, rnd[i].n, rnd[i].k, alpha, rnd[i].m, rnd[i].k, beta, rnd[i].m);
+          rnd[i].m, rnd[i].n, rnd[i].k, alpha, rnd[i].m, rnd[i].k, beta, rnd[i].m));
         mkl_jit_get_dgemm_ptr(jitter[i]);
 #else
         libxs_dmmdispatch(rnd[i].m, rnd[i].n, rnd[i].k, &rnd[i].m, &rnd[i].k, &rnd[i].m, &alpha, &beta, &flags, &prefetch);
