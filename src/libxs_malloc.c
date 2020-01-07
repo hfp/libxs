@@ -1654,7 +1654,7 @@ LIBXS_API_INLINE void* internal_xmalloc_xmap(const char* dir, size_t size, int f
   void* result = MAP_FAILED;
   char filename[4096] = LIBXS_MALLOC_XMAP_TEMPLATE;
   int i = 0;
-  LIBXS_ASSERT(NULL != rx);
+  LIBXS_ASSERT(NULL != rx && MAP_FAILED != *rx);
   if (NULL != dir && 0 != *dir) {
     i = LIBXS_SNPRINTF(filename, sizeof(filename), "%s/" LIBXS_MALLOC_XMAP_TEMPLATE, dir);
   }
@@ -1673,6 +1673,7 @@ LIBXS_API_INLINE void* internal_xmalloc_xmap(const char* dir, size_t size, int f
           }
           else {
             munmap(xmap, size);
+            *rx = NULL;
           }
         }
       }
@@ -2370,7 +2371,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
 
 LIBXS_API LIBXS_ATTRIBUTE_MALLOC void* libxs_aligned_malloc(size_t size, size_t alignment)
 {
-  void* result;
+  void* result = NULL;
   LIBXS_INIT
   if (2 > internal_malloc_kind) {
 #if !defined(NDEBUG)
