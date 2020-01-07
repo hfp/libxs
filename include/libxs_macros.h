@@ -759,22 +759,23 @@
 #if !defined(LIBXS_ASSERT_MSG)
 # define LIBXS_ASSERT_MSG(EXPR, MSG) assert((EXPR) && (0 != *(MSG)))
 #endif
-#if !defined(LIBXS_EXPECT)
-# if defined(NDEBUG)
-#   define LIBXS_EXPECT(RESULT, EXPR) do { \
-      /*const*/ int libxs_expect_result_ = (EXPR); \
-      LIBXS_UNUSED(libxs_expect_result_); \
-    } while(0)
-# else
-#   define LIBXS_EXPECT(RESULT, EXPR) LIBXS_ASSERT((RESULT) == (EXPR))
-# endif
+#if !defined(LIBXS_EXPECT_ELIDE)
+# define LIBXS_EXPECT_ELIDE(RESULT, EXPR) do { \
+    /*const*/ int libxs_expect_result_ = (EXPR); \
+    LIBXS_UNUSED(libxs_expect_result_); \
+  } while(0)
 #endif
-#if !defined(LIBXS_EXPECT_NOT)
-# if defined(NDEBUG)
-#   define LIBXS_EXPECT_NOT(RESULT, EXPR) (EXPR)
-# else
-#   define LIBXS_EXPECT_NOT(RESULT, EXPR) LIBXS_ASSERT((RESULT) != (EXPR))
-# endif
+#if defined(NDEBUG)
+# define LIBXS_EXPECT LIBXS_EXPECT_ELIDE
+# define LIBXS_EXPECT_NOT LIBXS_EXPECT_ELIDE
+#else
+# define LIBXS_EXPECT(RESULT, EXPR) LIBXS_ASSERT((RESULT) == (EXPR))
+# define LIBXS_EXPECT_NOT(RESULT, EXPR) LIBXS_ASSERT((RESULT) != (EXPR))
+#endif
+#if defined(_DEBUG)
+# define LIBXS_EXPECT_DEBUG LIBXS_EXPECT
+#else
+# define LIBXS_EXPECT_DEBUG LIBXS_EXPECT_ELIDE
 #endif
 #include <stddef.h>
 #include <stdint.h>
