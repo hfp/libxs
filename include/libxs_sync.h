@@ -504,7 +504,7 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_TYPE_ISRW_mutex 0
 #     define LIBXS_LOCK_TYPE_mutex pthread_mutex_t
 #     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) LIBXS_EXPECT(0, pthread_mutex_init(LOCK, ATTR))
-#     define LIBXS_LOCK_DESTROY_mutex(LOCK) LIBXS_EXPECT(0, pthread_mutex_destroy(LOCK))
+#     define LIBXS_LOCK_DESTROY_mutex(LOCK) LIBXS_EXPECT_DEBUG(0, pthread_mutex_destroy(LOCK))
 #     define LIBXS_LOCK_TRYLOCK_mutex(LOCK) pthread_mutex_trylock(LOCK) /*!LIBXS_EXPECT*/
 #     define LIBXS_LOCK_ACQUIRE_mutex(LOCK) LIBXS_EXPECT(0, pthread_mutex_lock(LOCK))
 #     define LIBXS_LOCK_RELEASE_mutex(LOCK) LIBXS_EXPECT(0, pthread_mutex_unlock(LOCK))
