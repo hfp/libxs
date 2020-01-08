@@ -204,6 +204,9 @@ EXCLUDE_STATE = \
   PBINDIR PINCDIR POUTDIR PPKGDIR PMODDIR PSRCDIR PTSTDIR PDOCDIR SCRDIR SPLDIR \
   SRCDIR TEST VERSION_STRING DEPSTATIC ALIAS_% BLAS %_TARGET %ROOT MPSS KNC
 
+# fixed .state file directory (included by source)
+DIRSTATE = $(OUTDIR)/..
+
 ifeq (,$(M)$(N)$(K))
 ifneq (,$(filter 0,$(MNK) 0))
   EXCLUDE_STATE += PRECISION MNK M N K
@@ -603,7 +606,7 @@ endif
 
 .PHONY: config
 config: $(INCDIR)/libxs_config.h
-$(INCDIR)/libxs_config.h: $(INCDIR)/.make .state $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h \
+$(INCDIR)/libxs_config.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h \
                             $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py \
                             $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
                             $(wildcard $(ROOTDIR)/.github/*) \
@@ -661,7 +664,7 @@ endif
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
 ifneq (,$(PYTHON))
 $(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(INCDIR)/libxs.h $(SRCFILES_KERNELS) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py
-	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py "$(call qapath,.state)" $(PRECISION) $(THRESHOLD) $(INDICES) > $@
+	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py "$(call qapath,$(DIRSTATE)/.state)" $(PRECISION) $(THRESHOLD) $(INDICES) > $@
 else
 .PHONY: $(BLDDIR)/libxs_dispatch.h
 endif
@@ -1667,7 +1670,7 @@ ifneq ($(call qapath,$(PREFIX)),$(call qapath,.))
 	@echo
 	@echo "LIBXS installing artifacts..."
 	@mkdir -p $(PREFIX)/$(PDOCDIR)/artifacts
-	@$(CP) -v .state $(PREFIX)/$(PDOCDIR)/artifacts/make.txt
+	@$(CP) -v $(DIRSTATE)/.state $(PREFIX)/$(PDOCDIR)/artifacts/make.txt
 endif
 
 ifeq (Windows_NT,$(UNAME))
