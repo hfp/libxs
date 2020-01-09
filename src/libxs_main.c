@@ -530,6 +530,7 @@ LIBXS_API_INTERN void internal_finalize(void)
           if (NULL != file) {
             int c = fgetc(file);
             fprintf(stdout, "\n\nLIBXS_DUMP_FILE: %s\n", filename);
+            /* coverity[tainted_data] */
             while (EOF != c) {
               fputc(c, stdout);
               c = fgetc(file);
@@ -1719,10 +1720,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         }
       }
     } break;
-    case LIBXS_BUILD_KIND_TRSM: { /* compact TRSM kernel (packed) */
-      unsigned int tsize;
-      LIBXS_ASSERT(NULL != request->descriptor.trsm);
-      tsize = (unsigned int)request->descriptor.trsm->typesize;
+    case LIBXS_BUILD_KIND_TRSM: if (NULL != request->descriptor.trsm) { /* compact TRSM kernel (packed) */
+      const unsigned int tsize = (unsigned int)request->descriptor.trsm->typesize;
       if (4 == tsize || 8 == tsize) {
         LIBXS_NO_OFFLOAD(void, libxs_generator_trsm_kernel, &generated_code, request->descriptor.trsm, target_arch);
 # if !defined(LIBXS_VTUNE)
