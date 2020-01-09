@@ -122,7 +122,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_da
                 layout->dim_size[2] = (handle->desc.H/handle->desc.u) + (2*handle->desc.pad_h_out);
                 layout->dim_size[3] = handle->blocksofm;
                 layout->dim_size[4] = handle->desc.partN;
-              } else {
+              } else { /* coverity[dead_error_begin] */
                 free(layout->dim_type);
                 free(layout->dim_size);
                 free(layout);
@@ -158,7 +158,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_da
                 layout->dim_size[2] = (handle->desc.H/handle->desc.u) + (2*handle->desc.pad_h_out);
                 layout->dim_size[3] = handle->blocksofm;
                 layout->dim_size[4] = handle->desc.partN;
-              } else {
+              } else { /* coverity[dead_error_begin] */
                 free(layout->dim_type);
                 free(layout->dim_size);
                 free(layout);
@@ -198,7 +198,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_da
                 layout->dim_size[1] = (handle->desc.W/handle->desc.v) + (2*handle->desc.pad_w_out);
                 layout->dim_size[2] = (handle->desc.H/handle->desc.u) + (2*handle->desc.pad_h_out);
                 layout->dim_size[3] = handle->desc.partN;
-              } else {
+              } else { /* coverity[dead_error_begin] */
                 free(layout->dim_type);
                 free(layout->dim_size);
                 free(layout);

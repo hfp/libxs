@@ -515,6 +515,7 @@ LIBXS_API int libxs_mhd_element_comparison(
 }
 
 
+/* coverity[var_deref_op] */
 LIBXS_API_INLINE int internal_mhd_minmax(const void* data, size_t nelements,
   libxs_mhd_elemtype type, const void* minval, const void* maxval)
 {
