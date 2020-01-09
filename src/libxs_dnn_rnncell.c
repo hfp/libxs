@@ -874,8 +874,8 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
 
 LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status)
 {
-  *status = LIBXS_DNN_SUCCESS;
   size_t size = 0;
+  *status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
     const size_t typesize_in = libxs_dnn_typesize(handle->desc.datatype_in);
@@ -1736,11 +1736,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_release_scratch(libxs_dnn_rnncell* h
 
 LIBXS_API size_t libxs_dnn_rnncell_get_internalstate_size(const libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status)
 {
-  const size_t sizeof_datatype = sizeof(float);
   size_t size = 0;
   *status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
+    const size_t sizeof_datatype = sizeof(float);
+
     switch (handle->desc.cell_type) {
       case LIBXS_DNN_RNNCELL_RNN_RELU:
       case LIBXS_DNN_RNNCELL_RNN_SIGMOID:
