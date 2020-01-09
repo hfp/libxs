@@ -536,8 +536,12 @@ LIBXS_API void libxs_spmdm_init(int M, int N, int K, int max_threads,
   double load_imbalance_1, load_imbalance_2, load_imbalance;
 
   libxs_init(); /* !LIBXS_INIT */
-  LIBXS_ATOMIC_ADD_FETCH(&libxs_statistic_num_spmdm, 1,
-    LIBXS_ATOMIC_RELAXED); /* count number of invocations */
+  { unsigned int dummy =
+    LIBXS_ATOMIC_ADD_FETCH(&libxs_statistic_num_spmdm, 1,
+      LIBXS_ATOMIC_RELAXED); /* count number of invocations */
+    LIBXS_UNUSED(dummy);
+  }
+
   handle->m  = M;
   handle->n  = N;
   handle->k  = K;
