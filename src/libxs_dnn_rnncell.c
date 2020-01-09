@@ -875,11 +875,11 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
 LIBXS_API size_t libxs_dnn_rnncell_get_scratch_size(const libxs_dnn_rnncell* handle, const libxs_dnn_compute_kind kind, libxs_dnn_err_t* status)
 {
   *status = LIBXS_DNN_SUCCESS;
+  size_t size = 0;
 
   if (0 != handle) {
     const size_t typesize_in = libxs_dnn_typesize(handle->desc.datatype_in);
     const size_t dwdr_typesize = (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ? sizeof(float) : typesize_in;
-    size_t size = 0;
 
     switch (handle->desc.cell_type) {
       case LIBXS_DNN_RNNCELL_RNN_RELU:
