@@ -214,7 +214,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
                 layout->dim_size[2] = 1;
                 layout->dim_size[3] = handle->blocksofm;
                 layout->dim_size[4] = handle->desc.N;
-              } else {
+              } else { /* coverity[dead_error_begin] */
                 free(layout->dim_type);
                 free(layout->dim_size);
                 free(layout);

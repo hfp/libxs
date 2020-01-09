@@ -270,6 +270,7 @@ LIBXS_API_INLINE short libxs_internal_quantize_scalar_no_scf( float input, unsig
     } else if (round_mode == LIBXS_DNN_QUANT_STOCH_ROUND) {
       /* stochastic rounding, as implemented in the IBM paper from 2015, @TODO, fix F64 and DFP8 */
       const float eps = LIXSMMM_DNN_RES_DFP16;
+      /* coverity[dont_call] */
       const float r = (float)rand();
       libxs_intfloat fvalue;
       float p, q;
