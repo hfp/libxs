@@ -203,8 +203,10 @@ LIBXS_APIVAR(libxs_timer_tickint internal_timer_start);
 #endif
 
 #if defined(_WIN32)
+# define INTERNAL_SINGLETON(HANDLE) (NULL != (HANDLE))
 LIBXS_APIVAR(HANDLE internal_singleton_handle);
 #else
+# define INTERNAL_SINGLETON(HANDLE) (0 <= (HANDLE) && 0 != *internal_singleton_fname)
 LIBXS_APIVAR_ARRAY(char internal_singleton_fname, 64);
 LIBXS_APIVAR(int internal_singleton_handle);
 #endif
@@ -516,12 +518,8 @@ LIBXS_API_INTERN void internal_finalize(void)
   if (EXIT_SUCCESS != atexit(internal_release_scratch) && 0 != libxs_verbosity) {
     fprintf(stderr, "LIBXS ERROR: failed to perform final cleanup!\n");
   }
-#if defined(_WIN32)
-  if (NULL != internal_singleton_handle)
-#else
-  if (0 <= internal_singleton_handle && 0 != *internal_singleton_fname)
-#endif
-  { /* dump per-node info */
+  /* determine whether this instance is unique or not */
+  if (INTERNAL_SINGLETON(internal_singleton_handle)) { /* dump per-node info */
     if (NULL != env_dump_build || NULL != env_dump_files) {
       if (NULL != env_dump_files && 0 != *env_dump_files) {
         const char *filename = strtok(env_dump_files, INTERNAL_DELIMS);
@@ -662,23 +660,17 @@ LIBXS_API_INTERN void internal_init(void)
 # endif
 #endif
   if (NULL == internal_registry) { /* double-check after acquiring the lock(s) */
-    void *new_registry = NULL, *new_keys = &internal_registry_keys;
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
     void* new_cache = &internal_cache_buffer;
 #endif
-    /* setup verbosity as early as possible since below code may rely on verbose output */
+    void *new_registry = NULL, *new_keys = &internal_registry_keys;
     const char *const env_verbose = getenv("LIBXS_VERBOSE");
-    if (NULL != env_verbose && 0 != *env_verbose) {
-      libxs_verbosity = atoi(env_verbose);
-    }
-#if !defined(NDEBUG)
-    else {
-      libxs_verbosity = INT_MAX; /* quiet -> verbose */
-    }
-#endif
-    LIBXS_ASSERT(NULL == internal_registry_keys); /* should never happen */
-#if !defined(_WIN32) && 0
-    umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
+#if defined(LIBXS_INTERCEPT_DYNAMIC)
+    /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
+    const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
+    const void *const dlsymbol = dlsym(RTLD_NEXT, dlsymname);
+    /* MPI: non-user affinity can slow-down unrelated jobs, e.g., CP2K regtests */
+    if (NULL == dlerror() && NULL == dlsymbol)
 #endif
     { /* setup some viable affinity if nothing else is present */
       const char *const gomp_cpu_affinity = getenv("GOMP_CPU_AFFINITY");
@@ -692,6 +684,19 @@ LIBXS_API_INTERN void internal_init(void)
         LIBXS_EXPECT(EXIT_SUCCESS, LIBXS_PUTENV(affinity));
       }
     }
+    /* setup verbosity as early as possible since below code may rely on verbose output */
+    if (NULL != env_verbose && 0 != *env_verbose) {
+      libxs_verbosity = atoi(env_verbose);
+    }
+#if !defined(NDEBUG)
+    else {
+      libxs_verbosity = INT_MAX; /* quiet -> verbose */
+    }
+#endif
+    LIBXS_ASSERT(NULL == internal_registry_keys); /* should never happen */
+#if !defined(_WIN32) && 0
+    umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
+#endif
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
     { const char *const env = getenv("LIBXS_SCRATCH_POOLS");
       if (NULL == env || 0 == *env) {
