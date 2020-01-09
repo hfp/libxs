@@ -1659,6 +1659,7 @@ LIBXS_API_INLINE void* internal_xmalloc_xmap(const char* dir, size_t size, int f
     i = LIBXS_SNPRINTF(filename, sizeof(filename), "%s/" LIBXS_MALLOC_XMAP_TEMPLATE, dir);
   }
   if (0 <= i && i < (int)sizeof(filename)) {
+    /* coverity[secure_temp] */
     i = mkstemp(filename);
     if (0 <= i) {
       if (0 == unlink(filename) && 0 == ftruncate(i, size)) {
@@ -1911,7 +1912,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
         }
         else { /* executable buffer requested */
           static /*LIBXS_TLS*/ int fallback = -1;
-          if (0 > LIBXS_ATOMIC_LOAD(&fallback, LIBXS_ATOMIC_RELAXED)) { /* initialize fall-back allocation method */
+          if (0 > (int)LIBXS_ATOMIC_LOAD(&fallback, LIBXS_ATOMIC_RELAXED)) { /* initialize fall-back allocation method */
             FILE *const selinux = fopen("/sys/fs/selinux/enforce", "rb");
             const char *const env = getenv("LIBXS_SE");
             if (NULL != selinux) {

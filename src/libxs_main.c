@@ -264,8 +264,8 @@ LIBXS_API_INLINE void internal_update_mmstatistic(const libxs_gemm_descriptor* d
     else { /*huge*/
       bucket = 3;
     }
-    if (0 != ncol) LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
-    if (0 != ntry) LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
+    if (0 != ncol) ncol/*dummy assignment*/ = LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
+    if (0 != ntry) ntry/*dummy assignment*/ = LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
     /* the following counters are not manipulated concurrently (no need for atomic increment) */
     if (0 != njit) internal_statistic[idx][bucket].njit += njit;
     if (0 != nsta) internal_statistic[idx][bucket].nsta += nsta;
@@ -1743,7 +1743,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
         fprintf(stderr, "LIBXS ERROR: invalid build request discovered!\n");
       }
-      result = EXIT_FAILURE;
+      /*result = EXIT_FAILURE;*/
     }
 # endif
   }
