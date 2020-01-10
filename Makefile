@@ -630,8 +630,7 @@ cheader: $(INCDIR)/libxs.h
 ifneq (,$(PYTHON))
 $(INCDIR)/libxs.h: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
                      $(ROOTDIR)/$(SRCDIR)/template/libxs.h \
-                     $(INCDIR)/libxs_config.h $(HEADERS) \
-                     $(SRCFILES_KERNELS)
+                     $(INCDIR)/libxs_config.h $(HEADERS)
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_interface.py $(ROOTDIR)/$(SRCDIR)/template/libxs.h \
 		$(PRECISION) $(PREFETCH_TYPE) $(INDICES) > $@
 else
