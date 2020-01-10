@@ -219,6 +219,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_fwd_custom(libxs_dnn_pooli
   if ( ( libxs_target_archid >= LIBXS_X86_AVX512 ) &&
        (handle->ofmblock == 16) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      LIBXS_ASSERT(NULL != handle->mask);
       status = libxs_dnn_pooling_st_fwd_custom_f32_f32_c16( handle, start_thread, tid);
     } else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 ) {
       LIBXS_ASSERT(NULL != handle->mask);
