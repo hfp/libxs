@@ -19,7 +19,7 @@
 # define MAX_NSECONDS 16
 #endif
 #if !defined(MAX_TOLPERC)
-# define MAX_TOLPERC 3
+# define MAX_TOLPERC 1
 #endif
 
 #if defined(_DEBUG) || !defined(USE_QUIET)
@@ -84,6 +84,10 @@ int main(int argc, char* argv[])
 #endif
   FPRINTF(stderr, "%i <-> %f s\n", max_nseconds, total);
 
+#if defined(_WIN32) || defined(__linux__)
   return result;
+#else
+  return EXIT_SUCCESS;
+#endif
 }
 
