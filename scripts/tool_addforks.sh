@@ -19,7 +19,7 @@ then
   for FORK in $(${CURL} -s https://api.github.com/repos/hfp/libxs/forks \
   | ${GREP} "\"html_url\"" | ${GREP} "libxs" | ${CUT} -d/ -f4);
   do
-    ${GIT} remote add ${FORK} https://github.com/${FORK}/recoll-webui.git
+    ${GIT} remote add ${FORK} https://github.com/${FORK}/libxs.git
     ${GIT} fetch ${FORK}
   done
 else
