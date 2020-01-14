@@ -838,6 +838,9 @@ LIBXS_API_INTERN void internal_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)) {
+    libxs_timer_tickint s0, t0, s1, t1; int tsc = 0;
+    libxs_timer_tick_rtc(&tsc); libxs_timer_tick(); /* warm-up */
+    s0 = libxs_timer_tick_rtc(&tsc); t0 = libxs_timer_tick(); /* start timing */
     /* libxs_ninit (1: started, 2: library initialized), invalidate code-TLS */
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST)) {
 #if (0 != LIBXS_SYNC)
@@ -912,23 +915,20 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         if (0 > internal_singleton_handle && 0 <= singleton_handle) close(singleton_handle);
 #endif  /* coverity[leaked_handle] */
       }
-      { /* calibrate timer */
-        libxs_timer_tickint s0, t0, s1, t1; int tsc = 0;
-        libxs_timer_tick_rtc(&tsc); libxs_timer_tick(); /* warm-up */
-        s0 = libxs_timer_tick_rtc(&tsc); t0 = libxs_timer_tick(); /* start timing */
-        internal_init();
-        if (EXIT_SUCCESS != atexit(internal_finalize) && 0 != libxs_verbosity) {
-          fprintf(stderr, "LIBXS ERROR: failed to perform final cleanup!\n");
+      internal_init(); /* duration used to calibrate timer */
+      if (0 != libxs_verbosity) { /* library code is expected to be mute */
+        if (EXIT_SUCCESS != atexit(internal_finalize)) {
+          fprintf(stderr, "LIBXS ERROR: failed to register termination procedure!\n");
         }
-        s1 = libxs_timer_tick_rtc(&tsc); t1 = libxs_timer_tick(); /* final timing */
-        if (LIBXS_FEQ(0, libxs_timer_scale) && t0 != t1) {
-          const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
-          libxs_timer_scale = libxs_timer_duration(s0, s1) / dt;
-          if (0 != libxs_verbosity && 0 == tsc) { /* library code is expected to be mute */
-            fprintf(stderr, "LIBXS WARNING: libxs_timer_ncycles may not measure in cycles!\n");
-          }
+        if (0 == tsc) {
+          fprintf(stderr, "LIBXS WARNING: timer is maybe not cycle-accurate!\n");
         }
-        internal_timer_start = libxs_timer_tick();
+      }
+      s1 = libxs_timer_tick_rtc(&tsc); t1 = libxs_timer_tick(); /* final timing */
+      if (t0 != t1) { /* no further check needed aka first-time visit */
+        const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
+        libxs_timer_scale = libxs_timer_duration(s0, s1) / dt;
+        internal_timer_start = t0;
       }
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     }
