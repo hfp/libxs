@@ -760,16 +760,14 @@ LIBXS_API_INTERN void internal_init(void)
     if (
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
       (EXIT_SUCCESS == libxs_xmalloc((void**)new_cache, (LIBXS_NTHREADS_MAX) * sizeof(internal_cache_type), LIBXS_CACHELINE/*alignment*/,
-        LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/)) &&
+        LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/) && NULL != internal_cache_buffer) &&
 #endif
       (EXIT_SUCCESS == libxs_xmalloc(&new_registry, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer), 0/*auto-align*/,
-        LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/)) &&
+        LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/) && NULL != new_registry) &&
       (EXIT_SUCCESS == libxs_xmalloc((void**)new_keys, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_descriptor), 0/*auto-align*/,
-        LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/)))
+        LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/) && NULL != internal_registry_keys))
     {
-      LIBXS_ASSERT(NULL != new_registry && NULL != internal_registry_keys);
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-      LIBXS_ASSERT(NULL != internal_cache_buffer);
       memset(internal_cache_buffer, 0, (LIBXS_NTHREADS_MAX) * sizeof(internal_cache_type));
 #endif
       libxs_xcopy_init(libxs_target_archid);
