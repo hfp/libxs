@@ -101,12 +101,12 @@
 # if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_STATIC)
 #   define LIBXS_INTRINSICS_NONE
 # endif
-#elif !defined(LIBXS_INTRINSICS_STATIC) && !defined(LIBXS_INTRINSICS_NONE) && /* GCC 4.4 (target-attribute) */ \
-    (defined(__GNUC__) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) && !defined(_CRAYC) && \
-     LIBXS_VERSION2(4, 4) > LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
- || (defined(__clang__) && LIBXS_VERSION2(3, 7) > LIBXS_VERSION2(__clang_major__, __clang_minor__)) \
- || (defined(__APPLE__) && defined(__MACH__) && !defined(LIBXS_INTEL_COMPILER) && defined(__clang__) && \
-     LIBXS_VERSION2(9, 0) > LIBXS_VERSION2(__clang_major__, __clang_minor__))
+#elif !defined(LIBXS_INTRINSICS_STATIC) && !defined(LIBXS_INTRINSICS_NONE) && ( \
+      (defined(__GNUC__) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) && !defined(_CRAYC) && \
+        LIBXS_VERSION2(4, 4) > LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) /* GCC 4.4 (target-attribute) */ \
+   || (defined(__clang__) && LIBXS_VERSION2(3, 7) > LIBXS_VERSION2(__clang_major__, __clang_minor__)) \
+   || (defined(__APPLE__) && defined(__MACH__) && !defined(LIBXS_INTEL_COMPILER) && defined(__clang__) && \
+        LIBXS_VERSION2(9, 0) > LIBXS_VERSION2(__clang_major__, __clang_minor__)))
 # define LIBXS_INTRINSICS_STATIC
 #endif
 
