@@ -754,7 +754,7 @@ EXTCFLAGS = -DLIBXS_BUILD_EXT
 ifeq (0,$(OMP))
   ifeq (,$(filter environment% override command%,$(origin OMP)))
     EXTCFLAGS += $(OMPFLAG)
-    EXTLDFLAGS += $(OMPFLAG)
+    EXTLDFLAGS += $(OMPLIB)
   endif
 else # OpenMP
   DFLAGS += -DLIBXS_SYNC_OMP
