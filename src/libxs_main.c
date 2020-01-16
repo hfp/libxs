@@ -925,10 +925,10 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         }
       }
       s1 = libxs_timer_tick_rtc(&tsc); t1 = libxs_timer_tick(); /* final timing */
-      if (t0 != t1) { /* no further check needed aka first-time visit */
+      internal_timer_start = t0; /* determines uptime shown at termination */
+      if (0 != tsc && t0 != t1) { /* no further check needed aka first-time visit */
         const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
         libxs_timer_scale = libxs_timer_duration(s0, s1) / dt;
-        internal_timer_start = t0;
       }
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     }

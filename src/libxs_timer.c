@@ -8,7 +8,8 @@
 ******************************************************************************/
 #include <libxs_timer.h>
 #include <libxs_intrinsics_x86.h>
-#include "libxs_main.h"
+#include <libxs_generator.h>
+#include <libxs_sync.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -18,6 +19,9 @@
 #elif defined(__GNUC__) || defined(__PGI) || defined(_CRAYC)
 # include <sys/time.h>
 # include <time.h>
+#endif
+#if !defined(NDEBUG)
+# include <stdio.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
@@ -64,7 +68,8 @@ LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(int* tsc)
   result = 1000000ULL * t.tv_sec + t.tv_usec;
 #endif
 #if defined(LIBXS_TIMER_RDTSC)
-  if (NULL != tsc) *tsc = 1;
+  if (0 == libxs_ninit) libxs_cpuid();
+  if (NULL != tsc) *tsc = (0 <= libxs_timer_scale ? 1 : 0);
 #else
   if (NULL != tsc) *tsc = 0;
 #endif
@@ -89,7 +94,6 @@ LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tic
 {
   double result = (double)LIBXS_DELTA(tick0, tick1);
 #if defined(LIBXS_TIMER_RDTSC)
-  LIBXS_INIT
   if (0 < libxs_timer_scale) {
     result *= libxs_timer_scale;
   }
