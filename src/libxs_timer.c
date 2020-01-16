@@ -31,7 +31,12 @@
 # include <sys/platform/ppc.h>
 #endif
 
-#if 1 /* TSC */
+#if !defined(LIBXS_TIMER_TSC)
+/* 0: off, 1: use, 2/neg: confirm */
+# define LIBXS_TIMER_TSC 2
+#endif
+
+#if defined(LIBXS_TIMER_TSC) && (0 != (LIBXS_TIMER_TSC))
 # if defined(__powerpc64__)
 #   define LIBXS_TIMER_RDTSC(CYCLE) { \
       CYCLE = __ppc_get_timebase(); \
@@ -68,8 +73,12 @@ LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(int* tsc)
   result = 1000000ULL * t.tv_sec + t.tv_usec;
 #endif
 #if defined(LIBXS_TIMER_RDTSC)
+# if (defined(LIBXS_TIMER_TSC) && (1 < (LIBXS_TIMER_TSC) || 0 > (LIBXS_TIMER_TSC)))
   if (0 == libxs_ninit) libxs_cpuid();
   if (NULL != tsc) *tsc = (0 <= libxs_timer_scale ? 1 : 0);
+# else
+  if (NULL != tsc) *tsc = 1;
+# endif
 #else
   if (NULL != tsc) *tsc = 0;
 #endif
@@ -82,9 +91,20 @@ libxs_timer_tickint libxs_timer_tick(void)
 {
   libxs_timer_tickint result;
 #if defined(LIBXS_TIMER_RDTSC)
-  LIBXS_TIMER_RDTSC(result);
-#else
-  result = libxs_timer_tick_rtc(NULL/*tsc*/);
+# if (defined(LIBXS_TIMER_TSC) && (1 < (LIBXS_TIMER_TSC) || 0 > (LIBXS_TIMER_TSC)))
+  if (0 < libxs_timer_scale)
+# endif
+  {
+    LIBXS_TIMER_RDTSC(result);
+  }
+# if (defined(LIBXS_TIMER_TSC) && (1 < (LIBXS_TIMER_TSC) || 0 > (LIBXS_TIMER_TSC)))
+  else
+# endif
+#endif
+#if (defined(LIBXS_TIMER_TSC) && (1 < (LIBXS_TIMER_TSC) || 0 > (LIBXS_TIMER_TSC))) || !defined(LIBXS_TIMER_RDTSC)
+  {
+    result = libxs_timer_tick_rtc(NULL/*tsc*/);
+  }
 #endif
   return result;
 }
