@@ -329,7 +329,7 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
           $(ROOTDIR)/include/libxs_typedefs.h
 SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_main.c libxs_mem.c libxs_malloc.c libxs_hash.c libxs_math.c \
-          libxs_sync.c libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
+          libxs_sync.c libxs_python.c libxs_mhd.c libxs_perf.c \
           libxs_gemm.c libxs_xcopy.c libxs_blocked_gemm.c libxs_spmdm.c libxs_fsspmdm.c libxs_rng.c\
           libxs_dnn.c libxs_dnn_tensor.c libxs_dnn_convolution.c  libxs_dnn_elementwise.c \
           libxs_dnn_rnncell.c libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c \
@@ -339,7 +339,7 @@ SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_dnn_fullyconnected.c libxs_dnn_fullyconnected_forward.c libxs_dnn_fullyconnected_backward.c \
           libxs_dnn_fullyconnected_weight_update.c libxs_dnn_convolution_backward.c libxs_dnn_convolution_weight_update.c)
 SRCFILES_GEN_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(notdir $(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c)) \
-          libxs_cpuid_x86.c libxs_generator.c libxs_trace.c)
+          libxs_cpuid_x86.c libxs_timer.c libxs_generator.c libxs_trace.c)
 
 SRCFILES_GEN_GEMM_BIN = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,libxs_generator_gemm_driver.c)
 OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
