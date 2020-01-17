@@ -916,12 +916,14 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 #endif  /* coverity[leaked_handle] */
       }
       { /* calibrate timer */
+        int register_termination_proc;
         libxs_timer_tickint s1, t1;
         libxs_cpuid_x86_info info;
         libxs_cpuid_x86(&info);
         internal_init();
+        register_termination_proc = atexit(internal_finalize);
         if (0 != libxs_verbosity) { /* library code is expected to be mute */
-          if (EXIT_SUCCESS != atexit(internal_finalize)) {
+          if (EXIT_SUCCESS != register_termination_proc) {
             fprintf(stderr, "LIBXS ERROR: failed to register termination procedure!\n");
           }
           if (0 == info.constant_tsc) {
