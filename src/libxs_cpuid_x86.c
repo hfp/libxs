@@ -8,6 +8,7 @@
 ******************************************************************************/
 #include <libxs_intrinsics_x86.h>
 #include <libxs_generator.h>
+#include <libxs_mem.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -64,6 +65,7 @@
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
+  if (NULL != info) LIBXS_MEMZERO127(info);
 #if defined(LIBXS_PLATFORM_SUPPORTED)
   if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* detect CPU-feature only once */
     unsigned int eax, ebx, ecx, edx;
