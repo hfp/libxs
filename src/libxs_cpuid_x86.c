@@ -61,7 +61,7 @@
 #define LIBXS_CPUID_CHECK(VALUE, CHECK) ((CHECK) == ((CHECK) & (VALUE)))
 
 
-LIBXS_API int libxs_cpuid_x86(void)
+LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if defined(LIBXS_PLATFORM_SUPPORTED)
@@ -72,9 +72,9 @@ LIBXS_API int libxs_cpuid_x86(void)
     if (1 <= eax) { /* CPUID max. leaf */
       int feature_cpu = result, feature_os = result;
       unsigned int maxleaf = eax;
-      LIBXS_CPUID_X86(0x80000007, 0/*ecx*/, eax, ebx, ecx, edx);
-      if (!LIBXS_CPUID_CHECK(edx, 0x00000100)) {
-        libxs_timer_scale = -1; /* TSC not constant */
+      if (NULL != info) {
+        LIBXS_CPUID_X86(0x80000007, 0/*ecx*/, eax, ebx, ecx, edx);
+        info->constant_tsc = LIBXS_CPUID_CHECK(edx, 0x00000100);
       }
       LIBXS_CPUID_X86(1, 0/*ecx*/, eax, ebx, ecx, edx);
       /* Check for CRC32 (this is not a proper test for SSE 4.2 as a whole!) */
@@ -171,7 +171,7 @@ LIBXS_API int libxs_cpuid_x86(void)
 
 LIBXS_API int libxs_cpuid(void)
 {
-  return libxs_cpuid_x86();
+  return libxs_cpuid_x86(NULL/*info*/);
 }
 
 

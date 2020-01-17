@@ -8,8 +8,7 @@
 ******************************************************************************/
 #include <libxs_timer.h>
 #include <libxs_intrinsics_x86.h>
-#include <libxs_generator.h>
-#include <libxs_sync.h>
+#include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -20,9 +19,6 @@
 # include <sys/time.h>
 # include <time.h>
 #endif
-#if !defined(NDEBUG)
-# include <stdio.h>
-#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -32,11 +28,13 @@
 #endif
 
 #if !defined(LIBXS_TIMER_TSC)
-/* 0: off, 1: use, 2/neg: confirm */
-# define LIBXS_TIMER_TSC 2
+# define LIBXS_TIMER_TSC
+#endif
+#if !defined(LIBXS_TIMER_WPC)
+# define LIBXS_TIMER_WPC
 #endif
 
-#if defined(LIBXS_TIMER_TSC) && (0 != (LIBXS_TIMER_TSC))
+#if defined(LIBXS_TIMER_TSC)
 # if defined(__powerpc64__)
 #   define LIBXS_TIMER_RDTSC(CYCLE) { \
       CYCLE = __ppc_get_timebase(); \
@@ -52,16 +50,36 @@
 #endif
 
 
-LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(int* tsc)
+LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
+{
+  double result = (double)LIBXS_DELTA(tick0, tick1);
+#if defined(_WIN32)
+# if defined(LIBXS_TIMER_WPC)
+  LARGE_INTEGER frequency;
+  QueryPerformanceFrequency(&frequency);
+  result /= (double)frequency.QuadPart;
+# else /* low resolution */
+  result *= 1E-3;
+# endif
+#elif defined(CLOCK_MONOTONIC)
+  result *= 1E-9;
+#else
+  result *= 1E-6;
+#endif
+  return result;
+}
+
+
+LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void)
 {
   libxs_timer_tickint result;
 #if defined(_WIN32)
-# if 1
+# if defined(LIBXS_TIMER_WPC)
   LARGE_INTEGER t;
   QueryPerformanceCounter(&t);
   result = (libxs_timer_tickint)t.QuadPart;
 # else /* low resolution */
-  result = (libxs_timer_tickint)GetTickCount();
+  result = (libxs_timer_tickint)GetTickCount64();
 # endif
 #elif defined(CLOCK_MONOTONIC)
   struct timespec t;
@@ -72,39 +90,46 @@ LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(int* tsc)
   gettimeofday(&t, 0);
   result = 1000000ULL * t.tv_sec + t.tv_usec;
 #endif
+  return result;
+}
+
+
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+libxs_timer_tickint libxs_timer_tick_tsc(void)
+{
+  libxs_timer_tickint result;
 #if defined(LIBXS_TIMER_RDTSC)
-# if (defined(LIBXS_TIMER_TSC) && (1 < (LIBXS_TIMER_TSC) || 0 > (LIBXS_TIMER_TSC)))
-  if (0 == libxs_ninit) libxs_cpuid();
-  if (NULL != tsc) *tsc = (0 <= libxs_timer_scale ? 1 : 0);
-# else
-  if (NULL != tsc) *tsc = 1;
-# endif
+  LIBXS_TIMER_RDTSC(result);
 #else
-  if (NULL != tsc) *tsc = 0;
+  result = libxs_timer_tick_rtc();
 #endif
   return result;
 }
 
 
-LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-libxs_timer_tickint libxs_timer_tick(void)
+LIBXS_API libxs_timer_tickint libxs_timer_tick(void)
 {
   libxs_timer_tickint result;
 #if defined(LIBXS_TIMER_RDTSC)
-# if (defined(LIBXS_TIMER_TSC) && (1 < (LIBXS_TIMER_TSC) || 0 > (LIBXS_TIMER_TSC)))
-  if (0 < libxs_timer_scale)
-# endif
-  {
+  if (0 < libxs_timer_scale) {
     LIBXS_TIMER_RDTSC(result);
   }
-# if (defined(LIBXS_TIMER_TSC) && (1 < (LIBXS_TIMER_TSC) || 0 > (LIBXS_TIMER_TSC)))
-  else
-# endif
-#endif
-#if (defined(LIBXS_TIMER_TSC) && (1 < (LIBXS_TIMER_TSC) || 0 > (LIBXS_TIMER_TSC))) || !defined(LIBXS_TIMER_RDTSC)
-  {
-    result = libxs_timer_tick_rtc(NULL/*tsc*/);
+# if !defined(LIBXS_INIT_COMPLETED)
+  else if (0 == libxs_ninit) {
+    libxs_init();
+    if (0 < libxs_timer_scale) {
+      LIBXS_TIMER_RDTSC(result);
+    }
+    else {
+      result = libxs_timer_tick_rtc();
+    }
   }
+# endif
+  else {
+    result = libxs_timer_tick_rtc();
+  }
+#else
+  result = libxs_timer_tick_rtc();
 #endif
   return result;
 }
@@ -112,27 +137,15 @@ libxs_timer_tickint libxs_timer_tick(void)
 
 LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
 {
-  double result = (double)LIBXS_DELTA(tick0, tick1);
+  double result;
 #if defined(LIBXS_TIMER_RDTSC)
   if (0 < libxs_timer_scale) {
-    result *= libxs_timer_scale;
+    result = (double)LIBXS_DELTA(tick0, tick1) * libxs_timer_scale;
   }
   else
 #endif
   {
-#if defined(_WIN32)
-# if 1
-    LARGE_INTEGER frequency;
-    QueryPerformanceFrequency(&frequency);
-    result /= (double)frequency.QuadPart;
-# else /* low resolution */
-    result *= 1E-3;
-# endif
-#elif defined(CLOCK_MONOTONIC)
-    result *= 1E-9;
-#else
-    result *= 1E-6;
-#endif
+    result = libxs_timer_duration_rtc(tick0, tick1);
   }
   return result;
 }
