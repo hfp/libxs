@@ -13,6 +13,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+#include <string.h>
 #include <stdio.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
@@ -65,19 +66,19 @@
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
+#if !defined(LIBXS_PLATFORM_SUPPORTED)
   if (NULL != info) LIBXS_MEMZERO127(info);
-#if defined(LIBXS_PLATFORM_SUPPORTED)
-  if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* detect CPU-feature only once */
-    unsigned int eax, ebx, ecx, edx;
-    result = LIBXS_X86_GENERIC; /* SSE2/64-bit */
-    LIBXS_CPUID_X86(0, 0/*ecx*/, eax, ebx, ecx, edx);
-    if (1 <= eax) { /* CPUID max. leaf */
-      int feature_cpu = result, feature_os = result;
+#else
+  unsigned int eax, ebx, ecx, edx;
+  LIBXS_CPUID_X86(0, 0/*ecx*/, eax, ebx, ecx, edx);
+  if (1 <= eax) { /* CPUID max. leaf */
+    if (NULL != info) {
+      LIBXS_CPUID_X86(0x80000007, 0/*ecx*/, eax, ebx, ecx, edx);
+      info->constant_tsc = LIBXS_CPUID_CHECK(edx, 0x00000100);
+    }
+    if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* detect CPU-feature only once */
+      int feature_cpu = LIBXS_X86_GENERIC, feature_os = LIBXS_X86_GENERIC;
       unsigned int maxleaf = eax;
-      if (NULL != info) {
-        LIBXS_CPUID_X86(0x80000007, 0/*ecx*/, eax, ebx, ecx, edx);
-        info->constant_tsc = LIBXS_CPUID_CHECK(edx, 0x00000100);
-      }
       LIBXS_CPUID_X86(1, 0/*ecx*/, eax, ebx, ecx, edx);
       /* Check for CRC32 (this is not a proper test for SSE 4.2 as a whole!) */
       if (LIBXS_CPUID_CHECK(ecx, 0x00100000)) {
@@ -131,7 +132,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
           if (LIBXS_CPUID_CHECK(eax, 0x00000006)) { /* OS XSAVE 256-bit */
             feature_os = LIBXS_MIN(LIBXS_X86_AVX2, feature_cpu);
             if (LIBXS_X86_AVX512 <= feature_cpu && 7 <= maxleaf
-             && LIBXS_CPUID_CHECK(eax, 0x000000E0)) /* OS XSAVE 512-bit */
+              && LIBXS_CPUID_CHECK(eax, 0x000000E0)) /* OS XSAVE 512-bit */
             {
               feature_os = feature_cpu; /* unlimited */
             }
@@ -166,6 +167,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
 # endif
     }
   }
+  else result = LIBXS_X86_GENERIC;
 #endif
   return result;
 }

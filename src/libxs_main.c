@@ -919,8 +919,8 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         int register_termination_proc;
         libxs_timer_tickint s1, t1;
         libxs_cpuid_x86_info info;
+        internal_init(); /* must be first to initialize verbosity, etc. */
         libxs_cpuid_x86(&info);
-        internal_init();
         register_termination_proc = atexit(internal_finalize);
         if (0 != libxs_verbosity) { /* library code is expected to be mute */
           if (EXIT_SUCCESS != register_termination_proc) {
