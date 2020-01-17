@@ -29,15 +29,18 @@
 #define LIBXS_X86_AVX512_CLX   1021
 #define LIBXS_X86_AVX512_CPX   1022
 #define LIBXS_X86_ALLFEAT      1999 /* all features supported which are used anywhere in LIBXS, this value should never be used to set arch, only for compares */
-/**
- * Returns the target architecture and instruction set extensions, but *not* necessarily the
- * code path as used by LIBXS. To determine (or manually adjust) the code path in use, one
- * needs to rely on libxs_get_target_archid/libxs_get_target_arch (to manually adjust
- * the coda path use libxs_set_target_archid/libxs_set_target_arch).
- */
-LIBXS_API int libxs_cpuid_x86(void);
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_cpuid_x86_info {
+  int constant_tsc;
+} libxs_cpuid_x86_info;
 
-/** Similar to libxs_cpuid_x86, but conceptually not x86-specific. */
+/** Returns the target architecture and instruction set extensions. */
+LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info);
+
+/**
+ * Similar to libxs_cpuid_x86, but conceptually not x86-specific.
+ * The actual code path (as used by LIBXS) is determined by
+ * libxs_[get|set]_target_archid/libxs_[get|set]_target_arch.
+ */
 LIBXS_API int libxs_cpuid(void);
 
 /** Names the CPU architecture given by CPUID. */

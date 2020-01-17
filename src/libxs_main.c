@@ -838,9 +838,9 @@ LIBXS_API_INTERN void internal_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)) {
-    libxs_timer_tickint s0, t0, s1, t1; int tsc = 0;
-    libxs_timer_tick_rtc(&tsc); libxs_timer_tick(); /* warm-up */
-    s0 = libxs_timer_tick_rtc(&tsc); t0 = libxs_timer_tick(); /* start timing */
+    libxs_timer_tickint s0, t0;
+    libxs_timer_tick_rtc(); libxs_timer_tick_tsc(); /* warm-up */
+    s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick_tsc(); /* start timing */
     /* libxs_ninit (1: started, 2: library initialized), invalidate code-TLS */
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST)) {
 #if (0 != LIBXS_SYNC)
@@ -915,20 +915,29 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         if (0 > internal_singleton_handle && 0 <= singleton_handle) close(singleton_handle);
 #endif  /* coverity[leaked_handle] */
       }
-      internal_init(); /* duration used to calibrate timer */
-      if (0 != libxs_verbosity) { /* library code is expected to be mute */
-        if (EXIT_SUCCESS != atexit(internal_finalize)) {
-          fprintf(stderr, "LIBXS ERROR: failed to register termination procedure!\n");
+      { /* calibrate timer */
+        libxs_timer_tickint s1, t1;
+        libxs_cpuid_x86_info info;
+        libxs_cpuid_x86(&info);
+        internal_init();
+        if (0 != libxs_verbosity) { /* library code is expected to be mute */
+          if (EXIT_SUCCESS != atexit(internal_finalize)) {
+            fprintf(stderr, "LIBXS ERROR: failed to register termination procedure!\n");
+          }
+          if (0 == info.constant_tsc) {
+            fprintf(stderr, "LIBXS WARNING: timer is maybe not cycle-accurate!\n");
+          }
         }
-        if (0 == tsc) {
-          fprintf(stderr, "LIBXS WARNING: timer is maybe not cycle-accurate!\n");
+        s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
+        /* set timer-scale and determine start of the "uptime" (shown at termination) */
+        if (0 != info.constant_tsc && t0 != t1) { /* no further check needed aka first-time visit */
+          const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
+          libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / dt;
+          internal_timer_start = t0;
         }
-      }
-      s1 = libxs_timer_tick_rtc(&tsc); t1 = libxs_timer_tick(); /* final timing */
-      internal_timer_start = t0; /* determines uptime shown at termination */
-      if (0 != tsc && t0 != t1) { /* no further check needed aka first-time visit */
-        const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
-        libxs_timer_scale = libxs_timer_duration(s0, s1) / dt;
+        else {
+          internal_timer_start = s0;
+        }
       }
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     }

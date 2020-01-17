@@ -744,8 +744,12 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 /** Attempts to receive information about JIT-generated code. */
 LIBXS_API const libxs_descriptor* libxs_get_kernel_info(libxs_code_pointer code, size_t* size);
 
-/** Returns the current tick of a (monotonic) platform-specific counter; not necessarily CPU cycles. */
-LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(int* tsc);
+/** Calculates duration in seconds from given RTC ticks. */
+LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
+/** Returns the current tick of a (monotonic) platform-specific real-time clock. */
+LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void);
+/** Returns the current tick of a (monotonic) platform-specific counter. */
+LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_tsc(void);
 
 LIBXS_API_INTERN void libxs_memory_init(int target_arch);
 LIBXS_API_INTERN void libxs_memory_finalize(void);
@@ -778,6 +782,8 @@ LIBXS_APIVAR(unsigned int libxs_scratch_pools);
 LIBXS_APIVAR(double libxs_scratch_scale);
 /** Counts the number of attempts to create an SPMDM-handle. */
 LIBXS_APIVAR(unsigned int libxs_statistic_num_spmdm);
+/** Number of seconds per RDTSC-cycle (zero or negative if RDTSC is not constant/available). */
+LIBXS_APIVAR(double libxs_timer_scale);
 /** Security-enhanced environment. */
 LIBXS_APIVAR(int libxs_se);
 
