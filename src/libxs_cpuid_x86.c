@@ -167,7 +167,10 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
 # endif
     }
   }
-  else result = LIBXS_X86_GENERIC;
+  else {
+    if (NULL != info) LIBXS_MEMZERO127(info);
+    result = LIBXS_X86_GENERIC;
+  }
 #endif
   return result;
 }
