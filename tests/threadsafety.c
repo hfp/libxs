@@ -56,7 +56,7 @@ int test(libxs_blasint m, libxs_blasint n, libxs_blasint k)
     libxs_mmkernel_info info;
     libxs_xmmfunction xmm;
     xmm.LIBXS_TPREFIX2(ITYPE,OTYPE,mm) = kernel;
-    result = libxs_get_mmkernel_info(xmm, &info, NULL/*size*/);
+    result = libxs_get_mmkernel_info(xmm, &info);
     if (EXIT_SUCCESS == result) {
       const unsigned int um = (unsigned int)m, un = (unsigned int)n, uk = (unsigned int)k;
       if ( um != info.m || un != info.n || uk != info.k
@@ -191,14 +191,13 @@ int main(void)
       fi.x = libxs_xmmdispatch(desc);
       if (NULL != fi.p && NULL != f[i].p) {
         if (fi.p != f[i].p) {
-          libxs_mmkernel_info a_info, b_info;
-          size_t a_size, b_size;
-          const int ra = libxs_get_mmkernel_info(f[i].x, &a_info, &a_size);
-          const int rb = libxs_get_mmkernel_info(fi.x, &b_info, &b_size);
+          libxs_kernel_info a_info, b_info;
+          const int ra = libxs_get_kernel_info(f[i].p, &a_info);
+          const int rb = libxs_get_kernel_info(fi.p, &b_info);
 
           /* perform deeper check based on another code generation (used as reference) */
-          if (EXIT_SUCCESS == ra && EXIT_SUCCESS == rb && (a_size != b_size ||
-            0 != memcmp(f[i].p, fi.p, a_size)))
+          if (EXIT_SUCCESS == ra && EXIT_SUCCESS == rb && (a_info.code_size != b_info.code_size ||
+            0 != memcmp(f[i].p, fi.p, a_info.code_size)))
           {
 #if defined(_DEBUG) || defined(USE_VERBOSE)
             fprintf(stderr, "Error: the %" PRIuPTR "x%" PRIuPTR "x%" PRIuPTR "-kernel does not match!\n",
