@@ -1021,7 +1021,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             case LIBXS_KERNEL_KIND_TRMM: {
               ++internal_statistic_num_trmm;
             } break;
-            default: if (LIBXS_KERNEL_KIND_INVALID <= registry_keys[i].kind) {
+            default: if (LIBXS_KERNEL_UNREGISTERED <= registry_keys[i].kind) {
               ++errors;
             }
             else {
@@ -1764,14 +1764,17 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   if  (0 == generated_code.last_error /* no error raised */
     && 0 != generated_code.code_size /*check (tcopy issue?)*/)
   {
+    libxs_kernel_xinfo extra;
     char* code_buffer = NULL;
     void* code_buffer_result = &code_buffer;
     LIBXS_ASSERT(generated_code.code_size <= LIBXS_CODE_MAXSIZE);
     LIBXS_ASSERT(NULL != generated_code.generated_code);
+    LIBXS_MEMZERO127(&extra);
+    extra.registered = regindex;
     /* attempt to create executable buffer */
     result = libxs_xmalloc((void**)code_buffer_result, generated_code.code_size, 0/*auto*/,
       /* flag must be a superset of what's populated by libxs_malloc_attrib */
-      LIBXS_MALLOC_FLAG_RWX, &regindex, sizeof(regindex));
+      LIBXS_MALLOC_FLAG_RWX, &extra, sizeof(extra));
     if (EXIT_SUCCESS == result) { /* check for success */
       LIBXS_ASSERT(NULL != code_buffer);
       /* copy temporary buffer into the prepared executable buffer */
@@ -1957,7 +1960,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
           INTERNAL_FIND_CODE_LOCK(lock, i, diff, flux_entry.pmm); /* lock the registry entry */
           if (NULL == internal_registry[i].ptr_const) { /* double-check registry after acquiring the lock */
             libxs_build_request request; /* setup the code build request */
-            LIBXS_ASSERT(desc->kind < LIBXS_KERNEL_KIND_INVALID);
+            LIBXS_ASSERT(desc->kind < LIBXS_KERNEL_UNREGISTERED);
             request.kind = (libxs_build_kind)desc->kind;
             request.descriptor.ptr = &desc->gemm.desc;
 #if defined(NDEBUG)
@@ -2069,71 +2072,85 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 }
 
 
-LIBXS_API const libxs_descriptor* libxs_get_kernel_info(libxs_code_pointer code, size_t* size)
+LIBXS_API_INTERN const libxs_kernel_xinfo* libxs_get_kernel_xinfo(libxs_code_pointer code, const libxs_descriptor** desc, size_t* code_size)
 {
-  const libxs_descriptor* result;
+  const libxs_kernel_xinfo* result = NULL;
   int flags = LIBXS_MALLOC_FLAG_X;
-  void* extra = NULL;
-  if (NULL != size) *size = 0;
-  if (NULL != code.ptr_const && NULL != internal_registry && NULL != internal_registry_keys
-    && EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, size, &flags, &extra)
-    && NULL != extra && *((const unsigned int*)extra) < (LIBXS_CAPACITY_REGISTRY)
+  if (NULL != code.ptr_const && EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, code_size, &flags, (void**)&result) && NULL != result) {
+    if (NULL != desc) {
+      if (NULL != internal_registry && NULL != internal_registry_keys && result->registered < (LIBXS_CAPACITY_REGISTRY)
 #if defined(LIBXS_HASH_COLLISION)
-    && code.uval == (~LIBXS_HASH_COLLISION & internal_registry[*((const unsigned int*)extra)].uval)
+        && code.uval == (~LIBXS_HASH_COLLISION & internal_registry[result->registered].uval)
 #else
-    && code.ptr_const == internal_registry[*((const unsigned int*)extra)].ptr_const
+        && code.ptr_const == internal_registry[result->registered].ptr_const
 #endif
-    && internal_registry_keys[*((const unsigned int*)extra)].kind < LIBXS_KERNEL_KIND_INVALID)
-  {
-    result = internal_registry_keys + *((const unsigned int*)extra);
+        && internal_registry_keys[result->registered].kind < LIBXS_KERNEL_UNREGISTERED)
+      {
+        *desc = internal_registry_keys + result->registered;
+      }
+      else *desc = NULL;
+    }
   }
   else {
-    result = NULL;
+    LIBXS_ASSERT(NULL == result);
+    if (NULL != code_size) *code_size = 0;
+    if (NULL != desc) *desc = NULL;
   }
   return result;
 }
 
 
-LIBXS_API int libxs_get_kernel_kind(const void* kernel, libxs_kernel_kind* kind)
+LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
 {
-  const libxs_descriptor* info;
-  libxs_code_pointer code;
   int result;
+  const libxs_kernel_xinfo* xinfo;
+  libxs_kernel_info result_info;
+  const libxs_descriptor* desc;
+  libxs_code_pointer code;
   code.ptr_const = kernel;
-  info = libxs_get_kernel_info(code, NULL/*code_size*/);
-  if (NULL != info && NULL != kind) {
-    *kind = (libxs_kernel_kind)info->kind;
+  LIBXS_MEMZERO127(&result_info);
+  xinfo = libxs_get_kernel_xinfo(code, &desc, &result_info.code_size);
+  if (NULL != xinfo) {
+    result_info.kind = (NULL != desc ? ((libxs_kernel_kind)desc->kind) : LIBXS_KERNEL_UNREGISTERED);
+    result_info.nflops = xinfo->nflops;
+    LIBXS_ASSIGN127(info, &result_info);
     result = EXIT_SUCCESS;
   }
   else {
-    if (NULL != kind) *kind = LIBXS_KERNEL_KIND_INVALID;
-    result = EXIT_FAILURE;
+    LIBXS_ASSERT(NULL == desc);
+    if (NULL != info) {
+      LIBXS_ASSIGN127(info, &result_info);
+      result = EXIT_FAILURE;
+    }
+    else {
+      result = EXIT_SUCCESS;
+    }
   }
   return result;
 }
 
 
-LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_info* info, size_t* code_size)
+LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_info* info)
 {
   libxs_code_pointer code;
   static int error_once = 0;
   int result;
   code.xgemm = kernel;
-  if (NULL != info || NULL != code_size) {
-    const libxs_descriptor *const kernel_info = libxs_get_kernel_info(code, code_size);
-    if (NULL != kernel_info && LIBXS_KERNEL_KIND_MATMUL == kernel_info->kind) {
-      if (NULL != info) {
-        info->iprecision = (libxs_gemm_precision)LIBXS_GETENUM_INP(kernel_info->gemm.desc.datatype);
-        info->oprecision = (libxs_gemm_precision)LIBXS_GETENUM_OUT(kernel_info->gemm.desc.datatype);
-        info->prefetch = (libxs_gemm_prefetch_type)kernel_info->gemm.desc.prefetch;
-        info->flags = kernel_info->gemm.desc.flags;
-        info->lda = kernel_info->gemm.desc.lda;
-        info->ldb = kernel_info->gemm.desc.ldb;
-        info->ldc = kernel_info->gemm.desc.ldc;
-        info->m = kernel_info->gemm.desc.m;
-        info->n = kernel_info->gemm.desc.n;
-        info->k = kernel_info->gemm.desc.k;
-      }
+  if (NULL != info) {
+    const libxs_descriptor* desc;
+    if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
+        NULL != desc && LIBXS_KERNEL_KIND_MATMUL == desc->kind)
+    {
+      info->iprecision = (libxs_gemm_precision)LIBXS_GETENUM_INP(desc->gemm.desc.datatype);
+      info->oprecision = (libxs_gemm_precision)LIBXS_GETENUM_OUT(desc->gemm.desc.datatype);
+      info->prefetch = (libxs_gemm_prefetch_type)desc->gemm.desc.prefetch;
+      info->flags = desc->gemm.desc.flags;
+      info->lda = desc->gemm.desc.lda;
+      info->ldb = desc->gemm.desc.ldb;
+      info->ldc = desc->gemm.desc.ldc;
+      info->m = desc->gemm.desc.m;
+      info->n = desc->gemm.desc.n;
+      info->k = desc->gemm.desc.k;
       result = EXIT_SUCCESS;
     }
     else {
@@ -2162,21 +2179,21 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
 }
 
 
-LIBXS_API int libxs_get_transkernel_info(libxs_xtransfunction kernel, libxs_transkernel_info* info, size_t* code_size)
+LIBXS_API int libxs_get_transkernel_info(libxs_xtransfunction kernel, libxs_transkernel_info* info)
 {
   libxs_code_pointer code;
   static int error_once = 0;
   int result;
   code.xtrans = kernel;
-  if (NULL != info || 0 != code_size) {
-    const libxs_descriptor *const kernel_info = libxs_get_kernel_info(code, code_size);
-    if (NULL != kernel_info && LIBXS_KERNEL_KIND_TRANS == kernel_info->kind) {
-      if (NULL != info) {
-        info->typesize = kernel_info->trans.desc.typesize;
-        info->ldo = kernel_info->trans.desc.ldo;
-        info->m = kernel_info->trans.desc.m;
-        info->n = kernel_info->trans.desc.n;
-      }
+  if (NULL != info) {
+    const libxs_descriptor* desc;
+    if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
+        NULL != desc && LIBXS_KERNEL_KIND_TRANS == desc->kind)
+    {
+      info->typesize = desc->trans.desc.typesize;
+      info->ldo = desc->trans.desc.ldo;
+      info->m = desc->trans.desc.m;
+      info->n = desc->trans.desc.n;
       result = EXIT_SUCCESS;
     }
     else {
@@ -2200,24 +2217,24 @@ LIBXS_API int libxs_get_transkernel_info(libxs_xtransfunction kernel, libxs_tran
 }
 
 
-LIBXS_API int libxs_get_mcopykernel_info(libxs_xmcopyfunction kernel, libxs_mcopykernel_info* info, size_t* code_size)
+LIBXS_API int libxs_get_mcopykernel_info(libxs_xmcopyfunction kernel, libxs_mcopykernel_info* info)
 {
   libxs_code_pointer code;
   static int error_once = 0;
   int result;
   code.xmatcopy = kernel;
-  if (NULL != info || 0 != code_size) {
-    const libxs_descriptor *const kernel_info = libxs_get_kernel_info(code, code_size);
-    if (NULL != kernel_info && LIBXS_KERNEL_KIND_MCOPY == kernel_info->kind) {
-      if (NULL != info) {
-        info->typesize = kernel_info->mcopy.desc.typesize;
-        info->prefetch = kernel_info->mcopy.desc.prefetch;
-        info->flags = kernel_info->mcopy.desc.flags;
-        info->ldi = kernel_info->mcopy.desc.ldi;
-        info->ldo = kernel_info->mcopy.desc.ldo;
-        info->m = kernel_info->mcopy.desc.m;
-        info->n = kernel_info->mcopy.desc.n;
-      }
+  if (NULL != info) {
+    const libxs_descriptor* desc;
+    if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
+        NULL != desc && LIBXS_KERNEL_KIND_MCOPY == desc->kind)
+    {
+      info->typesize = desc->mcopy.desc.typesize;
+      info->prefetch = desc->mcopy.desc.prefetch;
+      info->flags = desc->mcopy.desc.flags;
+      info->ldi = desc->mcopy.desc.ldi;
+      info->ldo = desc->mcopy.desc.ldo;
+      info->m = desc->mcopy.desc.m;
+      info->n = desc->mcopy.desc.n;
       result = EXIT_SUCCESS;
     }
     else {
@@ -3770,10 +3787,10 @@ LIBXS_API void libxs_release_kernel(const void* jit_kernel)
 {
   if (NULL != jit_kernel) {
     static int error_once = 0;
-    void* extra = NULL;
+    const libxs_kernel_xinfo* extra = NULL;
     LIBXS_INIT
-    if (EXIT_SUCCESS == libxs_get_malloc_xinfo(jit_kernel, NULL/*size*/, NULL/*flags*/, &extra) && NULL != extra) {
-      const unsigned int regindex = *((const unsigned int*)extra);
+    if (EXIT_SUCCESS == libxs_get_malloc_xinfo(jit_kernel, NULL/*size*/, NULL/*flags*/, (void**)&extra) && NULL != extra) {
+      const unsigned int regindex = extra->registered;
       if ((LIBXS_CAPACITY_REGISTRY) <= regindex) {
         libxs_xfree(jit_kernel, 0/*no check*/);
       }
