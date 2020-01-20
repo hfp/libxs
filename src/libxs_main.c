@@ -2075,8 +2075,9 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 LIBXS_API_INTERN const libxs_kernel_xinfo* libxs_get_kernel_xinfo(libxs_code_pointer code, const libxs_descriptor** desc, size_t* code_size)
 {
   const libxs_kernel_xinfo* result = NULL;
+  void *const result_address = &result;
   int flags = LIBXS_MALLOC_FLAG_X;
-  if (NULL != code.ptr_const && EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, code_size, &flags, (void**)&result) && NULL != result) {
+  if (NULL != code.ptr_const && EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, code_size, &flags, (void**)result_address) && NULL != result) {
     if (NULL != desc) {
       if (NULL != internal_registry && NULL != internal_registry_keys && result->registered < (LIBXS_CAPACITY_REGISTRY)
 #if defined(LIBXS_HASH_COLLISION)
@@ -3788,8 +3789,9 @@ LIBXS_API void libxs_release_kernel(const void* jit_kernel)
   if (NULL != jit_kernel) {
     static int error_once = 0;
     const libxs_kernel_xinfo* extra = NULL;
+    void *const extra_address = &extra;
     LIBXS_INIT
-    if (EXIT_SUCCESS == libxs_get_malloc_xinfo(jit_kernel, NULL/*size*/, NULL/*flags*/, (void**)&extra) && NULL != extra) {
+    if (EXIT_SUCCESS == libxs_get_malloc_xinfo(jit_kernel, NULL/*size*/, NULL/*flags*/, (void**)extra_address) && NULL != extra) {
       const unsigned int regindex = extra->registered;
       if ((LIBXS_CAPACITY_REGISTRY) <= regindex) {
         libxs_xfree(jit_kernel, 0/*no check*/);
