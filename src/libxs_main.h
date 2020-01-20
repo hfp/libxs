@@ -629,7 +629,7 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GETRF      = LIBXS_KERNEL_KIND_GETRF,
   LIBXS_BUILD_KIND_TRMM       = LIBXS_KERNEL_KIND_TRMM,
   LIBXS_BUILD_KIND_TRSM       = LIBXS_KERNEL_KIND_TRSM,
-  LIBXS_BUILD_KIND_PGEMMRMAC  = LIBXS_KERNEL_KIND_INVALID,
+  LIBXS_BUILD_KIND_PGEMMRMAC  = LIBXS_KERNEL_UNREGISTERED,
   LIBXS_BUILD_KIND_PGEMMRMBC,
   LIBXS_BUILD_KIND_SRSOA,
   LIBXS_BUILD_KIND_SCSOA,
@@ -741,8 +741,15 @@ LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, do
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
-/** Attempts to receive information about JIT-generated code. */
-LIBXS_API const libxs_descriptor* libxs_get_kernel_info(libxs_code_pointer code, size_t* size);
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_kernel_xinfo {
+  /** Non-zero of kernel is registered. */
+  unsigned int registered;
+  /** Number of FLoating Point OPerationS (FLOPS). */
+  unsigned int nflops;
+} libxs_kernel_xinfo;
+
+/** Receive information about JIT-generated code. */
+LIBXS_API_INTERN const libxs_kernel_xinfo* libxs_get_kernel_xinfo(libxs_code_pointer code, const libxs_descriptor** desc, size_t* code_size);
 
 /** Calculates duration in seconds from given RTC ticks. */
 LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
