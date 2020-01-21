@@ -1486,7 +1486,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           } else {
             br = 0;
           }
-          /* query A/B sign combindations */
+          /* query A/B sign combinations */
           if ( (LIBXS_GEMM_FLAG_A_UNSIGNED & request->descriptor.gemm->flags) > 1 ) {
             typesigns = 1;
           } else if ( (LIBXS_GEMM_FLAG_B_UNSIGNED & request->descriptor.gemm->flags) > 1 ) {
@@ -1769,8 +1769,11 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     void* code_buffer_result = &code_buffer;
     LIBXS_ASSERT(generated_code.code_size <= LIBXS_CODE_MAXSIZE);
     LIBXS_ASSERT(NULL != generated_code.generated_code);
+# if !defined(NDEBUG) /* should not be needed (all members will be initialized below) */
     LIBXS_MEMZERO127(&extra);
+# endif
     extra.registered = regindex;
+    extra.nflops = 0;
     /* attempt to create executable buffer */
     result = libxs_xmalloc((void**)code_buffer_result, generated_code.code_size, 0/*auto*/,
       /* flag must be a superset of what's populated by libxs_malloc_attrib */
