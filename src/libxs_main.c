@@ -1428,6 +1428,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   const char* target_arch = libxs_cpuid_name(libxs_target_archid);
   libxs_generated_code generated_code;
   char jit_name[256] = { 0 };
+  unsigned int nflops = 0;
 
   /* large enough temporary buffer for generated code */
 # if defined(NDEBUG)
@@ -1457,6 +1458,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
       {
         const unsigned int m = request->descriptor.gemm->m, n = request->descriptor.gemm->n, k = request->descriptor.gemm->k;
+        nflops = 2 * m * n * k;
 # if !defined(LIBXS_DENY_RETARGET) /* disable: ECFLAGS=-DLIBXS_DENY_RETARGET */
         if (LIBXS_X86_AVX2 < libxs_target_archid &&
            (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype) ||
@@ -1773,7 +1775,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     LIBXS_MEMZERO127(&extra);
 # endif
     extra.registered = regindex;
-    extra.nflops = 0;
+    extra.nflops = nflops;
     /* attempt to create executable buffer */
     result = libxs_xmalloc((void**)code_buffer_result, generated_code.code_size, 0/*auto*/,
       /* flag must be a superset of what's populated by libxs_malloc_attrib */
@@ -2077,7 +2079,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 
 LIBXS_API_INTERN const libxs_kernel_xinfo* libxs_get_kernel_xinfo(libxs_code_pointer code, const libxs_descriptor** desc, size_t* code_size)
 {
-  const libxs_kernel_xinfo* result = NULL;
+  libxs_kernel_xinfo* result = NULL;
   void *const result_address = &result;
   int flags = LIBXS_MALLOC_FLAG_X;
   if (NULL != code.ptr_const && EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, code_size, &flags, (void**)result_address) && NULL != result) {
@@ -3920,7 +3922,7 @@ LIBXS_API void libxs_release_kernel(const void* jit_kernel)
 {
   if (NULL != jit_kernel) {
     static int error_once = 0;
-    const libxs_kernel_xinfo* extra = NULL;
+    libxs_kernel_xinfo* extra = NULL;
     void *const extra_address = &extra;
     LIBXS_INIT
     if (EXIT_SUCCESS == libxs_get_malloc_xinfo(jit_kernel, NULL/*size*/, NULL/*flags*/, (void**)extra_address) && NULL != extra) {
