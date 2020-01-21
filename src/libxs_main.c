@@ -51,7 +51,7 @@
 # define LIBXS_DIFF_SIZE LIBXS_DESCRIPTOR_SIGSIZE
 #endif
 #if !defined(LIBXS_HASH_SIZE)
-# define LIBXS_HASH_SIZE LIBXS_DESCRIPTOR_SIGSIZE
+# define LIBXS_HASH_SIZE 32
 #endif
 #if !defined(LIBXS_HASH_SEED)
 # define LIBXS_HASH_SEED 25071975
@@ -71,7 +71,7 @@
 #if !defined(LIBXS_REGLOCK_TRY) && 0
 # define LIBXS_REGLOCK_TRY
 #endif
-#if !defined(LIBXS_DIFF_INLINE) && 0
+#if !defined(LIBXS_DIFF_INLINE) && 1
 # define LIBXS_DIFF_INLINE
 #endif
 #if !defined(LIBXS_DESC_INLINE) && 0
