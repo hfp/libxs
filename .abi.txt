@@ -10,11 +10,13 @@ libxs_bigemm_descriptor_init
 libxs_blas_dgemm0
 libxs_blas_dgemm1
 libxs_blas_dgemm2
+libxs_blas_dgemm3
 libxs_blas_dgemm_
 libxs_blas_error
 libxs_blas_sgemm0
 libxs_blas_sgemm1
 libxs_blas_sgemm2
+libxs_blas_sgemm3
 libxs_blas_sgemm_
 libxs_blas_xgemm
 libxs_blas_xgemm_
@@ -63,6 +65,7 @@ libxs_dgemm
 libxs_dgemm0
 libxs_dgemm1
 libxs_dgemm2
+libxs_dgemm3
 libxs_dgemm_
 libxs_dgemm_batch
 libxs_dgemm_batch_omp
@@ -402,6 +405,7 @@ libxs_sgemm
 libxs_sgemm0
 libxs_sgemm1
 libxs_sgemm2
+libxs_sgemm3
 libxs_sgemm_
 libxs_sgemm_batch
 libxs_sgemm_batch_omp
@@ -488,6 +492,7 @@ libxs_wigemm
 libxs_wigemm0
 libxs_wigemm1
 libxs_wigemm2
+libxs_wigemm3
 libxs_wigemm_
 libxs_wigemm_descriptor_init
 libxs_wimmavailable
