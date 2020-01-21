@@ -27,7 +27,7 @@
 # endif
 #endif
 /* determines if code relies on LIBXS_NTHREADS_MAX */
-#if !defined(LIBXS_NTHREADS_USE) && 1
+#if !defined(LIBXS_NTHREADS_USE) && 0
 # define LIBXS_NTHREADS_USE
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
