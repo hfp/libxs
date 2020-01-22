@@ -795,7 +795,7 @@ LIBXS_API_INTERN void internal_init(void)
           }
         }
       }
-      for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) ((libxs_code_pointer*)new_registry)[i].pmm = NULL;
+      for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) ((libxs_code_pointer*)new_registry)[i].ptr = NULL;
 #if defined(LIBXS_BUILD) && !defined(LIBXS_DEFAULT_CONFIG)
 #     include <libxs_dispatch.h>
 #endif
@@ -1793,8 +1793,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       /* attribute/protect buffer and revoke unnecessary flags */
       result = libxs_malloc_attrib((void**)code_buffer_result, LIBXS_MALLOC_FLAG_X, jit_name);
       if (EXIT_SUCCESS == result) { /* check for success */
-        code->pmm = code_buffer; /* commit buffer */
-        LIBXS_ASSERT(NULL != code->pmm && 0 == (LIBXS_CODE_STATIC & code->uval));
+        code->ptr = code_buffer; /* commit buffer */
+        LIBXS_ASSERT(NULL != code->ptr && 0 == (LIBXS_CODE_STATIC & code->uval));
       }
       else { /* release buffer */
         libxs_xfree(code_buffer, 0/*no check*/);
@@ -1812,7 +1812,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
   if (LIBXS_X86_SSE3 <= libxs_target_archid) result = EXIT_FAILURE;
 #endif
-  LIBXS_ASSERT(NULL != code->pmm || EXIT_FAILURE == result);
+  LIBXS_ASSERT(NULL != code->ptr || EXIT_FAILURE == result);
   return result;
 }
 
@@ -1962,7 +1962,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
            (LIBXS_X86_SSE3 <= libxs_target_archid && LIBXS_BUILD_KIND_GEMM == desc->kind))
         {
           LIBXS_ASSERT(0 != mode || NULL == flux_entry.ptr_const/*code version does not exist*/);
-          INTERNAL_FIND_CODE_LOCK(lock, i, diff, flux_entry.pmm); /* lock the registry entry */
+          INTERNAL_FIND_CODE_LOCK(lock, i, diff, flux_entry.ptr); /* lock the registry entry */
           if (NULL == internal_registry[i].ptr_const) { /* double-check registry after acquiring the lock */
             libxs_build_request request; /* setup the code build request */
             LIBXS_ASSERT(desc->kind < LIBXS_KERNEL_UNREGISTERED);
@@ -1977,7 +1977,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
             {
               LIBXS_ASSIGN127(internal_registry_keys + i, desc);
 # if (1 < INTERNAL_REGLOCK_MAXN)
-              LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_registry[i].pmm, flux_entry.pmm, LIBXS_ATOMIC_SEQ_CST);
+              LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_registry[i].ptr, flux_entry.ptr, LIBXS_ATOMIC_SEQ_CST);
 # else
               internal_registry[i] = flux_entry;
 # endif
@@ -1985,7 +1985,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
               if (2 < mode) { /* arrived from collision state; now mark as collision */
                 libxs_code_pointer fix_entry;
 #   if (1 < INTERNAL_REGLOCK_MAXN)
-                fix_entry.pmm = LIBXS_ATOMIC_LOAD(&internal_registry[i0].pmm, LIBXS_ATOMIC_RELAXED);
+                fix_entry.ptr = LIBXS_ATOMIC_LOAD(&internal_registry[i0].ptr, LIBXS_ATOMIC_RELAXED);
 #   else
                 fix_entry = internal_registry[i0];
 #   endif
@@ -1993,7 +1993,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
                 if (0 == (LIBXS_HASH_COLLISION & fix_entry.uval)) {
                   fix_entry.uval |= LIBXS_HASH_COLLISION; /* mark current entry as collision */
 #   if (1 < INTERNAL_REGLOCK_MAXN)
-                  LIBXS_ATOMIC_STORE(&internal_registry[i0].pmm, fix_entry.pmm, LIBXS_ATOMIC_RELAXED);
+                  LIBXS_ATOMIC_STORE(&internal_registry[i0].ptr, fix_entry.ptr, LIBXS_ATOMIC_RELAXED);
 #   else
                   internal_registry[i0] = fix_entry;
 #   endif
@@ -2020,7 +2020,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
             if (i == i0) { /* out of capacity (no registry slot available) */
               diff = 0; /* do not use break if inside of locked region */
             }
-            flux_entry.pmm = NULL; /* no result */
+            flux_entry.ptr = NULL; /* no result */
           }
         }
         else /* JIT-code generation not available */
@@ -2032,7 +2032,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 #if !defined(NDEBUG) && (0 != LIBXS_JIT)
           build = EXIT_FAILURE;
 #endif
-          flux_entry.pmm = NULL;
+          flux_entry.ptr = NULL;
           diff = 0;
         }
       }
@@ -3939,7 +3939,7 @@ LIBXS_API void libxs_release_kernel(const void* jit_kernel)
       }
 #else
       { /* unregister kernel */
-        internal_registry[regindex].pmm = NULL;
+        internal_registry[regindex].ptr = NULL;
 # if !defined(NDEBUG)
         LIBXS_MEMZERO127(internal_registry_keys + regindex);
 # endif

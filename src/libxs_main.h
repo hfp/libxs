@@ -253,7 +253,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_d
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   void (*ptr_fn)(LIBXS_VARIADIC);
   const void* ptr_const;
-  void* pmm;
+  void* ptr;
   uintptr_t uval;
   intptr_t ival;
   libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, or void-function */
