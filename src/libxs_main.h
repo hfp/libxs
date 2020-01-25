@@ -410,6 +410,11 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   void* scratchVk;            /* Winograd weight buffer */
   size_t scratchVk_size;
 
+  libxs_code_pointer gemm_fwd;     /* ability to hoist forward GEMMs */
+  libxs_code_pointer gemm_fwd2;     /* ability to hoist forward GEMMs */
+  unsigned long long *A_offsets;
+  unsigned long long *B_offsets;
+
   /* JIT-generated convolution code */
   libxs_code_pointer code_fwd[3];
   libxs_code_pointer code_bwd[3];
@@ -493,6 +498,8 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   int ofmblock;
   int blocksifm;
   int blocksofm;
+  int ifm_subtasks;
+  int ofm_subtasks;
   int fm_lp_block;
   int bn;
   int bk;
@@ -501,7 +508,11 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   void* scratch;
 
   libxs_code_pointer gemm_fwd;     /* ability to hoist forward GEMMs */
+  libxs_code_pointer gemm_fwd2;     /* ability to hoist forward GEMMs */
   libxs_code_pointer gemm_bwd;     /* ability to hoist backward GEMMs */
+  libxs_code_pointer gemm_bwd2;    /* ability to hoist backward GEMMs */
+  libxs_code_pointer gemm_upd;     /* ability to hoist update GEMMs */
+  libxs_code_pointer gemm_upd2;    /* ability to hoist update GEMMs */
 };
 
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_pooling {
