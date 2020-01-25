@@ -53,6 +53,10 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           handle->bk = handle->desc.K;
           *status = LIBXS_DNN_WARN_FC_SUBOPTIMAL_K_BLOCKING;
         }
+
+        /* TODO: Consider subtasking parameters here for UPD pass based on input sizes... */
+        handle->ifm_subtasks = 1;
+        handle->ofm_subtasks = 1;
       } else {
         /* we need to compute the memory layout given the */
         if ( (handle->desc.C % 16 == 0) && (handle->desc.K % 16 == 0) ) {
@@ -92,10 +96,15 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
       if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
         handle->scratch_size = sizeof(float) * ( ( (size_t)handle->desc.C * (size_t)handle->desc.N ) + ( (size_t)handle->desc.C * (size_t)handle->desc.K ) );
       } else if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)  ) {
-        handle->scratch_size = (sizeof(float) * LIBXS_MAX( LIBXS_MAX( handle->bk, handle->bn ), handle->bc ) * LIBXS_MAX( LIBXS_MAX( handle->bk, handle->bn ), handle->bc ) * handle->desc.threads);
+        /* Let's allocate maximum required scratch  */
+        size_t size_fwd = sizeof(float) * handle->desc.K * handle->desc.N;
+        /* In case of K = 1 we pad A and B to "bk=2" */
+        size_t size_bwd = (handle->desc.K != 1) ? ( sizeof(float) * handle->desc.C * handle->desc.N + sizeof(libxs_bfloat16) * handle->desc.C * handle->desc.K ) : ( sizeof(float) * handle->desc.C * handle->desc.N + sizeof(libxs_bfloat16) * handle->desc.C * 2 + sizeof(libxs_bfloat16) * 2 * handle->desc.N );
+        size_t size_upd = sizeof(float) * handle->desc.C * handle->desc.K + sizeof(libxs_bfloat16) * handle->desc.threads * handle->bk * handle->bc + sizeof(libxs_bfloat16) * (handle->desc.N * (handle->desc.C + handle->desc.K));
+        handle->scratch_size = LIBXS_MAX(LIBXS_MAX(size_fwd, size_bwd), size_upd);
       } else {
         handle->scratch_size = sizeof(float) * LIBXS_MAX( ((size_t)handle->desc.C + (size_t)handle->desc.K) * (size_t)handle->desc.N,
-                                                             (size_t)handle->desc.C * (size_t)handle->desc.K);
+            (size_t)handle->desc.C * (size_t)handle->desc.K);
       }
       /* create code pointers in some special cases */
       if ( ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NCPACKED) > 0) && ((handle->desc.filter_format & LIBXS_DNN_TENSOR_FORMAT_CKPACKED) > 0)  ) {
@@ -103,6 +112,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           float alpha = 1.0f;
           /* beta is set to 1 for ncnc kcck format because ifm is split into 2 blocks */
           float beta  = 1.0f;
+          float zerobeta  = 0.0f;
           libxs_blasint lda = (libxs_blasint)handle->bk;
           libxs_blasint ldb = (libxs_blasint)handle->bc;
           libxs_blasint ldc = (libxs_blasint)handle->bk;
@@ -119,26 +129,47 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
 #ifdef STRIDE_BRGEMM
             handle->gemm_fwd.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(float), handle->bc*handle->bn*sizeof(float), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
             handle->gemm_bwd.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(float), handle->bk*handle->bn*sizeof(float), &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
+            handle->gemm_bwd2.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(float), handle->bk*handle->bn*sizeof(float), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
 #endif
           } else {
             /* should not happen */
           }
         } else if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
           float alpha = 1.0f;
-          float beta  = 0.0f;
+          float beta  = 1.0f;
+          float zerobeta  = 0.0f;
+          /* For UPD kernels we consider subtasking... */
+          libxs_blasint M = handle->bk/handle->ofm_subtasks;
+          libxs_blasint N = handle->bc/handle->ifm_subtasks;
+
           libxs_blasint lda = (libxs_blasint)handle->bk;
           libxs_blasint ldb = (libxs_blasint)handle->bc;
           libxs_blasint ldc = (libxs_blasint)handle->bk;
 
           if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
 #ifdef ADDRESS_BRGEMM
-            handle->gemm_fwd.xgemm.bsmra = libxs_bsmmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+            handle->gemm_fwd.xgemm.bmra = libxs_bmmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
 #endif
 #ifdef OFFSET_BRGEMM
-            handle->gemm_fwd.xgemm.bsmro = libxs_bsmmdispatch_reducebatch_offs(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+            handle->gemm_fwd.xgemm.bmro = libxs_bmmdispatch_reducebatch_offs(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
 #endif
 #ifdef STRIDE_BRGEMM
             handle->gemm_fwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+            handle->gemm_fwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
+            /* Special bwd kernels for K == 1 */
+            if (handle->desc.K == 1) {
+              libxs_blasint _bk = 2;
+              handle->gemm_bwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bc, handle->bn, _bk, _bk*handle->bc*sizeof(libxs_bfloat16), _bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &_bk, &ldb, &alpha, &beta, NULL, NULL);
+              handle->gemm_bwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bc, handle->bn, _bk, _bk*handle->bc*sizeof(libxs_bfloat16), _bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &_bk, &ldb, &alpha, &zerobeta, NULL, NULL);
+            } else {
+              handle->gemm_bwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
+              handle->gemm_bwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
+            }
+            lda = (libxs_blasint)handle->bk;
+            ldb = (libxs_blasint)handle->bn;
+            ldc = (libxs_blasint)handle->bk;
+            handle->gemm_upd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(M, N, handle->bn, handle->bk*handle->bn*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+            handle->gemm_upd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(M, N, handle->bn, handle->bk*handle->bn*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
 #endif
           } else {
             /* should not happen */
@@ -187,7 +218,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
       memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
 
       if ( (type == LIBXS_DNN_REGULAR_INPUT)     || (type == LIBXS_DNN_GRADIENT_INPUT)  || (type == LIBXS_DNN_INPUT)  ||
-           (type == LIBXS_DNN_REGULAR_OUTPUT)    || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT)    ) {
+          (type == LIBXS_DNN_REGULAR_OUTPUT)    || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT)    ) {
         layout->format = handle->desc.buffer_format;
         if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
           if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
@@ -285,8 +316,8 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
           }
         } else if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NHWC) > 0) {
           if ( ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32)) ||
-               ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32)) ||
-               ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16))    ) {
+              ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32)) ||
+              ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16))    ) {
             layout->datatype = handle->desc.datatype_in;
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
@@ -321,7 +352,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
           }
         } else if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NCPACKED) > 0) {
           if ( ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32)  && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32)) ||
-               ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16))    ) {
+              ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16))    ) {
             layout->datatype = handle->desc.datatype_in;
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
@@ -398,7 +429,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
               *status = LIBXS_DNN_ERR_CREATE_LAYOUT_ARRAYS;
             }
           } else if ( ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) ||
-                      ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) )     ) {
+              ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) )     ) {
             layout->datatype = LIBXS_DNN_DATATYPE_BF16;
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(7*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(7*sizeof(unsigned int));
@@ -430,8 +461,8 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
           }
         } else if ((handle->desc.filter_format & LIBXS_DNN_TENSOR_FORMAT_RSCK) > 0) {
           if ( ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32))   ||
-               ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32))  ||
-               ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16))    ) {
+              ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32))  ||
+              ((handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16))    ) {
             layout->datatype = handle->desc.datatype_in;
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(4*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(4*sizeof(unsigned int));
@@ -614,8 +645,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_bind_tensor(libxs_dnn_fullyco
 
   /* check for tensor type */
   if ( (type != LIBXS_DNN_REGULAR_INPUT)  && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
-       (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
-       (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER)    ) {
+      (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
+      (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER)    ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -660,8 +691,8 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_fullyconnected_get_tensor(libxs_dnn_fullyc
 
   /* check for tensor type */
   if ( (type != LIBXS_DNN_REGULAR_INPUT)  && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
-       (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
-       (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER)    ) {
+      (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
+      (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER)    ) {
     *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return return_tensor;
   }
@@ -695,8 +726,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_release_tensor(libxs_dnn_full
 
   /* check for tensor type */
   if ( (type != LIBXS_DNN_REGULAR_INPUT)  && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
-       (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
-       (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER)    ) {
+      (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
+      (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER)    ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -726,7 +757,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_release_tensor(libxs_dnn_full
 
 
 LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind,
-  /*unsigned*/int start_thread, /*unsigned*/int tid) {
+    /*unsigned*/int start_thread, /*unsigned*/int tid) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   LIBXS_UNUSED( start_thread );
   LIBXS_UNUSED( tid );
@@ -734,35 +765,35 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullycon
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-        if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
-          status = libxs_dnn_fullyconnected_st_fwd_custom( handle, start_thread, tid );
-        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
-          status = libxs_dnn_fullyconnected_st_fwd_ncnc_kcck( handle, start_thread, tid );
-        } else {
-          status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
-        }
-      } break;
+                                           if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
+                                             status = libxs_dnn_fullyconnected_st_fwd_custom( handle, start_thread, tid );
+                                           } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
+                                             status = libxs_dnn_fullyconnected_st_fwd_ncnc_kcck( handle, start_thread, tid );
+                                           } else {
+                                             status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
+                                           }
+                                         } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD: {
-        if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
-          status = libxs_dnn_fullyconnected_st_bwd_custom( handle, start_thread, tid );
-        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
-          status = libxs_dnn_fullyconnected_st_bwd_ncnc_kcck( handle, start_thread, tid );
-        } else {
-          status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
-        }
-      } break;
+                                           if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
+                                             status = libxs_dnn_fullyconnected_st_bwd_custom( handle, start_thread, tid );
+                                           } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
+                                             status = libxs_dnn_fullyconnected_st_bwd_ncnc_kcck( handle, start_thread, tid );
+                                           } else {
+                                             status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
+                                           }
+                                         } break;
       case LIBXS_DNN_COMPUTE_KIND_UPD: {
-        if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
-          status = libxs_dnn_fullyconnected_st_upd_custom( handle, start_thread, tid );
-        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
-          status = libxs_dnn_fullyconnected_st_upd_ncnc_kcck( handle, start_thread, tid );
-        } else {
-          status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
-        }
-      } break;
+                                           if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
+                                             status = libxs_dnn_fullyconnected_st_upd_custom( handle, start_thread, tid );
+                                           } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
+                                             status = libxs_dnn_fullyconnected_st_upd_ncnc_kcck( handle, start_thread, tid );
+                                           } else {
+                                             status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
+                                           }
+                                         } break;
       default: {
-        status = LIBXS_DNN_ERR_INVALID_KIND;
-      }
+                 status = LIBXS_DNN_ERR_INVALID_KIND;
+               }
     }
   }
   else {

@@ -1406,7 +1406,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
     lp_block = 2;
   } else if ( (datatype_in == LIBXS_DNN_DATATYPE_I16) && ((datatype_out == LIBXS_DNN_DATATYPE_I32) || (datatype_out == LIBXS_DNN_DATATYPE_F32)) ) {
     lp_block = 2;
-  } else if ( (datatype_in == LIBXS_DNN_DATATYPE_I8) && (datatype_out == LIBXS_DNN_DATATYPE_I32)) {
+  } else if (datatype_in == LIBXS_DNN_DATATYPE_I8) {
     lp_block = 4;
   } else {
     status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
