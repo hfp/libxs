@@ -1516,6 +1516,12 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.srsoa->gemm->datatype) ||
           LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.srsoa->gemm->datatype))
       {
+        const unsigned int nnz = (request->descriptor.srsoa->gemm->lda == 0) ?
+            request->descriptor.srsoa->row_ptr[request->descriptor.srsoa->gemm->m] : request->descriptor.srsoa->row_ptr[request->descriptor.srsoa->gemm->k];
+        const unsigned int simdw = (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.srsoa->gemm->datatype)) ?
+            libxs_cpuid_vlen32(libxs_target_archid)/2 : libxs_cpuid_vlen32(libxs_target_archid);
+        const unsigned int gemm_factor = (request->descriptor.srsoa->gemm->lda == 0) ? request->descriptor.srsoa->gemm->n : request->descriptor.srsoa->gemm->m;
+        nflops = 2 * nnz * gemm_factor * simdw;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_soa_kernel, &generated_code, request->descriptor.srsoa->gemm, target_arch,
           request->descriptor.srsoa->row_ptr, request->descriptor.srsoa->column_idx, request->descriptor.srsoa->values);
 # if !defined(LIBXS_VTUNE)
@@ -1524,8 +1530,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         {
           const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.srsoa->gemm->prefetch);
           const char *const tname = libxs_typename((libxs_datatype)request->descriptor.srsoa->gemm->datatype);
-          const unsigned int nnz = (request->descriptor.srsoa->gemm->lda == 0) ?
-            request->descriptor.srsoa->row_ptr[request->descriptor.srsoa->gemm->m] : request->descriptor.srsoa->row_ptr[request->descriptor.srsoa->gemm->k];
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_nnz%u.srsoa", target_arch, tname,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.srsoa->gemm->flags) ? 'n' : 't',
@@ -1545,6 +1549,12 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.scsoa->gemm->datatype) ||
           LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.scsoa->gemm->datatype))
       {
+        const unsigned int nnz = (request->descriptor.scsoa->gemm->lda == 0) ?
+            request->descriptor.scsoa->column_ptr[request->descriptor.scsoa->gemm->k] : request->descriptor.scsoa->column_ptr[request->descriptor.scsoa->gemm->n];
+        const unsigned int simdw = (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.scsoa->gemm->datatype)) ?
+            libxs_cpuid_vlen32(libxs_target_archid)/2 : libxs_cpuid_vlen32(libxs_target_archid);
+        const unsigned int gemm_factor = (request->descriptor.scsoa->gemm->lda == 0) ? request->descriptor.scsoa->gemm->n : request->descriptor.scsoa->gemm->m;
+        nflops = 2 * nnz * gemm_factor * simdw;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csc_soa_kernel, &generated_code, request->descriptor.scsoa->gemm, target_arch,
           request->descriptor.scsoa->row_idx, request->descriptor.scsoa->column_ptr, request->descriptor.scsoa->values);
 # if !defined(LIBXS_VTUNE)
@@ -1553,8 +1563,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         {
           const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.scsoa->gemm->prefetch);
           const char *const tname = libxs_typename((libxs_datatype)request->descriptor.scsoa->gemm->datatype);
-          const unsigned int nnz = (request->descriptor.scsoa->gemm->lda == 0) ?
-            request->descriptor.scsoa->column_ptr[request->descriptor.scsoa->gemm->k] : request->descriptor.scsoa->column_ptr[request->descriptor.scsoa->gemm->n];
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_nnz%u.scsoa", target_arch, tname,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.scsoa->gemm->flags) ? 'n' : 't',
@@ -1573,6 +1581,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype) ||
           LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype))
       {
+        nflops = 2 * request->descriptor.pgemmacrm->packed_width * request->descriptor.pgemmacrm->gemm->m * request->descriptor.pgemmacrm->gemm->n * request->descriptor.pgemmacrm->gemm->k;
         LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_ac_rm, &generated_code, request->descriptor.pgemmacrm->gemm, request->descriptor.pgemmacrm->packed_width, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1599,6 +1608,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype) ||
           LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype))
       {
+        nflops = 2 * request->descriptor.pgemmbcrm->packed_width * request->descriptor.pgemmbcrm->gemm->m * request->descriptor.pgemmbcrm->gemm->n * request->descriptor.pgemmbcrm->gemm->k;
         LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_bc_rm, &generated_code, request->descriptor.pgemmbcrm->gemm, request->descriptor.pgemmbcrm->packed_width, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1626,6 +1636,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.sreg->gemm->datatype)) /* only double-precision */
 #endif
       {
+        const unsigned int nnz = request->descriptor.sreg->row_ptr[request->descriptor.sreg->gemm->m];
+        nflops = 2 * libxs_cpuid_vlen32(libxs_target_archid)/2 * request->descriptor.sreg->gemm->n * nnz;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_reg_kernel, &generated_code, request->descriptor.sreg->gemm, target_arch,
           request->descriptor.sreg->row_ptr, request->descriptor.sreg->column_idx,
           (const double*)request->descriptor.sreg->values);
