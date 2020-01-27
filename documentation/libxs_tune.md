@@ -1,13 +1,13 @@
 # Intercepted Allocations<a name="scalable_malloc"></a>
 
-To improve thread-scalability and to avoid frequent memory allocation/deallocation, the [scratch memory allocator](libxs_aux.md#memory-allocation) can be leveraged by intercepting existing malloc/free calls. This facility is built into LIBXS's main library (disable at compile-time: `make MALLOC=0`) and can be enabled by using an environment variable (`LIBXS_MALLOC=1`) or can be enabled per API (`libxs_set_malloc`). The latter takes an optional lower and/or an optional upper bound to select malloc-calls based on the size of the allocation. This can also be achieved by using a separate environment variable (e.g., LIBXS_MALLOC_LIMIT=4m:1g).
+To improve thread-scalability and to avoid frequent memory allocation/deallocation, the [scratch memory allocator](libxs_aux#memory-allocation) can be leveraged by intercepting existing malloc/free calls. This facility is built into LIBXS's main library (disable at compile-time: `make MALLOC=0`) and can be enabled by using an environment variable (`LIBXS_MALLOC=1`) or can be enabled per API (`libxs_set_malloc`). The latter takes an optional lower and/or an optional upper bound to select malloc-calls based on the size of the allocation. This can also be achieved by using a separate environment variable (e.g., LIBXS_MALLOC_LIMIT=4m:1g).
 
 ```C
 void libxs_set_malloc(int enabled, const size_t* lo, const size_t* hi);
 int libxs_get_malloc(size_t* lo, size_t* hi);
 ```
 
-Querying the status may return zero even if there was an attempt to enable this facility (limitation/experimental implementation). Please note, the regular [Scratch Memory API](libxs_aux.md#memory-allocation) (e.g., `libxs_[get|set]_scratch_limit`) and the related environment variables can apply as well (`LIBXS_SCRATCH_LIMIT`, `LIBXS_SCRATCH_POOLS`, `LIBXS_SCRATCH_SCALE`). If intercepted memory allocations are enabled, the scratch limit is adjusted by default to allow unlimited growth of the scratch domain. Further, an increased verbosity level can help to gain some insight (`LIBXS_VERBOSE=3`).
+Querying the status may return zero even if there was an attempt to enable this facility (limitation/experimental implementation). Please note, the regular [Scratch Memory API](libxs_aux#memory-allocation) (e.g., `libxs_[get|set]_scratch_limit`) and the related environment variables can apply as well (`LIBXS_SCRATCH_LIMIT`, `LIBXS_SCRATCH_POOLS`, `LIBXS_SCRATCH_SCALE`). If intercepted memory allocations are enabled, the scratch limit is adjusted by default to allow unlimited growth of the scratch domain. Further, an increased verbosity level can help to gain some insight (`LIBXS_VERBOSE=3`).
 
 Intercepting malloc/free is supported by linking LIBXS's static or shared main library. The latter of which can be used to intercept calls of an existing and unchanged binary (LD_PRELOAD mechanism). To statically link with LIBXS and to intercept existing malloc/free calls, the following changes to the application's link stage are recommended:
 
@@ -60,7 +60,7 @@ Running with `LIBXS_VERBOSE=3 LIBXS_MALLOC=1 LD_PRELOAD=... LD_LIBRARY_PATH=... 
 
 ### Static Specialization
 
-By default, LIBXS uses the [JIT backend](index.md#jit-backend) which is automatically building optimized code (JIT=1). Matrix multiplication kernels can be also statically specialized at compile-time of the library (M, N, and K values). This mechanism also extends the interface of the library because function prototypes are included into both the C and FORTRAN interface.
+By default, LIBXS uses the [JIT backend](index#jit-backend) which is automatically building optimized code (JIT=1). Matrix multiplication kernels can be also statically specialized at compile-time of the library (M, N, and K values). This mechanism also extends the interface of the library because function prototypes are included into both the C and FORTRAN interface.
 
 ```bash
 make M="2 4" N="1" K="$(echo $(seq 2 5))"
@@ -108,7 +108,7 @@ The above example builds a library which cannot be deployed to anything else but
 make OPT=3 TARGET="-mavx512f -mavx512cd -mavx512er -mavx512pf"
 ```
 
-An extended interface can be generated which allows to perform software prefetches. Prefetching data might be helpful when processing batches of matrix multiplications where the next operands are farther away or otherwise unpredictable in their memory location. The prefetch strategy can be specified similar as shown in the section [Generator Driver](libxs_be.md#generator-driver) i.e., by either using the number of the shown enumeration, or by exactly using the name of the prefetch strategy. The only exception is PREFETCH=1 which is automatically selecting a strategy per an internal table (navigated by CPUID flags). The following example is requesting the "AL2jpst" strategy:
+An extended interface can be generated which allows to perform software prefetches. Prefetching data might be helpful when processing batches of matrix multiplications where the next operands are farther away or otherwise unpredictable in their memory location. The prefetch strategy can be specified similar as shown in the section [Generator Driver](libxs_be#generator-driver) i.e., by either using the number of the shown enumeration, or by exactly using the name of the prefetch strategy. The only exception is PREFETCH=1 which is automatically selecting a strategy per an internal table (navigated by CPUID flags). The following example is requesting the "AL2jpst" strategy:
 
 ```bash
 make PREFETCH=8
