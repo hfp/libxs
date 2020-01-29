@@ -215,7 +215,6 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 
 #define INTERNAL_MEMALIGN_HOOK(RESULT, FLAGS, ALIGNMENT, SIZE, CALLER) { \
   const int recursive = LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_recursive, 1, LIBXS_ATOMIC_RELAXED); \
-  if (0 == libxs_ninit && 1 == recursive) libxs_init(); /* !LIBXS_INIT */ \
   if ( 1 < recursive /* protect against recursion */ \
     || 0 == (internal_malloc_kind & 1) || 0 >= internal_malloc_kind \
     || (internal_malloc_limit[0] > (SIZE)) \
@@ -223,7 +222,8 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
   { \
     (RESULT) = (0 != (ALIGNMENT) ? __real_memalign(ALIGNMENT, SIZE) : __real_malloc(SIZE)); \
   } \
-  else { \
+  else { /* redirect */ \
+    LIBXS_INIT \
     if (NULL == (CALLER)) { /* libxs_trace_caller_id may allocate memory */ \
       internal_scratch_malloc(&(RESULT), SIZE, ALIGNMENT, FLAGS, \
         libxs_trace_caller_id(0/*level*/)); \
@@ -1408,7 +1408,7 @@ LIBXS_API_INTERN int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
 {
   int result = EXIT_SUCCESS;
   if (NULL != lock) {
-    if (0 == libxs_ninit) libxs_init(); /* !LIBXS_INIT */
+    LIBXS_INIT
     LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
   }
   if (NULL != malloc_fn.function && NULL != free_fn.function) {
@@ -1458,7 +1458,7 @@ LIBXS_API_INTERN int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
   int result = EXIT_SUCCESS;
   if (NULL != context || NULL != malloc_fn || NULL != free_fn) {
     if (NULL != lock) {
-      if (0 == libxs_ninit) libxs_init(); /* !LIBXS_INIT */
+      LIBXS_INIT
       LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     }
     if (context) *context = libxs_default_allocator_context;
@@ -1486,7 +1486,7 @@ LIBXS_API_INTERN int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
   int result = EXIT_SUCCESS;
   static int error_once = 0;
   if (NULL != lock) {
-    if (0 == libxs_ninit) libxs_init(); /* !LIBXS_INIT */
+    LIBXS_INIT
     LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
   }
   /* make sure the default allocator is setup before adopting it eventually */
@@ -1539,7 +1539,7 @@ LIBXS_API_INTERN int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
   int result = EXIT_SUCCESS;
   if (NULL != context || NULL != malloc_fn || NULL != free_fn) {
     if (NULL != lock) {
-      if (0 == libxs_ninit) libxs_init(); /* !LIBXS_INIT */
+      LIBXS_INIT
       LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     }
     if (context) *context = libxs_scratch_allocator_context;

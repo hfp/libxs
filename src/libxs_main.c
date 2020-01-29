@@ -161,7 +161,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_cache_entry_type {
   libxs_descriptor keys[LIBXS_CACHE_MAXSIZE];
   libxs_code_pointer code[LIBXS_CACHE_MAXSIZE];
-# if !defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR)
+# if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
   unsigned int id; /* to invalidate */
 # endif
   unsigned char size, hit;
@@ -669,6 +669,17 @@ LIBXS_API_INTERN void internal_init(void)
     /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
     const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
     const void *const dlsymbol = dlsym(RTLD_NEXT, dlsymname);
+#endif
+    /* setup verbosity as early as possible since below code may rely on verbose output */
+    if (NULL != env_verbose && 0 != *env_verbose) {
+      libxs_verbosity = atoi(env_verbose);
+    }
+#if !defined(NDEBUG)
+    else {
+      libxs_verbosity = INT_MAX; /* quiet -> verbose */
+    }
+#endif
+#if defined(LIBXS_INTERCEPT_DYNAMIC)
     /* MPI: non-user affinity can slow-down unrelated jobs, e.g., CP2K regtests */
     if (NULL == dlerror() && NULL == dlsymbol)
 #endif
@@ -682,17 +693,11 @@ LIBXS_API_INTERN void internal_init(void)
       {
         static char affinity[] = "OMP_PROC_BIND=TRUE";
         LIBXS_EXPECT(EXIT_SUCCESS, LIBXS_PUTENV(affinity));
+        if (LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) { /* library code is expected to be mute */
+          fprintf(stderr, "LIBXS: prepared to pin threads.\n");
+        }
       }
     }
-    /* setup verbosity as early as possible since below code may rely on verbose output */
-    if (NULL != env_verbose && 0 != *env_verbose) {
-      libxs_verbosity = atoi(env_verbose);
-    }
-#if !defined(NDEBUG)
-    else {
-      libxs_verbosity = INT_MAX; /* quiet -> verbose */
-    }
-#endif
     LIBXS_ASSERT(NULL == internal_registry_keys); /* should never happen */
 #if !defined(_WIN32) && 0
     umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
@@ -811,6 +816,7 @@ LIBXS_API_INTERN void internal_init(void)
       { /* commit the registry buffer and enable global visibility */
         void *const pv_registry = &internal_registry;
         LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)((void**)pv_registry, (void*)new_registry, LIBXS_ATOMIC_SEQ_CST);
+        LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
       }
     }
     else {
@@ -990,6 +996,12 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     if (NULL != registry) {
       libxs_descriptor *const registry_keys = internal_registry_keys;
       unsigned int rest = 0, errors = 0;
+      /* make internal registry and keys globally unavailable */
+      LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
+      internal_registry_keys = NULL;
+#if !defined(NDEBUG)
+      internal_registry = NULL;
+#endif
       internal_registry_nbytes = 0;
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
         /*const*/ libxs_code_pointer code = registry[i];
@@ -1065,12 +1077,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       libxs_gemm_finalize();
       libxs_xcopy_finalize();
       libxs_dnn_finalize();
-      /* make internal registry globally unavailable */
-      LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
-      internal_registry_keys = NULL;
-#if !defined(NDEBUG)
-      internal_registry = NULL;
-#endif
+      /* release memory of registry and keys */
       libxs_xfree(registry_keys, 0/*no check*/);
       libxs_xfree(registry, 0/*no check*/);
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
@@ -1878,7 +1885,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
     LIBXS_MIN(size, LIBXS_DIFF_SIZE), LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
 # endif
   if (
-# if !defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR)
+# if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
     cache->entry.id == libxs_ninit &&
 # endif
     cache_index < cache->entry.size)
@@ -2052,7 +2059,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
     if (NULL != flux_entry.ptr_const) { /* keep code version on record (cache) */
       LIBXS_ASSERT(0 == diff);
-# if !defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR)
+# if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
       if (cache->entry.id == libxs_ninit) /* maintain cache */
 # endif
       {
@@ -2061,11 +2068,15 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
           LIBXS_ASSERT(cache->entry.size <= LIBXS_CACHE_MAXSIZE);
         }
         else { /* evict */
+          LIBXS_ASSERT(cache->entry.hit < cache->entry.size);
           INTERNAL_FIND_CODE_CACHE_EVICT(cache_index, cache->entry.size, cache->entry.hit);
         }
       }
-# if !defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR)
+# if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
       else { /* reset cache */
+# if !defined(NDEBUG)
+        LIBXS_MEMZERO127(cache->entry.keys);
+# endif
         cache->entry.id = libxs_ninit;
         cache->entry.size = 1;
         cache_index = 0;
