@@ -816,7 +816,6 @@ LIBXS_API_INTERN void internal_init(void)
       { /* commit the registry buffer and enable global visibility */
         void *const pv_registry = &internal_registry;
         LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)((void**)pv_registry, (void*)new_registry, LIBXS_ATOMIC_SEQ_CST);
-        LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
       }
     }
     else {
@@ -825,9 +824,16 @@ LIBXS_API_INTERN void internal_init(void)
       }
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
       libxs_xfree(internal_cache_buffer, 0/*no check*/);
+# if !defined(NDEBUG)
+      internal_cache_buffer = NULL;
+# endif
 #endif
       libxs_xfree(internal_registry_keys, 0/*no check*/);
       libxs_xfree(new_registry, 0/*no check*/);
+# if !defined(NDEBUG)
+      internal_registry_keys = NULL;
+      internal_registry = NULL;
+# endif
     }
   }
 #if (0 != LIBXS_SYNC) /* release locks */
@@ -993,7 +999,6 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_RELAXED);
     registry = (libxs_code_pointer*)regptr;
     if (NULL != registry) {
-      libxs_descriptor *const registry_keys = internal_registry_keys;
       unsigned int rest = 0, errors = 0;
 #if defined(LIBXS_TRACE)
       i = libxs_trace_finalize();
@@ -1004,23 +1009,17 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 #if defined(LIBXS_PERF)
       libxs_perf_finalize();
 #endif
-      libxs_gemm_finalize();
       libxs_xcopy_finalize();
+      libxs_gemm_finalize();
       libxs_dnn_finalize();
-      /* make internal registry and keys globally unavailable */
-      LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
-      internal_registry_keys = NULL;
-#if !defined(NDEBUG)
-      internal_registry = NULL;
-#endif
       internal_registry_nbytes = 0;
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
         /*const*/ libxs_code_pointer code = registry[i];
         if (NULL != code.ptr_const) {
           /* check if the registered entity is a GEMM kernel */
-          switch (registry_keys[i].kind) {
+          switch (internal_registry_keys[i].kind) {
             case LIBXS_KERNEL_KIND_MATMUL: {
-              const libxs_gemm_descriptor *const desc = &registry_keys[i].gemm.desc;
+              const libxs_gemm_descriptor *const desc = &internal_registry_keys[i].gemm.desc;
               if (1 < desc->m && 1 < desc->n) {
                 const unsigned int njit = (0 == (LIBXS_CODE_STATIC & code.uval) ? 1 : 0);
                 const unsigned int nsta = (0 != (LIBXS_CODE_STATIC & code.uval) ? 1 : 0);
@@ -1044,7 +1043,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             case LIBXS_KERNEL_KIND_TRMM: {
               ++internal_statistic_num_trmm;
             } break;
-            default: if (LIBXS_KERNEL_UNREGISTERED <= registry_keys[i].kind) {
+            default: if (LIBXS_KERNEL_UNREGISTERED <= internal_registry_keys[i].kind) {
               ++errors;
             }
             else {
@@ -1069,6 +1068,9 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             code.uval &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 #endif
             if (EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, &size, NULL/*flags*/, &buffer)) {
+#if !defined(NDEBUG)
+              registry[i].ptr = NULL;
+#endif
               libxs_xfree(code.ptr_const, 0/*no check*/);
               /* round-up size (it is fine to assume 4 KB pages since it is likely more accurate than not rounding up) */
               internal_registry_nbytes += (unsigned int)LIBXS_UP2(size + (((char*)code.ptr_const) - (char*)buffer), 4096/*4KB*/);
@@ -1076,15 +1078,23 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           }
         }
       }
-      /* release memory of registry and keys */
-      libxs_xfree(registry_keys, 0/*no check*/);
-      libxs_xfree(registry, 0/*no check*/);
+      { /* release and reset buffers (registry, keys, cache) */
+        libxs_descriptor *const registry_keys = internal_registry_keys;
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-      libxs_xfree(internal_cache_buffer, 0/*no check*/);
+        internal_cache_type *const cache_buffer = internal_cache_buffer;
 # if !defined(NDEBUG)
-      internal_cache_buffer = NULL;
+        internal_cache_buffer = NULL;
 # endif
 #endif
+        internal_registry_keys = NULL; /* make registry keys unavailable */
+        LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
+        LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
+#if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+        libxs_xfree(cache_buffer, 0/*no check*/);
+#endif
+        libxs_xfree(registry_keys, 0/*no check*/);
+        libxs_xfree(registry, 0/*no check*/);
+      }
     }
 #if (0 != LIBXS_SYNC) /* LIBXS_LOCK_RELEASE, but no LIBXS_LOCK_DESTROY */
 # if (1 < INTERNAL_REGLOCK_MAXN)
