@@ -992,10 +992,21 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 #endif
     regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_RELAXED);
     registry = (libxs_code_pointer*)regptr;
-
     if (NULL != registry) {
       libxs_descriptor *const registry_keys = internal_registry_keys;
       unsigned int rest = 0, errors = 0;
+#if defined(LIBXS_TRACE)
+      i = libxs_trace_finalize();
+      if (EXIT_SUCCESS != i && 0 != libxs_verbosity) { /* library code is expected to be mute */
+        fprintf(stderr, "LIBXS ERROR: failed to finalize trace (error #%i)!\n", i);
+      }
+#endif
+#if defined(LIBXS_PERF)
+      libxs_perf_finalize();
+#endif
+      libxs_gemm_finalize();
+      libxs_xcopy_finalize();
+      libxs_dnn_finalize();
       /* make internal registry and keys globally unavailable */
       LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
       internal_registry_keys = NULL;
@@ -1065,18 +1076,6 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
           }
         }
       }
-#if defined(LIBXS_TRACE)
-      i = libxs_trace_finalize();
-      if (EXIT_SUCCESS != i && 0 != libxs_verbosity) { /* library code is expected to be mute */
-        fprintf(stderr, "LIBXS ERROR: failed to finalize trace (error #%i)!\n", i);
-      }
-#endif
-#if defined(LIBXS_PERF)
-      libxs_perf_finalize();
-#endif
-      libxs_gemm_finalize();
-      libxs_xcopy_finalize();
-      libxs_dnn_finalize();
       /* release memory of registry and keys */
       libxs_xfree(registry_keys, 0/*no check*/);
       libxs_xfree(registry, 0/*no check*/);
@@ -1086,7 +1085,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       internal_cache_buffer = NULL;
 # endif
 #endif
-      }
+    }
 #if (0 != LIBXS_SYNC) /* LIBXS_LOCK_RELEASE, but no LIBXS_LOCK_DESTROY */
 # if (1 < INTERNAL_REGLOCK_MAXN)
     for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, &internal_reglock[i].state);
