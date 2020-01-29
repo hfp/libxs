@@ -10,6 +10,7 @@ include/libxs.f
 include/libxs.h
 build
 lib/libxs*
+lib/module
 ide/GPUCache
 ide/_vs*-*.bat
 ide/.vs
@@ -23,6 +24,7 @@ samples/*/*.pdf
 samples/*/*.png
 inspector*
 python
+html
 site
 bin
 tmp
