@@ -340,6 +340,8 @@ ifeq (0,$(GNU))
   endif
   ifeq (__INTEL_COMPILER,$(shell echo "__INTEL_COMPILER" | $(CC) $(ECFLAGS) $(EFLAGS) -E -P - 2>/dev/null))
     ICX = 1
+  else ifneq (,$(filter icx icx2,$(call qndir,$(call which,icx))$(INTEL)))
+    ICX = 2
   endif
 endif
 ICX ?= 0
@@ -1025,6 +1027,8 @@ ifneq (0,$(INTEL))
   endif
   ifeq (0,$(ICX))
     CPEDANTIC += -Wcheck
+  else ifneq (1,$(ICX))
+    CPEDANTIC += -diag-disable 593,1599,2415
   endif
   CPEDANTIC += -diag-disable 177,1419,1572,2547,10382
   CWARNEXTRA = -Wremarks
@@ -1041,8 +1045,10 @@ ifneq (0,$(INTEL))
       CFLAGS += -Wcheck
     endif
   else ifneq (0,$(PEDANTIC))
+    ifneq (,$(filter 0 1,$(ICX)))
     ifeq (0,$(FORCE_CXX))
       CSTD = -std=c89
+    endif
     endif
     CXXFLAGS += $(CPEDANTIC)
     CFLAGS += $(CSTD) $(CPEDANTIC)
@@ -1057,8 +1063,10 @@ ifneq (0,$(INTEL))
       FMFLAGS += -fixed
     endif
   else
+    ifneq (,$(filter 0 1,$(ICX)))
     ifeq (0,$(FORCE_CXX))
       CSTD = -std=c89
+    endif
     endif
     ifeq (,$(strip $(GFC)))
       FCFLAGS += $(FFORM_FLAG)
