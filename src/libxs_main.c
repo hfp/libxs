@@ -804,6 +804,12 @@ LIBXS_API_INTERN void internal_init(void)
         }
       }
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) ((libxs_code_pointer*)new_registry)[i].ptr = NULL;
+      LIBXS_ASSERT(NULL == internal_registry && NULL == internal_registry_keys);
+#if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+      LIBXS_ASSERT(NULL == internal_cache_buffer);
+      internal_cache_buffer = (internal_cache_type*)new_cache;
+#endif
+      internal_registry_keys = (libxs_descriptor*)new_keys; /* prior to registering static kernels */
 #if defined(LIBXS_BUILD) && !defined(LIBXS_DEFAULT_CONFIG)
 #     include <libxs_dispatch.h>
 #endif
@@ -818,12 +824,6 @@ LIBXS_API_INTERN void internal_init(void)
 #endif
       { /* commit the registry buffer and enable global visibility */
         void *const pv_registry = &internal_registry;
-        /*LIBXS_ASSERT(NULL == internal_registry && NULL == internal_registry_keys);*/
-#if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-        /*LIBXS_ASSERT(NULL == internal_cache_buffer);*/
-        internal_cache_buffer = (internal_cache_type*)new_cache;
-#endif
-        internal_registry_keys = (libxs_descriptor*)new_keys;
         LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)((void**)pv_registry, (void*)new_registry, LIBXS_ATOMIC_SEQ_CST);
       }
     }
@@ -1020,7 +1020,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       libxs_xcopy_finalize();
       libxs_gemm_finalize();
       libxs_dnn_finalize();
-      /* reset buffers (registry, keys, cache) */
+      /* coverity[check_return] */
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
       internal_cache_buffer = NULL;
