@@ -356,7 +356,7 @@ typedef enum libxs_atomic_kind {
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #if (0 != LIBXS_SYNC) /** Default lock-kind */
-# define LIBXS_LOCK_DEFAULT LIBXS_LOCK_MUTEX
+# define LIBXS_LOCK_DEFAULT LIBXS_LOCK_SPINLOCK
 # if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && (defined(LIBXS_SYNC_SYSTEM) || 1)
 #   define LIBXS_LOCK_SYSTEM_SPINLOCK
 # endif
