@@ -28,19 +28,23 @@
 #endif
 
 #define LIBXS_MHD_MINMAX(TYPE, DATA, NELEMENTS, PMIN_INOUT, PMAX_INOUT) { \
-  size_t libxs_mhd_minmax_index_; \
   LIBXS_ASSERT(NULL != (PMIN_INOUT) && NULL != (PMAX_INOUT)); \
-  for (libxs_mhd_minmax_index_ = 0; libxs_mhd_minmax_index_ < (NELEMENTS); ++libxs_mhd_minmax_index_) { \
-    TYPE libxs_mhd_minmax_value_; \
-    LIBXS_ASSERT(NULL != (DATA)); \
-    libxs_mhd_minmax_value_ = ((const TYPE*)DATA)[libxs_mhd_minmax_index_]; \
-    if (libxs_mhd_minmax_value_ < *((const TYPE*)PMIN_INOUT)) { \
-      *((TYPE*)PMIN_INOUT) = libxs_mhd_minmax_value_; \
-    } \
-    else if (libxs_mhd_minmax_value_ > *((const TYPE*)PMAX_INOUT)) { \
-      *((TYPE*)PMAX_INOUT) = libxs_mhd_minmax_value_; \
-    } \
+  if (0 < (NELEMENTS)) { \
+    size_t libxs_mhd_minmax_index_ = 0; \
+    do { \
+      TYPE libxs_mhd_minmax_value_; \
+      LIBXS_ASSERT(NULL != (DATA)); \
+      libxs_mhd_minmax_value_ = ((const TYPE*)DATA)[libxs_mhd_minmax_index_]; \
+      if (libxs_mhd_minmax_value_ < *((const TYPE*)PMIN_INOUT)) { \
+        *((TYPE*)PMIN_INOUT) = libxs_mhd_minmax_value_; \
+      } \
+      else if (libxs_mhd_minmax_value_ > *((const TYPE*)PMAX_INOUT)) { \
+        *((TYPE*)PMAX_INOUT) = libxs_mhd_minmax_value_; \
+      } \
+      ++libxs_mhd_minmax_index_; \
+    } while (libxs_mhd_minmax_index_ < (NELEMENTS)); \
   } \
+  else *((TYPE*)PMIN_INOUT) = *((TYPE*)PMAX_INOUT) = 0; \
 }
 
 #define LIBXS_MHD_TYPE_PROMOTE(DST_TYPE, SRC_TYPE) \
@@ -520,7 +524,7 @@ LIBXS_API_INLINE int internal_mhd_minmax(const void* data, size_t nelements,
   libxs_mhd_elemtype type, const void* minval, const void* maxval)
 {
   int result;
-  if ((NULL != data || 0 < nelements) && NULL != minval && NULL != maxval) {
+  if ((NULL != data || 0 == nelements) && NULL != minval && NULL != maxval) {
     result = EXIT_SUCCESS;
     switch (type) {
       case LIBXS_MHD_ELEMTYPE_F64: {
