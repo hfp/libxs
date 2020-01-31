@@ -860,6 +860,8 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       libxs_timer_tickint s0 = libxs_timer_tick_rtc(); /* warm-up */
       libxs_timer_tickint t0 = libxs_timer_tick_tsc(); /* warm-up */
       s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick_tsc(); /* start timing */
+      LIBXS_ASSERT(0 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST));
+      LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
       gid = tid; /* protect initialization */
       { /* construct and initialize locks */
 #if (0 != LIBXS_SYNC)
@@ -961,12 +963,12 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           internal_timer_start = s0;
         }
       }
-      LIBXS_ASSERT(0 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED));
+      LIBXS_ASSERT(1 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST));
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     }
 #if (0 != LIBXS_SYNC)
     else if (gid != tid) { /* avoid recursion */
-      while (0 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) {
+      while (2 > LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) {
 # if 1
         LIBXS_SYNC_YIELD();
 # else
@@ -974,7 +976,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 # endif
       }
     }
-    if (0 != LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED))
+    if (2 <= LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED))
 #endif /*0 != LIBXS_SYNC*/
     internal_init();
   }
