@@ -861,6 +861,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       libxs_timer_tickint t0 = libxs_timer_tick_tsc(); /* warm-up */
       s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick_tsc(); /* start timing */
       LIBXS_ASSERT(0 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST));
+      /* coverity[check_return] */
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
       gid = tid; /* protect initialization */
       { /* construct and initialize locks */
@@ -964,6 +965,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         }
       }
       LIBXS_ASSERT(1 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST));
+      /* coverity[check_return] */
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     }
 #if (0 != LIBXS_SYNC)
