@@ -390,7 +390,7 @@ LIBXS_API_INLINE internal_malloc_info_type* internal_malloc_info(const void* mem
         || pointer == convert.ptr || pointer == result->context
         || pointer >= buffer || NULL == pointer
         || maxsize < result->size || 0 == result->size
-        || 1 >= libxs_ninit /* before checksum calculation */
+        || 0 == libxs_ninit /* before checksum calculation */
 #if !defined(LIBXS_MALLOC_CRC_OFF) /* last check: checksum over info */
 # if defined(LIBXS_MALLOC_CRC_LIGHT)
         || result->hash != LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &result)
@@ -915,7 +915,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t alignment, si
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
   if (
 # if defined(LIBXS_MALLOC_HOOK_INIT)
-    2 <= libxs_ninit &&
+    0 != libxs_ninit &&
 # endif
     NULL != internal_malloc.memalign.ptr)
   {
@@ -942,7 +942,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size)
 # if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
   if (
 #   if defined(LIBXS_MALLOC_HOOK_INIT)
-    2 <= libxs_ninit &&
+    0 != libxs_ninit &&
 #   endif
     NULL != internal_malloc.malloc.ptr)
   {
@@ -968,7 +968,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t num, size_t siz
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
   if (
 # if defined(LIBXS_MALLOC_HOOK_INIT)
-    2 <= libxs_ninit &&
+    0 != libxs_ninit &&
 # endif
     NULL != internal_malloc.calloc.ptr)
   {
@@ -994,7 +994,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_realloc(void* ptr, size_t siz
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
   if (
 # if defined(LIBXS_MALLOC_HOOK_INIT)
-    2 <= libxs_ninit &&
+    0 != libxs_ninit &&
 # endif
     NULL != internal_malloc.realloc.ptr)
   {
@@ -1019,7 +1019,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr)
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
     if (
 # if defined(LIBXS_MALLOC_HOOK_INIT)
-      2 <= libxs_ninit &&
+      0 != libxs_ninit &&
 # endif
       NULL != internal_malloc.free.ptr)
     {

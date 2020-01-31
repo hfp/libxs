@@ -852,65 +852,71 @@ LIBXS_API_INTERN void internal_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)) {
-    libxs_timer_tickint s0, t0;
-    libxs_timer_tick_rtc(); libxs_timer_tick_tsc(); /* warm-up */
-    s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick_tsc(); /* start timing */
-    /* libxs_ninit (1: started, 2: library initialized), invalidate code-TLS */
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST)) {
+    const unsigned int tid = 1 + libxs_get_tid();
+    static unsigned int ninit = 0, gid = 0;
+    LIBXS_ASSERT(0 < tid);
+    /* libxs_ninit (1: initialization started, 2: library initialized, higher: to invalidate code-TLS) */
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&ninit, 1, LIBXS_ATOMIC_SEQ_CST)) {
+      libxs_timer_tickint s0 = libxs_timer_tick_rtc(); /* warm-up */
+      libxs_timer_tickint t0 = libxs_timer_tick_tsc(); /* warm-up */
+      s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick_tsc(); /* start timing */
+      gid = tid; /* protect initialization */
+      { /* construct and initialize locks */
 #if (0 != LIBXS_SYNC)
 # if defined(LIBXS_REGLOCK_TRY)
-      const char *const env_trylock = getenv("LIBXS_TRYLOCK");
+        const char *const env_trylock = getenv("LIBXS_TRYLOCK");
 # endif
-      LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK) attr_global;
+        LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK) attr_global;
 # if (1 < INTERNAL_REGLOCK_MAXN)
-      int i;
-      LIBXS_LOCK_ATTR_TYPE(LIBXS_REGLOCK) attr;
-      LIBXS_LOCK_ATTR_INIT(LIBXS_REGLOCK, &attr);
+        int i;
+        LIBXS_LOCK_ATTR_TYPE(LIBXS_REGLOCK) attr;
+        LIBXS_LOCK_ATTR_INIT(LIBXS_REGLOCK, &attr);
 # elif defined(LIBXS_UNIFY_LOCKS)
-      internal_reglock_ptr = &libxs_lock_global;
+        internal_reglock_ptr = &libxs_lock_global;
 # else
-      static LIBXS_LOCK_TYPE(LIBXS_REGLOCK) internal_reglock;
-      internal_reglock_ptr = &internal_reglock;
-      LIBXS_LOCK_ATTR_TYPE(LIBXS_REGLOCK) attr;
-      LIBXS_LOCK_ATTR_INIT(LIBXS_REGLOCK, &attr);
-      LIBXS_LOCK_INIT(LIBXS_REGLOCK, internal_reglock_ptr, &attr);
-      LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGLOCK, &attr);
+        static LIBXS_LOCK_TYPE(LIBXS_REGLOCK) internal_reglock;
+        internal_reglock_ptr = &internal_reglock;
+        LIBXS_LOCK_ATTR_TYPE(LIBXS_REGLOCK) attr;
+        LIBXS_LOCK_ATTR_INIT(LIBXS_REGLOCK, &attr);
+        LIBXS_LOCK_INIT(LIBXS_REGLOCK, internal_reglock_ptr, &attr);
+        LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGLOCK, &attr);
 # endif
-      LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK, &attr_global);
-      LIBXS_LOCK_INIT(LIBXS_LOCK, &libxs_lock_global, &attr_global);
-      LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK, &attr_global);
-      /* control number of locks needed; LIBXS_TRYLOCK implies only 1 lock */
+        LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK, &attr_global);
+        LIBXS_LOCK_INIT(LIBXS_LOCK, &libxs_lock_global, &attr_global);
+        LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK, &attr_global);
+        /* control number of locks needed; LIBXS_TRYLOCK implies only 1 lock */
 # if defined(LIBXS_REGLOCK_TRY)
-      if (NULL == env_trylock || 0 == *env_trylock)
+        if (NULL == env_trylock || 0 == *env_trylock)
 # endif
-      { /* no LIBXS_TRYLOCK */
+        { /* no LIBXS_TRYLOCK */
 # if defined(LIBXS_VTUNE)
-        internal_reglock_count = 1; /* avoid duplicated kernels */
+          internal_reglock_count = 1; /* avoid duplicated kernels */
 # elif (1 < INTERNAL_REGLOCK_MAXN)
-        const char *const env_nlocks = getenv("LIBXS_NLOCKS");
-        const int reglock_count = (NULL == env_nlocks || 0 == *env_nlocks || 1 > atoi(env_nlocks))
-          ? (INTERNAL_REGLOCK_MAXN) : LIBXS_MIN(atoi(env_nlocks), INTERNAL_REGLOCK_MAXN);
-        internal_reglock_count = LIBXS_LO2POT(reglock_count);
+          const char *const env_nlocks = getenv("LIBXS_NLOCKS");
+          const int reglock_count = (NULL == env_nlocks || 0 == *env_nlocks || 1 > atoi(env_nlocks))
+            ? (INTERNAL_REGLOCK_MAXN) : LIBXS_MIN(atoi(env_nlocks), INTERNAL_REGLOCK_MAXN);
+          internal_reglock_count = LIBXS_LO2POT(reglock_count);
 # else
-        internal_reglock_count = 0;
+          internal_reglock_count = 0;
 # endif
-      }
+        }
 # if defined(LIBXS_REGLOCK_TRY)
-      else { /* LIBXS_TRYLOCK environment variable specified */
-        internal_reglock_count = (0 != atoi(env_trylock) ? 1
+        else { /* LIBXS_TRYLOCK environment variable specified */
+          internal_reglock_count = (0 != atoi(env_trylock) ? 1
 #   if (1 < INTERNAL_REGLOCK_MAXN)
-          : INTERNAL_REGLOCK_MAXN);
+            : INTERNAL_REGLOCK_MAXN);
 #   else
-          : 0);
+            : 0);
 #   endif
-      }
+        }
 # endif
 # if (1 < INTERNAL_REGLOCK_MAXN)
-      LIBXS_ASSERT(1 <= internal_reglock_count);
-      for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_INIT(LIBXS_REGLOCK, &internal_reglock[i].state, &attr);
-      LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGLOCK, &attr);
+        LIBXS_ASSERT(1 <= internal_reglock_count);
+        for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_INIT(LIBXS_REGLOCK, &internal_reglock[i].state, &attr);
+        LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGLOCK, &attr);
 # endif
 #endif
+      }
       { /* determine whether this instance is unique or not */
 #if defined(_WIN32)
         internal_singleton_handle = CreateMutex(NULL, TRUE, "GlobalLIBXS");
@@ -955,23 +961,22 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           internal_timer_start = s0;
         }
       }
+      LIBXS_ASSERT(0 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED));
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     }
 #if (0 != LIBXS_SYNC)
-    else while (1) {
-      if (1 < LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) {
-        internal_init();
-        break;
-      }
+    else if (gid != tid) { /* avoid recursion */
+      while (0 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) {
 # if 1
-      else LIBXS_SYNC_YIELD();
+        LIBXS_SYNC_YIELD();
 # else
-      else LIBXS_SYNC_PAUSE;
+        LIBXS_SYNC_PAUSE;
 # endif
+      }
     }
-#else
-    internal_init();
+    if (0 != LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED))
 #endif /*0 != LIBXS_SYNC*/
+    internal_init();
   }
 }
 
