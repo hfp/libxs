@@ -852,9 +852,12 @@ LIBXS_API_INTERN void internal_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)) {
+    static unsigned int ninit = 0;
+#if (0 != LIBXS_SYNC)
+    static unsigned int gid = 0;
     const unsigned int tid = 1 + libxs_get_tid();
-    static unsigned int ninit = 0, gid = 0;
     LIBXS_ASSERT(0 < tid);
+#endif
     /* libxs_ninit (1: initialization started, 2: library initialized, higher: to invalidate code-TLS) */
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&ninit, 1, LIBXS_ATOMIC_SEQ_CST)) {
       libxs_timer_tickint s0 = libxs_timer_tick_rtc(); /* warm-up */
@@ -863,9 +866,9 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       LIBXS_ASSERT(0 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST));
       /* coverity[check_return] */
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
+#if (0 != LIBXS_SYNC)
       gid = tid; /* protect initialization */
       { /* construct and initialize locks */
-#if (0 != LIBXS_SYNC)
 # if defined(LIBXS_REGLOCK_TRY)
         const char *const env_trylock = getenv("LIBXS_TRYLOCK");
 # endif
@@ -918,8 +921,8 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_INIT(LIBXS_REGLOCK, &internal_reglock[i].state, &attr);
         LIBXS_LOCK_ATTR_DESTROY(LIBXS_REGLOCK, &attr);
 # endif
-#endif
       }
+#endif
       { /* determine whether this instance is unique or not */
 #if defined(_WIN32)
         internal_singleton_handle = CreateMutex(NULL, TRUE, "GlobalLIBXS");
