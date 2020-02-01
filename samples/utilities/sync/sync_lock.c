@@ -113,7 +113,7 @@
   LIBXS_LOCK_ATTR_TYPE(LOCK_KIND) attr; \
   LIBXS_LOCK_TYPE(LOCK_KIND) lock; \
   LIBXS_ASSERT(0 < nt); \
-  fprintf(stdout, "Latency and throughput of %s (%s) for nthreads=%i wratio=%i%% work_r=%i work_w=%i nlat=%i ntpt=%i\n", \
+  printf("Latency and throughput of \"%s\" (%s) for nthreads=%i wratio=%i%% work_r=%i work_w=%i nlat=%i ntpt=%i\n", \
     LIBXS_STRINGIFY(LOCK_KIND), IMPL, NTHREADS, WRATIOPERC, WORK_R, WORK_W, NREPEAT_LAT, NREPEAT_TPT); \
   LIBXS_LOCK_ATTR_INIT(LOCK_KIND, &attr); \
   LIBXS_LOCK_INIT(LOCK_KIND, &lock, &attr); \
@@ -153,6 +153,14 @@ int main(int argc, char* argv[])
   const int work_w = LIBXS_MAX(4 < argc ? atoi(argv[4]) : (10 * work_r), 1);
   const int nlat = LIBXS_MAX(5 < argc ? atoi(argv[5]) : 2000000, 1);
   const int ntpt = LIBXS_MAX(6 < argc ? atoi(argv[6]) : 10000, 1);
+
+  libxs_init();
+  printf("LIBXS: default lock-kind \"%s\" (%s)\n\n", LIBXS_STRINGIFY(LIBXS_LOCK_DEFAULT),
+#if defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
+    "OS-native");
+#else
+    "LIBXS");
+#endif
 
 #if defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
   BENCHMARK(LIBXS_LOCK_SPINLOCK, "OS-native", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
