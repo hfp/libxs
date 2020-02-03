@@ -959,7 +959,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
           const double scale = libxs_timer_duration_rtc(s0, s1) / dt;
           const double diff = LIBXS_DELTA(libxs_timer_scale, scale) / scale;
-          if (10E-6 > diff) {
+          if (25E-6 > diff) {
             libxs_timer_scale = scale;
             internal_timer_start = t0;
           }
