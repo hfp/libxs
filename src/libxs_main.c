@@ -946,25 +946,41 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         libxs_timer_tickint s1, t1;
         libxs_cpuid_x86_info info;
         internal_init(); /* must be first to initialize verbosity, etc. */
+        s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* mid-timing */
         libxs_cpuid_x86(&info);
+        if (0 != info.constant_tsc && t0 != t1) {
+          const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
+          libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / dt;
+        }
         register_termination_proc = atexit(internal_finalize);
+        s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
+        /* set timer-scale and determine start of the "uptime" (shown at termination) */
+        if (0 != info.constant_tsc && t0 != t1 && 0.0 < libxs_timer_scale) {
+          const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
+          const double scale = libxs_timer_duration_rtc(s0, s1) / dt;
+          const double diff = LIBXS_DELTA(libxs_timer_scale, scale) / scale;
+          if (10E-6 > diff) {
+            libxs_timer_scale = scale;
+            internal_timer_start = t0;
+          }
+          else {
+            libxs_timer_scale = 0;
+            internal_timer_start = s0;
+#if 1
+            libxs_se = 1;
+#endif
+          }
+        }
+        else {
+          internal_timer_start = s0;
+        }
         if (0 != libxs_verbosity) { /* library code is expected to be mute */
           if (EXIT_SUCCESS != register_termination_proc) {
             fprintf(stderr, "LIBXS ERROR: failed to register termination procedure!\n");
           }
-          if (0 == info.constant_tsc) {
+          if (0 == libxs_timer_scale) {
             fprintf(stderr, "LIBXS WARNING: timer is maybe not cycle-accurate!\n");
           }
-        }
-        s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
-        /* set timer-scale and determine start of the "uptime" (shown at termination) */
-        if (0 != info.constant_tsc && t0 != t1) { /* no further check needed aka first-time visit */
-          const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
-          libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / dt;
-          internal_timer_start = t0;
-        }
-        else {
-          internal_timer_start = s0;
         }
       }
       LIBXS_ASSERT(1 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST));
