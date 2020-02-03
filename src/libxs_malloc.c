@@ -1911,8 +1911,8 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
             MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | prefault | xflags, -1, 0/*offset*/);
         }
         else { /* executable buffer requested */
-          static /*LIBXS_TLS*/ int fallback = -1;
-          if (0 > (int)LIBXS_ATOMIC_LOAD(&fallback, LIBXS_ATOMIC_RELAXED)) { /* initialize fall-back allocation method */
+          static /*LIBXS_TLS*/ int fallback = -1; /* considers fall-back allocation method */
+          if (0 == libxs_se && 0 > (int)LIBXS_ATOMIC_LOAD(&fallback, LIBXS_ATOMIC_RELAXED)) {
             FILE *const selinux = fopen("/sys/fs/selinux/enforce", "rb");
             const char *const env = getenv("LIBXS_SE");
             if (NULL != selinux) {
