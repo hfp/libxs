@@ -4004,6 +4004,8 @@ LIBXS_API void libxs_release_kernel(const void* jit_kernel)
       }
 #else
       { /* unregister kernel */
+        /* coverity[check_return] */
+        LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
         internal_registry[regindex].ptr = NULL;
 # if !defined(NDEBUG)
         LIBXS_MEMZERO127(internal_registry_keys + regindex);
