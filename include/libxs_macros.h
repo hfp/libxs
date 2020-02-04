@@ -531,9 +531,9 @@
  */
 #if !defined(LIBXS_VLA) && !defined(LIBXS_NO_VLA) && !defined(__PGI) && ( \
     (defined(__STDC_VERSION__) && (199901L/*C99*/ == __STDC_VERSION__ || (!defined(__STDC_NO_VLA__) && 199901L/*C99*/ < __STDC_VERSION__))) || \
-    (defined(__GNUC__) && LIBXS_VERSION2(5, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) && !defined(__STRICT_ANSI__) && !defined(__cplusplus)) /*|| \
+    (defined(__GNUC__) && LIBXS_VERSION2(5, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) && !defined(__STRICT_ANSI__) && !defined(__cplusplus)) || \
     (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32) && !defined(__cplusplus)) || \
-    (defined(__INTEL_COMPILER) && !defined(_WIN32))*/)
+    (defined(__INTEL_COMPILER) && !defined(_WIN32)))
 # define LIBXS_VLA
 #endif
 
