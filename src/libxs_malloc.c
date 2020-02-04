@@ -1898,8 +1898,9 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           }
         }
 # endif
-        alloc_alignment = (NULL == info ? libxs_alignment(size, alignment) : alignment);
-        alloc_size = size + extra_size + sizeof(internal_malloc_info_type) + alloc_alignment - 1;
+        /* make allocated size at least a multiple of the smallest page-size to avoid split-pages (unmap!) */
+        alloc_alignment = libxs_lcm(0 == alignment ? libxs_alignment(size, alignment) : alignment, 4096);
+        alloc_size = LIBXS_UP2(size + extra_size + sizeof(internal_malloc_info_type) + alloc_alignment - 1, alloc_alignment);
         alloc_failed = MAP_FAILED;
         if (0 == (LIBXS_MALLOC_FLAG_X & flags)) { /* anonymous and non-executable */
 # if 0
