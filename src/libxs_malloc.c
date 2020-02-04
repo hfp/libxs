@@ -469,9 +469,8 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
-            const char* const error_message = strerror(errno);
-            fprintf(stderr, "LIBXS ERROR: %s (munmap error #%i for range %p+%" PRIuPTR ")!\n",
-              error_message, errno, buffer, (uintptr_t)alloc_size);
+            fprintf(stderr, "LIBXS ERROR: %s (attempted to unmap buffer %p+%" PRIuPTR ")!\n",
+              strerror(errno), buffer, (uintptr_t)alloc_size);
           }
           result = EXIT_FAILURE;
         }
@@ -482,9 +481,8 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
-            const char* const error_message = strerror(errno);
-            fprintf(stderr, "LIBXS ERROR: %s (munmap error #%i for range %p+%" PRIuPTR ")!\n",
-              error_message, errno, reloc, (uintptr_t)alloc_size);
+            fprintf(stderr, "LIBXS ERROR: %s (attempted to unmap code %p+%" PRIuPTR ")!\n",
+              strerror(errno), reloc, (uintptr_t)alloc_size);
           }
           result = EXIT_FAILURE;
         }
