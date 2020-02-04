@@ -19,6 +19,10 @@
 # define LIBXS_CAPACITY_CACHE 16
 #endif
 
+#if !defined(LIBXS_PAGE_MINSIZE)
+# define LIBXS_PAGE_MINSIZE 4096 /* 4 KB */
+#endif
+
 #if !defined(LIBXS_NTHREADS_MAX)
 # if (0 != LIBXS_SYNC)
 #   define LIBXS_NTHREADS_MAX 1024

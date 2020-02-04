@@ -464,25 +464,26 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
       result = (NULL == buffer || FALSE != VirtualFree(buffer, 0, MEM_RELEASE)) ? EXIT_SUCCESS : EXIT_FAILURE;
 #else /* !_WIN32 */
       {
+        const size_t unmap_size = LIBXS_UP2(alloc_size, LIBXS_PAGE_MINSIZE);
         void* const reloc = info->reloc;
-        if (0 != munmap(buffer, alloc_size)) {
+        if (0 != munmap(buffer, unmap_size)) {
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
             fprintf(stderr, "LIBXS ERROR: %s (attempted to unmap buffer %p+%" PRIuPTR ")!\n",
-              strerror(errno), buffer, (uintptr_t)alloc_size);
+              strerror(errno), buffer, (uintptr_t)unmap_size);
           }
           result = EXIT_FAILURE;
         }
         if (0 != (LIBXS_MALLOC_FLAG_X & flags) && EXIT_SUCCESS == result
           && NULL != reloc && MAP_FAILED != reloc && buffer != reloc
-          && 0 != munmap(reloc, alloc_size))
+          && 0 != munmap(reloc, unmap_size))
         {
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
             fprintf(stderr, "LIBXS ERROR: %s (attempted to unmap code %p+%" PRIuPTR ")!\n",
-              strerror(errno), reloc, (uintptr_t)alloc_size);
+              strerror(errno), reloc, (uintptr_t)unmap_size);
           }
           result = EXIT_FAILURE;
         }
@@ -1899,7 +1900,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
         }
 # endif
         /* make allocated size at least a multiple of the smallest page-size to avoid split-pages (unmap!) */
-        alloc_alignment = libxs_lcm(0 == alignment ? libxs_alignment(size, alignment) : alignment, 4096);
+        alloc_alignment = libxs_lcm(0 == alignment ? libxs_alignment(size, alignment) : alignment, LIBXS_PAGE_MINSIZE);
         alloc_size = LIBXS_UP2(size + extra_size + sizeof(internal_malloc_info_type) + alloc_alignment - 1, alloc_alignment);
         alloc_failed = MAP_FAILED;
         if (0 == (LIBXS_MALLOC_FLAG_X & flags)) { /* anonymous and non-executable */

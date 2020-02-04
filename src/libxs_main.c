@@ -1116,7 +1116,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 #endif
               libxs_xfree(code.ptr_const, 0/*no check*/);
               /* round-up size (it is fine to assume 4 KB pages since it is likely more accurate than not rounding up) */
-              internal_registry_nbytes += (unsigned int)LIBXS_UP2(size + (((char*)code.ptr_const) - (char*)buffer), 4096/*4KB*/);
+              internal_registry_nbytes += LIBXS_UP2(size + (((char*)code.ptr_const) - (char*)buffer), LIBXS_PAGE_MINSIZE);
             }
             else ++internal_registry_nleaks;
           }
@@ -2355,7 +2355,7 @@ LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
 #endif
             result = libxs_get_malloc_xinfo(code.ptr_const, &buffer_size, NULL/*flags*/, &buffer);
             if (EXIT_SUCCESS == result) {
-              info->nbytes += (unsigned int)(buffer_size + (((char*)code.ptr_const) - (char*)buffer));
+              info->nbytes += LIBXS_UP2(buffer_size + (((char*)code.ptr_const) - (char*)buffer), LIBXS_PAGE_MINSIZE);
             }
           }
           else {
