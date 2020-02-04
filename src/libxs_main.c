@@ -80,6 +80,9 @@
 #if !defined(LIBXS_DESC_PAD) && 1
 # define LIBXS_DESC_PAD
 #endif
+#if !defined(LIBXS_AUTOPIN) && 0
+# define LIBXS_AUTOPIN
+#endif
 
 /* flag fused into the memory address of a code version in case of non-JIT */
 #define LIBXS_CODE_STATIC (1ULL << (8 * sizeof(void*) - 1))
@@ -663,7 +666,7 @@ LIBXS_API_INTERN void internal_init(void)
 #endif
     void *new_registry = NULL, *new_keys = NULL;
     const char *const env_verbose = getenv("LIBXS_VERBOSE");
-#if defined(LIBXS_INTERCEPT_DYNAMIC)
+#if defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_AUTOPIN)
     /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
     const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
     const void *const dlsymbol = dlsym(RTLD_NEXT, dlsymname);
@@ -677,10 +680,11 @@ LIBXS_API_INTERN void internal_init(void)
       libxs_verbosity = INT_MAX; /* quiet -> verbose */
     }
 #endif
-#if defined(LIBXS_INTERCEPT_DYNAMIC)
+#if defined(LIBXS_AUTOPIN)
+  #if defined(LIBXS_INTERCEPT_DYNAMIC)
     /* MPI: non-user affinity can slow-down unrelated jobs, e.g., CP2K regtests */
     if (NULL == dlerror() && NULL == dlsymbol)
-#endif
+# endif
     { /* setup some viable affinity if nothing else is present */
       const char *const gomp_cpu_affinity = getenv("GOMP_CPU_AFFINITY");
       const char *const kmp_affinity = getenv("KMP_AFFINITY");
@@ -696,6 +700,7 @@ LIBXS_API_INTERN void internal_init(void)
         }
       }
     }
+#endif
 #if !defined(_WIN32) && 0
     umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
 #endif
