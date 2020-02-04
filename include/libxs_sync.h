@@ -461,8 +461,8 @@ typedef enum libxs_atomic_kind {
 #   endif
 #   define LIBXS_SYNC_YIELD YieldProcessor
 # else
-#   if !defined(__USE_GNU)
-#     define __USE_GNU
+#   if !defined(_GNU_SOURCE) /* pthread_yield */
+#     define _GNU_SOURCE
 #   endif
 #   include <pthread.h>
 #   if defined(__APPLE__) && defined(__MACH__)
