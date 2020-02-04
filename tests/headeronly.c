@@ -6,8 +6,13 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_source.h>
+#if !defined(INCLUDE_LIBXS_LAST)
+# include <libxs_source.h>
+#endif
 #include <stdlib.h>
+#if defined(INCLUDE_LIBXS_LAST)
+# include <libxs_source.h>
+#endif
 
 /* must match definitions in headeronly_aux.c */
 #if !defined(ITYPE)

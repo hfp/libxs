@@ -6,14 +6,18 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs.h>
+#if !defined(INCLUDE_LIBXS_LAST)
+# include <libxs.h>
+#endif
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
 #if defined(_OPENMP)
 # include <omp.h>
+#endif
+#if defined(INCLUDE_LIBXS_LAST)
+# include <libxs.h>
 #endif
 
 #if !defined(MAX_NKERNELS)

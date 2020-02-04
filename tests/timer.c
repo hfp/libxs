@@ -6,10 +6,15 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs.h>
+#if !defined(INCLUDE_LIBXS_LAST)
+# include <libxs.h>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#if defined(INCLUDE_LIBXS_LAST)
+# include <libxs.h>
+#endif
 
 #if !defined(USE_NOINIT)
 # define USE_NOINIT
