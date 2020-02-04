@@ -80,7 +80,7 @@
 #if !defined(LIBXS_DESC_PAD) && 1
 # define LIBXS_DESC_PAD
 #endif
-#if !defined(LIBXS_AUTOPIN) && 0
+#if !defined(LIBXS_AUTOPIN) && 1
 # define LIBXS_AUTOPIN
 #endif
 
