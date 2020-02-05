@@ -655,39 +655,6 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # define LIBXS_MKTEMP_PATTERN "XXXXXX"
 #endif
 
-#if defined(_WIN32) && 0
-# define LIBXS_SNPRINTF(S, N, ...) _snprintf_s(S, N, _TRUNCATE, __VA_ARGS__)
-#elif defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__ || defined(__GNUC__))
-# define LIBXS_SNPRINTF(S, N, ...) snprintf(S, N, __VA_ARGS__)
-#else
-# define LIBXS_SNPRINTF(S, N, ...) sprintf((S) + /*unused*/(N) * 0, __VA_ARGS__)
-#endif
-#if defined(_WIN32)
-# define LIBXS_PUTENV _putenv
-# define LIBXS_SETENV(NAME, VALUE, OVERWRITE) \
-    if (NULL == getenv(NAME) || (OVERWRITE)) LIBXS_PUTENV(NAME "=" VALUE)
-#else
-# define LIBXS_PUTENV putenv
-# define LIBXS_SETENV setenv
-#endif
-#if (0 == LIBXS_SYNC)
-# define LIBXS_FLOCK(FILE)
-# define LIBXS_FUNLOCK(FILE)
-#elif defined(_WIN32)
-# define LIBXS_FLOCK(FILE) _lock_file(FILE)
-# define LIBXS_FUNLOCK(FILE) _unlock_file(FILE)
-#elif !defined(__CYGWIN__)
-# define LIBXS_FLOCK(FILE) flockfile(FILE)
-# define LIBXS_FUNLOCK(FILE) funlockfile(FILE)
-#else /* Only available with __CYGWIN__ *and* C++0x. */
-# define LIBXS_FLOCK(FILE)
-# define LIBXS_FUNLOCK(FILE)
-#endif
-
-/** Synchronize console output */
-#define LIBXS_STDIO_ACQUIRE() LIBXS_FLOCK(stdout); LIBXS_FLOCK(stderr)
-#define LIBXS_STDIO_RELEASE() LIBXS_FUNLOCK(stderr); LIBXS_FUNLOCK(stdout)
-
 /** Below group is to fix-up some platform/compiler specifics. */
 #if defined(_WIN32)
 # if !defined(_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES)
@@ -752,6 +719,24 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
+
+#if (0 == LIBXS_SYNC)
+# define LIBXS_FLOCK(FILE)
+# define LIBXS_FUNLOCK(FILE)
+#elif defined(_WIN32)
+# include <windows.h>
+# define LIBXS_FLOCK(FILE) _lock_file(FILE)
+# define LIBXS_FUNLOCK(FILE) _unlock_file(FILE)
+#else
+# include <pthread.h>
+# if !defined(__CYGWIN__)
+#   define LIBXS_FLOCK(FILE) flockfile(FILE)
+#   define LIBXS_FUNLOCK(FILE) funlockfile(FILE)
+# else /* Only available with __CYGWIN__ *and* C++0x. */
+#   define LIBXS_FLOCK(FILE)
+#   define LIBXS_FUNLOCK(FILE)
+# endif
+#endif
 #if !defined(LIBXS_ASSERT)
 # include <assert.h>
 # if defined(NDEBUG)
@@ -781,11 +766,34 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #else
 # define LIBXS_EXPECT_DEBUG LIBXS_EXPECT_ELIDE
 #endif
+#if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
+# include <omp.h>
+#endif
 #include <stddef.h>
 #include <stdint.h>
+
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
+
+#if defined(_WIN32) && 0
+# define LIBXS_SNPRINTF(S, N, ...) _snprintf_s(S, N, _TRUNCATE, __VA_ARGS__)
+#elif defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__ || defined(__GNUC__))
+# define LIBXS_SNPRINTF(S, N, ...) snprintf(S, N, __VA_ARGS__)
+#else
+# define LIBXS_SNPRINTF(S, N, ...) sprintf((S) + /*unused*/(N) * 0, __VA_ARGS__)
+#endif
+#if defined(_WIN32)
+# define LIBXS_PUTENV _putenv
+# define LIBXS_SETENV(NAME, VALUE, OVERWRITE) \
+    if (NULL == getenv(NAME) || (OVERWRITE)) LIBXS_PUTENV(NAME "=" VALUE)
+#else
+# define LIBXS_PUTENV putenv
+# define LIBXS_SETENV setenv
+#endif
+/** Synchronize console output */
+#define LIBXS_STDIO_ACQUIRE() LIBXS_FLOCK(stdout); LIBXS_FLOCK(stderr)
+#define LIBXS_STDIO_RELEASE() LIBXS_FUNLOCK(stderr); LIBXS_FUNLOCK(stdout)
 
 /* block must be after including above header files */
 #if (defined(__GLIBC__) && defined(__GLIBC_MINOR__) && LIBXS_VERSION2(__GLIBC__, __GLIBC_MINOR__) < LIBXS_VERSION2(2, 26)) \
