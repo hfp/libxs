@@ -352,9 +352,6 @@ typedef enum libxs_atomic_kind {
     LIBXS_SYNC_CYCLE_ELSE(DST_PTR, EXP_STATE, NPAUSE, /*else*/;)
 #endif
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #if (0 != LIBXS_SYNC) /** Default lock-kind */
 # define LIBXS_LOCK_DEFAULT LIBXS_LOCK_SPINLOCK
 # if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && (defined(LIBXS_SYNC_SYSTEM) || 1)
@@ -399,7 +396,6 @@ typedef enum libxs_atomic_kind {
 #   endif
 # endif
 # if defined(LIBXS_WIN32_THREADS)
-#   include <windows.h>
 #   define LIBXS_LOCK_SPINLOCK spin
 #   define LIBXS_LOCK_MUTEX mutex
 #   define LIBXS_LOCK_RWLOCK rwlock
@@ -461,7 +457,6 @@ typedef enum libxs_atomic_kind {
 #   endif
 #   define LIBXS_SYNC_YIELD YieldProcessor
 # else
-#   include <pthread.h>
 #   if defined(__APPLE__) && defined(__MACH__)
 #     define LIBXS_PTHREAD_FN(FN) LIBXS_CONCATENATE(FN, _np)
 #   else
@@ -544,9 +539,6 @@ typedef enum libxs_atomic_kind {
 /* OpenMP based locks need to stay disabled unless both
  * libxs and libxsext are built with OpenMP support.
  */
-# if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
-#   include <omp.h>
-# endif
 # if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
 #   if 1 /* directly based on atomic primitives */
 #     define LIBXS_LOCK_TYPE_ISPOD_spin 1
@@ -697,9 +689,6 @@ typedef enum libxs_atomic_kind {
 # define LIBXS_LOCK_TRYREAD(KIND, LOCK) LIBXS_LOCK_TRYLOCK(KIND, LOCK)
 # define LIBXS_LOCK_ACQREAD(KIND, LOCK) LIBXS_LOCK_ACQUIRE(KIND, LOCK)
 # define LIBXS_LOCK_RELREAD(KIND, LOCK) LIBXS_LOCK_RELEASE(KIND, LOCK)
-#endif
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
 #endif
 
 
