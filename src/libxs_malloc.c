@@ -28,11 +28,6 @@
 #   define LIBXS_MALLOC_GLIBC 6
 # endif
 #endif
-#if defined(__THROW) && defined(__cplusplus)
-# define LIBXS_THROW __THROW
-#else
-# define LIBXS_THROW
-#endif
 #if defined(_WIN32)
 # include <windows.h>
 # include <malloc.h>

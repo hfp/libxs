@@ -9,7 +9,7 @@
 
 #include "libxs_main.h"
 
-#if !defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(_GNU_SOURCE)
+#if !defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
 # define LIBXS_SYNC_FUTEX
 #endif
 
@@ -23,7 +23,7 @@
 # include <windows.h>
 # include <process.h>
 #else
-# if defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(_GNU_SOURCE)
+# if defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
 #   include <linux/futex.h>
 # endif
 # include <unistd.h>
@@ -390,7 +390,7 @@ LIBXS_API void libxs_spinlock_release(libxs_spinlock* spinlock)
 
 #if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
 typedef LIBXS_LOCK_TYPE(LIBXS_LOCK_MUTEX) libxs_mutex_state;
-#elif defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(_GNU_SOURCE)
+#elif defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
 typedef int libxs_mutex_state;
 #else
 typedef char libxs_mutex_state;
@@ -499,7 +499,7 @@ LIBXS_API void libxs_mutex_release(libxs_mutex* mutex)
   LIBXS_LOCK_RELEASE(LIBXS_LOCK_MUTEX, &mutex->impl);
 # else
   LIBXS_ATOMIC_SYNC(LIBXS_ATOMIC_SEQ_CST);
-#   if defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(_GNU_SOURCE)
+#   if defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
   if (INTERNAL_SYNC_LOCK_CONTESTED == LIBXS_ATOMIC_FETCH_SUB(&mutex->state, 1, LIBXS_ATOMIC_RELAXED)) {
     mutex->state = INTERNAL_SYNC_LOCK_FREE;
     syscall(INTERNAL_SYNC_FUTEX, &mutex->state, FUTEX_WAKE, 1, NULL, NULL, 0);
