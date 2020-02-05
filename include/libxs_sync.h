@@ -461,6 +461,9 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_PTHREAD_FN(FN) LIBXS_CONCATENATE(FN, _np)
 #   else
 #     define LIBXS_PTHREAD_FN(FN) FN
+#     if !defined(__USE_GNU)
+      extern int pthread_yield(void) LIBXS_THROW;
+#     endif
 #   endif
 #   define LIBXS_SYNC_YIELD LIBXS_PTHREAD_FN(pthread_yield)
 #   if defined(__APPLE__) && defined(__MACH__) && \

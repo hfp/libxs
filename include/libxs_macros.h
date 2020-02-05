@@ -684,7 +684,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   endif
 # endif
 #endif
-#if !defined(_GNU_SOURCE) /*&& defined(__GNUC__)*/
+#if !defined(_GNU_SOURCE)
 # define _GNU_SOURCE
 #endif
 #if !defined(__STDC_FORMAT_MACROS)
@@ -790,6 +790,11 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #else
 # define LIBXS_PUTENV putenv
 # define LIBXS_SETENV setenv
+#endif
+#if defined(__THROW) && defined(__cplusplus)
+# define LIBXS_THROW __THROW
+#else
+# define LIBXS_THROW
 #endif
 /** Synchronize console output */
 #define LIBXS_STDIO_ACQUIRE() LIBXS_FLOCK(stdout); LIBXS_FLOCK(stderr)
