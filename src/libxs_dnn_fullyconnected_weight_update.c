@@ -588,7 +588,12 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_ncnc_kcck_f32_f32(libxs_dnn_full
   element_input_type beta = (element_input_type)0;
   int l_flags = LIBXS_GEMM_FLAGS('N', 'T');
 
-  if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+  if ( (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE)         ||
+       (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS)         ||
+       (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_RELU)         ||
+       (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID)      ||
+       (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU)    ||
+       (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID)    ) {
     libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bk, handle->bc, handle->bn, &lda, &ldb, &ldc, &alpha, &beta, &l_flags, NULL);
 #   include "template/libxs_dnn_fullyconnected_st_upd_ncnc_kcck_generic.tpl.c"
   } else {
@@ -776,7 +781,12 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_upd_ncnc_kcck(libxs
       element_input_type beta = (element_input_type)0;
       int l_flags = LIBXS_GEMM_FLAGS('N', 'T');
 
-      if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+      if ( (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE)         ||
+           (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS)         ||
+           (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_RELU)         ||
+           (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID)      ||
+           (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU)    ||
+           (handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID)    ) {
         libxs_smmfunction_reducebatch_addr batchreduce_kernel = libxs_smmdispatch_reducebatch_addr(handle->bk, handle->bc, handle->bn, &lda, &ldb, &ldc, &alpha, &beta, &l_flags, NULL);
 #       include "template/libxs_dnn_fullyconnected_st_upd_ncnc_kcck_generic.tpl.c"
       } else {
