@@ -10,6 +10,12 @@
 #define LIBXS_MAIN_H
 
 #include <libxs.h>
+/**
+ * TF includes src/libxs_main.h and uses LIBXS's sync primitives
+ * without including libxs_sync. However, libxs_sync.h shall be
+ * an explicit include separate from including libxs.h.
+ */
+#include "libxs_sync.h"
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
 #if !defined(LIBXS_CAPACITY_REGISTRY) /* must be POT */
@@ -55,6 +61,21 @@
   !(defined(__APPLE__) && defined(__MACH__) && LIBXS_VERSION3(6, 1, 0) >= \
     LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
 # define LIBXS_INTERCEPT_DYNAMIC
+#endif
+
+#if defined(LIBXS_INTERCEPT_DYNAMIC)
+# if defined(LIBXS_OFFLOAD_TARGET)
+#   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+# endif
+# include <dlfcn.h>
+# if defined(LIBXS_OFFLOAD_TARGET)
+#   pragma offload_attribute(pop)
+# endif
+# if !defined(RTLD_NEXT)
+#   define LIBXS_RTLD_NEXT ((void*)-1l)
+# else
+#   define LIBXS_RTLD_NEXT RTLD_NEXT
+# endif
 #endif
 
 #if !defined(LIBXS_VERBOSITY_HIGH)

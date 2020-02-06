@@ -16,24 +16,16 @@
 # include "libxs_perf.h"
 #endif
 #include "generator_common.h"
-#include <libxs_intrinsics_x86.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-/* mute warning about target attribute; KNC/native plus JIT is disabled below! */
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 #if !defined(NDEBUG)
 # include <errno.h>
 #endif
 #if defined(_WIN32)
 # include <Windows.h>
 #else
-# if defined(LIBXS_INTERCEPT_DYNAMIC)
-#   include <dlfcn.h>
-# endif
 # include <sys/types.h>
 # include <sys/mman.h>
 # include <sys/stat.h>
@@ -82,6 +74,10 @@
 #endif
 #if !defined(LIBXS_AUTOPIN) && 1
 # define LIBXS_AUTOPIN
+#endif
+
+#if defined(LIBXS_AUTOPIN) && !defined(_WIN32)
+LIBXS_EXTERN int putenv(char*) LIBXS_THROW;
 #endif
 
 /* flag fused into the memory address of a code version in case of non-JIT */
@@ -577,7 +573,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void _gfortran_stop_string(const char* message, i
   if (1 == LIBXS_ATOMIC_ADD_FETCH(&once, 1, LIBXS_ATOMIC_RELAXED)) {
     union { const void* dlsym; void (*ptr)(const char*, int, int); } stop;
     dlerror(); /* clear an eventual error status */
-    stop.dlsym = dlsym(RTLD_NEXT, "_gfortran_stop_string");
+    stop.dlsym = dlsym(LIBXS_RTLD_NEXT, "_gfortran_stop_string");
     if (NULL != stop.dlsym) {
       stop.ptr(message, len, quiet);
     }
@@ -592,7 +588,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core(const char* message, int len)
   if (1 == LIBXS_ATOMIC_ADD_FETCH(&once, 1, LIBXS_ATOMIC_RELAXED)) {
     union { const void* dlsym; void (*ptr)(const char*, int); } stop;
     dlerror(); /* clear an eventual error status */
-    stop.dlsym = dlsym(RTLD_NEXT, "for_stop_core");
+    stop.dlsym = dlsym(LIBXS_RTLD_NEXT, "for_stop_core");
     if (NULL != stop.dlsym) {
       stop.ptr(message, len);
     }
@@ -607,7 +603,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void)
   if (1 == LIBXS_ATOMIC_ADD_FETCH(&once, 1, LIBXS_ATOMIC_RELAXED)) {
     union { const void* dlsym; void (*ptr)(void); } stop;
     dlerror(); /* clear an eventual error status */
-    stop.dlsym = dlsym(RTLD_NEXT, "for_stop_core_quiet");
+    stop.dlsym = dlsym(LIBXS_RTLD_NEXT, "for_stop_core_quiet");
     if (NULL != stop.dlsym) {
       stop.ptr();
     }
@@ -669,7 +665,7 @@ LIBXS_API_INTERN void internal_init(void)
 #if defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_AUTOPIN)
     /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
     const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
-    const void *const dlsymbol = dlsym(RTLD_NEXT, dlsymname);
+    const void *const dlsymbol = dlsym(LIBXS_RTLD_NEXT, dlsymname);
 #endif
     /* setup verbosity as early as possible since below code may rely on verbose output */
     if (NULL != env_verbose && 0 != *env_verbose) {
@@ -694,7 +690,11 @@ LIBXS_API_INTERN void internal_init(void)
         && (NULL == omp_proc_bind || 0 == *omp_proc_bind))
       {
         static char affinity[] = "OMP_PROC_BIND=TRUE";
-        LIBXS_EXPECT(EXIT_SUCCESS, LIBXS_PUTENV(affinity));
+#if defined(_WIN32)
+        LIBXS_EXPECT(EXIT_SUCCESS, _putenv(affinity));
+#else
+        LIBXS_EXPECT(EXIT_SUCCESS, putenv(affinity));
+#endif
         if (LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) { /* library code is expected to be mute */
           fprintf(stderr, "LIBXS: prepared to pin threads.\n");
         }

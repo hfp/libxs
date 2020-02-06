@@ -354,13 +354,15 @@ typedef enum libxs_atomic_kind {
 
 #if (0 != LIBXS_SYNC) /** Default lock-kind */
 # define LIBXS_LOCK_DEFAULT LIBXS_LOCK_SPINLOCK
-# if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && (defined(LIBXS_SYNC_SYSTEM) || 1)
+# if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) /*&& defined(LIBXS_SYNC_SYSTEM)*/ && \
+    (!defined(__linux__) || defined(__USE_XOPEN2K))
 #   define LIBXS_LOCK_SYSTEM_SPINLOCK
 # endif
 # if !defined(LIBXS_LOCK_SYSTEM_MUTEX) && (defined(LIBXS_SYNC_SYSTEM) || !defined(_MSC_VER))
 #   define LIBXS_LOCK_SYSTEM_MUTEX
 # endif
-# if !defined(LIBXS_LOCK_SYSTEM_RWLOCK) && (defined(LIBXS_SYNC_SYSTEM) || 1)
+# if !defined(LIBXS_LOCK_SYSTEM_RWLOCK) /*&& defined(LIBXS_SYNC_SYSTEM)*/ && \
+    (!defined(__linux__) || defined(__USE_XOPEN2K) || defined(__USE_UNIX98))
 #   define LIBXS_LOCK_SYSTEM_RWLOCK
 # endif
   /* Lock type, initialization, destruction, (try-)lock, unlock, etc */
@@ -461,8 +463,10 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_PTHREAD_FN(FN) LIBXS_CONCATENATE(FN, _np)
 #   else
 #     define LIBXS_PTHREAD_FN(FN) FN
-#     if !defined(__USE_GNU)
-      extern int pthread_yield(void) LIBXS_THROW;
+#     if defined(__USE_GNU) || !defined(__BSD_VISIBLE)
+      LIBXS_EXTERN int pthread_yield(void) LIBXS_THROW;
+#     else
+      LIBXS_EXTERN void pthread_yield(void);
 #     endif
 #   endif
 #   define LIBXS_SYNC_YIELD LIBXS_PTHREAD_FN(pthread_yield)
@@ -693,6 +697,28 @@ typedef enum libxs_atomic_kind {
 # define LIBXS_LOCK_ACQREAD(KIND, LOCK) LIBXS_LOCK_ACQUIRE(KIND, LOCK)
 # define LIBXS_LOCK_RELREAD(KIND, LOCK) LIBXS_LOCK_RELEASE(KIND, LOCK)
 #endif
+
+#if (0 == LIBXS_SYNC)
+# define LIBXS_FLOCK(FILE)
+# define LIBXS_FUNLOCK(FILE)
+#elif defined(_WIN32)
+# define LIBXS_FLOCK(FILE) _lock_file(FILE)
+# define LIBXS_FUNLOCK(FILE) _unlock_file(FILE)
+#else
+# if !defined(__CYGWIN__)
+#   define LIBXS_FLOCK(FILE) flockfile(FILE)
+#   define LIBXS_FUNLOCK(FILE) funlockfile(FILE)
+    LIBXS_EXTERN void flockfile(FILE*) LIBXS_THROW;
+    LIBXS_EXTERN void funlockfile(FILE*) LIBXS_THROW;
+# else /* Only available with __CYGWIN__ *and* C++0x. */
+#   define LIBXS_FLOCK(FILE)
+#   define LIBXS_FUNLOCK(FILE)
+# endif
+#endif
+
+/** Synchronize console output */
+#define LIBXS_STDIO_ACQUIRE() LIBXS_FLOCK(stdout); LIBXS_FLOCK(stderr)
+#define LIBXS_STDIO_RELEASE() LIBXS_FUNLOCK(stderr); LIBXS_FUNLOCK(stdout)
 
 
 /** Opaque type which represents a barrier. */

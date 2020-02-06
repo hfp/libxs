@@ -12,17 +12,6 @@
 #include "libxs_typedefs.h"
 #include "libxs_dnn.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <stdlib.h>
-#if !defined(NDEBUG)
-# include <stdio.h>
-#endif
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
-
 /** Opaque handles which represents convolutions and LIBXS datatypes */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_tensor libxs_dnn_tensor;
 

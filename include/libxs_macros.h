@@ -684,7 +684,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   endif
 # endif
 #endif
-#if !defined(_GNU_SOURCE)
+#if !defined(_GNU_SOURCE) && 0
 # define _GNU_SOURCE
 #endif
 #if !defined(__STDC_FORMAT_MACROS)
@@ -720,21 +720,11 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 
-#if (0 == LIBXS_SYNC)
-# define LIBXS_FLOCK(FILE)
-# define LIBXS_FUNLOCK(FILE)
-#elif defined(_WIN32)
-# include <windows.h>
-# define LIBXS_FLOCK(FILE) _lock_file(FILE)
-# define LIBXS_FUNLOCK(FILE) _unlock_file(FILE)
-#else
-# include <pthread.h>
-# if !defined(__CYGWIN__)
-#   define LIBXS_FLOCK(FILE) flockfile(FILE)
-#   define LIBXS_FUNLOCK(FILE) funlockfile(FILE)
-# else /* Only available with __CYGWIN__ *and* C++0x. */
-#   define LIBXS_FLOCK(FILE)
-#   define LIBXS_FUNLOCK(FILE)
+#if (0 != LIBXS_SYNC)
+# if defined(_WIN32)
+#   include <windows.h>
+# else
+#   include <pthread.h>
 # endif
 #endif
 #if !defined(LIBXS_ASSERT)
@@ -769,8 +759,12 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
 # include <omp.h>
 #endif
-#include <stddef.h>
+#include <inttypes.h>
 #include <stdint.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
@@ -783,22 +777,18 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #else
 # define LIBXS_SNPRINTF(S, N, ...) sprintf((S) + /*unused*/(N) * 0, __VA_ARGS__)
 #endif
-#if defined(_WIN32)
-# define LIBXS_PUTENV _putenv
-# define LIBXS_SETENV(NAME, VALUE, OVERWRITE) \
-    if (NULL == getenv(NAME) || (OVERWRITE)) LIBXS_PUTENV(NAME "=" VALUE)
-#else
-# define LIBXS_PUTENV putenv
-# define LIBXS_SETENV setenv
-#endif
 #if defined(__THROW) && defined(__cplusplus)
 # define LIBXS_THROW __THROW
-#else
+#endif
+#if !defined(LIBXS_THROW)
 # define LIBXS_THROW
 #endif
-/** Synchronize console output */
-#define LIBXS_STDIO_ACQUIRE() LIBXS_FLOCK(stdout); LIBXS_FLOCK(stderr)
-#define LIBXS_STDIO_RELEASE() LIBXS_FUNLOCK(stderr); LIBXS_FUNLOCK(stdout)
+#if defined(__GNUC__) && LIBXS_VERSION2(4, 2) == LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) && \
+  !defined(__clang__) && !defined(__PGI) && !defined(__INTEL_COMPILER) && !defined(_CRAYC)
+# define LIBXS_NOTHROW LIBXS_THROW
+#else
+# define LIBXS_NOTHROW
+#endif
 
 /* block must be after including above header files */
 #if (defined(__GLIBC__) && defined(__GLIBC_MINOR__) && LIBXS_VERSION2(__GLIBC__, __GLIBC_MINOR__) < LIBXS_VERSION2(2, 26)) \

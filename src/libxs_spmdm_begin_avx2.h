@@ -6,7 +6,6 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-
 #if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
 # error "libxs_intrinsics_x86.h not included!"
 #endif

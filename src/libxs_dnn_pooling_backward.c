@@ -7,14 +7,11 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "libxs_dnn_pooling_backward.h"
-#include <libxs_intrinsics_x86.h>
 #include "libxs_main.h"
-#include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#include <string.h>
 #include <float.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)

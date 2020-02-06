@@ -7,18 +7,9 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "libxs_dnn_fullyconnected_forward.h"
-#include <libxs_intrinsics_x86.h>
 #include "libxs_main.h"
-#include <libxs.h>
-#define STRIDE_BRGEMM
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <string.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
+#define STRIDE_BRGEMM
 
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_custom_f32_f32(libxs_dnn_fullyconnected* handle, int start_thread, int tid);
