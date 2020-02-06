@@ -102,11 +102,8 @@ LIBXS_API float libxs_sexp2_i8(signed char x);
 /** Similar to libxs_sexp2_i8, but takes an integer as signed 8-bit value (check). */
 LIBXS_API float libxs_sexp2_i8i(int x);
 
-/**
- * inlineable fast tanh
- * we do a static global definition such that a the compiler can inline and potentially vectorize
- * */
-static float libxs_stanh_pade78( float i_x ) {
+/** Inlineable fast tanh, such that a the compiler can potentially vectorize. */
+LIBXS_API_INLINE float libxs_stanh_pade78( float i_x ) {
   const float l_c0       = 2027025.0f;
   const float l_c1       = 270270.0f;
   const float l_c2       = 6930.0f;
