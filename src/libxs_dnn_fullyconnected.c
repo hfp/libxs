@@ -287,6 +287,13 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
 
         }
       } else {
+        /* check that we cannot fuse */
+        if ( handle->desc.fuse_ops != LIBXS_DNN_FULLYCONNECTED_FUSE_NONE  ) {
+          free( handle );
+          *status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
+          return 0;
+        }
+
         /* we need to compute the memory layout given the */
         if ( (handle->desc.C % 16 == 0) && (handle->desc.K % 16 == 0) ) {
           if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
@@ -447,7 +454,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
       memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
 
       if ( (type == LIBXS_DNN_REGULAR_INPUT)     || (type == LIBXS_DNN_GRADIENT_INPUT)  || (type == LIBXS_DNN_INPUT)  ||
-          (type == LIBXS_DNN_REGULAR_OUTPUT)    || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT)    ) {
+           (type == LIBXS_DNN_REGULAR_OUTPUT)    || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT)    ) {
         layout->format = handle->desc.buffer_format;
         if ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) {
           if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
@@ -786,6 +793,60 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
           layout = 0; /* make sure a NULL is returned */
           *status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }
+      } else if ( (type == LIBXS_DNN_REGULAR_CHANNEL_BIAS) || (type == LIBXS_DNN_GRADIENT_CHANNEL_BIAS) || (type == LIBXS_DNN_CHANNEL_BIAS) ) {
+        layout->format = handle->desc.buffer_format;
+        layout->tensor_type = LIBXS_DNN_CHANNEL_SCALAR;
+
+        if ( ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) || ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NCPACKED) > 0) ) {
+          if ( (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) || (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
+            layout->datatype = LIBXS_DNN_DATATYPE_F32;
+            layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(2*sizeof(libxs_dnn_tensor_dimtype));
+            layout->dim_size = (unsigned int*) malloc(2*sizeof(unsigned int));
+
+            if (0 != layout->dim_type && 0 != layout->dim_size) { /* TODO: handle the error */
+              layout->num_dims = 2;
+              layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
+              layout->dim_size[0] = handle->ofmblock;
+              layout->dim_size[1] = handle->blocksofm;
+            } else {
+              free(layout->dim_type);
+              free(layout->dim_size);
+              free(layout);
+              layout = 0; /* make sure a NULL is returned */
+              *status = LIBXS_DNN_ERR_CREATE_LAYOUT_ARRAYS;
+            }
+          }
+        } else {
+          free(layout);
+          layout = 0; /* make sure a NULL is returned */
+          *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
+        }
+      } else if ( (type == LIBXS_DNN_RELU_MASK) ) {
+        layout->format = handle->desc.buffer_format;
+        layout->tensor_type = LIBXS_DNN_RELU_MASK;
+
+        if ( (handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NCPACKED) > 0) {
+          layout->datatype = LIBXS_DNN_DATATYPE_I8;
+          layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(1*sizeof(libxs_dnn_tensor_dimtype));
+          layout->dim_size = (unsigned int*) malloc(1*sizeof(unsigned int));
+
+          if (0 != layout->dim_type && 0 != layout->dim_size) {
+            layout->num_dims = 1;
+            layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_X;
+            layout->dim_size[0] = handle->desc.N * handle->desc.K;
+          } else {
+            free(layout->dim_type);
+            free(layout->dim_size);
+            free(layout);
+            layout = 0; /* make sure a NULL is returned */
+            *status = LIBXS_DNN_ERR_CREATE_LAYOUT_ARRAYS;
+          }
+        } else {
+          free(layout);
+          layout = 0; /* make sure a NULL is returned */
+          *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
+        }
       } else {
         free(layout);
         layout = 0; /* make sure a NULL is returned */
@@ -873,9 +934,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_bind_tensor(libxs_dnn_fullyco
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check for tensor type */
-  if ( (type != LIBXS_DNN_REGULAR_INPUT)  && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
-      (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
-      (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER)    ) {
+  if ( (type != LIBXS_DNN_REGULAR_INPUT)        && (type != LIBXS_DNN_GRADIENT_INPUT)        &&
+       (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT)       &&
+       (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER)       &&
+       (type != LIBXS_DNN_REGULAR_CHANNEL_BIAS) && (type != LIBXS_DNN_GRADIENT_CHANNEL_BIAS) &&
+       (type != LIBXS_DNN_RELU_MASK)  ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -896,6 +959,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_bind_tensor(libxs_dnn_fullyco
         handle->reg_filter = (libxs_dnn_tensor*)tensor;
       } else if ( type == LIBXS_DNN_GRADIENT_FILTER ) {
         handle->grad_filter = (libxs_dnn_tensor*)tensor;
+      } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BIAS ) {
+        handle->reg_bias = (libxs_dnn_tensor*)tensor;
+      } else if ( type == LIBXS_DNN_GRADIENT_CHANNEL_BIAS ) {
+        handle->grad_bias = (libxs_dnn_tensor*)tensor;
+      } else if ( type == LIBXS_DNN_RELU_MASK ) {
+        handle->relumask = (libxs_dnn_tensor*)tensor;
       } else {
         /* cannot happen */
       }
@@ -919,9 +988,11 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_fullyconnected_get_tensor(libxs_dnn_fullyc
   *status = LIBXS_DNN_SUCCESS;
 
   /* check for tensor type */
-  if ( (type != LIBXS_DNN_REGULAR_INPUT)  && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
-      (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
-      (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER)    ) {
+  if ( (type != LIBXS_DNN_REGULAR_INPUT)        && (type != LIBXS_DNN_GRADIENT_INPUT)        &&
+       (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT)       &&
+       (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER)       &&
+       (type != LIBXS_DNN_REGULAR_CHANNEL_BIAS) && (type != LIBXS_DNN_GRADIENT_CHANNEL_BIAS) &&
+       (type != LIBXS_DNN_RELU_MASK)  ) {
     *status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return return_tensor;
   }
@@ -939,6 +1010,12 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_fullyconnected_get_tensor(libxs_dnn_fullyc
       return_tensor = handle->reg_filter;
     } else if ( type == LIBXS_DNN_GRADIENT_FILTER ) {
       return_tensor = handle->grad_filter;
+    } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BIAS ) {
+      return_tensor = handle->reg_bias;
+    } else if ( type == LIBXS_DNN_GRADIENT_CHANNEL_BIAS ) {
+      return_tensor = handle->grad_bias;
+    } else if ( type == LIBXS_DNN_RELU_MASK ) {
+      return_tensor = handle->relumask;
     } else {
       /* cannot happen */
     }
@@ -954,9 +1031,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_release_tensor(libxs_dnn_full
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check for tensor type */
-  if ( (type != LIBXS_DNN_REGULAR_INPUT)  && (type != LIBXS_DNN_GRADIENT_INPUT)  &&
-      (type != LIBXS_DNN_REGULAR_OUTPUT) && (type != LIBXS_DNN_GRADIENT_OUTPUT) &&
-      (type != LIBXS_DNN_REGULAR_FILTER) && (type != LIBXS_DNN_GRADIENT_FILTER)    ) {
+  if ( (type != LIBXS_DNN_REGULAR_INPUT)        && (type != LIBXS_DNN_GRADIENT_INPUT)        &&
+       (type != LIBXS_DNN_REGULAR_OUTPUT)       && (type != LIBXS_DNN_GRADIENT_OUTPUT)       &&
+       (type != LIBXS_DNN_REGULAR_FILTER)       && (type != LIBXS_DNN_GRADIENT_FILTER)       &&
+       (type != LIBXS_DNN_REGULAR_CHANNEL_BIAS) && (type != LIBXS_DNN_GRADIENT_CHANNEL_BIAS) &&
+       (type != LIBXS_DNN_RELU_MASK)  ) {
     status = LIBXS_DNN_ERR_UNKNOWN_TENSOR_TYPE;
     return status;
   }
@@ -974,6 +1053,12 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_release_tensor(libxs_dnn_full
       handle->reg_filter = 0;
     } else if ( type == LIBXS_DNN_GRADIENT_FILTER ) {
       handle->grad_filter = 0;
+    } else if ( type == LIBXS_DNN_REGULAR_CHANNEL_BIAS ) {
+      handle->reg_bias = 0;
+    } else if ( type == LIBXS_DNN_GRADIENT_CHANNEL_BIAS ) {
+      handle->grad_bias = 0;
+    } else if ( type == LIBXS_DNN_RELU_MASK ) {
+      handle->relumask = 0;
     } else {
       /* cannot happen */
     }

@@ -102,4 +102,37 @@ LIBXS_API float libxs_sexp2_i8(signed char x);
 /** Similar to libxs_sexp2_i8, but takes an integer as signed 8-bit value (check). */
 LIBXS_API float libxs_sexp2_i8i(int x);
 
+/**
+ * inlineable fast tanh
+ * we do a static global definition such that a the compiler can inline and potentially vectorize
+ * */
+static float libxs_stanh_pade78( float i_x ) {
+  const float l_c0       = 2027025.0f;
+  const float l_c1       = 270270.0f;
+  const float l_c2       = 6930.0f;
+  const float l_c3       = 36.0f;
+  const float l_c1_d     = 945945.0f;
+  const float l_c2_d     = 51975.0f;
+  const float l_c3_d     = 630.0f;
+  const float l_hi_bound = 4.97f;
+  const float l_lo_bound = -4.97f;
+  const float l_ones     = 1.0f;
+  const float l_neg_ones = -1.0f;
+
+  const float x2         = i_x * i_x;
+  const float t1_nom     = (l_c3 * x2) + l_c2;
+  const float t2_nom     = (t1_nom * x2) + l_c1;
+  const float t3_nom     = (t2_nom * x2) + l_c0;;
+  const float nom        = t3_nom * i_x;
+  const float t1_denom   = x2 + l_c3_d;
+  const float t2_denom   = (t1_denom * x2) + l_c2_d;
+  const float t3_denom   = (t2_denom * x2) + l_c1_d;
+  const float denom      = (t3_denom * x2) + l_c0;
+  float result           = nom/denom ;
+  result = ( result > l_hi_bound ) ? l_ones : result;
+  result = ( result < l_lo_bound ) ? l_neg_ones : result;
+
+  return result;
+}
+
 #endif /*LIBXS_MATH_H*/

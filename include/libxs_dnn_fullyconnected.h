@@ -16,8 +16,13 @@
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected libxs_dnn_fullyconnected;
 
 typedef enum libxs_dnn_fullyconnected_fuse_op {
-  /* the fuse order is: 1. BN, 2. eltwise 3. RELU */
-  LIBXS_DNN_FULLYCONNECTED_FUSE_NONE = 0
+  /* the fuse order is: 1. BIAS, 2. Actitvation */
+  LIBXS_DNN_FULLYCONNECTED_FUSE_NONE = 0,
+  LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS = 1,
+  LIBXS_DNN_FULLYCONNECTED_FUSE_RELU = 2,
+  LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID = 4,
+  LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU = 3,
+  LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID = 5
 } libxs_dnn_fullyconnected_fuse_op;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected_desc {

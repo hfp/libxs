@@ -497,6 +497,9 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   libxs_dnn_tensor* grad_output;    /* grad output tensor */
   libxs_dnn_tensor* reg_filter;     /* filter tensor */
   libxs_dnn_tensor* grad_filter;    /* grad filter tensor */
+  libxs_dnn_tensor* reg_bias;       /* bias tensor */
+  libxs_dnn_tensor* grad_bias;      /* grad bais tensor */
+  libxs_dnn_tensor* relumask;       /* relumask */
   libxs_barrier* barrier;           /* barrier */
   int ifmblock;
   int ofmblock;
