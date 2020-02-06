@@ -6,14 +6,12 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include <libxs_sync.h>
 #include <libxs_mhd.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 #if defined(_WIN32)
 # include <io.h>
 # if !defined(F_OK)
