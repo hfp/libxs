@@ -6,9 +6,6 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-
-#include <libxs.h>
-
 #include "libxs_dnn_rnncell_forward.h"
 #include "libxs_dnn_rnncell_backward_weight_update.h"
 #include "libxs_dnn_elementwise.h"
@@ -18,7 +15,6 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <math.h>
-#include <string.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif

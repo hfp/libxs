@@ -10,15 +10,6 @@
 #include <libxs_generator.h>
 #include <libxs_mem.h>
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <string.h>
-#include <stdio.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
-
 #if defined(LIBXS_PLATFORM_SUPPORTED)
 /* XGETBV: receive results (EAX, EDX) for eXtended Control Register (XCR). */
 /* CPUID, receive results (EAX, EBX, ECX, EDX) for requested FUNCTION/SUBFN. */
@@ -152,7 +143,8 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
         ++warnings;
 # endif
         if (NULL != compiler_support) {
-          fprintf(stderr, "LIBXS WARNING: missing support for %soptimized non-JIT code paths!\n", compiler_support);
+          fprintf(stderr, "LIBXS WARNING: %soptimized non-JIT code paths are limited to \"%s\"!\n",
+            compiler_support, libxs_cpuid_name(LIBXS_MAX_STATIC_TARGET_ARCH));
           ++warnings;
         }
         if (LIBXS_STATIC_TARGET_ARCH < feature_cpu && feature_os < feature_cpu) {

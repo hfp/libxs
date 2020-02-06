@@ -12,17 +12,6 @@
 #include "libxs_blocked_gemm_types.h"
 #include <libxs.h>
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <string.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <stdio.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
-
 
 LIBXS_API libxs_blocked_gemm_handle* libxs_blocked_gemm_handle_create(/*unsigned*/ int nthreads,
   libxs_gemm_precision iprec, libxs_gemm_precision oprec, libxs_blasint m, libxs_blasint n, libxs_blasint k,

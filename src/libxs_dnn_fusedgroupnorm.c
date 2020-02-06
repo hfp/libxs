@@ -10,14 +10,6 @@
 #include "libxs_dnn_fusedgroupnorm_forward.h"
 #include "libxs_main.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <string.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
-
 
 LIBXS_API libxs_dnn_fusedgroupnorm* libxs_dnn_create_fusedgroupnorm(libxs_dnn_fusedgroupnorm_desc fusedgroupnorm_desc, libxs_dnn_err_t* status) {
   libxs_dnn_fusedgroupnorm* handle = 0;

@@ -17,10 +17,7 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <stdint.h>
-#include <string.h>
-#include <stdio.h>
 #if defined(_WIN32)
-# include <windows.h>
 # include <process.h>
 #else
 # if defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)

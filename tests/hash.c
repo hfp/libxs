@@ -6,18 +6,12 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#if !defined(INCLUDE_LIBXS_LAST)
-# include <libxs_source.h>
-#endif
-#include <stdlib.h>
+#include <libxs_source.h>
+
 #if defined(_DEBUG)
-# include <stdio.h>
 # define FPRINTF(STREAM, ...) fprintf(STREAM, __VA_ARGS__)
 #else
 # define FPRINTF(STREAM, ...)
-#endif
-#if defined(INCLUDE_LIBXS_LAST)
-# include <libxs_source.h>
 #endif
 
 #if !defined(ELEM_TYPE)

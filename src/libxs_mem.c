@@ -11,15 +11,6 @@
 #include "libxs_diff.h"
 #include "libxs_main.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <string.h>
-#include <stdio.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
-
 #if !defined(LIBXS_MEM_STDLIB) && 0
 # define LIBXS_MEM_STDLIB
 #endif

@@ -6,13 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#if !defined(INCLUDE_LIBXS_LAST)
-# include <libxs_macros.h>
-#endif
-#include <stdlib.h>
-#if defined(INCLUDE_LIBXS_LAST)
-# include <libxs_macros.h>
-#endif
+#include <libxs_macros.h>
 
 #if !defined(ELEM_TYPE)
 # define ELEM_TYPE short

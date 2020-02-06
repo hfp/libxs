@@ -9,8 +9,6 @@
 #if !defined(INCLUDE_LIBXS_LAST)
 # include <libxs.h>
 #endif
-#include <stdlib.h>
-#include <stdio.h>
 #include <math.h>
 #if defined(INCLUDE_LIBXS_LAST)
 # include <libxs.h>

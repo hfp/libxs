@@ -10,15 +10,8 @@
 #include "libxs_dnn_fullyconnected_backward.h"
 #include "libxs_dnn_fullyconnected_forward.h"
 #include "libxs_main.h"
-#define STRIDE_BRGEMM
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <string.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
+#define STRIDE_BRGEMM
 
 
 LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fullyconnected_desc fullyconnected_desc, libxs_dnn_err_t* status) {

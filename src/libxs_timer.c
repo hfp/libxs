@@ -7,7 +7,6 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_timer.h>
-#include <libxs_intrinsics_x86.h>
 #include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)

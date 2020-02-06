@@ -13,14 +13,9 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #if defined(_OPENMP)
 # include <omp.h>
-#endif
-#if !defined(NDEBUG)
-# include <stdio.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)

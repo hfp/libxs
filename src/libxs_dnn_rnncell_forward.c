@@ -9,16 +9,6 @@
 #include "libxs_dnn_rnncell_forward.h"
 #include "libxs_dnn_elementwise.h"
 #include "libxs_main.h"
-#include <libxs_intrinsics_x86.h>
-#include <libxs.h>
-
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <string.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
 
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_rnncell_st_fwd_nc_ck_f32_f32(libxs_dnn_rnncell* handle, int start_thread, int tid);

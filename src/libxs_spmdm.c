@@ -7,18 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_spmdm.h>
-#include <libxs.h>
 #include "libxs_main.h"
-
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
 
 /* Enable/disable specific code paths */
 #if defined(LIBXS_INTRINSICS_AVX) && !defined(LIBXS_SPMDM_AVX)

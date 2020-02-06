@@ -8,12 +8,12 @@
 ******************************************************************************/
 #if !defined(INCLUDE_LIBXS_LAST)
 # include <libxs.h>
+# include <libxs_intrinsics_x86.h>
 #endif
-#include <stdlib.h>
-#include <stdio.h>
 #include <math.h>
 #if defined(INCLUDE_LIBXS_LAST)
 # include <libxs.h>
+# include <libxs_intrinsics_x86.h>
 #endif
 
 #define N 1000000

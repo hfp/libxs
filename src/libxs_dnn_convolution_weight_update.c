@@ -7,18 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "libxs_dnn_convolution_weight_update.h"
-#include <libxs_intrinsics_x86.h>
 #include "libxs_main.h"
-#include <libxs.h>
-#include <stdio.h>
-
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <string.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
 
 
 /* function prototypes for below implementations */
