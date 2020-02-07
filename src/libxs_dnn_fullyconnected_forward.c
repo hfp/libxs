@@ -256,6 +256,14 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck(libxs
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
   }
+  if ( ((handle->desc.fuse_ops & LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS ) != 0) && ( handle->reg_bias == 0 ) )  {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
+  }
+  if ( ((handle->desc.fuse_ops & LIBXS_DNN_FULLYCONNECTED_FUSE_RELU ) != 0) && ( handle->relumask == 0 ) )  {
+    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+    return status;
+  }
 
   /* check if we are on an AVX512 platform */
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
