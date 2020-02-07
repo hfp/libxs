@@ -30,8 +30,8 @@
 # define LIBXS_DIFF_16_DECL(A) const uint64_t */*const*/ A
 # define LIBXS_DIFF_16_ASSIGN(A, B) (A) = (B)
 # define LIBXS_DIFF_16_LOAD(A, SRC) A = (const uint64_t*)(SRC)
-# define LIBXS_DIFF_16(A, B, ...) ((unsigned char)(((A)[0] ^ (*(const uint64_t*)(B))) | \
-    ((A)[1] ^ ((const uint64_t*)(B))[1])))
+# define LIBXS_DIFF_16(A, B, ...) ((unsigned char)(0 != (((A)[0] ^ (*(const uint64_t*)(B))) | \
+    ((A)[1] ^ ((const uint64_t*)(B))[1]))))
 #endif
 
 #define LIBXS_DIFF_AVX2_DECL(A) __m256i A
@@ -49,18 +49,18 @@
 # define LIBXS_DIFF_32_DECL(A) LIBXS_DIFF_16_DECL(A); LIBXS_DIFF_16_DECL(LIBXS_CONCATENATE3(libxs_diff_32_, A, _))
 # define LIBXS_DIFF_32_ASSIGN(A, B) LIBXS_DIFF_16_ASSIGN(A, B); LIBXS_DIFF_16_ASSIGN(LIBXS_CONCATENATE3(libxs_diff_32_, A, _), LIBXS_CONCATENATE3(libxs_diff_32_, B, _))
 # define LIBXS_DIFF_32_LOAD(A, SRC) LIBXS_DIFF_16_LOAD(A, SRC); LIBXS_DIFF_16_LOAD(LIBXS_CONCATENATE3(libxs_diff_32_, A, _), (const uint64_t*)(SRC) + 2)
-# define LIBXS_DIFF_32(A, B, ...) ((unsigned char)LIBXS_DIFF_16(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_16(LIBXS_CONCATENATE3(libxs_diff_32_, A, _), (const uint64_t*)(B) + 2, __VA_ARGS__))
+# define LIBXS_DIFF_32(A, B, ...) ((unsigned char)(0 != LIBXS_DIFF_16(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_16(LIBXS_CONCATENATE3(libxs_diff_32_, A, _), (const uint64_t*)(B) + 2, __VA_ARGS__)))
 #endif
 
 #define LIBXS_DIFF_48_DECL(A) LIBXS_DIFF_16_DECL(A); LIBXS_DIFF_32_DECL(LIBXS_CONCATENATE3(libxs_diff_48_, A, _))
 #define LIBXS_DIFF_48_ASSIGN(A, B) LIBXS_DIFF_16_ASSIGN(A, B); LIBXS_DIFF_32_ASSIGN(LIBXS_CONCATENATE3(libxs_diff_48_, A, _), LIBXS_CONCATENATE3(libxs_diff_48_, B, _))
 #define LIBXS_DIFF_48_LOAD(A, SRC) LIBXS_DIFF_16_LOAD(A, SRC); LIBXS_DIFF_32_LOAD(LIBXS_CONCATENATE3(libxs_diff_48_, A, _), (const uint64_t*)(SRC) + 2)
-#define LIBXS_DIFF_48(A, B, ...) ((unsigned char)LIBXS_DIFF_16(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_32(LIBXS_CONCATENATE3(libxs_diff_48_, A, _), (const uint64_t*)(B) + 2, __VA_ARGS__))
+#define LIBXS_DIFF_48(A, B, ...) ((unsigned char)(0 != LIBXS_DIFF_16(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_32(LIBXS_CONCATENATE3(libxs_diff_48_, A, _), (const uint64_t*)(B) + 2, __VA_ARGS__)))
 
 #define LIBXS_DIFF_64SW_DECL(A) LIBXS_DIFF_32_DECL(A); LIBXS_DIFF_32_DECL(LIBXS_CONCATENATE3(libxs_diff_64_, A, _))
 #define LIBXS_DIFF_64SW_ASSIGN(A, B) LIBXS_DIFF_32_ASSIGN(A, B); LIBXS_DIFF_32_ASSIGN(LIBXS_CONCATENATE3(libxs_diff_64_, A, _), LIBXS_CONCATENATE3(libxs_diff_64_, B, _))
 #define LIBXS_DIFF_64SW_LOAD(A, SRC) LIBXS_DIFF_32_LOAD(A, SRC); LIBXS_DIFF_32_LOAD(LIBXS_CONCATENATE3(libxs_diff_64_, A, _), (const uint64_t*)(SRC) + 4)
-#define LIBXS_DIFF_64SW(A, B, ...) ((unsigned char)LIBXS_DIFF_32(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_32(LIBXS_CONCATENATE3(libxs_diff_64_, A, _), (const uint64_t*)(B) + 4, __VA_ARGS__))
+#define LIBXS_DIFF_64SW(A, B, ...) ((unsigned char)(0 != LIBXS_DIFF_32(A, B, __VA_ARGS__) ? 1 : LIBXS_DIFF_32(LIBXS_CONCATENATE3(libxs_diff_64_, A, _), (const uint64_t*)(B) + 4, __VA_ARGS__)))
 
 #if defined(LIBXS_DIFF_AVX512_ENABLED)
 # define LIBXS_DIFF_AVX512_DECL(A) __m512i A
