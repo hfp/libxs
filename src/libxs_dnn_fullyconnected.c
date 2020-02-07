@@ -346,23 +346,19 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           libxs_blasint ldb = (libxs_blasint)handle->bc;
           libxs_blasint ldc = (libxs_blasint)handle->bk;
 
-          if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
 #ifdef ADDRESS_BRGEMM
-            handle->gemm_fwd.xgemm.smra = libxs_smmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
-            handle->gemm_bwd.xgemm.smra = libxs_smmdispatch_reducebatch_addr(handle->bc, handle->bn, handle->bk, &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
+          handle->gemm_fwd.xgemm.smra = libxs_smmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+          handle->gemm_bwd.xgemm.smra = libxs_smmdispatch_reducebatch_addr(handle->bc, handle->bn, handle->bk, &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
 #endif
 #ifdef OFFSET_BRGEMM
-            handle->gemm_fwd.xgemm.smro = libxs_smmdispatch_reducebatch_offs(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
-            handle->gemm_bwd.xgemm.smro = libxs_smmdispatch_reducebatch_offs(handle->bc, handle->bn, handle->bk, &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
+          handle->gemm_fwd.xgemm.smro = libxs_smmdispatch_reducebatch_offs(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+          handle->gemm_bwd.xgemm.smro = libxs_smmdispatch_reducebatch_offs(handle->bc, handle->bn, handle->bk, &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
 #endif
 #ifdef STRIDE_BRGEMM
-            handle->gemm_fwd.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(float), handle->bc*handle->bn*sizeof(float), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
-            handle->gemm_bwd.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(float), handle->bk*handle->bn*sizeof(float), &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
-            handle->gemm_bwd2.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(float), handle->bk*handle->bn*sizeof(float), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
+          handle->gemm_fwd.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(float), handle->bc*handle->bn*sizeof(float), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+          handle->gemm_bwd.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(float), handle->bk*handle->bn*sizeof(float), &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
+          handle->gemm_bwd2.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(float), handle->bk*handle->bn*sizeof(float), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
 #endif
-          } else {
-            /* should not happen */
-          }
         } else if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
           float alpha = 1.0f;
           float beta  = 1.0f;
@@ -375,34 +371,30 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           libxs_blasint ldb = (libxs_blasint)handle->bc;
           libxs_blasint ldc = (libxs_blasint)handle->bk;
 
-          if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
 #ifdef ADDRESS_BRGEMM
-            handle->gemm_fwd.xgemm.bmra = libxs_bmmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
+          handle->gemm_fwd.xgemm.bmra = libxs_bmmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
 #endif
 #ifdef OFFSET_BRGEMM
-            handle->gemm_fwd.xgemm.bmro = libxs_bmmdispatch_reducebatch_offs(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
+          handle->gemm_fwd.xgemm.bmro = libxs_bmmdispatch_reducebatch_offs(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
 #endif
 #ifdef STRIDE_BRGEMM
-            handle->gemm_fwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
-            handle->gemm_fwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
-            /* Special bwd kernels for K == 1 */
-            if (handle->desc.K == 1) {
-              libxs_blasint _bk = 2;
-              handle->gemm_bwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bc, handle->bn, _bk, _bk*handle->bc*sizeof(libxs_bfloat16), _bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &_bk, &ldb, &alpha, &beta, NULL, NULL);
-              handle->gemm_bwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bc, handle->bn, _bk, _bk*handle->bc*sizeof(libxs_bfloat16), _bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &_bk, &ldb, &alpha, &zerobeta, NULL, NULL);
-            } else {
-              handle->gemm_bwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
-              handle->gemm_bwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
-            }
-            lda = (libxs_blasint)handle->bk;
-            ldb = (libxs_blasint)handle->bn;
-            ldc = (libxs_blasint)handle->bk;
-            handle->gemm_upd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(M, N, handle->bn, handle->bk*handle->bn*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
-            handle->gemm_upd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(M, N, handle->bn, handle->bk*handle->bn*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
-#endif
+          handle->gemm_fwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+          handle->gemm_fwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
+          /* Special bwd kernels for K == 1 */
+          if (handle->desc.K == 1) {
+            libxs_blasint _bk = 2;
+            handle->gemm_bwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bc, handle->bn, _bk, _bk*handle->bc*sizeof(libxs_bfloat16), _bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &_bk, &ldb, &alpha, &beta, NULL, NULL);
+            handle->gemm_bwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bc, handle->bn, _bk, _bk*handle->bc*sizeof(libxs_bfloat16), _bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &_bk, &ldb, &alpha, &zerobeta, NULL, NULL);
           } else {
-            /* should not happen */
+            handle->gemm_bwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
+            handle->gemm_bwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
           }
+          lda = (libxs_blasint)handle->bk;
+          ldb = (libxs_blasint)handle->bn;
+          ldc = (libxs_blasint)handle->bk;
+          handle->gemm_upd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(M, N, handle->bn, handle->bk*handle->bn*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+          handle->gemm_upd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(M, N, handle->bn, handle->bk*handle->bn*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
+#endif
         } else {
 
         }
