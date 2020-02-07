@@ -210,7 +210,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwd_ncnc_kcck_f32_f32(libxs_dnn_full
   } else {
     status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
-#undef LIBXS_DNN_FC_FWD_USE_AVX512
+#undef LIBXS_DNN_FC_BWD_USE_AVX512
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
