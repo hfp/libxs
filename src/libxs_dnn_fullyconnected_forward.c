@@ -123,8 +123,8 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_f32_f32(libxs_dnn_full
 #define LIBXS_DNN_FC_FWD_FUSE_BIAS
 #define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic.tpl.c"
-#define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
-#define LIBXS_DNN_FC_FWD_FUSE_BIAS
+#undef LIBXS_DNN_FC_FWD_FUSE_SIGMOID
+#undef LIBXS_DNN_FC_FWD_FUSE_BIAS
   } else {
     status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
@@ -329,8 +329,8 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck(libxs
 #define LIBXS_DNN_FC_FWD_FUSE_BIAS
 #define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic.tpl.c"
-#define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
-#define LIBXS_DNN_FC_FWD_FUSE_BIAS
+#undef LIBXS_DNN_FC_FWD_FUSE_SIGMOID
+#undef LIBXS_DNN_FC_FWD_FUSE_BIAS
       } else {
         status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
       }
