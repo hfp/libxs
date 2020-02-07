@@ -286,43 +286,26 @@ enum {
 #endif
 
 
-#if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
-typedef LIBXS_LOCK_TYPE(LIBXS_LOCK_SPINLOCK) libxs_spinlock_state;
-#else
 typedef unsigned int libxs_spinlock_state;
-#endif
-
 struct LIBXS_RETARGETABLE libxs_spinlock {
-#if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  libxs_spinlock_state impl;
-#else
   volatile libxs_spinlock_state state;
-#endif
 };
 
 
 LIBXS_API libxs_spinlock* libxs_spinlock_create(void)
 {
   libxs_spinlock *const result = (libxs_spinlock*)malloc(sizeof(libxs_spinlock));
+#if (0 != LIBXS_SYNC)
   if (0 != result) {
-#if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
-    LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK_SPINLOCK) attr;
-    LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK_SPINLOCK, &attr);
-    LIBXS_LOCK_INIT(LIBXS_LOCK_SPINLOCK, &result->impl, &attr);
-    LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK_SPINLOCK, &attr);
-#elif (0 != LIBXS_SYNC)
     result->state = INTERNAL_SYNC_LOCK_FREE;
-#endif
   }
+#endif
   return result;
 }
 
 
 LIBXS_API void libxs_spinlock_destroy(const libxs_spinlock* spinlock)
 {
-#if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_DESTROY(LIBXS_LOCK_SPINLOCK, (LIBXS_LOCK_TYPE(LIBXS_LOCK_SPINLOCK)*)&spinlock->impl);
-#endif
   free((libxs_spinlock*)spinlock);
 }
 
@@ -330,10 +313,7 @@ LIBXS_API void libxs_spinlock_destroy(const libxs_spinlock* spinlock)
 LIBXS_API int libxs_spinlock_trylock(libxs_spinlock* spinlock)
 {
 #if (0 != LIBXS_SYNC)
-# if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  assert(0 != spinlock);
-  return LIBXS_LOCK_TRYLOCK(LIBXS_LOCK_SPINLOCK, &spinlock->impl);
-# elif 0
+# if 0
   /*const*/ libxs_spinlock_state lock_free = INTERNAL_SYNC_LOCK_FREE;
   assert(0 != spinlock);
   return 0/*false*/ == LIBXS_ATOMIC_CMPSWP(&spinlock->state, lock_free, INTERNAL_SYNC_LOCK_LOCKED, LIBXS_ATOMIC_RELAXED)
@@ -352,17 +332,12 @@ LIBXS_API int libxs_spinlock_trylock(libxs_spinlock* spinlock)
 LIBXS_API void libxs_spinlock_acquire(libxs_spinlock* spinlock)
 {
 #if (0 != LIBXS_SYNC)
-# if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  assert(0 != spinlock);
-  LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_SPINLOCK, &spinlock->impl);
-# else
   assert(0 != spinlock);
   for (;;) {
     if (1 == LIBXS_ATOMIC_ADD_FETCH(&spinlock->state, 1, LIBXS_ATOMIC_RELAXED)) break;
     LIBXS_SYNC_CYCLE(&spinlock->state, INTERNAL_SYNC_LOCK_FREE, LIBXS_SYNC_NPAUSE);
   }
   LIBXS_ATOMIC_SYNC(LIBXS_ATOMIC_SEQ_CST);
-# endif
 #else
   LIBXS_UNUSED(spinlock);
 #endif
@@ -373,57 +348,38 @@ LIBXS_API void libxs_spinlock_release(libxs_spinlock* spinlock)
 {
 #if (0 != LIBXS_SYNC)
   assert(0 != spinlock);
-# if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_RELEASE(LIBXS_LOCK_SPINLOCK, &spinlock->impl);
-# else
   LIBXS_ATOMIC_SYNC(LIBXS_ATOMIC_SEQ_CST);
   spinlock->state = INTERNAL_SYNC_LOCK_FREE;
-# endif
 #else
   LIBXS_UNUSED(spinlock);
 #endif
 }
 
 
-#if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
-typedef LIBXS_LOCK_TYPE(LIBXS_LOCK_MUTEX) libxs_mutex_state;
-#elif defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
+#if defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
 typedef int libxs_mutex_state;
 #else
 typedef char libxs_mutex_state;
 #endif
-
 struct LIBXS_RETARGETABLE libxs_mutex {
-#if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_TYPE(LIBXS_LOCK_MUTEX) impl;
-#else
   volatile libxs_mutex_state state;
-#endif
 };
 
 
 LIBXS_API libxs_mutex* libxs_mutex_create(void)
 {
   libxs_mutex *const result = (libxs_mutex*)malloc(sizeof(libxs_mutex));
+#if (0 != LIBXS_SYNC)
   if (0 != result) {
-#if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
-    LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK_MUTEX) attr;
-    LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK_MUTEX, &attr);
-    LIBXS_LOCK_INIT(LIBXS_LOCK_MUTEX, &result->impl, &attr);
-    LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK_MUTEX, &attr);
-#elif (0 != LIBXS_SYNC)
     result->state = INTERNAL_SYNC_LOCK_FREE;
-#endif
   }
+#endif
   return result;
 }
 
 
 LIBXS_API void libxs_mutex_destroy(const libxs_mutex* mutex)
 {
-#if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_DESTROY(LIBXS_LOCK_MUTEX, (LIBXS_LOCK_TYPE(LIBXS_LOCK_MUTEX)*)&mutex->impl);
-#endif
   free((libxs_mutex*)mutex);
 }
 
@@ -432,11 +388,7 @@ LIBXS_API int libxs_mutex_trylock(libxs_mutex* mutex)
 {
 #if (0 != LIBXS_SYNC)
   assert(0 != mutex);
-# if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
-  return LIBXS_LOCK_TRYLOCK(LIBXS_LOCK_MUTEX, &mutex->impl);
-# else
   return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_MUTEX) + !LIBXS_ATOMIC_TRYLOCK(&mutex->state, LIBXS_ATOMIC_RELAXED);
-# endif
 #else
   LIBXS_UNUSED(mutex);
   return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_MUTEX);
@@ -447,16 +399,12 @@ LIBXS_API int libxs_mutex_trylock(libxs_mutex* mutex)
 LIBXS_API void libxs_mutex_acquire(libxs_mutex* mutex)
 {
 #if (0 != LIBXS_SYNC)
-# if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
-  assert(0 != mutex);
-  LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_MUTEX, &mutex->impl);
-# else
-#   if defined(_WIN32)
+# if defined(_WIN32)
   assert(0 != mutex);
   while (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_MUTEX) != libxs_mutex_trylock(mutex)) {
     LIBXS_SYNC_CYCLE(&mutex->state, 0/*free*/, LIBXS_SYNC_NPAUSE);
   }
-#   else
+# else
   libxs_mutex_state lock_free = INTERNAL_SYNC_LOCK_FREE, lock_state = INTERNAL_SYNC_LOCK_LOCKED;
   assert(0 != mutex);
   while (0/*false*/ == LIBXS_ATOMIC_CMPSWP(&mutex->state, lock_free, lock_state, LIBXS_ATOMIC_RELAXED)) {
@@ -480,7 +428,6 @@ LIBXS_API void libxs_mutex_acquire(libxs_mutex* mutex)
     }
     lock_free = INTERNAL_SYNC_LOCK_FREE;
   }
-#   endif
 # endif
 #else
   LIBXS_UNUSED(mutex);
@@ -492,18 +439,14 @@ LIBXS_API void libxs_mutex_release(libxs_mutex* mutex)
 {
 #if (0 != LIBXS_SYNC)
   assert(0 != mutex);
-# if defined(LIBXS_LOCK_SYSTEM_MUTEX) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_RELEASE(LIBXS_LOCK_MUTEX, &mutex->impl);
-# else
   LIBXS_ATOMIC_SYNC(LIBXS_ATOMIC_SEQ_CST);
-#   if defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
+# if defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
   if (INTERNAL_SYNC_LOCK_CONTESTED == LIBXS_ATOMIC_FETCH_SUB(&mutex->state, 1, LIBXS_ATOMIC_RELAXED)) {
     mutex->state = INTERNAL_SYNC_LOCK_FREE;
     syscall(INTERNAL_SYNC_FUTEX, &mutex->state, FUTEX_WAKE, 1, NULL, NULL, 0);
   }
-#   else
+# else
   mutex->state = INTERNAL_SYNC_LOCK_FREE;
-#   endif
 # endif
 #else
   LIBXS_UNUSED(mutex);
@@ -511,7 +454,7 @@ LIBXS_API void libxs_mutex_release(libxs_mutex* mutex)
 }
 
 
-#if (0 != LIBXS_SYNC) && !(defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM))
+#if (0 != LIBXS_SYNC)
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_sync_counter {
   struct {
     uint16_t writer;
@@ -520,16 +463,10 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_sync_counter {
   uint32_t bits;
 } internal_sync_counter;
 #endif
-
-
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_rwlock {
 #if (0 != LIBXS_SYNC)
-# if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_TYPE(LIBXS_LOCK_RWLOCK) impl;
-# else
   volatile internal_sync_counter completions;
   volatile internal_sync_counter requests;
-# endif
 #else
   int dummy;
 #endif
@@ -541,15 +478,8 @@ LIBXS_API libxs_rwlock* libxs_rwlock_create(void)
   libxs_rwlock *const result = (libxs_rwlock*)malloc(sizeof(libxs_rwlock));
   if (0 != result) {
 #if (0 != LIBXS_SYNC)
-# if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
-    LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK_RWLOCK) attr;
-    LIBXS_LOCK_ATTR_INIT(LIBXS_LOCK_RWLOCK, &attr);
-    LIBXS_LOCK_INIT(LIBXS_LOCK_RWLOCK, &result->impl, &attr);
-    LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK_RWLOCK, &attr);
-# else
     LIBXS_MEMZERO127(&result->completions);
     LIBXS_MEMZERO127(&result->requests);
-# endif
 #else
     LIBXS_MEMZERO127(result);
 #endif
@@ -560,14 +490,11 @@ LIBXS_API libxs_rwlock* libxs_rwlock_create(void)
 
 LIBXS_API void libxs_rwlock_destroy(const libxs_rwlock* rwlock)
 {
-#if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_DESTROY(LIBXS_LOCK_RWLOCK, (LIBXS_LOCK_TYPE(LIBXS_LOCK_RWLOCK)*)&rwlock->impl);
-#endif
   free((libxs_rwlock*)rwlock);
 }
 
 
-#if (0 != LIBXS_SYNC) && !(defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM))
+#if (0 != LIBXS_SYNC)
 LIBXS_API_INLINE int internal_rwlock_trylock(libxs_rwlock* rwlock, internal_sync_counter* prev)
 {
   internal_sync_counter next;
@@ -588,13 +515,8 @@ LIBXS_API_INLINE int internal_rwlock_trylock(libxs_rwlock* rwlock, internal_sync
 LIBXS_API int libxs_rwlock_trylock(libxs_rwlock* rwlock)
 {
 #if (0 != LIBXS_SYNC)
-# if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  assert(0 != rwlock);
-  return LIBXS_LOCK_TRYLOCK(LIBXS_LOCK_RWLOCK, &rwlock->impl);
-# else
   internal_sync_counter prev;
   return internal_rwlock_trylock(rwlock, &prev);
-# endif
 #else
   LIBXS_UNUSED(rwlock);
   return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK);
@@ -605,17 +527,12 @@ LIBXS_API int libxs_rwlock_trylock(libxs_rwlock* rwlock)
 LIBXS_API void libxs_rwlock_acquire(libxs_rwlock* rwlock)
 {
 #if (0 != LIBXS_SYNC)
-# if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  assert(0 != rwlock);
-  LIBXS_LOCK_ACQUIRE(LIBXS_LOCK_RWLOCK, &rwlock->impl);
-# else
   internal_sync_counter prev;
   if (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK) != internal_rwlock_trylock(rwlock, &prev)) {
     while (rwlock->completions.bits != prev.bits) {
       LIBXS_SYNC_CYCLE(&rwlock->completions.bits, prev.bits, LIBXS_SYNC_NPAUSE);
     }
   }
-# endif
 #else
   LIBXS_UNUSED(rwlock);
 #endif
@@ -626,9 +543,7 @@ LIBXS_API void libxs_rwlock_release(libxs_rwlock* rwlock)
 {
 #if (0 != LIBXS_SYNC)
   assert(0 != rwlock);
-# if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_RELEASE(LIBXS_LOCK_RWLOCK, &rwlock->impl);
-# elif defined(_WIN32)
+# if defined(_WIN32)
   _InterlockedExchangeAdd16((volatile short*)&rwlock->completions.kind.writer, 1);
 # else
   LIBXS_ATOMIC_ADD_FETCH(&rwlock->completions.kind.writer, 1, LIBXS_ATOMIC_SEQ_CST);
@@ -639,7 +554,7 @@ LIBXS_API void libxs_rwlock_release(libxs_rwlock* rwlock)
 }
 
 
-#if (0 != LIBXS_SYNC) && !(defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM))
+#if (0 != LIBXS_SYNC)
 LIBXS_API_INLINE int internal_rwlock_tryread(libxs_rwlock* rwlock, internal_sync_counter* prev)
 {
 #if (0 != LIBXS_SYNC)
@@ -663,13 +578,8 @@ LIBXS_API_INLINE int internal_rwlock_tryread(libxs_rwlock* rwlock, internal_sync
 LIBXS_API int libxs_rwlock_tryread(libxs_rwlock* rwlock)
 {
 #if (0 != LIBXS_SYNC)
-# if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  assert(0 != rwlock);
-  return LIBXS_LOCK_TRYREAD(LIBXS_LOCK_RWLOCK, &rwlock->impl);
-# else
   internal_sync_counter prev;
   return internal_rwlock_tryread(rwlock, &prev);
-# endif
 #else
   LIBXS_UNUSED(rwlock);
   return LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK);
@@ -680,17 +590,12 @@ LIBXS_API int libxs_rwlock_tryread(libxs_rwlock* rwlock)
 LIBXS_API void libxs_rwlock_acqread(libxs_rwlock* rwlock)
 {
 #if (0 != LIBXS_SYNC)
-# if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  assert(0 != rwlock);
-  LIBXS_LOCK_ACQREAD(LIBXS_LOCK_RWLOCK, &rwlock->impl);
-# else
   internal_sync_counter prev;
   if (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK) != internal_rwlock_tryread(rwlock, &prev)) {
     while (rwlock->completions.kind.writer != prev.kind.writer) {
       LIBXS_SYNC_CYCLE(&rwlock->completions.kind.writer, prev.kind.writer, LIBXS_SYNC_NPAUSE);
     }
   }
-# endif
 #else
   LIBXS_UNUSED(rwlock);
 #endif
@@ -701,9 +606,7 @@ LIBXS_API void libxs_rwlock_relread(libxs_rwlock* rwlock)
 {
 #if (0 != LIBXS_SYNC)
   assert(0 != rwlock);
-# if defined(LIBXS_LOCK_SYSTEM_RWLOCK) && defined(LIBXS_SYNC_SYSTEM)
-  LIBXS_LOCK_RELREAD(LIBXS_LOCK_RWLOCK, &rwlock->impl);
-# elif defined(_WIN32)
+# if defined(_WIN32)
   _InterlockedExchangeAdd16((volatile short*)&rwlock->completions.kind.reader, 1);
 # else
   LIBXS_ATOMIC_ADD_FETCH(&rwlock->completions.kind.reader, 1, LIBXS_ATOMIC_SEQ_CST);
