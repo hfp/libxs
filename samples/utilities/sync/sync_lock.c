@@ -159,23 +159,23 @@ int main(int argc, char* argv[])
 #if defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
     "OS-native");
 #else
-    "LIBXS");
+    "Other");
 #endif
 
 #if defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
   BENCHMARK(LIBXS_LOCK_SPINLOCK, "OS-native", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
 #else
-  BENCHMARK(LIBXS_LOCK_SPINLOCK, "LIBXS", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
+  BENCHMARK(LIBXS_LOCK_SPINLOCK, "Other", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
 #endif
 #if defined(LIBXS_LOCK_SYSTEM_MUTEX)
   BENCHMARK(LIBXS_LOCK_MUTEX, "OS-native", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
 #else
-  BENCHMARK(LIBXS_LOCK_MUTEX, "LIBXS", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
+  BENCHMARK(LIBXS_LOCK_MUTEX, "Other", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
 #endif
 #if defined(LIBXS_LOCK_SYSTEM_RWLOCK)
   BENCHMARK(LIBXS_LOCK_RWLOCK, "OS-native", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
 #else
-  BENCHMARK(LIBXS_LOCK_RWLOCK, "LIBXS", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
+  BENCHMARK(LIBXS_LOCK_RWLOCK, "Other", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
 #endif
 
   return EXIT_SUCCESS;
