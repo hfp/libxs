@@ -335,10 +335,10 @@ typedef enum libxs_atomic_kind {
     LIBXS_SYNC_CYCLE_ELSE(DST_PTR, EXP_STATE, NPAUSE, /*else*/;)
 #endif
 
-#if (0 != LIBXS_SYNC) /** Default lock-kind */
+#if (0 != LIBXS_SYNC)
 # define LIBXS_LOCK_DEFAULT LIBXS_LOCK_SPINLOCK
 # if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP)) && \
-    (!defined(__linux__) || defined(__USE_XOPEN2K))
+    (!defined(__linux__) || defined(__USE_XOPEN2K)) && 0/*disabled*/
 #   define LIBXS_LOCK_SYSTEM_SPINLOCK
 # endif
 # if !defined(LIBXS_LOCK_SYSTEM_MUTEX) && !(defined(_OPENMP) && defined(LIBXS_SYNC_OMP))
@@ -382,8 +382,13 @@ typedef enum libxs_atomic_kind {
 # endif
 # if defined(LIBXS_WIN32_THREADS)
 #   define LIBXS_LOCK_SPINLOCK spin
-#   define LIBXS_LOCK_MUTEX mutex
-#   define LIBXS_LOCK_RWLOCK rwlock
+#   if ((LIBXS_WIN32_THREADS) & 0x0600)
+#     define LIBXS_LOCK_MUTEX rwlock
+#     define LIBXS_LOCK_RWLOCK rwlock
+#   else /* mutex exposes high latency */
+#     define LIBXS_LOCK_MUTEX mutex
+#     define LIBXS_LOCK_RWLOCK mutex
+#   endif
 #   if defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
 #     define LIBXS_LOCK_ACQUIRED_spin TRUE
 #     define LIBXS_LOCK_TYPE_ISPOD_spin 0
@@ -514,8 +519,8 @@ typedef enum libxs_atomic_kind {
 /* OpenMP based locks need to stay disabled unless both
  * libxs and libxsext are built with OpenMP support.
  */
-# if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
-#   if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
+# if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
+#   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
 #     define LIBXS_LOCK_ACQUIRED_spin 1
 #     define LIBXS_LOCK_TYPE_ISPOD_spin 0
 #     define LIBXS_LOCK_TYPE_ISRW_spin 0
@@ -537,42 +542,8 @@ typedef enum libxs_atomic_kind {
 #       define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
 #     endif
 #     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
-#   elif 1
-#     define LIBXS_LOCK_ACQUIRED_spin 0
-#     define LIBXS_LOCK_TYPE_ISPOD_spin 0
-#     define LIBXS_LOCK_TYPE_ISRW_spin 0
-#     define LIBXS_LOCK_TYPE_spin libxs_spinlock*
-#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = libxs_spinlock_create()); }
-#     define LIBXS_LOCK_DESTROY_spin(LOCK) libxs_spinlock_destroy(*(LOCK))
-#     define LIBXS_LOCK_TRYLOCK_spin(LOCK) libxs_spinlock_trylock(*(LOCK))
-#     define LIBXS_LOCK_ACQUIRE_spin(LOCK) libxs_spinlock_acquire(*(LOCK))
-#     define LIBXS_LOCK_RELEASE_spin(LOCK) libxs_spinlock_release(*(LOCK))
-#     define LIBXS_LOCK_TRYREAD_spin(LOCK) LIBXS_LOCK_TRYLOCK_spin(LOCK)
-#     define LIBXS_LOCK_ACQREAD_spin(LOCK) LIBXS_LOCK_ACQUIRE_spin(LOCK)
-#     define LIBXS_LOCK_RELREAD_spin(LOCK) LIBXS_LOCK_RELEASE_spin(LOCK)
-#     define LIBXS_LOCK_ATTR_TYPE_spin int
-#     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
-#     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
-#   else /* based on atomic primitives */
-#     define LIBXS_LOCK_ACQUIRED_spin 0
-#     define LIBXS_LOCK_TYPE_ISPOD_spin 1
-#     define LIBXS_LOCK_TYPE_ISRW_spin 0
-#     define LIBXS_LOCK_TYPE_spin volatile LIBXS_ATOMIC_LOCKTYPE
-#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); }
-#     define LIBXS_LOCK_DESTROY_spin(LOCK) LIBXS_UNUSED(LOCK)
-#     define LIBXS_LOCK_TRYLOCK_spin(LOCK) (LIBXS_LOCK_ACQUIRED_spin + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_RELAXED))
-#     define LIBXS_LOCK_ACQUIRE_spin(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED)
-#     define LIBXS_LOCK_RELEASE_spin(LOCK) LIBXS_ATOMIC_RELEASE(LOCK, LIBXS_ATOMIC_RELAXED)
-#     define LIBXS_LOCK_TRYREAD_spin(LOCK) LIBXS_LOCK_TRYLOCK_spin(LOCK)
-#     define LIBXS_LOCK_ACQREAD_spin(LOCK) LIBXS_LOCK_ACQUIRE_spin(LOCK)
-#     define LIBXS_LOCK_RELREAD_spin(LOCK) LIBXS_LOCK_RELEASE_spin(LOCK)
-#     define LIBXS_LOCK_ATTR_TYPE_spin int
-#     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
-#     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
 #   endif
-# endif
-# if !defined(LIBXS_LOCK_SYSTEM_MUTEX)
-#   if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
+#   if !defined(LIBXS_LOCK_SYSTEM_MUTEX)
 #     define LIBXS_LOCK_ACQUIRED_mutex 1
 #     define LIBXS_LOCK_TYPE_ISPOD_mutex 0
 #     define LIBXS_LOCK_TYPE_ISRW_mutex 0
@@ -594,26 +565,8 @@ typedef enum libxs_atomic_kind {
 #       define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) LIBXS_UNUSED(ATTR)
 #     endif
 #     define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_UNUSED(ATTR)
-#   else
-#     define LIBXS_LOCK_ACQUIRED_mutex 0
-#     define LIBXS_LOCK_TYPE_ISPOD_mutex 0
-#     define LIBXS_LOCK_TYPE_ISRW_mutex 0
-#     define LIBXS_LOCK_TYPE_mutex libxs_mutex*
-#     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = libxs_mutex_create()); }
-#     define LIBXS_LOCK_DESTROY_mutex(LOCK) libxs_mutex_destroy(*(LOCK))
-#     define LIBXS_LOCK_TRYLOCK_mutex(LOCK) libxs_mutex_trylock(*(LOCK))
-#     define LIBXS_LOCK_ACQUIRE_mutex(LOCK) libxs_mutex_acquire(*(LOCK))
-#     define LIBXS_LOCK_RELEASE_mutex(LOCK) libxs_mutex_release(*(LOCK))
-#     define LIBXS_LOCK_TRYREAD_mutex(LOCK) LIBXS_LOCK_TRYLOCK_mutex(LOCK)
-#     define LIBXS_LOCK_ACQREAD_mutex(LOCK) LIBXS_LOCK_ACQUIRE_mutex(LOCK)
-#     define LIBXS_LOCK_RELREAD_mutex(LOCK) LIBXS_LOCK_RELEASE_mutex(LOCK)
-#     define LIBXS_LOCK_ATTR_TYPE_mutex int
-#     define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) LIBXS_UNUSED(ATTR)
-#     define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_UNUSED(ATTR)
 #   endif
-# endif
-# if !defined(LIBXS_LOCK_SYSTEM_RWLOCK)
-#   if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
+#   if !defined(LIBXS_LOCK_SYSTEM_RWLOCK)
 #     define LIBXS_LOCK_ACQUIRED_rwlock 1
 #     define LIBXS_LOCK_TYPE_ISPOD_rwlock 0
 #     define LIBXS_LOCK_TYPE_ISRW_rwlock 0
@@ -635,7 +588,95 @@ typedef enum libxs_atomic_kind {
 #       define LIBXS_LOCK_ATTR_INIT_rwlock(ATTR) LIBXS_UNUSED(ATTR)
 #     endif
 #     define LIBXS_LOCK_ATTR_DESTROY_rwlock(ATTR) LIBXS_UNUSED(ATTR)
-#   else
+#   endif
+# elif !defined(LIBXS_SYNC_NONE) /* based on atomic primitives */
+#   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
+#     define LIBXS_LOCK_ACQUIRED_spin 0
+#     define LIBXS_LOCK_TYPE_ISPOD_spin 1
+#     define LIBXS_LOCK_TYPE_ISRW_spin 0
+#     define LIBXS_LOCK_TYPE_spin volatile LIBXS_ATOMIC_LOCKTYPE
+#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); }
+#     define LIBXS_LOCK_DESTROY_spin(LOCK) LIBXS_UNUSED(LOCK)
+#     define LIBXS_LOCK_TRYLOCK_spin(LOCK) (LIBXS_LOCK_ACQUIRED_spin + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_RELAXED))
+#     define LIBXS_LOCK_ACQUIRE_spin(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED)
+#     define LIBXS_LOCK_RELEASE_spin(LOCK) LIBXS_ATOMIC_RELEASE(LOCK, LIBXS_ATOMIC_RELAXED)
+#     define LIBXS_LOCK_TRYREAD_spin(LOCK) LIBXS_LOCK_TRYLOCK_spin(LOCK)
+#     define LIBXS_LOCK_ACQREAD_spin(LOCK) LIBXS_LOCK_ACQUIRE_spin(LOCK)
+#     define LIBXS_LOCK_RELREAD_spin(LOCK) LIBXS_LOCK_RELEASE_spin(LOCK)
+#     define LIBXS_LOCK_ATTR_TYPE_spin int
+#     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
+#     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
+#   endif
+#   if !defined(LIBXS_LOCK_SYSTEM_MUTEX)
+#     define LIBXS_LOCK_ACQUIRED_spin 0
+#     define LIBXS_LOCK_TYPE_ISPOD_spin 1
+#     define LIBXS_LOCK_TYPE_ISRW_spin 0
+#     define LIBXS_LOCK_TYPE_spin volatile LIBXS_ATOMIC_LOCKTYPE
+#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); }
+#     define LIBXS_LOCK_DESTROY_spin(LOCK) LIBXS_UNUSED(LOCK)
+#     define LIBXS_LOCK_TRYLOCK_spin(LOCK) (LIBXS_LOCK_ACQUIRED_spin + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_RELAXED))
+#     define LIBXS_LOCK_ACQUIRE_spin(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED)
+#     define LIBXS_LOCK_RELEASE_spin(LOCK) LIBXS_ATOMIC_RELEASE(LOCK, LIBXS_ATOMIC_RELAXED)
+#     define LIBXS_LOCK_TRYREAD_spin(LOCK) LIBXS_LOCK_TRYLOCK_spin(LOCK)
+#     define LIBXS_LOCK_ACQREAD_spin(LOCK) LIBXS_LOCK_ACQUIRE_spin(LOCK)
+#     define LIBXS_LOCK_RELREAD_spin(LOCK) LIBXS_LOCK_RELEASE_spin(LOCK)
+#     define LIBXS_LOCK_ATTR_TYPE_spin int
+#     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
+#     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
+#   endif
+#   if !defined(LIBXS_LOCK_SYSTEM_RWLOCK)
+#     define LIBXS_LOCK_ACQUIRED_spin 0
+#     define LIBXS_LOCK_TYPE_ISPOD_spin 1
+#     define LIBXS_LOCK_TYPE_ISRW_spin 0
+#     define LIBXS_LOCK_TYPE_spin volatile LIBXS_ATOMIC_LOCKTYPE
+#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); }
+#     define LIBXS_LOCK_DESTROY_spin(LOCK) LIBXS_UNUSED(LOCK)
+#     define LIBXS_LOCK_TRYLOCK_spin(LOCK) (LIBXS_LOCK_ACQUIRED_spin + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_RELAXED))
+#     define LIBXS_LOCK_ACQUIRE_spin(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED)
+#     define LIBXS_LOCK_RELEASE_spin(LOCK) LIBXS_ATOMIC_RELEASE(LOCK, LIBXS_ATOMIC_RELAXED)
+#     define LIBXS_LOCK_TRYREAD_spin(LOCK) LIBXS_LOCK_TRYLOCK_spin(LOCK)
+#     define LIBXS_LOCK_ACQREAD_spin(LOCK) LIBXS_LOCK_ACQUIRE_spin(LOCK)
+#     define LIBXS_LOCK_RELREAD_spin(LOCK) LIBXS_LOCK_RELEASE_spin(LOCK)
+#     define LIBXS_LOCK_ATTR_TYPE_spin int
+#     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
+#     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
+#   endif
+# else /* experimental */
+#   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
+#     define LIBXS_LOCK_ACQUIRED_spin 0
+#     define LIBXS_LOCK_TYPE_ISPOD_spin 0
+#     define LIBXS_LOCK_TYPE_ISRW_spin 0
+#     define LIBXS_LOCK_TYPE_spin libxs_spinlock*
+#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = libxs_spinlock_create()); }
+#     define LIBXS_LOCK_DESTROY_spin(LOCK) libxs_spinlock_destroy(*(LOCK))
+#     define LIBXS_LOCK_TRYLOCK_spin(LOCK) libxs_spinlock_trylock(*(LOCK))
+#     define LIBXS_LOCK_ACQUIRE_spin(LOCK) libxs_spinlock_acquire(*(LOCK))
+#     define LIBXS_LOCK_RELEASE_spin(LOCK) libxs_spinlock_release(*(LOCK))
+#     define LIBXS_LOCK_TRYREAD_spin(LOCK) LIBXS_LOCK_TRYLOCK_spin(LOCK)
+#     define LIBXS_LOCK_ACQREAD_spin(LOCK) LIBXS_LOCK_ACQUIRE_spin(LOCK)
+#     define LIBXS_LOCK_RELREAD_spin(LOCK) LIBXS_LOCK_RELEASE_spin(LOCK)
+#     define LIBXS_LOCK_ATTR_TYPE_spin int
+#     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
+#     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
+#   endif
+#   if !defined(LIBXS_LOCK_SYSTEM_MUTEX)
+#     define LIBXS_LOCK_ACQUIRED_mutex 0
+#     define LIBXS_LOCK_TYPE_ISPOD_mutex 0
+#     define LIBXS_LOCK_TYPE_ISRW_mutex 0
+#     define LIBXS_LOCK_TYPE_mutex libxs_mutex*
+#     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = libxs_mutex_create()); }
+#     define LIBXS_LOCK_DESTROY_mutex(LOCK) libxs_mutex_destroy(*(LOCK))
+#     define LIBXS_LOCK_TRYLOCK_mutex(LOCK) libxs_mutex_trylock(*(LOCK))
+#     define LIBXS_LOCK_ACQUIRE_mutex(LOCK) libxs_mutex_acquire(*(LOCK))
+#     define LIBXS_LOCK_RELEASE_mutex(LOCK) libxs_mutex_release(*(LOCK))
+#     define LIBXS_LOCK_TRYREAD_mutex(LOCK) LIBXS_LOCK_TRYLOCK_mutex(LOCK)
+#     define LIBXS_LOCK_ACQREAD_mutex(LOCK) LIBXS_LOCK_ACQUIRE_mutex(LOCK)
+#     define LIBXS_LOCK_RELREAD_mutex(LOCK) LIBXS_LOCK_RELEASE_mutex(LOCK)
+#     define LIBXS_LOCK_ATTR_TYPE_mutex int
+#     define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) LIBXS_UNUSED(ATTR)
+#     define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_UNUSED(ATTR)
+#   endif
+#   if !defined(LIBXS_LOCK_SYSTEM_RWLOCK)
 #     define LIBXS_LOCK_ACQUIRED_rwlock 0
 #     define LIBXS_LOCK_TYPE_ISPOD_rwlock 0
 #     define LIBXS_LOCK_TYPE_ISRW_rwlock 1
@@ -653,7 +694,7 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_ATTR_DESTROY_rwlock(ATTR) LIBXS_UNUSED(ATTR)
 #   endif
 # endif
-#else
+#else /* no synchronization */
 # define LIBXS_LOCK_SPINLOCK spinlock_dummy
 # define LIBXS_LOCK_MUTEX mutex_dummy
 # define LIBXS_LOCK_RWLOCK rwlock_dummy
