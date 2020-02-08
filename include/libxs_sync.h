@@ -69,7 +69,11 @@
 # define LIBXS_ATOMIC_ZERO_STORE
 #endif
 #if !defined(LIBXS_ATOMIC_LOCKTYPE)
-# define LIBXS_ATOMIC_LOCKTYPE char
+# if !defined(_WIN32) || 1
+#   define LIBXS_ATOMIC_LOCKTYPE char
+# else /* Windows */
+#   define LIBXS_ATOMIC_LOCKTYPE int
+# endif
 #endif
 
 typedef enum libxs_atomic_kind {
@@ -299,7 +303,7 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND) (0 == LIBXS_ATOMIC(LIBXS_ATOMIC_FETCH_OR, 8)(DST_PTR, 1, KIND))
 # endif
 # define LIBXS_ATOMIC_ACQUIRE(DST_PTR, NPAUSE, KIND) \
-          LIBXS_ASSERT(1 == sizeof(LIBXS_ATOMIC_LOCKTYPE)); LIBXS_ASSERT(0 == LIBXS_MOD2((uintptr_t)(DST_PTR), 4)); \
+          /*LIBXS_ASSERT(1 == sizeof(LIBXS_ATOMIC_LOCKTYPE)); LIBXS_ASSERT(0 == LIBXS_MOD2((uintptr_t)(DST_PTR), 4));*/ \
           while (!LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND)) LIBXS_SYNC_CYCLE(DST_PTR, 0/*free*/, NPAUSE); \
           LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_ACQUIRE")
 # define LIBXS_ATOMIC_RELEASE(DST_PTR, KIND) { \

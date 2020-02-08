@@ -152,6 +152,11 @@ LIBXS_APIVAR(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
 #endif
 
 
+/* definition of corresponding variables (no comma) */
+LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global)
+LIBXS_APIVAR_DEFINE(int libxs_nosync)
+
+
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
   unsigned int ntry, ncol, njit, nsta;
 } internal_statistic_type;
