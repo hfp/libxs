@@ -16,7 +16,7 @@
 # error LIBXS_BUILD cannot be defined for the header-only LIBXS!
 #endif
 #if !defined(LIBXS_API)
-# define LIBXS_API LIBXS_EXTERN_C LIBXS_INLINE LIBXS_RETARGETABLE
+# define LIBXS_API LIBXS_API_INLINE
 #endif
 
 /**
