@@ -819,8 +819,6 @@ LIBXS_API_INTERN void libxs_dnn_finalize(void);
 
 /** Global lock; create an own lock for an independent domain. */
 LIBXS_APIVAR_ALIGNED(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
-/** Target architecture (libxs_get_target_archid, libxs_set_target_archid). */
-LIBXS_APIVAR_ALIGNED(int libxs_target_archid);
 /** Determines whether a threaded implementation is synchronized or not. */
 LIBXS_APIVAR_ALIGNED(int libxs_nosync);
 
