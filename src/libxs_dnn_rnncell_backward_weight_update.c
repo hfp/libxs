@@ -88,7 +88,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16_emu(libxs_dnn_rnncel
   return status;
 }
 
-#if defined(LIBXS_INTRINSICS_AVX512_CPX)
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CPX)
 libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
@@ -122,13 +121,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16(libxs_dnn_rnncell* h
 #endif
   return status;
 }
-#else
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
-libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
-{
-  return libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16_emu( handle, kind, start_thread, tid );
-}
-#endif
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_bf16_bf16_emu(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
@@ -160,7 +152,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_bf16_bf16_emu(libxs_dnn_rnnc
   return status;
 }
 
-#if defined(LIBXS_INTRINSICS_AVX512_CPX)
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CPX)
 libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_bf16_bf16(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
@@ -192,13 +183,6 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_bf16_bf16(libxs_dnn_rnncell*
 #endif
   return status;
 }
-#else
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
-libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_bf16_bf16(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
-{
-  return libxs_dnn_rnncell_st_bwdupd_nc_kcck_bf16_bf16_emu(  handle, kind, start_thread, tid );
-}
-#endif
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_kcck_f32_f32(libxs_dnn_rnncell* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
