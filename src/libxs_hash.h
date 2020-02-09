@@ -9,7 +9,7 @@
 #ifndef LIBXS_HASH_H
 #define LIBXS_HASH_H
 
-#include <libxs.h>
+#include <libxs_macros.h>
 
 /* Map number of Bits to corresponding routine. */
 #define LIBXS_CRC32U(N) LIBXS_CONCATENATE(libxs_crc32_u, N)
