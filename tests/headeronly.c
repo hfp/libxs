@@ -17,7 +17,7 @@
 #endif
 
 
-LIBXS_EXTERN LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) mmdispatch(int m, int n, int k);
+LIBXS_EXTERN_C LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) mmdispatch(int m, int n, int k);
 
 
 int main(void)

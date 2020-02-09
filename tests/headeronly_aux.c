@@ -17,8 +17,8 @@
 #endif
 
 
-LIBXS_EXTERN LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) mmdispatch(int m, int n, int k);
-LIBXS_EXTERN LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) mmdispatch(int m, int n, int k)
+LIBXS_EXTERN_C LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) mmdispatch(int m, int n, int k);
+LIBXS_EXTERN_C LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) mmdispatch(int m, int n, int k)
 {
   LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) result;
 #if defined(__cplusplus) /* C++ by chance: test libxs_mmfunction<> wrapper */
