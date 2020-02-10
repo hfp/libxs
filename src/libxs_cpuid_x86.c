@@ -63,10 +63,6 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
   unsigned int eax, ebx, ecx, edx;
   LIBXS_CPUID_X86(0, 0/*ecx*/, eax, ebx, ecx, edx);
   if (1 <= eax) { /* CPUID max. leaf */
-    if (NULL != info) {
-      LIBXS_CPUID_X86(0x80000007, 0/*ecx*/, eax, ebx, ecx, edx);
-      info->constant_tsc = LIBXS_CPUID_CHECK(edx, 0x00000100);
-    }
     if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* detect CPU-feature only once */
       int feature_cpu = LIBXS_X86_GENERIC, feature_os = LIBXS_X86_GENERIC;
       unsigned int maxleaf = eax;
@@ -158,6 +154,10 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
 # else /* opportunistic */
       result = feature_cpu;
 # endif
+    }
+    if (NULL != info) {
+      LIBXS_CPUID_X86(0x80000007, 0/*ecx*/, eax, ebx, ecx, edx);
+      info->constant_tsc = LIBXS_CPUID_CHECK(edx, 0x00000100);
     }
   }
   else {
