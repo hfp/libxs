@@ -462,11 +462,9 @@ libxs_sububmmdispatch_reducebatch_offs_unroll
 libxs_sububmmdispatch_reducebatch_strd
 libxs_sububmmdispatch_reducebatch_strd_unroll
 libxs_timer_duration
-libxs_timer_duration_rtc
 libxs_timer_ncycles
 libxs_timer_ncycles_
 libxs_timer_tick
-libxs_timer_tick_rtc
 libxs_trace
 libxs_trace_finalize
 libxs_trace_info
