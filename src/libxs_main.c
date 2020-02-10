@@ -971,7 +971,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           else {
             libxs_timer_scale = 0;
             internal_timer_start = s0;
-#if 1
+#if !defined(NDEBUG)
             libxs_se = 1;
 #endif
           }
