@@ -8,10 +8,12 @@
 ******************************************************************************/
 #if !defined(INCLUDE_LIBXS_LAST)
 # include <libxs.h>
+# include <libxs_cpuid.h>
 #endif
 #include <math.h>
 #if defined(INCLUDE_LIBXS_LAST)
 # include <libxs.h>
+# include <libxs_cpuid.h>
 #endif
 
 #if !defined(USE_NOINIT)

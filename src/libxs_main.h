@@ -804,10 +804,10 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_kernel_xinfo {
 /** Receive information about JIT-generated code. */
 LIBXS_API_INTERN const libxs_kernel_xinfo* libxs_get_kernel_xinfo(libxs_code_pointer code, const libxs_descriptor** desc, size_t* code_size);
 
-/** Calculates duration in seconds from given RTC ticks. */
-LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
-/** Returns the current tick of a (monotonic) platform-specific real-time clock. */
-LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void);
+/** Calculates duration in seconds from given RTC ticks (public symbol but no prototype exposed). */
+LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
+/** Returns the current tick of platform-specific real-time clock (public symbol but no prototype exposed). */
+LIBXS_API libxs_timer_tickint libxs_timer_tick_rtc(void);
 /** Returns the current tick of a (monotonic) platform-specific counter. */
 LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_tsc(void);
 
