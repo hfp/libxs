@@ -49,8 +49,7 @@
 #endif
 
 
-/* public symbol but no prototype exposed */
-LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
+LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
 {
   double result = (double)LIBXS_DELTA(tick0, tick1);
 #if defined(_WIN32)
@@ -70,8 +69,7 @@ LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer
 }
 
 
-/* public symbol but no prototype exposed */
-LIBXS_API libxs_timer_tickint libxs_timer_tick_rtc(void)
+LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void)
 {
   libxs_timer_tickint result;
 #if defined(_WIN32)

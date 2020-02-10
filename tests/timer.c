@@ -34,10 +34,6 @@
 #endif
 
 
-libxs_timer_tickint libxs_timer_tick_rtc(void);
-double libxs_timer_duration_rtc(libxs_timer_tickint, libxs_timer_tickint);
-
-
 LIBXS_INLINE int timer_sleep(unsigned int seconds)
 {
   int result;
@@ -63,8 +59,8 @@ int main(int argc, char* argv[])
     ? 0
 #endif
     : atoi(env_delta);
-  libxs_timer_tickint begin, start, rbegin, rend;
   unsigned int n = max_nseconds, ninterrupts = 0;
+  libxs_timer_tickint begin, start;
   double total = 0, delta = 0, d, t;
   int result;
 
@@ -72,7 +68,6 @@ int main(int argc, char* argv[])
   libxs_init();
 #endif
 
-  rbegin = libxs_timer_tick_rtc();
   start = begin = libxs_timer_tick();
   for (n >>= 1; 0 < n; n >>= 1) {
     if (EXIT_SUCCESS == timer_sleep(n)) {
@@ -100,19 +95,17 @@ int main(int argc, char* argv[])
     total += 1.0;
   }
   start = libxs_timer_tick();
-  rend = libxs_timer_tick_rtc();
 
   d = LIBXS_DELTA(total, (double)max_nseconds);
   if (delta < d) delta = d;
 
   result = (int)LIBXS_ROUND(100.0 * delta);
   if (0 > max_delta || result <= max_delta) {
-    const double r = libxs_timer_duration_rtc(rbegin, rend);
     libxs_cpuid_x86_info info;
     libxs_cpuid_x86(&info);
     d = libxs_timer_duration(begin, start);
-    fprintf(stderr, "seconds=%f..%f delta=%s%i%% interrupted=%u tsc=%sconstant\n",
-      r, d, 0 == result ? "" : (total <= d ? "+" : "-"), result, ninterrupts,
+    fprintf(stderr, "seconds=%f delta=%s%i%% interrupted=%u tsc=%sconstant\n",
+      d, 0 == result ? "" : (total <= d ? "+" : "-"), result, ninterrupts,
       info.constant_tsc ? "" : "non-");
     result = EXIT_SUCCESS;
   }
