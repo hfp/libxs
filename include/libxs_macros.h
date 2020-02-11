@@ -152,7 +152,11 @@
 
 /* LIBXS_ATTRIBUTE_USED: mark library functions as used to avoid warning */
 #if defined(__GNUC__) || defined(__clang__) || (defined(__INTEL_COMPILER) && !defined(_WIN32))
-# define LIBXS_ATTRIBUTE_COMMON LIBXS_ATTRIBUTE(common)
+# if defined(__cplusplus)
+#   define LIBXS_ATTRIBUTE_COMMON LIBXS_ATTRIBUTE(common)
+# else
+#   define LIBXS_ATTRIBUTE_COMMON
+# endif
 # define LIBXS_ATTRIBUTE_MALLOC LIBXS_ATTRIBUTE(malloc)
 # define LIBXS_ATTRIBUTE_UNUSED LIBXS_ATTRIBUTE(unused)
 # define LIBXS_ATTRIBUTE_USED LIBXS_ATTRIBUTE(used)
