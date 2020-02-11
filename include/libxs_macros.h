@@ -300,6 +300,8 @@
 #define LIBXS_APIVAR_PRIVATE_DEF(DECL) LIBXS_ALIGNED(LIBXS_APIVAR(DECL, INTERN, LIBXS_API_NONE), LIBXS_CONFIG_CACHELINE)
 /** Private variable (declaration and definition) located in source file. */
 #define LIBXS_APIVAR_DEFINE(DECL) LIBXS_APIVAR_PRIVATE(DECL); LIBXS_APIVAR_PRIVATE_DEF(DECL)
+/** Public variable (declaration and definition) located in header file. */
+#define LIBXS_APIVAR_DEFPUB(DECL) LIBXS_APIVAR_PRIVATE(DECL); LIBXS_APIVAR_PRIVATE_DEF(DECL)
 /** Function decoration used for private functions. */
 #define LIBXS_API_INTERN LIBXS_API_EXTERN LIBXS_API_TARGET LIBXS_API_VISIBILITY(INTERN)
 /** Function decoration used for public functions of LIBXSext library. */
