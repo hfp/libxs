@@ -75,6 +75,9 @@
 #if !defined(LIBXS_AUTOPIN) && 1
 # define LIBXS_AUTOPIN
 #endif
+#if !defined(INTERNAL_DELIMS)
+# define INTERNAL_DELIMS ";,:"
+#endif
 
 #if defined(LIBXS_AUTOPIN) && !defined(_WIN32)
 LIBXS_EXTERN int putenv(char*) LIBXS_THROW;
@@ -122,7 +125,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_reglocktype {
   LIBXS_LOCK_TYPE(LIBXS_REGLOCK) state;
 } internal_reglocktype;
 #   endif
-LIBXS_APIVAR_ARRAY(internal_reglocktype internal_reglock, INTERNAL_REGLOCK_MAXN);
+LIBXS_APIVAR_DEFINE(internal_reglocktype internal_reglock[INTERNAL_REGLOCK_MAXN]);
 # else /* RW-lock */
 #   if !defined(LIBXS_CACHE_MAXSIZE)
 #     define LIBXS_CACHE_MAXSIZE LIBXS_CAPACITY_CACHE
@@ -138,7 +141,7 @@ LIBXS_APIVAR_ARRAY(internal_reglocktype internal_reglock, INTERNAL_REGLOCK_MAXN)
 #       define LIBXS_REGLOCK LIBXS_LOCK_DEFAULT
 #     endif
 #   endif
-LIBXS_APIVAR(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
+LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
 # endif
 #elif !defined(LIBXS_CACHE_MAXSIZE)
 # define LIBXS_CACHE_MAXSIZE LIBXS_CAPACITY_CACHE
@@ -149,71 +152,6 @@ LIBXS_APIVAR(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
     RESULT_INDEX = CACHE_SIZE; CACHE_SIZE = (unsigned char)(0 != (CACHE_SIZE) ? ((CACHE_SIZE) << 1) : 1)
 # define INTERNAL_FIND_CODE_CACHE_EVICT(RESULT_INDEX, CACHE_SIZE, CACHE_HIT) \
     RESULT_INDEX = (unsigned char)LIBXS_MOD2((CACHE_HIT) + ((CACHE_SIZE) - 1), CACHE_SIZE)
-#endif
-
-
-/* definition of corresponding variables (no comma) */
-LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global)
-LIBXS_APIVAR_DEFINE(int libxs_nosync)
-
-
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
-  unsigned int ntry, ncol, njit, nsta;
-} internal_statistic_type;
-
-#if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_cache_entry_type {
-  libxs_descriptor keys[LIBXS_CACHE_MAXSIZE];
-  libxs_code_pointer code[LIBXS_CACHE_MAXSIZE];
-# if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
-  unsigned int id; /* to invalidate */
-# endif
-  unsigned char size, hit;
-} internal_cache_entry_type;
-
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_cache_type {
-# if defined(LIBXS_CACHE_PAD)
-  char pad[LIBXS_UP2(sizeof(internal_cache_entry_type),LIBXS_CACHELINE)];
-# endif
-  internal_cache_entry_type entry;
-} internal_cache_type;
-
-# if defined(LIBXS_NTHREADS_USE)
-LIBXS_APIVAR(internal_cache_type* internal_cache_buffer);
-# endif
-#endif /*defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))*/
-/** Determines the try-lock property (1<N: disabled, N=1: enabled [N=0: disabled in case of RW-lock]). */
-LIBXS_APIVAR(int internal_reglock_count);
-LIBXS_APIVAR(size_t internal_registry_nbytes);
-LIBXS_APIVAR(unsigned int internal_registry_nleaks);
-LIBXS_APIVAR(libxs_descriptor* internal_registry_keys);
-LIBXS_APIVAR(libxs_code_pointer* internal_registry);
-LIBXS_APIVAR_ARRAY(internal_statistic_type internal_statistic[2/*DP/SP*/], 4/*sml/med/big/xxx*/);
-LIBXS_APIVAR(unsigned int internal_statistic_sml);
-LIBXS_APIVAR(unsigned int internal_statistic_med);
-LIBXS_APIVAR(unsigned int internal_statistic_mnk);
-LIBXS_APIVAR(unsigned int internal_statistic_num_gemv);
-LIBXS_APIVAR(unsigned int internal_statistic_num_mcopy);
-LIBXS_APIVAR(unsigned int internal_statistic_num_tcopy);
-LIBXS_APIVAR(unsigned int internal_statistic_num_trsm);
-LIBXS_APIVAR(unsigned int internal_statistic_num_trmm);
-LIBXS_APIVAR(int internal_gemm_auto_prefetch_locked);
-LIBXS_APIVAR(const char* internal_build_state);
-
-/** Time stamp (startup time of library). */
-LIBXS_APIVAR(libxs_timer_tickint internal_timer_start);
-
-#if !defined(INTERNAL_DELIMS)
-# define INTERNAL_DELIMS ";,:"
-#endif
-
-#if defined(_WIN32)
-# define INTERNAL_SINGLETON(HANDLE) (NULL != (HANDLE))
-LIBXS_APIVAR(HANDLE internal_singleton_handle);
-#else
-# define INTERNAL_SINGLETON(HANDLE) (0 <= (HANDLE) && 0 != *internal_singleton_fname)
-LIBXS_APIVAR_ARRAY(char internal_singleton_fname, 64);
-LIBXS_APIVAR(int internal_singleton_handle);
 #endif
 
 #if (0 == LIBXS_SYNC)
@@ -249,6 +187,77 @@ LIBXS_APIVAR(int internal_singleton_handle);
 #   define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, internal_reglock_ptr); }
 # endif
 #endif
+
+
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
+  unsigned int ntry, ncol, njit, nsta;
+} internal_statistic_type;
+
+#if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_cache_entry_type {
+  libxs_descriptor keys[LIBXS_CACHE_MAXSIZE];
+  libxs_code_pointer code[LIBXS_CACHE_MAXSIZE];
+# if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
+  unsigned int id; /* to invalidate */
+# endif
+  unsigned char size, hit;
+} internal_cache_entry_type;
+
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_cache_type {
+# if defined(LIBXS_CACHE_PAD)
+  char pad[LIBXS_UP2(sizeof(internal_cache_entry_type),LIBXS_CACHELINE)];
+# endif
+  internal_cache_entry_type entry;
+} internal_cache_type;
+
+# if defined(LIBXS_NTHREADS_USE)
+LIBXS_APIVAR_DEFINE(internal_cache_type* internal_cache_buffer);
+# endif
+#endif /*defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))*/
+/** Determines the try-lock property (1<N: disabled, N=1: enabled [N=0: disabled in case of RW-lock]). */
+LIBXS_APIVAR_DEFINE(int internal_reglock_count);
+LIBXS_APIVAR_DEFINE(size_t internal_registry_nbytes);
+LIBXS_APIVAR_DEFINE(unsigned int internal_registry_nleaks);
+LIBXS_APIVAR_DEFINE(libxs_descriptor* internal_registry_keys);
+LIBXS_APIVAR_DEFINE(libxs_code_pointer* internal_registry);
+LIBXS_APIVAR_DEFINE(internal_statistic_type internal_statistic[2/*DP/SP*/][4/*sml/med/big/xxx*/]);
+LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_sml);
+LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_med);
+LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_mnk);
+LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_gemv);
+LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_mcopy);
+LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_tcopy);
+LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_trsm);
+LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_trmm);
+LIBXS_APIVAR_DEFINE(int internal_gemm_auto_prefetch_locked);
+LIBXS_APIVAR_DEFINE(const char* internal_build_state);
+/** Time stamp (startup time of library). */
+LIBXS_APIVAR_DEFINE(libxs_timer_tickint internal_timer_start);
+
+#if defined(_WIN32)
+# define INTERNAL_SINGLETON(HANDLE) (NULL != (HANDLE))
+LIBXS_APIVAR_DEFINE(HANDLE internal_singleton_handle);
+#else
+# define INTERNAL_SINGLETON(HANDLE) (0 <= (HANDLE) && 0 != *internal_singleton_fname)
+LIBXS_APIVAR_DEFINE(char internal_singleton_fname[64]);
+LIBXS_APIVAR_DEFINE(int internal_singleton_handle);
+#endif
+
+/* definition of corresponding variables */
+LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_function libxs_default_malloc_fn);
+LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_function libxs_scratch_malloc_fn);
+LIBXS_APIVAR_PRIVATE_DEF(libxs_free_function libxs_default_free_fn);
+LIBXS_APIVAR_PRIVATE_DEF(libxs_free_function libxs_scratch_free_fn);
+LIBXS_APIVAR_PRIVATE_DEF(const void* libxs_default_allocator_context);
+LIBXS_APIVAR_PRIVATE_DEF(const void* libxs_scratch_allocator_context);
+LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_scratch_pools);
+LIBXS_APIVAR_PRIVATE_DEF(double libxs_scratch_scale);
+LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_statistic_num_spmdm);
+LIBXS_APIVAR_PRIVATE_DEF(double libxs_timer_scale);
+LIBXS_APIVAR_PRIVATE_DEF(int libxs_se);
+/* definition of corresponding variables */
+LIBXS_APIVAR_PUBLIC_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
+LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
 
 
 LIBXS_API_INLINE void internal_update_mmstatistic(const libxs_gemm_descriptor* desc,

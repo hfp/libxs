@@ -15,9 +15,6 @@
 #if defined(LIBXS_BUILD)
 # error LIBXS_BUILD cannot be defined for the header-only LIBXS!
 #endif
-#if !defined(LIBXS_API)
-# define LIBXS_API LIBXS_API_INLINE
-#endif
 
 /**
  * This header is intentionally called "libxs_source.h" since the followings block
