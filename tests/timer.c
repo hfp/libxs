@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
   if (delta < d) delta = d;
 
   result = (int)LIBXS_ROUND(100.0 * delta);
-  if (0 > max_delta || result <= max_delta) {
+  if (0 != max_delta && (0 > max_delta || result <= max_delta)) {
     libxs_cpuid_x86_info info;
     libxs_cpuid_x86(&info);
     d = libxs_timer_duration(begin, start);
