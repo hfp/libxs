@@ -95,14 +95,14 @@
 #endif
 
 typedef uint32_t internal_crc32_entry_type[256];
-LIBXS_APIVAR_PRIVATE(const internal_crc32_entry_type* internal_crc32_table);
-LIBXS_APIVAR_PRIVATE(libxs_hash_function internal_hash_u32_function);
-LIBXS_APIVAR_PRIVATE(libxs_hash_function internal_hash_u64_function);
-LIBXS_APIVAR_PRIVATE(libxs_hash_function internal_hash_u128_function);
-LIBXS_APIVAR_PRIVATE(libxs_hash_function internal_hash_u256_function);
-LIBXS_APIVAR_PRIVATE(libxs_hash_function internal_hash_u384_function);
-LIBXS_APIVAR_PRIVATE(libxs_hash_function internal_hash_u512_function);
-LIBXS_APIVAR_PRIVATE(libxs_hash_function internal_hash_function);
+LIBXS_APIVAR_DEFINE(const internal_crc32_entry_type* internal_crc32_table);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u32_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u64_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u128_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u256_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u384_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u512_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_function);
 
 
 LIBXS_API_INLINE unsigned int internal_crc32_u8(unsigned int seed, const void* value)

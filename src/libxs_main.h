@@ -818,31 +818,31 @@ LIBXS_API_INTERN void libxs_dnn_init(int target_arch);
 LIBXS_API_INTERN void libxs_dnn_finalize(void);
 
 /** Global lock; create an own lock for an independent domain. */
-LIBXS_APIVAR_ALIGNED(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
+LIBXS_APIVAR_PUBLIC(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 /** Determines whether a threaded implementation is synchronized or not. */
-LIBXS_APIVAR_ALIGNED(int libxs_nosync);
+LIBXS_APIVAR_PUBLIC(int libxs_nosync);
 
 /** Function used to allocate default memory. */
-LIBXS_APIVAR(libxs_malloc_function libxs_default_malloc_fn);
+LIBXS_APIVAR_PRIVATE(libxs_malloc_function libxs_default_malloc_fn);
 /** Function used to allocate scratch memory. */
-LIBXS_APIVAR(libxs_malloc_function libxs_scratch_malloc_fn);
+LIBXS_APIVAR_PRIVATE(libxs_malloc_function libxs_scratch_malloc_fn);
 /** Function used to release default memory. */
-LIBXS_APIVAR(libxs_free_function libxs_default_free_fn);
+LIBXS_APIVAR_PRIVATE(libxs_free_function libxs_default_free_fn);
 /** Function used to release scratch memory. */
-LIBXS_APIVAR(libxs_free_function libxs_scratch_free_fn);
+LIBXS_APIVAR_PRIVATE(libxs_free_function libxs_scratch_free_fn);
 /** If non-NULL, this context is used by the context-form of memory allocation. */
-LIBXS_APIVAR(const void* libxs_default_allocator_context);
+LIBXS_APIVAR_PRIVATE(const void* libxs_default_allocator_context);
 /** If non-NULL, this context is used by the context-form of memory allocation. */
-LIBXS_APIVAR(const void* libxs_scratch_allocator_context);
+LIBXS_APIVAR_PRIVATE(const void* libxs_scratch_allocator_context);
 /** Number of scratch memory pools used; clamped against internal maximum. */
-LIBXS_APIVAR(unsigned int libxs_scratch_pools);
+LIBXS_APIVAR_PRIVATE(unsigned int libxs_scratch_pools);
 /** Growth factor used to scale the scratch memory in case of reallocation. */
-LIBXS_APIVAR(double libxs_scratch_scale);
+LIBXS_APIVAR_PRIVATE(double libxs_scratch_scale);
 /** Counts the number of attempts to create an SPMDM-handle. */
-LIBXS_APIVAR(unsigned int libxs_statistic_num_spmdm);
+LIBXS_APIVAR_PRIVATE(unsigned int libxs_statistic_num_spmdm);
 /** Number of seconds per RDTSC-cycle (zero or negative if RDTSC is not constant/available). */
-LIBXS_APIVAR(double libxs_timer_scale);
+LIBXS_APIVAR_PRIVATE(double libxs_timer_scale);
 /** Security-enhanced environment. */
-LIBXS_APIVAR(int libxs_se);
+LIBXS_APIVAR_PRIVATE(int libxs_se);
 
 #endif /*LIBXS_MAIN_H*/

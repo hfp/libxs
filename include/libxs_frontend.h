@@ -486,18 +486,18 @@ LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemv_function)(LIBXS_BLA
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sink_function)(LIBXS_VARIADIC);
 
 /** The original BLAS functions. */
-LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_dgemm_batch_function libxs_original_dgemm_batch_function);
-LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_sgemm_batch_function libxs_original_sgemm_batch_function);
-LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_dgemm_function libxs_original_dgemm_function);
-LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_sgemm_function libxs_original_sgemm_function);
-LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_dgemv_function libxs_original_dgemv_function);
-LIBXS_APIVAR_ALIGNED(/*volatile*/libxs_sgemv_function libxs_original_sgemv_function);
-LIBXS_API_EXPORT libxs_dgemm_batch_function libxs_original_dgemm_batch(void);
-LIBXS_API_EXPORT libxs_sgemm_batch_function libxs_original_sgemm_batch(void);
-LIBXS_API_EXPORT libxs_dgemm_function libxs_original_dgemm(void);
-LIBXS_API_EXPORT libxs_sgemm_function libxs_original_sgemm(void);
-LIBXS_API_EXPORT libxs_dgemv_function libxs_original_dgemv(void);
-LIBXS_API_EXPORT libxs_sgemv_function libxs_original_sgemv(void);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_batch_function libxs_original_dgemm_batch_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_batch_function libxs_original_sgemm_batch_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_function libxs_original_dgemm_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_function libxs_original_sgemm_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemv_function libxs_original_dgemv_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemv_function libxs_original_sgemv_function);
+LIBXS_API libxs_dgemm_batch_function libxs_original_dgemm_batch(void);
+LIBXS_API libxs_sgemm_batch_function libxs_original_sgemm_batch(void);
+LIBXS_API libxs_dgemm_function libxs_original_dgemm(void);
+LIBXS_API libxs_sgemm_function libxs_original_sgemm(void);
+LIBXS_API libxs_dgemv_function libxs_original_dgemv(void);
+LIBXS_API libxs_sgemv_function libxs_original_sgemv(void);
 LIBXS_API libxs_sink_function libxs_blas_error(const char* symbol);
 LIBXS_API void libxs_sink(LIBXS_VARIADIC);
 
