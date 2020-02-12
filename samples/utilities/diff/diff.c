@@ -17,17 +17,17 @@ int main(int argc, char* argv[])
   const int insize = (1 < argc ? atoi(argv[1]) : 0);
   const int incrmt = (2 < argc ? atoi(argv[2]) : 0);
   const int nelems = (3 < argc ? atoi(argv[3]) : 0);
-  const int niters = (4 < argc ? atoi(argv[4]) : 1);
+  const int niters = (4 < argc ? atoi(argv[4]) : 7);
   const int elsize = (0 >= insize ? LIBXS_DESCRIPTOR_SIGSIZE : insize);
   const int stride = (0 >= incrmt ? LIBXS_MAX(LIBXS_DESCRIPTOR_MAXSIZE, elsize) : LIBXS_MAX(incrmt, elsize));
   const size_t n = (0 >= nelems ? (((size_t)2 << 30/*2 GB*/) / stride) : ((size_t)nelems));
   const char *const env_strided = getenv("STRIDED"), *const env_check = getenv("CHECK");
   const int strided = (NULL == env_strided || 0 == *env_strided) ? 0/*default*/ : atoi(env_strided);
   const int check = (NULL == env_check || 0 == *env_check) ? 0/*default*/ : atoi(env_check);
+  double d0, d1 = 0, d2 = 0, d3 = 0;
+  size_t nbytes, size, nrpt, i;
   int result = EXIT_SUCCESS;
-  size_t nbytes, size, nrpt;
   unsigned char *a, *b;
-  double duration;
 
   LIBXS_ASSERT(elsize <= stride);
   if (0 < niters) {
@@ -45,33 +45,32 @@ int main(int argc, char* argv[])
   b = (unsigned char*)(0 != nbytes ? malloc(nbytes) : NULL);
 
   if (NULL != a && NULL != b) {
-    /* initialize the data */
-    libxs_rng_seq(a, (libxs_blasint)nbytes);
-    memcpy(b, a, nbytes); /* same content */
-    /* benchmark libxs_diff (always strided) */
-    if (elsize < 256) {
-      size_t diff = 0, i, j;
-      const libxs_timer_tickint start = libxs_timer_tick();
-      for (i = 0; i < nrpt; ++i) {
+    size_t diff = 0, j;
+    for (i = 0; i < nrpt; ++i) {
+      printf("-------------------------------------------------\n");
+      /* initialize the data */
+      libxs_rng_seq(a, (libxs_blasint)nbytes);
+      memcpy(b, a, nbytes); /* same content */
+      /* benchmark libxs_diff (always strided) */
+      if (elsize < 256) {
+        const libxs_timer_tickint start = libxs_timer_tick();
         for (j = 0; j < nbytes; j += stride) {
           const void *const aj = a + j, *const bj = b + j;
           diff += libxs_diff(aj, bj, (unsigned char)elsize);
         }
+        d0 = libxs_timer_duration(start, libxs_timer_tick());
+        if (0 < d0) printf("libxs_diff:\t\t%.8f s (%i MB/s)\n", d0,
+          (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
+        d1 += d0;
       }
-      duration = libxs_timer_duration(start, libxs_timer_tick());
-      if (0 < duration) printf("libxs_diff:\t\t%.8f s (%i MB/s)\n", duration,
-        (int)LIBXS_ROUND((2.0 * nrpt * nbytes) / ((1024.0 * 1024.0) * duration)));
-      result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
-    }
 
-    { /* benchmark libxs_memcmp */
-      size_t diff = 0, i, j;
-      libxs_timer_tickint start;
-      /* reinitialize the data (flush caches) */
-      libxs_rng_seq(a, (libxs_blasint)nbytes);
-      memcpy(b, a, nbytes); /* same content */
-      start = libxs_timer_tick();
-      for (i = 0; i < nrpt; ++i) {
+      { /* benchmark libxs_memcmp */
+        libxs_timer_tickint start;
+        /* reinitialize the data (flush caches) */
+        libxs_rng_seq(a, (libxs_blasint)nbytes);
+        memcpy(b, a, nbytes); /* same content */
+        start = libxs_timer_tick();
         if (stride == elsize && 0 == strided) {
           diff += libxs_memcmp(a, b, nbytes);
         }
@@ -81,21 +80,19 @@ int main(int argc, char* argv[])
             diff += libxs_memcmp(aj, bj, elsize);
           }
         }
+        d0 = libxs_timer_duration(start, libxs_timer_tick());
+        if (0 < d0) printf("libxs_memcmp:\t\t%.8f s (%i MB/s)\n", d0,
+          (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
+        d2 += d0;
       }
-      duration = libxs_timer_duration(start, libxs_timer_tick());
-      if (0 < duration) printf("libxs_memcmp:\t\t%.8f s (%i MB/s)\n", duration,
-        (int)LIBXS_ROUND((2.0 * nrpt * nbytes) / ((1024.0 * 1024.0) * duration)));
-      result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
-    }
 
-    { /* benchmark stdlib's memcmp */
-      size_t diff = 0, i, j;
-      libxs_timer_tickint start;
-      /* reinitialize the data (flush caches) */
-      libxs_rng_seq(a, (libxs_blasint)nbytes);
-      memcpy(b, a, nbytes); /* same content */
-      start = libxs_timer_tick();
-      for (i = 0; i < nrpt; ++i) {
+      { /* benchmark stdlib's memcmp */
+        libxs_timer_tickint start;
+        /* reinitialize the data (flush caches) */
+        libxs_rng_seq(a, (libxs_blasint)nbytes);
+        memcpy(b, a, nbytes); /* same content */
+        start = libxs_timer_tick();
         if (stride == elsize && 0 == strided) {
           diff += (0 != memcmp(a, b, nbytes));
         }
@@ -112,15 +109,32 @@ int main(int argc, char* argv[])
 #endif
           }
         }
+        d0 = libxs_timer_duration(start, libxs_timer_tick());
+        if (0 < d0) printf("stdlib memcmp:\t\t%.8f s (%i MB/s)\n", d0,
+          (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
+        d3 += d0;
       }
-      duration = libxs_timer_duration(start, libxs_timer_tick());
-      if (0 < duration) printf("stdlib memcmp:\t\t%.8f s (%i MB/s)\n", duration,
-        (int)LIBXS_ROUND((2.0 * nrpt * nbytes) / ((1024.0 * 1024.0) * duration)));
-      result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
+    }
+
+    if (1 < nrpt) {
+      printf("-------------------------------------------------\n");
+      printf("Arithmetic average of %llu iterations\n", (unsigned long long)nrpt);
+      printf("-------------------------------------------------\n");
+      d1 /= nrpt; d2 /= nrpt; d3 /= nrpt;
+      if (0 < d1) printf("libxs_diff:\t\t%.8f s (%i MB/s)\n", d1,
+        (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d1)));
+      if (0 < d2) printf("libxs_memcmp:\t\t%.8f s (%i MB/s)\n", d2,
+        (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d2)));
+      if (0 < d3) printf("stdlib memcmp:\t\t%.8f s (%i MB/s)\n", d3,
+        (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d3)));
+    }
+    if (0 < nrpt) {
+      printf("-------------------------------------------------\n");
     }
 
     if (0 != check) { /* validation */
-      size_t diff = 0, i, j, k;
+      size_t k;
       for (i = 0; i < nrpt; ++i) {
         for (j = 0; j < nbytes; j += stride) {
           unsigned char *const aj = a + j, *const bj = b + j;
@@ -152,7 +166,7 @@ int main(int argc, char* argv[])
         }
       }
       if (0 != diff) {
-        fprintf(stderr, "ERROR: errors=%i - validation failed!", (int)diff);
+        fprintf(stderr, "ERROR: errors=%i - validation failed!\n", (int)diff);
         result = EXIT_FAILURE;
       }
     }
