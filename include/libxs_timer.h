@@ -14,6 +14,14 @@
 
 typedef unsigned long long libxs_timer_tickint;
 
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_timer_info {
+  int tsc;
+} libxs_timer_info;
+
+
+/** Query timer properties. */
+LIBXS_API int libxs_get_timer_info(libxs_timer_info* info);
+
 /**
  * Returns the current clock tick of a monotonic timer source with
  * platform-specific resolution (not necessarily CPU cycles).

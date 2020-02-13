@@ -106,6 +106,46 @@ libxs_timer_tickint libxs_timer_tick_tsc(void)
 }
 
 
+LIBXS_API int libxs_get_timer_info(libxs_timer_info* info)
+{
+  int result;
+  if (NULL != info) {
+#if defined(LIBXS_TIMER_RDTSC)
+    if (0 < libxs_timer_scale) {
+      info->tsc = 1;
+    }
+# if !defined(LIBXS_INIT_COMPLETED)
+    else if (0 == libxs_ninit) {
+      libxs_init();
+      if (0 < libxs_timer_scale) {
+        info->tsc = 1;
+      }
+      else {
+        info->tsc = 0;
+      }
+    }
+# endif
+    else {
+      info->tsc = 0;
+    }
+#else
+    info->tsc = 0;
+#endif
+    result = EXIT_SUCCESS;
+  }
+  else {
+    static int error_once = 0;
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS ERROR: invalid argument for libxs_get_timer_info specified!\n");
+    }
+    result = EXIT_FAILURE;
+  }
+  return result;
+}
+
+
 LIBXS_API libxs_timer_tickint libxs_timer_tick(void)
 {
   libxs_timer_tickint result;
