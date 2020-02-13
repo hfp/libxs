@@ -34,7 +34,11 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_cpuid_x86_info {
 } libxs_cpuid_x86_info;
 
 /** Returns the target architecture and instruction set extensions. */
+#if defined(__cplusplus) /* note: stay compatible with TF */
+LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info = NULL);
+#else
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info);
+#endif
 
 /**
  * Similar to libxs_cpuid_x86, but conceptually not x86-specific.
