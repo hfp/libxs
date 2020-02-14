@@ -180,6 +180,13 @@
    ((('n' == (TRANSA) || *"N" == (TRANSA)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_A) \
   | (('n' == (TRANSB) || *"N" == (TRANSB)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_B))
 
+/** Helper macro consolidating the transpose requests into a set of flags. */
+#define LIBXS_GEMM_VNNI_FLAGS(TRANSA, TRANSB, VNNIA, VNNIB) /* check for N/n rather than T/t since C/c is also valid! */ \
+   ((('n' == (TRANSA) || *"N" == (TRANSA)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_A) \
+  | (('n' == (TRANSB) || *"N" == (TRANSB)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_B) \
+  | (('n' == (VNNIA) || *"N" == (VNNIA)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_VNNI_A) \
+  | (('n' == (VNNIB) || *"N" == (VNNIB)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_VNNI_B))
+
 /** Helper macro allowing NULL-requests (transposes) supplied by some default. */
 #define LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, DEFAULT) LIBXS_GEMM_FLAGS( \
   NULL != ((const void*)(TRANSA)) ? (*(const char*)(TRANSA)) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & (DEFAULT)) ? 'n' : 't'), \

@@ -69,7 +69,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16_emu(libxs_dnn_
     typedef libxs_bfloat16 element_filter_type;
     typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
     typedef libxs_bmmfunction_reducebatch_addr gemm_br_function_bf16bf16;
-    int l_flags = LIBXS_GEMM_FLAGS('N', 'N');
+    int l_flags = LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N');
     /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
     gemm_br_function br_gemm_kernel = libxs_bsmmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldB, &ldC, NULL, &beta, &l_flags, NULL);
     gemm_br_function br_gemm_kernel2 = libxs_bsmmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldB, &ldC, NULL, &beta, &l_flags, NULL);
@@ -104,7 +104,7 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16(libxs_dnn_laye
     typedef libxs_bfloat16 element_filter_type;
     typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
     typedef libxs_bmmfunction_reducebatch_addr gemm_br_function_bf16bf16;
-    int l_flags = LIBXS_GEMM_FLAGS('N', 'N');
+    int l_flags = LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N');
     /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
     gemm_br_function br_gemm_kernel = libxs_bsmmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*handle->bwd_ofw_rb, handle->ofmblock, &ldA, &ldB, &ldC, NULL, &beta, &l_flags, NULL);
     gemm_br_function br_gemm_kernel2 = libxs_bsmmdispatch_reducebatch_addr(handle->ifmblock, handle->bwd_ofh_rb*(handle->bwd_ofw_rb-1), handle->ofmblock, &ldA, &ldB, &ldC, NULL, &beta, &l_flags, NULL);
