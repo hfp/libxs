@@ -730,7 +730,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
     const libxs_blasint ldA = handle->ofmblock;
     const libxs_blasint ldC = handle->ofmblock;
     const int beta = (handle->avoid_acc_load) ? 0 : 1;
-    int l_flags = ( LIBXS_GEMM_FLAGS('N', 'N') ) | handle->fwd_flags;
+    int l_flags = ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') ) | handle->fwd_flags;
     if (handle->desc.R == 1 && handle->desc.S == 1) {
       const int IFW = (handle->pack_input == 1) ? handle->ofwp : handle->ifwp;
       const int IFH = (handle->pack_input == 1) ? handle->ofhp : handle->ifhp;
@@ -771,7 +771,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
     const libxs_blasint ldA = handle->ofmblock;
     const libxs_blasint ldC = handle->ofmblock;
     const int beta = 0;
-    int l_flags = ( LIBXS_GEMM_FLAGS('N', 'N') ) | handle->fwd_flags;
+    int l_flags = ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') ) | handle->fwd_flags;
     if (handle->desc.R == 1 && handle->desc.S == 1) {
       const int IFW = handle->ifwp;
       const int IFH = handle->ifhp;
