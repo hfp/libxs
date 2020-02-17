@@ -6,8 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include "libxs_dnn_fullyconnected_weight_update.h"
-#include "libxs_dnn_fullyconnected_backward.h"
+#include "libxs_dnn_fullyconnected_backward_weight_update.h"
 #include "libxs_dnn_fullyconnected_forward.h"
 #include "libxs_main.h"
 
@@ -1072,20 +1071,14 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullycon
                                              status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
                                            }
                                          } break;
-      case LIBXS_DNN_COMPUTE_KIND_BWD: {
+      case LIBXS_DNN_COMPUTE_KIND_BWD:
+      case LIBXS_DNN_COMPUTE_KIND_UPD:
+      case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
+                                         {
                                            if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
-                                             status = libxs_dnn_fullyconnected_st_bwd_custom( handle, start_thread, tid );
+                                             status = libxs_dnn_fullyconnected_st_bwdupd_custom( handle, kind, start_thread, tid );
                                            } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
-                                             status = libxs_dnn_fullyconnected_st_bwd_ncnc_kcck( handle, start_thread, tid );
-                                           } else {
-                                             status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
-                                           }
-                                         } break;
-      case LIBXS_DNN_COMPUTE_KIND_UPD: {
-                                           if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
-                                             status = libxs_dnn_fullyconnected_st_upd_custom( handle, start_thread, tid );
-                                           } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
-                                             status = libxs_dnn_fullyconnected_st_upd_ncnc_kcck( handle, start_thread, tid );
+                                             status = libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck( handle, kind, start_thread, tid );
                                            } else {
                                              status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
                                            }
