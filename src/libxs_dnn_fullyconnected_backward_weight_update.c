@@ -613,7 +613,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_custom_f32_f32(libxs_dnn_full
     status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(kind); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
   return status;
@@ -649,7 +649,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_custom_bf16_f32(libxs_dnn_ful
     status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(kind); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
   return status;
@@ -716,7 +716,7 @@ libxs_smmfunction_reducebatch_strd batchreduce_kernel_bwd = handle->gemm_bwd.xge
   }
 #undef LIBXS_DNN_FC_BWD_USE_AVX512
 #else /* should not happen */
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(kind); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
   return status;
@@ -740,7 +740,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_emu(libxs
     status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(kind); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
   return status;
@@ -769,7 +769,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16(libxs_dnn
     status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
   }
 #else /* should not happen */
-  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(kind); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
 #endif
   return status;
@@ -788,6 +788,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_custom(libxs
 
   /* check if all required tensors are bound */
   if (handle->grad_input == 0 || handle->grad_output == 0 ||
+      handle->reg_input  == 0 || handle->grad_filter == 0 ||
       handle->reg_filter == 0 || handle->scratch == 0         ) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
@@ -873,6 +874,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck(li
 
   /* check if all required tensors are bound */
   if (handle->grad_input == 0 || handle->grad_output == 0 ||
+      handle->reg_input  == 0 || handle->grad_filter == 0 ||
       handle->reg_filter == 0 || handle->scratch == 0         ) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
@@ -974,6 +976,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_nhwc(libxs_d
 {
   libxs_dnn_err_t status = LIBXS_DNN_ERR_NOT_IMPLEMENTED;
   LIBXS_UNUSED( handle );
+  LIBXS_UNUSED( kind );
   LIBXS_UNUSED( start_thread );
   LIBXS_UNUSED( tid );
   return status;
