@@ -778,7 +778,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16(libxs_dnn
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
-  return libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_emu( handle, start_thread, tid );
+  return libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_emu( handle, kind, start_thread, tid );
 }
 #endif
 
