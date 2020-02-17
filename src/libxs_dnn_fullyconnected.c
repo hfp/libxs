@@ -320,7 +320,8 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
       }
       /* create barrier */
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
-      /* calculate scratch size for batchstats */
+
+      /* calculate scratch size */
       if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
         handle->scratch_size = sizeof(float) * ( ( (size_t)handle->desc.C * (size_t)handle->desc.N ) + ( (size_t)handle->desc.C * (size_t)handle->desc.K ) );
       } else if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)  ) {
@@ -331,8 +332,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
         size_t size_upd = sizeof(float) * handle->desc.C * handle->desc.K + sizeof(libxs_bfloat16) * handle->desc.threads * handle->bk * handle->bc + sizeof(libxs_bfloat16) * (handle->desc.N * (handle->desc.C + handle->desc.K));
         handle->scratch_size = LIBXS_MAX(LIBXS_MAX(size_fwd, size_bwd), size_upd);
       } else {
-        handle->scratch_size = sizeof(float) * LIBXS_MAX( ((size_t)handle->desc.C + (size_t)handle->desc.K) * (size_t)handle->desc.N,
-            (size_t)handle->desc.C * (size_t)handle->desc.K);
+        handle->scratch_size = sizeof(float) * ( (((size_t)handle->desc.C + (size_t)handle->desc.K) * (size_t)handle->desc.N) + ((size_t)handle->desc.C * (size_t)handle->desc.K) );
       }
       /* create code pointers in some special cases */
       if ( ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NCPACKED) > 0) && ((handle->desc.filter_format & LIBXS_DNN_TENSOR_FORMAT_CKPACKED) > 0)  ) {
