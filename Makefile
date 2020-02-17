@@ -637,7 +637,7 @@ endif
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
 ifneq (,$(PYTHON))
 $(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(INCDIR)/libxs.h $(SRCFILES_KERNELS) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py
-	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py "$(call qapath,$(DIRSTATE)/.state)" $(PRECISION) $(THRESHOLD) $(INDICES) > $@
+	@$(PYTHON) $(call quote,$(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py) $(call qapath,$(DIRSTATE)/.state) $(PRECISION) $(THRESHOLD) $(INDICES) > $@
 else
 .PHONY: $(BLDDIR)/libxs_dispatch.h
 endif
