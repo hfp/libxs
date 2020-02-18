@@ -256,6 +256,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csc_soa_d
   const unsigned int* column_ptr;
   const unsigned int* row_idx;
   const void* values;
+  unsigned int packed_width;
 } libxs_csc_soa_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pgemm_ac_rm_descriptor {
