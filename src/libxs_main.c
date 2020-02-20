@@ -2404,6 +2404,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
       wrap.gemm.desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
     }
+    LIBXS_INIT
     result = internal_find_code(&wrap, sizeof(*descriptor)).xgemm;
 #if defined(_DEBUG)
     if (LIBXS_VERBOSITY_HIGH <= libxs_verbosity && INT_MAX != libxs_verbosity && NULL != result.xmm) {
