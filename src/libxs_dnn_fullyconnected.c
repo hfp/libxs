@@ -10,9 +10,6 @@
 #include "libxs_dnn_fullyconnected_forward.h"
 #include "libxs_main.h"
 
-#define STRIDE_BRGEMM
-
-
 LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fullyconnected_desc fullyconnected_desc, libxs_dnn_err_t* status) {
   libxs_dnn_fullyconnected* handle = 0;
 
@@ -45,7 +42,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           handle->bk = handle->desc.K;
           *status = LIBXS_DNN_WARN_FC_SUBOPTIMAL_K_BLOCKING;
         }
-        if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) )  {
+        if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) )  {
 #if 0
           handle->fwd_bf = atoi(getenv("FWD_BF"));
           handle->bwd_bf = atoi(getenv("BWD_BF"));
@@ -61,7 +58,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           handle->upd_column_teams = atoi(getenv("UPD_COLUMN_TEAMS"));
           handle->ifm_subtasks = atoi(getenv("IFM_SUBTASKS"));
           handle->ofm_subtasks = atoi(getenv("OFM_SUBTASKS"));
-#endif
+#else
           /* Initialize with default values */
           handle->fwd_bf = 1;
           handle->bwd_bf = 1;
@@ -276,7 +273,239 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
             handle->ifm_subtasks = 1/*((handle->bc % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
             handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
           }
+#endif
+        } else if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) )  {
+#if 0
+          handle->fwd_bf = atoi(getenv("FWD_BF"));
+          handle->bwd_bf = atoi(getenv("BWD_BF"));
+          handle->upd_bf = atoi(getenv("UPD_BF"));
+          handle->fwd_2d_blocking = atoi(getenv("FWD_2D_BLOCKING"));
+          handle->bwd_2d_blocking = atoi(getenv("BWD_2D_BLOCKING"));
+          handle->upd_2d_blocking = atoi(getenv("UPD_2D_BLOCKING"));
+          handle->fwd_row_teams = atoi(getenv("FWD_ROW_TEAMS"));
+          handle->fwd_column_teams = atoi(getenv("FWD_COLUMN_TEAMS"));
+          handle->bwd_row_teams = atoi(getenv("BWD_ROW_TEAMS"));
+          handle->bwd_column_teams = atoi(getenv("BWD_COLUMN_TEAMS"));
+          handle->upd_row_teams = atoi(getenv("UPD_ROW_TEAMS"));
+          handle->upd_column_teams = atoi(getenv("UPD_COLUMN_TEAMS"));
+          handle->ifm_subtasks = atoi(getenv("IFM_SUBTASKS"));
+          handle->ofm_subtasks = atoi(getenv("OFM_SUBTASKS"));
+#else
+          /* Initialize with default values */
+          handle->fwd_bf = 1;
+          handle->bwd_bf = 1;
+          handle->upd_bf = 1;
+          handle->fwd_2d_blocking = 0;
+          handle->bwd_2d_blocking = 0;
+          handle->upd_2d_blocking = 0;
+          handle->fwd_row_teams = 1;
+          handle->fwd_column_teams = 1;
+          handle->bwd_row_teams = 1;
+          handle->bwd_column_teams = 1;
+          handle->upd_row_teams = 1;
+          handle->upd_column_teams = 1;
+          handle->ifm_subtasks = 1;
+          handle->ofm_subtasks = 1;
 
+          if (handle->desc.C == 100 && handle->desc.K == 1024 && handle->desc.threads == 28) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 1;
+            handle->fwd_row_teams = 14;
+            handle->fwd_column_teams = 2;
+            handle->bwd_bf = 1/*((handle->desc.K/handle->bk) % 1 == 0) ? 1 : 1*/;
+            handle->bwd_2d_blocking = 0;
+            handle->bwd_row_teams = 1;
+            handle->bwd_column_teams = 1;
+            handle->upd_bf = ((handle->desc.N/handle->bn) % 14 == 0) ? 14 : 1;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 1;
+            handle->upd_column_teams = 1;
+            handle->ifm_subtasks = 1/*((handle->bc % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+
+          if (handle->desc.C == 1024 && handle->desc.K == 1024 && handle->desc.threads == 28) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 1;
+            handle->fwd_row_teams = 7;
+            handle->fwd_column_teams = 4;
+            handle->bwd_bf = ((handle->desc.K/handle->bk) % 8 == 0) ? 8 : 1;
+            handle->bwd_2d_blocking = 0;
+            handle->bwd_row_teams = 7;
+            handle->bwd_column_teams = 4;
+            handle->upd_bf = ((handle->desc.N/handle->bn) % 14 == 0) ? 14 : 1;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 7;
+            handle->upd_column_teams = 4;
+            handle->ifm_subtasks = ((handle->bc % 2 == 0) && (handle->upd_2d_blocking == 0)) ? 2 : 1;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+
+          if (handle->desc.C == 512 && handle->desc.K == 512 && handle->desc.threads == 28) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 0;
+            handle->fwd_row_teams = 1;
+            handle->fwd_column_teams = 1;
+            handle->bwd_bf = ((handle->desc.K/handle->bk) % 4 == 0) ? 4 : 1;
+            handle->bwd_2d_blocking = 0;
+            handle->bwd_row_teams = 1;
+            handle->bwd_column_teams = 1;
+            handle->upd_bf = ((handle->desc.N/handle->bn) % 14 == 0) ? 14 : 1;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 1;
+            handle->upd_column_teams = 1;
+            handle->ifm_subtasks = ((handle->bc % 2 == 0) && (handle->upd_2d_blocking == 0)) ? 2 : 1;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+
+          if (handle->desc.C == 1024 && handle->desc.K == 1 && handle->desc.threads == 28) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 0;
+            handle->fwd_row_teams = 1;
+            handle->fwd_column_teams = 1;
+            handle->bwd_bf = 1/*((handle->desc.K/handle->bk) % 1 == 0) ? 1 : 1*/;
+            handle->bwd_2d_blocking = 1;
+            handle->bwd_row_teams = 14;
+            handle->bwd_column_teams = 2;
+            handle->upd_bf = ((handle->desc.N/handle->bn) % 2 == 0) ? 2 : 1;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 1;
+            handle->upd_column_teams = 1;
+            handle->ifm_subtasks = ((handle->bc % 2 == 0) && (handle->upd_2d_blocking == 0)) ? 2 : 1;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+
+          if (handle->desc.C == 1024 && handle->desc.K == 1024 && handle->desc.threads == 20) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 0;
+            handle->fwd_row_teams = 5;
+            handle->fwd_column_teams = 4;
+            handle->bwd_bf = 1/*((handle->desc.K/handle->bk) % 1 == 0) ? 1 : 1*/;
+            handle->bwd_2d_blocking = 1;
+            handle->bwd_row_teams = 5;
+            handle->bwd_column_teams = 4;
+            handle->upd_bf = ((handle->desc.N/handle->bn) % 15 == 0) ? 15 : 1;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 5;
+            handle->upd_column_teams = 4;
+            handle->ifm_subtasks = 1/*((handle->bc % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+
+          if (handle->desc.C == 100 && handle->desc.K == 1024 && handle->desc.threads == 20) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 1;
+            handle->fwd_row_teams = 5;
+            handle->fwd_column_teams = 4;
+            handle->bwd_bf = 1/*((handle->desc.K/handle->bk) % 1 == 0) ? 1 : 1*/;
+            handle->bwd_2d_blocking = 0;
+            handle->bwd_row_teams = 1;
+            handle->bwd_column_teams = 1;
+            handle->upd_bf = ((handle->desc.N/handle->bn) % 9 == 0) ? 9 : 1;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 1;
+            handle->upd_column_teams = 1;
+            handle->ifm_subtasks = 1/*((handle->bc % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+            handle->ofm_subtasks = ((handle->bk % 2 == 0) && (handle->upd_2d_blocking == 0)) ? 2 : 1;
+          }
+
+          if (handle->desc.C == 1024 && handle->desc.K == 1024 && handle->desc.threads == 24) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 0;
+            handle->fwd_row_teams = 6;
+            handle->fwd_column_teams = 4;
+            handle->bwd_bf = 1/*((handle->desc.K/handle->bk) % 1 == 0) ? 1 : 1*/;
+            handle->bwd_2d_blocking = 0;
+            handle->bwd_row_teams = 6;
+            handle->bwd_column_teams = 4;
+            handle->upd_bf = ((handle->desc.N/handle->bn) % 15 == 0) ? 15 : 1;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 6;
+            handle->upd_column_teams = 4;
+            handle->ifm_subtasks = ((handle->bc % 2 == 0) && (handle->upd_2d_blocking == 0)) ? 2 : 1;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+          if (handle->desc.C == 100 && handle->desc.K == 1024 && handle->desc.threads == 24) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 0;
+            handle->fwd_row_teams = 5;
+            handle->fwd_column_teams = 4;
+            handle->bwd_bf = 1/*((handle->desc.K/handle->bk) % 1 == 0) ? 1 : 1*/;
+            handle->bwd_2d_blocking = 1;
+            handle->bwd_row_teams = 12;
+            handle->bwd_column_teams = 2;
+            handle->upd_bf = ((handle->desc.N/handle->bn) % 15 == 0) ? 15 : 1;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 5;
+            handle->upd_column_teams = 4;
+            handle->ifm_subtasks = 1/*((handle->bc % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+          if (handle->desc.C == 512 && handle->desc.K == 512 && handle->desc.threads == 24) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 0;
+            handle->fwd_row_teams = 5;
+            handle->fwd_column_teams = 4;
+            handle->bwd_bf = ((handle->desc.K/handle->bk) % 4 == 0) ? 4 : 1;
+            handle->bwd_2d_blocking = 0;
+            handle->bwd_row_teams = 5;
+            handle->bwd_column_teams = 4;
+            handle->upd_bf = ((handle->desc.N/handle->bn) % 15 == 0) ? 15 : 1;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 5;
+            handle->upd_column_teams = 4;
+            handle->ifm_subtasks = ((handle->bc % 2 == 0) && (handle->upd_2d_blocking == 0)) ? 2 : 1;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+          if (handle->desc.C == 512 && handle->desc.K == 512 && handle->desc.threads == 20) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 1;
+            handle->fwd_row_teams = 5;
+            handle->fwd_column_teams = 4;
+            handle->bwd_bf = 1/*((handle->desc.K/handle->bk) % 1 == 0) ? 1 : 1*/;
+            handle->bwd_2d_blocking = 0;
+            handle->bwd_row_teams = 1;
+            handle->bwd_column_teams = 1;
+            handle->upd_bf = ((handle->desc.N/handle->bn) % 15 == 0) ? 15 : 1;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 1;
+            handle->upd_column_teams = 1;
+            handle->ifm_subtasks = ((handle->bc % 4 == 0) && (handle->upd_2d_blocking == 0)) ? 4 : 1;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+          if (handle->desc.C == 1024 && handle->desc.K == 1 && handle->desc.threads == 24) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 0;
+            handle->fwd_row_teams = 5;
+            handle->fwd_column_teams = 4;
+            handle->bwd_bf = 1/*((handle->desc.K/handle->bk) % 1 == 0) ? 1 : 1*/;
+            handle->bwd_2d_blocking = 0;
+            handle->bwd_row_teams = 5;
+            handle->bwd_column_teams = 4;
+            handle->upd_bf = 1/*((handle->desc.N/handle->bn) % 1 == 0) ? 1 : 1*/;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 5;
+            handle->upd_column_teams = 4;
+            handle->ifm_subtasks = ((handle->bc % 4 == 0) && (handle->upd_2d_blocking == 0)) ? 4 : 1;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+          if (handle->desc.C == 1024 && handle->desc.K == 1 && handle->desc.threads == 20) {
+            handle->fwd_bf = 1/*((handle->desc.C/handle->bc) % 1 == 0) ? 1 : 1*/;
+            handle->fwd_2d_blocking = 0;
+            handle->fwd_row_teams = 6;
+            handle->fwd_column_teams = 4;
+            handle->bwd_bf = 1/*((handle->desc.K/handle->bk) % 1 == 0) ? 1 : 1*/;
+            handle->bwd_2d_blocking = 1;
+            handle->bwd_row_teams = 5;
+            handle->bwd_column_teams = 4;
+            handle->upd_bf = 1/*((handle->desc.N/handle->bn) % 1 == 0) ? 1 : 1*/;
+            handle->upd_2d_blocking = 0;
+            handle->upd_row_teams = 6;
+            handle->upd_column_teams = 4;
+            handle->ifm_subtasks = 1/*((handle->bc % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+            handle->ofm_subtasks = 1/*((handle->bk % 1 == 0) && (handle->upd_2d_blocking == 0)) ? 1 : 1*/;
+          }
+#endif
         }
       } else {
         /* check that we cannot fuse */
@@ -331,6 +560,8 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
         size_t size_bwd = (handle->desc.K != 1) ? ( sizeof(float) * handle->desc.C * handle->desc.N + sizeof(libxs_bfloat16) * handle->desc.C * handle->desc.K ) : ( sizeof(float) * handle->desc.C * handle->desc.N + sizeof(libxs_bfloat16) * handle->desc.C * 2 + sizeof(libxs_bfloat16) * 2 * handle->desc.N );
         size_t size_upd = sizeof(float) * handle->desc.C * handle->desc.K + sizeof(libxs_bfloat16) * handle->desc.threads * handle->bk * handle->bc + sizeof(libxs_bfloat16) * (handle->desc.N * (handle->desc.C + handle->desc.K));
         handle->scratch_size = LIBXS_MAX(LIBXS_MAX(size_fwd, size_bwd), size_upd);
+        handle->doutput_scratch_mark = handle->scratch_size;
+        handle->scratch_size += 2 * sizeof(libxs_bfloat16) * handle->desc.N *  handle->desc.K;
       } else {
         handle->scratch_size = sizeof(float) * ( (((size_t)handle->desc.C + (size_t)handle->desc.K) * (size_t)handle->desc.N) + ((size_t)handle->desc.C * (size_t)handle->desc.K) );
       }
@@ -341,23 +572,25 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           /* beta is set to 1 for ncnc kcck format because ifm is split into 2 blocks */
           float beta  = 1.0f;
           float zerobeta  = 0.0f;
+          int updflags = LIBXS_GEMM_FLAGS( 'N', 'T' );
+          /* For UPD kernels we consider subtasking... */
+          libxs_blasint M = handle->bk/handle->ofm_subtasks;
+          libxs_blasint N = handle->bc/handle->ifm_subtasks;
+
           libxs_blasint lda = (libxs_blasint)handle->bk;
           libxs_blasint ldb = (libxs_blasint)handle->bc;
           libxs_blasint ldc = (libxs_blasint)handle->bk;
 
-#ifdef ADDRESS_BRGEMM
-          handle->gemm_fwd.xgemm.smra = libxs_smmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
-          handle->gemm_bwd.xgemm.smra = libxs_smmdispatch_reducebatch_addr(handle->bc, handle->bn, handle->bk, &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
-#endif
-#ifdef OFFSET_BRGEMM
-          handle->gemm_fwd.xgemm.smro = libxs_smmdispatch_reducebatch_offs(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
-          handle->gemm_bwd.xgemm.smro = libxs_smmdispatch_reducebatch_offs(handle->bc, handle->bn, handle->bk, &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
-#endif
-#ifdef STRIDE_BRGEMM
           handle->gemm_fwd.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(float), handle->bc*handle->bn*sizeof(float), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
+          handle->gemm_fwd2.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(float), handle->bc*handle->bn*sizeof(float), &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
           handle->gemm_bwd.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(float), handle->bk*handle->bn*sizeof(float), &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
           handle->gemm_bwd2.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(float), handle->bk*handle->bn*sizeof(float), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
-#endif
+          /* update has different LDs */
+          lda = (libxs_blasint)handle->bk;
+          ldb = (libxs_blasint)handle->bc;
+          ldc = (libxs_blasint)handle->bk;
+          handle->gemm_upd.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(M, N, handle->bn, handle->desc.K*handle->bn*sizeof(float), handle->desc.C*handle->bn*sizeof(float), &lda, &ldb, &ldc, &alpha, &beta, &updflags, NULL);
+          handle->gemm_upd2.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(M, N, handle->bn, handle->desc.K*handle->bn*sizeof(float), handle->desc.C*handle->bn*sizeof(float), &lda, &ldb, &ldc, &alpha, &zerobeta, &updflags, NULL);
         } else if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
           float alpha = 1.0f;
           float beta  = 1.0f;
@@ -370,15 +603,9 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           libxs_blasint ldb = (libxs_blasint)handle->bc;
           libxs_blasint ldc = (libxs_blasint)handle->bk;
 
-#ifdef ADDRESS_BRGEMM
-          handle->gemm_fwd.xgemm.bmra = libxs_bmmdispatch_reducebatch_addr(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
-#endif
-#ifdef OFFSET_BRGEMM
-          handle->gemm_fwd.xgemm.bmro = libxs_bmmdispatch_reducebatch_offs(handle->bk, handle->bn, handle->bc, &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
-#endif
-#ifdef STRIDE_BRGEMM
           handle->gemm_fwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
           handle->gemm_fwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
+          handle->gemm_fwd3.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
           /* Special bwd kernels for K == 1 */
           if (handle->desc.K == 1) {
             libxs_blasint _bk = 2;
@@ -393,7 +620,6 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           ldc = (libxs_blasint)handle->bk;
           handle->gemm_upd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(M, N, handle->bn, handle->bk*handle->bn*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
           handle->gemm_upd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(M, N, handle->bn, handle->bk*handle->bn*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
-#endif
         } else {
 
         }
@@ -783,7 +1009,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
 
         if ( ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_LIBXS) > 0) || ((handle->desc.buffer_format & LIBXS_DNN_TENSOR_FORMAT_NCPACKED) > 0) ) {
           if ( (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32) || (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
-            layout->datatype = LIBXS_DNN_DATATYPE_F32;
+            layout->datatype = handle->desc.datatype_out;
             layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(2*sizeof(libxs_dnn_tensor_dimtype));
             layout->dim_size = (unsigned int*) malloc(2*sizeof(unsigned int));
 
