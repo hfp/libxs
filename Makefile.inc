@@ -1052,14 +1052,10 @@ ifneq (0,$(INTEL))
       FCFLAGS += -g -traceback
     endif
   endif
-  ifneq (0,$(shell echo "$$((200000<=$(CXX_VERSION_NUM)))"))
+  ifneq (0,$(shell echo "$$((170000<=$(CXX_VERSION_NUM)))"))
     CXXFLAGS += -std=c++14
-  else ifneq (0,$(COMPATIBLE))
-    ifneq (0,$(shell echo "$$((170000<=$(CXX_VERSION_NUM)))"))
-      CXXFLAGS += -std=c++14
-    else ifneq (0,$(shell echo "$$((140000<=$(CXX_VERSION_NUM)))"))
-      CXXFLAGS += -std=c++11
-    endif
+  else ifneq (0,$(shell echo "$$((140000<=$(CXX_VERSION_NUM)))"))
+    CXXFLAGS += -std=c++11
   endif
   CXXFLAGS += -Wall -diag-disable 1879,3415,3948,10006,10010,10411,13003
   CFLAGS += -Wall -diag-disable 1879,3415,3948,10006,10010,10411,13003
@@ -1288,14 +1284,18 @@ else # GCC assumed
       endif
     endif
   endif
-  ifeq (,$(filter-out 0,$(COMPATIBLE) $(PGI)))
+  ifeq (0,$(COMPATIBLE))
     ifneq (0,$(shell echo "$$((50000<=$(GCC_VERSION_NUM)))"))
       CXXFLAGS += -std=c++14
     else ifneq (0,$(shell echo "$$((40700<=$(GCC_VERSION_NUM)))"))
       CXXFLAGS += -std=c++11
     else ifneq (0,$(CLANG))
       CXXFLAGS += -std=c++14
+    else
+      CXXFLAGS += -std=c++11
     endif
+  endif
+  ifeq (,$(filter-out 0,$(COMPATIBLE) $(PGI)))
     CXXFLAGS += -Wall
     CFLAGS += -Wall
     FSTD = -std=f2003
