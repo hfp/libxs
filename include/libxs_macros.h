@@ -456,7 +456,8 @@
 #define LIBXS_ROUNDX(TYPE, A) ((TYPE)((long long)(0 <= (A) ? ((double)(A) + 0.5) : ((double)(A) - 0.5))))
 
 /** Makes some functions available independent of C99 support. */
-#if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
+#if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/ && \
+  (!defined(LIBXS_INTEL_COMPILER) || (1900 <= LIBXS_INTEL_COMPILER))
 # if defined(__PGI)
 #   define LIBXS_POWF(A, B) ((float)pow((double)(A), (double)(B)))
 # else
@@ -835,12 +836,21 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   if !defined(_BSD_SOURCE)
 #     define _BSD_SOURCE
 #   endif
-# elif !defined(__PURE_INTEL_C99_HEADERS__)
-#   define __PURE_INTEL_C99_HEADERS__
+# else
+#   if !defined(__PURE_INTEL_C99_HEADERS__)
+#     define __PURE_INTEL_C99_HEADERS__
+#   endif
+#   if !defined(__USE_ISOC99)
+#     define __USE_ISOC99
+#   endif
 # endif
 #endif
 #if !defined(LIBXS_NO_LIBM) && (!defined(__STDC_VERSION__) || (199901L > __STDC_VERSION__) || defined(__cplusplus))
-# include <math.h>
+# if defined(LIBXS_INTEL_COMPILER)
+#   include <mathimf.h>
+# else
+#   include <math.h>
+# endif
 # if !defined(M_LN2)
 #   define M_LN2 0.69314718055994530942
 # endif
