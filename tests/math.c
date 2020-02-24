@@ -69,13 +69,13 @@ int main(/*int argc, char* argv[]*/)
 
   for (i = 0; i < 256; ++i) {
     const float a = libxs_sexp2_u8((unsigned char)i);
-    const float b = LIBXS_EXP2F(i);
+    const float b = LIBXS_EXP2F((float)i);
     if (LIBXS_NEQ(a, b)) exit(EXIT_FAILURE);
   }
 
   for (i = -128; i < 127; ++i) {
     const float a = libxs_sexp2_i8((signed char)i);
-    const float b = LIBXS_EXP2F(i);
+    const float b = LIBXS_EXP2F((float)i);
     if (LIBXS_NEQ(a, b)) exit(EXIT_FAILURE);
   }
 
@@ -89,18 +89,14 @@ int main(/*int argc, char* argv[]*/)
 
     if (LIBXS_NEQ(LIBXS_ROUND((double)r1), LIBXS_ROUNDX(double, (double)r1))) exit(EXIT_FAILURE);
     if (LIBXS_NEQ(LIBXS_ROUND((double)r2), LIBXS_ROUNDX(double, (double)r2))) exit(EXIT_FAILURE);
-    if (LIBXS_NEQ(LIBXS_ROUND(r1), LIBXS_ROUNDX(double, r1))) exit(EXIT_FAILURE);
-    if (LIBXS_NEQ(LIBXS_ROUND(r2), LIBXS_ROUNDX(double, r2))) exit(EXIT_FAILURE);
-    if (LIBXS_NEQ(LIBXS_ROUND(rd), LIBXS_ROUNDX(double, rd))) exit(EXIT_FAILURE);
+    if (LIBXS_NEQ(LIBXS_ROUND((double)rd), LIBXS_ROUNDX(double, (double)rd))) exit(EXIT_FAILURE);
 
     if (LIBXS_NEQ(LIBXS_ROUNDF((float)r1), LIBXS_ROUNDX(float, (float)r1))) exit(EXIT_FAILURE);
     if (LIBXS_NEQ(LIBXS_ROUNDF((float)r2), LIBXS_ROUNDX(float, (float)r2))) exit(EXIT_FAILURE);
-    if (LIBXS_NEQ(LIBXS_ROUNDF(r1), LIBXS_ROUNDX(float, r1))) exit(EXIT_FAILURE);
-    if (LIBXS_NEQ(LIBXS_ROUNDF(r2), LIBXS_ROUNDX(float, r2))) exit(EXIT_FAILURE);
-    if (LIBXS_NEQ(LIBXS_ROUNDF(rd), LIBXS_ROUNDX(float, rd))) exit(EXIT_FAILURE);
+    if (LIBXS_NEQ(LIBXS_ROUNDF((float)rd), LIBXS_ROUNDX(float, (float)rd))) exit(EXIT_FAILURE);
 
     d1 = libxs_sexp2((float)rd);
-    d2 = LIBXS_EXP2F(rd);
+    d2 = LIBXS_EXP2F((float)rd);
     e1 = fabs(d1 - d2); e2 = fabs(d2);
     e3 = 0 < e2 ? (e1 / e2) : 0.0;
     if (1E-4 < LIBXS_MIN(e1, e3)) exit(EXIT_FAILURE);
@@ -113,7 +109,7 @@ int main(/*int argc, char* argv[]*/)
     if (a != b) exit(EXIT_FAILURE);
     d1 = libxs_ssqrt((float)fabs(rd));
     e1 = fabs(d1 * d1 - fabs(rd));
-    d2 = LIBXS_SQRTF(fabs(rd));
+    d2 = LIBXS_SQRTF((float)fabs(rd));
     e2 = fabs(d2 * d2 - fabs(rd));
     if (e2 < e1) {
       e3 = 0 < e2 ? (e1 / e2) : 0.f;
