@@ -474,6 +474,13 @@
 # define LIBXS_EXPF(A) expf(A)
 # define LIBXS_LOGF(A) logf(A)
 #else
+# if !defined(__cplusplus)
+LIBXS_EXTERN double pow(double, double);
+LIBXS_EXTERN double frexp(double, int*);
+LIBXS_EXTERN double sqrt(double);
+LIBXS_EXTERN double tanh(double);
+LIBXS_EXTERN double exp(double);
+# endif
 # define LIBXS_POWF(A, B) ((float)pow((float)(A), (float)(B)))
 # define LIBXS_FREXPF(A, B) ((float)frexp((float)(A), B))
 # define LIBXS_ROUNDF(A) LIBXS_ROUNDX(float, A)
