@@ -1017,8 +1017,8 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
               layout->num_dims = 2;
               layout->dim_type[0] = LIBXS_DNN_TENSOR_DIMTYPE_C;
               layout->dim_type[1] = LIBXS_DNN_TENSOR_DIMTYPE_C;
-              layout->dim_size[0] = handle->ofmblock;
-              layout->dim_size[1] = handle->blocksofm;
+              layout->dim_size[0] = (unsigned int)handle->bk;
+              layout->dim_size[1] = (unsigned int)(handle->desc.K / handle->bk);
             } else {
               free(layout->dim_type);
               free(layout->dim_size);
