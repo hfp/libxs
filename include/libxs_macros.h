@@ -474,13 +474,6 @@
 # define LIBXS_EXPF(A) expf(A)
 # define LIBXS_LOGF(A) logf(A)
 #else
-# if !defined(__cplusplus)
-LIBXS_EXTERN double pow(double, double);
-LIBXS_EXTERN double frexp(double, int*);
-LIBXS_EXTERN double sqrt(double);
-LIBXS_EXTERN double tanh(double);
-LIBXS_EXTERN double exp(double);
-# endif
 # define LIBXS_POWF(A, B) ((float)pow((float)(A), (float)(B)))
 # define LIBXS_FREXPF(A, B) ((float)frexp((float)(A), B))
 # define LIBXS_ROUNDF(A) LIBXS_ROUNDX(float, A)
@@ -856,6 +849,14 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #endif
 #if !defined(M_LN2)
 # define M_LN2 0.69314718055994530942
+# if !defined(__cplusplus)
+LIBXS_EXTERN double pow(double, double);
+LIBXS_EXTERN double frexp(double, int*);
+LIBXS_EXTERN double sqrt(double);
+LIBXS_EXTERN double tanh(double);
+LIBXS_EXTERN double exp(double);
+# endif
+
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
