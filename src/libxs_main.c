@@ -1586,7 +1586,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         const unsigned int gemm_factor = (request->descriptor.srsoa->gemm->lda == 0) ? request->descriptor.srsoa->gemm->n : request->descriptor.srsoa->gemm->m;
         nflops = 2 * nnz * gemm_factor * simdw;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_soa_kernel, &generated_code, request->descriptor.srsoa->gemm, target_arch,
-          request->descriptor.srsoa->row_ptr, request->descriptor.srsoa->column_idx, request->descriptor.srsoa->values);
+          request->descriptor.srsoa->row_ptr, request->descriptor.srsoa->column_idx, request->descriptor.srsoa->values, request->descriptor.srsoa->packed_width);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
@@ -1594,11 +1594,12 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.srsoa->gemm->prefetch);
           const char *const tname = libxs_typename((libxs_datatype)request->descriptor.srsoa->gemm->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_nnz%u.srsoa", target_arch, tname,
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_w%u_a%i_b%i_p%i_nnz%u.srsoa", target_arch, tname,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.srsoa->gemm->flags) ? 'n' : 't',
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.srsoa->gemm->flags) ? 'n' : 't',
             request->descriptor.srsoa->gemm->m,   request->descriptor.srsoa->gemm->n,   request->descriptor.srsoa->gemm->k,
             request->descriptor.srsoa->gemm->lda, request->descriptor.srsoa->gemm->ldb, request->descriptor.srsoa->gemm->ldc,
+            request->descriptor.srsoa->packed_width,
           /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.srsoa->gemm->flags) ? 0 : */1,
             0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.srsoa->gemm->flags) ? 0 : 1,
             uid, nnz);
@@ -3836,7 +3837,7 @@ LIBXS_API libxs_trsm_xfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* 
 
 
 LIBXS_API libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_descriptor* descriptor,
-  const unsigned int* row_ptr, const unsigned int* column_idx, const void* values)
+  const unsigned int* row_ptr, const unsigned int* column_idx, const void* values, const unsigned int packed_width)
 {
   libxs_code_pointer result = { 0 };
   if (NULL != descriptor && NULL != row_ptr && NULL != column_idx && NULL != values) {
@@ -3854,6 +3855,7 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_descriptor* d
     srsoa.row_ptr = row_ptr;
     srsoa.column_idx = column_idx;
     srsoa.values = values;
+    srsoa.packed_width = packed_width;
     request.descriptor.srsoa = &srsoa;
     request.kind = LIBXS_BUILD_KIND_SRSOA;
     libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
