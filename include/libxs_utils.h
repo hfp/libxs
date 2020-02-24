@@ -460,7 +460,8 @@
 # define LIBXS_INTRINSICS_MM512_UNDEFINED() _mm512_set1_ps(0)
 # define LIBXS_INTRINSICS_MM_UNDEFINED_PD() _mm_set1_pd(0)
 #endif
-#if (defined(LIBXS_INTEL_COMPILER) && (1800 <= (LIBXS_INTEL_COMPILER))) || (defined(__GNUC__) \
+#if (defined(LIBXS_INTEL_COMPILER) && (1800 <= (LIBXS_INTEL_COMPILER))) \
+  || (!defined(LIBXS_INTEL_COMPILER) && defined(__GNUC__) \
       && LIBXS_VERSION2(7, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
   || ((!defined(__APPLE__) || !defined(__MACH__)) && defined(__clang__) \
       && LIBXS_VERSION2(8, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
