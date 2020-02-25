@@ -593,15 +593,17 @@ LIBXS_API_INTERN void internal_scratch_free(const void* /*memory*/, internal_mal
 LIBXS_API_INTERN void internal_scratch_free(const void* memory, internal_malloc_pool_type* pool)
 {
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-  const char *const pool_buffer = pool->instance.buffer;
+  char *const pool_buffer = pool->instance.buffer, *const buffer = (char*)memory; /* non-const */
   const size_t counter = LIBXS_ATOMIC_SUB_FETCH(&pool->instance.counter, 1, LIBXS_ATOMIC_SEQ_CST);
   LIBXS_ASSERT(pool_buffer <= pool->instance.head);
+  LIBXS_ASSERT(pool_buffer <= buffer && buffer < pool_buffer + pool->instance.minsize);
   if (0 == counter) { /* reuse or reallocate scratch domain */
     internal_malloc_info_type *const info = internal_malloc_info(pool_buffer, 0/*no check*/);
     const size_t scale_size = (size_t)(1 != libxs_scratch_scale ? (libxs_scratch_scale * info->size) : info->size); /* hysteresis */
     const size_t size = pool->instance.minsize + pool->instance.incsize;
+    LIBXS_ASSERT(0 == (LIBXS_MALLOC_FLAG_X & info->flags)); /* scratch memory is not executable */
     if (size <= scale_size) { /* reuse scratch domain */
-      pool->instance.head = pool->instance.buffer;
+      pool->instance.head = pool_buffer; /* reuse scratch domain */
     }
     else { /* release buffer */
 # if !defined(NDEBUG)
@@ -624,8 +626,8 @@ LIBXS_API_INTERN void internal_scratch_free(const void* memory, internal_malloc_
     }
   }
 # if defined(LIBXS_MALLOC_SCRATCH_TRIM_HEAD) /* TODO: document linear/scoped allocator policy */
-  else if ((char*)memory < pool->instance.head) { /* reuse scratch domain */
-    pool->instance.head = (char*)memory;
+  else if (buffer < pool->instance.head) { /* reuse scratch domain */
+    pool->instance.head = buffer;
   }
 # else
   LIBXS_UNUSED(memory);
