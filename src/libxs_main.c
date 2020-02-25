@@ -962,16 +962,14 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         internal_init(); /* must be first to initialize verbosity, etc. */
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* mid-timing */
         libxs_cpuid_x86(&info);
-        if (0 != info.constant_tsc && t0 != t1) {
-          const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
-          libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / dt;
+        if (0 != info.constant_tsc && t0 < t1) {
+          libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
         }
         register_termination_proc = atexit(internal_finalize);
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
         /* set timer-scale and determine start of the "uptime" (shown at termination) */
-        if (0 != info.constant_tsc && t0 != t1 && 0.0 < libxs_timer_scale) {
-          const libxs_timer_tickint dt = LIBXS_DELTA(t0, t1);
-          const double scale = libxs_timer_duration_rtc(s0, s1) / dt;
+        if (t0 < t1 && 0.0 < libxs_timer_scale) {
+          const double scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
           const double diff = LIBXS_DELTA(libxs_timer_scale, scale) / scale;
           if (5E-5 > diff) {
             libxs_timer_scale = scale;
@@ -987,6 +985,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         }
         else {
           internal_timer_start = s0;
+          libxs_timer_scale = 0;
         }
         if (0 != libxs_verbosity) { /* library code is expected to be mute */
           if (EXIT_SUCCESS != register_termination_proc) {
