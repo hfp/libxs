@@ -582,7 +582,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTDIR)/$(SRCDIR
 	@if [ -e $(ROOTDIR)/.github/install.sh ]; then \
 		$(ROOTDIR)/.github/install.sh; \
 	fi
-	@$(CP) $(filter $(ROOTDIR)/include/%.h,$(HEADERS)) $(INCDIR)
+	@$(CP) $(filter $(ROOTDIR)/include/%.h,$(HEADERS)) $(INCDIR) 2>/dev/null || true
 ifneq (,$(filter-out 0 1 2 STATIC,$(words $(PRESTATE)) $(word 2,$(PRESTATE))))
 ifneq (0,$(STATIC)) # static
 	@rm -f $(OUTDIR)/libxs*.$(DLIBEXT) $(OUTDIR)/libxs*.$(DLIBEXT).*
@@ -1576,7 +1576,7 @@ ifneq ($(call qapath,$(PREFIX)),$(call qapath,.))
 	@echo "LIBXS installing header-only..."
 	@$(ROOTDIR)/$(SCRDIR)/libxs_source.sh $(patsubst $(PINCDIR)/%,%,$(PSRCDIR)) \
 		> $(PREFIX)/$(PINCDIR)/libxs_source.h
-	@$(CP) -vr $(ROOTDIR)/$(SRCDIR)/* $(PREFIX)/$(PSRCDIR) >/dev/null
+	@$(CP) -r $(ROOTDIR)/$(SRCDIR)/* $(PREFIX)/$(PSRCDIR) >/dev/null 2>/dev/null || true
 endif
 
 .PHONY: install
