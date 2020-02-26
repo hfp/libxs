@@ -1501,8 +1501,9 @@ else ifeq (,$(strip $(PREFIX)))
 endif
 
 # ALIAS_* variables for PKG_CONFIG and MODULES
-ifeq (FreeBSD,$(UNAME))
-  ALIAS_PREFIX = /usr/local
+ifeq (FreeBSD1,$(UNAME)$(_PKG_CHECKED))
+  ALIAS_PREFIX = $(LOCALBASE)
+  ALIAS_PREFIX ?= /usr/local
   PPKGDIR = libdata/pkgconfig
 else
   ALIAS_PREFIX = $(PREFIX)
@@ -1559,12 +1560,12 @@ ifneq ($(call qapath,$(PREFIX)),$(call qapath,.))
 	@echo
 	@echo "LIBXS installing pkg-config and module files..."
 	@mkdir -p $(PREFIX)/$(PPKGDIR)
-	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(PREFIX))/" $(OUTDIR)/libxsnoblas.pc > $(PREFIX)/$(PPKGDIR)/libxsnoblas.pc 2>/dev/null || true
-	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(PREFIX))/" $(OUTDIR)/libxsext.pc > $(PREFIX)/$(PPKGDIR)/libxsext.pc 2>/dev/null || true
-	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(PREFIX))/" $(OUTDIR)/libxsf.pc > $(PREFIX)/$(PPKGDIR)/libxsf.pc 2>/dev/null || true
-	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(PREFIX))/" $(OUTDIR)/libxs.pc > $(PREFIX)/$(PPKGDIR)/libxs.pc 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(ALIAS_PREFIX))/" $(OUTDIR)/libxsnoblas.pc > $(PREFIX)/$(PPKGDIR)/libxsnoblas.pc 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(ALIAS_PREFIX))/" $(OUTDIR)/libxsext.pc > $(PREFIX)/$(PPKGDIR)/libxsext.pc 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(ALIAS_PREFIX))/" $(OUTDIR)/libxsf.pc > $(PREFIX)/$(PPKGDIR)/libxsf.pc 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(ALIAS_PREFIX))/" $(OUTDIR)/libxs.pc > $(PREFIX)/$(PPKGDIR)/libxs.pc 2>/dev/null || true
 	@mkdir -p $(PREFIX)/$(PMODDIR)
-	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(PREFIX))/" $(OUTDIR)/module > $(PREFIX)/$(PMODDIR)/module 2>/dev/null || true
+	@sed "s/^prefix=..*$$/prefix=$(subst /,\/,$(ALIAS_PREFIX))/" $(OUTDIR)/module > $(PREFIX)/$(PMODDIR)/module 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing stand-alone generators..."
 	@$(CP) -v $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
