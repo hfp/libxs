@@ -582,7 +582,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTDIR)/$(SRCDIR
 	@if [ -e $(ROOTDIR)/.github/install.sh ]; then \
 		$(ROOTDIR)/.github/install.sh; \
 	fi
-	@$(CP) $(filter $(ROOTDIR)/include/%.h,$(HEADERS)) $(INCDIR) 2>/dev/null || true
+	@$(CP) $(filter $(ROOTDIR)/include/%.h,$(HEADERS)) $(INCDIR)
 ifneq (,$(filter-out 0 1 2 STATIC,$(words $(PRESTATE)) $(word 2,$(PRESTATE))))
 ifneq (0,$(STATIC)) # static
 	@rm -f $(OUTDIR)/libxs*.$(DLIBEXT) $(OUTDIR)/libxs*.$(DLIBEXT).*
@@ -1504,7 +1504,7 @@ endif
 ifeq (FreeBSD1,$(UNAME)$(_PKG_CHECKED))
   ALIAS_PREFIX = $(LOCALBASE)
   ALIAS_PREFIX ?= /usr/local
-  override PREFIX := $(PREFIX)/$(ALIAS_PREFIX)
+  override PREFIX := $(call qapath,$(PREFIX)/$(ALIAS_PREFIX))
   PPKGDIR = libdata/pkgconfig
   PMODDIR = share/modules
 endif
@@ -1569,7 +1569,6 @@ ifneq ($(call qapath,$(PREFIX)),$(call qapath,.))
 	@$(CP) -v $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing interface..."
-	@$(CP) -v $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
 	@$(CP) -v $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@ls -1 $(INCDIR)/libxs*.h | grep -v libxs_source.h | xargs -I {} $(CP) -v {} $(PREFIX)/$(PINCDIR)
 	@$(CP) -v $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR)
@@ -1577,7 +1576,7 @@ ifneq ($(call qapath,$(PREFIX)),$(call qapath,.))
 	@echo "LIBXS installing header-only..."
 	@$(ROOTDIR)/$(SCRDIR)/libxs_source.sh $(patsubst $(PINCDIR)/%,%,$(PSRCDIR)) \
 		> $(PREFIX)/$(PINCDIR)/libxs_source.h
-	@-$(CP) -vr $(ROOTDIR)/$(SRCDIR)/* $(PREFIX)/$(PSRCDIR)
+	@$(CP) -vr $(ROOTDIR)/$(SRCDIR)/* $(PREFIX)/$(PSRCDIR) >/dev/null
 endif
 
 .PHONY: install
