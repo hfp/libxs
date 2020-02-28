@@ -1979,7 +1979,8 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         LIBXS_ASSERT(0 == mode || 1 < mode);
 #if (0 != LIBXS_JIT)
         if (LIBXS_X86_AVX <= libxs_target_archid || /* check if JIT is supported (CPUID) */
-           (LIBXS_X86_SSE3 <= libxs_target_archid && LIBXS_BUILD_KIND_GEMM == desc->kind))
+           (LIBXS_X86_SSE3 <= libxs_target_archid && LIBXS_KERNEL_KIND_MATMUL == desc->kind) ||
+           (LIBXS_KERNEL_KIND_USER == desc->kind))
         {
           LIBXS_ASSERT(0 != mode || NULL == flux_entry.ptr_const/*code version does not exist*/);
           INTERNAL_FIND_CODE_LOCK(lock, i, diff, flux_entry.ptr); /* lock the registry entry */
@@ -2096,7 +2097,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   flux_entry.uval &= ~LIBXS_CODE_STATIC; /* clear non-JIT flag */
 #endif
 #if (0 != LIBXS_JIT)
-  assert(LIBXS_BUILD_KIND_GEMM != desc->kind || NULL != flux_entry.ptr_const || EXIT_SUCCESS != build || 1 == internal_reglock_count); /*!LIBXS_ASSERT*/
+  assert(LIBXS_KERNEL_KIND_MATMUL != desc->kind || NULL != flux_entry.ptr_const || EXIT_SUCCESS != build || 1 == internal_reglock_count); /*!LIBXS_ASSERT*/
 #endif
   return flux_entry;
 }
