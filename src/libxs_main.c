@@ -2352,7 +2352,7 @@ LIBXS_API int libxs_xregister(const void* key, size_t key_size, void* value, siz
     libxs_descriptor wrap;
     void* dst;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
-    LIBXS_MEMSET127(&wrap, 0, sizeof(*key));
+    LIBXS_MEMSET127(&wrap, 0, key_size);
 #endif
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
     wrap.kind = LIBXS_KERNEL_KIND_USER;
@@ -2392,7 +2392,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
   {
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
-    LIBXS_MEMSET127(&wrap, 0, sizeof(*key));
+    LIBXS_MEMSET127(&wrap, 0, key_size);
 #endif
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
     wrap.kind = LIBXS_KERNEL_KIND_USER;
