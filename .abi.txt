@@ -507,6 +507,7 @@ libxs_wimmdispatch_reducebatch_offs
 libxs_wimmdispatch_reducebatch_offs_unroll
 libxs_wimmdispatch_reducebatch_strd
 libxs_wimmdispatch_reducebatch_strd_unroll
+libxs_xdispatch
 libxs_xgemm
 libxs_xgemm_omp
 libxs_xgemm_omp_
@@ -516,4 +517,5 @@ libxs_xmmcall_prf_
 libxs_xmmdispatch
 libxs_xmmdispatch2_
 libxs_xmmdispatch_
+libxs_xregister
 libxsf_get_target_arch
