@@ -1990,12 +1990,12 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
             request.kind = (libxs_build_kind)desc->kind;
             request.descriptor.ptr = &desc->gemm.desc;
             request.value_size = desc_size;
-#if defined(NDEBUG)
+# if defined(NDEBUG)
             if (EXIT_SUCCESS == libxs_build(&request, i, &flux_entry) && NULL != flux_entry.ptr_const)
-#else
+# else
             build = libxs_build(&request, i, &flux_entry);
             if (EXIT_SUCCESS == build && NULL != flux_entry.ptr_const)
-#endif
+# endif
             {
               LIBXS_ASSIGN127(internal_registry_keys + i, desc);
 # if (1 < INTERNAL_REGLOCK_MAXN)
