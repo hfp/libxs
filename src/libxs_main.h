@@ -686,6 +686,7 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GETRF      = LIBXS_KERNEL_KIND_GETRF,
   LIBXS_BUILD_KIND_TRMM       = LIBXS_KERNEL_KIND_TRMM,
   LIBXS_BUILD_KIND_TRSM       = LIBXS_KERNEL_KIND_TRSM,
+  LIBXS_BUILD_KIND_USER       = LIBXS_KERNEL_KIND_USER,
   LIBXS_BUILD_KIND_PGEMMRMAC  = LIBXS_KERNEL_UNREGISTERED,
   LIBXS_BUILD_KIND_PGEMMRMBC,
   LIBXS_BUILD_KIND_SRSOA,
@@ -705,6 +706,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_descriptor {
   char data[LIBXS_DESCRIPTOR_MAXSIZE];
   libxs_descriptor_kind kind; /* kind: must be the first member */
   LIBXS_REGDESC(LIBXS_PACKED(struct) { libxs_descriptor_kind /*repeated kind*/ pad; , desc; });
+  LIBXS_PACKED(struct) { libxs_descriptor_kind /*repeated kind*/ pad; char desc[1]; } user;
 } libxs_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
@@ -718,6 +720,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
     const libxs_csr_reg_descriptor* sreg;
   } descriptor;
   libxs_build_kind kind;
+  /* used by user-kind */
+  size_t value_size;
 } libxs_build_request;
 
 typedef enum libxs_malloc_flags {

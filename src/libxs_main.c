@@ -1487,25 +1487,24 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 {
   int result = EXIT_SUCCESS;
 #if !defined(__MIC__)
-  const char* target_arch = libxs_cpuid_name(libxs_target_archid);
-  libxs_generated_code generated_code;
-  char jit_name[256] = { 0 };
-  unsigned int nflops = 0;
-
+  const char * /*const*/ target_arch = libxs_cpuid_name(libxs_target_archid);
   /* large enough temporary buffer for generated code */
-# if defined(NDEBUG)
-  char jit_buffer[LIBXS_CODE_MAXSIZE];
+  char jit_buffer[LIBXS_CODE_MAXSIZE], jit_name[256] = { 0 };
+  libxs_generated_code generated_code;
+  libxs_kernel_xinfo extra;
+
   LIBXS_MEMZERO127(&generated_code);
   generated_code.generated_code = jit_buffer;
   generated_code.buffer_size = sizeof(jit_buffer);
-# else
-  LIBXS_MEMZERO127(&generated_code);
-  generated_code.generated_code = malloc(LIBXS_CODE_MAXSIZE);
-  generated_code.buffer_size = (NULL != generated_code.generated_code ? LIBXS_CODE_MAXSIZE : 0);
-# endif
   /* setup code generation */
-  generated_code.code_type = 2;
   generated_code.arch = libxs_target_archid;
+  generated_code.code_type = 2;
+
+# if !defined(NDEBUG) /* should not be needed (all members will be initialized below) */
+  LIBXS_MEMZERO127(&extra);
+# endif
+  extra.registered = regindex;
+  extra.nflops = 0;
 
   LIBXS_ASSERT(NULL != generated_code.generated_code || 0 == generated_code.buffer_size);
   LIBXS_ASSERT(NULL != request && 0 != libxs_target_archid);
@@ -1520,13 +1519,14 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
       {
         const unsigned int m = request->descriptor.gemm->m, n = request->descriptor.gemm->n, k = request->descriptor.gemm->k;
-        nflops = 2 * m * n * k;
+        extra.nflops = 2 * m * n * k;
 # if !defined(LIBXS_DENY_RETARGET) /* disable: ECFLAGS=-DLIBXS_DENY_RETARGET */
         if (LIBXS_X86_AVX2 < libxs_target_archid &&
            (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype) ||
             LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype)) &&
            (16 >= (m * k) || 16 >= (k * n) || 16 >= (m * n)))
         {
+          /* TODO: shall we update variable "target_arch" (name)? */
           generated_code.arch = LIBXS_X86_AVX2;
         }
 # endif
@@ -1537,9 +1537,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         {
           const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.gemm->prefetch);
           const char *const tname = libxs_typename((libxs_datatype)request->descriptor.gemm->datatype);
-          int br = 0;
-          int typesigns = 0;
-
+          int typesigns = 0, br = 0;
           /* query batch reduce variant */
           if ( (LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS & request->descriptor.gemm->flags) > 1 ) {
             br = 1;
@@ -1560,7 +1558,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           } else {
             typesigns = 0;
           }
-
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i.mxm", target_arch, tname,
             0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
@@ -1583,7 +1580,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         const unsigned int simdw = (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.srsoa->gemm->datatype)) ?
             libxs_cpuid_vlen32(libxs_target_archid)/2 : libxs_cpuid_vlen32(libxs_target_archid);
         const unsigned int gemm_factor = (request->descriptor.srsoa->gemm->lda == 0) ? request->descriptor.srsoa->gemm->n : request->descriptor.srsoa->gemm->m;
-        nflops = 2 * nnz * gemm_factor * simdw;
+        extra.nflops = 2 * nnz * gemm_factor * simdw;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_soa_kernel, &generated_code, request->descriptor.srsoa->gemm, target_arch,
           request->descriptor.srsoa->row_ptr, request->descriptor.srsoa->column_idx, request->descriptor.srsoa->values, request->descriptor.srsoa->packed_width);
 # if !defined(LIBXS_VTUNE)
@@ -1617,7 +1614,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         const unsigned int simdw = (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.scsoa->gemm->datatype)) ?
             libxs_cpuid_vlen32(libxs_target_archid)/2 : libxs_cpuid_vlen32(libxs_target_archid);
         const unsigned int gemm_factor = (request->descriptor.scsoa->gemm->lda == 0) ? request->descriptor.scsoa->gemm->n : request->descriptor.scsoa->gemm->m;
-        nflops = 2 * nnz * gemm_factor * simdw;
+        extra.nflops = 2 * nnz * gemm_factor * simdw;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csc_soa_kernel, &generated_code, request->descriptor.scsoa->gemm, target_arch,
           request->descriptor.scsoa->row_idx, request->descriptor.scsoa->column_ptr, request->descriptor.scsoa->values, request->descriptor.scsoa->packed_width);
 # if !defined(LIBXS_VTUNE)
@@ -1645,7 +1642,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype) ||
           LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype))
       {
-        nflops = 2 * request->descriptor.pgemmacrm->packed_width * request->descriptor.pgemmacrm->gemm->m * request->descriptor.pgemmacrm->gemm->n * request->descriptor.pgemmacrm->gemm->k;
+        extra.nflops = 2 * request->descriptor.pgemmacrm->packed_width * request->descriptor.pgemmacrm->gemm->m * request->descriptor.pgemmacrm->gemm->n * request->descriptor.pgemmacrm->gemm->k;
         LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_ac_rm, &generated_code, request->descriptor.pgemmacrm->gemm, request->descriptor.pgemmacrm->packed_width, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1672,7 +1669,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype) ||
           LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype))
       {
-        nflops = 2 * request->descriptor.pgemmbcrm->packed_width * request->descriptor.pgemmbcrm->gemm->m * request->descriptor.pgemmbcrm->gemm->n * request->descriptor.pgemmbcrm->gemm->k;
+        extra.nflops = 2 * request->descriptor.pgemmbcrm->packed_width * request->descriptor.pgemmbcrm->gemm->m * request->descriptor.pgemmbcrm->gemm->n * request->descriptor.pgemmbcrm->gemm->k;
         LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_bc_rm, &generated_code, request->descriptor.pgemmbcrm->gemm, request->descriptor.pgemmbcrm->packed_width, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1701,7 +1698,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 #endif
       {
         const unsigned int nnz = request->descriptor.sreg->row_ptr[request->descriptor.sreg->gemm->m];
-        nflops = 2 * libxs_cpuid_vlen32(libxs_target_archid)/2 * request->descriptor.sreg->gemm->n * nnz;
+        extra.nflops = 2 * libxs_cpuid_vlen32(libxs_target_archid)/2 * request->descriptor.sreg->gemm->n * nnz;
         LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_reg_kernel, &generated_code, request->descriptor.sreg->gemm, target_arch,
           request->descriptor.sreg->row_ptr, request->descriptor.sreg->column_idx,
           (const double*)request->descriptor.sreg->values);
@@ -1762,6 +1759,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       LIBXS_ASSERT(NULL != request->descriptor.pgemm);
       tsize = (unsigned int)request->descriptor.pgemm->typesize;
       if (4 == tsize || 8 == tsize) {
+        extra.nflops = 0; /* TODO */
         LIBXS_NO_OFFLOAD(void, libxs_generator_pgemm_kernel, &generated_code, request->descriptor.pgemm, libxs_target_archid);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1782,6 +1780,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       LIBXS_ASSERT(NULL != request->descriptor.getrf);
       tsize = (unsigned int)request->descriptor.getrf->typesize;
       if (4 == tsize || 8 == tsize) {
+        extra.nflops = 0; /* TODO */
         LIBXS_NO_OFFLOAD(void, libxs_generator_getrf_kernel, &generated_code, request->descriptor.getrf, libxs_target_archid);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1799,6 +1798,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       LIBXS_ASSERT(NULL != request->descriptor.trmm);
       tsize = (unsigned int)request->descriptor.trmm->typesize;
       if (4 == tsize || 8 == tsize) {
+        extra.nflops = 0; /* TODO */
         LIBXS_NO_OFFLOAD(void, libxs_generator_trmm_kernel, &generated_code, request->descriptor.trmm, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1815,6 +1815,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     case LIBXS_BUILD_KIND_TRSM: if (NULL != request->descriptor.trsm) { /* compact TRSM kernel (packed) */
       const unsigned int tsize = (unsigned int)request->descriptor.trsm->typesize;
       if (4 == tsize || 8 == tsize) {
+        extra.nflops = 0; /* TODO */
         LIBXS_NO_OFFLOAD(void, libxs_generator_trsm_kernel, &generated_code, request->descriptor.trsm, target_arch);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -1828,6 +1829,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         }
       }
     } break;
+    case LIBXS_BUILD_KIND_USER: break;
 # if !defined(NDEBUG) /* library code is expected to be mute */
     default: { /* unknown kind */
       static int error_once = 0;
@@ -1842,16 +1844,10 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   if  (0 == generated_code.last_error /* no error raised */
     && 0 != generated_code.code_size /*check (tcopy issue?)*/)
   {
-    libxs_kernel_xinfo extra;
     char* code_buffer = NULL;
     void* code_buffer_result = &code_buffer;
     LIBXS_ASSERT(generated_code.code_size <= LIBXS_CODE_MAXSIZE);
     LIBXS_ASSERT(NULL != generated_code.generated_code);
-# if !defined(NDEBUG) /* should not be needed (all members will be initialized below) */
-    LIBXS_MEMZERO127(&extra);
-# endif
-    extra.registered = regindex;
-    extra.nflops = nflops;
     /* attempt to create executable buffer */
     result = libxs_xmalloc((void**)code_buffer_result, generated_code.code_size, 0/*auto*/,
       /* flag must be a superset of what's populated by libxs_malloc_attrib */
@@ -1877,12 +1873,15 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       }
     }
   }
+  else if (request->kind == LIBXS_BUILD_KIND_USER && NULL != request->descriptor.ptr) { /* user-data */
+    void* user_data = &code->ptr;
+    /* attempt to create executable buffer */
+    result = libxs_xmalloc((void**)user_data, request->value_size, 0/*auto*/,
+      LIBXS_MALLOC_FLAG_DEFAULT, &extra, sizeof(extra));
+  }
   else {
     result = (0 != generated_code.last_error ? generated_code.last_error : EXIT_FAILURE);
   }
-# if !defined(NDEBUG)
-  free(generated_code.generated_code); /* free temporary/initial code buffer */
-# endif
 #else /* unsupported platform */
   LIBXS_UNUSED(request); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
@@ -1906,7 +1905,7 @@ LIBXS_API_INLINE void internal_pad_descriptor(libxs_descriptor* desc, size_t siz
 LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, size_t desc_size)
 {
   libxs_code_pointer flux_entry = { 0 };
-  const size_t size = sizeof(libxs_descriptor_kind) + desc_size;
+  const size_t size = LIBXS_MIN(sizeof(libxs_descriptor_kind) + desc_size, LIBXS_DIFF_SIZE);
 #if !defined(NDEBUG) && (0 != LIBXS_JIT)
   int build = EXIT_SUCCESS;
 #endif
@@ -1935,11 +1934,11 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   LIBXS_DIFF_DECL(LIBXS_DIFF_SIZE, xdesc);
   LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
   LIBXS_DIFF_N(unsigned char, cache_index, LIBXS_DIFF(LIBXS_DIFF_SIZE), xdesc, cache->entry.keys,
-    LIBXS_MIN(size, LIBXS_DIFF_SIZE), LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
+    size, LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
 # else
   LIBXS_ASSERT(NULL != desc);
   cache_index = (unsigned char)libxs_diff_n(desc, cache->entry.keys,
-    LIBXS_MIN(size, LIBXS_DIFF_SIZE), LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
+    size, LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
 # endif
   if (
 # if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
@@ -1998,7 +1997,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
           diff = libxs_diff(desc, internal_registry_keys + i, LIBXS_DIFF_SIZE);
 # endif
 #else
-          diff = libxs_diff(desc, internal_registry_keys + i, LIBXS_MIN(size, LIBXS_DIFF_SIZE));
+          diff = libxs_diff(desc, internal_registry_keys + i, size);
 #endif
         }
 #if !defined(NDEBUG)
@@ -2044,6 +2043,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
             LIBXS_ASSERT(desc->kind < LIBXS_KERNEL_UNREGISTERED);
             request.kind = (libxs_build_kind)desc->kind;
             request.descriptor.ptr = &desc->gemm.desc;
+            request.value_size = desc_size;
 #if defined(NDEBUG)
             if (EXIT_SUCCESS == libxs_build(&request, i, &flux_entry) && NULL != flux_entry.ptr_const)
 #else
@@ -2197,7 +2197,16 @@ LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
   LIBXS_MEMZERO127(&result_info);
   xinfo = libxs_get_kernel_xinfo(code, &desc, &result_info.code_size);
   if (NULL != xinfo) {
-    result_info.kind = (NULL != desc ? ((libxs_kernel_kind)desc->kind) : LIBXS_KERNEL_UNREGISTERED);
+    if (NULL != desc) {
+      const libxs_kernel_kind kind = (libxs_kernel_kind)desc->kind;
+      result_info.kind = kind;
+      if (LIBXS_KERNEL_KIND_USER == kind) {
+        result_info.code_size = 0; /* invalid */
+      }
+    }
+    else {
+      result_info.kind = LIBXS_KERNEL_UNREGISTERED;
+    }
     result_info.nflops = xinfo->nflops;
     LIBXS_ASSIGN127(info, &result_info);
     result = EXIT_SUCCESS;
@@ -2387,6 +2396,75 @@ LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
   else {
     result = EXIT_FAILURE;
   }
+  return result;
+}
+
+
+LIBXS_API int libxs_xregister(const void* key, size_t key_size, void* value, size_t value_size)
+{
+  int result;
+  if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size && (NULL != value || 0 == value_size)) {
+    libxs_descriptor wrap;
+    void* dst;
+#if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
+    LIBXS_MEMSET127(&wrap, 0, sizeof(*key));
+#endif
+    LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
+    wrap.kind = LIBXS_KERNEL_KIND_USER;
+    LIBXS_INIT
+    dst = internal_find_code(&wrap, LIBXS_MAX(key_size, value_size)).ptr;
+    if (NULL != dst) {
+      memcpy(dst, value, value_size);
+      result = EXIT_SUCCESS;
+    }
+    else result = EXIT_FAILURE;
+  }
+  else {
+    static int error_once = 0;
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      if (LIBXS_DESCRIPTOR_MAXSIZE >= key_size) {
+        fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xregister specified!\n");
+      }
+      else {
+        fprintf(stderr, "LIBXS ERROR: libxs_xregister has maximum key-size of %u Byte!\n",
+          LIBXS_DESCRIPTOR_MAXSIZE);
+      }
+    }
+    result = EXIT_FAILURE;
+  }
+  return result;
+}
+
+
+LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
+{
+  void* result;
+#if !defined(NDEBUG)
+  if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size)
+#endif
+  {
+    libxs_descriptor wrap;
+#if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
+    LIBXS_MEMSET127(&wrap, 0, sizeof(*key));
+#endif
+    LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
+    wrap.kind = LIBXS_KERNEL_KIND_USER;
+    /* LIBXS_INIT is not necessary here */
+    result = internal_find_code(&wrap, key_size).ptr;
+  }
+#if !defined(NDEBUG)
+  else {
+    static int error_once = 0;
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xdispatch specified!\n");
+    }
+    result = NULL;
+  }
+#endif
   return result;
 }
 
