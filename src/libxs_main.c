@@ -1428,61 +1428,6 @@ LIBXS_API_INLINE const char* internal_get_typesize_string(size_t typesize)
 }
 
 
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K, int* C_block, int* K_block, int* fm_lp_block, libxs_dnn_datatype datatype_in, libxs_dnn_datatype datatype_out ) {
-  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  int ifmblock = 0;
-  int ofmblock = 0;
-  int lp_block = 0;
-  int tmp_max_c_block = 32;
-  int tmp_max_k_block = 32;
-  int tmp_block = 0;
-
-  /* C */
-  if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
-    tmp_max_c_block = 64;
-  }
-  if ( C < tmp_max_c_block ) {
-    ifmblock = C;
-  } else {
-    for ( tmp_block = 1; tmp_block <= tmp_max_c_block; tmp_block *= 2 ) {
-      if ( C % tmp_block == 0 ) ifmblock = tmp_block;
-    }
-  }
-
-  /* K */
-  if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
-    tmp_max_k_block = 64;
-  }
-  if ( K < tmp_max_k_block ) {
-    ofmblock = K;
-  } else {
-    for ( tmp_block = 1; tmp_block <= tmp_max_k_block; tmp_block *= 2 ) {
-      if ( K % tmp_block == 0 ) ofmblock = tmp_block;
-    }
-  }
-
-  /* when do we need VNNI format? */
-  if ( (datatype_in == LIBXS_DNN_DATATYPE_F32) && (datatype_out == LIBXS_DNN_DATATYPE_F32) ) {
-    lp_block = 1;
-  } else if ( (datatype_in == LIBXS_DNN_DATATYPE_BF16) && (datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
-    lp_block = 2;
-  } else if ( (datatype_in == LIBXS_DNN_DATATYPE_I16) && ((datatype_out == LIBXS_DNN_DATATYPE_I32) || (datatype_out == LIBXS_DNN_DATATYPE_F32)) ) {
-    lp_block = 2;
-  } else if (datatype_in == LIBXS_DNN_DATATYPE_I8) {
-    lp_block = 4;
-  } else {
-    status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-    return status;
-  }
-
-  *C_block = ifmblock;
-  *K_block = ofmblock;
-  *fm_lp_block = lp_block;
-
-  return status;
-}
-
-
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code)
 {
   int result = EXIT_SUCCESS;
