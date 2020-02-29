@@ -1832,7 +1832,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
   if (LIBXS_X86_SSE3 <= libxs_target_archid) result = EXIT_FAILURE;
 #endif
-  LIBXS_ASSERT(EXIT_FAILURE != result);
   return result;
 }
 
@@ -1972,7 +1971,9 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
       }
       else { /* enter code generation (there is no code version yet) */
         LIBXS_ASSERT(0 == mode || 1 < mode);
-#if (0 != LIBXS_JIT)
+#if (0 == LIBXS_JIT)
+        LIBXS_UNUSED(user_size);
+#else
         if (LIBXS_X86_AVX <= libxs_target_archid || /* check if JIT is supported (CPUID) */
            (LIBXS_X86_SSE3 <= libxs_target_archid && LIBXS_KERNEL_KIND_MATMUL == desc->kind) ||
            (LIBXS_KERNEL_KIND_USER == desc->kind))
