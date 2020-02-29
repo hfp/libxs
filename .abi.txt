@@ -518,4 +518,5 @@ libxs_xmmdispatch
 libxs_xmmdispatch2_
 libxs_xmmdispatch_
 libxs_xregister
+libxs_xrelease
 libxsf_get_target_arch

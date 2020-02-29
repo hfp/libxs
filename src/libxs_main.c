@@ -54,9 +54,6 @@
 #if !defined(LIBXS_CACHE_PAD) && 1
 # define LIBXS_CACHE_PAD
 #endif
-#if !defined(LIBXS_CACHE_CLEAR) && 0
-# define LIBXS_CACHE_CLEAR
-#endif
 #if !defined(LIBXS_ENABLE_DEREG) && 0
 # define LIBXS_ENABLE_DEREG
 #endif
@@ -197,9 +194,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_cache_entry_type {
   libxs_descriptor keys[LIBXS_CACHE_MAXSIZE];
   libxs_code_pointer code[LIBXS_CACHE_MAXSIZE];
-# if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
   unsigned int id; /* to invalidate */
-# endif
   unsigned char size, hit;
 } internal_cache_entry_type;
 
@@ -1819,10 +1814,15 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     }
   }
   else if (request->kind == LIBXS_BUILD_KIND_USER && NULL != request->descriptor.ptr) { /* user-data */
-    void* user_data = &code->ptr;
-    /* attempt to create executable buffer */
-    result = libxs_xmalloc((void**)user_data, request->value_size, 0/*auto*/,
-      LIBXS_MALLOC_FLAG_DEFAULT, &extra, sizeof(extra));
+    if (0 != request->user_size) {
+      void* user_data = &code->ptr;
+      result = libxs_xmalloc((void**)user_data, request->user_size, 0/*auto*/,
+        LIBXS_MALLOC_FLAG_DEFAULT, &extra, sizeof(extra));
+    }
+    else {
+      result = EXIT_SUCCESS;
+      code->ptr = NULL;
+    }
   }
   else {
     result = (0 != generated_code.last_error ? generated_code.last_error : EXIT_FAILURE);
@@ -1832,7 +1832,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
   if (LIBXS_X86_SSE3 <= libxs_target_archid) result = EXIT_FAILURE;
 #endif
-  LIBXS_ASSERT(NULL != code->ptr || EXIT_FAILURE == result);
+  LIBXS_ASSERT(EXIT_FAILURE != result);
   return result;
 }
 
@@ -1847,7 +1847,7 @@ LIBXS_API_INLINE void internal_pad_descriptor(libxs_descriptor* desc, size_t siz
 #endif
 
 
-LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, size_t desc_size)
+LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, size_t desc_size, size_t user_size)
 {
   libxs_code_pointer flux_entry = { 0 };
   const size_t size = LIBXS_MIN(sizeof(libxs_descriptor_kind) + desc_size, LIBXS_DIFF_SIZE);
@@ -1885,12 +1885,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   cache_index = (unsigned char)libxs_diff_n(desc, cache->entry.keys,
     size, LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
 # endif
-  if (
-# if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
-    cache->entry.id == libxs_ninit &&
-# endif
-    cache_index < cache->entry.size)
-  { /* valid hit */
+  if (cache->entry.id == libxs_ninit && cache_index < cache->entry.size) { /* valid hit */
     flux_entry = cache->entry.code[cache_index];
     cache->entry.hit = cache_index;
   }
@@ -1989,7 +1984,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
             LIBXS_ASSERT(desc->kind < LIBXS_KERNEL_UNREGISTERED);
             request.kind = (libxs_build_kind)desc->kind;
             request.descriptor.ptr = &desc->gemm.desc;
-            request.value_size = desc_size;
+            request.user_size = user_size;
 # if defined(NDEBUG)
             if (EXIT_SUCCESS == libxs_build(&request, i, &flux_entry) && NULL != flux_entry.ptr_const)
 # else
@@ -2062,10 +2057,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
     if (NULL != flux_entry.ptr_const) { /* keep code version on record (cache) */
       LIBXS_ASSERT(0 == diff);
-# if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
-      if (cache->entry.id == libxs_ninit) /* maintain cache */
-# endif
-      {
+      if (cache->entry.id == libxs_ninit) { /* maintain cache */
         if (cache->entry.size < (LIBXS_CACHE_MAXSIZE)) { /* grow */
           INTERNAL_FIND_CODE_CACHE_GROW(cache_index, cache->entry.size);
           LIBXS_ASSERT(cache->entry.size <= LIBXS_CACHE_MAXSIZE);
@@ -2075,7 +2067,6 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
           INTERNAL_FIND_CODE_CACHE_EVICT(cache_index, cache->entry.size, cache->entry.hit);
         }
       }
-# if (!defined(LIBXS_NTHREADS_USE) || defined(LIBXS_CACHE_CLEAR))
       else { /* reset cache */
 # if !defined(NDEBUG)
         LIBXS_MEMZERO127(cache->entry.keys);
@@ -2084,7 +2075,6 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         cache->entry.size = 1;
         cache_index = 0;
       }
-# endif
       LIBXS_ASSIGN127(cache->entry.keys + cache_index, desc);
       cache->entry.code[cache_index] = flux_entry;
       cache->entry.hit = cache_index;
@@ -2346,7 +2336,7 @@ LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
 }
 
 
-LIBXS_API int libxs_xregister(const void* key, size_t key_size, void* value, size_t value_size)
+LIBXS_API int libxs_xregister(const void* key, size_t key_size, const void* value, size_t value_size)
 {
   int result;
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size && (NULL != value || 0 == value_size)) {
@@ -2358,11 +2348,18 @@ LIBXS_API int libxs_xregister(const void* key, size_t key_size, void* value, siz
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
     wrap.kind = LIBXS_KERNEL_KIND_USER;
     LIBXS_INIT
-    dst = internal_find_code(&wrap, LIBXS_MAX(key_size, value_size)).ptr;
+    dst = internal_find_code(&wrap, key_size, value_size).ptr;
     if (NULL != dst) {
-      memcpy(dst, value, value_size);
-      result = EXIT_SUCCESS;
+      size_t size;
+      if (EXIT_SUCCESS == libxs_get_malloc_xinfo(dst, &size, NULL/*flags*/, NULL/*extra*/)
+        && value_size <= size)
+      {
+        memcpy(dst, value, value_size);
+        result = EXIT_SUCCESS;
+      }
+      else result = EXIT_FAILURE;
     }
+    else if (0 == value_size) result = EXIT_SUCCESS;
     else result = EXIT_FAILURE;
   }
   else {
@@ -2398,7 +2395,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
     wrap.kind = LIBXS_KERNEL_KIND_USER;
     /* LIBXS_INIT is not necessary here */
-    result = internal_find_code(&wrap, key_size).ptr;
+    result = internal_find_code(&wrap, key_size, 0/*user_size*/).ptr;
   }
 #if !defined(NDEBUG)
   else {
@@ -2412,6 +2409,12 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
   }
 #endif
   return result;
+}
+
+
+LIBXS_API void libxs_xrelease(const void* key, size_t key_size)
+{
+  libxs_release_kernel(libxs_xdispatch(key, key_size));
 }
 
 
@@ -2429,7 +2432,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
       wrap.gemm.desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
     }
     LIBXS_INIT
-    result = internal_find_code(&wrap, sizeof(*descriptor)).xgemm;
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xgemm;
 #if defined(_DEBUG)
     if (LIBXS_VERBOSITY_HIGH <= libxs_verbosity && INT_MAX != libxs_verbosity && NULL != result.xmm) {
       LIBXS_STDIO_ACQUIRE();
@@ -3750,7 +3753,7 @@ LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor
 #if defined(_WIN32) || defined(__CYGWIN__)
     wrap.mcopy.desc.prefetch = 0;
 #endif
-    result = internal_find_code(&wrap, sizeof(*descriptor)).xmatcopy;
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xmatcopy;
   }
   else {
     result = NULL;
@@ -3770,7 +3773,7 @@ LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor
 #endif
     LIBXS_ASSIGN127(&wrap.trans.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_TRANS;
-    result = internal_find_code(&wrap, sizeof(*descriptor)).xtrans;
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xtrans;
   }
   else {
     result = NULL;
@@ -3790,7 +3793,7 @@ LIBXS_API libxs_pgemm_xfunction libxs_dispatch_pgemm(const libxs_pgemm_descripto
 #endif
     LIBXS_ASSIGN127(&wrap.pgemm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_PGEMM;
-    result = internal_find_code(&wrap, sizeof(*descriptor)).xpgemm;
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xpgemm;
   }
   else {
     result = NULL;
@@ -3810,7 +3813,7 @@ LIBXS_API libxs_getrf_xfunction libxs_dispatch_getrf(const libxs_getrf_descripto
 #endif
     LIBXS_ASSIGN127(&wrap.getrf.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_GETRF;
-    result = internal_find_code(&wrap, sizeof(*descriptor)).xgetrf;
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xgetrf;
   }
   else {
     result = NULL;
@@ -3830,7 +3833,7 @@ LIBXS_API libxs_trmm_xfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* 
 #endif
     LIBXS_ASSIGN127(&wrap.trmm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_TRMM;
-    result = internal_find_code(&wrap, sizeof(*descriptor)).xtrmm;
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xtrmm;
   }
   else {
     result = NULL;
@@ -3850,7 +3853,7 @@ LIBXS_API libxs_trsm_xfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* 
 #endif
     LIBXS_ASSIGN127(&wrap.trsm.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_TRSM;
-    result = internal_find_code(&wrap, sizeof(*descriptor)).xtrsm;
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xtrsm;
   }
   else {
     result = NULL;
@@ -4025,36 +4028,42 @@ LIBXS_API libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* d
 }
 
 
-LIBXS_API void libxs_release_kernel(const void* jit_kernel)
+LIBXS_API void libxs_release_kernel(const void* kernel)
 {
-  if (NULL != jit_kernel) {
+  if (NULL != kernel) {
     static int error_once = 0;
     libxs_kernel_xinfo* extra = NULL;
     void *const extra_address = &extra;
     LIBXS_INIT
-    if (EXIT_SUCCESS == libxs_get_malloc_xinfo(jit_kernel, NULL/*size*/, NULL/*flags*/, (void**)extra_address) && NULL != extra) {
+    if (EXIT_SUCCESS == libxs_get_malloc_xinfo(kernel, NULL/*size*/, NULL/*flags*/, (void**)extra_address) && NULL != extra) {
       const unsigned int regindex = extra->registered;
       if ((LIBXS_CAPACITY_REGISTRY) <= regindex) {
-        libxs_xfree(jit_kernel, 0/*no check*/);
+        libxs_xfree(kernel, 0/*no check*/);
       }
-      else
+      else { /* attempt to unregister kernel */
+        libxs_kernel_info info;
 #if !defined(LIBXS_ENABLE_DEREG)
-      if (0 != libxs_verbosity /* library code is expected to be mute */
-       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-      {
-        fprintf(stderr, "LIBXS WARNING: attempt to unregister JIT-kernel!\n");
-      }
-#else
-      { /* unregister kernel */
-        /* coverity[check_return] */
-        LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
-        internal_registry[regindex].ptr = NULL;
-# if !defined(NDEBUG)
-        LIBXS_MEMZERO127(internal_registry_keys + regindex);
-# endif
-        libxs_xfree(jit_kernel, 0/*no check*/);
-      }
+        if (EXIT_SUCCESS == libxs_get_kernel_info(kernel, &info)
+          && LIBXS_KERNEL_KIND_USER == info.kind)
 #endif
+        {
+          LIBXS_ASSERT(LIBXS_KERNEL_UNREGISTERED > info.kind);
+          /* coverity[check_return] */
+          LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
+          internal_registry[regindex].ptr = NULL;
+#if !defined(NDEBUG)
+          LIBXS_MEMZERO127(internal_registry_keys + regindex);
+#endif
+          libxs_xfree(kernel, 0/*no check*/);
+        }
+#if !defined(LIBXS_ENABLE_DEREG)
+        else if (0 != libxs_verbosity /* library code is expected to be mute */
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
+          fprintf(stderr, "LIBXS WARNING: attempt to unregister JIT-kernel!\n");
+        }
+#endif
+      }
     }
     else if (0 != libxs_verbosity /* library code is expected to be mute */
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
@@ -4084,14 +4093,14 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_finalize)(void)
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** /*jit_kernel*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** jit_kernel)
+LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** /*kernel*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** kernel)
 {
 #if !defined(NDEBUG)
-  if (NULL != jit_kernel)
+  if (NULL != kernel)
 #endif
   {
-    libxs_release_kernel(*jit_kernel);
+    libxs_release_kernel(*kernel);
   }
 #if !defined(NDEBUG)
   else {
