@@ -2337,7 +2337,7 @@ LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
 }
 
 
-LIBXS_API void* libxs_xregister(const void* key, size_t key_size, const void* value, size_t value_size)
+LIBXS_API void* libxs_xregister(const void* key, size_t key_size, size_t value_size, const void* value_init)
 {
   static int error_once = 0;
   void* result;
@@ -2356,7 +2356,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size, const void* va
       if (EXIT_SUCCESS == libxs_get_malloc_xinfo(dst, &size, NULL/*flags*/, NULL/*extra*/)
         && value_size <= size)
       {
-        if (NULL != value) memcpy(dst, value, value_size);
+        if (NULL != value_init) memcpy(dst, value_init, value_size);
         result = dst;
       }
       else {

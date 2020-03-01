@@ -32,32 +32,32 @@ int main(/*int argc, char* argv[]*/)
 
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
     result = (NULL == libxs_xregister(key, /*too large*/LIBXS_DESCRIPTOR_MAXSIZE + 1,
-      value[0], strlen(value[0]) + 1) ? EXIT_SUCCESS : EXIT_FAILURE);
+      strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
     result = (NULL == libxs_xregister(NULL, 16, /* invalid combination */
-      value[0], strlen(value[0]) + 1) ? EXIT_SUCCESS : EXIT_FAILURE);
+      strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
     result = (NULL == libxs_xregister(NULL, 0, /* invalid combination */
-      value[0], strlen(value[0]) + 1) ? EXIT_SUCCESS : EXIT_FAILURE);
+      strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
-    result = (NULL == libxs_xregister(key, key_size, NULL, 0) ? EXIT_SUCCESS : EXIT_FAILURE);
+    result = (NULL == libxs_xregister(key, key_size, 0, NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
 #if (0 != LIBXS_JIT) /* registry service only with JIT */
-  if (EXIT_SUCCESS == result) { /* same key but some payload (value=NULL: initialized later) */
-    result = (NULL != libxs_xregister(key, key_size, NULL, strlen(value[0]) + 1) ? EXIT_SUCCESS : EXIT_FAILURE);
+  if (EXIT_SUCCESS == result) { /* same key but (larger) payload; initialized later */
+    result = (NULL != libxs_xregister(key, key_size, strlen(value[0]) + 1, NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* re-register same key with larger payload */
     result = (NULL == libxs_xregister(key, key_size,
-      value[0], strlen(value[3]) + 1) ? EXIT_SUCCESS : EXIT_FAILURE);
+      strlen(value[3]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* release registered value */
     libxs_xrelease(key, key_size);
   }
   for (i = 0; i < n && EXIT_SUCCESS == result; ++i) {
-    result = (NULL != libxs_xregister(key + i, key_size, value[i], strlen(value[i]) + 1) ? EXIT_SUCCESS : EXIT_FAILURE);
+    result = (NULL != libxs_xregister(key + i, key_size, strlen(value[i]) + 1, value[i]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   for (i = 0; i < n && EXIT_SUCCESS == result; ++i) {
     const char *const v = (char*)libxs_xdispatch(key + i, key_size);
