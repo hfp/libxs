@@ -2337,10 +2337,10 @@ LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
 }
 
 
-LIBXS_API int libxs_xregister(const void* key, size_t key_size, const void* value, size_t value_size)
+LIBXS_API void* libxs_xregister(const void* key, size_t key_size, const void* value, size_t value_size)
 {
   static int error_once = 0;
-  int result;
+  void* result;
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size) {
     libxs_descriptor wrap;
     void* dst;
@@ -2357,7 +2357,7 @@ LIBXS_API int libxs_xregister(const void* key, size_t key_size, const void* valu
         && value_size <= size)
       {
         if (NULL != value) memcpy(dst, value, value_size);
-        result = EXIT_SUCCESS;
+        result = dst;
       }
       else {
         if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -2365,11 +2365,10 @@ LIBXS_API int libxs_xregister(const void* key, size_t key_size, const void* valu
         {
           fprintf(stderr, "LIBXS ERROR: value too large for previously registered key!\n");
         }
-        result = EXIT_FAILURE;
+        result = NULL;
       }
     }
-    else if (0 == value_size) result = EXIT_SUCCESS;
-    else result = EXIT_FAILURE;
+    else result = NULL;
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -2383,7 +2382,7 @@ LIBXS_API int libxs_xregister(const void* key, size_t key_size, const void* valu
           LIBXS_DESCRIPTOR_MAXSIZE);
       }
     }
-    result = EXIT_FAILURE;
+    result = NULL;
   }
   return result;
 }
