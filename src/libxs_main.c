@@ -2341,7 +2341,7 @@ LIBXS_API int libxs_xregister(const void* key, size_t key_size, const void* valu
 {
   static int error_once = 0;
   int result;
-  if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size && (NULL != value || 0 == value_size)) {
+  if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size) {
     libxs_descriptor wrap;
     void* dst;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
@@ -2356,7 +2356,7 @@ LIBXS_API int libxs_xregister(const void* key, size_t key_size, const void* valu
       if (EXIT_SUCCESS == libxs_get_malloc_xinfo(dst, &size, NULL/*flags*/, NULL/*extra*/)
         && value_size <= size)
       {
-        memcpy(dst, value, value_size);
+        if (NULL != value) memcpy(dst, value, value_size);
         result = EXIT_SUCCESS;
       }
       else {
@@ -2402,7 +2402,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
 #endif
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
     wrap.kind = LIBXS_KERNEL_KIND_USER;
-    /* LIBXS_INIT is not necessary here */
+    LIBXS_INIT
     result = internal_find_code(&wrap, key_size, 0/*user_size*/).ptr;
   }
 #if !defined(NDEBUG)
