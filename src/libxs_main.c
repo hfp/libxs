@@ -208,6 +208,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_cache_type {
 # if defined(LIBXS_NTHREADS_USE)
 LIBXS_APIVAR_DEFINE(internal_cache_type* internal_cache_buffer);
 # endif
+LIBXS_APIVAR_DEFINE(int internal_cache_size);
 #endif /*defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))*/
 /** Determines the try-lock property (1<N: disabled, N=1: enabled [N=0: disabled in case of RW-lock]). */
 LIBXS_APIVAR_DEFINE(int internal_reglock_count);
@@ -669,15 +670,25 @@ LIBXS_API_INTERN void internal_init(void)
 # endif
 #endif
   if (NULL == internal_registry) { /* double-check after acquiring the lock(s) */
-#if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-    void* new_cache = NULL;
-#endif
-    void *new_registry = NULL, *new_keys = NULL;
-    const char *const env_verbose = getenv("LIBXS_VERBOSE");
 #if defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_AUTOPIN)
     /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
     const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
     const void *const dlsymbol = dlsym(LIBXS_RTLD_NEXT, dlsymname);
+#endif
+    const char *const env_verbose = getenv("LIBXS_VERBOSE");
+    void *new_registry = NULL, *new_keys = NULL;
+#if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+# if defined(LIBXS_NTHREADS_USE)
+    void* new_cache = NULL;
+# endif
+    const char *const env_cache = getenv("LIBXS_CACHE");
+    if (NULL != env_cache && 0 != *env_cache) {
+      const int cache_size = atoi(env_cache), cache_size2 = LIBXS_UP2POT(cache_size);
+      internal_cache_size = LIBXS_MIN(cache_size2, LIBXS_CACHE_MAXSIZE);
+    }
+    else {
+      internal_cache_size = LIBXS_CACHE_MAXSIZE;
+    }
 #endif
     /* setup verbosity as early as possible since below code may rely on verbose output */
     if (NULL != env_verbose && 0 != *env_verbose) {
@@ -689,7 +700,7 @@ LIBXS_API_INTERN void internal_init(void)
     }
 #endif
 #if defined(LIBXS_AUTOPIN)
-  #if defined(LIBXS_INTERCEPT_DYNAMIC)
+# if defined(LIBXS_INTERCEPT_DYNAMIC)
     /* MPI: non-user affinity can slow-down unrelated jobs, e.g., CP2K regtests */
     if (NULL == dlerror() && NULL == dlsymbol)
 # endif
@@ -778,7 +789,8 @@ LIBXS_API_INTERN void internal_init(void)
     libxs_memory_init(libxs_target_archid);
     if (
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-      (EXIT_SUCCESS == libxs_xmalloc(&new_cache, (LIBXS_NTHREADS_MAX) * sizeof(internal_cache_type), LIBXS_CACHELINE/*alignment*/,
+      (EXIT_SUCCESS == libxs_xmalloc(&new_cache, /* if internal_cache_size is zero, allocation must still happen (later control-flow too expensive) */
+        sizeof(internal_cache_type) * (LIBXS_NTHREADS_MAX), LIBXS_CACHELINE/*alignment*/,
         LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/) && NULL != new_cache) &&
 #endif
       (EXIT_SUCCESS == libxs_xmalloc(&new_keys, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_descriptor), 0/*auto-align*/,
@@ -2066,16 +2078,16 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
     if (NULL != flux_entry.ptr_const) { /* keep code version on record (cache) */
       LIBXS_ASSERT(0 == diff);
       if (cache->entry.id == libxs_ninit) { /* maintain cache */
-        if (cache->entry.size < (LIBXS_CACHE_MAXSIZE)) { /* grow */
+        if (cache->entry.size < internal_cache_size) { /* grow */
           INTERNAL_FIND_CODE_CACHE_GROW(cache_index, cache->entry.size);
-          LIBXS_ASSERT(cache->entry.size <= LIBXS_CACHE_MAXSIZE);
+          LIBXS_ASSERT(cache->entry.size <= internal_cache_size);
         }
         else { /* evict */
           LIBXS_ASSERT(cache->entry.hit < cache->entry.size);
           INTERNAL_FIND_CODE_CACHE_EVICT(cache_index, cache->entry.size, cache->entry.hit);
         }
       }
-      else { /* reset cache */
+      else if (0 != internal_cache_size) { /* reset cache */
 # if !defined(NDEBUG)
         LIBXS_MEMZERO127(cache->entry.keys);
 # endif
@@ -2308,7 +2320,7 @@ LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
       info->nbytes = (LIBXS_CAPACITY_REGISTRY) * (sizeof(libxs_code_pointer) + sizeof(libxs_descriptor));
       info->capacity = LIBXS_CAPACITY_REGISTRY;
 #if defined(LIBXS_CACHE_MAXSIZE)
-      info->ncache = LIBXS_CACHE_MAXSIZE;
+      info->ncache = internal_cache_size;
 #else
       info->ncache = 0;
 #endif
