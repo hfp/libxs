@@ -2319,7 +2319,7 @@ LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
       LIBXS_MEMZERO127(info); /* info->nstatic = 0; info->size = 0; */
       info->nbytes = (LIBXS_CAPACITY_REGISTRY) * (sizeof(libxs_code_pointer) + sizeof(libxs_descriptor));
       info->capacity = LIBXS_CAPACITY_REGISTRY;
-#if defined(LIBXS_CACHE_MAXSIZE)
+#if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
       info->ncache = internal_cache_size;
 #else
       info->ncache = 0;
