@@ -327,7 +327,7 @@ typedef enum libxs_atomic_kind {
         } \
         else { \
           libxs_sync_cycle_npause_ = (NPAUSE); \
-          LIBXS_SYNC_YIELD(); \
+          LIBXS_SYNC_YIELD; \
           ELSE \
         } \
       } while(((EXP_STATE) & 1) != (*(DST_PTR) & 1)); \
@@ -448,7 +448,7 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_ATTR_INIT_rwlock(ATTR) LIBXS_UNUSED(ATTR)
 #     define LIBXS_LOCK_ATTR_DESTROY_rwlock(ATTR) LIBXS_UNUSED(ATTR)
 #   endif
-#   define LIBXS_SYNC_YIELD YieldProcessor
+#   define LIBXS_SYNC_YIELD YieldProcessor()
 # else
 #   define LIBXS_TLS_TYPE pthread_key_t
 #   define LIBXS_TLS_CREATE(KEYPTR) pthread_key_create(KEYPTR, NULL)
@@ -456,14 +456,14 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_TLS_SETVALUE(KEY, PTR) pthread_setspecific(KEY, PTR)
 #   define LIBXS_TLS_GETVALUE(KEY) pthread_getspecific(KEY)
 #   if defined(__APPLE__) && defined(__MACH__)
-#     define LIBXS_SYNC_YIELD pthread_yield_np
+#     define LIBXS_SYNC_YIELD pthread_yield_np()
 #   else
 #     if defined(__USE_GNU) || !defined(__BSD_VISIBLE)
       LIBXS_EXTERN int pthread_yield(void) LIBXS_THROW;
 #     else
       LIBXS_EXTERN void pthread_yield(void);
 #     endif
-#     define LIBXS_SYNC_YIELD pthread_yield
+#     define LIBXS_SYNC_YIELD pthread_yield()
 #   endif
 #   if defined(LIBXS_LOCK_SYSTEM_SPINLOCK) && defined(__APPLE__) && defined(__MACH__)
 #     define LIBXS_LOCK_SPINLOCK mutex
@@ -713,6 +713,7 @@ typedef enum libxs_atomic_kind {
 #   endif
 # endif
 #else /* no synchronization */
+# define LIBXS_SYNC_YIELD LIBXS_SYNC_PAUSE
 # define LIBXS_LOCK_SPINLOCK spinlock_dummy
 # define LIBXS_LOCK_MUTEX mutex_dummy
 # define LIBXS_LOCK_RWLOCK rwlock_dummy
