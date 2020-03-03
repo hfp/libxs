@@ -632,7 +632,6 @@ LIBXS_API unsigned int libxs_get_tid(void)
 #if (0 != LIBXS_SYNC)
   static LIBXS_TLS unsigned int tid = 0xFFFFFFFF;
   if (0xFFFFFFFF == tid) {
-    static unsigned int libxs_thread_count = 0;
     const unsigned int nthreads = LIBXS_ATOMIC_ADD_FETCH(&libxs_thread_count, 1, LIBXS_ATOMIC_RELAXED);
 # if defined(LIBXS_NTHREADS_USE)
     static int error_once = 0;

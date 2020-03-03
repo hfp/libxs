@@ -249,8 +249,9 @@ LIBXS_APIVAR_PRIVATE_DEF(const void* libxs_default_allocator_context);
 LIBXS_APIVAR_PRIVATE_DEF(const void* libxs_scratch_allocator_context);
 LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_scratch_pools);
 LIBXS_APIVAR_PRIVATE_DEF(double libxs_scratch_scale);
-LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_statistic_num_spmdm);
 LIBXS_APIVAR_PRIVATE_DEF(double libxs_timer_scale);
+LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_statistic_num_spmdm);
+LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_thread_count);
 LIBXS_APIVAR_PRIVATE_DEF(int libxs_se);
 /* definition of corresponding variables */
 LIBXS_APIVAR_PUBLIC_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
