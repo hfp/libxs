@@ -635,7 +635,7 @@ LIBXS_API_INTERN unsigned int internal_get_tid(void);
 LIBXS_API_INTERN unsigned int internal_get_tid(void)
 {
   const unsigned int nthreads = LIBXS_ATOMIC_ADD_FETCH(&libxs_thread_count, 1, LIBXS_ATOMIC_RELAXED);
-#if defined(LIBXS_NTHREADS_USE)
+#if !defined(NDEBUG)
   static int error_once = 0;
   if (LIBXS_NTHREADS_MAX < nthreads
     && 0 != libxs_verbosity /* library code is expected to be mute */
@@ -643,10 +643,9 @@ LIBXS_API_INTERN unsigned int internal_get_tid(void)
   {
     fprintf(stderr, "LIBXS ERROR: maximum number of threads is exhausted!\n");
   }
-  return (nthreads - 1) % LIBXS_NTHREADS_MAX;
-#else
-  return (nthreads - 1);
 #endif
+  LIBXS_ASSERT(LIBXS_NTHREADS_MAX == LIBXS_UP2POT(LIBXS_NTHREADS_MAX));
+  return LIBXS_MOD2(nthreads - 1, LIBXS_NTHREADS_MAX);
 }
 
 

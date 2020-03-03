@@ -789,11 +789,7 @@ LIBXS_API_INTERN void internal_init(void)
     internal_statistic_mnk = LIBXS_MAX_DIM;
     internal_statistic_sml = 13;
     internal_statistic_med = 23;
-#if !defined(NDEBUG) /* LIBXS_CAPACITY_REGISTRY: power of two */
-    { const unsigned int npot = LIBXS_UP2POT(LIBXS_CAPACITY_REGISTRY);
-      assert(LIBXS_CAPACITY_REGISTRY == npot); /* !LIBXS_ASSERT */
-    }
-#endif
+    LIBXS_ASSERT(LIBXS_CAPACITY_REGISTRY == LIBXS_UP2POT(LIBXS_CAPACITY_REGISTRY));
     libxs_hash_init(libxs_target_archid); /* used by debug memory allocation (checksum) */
     libxs_memory_init(libxs_target_archid);
     if (
