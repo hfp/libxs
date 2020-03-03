@@ -385,6 +385,11 @@ typedef enum libxs_atomic_kind {
 #   endif
 # endif
 # if defined(LIBXS_WIN32_THREADS)
+#   define LIBXS_TLS_TYPE DWORD
+#   define LIBXS_TLS_CREATE(KEYPTR) *(KEYPTR) = TlsAlloc()
+#   define LIBXS_TLS_DESTROY(KEY) TlsFree(KEY)
+#   define LIBXS_TLS_SETVALUE(KEY, PTR) TlsSetValue(KEY, PTR)
+#   define LIBXS_TLS_GETVALUE(KEY) TlsGetValue(KEY)
 #   define LIBXS_LOCK_SPINLOCK spin
 #   if ((LIBXS_WIN32_THREADS) & 0x0600)
 #     define LIBXS_LOCK_MUTEX rwlock
@@ -445,6 +450,11 @@ typedef enum libxs_atomic_kind {
 #   endif
 #   define LIBXS_SYNC_YIELD YieldProcessor
 # else
+#   define LIBXS_TLS_TYPE pthread_key_t
+#   define LIBXS_TLS_CREATE(KEYPTR) pthread_key_create(KEYPTR, NULL)
+#   define LIBXS_TLS_DESTROY(KEY) pthread_key_delete(KEY)
+#   define LIBXS_TLS_SETVALUE(KEY, PTR) pthread_setspecific(KEY, PTR)
+#   define LIBXS_TLS_GETVALUE(KEY) pthread_getspecific(KEY)
 #   if defined(__APPLE__) && defined(__MACH__)
 #     define LIBXS_SYNC_YIELD pthread_yield_np
 #   else

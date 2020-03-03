@@ -855,4 +855,8 @@ LIBXS_APIVAR_PRIVATE(unsigned int libxs_thread_count);
 /** Security-enhanced environment. */
 LIBXS_APIVAR_PRIVATE(int libxs_se);
 
+#if (0 != LIBXS_SYNC)
+LIBXS_APIVAR_PRIVATE(LIBXS_TLS_TYPE libxs_tlskey);
+#endif
+
 #endif /*LIBXS_MAIN_H*/
