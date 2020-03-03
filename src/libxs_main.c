@@ -257,6 +257,10 @@ LIBXS_APIVAR_PRIVATE_DEF(int libxs_se);
 LIBXS_APIVAR_PUBLIC_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
 
+#if (0 != LIBXS_SYNC)
+LIBXS_APIVAR_PRIVATE_DEF(LIBXS_TLS_TYPE libxs_tlskey);
+#endif
+
 
 LIBXS_API_INLINE void internal_update_mmstatistic(const libxs_gemm_descriptor* desc,
   unsigned int ntry, unsigned int ncol, unsigned int njit, unsigned int nsta)
@@ -877,22 +881,21 @@ LIBXS_API_INTERN void internal_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)) {
-    static unsigned int ninit = 0;
-#if (0 != LIBXS_SYNC)
-    static unsigned int gid = 0;
-    const unsigned int tid = 1 + libxs_get_tid();
+    static unsigned int ninit = 0, gid = 0;
+    const unsigned int tid = LIBXS_ATOMIC_ADD_FETCH(&ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     LIBXS_ASSERT(0 < tid);
-#endif
     /* libxs_ninit (1: initialization started, 2: library initialized, higher: to invalidate code-TLS) */
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&ninit, 1, LIBXS_ATOMIC_SEQ_CST)) {
+    if (1 == tid) {
       libxs_timer_tickint s0 = libxs_timer_tick_rtc(); /* warm-up */
       libxs_timer_tickint t0 = libxs_timer_tick_tsc(); /* warm-up */
       s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick_tsc(); /* start timing */
       assert(0 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST)); /* !LIBXS_ASSERT */
       /* coverity[check_return] */
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
-#if (0 != LIBXS_SYNC)
       gid = tid; /* protect initialization */
+#if (0 != LIBXS_SYNC)
+      /* coverity[check_return] */
+      LIBXS_TLS_CREATE(&libxs_tlskey);
       { /* construct and initialize locks */
 # if defined(LIBXS_REGLOCK_TRY)
         const char *const env_trylock = getenv("LIBXS_TRYLOCK");
@@ -1011,7 +1014,6 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       /* coverity[check_return] */
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     }
-#if (0 != LIBXS_SYNC)
     else if (gid != tid) { /* avoid recursion */
       while (2 > LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) {
 # if 1
@@ -1022,7 +1024,6 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       }
     }
     if (2 <= LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED))
-#endif /*0 != LIBXS_SYNC*/
     internal_init();
   }
 }
@@ -1164,6 +1165,8 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, internal_reglock_ptr);
 # endif
     LIBXS_LOCK_RELEASE(LIBXS_LOCK, &libxs_lock_global);
+    /* coverity[check_return] */
+    LIBXS_TLS_DESTROY(libxs_tlskey);
 #endif
   }
 }

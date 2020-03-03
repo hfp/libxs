@@ -30,6 +30,10 @@
 # pragma offload_attribute(pop)
 #endif
 
+#if !defined(LIBXS_SYNC_GENERIC_PID) && 1
+# define LIBXS_SYNC_GENERIC_PID
+#endif
+
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_sync_core_tag { /* per-core */
   uint8_t id;
@@ -627,26 +631,43 @@ LIBXS_API unsigned int libxs_get_pid(void)
 }
 
 
+LIBXS_API_INTERN unsigned int internal_get_tid(void);
+LIBXS_API_INTERN unsigned int internal_get_tid(void)
+{
+  const unsigned int nthreads = LIBXS_ATOMIC_ADD_FETCH(&libxs_thread_count, 1, LIBXS_ATOMIC_RELAXED);
+#if defined(LIBXS_NTHREADS_USE)
+  static int error_once = 0;
+  if (LIBXS_NTHREADS_MAX < nthreads
+    && 0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: maximum number of threads is exhausted!\n");
+  }
+  return (nthreads - 1) % LIBXS_NTHREADS_MAX;
+#else
+  return (nthreads - 1);
+#endif
+}
+
+
 LIBXS_API unsigned int libxs_get_tid(void)
 {
 #if (0 != LIBXS_SYNC)
+# if defined(LIBXS_SYNC_GENERIC_PID)
   static LIBXS_TLS unsigned int tid = 0xFFFFFFFF;
-  if (0xFFFFFFFF == tid) {
-    const unsigned int nthreads = LIBXS_ATOMIC_ADD_FETCH(&libxs_thread_count, 1, LIBXS_ATOMIC_RELAXED);
-# if defined(LIBXS_NTHREADS_USE)
-    static int error_once = 0;
-    if (LIBXS_NTHREADS_MAX < nthreads
-      && 0 != libxs_verbosity /* library code is expected to be mute */
-      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-    {
-      fprintf(stderr, "LIBXS ERROR: maximum number of threads is exhausted!\n");
-    }
-    tid = (nthreads - 1) % LIBXS_NTHREADS_MAX;
-# else
-    tid = (nthreads - 1);
-# endif
-  }
+  if (0xFFFFFFFF == tid) tid = internal_get_tid();
   return tid;
+# else
+  void* tls = LIBXS_TLS_GETVALUE(libxs_tlskey);
+  if (NULL == tls) {
+    static unsigned int tid[LIBXS_NTHREADS_MAX];
+    const int i = internal_get_tid();
+    tid[i] = i; tls = tid + i;
+    /* coverity[check_return] */
+    LIBXS_TLS_SETVALUE(libxs_tlskey, tls);
+  }
+  return *(unsigned int*)tls;
+# endif
 #else
   return 0;
 #endif
