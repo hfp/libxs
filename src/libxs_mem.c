@@ -33,7 +33,7 @@ unsigned char internal_diff_sw(const void* a, const void* b, unsigned char size)
 #else
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   unsigned char i;
-  LIBXS_PRAGMA_UNROLL_N(2)
+  LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & 0xF0); i += 16) {
     LIBXS_DIFF_16_DECL(aa);
     LIBXS_DIFF_16_LOAD(aa, a8 + i);
@@ -51,7 +51,7 @@ unsigned char internal_diff_sse3(const void* a, const void* b, unsigned char siz
 #if defined(LIBXS_INTRINSICS_SSE3) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   unsigned char i;
-  LIBXS_PRAGMA_UNROLL_N(2)
+  LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & 0xF0); i += 16) {
     LIBXS_DIFF_SSE3_DECL(aa);
     LIBXS_DIFF_SSE3_LOAD(aa, a8 + i);
@@ -71,7 +71,7 @@ unsigned char internal_diff_avx2(const void* a, const void* b, unsigned char siz
 #if defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   unsigned char i;
-  LIBXS_PRAGMA_UNROLL_N(2)
+  LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & 0xE0); i += 32) {
     LIBXS_DIFF_AVX2_DECL(aa);
     LIBXS_DIFF_AVX2_LOAD(aa, a8 + i);
@@ -91,7 +91,7 @@ unsigned char internal_diff_avx512(const void* a, const void* b, unsigned char s
 #if defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   unsigned char i;
-  LIBXS_PRAGMA_UNROLL_N(2)
+  LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & 0xC0); i += 64) {
     LIBXS_DIFF_AVX512_DECL(aa);
     LIBXS_DIFF_AVX512_LOAD(aa, a8 + i);
@@ -114,7 +114,7 @@ int internal_memcmp_sw(const void* a, const void* b, size_t size)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   size_t i;
   LIBXS_DIFF_16_DECL(aa);
-  LIBXS_PRAGMA_UNROLL_N(2)
+  LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & 0xFFFFFFFFFFFFFFF0); i += 16) {
     LIBXS_DIFF_16_LOAD(aa, a8 + i);
     if (LIBXS_DIFF_16(aa, b8 + i, 0/*dummy*/)) return 1;
@@ -132,7 +132,7 @@ int internal_memcmp_sse3(const void* a, const void* b, size_t size)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   size_t i;
   LIBXS_DIFF_SSE3_DECL(aa);
-  LIBXS_PRAGMA_UNROLL_N(2)
+  LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & 0xFFFFFFFFFFFFFFF0); i += 16) {
     LIBXS_DIFF_SSE3_LOAD(aa, a8 + i);
     if (LIBXS_DIFF_SSE3(aa, b8 + i, 0/*dummy*/)) return 1;
@@ -152,7 +152,7 @@ int internal_memcmp_avx2(const void* a, const void* b, size_t size)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   size_t i;
   LIBXS_DIFF_AVX2_DECL(aa);
-  LIBXS_PRAGMA_UNROLL_N(2)
+  LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & 0xFFFFFFFFFFFFFFE0); i += 32) {
     LIBXS_DIFF_AVX2_LOAD(aa, a8 + i);
     if (LIBXS_DIFF_AVX2(aa, b8 + i, 0/*dummy*/)) return 1;
@@ -172,7 +172,7 @@ int internal_memcmp_avx512(const void* a, const void* b, size_t size)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   size_t i;
   LIBXS_DIFF_AVX512_DECL(aa);
-  LIBXS_PRAGMA_UNROLL_N(2)
+  LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & 0xFFFFFFFFFFFFFFC0); i += 64) {
     LIBXS_DIFF_AVX512_LOAD(aa, a8 + i);
     if (LIBXS_DIFF_AVX512(aa, b8 + i, 0/*dummy*/)) return 1;
