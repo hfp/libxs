@@ -2395,7 +2395,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size, size_t value_s
         fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xregister specified!\n");
       }
       else {
-        fprintf(stderr, "LIBXS ERROR: libxs_xregister has maximum key-size of %u Byte!\n",
+        fprintf(stderr, "LIBXS ERROR: libxs_xregister has maximum key-size of %i Byte!\n",
           LIBXS_DESCRIPTOR_MAXSIZE);
       }
     }
