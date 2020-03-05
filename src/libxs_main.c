@@ -1016,9 +1016,8 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
     }
     else if (gid != tid) { /* avoid recursion */
       while (2 > LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) LIBXS_SYNC_YIELD;
+      internal_init();
     }
-    if (2 <= LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED))
-    internal_init();
   }
 }
 
