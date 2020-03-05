@@ -2613,7 +2613,7 @@ LIBXS_API int libxs_get_scratch_info(libxs_scratch_info* info)
 
 LIBXS_API void libxs_set_scratch_limit(size_t nbytes)
 {
-  LIBXS_INIT
+  /* !LIBXS_INIT */
   internal_malloc_scratch_limit = nbytes;
 }
 
@@ -2621,7 +2621,7 @@ LIBXS_API void libxs_set_scratch_limit(size_t nbytes)
 LIBXS_API size_t libxs_get_scratch_limit(void)
 {
   size_t result;
-  LIBXS_INIT
+  /* !LIBXS_INIT */
   if (LIBXS_SCRATCH_DEFAULT != internal_malloc_scratch_limit) {
     result = internal_malloc_scratch_limit;
   }
@@ -2637,7 +2637,7 @@ LIBXS_API size_t libxs_get_scratch_limit(void)
 
 LIBXS_API void libxs_set_malloc(int enabled, const size_t* lo, const size_t* hi)
 {
-  LIBXS_INIT
+  /* !LIBXS_INIT */
 #if !(defined(LIBXS_MALLOC_HOOK_DYNAMIC) || defined(LIBXS_INTERCEPT_DYNAMIC))
   LIBXS_UNUSED(enabled);
   internal_malloc_kind = 0;
