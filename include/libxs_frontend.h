@@ -246,7 +246,7 @@
 /** Map to appropriate BLAS function (or fall-back). The mapping is used e.g., inside of LIBXS_BLAS_XGEMM. */
 #define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
 #if (0 != LIBXS_BLAS) /* Helper macro to eventually (if defined) call libxs_init */
-# if (defined(LIBXS_INIT) || defined(LIBXS_CTOR))
+# if defined(LIBXS_INIT_COMPLETED)
 #   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch_function
 #   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch_function
 #   define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm_function
