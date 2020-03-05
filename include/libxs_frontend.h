@@ -235,6 +235,14 @@
   } \
 }
 
+#if (defined(LIBXS_INIT) || defined(LIBXS_CTOR))
+# undef LIBXS_INIT
+# define LIBXS_INIT LIBXS_ASSERT_MSG(1 < libxs_ninit, "LIBXS is not initialized");
+# define LIBXS_INIT_COMPLETED
+#else
+# define LIBXS_INIT if (2 > libxs_ninit) libxs_init();
+#endif
+
 /** Map to appropriate BLAS function (or fall-back). The mapping is used e.g., inside of LIBXS_BLAS_XGEMM. */
 #define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
 #if (0 != LIBXS_BLAS) /* Helper macro to eventually (if defined) call libxs_init */
@@ -245,11 +253,7 @@
 #   define LIBXS_BLAS_FUNCTION_sgemm libxs_original_sgemm_function
 #   define LIBXS_BLAS_FUNCTION_dgemv libxs_original_dgemv_function
 #   define LIBXS_BLAS_FUNCTION_sgemv libxs_original_sgemv_function
-#   undef LIBXS_INIT
-#   define LIBXS_INIT LIBXS_ASSERT_MSG(0 != libxs_ninit, "LIBXS is not initialized");
-#   define LIBXS_INIT_COMPLETED
 # else
-#   define LIBXS_INIT if (0 == libxs_ninit) libxs_init();
 #   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch()
 #   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch()
 #   define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm()
@@ -258,13 +262,6 @@
 #   define LIBXS_BLAS_FUNCTION_sgemv libxs_original_sgemv()
 # endif
 #else /* no BLAS */
-# if (defined(LIBXS_INIT) || defined(LIBXS_CTOR))
-#   undef LIBXS_INIT
-#   define LIBXS_INIT LIBXS_ASSERT_MSG(0 != libxs_ninit, "LIBXS is not initialized");
-#   define LIBXS_INIT_COMPLETED
-# else
-#   define LIBXS_INIT if (0 == libxs_ninit) libxs_init();
-# endif
 # define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_blas_error("dgemm_batch")
 # define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_blas_error("sgemm_batch")
 # define LIBXS_BLAS_FUNCTION_dgemm libxs_blas_error("dgemm")
