@@ -383,7 +383,7 @@ LIBXS_API_INLINE internal_malloc_info_type* internal_malloc_info(const void* mem
         || pointer == convert.ptr || pointer == result->context
         || pointer >= buffer || NULL == pointer
         || maxsize < result->size || 0 == result->size
-        || 1 >= libxs_ninit /* before checksum calculation */
+        || 2 > libxs_ninit /* before checksum calculation */
 #if !defined(LIBXS_MALLOC_CRC_OFF) /* last check: checksum over info */
 # if defined(LIBXS_MALLOC_CRC_LIGHT)
         || result->hash != LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &result)

@@ -115,7 +115,7 @@ LIBXS_API int libxs_get_timer_info(libxs_timer_info* info)
       info->tsc = 1;
     }
 # if !defined(LIBXS_INIT_COMPLETED)
-    else if (0 == libxs_ninit) {
+    else if (2 > libxs_ninit) {
       libxs_init();
       if (0 < libxs_timer_scale) {
         info->tsc = 1;
@@ -154,7 +154,7 @@ LIBXS_API libxs_timer_tickint libxs_timer_tick(void)
     LIBXS_TIMER_RDTSC(result);
   }
 # if !defined(LIBXS_INIT_COMPLETED)
-  else if (0 == libxs_ninit) {
+  else if (2 > libxs_ninit) {
     libxs_init();
     if (0 < libxs_timer_scale) {
       LIBXS_TIMER_RDTSC(result);
