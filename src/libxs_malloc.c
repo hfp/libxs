@@ -672,19 +672,23 @@ LIBXS_API_INTERN void internal_scratch_malloc(void** memory, size_t size, size_t
             (site == pool->instance.site))
 #   endif
           {
+#   if 0
             pool_size = pool->instance.minsize;
             used_size = pool->instance.head - pool->instance.buffer;
             req_size = alloc_size + used_size;
-            if (req_size <= pool_size) break;
+            if (req_size <= pool_size)
+#   endif
+            break;
           }
         }
         else {
           if (end == pool0) pool0 = pool; /* first available pool*/
-          if (0 == pool->instance.minsize) break; /* early exit */
+          if (0 == pool->instance.minsize) { /* early exit */
+            pool = pool0; break;
+          }
         }
       }
 # endif
-      if (end == pool) pool = pool0; /* fall-back to new pool */
       LIBXS_ASSERT(NULL != pool);
       if (end != pool && 0 <= internal_malloc_kind) {
         const size_t counter = LIBXS_ATOMIC_ADD_FETCH(&pool->instance.counter, (size_t)1, LIBXS_ATOMIC_SEQ_CST);
