@@ -16,10 +16,11 @@
 #else
 # define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) { \
   char *const libxs_memset127_dst_ = (char*)(PTRDST); \
-  union { size_t size; signed char value; } libxs_memset127_size_ = { (SIZE) }; \
+  union { size_t size; signed char size1; } libxs_memset127_; \
   signed char libxs_memset127_i_; LIBXS_ASSERT((SIZE) <= 127); \
+  libxs_memset127_.size = (SIZE); \
   LIBXS_PRAGMA_UNROLL \
-  for (libxs_memset127_i_ = 0; libxs_memset127_i_ < libxs_memset127_size_.value; ++libxs_memset127_i_) { \
+  for (libxs_memset127_i_ = 0; libxs_memset127_i_ < libxs_memset127_.size1; ++libxs_memset127_i_) { \
     libxs_memset127_dst_[libxs_memset127_i_] = (char)(VALUE); \
   } \
 }
