@@ -653,7 +653,6 @@ LIBXS_API_INTERN void internal_scratch_malloc(void** memory, size_t size, size_t
       internal_malloc_pool_type *const pools = (internal_malloc_pool_type*)LIBXS_UP2(internal_malloc_pool_buffer, LIBXS_MALLOC_SCRATCH_PADDING);
       internal_malloc_pool_type *const end = pools + libxs_scratch_pools, *pool0 = end, *pool = pools;
       const size_t align_size = libxs_alignment(size, alignment), alloc_size = size + align_size - 1;
-      size_t used_size = 0, pool_size = 0, req_size = 0;
 # if (0 != LIBXS_SYNC)
       const unsigned int tid = libxs_get_tid();
 # endif
@@ -672,12 +671,6 @@ LIBXS_API_INTERN void internal_scratch_malloc(void** memory, size_t size, size_t
             (site == pool->instance.site))
 #   endif
           {
-#   if 0
-            pool_size = pool->instance.minsize;
-            used_size = pool->instance.head - pool->instance.buffer;
-            req_size = alloc_size + used_size;
-            if (req_size <= pool_size)
-#   endif
             break;
           }
         }
@@ -694,9 +687,9 @@ LIBXS_API_INTERN void internal_scratch_malloc(void** memory, size_t size, size_t
         const size_t counter = LIBXS_ATOMIC_ADD_FETCH(&pool->instance.counter, (size_t)1, LIBXS_ATOMIC_SEQ_CST);
         if (NULL != pool->instance.buffer || 1 != counter) { /* attempt to (re-)use existing pool */
           const internal_malloc_info_type *const info = internal_malloc_info(pool->instance.buffer, 0/*no check*/);
-          pool_size = (NULL != info ? info->size : 0);
-          used_size = pool->instance.head - pool->instance.buffer;
-          req_size = alloc_size + used_size;
+          const size_t pool_size = (NULL != info ? info->size : 0);
+          const size_t used_size = pool->instance.head - pool->instance.buffer;
+          const size_t req_size = alloc_size + used_size;
           if (req_size <= pool_size) { /* fast path: draw from pool-buffer */
 # if (0 != LIBXS_SYNC) && defined(LIBXS_MALLOC_SCRATCH_JOIN)
             void *const headaddr = &pool->instance.head;
