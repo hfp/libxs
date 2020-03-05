@@ -158,7 +158,7 @@ LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
 # if defined(LIBXS_REGLOCK_TRY)
 #   define INTERNAL_REGLOCK_TRY(DIFF, CODE) \
     if (1 != internal_reglock_count) { /* (re-)try and get (meanwhile) generated code */ \
-      LIBXS_ASSERT(0 != internal_registry); /* engine is not shut down */ \
+      LIBXS_ASSERT(NULL != internal_registry); /* engine is not shut down */ \
       continue; \
     } \
     else { /* exit dispatch and let client fall back */ \
@@ -166,7 +166,7 @@ LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
     }
 # else
 #   define INTERNAL_REGLOCK_TRY(DIFF, CODE) \
-      LIBXS_ASSERT(0 != internal_registry); /* engine is not shut down */ \
+      LIBXS_ASSERT(NULL != internal_registry); /* engine is not shut down */ \
       continue
 # endif
 # if (1 < INTERNAL_REGLOCK_MAXN)
@@ -316,7 +316,7 @@ LIBXS_API_INLINE unsigned int internal_print_statistic(FILE* ostream,
   const internal_statistic_type statistic_big = internal_statistic[precision][2/*BIG*/];
   const internal_statistic_type statistic_xxx = internal_statistic[precision][3/*XXX*/];
   int printed = 0;
-  LIBXS_ASSERT(0 != ostream && (0 <= precision && precision < 2));
+  LIBXS_ASSERT(NULL != ostream && (0 <= precision && precision < 2));
 
   if (/* omit to print anything if it is superfluous */
     0 != statistic_sml.ntry || 0 != statistic_sml.njit || 0 != statistic_sml.nsta || 0 != statistic_sml.ncol ||
@@ -1014,7 +1014,8 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       /* coverity[check_return] */
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     }
-    else if (gid != tid) { /* avoid recursion */
+    else /*if (gid != tid)*/ { /* avoid recursion */
+      LIBXS_ASSERT(gid != tid);
       while (2 > LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) LIBXS_SYNC_YIELD;
       internal_init();
     }
