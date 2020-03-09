@@ -1555,9 +1555,9 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@$(CP) -v $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing interface..."
-	@$(CP) -v $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
-	@ls -1 $(INCDIR)/libxs*.h | grep -v libxs_source.h | xargs -I {} $(CP) -v {} $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v $(INCDIR)/libxs*.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@$(CP) -v $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing header-only..."
 	@$(CP) -r $(ROOTDIR)/$(SRCDIR)/* $(PREFIX)/$(PSRCDIR) >/dev/null 2>/dev/null || true
