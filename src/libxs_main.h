@@ -741,8 +741,8 @@ typedef enum libxs_malloc_flags {
       LIBXS_MALLOC_FLAG_MMAP    | LIBXS_MALLOC_FLAG_RWX
 } libxs_malloc_flags;
 
-/** Format for instance an amount of Bytes like libxs_format_size(nbytes, "KMGT", "B", 10). */
-LIBXS_API_INTERN const char* libxs_format_size(size_t nbytes, const char scale[], const char* unit, int base);
+/** Format for instance an amount of Bytes like libxs_format_size(result, nbytes, "KMGT", "B", 10). */
+LIBXS_API_INTERN void libxs_format_size(char buffer[32], size_t nbytes, const char scale[], const char* unit, int base);
 
 /** Returns the type-name of data-type (can be also libxs_gemm_precision). */
 LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype);

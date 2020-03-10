@@ -447,18 +447,17 @@ LIBXS_API_INTERN void internal_release_scratch(void)
 }
 
 
-LIBXS_API_INTERN const char* libxs_format_size(size_t nbytes, const char scale[], const char* unit, int base)
+/* Caution: cannot be used multiple time in a single expression! */
+LIBXS_API_INTERN void libxs_format_size(char buffer[32], size_t nbytes, const char scale[], const char* unit, int base)
 {
-  static LIBXS_TLS char formatted_size[32];
   const int len = (NULL != scale ? ((int)strlen(scale)) : 0);
   const int m = LIBXS_INTRINSICS_BITSCANBWD64(nbytes) / base, n = LIBXS_MIN(m, len);
   int i;
-  formatted_size[0] = 0; /* clear */
+  buffer[0] = 0; /* clear */
   LIBXS_ASSERT(NULL != unit && 0 <= base);
   for (i = 0; i < n; ++i) nbytes >>= base;
-  LIBXS_SNPRINTF(formatted_size, sizeof(formatted_size), "%i %c%s",
+  LIBXS_SNPRINTF(buffer, sizeof(buffer), "%i %c%s",
     (int)nbytes, 0 < n ? scale[n-1] : *unit, 0 < n ? unit : "");
-  return formatted_size;
 }
 
 
@@ -479,6 +478,7 @@ LIBXS_API_INTERN void internal_finalize(void)
       const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
       libxs_scratch_info scratch_info; size_t size_scratch = 0, size_private = 0;
       unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
+      char size_private_buffer[32], size_code_buffer[32];
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
         fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
       }
@@ -486,7 +486,9 @@ LIBXS_API_INTERN void internal_finalize(void)
         size_private = scratch_info.internal;
         size_scratch = scratch_info.size;
       }
-      fprintf(stderr, "Memory: %s", libxs_format_size(internal_registry_nbytes + size_private, "KM", "B", 10));
+      libxs_format_size(size_private_buffer, size_private, "KM", "B", 10);
+      libxs_format_size(size_code_buffer, internal_registry_nbytes, "KM", "B", 10);
+      fprintf(stderr, "Registry and code: %s + %s", size_private_buffer, size_code_buffer);
       if (0 != high_verbosity) {
         unsigned int ngemms = 0;
         int i; for (i = 0; i < 4; ++i) {
@@ -513,7 +515,9 @@ LIBXS_API_INTERN void internal_finalize(void)
       }
       fprintf(stderr, "\n");
       if (0 != size_scratch) {
-        fprintf(stderr, "Scratch: %s", libxs_format_size(size_scratch, "KM", "B", 10));
+        char size_scratch_buffer[32];
+        libxs_format_size(size_scratch_buffer, size_scratch, "KM", "B", 10);
+        fprintf(stderr, "Scratch: %s", size_scratch_buffer);
         if (0 != high_verbosity) {
           fprintf(stderr, " (mallocs=%lu, pools=%u)\n", (unsigned long int)scratch_info.nmallocs, scratch_info.npools);
         }
@@ -1426,18 +1430,16 @@ LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype)
 }
 
 
-LIBXS_API_INLINE const char* internal_get_typesize_string(size_t typesize)
+LIBXS_API_INLINE void internal_get_typesize_string(char buffer[4], size_t typesize)
 {
-  static LIBXS_TLS char result[4];
   LIBXS_ASSERT(256 > typesize);
   if (10 > typesize) {
-    result[0] = (char)('0' + typesize);
-    result[1] = 0;
+    buffer[0] = (char)('0' + typesize);
+    buffer[1] = 0;
   }
   else {
-    LIBXS_SNPRINTF(result, sizeof(result), "%i", (int)typesize);
+    LIBXS_SNPRINTF(buffer, sizeof(buffer), "%i", (int)typesize);
   }
-  return result;
 }
 
 
@@ -1689,7 +1691,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const tsizename = internal_get_typesize_string(request->descriptor.mcopy->typesize);
+          char tsizename[4];
+          internal_get_typesize_string(tsizename, request->descriptor.mcopy->typesize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_p%u.mcopy", target_arch, tsizename,
             request->descriptor.mcopy->m, request->descriptor.mcopy->n, request->descriptor.mcopy->ldi, request->descriptor.mcopy->ldo,
@@ -1705,7 +1708,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const tsizename = internal_get_typesize_string(request->descriptor.trans->typesize);
+          char tsizename[4];
+          internal_get_typesize_string(tsizename, request->descriptor.trans->typesize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%u.trans", target_arch, tsizename,
             request->descriptor.trans->m, request->descriptor.trans->n, request->descriptor.trans->ldo);
@@ -1723,7 +1727,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const tsizename = internal_get_typesize_string(tsize);
+          char tsizename[4];
+          internal_get_typesize_string(tsizename, tsize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c_%ux%ux%u_%u_%u_%u_%i.pgemm", target_arch, tsizename,
             request->descriptor.pgemm->transa, request->descriptor.pgemm->transb, request->descriptor.pgemm->layout,
@@ -1744,7 +1749,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const tsizename = internal_get_typesize_string(tsize);
+          char tsizename[4];
+          internal_get_typesize_string(tsizename, tsize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c_%ux%u_%u.getrf", target_arch, tsizename,
             request->descriptor.getrf->layout, request->descriptor.getrf->m, request->descriptor.getrf->n, request->descriptor.getrf->lda);
@@ -1762,7 +1768,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const tsizename = internal_get_typesize_string(tsize);
+          char tsizename[4];
+          internal_get_typesize_string(tsizename, tsize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c%c_%ux%u_%u_%u.trmm", target_arch, tsizename,
             request->descriptor.trmm->transa, request->descriptor.trmm->layout, request->descriptor.trmm->side, request->descriptor.trmm->uplo,
@@ -1779,7 +1786,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const char *const tsizename = internal_get_typesize_string(tsize);
+          char tsizename[4];
+          internal_get_typesize_string(tsizename, tsize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c%c_%ux%u_%u_%u.trsm", target_arch, tsizename,
             request->descriptor.trsm->transa, request->descriptor.trsm->layout, request->descriptor.trsm->side, request->descriptor.trsm->uplo,

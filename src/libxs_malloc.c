@@ -2141,8 +2141,9 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
         if (0 != libxs_verbosity /* library code is expected to be mute */
          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
-          fprintf(stderr, "LIBXS ERROR: failed to allocate %s with flag=%i!\n",
-            libxs_format_size(alloc_size, "KM", "B", 10), flags);
+          char alloc_size_buffer[32];
+          libxs_format_size(alloc_size_buffer, alloc_size, "KM", "B", 10);
+          fprintf(stderr, "LIBXS ERROR: failed to allocate %s with flag=%i!\n", alloc_size_buffer, flags);
         }
         result = EXIT_FAILURE;
         *memory = NULL;
@@ -2533,9 +2534,10 @@ LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock)
   if (0 != scratch_info.npending && /* library code is expected to be mute */
     (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity))
   {
+    char pending_size_buffer[32];
+    libxs_format_size(pending_size_buffer, internal_malloc_public_cur + internal_malloc_local_cur, "KM", "B", 10);
     fprintf(stderr, "LIBXS WARNING: %s pending scratch-memory by %" PRIuPTR " allocation%s!\n",
-      libxs_format_size(internal_malloc_public_cur + internal_malloc_local_cur, "KM", "B", 10),
-      (uintptr_t)scratch_info.npending, 1 < scratch_info.npending ? "s" : "");
+      pending_size_buffer, (uintptr_t)scratch_info.npending, 1 < scratch_info.npending ? "s" : "");
   }
   if (NULL != pools) {
     memset(pools, 0, (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) * sizeof(internal_malloc_pool_type));
