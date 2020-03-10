@@ -487,6 +487,20 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedbatchnorm {
   void* scratch;
 };
 
+LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_softmaxloss {
+  libxs_dnn_softmaxloss_desc desc;
+  libxs_dnn_tensor* reg_input;      /* input tensor */
+  libxs_dnn_tensor* reg_output;     /* output tensor */
+  libxs_dnn_tensor* grad_input;     /* grad input tensor */
+  libxs_dnn_tensor* label;          /* labels tensor */
+  libxs_barrier* barrier;           /* barrier */
+  int bc;
+  int Bc;
+  int bn;
+  int Bn;
+  size_t scratch_size;
+};
+
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedgroupnorm {
   libxs_dnn_fusedgroupnorm_desc desc;
   libxs_dnn_tensor* reg_input;      /* input tensor */

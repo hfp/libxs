@@ -94,6 +94,8 @@ typedef enum libxs_dnn_tensor_type {
   LIBXS_DNN_CHANNEL_VARIANCE,
   /** general bias type */
   LIBXS_DNN_CHANNEL_SCALAR,
+  /** Labels */
+  LIBXS_DNN_LABEL,
   /** batch stats */
   LIBXS_DNN_BATCH_STATS,
   LIBXS_DNN_MAX_STATS_FWD,
