@@ -448,7 +448,7 @@ LIBXS_API_INTERN void internal_release_scratch(void)
 
 
 /* Caution: cannot be used multiple time in a single expression! */
-LIBXS_API_INTERN void libxs_format_size(char buffer[32], size_t nbytes, const char scale[], const char* unit, int base)
+LIBXS_API_INTERN void libxs_format_size(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
 {
   const int len = (NULL != scale ? ((int)strlen(scale)) : 0);
   const int m = LIBXS_INTRINSICS_BITSCANBWD64(nbytes) / base, n = LIBXS_MIN(m, len);
@@ -456,7 +456,7 @@ LIBXS_API_INTERN void libxs_format_size(char buffer[32], size_t nbytes, const ch
   buffer[0] = 0; /* clear */
   LIBXS_ASSERT(NULL != unit && 0 <= base);
   for (i = 0; i < n; ++i) nbytes >>= base;
-  LIBXS_SNPRINTF(buffer, sizeof(buffer), "%i %c%s",
+  LIBXS_SNPRINTF(buffer, buffer_size, "%i %c%s",
     (int)nbytes, 0 < n ? scale[n-1] : *unit, 0 < n ? unit : "");
 }
 
@@ -486,8 +486,8 @@ LIBXS_API_INTERN void internal_finalize(void)
         size_private = scratch_info.internal;
         size_scratch = scratch_info.size;
       }
-      libxs_format_size(size_private_buffer, size_private, "KM", "B", 10);
-      libxs_format_size(size_code_buffer, internal_registry_nbytes, "KM", "B", 10);
+      libxs_format_size(size_private_buffer, sizeof(size_private_buffer), size_private, "KM", "B", 10);
+      libxs_format_size(size_code_buffer, sizeof(size_code_buffer), internal_registry_nbytes, "KM", "B", 10);
       fprintf(stderr, "Registry and code: %s + %s", size_private_buffer, size_code_buffer);
       if (0 != high_verbosity) {
         unsigned int ngemms = 0;
@@ -516,7 +516,7 @@ LIBXS_API_INTERN void internal_finalize(void)
       fprintf(stderr, "\n");
       if (0 != size_scratch) {
         char size_scratch_buffer[32];
-        libxs_format_size(size_scratch_buffer, size_scratch, "KM", "B", 10);
+        libxs_format_size(size_scratch_buffer, sizeof(size_scratch_buffer), size_scratch, "KM", "B", 10);
         fprintf(stderr, "Scratch: %s", size_scratch_buffer);
         if (0 != high_verbosity) {
           fprintf(stderr, " (mallocs=%lu, pools=%u)\n", (unsigned long int)scratch_info.nmallocs, scratch_info.npools);
@@ -1430,15 +1430,15 @@ LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype)
 }
 
 
-LIBXS_API_INLINE void internal_get_typesize_string(char buffer[4], size_t typesize)
+LIBXS_API_INLINE void internal_get_typesize_string(char buffer[4], int buffer_size, size_t typesize)
 {
-  LIBXS_ASSERT(256 > typesize);
+  LIBXS_ASSERT(256 > typesize && 4 <= buffer_size);
   if (10 > typesize) {
     buffer[0] = (char)('0' + typesize);
     buffer[1] = 0;
   }
   else {
-    LIBXS_SNPRINTF(buffer, sizeof(buffer), "%i", (int)typesize);
+    LIBXS_SNPRINTF(buffer, buffer_size, "%i", (int)typesize);
   }
 }
 
@@ -1692,7 +1692,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
         {
           char tsizename[4];
-          internal_get_typesize_string(tsizename, request->descriptor.mcopy->typesize);
+          internal_get_typesize_string(tsizename, sizeof(tsizename), request->descriptor.mcopy->typesize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_p%u.mcopy", target_arch, tsizename,
             request->descriptor.mcopy->m, request->descriptor.mcopy->n, request->descriptor.mcopy->ldi, request->descriptor.mcopy->ldo,
@@ -1709,7 +1709,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
         {
           char tsizename[4];
-          internal_get_typesize_string(tsizename, request->descriptor.trans->typesize);
+          internal_get_typesize_string(tsizename, sizeof(tsizename), request->descriptor.trans->typesize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%u.trans", target_arch, tsizename,
             request->descriptor.trans->m, request->descriptor.trans->n, request->descriptor.trans->ldo);
@@ -1728,7 +1728,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
         {
           char tsizename[4];
-          internal_get_typesize_string(tsizename, tsize);
+          internal_get_typesize_string(tsizename, sizeof(tsizename), tsize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c_%ux%ux%u_%u_%u_%u_%i.pgemm", target_arch, tsizename,
             request->descriptor.pgemm->transa, request->descriptor.pgemm->transb, request->descriptor.pgemm->layout,
@@ -1750,7 +1750,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
         {
           char tsizename[4];
-          internal_get_typesize_string(tsizename, tsize);
+          internal_get_typesize_string(tsizename, sizeof(tsizename), tsize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c_%ux%u_%u.getrf", target_arch, tsizename,
             request->descriptor.getrf->layout, request->descriptor.getrf->m, request->descriptor.getrf->n, request->descriptor.getrf->lda);
@@ -1769,7 +1769,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
         {
           char tsizename[4];
-          internal_get_typesize_string(tsizename, tsize);
+          internal_get_typesize_string(tsizename, sizeof(tsizename), tsize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c%c_%ux%u_%u_%u.trmm", target_arch, tsizename,
             request->descriptor.trmm->transa, request->descriptor.trmm->layout, request->descriptor.trmm->side, request->descriptor.trmm->uplo,
@@ -1787,7 +1787,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
         {
           char tsizename[4];
-          internal_get_typesize_string(tsizename, tsize);
+          internal_get_typesize_string(tsizename, sizeof(tsizename), tsize);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c%c_%ux%u_%u_%u.trsm", target_arch, tsizename,
             request->descriptor.trsm->transa, request->descriptor.trsm->layout, request->descriptor.trsm->side, request->descriptor.trsm->uplo,

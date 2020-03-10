@@ -2142,7 +2142,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
           char alloc_size_buffer[32];
-          libxs_format_size(alloc_size_buffer, alloc_size, "KM", "B", 10);
+          libxs_format_size(alloc_size_buffer, sizeof(alloc_size_buffer), alloc_size, "KM", "B", 10);
           fprintf(stderr, "LIBXS ERROR: failed to allocate %s with flag=%i!\n", alloc_size_buffer, flags);
         }
         result = EXIT_FAILURE;
@@ -2535,7 +2535,8 @@ LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock)
     (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity))
   {
     char pending_size_buffer[32];
-    libxs_format_size(pending_size_buffer, internal_malloc_public_cur + internal_malloc_local_cur, "KM", "B", 10);
+    libxs_format_size(pending_size_buffer, sizeof(pending_size_buffer),
+      internal_malloc_public_cur + internal_malloc_local_cur, "KM", "B", 10);
     fprintf(stderr, "LIBXS WARNING: %s pending scratch-memory by %" PRIuPTR " allocation%s!\n",
       pending_size_buffer, (uintptr_t)scratch_info.npending, 1 < scratch_info.npending ? "s" : "");
   }
