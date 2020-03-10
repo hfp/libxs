@@ -309,6 +309,7 @@ HEADERS = $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(
           $(ROOTDIR)/include/libxs_dnn_pooling.h \
           $(ROOTDIR)/include/libxs_dnn_fullyconnected.h \
           $(ROOTDIR)/include/libxs_dnn_rnncell.h \
+          $(ROOTDIR)/include/libxs_dnn_softmaxloss.h \
           $(ROOTDIR)/include/libxs_rng.h \
           $(ROOTDIR)/include/libxs_frontend.h \
           $(ROOTDIR)/include/libxs_fsspmdm.h \
@@ -333,7 +334,8 @@ SRCFILES_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_dnn_fusedgroupnorm.c libxs_dnn_fusedgroupnorm_forward.c libxs_dnn_fusedgroupnorm_backward.c \
           libxs_dnn_pooling.c libxs_dnn_pooling_forward.c libxs_dnn_pooling_backward.c libxs_dnn_convolution_forward.c \
           libxs_dnn_fullyconnected.c libxs_dnn_fullyconnected_forward.c libxs_dnn_fullyconnected_backward_weight_update.c \
-          libxs_dnn_convolution_backward.c libxs_dnn_convolution_weight_update.c)
+          libxs_dnn_convolution_backward.c libxs_dnn_convolution_weight_update.c libxs_dnn_softmaxloss.c \
+          libxs_dnn_softmaxloss_forward.c libxs_dnn_softmaxloss_backward.c )
 SRCFILES_GEN_LIB = $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(notdir $(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c)) \
           libxs_cpuid_x86.c libxs_generator.c libxs_trace.c)
 
