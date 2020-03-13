@@ -30,6 +30,14 @@
 # pragma offload_attribute(pop)
 #endif
 
+#if !defined(LIBXS_SYNC_RWLOCK_BITS)
+# if defined(__MINGW32__)
+#   define LIBXS_SYNC_RWLOCK_BITS 32
+# else
+#   define LIBXS_SYNC_RWLOCK_BITS 16
+# endif
+#endif
+
 #if !defined(LIBXS_SYNC_GENERIC_PID) && 1
 # define LIBXS_SYNC_GENERIC_PID
 #endif
@@ -459,11 +467,10 @@ LIBXS_API void libxs_mutex_release(libxs_mutex* mutex)
 
 
 #if (0 != LIBXS_SYNC)
+typedef LIBXS_CONCATENATE3(uint,LIBXS_SYNC_RWLOCK_BITS,_t) internal_sync_uint_t;
+typedef LIBXS_CONCATENATE3(int,LIBXS_SYNC_RWLOCK_BITS,_t) internal_sync_int_t;
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_sync_counter {
-  struct {
-    uint16_t writer;
-    uint16_t reader;
-  } kind;
+  struct { internal_sync_uint_t writer, reader; } kind;
   uint32_t bits;
 } internal_sync_counter;
 #endif
@@ -547,11 +554,7 @@ LIBXS_API void libxs_rwlock_release(libxs_rwlock* rwlock)
 {
 #if (0 != LIBXS_SYNC)
   assert(0 != rwlock);
-# if defined(_WIN32)
-  _InterlockedExchangeAdd16((volatile short*)&rwlock->completions.kind.writer, 1);
-# else
-  LIBXS_ATOMIC_ADD_FETCH(&rwlock->completions.kind.writer, 1, LIBXS_ATOMIC_SEQ_CST);
-# endif
+  LIBXS_ATOMIC(LIBXS_ATOMIC_FETCH_ADD, LIBXS_SYNC_RWLOCK_BITS)(&rwlock->completions.kind.writer, 1, LIBXS_ATOMIC_SEQ_CST);
 #else
   LIBXS_UNUSED(rwlock);
 #endif
@@ -563,11 +566,7 @@ LIBXS_API_INLINE int internal_rwlock_tryread(libxs_rwlock* rwlock, internal_sync
 {
 #if (0 != LIBXS_SYNC)
   assert(0 != rwlock && 0 != prev);
-# if defined(_WIN32)
-  prev->bits = InterlockedExchangeAdd((volatile LONG*)&rwlock->requests.bits, INTERNAL_SYNC_RWLOCK_READINC);
-# else
   prev->bits = LIBXS_ATOMIC_FETCH_ADD(&rwlock->requests.bits, INTERNAL_SYNC_RWLOCK_READINC, LIBXS_ATOMIC_SEQ_CST);
-# endif
   return rwlock->completions.kind.writer != prev->kind.writer
     ? (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK) + 1) /* not acquired */
     : (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK_RWLOCK));
@@ -610,11 +609,7 @@ LIBXS_API void libxs_rwlock_relread(libxs_rwlock* rwlock)
 {
 #if (0 != LIBXS_SYNC)
   assert(0 != rwlock);
-# if defined(_WIN32)
-  _InterlockedExchangeAdd16((volatile short*)&rwlock->completions.kind.reader, 1);
-# else
-  LIBXS_ATOMIC_ADD_FETCH(&rwlock->completions.kind.reader, 1, LIBXS_ATOMIC_SEQ_CST);
-# endif
+  LIBXS_ATOMIC(LIBXS_ATOMIC_FETCH_ADD, LIBXS_SYNC_RWLOCK_BITS)(&rwlock->completions.kind.reader, 1, LIBXS_ATOMIC_SEQ_CST);
 #else
   LIBXS_UNUSED(rwlock);
 #endif

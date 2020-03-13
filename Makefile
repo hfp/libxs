@@ -569,26 +569,27 @@ ifneq (nopf,$(PREFETCH_SCHEME))
   SUPPRESS_UNUSED_PREFETCH_WARNINGS = $(NULL)  LIBXS_UNUSED(A_prefetch); LIBXS_UNUSED(B_prefetch); LIBXS_UNUSED(C_prefetch);~
 endif
 
+# auto-clean the co-build
+$(ROOTDIR)/$(SRCDIR)/template/libxs_config.h: $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py \
+    $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc $(wildcard $(ROOTDIR)/.github/*) $(ROOTDIR)/version.txt
+#ifneq (,$(filter-out 0 1 2 STATIC,$(words $(PRESTATE)) $(word 2,$(PRESTATE))))
+ifneq (0,$(STATIC)) # static
+	@rm -f $(OUTDIR)/libxs*.$(DLIBEXT) $(OUTDIR)/libxs*.$(DLIBEXT).*
+else # shared/dynamic
+	@rm -f $(OUTDIR)/libxs*.$(SLIBEXT) $(OUTDIR)/libxs*.$(SLIBEXT).*
+endif
+	@touch $@
+#endif
+
 .PHONY: config
 config: $(INCDIR)/libxs_config.h
-$(INCDIR)/libxs_config.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h \
-                            $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py \
-                            $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
-                            $(wildcard $(ROOTDIR)/.github/*) \
-                            $(ROOTDIR)/version.txt
+$(INCDIR)/libxs_config.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h
 	$(information)
 	$(info --- LIBXS build log)
 	@if [ -e $(ROOTDIR)/.github/install.sh ]; then \
 		$(ROOTDIR)/.github/install.sh; \
 	fi
 	@$(CP) $(filter $(ROOTDIR)/include/%.h,$(HEADERS)) $(INCDIR) 2>/dev/null || true
-ifneq (,$(filter-out 0 1 2 STATIC,$(words $(PRESTATE)) $(word 2,$(PRESTATE))))
-ifneq (0,$(STATIC)) # static
-	@rm -f $(OUTDIR)/libxs*.$(DLIBEXT) $(OUTDIR)/libxs*.$(DLIBEXT).*
-else # shared/dynamic
-	@rm -f $(OUTDIR)/libxs*.$(SLIBEXT) $(OUTDIR)/libxs*.$(SLIBEXT).*
-endif
-endif
 ifneq (,$(PYTHON))
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h \
 		$(MAKE_ILP64) $(OFFLOAD) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
@@ -1487,8 +1488,10 @@ ALIAS_PREFIX := $(PREFIX)
 # DESTDIR is used as prefix of PREFIX
 ifneq (,$(strip $(DESTDIR)))
   override PREFIX := $(call qapath,$(DESTDIR)/$(PREFIX))
-else # fall-back
-  PREFIX ?= $(HEREDIR)
+endif
+# fall-back
+ifeq (,$(strip $(PREFIX)))
+  override PREFIX := $(HEREDIR)
 endif
 
 # setup maintainer-layout

@@ -875,7 +875,7 @@ LIBXS_API_INTERN void* internal_memalign_posix(size_t alignment, size_t size)
   void* result;
 #if defined(LIBXS_GLIBC)
   result = __libc_memalign(alignment, size);
-#elif defined(_WIN32)
+#elif defined(_WIN32) || defined(__CYGWIN__)
   LIBXS_UNUSED(alignment);
   result = malloc(size);
 #else
