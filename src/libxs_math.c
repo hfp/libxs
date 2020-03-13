@@ -107,14 +107,14 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
               type_src, &type_dst, tst, NULL/*header_size*/, NULL/*extension_header*/,
               NULL/*extension*/, 0/*extension_size*/);
             if ('-' == *env && '1' < env[1]) {
-              printf("LIBXS MATDIFF (%s): m=%lli n=%lli ldi=%lli ldo=%lli failed.\n",
-                libxs_typename(datatype), (long long)m, (long long)n, (long long)ldr, (long long)ldt);
+              printf("LIBXS MATDIFF (%s): m=%" PRIuPTR " n=%" PRIuPTR " ldi=%" PRIuPTR " ldo=%" PRIuPTR " failed.\n",
+                libxs_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
             }
           }
         }
         else if ('-' == *env && '1' < env[1] && NULL != tst) {
-          printf("LIBXS MATDIFF (%s): m=%lli n=%lli ldi=%lli ldo=%lli passed.\n",
-            libxs_typename(datatype), (long long)m, (long long)n, (long long)ldr, (long long)ldt);
+          printf("LIBXS MATDIFF (%s): m=%" PRIuPTR " n=%" PRIuPTR " ldi=%" PRIuPTR " ldo=%" PRIuPTR " passed.\n",
+            libxs_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
         }
       }
       if (0 == result_nan) {

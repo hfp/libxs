@@ -448,7 +448,7 @@ LIBXS_API_INTERN void internal_release_scratch(void)
 
 
 /* Caution: cannot be used multiple time in a single expression! */
-LIBXS_API_INTERN void libxs_format_size(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
+LIBXS_API_INTERN size_t libxs_format_size(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
 {
   const int len = (NULL != scale ? ((int)strlen(scale)) : 0);
   const int m = LIBXS_INTRINSICS_BITSCANBWD64(nbytes) / base, n = LIBXS_MIN(m, len);
@@ -458,6 +458,7 @@ LIBXS_API_INTERN void libxs_format_size(char buffer[32], int buffer_size, size_t
   for (i = 0; i < n; ++i) nbytes >>= base;
   LIBXS_SNPRINTF(buffer, buffer_size, "%i %c%s",
     (int)nbytes, 0 < n ? scale[n-1] : *unit, 0 < n ? unit : "");
+  return nbytes;
 }
 
 
@@ -478,7 +479,6 @@ LIBXS_API_INTERN void internal_finalize(void)
       const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
       libxs_scratch_info scratch_info; size_t size_scratch = 0, size_private = 0;
       unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
-      char size_private_buffer[32], size_code_buffer[32];
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
         fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
       }
@@ -486,9 +486,15 @@ LIBXS_API_INTERN void internal_finalize(void)
         size_private = scratch_info.internal;
         size_scratch = scratch_info.size;
       }
-      libxs_format_size(size_private_buffer, sizeof(size_private_buffer), size_private, "KM", "B", 10);
-      libxs_format_size(size_code_buffer, sizeof(size_code_buffer), internal_registry_nbytes, "KM", "B", 10);
-      fprintf(stderr, "Registry and code: %s + %s", size_private_buffer, size_code_buffer);
+      if (0 != size_private) { /* should be always true */
+        char size_private_buffer[32], size_code_buffer[32];
+        /* coverity[check_return] */
+        libxs_format_size(size_private_buffer, sizeof(size_private_buffer), size_private, "KM", "B", 10);
+        fprintf(stderr, "Registry and code: %s", size_private_buffer);
+        if (0 != libxs_format_size(size_code_buffer, sizeof(size_code_buffer), internal_registry_nbytes, "KM", "B", 10)) {
+          fprintf(stderr, " + %s", size_code_buffer);
+        }
+      }
       if (0 != high_verbosity) {
         unsigned int ngemms = 0;
         int i; for (i = 0; i < 4; ++i) {
@@ -516,6 +522,7 @@ LIBXS_API_INTERN void internal_finalize(void)
       fprintf(stderr, "\n");
       if (0 != size_scratch) {
         char size_scratch_buffer[32];
+        /* coverity[check_return] */
         libxs_format_size(size_scratch_buffer, sizeof(size_scratch_buffer), size_scratch, "KM", "B", 10);
         fprintf(stderr, "Scratch: %s", size_scratch_buffer);
         if (0 != high_verbosity) {
@@ -687,6 +694,7 @@ LIBXS_API_INTERN void internal_init(void)
     /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
     const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
     const void *const dlsymbol = dlsym(LIBXS_RTLD_NEXT, dlsymname);
+    const void *const dlmpi = (NULL == dlerror() ? dlsymbol : NULL);
 #endif
     const char *const env_verbose = getenv("LIBXS_VERBOSE");
     void *new_registry = NULL, *new_keys = NULL;
@@ -715,7 +723,7 @@ LIBXS_API_INTERN void internal_init(void)
 #if defined(LIBXS_AUTOPIN)
 # if defined(LIBXS_INTERCEPT_DYNAMIC)
     /* MPI: non-user affinity can slow-down unrelated jobs, e.g., CP2K regtests */
-    if (NULL == dlerror() && NULL == dlsymbol)
+    if (NULL == dlmpi)
 # endif
     { /* setup some viable affinity if nothing else is present */
       const char *const gomp_cpu_affinity = getenv("GOMP_CPU_AFFINITY");
@@ -726,16 +734,30 @@ LIBXS_API_INTERN void internal_init(void)
         && (NULL == omp_proc_bind || 0 == *omp_proc_bind))
       {
         static char affinity[] = "OMP_PROC_BIND=TRUE";
-#if defined(_WIN32)
-        LIBXS_EXPECT(EXIT_SUCCESS, _putenv(affinity));
-#else
-        LIBXS_EXPECT(EXIT_SUCCESS, putenv(affinity));
-#endif
+        LIBXS_EXPECT(EXIT_SUCCESS, LIBXS_PUTENV(affinity));
         if (LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) { /* library code is expected to be mute */
           fprintf(stderr, "LIBXS: prepared to pin threads.\n");
         }
       }
     }
+# if defined(LIBXS_INTERCEPT_DYNAMIC)
+    else {
+      if (NULL == getenv("I_MPI_PIN_DOMAIN")) {
+        static char pindomain[] = "I_MPI_PIN_DOMAIN=auto";
+        LIBXS_EXPECT(EXIT_SUCCESS, LIBXS_PUTENV(pindomain));
+      }
+      if (NULL == getenv("I_MPI_PIN_ORDER")) {
+        static char pinorder[] = "I_MPI_PIN_ORDER=bunch";
+        LIBXS_EXPECT(EXIT_SUCCESS, LIBXS_PUTENV(pinorder));
+      }
+#   if defined(LIBXS_MALLOC)
+      if (NULL == getenv("I_MPI_SHM_HEAP")) {
+        static char shmheap[] = "I_MPI_SHM_HEAP=1";
+        LIBXS_EXPECT(EXIT_SUCCESS, LIBXS_PUTENV(shmheap));
+      }
+#   endif
+    }
+# endif
 #endif
 #if !defined(_WIN32) && 0
     umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
