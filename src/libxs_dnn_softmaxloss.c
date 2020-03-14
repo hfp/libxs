@@ -166,6 +166,73 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_softmaxloss_create_tensor_datal
 }
 
 
+LIBXS_API size_t libxs_dnn_softmaxloss_get_scratch_size(const libxs_dnn_softmaxloss* handle, libxs_dnn_err_t* status) {
+  size_t l_scratch_size = 0;
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    l_scratch_size = handle->scratch_size + 64; /* 64 byte extra in case the user code does not care about alignment */
+  } else {
+    *status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return l_scratch_size;
+}
+
+
+LIBXS_API void* libxs_dnn_softmaxloss_get_scratch_ptr(const libxs_dnn_softmaxloss* handle, libxs_dnn_err_t* status)
+{
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    return handle->scratch;
+  } else {
+    *status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return 0;
+}
+
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_softmaxloss_bind_scratch(libxs_dnn_softmaxloss* handle, const void* scratch) {
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+  uintptr_t address = (uintptr_t)scratch;
+  size_t offset = 0;
+
+  if (scratch == 0) {
+    status = LIBXS_DNN_ERR_SCRATCH_NOT_ALLOCED;
+    return status;
+  }
+
+  if (0 != handle) {
+    /* align the internal scratch buffer if needed */
+    if (address % 64 == 0) {
+      handle->scratch = (void*)address;
+    } else {
+      offset = (64 - address % 64);
+      handle->scratch = (void*)(address+offset);
+    }
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return status;
+}
+
+
+LIBXS_API libxs_dnn_err_t libxs_dnn_softmaxloss_release_scratch(libxs_dnn_softmaxloss* handle) {
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    handle->scratch = 0;
+  } else {
+    status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return status;
+}
+
+
 LIBXS_API libxs_dnn_err_t libxs_dnn_softmaxloss_bind_tensor(libxs_dnn_softmaxloss* handle, const libxs_dnn_tensor* tensor, const libxs_dnn_tensor_type type) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 

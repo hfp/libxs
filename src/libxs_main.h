@@ -498,7 +498,9 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_softmaxloss {
   int Bc;
   int bn;
   int Bn;
+  float loss;
   size_t scratch_size;
+  void* scratch;
 };
 
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fusedgroupnorm {
