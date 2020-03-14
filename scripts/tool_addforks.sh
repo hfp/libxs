@@ -19,6 +19,7 @@ then
   for FORK in $(${CURL} -s https://api.github.com/repos/hfp/libxs/forks \
   | ${GREP} "\"html_url\"" | ${GREP} "libxs" | ${CUT} -d/ -f4);
   do
+    echo "Adding fork ${FORK}..."
     ${GIT} remote add ${FORK} https://github.com/${FORK}/libxs.git
     ${GIT} fetch ${FORK}
   done
