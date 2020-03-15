@@ -49,7 +49,11 @@ LIBXS_API libxs_dnn_softmaxloss* libxs_dnn_create_softmaxloss(libxs_dnn_softmaxl
       /* create barrier */
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
       /* calculate scratch size for local softmaxloss copies of one feature map block per thread */
-      handle->scratch_size = 0;
+      if ( softmaxloss_desc.datatype == LIBXS_DNN_DATATYPE_BF16 ) {
+        handle->scratch_size = (sizeof(float)*handle->desc.C*handle->desc.N*2);
+      } else {
+        handle->scratch_size = 1;
+      }
     } else {
       *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     }
@@ -136,7 +140,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_softmaxloss_create_tensor_datal
           *status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }
       } else if ( type == LIBXS_DNN_LABEL ) {
-        layout->datatype = handle->desc.datatype;
+        layout->datatype = LIBXS_DNN_DATATYPE_I32;
         layout->dim_type = (libxs_dnn_tensor_dimtype*) malloc(1*sizeof(libxs_dnn_tensor_dimtype));
         layout->dim_size = (unsigned int*) malloc(1*sizeof(unsigned int));
 
@@ -356,5 +360,18 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_softmaxloss_execute_st(libxs_dnn_softmaxloss
   }
 
   return status;
+}
+
+LIBXS_API float libxs_dnn_softmaxloss_get_loss(const libxs_dnn_softmaxloss* handle, libxs_dnn_err_t* status) {
+  float l_loss = 0.0f;
+  *status = LIBXS_DNN_SUCCESS;
+
+  if (0 != handle) {
+    l_loss = handle->loss;
+  } else {
+    *status = LIBXS_DNN_ERR_INVALID_HANDLE;
+  }
+
+  return l_loss;
 }
 

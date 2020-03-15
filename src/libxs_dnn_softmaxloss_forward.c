@@ -29,7 +29,7 @@ libxs_dnn_err_t libxs_dnn_softmaxloss_st_fwd_ncnc_f32_f32(libxs_dnn_softmaxloss*
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   typedef float element_input_type;
   typedef float element_output_type;
-  typedef float element_label_type;
+  typedef int   element_label_type;
 
 #if 0
 # include "template/libxs_dnn_softmaxloss_st_fwd_ncnc_avx512.tpl.c"
@@ -51,7 +51,7 @@ libxs_dnn_err_t libxs_dnn_softmaxloss_st_fwd_ncnc_bf16_bf16(libxs_dnn_softmaxlos
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   typedef libxs_bfloat16 element_input_type;
   typedef libxs_bfloat16 element_output_type;
-  typedef libxs_bfloat16 element_label_type;
+  typedef int              element_label_type;
 
 # define LIBXS_DNN_SOFTMAXLOSS_FWD_BF16
 #if 0
@@ -97,13 +97,13 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_softmaxloss_st_fwd_ncnc(libxs_dnn_sof
     if ( handle->desc.datatype == LIBXS_DNN_DATATYPE_F32 ) {
       typedef float element_input_type;
       typedef float element_output_type;
-      typedef float element_label_type;
+      typedef int   element_label_type;
 
 # include "template/libxs_dnn_softmaxloss_st_fwd_ncnc_generic.tpl.c"
     } else if ( handle->desc.datatype == LIBXS_DNN_DATATYPE_BF16 ) {
       typedef libxs_bfloat16 element_input_type;
       typedef libxs_bfloat16 element_output_type;
-      typedef libxs_bfloat16 element_label_type;
+      typedef int     element_label_type;
 
 #if 0
 # define LIBXS_DNN_SOFTMAXLOSS_FWD_BF16
