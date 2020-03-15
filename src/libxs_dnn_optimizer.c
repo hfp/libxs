@@ -11,7 +11,6 @@
 
 LIBXS_API libxs_dnn_optimizer* libxs_dnn_create_optimizer(libxs_dnn_optimizer_desc optimizer_desc, libxs_dnn_err_t* status) {
   libxs_dnn_optimizer* handle = 0;
-  int lpb;
 
   if ( (optimizer_desc.datatype == LIBXS_DNN_DATATYPE_F32) && (optimizer_desc.datatype == LIBXS_DNN_DATATYPE_BF16) ) {
     handle = (libxs_dnn_optimizer*)malloc(sizeof(libxs_dnn_optimizer));
@@ -325,6 +324,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_optimizer_execute_st(libxs_dnn_optimizer* ha
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
+    LIBXS_UNUSED(start_thread);
+    LIBXS_UNUSED(tid);
   }
   else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE;
