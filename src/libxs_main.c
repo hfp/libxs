@@ -232,13 +232,14 @@ LIBXS_APIVAR_DEFINE(const char* internal_build_state);
 LIBXS_APIVAR_DEFINE(libxs_timer_tickint internal_timer_start);
 
 #if defined(_WIN32)
+# define INTERNAL_SINGLETON_HANDLE HANDLE
 # define INTERNAL_SINGLETON(HANDLE) (NULL != (HANDLE))
-LIBXS_APIVAR_DEFINE(HANDLE internal_singleton_handle);
 #else
+# define INTERNAL_SINGLETON_HANDLE int
 # define INTERNAL_SINGLETON(HANDLE) (0 <= (HANDLE) && 0 != *internal_singleton_fname)
 LIBXS_APIVAR_DEFINE(char internal_singleton_fname[64]);
-LIBXS_APIVAR_DEFINE(int internal_singleton_handle);
 #endif
+LIBXS_APIVAR_DEFINE(INTERNAL_SINGLETON_HANDLE internal_singleton_handle);
 
 /* definition of corresponding variables */
 LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_function libxs_default_malloc_fn);
@@ -462,11 +463,47 @@ LIBXS_API_INTERN size_t libxs_format_size(char buffer[32], int buffer_size, size
 }
 
 
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_dump(FILE* ostream, int urgent);
+LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
+{
+  char *const env_dump_build = getenv("LIBXS_DUMP_BUILD");
+  char *const env_dump_files = (NULL != getenv("LIBXS_DUMP_FILES")
+    ? getenv("LIBXS_DUMP_FILES")
+    : getenv("LIBXS_DUMP_FILE"));
+  LIBXS_ASSERT_MSG(INTERNAL_SINGLETON(internal_singleton_handle), "Invalid handle");
+  /* determine whether this instance is unique or not */
+  if (NULL != env_dump_files && 0 != *env_dump_files && 0 == urgent) { /* dump per-node info */
+    const char* filename = strtok(env_dump_files, INTERNAL_DELIMS);
+    for (; NULL != filename; filename = strtok(NULL, INTERNAL_DELIMS)) {
+      FILE* const file = fopen(filename, "r");
+      if (NULL != file) {
+        int c = fgetc(file);
+        fprintf(ostream, "\n\nLIBXS_DUMP_FILE: %s\n", filename);
+        /* coverity[tainted_data] */
+        while (EOF != c) {
+          fputc(c, stdout);
+          c = fgetc(file);
+        }
+        fputc('\n', stdout);
+        fclose(file);
+      }
+    }
+  }
+  if  (NULL != internal_build_state /* dump build state */
+    && NULL != env_dump_build && 0 != *env_dump_build)
+  {
+    const int dump_build = atoi(env_dump_build);
+    if (0 == urgent ? (0 < dump_build) : (0 > dump_build)) {
+      fprintf(ostream, "\n\nBUILD_DATE=%i\n", LIBXS_CONFIG_BUILD_DATE);
+      fprintf(ostream, "%s\n", internal_build_state);
+    }
+  }
+}
+
+
 LIBXS_API_INTERN void internal_finalize(void);
 LIBXS_API_INTERN void internal_finalize(void)
 {
-  char *const env_dump_build = getenv("LIBXS_DUMP_BUILD");
-  char *const env_dump_files = (NULL != getenv("LIBXS_DUMP_FILES") ? getenv("LIBXS_DUMP_FILES") : getenv("LIBXS_DUMP_FILE"));
   libxs_finalize();
   LIBXS_STDIO_ACQUIRE(); /* synchronize I/O */
   if (0 != libxs_verbosity) { /* print statistic on termination */
@@ -549,32 +586,8 @@ LIBXS_API_INTERN void internal_finalize(void)
     fprintf(stderr, "LIBXS ERROR: failed to perform final cleanup!\n");
   }
   /* determine whether this instance is unique or not */
-  if (INTERNAL_SINGLETON(internal_singleton_handle)) { /* dump per-node info */
-    if (NULL != env_dump_build || NULL != env_dump_files) {
-      if (NULL != env_dump_files && 0 != *env_dump_files) {
-        const char *filename = strtok(env_dump_files, INTERNAL_DELIMS);
-        for (; NULL != filename; filename = strtok(NULL, INTERNAL_DELIMS)) {
-          FILE *const file = fopen(filename, "r");
-          if (NULL != file) {
-            int c = fgetc(file);
-            fprintf(stdout, "\n\nLIBXS_DUMP_FILE: %s\n", filename);
-            /* coverity[tainted_data] */
-            while (EOF != c) {
-              fputc(c, stdout);
-              c = fgetc(file);
-            }
-            fputc('\n', stdout);
-            fclose(file);
-          }
-        }
-      }
-      if (NULL != env_dump_build && 0 != *env_dump_build && '0' != *env_dump_build) {
-        fprintf(stdout, "\n\nBUILD_DATE=%i\n", LIBXS_CONFIG_BUILD_DATE);
-        if (NULL != internal_build_state) {
-          fprintf(stdout, "%s\n", internal_build_state);
-        }
-      }
-    }
+  if (INTERNAL_SINGLETON(internal_singleton_handle)) {
+    internal_dump(stdout, 0/*urgent*/);
     /* cleanup singleton */
 #if defined(_WIN32)
     ReleaseMutex(internal_singleton_handle);
@@ -692,17 +705,17 @@ LIBXS_API_INTERN void internal_init(void)
   if (NULL == internal_registry) { /* double-check after acquiring the lock(s) */
 #if defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_AUTOPIN)
     /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
-    const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
-    const void *const dlsymbol = dlsym(LIBXS_RTLD_NEXT, dlsymname);
-    const void *const dlmpi = (NULL == dlerror() ? dlsymbol : NULL);
+    const char* const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
+    const void* const dlsymbol = dlsym(LIBXS_RTLD_NEXT, dlsymname);
+    const void* const dlmpi = (NULL == dlerror() ? dlsymbol : NULL);
 #endif
-    const char *const env_verbose = getenv("LIBXS_VERBOSE");
-    void *new_registry = NULL, *new_keys = NULL;
+    const char* const env_verbose = getenv("LIBXS_VERBOSE");
+    void* new_registry = NULL, * new_keys = NULL;
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
 # if defined(LIBXS_NTHREADS_USE)
     void* new_cache = NULL;
 # endif
-    const char *const env_cache = getenv("LIBXS_CACHE");
+    const char* const env_cache = getenv("LIBXS_CACHE");
     if (NULL != env_cache && 0 != *env_cache) {
       const int cache_size = atoi(env_cache), cache_size2 = LIBXS_UP2POT(cache_size);
       internal_cache_size = LIBXS_MIN(cache_size2, LIBXS_CACHE_MAXSIZE);
@@ -720,9 +733,14 @@ LIBXS_API_INTERN void internal_init(void)
       libxs_verbosity = INT_MAX; /* quiet -> verbose */
     }
 #endif
+#if (0 == LIBXS_JIT)
+    if (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) {
+      fprintf(stderr, "LIBXS: JIT-code generation was disabled at compile-time.\n");
+    }
+#endif
 #if defined(LIBXS_AUTOPIN)
 # if defined(LIBXS_INTERCEPT_DYNAMIC)
-    /* MPI: non-user affinity can slow-down unrelated jobs, e.g., CP2K regtests */
+    /* MPI: unwanted affinity can slow-down unrelated jobs (over-subscription), e.g., CP2K regtests */
     if (NULL == dlmpi)
 # endif
     { /* setup some viable affinity if nothing else is present */
@@ -988,6 +1006,9 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         libxs_timer_tickint s1, t1;
         libxs_cpuid_x86_info info;
         internal_init(); /* must be first to initialize verbosity, etc. */
+        if (INTERNAL_SINGLETON(internal_singleton_handle)) { /* after internal_init */
+          internal_dump(stdout, 1/*urgent*/);
+        }
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* mid-timing */
         libxs_cpuid_x86(&info);
         if (0 != info.constant_tsc && t0 < t1) {
