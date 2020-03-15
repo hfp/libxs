@@ -31,11 +31,7 @@ libxs_dnn_err_t libxs_dnn_softmaxloss_st_fwd_ncnc_f32_f32(libxs_dnn_softmaxloss*
   typedef float element_output_type;
   typedef int   element_label_type;
 
-#if 0
-# include "template/libxs_dnn_softmaxloss_st_fwd_ncnc_avx512.tpl.c"
-#else
 # include "template/libxs_dnn_softmaxloss_st_fwd_ncnc_generic.tpl.c"
-#endif
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
@@ -53,15 +49,9 @@ libxs_dnn_err_t libxs_dnn_softmaxloss_st_fwd_ncnc_bf16_bf16(libxs_dnn_softmaxlos
   typedef libxs_bfloat16 element_output_type;
   typedef int              element_label_type;
 
-# define LIBXS_DNN_SOFTMAXLOSS_FWD_BF16
-#if 0
-# include "template/libxs_dnn_softmaxloss_st_fwd_ncnc_avx512.tpl.c"
-#else
-#if 0
+# define LIBXS_DNN_SOFTMAXLOSS_FWD_BF16_AVX512
 # include "template/libxs_dnn_softmaxloss_st_fwd_ncnc_generic.tpl.c"
-#endif
-#endif
-# undef LIBXS_DNN_SOFTMAXLOSS_FWD_BF16
+# undef LIBXS_DNN_SOFTMAXLOSS_FWD_BF16_AVX512
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
@@ -105,11 +95,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_softmaxloss_st_fwd_ncnc(libxs_dnn_sof
       typedef libxs_bfloat16 element_output_type;
       typedef int     element_label_type;
 
-#if 0
 # define LIBXS_DNN_SOFTMAXLOSS_FWD_BF16
 # include "template/libxs_dnn_softmaxloss_st_fwd_ncnc_generic.tpl.c"
 # undef LIBXS_DNN_SOFTMAXLOSS_FWD_BF16
-#endif
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
