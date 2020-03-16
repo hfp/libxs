@@ -13,7 +13,6 @@
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
 #include <float.h>
-#include <math.h>
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
@@ -32,7 +31,7 @@ libxs_dnn_err_t libxs_dnn_optimizer_sgd_st_f32_f32(libxs_dnn_optimizer* handle, 
 
 # define LIBXS_DNN_OPTIMIZER_SGD_F32_AVX512
 # include "template/libxs_dnn_optimizer_sgd_st_generic.tpl.c"
-# undef LIBXS_DNN_OPTIMIZRT_SGD_F32_AVX512
+# undef LIBXS_DNN_OPTIMIZER_SGD_F32_AVX512
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
   status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
