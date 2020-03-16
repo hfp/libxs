@@ -6,6 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include "libxs_dnn_optimizer_sgd.h"
 #include "libxs_main.h"
 
 
