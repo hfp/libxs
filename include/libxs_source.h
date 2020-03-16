@@ -77,6 +77,7 @@
 #include "../src/libxs_dnn_fusedgroupnorm_backward.c"
 #include "../src/libxs_dnn_fusedgroupnorm_forward.c"
 #include "../src/libxs_dnn_optimizer.c"
+#include "../src/libxs_dnn_optimizer_sgd.c"
 #include "../src/libxs_dnn_pooling.c"
 #include "../src/libxs_dnn_pooling_backward.c"
 #include "../src/libxs_dnn_pooling_forward.c"
