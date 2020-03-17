@@ -51,6 +51,13 @@ ifeq (Windows_NT,$(OS))
   # Cygwin/MinGW based
   DLIBEXT ?= dll
   SLIBEXT ?= lib
+else
+  UNAME ?= $(shell uname)
+  ifneq (Darwin,$(UNAME))
+    ENV ?= env
+  else
+    ENV ?= $(NULL)
+  endif
 endif
 
 which = $(shell which $1 2>/dev/null)
@@ -60,9 +67,7 @@ which ?= $(shell command -v $1)
 #PKGCFG ?= $(call which,pkg-config)
 CP ?= $(call which,cp)
 MV ?= $(call which,mv)
-UNAME ?= $(shell uname)
 MAKE ?= make
-ENV ?= env
 
 # Python interpreter per PYTHON=/path/to/python
 PYTHON3 ?= $(call which,python3)
@@ -1174,10 +1179,12 @@ ifneq (0,$(INTEL))
     endif
   endif
   ifneq (0,$(INSTRUMENT))
+  ifneq (Darwin1,$(UNAME)$(INSTRUMENT))
     CXXFLAGS += -finstrument-functions
     CFLAGS += -finstrument-functions
     FCFLAGS += -finstrument-functions
     DFLAGS += -D__TRACE=$(INSTRUMENT)
+  endif
   endif
   ifneq (0,$(shell echo "$$((3>$(DBG)))"))
     ifeq (0,$(COMPATIBLE))
@@ -1404,6 +1411,7 @@ else # GCC assumed
     endif
   endif
   ifneq (0,$(INSTRUMENT))
+  ifneq (Darwin1,$(UNAME)$(INSTRUMENT))
     DFLAGS += -D__TRACE=$(INSTRUMENT)
     ifeq (0,$(PGI))
       CXXFLAGS += -finstrument-functions
@@ -1420,6 +1428,7 @@ else # GCC assumed
         endif
       endif
     endif
+  endif
   endif
   ifeq (Windows_NT,$(UNAME))
     LDFLAGS += $(XLIB_BEGIN) $(call ldlib,$(LD),$(SLDFLAGS),dbghelp) $(XLIB_END)
