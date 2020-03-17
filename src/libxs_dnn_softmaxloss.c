@@ -45,6 +45,7 @@ LIBXS_API libxs_dnn_softmaxloss* libxs_dnn_create_softmaxloss(libxs_dnn_softmaxl
         *status = LIBXS_DNN_ERR_CREATE_HANDLE;
         free( handle );
         handle = 0;
+        return handle;
       }
       /* create barrier */
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
