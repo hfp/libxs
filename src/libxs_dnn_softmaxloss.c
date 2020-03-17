@@ -15,7 +15,7 @@ LIBXS_API libxs_dnn_softmaxloss* libxs_dnn_create_softmaxloss(libxs_dnn_softmaxl
   libxs_dnn_softmaxloss* handle = 0;
   int lpb;
 
-  if ( (softmaxloss_desc.datatype == LIBXS_DNN_DATATYPE_F32) && (softmaxloss_desc.datatype == LIBXS_DNN_DATATYPE_BF16) ) {
+  if ( (softmaxloss_desc.datatype == LIBXS_DNN_DATATYPE_F32) || (softmaxloss_desc.datatype == LIBXS_DNN_DATATYPE_BF16) ) {
     handle = (libxs_dnn_softmaxloss*)malloc(sizeof(libxs_dnn_softmaxloss));
 
     if (0 != handle) {
