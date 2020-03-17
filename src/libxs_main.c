@@ -2350,41 +2350,36 @@ LIBXS_API int libxs_get_mcopykernel_info(libxs_xmcopyfunction kernel, libxs_mcop
 LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
 {
   int result = EXIT_SUCCESS;
-  if (0 != info) {
-    LIBXS_INIT
-    if (0 != internal_registry) {
-      size_t i;
-      LIBXS_MEMZERO127(info); /* info->nstatic = 0; info->size = 0; */
-      info->nbytes = (LIBXS_CAPACITY_REGISTRY) * (sizeof(libxs_code_pointer) + sizeof(libxs_descriptor));
-      info->capacity = LIBXS_CAPACITY_REGISTRY;
+  LIBXS_INIT /* verbosity */
+  if (0 != info && 0 != internal_registry) {
+    size_t i;
+    LIBXS_MEMZERO127(info); /* info->nstatic = 0; info->size = 0; */
+    info->nbytes = (LIBXS_CAPACITY_REGISTRY) * (sizeof(libxs_code_pointer) + sizeof(libxs_descriptor));
+    info->capacity = LIBXS_CAPACITY_REGISTRY;
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-      info->ncache = internal_cache_size;
+    info->ncache = internal_cache_size;
 #else
-      info->ncache = 0;
+    info->ncache = 0;
 #endif
-      for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
-        libxs_code_pointer code = internal_registry[i];
-        if (0 != code.ptr_const && EXIT_SUCCESS == result) {
-          if (0 == (LIBXS_CODE_STATIC & code.uval)) { /* check for allocated/generated JIT-code */
-            size_t buffer_size = 0;
-            void* buffer = 0;
+    for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
+      libxs_code_pointer code = internal_registry[i];
+      if (0 != code.ptr_const && EXIT_SUCCESS == result) {
+        if (0 == (LIBXS_CODE_STATIC & code.uval)) { /* check for allocated/generated JIT-code */
+          size_t buffer_size = 0;
+          void* buffer = 0;
 #if defined(LIBXS_HASH_COLLISION)
-            code.uval &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
+          code.uval &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 #endif
-            result = libxs_get_malloc_xinfo(code.ptr_const, &buffer_size, NULL/*flags*/, &buffer);
-            if (EXIT_SUCCESS == result) {
-              info->nbytes += LIBXS_UP2(buffer_size + (((char*)code.ptr_const) - (char*)buffer), LIBXS_PAGE_MINSIZE);
-            }
+          result = libxs_get_malloc_xinfo(code.ptr_const, &buffer_size, NULL/*flags*/, &buffer);
+          if (EXIT_SUCCESS == result) {
+            info->nbytes += LIBXS_UP2(buffer_size + (((char*)code.ptr_const) - (char*)buffer), LIBXS_PAGE_MINSIZE);
           }
-          else {
-            ++info->nstatic;
-          }
-          ++info->size;
         }
+        else {
+          ++info->nstatic;
+        }
+        ++info->size;
       }
-    }
-    else {
-      result = EXIT_FAILURE;
     }
   }
   else {
@@ -2398,6 +2393,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size, size_t value_s
 {
   static int error_once = 0;
   void* result;
+  LIBXS_INIT /* verbosity */
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size) {
     libxs_descriptor wrap;
     void* dst;
@@ -2406,7 +2402,6 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size, size_t value_s
 #endif
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
     wrap.kind = LIBXS_KERNEL_KIND_USER;
-    LIBXS_INIT
     dst = internal_find_code(&wrap, key_size, value_size).ptr;
     if (NULL != dst) {
       size_t size;
@@ -2448,6 +2443,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size, size_t value_s
 LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
 {
   void* result;
+  LIBXS_INIT /* verbosity */
 #if !defined(NDEBUG)
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size)
 #endif
@@ -2458,7 +2454,6 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
 #endif
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
     wrap.kind = LIBXS_KERNEL_KIND_USER;
-    LIBXS_INIT
     result = internal_find_code(&wrap, key_size, 0/*user_size*/).ptr;
   }
 #if !defined(NDEBUG)
@@ -2485,6 +2480,7 @@ LIBXS_API void libxs_xrelease(const void* key, size_t key_size)
 LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   libxs_xmmfunction result;
+  LIBXS_INIT /* verbosity */
   if (NULL != descriptor) {
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
@@ -2495,7 +2491,6 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
       wrap.gemm.desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
     }
-    LIBXS_INIT
     result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xgemm;
 #if defined(_DEBUG)
     if (LIBXS_VERBOSITY_HIGH <= libxs_verbosity && INT_MAX != libxs_verbosity && NULL != result.xmm) {
@@ -3806,9 +3801,9 @@ LIBXS_API libxs_sububmmfunction_reducebatch_strd libxs_sububmmdispatch_reducebat
 LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor* descriptor)
 {
   libxs_xmcopyfunction result;
+  LIBXS_INIT /* verbosity */
   if (NULL != descriptor) {
     libxs_descriptor wrap;
-    LIBXS_INIT
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
@@ -3829,9 +3824,9 @@ LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor
 LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor* descriptor)
 {
   libxs_xtransfunction result;
+  LIBXS_INIT /* verbosity */
   if (NULL != descriptor) {
     libxs_descriptor wrap;
-    LIBXS_INIT
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
@@ -3849,9 +3844,9 @@ LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor
 LIBXS_API libxs_pgemm_xfunction libxs_dispatch_pgemm(const libxs_pgemm_descriptor* descriptor)
 {
   libxs_trmm_xfunction result;
+  LIBXS_INIT /* verbosity */
   if (NULL != descriptor) {
     libxs_descriptor wrap;
-    LIBXS_INIT
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
@@ -3869,9 +3864,9 @@ LIBXS_API libxs_pgemm_xfunction libxs_dispatch_pgemm(const libxs_pgemm_descripto
 LIBXS_API libxs_getrf_xfunction libxs_dispatch_getrf(const libxs_getrf_descriptor* descriptor)
 {
   libxs_trmm_xfunction result;
+  LIBXS_INIT /* verbosity */
   if (NULL != descriptor) {
     libxs_descriptor wrap;
-    LIBXS_INIT
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
@@ -3889,9 +3884,9 @@ LIBXS_API libxs_getrf_xfunction libxs_dispatch_getrf(const libxs_getrf_descripto
 LIBXS_API libxs_trmm_xfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* descriptor)
 {
   libxs_trmm_xfunction result;
+  LIBXS_INIT /* verbosity */
   if (NULL != descriptor) {
     libxs_descriptor wrap;
-    LIBXS_INIT
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
@@ -3909,9 +3904,9 @@ LIBXS_API libxs_trmm_xfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* 
 LIBXS_API libxs_trsm_xfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* descriptor)
 {
   libxs_trsm_xfunction result;
+  LIBXS_INIT /* verbosity */
   if (NULL != descriptor) {
     libxs_descriptor wrap;
-    LIBXS_INIT
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
