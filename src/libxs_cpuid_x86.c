@@ -139,8 +139,10 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
         ++warnings;
 # endif
         if (NULL != compiler_support) {
-          fprintf(stderr, "LIBXS WARNING: %soptimized non-JIT code paths are limited to \"%s\"!\n",
-            compiler_support, libxs_cpuid_name(LIBXS_MAX_STATIC_TARGET_ARCH));
+          const char *const name = libxs_cpuid_name( /* exclude MIC when running on Core processors */
+            (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH && LIBXS_X86_AVX512_CORE <= feature_cpu)
+              ? LIBXS_X86_AVX2 : LIBXS_MAX_STATIC_TARGET_ARCH);
+          fprintf(stderr, "LIBXS WARNING: %soptimized non-JIT code paths are limited to \"%s\"!\n", compiler_support, name);
           ++warnings;
         }
         if (LIBXS_STATIC_TARGET_ARCH < feature_cpu && feature_os < feature_cpu) {
