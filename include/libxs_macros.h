@@ -689,7 +689,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   endif
 # endif
 #endif
-#if !defined(_GNU_SOURCE) && 0
+#if !defined(_GNU_SOURCE) && defined(LIBXS_BUILD)
 # define _GNU_SOURCE
 #endif
 #if !defined(__STDC_FORMAT_MACROS)
