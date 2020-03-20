@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
 {
   int result = EXIT_SUCCESS;
   try {
-    const libxs_blasint benchmark = 1 < argc ? std::atoi(argv[1]) : 0;
+    const libxs_blasint benchmark = (1 < argc ? std::atoi(argv[1]) : 0);
     const libxs_blasint m = (2 < argc ? std::atoi(argv[2]) : 23);
     const libxs_blasint k = (4 < argc ? std::atoi(argv[4]) : m);
     const libxs_blasint n = (3 < argc ? std::atoi(argv[3]) : k);

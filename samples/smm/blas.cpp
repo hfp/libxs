@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
     LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
     throw "LAPACK/BLAS library must be available for this sample code!";
 #else /* BLAS available */
-    const libxs_blasint benchmark = 1 < argc ? std::atoi(argv[1]) : 0;
+    const libxs_blasint benchmark = (1 < argc ? std::atoi(argv[1]) : 0);
     LIBXS_BLAS_CONST libxs_blasint m = (2 < argc ? std::atoi(argv[2]) : 23);
     LIBXS_BLAS_CONST libxs_blasint k = (4 < argc ? std::atoi(argv[4]) : m);
     LIBXS_BLAS_CONST libxs_blasint n = (3 < argc ? std::atoi(argv[3]) : k);
