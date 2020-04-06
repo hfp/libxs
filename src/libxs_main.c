@@ -4335,4 +4335,69 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall)(
   LIBXS_FSYMBOL(libxs_xmmcall_prf)(fn, a, b, c, pa, pb, pc);
 }
 
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_xregister)(void** /*regval*/,
+  const void* /*key*/, const int* /*keysize*/, const int* /*valsize*/, const void* /*valinit*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_xregister)(void** regval,
+  const void* key, const int* keysize, const int* valsize, const void* valinit)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != regval && NULL != key && NULL != keysize && NULL != valsize)
+#endif
+  {
+    *regval = libxs_xregister(key, *keysize, *valsize, valinit);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xregister specified!\n");
+  }
+#endif
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_xdispatch)(void** /*regval*/, const void* /*key*/, const int* /*keysize*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_xdispatch)(void** regval, const void* key, const int* keysize)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != regval && NULL != key && NULL != keysize)
+#endif
+  {
+    *regval = libxs_xdispatch(key, *keysize);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xdispatch specified!\n");
+  }
+#endif
+}
+
+
+/* implementation provided for Fortran 77 compatibility */
+LIBXS_API void LIBXS_FSYMBOL(libxs_xrelease)(const void* /*key*/, const int* /*keysize*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_xrelease)(const void* key, const int* keysize)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != key && NULL != keysize)
+#endif
+  {
+    libxs_xrelease(key, *keysize);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xrelease specified!\n");
+  }
+#endif
+}
+
 #endif /*defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))*/
