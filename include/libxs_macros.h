@@ -775,6 +775,9 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # pragma offload_attribute(pop)
 #endif
 
+#if !defined(_Bool)
+# define _Bool int
+#endif
 #if defined(_WIN32) && 0
 # define LIBXS_SNPRINTF(S, N, ...) _snprintf_s(S, N, _TRUNCATE, __VA_ARGS__)
 #elif defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__ || defined(__GNUC__))
