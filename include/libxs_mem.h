@@ -41,13 +41,13 @@
 
 
 /**
- * Calculate if there is a difference between two (short) buffers.
+ * Calculates if there is a difference between two (short) buffers.
  * Returns zero if there is no difference; otherwise non-zero.
  */
 LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char size);
 
 /**
- * Calculate if there is a difference between "a" and "n x b".
+ * Calculates if there is a difference between "a" and "n x b".
  * Returns the index of the first match (or "n" in case of no match).
  */
 LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char size,
