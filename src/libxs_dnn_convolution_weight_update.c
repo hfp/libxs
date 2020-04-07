@@ -703,12 +703,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_d
     return status;
   }
 
-  /* check if we scratch for MB parallel execution */
-  if ( (handle->upd_use_thread_fil == 1) && (handle->scratch4 == 0) ) {
-    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
-    return status;
-  }
-
   /* check if we are on AVX512 */
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
@@ -761,12 +755,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom(libxs_dnn
     return status;
   }
 
-  /* check if we scratch for MB parallel execution */
-  if ( (handle->upd_use_thread_fil == 1) && (handle->scratch4 == 0) ) {
-    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
-    return status;
-  }
-
   /* check if we are on AVX512 */
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
   if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
@@ -805,12 +793,6 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck(libxs_dnn_l
 
   /* check if we have input, output and filter */
   if (handle->reg_input == 0 || handle->grad_output == 0 || handle->grad_filter == 0 || handle->scratch3 == 0) {
-    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
-    return status;
-  }
-
-  /* check if we scratch for MB parallel execution */
-  if ( (handle->upd_use_thread_fil == 1) && (handle->scratch4 == 0) ) {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
   }
