@@ -904,8 +904,6 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   }
   handle->scratch3 = 0;
   handle->scratch3_size = 0;
-  handle->scratch4 = 0;
-  handle->scratch4_size = 0;
   handle->scratch6 = 0;
   handle->scratch6_size = 0;
 
@@ -1027,7 +1025,6 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(
     handle->fm_lp_block = 1;
     handle->blocksifm_blocking = 1;
     handle->blocksofm_blocking = 1;
-    handle->upd_use_thread_fil = 0;
     handle->upd_use_external_reduce = 0;
     handle->filter_transposed = 0;
     /* Set algorithm to use */
@@ -1927,10 +1924,6 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
                                            }
                                            /* we need a minibatch copy for transpose of input, scratch3 */
                                            l_scratch_size += handle->scratch3_size + 64;
-                                           /* potentially we need thread-local filter copies, scratch4 */
-                                           if (handle->upd_use_thread_fil == 1) {
-                                             l_scratch_size += handle->scratch4_size + 64;
-                                           }
                                            l_scratch_size += handle->max_scratch5_size + 64;
                                            l_scratch_size += handle->minibatch_scratch_size + 64;
                                            l_scratch_size += handle->scratch6_size + 64;
@@ -1946,10 +1939,6 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
                                            }
                                            /* we need a minibatch copy for transpose of input, scratch3 */
                                            l_scratch_size += handle->scratch3_size + 64;
-                                           /* potentially we need thread-local filter copies, scratch4 */
-                                           if (handle->upd_use_thread_fil == 1) {
-                                             l_scratch_size += handle->scratch4_size + 64;
-                                           }
                                            l_scratch_size += handle->max_scratch5_size + 64;
                                            if (handle->scratch6_size != 0) {
                                              l_scratch_size += handle->scratch6_size + 64;
@@ -2068,17 +2057,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                              offset = (64 - address % 64);
                                              handle->scratch3 = (void*)(address+offset);
                                            }
-                                           /* potentially we need thread-local filter copies, scratch4 */
-                                           if (handle->upd_use_thread_fil == 1) {
-                                             address += handle->scratch3_size + 64;
-                                             if (address % 64 == 0) {
-                                               handle->scratch4 = (void*)address;
-                                             } else {
-                                               offset = (64 - address % 64);
-                                               handle->scratch4 = (void*)(address+offset);
-                                             }
-                                             address += handle->scratch4_size + 64;
-                                           }
                                            if (address % 64 == 0) {
                                              handle->scratch5 = (void*)address;
                                            }
@@ -2134,16 +2112,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                              handle->scratch3 = (void*)(address+offset);
                                            }
                                            address += handle->scratch3_size + 64;
-                                           /* potentially we need thread-local filter copies, scratch4 */
-                                           if (handle->upd_use_thread_fil == 1) {
-                                             if (address % 64 == 0) {
-                                               handle->scratch4 = (void*)address;
-                                             } else {
-                                               offset = (64 - address % 64);
-                                               handle->scratch4 = (void*)(address+offset);
-                                             }
-                                             address += handle->scratch4_size + 64;
-                                           }
                                            if (address % 64 == 0) {
                                              handle->scratch5 = (void*)address;
                                            }
@@ -2203,7 +2171,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, con
       case LIBXS_DNN_COMPUTE_KIND_UPD: {
                                            handle->scratch2 = 0;
                                            handle->scratch3 = 0;
-                                           handle->scratch4 = 0;
                                            handle->scratch5 = 0;
                                            handle->scratch6 = 0;
                                            handle->scratch7 = 0;
@@ -2212,7 +2179,6 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, con
                                            handle->scratch1 = 0;
                                            handle->scratch2 = 0;
                                            handle->scratch3 = 0;
-                                           handle->scratch4 = 0;
                                            handle->scratch5 = 0;
                                            handle->scratch6 = 0;
                                            handle->scratch7 = 0;
