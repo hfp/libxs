@@ -108,8 +108,5 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_execute_st(libxs_dnn_layer* handle, libxs_dn
 LIBXS_API libxs_dnn_err_t libxs_dnn_trans_reg_filter(const libxs_dnn_layer* handle);
 LIBXS_API libxs_dnn_err_t libxs_dnn_trans_reg_bf16_filter(const libxs_dnn_layer* handle);
 LIBXS_API libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type);
-LIBXS_API libxs_dnn_err_t libxs_dnn_reduce_wu_filters(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type);
-LIBXS_API libxs_dnn_err_t libxs_dnn_get_codegen_success(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind);
-LIBXS_API libxs_dnn_err_t libxs_dnn_get_parallel_tasks(libxs_dnn_layer* handle, libxs_dnn_compute_kind kind, unsigned int* num_tasks);
 
 #endif /*LIBXS_DNN_CONVOLUTION_H*/
