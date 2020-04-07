@@ -1642,7 +1642,9 @@ else # disabled
 endif
 
 ifeq (0,$(SYM))
+ifneq (Darwin,$(UNAME))
   LDFLAGS += $(call ctest,$(LD),-s)
+endif
 endif
 
 ifneq (0,$(INSTRUMENT))
