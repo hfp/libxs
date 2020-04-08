@@ -89,6 +89,7 @@
 #define LIBXS_EXPAND(...) __VA_ARGS__
 #define LIBXS_ELIDE(...)
 
+/** Use LIBXS_VERSION2 instead of LIBXS_VERSION3, e.g., if __GNUC_PATCHLEVEL__ or __clang_patchlevel__ is zero (0). */
 #define LIBXS_VERSION2(MAJOR, MINOR) ((MAJOR) * 10000 + (MINOR) * 100)
 #define LIBXS_VERSION3(MAJOR, MINOR, UPDATE) (LIBXS_VERSION2(MAJOR, MINOR) + (UPDATE))
 #define LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH) (int) \
@@ -337,7 +338,7 @@
 #     define LIBXS_OPENMP_SIMD
 #   endif
 # elif defined(__GNUC__)
-#   if LIBXS_VERSION3(4, 9, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#   if LIBXS_VERSION2(4, 9) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)
 #     define LIBXS_OPENMP_SIMD
 #   endif
 # else
@@ -400,7 +401,7 @@
 # define LIBXS_PRAGMA_UNROLL
 #endif
 #if !defined(LIBXS_PRAGMA_UNROLL_N)
-# if defined(__GNUC__) && (LIBXS_VERSION3(8, 3, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+# if defined(__GNUC__) && (LIBXS_VERSION2(8, 3) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__))
 #   define LIBXS_PRAGMA_UNROLL_N(N) LIBXS_PRAGMA(GCC unroll N)
 # else
 #   define LIBXS_PRAGMA_UNROLL_N(N)
@@ -497,7 +498,7 @@
 # endif
 #elif defined(_MSC_VER)
 # define LIBXS_ASSUME(EXPRESSION) __assume(EXPRESSION)
-#elif defined(__GNUC__) && !defined(_CRAYC) && (LIBXS_VERSION3(4, 5, 0) <= LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__))
+#elif defined(__GNUC__) && !defined(_CRAYC) && (LIBXS_VERSION2(4, 5) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__))
 # define LIBXS_ASSUME(EXPRESSION) do { if (!(EXPRESSION)) __builtin_unreachable(); } while(0)
 #else
 # define LIBXS_ASSUME(EXPRESSION) assert(EXPRESSION)
@@ -811,7 +812,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   define _Float128 __float128
 # endif
 # if !defined(LIBXS_GLIBC_FPTYPES) && defined(__GNUC__) && !defined(__cplusplus) && defined(__linux__) \
-  && (LIBXS_VERSION3(7, 0, 0) > LIBXS_VERSION3(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__) || \
+  && (LIBXS_VERSION2(7, 0) > LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) || \
      (defined(LIBXS_INTEL_COMPILER) && (1802 >= LIBXS_INTEL_COMPILER)))
 #   define LIBXS_GLIBC_FPTYPES
 # endif
