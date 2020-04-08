@@ -134,9 +134,36 @@ void libxs_dgemm_batch(const char transa_array[], const char transb_array[],
 
 <a name="batch-sync"></a>**NOTE**: the multi-threaded implementation (`ntasks > 1` or "omp" form of the functions) avoids data races if indexes or pointers for the destination (C-)matrix are duplicated. This synchronization occurs automatically (`beta != 0`), but can be avoided by passing a negative `batchsize`, `group_size` and/or a negative `group_count`.
 
-## Call Wrapper
+### User-Data Dispatch
 
-#### Overview
+It can be desired to dispatch user-defined data, i.e., to query a value based on a key. To register a user-defined key-value pair with LIBXS's fast key-value store, the key must be binary reproducible. Structured key-data (`struct` or `class` type) that is potentially padded in a compiler/platform-specific fashion must be fully initialized before registration and dispatch/query, i.e., all gaps may be zeroed before initializing data members (`memset(&mykey, 0, sizeof(mykey))`). This is because some compilers leave padded data uninitialized, which breaks binary reproducible keys. The size of the key is limited to LIBXS_DESCRIPTOR_MAXSIZE (64 Byte), otherwise the size of the value can be arbitrary. The given value is copied by LIBXS and may be initialized at registration-time or when dispatched. Registered data is released at program termination but can be manually unregistered and released (`libxs_xrelease`), e.g., to register a larger value for an existing key.
+
+```C
+void* libxs_xregister(const void* key, size_t key_size, size_t value_size, const void* value_init);
+void* libxs_xdispatch(const void* key, size_t key_size);
+```
+
+The Fortran interface is designed to follow the same flow as the C&#160;language: (1)&#160;`libxs_xdispatch` is used to query the value, and (2)&#160;if the value is a NULL-pointer, it is registered per `libxs_xregister`. Similat to C (`memset`), structured data must be zero-filled (`libxs_xclear`) before an element-wise initialization.
+
+
+```Fortran
+FUNCTION libxs_xregister(key, keysize, valsize, valinit)
+  TYPE(C_PTR), INTENT(IN), VALUE :: key
+  TYPE(C_PTR), INTENT(IN), VALUE, OPTIONAL :: valinit
+  INTEGER(C_INT), INTENT(IN) :: keysize, valsize
+  TYPE(C_PTR) :: libxs_xregister
+END FUNCTION
+
+FUNCTION libxs_xdispatch(key, keysize)
+  TYPE(C_PTR), INTENT(IN), VALUE :: key
+  INTEGER(C_INT), INTENT(IN) :: keysize
+  TYPE(C_PTR) :: libxs_xdispatch
+END FUNCTION
+```
+
+**NOTE**: This functionality can be used to dispatch multiple kernels in one step, e.g., if a single task relies on multiple kernels. This way, one can pay the cost of dispatch one time per task rather than according to the number of JIT-kernels used by this task.
+
+## Overview
 
 Since the library is binary compatible with existing GEMM calls (BLAS), such calls can be replaced at link-time or intercepted at runtime of an application such that LIBXS is used instead of the original BLAS library. There are two cases to consider: (1)&#160;static linkage, and (2)&#160;dynamic linkage of the application against the original BLAS library. When calls are intercepted, one can select a sequential (default) or an OpenMP-parallelized implementation (`make WRAP=2`).
 
