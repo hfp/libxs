@@ -58,8 +58,8 @@
 
 #if !defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_BUILD) && \
   (defined(__GNUC__) || defined(_CRAYC)) && !defined(_WIN32) && !defined(__CYGWIN__) && \
-  !(defined(__APPLE__) && defined(__MACH__) && LIBXS_VERSION3(6, 1, 0) >= \
-    LIBXS_VERSION3(__clang_major__, __clang_minor__, __clang_patchlevel__))
+  !(defined(__APPLE__) && defined(__MACH__) && LIBXS_VERSION2(6, 1) >= \
+    LIBXS_VERSION2(__clang_major__, __clang_minor__))
 # define LIBXS_INTERCEPT_DYNAMIC
 #endif
 
