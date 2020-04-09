@@ -397,7 +397,7 @@ LIBXS_API_INLINE void internal_register_static_code(
   const libxs_blasint lda = m, ldb = k, ldc = m;
   /*const*/ int precondition = LIBXS_GEMM_NO_BYPASS_DIMS(m, n, k) && LIBXS_GEMM_NO_BYPASS_DIMS(lda, ldb, ldc);
   if (precondition) {
-    const size_t size = (LIBXS_HASH_SIZE)-sizeof(libxs_descriptor_kind);
+    const size_t size = (LIBXS_HASH_SIZE) - sizeof(libxs_descriptor_kind);
     libxs_descriptor_blob blob;
     const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_dinit(&blob, precision,
       m, n, k, lda, ldb, ldc, LIBXS_ALPHA, LIBXS_BETA, LIBXS_FLAGS, INTERNAL_PREFETCH);
