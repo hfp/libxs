@@ -607,9 +607,6 @@ LIBXS_API void libxs_bsgemm(const char* transa, const char* transb,
 
 #if !defined(LIBXS_DEFAULT_CONFIG) && !defined(LIBXS_SOURCE_H)
 
-LIBXS_API void libxs_smm_23_23_23(const float* a, const float* b, float* c, ...);
-LIBXS_API void libxs_dmm_23_23_23(const double* a, const double* b, double* c, ...);
-
 #endif /*!defined(LIBXS_DEFAULT_CONFIG)*/
 #if defined(__cplusplus)
 
