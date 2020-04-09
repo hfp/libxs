@@ -243,7 +243,7 @@
 # define LIBXS_INIT if (2 > libxs_ninit) libxs_init();
 #endif
 
-/** Map to appropriate BLAS function (or fall-back). The mapping is used e.g., inside of LIBXS_BLAS_XGEMM. */
+/** Map to appropriate BLAS function (or fall-back). The mapping is used, e.g., inside of LIBXS_BLAS_XGEMM. */
 #define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
 #if (0 != LIBXS_BLAS) /* Helper macro to eventually (if defined) call libxs_init */
 # if defined(LIBXS_INIT_COMPLETED)
@@ -335,7 +335,7 @@
 /** Condition based on arithmetic intensity (AI) */
 #define LIBXS_SMM_AI(M, N, K, S, TYPESIZE) \
     ((LIBXS_MNK_SIZE(M, N, K) * 2) <= ((size_t)(TYPESIZE) * 4/*AI*/ * LIBXS_SIZE(M, N, K, S)))
-/** Determine whether an SMM is suitable i.e., small enough. */
+/** Determine whether an SMM is suitable, i.e., small enough. */
 #if !defined(LIBXS_THRESHOLD_AI) /* traditional MNK-threshold */
 # define LIBXS_SMM(M, N, K, S, TYPESIZE) (LIBXS_MNK_SIZE(M, N, K) <= (LIBXS_MAX_MNK))
 #else /* threshold based on arithmetic intensity */
@@ -454,8 +454,8 @@
 /**
  * Utility function, which either prints information about the GEMM call
  * or dumps (FILE/ostream=0) all input and output data into MHD files.
- * The Meta Image Format (MHD) is suitable for visual inspection using e.g.,
- * ITK-SNAP or ParaView.
+ * The Meta Image Format (MHD) is suitable for visual inspection using,
+ * e.g., ITK-SNAP or ParaView.
  */
 LIBXS_API void libxs_gemm_print(void* ostream,
   libxs_gemm_precision precision, const char* transa, const char* transb,

@@ -133,7 +133,7 @@ LIBXS_API int libxs_mhd_read(
 
 /**
  * Save a file using an extended data format, which is compatible with the Meta Image Format (MHD).
- * The file is suitable for visual inspection using e.g., ITK-SNAP or ParaView.
+ * The file is suitable for visual inspection using, e.g., ITK-SNAP or ParaView.
  */
 LIBXS_API int libxs_mhd_write(const char filename[],
   /* Offset within pitched buffer (NULL: no offset). */
@@ -142,7 +142,7 @@ LIBXS_API int libxs_mhd_write(const char filename[],
   const size_t size[],
   /* Leading buffer dimensions (NULL: same as size). */
   const size_t pitch[],
-  /* Dimensionality i.e., number of entries in data_size/size. */
+  /* Dimensionality, i.e., number of entries in data_size/size. */
   size_t ndims,
   /* Number of pixel components. */
   size_t ncomponents,

@@ -44,7 +44,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
  * The very first (initial) output should be zeroed (libxs_matdiff_clear).
  */
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input);
-/** Clears the given info-structure e.g., for the initial reduction-value (libxs_matdiff_reduce). */
+/** Clears the given info-structure, e.g., for the initial reduction-value (libxs_matdiff_reduce). */
 LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info);
 
 /** Greatest common divisor (corner case: the GCD of 0 and 0 is 1). */
@@ -63,7 +63,7 @@ LIBXS_API size_t libxs_shuffle(unsigned int n);
 
 /**
  * Divides the product into prime factors and selects factors such that the new product is within
- * the given limit (0/1-Knapsack problem) e.g., product=12=2*2*3 and limit=6 then result=2*3=6.
+ * the given limit (0/1-Knapsack problem), e.g., product=12=2*2*3 and limit=6 then result=2*3=6.
  * The limit is at least reached or exceeded with the minimal possible product (is_lower=true).
  */
 LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int limit, int is_lower);

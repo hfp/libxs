@@ -220,7 +220,7 @@
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     define LIBXS_INTRINSICS_INCLUDE
 #   elif defined(_CRAYC) && defined(__GNUC__)
-      /* TODO: version check e.g., LIBXS_VERSION2(11, 5) <= LIBXS_VERSION2(_RELEASE, _RELEASE_MINOR) */
+      /* TODO: version check, e.g., LIBXS_VERSION2(11, 5) <= LIBXS_VERSION2(_RELEASE, _RELEASE_MINOR) */
 #     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     define LIBXS_INTRINSICS_INCLUDE
