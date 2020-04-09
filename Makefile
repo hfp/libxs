@@ -572,7 +572,8 @@ endif
 
 # auto-clean the co-build
 $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h: $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py \
-    $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc $(wildcard $(ROOTDIR)/.github/*) $(ROOTDIR)/version.txt
+                                                $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc $(wildcard $(ROOTDIR)/.github/*) \
+                                                $(ROOTDIR)/version.txt
 #ifneq (,$(filter-out 0 1 2 STATIC,$(words $(PRESTATE)) $(word 2,$(PRESTATE))))
 ifneq (0,$(STATIC)) # static
 	@rm -f $(OUTDIR)/libxs*.$(DLIBEXT) $(OUTDIR)/libxs*.$(DLIBEXT).*
@@ -584,7 +585,7 @@ endif
 
 .PHONY: config
 config: $(INCDIR)/libxs_config.h $(INCDIR)/libxs_version.h
-$(INCDIR)/libxs_config.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h
+$(INCDIR)/libxs_config.h: $(INCDIR)/.make $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h $(DIRSTATE)/.state
 	$(information)
 	$(info --- LIBXS build log)
 	@if [ -e $(ROOTDIR)/.github/install.sh ]; then \
@@ -598,7 +599,8 @@ ifneq (,$(PYTHON))
 		$(shell echo $$(($(THREADS)+$(OMP)))) \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) > $@
 endif
-$(INCDIR)/libxs_version.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTDIR)/$(SRCDIR)/template/libxs_version.h
+$(INCDIR)/libxs_version.h: $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h $(INCDIR)/.make \
+                             $(ROOTDIR)/$(SRCDIR)/template/libxs_version.h
 ifneq (,$(PYTHON))
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_version.h > $@
 else
@@ -629,6 +631,7 @@ $(INCDIR)/libxs_source.h: $(INCDIR)/.make $(ROOTDIR)/$(SCRDIR)/libxs_source.sh $
 fheader: $(INCDIR)/libxs.f
 ifneq (,$(PYTHON))
 $(INCDIR)/libxs.f: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
+                     $(ROOTDIR)/$(SCRDIR)/libxs_config.py \
                      $(ROOTDIR)/$(SRCDIR)/template/libxs.f \
                      $(INCDIR)/libxs_version.h \
                      $(INCDIR)/libxs_config.h
@@ -647,7 +650,7 @@ endif
 .PHONY: sources
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
 ifneq (,$(PYTHON))
-$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(INCDIR)/libxs.h $(SRCFILES_KERNELS) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py
+$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(SRCFILES_KERNELS) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py $(DIRSTATE)/.state
 	@$(PYTHON) $(call quote,$(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py) $(call qapath,$(DIRSTATE)/.state) $(PRECISION) $(THRESHOLD) $(INDICES) > $@
 else
 .PHONY: $(BLDDIR)/libxs_dispatch.h
