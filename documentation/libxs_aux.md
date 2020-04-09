@@ -38,7 +38,7 @@ void libxs_set_verbosity(int level);
 
 ### Timer Facility
 
-Due to the performance oriented nature of LIBXS, timer-related functionality is available for the C and Fortran interface ([libxs_timer.h](https://github.com/hfp/libxs/blob/master/include/libxs_timer.h#L37) and [libxs.f](https://github.com/hfp/libxs/blob/master/src/template/libxs.f#L32)). The timer is used in many of the [code samples](https://github.com/hfp/libxs/tree/master/samples) to measure the duration of executing a region of the code. The timer is based on a monotonic clock tick, which uses a platform-specific resolution. The counter may rely on the time stamp counter instruction (RDTSC), which is not necessarily counting CPU cycles (reasons are out of scope in this context). However, `libxs_timer_ncycles` delivers raw clock ticks (RDTSC).
+Due to the performance oriented nature of LIBXS, timer-related functionality is available for the C and Fortran interface ([libxs_timer.h](https://github.com/hfp/libxs/blob/master/include/libxs_timer.h#L37) and [libxs.f](https://github.com/hfp/libxs/blob/master/include/libxs.f#L32)). The timer is used in many of the [code samples](https://github.com/hfp/libxs/tree/master/samples) to measure the duration of executing a region of the code. The timer is based on a monotonic clock tick, which uses a platform-specific resolution. The counter may rely on the time stamp counter instruction (RDTSC), which is not necessarily counting CPU cycles (reasons are out of scope in this context). However, `libxs_timer_ncycles` delivers raw clock ticks (RDTSC).
 
 ```C
 typedef unsigned long long libxs_timer_tickint;

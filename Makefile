@@ -583,7 +583,7 @@ endif
 #endif
 
 .PHONY: config
-config: $(INCDIR)/libxs_config.h
+config: $(INCDIR)/libxs_config.h $(INCDIR)/libxs_version.h
 $(INCDIR)/libxs_config.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h
 	$(information)
 	$(info --- LIBXS build log)
@@ -598,13 +598,22 @@ ifneq (,$(PYTHON))
 		$(shell echo $$(($(THREADS)+$(OMP)))) \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) > $@
 endif
+$(INCDIR)/libxs_version.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTDIR)/$(SRCDIR)/template/libxs_version.h
+ifneq (,$(PYTHON))
+	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_version.h > $@
+else
+.PHONY: $(INCDIR)/libxs_version.h
+endif
+
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
 ifneq (,$(PYTHON))
 $(INCDIR)/libxs.h: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
                      $(ROOTDIR)/$(SRCDIR)/template/libxs.h \
-                     $(INCDIR)/libxs_config.h $(HEADERS)
+                     $(INCDIR)/libxs_version.h \
+                     $(INCDIR)/libxs_config.h \
+                     $(HEADERS)
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_interface.py $(ROOTDIR)/$(SRCDIR)/template/libxs.h \
 		$(PRECISION) $(PREFETCH_TYPE) $(INDICES) > $@
 else
@@ -621,6 +630,7 @@ fheader: $(INCDIR)/libxs.f
 ifneq (,$(PYTHON))
 $(INCDIR)/libxs.f: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
                      $(ROOTDIR)/$(SRCDIR)/template/libxs.f \
+                     $(INCDIR)/libxs_version.h \
                      $(INCDIR)/libxs_config.h
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_interface.py $(ROOTDIR)/$(SRCDIR)/template/libxs.f \
 		$(PRECISION) $(PREFETCH_TYPE) $(INDICES) | \
@@ -1463,6 +1473,7 @@ endif
 	@rm -f $(ROOTDIR)/$(SPLDIR)/nek/grad-perf.sh
 	@rm -f $(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.sh
 	@rm -f $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.sh
+	@rm -f $(INCDIR)/libxs_version.h
 	@rm -f $(INCDIR)/libxs_config.h
 	@rm -f $(INCDIR)/libxs.modmic
 	@rm -f $(INCDIR)/libxs.mod
