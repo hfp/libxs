@@ -151,11 +151,7 @@ make realclean
 
 Version&#160;1.4.4 introduced support for "header-only" usage in C and C++. By only including 'libxs_source.h' allows to get around building the library. However, this gives up on a clearly defined application binary interface (ABI). An ABI may allow for hot-fixes after deploying an application (when relying on the shared library form), and it may also ensure to only rely on the public interface of LIBXS. In contrast, the header-only form not only exposes the internal implementation of LIBXS but can also increase the turnaround time during development of an application (due to longer compilation times). The header file is intentionally named "libxs_**source**.h" since this header file relies on the [src](https://github.com/hfp/libxs/tree/master/src) directory (with the implications as noted earlier).
 
-To use the header-only form, 'libxs_source.h' needs to be *generated*. The build target shown below ('header-only') has been introduced in LIBXS&#160;1.6.2 but `make cheader` can be used alternatively (or must be used instead in case of earlier versions). Generating the C interface is necessary since the library must be configured (see [configuration](https://github.com/hfp/libxs/blob/master/src/template/libxs_config.h) template).
-
-```bash
-make header-only
-```
+<a name="zero-config"></a>The header-only form depends on 'libxs_source.h' which is *generated* according to the content of the source folder (`src`). LIBXS&#160;1.16 (and later) provides an up-to-date header-only support without invoking a make-target (zero configuration) for any any given checkout of LIBXS. Priviously, it was necessary to invoke to invoke `make header-only` (v1.6.2 or later), `make cheader` (prior to v1.6.2), or any full build of the library (`make`).
 
 **NOTE**: building an application applies the same build settings to LIBXS! For instance, to omit debug code inside of LIBXS `NDEBUG` must be defined (`-DNDEBUG`).
 

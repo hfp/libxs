@@ -4,10 +4,8 @@ libxs*-*
 libxs*_*
 opentuner.db
 bin/libxs_generator
-include/libxs_config.h
-include/libxs_source.h
+include/libxs_version.h
 include/libxs.f
-include/libxs.h
 build
 lib/libxs*
 lib/module
