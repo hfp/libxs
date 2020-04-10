@@ -2147,9 +2147,9 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
           int mprotect_result;
 # if !defined(LIBXS_MALLOC_CRC_OFF) && defined(LIBXS_VTUNE) /* check checksum */
 #   if defined(LIBXS_MALLOC_CRC_LIGHT)
-          LIBXS_ASSERT(info->hash == LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &info));
+          assert(info->hash == LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &info)); /* !LIBXS_ASSERT */
 #   else
-          LIBXS_ASSERT(info->hash == libxs_crc32(LIBXS_MALLOC_SEED, info,
+          assert(info->hash == libxs_crc32(LIBXS_MALLOC_SEED, info, /* !LIBXS_ASSERT */
             /* info size minus actual hash value */
             (unsigned int)(((char*)&info->hash) - ((char*)info))));
 #   endif
