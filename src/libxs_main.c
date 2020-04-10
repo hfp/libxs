@@ -48,17 +48,20 @@
 #if !defined(LIBXS_HASH_SEED)
 # define LIBXS_HASH_SEED 25071975
 #endif
-#if !defined(LIBXS_UNIFY_LOCKS)
-# define LIBXS_UNIFY_LOCKS
+#if !defined(LIBXS_MALLOC_HOOK_ALIGN) && 1
+# define LIBXS_MALLOC_HOOK_ALIGN
 #endif
-#if !defined(LIBXS_CACHE_PAD) && 1
-# define LIBXS_CACHE_PAD
+#if !defined(LIBXS_MALLOC_HOOK_INIT) && 0
+# define LIBXS_MALLOC_HOOK_INIT
 #endif
 #if !defined(LIBXS_ENABLE_DEREG) && 0
 # define LIBXS_ENABLE_DEREG
 #endif
 #if !defined(LIBXS_REGLOCK_TRY) && 0
 # define LIBXS_REGLOCK_TRY
+#endif
+#if !defined(LIBXS_UNIFY_LOCKS) && 1
+# define LIBXS_UNIFY_LOCKS
 #endif
 #if !defined(LIBXS_DIFF_INLINE) && 1
 # define LIBXS_DIFF_INLINE
@@ -68,6 +71,9 @@
 #endif
 #if !defined(LIBXS_DESC_PAD) && 1
 # define LIBXS_DESC_PAD
+#endif
+#if !defined(LIBXS_CACHE_PAD) && 1
+# define LIBXS_CACHE_PAD
 #endif
 #if !defined(LIBXS_AUTOPIN) && 1
 # define LIBXS_AUTOPIN
@@ -261,6 +267,149 @@ LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
 #if (0 != LIBXS_SYNC)
 LIBXS_APIVAR_PRIVATE_DEF(LIBXS_TLS_TYPE libxs_tlskey);
 #endif
+
+
+LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
+{
+  void* result;
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+  result = __libc_memalign(alignment, size);
+#elif defined(_WIN32) || defined(__CYGWIN__)
+  LIBXS_UNUSED(alignment);
+  result = malloc(size);
+#else
+  if (0 != posix_memalign(&result, alignment, size)) result = NULL;
+#endif
+  return result;
+}
+
+
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t alignment, size_t size)
+{
+  void* result;
+#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
+  if (
+# if defined(LIBXS_MALLOC_HOOK_INIT)
+    1 < libxs_ninit &&
+# endif
+    NULL != libxs_malloc_fn.memalign.ptr)
+  {
+    result = libxs_malloc_fn.memalign.ptr(alignment, size);
+  }
+  else
+#endif
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+  result = __libc_memalign(alignment, size);
+#else
+  result = libxs_memalign_internal(alignment, size);
+#endif
+  return result;
+}
+
+
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size)
+{
+  void* result;
+#if defined(LIBXS_MALLOC_HOOK_ALIGN)
+  const size_t alignment = libxs_alignment(size, 0/*auto*/);
+  result = __real_memalign(alignment, size);
+#else
+# if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
+  if (
+#   if defined(LIBXS_MALLOC_HOOK_INIT)
+    1 < libxs_ninit &&
+#   endif
+    NULL != libxs_malloc_fn.malloc.ptr)
+  {
+    LIBXS_ASSERT(malloc != libxs_malloc_fn.malloc.ptr);
+    result = libxs_malloc_fn.malloc.ptr(size);
+  }
+  else
+# endif
+# if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+  result = __libc_malloc(size);
+# else
+  result = malloc(size);
+# endif
+#endif
+  return result;
+}
+
+
+#if defined(LIBXS_MALLOC_HOOK_CALLOC)
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t num, size_t size)
+{
+  void* result;
+#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
+  if (
+# if defined(LIBXS_MALLOC_HOOK_INIT)
+    1 < libxs_ninit &&
+# endif
+    NULL != libxs_malloc_fn.calloc.ptr)
+  {
+    LIBXS_ASSERT(calloc != libxs_malloc_fn.calloc.ptr);
+    result = libxs_malloc_fn.calloc.ptr(num, size);
+  }
+  else
+#endif
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+  result = __libc_calloc(num, size);
+#else
+  result = calloc(num, size);
+#endif
+  return result;
+}
+#endif
+
+
+#if defined(LIBXS_MALLOC_HOOK_REALLOC)
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_realloc(void* ptr, size_t size)
+{
+  void* result;
+#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
+  if (
+# if defined(LIBXS_MALLOC_HOOK_INIT)
+    1 < libxs_ninit &&
+# endif
+    NULL != libxs_malloc_fn.realloc.ptr)
+  {
+    LIBXS_ASSERT(realloc != libxs_malloc_fn.realloc.ptr);
+    result = libxs_malloc_fn.realloc.ptr(ptr, size);
+  }
+  else
+#endif
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+  result = __libc_realloc(ptr, size);
+#else
+  result = realloc(ptr, size);
+#endif
+  return result;
+}
+#endif
+
+
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr)
+{
+  if (NULL != ptr) {
+#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
+    if (
+# if defined(LIBXS_MALLOC_HOOK_INIT)
+      1 < libxs_ninit &&
+# endif
+      NULL != libxs_malloc_fn.free.ptr)
+    {
+      LIBXS_ASSERT(free != libxs_malloc_fn.free.ptr);
+      libxs_malloc_fn.free.ptr(ptr);
+    }
+    else
+#endif
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+    __libc_free(ptr);
+#else
+    free(ptr);
+#endif
+  }
+}
 
 
 LIBXS_API_INLINE void internal_update_mmstatistic(const libxs_gemm_descriptor* desc,
