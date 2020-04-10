@@ -356,6 +356,7 @@ libxs_ptr_c2
 libxs_ptr_d0
 libxs_ptr_d1
 libxs_ptr_d2
+libxs_ptr_dmm
 libxs_ptr_i0
 libxs_ptr_i1
 libxs_ptr_i2
@@ -368,9 +369,11 @@ libxs_ptr_l2
 libxs_ptr_s0
 libxs_ptr_s1
 libxs_ptr_s2
+libxs_ptr_smm
 libxs_ptr_w0
 libxs_ptr_w1
 libxs_ptr_w2
+libxs_ptr_wimm
 libxs_ptr_z0
 libxs_ptr_z1
 libxs_ptr_z2
