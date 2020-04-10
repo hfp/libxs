@@ -13,7 +13,7 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
 #endif
-#if defined(LIBXS_GLIBC)
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))
 # include <features.h>
 # include <malloc.h>
 #endif
@@ -126,16 +126,6 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 # define LIBXS_MALLOC_SEED 1051981
 #endif
 
-#if !defined(LIBXS_MALLOC_HOOK_DYNAMIC) && \
-  defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC) && defined(LIBXS_INTERCEPT_DYNAMIC) && \
-  defined(LIBXS_GLIBC) && !defined(_CRAYC) && !defined(__TRACE) /* TODO */
-# define LIBXS_MALLOC_HOOK_DYNAMIC
-#endif
-#if !defined(LIBXS_MALLOC_HOOK_STATIC) && \
-  defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC) && \
-  !defined(_WIN32) && defined(LIBXS_GLIBC) /* TODO */
-# define LIBXS_MALLOC_HOOK_STATIC
-#endif
 #if !defined(LIBXS_MALLOC_HOOK_KMP) && 0
 # define LIBXS_MALLOC_HOOK_KMP
 #endif
@@ -145,20 +135,8 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #if !defined(LIBXS_MALLOC_HOOK_IMALLOC) && 1
 # define LIBXS_MALLOC_HOOK_IMALLOC
 #endif
-#if !defined(LIBXS_MALLOC_HOOK_REALLOC) && 1
-# define LIBXS_MALLOC_HOOK_REALLOC
-#endif
-#if !defined(LIBXS_MALLOC_HOOK_CALLOC) && 1
-# define LIBXS_MALLOC_HOOK_CALLOC
-#endif
-#if !defined(LIBXS_MALLOC_HOOK_ALIGN) && 1
-# define LIBXS_MALLOC_HOOK_ALIGN
-#endif
 #if !defined(LIBXS_MALLOC_HOOK_CHECK) && 0
 # define LIBXS_MALLOC_HOOK_CHECK 1
-#endif
-#if !defined(LIBXS_MALLOC_HOOK_INIT) && 0
-# define LIBXS_MALLOC_HOOK_INIT
 #endif
 
 #if !defined(LIBXS_MALLOC_CRC_LIGHT) && !defined(_DEBUG) && 1
@@ -290,8 +268,6 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_malloc_pool_type {
 #endif
   } instance;
 } internal_malloc_pool_type;
-
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void* (*internal_realloc_fun)(void* /*ptr*/, size_t /*size*/);
 
 /* Scratch pool, which supports up to MAX_NSCRATCH allocation sites. */
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
@@ -856,195 +832,26 @@ LIBXS_API_INTERN void internal_scratch_malloc(void** memory, size_t size, size_t
 }
 
 
-#if defined(LIBXS_GLIBC)
-/* prototypes for GLIBC internal implementation */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_memalign(size_t /*alignment*/, size_t /*size*/);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_malloc(size_t /*size*/);
-#if defined(LIBXS_MALLOC_HOOK_CALLOC)
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_calloc(size_t /*num*/, size_t /*size*/);
-#endif
-#if defined(LIBXS_MALLOC_HOOK_REALLOC)
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_realloc(void* /*ptr*/, size_t /*size*/);
-#endif
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void  __libc_free(void* /*ptr*/);
-#endif /*defined(LIBXS_GLIBC)*/
-
-LIBXS_API_INTERN void* internal_memalign_posix(size_t /*alignment*/, size_t /*size*/);
-LIBXS_API_INTERN void* internal_memalign_posix(size_t alignment, size_t size)
-{
-  void* result;
-#if defined(LIBXS_GLIBC)
-  result = __libc_memalign(alignment, size);
-#elif defined(_WIN32) || defined(__CYGWIN__)
-  LIBXS_UNUSED(alignment);
-  result = malloc(size);
-#else
-  if (0 != posix_memalign(&result, alignment, size)) result = NULL;
-#endif
-  return result;
-}
-
-
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_malloc_struct {
-  union { const void* dlsym; void* (*ptr)(size_t, size_t);  } alignmem;
-  union { const void* dlsym; void* (*ptr)(size_t, size_t);  } memalign;
-  union { const void* dlsym; libxs_malloc_fun ptr;        } malloc;
-# if defined(LIBXS_MALLOC_HOOK_CALLOC)
-  union { const void* dlsym; void* (*ptr)(size_t, size_t);  } calloc;
-# endif
-# if defined(LIBXS_MALLOC_HOOK_REALLOC)
-  union { const void* dlsym; internal_realloc_fun ptr;      } realloc;
-# endif
-  union { const void* dlsym; libxs_free_fun ptr;          } free;
-} internal_malloc_struct;
-LIBXS_APIVAR_DEFINE(internal_malloc_struct internal_malloc);
+LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_fntype libxs_malloc_fn);
 
 #if defined(LIBXS_MALLOC_HOOK_QKMALLOC)
 LIBXS_API_INTERN void* internal_memalign_malloc(size_t /*alignment*/, size_t /*size*/);
 LIBXS_API_INTERN void* internal_memalign_malloc(size_t alignment, size_t size)
 {
   LIBXS_UNUSED(alignment);
-  LIBXS_ASSERT(NULL != internal_malloc.malloc.dlsym);
-  return internal_malloc.malloc.ptr(size);
+  LIBXS_ASSERT(NULL != libxs_malloc_fn.malloc.dlsym);
+  return libxs_malloc_fn.malloc.ptr(size);
 }
 #elif defined(LIBXS_MALLOC_HOOK_KMP)
 LIBXS_API_INTERN void* internal_memalign_twiddle(size_t /*alignment*/, size_t /*size*/);
 LIBXS_API_INTERN void* internal_memalign_twiddle(size_t alignment, size_t size)
 {
-  LIBXS_ASSERT(NULL != internal_malloc.alignmem.dlsym);
-  return internal_malloc.alignmem.ptr(size, alignment);
+  LIBXS_ASSERT(NULL != libxs_malloc_fn.alignmem.dlsym);
+  return libxs_malloc_fn.alignmem.ptr(size, alignment);
 }
 #endif
 #endif /*defined(LIBXS_MALLOC_HOOK_DYNAMIC)*/
-
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t /*alignment*/, size_t /*size*/);
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t alignment, size_t size)
-{
-  void* result;
-#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (
-# if defined(LIBXS_MALLOC_HOOK_INIT)
-    1 < libxs_ninit &&
-# endif
-    NULL != internal_malloc.memalign.ptr)
-  {
-    result = internal_malloc.memalign.ptr(alignment, size);
-  }
-  else
-#endif
-#if defined(LIBXS_GLIBC)
-  result = __libc_memalign(alignment, size);
-#else
-  result = internal_memalign_posix(alignment, size);
-#endif
-  return result;
-}
-
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t /*size*/);
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size)
-{
-  void* result;
-#if defined(LIBXS_MALLOC_HOOK_ALIGN)
-  const size_t alignment = libxs_alignment(size, 0/*auto*/);
-  result = __real_memalign(alignment, size);
-#else
-# if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (
-#   if defined(LIBXS_MALLOC_HOOK_INIT)
-    1 < libxs_ninit &&
-#   endif
-    NULL != internal_malloc.malloc.ptr)
-  {
-    LIBXS_ASSERT(malloc != internal_malloc.malloc.ptr);
-    result = internal_malloc.malloc.ptr(size);
-  }
-  else
-# endif
-# if defined(LIBXS_GLIBC)
-  result = __libc_malloc(size);
-# else
-  result = malloc(size);
-# endif
-#endif
-  return result;
-}
-
-#if defined(LIBXS_MALLOC_HOOK_CALLOC)
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t /*num*/, size_t /*size*/);
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t num, size_t size)
-{
-  void* result;
-#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (
-# if defined(LIBXS_MALLOC_HOOK_INIT)
-    1 < libxs_ninit &&
-# endif
-    NULL != internal_malloc.calloc.ptr)
-  {
-    LIBXS_ASSERT(calloc != internal_malloc.calloc.ptr);
-    result = internal_malloc.calloc.ptr(num, size);
-  }
-  else
-#endif
-#if defined(LIBXS_GLIBC)
-  result = __libc_calloc(num, size);
-#else
-  result = calloc(num, size);
-#endif
-  return result;
-}
-#endif
-
-#if defined(LIBXS_MALLOC_HOOK_REALLOC)
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_realloc(void* /*ptr*/, size_t /*size*/);
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_realloc(void* ptr, size_t size)
-{
-  void* result;
-#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (
-# if defined(LIBXS_MALLOC_HOOK_INIT)
-    1 < libxs_ninit &&
-# endif
-    NULL != internal_malloc.realloc.ptr)
-  {
-    LIBXS_ASSERT(realloc != internal_malloc.realloc.ptr);
-    result = internal_malloc.realloc.ptr(ptr, size);
-  }
-  else
-#endif
-#if defined(LIBXS_GLIBC)
-  result = __libc_realloc(ptr, size);
-#else
-  result = realloc(ptr, size);
-#endif
-  return result;
-}
-#endif
-
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* /*ptr*/);
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr)
-{
-  if (NULL != ptr) {
-#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-    if (
-# if defined(LIBXS_MALLOC_HOOK_INIT)
-      1 < libxs_ninit &&
-# endif
-      NULL != internal_malloc.free.ptr)
-    {
-      LIBXS_ASSERT(free != internal_malloc.free.ptr);
-      internal_malloc.free.ptr(ptr);
-    }
-    else
-#endif
-#if defined(LIBXS_GLIBC)
-    __libc_free(ptr);
-#else
-    free(ptr);
-#endif
-  }
-}
 
 #if (defined(LIBXS_MALLOC_HOOK_STATIC) || defined(LIBXS_MALLOC_HOOK_DYNAMIC))
 
@@ -1221,92 +1028,92 @@ LIBXS_API_INTERN void libxs_malloc_init(void)
   dlerror(); /* clear an eventual error status */
   handle_qkmalloc = dlopen("libqkmalloc.so", RTLD_LAZY);
   if (NULL != handle_qkmalloc) {
-    internal_malloc.memalign.ptr = internal_memalign_malloc;
-    internal_malloc.malloc.dlsym = dlsym(handle_qkmalloc, "malloc");
-    if (NULL == dlerror() && NULL != internal_malloc.malloc.dlsym) {
+    libxs_malloc_fn.memalign.ptr = internal_memalign_malloc;
+    libxs_malloc_fn.malloc.dlsym = dlsym(handle_qkmalloc, "malloc");
+    if (NULL == dlerror() && NULL != libxs_malloc_fn.malloc.dlsym) {
 #   if defined(LIBXS_MALLOC_HOOK_CALLOC)
-      internal_malloc.calloc.dlsym = dlsym(handle_qkmalloc, "calloc");
-      if (NULL == dlerror() && NULL != internal_malloc.calloc.dlsym)
+      libxs_malloc_fn.calloc.dlsym = dlsym(handle_qkmalloc, "calloc");
+      if (NULL == dlerror() && NULL != libxs_malloc_fn.calloc.dlsym)
 #   endif
       {
 #   if defined(LIBXS_MALLOC_HOOK_REALLOC)
-        internal_malloc.realloc.dlsym = dlsym(handle_qkmalloc, "realloc");
-        if (NULL == dlerror() && NULL != internal_malloc.realloc.dlsym)
+        libxs_malloc_fn.realloc.dlsym = dlsym(handle_qkmalloc, "realloc");
+        if (NULL == dlerror() && NULL != libxs_malloc_fn.realloc.dlsym)
 #   endif
         {
-          internal_malloc.free.dlsym = dlsym(handle_qkmalloc, "free");
+          libxs_malloc_fn.free.dlsym = dlsym(handle_qkmalloc, "free");
         }
       }
     }
     dlclose(handle_qkmalloc);
   }
-  if (NULL == internal_malloc.free.ptr)
+  if (NULL == libxs_malloc_fn.free.ptr)
 # elif defined(LIBXS_MALLOC_HOOK_KMP)
   dlerror(); /* clear an eventual error status */
-  internal_malloc.alignmem.dlsym = dlsym(LIBXS_RTLD_NEXT, "kmp_aligned_malloc");
-  if (NULL == dlerror() && NULL != internal_malloc.alignmem.dlsym) {
-    internal_malloc.memalign.ptr = internal_memalign_twiddle;
-    internal_malloc.malloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "kmp_malloc");
-    if (NULL == dlerror() && NULL != internal_malloc.malloc.dlsym) {
+  libxs_malloc_fn.alignmem.dlsym = dlsym(LIBXS_RTLD_NEXT, "kmp_aligned_malloc");
+  if (NULL == dlerror() && NULL != libxs_malloc_fn.alignmem.dlsym) {
+    libxs_malloc_fn.memalign.ptr = internal_memalign_twiddle;
+    libxs_malloc_fn.malloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "kmp_malloc");
+    if (NULL == dlerror() && NULL != libxs_malloc_fn.malloc.dlsym) {
 # if defined(LIBXS_MALLOC_HOOK_CALLOC)
-      internal_malloc.calloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "kmp_calloc");
-      if (NULL == dlerror() && NULL != internal_malloc.calloc.dlsym)
+      libxs_malloc_fn.calloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "kmp_calloc");
+      if (NULL == dlerror() && NULL != libxs_malloc_fn.calloc.dlsym)
 # endif
       {
 # if defined(LIBXS_MALLOC_HOOK_REALLOC)
-        internal_malloc.realloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "kmp_realloc");
-        if (NULL == dlerror() && NULL != internal_malloc.realloc.dlsym)
+        libxs_malloc_fn.realloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "kmp_realloc");
+        if (NULL == dlerror() && NULL != libxs_malloc_fn.realloc.dlsym)
 # endif
         {
-          internal_malloc.free.dlsym = dlsym(LIBXS_RTLD_NEXT, "kmp_free");
+          libxs_malloc_fn.free.dlsym = dlsym(LIBXS_RTLD_NEXT, "kmp_free");
         }
       }
     }
   }
-  if (NULL == internal_malloc.free.ptr)
+  if (NULL == libxs_malloc_fn.free.ptr)
 # endif /*defined(LIBXS_MALLOC_HOOK_QKMALLOC)*/
   {
     dlerror(); /* clear an eventual error status */
-# if defined(LIBXS_GLIBC)
-    internal_malloc.memalign.dlsym = dlsym(LIBXS_RTLD_NEXT, "__libc_memalign");
-    if (NULL == dlerror() && NULL != internal_malloc.memalign.dlsym) {
-      internal_malloc.malloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "__libc_malloc");
-      if (NULL == dlerror() && NULL != internal_malloc.malloc.dlsym) {
+# if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))
+    libxs_malloc_fn.memalign.dlsym = dlsym(LIBXS_RTLD_NEXT, "__libc_memalign");
+    if (NULL == dlerror() && NULL != libxs_malloc_fn.memalign.dlsym) {
+      libxs_malloc_fn.malloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "__libc_malloc");
+      if (NULL == dlerror() && NULL != libxs_malloc_fn.malloc.dlsym) {
 #   if defined(LIBXS_MALLOC_HOOK_CALLOC)
-        internal_malloc.calloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "__libc_calloc");
-        if (NULL == dlerror() && NULL != internal_malloc.calloc.dlsym)
+        libxs_malloc_fn.calloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "__libc_calloc");
+        if (NULL == dlerror() && NULL != libxs_malloc_fn.calloc.dlsym)
 #   endif
         {
 #   if defined(LIBXS_MALLOC_HOOK_REALLOC)
-          internal_malloc.realloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "__libc_realloc");
-          if (NULL == dlerror() && NULL != internal_malloc.realloc.dlsym)
+          libxs_malloc_fn.realloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "__libc_realloc");
+          if (NULL == dlerror() && NULL != libxs_malloc_fn.realloc.dlsym)
 #   endif
           {
-            internal_malloc.free.dlsym = dlsym(LIBXS_RTLD_NEXT, "__libc_free");
+            libxs_malloc_fn.free.dlsym = dlsym(LIBXS_RTLD_NEXT, "__libc_free");
           }
         }
       }
     }
-    if (NULL == internal_malloc.free.ptr) {
+    if (NULL == libxs_malloc_fn.free.ptr) {
       void* handle_libc = NULL;
       dlerror(); /* clear an eventual error status */
       handle_libc = dlopen("libc.so." LIBXS_STRINGIFY(LIBXS_MALLOC_GLIBC), RTLD_LAZY);
       if (NULL != handle_libc) {
-        internal_malloc.memalign.dlsym = dlsym(handle_libc, "__libc_memalign");
-        if (NULL == dlerror() && NULL != internal_malloc.memalign.dlsym) {
-          internal_malloc.malloc.dlsym = dlsym(handle_libc, "__libc_malloc");
-          if (NULL == dlerror() && NULL != internal_malloc.malloc.dlsym) {
+        libxs_malloc_fn.memalign.dlsym = dlsym(handle_libc, "__libc_memalign");
+        if (NULL == dlerror() && NULL != libxs_malloc_fn.memalign.dlsym) {
+          libxs_malloc_fn.malloc.dlsym = dlsym(handle_libc, "__libc_malloc");
+          if (NULL == dlerror() && NULL != libxs_malloc_fn.malloc.dlsym) {
 #   if defined(LIBXS_MALLOC_HOOK_CALLOC)
-            internal_malloc.calloc.dlsym = dlsym(handle_libc, "__libc_calloc");
-            if (NULL == dlerror() && NULL != internal_malloc.calloc.dlsym)
+            libxs_malloc_fn.calloc.dlsym = dlsym(handle_libc, "__libc_calloc");
+            if (NULL == dlerror() && NULL != libxs_malloc_fn.calloc.dlsym)
 #   endif
             {
 #   if defined(LIBXS_MALLOC_HOOK_REALLOC)
-              internal_malloc.realloc.dlsym = dlsym(handle_libc, "__libc_realloc");
-              if (NULL == dlerror() && NULL != internal_malloc.realloc.dlsym)
+              libxs_malloc_fn.realloc.dlsym = dlsym(handle_libc, "__libc_realloc");
+              if (NULL == dlerror() && NULL != libxs_malloc_fn.realloc.dlsym)
 #   endif
               {
-                internal_malloc.free.dlsym = dlsym(handle_libc, "__libc_free");
+                libxs_malloc_fn.free.dlsym = dlsym(handle_libc, "__libc_free");
               }
             }
           }
@@ -1345,9 +1152,9 @@ LIBXS_API_INTERN void libxs_malloc_init(void)
     }
 #   endif
 # else /* TODO */
-# endif /*defined(LIBXS_GLIBC)*/
+# endif /*(defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))*/
   }
-  if (NULL != internal_malloc.free.ptr) {
+  if (NULL != libxs_malloc_fn.free.ptr) {
 # if defined(LIBXS_MALLOC_HOOK_IMALLOC)
     union { const void* dlsym; libxs_malloc_fun* ptr; } i_malloc;
     i_malloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "i_malloc");
@@ -1359,7 +1166,7 @@ LIBXS_API_INTERN void libxs_malloc_init(void)
 #   endif
       {
 #   if defined(LIBXS_MALLOC_HOOK_REALLOC)
-        union { const void* dlsym; internal_realloc_fun* ptr; } i_realloc;
+        union { const void* dlsym; libxs_realloc_fun* ptr; } i_realloc;
         i_realloc.dlsym = dlsym(LIBXS_RTLD_NEXT, "i_realloc");
         if (NULL == dlerror() && NULL != i_realloc.dlsym)
 #   endif
@@ -1367,14 +1174,14 @@ LIBXS_API_INTERN void libxs_malloc_init(void)
           union { const void* dlsym; libxs_free_fun* ptr; } i_free;
           i_free.dlsym = dlsym(LIBXS_RTLD_NEXT, "i_free");
           if (NULL == dlerror() && NULL != i_free.dlsym) {
-            *i_malloc.ptr = internal_malloc.malloc.ptr;
+            *i_malloc.ptr = libxs_malloc_fn.malloc.ptr;
 #   if defined(LIBXS_MALLOC_HOOK_CALLOC)
-            *i_calloc.ptr = internal_malloc.calloc.ptr;
+            *i_calloc.ptr = libxs_malloc_fn.calloc.ptr;
 #   endif
 #   if defined(LIBXS_MALLOC_HOOK_REALLOC)
-            *i_realloc.ptr = internal_malloc.realloc.ptr;
+            *i_realloc.ptr = libxs_malloc_fn.realloc.ptr;
 #   endif
-            *i_free.ptr = internal_malloc.free.ptr;
+            *i_free.ptr = libxs_malloc_fn.free.ptr;
           }
         }
       }
@@ -1382,26 +1189,26 @@ LIBXS_API_INTERN void libxs_malloc_init(void)
 # endif /*defined(LIBXS_MALLOC_HOOK_IMALLOC)*/
   }
   else { /* fall-back: potentially recursive */
-# if defined(LIBXS_GLIBC)
-    internal_malloc.memalign.ptr = __libc_memalign;
-    internal_malloc.malloc.ptr = __libc_malloc;
+# if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))
+    libxs_malloc_fn.memalign.ptr = __libc_memalign;
+    libxs_malloc_fn.malloc.ptr = __libc_malloc;
 #   if defined(LIBXS_MALLOC_HOOK_CALLOC)
-    internal_malloc.calloc.ptr = __libc_calloc;
+    libxs_malloc_fn.calloc.ptr = __libc_calloc;
 #   endif
 #   if defined(LIBXS_MALLOC_HOOK_REALLOC)
-    internal_malloc.realloc.ptr = __libc_realloc;
+    libxs_malloc_fn.realloc.ptr = __libc_realloc;
 #   endif
-    internal_malloc.free.ptr = __libc_free;
+    libxs_malloc_fn.free.ptr = __libc_free;
 # else
-    internal_malloc.memalign.ptr = internal_memalign_posix;
-    internal_malloc.malloc.ptr = malloc;
+    libxs_malloc_fn.memalign.ptr = libxs_memalign_internal;
+    libxs_malloc_fn.malloc.ptr = malloc;
 #   if defined(LIBXS_MALLOC_HOOK_CALLOC)
-    internal_malloc.calloc.ptr = calloc;
+    libxs_malloc_fn.calloc.ptr = calloc;
 #   endif
 #   if defined(LIBXS_MALLOC_HOOK_REALLOC)
-    internal_malloc.realloc.ptr = realloc;
+    libxs_malloc_fn.realloc.ptr = realloc;
 #   endif
-    internal_malloc.free.ptr = free;
+    libxs_malloc_fn.free.ptr = free;
 # endif
   }
 #endif
@@ -1697,7 +1504,7 @@ LIBXS_API_INLINE void* internal_xmalloc_xmap(const char* dir, size_t size, int f
 #endif /*!defined(_WIN32)*/
 
 LIBXS_API_INLINE void* internal_xrealloc(void** ptr, internal_malloc_info_type** info, size_t size,
-  internal_realloc_fun realloc_fn, libxs_free_fun free_fn)
+  libxs_realloc_fun realloc_fn, libxs_free_fun free_fn)
 {
   char *const base = (char*)(NULL != *info ? (*info)->pointer : *ptr), *result;
   LIBXS_ASSERT(NULL != *ptr);

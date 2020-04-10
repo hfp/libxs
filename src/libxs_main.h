@@ -49,6 +49,12 @@
 #if !defined(LIBXS_MALLOC_LIMIT)
 # define LIBXS_MALLOC_LIMIT (2U << 20) /* 2 MB */
 #endif
+#if !defined(LIBXS_MALLOC_HOOK_REALLOC) && 1
+# define LIBXS_MALLOC_HOOK_REALLOC
+#endif
+#if !defined(LIBXS_MALLOC_HOOK_CALLOC) && 1
+# define LIBXS_MALLOC_HOOK_CALLOC
+#endif
 #if !defined(LIBXS_MALLOC_INTERNAL_CALLER_ID)
 # define LIBXS_MALLOC_INTERNAL_CALLER_ID ((uintptr_t)LIBXS_UNLIMITED)
 #endif
@@ -61,6 +67,19 @@
   !(defined(__APPLE__) && defined(__MACH__) && LIBXS_VERSION2(6, 1) >= \
     LIBXS_VERSION2(__clang_major__, __clang_minor__))
 # define LIBXS_INTERCEPT_DYNAMIC
+#endif
+
+#if !defined(LIBXS_MALLOC_HOOK_DYNAMIC) && defined(LIBXS_INTERCEPT_DYNAMIC) && \
+  defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC) && \
+  (!defined(_CRAYC) && !defined(__TRACE)) /* TODO */ && \
+  (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+# define LIBXS_MALLOC_HOOK_DYNAMIC
+#endif
+#if !defined(LIBXS_MALLOC_HOOK_STATIC) && \
+  defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC) && \
+  (!defined(_WIN32)) /* TODO */ && \
+  (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+# define LIBXS_MALLOC_HOOK_STATIC
 #endif
 
 #if defined(LIBXS_INTERCEPT_DYNAMIC)
@@ -764,17 +783,48 @@ typedef enum libxs_malloc_flags {
       LIBXS_MALLOC_FLAG_MMAP    | LIBXS_MALLOC_FLAG_RWX
 } libxs_malloc_flags;
 
-/**
- * Format for instance an amount of Bytes like libxs_format_size(result, sizeof(result), nbytes, "KMGT", "B", 10).
- * The value returned is in requested/determined unit so that the user can decide about printing the buffer.
- */
-LIBXS_API_INTERN size_t libxs_format_size(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void* (*libxs_realloc_fun)(void* /*ptr*/, size_t /*size*/);
 
-/** Returns the type-name of data-type (can be also libxs_gemm_precision). */
-LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype);
+#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_malloc_fntype {
+  union { const void* dlsym; void* (*ptr)(size_t, size_t);  } alignmem;
+  union { const void* dlsym; void* (*ptr)(size_t, size_t);  } memalign;
+  union { const void* dlsym; libxs_malloc_fun ptr;        } malloc;
+# if defined(LIBXS_MALLOC_HOOK_CALLOC)
+  union { const void* dlsym; void* (*ptr)(size_t, size_t);  } calloc;
+# endif
+# if defined(LIBXS_MALLOC_HOOK_REALLOC)
+  union { const void* dlsym; libxs_realloc_fun ptr;      } realloc;
+# endif
+  union { const void* dlsym; libxs_free_fun ptr;          } free;
+} libxs_malloc_fntype;
+LIBXS_APIVAR_PRIVATE(libxs_malloc_fntype libxs_malloc_fn);
+#endif
 
-/** Returns the type-size of data-type (can be also libxs_gemm_precision). */
-LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))
+/* prototypes for GLIBC internal implementation */
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_memalign(size_t alignment, size_t size);
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_malloc(size_t size);
+#if defined(LIBXS_MALLOC_HOOK_CALLOC)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_calloc(size_t num, size_t size);
+#endif
+#if defined(LIBXS_MALLOC_HOOK_REALLOC)
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_realloc(void* ptr, size_t size);
+#endif
+LIBXS_EXTERN_C LIBXS_RETARGETABLE void  __libc_free(void* ptr);
+#endif /*(defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))*/
+LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size);
+
+/* See https://sourceware.org/binutils/docs-2.34/ld/Options.html#index-_002d_002dwrap_003dsymbol */
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t alignment, size_t size);
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size);
+#if defined(LIBXS_MALLOC_HOOK_CALLOC)
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t num, size_t size);
+#endif
+#if defined(LIBXS_MALLOC_HOOK_REALLOC)
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_realloc(void* ptr, size_t size);
+#endif
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr);
 
 /** Retrieve internal information about a buffer (default memory domain). */
 LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flags, void** extra);
@@ -800,9 +850,6 @@ LIBXS_API_INTERN int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
 LIBXS_API_INTERN int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
   const void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
-/** intern function to calculate blockings, that's private API hence it's in this function */
-LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K, int* C_block, int* K_block, int* fm_lp_block, libxs_dnn_datatype datatype_in, libxs_dnn_datatype datatype_out );
-
 /**
  * Attribute memory allocation and protect with only the necessary flags.
  * This procedure is expected to run only one time per buffer, and may
@@ -822,11 +869,23 @@ LIBXS_API_INTERN void libxs_xfree(const void* memory, int check);
 /** Like libxs_release_scratch, but takes a lock (can be NULL). */
 LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock);
 
+/**
+ * Format for instance an amount of Bytes like libxs_format_size(result, sizeof(result), nbytes, "KMGT", "B", 10).
+ * The value returned is in requested/determined unit so that the user can decide about printing the buffer.
+ */
+LIBXS_API_INTERN size_t libxs_format_size(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
+
+/** Returns the type-name of data-type (can be also libxs_gemm_precision). */
+LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype);
+
 /** Determines the given value in double-precision based on the given type. */
 LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
 
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
+
+/** Returns the type-size of data-type (can be also libxs_gemm_precision). */
+LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_kernel_xinfo {
   /** Non-zero of kernel is registered. */
@@ -850,6 +909,11 @@ LIBXS_API_INTERN void libxs_memory_finalize(void);
 
 LIBXS_API_INTERN void libxs_dnn_init(int target_arch);
 LIBXS_API_INTERN void libxs_dnn_finalize(void);
+
+/** intern function to calculate blockings, that's private API hence it's in this function */
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks(
+  int C, int K, int* C_block, int* K_block, int* fm_lp_block,
+  libxs_dnn_datatype datatype_in, libxs_dnn_datatype datatype_out);
 
 /** Global lock; create an own lock for an independent domain. */
 LIBXS_APIVAR_PUBLIC(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
