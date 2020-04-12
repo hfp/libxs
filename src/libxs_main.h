@@ -431,8 +431,18 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_barrier* barrier;
 
   /* scratch */
+  size_t fwd_packing_padding_scratch_size;
+  size_t fwd_lp_output_full_scratch_size;
+  size_t fwd_lp_output_block_scratch_size;
+  size_t fwd_packing_padding_scratch_offset;
+  size_t fwd_lp_output_full_scratch_offset;
+  size_t fwd_lp_output_block_scratch_offset;
+  size_t fwd_scratch_size;
+  size_t bwd_scratch_size;
+  size_t upd_scratch_size;
   void* scratch;
   size_t scratch_size;
+
   void* scratch1;
   size_t scratch1_size;
   void* scratch2;
@@ -446,8 +456,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   void* scratch7;             /* TLS: filter_scratch (generic WU) */
   size_t scratch7_size;
   size_t minibatch_scratch_size;
-  size_t fwdbwd_scratch_size;
-  int padding_flag;           /* Flag that dictates if we should apply padding in the input */
+
   libxs_code_pointer gemm_fwd;     /* ability to hoist forward GEMMs */
   libxs_code_pointer gemm_fwd2;     /* ability to hoist forward GEMMs */
   unsigned long long *A_offsets;
