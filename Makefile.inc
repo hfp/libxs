@@ -271,12 +271,12 @@ uniqmov = $(if $(filter $($2),$($1)),$(call uniqadd,$1,$2,$3),$($1))
 ctest = $(if $1,$(if $(shell INFILE=$$($(MKTEMP) /tmp/.libxs_XXXXXX.c) && \
   echo "int main(void) { return 0; }" > $${INFILE} && \
   $1 $2 $${INFILE} -o $${INFILE}.x 2>/dev/null >/dev/null && echo "OK"; \
-  rm -f /tmp/$$(basename $${INFILE} .c).* .libxs_??????.* 2>/dev/null),$2))
+  rm -f /tmp/$$(basename $${INFILE} .c).* .libxs_??????.c.* 2>/dev/null),$2))
 # INFILE cannot use leading dot when used with certain F-compiler
 ftest = $(if $1,$(if $(shell INFILE=$$($(MKTEMP) /tmp/_libxs_XXXXXX.f) && \
   printf "      PROGRAM test\n      END PROGRAM\n" > $${INFILE} && \
   $1 $2 $${INFILE} -o $${INFILE}.x 2>/dev/null >/dev/null && echo "OK"; \
-  rm -f /tmp/$$(basename $${INFILE} .f).* 2>/dev/null),$2))
+  rm -f /tmp/$$(basename $${INFILE} .f).* _libxs_??????.f.* 2>/dev/null),$2))
 
 ldclib = $(if $1,$(call ctest,$1 $2,-l$3))
 ldflib = $(if $1,$(call ftest,$1 $2,-l$3))
