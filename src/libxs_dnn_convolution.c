@@ -97,7 +97,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_ofw_rb( libxs_dnn_layer* ha
 
 LIBXS_API_INLINE int libxs_dnn_convolution_setup_pack_input_fwd( libxs_dnn_layer* handle ) {
   int result = 0;
-  /* Pack only for small images and when having large K to amortize */
+  /* Pack only for small images and when having large K to amortize, and we can only pack for 1x1 convolutions */
   if ((handle->ofw <= 14) && (handle->desc.K > 512) && (handle->desc.R == 1) && (handle->desc.S == 1) && (handle->desc.u == 2) && (handle->desc.v == 2)) {
     result = 1;
   }
@@ -105,7 +105,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_pack_input_fwd( libxs_dnn_layer
   if (handle->desc.N != handle->desc.threads) {
     result = 0;
   }
-
+  /* we don't pack for int8 */
   if (handle->datatype_in == LIBXS_DNN_DATATYPE_I8) {
     result = 0;
   }
@@ -299,6 +299,48 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_init_fwd_gemm_flags( libxs_dnn_
   return result;
 }
 
+LIBXS_API_INLINE void libxs_dnn_convolution_setup_fwd_scratch( libxs_dnn_layer* handle ) {
+  /* packing of input */
+  if ( handle->pack_input != 0 ) {
+    handle->fwd_packing_padding_scratch_size = (size_t)handle->desc.N * handle->desc.C *
+                                                 handle->desc.H/handle->desc.u *
+                                                 handle->desc.W/handle->desc.v *
+                                                 libxs_dnn_typesize(handle->datatype_in);
+  } else {
+    handle->fwd_packing_padding_scratch_size = 0;
+  }
+  /* logical padding with copying in the fly */
+  if ( (handle->desc.pad_h != handle->desc.pad_h_in) && (handle->desc.pad_w != handle->desc.pad_w_in) ) {
+    handle->fwd_packing_padding_scratch_size = (size_t)handle->desc.N * handle->desc.C *
+                                                 (handle->desc.H + 2*handle->desc.pad_h) *
+                                                 (handle->desc.W + 2*handle->desc.pad_w) *
+                                                 libxs_dnn_typesize(handle->datatype_in);
+  } else {
+    handle->fwd_packing_padding_scratch_size = 0;
+  }
+  /* output buffer in high precision when we use BF16 */
+  if ( ( handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 ) || ( handle->datatype_in == LIBXS_DNN_DATATYPE_I8 ) ) {
+    handle->fwd_lp_output_full_scratch_size = (size_t)handle->desc.N * handle->desc.K *
+                                                handle->ofwp * handle->ofhp *
+                                                libxs_dnn_typesize(LIBXS_DNN_DATATYPE_F32);
+    handle->fwd_lp_output_block_scratch_size = (size_t)handle->desc.threads * handle->fwd_ofw_rb *
+                                                 handle->fwd_ofh_rb * handle->ofmblock *
+                                                 libxs_dnn_typesize(LIBXS_DNN_DATATYPE_F32);
+  } else {
+    handle->fwd_lp_output_full_scratch_size = 0;
+    handle->fwd_lp_output_block_scratch_size = 0;
+  }
+  /* set offsets */
+  handle->fwd_packing_padding_scratch_offset = 0;
+  handle->fwd_lp_output_full_scratch_offset = handle->fwd_packing_padding_scratch_size;
+  handle->fwd_lp_output_block_scratch_offset = handle->fwd_lp_output_full_scratch_offset + handle->fwd_lp_output_full_scratch_size;
+
+  /* set overall scratch size for forward */
+  handle->fwd_scratch_size = handle->fwd_packing_padding_scratch_size +
+                               handle->fwd_lp_output_full_scratch_size +
+                               handle->fwd_lp_output_block_scratch_size;
+}
+
 /**********************************************************/
 /* Helper functions for BWD convolutions' parameter setup */
 /**********************************************************/
@@ -425,6 +467,10 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_avoid_acc_load_bwd( libxs_dnn_l
     }
   }
   return result;
+}
+
+LIBXS_API_INLINE void libxs_dnn_convolution_setup_bwd_scratch( libxs_dnn_layer* handle ) {
+  handle->bwd_scratch_size = 0;
 }
 
 /**********************************************************/
@@ -692,6 +738,9 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd( libxs_dnn_layer* han
 
 }
 
+LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* handle ) {
+  handle->upd_scratch_size = 0;
+}
 
 LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* handle ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
@@ -889,11 +938,17 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->code_upd[0].ptr = 0;
   handle->code_upd[1].ptr = 0;
 
-  /*****************************/
-  /* Barrier and scratch setup */
-  /*****************************/
   /* prepare barrier */
   handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
+
+  /* setup up scratch */
+  libxs_dnn_convolution_setup_fwd_scratch( handle );
+  libxs_dnn_convolution_setup_bwd_scratch( handle );
+  libxs_dnn_convolution_setup_upd_scratch( handle );
+  handle->scratch = 0;
+  handle->scratch_size = LIBXS_MAX( handle->fwd_scratch_size, LIBXS_MAX( handle->bwd_scratch_size, handle->upd_scratch_size ) );
+
+  /* @TODO this is old code and it need to be refactored */
   /* backward transpose filters, as we want to call small GEMMs we need that scratch AND also scratch to potentially pack input if requested*/
   handle->scratch1 = 0;
   handle->scratch1_size = (size_t)handle->blocksifm * handle->ifmblock * handle->blocksofm * handle->ofmblock
@@ -1904,9 +1959,6 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           if (handle->padding_flag == 1) {
-                                             l_scratch_size = handle->fwdbwd_scratch_size + 64;
-                                           }
                                            l_scratch_size += handle->max_scratch5_size + 64;
                                            l_scratch_size += handle->scratch6_size + 64;
                                            l_scratch_size += handle->scratch7_size + 64;
@@ -1914,7 +1966,6 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
       case LIBXS_DNN_COMPUTE_KIND_BWD: {
                                            /* we need filter for transpose, + 64 to do alignment while performing bind, scratch1 */
                                            l_scratch_size = handle->scratch1_size + 64;
-                                           l_scratch_size += handle->fwdbwd_scratch_size + 64;
                                            l_scratch_size += handle->max_scratch5_size + 64;
                                            l_scratch_size += handle->scratch7_size + 64;
                                          } break;
@@ -1951,6 +2002,7 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
                  *status = LIBXS_DNN_ERR_INVALID_KIND;
                }
     }
+    l_scratch_size += handle->scratch_size + 64;
   } else {
     *status = LIBXS_DNN_ERR_INVALID_HANDLE;
   }
@@ -1977,6 +2029,13 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
   }
 
   if (0 != handle) {
+    if (address % 64 == 0) {
+      handle->scratch = (void*)address;
+    } else {
+      offset = (64 - address % 64);
+      handle->scratch = (void*)(address+offset);
+    }
+    /* @TODO this is old code and needs to be refactored */
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
                                            if (address % 64 == 0) {
@@ -2157,6 +2216,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, con
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
+    handle->scratch = 0;
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
                                            handle->scratch5 = 0;
