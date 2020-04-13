@@ -299,6 +299,14 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_init_fwd_gemm_flags( libxs_dnn_
   return result;
 }
 
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_padding_copy( libxs_dnn_layer* handle ) {
+  int result = 0;
+  if ( (handle->desc.pad_h != handle->desc.pad_h_in) && (handle->desc.pad_w != handle->desc.pad_w_in) ) {
+    result = 1;
+  }
+  return result;
+}
+
 LIBXS_API_INLINE void libxs_dnn_convolution_setup_fwd_scratch( libxs_dnn_layer* handle ) {
   /* packing of input */
   if ( handle->pack_input != 0 ) {
@@ -310,7 +318,7 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_fwd_scratch( libxs_dnn_layer* 
     handle->fwd_packing_padding_scratch_size = 0;
   }
   /* logical padding with copying in the fly */
-  if ( (handle->desc.pad_h != handle->desc.pad_h_in) && (handle->desc.pad_w != handle->desc.pad_w_in) ) {
+  if ( handle->fwd_padding_copy != 0 ) {
     handle->fwd_packing_padding_scratch_size = (size_t)handle->desc.N * handle->desc.C *
                                                  (handle->desc.H + 2*handle->desc.pad_h) *
                                                  (handle->desc.W + 2*handle->desc.pad_w) *
@@ -771,6 +779,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->avoid_acc_load = libxs_dnn_convolution_setup_avoid_acc_load(handle);
   handle->fwd_flags = libxs_dnn_convolution_setup_init_fwd_gemm_flags(handle);
   handle->use_fallback_fwd_loops = libxs_dnn_convolution_setup_fallback_loops_fwd(handle);
+  handle->fwd_padding_copy = libxs_dnn_convolution_setup_fwd_padding_copy(handle);
   handle->code_fwd[0].ptr = 0;
   handle->code_fwd[1].ptr = 0;
   handle->code_fwd[2].ptr = 0;
@@ -997,11 +1006,12 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(
     return 0;
   }
   /* we only support physical paddind in these days */
-  /* @TODO: add logical padding support */
-  if ( ( conv_desc.pad_h != conv_desc.pad_h_in )  ||
-      ( conv_desc.pad_w != conv_desc.pad_w_in )  ||
-      ( conv_desc.pad_h != conv_desc.pad_h_out ) ||
-      ( conv_desc.pad_w != conv_desc.pad_w_out )    ) {
+  /* @TODO: add logical padding support for other datatypes than FP32 */
+  if ( ( ( conv_desc.pad_h != conv_desc.pad_h_in )  ||
+         ( conv_desc.pad_w != conv_desc.pad_w_in )  ||
+         ( conv_desc.pad_h != conv_desc.pad_h_out ) ||
+         ( conv_desc.pad_w != conv_desc.pad_w_out )    ) &&
+       ( conv_desc.datatype_in != LIBXS_DNN_DATATYPE_F32 ) ) {
     *status = LIBXS_DNN_ERR_INVALID_PADDING;
     return 0;
   }
