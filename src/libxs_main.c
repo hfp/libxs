@@ -883,7 +883,7 @@ LIBXS_API_INTERN void internal_init(void)
     }
 #endif
 #if (0 == LIBXS_JIT)
-    if (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) {
+    if (2 > libxs_ninit && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity)) {
       fprintf(stderr, "LIBXS: JIT-code generation was disabled at compile-time.\n");
     }
 #endif
