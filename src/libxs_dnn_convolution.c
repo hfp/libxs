@@ -748,8 +748,82 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd( libxs_dnn_layer* han
 
 }
 
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_upd_padding_copy( libxs_dnn_layer* handle ) {
+  int result = 0;
+  if ( (handle->desc.pad_h != handle->desc.pad_h_in) && (handle->desc.pad_w != handle->desc.pad_w_in) ) {
+    result = 1;
+  }
+  return result;
+}
+
 LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* handle ) {
   handle->upd_scratch_size = 0;
+  /* packing of input */
+  if ( handle->upd_pack_input != 0 ) {
+    handle->upd_packing_padding_scratch_size = (size_t)handle->desc.N * handle->desc.C *
+                                                 handle->desc.H/handle->desc.u *
+                                                 handle->desc.W/handle->desc.v *
+                                                 libxs_dnn_typesize(handle->datatype_in);
+  } else {
+    handle->upd_packing_padding_scratch_size = 0;
+  }
+  /* logical padding with copying in the fly */
+  if ( handle->upd_padding_copy != 0 ) {
+    handle->upd_packing_padding_scratch_size = (size_t)handle->desc.N * handle->desc.C *
+                                                 (handle->desc.H + 2*handle->desc.pad_h) *
+                                                 (handle->desc.W + 2*handle->desc.pad_w) *
+                                                 libxs_dnn_typesize(handle->datatype_in);
+  } else {
+    handle->upd_packing_padding_scratch_size = 0;
+  }
+
+  handle->upd_packing_padding_scratch_offset = 0;
+
+  /* output/input buffer to transpose when we use bf16 */
+  if ( handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 ) {
+    const int multiple_target = 2;
+    if (handle->upd_linearized_pixels == 1) {
+      int compute_pixels = handle->ofw * handle->ofh + 2 * handle->desc.pad_w * (handle->ofh-1);
+      int remainder_pixels = (compute_pixels % multiple_target == 0) ? 0 : (compute_pixels/multiple_target+1)*multiple_target - compute_pixels;
+      int accum_length_pixels = compute_pixels + remainder_pixels;
+
+      int max_init_offset = 2 * handle->desc.pad_h * (handle->desc.W + 2*handle->desc.pad_w)  + 2 * handle->desc.pad_w;
+      int max_compute_offset_input = max_init_offset + accum_length_pixels;
+      int input_compute_pad = (max_compute_offset_input > (handle->desc.W+2*handle->desc.pad_w) * (handle->desc.H+2*handle->desc.pad_h)) ? max_compute_offset_input - (handle->desc.W+2*handle->desc.pad_w) * (handle->desc.H+2*handle->desc.pad_h) : 0;
+      int input_pixels = (handle->desc.W+2*handle->desc.pad_w) * (handle->desc.H+2*handle->desc.pad_h) + input_compute_pad;
+      if (handle->upd_pack_input_upfront == 1) {
+        input_pixels = accum_length_pixels;
+      }
+
+      handle->upd_lp_output_full_scratch_size = (size_t) (handle->desc.N * accum_length_pixels * handle->desc.K * sizeof(handle->datatype_in));
+      handle->upd_lp_input_full_scratch_size = (size_t) (handle->desc.N * input_pixels * handle->desc.C * sizeof(handle->datatype_in));
+    }
+
+    if (handle->upd_linearized_pixels == 0) {
+      int remainder_pixels = (handle->ofw % multiple_target == 0) ? 0 : (handle->ofw/multiple_target+1)*multiple_target - handle->ofw;
+      int ofwp_extended = (handle->desc.W+2*handle->desc.pad_w) + remainder_pixels;
+      int ifwp_extended = (handle->desc.W+2*handle->desc.pad_w) + remainder_pixels;
+
+      handle->upd_lp_output_full_scratch_size = (size_t) (handle->desc.N * (handle->desc.H+2*handle->desc.pad_h) * ofwp_extended * handle->desc.K * sizeof(handle->datatype_in));
+      handle->upd_lp_input_full_scratch_size = (size_t) (handle->desc.N * (handle->desc.H+2*handle->desc.pad_h) * ifwp_extended * handle->desc.C * sizeof(handle->datatype_in));
+    }
+  } else {
+    handle->upd_lp_output_full_scratch_size = 0;
+    handle->upd_lp_input_full_scratch_size = 0;
+  }
+
+  handle->upd_lp_output_full_scratch_offset = handle->upd_packing_padding_scratch_size;
+  handle->upd_lp_input_full_scratch_offset = handle->upd_lp_output_full_scratch_offset + handle->upd_lp_output_full_scratch_size;
+
+  handle->upd_filter_scratch_size = (size_t) handle->desc.R * handle->desc.S * handle->desc.C * handle->desc.K * LIBXS_MAX(handle->desc.threads, handle->desc.N) * sizeof(float);
+  handle->upd_filter_scratch_offset = handle->upd_lp_input_full_scratch_offset + handle->upd_lp_input_full_scratch_size;
+
+  /* set overall scratch size for update */
+  handle->upd_scratch_size = handle->upd_packing_padding_scratch_size +
+                               handle->upd_lp_output_full_scratch_size +
+                               handle->upd_lp_input_full_scratch_size +
+                               handle->upd_filter_scratch_size;
+
 }
 
 LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* handle ) {
@@ -930,6 +1004,8 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
     libxs_dnn_convolution_setup_bf16_upd(handle);
   }
+
+  handle->upd_padding_copy = libxs_dnn_convolution_setup_upd_padding_copy(handle);
 
 #if 0
   /* Spit out UPD parameters that are selected...  */
