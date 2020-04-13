@@ -405,6 +405,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int use_hybrid_imgofm_parallelization;
   int compute_pixels;
   int upd_trans_w_only;
+  int fwd_padding_copy;
 
   libxs_xtransfunction tr_kernel;
 
