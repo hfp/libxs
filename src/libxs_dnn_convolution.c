@@ -491,12 +491,12 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_avoid_acc_load_bwd( libxs_dnn_l
 LIBXS_API_INLINE void libxs_dnn_convolution_setup_bwd_scratch( libxs_dnn_layer* handle ) {
   /* transpose of weights */
   handle->bwd_filter_trans_scratch_size = (size_t)handle->desc.C * handle->desc.K *
-                                            handle->desc.R * handle->desc.S;
+                                            handle->desc.R * handle->desc.S *
+                                            libxs_dnn_typesize(handle->datatype_in);
 
   handle->bwd_packing_padding_scratch_size = 0;
   /* packing of input */
   if ( handle->pack_input_bwd != 0 ) {
-    printf("using input packing \n");
     handle->bwd_packing_padding_scratch_size = (size_t)handle->desc.N * handle->desc.C *
                                                  handle->ofhp * handle->ofwp *
                                                  libxs_dnn_typesize(handle->datatype_in);
