@@ -339,6 +339,14 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_fwd_scratch( libxs_dnn_layer* 
     handle->fwd_lp_output_full_scratch_size = 0;
     handle->fwd_lp_output_block_scratch_size = 0;
   }
+  /* align sizes to full cacheline */
+  handle->fwd_packing_padding_scratch_size += ( handle->fwd_packing_padding_scratch_size % LIBXS_CACHELINE == 0 ) ? 0 :
+                                             LIBXS_CACHELINE - (handle->fwd_packing_padding_scratch_size % LIBXS_CACHELINE);
+  handle->fwd_lp_output_full_scratch_size += ( handle->fwd_lp_output_full_scratch_size % LIBXS_CACHELINE == 0 ) ? 0 :
+                                             LIBXS_CACHELINE - (handle->fwd_lp_output_full_scratch_size % LIBXS_CACHELINE);
+  handle->fwd_lp_output_block_scratch_size += ( handle->fwd_lp_output_block_scratch_size % LIBXS_CACHELINE == 0 ) ? 0 :
+                                             LIBXS_CACHELINE - (handle->fwd_lp_output_block_scratch_size % LIBXS_CACHELINE);
+
   /* set offsets */
   handle->fwd_packing_padding_scratch_offset = 0;
   handle->fwd_lp_output_full_scratch_offset = handle->fwd_packing_padding_scratch_size;
@@ -504,19 +512,22 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bwd_scratch( libxs_dnn_layer* 
   } else {
     handle->bwd_packing_padding_scratch_size = 0;
   }
-  /* output buffer in high precision when we use BF16 */
+  /* input bufffer in high precision when we use BF16 */
   if ( handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 ) {
     handle->bwd_lp_input_full_scratch_size = (size_t)handle->desc.N * handle->desc.C *
                                                 handle->ifwp * handle->ifhp *
                                                 libxs_dnn_typesize(LIBXS_DNN_DATATYPE_F32);
-#if 0
-    handle->bwd_lp_input_block_scratch_size = (size_t)handle->desc.threads * handle->bwd_ofw_rb *
-                                                 handle->desc.v * handle->bwd_ofh_rb * handle->ifmblock *
-                                                 libxs_dnn_typesize(LIBXS_DNN_DATATYPE_F32);
-#endif
   } else {
     handle->bwd_lp_input_full_scratch_size = 0;
   }
+  /* align sizes to full cacheline */
+  handle->bwd_filter_trans_scratch_size += ( handle->bwd_filter_trans_scratch_size % LIBXS_CACHELINE == 0 ) ? 0 :
+                                             LIBXS_CACHELINE - (handle->bwd_filter_trans_scratch_size % LIBXS_CACHELINE);
+  handle->bwd_packing_padding_scratch_size += ( handle->bwd_packing_padding_scratch_size % LIBXS_CACHELINE == 0 ) ? 0 :
+                                             LIBXS_CACHELINE - (handle->bwd_packing_padding_scratch_size % LIBXS_CACHELINE);
+  handle->bwd_lp_input_full_scratch_size += ( handle->bwd_lp_input_full_scratch_size % LIBXS_CACHELINE == 0 ) ? 0 :
+                                             LIBXS_CACHELINE - (handle->bwd_lp_input_full_scratch_size % LIBXS_CACHELINE);
+
   /* set offsets */
   handle->bwd_filter_trans_scratch_offset = 0;
   handle->bwd_packing_padding_scratch_offset = handle->bwd_filter_trans_scratch_size;
@@ -803,7 +814,6 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_upd_padding_copy( libxs_dnn_lay
 }
 
 LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* handle ) {
-  handle->upd_scratch_size = 0;
   /* packing of input */
   if ( handle->upd_pack_input != 0 ) {
     handle->upd_packing_padding_scratch_size = (size_t)handle->desc.N * handle->desc.C *
@@ -822,9 +832,6 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* 
   } else {
     handle->upd_packing_padding_scratch_size = 0;
   }
-
-  handle->upd_packing_padding_scratch_offset = 0;
-
   /* output/input buffer to transpose when we use bf16 */
   if ( handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 ) {
     const int multiple_target = 2;
@@ -857,11 +864,23 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* 
     handle->upd_lp_output_full_scratch_size = 0;
     handle->upd_lp_input_full_scratch_size = 0;
   }
+  /* filter scratch */
+  handle->upd_filter_scratch_size = (size_t) handle->desc.R * handle->desc.S * handle->desc.C * handle->desc.K * LIBXS_MAX(handle->desc.threads, handle->desc.N) * sizeof(float);
 
+  /* align sizes to full cacheline */
+  handle->upd_packing_padding_scratch_size += ( handle->upd_packing_padding_scratch_size % LIBXS_CACHELINE == 0 ) ? 0 :
+                                             LIBXS_CACHELINE - (handle->upd_packing_padding_scratch_size % LIBXS_CACHELINE);
+  handle->upd_lp_output_full_scratch_size += ( handle->upd_lp_output_full_scratch_size % LIBXS_CACHELINE == 0 ) ? 0 :
+                                             LIBXS_CACHELINE - (handle->upd_lp_output_full_scratch_size % LIBXS_CACHELINE);
+  handle->upd_lp_input_full_scratch_size += ( handle->upd_lp_input_full_scratch_size % LIBXS_CACHELINE == 0 ) ? 0 :
+                                             LIBXS_CACHELINE - (handle->upd_lp_input_full_scratch_size % LIBXS_CACHELINE);
+  handle->upd_filter_scratch_size += ( handle->upd_filter_scratch_size % LIBXS_CACHELINE == 0 ) ? 0 :
+                                             LIBXS_CACHELINE - (handle->upd_filter_scratch_size % LIBXS_CACHELINE);
+
+  /* calculate offsets */
+  handle->upd_packing_padding_scratch_offset = 0;
   handle->upd_lp_output_full_scratch_offset = handle->upd_packing_padding_scratch_size;
   handle->upd_lp_input_full_scratch_offset = handle->upd_lp_output_full_scratch_offset + handle->upd_lp_output_full_scratch_size;
-
-  handle->upd_filter_scratch_size = (size_t) handle->desc.R * handle->desc.S * handle->desc.C * handle->desc.K * LIBXS_MAX(handle->desc.threads, handle->desc.N) * sizeof(float);
   handle->upd_filter_scratch_offset = handle->upd_lp_input_full_scratch_offset + handle->upd_lp_input_full_scratch_size;
 
   /* set overall scratch size for update */
@@ -869,7 +888,6 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* 
                                handle->upd_lp_output_full_scratch_size +
                                handle->upd_lp_input_full_scratch_size +
                                handle->upd_filter_scratch_size;
-
 }
 
 LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* handle ) {
