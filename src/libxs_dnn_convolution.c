@@ -497,7 +497,7 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bwd_scratch( libxs_dnn_layer* 
   }
   /* logical padding with copying in the fly */
   if ( handle->use_fallback_bwd_loops != 0 ) {
-    handle->bwd_packing_padding_scratch_size = (size_t)handle->desc.N * handle->desc.C *
+    handle->bwd_packing_padding_scratch_size = (size_t)handle->desc.threads * handle->ifmblock *
                                                  (handle->desc.H + 2*handle->desc.pad_h) *
                                                  (handle->desc.W + 2*handle->desc.pad_w) *
                                                  libxs_dnn_typesize(handle->datatype_in);
