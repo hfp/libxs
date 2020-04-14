@@ -366,7 +366,8 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_fallback_loops_bwd( libxs_dnn_l
   if ((handle->desc.R > 1 && handle->desc.pad_h == 0) || (handle->desc.S > 1 && handle->desc.pad_w == 0)) {
     result = 1;
   }
-  if ((handle->desc.R > 1 && (handle->desc.pad_h_out == 0 || handle->desc.pad_h_in == 0)) || (handle->desc.S > 1 && (handle->desc.pad_w_out == 0 || handle->desc.pad_w_in == 0))) {
+  if ((handle->desc.R > 1 && (handle->desc.pad_h_out == 0 || handle->desc.pad_h_in == 0)) ||
+      (handle->desc.S > 1 && (handle->desc.pad_w_out == 0 || handle->desc.pad_w_in == 0))    ) {
     result = 1;
   }
   if ((handle->desc.R > 1 && handle->desc.u > 1) || (handle->desc.S > 1 && handle->desc.v > 1)) {
@@ -483,7 +484,51 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_avoid_acc_load_bwd( libxs_dnn_l
 }
 
 LIBXS_API_INLINE void libxs_dnn_convolution_setup_bwd_scratch( libxs_dnn_layer* handle ) {
-  handle->bwd_scratch_size = 0;
+  /* transpose of weights */
+  handle->bwd_filter_trans_scratch_size = (size_t)handle->desc.C * handle->desc.K *
+                                            handle->desc.R * handle->desc.S;
+  /* packing of input */
+  if ( handle->pack_input_bwd != 0 ) {
+    handle->bwd_packing_padding_scratch_size = (size_t)handle->desc.N * handle->desc.C *
+                                                 handle->ofhp * handle->ofwp *
+                                                 libxs_dnn_typesize(handle->datatype_in);
+  } else {
+    handle->bwd_packing_padding_scratch_size = 0;
+  }
+  /* logical padding with copying in the fly */
+  if ( handle->use_fallback_bwd_loops != 0 ) {
+    handle->bwd_packing_padding_scratch_size = (size_t)handle->desc.N * handle->desc.K *
+                                                 (handle->ofh + 2*handle->desc.pad_h) *
+                                                 (handle->ofw + 2*handle->desc.pad_w) *
+                                                 libxs_dnn_typesize(handle->datatype_in);
+  } else {
+    handle->bwd_packing_padding_scratch_size = 0;
+  }
+  /* output buffer in high precision when we use BF16 */
+  if ( ( handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 ) ) {
+    handle->bwd_lp_output_full_scratch_size = (size_t)handle->desc.N * handle->desc.C *
+                                                handle->ifwp * handle->ifhp *
+                                                libxs_dnn_typesize(LIBXS_DNN_DATATYPE_F32);
+    handle->bwd_lp_output_block_scratch_size = (size_t)handle->desc.threads * handle->bwd_ofw_rb *
+                                                 handle->desc.v * handle->bwd_ofh_rb * handle->ifmblock *
+                                                 libxs_dnn_typesize(LIBXS_DNN_DATATYPE_F32);
+  } else {
+    handle->bwd_lp_output_full_scratch_size = 0;
+    handle->bwd_lp_output_block_scratch_size = 0;
+  }
+  /* set offsets */
+  handle->bwd_filter_trans_scratch_offset = 0;
+  handle->bwd_packing_padding_scratch_offset = handle->bwd_filter_trans_scratch_size;
+  handle->bwd_lp_output_full_scratch_offset = handle->bwd_packing_padding_scratch_offset +
+                                                handle->bwd_packing_padding_scratch_size;
+  handle->bwd_lp_output_block_scratch_offset = handle->bwd_lp_output_full_scratch_offset +
+                                                 handle->bwd_lp_output_full_scratch_size;
+
+  /* set overall scratch size for forward */
+  handle->bwd_scratch_size = handle->bwd_filter_trans_scratch_size +
+                               handle->bwd_packing_padding_scratch_size +
+                               handle->bwd_lp_output_full_scratch_size +
+                               handle->bwd_lp_output_block_scratch_size;
 }
 
 /**********************************************************/
