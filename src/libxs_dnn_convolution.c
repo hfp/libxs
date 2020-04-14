@@ -2067,7 +2067,6 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
                                              l_scratch_size += handle->scratch2_size + 64;
                                            }
                                            l_scratch_size += handle->scratch3_size + 64;
-                                           l_scratch_size += handle->minibatch_scratch_size + 64;
                                            if (handle->scratch7_size != 0) {
                                              l_scratch_size += handle->scratch7_size + 64;
                                            }
