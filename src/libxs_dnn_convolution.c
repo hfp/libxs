@@ -1082,7 +1082,6 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->scratch_size = LIBXS_MAX( handle->fwd_scratch_size, LIBXS_MAX( handle->bwd_scratch_size, handle->upd_scratch_size ) );
 
   handle->scratch3 = 0;
-  handle->scratch3_size = 0;
 
   return status;
 }
