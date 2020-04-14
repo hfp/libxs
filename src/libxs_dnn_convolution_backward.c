@@ -156,7 +156,9 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom_f32_f32(libxs_dnn_layer* h
   } else {
     const libxs_blasint ldB = (libxs_blasint)(handle->blocksofm * handle->ofmblock);
     const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
-    const libxs_blasint ldC = (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v);
+    const libxs_blasint ldC = ( (handle->desc.pad_h != handle->desc.pad_h_in) || (handle->desc.pad_w != handle->desc.pad_w_in) ) ?
+                                  (libxs_blasint)(handle->ifmblock * handle->desc.v) :
+                                  (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v);
     typedef float element_input_type;
     typedef float element_output_type;
     typedef float element_filter_type;
@@ -199,7 +201,9 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck_f32_f32(libxs_dnn_layer* han
   } else {
     const libxs_blasint ldB = (libxs_blasint)(handle->blocksofm * handle->ofmblock);
     const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
-    const libxs_blasint ldC = (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v);
+    const libxs_blasint ldC = ( (handle->desc.pad_h != handle->desc.pad_h_in) || (handle->desc.pad_w != handle->desc.pad_w_in) ) ?
+                                  (libxs_blasint)(handle->ifmblock * handle->desc.v) :
+                                  (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v);
     typedef float element_input_type;
     typedef float element_output_type;
     typedef float element_filter_type;
@@ -329,7 +333,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_l
       } else {
         const libxs_blasint ldB = (libxs_blasint)(handle->blocksofm * handle->ofmblock);
         const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
-        const libxs_blasint ldC = (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v);
+        const libxs_blasint ldC = ( (handle->desc.pad_h != handle->desc.pad_h_in) || (handle->desc.pad_w != handle->desc.pad_w_in) ) ?
+                                      (libxs_blasint)(handle->ifmblock * handle->desc.v) :
+                                      (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v);
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
@@ -392,7 +398,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs_dnn
       } else {
         const libxs_blasint ldB = (libxs_blasint)(handle->blocksofm * handle->ofmblock);
         const libxs_blasint ldA = (libxs_blasint)handle->ifmblock;
-        const libxs_blasint ldC = (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v);
+        const libxs_blasint ldC = ( (handle->desc.pad_h != handle->desc.pad_h_in) || (handle->desc.pad_w != handle->desc.pad_w_in) ) ?
+                                      (libxs_blasint)(handle->ifmblock * handle->desc.v) :
+                                      (libxs_blasint)(handle->blocksifm * handle->ifmblock * handle->desc.v);
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
