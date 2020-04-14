@@ -468,7 +468,6 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   size_t scratch3_size;
   void* scratch7;             /* TLS: filter_scratch (generic WU) */
   size_t scratch7_size;
-  size_t minibatch_scratch_size;
 
   libxs_code_pointer gemm_fwd;     /* ability to hoist forward GEMMs */
   libxs_code_pointer gemm_fwd2;     /* ability to hoist forward GEMMs */
