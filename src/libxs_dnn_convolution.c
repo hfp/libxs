@@ -366,6 +366,9 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_fallback_loops_bwd( libxs_dnn_l
   if ((handle->desc.R > 1 && handle->desc.pad_h == 0) || (handle->desc.S > 1 && handle->desc.pad_w == 0)) {
     result = 1;
   }
+  if ((handle->desc.R > 1 && (handle->desc.pad_h_out == 0 || handle->desc.pad_h_in == 0)) || (handle->desc.S > 1 && (handle->desc.pad_w_out == 0 || handle->desc.pad_w_in == 0))) {
+    result = 1;
+  }
   if ((handle->desc.R > 1 && handle->desc.u > 1) || (handle->desc.S > 1 && handle->desc.v > 1)) {
     result = 1;
   }
