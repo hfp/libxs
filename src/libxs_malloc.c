@@ -171,6 +171,10 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #if !defined(LIBXS_MALLOC_DELETE_SAFE) && 0
 # define LIBXS_MALLOC_DELETE_SAFE
 #endif
+/* align even if interceptor is disabled at runtime */
+#if !defined(LIBXS_MALLOC_ALIGN_ALL) && 1
+# define LIBXS_MALLOC_ALIGN_ALL
+#endif
 /* map memory for scratch buffers */
 #if !defined(LIBXS_MALLOC_MMAP_SCRATCH) && 1
 # define LIBXS_MALLOC_MMAP_SCRATCH
@@ -184,14 +188,24 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 # define LIBXS_MALLOC_MMAP
 #endif
 
+#if defined(LIBXS_MALLOC_ALIGN_ALL)
+# define INTERNAL_AUTOALIGN(SIZE, ALIGNMENT) libxs_alignment(SIZE, ALIGNMENT)
+#else
+# define INTERNAL_AUTOALIGN(SIZE, ALIGNMENT) ALIGNMENT
+#endif
+
 #define INTERNAL_MEMALIGN_HOOK(RESULT, FLAGS, ALIGNMENT, SIZE, CALLER) { \
-  const int recursive = LIBXS_ATOMIC_ADD_FETCH(&internal_malloc_recursive, 1, LIBXS_ATOMIC_RELAXED); \
-  if ( 1 < recursive /* protect against recursion */ \
+  const int internal_memalign_hook_recursive_ = LIBXS_ATOMIC_ADD_FETCH( \
+    &internal_malloc_recursive, 1, LIBXS_ATOMIC_RELAXED); \
+  if ( 1 < internal_memalign_hook_recursive_ /* protect against recursion */ \
     || 0 == (internal_malloc_kind & 1) || 0 >= internal_malloc_kind \
     || (internal_malloc_limit[0] > (SIZE)) \
     || (internal_malloc_limit[1] < (SIZE) && 0 != internal_malloc_limit[1])) \
   { \
-    (RESULT) = (0 != (ALIGNMENT) ? __real_memalign(ALIGNMENT, SIZE) : __real_malloc(SIZE)); \
+    const size_t internal_memalign_hook_alignment_ = INTERNAL_AUTOALIGN(ALIGNMENT); \
+    (RESULT) = (0 != internal_memalign_hook_alignment_ \
+      ? __real_memalign(internal_memalign_hook_alignment_, SIZE) \
+      : __real_malloc(SIZE)); \
   } \
   else { /* redirect */ \
     LIBXS_INIT \
@@ -295,16 +309,19 @@ LIBXS_APIVAR_DEFINE(int internal_malloc_join);
 
 LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment)
 {
-  size_t result = sizeof(void*);
+  size_t result;
   if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_MALLOC_ALIGNMAX) <= size) {
     result = libxs_lcm(0 == alignment ? (LIBXS_ALIGNMENT) : libxs_lcm(alignment, LIBXS_ALIGNMENT), LIBXS_MALLOC_ALIGNMAX);
   }
-  else {
+  else { /* small-size request */
     if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_ALIGNMENT) <= size) {
       result = (0 == alignment ? (LIBXS_ALIGNMENT) : libxs_lcm(alignment, LIBXS_ALIGNMENT));
     }
-    else if (0 != alignment) {
-      result = libxs_lcm(alignment, result);
+    else if (0 != alignment) { /* custom alignment */
+      result = libxs_lcm(alignment, sizeof(void*));
+    }
+    else { /* tiny-size request */
+      result = sizeof(void*);
     }
   }
   return result;
