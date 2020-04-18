@@ -299,14 +299,20 @@
 #define LIBXS_API_INLINE LIBXS_INLINE LIBXS_RETARGETABLE
 #define LIBXS_API_DEF
 
+#if (!defined(__INTEL_COMPILER) || !defined(_WIN32))
+#define LIBXS_APIVAR_ALIGNED(DECL, VISIBILITY) LIBXS_ALIGNED(LIBXS_APIVAR(DECL, VISIBILITY, LIBXS_API_DEF), LIBXS_CONFIG_CACHELINE)
+#else
+#define LIBXS_APIVAR_ALIGNED(DECL, VISIBILITY) LIBXS_APIVAR(DECL, VISIBILITY, LIBXS_API_DEF)
+#endif
+
 /** Public visible variable declaration (without definition) located in header file. */
 #define LIBXS_APIVAR_PUBLIC(DECL) LIBXS_APIVAR(DECL, EXPORT, LIBXS_API_EXTERN)
 /** Public visible variable definition (complements declaration) located in source file. */
-#define LIBXS_APIVAR_PUBLIC_DEF(DECL) LIBXS_ALIGNED(LIBXS_APIVAR(DECL, EXPORT, LIBXS_API_DEF), LIBXS_CONFIG_CACHELINE)
+#define LIBXS_APIVAR_PUBLIC_DEF(DECL) LIBXS_APIVAR_ALIGNED(DECL, EXPORT)
 /** Private variable declaration (without definition) located in header file. */
 #define LIBXS_APIVAR_PRIVATE(DECL) LIBXS_APIVAR(DECL, INTERN, LIBXS_API_EXTERN)
 /** Private variable definition (complements declaration) located in source file. */
-#define LIBXS_APIVAR_PRIVATE_DEF(DECL) LIBXS_ALIGNED(LIBXS_APIVAR(DECL, INTERN, LIBXS_API_DEF), LIBXS_CONFIG_CACHELINE)
+#define LIBXS_APIVAR_PRIVATE_DEF(DECL) LIBXS_APIVAR_ALIGNED(DECL, INTERN)
 /** Private variable (declaration and definition) located in source file. */
 #define LIBXS_APIVAR_DEFINE(DECL) LIBXS_APIVAR_PRIVATE(DECL); LIBXS_APIVAR_PRIVATE_DEF(DECL)
 /** Function decoration used for private functions. */
@@ -852,7 +858,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # endif
 #endif
 #if !defined(LIBXS_NO_LIBM) && (!defined(__STDC_VERSION__) || (199901L > __STDC_VERSION__) || defined(__cplusplus))
-# if defined(LIBXS_INTEL_COMPILER)
+# if defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32) /* error including dfp754.h */
 #   include <mathimf.h>
 # endif
 # include <math.h>
