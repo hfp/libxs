@@ -1,6 +1,6 @@
 # Intercepted Allocations<a name="scalable_malloc"></a>
 
-To improve thread-scalability and to avoid frequent memory allocation/deallocation, the [scratch memory allocator](libxs_aux.md#memory-allocation) can be leveraged by intercepting existing malloc/free calls. This facility is built into LIBXS's main library (disable at compile-time: `make MALLOC=0`) and can be enabled by using an environment variable (`LIBXS_MALLOC=1`) or can be enabled per API (`libxs_set_malloc`). The latter takes an optional lower and/or an optional upper bound to select malloc-calls based on the size of the allocation. This can also be achieved by using a separate environment variable (e.g., LIBXS_MALLOC_LIMIT=4m:1g).
+To improve thread-scalability and to avoid frequent memory allocation/deallocation, the [scratch memory allocator](libxs_aux.md#memory-allocation) can be leveraged by intercepting existing malloc/free calls. This facility is built into LIBXS's main library, but disabled at compile-time (by default); build with `make MALLOC=1` to permanently enable, or build with `make MALLOC=-1` to even require an environment variable `LIBXS_MALLOC=1` or an API-call (`libxs_set_malloc`). Both runtime settings allow an optional lower and/or an upper bound to select malloc-calls based on the size of the allocation. For the environment option, an extra variable is introduced, e.g., use `LIBXS_MALLOC=1 LIBXS_MALLOC_LIMIT=4m:1g`.
 
 ```C
 void libxs_set_malloc(int enabled, const size_t* lo, const size_t* hi);
