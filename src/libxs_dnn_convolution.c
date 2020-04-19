@@ -2066,12 +2066,8 @@ LIBXS_API size_t libxs_dnn_get_scratch_size(const libxs_dnn_layer* handle, const
 
   if (0 != handle) {
     switch (kind) {
-      case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           l_scratch_size += handle->scratch7_size + 64;
-                                         } break;
-      case LIBXS_DNN_COMPUTE_KIND_BWD: {
-                                           l_scratch_size += handle->scratch7_size + 64;
-                                         } break;
+      case LIBXS_DNN_COMPUTE_KIND_FWD: break;
+      case LIBXS_DNN_COMPUTE_KIND_BWD: break;
       case LIBXS_DNN_COMPUTE_KIND_UPD: {
                                            if (handle->use_lp_kernel == 1) {
                                              l_scratch_size += handle->scratch2_size + 64;
@@ -2127,30 +2123,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
       offset = (64 - address % 64);
       handle->scratch = (void*)(address+offset);
     }
+    address += handle->scratch_size + 64;
     /* @TODO this is old code and needs to be refactored */
     switch (kind) {
-      case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           if (handle->scratch7_size != 0) {
-                                             if (address % 64 == 0) {
-                                               handle->scratch7 = (void*)address;
-                                             } else {
-                                               offset = (64 - address % 64);
-                                               handle->scratch7 = (void*)(address+offset);
-                                             }
-                                             address += handle->scratch7_size + 64;
-                                           }
-                                         } break;
-      case LIBXS_DNN_COMPUTE_KIND_BWD: {
-                                           if (handle->scratch7_size != 0) {
-                                             if (address % 64 == 0) {
-                                               handle->scratch7 = (void*)address;
-                                             } else {
-                                               offset = (64 - address % 64);
-                                               handle->scratch7 = (void*)(address+offset);
-                                             }
-                                             address += handle->scratch7_size + 64;
-                                           }
-                                         } break;
+      case LIBXS_DNN_COMPUTE_KIND_FWD: break;
+      case LIBXS_DNN_COMPUTE_KIND_BWD: break;
       case LIBXS_DNN_COMPUTE_KIND_UPD: {
                                            /* we need a minibatch copy for transpose of input, scratch3 */
                                            if (handle->use_lp_kernel == 1) {
@@ -2169,6 +2146,7 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_bind_scratch(libxs_dnn_layer* handle, const 
                                              offset = (64 - address % 64);
                                              handle->scratch3 = (void*)(address+offset);
                                            }
+                                           address += handle->scratch3_size + 64;
                                            if (handle->scratch7_size != 0) {
                                              if (address % 64 == 0) {
                                                handle->scratch7 = (void*)address;
@@ -2227,12 +2205,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_release_scratch(libxs_dnn_layer* handle, con
   if (0 != handle) {
     handle->scratch = 0;
     switch (kind) {
-      case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           handle->scratch7 = 0;
-                                         } break;
-      case LIBXS_DNN_COMPUTE_KIND_BWD: {
-                                           handle->scratch7 = 0;
-                                         } break;
+      case LIBXS_DNN_COMPUTE_KIND_FWD: break;
+      case LIBXS_DNN_COMPUTE_KIND_BWD: break;
       case LIBXS_DNN_COMPUTE_KIND_UPD: {
                                            handle->scratch2 = 0;
                                            handle->scratch3 = 0;
