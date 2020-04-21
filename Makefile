@@ -934,10 +934,10 @@ endif
 .PHONY: flib_hst
 ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/libxsf.pc
-$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
+$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxsext.$(LIBEXT)
 ifeq (0,$(STATIC))
 	$(LIB_FLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(FLDFLAGS))
+		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxsext.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(FLDFLAGS))
 else # static
 	@rm -f $@
 	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
