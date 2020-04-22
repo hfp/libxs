@@ -305,7 +305,12 @@ libxs_lcm
 libxs_malloc
 libxs_matcopy
 libxs_matcopy_
+libxs_matcopy_d1
+libxs_matcopy_d2
 libxs_matcopy_omp
+libxs_matcopy_p0
+libxs_matcopy_s1
+libxs_matcopy_s2
 libxs_matcopy_thread
 libxs_matcopy_thread_internal
 libxs_matdiff
@@ -349,11 +354,6 @@ libxs_otrans_d1
 libxs_otrans_d2
 libxs_otrans_omp
 libxs_otrans_omp_
-libxs_otrans_omp_d1
-libxs_otrans_omp_d2
-libxs_otrans_omp_p0
-libxs_otrans_omp_s1
-libxs_otrans_omp_s2
 libxs_otrans_p0
 libxs_otrans_s1
 libxs_otrans_s2
