@@ -308,6 +308,7 @@ libxs_matcopy_
 libxs_matcopy_d1
 libxs_matcopy_d2
 libxs_matcopy_omp
+libxs_matcopy_omp_
 libxs_matcopy_p0
 libxs_matcopy_s1
 libxs_matcopy_s2
