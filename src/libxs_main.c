@@ -444,7 +444,7 @@ LIBXS_API_INLINE void internal_update_mmstatistic(const libxs_gemm_descriptor* d
 LIBXS_API_INLINE unsigned int internal_print_number(unsigned int n, char default_unit, char* unit)
 {
   unsigned int number = n;
-  LIBXS_ASSERT(0 != unit);
+  LIBXS_ASSERT(NULL != unit);
   *unit = default_unit;
   if ((1000000) <= n) {
     number = (n + 500000) / 1000000;
