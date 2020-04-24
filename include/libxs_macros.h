@@ -752,7 +752,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #endif
 #if !defined(LIBXS_EXPECT_ELIDE)
 # define LIBXS_EXPECT_ELIDE(RESULT, EXPR) do { \
-    /*const*/ int libxs_expect_result_ = (EXPR); \
+    /*const*/ int libxs_expect_result_ = ((RESULT) == (EXPR)); \
     LIBXS_UNUSED(libxs_expect_result_); \
   } while(0)
 #endif
