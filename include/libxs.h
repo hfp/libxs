@@ -524,18 +524,16 @@ LIBXS_API void libxs_release_kernel(const void* kernel);
 
 /** Matrix copy function ("in" can be NULL to zero the destination). */
 LIBXS_API void libxs_matcopy(void* out, const void* in, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
-  const int* prefetch);
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo);
 
 /** Matrix copy function ("in" can be NULL to zero the destination, per-thread form). */
 LIBXS_API void libxs_matcopy_thread(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
-  const int* prefetch, /*unsigned*/int tid, /*unsigned*/int nthreads);
+  /*unsigned*/int tid, /*unsigned*/int nthreads);
 
 /** Matrix copy function ("in" can be NULL to zero the destination); MT via libxsext. */
 LIBXS_APIEXT void libxs_matcopy_omp(void* out, const void* in, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
-  const int* prefetch);
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo);
 
 /** Matrix transposition (out-of-place form). */
 LIBXS_API void libxs_otrans(void* out, const void* in, unsigned int typesize,
