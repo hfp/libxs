@@ -1,4 +1,5 @@
 /******************************************************************************
+/******************************************************************************
 * Copyright (c) Intel Corporation - All rights reserved.                      *
 * This file is part of the LIBXS library.                                     *
 *                                                                             *
@@ -445,9 +446,9 @@
 #define LIBXS_UP2POT(N) (LIBXS_UP2POT_32((unsigned long long)(N) - LIBXS_MIN(1, N)) + LIBXS_MIN(1, N))
 #define LIBXS_LO2POT(N) (LIBXS_UP2POT_32((unsigned long long)(N) >> 1) + LIBXS_MIN(1, N))
 
-#define LIBXS_LO( N, MULT) ((((uintptr_t)(N)) + ((MULT) - 1)) / (MULT))
-#define LIBXS_UP2(N, NPOT) ((((uintptr_t)(N)) + ((NPOT) - 1)) & ~((NPOT) - 1))
-#define LIBXS_UP( N, MULT) (LIBXS_LO(N, MULT) * (MULT))
+#define LIBXS_UPDIV(N, MULT) (((N) + ((MULT) - 1)) / (MULT))
+#define LIBXS_UP(N, MULT) (LIBXS_UPDIV(N, MULT) * (MULT))
+#define LIBXS_UP2(N, NPOT) (((N) + ((NPOT) - 1)) & ~((NPOT) - 1))
 #define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
