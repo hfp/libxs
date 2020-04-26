@@ -400,15 +400,15 @@
    || (LIBXS_VERSION2(7, 3) > LIBXS_VERSION2(__clang_major__, __clang_minor__) && \
        defined(__APPLE__) && defined(__MACH__)))
 /* prototypes with incorrect signature: _mm512_load_ps takes DP*, _mm512_load_pd takes SP* (checked with v3.8.1) */
-# define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_load_ps((const double*)(A))
-# define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_load_pd((const float*)(A))
+# define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_loadu_ps((const double*)(A))
+# define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_loadu_pd((const float*)(A))
 /* Clang misses _mm512_stream_p? (checked with v3.8.1). */
 # define LIBXS_INTRINSICS_MM512_STREAM_SI512(A, B) _mm512_store_si512(A, B)
-# define LIBXS_INTRINSICS_MM512_STREAM_PS(A, B) _mm512_store_ps(A, B)
+# define LIBXS_INTRINSICS_MM512_STREAM_PS(A, B) _mm512_storeu_ps(A, B)
 # define LIBXS_INTRINSICS_MM512_STREAM_PD(A, B) _mm512_store_pd(A, B)
 #else
-# define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_load_ps((const float*)(A))
-# define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_load_pd((const double*)(A))
+# define LIBXS_INTRINSICS_MM512_LOAD_PS(A) _mm512_loadu_ps((const float*)(A))
+# define LIBXS_INTRINSICS_MM512_LOAD_PD(A) _mm512_loadu_pd((const double*)(A))
 # define LIBXS_INTRINSICS_MM512_STREAM_SI512(A, B) _mm512_stream_si512((__m512i*)(A), (B))
 # define LIBXS_INTRINSICS_MM512_STREAM_PS(A, B) _mm512_stream_ps(A, B)
 # define LIBXS_INTRINSICS_MM512_STREAM_PD(A, B) _mm512_stream_pd(A, B)
@@ -416,9 +416,9 @@
 #if !defined(LIBXS_INTEL_COMPILER) || (defined(__clang__) && ( \
       (LIBXS_VERSION2(8, 0) > LIBXS_VERSION2(__clang_major__, __clang_minor__)))) \
    || (defined(__APPLE__) && defined(__MACH__)) || defined(__GNUC__)
-# define LIBXS_INTRINSICS_MM256_STORE_EPI32(A, B) _mm256_store_si256((__m256i*)(A), B)
+# define LIBXS_INTRINSICS_MM256_STORE_EPI32(A, B) _mm256_storeu_si256((__m256i*)(A), B)
 #else
-# define LIBXS_INTRINSICS_MM256_STORE_EPI32(A, B) _mm256_store_epi32(A, B)
+# define LIBXS_INTRINSICS_MM256_STORE_EPI32(A, B) _mm256_storeu_epi32(A, B)
 #endif
 #if defined(LIBXS_INTEL_COMPILER)
 # if 1600 <= (LIBXS_INTEL_COMPILER)
@@ -822,13 +822,13 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM51
 # endif
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM512_TANH_PS(__m512 a) {
   float a16[16]; int i;
-  _mm512_store_ps(a16, a);
+  _mm512_storeu_ps(a16, a);
   for (i = 0; i < 16; ++i) a16[i] = LIBXS_TANHF(a16[i]);
   return _mm512_loadu_ps(a16);
 }
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM512_EXP_PS(__m512 a) {
   float a16[16]; int i;
-  _mm512_store_ps(a16, a);
+  _mm512_storeu_ps(a16, a);
   for (i = 0; i < 16; ++i) a16[i] = LIBXS_EXPF(a16[i]);
   return _mm512_loadu_ps(a16);
 }
