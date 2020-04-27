@@ -338,7 +338,7 @@
 #   define LIBXS_PRAGMA(DIRECTIVE)
 # endif
 #endif /*LIBXS_PRAGMA*/
-#if !defined(LIBXS_OPENMP_SIMD) && (defined(_OPENMP) && (201307 <= _OPENMP)) /*OpenMP 4.0*/
+#if !defined(LIBXS_OPENMP_SIMD) && (defined(_OPENMP) && (201307 <= _OPENMP/*v4.0*/))
 # if defined(LIBXS_INTEL_COMPILER)
 #   if (1500 <= LIBXS_INTEL_COMPILER)
 #     define LIBXS_OPENMP_SIMD
@@ -373,8 +373,7 @@
 #endif
 
 #if defined(__INTEL_COMPILER)
-# define LIBXS_PRAGMA_NONTEMPORAL_VARS(A, ...) LIBXS_PRAGMA(vector nontemporal(A, __VA_ARGS__))
-# define LIBXS_PRAGMA_NONTEMPORAL LIBXS_PRAGMA(vector nontemporal)
+# define LIBXS_PRAGMA_NONTEMPORAL(A, ...) LIBXS_PRAGMA(vector nontemporal(A, __VA_ARGS__))
 # define LIBXS_PRAGMA_VALIGNED LIBXS_PRAGMA(vector aligned)
 # define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(novector)
 # define LIBXS_PRAGMA_FORCEINLINE LIBXS_PRAGMA(forceinline)
@@ -384,27 +383,30 @@
 # define LIBXS_PRAGMA_UNROLL LIBXS_PRAGMA(unroll)
 # define LIBXS_PRAGMA_VALIGNED_VAR(A) LIBXS_ASSUME_ALIGNED(A, LIBXS_ALIGNMENT);
 /*# define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))*/
-#elif defined(__clang__)
-# define LIBXS_PRAGMA_NONTEMPORAL_VARS(A, ...)
-# define LIBXS_PRAGMA_NONTEMPORAL
-# define LIBXS_PRAGMA_VALIGNED_VAR(A)
-# define LIBXS_PRAGMA_VALIGNED
-# define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(clang loop vectorize(disable))
-# define LIBXS_PRAGMA_FORCEINLINE
-# define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG) LIBXS_PRAGMA(unroll(AVG))
-# define LIBXS_PRAGMA_UNROLL_AND_JAM(N) LIBXS_PRAGMA(unroll(N))
-# define LIBXS_PRAGMA_UNROLL_N(N) LIBXS_PRAGMA(unroll(N))
-# define LIBXS_PRAGMA_UNROLL LIBXS_PRAGMA_UNROLL_N(4)
 #else
-# define LIBXS_PRAGMA_NONTEMPORAL_VARS(A, ...)
-# define LIBXS_PRAGMA_NONTEMPORAL
-# define LIBXS_PRAGMA_VALIGNED_VAR(A)
-# define LIBXS_PRAGMA_VALIGNED
-# define LIBXS_PRAGMA_NOVECTOR
-# define LIBXS_PRAGMA_FORCEINLINE
-# define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG)
-# define LIBXS_PRAGMA_UNROLL_AND_JAM(N)
-# define LIBXS_PRAGMA_UNROLL
+# if defined(LIBXS_OPENMP_SIMD) && (201811 <= _OPENMP/*v5.0*/)
+#   define LIBXS_PRAGMA_NONTEMPORAL(A, ...) LIBXS_PRAGMA(omp simd nontemporal(A, __VA_ARGS__))
+# else
+#   define LIBXS_PRAGMA_NONTEMPORAL(A, ...)
+# endif
+# if defined(__clang__)
+#   define LIBXS_PRAGMA_VALIGNED_VAR(A)
+#   define LIBXS_PRAGMA_VALIGNED
+#   define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(clang loop vectorize(disable))
+#   define LIBXS_PRAGMA_FORCEINLINE
+#   define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG) LIBXS_PRAGMA(unroll(AVG))
+#   define LIBXS_PRAGMA_UNROLL_AND_JAM(N) LIBXS_PRAGMA(unroll(N))
+#   define LIBXS_PRAGMA_UNROLL_N(N) LIBXS_PRAGMA(unroll(N))
+#   define LIBXS_PRAGMA_UNROLL LIBXS_PRAGMA_UNROLL_N(4)
+# else
+#   define LIBXS_PRAGMA_VALIGNED_VAR(A)
+#   define LIBXS_PRAGMA_VALIGNED
+#   define LIBXS_PRAGMA_NOVECTOR
+#   define LIBXS_PRAGMA_FORCEINLINE
+#   define LIBXS_PRAGMA_LOOP_COUNT(MIN, MAX, AVG)
+#   define LIBXS_PRAGMA_UNROLL_AND_JAM(N)
+#   define LIBXS_PRAGMA_UNROLL
+# endif
 #endif
 #if !defined(LIBXS_PRAGMA_UNROLL_N)
 # if defined(__GNUC__) && (LIBXS_VERSION2(8, 3) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__))
@@ -428,7 +430,7 @@
 # define LIBXS_PRAGMA_OPTIMIZE_ON
 #endif
 
-#if defined(_OPENMP) && (200805 <= _OPENMP) /*OpenMP 3.0*/ \
+#if defined(_OPENMP) && (200805 <= _OPENMP/*v3.0*/) \
  && defined(NDEBUG) /* CCE complains for debug builds */
 # define LIBXS_OPENMP_COLLAPSE(N) collapse(N)
 #else

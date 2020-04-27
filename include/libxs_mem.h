@@ -29,11 +29,11 @@
 #endif
 #define LIBXS_MEMZERO127(PTRDST) LIBXS_MEMSET127(PTRDST, '\0', sizeof(*(PTRDST)))
 
-#define LIBXS_MEMCPY127_LOOP(PTRDST, PTRSRC, SIZE, HINT) { \
+#define LIBXS_MEMCPY127_LOOP(PTRDST, PTRSRC, SIZE, NTS) { \
   const unsigned char *const libxs_memcpy127_loop_src_ = (const unsigned char*)(PTRSRC); \
   unsigned char *const libxs_memcpy127_loop_dst_ = (unsigned char*)(PTRDST); \
   signed char libxs_memcpy127_loop_i_; LIBXS_ASSERT((SIZE) <= 127); \
-  LIBXS_PRAGMA_UNROLL HINT \
+  LIBXS_PRAGMA_UNROLL NTS(libxs_memcpy127_loop_dst_) \
   for (libxs_memcpy127_loop_i_ = 0; libxs_memcpy127_loop_i_ < (signed char)(SIZE); \
     ++libxs_memcpy127_loop_i_) \
   { \
@@ -41,9 +41,9 @@
     libxs_memcpy127_loop_src_[libxs_memcpy127_loop_i_]; \
   } \
 }
-#define LIBXS_MEMCPY127_HINT
+#define LIBXS_MEMCPY127_NTS(A, ...)
 #define LIBXS_MEMCPY127(PTRDST, PTRSRC, SIZE) \
-  LIBXS_MEMCPY127_LOOP(PTRDST, PTRSRC, SIZE, LIBXS_MEMCPY127_HINT)
+  LIBXS_MEMCPY127_LOOP(PTRDST, PTRSRC, SIZE, LIBXS_MEMCPY127_NTS)
 #define LIBXS_ASSIGN127(PTRDST, PTRSRC) LIBXS_ASSERT(sizeof(*(PTRSRC)) <= sizeof(*(PTRDST))); \
   LIBXS_MEMCPY127(PTRDST, PTRSRC, sizeof(*(PTRSRC)))
 
