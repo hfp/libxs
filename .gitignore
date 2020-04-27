@@ -6,13 +6,12 @@ opentuner.db
 bin/libxs_generator
 include/libxs_version.h
 include/libxs.f
-build
 lib/libxs*
 lib/module
 ide/GPUCache
 ide/_vs*-*.bat
 ide/.vs
-ide/build
+ide/obj
 ide/r*ah
 samples2
 samples/*/bin
