@@ -356,24 +356,24 @@
 # if defined(LIBXS_OPENMP_SIMD)
 #   define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(omp simd reduction(EXPRESSION))
 #   define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(omp simd collapse(N))
-#   define LIBXS_PRAGMA_SIMD_PRIVATE(A, ...) LIBXS_PRAGMA(omp simd private(A, __VA_ARGS__))
+#   define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(omp simd private(__VA_ARGS__))
 #   define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(omp simd)
 # elif defined(__INTEL_COMPILER)
 #   define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION) LIBXS_PRAGMA(simd reduction(EXPRESSION))
 #   define LIBXS_PRAGMA_SIMD_COLLAPSE(N) LIBXS_PRAGMA(simd collapse(N))
-#   define LIBXS_PRAGMA_SIMD_PRIVATE(A, ...) LIBXS_PRAGMA(simd private(A, __VA_ARGS__))
+#   define LIBXS_PRAGMA_SIMD_PRIVATE(...) LIBXS_PRAGMA(simd private(__VA_ARGS__))
 #   define LIBXS_PRAGMA_SIMD LIBXS_PRAGMA(simd)
 # endif
 #endif
 #if !defined(LIBXS_PRAGMA_SIMD)
 # define LIBXS_PRAGMA_SIMD_REDUCTION(EXPRESSION)
 # define LIBXS_PRAGMA_SIMD_COLLAPSE(N)
-# define LIBXS_PRAGMA_SIMD_PRIVATE(A, ...)
+# define LIBXS_PRAGMA_SIMD_PRIVATE(...)
 # define LIBXS_PRAGMA_SIMD
 #endif
 
 #if defined(__INTEL_COMPILER)
-# define LIBXS_PRAGMA_NONTEMPORAL(A, ...) LIBXS_PRAGMA(vector nontemporal(A, __VA_ARGS__))
+# define LIBXS_PRAGMA_NONTEMPORAL(...) LIBXS_PRAGMA(vector nontemporal(__VA_ARGS__))
 # define LIBXS_PRAGMA_VALIGNED LIBXS_PRAGMA(vector aligned)
 # define LIBXS_PRAGMA_NOVECTOR LIBXS_PRAGMA(novector)
 # define LIBXS_PRAGMA_FORCEINLINE LIBXS_PRAGMA(forceinline)
@@ -385,9 +385,9 @@
 /*# define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))*/
 #else
 # if defined(LIBXS_OPENMP_SIMD) && (201811 <= _OPENMP/*v5.0*/)
-#   define LIBXS_PRAGMA_NONTEMPORAL(A, ...) LIBXS_PRAGMA(omp simd nontemporal(A, __VA_ARGS__))
+#   define LIBXS_PRAGMA_NONTEMPORAL(...) LIBXS_PRAGMA(omp simd nontemporal(__VA_ARGS__))
 # else
-#   define LIBXS_PRAGMA_NONTEMPORAL(A, ...)
+#   define LIBXS_PRAGMA_NONTEMPORAL(...)
 # endif
 # if defined(__clang__)
 #   define LIBXS_PRAGMA_VALIGNED_VAR(A)
