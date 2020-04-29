@@ -41,6 +41,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
   int tmp_max_k_block = 32;
   int tmp_block = 0;
 
+  /* init libxs */
+  LIBXS_INIT
+
   /* C */
   if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
     tmp_max_c_block = 64;
@@ -201,6 +204,10 @@ LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype)
 LIBXS_API size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype)
 {
   size_t l_cl_width_bytes;
+
+  /* init libxs */
+  LIBXS_INIT
+
   if ( libxs_target_archid == LIBXS_X86_GENERIC ) {
     l_cl_width_bytes = libxs_dnn_typesize(datatype);
   } else if ( libxs_target_archid == LIBXS_X86_SSE3 ||
@@ -270,6 +277,9 @@ LIBXS_API_INLINE short libxs_internal_quantize_scalar_no_scf( float input, unsig
   unsigned int sign = 0;
   unsigned char rhs = 0;
   unsigned char exp_off = 0;
+
+  /* init libxs */
+  LIBXS_INIT
 
   /* in case of zero we don't need to do anything */
   if (LIBXS_FEQ(input, 0)) {
@@ -345,6 +355,9 @@ LIBXS_API_INLINE short libxs_internal_quantize_scalar_no_scf( float input, unsig
 LIBXS_API void libxs_dnn_quantize( float* in_buffer, short* out_buffer, int length, unsigned char add_shift, unsigned char* scf, int round_mode ) {
   int i = 0;
 
+  /* init libxs */
+  LIBXS_INIT
+
   /* in case we are using FP-Mul based quantization we use a different path for now
      @TODO let's unify the paths by using the similar vectorization for both */
   if ( round_mode == LIBXS_DNN_QUANT_FPHW_ROUND ) {
@@ -408,6 +421,9 @@ LIBXS_API void libxs_dnn_quantize_act( float* in_buffer, short* out_buffer, unsi
   LIBXS_VLA_DECL(6, short, out, out_buffer, C/(cblk_i16*lp_blk), H, W, cblk_i16, lp_blk);
   const unsigned int cblk = C/(cblk_i16*lp_blk);
   int i1 = 0, i2 = 0, i3 = 0, i4 = 0, i5, i6;
+
+  /* init libxs */
+  LIBXS_INIT
 
   /* some quick and dirty checks */
   assert((C % cblk_f32) == 0);
@@ -518,6 +534,9 @@ LIBXS_API void libxs_dnn_quantize_fil( float* in_buffer, short* out_buffer, unsi
   assert((K % kblk_f32) == 0);
   assert((K % kblk_i16) == 0);
   assert((lp_blk % 2) == 0);
+
+  /* init libxs */
+  LIBXS_INIT
 
   /* in case we are using FP-Mul based quantization we use a different path for now
      @TODO let's unify the paths by using the similar vectorization for both */

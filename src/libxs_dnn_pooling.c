@@ -15,6 +15,9 @@ LIBXS_API libxs_dnn_pooling* libxs_dnn_create_pooling(libxs_dnn_pooling_desc poo
   libxs_dnn_pooling* handle = 0;
   int lpb;
 
+  /* init libxs */
+  LIBXS_INIT
+
   if ( ((pooling_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (pooling_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
        ((pooling_desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (pooling_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
     handle = (libxs_dnn_pooling*)malloc(sizeof(libxs_dnn_pooling));

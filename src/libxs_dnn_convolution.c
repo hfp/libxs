@@ -281,6 +281,8 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_avoid_acc_load( libxs_dnn_layer
 
 LIBXS_API_INLINE int libxs_dnn_convolution_setup_init_fwd_gemm_flags( libxs_dnn_layer* handle ) {
   int result = 0;
+
+#if defined(LIBXS_DNN_CONVOLUTION_SETUP_USE_NTS)
   /* If large image and NOT already loaded in accumulators, tnen use streaming stores */
   if ((handle->ofw >= 56) && (handle->desc.K >= 256) && (handle->avoid_acc_load == 1) && (handle->desc.R == 1) && (handle->desc.S == 1)) {
     result = LIBXS_GEMM_FLAG_ALIGN_C_NTS_HINT;
@@ -295,6 +297,9 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_init_fwd_gemm_flags( libxs_dnn_
   if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 || handle->datatype_in == LIBXS_DNN_DATATYPE_I8) {
     result = 0;
   }
+#else
+  LIBXS_UNUSED(handle);
+#endif
 
   return result;
 }
@@ -910,6 +915,9 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   const libxs_trans_descriptor* tr_desc = 0;
   libxs_descriptor_blob blob;
+
+  /* init libxs */
+  LIBXS_INIT
 
   /* Generic parameter setup  */
   handle->ifmblock = libxs_dnn_convolution_setup_ifmblock(handle);

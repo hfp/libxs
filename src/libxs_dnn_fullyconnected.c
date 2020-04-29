@@ -13,6 +13,9 @@
 LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fullyconnected_desc fullyconnected_desc, libxs_dnn_err_t* status) {
   libxs_dnn_fullyconnected* handle = 0;
 
+  /* init libxs */
+  LIBXS_INIT
+
   if ( ((fullyconnected_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fullyconnected_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
        ((fullyconnected_desc.datatype_in == LIBXS_DNN_DATATYPE_F32)  && (fullyconnected_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))  ||
        ((fullyconnected_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fullyconnected_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))     ) {

@@ -23,6 +23,9 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
 {
   libxs_dnn_rnncell* handle = 0;
 
+  /* init libxs */
+  LIBXS_INIT
+
   /* some check we can do before allocating the handle */
   if ( (rnncell_desc.datatype_in != rnncell_desc.datatype_out) ||
        ( (rnncell_desc.datatype_in != LIBXS_DNN_DATATYPE_BF16) && (rnncell_desc.datatype_in != LIBXS_DNN_DATATYPE_F32) ) ) {

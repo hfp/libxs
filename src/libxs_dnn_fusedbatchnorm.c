@@ -15,6 +15,9 @@ LIBXS_API libxs_dnn_fusedbatchnorm* libxs_dnn_create_fusedbatchnorm(libxs_dnn_fu
   libxs_dnn_fusedbatchnorm* handle = 0;
   int lpb;
 
+  /* init libxs */
+  LIBXS_INIT
+
   if ( fusedbatchnorm_desc.partN > fusedbatchnorm_desc.fullN ) {
     *status = LIBXS_DNN_ERR_CREATE_HANDLE;
     return handle;
