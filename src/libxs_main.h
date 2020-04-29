@@ -55,6 +55,10 @@
 #if !defined(LIBXS_MALLOC_HOOK_CALLOC) && 1
 # define LIBXS_MALLOC_HOOK_CALLOC
 #endif
+/* align even if interceptor is disabled at runtime */
+#if !defined(LIBXS_MALLOC_ALIGN_ALL) && 1
+# define LIBXS_MALLOC_ALIGN_ALL
+#endif
 #if !defined(LIBXS_MALLOC_INTERNAL_CALLER_ID)
 # define LIBXS_MALLOC_INTERNAL_CALLER_ID ((uintptr_t)LIBXS_UNLIMITED)
 #endif
@@ -80,6 +84,11 @@
   (!defined(_WIN32)) /* TODO */ && \
   (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
 # define LIBXS_MALLOC_HOOK_STATIC
+#endif
+#if !defined(LIBXS_DNN_CONVOLUTION_SETUP_USE_NTS) && \
+     defined(LIBXS_MALLOC_HOOK_DYNAMIC) && \
+     defined(LIBXS_MALLOC_ALIGN_ALL)
+# define LIBXS_DNN_CONVOLUTION_SETUP_USE_NTS
 #endif
 
 #if defined(LIBXS_INTERCEPT_DYNAMIC)

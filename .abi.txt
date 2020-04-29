@@ -382,6 +382,7 @@ libxs_ptr_j2
 libxs_ptr_l0
 libxs_ptr_l1
 libxs_ptr_l2
+libxs_ptr_null
 libxs_ptr_s0
 libxs_ptr_s1
 libxs_ptr_s2

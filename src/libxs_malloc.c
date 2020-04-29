@@ -170,10 +170,6 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #if !defined(LIBXS_MALLOC_DELETE_SAFE) && 0
 # define LIBXS_MALLOC_DELETE_SAFE
 #endif
-/* align even if interceptor is disabled at runtime */
-#if !defined(LIBXS_MALLOC_ALIGN_ALL) && 1
-# define LIBXS_MALLOC_ALIGN_ALL
-#endif
 /* map memory for scratch buffers */
 #if !defined(LIBXS_MALLOC_MMAP_SCRATCH) && 1
 # define LIBXS_MALLOC_MMAP_SCRATCH

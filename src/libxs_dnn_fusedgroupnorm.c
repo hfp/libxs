@@ -15,6 +15,9 @@ LIBXS_API libxs_dnn_fusedgroupnorm* libxs_dnn_create_fusedgroupnorm(libxs_dnn_fu
   libxs_dnn_fusedgroupnorm* handle = 0;
   int lpb;
 
+  /* init libxs */
+  LIBXS_INIT
+
   if ( ((fusedgroupnorm_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fusedgroupnorm_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
        ((fusedgroupnorm_desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (fusedgroupnorm_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
     handle = (libxs_dnn_fusedgroupnorm*)malloc(sizeof(libxs_dnn_fusedgroupnorm));

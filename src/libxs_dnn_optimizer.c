@@ -13,6 +13,9 @@
 LIBXS_API libxs_dnn_optimizer* libxs_dnn_create_optimizer(libxs_dnn_optimizer_desc optimizer_desc, libxs_dnn_err_t* status) {
   libxs_dnn_optimizer* handle = 0;
 
+  /* init libxs */
+  LIBXS_INIT
+
   if ( (optimizer_desc.datatype == LIBXS_DNN_DATATYPE_F32) || (optimizer_desc.datatype == LIBXS_DNN_DATATYPE_BF16) ) {
     handle = (libxs_dnn_optimizer*)malloc(sizeof(libxs_dnn_optimizer));
 
