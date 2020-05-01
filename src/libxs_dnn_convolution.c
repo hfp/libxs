@@ -1238,7 +1238,6 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(
     handle->blocksifm = conv_desc.C;
     handle->blocksofm = conv_desc.K;
     handle->fwd_ofw_rb = 1;
-    handle->fwd_ofw_rb_2 = 0;
     handle->fwd_ofh_rb = 1;
     handle->bwd_ofw_rb = 1;
     handle->bwd_ofh_rb = 1;
