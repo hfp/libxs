@@ -1247,7 +1247,6 @@ LIBXS_API libxs_dnn_layer* libxs_dnn_create_conv_layer(
     handle->fm_lp_block = 1;
     handle->blocksifm_blocking = 1;
     handle->blocksofm_blocking = 1;
-    handle->upd_use_external_reduce = 0;
     handle->filter_transposed = 0;
     /* Set algorithm to use */
     if (conv_desc.algo == LIBXS_DNN_CONV_ALGO_AUTO) {
