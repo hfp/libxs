@@ -374,7 +374,6 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int pack_input_bwd;
   int spread_input_bwd;
   int weight_copies;
-  int use_vperm_transposes;
   int loop_order;
   int use_ofm_parallelization;
   int use_ifm_parallelization;
