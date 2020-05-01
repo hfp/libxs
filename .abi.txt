@@ -216,7 +216,6 @@ libxs_dnn_softmaxloss_release_scratch
 libxs_dnn_softmaxloss_release_tensor
 libxs_dnn_trans_reg_bf16_filter
 libxs_dnn_trans_reg_filter
-libxs_dnn_transpose_filter
 libxs_dnn_typesize
 libxs_dnn_zero_tensor
 libxs_dsqrt

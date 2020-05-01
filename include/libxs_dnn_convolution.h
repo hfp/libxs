@@ -107,6 +107,5 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_execute_st(libxs_dnn_layer* handle, libxs_dn
 /** some helper functions for framework integration */
 LIBXS_API libxs_dnn_err_t libxs_dnn_trans_reg_filter(const libxs_dnn_layer* handle);
 LIBXS_API libxs_dnn_err_t libxs_dnn_trans_reg_bf16_filter(const libxs_dnn_layer* handle);
-LIBXS_API libxs_dnn_err_t libxs_dnn_transpose_filter(libxs_dnn_layer* handle, const libxs_dnn_tensor_type type);
 
 #endif /*LIBXS_DNN_CONVOLUTION_H*/
