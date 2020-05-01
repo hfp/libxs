@@ -366,7 +366,6 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int upd_ofw_rb;
   int upd_ofh_rb;
   int fm_lp_block; /* additional blocking for low precision datatypes of feature maps */
-  int filter_transposed;
   int nBImg;
   int nbImg;
   int blocksifm_blocking;
