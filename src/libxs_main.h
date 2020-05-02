@@ -344,10 +344,6 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_conv_fuse_op fuse_ops;
   libxs_dnn_conv_option options;
 
-  /* These are the batchnorm handles in case of fusion */
-  libxs_dnn_fusedbatchnorm* pre_bn;
-  libxs_dnn_fusedbatchnorm* post_bn;
-
   /* additional size for internal data types */
   int ifhp;
   int ifwp;
