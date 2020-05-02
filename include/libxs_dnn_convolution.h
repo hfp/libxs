@@ -18,26 +18,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_layer libxs_dnn_layer
 
 typedef enum libxs_dnn_conv_fuse_op {
   /* we fuse nothing into convolution */
-  LIBXS_DNN_CONV_FUSE_NONE = 0,
-  /* we fuse bias addition into convolution */
-  LIBXS_DNN_CONV_FUSE_BIAS = 1,
-  /* we fuse ReLU calculation into fwd convolution op */
-  LIBXS_DNN_CONV_FUSE_RELU_FWD = 2,
-  /* we fuse ReLU calculation into bwd convolution op */
-  LIBXS_DNN_CONV_FUSE_RELU_BWD = 4,
-  /* we fuse batch stats */
-  LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD = 8,
-  LIBXS_DNN_CONV_FUSE_MAX_STATS = 16,
-  LIBXS_DNN_CONV_FUSE_BATCH_STATS_BWD = 32,
-  LIBXS_DNN_CONV_FUSE_ELTWISE_BWD = 64,
-  LIBXS_DNN_CONV_FUSE_BATCHNORM_STATS = 128,
-  LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD_RELU_BWD = LIBXS_DNN_CONV_FUSE_RELU_BWD | LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD,
-  LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD_RELU_BWD_AND_MAX = LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD_RELU_BWD | LIBXS_DNN_CONV_FUSE_MAX_STATS,
-  LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD_AND_MAX = LIBXS_DNN_CONV_FUSE_BATCH_STATS_FWD |  LIBXS_DNN_CONV_FUSE_MAX_STATS,
-  LIBXS_DNN_CONV_FUSE_RELU_BWD_AND_MAX = LIBXS_DNN_CONV_FUSE_RELU_BWD | LIBXS_DNN_CONV_FUSE_MAX_STATS,
-    /* we fuse bias addition and ReLU into convolution op */
-  LIBXS_DNN_CONV_FUSE_RELU = LIBXS_DNN_CONV_FUSE_RELU_FWD | LIBXS_DNN_CONV_FUSE_RELU_BWD,
-  LIBXS_DNN_CONV_FUSE_BIAS_RELU = LIBXS_DNN_CONV_FUSE_BIAS | LIBXS_DNN_CONV_FUSE_RELU
+  LIBXS_DNN_CONV_FUSE_NONE = 0
 } libxs_dnn_conv_fuse_op;
 
 /** Type of algorithm used for convolutions. */
@@ -78,8 +59,6 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_conv_desc {
   libxs_dnn_conv_algo algo;               /* convolution algorithm used */
   libxs_dnn_conv_option options;          /* additional options */
   libxs_dnn_conv_fuse_op fuse_ops;        /* used ops into convolutions */
-  libxs_dnn_fusedbatchnorm *pre_bn;       /* pointer to pre bn layer to accommodate bn fusion */
-  libxs_dnn_fusedbatchnorm *post_bn;      /* pointer to post bn layer to accommodate bn fusion */
 } libxs_dnn_conv_desc;
 
 /** Create a layer handle (non-NULL if successful), and pre-build all JIT-code versions. */
