@@ -816,11 +816,25 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_custom(libxs
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check if all required tensors are bound */
-  if (handle->grad_input == 0 || handle->grad_output == 0 ||
-      handle->reg_input  == 0 || handle->grad_filter == 0 ||
-      handle->reg_filter == 0 || handle->scratch == 0         ) {
-    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
-    return status;
+  if ( kind == LIBXS_DNN_COMPUTE_KIND_BWD ) {
+    if (handle->grad_input == 0 || handle->grad_output == 0 ||
+        handle->reg_filter == 0 || handle->scratch == 0         ) {
+      status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+      return status;
+    }
+  } else if ( kind == LIBXS_DNN_COMPUTE_KIND_UPD ) {
+    if (handle->reg_input == 0   || handle->grad_output == 0 ||
+        handle->grad_filter == 0 || handle->scratch == 0         ) {
+      status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+      return status;
+    }
+  } else {
+    if (handle->grad_input == 0 || handle->grad_output == 0 ||
+        handle->reg_input  == 0 || handle->grad_filter == 0 ||
+        handle->reg_filter == 0 || handle->scratch == 0         ) {
+      status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+      return status;
+    }
   }
 
   /* check if we are on an AVX512 platform */
@@ -902,12 +916,27 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck(li
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   /* check if all required tensors are bound */
-  if (handle->grad_input == 0 || handle->grad_output == 0 ||
-      handle->reg_input  == 0 || handle->grad_filter == 0 ||
-      handle->reg_filter == 0 || handle->scratch == 0         ) {
-    status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
-    return status;
+  if ( kind == LIBXS_DNN_COMPUTE_KIND_BWD ) {
+    if (handle->grad_input == 0 || handle->grad_output == 0 ||
+        handle->reg_filter == 0 || handle->scratch == 0         ) {
+      status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+      return status;
+    }
+  } else if ( kind == LIBXS_DNN_COMPUTE_KIND_UPD ) {
+    if (handle->reg_input == 0   || handle->grad_output == 0 ||
+        handle->grad_filter == 0 || handle->scratch == 0         ) {
+      status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+      return status;
+    }
+  } else {
+    if (handle->grad_input == 0 || handle->grad_output == 0 ||
+        handle->reg_input  == 0 || handle->grad_filter == 0 ||
+        handle->reg_filter == 0 || handle->scratch == 0         ) {
+      status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
+      return status;
+    }
   }
+
   if ( ((handle->desc.fuse_ops & LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS ) != 0) && ( handle->grad_bias == 0 ) )  {
     status = LIBXS_DNN_ERR_DATA_NOT_BOUND;
     return status;
