@@ -1292,29 +1292,28 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_fullyconnected_execute_st(libxs_dnn_fullycon
   if (0 != handle) {
     switch (kind) {
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
-                                           if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
-                                             status = libxs_dnn_fullyconnected_st_fwd_custom( handle, start_thread, tid );
-                                           } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
-                                             status = libxs_dnn_fullyconnected_st_fwd_ncnc_kcck( handle, start_thread, tid );
-                                           } else {
-                                             status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
-                                           }
-                                         } break;
+        if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
+          status = libxs_dnn_fullyconnected_st_fwd_custom( handle, start_thread, tid );
+        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
+          status = libxs_dnn_fullyconnected_st_fwd_ncnc_kcck( handle, start_thread, tid );
+        } else {
+          status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
+        }
+      } break;
       case LIBXS_DNN_COMPUTE_KIND_BWD:
       case LIBXS_DNN_COMPUTE_KIND_UPD:
-      case LIBXS_DNN_COMPUTE_KIND_BWDUPD:
-                                         {
-                                           if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
-                                             status = libxs_dnn_fullyconnected_st_bwdupd_custom( handle, kind, start_thread, tid );
-                                           } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
-                                             status = libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck( handle, kind, start_thread, tid );
-                                           } else {
-                                             status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
-                                           }
-                                         } break;
+      case LIBXS_DNN_COMPUTE_KIND_BWDUPD: {
+        if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_LIBXS) ) {
+          status = libxs_dnn_fullyconnected_st_bwdupd_custom( handle, kind, start_thread, tid );
+        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED) ) {
+          status = libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck( handle, kind, start_thread, tid );
+        } else {
+          status = LIBXS_DNN_ERR_INVALID_FORMAT_FC;
+        }
+      } break;
       default: {
-                 status = LIBXS_DNN_ERR_INVALID_KIND;
-               }
+        status = LIBXS_DNN_ERR_INVALID_KIND;
+      }
     }
   }
   else {
