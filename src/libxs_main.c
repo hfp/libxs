@@ -4074,6 +4074,7 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_descriptor* d
   const unsigned int* row_ptr, const unsigned int* column_idx, const void* values, const unsigned int packed_width)
 {
   libxs_code_pointer result = { 0 };
+  LIBXS_INIT
   if (NULL != descriptor && NULL != row_ptr && NULL != column_idx && NULL != values) {
     libxs_csr_soa_descriptor srsoa;
     libxs_build_request request;
@@ -4102,6 +4103,7 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_descriptor* d
   const unsigned int* column_ptr, const unsigned int* row_idx, const void* values, const unsigned int packed_width)
 {
   libxs_code_pointer result = { 0 };
+  LIBXS_INIT
   if (NULL != descriptor && NULL != column_ptr && NULL != row_idx && NULL != values) {
     libxs_csc_soa_descriptor scsoa;
     libxs_build_request request;
@@ -4129,6 +4131,7 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_descriptor* d
 LIBXS_API libxs_xmmfunction libxs_create_pgemm_ac_rm(const libxs_gemm_descriptor* descriptor, const unsigned int packed_width)
 {
   libxs_code_pointer result = { 0 };
+  LIBXS_INIT
   if (NULL != descriptor) {
     libxs_pgemm_ac_rm_descriptor pgemmacrm;
     libxs_build_request request;
@@ -4153,6 +4156,7 @@ LIBXS_API libxs_xmmfunction libxs_create_pgemm_ac_rm(const libxs_gemm_descriptor
 LIBXS_API libxs_xmmfunction libxs_create_pgemm_bc_rm(const libxs_gemm_descriptor* descriptor, const unsigned int packed_width)
 {
   libxs_code_pointer result = { 0 };
+  LIBXS_INIT
   if (NULL != descriptor) {
     libxs_pgemm_bc_rm_descriptor pgemmbcrm;
     libxs_build_request request;
@@ -4178,6 +4182,7 @@ LIBXS_API libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_descriptor* d
   const unsigned int* row_ptr, const unsigned int* column_idx, const double* values)
 {
   libxs_code_pointer result = { 0 };
+  LIBXS_INIT
   if (NULL != descriptor && NULL != row_ptr && NULL != column_idx && NULL != values) {
     libxs_csr_reg_descriptor sreg;
     libxs_build_request request;
@@ -4205,6 +4210,7 @@ LIBXS_API libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* d
   const unsigned int* row_ptr, const unsigned int* column_idx, const float* values)
 {
   libxs_code_pointer result = { 0 };
+  LIBXS_INIT
   if (NULL != descriptor && NULL != row_ptr && NULL != column_idx && NULL != values) {
     libxs_csr_reg_descriptor sreg;
     libxs_build_request request;
