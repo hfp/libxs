@@ -1833,9 +1833,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     case LIBXS_BUILD_KIND_SREG: { /* sparse register kernel */
       LIBXS_ASSERT(NULL != request->descriptor.sreg && 0 != request->descriptor.sreg->gemm);
       LIBXS_ASSERT(NULL != request->descriptor.sreg->row_ptr && 0 != request->descriptor.sreg->column_idx && 0 != request->descriptor.sreg->values);
-#if 1
-      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.sreg->gemm->datatype)) /* only double-precision */
-#endif
+      /* only floating point */
+      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.sreg->gemm->datatype) ||
+          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.sreg->gemm->datatype))
       {
         const unsigned int nnz = request->descriptor.sreg->row_ptr[request->descriptor.sreg->gemm->m];
         extra.nflops = 2 * libxs_cpuid_vlen32(libxs_target_archid)/2 * request->descriptor.sreg->gemm->n * nnz;
