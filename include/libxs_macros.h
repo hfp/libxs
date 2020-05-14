@@ -891,7 +891,6 @@ LIBXS_EXTERN double sqrt(double);
 LIBXS_EXTERN double tanh(double);
 LIBXS_EXTERN double exp(double);
 # endif
-
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
