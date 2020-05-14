@@ -780,6 +780,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <float.h>
 #include <stdio.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)

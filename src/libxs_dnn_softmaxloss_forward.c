@@ -9,15 +9,6 @@
 #include "libxs_dnn_softmaxloss_forward.h"
 #include "libxs_main.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <float.h>
-#include <math.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
-
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_softmaxloss_st_fwd_ncnc_f32_f32(libxs_dnn_softmaxloss* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_softmaxloss_st_fwd_ncnc_bf16_bf16(libxs_dnn_softmaxloss* handle, int start_thread, int tid);

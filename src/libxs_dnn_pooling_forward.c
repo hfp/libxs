@@ -9,14 +9,6 @@
 #include "libxs_dnn_pooling_forward.h"
 #include "libxs_main.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-#include <float.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
-
 
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_fwd_custom_f32_f32_c16(libxs_dnn_pooling* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_pooling_st_fwd_custom_f32_f32_c32(libxs_dnn_pooling* handle, int start_thread, int tid);
