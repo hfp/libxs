@@ -45,7 +45,7 @@ ifeq (d,$(filter d,$(MAKEFLAGS)))
   SHELL += -xv
 endif
 
-which = $(shell which $1 2>/dev/null)
+which = $(shell which $(firstword $1) 2>/dev/null)
 which ?= $(shell command -v $1)
 
 ifeq (Windows_NT,$(OS))
@@ -369,8 +369,8 @@ ifeq (0,$(GNU))
   endif
 endif
 ifneq (,$(shell echo "__INTEL_COMPILER" \
-        | $(FC) $(EFCFLAGS) $(EFLAGS) -E -P - 2>/dev/null \
-        | sed "/^[[:space:]]*$$/d;/^__INTEL_COMPILER/d" 2>/dev/null))
+        | $(FC) $(EFCFLAGS) $(EFLAGS) -E -P /dev/stdin 2>/dev/null \
+        | sed "/^[[:space:]]*$$/d;/^__INTEL_COMPILER$$/d" 2>/dev/null))
   ICX = $(shell echo "$$(($(INTEL)+1))")
   FIXFC ?= 0
 endif
@@ -785,8 +785,8 @@ PGI ?= 0
 LD = $(CC)
 XLD = $(CXX)
 
-ifneq (0,$(INTEL))
 ifeq (,$(strip $(GFC)))
+ifneq (,$(filter-out 0,$(INTEL) $(ICX)))
 ifneq (,$(call ftest,$(LD),-nofor-main))
   override LD := $(LD) -nofor-main
 endif
