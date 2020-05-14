@@ -62,10 +62,8 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16_emu(libxs_dnn_rnncel
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 #if defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
 #define LIBXS_RNN_CELL_AVX512
-#if 0
   typedef libxs_bfloat16 element_input_type;
   typedef libxs_bfloat16 element_output_type;
-#endif
   typedef libxs_bfloat16 element_filter_type;
 
   /* some portable macrros fof BF16 <-> FP32 */
@@ -100,10 +98,9 @@ libxs_dnn_err_t libxs_dnn_rnncell_st_bwdupd_nc_ck_bf16_bf16(libxs_dnn_rnncell* h
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 #if defined(LIBXS_INTRINSICS_AVX512_CPX) /*__AVX512F__,__AVX512BW__,__AVX512DQ__,__AVX512BF16__*/
 #define LIBXS_RNN_CELL_AVX512
-#if 0
   typedef libxs_bfloat16 element_input_type;
   typedef libxs_bfloat16 element_output_type;
-#endif
+  typedef libxs_bfloat16 element_filter_type;
 
 #define LIBXS_DNN_BF16_USE_CPX_AVX512_NI
   /* some portable macrros fof BF16 <-> FP32 */

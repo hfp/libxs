@@ -91,7 +91,7 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
       const libxs_blasint nBlocks = N/bn;
       libxs_blasint BF, CB_BLOCKS, KB_BLOCKS;
       libxs_blasint stride_a, stride_b;
-      int kernel_flags = 0;
+      int kernel_flags = LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N');
 
       /* Blocking reduction domain if it is too large */
       BF = 1;
