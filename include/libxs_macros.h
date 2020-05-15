@@ -880,24 +880,11 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   endif
 # endif
 #endif
-#if !defined(LIBXS_NO_LIBM) /*&& (!defined(__STDC_VERSION__) || (199901L > __STDC_VERSION__) || defined(__cplusplus))*/
+#if !defined(LIBXS_NO_LIBM)
 # if defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32) /* error including dfp754.h */
 #   include <mathimf.h>
 # endif
 # include <math.h>
-#endif
-#if !defined(M_LN2) && 0
-# define M_LN2 0.69314718055994530942
-# if !defined(__cplusplus)
-LIBXS_EXTERN double pow(double, double);
-LIBXS_EXTERN double frexp(double, int*);
-LIBXS_EXTERN double sqrt(double);
-LIBXS_EXTERN double tanh(double);
-LIBXS_EXTERN double exp(double);
-# if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
-LIBXS_EXTERN float logf(float);
-# endif
-# endif /*!defined(__cplusplus)*/
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
