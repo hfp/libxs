@@ -625,16 +625,15 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 
 #if defined(_OPENMP)
 # define LIBXS_PRAGMA_OMP(...) LIBXS_PRAGMA(omp __VA_ARGS__)
-#else
-# define LIBXS_PRAGMA_OMP(...)
-#endif
-#if defined(_OPENMP)
 # if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
 #   define LIBXS_OMP_VAR(A) LIBXS_UNUSED(A) /* suppress warning about "unused" variable */
 # elif defined(__clang__)
 #   define LIBXS_OMP_VAR(A) (A) = 0
+# else
+# define LIBXS_OMP_VAR(A)
 # endif
 #else
+# define LIBXS_PRAGMA_OMP(...)
 # define LIBXS_OMP_VAR(A)
 #endif
 
