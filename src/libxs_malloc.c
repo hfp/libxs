@@ -1699,6 +1699,9 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
 # if defined(MAP_HUGETLB)
         static size_t hugetlb = LIBXS_SCRATCH_UNLIMITED;
 # endif
+# if defined(MAP_LOCKED)
+        static size_t plocked = LIBXS_SCRATCH_UNLIMITED;
+# endif
 # if defined(MAP_32BIT)
         static size_t map32 = LIBXS_SCRATCH_UNLIMITED;
 # endif
@@ -1718,7 +1721,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           | MAP_UNINITIALIZED
 # endif
 # if defined(MAP_LOCKED)
-          | (0 == (LIBXS_MALLOC_FLAG_X & flags) ? MAP_LOCKED : 0)
+          | ((0 == (LIBXS_MALLOC_FLAG_X & flags) && size < plocked) ? MAP_LOCKED : 0)
 # endif
         ;
         static int prefault = 0;
@@ -1847,6 +1850,12 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           if (0 != (mflags & MAP_HUGETLB)) {
             flags &= ~LIBXS_MALLOC_FLAG_MMAP; /* select deallocation */
             hugetlb = size;
+          }
+# endif
+# if defined(MAP_LOCKED)
+          if (0 != (mflags & MAP_LOCKED)) {
+            flags &= ~LIBXS_MALLOC_FLAG_MMAP; /* select deallocation */
+            plocked = size;
           }
 # endif
 # if defined(MAP_32BIT) /* no further attempts to map to 32-bit */
