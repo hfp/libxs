@@ -1716,7 +1716,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
 # if defined(MAP_UNINITIALIZED) /* unlikely to be available */
           | MAP_UNINITIALIZED
 # endif
-# if defined(MAP_LOCKED) && /*disadvantage*/0
+# if defined(MAP_LOCKED)
           | MAP_LOCKED
 # endif
         ;
