@@ -1770,7 +1770,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
         alloc_failed = MAP_FAILED;
         if (0 == (LIBXS_MALLOC_FLAG_X & flags)) { /* anonymous and non-executable */
 # if defined(MAP_32BIT)
-          LIBXS_ASSERT(0 == (MAP_32BIT & flags));
+          LIBXS_ASSERT(0 == (MAP_32BIT & mflags));
 # endif
 # if 0
           LIBXS_ASSERT(NULL != info || NULL == *memory); /* no memory mapping of foreign pointer */
@@ -1825,10 +1825,10 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
         else { /* executable buffer requested */
           static /*LIBXS_TLS*/ int fallback = -1; /* considers fall-back allocation method */
 # if defined(MAP_HUGETLB)
-          LIBXS_ASSERT(0 == (MAP_HUGETLB & flags));
+          LIBXS_ASSERT(0 == (MAP_HUGETLB & mflags));
 # endif
 # if defined(MAP_LOCKED)
-          LIBXS_ASSERT(0 == (MAP_LOCKED & flags));
+          LIBXS_ASSERT(0 == (MAP_LOCKED & mflags));
 # endif
           if (0 > (int)LIBXS_ATOMIC_LOAD(&fallback, LIBXS_ATOMIC_RELAXED)) {
             const char *const env = getenv("LIBXS_SE");
