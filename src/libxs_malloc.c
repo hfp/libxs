@@ -481,14 +481,18 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
     }
     if (0 == (LIBXS_MALLOC_FLAG_X & flags)) { /* update statistics */
 #if !defined(_WIN32)
+# if defined(MAP_HUGETLB)
       if (0 != (LIBXS_MALLOC_FLAG_PHUGE & flags)) { /* page-locked */
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & flags));
         LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_hugetlb, alloc_size, LIBXS_ATOMIC_RELAXED);
       }
+# endif
+# if defined(MAP_LOCKED)
       if (0 != (LIBXS_MALLOC_FLAG_PLOCK & flags)) { /* page-locked */
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & flags));
         LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_plocked, alloc_size, LIBXS_ATOMIC_RELAXED);
       }
+# endif
 #endif
       if (0 == (LIBXS_MALLOC_FLAG_PRIVATE & flags)) { /* public */
         if (0 != (LIBXS_MALLOC_FLAG_SCRATCH & flags)) { /* scratch */
