@@ -1790,7 +1790,10 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
                 const size_t watermark = internal_malloc_hugetlb + alloc_size / 2; /* accept data-race */
                 if (watermark < limit_hugetlb) limit_hugetlb = watermark; /* accept data-race */
                 if ((LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity)) {/* muted */
-                  fprintf(stderr, "LIBXS WARNING: huge pages are exhaused!\n");
+                  char watermark_buffer[32];
+                  /* coverity[check_return] */
+                  libxs_format_size(watermark_buffer, sizeof(watermark_buffer), watermark, "KM", "B", 10);
+                  fprintf(stderr, "LIBXS WARNING: huge-page watermark reached at %s!\n", watermark_buffer);
                 }
               }
             }
@@ -1809,7 +1812,10 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
                 const size_t watermark = internal_malloc_plocked + alloc_size / 2; /* accept data-race */
                 if (watermark < limit_plocked) limit_plocked = watermark; /* accept data-race */
                 if ((LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity)) {/* muted */
-                  fprintf(stderr, "LIBXS WARNING: locked pages are exhaused!\n");
+                  char watermark_buffer[32];
+                  /* coverity[check_return] */
+                  libxs_format_size(watermark_buffer, sizeof(watermark_buffer), watermark, "KM", "B", 10);
+                  fprintf(stderr, "LIBXS WARNING: locked-page watermark reached at %s!\n", watermark_buffer);
                 }
               }
             }
