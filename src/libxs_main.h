@@ -182,6 +182,7 @@
 #define LIBXS_REGDESC(START, MODIFIER) \
   START libxs_gemm_descriptor MODIFIER gemm; \
   START libxs_mcopy_descriptor MODIFIER mcopy; \
+  START libxs_meltw_descriptor MODIFIER meltw; \
   START libxs_trans_descriptor MODIFIER trans; \
   START libxs_pgemm_descriptor MODIFIER pgemm; \
   START libxs_getrf_descriptor MODIFIER getrf; \
@@ -226,6 +227,19 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_mcopy_descriptor {
   unsigned char prefetch;
   /** Set of flags. */
   unsigned char flags;
+};
+
+/** Packed structure storing the mateltw argument description. */
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meltw_descriptor {
+  /** LDx, M, and N. */
+  unsigned int m, n, ldi, ldo, ldx, ldy;
+  /** Size of data element. */
+  unsigned char datatype;
+  unsigned char datatype2;
+  /** Set of flags */
+  unsigned short flags;
+  /** operation specifier */
+  unsigned short operation;
 };
 
 /** Packed structure storing the transpose argument description. */
@@ -313,6 +327,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   intptr_t ival;
   libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, or void-function */
   libxs_xmcopyfunction xmatcopy;
+  libxs_xmeltwfunction xmateltw;
   libxs_xtransfunction xtrans;
   libxs_pgemm_xfunction xpgemm;
   libxs_getrf_xfunction xgetrf;
@@ -730,6 +745,7 @@ struct LIBXS_RETARGETABLE libxs_sfsspmdm {
 typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GEMM       = LIBXS_KERNEL_KIND_MATMUL,
   LIBXS_BUILD_KIND_MCOPY      = LIBXS_KERNEL_KIND_MCOPY,
+  LIBXS_BUILD_KIND_MELTW      = LIBXS_KERNEL_KIND_MELTW,
   LIBXS_BUILD_KIND_TRANS      = LIBXS_KERNEL_KIND_TRANS,
   LIBXS_BUILD_KIND_PGEMM      = LIBXS_KERNEL_KIND_PGEMM,
   LIBXS_BUILD_KIND_GETRF      = LIBXS_KERNEL_KIND_GETRF,

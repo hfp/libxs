@@ -228,6 +228,7 @@ LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_med);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_mnk);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_gemv);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_mcopy);
+LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_meltw);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_tcopy);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_trsm);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_trmm);
@@ -698,6 +699,7 @@ LIBXS_API_INTERN void internal_finalize(void)
           if (0 != ngemms) { fprintf(stderr, "gemm=%u", ngemms); s = sep; }
           if (0 != internal_statistic_num_gemv) { fprintf(stderr, "%sgemv=%u", s, internal_statistic_num_gemv); s = sep; }
           if (0 != internal_statistic_num_mcopy) { fprintf(stderr, "%smcopy=%u", s, internal_statistic_num_mcopy); s = sep; }
+          if (0 != internal_statistic_num_meltw) { fprintf(stderr, "%smeltw=%u", s, internal_statistic_num_meltw); s = sep; }
           if (0 != internal_statistic_num_tcopy) { fprintf(stderr, "%stcopy=%u", s, internal_statistic_num_tcopy); s = sep; }
           if (0 != libxs_statistic_num_spmdm) { fprintf(stderr, "%sspmdm=%u", s, libxs_statistic_num_spmdm); s = sep; }
           if (0 != internal_statistic_num_user) { fprintf(stderr, "%suser=%u", s, internal_statistic_num_user); s = sep; }
@@ -1281,6 +1283,9 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             case LIBXS_KERNEL_KIND_MCOPY: {
               ++internal_statistic_num_mcopy;
             } break;
+            case LIBXS_KERNEL_KIND_MELTW: {
+              ++internal_statistic_num_meltw;
+            } break;
             case LIBXS_KERNEL_KIND_TRANS: {
               ++internal_statistic_num_tcopy;
             } break;
@@ -1305,9 +1310,9 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
               fprintf(stderr, "LIBXS ERROR: code registry is corrupted!\n");
             }
             if (LIBXS_CAPACITY_REGISTRY == (rest + errors + internal_statistic_num_gemv +
-              internal_statistic_num_mcopy + internal_statistic_num_tcopy +
-              internal_statistic_num_trsm + internal_statistic_num_trmm +
-              internal_statistic_num_user))
+              internal_statistic_num_mcopy + internal_statistic_num_meltw +
+              internal_statistic_num_tcopy + internal_statistic_num_trsm +
+              internal_statistic_num_trmm + internal_statistic_num_user))
             {
               fprintf(stderr, "LIBXS WARNING: code registry was exhausted!\n");
             }
@@ -1877,6 +1882,26 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_p%u.mcopy", target_arch, tsizename,
             request->descriptor.mcopy->m, request->descriptor.mcopy->n, request->descriptor.mcopy->ldi, request->descriptor.mcopy->ldo,
             (unsigned int)request->descriptor.mcopy->prefetch);
+        }
+      }
+    } break;
+    case LIBXS_BUILD_KIND_MELTW: { /* matcopy kernel */
+      LIBXS_ASSERT(NULL != request->descriptor.meltw);
+# if 0 /* TODO: backend supports typesize <= 4, but kernels for typesize < 4 are incorrect */
+      if (4 == request->descriptor.meltw->typesize)
+# endif
+      {
+        LIBXS_NO_OFFLOAD(void, libxs_generator_mateltwise_kernel, &generated_code, request->descriptor.meltw);
+# if !defined(LIBXS_VTUNE)
+        if (0 > libxs_verbosity)
+# endif
+        {
+          char tsizename[4];
+          internal_get_typesize_string(tsizename, sizeof(tsizename), request->descriptor.meltw->datatype);
+          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_p%u.meltw", target_arch, tsizename,
+            request->descriptor.meltw->m, request->descriptor.meltw->n, request->descriptor.meltw->ldi, request->descriptor.meltw->ldo,
+            (unsigned int)request->descriptor.meltw->operation);
         }
       }
     } break;
@@ -2495,6 +2520,46 @@ LIBXS_API int libxs_get_mcopykernel_info(libxs_xmcopyfunction kernel, libxs_mcop
   return result;
 }
 
+
+LIBXS_API int libxs_get_meltwkernel_info(libxs_xmeltwfunction kernel, libxs_meltwkernel_info* info)
+{
+  libxs_code_pointer code;
+  static int error_once = 0;
+  int result;
+  code.xmateltw = kernel;
+  if (NULL != info) {
+    const libxs_descriptor* desc;
+    if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
+        NULL != desc && LIBXS_KERNEL_KIND_MELTW == desc->kind)
+    {
+      info->datatype = desc->meltw.desc.datatype;
+      info->operation = desc->meltw.desc.operation;
+      info->flags = desc->meltw.desc.flags;
+      info->ldi = desc->meltw.desc.ldi;
+      info->ldo = desc->meltw.desc.ldo;
+      info->m = desc->meltw.desc.m;
+      info->n = desc->meltw.desc.n;
+      result = EXIT_SUCCESS;
+    }
+    else {
+      if (0 != libxs_verbosity /* library code is expected to be mute */
+        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+      {
+        fprintf(stderr, "LIBXS ERROR: invalid kernel cannot be inspected!\n");
+      }
+      result = EXIT_FAILURE;
+    }
+  }
+  else {
+    if (0 != libxs_verbosity /* library code is expected to be mute */
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
+      fprintf(stderr, "LIBXS ERROR: invalid argument!\n");
+    }
+    result = EXIT_FAILURE;
+  }
+  return result;
+}
 
 LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
 {
@@ -3967,6 +4032,98 @@ LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor
     result = NULL;
   }
   return result;
+}
+
+
+LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor* descriptor)
+{
+  libxs_xmeltwfunction result;
+  LIBXS_INIT /* verbosity */
+  if (NULL != descriptor) {
+    libxs_descriptor wrap;
+#if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
+    LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
+#endif
+    LIBXS_ASSIGN127(&wrap.meltw.desc, descriptor);
+    wrap.kind = LIBXS_KERNEL_KIND_MELTW;
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xmateltw;
+  }
+  else {
+    result.xmeltw = NULL;
+  }
+  return result;
+}
+
+
+LIBXS_API libxs_meltwfunction_copy libxs_dispatch_meltw_copy(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type) {
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    0, LIBXS_MELTW_OPERATION_COPY);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_copy;
+}
+
+
+LIBXS_API libxs_meltwfunction_zero libxs_dispatch_meltw_zero(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type) {
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    0, LIBXS_MELTW_OPERATION_ZERO);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_zero;
+}
+
+
+LIBXS_API libxs_meltwfunction_add libxs_dispatch_meltw_add(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type) {
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    0, LIBXS_MELTW_OPERATION_ADD);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_add;
+}
+
+
+LIBXS_API libxs_meltwfunction_mul libxs_dispatch_meltw_mul(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type) {
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    0, LIBXS_MELTW_OPERATION_MUL);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_mul;
+}
+
+
+LIBXS_API libxs_meltwfunction_relu libxs_dispatch_meltw_relu(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type) {
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    0, LIBXS_MELTW_OPERATION_RELU);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_relu;
+}
+
+
+LIBXS_API libxs_meltwfunction_cvtfp32bf16 libxs_dispatch_metlw_cvtfp32bf16(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type) {
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    0, LIBXS_MELTW_OPERATION_CVTFP32BF16);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_cvtfp32bf16;
 }
 
 
