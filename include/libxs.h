@@ -105,6 +105,9 @@ LIBXS_API int libxs_get_transkernel_info(libxs_xtransfunction kernel, libxs_tran
 /** Get information about the matrix copy kernel. */
 LIBXS_API int libxs_get_mcopykernel_info(libxs_xmcopyfunction kernel, libxs_mcopykernel_info* info);
 
+/** Get information about the matrix eltwise kernel. */
+LIBXS_API int libxs_get_meltwkernel_info(libxs_xmeltwfunction kernel, libxs_meltwkernel_info* info);
+
 /** Get information about the code registry. */
 LIBXS_API int libxs_get_registry_info(libxs_registry_info* info);
 
@@ -450,6 +453,15 @@ LIBXS_APIEXT void libxs_mmbatch_end(void);
 
 /** Code generation routine for matrix-copy using a descriptor. */
 LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor* descriptor);
+
+/** Code generation routine for matrix-eltwise using a descriptor. */
+LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor* descriptor);
+LIBXS_API libxs_meltwfunction_copy libxs_dispatch_meltw_copy(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
+LIBXS_API libxs_meltwfunction_zero libxs_dispatch_meltw_zero(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
+LIBXS_API libxs_meltwfunction_add libxs_dispatch_meltw_add(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
+LIBXS_API libxs_meltwfunction_mul libxs_dispatch_meltw_mul(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
+LIBXS_API libxs_meltwfunction_relu libxs_dispatch_meltw_relu(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
+LIBXS_API libxs_meltwfunction_cvtfp32bf16 libxs_dispatch_metlw_cvtfp32bf16(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
 
 /** Code generation routine for transposes using a descriptor */
 LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor* descriptor);
