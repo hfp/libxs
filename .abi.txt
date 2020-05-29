@@ -83,6 +83,13 @@ libxs_diff_i8
 libxs_diff_n
 libxs_dispatch_getrf
 libxs_dispatch_mcopy
+libxs_dispatch_meltw
+libxs_dispatch_meltw_add
+libxs_dispatch_meltw_copy
+libxs_dispatch_meltw_mul
+libxs_dispatch_meltw_relu
+libxs_dispatch_meltw_zero
+libxs_dispatch_metlw_cvtfp32bf16
 libxs_dispatch_pgemm
 libxs_dispatch_trans
 libxs_dispatch_trmm
@@ -246,6 +253,7 @@ libxs_generator_gemm_inlineasm
 libxs_generator_gemm_kernel
 libxs_generator_getrf_kernel
 libxs_generator_matcopy_kernel
+libxs_generator_mateltwise_kernel
 libxs_generator_packed_gemm_ac_rm
 libxs_generator_packed_gemm_bc_rm
 libxs_generator_pgemm_kernel
@@ -267,6 +275,7 @@ libxs_get_malloc
 libxs_get_malloc_info
 libxs_get_malloc_xinfo
 libxs_get_mcopykernel_info
+libxs_get_meltwkernel_info
 libxs_get_mmkernel_info
 libxs_get_pid
 libxs_get_registry_info
@@ -320,6 +329,8 @@ libxs_matdiff_clear_
 libxs_matdiff_reduce
 libxs_matdiff_reduce_
 libxs_mcopy_descriptor_init
+libxs_meltw_descriptor_init
+libxs_meltw_descriptor_init2
 libxs_memcmp
 libxs_mhd_element_comparison
 libxs_mhd_element_conversion
