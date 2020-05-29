@@ -424,6 +424,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int block_upd_ofm;
 
   libxs_xtransfunction tr_kernel;
+  libxs_meltwfunction_cvtfp32bf16 fwd_cvtfp32bf16_kernel;
 
   /* internal data representation */
   libxs_dnn_tensor* reg_input;

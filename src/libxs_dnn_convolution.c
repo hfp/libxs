@@ -899,6 +899,7 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* 
 LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* handle ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
   const libxs_trans_descriptor* tr_desc = 0;
+  libxs_blasint _ldi = 64, _ldo = 64;
   libxs_descriptor_blob blob;
 
   /* init libxs */
@@ -930,6 +931,13 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->code_fwd[0].ptr = 0;
   handle->code_fwd[1].ptr = 0;
   handle->code_fwd[2].ptr = 0;
+
+  /* JIT cvt eltwise functions for fwd convolutions */
+  if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
+    _ldi = handle->ofmblock * handle->ofwp;
+    _ldo = handle->ofmblock * handle->ofwp;
+    handle->fwd_cvtfp32bf16_kernel = libxs_dispatch_metlw_cvtfp32bf16(handle->ofmblock * handle->fwd_ofw_rb, handle->fwd_ofh_rb, &_ldi, &_ldo, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16);
+  }
 
   /* Create strided BRGEMMs for i8i32 convolutions  */
   if ((handle->datatype_in == LIBXS_DNN_DATATYPE_I8) && (handle->datatype_out == LIBXS_DNN_DATATYPE_I32)) {
