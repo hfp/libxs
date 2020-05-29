@@ -1738,7 +1738,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
       else
 #endif
       if (NULL == info || size != info->size) {
-#if defined(_WIN32)
+#if defined(_WIN32) ||defined(__CYGWIN__)
         const int mflags = (0 != (LIBXS_MALLOC_FLAG_X & flags) ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE);
         static SIZE_T alloc_alignmax = 0, alloc_pagesize = 0;
         if (0 == alloc_alignmax) { /* first/one time */
