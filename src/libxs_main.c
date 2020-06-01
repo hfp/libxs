@@ -4115,7 +4115,7 @@ LIBXS_API libxs_meltwfunction_relu libxs_dispatch_meltw_relu(const libxs_blasint
 }
 
 
-LIBXS_API libxs_meltwfunction_cvtfp32bf16 libxs_dispatch_metlw_cvtfp32bf16(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type) {
+LIBXS_API libxs_meltwfunction_cvtfp32bf16 libxs_dispatch_meltw_cvtfp32bf16(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type) {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
     in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
@@ -4126,6 +4126,27 @@ LIBXS_API libxs_meltwfunction_cvtfp32bf16 libxs_dispatch_metlw_cvtfp32bf16(const
   return result.meltw_cvtfp32bf16;
 }
 
+LIBXS_API libxs_meltwfunction_reduce libxs_dispatch_meltw_reduce(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type, unsigned short flags) {
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    flags, LIBXS_MELTW_OPERATION_REDUCE);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_reduce;
+}
+
+LIBXS_API libxs_meltwfunction_reduce libxs_dispatch_meltw_scale(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type, unsigned short flags) {
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    flags, LIBXS_MELTW_OPERATION_SCALE);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_scale;
+}
 
 LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor* descriptor)
 {
