@@ -4137,7 +4137,7 @@ LIBXS_API libxs_meltwfunction_reduce libxs_dispatch_meltw_reduce(const libxs_bla
   return result.meltw_reduce;
 }
 
-LIBXS_API libxs_meltwfunction_reduce libxs_dispatch_meltw_scale(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type, unsigned short flags) {
+LIBXS_API libxs_meltwfunction_scale libxs_dispatch_meltw_scale(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type, unsigned short flags) {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
     in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
