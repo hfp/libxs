@@ -211,7 +211,6 @@ include $(ROOTDIR)/Makefile.inc
 
 # necessary include directories
 IFLAGS += -I$(call quote,$(INCDIR))
-IFLAGS += -I$(call quote,$(BLDDIR))
 IFLAGS += -I$(call quote,$(ROOTDIR)/$(SRCDIR))
 
 # Version numbers according to interface (version.txt)
@@ -760,7 +759,7 @@ ifneq (0,$(MPSS))
 $(foreach OBJ,$(OBJFILES_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h,-mmic \
-  $(DFLAGS) $(IFLAGS) $(CFLAGS))))
+  $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CFLAGS))))
 $(foreach OBJ,$(KRNOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ), $(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h,-mmic \
@@ -775,13 +774,12 @@ endif
 endif
 
 # build rules that include target flags
-# individual flags: $(call applyif,$(CONDITION),libxs_malloc,$(OBJ),-Dindividual_flag>)
 $(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_HST),$(ROOTDIR)/$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
   $(CTARGET) $(NOBLAS_CFLAGS) $(NOBLAS_FLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
 $(foreach OBJ,$(OBJFILES_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
-  $(DFLAGS) $(IFLAGS) $(CTARGET) $(CFLAGS))))
+  $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
 $(foreach OBJ,$(KRNOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
