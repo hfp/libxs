@@ -461,7 +461,7 @@ LIBXS_API libxs_meltwfunction_zero libxs_dispatch_meltw_zero(const libxs_blasint
 LIBXS_API libxs_meltwfunction_add libxs_dispatch_meltw_add(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
 LIBXS_API libxs_meltwfunction_mul libxs_dispatch_meltw_mul(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
 LIBXS_API libxs_meltwfunction_relu libxs_dispatch_meltw_relu(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
-LIBXS_API libxs_meltwfunction_cvtfp32bf16 libxs_dispatch_metlw_cvtfp32bf16(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
+LIBXS_API libxs_meltwfunction_cvtfp32bf16 libxs_dispatch_meltw_cvtfp32bf16(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
 
 /** Code generation routine for transposes using a descriptor */
 LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor* descriptor);
