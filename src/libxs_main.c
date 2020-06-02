@@ -1556,6 +1556,25 @@ LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype)
 }
 
 
+LIBXS_API libxs_datatype libxs_typesize_type(unsigned char typesize)
+{
+  switch (typesize) {
+    case 8: return LIBXS_DATATYPE_F64;
+    case 4: return LIBXS_DATATYPE_F32;
+    case 2: return LIBXS_DATATYPE_I16;
+    case 1: return LIBXS_DATATYPE_I8;
+    default: {
+      static int error_once = 0;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: unsupported type-size!\n");
+      }
+    }
+  }
+  LIBXS_ASSERT_MSG(0, "unsupported typesize");
+  return LIBXS_DATATYPE_UNSUPPORTED;
+}
+
+
 LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue)
 {
   int result = EXIT_SUCCESS;
