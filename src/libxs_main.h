@@ -913,8 +913,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 
 /** Returns the type-size of data-type (can be also libxs_gemm_precision). */
 LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
-/** Returns a data-type that matches the given typesize. */
-LIBXS_API libxs_datatype libxs_typesize_type(unsigned char typesize);
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_kernel_xinfo {
   /** Non-zero of kernel is registered. */
