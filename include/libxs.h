@@ -487,7 +487,7 @@ LIBXS_API libxs_trsm_xfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* 
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
 LIBXS_API libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_descriptor* descriptor,
-   const unsigned int* row_ptr, const unsigned int* column_idx, const void* values, const unsigned int packed_width);
+  const unsigned int* row_ptr, const unsigned int* column_idx, const void* values, const unsigned int packed_width);
 
 /**
  * Code generation routine for the CSC format which multiplies a dense SOA matrix (each element holds a SIMD-width
@@ -496,7 +496,7 @@ LIBXS_API libxs_xmmfunction libxs_create_xcsr_soa(const libxs_gemm_descriptor* d
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
 LIBXS_API libxs_xmmfunction libxs_create_xcsc_soa(const libxs_gemm_descriptor* descriptor,
-   const unsigned int* column_ptr, const unsigned int* row_idx, const void* values, const unsigned int packed_width);
+  const unsigned int* column_ptr, const unsigned int* row_idx, const void* values, const unsigned int packed_width);
 
 /**
  * Code generation routine for row-major format B matrix which is multiplied by a dense packed matrix (each element holds a SIMD-width
@@ -520,7 +520,7 @@ LIBXS_API libxs_xmmfunction libxs_create_pgemm_bc_rm(const libxs_gemm_descriptor
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
 LIBXS_API libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_descriptor* descriptor,
-   const unsigned int* row_ptr, const unsigned int* column_idx, const double* values);
+  const unsigned int* row_ptr, const unsigned int* column_idx, const double* values);
 
 /**
  * Code generation routine for the CSR format which multiplies a dense matrix B into a dense matrix C.
@@ -528,7 +528,7 @@ LIBXS_API libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_descriptor* d
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
 LIBXS_API libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* descriptor,
-   const unsigned int* row_ptr, const unsigned int* column_idx, const float* values);
+  const unsigned int* row_ptr, const unsigned int* column_idx, const float* values);
 
 /**
  * Deallocates the JIT'ted code as returned by libxs_create_* functions,
