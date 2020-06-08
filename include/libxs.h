@@ -461,7 +461,7 @@ LIBXS_API libxs_meltwfunction_zero libxs_dispatch_meltw_zero(const libxs_blasint
 LIBXS_API libxs_meltwfunction_add libxs_dispatch_meltw_add(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
 LIBXS_API libxs_meltwfunction_mul libxs_dispatch_meltw_mul(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
 LIBXS_API libxs_meltwfunction_relu libxs_dispatch_meltw_relu(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
-LIBXS_API libxs_meltwfunction_cvtfp32bf16 libxs_dispatch_meltw_cvtfp32bf16(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type);
+LIBXS_API libxs_meltwfunction_cvtfp32bf16 libxs_dispatch_meltw_cvtfp32bf16(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type, unsigned short flags);
 LIBXS_API libxs_meltwfunction_reduce libxs_dispatch_meltw_reduce(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type, unsigned short flags);
 LIBXS_API libxs_meltwfunction_scale libxs_dispatch_meltw_scale(const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, const libxs_datatype in_type, const libxs_datatype out_type, unsigned short flags);
 
