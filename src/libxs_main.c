@@ -4130,7 +4130,7 @@ LIBXS_API libxs_meltwfunction_cvtfp32bf16_act libxs_dispatch_meltw_cvtfp32bf16_a
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
     in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
-    flags, LIBXS_MELTW_OPERATION_CVTFP32BF16);
+    flags, LIBXS_MELTW_OPERATION_CVTFP32BF16_ACT);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
 
