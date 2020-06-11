@@ -147,12 +147,12 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
           ++warnings;
         }
         if (LIBXS_STATIC_TARGET_ARCH < feature_cpu && feature_os < feature_cpu) {
-          fprintf(stderr, "LIBXS WARNING: detected CPU features are not permitted by the OS!\n");
+          fprintf(stderr, "LIBXS WARNING: detected CPU features are not permitted by the OS, downgrading LIBXS code gen to OS supported features!\n");
           ++warnings;
         }
         if (0 != warnings) fprintf(stderr, "\n");
       }
-# if 0 /* permitted features */
+# if 1 /* permitted features */
       result = LIBXS_MIN(feature_cpu, feature_os);
 # else /* opportunistic */
       result = feature_cpu;
