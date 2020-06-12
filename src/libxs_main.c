@@ -4139,6 +4139,16 @@ LIBXS_API libxs_meltwfunction_cvtfp32bf16_act libxs_dispatch_meltw_cvtfp32bf16_a
   return result.meltw_cvtfp32bf16_act;
 }
 
+LIBXS_API libxs_meltwfunction_act_cvtfp32bf16 libxs_dispatch_meltw_act_cvtfp32bf16(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_meltw_acvt_flags flags) {
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    flags, LIBXS_MELTW_OPERATION_ACT_CVTFP32BF16);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_act_cvtfp32bf16;
+}
 
 LIBXS_API libxs_meltwfunction_reduce libxs_dispatch_meltw_reduce(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_meltw_redu_flags flags) {
   libxs_descriptor_blob blob;
