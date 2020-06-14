@@ -969,8 +969,6 @@ LIBXS_APIVAR_PRIVATE(double libxs_timer_scale);
 LIBXS_APIVAR_PRIVATE(unsigned int libxs_statistic_num_spmdm);
 /** Counts the maximum number of thread that have been active. */
 LIBXS_APIVAR_PRIVATE(unsigned int libxs_thread_count);
-/** Security-enhanced environment. */
-LIBXS_APIVAR_PRIVATE(int libxs_se);
 
 #if (0 != LIBXS_SYNC)
 LIBXS_APIVAR_PRIVATE(LIBXS_TLS_TYPE libxs_tlskey);

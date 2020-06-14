@@ -63,9 +63,24 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
   unsigned int eax, ebx, ecx, edx;
   LIBXS_CPUID_X86(0, 0/*ecx*/, eax, ebx, ecx, edx);
   if (1 <= eax) { /* CPUID max. leaf */
-    if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* detect CPU-feature only once */
+    /* avoid redetecting features but redetect on request (info given) */
+    if (LIBXS_TARGET_ARCH_UNKNOWN == result || NULL != info) {
       int feature_cpu = LIBXS_X86_GENERIC, feature_os = LIBXS_X86_GENERIC;
       unsigned int maxleaf = eax;
+# if defined(__linux__)
+      if (0 == libxs_se) {
+        FILE *const selinux = fopen("/sys/fs/selinux/enforce", "rb");
+        if (NULL != selinux) {
+          if (1 == fread(&libxs_se, 1/*sizeof(char)*/, 1/*count*/, selinux)) {
+            libxs_se = ('0' != libxs_se ? 1 : 0);
+          }
+          else { /* conservative assumption in case of read-error */
+            libxs_se = 1;
+          }
+          fclose(selinux);
+        }
+      }
+# endif
       LIBXS_CPUID_X86(1, 0/*ecx*/, eax, ebx, ecx, edx);
       /* Check for CRC32 (this is not a proper test for SSE 4.2 as a whole!) */
       if (LIBXS_CPUID_CHECK(ecx, 0x00100000)) {
@@ -146,16 +161,26 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
           fprintf(stderr, "LIBXS WARNING: %soptimized non-JIT code paths are limited to \"%s\"!\n", compiler_support, name);
           ++warnings;
         }
+# if !defined(__APPLE__) || !defined(__MACH__) /* permitted features */
         if (LIBXS_STATIC_TARGET_ARCH < feature_cpu && feature_os < feature_cpu) {
-          fprintf(stderr, "LIBXS WARNING: detected CPU features are not permitted by the OS, downgrading LIBXS code gen to OS supported features!\n");
+          fprintf(stderr, "LIBXS WARNING: detected CPU features are not permitted by the OS!\n");
+          if (0 == libxs_se) {
+            fprintf(stderr, "LIBXS WARNING: downgraded code generation to supported features!\n");
+          }
           ++warnings;
         }
+# endif
         if (0 != warnings) fprintf(stderr, "\n");
       }
-# if 1 /* permitted features */
-      result = LIBXS_MIN(feature_cpu, feature_os);
-# else /* opportunistic */
+      /* macOS is faulting AVX-512 (on-demand larger state) */
       result = feature_cpu;
+# if !defined(__APPLE__) || !defined(__MACH__)
+#   if 1 /* opportunistic */
+      if (0 == libxs_se)
+#   endif
+      { /* only permitted features */
+        result = LIBXS_MIN(feature_cpu, feature_os);
+      }
 # endif
     }
     if (NULL != info) {

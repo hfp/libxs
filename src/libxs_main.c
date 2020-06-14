@@ -260,7 +260,6 @@ LIBXS_APIVAR_PRIVATE_DEF(double libxs_scratch_scale);
 LIBXS_APIVAR_PRIVATE_DEF(double libxs_timer_scale);
 LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_statistic_num_spmdm);
 LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_thread_count);
-LIBXS_APIVAR_PRIVATE_DEF(int libxs_se);
 /* definition of corresponding variables */
 LIBXS_APIVAR_PUBLIC_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
@@ -1179,7 +1178,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           else {
             libxs_timer_scale = 0;
             internal_timer_start = s0;
-#if defined(_DEBUG)
+#if !defined(NDEBUG)
             libxs_se = 1;
 #endif
           }
