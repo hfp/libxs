@@ -1884,18 +1884,6 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
 # endif
           if (0 > (int)LIBXS_ATOMIC_LOAD(&fallback, LIBXS_ATOMIC_RELAXED)) {
             const char *const env = getenv("LIBXS_SE");
-            if (0 == libxs_se) {
-              FILE *const selinux = fopen("/sys/fs/selinux/enforce", "rb");
-              if (NULL != selinux) {
-                if (1 == fread(&libxs_se, 1/*sizeof(char)*/, 1/*count*/, selinux)) {
-                  libxs_se = ('0' != libxs_se ? 1 : 0);
-                }
-                else { /* conservative assumption in case of read-error */
-                  libxs_se = 1;
-                }
-                fclose(selinux);
-              }
-            }
             LIBXS_ATOMIC_STORE(&fallback, NULL == env
               /* libxs_se decides */
               ? (0 == libxs_se ? LIBXS_MALLOC_FINAL : LIBXS_MALLOC_FALLBACK)
