@@ -237,6 +237,7 @@ LIBXS_APIVAR_DEFINE(int internal_gemm_auto_prefetch_locked);
 LIBXS_APIVAR_DEFINE(const char* internal_build_state);
 /** Time stamp (startup time of library). */
 LIBXS_APIVAR_DEFINE(libxs_timer_tickint internal_timer_start);
+LIBXS_APIVAR_DEFINE(libxs_cpuid_x86_info internal_cpuid_info);
 
 #if defined(_WIN32)
 # define INTERNAL_SINGLETON_HANDLE HANDLE
@@ -663,9 +664,17 @@ LIBXS_API_INTERN void internal_finalize(void)
       0 != *(LIBXS_BRANCH) ? "-" : "", 0 != *(LIBXS_VERSION) ? (LIBXS_VERSION) : "unconfigured",
       LIBXS_VERSION4(LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH));
     if (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) {
-      const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
-      libxs_scratch_info scratch_info; size_t size_scratch = 0, size_private = 0;
       unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
+      const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
+      size_t size_scratch = 0, size_private = 0;
+      libxs_scratch_info scratch_info;
+      libxs_cpuid_x86_info info;
+      libxs_cpuid_x86(&info);
+      if ((LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) &&
+        internal_cpuid_info.has_context < info.has_context)
+      {
+        fprintf(stderr, "\nLIBXS: CPU features have been promoted.");
+      }
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
         fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
       }
@@ -1155,14 +1164,13 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       { /* calibrate timer */
         int register_termination_proc;
         libxs_timer_tickint s1, t1;
-        libxs_cpuid_x86_info info;
         internal_init(); /* must be first to initialize verbosity, etc. */
         if (INTERNAL_SINGLETON(internal_singleton_handle)) { /* after internal_init */
           internal_dump(stdout, 1/*urgent*/);
         }
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* mid-timing */
-        libxs_cpuid_x86(&info);
-        if (0 != info.constant_tsc && t0 < t1) {
+        libxs_cpuid_x86(&internal_cpuid_info);
+        if (0 != internal_cpuid_info.constant_tsc && t0 < t1) {
           libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
         }
         register_termination_proc = atexit(internal_finalize);
