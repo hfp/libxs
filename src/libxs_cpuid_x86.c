@@ -65,7 +65,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
   if (1 <= eax) { /* CPUID max. leaf */
     /* avoid redetecting features but redetect on request (info given) */
     if (LIBXS_TARGET_ARCH_UNKNOWN == result || NULL != info) {
-      int feature_cpu = LIBXS_X86_GENERIC, feature_os = LIBXS_X86_GENERIC;
+      int feature_cpu = LIBXS_X86_GENERIC, feature_os = LIBXS_X86_GENERIC, has_context = 0;
       unsigned int maxleaf = eax;
 # if defined(__linux__)
       if (0 == libxs_se) {
@@ -143,15 +143,14 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
         }
       }
       else feature_os = LIBXS_TARGET_ARCH_GENERIC;
-      if (0 != libxs_verbosity) { /* library code is expected to be mute */
+      has_context = (LIBXS_STATIC_TARGET_ARCH >= feature_cpu || feature_os >= feature_cpu) ? 1 : 0;
+      if (LIBXS_TARGET_ARCH_UNKNOWN == result && 0 != libxs_verbosity) { /* library code is expected to be mute */
         const int target_vlen32 = libxs_cpuid_vlen32(feature_cpu);
         const char *const compiler_support = (libxs_cpuid_vlen32(LIBXS_MAX_STATIC_TARGET_ARCH) < target_vlen32
           ? "" : (((2 <= libxs_verbosity || 0 > libxs_verbosity) && LIBXS_MAX_STATIC_TARGET_ARCH < feature_cpu)
             ? "highly " : NULL));
-        int warnings = 0;
 # if !defined(NDEBUG) && defined(__OPTIMIZE__)
         fprintf(stderr, "LIBXS WARNING: library is optimized without -DNDEBUG and contains debug code!\n");
-        ++warnings;
 # endif
         if (NULL != compiler_support) {
           const char *const name = libxs_cpuid_name( /* exclude MIC when running on Core processors */
@@ -159,18 +158,15 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
               (LIBXS_X86_AVX512_KNM == LIBXS_MAX_STATIC_TARGET_ARCH)) && (LIBXS_X86_AVX512_CORE <= feature_cpu))
               ? LIBXS_X86_AVX2 : LIBXS_MAX_STATIC_TARGET_ARCH);
           fprintf(stderr, "LIBXS WARNING: %soptimized non-JIT code paths are limited to \"%s\"!\n", compiler_support, name);
-          ++warnings;
         }
 # if !defined(__APPLE__) || !defined(__MACH__) /* permitted features */
-        if (LIBXS_STATIC_TARGET_ARCH < feature_cpu && feature_os < feature_cpu) {
+        if (0 == has_context) {
           fprintf(stderr, "LIBXS WARNING: detected CPU features are not permitted by the OS!\n");
           if (0 == libxs_se) {
             fprintf(stderr, "LIBXS WARNING: downgraded code generation to supported features!\n");
           }
-          ++warnings;
         }
 # endif
-        if (0 != warnings) fprintf(stderr, "\n");
       }
       /* macOS is faulting AVX-512 (on-demand larger state) */
       result = feature_cpu;
@@ -182,10 +178,11 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
         result = LIBXS_MIN(feature_cpu, feature_os);
       }
 # endif
-    }
-    if (NULL != info) {
-      LIBXS_CPUID_X86(0x80000007, 0/*ecx*/, eax, ebx, ecx, edx);
-      info->constant_tsc = LIBXS_CPUID_CHECK(edx, 0x00000100);
+      if (NULL != info) {
+        LIBXS_CPUID_X86(0x80000007, 0/*ecx*/, eax, ebx, ecx, edx);
+        info->constant_tsc = LIBXS_CPUID_CHECK(edx, 0x00000100);
+        info->has_context = has_context;
+      }
     }
   }
   else {
