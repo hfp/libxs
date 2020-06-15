@@ -29,8 +29,10 @@
 #define LIBXS_X86_AVX512_CLX   1021
 #define LIBXS_X86_AVX512_CPX   1022
 #define LIBXS_X86_ALLFEAT      1999 /* all features supported which are used anywhere in LIBXS, this value should never be used to set arch, only for compares */
+/** A zero-initialized structure assumes conservative properties. */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_cpuid_x86_info {
-  int constant_tsc;
+  int constant_tsc; /** Timer stamp counter is monotonic. */
+  int has_context;  /** Context switches are permitted. */
 } libxs_cpuid_x86_info;
 
 /** Returns the target architecture and instruction set extensions. */
