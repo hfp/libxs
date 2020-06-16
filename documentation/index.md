@@ -14,7 +14,7 @@ For a list questions and answers, please also have a look at [https://github.com
 
 **<a name="what-is-a-small-convolution"></a>What is a small convolution?** In the last years, new workloads such as deep learning and more specifically convolutional neural networks (CNN) emerged and are pushing the limits of today's hardware. One of the expensive kernels is a small convolution with certain kernel sizes such that calculations in the frequency space is not the most efficient method when compared with direct convolutions. LIBXS's current support for convolutions aims for an easy to use invocation of small (direct) convolutions, which are intended for CNN training and classification.
 
-**<a name="getting-started"></a><a name="hello-libxs"></a>Getting Started**: The following code is focused on a specific functionality but may be considered as "Hello LIBXS". Build the example with `cd /path/to/libxs; make STATIC=0` (shared library), save the code under `hello.cpp` (below) and compile with `g++ -I/path/to/libxs/include hello.cpp -L/path/to/libxs/lib -lxsmm -lblas -o hello` (GNU CCC), and finally execute with `LD_LIBRARY_PATH=/path/to/libxs/lib LIBXS_VERBOSE=2 ./hello`.
+**<a name="getting-started"></a><a name="hello-libxs"></a>Getting Started**: The following C++ code is focused on a specific functionality but may be considered as [Hello LIBXS](https://github.com/hfp/libxs/tree/master/samples/hello). Build the example with `cd /path/to/libxs; make STATIC=0` (shared library), save the code under `hello.cpp` (below) and compile with `g++ -I/path/to/libxs/include hello.cpp -L/path/to/libxs/lib -lxsmm -lblas -o hello` (GNU CCC), and finally execute with `LD_LIBRARY_PATH=/path/to/libxs/lib LIBXS_VERBOSE=2 ./hello`.
 
 ```cpp
 #include <libxs.h>
@@ -38,6 +38,8 @@ int main(/*int argc, char* argv[]*/) {
   for (int i = 0; i < batchsize; ++i) kernel(&a[i * m * k], &b[i * k * n], &c[0]);
 }
 ```
+
+A plain [C code](https://github.com/hfp/libxs/blob/master/samples/hello/hello.c) of the above is almost the same except for the `std::vector` and using a function rather a functor. Of course, the [Fortran code](https://github.com/hfp/libxs/blob/master/samples/hello/hello.f) resembles a "Hello LIBXS" as well as C/C++.
 
 # Overview<a name="general-interface"></a>
 
@@ -78,6 +80,7 @@ The [service function domain (AUX)](libxs_aux.md) contains routines for:
 * [Getting and setting the target architecture](libxs_aux.md#getting-and-setting-the-target-architecture)
 * [Getting and setting the verbosity](libxs_aux.md#getting-and-setting-the-verbosity)
 * [Measuring time durations (timer)](libxs_aux.md#timer-facility)
+* [Dispatching user-data and multiple kernels](libxs_aux.md#user-data-dispatch)
 * [Loading and storing data (I/O)](libxs_aux.md#meta-image-file-io)
 * [Allocating memory](libxs_aux.md#memory-allocation)
 
