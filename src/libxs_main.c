@@ -671,7 +671,7 @@ LIBXS_API_INTERN void internal_finalize(void)
       libxs_cpuid_x86_info info;
       libxs_cpuid_x86(&info);
       if ((LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) &&
-        internal_cpuid_info.has_context < info.has_context)
+        0 == internal_cpuid_info.has_context && 0 != info.has_context)
       {
         fprintf(stderr, "\nLIBXS: CPU features have been promoted.");
       }
