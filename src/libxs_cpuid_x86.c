@@ -171,7 +171,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
       /* macOS is faulting AVX-512 (on-demand larger state) */
       result = feature_cpu;
 # if !defined(__APPLE__) || !defined(__MACH__)
-#   if 1 /* opportunistic */
+#   if 0 /* opportunistic */
       if (0 == libxs_se)
 #   endif
       { /* only permitted features */
