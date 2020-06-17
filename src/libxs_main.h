@@ -206,13 +206,21 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
   /** Denotes the data-type. */
   unsigned char datatype;
   /** Ignored entry. */
-  LIBXS_PAD(unsigned short pad)
+  LIBXS_PAD(unsigned char pad)
   /** multipurpose 64bit field, currently used for: a) stride_a in brgemm */
   unsigned long long c1;
   /** multipurpose 64bit field, currently used for: a) stride_b in brgemm */
   unsigned long long c2;
   /** multipurpose 8bit field, currently used for: a) unroll hint in brgemm */
   unsigned char c3;
+  /** LDx, LDy, LDz,  additional meltw LDs */
+  unsigned int meltw_ldx, meltw_ldy, meltw_ldz;
+  /** Size of data element. */
+  unsigned char meltw_datatype_aux;
+  /** Set of flags */
+  unsigned char meltw_flags;
+  /** operation specifier */
+  unsigned char meltw_operation;
 };
 
 /** Packed structure storing the matcopy argument description. */
