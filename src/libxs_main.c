@@ -57,9 +57,6 @@
 #if !defined(LIBXS_ENABLE_DEREG) && 0
 # define LIBXS_ENABLE_DEREG
 #endif
-#if !defined(LIBXS_REGLOCK_TRY) && 0
-# define LIBXS_REGLOCK_TRY
-#endif
 #if !defined(LIBXS_UNIFY_LOCKS) && 1
 # define LIBXS_UNIFY_LOCKS
 #endif
@@ -161,7 +158,7 @@ LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
 # define INTERNAL_FIND_CODE_LOCK(LOCKINDEX, INDEX, DIFF, CODE) {
 # define INTERNAL_FIND_CODE_UNLOCK(LOCKINDEX) }
 #else
-# if defined(LIBXS_REGLOCK_TRY)
+# if (defined(LIBXS_CONFIG_TRY) && (0 != LIBXS_CONFIG_TRY))
 #   define INTERNAL_REGLOCK_TRY(DIFF, CODE) \
     if (1 != internal_reglock_count) { /* (re-)try and get (meanwhile) generated code */ \
       LIBXS_ASSERT(NULL != internal_registry); /* engine is not shut down */ \
@@ -1089,7 +1086,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       /* coverity[check_return] */
       LIBXS_TLS_CREATE(&libxs_tlskey);
       { /* construct and initialize locks */
-# if defined(LIBXS_REGLOCK_TRY)
+# if (defined(LIBXS_CONFIG_TRY) && (0 != LIBXS_CONFIG_TRY))
         const char *const env_trylock = getenv("LIBXS_TRYLOCK");
 # endif
         LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK) attr_global;
@@ -1111,7 +1108,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         LIBXS_LOCK_INIT(LIBXS_LOCK, &libxs_lock_global, &attr_global);
         LIBXS_LOCK_ATTR_DESTROY(LIBXS_LOCK, &attr_global);
         /* control number of locks needed; LIBXS_TRYLOCK implies only 1 lock */
-# if defined(LIBXS_REGLOCK_TRY)
+# if (defined(LIBXS_CONFIG_TRY) && (0 != LIBXS_CONFIG_TRY))
         if (NULL == env_trylock || 0 == *env_trylock)
 # endif
         { /* no LIBXS_TRYLOCK */
@@ -1126,7 +1123,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           internal_reglock_count = 0;
 # endif
         }
-# if defined(LIBXS_REGLOCK_TRY)
+# if (defined(LIBXS_CONFIG_TRY) && (0 != LIBXS_CONFIG_TRY))
         else { /* LIBXS_TRYLOCK environment variable specified */
           internal_reglock_count = (0 != atoi(env_trylock) ? 1
 #   if (1 < INTERNAL_REGLOCK_MAXN)
@@ -2703,6 +2700,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
 {
   libxs_xmmfunction result;
   LIBXS_INIT /* verbosity */
+  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
   if (NULL != descriptor) {
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
@@ -4024,6 +4022,7 @@ LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor
 {
   libxs_xmcopyfunction result;
   LIBXS_INIT /* verbosity */
+  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
   if (NULL != descriptor) {
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
@@ -4047,6 +4046,7 @@ LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor
 {
   libxs_xmeltwfunction result;
   LIBXS_INIT /* verbosity */
+  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
   if (NULL != descriptor) {
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
@@ -4185,6 +4185,7 @@ LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor
 {
   libxs_xtransfunction result;
   LIBXS_INIT /* verbosity */
+  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
   if (NULL != descriptor) {
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
@@ -4205,6 +4206,7 @@ LIBXS_API libxs_pgemm_xfunction libxs_dispatch_pgemm(const libxs_pgemm_descripto
 {
   libxs_trmm_xfunction result;
   LIBXS_INIT /* verbosity */
+  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
   if (NULL != descriptor) {
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
@@ -4225,6 +4227,7 @@ LIBXS_API libxs_getrf_xfunction libxs_dispatch_getrf(const libxs_getrf_descripto
 {
   libxs_trmm_xfunction result;
   LIBXS_INIT /* verbosity */
+  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
   if (NULL != descriptor) {
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
@@ -4245,6 +4248,7 @@ LIBXS_API libxs_trmm_xfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* 
 {
   libxs_trmm_xfunction result;
   LIBXS_INIT /* verbosity */
+  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
   if (NULL != descriptor) {
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
@@ -4265,6 +4269,7 @@ LIBXS_API libxs_trsm_xfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* 
 {
   libxs_trsm_xfunction result;
   LIBXS_INIT /* verbosity */
+  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
   if (NULL != descriptor) {
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* TODO: investigate (CCE) */
