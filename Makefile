@@ -1575,7 +1575,9 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@mkdir -p $(PREFIX)/$(PPKGDIR)
 	@$(CP) -v $(OUTDIR)/*.pc $(PREFIX)/$(PPKGDIR) 2>/dev/null || true
 	@mkdir -p $(PREFIX)/$(PMODDIR)
-	@$(CP) -v $(OUTDIR)/module $(PREFIX)/$(PMODDIR)/libxs 2>/dev/null || true
+	@if [ ! -e $(PREFIX)/$(PMODDIR)/module ]; then \
+		@$(CP) -v $(OUTDIR)/module $(PREFIX)/$(PMODDIR)/libxs 2>/dev/null || true; \
+	fi
 	@echo
 	@echo "LIBXS installing stand-alone generators..."
 	@$(CP) -v $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
