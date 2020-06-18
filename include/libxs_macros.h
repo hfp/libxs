@@ -135,10 +135,12 @@
 #   define LIBXS_UNPACKED
 # endif
 #endif
-#if defined(LIBXS_UNPACKED)
-# define LIBXS_PAD(EXPR)
-#else /* no braces around EXPR */
+#if !defined(LIBXS_UNPACKED) && 0
+/* no braces around EXPR */
 # define LIBXS_PAD(EXPR) EXPR;
+#endif
+#if !defined(LIBXS_PAD)
+# define LIBXS_PAD(EXPR)
 #endif
 
 #if defined(__INTEL_COMPILER)
