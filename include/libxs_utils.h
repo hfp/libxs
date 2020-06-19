@@ -234,8 +234,10 @@
       && (!defined(__APPLE__) || !defined(__MACH__)) && !defined(__PGI) && !defined(_MSC_VER)
 #     if defined(__CYGWIN__) && !defined(LIBXS_INTRINSICS_DEBUG) /* Cygwin: invalid register for .seh_savexmm */
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     elif (defined(__clang__) && LIBXS_VERSION2(10, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
 #     elif (defined(__GNUC__)  && LIBXS_VERSION2(10, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
-        || (defined(__clang__) && LIBXS_VERSION2( 9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+        || (defined(__clang__) && LIBXS_VERSION2( 9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) && !defined(__cray__))
 #       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
 #     elif (defined(__GNUC__)  && LIBXS_VERSION2(8, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
         || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
@@ -260,9 +262,11 @@
 #       endif
 #       if defined(__CYGWIN__) && !defined(LIBXS_INTRINSICS_DEBUG) /* Cygwin: invalid register for .seh_savexmm */
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
-#       elif LIBXS_VERSION2(9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)
+#       elif LIBXS_VERSION2(10, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
-#       elif LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)
+#       elif LIBXS_VERSION2( 9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) && !defined(__cray__)
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
+#       elif LIBXS_VERSION2( 6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
 #       else
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
