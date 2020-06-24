@@ -149,6 +149,11 @@ LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
 #elif !defined(LIBXS_CACHE_MAXSIZE)
 # define LIBXS_CACHE_MAXSIZE LIBXS_CAPACITY_CACHE
 #endif
+#if defined(LIBXS_UNPACKED) /* CCE/Classic */
+# define LIBXS_CACHE_STRIDE LIBXS_MAX(sizeof(libxs_descriptor), LIBXS_DESCRIPTOR_MAXSIZE)
+#else
+# define LIBXS_CACHE_STRIDE LIBXS_DESCRIPTOR_MAXSIZE
+#endif
 
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
 # define INTERNAL_FIND_CODE_CACHE_GROW(RESULT_INDEX, CACHE_SIZE) \
@@ -2107,21 +2112,21 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   internal_pad_descriptor(desc, size);
   LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
   LIBXS_DIFF_N(unsigned char, cache_index, LIBXS_DIFF(LIBXS_DIFF_SIZE), xdesc, cache->entry.keys,
-    LIBXS_DIFF_SIZE, LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
+    LIBXS_DIFF_SIZE, LIBXS_CACHE_STRIDE, cache->entry.hit, cache->entry.size);
 #   else
   internal_pad_descriptor(desc, size);
   cache_index = (unsigned char)libxs_diff_n(desc, cache->entry.keys,
-    LIBXS_DIFF_SIZE, LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
+    LIBXS_DIFF_SIZE, LIBXS_CACHE_STRIDE, cache->entry.hit, cache->entry.size);
 #   endif
 # elif defined(LIBXS_DESC_INLINE)
   LIBXS_DIFF_DECL(LIBXS_DIFF_SIZE, xdesc);
   LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
   LIBXS_DIFF_N(unsigned char, cache_index, LIBXS_DIFF(LIBXS_DIFF_SIZE), xdesc, cache->entry.keys,
-    size, LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
+    size, LIBXS_CACHE_STRIDE, cache->entry.hit, cache->entry.size);
 # else
   LIBXS_ASSERT(NULL != desc);
   cache_index = (unsigned char)libxs_diff_n(desc, cache->entry.keys,
-    size, LIBXS_DESCRIPTOR_MAXSIZE, cache->entry.hit, cache->entry.size);
+    size, LIBXS_CACHE_STRIDE, cache->entry.hit, cache->entry.size);
 # endif
   if (cache->entry.id == libxs_ninit && cache_index < cache->entry.size) { /* valid hit */
     flux_entry = cache->entry.code[cache_index];
