@@ -434,15 +434,15 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xhash)(int* hash_seed, const void* data, cons
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xdiff)(_Bool* /*result*/, const void* /*a*/, const void* /*b*/, const long long* /*size*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xdiff)(_Bool* result, const void* a, const void* b, const long long* size)
+LIBXS_API void LIBXS_FSYMBOL(libxs_xdiff)(int* /*result*/, const void* /*a*/, const void* /*b*/, const long long* /*size*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_xdiff)(int* result, const void* a, const void* b, const long long* size)
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
   if (NULL != result && NULL != a && NULL != b && NULL != size && 0 <= *size)
 #endif
   {
-    *result = (_Bool)libxs_memcmp(a, b, (size_t)*size);
+    *result = libxs_memcmp(a, b, (size_t)*size);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
