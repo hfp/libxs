@@ -1560,9 +1560,7 @@ else # GCC assumed
           endif
         endif
       endif
-      ifeq (,$(TESTRESC)) # fallback
-        FLDFLAGS += $(if $(GFC),-fopenmp,$(OMPFLAG_FORCE))
-      endif
+$(info DEBUG: $(FLDFLAGS))
       TESTRESD := $(call ftest,$(FC),-fopenmp)
       ifneq (,$(TESTRESD))
         FCFLAGS += $(TESTRESD)
@@ -1708,6 +1706,7 @@ ifneq (Darwin,$(UNAME))
   FLDFLAGS += $(call ctest,$(FC),-s)
 endif
 endif
+$(info DEBUG: $(FLDFLAGS))
 
 ifneq (0,$(INSTRUMENT))
 ifneq (Darwin1,$(UNAME)$(INSTRUMENT))
@@ -1883,6 +1882,7 @@ ifeq (Darwin,$(UNAME))
   FLDFLAGS += -Wa,-q
   FCFLAGS += -Wa,-q
 endif
+$(info DEBUG: $(FLDFLAGS))
 
 ifeq (,$(filter-out 0,$(COMPATIBLE) $(PGI)))
   ifneq (,$(filter-out 0,$(THREADS) $(BLAS)))
@@ -1906,6 +1906,7 @@ ifeq (,$(filter-out 0,$(COMPATIBLE) $(PGI)))
 else ifneq (0,$(PGI))
   LIBATOMIC ?= 1
 endif
+$(info DEBUG: $(FLDFLAGS))
 
 ifeq (0,$(shell INFILE=$$($(MKTEMP) /tmp/.libxs_XXXXXX.c) && \
     printf "$(CHAR_HASH)include <features.h>\n$(CHAR_HASH)if !defined(__GNU_LIBRARY__) && !defined(__GLIBC__)\n0\n$(CHAR_HASH)endif\n" > $${INFILE} && \
@@ -2261,6 +2262,7 @@ CLDFLAGS   := $(call cleanld,$(BLAS_CLDFLAGS) $(NOBLAS_CLDFLAGS))
 LDFLAGS    := $(call cleanld,$(BLAS_LDFLAGS) $(NOBLAS_LDFLAGS))
 CXXLDFLAGS := $(call cleanld,$(CXXLDFLAGS))
 FLDFLAGS   := $(call cleanld,$(FLDFLAGS))
+$(info DEBUG: $(FLDFLAGS))
 
 .PRECIOUS: $(BLDDIR)/%-cpp.o $(BLDDIR)/%-c.o $(BLDDIR)/%-f.o \
            $(BLDDIR)/%-f90.o $(BLDDIR)/%-f90.o $(BLDDIR)/%-f77.o \
