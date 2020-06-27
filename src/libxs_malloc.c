@@ -374,7 +374,7 @@ LIBXS_APIVAR_DEFINE(int internal_malloc_join);
 # if defined(MAP_HUGETLB)
 LIBXS_APIVAR_DEFINE(size_t internal_malloc_hugetlb);
 # endif
-# if defined(MAP_LOCKED)
+# if defined(MAP_LOCKED) && 0
 LIBXS_APIVAR_DEFINE(size_t internal_malloc_plocked);
 # endif
 #endif
@@ -557,7 +557,7 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
         LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_hugetlb, alloc_size, LIBXS_ATOMIC_RELAXED);
       }
 # endif
-# if defined(MAP_LOCKED)
+# if defined(MAP_LOCKED) && 0
       if (0 != (LIBXS_MALLOC_FLAG_PLOCK & flags)) { /* page-locked */
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & flags));
         LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_plocked, alloc_size, LIBXS_ATOMIC_RELAXED);
@@ -1791,7 +1791,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
 # if defined(MAP_HUGETLB)
         static size_t limit_hugetlb = LIBXS_SCRATCH_UNLIMITED;
 # endif
-# if defined(MAP_LOCKED)
+# if defined(MAP_LOCKED) && 0
         static size_t limit_plocked = LIBXS_SCRATCH_UNLIMITED;
 # endif
 # if defined(MAP_32BIT)
@@ -1815,7 +1815,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
               0 != (LIBXS_MALLOC_FLAG_PHUGE & flags))
             && (internal_malloc_hugetlb + size) < limit_hugetlb) ? MAP_HUGETLB : 0)
 # endif
-# if defined(MAP_LOCKED) && !defined(LIBXS_MALLOC_LOCK_ONFAULT)
+# if defined(MAP_LOCKED) && !defined(LIBXS_MALLOC_LOCK_ONFAULT) && 0
           | ((0 == (LIBXS_MALLOC_FLAG_X & flags)
             && (internal_malloc_plocked + size) < limit_plocked) ? MAP_LOCKED : 0)
 # endif
@@ -1851,7 +1851,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           INTERNAL_XMALLOC_KIND(MAP_HUGETLB, "huge-page", LIBXS_MALLOC_FLAG_PHUGE, flags, mflags,
             internal_malloc_hugetlb, limit_hugetlb, info, alloc_size, buffer);
 # endif
-# if defined(MAP_LOCKED)
+# if defined(MAP_LOCKED) && 0
 #   if !defined(LIBXS_MALLOC_LOCK_ONFAULT)
           INTERNAL_XMALLOC_KIND(MAP_LOCKED, "locked-page", LIBXS_MALLOC_FLAG_PLOCK, flags, mflags,
             internal_malloc_plocked, limit_plocked, info, alloc_size, buffer);
@@ -1879,7 +1879,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
 # if defined(MAP_HUGETLB)
           LIBXS_ASSERT(0 == (MAP_HUGETLB & mflags));
 # endif
-# if defined(MAP_LOCKED)
+# if defined(MAP_LOCKED) && 0
           LIBXS_ASSERT(0 == (MAP_LOCKED & mflags));
 # endif
           if (0 > (int)LIBXS_ATOMIC_LOAD(&fallback, LIBXS_ATOMIC_RELAXED)) {
