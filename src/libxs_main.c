@@ -1454,7 +1454,7 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     else if (0 < jit) {
       target_archid = LIBXS_X86_GENERIC + jit;
     }
-    else if (0 == strcmp("spr", arch)) {
+    else if (0 == strcmp("spr", arch) || 0 == strcmp("amx", arch)) {
       target_archid = LIBXS_X86_AVX512_SPR;
     }
     else if (0 == strcmp("cpx", arch)) {
