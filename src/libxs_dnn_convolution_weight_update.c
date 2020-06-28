@@ -14,6 +14,8 @@
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu_amx(libxs_dnn_layer* handle, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_amx(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_custom_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_nhwc_rsck_f32_f32(libxs_dnn_layer* handle, int start_thread, int tid);
 
@@ -613,11 +615,11 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu(libxs_dnn_
   typedef libxs_bfloat16 element_output_type;
   typedef libxs_bfloat16 element_filter_type;
   typedef libxs_bsmmfunction gemm_function;
-  typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
 
   /* some portable macrros fof BF16 <-> FP32 */
 # include "template/libxs_dnn_bf16_macros_define.tpl.c"
 
+  typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16.tpl.c"
 
 # include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
@@ -628,6 +630,45 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu(libxs_dnn_
   return status;
 }
 
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
+libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu_amx(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
+  typedef libxs_bfloat16 element_input_type;
+  typedef libxs_bfloat16 element_output_type;
+  typedef libxs_bfloat16 element_filter_type;
+  typedef libxs_bsmmfunction gemm_function;
+
+  /* some portable macrros fof BF16 <-> FP32 */
+# include "template/libxs_dnn_bf16_macros_define.tpl.c"
+
+  typedef libxs_bsmmfunction_reducebatch_strd gemm_br_function;
+  gemm_function tile_config_kernel = handle->upd_config_kernel;
+  gemm_function gemm_kernel;
+  gemm_br_function br_gemm_kernel;
+  if (handle->upd_linearized_pixels == 0) {
+    br_gemm_kernel = handle->upd_compute_kernel_brgemm_no_linearized_pixels;
+  } else {
+    if (handle->use_hybrid_imgofm_parallelization == 0) {
+      gemm_kernel = handle->upd_compute_kernel_gemm_linearized_pixels_no_hybrid_par;
+    } else {
+      if (handle->pack_to_cnhw == 1) {
+        gemm_kernel = handle->upd_compute_kernel_gemm_linearized_pixels_hybrid_par_cnhw;
+      } else {
+        br_gemm_kernel = handle->upd_compute_kernel_brgemm_linearized_pixels_hybrid_par_no_cnhw;
+      }
+    }
+  }
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16_amx.tpl.c"
+
+# include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
 
 #if defined(LIBXS_INTRINSICS_AVX512_CPX)
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CPX)
@@ -639,12 +680,12 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_laye
   typedef libxs_bfloat16 element_output_type;
   typedef libxs_bfloat16 element_filter_type;
   typedef libxs_bsmmfunction gemm_function;
-  typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
 
 #define LIBXS_DNN_BF16_USE_CPX_AVX512_NI
   /* some portable macrros fof BF16 <-> FP32 */
 # include "template/libxs_dnn_bf16_macros_define.tpl.c"
 
+  typedef libxs_bsmmfunction_reducebatch_addr gemm_br_function;
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16.tpl.c"
 
 # include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
@@ -660,6 +701,56 @@ LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16(libxs_dnn_layer* handle, int start_thread, int tid)
 {
   return libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu( handle, start_thread, tid );
+}
+#endif
+
+#if defined(LIBXS_INTRINSICS_AVX512_CPX)
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CPX)
+libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_amx(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512_CPX) /*__AVX512F__,__AVX512BW__,__AVX512DQ__,__AVX512BF16__*/
+  typedef libxs_bfloat16 element_input_type;
+  typedef libxs_bfloat16 element_output_type;
+  typedef libxs_bfloat16 element_filter_type;
+  typedef libxs_bsmmfunction gemm_function;
+
+#define LIBXS_DNN_BF16_USE_CPX_AVX512_NI
+  /* some portable macrros fof BF16 <-> FP32 */
+# include "template/libxs_dnn_bf16_macros_define.tpl.c"
+
+  typedef libxs_bsmmfunction_reducebatch_strd gemm_br_function;
+  gemm_function tile_config_kernel = handle->upd_config_kernel;
+  gemm_function gemm_kernel;
+  gemm_br_function br_gemm_kernel;
+  if (handle->upd_linearized_pixels == 0) {
+    br_gemm_kernel = handle->upd_compute_kernel_brgemm_no_linearized_pixels;
+  } else {
+    if (handle->use_hybrid_imgofm_parallelization == 0) {
+      gemm_kernel = handle->upd_compute_kernel_gemm_linearized_pixels_no_hybrid_par;
+    } else {
+      if (handle->pack_to_cnhw == 1) {
+        gemm_kernel = handle->upd_compute_kernel_gemm_linearized_pixels_hybrid_par_cnhw;
+      } else {
+        br_gemm_kernel = handle->upd_compute_kernel_brgemm_linearized_pixels_hybrid_par_no_cnhw;
+      }
+    }
+  }
+# include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16_amx.tpl.c"
+
+# include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
+#undef LIBXS_DNN_BF16_USE_CPX_AVX512_NI
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+#else
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
+libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_amx(libxs_dnn_layer* handle, int start_thread, int tid)
+{
+  return libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu_amx( handle, start_thread, tid );
 }
 #endif
 
@@ -725,12 +816,16 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom(libxs_d
 #if defined(LIBXS_INTRINSICS_AVX512_CPX) /*__AVX512F__,__AVX512BW__,__AVX512DQ__,__AVX512BF16__*/
     else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE && libxs_target_archid < LIBXS_X86_AVX512_CPX ) {
       status = libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu( handle, start_thread, tid);
-    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CPX ) {
+    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CPX && libxs_target_archid < LIBXS_X86_AVX512_SPR) {
       status = libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16( handle, start_thread, tid);
+    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
+      status = libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_amx( handle, start_thread, tid);
     }
 #elif defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
-    else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE ) {
+    else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE && libxs_target_archid < LIBXS_X86_AVX512_SPR) {
       status = libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu( handle, start_thread, tid);
+    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
+      status = libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu_amx( handle, start_thread, tid);
     }
 #endif
     else {
