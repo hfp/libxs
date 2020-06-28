@@ -37,16 +37,17 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
   int ifmblock = 0;
   int ofmblock = 0;
   int lp_block = 0;
-  int tmp_max_c_block = 32;
-  int tmp_max_k_block = 32;
+  int tmp_max_c_block = 64;
+  int tmp_max_k_block = 64;
   int tmp_block = 0;
 
   /* init libxs */
   LIBXS_INIT
 
   /* C */
-  if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
-    tmp_max_c_block = 64;
+  if ( ((libxs_target_archid >= LIBXS_X86_AVX512_SPR) && (datatype_in == LIBXS_DNN_DATATYPE_BF16)) ||
+       (libxs_target_archid < LIBXS_X86_AVX512 ) ) {
+    tmp_max_c_block = 32;
   }
   if ( C < tmp_max_c_block ) {
     ifmblock = C;
@@ -57,8 +58,9 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
   }
 
   /* K */
-  if (libxs_target_archid >= LIBXS_X86_AVX512_CORE) {
-    tmp_max_k_block = 64;
+  if ( ((libxs_target_archid >= LIBXS_X86_AVX512_SPR) && (datatype_in == LIBXS_DNN_DATATYPE_BF16)) ||
+       (libxs_target_archid < LIBXS_X86_AVX512 ) ) {
+    tmp_max_k_block = 32;
   }
   if ( K < tmp_max_k_block ) {
     ofmblock = K;
@@ -192,7 +194,7 @@ LIBXS_API size_t libxs_dnn_typesize(libxs_dnn_datatype datatype)
   switch (datatype) {
     case LIBXS_DNN_DATATYPE_F32: return 4;
     case LIBXS_DNN_DATATYPE_I32: return 4;
-    case LIBXS_DNN_DATATYPE_BF16:return 2;
+    case LIBXS_DNN_DATATYPE_BF16: return 2;
     case LIBXS_DNN_DATATYPE_I16: return 2;
     case LIBXS_DNN_DATATYPE_I8:  return 1;
     /* no error expected as enumeration really arrives at an enum; compiler-checked */
@@ -222,7 +224,6 @@ LIBXS_API size_t libxs_dnn_get_simd_width(libxs_dnn_datatype datatype)
 
   return l_cl_width_bytes/libxs_dnn_typesize(datatype);
 }
-
 
 LIBXS_API_INLINE float libxs_internal_get_max( float* in_buffer, int length ) {
   float absmax_value = LIBXS_ABS(in_buffer[0]);

@@ -14,6 +14,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_f3
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_custom_bf16_f32(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind, int start_thread, int tid);
 LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_emu(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind, int start_thread, int tid);
+LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_amx(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind, int start_thread, int tid);
+
+#if 0
+#define USE_CLDEMOTE
+#endif
 
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 void bf16_vnni_transpose_16x16(void* source_void, void* dest_void, int source_stride, int dest_stride)
@@ -78,6 +83,16 @@ void bf16_vnni_transpose_16x16(void* source_void, void* dest_void, int source_st
   _mm512_storeu_si512(dest + dest_stride * 5, zmm5);
   _mm512_storeu_si512(dest + dest_stride * 6, zmm6);
   _mm512_storeu_si512(dest + dest_stride * 7, zmm7);
+#ifdef USE_CLDEMOTE
+  _mm_cldemote(dest);
+  _mm_cldemote(dest + dest_stride);
+  _mm_cldemote(dest + dest_stride * 2);
+  _mm_cldemote(dest + dest_stride * 3);
+  _mm_cldemote(dest + dest_stride * 4);
+  _mm_cldemote(dest + dest_stride * 5);
+  _mm_cldemote(dest + dest_stride * 6);
+  _mm_cldemote(dest + dest_stride * 7);
+#endif
 #else
   LIBXS_UNUSED(source_void); LIBXS_UNUSED(dest_void); LIBXS_UNUSED(source_stride); LIBXS_UNUSED(dest_stride);
 #endif
@@ -243,6 +258,40 @@ void bf16_transpose_32x16(libxs_bfloat16 *in, libxs_bfloat16 *out, int ld_in, in
   LIBXS_INTRINSICS_MM256_STORE_EPI32(out + 29*out_width, LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(te, 1));
   LIBXS_INTRINSICS_MM256_STORE_EPI32(out + 30*out_width, LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(tf, 0));
   LIBXS_INTRINSICS_MM256_STORE_EPI32(out + 31*out_width, LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(tf, 1));
+#ifdef USE_CLDEMOTE
+  _mm_cldemote(out + 0*out_width);
+  _mm_cldemote(out + 1*out_width);
+  _mm_cldemote(out + 2*out_width);
+  _mm_cldemote(out + 3*out_width);
+  _mm_cldemote(out + 4*out_width);
+  _mm_cldemote(out + 5*out_width);
+  _mm_cldemote(out + 6*out_width);
+  _mm_cldemote(out + 7*out_width);
+  _mm_cldemote(out + 8*out_width);
+  _mm_cldemote(out + 9*out_width);
+  _mm_cldemote(out + 10*out_width);
+  _mm_cldemote(out + 11*out_width);
+  _mm_cldemote(out + 12*out_width);
+  _mm_cldemote(out + 13*out_width);
+  _mm_cldemote(out + 14*out_width);
+  _mm_cldemote(out + 15*out_width);
+  _mm_cldemote(out + 16*out_width);
+  _mm_cldemote(out + 17*out_width);
+  _mm_cldemote(out + 18*out_width);
+  _mm_cldemote(out + 19*out_width);
+  _mm_cldemote(out + 20*out_width);
+  _mm_cldemote(out + 21*out_width);
+  _mm_cldemote(out + 22*out_width);
+  _mm_cldemote(out + 23*out_width);
+  _mm_cldemote(out + 24*out_width);
+  _mm_cldemote(out + 25*out_width);
+  _mm_cldemote(out + 26*out_width);
+  _mm_cldemote(out + 27*out_width);
+  _mm_cldemote(out + 28*out_width);
+  _mm_cldemote(out + 29*out_width);
+  _mm_cldemote(out + 30*out_width);
+  _mm_cldemote(out + 31*out_width);
+#endif
 #else
  LIBXS_UNUSED(in); LIBXS_UNUSED(out); LIBXS_UNUSED(ld_in); LIBXS_UNUSED(ld_out);
 #endif
@@ -513,6 +562,40 @@ void bf16_transpose_32xcols(libxs_bfloat16 *in, libxs_bfloat16 *out, int col, in
   _mm256_mask_storeu_epi16(out + 29*out_width, store_mask, LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(te, 1));
   _mm256_mask_storeu_epi16(out + 30*out_width, store_mask, LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(tf, 0));
   _mm256_mask_storeu_epi16(out + 31*out_width, store_mask, LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(tf, 1));
+#ifdef USE_CLDEMOTE
+  _mm_cldemote(out + 0*out_width);
+  _mm_cldemote(out + 1*out_width);
+  _mm_cldemote(out + 2*out_width);
+  _mm_cldemote(out + 3*out_width);
+  _mm_cldemote(out + 4*out_width);
+  _mm_cldemote(out + 5*out_width);
+  _mm_cldemote(out + 6*out_width);
+  _mm_cldemote(out + 7*out_width);
+  _mm_cldemote(out + 8*out_width);
+  _mm_cldemote(out + 9*out_width);
+  _mm_cldemote(out + 10*out_width);
+  _mm_cldemote(out + 11*out_width);
+  _mm_cldemote(out + 12*out_width);
+  _mm_cldemote(out + 13*out_width);
+  _mm_cldemote(out + 14*out_width);
+  _mm_cldemote(out + 15*out_width);
+  _mm_cldemote(out + 16*out_width);
+  _mm_cldemote(out + 17*out_width);
+  _mm_cldemote(out + 18*out_width);
+  _mm_cldemote(out + 19*out_width);
+  _mm_cldemote(out + 20*out_width);
+  _mm_cldemote(out + 21*out_width);
+  _mm_cldemote(out + 22*out_width);
+  _mm_cldemote(out + 23*out_width);
+  _mm_cldemote(out + 24*out_width);
+  _mm_cldemote(out + 25*out_width);
+  _mm_cldemote(out + 26*out_width);
+  _mm_cldemote(out + 27*out_width);
+  _mm_cldemote(out + 28*out_width);
+  _mm_cldemote(out + 29*out_width);
+  _mm_cldemote(out + 30*out_width);
+  _mm_cldemote(out + 31*out_width);
+#endif
 #else
  LIBXS_UNUSED(in); LIBXS_UNUSED(out); LIBXS_UNUSED(ld_in); LIBXS_UNUSED(ld_out); LIBXS_UNUSED(col);
 #endif
@@ -566,6 +649,10 @@ void bf16_vnni_reformat(libxs_bfloat16 *_in, libxs_bfloat16 *_out, int M, int N,
       out_hi = _mm512_permutex2var_epi16(n0, idx_hi, n1);
       _mm512_storeu_si512((libxs_bfloat16*)out+m*2, out_lo);
       _mm512_storeu_si512((libxs_bfloat16*)out+m*2+32, out_hi);
+#ifdef USE_CLDEMOTE
+      _mm_cldemote((libxs_bfloat16*)out+m*2);
+      _mm_cldemote((libxs_bfloat16*)out+m*2+32);
+#endif
     }
     in += 2*ld_in;
     out += 2*ld_in;
@@ -578,12 +665,18 @@ void bf16_vnni_reformat(libxs_bfloat16 *_in, libxs_bfloat16 *_out, int M, int N,
       out_hi = _mm512_permutex2var_epi16(n0, idx_lo, n1);
       _mm512_storeu_si512((libxs_bfloat16*)out+m*2, out_lo);
       _mm512_storeu_si512((libxs_bfloat16*)out+m*2+32, out_hi);
+#ifdef USE_CLDEMOTE
+      _mm_cldemote((libxs_bfloat16*)out+m*2);
+      _mm_cldemote((libxs_bfloat16*)out+m*2+32);
+#endif
     }
   }
 #else
  LIBXS_UNUSED(_in); LIBXS_UNUSED(_out); LIBXS_UNUSED(M); LIBXS_UNUSED(N); LIBXS_UNUSED(ld_in); LIBXS_UNUSED(ld_out);
 #endif
 }
+
+#undef USE_CLDEMOTE
 
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_custom_f32_f32(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
@@ -816,10 +909,130 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16(libxs_dnn
   return status;
 }
 #else
-  LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
 libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
 {
   return libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_emu( handle, kind, start_thread, tid );
+}
+#endif
+
+#if defined(LIBXS_INTRINSICS_AVX512_CPX)
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CPX)
+libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_amx(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512_CPX) /*__AVX512F__,__AVX512BW__,__AVX512DQ__,__AVX512BF16__*/
+  typedef libxs_bfloat16 element_input_type;
+  typedef libxs_bfloat16 element_output_type;
+  typedef libxs_bfloat16 element_filter_type;
+  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_bwd = handle->gemm_bwd.xgemm.bsmrs;
+  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_bwd_zerobeta = handle->gemm_bwd2.xgemm.bsmrs;
+  libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_bwd_zerobeta = handle->gemm_bwd3.xgemm.bmrs;
+  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_upd = handle->gemm_upd.xgemm.bsmrs;
+  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_upd_zerobeta = handle->gemm_upd2.xgemm.bsmrs;
+  libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_upd_zerobeta = handle->gemm_upd3.xgemm.bmrs;
+  libxs_bsmmfunction bwd_tile_config_kernel = handle->bwd_config_kernel;
+  libxs_bsmmfunction upd_tile_config_kernel = handle->upd_config_kernel;
+
+#define LIBXS_DNN_BF16_USE_CPX_AVX512_NI
+  /* some portable macrros fof BF16 <-> FP32 */
+# include "template/libxs_dnn_bf16_macros_define.tpl.c"
+
+  if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS ) {
+#define LIBXS_DNN_FC_BWD_FUSE_BIAS
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+#undef LIBXS_DNN_FC_BWD_FUSE_BIAS
+  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_RELU ) {
+#define LIBXS_DNN_FC_BWD_FUSE_RELU
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+#undef LIBXS_DNN_FC_BWD_FUSE_RELU
+  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID ) {
+#define LIBXS_DNN_FC_BWD_FUSE_SIGMOID
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+#undef LIBXS_DNN_FC_BWD_FUSE_SIGMOID
+  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU ) {
+#define LIBXS_DNN_FC_BWD_FUSE_BIAS
+#define LIBXS_DNN_FC_BWD_FUSE_RELU
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+#undef LIBXS_DNN_FC_BWD_FUSE_RELU
+#undef LIBXS_DNN_FC_BWD_FUSE_BIAS
+  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID ) {
+#define LIBXS_DNN_FC_BWD_FUSE_BIAS
+#define LIBXS_DNN_FC_BWD_FUSE_SIGMOID
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+#undef LIBXS_DNN_FC_BWD_FUSE_SIGMOID
+#undef LIBXS_DNN_FC_BWD_FUSE_BIAS
+  } else {
+    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
+  }
+
+# include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
+#undef LIBXS_DNN_BF16_USE_CPX_AVX512_NI
+
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(kind); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
+}
+#else
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_AVX512_CORE)
+libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_amx(libxs_dnn_fullyconnected* handle, libxs_dnn_compute_kind kind, int start_thread, int tid)
+{
+  libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
+#if defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
+  typedef libxs_bfloat16 element_input_type;
+  typedef libxs_bfloat16 element_output_type;
+  typedef libxs_bfloat16 element_filter_type;
+  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_bwd = handle->gemm_bwd.xgemm.bsmrs;
+  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_bwd_zerobeta = handle->gemm_bwd2.xgemm.bsmrs;
+  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_upd = handle->gemm_upd.xgemm.bsmrs;
+  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_upd_zerobeta = handle->gemm_upd2.xgemm.bsmrs;
+  libxs_bsmmfunction bwd_tile_config_kernel = handle->bwd_config_kernel;
+  libxs_bsmmfunction upd_tile_config_kernel = handle->upd_config_kernel;
+
+  /* some portable macrros fof BF16 <-> FP32 */
+# include "template/libxs_dnn_bf16_macros_define.tpl.c"
+
+  if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS ) {
+#define LIBXS_DNN_FC_BWD_FUSE_BIAS
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+#undef LIBXS_DNN_FC_BWD_FUSE_BIAS
+  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_RELU ) {
+#define LIBXS_DNN_FC_BWD_FUSE_RELU
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+#undef LIBXS_DNN_FC_BWD_FUSE_RELU
+  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID ) {
+#define LIBXS_DNN_FC_BWD_FUSE_SIGMOID
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+#undef LIBXS_DNN_FC_BWD_FUSE_SIGMOID
+  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU ) {
+#define LIBXS_DNN_FC_BWD_FUSE_BIAS
+#define LIBXS_DNN_FC_BWD_FUSE_RELU
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+#undef LIBXS_DNN_FC_BWD_FUSE_RELU
+#undef LIBXS_DNN_FC_BWD_FUSE_BIAS
+  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID ) {
+#define LIBXS_DNN_FC_BWD_FUSE_BIAS
+#define LIBXS_DNN_FC_BWD_FUSE_SIGMOID
+# include "template/libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_generic_bf16_amx.tpl.c"
+#undef LIBXS_DNN_FC_BWD_FUSE_SIGMOID
+#undef LIBXS_DNN_FC_BWD_FUSE_BIAS
+  } else {
+    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
+  }
+
+# include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
+
+#else /* should not happen */
+  LIBXS_UNUSED(handle); LIBXS_UNUSED(kind); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
+  status = LIBXS_DNN_ERR_UNSUPPORTED_ARCH;
+#endif
+  return status;
 }
 #endif
 
@@ -967,12 +1180,16 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck(li
 #if defined(LIBXS_INTRINSICS_AVX512_CPX) /*__AVX512F__,__AVX512BW__,__AVX512DQ__,__AVX512BF16__*/
     else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE && libxs_target_archid < LIBXS_X86_AVX512_CPX) {
       status = libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_emu( handle, kind, start_thread, tid);
-    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CPX ) {
+    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CPX  && libxs_target_archid < LIBXS_X86_AVX512_SPR) {
       status = libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16( handle, kind, start_thread, tid);
+    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
+      status = libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_amx( handle, kind, start_thread, tid);
     }
 #elif defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
-    else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE ) {
+    else if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE && libxs_target_archid < LIBXS_X86_AVX512_SPR ) {
       status = libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_emu( handle, kind, start_thread, tid);
+    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_SPR ) {
+      status = libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_amx( handle, kind, start_thread, tid);
     }
 #endif
     else {

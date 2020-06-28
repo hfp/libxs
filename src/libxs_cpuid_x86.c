@@ -93,14 +93,18 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
               /* AVX512DQ(0x00020000), AVX512BW(0x40000000), AVX512VL(0x80000000) */
               if (LIBXS_CPUID_CHECK(ebx, 0xC0020000)) { /* AVX512-Core */
                 if (LIBXS_CPUID_CHECK(ecx2, 0x00000800)) { /* VNNI */
+                  unsigned int edx2; /* we need to save edx for AMX check */
 # if 0 /* no check required yet */
                   unsigned int ecx3;
                   LIBXS_CPUID_X86(7, 1/*ecx*/, eax, ebx, ecx3, edx);
 # else
-                  LIBXS_CPUID_X86(7, 1/*ecx*/, eax, ebx, ecx2, edx);
+                  LIBXS_CPUID_X86(7, 1/*ecx*/, eax, ebx, ecx2, edx2);
 # endif
                   if (LIBXS_CPUID_CHECK(eax, 0x00000020)) { /* BF16 */
                     feature_cpu = LIBXS_X86_AVX512_CPX;
+                    if (LIBXS_CPUID_CHECK(edx, 0x03400000)) { /* AMX-TILE, AMX-INT8, AMX-BF16 */
+                      feature_cpu = LIBXS_X86_AVX512_SPR;
+                    }
                   }
                   else feature_cpu = LIBXS_X86_AVX512_CLX; /* CLX */
                 }
@@ -134,10 +138,13 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
           LIBXS_XGETBV(0, eax, edx);
           if (LIBXS_CPUID_CHECK(eax, 0x00000006)) { /* OS XSAVE 256-bit */
             feature_os = LIBXS_MIN(LIBXS_X86_AVX2, feature_cpu);
-            if (LIBXS_X86_AVX512 <= feature_cpu && 7 <= maxleaf
-              && LIBXS_CPUID_CHECK(eax, 0x000000E0)) /* OS XSAVE 512-bit */
-            {
-              feature_os = feature_cpu; /* unlimited */
+            if (LIBXS_CPUID_CHECK(eax, 0x000000E0)) { /* OS XSAVE 512-bit */
+              feature_os = LIBXS_MIN(LIBXS_X86_AVX512_CPX, feature_cpu);
+              if (LIBXS_X86_AVX512_SPR <= feature_cpu && 7 <= maxleaf
+                && LIBXS_CPUID_CHECK(eax, 0x00060000)) /* OS XSAVE 512-bit */
+              {
+                feature_os = feature_cpu; /* unlimited AMX */
+              }
             }
           }
         }
@@ -204,6 +211,9 @@ LIBXS_API const char* libxs_cpuid_name(int id)
 {
   const char* target_arch = NULL;
   switch (id) {
+    case LIBXS_X86_AVX512_SPR: {
+      target_arch = "spr";
+    } break;
     case LIBXS_X86_AVX512_CPX: {
       target_arch = "cpx";
     } break;

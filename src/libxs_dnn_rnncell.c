@@ -58,6 +58,9 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     handle->bk = (handle->desc.bk == 0) ? 64 : handle->desc.bk;
     handle->bn = (handle->desc.bn == 0) ? 64 : handle->desc.bn;
     handle->bc = (handle->desc.bc == 0) ? 64 : handle->desc.bc;
+    handle->use_fwd_fused_impl = handle->desc.use_fwd_fused_impl;
+    handle->fwd_block = handle->desc.fwd_block;
+    handle->bwdupd_block = handle->desc.bwdupd_block;
     if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
       handle->lpb = 2;
     } else {
@@ -77,9 +80,15 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
       *status = LIBXS_DNN_WARN_RNN_SUBOPTIMAL_K_BLOCKING;
     }
 
-     /* In case of BF16 for now hoist the BRGEMM and make them to use STRIDED variant by default */
+    /* If in SPR, generate tilerelease kernel */
+    if (libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
+      int l_tr_flags = LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
+      handle->tilerelease_kernel = libxs_bsmmdispatch(handle->bk, handle->bk, handle->bk, NULL, NULL, NULL, NULL, NULL, &l_tr_flags, NULL);
+    }
+
+    /* In case of BF16 for now hoist the BRGEMM and make them to use STRIDED variant by default */
     if ( (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16) ) {
-      const int typesize_in = (int)libxs_dnn_typesize(handle->desc.datatype_in);
+      libxs_blasint BF, CB_BLOCKS, KB_BLOCKS;
       const libxs_blasint K =  handle->desc.K;
       const libxs_blasint N =  handle->desc.N;
       const libxs_blasint C =  handle->desc.C;
@@ -89,9 +98,15 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
       const libxs_blasint cBlocks = C/bc;
       const libxs_blasint kBlocks = K/bk;
       const libxs_blasint nBlocks = N/bn;
-      libxs_blasint BF, CB_BLOCKS, KB_BLOCKS;
-      libxs_blasint stride_a, stride_b;
+      int tc_flags = 0;
       int kernel_flags = LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N');
+      int stride_a, stride_b;
+
+      if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+        kernel_flags = ((handle->bk % 32 == 0) && (handle->bc % 32 == 0) && (handle->bn % 32 == 0)) ? LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG : 0;
+        kernel_flags = kernel_flags | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
+        tc_flags = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
+      }
 
       /* Blocking reduction domain if it is too large */
       BF = 1;
@@ -110,31 +125,75 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
       if (C == 2048 && K == 1024) {
         BF = 2;
       }
-      CB_BLOCKS = cBlocks/BF;
-      KB_BLOCKS = kBlocks/BF;
+      BF = handle->fwd_block;
 
-      /* define batch-reduce gemm kernels */
-      stride_a = bc * bk * typesize_in;
-      stride_b = bc * typesize_in;
-      handle->fwd_kernela = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bn, bc, stride_a, stride_b, CB_BLOCKS, &bk, &C, &K, NULL, NULL, &kernel_flags, NULL );
-      stride_a = bk * bk * typesize_in;
-      stride_b = bk * typesize_in;
-      handle->fwd_kernelb = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bn, bk, stride_a, stride_b, KB_BLOCKS, &bk, &K, &K, NULL, NULL, &kernel_flags, NULL );
+      if (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) {
+        CB_BLOCKS = cBlocks/BF;
+        KB_BLOCKS = kBlocks/BF;
 
-      KB_BLOCKS = kBlocks/BF;
+        /* define batch-reduce gemm kernels */
+        stride_a = bc * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bc * bn * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->fwd_kernela = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bn, bc, stride_a, stride_b, CB_BLOCKS, &bk, &bc, &bk, NULL, NULL, &kernel_flags, NULL );
+        stride_a = bk * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bk * bn * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->fwd_kernelb = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bn, bk, stride_a, stride_b, KB_BLOCKS, &bk, &bk, &bk, NULL, NULL, &kernel_flags, NULL );
+        if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+          handle->fwd_tileconfig = libxs_bsmmdispatch_reducebatch_addr( bk, bn, bk, &bk, &K, &K, NULL, NULL, &tc_flags, NULL );
+        }
 
-      stride_a = bc * bk * typesize_in;
-      stride_b = bk * typesize_in;
-      handle->bwdupd_kernela = libxs_bsmmdispatch_reducebatch_strd_unroll( bc, bn, bk, stride_a, stride_b, KB_BLOCKS, &bc, &K, &C, NULL, NULL, &kernel_flags, NULL);
-      stride_a = bn * bk * typesize_in;
-      stride_b = bn * typesize_in;
-      handle->bwdupd_kernelb = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bk, bn, stride_a, stride_b, nBlocks, &bk, &N, &bk, NULL, NULL, &kernel_flags, NULL);
-      stride_a = bn * bk * typesize_in;
-      stride_b = bn * typesize_in;
-      handle->bwdupd_kernelc = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bc, bn, stride_a, stride_b, nBlocks, &bk, &N, &bk, NULL, NULL, &kernel_flags, NULL);
-      stride_a = bk * bk * typesize_in;
-      stride_b = bk * typesize_in;
-      handle->bwdupd_kerneld = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bn, bk, stride_a, stride_b, KB_BLOCKS, &bk, &K, &K, NULL, NULL, &kernel_flags, NULL);
+        BF = handle->bwdupd_block;
+        KB_BLOCKS = kBlocks/BF;
+
+        stride_a = bc * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bk * bn * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->bwdupd_kernela = libxs_bsmmdispatch_reducebatch_strd_unroll( bc, bn, bk, stride_a, stride_b, KB_BLOCKS, &bc, &bk, &bc, NULL, NULL, &kernel_flags, NULL);
+        stride_a = bn * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bn * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->bwdupd_kernelb = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bk, bn, stride_a, stride_b, nBlocks, &bk, &bn, &bk, NULL, NULL, &kernel_flags, NULL);
+        stride_a = bn * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bn * bc * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->bwdupd_kernelc = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bc, bn, stride_a, stride_b, nBlocks, &bk, &bn, &bk, NULL, NULL, &kernel_flags, NULL);
+        stride_a = bk * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bn * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->bwdupd_kerneld = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bn, bk, stride_a, stride_b, KB_BLOCKS, &bk, &bk, &bk, NULL, NULL, &kernel_flags, NULL);
+        if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+          handle->bwdupd_tileconfig = libxs_bsmmdispatch_reducebatch_addr( bk, bn, bk, &bk, &K, &K, NULL, NULL, &tc_flags, NULL);
+        }
+      } else {
+        CB_BLOCKS = cBlocks/BF;
+        KB_BLOCKS = kBlocks/BF;
+
+        /* define batch-reduce gemm kernels */
+        stride_a = bc * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bc * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->fwd_kernela = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bn, bc, stride_a, stride_b, CB_BLOCKS, &bk, &C, &K, NULL, NULL, &kernel_flags, NULL );
+        stride_a = bk * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->fwd_kernelb = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bn, bk, stride_a, stride_b, KB_BLOCKS, &bk, &K, &K, NULL, NULL, &kernel_flags, NULL );
+        if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+          handle->fwd_tileconfig = libxs_bsmmdispatch_reducebatch_addr( bk, bn, bk, &bk, &K, &K, NULL, NULL, &tc_flags, NULL );
+        }
+
+        BF = handle->bwdupd_block;
+        KB_BLOCKS = kBlocks/BF;
+
+        stride_a = bc * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->bwdupd_kernela = libxs_bsmmdispatch_reducebatch_strd_unroll( bc, bn, bk, stride_a, stride_b, KB_BLOCKS, &bc, &K, &C, NULL, NULL, &kernel_flags, NULL);
+        stride_a = bn * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bn * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->bwdupd_kernelb = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bk, bn, stride_a, stride_b, nBlocks, &bk, &N, &bk, NULL, NULL, &kernel_flags, NULL);
+        stride_a = bn * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bn * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->bwdupd_kernelc = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bc, bn, stride_a, stride_b, nBlocks, &bk, &N, &bk, NULL, NULL, &kernel_flags, NULL);
+        stride_a = bk * bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        stride_b = bk * libxs_dnn_typesize(handle->desc.datatype_in);
+        handle->bwdupd_kerneld = libxs_bsmmdispatch_reducebatch_strd_unroll( bk, bn, bk, stride_a, stride_b, KB_BLOCKS, &bk, &K, &K, NULL, NULL, &kernel_flags, NULL);
+        if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+          handle->bwdupd_tileconfig = libxs_bsmmdispatch_reducebatch_addr( bk, bn, bk, &bk, &K, &K, NULL, NULL, &tc_flags, NULL);
+        }
+      }
     }
 
     /* Need to allocate space for scratch libxs_dnn_tensor's, let's set all pointers to zero */
@@ -2262,10 +2321,10 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle
       case LIBXS_DNN_COMPUTE_KIND_FWD: {
         if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CK) ) {
           status = libxs_dnn_rnncell_st_fwd_nc_ck( handle, start_thread, tid );
-        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED)  ) {
-          status = libxs_dnn_rnncell_st_fwd_ncnc_kcck( handle, start_thread, tid );
         } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED)  ) {
           status = libxs_dnn_rnncell_st_fwd_nc_kcck( handle, start_thread, tid );
+        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED)  ) {
+          status = libxs_dnn_rnncell_st_fwd_ncnc_kcck( handle, start_thread, tid );
         } else {
           status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }
@@ -2277,6 +2336,8 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_rnncell_execute_st(libxs_dnn_rnncell* handle
           status = libxs_dnn_rnncell_st_bwdupd_nc_ck( handle, kind, start_thread, tid );
         } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NC) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED)  ) {
           status = libxs_dnn_rnncell_st_bwdupd_nc_kcck( handle, kind, start_thread, tid );
+        } else if ( (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) && (handle->desc.filter_format == LIBXS_DNN_TENSOR_FORMAT_CKPACKED)  ) {
+          status = libxs_dnn_rnncell_st_bwdupd_ncnc_kcck( handle, kind, start_thread, tid );
         } else {
           status = LIBXS_DNN_ERR_INVALID_FORMAT_GENERAL;
         }

@@ -37,6 +37,9 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_rnncell_desc {
   libxs_blasint bk;
   libxs_blasint bn;
   libxs_blasint bc;
+  int use_fwd_fused_impl;
+  int fwd_block;
+  int bwdupd_block;
   libxs_dnn_rnncell_type cell_type;       /* cell type RNN ReLU, RNN Sigmoid, RNN Tanh, LSTM, GRU */
   libxs_dnn_datatype datatype_in;         /* datatypes used for all input related buffer */
   libxs_dnn_datatype datatype_out;        /* datatypes used for all output related buffer */
