@@ -647,19 +647,6 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_emu_amx(libxs_
   gemm_function tile_config_kernel = handle->upd_config_kernel;
   gemm_function gemm_kernel = NULL;
   gemm_br_function br_gemm_kernel = NULL;
-  if (handle->upd_linearized_pixels == 0) {
-    br_gemm_kernel = handle->upd_compute_kernel_brgemm_no_linearized_pixels;
-  } else {
-    if (handle->use_hybrid_imgofm_parallelization == 0) {
-      gemm_kernel = handle->upd_compute_kernel_gemm_linearized_pixels_no_hybrid_par;
-    } else {
-      if (handle->pack_to_cnhw == 1) {
-        gemm_kernel = handle->upd_compute_kernel_gemm_linearized_pixels_hybrid_par_cnhw;
-      } else {
-        br_gemm_kernel = handle->upd_compute_kernel_brgemm_linearized_pixels_hybrid_par_no_cnhw;
-      }
-    }
-  }
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16_amx.tpl.c"
 
 # include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
@@ -723,19 +710,6 @@ libxs_dnn_err_t libxs_dnn_convolve_st_upd_custom_custom_bf16_bf16_amx(libxs_dnn_
   gemm_function tile_config_kernel = handle->upd_config_kernel;
   gemm_function gemm_kernel = NULL;
   gemm_br_function br_gemm_kernel = NULL;
-  if (handle->upd_linearized_pixels == 0) {
-    br_gemm_kernel = handle->upd_compute_kernel_brgemm_no_linearized_pixels;
-  } else {
-    if (handle->use_hybrid_imgofm_parallelization == 0) {
-      gemm_kernel = handle->upd_compute_kernel_gemm_linearized_pixels_no_hybrid_par;
-    } else {
-      if (handle->pack_to_cnhw == 1) {
-        gemm_kernel = handle->upd_compute_kernel_gemm_linearized_pixels_hybrid_par_cnhw;
-      } else {
-        br_gemm_kernel = handle->upd_compute_kernel_brgemm_linearized_pixels_hybrid_par_no_cnhw;
-      }
-    }
-  }
 # include "template/libxs_dnn_convolve_st_upd_custom_custom_generic_bf16_amx.tpl.c"
 
 # include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
