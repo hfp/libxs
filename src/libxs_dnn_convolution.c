@@ -876,9 +876,9 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer*
   libxs_blasint LDA = handle->ofmblock;
   libxs_blasint LDB = handle->input_pixels;
   libxs_blasint LDC = handle->ofmblock;
-  libxs_blasint prefetch_mode = libxs_get_gemm_prefetch(LIBXS_GEMM_PREFETCH_NONE);
-  libxs_blasint l_flags = ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') ) | LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG;
-  libxs_blasint l_tc_flags = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
+  int prefetch_mode = libxs_get_gemm_prefetch(LIBXS_GEMM_PREFETCH_NONE);
+  int l_flags = ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') ) | LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG;
+  int l_tc_flags = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
   int stride_a, stride_b;
   int unroll_hint;
   float beta;
