@@ -1215,6 +1215,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
     }
     else /*if (gid != tid)*/ { /* avoid recursion */
       LIBXS_ASSERT(gid != tid);
+      LIBXS_UNUSED(gid);
       while (2 > LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) LIBXS_SYNC_YIELD;
       internal_init();
     }
@@ -1746,7 +1747,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.gemm->flags) ? 0 : */1,
               0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid,
               br, (unsigned int)request->descriptor.gemm->c3, typesigns, tc_option,
-              request->descriptor.gemm->meltw_operation, meltw_tname,  request->descriptor.gemm->meltw_flags,
+              (unsigned int)request->descriptor.gemm->meltw_operation, meltw_tname, (unsigned int)request->descriptor.gemm->meltw_flags,
               request->descriptor.gemm->meltw_ldx, request->descriptor.gemm->meltw_ldy, request->descriptor.gemm->meltw_ldz );
           } else {
             /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
@@ -4083,7 +4084,7 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd_bcbiasact libxs_bmmdispatch_reduceb
     return NULL;
   }
   desc->meltw_datatype_aux = desc->datatype;
-  desc->meltw_flags = libxs_get_meltw_comp_cbiasact_flags(meltw_flags);
+  desc->meltw_flags = (unsigned char)libxs_get_meltw_comp_cbiasact_flags(meltw_flags);
   desc->meltw_operation = LIBXS_MELTW_OPERATION_COLBIAS_ACT;
   result = libxs_xmmdispatch(desc);
   return result.bmrs_bcbiasact;
@@ -4108,7 +4109,7 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd_bcbiasact libxs_bmmdispatch_reduceb
     return NULL;
   }
   desc->meltw_datatype_aux = desc->datatype;
-  desc->meltw_flags = libxs_get_meltw_comp_cbiasact_flags(meltw_flags);
+  desc->meltw_flags = (unsigned char)libxs_get_meltw_comp_cbiasact_flags(meltw_flags);
   desc->meltw_operation = LIBXS_MELTW_OPERATION_COLBIAS_ACT;
   result = libxs_xmmdispatch(desc);
   return result.bmrs_bcbiasact;
@@ -4132,7 +4133,7 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd_scbiasact libxs_bmmdispatch_reduceb
     return NULL;
   }
   desc->meltw_datatype_aux = LIBXS_DATATYPE_F32;
-  desc->meltw_flags = libxs_get_meltw_comp_cbiasact_flags(meltw_flags);
+  desc->meltw_flags = (unsigned char)libxs_get_meltw_comp_cbiasact_flags(meltw_flags);
   desc->meltw_operation = LIBXS_MELTW_OPERATION_COLBIAS_ACT;
   result = libxs_xmmdispatch(desc);
   return result.bmrs_scbiasact;
@@ -4157,7 +4158,7 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd_scbiasact libxs_bmmdispatch_reduceb
     return NULL;
   }
   desc->meltw_datatype_aux = LIBXS_DATATYPE_F32;
-  desc->meltw_flags = libxs_get_meltw_comp_cbiasact_flags(meltw_flags);
+  desc->meltw_flags = (unsigned char)libxs_get_meltw_comp_cbiasact_flags(meltw_flags);
   desc->meltw_operation = LIBXS_MELTW_OPERATION_COLBIAS_ACT;
   result = libxs_xmmdispatch(desc);
   return result.bmrs_scbiasact;
