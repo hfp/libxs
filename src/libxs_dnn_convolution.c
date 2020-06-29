@@ -871,7 +871,7 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd( libxs_dnn_layer* han
 
 }
 
-LIBXS_API_INTERN void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer* handle ) {
   /* JIT related variables...  */
   libxs_blasint LDA = handle->ofmblock;
   libxs_blasint LDB = handle->input_pixels;
