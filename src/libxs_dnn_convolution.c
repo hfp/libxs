@@ -139,7 +139,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_ofh_rb( libxs_dnn_layer* ha
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_fwd_pixels_gemm( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_pixels_gemm( libxs_dnn_layer* handle ) {
   int result = handle->fwd_ofw_rb * handle->fwd_ofh_rb;
   /* In the case below we calculate redundantly pixels in order to efficiently use AMX */
   if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
@@ -445,7 +445,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_bwd_ofh_rb( libxs_dnn_layer* ha
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_bwd_pixels_gemm( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_bwd_pixels_gemm( libxs_dnn_layer* handle ) {
   int result = handle->bwd_ofw_rb * handle->bwd_ofh_rb;
   /* In the case below we calculate redundantly pixels in order to efficiently use AMX */
   if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
@@ -458,7 +458,7 @@ LIBXS_API_INTERN int libxs_dnn_convolution_setup_bwd_pixels_gemm( libxs_dnn_laye
   return result;
 }
 
-LIBXS_API_INTERN int libxs_dnn_convolution_setup_bwd_block_H( libxs_dnn_layer* handle ) {
+LIBXS_API_INLINE int libxs_dnn_convolution_setup_bwd_block_H( libxs_dnn_layer* handle ) {
   int result = 0;
   result = libxs_dnn_convolution_setup_fwd_block_H(handle);
   return result;
@@ -995,7 +995,7 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer*
   }
 
   /* Now that all decisions have been made, JIT the proper kernel...  */
-  beta = (handle->use_intermediate_f32_wt_tensor) ? 1.0 : 0.0;
+  beta = (handle->use_intermediate_f32_wt_tensor) ? (float)1.0 : (float)0.0;
   if (handle->upd_linearized_pixels == 0) {
     LDA = handle->ofmblock;
     LDB = handle->ifhp*handle->ifwp_extended;
@@ -1189,7 +1189,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
     ldx = (handle->pack_input == 1) ? (libxs_blasint)handle->ifmblock : (libxs_blasint)handle->desc.v*handle->ifmblock;
     ldA = handle->ofmblock;
     ldC = handle->ofmblock;
-    beta = (handle->avoid_acc_load) ? 0.0 : 1.0;
+    beta = (handle->avoid_acc_load) ? (float)0.0 : (float)1.0;
     l_flags = ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') ) | LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG;
     l_tc_flags = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
     handle->fwd_compute_kernel_addr = NULL;
@@ -1356,7 +1356,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
     ldx = ((libxs_blasint)handle->ofmblock);
     ldA = handle->ifmblock;
     ldC = (handle->spread_input_bwd == 1) ? handle->ifmblock * handle->desc.v : handle->ifmblock;
-    beta = (handle->avoid_acc_load_bwd) ? 0.0 : 1.0;
+    beta = (handle->avoid_acc_load_bwd) ? (float)0.0 : (float)1.0;
     l_flags = ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') ) | LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG;
     l_tc_flags = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
     handle->bwd_compute_kernel_addr = NULL;
