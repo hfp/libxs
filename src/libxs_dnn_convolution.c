@@ -1410,7 +1410,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
 
   /* Transpose kernel used for filter transpose in bwd pass  */
   tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), 64, 16, 64);
-#if 0
+#if 1
   handle->tr_kernel = libxs_dispatch_trans(tr_desc);
 #else
   handle->tr_kernel = NULL;
