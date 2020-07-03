@@ -405,22 +405,22 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom(libxs_d
 
   /* check if we are on AVX512 */
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
+  if ( handle->libxs_target_archid >= LIBXS_X86_AVX512 ) {
     if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_convolve_st_bwd_custom_custom_f32_f32( handle, start_thread, tid);
     }
 #if defined(LIBXS_INTRINSICS_AVX512_CPX) /*__AVX512F__,__AVX512BW__,__AVX512DQ__,__AVX512BF16__*/
-    else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE && libxs_target_archid < LIBXS_X86_AVX512_CPX ) {
+    else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && handle->libxs_target_archid >= LIBXS_X86_AVX512_CORE && handle->libxs_target_archid < LIBXS_X86_AVX512_CPX ) {
       status = libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16_emu( handle, start_thread, tid);
-    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CPX && libxs_target_archid < LIBXS_X86_AVX512_SPR) {
+    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && handle->libxs_target_archid >= LIBXS_X86_AVX512_CPX && handle->libxs_target_archid < LIBXS_X86_AVX512_SPR) {
       status = libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16( handle, start_thread, tid);
-    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
+    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && handle->libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
       status = libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16_amx( handle, start_thread, tid);
     }
 #elif defined(LIBXS_INTRINSICS_AVX512_CORE) /*__AVX512F__,__AVX512BW__,__AVX512DQ__*/
-    else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_CORE && libxs_target_archid < LIBXS_X86_AVX512_SPR) {
+    else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && handle->libxs_target_archid >= LIBXS_X86_AVX512_CORE && handle->libxs_target_archid < LIBXS_X86_AVX512_SPR) {
       status = libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16_emu( handle, start_thread, tid);
-    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
+    } else if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_BF16 && handle->libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
       status = libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16_emu_amx( handle, start_thread, tid);
     }
 #endif
@@ -478,7 +478,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_rsck(libxs_dnn_l
 
   /* check if we are on AVX512 */
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
+  if ( handle->libxs_target_archid >= LIBXS_X86_AVX512 ) {
     if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_convolve_st_bwd_nhwc_rsck_f32_f32( handle, start_thread, tid);
     } else {
@@ -543,7 +543,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_bwd_nhwc_custom(libxs_dnn
 
   /* check if we are on AVX512 */
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  if ( libxs_target_archid >= LIBXS_X86_AVX512 ) {
+  if ( handle->libxs_target_archid >= LIBXS_X86_AVX512 ) {
     if ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_convolve_st_bwd_nhwc_custom_f32_f32( handle, start_thread, tid);
     } else {

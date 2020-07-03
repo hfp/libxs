@@ -127,7 +127,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_ofh_rb( libxs_dnn_layer* ha
     result = 1;
   }
 
-  if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) {
     if (handle->ofw == 7 && handle->ofh == 7 && handle->desc.R == 3 && handle->desc.S == 3) {
       result = 7;
     }
@@ -142,7 +142,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_ofh_rb( libxs_dnn_layer* ha
 LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_pixels_gemm( libxs_dnn_layer* handle ) {
   int result = handle->fwd_ofw_rb * handle->fwd_ofh_rb;
   /* In the case below we calculate redundantly pixels in order to efficiently use AMX */
-  if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) {
     if (handle->desc.R != 1 || handle->desc.R != 1) {
       if (handle->ofw < 24) {
         result = (handle->fwd_ofw_rb+2*handle->desc.pad_w) * (handle->fwd_ofh_rb-2) + 2 * (handle->fwd_ofw_rb+handle->desc.pad_w);
@@ -155,7 +155,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_pixels_gemm( libxs_dnn_laye
 LIBXS_API_INLINE int libxs_dnn_convolution_setup_fwd_block_H( libxs_dnn_layer* handle ) {
   int result = 14;
 
-  if (libxs_target_archid < LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid < LIBXS_X86_AVX512_SPR) {
     /* Block H only for large images  */
     if (handle->ofh >= 28) {
       result = 4;
@@ -184,7 +184,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_blocksifm_blocking( libxs_dnn_l
     if ((handle->desc.C >= 2048) && (handle->desc.K >= 512)) {
       result = 1;
     }
-    if ((libxs_target_archid < LIBXS_X86_AVX512) && (handle->desc.C >= 512) && (handle->desc.K >= 512) ) {
+    if ((handle->libxs_target_archid < LIBXS_X86_AVX512) && (handle->desc.C >= 512) && (handle->desc.K >= 512) ) {
       result = 2;
     }
   } else {
@@ -199,7 +199,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_blocksifm_blocking( libxs_dnn_l
   }
 
   /* In case of SPR bring always in all accumulation */
-  if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) {
     result = handle->blocksifm;
   }
 
@@ -261,7 +261,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_use_ofm_parallelization( libxs_
   if ((handle->ofw <= 7) && (handle->desc.C == 1024) && (handle->desc.K == 512)) {
     result = 1;
   }
-  if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) {
     if (handle->ofw == 7) {
       result = 1;
     }
@@ -283,7 +283,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_avoid_rim_fmas_fwd( libxs_dnn_l
       result = 0;
     }
   }
-  if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) {
     result = 0;
   }
   return result;
@@ -304,7 +304,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_shuffle_filter_accesses( libxs_
   if (handle->ofw == 7 && handle->desc.R == 1 && handle->desc.C == 2048 && handle->desc.K == 512) {
     result = 1;
   }
-  if (libxs_target_archid == LIBXS_X86_AVX512_SPR)  {
+  if (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR)  {
     result = 0;
   }
   return result;
@@ -348,7 +348,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_init_fwd_gemm_flags( libxs_dnn_
   LIBXS_UNUSED(handle);
 #endif
 
-  if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) {
     result = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG;
   }
 
@@ -448,7 +448,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_bwd_ofh_rb( libxs_dnn_layer* ha
 LIBXS_API_INLINE int libxs_dnn_convolution_setup_bwd_pixels_gemm( libxs_dnn_layer* handle ) {
   int result = handle->bwd_ofw_rb * handle->bwd_ofh_rb;
   /* In the case below we calculate redundantly pixels in order to efficiently use AMX */
-  if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) {
     if (handle->desc.R != 1 || handle->desc.R != 1) {
       if (handle->ofw < 24) {
         result = (handle->bwd_ofw_rb+2*handle->desc.pad_w) * (handle->bwd_ofh_rb-2) + 2 * (handle->bwd_ofw_rb+handle->desc.pad_w);
@@ -516,7 +516,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_blocksofm_blocking( libxs_dnn_l
     }
   }
 
-  if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) {
     result = handle->blocksofm;
   }
 
@@ -529,7 +529,7 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_blocksofm_blocking( libxs_dnn_l
 LIBXS_API_INLINE int libxs_dnn_convolution_setup_init_bwd_gemm_flags( libxs_dnn_layer* handle ) {
   int result = 0;
   LIBXS_UNUSED( handle );
-  if (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) {
     result = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG;
   }
   return result;
@@ -898,7 +898,7 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer*
   handle->upd_pack_input_upfront = 0;
   handle->use_hybrid_imgofm_parallelization = 0;
   handle->upd_linearized_tasklist = 0;
-  if ((libxs_target_archid == LIBXS_X86_AVX512_SPR) && (handle->ofw == 7) && (handle->desc.R == 1) && (handle->desc.S == 1) ) {
+  if ((handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) && (handle->ofw == 7) && (handle->desc.R == 1) && (handle->desc.S == 1) ) {
     handle->pack_to_cnhw= 1;
   }
 
@@ -1062,7 +1062,7 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* 
   }
   /* output/input buffer to transpose when we use bf16 */
   if ( handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 ) {
-    if  (libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
+    if  (handle->libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
       if (handle->upd_linearized_pixels == 1) {
         handle->upd_lp_output_full_scratch_size = (size_t) (handle->desc.N * handle->output_pixels * handle->desc.K * sizeof(handle->datatype_in));
         handle->upd_lp_input_full_scratch_size = (size_t) (handle->desc.N * handle->input_pixels * handle->desc.C * sizeof(handle->datatype_in));
@@ -1154,14 +1154,18 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   LIBXS_INIT
 
     /* Generic parameter setup  */
-    handle->ifmblock = libxs_dnn_convolution_setup_ifmblock(handle);
+  handle->libxs_target_archid = libxs_target_archid;
+  if ( (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) && (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) && ((handle->desc.C % 16 != 0) || (handle->desc.K % 16 != 0)) ) {
+    handle->libxs_target_archid = LIBXS_X86_AVX512_CPX;
+  }
+  handle->ifmblock = libxs_dnn_convolution_setup_ifmblock(handle);
   handle->ofmblock = libxs_dnn_convolution_setup_ofmblock(handle);
   handle->fm_lp_block = libxs_dnn_convolution_setup_fm_lp_block(handle);
   handle->blocksifm = libxs_dnn_convolution_setup_blocksifm(handle);
   handle->blocksofm = libxs_dnn_convolution_setup_blocksofm(handle);
 
   /* If in SPR, generate tilerelease kernel */
-  if (libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
+  if (handle->libxs_target_archid >= LIBXS_X86_AVX512_SPR) {
     int l_tr_flags = LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
     handle->tilerelease_kernel = libxs_bsmmdispatch(handle->ifmblock, handle->ifmblock, handle->ifmblock, NULL, NULL, NULL, NULL, NULL, &l_tr_flags, NULL);
   }
@@ -1183,7 +1187,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->fwd_flags = libxs_dnn_convolution_setup_init_fwd_gemm_flags(handle);
   handle->use_fallback_fwd_loops = libxs_dnn_convolution_setup_fallback_loops_fwd(handle);
 
-  if ( (libxs_target_archid == LIBXS_X86_AVX512_SPR) && (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) ) {
+  if ( (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) && (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) ) {
     handle->block_fwd_ofm = 1;
     handle->block_fwd_oj = handle->fwd_ofh_rb;
     ldx = (handle->pack_input == 1) ? (libxs_blasint)handle->ifmblock : (libxs_blasint)handle->desc.v*handle->ifmblock;
@@ -1350,7 +1354,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->use_fallback_bwd_loops = libxs_dnn_convolution_setup_fallback_loops_bwd(handle);
   handle->bwd_flags = libxs_dnn_convolution_setup_init_bwd_gemm_flags(handle);
 
-  if ( (libxs_target_archid == LIBXS_X86_AVX512_SPR) && (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) ) {
+  if ( (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) && (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) ) {
     handle->block_bwd_ifm = 1;
     handle->block_bwd_oj = handle->bwd_ofh_rb ;
     ldx = ((libxs_blasint)handle->ofmblock);
@@ -1426,7 +1430,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->upd_loop_order = libxs_dnn_convolution_setup_loop_order_upd(handle);
 
   if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
-    if  (libxs_target_archid == LIBXS_X86_AVX512_SPR) {
+    if  (handle->libxs_target_archid == LIBXS_X86_AVX512_SPR) {
       libxs_dnn_convolution_setup_bf16_upd_amx(handle);
     } else {
       libxs_dnn_convolution_setup_bf16_upd(handle);
