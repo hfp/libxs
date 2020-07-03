@@ -371,7 +371,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   libxs_dnn_tensor_format filter_format;
   libxs_dnn_conv_fuse_op fuse_ops;
   libxs_dnn_conv_option options;
-  int libxs_target_archid;
+  int target_archid;
 
   /* additional size for internal data types */
   int ifhp;
