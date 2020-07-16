@@ -450,8 +450,9 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   /* Hoisting the compute kernels for FWD  */
   libxs_bsmmfunction fwd_config_kernel;
   libxs_bsmmfunction_reducebatch_addr fwd_compute_kernel_addr;
-  libxs_bsmmfunction_reducebatch_offs fwd_compute_kernel_offs;
-  libxs_bsmmfunction_reducebatch_strd fwd_compute_kernel_strd;
+  libxs_bsmmfunction_reducebatch_offs fwd_compute_kernel_offs_b;
+  libxs_bmmfunction_reducebatch_offs fwd_compute_kernel_offs_a;
+  libxs_bmmfunction_reducebatch_strd fwd_compute_kernel_strd;
 
   /* Hoisting the compute kernels for BWD  */
   libxs_bsmmfunction bwd_config_kernel;
