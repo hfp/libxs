@@ -93,9 +93,11 @@ libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_bf16_bf16_emu_amx(libxs_
 # include "template/libxs_dnn_bf16_macros_define.tpl.c"
 
   typedef libxs_bsmmfunction gemm_function;
-  typedef libxs_bsmmfunction_reducebatch_offs gemm_br_function_offs;
-  typedef libxs_bsmmfunction_reducebatch_strd gemm_br_function_strd;
-  gemm_br_function_offs br_gemm_kernel_offs = handle->fwd_compute_kernel_offs;
+  typedef libxs_bmmfunction_reducebatch_offs gemm_br_function_offs_a;
+  typedef libxs_bsmmfunction_reducebatch_offs gemm_br_function_offs_b;
+  typedef libxs_bmmfunction_reducebatch_strd gemm_br_function_strd;
+  gemm_br_function_offs_a br_gemm_kernel_offs_a = handle->fwd_compute_kernel_offs_a;
+  gemm_br_function_offs_b br_gemm_kernel_offs_b = handle->fwd_compute_kernel_offs_b;
   gemm_br_function_strd br_gemm_kernel_strd = handle->fwd_compute_kernel_strd;
   gemm_function tile_config_kernel = handle->fwd_config_kernel;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic_bf16_amx.tpl.c"
@@ -167,9 +169,11 @@ libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_bf16_bf16_amx(libxs_dnn_
 # include "template/libxs_dnn_bf16_macros_define.tpl.c"
 
   typedef libxs_bsmmfunction gemm_function;
-  typedef libxs_bsmmfunction_reducebatch_offs gemm_br_function_offs;
-  typedef libxs_bsmmfunction_reducebatch_strd gemm_br_function_strd;
-  gemm_br_function_offs br_gemm_kernel_offs = handle->fwd_compute_kernel_offs;
+  typedef libxs_bmmfunction_reducebatch_offs gemm_br_function_offs_a;
+  typedef libxs_bsmmfunction_reducebatch_offs gemm_br_function_offs_b;
+  typedef libxs_bmmfunction_reducebatch_strd gemm_br_function_strd;
+  gemm_br_function_offs_a br_gemm_kernel_offs_a = handle->fwd_compute_kernel_offs_a;
+  gemm_br_function_offs_b br_gemm_kernel_offs_b = handle->fwd_compute_kernel_offs_b;
   gemm_br_function_strd br_gemm_kernel_strd = handle->fwd_compute_kernel_strd;
   gemm_function tile_config_kernel = handle->fwd_config_kernel;
 # include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic_bf16_amx.tpl.c"

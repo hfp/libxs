@@ -1195,14 +1195,15 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
     l_flags = ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') ) | LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG;
     l_tc_flags = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
     handle->fwd_compute_kernel_addr = NULL;
-    handle->fwd_compute_kernel_offs = NULL;
+    handle->fwd_compute_kernel_offs_a = NULL;
+    handle->fwd_compute_kernel_offs_b = NULL;
     handle->fwd_compute_kernel_strd = NULL;
     if (handle->desc.R == 1 && handle->desc.S == 1) {
       const int IFW = (handle->pack_input == 1) ? handle->ofwp : handle->ifwp;
       const int IFH = (handle->pack_input == 1) ? handle->ofhp : handle->ifhp;
       int stride_a = handle->desc.R * handle->desc.S * handle->ifmblock * handle->ofmblock * libxs_dnn_typesize(handle->datatype_in);
       int stride_b = IFW * IFH * handle->ifmblock * libxs_dnn_typesize(handle->datatype_in);
-      handle->fwd_compute_kernel_strd = libxs_bsmmdispatch_reducebatch_strd_unroll(handle->ofmblock, handle->fwd_gemm_pixels, handle->ifmblock, stride_a, stride_b, handle->blocksifm_blocking, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+      handle->fwd_compute_kernel_strd = libxs_bmmdispatch_reducebatch_strd_unroll(handle->ofmblock, handle->fwd_gemm_pixels, handle->ifmblock, stride_a, stride_b, handle->blocksifm_blocking, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
     } else {
       const int IFW = (handle->pack_input == 1) ? handle->ofwp : handle->ifwp;
       const int IFH = (handle->pack_input == 1) ? handle->ofhp : handle->ifhp;
@@ -1223,7 +1224,8 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
           }
         }
       }
-      handle->fwd_compute_kernel_offs = libxs_bsmmdispatch_reducebatch_offs(handle->ofmblock, handle->fwd_gemm_pixels, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+      handle->fwd_compute_kernel_offs_a = libxs_bmmdispatch_reducebatch_offs(handle->ofmblock, handle->fwd_gemm_pixels, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
+      handle->fwd_compute_kernel_offs_b = libxs_bsmmdispatch_reducebatch_offs(handle->ofmblock, handle->fwd_gemm_pixels, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
     }
     handle->fwd_config_kernel = libxs_bsmmdispatch(handle->ofmblock, handle->fwd_gemm_pixels, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_tc_flags, NULL);
   }
