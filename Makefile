@@ -1489,6 +1489,7 @@ endif
 	@rm -f $(INCDIR)/libxs.modmic
 	@rm -f $(INCDIR)/libxs.mod
 	@rm -f $(INCDIR)/libxs.f
+	@rm -f $(HEREDIR)/python3
 
 .PHONY: clean-all
 clean-all: clean
