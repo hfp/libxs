@@ -169,6 +169,14 @@
 # define LIBXS_ATTRIBUTE_UNUSED
 # define LIBXS_ATTRIBUTE_USED
 #endif
+#if defined(__clang__)
+# define LIBXS_ATTRIBUTE_NO_SANITIZE(KIND) LIBXS_ATTRIBUTE(no_sanitize(LIBXS_STRINGIFY(KIND)))
+#elif defined(__GNUC__) && LIBXS_VERSION2(4, 8) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) \
+  && !defined(__INTEL_COMPILER)
+# define LIBXS_ATTRIBUTE_NO_SANITIZE(KIND) LIBXS_ATTRIBUTE(LIBXS_CONCATENATE(no_sanitize_, KIND))
+#else
+# define LIBXS_ATTRIBUTE_NO_SANITIZE(KIND)
+#endif
 
 #if defined(__cplusplus)
 # define LIBXS_VARIADIC ...
@@ -819,6 +827,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #else
 # define LIBXS_SNPRINTF(S, N, ...) sprintf((S) + /*unused*/(N) * 0, __VA_ARGS__)
 #endif
+
 #if defined(__THROW) && defined(__cplusplus)
 # define LIBXS_THROW __THROW
 #endif
@@ -831,6 +840,16 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #else
 # define LIBXS_NOTHROW
 #endif
+#if defined(__cplusplus)
+# if (__cplusplus > 199711L)
+#   define LIBXS_NOEXCEPT noexcept
+# else
+#   define LIBXS_NOEXCEPT throw()
+# endif
+#else
+# define LIBXS_NOEXCEPT LIBXS_NOTHROW
+#endif
+
 #if defined(_WIN32)
 # define LIBXS_PUTENV(A) _putenv(A)
 #else

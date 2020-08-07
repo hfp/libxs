@@ -302,7 +302,7 @@ LIBXS_API_INLINE short libxs_internal_quantize_scalar_no_scf( float input, unsig
     sign = ((value.ui & LIBXSNN_DNN_MASK_SIGN_F32) >> (LIBXS_DNN_SZ_F32-1));
     /* calculate rhs, be aware of the now explicit leading bit, @TODO add DFP8/4 */
     rhs = (unsigned char)((LIBXS_DNN_MANT_SZ_F32+1) - LIBXS_DNN_MANT_DFP16 + exp_off + add_shift);
-    /* some safety, to generate 0 when we fall off quant region, @TODO issue a LIBXS Warning that we shifted out the entire mantissa */
+    /* some safety, to generate 0 when we fall off quant region, @TODO issue a LIBXS WARNING: that we shifted out the entire mantissa */
     if (rhs > (LIBXS_DNN_MANT_SZ_F32+1)) {
       rhs = (LIBXS_DNN_MANT_SZ_F32+1);
     }

@@ -533,16 +533,16 @@ LIBXS_API libxs_xmmfunction libxs_create_pgemm_ac_rm(const libxs_gemm_descriptor
 LIBXS_API libxs_xmmfunction libxs_create_pgemm_bc_rm(const libxs_gemm_descriptor* descriptor, unsigned int packed_width);
 
 /**
- * Code generation routine for the CSR format which multiplies a dense matrix B into a dense matrix C.
- * The sparse matrix a is kept in registers.
+ * Code generation routine for the CSR format which multiplies a dense matrix "b" into a dense matrix "c".
+ * The sparse matrix "a" is kept in registers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
 LIBXS_API libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_descriptor* descriptor,
   const unsigned int* row_ptr, const unsigned int* column_idx, const double* values);
 
 /**
- * Code generation routine for the CSR format which multiplies a dense matrix B into a dense matrix C.
- * The sparse matrix a is kept in registers.
+ * Code generation routine for the CSR format which multiplies a dense matrix "b" into a dense matrix "c".
+ * The sparse matrix "a" is kept in registers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
 LIBXS_API libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* descriptor,
@@ -622,13 +622,23 @@ LIBXS_API void libxs_sgemm(const char* transa, const char* transb,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc);
-/** Dispatched general dense matrix multiplication (I16 input, I32 result). */
+/**
+ * Dispatched general dense matrix multiplication (I16 input, I32 result).
+ * Matrix "a" must be given in VNNI-format, i.e., [K][M] -> [K/2][M][2] with
+ * two entries of "K" in the inner-most dimension. General data conversion
+ * from F32 is per, e.g., libxs_dnn_quantize.
+ */
 LIBXS_API void libxs_wigemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const int* alpha, const short* a, const libxs_blasint* lda,
   const short* b, const libxs_blasint* ldb,
   const int* beta, int* c, const libxs_blasint* ldc);
-/** Dispatched general dense matrix multiplication (BF16 input, F32 result). */
+/**
+ * Dispatched general dense matrix multiplication (BF16 input, F32 result).
+ * Matrix "a" must be given in VNNI-format, i.e., [K][M] -> [K/2][M][2] with
+ * two entries of "K" in the inner-most dimension. General data conversion
+ * from F32 is per, e.g., libxs_rne_convert_fp32_bf16.
+ */
 LIBXS_API void libxs_bsgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const libxs_bfloat16* a, const libxs_blasint* lda,
@@ -640,21 +650,22 @@ LIBXS_API void libxs_bsgemm(const char* transa, const char* transb,
 #endif /*!defined(LIBXS_DEFAULT_CONFIG)*/
 #if defined(__cplusplus)
 
-/** Map a built-in type to libxs_gemm_precision (libxs_gemm_precision_enum). */
-template<typename T> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum             { static const libxs_gemm_precision value = static_cast<libxs_gemm_precision>(LIBXS_DATATYPE_UNSUPPORTED); };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<double>               { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_F64; };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<float>                { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_F32; };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<int>                  { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_I32; };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum</*signed*/short>      { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_I16; };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<libxs_bfloat16>     { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_BF16; };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<Eigen::bfloat16>      { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_BF16; };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<signed char>          { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_I8; };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<unsigned char>        { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_I8; };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<char>                 { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_I8; };
+/** Map built-in type to libxs_gemm_precision (libxs_gemm_precision_enum). */
+template<typename T> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum          { static const libxs_gemm_precision value = static_cast<libxs_gemm_precision>(LIBXS_DATATYPE_UNSUPPORTED); };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<double>            { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_F64; };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<float>             { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_F32; };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<int>               { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_I32; };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum</*signed*/short>   { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_I16; };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<libxs_bfloat16>  { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_BF16; };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<Eigen::bfloat16>   { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_BF16; };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<signed char>       { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_I8; };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<unsigned char>     { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_I8; };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_precision_enum<char>              { static const libxs_gemm_precision value = LIBXS_GEMM_PRECISION_I8; };
 
-template<typename INP_TYPE> struct LIBXS_RETARGETABLE libxs_gemm_default_output      { typedef INP_TYPE type; };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_default_output</*signed*/short>      { typedef int type; };
-template<> struct LIBXS_RETARGETABLE libxs_gemm_default_output<unsigned short>       { typedef int type; };
+/** Determine default output type based on the input-type. */
+template<typename INP_TYPE> struct LIBXS_RETARGETABLE libxs_gemm_default_output   { typedef INP_TYPE type; };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_default_output</*signed*/short>   { typedef int type; };
+template<> struct LIBXS_RETARGETABLE libxs_gemm_default_output<libxs_bfloat16>  { typedef float type; };
 
 /** Construct and execute a specialized function. */
 template<typename INP_TYPE, typename OUT_TYPE = typename libxs_gemm_default_output<INP_TYPE>::type>
@@ -668,29 +679,29 @@ public:
   libxs_mmfunction(libxs_blasint m, libxs_blasint n, libxs_blasint k, int flags = LIBXS_FLAGS) {
     libxs_descriptor_blob blob;
     const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init2(&blob,
-      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value,
-      m, n, k, m, k, m, NULL/*alpha*/, NULL/*beta*/, flags, libxs_get_gemm_xprefetch(NULL));
+      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value, m, n, k, m, k, m,
+      NULL/*alpha*/, NULL/*beta*/, flags, libxs_get_gemm_xprefetch(NULL));
     m_function.xmm = (0 != desc ? libxs_xmmdispatch(desc).xmm : 0);
   }
   libxs_mmfunction(int flags, libxs_blasint m, libxs_blasint n, libxs_blasint k, int prefetch) {
     libxs_descriptor_blob blob;
     const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init2(&blob,
-      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value,
-      m, n, k, m, k, m, NULL/*alpha*/, NULL/*beta*/, flags, libxs_get_gemm_prefetch(prefetch));
+      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value, m, n, k, m, k, m,
+      NULL/*alpha*/, NULL/*beta*/, flags, libxs_get_gemm_prefetch(prefetch));
     m_function.xmm = (0 != desc ? libxs_xmmdispatch(desc).xmm : 0);
   }
   libxs_mmfunction(int flags, libxs_blasint m, libxs_blasint n, libxs_blasint k, otype alpha, otype beta) {
     libxs_descriptor_blob blob;
     const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init2(&blob,
-      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value,
-      m, n, k, m, k, m, &alpha, &beta, flags, libxs_get_gemm_xprefetch(NULL));
+      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value, m, n, k, m, k, m,
+      &alpha, &beta, flags, libxs_get_gemm_xprefetch(NULL));
     m_function.xmm = (0 != desc ? libxs_xmmdispatch(desc).xmm : 0);
   }
   libxs_mmfunction(int flags, libxs_blasint m, libxs_blasint n, libxs_blasint k, otype alpha, otype beta, int prefetch) {
     libxs_descriptor_blob blob;
     const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init2(&blob,
-      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value,
-      m, n, k, m, k, m, &alpha, &beta, flags, libxs_get_gemm_prefetch(prefetch));
+      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value, m, n, k, m, k, m,
+      &alpha, &beta, flags, libxs_get_gemm_prefetch(prefetch));
     m_function.xmm = (0 != desc ? libxs_xmmdispatch(desc).xmm : 0);
   }
   libxs_mmfunction(int flags, libxs_blasint m, libxs_blasint n, libxs_blasint k,
@@ -698,8 +709,8 @@ public:
   {
     libxs_descriptor_blob blob;
     const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init2(&blob,
-      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value,
-      m, n, k, lda, ldb, ldc, NULL/*alpha*/, NULL/*beta*/, flags, libxs_get_gemm_prefetch(prefetch));
+      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value, m, n, k, lda, ldb, ldc,
+      NULL/*alpha*/, NULL/*beta*/, flags, libxs_get_gemm_prefetch(prefetch));
     m_function.xmm = (0 != desc ? libxs_xmmdispatch(desc).xmm : 0);
   }
   libxs_mmfunction(int flags, libxs_blasint m, libxs_blasint n, libxs_blasint k,
@@ -707,8 +718,8 @@ public:
   {
     libxs_descriptor_blob blob;
     const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init2(&blob,
-      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value,
-      m, n, k, lda, ldb, ldc, &alpha, &beta, flags, libxs_get_gemm_xprefetch(NULL));
+      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value, m, n, k, lda, ldb, ldc,
+      &alpha, &beta, flags, libxs_get_gemm_xprefetch(NULL));
     m_function.xmm = (0 != desc ? libxs_xmmdispatch(desc).xmm : 0);
   }
   libxs_mmfunction(int flags, libxs_blasint m, libxs_blasint n, libxs_blasint k,
@@ -716,8 +727,8 @@ public:
   {
     libxs_descriptor_blob blob;
     const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init2(&blob,
-      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value,
-      m, n, k, lda, ldb, ldc, &alpha, &beta, flags, libxs_get_gemm_prefetch(prefetch));
+      libxs_gemm_precision_enum<itype>::value, libxs_gemm_precision_enum<otype>::value, m, n, k, lda, ldb, ldc,
+      &alpha, &beta, flags, libxs_get_gemm_prefetch(prefetch));
     m_function.xmm = (0 != desc ? libxs_xmmdispatch(desc).xmm : 0);
   }
 public:
