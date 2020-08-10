@@ -800,6 +800,11 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_init_upd_gemm_flags( libxs_dnn_
 LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd( libxs_dnn_layer* handle ) {
   int remainder_pixels, max_init_offset, max_compute_offset_input, input_compute_pad, accum_length_pixels, compute_pixels;
   const int multiple_target = 2;
+  int IFHP = (handle->upd_padding_copy == 1) ? handle->ifhp + 2 * handle->desc.pad_h : handle->ifhp;
+  int IFWP = (handle->upd_padding_copy == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
+  int OFHP = (handle->upd_padding_copy == 1) ? handle->ofhp + 2 * handle->desc.pad_h : handle->ofhp;
+  int OFWP = (handle->upd_padding_copy == 1) ? handle->ofwp + 2 * handle->desc.pad_w : handle->ofwp;
+
   handle->upd_linearized_pixels = 1;
   if (handle->desc.S != 1 && handle->desc.v != 1) {
     handle->upd_linearized_pixels = 0;
@@ -828,10 +833,10 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd( libxs_dnn_layer* han
     }
 
     /* Logistics for input transpose and additional pixel padding */
-    max_init_offset = 2 * handle->desc.pad_h * handle->ifwp + 2 * handle->desc.pad_w;
+    max_init_offset = 2 * handle->desc.pad_h * IFWP + 2 * handle->desc.pad_w;
     max_compute_offset_input = max_init_offset + accum_length_pixels;
-    input_compute_pad = (max_compute_offset_input > handle->ifwp*handle->ifhp) ? max_compute_offset_input - handle->ifwp*handle->ifhp : 0;
-    handle->input_pixels = handle->ifwp * handle->ifhp + input_compute_pad;
+    input_compute_pad = (max_compute_offset_input > IFWP*IFHP) ? max_compute_offset_input - IFWP*IFHP : 0;
+    handle->input_pixels = IFWP * IFHP + input_compute_pad;
     if (handle->upd_pack_input_upfront) {
       handle->input_pixels = accum_length_pixels;
     }
@@ -860,9 +865,9 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd( libxs_dnn_layer* han
       handle->on_the_fly_input_packing = 1;
     }
     remainder_pixels = (handle->ofw % multiple_target == 0) ? 0 : (handle->ofw/multiple_target+1)*multiple_target - handle->ofw;
-    handle->ofwp_extended = handle->ofwp + remainder_pixels;
-    handle->ifwp_extended = handle->ifwp + remainder_pixels;
-    handle->output_pixels = handle->ofwp * handle->ofwp_extended;
+    handle->ofwp_extended = OFWP + remainder_pixels;
+    handle->ifwp_extended = IFWP + remainder_pixels;
+    handle->output_pixels = OFHP * handle->ofwp_extended;
     /* coverity[identical_branches] */
     handle->batchreduce_h_pixels = (handle->upd_trans_w_only) ? 1 : 1; /* TODO: identical_branches */
     handle->use_intermediate_f32_wt_tensor = (handle->batchreduce_h_pixels == handle->ofh) ? 0 : 1;
@@ -1079,15 +1084,21 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* 
       }
     } else {
       const int multiple_target = 2;
+      int IFHP = (handle->upd_padding_copy == 1) ? handle->ifhp + 2 * handle->desc.pad_h : handle->ifhp;
+      int IFWP = (handle->upd_padding_copy == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
+      int OFHP = (handle->upd_padding_copy == 1) ? handle->ofhp + 2 * handle->desc.pad_h : handle->ofhp;
+      int OFWP = (handle->upd_padding_copy == 1) ? handle->ofwp + 2 * handle->desc.pad_w : handle->ofwp;
+
       if (handle->upd_linearized_pixels == 1) {
         int compute_pixels = handle->ofw * handle->ofh + 2 * handle->desc.pad_w * (handle->ofh-1);
         int remainder_pixels = (compute_pixels % multiple_target == 0) ? 0 : (compute_pixels/multiple_target+1)*multiple_target - compute_pixels;
         int accum_length_pixels = compute_pixels + remainder_pixels;
 
-        int max_init_offset = 2 * handle->desc.pad_h * (handle->desc.W + 2*handle->desc.pad_w)  + 2 * handle->desc.pad_w;
+        int max_init_offset = 2 * handle->desc.pad_h * IFWP + 2 * handle->desc.pad_w;
         int max_compute_offset_input = max_init_offset + accum_length_pixels;
-        int input_compute_pad = (max_compute_offset_input > (handle->desc.W+2*handle->desc.pad_w) * (handle->desc.H+2*handle->desc.pad_h)) ? max_compute_offset_input - (handle->desc.W+2*handle->desc.pad_w) * (handle->desc.H+2*handle->desc.pad_h) : 0;
-        int input_pixels = (handle->desc.W+2*handle->desc.pad_w) * (handle->desc.H+2*handle->desc.pad_h) + input_compute_pad;
+        int input_compute_pad = (max_compute_offset_input > IFWP*IFHP) ? max_compute_offset_input - IFWP*IFHP : 0;
+        int input_pixels = IFWP * IFHP + input_compute_pad;
+
         if (handle->upd_pack_input_upfront == 1) {
           input_pixels = accum_length_pixels;
         }
@@ -1098,11 +1109,11 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* 
 
       if (handle->upd_linearized_pixels == 0) {
         int remainder_pixels = (handle->ofw % multiple_target == 0) ? 0 : (handle->ofw/multiple_target+1)*multiple_target - handle->ofw;
-        int ofwp_extended = (handle->desc.W+2*handle->desc.pad_w) + remainder_pixels;
-        int ifwp_extended = (handle->desc.W+2*handle->desc.pad_w) + remainder_pixels;
+        int ofwp_extended = OFWP + remainder_pixels;
+        int ifwp_extended = IFWP + remainder_pixels;
 
-        handle->upd_lp_output_full_scratch_size = (size_t) (handle->desc.N * (handle->desc.H+2*handle->desc.pad_h) * ofwp_extended * handle->desc.K * sizeof(handle->datatype_in));
-        handle->upd_lp_input_full_scratch_size = (size_t) (handle->desc.N * (handle->desc.H+2*handle->desc.pad_h) * ifwp_extended * handle->desc.C * sizeof(handle->datatype_in));
+        handle->upd_lp_output_full_scratch_size = (size_t) (handle->desc.N * OFHP * ofwp_extended * handle->desc.K * sizeof(handle->datatype_in));
+        handle->upd_lp_input_full_scratch_size = (size_t) (handle->desc.N * IFHP * ifwp_extended * handle->desc.C * sizeof(handle->datatype_in));
       }
     }
     handle->upd_lp_filter_full_scratch_size = (size_t)handle->desc.R * handle->desc.S * handle->desc.C * handle->desc.K * handle->desc.threads *
@@ -1435,6 +1446,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->block_upd_ofm = libxs_dnn_convolution_setup_block_upd_OFM(handle);
   handle->block_upd_ifm = libxs_dnn_convolution_setup_block_upd_IFM(handle);
   handle->upd_loop_order = libxs_dnn_convolution_setup_loop_order_upd(handle);
+  handle->upd_padding_copy = libxs_dnn_convolution_setup_upd_padding_copy(handle);
 
   if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
     if  (handle->target_archid == LIBXS_X86_AVX512_SPR) {
@@ -1443,8 +1455,6 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
       libxs_dnn_convolution_setup_bf16_upd(handle);
     }
   }
-
-  handle->upd_padding_copy = libxs_dnn_convolution_setup_upd_padding_copy(handle);
 
 #if 0
   /* Spit out UPD parameters that are selected...  */
