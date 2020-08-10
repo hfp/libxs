@@ -205,48 +205,56 @@
 # endif
 # if defined(LIBXS_STATIC_TARGET_ARCH) && !defined(LIBXS_INTRINSICS_STATIC)
 #   if defined(__INTEL_COMPILER)
-      /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
-#     if 1904 <= (LIBXS_INTEL_COMPILER) && !defined(_WIN32)
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
-#     elif 1801 <= (LIBXS_INTEL_COMPILER)
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
-#     elif 1500 <= (LIBXS_INTEL_COMPILER)
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
-#     elif 1400 <= (LIBXS_INTEL_COMPILER)
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
-#     else
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
+        /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
+#       if 1904 <= (LIBXS_INTEL_COMPILER) && !defined(_WIN32)
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
+#       elif 1801 <= (LIBXS_INTEL_COMPILER)
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
+#       elif 1500 <= (LIBXS_INTEL_COMPILER)
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#       elif 1400 <= (LIBXS_INTEL_COMPILER)
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_MIC
+#       else
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#       endif
 #     endif
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     define LIBXS_INTRINSICS_INCLUDE
 #   elif defined(_CRAYC) && defined(__GNUC__)
       /* TODO: version check, e.g., LIBXS_VERSION2(11, 5) <= LIBXS_VERSION2(_RELEASE, _RELEASE_MINOR) */
-#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
+#     if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX
+#     endif
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     define LIBXS_INTRINSICS_INCLUDE
 #   elif defined(_MSC_VER) && !defined(__clang__)
       /* TODO: compiler version check for LIBXS_MAX_STATIC_TARGET_ARCH */
-#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
+#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     endif
 #     define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
 #     define LIBXS_INTRINSICS_INCLUDE
 #   elif (!defined(__GNUC__)  || LIBXS_VERSION2(4, 9) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
       && (!defined(__clang__) || LIBXS_VERSION2(4, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)) \
       && (!defined(__APPLE__) || !defined(__MACH__)) && !defined(__PGI) && !defined(_MSC_VER)
-#     if defined(__CYGWIN__) && !defined(LIBXS_INTRINSICS_DEBUG) /* Cygwin: invalid register for .seh_savexmm */
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
-#     elif (defined(__clang__) && LIBXS_VERSION2(10, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
-#     elif (defined(__GNUC__)  && LIBXS_VERSION2(10, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
-        || (defined(__clang__) && LIBXS_VERSION2( 9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) && !defined(__cray__))
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
-#     elif (defined(__GNUC__)  && LIBXS_VERSION2(8, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
-        || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
-#     elif (defined(__GNUC__)  && LIBXS_VERSION2(5, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
-        || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
-#     else
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#     if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
+#       if defined(__CYGWIN__) && !defined(LIBXS_INTRINSICS_DEBUG) /* Cygwin: invalid register for .seh_savexmm */
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#       elif (defined(__clang__) && LIBXS_VERSION2(10, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
+#       elif (defined(__GNUC__)  && LIBXS_VERSION2(10, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
+          || (defined(__clang__) && LIBXS_VERSION2( 9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) && !defined(__cray__))
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
+#       elif (defined(__GNUC__)  && LIBXS_VERSION2(8, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
+          || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
+#       elif (defined(__GNUC__)  && LIBXS_VERSION2(5, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
+          || (defined(__clang__) && LIBXS_VERSION2(6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#       else
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#       endif
 #     endif
 #     define LIBXS_INTRINSICS_INCLUDE
 #   else /* GCC/legacy incl. Clang */
@@ -260,19 +268,23 @@
 #       elif !defined(LIBXS_INTRINSICS_STATIC)
 #         define LIBXS_INTRINSICS_STATIC
 #       endif
-#       if defined(__CYGWIN__) && !defined(LIBXS_INTRINSICS_DEBUG) /* Cygwin: invalid register for .seh_savexmm */
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
-#       elif LIBXS_VERSION2(10, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
-#       elif LIBXS_VERSION2( 9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) && !defined(__cray__)
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
-#       elif LIBXS_VERSION2( 6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
-#       else
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#       if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
+#         if defined(__CYGWIN__) && !defined(LIBXS_INTRINSICS_DEBUG) /* Cygwin: invalid register for .seh_savexmm */
+#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+#         elif LIBXS_VERSION2(10, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)
+#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
+#         elif LIBXS_VERSION2( 9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__) && !defined(__cray__)
+#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CPX
+#         elif LIBXS_VERSION2( 6, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)
+#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CLX
+#         else
+#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
+#         endif
 #       endif
 #     else /* fall-back */
-#       define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
+#       if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
+#       endif
 #       if !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
 #         define LIBXS_INTRINSICS_STATIC
 #       endif

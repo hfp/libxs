@@ -166,8 +166,8 @@ ifneq (0,$(shell echo "$(PLATFORM)" | grep "^-*[0-9][0-9]*$$" 2>/dev/null || ech
   DFLAGS += -DLIBXS_PLATFORM_FORCE
 endif
 
-# Intrinsics support level
-# 0: None, 1: Static, 2: Dynamic
+# Intrinsics support level (0: None, 1: Static, 2: Dynamic)
+# 1003<=INTRINSICS<1999: CPUID (see libxs_cpuid.h)
 INTRINSICS ?= 2
 
 OFFLOAD ?= 0
@@ -1690,6 +1690,8 @@ ifneq (0,$(INTRINSICS))
     else ifneq (,$(CTARGET))
       DFLAGS += -DLIBXS_INTRINSICS_STATIC
     endif
+  else ifneq (2,$(INTRINSICS))
+    DFLAGS += -DLIBXS_MAX_STATIC_TARGET_ARCH=$(INTRINSICS)
   endif
 else # disabled
   DFLAGS += -DLIBXS_INTRINSICS_NONE
