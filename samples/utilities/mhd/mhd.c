@@ -8,6 +8,7 @@
 ******************************************************************************/
 #include <libxs_sync.h>
 #include <libxs_mhd.h>
+#include <libxs.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
