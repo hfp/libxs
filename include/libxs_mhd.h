@@ -9,7 +9,7 @@
 #ifndef LIBXS_MHD_H
 #define LIBXS_MHD_H
 
-#include "libxs.h"
+#include "libxs_typedefs.h"
 
 
 /** Denotes the element/pixel type of an image/channel. */
