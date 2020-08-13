@@ -172,10 +172,10 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #endif
 #if !defined(LIBXS_MALLOC_LOCK_PAGES) && 0
 # define LIBXS_MALLOC_LOCK_PAGES
-#endif
-#if !defined(LIBXS_MALLOC_LOCK_ONFAULT) && defined(LIBXS_MALLOC_LOCK_PAGES)
-# if defined(MLOCK_ONFAULT) && defined(SYS_mlock2)
-#   define LIBXS_MALLOC_LOCK_ONFAULT
+# if !defined(LIBXS_MALLOC_LOCK_ONFAULT) && 0
+#   if defined(MLOCK_ONFAULT) && defined(SYS_mlock2)
+#     define LIBXS_MALLOC_LOCK_ONFAULT
+#   endif
 # endif
 #endif
 /* protected against double-delete (if possible) */
@@ -1823,7 +1823,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
             && (internal_malloc_hugetlb + size) < limit_hugetlb) ? MAP_HUGETLB : 0)
 # endif
 # if defined(MAP_LOCKED) && defined(LIBXS_MALLOC_LOCK_PAGES) && !defined(LIBXS_MALLOC_LOCK_ONFAULT)
-          | (((defined(LIBXS_MALLOC_FLAG_PLOCK)
+          | (((0 != (LIBXS_MALLOC_FLAG_PLOCK & flags)
             || (0 == (LIBXS_MALLOC_FLAG_X & flags) && 0 != (LIBXS_MALLOC_FLAG_SCRATCH & flags)))
             && (internal_malloc_plocked + size) < limit_plocked) ? MAP_LOCKED : 0)
 # endif
