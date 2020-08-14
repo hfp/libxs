@@ -33,7 +33,7 @@
   const unsigned char *const libxs_memcpy127_loop_src_ = (const unsigned char*)(PTRSRC); \
   unsigned char *const libxs_memcpy127_loop_dst_ = (unsigned char*)(PTRDST); \
   signed char libxs_memcpy127_loop_i_; LIBXS_ASSERT((SIZE) <= 127); \
-  LIBXS_PRAGMA_UNROLL NTS(libxs_memcpy127_loop_dst_) \
+  NTS(libxs_memcpy127_loop_dst_) LIBXS_PRAGMA_UNROLL \
   for (libxs_memcpy127_loop_i_ = 0; libxs_memcpy127_loop_i_ < (signed char)(SIZE); \
     ++libxs_memcpy127_loop_i_) \
   { \
