@@ -170,13 +170,12 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #if !defined(LIBXS_MALLOC_SCRATCH_JOIN) && 1
 # define LIBXS_MALLOC_SCRATCH_JOIN
 #endif
-#if !defined(LIBXS_MALLOC_LOCK_PAGES) && 0
-# define LIBXS_MALLOC_LOCK_PAGES
-# if !defined(LIBXS_MALLOC_LOCK_ONFAULT) && 0
-#   if defined(MLOCK_ONFAULT) && defined(SYS_mlock2)
-#     define LIBXS_MALLOC_LOCK_ONFAULT
-#   endif
-# endif
+#if !defined(LIBXS_MALLOC_HUGE_PAGES) && 1
+# define LIBXS_MALLOC_HUGE_PAGES
+#endif
+#if !defined(LIBXS_MALLOC_LOCK_PAGES) && 1
+/* 0: on-map, 1: mlock, 2: mlock2/on-fault */
+# define LIBXS_MALLOC_LOCK_PAGES 1
 #endif
 /* protected against double-delete (if possible) */
 #if !defined(LIBXS_MALLOC_DELETE_SAFE) && 0
@@ -376,7 +375,7 @@ LIBXS_APIVAR_DEFINE(int internal_malloc_kind);
 LIBXS_APIVAR_DEFINE(int internal_malloc_join);
 #endif
 #if !defined(_WIN32)
-# if defined(MAP_HUGETLB)
+# if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES)
 LIBXS_APIVAR_DEFINE(size_t internal_malloc_hugetlb);
 # endif
 # if defined(MAP_LOCKED) && defined(LIBXS_MALLOC_LOCK_PAGES)
@@ -558,7 +557,7 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
     }
     if (0 == (LIBXS_MALLOC_FLAG_X & flags)) { /* update statistics */
 #if !defined(_WIN32)
-# if defined(MAP_HUGETLB)
+# if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES)
       if (0 != (LIBXS_MALLOC_FLAG_PHUGE & flags)) { /* huge pages */
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & flags));
         LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_hugetlb, alloc_size, LIBXS_ATOMIC_RELAXED);
@@ -1795,7 +1794,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           buffer = internal_xmalloc(memory, &info, alloc_size, context, malloc_fn, free_fn);
         }
 #else /* !defined(_WIN32) */
-# if defined(MAP_HUGETLB)
+# if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES)
         static size_t limit_hugetlb = LIBXS_SCRATCH_UNLIMITED;
 # endif
 # if defined(MAP_LOCKED) && defined(LIBXS_MALLOC_LOCK_PAGES)
@@ -1816,15 +1815,14 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
             && LIBXS_X86_AVX512_CORE > libxs_target_archid
             && LIBXS_X86_AVX512 < libxs_target_archid) ? MAP_32BIT : 0)
 # endif
-# if defined(MAP_HUGETLB) /* may fail depending on system settings */
+# if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES) /* may fail depending on system settings */
           | ((0 == (LIBXS_MALLOC_FLAG_X & flags)
             && ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) <= size ||
               0 != (LIBXS_MALLOC_FLAG_PHUGE & flags))
             && (internal_malloc_hugetlb + size) < limit_hugetlb) ? MAP_HUGETLB : 0)
 # endif
-# if defined(MAP_LOCKED) && defined(LIBXS_MALLOC_LOCK_PAGES) && !defined(LIBXS_MALLOC_LOCK_ONFAULT)
-          | (((0 != (LIBXS_MALLOC_FLAG_PLOCK & flags)
-            || (0 == (LIBXS_MALLOC_FLAG_X & flags) && 0 != (LIBXS_MALLOC_FLAG_SCRATCH & flags)))
+# if defined(MAP_LOCKED) && defined(LIBXS_MALLOC_LOCK_PAGES) && 0 == (LIBXS_MALLOC_LOCK_PAGES)
+          | (((0 != (LIBXS_MALLOC_FLAG_PLOCK & flags) || 0 == (LIBXS_MALLOC_FLAG_X & flags))
             && (internal_malloc_plocked + size) < limit_plocked) ? MAP_LOCKED : 0)
 # endif
         ; /* mflags */
@@ -1855,18 +1853,20 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
 # endif
           buffer = mmap(NULL == info ? NULL : info->pointer, alloc_size, PROT_READ | PROT_WRITE,
             MAP_PRIVATE | LIBXS_MAP_ANONYMOUS | mflags, -1, 0/*offset*/);
-# if defined(MAP_HUGETLB)
+# if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES)
           INTERNAL_XMALLOC_KIND(MAP_HUGETLB, "huge-page", LIBXS_MALLOC_FLAG_PHUGE, flags, mflags,
             internal_malloc_hugetlb, limit_hugetlb, info, alloc_size, buffer);
 # endif
 # if defined(MAP_LOCKED) && defined(LIBXS_MALLOC_LOCK_PAGES)
-#   if !defined(LIBXS_MALLOC_LOCK_ONFAULT)
+#   if 0 == (LIBXS_MALLOC_LOCK_PAGES)
           INTERNAL_XMALLOC_KIND(MAP_LOCKED, "locked-page", LIBXS_MALLOC_FLAG_PLOCK, flags, mflags,
             internal_malloc_plocked, limit_plocked, info, alloc_size, buffer);
 #   else
           if (0 != (MAP_LOCKED & mflags) && MAP_FAILED != buffer) {
             LIBXS_ASSERT(NULL != buffer);
-#     if 0 /* mlock2 is potentially not exposed */
+#     if 1 == (LIBXS_MALLOC_LOCK_PAGES) || !defined(MLOCK_ONFAULT) || !defined(SYS_mlock2)
+            if (0 == mlock(buffer, alloc_size))
+#     elif 0 /* mlock2 is potentially not exposed */
             if (0 == mlock2(buffer, alloc_size, MLOCK_ONFAULT))
 #     else
             if (0 == syscall(SYS_mlock2, buffer, alloc_size, MLOCK_ONFAULT))
@@ -1885,7 +1885,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
         }
         else { /* executable buffer requested */
           static /*LIBXS_TLS*/ int fallback = -1; /* fall-back allocation method */
-# if defined(MAP_HUGETLB)
+# if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES)
           LIBXS_ASSERT(0 == (MAP_HUGETLB & mflags));
 # endif
 # if defined(MAP_LOCKED) && defined(LIBXS_MALLOC_LOCK_PAGES)
