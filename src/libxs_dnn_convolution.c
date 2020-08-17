@@ -1476,6 +1476,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
     printf("UPD upd_trans_w_only = %d\n", handle->upd_trans_w_only);
     printf("UPD on_the_fly_input_packing = %d\n", handle->on_the_fly_input_packing);
     printf("UPD use_intermediate_f32_wt_tensor = %d\n", handle->use_intermediate_f32_wt_tensor);
+    printf("UPD pack to CNHW format = %d\n", handle->pack_to_cnhw);
   }
   printf("UPD linearized tasks = %d\n", handle->upd_linearized_tasklist);
   printf("UPD avoid rim fmas = %d\n", handle->upd_avoid_rim_fmas);
