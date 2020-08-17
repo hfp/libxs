@@ -216,8 +216,23 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16_emu_amx(libxs_
 
 # include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
   } else {
-    status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-    return status;
+    const libxs_blasint ldC = (libxs_blasint)(handle->desc.v*handle->ifmblock);
+    typedef libxs_bfloat16 element_input_type;
+    typedef libxs_bfloat16 element_output_type;
+    typedef libxs_bfloat16 element_filter_type;
+    typedef libxs_bsmmfunction_reducebatch_strd brgemm_function;
+    int l_flags = LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N');
+    int stride_a = handle->ifmblock * handle->desc.R * handle->desc.S * handle->ofmblock * sizeof(libxs_bfloat16);
+    int stride_b = handle->ofmblock * handle->ofwp * handle->ofhp * sizeof(libxs_bfloat16);
+    /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
+    brgemm_function bf16fp32_brgemm_kernel = libxs_bsmmdispatch_reducebatch_strd(handle->ifmblock, handle->ofw, handle->ofmblock, stride_a, stride_b, NULL, NULL, &ldC, NULL, NULL, &l_flags, NULL);
+
+    /* some portable macrros fof BF16 <-> FP32 */
+# include "template/libxs_dnn_bf16_macros_define.tpl.c"
+
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback_generic_bf16.tpl.c"
+
+# include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
   }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
@@ -319,8 +334,25 @@ libxs_dnn_err_t libxs_dnn_convolve_st_bwd_custom_custom_bf16_bf16_amx(libxs_dnn_
 # include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
 #undef LIBXS_DNN_BF16_USE_CPX_AVX512_NI
   } else {
-    status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
-    return status;
+    const libxs_blasint ldC = (libxs_blasint)(handle->desc.v*handle->ifmblock);
+    typedef libxs_bfloat16 element_input_type;
+    typedef libxs_bfloat16 element_output_type;
+    typedef libxs_bfloat16 element_filter_type;
+    typedef libxs_bsmmfunction_reducebatch_strd brgemm_function;
+    int l_flags = LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N');
+    int stride_a = handle->ifmblock * handle->desc.R * handle->desc.S * handle->ofmblock * sizeof(libxs_bfloat16);
+    int stride_b = handle->ofmblock * handle->ofwp * handle->ofhp * sizeof(libxs_bfloat16);
+    /* let's do a ifmblock x ofw_rb x ofmblock GEMM :-) or in other words M=nbIfm, N=ofw, K=nbOfm (col-major) */
+    brgemm_function bf16fp32_brgemm_kernel = libxs_bsmmdispatch_reducebatch_strd(handle->ifmblock, handle->ofw, handle->ofmblock, stride_a, stride_b, NULL, NULL, &ldC, NULL, NULL, &l_flags, NULL);
+
+#define LIBXS_DNN_BF16_USE_CPX_AVX512_NI
+  /* some portable macrros fof BF16 <-> FP32 */
+# include "template/libxs_dnn_bf16_macros_define.tpl.c"
+
+#include "template/libxs_dnn_convolve_st_bwd_custom_custom_fallback_generic_bf16.tpl.c"
+
+# include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
+#undef LIBXS_DNN_BF16_USE_CPX_AVX512_NI
   }
 #else /* should not happen */
   LIBXS_UNUSED(handle); LIBXS_UNUSED(start_thread); LIBXS_UNUSED(tid);
