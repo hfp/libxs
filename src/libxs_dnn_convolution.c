@@ -907,6 +907,9 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer*
   const libxs_trans_descriptor* tr_desc = 0;
   libxs_descriptor_blob blob;
   const int multiple_target = 32;
+  int IFHP = (handle->upd_padding_copy == 1) ? handle->ifhp + 2 * handle->desc.pad_h : handle->ifhp;
+  int IFWP = (handle->upd_padding_copy == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
+  int OFWP = (handle->upd_padding_copy == 1) ? handle->ofwp + 2 * handle->desc.pad_w : handle->ofwp;
 
   handle->upd_linearized_pixels = 1;
   if (handle->desc.S != 1 && handle->desc.v != 1) {
@@ -936,10 +939,10 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer*
       }
 
       /* Logistics for input transpose and additional pixel padding */
-      max_init_offset = 2 * handle->desc.pad_h * handle->ifwp + 2 * handle->desc.pad_w;
+      max_init_offset = 2 * handle->desc.pad_h * IFWP + 2 * handle->desc.pad_w;
       max_compute_offset_input = max_init_offset + accum_length_pixels;
-      input_compute_pad = (max_compute_offset_input > handle->ifwp*handle->ifhp) ? max_compute_offset_input - handle->ifwp*handle->ifhp : 0;
-      handle->input_pixels = handle->ifwp * handle->ifhp + input_compute_pad;
+      input_compute_pad = (max_compute_offset_input > IFWP*IFHP) ? max_compute_offset_input - IFWP*IFHP : 0;
+      handle->input_pixels = IFWP*IFHP+ input_compute_pad;
       if (handle->upd_pack_input_upfront) {
         handle->input_pixels = accum_length_pixels;
       }
@@ -1001,8 +1004,8 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer*
     }
     remainder_pixels = (handle->ofw % multiple_target == 0) ? 0 : (handle->ofw/multiple_target+1)*multiple_target - handle->ofw;
     handle->remainder_pixels = remainder_pixels;
-    handle->ofwp_extended = handle->ofwp + remainder_pixels;
-    handle->ifwp_extended = handle->ifwp + remainder_pixels;
+    handle->ofwp_extended = OFWP + remainder_pixels;
+    handle->ifwp_extended = IFWP + remainder_pixels;
     handle->batchreduce_h_pixels = handle->ofh;
     handle->use_intermediate_f32_wt_tensor = (handle->batchreduce_h_pixels == handle->ofh) ? 0 : 1;
 #if 0
@@ -1018,7 +1021,7 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer*
   beta = (handle->use_intermediate_f32_wt_tensor) ? (float)1.0 : (float)0.0;
   if (handle->upd_linearized_pixels == 0) {
     LDA = handle->ofmblock;
-    LDB = handle->ifhp*handle->ifwp_extended;
+    LDB = IFHP*handle->ifwp_extended;
     LDC = handle->ofmblock;
     prefetch_mode = libxs_get_gemm_prefetch(LIBXS_GEMM_PREFETCH_NONE);
     unroll_hint = handle->batchreduce_h_pixels;
@@ -1083,14 +1086,17 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* 
   /* output/input buffer to transpose when we use bf16 */
   if ( handle->datatype_in == LIBXS_DNN_DATATYPE_BF16 ) {
     if  (handle->target_archid >= LIBXS_X86_AVX512_SPR) {
+      int OFHP = (handle->upd_padding_copy == 1) ? handle->ofhp + 2 * handle->desc.pad_h : handle->ofhp;
+      int IFHP = (handle->upd_padding_copy == 1) ? handle->ifhp + 2 * handle->desc.pad_h : handle->ifhp;
+
       if (handle->upd_linearized_pixels == 1) {
         handle->upd_lp_output_full_scratch_size = (size_t) (handle->desc.N * handle->output_pixels * handle->desc.K * sizeof(handle->datatype_in));
         handle->upd_lp_input_full_scratch_size = (size_t) (handle->desc.N * handle->input_pixels * handle->desc.C * sizeof(handle->datatype_in));
       }
 
       if (handle->upd_linearized_pixels == 0) {
-        handle->upd_lp_output_full_scratch_size = (size_t) (handle->desc.N * handle->ofhp*handle->ofwp_extended * handle->desc.K * sizeof(handle->datatype_in));
-        handle->upd_lp_input_full_scratch_size = (size_t) (handle->desc.N * handle->ifhp * handle->ifwp_extended * handle->desc.C * sizeof(handle->datatype_in));
+        handle->upd_lp_output_full_scratch_size = (size_t) (handle->desc.N * OFHP * handle->ofwp_extended * handle->desc.K * sizeof(handle->datatype_in));
+        handle->upd_lp_input_full_scratch_size = (size_t) (handle->desc.N * IFHP * handle->ifwp_extended * handle->desc.C * sizeof(handle->datatype_in));
       }
     } else {
       const int multiple_target = 2;
@@ -1476,6 +1482,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
     printf("UPD on_the_fly_input_packing = %d\n", handle->on_the_fly_input_packing);
     printf("UPD use_intermediate_f32_wt_tensor = %d\n", handle->use_intermediate_f32_wt_tensor);
     printf("UPD pack to CNHW format = %d\n", handle->pack_to_cnhw);
+    printf("UPD batchreduce H pixels = %d\n", handle->batchreduce_h_pixels);
   }
   printf("UPD linearized tasks = %d\n", handle->upd_linearized_tasklist);
   printf("UPD avoid rim fmas = %d\n", handle->upd_avoid_rim_fmas);
