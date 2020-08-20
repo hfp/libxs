@@ -610,7 +610,6 @@ else
 .PHONY: $(INCDIR)/libxs_version.h
 endif
 
-
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
 ifneq (,$(PYTHON))
@@ -620,7 +619,7 @@ $(INCDIR)/libxs.h: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
                      $(INCDIR)/libxs_config.h \
                      $(HEADERS)
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_interface.py $(ROOTDIR)/$(SRCDIR)/template/libxs.h \
-		$(PRECISION) $(PREFETCH_TYPE) $(INDICES) > $@
+		$(shell echo $$(($(PRECISION)+($(FORTRAN)<<2)))) $(PREFETCH_TYPE) $(INDICES) > $@
 else
 .PHONY: $(INCDIR)/libxs.h
 endif
@@ -639,7 +638,7 @@ $(INCDIR)/libxs.f: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
                      $(INCDIR)/libxs_version.h \
                      $(INCDIR)/libxs_config.h
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_interface.py $(ROOTDIR)/$(SRCDIR)/template/libxs.f \
-		$(PRECISION) $(PREFETCH_TYPE) $(INDICES) | \
+		$(shell echo $$(($(PRECISION)+($(FORTRAN)<<2)))) $(PREFETCH_TYPE) $(INDICES) | \
 	$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py /dev/stdin \
 		$(MAKE_ILP64) $(OFFLOAD) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
 		$(shell echo $$((0<$(THRESHOLD)?$(THRESHOLD):0))) \
