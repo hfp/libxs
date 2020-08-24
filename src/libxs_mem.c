@@ -414,6 +414,23 @@ LIBXS_API unsigned long long libxs_hash_string(const char* string)
 }
 
 
+LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment)
+{
+  const int minalign = 4 * libxs_cpuid_vlen32(libxs_target_archid);
+  const uintptr_t address = (uintptr_t)ptr;
+  int ptr_is_aligned;
+  LIBXS_ASSERT(LIBXS_ISPOT(minalign));
+  if (NULL == alignment) {
+    ptr_is_aligned = !LIBXS_MOD2(address, (uintptr_t)minalign);
+  }
+  else {
+    *alignment = (1 << LIBXS_INTRINSICS_BITSCANFWD64(address));
+    ptr_is_aligned = (minalign <= *alignment);
+  }
+  return ptr_is_aligned && (NULL == inc || !LIBXS_MOD2(*inc, minalign));
+}
+
+
 #if defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))
 
 /* implementation provided for Fortran 77 compatibility */
@@ -474,6 +491,27 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xclear)(void* dst, const int* size)
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xclear specified!\n");
+  }
+#endif
+}
+
+
+LIBXS_API void LIBXS_FSYMBOL(libxs_aligned)(int* /*result*/, const void* /*ptr*/, const int* /*inc*/, int* /*alignment*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_aligned)(int* result, const void* ptr, const int* inc, int* alignment)
+{
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != result)
+#endif
+  {
+    const size_t next = (NULL != inc ? *inc : 0);
+    *result = libxs_aligned(ptr, &next, alignment);
+  }
+#if !defined(NDEBUG)
+  else if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_aligned specified!\n");
   }
 #endif
 }
