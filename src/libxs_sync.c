@@ -639,7 +639,7 @@ LIBXS_API_INTERN unsigned int internal_get_tid(void)
     fprintf(stderr, "LIBXS ERROR: maximum number of threads is exhausted!\n");
   }
 #endif
-  LIBXS_ASSERT(LIBXS_NTHREADS_MAX == LIBXS_UP2POT(LIBXS_NTHREADS_MAX));
+  LIBXS_ASSERT(LIBXS_ISPOT(LIBXS_NTHREADS_MAX));
   return LIBXS_MOD2(nthreads - 1, LIBXS_NTHREADS_MAX);
 }
 

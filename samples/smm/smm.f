@@ -16,11 +16,11 @@
 
         INTEGER, PARAMETER :: T = KIND(0D0)
 
-        REAL(T), ALLOCATABLE, TARGET :: a(:,:,:), b(:,:,:)
-        REAL(T), ALLOCATABLE, TARGET :: c(:,:), d(:,:)
-        REAL(T), ALLOCATABLE, TARGET, SAVE :: tmp(:,:)
-        !DIR$ ATTRIBUTES ALIGN:64 :: a, b, c, tmp
-        !$OMP THREADPRIVATE(tmp)
+        REAL(T), ALLOCATABLE :: a(:,:,:), b(:,:,:), c(:,:,:)
+        REAL(T), ALLOCATABLE :: sumxsmm(:,:), sumblas(:,:)
+        REAL(T), ALLOCATABLE, SAVE :: sumtmp(:,:)
+        !DIR$ ATTRIBUTES ALIGN:64 :: a, b, c, sumxsmm, sumtmp
+        !$OMP THREADPRIVATE(sumtmp)
         TYPE(LIBXS_DMMFUNCTION) :: xmm
         INTEGER(8) :: i, r, s, size0, size1, size2, repetitions, start
         TYPE(LIBXS_MATDIFF_INFO) :: diff, max_diff
@@ -64,11 +64,12 @@
         ! Initialize LIBXS
         CALL libxs_init()
 
-        ! Eventually JIT-compile the requested kernel
-        CALL libxs_dispatch(xmm, m, n, k)
+        ! JIT-compile stream(a,b)-kernel
+        CALL libxs_dispatch(xmm, m, n, k,                             &
+     &    alpha=REAL(1,T), beta=REAL(1,T))
 
         ! workload is about 2 GByte in memory by default
-        size0 = (m * k + k * n + m * n) * T ! size of a single stream element in Byte
+        size0 = (m * k + k * n + m * n) * T ! size of stream(a,b,c)-element in Byte
         size1 = MERGE(2048_8, MERGE(size1, ISHFT(ABS(size0 * size1)     &
      &            + ISHFT(1, 20) - 1, -20), 0.LE.size1), 0.EQ.size1)
         size2 = ISHFT(MERGE(MAX(size2, size1), ISHFT(ABS(size2) * size0 &
@@ -79,7 +80,6 @@
         duration = 0
 
         CALL libxs_matdiff_clear(max_diff)
-        ALLOCATE(c(m,n))
         ALLOCATE(a(m,k,s))
         ALLOCATE(b(k,n,s))
 
@@ -96,32 +96,33 @@
      &    " size=", size1, " MB repetitions=", repetitions
 
         ! compute reference solution and warmup BLAS library
-        ALLOCATE(d(m,n))
-        d(:,:) = 0
-        !$OMP PARALLEL REDUCTION(+:d) PRIVATE(i, r)                     &
+        ALLOCATE(sumblas(m,n))
+        sumblas(:,:) = 0
+        !$OMP PARALLEL REDUCTION(+:sumblas) PRIVATE(i, r)               &
         !$OMP   DEFAULT(NONE) SHARED(m, n, k, a, b, repetitions)
-        ALLOCATE(tmp(m,n))
-        tmp(:,:) = 0
+        ALLOCATE(sumtmp(m,n))
+        sumtmp(:,:) = 0
         DO r = 1, repetitions
           !$OMP DO
           DO i = LBOUND(a, 3), UBOUND(a, 3)
             ! PGI: cannot deduce generic procedure (libxs_blas_gemm)
             CALL libxs_blas_dgemm(m=m, n=n, k=k,                      &
-     &              a=a(:,:,i), b=b(:,:,i), c=tmp)
+     &              a=a(:,:,i), b=b(:,:,i), c=sumtmp)
           END DO
         END DO
-        d(:,:) = d(:,:) + tmp(:UBOUND(d,1),:)
+        sumblas(:,:) = sumblas(:,:) + sumtmp(:UBOUND(sumblas,1),:)
         ! Deallocate thread-local arrays
-        DEALLOCATE(tmp)
+        DEALLOCATE(sumtmp)
         !$OMP END PARALLEL
 
         WRITE(*, "(A)") "Streamed (A,B)... (BLAS)"
-        c(:,:) = 0
-        !$OMP PARALLEL REDUCTION(+:c) PRIVATE(i, r, start)              &
+        ALLOCATE(sumxsmm(m,n))
+        sumxsmm(:,:) = 0
+        !$OMP PARALLEL REDUCTION(+:sumxsmm) PRIVATE(i, r, start)        &
         !$OMP   DEFAULT(NONE)                                           &
         !$OMP   SHARED(m, n, k, a, b, duration, repetitions)
-        ALLOCATE(tmp(m,n))
-        tmp(:,:) = 0
+        ALLOCATE(sumtmp(m,n))
+        sumtmp(:,:) = 0
         !$OMP MASTER
         start = libxs_timer_tick()
         !$OMP END MASTER
@@ -131,26 +132,26 @@
           DO i = LBOUND(a, 3), UBOUND(a, 3)
             ! PGI: cannot deduce generic procedure (libxs_blas_gemm)
             CALL libxs_blas_dgemm(m=m, n=n, k=k,                      &
-     &              a=a(:,:,i), b=b(:,:,i), c=tmp)
+     &              a=a(:,:,i), b=b(:,:,i), c=sumtmp)
           END DO
         END DO
         !$OMP BARRIER
         !$OMP MASTER
         duration = libxs_timer_duration(start, libxs_timer_tick())
         !$OMP END MASTER
-        c(:,:) = c(:,:) + tmp(:UBOUND(c,1),:)
+        sumxsmm(:,:) = sumxsmm(:,:) + sumtmp(:UBOUND(sumxsmm,1),:)
         ! Deallocate thread-local arrays
-        DEALLOCATE(tmp)
+        DEALLOCATE(sumtmp)
         !$OMP END PARALLEL
-        CALL performance(duration, m, n, k, size2)
+        CALL performance(duration, m, n, k, size2, m * k + k * n)
 
         WRITE(*, "(A)") "Streamed (A,B)... (auto-dispatched)"
-        c(:,:) = 0
-        !$OMP PARALLEL REDUCTION(+:c) PRIVATE(i, r, start)              &
+        sumxsmm(:,:) = 0
+        !$OMP PARALLEL REDUCTION(+:sumxsmm) PRIVATE(i, r, start)        &
         !$OMP   DEFAULT(NONE)                                           &
         !$OMP   SHARED(m, n, k, a, b, duration, repetitions)
-        ALLOCATE(tmp(m,n))
-        tmp(:,:) = 0
+        ALLOCATE(sumtmp(m,n))
+        sumtmp(:,:) = 0
         !$OMP MASTER
         start = libxs_timer_tick()
         !$OMP END MASTER
@@ -160,30 +161,30 @@
           DO i = LBOUND(a, 3), UBOUND(a, 3)
             ! PGI: cannot deduce generic procedure (libxs_gemm)
             CALL libxs_dgemm(m=m, n=n, k=k,                           &
-     &              a=a(:,:,i), b=b(:,:,i), c=tmp)
+     &              a=a(:,:,i), b=b(:,:,i), c=sumtmp)
           END DO
         END DO
         !$OMP BARRIER
         !$OMP MASTER
         duration = libxs_timer_duration(start, libxs_timer_tick())
         !$OMP END MASTER
-        c(:,:) = c(:,:) + tmp(:UBOUND(c,1),:)
+        sumxsmm(:,:) = sumxsmm(:,:) + sumtmp(:UBOUND(sumxsmm,1),:)
         ! Deallocate thread-local arrays
-        DEALLOCATE(tmp)
+        DEALLOCATE(sumtmp)
         !$OMP END PARALLEL
-        CALL performance(duration, m, n, k, size2)
+        CALL performance(duration, m, n, k, size2, m * k + k * n)
         CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, m, n,          &
-     &    libxs_ptr(d), libxs_ptr(c))
+     &    libxs_ptr(sumblas), libxs_ptr(sumxsmm))
         WRITE(*, "(1A,A,F10.1)") CHAR(9), "diff:      ", diff%l2_abs
         CALL libxs_matdiff_reduce(max_diff, diff)
 
         IF (libxs_available(xmm)) THEN
-          c(:,:) = 0
+          sumxsmm(:,:) = 0
           WRITE(*, "(A)") "Streamed (A,B)... (specialized)"
-          !$OMP PARALLEL REDUCTION(+:c) PRIVATE(i, r, start)
+          !$OMP PARALLEL REDUCTION(+:sumxsmm) PRIVATE(i, r, start)
             !DEFAULT(NONE) SHARED(m, n, a, b, duration, repetitions, xmm)
-          ALLOCATE(tmp(m,n))
-          tmp(:,:) = 0
+          ALLOCATE(sumtmp(m,n))
+          sumtmp(:,:) = 0
           !$OMP MASTER
           start = libxs_timer_tick()
           !$OMP END MASTER
@@ -191,29 +192,40 @@
           DO r = 1, repetitions
             !$OMP DO
             DO i = LBOUND(a, 3), UBOUND(a, 3)
-              CALL libxs_mmcall(xmm, a(:,:,i), b(:,:,i), tmp)
+              CALL libxs_mmcall(xmm, a(:,:,i), b(:,:,i), sumtmp)
             END DO
           END DO
           !$OMP BARRIER
           !$OMP MASTER
           duration = libxs_timer_duration(start, libxs_timer_tick())
           !$OMP END MASTER
-          c(:,:) = c(:,:) + tmp(:UBOUND(c,1),:)
+          sumxsmm(:,:) = sumxsmm(:,:) + sumtmp(:UBOUND(sumxsmm,1),:)
           ! Deallocate thread-local arrays
-          DEALLOCATE(tmp)
+          DEALLOCATE(sumtmp)
           !$OMP END PARALLEL
-          CALL performance(duration, m, n, k, size2)
+          CALL performance(duration, m, n, k, size2, m * k + k * n)
           CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, m, n,        &
-     &      libxs_ptr(d), libxs_ptr(c))
+     &      libxs_ptr(sumblas), libxs_ptr(sumxsmm))
           WRITE(*, "(1A,A,F10.1)") CHAR(9), "diff:      ", diff%l2_abs
           CALL libxs_matdiff_reduce(max_diff, diff)
         END IF
 
+        WRITE(*, "(A)") "Streamed (A,B,C)... (specialized)"
+        ALLOCATE(c(m,n,s))
+        start = libxs_timer_tick()
+        DO r = 1, repetitions
+          !$OMP PARALLEL DEFAULT(NONE) SHARED(a, b, c)
+          CALL smm_stream_abc(a, b, c)
+          !$OMP END PARALLEL
+        END DO
+        duration = libxs_timer_duration(start, libxs_timer_tick())
+        CALL performance(duration, m, n, k, size2,                      &
+     &    m * k + k * n + m * n * 2) ! 2: assume RFO
+
         ! Deallocate global arrays
-        DEALLOCATE(a)
-        DEALLOCATE(b)
-        DEALLOCATE(c)
-        DEALLOCATE(d)
+        DEALLOCATE(a, b, c)
+        DEALLOCATE(sumxsmm)
+        DEALLOCATE(sumblas)
 
         ! finalize LIBXS
         CALL libxs_finalize()
@@ -268,19 +280,35 @@
           END DO
         END SUBROUTINE
 
-        SUBROUTINE performance(duration, m, n, k, s)
-          INTEGER(LIBXS_BLASINT_KIND), INTENT(IN) :: m, n, k
+        SUBROUTINE performance(duration, m, n, k, s, c)
+          INTEGER(LIBXS_BLASINT_KIND), INTENT(IN) :: m, n, k, c
           INTEGER(8), INTENT(IN) :: s
           REAL(T), INTENT(IN) :: duration
           IF (0.LT.duration) THEN
             WRITE(*, "(1A,A,F10.1,A)") CHAR(9), "performance:",         &
      &        2D0 * s * m * n * k * 1D-9 / duration, " GFLOPS/s"
             WRITE(*, "(1A,A,F10.1,A)") CHAR(9), "bandwidth:  ",         &
-     &        s * (m * k + k * n) * T / (duration * ISHFT(1_8, 30)),    &
-     &        " GB/s"
+     &        s * c * T / (duration * ISHFT(1_8, 30)), " GB/s"
           END IF
           WRITE(*, "(1A,A,F10.1,A)") CHAR(9), "duration:   ",           &
      &        1D3 * duration, " ms"
+        END SUBROUTINE
+
+        SUBROUTINE smm_stream_abc(a, b, c)
+          REAL(T), INTENT(IN)  :: a(:,:,:), b(:,:,:)
+          REAL(T), INTENT(OUT) :: c(:,:,:)
+          TYPE(LIBXS_DMMFUNCTION) :: xmm
+          INTEGER(8) :: i
+          CALL libxs_dispatch(xmm, SIZE(c,1), SIZE(c,2), SIZE(b,1),   &
+     &      flags=MERGE(                                                &
+     &        LIBXS_GEMM_FLAG_ALIGN_C_NTS_HINT_BETA_0,                &
+     &        LIBXS_GEMM_FLAG_BETA_0,                                 &
+     &        libxs_aligned(libxs_ptr(c(1,1,1)),                    &
+     &        SIZE(c,1) * SIZE(c,2) * T)))
+          !$OMP DO
+          DO i = LBOUND(c, 3, 8), UBOUND(c, 3, 8)
+            CALL libxs_mmcall(xmm, a(:,:,i), b(:,:,i), c(:,:,i))
+          END DO
         END SUBROUTINE
       END PROGRAM
 

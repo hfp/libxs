@@ -1,3 +1,5 @@
+libxs_aligned
+libxs_aligned_
 libxs_aligned_malloc
 libxs_backtrace
 libxs_barrier_create

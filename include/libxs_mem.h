@@ -70,4 +70,10 @@ LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned 
 /** Calculate a 64-bit hash for the given character string; accepts NULL-string. */
 LIBXS_API unsigned long long libxs_hash_string(const char* string);
 
+/**
+ * Check if pointer is SIMD-aligned and optionally consider the next access (increment in Bytes).
+ * Optionally calculates the alignment of the given pointer in Bytes.
+ */
+LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment);
+
 #endif /*LIBXS_MEM_H*/

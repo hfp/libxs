@@ -470,6 +470,7 @@
 #define LIBXS_SIZEOF(START, LAST) (((const char*)(LAST)) - ((const char*)(START)) + sizeof(*LAST))
 #define LIBXS_FEQ(A, B) ((A) == (B))
 #define LIBXS_NEQ(A, B) ((A) != (B))
+#define LIBXS_ISPOT(A) ((unsigned long long)(A) == LIBXS_LO2POT(A))
 #define LIBXS_ISWAP(A, B) (((A) ^= (B)), ((B) ^= (A)), ((A) ^= (B)))
 #define LIBXS_ISNAN(A)  LIBXS_NEQ(A, A)
 #define LIBXS_NOTNAN(A) LIBXS_FEQ(A, A)

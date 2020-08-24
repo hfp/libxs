@@ -24,7 +24,7 @@ int main(void)
 {
   const size_t size_malloc = 2507, alignment = (2U << 20);
   libxs_malloc_info malloc_info;
-  int nerrors = 0;
+  int avalue, nerrors = 0;
   void *p;
 #if defined(CHECK_SCRATCH)
   const size_t size_scratch = (24U << 20);
@@ -62,21 +62,21 @@ int main(void)
   libxs_free(q);
   q = libxs_aligned_scratch(size_scratch / 3, 0/*auto*/);
   r = libxs_aligned_scratch(size_scratch / 3, 0/*auto*/);
-  /* confirm malloc-info fails for an in-scratch buffer */
-  if (NULL != r && EXIT_SUCCESS == libxs_get_malloc_info(r, &malloc_info)) {
+  /* confirm malloc succeeds for an in-scratch buffer */
+  if (NULL != q && NULL == r) {
     ++nerrors;
   }
 #endif
 
 #if defined(CHECK_REALLOC)
   if (NULL != p) { /* reallocate larger amount of memory */
-    const int palign = 1 << LIBXS_INTRINSICS_BITSCANFWD64((uintptr_t)p);
     unsigned char* c = (unsigned char*)p;
     size_t i;
+    avalue = 1 << LIBXS_INTRINSICS_BITSCANFWD64((uintptr_t)p);
     for (i = 0; i < size_malloc; ++i) c[i] = (unsigned char)LIBXS_MOD2(i, 256);
     p = libxs_realloc(size_malloc * 2, p);
     /* check that alignment is preserved */
-    if (0 != (((uintptr_t)p) % palign)) {
+    if (0 != (((uintptr_t)p) % avalue)) {
       ++nerrors;
     }
     c = (unsigned char*)p;
@@ -84,7 +84,7 @@ int main(void)
     /* reallocate again with same size */
     p = libxs_realloc(size_malloc * 2, p);
     /* check that alignment is preserved */
-    if (0 != (((uintptr_t)p) % palign)) {
+    if (0 != (((uintptr_t)p) % avalue)) {
       ++nerrors;
     }
     c = (unsigned char*)p;
@@ -94,7 +94,7 @@ int main(void)
     /* reallocate with smaller size */
     p = libxs_realloc(size_malloc / 2, p);
     /* check that alignment is preserved */
-    if (0 != (((uintptr_t)p) % palign)) {
+    if (0 != (((uintptr_t)p) % avalue)) {
       ++nerrors;
     }
     c = (unsigned char*)p;
@@ -128,10 +128,19 @@ int main(void)
 
   /* allocate memory with specific alignment */
   p = libxs_aligned_malloc(size_malloc, alignment);
+  /* check function that determines alignment */
+  libxs_aligned(p, NULL/*inc*/, &avalue);
 
   /* check the alignment of the allocation */
-  if (0 != (((uintptr_t)p) % alignment)) {
+  if (0 != (((uintptr_t)p) % alignment) || ((size_t)avalue) < alignment) {
     ++nerrors;
+  }
+
+  if (libxs_aligned(p, NULL/*inc*/, NULL/*alignment*/)) { /* pointer is SIMD-aligned */
+    if (alignment < ((size_t)4 * libxs_cpuid_vlen32(libxs_get_target_archid()))) ++nerrors;
+  }
+  else { /* pointer is not SIMD-aligned */
+    if (((size_t)4 * libxs_cpuid_vlen32(libxs_get_target_archid())) <= alignment) ++nerrors;
   }
 
   /* release memory */
