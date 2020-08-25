@@ -180,6 +180,8 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 /* protected against double-delete (if possible) */
 #if !defined(LIBXS_MALLOC_DELETE_SAFE) && 0
 # define LIBXS_MALLOC_DELETE_SAFE
+#elif !defined(NDEBUG)
+# define LIBXS_MALLOC_DELETE_SAFE
 #endif
 /* map memory for scratch buffers */
 #if !defined(LIBXS_MALLOC_MMAP_SCRATCH) && 1
