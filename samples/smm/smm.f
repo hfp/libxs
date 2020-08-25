@@ -210,12 +210,23 @@
           CALL libxs_matdiff_reduce(max_diff, diff)
         END IF
 
-        WRITE(*, "(A)") "Streamed (A,B,C)... (specialized)"
+        WRITE(*, "(A)") "Streamed (A,B,C/Beta=0)... (specialized)"
         ALLOCATE(c(m,n,s))
         start = libxs_timer_tick()
         DO r = 1, repetitions
           !$OMP PARALLEL DEFAULT(NONE) SHARED(a, b, c)
-          CALL smm_stream_abc(a, b, c)
+          CALL smm_stream_abc_beta0(a, b, c)
+          !$OMP END PARALLEL
+        END DO
+        duration = libxs_timer_duration(start, libxs_timer_tick())
+        CALL performance(duration, m, n, k, size2,                      &
+     &    m * k + k * n + m * n * 2) ! 2: assume RFO
+
+        WRITE(*, "(A)") "Streamed (A,B,C/Beta=1)... (specialized)"
+        start = libxs_timer_tick()
+        DO r = 1, repetitions
+          !$OMP PARALLEL DEFAULT(NONE) SHARED(a, b, c)
+          CALL smm_stream_abc_beta1(a, b, c)
           !$OMP END PARALLEL
         END DO
         duration = libxs_timer_duration(start, libxs_timer_tick())
@@ -294,7 +305,7 @@
      &        1D3 * duration, " ms"
         END SUBROUTINE
 
-        SUBROUTINE smm_stream_abc(a, b, c)
+        SUBROUTINE smm_stream_abc_beta0(a, b, c)
           REAL(T), INTENT(IN)  :: a(:,:,:), b(:,:,:)
           REAL(T), INTENT(OUT) :: c(:,:,:)
           TYPE(LIBXS_DMMFUNCTION) :: xmm
@@ -305,6 +316,18 @@
      &        LIBXS_GEMM_FLAG_BETA_0,                                 &
      &        libxs_aligned(libxs_ptr(c(1,1,1)),                    &
      &        SIZE(c,1) * SIZE(c,2) * T)))
+          !$OMP DO
+          DO i = LBOUND(c, 3, 8), UBOUND(c, 3, 8)
+            CALL libxs_mmcall(xmm, a(:,:,i), b(:,:,i), c(:,:,i))
+          END DO
+        END SUBROUTINE
+
+        SUBROUTINE smm_stream_abc_beta1(a, b, c)
+          REAL(T), INTENT(IN)    :: a(:,:,:), b(:,:,:)
+          REAL(T), INTENT(INOUT) :: c(:,:,:)
+          TYPE(LIBXS_DMMFUNCTION) :: xmm
+          INTEGER(8) :: i
+          CALL libxs_dispatch(xmm, SIZE(c,1), SIZE(c,2), SIZE(b,1))
           !$OMP DO
           DO i = LBOUND(c, 3, 8), UBOUND(c, 3, 8)
             CALL libxs_mmcall(xmm, a(:,:,i), b(:,:,i), c(:,:,i))
