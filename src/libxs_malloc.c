@@ -1085,8 +1085,9 @@ LIBXS_API void __wrap_free(void* ptr)
 {
   INTERNAL_FREE_HOOK(ptr, NULL/*caller*/);
 }
-#endif /*(defined(LIBXS_MALLOC_HOOK) && defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) || defined(LIBXS_MALLOC_ALIGN_ALL)*/
-#if (defined(LIBXS_MALLOC_HOOK_DYNAMIC) && defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) || defined(LIBXS_MALLOC_ALIGN_ALL)
+#endif
+
+#if defined(LIBXS_MALLOC_HOOK_DYNAMIC) && ((defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) || defined(LIBXS_MALLOC_ALIGN_ALL))
 LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t /*alignment*/, size_t /*size*/) LIBXS_THROW;
 LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t alignment, size_t size) LIBXS_THROW
 {
@@ -1147,7 +1148,8 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void free(void* ptr) LIBXS_THROW
 {
   INTERNAL_FREE_HOOK(ptr, NULL/*caller*/);
 }
-#endif /*(defined(LIBXS_MALLOC_HOOK_DYNAMIC) && defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) || defined(LIBXS_MALLOC_ALIGN_ALL)*/
+#endif
+
 
 LIBXS_API_INTERN void libxs_malloc_init(void)
 {
