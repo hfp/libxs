@@ -280,7 +280,7 @@ LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
   void* result;
 #if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
   result = __libc_memalign(alignment, size);
-#elif defined(_WIN32) || defined(__CYGWIN__)
+#elif (defined(_WIN32) || defined(__CYGWIN__))
   LIBXS_UNUSED(alignment);
   result = malloc(size);
 #else
@@ -919,7 +919,7 @@ LIBXS_API_INTERN void internal_init(void)
         }
       }
     }
-# if defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_MALLOC)
+# if defined(LIBXS_INTERCEPT_DYNAMIC) && 1
     else if (NULL == getenv("I_MPI_SHM_HEAP")) {
       static char shmheap[] = "I_MPI_SHM_HEAP=1";
       LIBXS_EXPECT(EXIT_SUCCESS, LIBXS_PUTENV(shmheap));
@@ -1006,7 +1006,7 @@ LIBXS_API_INTERN void internal_init(void)
       libxs_perf_init();
 #endif
       { const char *const env = getenv("LIBXS_GEMM_PREFETCH");
-#if defined(_WIN32) || defined(__CYGWIN__)
+#if (defined(_WIN32) || defined(__CYGWIN__))
         libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
 #else
         libxs_gemm_auto_prefetch_default = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
@@ -4179,7 +4179,7 @@ LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor
 #endif
     LIBXS_ASSIGN127(&wrap.mcopy.desc, descriptor);
     wrap.kind = LIBXS_KERNEL_KIND_MCOPY;
-#if defined(_WIN32) || defined(__CYGWIN__)
+#if (defined(_WIN32) || defined(__CYGWIN__))
     wrap.mcopy.desc.prefetch = 0;
 #endif
     result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xmatcopy;
