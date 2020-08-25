@@ -304,11 +304,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t alignment, si
   }
   else
 #endif
-#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-  result = __libc_memalign(alignment, size);
-#else
   result = libxs_memalign_internal(alignment, size);
-#endif
   return result;
 }
 

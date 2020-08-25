@@ -73,17 +73,15 @@
 # define LIBXS_INTERCEPT_DYNAMIC
 #endif
 
-#if !defined(LIBXS_MALLOC_HOOK_DYNAMIC) && defined(LIBXS_INTERCEPT_DYNAMIC) && \
-  defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC) && \
-  (!defined(_CRAYC) && !defined(__TRACE)) /* TODO */ && \
-  (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-# define LIBXS_MALLOC_HOOK_DYNAMIC
-#endif
 #if !defined(LIBXS_MALLOC_HOOK_STATIC) && \
   defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC) && \
   (!defined(_WIN32)) /* TODO */ && \
   (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
 # define LIBXS_MALLOC_HOOK_STATIC
+#endif
+#if !defined(LIBXS_MALLOC_HOOK_DYNAMIC) && defined(LIBXS_INTERCEPT_DYNAMIC) && \
+  defined(LIBXS_MALLOC_HOOK_STATIC) && !defined(_CRAYC) && !defined(__TRACE)
+# define LIBXS_MALLOC_HOOK_DYNAMIC
 #endif
 #if !defined(LIBXS_DNN_CONVOLUTION_SETUP_USE_NTS) && \
      defined(LIBXS_MALLOC_HOOK_DYNAMIC) && \
