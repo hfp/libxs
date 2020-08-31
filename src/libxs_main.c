@@ -1570,7 +1570,7 @@ LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype)
 }
 
 
-LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue)
+LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue)
 {
   int result = EXIT_SUCCESS;
   if (NULL != value && NULL != dvalue) {

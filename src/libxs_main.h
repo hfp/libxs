@@ -998,9 +998,6 @@ LIBXS_API_INTERN size_t libxs_format_size(char buffer[32], int buffer_size, size
 /** Returns the type-name of data-type (can be also libxs_gemm_precision). */
 LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype);
 
-/** Determines the given value in double-precision based on the given type. */
-LIBXS_API_INTERN int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
-
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
