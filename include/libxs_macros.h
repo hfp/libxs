@@ -771,7 +771,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # endif
 #endif
 #if !defined(LIBXS_ASSERT_MSG)
-# define LIBXS_ASSERT_MSG(EXPR, MSG) assert((EXPR) && (0 != *(MSG)))
+# define LIBXS_ASSERT_MSG(EXPR, MSG) assert((EXPR) || !MSG)
 #endif
 #if !defined(LIBXS_EXPECT_ELIDE)
 # define LIBXS_EXPECT_ELIDE(RESULT, EXPR) do { \
