@@ -414,6 +414,31 @@ LIBXS_API unsigned long long libxs_hash_string(const char* string)
 }
 
 
+LIBXS_API const char* libxs_stristr(const char* a, const char* b)
+{
+  const char* result = NULL;
+  if (NULL != a && NULL != b && '\0' != *a && '\0' != *b) {
+    do {
+      if (tolower(*a) != tolower(*b)) {
+        ++a;
+      }
+      else {
+        const char* c = b;
+        result = a;
+        while ('\0' != *++a && '\0' != *++c) {
+          if (tolower(*a) != tolower(*c)) {
+            result = NULL;
+            break;
+          }
+        }
+        if ('\0' == *c) break;
+      }
+    } while ('\0' != *a);
+  }
+  return result;
+}
+
+
 LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment)
 {
   const int minalign = 4 * libxs_cpuid_vlen32(libxs_target_archid);
