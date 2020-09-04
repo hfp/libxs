@@ -1451,48 +1451,53 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     else if (0 < jit) {
       target_archid = LIBXS_X86_GENERIC + jit;
     }
-    else if (0 == strcmp("spr", arch) || 0 == strcmp("amx", arch)) {
+    else if (arch == libxs_stristr(arch, "spr") || arch == libxs_stristr(arch, "amx")) {
       target_archid = LIBXS_X86_AVX512_SPR;
     }
-    else if (0 == strcmp("cpx", arch)) {
+    else if (arch == libxs_stristr(arch, "cpx")) {
       target_archid = LIBXS_X86_AVX512_CPX;
     }
-    else if (0 == strcmp("clx", arch)) {
+    else if (arch == libxs_stristr(arch, "clx")) {
       target_archid = LIBXS_X86_AVX512_CLX;
     }
-    else if (0 == strcmp("skx", arch) || 0 == strcmp("skl", arch)
+    else if (arch == libxs_stristr(arch, "skx") || arch == libxs_stristr(arch, "skl")
           /* "avx3"/"avx512" previously enabled LIBXS_X86_AVX512 */
-          || 0 == strcmp("avx3", arch) || 0 == strcmp("avx512", arch))
+          || arch == libxs_stristr(arch, "avx3") || arch == libxs_stristr(arch, "avx512"))
     {
       target_archid = LIBXS_X86_AVX512_CORE;
     }
-    else if (0 == strcmp("knm", arch)) {
+    else if (arch == libxs_stristr(arch, "knm")) {
       target_archid = LIBXS_X86_AVX512_KNM;
     }
-    else if (0 == strcmp("knl", arch) || 0 == strcmp("mic", arch)) {
+    else if (arch == libxs_stristr(arch, "knl") || arch == libxs_stristr(arch, "mic")) {
       target_archid = LIBXS_X86_AVX512_MIC;
     }
-    else if (0 == strcmp("hsw", arch) || 0 == strcmp("avx2", arch)) {
+    else if (arch == libxs_stristr(arch, "hsw") || arch == libxs_stristr(arch, "avx2")) {
       target_archid = LIBXS_X86_AVX2;
     }
-    else if (0 == strcmp("snb", arch) || 0 == strcmp("avx", arch)) {
+    else if (arch == libxs_stristr(arch, "snb") || arch == libxs_stristr(arch, "avx")) {
       target_archid = LIBXS_X86_AVX;
     }
-    else if (0 == strcmp("wsm", arch) || 0 == strcmp("nhm", arch) || 0 == strcmp("sse4", arch)
-       || 0 == strcmp("sse4_1", arch) || 0 == strcmp("sse4.1", arch)
-       || 0 == strcmp("sse4_2", arch) || 0 == strcmp("sse4.2", arch))
+    else if (arch == libxs_stristr(arch, "wsm") || arch == libxs_stristr(arch, "nhm")
+       || arch == libxs_stristr(arch, "sse4_1") || arch == libxs_stristr(arch, "sse4.1")
+       || arch == libxs_stristr(arch, "sse4_2") || arch == libxs_stristr(arch, "sse4.2")
+       || arch == libxs_stristr(arch, "sse4"))
     {
       target_archid = LIBXS_X86_SSE4;
     }
-    else if (0 == strcmp("sse", arch) || 0 == strcmp("sse3", arch)
-        || 0 == strcmp("ssse3", arch) || 0 == strcmp("ssse", arch))
+    else if (arch == libxs_stristr(arch, "sse") || arch == libxs_stristr(arch, "sse3")
+        || arch == libxs_stristr(arch, "ssse3") || arch == libxs_stristr(arch, "ssse"))
     {
       target_archid = LIBXS_X86_SSE3;
     }
-    else if (0 == strcmp("x86", arch) || 0 == strcmp("x64", arch) || 0 == strcmp("sse2", arch)) {
+    else if (arch == libxs_stristr(arch, "x86") || arch == libxs_stristr(arch, "x64")
+          || arch == libxs_stristr(arch, "sse2"))
+    {
       target_archid = LIBXS_X86_GENERIC;
     }
-    else if (0 == strcmp("generic", arch) || 0 == strcmp("none", arch)) {
+    else if (arch == libxs_stristr(arch, "generic")
+          || arch == libxs_stristr(arch, "none"))
+    {
       target_archid = LIBXS_TARGET_ARCH_GENERIC;
     }
     else {
