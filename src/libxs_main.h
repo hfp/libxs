@@ -706,6 +706,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   /* JITed eltwise kernels... */
   libxs_meltwfunction_cvtfp32bf16     fwd_cvtfp32bf16_kernel;
   libxs_meltwfunction_cvtfp32bf16     bwd_cvtfp32bf16_kernel;
+  libxs_meltwfunction_relu            bwd_relu_kernel;
   libxs_meltwfunction_cvtfp32bf16_act fwd_cvtfp32bf16_relu_kernel;
   libxs_meltwfunction_act_cvtfp32bf16 fwd_sigmoid_cvtfp32bf16_kernel;
 };
