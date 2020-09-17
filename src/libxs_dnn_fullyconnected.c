@@ -751,6 +751,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
               handle->gemm_bwd3.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd_unroll(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), unroll_hint, &ldb, &lda, &ldb, &alpha, &zerobeta, &l_flags, NULL);
               /* Also JIT eltwise functions... */
               handle->bwd_cvtfp32bf16_kernel  = libxs_dispatch_meltw_cvtfp32bf16(handle->bc, handle->bn, &ldb, &ldb, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16);
+              handle->bwd_relu_kernel  = libxs_dispatch_meltw_relu(handle->bc, handle->bn, &ldb, &ldb, LIBXS_DATATYPE_BF16, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_RELU_BWD);
             } else {
               handle->gemm_bwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
               handle->gemm_bwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
