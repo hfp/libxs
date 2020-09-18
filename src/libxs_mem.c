@@ -237,6 +237,30 @@ LIBXS_API_INTERN void libxs_memory_finalize(void)
 }
 
 
+LIBXS_API unsigned char libxs_diff_4(const void* a, const void* b, ...)
+{
+#if defined(LIBXS_MEM_SW)
+  return internal_diff_sw(a, b, 4);
+#else
+  LIBXS_DIFF_4_DECL(a4);
+  LIBXS_DIFF_4_LOAD(a4, a);
+  return LIBXS_DIFF_4(a4, b, 0/*dummy*/);
+#endif
+}
+
+
+LIBXS_API unsigned char libxs_diff_8(const void* a, const void* b, ...)
+{
+#if defined(LIBXS_MEM_SW)
+  return internal_diff_sw(a, b, 8);
+#else
+  LIBXS_DIFF_8_DECL(a8);
+  LIBXS_DIFF_8_LOAD(a8, a);
+  return LIBXS_DIFF_8(a8, b, 0/*dummy*/);
+#endif
+}
+
+
 LIBXS_API unsigned char libxs_diff_16(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
@@ -345,6 +369,16 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
       LIBXS_DIFF_16_DECL(a16);
       LIBXS_DIFF_16_LOAD(a16, a);
       LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_16, a16, bn, size, stride, hint, n);
+    } break;
+    case 8: {
+      LIBXS_DIFF_8_DECL(a8);
+      LIBXS_DIFF_8_LOAD(a8, a);
+      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_8, a8, bn, size, stride, hint, n);
+    } break;
+    case 4: {
+      LIBXS_DIFF_4_DECL(a4);
+      LIBXS_DIFF_4_LOAD(a4, a);
+      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_4, a4, bn, size, stride, hint, n);
     } break;
     default:
 # endif
