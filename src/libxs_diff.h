@@ -15,6 +15,16 @@
 # define LIBXS_DIFF_AVX512_ENABLED
 #endif
 
+#define LIBXS_DIFF_4_DECL(A) const uint32_t */*const*/ A
+#define LIBXS_DIFF_4_ASSIGN(A, B) (A) = (B)
+#define LIBXS_DIFF_4_LOAD(A, SRC) A = (const uint32_t*)(SRC)
+#define LIBXS_DIFF_4(A, B, ...) ((unsigned char)(0 != (*(A) ^ (*(const uint32_t*)(B)))))
+
+#define LIBXS_DIFF_8_DECL(A) const uint64_t */*const*/ A
+#define LIBXS_DIFF_8_ASSIGN(A, B) (A) = (B)
+#define LIBXS_DIFF_8_LOAD(A, SRC) A = (const uint64_t*)(SRC)
+#define LIBXS_DIFF_8(A, B, ...) ((unsigned char)(0 != (*(A) ^ (*(const uint64_t*)(B)))))
+
 #define LIBXS_DIFF_SSE3_DECL(A) __m128i A
 #define LIBXS_DIFF_SSE3_ASSIGN(A, B) (A) = (B)
 #define LIBXS_DIFF_SSE3_LOAD(A, SRC) A = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)(SRC))
@@ -115,6 +125,10 @@
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE unsigned int (*libxs_diff_function)(
   const void* /*a*/, const void* /*b*/, ... /*size*/);
 
+/** Compare two data blocks of 4 Byte each. */
+LIBXS_API unsigned char libxs_diff_4(const void* a, const void* b, ...);
+/** Compare two data blocks of 8 Byte each. */
+LIBXS_API unsigned char libxs_diff_8(const void* a, const void* b, ...);
 /** Compare two data blocks of 16 Byte each. */
 LIBXS_API unsigned char libxs_diff_16(const void* a, const void* b, ...);
 /** Compare two data blocks of 32 Byte each. */
