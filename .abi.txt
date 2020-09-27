@@ -80,8 +80,10 @@ libxs_dgemm_omp_
 libxs_diff
 libxs_diff_16
 libxs_diff_32
+libxs_diff_4
 libxs_diff_48
 libxs_diff_64
+libxs_diff_8
 libxs_diff_char
 libxs_diff_i32
 libxs_diff_i64
@@ -97,6 +99,7 @@ libxs_dispatch_meltw_cvtfp32bf16
 libxs_dispatch_meltw_cvtfp32bf16_act
 libxs_dispatch_meltw_mul
 libxs_dispatch_meltw_reduce
+libxs_dispatch_meltw_reduce_cols_idx
 libxs_dispatch_meltw_relu
 libxs_dispatch_meltw_scale
 libxs_dispatch_meltw_zero
@@ -501,6 +504,7 @@ libxs_ssbimmdispatch_reducebatch_strd
 libxs_ssbimmdispatch_reducebatch_strd_unroll
 libxs_ssqrt
 libxs_strerror
+libxs_stristr
 libxs_subimmdispatch
 libxs_subimmdispatch_reducebatch_addr
 libxs_subimmdispatch_reducebatch_addr_unroll
