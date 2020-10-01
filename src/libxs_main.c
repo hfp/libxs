@@ -1002,9 +1002,6 @@ LIBXS_API_INTERN void internal_init(void)
 #endif
       libxs_xcopy_init(libxs_target_archid);
       libxs_dnn_init(libxs_target_archid);
-#if defined(LIBXS_PERF)
-      libxs_perf_init();
-#endif
       { const char *const env = getenv("LIBXS_GEMM_PREFETCH");
 #if (defined(_WIN32) || defined(__CYGWIN__))
         libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
@@ -1215,6 +1212,9 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       while (2 > LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) LIBXS_SYNC_YIELD;
       internal_init();
     }
+#if defined(LIBXS_PERF)
+    libxs_perf_init();
+#endif
   }
   LIBXS_ASSERT(1 < libxs_ninit);
 }
