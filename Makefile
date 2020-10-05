@@ -862,7 +862,7 @@ module: module_hst module_mic
 
 .PHONY: build_generator_lib
 build_generator_lib: $(OUTDIR)/libxsgen.$(LIBEXT)
-$(OUTDIR)/libxsgen.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_GEN_LIB) $(OUTDIR)/module
+$(OUTDIR)/libxsgen.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_GEN_LIB) $(OUTDIR)/libxs.env
 ifeq (0,$(STATIC))
 	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(OBJFILES_GEN_LIB) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
@@ -1577,13 +1577,9 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@echo "LIBXS installing pkg-config and module files..."
 	@mkdir -p $(PREFIX)/$(PPKGDIR)
 	@$(CP) -v $(OUTDIR)/*.pc $(PREFIX)/$(PPKGDIR) 2>/dev/null || true
-	@if [ ! -e $(PREFIX)/$(PMODDIR)/module ]; then \
+	@if [ ! -e $(PREFIX)/$(PMODDIR)/libxs.env ]; then \
 		mkdir -p $(PREFIX)/$(PMODDIR); \
-		if [ "$(PMODDIR)" != "$(OUTDIR)" ]; then \
-			$(CP) -v $(OUTDIR)/module $(PREFIX)/$(PMODDIR)/libxs 2>/dev/null || true; \
-		else \
-			$(CP) -v $(OUTDIR)/module $(PREFIX)/$(PMODDIR) 2>/dev/null || true; \
-		fi; \
+		$(CP) -v $(OUTDIR)/libxs.env $(PREFIX)/$(PMODDIR) 2>/dev/null || true; \
 	fi
 	@echo
 	@echo "LIBXS installing stand-alone generators..."
@@ -1738,7 +1734,7 @@ $(OUTDIR)/libxsnoblas.pc: $(OUTDIR)/libxsnoblas.$(LIBEXT)
 	@echo "Cflags: -I\$${includedir}" >> $@
 	@echo "Libs: -L\$${libdir} -lxsmmnoblas" >> $@
 
-$(OUTDIR)/module: $(OUTDIR)/.make $(INCDIR)/libxs.h
+$(OUTDIR)/libxs.env: $(OUTDIR)/.make $(INCDIR)/libxs.h
 	@echo "#%Module1.0" > $@
 	@echo >> $@
 	@echo "module-whatis \"LIBXS $(VERSION_STRING)\"" >> $@
