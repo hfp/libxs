@@ -45,6 +45,7 @@ ifeq (d,$(filter d,$(MAKEFLAGS)))
   SHELL += -xv
 endif
 
+qnum = $(shell echo "$1" | grep "^-*[0-9][0-9]*$$" 2>/dev/null || echo "0")
 which  = $(shell which $(firstword $1) 2>/dev/null)
 which ?= $(shell command -v $1)
 
@@ -167,7 +168,7 @@ endif
 PIC ?= pic
 
 PLATFORM ?= 0
-ifneq (0,$(shell echo "$(PLATFORM)" | grep "^-*[0-9][0-9]*$$" 2>/dev/null || echo "0")) # NaN
+ifneq (0,$(call qnum,$(PLATFORM))) # NaN
   DFLAGS += -DLIBXS_PLATFORM_FORCE
 endif
 
@@ -275,7 +276,7 @@ HOMEDIR := $(call qapath,$(HOME))
 HEREDIR := $(call qapath,.)
 
 # Pickup OpenMP library name if passed as OMP=libname|name
-ifneq (0,$(shell echo "$(OMP)" | grep "^-*[0-9][0-9]*$$" 2>/dev/null || echo "0")) # NaN
+ifneq (0,$(call qnum,$(OMP))) # NaN
   OMPRT := $(patsubst lib%,%,$(OMP))
 endif
 OMPRT ?= $(NULL)
@@ -1279,7 +1280,7 @@ ifneq (0,$(INTEL))
   ifeq (,$(strip $(OMPRT)))
     OMPRT := iomp5
   endif
-  ifneq (0,$(shell echo "$(OMP)" | grep "^-*[0-9][0-9]*$$" 2>/dev/null || echo "0")) # NaN
+  ifneq (0,$(call qnum,$(OMP))) # NaN
     CXXFLAGS += $(OMPFLAG_FORCE)
     FCFLAGS += $(OMPFLAG_FORCE)
     CFLAGS += $(OMPFLAG_FORCE)
@@ -1511,11 +1512,11 @@ else # GCC assumed
   endif
   endif
   endif
-  ifneq (0,$(shell echo "$(OMP)" | grep "^-*[0-9][0-9]*$$" 2>/dev/null || echo "0")) # NaN
+  ifneq (0,$(call qnum,$(OMP))) # NaN
   ifneq (,$(OMPFLAG_FORCE))
     ifneq (,$(OMPLIBFILE))
       # clang: OMP=libomp
-      ifneq (0,$(shell echo "$(OMP)" | grep "^-*[0-9][0-9]*$$" 2>/dev/null || echo "0")) # NaN
+      ifneq (0,$(call qnum,$(OMP))) # NaN
         ifneq (0,$(CLANG))
           CXXLDFLAGS += $(call abslibpath,$(OMPLIBFILE))
           CLDFLAGS += $(call abslibpath,$(OMPLIBFILE))
@@ -2308,7 +2309,7 @@ STATE := $(strip $(foreach V,$(sort $(.VARIABLES)),$(if \
     LIBPTHREAD CSTD CWARNEXTRA QUADMATH BLASDIR BLASLIBEXT BLASTEST NO_OFFLOAD_FLAG FYPPEXE INCLUDEMAKE LIBDIR OBJDIR ONEVERSION \
     HEREDIR HOMEDIR UNUSED TEST% SHARED PYMOD MINGW FMAIN VERSION ACC% \
     abslib applyif uniqadd uniqmov which cleanup cleanld linkopt abslibfile abslibpath absliblpath abslibrpath libpath solink \
-    ctest ftest ldclib ldflib extname objname unquote quote qapath qndir qdir qsuffix qbname qname \
+    ctest ftest ldclib ldflib extname objname unquote quote qapath qndir qdir qsuffix qbname qname qnum \
     BLAS_INCFILE $(if $(filter 0,$(MKL)),MKL_%) $(if $(filter 0,$(TBB_MALLOC)),TBB_%) \
     $(if $(filter $(BLAS_STATIC),$(DEPSTATIC)),BLAS_STATIC) $(if $(filter-out $(FTARGET),$(CTARGET)),TARGET,CTARGET FTARGET),$V), \
     $(if $($V),$V=$(subst $(USER),$(if $(USER),$$USER),$(subst $(HOME),$(if $(HOME),$$HOME),$(subst $(HOMEDIR),$(if $(HOMEDIR),$$HOME),$(filter-out $(EXCLUDE_VALUE),$($V)))))?)))))
