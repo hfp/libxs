@@ -576,14 +576,12 @@ endif
 EXTCFLAGS := -DLIBXS_BUILD_EXT
 ifneq (0,$(call qnum,$(OMP))) # NaN
   DFLAGS += -DLIBXS_SYNC_OMP
-  SYNC_OMP := $(shell echo "$$(($(THREADS)+$(OMP)))")
 else # default (no OpenMP based synchronization)
   ifeq (,$(filter environment% override command%,$(origin OMP)))
     EXTCFLAGS += $(OMPFLAG)
     EXTLDFLAGS += $(OMPLIB)
   endif
 endif
-SYNC_OMP ?= 0
 
 # auto-clean the co-build
 $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h: $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py \
@@ -610,7 +608,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make $(ROOTDIR)/$(SRCDIR)/template/libxs_co
 ifneq (,$(PYTHON))
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h \
 		$(MAKE_ILP64) $(OFFLOAD) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
-		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(SYNC_OMP) \
+		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(shell echo "$$(($(THREADS)+$(OMP)))") \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) > $@
 endif
 $(INCDIR)/libxs_version.h: $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h $(INCDIR)/.make \
@@ -652,7 +650,7 @@ $(INCDIR)/libxs.f: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
 		$(shell echo "$$(($(PRECISION)+($(FORTRAN)<<2)))") $(PREFETCH_TYPE) $(INDICES) | \
 	$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py /dev/stdin \
 		$(MAKE_ILP64) $(OFFLOAD) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
-		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(SYNC_OMP) \
+		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(shell echo "$$(($(THREADS)+$(OMP)))") \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) | \
 	sed "/ATTRIBUTES OFFLOAD:MIC/d" > $@
 else
