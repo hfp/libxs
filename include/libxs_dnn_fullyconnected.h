@@ -33,6 +33,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected_desc {
   int bk;
   int bc;
   int threads;                                  /* number of threads used */
+  int compressed_A;
+  int sparsity_factor_A;
   libxs_dnn_datatype datatype_in;             /* datatype used for all input related buffers */
   libxs_dnn_datatype datatype_out;            /* datatype used for all output related buffers */
   libxs_dnn_tensor_format buffer_format;      /* format which is for activation buffers */

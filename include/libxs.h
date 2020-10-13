@@ -359,16 +359,12 @@ LIBXS_API libxs_sububmmfunction_reducebatch_strd libxs_sububmmdispatch_reducebat
  * Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate internally, bf16 outputs).
  *
  * This kernel provides the following operation: C = \sum_i A_i * B_i + C_old + colbroadcast(bias) followed by  C_out = Act( C ), the dump of "C" is possible.
- * The datatype of bias is determind by the prefix of cbiasact, bias and C have the same leading dimension
+ * Also we support elementwise operations on A/B (e.g. decompression of A).
  * */
-LIBXS_API libxs_bmmfunction_reducebatch_strd_bcbiasact libxs_bmmdispatch_reducebatch_strd_bcbiasact(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  libxs_meltw_cbiasact_flags meltw_flags, const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-LIBXS_API libxs_bmmfunction_reducebatch_strd_bcbiasact libxs_bmmdispatch_reducebatch_strd_bcbiasact_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  libxs_blasint unroll_hint, libxs_meltw_cbiasact_flags meltw_flags, const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-LIBXS_API libxs_bmmfunction_reducebatch_strd_scbiasact libxs_bmmdispatch_reducebatch_strd_scbiasact(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  libxs_meltw_cbiasact_flags meltw_flags, const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-LIBXS_API libxs_bmmfunction_reducebatch_strd_scbiasact libxs_bmmdispatch_reducebatch_strd_scbiasact_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  libxs_blasint unroll_hint, libxs_meltw_cbiasact_flags meltw_flags, const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
+LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reducebatch_strd_meltwfused(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
+  libxs_meltw_flags meltw_flags, const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
+LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reducebatch_strd_meltwfused_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
+  libxs_blasint unroll_hint, libxs_meltw_flags meltw_flags, const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
 
 /**
  * Process a series of matrix multiplications (batch). See also libxs_gemm_batch/omp.
