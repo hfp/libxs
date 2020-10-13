@@ -258,46 +258,92 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_bf16_bf16_amx(libxs_dn
   typedef libxs_bfloat16 element_filter_type;
   libxs_bsmmfunction_reducebatch_strd batchreduce_kernel              = handle->gemm_fwd.xgemm.bsmrs;
   libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_zerobeta = handle->gemm_fwd3.xgemm.bmrs;
+  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_decompress   = handle->gemm_fwd9.xgemm.bsmrs;
+  libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_zerobeta_decompress = handle->gemm_fwd11.xgemm.bmrs;
   libxs_bsmmfunction tile_config_kernel = handle->fwd_config_kernel;
 #define LIBXS_DNN_BF16_USE_CPX_AVX512_NI
   /* some portable macrros fof BF16 <-> FP32 */
 # include "template/libxs_dnn_bf16_macros_define.tpl.c"
 
-  if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+  if (handle->compressed_A == 1) {
+    if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+#define LIBXS_DNN_FC_FWD_FUSE_NONE
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_NONE
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd4.xgemm.bmrs_meltwfused;
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise_decompress = handle->gemm_fwd12.xgemm.bmrs_meltwfused;
+#define LIBXS_DNN_FC_FWD_FUSE_BIAS
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_BIAS
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_RELU ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd5.xgemm.bmrs_meltwfused;
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise_decompress = handle->gemm_fwd13.xgemm.bmrs_meltwfused;
+#define LIBXS_DNN_FC_FWD_FUSE_RELU
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_RELU
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd6.xgemm.bmrs_meltwfused;
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise_decompress = handle->gemm_fwd14.xgemm.bmrs_meltwfused;
+#define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_SIGMOID
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd7.xgemm.bmrs_meltwfused;
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise_decompress = handle->gemm_fwd15.xgemm.bmrs_meltwfused;
+#define LIBXS_DNN_FC_FWD_FUSE_BIAS
+#define LIBXS_DNN_FC_FWD_FUSE_RELU
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_RELU
+#undef LIBXS_DNN_FC_FWD_FUSE_BIAS
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd8.xgemm.bmrs_meltwfused;
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise_decompress = handle->gemm_fwd16.xgemm.bmrs_meltwfused;
+#define LIBXS_DNN_FC_FWD_FUSE_BIAS
+#define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_SIGMOID
+#undef LIBXS_DNN_FC_FWD_FUSE_BIAS
+    } else {
+      status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
+    }
+  } else {
+    if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
 #define LIBXS_DNN_FC_FWD_FUSE_NONE
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_NONE
-  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS ) {
-    libxs_bmmfunction_reducebatch_strd_scbiasact bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd4.xgemm.bmrs_scbiasact;
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd4.xgemm.bmrs_meltwfused;
 #define LIBXS_DNN_FC_FWD_FUSE_BIAS
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_BIAS
-  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_RELU ) {
-    libxs_bmmfunction_reducebatch_strd_scbiasact bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd5.xgemm.bmrs_scbiasact;
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_RELU ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd5.xgemm.bmrs_meltwfused;
 #define LIBXS_DNN_FC_FWD_FUSE_RELU
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_RELU
-  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID ) {
-    libxs_bmmfunction_reducebatch_strd_scbiasact bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd6.xgemm.bmrs_scbiasact;
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd6.xgemm.bmrs_meltwfused;
 #define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_SIGMOID
-  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU ) {
-    libxs_bmmfunction_reducebatch_strd_scbiasact bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd7.xgemm.bmrs_scbiasact;
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd7.xgemm.bmrs_meltwfused;
 #define LIBXS_DNN_FC_FWD_FUSE_BIAS
 #define LIBXS_DNN_FC_FWD_FUSE_RELU
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_RELU
 #undef LIBXS_DNN_FC_FWD_FUSE_BIAS
-  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID ) {
-    libxs_bmmfunction_reducebatch_strd_scbiasact bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd8.xgemm.bmrs_scbiasact;
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd8.xgemm.bmrs_meltwfused;
 #define LIBXS_DNN_FC_FWD_FUSE_BIAS
 #define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_SIGMOID
 #undef LIBXS_DNN_FC_FWD_FUSE_BIAS
-  } else {
-    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
+    } else {
+      status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
+    }
   }
 
 # include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
@@ -319,46 +365,92 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_bf16_bf16_amx(libxs_dn
   typedef libxs_bfloat16 element_filter_type;
   libxs_bsmmfunction_reducebatch_strd batchreduce_kernel              = handle->gemm_fwd.xgemm.bsmrs;
   libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_zerobeta = handle->gemm_fwd3.xgemm.bmrs;
+  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_decompress   = handle->gemm_fwd9.xgemm.bsmrs;
+  libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_zerobeta_decompress = handle->gemm_fwd11.xgemm.bmrs;
   libxs_bsmmfunction tile_config_kernel = handle->fwd_config_kernel;
 
   /* some portable macrros fof BF16 <-> FP32 */
 # include "template/libxs_dnn_bf16_macros_define.tpl.c"
 
-  if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+   if (handle->compressed_A == 1) {
+    if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
+#define LIBXS_DNN_FC_FWD_FUSE_NONE
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_NONE
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd4.xgemm.bmrs_meltwfused;
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise_decompress = handle->gemm_fwd12.xgemm.bmrs_meltwfused;
+#define LIBXS_DNN_FC_FWD_FUSE_BIAS
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_BIAS
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_RELU ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd5.xgemm.bmrs_meltwfused;
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise_decompress = handle->gemm_fwd13.xgemm.bmrs_meltwfused;
+#define LIBXS_DNN_FC_FWD_FUSE_RELU
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_RELU
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd6.xgemm.bmrs_meltwfused;
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise_decompress = handle->gemm_fwd14.xgemm.bmrs_meltwfused;
+#define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_SIGMOID
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd7.xgemm.bmrs_meltwfused;
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise_decompress = handle->gemm_fwd15.xgemm.bmrs_meltwfused;
+#define LIBXS_DNN_FC_FWD_FUSE_BIAS
+#define LIBXS_DNN_FC_FWD_FUSE_RELU
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_RELU
+#undef LIBXS_DNN_FC_FWD_FUSE_BIAS
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd8.xgemm.bmrs_meltwfused;
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise_decompress = handle->gemm_fwd16.xgemm.bmrs_meltwfused;
+#define LIBXS_DNN_FC_FWD_FUSE_BIAS
+#define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
+# include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
+#undef LIBXS_DNN_FC_FWD_FUSE_SIGMOID
+#undef LIBXS_DNN_FC_FWD_FUSE_BIAS
+    } else {
+      status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
+    }
+  } else {
+    if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
 #define LIBXS_DNN_FC_FWD_FUSE_NONE
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_NONE
-  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS ) {
-    libxs_bmmfunction_reducebatch_strd_scbiasact bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd4.xgemm.bmrs_scbiasact;
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd4.xgemm.bmrs_meltwfused;
 #define LIBXS_DNN_FC_FWD_FUSE_BIAS
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_BIAS
-  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_RELU ) {
-    libxs_bmmfunction_reducebatch_strd_scbiasact bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd5.xgemm.bmrs_scbiasact;
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_RELU ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd5.xgemm.bmrs_meltwfused;
 #define LIBXS_DNN_FC_FWD_FUSE_RELU
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_RELU
-  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID ) {
-    libxs_bmmfunction_reducebatch_strd_scbiasact bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd6.xgemm.bmrs_scbiasact;
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_SIGMOID ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd6.xgemm.bmrs_meltwfused;
 #define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_SIGMOID
-  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU ) {
-    libxs_bmmfunction_reducebatch_strd_scbiasact bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd7.xgemm.bmrs_scbiasact;
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_RELU ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd7.xgemm.bmrs_meltwfused;
 #define LIBXS_DNN_FC_FWD_FUSE_BIAS
 #define LIBXS_DNN_FC_FWD_FUSE_RELU
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_RELU
 #undef LIBXS_DNN_FC_FWD_FUSE_BIAS
-  } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID ) {
-    libxs_bmmfunction_reducebatch_strd_scbiasact bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd8.xgemm.bmrs_scbiasact;
+    } else if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_BIAS_SIGMOID ) {
+      libxs_bmmfunction_reducebatch_strd_meltwfused bf16_batchreduce_kernel_zerobeta_fused_eltwise = handle->gemm_fwd8.xgemm.bmrs_meltwfused;
 #define LIBXS_DNN_FC_FWD_FUSE_BIAS
 #define LIBXS_DNN_FC_FWD_FUSE_SIGMOID
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_amx.tpl.c"
 #undef LIBXS_DNN_FC_FWD_FUSE_SIGMOID
 #undef LIBXS_DNN_FC_FWD_FUSE_BIAS
-  } else {
-    status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
+    } else {
+      status = LIBXS_DNN_ERR_FC_UNSUPPORTED_FUSION;
+    }
   }
 
 # include "template/libxs_dnn_bf16_macros_undefine.tpl.c"
