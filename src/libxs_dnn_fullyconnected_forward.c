@@ -258,14 +258,14 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_bf16_bf16_amx(libxs_dn
   typedef libxs_bfloat16 element_filter_type;
   libxs_bsmmfunction_reducebatch_strd batchreduce_kernel              = handle->gemm_fwd.xgemm.bsmrs;
   libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_zerobeta = handle->gemm_fwd3.xgemm.bmrs;
-  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_decompress   = handle->gemm_fwd9.xgemm.bsmrs;
-  libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_zerobeta_decompress = handle->gemm_fwd11.xgemm.bmrs;
   libxs_bsmmfunction tile_config_kernel = handle->fwd_config_kernel;
 #define LIBXS_DNN_BF16_USE_CPX_AVX512_NI
   /* some portable macrros fof BF16 <-> FP32 */
 # include "template/libxs_dnn_bf16_macros_define.tpl.c"
 
   if (handle->compressed_A == 1) {
+    libxs_bsmmfunction_reducebatch_strd_meltwfused batchreduce_kernel_decompress   = handle->gemm_fwd9.xgemm.bsmrs_meltwfused;
+    libxs_bmmfunction_reducebatch_strd_meltwfused  bf16_batchreduce_kernel_zerobeta_decompress = handle->gemm_fwd11.xgemm.bmrs_meltwfused;
     if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
 #define LIBXS_DNN_FC_FWD_FUSE_NONE
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
@@ -365,14 +365,14 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_bf16_bf16_amx(libxs_dn
   typedef libxs_bfloat16 element_filter_type;
   libxs_bsmmfunction_reducebatch_strd batchreduce_kernel              = handle->gemm_fwd.xgemm.bsmrs;
   libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_zerobeta = handle->gemm_fwd3.xgemm.bmrs;
-  libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_decompress   = handle->gemm_fwd9.xgemm.bsmrs;
-  libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_zerobeta_decompress = handle->gemm_fwd11.xgemm.bmrs;
   libxs_bsmmfunction tile_config_kernel = handle->fwd_config_kernel;
 
   /* some portable macrros fof BF16 <-> FP32 */
 # include "template/libxs_dnn_bf16_macros_define.tpl.c"
 
    if (handle->compressed_A == 1) {
+    libxs_bsmmfunction_reducebatch_strd_meltwfused batchreduce_kernel_decompress   = handle->gemm_fwd9.xgemm.bsmrs_meltwfused;
+    libxs_bmmfunction_reducebatch_strd_melwfused   bf16_batchreduce_kernel_zerobeta_decompress = handle->gemm_fwd11.xgemm.bmrs_meltwfused;
     if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
 #define LIBXS_DNN_FC_FWD_FUSE_NONE
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
