@@ -1705,12 +1705,10 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           int typesigns = 0, br = 0;
           char tc_option[16] = { 0 };
           int decompress_A = 0;
-          if ( (LIBXS_GEMM_FLAG_SPARSITY_FACTOR_A_2 & request->descriptor.gemm->flags) ||
-               (LIBXS_GEMM_FLAG_SPARSITY_FACTOR_A_4 & request->descriptor.gemm->flags) ||
-               (LIBXS_GEMM_FLAG_SPARSITY_FACTOR_A_8 & request->descriptor.gemm->flags) ||
-               (LIBXS_GEMM_FLAG_SPARSITY_FACTOR_A_16 & request->descriptor.gemm->flags) ||
-               (LIBXS_GEMM_FLAG_SPARSITY_FACTOR_A_32 & request->descriptor.gemm->flags)) {
+          int sparsity_factor_A = 1;
+          if ( (request->descriptor.gemm->meltw_operation == LIBXS_MELTW_OPERATION_DECOMPRESS_A) || (request->descriptor.gemm->meltw_operation == LIBXS_MELTW_OPERATION_COLBIAS_ACT_DECOMPRESS_A) ) {
             decompress_A = 1;
+            sparsity_factor_A = (int)request->descriptor.gemm->meltw_param;
           }
 
           /* query batch reduce variant */
@@ -1749,7 +1747,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 
           if ( request->descriptor.gemm->meltw_operation != 0 ) {
             /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_meop%u-%s_mefl%u_meld%u-%u-%u_decompress_A%i.mxm", target_arch, tname,
+            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_meop%u-%s_mefl%u_meld%u-%u-%u_decompress_A%i_spfactor%i.mxm", target_arch, tname,
               0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
               0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
               request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
@@ -1760,10 +1758,10 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               0 != (LIBXS_GEMM_FLAG_VNNI_B  & request->descriptor.gemm->flags) ? 1 : 0,
               0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0,
               (unsigned int)request->descriptor.gemm->meltw_operation, meltw_tname, (unsigned int)request->descriptor.gemm->meltw_flags,
-              request->descriptor.gemm->meltw_ldx, request->descriptor.gemm->meltw_ldy, request->descriptor.gemm->meltw_ldz, decompress_A );
+              request->descriptor.gemm->meltw_ldx, request->descriptor.gemm->meltw_ldy, request->descriptor.gemm->meltw_ldz, decompress_A, sparsity_factor_A );
           } else {
             /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_decompress_A%i.mxm", target_arch, tname,
+            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_decompress_A%i_spfactor%i.mxm", target_arch, tname,
               0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
               0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
               request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
@@ -1772,7 +1770,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               br, (unsigned int)request->descriptor.gemm->c3, typesigns, tc_option,
               0 != (LIBXS_GEMM_FLAG_VNNI_A  & request->descriptor.gemm->flags) ? 1 : 0,
               0 != (LIBXS_GEMM_FLAG_VNNI_B  & request->descriptor.gemm->flags) ? 1 : 0,
-              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0, decompress_A );
+              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0, decompress_A, sparsity_factor_A );
           }
         }
       }
@@ -4135,6 +4133,57 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reduce
   desc->meltw_param = meltw_param;
   result = libxs_xmmdispatch(desc);
   return result.bmrs_meltwfused;
+}
+
+LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_reducebatch_strd_meltwfused(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
+  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param)
+{
+  const int gemm_flags = (NULL == flags ? (LIBXS_FLAGS | LIBXS_GEMM_FLAG_VNNI_A) : *flags);
+  libxs_descriptor_blob blob;
+  /*const*/ libxs_gemm_descriptor *const desc = libxs_bsgemm_descriptor_init(&blob, m, n, k,
+    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
+    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
+    NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result;
+  desc->c1 = (unsigned long long)stride_a;
+  desc->c2 = (unsigned long long)stride_b;
+  if ( (stride_a < 0) || (stride_b < 0) ) {
+    return NULL;
+  }
+  desc->meltw_datatype_aux = meltw_dt;
+  desc->meltw_flags = (unsigned short)meltw_flags;
+  desc->meltw_operation = meltw_op;
+  desc->meltw_param = meltw_param;
+  result = libxs_xmmdispatch(desc);
+  return result.bsmrs_meltwfused;
+}
+
+LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_reducebatch_strd_meltwfused_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
+  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
+  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param)
+{
+  const int gemm_flags = (NULL == flags ? (LIBXS_FLAGS | LIBXS_GEMM_FLAG_VNNI_A) : *flags);
+  libxs_descriptor_blob blob;
+  /*const*/ libxs_gemm_descriptor *const desc = libxs_bsgemm_descriptor_init(&blob, m, n, k,
+    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
+    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
+    NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
+    gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result;
+  desc->c1 = (unsigned long long)stride_a;
+  desc->c2 = (unsigned long long)stride_b;
+  desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if ( (stride_a < 0) || (stride_b < 0) ) {
+    return NULL;
+  }
+  desc->meltw_datatype_aux = meltw_dt;
+  desc->meltw_flags = (unsigned short)meltw_flags;
+  desc->meltw_operation = meltw_op;
+  desc->meltw_param = meltw_param;
+  result = libxs_xmmdispatch(desc);
+  return result.bsmrs_meltwfused;
 }
 
 LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor* descriptor)
