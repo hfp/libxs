@@ -372,7 +372,7 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_bf16_bf16_amx(libxs_dn
 
    if (handle->compressed_A == 1) {
     libxs_bsmmfunction_reducebatch_strd_meltwfused batchreduce_kernel_decompress   = handle->gemm_fwd9.xgemm.bsmrs_meltwfused;
-    libxs_bmmfunction_reducebatch_strd_melwfused   bf16_batchreduce_kernel_zerobeta_decompress = handle->gemm_fwd11.xgemm.bmrs_meltwfused;
+    libxs_bmmfunction_reducebatch_strd_meltwfused   bf16_batchreduce_kernel_zerobeta_decompress = handle->gemm_fwd11.xgemm.bmrs_meltwfused;
     if ( handle->desc.fuse_ops == LIBXS_DNN_FULLYCONNECTED_FUSE_NONE ) {
 #define LIBXS_DNN_FC_FWD_FUSE_NONE
 # include "template/libxs_dnn_fullyconnected_st_fwd_ncnc_kcck_generic_bf16_sparse_A_amx.tpl.c"
