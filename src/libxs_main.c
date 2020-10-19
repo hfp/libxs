@@ -63,7 +63,7 @@
 #if !defined(LIBXS_UNIFY_LOCKS) && 1
 # define LIBXS_UNIFY_LOCKS
 #endif
-#if !defined(LIBXS_DIFF_INLINE) && 1
+#if !defined(LIBXS_DIFF_INLINE) && 0
 # define LIBXS_DIFF_INLINE
 #endif
 #if !defined(LIBXS_DESC_INLINE) && 0
