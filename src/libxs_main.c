@@ -4352,6 +4352,18 @@ LIBXS_API libxs_meltwfunction_reduce_cols_idx libxs_dispatch_meltw_reduce_cols_i
   return result.meltw_reduce_cols_idx;
 }
 
+LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_vecs_idx(libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype idx_type, libxs_meltw_opreduce_vecs_flags flags) {
+  libxs_descriptor_blob blob;
+  libxs_blasint idx_dtype_size = libxs_typesize(idx_type);
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, idx_dtype_size, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    flags, 0, LIBXS_MELTW_OPERATION_OPREDUCE_VECS_IDX);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_opreduce_vecs_idx;
+}
+
 LIBXS_API libxs_meltwfunction_scale libxs_dispatch_meltw_scale(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_meltw_scal_flags flags, unsigned char param) {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
