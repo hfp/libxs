@@ -403,7 +403,7 @@ LIBXS_API void libxs_mmbatch(libxs_gemm_precision iprec, libxs_gemm_precision op
    */
   libxs_blasint batchsize,
   /** Thread-ID (TID), and number of threads. */
-  /*unsigned*/int tid, /*unsigned*/int nthreads);
+  /*unsigned*/int tid, /*unsigned*/int ntasks);
 
 /** Process a series of matrix multiplications (batch). See also libxs_mmbatch. */
 LIBXS_API void libxs_gemm_batch(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
@@ -565,9 +565,9 @@ LIBXS_API void libxs_matcopy(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo);
 
 /** Matrix copy function (per-thread form); "in" can be NULL when zeroing (BLAS-like equivalent is "omatcopy"). */
-LIBXS_API void libxs_matcopy_thread(void* out, const void* in, unsigned int typesize,
+LIBXS_API void libxs_matcopy_task(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
-  /*unsigned*/int tid, /*unsigned*/int nthreads);
+  /*unsigned*/int tid, /*unsigned*/int ntasks);
 
 /** Matrix copy function (MT via libxsext); "in" can be NULL when zeroing (BLAS-like equivalent is "omatcopy"). */
 LIBXS_APIEXT void libxs_matcopy_omp(void* out, const void* in, unsigned int typesize,
@@ -578,9 +578,9 @@ LIBXS_API void libxs_otrans(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo);
 
 /** Matrix transposition (per-thread form); out-of-place (BLAS-like equivalent is "omatcopy"). */
-LIBXS_API void libxs_otrans_thread(void* out, const void* in, unsigned int typesize,
+LIBXS_API void libxs_otrans_task(void* out, const void* in, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
-  /*unsigned*/int tid, /*unsigned*/int nthreads);
+  /*unsigned*/int tid, /*unsigned*/int ntasks);
 
 /** Matrix transposition (MT via libxsext); out-of-place (BLAS-like equivalent is "omatcopy"). */
 LIBXS_APIEXT void libxs_otrans_omp(void* out, const void* in, unsigned int typesize,
@@ -590,6 +590,19 @@ LIBXS_APIEXT void libxs_otrans_omp(void* out, const void* in, unsigned int types
 LIBXS_API void libxs_itrans(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ld);
 
+/** Series/batch of matrix transpositions; in-place. See also libxs_mmbatch. */
+LIBXS_API void libxs_itrans_batch(void* inout, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld,
+  libxs_blasint index_base, libxs_blasint index_stride,
+  const libxs_blasint stride[], libxs_blasint batchsize,
+  /*unsigned*/int tid, /*unsigned*/int ntasks);
+
+/** Series/batch of matrix transpositions ((MT via libxsext)); in-place. */
+LIBXS_APIEXT void libxs_itrans_batch_omp(void* inout, unsigned int typesize,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ld,
+  libxs_blasint index_base, libxs_blasint index_stride,
+  const libxs_blasint stride[], libxs_blasint batchsize);
+
 /** Initialize GEMM-handle; allows to better amortize setup overhead. */
 LIBXS_API libxs_gemm_handle* libxs_gemm_handle_init(libxs_gemm_blob* blob,
   libxs_gemm_precision iprec, libxs_gemm_precision oprec, const char* transa, const char* transb,
@@ -597,12 +610,12 @@ LIBXS_API libxs_gemm_handle* libxs_gemm_handle_init(libxs_gemm_blob* blob,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
   const void* alpha, const void* beta, int flags, /*unsigned*/int ntasks);
 
-/** Calculate required scratch buffer size needed to perform libxs_gemm_thread. */
+/** Calculate required scratch buffer size needed to perform libxs_gemm_task. */
 LIBXS_API size_t libxs_gemm_handle_get_scratch_size(const libxs_gemm_handle* handle);
 
 /** Low-level type-agnostic GEMM suitable for external threads or tasks. */
-LIBXS_API void libxs_gemm_thread(const libxs_gemm_handle* handle, void* scratch,
-  const void* a, const void* b, void* c, /*unsigned*/int tid, /*unsigned*/int nthreads);
+LIBXS_API void libxs_gemm_task(const libxs_gemm_handle* handle, void* scratch,
+  const void* a, const void* b, void* c, /*unsigned*/int tid, /*unsigned*/int ntasks);
 
 /** General dense matrix multiplication (sequential). */
 LIBXS_API void libxs_xgemm(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
