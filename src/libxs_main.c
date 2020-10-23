@@ -1555,23 +1555,18 @@ LIBXS_API void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type strategy)
 
 LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype)
 {
-  switch (datatype) {
-    case LIBXS_DATATYPE_F64:  return 8;
-    case LIBXS_DATATYPE_F32:  return 4;
-    case LIBXS_DATATYPE_BF16: return 2;
-    case LIBXS_DATATYPE_I64:  return 8;
-    case LIBXS_DATATYPE_I32:  return 4;
-    case LIBXS_DATATYPE_I16:  return 2;
-    case LIBXS_DATATYPE_I8:   return 1;
-    case LIBXS_DATATYPE_UNSUPPORTED: {
-      static int error_once = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: unsupported data type!\n");
-      }
-    } break;
+  const unsigned char result = (unsigned char)LIBXS_TYPESIZE(datatype);
+  if (0 != result) {
+    return result;
   }
-  LIBXS_ASSERT_MSG(0, "unsupported data type");
-  return 1; /* avoid to return 0 to avoid div-by-zero in static analysis of depending code */
+  else {
+    static int error_once = 0;
+    LIBXS_ASSERT_MSG(0, "unsupported data type");
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS ERROR: unsupported data type!\n");
+    }
+    return 1; /* avoid to return 0 to avoid div-by-zero in static analysis of depending code */
+  }
 }
 
 
@@ -1580,11 +1575,12 @@ LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* d
   int result = EXIT_SUCCESS;
   if (NULL != value && NULL != dvalue) {
     switch (datatype) {
-      case LIBXS_DATATYPE_F64: *dvalue =         (*(const double*)value); break;
-      case LIBXS_DATATYPE_F32: *dvalue = (double)(*(const float *)value); break;
-      case LIBXS_DATATYPE_I32: *dvalue = (double)(*(const int   *)value); break;
-      case LIBXS_DATATYPE_I16: *dvalue = (double)(*(const short *)value); break;
-      case LIBXS_DATATYPE_I8:  *dvalue = (double)(*(const char  *)value); break;
+      case LIBXS_DATATYPE_F64: *dvalue =         (*(const double   *)value); break;
+      case LIBXS_DATATYPE_F32: *dvalue = (double)(*(const float    *)value); break;
+      case LIBXS_DATATYPE_I64: *dvalue = (double)(*(const long long*)value); break;
+      case LIBXS_DATATYPE_I32: *dvalue = (double)(*(const int      *)value); break;
+      case LIBXS_DATATYPE_I16: *dvalue = (double)(*(const short    *)value); break;
+      case LIBXS_DATATYPE_I8:  *dvalue = (double)(*(const char     *)value); break;
       default: result = EXIT_FAILURE;
     }
   }
@@ -1601,6 +1597,7 @@ LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype)
     case LIBXS_DATATYPE_F64:  return "f64";
     case LIBXS_DATATYPE_F32:  return "f32";
     case LIBXS_DATATYPE_BF16: return "bf16";
+    case LIBXS_DATATYPE_F16:  return "f16";
     case LIBXS_DATATYPE_I64:  return "i64";
     case LIBXS_DATATYPE_I32:  return "i32";
     case LIBXS_DATATYPE_I16:  return "i16";

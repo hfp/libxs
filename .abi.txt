@@ -40,8 +40,6 @@ libxs_bmmdispatch_reducebatch_offs_unroll
 libxs_bmmdispatch_reducebatch_strd
 libxs_bmmdispatch_reducebatch_strd_meltwfused
 libxs_bmmdispatch_reducebatch_strd_meltwfused_unroll
-libxs_bsmmdispatch_reducebatch_strd_meltwfused
-libxs_bsmmdispatch_reducebatch_strd_meltwfused_unroll
 libxs_bmmdispatch_reducebatch_strd_unroll
 libxs_bsgemm
 libxs_bsgemm_
@@ -52,6 +50,8 @@ libxs_bsmmdispatch_reducebatch_addr_unroll
 libxs_bsmmdispatch_reducebatch_offs
 libxs_bsmmdispatch_reducebatch_offs_unroll
 libxs_bsmmdispatch_reducebatch_strd
+libxs_bsmmdispatch_reducebatch_strd_meltwfused
+libxs_bsmmdispatch_reducebatch_strd_meltwfused_unroll
 libxs_bsmmdispatch_reducebatch_strd_unroll
 libxs_convert_bf16_f32
 libxs_cpuid
@@ -261,7 +261,7 @@ libxs_gemm_handle_init
 libxs_gemm_internal_set_batchflag
 libxs_gemm_print
 libxs_gemm_print2
-libxs_gemm_thread
+libxs_gemm_task
 libxs_gemm_xprint
 libxs_generator_gemm_directasm
 libxs_generator_gemm_inlineasm
@@ -319,6 +319,8 @@ libxs_isqrt_u32
 libxs_isqrt_u64
 libxs_itrans
 libxs_itrans_
+libxs_itrans_batch
+libxs_itrans_batch_omp
 libxs_itrans_d1
 libxs_itrans_d2
 libxs_itrans_p0
@@ -335,8 +337,8 @@ libxs_matcopy_omp_
 libxs_matcopy_p0
 libxs_matcopy_s1
 libxs_matcopy_s2
-libxs_matcopy_thread
-libxs_matcopy_thread_internal
+libxs_matcopy_task
+libxs_matcopy_task_internal
 libxs_matdiff
 libxs_matdiff_
 libxs_matdiff_clear
@@ -383,8 +385,8 @@ libxs_otrans_omp_
 libxs_otrans_p0
 libxs_otrans_s1
 libxs_otrans_s2
-libxs_otrans_thread
-libxs_otrans_thread_internal
+libxs_otrans_task
+libxs_otrans_task_internal
 libxs_pgemm_descriptor_init
 libxs_primes_u32
 libxs_product_limit
