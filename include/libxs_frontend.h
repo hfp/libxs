@@ -442,7 +442,7 @@
     for (libxs_matrng_i_ = 0; libxs_matrng_i_ < ((libxs_blasint)NCOLS); ++libxs_matrng_i_) { \
       for (libxs_matrng_j_ = 0; libxs_matrng_j_ < ((libxs_blasint)NROWS); ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        (DST)[libxs_matrng_k_] = (TYPE)(libxs_matrng_scale_ / (1.0 + libxs_matrng_k_)); \
+        (DST)[libxs_matrng_k_] = (TYPE)(libxs_matrng_scale_ * (1.0 + libxs_matrng_k_)); \
       } \
       for (; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
