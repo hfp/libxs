@@ -434,15 +434,17 @@
 #define LIBXS_MATRNG_AUX(OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) { \
   /*const*/ double libxs_matrng_seed_ = (double)SEED; /* avoid constant conditional */ \
   const double libxs_matrng_scale_ = (SCALE) * libxs_matrng_seed_ + (SCALE); \
+  const libxs_blasint libxs_matrng_nrows_ = (libxs_blasint)NROWS; \
   const libxs_blasint libxs_matrng_ld_ = (libxs_blasint)LD; \
   libxs_blasint libxs_matrng_i_ = 0, libxs_matrng_j_; \
   LIBXS_OMP_VAR(libxs_matrng_i_); LIBXS_OMP_VAR(libxs_matrng_j_); \
   if (0 != libxs_matrng_seed_) { \
     OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
     for (libxs_matrng_i_ = 0; libxs_matrng_i_ < ((libxs_blasint)NCOLS); ++libxs_matrng_i_) { \
-      for (libxs_matrng_j_ = 0; libxs_matrng_j_ < ((libxs_blasint)NROWS); ++libxs_matrng_j_) { \
+      for (libxs_matrng_j_ = 0; libxs_matrng_j_ < libxs_matrng_nrows_; ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        (DST)[libxs_matrng_k_] = (TYPE)(libxs_matrng_scale_ * (1.0 + libxs_matrng_k_)); \
+        (DST)[libxs_matrng_k_] = (TYPE)(libxs_matrng_scale_ * (1.0 + \
+          libxs_matrng_i_ * libxs_matrng_nrows_ + libxs_matrng_j_)); \
       } \
       for (; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
