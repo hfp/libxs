@@ -398,7 +398,7 @@ endif
 ifneq (,$(PYTHON))
 information = \
   $(info ================================================================================) \
-  $(info LIBXS $(shell  $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py) ($(UNAME))) \
+  $(info LIBXS $(shell  $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py) ($(UNAME)$(if $(filter-out 0,$(LIBXS_TARGET_HIDDEN)),$(NULL),$(if $(HOSTNAME),@$(HOSTNAME))))) \
   $(info --------------------------------------------------------------------------------) \
   $(info $(GINFO)) \
   $(info $(CINFO)) \
@@ -1832,4 +1832,3 @@ deb:
 	else \
 		echo "Error: Git is unavailable or make-deb runs outside of cloned repository!"; \
 	fi
-
