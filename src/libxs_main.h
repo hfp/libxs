@@ -872,8 +872,14 @@ typedef enum libxs_build_kind {
 
 /** Integral type (libxs_kernel_kind, libxs_build_kind). */
 #if defined(LIBXS_UNPACKED)
-typedef size_t libxs_descriptor_kind;
+# define LIBXS_DESCRIPTOR_BIG(KIND) ((libxs_descriptor_kind)((KIND) | 0x8000000000000000))
+# define LIBXS_DESCRIPTOR_ISBIG(KIND) ((int)((KIND) >> 63))
+# define LIBXS_DESCRIPTOR_KIND(KIND) ((int)((KIND) & 0x7FFFFFFFFFFFFFFF))
+typedef uint64_t libxs_descriptor_kind;
 #else
+# define LIBXS_DESCRIPTOR_BIG(KIND) ((libxs_descriptor_kind)((KIND) | 0x80))
+# define LIBXS_DESCRIPTOR_ISBIG(KIND) ((int)((KIND) >> 7))
+# define LIBXS_DESCRIPTOR_KIND(KIND) ((int)((KIND) & 0x7F))
 typedef unsigned char libxs_descriptor_kind;
 #endif
 

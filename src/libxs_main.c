@@ -1276,7 +1276,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
         /*const*/ libxs_code_pointer code = registry[i];
         if (NULL != code.ptr_const) {
           /* check if the registered entity is a GEMM kernel */
-          switch (registry_keys[i].kind) {
+          switch (LIBXS_DESCRIPTOR_KIND(registry_keys[i].kind)) {
             case LIBXS_KERNEL_KIND_MATMUL: {
               const libxs_gemm_descriptor *const desc = &registry_keys[i].gemm.desc;
               if (1 < desc->m && 1 < desc->n) {
@@ -2258,7 +2258,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 #else
             mode = 2; /* enter code generation */
 #endif
-            if (LIBXS_KERNEL_KIND_MATMUL == desc->kind) {
+            if (LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind)) {
               internal_update_mmstatistic(&desc->gemm.desc, 0, 1/*collision*/, 0, 0);
             }
           }
@@ -2271,8 +2271,8 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         LIBXS_UNUSED(user_size);
 #else
         if (LIBXS_X86_AVX <= libxs_target_archid || /* check if JIT is supported (CPUID) */
-           (LIBXS_X86_SSE3 <= libxs_target_archid && LIBXS_KERNEL_KIND_MATMUL == desc->kind) ||
-           (LIBXS_KERNEL_KIND_USER == desc->kind))
+           (LIBXS_X86_SSE3 <= libxs_target_archid && LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind)) ||
+           (LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(desc->kind)))
         {
           LIBXS_ASSERT(0 != mode || NULL == flux_entry.ptr_const/*code version does not exist*/);
           INTERNAL_FIND_CODE_LOCK(lock, i, diff, flux_entry.ptr); /* lock the registry entry */
@@ -2315,7 +2315,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
               }
 # endif
             }
-            if (((int)LIBXS_KERNEL_KIND_MATMUL) == desc->kind) {
+            if (LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind)) {
               internal_update_mmstatistic(&desc->gemm.desc, 1/*try*/, 0, 0, 0);
             }
             /* leave here even in case of a build-error; do not use break (inside of locked region) */
@@ -2340,7 +2340,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         else /* JIT-code generation not available */
 #endif
         { /* leave the dispatch loop */
-          if (((int)LIBXS_KERNEL_KIND_MATMUL) == desc->kind) {
+          if (LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind)) {
             internal_update_mmstatistic(&desc->gemm.desc, 1/*try*/, 0, 0, 0);
           }
 #if !defined(NDEBUG) && (0 != LIBXS_JIT)
@@ -2384,7 +2384,11 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   flux_entry.uval &= ~LIBXS_CODE_STATIC; /* clear non-JIT flag */
 #endif
 #if (0 != LIBXS_JIT)
-  assert(LIBXS_KERNEL_KIND_MATMUL != desc->kind || NULL != flux_entry.ptr_const || EXIT_SUCCESS != build || 1 == internal_reglock_count); /*!LIBXS_ASSERT*/
+  assert( /*!LIBXS_ASSERT*/
+    LIBXS_KERNEL_KIND_MATMUL != LIBXS_DESCRIPTOR_KIND(desc->kind)
+    || NULL != flux_entry.ptr_const
+    || 1 == internal_reglock_count
+    || EXIT_SUCCESS != build);
 #endif
   return flux_entry;
 }
@@ -2433,7 +2437,7 @@ LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
     if (NULL != desc) {
       const libxs_kernel_kind kind = (libxs_kernel_kind)desc->kind;
       result_info.kind = kind;
-      if (LIBXS_KERNEL_KIND_USER == kind) {
+      if (LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(kind)) {
         result_info.code_size = 0; /* invalid */
       }
     }
@@ -2467,7 +2471,7 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
   if (NULL != info) {
     const libxs_descriptor* desc;
     if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
-        NULL != desc && LIBXS_KERNEL_KIND_MATMUL == desc->kind)
+        NULL != desc && LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind))
     {
       info->iprecision = (libxs_gemm_precision)LIBXS_GETENUM_INP(desc->gemm.desc.datatype);
       info->oprecision = (libxs_gemm_precision)LIBXS_GETENUM_OUT(desc->gemm.desc.datatype);
@@ -2516,7 +2520,7 @@ LIBXS_API int libxs_get_transkernel_info(libxs_xtransfunction kernel, libxs_tran
   if (NULL != info) {
     const libxs_descriptor* desc;
     if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
-        NULL != desc && LIBXS_KERNEL_KIND_TRANS == desc->kind)
+        NULL != desc && LIBXS_KERNEL_KIND_TRANS == LIBXS_DESCRIPTOR_KIND(desc->kind))
     {
       info->typesize = desc->trans.desc.typesize;
       info->ldo = desc->trans.desc.ldo;
@@ -2554,7 +2558,7 @@ LIBXS_API int libxs_get_mcopykernel_info(libxs_xmcopyfunction kernel, libxs_mcop
   if (NULL != info) {
     const libxs_descriptor* desc;
     if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
-        NULL != desc && LIBXS_KERNEL_KIND_MCOPY == desc->kind)
+        NULL != desc && LIBXS_KERNEL_KIND_MCOPY == LIBXS_DESCRIPTOR_KIND(desc->kind))
     {
       info->typesize = desc->mcopy.desc.typesize;
       info->prefetch = desc->mcopy.desc.prefetch;
@@ -2595,7 +2599,7 @@ LIBXS_API int libxs_get_meltwkernel_info(libxs_xmeltwfunction kernel, libxs_melt
   if (NULL != info) {
     const libxs_descriptor* desc;
     if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
-        NULL != desc && LIBXS_KERNEL_KIND_MELTW == desc->kind)
+        NULL != desc && LIBXS_KERNEL_KIND_MELTW == LIBXS_DESCRIPTOR_KIND(desc->kind))
     {
       info->datatype = desc->meltw.desc.datatype;
       info->operation = desc->meltw.desc.operation;
@@ -2680,7 +2684,8 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size, size_t value_s
     LIBXS_MEMSET127(&wrap, 0, key_size);
 #endif
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
-    wrap.kind = LIBXS_KERNEL_KIND_USER;
+    wrap.kind = (LIBXS_DESCRIPTOR_SIGSIZE >= key_size
+      ? LIBXS_KERNEL_KIND_USER : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
     dst = internal_find_code(&wrap, key_size, value_size).ptr;
     if (NULL != dst) {
       size_t size;
@@ -2732,7 +2737,8 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
     LIBXS_MEMSET127(&wrap, 0, key_size);
 #endif
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
-    wrap.kind = LIBXS_KERNEL_KIND_USER;
+    wrap.kind = (LIBXS_DESCRIPTOR_SIGSIZE >= key_size
+      ? LIBXS_KERNEL_KIND_USER : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
     result = internal_find_code(&wrap, key_size, 0/*user_size*/).ptr;
   }
 #if !defined(NDEBUG)
@@ -2764,12 +2770,17 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
   LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
 #endif
   if (NULL != descriptor) {
+    const int batch_reduce =
+      LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS |
+      LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET |
+      LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE;
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
     LIBXS_ASSIGN127(&wrap.gemm.desc, descriptor);
-    wrap.kind = LIBXS_KERNEL_KIND_MATMUL;
+    wrap.kind = (0 != (batch_reduce & descriptor->flags)
+      ? LIBXS_KERNEL_KIND_MATMUL : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MATMUL));
     if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
       wrap.gemm.desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
     }
@@ -4222,7 +4233,7 @@ LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
     LIBXS_ASSIGN127(&wrap.meltw.desc, descriptor);
-    wrap.kind = LIBXS_KERNEL_KIND_MELTW;
+    wrap.kind = LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MELTW);
     result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xmateltw;
   }
   else {
@@ -4676,7 +4687,7 @@ LIBXS_API void libxs_release_kernel(const void* kernel)
         libxs_kernel_info info;
 #if !defined(LIBXS_ENABLE_DEREG)
         if (EXIT_SUCCESS == libxs_get_kernel_info(kernel, &info)
-          && LIBXS_KERNEL_KIND_USER == info.kind)
+          && LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(info.kind))
 #endif
         {
           LIBXS_ASSERT(LIBXS_KERNEL_UNREGISTERED > info.kind);
