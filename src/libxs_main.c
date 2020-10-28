@@ -2640,7 +2640,8 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size, size_t value_s
 #endif
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
     wrap.kind = (LIBXS_DESCRIPTOR_SIGSIZE >= key_size
-      ? LIBXS_KERNEL_KIND_USER : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
+      ? (libxs_descriptor_kind)LIBXS_KERNEL_KIND_USER
+      : (libxs_descriptor_kind)LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
     dst = internal_find_code(&wrap, key_size, value_size).ptr;
     if (NULL != dst) {
       size_t size;
@@ -2693,7 +2694,8 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
 #endif
     LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
     wrap.kind = (LIBXS_DESCRIPTOR_SIGSIZE >= key_size
-      ? LIBXS_KERNEL_KIND_USER : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
+      ? (libxs_descriptor_kind)LIBXS_KERNEL_KIND_USER
+      : (libxs_descriptor_kind)LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
     result = internal_find_code(&wrap, key_size, 0/*user_size*/).ptr;
   }
 #if !defined(NDEBUG)
@@ -2735,7 +2737,8 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
 #endif
     LIBXS_ASSIGN127(&wrap.gemm.desc, descriptor);
     wrap.kind = (0 == (batch_reduce & descriptor->flags)
-      ? LIBXS_KERNEL_KIND_MATMUL : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MATMUL));
+      ? (libxs_descriptor_kind)LIBXS_KERNEL_KIND_MATMUL
+      : (libxs_descriptor_kind)LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MATMUL));
     if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
       wrap.gemm.desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
     }
