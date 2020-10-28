@@ -210,13 +210,16 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
   unsigned char prefetch;
   /** Denotes the data-type. */
   unsigned char datatype;
+  /**
+   * Do not reorder elements between above and below blocks!
+   */
   /** Denotes of optional eltwise data-type */
   unsigned char meltw_datatype_aux;
-  /** multipurpose 64bit field, currently used for: a) stride_a in brgemm */
+  /** multipurpose 64-bit field, currently used for: a) stride_a in brgemm */
   unsigned long long c1;
-  /** multipurpose 64bit field, currently used for: a) stride_b in brgemm */
+  /** multipurpose 64-bit field, currently used for: a) stride_b in brgemm */
   unsigned long long c2;
-  /** multipurpose 8bit field, currently used for: a) unroll hint in brgemm */
+  /** multipurpose 8-bit field, currently used for: a) unroll hint in brgemm */
   unsigned char c3;
   /** LDx, LDy, LDz,  additional meltw LDs */
   unsigned int meltw_ldx, meltw_ldy, meltw_ldz;
@@ -873,8 +876,8 @@ typedef enum libxs_build_kind {
 /** Integral type (libxs_kernel_kind, libxs_build_kind). */
 #if defined(LIBXS_UNPACKED)
 # define LIBXS_DESCRIPTOR_BIG(KIND) ((libxs_descriptor_kind)((KIND) | 0x8000000000000000))
-# define LIBXS_DESCRIPTOR_ISBIG(KIND) ((int)((KIND) >> 63))
-# define LIBXS_DESCRIPTOR_KIND(KIND) ((int)((KIND) & 0x7FFFFFFFFFFFFFFF))
+# define LIBXS_DESCRIPTOR_ISBIG(KIND) ((int)(((libxs_descriptor_kind)(KIND)) >> 63))
+# define LIBXS_DESCRIPTOR_KIND(KIND) ((int)(((libxs_descriptor_kind)(KIND)) & 0x7FFFFFFFFFFFFFFF))
 typedef uint64_t libxs_descriptor_kind;
 #else
 # define LIBXS_DESCRIPTOR_BIG(KIND) ((libxs_descriptor_kind)((KIND) | 0x80))
