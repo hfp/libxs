@@ -1308,7 +1308,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             case LIBXS_KERNEL_KIND_USER: {
               ++internal_statistic_num_user;
             } break;
-            default: if (LIBXS_KERNEL_UNREGISTERED <= registry_keys[i].kind) {
+            default: if (LIBXS_KERNEL_UNREGISTERED <= LIBXS_DESCRIPTOR_KIND(registry_keys[i].kind)) {
               ++errors;
             }
             else {
@@ -1670,6 +1670,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   LIBXS_ASSERT(NULL != generated_code.generated_code || 0 == generated_code.buffer_size);
   LIBXS_ASSERT(NULL != request && 0 != libxs_target_archid);
   LIBXS_ASSERT(NULL != code && NULL == code->ptr_const);
+  LIBXS_ASSERT(0 == LIBXS_DESCRIPTOR_ISBIG(request->kind));
 
   switch (request->kind) { /* generate kernel */
     case LIBXS_BUILD_KIND_GEMM: { /* small MxM kernel */
@@ -2278,8 +2279,8 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
           INTERNAL_FIND_CODE_LOCK(lock, i, diff, flux_entry.ptr); /* lock the registry entry */
           if (NULL == internal_registry[i].ptr_const) { /* double-check registry after acquiring the lock */
             libxs_build_request request; /* setup the code build request */
-            LIBXS_ASSERT(desc->kind < LIBXS_KERNEL_UNREGISTERED);
-            request.kind = (libxs_build_kind)desc->kind;
+            LIBXS_ASSERT(LIBXS_KERNEL_UNREGISTERED > LIBXS_DESCRIPTOR_KIND(desc->kind));
+            request.kind = (libxs_build_kind)LIBXS_DESCRIPTOR_KIND(desc->kind);
             request.descriptor.ptr = &desc->gemm.desc;
             request.user_size = user_size;
 # if defined(NDEBUG)
@@ -2407,7 +2408,7 @@ LIBXS_API_INTERN const libxs_kernel_xinfo* libxs_get_kernel_xinfo(libxs_code_poi
 #else
         && code.ptr_const == internal_registry[result->registered].ptr_const
 #endif
-        && internal_registry_keys[result->registered].kind < LIBXS_KERNEL_UNREGISTERED)
+        && LIBXS_KERNEL_UNREGISTERED > LIBXS_DESCRIPTOR_KIND(internal_registry_keys[result->registered].kind))
       {
         *desc = internal_registry_keys + result->registered;
       }
@@ -2435,9 +2436,9 @@ LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
   xinfo = libxs_get_kernel_xinfo(code, &desc, &result_info.code_size);
   if (NULL != xinfo) {
     if (NULL != desc) {
-      const libxs_kernel_kind kind = (libxs_kernel_kind)desc->kind;
+      const libxs_kernel_kind kind = (libxs_kernel_kind)LIBXS_DESCRIPTOR_KIND(desc->kind);
       result_info.kind = kind;
-      if (LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(kind)) {
+      if (LIBXS_KERNEL_KIND_USER == kind) {
         result_info.code_size = 0; /* invalid */
       }
     }
@@ -2779,7 +2780,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
     LIBXS_ASSIGN127(&wrap.gemm.desc, descriptor);
-    wrap.kind = (0 != (batch_reduce & descriptor->flags)
+    wrap.kind = (0 == (batch_reduce & descriptor->flags)
       ? LIBXS_KERNEL_KIND_MATMUL : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MATMUL));
     if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
       wrap.gemm.desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
@@ -4687,7 +4688,7 @@ LIBXS_API void libxs_release_kernel(const void* kernel)
         libxs_kernel_info info;
 #if !defined(LIBXS_ENABLE_DEREG)
         if (EXIT_SUCCESS == libxs_get_kernel_info(kernel, &info)
-          && LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(info.kind))
+          && LIBXS_KERNEL_KIND_USER == info.kind)
 #endif
         {
           LIBXS_ASSERT(LIBXS_KERNEL_UNREGISTERED > info.kind);
