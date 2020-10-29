@@ -43,7 +43,8 @@
 # define LIBXS_DIFF_SIZE LIBXS_DESCRIPTOR_SIGSIZE
 #endif
 #if !defined(LIBXS_HASH_SIZE)
-# define LIBXS_HASH_SIZE LIBXS_DESCRIPTOR_SIGSIZE
+/* can be smaller than MAXSIZE/SIGSIZE at the expense of collisions */
+# define LIBXS_HASH_SIZE 32
 #endif
 #if !defined(LIBXS_HASH_SEED)
 # define LIBXS_HASH_SEED 25071975
