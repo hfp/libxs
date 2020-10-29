@@ -4068,10 +4068,10 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reduce
   if ( (stride_a < 0) || (stride_b < 0) ) {
     return NULL;
   }
-  desc->meltw_datatype_aux = meltw_dt;
+  desc->meltw_datatype_aux = (unsigned char)meltw_dt;
   desc->meltw_flags = (unsigned short)meltw_flags;
-  desc->meltw_operation = meltw_op;
-  desc->meltw_param = meltw_param;
+  desc->meltw_operation = (unsigned char)meltw_op;
+  desc->meltw_param = (unsigned char)meltw_param;
   result = libxs_xmmdispatch(desc);
   return result.bmrs_meltwfused;
 }
@@ -4094,10 +4094,10 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reduce
   if ( (stride_a < 0) || (stride_b < 0) ) {
     return NULL;
   }
-  desc->meltw_datatype_aux = meltw_dt;
+  desc->meltw_datatype_aux = (unsigned char)meltw_dt;
   desc->meltw_flags = (unsigned short)meltw_flags;
-  desc->meltw_operation = meltw_op;
-  desc->meltw_param = meltw_param;
+  desc->meltw_operation = (unsigned char)meltw_op;
+  desc->meltw_param = (unsigned char)meltw_param;
   result = libxs_xmmdispatch(desc);
   return result.bmrs_meltwfused;
 }
@@ -4119,10 +4119,10 @@ LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_redu
   if ( (stride_a < 0) || (stride_b < 0) ) {
     return NULL;
   }
-  desc->meltw_datatype_aux = meltw_dt;
+  desc->meltw_datatype_aux = (unsigned char)meltw_dt;
   desc->meltw_flags = (unsigned short)meltw_flags;
-  desc->meltw_operation = meltw_op;
-  desc->meltw_param = meltw_param;
+  desc->meltw_operation = (unsigned char)meltw_op;
+  desc->meltw_param = (unsigned char)meltw_param;
   result = libxs_xmmdispatch(desc);
   return result.bsmrs_meltwfused;
 }
@@ -4145,10 +4145,10 @@ LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_redu
   if ( (stride_a < 0) || (stride_b < 0) ) {
     return NULL;
   }
-  desc->meltw_datatype_aux = meltw_dt;
+  desc->meltw_datatype_aux = (unsigned char)meltw_dt;
   desc->meltw_flags = (unsigned short)meltw_flags;
-  desc->meltw_operation = meltw_op;
-  desc->meltw_param = meltw_param;
+  desc->meltw_operation = (unsigned char)meltw_op;
+  desc->meltw_param = (unsigned char)meltw_param;
   result = libxs_xmmdispatch(desc);
   return result.bsmrs_meltwfused;
 }
@@ -4254,7 +4254,7 @@ LIBXS_API libxs_meltwfunction_relu libxs_dispatch_meltw_relu(libxs_blasint m, li
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
     in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
-    flags, param, LIBXS_MELTW_OPERATION_RELU);
+    (unsigned short)flags, param, LIBXS_MELTW_OPERATION_RELU);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
 
@@ -4278,7 +4278,7 @@ LIBXS_API libxs_meltwfunction_cvtfp32bf16_act libxs_dispatch_meltw_cvtfp32bf16_a
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
     in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
-    flags, param, LIBXS_MELTW_OPERATION_CVTFP32BF16_ACT);
+    (unsigned short)flags, param, LIBXS_MELTW_OPERATION_CVTFP32BF16_ACT);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
 
@@ -4289,7 +4289,7 @@ LIBXS_API libxs_meltwfunction_act_cvtfp32bf16 libxs_dispatch_meltw_act_cvtfp32bf
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
     in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
-    flags, param, LIBXS_MELTW_OPERATION_ACT_CVTFP32BF16);
+    (unsigned short)flags, param, LIBXS_MELTW_OPERATION_ACT_CVTFP32BF16);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
 
@@ -4300,7 +4300,7 @@ LIBXS_API libxs_meltwfunction_reduce libxs_dispatch_meltw_reduce(libxs_blasint m
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
     in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
-    flags, param, LIBXS_MELTW_OPERATION_REDUCE);
+    (unsigned short)flags, param, LIBXS_MELTW_OPERATION_REDUCE);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
 
@@ -4324,7 +4324,7 @@ LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_ve
   libxs_blasint idx_dtype_size = libxs_typesize(idx_type);
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
     in_type, out_type, m, idx_dtype_size, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
-    flags, 0, LIBXS_MELTW_OPERATION_OPREDUCE_VECS_IDX);
+    (unsigned short)flags, 0, LIBXS_MELTW_OPERATION_OPREDUCE_VECS_IDX);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
 
@@ -4335,7 +4335,7 @@ LIBXS_API libxs_meltwfunction_scale libxs_dispatch_meltw_scale(libxs_blasint m, 
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
     in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
-    flags, param, LIBXS_MELTW_OPERATION_SCALE);
+    (unsigned short)flags, param, LIBXS_MELTW_OPERATION_SCALE);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
 
