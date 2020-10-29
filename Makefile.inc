@@ -1253,17 +1253,9 @@ ifneq (0,$(INTEL))
           CTARGET := -xCORE-AVX512
         endif
         ifneq (,$(filter-out 0,$(VNNI)))
-          ifneq (,$(call ctest,$(CC),-mavx512vnni))
-            CTARGET += -mavx512vnni
-          else
-            override VNNI := 0
-          endif
+          CTARGET += $(call ctest,$(CC),-mavx512vnni)
         else ifneq (,$(filter-out 0,$(BF16)))
-          ifneq (,$(call ctest,$(CC),-mavx512vnni -mavx512bf16))
-            CTARGET += -mavx512vnni -mavx512bf16
-          else
-            override BF16 := 0
-          endif
+          CTARGET += $(call ctest,$(CC),-mavx512vnni -mavx512bf16)
         endif
       else ifeq (2,$(AVX))
         CTARGET := -xCORE-AVX2
@@ -1297,17 +1289,9 @@ ifneq (0,$(INTEL))
         CTARGET := -xCORE-AVX512
       endif
       ifneq (,$(filter-out 0,$(VNNI)))
-        ifneq (,$(call ctest,$(CC),-mavx512vnni))
-          CTARGET += -mavx512vnni
-        else
-          override VNNI := 0
-        endif
+        CTARGET += $(call ctest,$(CC),-mavx512vnni)
       else ifneq (,$(filter-out 0,$(BF16)))
-        ifneq (,$(call ctest,$(CC),-mavx512vnni -mavx512bf16))
-          CTARGET += -mavx512vnni -mavx512bf16
-        else
-          override BF16 := 0
-        endif
+        CTARGET += $(call ctest,$(CC),-mavx512vnni -mavx512bf16)
       endif
     else ifeq (2,$(AVX))
       CTARGET := -march=core-avx2
@@ -1650,17 +1634,9 @@ ifeq (undefined,$(origin TARGET))
           CTARGET += -mavx512dq -mavx512bw -mavx512vl
         endif
         ifneq (,$(filter-out 0,$(VNNI)))
-          ifneq (,$(call ctest,$(CC),-mavx512vnni))
-            CTARGET += -mavx512vnni
-          else
-            override VNNI := 0
-          endif
+          CTARGET += $(call ctest,$(CC),-mavx512vnni)
         else ifneq (,$(filter-out 0,$(BF16)))
-          ifneq (,$(call ctest,$(CC),-mavx512vnni -mavx512bf16))
-            CTARGET += -mavx512vnni -mavx512bf16
-          else
-            override BF16 := 0
-          endif
+          CTARGET += $(call ctest,$(CC),-mavx512vnni -mavx512bf16)
         endif
       endif
     endif
@@ -1731,6 +1707,9 @@ ifeq (undefined,$(origin TARGET))
 else # take user's TARGET into account
   CTARGET := $(TARGET)
 endif
+
+override VNNI := $(if $(filter -mavx512vnni,$(CTARGET)),1,0)
+override BF16 := $(if $(filter -mavx512bf16,$(CTARGET)),1,0)
 
 ifneq (,$(call ftest,$(FC),$(CTARGET)))
   # inherit CTARGET flags
