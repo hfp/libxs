@@ -1244,13 +1244,26 @@ ifneq (0,$(INTEL))
   ifneq (0,$(shell echo "$$((3>$(DBG)))"))
     ifeq (0,$(COMPATIBLE))
     ifneq (,$(filter environment% override command%,$(origin COMPATIBLE))$(filter-out 1,$(INTEL)))
-      ifeq (3,$(AVX))
+      ifneq (,$(filter 3,$(AVX))$(filter-out 0,$(VNNI) $(BF16)))
         ifeq (,$(MIC))
           CTARGET := -xCOMMON-AVX512
         else ifneq (0,$(MIC))
           CTARGET := -xMIC-AVX512
         else
           CTARGET := -xCORE-AVX512
+        endif
+        ifneq (,$(filter-out 0,$(VNNI)))
+          ifneq (,$(call ctest,$(CC),-mavx512vnni))
+            CTARGET += -mavx512vnni
+          else
+            override VNNI := 0
+          endif
+        else ifneq (,$(filter-out 0,$(BF16)))
+          ifneq (,$(call ctest,$(CC),-mavx512vnni -mavx512bf16))
+            CTARGET += -mavx512vnni -mavx512bf16
+          else
+            override BF16 := 0
+          endif
         endif
       else ifeq (2,$(AVX))
         CTARGET := -xCORE-AVX2
@@ -1275,13 +1288,26 @@ ifneq (0,$(INTEL))
       endif
     endif
     endif
-    ifeq (3,$(AVX))
+    ifneq (,$(filter 3,$(AVX))$(filter-out 0,$(VNNI) $(BF16)))
       ifeq (,$(MIC))
         CTARGET := -xCOMMON-AVX512
       else ifneq (0,$(MIC))
         CTARGET := -xMIC-AVX512
       else
         CTARGET := -xCORE-AVX512
+      endif
+      ifneq (,$(filter-out 0,$(VNNI)))
+        ifneq (,$(call ctest,$(CC),-mavx512vnni))
+          CTARGET += -mavx512vnni
+        else
+          override VNNI := 0
+        endif
+      else ifneq (,$(filter-out 0,$(BF16)))
+        ifneq (,$(call ctest,$(CC),-mavx512vnni -mavx512bf16))
+          CTARGET += -mavx512vnni -mavx512bf16
+        else
+          override BF16 := 0
+        endif
       endif
     else ifeq (2,$(AVX))
       CTARGET := -march=core-avx2
@@ -1603,7 +1629,7 @@ ifeq (undefined,$(origin TARGET))
   endif
   ifeq (,$(CTARGET))
   ifneq (0,$(shell echo "$$((3>$(DBG)))"))
-    ifeq (3,$(AVX))
+    ifneq (,$(filter 3,$(AVX))$(filter-out 0,$(VNNI) $(BF16)))
     ifneq (0,$(shell echo "$$(((0!=$(XSMM_GCC) && 60000<=$(GCC_VERSION_NUM)) || \
           (0!=$(CLANG) && (40000<=$(CC_VERSION_NUM) || 0==$(CC_VERSION_NUM))) || \
           (0!=$(PGI) && 190000<=$(CC_VERSION_NUM))))"))
@@ -1622,6 +1648,19 @@ ifeq (undefined,$(origin TARGET))
           #CTARGET += -mavx512ifma -mavx512vbmi
         else ifneq (0,$(shell echo "$$((0!=$(CLANG) && 80100<=$(CC_VERSION_NUM)))"))
           CTARGET += -mavx512dq -mavx512bw -mavx512vl
+        endif
+        ifneq (,$(filter-out 0,$(VNNI)))
+          ifneq (,$(call ctest,$(CC),-mavx512vnni))
+            CTARGET += -mavx512vnni
+          else
+            override VNNI := 0
+          endif
+        else ifneq (,$(filter-out 0,$(BF16)))
+          ifneq (,$(call ctest,$(CC),-mavx512vnni -mavx512bf16))
+            CTARGET += -mavx512vnni -mavx512bf16
+          else
+            override BF16 := 0
+          endif
         endif
       endif
     endif
