@@ -329,8 +329,11 @@ LIBXS_API libxs_dnn_err_t libxs_dnn_optimizer_execute_st(libxs_dnn_optimizer* ha
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
 
   if (0 != handle) {
-    LIBXS_UNUSED(start_thread);
-    LIBXS_UNUSED(tid);
+    if (handle->desc.opt_type == LIBXS_DNN_OPTIMIZER_SGD) {
+      libxs_dnn_optimizer_sgd_st( handle, start_thread, tid );
+    } else {
+      status = LIBXS_DNN_ERR_INVALID_HANDLE;
+    }
   }
   else {
     status = LIBXS_DNN_ERR_INVALID_HANDLE;
