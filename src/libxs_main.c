@@ -64,6 +64,9 @@
 #if !defined(LIBXS_UNIFY_LOCKS) && 1
 # define LIBXS_UNIFY_LOCKS
 #endif
+#if !defined(LIBXS_REGKEY_PAD) && 1
+# define LIBXS_REGKEY_PAD
+#endif
 #if !defined(LIBXS_CACHE_PAD) && 1
 # define LIBXS_CACHE_PAD
 #endif
@@ -213,11 +216,18 @@ LIBXS_APIVAR_DEFINE(internal_cache_type* internal_cache_buffer);
 # endif
 LIBXS_APIVAR_DEFINE(int internal_cache_size);
 #endif /*defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))*/
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_regkey_type {
+#if defined(LIBXS_REGKEY_PAD)
+  char pad[LIBXS_UP2(sizeof(libxs_descriptor), LIBXS_CACHELINE)];
+#endif
+  libxs_descriptor entry;
+} internal_regkey_type;
+
 /** Determines the try-lock property (1<N: disabled, N=1: enabled [N=0: disabled in case of RW-lock]). */
 LIBXS_APIVAR_DEFINE(int internal_reglock_count);
 LIBXS_APIVAR_DEFINE(size_t internal_registry_nbytes);
 LIBXS_APIVAR_DEFINE(unsigned int internal_registry_nleaks);
-LIBXS_APIVAR_DEFINE(libxs_descriptor* internal_registry_keys);
+LIBXS_APIVAR_DEFINE(internal_regkey_type* internal_registry_keys);
 LIBXS_APIVAR_DEFINE(libxs_code_pointer* internal_registry);
 LIBXS_APIVAR_DEFINE(internal_statistic_type internal_statistic[2/*DP/SP*/][4/*sml/med/big/xxx*/]);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_sml);
@@ -568,8 +578,8 @@ LIBXS_API_INLINE void internal_register_static_code(
       LIBXS_ASSERT(NULL == dst_entry->ptr_const || i == i0);
     }
     if (NULL == dst_entry->ptr_const) { /* registry not exhausted */
-      internal_registry_keys[i].kind = LIBXS_KERNEL_KIND_MATMUL;
-      LIBXS_ASSIGN127(&internal_registry_keys[i].gemm.desc, desc);
+      internal_registry_keys[i].entry.kind = LIBXS_KERNEL_KIND_MATMUL;
+      LIBXS_ASSIGN127(&internal_registry_keys[i].entry.gemm.desc, desc);
       dst_entry->xgemm = xgemm;
       /* mark current entry as static code (non-JIT) */
       dst_entry->uval |= LIBXS_CODE_STATIC;
@@ -983,7 +993,7 @@ LIBXS_API_INTERN void internal_init(void)
         sizeof(internal_cache_type) * (LIBXS_NTHREADS_MAX), LIBXS_CACHELINE/*alignment*/,
         LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/) && NULL != new_cache) &&
 #endif
-      (EXIT_SUCCESS == libxs_xmalloc(&new_keys, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_descriptor), 0/*auto-align*/,
+      (EXIT_SUCCESS == libxs_xmalloc(&new_keys, (LIBXS_CAPACITY_REGISTRY) * sizeof(internal_regkey_type), 0/*auto-align*/,
         LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/) && NULL != new_keys) &&
       (EXIT_SUCCESS == libxs_xmalloc(&new_registry, (LIBXS_CAPACITY_REGISTRY) * sizeof(libxs_code_pointer), 0/*auto-align*/,
         LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/) && NULL != new_registry))
@@ -1020,7 +1030,7 @@ LIBXS_API_INTERN void internal_init(void)
       LIBXS_ASSERT(NULL == internal_cache_buffer);
       internal_cache_buffer = (internal_cache_type*)new_cache;
 #endif
-      internal_registry_keys = (libxs_descriptor*)new_keys; /* prior to registering static kernels */
+      internal_registry_keys = (internal_regkey_type*)new_keys; /* prior to registering static kernels */
 #if defined(LIBXS_BUILD) && !defined(LIBXS_DEFAULT_CONFIG)
 #     include <libxs_dispatch.h>
 #endif
@@ -1239,7 +1249,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_RELAXED);
     registry = (libxs_code_pointer*)regptr;
     if (NULL != registry) {
-      libxs_descriptor *const registry_keys = internal_registry_keys;
+      internal_regkey_type*const registry_keys = internal_registry_keys;
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
       internal_cache_type *const cache_buffer = internal_cache_buffer;
 #endif
@@ -1268,9 +1278,9 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
         /*const*/ libxs_code_pointer code = registry[i];
         if (NULL != code.ptr_const) {
           /* check if the registered entity is a GEMM kernel */
-          switch (LIBXS_DESCRIPTOR_KIND(registry_keys[i].kind)) {
+          switch (LIBXS_DESCRIPTOR_KIND(registry_keys[i].entry.kind)) {
             case LIBXS_KERNEL_KIND_MATMUL: {
-              const libxs_gemm_descriptor *const desc = &registry_keys[i].gemm.desc;
+              const libxs_gemm_descriptor *const desc = &registry_keys[i].entry.gemm.desc;
               if (1 < desc->m && 1 < desc->n) {
                 const unsigned int njit = (0 == (LIBXS_CODE_STATIC & code.uval) ? 1 : 0);
                 const unsigned int nsta = (0 != (LIBXS_CODE_STATIC & code.uval) ? 1 : 0);
@@ -1300,7 +1310,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             case LIBXS_KERNEL_KIND_USER: {
               ++internal_statistic_num_user;
             } break;
-            default: if (LIBXS_KERNEL_UNREGISTERED <= LIBXS_DESCRIPTOR_KIND(registry_keys[i].kind)) {
+            default: if (LIBXS_KERNEL_UNREGISTERED <= LIBXS_DESCRIPTOR_KIND(registry_keys[i].entry.kind)) {
               ++errors;
             }
             else {
@@ -2363,9 +2373,9 @@ LIBXS_API_INTERN const libxs_kernel_xinfo* libxs_get_kernel_xinfo(libxs_code_poi
 #else
         && code.ptr_const == internal_registry[result->registered].ptr_const
 #endif
-        && LIBXS_KERNEL_UNREGISTERED > LIBXS_DESCRIPTOR_KIND(internal_registry_keys[result->registered].kind))
+        && LIBXS_KERNEL_UNREGISTERED > LIBXS_DESCRIPTOR_KIND(internal_registry_keys[result->registered].entry.kind))
       {
-        *desc = internal_registry_keys + result->registered;
+        *desc = &internal_registry_keys[result->registered].entry;
       }
       else *desc = NULL;
     }
