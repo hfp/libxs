@@ -4664,7 +4664,7 @@ LIBXS_API void libxs_release_kernel(const void* kernel)
           LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
           internal_registry[regindex].ptr = NULL;
 #if !defined(NDEBUG)
-          LIBXS_MEMZERO127(internal_registry_keys + regindex);
+          memset(internal_registry_keys + regindex, 0, sizeof(*internal_registry_keys));
 #endif
           libxs_xfree(kernel, 0/*no check*/);
         }
