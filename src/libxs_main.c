@@ -2138,7 +2138,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 LIBXS_API_INLINE void internal_pad_descriptor(libxs_descriptor* desc, signed char size)
 {
   LIBXS_ASSERT(LIBXS_DESCRIPTOR_MAXSIZE < 128 && NULL != desc);
-  for (; size < LIBXS_DESCRIPTOR_MAXSIZE; ++size) desc->data[size] = 0;
+  LIBXS_ASSERT(LIBXS_DIFF_SIZE <= LIBXS_DESCRIPTOR_MAXSIZE);
+  LIBXS_ASSERT(LIBXS_HASH_SIZE <= LIBXS_DIFF_SIZE);
+  for (; size < LIBXS_DIFF_SIZE; ++size) desc->data[size] = 0;
 }
 
 
@@ -2147,6 +2149,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   libxs_code_pointer flux_entry = { 0 };
   const int is_big_desc = LIBXS_DESCRIPTOR_ISBIG(desc->kind);
   const signed char size = (signed char)(sizeof(libxs_descriptor_kind) + desc_size);
+  LIBXS_DIFF_DECL(LIBXS_DIFF_SIZE, xdesc);
 #if !defined(NDEBUG) && (0 != LIBXS_JIT)
   int build = EXIT_SUCCESS;
 #endif
@@ -2160,16 +2163,21 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 # endif
   unsigned char cache_index;
   internal_pad_descriptor(desc, size);
-  cache_index = (unsigned char)libxs_diff_n(desc, cache->entry.keys,
-    0 == is_big_desc ? LIBXS_DIFF_SIZE : size, LIBXS_CACHE_STRIDE,
-    cache->entry.hit, cache->entry.size);
+  if (0 == is_big_desc) {
+    LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
+    LIBXS_DIFF_N(unsigned char, cache_index, LIBXS_DIFF(LIBXS_DIFF_SIZE), xdesc, cache->entry.keys,
+      LIBXS_DIFF_SIZE, LIBXS_CACHE_STRIDE, cache->entry.hit, cache->entry.size);
+  }
+  else {
+    cache_index = (unsigned char)libxs_diff_n(desc, cache->entry.keys,
+      size, LIBXS_CACHE_STRIDE, cache->entry.hit, cache->entry.size);
+  }
   if (cache->entry.id == libxs_ninit && cache_index < cache->entry.size) { /* valid hit */
     flux_entry = cache->entry.code[cache_index];
     cache->entry.hit = cache_index;
   }
   else
 #else
-  LIBXS_ASSERT(NULL != desc);
   internal_pad_descriptor(desc, size);
 #endif
   {
@@ -2193,8 +2201,10 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
       if ((NULL != flux_entry.ptr_const || 1 == mode) && 2 > mode) { /* check existing entry further */
         if (NULL != flux_entry.ptr_const) {
           if (0 == is_big_desc) {
+#if !defined(LIBXS_CACHE_MAXSIZE) || (0 == (LIBXS_CACHE_MAXSIZE))
             LIBXS_DIFF_DECL(LIBXS_DIFF_SIZE, xdesc);
             LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
+#endif
             diff = LIBXS_DIFF(LIBXS_DIFF_SIZE)(xdesc, internal_registry_keys + i, 0/*dummy*/);
           }
           else {
@@ -2338,7 +2348,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         cache->entry.size = 1;
         cache_index = 0;
       }
-      LIBXS_ASSIGN127(cache->entry.keys + cache_index, desc);
+      LIBXS_MEMCPY127(cache->entry.keys + cache_index, desc, 0 == is_big_desc ? LIBXS_DIFF_SIZE : size);
       cache->entry.code[cache_index] = flux_entry;
       cache->entry.hit = cache_index;
     }
