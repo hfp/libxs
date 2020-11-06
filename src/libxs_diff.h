@@ -25,7 +25,7 @@
 #define LIBXS_DIFF_8_LOAD(A, SRC) A = (const uint64_t*)(SRC)
 #define LIBXS_DIFF_8(A, B, ...) ((unsigned char)(0 != (*(A) ^ (*(const uint64_t*)(B)))))
 
-#define LIBXS_DIFF_SSE3_DECL(A) __m128i A = _mm_undefined_si128()
+#define LIBXS_DIFF_SSE3_DECL(A) __m128i A = LIBXS_INTRINSICS_MM_UNDEFINED_SI128()
 #define LIBXS_DIFF_SSE3_ASSIGN(A, B) (A) = (B)
 #define LIBXS_DIFF_SSE3_LOAD(A, SRC) A = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)(SRC))
 #define LIBXS_DIFF_SSE3(A, B, ...) ((unsigned char)(0xFFFF != _mm_movemask_epi8(_mm_cmpeq_epi8( \
