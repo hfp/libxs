@@ -2202,7 +2202,6 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         if (NULL != flux_entry.ptr_const) {
           if (0 == is_big_desc) {
 #if !defined(LIBXS_CACHE_MAXSIZE) || (0 == (LIBXS_CACHE_MAXSIZE))
-            LIBXS_DIFF_DECL(LIBXS_DIFF_SIZE, xdesc);
             LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
 #endif
             diff = LIBXS_DIFF(LIBXS_DIFF_SIZE)(xdesc, internal_registry_keys + i, 0/*dummy*/);
