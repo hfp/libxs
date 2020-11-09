@@ -2044,7 +2044,7 @@ LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment,
               if (internal_malloc_local_max < watermark) internal_malloc_local_max = watermark; /* accept data-race */
             }
           }
-          else { /* private */
+          else if (0 != (LIBXS_MALLOC_FLAG_SCRATCH & flags)) { /* private scratch */
             const size_t watermark = LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(
               &internal_malloc_private_cur, alloc_size, LIBXS_ATOMIC_RELAXED);
             if (internal_malloc_private_max < watermark) internal_malloc_private_max = watermark; /* accept data-race */
