@@ -478,10 +478,9 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
       sizeof(internal_malloc_info_type), PROT_READ | PROT_WRITE) || ENOMEM != errno)
 #endif
     {
-      const size_t maxsize = LIBXS_MAX(LIBXS_MAX(internal_malloc_public_max, internal_malloc_local_max), internal_malloc_private_max);
       const int flags_rs = LIBXS_MALLOC_FLAG_REALLOC | LIBXS_MALLOC_FLAG_SCRATCH;
       const int flags_mx = LIBXS_MALLOC_FLAG_MMAP | LIBXS_MALLOC_FLAG_X;
-      const char* const pointer = (const char*)result->pointer;
+      const char *const pointer = (const char*)result->pointer;
       union { libxs_free_fun fun; const void* ptr; } convert;
       convert.fun = result->free.function;
       if (((flags_mx != (flags_mx & result->flags)) && NULL != result->reloc)
@@ -492,10 +491,10 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
 #endif
         || (0 != (~LIBXS_MALLOC_FLAG_VALID & result->flags))
         || (0 == (LIBXS_MALLOC_FLAG_R & result->flags))
-        || pointer == convert.ptr || pointer == result->context
-        || pointer >= buffer || NULL == pointer
-        || maxsize < result->size || 0 == result->size
-        || 2 > libxs_ninit /* before checksum calculation */
+        || (pointer == convert.ptr || pointer == result->context || pointer >= buffer || NULL == pointer)
+        || (LIBXS_MAX(LIBXS_MAX(internal_malloc_public_max, internal_malloc_local_max), internal_malloc_private_max) < result->size
+            && 0 == (LIBXS_MALLOC_FLAG_PRIVATE & result->flags)) || (0 == result->size)
+        || (2 > libxs_ninit) /* before checksum calculation */
 #if !defined(LIBXS_MALLOC_CRC_OFF) /* last check: checksum over info */
 # if defined(LIBXS_MALLOC_CRC_LIGHT)
         || result->hash != LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &result)
@@ -570,7 +569,7 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
 #else /* !_WIN32 */
       {
         const size_t unmap_size = LIBXS_UP2(alloc_size, LIBXS_PAGE_MINSIZE);
-        void* const reloc = info->reloc;
+        void *const reloc = info->reloc;
         if (0 != munmap(buffer, unmap_size)) {
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
@@ -678,7 +677,7 @@ LIBXS_API_INLINE size_t internal_get_scratch_size(const internal_malloc_pool_typ
         result += pool->instance.minsize;
       }
 # else
-      const internal_malloc_info_type* const info = internal_malloc_info(pool->instance.buffer, 0/*no check*/);
+      const internal_malloc_info_type *const info = internal_malloc_info(pool->instance.buffer, 0/*no check*/);
       if (NULL != info && pool != exclude && (LIBXS_MALLOC_INTERNAL_CALLER) != pool->instance.site) {
         result += info->size;
       }
@@ -696,7 +695,7 @@ LIBXS_API_INLINE internal_malloc_pool_type* internal_scratch_malloc_pool(const v
   internal_malloc_pool_type* result = NULL;
   internal_malloc_pool_type* pool = (internal_malloc_pool_type*)LIBXS_UP2(
     (uintptr_t)internal_malloc_pool_buffer, LIBXS_MALLOC_SCRATCH_PADDING);
-  const char* const buffer = (const char*)memory;
+  const char *const buffer = (const char*)memory;
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (1 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
   const unsigned int npools = libxs_scratch_pools;
 #else
@@ -715,7 +714,7 @@ LIBXS_API_INLINE internal_malloc_pool_type* internal_scratch_malloc_pool(const v
 #if 1
         const size_t size = pool->instance.minsize;
 #else
-        const internal_malloc_info_type* const info = internal_malloc_info(pool->instance.buffer, 0/*no check*/);
+        const internal_malloc_info_type *const info = internal_malloc_info(pool->instance.buffer, 0/*no check*/);
         const size_t size = info->size;
 #endif
         if (pool->instance.buffer == buffer /* fast path */ ||
@@ -737,7 +736,7 @@ LIBXS_API_INTERN void internal_scratch_free(const void* memory, internal_malloc_
 {
 #if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
   const size_t counter = LIBXS_ATOMIC_SUB_FETCH(&pool->instance.counter, 1, LIBXS_ATOMIC_SEQ_CST);
-  char* const pool_buffer = pool->instance.buffer;
+  char *const pool_buffer = pool->instance.buffer;
 # if (!defined(NDEBUG) || defined(LIBXS_MALLOC_SCRATCH_TRIM_HEAD))
   char *const buffer = (char*)memory; /* non-const */
   LIBXS_ASSERT(pool_buffer <= buffer && buffer < pool_buffer + pool->instance.minsize);
@@ -2463,7 +2462,7 @@ LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock)
 # endif
           NULL != pools[i].instance.buffer)
         {
-          internal_malloc_info_type* const info = internal_malloc_info(pools[i].instance.buffer, 2/*check*/);
+          internal_malloc_info_type *const info = internal_malloc_info(pools[i].instance.buffer, 2/*check*/);
           if (NULL != info) internal_xfree(info->pointer, info);
         }
       }
