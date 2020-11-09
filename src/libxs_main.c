@@ -4077,7 +4077,7 @@ LIBXS_API libxs_sububmmfunction_reducebatch_strd libxs_sububmmdispatch_reducebat
 /* -------------------------------- */
 LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reducebatch_strd_meltwfused(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
-  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param)
+  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param, unsigned int meltw_ldx, unsigned int meltw_ldy, unsigned int meltw_ldz)
 {
   const int gemm_flags = (NULL == flags ? (LIBXS_FLAGS | LIBXS_GEMM_FLAG_VNNI_A) : *flags);
   libxs_descriptor_blob blob;
@@ -4096,13 +4096,16 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reduce
   desc->meltw_flags = (unsigned short)meltw_flags;
   desc->meltw_operation = (unsigned char)meltw_op;
   desc->meltw_param = (unsigned char)meltw_param;
+  desc->meltw_ldx = (unsigned int) meltw_ldx;
+  desc->meltw_ldy = (unsigned int) meltw_ldy;
+  desc->meltw_ldz = (unsigned int) meltw_ldz;
   result = libxs_xmmdispatch(desc);
   return result.bmrs_meltwfused;
 }
 
 LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reducebatch_strd_meltwfused_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
-  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param)
+  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param, unsigned int meltw_ldx, unsigned int meltw_ldy, unsigned int meltw_ldz)
 {
   const int gemm_flags = (NULL == flags ? (LIBXS_FLAGS | LIBXS_GEMM_FLAG_VNNI_A) : *flags);
   libxs_descriptor_blob blob;
@@ -4122,13 +4125,16 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reduce
   desc->meltw_flags = (unsigned short)meltw_flags;
   desc->meltw_operation = (unsigned char)meltw_op;
   desc->meltw_param = (unsigned char)meltw_param;
+  desc->meltw_ldx = (unsigned int) meltw_ldx;
+  desc->meltw_ldy = (unsigned int) meltw_ldy;
+  desc->meltw_ldz = (unsigned int) meltw_ldz;
   result = libxs_xmmdispatch(desc);
   return result.bmrs_meltwfused;
 }
 
 LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_reducebatch_strd_meltwfused(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
-  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param)
+  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param, unsigned int meltw_ldx, unsigned int meltw_ldy, unsigned int meltw_ldz)
 {
   const int gemm_flags = (NULL == flags ? (LIBXS_FLAGS | LIBXS_GEMM_FLAG_VNNI_A) : *flags);
   libxs_descriptor_blob blob;
@@ -4147,13 +4153,16 @@ LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_redu
   desc->meltw_flags = (unsigned short)meltw_flags;
   desc->meltw_operation = (unsigned char)meltw_op;
   desc->meltw_param = (unsigned char)meltw_param;
+  desc->meltw_ldx = (unsigned int) meltw_ldx;
+  desc->meltw_ldy = (unsigned int) meltw_ldy;
+  desc->meltw_ldz = (unsigned int) meltw_ldz;
   result = libxs_xmmdispatch(desc);
   return result.bsmrs_meltwfused;
 }
 
 LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_reducebatch_strd_meltwfused_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
-  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param)
+  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param, unsigned int meltw_ldx, unsigned int meltw_ldy, unsigned int meltw_ldz)
 {
   const int gemm_flags = (NULL == flags ? (LIBXS_FLAGS | LIBXS_GEMM_FLAG_VNNI_A) : *flags);
   libxs_descriptor_blob blob;
@@ -4173,6 +4182,9 @@ LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_redu
   desc->meltw_flags = (unsigned short)meltw_flags;
   desc->meltw_operation = (unsigned char)meltw_op;
   desc->meltw_param = (unsigned char)meltw_param;
+  desc->meltw_ldx = (unsigned int) meltw_ldx;
+  desc->meltw_ldy = (unsigned int) meltw_ldy;
+  desc->meltw_ldz = (unsigned int) meltw_ldz;
   result = libxs_xmmdispatch(desc);
   return result.bsmrs_meltwfused;
 }
