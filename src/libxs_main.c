@@ -64,7 +64,7 @@
 #if !defined(LIBXS_UNIFY_LOCKS) && 1
 # define LIBXS_UNIFY_LOCKS
 #endif
-#if !defined(LIBXS_REGKEY_PAD) && 1
+#if !defined(LIBXS_REGKEY_PAD) && 0
 # define LIBXS_REGKEY_PAD
 #endif
 #if !defined(LIBXS_CACHE_PAD) && 1
