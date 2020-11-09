@@ -491,10 +491,11 @@ LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment)
     ptr_is_aligned = !LIBXS_MOD2(address, (uintptr_t)minalign);
   }
   else {
-    *alignment = (1 << LIBXS_INTRINSICS_BITSCANFWD64(address));
+    const unsigned int nbits = LIBXS_INTRINSICS_BITSCANFWD64(address);
+    *alignment = (32 > nbits ? (1 << nbits) : INT_MAX);
     ptr_is_aligned = (minalign <= *alignment);
   }
-  return ptr_is_aligned && (NULL == inc || !LIBXS_MOD2(*inc, minalign));
+  return ptr_is_aligned && (NULL == inc || !LIBXS_MOD2(*inc, (size_t)minalign));
 }
 
 
