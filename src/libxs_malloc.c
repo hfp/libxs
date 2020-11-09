@@ -479,7 +479,8 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
 #endif
     {
       const int flags_rs = LIBXS_MALLOC_FLAG_REALLOC | LIBXS_MALLOC_FLAG_SCRATCH;
-      const int flags_mx = LIBXS_MALLOC_FLAG_MMAP | LIBXS_MALLOC_FLAG_X;
+      const int flags_px = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_PRIVATE;
+      const int flags_mx = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_MMAP;
       const char *const pointer = (const char*)result->pointer;
       union { libxs_free_fun fun; const void* ptr; } convert;
       convert.fun = result->free.function;
@@ -493,7 +494,7 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
         || (0 == (LIBXS_MALLOC_FLAG_R & result->flags))
         || (pointer == convert.ptr || pointer == result->context || pointer >= buffer || NULL == pointer)
         || (LIBXS_MAX(LIBXS_MAX(internal_malloc_public_max, internal_malloc_local_max), internal_malloc_private_max) < result->size
-            && 0 == (LIBXS_MALLOC_FLAG_PRIVATE & result->flags)) || (0 == result->size)
+            && 0 == (flags_px & result->flags)) || (0 == result->size)
         || (2 > libxs_ninit) /* before checksum calculation */
 #if !defined(LIBXS_MALLOC_CRC_OFF) /* last check: checksum over info */
 # if defined(LIBXS_MALLOC_CRC_LIGHT)
