@@ -589,18 +589,18 @@ LIBXS_APIEXT void libxs_otrans_omp(void* out, const void* in, unsigned int types
 
 /** Matrix transposition; in-place (BLAS-like equivalent is "imatcopy"). */
 LIBXS_API void libxs_itrans(void* inout, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld);
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi);
 
 /** Series/batch of matrix transpositions; in-place. See also libxs_mmbatch. */
 LIBXS_API void libxs_itrans_batch(void* inout, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi,
   libxs_blasint index_base, libxs_blasint index_stride,
   const libxs_blasint stride[], libxs_blasint batchsize,
   /*unsigned*/int tid, /*unsigned*/int ntasks);
 
 /** Series/batch of matrix transpositions ((MT via libxsext)); in-place. */
 LIBXS_APIEXT void libxs_itrans_batch_omp(void* inout, unsigned int typesize,
-  libxs_blasint m, libxs_blasint n, libxs_blasint ld,
+  libxs_blasint m, libxs_blasint n, libxs_blasint ldi,
   libxs_blasint index_base, libxs_blasint index_stride,
   const libxs_blasint stride[], libxs_blasint batchsize);
 
