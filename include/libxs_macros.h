@@ -66,7 +66,8 @@
       (defined(__amd64__) && 0 != (__amd64__)) || \
       (defined(_M_X64) || defined(_M_AMD64)) || \
       (defined(_WIN64)) || \
-      (defined(__powerpc64))
+      (defined(__powerpc64)) || \
+      (defined(__aarch64__))
 #   define LIBXS_UNLIMITED 0xFFFFFFFFFFFFFFFF
 #   define LIBXS_BITS 64
 # elif !defined(LIBXS_PLATFORM_FORCE) && defined(NDEBUG)
