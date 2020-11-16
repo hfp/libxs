@@ -1405,6 +1405,7 @@ LIBXS_API void libxs_set_target_archid(int id)
     case LIBXS_X86_AVX:
     case LIBXS_X86_SSE4:
     case LIBXS_X86_SSE3:
+    case LIBXS_AARCH64_V81:
     case LIBXS_TARGET_ARCH_GENERIC: {
       target_archid = id;
     } break;
@@ -1501,6 +1502,10 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
           || arch == libxs_stristr(arch, "sse2"))
     {
       target_archid = LIBXS_X86_GENERIC;
+    }
+    else if (arch == libxs_stristr(arch, "aarch64"))
+    {
+      target_archid = LIBXS_AARCH64_V81;
     }
     else if (arch == libxs_stristr(arch, "generic")
           || arch == libxs_stristr(arch, "none"))
@@ -1690,7 +1695,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         const unsigned int m = request->descriptor.gemm->m, n = request->descriptor.gemm->n, k = request->descriptor.gemm->k;
         extra.nflops = 2 * m * n * k;
 # if !defined(LIBXS_DENY_RETARGET) /* disable: ECFLAGS=-DLIBXS_DENY_RETARGET */
-        if (LIBXS_X86_AVX2 < libxs_target_archid &&
+        if ((LIBXS_X86_AVX2 < libxs_target_archid) && (libxs_target_archid <= LIBXS_X86_ALLFEAT) &&
            (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype) ||
             LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype)) &&
            (16 >= (m * k) || 16 >= (k * n) || 16 >= (m * n)))

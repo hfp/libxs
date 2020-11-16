@@ -203,7 +203,12 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
 
 LIBXS_API int libxs_cpuid(void)
 {
+#if defined(__aarch64__)
+  /* @TODO add AARCH64 feature check */
+  return LIBXS_AARCH64_V81;
+#else
   return libxs_cpuid_x86(NULL/*info*/);
+#endif
 }
 
 
@@ -249,6 +254,9 @@ LIBXS_API const char* libxs_cpuid_name(int id)
        */
       target_arch = "wsm";
     } break;
+    case LIBXS_AARCH64_V81: {
+      target_arch = "aarch64";
+    } break;
     case LIBXS_TARGET_ARCH_GENERIC: {
       target_arch = "generic";
     } break;
@@ -275,6 +283,9 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
     result = 8;
   }
   else if (LIBXS_X86_SSE3 <= id) {
+    result = 4;
+  }
+  else if (LIBXS_AARCH64_V81 == id) {
     result = 4;
   }
   else { /* scalar */

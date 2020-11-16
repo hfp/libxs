@@ -33,6 +33,8 @@
 #define LIBXS_X86_AVX512_CPX   1022
 #define LIBXS_X86_AVX512_SPR   1023
 #define LIBXS_X86_ALLFEAT      1999
+#define LIBXS_AARCH64_V81      2002
+#define LIBXS_AARCH64_ALLFEAT  2999
 
 /** A zero-initialized structure assumes conservative properties. */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_cpuid_x86_info {
