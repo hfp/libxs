@@ -3126,7 +3126,16 @@ LIBXS_API libxs_dmmfunction_reducebatch_addr libxs_dmmdispatch_reducebatch_addr_
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
+  int emu_amx = 0;
+  const char *const env_emu_amx = getenv("EMULATE_AMX");
+  if ( 0 == env_emu_amx ) {
+  } else {
+    emu_amx = atoi(env_emu_amx);
+  }
   desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if (emu_amx > 0) {
+    desc->c3 = (unsigned char) 0;
+  }
   result = libxs_xmmdispatch(desc);
   return result.dmra;
 }
@@ -3144,7 +3153,17 @@ LIBXS_API libxs_smmfunction_reducebatch_addr libxs_smmdispatch_reducebatch_addr_
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
+  int emu_amx = 0;
+  const char *const env_emu_amx = getenv("EMULATE_AMX");
+  if ( 0 == env_emu_amx ) {
+  } else {
+    emu_amx = atoi(env_emu_amx);
+  }
   desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if (emu_amx > 0) {
+    desc->c3 = (unsigned char) 0;
+  }
+
   result = libxs_xmmdispatch(desc);
   return result.smra;
 }
@@ -3162,7 +3181,16 @@ LIBXS_API libxs_bsmmfunction_reducebatch_addr libxs_bsmmdispatch_reducebatch_add
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
+  int emu_amx = 0;
+  const char *const env_emu_amx = getenv("EMULATE_AMX");
+  if ( 0 == env_emu_amx ) {
+  } else {
+    emu_amx = atoi(env_emu_amx);
+  }
   desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if (emu_amx > 0) {
+    desc->c3 = (unsigned char) 0;
+  }
   result = libxs_xmmdispatch(desc);
   return result.bsmra;
 }
@@ -3180,7 +3208,16 @@ LIBXS_API libxs_bmmfunction_reducebatch_addr libxs_bmmdispatch_reducebatch_addr_
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
+  int emu_amx = 0;
+  const char *const env_emu_amx = getenv("EMULATE_AMX");
+  if ( 0 == env_emu_amx ) {
+  } else {
+    emu_amx = atoi(env_emu_amx);
+  }
   desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if (emu_amx > 0) {
+    desc->c3 = (unsigned char) 0;
+  }
   result = libxs_xmmdispatch(desc);
   return result.bmra;
 }
@@ -3198,7 +3235,16 @@ LIBXS_API libxs_wimmfunction_reducebatch_addr libxs_wimmdispatch_reducebatch_add
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
+  int emu_amx = 0;
+  const char *const env_emu_amx = getenv("EMULATE_AMX");
+  if ( 0 == env_emu_amx ) {
+  } else {
+    emu_amx = atoi(env_emu_amx);
+  }
   desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if (emu_amx > 0) {
+    desc->c3 = (unsigned char) 0;
+  }
   result = libxs_xmmdispatch(desc);
   return result.wimra;
 }
@@ -3216,7 +3262,16 @@ LIBXS_API libxs_ssbimmfunction_reducebatch_addr libxs_ssbimmdispatch_reducebatch
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
+  int emu_amx = 0;
+  const char *const env_emu_amx = getenv("EMULATE_AMX");
+  if ( 0 == env_emu_amx ) {
+  } else {
+    emu_amx = atoi(env_emu_amx);
+  }
   desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if (emu_amx > 0) {
+    desc->c3 = (unsigned char) 0;
+  }
   result = libxs_xmmdispatch(desc);
   return result.ssbimra;
 }
@@ -3234,7 +3289,16 @@ LIBXS_API libxs_usbimmfunction_reducebatch_addr libxs_usbimmdispatch_reducebatch
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_A_UNSIGNED | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
+  int emu_amx = 0;
+  const char *const env_emu_amx = getenv("EMULATE_AMX");
+  if ( 0 == env_emu_amx ) {
+  } else {
+    emu_amx = atoi(env_emu_amx);
+  }
   desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if (emu_amx > 0) {
+    desc->c3 = (unsigned char) 0;
+  }
   result = libxs_xmmdispatch(desc);
   return result.usbimra;
 }
@@ -3252,7 +3316,16 @@ LIBXS_API libxs_subimmfunction_reducebatch_addr libxs_subimmdispatch_reducebatch
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_B_UNSIGNED | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
+  int emu_amx = 0;
+  const char *const env_emu_amx = getenv("EMULATE_AMX");
+  if ( 0 == env_emu_amx ) {
+  } else {
+    emu_amx = atoi(env_emu_amx);
+  }
   desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if (emu_amx > 0) {
+    desc->c3 = (unsigned char) 0;
+  }
   result = libxs_xmmdispatch(desc);
   return result.subimra;
 }
@@ -3270,7 +3343,16 @@ LIBXS_API libxs_uubimmfunction_reducebatch_addr libxs_uubimmdispatch_reducebatch
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_AB_UNSIGNED | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
+  int emu_amx = 0;
+  const char *const env_emu_amx = getenv("EMULATE_AMX");
+  if ( 0 == env_emu_amx ) {
+  } else {
+    emu_amx = atoi(env_emu_amx);
+  }
   desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if (emu_amx > 0) {
+    desc->c3 = (unsigned char) 0;
+  }
   result = libxs_xmmdispatch(desc);
   return result.uubimra;
 }
@@ -3288,7 +3370,16 @@ LIBXS_API libxs_sububmmfunction_reducebatch_addr libxs_sububmmdispatch_reducebat
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_B_UNSIGNED | LIBXS_GEMM_FLAG_C_UNSIGNED | LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS, libxs_get_gemm_xprefetch(prefetch));
   /*const*/ libxs_xmmfunction result;
+  int emu_amx = 0;
+  const char *const env_emu_amx = getenv("EMULATE_AMX");
+  if ( 0 == env_emu_amx ) {
+  } else {
+    emu_amx = atoi(env_emu_amx);
+  }
   desc->c3 = (unsigned char)(unroll_hint < 127 ? unroll_hint : 0);
+  if (emu_amx > 0) {
+    desc->c3 = (unsigned char) 0;
+  }
   result = libxs_xmmdispatch(desc);
   return result.sububmra;
 }
