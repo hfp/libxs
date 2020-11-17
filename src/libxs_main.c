@@ -77,6 +77,9 @@
 # define INTERNAL_DELIMS ";,:"
 #endif
 
+#if !defined(_WIN32) && !defined(__CYGWIN__)
+LIBXS_EXTERN int posix_memalign(void**, size_t, size_t);
+#endif
 #if defined(LIBXS_AUTOPIN) && !defined(_WIN32)
 LIBXS_EXTERN int putenv(char*) LIBXS_THROW;
 #endif
@@ -282,6 +285,8 @@ LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
   void* result;
 #if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
   result = __libc_memalign(alignment, size);
+#elif defined(__STDC_VERSION__) && (201112L <= __STDC_VERSION__) /*C11*/
+  result = aligned_alloc(alignment, size);
 #elif (defined(_WIN32) || defined(__CYGWIN__))
   LIBXS_UNUSED(alignment);
   result = malloc(size);
