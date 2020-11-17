@@ -4419,6 +4419,7 @@ LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reduce
     NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
     NULL != ldc ? *ldc : m, NULL != alpha ? *alpha : LIBXS_ALPHA, NULL != beta ? *beta : LIBXS_BETA,
     gemm_flags | LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE, libxs_get_gemm_xprefetch(prefetch));
+  /*const*/ libxs_xmmfunction result;
   int emu_amx = 0;
   const char *const env_emu_amx = getenv("EMULATE_AMX");
   desc->c1 = (unsigned long long)stride_a;
