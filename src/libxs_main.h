@@ -1005,15 +1005,15 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags,
   /** If a name is given, an executable buffer will be dumped into a file. */
   const char* name);
 
+/** Like libxs_release_scratch, but takes a lock (can be NULL). */
+LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock);
+
 /** Allocate memory of the requested size, which is aligned according to the given alignment. */
-LIBXS_API_INTERN int libxs_xmalloc(void** memory, size_t size, size_t alignment, int flags,
+LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment, int flags,
   /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
   const void* extra, size_t extra_size);
 /** Release memory, which was allocated using libxs_[*]malloc. */
-LIBXS_API_INTERN void libxs_xfree(const void* memory, int check);
-
-/** Like libxs_release_scratch, but takes a lock (can be NULL). */
-LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock);
+LIBXS_API void libxs_xfree(const void* memory, int check);
 
 /**
  * Format for instance an amount of Bytes like libxs_format_size(result, sizeof(result), nbytes, "KMGT", "B", 10).
@@ -1023,6 +1023,9 @@ LIBXS_API_INTERN size_t libxs_format_size(char buffer[32], int buffer_size, size
 
 /** Returns the type-name of data-type (can be also libxs_gemm_precision). */
 LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype);
+
+/** Dump data and (optionally) checks attempt to dump different data into an existing file (unique). */
+LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique);
 
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);

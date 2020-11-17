@@ -324,6 +324,7 @@ libxs_itrans_batch
 libxs_itrans_batch_omp
 libxs_itrans_d1
 libxs_itrans_d2
+libxs_itrans_internal
 libxs_itrans_p0
 libxs_itrans_s1
 libxs_itrans_s2
@@ -572,10 +573,12 @@ libxs_xclear_
 libxs_xdiff_
 libxs_xdispatch
 libxs_xdispatch_
+libxs_xfree
 libxs_xgemm
 libxs_xgemm_omp
 libxs_xgemm_omp_
 libxs_xhash_
+libxs_xmalloc
 libxs_xmmcall_
 libxs_xmmcall_abc_
 libxs_xmmcall_prf_
