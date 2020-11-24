@@ -148,6 +148,10 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
             }
           }
         }
+      } else if ( feature_cpu == LIBXS_X86_SSE4 ) {
+        /* this is just assuming FXSAVE, which should be fine
+         * 16 years after the fist x86_64 OS */
+        feature_os = LIBXS_X86_SSE4;
       }
       else feature_os = LIBXS_TARGET_ARCH_GENERIC;
       has_context = (LIBXS_STATIC_TARGET_ARCH >= feature_cpu || feature_os >= feature_cpu) ? 1 : 0;
