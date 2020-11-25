@@ -7,22 +7,26 @@
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
 import sphinx_rtd_theme
+import os
 
 project = 'LIBXS'
 copyright = '2009-2020, Intel Corporation.'
 author = 'Intel Corporation'
+user = os.environ.get('USER')
 
-# m2r implies recommonmark
 extensions = [
-    "m2r"
+    #"recommonmark",
+    "m2r2"
 ]
 
 master_doc = "index"
 source_suffix = [
-    ".rst", ".md"
+    ".rst",
+    #".md"
 ]
 
 exclude_patterns = [
+    "*-" + user + "-*.md",
     "Thumbs.db",
     ".DS_Store",
     "_build"
