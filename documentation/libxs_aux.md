@@ -60,7 +60,7 @@ void* libxs_xregister(const void* key, size_t key_size, size_t value_size, const
 void* libxs_xdispatch(const void* key, size_t key_size);
 ```
 
-The Fortran interface is designed to follow the same flow as the C&#160;language: (1)&#160;`libxs_xdispatch` is used to query the value, and (2)&#160;if the value is a NULL-pointer, it is registered per `libxs_xregister`. Similar to C (`memset`), structured key-data must be zero-filled (`libxs_xclear`) even when followed by an element-wise initialization. A key based on a contiguous array has no gaps by definition and it is enough to initialize the array elements. A [Fortran example](https://github.com/hfp/libxs/blob/master/samples/utilities/dispatch/dispatch_udt.f) is given as part of the [Dispatch Microbenchmark](https://github.com/hfp/libxs/tree/master/samples/utilities/dispatch).
+The Fortran interface is designed to follow the same flow as the <span>C&#160;language</span>: <span>(1)&#160;</span>`libxs_xdispatch` is used to query the value, and <span>(2)&#160;if</span> the value is a NULL-pointer, it is registered per `libxs_xregister`. Similar to C (`memset`), structured key-data must be zero-filled (`libxs_xclear`) even when followed by an element-wise initialization. A key based on a contiguous array has no gaps by definition and it is enough to initialize the array elements. A [Fortran example](https://github.com/hfp/libxs/blob/master/samples/utilities/dispatch/dispatch_udt.f) is given as part of the [Dispatch Microbenchmark](https://github.com/hfp/libxs/tree/master/samples/utilities/dispatch).
 
 ```Fortran
 FUNCTION libxs_xregister(key, keysize, valsize, valinit)
@@ -93,7 +93,7 @@ int libxs_get_malloc_info(const void* m, libxs_malloc_info* i);
 int libxs_get_scratch_info(libxs_scratch_info* info);
 ```
 
-The library exposes two memory allocation domains: (1)&#160;default memory allocation, and (2)&#160;scratch memory allocation. There are similar service functions for both domains that allow to customize the allocation and deallocation function. The "context form" even supports a user-defined "object", which may represent an allocator or any other external facility. To set the allocator of the default domain is analogous to setting the allocator of the scratch memory domain (shown below).
+The library exposes two memory allocation domains: <span>(1)&#160;default</span> memory allocation, and <span>(2)&#160;scratch</span> memory allocation. There are similar service functions for both domains that allow to customize the allocation and deallocation function. The "context form" even supports a user-defined "object", which may represent an allocator or any other external facility. To set the allocator of the default domain is analogous to setting the allocator of the scratch memory domain (shown below).
 
 ```C
 int libxs_set_scratch_allocator(void* context,
@@ -102,7 +102,7 @@ int libxs_get_scratch_allocator(void** context,
   libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 ```
 
-The scratch memory allocation is very effective and delivers a decent speedup over subsequent regular memory allocations. In contrast to the default allocator, a watermark for repeatedly allocated and deallocated buffers is established. The scratch memory domain is (arbitrarily) limited to 4&#160;GB of memory which can be adjusted to a different number of Bytes (available per [libxs_malloc.h](https://github.com/hfp/libxs/blob/master/include/libxs_malloc.h), and also per environment variable LIBXS_SCRATCH_LIMIT with optional "k|K", "m|M", "g|G" units, unlimited per "-1").
+The scratch memory allocation is very effective and delivers a decent speedup over subsequent regular memory allocations. In contrast to the default allocator, a watermark for repeatedly allocated and deallocated buffers is established. The scratch memory domain is (arbitrarily) limited to <span>4&#160;GB</span> of memory which can be adjusted to a different number of Bytes (available per [libxs_malloc.h](https://github.com/hfp/libxs/blob/master/include/libxs_malloc.h), and also per environment variable LIBXS_SCRATCH_LIMIT with optional "k|K", "m|M", "g|G" units, unlimited per "-1").
 
 ```C
 void libxs_set_scratch_limit(size_t nbytes);
@@ -123,7 +123,7 @@ To improve thread-scalability and to avoid frequent memory allocation/deallocati
 
 Loading and storing data (I/O) is normally out of LIBXS's scope. However, comparing results (correctness) or writing files for visual inspection is clearly desired. This is particularly useful for the DNN domain. The MHD library domain provides support for the Meta Image File format (MHD). Tools such as [ITK-SNAP](http://itksnap.org/) or [ParaView](https://www.paraview.org/) can be used to inspect, compare, and modify images (even beyond two-dimensional images).
 
-Writing an image is per `libxs_mhd_write`, and loading an image is split in two stages: (1)&#160;`libxs_mhd_read_header`, and (2)&#160;`libxs_mhd_read`. The first step allows to allocate a properly sized buffer, which is then used to obtain the data per `libxs_mhd_read`. When reading data, an on-the-fly type conversion is supported. Further, data that is already in memory can be compared against file-data without allocating memory or reading this file into memory.
+Writing an image is per `libxs_mhd_write`, and loading an image is split in two stages: <span>(1)&#160;</span>`libxs_mhd_read_header`, and <span>(2)&#160;</span>`libxs_mhd_read`. The first step allows to allocate a properly sized buffer, which is then used to obtain the data per `libxs_mhd_read`. When reading data, an on-the-fly type conversion is supported. Further, data that is already in memory can be compared against file-data without allocating memory or reading this file into memory.
 
 To load an image from a familiar format (JPG, PNG, etc.), one may save the raw data using for instance [IrfanView](http://www.irfanview.com/) and rely on a "header-only" MHD-file (plain text). This may look like:
 
