@@ -304,21 +304,21 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trsm_descriptor {
   char transa;
 };
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_soa_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pspgemm_csr_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
   const unsigned int* column_idx;
   const void* values;
   unsigned int packed_width;
-} libxs_csr_soa_descriptor;
+} libxs_pspgemm_csr_descriptor;
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csc_soa_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pspgemm_csc_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* column_ptr;
   const unsigned int* row_idx;
   const void* values;
   unsigned int packed_width;
-} libxs_csc_soa_descriptor;
+} libxs_pspgemm_csc_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pgemm_ac_rm_descriptor {
   const libxs_gemm_descriptor* gemm;
@@ -868,8 +868,8 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_USER       = LIBXS_KERNEL_KIND_USER,
   LIBXS_BUILD_KIND_PGEMMRMAC  = LIBXS_KERNEL_UNREGISTERED,
   LIBXS_BUILD_KIND_PGEMMRMBC,
-  LIBXS_BUILD_KIND_SRSOA,
-  LIBXS_BUILD_KIND_SCSOA,
+  LIBXS_BUILD_KIND_PSPGEMM_CSR,
+  LIBXS_BUILD_KIND_PSPGEMM_CSC,
   LIBXS_BUILD_KIND_SREG
 } libxs_build_kind;
 
@@ -898,8 +898,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
   union {
     const void* ptr; /* raw content */
     LIBXS_REGDESC(LIBXS_REGDESC_DEFAULT, const*);
-    const libxs_csr_soa_descriptor* srsoa;
-    const libxs_csc_soa_descriptor* scsoa;
+    const libxs_pspgemm_csr_descriptor* pspgemm_csr;
+    const libxs_pspgemm_csc_descriptor* pspgemm_csc;
     const libxs_pgemm_ac_rm_descriptor* pgemmacrm;
     const libxs_pgemm_bc_rm_descriptor* pgemmbcrm;
     const libxs_csr_reg_descriptor* sreg;
