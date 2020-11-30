@@ -86,6 +86,9 @@ LIBXS_EXTERN int posix_memalign(void**, size_t, size_t) LIBXS_THROW;
 #if defined(LIBXS_AUTOPIN) && !defined(_WIN32)
 LIBXS_EXTERN int putenv(char*) LIBXS_THROW;
 #endif
+#if defined(__STDC_VERSION__) && (201112L <= __STDC_VERSION__) /*C11*/
+LIBXS_EXTERN void* aligned_alloc(size_t, size_t) LIBXS_THROW;
+#endif
 
 /* flag fused into the memory address of a code version in case of non-JIT */
 #define LIBXS_CODE_STATIC (1ULL << (8 * sizeof(void*) - 1))
