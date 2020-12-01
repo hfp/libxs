@@ -2043,6 +2043,16 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (4 == request->descriptor.meltw->typesize)
 # endif
       {
+        int emu_amx = 0;
+        const char *const env_emu_amx = getenv("EMULATE_AMX");
+        if ( 0 == env_emu_amx ) {
+        } else {
+          emu_amx = atoi(env_emu_amx);
+        }
+        if (emu_amx > 0) {
+          generated_code.arch = libxs_cpuid();
+        }
+
         LIBXS_NO_OFFLOAD(void, libxs_generator_mateltwise_kernel, &generated_code, request->descriptor.meltw);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
