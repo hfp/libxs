@@ -1874,10 +1874,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       {
         const unsigned int nnz = (request->descriptor.pspgemm_csr->gemm->lda == 0) ?
             request->descriptor.pspgemm_csr->row_ptr[request->descriptor.pspgemm_csr->gemm->m] : request->descriptor.pspgemm_csr->row_ptr[request->descriptor.pspgemm_csr->gemm->k];
-        const unsigned int simdw = (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pspgemm_csr->gemm->datatype)) ?
-            libxs_cpuid_vlen32(libxs_target_archid)/2 : libxs_cpuid_vlen32(libxs_target_archid);
         const unsigned int gemm_factor = (request->descriptor.pspgemm_csr->gemm->lda == 0) ? request->descriptor.pspgemm_csr->gemm->n : request->descriptor.pspgemm_csr->gemm->m;
-        extra.nflops = 2 * nnz * gemm_factor * simdw;
+        extra.nflops = 2 * nnz * gemm_factor * request->descriptor.pspgemm_csr->packed_width;
         LIBXS_NO_OFFLOAD(void, libxs_generator_packed_spgemm_csr_kernel, &generated_code, request->descriptor.pspgemm_csr->gemm,
           request->descriptor.pspgemm_csr->row_ptr, request->descriptor.pspgemm_csr->column_idx, request->descriptor.pspgemm_csr->values, request->descriptor.pspgemm_csr->packed_width);
 # if !defined(LIBXS_VTUNE)
@@ -1908,10 +1906,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       {
         const unsigned int nnz = (request->descriptor.pspgemm_csc->gemm->lda == 0) ?
             request->descriptor.pspgemm_csc->column_ptr[request->descriptor.pspgemm_csc->gemm->k] : request->descriptor.pspgemm_csc->column_ptr[request->descriptor.pspgemm_csc->gemm->n];
-        const unsigned int simdw = (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pspgemm_csc->gemm->datatype)) ?
-            libxs_cpuid_vlen32(libxs_target_archid)/2 : libxs_cpuid_vlen32(libxs_target_archid);
         const unsigned int gemm_factor = (request->descriptor.pspgemm_csc->gemm->lda == 0) ? request->descriptor.pspgemm_csc->gemm->n : request->descriptor.pspgemm_csc->gemm->m;
-        extra.nflops = 2 * nnz * gemm_factor * simdw;
+        extra.nflops = 2 * nnz * gemm_factor * request->descriptor.pspgemm_csc->packed_width;
         LIBXS_NO_OFFLOAD(void, libxs_generator_packed_spgemm_csc_kernel, &generated_code, request->descriptor.pspgemm_csc->gemm,
           request->descriptor.pspgemm_csc->row_idx, request->descriptor.pspgemm_csc->column_ptr, request->descriptor.pspgemm_csc->values, request->descriptor.pspgemm_csc->packed_width);
 # if !defined(LIBXS_VTUNE)
@@ -2039,18 +2035,19 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     } break;
     case LIBXS_BUILD_KIND_MELTW: { /* matcopy kernel */
       LIBXS_ASSERT(NULL != request->descriptor.meltw);
-# if 0 /* TODO: backend supports typesize <= 4, but kernels for typesize < 4 are incorrect */
-      if (4 == request->descriptor.meltw->typesize)
-# endif
       {
-        int emu_amx = 0;
-        const char *const env_emu_amx = getenv("EMULATE_AMX");
-        if ( 0 == env_emu_amx ) {
-        } else {
-          emu_amx = atoi(env_emu_amx);
-        }
-        if (emu_amx > 0) {
-          generated_code.arch = libxs_cpuid();
+        /* dispatch eltwise code with AVX512_BF16 by demoting seemlessly to the current CPU arch */
+        if ( ( generated_code.arch >= LIBXS_X86_AVX512_SPR ) &&
+             ( generated_code.arch <= LIBXS_X86_ALLFEAT )       ) {
+          int emu_amx = 0;
+          const char *const env_emu_amx = getenv("EMULATE_AMX");
+          if ( 0 == env_emu_amx ) {
+          } else {
+            emu_amx = atoi(env_emu_amx);
+          }
+          if (emu_amx > 0) {
+            generated_code.arch = libxs_cpuid();
+          }
         }
 
         LIBXS_NO_OFFLOAD(void, libxs_generator_mateltwise_kernel, &generated_code, request->descriptor.meltw);
