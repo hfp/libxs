@@ -4848,6 +4848,21 @@ LIBXS_API libxs_meltwfunction_transform libxs_dispatch_meltw_transform(
 }
 
 
+LIBXS_API libxs_meltwfunction_dropout libxs_dispatch_meltw_dropout(
+  libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo,
+  libxs_datatype in_type, libxs_datatype out_type, libxs_meltw_dropout_flags flags)
+{
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
+    in_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
+    (unsigned short)flags, 0, LIBXS_MELTW_OPERATION_DROPOUT);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_dropout;
+}
+
+
 LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor* descriptor)
 {
   libxs_xtransfunction result;
