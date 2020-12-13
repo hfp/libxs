@@ -97,6 +97,7 @@ libxs_dispatch_meltw_add
 libxs_dispatch_meltw_copy
 libxs_dispatch_meltw_cvtfp32bf16
 libxs_dispatch_meltw_cvtfp32bf16_act
+libxs_dispatch_meltw_dropout
 libxs_dispatch_meltw_mul
 libxs_dispatch_meltw_opreduce_vecs_idx
 libxs_dispatch_meltw_reduce
