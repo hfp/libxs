@@ -121,9 +121,12 @@ LIBXS_API int libxs_get_registry_info(libxs_registry_info* info);
  * Registered data is released at program termination but can be also released
  * if needed (libxs_xrelease), .e.g., for larger value for the same key.
  */
-LIBXS_API void* libxs_xregister(const void* key, size_t key_size, size_t value_size, const void* value_init);
+LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
+  size_t value_size, const void* value_init, unsigned int* key_hash);
 /** Query user-defined value from LIBXS's code registry. */
-LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size);
+LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size,
+  /** Optionally returns the hashed key. */
+  unsigned int* key_hash);
 /** Remove key-value pair from code registry and release memory. */
 LIBXS_API void libxs_xrelease(const void* key, size_t key_size);
 
