@@ -68,10 +68,10 @@
 # define LIBXS_ATOMIC_ZERO_STORE
 #endif
 #if !defined(LIBXS_ATOMIC_LOCKTYPE)
-# if !defined(_WIN32) || 1
-#   define LIBXS_ATOMIC_LOCKTYPE char
-# else /* Windows */
+# if defined(_WIN32) || 1/*alignment*/
 #   define LIBXS_ATOMIC_LOCKTYPE int
+# else
+#   define LIBXS_ATOMIC_LOCKTYPE char
 # endif
 #endif
 
