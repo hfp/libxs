@@ -2758,7 +2758,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
   LIBXS_INIT /* verbosity */
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size) {
     libxs_descriptor wrap;
-    unsigned int hash;
+    unsigned int hash = 0;
     void* dst;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, key_size);
@@ -2814,7 +2814,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size, unsigned int* 
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size)
 #endif
   {
-    unsigned int hash;
+    unsigned int hash = 0;
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, key_size);
