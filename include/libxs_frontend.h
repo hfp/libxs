@@ -43,7 +43,8 @@
 #endif
 
 /** MKL_DIRECT_CALL requires to include the MKL interface. */
-#if (defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL))
+#if (defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL) || \
+    (defined(__MKL) && !defined(LIBXS_BUILD)))
 # if (0 != LIBXS_ILP64 && !defined(MKL_ILP64))
 #   error "Inconsistent ILP64 configuration detected!"
 # endif
@@ -178,7 +179,7 @@
 # define LIBXS_BLAS_NOTHROW LIBXS_NOEXCEPT
 #endif
 #define LIBXS_BLAS_NOEXCEPT(KIND) LIBXS_CONCATENATE(LIBXS_BLAS_NOEXCEPT_, KIND)
-#if defined(INTEL_MKL_VERSION) && (20200002 <= INTEL_MKL_VERSION)
+#if (defined(INTEL_MKL_VERSION) && (20200002 <= INTEL_MKL_VERSION)) || defined(NOTHROW)
 # define LIBXS_BLAS_NOEXCEPT_gemm_batch LIBXS_BLAS_NOTHROW
 #else
 # define LIBXS_BLAS_NOEXCEPT_gemm_batch
