@@ -1,0 +1,9 @@
+name: "LIBXS"
+author: "Hans Pabst"
+github: "hfp/libxs"
+copyright: "Copyright (c) 2009-2021, LIBXS Contributors."
+license: "BSD-3-Clause"
+description: "Library for specialized dense and sparse matrix operations, and deep learning primitives."
+categories = ["numerical"]
+keywords = ["deep-learning", "tensor", "matrix", "vector", "sparse", "intel", "amx", "avx", "sse", "arm", "jit", "simd", "blas", "gemm", "multiplication", "transpose", "convolution"]
+homepage = "https://libxs.readthedocs.io/"
