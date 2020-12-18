@@ -17,9 +17,6 @@ int main(/*int argc, char* argv[]*/)
   char *const data = (char*)malloc((size_t)isize * size);
   libxs_blasint i, j, k, s;
 
-  if (NULL != libxs_stristr("ends with b", "Begins with b")) return EXIT_FAILURE;
-  if (NULL == libxs_stristr("in between of", "BeTwEEn")) return EXIT_FAILURE;
-
   if (NULL == data) return EXIT_FAILURE;
   libxs_rng_seq(data, isize * size);
 
