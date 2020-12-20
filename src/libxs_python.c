@@ -124,7 +124,7 @@ LIBXS_API PyMODINIT_FUNC initlibxs(void)
   PyModule_AddIntConstant(pymod, "TARGET_ARCH_GENERIC", LIBXS_TARGET_ARCH_GENERIC);
   PyModule_AddIntConstant(pymod, "X86_GENERIC", LIBXS_X86_GENERIC);
   PyModule_AddIntConstant(pymod, "X86_SSE3", LIBXS_X86_SSE3);
-  PyModule_AddIntConstant(pymod, "X86_SSE4", LIBXS_X86_SSE4);
+  PyModule_AddIntConstant(pymod, "X86_SSE42", LIBXS_X86_SSE42);
   PyModule_AddIntConstant(pymod, "X86_AVX", LIBXS_X86_AVX);
   PyModule_AddIntConstant(pymod, "X86_AVX2", LIBXS_X86_AVX2);
   PyModule_AddIntConstant(pymod, "X86_AVX512", LIBXS_X86_AVX512);

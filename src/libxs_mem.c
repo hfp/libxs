@@ -53,17 +53,17 @@ unsigned char internal_diff_sw(const void* a, const void* b, unsigned char size)
 }
 
 
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_SSE3)
-unsigned char internal_diff_sse3(const void* a, const void* b, unsigned char size)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+unsigned char internal_diff_sse(const void* a, const void* b, unsigned char size)
 {
-#if defined(LIBXS_INTRINSICS_SSE3) && !defined(LIBXS_MEM_SW)
+#if defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   unsigned char i;
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & 0xF0); i += 16) {
-    LIBXS_DIFF_SSE3_DECL(aa);
-    LIBXS_DIFF_SSE3_LOAD(aa, a8 + i);
-    if (LIBXS_DIFF_SSE3(aa, b8 + i, 0/*dummy*/)) return 1;
+    LIBXS_DIFF_SSE_DECL(aa);
+    LIBXS_DIFF_SSE_LOAD(aa, a8 + i);
+    if (LIBXS_DIFF_SSE(aa, b8 + i, 0/*dummy*/)) return 1;
   }
   for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
   return 0;
@@ -133,17 +133,17 @@ int internal_memcmp_sw(const void* a, const void* b, size_t size)
 }
 
 
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_SSE3)
-int internal_memcmp_sse3(const void* a, const void* b, size_t size)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+int internal_memcmp_sse(const void* a, const void* b, size_t size)
 {
-#if defined(LIBXS_INTRINSICS_SSE3) && !defined(LIBXS_MEM_SW)
+#if defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   size_t i;
-  LIBXS_DIFF_SSE3_DECL(aa);
+  LIBXS_DIFF_SSE_DECL(aa);
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & 0xFFFFFFFFFFFFFFF0); i += 16) {
-    LIBXS_DIFF_SSE3_LOAD(aa, a8 + i);
-    if (LIBXS_DIFF_SSE3(aa, b8 + i, 0/*dummy*/)) return 1;
+    LIBXS_DIFF_SSE_LOAD(aa, a8 + i);
+    if (LIBXS_DIFF_SSE(aa, b8 + i, 0/*dummy*/)) return 1;
   }
   for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
   return 0;
@@ -214,9 +214,9 @@ LIBXS_API_INTERN void libxs_memory_init(int target_arch)
     internal_diff_function = internal_diff_avx2;
     internal_memcmp_function = internal_memcmp_avx2;
   }
-  else if (LIBXS_X86_SSE3 <= target_arch) {
-    internal_diff_function = internal_diff_sse3;
-    internal_memcmp_function = internal_memcmp_sse3;
+  else if (LIBXS_X86_GENERIC <= target_arch) {
+    internal_diff_function = internal_diff_sse;
+    internal_memcmp_function = internal_memcmp_sse;
   }
   else {
     internal_diff_function = internal_diff_sw;
@@ -322,7 +322,7 @@ LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char s
   return internal_diff_avx2(a, b, size);
 # elif (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
 # if (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_diff_sse3(a, b, size);
+  return internal_diff_sse(a, b, size);
 # else /* pointer based function call */
 # if defined(LIBXS_INIT_COMPLETED)
   LIBXS_ASSERT(NULL != internal_diff_function);
@@ -330,7 +330,7 @@ LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char s
 # else
   return (unsigned char)(NULL != internal_diff_function
     ? internal_diff_function(a, b, size)
-    : internal_diff_sse3(a, b, size));
+    : internal_diff_sse(a, b, size));
 # endif
 # endif
 # else
@@ -406,7 +406,7 @@ LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size)
   return internal_memcmp_avx2(a, b, size);
 # elif (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
 # if (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_memcmp_sse3(a, b, size);
+  return internal_memcmp_sse(a, b, size);
 # else /* pointer based function call */
 # if defined(LIBXS_INIT_COMPLETED)
   LIBXS_ASSERT(NULL != internal_memcmp_function);
@@ -414,7 +414,7 @@ LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size)
 # else
   return NULL != internal_memcmp_function
     ? internal_memcmp_function(a, b, size)
-    : internal_memcmp_sse3(a, b, size);
+    : internal_memcmp_sse(a, b, size);
 # endif
 # endif
 # else
