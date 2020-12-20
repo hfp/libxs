@@ -150,7 +150,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
           }
         }
       }
-      else if ((LIBXS_X86_SSE42 <= feature_cpu) && (LIBXS_X86_GENERIC >= feature_cpu)) {
+      else if (LIBXS_X86_GENERIC <= feature_cpu) {
         /* assume FXSAVE, which should be fine
          * 16 years after the first x86_64 OS
          */
