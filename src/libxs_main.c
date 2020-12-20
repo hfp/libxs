@@ -1414,7 +1414,7 @@ LIBXS_API int libxs_get_target_archid(void)
 #if !defined(__MIC__)
   return libxs_target_archid;
 #else /* no JIT support */
-  return LIBXS_MIN(libxs_target_archid, LIBXS_X86_SSE3);
+  return LIBXS_MIN(libxs_target_archid, LIBXS_X86_GENERIC);
 #endif
 }
 
@@ -1432,7 +1432,7 @@ LIBXS_API void libxs_set_target_archid(int id)
     case LIBXS_X86_AVX512:
     case LIBXS_X86_AVX2:
     case LIBXS_X86_AVX:
-    case LIBXS_X86_SSE4:
+    case LIBXS_X86_SSE42:
     case LIBXS_X86_SSE3:
     case LIBXS_AARCH64_V81:
     case LIBXS_TARGET_ARCH_GENERIC: {
@@ -1483,7 +1483,7 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
   if (NULL != arch && 0 != *arch) {
     const int jit = atoi(arch);
     if (0 == strcmp("0", arch)) {
-      target_archid = LIBXS_X86_SSE3;
+      target_archid = LIBXS_X86_GENERIC;
     }
     else if (0 < jit) {
       target_archid = LIBXS_X86_GENERIC + jit;
@@ -1516,19 +1516,17 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
       target_archid = LIBXS_X86_AVX;
     }
     else if (arch == libxs_stristr(arch, "wsm") || arch == libxs_stristr(arch, "nhm")
-       || arch == libxs_stristr(arch, "sse4_1") || arch == libxs_stristr(arch, "sse4.1")
        || arch == libxs_stristr(arch, "sse4_2") || arch == libxs_stristr(arch, "sse4.2")
        || arch == libxs_stristr(arch, "sse4"))
     {
-      target_archid = LIBXS_X86_SSE4;
+      target_archid = LIBXS_X86_SSE42;
     }
-    else if (arch == libxs_stristr(arch, "sse") || arch == libxs_stristr(arch, "sse3")
-        || arch == libxs_stristr(arch, "ssse3") || arch == libxs_stristr(arch, "ssse"))
+    else if (arch == libxs_stristr(arch, "sse3"))
     {
       target_archid = LIBXS_X86_SSE3;
     }
     else if (arch == libxs_stristr(arch, "x86") || arch == libxs_stristr(arch, "x64")
-          || arch == libxs_stristr(arch, "sse2"))
+          || arch == libxs_stristr(arch, "x86_64") || arch == libxs_stristr(arch, "sse2"))
     {
       target_archid = LIBXS_X86_GENERIC;
     }
@@ -2226,7 +2224,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 #else /* unsupported platform */
   LIBXS_UNUSED(request); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
   /* libxs_get_target_arch also serves as a runtime check whether JIT is available or not */
-  if (LIBXS_X86_SSE3 <= libxs_target_archid) result = EXIT_FAILURE;
+  if (LIBXS_X86_GENERIC <= libxs_target_archid) result = EXIT_FAILURE;
 #endif
   return result;
 }
@@ -2346,7 +2344,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         LIBXS_UNUSED(user_size);
 #else
         if (LIBXS_X86_AVX <= libxs_target_archid || /* check if JIT is supported (CPUID) */
-           (LIBXS_X86_SSE3 <= libxs_target_archid && LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind)) ||
+           (LIBXS_X86_GENERIC <= libxs_target_archid && LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind)) ||
            (LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(desc->kind)))
         {
           LIBXS_ASSERT(0 != mode || NULL == flux_entry.ptr_const/*code version does not exist*/);

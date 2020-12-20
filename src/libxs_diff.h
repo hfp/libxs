@@ -25,17 +25,17 @@
 #define LIBXS_DIFF_8_LOAD(A, SRC) A = (const uint64_t*)(SRC)
 #define LIBXS_DIFF_8(A, B, ...) ((unsigned char)(0 != (*(A) ^ (*(const uint64_t*)(B)))))
 
-#define LIBXS_DIFF_SSE3_DECL(A) __m128i A = LIBXS_INTRINSICS_MM_UNDEFINED_SI128()
-#define LIBXS_DIFF_SSE3_ASSIGN(A, B) (A) = (B)
-#define LIBXS_DIFF_SSE3_LOAD(A, SRC) A = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)(SRC))
-#define LIBXS_DIFF_SSE3(A, B, ...) ((unsigned char)(0xFFFF != _mm_movemask_epi8(_mm_cmpeq_epi8( \
+#define LIBXS_DIFF_SSE_DECL(A) __m128i A = LIBXS_INTRINSICS_MM_UNDEFINED_SI128()
+#define LIBXS_DIFF_SSE_ASSIGN(A, B) (A) = (B)
+#define LIBXS_DIFF_SSE_LOAD(A, SRC) A = LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)(SRC))
+#define LIBXS_DIFF_SSE(A, B, ...) ((unsigned char)(0xFFFF != _mm_movemask_epi8(_mm_cmpeq_epi8( \
   A, LIBXS_INTRINSICS_LDDQU_SI128((const __m128i*)(B))))))
 
-#if (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH) /*|| defined(LIBXS_INTRINSICS_TARGET)*/
-# define LIBXS_DIFF_16_DECL LIBXS_DIFF_SSE3_DECL
-# define LIBXS_DIFF_16_ASSIGN LIBXS_DIFF_SSE3_ASSIGN
-# define LIBXS_DIFF_16_LOAD LIBXS_DIFF_SSE3_LOAD
-# define LIBXS_DIFF_16 LIBXS_DIFF_SSE3
+#if (LIBXS_X86_GENERIC <= LIBXS_STATIC_TARGET_ARCH) /*|| defined(LIBXS_INTRINSICS_TARGET)*/
+# define LIBXS_DIFF_16_DECL LIBXS_DIFF_SSE_DECL
+# define LIBXS_DIFF_16_ASSIGN LIBXS_DIFF_SSE_ASSIGN
+# define LIBXS_DIFF_16_LOAD LIBXS_DIFF_SSE_LOAD
+# define LIBXS_DIFF_16 LIBXS_DIFF_SSE
 #else
 # define LIBXS_DIFF_16_DECL(A) const uint64_t */*const*/ A = NULL
 # define LIBXS_DIFF_16_ASSIGN(A, B) (A) = (B)

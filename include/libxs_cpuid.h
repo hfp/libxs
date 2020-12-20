@@ -22,7 +22,7 @@
 #define LIBXS_TARGET_ARCH_GENERIC 1
 #define LIBXS_X86_GENERIC      1002
 #define LIBXS_X86_SSE3         1003
-#define LIBXS_X86_SSE4         1004
+#define LIBXS_X86_SSE42         1004
 #define LIBXS_X86_AVX          1005
 #define LIBXS_X86_AVX2         1006
 #define LIBXS_X86_AVX512       1007
