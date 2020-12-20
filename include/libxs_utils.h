@@ -406,11 +406,7 @@
 /**
  * Intrinsic-specific fix-ups
  */
-#if defined(__clang__)
-# define LIBXS_INTRINSICS_LDDQU_SI128(A) _mm_loadu_si128(A)
-#else
-# define LIBXS_INTRINSICS_LDDQU_SI128(A) _mm_lddqu_si128(A)
-#endif
+# define LIBXS_INTRINSICS_LOADU_SI128(A) _mm_loadu_si128(A)
 #if !defined(LIBXS_INTEL_COMPILER) && defined(__clang__) && ( \
       (LIBXS_VERSION2(3, 9) > LIBXS_VERSION2(__clang_major__, __clang_minor__)) \
    || (LIBXS_VERSION2(7, 3) > LIBXS_VERSION2(__clang_major__, __clang_minor__) && \
