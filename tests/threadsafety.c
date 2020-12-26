@@ -155,7 +155,7 @@ int main(void)
 # else
 #         pragma omp critical
 # endif
- #endif
+#endif
           result = ri;
         }
       }
