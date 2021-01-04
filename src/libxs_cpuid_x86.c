@@ -10,7 +10,7 @@
 #include <libxs_generator.h>
 #include <libxs_mem.h>
 
-#if defined(LIBXS_PLATFORM_SUPPORTED)
+#if defined(LIBXS_PLATFORM_X86)
 /* XGETBV: receive results (EAX, EDX) for eXtended Control Register (XCR). */
 /* CPUID, receive results (EAX, EBX, ECX, EDX) for requested FUNCTION/SUBFN. */
 #if defined(_MSC_VER) /*defined(_WIN32) && !defined(__GNUC__)*/
@@ -57,7 +57,7 @@
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
-#if !defined(LIBXS_PLATFORM_SUPPORTED)
+#if !defined(LIBXS_PLATFORM_X86)
   if (NULL != info) LIBXS_MEMZERO127(info);
 #else
   unsigned int eax, ebx, ecx, edx;
@@ -210,10 +210,11 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
 
 LIBXS_API int libxs_cpuid(void)
 {
-#if defined(__aarch64__)
+#if defined(LIBXS_PLATFORM_AARCH64)
   /* @TODO add AARCH64 feature check */
   return LIBXS_AARCH64_V81;
-#else
+#endif
+#if defined(LIBXS_PLATFORM_X86)
   return libxs_cpuid_x86(NULL/*info*/);
 #endif
 }
