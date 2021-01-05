@@ -20,6 +20,9 @@ int main(/*int argc, char* argv[]*/)
   if (NULL != libxs_stristr("ends with b", "Begins with b")) return EXIT_FAILURE;
   if (NULL == libxs_stristr("in between of", "BeTwEEn")) return EXIT_FAILURE;
   if (NULL == libxs_stristr("spr", "SPR")) return EXIT_FAILURE;
+  if (NULL != libxs_stristr(NULL, "bb")) return EXIT_FAILURE;
+  if (NULL != libxs_stristr("aa", NULL)) return EXIT_FAILURE;
+  if (NULL != libxs_stristr(NULL, NULL)) return EXIT_FAILURE;
 
   if (NULL == data) return EXIT_FAILURE;
   libxs_rng_seq(data, isize * size);
