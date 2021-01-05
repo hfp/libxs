@@ -1329,9 +1329,22 @@ $(DOCDIR)/index.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
 		-e 'N;/^\n$$/d;P;D' \
 		> $@
 
+$(DOCDIR)/libxs_compat.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
+	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/hfp/libxs/Compatibility.md"
+	@echo >> $@
+
+$(DOCDIR)/libxs_valid.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
+	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/hfp/libxs/Validation.md"
+	@echo >> $@
+
+$(DOCDIR)/libxs_qna.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
+	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/hfp/libxs/Q&A.md"
+	@echo >> $@
+
 $(DOCDIR)/libxs.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/documentation/index.md \
 $(ROOTDIR)/documentation/libxs_mm.md $(ROOTDIR)/documentation/libxs_dl.md $(ROOTDIR)/documentation/libxs_aux.md \
-$(ROOTDIR)/documentation/libxs_prof.md $(ROOTDIR)/documentation/libxs_tune.md $(ROOTDIR)/documentation/libxs_be.md
+$(ROOTDIR)/documentation/libxs_prof.md $(ROOTDIR)/documentation/libxs_tune.md $(ROOTDIR)/documentation/libxs_be.md \
+$(ROOTDIR)/documentation/libxs_compat.md $(ROOTDIR)/documentation/libxs_valid.md $(ROOTDIR)/documentation/libxs_qna.md
 	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/documentation/.libxs_XXXXXX.tex))
 	@pandoc -D latex \
 	| sed \
@@ -1350,9 +1363,11 @@ $(ROOTDIR)/documentation/libxs_prof.md $(ROOTDIR)/documentation/libxs_tune.md $(
 		iconv -t utf-8 libxs_be.md && echo && \
 		echo "# Appendix" && \
 		echo "## Compatibility" && \
-		wget -T $(TIMEOUT) -q -O - https://raw.githubusercontent.com/wiki/hfp/libxs/Compatibility.md 2>/dev/null && echo && \
+		sed "s/^\(##*\) /#\1 /" libxs_compat.md | iconv -t utf-8 && \
 		echo "## Validation" && \
-		wget -T $(TIMEOUT) -q -O - https://raw.githubusercontent.com/wiki/hfp/libxs/Validation.md 2>/dev/null; ) \
+		sed "s/^\(##*\) /#\1 /" libxs_valid.md | iconv -t utf-8 && \
+		echo "## Q&A" && \
+		sed "s/^\(##*\) /#\1 /" libxs_qna.md | iconv -t utf-8; ) \
 	| sed \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
@@ -1789,12 +1804,12 @@ deb:
 		echo "Architecture: amd64" >> control; \
 		echo "Depends: \$${shlibs:Depends}, \$${misc:Depends}" >> control; \
 		echo "Description: Matrix operations and deep learning primitives" >> control; \
-		wget -T $(TIMEOUT) -qO- https://api.github.com/repos/hfp/libxs \
+		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/hfp/libxs" \
 		| sed -n 's/ *\"description\": \"\(..*\)\".*/\1/p' \
 		| fold -s -w 79 | sed -e 's/^/ /' -e 's/[[:space:]][[:space:]]*$$//' >> control; \
 		echo "$${ARCHIVE_NAME} ($${VERSION_ARCHIVE}-$(VERSION_PACKAGE)) UNRELEASED; urgency=low" > changelog; \
 		echo >> changelog; \
-		wget -T $(TIMEOUT) -qO- https://api.github.com/repos/hfp/libxs/releases/tags/$${VERSION_ARCHIVE} \
+		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/hfp/libxs/releases/tags/$${VERSION_ARCHIVE}" \
 		| sed -n 's/ *\"body\": \"\(..*\)\".*/\1/p' \
 		| sed -e 's/\\r\\n/\n/g' -e 's/\\"/"/g' -e 's/\[\([^]]*\)\]([^)]*)/\1/g' \
 		| sed -n 's/^\* \(..*\)/\* \1/p' \

@@ -20,6 +20,9 @@ theme:
 
 nav:
 - Overview: index.md
+- Compatibility: libxs_compat.md
+- Validation: libxs_valid.md
+- Q&A: libxs_qna.md
 - LIBXS Domains:
   - "MM: Matrix Multiplication": libxs_mm.md
   - "DNN: Deep Neural Networks": libxs_dl.md
