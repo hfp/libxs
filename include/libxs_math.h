@@ -26,7 +26,8 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_matdiff_info {
   double l1_ref, min_ref, max_ref, avg_ref, var_ref;
   /** Statistics: sum/l1, min., max., arith. avg., and variance. */
   double l1_tst, min_tst, max_tst, avg_tst, var_tst;
-  /** Location (m, n) of largest difference (linf_abs). */
+  /** Values (v_ref, v_tst) and location (m, n) of largest linf_abs. */
+  double v_ref, v_tst;
   libxs_blasint m, n;
 } libxs_matdiff_info;
 

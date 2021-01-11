@@ -128,11 +128,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
                         = info->linf_abs = info->linf_rel = info->l2_abs = info->l2_rel
                         = inf;
       }
-      if (1 == n) {
-        const libxs_blasint tmp = info->m;
-        info->m = info->n;
-        info->n = tmp;
-      }
+      if (1 == n) LIBXS_ISWAP(info->m, info->n);
       if (0 != result_swap) {
         info->min_tst = info->min_ref;
         info->min_ref = 0;
@@ -144,6 +140,8 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
         info->var_ref = 0;
         info->l1_tst = info->l1_ref;
         info->l1_ref = 0;
+        info->v_tst = input->v_ref;
+        info->v_tst = 0;
       }
     }
   }
@@ -159,6 +157,8 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
   LIBXS_ASSERT(NULL != output && NULL != input);
   if (output->linf_abs < input->linf_abs) {
     output->linf_abs = input->linf_abs;
+    output->v_ref = input->v_ref;
+    output->v_tst = input->v_tst;
     LIBXS_ASSERT(0 <= input->m);
     output->m = input->m;
     LIBXS_ASSERT(0 <= input->n);
