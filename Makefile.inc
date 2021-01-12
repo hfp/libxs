@@ -652,8 +652,13 @@ ifneq (0,$(FORCE_CXX))
 endif
 endif
 
+WCHECK ?= 0
+ifneq (0,$(WCHECK))
+  WCHECK_CFLAG := $(call ctest,$(CC),-Wcheck)
+endif
 ifneq (0,$(WERROR))
   WERROR_CFLAG := $(call ctest,$(CC),-Werror)
+  WERROR_FCFLAG := $(call ftest,$(FC),-Werror)
 endif
 
 ifeq (Windows_NT,$(UNAME))
@@ -1155,7 +1160,7 @@ ifneq (0,$(INTEL))
     FPEDANTIC += -warn all,notruncated_source -diag-disable 7025,7373,10237,10342,10382
   endif
   ifeq (0,$(ICX))
-    CPEDANTIC += -Wcheck
+    CPEDANTIC += $(WCHECK_CFLAG)
   else ifneq (1,$(ICX))
     CPEDANTIC += -diag-disable 593,1599,2415
   endif
@@ -1172,8 +1177,8 @@ ifneq (0,$(INTEL))
       FCFLAGS += $(FFORM_FLAG)
     endif
     ifeq (0,$(ICX))
-      CXXFLAGS += -Wcheck
-      CFLAGS += -Wcheck
+      CXXFLAGS += $(WCHECK_CFLAG)
+      CFLAGS += $(WCHECK_CFLAG)
     endif
   else ifneq (0,$(PEDANTIC))
     ifneq (,$(filter 0 1,$(ICX)))
