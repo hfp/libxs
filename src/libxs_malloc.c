@@ -1852,10 +1852,11 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment,
 # endif
 # if defined(MAP_32BIT)
           | ((0 != (LIBXS_MALLOC_FLAG_X & flags) && 0 != map32
-            && LIBXS_X86_AVX512_CORE > libxs_target_archid
-            && LIBXS_X86_AVX512 < libxs_target_archid) ? MAP_32BIT : 0)
+            && (LIBXS_X86_AVX512_CORE > libxs_target_archid)
+            && (LIBXS_X86_AVX512 < libxs_target_archid ||
+                LIBXS_X86_AVX > libxs_target_archid)) ? MAP_32BIT : 0)
 # endif
-# if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES) /* may fail depending on system settings */
+# if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES)
           | ((0 == (LIBXS_MALLOC_FLAG_X & flags)
             && ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) <= size ||
               0 != (LIBXS_MALLOC_FLAG_PHUGE & flags))
