@@ -94,6 +94,7 @@ libxs_dispatch_mcopy
 libxs_dispatch_meltw
 libxs_dispatch_meltw_act_cvtfp32bf16
 libxs_dispatch_meltw_add
+libxs_dispatch_meltw_binary
 libxs_dispatch_meltw_copy
 libxs_dispatch_meltw_cvtfp32bf16
 libxs_dispatch_meltw_cvtfp32bf16_act
