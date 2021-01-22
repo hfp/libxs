@@ -89,7 +89,8 @@ int main(int argc, char* argv[])
 #if defined(_OPENMP) && !defined(_DEBUG)
     const char *const env_check = getenv("CHECK");
     const int check = (NULL == env_check ? 0 : atoi(env_check));
-#elif (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION2(11, 3) <= INTEL_MKL_VERSION)
+#elif (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && \
+      (defined(LIBXS_MKL_VERSION3) && (LIBXS_VERSION3(11, 3, 0) <= LIBXS_MKL_VERSION3))
     /*const*/ int check = 1;
 #endif
 
@@ -153,7 +154,8 @@ int main(int argc, char* argv[])
            &beta, c + static_cast<size_t>(csize) * i, &ldc);
       }
 
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION2(11, 3) <= INTEL_MKL_VERSION)
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) \
+    (defined(LIBXS_MKL_VERSION3) && (LIBXS_VERSION3(11, 3, 0) <= LIBXS_MKL_VERSION3))
       std::vector<const ITYPE*> va_array(static_cast<size_t>(s)), vb_array(static_cast<size_t>(s));
       std::vector<OTYPE*> vc_array(static_cast<size_t>(s));
       const ITYPE* *const a_array = &va_array[0];
@@ -194,7 +196,8 @@ int main(int argc, char* argv[])
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /* fallthrough */
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION2(11, 3) <= INTEL_MKL_VERSION)
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) \
+    (defined(LIBXS_MKL_VERSION3) && (LIBXS_VERSION3(11, 3, 0) <= LIBXS_MKL_VERSION3))
       case 1: { // batched indirect
         fprintf(stdout, "Indirect (A,B,C)...\n");
         const unsigned long long start = libxs_timer_tick();
@@ -251,7 +254,8 @@ int main(int argc, char* argv[])
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /* fallthrough */
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION2(11, 3) <= INTEL_MKL_VERSION)
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) \
+    (defined(LIBXS_MKL_VERSION3) && (LIBXS_VERSION3(11, 3, 0) <= LIBXS_MKL_VERSION3))
       case 3: { // indirect A and C
         fprintf(stdout, "Indirect (A,C)...\n");
         for (libxs_blasint i = 0; i < s; ++i) {
@@ -313,7 +317,8 @@ int main(int argc, char* argv[])
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /* fallthrough */
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION2(11, 3) <= INTEL_MKL_VERSION)
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) \
+    (defined(LIBXS_MKL_VERSION3) && (LIBXS_VERSION3(11, 3, 0) <= LIBXS_MKL_VERSION3))
       case 5: { // indirect B and C
         fprintf(stdout, "Indirect (B,C)...\n");
         for (libxs_blasint i = 0; i < s; ++i) {
@@ -379,7 +384,8 @@ int main(int argc, char* argv[])
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /* fallthrough */
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION2(11, 3) <= INTEL_MKL_VERSION)
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) \
+    (defined(LIBXS_MKL_VERSION3) && (LIBXS_VERSION3(11, 3, 0) <= LIBXS_MKL_VERSION3))
       case 7: { // indirect A and B
         fprintf(stdout, "Indirect (A,B)...\n");
 #if defined(_OPENMP)
@@ -449,7 +455,8 @@ int main(int argc, char* argv[])
         }
         fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);
       } /* fallthrough */
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && (LIBXS_VERSION2(11, 3) <= INTEL_MKL_VERSION)
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) \
+    (defined(LIBXS_MKL_VERSION3) && (LIBXS_VERSION3(11, 3, 0) <= LIBXS_MKL_VERSION3))
       case 9: { // indirect cached
         fprintf(stdout, "Indirect cached...\n");
 #if defined(_OPENMP)
