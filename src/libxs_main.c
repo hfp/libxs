@@ -282,6 +282,10 @@ LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
 LIBXS_APIVAR_PRIVATE_DEF(LIBXS_TLS_TYPE libxs_tlskey);
 #endif
 
+/* aux struct for matrix equations */
+LIBXS_APIVAR_PRIVATE_DEF(libxs_matrix_eqn* libxs_matrix_eqns[256]);
+LIBXS_APIVAR_PRIVATE_DEF(libxs_blasint libxs_matrix_eqns_init = 0);
+LIBXS_APIVAR_PRIVATE_DEF(libxs_blasint libxs_matrix_eqns_count = 255);
 
 LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 {
@@ -2063,6 +2067,36 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               request->descriptor.meltw->m, request->descriptor.meltw->n, request->descriptor.meltw->ldi, request->descriptor.meltw->ldo,
               (unsigned int)request->descriptor.meltw->operation, (unsigned int)request->descriptor.meltw->flags);
           }
+        }
+      }
+    } break;
+    case LIBXS_BUILD_KIND_MEQN: { /* matequation kernel */
+      LIBXS_ASSERT(NULL != request->descriptor.meltw);
+      {
+        /* dispatch eltwise code with AVX512_BF16 by demoting seemlessly to the current CPU arch */
+        if ( ( generated_code.arch >= LIBXS_X86_AVX512_SPR ) &&
+             ( generated_code.arch <= LIBXS_X86_ALLFEAT )       ) {
+          int emu_amx = 0;
+          const char *const env_emu_amx = getenv("EMULATE_AMX");
+          if ( 0 == env_emu_amx ) {
+          } else {
+            emu_amx = atoi(env_emu_amx);
+          }
+          if (emu_amx > 0) {
+            generated_code.arch = libxs_cpuid();
+          }
+        }
+
+        LIBXS_NO_OFFLOAD(void, libxs_generator_matequation_kernel, &generated_code, request->descriptor.meqn);
+# if !defined(LIBXS_VTUNE)
+        if (0 > libxs_verbosity)
+# endif
+        {
+          char tsizename[4];
+          internal_get_typesize_string(tsizename, sizeof(tsizename), request->descriptor.meqn->datatype);
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%u_eqn-idx%u.meltw", target_arch, tsizename,
+            request->descriptor.meqn->m, request->descriptor.meqn->n, request->descriptor.meltw->ldo,
+            (unsigned int)request->descriptor.meqn->eqn_idx );
         }
       }
     } break;
@@ -4898,6 +4932,543 @@ LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary(
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
 
   return result.meltw_binary;
+}
+
+
+LIBXS_API_INTERN void libxs_matrix_eqn_assign_reg_scores( libxs_matrix_eqn_elem* cur_node ) {
+  /* check if we are at an argument leaf, then we assign register score 0 */
+  if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
+    if ( (cur_node->le == NULL) && (cur_node->ri == NULL) ) {
+      cur_node->reg_score = 0;
+    }
+    else {
+      printf("ERROR: Arg cannot have left or right child!\n");
+    }
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_UNARY ) {
+    /* If the node is unary type we have two cases:
+ *      * 1) If the left child is an arg, we just set the score to 1 (we do not overwrite the input)
+ *           * 2) if the left child is NOT an arg, we just propagate the register score from it (no additional tmp storage is needed) */
+    if ( cur_node->le != NULL ) {
+      libxs_matrix_eqn_assign_reg_scores( cur_node->le );
+      if ( cur_node->le->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
+        cur_node->reg_score = 1;
+      } else {
+        cur_node->reg_score = cur_node->le->reg_score;
+      }
+    /* we have reached the root, as we are unary, there is no right branch */
+    } else if ( (cur_node->ri != NULL) ) {
+      printf("ERROR: Unary cannot have right childs!\n");
+    }
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_BINARY ) {
+    /* If the node is binary type we have two cases:
+ *      * 1) If the left/right subtrees have the same register score, we have to increase it by one (i.e. we have to first compute one of the subtrees and keep the result in a tmp storage and then compute the other subtree, so we would need an extra tmp storage)
+ *           * 2) If the left/right subtrees DO NOT have the same register score, then we assign  the maximum of the register scores (i.e. we would compute first the subtree with the maximum score and then the tree with the smallest score, thus no extra tmp storage is required) */
+    if ( (cur_node->le != NULL) && (cur_node->ri != NULL) ) {
+      libxs_matrix_eqn_assign_reg_scores( cur_node->le );
+      libxs_matrix_eqn_assign_reg_scores( cur_node->ri );
+      if (cur_node->le->reg_score == cur_node->ri->reg_score) {
+        cur_node->reg_score = cur_node->le->reg_score + 1;
+      } else {
+        cur_node->reg_score = LIBXS_MAX(cur_node->le->reg_score, cur_node->ri->reg_score);
+      }
+    } else {
+      printf("ERROR: Binary needs left and right child!\n");
+    }
+  } else {
+    /* shouldn't happen */
+  }
+}
+
+
+LIBXS_API_INTERN libxs_blasint reserve_tmp_storage(libxs_blasint n_max_tmp, libxs_blasint *tmp_storage_pool) {
+  libxs_blasint i;
+  for (i = 0; i < n_max_tmp; i++) {
+    if (tmp_storage_pool[i] == 0) {
+      tmp_storage_pool[i] = 1;
+      return i;
+    }
+  }
+  return -1;
+}
+
+
+LIBXS_API_INTERN void libxs_matrix_eqn_create_exec_plan( libxs_matrix_eqn_elem* cur_node, libxs_blasint *global_timestamp, libxs_blasint n_max_tmp, libxs_blasint *tmp_storage_pool ) {
+  /* check if we are at an argument leaf, then we assign register score 0 */
+  if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
+    /* Do not increase the timestamp, this node is just an arg so it's not part of the execution */
+    cur_node->visit_timestamp = -1;
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_UNARY ) {
+    libxs_matrix_eqn_create_exec_plan( cur_node->le, global_timestamp, n_max_tmp, tmp_storage_pool );
+    cur_node->visit_timestamp = *global_timestamp;
+    *global_timestamp = *global_timestamp + 1;
+    /* When assigning the tmp output storage, we have two cases in the unary:
+ *      * 1) The child is an arg, so we have to reserve a tmp storage
+ *           * 2) The child is NOT an arg, so we just reuse the tmp storage of the child */
+    if ( cur_node->le->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
+      cur_node->tmp_id = reserve_tmp_storage( n_max_tmp, tmp_storage_pool );
+    } else {
+      cur_node->tmp_id = cur_node->le->tmp_id;
+    }
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_BINARY ) {
+    /* First we visit the child tree with the maximum register score */
+    if (cur_node->le->reg_score >= cur_node->ri->reg_score) {
+      libxs_matrix_eqn_create_exec_plan( cur_node->le, global_timestamp, n_max_tmp, tmp_storage_pool );
+      libxs_matrix_eqn_create_exec_plan( cur_node->ri, global_timestamp, n_max_tmp, tmp_storage_pool );
+    } else {
+      libxs_matrix_eqn_create_exec_plan( cur_node->ri, global_timestamp, n_max_tmp, tmp_storage_pool );
+      libxs_matrix_eqn_create_exec_plan( cur_node->le, global_timestamp, n_max_tmp, tmp_storage_pool );
+    }
+    cur_node->visit_timestamp = *global_timestamp;
+    *global_timestamp = *global_timestamp + 1;
+
+    /* When assigning the tmp output storage, we have three cases in the binary:
+ *      * 1) Both children are arg, so we have to reserve a tmp storage
+ *           * 2) Both child are NOT arg, so we reuse the tmp storage of either one for our output and we make the other tmp storage available
+ *                * 3) One child IS arg and the other child is NOT an arg, so we just reuse the tmp storage of the non-arg child */
+    if ( (cur_node->le->type == LIBXS_MATRIX_EQN_NODE_ARG) && (cur_node->ri->type == LIBXS_MATRIX_EQN_NODE_ARG) ) {
+      cur_node->tmp_id = reserve_tmp_storage( n_max_tmp, tmp_storage_pool );
+    } else if ( (cur_node->le->type != LIBXS_MATRIX_EQN_NODE_ARG) && (cur_node->ri->type != LIBXS_MATRIX_EQN_NODE_ARG) ) {
+      cur_node->tmp_id = cur_node->le->tmp_id;
+      tmp_storage_pool[cur_node->ri->tmp_id] = 0;
+    } else {
+      if (cur_node->le->type != LIBXS_MATRIX_EQN_NODE_ARG) {
+        cur_node->tmp_id = cur_node->le->tmp_id;
+      } else {
+        cur_node->tmp_id = cur_node->ri->tmp_id;
+      }
+    }
+  } else {
+    /* shouldn't happen */
+  }
+}
+
+LIBXS_API_INTERN void libxs_matrix_eqn_opt_exec_plan( libxs_blasint idx ) {
+  libxs_blasint global_timestamp = 0;
+  libxs_blasint max_reg_score = 0;
+  libxs_blasint *tmp_storage_pool = NULL;
+  libxs_blasint i;
+  if ( libxs_matrix_eqns[idx] == NULL ) {
+    fprintf( stderr, "the requested equation doesn't exist, nothing to optimize!\n" );
+  }
+  if ( libxs_matrix_eqns[idx]->is_constructed == 0 ) {
+    fprintf( stderr, "the requested equation is not yet finalized, so can't optimize!\n" );
+  }
+#if 0
+  printf("\n");
+  printf("Assigning register scores to find optimal traversal plan (i.e. that minimizes tmp storage)... \n");
+#endif
+  libxs_matrix_eqn_assign_reg_scores( libxs_matrix_eqns[idx]->eqn_root );
+  max_reg_score = libxs_matrix_eqns[idx]->eqn_root->reg_score;
+  if (max_reg_score > 0) {
+    tmp_storage_pool = (libxs_blasint*) malloc(max_reg_score * sizeof(libxs_blasint));
+    if (tmp_storage_pool == NULL) {
+      fprintf( stderr, "Tmp storage allocation array failed...\n" );
+    } else {
+      for (i = 0; i < max_reg_score; i++) {
+        tmp_storage_pool[i] = 0;
+      }
+    }
+  }
+#if 0
+  printf("Optimal number of intermediate tmp storage is %d\n", max_reg_score);
+#endif
+  libxs_matrix_eqn_create_exec_plan( libxs_matrix_eqns[idx]->eqn_root, &global_timestamp, max_reg_score, tmp_storage_pool  );
+#if 0
+  printf("Created optimal exexution plan...\n");
+#endif
+  if (tmp_storage_pool != NULL) {
+    free(tmp_storage_pool);
+  }
+#if 0
+  printf("\n\n");
+#endif
+}
+
+
+LIBXS_API_INTERN libxs_matrix_eqn_elem* libxs_matrix_eqn_add_node( libxs_matrix_eqn_elem* cur_node, libxs_matrix_eqn_node_type type, libxs_matrix_eqn_info info ) {
+  if ( type == LIBXS_MATRIX_EQN_NODE_NONE ) {
+    /* shouldn't happen */
+    fprintf( stderr, "wrong op node type to add!\n");
+  }
+
+  if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_UNARY ) {
+    libxs_matrix_eqn_elem *node = (libxs_matrix_eqn_elem*) malloc( sizeof(libxs_matrix_eqn_elem) );
+
+    node->le = NULL;
+    node->ri = NULL;
+    node->up = cur_node;
+    node->type = type;
+    node->info = info;
+
+    if ( cur_node->le == NULL ) {
+      cur_node->le = node;
+    } else {
+      /* shouldn't happen */
+      fprintf( stderr, "this is not a leaf node, so we cannot add a node!\n");
+      free( node );
+    }
+
+    return node;
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_BINARY ) {
+    libxs_matrix_eqn_elem *node = (libxs_matrix_eqn_elem*) malloc( sizeof(libxs_matrix_eqn_elem) );
+
+    node->le = NULL;
+    node->ri = NULL;
+    node->up = cur_node;
+    node->type = type;
+    node->info = info;
+
+    if ( cur_node->le == NULL ) {
+      cur_node->le = node;
+    } else if ( cur_node->ri == NULL ) {
+      cur_node->ri = node;
+    } else {
+      /* shouldn't happen */
+      fprintf( stderr, "this is not a leaf node, so we cannot add a node!\n");
+      free( node );
+    }
+
+    return node;
+  /* we converting the root */
+  } else if ( (cur_node->type == LIBXS_MATRIX_EQN_NODE_NONE) && (type != LIBXS_MATRIX_EQN_NODE_ARG) ) {
+    cur_node->le = NULL;
+    cur_node->ri = NULL;
+    cur_node->up = NULL;
+    cur_node->type = type;
+    cur_node->info = info;
+
+    return cur_node;
+  } else {
+    /* shouldn't happen */
+    fprintf( stderr, "at this position we cannot add an op!\n");
+  }
+
+  return NULL;
+}
+
+
+LIBXS_API_INTERN libxs_matrix_eqn_elem* libxs_matrix_eqn_trv_head( libxs_matrix_eqn_elem* cur_node ) {
+  /* check if we are at an argument leaf, then we move up */
+  if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
+    return libxs_matrix_eqn_trv_head( cur_node->up );
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_UNARY ) {
+    /* we have to push more in this branch */
+    if ( cur_node->le == NULL ) {
+      return cur_node;
+    /* we have reached the root, as we are unary, there is no right branch */
+    } else if ( cur_node->up == NULL ) {
+      return cur_node;
+    /* we have to find another node */
+    } else {
+      return libxs_matrix_eqn_trv_head( cur_node->up );
+    }
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_BINARY ) {
+    /* we have to push more in this branch */
+    if ( cur_node->le == NULL ) {
+      return cur_node;
+    } else if ( cur_node->ri == NULL ) {
+      return cur_node;
+    /* we have reached the root, as we are unary, there is no right branch */
+    } else if ( cur_node->up == NULL ) {
+      return cur_node;
+    /* we have to find another node */
+    } else {
+      return libxs_matrix_eqn_trv_head( cur_node->up );
+    }
+  } else {
+    /* should not happen */
+  }
+
+  return NULL;
+}
+
+
+LIBXS_API_INTERN void libxs_matrix_eqn_trv_print( libxs_matrix_eqn_elem* cur_node, libxs_blasint indent ) {
+  libxs_blasint i;
+  libxs_blasint tree_print_indent = 4;
+
+  for ( i = 0; i < indent; ++i ) {
+    if ( i < indent - tree_print_indent ) {
+      printf(" ");
+    } else {
+      if ( i % tree_print_indent == 0 ) {
+        printf("|");
+      } else {
+        printf("-");
+      }
+    }
+  }
+
+  /* check if we are at an argument leaf, then we move up */
+  if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
+    if ( (cur_node->le == NULL) && (cur_node->ri == NULL) ) {
+      printf("ARG: %i %i %i %i %i\n", cur_node->info.arg.m, cur_node->info.arg.n, cur_node->info.arg.ld, cur_node->info.arg.in_pos, cur_node->info.arg.offs_in_pos );
+    } else {
+      printf("ERROR: Arg cannot have left or right child!\n");
+    }
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_UNARY ) {
+    /* we have to push more in this branch */
+    if ( cur_node->le != NULL ) {
+      printf("UNARY: %i %i (timestamp = %i, tmp = %i)\n", cur_node->info.u_op.type, cur_node->info.u_op.flags, cur_node->visit_timestamp, cur_node->tmp_id );
+      libxs_matrix_eqn_trv_print( cur_node->le, indent+tree_print_indent );
+    /* we have reached the root, as we are unary, there is no right branch */
+    } else if ( (cur_node->ri != NULL) ) {
+      printf("ERROR: Unary cannot have right childs!\n");
+    }
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_BINARY ) {
+    /* we have to push more in this branch */
+    if ( (cur_node->le != NULL) && (cur_node->ri != NULL) ) {
+      printf("BINARY: %i %i (timestamp = %i, tmp = %i)\n", cur_node->info.b_op.type, cur_node->info.b_op.flags, cur_node->visit_timestamp, cur_node->tmp_id );
+      libxs_matrix_eqn_trv_print( cur_node->le, indent+tree_print_indent );
+      libxs_matrix_eqn_trv_print( cur_node->ri, indent+tree_print_indent );
+    } else {
+      printf("ERROR: Binary needs left and right child!\n");
+    }
+  } else {
+    /* shouldn't happen */
+  }
+}
+
+
+LIBXS_API_INTERN void libxs_matrix_eqn_trv_rpn_print( libxs_matrix_eqn_elem* cur_node ) {
+  /* check if we are at an argument leaf, then we move up */
+  if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
+    if ( (cur_node->le == NULL) && (cur_node->ri == NULL) ) {
+      printf("ARG ");
+    } else {
+      printf("ERROR: Arg cannot have left or right child!\n");
+    }
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_UNARY ) {
+    /* we have to push more in this branch */
+    if ( cur_node->le != NULL ) {
+      libxs_matrix_eqn_trv_rpn_print( cur_node->le );
+      printf("UNARY-%i ", cur_node->info.u_op.type );
+    /* we have reached the root, as we are unary, there is no right branch */
+    } else if ( (cur_node->ri != NULL) ) {
+      printf("ERROR: Unary cannot have right childs!\n");
+    }
+  } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_BINARY ) {
+    /* we have to push more in this branch */
+    if ( (cur_node->le != NULL) && (cur_node->ri != NULL) ) {
+      libxs_matrix_eqn_trv_rpn_print( cur_node->le );
+      libxs_matrix_eqn_trv_rpn_print( cur_node->ri );
+      printf("BINARY-%i ", cur_node->info.b_op.type );
+    } else {
+      printf("ERROR: Binary needs left and right child!\n");
+    }
+  } else {
+    /* shouldn't happen */
+  }
+}
+
+
+LIBXS_API_INTERN void libxs_matrix_eqn_mov_head( libxs_blasint idx ) {
+  if ( libxs_matrix_eqns[idx] == NULL ) {
+    fprintf( stderr, "the requested equation doesn't exist!\n" );
+  }
+  if ( libxs_matrix_eqns[idx]->is_constructed == 1 ) {
+    fprintf( stderr, "the requested equation is already finalized!\n" );
+  }
+
+  libxs_matrix_eqns[idx]->eqn_cur = libxs_matrix_eqn_trv_head( libxs_matrix_eqns[idx]->eqn_cur );
+
+#if 0
+  printf("cur node address: %lld\n", libxs_matrix_eqns[idx]->eqn_cur );
+#endif
+
+  /* let's see if we need seal the equation */
+  if ( (libxs_matrix_eqns[idx]->eqn_cur == libxs_matrix_eqns[idx]->eqn_root) &&
+       ( ((libxs_matrix_eqns[idx]->eqn_cur->type == LIBXS_MATRIX_EQN_NODE_UNARY)  && (libxs_matrix_eqns[idx]->eqn_cur->le != NULL)) ||
+         ((libxs_matrix_eqns[idx]->eqn_cur->type == LIBXS_MATRIX_EQN_NODE_BINARY) && (libxs_matrix_eqns[idx]->eqn_cur->ri != NULL))    ) ) {
+    libxs_matrix_eqns[idx]->is_constructed = 1;
+    libxs_matrix_eqn_opt_exec_plan( idx );
+  }
+}
+
+
+LIBXS_API libxs_blasint libxs_matrix_eqn_create() {
+  libxs_blasint ret = libxs_matrix_eqns_count;
+  libxs_matrix_eqn_elem* node;
+
+  /* lazy init of helper array */
+  if ( libxs_matrix_eqns_init == 0 ) {
+    libxs_blasint i;
+    for ( i = 0; i < 256; ++i ) {
+      libxs_matrix_eqns[i] = NULL;
+    }
+    libxs_matrix_eqns_count = 0;
+    libxs_matrix_eqns_init = 1;
+  }
+
+  libxs_matrix_eqns_count++;
+
+  libxs_matrix_eqns[ret] = (libxs_matrix_eqn*) malloc( sizeof(libxs_matrix_eqn) );
+
+  node = (libxs_matrix_eqn_elem*) malloc( sizeof(libxs_matrix_eqn_elem) );
+
+  node->le = NULL;
+  node->ri = NULL;
+  node->up = NULL;
+  node->type = LIBXS_MATRIX_EQN_NODE_NONE;
+
+  libxs_matrix_eqns[ret]->eqn_root = node;
+  libxs_matrix_eqns[ret]->eqn_cur = node;
+  libxs_matrix_eqns[ret]->is_constructed = 0;
+  libxs_matrix_eqns[ret]->is_optimized = 0;
+  libxs_matrix_eqns[ret]->unary_only = 0;
+  libxs_matrix_eqns[ret]->unary_only = 0;
+#if 0
+  printf("created equation no: %i\n", ret);
+  printf("root node address: %lld\n", libxs_matrix_eqns[ret]->eqn_cur );
+#endif
+
+  return ret;
+}
+
+
+LIBXS_API int libxs_matrix_eqn_push_back_arg( const libxs_blasint idx, const libxs_blasint m, const libxs_blasint n, const libxs_blasint ld, const libxs_blasint in_pos, const libxs_blasint offs_in_pos, const libxs_datatype dtype ) {
+  union libxs_matrix_eqn_info info;
+
+  if ( libxs_matrix_eqns[idx] == NULL ) {
+    fprintf( stderr, "the requested equation doesn't exist!\n" );
+    return 1;
+  }
+  if ( libxs_matrix_eqns[idx]->is_constructed == 1 ) {
+    fprintf( stderr, "the requested equation is already finalized!\n" );
+    return 2;
+  }
+
+  info.arg.m = m;
+  info.arg.n = n;
+  info.arg.ld = ld;
+  info.arg.in_pos = in_pos;
+  info.arg.offs_in_pos = offs_in_pos;
+  info.arg.dtype;
+  libxs_matrix_eqns[idx]->eqn_cur = libxs_matrix_eqn_add_node( libxs_matrix_eqns[idx]->eqn_cur, LIBXS_MATRIX_EQN_NODE_ARG, info );
+#if 0
+  printf("added arg node: %lld %i %i %i %i %i %i\n", libxs_matrix_eqns[idx]->eqn_cur, M, N, ld, in_pos, offs_in_pos, dtype );
+#endif
+
+  /* move to the next head position in the tree */
+  libxs_matrix_eqn_mov_head( idx );
+
+  return 0;
+}
+
+
+LIBXS_API int libxs_matrix_eqn_push_back_unary_op( const libxs_blasint idx, const libxs_meltw_unary_type type, const libxs_meltw_unary_flags flags, const libxs_datatype dtype ) {
+  union libxs_matrix_eqn_info info;
+
+  if ( libxs_matrix_eqns[idx] == NULL ) {
+    fprintf( stderr, "the requested equation doesn't exist!\n" );
+    return 1;
+  }
+  if ( libxs_matrix_eqns[idx]->is_constructed == 1 ) {
+    fprintf( stderr, "the requested equation is already finalized!\n" );
+    return 2;
+  }
+
+  info.u_op.type  = type;
+  info.u_op.flags = flags;
+  info.u_op.dtype = dtype;
+  libxs_matrix_eqns[idx]->eqn_cur = libxs_matrix_eqn_add_node( libxs_matrix_eqns[idx]->eqn_cur, LIBXS_MATRIX_EQN_NODE_UNARY, info );
+#if 0
+  printf("added unary node: %lld %i %i %i\n", libxs_matrix_eqns[idx]->eqn_cur, type, flags, dtype );
+#endif
+
+  /* move to the next head position in the tree */
+  libxs_matrix_eqn_mov_head( idx );
+
+  return 0;
+}
+
+
+LIBXS_API int libxs_matrix_eqn_push_back_binary_op( const libxs_blasint idx, const libxs_meltw_binary_type type, const libxs_meltw_binary_flags flags, const libxs_datatype dtype ) {
+  union libxs_matrix_eqn_info info;
+
+  if ( libxs_matrix_eqns[idx] == NULL ) {
+    fprintf( stderr, "the requested equation doesn't exist!\n" );
+    return 1;
+  }
+  if ( libxs_matrix_eqns[idx]->is_constructed == 1 ) {
+    fprintf( stderr, "the requested equation is already finalized!\n" );
+    return 2;
+  }
+
+  info.b_op.type  = type;
+  info.b_op.flags = flags;
+  info.b_op.dtype = dtype;
+  libxs_matrix_eqns[idx]->eqn_cur = libxs_matrix_eqn_add_node( libxs_matrix_eqns[idx]->eqn_cur, LIBXS_MATRIX_EQN_NODE_BINARY, info );
+#if 0
+  printf("added binary node: %lld %i %i %i\n", libxs_matrix_eqns[idx]->eqn_cur, type, flags, dtype );
+#endif
+
+  /* move to the next head position in the tree */
+  libxs_matrix_eqn_mov_head( idx );
+
+  return 0;
+}
+
+
+LIBXS_API void libxs_matrix_eqn_tree_print( const libxs_blasint idx ) {
+  if ( libxs_matrix_eqns[idx] == NULL ) {
+    fprintf( stderr, "the requested equation doesn't exist!\n" );
+  }
+  if ( libxs_matrix_eqns[idx]->is_constructed == 0 ) {
+    fprintf( stderr, "the requested equation is not yet finalized!\n" );
+  }
+
+  printf("\n");
+  printf("Schematic of the expression tree (Pre-order)\n");
+  libxs_matrix_eqn_trv_print( libxs_matrix_eqns[idx]->eqn_root, 0 );
+  printf("\n");
+}
+
+
+LIBXS_API void libxs_matrix_eqn_rpn_print( const libxs_blasint idx ) {
+  if ( libxs_matrix_eqns[idx] == NULL ) {
+    fprintf( stderr, "the requested equation doesn't exist!\n" );
+  }
+  if ( libxs_matrix_eqns[idx]->is_constructed == 0 ) {
+    fprintf( stderr, "the requested equation is not yet finalized!\n" );
+  }
+
+  printf("\n");
+  printf("HP calculator (RPN) print of the expression tree (Post-order)\n");
+  libxs_matrix_eqn_trv_rpn_print( libxs_matrix_eqns[idx]->eqn_root );
+  printf("\n\n");
+}
+
+
+LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_meqn_descriptor* descriptor ) {
+  libxs_matrix_eqn_function result;
+  LIBXS_INIT /* verbosity */
+#if !defined(LIBXS_UNPACKED) /* CCE/Classic */
+  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
+#endif
+  if (NULL != descriptor) {
+    unsigned int hash;
+    libxs_descriptor wrap;
+#if defined(LIBXS_UNPACKED) /* CCE/Classic */
+    LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
+#endif
+    LIBXS_ASSIGN127(&wrap.meqn.desc, descriptor);
+    wrap.kind = LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MEQN);
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xmateqn;
+  }
+  else {
+    result = NULL;
+  }
+  return result;
+}
+
+
+LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn( const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldo, const libxs_datatype out_type, const unsigned int eqn_idx ) {
+  libxs_descriptor_blob blob;
+  const libxs_meqn_descriptor *const desc = libxs_meqn_descriptor_init(&blob,
+    out_type, m, n, (ldo == NULL) ? m : *ldo, eqn_idx );
+
+  return libxs_dispatch_matrix_eqn_desc( desc );
 }
 
 

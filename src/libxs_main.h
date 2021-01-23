@@ -189,6 +189,7 @@
   START libxs_gemm_descriptor MODIFIER gemm; \
   START libxs_mcopy_descriptor MODIFIER mcopy; \
   START libxs_meltw_descriptor MODIFIER meltw; \
+  START libxs_meqn_descriptor MODIFIER meqn; \
   START libxs_trans_descriptor MODIFIER trans; \
   START libxs_pgemm_descriptor MODIFIER pgemm; \
   START libxs_getrf_descriptor MODIFIER getrf; \
@@ -346,6 +347,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, or void-function */
   libxs_xmcopyfunction xmatcopy;
   libxs_xmeltwfunction xmateltw;
+  libxs_matrix_eqn_function xmateqn;
   libxs_xtransfunction xtrans;
   libxs_pgemm_xfunction xpgemm;
   libxs_getrf_xfunction xgetrf;
@@ -856,10 +858,82 @@ struct LIBXS_RETARGETABLE libxs_sfsspmdm {
   libxs_smmfunction kernel;
 };
 
+/** Packed structure storing the mateltw argument description. */
+LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meqn_descriptor {
+  /** LDx, M, and N. */
+  unsigned int m, n, ldo;
+  /** Size of data element. */
+  unsigned char datatype;
+  /** Set of flags */
+  unsigned int eqn_idx;
+};
+
+LIBXS_EXTERN_C typedef enum libxs_matrix_eqn_node_type {
+  LIBXS_MATRIX_EQN_NODE_NONE    = 0,
+  LIBXS_MATRIX_EQN_NODE_UNARY   = 1,
+  LIBXS_MATRIX_EQN_NODE_BINARY  = 2,
+  LIBXS_MATRIX_EQN_NODE_GEMM    = 4,
+  LIBXS_MATRIX_EQN_NODE_ARG     = 8
+} libxs_matrix_eqn_node_type;
+
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_matrix_eqn_unary_op {
+  libxs_meltw_unary_type  type;
+  libxs_meltw_unary_flags flags;
+  libxs_datatype          dtype;
+} libxs_matrix_eqn_unary_op;
+
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_matrix_eqn_binary_op {
+  libxs_meltw_binary_type  type;
+  libxs_meltw_binary_flags flags;
+  libxs_datatype           dtype;
+} libxs_matrix_eqn_binary_op;
+
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_matrix_eqn_gemm_op {
+  libxs_gemm_flags flags;
+  libxs_datatype   dtype;
+} libxs_matrix_eqn_gemm_op;
+
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_matrix_eqn_arg {
+  libxs_blasint  m;
+  libxs_blasint  n;
+  libxs_blasint  ld;
+  libxs_blasint  in_pos;
+  libxs_blasint  offs_in_pos;
+  libxs_datatype dtype;
+} libxs_matrix_eqn_arg;
+
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_matrix_eqn_info {
+  libxs_matrix_eqn_unary_op   u_op;
+  libxs_matrix_eqn_binary_op  b_op;
+  libxs_matrix_eqn_gemm_op    g_op;
+  libxs_matrix_eqn_arg        arg;
+} libxs_matrix_eqn_info;
+
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_matrix_eqn_elem {
+  struct libxs_matrix_eqn_elem* le;
+  struct libxs_matrix_eqn_elem* ri;
+  struct libxs_matrix_eqn_elem* up;
+  libxs_matrix_eqn_node_type    type;
+  libxs_matrix_eqn_info         info;
+  libxs_blasint                reg_score;
+  libxs_blasint                visit_timestamp;
+  libxs_blasint                tmp_id;
+} libxs_matrix_eqn_elem;
+
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_matrix_eqn {
+  libxs_matrix_eqn_elem*         eqn_root;
+  libxs_matrix_eqn_elem*         eqn_cur;
+  libxs_blasint                 is_constructed;
+  libxs_blasint                 is_optimized;
+  libxs_blasint                 unary_only;
+  libxs_blasint                 binary_only;
+} libxs_matrix_eqn;
+
 typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GEMM       = LIBXS_KERNEL_KIND_MATMUL,
   LIBXS_BUILD_KIND_MCOPY      = LIBXS_KERNEL_KIND_MCOPY,
   LIBXS_BUILD_KIND_MELTW      = LIBXS_KERNEL_KIND_MELTW,
+  LIBXS_BUILD_KIND_MEQN       = LIBXS_KERNEL_KIND_MEQN,
   LIBXS_BUILD_KIND_TRANS      = LIBXS_KERNEL_KIND_TRANS,
   LIBXS_BUILD_KIND_PGEMM      = LIBXS_KERNEL_KIND_PGEMM,
   LIBXS_BUILD_KIND_GETRF      = LIBXS_KERNEL_KIND_GETRF,
