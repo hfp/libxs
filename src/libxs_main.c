@@ -5082,6 +5082,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_opt_exec_plan( libxs_blasint idx ) {
 #if 0
   printf("\n\n");
 #endif
+  libxs_matrix_eqns[idx]->is_optimized = 1;
 }
 
 
@@ -5286,6 +5287,24 @@ LIBXS_API_INTERN void libxs_matrix_eqn_mov_head( libxs_blasint idx ) {
 }
 
 
+LIBXS_API_INTERN int libxs_matrix_eqn_is_ready_for_jit( libxs_blasint idx ) {
+  if ( libxs_matrix_eqns[idx] == NULL ) {
+    fprintf( stderr, "the requested equation doesn't exist!\n" );
+    return 1;
+  }
+  if ( libxs_matrix_eqns[idx]->is_constructed == 0 ) {
+    fprintf( stderr, "the requested equation is not finalized, yet!\n" );
+    return 2;
+  }
+  if ( libxs_matrix_eqns[idx]->is_optimized == 0 ) {
+    fprintf( stderr, "the requested equation is not optimized, yet!\n" );
+    return 2;
+  }
+
+  return 0;
+}
+
+
 LIBXS_API libxs_blasint libxs_matrix_eqn_create() {
   libxs_blasint ret = libxs_matrix_eqns_count;
   libxs_matrix_eqn_elem* node;
@@ -5343,7 +5362,7 @@ LIBXS_API int libxs_matrix_eqn_push_back_arg( const libxs_blasint idx, const lib
   info.arg.ld = ld;
   info.arg.in_pos = in_pos;
   info.arg.offs_in_pos = offs_in_pos;
-  info.arg.dtype;
+  info.arg.dtype = dtype;
   libxs_matrix_eqns[idx]->eqn_cur = libxs_matrix_eqn_add_node( libxs_matrix_eqns[idx]->eqn_cur, LIBXS_MATRIX_EQN_NODE_ARG, info );
 #if 0
   printf("added arg node: %lld %i %i %i %i %i %i\n", libxs_matrix_eqns[idx]->eqn_cur, M, N, ld, in_pos, offs_in_pos, dtype );
@@ -5449,12 +5468,18 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_
   if (NULL != descriptor) {
     unsigned int hash;
     libxs_descriptor wrap;
+
+    /* check if equation is ready for JIT */
+    if ( libxs_matrix_eqn_is_ready_for_jit( descriptor->eqn_idx) == 0 ) {
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
-    LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
+      LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
-    LIBXS_ASSIGN127(&wrap.meqn.desc, descriptor);
-    wrap.kind = LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MEQN);
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xmateqn;
+      LIBXS_ASSIGN127(&wrap.meqn.desc, descriptor);
+      wrap.kind = LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MEQN);
+      result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xmateqn;
+    } else {
+      result = NULL;
+    }
   }
   else {
     result = NULL;
