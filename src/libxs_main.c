@@ -283,9 +283,9 @@ LIBXS_APIVAR_PRIVATE_DEF(LIBXS_TLS_TYPE libxs_tlskey);
 #endif
 
 /* aux struct for matrix equations */
-LIBXS_APIVAR_PRIVATE_DEF(libxs_matrix_eqn* libxs_matrix_eqns[256]);
-LIBXS_APIVAR_PRIVATE_DEF(libxs_blasint libxs_matrix_eqns_init = 0);
-LIBXS_APIVAR_PRIVATE_DEF(libxs_blasint libxs_matrix_eqns_count = 255);
+LIBXS_APIVAR_DEFINE(libxs_matrix_eqn* libxs_matrix_eqns[256]);
+LIBXS_APIVAR_DEFINE(libxs_blasint libxs_matrix_eqns_init);
+LIBXS_APIVAR_DEFINE(libxs_blasint libxs_matrix_eqns_count);
 
 LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 {
