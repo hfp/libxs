@@ -4982,10 +4982,12 @@ LIBXS_API_INTERN void libxs_matrix_eqn_assign_reg_scores( libxs_matrix_eqn_elem*
 
 LIBXS_API_INTERN libxs_blasint reserve_tmp_storage(libxs_blasint n_max_tmp, libxs_blasint *tmp_storage_pool) {
   libxs_blasint i;
-  for (i = 0; i < n_max_tmp; i++) {
-    if (tmp_storage_pool[i] == 0) {
-      tmp_storage_pool[i] = 1;
-      return i;
+  if ( tmp_storage_pool != NULL ) {
+    for (i = 0; i < n_max_tmp; i++) {
+      if (tmp_storage_pool[i] == 0) {
+        tmp_storage_pool[i] = 1;
+        return i;
+      }
     }
   }
   return -1;
@@ -5072,7 +5074,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_opt_exec_plan( libxs_blasint idx ) {
 #if 0
   printf("Optimal number of intermediate tmp storage is %d\n", max_reg_score);
 #endif
-  libxs_matrix_eqn_create_exec_plan( libxs_matrix_eqns[idx]->eqn_root, &global_timestamp, max_reg_score, tmp_storage_pool  );
+  libxs_matrix_eqn_create_exec_plan( libxs_matrix_eqns[idx]->eqn_root, &global_timestamp, max_reg_score, tmp_storage_pool );
 #if 0
   printf("Created optimal exexution plan...\n");
 #endif
@@ -5107,6 +5109,7 @@ LIBXS_API_INTERN libxs_matrix_eqn_elem* libxs_matrix_eqn_add_node( libxs_matrix_
       /* shouldn't happen */
       fprintf( stderr, "this is not a leaf node, so we cannot add a node!\n");
       free( node );
+      node = NULL;
     }
 
     return node;
@@ -5127,6 +5130,7 @@ LIBXS_API_INTERN libxs_matrix_eqn_elem* libxs_matrix_eqn_add_node( libxs_matrix_
       /* shouldn't happen */
       fprintf( stderr, "this is not a leaf node, so we cannot add a node!\n");
       free( node );
+      node = NULL;
     }
 
     return node;
