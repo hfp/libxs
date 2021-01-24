@@ -5061,14 +5061,12 @@ LIBXS_API_INTERN void libxs_matrix_eqn_opt_exec_plan( libxs_blasint idx ) {
 #endif
   libxs_matrix_eqn_assign_reg_scores( libxs_matrix_eqns[idx]->eqn_root );
   max_reg_score = libxs_matrix_eqns[idx]->eqn_root->reg_score;
-  if (max_reg_score > 0) {
-    tmp_storage_pool = (libxs_blasint*) malloc(max_reg_score * sizeof(libxs_blasint));
-    if (tmp_storage_pool == NULL) {
-      fprintf( stderr, "Tmp storage allocation array failed...\n" );
-    } else {
-      for (i = 0; i < max_reg_score; i++) {
-        tmp_storage_pool[i] = 0;
-      }
+  tmp_storage_pool = (libxs_blasint*) malloc(max_reg_score * sizeof(libxs_blasint));
+  if (tmp_storage_pool == NULL) {
+    fprintf( stderr, "Tmp storage allocation array failed...\n" );
+  } else {
+    for (i = 0; i < max_reg_score; i++) {
+      tmp_storage_pool[i] = 0;
     }
   }
 #if 0
