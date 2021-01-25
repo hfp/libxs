@@ -287,6 +287,7 @@ LIBXS_APIVAR_DEFINE(libxs_matrix_eqn* libxs_matrix_eqns[256]);
 LIBXS_APIVAR_DEFINE(libxs_blasint libxs_matrix_eqns_init);
 LIBXS_APIVAR_DEFINE(libxs_blasint libxs_matrix_eqns_count);
 
+
 LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 {
   void* result;
@@ -4935,6 +4936,7 @@ LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary(
 }
 
 
+LIBXS_API_INTERN void libxs_matrix_eqn_assign_reg_scores( libxs_matrix_eqn_elem* cur_node );
 LIBXS_API_INTERN void libxs_matrix_eqn_assign_reg_scores( libxs_matrix_eqn_elem* cur_node ) {
   /* check if we are at an argument leaf, then we assign register score 0 */
   if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
@@ -4980,6 +4982,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_assign_reg_scores( libxs_matrix_eqn_elem*
 }
 
 
+LIBXS_API_INTERN libxs_blasint reserve_tmp_storage(libxs_blasint n_max_tmp, libxs_blasint *tmp_storage_pool);
 LIBXS_API_INTERN libxs_blasint reserve_tmp_storage(libxs_blasint n_max_tmp, libxs_blasint *tmp_storage_pool) {
   libxs_blasint i;
   if ( tmp_storage_pool != NULL ) {
@@ -4994,6 +4997,7 @@ LIBXS_API_INTERN libxs_blasint reserve_tmp_storage(libxs_blasint n_max_tmp, libx
 }
 
 
+LIBXS_API_INTERN void libxs_matrix_eqn_create_exec_plan( libxs_matrix_eqn_elem* cur_node, libxs_blasint *global_timestamp, libxs_blasint n_max_tmp, libxs_blasint *tmp_storage_pool );
 LIBXS_API_INTERN void libxs_matrix_eqn_create_exec_plan( libxs_matrix_eqn_elem* cur_node, libxs_blasint *global_timestamp, libxs_blasint n_max_tmp, libxs_blasint *tmp_storage_pool ) {
   /* check if we are at an argument leaf, then we assign register score 0 */
   if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
@@ -5044,6 +5048,8 @@ LIBXS_API_INTERN void libxs_matrix_eqn_create_exec_plan( libxs_matrix_eqn_elem* 
   }
 }
 
+
+LIBXS_API_INTERN void libxs_matrix_eqn_opt_exec_plan( libxs_blasint idx );
 LIBXS_API_INTERN void libxs_matrix_eqn_opt_exec_plan( libxs_blasint idx ) {
   libxs_blasint global_timestamp = 0;
   libxs_blasint max_reg_score = 0;
@@ -5087,6 +5093,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_opt_exec_plan( libxs_blasint idx ) {
 }
 
 
+LIBXS_API_INTERN libxs_matrix_eqn_elem* libxs_matrix_eqn_add_node( libxs_matrix_eqn_elem* cur_node, libxs_matrix_eqn_node_type type, libxs_matrix_eqn_info info );
 LIBXS_API_INTERN libxs_matrix_eqn_elem* libxs_matrix_eqn_add_node( libxs_matrix_eqn_elem* cur_node, libxs_matrix_eqn_node_type type, libxs_matrix_eqn_info info ) {
   if ( type == LIBXS_MATRIX_EQN_NODE_NONE ) {
     /* shouldn't happen */
@@ -5151,6 +5158,7 @@ LIBXS_API_INTERN libxs_matrix_eqn_elem* libxs_matrix_eqn_add_node( libxs_matrix_
 }
 
 
+LIBXS_API_INTERN libxs_matrix_eqn_elem* libxs_matrix_eqn_trv_head( libxs_matrix_eqn_elem* cur_node );
 LIBXS_API_INTERN libxs_matrix_eqn_elem* libxs_matrix_eqn_trv_head( libxs_matrix_eqn_elem* cur_node ) {
   /* check if we are at an argument leaf, then we move up */
   if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
@@ -5187,6 +5195,7 @@ LIBXS_API_INTERN libxs_matrix_eqn_elem* libxs_matrix_eqn_trv_head( libxs_matrix_
 }
 
 
+LIBXS_API_INTERN void libxs_matrix_eqn_trv_print( libxs_matrix_eqn_elem* cur_node, libxs_blasint indent );
 LIBXS_API_INTERN void libxs_matrix_eqn_trv_print( libxs_matrix_eqn_elem* cur_node, libxs_blasint indent ) {
   libxs_blasint i;
   libxs_blasint tree_print_indent = 4;
@@ -5234,6 +5243,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_trv_print( libxs_matrix_eqn_elem* cur_nod
 }
 
 
+LIBXS_API_INTERN void libxs_matrix_eqn_trv_rpn_print( libxs_matrix_eqn_elem* cur_node );
 LIBXS_API_INTERN void libxs_matrix_eqn_trv_rpn_print( libxs_matrix_eqn_elem* cur_node ) {
   /* check if we are at an argument leaf, then we move up */
   if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_ARG ) {
@@ -5266,6 +5276,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_trv_rpn_print( libxs_matrix_eqn_elem* cur
 }
 
 
+LIBXS_API_INTERN void libxs_matrix_eqn_mov_head( libxs_blasint idx );
 LIBXS_API_INTERN void libxs_matrix_eqn_mov_head( libxs_blasint idx ) {
   if ( libxs_matrix_eqns[idx] == NULL ) {
     fprintf( stderr, "the requested equation doesn't exist!\n" );
@@ -5290,6 +5301,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_mov_head( libxs_blasint idx ) {
 }
 
 
+LIBXS_API_INTERN int libxs_matrix_eqn_is_ready_for_jit( libxs_blasint idx );
 LIBXS_API_INTERN int libxs_matrix_eqn_is_ready_for_jit( libxs_blasint idx ) {
   if ( libxs_matrix_eqns[idx] == NULL ) {
     fprintf( stderr, "the requested equation doesn't exist!\n" );
