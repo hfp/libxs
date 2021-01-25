@@ -5222,7 +5222,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_trv_print( libxs_matrix_eqn_elem* cur_nod
   } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_UNARY ) {
     /* we have to push more in this branch */
     if ( cur_node->le != NULL ) {
-      printf("UNARY: %i %i (timestamp = %i, tmp = %i)\n", cur_node->info.u_op.type, cur_node->info.u_op.flags, cur_node->visit_timestamp, cur_node->tmp_id );
+      printf("UNARY: %i %i (timestamp = %i, tmp = %i)\n", (int)cur_node->info.u_op.type, (int)cur_node->info.u_op.flags, cur_node->visit_timestamp, cur_node->tmp_id );
       libxs_matrix_eqn_trv_print( cur_node->le, indent+tree_print_indent );
     /* we have reached the root, as we are unary, there is no right branch */
     } else if ( (cur_node->ri != NULL) ) {
@@ -5231,7 +5231,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_trv_print( libxs_matrix_eqn_elem* cur_nod
   } else if ( cur_node->type == LIBXS_MATRIX_EQN_NODE_BINARY ) {
     /* we have to push more in this branch */
     if ( (cur_node->le != NULL) && (cur_node->ri != NULL) ) {
-      printf("BINARY: %i %i (timestamp = %i, tmp = %i)\n", cur_node->info.b_op.type, cur_node->info.b_op.flags, cur_node->visit_timestamp, cur_node->tmp_id );
+      printf("BINARY: %i %i (timestamp = %i, tmp = %i)\n", (int)cur_node->info.b_op.type, (int)cur_node->info.b_op.flags, cur_node->visit_timestamp, cur_node->tmp_id );
       libxs_matrix_eqn_trv_print( cur_node->le, indent+tree_print_indent );
       libxs_matrix_eqn_trv_print( cur_node->ri, indent+tree_print_indent );
     } else {
@@ -5256,7 +5256,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_trv_rpn_print( libxs_matrix_eqn_elem* cur
     /* we have to push more in this branch */
     if ( cur_node->le != NULL ) {
       libxs_matrix_eqn_trv_rpn_print( cur_node->le );
-      printf("UNARY-%i ", cur_node->info.u_op.type );
+      printf("UNARY-%i ", (int)cur_node->info.u_op.type );
     /* we have reached the root, as we are unary, there is no right branch */
     } else if ( (cur_node->ri != NULL) ) {
       printf("ERROR: Unary cannot have right childs!\n");
@@ -5266,7 +5266,7 @@ LIBXS_API_INTERN void libxs_matrix_eqn_trv_rpn_print( libxs_matrix_eqn_elem* cur
     if ( (cur_node->le != NULL) && (cur_node->ri != NULL) ) {
       libxs_matrix_eqn_trv_rpn_print( cur_node->le );
       libxs_matrix_eqn_trv_rpn_print( cur_node->ri );
-      printf("BINARY-%i ", cur_node->info.b_op.type );
+      printf("BINARY-%i ", (int)cur_node->info.b_op.type );
     } else {
       printf("ERROR: Binary needs left and right child!\n");
     }
