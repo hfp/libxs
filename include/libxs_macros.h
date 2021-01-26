@@ -53,7 +53,7 @@
 # define LIBXS_PLATFORM_X86
 #endif
 #if !defined(LIBXS_PLATFORM_AARCH64) && \
-    defined(__aarch64__)
+    (defined(__aarch64__) || defined(__arm64__))
 # define LIBXS_PLATFORM_AARCH64
 #endif
 #if !defined(LIBXS_PLATFORM_SUPPORTED)
