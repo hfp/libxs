@@ -103,11 +103,11 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #   define LIBXS_VTUNE_JIT_UNLOAD iJVM_EVENT_TYPE_METHOD_UNLOAD_START
 # endif
 # if !defined(LIBXS_MALLOC_FALLBACK)
-#   define LIBXS_MALLOC_FALLBACK 0
+#   define LIBXS_MALLOC_FALLBACK LIBXS_MALLOC_FINAL
 # endif
 #else /* VTune JIT-API not enabled */
 # if !defined(LIBXS_MALLOC_FALLBACK)
-#   define LIBXS_MALLOC_FALLBACK LIBXS_MALLOC_FINAL
+#   define LIBXS_MALLOC_FALLBACK 0
 # endif
 #endif /*defined(LIBXS_VTUNE)*/
 #if !defined(LIBXS_MALLOC_XMAP_TEMPLATE)
