@@ -90,6 +90,8 @@ libxs_diff_i64
 libxs_diff_i8
 libxs_diff_n
 libxs_dispatch_getrf
+libxs_dispatch_matrix_eqn
+libxs_dispatch_matrix_eqn_desc
 libxs_dispatch_mcopy
 libxs_dispatch_meltw
 libxs_dispatch_meltw_act_cvtfp32bf16
@@ -273,6 +275,7 @@ libxs_generator_gemm_kernel
 libxs_generator_getrf_kernel
 libxs_generator_matcopy_kernel
 libxs_generator_mateltwise_kernel
+libxs_generator_matequation_kernel
 libxs_generator_packed_gemm_ac_rm
 libxs_generator_packed_gemm_bc_rm
 libxs_generator_packed_spgemm_csc_kernel
@@ -350,10 +353,17 @@ libxs_matdiff_clear
 libxs_matdiff_clear_
 libxs_matdiff_reduce
 libxs_matdiff_reduce_
+libxs_matrix_eqn_create
+libxs_matrix_eqn_push_back_arg
+libxs_matrix_eqn_push_back_binary_op
+libxs_matrix_eqn_push_back_unary_op
+libxs_matrix_eqn_rpn_print
+libxs_matrix_eqn_tree_print
 libxs_mcopy_descriptor_init
 libxs_meltw_descriptor_init
 libxs_meltw_descriptor_init2
 libxs_memcmp
+libxs_meqn_descriptor_init
 libxs_mhd_element_comparison
 libxs_mhd_element_conversion
 libxs_mhd_read
