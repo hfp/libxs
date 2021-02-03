@@ -618,7 +618,7 @@ LIBXS_API_INTERN void internal_release_scratch(void)
 
 
 /* Caution: cannot be used multiple times in a single expression! */
-LIBXS_API_INTERN size_t libxs_format_size(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
+LIBXS_API_INTERN size_t libxs_format_value(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
 {
   const int len = (NULL != scale ? ((int)strlen(scale)) : 0);
   const int m = LIBXS_INTRINSICS_BITSCANBWD64(nbytes) / base, n = LIBXS_MIN(m, len);
@@ -697,7 +697,7 @@ LIBXS_API_INTERN void internal_finalize(void)
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
         fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
       }
-      if (0 != libxs_format_size(number_format_buffer, sizeof(number_format_buffer),
+      if (0 != libxs_format_value(number_format_buffer, sizeof(number_format_buffer),
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
         sizeof(internal_cache_type) * (LIBXS_NTHREADS_MAX) +
 #endif
@@ -705,7 +705,7 @@ LIBXS_API_INTERN void internal_finalize(void)
         "KM", "B", 10))
       {
         fprintf(stderr, "Registry and code: %s", number_format_buffer);
-        if (0 != libxs_format_size(number_format_buffer, sizeof(number_format_buffer), internal_registry_nbytes, "KM", "B", 10)) {
+        if (0 != libxs_format_value(number_format_buffer, sizeof(number_format_buffer), internal_registry_nbytes, "KM", "B", 10)) {
           fprintf(stderr, " + %s", number_format_buffer);
         }
         if (0 != high_verbosity) {
@@ -737,7 +737,7 @@ LIBXS_API_INTERN void internal_finalize(void)
       }
       if (EXIT_SUCCESS == libxs_get_scratch_info(&scratch_info)) {
         if (0 != scratch_info.size &&
-          0 != libxs_format_size(number_format_buffer, sizeof(number_format_buffer), scratch_info.size, "KM", "B", 10))
+          0 != libxs_format_value(number_format_buffer, sizeof(number_format_buffer), scratch_info.size, "KM", "B", 10))
         {
           fprintf(stderr, "Scratch: %s", number_format_buffer);
           if (0 != high_verbosity) {
@@ -748,7 +748,7 @@ LIBXS_API_INTERN void internal_finalize(void)
           }
         }
         if (0 != scratch_info.internal && 0 != high_verbosity &&
-          libxs_format_size(number_format_buffer, sizeof(number_format_buffer), scratch_info.internal, "KM", "B", 10))
+          libxs_format_value(number_format_buffer, sizeof(number_format_buffer), scratch_info.internal, "KM", "B", 10))
         {
           fprintf(stderr, "Private: %s\n", number_format_buffer);
         }
