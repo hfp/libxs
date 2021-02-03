@@ -1090,10 +1090,10 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment, int fl
 LIBXS_API void libxs_xfree(const void* memory, int check);
 
 /**
- * Format for instance an amount of Bytes like libxs_format_size(result, sizeof(result), nbytes, "KMGT", "B", 10).
+ * Format for instance an amount of Bytes like libxs_format_value(result, sizeof(result), nbytes, "KMGT", "B", 10).
  * The value returned is in requested/determined unit so that the user can decide about printing the buffer.
  */
-LIBXS_API_INTERN size_t libxs_format_size(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
+LIBXS_API_INTERN size_t libxs_format_value(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
 
 /** Returns the type-name of data-type (can be also libxs_gemm_precision). */
 LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype);
