@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
 
-HERE=$(cd "$(dirname "$0")"; pwd -P)
+HERE=$(cd "$(dirname "$0")" && pwd -P)
 LIBS=${HERE}/../lib
 
 #EXCLUDE="libxsgen"

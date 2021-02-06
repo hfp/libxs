@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
 
-HERE=$(cd "$(dirname "$0")"; pwd -P)
+HERE=$(cd "$(dirname "$0")" && pwd -P)
 DEPDIR=${HERE}/../../..
 
 TMPF=$(${DEPDIR}/.mktmp.sh /tmp/.libxs_XXXXXX.out)
