@@ -2385,8 +2385,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 #if (0 == LIBXS_JIT)
         LIBXS_UNUSED(user_size);
 #else
-        if (LIBXS_X86_AVX <= libxs_target_archid || /* check if JIT is supported (CPUID) */
-           (LIBXS_X86_GENERIC <= libxs_target_archid && LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind)) ||
+        if (LIBXS_X86_GENERIC <= libxs_target_archid || /* check if JIT is supported (CPUID) */
            (LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(desc->kind)))
         {
           LIBXS_ASSERT(0 != mode || NULL == flux_entry.ptr_const/*code version does not exist*/);
