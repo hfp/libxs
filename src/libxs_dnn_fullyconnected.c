@@ -30,7 +30,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
       /* let's make the description persistent */
       handle->desc = fullyconnected_desc;
       handle->target_archid = libxs_target_archid;
-      if ( (handle->target_archid == LIBXS_X86_AVX512_SPR) && ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && ((handle->desc.C % 16 != 0) || (handle->desc.K % 16 != 0)) ) {
+      if ( ((handle->target_archid == LIBXS_X86_AVX512_SPR) && (handle->target_archid <= LIBXS_X86_ALLFEAT)) && ( handle->desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && ((handle->desc.C % 16 != 0) || (handle->desc.K % 16 != 0)) ) {
         handle->target_archid = LIBXS_X86_AVX512_CPX;
       }
 
@@ -662,7 +662,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
       handle->barrier = libxs_barrier_create(handle->desc.threads, 1);
 
       /* If in SPR, generate tilerelease kernel */
-      if (handle->target_archid >= LIBXS_X86_AVX512_SPR) {
+      if ((handle->target_archid >= LIBXS_X86_AVX512_SPR) && (handle->target_archid <= LIBXS_X86_ALLFEAT)) {
         int l_tr_flags = LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
         handle->tilerelease_kernel = libxs_bsmmdispatch(handle->bk, handle->bk, handle->bk, NULL, NULL, NULL, NULL, NULL, &l_tr_flags, NULL);
       }
@@ -727,7 +727,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           libxs_blasint ldb = (libxs_blasint)handle->bc;
           libxs_blasint ldc = (libxs_blasint)handle->bk;
 
-          if (handle->target_archid == LIBXS_X86_AVX512_SPR) {
+          if ((handle->target_archid == LIBXS_X86_AVX512_SPR) && (handle->target_archid <= LIBXS_X86_ALLFEAT)) {
             libxs_meltw_flags fusion_flags;
             int l_flags = ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') ) | LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG;
             int l_tc_flags = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
@@ -782,7 +782,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
             handle->gemm_bwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bc, handle->bn, _bk, _bk*handle->bc*sizeof(libxs_bfloat16), _bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &_bk, &ldb, &alpha, &beta, NULL, NULL);
             handle->gemm_bwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bc, handle->bn, _bk, _bk*handle->bc*sizeof(libxs_bfloat16), _bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &_bk, &ldb, &alpha, &zerobeta, NULL, NULL);
           } else {
-            if (handle->target_archid == LIBXS_X86_AVX512_SPR) {
+            if ((handle->target_archid == LIBXS_X86_AVX512_SPR) && (handle->target_archid <= LIBXS_X86_ALLFEAT)) {
               int l_flags = ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') ) | LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG;
               int l_tc_flags = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
               libxs_blasint unroll_hint = (handle->desc.K/handle->bk)/handle->bwd_bf;
@@ -801,7 +801,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           lda = (libxs_blasint)handle->bk;
           ldb = (libxs_blasint)handle->bn;
           ldc = (libxs_blasint)handle->bk;
-          if (handle->target_archid == LIBXS_X86_AVX512_SPR) {
+          if ((handle->target_archid == LIBXS_X86_AVX512_SPR) && (handle->target_archid <= LIBXS_X86_ALLFEAT)) {
             int l_flags = ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') ) | LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG;
             int l_tc_flags = LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | ( LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N') );
             libxs_blasint unroll_hint = (handle->desc.N/handle->bn)/handle->upd_bf;

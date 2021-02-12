@@ -4656,6 +4656,21 @@ LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary(
 }
 
 
+LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary(
+  libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo,
+  libxs_datatype in_type, libxs_datatype compute_type, libxs_datatype out_type, libxs_meltw_ternary_flags flags, libxs_meltw_ternary_type type)
+{
+  libxs_descriptor_blob blob;
+  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
+    in_type, compute_type, out_type, LIBXS_DATATYPE_UNSUPPORTED, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo, 0, 0,
+    (unsigned short)flags, (unsigned char)type, LIBXS_MELTW_OPERATION_TERNARY);
+
+  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
+
+  return result.meltw_ternary;
+}
+
+
 LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_meqn_descriptor* descriptor ) {
   libxs_matrix_eqn_function result;
   LIBXS_INIT /* verbosity */

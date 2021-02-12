@@ -1067,7 +1067,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_custom(libxs
 
   /* check if we are on an AVX512 platform */
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  if ( handle->target_archid >= LIBXS_X86_AVX512 ) {
+  if ( (handle->target_archid >= LIBXS_X86_AVX512) && (handle->target_archid <= LIBXS_X86_ALLFEAT) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fullyconnected_st_bwdupd_custom_f32_f32( handle, kind, start_thread, tid);
     }
@@ -1182,7 +1182,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck(li
 
   /* check if we are on an AVX512 platform */
 #if defined(LIBXS_INTRINSICS_AVX512) /*__AVX512F__*/
-  if ( handle->target_archid >= LIBXS_X86_AVX512 ) {
+  if ( (handle->target_archid >= LIBXS_X86_AVX512) && (handle->target_archid <= LIBXS_X86_ALLFEAT) ) {
     if (handle->desc.datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->desc.datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
       status = libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_f32_f32( handle, kind, start_thread, tid);
     }
