@@ -495,12 +495,14 @@ LIBXS_API libxs_meltwfunction_transform libxs_dispatch_meltw_transform(libxs_bla
 LIBXS_API libxs_meltwfunction_dropout libxs_dispatch_meltw_dropout(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_meltw_dropout_flags flags);
 LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype comp_type, libxs_meltw_unary_flags flags, libxs_meltw_unary_type type);
 LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype comp_type, libxs_meltw_binary_flags flags, libxs_meltw_binary_type type);
+LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype comp_type, libxs_meltw_ternary_flags flags, libxs_meltw_ternary_type type);
 
 /** matrix equation interface */
 LIBXS_API libxs_blasint libxs_matrix_eqn_create();
 LIBXS_API int libxs_matrix_eqn_push_back_arg( const libxs_blasint idx, const libxs_blasint m, const libxs_blasint n, const libxs_blasint ld, const libxs_blasint in_pos, const libxs_blasint offs_in_pos, const libxs_datatype dtype );
 LIBXS_API int libxs_matrix_eqn_push_back_unary_op( const libxs_blasint idx, const libxs_meltw_unary_type type, const libxs_meltw_unary_flags flags, const libxs_datatype dtype );
 LIBXS_API int libxs_matrix_eqn_push_back_binary_op( const libxs_blasint idx, const libxs_meltw_binary_type type, const libxs_meltw_binary_flags flags, const libxs_datatype dtype );
+LIBXS_API int libxs_matrix_eqn_push_back_ternary_op( const libxs_blasint idx, const libxs_meltw_ternary_type type, const libxs_meltw_ternary_flags flags, const libxs_datatype dtype );
 LIBXS_API void libxs_matrix_eqn_tree_print( const libxs_blasint idx );
 LIBXS_API void libxs_matrix_eqn_rpn_print( const libxs_blasint idx );
 LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_meqn_descriptor* descriptor );
