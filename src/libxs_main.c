@@ -1693,7 +1693,7 @@ LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void*
     if (NULL == data_file) { /* file does not exist */
       data_file = fopen(name, "wb");
       if (NULL != data_file) { /* dump data into a file */
-        if (size != fwrite(data, 1, size, data_file)) result = EXIT_FAILURE;
+        result = ((size == fwrite(data, 1, size, data_file)) ? EXIT_SUCCESS : EXIT_FAILURE);
         result_close = fclose(data_file);
         if (EXIT_SUCCESS == result) result = result_close;
       }
