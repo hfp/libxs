@@ -1211,7 +1211,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->loop_order = libxs_dnn_convolution_setup_loop_order_fwd(handle);
   handle->blocksifm_blocking = libxs_dnn_convolution_setup_blocksifm_blocking(handle);
   handle->block_fwd_ofm = libxs_dnn_convolution_setup_block_fwd_OFM(handle);
-  handle->block_fwd_ifm = libxs_dnn_convolution_setup_block_fwd_IFM(handle);;
+  handle->block_fwd_ifm = libxs_dnn_convolution_setup_block_fwd_IFM(handle);
   handle->avoid_fmas_in_rim = libxs_dnn_convolution_setup_avoid_rim_fmas_fwd(handle);
   handle->use_ofm_parallelization = libxs_dnn_convolution_setup_use_ofm_parallelization(handle);
   handle->shuffle_filter_accesses = libxs_dnn_convolution_setup_shuffle_filter_accesses(handle);
