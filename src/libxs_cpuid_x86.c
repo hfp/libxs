@@ -285,6 +285,7 @@ LIBXS_API const char* libxs_cpuid_name(int id)
 LIBXS_API int libxs_cpuid_vlen32(int id)
 {
   int result;
+#if defined(LIBXS_PLATFORM_X86)
   if (LIBXS_X86_AVX512 <= id) {
     result = 16;
   }
@@ -294,9 +295,11 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   else if (LIBXS_X86_SSE42 <= id) {
     result = 4;
   }
-  else if (LIBXS_AARCH64_V81 == id) {
+#elif defined(LIBXS_PLATFORM_AARCH64)
+  if (LIBXS_AARCH64_V81 == id) {
     result = 4;
   }
+#endif
   else { /* scalar */
     result = 1;
   }
