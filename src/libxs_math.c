@@ -141,7 +141,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
         info->l1_tst = info->l1_ref;
         info->l1_ref = 0;
         info->v_tst = info->v_ref;
-        info->v_tst = 0;
+        info->v_ref = 0;
       }
     }
   }
