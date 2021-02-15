@@ -313,6 +313,7 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 # define INTERNAL_XMALLOC(I, ENTRYPOINT, ENVVAR, ENVDEF, MAPSTATE, MFLAGS, SIZE, BUFFER, REPTR) \
   if ((ENTRYPOINT) <= (I) && (MAP_FAILED == (BUFFER) || NULL == (BUFFER))) { \
     static const char* internal_xmalloc_env_ = NULL; \
+    LIBXS_ASSERT(NULL != (ENVVAR) && '\0' != *(ENVVAR)); \
     if (NULL == internal_xmalloc_env_) { \
       internal_xmalloc_env_ = getenv(ENVVAR); \
       if (NULL == internal_xmalloc_env_) internal_xmalloc_env_ = ENVDEF; \
@@ -1172,7 +1173,7 @@ LIBXS_API_INTERN void libxs_malloc_init(void)
 {
 #if (0 != LIBXS_SYNC) && defined(LIBXS_MALLOC_SCRATCH_JOIN)
   const char *const env = getenv("LIBXS_MALLOC_JOIN");
-  if (NULL != env && 0 != *env) internal_malloc_join = atoi(env);
+  if (NULL != env && '\0' != *env) internal_malloc_join = atoi(env);
 #endif
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
 # if defined(LIBXS_MALLOC_HOOK_QKMALLOC)
@@ -1624,7 +1625,8 @@ LIBXS_API_INLINE void* internal_xmalloc_xmap(const char* dir, size_t size, int f
   char filename[4096] = LIBXS_MALLOC_XMAP_TEMPLATE;
   int i = 0;
   LIBXS_ASSERT(NULL != rx && MAP_FAILED != *rx);
-  if (NULL != dir && 0 != *dir) {
+  if (NULL != dir && '\0' != *dir) {
+    /* coverity[string_size_sink_vararg_parm_call] */
     i = LIBXS_SNPRINTF(filename, sizeof(filename), "%s/" LIBXS_MALLOC_XMAP_TEMPLATE, dir);
   }
   if (0 <= i && i < (int)sizeof(filename)) {
