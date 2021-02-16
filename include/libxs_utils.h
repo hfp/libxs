@@ -296,6 +296,10 @@
 #   if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
 #     error "LIBXS_MAX_STATIC_TARGET_ARCH not defined!"
 #   endif
+#   if defined(LIBXS_TARGET_ARCH) && (LIBXS_TARGET_ARCH < LIBXS_MAX_STATIC_TARGET_ARCH)
+#     undef LIBXS_MAX_STATIC_TARGET_ARCH
+#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_TARGET_ARCH
+#   endif
 #   if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_DEBUG)
 #     include <immintrin.h>
 #   endif /*defined(LIBXS_INTRINSICS_INCLUDE)*/
