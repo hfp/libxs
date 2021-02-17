@@ -95,6 +95,9 @@
 /** Macro evaluates to LIBXS_ATTRIBUTE_TARGET_xxx (see below). */
 #define LIBXS_ATTRIBUTE_TARGET(TARGET) LIBXS_CONCATENATE(LIBXS_ATTRIBUTE_TARGET_, TARGET)
 
+#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_PLATFORM_X86)
+# define LIBXS_INTRINSICS_NONE
+#endif
 #if /*no intrinsics: tested with 17.x and 18.x*/(defined(__PGI) && \
     LIBXS_VERSION2(19, 0) > LIBXS_VERSION2(__PGIC__, __PGIC_MINOR__)) \
  || /*legacy*/(defined(_CRAYC) && !defined(__GNUC__))
