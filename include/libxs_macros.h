@@ -320,9 +320,9 @@
 #define LIBXS_APIVAR_ALIGNED(DECL, VISIBILITY) LIBXS_APIVAR(DECL, VISIBILITY, LIBXS_API_DEF)
 #endif
 
-/** Public visible variable declaration (without definition) located in header file. */
+/** Public variable declaration (without definition) located in header file. */
 #define LIBXS_APIVAR_PUBLIC(DECL) LIBXS_APIVAR(DECL, EXPORT, LIBXS_API_EXTERN)
-/** Public visible variable definition (complements declaration) located in source file. */
+/** Public variable definition (complements declaration) located in source file. */
 #define LIBXS_APIVAR_PUBLIC_DEF(DECL) LIBXS_APIVAR_ALIGNED(DECL, EXPORT)
 /** Private variable declaration (without definition) located in header file. */
 #define LIBXS_APIVAR_PRIVATE(DECL) LIBXS_APIVAR(DECL, INTERN, LIBXS_API_EXTERN)
