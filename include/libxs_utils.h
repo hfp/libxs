@@ -566,6 +566,13 @@ LIBXS_API_INLINE unsigned int LIBXS_ILOG2(unsigned long long n) {
 # define LIBXS_INTRINSICS_AVX512_CPX
 #endif
 
+/** 2048-bit state for xoshiro128+ RNG (state/symbols needed even if AVX-512 is not used) */
+#define LIBXS_INTRINSICS_MM512_RNG_STATE(INDEX) (*(__m512i*)LIBXS_CONCATENATE(libxs_intrinsics_mm512_rng_state, INDEX))
+LIBXS_APIVAR_PUBLIC(unsigned int libxs_intrinsics_mm512_rng_state0[16]);
+LIBXS_APIVAR_PUBLIC(unsigned int libxs_intrinsics_mm512_rng_state1[16]);
+LIBXS_APIVAR_PUBLIC(unsigned int libxs_intrinsics_mm512_rng_state2[16]);
+LIBXS_APIVAR_PUBLIC(unsigned int libxs_intrinsics_mm512_rng_state3[16]);
+
 /**
  * Pseudo intrinsics (AVX-512)
  */
@@ -920,13 +927,6 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM51
   return _mm512_loadu_ps(a16);
 }
 #endif /* SVML */
-/** 2048-bit state for xoshiro128+ RNG */
-#define LIBXS_INTRINSICS_MM512_RNG_STATE(INDEX) (*(__m512i*)LIBXS_CONCATENATE(libxs_intrinsics_mm512_rng_state, INDEX))
-LIBXS_APIVAR_PUBLIC(unsigned int libxs_intrinsics_mm512_rng_state0[16]);
-LIBXS_APIVAR_PUBLIC(unsigned int libxs_intrinsics_mm512_rng_state1[16]);
-LIBXS_APIVAR_PUBLIC(unsigned int libxs_intrinsics_mm512_rng_state2[16]);
-LIBXS_APIVAR_PUBLIC(unsigned int libxs_intrinsics_mm512_rng_state3[16]);
-
 # if defined(__GNUC__) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) && !defined(_CRAYC) && 0
 LIBXS_PRAGMA_OPTIMIZE_OFF /* avoid ICE in case of symbols (-g) */
 # endif
