@@ -281,7 +281,7 @@
 # define LIBXS_INIT if (2 > libxs_ninit) libxs_init();
 #endif
 
-/** Map to appropriate BLAS function (or fall-back). The mapping is used, e.g., inside of LIBXS_BLAS_XGEMM. */
+/** Map to appropriate BLAS function (or fallback). The mapping is used, e.g., inside of LIBXS_BLAS_XGEMM. */
 #define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
 #if (0 != LIBXS_BLAS) /* Helper macro to eventually (if defined) call libxs_init */
 # if defined(LIBXS_INIT_COMPLETED)
@@ -391,7 +391,7 @@
 #endif
 
 /**
- * Execute a specialized function, or use a fall-back code path depending on threshold (macro template).
+ * Execute a specialized function, or use a fallback code path depending on threshold (macro template).
  * LIBXS_XGEMM_FALLBACK0 or specialized function: below LIBXS_MAX_MNK
  * LIBXS_XGEMM_FALLBACK1: above LIBXS_MAX_MNK
  */
@@ -524,13 +524,13 @@ LIBXS_API void libxs_gemm_dprint2(void* ostream,
 LIBXS_API void libxs_gemm_xprint(void* ostream,
   libxs_xmmfunction kernel, const void* a, const void* b, void* c);
 
-/** GEMM_BATCH: fall-back prototype functions served by any compliant LAPACK/BLAS. */
+/** GEMM_BATCH: fallback prototype functions served by any compliant LAPACK/BLAS. */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch));
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch));
-/** GEMM: fall-back prototype functions served by any compliant LAPACK/BLAS. */
+/** GEMM: fallback prototype functions served by any compliant LAPACK/BLAS. */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm));
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemm));
-/** GEMV: fall-back prototype functions served by any compliant LAPACK/BLAS. */
+/** GEMV: fallback prototype functions served by any compliant LAPACK/BLAS. */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemv));
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemv));
 /** Helper function to consume arguments when called. */

@@ -209,7 +209,7 @@
 #           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_CORE
 #         endif
 #       endif
-#     else /* fall-back */
+#     else /* fallback */
 #       if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
 #       endif
@@ -486,7 +486,7 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
 # define LIBXS_INTRINSICS_BITSCANFWD64(N) ((0 != (N)) * __builtin_ctzll(N))
 # define LIBXS_INTRINSICS_BITSCANBWD32(N) ((0 != (N)) * (31 - __builtin_clz(N)))
 # define LIBXS_INTRINSICS_BITSCANBWD64(N) ((0 != (N)) * (63 - __builtin_clzll(N)))
-#else /* fall-back implementation */
+#else /* fallback implementation */
 # define LIBXS_INTRINSICS_BITSCANFWD32 LIBXS_INTRINSICS_BITSCANFWD32_SW
 # define LIBXS_INTRINSICS_BITSCANFWD64 LIBXS_INTRINSICS_BITSCANFWD64_SW
 # define LIBXS_INTRINSICS_BITSCANBWD32 LIBXS_INTRINSICS_BITSCANBWD32_SW
