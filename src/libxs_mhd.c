@@ -169,7 +169,7 @@ LIBXS_API const char* libxs_mhd_typename(libxs_mhd_elemtype type, size_t* typesi
     case LIBXS_MHD_ELEMTYPE_U32:  { size = 4; mhd_typename = "MET_UINT";   c_typename = "unsigned int";       } break;
     case LIBXS_MHD_ELEMTYPE_U16:  { size = 2; mhd_typename = "MET_USHORT"; c_typename = "unsigned short";     } break;
     case LIBXS_MHD_ELEMTYPE_U8:   { size = 1; mhd_typename = "MET_UCHAR";  c_typename = "unsigned char";      } break;
-    default: size = libxs_typesize((libxs_datatype)type); /* fall-back */
+    default: size = libxs_typesize((libxs_datatype)type); /* fallback */
   }
   LIBXS_ASSERT(size <= LIBXS_MHD_MAX_ELEMSIZE);
   if (NULL != ctypename) *ctypename = c_typename;

@@ -291,7 +291,7 @@ LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC) double libxs_dsqrt(double x)
   const double result = _mm_cvtsd_f64(_mm_sqrt_sd(a, _mm_set_sd(x)));
 #elif !defined(LIBXS_NO_LIBM)
   const double result = sqrt(x);
-#else /* fall-back */
+#else /* fallback */
   double result, y = x;
   if (LIBXS_NEQ(0, x)) {
     do {
@@ -311,7 +311,7 @@ LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC) float libxs_ssqrt(float x)
   const float result = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(x)));
 #elif !defined(LIBXS_NO_LIBM)
   const float result = LIBXS_SQRTF(x);
-#else /* fall-back */
+#else /* fallback */
   float result, y = x;
   if (LIBXS_NEQ(0, x)) {
     do {
@@ -423,7 +423,7 @@ LIBXS_API float libxs_sexp2(float x)
 {
 #if !defined(LIBXS_NO_LIBM)
   return LIBXS_EXP2F(x);
-#else /* fall-back */
+#else /* fallback */
   return internal_math_sexp2(x, 20/*compromise*/);
 #endif
 }
