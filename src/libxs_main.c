@@ -1482,7 +1482,9 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
   const int cpuid = libxs_cpuid();
   int target_archid;
   if (NULL != arch && 0 != *arch) {
+#if defined(LIBXS_PLATFORM_X86)
     const int jit = atoi(arch);
+#endif
     if (0 == strcmp("0", arch)) {
 #if defined(LIBXS_PLATFORM_X86)
       target_archid = LIBXS_X86_GENERIC;

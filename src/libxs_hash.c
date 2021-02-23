@@ -460,7 +460,7 @@ LIBXS_API_INTERN void libxs_hash_init(int target_arch)
   }
 #if (LIBXS_X86_SSE42 > LIBXS_STATIC_TARGET_ARCH)
   else {
-# if !defined(LIBXS_INTRINSICS_SSE42)
+# if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_INTRINSICS_SSE42)
     static int error_once = 0;
     if (0 == error_once && 0 != libxs_verbosity) { /* library code is expected to be mute */
       fprintf(stderr, "LIBXS WARNING: unable to access CRC32 instructions due to the compiler used!\n");
