@@ -17,8 +17,8 @@ USR=hfp
 PRJ=libxs
 URL="https://api.github.com/repos/${USR}/${PRJ}/forks"
 
-if [ "" != "${CURL}" ] && [ "" != "${GIT}" ] && \
-   [ "" != "${GREP}" ] && [ "" != "${CUT}" ];
+if [ "${CURL}" ] && [ "${GIT}" ] && \
+   [ "${GREP}" ] && [ "${CUT}" ];
 then
   N=0
   for FORK in $(${CURL} -s ${URL} \

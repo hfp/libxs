@@ -23,7 +23,7 @@ if [ "Darwin" != "$(${UNAME})" ]; then
 else
   LIBEXT=dylib
 fi
-if [ "" != "$1" ]; then
+if [ "$1" ]; then
   TEST=$1
   shift
 else

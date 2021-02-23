@@ -19,7 +19,7 @@ fi
 
 shift
 cd "${ABSDIR}"
-if [ "" != "${FLOCK}" ]; then
+if [ "${FLOCK}" ]; then
   ${FLOCK} "${ABSDIR}" -c "$@"
 else
   eval "$@"

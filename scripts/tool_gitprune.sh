@@ -10,7 +10,7 @@
 
 GIT=$(command -v git)
 
-if [ "" != "${GIT}" ]; then
+if [ "${GIT}" ]; then
   ${GIT} reflog expire --expire=now --all
   ${GIT} gc --prune=now
 else
