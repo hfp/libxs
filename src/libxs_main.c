@@ -1484,11 +1484,17 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
   if (NULL != arch && 0 != *arch) {
     const int jit = atoi(arch);
     if (0 == strcmp("0", arch)) {
+#if defined(LIBXS_PLATFORM_X86)
       target_archid = LIBXS_X86_GENERIC;
+#else
+      target_archid = LIBXS_TARGET_ARCH_GENERIC;
+#endif
     }
+#if defined(LIBXS_PLATFORM_X86)
     else if (0 < jit) {
       target_archid = LIBXS_X86_GENERIC + jit;
     }
+#endif
     else if (arch == libxs_stristr(arch, "spr") || arch == libxs_stristr(arch, "amx")) {
       target_archid = LIBXS_X86_AVX512_SPR;
     }
@@ -1518,26 +1524,31 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     }
     else if (arch == libxs_stristr(arch, "wsm") || arch == libxs_stristr(arch, "nhm")
        || arch == libxs_stristr(arch, "sse4_2") || arch == libxs_stristr(arch, "sse4.2")
-       || arch == libxs_stristr(arch, "sse4"))
+       || arch == libxs_stristr(arch, "sse42")  || arch == libxs_stristr(arch, "sse4"))
     {
       target_archid = LIBXS_X86_SSE42;
     }
-    else if (arch == libxs_stristr(arch, "sse3"))
-    {
+    else if (arch == libxs_stristr(arch, "sse3")) {
       target_archid = LIBXS_X86_SSE3;
     }
-    else if (arch == libxs_stristr(arch, "x86") || arch == libxs_stristr(arch, "x64")
-          || arch == libxs_stristr(arch, "x86_64") || arch == libxs_stristr(arch, "sse2"))
+    else if (arch == libxs_stristr(arch, "x86") || arch == libxs_stristr(arch, "x86_64")
+          || arch == libxs_stristr(arch, "x64") || arch == libxs_stristr(arch, "sse2"))
     {
       target_archid = LIBXS_X86_GENERIC;
     }
-    else if (arch == libxs_stristr(arch, "aarch64"))
+    else if (arch == libxs_stristr(arch, "arm") || arch == libxs_stristr(arch, "arm64")
+          || arch == libxs_stristr(arch, "aarch64"))
     {
       target_archid = LIBXS_AARCH64_V81;
     }
-    else if (arch == libxs_stristr(arch, "generic")
-          || arch == libxs_stristr(arch, "none"))
-    {
+    else if (arch == libxs_stristr(arch, "generic")) {
+#if defined(LIBXS_PLATFORM_X86)
+      target_archid = LIBXS_X86_GENERIC;
+#else
+      target_archid = LIBXS_TARGET_ARCH_GENERIC;
+#endif
+    }
+    else if (arch == libxs_stristr(arch, "none")) {
       target_archid = LIBXS_TARGET_ARCH_GENERIC;
     }
     else {
