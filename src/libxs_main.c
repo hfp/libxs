@@ -1488,6 +1488,8 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     if (0 == strcmp("0", arch)) {
 #if defined(LIBXS_PLATFORM_X86)
       target_archid = LIBXS_X86_GENERIC;
+#elif defined(LIBXS_PLATFORM_AARCH64)
+      target_archid = LIBXS_AARCH64_V81;
 #else
       target_archid = LIBXS_TARGET_ARCH_GENERIC;
 #endif
@@ -1496,7 +1498,6 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     else if (0 < jit) {
       target_archid = LIBXS_X86_GENERIC + jit;
     }
-#endif
     else if (arch == libxs_stristr(arch, "spr") || arch == libxs_stristr(arch, "amx")) {
       target_archid = LIBXS_X86_AVX512_SPR;
     }
@@ -1538,14 +1539,18 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     {
       target_archid = LIBXS_X86_GENERIC;
     }
+#elif defined(LIBXS_PLATFORM_AARCH64)
     else if (arch == libxs_stristr(arch, "arm") || arch == libxs_stristr(arch, "arm64")
           || arch == libxs_stristr(arch, "aarch64"))
     {
       target_archid = LIBXS_AARCH64_V81;
     }
+#endif
     else if (arch == libxs_stristr(arch, "generic")) {
 #if defined(LIBXS_PLATFORM_X86)
       target_archid = LIBXS_X86_GENERIC;
+#elif defined(LIBXS_PLATFORM_AARCH64)
+      target_archid = LIBXS_AARCH64_V81;
 #else
       target_archid = LIBXS_TARGET_ARCH_GENERIC;
 #endif
