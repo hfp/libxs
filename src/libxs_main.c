@@ -2082,9 +2082,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               request->descriptor.meltw->n, request->descriptor.meltw->m, request->descriptor.meltw->ldi, request->descriptor.meltw->ldo,
               (unsigned int)request->descriptor.meltw->operation, (unsigned int)request->descriptor.meltw->flags);
           } else {
-            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_opcode%u_flags%u.meltw", target_arch, tsizename,
+            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_opcode%u_flags%u_params%u.meltw", target_arch, tsizename,
               request->descriptor.meltw->m, request->descriptor.meltw->n, request->descriptor.meltw->ldi, request->descriptor.meltw->ldo,
-              (unsigned int)request->descriptor.meltw->operation, (unsigned int)request->descriptor.meltw->flags);
+              (unsigned int)request->descriptor.meltw->operation, (unsigned int)request->descriptor.meltw->flags, (unsigned int)request->descriptor.meltw->param);
           }
         }
       }
