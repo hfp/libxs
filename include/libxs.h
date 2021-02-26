@@ -93,23 +93,23 @@ LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_auto_prefetch(void);
 /** Set the default prefetch strategy. */
 LIBXS_API void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type strategy);
 
-/** Receive information about JIT-generated code. */
-LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info);
-
 /** Get information about the matrix multiplication kernel. */
 LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_info* info);
-
 /** Get information about the matrix transpose kernel. */
 LIBXS_API int libxs_get_transkernel_info(libxs_xtransfunction kernel, libxs_transkernel_info* info);
-
 /** Get information about the matrix copy kernel. */
 LIBXS_API int libxs_get_mcopykernel_info(libxs_xmcopyfunction kernel, libxs_mcopykernel_info* info);
-
 /** Get information about the matrix eltwise kernel. */
 LIBXS_API int libxs_get_meltwkernel_info(libxs_xmeltwfunction kernel, libxs_meltwkernel_info* info);
 
+/** Receive information about JIT-generated code (kernel or registry entry). */
+LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info);
 /** Get information about the code registry. */
 LIBXS_API int libxs_get_registry_info(libxs_registry_info* info);
+/** Enumerate registry by kind (e.g., LIBXS_KERNEL_KIND_USER); can be NULL (no such kind). */
+LIBXS_API void* libxs_get_registry_begin(libxs_kernel_kind kind, const void** key);
+/** Receive next (or NULL) based on given entry (see libxs_get_registry_begin). */
+LIBXS_API void* libxs_get_registry_next(const void* regentry, const void** key);
 
 /**
  * Register user-defined key-value.

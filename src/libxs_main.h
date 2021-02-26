@@ -1049,7 +1049,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_kernel_xinfo {
-  /** Non-zero of kernel is registered. */
+  /** Non-zero if kernel is registered. */
   unsigned int registered;
   /** Number of FLoating Point OPerationS (FLOPS). */
   unsigned int nflops;
