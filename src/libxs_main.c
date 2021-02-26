@@ -2821,7 +2821,7 @@ LIBXS_API void* libxs_get_registry_begin(libxs_kernel_kind kind, const void** ke
         const libxs_descriptor* desc;
         if (NULL != libxs_get_kernel_xinfo(regentry, &desc, NULL/*code_size*/)) {
           LIBXS_ASSERT(NULL != desc);
-          if (LIBXS_DESCRIPTOR_KIND(desc->kind) == kind) {
+          if (LIBXS_DESCRIPTOR_KIND(desc->kind) == (int)kind) {
             if (NULL != key) *key = desc->user.desc;
             result = regentry.ptr;
             break;
