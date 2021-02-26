@@ -2845,15 +2845,15 @@ LIBXS_API void* libxs_get_registry_next(const void* regentry, const void** key)
       && NULL != desc)
     {
       const int kind = LIBXS_DESCRIPTOR_KIND(desc->kind);
-      int i = desc - &internal_registry_keys->entry + 1;
+      int i = (int)(desc - &internal_registry_keys->entry + 1);
       for (; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
-        const libxs_code_pointer regentry = internal_registry[i];
-        if (NULL != regentry.ptr) {
-          if (NULL != libxs_get_kernel_xinfo(regentry, &desc, NULL/*code_size*/)
+        entry = internal_registry[i];
+        if (NULL != entry.ptr) {
+          if (NULL != libxs_get_kernel_xinfo(entry, &desc, NULL/*code_size*/)
             && LIBXS_DESCRIPTOR_KIND(desc->kind) == kind)
           {
             if (NULL != key) *key = desc->user.desc;
-            result = regentry.ptr;
+            result = entry.ptr;
             break;
           }
         }
