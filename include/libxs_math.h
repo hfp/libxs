@@ -69,6 +69,9 @@ LIBXS_API size_t libxs_shuffle(unsigned int n);
  */
 LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int limit, int is_lower);
 
+/* Kahan's summation returns accumulator += value and updates compensation. */
+LIBXS_API double libxs_kahan_sum(double value, double* accumulator, double* compensation);
+
 /** SQRT with Newton's method using integer arithmetic. */
 LIBXS_API unsigned int libxs_isqrt_u64(unsigned long long x);
 /** SQRT with Newton's method using integer arithmetic. */
@@ -104,7 +107,7 @@ LIBXS_API float libxs_sexp2_i8(signed char x);
 LIBXS_API float libxs_sexp2_i8i(int x);
 
 /** Inlineable fast tanh, such that a the compiler can potentially vectorize. */
-LIBXS_API_INLINE float libxs_stanh_pade78( float i_x ) {
+LIBXS_API_INLINE float libxs_stanh_pade78(float i_x) {
   const float l_c0       = 2027025.0f;
   const float l_c1       = 270270.0f;
   const float l_c2       = 6930.0f;
@@ -116,7 +119,6 @@ LIBXS_API_INLINE float libxs_stanh_pade78( float i_x ) {
   const float l_lo_bound = -4.97f;
   const float l_ones     = 1.0f;
   const float l_neg_ones = -1.0f;
-
   const float x2         = i_x * i_x;
   const float t1_nom     = (l_c3 * x2) + l_c2;
   const float t2_nom     = (t1_nom * x2) + l_c1;
@@ -127,9 +129,8 @@ LIBXS_API_INLINE float libxs_stanh_pade78( float i_x ) {
   const float t3_denom   = (t2_denom * x2) + l_c1_d;
   const float denom      = (t3_denom * x2) + l_c0;
   float result           = nom/denom ;
-  result = ( result > l_hi_bound ) ? l_ones : result;
-  result = ( result < l_lo_bound ) ? l_neg_ones : result;
-
+  result = (result > l_hi_bound) ? l_ones : result;
+  result = (result < l_lo_bound) ? l_neg_ones : result;
   return result;
 }
 
