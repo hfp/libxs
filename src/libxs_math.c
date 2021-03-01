@@ -284,6 +284,17 @@ LIBXS_API unsigned int libxs_isqrt2_u32(unsigned int x)
 }
 
 
+LIBXS_API double libxs_kahan_sum(double value, double* accumulator, double* compensation)
+{
+  double r, c;
+  LIBXS_ASSERT(NULL != accumulator && NULL != compensation);
+  c = value - *compensation; r = *accumulator + c;
+  *compensation = (r - *accumulator) - c;
+  *accumulator = r;
+  return r;
+}
+
+
 LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC) double libxs_dsqrt(double x)
 {
 #if defined(LIBXS_INTRINSICS_X86) && !defined(__PGI)
