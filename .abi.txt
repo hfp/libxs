@@ -337,6 +337,7 @@ libxs_itrans_internal
 libxs_itrans_p0
 libxs_itrans_s1
 libxs_itrans_s2
+libxs_kahan_sum
 libxs_lcm
 libxs_malloc
 libxs_matcopy
