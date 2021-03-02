@@ -767,9 +767,9 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
             }
 
             /* Also JIT eltwise functions... */
-            handle->fwd_cvtfp32bf16_kernel          = libxs_dispatch_meltw_cvtfp32bf16(handle->bk, handle->bn, &ldc, &ldc, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_CVT_NONE);
-            handle->fwd_cvtfp32bf16_relu_kernel     = libxs_dispatch_meltw_cvtfp32bf16_act(handle->bk, handle->bn, &ldc, &ldc, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_CVTA_FUSE_RELU, 0);
-            handle->fwd_sigmoid_cvtfp32bf16_kernel  = libxs_dispatch_meltw_act_cvtfp32bf16(handle->bk, handle->bn, &ldc, &ldc, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_ACVT_FUSE_SIGM, 0);
+             handle->fwd_cvtfp32bf16_kernel          = libxs_dispatch_meltw_unary(handle->bk, handle->bn, &ldc, &ldc, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_UNARY_NONE, LIBXS_MELTW_TYPE_UNARY_IDENTITY);
+            handle->fwd_cvtfp32bf16_relu_kernel     = libxs_dispatch_meltw_unary(handle->bk, handle->bn, &ldc, &ldc, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_UNARY_BITMASK, LIBXS_MELTW_TYPE_UNARY_RELU);
+            handle->fwd_sigmoid_cvtfp32bf16_kernel  = libxs_dispatch_meltw_unary(handle->bk, handle->bn, &ldc, &ldc, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_UNARY_NONE, LIBXS_MELTW_TYPE_UNARY_SIGMOID);
           } else {
             handle->gemm_fwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &beta, NULL, NULL);
             handle->gemm_fwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bk, handle->bn, handle->bc, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bc*handle->bn*sizeof(libxs_bfloat16), &lda, &ldb, &ldc, &alpha, &zerobeta, NULL, NULL);
@@ -791,8 +791,8 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
               handle->bwd_config_kernel = libxs_bsmmdispatch(handle->bc, handle->bn, handle->bk, &ldb, &lda, &ldb, NULL, &beta, &l_tc_flags, NULL);
               handle->gemm_bwd3.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd_unroll(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), unroll_hint, &ldb, &lda, &ldb, &alpha, &zerobeta, &l_flags, NULL);
               /* Also JIT eltwise functions... */
-              handle->bwd_cvtfp32bf16_kernel  = libxs_dispatch_meltw_cvtfp32bf16(handle->bc, handle->bn, &ldb, &ldb, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_CVT_NONE);
-              handle->bwd_relu_kernel  = libxs_dispatch_meltw_relu(handle->bc, handle->bn, &ldb, &ldb, LIBXS_DATATYPE_BF16, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_RELU_BWD_BITMASK, 0);
+              handle->bwd_cvtfp32bf16_kernel  = libxs_dispatch_meltw_unary(handle->bc, handle->bn, &ldb, &ldb, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_UNARY_NONE, LIBXS_MELTW_TYPE_UNARY_IDENTITY);
+              handle->bwd_relu_kernel  = libxs_dispatch_meltw_unary(handle->bc, handle->bn, &ldb, &ldb, LIBXS_DATATYPE_BF16, LIBXS_DATATYPE_BF16, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_UNARY_BITMASK, LIBXS_MELTW_TYPE_UNARY_RELU_INV);
             } else {
               handle->gemm_bwd.xgemm.bsmrs = libxs_bsmmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &lda, &ldb, &alpha, &beta, NULL, NULL);
               handle->gemm_bwd2.xgemm.bmrs = libxs_bmmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(libxs_bfloat16), handle->bk*handle->bn*sizeof(libxs_bfloat16), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
