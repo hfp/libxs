@@ -454,7 +454,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int block_upd_ofm;
 
   libxs_xtransfunction tr_kernel;
-  libxs_meltwfunction_cvtfp32bf16 fwd_cvtfp32bf16_kernel;
+  libxs_meltwfunction_unary fwd_cvtfp32bf16_kernel;
   libxs_xtransfunction tr_input_upd_kernel;
 
   /* Hoisting the compute kernels for FWD  */
@@ -727,11 +727,11 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   libxs_code_pointer gemm_upd2;    /* ability to hoist update GEMMs */
   libxs_code_pointer gemm_upd3;    /* ability to hoist update GEMMs */
   /* JITed eltwise kernels... */
-  libxs_meltwfunction_cvtfp32bf16     fwd_cvtfp32bf16_kernel;
-  libxs_meltwfunction_cvtfp32bf16     bwd_cvtfp32bf16_kernel;
-  libxs_meltwfunction_relu            bwd_relu_kernel;
-  libxs_meltwfunction_cvtfp32bf16_act fwd_cvtfp32bf16_relu_kernel;
-  libxs_meltwfunction_act_cvtfp32bf16 fwd_sigmoid_cvtfp32bf16_kernel;
+  libxs_meltwfunction_unary fwd_cvtfp32bf16_kernel;
+  libxs_meltwfunction_unary bwd_cvtfp32bf16_kernel;
+  libxs_meltwfunction_unary bwd_relu_kernel;
+  libxs_meltwfunction_unary fwd_cvtfp32bf16_relu_kernel;
+  libxs_meltwfunction_unary fwd_sigmoid_cvtfp32bf16_kernel;
 };
 
 LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_pooling {

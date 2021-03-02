@@ -1273,7 +1273,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   if (handle->datatype_in == LIBXS_DNN_DATATYPE_BF16) {
     _ldi = handle->ofmblock * handle->ofwp;
     _ldo = handle->ofmblock * handle->ofwp;
-    handle->fwd_cvtfp32bf16_kernel = libxs_dispatch_meltw_cvtfp32bf16(handle->ofmblock * handle->fwd_ofw_rb, handle->fwd_ofh_rb, &_ldi, &_ldo, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_CVT_NONE);
+    handle->fwd_cvtfp32bf16_kernel = libxs_dispatch_meltw_unary(handle->ofmblock * handle->fwd_ofw_rb, handle->fwd_ofh_rb, &_ldi, &_ldo, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_BF16, LIBXS_MELTW_FLAG_UNARY_NONE, LIBXS_MELTW_TYPE_UNARY_IDENTITY);
   }
 
   /* Create strided BRGEMMs for i8i32 convolutions  */
