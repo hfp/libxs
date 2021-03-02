@@ -2810,25 +2810,33 @@ LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
 }
 
 
+LIBXS_API_INLINE void* internal_get_registry_entry(int i, libxs_kernel_kind kind, const void** key)
+{
+  void* result = NULL;
+  LIBXS_ASSERT(kind < LIBXS_KERNEL_UNREGISTERED && NULL != internal_registry);
+  for (; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
+    const libxs_code_pointer regentry = internal_registry[i];
+    if (EXIT_SUCCESS == libxs_get_malloc_xinfo(regentry.ptr_const,
+      NULL/*code_size*/, NULL/*flags*/, &result) && NULL != result)
+    {
+      const libxs_kernel_xinfo info = *(const libxs_kernel_xinfo*)result;
+      const libxs_descriptor *const desc = &internal_registry_keys[info.registered].entry;
+      if (LIBXS_DESCRIPTOR_KIND(desc->kind) == (int)kind) {
+        if (NULL != key) *key = desc->user.desc;
+        result = regentry.ptr;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+
 LIBXS_API void* libxs_get_registry_begin(libxs_kernel_kind kind, const void** key)
 {
   void* result = NULL;
-  if (kind < LIBXS_KERNEL_UNREGISTERED) {
-    int i = 0;
-    for (; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
-      const libxs_code_pointer regentry = internal_registry[i];
-      if (NULL != regentry.ptr) {
-        const libxs_descriptor* desc;
-        if (NULL != libxs_get_kernel_xinfo(regentry, &desc, NULL/*code_size*/)) {
-          LIBXS_ASSERT(NULL != desc);
-          if (LIBXS_DESCRIPTOR_KIND(desc->kind) == (int)kind) {
-            if (NULL != key) *key = desc->user.desc;
-            result = regentry.ptr;
-            break;
-          }
-        }
-      }
-    }
+  if (kind < LIBXS_KERNEL_UNREGISTERED && NULL != internal_registry) {
+    result = internal_get_registry_entry(0, kind, key);
   }
   return result;
 }
@@ -2837,30 +2845,16 @@ LIBXS_API void* libxs_get_registry_begin(libxs_kernel_kind kind, const void** ke
 LIBXS_API void* libxs_get_registry_next(const void* regentry, const void** key)
 {
   void* result = NULL;
-  if (NULL != regentry) {
-    const libxs_descriptor* desc;
-    libxs_code_pointer entry;
-    entry.ptr_const = regentry;
-    if (NULL != libxs_get_kernel_xinfo(entry, &desc, NULL/*code_size*/)
-      /* given regentry is a registered kernel */
-      && NULL != desc)
-    {
-      const int kind = LIBXS_DESCRIPTOR_KIND(desc->kind);
-      int i = (int)(desc - &internal_registry_keys->entry + 1);
-      for (; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
-        entry = internal_registry[i];
-        if (NULL != entry.ptr) {
-          if (NULL != libxs_get_kernel_xinfo(entry, &desc, NULL/*code_size*/)) {
-            LIBXS_ASSERT(NULL != desc);
-            if (LIBXS_DESCRIPTOR_KIND(desc->kind) == kind) {
-              if (NULL != key) *key = desc->user.desc;
-              result = entry.ptr;
-              break;
-            }
-          }
-        }
-      }
-    }
+  const libxs_descriptor* desc;
+  libxs_code_pointer entry;
+  entry.ptr_const = regentry;
+  if (NULL != libxs_get_kernel_xinfo(entry, &desc, NULL/*code_size*/)
+    /* given regentry is indeed a registered kernel */
+    && NULL != desc)
+  {
+    result = internal_get_registry_entry(
+      (int)(desc - &internal_registry_keys->entry + 1),
+      (libxs_kernel_kind)LIBXS_DESCRIPTOR_KIND(desc->kind), key);
   }
   return result;
 }

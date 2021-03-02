@@ -1578,7 +1578,7 @@ LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flag
       result = (NULL != memory ? EXIT_FAILURE : EXIT_SUCCESS);
       if (NULL != size) *size = 0;
       if (NULL != flags) *flags = 0;
-      if (NULL != extra) *extra = 0;
+      if (NULL != extra) *extra = NULL;
     }
   }
 #if !defined(NDEBUG)
