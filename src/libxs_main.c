@@ -261,7 +261,7 @@ LIBXS_APIVAR_DEFINE(libxs_cpuid_x86_info internal_cpuid_info);
 # define INTERNAL_SINGLETON(HANDLE) (NULL != (HANDLE))
 #else
 # define INTERNAL_SINGLETON_HANDLE int
-# define INTERNAL_SINGLETON(HANDLE) (0 <= (HANDLE) && 0 != *internal_singleton_fname)
+# define INTERNAL_SINGLETON(HANDLE) (0 <= (HANDLE) && '\0' != *internal_singleton_fname)
 LIBXS_APIVAR_DEFINE(char internal_singleton_fname[64]);
 #endif
 LIBXS_APIVAR_DEFINE(INTERNAL_SINGLETON_HANDLE internal_singleton_handle);
@@ -493,7 +493,7 @@ LIBXS_API_INLINE unsigned int internal_print_statistic(FILE* ostream,
     unsigned int counter[4];
     {
       unsigned int n;
-      if (NULL != target_arch && 0 != *target_arch) {
+      if (NULL != target_arch && '\0' != *target_arch) {
         assert(strlen(target_arch) < sizeof(title)); /* !LIBXS_ASSERT */
         for (n = 0; 0 != target_arch[n] /*avoid code-gen. issue with some clang versions: && n < sizeof(title)*/; ++n) {
           const char c = target_arch[n];
@@ -635,7 +635,7 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
     : getenv("LIBXS_DUMP_FILE"));
   LIBXS_ASSERT_MSG(INTERNAL_SINGLETON(internal_singleton_handle), "Invalid handle");
   /* determine whether this instance is unique or not */
-  if (NULL != env_dump_files && 0 != *env_dump_files && 0 == urgent) { /* dump per-node info */
+  if (NULL != env_dump_files && '\0' != *env_dump_files && 0 == urgent) { /* dump per-node info */
     const char* filename = strtok(env_dump_files, INTERNAL_DELIMS);
     for (; NULL != filename; filename = strtok(NULL, INTERNAL_DELIMS)) {
       FILE* const file = fopen(filename, "r");
@@ -653,7 +653,7 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
     }
   }
   if  (NULL != internal_build_state /* dump build state */
-    && NULL != env_dump_build && 0 != *env_dump_build)
+    && NULL != env_dump_build && '\0' != *env_dump_build)
   {
     const int dump_build = atoi(env_dump_build);
     if (0 == urgent ? (0 < dump_build) : (0 > dump_build)) {
@@ -852,7 +852,7 @@ LIBXS_API_INTERN size_t internal_parse_nbytes(const char* /*nbytes*/, size_t /*n
 LIBXS_API_INTERN size_t internal_parse_nbytes(const char* nbytes, size_t ndefault)
 {
   size_t result = ndefault;
-  if (NULL != nbytes && 0 != *nbytes) {
+  if (NULL != nbytes && '\0' != *nbytes) {
     size_t u = internal_strlen(nbytes, 32) - 1;
     const char unit[] = "kmgKMG", *const hit = strchr(unit, nbytes[u]);
     const long long int ibytes = atol(nbytes); /* take with increased type-width */
@@ -894,7 +894,7 @@ LIBXS_API_INTERN void internal_init(void)
     void* new_cache = NULL;
 # endif
     const char* const env_cache = getenv("LIBXS_CACHE");
-    if (NULL != env_cache && 0 != *env_cache) {
+    if (NULL != env_cache && '\0' != *env_cache) {
       const int cache_size = atoi(env_cache), cache_size2 = LIBXS_UP2POT(cache_size);
       internal_cache_size = LIBXS_MIN(cache_size2, LIBXS_CACHE_MAXSIZE);
     }
@@ -903,7 +903,7 @@ LIBXS_API_INTERN void internal_init(void)
     }
 #endif
     /* setup verbosity as early as possible since below code may rely on verbose output */
-    if (NULL != env_verbose && 0 != *env_verbose) {
+    if (NULL != env_verbose && '\0' != *env_verbose) {
       libxs_verbosity = atoi(env_verbose);
     }
 #if !defined(NDEBUG)
@@ -1030,7 +1030,7 @@ LIBXS_API_INTERN void internal_init(void)
           : INTERNAL_PREFETCH;
 #endif
         libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
-        if (NULL != env && 0 != *env) { /* user input beyond auto-prefetch is always considered */
+        if (NULL != env && '\0' != *env) { /* user input beyond auto-prefetch is always considered */
           const int uid = atoi(env);
           if (0 <= uid) {
             libxs_gemm_auto_prefetch_default = libxs_gemm_uid2prefetch(uid);
@@ -1481,7 +1481,7 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
 {
   const int cpuid = libxs_cpuid();
   int target_archid;
-  if (NULL != arch && 0 != *arch) {
+  if (NULL != arch && '\0' != *arch) {
 #if defined(LIBXS_PLATFORM_X86)
     const int jit = atoi(arch);
 #endif
@@ -2319,6 +2319,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   internal_cache_type *const cache = &internal_cache_buffer;
 # endif
   unsigned char cache_index;
+  const int ninit = LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED);
   internal_pad_descriptor(desc, size);
   LIBXS_ASSERT(NULL != hash);
   if (0 == is_big_desc) {
@@ -2330,7 +2331,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
     cache_index = (unsigned char)libxs_diff_n(desc, cache->entry.keys,
       size, LIBXS_CACHE_STRIDE, cache->entry.hit, cache->entry.size);
   }
-  if (cache->entry.id == libxs_ninit && cache_index < cache->entry.size) { /* valid hit */
+  if (ninit == cache->entry.id && cache_index < cache->entry.size) { /* valid hit */
     flux_entry = cache->entry.code[cache_index];
     cache->entry.hit = cache_index;
   }
@@ -2488,7 +2489,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
     if (NULL != flux_entry.ptr_const) { /* keep code version on record (cache) */
       LIBXS_ASSERT(0 == diff);
-      if (cache->entry.id == libxs_ninit) { /* maintain cache */
+      if (ninit == cache->entry.id) { /* maintain cache */
         if (cache->entry.size < internal_cache_size) { /* grow */
           INTERNAL_FIND_CODE_CACHE_GROW(cache_index, cache->entry.size);
           LIBXS_ASSERT(cache->entry.size <= internal_cache_size);
@@ -2502,9 +2503,10 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 # if !defined(NDEBUG)
         LIBXS_MEMZERO127(cache->entry.keys);
 # endif
-        cache->entry.id = libxs_ninit;
-        cache->entry.size = 1;
         cache_index = 0;
+        cache->entry.size = 1;
+        /* commits cache */
+        cache->entry.id = ninit;
       }
       LIBXS_MEMCPY127(cache->entry.keys + cache_index, desc, 0 == is_big_desc ? LIBXS_DIFF_SIZE : size);
       cache->entry.code[cache_index] = flux_entry;
