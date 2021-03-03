@@ -2319,7 +2319,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   internal_cache_type *const cache = &internal_cache_buffer;
 # endif
   unsigned char cache_index;
-  const int ninit = LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED);
+  const unsigned int ninit = LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED);
   internal_pad_descriptor(desc, size);
   LIBXS_ASSERT(NULL != hash);
   if (0 == is_big_desc) {
