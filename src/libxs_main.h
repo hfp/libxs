@@ -40,8 +40,8 @@
 #   define LIBXS_NTHREADS_MAX 1
 # endif
 #endif
-/* code relies on LIBXS_NTHREADS_MAX or v/forks */
-#if !defined(LIBXS_NTHREADS_USE) && 1
+/* relies on LIBXS_NTHREADS_MAX */
+#if !defined(LIBXS_NTHREADS_USE) && 0
 # define LIBXS_NTHREADS_USE
 #endif
 #if !defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
