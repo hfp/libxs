@@ -2344,8 +2344,11 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
     unsigned int i, i0, mode = 0, diff = 1;
     *hash = LIBXS_CRC32(LIBXS_HASH_SIZE)(LIBXS_HASH_SEED, desc);
     i0 = i = LIBXS_MOD2(*hash, LIBXS_CAPACITY_REGISTRY);
-    LIBXS_ASSERT(NULL != internal_registry);
     LIBXS_ASSERT(&desc->kind == &desc->gemm.pad && desc->kind == desc->gemm.pad);
+#if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
+    LIBXS_ASSERT(cache->entry.size == cache_index);
+#endif
+    LIBXS_ASSERT(NULL != internal_registry);
     do { /* use calculated location and check if the requested code is already JITted */
 #if (1 < INTERNAL_REGLOCK_MAXN) || !LIBXS_LOCK_TYPE_ISRW(LIBXS_REGLOCK) /* read registered code */
 # if 1 /* omitting an atomic load is safe but avoids race-detectors to highlight this location */
@@ -2359,7 +2362,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
       flux_entry = internal_registry[i]; /* read registered code */
       LIBXS_LOCK_RELREAD(LIBXS_REGLOCK, internal_reglock_ptr);
 #endif
-      if ((NULL != flux_entry.ptr_const || 1 == mode) && 2 > mode) { /* check existing entry further */
+      if ((NULL != flux_entry.ptr_const || 1 == mode) && 2 > mode) { /* confirm entry */
         if (NULL != flux_entry.ptr_const) {
           if (0 == is_big_desc) {
 #if !defined(LIBXS_CACHE_MAXSIZE) || (0 == (LIBXS_CACHE_MAXSIZE))
@@ -2500,18 +2503,21 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
         }
       }
       else if (0 != internal_cache_size) { /* reset cache */
-# if !defined(NDEBUG)
-        LIBXS_MEMZERO127(cache->entry.keys);
-# endif
-        cache_index = 0;
-        cache->entry.size = 1;
-        /* commits cache */
+        /* INTERNAL_FIND_CODE_CACHE_GROW doubles size (and would expose invalid entries) */
+        memset(cache->entry.keys, 0, LIBXS_CACHE_MAXSIZE * sizeof(*cache->entry.keys));
         cache->entry.id = ninit;
+        cache->entry.size = 1;
+        cache_index = 0;
       }
       LIBXS_MEMCPY127(cache->entry.keys + cache_index, desc, 0 == is_big_desc ? LIBXS_DIFF_SIZE : size);
       cache->entry.code[cache_index] = flux_entry;
       cache->entry.hit = cache_index;
     }
+# if !defined(NDEBUG)
+    else {
+      memset(cache, 0, sizeof(*cache));
+    }
+# endif
 #endif
   }
 #if defined(LIBXS_HASH_COLLISION)
