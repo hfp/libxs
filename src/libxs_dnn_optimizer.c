@@ -17,12 +17,11 @@ LIBXS_API libxs_dnn_optimizer* libxs_dnn_create_optimizer(libxs_dnn_optimizer_de
   LIBXS_INIT
 
   if ( (optimizer_desc.datatype == LIBXS_DNN_DATATYPE_F32) || (optimizer_desc.datatype == LIBXS_DNN_DATATYPE_BF16) ) {
-    handle = (libxs_dnn_optimizer*)malloc(sizeof(libxs_dnn_optimizer));
+    /* zero entire content; not only safer but also sets data and code pointers to NULL */
+    handle = (libxs_dnn_optimizer*)calloc(sizeof(libxs_dnn_optimizer));
 
     if (0 != handle) {
       *status = LIBXS_DNN_SUCCESS;
-      /* zero entire content; not only safer but also sets data and code pointers to NULL */
-      memset(handle, 0, sizeof(*handle));
       /* let's make the description persistent */
       handle->desc = optimizer_desc;
 
@@ -89,10 +88,10 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_optimizer_create_tensor_datalay
   layout = 0;
 
   if (handle != 0) {
-    layout = (libxs_dnn_tensor_datalayout*) malloc(sizeof(libxs_dnn_tensor_datalayout));
+    /* zero entire content; not only safer but also sets data and code pointers to NULL */
+    layout = (libxs_dnn_tensor_datalayout*) calloc(sizeof(libxs_dnn_tensor_datalayout));
 
     if (layout != 0) {
-      memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
       layout->format = handle->desc.filter_format;
 
       if ( (type == LIBXS_DNN_REGULAR_FILTER) || (type == LIBXS_DNN_GRADIENT_FILTER) || (type == LIBXS_DNN_MASTER_FILTER) ) {

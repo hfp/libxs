@@ -29,12 +29,11 @@ LIBXS_API libxs_dnn_fusedbatchnorm* libxs_dnn_create_fusedbatchnorm(libxs_dnn_fu
 
   if ( ((fusedbatchnorm_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fusedbatchnorm_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
        ((fusedbatchnorm_desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (fusedbatchnorm_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
-    handle = (libxs_dnn_fusedbatchnorm*)malloc(sizeof(libxs_dnn_fusedbatchnorm));
+    /* zero entire content; not only safer but also sets data and code pointers to NULL */
+    handle = (libxs_dnn_fusedbatchnorm*)calloc(sizeof(libxs_dnn_fusedbatchnorm));
 
     if (0 != handle) {
       *status = LIBXS_DNN_SUCCESS;
-      /* zero entire content; not only safer but also sets data and code pointers to NULL */
-      memset(handle, 0, sizeof(*handle));
       /* let's make the description persistent */
       handle->desc = fusedbatchnorm_desc;
       /* we need to compute the memory layout given the */
@@ -82,10 +81,10 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedbatchnorm_create_tensor_da
   layout = 0;
 
   if (handle != 0) {
-    layout = (libxs_dnn_tensor_datalayout*) malloc(sizeof(libxs_dnn_tensor_datalayout));
+    /* zero entire content; not only safer but also sets data and code pointers to NULL */
+    layout = (libxs_dnn_tensor_datalayout*) calloc(sizeof(libxs_dnn_tensor_datalayout));
 
     if (layout != 0) {
-      memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
       layout->format = handle->desc.buffer_format;
 
       if ( (type == LIBXS_DNN_REGULAR_INPUT)     || (type == LIBXS_DNN_GRADIENT_INPUT)  || (type == LIBXS_DNN_INPUT)  ||
