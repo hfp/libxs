@@ -21,12 +21,11 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
   if ( ((fullyconnected_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fullyconnected_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
        ((fullyconnected_desc.datatype_in == LIBXS_DNN_DATATYPE_F32)  && (fullyconnected_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))  ||
        ((fullyconnected_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fullyconnected_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))     ) {
-    handle = (libxs_dnn_fullyconnected*)malloc(sizeof(libxs_dnn_fullyconnected));
+    /* zero entire content; not only safer but also sets data and code pointers to NULL */
+    handle = (libxs_dnn_fullyconnected*)calloc(sizeof(libxs_dnn_fullyconnected));
 
     if (0 != handle) {
       *status = LIBXS_DNN_SUCCESS;
-      /* zero entire content; not only safer but also sets data and code pointers to NULL */
-      memset(handle, 0, sizeof(*handle));
       /* let's make the description persistent */
       handle->desc = fullyconnected_desc;
       handle->target_archid = libxs_target_archid;
@@ -853,11 +852,10 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
   layout = 0;
 
   if (handle != 0) {
-    layout = (libxs_dnn_tensor_datalayout*) malloc(sizeof(libxs_dnn_tensor_datalayout));
+    /* zero entire content; not only safer but also sets data and code pointers to NULL */
+    layout = (libxs_dnn_tensor_datalayout*) calloc(sizeof(libxs_dnn_tensor_datalayout));
 
     if (layout != 0) {
-      memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
-
       if ( (type == LIBXS_DNN_REGULAR_INPUT)     || (type == LIBXS_DNN_GRADIENT_INPUT)  || (type == LIBXS_DNN_INPUT)  ||
            (type == LIBXS_DNN_REGULAR_OUTPUT)    || (type == LIBXS_DNN_GRADIENT_OUTPUT) || (type == LIBXS_DNN_OUTPUT)    ) {
         layout->format = handle->desc.buffer_format;

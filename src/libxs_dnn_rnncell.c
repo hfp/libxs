@@ -45,11 +45,10 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
     return NULL;
   }
 
-  handle = (libxs_dnn_rnncell*)malloc(sizeof(libxs_dnn_rnncell));
-  if (0 != handle) {
+  /* zero entire content; not only safer but also sets data and code pointers to NULL */
+  handle = (libxs_dnn_rnncell*)calloc(sizeof(libxs_dnn_rnncell));
+  if (NULL != handle) {
     *status = LIBXS_DNN_SUCCESS;
-    /* zero entire content; not only safer but also sets data and code pointers to NULL */
-    memset(handle, 0, sizeof(*handle));
     /* initialize known handle components */
     handle->desc = rnncell_desc;
   /* set current seq length to max length */
@@ -247,9 +246,9 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
   *status = LIBXS_DNN_SUCCESS;
   layout = 0;
   if (handle != 0) {
-    layout = (libxs_dnn_tensor_datalayout*) malloc(sizeof(libxs_dnn_tensor_datalayout));
+    /* zero entire content; not only safer but also sets data and code pointers to NULL */
+    layout = (libxs_dnn_tensor_datalayout*) calloc(sizeof(libxs_dnn_tensor_datalayout));
     if (layout != 0) {
-      memset(layout, 0, sizeof(libxs_dnn_tensor_datalayout));
       if ( (type == LIBXS_DNN_RNN_REGULAR_INPUT)             || (type == LIBXS_DNN_RNN_GRADIENT_INPUT)             ||
            (type == LIBXS_DNN_RNN_REGULAR_CS_PREV)           || (type == LIBXS_DNN_RNN_GRADIENT_CS_PREV)           ||
            (type == LIBXS_DNN_RNN_REGULAR_HIDDEN_STATE_PREV) || (type == LIBXS_DNN_RNN_GRADIENT_HIDDEN_STATE_PREV) ||
