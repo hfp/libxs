@@ -46,7 +46,7 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
   }
 
   /* zero entire content; not only safer but also sets data and code pointers to NULL */
-  handle = (libxs_dnn_rnncell*)calloc(sizeof(libxs_dnn_rnncell));
+  handle = (libxs_dnn_rnncell*)calloc(1, sizeof(libxs_dnn_rnncell));
   if (NULL != handle) {
     *status = LIBXS_DNN_SUCCESS;
     /* initialize known handle components */
@@ -247,7 +247,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_rnncell_create_tensor_datalayou
   layout = 0;
   if (handle != 0) {
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
-    layout = (libxs_dnn_tensor_datalayout*) calloc(sizeof(libxs_dnn_tensor_datalayout));
+    layout = (libxs_dnn_tensor_datalayout*)calloc(1, sizeof(libxs_dnn_tensor_datalayout));
     if (layout != 0) {
       if ( (type == LIBXS_DNN_RNN_REGULAR_INPUT)             || (type == LIBXS_DNN_RNN_GRADIENT_INPUT)             ||
            (type == LIBXS_DNN_RNN_REGULAR_CS_PREV)           || (type == LIBXS_DNN_RNN_GRADIENT_CS_PREV)           ||

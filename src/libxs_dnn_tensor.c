@@ -31,7 +31,7 @@ LIBXS_API libxs_dnn_tensor* libxs_dnn_link_tensor(const libxs_dnn_tensor_datalay
 LIBXS_API libxs_dnn_tensor* libxs_dnn_link_qtensor(const libxs_dnn_tensor_datalayout* layout, const void* data, const unsigned char scf, libxs_dnn_err_t* status)
 {
   /* zero entire content; not only safer but also sets data and code pointers to NULL */
-  libxs_dnn_tensor* tensor = (libxs_dnn_tensor*)calloc(sizeof(libxs_dnn_tensor));
+  libxs_dnn_tensor* tensor = (libxs_dnn_tensor*)calloc(1, sizeof(libxs_dnn_tensor));
   *status = LIBXS_DNN_SUCCESS;
 
   if (layout != 0 && tensor != 0 && data != 0) {
@@ -65,7 +65,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_duplicate_tensor_datalayout(con
     unsigned int dim = 0;
 
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
-    dst_layout = (libxs_dnn_tensor_datalayout*)calloc(sizeof(libxs_dnn_tensor_datalayout));
+    dst_layout = (libxs_dnn_tensor_datalayout*)calloc(1, sizeof(libxs_dnn_tensor_datalayout));
     if (0 != dst_layout) {
       dst_layout->dim_type = (libxs_dnn_tensor_dimtype*)malloc(layout->num_dims * sizeof(libxs_dnn_tensor_dimtype));
       dst_layout->dim_size = (unsigned int*)malloc(layout->num_dims * sizeof(unsigned int));
