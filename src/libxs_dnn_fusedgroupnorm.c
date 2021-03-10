@@ -21,7 +21,7 @@ LIBXS_API libxs_dnn_fusedgroupnorm* libxs_dnn_create_fusedgroupnorm(libxs_dnn_fu
   if ( ((fusedgroupnorm_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fusedgroupnorm_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
        ((fusedgroupnorm_desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (fusedgroupnorm_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
-    handle = (libxs_dnn_fusedgroupnorm*)calloc(sizeof(libxs_dnn_fusedgroupnorm));
+    handle = (libxs_dnn_fusedgroupnorm*)calloc(1, sizeof(libxs_dnn_fusedgroupnorm));
 
     if (0 != handle) {
       *status = LIBXS_DNN_SUCCESS;
@@ -73,7 +73,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fusedgroupnorm_create_tensor_da
 
   if (handle != 0) {
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
-    layout = (libxs_dnn_tensor_datalayout*) calloc(sizeof(libxs_dnn_tensor_datalayout));
+    layout = (libxs_dnn_tensor_datalayout*)calloc(1, sizeof(libxs_dnn_tensor_datalayout));
 
     if (layout != 0) {
       layout->format = handle->desc.buffer_format;

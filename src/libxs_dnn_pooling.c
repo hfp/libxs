@@ -21,7 +21,7 @@ LIBXS_API libxs_dnn_pooling* libxs_dnn_create_pooling(libxs_dnn_pooling_desc poo
   if ( ((pooling_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (pooling_desc.datatype_out == LIBXS_DNN_DATATYPE_BF16)) ||
        ((pooling_desc.datatype_in == LIBXS_DNN_DATATYPE_F32) && (pooling_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))    ) {
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
-    handle = (libxs_dnn_pooling*)calloc(sizeof(libxs_dnn_pooling));
+    handle = (libxs_dnn_pooling*)calloc(1, sizeof(libxs_dnn_pooling));
 
     if (0 != handle) {
       *status = LIBXS_DNN_SUCCESS;
@@ -79,7 +79,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_pooling_create_tensor_datalayou
 
   if (handle != 0) {
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
-    layout = (libxs_dnn_tensor_datalayout*) calloc(sizeof(libxs_dnn_tensor_datalayout));
+    layout = (libxs_dnn_tensor_datalayout*)calloc(1, sizeof(libxs_dnn_tensor_datalayout));
 
     if (layout != 0) {
       layout->format = handle->desc.buffer_format;

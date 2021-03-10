@@ -22,7 +22,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
        ((fullyconnected_desc.datatype_in == LIBXS_DNN_DATATYPE_F32)  && (fullyconnected_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))  ||
        ((fullyconnected_desc.datatype_in == LIBXS_DNN_DATATYPE_BF16) && (fullyconnected_desc.datatype_out == LIBXS_DNN_DATATYPE_F32))     ) {
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
-    handle = (libxs_dnn_fullyconnected*)calloc(sizeof(libxs_dnn_fullyconnected));
+    handle = (libxs_dnn_fullyconnected*)calloc(1, sizeof(libxs_dnn_fullyconnected));
 
     if (0 != handle) {
       *status = LIBXS_DNN_SUCCESS;
@@ -853,7 +853,7 @@ LIBXS_API libxs_dnn_tensor_datalayout* libxs_dnn_fullyconnected_create_tensor_da
 
   if (handle != 0) {
     /* zero entire content; not only safer but also sets data and code pointers to NULL */
-    layout = (libxs_dnn_tensor_datalayout*) calloc(sizeof(libxs_dnn_tensor_datalayout));
+    layout = (libxs_dnn_tensor_datalayout*)calloc(1, sizeof(libxs_dnn_tensor_datalayout));
 
     if (layout != 0) {
       if ( (type == LIBXS_DNN_REGULAR_INPUT)     || (type == LIBXS_DNN_GRADIENT_INPUT)  || (type == LIBXS_DNN_INPUT)  ||
