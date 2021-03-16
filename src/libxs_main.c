@@ -4649,9 +4649,10 @@ LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_ve
 {
   libxs_descriptor_blob blob;
   libxs_blasint idx_dtype_size = libxs_typesize(idx_type);
+  unsigned char argidx_params = (unsigned char) (((flags & LIBXS_MELTW_FLAG_OPREDUCE_VECS_RECORD_ARGOP_OFF_VEC_0) | (flags & LIBXS_MELTW_FLAG_OPREDUCE_VECS_RECORD_ARGOP_OFF_VEC_1)) >> 16);
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
     in_type, out_type, m, idx_dtype_size, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
-    (unsigned short)flags, 0, LIBXS_MELTW_OPERATION_OPREDUCE_VECS_IDX);
+    (unsigned short)flags, argidx_params, LIBXS_MELTW_OPERATION_OPREDUCE_VECS_IDX);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
 
