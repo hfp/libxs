@@ -366,6 +366,9 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_malloc_info_type {
   libxs_free_function free;
   void *pointer, *reloc;
   const void* context;
+  /* real/allocated size */
+  size_t size_alloc;
+  /* user-requested size */
   size_t size;
   int flags;
 #if defined(LIBXS_VTUNE)
@@ -526,21 +529,23 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
 #endif
   int result = EXIT_SUCCESS, flags;
   void* buffer;
-  size_t size;
+  size_t size_alloc, size;
   LIBXS_ASSERT(NULL != memory && NULL != info);
   buffer = info->pointer;
-  flags = info->flags;
+  size_alloc = info->size_alloc;
   size = info->size;
+  flags = info->flags;
 #if !defined(LIBXS_BUILD) /* sanity check */
   if (NULL != buffer || 0 == size)
 #endif
   {
-    const size_t alloc_size = size + (((const char*)memory) - ((const char*)buffer));
-    LIBXS_ASSERT(NULL != buffer || 0 == size);
+    LIBXS_ASSERT(0 == size || (NULL != buffer && size + (((const char*)memory) - ((const char*)buffer)) <= size_alloc));
     if (0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) {
       if (NULL != info->free.function) {
 #if defined(LIBXS_MALLOC_DELETE_SAFE)
-        info->pointer = NULL; info->size = 0;
+        info->pointer = NULL;
+        info->size_alloc = 0;
+        info->size = 0;
 #endif
         if (NULL == info->context) {
 #if defined(LIBXS_MALLOC_HOOK) && 0
@@ -569,26 +574,25 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
       result = (NULL == buffer || FALSE != VirtualFree(buffer, 0, MEM_RELEASE)) ? EXIT_SUCCESS : EXIT_FAILURE;
 #else /* !_WIN32 */
       {
-        const size_t unmap_size = LIBXS_UP2(alloc_size, LIBXS_PAGE_MINSIZE);
         void *const reloc = info->reloc;
-        if (0 != munmap(buffer, unmap_size)) {
+        if (0 != munmap(buffer, size_alloc)) {
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
             fprintf(stderr, "LIBXS ERROR: %s (attempted to unmap buffer %p+%" PRIuPTR ")!\n",
-              strerror(errno), buffer, (uintptr_t)unmap_size);
+              strerror(errno), buffer, (uintptr_t)size_alloc);
           }
           result = EXIT_FAILURE;
         }
         if (0 != (LIBXS_MALLOC_FLAG_X & flags) && EXIT_SUCCESS == result
           && NULL != reloc && MAP_FAILED != reloc && buffer != reloc
-          && 0 != munmap(reloc, unmap_size))
+          && 0 != munmap(reloc, size_alloc))
         {
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
             fprintf(stderr, "LIBXS ERROR: %s (attempted to unmap code %p+%" PRIuPTR ")!\n",
-              strerror(errno), reloc, (uintptr_t)unmap_size);
+              strerror(errno), reloc, (uintptr_t)size_alloc);
           }
           result = EXIT_FAILURE;
         }
@@ -600,50 +604,35 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
 # if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES)
       if (0 != (LIBXS_MALLOC_FLAG_PHUGE & flags)) { /* huge pages */
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & flags));
-        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_hugetlb, alloc_size, LIBXS_ATOMIC_RELAXED);
+        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_hugetlb, size_alloc, LIBXS_ATOMIC_RELAXED);
       }
 # endif
 # if defined(MAP_LOCKED) && defined(LIBXS_MALLOC_LOCK_PAGES)
       if (0 != (LIBXS_MALLOC_FLAG_PLOCK & flags)) { /* page-locked */
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & flags));
-        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_plocked, alloc_size, LIBXS_ATOMIC_RELAXED);
+        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_plocked, size_alloc, LIBXS_ATOMIC_RELAXED);
       }
 # endif
 #endif
       if (0 == (LIBXS_MALLOC_FLAG_PRIVATE & flags)) { /* public */
         if (0 != (LIBXS_MALLOC_FLAG_SCRATCH & flags)) { /* scratch */
-#if 1
           const size_t current = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
             &internal_malloc_public_cur, LIBXS_ATOMIC_RELAXED);
           LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_malloc_public_cur,
-            alloc_size <= current ? (current - alloc_size) : 0, LIBXS_ATOMIC_RELAXED);
-#else
-          LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(
-            &internal_malloc_public_cur, alloc_size, LIBXS_ATOMIC_RELAXED);
-#endif
+            size_alloc <= current ? (current - size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
         }
         else { /* local */
-#if 1
           const size_t current = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
             &internal_malloc_local_cur, LIBXS_ATOMIC_RELAXED);
           LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_malloc_local_cur,
-            alloc_size <= current ? (current - alloc_size) : 0, LIBXS_ATOMIC_RELAXED);
-#else
-          LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(
-            &internal_malloc_local_cur, alloc_size, LIBXS_ATOMIC_RELAXED);
-#endif
+            size_alloc <= current ? (current - size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
         }
       }
       else { /* private */
-#if 1
         const size_t current = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
           &internal_malloc_private_cur, LIBXS_ATOMIC_RELAXED);
         LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_malloc_private_cur,
-          alloc_size <= current ? (current - alloc_size) : 0, LIBXS_ATOMIC_RELAXED);
-#else
-        LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(
-          &internal_malloc_private_cur, alloc_size, LIBXS_ATOMIC_RELAXED);
-#endif
+          size_alloc <= current ? (current - size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
       }
     }
   }
@@ -1751,7 +1740,7 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment,
     if (0 != size) {
       size_t alloc_alignment = 0, alloc_size = 0, max_preserve = 0;
       internal_malloc_info_type* info = NULL;
-      void* buffer = NULL, * reloc = NULL;
+      void *buffer = NULL, *reloc = NULL;
       /* ATOMIC BEGIN: this region should be atomic/locked */
       const void* context = libxs_default_allocator_context;
       libxs_malloc_function malloc_fn = libxs_default_malloc_fn;
@@ -1792,7 +1781,7 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment,
       else
 #endif
       if (NULL == info || size != info->size) {
-#if defined(_WIN32) ||defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
         const int mflags = (0 != (LIBXS_MALLOC_FLAG_X & flags) ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE);
         static SIZE_T alloc_alignmax = 0, alloc_pagesize = 0;
         if (0 == alloc_alignmax) { /* first/one time */
@@ -2073,7 +2062,8 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           buffer_info->free.function = NULL;
           buffer_info->context = NULL;
         }
-        buffer_info->size = size; /* record user's size rather than allocated size */
+        buffer_info->size_alloc = alloc_size;
+        buffer_info->size = size;
         buffer_info->pointer = buffer;
         buffer_info->reloc = reloc;
         buffer_info->flags = flags;
