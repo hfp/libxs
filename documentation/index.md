@@ -95,7 +95,7 @@ The main interface file is *generated*, and it is therefore **not** stored in th
 * [Classic Library (ABI)](#classic-library-abi) and [Link Instructions](#link-instructions) (C/C++ and FORTRAN)
 * [Header-Only](#header-only) (C and C++)
 
-**NOTE**: LIBXS is available as prebuilt package for Fedora/RedHat/CentOS, Ubuntu, and FreeBSD. Further, LIBXS can be installed with the [Spack Package Manager](http://computation.llnl.gov/projects/spack-hpc-package-manager) or per [EasyBuild+EasyConfig](https://github.com/easybuilders).
+**Note**: LIBXS is available as prebuilt package for Fedora/RedHat/CentOS, Ubuntu, and FreeBSD. Further, LIBXS can be installed with the [Spack Package Manager](http://computation.llnl.gov/projects/spack-hpc-package-manager) or per [EasyBuild+EasyConfig](https://github.com/easybuilders).
 
 ### Classic Library (ABI)
 
@@ -103,7 +103,7 @@ The build system relies on <span>GNU&#160;Make</span> (typically associated with
 
 <a name="zero-config-abi"></a>In contrast to [header-only](#zero-config) which does not require configuration by default, 3rd-party build systems can compile and link LIBXS's sources but still avoid configuring the library (per `libxs_config.py`). The prerequisite to omit configuration is to opt-in by defining LIBXS_DEFAULT_CONFIG (`-D`). The zero-config feature is not available for LIBXS's Fortran interface.
 
-**NOTE**: By default, C/C++ and FORTRAN compilers are needed (some sample code is written in C++). Beside of specifying the compilers (`make CXX=g++ CC=gcc FC=gfortran` and maybe `AR=ar`), the need for a FORTRAN compiler can be relaxed (`make FC=` or `make FORTRAN=0`). The latter affects the availability of the MODule file and the corresponding `libxs.f` library (the interface `libxs.f` is still generated).
+**Note**: By default, C/C++ and FORTRAN compilers are needed (some sample code is written in C++). Beside of specifying the compilers (`make CXX=g++ CC=gcc FC=gfortran` and maybe `AR=ar`), the need for a FORTRAN compiler can be relaxed (`make FC=` or `make FORTRAN=0`). The latter affects the availability of the MODule file and the corresponding `libxs.f` library (the interface `libxs.f` is still generated).
 
 The build system considers a set of given key-value pairs as a single unique build and triggers a rebuild for a distinct set of flags. For more advanced builds or additional background, please consult the section about [Customization](libxs_tune.md). To generate the interface of the library inside of the `include` directory and to build the static library (by default, STATIC=1 is activated). Run any (or both) of the following command(s):
 
@@ -157,7 +157,7 @@ make realclean
 
 <a name="zero-config"></a>The header-only form depends on `libxs_source.h` which is *generated* according to the content of the source folder (`src`). <span>LIBXS&#160;1.16</span> (and later) provides header-only support without invoking a make-target (zero configuration) for any given checkout of LIBXS. To use configured header-only (non-default), LIBXS_CONFIGURED must be defined (`-D`). Previously, it was necessary to invoke `make header-only` (v1.6.2 or later), `make cheader` (prior to v1.6.2), or any target building the library (`make`). The zero-config feature allows 3rd-party build systems an easier integration of LIBXS, which also holds true if the system builds LIBXS from source (see [classic ABI](#zero-config-abi)). Fortran code may [include](#header-only-fortran) `libxs.f` but still requires that interface to be generated.
 
-**NOTE**: building an application applies the same build settings to LIBXS! For instance, to omit debug code inside of LIBXS `NDEBUG` must be defined (`-DNDEBUG`).
+**Note**: building an application applies the same build settings to LIBXS! For instance, to omit debug code inside of LIBXS `NDEBUG` must be defined (`-DNDEBUG`).
 
 ## Link Instructions
 
@@ -179,7 +179,7 @@ pkg-config libxs --libs
 
 Similarly, an application is free to choose any BLAS or LAPACK library (if the link model available on the OS supports this), and therefore linking GEMM routines when linking LIBXS itself (by supplying BLAS=1&#124;2) may prevent a user from making this decision at the time of linking the actual application. To use LIBXS without GEMM-related functionality, any BLAS-dependency can be removed in two ways: <span>(1)&#160;building</span> a special library with `make BLAS=0`, or <span>(2)&#160;linking</span> the application against the `libxsnoblas` library. If an application however uses BLAS already, the [Call Wrapper](libxs_mm.md#call-wrapper) can be used to intercept existing BLAS calls (and to rely on LIBXS instead).
 
-**NOTE**: LIBXS does not support to dynamically link `libxs` or `libxsext` ("so"), when BLAS is linked statically ("a"). If BLAS is linked statically, the static version of LIBXS must be used!
+**Note**: LIBXS does not support to dynamically link `libxs` or `libxsext` ("so"), when BLAS is linked statically ("a"). If BLAS is linked statically, the static version of LIBXS must be used!
 
 ### Installation
 
@@ -235,7 +235,7 @@ Registry: 20 MB (gemm=0 mcopy=14 tcopy=0)
 
 If the call-wrapper is used, an additional runtime statistic becomes available (see [Call Wrapper](libxs_mm.md#call-wrapper)).
 
-<a name="objdump"></a>**NOTE**: Setting LIBXS_VERBOSE to a negative value will binary-dump each generated JIT kernel to a file with each file being named like the function name shown in [Intel VTune](libxs_prof.md#intelvtuneamplifier). Disassembly of the raw binary files can be accomplished by:
+<a name="objdump"></a>**Note**: Setting LIBXS_VERBOSE to a negative value will binary-dump each generated JIT kernel to a file with each file being named like the function name shown in [Intel VTune](libxs_prof.md#intelvtuneamplifier). Disassembly of the raw binary files can be accomplished by:
 
 ```bash
 objdump -D -b binary -m i386 -M x86-64 [JIT-dump-file]
