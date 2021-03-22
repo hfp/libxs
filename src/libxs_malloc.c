@@ -496,6 +496,7 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
         || (0 != (~LIBXS_MALLOC_FLAG_VALID & result->flags))
         || (0 == (LIBXS_MALLOC_FLAG_R & result->flags))
         || (pointer == convert.ptr || pointer == result->context || pointer >= buffer || NULL == pointer)
+        || (result->size_alloc < result->size)
         || (LIBXS_MAX(LIBXS_MAX(internal_malloc_public_max, internal_malloc_local_max), internal_malloc_private_max) < result->size
             && 0 == (flags_px & result->flags)) || (0 == result->size)
         || (2 > libxs_ninit) /* before checksum calculation */
@@ -527,115 +528,110 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
 #if !defined(LIBXS_BUILD) || !defined(_WIN32)
   static int error_once = 0;
 #endif
-  int result = EXIT_SUCCESS, flags;
-  void* buffer;
-  size_t size_alloc, size;
+  const internal_malloc_info_type local = *info;
+  int result = EXIT_SUCCESS;
 #if defined(NDEBUG)
   LIBXS_UNUSED(memory);
+#else
+  const size_t size_alloc = local.size + (size_t)(((const char*)memory) - ((const char*)local.pointer));
 #endif
   LIBXS_ASSERT(NULL != memory && NULL != info);
-  buffer = info->pointer;
-  size_alloc = info->size_alloc;
-  size = info->size;
-  flags = info->flags;
 #if !defined(LIBXS_BUILD) /* sanity check */
-  if (NULL != buffer || 0 == size)
+  if (NULL != local.pointer || 0 == local.size)
 #endif
   {
-    LIBXS_ASSERT(0 == size || (NULL != buffer && size + (((const char*)memory) - ((const char*)buffer)) <= size_alloc));
-    if (0 == (LIBXS_MALLOC_FLAG_MMAP & flags)) {
+    assert(0 == local.size || (NULL != local.pointer && size_alloc <= local.size_alloc)); /* !LIBXS_ASSERT */
+    if (0 == (LIBXS_MALLOC_FLAG_MMAP & local.flags)) {
       if (NULL != info->free.function) {
 #if defined(LIBXS_MALLOC_DELETE_SAFE)
-        info->pointer = NULL;
-        info->size_alloc = 0;
-        info->size = 0;
+        LIBXS_MEMZERO127(info);
 #endif
         if (NULL == info->context) {
 #if defined(LIBXS_MALLOC_HOOK) && 0
           if (free == info->free.function) {
-            __real_free(buffer);
+            __real_free(local.pointer);
           }
           else
 #endif
           if (NULL != info->free.function) {
-            info->free.function(buffer);
+            info->free.function(local.pointer);
           }
         }
         else {
           LIBXS_ASSERT(NULL != info->free.ctx_form);
-          info->free.ctx_form(buffer, info->context);
+          info->free.ctx_form(local.pointer, info->context);
         }
       }
     }
     else {
 #if defined(LIBXS_VTUNE)
-      if (0 != (LIBXS_MALLOC_FLAG_X & flags) && 0 != info->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
+      if (0 != (LIBXS_MALLOC_FLAG_X & local.flags) && 0 != info->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
         iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &info->code_id);
       }
 #endif
 #if defined(_WIN32)
-      result = (NULL == buffer || FALSE != VirtualFree(buffer, 0, MEM_RELEASE)) ? EXIT_SUCCESS : EXIT_FAILURE;
+      result = (NULL == local.pointer || FALSE != VirtualFree(local.pointer, 0, MEM_RELEASE)) ? EXIT_SUCCESS : EXIT_FAILURE;
 #else /* !_WIN32 */
       {
         void *const reloc = info->reloc;
-        if (0 != munmap(buffer, size_alloc)) {
+        if (0 != munmap(local.pointer, local.size_alloc)) {
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
             fprintf(stderr, "LIBXS ERROR: %s (attempted to unmap buffer %p+%" PRIuPTR ")!\n",
-              strerror(errno), buffer, (uintptr_t)size_alloc);
+              strerror(errno), local.pointer, (uintptr_t)local.size_alloc);
           }
           result = EXIT_FAILURE;
         }
-        if (0 != (LIBXS_MALLOC_FLAG_X & flags) && EXIT_SUCCESS == result
-          && NULL != reloc && MAP_FAILED != reloc && buffer != reloc
-          && 0 != munmap(reloc, size_alloc))
+        if (0 != (LIBXS_MALLOC_FLAG_X & local.flags) && EXIT_SUCCESS == result
+          && NULL != reloc && MAP_FAILED != reloc && local.pointer != reloc
+          && 0 != munmap(reloc, local.size_alloc))
         {
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
             fprintf(stderr, "LIBXS ERROR: %s (attempted to unmap code %p+%" PRIuPTR ")!\n",
-              strerror(errno), reloc, (uintptr_t)size_alloc);
+              strerror(errno), reloc, (uintptr_t)local.size_alloc);
           }
           result = EXIT_FAILURE;
         }
       }
 #endif
     }
-    if (0 == (LIBXS_MALLOC_FLAG_X & flags)) { /* update statistics */
+    if (0 == (LIBXS_MALLOC_FLAG_X & local.flags)) { /* update statistics */
 #if !defined(_WIN32)
 # if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES)
-      if (0 != (LIBXS_MALLOC_FLAG_PHUGE & flags)) { /* huge pages */
-        LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & flags));
-        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_hugetlb, size_alloc, LIBXS_ATOMIC_RELAXED);
+      if (0 != (LIBXS_MALLOC_FLAG_PHUGE & local.flags)) { /* huge pages */
+        LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & local.flags));
+        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_hugetlb, local.size_alloc, LIBXS_ATOMIC_RELAXED);
       }
 # endif
 # if defined(MAP_LOCKED) && defined(LIBXS_MALLOC_LOCK_PAGES)
-      if (0 != (LIBXS_MALLOC_FLAG_PLOCK & flags)) { /* page-locked */
-        LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & flags));
-        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_plocked, size_alloc, LIBXS_ATOMIC_RELAXED);
+      if (0 != (LIBXS_MALLOC_FLAG_PLOCK & local.flags)) { /* page-locked */
+        LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & local.flags));
+        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_plocked, local.size_alloc, LIBXS_ATOMIC_RELAXED);
       }
 # endif
 #endif
-      if (0 == (LIBXS_MALLOC_FLAG_PRIVATE & flags)) { /* public */
-        if (0 != (LIBXS_MALLOC_FLAG_SCRATCH & flags)) { /* scratch */
+      if (0 == (LIBXS_MALLOC_FLAG_PRIVATE & local.flags)) { /* public */
+        if (0 != (LIBXS_MALLOC_FLAG_SCRATCH & local.flags)) { /* scratch */
           const size_t current = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
             &internal_malloc_public_cur, LIBXS_ATOMIC_RELAXED);
           LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_malloc_public_cur,
-            size_alloc <= current ? (current - size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
+            local.size_alloc <= current ? (current - local.size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
         }
         else { /* local */
           const size_t current = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
             &internal_malloc_local_cur, LIBXS_ATOMIC_RELAXED);
           LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_malloc_local_cur,
-            size_alloc <= current ? (current - size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
+            local.size_alloc <= current ? (current - local.size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
         }
       }
       else { /* private */
         const size_t current = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
           &internal_malloc_private_cur, LIBXS_ATOMIC_RELAXED);
         LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_malloc_private_cur,
-          size_alloc <= current ? (current - size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
+          local.size_alloc <= current ? (current - local.size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
       }
     }
   }
@@ -699,7 +695,7 @@ LIBXS_API_INLINE internal_malloc_pool_type* internal_scratch_malloc_pool(const v
   LIBXS_ASSERT(NULL != memory);
   for (; pool != end; ++pool) {
     if (0 != pool->instance.minsize) {
-      if (0 != pool->instance.counter
+      if (0 != /*LIBXS_ATOMIC_LOAD(&*/pool->instance.counter/*, LIBXS_ATOMIC_SEQ_CST)*/
 #if 1 /* should be implied by non-zero counter */
         && NULL != pool->instance.buffer
 #endif
@@ -2437,7 +2433,7 @@ LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock)
       if (0 != pools[i].instance.minsize) {
         if (
 # if !defined(LIBXS_MALLOC_SCRATCH_DELETE_FIRST)
-          1 < pools[i].instance.counter &&
+          1 < /*LIBXS_ATOMIC_LOAD(&*/pools[i].instance.counter/*, LIBXS_ATOMIC_SEQ_CST)*/ &&
 # endif
           NULL != pools[i].instance.buffer)
         {
@@ -2522,7 +2518,7 @@ LIBXS_API int libxs_get_scratch_info(libxs_scratch_info* info)
       for (; pool != end; ++pool) if ((LIBXS_MALLOC_INTERNAL_CALLER) != pool->instance.site) {
 # endif
         if (0 != pool->instance.minsize) {
-          const size_t npending = pool->instance.counter;
+          const size_t npending = /*LIBXS_ATOMIC_LOAD(&*/pool->instance.counter/*, LIBXS_ATOMIC_RELAXED)*/;
 # if defined(LIBXS_MALLOC_SCRATCH_DELETE_FIRST)
           info->npending += npending;
 # else
