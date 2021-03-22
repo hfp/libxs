@@ -289,11 +289,12 @@ LIBXS_APIVAR_PRIVATE_DEF(LIBXS_TLS_TYPE libxs_tlskey);
 LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 {
   void* result;
+  LIBXS_ASSERT(LIBXS_ISPOT(alignment));
 #if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
   result = __libc_memalign(alignment, size);
 #elif defined(LIBXS_BUILD) && ( /*C11*/ \
   defined(__STDC_VERSION__) && (201112L <= __STDC_VERSION__))
-  result = aligned_alloc(alignment, size);
+  result = aligned_alloc(alignment, LIBXS_UP2(size, alignment));
 #elif (defined(_WIN32) || defined(__CYGWIN__))
   LIBXS_UNUSED(alignment);
   result = malloc(size);
