@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
   if (NULL == rngs) num_rngs = 0;
 
   /* create thread-safe state */
-  state = libxs_rng_create_avx512_extstate( (unsigned int)(time(0)) );
+  state = libxs_rng_create_extstate( (unsigned int)(time(0)) );
 
   /* fill array with random floats */
   for (i = 0; i < num_rngs; i+=16) {
@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
     libxs_timer_ncycles(start, libxs_timer_tick()) / ((size_t)num_rngs*16));
 
   /* free the state */
-  libxs_rng_destroy_avx512_extstate( state );
+  libxs_rng_destroy_extstate( state );
 
   /* let's compute some values of the random numbers */
   printf("\n%lli random numbers generated, which are uniformly distributed in [0,1(\n", (long long)num_rngs);

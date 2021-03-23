@@ -450,8 +450,8 @@ libxs_release_smmkernel
 libxs_release_wimmkernel
 libxs_rnaz_convert_fp32_bf16
 libxs_rne_convert_fp32_bf16
-libxs_rng_create_avx512_extstate
-libxs_rng_destroy_avx512_extstate
+libxs_rng_create_extstate
+libxs_rng_destroy_extstate
 libxs_rng_f32_seq
 libxs_rng_f64
 libxs_rng_seq
