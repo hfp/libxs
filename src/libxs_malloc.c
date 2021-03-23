@@ -538,7 +538,7 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
 #endif
   const internal_malloc_info_type local = *info;
   int result = EXIT_SUCCESS;
-#if defined(NDEBUG) || !defined(LIBXS_MALLOC_INFO_ALLOCSIZE)
+#if !defined(LIBXS_MALLOC_INFO_ALLOCSIZE) || !defined(NDEBUG)
   const size_t size = local.size + (size_t)(((const char*)memory) - ((const char*)local.pointer));
 #endif
 #if defined(LIBXS_MALLOC_INFO_ALLOCSIZE)
@@ -550,7 +550,7 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
 #if defined(NDEBUG)
   LIBXS_UNUSED(memory);
 #endif
-  LIBXS_ASSERT(NULL != memory && NULL != info);
+  LIBXS_ASSERT(NULL != memory && NULL != info && sizeof(internal_malloc_info_type) < size_alloc);
 #if !defined(LIBXS_BUILD) /* sanity check */
   if (NULL != local.pointer || 0 == local.size)
 #endif
