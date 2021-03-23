@@ -182,6 +182,10 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
      defined(LIBXS_MALLOC_ALIGN_ALL) && 0
 # define LIBXS_MALLOC_LOCK_ALL
 #endif
+/* record real allocation size */
+#if !defined(LIBXS_MALLOC_INFO_ALLOCSIZE) && 0
+# define LIBXS_MALLOC_INFO_ALLOCSIZE
+#endif
 /* protected against double-delete (if possible) */
 #if !defined(LIBXS_MALLOC_DELETE_SAFE) && 0
 # define LIBXS_MALLOC_DELETE_SAFE
@@ -366,8 +370,10 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_malloc_info_type {
   libxs_free_function free;
   void *pointer, *reloc;
   const void* context;
+#if defined(LIBXS_MALLOC_INFO_ALLOCSIZE)
   /* real/allocated size */
   size_t size_alloc;
+#endif
   /* user-requested size */
   size_t size;
   int flags;
@@ -496,7 +502,9 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
         || (0 != (~LIBXS_MALLOC_FLAG_VALID & result->flags))
         || (0 == (LIBXS_MALLOC_FLAG_R & result->flags))
         || (pointer == convert.ptr || pointer == result->context || pointer >= buffer || NULL == pointer)
+#if defined(LIBXS_MALLOC_INFO_ALLOCSIZE)
         || (result->size_alloc < result->size)
+#endif
         || (LIBXS_MAX(LIBXS_MAX(internal_malloc_public_max, internal_malloc_local_max), internal_malloc_private_max) < result->size
             && 0 == (flags_px & result->flags)) || (0 == result->size)
         || (2 > libxs_ninit) /* before checksum calculation */
@@ -532,66 +540,71 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
   int result = EXIT_SUCCESS;
 #if defined(NDEBUG)
   LIBXS_UNUSED(memory);
+#endif
+#if defined(NDEBUG) || !defined(LIBXS_MALLOC_INFO_ALLOCSIZE)
+  const size_t size = local.size + (size_t)(((const char*)memory) - ((const char*)local.pointer));
+#endif
+#if defined(LIBXS_MALLOC_INFO_ALLOCSIZE)
+  const size_t size_alloc = local.size_alloc;
+  assert(0 == local.size || (NULL != local.pointer && size <= size_alloc)); /* !LIBXS_ASSERT */
 #else
-  const size_t size_alloc = local.size + (size_t)(((const char*)memory) - ((const char*)local.pointer));
+  const size_t size_alloc = /*LIBXS_UP2(*/size/*, LIBXS_PAGE_MINSIZE)*/;
 #endif
   LIBXS_ASSERT(NULL != memory && NULL != info);
 #if !defined(LIBXS_BUILD) /* sanity check */
   if (NULL != local.pointer || 0 == local.size)
 #endif
   {
-    assert(0 == local.size || (NULL != local.pointer && size_alloc <= local.size_alloc)); /* !LIBXS_ASSERT */
     if (0 == (LIBXS_MALLOC_FLAG_MMAP & local.flags)) {
-      if (NULL != info->free.function) {
+      if (NULL != local.free.function) {
 #if defined(LIBXS_MALLOC_DELETE_SAFE)
         LIBXS_MEMZERO127(info);
 #endif
-        if (NULL == info->context) {
-#if defined(LIBXS_MALLOC_HOOK) && 0
-          if (free == info->free.function) {
+        if (NULL == local.context) {
+#if defined(LIBXS_MALLOC_HOOK)
+          if (free == local.free.function) {
             __real_free(local.pointer);
           }
           else
 #endif
-          if (NULL != info->free.function) {
-            info->free.function(local.pointer);
+          if (NULL != local.free.function) {
+            local.free.function(local.pointer);
           }
         }
         else {
-          LIBXS_ASSERT(NULL != info->free.ctx_form);
-          info->free.ctx_form(local.pointer, info->context);
+          LIBXS_ASSERT(NULL != local.free.ctx_form);
+          local.free.ctx_form(local.pointer, local.context);
         }
       }
     }
     else {
 #if defined(LIBXS_VTUNE)
-      if (0 != (LIBXS_MALLOC_FLAG_X & local.flags) && 0 != info->code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
-        iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &info->code_id);
+      if (0 != (LIBXS_MALLOC_FLAG_X & local.flags) && 0 != local.code_id && iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
+        iJIT_NotifyEvent(LIBXS_VTUNE_JIT_UNLOAD, &local.code_id);
       }
 #endif
 #if defined(_WIN32)
       result = (NULL == local.pointer || FALSE != VirtualFree(local.pointer, 0, MEM_RELEASE)) ? EXIT_SUCCESS : EXIT_FAILURE;
 #else /* !_WIN32 */
       {
-        void *const reloc = info->reloc;
-        if (0 != munmap(local.pointer, local.size_alloc)) {
+        if (0 != munmap(local.pointer, size_alloc)) {
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
             fprintf(stderr, "LIBXS ERROR: %s (attempted to unmap buffer %p+%" PRIuPTR ")!\n",
-              strerror(errno), local.pointer, (uintptr_t)local.size_alloc);
+              strerror(errno), local.pointer, (uintptr_t)size_alloc);
           }
           result = EXIT_FAILURE;
         }
         if (0 != (LIBXS_MALLOC_FLAG_X & local.flags) && EXIT_SUCCESS == result
-          && NULL != reloc && MAP_FAILED != reloc && local.pointer != reloc
-          && 0 != munmap(reloc, local.size_alloc))
+          && NULL != local.reloc && MAP_FAILED != local.reloc && local.pointer != local.reloc
+          && 0 != munmap(local.reloc, size_alloc))
         {
           if (0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           {
             fprintf(stderr, "LIBXS ERROR: %s (attempted to unmap code %p+%" PRIuPTR ")!\n",
-              strerror(errno), reloc, (uintptr_t)local.size_alloc);
+              strerror(errno), local.reloc, (uintptr_t)size_alloc);
           }
           result = EXIT_FAILURE;
         }
@@ -603,13 +616,13 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
 # if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES)
       if (0 != (LIBXS_MALLOC_FLAG_PHUGE & local.flags)) { /* huge pages */
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & local.flags));
-        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_hugetlb, local.size_alloc, LIBXS_ATOMIC_RELAXED);
+        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_hugetlb, size_alloc, LIBXS_ATOMIC_RELAXED);
       }
 # endif
 # if defined(MAP_LOCKED) && defined(LIBXS_MALLOC_LOCK_PAGES)
       if (0 != (LIBXS_MALLOC_FLAG_PLOCK & local.flags)) { /* page-locked */
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_MMAP & local.flags));
-        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_plocked, local.size_alloc, LIBXS_ATOMIC_RELAXED);
+        LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_plocked, size_alloc, LIBXS_ATOMIC_RELAXED);
       }
 # endif
 #endif
@@ -618,20 +631,20 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
           const size_t current = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
             &internal_malloc_public_cur, LIBXS_ATOMIC_RELAXED);
           LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_malloc_public_cur,
-            local.size_alloc <= current ? (current - local.size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
+            size_alloc <= current ? (current - size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
         }
         else { /* local */
           const size_t current = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
             &internal_malloc_local_cur, LIBXS_ATOMIC_RELAXED);
           LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_malloc_local_cur,
-            local.size_alloc <= current ? (current - local.size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
+            size_alloc <= current ? (current - size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
         }
       }
       else { /* private */
         const size_t current = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
           &internal_malloc_private_cur, LIBXS_ATOMIC_RELAXED);
         LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_malloc_private_cur,
-          local.size_alloc <= current ? (current - local.size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
+          size_alloc <= current ? (current - size_alloc) : 0, LIBXS_ATOMIC_RELAXED);
       }
     }
   }
@@ -748,14 +761,14 @@ LIBXS_API_INTERN void internal_scratch_free(const void* memory, internal_malloc_
       pool->instance.site = NULL; /* clear affinity */
 # endif
 # if !defined(NDEBUG)
-      if (EXIT_SUCCESS != internal_xfree(pool_buffer, info)
+      if (EXIT_SUCCESS != internal_xfree(pool_buffer, info) /* invalidates info */
         && 0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
         fprintf(stderr, "LIBXS ERROR: memory deallocation failed!\n");
       }
 # else
-      internal_xfree(pool_buffer, info); /* !libxs_free */
+      internal_xfree(pool_buffer, info); /* !libxs_free, invalidates info */
 # endif
     }
   }
@@ -1669,8 +1682,7 @@ LIBXS_API_INLINE void* internal_xrealloc(void** ptr, internal_malloc_info_type**
 #if !defined(NDEBUG) && 0
   else { /* failed */
     if (NULL != *info) {
-      /* implicitly invalidates info */
-      internal_xfree(*ptr, *info);
+      internal_xfree(*ptr, *info); /* invalidates info */
     }
     else { /* foreign pointer */
       free_fn(*ptr);
@@ -1714,7 +1726,7 @@ LIBXS_API_INTERN void* internal_xmalloc(void** ptr, internal_malloc_info_type** 
         : malloc_fn.ctx_form(size, context));
       if (NULL == result) { /* failed */
         if (NULL != *info) {
-          internal_xfree(*ptr, *info);
+          internal_xfree(*ptr, *info); /* invalidates info */
         }
         else { /* foreign pointer */
           (NULL != free_fn.function ? free_fn.function : __real_free)(*ptr);
@@ -2016,7 +2028,7 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           /* content behind foreign pointers is not explicitly preserved; buffers may overlap */
           memmove(aligned, *memory, LIBXS_MIN(max_preserve, size));
           if (NULL != info /* known allocation (non-foreign pointer) */
-            && EXIT_SUCCESS != internal_xfree(*memory, info) /* !libxs_free */
+            && EXIT_SUCCESS != internal_xfree(*memory, info) /* !libxs_free, invalidates info */
             && 0 != libxs_verbosity /* library code is expected to be mute */
             && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
           { /* display some extra context of the failure (reallocation) */
@@ -2061,7 +2073,9 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           buffer_info->free.function = NULL;
           buffer_info->context = NULL;
         }
+#if defined(LIBXS_MALLOC_INFO_ALLOCSIZE)
         buffer_info->size_alloc = alloc_size;
+#endif
         buffer_info->size = size;
         buffer_info->pointer = buffer;
         buffer_info->reloc = reloc;
@@ -2117,7 +2131,7 @@ LIBXS_API void libxs_xfree(const void* memory, int check)
   /*const*/ internal_malloc_info_type *const info = internal_malloc_info(memory, check);
   if (NULL != info) { /* !libxs_free */
 #if (!defined(LIBXS_MALLOC_HOOK) || defined(_DEBUG))
-    if (EXIT_SUCCESS != internal_xfree(memory, info)) {
+    if (EXIT_SUCCESS != internal_xfree(memory, info)) { /* invalidates info */
       if ( 0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
@@ -2125,7 +2139,7 @@ LIBXS_API void libxs_xfree(const void* memory, int check)
       }
     }
 #else
-    internal_xfree(memory, info);
+    internal_xfree(memory, info); /* invalidates info */
 #endif
   }
   else if (NULL != memory) {
@@ -2375,14 +2389,14 @@ LIBXS_API void libxs_free(const void* memory)
     static int error_once = 0;
     if (NULL != info && 0 == (LIBXS_MALLOC_FLAG_SCRATCH & info->flags)) { /* !libxs_free */
 # if !defined(NDEBUG)
-      if (EXIT_SUCCESS != internal_xfree(memory, info)
+      if (EXIT_SUCCESS != internal_xfree(memory, info) /* invalidates info */
         && 0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
         fprintf(stderr, "LIBXS ERROR: memory deallocation failed!\n");
       }
 # else
-      internal_xfree(memory, info); /* !libxs_free */
+      internal_xfree(memory, info); /* !libxs_free, invalidates info */
 # endif
     }
     else {
@@ -2438,7 +2452,7 @@ LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock)
           NULL != pools[i].instance.buffer)
         {
           internal_malloc_info_type *const info = internal_malloc_info(pools[i].instance.buffer, 2/*check*/);
-          if (NULL != info) internal_xfree(info->pointer, info);
+          if (NULL != info) internal_xfree(info->pointer, info); /* invalidates info */
         }
       }
       else break; /* early exit */
