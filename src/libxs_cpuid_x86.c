@@ -266,6 +266,9 @@ LIBXS_API const char* libxs_cpuid_name(int id)
     case LIBXS_AARCH64_V81: {
       target_arch = "aarch64";
     } break;
+    case LIBXS_AARCH64_A64FX: {
+      target_arch = "a64fx";
+    } break;
     case LIBXS_TARGET_ARCH_GENERIC: {
       target_arch = "generic";
     } break;
@@ -298,6 +301,9 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
 #elif defined(LIBXS_PLATFORM_AARCH64)
   if (LIBXS_AARCH64_V81 == id) {
     result = 4;
+  }
+  else if (LIBXS_AARCH64_A64FX == id) {
+    result = 16;
   }
 #endif
   else { /* scalar */

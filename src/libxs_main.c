@@ -1575,6 +1575,10 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     {
       target_archid = LIBXS_AARCH64_V81;
     }
+    else if (arch == libxs_stristr(arch, "a64fx"))
+    {
+      target_archid = LIBXS_AARCH64_A64FX;
+    }
 #endif
     else if (arch == libxs_stristr(arch, "generic")) {
 #if defined(LIBXS_PLATFORM_X86)
