@@ -60,7 +60,7 @@
 # if defined(LIBXS_PLATFORM_X86) || defined(LIBXS_PLATFORM_AARCH64)
 #   define LIBXS_PLATFORM_SUPPORTED
 # elif !defined(LIBXS_PLATFORM_FORCE)
-#   error X86_64, AArch64, or compatible CPU required!
+#   error LIBXS requires X86_64, AArch64, or compatible CPUs!
 # endif
 #endif
 #if !defined(LIBXS_BITS)
@@ -75,7 +75,7 @@
 #   define LIBXS_UNLIMITED 0xFFFFFFFFFFFFFFFF
 #   define LIBXS_BITS 64
 # elif !defined(LIBXS_PLATFORM_FORCE) && defined(NDEBUG)
-#   error LIBXS is only supported on a 64-bit platform!
+#   error LIBXS is only supported on 64-bit platforms!
 # else /* JIT-generated code (among other issues) is not supported! */
 #   define LIBXS_UNLIMITED 0xFFFFFFFF
 #   define LIBXS_BITS 32

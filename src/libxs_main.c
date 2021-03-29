@@ -1254,6 +1254,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 #endif
             && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity))
           {
+            /* ARM: TSC is currently not implemented, hence warning shows up (if verbose) */
             fprintf(stderr, "LIBXS WARNING: timer is maybe not cycle-accurate!\n");
           }
         }
