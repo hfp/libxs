@@ -254,7 +254,7 @@ LIBXS_APIVAR_DEFINE(int internal_gemm_auto_prefetch_locked);
 LIBXS_APIVAR_DEFINE(const char* internal_build_state);
 /** Time stamp (startup time of library). */
 LIBXS_APIVAR_DEFINE(libxs_timer_tickint internal_timer_start);
-LIBXS_APIVAR_DEFINE(libxs_cpuid_x86_info internal_cpuid_info);
+LIBXS_APIVAR_DEFINE(libxs_cpuid_info internal_cpuid_info);
 
 #if defined(_WIN32)
 # define INTERNAL_SINGLETON_HANDLE HANDLE
@@ -682,13 +682,15 @@ LIBXS_API_INTERN void internal_finalize(void)
       const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
       char number_format_buffer[32];
       libxs_scratch_info scratch_info;
-      libxs_cpuid_x86_info info;
+#if defined(LIBXS_PLATFORM_X86)
+      libxs_cpuid_info info;
       libxs_cpuid_x86(&info);
       if ((LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) &&
         0 == internal_cpuid_info.has_context && 0 != info.has_context)
       {
         fprintf(stderr, "\nLIBXS: CPU features have been promoted.");
       }
+#endif
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
         fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
       }
@@ -1214,10 +1216,12 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           internal_dump(stdout, 1/*urgent*/);
         }
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* mid-timing */
+#if defined(LIBXS_PLATFORM_X86)
         libxs_cpuid_x86(&internal_cpuid_info);
         if (0 != internal_cpuid_info.constant_tsc && t0 < t1) {
           libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
         }
+#endif
         register_termination_proc = atexit(internal_finalize);
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
         /* set timer-scale and determine start of the "uptime" (shown at termination) */
@@ -1244,7 +1248,12 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           if (EXIT_SUCCESS != register_termination_proc) {
             fprintf(stderr, "LIBXS ERROR: failed to register termination procedure!\n");
           }
-          if (0 == libxs_timer_scale) {
+          if (0 == libxs_timer_scale
+#if defined(LIBXS_PLATFORM_X86)
+            && 0 == internal_cpuid_info.constant_tsc
+#endif
+            && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity))
+          {
             fprintf(stderr, "LIBXS WARNING: timer is maybe not cycle-accurate!\n");
           }
         }
@@ -2102,7 +2111,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             generated_code.arch = libxs_cpuid();
           }
         }
-
         LIBXS_NO_OFFLOAD(void, libxs_generator_mateltwise_kernel, &generated_code, request->descriptor.meltw);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -2139,7 +2147,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             generated_code.arch = libxs_cpuid();
           }
         }
-
         LIBXS_NO_OFFLOAD(void, libxs_generator_matequation_kernel, &generated_code, request->descriptor.meqn);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)

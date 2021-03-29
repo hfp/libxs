@@ -60,7 +60,7 @@
 # if defined(LIBXS_PLATFORM_X86) || defined(LIBXS_PLATFORM_AARCH64)
 #   define LIBXS_PLATFORM_SUPPORTED
 # elif !defined(LIBXS_PLATFORM_FORCE)
-#   error x86_64 or aarch64 or compatible CPU required!
+#   error X86_64, AArch64, or compatible CPU required!
 # endif
 #endif
 #if !defined(LIBXS_BITS)

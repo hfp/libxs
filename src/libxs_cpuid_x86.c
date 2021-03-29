@@ -6,9 +6,9 @@
 * Further information: https://github.com/hfp/libxs/                              *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_intrinsics_x86.h>
 #include <libxs_generator.h>
 #include <libxs_mem.h>
+#include <libxs_sync.h>
 #if !defined(_WIN32)
 # include <sys/mman.h>
 #endif
@@ -57,10 +57,18 @@
 #define LIBXS_CPUID_CHECK(VALUE, CHECK) ((CHECK) == ((CHECK) & (VALUE)))
 
 
-LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
+LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if !defined(LIBXS_PLATFORM_X86)
+# if !defined(NDEBUG)
+  static int error_once = 0;
+  if (0 != libxs_verbosity /* library code is expected to be mute */
+    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+  {
+    fprintf(stderr, "LIBXS WARNING: libxs_cpuid_x86 called on non-x86 platform!\n");
+  }
+# endif
   if (NULL != info) LIBXS_MEMZERO127(info);
 #else
   unsigned int eax, ebx, ecx, edx;
@@ -215,16 +223,19 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info)
 
 LIBXS_API int libxs_cpuid(void)
 {
-#if defined(LIBXS_PLATFORM_AARCH64)
-  /* @TODO add AARCH64 feature check */
-  return LIBXS_AARCH64_V81;
-#endif
 #if defined(LIBXS_PLATFORM_X86)
   return libxs_cpuid_x86(NULL/*info*/);
+#else
+  return libxs_cpuid_arm(NULL/*info*/);
 #endif
 }
 
 
+/**
+ * This implementation also accounts for non-x86 platforms,
+ * which not only allows to resolve any given ID but to
+ * fallback gracefully ("unknown").
+ */
 LIBXS_API const char* libxs_cpuid_name(int id)
 {
   const char* target_arch = NULL;
@@ -279,12 +290,16 @@ LIBXS_API const char* libxs_cpuid_name(int id)
       target_arch = "unknown";
     }
   }
-
   LIBXS_ASSERT(NULL != target_arch);
   return target_arch;
 }
 
 
+/**
+ * This implementation also accounts for non-x86 platforms,
+ * which not only allows to resolve any given ID but to
+ * fallback gracefully (scalar).
+ */
 LIBXS_API int libxs_cpuid_vlen32(int id)
 {
   int result;
@@ -298,6 +313,7 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   else if (LIBXS_X86_SSE42 <= id) {
     result = 4;
   }
+  else
 #elif defined(LIBXS_PLATFORM_AARCH64)
   if (LIBXS_AARCH64_V81 == id) {
     result = 4;
@@ -305,10 +321,12 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   else if (LIBXS_AARCH64_A64FX == id) {
     result = 16;
   }
+  else
+#else
+  LIBXS_UNUSED(id);
 #endif
-  else { /* scalar */
+  { /* scalar */
     result = 1;
   }
   return result;
 }
-

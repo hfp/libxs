@@ -353,7 +353,7 @@ SRCFILES_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_dnn_convolution_backward.c libxs_dnn_convolution_weight_update.c libxs_dnn_softmaxloss.c \
           libxs_dnn_softmaxloss_forward.c libxs_dnn_softmaxloss_backward.c libxs_dnn_optimizer.c libxs_dnn_optimizer_sgd.c )
 SRCFILES_GEN_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(notdir $(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c)) \
-          libxs_cpuid_x86.c libxs_generator.c libxs_trace.c libxs_matrixeqn.c)
+          libxs_cpuid_arm.c libxs_cpuid_x86.c libxs_generator.c libxs_trace.c libxs_matrixeqn.c)
 
 SRCFILES_GEN_GEMM_BIN := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,libxs_generator_gemm_driver.c)
 OBJFILES_GEN_GEMM_BIN := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))

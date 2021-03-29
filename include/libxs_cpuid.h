@@ -37,17 +37,23 @@
 #define LIBXS_AARCH64_A64FX    2100
 #define LIBXS_AARCH64_ALLFEAT  2999
 
-/** A zero-initialized structure assumes conservative properties. */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_cpuid_x86_info {
+#if defined(LIBXS_PLATFORM_X86)
+/** Zero-initialized structure; assumes conservative properties. */
+LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_cpuid_info {
   int constant_tsc; /** Timer stamp counter is monotonic. */
   int has_context;  /** Context switches are permitted. */
-} libxs_cpuid_x86_info;
+} libxs_cpuid_info;
+#else
+typedef int libxs_cpuid_info;
+#endif
 
 /** Returns the target architecture and instruction set extensions. */
 #if defined(__cplusplus) /* note: stay compatible with TF */
-LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info = NULL);
+LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info = NULL);
+LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info = NULL);
 #else
-LIBXS_API int libxs_cpuid_x86(libxs_cpuid_x86_info* info);
+LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info);
+LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info);
 #endif
 
 /**

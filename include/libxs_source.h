@@ -100,6 +100,7 @@
 #include "../src/generator_transpose_avx_avx512.c"
 #include "../src/generator_x86_instructions.c"
 #include "../src/libxs_blocked_gemm.c"
+#include "../src/libxs_cpuid_arm.c"
 #include "../src/libxs_cpuid_x86.c"
 #include "../src/libxs_dnn.c"
 #include "../src/libxs_dnn_convolution.c"
