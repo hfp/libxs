@@ -64,7 +64,7 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
        (libxs_target_archid < LIBXS_X86_AVX512 ) ) {
     tmp_max_k_block = 32;
   } else if ( libxs_target_archid == LIBXS_AARCH64_V81 ) {
-    tmp_max_c_block = 16;
+    tmp_max_k_block = 16;
   }
   if ( K < tmp_max_k_block ) {
     ofmblock = K;
