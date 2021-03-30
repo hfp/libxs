@@ -1228,7 +1228,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
         if (t0 < t1 && 0.0 < libxs_timer_scale) {
           const double scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
           const double diff = LIBXS_DELTA(libxs_timer_scale, scale) / scale;
-          if (5E-5 > diff) {
+          if (5E-4 > diff) {
             libxs_timer_scale = scale;
             internal_timer_start = t0;
           }
