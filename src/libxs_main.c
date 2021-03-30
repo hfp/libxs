@@ -2281,9 +2281,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       LIBXS_MALLOC_FLAG_RWX, &extra, sizeof(extra));
     if (EXIT_SUCCESS == result) { /* check for success */
       LIBXS_ASSERT(NULL != code_buffer);
-#if defined(__APPLE__) && defined(__arm64__)
-      pthread_jit_write_protect_np( false );
-#endif
+# if defined(__APPLE__) && defined(__arm64__)
+      pthread_jit_write_protect_np(0/*false*/);
+# endif
       /* copy temporary buffer into the prepared executable buffer */
 # if defined(NDEBUG)
       { int i; /* precondition: jit_buffer == generated_code.generated_code */
@@ -2292,23 +2292,27 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # else
       memcpy(code_buffer, generated_code.generated_code, generated_code.code_size);
 # endif
-#if defined(__APPLE__) && defined(__arm64__)
-      pthread_jit_write_protect_np( true );
-      sys_icache_invalidate( code_buffer, generated_code.code_size );
-#else
+# if defined(__APPLE__) && defined(__arm64__)
+      pthread_jit_write_protect_np(1/*true*/);
+      sys_icache_invalidate(code_buffer, generated_code.code_size);
+# else
       /* attribute/protect buffer and revoke unnecessary flags */
       result = libxs_malloc_attrib((void**)code_buffer_result, LIBXS_MALLOC_FLAG_X, jit_name);
       if (EXIT_SUCCESS == result) { /* check for success */
         code->ptr = code_buffer; /* commit buffer */
         LIBXS_ASSERT(NULL != code->ptr && 0 == (LIBXS_CODE_STATIC & code->uval));
-#if defined(__aarch64__)
-        __builtin___clear_cache( code_buffer, code_buffer+generated_code.code_size );
-#endif
+#   if defined(__aarch64__)
+#     if defined(__clang__)
+        __clear_cache(code_buffer, code_buffer + generated_code.code_size);
+#     else
+        __builtin___clear_cache(code_buffer, code_buffer + generated_code.code_size);
+#     endif
+#   endif
       }
       else { /* release buffer */
         libxs_xfree(code_buffer, 0/*no check*/);
       }
-#endif
+# endif
     }
   }
   else if (request->kind == LIBXS_BUILD_KIND_USER && NULL != request->descriptor.ptr) { /* user-data */
