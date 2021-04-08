@@ -9,73 +9,55 @@
 #include <libxs_cpuid.h>
 #include <libxs_generator.h>
 #include <libxs_mem.h>
+#include <libxs_sync.h>
 
-#if defined(LIBXS_PLATFORM_AARCH64)
-# include "libxs_main.h"
-# include <asm/hwcap.h>
-# if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-#   include <sys/auxv.h>
-# endif
+#if defined(_MSC_VER)
+# define LIBXS_CPUID_ARM_ENC16(OP0, OP1, CRN, CRM, OP2) ( \
+    (((OP0) & 1) << 14) | \
+    (((OP1) & 7) << 11) | \
+    (((CRN) & 15) << 7) | \
+    (((CRM) & 15) << 3) | \
+    (((OP2) & 7) << 0))
+# define ID_AA64ISAR1_EL1 LIBXS_CPUID_ARM_ENC16(0b11, 0b000, 0b0000, 0b0110, 0b001)
+# define ID_AA64PFR0_EL1  LIBXS_CPUID_ARM_ENC16(0b11, 0b000, 0b0000, 0b0100, 0b000)
+# define LIBXS_CPUID_ARM_MRS(RESULT, ID) RESULT = _ReadStatusReg(ID)
 #else
-# include <libxs_sync.h>
+# define LIBXS_CPUID_ARM_MRS(RESULT, ID) __asm__ __volatile__( \
+    "mrs %0," LIBXS_STRINGIFY(ID) : "=r"(RESULT))
 #endif
 
 
 LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
-#if defined(LIBXS_PLATFORM_X86)
+#if defined(LIBXS_PLATFORM_AARCH64)
+  /* avoid redetecting features */
+  if (LIBXS_TARGET_ARCH_UNKNOWN == result) {
+    result = LIBXS_AARCH64_V81;
+    { uint64_t capability; /* 64-bit value */
+      LIBXS_CPUID_ARM_MRS(capability, ID_AA64ISAR1_EL1);
+      if (0xF & capability) { /* DPB */
+        LIBXS_CPUID_ARM_MRS(capability, ID_AA64PFR0_EL1);
+        if (0xF & (capability >> 32)) { /* SVE */
+          result = LIBXS_AARCH64_A64FX;
+        }
+        else {
+          result = LIBXS_AARCH64_V82;
+        }
+      }
+    }
+    if (NULL != info) LIBXS_MEMZERO127(info);
+  }
+#else
 # if !defined(NDEBUG)
   static int error_once = 0;
   if (0 != libxs_verbosity /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
-    fprintf(stderr, "LIBXS WARNING: libxs_cpuid_arm called on x86 platform!\n");
+    fprintf(stderr, "LIBXS WARNING: libxs_cpuid_arm called on non-ARM platform!\n");
   }
 # endif
   if (NULL != info) LIBXS_MEMZERO127(info);
-#else
-  if (NULL != info) LIBXS_MEMZERO127(info);
-# if defined(LIBXS_PLATFORM_AARCH64)
-  result = LIBXS_AARCH64_V81;
-  {
-#   if defined(LIBXS_INTERCEPT_DYNAMIC)
-    typedef unsigned long (*getcap_fn)(unsigned long);
-    static getcap_fn getcap = NULL;
-    if (NULL == getcap) {
-#     if defined(RTLD_DEFAULT)
-      void *const handle = RTLD_DEFAULT;
-#     else
-      void *const handle = dlopen(NULL, RTLD_LOCAL);
-#     endif
-      dlerror();
-      getcap = (getcap_fn)dlsym(handle, "getauxval");
-      if (NULL != dlerror()) getcap = NULL;
-#     if !defined(RTLD_DEFAULT)
-      if (NULL != handle) result = dlclose(handle);
-#     endif
-    }
-    if (NULL != getcap) {
-      const unsigned long capabilities = getcap(AT_HWCAP);
-#     if defined(HWCAP_DCPOP)
-      if (HWCAP_DCPOP & capabilities) {
-#       if defined(HWCAP_SVE)
-        if (HWCAP_SVE & capabilities) {
-          result = LIBXS_AARCH64_A64FX;
-        }
-        else
-#       endif
-        {
-          result = LIBXS_AARCH64_V82;
-        }
-      } /* HWCAP_DCPOP */
-#     endif
-    }
-    else {
-    }
-#   endif
-  }
-# endif
 #endif
   return result;
 }
