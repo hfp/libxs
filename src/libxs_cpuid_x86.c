@@ -60,7 +60,7 @@
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
-#if !defined(LIBXS_PLATFORM_X86)
+#if defined(LIBXS_PLATFORM_X86)
   unsigned int eax, ebx, ecx, edx;
   LIBXS_CPUID_X86(0, 0/*ecx*/, eax, ebx, ecx, edx);
   if (1 <= eax) { /* CPUID max. leaf */
