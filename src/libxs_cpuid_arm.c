@@ -11,6 +11,15 @@
 #include <libxs_mem.h>
 #include <libxs_sync.h>
 
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
+#endif
+#include <signal.h>
+#include <setjmp.h>
+#if defined(LIBXS_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
+
 #if defined(_MSC_VER)
 # define LIBXS_CPUID_ARM_ENC16(OP0, OP1, CRN, CRM, OP2) ( \
     (((OP0) & 1) << 14) | \
@@ -27,24 +36,43 @@
 #endif
 
 
+#if defined(LIBXS_PLATFORM_AARCH64)
+LIBXS_APIVAR_DEFINE(jmp_buf internal_cpuid_arm_jmp_buf);
+
+LIBXS_API_INTERN void internal_cpuid_arm_sigill(int /*signum*/);
+LIBXS_API_INTERN void internal_cpuid_arm_sigill(int signum)
+{
+  void (*const handler)(int) = signal(signum, internal_cpuid_arm_sigill);
+  if (SIG_ERR != handler) {
+    longjmp(internal_cpuid_arm_jmp_buf, 1);
+  }
+}
+#endif
+
+
 LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if defined(LIBXS_PLATFORM_AARCH64)
-  /* avoid redetecting features */
-  if (LIBXS_TARGET_ARCH_UNKNOWN == result) {
+  if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* avoid redetecting features */
+    void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
     result = LIBXS_AARCH64_V81;
-    { uint64_t capability; /* 64-bit value */
-      LIBXS_CPUID_ARM_MRS(capability, ID_AA64ISAR1_EL1);
-      if (0xF & capability) { /* DPB */
-        LIBXS_CPUID_ARM_MRS(capability, ID_AA64PFR0_EL1);
-        if (0xF & (capability >> 32)) { /* SVE */
-          result = LIBXS_AARCH64_A64FX;
-        }
-        else {
+    if (SIG_ERR != handler) {
+      uint64_t capability; /* 64-bit value */
+      if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
+        LIBXS_CPUID_ARM_MRS(capability, ID_AA64ISAR1_EL1);
+        if (0xF & capability) { /* DPB */
           result = LIBXS_AARCH64_V82;
+          if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
+            LIBXS_CPUID_ARM_MRS(capability, ID_AA64PFR0_EL1);
+            if (0xF & (capability >> 32)) { /* SVE */
+              result = LIBXS_AARCH64_A64FX;
+            }
+          }
         }
       }
+      /* restore original state */
+      signal(SIGILL, handler);
     }
     if (NULL != info) LIBXS_MEMZERO127(info);
   }
