@@ -28,7 +28,8 @@ libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_f32_f32(libxs_dnn_layer*
   typedef float element_input_type;
   typedef float element_output_type;
   typedef float element_filter_type;
-  typedef libxs_smmfunction_reducebatch_addr gemm_br_function;
+#if 1
+  typedef libxs_smmfunction_reducebatch_addr gemm_br_function_addr;
   const libxs_blasint ldx = (handle->pack_input == 1) ? (libxs_blasint)handle->ifmblock : (libxs_blasint)handle->desc.v*handle->ifmblock;
   const libxs_blasint ldA = handle->ofmblock;
   const libxs_blasint ldC = handle->ofmblock;
@@ -45,8 +46,19 @@ libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom_f32_f32(libxs_dnn_layer*
     prefetch_mode = libxs_get_gemm_prefetch(LIBXS_GEMM_PREFETCH_BRGEMM_OOB);
   }
   { /* let's do a ofmblock x ofw_rb x ifmblock GEMM :-) or in other words M=nbOfm, N=ofw, K=nbIfm (col-major) */
-    gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*handle->fwd_ofw_rb, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, &prefetch_mode);
-    gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*(handle->fwd_ofw_rb-1), handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, &prefetch_mode);
+    gemm_br_function_addr br_gemm_kernel_a_addr = libxs_smmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*handle->fwd_ofw_rb, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, &prefetch_mode);
+    gemm_br_function_addr br_gemm_kernel_b_addr = libxs_smmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*(handle->fwd_ofw_rb-1), handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, &prefetch_mode);
+#else
+  typedef libxs_smmfunction_reducebatch_addr gemm_br_function_addr;
+  typedef libxs_smmfunction_reducebatch_offs gemm_br_function_offs;
+  typedef libxs_smmfunction_reducebatch_strd gemm_br_function_strd;
+
+  {
+    gemm_br_function_addr br_gemm_kernel_a_addr = handle->fwd_compute_kernel_addr_a_f32;
+    gemm_br_function_addr br_gemm_kernel_b_addr = handle->fwd_compute_kernel_addr_b_f32;
+    gemm_br_function_offs br_gemm_kernel_offs = handle->fwd_compute_kernel_offs_f32;
+    gemm_br_function_strd br_gemm_kernel_strd = handle->fwd_compute_kernel_strd_f32;
+#endif
 #   include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic.tpl.c"
   }
 #else /* should not happen */
@@ -365,14 +377,15 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_d
 #endif
   {
     if (handle->datatype_in == LIBXS_DNN_DATATYPE_F32 && handle->datatype_out == LIBXS_DNN_DATATYPE_F32 ) {
+      typedef float element_input_type;
+      typedef float element_output_type;
+      typedef float element_filter_type;
+#if 1
+      typedef libxs_smmfunction_reducebatch_addr gemm_br_function_addr;
       const libxs_blasint ldx = (handle->pack_input == 1) ? (libxs_blasint)handle->ifmblock : (libxs_blasint)handle->desc.v*handle->ifmblock;
       const libxs_blasint ldA = handle->ofmblock;
       const libxs_blasint ldC = handle->ofmblock;
       const float beta = (handle->avoid_acc_load) ? 0.f : 1.f;
-      typedef float element_input_type;
-      typedef float element_output_type;
-      typedef float element_filter_type;
-      typedef libxs_smmfunction_reducebatch_addr gemm_br_function;
       int l_flags = ( LIBXS_GEMM_FLAGS('N', 'N') ) | handle->fwd_flags;
       int prefetch_mode = libxs_get_gemm_prefetch(LIBXS_GEMM_PREFETCH_NONE);
       int brgemm_pf_oob = 0;
@@ -385,9 +398,20 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_convolve_st_fwd_custom_custom(libxs_d
         prefetch_mode = libxs_get_gemm_prefetch(LIBXS_GEMM_PREFETCH_BRGEMM_OOB);
       }
       { /* let's do a ofmblock x ofw_rb x ifmblock GEMM :-) or in other words M=nbOfm, N=ofw, K=nbIfm (col-major) */
-        gemm_br_function br_gemm_kernel = libxs_smmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*handle->fwd_ofw_rb, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, &prefetch_mode);
-        gemm_br_function br_gemm_kernel2 = libxs_smmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*(handle->fwd_ofw_rb-1), handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, &prefetch_mode);
-#       include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic.tpl.c"
+        gemm_br_function_addr br_gemm_kernel_a_addr = libxs_smmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*handle->fwd_ofw_rb, handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, &prefetch_mode);
+        gemm_br_function_addr br_gemm_kernel_b_addr = libxs_smmdispatch_reducebatch_addr(handle->ofmblock, handle->fwd_ofh_rb*(handle->fwd_ofw_rb-1), handle->ifmblock, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, &prefetch_mode);
+#else
+      typedef libxs_smmfunction_reducebatch_addr gemm_br_function_addr;
+      typedef libxs_smmfunction_reducebatch_offs gemm_br_function_offs;
+      typedef libxs_smmfunction_reducebatch_strd gemm_br_function_strd;
+
+      {
+        gemm_br_function_addr br_gemm_kernel_a_addr = handle->fwd_compute_kernel_addr_a_f32;
+        gemm_br_function_addr br_gemm_kernel_b_addr = handle->fwd_compute_kernel_addr_b_f32;
+        gemm_br_function_offs br_gemm_kernel_offs = handle->fwd_compute_kernel_offs_f32;
+        gemm_br_function_strd br_gemm_kernel_strd = handle->fwd_compute_kernel_strd_f32;
+#endif
+#     include "template/libxs_dnn_convolve_st_fwd_custom_custom_generic.tpl.c"
       }
     } else {
       status = LIBXS_DNN_ERR_UNSUPPORTED_DATATYPE;
