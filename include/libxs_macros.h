@@ -648,6 +648,11 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   define LIBXS_UNUSED(VARIABLE) (void)(VARIABLE)
 # endif
 #endif
+#if !defined(NDEBUG)
+# define LIBXS_UNUSED_DEBUG(VARIABLE) LIBXS_UNUSED(VARIABLE)
+#else
+# define LIBXS_UNUSED_DEBUG(VARIABLE)
+#endif
 
 #if defined(_OPENMP)
 # define LIBXS_PRAGMA_OMP(...) LIBXS_PRAGMA(omp __VA_ARGS__)
