@@ -244,9 +244,7 @@ LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_sml);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_med);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_mnk);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_gemv);
-LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_mcopy);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_meltw);
-LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_tcopy);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_trsm);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_trmm);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_user);
@@ -712,7 +710,7 @@ LIBXS_API_INTERN void internal_finalize(void)
             ngemms += internal_statistic[0/*DP*/][i].njit + internal_statistic[1/*SP*/][i].njit;
           }
           if (0 != ngemms || 0 != internal_statistic_num_gemv
-            || 0 != internal_statistic_num_mcopy || 0 != internal_statistic_num_tcopy
+            || 0 != internal_statistic_num_meltw
             || 0 != libxs_statistic_num_spmdm
             || 0 != internal_statistic_num_user
             || 0 != internal_registry_nleaks)
@@ -721,9 +719,7 @@ LIBXS_API_INTERN void internal_finalize(void)
             fprintf(stderr, " (");
             if (0 != ngemms) { fprintf(stderr, "gemm=%u", ngemms); s = sep; }
             if (0 != internal_statistic_num_gemv) { fprintf(stderr, "%sgemv=%u", s, internal_statistic_num_gemv); s = sep; }
-            if (0 != internal_statistic_num_mcopy) { fprintf(stderr, "%smcopy=%u", s, internal_statistic_num_mcopy); s = sep; }
             if (0 != internal_statistic_num_meltw) { fprintf(stderr, "%smeltw=%u", s, internal_statistic_num_meltw); s = sep; }
-            if (0 != internal_statistic_num_tcopy) { fprintf(stderr, "%stcopy=%u", s, internal_statistic_num_tcopy); s = sep; }
             if (0 != libxs_statistic_num_spmdm) { fprintf(stderr, "%sspmdm=%u", s, libxs_statistic_num_spmdm); s = sep; }
             if (0 != internal_statistic_num_user) { fprintf(stderr, "%suser=%u", s, internal_statistic_num_user); s = sep; }
             if (0 != internal_registry_nleaks) { fprintf(stderr, "%snleaks=%u", s, internal_registry_nleaks); s = sep; }
@@ -1347,14 +1343,8 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
               }
               ++rest;
             } break;
-            case LIBXS_KERNEL_KIND_MCOPY: {
-              ++internal_statistic_num_mcopy;
-            } break;
             case LIBXS_KERNEL_KIND_MELTW: {
               ++internal_statistic_num_meltw;
-            } break;
-            case LIBXS_KERNEL_KIND_TRANS: {
-              ++internal_statistic_num_tcopy;
             } break;
             case LIBXS_KERNEL_KIND_TRSM: {
               ++internal_statistic_num_trsm;
@@ -1377,9 +1367,8 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
               fprintf(stderr, "LIBXS ERROR: code registry is corrupted!\n");
             }
             if (LIBXS_CAPACITY_REGISTRY == (rest + errors + internal_statistic_num_gemv +
-              internal_statistic_num_mcopy + internal_statistic_num_meltw +
-              internal_statistic_num_tcopy + internal_statistic_num_trsm +
-              internal_statistic_num_trmm + internal_statistic_num_user))
+              internal_statistic_num_user + internal_statistic_num_meltw +
+              internal_statistic_num_trsm + internal_statistic_num_trmm))
             {
               fprintf(stderr, "LIBXS WARNING: code registry was exhausted!\n");
             }
