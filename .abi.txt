@@ -109,7 +109,6 @@ libxs_dispatch_meltw_reduce_cols_idx
 libxs_dispatch_meltw_relu
 libxs_dispatch_meltw_scale
 libxs_dispatch_meltw_ternary
-libxs_dispatch_meltw_transform
 libxs_dispatch_meltw_unary
 libxs_dispatch_meltw_zero
 libxs_dispatch_pgemm
