@@ -249,7 +249,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_mcopy_descriptor {
 /** Packed structure storing the mateltw argument description. */
 LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meltw_descriptor {
   /** LDx, M, and N. */
-  unsigned int m, n, ldi, ldo, ldx, ldy;
+  unsigned int m, n, ldi, ldo, ldi2, ldi3;
   /** Size of data element. */
   unsigned char datatype;
   unsigned char datatype2;
