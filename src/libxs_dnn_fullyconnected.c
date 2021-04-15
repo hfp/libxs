@@ -12,7 +12,6 @@
 
 LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fullyconnected_desc fullyconnected_desc, libxs_dnn_err_t* status) {
   libxs_dnn_fullyconnected* handle = 0;
-  libxs_descriptor_blob blob;
 
   /* init libxs */
   LIBXS_INIT
