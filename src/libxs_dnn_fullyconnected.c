@@ -703,7 +703,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           handle->gemm_bwd2.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(float), handle->bk*handle->bn*sizeof(float), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
 
           /* Transpose kernel used for weight transpose in bwd pass */
-          handle->tr_kernel = libxs_dispatch_meltw_unary(handle->bk, handle->bc, &(handle->bk), &(handle->bc), LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_MELTW_FLAG_UNARY_NONE, LIBXS_MELTW_TYPE_UNARY_TRANSFORM_NORM_TO_NORMT);
+          handle->tr_kernel = libxs_dispatch_meltw_unary((libxs_blasint)(handle->bk), (libxs_blasint)(handle->bc), (const libxs_blasint*)&(handle->bk), (const libxs_blasint*)&(handle->bc), LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_MELTW_FLAG_UNARY_NONE, LIBXS_MELTW_TYPE_UNARY_TRANSFORM_NORM_TO_NORMT);
 
           /* update has different LDs */
           lda = (libxs_blasint)handle->bk;
