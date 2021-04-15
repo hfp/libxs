@@ -12,7 +12,6 @@
 
 LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fullyconnected_desc fullyconnected_desc, libxs_dnn_err_t* status) {
   libxs_dnn_fullyconnected* handle = 0;
-  const libxs_trans_descriptor* tr_desc = 0;
   libxs_descriptor_blob blob;
 
   /* init libxs */
@@ -705,8 +704,7 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           handle->gemm_bwd2.xgemm.smrs = libxs_smmdispatch_reducebatch_strd(handle->bc, handle->bn, handle->bk, handle->bk*handle->bc*sizeof(float), handle->bk*handle->bn*sizeof(float), &ldb, &lda, &ldb, &alpha, &zerobeta, NULL, NULL);
 
           /* Transpose kernel used for weight transpose in bwd pass */
-          tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), handle->bk, handle->bc, handle->bc);
-          handle->tr_kernel = libxs_dispatch_trans(tr_desc);
+          handle->tr_kernel = libxs_dispatch_meltw_unary(handle->bk, handle->bc, &(handle->bk), &(handle->bc), LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_MELTW_FLAG_UNARY_NONE, LIBXS_MELTW_TYPE_UNARY_TRANSFORM_NORM_TO_NORMT);
 
           /* update has different LDs */
           lda = (libxs_blasint)handle->bk;

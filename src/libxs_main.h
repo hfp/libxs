@@ -707,7 +707,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   libxs_bsmmfunction upd_config_kernel;
   libxs_bsmmfunction tilerelease_kernel;
 
-  libxs_xtransfunction tr_kernel;
+  libxs_meltwfunction_unary tr_kernel;
   libxs_code_pointer gemm_fwd;     /* ability to hoist forward GEMMs */
   libxs_code_pointer gemm_fwd2;    /* ability to hoist forward GEMMs */
   libxs_code_pointer gemm_fwd3;    /* ability to hoist forward GEMMs */
