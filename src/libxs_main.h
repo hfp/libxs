@@ -453,7 +453,7 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
   int block_upd_ifm;
   int block_upd_ofm;
 
-  libxs_xtransfunction tr_kernel;
+  libxs_meltwfunction_unary tr_kernel;
   libxs_meltwfunction_unary fwd_cvtfp32bf16_kernel;
 
   /* Hoisting the compute kernels for FWD  */
