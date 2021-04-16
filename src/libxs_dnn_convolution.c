@@ -907,8 +907,6 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer*
   float beta;
 
   int remainder_pixels, max_init_offset, max_compute_offset_input, input_compute_pad, accum_length_pixels, compute_pixels;
-  const libxs_trans_descriptor* tr_desc = 0;
-  libxs_descriptor_blob blob;
   const int multiple_target = 32;
   int IFHP = (handle->upd_padding_copy == 1) ? handle->ifhp + 2 * handle->desc.pad_h : handle->ifhp;
   int IFWP = (handle->upd_padding_copy == 1) ? handle->ifwp + 2 * handle->desc.pad_w : handle->ifwp;
@@ -962,9 +960,6 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_bf16_upd_amx( libxs_dnn_layer*
       }
       handle->scratch3_size = (size_t) (handle->desc.N * handle->input_pixels * handle->desc.C * sizeof(float)/2);
 #endif
-      /* Transpose kernel used for input image*/
-      tr_desc = libxs_trans_descriptor_init(&blob, sizeof(libxs_bfloat16), handle->ifmblock, handle->ifhp*handle->ifwp, handle->input_pixels);
-      handle->tr_input_upd_kernel = libxs_dispatch_trans(tr_desc);
 
       if (handle->ofw <= 14) {
         handle->use_hybrid_imgofm_parallelization = 1;
