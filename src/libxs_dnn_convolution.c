@@ -1171,9 +1171,7 @@ LIBXS_API_INLINE void libxs_dnn_convolution_setup_upd_scratch( libxs_dnn_layer* 
 
 LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* handle ) {
   libxs_dnn_err_t status = LIBXS_DNN_SUCCESS;
-  const libxs_trans_descriptor* tr_desc = 0;
   libxs_blasint _ldi = 64, _ldo = 64;
-  libxs_descriptor_blob blob;
   libxs_blasint ldx;
   libxs_blasint ldA;
   libxs_blasint ldC;
@@ -1504,8 +1502,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->code_bwd[2].ptr = 0;
 
   /* Transpose kernel used for filter transpose in bwd pass  */
-  tr_desc = libxs_trans_descriptor_init(&blob, sizeof(float), 64, 16, 64);
-  handle->tr_kernel = libxs_dispatch_trans(tr_desc);
+  handle->tr_kernel = libxs_dispatch_meltw_unary(64, 16, &(_ldi), &(_ldo), LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_MELTW_FLAG_UNARY_NONE, LIBXS_MELTW_TYPE_UNARY_TRANSFORM_NORM_TO_NORMT);
 
   /* UPD parameter setup */
   handle->upd_linearized_tasklist = libxs_dnn_convolution_setup_linearized_tasklist_upd(handle);
