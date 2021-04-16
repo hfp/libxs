@@ -2069,26 +2069,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         }
       }
     } break;
-    case LIBXS_BUILD_KIND_MCOPY: { /* matcopy kernel */
-      LIBXS_ASSERT(NULL != request->descriptor.mcopy);
-# if 0 /* TODO: backend supports typesize <= 4, but kernels for typesize < 4 are incorrect */
-      if (4 == request->descriptor.mcopy->typesize)
-# endif
-      {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_matcopy_kernel, &generated_code, request->descriptor.mcopy, target_arch);
-# if !defined(LIBXS_VTUNE)
-        if (0 > libxs_verbosity)
-# endif
-        {
-          char tsizename[4];
-          internal_get_typesize_string(tsizename, sizeof(tsizename), request->descriptor.mcopy->typesize);
-          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_p%u.mcopy", target_arch, tsizename,
-            request->descriptor.mcopy->m, request->descriptor.mcopy->n, request->descriptor.mcopy->ldi, request->descriptor.mcopy->ldo,
-            (unsigned int)request->descriptor.mcopy->prefetch);
-        }
-      }
-    } break;
     case LIBXS_BUILD_KIND_MELTW: { /* matcopy kernel */
       LIBXS_ASSERT(NULL != request->descriptor.meltw);
       {
@@ -2151,22 +2131,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%u_eqn-idx%u.meltw", target_arch, tsizename,
             request->descriptor.meqn->m, request->descriptor.meqn->n, request->descriptor.meqn->ldo,
             (unsigned int)request->descriptor.meqn->eqn_idx );
-        }
-      }
-    } break;
-    case LIBXS_BUILD_KIND_TRANS: { /* transpose kernel */
-      LIBXS_ASSERT(NULL != request->descriptor.trans);
-      if (4 == request->descriptor.trans->typesize || 8 == request->descriptor.trans->typesize) {
-        LIBXS_NO_OFFLOAD(void, libxs_generator_transpose_kernel, &generated_code, request->descriptor.trans, libxs_target_archid);
-# if !defined(LIBXS_VTUNE)
-        if (0 > libxs_verbosity)
-# endif
-        {
-          char tsizename[4];
-          internal_get_typesize_string(tsizename, sizeof(tsizename), request->descriptor.trans->typesize);
-          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%u.trans", target_arch, tsizename,
-            request->descriptor.trans->m, request->descriptor.trans->n, request->descriptor.trans->ldo);
         }
       }
     } break;
@@ -2676,85 +2640,6 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
         else {
           fprintf(stderr, "LIBXS ERROR: invalid kernel cannot be inspected!\n");
         }
-      }
-      result = EXIT_FAILURE;
-    }
-  }
-  else {
-    if (0 != libxs_verbosity /* library code is expected to be mute */
-      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-    {
-      fprintf(stderr, "LIBXS ERROR: invalid argument!\n");
-    }
-    result = EXIT_FAILURE;
-  }
-  return result;
-}
-
-
-LIBXS_API int libxs_get_transkernel_info(libxs_xtransfunction kernel, libxs_transkernel_info* info)
-{
-  libxs_code_pointer code;
-  static int error_once = 0;
-  int result;
-  code.xtrans = kernel;
-  if (NULL != info) {
-    const libxs_descriptor* desc;
-    if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
-        NULL != desc && LIBXS_KERNEL_KIND_TRANS == LIBXS_DESCRIPTOR_KIND(desc->kind))
-    {
-      info->typesize = desc->trans.desc.typesize;
-      info->ldo = desc->trans.desc.ldo;
-      info->m = desc->trans.desc.m;
-      info->n = desc->trans.desc.n;
-      result = EXIT_SUCCESS;
-    }
-    else {
-      if (0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-      {
-        fprintf(stderr, "LIBXS ERROR: invalid kernel cannot be inspected!\n");
-      }
-      result = EXIT_FAILURE;
-    }
-  }
-  else {
-    if (0 != libxs_verbosity /* library code is expected to be mute */
-      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-    {
-      fprintf(stderr, "LIBXS ERROR: invalid argument!\n");
-    }
-    result = EXIT_FAILURE;
-  }
-  return result;
-}
-
-
-LIBXS_API int libxs_get_mcopykernel_info(libxs_xmcopyfunction kernel, libxs_mcopykernel_info* info)
-{
-  libxs_code_pointer code;
-  static int error_once = 0;
-  int result;
-  code.xmatcopy = kernel;
-  if (NULL != info) {
-    const libxs_descriptor* desc;
-    if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
-        NULL != desc && LIBXS_KERNEL_KIND_MCOPY == LIBXS_DESCRIPTOR_KIND(desc->kind))
-    {
-      info->typesize = desc->mcopy.desc.typesize;
-      info->prefetch = desc->mcopy.desc.prefetch;
-      info->flags = desc->mcopy.desc.flags;
-      info->ldi = desc->mcopy.desc.ldi;
-      info->ldo = desc->mcopy.desc.ldo;
-      info->m = desc->mcopy.desc.m;
-      info->n = desc->mcopy.desc.n;
-      result = EXIT_SUCCESS;
-    }
-    else {
-      if (0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-      {
-        fprintf(stderr, "LIBXS ERROR: invalid kernel cannot be inspected!\n");
       }
       result = EXIT_FAILURE;
     }
@@ -4477,33 +4362,6 @@ LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_redu
 }
 
 
-LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor* descriptor)
-{
-  libxs_xmcopyfunction result;
-  LIBXS_INIT /* verbosity */
-#if !defined(LIBXS_UNPACKED) /* CCE/Classic */
-  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#endif
-  if (NULL != descriptor) {
-    unsigned int hash;
-    libxs_descriptor wrap;
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
-    LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
-#endif
-    LIBXS_ASSIGN127(&wrap.mcopy.desc, descriptor);
-    wrap.kind = LIBXS_KERNEL_KIND_MCOPY;
-#if (defined(_WIN32) || defined(__CYGWIN__))
-    wrap.mcopy.desc.prefetch = 0;
-#endif
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xmatcopy;
-  }
-  else {
-    result = NULL;
-  }
-  return result;
-}
-
-
 LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor* descriptor)
 {
   libxs_xmeltwfunction result;
@@ -4755,36 +4613,15 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_
 }
 
 
-LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn( const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldo, const libxs_datatype out_type, const unsigned int eqn_idx ) {
+LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn(
+  const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldo,
+  const libxs_datatype out_type, const unsigned int eqn_idx )
+{
   libxs_descriptor_blob blob;
   const libxs_meqn_descriptor *const desc = libxs_meqn_descriptor_init(&blob,
     out_type, m, n, (ldo == NULL) ? m : *ldo, eqn_idx );
 
   return libxs_dispatch_matrix_eqn_desc( desc );
-}
-
-
-LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor* descriptor)
-{
-  libxs_xtransfunction result;
-  LIBXS_INIT /* verbosity */
-#if !defined(LIBXS_UNPACKED) /* CCE/Classic */
-  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#endif
-  if (NULL != descriptor) {
-    unsigned int hash;
-    libxs_descriptor wrap;
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
-    LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
-#endif
-    LIBXS_ASSIGN127(&wrap.trans.desc, descriptor);
-    wrap.kind = LIBXS_KERNEL_KIND_TRANS;
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xtrans;
-  }
-  else {
-    result = NULL;
-  }
-  return result;
 }
 
 

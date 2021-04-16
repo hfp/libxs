@@ -95,10 +95,6 @@ LIBXS_API void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type strategy);
 
 /** Get information about the matrix multiplication kernel. */
 LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_info* info);
-/** Get information about the matrix transpose kernel. */
-LIBXS_API int libxs_get_transkernel_info(libxs_xtransfunction kernel, libxs_transkernel_info* info);
-/** Get information about the matrix copy kernel. */
-LIBXS_API int libxs_get_mcopykernel_info(libxs_xmcopyfunction kernel, libxs_mcopykernel_info* info);
 /** Get information about the matrix eltwise kernel. */
 LIBXS_API int libxs_get_meltwkernel_info(libxs_xmeltwfunction kernel, libxs_meltwkernel_info* info);
 
@@ -474,9 +470,6 @@ LIBXS_APIEXT void libxs_mmbatch_begin(libxs_gemm_precision precision, const int*
 /** Processes the batch of previously recorded matrix multiplications (libxs_mmbatch_begin); libxsext required. */
 LIBXS_APIEXT void libxs_mmbatch_end(void);
 
-/** Code generation routine for matrix-copy using a descriptor. */
-LIBXS_API libxs_xmcopyfunction libxs_dispatch_mcopy(const libxs_mcopy_descriptor* descriptor);
-
 /** Code generation routine for matrix-eltwise using a descriptor. */
 LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor* descriptor);
 LIBXS_API libxs_meltwfunction_copy libxs_dispatch_meltw_copy(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_meltw_copy_flags flags);
@@ -504,18 +497,12 @@ LIBXS_API void libxs_matrix_eqn_rpn_print( const libxs_blasint idx );
 LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_meqn_descriptor* descriptor );
 LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn( const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldo, const libxs_datatype out_type, const unsigned int eqn_idx );
 
-/** Code generation routine for transposes using a descriptor */
-LIBXS_API libxs_xtransfunction libxs_dispatch_trans(const libxs_trans_descriptor* descriptor);
-
 /** Code generation routine for GEMM/packed using a descriptor */
 LIBXS_API libxs_pgemm_xfunction libxs_dispatch_pgemm(const libxs_pgemm_descriptor* descriptor);
-
 /** Code generation routine for GETRF/packed using a descriptor */
 LIBXS_API libxs_getrf_xfunction libxs_dispatch_getrf(const libxs_getrf_descriptor* descriptor);
-
 /** Code generation routine for TRMM/packed using a descriptor */
 LIBXS_API libxs_trmm_xfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* descriptor);
-
 /** Code generation routine for TRSM/packed using a descriptor */
 LIBXS_API libxs_trsm_xfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* descriptor);
 

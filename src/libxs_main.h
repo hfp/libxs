@@ -187,10 +187,8 @@
 #define LIBXS_REGDESC_DEFAULT
 #define LIBXS_REGDESC(START, MODIFIER) \
   START libxs_gemm_descriptor MODIFIER gemm; \
-  START libxs_mcopy_descriptor MODIFIER mcopy; \
   START libxs_meltw_descriptor MODIFIER meltw; \
   START libxs_meqn_descriptor MODIFIER meqn; \
-  START libxs_trans_descriptor MODIFIER trans; \
   START libxs_pgemm_descriptor MODIFIER pgemm; \
   START libxs_getrf_descriptor MODIFIER getrf; \
   START libxs_trmm_descriptor MODIFIER trmm; \
@@ -232,20 +230,6 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
   unsigned char meltw_operation;
 };
 
-/** Packed structure storing the matcopy argument description. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_mcopy_descriptor {
-  /** LDx, M, and N. */
-  unsigned int m, n, ldi, ldo;
-  /** Size of data element. */
-  unsigned char typesize;
-  /** Level of unrolling. */
-  unsigned char unroll_level;
-  /** Boolean value (@TODO fix this). */
-  unsigned char prefetch;
-  /** Set of flags. */
-  unsigned char flags;
-};
-
 /** Packed structure storing the mateltw argument description. */
 LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meltw_descriptor {
   /** LDx, M, and N. */
@@ -259,14 +243,6 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meltw_descriptor {
   unsigned char param;
   /** operation specifier */
   unsigned char operation;
-};
-
-/** Packed structure storing the transpose argument description. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trans_descriptor {
-  /** LD, M, and N. */
-  unsigned int m, n, ldo;
-  /** Size of data element. */
-  unsigned char typesize;
 };
 
 /** Packed structure storing arguments of packed GEMM. */
@@ -338,6 +314,11 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_d
   const void* values;
 } libxs_csr_reg_descriptor;
 
+LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_xcopykernel {
+  libxs_meltwfunction_unary meltw_trans, meltw_copy, meltw_zero;
+  const void* ptr;
+} libxs_xcopykernel;
+
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   void (*ptr_fn)(LIBXS_VARIADIC);
   const void* ptr_const;
@@ -345,10 +326,8 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   uintptr_t uval;
   intptr_t ival;
   libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, or void-function */
-  libxs_xmcopyfunction xmatcopy;
   libxs_xmeltwfunction xmateltw;
   libxs_matrix_eqn_function xmateqn;
-  libxs_xtransfunction xtrans;
   libxs_pgemm_xfunction xpgemm;
   libxs_getrf_xfunction xgetrf;
   libxs_trmm_xfunction xtrmm;
@@ -875,10 +854,8 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meqn_descriptor {
 
 typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GEMM       = LIBXS_KERNEL_KIND_MATMUL,
-  LIBXS_BUILD_KIND_MCOPY      = LIBXS_KERNEL_KIND_MCOPY,
   LIBXS_BUILD_KIND_MELTW      = LIBXS_KERNEL_KIND_MELTW,
   LIBXS_BUILD_KIND_MEQN       = LIBXS_KERNEL_KIND_MEQN,
-  LIBXS_BUILD_KIND_TRANS      = LIBXS_KERNEL_KIND_TRANS,
   LIBXS_BUILD_KIND_PGEMM      = LIBXS_KERNEL_KIND_PGEMM,
   LIBXS_BUILD_KIND_GETRF      = LIBXS_KERNEL_KIND_GETRF,
   LIBXS_BUILD_KIND_TRMM       = LIBXS_KERNEL_KIND_TRMM,

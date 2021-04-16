@@ -93,7 +93,6 @@ libxs_diff_n
 libxs_dispatch_getrf
 libxs_dispatch_matrix_eqn
 libxs_dispatch_matrix_eqn_desc
-libxs_dispatch_mcopy
 libxs_dispatch_meltw
 libxs_dispatch_meltw_act_cvtfp32bf16
 libxs_dispatch_meltw_add
@@ -109,7 +108,6 @@ libxs_dispatch_meltw_ternary
 libxs_dispatch_meltw_unary
 libxs_dispatch_meltw_zero
 libxs_dispatch_pgemm
-libxs_dispatch_trans
 libxs_dispatch_trmm
 libxs_dispatch_trsm
 libxs_dmmavailable
@@ -271,7 +269,6 @@ libxs_generator_gemm_directasm
 libxs_generator_gemm_inlineasm
 libxs_generator_gemm_kernel
 libxs_generator_getrf_kernel
-libxs_generator_matcopy_kernel
 libxs_generator_mateltwise_kernel
 libxs_generator_matequation_kernel
 libxs_generator_packed_gemm_ac_rm
@@ -283,7 +280,6 @@ libxs_generator_spgemm
 libxs_generator_spgemm_csc_kernel
 libxs_generator_spgemm_csr_kernel
 libxs_generator_spgemm_csr_reg_kernel
-libxs_generator_transpose_kernel
 libxs_generator_trmm_kernel
 libxs_generator_trsm_kernel
 libxs_get_default_allocator
@@ -294,7 +290,6 @@ libxs_get_kernel_info
 libxs_get_malloc
 libxs_get_malloc_info
 libxs_get_malloc_xinfo
-libxs_get_mcopykernel_info
 libxs_get_meltwkernel_info
 libxs_get_mmkernel_info
 libxs_get_pid
@@ -308,7 +303,6 @@ libxs_get_target_arch
 libxs_get_target_archid
 libxs_get_tid
 libxs_get_timer_info
-libxs_get_transkernel_info
 libxs_get_verbosity
 libxs_getrf_descriptor_init
 libxs_hash
@@ -361,7 +355,6 @@ libxs_matrix_eqn_push_back_ternary_op
 libxs_matrix_eqn_push_back_unary_op
 libxs_matrix_eqn_rpn_print
 libxs_matrix_eqn_tree_print
-libxs_mcopy_descriptor_init
 libxs_meltw_descriptor_init
 libxs_meltw_descriptor_init2
 libxs_memcmp
@@ -547,7 +540,6 @@ libxs_trace
 libxs_trace_finalize
 libxs_trace_info
 libxs_trace_init
-libxs_trans_descriptor_init
 libxs_trmm_descriptor_init
 libxs_trsm_descriptor_init
 libxs_truncate_convert_f32_bf16
