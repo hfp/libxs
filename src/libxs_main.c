@@ -77,7 +77,7 @@
 #if !defined(LIBXS_CACHE_PAD) && 1
 # define LIBXS_CACHE_PAD
 #endif
-#if !defined(LIBXS_AUTOPIN) && 1
+#if !defined(LIBXS_AUTOPIN) && 0
 # define LIBXS_AUTOPIN
 #endif
 #if !defined(INTERNAL_DELIMS)
