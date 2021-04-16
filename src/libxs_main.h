@@ -455,7 +455,6 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_layer {
 
   libxs_xtransfunction tr_kernel;
   libxs_meltwfunction_unary fwd_cvtfp32bf16_kernel;
-  libxs_xtransfunction tr_input_upd_kernel;
 
   /* Hoisting the compute kernels for FWD  */
   libxs_bsmmfunction fwd_config_kernel;
