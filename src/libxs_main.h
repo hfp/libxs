@@ -315,7 +315,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_d
 } libxs_csr_reg_descriptor;
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_xcopykernel {
-  libxs_meltwfunction_unary meltw_trans, meltw_copy, meltw_zero;
+  libxs_meltwfunction_unary function;
   const void* ptr;
 } libxs_xcopykernel;
 
