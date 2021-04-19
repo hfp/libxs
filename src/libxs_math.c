@@ -19,6 +19,10 @@
 # pragma offload_attribute(pop)
 #endif
 
+#define LIBXS_MATDIFF_DIV(NOMINATOR, DENREF, DENTST) \
+  (0 < (DENREF) ? ((NOMINATOR) / (DENREF)) : \
+  (0 < (DENTST) ? ((NOMINATOR) / (DENTST)) : 0))
+
 
 LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
   libxs_datatype datatype, libxs_blasint m, libxs_blasint n, const void* ref, const void* tst,
@@ -28,6 +32,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
   libxs_blasint ldr = (NULL == ldref ? m : *ldref), ldt = (NULL == ldtst ? m : *ldtst);
   if (NULL == ref && NULL != tst) { ref = tst; tst = NULL; result_swap = 1; }
   if (NULL != ref && NULL != info && m <= ldr && m <= ldt) {
+    const size_t ntotal = (size_t)m * n;
     libxs_blasint mm = m, nn = n;
     double inf;
     if (1 == n) { mm = ldr = ldt = 1; nn = m; } /* ensure row-vector shape to standardize results */
@@ -87,9 +92,8 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
             size[0] = (size_t)ldr; size[1] = (size_t)nn;
           }
           else { /* reshape */
-            const size_t x = (size_t)mm * (size_t)nn;
-            const size_t y = (size_t)libxs_isqrt2_u32((unsigned int)x);
-            shape[0] = x / y; shape[1] = y;
+            const size_t y = (size_t)libxs_isqrt2_u32((unsigned int)ntotal);
+            shape[0] = ntotal / y; shape[1] = y;
             size[0] = shape[0];
             size[1] = shape[1];
           }
@@ -118,6 +122,11 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
         }
       }
       if (0 == result_nan) {
+        info->rsq = 1.0 - LIBXS_MATDIFF_DIV(info->l2_abs, info->var_ref, info->var_tst);
+        if (0 != ntotal) { /* final variance */
+          info->var_ref /= ntotal;
+          info->var_tst /= ntotal;
+        }
         info->normf_rel = libxs_dsqrt(info->normf_rel);
         info->l2_abs = libxs_dsqrt(info->l2_abs);
         info->l2_rel = libxs_dsqrt(info->l2_rel);
@@ -176,6 +185,7 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
     if (output->l2_abs < input->l2_abs) {
       output->l2_abs = input->l2_abs;
       output->l2_rel = input->l2_rel;
+      output->rsq = input->rsq;
     }
     if (output->normf_rel < input->normf_rel) {
       output->normf_rel = input->normf_rel;

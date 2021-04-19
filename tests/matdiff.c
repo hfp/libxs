@@ -60,6 +60,8 @@ int main(void)
     /* Linf-norm */
     if (0.0000004 < LIBXS_ABS(da.linf_abs - 0.9300000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(da.linf_rel - 0.5600000)) result = EXIT_FAILURE;
+    /* R-squared */
+    if (0.0000001 < LIBXS_ABS(da.rsq - 0.9490077)) result = EXIT_FAILURE;
     /* Location of maximum absolute error */
     if (2 != da.m || 2 != da.n) result = EXIT_FAILURE;
     if (a[3*da.m+da.n] != da.v_ref) result = EXIT_FAILURE;
@@ -88,6 +90,8 @@ int main(void)
     /* Linf-norm */
     if (0.0000001 < LIBXS_ABS(db.linf_abs - 2.0000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(db.linf_rel - 0.2222222)) result = EXIT_FAILURE;
+    /* R-squared */
+    if (0.0000001 < LIBXS_ABS(db.rsq - 0.9991717)) result = EXIT_FAILURE;
     /* Location of maximum absolute error */
     if (0 != db.m || 2 != db.n) result = EXIT_FAILURE;
     if (x[3*db.m+db.n] != db.v_ref) result = EXIT_FAILURE;
@@ -116,6 +120,8 @@ int main(void)
     /* Linf-norm */
     if (0.0000001 < LIBXS_ABS(dc.linf_abs - 2.0000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(dc.linf_rel - 0.2222222)) result = EXIT_FAILURE;
+    /* R-squared */
+    if (0.0000001 < LIBXS_ABS(dc.rsq - 0.9991717)) result = EXIT_FAILURE;
     /* Location of maximum absolute error */
     if (2 != dc.m || 0 != dc.n) result = EXIT_FAILURE;
     if (x[3*dc.n+dc.m] != dc.v_ref) result = EXIT_FAILURE;
@@ -140,6 +146,8 @@ int main(void)
     /* Linf-norm */
     if (0.0000001 < LIBXS_ABS(diff.linf_abs - 2.0000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(diff.linf_rel - 0.2222222)) result = EXIT_FAILURE;
+    /* R-squared */
+    if (0.0000001 < LIBXS_ABS(diff.rsq - 0.9991717)) result = EXIT_FAILURE;
     /* Location of maximum absolute error */
     if (0 != diff.m || 2 != diff.n) result = EXIT_FAILURE;
     if (x[3*diff.m+diff.n] != diff.v_ref) result = EXIT_FAILURE;
