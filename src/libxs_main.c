@@ -1465,15 +1465,19 @@ LIBXS_API void libxs_set_target_archid(int id)
     case LIBXS_X86_SSE42:
     case LIBXS_X86_SSE3:
     case LIBXS_AARCH64_V81:
-    case LIBXS_TARGET_ARCH_GENERIC: {
+    case LIBXS_AARCH64_V82:
+    case LIBXS_AARCH64_A64FX: {
       target_archid = id;
     } break;
-    default: if (LIBXS_X86_GENERIC <= id) {
+    case LIBXS_TARGET_ARCH_GENERIC:
+#if defined(LIBXS_PLATFORM_X86)
       target_archid = LIBXS_X86_GENERIC;
-    }
-    else {
-      target_archid = libxs_cpuid();
-    }
+      break;
+#elif defined(LIBXS_PLATFORM_AARCH64)
+      target_archid = LIBXS_AARCH64_V81;
+      break;
+#endif
+    default: target_archid = libxs_cpuid();
   }
   LIBXS_ATOMIC_STORE(&libxs_target_archid, target_archid, LIBXS_ATOMIC_RELAXED);
   if (0 != libxs_verbosity) { /* library code is expected to be mute */
