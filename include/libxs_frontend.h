@@ -439,7 +439,7 @@
 
 /** Helper macro to setup a matrix with some initial values. */
 #define LIBXS_MATRNG_AUX(OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) { \
-  /*const*/ double libxs_matrng_seed_ = (double)SEED; /* avoid constant conditional */ \
+  /*const*/ double libxs_matrng_seed_ = (double)(SEED); /* avoid constant conditional */ \
   const double libxs_matrng_scale_ = (SCALE) * libxs_matrng_seed_ + (SCALE); \
   const libxs_blasint libxs_matrng_nrows_ = (libxs_blasint)NROWS; \
   const libxs_blasint libxs_matrng_ld_ = (libxs_blasint)LD; \
@@ -455,7 +455,7 @@
       } \
       for (; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        (DST)[libxs_matrng_k_] = (TYPE)SEED; \
+        (DST)[libxs_matrng_k_] = (TYPE)(SEED); \
       } \
     } \
   } \
