@@ -245,8 +245,6 @@ LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_med);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_mnk);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_gemv);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_meltw);
-LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_trsm);
-LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_trmm);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_user);
 LIBXS_APIVAR_DEFINE(int internal_gemm_auto_prefetch_locked);
 LIBXS_APIVAR_DEFINE(const char* internal_build_state);
@@ -1346,12 +1344,6 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             case LIBXS_KERNEL_KIND_MELTW: {
               ++internal_statistic_num_meltw;
             } break;
-            case LIBXS_KERNEL_KIND_TRSM: {
-              ++internal_statistic_num_trsm;
-            } break;
-            case LIBXS_KERNEL_KIND_TRMM: {
-              ++internal_statistic_num_trmm;
-            } break;
             case LIBXS_KERNEL_KIND_USER: {
               ++internal_statistic_num_user;
             } break;
@@ -1367,8 +1359,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
               fprintf(stderr, "LIBXS ERROR: code registry is corrupted!\n");
             }
             if (LIBXS_CAPACITY_REGISTRY == (rest + errors + internal_statistic_num_gemv +
-              internal_statistic_num_user + internal_statistic_num_meltw +
-              internal_statistic_num_trsm + internal_statistic_num_trmm))
+              internal_statistic_num_user + internal_statistic_num_meltw))
             {
               fprintf(stderr, "LIBXS WARNING: code registry was exhausted!\n");
             }
@@ -2135,85 +2126,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%u_eqn-idx%u.meltw", target_arch, tsizename,
             request->descriptor.meqn->m, request->descriptor.meqn->n, request->descriptor.meqn->ldo,
             (unsigned int)request->descriptor.meqn->eqn_idx );
-        }
-      }
-    } break;
-    case LIBXS_BUILD_KIND_PGEMM: { /* compact P/GEMM-kernel (packed) */
-      unsigned int tsize;
-      LIBXS_ASSERT(NULL != request->descriptor.pgemm);
-      tsize = (unsigned int)request->descriptor.pgemm->typesize;
-      if (4 == tsize || 8 == tsize) {
-        extra.nflops = 0; /* TODO */
-        LIBXS_NO_OFFLOAD(void, libxs_generator_pgemm_kernel, &generated_code, request->descriptor.pgemm, libxs_target_archid);
-# if !defined(LIBXS_VTUNE)
-        if (0 > libxs_verbosity)
-# endif
-        {
-          char tsizename[4];
-          internal_get_typesize_string(tsizename, sizeof(tsizename), tsize);
-          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c_%ux%ux%u_%u_%u_%u_%i.pgemm", target_arch, tsizename,
-            request->descriptor.pgemm->transa, request->descriptor.pgemm->transb, request->descriptor.pgemm->layout,
-            request->descriptor.pgemm->m, request->descriptor.pgemm->n, request->descriptor.pgemm->k,
-            request->descriptor.pgemm->lda, request->descriptor.pgemm->ldb, request->descriptor.pgemm->ldc,
-            (int)request->descriptor.pgemm->alpha_val);
-        }
-      }
-    } break;
-    case LIBXS_BUILD_KIND_GETRF: { /* compact GETRF kernel (packed) */
-      unsigned int tsize;
-      LIBXS_ASSERT(NULL != request->descriptor.getrf);
-      tsize = (unsigned int)request->descriptor.getrf->typesize;
-      if (4 == tsize || 8 == tsize) {
-        extra.nflops = 0; /* TODO */
-        LIBXS_NO_OFFLOAD(void, libxs_generator_getrf_kernel, &generated_code, request->descriptor.getrf, libxs_target_archid);
-# if !defined(LIBXS_VTUNE)
-        if (0 > libxs_verbosity)
-# endif
-        {
-          char tsizename[4];
-          internal_get_typesize_string(tsizename, sizeof(tsizename), tsize);
-          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c_%ux%u_%u.getrf", target_arch, tsizename,
-            request->descriptor.getrf->layout, request->descriptor.getrf->m, request->descriptor.getrf->n, request->descriptor.getrf->lda);
-        }
-      }
-    } break;
-    case LIBXS_BUILD_KIND_TRMM: { /* compact TRMM kernel (packed) */
-      unsigned int tsize;
-      LIBXS_ASSERT(NULL != request->descriptor.trmm);
-      tsize = (unsigned int)request->descriptor.trmm->typesize;
-      if (4 == tsize || 8 == tsize) {
-        extra.nflops = 0; /* TODO */
-        LIBXS_NO_OFFLOAD(void, libxs_generator_trmm_kernel, &generated_code, request->descriptor.trmm, target_arch);
-# if !defined(LIBXS_VTUNE)
-        if (0 > libxs_verbosity)
-# endif
-        {
-          char tsizename[4];
-          internal_get_typesize_string(tsizename, sizeof(tsizename), tsize);
-          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c%c_%ux%u_%u_%u.trmm", target_arch, tsizename,
-            request->descriptor.trmm->transa, request->descriptor.trmm->layout, request->descriptor.trmm->side, request->descriptor.trmm->uplo,
-            request->descriptor.trmm->m, request->descriptor.trmm->n, request->descriptor.trmm->lda, request->descriptor.trmm->ldb); /* TODO: alpha */
-        }
-      }
-    } break;
-    case LIBXS_BUILD_KIND_TRSM: if (NULL != request->descriptor.trsm) { /* compact TRSM kernel (packed) */
-      const unsigned int tsize = (unsigned int)request->descriptor.trsm->typesize;
-      if (4 == tsize || 8 == tsize) {
-        extra.nflops = 0; /* TODO */
-        LIBXS_NO_OFFLOAD(void, libxs_generator_trsm_kernel, &generated_code, request->descriptor.trsm, target_arch);
-# if !defined(LIBXS_VTUNE)
-        if (0 > libxs_verbosity)
-# endif
-        {
-          char tsizename[4];
-          internal_get_typesize_string(tsizename, sizeof(tsizename), tsize);
-          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%c%c%c%c_%ux%u_%u_%u.trsm", target_arch, tsizename,
-            request->descriptor.trsm->transa, request->descriptor.trsm->layout, request->descriptor.trsm->side, request->descriptor.trsm->uplo,
-            request->descriptor.trsm->m, request->descriptor.trsm->n, request->descriptor.trsm->lda, request->descriptor.trsm->ldb); /* TODO: alpha */
         }
       }
     } break;
@@ -4506,102 +4418,6 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn(
     out_type, m, n, (ldo == NULL) ? m : *ldo, eqn_idx );
 
   return libxs_dispatch_matrix_eqn_desc( desc );
-}
-
-
-LIBXS_API libxs_pgemm_xfunction libxs_dispatch_pgemm(const libxs_pgemm_descriptor* descriptor)
-{
-  libxs_trmm_xfunction result;
-  LIBXS_INIT /* verbosity */
-#if !defined(LIBXS_UNPACKED) /* CCE/Classic */
-  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#endif
-  if (NULL != descriptor) {
-    unsigned int hash;
-    libxs_descriptor wrap;
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
-    LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
-#endif
-    LIBXS_ASSIGN127(&wrap.pgemm.desc, descriptor);
-    wrap.kind = LIBXS_KERNEL_KIND_PGEMM;
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xpgemm;
-  }
-  else {
-    result = NULL;
-  }
-  return result;
-}
-
-
-LIBXS_API libxs_getrf_xfunction libxs_dispatch_getrf(const libxs_getrf_descriptor* descriptor)
-{
-  libxs_trmm_xfunction result;
-  LIBXS_INIT /* verbosity */
-#if !defined(LIBXS_UNPACKED) /* CCE/Classic */
-  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#endif
-  if (NULL != descriptor) {
-    unsigned int hash;
-    libxs_descriptor wrap;
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
-    LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
-#endif
-    LIBXS_ASSIGN127(&wrap.getrf.desc, descriptor);
-    wrap.kind = LIBXS_KERNEL_KIND_GETRF;
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xgetrf;
-  }
-  else {
-    result = NULL;
-  }
-  return result;
-}
-
-
-LIBXS_API libxs_trmm_xfunction libxs_dispatch_trmm(const libxs_trmm_descriptor* descriptor)
-{
-  libxs_trmm_xfunction result;
-  LIBXS_INIT /* verbosity */
-#if !defined(LIBXS_UNPACKED) /* CCE/Classic */
-  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#endif
-  if (NULL != descriptor) {
-    unsigned int hash;
-    libxs_descriptor wrap;
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
-    LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
-#endif
-    LIBXS_ASSIGN127(&wrap.trmm.desc, descriptor);
-    wrap.kind = LIBXS_KERNEL_KIND_TRMM;
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xtrmm;
-  }
-  else {
-    result = NULL;
-  }
-  return result;
-}
-
-
-LIBXS_API libxs_trsm_xfunction libxs_dispatch_trsm(const libxs_trsm_descriptor* descriptor)
-{
-  libxs_trsm_xfunction result;
-  LIBXS_INIT /* verbosity */
-#if !defined(LIBXS_UNPACKED) /* CCE/Classic */
-  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#endif
-  if (NULL != descriptor) {
-    unsigned int hash;
-    libxs_descriptor wrap;
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
-    LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
-#endif
-    LIBXS_ASSIGN127(&wrap.trsm.desc, descriptor);
-    wrap.kind = LIBXS_KERNEL_KIND_TRSM;
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xtrsm;
-  }
-  else {
-    result = NULL;
-  }
-  return result;
 }
 
 

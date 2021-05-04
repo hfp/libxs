@@ -188,11 +188,7 @@
 #define LIBXS_REGDESC(START, MODIFIER) \
   START libxs_gemm_descriptor MODIFIER gemm; \
   START libxs_meltw_descriptor MODIFIER meltw; \
-  START libxs_meqn_descriptor MODIFIER meqn; \
-  START libxs_pgemm_descriptor MODIFIER pgemm; \
-  START libxs_getrf_descriptor MODIFIER getrf; \
-  START libxs_trmm_descriptor MODIFIER trmm; \
-  START libxs_trsm_descriptor MODIFIER trsm
+  START libxs_meqn_descriptor MODIFIER meqn
 
 /**
 * Packed structure, which stores the argument description of GEMM routines.
@@ -245,42 +241,6 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meltw_descriptor {
   unsigned char operation;
 };
 
-/** Packed structure storing arguments of packed GEMM. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_pgemm_descriptor {
-  unsigned int m, n, k, lda, ldb, ldc;
-  unsigned char typesize;
-  unsigned char layout;
-  char transa, transb;
-  char alpha_val;
-};
-
-/** Packed structure storing arguments of packed GETRF. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_getrf_descriptor {
-  unsigned int m, n, lda;
-  unsigned char typesize;
-  unsigned char layout;
-};
-
-/** Packed structure storing arguments of packed TRSM. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trmm_descriptor {
-  union { double d; float s; } alpha;
-  unsigned int m, n, lda, ldb;
-  unsigned char typesize;
-  unsigned char layout;
-  char diag, side, uplo;
-  char transa;
-};
-
-/** Packed structure storing arguments of packed TRSM. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_trsm_descriptor {
-  union { double d; float s; } alpha;
-  unsigned int m, n, lda, ldb;
-  unsigned char typesize;
-  unsigned char layout;
-  char diag, side, uplo;
-  char transa;
-};
-
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pspgemm_csr_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
@@ -328,10 +288,6 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, or void-function */
   libxs_xmeltwfunction xmateltw;
   libxs_matrix_eqn_function xmateqn;
-  libxs_pgemm_xfunction xpgemm;
-  libxs_getrf_xfunction xgetrf;
-  libxs_trmm_xfunction xtrmm;
-  libxs_trsm_xfunction xtrsm;
 } libxs_code_pointer;
 
 /** Structure which describes all tensors in LIBXS's DNN module */
@@ -854,10 +810,6 @@ typedef enum libxs_build_kind {
   LIBXS_BUILD_KIND_GEMM       = LIBXS_KERNEL_KIND_MATMUL,
   LIBXS_BUILD_KIND_MELTW      = LIBXS_KERNEL_KIND_MELTW,
   LIBXS_BUILD_KIND_MEQN       = LIBXS_KERNEL_KIND_MEQN,
-  LIBXS_BUILD_KIND_PGEMM      = LIBXS_KERNEL_KIND_PGEMM,
-  LIBXS_BUILD_KIND_GETRF      = LIBXS_KERNEL_KIND_GETRF,
-  LIBXS_BUILD_KIND_TRMM       = LIBXS_KERNEL_KIND_TRMM,
-  LIBXS_BUILD_KIND_TRSM       = LIBXS_KERNEL_KIND_TRSM,
   LIBXS_BUILD_KIND_USER       = LIBXS_KERNEL_KIND_USER,
   LIBXS_BUILD_KIND_PGEMMRMAC  = LIBXS_KERNEL_UNREGISTERED,
   LIBXS_BUILD_KIND_PGEMMRMBC,
