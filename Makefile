@@ -311,7 +311,6 @@ KRNOBJS_MIC := $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
 
 HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
           $(ROOTDIR)/$(SRCDIR)/libxs_hash.c \
-          $(ROOTDIR)/include/libxs_blocked_gemm.h \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_dnn.h \
           $(ROOTDIR)/include/libxs_dnn_tensor.h \
@@ -340,7 +339,7 @@ HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$
 SRCFILES_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_main.c libxs_mem.c libxs_malloc.c libxs_hash.c libxs_math.c \
           libxs_sync.c libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
-          libxs_gemm.c libxs_xcopy.c libxs_blocked_gemm.c libxs_spmdm.c libxs_fsspmdm.c libxs_rng.c\
+          libxs_gemm.c libxs_xcopy.c libxs_spmdm.c libxs_fsspmdm.c libxs_rng.c\
           libxs_dnn.c libxs_dnn_tensor.c libxs_dnn_convolution.c  libxs_dnn_elementwise.c \
           libxs_dnn_rnncell.c libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c \
           libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c libxs_dnn_fusedbatchnorm_backward.c \
@@ -359,11 +358,9 @@ OBJFILES_HST := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILE
 OBJFILES_MIC := $(patsubst %,$(BLDDIR)/mic/%.o,$(basename $(notdir $(SRCFILES_LIB)))) $(BLDDIR)/mic/generator_common.o
 EXTOBJS_HST  := $(BLDDIR)/intel64/libxs_ext.o \
                $(BLDDIR)/intel64/libxs_ext_xcopy.o \
-               $(BLDDIR)/intel64/libxs_ext_blocked_gemm.o \
                $(BLDDIR)/intel64/libxs_ext_gemm.o
 EXTOBJS_MIC  := $(BLDDIR)/mic/libxs_ext.o \
                $(BLDDIR)/mic/libxs_ext_xcopy.o \
-               $(BLDDIR)/mic/libxs_ext_blocked_gemm.o \
                $(BLDDIR)/mic/libxs_ext_gemm.o
 NOBLAS_HST   := $(BLDDIR)/intel64/libxs_noblas.o
 NOBLAS_MIC   := $(BLDDIR)/mic/libxs_noblas.o
