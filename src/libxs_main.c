@@ -2151,7 +2151,11 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     /* attempt to create executable buffer */
     result = libxs_xmalloc((void**)code_buffer_result, generated_code.code_size, 0/*auto*/,
       /* flag must be a superset of what's populated by libxs_malloc_attrib */
+# if defined(__APPLE__) && defined(__arm64__)
+      LIBXS_MALLOC_FLAG_RWX | MAP_JIT, &extra, sizeof(extra));
+# else
       LIBXS_MALLOC_FLAG_RWX, &extra, sizeof(extra));
+# endif
     if (EXIT_SUCCESS == result) { /* check for success */
       LIBXS_ASSERT(NULL != code_buffer);
 # if defined(__APPLE__) && defined(__arm64__)
@@ -2166,8 +2170,10 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       memcpy(code_buffer, generated_code.generated_code, generated_code.code_size);
 # endif
 # if defined(__APPLE__) && defined(__arm64__)
-      pthread_jit_write_protect_np(1/*true*/);
+      code->ptr = code_buffer; /* commit buffer */
+      LIBXS_ASSERT(NULL != code->ptr && 0 == (LIBXS_CODE_STATIC & code->uval));
       sys_icache_invalidate(code_buffer, generated_code.code_size);
+      pthread_jit_write_protect_np(1/*true*/);
 # else
       /* attribute/protect buffer and revoke unnecessary flags */
       result = libxs_malloc_attrib((void**)code_buffer_result, LIBXS_MALLOC_FLAG_X, jit_name);
