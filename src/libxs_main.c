@@ -1365,11 +1365,17 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             }
           }
           if (0 == (LIBXS_CODE_STATIC & code.uval)) { /* check for allocated/generated JIT-code */
+# if defined(__APPLE__) && defined(__arm64__)
+# else
             void* buffer = NULL;
             size_t size = 0;
+# endif
 #if defined(LIBXS_HASH_COLLISION)
             code.uval &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 #endif
+# if defined(__APPLE__) && defined(__arm64__)
+            ++internal_registry_nleaks;
+#else
             if (EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, &size, NULL/*flags*/, &buffer)) {
               if (LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(registry_keys[i].entry.kind)
                 /* dump user-data just like JIT'ted code */
@@ -1399,6 +1405,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
               internal_registry_nbytes += LIBXS_UP2(size + (((char*)code.ptr_const) - (char*)buffer), LIBXS_PAGE_MINSIZE);
             }
             else ++internal_registry_nleaks;
+#endif
           }
         }
       }
@@ -2145,15 +2152,24 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     && 0 != generated_code.code_size /*check (tcopy issue?)*/)
   {
     char* code_buffer = NULL;
+# if defined(__APPLE__) && defined(__arm64__)
+# else
     void* code_buffer_result = &code_buffer;
+# endif
     LIBXS_ASSERT(generated_code.code_size <= LIBXS_CODE_MAXSIZE);
     LIBXS_ASSERT(NULL != generated_code.generated_code);
     /* attempt to create executable buffer */
+# if defined(__APPLE__) && defined(__arm64__)
+    code_buffer = mmap( 0, generated_code.code_size, PROT_WRITE | PROT_EXEC | PROT_READ,
+                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT, -1, 0 );
+    if ( (long long)code_buffer >= 0 ) {
+      result = EXIT_SUCCESS;
+    } else {
+      result = EXIT_FAILURE;
+    }
+# else
     result = libxs_xmalloc((void**)code_buffer_result, generated_code.code_size, 0/*auto*/,
       /* flag must be a superset of what's populated by libxs_malloc_attrib */
-# if defined(__APPLE__) && defined(__arm64__)
-      LIBXS_MALLOC_FLAG_RWX | MAP_JIT, &extra, sizeof(extra));
-# else
       LIBXS_MALLOC_FLAG_RWX, &extra, sizeof(extra));
 # endif
     if (EXIT_SUCCESS == result) { /* check for success */
@@ -2553,6 +2569,19 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
       result = EXIT_SUCCESS;
     }
     else {
+#if defined(__APPLE__) && defined(__arm64__)
+      info->iprecision = 1;
+      info->oprecision = 1;
+      info->prefetch = 1;
+      info->flags = 1;
+      info->lda = 1;
+      info->ldb = 1;
+      info->ldc = 1;
+      info->m = 1;
+      info->n = 1;
+      info->k = 1;
+      result = EXIT_SUCCESS;
+# else
       if ( 0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
@@ -2564,6 +2593,7 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
         }
       }
       result = EXIT_FAILURE;
+# endif
     }
   }
   else {
