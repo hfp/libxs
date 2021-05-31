@@ -651,14 +651,17 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
             }
           }
         }
-        else if (0 < seconds) {
+        else {
+          fprintf(stderr, "LIBXS INFO: PID=%u\n", libxs_get_pid());
+          if (0 < seconds) {
 #if defined(_WIN32)
-          Sleep((DWORD)(1000 * seconds));
+            Sleep((DWORD)(1000 * seconds));
 #else
-          LIBXS_EXPECT(EXIT_SUCCESS, sleep(seconds));
+            LIBXS_EXPECT(EXIT_SUCCESS, sleep(seconds));
 #endif
+          }
+          else for(;;) LIBXS_SYNC_YIELD;
         }
-        else for(;;) LIBXS_SYNC_YIELD;
       }
       if (NULL != file) {
         int c = fgetc(file);
