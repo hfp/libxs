@@ -7,6 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs.h>
+#include <libxs_intrinsics_x86.h>
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -25,14 +26,17 @@
 #endif
 
 #if defined(__TBB)
-# define MALLOC scalable_malloc
-# define FREE scalable_free
-#elif defined(_OPENMP) && defined(LIBXS_INTEL_COMPILER) && (1901 > LIBXS_INTEL_COMPILER)
-# define MALLOC kmp_malloc
-# define FREE kmp_free
+# define MALLOC(SIZE) scalable_malloc(SIZE)
+# define FREE(PTR) scalable_free(PTR)
+#elif defined(_OPENMP) && defined(LIBXS_INTEL_COMPILER) && (1901 > LIBXS_INTEL_COMPILER) && 0
+# define MALLOC(SIZE) kmp_malloc(SIZE)
+# define FREE(PTR) kmp_free(PTR)
+#elif defined(LIBXS_PLATFORM_X86) && 0
+# define MALLOC(SIZE) _mm_malloc(SIZE, LIBXS_ALIGNMENT)
+# define FREE(PTR) _mm_free(PTR)
 #elif 1
-# define MALLOC malloc
-# define FREE free
+# define MALLOC(SIZE) malloc(SIZE)
+# define FREE(PTR) free(PTR)
 #endif
 
 #if !defined(MAX_MALLOC_MB)
