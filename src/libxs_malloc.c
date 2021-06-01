@@ -201,7 +201,7 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 # define LIBXS_MALLOC_MMAP_HOOK
 #endif
 /* map memory also for non-executable buffers */
-#if !defined(LIBXS_MALLOC_MMAP) && 1
+#if !defined(LIBXS_MALLOC_MMAP) && 0
 # define LIBXS_MALLOC_MMAP
 #endif
 
@@ -1669,18 +1669,20 @@ LIBXS_API_INLINE void* internal_xrealloc(void** ptr, internal_malloc_info_type**
   libxs_realloc_fun realloc_fn, libxs_free_fun free_fn)
 {
   char *const base = (char*)(NULL != *info ? (*info)->pointer : *ptr), *result;
-  LIBXS_ASSERT(NULL != *ptr);
-  /* may implicitly invalidate info */
-  result = (char*)realloc_fn(base, size);
+  LIBXS_ASSERT(NULL != *ptr && NULL != free_fn);
+  /* reallocation may implicitly invalidate info */
+  result = (char*)(NULL != realloc_fn ? realloc_fn(base, size) : __real_malloc(size));
   if (result == base) { /* signal no-copy */
     LIBXS_ASSERT(NULL != result);
     *info = NULL; /* no delete */
     *ptr = NULL; /* no copy */
   }
   else if (NULL != result) { /* copy */
-    const size_t offset_src = (const char*)*ptr - base;
-    *ptr = result + offset_src; /* copy */
-    *info = NULL; /* no delete */
+    if (NULL != realloc_fn) {
+      const size_t offset_src = (const char*)*ptr - base;
+      *ptr = result + offset_src; /* copy */
+      *info = NULL; /* no delete */
+    }
   }
 #if !defined(NDEBUG) && 0
   else { /* failed */
@@ -1720,7 +1722,7 @@ LIBXS_API_INTERN void* internal_xmalloc(void** ptr, internal_malloc_info_type** 
 #if defined(LIBXS_MALLOC_HOOK_REALLOC)
       result = internal_xrealloc(ptr, info, size, __real_realloc, __real_free);
 #else
-      result = internal_xrealloc(ptr, info, size, realloc, __real_free);
+      result = internal_xrealloc(ptr, info, size, NULL, __real_free);
 #endif
     }
     else { /* fallback with regular allocation */
