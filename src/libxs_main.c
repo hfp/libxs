@@ -56,9 +56,6 @@
 #if !defined(LIBXS_MALLOC_HOOK_ALIGN) && 1
 # define LIBXS_MALLOC_HOOK_ALIGN
 #endif
-#if !defined(LIBXS_MALLOC_HOOK_INIT) && 0
-# define LIBXS_MALLOC_HOOK_INIT
-#endif
 #if !defined(LIBXS_ENABLE_DEREG) && 0
 # define LIBXS_ENABLE_DEREG
 #endif
@@ -288,8 +285,12 @@ LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
   void* result;
   LIBXS_ASSERT(LIBXS_ISPOT(alignment));
 #if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
-  result = _mm_malloc(size, alignment);
-#elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+  if (0 < libxs_ninit) {
+    result = _mm_malloc(size, alignment);
+  }
+  else
+#endif
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
   result = __libc_memalign(alignment, size);
 #elif defined(LIBXS_BUILD) && ( /*C11*/ \
   defined(__STDC_VERSION__) && (201112L <= __STDC_VERSION__))
@@ -310,12 +311,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t alignment, si
 {
   void* result;
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (
-# if defined(LIBXS_MALLOC_HOOK_INIT)
-    1 < libxs_ninit &&
-# endif
-    NULL != libxs_malloc_fn.memalign.ptr)
-  {
+  if (NULL != libxs_malloc_fn.memalign.ptr) {
     result = libxs_malloc_fn.memalign.ptr(alignment, size);
   }
   else
@@ -332,20 +328,19 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size)
   result = __real_memalign(libxs_alignment(size, 0/*auto*/), size);
 #else
 # if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (
-#   if defined(LIBXS_MALLOC_HOOK_INIT)
-    1 < libxs_ninit &&
-#   endif
-    NULL != libxs_malloc_fn.malloc.ptr)
-  {
+  if (NULL != libxs_malloc_fn.malloc.ptr) {
     LIBXS_ASSERT(malloc != libxs_malloc_fn.malloc.ptr);
     result = libxs_malloc_fn.malloc.ptr(size);
   }
   else
 # endif
 # if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
-  result = _mm_malloc(size, libxs_alignment(size, 0/*auto*/));
-# elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+  if (0 < libxs_ninit) {
+    result = _mm_malloc(size, libxs_alignment(size, 0/*auto*/));
+  }
+  else
+# endif
+# if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
   result = __libc_malloc(size);
 # else
   result = malloc(size);
@@ -360,28 +355,25 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t num, size_t siz
 {
   void* result;
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (
-# if defined(LIBXS_MALLOC_HOOK_INIT)
-    1 < libxs_ninit &&
-# endif
-    NULL != libxs_malloc_fn.calloc.ptr)
-  {
+  if (NULL != libxs_malloc_fn.calloc.ptr) {
     LIBXS_ASSERT(calloc != libxs_malloc_fn.calloc.ptr);
     result = libxs_malloc_fn.calloc.ptr(num, size);
   }
   else
 #endif
-  {
 #if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
+  if (0 < libxs_ninit) {
     const size_t num_size = num * size;
     result = _mm_malloc(num_size, libxs_alignment(num_size, 0/*auto*/));
     if (NULL != result) memset(result, 0, num_size);
-#elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-    result = __libc_calloc(num, size);
-#else
-    result = calloc(num, size);
-#endif
   }
+  else
+#endif
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+  result = __libc_calloc(num, size);
+#else
+  result = calloc(num, size);
+#endif
   return result;
 }
 #endif
@@ -392,24 +384,17 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_realloc(void* ptr, size_t siz
 {
   void* result;
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (
-# if defined(LIBXS_MALLOC_HOOK_INIT)
-    1 < libxs_ninit &&
-# endif
-    NULL != libxs_malloc_fn.realloc.ptr)
-  {
+  if (NULL != libxs_malloc_fn.realloc.ptr) {
     LIBXS_ASSERT(realloc != libxs_malloc_fn.realloc.ptr);
     result = libxs_malloc_fn.realloc.ptr(ptr, size);
   }
   else
 #endif
-  {
 #if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-    result = __libc_realloc(ptr, size);
+  result = __libc_realloc(ptr, size);
 #else
-    result = realloc(ptr, size);
+  result = realloc(ptr, size);
 #endif
-  }
   return result;
 }
 #endif
@@ -419,20 +404,19 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr)
 {
   if (NULL != ptr) {
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-    if (
-# if defined(LIBXS_MALLOC_HOOK_INIT)
-      1 < libxs_ninit &&
-# endif
-      NULL != libxs_malloc_fn.free.ptr)
-    {
+    if (NULL != libxs_malloc_fn.free.ptr) {
       LIBXS_ASSERT(free != libxs_malloc_fn.free.ptr);
       libxs_malloc_fn.free.ptr(ptr);
     }
     else
 #endif
 #if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
-    _mm_free(ptr);
-#elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+    if (0 < libxs_ninit) {
+      _mm_free(ptr);
+    }
+    else
+#endif
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
     __libc_free(ptr);
 #else
     free(ptr);
