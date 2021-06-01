@@ -39,21 +39,36 @@ int main(void)
 
 #if defined(CHECK_SETUP)
   { /* check allocator setup */
-    libxs_malloc_function malloc_fn;
-    libxs_free_function free_fn;
-    const void* context;
-    malloc_fn.function = malloc; free_fn.function = free;
-    libxs_set_default_allocator(NULL/*context*/, malloc_fn/*malloc*/, free_fn/*free*/);
-    malloc_fn.function = NULL; free_fn.function = NULL;
-    libxs_set_scratch_allocator(NULL/*context*/, malloc_fn/*NULL*/, free_fn/*NULL*/);
+    libxs_malloc_function default_malloc_fn, malloc_fn;
+    libxs_free_function default_free_fn, free_fn;
+    const void *default_context, *context;
 
-    /* check adoption of the default allocator */
-    libxs_get_scratch_allocator(&context, &malloc_fn, &free_fn);
-    if (NULL != context || malloc != malloc_fn.function || free != free_fn.function) {
-      FPRINTF(stderr, "Error: incorrect scratch allocator setup!\n");
+    /* determine default allocation functions and context */
+    if (EXIT_SUCCESS != libxs_get_default_allocator(&default_context/*context*/, &default_malloc_fn, &default_free_fn)) {
+      ++nerrors;
+    }
+    /* set specific functions for default allocations and check adoption */
+    malloc_fn.function = malloc; free_fn.function = free;
+    if  (EXIT_SUCCESS != libxs_set_default_allocator(NULL/*context*/, malloc_fn/*malloc*/, free_fn/*free*/)
+      || EXIT_SUCCESS != libxs_get_default_allocator(&context, &malloc_fn, &free_fn)
+      || NULL != context || malloc != malloc_fn.function || free != free_fn.function)
+    {
+      ++nerrors;
+    }
+    /* check adoption/inheritance from the default allocator */
+    malloc_fn.function = NULL; free_fn.function = NULL;
+    if  (EXIT_SUCCESS != libxs_set_scratch_allocator(NULL/*context*/, malloc_fn/*NULL*/, free_fn/*NULL*/)
+      || EXIT_SUCCESS != libxs_get_scratch_allocator(&context, &malloc_fn, &free_fn)
+      || NULL != context || malloc != malloc_fn.function || free != free_fn.function)
+    {
+      ++nerrors;
+    }
+    /* reset default allocator */
+    if (EXIT_SUCCESS != libxs_set_default_allocator(default_context, default_malloc_fn, default_free_fn)) {
       ++nerrors;
     }
   }
+  if (0 != nerrors) FPRINTF(stderr, "Error: incorrect allocator setup!\n");
 #endif
 
   /* allocate some amount of memory */
