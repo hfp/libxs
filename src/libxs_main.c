@@ -282,11 +282,14 @@ LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
 LIBXS_APIVAR_PRIVATE_DEF(LIBXS_TLS_TYPE libxs_tlskey);
 #endif
 
+
 LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 {
   void* result;
   LIBXS_ASSERT(LIBXS_ISPOT(alignment));
-#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+#if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
+  result = _mm_malloc(size, alignment);
+#elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
   result = __libc_memalign(alignment, size);
 #elif defined(LIBXS_BUILD) && ( /*C11*/ \
   defined(__STDC_VERSION__) && (201112L <= __STDC_VERSION__))
@@ -294,6 +297,8 @@ LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 #elif (defined(_WIN32) || defined(__CYGWIN__))
   LIBXS_UNUSED(alignment);
   result = malloc(size);
+#elif defined(NDEBUG)
+  posix_memalign(&result, alignment, size);
 #else
   if (0 != posix_memalign(&result, alignment, size)) result = NULL;
 #endif
@@ -324,8 +329,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size)
 {
   void* result;
 #if defined(LIBXS_MALLOC_HOOK_ALIGN)
-  const size_t alignment = libxs_alignment(size, 0/*auto*/);
-  result = __real_memalign(alignment, size);
+  result = __real_memalign(libxs_alignment(size, 0/*auto*/), size);
 #else
 # if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
   if (
@@ -339,7 +343,9 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size)
   }
   else
 # endif
-# if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+# if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
+  result = _mm_malloc(size, libxs_alignment(size, 0/*auto*/));
+# elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
   result = __libc_malloc(size);
 # else
   result = malloc(size);
@@ -365,11 +371,17 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t num, size_t siz
   }
   else
 #endif
-#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-  result = __libc_calloc(num, size);
+  {
+#if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
+    const size_t num_size = num * size;
+    result = _mm_malloc(num_size, libxs_alignment(num_size, 0/*auto*/));
+    if (NULL != result) memset(result, 0, num_size);
+#elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+    result = __libc_calloc(num, size);
 #else
-  result = calloc(num, size);
+    result = calloc(num, size);
 #endif
+  }
   return result;
 }
 #endif
@@ -391,11 +403,13 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_realloc(void* ptr, size_t siz
   }
   else
 #endif
+  {
 #if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-  result = __libc_realloc(ptr, size);
+    result = __libc_realloc(ptr, size);
 #else
-  result = realloc(ptr, size);
+    result = realloc(ptr, size);
 #endif
+  }
   return result;
 }
 #endif
@@ -416,7 +430,9 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr)
     }
     else
 #endif
-#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+#if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
+    _mm_free(ptr);
+#elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
     __libc_free(ptr);
 #else
     free(ptr);
