@@ -53,13 +53,6 @@
 #if !defined(LIBXS_HASH_SEED)
 # define LIBXS_HASH_SEED 25071975
 #endif
-#if !defined(LIBXS_MALLOC_HOOK_INTRINSIC) && 1
-# if defined(LIBXS_PLATFORM_X86) && \
-    !defined(LIBXS_MALLOC_HOOK_REALLOC) && \
-    !defined(LIBXS_MALLOC_MMAP)
-#   define LIBXS_MALLOC_HOOK_INTRINSIC
-# endif
-#endif
 #if !defined(LIBXS_MALLOC_HOOK_ALIGN) && 1
 # define LIBXS_MALLOC_HOOK_ALIGN
 #endif
