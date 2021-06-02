@@ -70,7 +70,8 @@
 # define LIBXS_MALLOC_ALIGN_ALL
 #endif
 #if !defined(LIBXS_MALLOC_HOOK_INTRINSIC) && 1
-# if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_MMAP)
+# if defined(LIBXS_PLATFORM_X86) && defined(LIBXS_INTRINSICS_INCLUDE) && \
+    !defined(LIBXS_INTRINSICS_DEBUG) && !defined(LIBXS_MALLOC_MMAP)
 #   define LIBXS_MALLOC_HOOK_INTRINSIC
 # endif
 #endif
