@@ -59,6 +59,18 @@
 #if !defined(LIBXS_MALLOC_HOOK_CALLOC) && 1
 # define LIBXS_MALLOC_HOOK_CALLOC
 #endif
+/* map memory for scratch buffers */
+#if !defined(LIBXS_MALLOC_MMAP_SCRATCH) && 1
+# define LIBXS_MALLOC_MMAP_SCRATCH
+#endif
+/* map memory for hooked allocation */
+#if !defined(LIBXS_MALLOC_MMAP_HOOK) && 1
+# define LIBXS_MALLOC_MMAP_HOOK
+#endif
+/* map memory also for non-executable buffers */
+#if !defined(LIBXS_MALLOC_MMAP) && 0
+# define LIBXS_MALLOC_MMAP
+#endif
 /* align even if interceptor is disabled at runtime */
 #if !defined(LIBXS_MALLOC_ALIGN_ALL) && 1
 # define LIBXS_MALLOC_ALIGN_ALL
