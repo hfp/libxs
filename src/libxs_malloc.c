@@ -762,7 +762,7 @@ LIBXS_API_INTERN void internal_scratch_malloc(void** memory, size_t size, size_t
           const size_t maxsize = LIBXS_MAX(scale_size, pool->instance.minsize) + incsize;
           const size_t limsize = LIBXS_MIN(maxsize, limit_size);
           const size_t minsize = limsize;
-          LIBXS_ASSERT(1 <= libxs_scratch_scale);
+          assert(1 <= libxs_scratch_scale); /* !LIBXS_ASSERT */
           LIBXS_ASSERT(1 == counter);
           pool->instance.incsize = 0; /* reset */
           pool->instance.minsize = minsize;
