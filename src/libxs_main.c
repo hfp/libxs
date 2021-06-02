@@ -1003,7 +1003,7 @@ LIBXS_API_INTERN void internal_init(void)
         libxs_scratch_scale = LIBXS_CLMP(atof(env), 1.0, 10.0);
         /*libxs_scratch_scale_locked = 1;*/
       }
-      LIBXS_ASSERT(1 <= libxs_scratch_scale);
+      assert(1 <= libxs_scratch_scale); /*!LIBXS_ASSERT*/
     }
     libxs_set_scratch_limit(internal_parse_nbytes(getenv("LIBXS_SCRATCH_LIMIT"), LIBXS_SCRATCH_DEFAULT, NULL/*valid*/));
 #endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
