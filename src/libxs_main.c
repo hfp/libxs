@@ -292,7 +292,7 @@ LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
   void* result;
   LIBXS_ASSERT(LIBXS_ISPOT(alignment));
 #if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
-  if (0 < libxs_ninit) {
+  if (1/*0 < libxs_ninit*/) {
     result = _mm_malloc(size, alignment);
   }
   else
@@ -343,7 +343,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size)
   else
 # endif
 # if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
-  if (0 < libxs_ninit) {
+  if (1/*0 < libxs_ninit*/) {
     result = _mm_malloc(size, libxs_alignment(size, 0/*auto*/));
   }
   else
@@ -370,7 +370,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t num, size_t siz
   else
 #endif
 #if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
-  if (0 < libxs_ninit) {
+  if (1/*0 < libxs_ninit*/) {
     const size_t num_size = num * size;
     result = _mm_malloc(num_size, libxs_alignment(num_size, 0/*auto*/));
     if (NULL != result) memset(result, 0, num_size);
@@ -418,17 +418,28 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr)
     }
     else
 #endif
+    {
 #if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
-    if (0 < libxs_ninit) {
-      _mm_free(ptr);
-    }
-    else
+      if (1/*0 < libxs_ninit*/) {
+        static int recursive = 0;
+        if (1 == LIBXS_ATOMIC_ADD_FETCH(&recursive, 1, LIBXS_ATOMIC_RELAXED)) _mm_free(ptr);
+        else {
+#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
+          __libc_free(ptr);
+#else
+          free(ptr);
+#endif
+        }
+        LIBXS_ATOMIC_SUB_FETCH(&recursive, 1, LIBXS_ATOMIC_RELAXED);
+      }
+      else
 #endif
 #if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-    __libc_free(ptr);
+      __libc_free(ptr);
 #else
-    free(ptr);
+      free(ptr);
 #endif
+    }
   }
 }
 
