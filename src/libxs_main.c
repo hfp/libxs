@@ -53,6 +53,13 @@
 #if !defined(LIBXS_HASH_SEED)
 # define LIBXS_HASH_SEED 25071975
 #endif
+#if !defined(LIBXS_MALLOC_HOOK_INTRINSIC) && 1
+# if defined(LIBXS_PLATFORM_X86) && \
+    !defined(LIBXS_MALLOC_HOOK_REALLOC) && \
+    !defined(LIBXS_MALLOC_MMAP)
+#   define LIBXS_MALLOC_HOOK_INTRINSIC
+# endif
+#endif
 #if !defined(LIBXS_MALLOC_HOOK_ALIGN) && 1
 # define LIBXS_MALLOC_HOOK_ALIGN
 #endif
@@ -284,7 +291,7 @@ LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 {
   void* result;
   LIBXS_ASSERT(LIBXS_ISPOT(alignment));
-#if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
+#if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
   if (0 < libxs_ninit) {
     result = _mm_malloc(size, alignment);
   }
@@ -335,7 +342,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size)
   }
   else
 # endif
-# if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
+# if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
   if (0 < libxs_ninit) {
     result = _mm_malloc(size, libxs_alignment(size, 0/*auto*/));
   }
@@ -362,7 +369,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t num, size_t siz
   }
   else
 #endif
-#if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
+#if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
   if (0 < libxs_ninit) {
     const size_t num_size = num * size;
     result = _mm_malloc(num_size, libxs_alignment(num_size, 0/*auto*/));
@@ -411,7 +418,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr)
     }
     else
 #endif
-#if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_MALLOC_HOOK_REALLOC)
+#if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
     if (0 < libxs_ninit) {
       _mm_free(ptr);
     }
