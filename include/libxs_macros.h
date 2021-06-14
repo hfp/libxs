@@ -225,7 +225,7 @@
 #if defined(__clang__) && !defined(__INTEL_COMPILER)
 # define LIBXS_ATTRIBUTE_NO_SANITIZE(KIND) LIBXS_ATTRIBUTE(no_sanitize(LIBXS_STRINGIFY(KIND)))
 #elif defined(__GNUC__) && LIBXS_VERSION2(4, 8) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) \
-  && !defined(__INTEL_COMPILER)
+  && !defined(__INTEL_COMPILER) && !defined(__PGI)
 # define LIBXS_ATTRIBUTE_NO_SANITIZE(KIND) LIBXS_ATTRIBUTE(LIBXS_CONCATENATE(no_sanitize_, KIND))
 #else
 # define LIBXS_ATTRIBUTE_NO_SANITIZE(KIND)
