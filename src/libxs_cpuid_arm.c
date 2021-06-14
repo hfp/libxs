@@ -54,6 +54,7 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if defined(LIBXS_PLATFORM_AARCH64)
 # if defined(__APPLE__) && defined(__arm64__)
+  /* TODO: integrate Apple specific flow into general flow (below) */
   if (NULL != info) LIBXS_MEMZERO127(info);
   result = LIBXS_AARCH64_V81;
 # else
