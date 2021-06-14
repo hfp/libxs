@@ -17,9 +17,9 @@
 #     define LIBXS_NO_TLS
 #     define LIBXS_TLS
 #   else
-#     if (defined(_WIN32) && !defined(__GNUC__) && !defined(__clang__)) /*|| (defined(__PGI) && !defined(__cplusplus))*/
+#     if (defined(_WIN32) && !defined(__GNUC__) && !defined(__clang__)) || (defined(__PGI) && !defined(__PGLLVM__))
 #       define LIBXS_TLS LIBXS_ATTRIBUTE(thread)
-#     elif defined(__GNUC__) || defined(__clang__) || defined(_CRAYC)
+#     elif defined(__GNUC__) || defined(__clang__) || defined(__PGLLVM__) || defined(_CRAYC)
 #       define LIBXS_TLS __thread
 #     elif defined(__cplusplus)
 #       define LIBXS_TLS thread_local
