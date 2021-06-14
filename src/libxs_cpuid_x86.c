@@ -19,38 +19,39 @@
 #if defined(_MSC_VER) /*defined(_WIN32) && !defined(__GNUC__)*/
 #   define LIBXS_XGETBV(XCR, EAX, EDX) { \
       unsigned long long libxs_xgetbv_ = _xgetbv(XCR); \
-      EAX = (int)libxs_xgetbv_; \
-      EDX = (int)(libxs_xgetbv_ >> 32); \
+      (EAX) = (int)libxs_xgetbv_; \
+      (EDX) = (int)(libxs_xgetbv_ >> 32); \
     }
 #   define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) { \
       int libxs_cpuid_x86_[/*4*/] = { 0, 0, 0, 0 }; \
       __cpuidex(libxs_cpuid_x86_, FUNCTION, SUBFN); \
-      EAX = (unsigned int)libxs_cpuid_x86_[0]; \
-      EBX = (unsigned int)libxs_cpuid_x86_[1]; \
-      ECX = (unsigned int)libxs_cpuid_x86_[2]; \
-      EDX = (unsigned int)libxs_cpuid_x86_[3]; \
+      (EAX) = (unsigned int)libxs_cpuid_x86_[0]; \
+      (EBX) = (unsigned int)libxs_cpuid_x86_[1]; \
+      (ECX) = (unsigned int)libxs_cpuid_x86_[2]; \
+      (EDX) = (unsigned int)libxs_cpuid_x86_[3]; \
     }
 # elif defined(__GNUC__) || !defined(_CRAYC)
 #   if (64 > (LIBXS_BITS))
       LIBXS_EXTERN LIBXS_RETARGETABLE int __get_cpuid( /* prototype */
         unsigned int, unsigned int*, unsigned int*, unsigned int*, unsigned int*);
-#     define LIBXS_XGETBV(XCR, EAX, EDX) EAX = (EDX) = 0xFFFFFFFF
+#     define LIBXS_XGETBV(XCR, EAX, EDX) (EAX) = (EDX) = 0xFFFFFFFF
 #     define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) \
-        EAX = (EBX) = (EDX) = 0; ECX = (SUBFN); \
+        (EAX) = (EBX) = (EDX) = 0; ECX = (SUBFN); \
         __get_cpuid(FUNCTION, &(EAX), &(EBX), &(ECX), &(EDX))
 #   else /* 64-bit */
 #     define LIBXS_XGETBV(XCR, EAX, EDX) __asm__ __volatile__( \
         ".byte 0x0f, 0x01, 0xd0" /*xgetbv*/ : "=a"(EAX), "=d"(EDX) : "c"(XCR) \
       )
 #     define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) \
+        (ECX) = (EDX) = 0; \
         __asm__ __volatile__ (".byte 0x0f, 0xa2" /*cpuid*/ \
         : "=a"(EAX), "=b"(EBX), "=c"(ECX), "=d"(EDX) \
         : "a"(FUNCTION), "b"(0), "c"(SUBFN), "d"(0) \
-      )
+      ); LIBXS_UNUSED(EDX)
 #   endif
 # else /* legacy Cray Compiler */
-#   define LIBXS_XGETBV(XCR, EAX, EDX) EAX = (EDX) = 0
-#   define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) EAX = (EBX) = (ECX) = (EDX) = 0
+#   define LIBXS_XGETBV(XCR, EAX, EDX) (EAX) = (EDX) = 0
+#   define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) (EAX) = (EBX) = (ECX) = (EDX) = 0
 # endif
 #endif
 
