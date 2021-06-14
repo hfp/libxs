@@ -1925,8 +1925,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
               0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
               request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
-              /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.gemm->flags) ? 0 : */1,
-              0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid,
+              1, 0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid,
               br, (unsigned int)request->descriptor.gemm->c3, typesigns, tc_option,
               0 != (LIBXS_GEMM_FLAG_VNNI_A  & request->descriptor.gemm->flags) ? 1 : 0,
               0 != (LIBXS_GEMM_FLAG_VNNI_B  & request->descriptor.gemm->flags) ? 1 : 0,
@@ -1939,8 +1938,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
               0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
               request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
-              /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.gemm->flags) ? 0 : */1,
-              0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid,
+              1, 0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid,
               br, (unsigned int)request->descriptor.gemm->c3, typesigns, tc_option,
               0 != (LIBXS_GEMM_FLAG_VNNI_A  & request->descriptor.gemm->flags) ? 1 : 0,
               0 != (LIBXS_GEMM_FLAG_VNNI_B  & request->descriptor.gemm->flags) ? 1 : 0,
@@ -1975,8 +1973,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             request->descriptor.pspgemm_csr->gemm->m,   request->descriptor.pspgemm_csr->gemm->n,   request->descriptor.pspgemm_csr->gemm->k,
             request->descriptor.pspgemm_csr->gemm->lda, request->descriptor.pspgemm_csr->gemm->ldb, request->descriptor.pspgemm_csr->gemm->ldc,
             request->descriptor.pspgemm_csr->packed_width,
-          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.pspgemm_csr->gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pspgemm_csr->gemm->flags) ? 0 : 1,
+            1, 0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pspgemm_csr->gemm->flags) ? 0 : 1,
             uid, nnz);
         }
       }
@@ -2007,8 +2004,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             request->descriptor.pspgemm_csc->gemm->m,   request->descriptor.pspgemm_csc->gemm->n,   request->descriptor.pspgemm_csc->gemm->k,
             request->descriptor.pspgemm_csc->gemm->lda, request->descriptor.pspgemm_csc->gemm->ldb, request->descriptor.pspgemm_csc->gemm->ldc,
             request->descriptor.pspgemm_csc->packed_width,
-          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.pspgemm_csc->gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pspgemm_csc->gemm->flags) ? 0 : 1,
+            1, 0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pspgemm_csc->gemm->flags) ? 0 : 1,
             uid, nnz);
         }
       }
@@ -2034,8 +2030,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             request->descriptor.pgemmacrm->gemm->m,   request->descriptor.pgemmacrm->gemm->n,   request->descriptor.pgemmacrm->gemm->k,
             request->descriptor.pgemmacrm->gemm->lda, request->descriptor.pgemmacrm->gemm->ldb, request->descriptor.pgemmacrm->gemm->ldc,
             request->descriptor.pgemmacrm->packed_width,
-          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.pgemmacrm->gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pgemmacrm->gemm->flags) ? 0 : 1,
+            1, 0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pgemmacrm->gemm->flags) ? 0 : 1,
             uid);
         }
       }
@@ -2061,8 +2056,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             request->descriptor.pgemmbcrm->gemm->m,   request->descriptor.pgemmbcrm->gemm->n,   request->descriptor.pgemmbcrm->gemm->k,
             request->descriptor.pgemmbcrm->gemm->lda, request->descriptor.pgemmbcrm->gemm->ldb, request->descriptor.pgemmbcrm->gemm->ldc,
             request->descriptor.pgemmbcrm->packed_width,
-          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.pgemmbcrm->gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pgemmbcrm->gemm->flags) ? 0 : 1,
+            1, 0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pgemmbcrm->gemm->flags) ? 0 : 1,
             uid);
         }
       }
@@ -2091,8 +2085,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.sreg->gemm->flags) ? 'n' : 't',
             request->descriptor.sreg->gemm->m,   request->descriptor.sreg->gemm->n,   request->descriptor.sreg->gemm->k,
             request->descriptor.sreg->gemm->lda, request->descriptor.sreg->gemm->ldb, request->descriptor.sreg->gemm->ldc,
-          /*0 != (LIBXS_GEMM_FLAG_ALPHA_0 & request->descriptor.sreg->gemm->flags) ? 0 : */1,
-            0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.sreg->gemm->flags) ? 0 : 1,
+            1, 0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.sreg->gemm->flags) ? 0 : 1,
             uid);
         }
       }
