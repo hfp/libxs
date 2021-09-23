@@ -2211,7 +2211,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_X & flags));
         if (name && *name) { /* profiler support requested */
           if (0 > libxs_verbosity) { /* avoid dump if just the profiler is enabled */
-            LIBXS_EXPECT(EXIT_SUCCESS, libxs_dump("LIBXS-JIT-DUMP", name, code_ptr, size, 1/*unique*/));
+            LIBXS_EXPECT(EXIT_SUCCESS == libxs_dump("LIBXS-JIT-DUMP", name, code_ptr, size, 1/*unique*/));
           }
 #if defined(LIBXS_VTUNE)
           if (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
@@ -2451,7 +2451,7 @@ LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock)
       else break; /* early exit */
     }
   }
-  LIBXS_EXPECT(EXIT_SUCCESS, libxs_get_scratch_info(&scratch_info));
+  LIBXS_EXPECT(EXIT_SUCCESS == libxs_get_scratch_info(&scratch_info));
   if (0 != scratch_info.npending && /* library code is expected to be mute */
     (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity))
   {

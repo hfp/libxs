@@ -155,9 +155,8 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
         }
       }
       else if (LIBXS_X86_GENERIC <= feature_cpu) {
-        /* assume FXSAVE, which should be fine
-         * 16 years after the first x86_64 OS
-         */
+        /* assume FXSAVE-enabled/manual state-saving OS,
+           as it was introduced 1999 even for 32bit */
         feature_os = LIBXS_X86_SSE42;
       }
       else feature_os = LIBXS_TARGET_ARCH_GENERIC;
@@ -285,6 +284,9 @@ LIBXS_API const char* libxs_cpuid_name(int id)
     } break;
     case LIBXS_AARCH64_A64FX: {
       target_arch = "a64fx";
+    } break;
+    case LIBXS_AARCH64_APPL_M1: {
+      target_arch = "appl_m1";
     } break;
     case LIBXS_TARGET_ARCH_GENERIC: {
       target_arch = "generic";

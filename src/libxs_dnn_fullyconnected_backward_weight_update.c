@@ -931,7 +931,8 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_amx(libxs
   libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_upd = handle->gemm_upd.xgemm.bsmrs;
   libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_upd_zerobeta = handle->gemm_upd3.xgemm.bmrs;
   libxs_bsmmfunction bwd_tile_config_kernel = handle->bwd_config_kernel;
-  /*libxs_bsmmfunction upd_tile_config_kernel = handle->upd_config_kernel;*/
+  libxs_bsmmfunction upd_tile_config_kernel = handle->upd_config_kernel;
+
 #define LIBXS_DNN_BF16_USE_CPX_AVX512_NI
   /* some portable macrros fof BF16 <-> FP32 */
 # include "template/libxs_dnn_bf16_macros_define.tpl.c"
@@ -996,7 +997,8 @@ libxs_dnn_err_t libxs_dnn_fullyconnected_st_bwdupd_ncnc_kcck_bf16_bf16_amx_emu(l
   libxs_bsmmfunction_reducebatch_strd batchreduce_kernel_upd = handle->gemm_upd.xgemm.bsmrs;
   libxs_bmmfunction_reducebatch_strd bf16_batchreduce_kernel_upd_zerobeta = handle->gemm_upd3.xgemm.bmrs;
   libxs_bsmmfunction bwd_tile_config_kernel = handle->bwd_config_kernel;
-  /*libxs_bsmmfunction upd_tile_config_kernel = handle->upd_config_kernel;*/
+  libxs_bsmmfunction upd_tile_config_kernel = handle->upd_config_kernel;
+
   /* some portable macrros fof BF16 <-> FP32 */
 # include "template/libxs_dnn_bf16_macros_define.tpl.c"
 

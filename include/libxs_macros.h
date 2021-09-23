@@ -401,16 +401,10 @@
 #   define LIBXS_PRAGMA(DIRECTIVE)
 # endif
 #endif /*LIBXS_PRAGMA*/
-#if !defined(LIBXS_OPENMP_SIMD) && (defined(_OPENMP) && (201307 <= _OPENMP/*v4.0*/))
-# if defined(LIBXS_INTEL_COMPILER)
-#   if (1500 <= LIBXS_INTEL_COMPILER)
-#     define LIBXS_OPENMP_SIMD
-#   endif
-# elif defined(__GNUC__)
-#   if LIBXS_VERSION2(4, 9) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)
-#     define LIBXS_OPENMP_SIMD
-#   endif
-# else
+#if !defined(LIBXS_OPENMP_SIMD)
+# if defined(LIBXS_INTEL_COMPILER) && (1500 <= LIBXS_INTEL_COMPILER)
+#   define LIBXS_OPENMP_SIMD
+# elif defined(_OPENMP) && (201307/*v4.0*/ <= _OPENMP)
 #   define LIBXS_OPENMP_SIMD
 # endif
 #endif
@@ -447,7 +441,7 @@
 # define LIBXS_PRAGMA_VALIGNED_VAR(A) LIBXS_ASSUME_ALIGNED(A, LIBXS_ALIGNMENT);
 /*# define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))*/
 #else
-# if defined(LIBXS_OPENMP_SIMD) && (201811 <= _OPENMP/*v5.0*/)
+# if defined(LIBXS_OPENMP_SIMD) && (201811/*v5.0*/ <= _OPENMP)
 #   define LIBXS_PRAGMA_NONTEMPORAL(...) LIBXS_PRAGMA(omp simd nontemporal(__VA_ARGS__))
 # else
 #   define LIBXS_PRAGMA_NONTEMPORAL(...)
@@ -493,7 +487,7 @@
 # define LIBXS_PRAGMA_OPTIMIZE_ON
 #endif
 
-#if defined(_OPENMP) && (200805 <= _OPENMP/*v3.0*/) \
+#if defined(_OPENMP) && (200805/*v3.0*/ <= _OPENMP) \
  && defined(NDEBUG) /* CCE complains for debug builds */
 # define LIBXS_OPENMP_COLLAPSE(N) collapse(N)
 #else
@@ -834,17 +828,15 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # define LIBXS_ASSERT_MSG(EXPR, MSG) assert((EXPR) && *MSG)
 #endif
 #if !defined(LIBXS_EXPECT_ELIDE)
-# define LIBXS_EXPECT_ELIDE(RESULT, EXPR) do { \
-    /*const*/ int libxs_expect_result_ = ((RESULT) == (EXPR)); \
-    LIBXS_UNUSED(libxs_expect_result_); \
+# define LIBXS_EXPECT_ELIDE(EXPR) do { \
+    /*const*/ int libxs_expect_elide_ = (EXPR); \
+    LIBXS_UNUSED(libxs_expect_elide_); \
   } while(0)
 #endif
 #if defined(NDEBUG)
 # define LIBXS_EXPECT LIBXS_EXPECT_ELIDE
-# define LIBXS_EXPECT_NOT LIBXS_EXPECT_ELIDE
 #else
-# define LIBXS_EXPECT(RESULT, EXPR) LIBXS_ASSERT((RESULT) == (EXPR))
-# define LIBXS_EXPECT_NOT(RESULT, EXPR) LIBXS_ASSERT((RESULT) != (EXPR))
+# define LIBXS_EXPECT LIBXS_ASSERT
 #endif
 #if defined(_DEBUG)
 # define LIBXS_EXPECT_DEBUG LIBXS_EXPECT

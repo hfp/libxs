@@ -19,6 +19,12 @@
  * */
 LIBXS_API unsigned int* libxs_rng_create_extstate(unsigned int/*uint32_t*/ seed);
 
+/**
+ * return the size of the state such that users can save it and recrate the
+ * same sequence of PRNG numbers
+ */
+LIBXS_API unsigned int libxs_rng_get_extstate_size();
+
 /** free a previously created rng_avx512_extstate */
 LIBXS_API void libxs_rng_destroy_extstate(unsigned int* stateptr);
 
