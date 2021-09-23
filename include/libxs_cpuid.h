@@ -37,6 +37,7 @@
 #define LIBXS_AARCH64_V81      2001 /* Baseline */
 #define LIBXS_AARCH64_V82      2002 /* A64FX minus SVE */
 #define LIBXS_AARCH64_A64FX    2100 /* SVE */
+#define LIBXS_AARCH64_APPL_M1  2200 /* Apple M1 */
 #define LIBXS_AARCH64_ALLFEAT  2999
 
 #if defined(LIBXS_PLATFORM_X86)
@@ -65,10 +66,18 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info);
  */
 LIBXS_API int libxs_cpuid(void);
 
-/** Names the CPU architecture given by CPUID. */
+/**
+ * Names the CPU architecture given by CPUID.
+ * Do not use libxs_cpuid() to match the current CPU!
+ * Use libxs_get_target_archid() instead.
+ */
 LIBXS_API const char* libxs_cpuid_name(int id);
 
-/** SIMD vector length (VLEN) in 32-bit elements. */
+/**
+ * SIMD vector length (VLEN) in 32-bit elements.
+ * Do not use libxs_cpuid() to match the current CPU!
+ * Use libxs_get_target_archid() instead.
+ */
 LIBXS_API int libxs_cpuid_vlen32(int id);
 
 #endif /*LIBXS_CPUID_H*/
