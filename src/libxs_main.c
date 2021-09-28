@@ -2205,8 +2205,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # if defined(__APPLE__) && defined(__arm64__)
       code->ptr = code_buffer; /* commit buffer */
       LIBXS_ASSERT(NULL != code->ptr && 0 == (LIBXS_CODE_STATIC & code->uval));
-      sys_icache_invalidate(code_buffer, generated_code.code_size);
       pthread_jit_write_protect_np(1/*true*/);
+      sys_icache_invalidate(code_buffer, generated_code.code_size);
 # else
       /* attribute/protect buffer and revoke unnecessary flags */
       result = libxs_malloc_attrib((void**)code_buffer_result, LIBXS_MALLOC_FLAG_X, jit_name);
@@ -2569,6 +2569,19 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
   int result;
   code.xgemm = kernel;
   if (NULL != info) {
+#if defined(__APPLE__) && defined(__arm64__)
+    /* TODO: proper buffer x-allocation provides kernel info, etc. */
+    if (libxs_verbosity < 0) {
+      fprintf(stderr, "LIBXS WARNING: libxs_get_mmkernel_info is not implemented on MacOS aarch64!\n");
+    }
+    info->iprecision = LIBXS_GEMM_PRECISION_F32;
+    info->oprecision = LIBXS_GEMM_PRECISION_F32;
+    info->prefetch = LIBXS_GEMM_PREFETCH_NONE;
+    info->flags = LIBXS_GEMM_FLAG_NONE;
+    info->lda = info->ldb = info->ldc = 1;
+    info->m = info->n = info->k = 1;
+    result = EXIT_SUCCESS;
+#else
     const libxs_descriptor* desc;
     if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
         NULL != desc && LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind))
@@ -2586,16 +2599,6 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
       result = EXIT_SUCCESS;
     }
     else {
-#if defined(__APPLE__) && defined(__arm64__)
-      /* TODO: proper buffer x-allocation provides kernel info, etc. */
-      info->iprecision = LIBXS_GEMM_PRECISION_F32;
-      info->oprecision = LIBXS_GEMM_PRECISION_F32;
-      info->prefetch = LIBXS_GEMM_PREFETCH_SIGONLY;
-      info->flags = LIBXS_GEMM_FLAG_NONE;
-      info->lda = info->ldb = info->ldc = 1;
-      info->m = info->n = info->k = 1;
-      result = EXIT_SUCCESS;
-#else
       if ( 0 != libxs_verbosity /* library code is expected to be mute */
         && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
       {
@@ -2607,8 +2610,8 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
         }
       }
       result = EXIT_FAILURE;
-#endif
     }
+#endif
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
