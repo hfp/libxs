@@ -607,11 +607,11 @@ LIBXS_API libxs_dnn_fullyconnected* libxs_dnn_create_fullyconnected(libxs_dnn_fu
           /* In this case force 2D decomposition */
           if (handle->compressed_A == 1) {
             handle->fwd_2d_blocking = 1;
-            handle->fwd_row_teams = 2;
+            handle->fwd_row_teams = handle->desc.threads ;
             while (handle->desc.threads % handle->fwd_row_teams != 0) {
               handle->fwd_row_teams--;
             }
-            handle->fwd_column_teams = handle->desc.threads/handle->fwd_row_teams;
+            handle->fwd_column_teams = 1/*handle->desc.threads/handle->fwd_row_teams*/;
           }
 
         }
