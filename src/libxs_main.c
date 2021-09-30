@@ -2115,15 +2115,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           char tsizename[4];
           internal_get_typesize_string(tsizename, sizeof(tsizename), request->descriptor.meltw->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          if ( request->descriptor.meltw->operation == LIBXS_MELTW_OPERATION_REDUCE_COLS_IDX ) {
-            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_idxtsize%u_%u_%ux%u_opcode%u_flags%u.meltw", target_arch, tsizename,
-              request->descriptor.meltw->n, request->descriptor.meltw->m, request->descriptor.meltw->ldi, request->descriptor.meltw->ldo,
-              (unsigned int)request->descriptor.meltw->operation, (unsigned int)request->descriptor.meltw->flags);
-          } else {
-            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_opcode%u_flags%u_params%u.meltw", target_arch, tsizename,
-              request->descriptor.meltw->m, request->descriptor.meltw->n, request->descriptor.meltw->ldi, request->descriptor.meltw->ldo,
-              (unsigned int)request->descriptor.meltw->operation, (unsigned int)request->descriptor.meltw->flags, (unsigned int)request->descriptor.meltw->param);
-          }
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_opcode%u_flags%u_params%u.meltw", target_arch, tsizename,
+            request->descriptor.meltw->m, request->descriptor.meltw->n, request->descriptor.meltw->ldi, request->descriptor.meltw->ldo,
+            (unsigned int)request->descriptor.meltw->operation, (unsigned int)request->descriptor.meltw->flags, (unsigned int)request->descriptor.meltw->param);
         }
       }
     } break;
@@ -4400,23 +4394,6 @@ LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor
   }
   return result;
 }
-
-
-LIBXS_API libxs_meltwfunction_reduce_cols_idx libxs_dispatch_meltw_reduce_cols_idx(
-  libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo,
-  libxs_datatype in_type, libxs_datatype out_type, libxs_datatype idx_type)
-{
-  libxs_descriptor_blob blob;
-  libxs_blasint idx_dtype_size = libxs_typesize(idx_type);
-  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
-    in_type, out_type, m, idx_dtype_size, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
-    0, 0, LIBXS_MELTW_OPERATION_REDUCE_COLS_IDX);
-
-  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
-
-  return result.meltw_reduce_cols_idx;
-}
-
 
 LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_vecs_idx(
   libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo,
