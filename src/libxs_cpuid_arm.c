@@ -58,6 +58,7 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
   if (NULL != info) LIBXS_MEMZERO127(info);
   result = LIBXS_AARCH64_APPL_M1;
 # else
+#if 0
   if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* avoid redetecting features */
     void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
     result = LIBXS_AARCH64_V81;
@@ -80,6 +81,10 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
     }
     if (NULL != info) LIBXS_MEMZERO127(info);
   }
+# else
+  if (NULL != info) LIBXS_MEMZERO127(info);
+  result = LIBXS_AARCH64_V82;
+# endif
 # endif
 #else
 # if !defined(NDEBUG)
