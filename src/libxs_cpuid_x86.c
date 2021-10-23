@@ -323,7 +323,9 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   }
   else
 #elif defined(LIBXS_PLATFORM_AARCH64)
-  if (LIBXS_AARCH64_V81 == id) {
+  if (LIBXS_AARCH64_V81 == id ||
+      LIBXS_AARCH64_V82 == id ||
+      LIBXS_AARCH64_APPL_M1 == id) {
     result = 4;
   }
   else if (LIBXS_AARCH64_A64FX == id) {
