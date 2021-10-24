@@ -2071,7 +2071,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       {
         const unsigned int nnz = request->descriptor.sreg->row_ptr[request->descriptor.sreg->gemm->m];
         extra.nflops = 2 * libxs_cpuid_vlen32(libxs_target_archid)/2 * request->descriptor.sreg->gemm->n * nnz;
-        LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_reg_kernel, &generated_code, request->descriptor.sreg->gemm, target_arch,
+        LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_reg_kernel, &generated_code, request->descriptor.sreg->gemm,
           request->descriptor.sreg->row_ptr, request->descriptor.sreg->column_idx,
           (const double*)request->descriptor.sreg->values);
 # if !defined(LIBXS_VTUNE)
