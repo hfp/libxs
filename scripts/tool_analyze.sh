@@ -18,7 +18,7 @@ CC=$(command -v clang)
 CP=$(command -v cp)
 MV=$(command -v mv)
 
-if [ "${MKTEMP}" ] && [ "${MAKE}" ] \
+if [ "${MKTEMP}" ] && [ "${MAKE}" ] && \
    [ "${GREP}" ] && [ "${SORT}" ] && \
    [ "${CXX}" ] && [ "${CC}" ] && \
    [ "${CP}" ] && [ "${MV}" ];
