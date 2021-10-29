@@ -8,22 +8,30 @@
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
 
+HERE=$(cd "$(dirname "$0")" && pwd -P)
+MKTEMP=${HERE}/../.mktmp.sh
 MAKE=$(command -v make)
 GREP=$(command -v grep)
 SORT=$(command -v sort)
 CXX=$(command -v clang++)
 CC=$(command -v clang)
+CP=$(command -v cp)
+MV=$(command -v mv)
 
-if [ "${MAKE}" ] && [ "${CXX}" ] && [ "${CC}" ] && \
-   [ "${GREP}" ] && [ "${SORT}" ];
+if [ "${MKTEMP}" ] && [ "${MAKE}" ] \
+   [ "${GREP}" ] && [ "${SORT}" ] && \
+   [ "${CXX}" ] && [ "${CC}" ] && \
+   [ "${CP}" ] && [ "${MV}" ];
 then
-  HERE=$(cd "$(dirname "$0")" && pwd -P)
   cd "${HERE}/.." || exit 1
   ARG=$*
   if [ "" = "${ARG}" ]; then
     ARG=lib
   fi
+  TMPF=$("${MKTEMP}" .tool_analyze.XXXXXX)
+  ${CP} "${HERE}/../include/libxs_config.h" "${TMPF}"
   ${MAKE} -e CXX="${CXX}" CC="${CC}" FC= FORCE_CXX=1 DBG=1 ILP64=1 EFLAGS="--analyze" ${ARG} 2> .analyze.log
+  ${MV} "${TMPF}" "${HERE}/../include/libxs_config.h"
   ISSUES=$(${GREP} -e "error:" -e "warning:" .analyze.log \
     | ${GREP} -v "make:" \
     | ${GREP} -v "is never read" \
@@ -43,4 +51,3 @@ else
   >&2 echo "Error: missing prerequisites!"
   exit 1
 fi
-
