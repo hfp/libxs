@@ -479,7 +479,7 @@ LIBXS_APIEXT void libxs_mmbatch_end(void);
 
 /** Code generation routine for matrix-eltwise using a descriptor. */
 LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor* descriptor);
-LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_vecs_idx(libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype idx_type, libxs_meltw_opreduce_vecs_flags flags);
+LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_vecs_idx(libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype idx_type, libxs_meltw_opreduce_vecs_flags flags, unsigned short bcast_param);
 LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype comp_type, libxs_meltw_unary_flags flags, libxs_meltw_unary_type type);
 LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype comp_type, libxs_meltw_binary_flags flags, libxs_meltw_binary_type type);
 LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldi3, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype comp_type, libxs_meltw_ternary_flags flags, libxs_meltw_ternary_type type);
