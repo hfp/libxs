@@ -254,7 +254,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meltw_descriptor {
   /** Set of flags */
   unsigned short flags;
   /** optional param field */
-  unsigned char param;
+  unsigned short param;
   /** operation specifier */
   unsigned char operation;
 };
