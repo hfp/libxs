@@ -460,6 +460,10 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_TLS_GETVALUE(KEY) pthread_getspecific(KEY)
 #   if defined(__APPLE__) && defined(__MACH__)
 #     define LIBXS_SYNC_YIELD pthread_yield_np()
+#   elif defined(__GLIBC__) && defined(__GLIBC_MINOR__) \
+      && LIBXS_VERSION2(2, 34) <= LIBXS_VERSION2(__GLIBC__, __GLIBC_MINOR__)
+      LIBXS_EXTERN int sched_yield(void); /* sched.h */
+#     define LIBXS_SYNC_YIELD sched_yield()
 #   else
 #     if defined(__USE_GNU) || !defined(__BSD_VISIBLE)
       LIBXS_EXTERN int pthread_yield(void) LIBXS_THROW;
