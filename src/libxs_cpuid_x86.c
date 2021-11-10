@@ -267,6 +267,12 @@ LIBXS_API const char* libxs_cpuid_name(int id)
     case LIBXS_X86_AVX512_VL256: {
       target_arch = "avx512_vl256";
     } break;
+    case LIBXS_X86_AVX512_VL256_CLX: {
+      target_arch = "avx512_vl256_clx";
+    } break;
+    case LIBXS_X86_AVX512_VL256_CPX: {
+      target_arch = "avx512_vl256_cpx";
+    } break;
     case LIBXS_X86_AVX2: {
       target_arch = "hsw";
     } break;

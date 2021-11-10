@@ -194,10 +194,10 @@ LIBXS_API_INLINE int libxs_dnn_convolution_setup_blocksifm_blocking( libxs_dnn_l
     if ((handle->desc.C >= 2048) && (handle->desc.K >= 512)) {
       result = 1;
     }
-    if ( (handle->target_archid < LIBXS_X86_AVX512) && (handle->desc.C >= 512) ) {
+    if ( (handle->target_archid < LIBXS_X86_AVX512_VL256) && (handle->desc.C >= 512) ) {
       result = 2;
     }
-    if ( (handle->target_archid < LIBXS_X86_AVX512) && (handle->desc.C >= 1024) ) {
+    if ( (handle->target_archid < LIBXS_X86_AVX512_VL256) && (handle->desc.C >= 1024) ) {
       result = 4;
     }
   } else {
@@ -1218,7 +1218,7 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
   handle->use_fallback_fwd_loops = libxs_dnn_convolution_setup_fallback_loops_fwd(handle);
   handle->fwd_padding_copy = libxs_dnn_convolution_setup_fwd_padding_copy(handle);
 
-#if 0
+#if 1
   if ( handle->datatype_in == LIBXS_DNN_DATATYPE_F32 ) {
     int prefetch_mode = libxs_get_gemm_prefetch(LIBXS_GEMM_PREFETCH_NONE);
     int brgemm_pf_oob = 0;

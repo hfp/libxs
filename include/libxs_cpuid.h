@@ -18,15 +18,17 @@
  * used anywhere in LIBXS (never set as an architecture,
  * used as an upper bound in comparisons to distinct x86).
  */
-#define LIBXS_TARGET_ARCH_UNKNOWN 0
-#define LIBXS_TARGET_ARCH_GENERIC 1
-#define LIBXS_X86_GENERIC      1002
-#define LIBXS_X86_SSE3         1003
-#define LIBXS_X86_SSE42        1004
-#define LIBXS_X86_AVX          1005
-#define LIBXS_X86_AVX2         1006
-#define LIBXS_X86_AVX512_VL256 1007
-#define LIBXS_X86_AVX512       1010
+#define LIBXS_TARGET_ARCH_UNKNOWN   0
+#define LIBXS_TARGET_ARCH_GENERIC   1
+#define LIBXS_X86_GENERIC           1002
+#define LIBXS_X86_SSE3              1003
+#define LIBXS_X86_SSE42             1004
+#define LIBXS_X86_AVX               1005
+#define LIBXS_X86_AVX2              1006
+#define LIBXS_X86_AVX512_VL256      1007
+#define LIBXS_X86_AVX512_VL256_CLX  1008
+#define LIBXS_X86_AVX512_VL256_CPX  1009
+#define LIBXS_X86_AVX512            1010
 #define LIBXS_X86_AVX512_MIC   1011 /* KNL */
 #define LIBXS_X86_AVX512_KNM   1012
 #define LIBXS_X86_AVX512_CORE  1020 /* SKX */
