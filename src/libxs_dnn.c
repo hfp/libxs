@@ -19,7 +19,12 @@
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
-
+#define LIBXS_BLOCK64
+#if defined LIBXS_BLOCK64
+# define LIBXS_BLOCK_SIZE 64
+#else
+# define LIBXS_BLOCK_SIZE 32
+#endif
 
 LIBXS_API_INTERN void libxs_dnn_init(int target_arch)
 {
@@ -45,7 +50,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
   LIBXS_INIT
 
   /* C */
-  if ( ((libxs_target_archid >= LIBXS_X86_AVX512_SPR) && (datatype_in == LIBXS_DNN_DATATYPE_BF16)) ||
+  if ((libxs_target_archid == LIBXS_X86_AVX512_VL256_CLX) || (libxs_target_archid == LIBXS_X86_AVX512_VL256_CPX)
+          || (libxs_target_archid == LIBXS_X86_AVX512_VL256)
+        ){
+    tmp_max_c_block = LIBXS_BLOCK_SIZE;
+  } else if ( ((libxs_target_archid >= LIBXS_X86_AVX512_SPR) && (datatype_in == LIBXS_DNN_DATATYPE_BF16)) ||
        (libxs_target_archid < LIBXS_X86_AVX512 ) ) {
     tmp_max_c_block = 32;
   } else if ( libxs_target_archid == LIBXS_AARCH64_V81 ) {
@@ -60,7 +69,11 @@ LIBXS_API_INTERN libxs_dnn_err_t libxs_dnn_get_feature_map_blocks( int C, int K,
   }
 
   /* K */
-  if ( ((libxs_target_archid >= LIBXS_X86_AVX512_SPR) && (datatype_in == LIBXS_DNN_DATATYPE_BF16)) ||
+  if ((libxs_target_archid == LIBXS_X86_AVX512_VL256_CLX) || (libxs_target_archid == LIBXS_X86_AVX512_VL256_CPX)
+        || (libxs_target_archid == LIBXS_X86_AVX512_VL256)
+      ){
+    tmp_max_k_block = LIBXS_BLOCK_SIZE;
+  } else if ( ((libxs_target_archid >= LIBXS_X86_AVX512_SPR) && (datatype_in == LIBXS_DNN_DATATYPE_BF16)) ||
        (libxs_target_archid < LIBXS_X86_AVX512 ) ) {
     tmp_max_k_block = 32;
   } else if ( libxs_target_archid == LIBXS_AARCH64_V81 ) {
