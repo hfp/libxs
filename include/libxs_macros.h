@@ -269,11 +269,13 @@
 /* LIBXS_ATTRIBUTE_USED: increases compile-time of header-only by a large factor */
 # define LIBXS_INLINE static LIBXS_INLINE_KEYWORD LIBXS_ATTRIBUTE_UNUSED
 #endif /*__cplusplus*/
-#if !defined(LIBXS_CALLER)
-# define LIBXS_CALLER NULL
-#endif
 #if !defined(LIBXS_FUNCNAME)
-# define LIBXS_FUNCNAME LIBXS_CALLER
+# if defined(LIBXS_CALLER)
+#   define LIBXS_FUNCNAME LIBXS_CALLER
+# else
+#   define LIBXS_CALLER NULL
+#   define LIBXS_FUNCNAME ""
+# endif
 #endif
 #if !defined(LIBXS_CALLER_ID)
 # if defined(__GNUC__) || 1
