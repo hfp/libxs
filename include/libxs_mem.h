@@ -68,10 +68,10 @@ LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size);
 LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed);
 
 /** Calculate a 64-bit hash for the given character string; accepts NULL-string. */
-LIBXS_API unsigned long long libxs_hash_string(const char* string);
+LIBXS_API unsigned long long libxs_hash_string(const char string[]);
 
 /** Return the pointer to the 1st match of "b" in "a", or NULL (no match). */
-LIBXS_API const char* libxs_stristr(const char* a, const char* b);
+LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
 
 /**
  * Check if pointer is SIMD-aligned and optionally consider the next access (increment in Bytes).
