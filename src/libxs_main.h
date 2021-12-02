@@ -960,13 +960,21 @@ LIBXS_API_INTERN int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
   const void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
 
 /**
+ * Attribute memory allocation and protect with only the necessary flags (revoke other flags).
+ * This procedure is not suitable for executable buffers, profiler support, etc.
+ */
+LIBXS_API_INTERN int libxs_malloc_xattrib(void* buffer, int flags, size_t size);
+
+/**
  * Attribute memory allocation and protect with only the necessary flags.
  * This procedure is expected to run only one time per buffer, and may
  * relocate the given memory.
  */
 LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags,
-  /** If a name is given, an executable buffer will be dumped into a file. */
-  const char* name);
+  /** If name is given, profiler support, and code dump (verbose mode) are supported. */
+  const char* name,
+  /** If data_size if given, amount of memory-attribution is lowered by data_size. */
+  const size_t* data_size);
 
 /** Like libxs_release_scratch, but takes a lock (can be NULL). */
 LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock);

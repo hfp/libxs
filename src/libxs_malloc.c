@@ -470,8 +470,8 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
   if ((LIBXS_MALLOC_HOOK_CHECK) < check) check = (LIBXS_MALLOC_HOOK_CHECK);
 #endif
   if (0 != check && NULL != result) { /* check ownership */
-#if !defined(_WIN32) /* mprotect: pass address rounded down to page/4k alignment */
-    if (1 == check || 0 == mprotect((void*)(((uintptr_t)result) & 0xFFFFFFFFFFFFF000),
+#if !defined(_WIN32) /* mprotect: pass address rounded down to page-alignment */
+    if (1 == check || 0 == mprotect((void*)(((uintptr_t)result) & ((uintptr_t)(-1 * LIBXS_PAGE_MINSIZE))),
       sizeof(internal_malloc_info_type), PROT_READ | PROT_WRITE) || ENOMEM != errno)
 #endif
     {
@@ -2175,49 +2175,78 @@ LIBXS_API_INLINE void internal_get_vtune_jitdesc(const void* code,
 #endif
 
 
-LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* name)
+LIBXS_API_INTERN int libxs_malloc_xattrib(void* buffer, int flags, size_t size)
+{
+  int result = EXIT_SUCCESS;
+#if defined(_WIN32)
+  LIBXS_ASSERT(NULL != buffer || 0 == size);
+#else
+  LIBXS_ASSERT((NULL != buffer && MAP_FAILED != buffer) || 0 == size);
+#endif
+  /* quietly keep the read permission, but eventually revoke write permissions */
+  if (0 == (LIBXS_MALLOC_FLAG_W & flags) || 0 != (LIBXS_MALLOC_FLAG_X & flags)) {
+    if (0 == (LIBXS_MALLOC_FLAG_X & flags)) { /* data-buffer; non-executable */
+#if defined(_WIN32)
+      /* TODO: implement memory protection under Microsoft Windows */
+#else
+      result = mprotect(buffer, size/*entire memory region*/, PROT_READ);
+#endif
+    }
+    else { /* executable buffer requested */
+#if defined(_WIN32)
+      /* TODO: implement memory protection under Microsoft Windows */
+#else
+      result = mprotect(buffer, size/*entire memory region*/, PROT_READ | PROT_EXEC);
+#endif
+    }
+  }
+  return result;
+}
+
+
+LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* name, const size_t* data_size)
 {
   internal_malloc_info_type *const info = (NULL != memory ? internal_malloc_info(*memory, 0/*no check*/) : NULL);
   int result = EXIT_SUCCESS;
   static int error_once = 0;
   if (NULL != info) {
+    const size_t info_size = info->size, apply_size = (NULL == data_size
+      ? info_size : (info_size - LIBXS_MIN(*data_size, info_size)));
     void *const buffer = info->pointer;
-    const size_t size = info->size;
 #if defined(_WIN32)
-    LIBXS_ASSERT(NULL != buffer || 0 == size);
+    LIBXS_ASSERT(NULL != buffer || 0 == apply_size);
 #else
-    LIBXS_ASSERT((NULL != buffer && MAP_FAILED != buffer) || 0 == size);
+    LIBXS_ASSERT((NULL != buffer && MAP_FAILED != buffer) || 0 == apply_size);
 #endif
     flags |= (info->flags & ~LIBXS_MALLOC_FLAG_RWX); /* merge with current flags */
     /* quietly keep the read permission, but eventually revoke write permissions */
     if (0 == (LIBXS_MALLOC_FLAG_W & flags) || 0 != (LIBXS_MALLOC_FLAG_X & flags)) {
       const size_t alignment = (size_t)(((const char*)(*memory)) - ((const char*)buffer));
-      const size_t alloc_size = size + alignment;
+      const size_t alloc_size = apply_size + alignment;
+      int xattrib_result;
       if (0 == (LIBXS_MALLOC_FLAG_X & flags)) { /* data-buffer; non-executable */
-#if defined(_WIN32)
-        /* TODO: implement memory protection under Microsoft Windows */
-        LIBXS_UNUSED(alloc_size);
-#else
-        if (EXIT_SUCCESS != mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ)
-          && (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+        xattrib_result = libxs_malloc_xattrib(buffer, flags, alloc_size);
+        if (EXIT_SUCCESS != xattrib_result
+          && (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity)
           && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
         {
-          fprintf(stderr, "LIBXS WARNING: read-only request for buffer failed!\n");
+          fprintf(stderr, "LIBXS WARNING: marking buffer as read-only failed!\n");
         }
-#endif
       }
       else { /* executable buffer requested */
         void *const code_ptr = (NULL != info->reloc ? ((void*)(((char*)info->reloc) + alignment)) : *memory);
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_X & flags));
-        if (name && *name) { /* profiler support requested */
+        if (NULL != name && '\0' != *name) { /* profiler support requested */
           if (0 > libxs_verbosity) { /* avoid dump if just the profiler is enabled */
-            LIBXS_EXPECT(EXIT_SUCCESS == libxs_dump("LIBXS-JIT-DUMP", name, code_ptr, size, 1/*unique*/));
+            LIBXS_EXPECT(EXIT_SUCCESS == libxs_dump("LIBXS-JIT-DUMP", name, code_ptr,
+              /* dump executable code without constant data (apply_size vs info_size) */
+              apply_size, 1/*unique*/));
           }
 #if defined(LIBXS_VTUNE)
           if (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
             LIBXS_VTUNE_JIT_DESC_TYPE vtune_jit_desc;
             const unsigned int code_id = iJIT_GetNewMethodID();
-            internal_get_vtune_jitdesc(code_ptr, code_id, size, name, &vtune_jit_desc);
+            internal_get_vtune_jitdesc(code_ptr, code_id, apply_size, name, &vtune_jit_desc);
             iJIT_NotifyEvent(LIBXS_VTUNE_JIT_LOAD, &vtune_jit_desc);
             info->code_id = code_id;
           }
@@ -2229,7 +2258,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
           /* If JIT is enabled and a valid name is given, emit information for profiler
            * In jitdump case this needs to be done after mprotect as it gets overwritten
            * otherwise. */
-          libxs_perf_dump_code(code_ptr, size, name);
+          libxs_perf_dump_code(code_ptr, apply_size, name);
 #endif
         }
         if (NULL != info->reloc && info->pointer != info->reloc) {
@@ -2257,7 +2286,6 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
         }
 #if !defined(_WIN32)
         else { /* malloc-based fallback */
-          int mprotect_result;
 # if !defined(LIBXS_MALLOC_CRC_OFF) && defined(LIBXS_VTUNE) /* check checksum */
 #   if defined(LIBXS_MALLOC_CRC_LIGHT)
           assert(info->hash == LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &info)); /* !LIBXS_ASSERT */
@@ -2267,15 +2295,15 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
             (unsigned int)(((char*)&info->hash) - ((char*)info))));
 #   endif
 # endif   /* treat memory protection errors as soft error; ignore return value */
-          mprotect_result = mprotect(buffer, alloc_size/*entire memory region*/, PROT_READ | PROT_EXEC);
-          if (EXIT_SUCCESS != mprotect_result) {
+          xattrib_result = libxs_malloc_xattrib(buffer, flags, alloc_size);
+          if (EXIT_SUCCESS != xattrib_result) {
             if (0 != libxs_se) { /* hard-error in case of SELinux */
               if (0 != libxs_verbosity /* library code is expected to be mute */
                 && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
               {
                 fprintf(stderr, "LIBXS ERROR: failed to allocate an executable buffer!\n");
               }
-              result = mprotect_result;
+              result = xattrib_result;
             }
             else if ((LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
               && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
