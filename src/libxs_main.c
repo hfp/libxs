@@ -1609,12 +1609,10 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     else if (arch == libxs_stristr(arch, "arm_v82")) {
       target_archid = LIBXS_AARCH64_V82;
     }
-    else if (arch == libxs_stristr(arch, "a64fx"))
-    {
+    else if (arch == libxs_stristr(arch, "a64fx")) {
       target_archid = LIBXS_AARCH64_A64FX;
     }
-    else if (arch == libxs_stristr(arch, "appl_m1"))
-    {
+    else if (arch == libxs_stristr(arch, "appl_m1")) {
       target_archid = LIBXS_AARCH64_APPL_M1;
     }
 #endif
@@ -1891,7 +1889,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             decompress_A = 1;
             sparsity_factor_A = (int)request->descriptor.gemm->meltw_param;
           }
-
           /* query batch reduce variant */
           if ( (LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS & request->descriptor.gemm->flags) > 1 ) {
             br = 1;
@@ -1925,7 +1922,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           } else {
             LIBXS_SNPRINTF(tc_option, sizeof(tc_option), "abid");
           }
-
           if ( request->descriptor.gemm->meltw_operation != 0 ) {
             /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
             LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_meop%u-%s_mefl%u_meld%u-%u-%u_decompress_A%i_spfactor%i.mxm", target_arch, tname,
@@ -2174,18 +2170,20 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     char* code_buffer = NULL;
 # if defined(__APPLE__) && defined(__arm64__)
 # else
-    void* code_buffer_result = &code_buffer;
+    void* code_buffer_ptr = &code_buffer;
 # endif
-    LIBXS_ASSERT(generated_code.code_size <= LIBXS_CODE_MAXSIZE);
+    const size_t total_size = (size_t)generated_code.code_size + generated_code.data_size;
+    const size_t data_size = generated_code.data_size;
     LIBXS_ASSERT(NULL != generated_code.generated_code);
+    LIBXS_ASSERT(total_size <= LIBXS_CODE_MAXSIZE);
     /* attempt to create executable buffer */
 # if defined(__APPLE__) && defined(__arm64__)
     /* TODO: proper buffer x-allocation provides kernel info, etc. */
-    code_buffer = (char*)mmap(0, generated_code.code_size, PROT_WRITE | PROT_EXEC | PROT_READ,
+    code_buffer = (char*)mmap(0, total_size, PROT_WRITE | PROT_EXEC | PROT_READ,
       MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT, -1, 0);
     result = ((0 <= (long long)code_buffer) ? EXIT_SUCCESS : EXIT_FAILURE);
 # else
-    result = libxs_xmalloc((void**)code_buffer_result, generated_code.code_size, 0/*auto*/,
+    result = libxs_xmalloc((void**)code_buffer_ptr, total_size, 0/*auto*/,
       /* flag must be a superset of what's populated by libxs_malloc_attrib */
       LIBXS_MALLOC_FLAG_RWX, &extra, sizeof(extra));
 # endif
@@ -2195,29 +2193,29 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       pthread_jit_write_protect_np(0/*false*/);
 # endif
       /* copy temporary buffer into the prepared executable buffer */
-# if defined(NDEBUG)
-      { int i; /* precondition: jit_buffer == generated_code.generated_code */
-        for (i = 0; i < (int)generated_code.code_size; ++i) code_buffer[i] = jit_buffer[i];
-      }
-# else
-      memcpy(code_buffer, generated_code.generated_code, generated_code.code_size);
-# endif
+      memcpy(code_buffer, generated_code.generated_code, total_size);
 # if defined(__APPLE__) && defined(__arm64__)
       code->ptr = code_buffer; /* commit buffer */
       LIBXS_ASSERT(NULL != code->ptr && 0 == (LIBXS_CODE_STATIC & code->uval));
       pthread_jit_write_protect_np(1/*true*/);
-      sys_icache_invalidate(code_buffer, generated_code.code_size);
+      sys_icache_invalidate(code_buffer, total_size);
 # else
-      /* attribute/protect buffer and revoke unnecessary flags */
-      result = libxs_malloc_attrib((void**)code_buffer_result, LIBXS_MALLOC_FLAG_X, jit_name);
+      /* attribute and protect code-buffer by setting only necessary flags */
+      result = libxs_malloc_attrib((void**)code_buffer_ptr,
+        LIBXS_MALLOC_FLAG_X, jit_name, &data_size);
+      if (EXIT_SUCCESS == result && 0 != data_size) { /* check for success */
+        void *const data_buffer = code_buffer + generated_code.code_size;
+        /* attribute and protect constant data by setting only necessary flags */
+        result = libxs_malloc_xattrib(data_buffer, LIBXS_MALLOC_FLAG_R, data_size);
+      }
       if (EXIT_SUCCESS == result) { /* check for success */
         code->ptr = code_buffer; /* commit buffer */
         LIBXS_ASSERT(NULL != code->ptr && 0 == (LIBXS_CODE_STATIC & code->uval));
 #   if defined(__aarch64__)
 #     if defined(__clang__)
-        __clear_cache(code_buffer, code_buffer + generated_code.code_size);
+        __clear_cache(code_buffer, code_buffer + total_size);
 #     else
-        __builtin___clear_cache(code_buffer, code_buffer + generated_code.code_size);
+        __builtin___clear_cache(code_buffer, code_buffer + total_size);
 #     endif
 #   endif
       }
