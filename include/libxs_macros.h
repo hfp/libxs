@@ -690,10 +690,12 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   define LIBXS_UNUSED(VARIABLE) (void)(VARIABLE)
 # endif
 #endif
-#if !defined(NDEBUG)
-# define LIBXS_UNUSED_DEBUG(VARIABLE) LIBXS_UNUSED(VARIABLE)
-#else
+#if defined(NDEBUG)
+# define LIBXS_UNUSED_NDEBUG(VARIABLE) LIBXS_UNUSED(VARIABLE)
 # define LIBXS_UNUSED_DEBUG(VARIABLE)
+#else
+# define LIBXS_UNUSED_NDEBUG(VARIABLE)
+# define LIBXS_UNUSED_DEBUG(VARIABLE) LIBXS_UNUSED(VARIABLE)
 #endif
 
 #if defined(_OPENMP)
