@@ -1142,9 +1142,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       /* coverity[check_return] */
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
       gid = tid; /* protect initialization */
-#if defined(NDEBUG)
-      LIBXS_UNUSED(gid);
-#endif
+      LIBXS_UNUSED_NDEBUG(gid);
 #if (0 != LIBXS_SYNC)
       /* coverity[check_return] */
       LIBXS_TLS_CREATE(&libxs_tlskey);
@@ -1278,7 +1276,6 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
     }
     else /*if (gid != tid)*/ { /* avoid recursion */
       LIBXS_ASSERT(gid != tid);
-      LIBXS_UNUSED(gid);
       while (2 > LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) LIBXS_SYNC_YIELD;
       internal_init();
     }
