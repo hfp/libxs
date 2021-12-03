@@ -478,15 +478,27 @@ LIBXS_APIEXT void libxs_mmbatch_begin(libxs_gemm_precision precision, const int*
 LIBXS_APIEXT void libxs_mmbatch_end(void);
 
 /** Code generation routine for matrix-eltwise using a descriptor. */
-LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor* descriptor);
-LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_vecs_idx(libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype idx_type, libxs_meltw_opreduce_vecs_flags flags, unsigned short bcast_param);
-LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype comp_type, libxs_meltw_unary_flags flags, libxs_meltw_unary_type type);
-LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype comp_type, libxs_meltw_binary_flags flags, libxs_meltw_binary_type type);
-LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary(libxs_blasint m, libxs_blasint n, const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldi3, const libxs_blasint* ldo, libxs_datatype in_type, libxs_datatype out_type, libxs_datatype comp_type, libxs_meltw_ternary_flags flags, libxs_meltw_ternary_type type);
+LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw( const libxs_meltw_descriptor* descriptor );
+LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_vecs_idx( const libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo,
+                                                                                              const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype idx_type,
+                                                                                              const libxs_meltw_opreduce_vecs_flags flags, const unsigned short bcast_param );
+LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary( const libxs_blasint m, const libxs_blasint n,
+                                                                      const libxs_blasint* ldi, const libxs_blasint* ldo,
+                                                                      const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type,
+                                                                      const libxs_meltw_unary_flags flags, const libxs_meltw_unary_type type );
+LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary( const libxs_blasint m, const libxs_blasint n,
+                                                                        const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldo,
+                                                                        const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type,
+                                                                        const libxs_meltw_binary_flags flags, const libxs_meltw_binary_type type );
+LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary( const libxs_blasint m, const libxs_blasint n,
+                                                                          const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldi3, const libxs_blasint* ldo,
+                                                                          const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type,
+                                                                          const libxs_meltw_ternary_flags flags, const libxs_meltw_ternary_type type );
 
 /** matrix equation interface */
 LIBXS_API libxs_blasint libxs_matrix_eqn_create(void);
-LIBXS_API int libxs_matrix_eqn_push_back_arg( const libxs_blasint idx, const libxs_blasint m, const libxs_blasint n, const libxs_blasint ld, const libxs_blasint in_pos, const libxs_blasint offs_in_pos, const libxs_datatype dtype );
+LIBXS_API int libxs_matrix_eqn_push_back_arg( const libxs_blasint idx, const libxs_blasint m, const libxs_blasint n, const libxs_blasint ld,
+                                                  const libxs_blasint in_pos, const libxs_blasint offs_in_pos, const libxs_datatype dtype );
 LIBXS_API int libxs_matrix_eqn_push_back_unary_op( const libxs_blasint idx, const libxs_meltw_unary_type type, const libxs_meltw_unary_flags flags, const libxs_datatype dtype );
 LIBXS_API int libxs_matrix_eqn_push_back_binary_op( const libxs_blasint idx, const libxs_meltw_binary_type type, const libxs_meltw_binary_flags flags, const libxs_datatype dtype );
 LIBXS_API int libxs_matrix_eqn_push_back_ternary_op( const libxs_blasint idx, const libxs_meltw_ternary_type type, const libxs_meltw_ternary_flags flags, const libxs_datatype dtype );
