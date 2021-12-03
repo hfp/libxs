@@ -1142,6 +1142,9 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       /* coverity[check_return] */
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
       gid = tid; /* protect initialization */
+#if defined(NDEBUG)
+      LIBXS_UNUSED(gid);
+#endif
 #if (0 != LIBXS_SYNC)
       /* coverity[check_return] */
       LIBXS_TLS_CREATE(&libxs_tlskey);
