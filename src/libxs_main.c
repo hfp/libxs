@@ -275,10 +275,6 @@ LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_thread_count);
 LIBXS_APIVAR_PUBLIC_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
 
-#if (0 != LIBXS_SYNC)
-LIBXS_APIVAR_PRIVATE_DEF(LIBXS_TLS_TYPE libxs_tlskey);
-#endif
-
 
 LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 {
@@ -1144,8 +1140,6 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       gid = tid; /* protect initialization */
       LIBXS_UNUSED_NDEBUG(gid);
 #if (0 != LIBXS_SYNC)
-      /* coverity[check_return] */
-      LIBXS_TLS_CREATE(&libxs_tlskey);
       { /* construct and initialize locks */
 # if defined(LIBXS_REGLOCK_TRY)
         const char *const env_trylock = getenv("LIBXS_TRYLOCK");
@@ -1439,8 +1433,6 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, internal_reglock_ptr);
 # endif
     LIBXS_LOCK_RELEASE(LIBXS_LOCK, &libxs_lock_global);
-    /* coverity[check_return] */
-    LIBXS_TLS_DESTROY(libxs_tlskey);
 #endif
   }
 }

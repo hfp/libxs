@@ -510,17 +510,17 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_ACQREAD_mutex(LOCK) LIBXS_LOCK_ACQUIRE_mutex(LOCK)
 #     define LIBXS_LOCK_RELREAD_mutex(LOCK) LIBXS_LOCK_RELEASE_mutex(LOCK)
 #     define LIBXS_LOCK_ATTR_TYPE_mutex pthread_mutexattr_t
-#if !defined(__linux__) || defined(__USE_UNIX98) || defined(__USE_XOPEN2K8)
-#     if defined(_DEBUG)
-#       define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) (LIBXS_EXPECT(0 == pthread_mutexattr_init(ATTR)), \
-                LIBXS_EXPECT(0 == pthread_mutexattr_settype(ATTR, PTHREAD_MUTEX_ERRORCHECK)))
+#     if !defined(__linux__) || defined(__USE_UNIX98) || defined(__USE_XOPEN2K8)
+#       if defined(_DEBUG)
+#         define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) (LIBXS_EXPECT(0 == pthread_mutexattr_init(ATTR)), \
+                 LIBXS_EXPECT(0 == pthread_mutexattr_settype(ATTR, PTHREAD_MUTEX_ERRORCHECK)))
+#       else
+#         define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) (pthread_mutexattr_init(ATTR), \
+                 pthread_mutexattr_settype(ATTR, PTHREAD_MUTEX_NORMAL))
+#       endif
 #     else
-#       define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) (pthread_mutexattr_init(ATTR), \
-                pthread_mutexattr_settype(ATTR, PTHREAD_MUTEX_NORMAL))
+#       define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) pthread_mutexattr_init(ATTR)
 #     endif
-#else
-#     define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) pthread_mutexattr_init(ATTR)
-#endif
 #     define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_EXPECT(0 == pthread_mutexattr_destroy(ATTR))
 #   endif
 #   if defined(LIBXS_LOCK_SYSTEM_RWLOCK)
@@ -545,6 +545,7 @@ typedef enum libxs_atomic_kind {
  * libxs and libxsext are built with OpenMP support.
  */
 # if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
+#   include <omp.h>
 #   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
 #     define LIBXS_LOCK_ACQUIRED_spin 1
 #     define LIBXS_LOCK_TYPE_ISPOD_spin 0

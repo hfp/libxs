@@ -38,10 +38,6 @@
 # endif
 #endif
 
-#if !defined(LIBXS_SYNC_GENERIC_PID) && 1
-# define LIBXS_SYNC_GENERIC_PID
-#endif
-
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_sync_core_tag { /* per-core */
   uint8_t id;
@@ -647,20 +643,12 @@ LIBXS_API_INTERN unsigned int internal_get_tid(void)
 LIBXS_API unsigned int libxs_get_tid(void)
 {
 #if (0 != LIBXS_SYNC)
-# if defined(LIBXS_SYNC_GENERIC_PID)
+# if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
+  return (unsigned int)omp_get_thread_num();
+# else
   static LIBXS_TLS unsigned int tid = 0xFFFFFFFF;
   if (0xFFFFFFFF == tid) tid = internal_get_tid();
   return tid;
-# else
-  void* tls = LIBXS_TLS_GETVALUE(libxs_tlskey);
-  if (NULL == tls) {
-    static unsigned int tid[LIBXS_NTHREADS_MAX];
-    const int i = internal_get_tid();
-    tid[i] = i; tls = tid + i;
-    /* coverity[check_return] */
-    LIBXS_TLS_SETVALUE(libxs_tlskey, tls);
-  }
-  return *(unsigned int*)tls;
 # endif
 #else
   return 0;
