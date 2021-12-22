@@ -35,35 +35,51 @@ int main(/*int argc, char* argv[]*/)
 #endif
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
     result = (NULL == libxs_xregister(key, /*too large*/LIBXS_DESCRIPTOR_MAXSIZE + 1,
-      strlen(value[0]) + 1, value[0], NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
+      strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
     result = (NULL == libxs_xregister(NULL, 16, /* invalid combination */
-      strlen(value[0]) + 1, value[0], NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
+      strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
     result = (NULL == libxs_xregister(NULL, 0, /* invalid combination */
-      strlen(value[0]) + 1, value[0], NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
+      strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
     result = (NULL == libxs_xregister(key, key_size,
-      0, NULL, NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
+      0, NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
 #if (0 != LIBXS_JIT) /* registry service is only available if JIT is enabled */
-  if (EXIT_SUCCESS == result) { /* same key but (larger) payload; initialized later */
-    result = (NULL != libxs_xregister(key, key_size,
-      strlen(value[0]) + 1, NULL, NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
+  if (EXIT_SUCCESS == result) { /* register and initialize value later */
+    char* v = (char*)libxs_xregister(key, key_size, strlen(value[0]) + 1, NULL);
+    strcpy(v, value[0]); /* initialize value after registration */
+    result = (NULL != v ? EXIT_SUCCESS : EXIT_FAILURE);
   }
-  if (EXIT_SUCCESS == result) { /* re-register same key with larger payload */
+  if (EXIT_SUCCESS == result) { /* retrieve previously registered value */
+    const char *const v = (const char*)libxs_xdispatch(key, key_size);
+    result = (0 == strcmp(v, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
+  }
+  if (EXIT_SUCCESS == result) { /* re-register with larger payload (failure) */
     result = (NULL == libxs_xregister(key, key_size,
-      strlen(value[3]) + 1, value[0], NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
+      strlen(value[3]) + 1, value[3]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
-  if (EXIT_SUCCESS == result) { /* release registered value */
+  if (EXIT_SUCCESS == result) { /* release entry (enabled for user-data) */
     libxs_xrelease(key, key_size);
   }
-  for (i = 0; i < n && EXIT_SUCCESS == result; ++i) {
+  if (EXIT_SUCCESS == result) { /* re-register with larger payload */
+    result = (NULL != libxs_xregister(key, key_size,
+      strlen(value[3]) + 1, value[3]) ? EXIT_SUCCESS : EXIT_FAILURE);
+  }
+  if (EXIT_SUCCESS == result) { /* retrieve previously registered value */
+    const char* const v = (const char*)libxs_xdispatch(key, key_size);
+    result = (0 == strcmp(v, value[3]) ? EXIT_SUCCESS : EXIT_FAILURE);
+  }
+  if (EXIT_SUCCESS == result) { /* release entry (enabled for user-data) */
+    libxs_xrelease(key, key_size);
+  }
+  for (i = 0; i < n && EXIT_SUCCESS == result; ++i) { /* register all entries */
     result = (NULL != libxs_xregister(key + i, key_size,
-      strlen(value[i]) + 1, value[i], NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
+      strlen(value[i]) + 1, value[i]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) {
     const void* regkey = NULL;
@@ -82,7 +98,7 @@ int main(/*int argc, char* argv[]*/)
     }
   }
   for (i = 0; i < n && EXIT_SUCCESS == result; ++i) {
-    const char *const v = (char*)libxs_xdispatch(key + i, key_size, NULL);
+    const char *const v = (char*)libxs_xdispatch(key + i, key_size);
     libxs_kernel_info info;
     result = libxs_get_kernel_info(v, &info);
     if (EXIT_SUCCESS == result) {
