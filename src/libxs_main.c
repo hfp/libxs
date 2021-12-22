@@ -2249,7 +2249,7 @@ LIBXS_API_INLINE void internal_pad_descriptor(libxs_descriptor* desc, signed cha
 }
 
 
-LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, size_t desc_size, size_t user_size, unsigned int* hash)
+LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, size_t desc_size, size_t user_size)
 {
   libxs_code_pointer flux_entry = { 0 };
   const int is_big_desc = LIBXS_DESCRIPTOR_ISBIG(desc->kind);
@@ -2269,7 +2269,6 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   unsigned char cache_index;
   const unsigned int ninit = LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED);
   internal_pad_descriptor(desc, size);
-  LIBXS_ASSERT(NULL != hash);
   if (0 == is_big_desc) {
     LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
     LIBXS_DIFF_N(unsigned char, cache_index, LIBXS_DIFF(LIBXS_DIFF_SIZE), xdesc, cache->entry.keys,
@@ -2286,12 +2285,11 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   else
 #else
   internal_pad_descriptor(desc, size);
-  LIBXS_ASSERT(NULL != hash);
 #endif
   {
     unsigned int i, i0, mode = 0, diff = 1;
-    *hash = LIBXS_CRC32(LIBXS_HASH_SIZE)(LIBXS_HASH_SEED, desc);
-    i0 = i = LIBXS_MOD2(*hash, LIBXS_CAPACITY_REGISTRY);
+    unsigned int hash = LIBXS_CRC32(LIBXS_HASH_SIZE)(LIBXS_HASH_SEED, desc);
+    i0 = i = LIBXS_MOD2(hash, LIBXS_CAPACITY_REGISTRY);
     LIBXS_ASSERT(&desc->kind == &desc->gemm.pad && desc->kind == desc->gemm.pad);
     LIBXS_ASSERT(NULL != internal_registry);
     do { /* use calculated location and check if the requested code is already JITted */
@@ -2749,14 +2747,13 @@ LIBXS_API void* libxs_get_registry_next(const void* regentry, const void** key)
 
 
 LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
-  size_t value_size, const void* value_init, unsigned int* key_hash)
+  size_t value_size, const void* value_init)
 {
   static int error_once = 0;
   void* result;
   LIBXS_INIT /* verbosity */
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size) {
     libxs_descriptor wrap;
-    unsigned int hash = 0;
     void* dst;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, key_size);
@@ -2765,8 +2762,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
     wrap.kind = (libxs_descriptor_kind)(LIBXS_DESCRIPTOR_SIGSIZE >= key_size
       ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_USER)
       : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
-    dst = internal_find_code(&wrap, key_size, value_size, &hash).ptr;
-    if (NULL != key_hash) *key_hash = hash;
+    dst = internal_find_code(&wrap, key_size, value_size).ptr;
     if (NULL != dst) {
       size_t size;
       if (EXIT_SUCCESS == libxs_get_malloc_xinfo(dst, &size, NULL/*flags*/, NULL/*extra*/)
@@ -2804,7 +2800,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
 }
 
 
-LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size, unsigned int* key_hash)
+LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
 {
   void* result;
   LIBXS_INIT /* verbosity */
@@ -2812,7 +2808,6 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size, unsigned int* 
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size)
 #endif
   {
-    unsigned int hash = 0;
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, key_size);
@@ -2821,8 +2816,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size, unsigned int* 
     wrap.kind = (libxs_descriptor_kind)(LIBXS_DESCRIPTOR_SIGSIZE >= key_size
       ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_USER)
       : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
-    result = internal_find_code(&wrap, key_size, 0/*user_size*/, &hash).ptr;
-    if (NULL != key_hash) *key_hash = hash;
+    result = internal_find_code(&wrap, key_size, 0/*user_size*/).ptr;
   }
 #if !defined(NDEBUG)
   else {
@@ -2841,7 +2835,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size, unsigned int* 
 
 LIBXS_API void libxs_xrelease(const void* key, size_t key_size)
 {
-  libxs_release_kernel(libxs_xdispatch(key, key_size, NULL/*key_hash*/));
+  libxs_release_kernel(libxs_xdispatch(key, key_size));
 }
 
 
@@ -2853,7 +2847,6 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
   LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
 #endif
   if (NULL != descriptor) {
-    unsigned int hash;
     const int batch_reduce =
       LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS |
       LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET |
@@ -2869,7 +2862,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
       wrap.gemm.desc.prefetch = (unsigned char)libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
     }
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xgemm;
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xgemm;
 #if defined(_DEBUG)
     if (LIBXS_VERBOSITY_HIGH <= libxs_verbosity && INT_MAX != libxs_verbosity && NULL != result.xmm) {
       LIBXS_STDIO_ACQUIRE();
@@ -4376,14 +4369,13 @@ LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor
   LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
 #endif
   if (NULL != descriptor) {
-    unsigned int hash;
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
     LIBXS_ASSIGN127(&wrap.meltw.desc, descriptor);
     wrap.kind = LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MELTW);
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xmateltw;
+    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xmateltw;
   }
   else {
     result.xmeltw = NULL;
@@ -4466,24 +4458,19 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_
   LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
 #endif
   if (NULL != descriptor) {
-    unsigned int hash;
     libxs_descriptor wrap;
-
     /* check if equation is ready for JIT */
-    if ( libxs_matrix_eqn_is_ready_for_jit( descriptor->eqn_idx) == 0 ) {
+    if (0 == libxs_matrix_eqn_is_ready_for_jit( descriptor->eqn_idx)) {
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
       LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
       LIBXS_ASSIGN127(&wrap.meqn.desc, descriptor);
       wrap.kind = LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MEQN);
-      result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/, &hash).xmateqn;
-    } else {
-      result = NULL;
+      result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xmateqn;
     }
+    else result = NULL;
   }
-  else {
-    result = NULL;
-  }
+  else result = NULL;
   return result;
 }
 
@@ -4925,20 +4912,16 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall)(
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xregister)(void** /*regval*/, const void* /*key*/, const int* /*keysize*/,
-  const int* /*valsize*/, const void* /*valinit*/, int* /*keyhash*/);
+  const int* /*valsize*/, const void* /*valinit*/);
 LIBXS_API void LIBXS_FSYMBOL(libxs_xregister)(void** regval, const void* key, const int* keysize,
-  const int* valsize, const void* valinit, int* keyhash)
+  const int* valsize, const void* valinit)
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
   if (NULL != regval && NULL != key && NULL != keysize && NULL != valsize)
 #endif
   {
-    unsigned int hash = 0;
-    *regval = libxs_xregister(key, *keysize, *valsize, valinit, &hash);
-    if (NULL != keyhash) {
-      *keyhash = (hash & 0x7FFFFFFF/*sign-bit*/);
-    }
+    *regval = libxs_xregister(key, *keysize, *valsize, valinit);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -4951,19 +4934,15 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xregister)(void** regval, const void* key, co
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xdispatch)(void** /*regval*/, const void* /*key*/, const int* /*keysize*/, int* /*keyhash*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xdispatch)(void** regval, const void* key, const int* keysize, int* keyhash)
+LIBXS_API void LIBXS_FSYMBOL(libxs_xdispatch)(void** /*regval*/, const void* /*key*/, const int* /*keysize*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_xdispatch)(void** regval, const void* key, const int* keysize)
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
   if (NULL != regval && NULL != key && NULL != keysize)
 #endif
   {
-    unsigned int hash = 0;
-    *regval = libxs_xdispatch(key, *keysize, &hash);
-    if (NULL != keyhash) {
-      *keyhash = (hash & 0x7FFFFFFF/*sign-bit*/);
-    }
+    *regval = libxs_xdispatch(key, *keysize);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
