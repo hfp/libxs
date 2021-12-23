@@ -59,6 +59,12 @@ int main(/*int argc, char* argv[]*/)
     const char *const v = (const char*)libxs_xdispatch(key, key_size);
     result = (0 == strcmp(v, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
+  if (EXIT_SUCCESS == result) { /* re-register with same size of payload */
+    const size_t samesize = strlen(value[0]);
+    char* v = (char*)libxs_xregister(key, key_size, samesize + 1, value[5]);
+    v[samesize] = '\0';
+    result = (0 == strncmp(v, value[5], samesize) ? EXIT_SUCCESS : EXIT_FAILURE);
+  }
   if (EXIT_SUCCESS == result) { /* re-register with larger payload (failure) */
     result = (NULL == libxs_xregister(key, key_size,
       strlen(value[3]) + 1, value[3]) ? EXIT_SUCCESS : EXIT_FAILURE);
