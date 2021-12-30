@@ -33,8 +33,6 @@ libxs_bmmdispatch_reducebatch_strd
 libxs_bmmdispatch_reducebatch_strd_meltwfused
 libxs_bmmdispatch_reducebatch_strd_meltwfused_unroll
 libxs_bmmdispatch_reducebatch_strd_unroll
-libxs_bsgemm
-libxs_bsgemm_
 libxs_bsgemm_descriptor_init
 libxs_bsmmdispatch
 libxs_bsmmdispatch_reducebatch_addr
@@ -400,7 +398,6 @@ libxs_ptr_smm
 libxs_ptr_w0
 libxs_ptr_w1
 libxs_ptr_w2
-libxs_ptr_wimm
 libxs_ptr_z0
 libxs_ptr_z1
 libxs_ptr_z2
@@ -410,7 +407,6 @@ libxs_release_kernel
 libxs_release_kernel_
 libxs_release_scratch
 libxs_release_smmkernel
-libxs_release_wimmkernel
 libxs_remainder
 libxs_rnaz_convert_fp32_bf16
 libxs_rne_convert_fp32_bf16
@@ -531,17 +527,7 @@ libxs_uubimmdispatch_reducebatch_offs
 libxs_uubimmdispatch_reducebatch_offs_unroll
 libxs_uubimmdispatch_reducebatch_strd
 libxs_uubimmdispatch_reducebatch_strd_unroll
-libxs_wigemm
-libxs_wigemm0
-libxs_wigemm1
-libxs_wigemm2
-libxs_wigemm3
-libxs_wigemm_
 libxs_wigemm_descriptor_init
-libxs_wimmavailable
-libxs_wimmcall
-libxs_wimmcall_abc
-libxs_wimmcall_prf
 libxs_wimmdispatch
 libxs_wimmdispatch_reducebatch_addr
 libxs_wimmdispatch_reducebatch_addr_unroll

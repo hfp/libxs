@@ -84,25 +84,18 @@
 #define LIBXS_TPREFIX(TYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_TPREFIX_NAME(TYPE), FUNCTION)
 #define LIBXS_TPREFIX_doubledouble d
 #define LIBXS_TPREFIX_floatfloat s
-#define LIBXS_TPREFIX_shortfloat ws
-#define LIBXS_TPREFIX_shortint wi
-#define LIBXS_TPREFIX_libxs_bfloat16float bs
 /** Defaults if only the input type is specified. */
 #define LIBXS_TPREFIX_double LIBXS_TPREFIX_doubledouble
 #define LIBXS_TPREFIX_float LIBXS_TPREFIX_floatfloat
-#define LIBXS_TPREFIX_short LIBXS_TPREFIX_shortint
 
 #define LIBXS_GEMM_XFLAGS(ITYPE, OTYPE) LIBXS_CONCATENATE(LIBXS_GEMM_XFLAGS_, ITYPE) /* ignore OTYPE for now */
 #define LIBXS_GEMM_XFLAGS_double 0
 #define LIBXS_GEMM_XFLAGS_float 0
-#define LIBXS_GEMM_XFLAGS_libxs_bfloat16 LIBXS_GEMM_FLAG_VNNI_A
-#define LIBXS_GEMM_XFLAGS_int 0
-#define LIBXS_GEMM_XFLAGS_short 0
 
 /** Construct symbol name from a given real type name (float, double and short). */
 #define LIBXS_BLAS_FNTYPE(TYPE, KIND) LIBXS_CONCATENATE3(libxs_, LIBXS_TPREFIX(TYPE, KIND), _function)
 #define LIBXS_MMFUNCTION_TYPE(TYPE)   LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmfunction))
-#define LIBXS_MMDISPATCH_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmdispatch))
+#define LIBXS_MMDISPATCH_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmdispatch_v2))
 #define LIBXS_XBLAS_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_USEOMP(LIBXS_XGEMM_SYMBOL(TYPE))
@@ -134,8 +127,6 @@
 #define LIBXS_EQUAL_doubledouble 1
 #define LIBXS_EQUAL_floatdouble 0
 #define LIBXS_EQUAL_doublefloat 0
-#define LIBXS_EQUAL_shortdouble 0
-#define LIBXS_EQUAL_shortfloat 0
 
 #if defined(LIBXS_BLAS_CONST)
 # undef LIBXS_BLAS_CONST
@@ -345,14 +336,12 @@
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
 #define LIBXS_MMCALL_ABC(FN, A, B, C) \
   LIBXS_ASSERT(FN); FN(A, B, C)
+/* @TODO fix prefetch */
 #define LIBXS_MMCALL_PRF(FN, A, B, C, PA, PB, PC) { \
   LIBXS_NOPREFETCH_A(LIBXS_UNUSED(PA)); \
   LIBXS_NOPREFETCH_B(LIBXS_UNUSED(PB)); \
   LIBXS_NOPREFETCH_C(LIBXS_UNUSED(PC)); \
-  LIBXS_ASSERT(FN); FN(A, B, C, \
-    LIBXS_GEMM_PREFETCH_A(PA), \
-    LIBXS_GEMM_PREFETCH_B(PB), \
-    LIBXS_GEMM_PREFETCH_C(PC)); \
+  LIBXS_ASSERT(FN); FN(A, B, C); \
 }
 
 #if (0/*LIBXS_GEMM_PREFETCH_NONE*/ == LIBXS_PREFETCH)
@@ -396,7 +385,7 @@
  * LIBXS_XGEMM_FALLBACK1: above LIBXS_MAX_MNK
  */
 #define LIBXS_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
-  const int libxs_xgemm_flags_ = LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, LIBXS_FLAGS) | LIBXS_GEMM_XFLAGS(ITYPE, OTYPE); \
+  const int libxs_xgemm_flags_ = LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, LIBXS_FLAGS) | LIBXS_GEMM_XFLAGS(ITYPE, OTYPE) | ( NULL != (BETA) ? ((*(BETA) == 0) ? LIBXS_GEMM_FLAG_BETA_0 : 0) : 0 ); \
   const libxs_blasint *const libxs_xgemm_k_ = (NULL != (K) ? (K) : (M)); \
   const libxs_blasint *const libxs_xgemm_n_ = (NULL != (N) ? (N) : libxs_xgemm_k_); \
   const libxs_blasint libxs_xgemm_lda_ = LIBXS_MAX(NULL != ((void*)(LDA)) ? *(LDA) : \
@@ -407,7 +396,7 @@
   if (LIBXS_SMM(*(M), *libxs_xgemm_n_, *libxs_xgemm_k_, 2/*RFO*/, sizeof(OTYPE))) { \
     const LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) libxs_mmfunction_ = LIBXS_MMDISPATCH_SYMBOL2(ITYPE, OTYPE)( \
       *(M), *libxs_xgemm_n_, *libxs_xgemm_k_, &libxs_xgemm_lda_, &libxs_xgemm_ldb_, &libxs_xgemm_ldc_, \
-      (const OTYPE*)(ALPHA), (const OTYPE*)(BETA), &libxs_xgemm_flags_, NULL); \
+      &libxs_xgemm_flags_); \
     if (NULL != libxs_mmfunction_) { \
       LIBXS_MMCALL_LDX(libxs_mmfunction_, (const ITYPE*)(A), (const ITYPE*)(B), (OTYPE*)(C), \
         *(M), *libxs_xgemm_n_, *libxs_xgemm_k_, libxs_xgemm_lda_, libxs_xgemm_ldb_, libxs_xgemm_ldc_); \
@@ -485,7 +474,7 @@
 #define LIBXS_GEMM_PRINT(OSTREAM, PRECISION, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC) \
   LIBXS_GEMM_PRINT2(OSTREAM, PRECISION, PRECISION, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC)
 #define LIBXS_GEMM_PRINT2(OSTREAM, IPREC, OPREC, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC) \
-  libxs_gemm_dprint2(OSTREAM, (libxs_gemm_precision)(IPREC), (libxs_gemm_precision)(OPREC), \
+  libxs_gemm_dprint2(OSTREAM, (libxs_datatype)(IPREC), (libxs_datatype)(OPREC), \
     /* Use 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
     (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'n' : 't'), \
     (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'n' : 't'), \
@@ -498,25 +487,25 @@
  * e.g., ITK-SNAP or ParaView.
  */
 LIBXS_API void libxs_gemm_print(void* ostream,
-  libxs_gemm_precision precision, const char* transa, const char* transb,
+  libxs_datatype precision, const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const void* alpha, const void* a, const libxs_blasint* lda,
   const void* b, const libxs_blasint* ldb,
   const void* beta, void* c, const libxs_blasint* ldc);
 LIBXS_API void libxs_gemm_print2(void* ostream,
-  libxs_gemm_precision iprec, libxs_gemm_precision oprec, const char* transa, const char* transb,
+  libxs_datatype iprec, libxs_datatype oprec, const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const void* alpha, const void* a, const libxs_blasint* lda,
   const void* b, const libxs_blasint* ldb,
   const void* beta, void* c, const libxs_blasint* ldc);
 LIBXS_API void libxs_gemm_dprint(void* ostream,
-  libxs_gemm_precision precision, char transa, char transb,
+  libxs_datatype precision, char transa, char transb,
   libxs_blasint m, libxs_blasint n, libxs_blasint k,
   double dalpha, const void* a, libxs_blasint lda,
   const void* b, libxs_blasint ldb,
   double dbeta, void* c, libxs_blasint ldc);
 LIBXS_API void libxs_gemm_dprint2(void* ostream,
-  libxs_gemm_precision iprec, libxs_gemm_precision oprec, char transa, char transb,
+  libxs_datatype iprec, libxs_datatype oprec, char transa, char transb,
   libxs_blasint m, libxs_blasint n, libxs_blasint k,
   double dalpha, const void* a, libxs_blasint lda,
   const void* b, libxs_blasint ldb,
@@ -557,24 +546,24 @@ LIBXS_API void libxs_sink(LIBXS_VARIADIC);
  * but allows to rely on LIBXS's defaults (libxs_config.h)
  * when supplying NULL-arguments in certain places.
  */
-LIBXS_API void libxs_blas_xgemm(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
+LIBXS_API void libxs_blas_xgemm(libxs_datatype iprec, libxs_datatype oprec,
   const char* transa, const char* transb, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const void* alpha, const void* a, const libxs_blasint* lda,
   const void* b, const libxs_blasint* ldb,
   const void* beta, void* c, const libxs_blasint* ldc);
 
 #define libxs_blas_dgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  libxs_blas_xgemm(LIBXS_GEMM_PRECISION_F64, LIBXS_GEMM_PRECISION_F64, \
+  libxs_blas_xgemm(LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, \
     TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #define libxs_blas_sgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  libxs_blas_xgemm(LIBXS_GEMM_PRECISION_F32, LIBXS_GEMM_PRECISION_F32, \
+  libxs_blas_xgemm(LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, \
     TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
 #define libxs_dgemm_omp(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  libxs_xgemm_omp(LIBXS_GEMM_PRECISION_F64, LIBXS_GEMM_PRECISION_F64, \
+  libxs_xgemm_omp(LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, \
     TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #define libxs_sgemm_omp(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  libxs_xgemm_omp(LIBXS_GEMM_PRECISION_F32, LIBXS_GEMM_PRECISION_F32, \
+  libxs_xgemm_omp(LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, \
     TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
 /** Translates GEMM prefetch request into prefetch-enumeration (incl. FE's auto-prefetch). */
