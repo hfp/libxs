@@ -26,9 +26,7 @@ LIBXS_EXTERN_C LIBXS_MMFUNCTION_TYPE2(ITYPE, OTYPE) mmdispatch(int m, int n, int
   result = mmfunction.kernel().LIBXS_TPREFIX2(ITYPE, OTYPE, mm);
 #else
   result = LIBXS_MMDISPATCH_SYMBOL2(ITYPE, OTYPE)(m, n, k,
-    NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/,
-    NULL/*alpha*/, NULL/*beta*/,
-    NULL/*flags*/, NULL/*prefetch*/);
+    NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, NULL/*flags*/);
 #endif
   return result;
 }

@@ -418,7 +418,7 @@ LIBXS_API_INLINE void internal_update_mmstatistic(const libxs_gemm_descriptor* d
   LIBXS_ASSERT(NULL != desc);
   if (1 < desc->m && 1 < desc->n) { /* only record matrix-matrix multiplication */
     const unsigned long long kernel_size = LIBXS_MNK_SIZE(desc->m, desc->n, desc->k);
-    const int idx = (LIBXS_GEMM_PRECISION_F64 == LIBXS_GETENUM_OUT(desc->datatype) ? 0 : 1);
+    const int idx = (LIBXS_DATATYPE_F64 == LIBXS_GETENUM_OUT(desc->datatype) ? 0 : 1);
     int bucket;
     if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= kernel_size) {
       bucket = 0;
@@ -538,7 +538,7 @@ LIBXS_API_INLINE unsigned int internal_statistic_ntry(int precision)
 
 #if !defined(_WIN32)
 LIBXS_API_INLINE void internal_register_static_code(
-  libxs_gemm_precision precision, libxs_blasint m, libxs_blasint n, libxs_blasint k,
+  libxs_datatype precision, libxs_blasint m, libxs_blasint n, libxs_blasint k,
   libxs_xmmfunction xgemm, libxs_code_pointer* registry)
 {
   const libxs_blasint lda = m, ldb = k, ldc = m;
@@ -1723,23 +1723,23 @@ LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype)
     case LIBXS_DATATYPE_I16:  return "i16";
     case LIBXS_DATATYPE_I8:   return "i8";
     default: {
-      if (LIBXS_GEMM_PRECISION_I16 == LIBXS_GETENUM_INP(datatype) &&
-          LIBXS_GEMM_PRECISION_I32 == LIBXS_GETENUM_OUT(datatype))
+      if (LIBXS_DATATYPE_I16 == LIBXS_GETENUM_INP(datatype) &&
+          LIBXS_DATATYPE_I32 == LIBXS_GETENUM_OUT(datatype))
       {
         return "i16i32";
       }
-      else if (LIBXS_GEMM_PRECISION_I16 == LIBXS_GETENUM_INP(datatype) &&
-               LIBXS_GEMM_PRECISION_F32 == LIBXS_GETENUM_OUT(datatype))
+      else if (LIBXS_DATATYPE_I16 == LIBXS_GETENUM_INP(datatype) &&
+               LIBXS_DATATYPE_F32 == LIBXS_GETENUM_OUT(datatype))
       {
         return "i16f32";
       }
-      else if (LIBXS_GEMM_PRECISION_I8 == LIBXS_GETENUM_INP(datatype) &&
-               LIBXS_GEMM_PRECISION_I32 == LIBXS_GETENUM_OUT(datatype))
+      else if (LIBXS_DATATYPE_I8 == LIBXS_GETENUM_INP(datatype) &&
+               LIBXS_DATATYPE_I32 == LIBXS_GETENUM_OUT(datatype))
       {
         return "i8i32";
       }
-      else if (LIBXS_GEMM_PRECISION_BF16 == LIBXS_GETENUM_INP(datatype) &&
-               LIBXS_GEMM_PRECISION_F32 == LIBXS_GETENUM_OUT(datatype))
+      else if (LIBXS_DATATYPE_BF16 == LIBXS_GETENUM_INP(datatype) &&
+               LIBXS_DATATYPE_F32 == LIBXS_GETENUM_OUT(datatype))
       {
         return "bf16f32";
       }
@@ -1821,7 +1821,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 #if !defined(__MIC__)
   const char * /*const*/ target_arch = libxs_cpuid_name(libxs_target_archid);
   /* large enough temporary buffer for generated code */
-  char jit_buffer[LIBXS_CODE_MAXSIZE], jit_name[256] = { 0 };
+  char jit_buffer[LIBXS_CODE_MAXSIZE], jit_name[384] = { 0 };
   libxs_generated_code generated_code;
   libxs_kernel_xinfo extra;
 
@@ -1855,8 +1855,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         extra.nflops = 2 * m * n * k;
 # if !defined(LIBXS_DENY_RETARGET) /* disable: ECFLAGS=-DLIBXS_DENY_RETARGET */
         if ((LIBXS_X86_AVX2 < libxs_target_archid) && (libxs_target_archid <= LIBXS_X86_ALLFEAT) &&
-           (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype) ||
-            LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype)) &&
+           (LIBXS_DATATYPE_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype) ||
+            LIBXS_DATATYPE_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.gemm->datatype)) &&
            (16 >= (m * k) || 16 >= (k * n) || 16 >= (m * n)))
         {
           /* TODO: shall we update variable "target_arch" (name)? */
@@ -1871,7 +1871,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.gemm->prefetch);
           const char *const tname = libxs_typename((libxs_datatype)request->descriptor.gemm->datatype);
           const char *const meltw_tname = libxs_typename((libxs_datatype)request->descriptor.gemm->meltw_datatype_aux);
-          int typesigns = 0, br = 0;
+          int typesigns = 0, br = 0, kernabi = 0;
           char tc_option[16] = { 0 };
           int decompress_A = 0;
           int sparsity_factor_A = 1;
@@ -1890,6 +1890,14 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             br = 3;
           } else {
             br = 0;
+          }
+          /* determining ai type */
+          if ( ((LIBXS_GEMM_FLAG_USE_XGEMM_ABI & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_USE_XGEMM_ABI) ) {
+            kernabi = 1;
+          } else if ( ((LIBXS_GEMM_FLAG_USE_XGEMM_EXT_ABI & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_USE_XGEMM_EXT_ABI) ) {
+            kernabi = 2;
+          } else {
+            kernabi = 0;
           }
           /* query A/B sign combinations */
           if ( (LIBXS_GEMM_FLAG_A_UNSIGNED & request->descriptor.gemm->flags) > 1 ) {
@@ -1914,9 +1922,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           } else {
             LIBXS_SNPRINTF(tc_option, sizeof(tc_option), "abid");
           }
-          if ( request->descriptor.gemm->meltw_operation != 0 ) {
+          if ( (request->descriptor.gemm->meltw_operation != 0) && (kernabi == 0) ) {
             /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_meop%u-%s_mefl%u_meld%u-%u-%u_decompress_A%i_spfactor%i.mxm", target_arch, tname,
+            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_abi%i_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_meop%u-%s_mefl%u_meld%u-%u-%u_decompress_A%i_spfactor%i.mxm", kernabi, target_arch, tname,
               0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
               0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
               request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
@@ -1925,11 +1933,28 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               0 != (LIBXS_GEMM_FLAG_VNNI_A  & request->descriptor.gemm->flags) ? 1 : 0,
               0 != (LIBXS_GEMM_FLAG_VNNI_B  & request->descriptor.gemm->flags) ? 1 : 0,
               0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0,
-              (unsigned int)request->descriptor.gemm->meltw_operation, meltw_tname, (unsigned int)request->descriptor.gemm->meltw_flags,
+              (unsigned int)request->descriptor.gemm->meltw_param, meltw_tname, (unsigned int)request->descriptor.gemm->meltw_flags,
               request->descriptor.gemm->meltw_ldx, request->descriptor.gemm->meltw_ldy, request->descriptor.gemm->meltw_ldz, decompress_A, sparsity_factor_A );
+          } else if (kernabi == 2) {
+            /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
+            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_abi%i_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_meopd%u-%s-mefld%u-meld%u-%u-%u_meopap%u-meflap%u-melap%u_meopbp%u-meflbp%u-melbp%u_meopcp%u-meflcp%u-melcp%u_mestore%u_decompress_A%i_spfactor%i.mxm", kernabi, target_arch, tname,
+              0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
+              0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
+              request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
+              1, 0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.gemm->flags) ? 0 : 1, uid,
+              br, (unsigned int)request->descriptor.gemm->c3, typesigns, tc_option,
+              0 != (LIBXS_GEMM_FLAG_VNNI_A  & request->descriptor.gemm->flags) ? 1 : 0,
+              0 != (LIBXS_GEMM_FLAG_VNNI_B  & request->descriptor.gemm->flags) ? 1 : 0,
+              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0,
+              (unsigned int)request->descriptor.gemm->meltw_param, meltw_tname, (unsigned int)request->descriptor.gemm->meltw_flags,
+              request->descriptor.gemm->meltw_ldx, request->descriptor.gemm->meltw_ldy, request->descriptor.gemm->meltw_ldz,
+              (unsigned int)request->descriptor.gemm->eltw_ap_param, (unsigned int)request->descriptor.gemm->eltw_ap_flags, request->descriptor.gemm->ldap,
+              (unsigned int)request->descriptor.gemm->eltw_bp_param, (unsigned int)request->descriptor.gemm->eltw_bp_flags, request->descriptor.gemm->ldbp,
+              (unsigned int)request->descriptor.gemm->eltw_cp_param, (unsigned int)request->descriptor.gemm->eltw_cp_flags, request->descriptor.gemm->ldcp, (unsigned int)request->descriptor.gemm->internal_flags_2,
+              decompress_A, sparsity_factor_A );
           } else {
             /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_decompress_A%i_spfactor%i.mxm", target_arch, tname,
+            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_abi%i_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_decompress_A%i_spfactor%i.mxm", kernabi, target_arch, tname,
               0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
               0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
               request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
@@ -1946,8 +1971,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       LIBXS_ASSERT(NULL != request->descriptor.pspgemm_csr && 0 != request->descriptor.pspgemm_csr->gemm);
       LIBXS_ASSERT(NULL != request->descriptor.pspgemm_csr->row_ptr && 0 != request->descriptor.pspgemm_csr->column_idx && 0 != request->descriptor.pspgemm_csr->values);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pspgemm_csr->gemm->datatype) ||
-          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pspgemm_csr->gemm->datatype))
+      if (LIBXS_DATATYPE_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pspgemm_csr->gemm->datatype) ||
+          LIBXS_DATATYPE_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pspgemm_csr->gemm->datatype))
       {
         const unsigned int nnz = (request->descriptor.pspgemm_csr->gemm->lda == 0) ?
             request->descriptor.pspgemm_csr->row_ptr[request->descriptor.pspgemm_csr->gemm->m] : request->descriptor.pspgemm_csr->row_ptr[request->descriptor.pspgemm_csr->gemm->k];
@@ -1977,8 +2002,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       LIBXS_ASSERT(NULL != request->descriptor.pspgemm_csc && 0 != request->descriptor.pspgemm_csc->gemm);
       LIBXS_ASSERT(NULL != request->descriptor.pspgemm_csc->row_idx && 0 != request->descriptor.pspgemm_csc->column_ptr && 0 != request->descriptor.pspgemm_csc->values);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pspgemm_csc->gemm->datatype) ||
-          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pspgemm_csc->gemm->datatype))
+      if (LIBXS_DATATYPE_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pspgemm_csc->gemm->datatype) ||
+          LIBXS_DATATYPE_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pspgemm_csc->gemm->datatype))
       {
         const unsigned int nnz = (request->descriptor.pspgemm_csc->gemm->lda == 0) ?
             request->descriptor.pspgemm_csc->column_ptr[request->descriptor.pspgemm_csc->gemm->k] : request->descriptor.pspgemm_csc->column_ptr[request->descriptor.pspgemm_csc->gemm->n];
@@ -2007,8 +2032,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     case LIBXS_BUILD_KIND_PGEMMRMAC: { /* packed GEMM, B regular matrix, row-major */
       LIBXS_ASSERT(NULL != request->descriptor.pgemmacrm && 0 != request->descriptor.pgemmacrm->gemm);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype) ||
-          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype))
+      if (LIBXS_DATATYPE_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype) ||
+          LIBXS_DATATYPE_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype))
       {
         extra.nflops = 2 * request->descriptor.pgemmacrm->packed_width * request->descriptor.pgemmacrm->gemm->m * request->descriptor.pgemmacrm->gemm->n * request->descriptor.pgemmacrm->gemm->k;
         LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_ac_rm, &generated_code, request->descriptor.pgemmacrm->gemm, request->descriptor.pgemmacrm->packed_width);
@@ -2033,8 +2058,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     case LIBXS_BUILD_KIND_PGEMMRMBC: { /* packed GEMM, A regular matrix, row-major */
       LIBXS_ASSERT(NULL != request->descriptor.pgemmbcrm && 0 != request->descriptor.pgemmbcrm->gemm);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype) ||
-          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype))
+      if (LIBXS_DATATYPE_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype) ||
+          LIBXS_DATATYPE_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype))
       {
         extra.nflops = 2 * request->descriptor.pgemmbcrm->packed_width * request->descriptor.pgemmbcrm->gemm->m * request->descriptor.pgemmbcrm->gemm->n * request->descriptor.pgemmbcrm->gemm->k;
         LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_bc_rm, &generated_code, request->descriptor.pgemmbcrm->gemm, request->descriptor.pgemmbcrm->packed_width);
@@ -2060,8 +2085,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       LIBXS_ASSERT(NULL != request->descriptor.sreg && 0 != request->descriptor.sreg->gemm);
       LIBXS_ASSERT(NULL != request->descriptor.sreg->row_ptr && 0 != request->descriptor.sreg->column_idx && 0 != request->descriptor.sreg->values);
       /* only floating point */
-      if (LIBXS_GEMM_PRECISION_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.sreg->gemm->datatype) ||
-          LIBXS_GEMM_PRECISION_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.sreg->gemm->datatype))
+      if (LIBXS_DATATYPE_F64 == /*LIBXS_GETENUM_OUT*/(request->descriptor.sreg->gemm->datatype) ||
+          LIBXS_DATATYPE_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.sreg->gemm->datatype))
       {
         const unsigned int nnz = request->descriptor.sreg->row_ptr[request->descriptor.sreg->gemm->m];
         extra.nflops = 2 * libxs_cpuid_vlen32(libxs_target_archid)/2 * request->descriptor.sreg->gemm->n * nnz;
@@ -2562,8 +2587,8 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
     if (libxs_verbosity < 0) {
       fprintf(stderr, "LIBXS WARNING: libxs_get_mmkernel_info is not implemented on MacOS aarch64!\n");
     }
-    info->iprecision = LIBXS_GEMM_PRECISION_F32;
-    info->oprecision = LIBXS_GEMM_PRECISION_F32;
+    info->iprecision = LIBXS_DATATYPE_F32;
+    info->oprecision = LIBXS_DATATYPE_F32;
     info->prefetch = LIBXS_GEMM_PREFETCH_NONE;
     info->flags = LIBXS_GEMM_FLAG_NONE;
     info->lda = info->ldb = info->ldc = 1;
@@ -2574,8 +2599,8 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
     if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
         NULL != desc && LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind))
     {
-      info->iprecision = (libxs_gemm_precision)LIBXS_GETENUM_INP(desc->gemm.desc.datatype);
-      info->oprecision = (libxs_gemm_precision)LIBXS_GETENUM_OUT(desc->gemm.desc.datatype);
+      info->iprecision = (libxs_datatype)LIBXS_GETENUM_INP(desc->gemm.desc.datatype);
+      info->oprecision = (libxs_datatype)LIBXS_GETENUM_OUT(desc->gemm.desc.datatype);
       info->prefetch = (libxs_gemm_prefetch_type)desc->gemm.desc.prefetch;
       info->flags = desc->gemm.desc.flags;
       info->lda = desc->gemm.desc.lda;
@@ -2850,12 +2875,16 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     const int batch_reduce =
       LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS |
       LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET |
-      LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE;
+      LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE |
+      LIBXS_GEMM_FLAG_USE_XGEMM_ABI |
+      LIBXS_GEMM_FLAG_USE_XGEMM_EXT_ABI;
     libxs_descriptor wrap;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
     LIBXS_ASSIGN127(&wrap.gemm.desc, descriptor);
+    /* @TODO fix this code for the 3 kernel types we have
+     * right now XGEMM ABI and BRGEMM go to 96 byte */
     wrap.kind = (libxs_descriptor_kind)(0 == (batch_reduce & descriptor->flags)
       ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_MATMUL)
       : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MATMUL));
@@ -2876,6 +2905,164 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     result.xmm = NULL;
   }
   return result;
+}
+
+
+LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape_flags shape_flags, const libxs_gemm_batch_reduce_config br_config ) {
+  int gemm_flags = (NULL == (shape_flags.flags) ? LIBXS_FLAGS : *(shape_flags.flags));
+  libxs_descriptor_blob blob;
+  libxs_xmmfunction result;
+  libxs_gemm_descriptor *desc = NULL;
+
+  /* @TODO some checks */
+  if ( shape_flags.a_in_type != shape_flags.b_in_type ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utiliztes an arg struct */
+  gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
+
+  /* set BRGEMM option */
+  if ( br_config.br_type == LIBXS_GEMM_BATCH_REDUCE_ADDRESS ) {
+    gemm_flags |= LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS;
+  } else if ( br_config.br_type == LIBXS_GEMM_BATCH_REDUCE_OFFSET ) {
+    gemm_flags |= LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET;
+  } else if ( br_config.br_type == LIBXS_GEMM_BATCH_REDUCE_STRIDE ) {
+    gemm_flags |= LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE;
+  } else {
+    /* not a BRGEMM */
+  }
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_dinit2(&blob, shape_flags.a_in_type, shape_flags.out_type,
+    shape_flags.m, shape_flags.n, shape_flags.k,
+    NULL != shape_flags.lda ? *(shape_flags.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? shape_flags.m : shape_flags.k),
+    NULL != shape_flags.ldb ? *(shape_flags.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? shape_flags.k : shape_flags.n),
+    NULL != shape_flags.ldc ? *(shape_flags.ldc) : shape_flags.m, LIBXS_ALPHA, !((*(shape_flags.flags) & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+      gemm_flags, libxs_get_gemm_xprefetch(shape_flags.prefetch));
+
+  /* add more BRGEMM related fields */
+  if ( (br_config.br_type != LIBXS_GEMM_BATCH_REDUCE_NONE) && (br_config.br_unroll_hint != 0) ) {
+    desc->c3 = (unsigned char)(((br_config.br_unroll_hint < 255) && (br_config.br_unroll_hint > 0)) ? br_config.br_unroll_hint : 0);
+  }
+  if ( br_config.br_type == LIBXS_GEMM_BATCH_REDUCE_STRIDE ) {
+    desc->c1 = br_config.br_stride_a_hint;
+    desc->c2 = br_config.br_stride_b_hint;
+  }
+
+  /* JIT! */
+  result = libxs_xmmdispatch(desc);
+
+  return result.gemm;
+}
+
+
+LIBXS_API libxs_gemmfunction_ext libxs_dispatch_gemm_ext_v2( const libxs_gemm_shape_flags shape_flags, const libxs_gemm_batch_reduce_config br_config,
+                                                                const libxs_gemm_ext_unary_argops unary_argops, const libxs_gemm_ext_binary_postops binary_postops ) {
+  int gemm_flags = (NULL == (shape_flags.flags) ? LIBXS_FLAGS : *(shape_flags.flags));
+  libxs_descriptor_blob blob;
+  libxs_xmmfunction result;
+  libxs_gemm_descriptor *desc = NULL;
+
+  /* @TODO some checks */
+  if ( shape_flags.a_in_type != shape_flags.b_in_type ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utiliztes an arg struct */
+  gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_EXT_ABI;
+
+  /* set BRGEMM option */
+  if ( br_config.br_type == LIBXS_GEMM_BATCH_REDUCE_ADDRESS ) {
+    gemm_flags |= LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS;
+  } else if ( br_config.br_type == LIBXS_GEMM_BATCH_REDUCE_OFFSET ) {
+    gemm_flags |= LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET;
+  } else if ( br_config.br_type == LIBXS_GEMM_BATCH_REDUCE_STRIDE ) {
+    gemm_flags |= LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE;
+  } else {
+    /* not a BRGEMM */
+  }
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_dinit2(&blob, shape_flags.a_in_type, shape_flags.out_type,
+    shape_flags.m, shape_flags.n, shape_flags.k,
+    NULL != shape_flags.lda ? *(shape_flags.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? shape_flags.m : shape_flags.k),
+    NULL != shape_flags.ldb ? *(shape_flags.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? shape_flags.k : shape_flags.n),
+    NULL != shape_flags.ldc ? *(shape_flags.ldc) : shape_flags.m, LIBXS_ALPHA, !((*(shape_flags.flags) & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+      gemm_flags, libxs_get_gemm_xprefetch(shape_flags.prefetch));
+
+  /* add more BRGEMM related fields */
+  if ( (br_config.br_type != LIBXS_GEMM_BATCH_REDUCE_NONE) && (br_config.br_unroll_hint != 0) ) {
+    desc->c3 = (unsigned char)(((br_config.br_unroll_hint < 255) && (br_config.br_unroll_hint > 0)) ? br_config.br_unroll_hint : 0);
+  }
+  if ( br_config.br_type == LIBXS_GEMM_BATCH_REDUCE_STRIDE ) {
+    desc->c1 = br_config.br_stride_a_hint;
+    desc->c2 = br_config.br_stride_b_hint;
+  }
+
+  /* setting binary post-op eltwise fields */
+  desc->meltw_datatype_aux = (unsigned char)binary_postops.d_in_type;
+  desc->meltw_flags = (unsigned short)binary_postops.d_binary_flags;
+  desc->meltw_param = (unsigned short)binary_postops.d_binary_type;
+  desc->meltw_operation = ( binary_postops.d_binary_type == LIBXS_MELTW_TYPE_BINARY_NONE ) ? LIBXS_MELTW_OPERATION_NONE : LIBXS_MELTW_OPERATION_BINARY;
+  desc->meltw_ldx = (NULL != binary_postops.ldd) ? *(binary_postops.ldd) : shape_flags.m;
+  desc->meltw_ldy = 0;
+  desc->meltw_ldz = 0;
+
+  /* setting unary argops eltwise fileds */
+  desc->internal_flags_2 = 0;
+  desc->eltw_ap_op = ( unary_argops.ap_unary_type == LIBXS_MELTW_TYPE_UNARY_NONE ) ? LIBXS_MELTW_OPERATION_NONE : LIBXS_MELTW_OPERATION_UNARY;
+  desc->eltw_ap_flags = (unsigned short)unary_argops.ap_unary_flags;
+  desc->eltw_ap_param = (unsigned short)unary_argops.ap_unary_type;
+  desc->ldap = (NULL != unary_argops.ldap) ? *(unary_argops.ldap) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? shape_flags.m : shape_flags.k);
+  desc->internal_flags_2 |= (unary_argops.store_ap != 0) ? 0x1 : 0x0;
+
+  desc->eltw_bp_op = ( unary_argops.bp_unary_type == LIBXS_MELTW_TYPE_UNARY_NONE ) ? LIBXS_MELTW_OPERATION_NONE : LIBXS_MELTW_OPERATION_UNARY;
+  desc->eltw_bp_flags = (unsigned short)unary_argops.bp_unary_flags;
+  desc->eltw_bp_param = (unsigned short)unary_argops.bp_unary_type;
+  desc->ldbp = (NULL != unary_argops.ldbp) ? *(unary_argops.ldbp) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? shape_flags.k : shape_flags.n);
+  desc->internal_flags_2 |= (unary_argops.store_bp != 0) ? 0x2 : 0x0;
+
+  desc->eltw_cp_op = ( unary_argops.cp_unary_type == LIBXS_MELTW_TYPE_UNARY_NONE ) ? LIBXS_MELTW_OPERATION_NONE : LIBXS_MELTW_OPERATION_UNARY;
+  desc->eltw_cp_flags = (unsigned short)unary_argops.cp_unary_flags;
+  desc->eltw_cp_param = (unsigned short)unary_argops.cp_unary_type;
+  desc->ldcp = (NULL != unary_argops.ldcp) ? *(unary_argops.ldcp) : shape_flags.m;
+  desc->internal_flags_2 |= (unary_argops.store_cp != 0) ? 0x4 : 0x0;
+
+  /* JIT! */
+  result = libxs_xmmdispatch(desc);
+
+  return result.gemm_ext;
+}
+
+
+LIBXS_API libxs_dmmfunction libxs_dmmdispatch_v2( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
+                                                      const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
+                                                      const int* basicflags ) {
+  const int gemm_flags = (NULL == basicflags ? LIBXS_FLAGS : *basicflags); /* we leverage that basic flags and flags alias */
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_dgemm_descriptor_init(&blob, m, n, k,
+    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
+    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
+    NULL != ldc ? *ldc : m, LIBXS_ALPHA, !((gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    gemm_flags, libxs_get_gemm_xprefetch(NULL));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.dmm;
+}
+
+
+LIBXS_API libxs_smmfunction libxs_smmdispatch_v2( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
+                                                      const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
+                                                      const int* basicflags ) {
+  const int gemm_flags = (NULL == basicflags ? LIBXS_FLAGS : *basicflags); /* we leverage that basic flags and flags alias */
+  libxs_descriptor_blob blob;
+  const libxs_gemm_descriptor *const desc = libxs_sgemm_descriptor_init(&blob, m, n, k,
+    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
+    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
+    NULL != ldc ? *ldc : m, LIBXS_ALPHA, !((gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    gemm_flags, libxs_get_gemm_xprefetch(NULL));
+  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
+  return result.smm;
 }
 
 
@@ -4770,11 +4957,11 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn, const int* iprec,
     libxs_descriptor_blob blob;
     libxs_code_pointer result;
 #if !defined(NDEBUG)
-    const libxs_gemm_precision itype = (NULL != iprec ? ((libxs_gemm_precision)*iprec) : LIBXS_GEMM_PRECISION_F64);
-    const libxs_gemm_precision otype = (NULL != oprec ? ((libxs_gemm_precision)*oprec) : itype);
+    const libxs_datatype itype = (NULL != iprec ? ((libxs_datatype)*iprec) : LIBXS_DATATYPE_F64);
+    const libxs_datatype otype = (NULL != oprec ? ((libxs_datatype)*oprec) : itype);
     const libxs_blasint kk = *(NULL != k ? k : m), nn = (NULL != n ? *n : kk);
 #else
-    const libxs_gemm_precision itype = (libxs_gemm_precision)*iprec, otype = (libxs_gemm_precision)*oprec;
+    const libxs_datatype itype = (libxs_datatype)*iprec, otype = (libxs_datatype)*oprec;
     const libxs_blasint kk = *k, nn = *n;
 #endif
     LIBXS_PRAGMA_FORCEINLINE
@@ -4878,7 +5065,11 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
     if (NULL != fn->xmm)
 #endif
     {
-      fn->xmm(a, b, c, pa, pb, pc);
+      /* @TODO fix prefetch */
+      LIBXS_UNUSED( pa );
+      LIBXS_UNUSED( pb );
+      LIBXS_UNUSED( pc );
+      fn->xmm(a, b, c/*, pa, pb, pc*/); /* @TODO fix prefetch */
     }
 #if !defined(NDEBUG)
     else if (0 != libxs_verbosity /* library code is expected to be mute */

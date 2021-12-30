@@ -237,11 +237,26 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
   /** LDx, LDy, LDz,  additional meltw LDs */
   unsigned int meltw_ldx, meltw_ldy, meltw_ldz;
   /** optional param field */
-  unsigned char meltw_param;
+  unsigned short meltw_param;
   /** Set of flags */
   unsigned short meltw_flags;
   /** operation specifier */
   unsigned char meltw_operation;
+  /* Ap, Bp, Cp */
+  unsigned char eltw_ap_op;
+  unsigned char eltw_bp_op;
+  unsigned char eltw_cp_op;
+  unsigned short eltw_ap_flags;
+  unsigned short eltw_bp_flags;
+  unsigned short eltw_cp_flags;
+  unsigned short eltw_ap_param;
+  unsigned short eltw_bp_param;
+  unsigned short eltw_cp_param;
+  unsigned int ldap;
+  unsigned int ldbp;
+  unsigned int ldcp;
+  /* internal flags2 */
+  unsigned char internal_flags_2;
 };
 
 /** Packed structure storing the mateltw argument description. */
@@ -992,7 +1007,7 @@ LIBXS_API void libxs_xfree(const void* memory, int check);
  */
 LIBXS_API_INTERN size_t libxs_format_value(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
 
-/** Returns the type-name of data-type (can be also libxs_gemm_precision). */
+/** Returns the type-name of data-type (can be also libxs_datatype). */
 LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype);
 
 /** Dump data and (optionally) checks attempt to dump different data into an existing file (unique). */
@@ -1001,7 +1016,7 @@ LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void*
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
-/** Returns the type-size of data-type (can be also libxs_gemm_precision). */
+/** Returns the type-size of data-type (can be also libxs_datatype). */
 LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_kernel_xinfo {

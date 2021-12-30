@@ -44,15 +44,14 @@
 int test(libxs_blasint /*m*/, libxs_blasint /*n*/, libxs_blasint /*k*/);
 int test(libxs_blasint m, libxs_blasint n, libxs_blasint k)
 {
-  const OTYPE alpha = 1, beta = 0;
+  const int flags = LIBXS_GEMM_FLAG_BETA_0;
   LIBXS_MMFUNCTION_TYPE2(ITYPE,OTYPE) kernel;
   int result = EXIT_FAILURE;
 #if defined(_OPENMP) && !defined(CHECK_PARALLEL_JIT)
 # pragma omp single
 #endif
   kernel = LIBXS_MMDISPATCH_SYMBOL2(ITYPE,OTYPE)(m, n, k,
-    NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, &alpha, &beta,
-    NULL/*flags*/, NULL/*prefetch*/);
+    NULL/*lda*/, NULL/*ldb*/, NULL/*ldc*/, &flags);
   if (NULL != kernel) {
     libxs_mmkernel_info info;
     libxs_xmmfunction xmm;
@@ -62,8 +61,8 @@ int test(libxs_blasint m, libxs_blasint n, libxs_blasint k)
       const unsigned int um = (unsigned int)m, un = (unsigned int)n, uk = (unsigned int)k;
       if ( um != info.m || un != info.n || uk != info.k
         || um != info.lda || uk != info.ldb || um != info.ldc
-        || LIBXS_GEMM_PRECISION(ITYPE) != info.iprecision
-        || LIBXS_GEMM_PRECISION(OTYPE) != info.oprecision)
+        || LIBXS_DATATYPE(ITYPE) != info.iprecision
+        || LIBXS_DATATYPE(OTYPE) != info.oprecision)
       {
 #if defined(_DEBUG) || defined(USE_VERBOSE)
         fprintf(stderr, "Error: the %" PRIuPTR "x%" PRIuPTR "x%" PRIuPTR "-kernel does not match!\n",
@@ -90,7 +89,7 @@ int main(void)
 {
   union { libxs_xmmfunction x; void* p; } f[MAX_NKERNELS];
   const OTYPE alpha = LIBXS_ALPHA, beta = LIBXS_BETA;
-  const int prefetch = LIBXS_PREFETCH_AUTO;
+  const int prefetch = LIBXS_PREFETCH_NONE;
   libxs_registry_info registry_info;
   const int max_shape = LIBXS_MAX_M, flags = LIBXS_FLAGS;
   int result = EXIT_SUCCESS, nkernels = MAX_NKERNELS, ndup = 0, i;
@@ -172,7 +171,7 @@ int main(void)
       const libxs_blasint n = r[3*i+1] % max_shape + 1;
       const libxs_blasint k = r[3*i+2] % max_shape + 1;
       f[i].x.LIBXS_TPREFIX2(ITYPE,OTYPE,mm) = LIBXS_MMDISPATCH_SYMBOL2(ITYPE,OTYPE)(
-        m, n, k, &m/*lda*/, &k/*ldb*/, &m/*ldc*/, &alpha, &beta, &flags, &prefetch);
+        m, n, k, &m/*lda*/, &k/*ldb*/, &m/*ldc*/, &flags);
     }
   }
 
@@ -186,7 +185,7 @@ int main(void)
       const libxs_blasint k = r[3*i+2] % max_shape + 1;
       union { libxs_xmmfunction x; void* p; } fi;
       libxs_descriptor_blob blob;
-      const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init(&blob, LIBXS_GEMM_PRECISION2(ITYPE,OTYPE),
+      const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init(&blob, LIBXS_DATATYPE2(ITYPE,OTYPE),
         m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/, &alpha, &beta, flags, prefetch);
 
       fi.x = libxs_xmmdispatch(desc);

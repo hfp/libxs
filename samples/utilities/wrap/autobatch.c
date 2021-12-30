@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
 # if defined(_OPENMP)
 #     pragma omp single nowait
 # endif /* enable batch-recording of the specified matrix multiplication */
-      libxs_mmbatch_begin(LIBXS_GEMM_PRECISION(ITYPE),
+      libxs_mmbatch_begin(LIBXS_DATATYPE(ITYPE),
         &flags, &m, &n, &k, &lda, &ldb, &ldc, &alpha, &beta);
 #endif
 #if defined(_OPENMP)

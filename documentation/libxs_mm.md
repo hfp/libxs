@@ -89,7 +89,7 @@ To process a batch of matrix multiplications and to prefetch the operands of the
 
 ```C
 /** Batched matrix multiplications (explicit data representation). */
-int libxs_mmbatch(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
+int libxs_mmbatch(libxs_datatype iprec, libxs_datatype oprec,
   const char* transa, const char* transb,
   libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const void* alpha, const void* a, const libxs_blasint* lda,
@@ -108,7 +108,7 @@ To further simplify the multiplication of matrices in a batch, LIBXS's batch int
 Please note that an explicit data representation should exist and reused rather than created only to call the explicit batch-interface. Creating such a data structure only for this matter can introduce an overhead which is hard to amortize (speedup). If no explicit data structure exists, a "chain" of multiplications can be often algorithmically described (see [self-hosted batch loop](#implicit-batches)).
 
 ```C
-void libxs_gemm_batch(libxs_gemm_precision iprec, libxs_gemm_precision oprec,
+void libxs_gemm_batch(libxs_datatype iprec, libxs_datatype oprec,
   const char* transa, const char* transb,
   libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const void* alpha, const void* a, const libxs_blasint* lda,
