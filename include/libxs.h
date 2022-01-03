@@ -552,9 +552,9 @@ LIBXS_API int libxs_matrix_eqn_push_back_unary_op( const libxs_blasint idx, cons
 LIBXS_API int libxs_matrix_eqn_push_back_binary_op( const libxs_blasint idx, const libxs_meltw_binary_type type, const libxs_meltw_binary_flags flags, const libxs_datatype dtype );
 LIBXS_API int libxs_matrix_eqn_push_back_ternary_op( const libxs_blasint idx, const libxs_meltw_ternary_type type, const libxs_meltw_ternary_flags flags, const libxs_datatype dtype );
 LIBXS_API int libxs_matrix_eqn_push_back_arg_v2( const libxs_blasint idx, const libxs_meqn_arg_shape arg_shape, const libxs_blasint in_pos, const libxs_blasint offs_in_pos );
-LIBXS_API int libxs_matrix_eqn_push_back_unary_op_v2( const libxs_blasint idx, const libxs_meltw_unary_type type, const libxs_datatype dtype, const libxs_meltw_unary_flags flags );
-LIBXS_API int libxs_matrix_eqn_push_back_binary_op_v2( const libxs_blasint idx, const libxs_meltw_binary_type type, const libxs_datatype dtype, const libxs_meltw_binary_flags flags );
-LIBXS_API int libxs_matrix_eqn_push_back_ternary_op_v2( const libxs_blasint idx, const libxs_meltw_ternary_type type, const libxs_datatype dtype, const libxs_meltw_ternary_flags flags );
+LIBXS_API int libxs_matrix_eqn_push_back_unary_op_v2( const libxs_blasint idx, const libxs_meltw_unary_type unary_type, const libxs_datatype dtype, const libxs_bitfield unary_flags );
+LIBXS_API int libxs_matrix_eqn_push_back_binary_op_v2( const libxs_blasint idx, const libxs_meltw_binary_type binary_type, const libxs_datatype dtype, const libxs_bitfield binary_flags );
+LIBXS_API int libxs_matrix_eqn_push_back_ternary_op_v2( const libxs_blasint idx, const libxs_meltw_ternary_type ternary_type, const libxs_datatype dtype, const libxs_bitfield ternary_flags );
 LIBXS_API void libxs_matrix_eqn_tree_print( const libxs_blasint idx );
 LIBXS_API void libxs_matrix_eqn_rpn_print( const libxs_blasint idx );
 LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_meqn_descriptor* descriptor );
