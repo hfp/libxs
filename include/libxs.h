@@ -126,9 +126,11 @@ LIBXS_API void libxs_xrelease(const void* key, size_t key_size);
 /** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (descriptor form). */
 LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);
 /** Query or JIT-generate SMM-kernel general mixed precision options and batch reduce; returns NULL if it does not exist or if JIT is not supported */
-LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape_flags shape_flags, const libxs_gemm_batch_reduce_config br_config );
+LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
+                                                        const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config );
 /** Query or JIT-generate SMM-kernel with fusion, general mixed precision options and batch reduce; returns NULL if it does not exist or if JIT is not supported */
-LIBXS_API libxs_gemmfunction_ext libxs_dispatch_gemm_ext_v2( const libxs_gemm_shape_flags shape_flags, const libxs_gemm_batch_reduce_config br_config,
+LIBXS_API libxs_gemmfunction_ext libxs_dispatch_gemm_ext_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
+                                                                const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config,
                                                                 const libxs_gemm_ext_unary_argops unary_argops, const libxs_gemm_ext_binary_postops binary_postops );
 /** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (double-precision). */
 LIBXS_API libxs_dmmfunction libxs_dmmdispatch_v2( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
@@ -538,6 +540,9 @@ LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary( const libxs_
                                                                           const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldi3, const libxs_blasint* ldo,
                                                                           const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type,
                                                                           const libxs_meltw_ternary_flags flags, const libxs_meltw_ternary_type type );
+LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary_v2( const libxs_meltw_unary_type unary_type, const libxs_meltw_unary_shape unary_shape, const libxs_bitfield unary_flags );
+LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary_v2( const libxs_meltw_binary_type binary_type, const libxs_meltw_binary_shape binary_shape, const libxs_bitfield binary_flags );
+LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary_v2( const libxs_meltw_ternary_type ternary_type, const libxs_meltw_ternary_shape ternary_shape, const libxs_bitfield ternary_flags );
 
 /** matrix equation interface */
 LIBXS_API libxs_blasint libxs_matrix_eqn_create(void);
