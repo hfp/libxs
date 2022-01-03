@@ -551,10 +551,15 @@ LIBXS_API int libxs_matrix_eqn_push_back_arg( const libxs_blasint idx, const lib
 LIBXS_API int libxs_matrix_eqn_push_back_unary_op( const libxs_blasint idx, const libxs_meltw_unary_type type, const libxs_meltw_unary_flags flags, const libxs_datatype dtype );
 LIBXS_API int libxs_matrix_eqn_push_back_binary_op( const libxs_blasint idx, const libxs_meltw_binary_type type, const libxs_meltw_binary_flags flags, const libxs_datatype dtype );
 LIBXS_API int libxs_matrix_eqn_push_back_ternary_op( const libxs_blasint idx, const libxs_meltw_ternary_type type, const libxs_meltw_ternary_flags flags, const libxs_datatype dtype );
+LIBXS_API int libxs_matrix_eqn_push_back_arg_v2( const libxs_blasint idx, const libxs_meqn_arg_shape arg_shape, const libxs_blasint in_pos, const libxs_blasint offs_in_pos );
+LIBXS_API int libxs_matrix_eqn_push_back_unary_op_v2( const libxs_blasint idx, const libxs_meltw_unary_type type, const libxs_datatype dtype, const libxs_meltw_unary_flags flags );
+LIBXS_API int libxs_matrix_eqn_push_back_binary_op_v2( const libxs_blasint idx, const libxs_meltw_binary_type type, const libxs_datatype dtype, const libxs_meltw_binary_flags flags );
+LIBXS_API int libxs_matrix_eqn_push_back_ternary_op_v2( const libxs_blasint idx, const libxs_meltw_ternary_type type, const libxs_datatype dtype, const libxs_meltw_ternary_flags flags );
 LIBXS_API void libxs_matrix_eqn_tree_print( const libxs_blasint idx );
 LIBXS_API void libxs_matrix_eqn_rpn_print( const libxs_blasint idx );
 LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_meqn_descriptor* descriptor );
 LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn( const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldo, const libxs_datatype out_type, const unsigned int eqn_idx );
+LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2( const libxs_blasint idx, const libxs_meqn_arg_shape out_shape );
 
 /**
  * Code generation routine for the CSR format which multiplies a dense SOA matrix (each element holds a SIMD-width

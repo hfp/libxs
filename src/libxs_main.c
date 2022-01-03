@@ -4723,6 +4723,16 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn(
 }
 
 
+LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2(
+  const libxs_blasint idx, const libxs_meqn_arg_shape out_shape ) {
+  libxs_descriptor_blob blob;
+  const libxs_meqn_descriptor *const desc = libxs_meqn_descriptor_init(&blob,
+    out_shape.type, out_shape.m, out_shape.n, (out_shape.ld == NULL) ? out_shape.m : *(out_shape.ld), (unsigned int)idx );
+
+  return libxs_dispatch_matrix_eqn_desc( desc );
+}
+
+
 LIBXS_API libxs_xmmfunction libxs_create_packed_spxgemm_csr(const libxs_gemm_descriptor* descriptor, unsigned int packed_width,
   const unsigned int* row_ptr, const unsigned int* column_idx, const void* values)
 {
