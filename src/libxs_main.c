@@ -2938,7 +2938,7 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape_flag
     shape_flags.m, shape_flags.n, shape_flags.k,
     NULL != shape_flags.lda ? *(shape_flags.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? shape_flags.m : shape_flags.k),
     NULL != shape_flags.ldb ? *(shape_flags.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? shape_flags.k : shape_flags.n),
-    NULL != shape_flags.ldc ? *(shape_flags.ldc) : shape_flags.m, LIBXS_ALPHA, !((*(shape_flags.flags) & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    NULL != shape_flags.ldc ? *(shape_flags.ldc) : shape_flags.m, LIBXS_ALPHA, (shape_flags.flags != NULL) ? !((*(shape_flags.flags) & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0) : LIBXS_BETA,
       gemm_flags, libxs_get_gemm_xprefetch(shape_flags.prefetch));
 
   /* add more BRGEMM related fields */
@@ -2988,7 +2988,7 @@ LIBXS_API libxs_gemmfunction_ext libxs_dispatch_gemm_ext_v2( const libxs_gemm_sh
     shape_flags.m, shape_flags.n, shape_flags.k,
     NULL != shape_flags.lda ? *(shape_flags.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? shape_flags.m : shape_flags.k),
     NULL != shape_flags.ldb ? *(shape_flags.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? shape_flags.k : shape_flags.n),
-    NULL != shape_flags.ldc ? *(shape_flags.ldc) : shape_flags.m, LIBXS_ALPHA, !((*(shape_flags.flags) & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    NULL != shape_flags.ldc ? *(shape_flags.ldc) : shape_flags.m, LIBXS_ALPHA, (shape_flags.flags != NULL) ? !((*(shape_flags.flags) & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0) : LIBXS_BETA,
       gemm_flags, libxs_get_gemm_xprefetch(shape_flags.prefetch));
 
   /* add more BRGEMM related fields */
