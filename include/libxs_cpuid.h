@@ -43,6 +43,7 @@
 #define LIBXS_AARCH64_ALLFEAT       2999
 
 #if defined(LIBXS_PLATFORM_X86)
+LIBXS_API_INTERN int lixsmm_cpuid_x86_amx_enable();
 /** Zero-initialized structure; assumes conservative properties. */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_cpuid_info {
   int constant_tsc; /** Timer stamp counter is monotonic. */
