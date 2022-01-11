@@ -159,7 +159,13 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
       }
       /* enable AMX state in the OS on SPR and later */
       if ( feature_cpu >= LIBXS_X86_AVX512_SPR ) {
-        libxs_cpuid_x86_amx_enable();
+        const int amx_avail = libxs_cpuid_x86_amx_enable();
+        if ( amx_avail != 0 ) {
+          feature_cpu = LIBXS_X86_AVX512_CLX;
+# if !defined(NDEBUG)
+          fprintf(stderr, "LIBXS WARNING: AMX state allcation in the OS failed!\n");
+# endif
+        }
       }
 # if !defined(LIBXS_INTRINSICS_DEBUG)
       LIBXS_ASSERT_MSG(LIBXS_STATIC_TARGET_ARCH <= LIBXS_MAX(LIBXS_X86_GENERIC, feature_cpu), "missed detecting ISA extensions");
