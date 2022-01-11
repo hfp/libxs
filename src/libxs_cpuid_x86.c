@@ -57,6 +57,32 @@
 
 #define LIBXS_CPUID_CHECK(VALUE, CHECK) ((CHECK) == ((CHECK) & (VALUE)))
 
+#if defined(__linux__)
+#include <unistd.h>
+#include <sys/syscall.h>
+LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable()
+{
+  unsigned long bitmask = 0;
+  long status = syscall(SYS_arch_prctl, 0x1022, &bitmask);
+  if (0 != status) return -1;
+  if (bitmask & (1<<18)) return 0;
+
+  status = syscall(SYS_arch_prctl, 0x1023, 18);
+  if (0 != status) return -1; /* setup failed */
+  status = syscall(SYS_arch_prctl, 0x1022, &bitmask);
+
+  /* setup failed */
+  if (0 != status || !(bitmask & (1<18))) return -1;
+
+  /* setup successfull */
+  return 0;
+}
+#else
+LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable()
+{
+  return -1;
+}
+#endif
 
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
 {
@@ -130,6 +156,10 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
           else feature_cpu = LIBXS_X86_SSE42;
         }
         else feature_cpu = LIBXS_X86_SSE3;
+      }
+      /* enable AMX state in the OS on SPR and later */
+      if ( feature_cpu >= LIBXS_X86_AVX512_SPR ) {
+        libxs_cpuid_x86_amx_enable();
       }
 # if !defined(LIBXS_INTRINSICS_DEBUG)
       LIBXS_ASSERT_MSG(LIBXS_STATIC_TARGET_ARCH <= LIBXS_MAX(LIBXS_X86_GENERIC, feature_cpu), "missed detecting ISA extensions");
