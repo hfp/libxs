@@ -59,8 +59,11 @@
 
 LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void);
 #if defined(__linux__)
-#include <unistd.h>
-#include <sys/syscall.h>
+# include <sys/syscall.h>
+# include <unistd.h>
+# if !defined(LIBXS_BUILD) || (1 >= (LIBXS_BUILD))
+LIBXS_EXTERN long syscall(long number, ...);
+# endif
 LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void)
 {
   unsigned long bitmask = 0;
