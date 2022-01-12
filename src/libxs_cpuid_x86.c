@@ -57,10 +57,11 @@
 
 #define LIBXS_CPUID_CHECK(VALUE, CHECK) ((CHECK) == ((CHECK) & (VALUE)))
 
+LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void);
 #if defined(__linux__)
 #include <unistd.h>
 #include <sys/syscall.h>
-LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable()
+LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void)
 {
   unsigned long bitmask = 0;
   long status = syscall(SYS_arch_prctl, 0x1022, &bitmask);
@@ -78,7 +79,7 @@ LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable()
   return 0;
 }
 #else
-LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable()
+LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void)
 {
   return -1;
 }
