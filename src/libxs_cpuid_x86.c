@@ -162,13 +162,15 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
         else feature_cpu = LIBXS_X86_SSE3;
       }
       /* enable AMX state in the OS on SPR and later */
-      if ( feature_cpu >= LIBXS_X86_AVX512_SPR ) {
-        const int amx_avail = libxs_cpuid_x86_amx_enable();
-        if ( amx_avail != 0 ) {
+      if (feature_cpu >= LIBXS_X86_AVX512_SPR) {
+        if (0 != libxs_cpuid_x86_amx_enable()) {
+          static int error_once = 0;
+          if (0 != libxs_verbosity /* library code is expected to be mute */
+            && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          {
+            fprintf(stderr, "LIBXS WARNING: AMX state allocation in the OS failed!\n");
+          }
           feature_cpu = LIBXS_X86_AVX512_CLX;
-# if !defined(NDEBUG)
-          fprintf(stderr, "LIBXS WARNING: AMX state allcation in the OS failed!\n");
-# endif
         }
       }
 # if !defined(LIBXS_INTRINSICS_DEBUG)
