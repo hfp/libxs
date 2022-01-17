@@ -179,7 +179,7 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 # define LIBXS_MALLOC_LOCK_PAGES 1
 #endif
 #if !defined(LIBXS_MALLOC_LOCK_ALL) && \
-     defined(LIBXS_MALLOC_ALIGN_ALL) && 0
+    !defined(LIBXS_MALLOC_UNMOD) && 0
 # define LIBXS_MALLOC_LOCK_ALL
 #endif
 /* record real allocation size */
@@ -214,7 +214,7 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 # define INTERNAL_MALLOC_LOCK_PAGES(BUFFER, SIZE)
 #endif
 
-#if defined(LIBXS_MALLOC_ALIGN_ALL)
+#if !defined(LIBXS_MALLOC_UNMOD)
 # define INTERNAL_MALLOC_AUTOALIGN(SIZE, ALIGNMENT) libxs_alignment(SIZE, ALIGNMENT)
 #else
 # define INTERNAL_MALLOC_AUTOALIGN(SIZE, ALIGNMENT) (ALIGNMENT)
@@ -274,7 +274,7 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
       libxs_free(PTR); \
     } \
   }
-#elif defined(LIBXS_MALLOC_ALIGN_ALL)
+#elif !defined(LIBXS_MALLOC_UNMOD)
 # define INTERNAL_MEMALIGN_HOOK(RESULT, FLAGS, ALIGNMENT, SIZE, CALLER) do { \
     LIBXS_UNUSED(FLAGS); LIBXS_UNUSED(CALLER); \
     INTERNAL_MEMALIGN_REAL(RESULT, ALIGNMENT, SIZE); \
@@ -869,7 +869,7 @@ LIBXS_API_INTERN void* internal_memalign_twiddle(size_t alignment, size_t size)
 #endif
 #endif /*defined(LIBXS_MALLOC_HOOK_DYNAMIC)*/
 
-#if (defined(LIBXS_MALLOC_HOOK) && defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) || defined(LIBXS_MALLOC_ALIGN_ALL)
+#if (defined(LIBXS_MALLOC_HOOK) && defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) || !defined(LIBXS_MALLOC_UNMOD)
 LIBXS_API_INTERN void* internal_memalign_hook(size_t /*alignment*/, size_t /*size*/, const void* /*caller*/);
 LIBXS_API_INTERN void* internal_memalign_hook(size_t alignment, size_t size, const void* caller)
 {
@@ -968,7 +968,7 @@ LIBXS_API void __wrap_free(void* ptr)
 }
 #endif
 
-#if defined(LIBXS_MALLOC_HOOK_DYNAMIC) && ((defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) || defined(LIBXS_MALLOC_ALIGN_ALL))
+#if defined(LIBXS_MALLOC_HOOK_DYNAMIC) && ((defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) || !defined(LIBXS_MALLOC_UNMOD))
 LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t /*alignment*/, size_t /*size*/) LIBXS_THROW;
 LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t alignment, size_t size) LIBXS_THROW
 {
