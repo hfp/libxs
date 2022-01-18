@@ -685,7 +685,7 @@ LIBXS_API_INTERN void internal_finalize(void)
     const char *const target_arch = (NULL == env_target_hidden || 0 == atoi(env_target_hidden))
       ? libxs_cpuid_name(libxs_target_archid) : NULL/*hidden*/;
     fprintf(stderr, "\nLIBXS_VERSION: %s%s%s (%i)", LIBXS_BRANCH, 0 != *(LIBXS_BRANCH) ? "-" : "",
-      0 != *(LIBXS_VERSION) ? (LIBXS_VERSION) : "unconfigured", LIBXS_VERSION);
+      0 != *(LIBXS_VERSION) ? (LIBXS_VERSION) : "unconfigured", LIBXS_VERSION_NUMBER);
     if (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) {
       unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
       const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);

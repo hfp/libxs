@@ -112,7 +112,7 @@ LIBXS_API PyMODINIT_FUNC initlibxs(void)
     "Library targeting Intel Architecture for small, dense or "
     "sparse matrix multiplications, and small convolutions."));
   PyModule_AddIntConstant(pymod, "VERSION_API", LIBXS_VERSION2(LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR));
-  PyModule_AddIntConstant(pymod, "VERSION_ALL", LIBXS_VERSION);
+  PyModule_AddIntConstant(pymod, "VERSION_ALL", LIBXS_VERSION_NUMBER);
   PyModule_AddIntConstant(pymod, "VERSION_MAJOR", LIBXS_VERSION_MAJOR);
   PyModule_AddIntConstant(pymod, "VERSION_MINOR", LIBXS_VERSION_MINOR);
   PyModule_AddIntConstant(pymod, "VERSION_UPDATE", LIBXS_VERSION_UPDATE);
