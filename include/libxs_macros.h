@@ -148,6 +148,11 @@
 #define LIBXS_VERSION43(VERSION) (((VERSION) >> 14) & 0x1F)
 #define LIBXS_VERSION44(VERSION) (((VERSION)) & 0x3FFF)
 
+#if !defined(LIBXS_VERSION)
+# define LIBXS_VERSION LIBXS_VERSION4(LIBXS_VERSION_MAJOR, \
+    LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH)
+#endif
+
 #if !defined(LIBXS_UNPACKED) && (defined(_CRAYC) || defined(LIBXS_OFFLOAD_BUILD) || \
   (0 == LIBXS_SYNC)/*Windows: missing pack(pop) error*/)
 # define LIBXS_UNPACKED
