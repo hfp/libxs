@@ -2486,7 +2486,7 @@ LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock)
     char pending_size_buffer[32];
     libxs_format_value(pending_size_buffer, sizeof(pending_size_buffer),
       internal_malloc_public_cur + internal_malloc_local_cur, "KM", "B", 10);
-    fprintf(stderr, "LIBXS WARNING: %s pending scratch-memory by %" PRIuPTR " allocation%s!\n",
+    fprintf(stderr, "LIBXS WARNING: %s pending scratch-memory from %" PRIuPTR " allocation%s!\n",
       pending_size_buffer, (uintptr_t)scratch_info.npending, 1 < scratch_info.npending ? "s" : "");
   }
   if (NULL != pools) {
