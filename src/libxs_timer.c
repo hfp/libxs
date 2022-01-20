@@ -35,15 +35,16 @@
 
 #if defined(LIBXS_TIMER_TSC)
 # if defined(__powerpc64__)
-#   define LIBXS_TIMER_RDTSC(CYCLE) { \
+#   define LIBXS_TIMER_RDTSC(CYCLE) do { \
       CYCLE = __ppc_get_timebase(); \
-    }
+    } while(0)
 # elif ((defined(LIBXS_PLATFORM_X86) && (64 <= (LIBXS_BITS))) && \
         (defined(__GNUC__) || defined(LIBXS_INTEL_COMPILER) || defined(__PGI)))
-#   define LIBXS_TIMER_RDTSC(CYCLE) { libxs_timer_tickint libxs_timer_rdtsc_hi_; \
+#   define LIBXS_TIMER_RDTSC(CYCLE) do { \
+      libxs_timer_tickint libxs_timer_rdtsc_hi_; \
       __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
       CYCLE |= libxs_timer_rdtsc_hi_ << 32; \
-    }
+    } while(0)
 # elif (defined(_rdtsc) || defined(_WIN32))
 #   define LIBXS_TIMER_RDTSC(CYCLE) (CYCLE = __rdtsc())
 # endif

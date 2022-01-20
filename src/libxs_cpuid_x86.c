@@ -17,19 +17,19 @@
 /* XGETBV: receive results (EAX, EDX) for eXtended Control Register (XCR). */
 /* CPUID, receive results (EAX, EBX, ECX, EDX) for requested FUNCTION/SUBFN. */
 #if defined(_MSC_VER) /*defined(_WIN32) && !defined(__GNUC__)*/
-#   define LIBXS_XGETBV(XCR, EAX, EDX) { \
+#   define LIBXS_XGETBV(XCR, EAX, EDX) do { \
       unsigned long long libxs_xgetbv_ = _xgetbv(XCR); \
       (EAX) = (int)libxs_xgetbv_; \
       (EDX) = (int)(libxs_xgetbv_ >> 32); \
-    }
-#   define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) { \
+    } while(0)
+#   define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) do { \
       int libxs_cpuid_x86_[/*4*/] = { 0, 0, 0, 0 }; \
       __cpuidex(libxs_cpuid_x86_, FUNCTION, SUBFN); \
       (EAX) = (unsigned int)libxs_cpuid_x86_[0]; \
       (EBX) = (unsigned int)libxs_cpuid_x86_[1]; \
       (ECX) = (unsigned int)libxs_cpuid_x86_[2]; \
       (EDX) = (unsigned int)libxs_cpuid_x86_[3]; \
-    }
+    } while(0)
 # elif defined(__GNUC__) || !defined(_CRAYC)
 #   if (64 > (LIBXS_BITS))
       LIBXS_EXTERN LIBXS_RETARGETABLE int __get_cpuid( /* prototype */

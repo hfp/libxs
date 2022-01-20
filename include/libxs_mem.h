@@ -14,7 +14,7 @@
 #if defined(__clang_analyzer__)
 # define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) memset((void*)(PTRDST), VALUE, SIZE)
 #else
-# define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) { \
+# define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) do { \
   char *const libxs_memset127_dst_ = (char*)(PTRDST); \
   union { size_t size; signed char size1; } libxs_memset127_; \
   signed char libxs_memset127_i_; LIBXS_ASSERT((SIZE) <= 127); \
@@ -25,11 +25,11 @@
   { \
     libxs_memset127_dst_[libxs_memset127_i_] = (char)(VALUE); \
   } \
-}
+} while(0)
 #endif
 #define LIBXS_MEMZERO127(PTRDST) LIBXS_MEMSET127(PTRDST, '\0', sizeof(*(PTRDST)))
 
-#define LIBXS_MEMCPY127_LOOP(PTRDST, PTRSRC, SIZE, NTS) { \
+#define LIBXS_MEMCPY127_LOOP(PTRDST, PTRSRC, SIZE, NTS) do { \
   const unsigned char *const libxs_memcpy127_loop_src_ = (const unsigned char*)(PTRSRC); \
   unsigned char *const libxs_memcpy127_loop_dst_ = (unsigned char*)(PTRDST); \
   signed char libxs_memcpy127_loop_i_; LIBXS_ASSERT((SIZE) <= 127); \
@@ -40,14 +40,14 @@
     libxs_memcpy127_loop_dst_[libxs_memcpy127_loop_i_] = \
     libxs_memcpy127_loop_src_[libxs_memcpy127_loop_i_]; \
   } \
-}
+} while(0)
 #define LIBXS_MEMCPY127_NTS(...)
 #define LIBXS_MEMCPY127(PTRDST, PTRSRC, SIZE) \
   LIBXS_MEMCPY127_LOOP(PTRDST, PTRSRC, SIZE, LIBXS_MEMCPY127_NTS)
-#define LIBXS_ASSIGN127(PTRDST, PTRSRC) { \
+#define LIBXS_ASSIGN127(PTRDST, PTRSRC) do { \
   LIBXS_ASSERT(sizeof(*(PTRSRC)) <= sizeof(*(PTRDST))); \
   LIBXS_MEMCPY127(PTRDST, PTRSRC, sizeof(*(PTRSRC))); \
-}
+} while(0)
 
 
 /**

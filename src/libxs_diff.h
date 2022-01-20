@@ -101,7 +101,7 @@
 #define LIBXS_DIFF_LOAD(N, A, SRC) LIBXS_CONCATENATE3(LIBXS_DIFF_, N, _LOAD)(A, SRC)
 #define LIBXS_DIFF(N) LIBXS_CONCATENATE(LIBXS_DIFF_, N)
 
-#define LIBXS_DIFF_N(TYPE, RESULT, DIFF, A, BN, ELEMSIZE, STRIDE, HINT, N) { \
+#define LIBXS_DIFF_N(TYPE, RESULT, DIFF, A, BN, ELEMSIZE, STRIDE, HINT, N) do { \
   const char* libxs_diff_b_ = (const char*)(BN) + (size_t)(HINT) * (STRIDE); \
   for (RESULT = (HINT); (RESULT) < (N); ++(RESULT)) { \
     if (0 == DIFF(A, libxs_diff_b_, ELEMSIZE)) break; \
@@ -118,7 +118,7 @@
       libxs_diff_b_ += (STRIDE); \
     } \
   } \
-}
+} while(0)
 
 
 /** Function type representing the diff-functionality. */
