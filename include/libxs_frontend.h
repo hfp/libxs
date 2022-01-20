@@ -230,7 +230,7 @@
   | (~(LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B) & (DEFAULT))
 
 /** Inlinable GEMM exercising the compiler's code generation (macro template). TODO: only NN is supported and SP/DP matrices. */
-#define LIBXS_INLINE_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+#define LIBXS_INLINE_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) do { \
   /* Use 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
   const char libxs_inline_xgemm_transa_ = (char)(NULL != ((void*)(TRANSA)) ? (*(const char*)(TRANSA)) : \
     (0 == (LIBXS_GEMM_FLAG_TRANS_A & LIBXS_FLAGS) ? 'n' : 't')); \
@@ -262,7 +262,7 @@
       } \
     } \
   } \
-}
+} while(0)
 
 #if (defined(LIBXS_INIT) || defined(LIBXS_CTOR))
 # undef LIBXS_INIT
@@ -311,7 +311,7 @@
 #define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION1(TYPE, gemv)
 
 /** BLAS-based GEMM supplied by the linked LAPACK/BLAS library (macro template). */
-#define LIBXS_BLAS_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+#define LIBXS_BLAS_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) do { \
   /* Use 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
   const char libxs_blas_xgemm_transa_ = (char)(NULL != ((void*)(TRANSA)) ? (*(const char*)(TRANSA)) : \
     (0 == (LIBXS_GEMM_FLAG_TRANS_A & LIBXS_FLAGS) ? 'n' : 't')); \
@@ -331,18 +331,18 @@
     &libxs_blas_xgemm_alpha_, (const ITYPE*)(A), &libxs_blas_xgemm_lda_, \
                                 (const ITYPE*)(B), &libxs_blas_xgemm_ldb_, \
      &libxs_blas_xgemm_beta_,       (ITYPE*)(C), &libxs_blas_xgemm_ldc_); \
-}
+} while(0)
 
 /** Helper macros for calling a dispatched function in a row/column-major aware fashion. */
 #define LIBXS_MMCALL_ABC(FN, A, B, C) \
   LIBXS_ASSERT(FN); FN(A, B, C)
 /* @TODO fix prefetch */
-#define LIBXS_MMCALL_PRF(FN, A, B, C, PA, PB, PC) { \
+#define LIBXS_MMCALL_PRF(FN, A, B, C, PA, PB, PC) do { \
   LIBXS_NOPREFETCH_A(LIBXS_UNUSED(PA)); \
   LIBXS_NOPREFETCH_B(LIBXS_UNUSED(PB)); \
   LIBXS_NOPREFETCH_C(LIBXS_UNUSED(PC)); \
   LIBXS_ASSERT(FN); FN(A, B, C); \
-}
+} while(0)
 
 #if (0/*LIBXS_GEMM_PREFETCH_NONE*/ == LIBXS_PREFETCH)
 # define LIBXS_MMCALL_LDX(FN, A, B, C, M, N, K, LDA, LDB, LDC) \
@@ -384,7 +384,7 @@
  * LIBXS_XGEMM_FALLBACK0 or specialized function: below LIBXS_MAX_MNK
  * LIBXS_XGEMM_FALLBACK1: above LIBXS_MAX_MNK
  */
-#define LIBXS_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) { \
+#define LIBXS_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) do { \
   const int libxs_xgemm_flags_ = LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, LIBXS_FLAGS) | LIBXS_GEMM_XFLAGS(ITYPE, OTYPE) | ( NULL != (BETA) ? ((*(BETA) == 0) ? LIBXS_GEMM_FLAG_BETA_0 : 0) : 0 ); \
   const libxs_blasint *const libxs_xgemm_k_ = (NULL != (K) ? (K) : (M)); \
   const libxs_blasint *const libxs_xgemm_n_ = (NULL != (N) ? (N) : libxs_xgemm_k_); \
@@ -424,10 +424,10 @@
                              B, &libxs_xgemm_ldb_, \
        &libxs_xgemm_beta_, C, &libxs_xgemm_ldc_); \
   } \
-}
+} while(0)
 
 /** Helper macro to setup a matrix with some initial values. */
-#define LIBXS_MATRNG_AUX(OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) { \
+#define LIBXS_MATRNG_AUX(OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) do { \
   /*const*/ double libxs_matrng_seed_ = (double)(SEED); /* avoid constant conditional */ \
   const double libxs_matrng_scale_ = (SCALE) * libxs_matrng_seed_ + (SCALE); \
   const libxs_blasint libxs_matrng_nrows_ = (libxs_blasint)NROWS; \
@@ -461,7 +461,7 @@
       } \
     } \
   } \
-}
+} while(0)
 
 #define LIBXS_MATRNG(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
   LIBXS_MATRNG_AUX(LIBXS_ELIDE, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
