@@ -1338,15 +1338,15 @@ $(DOCDIR)/index.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
 		> $@
 
 $(DOCDIR)/libxs_compat.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
-	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/hfp/libxs/Compatibility.md"
+	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Compatibility.md"
 	@echo >> $@
 
 $(DOCDIR)/libxs_valid.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
-	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/hfp/libxs/Validation.md"
+	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Validation.md"
 	@echo >> $@
 
 $(DOCDIR)/libxs_qna.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
-	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/hfp/libxs/Q&A.md"
+	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Q&A.md"
 	@echo >> $@
 
 $(DOCDIR)/libxs.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/documentation/index.md \
@@ -1687,7 +1687,7 @@ ALIAS_LIBDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(POUTDIR)),,\$${prefix
 $(OUTDIR)/libxs.pc: $(OUTDIR)/libxs.$(LIBEXT)
 	@echo "Name: libxs" > $@
 	@echo "Description: Matrix operations and deep learning primitives" >> $@
-	@echo "URL: https://github.com/hfp/libxs" >> $@
+	@echo "URL: https://github.com/hfp/libxs/" >> $@
 	@echo "Version: $(VERSION_STRING)" >> $@
 	@echo >> $@
 	@echo "prefix=$(ALIAS_PREFIX)" >> $@
@@ -1709,7 +1709,7 @@ endif
 $(OUTDIR)/libxsf.pc: $(OUTDIR)/libxsf.$(LIBEXT)
 	@echo "Name: libxs/f" > $@
 	@echo "Description: LIBXS for Fortran" >> $@
-	@echo "URL: https://github.com/hfp/libxs" >> $@
+	@echo "URL: https://github.com/hfp/libxs/" >> $@
 	@echo "Version: $(VERSION_STRING)" >> $@
 	@echo >> $@
 	@echo "prefix=$(ALIAS_PREFIX)" >> $@
@@ -1723,7 +1723,7 @@ $(OUTDIR)/libxsf.pc: $(OUTDIR)/libxsf.$(LIBEXT)
 $(OUTDIR)/libxsext.pc: $(OUTDIR)/libxsext.$(LIBEXT)
 	@echo "Name: libxs/ext" > $@
 	@echo "Description: LIBXS/multithreaded for OpenMP" >> $@
-	@echo "URL: https://github.com/hfp/libxs" >> $@
+	@echo "URL: https://github.com/hfp/libxs/" >> $@
 	@echo "Version: $(VERSION_STRING)" >> $@
 	@echo >> $@
 	@echo "prefix=$(ALIAS_PREFIX)" >> $@
@@ -1746,7 +1746,7 @@ endif
 $(OUTDIR)/libxsnoblas.pc: $(OUTDIR)/libxsnoblas.$(LIBEXT)
 	@echo "Name: libxs/noblas" > $@
 	@echo "Description: LIBXS substituted LAPACK/BLAS dependency" >> $@
-	@echo "URL: https://github.com/hfp/libxs" >> $@
+	@echo "URL: https://github.com/hfp/libxs/" >> $@
 	@echo "Version: $(VERSION_STRING)" >> $@
 	@echo >> $@
 	@echo "prefix=$(ALIAS_PREFIX)" >> $@
@@ -1800,7 +1800,7 @@ deb:
 		cd ..; \
 		echo "Source: $${ARCHIVE_NAME}" > control; \
 		echo "Section: libs" >> control; \
-		echo "Homepage: https://github.com/hfp/libxs" >> control; \
+		echo "Homepage: https://github.com/hfp/libxs/" >> control; \
 		echo "Vcs-Git: https://github.com/hfp/libxs/libxs.git" >> control; \
 		echo "Maintainer: $${ARCHIVE_AUTHOR}" >> control; \
 		echo "Priority: optional" >> control; \
@@ -1812,12 +1812,12 @@ deb:
 		echo "Architecture: amd64" >> control; \
 		echo "Depends: \$${shlibs:Depends}, \$${misc:Depends}" >> control; \
 		echo "Description: Matrix operations and deep learning primitives" >> control; \
-		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/hfp/libxs" \
+		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/libxs/libxs/" \
 		| sed -n 's/ *\"description\": \"\(..*\)\".*/\1/p' \
 		| fold -s -w 79 | sed -e 's/^/ /' -e 's/[[:space:]][[:space:]]*$$//' >> control; \
 		echo "$${ARCHIVE_NAME} ($${VERSION_ARCHIVE}-$(VERSION_PACKAGE)) UNRELEASED; urgency=low" > changelog; \
 		echo >> changelog; \
-		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/hfp/libxs/releases/tags/$${VERSION_ARCHIVE}" \
+		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/libxs/libxs/releases/tags/$${VERSION_ARCHIVE}" \
 		| sed -n 's/ *\"body\": \"\(..*\)\".*/\1/p' \
 		| sed -e 's/\\r\\n/\n/g' -e 's/\\"/"/g' -e 's/\[\([^]]*\)\]([^)]*)/\1/g' \
 		| sed -n 's/^\* \(..*\)/\* \1/p' \
