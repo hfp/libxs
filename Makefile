@@ -1400,7 +1400,7 @@ $(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
 		-e 's/----*//g' \
-		-e '1s/^/# [LIBXS Samples](https:\/\/github.com\/hfp\/libxs\/raw\/master\/documentation\/libxs_samples.pdf)\n\n/' \
+		-e '1s/^/# [LIBXS Samples](https:\/\/github.com\/libxs\/libxs\/raw\/master\/documentation\/libxs_samples.pdf)\n\n/' \
 		> $@
 
 $(DOCDIR)/libxs_samples.$(DOCEXT): $(ROOTDIR)/documentation/libxs_samples.md
