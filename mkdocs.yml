@@ -1,6 +1,6 @@
 site_name: LIBXS
 site_author: Hans Pabst
-copyright: Copyright (c) 2009-2021, LIBXS <a href="http://libxs.readthedocs.io/LICENSE/">Contributors</a>.
+copyright: Copyright (c) 2009-2022, LIBXS <a href="http://libxs.readthedocs.io/LICENSE/">Contributors</a>.
 site_description: Library targeting Intel Architecture for specialized dense and sparse matrix operations, and deep learning primitives.
 repo_url: https://github.com/hfp/libxs/
 edit_uri: edit/master/documentation
