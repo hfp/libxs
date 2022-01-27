@@ -2860,6 +2860,42 @@ LIBXS_API void libxs_xrelease(const void* key, size_t key_size)
 }
 
 
+LIBXS_API libxs_gemm_shape libxs_create_gemm_shape( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
+                                                          const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
+                                                          const libxs_datatype a_in_type, const libxs_datatype b_in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
+{
+  libxs_gemm_shape res;
+
+  res.m = m;
+  res.n = n;
+  res.k = k;
+  res.lda = (libxs_blasint*)lda;
+  res.ldb = (libxs_blasint*)ldb;
+  res.ldc = (libxs_blasint*)ldc;
+  res.a_in_type = a_in_type;
+  res.b_in_type = b_in_type;
+  res.out_type = out_type;
+  res.comp_type = comp_type;
+
+  return res;
+}
+
+
+LIBXS_API libxs_gemm_batch_reduce_config libxs_create_gemm_batch_reduce_config( const libxs_gemm_batch_reduce_type br_type,
+                                                                                      const unsigned long long br_stride_a_hint, const unsigned long long br_stride_b_hint,
+                                                                                      const unsigned char br_unroll_hint )
+{
+  libxs_gemm_batch_reduce_config res;
+
+  res.br_type = br_type;
+  res.br_stride_a_hint = br_stride_a_hint;
+  res.br_stride_b_hint = br_stride_b_hint;
+  res.br_unroll_hint = br_unroll_hint;
+
+  return res;
+}
+
+
 LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   libxs_xmmfunction result;
