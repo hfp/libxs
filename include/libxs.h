@@ -561,6 +561,9 @@ LIBXS_API int libxs_matrix_eqn_push_back_unary_op( const libxs_blasint idx, cons
 LIBXS_API int libxs_matrix_eqn_push_back_binary_op( const libxs_blasint idx, const libxs_meltw_binary_type type, const libxs_meltw_binary_flags flags, const libxs_datatype dtype );
 LIBXS_API int libxs_matrix_eqn_push_back_ternary_op( const libxs_blasint idx, const libxs_meltw_ternary_type type, const libxs_meltw_ternary_flags flags, const libxs_datatype dtype );
 
+LIBXS_API libxs_meqn_arg_shape libxs_create_meqn_arg_shape( const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ld, const libxs_datatype type );
+LIBXS_API libxs_matrix_arg_attributes libxs_create_matrix_arg_attributes( const libxs_matrix_arg_type type, const libxs_matrix_arg_set_type set_type, const libxs_blasint set_cardinality_hint, const libxs_blasint set_stride_hint );
+LIBXS_API libxs_matrix_eqn_arg_metadata libxs_create_matrix_eqn_arg_metadata( const libxs_blasint eqn_idx, const libxs_blasint in_arg_pos );
 LIBXS_API int libxs_matrix_eqn_push_back_arg_v2( const libxs_matrix_eqn_arg_metadata arg_metadata, const libxs_meqn_arg_shape arg_shape, libxs_matrix_arg_attributes arg_attr);
 LIBXS_API int libxs_matrix_eqn_push_back_unary_op_v2( const libxs_matrix_eqn_op_metadata op_metadata, const libxs_meltw_unary_type type, const libxs_datatype dtype, const libxs_bitfield flags);
 LIBXS_API int libxs_matrix_eqn_push_back_binary_op_v2( const libxs_matrix_eqn_op_metadata op_metadata, const libxs_meltw_binary_type type, const libxs_datatype dtype, const libxs_bitfield flags);
