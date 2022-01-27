@@ -13,7 +13,7 @@ GREP=$(command -v grep)
 CUT=$(command -v cut)
 GIT=$(command -v git)
 
-USR=hfp
+USR=libxs
 PRJ=libxs
 URL="https://api.github.com/repos/${USR}/${PRJ}/forks"
 
