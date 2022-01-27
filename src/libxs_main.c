@@ -4635,6 +4635,63 @@ LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary(
 }
 
 
+LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_blasint m, const libxs_blasint n,
+                                                                        const libxs_blasint* ldi, const libxs_blasint* ldo,
+                                                                        const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
+{
+  libxs_meltw_unary_shape res;
+
+  res.m = m;
+  res.n = n;
+  res.ldi = (libxs_blasint*)ldi;
+  res.ldo = (libxs_blasint*)ldo;
+  res.in_type = in_type;
+  res.out_type = out_type;
+  res.comp_type = comp_type;
+
+  return res;
+}
+
+
+LIBXS_API libxs_meltw_binary_shape libxs_create_meltw_binary_shape( const libxs_blasint m, const libxs_blasint n,
+                                                                          const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldo,
+                                                                          const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
+{
+  libxs_meltw_binary_shape res;
+
+  res.m = m;
+  res.n = n;
+  res.ldi = (libxs_blasint*)ldi;
+  res.ldi2 = (libxs_blasint*)ldi2;
+  res.ldo = (libxs_blasint*)ldo;
+  res.in_type = in_type;
+  res.out_type = out_type;
+  res.comp_type = comp_type;
+
+  return res;
+}
+
+
+LIBXS_API libxs_meltw_ternary_shape libxs_create_meltw_ternary_shape( const libxs_blasint m, const libxs_blasint n,
+                                                                            const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldi3, const libxs_blasint* ldo,
+                                                                            const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
+{
+  libxs_meltw_ternary_shape res;
+
+  res.m = m;
+  res.n = n;
+  res.ldi = (libxs_blasint*)ldi;
+  res.ldi2 = (libxs_blasint*)ldi2;
+  res.ldi3 = (libxs_blasint*)ldi3;
+  res.ldo = (libxs_blasint*)ldo;
+  res.in_type = in_type;
+  res.out_type = out_type;
+  res.comp_type = comp_type;
+
+  return res;
+}
+
+
 LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary_v2( const libxs_meltw_unary_type unary_type, const libxs_meltw_unary_shape unary_shape, const libxs_bitfield unary_flags )
 {
   libxs_descriptor_blob blob;
