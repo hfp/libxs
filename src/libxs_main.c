@@ -4851,6 +4851,50 @@ LIBXS_API libxs_xmmfunction libxs_create_packed_spxgemm_csr(const libxs_gemm_des
 }
 
 
+LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
+  const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, libxs_blasint packed_width,
+  const unsigned int* row_ptr, const unsigned int* column_idx, const void* values)
+{
+  int l_gemm_flags = (int)gemm_flags;
+  libxs_pspgemm_csr_descriptor pspgemm_csr;
+  libxs_build_request request;
+  libxs_descriptor_blob blob;
+  libxs_gemm_descriptor *desc = NULL;
+  libxs_code_pointer result = { 0 };
+  LIBXS_INIT
+
+  /* @TODO some checks */
+  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
+    return NULL;
+  }
+  if ( (NULL == row_ptr) || (NULL == column_idx) || (NULL == values) ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utiliztes an arg struct */
+  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
+    gemm_shape.m, gemm_shape.n, gemm_shape.k,
+    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
+    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
+    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+
+  pspgemm_csr.gemm = desc;
+  pspgemm_csr.row_ptr = row_ptr;
+  pspgemm_csr.column_idx = column_idx;
+  pspgemm_csr.values = values;
+  pspgemm_csr.packed_width = packed_width;
+  request.descriptor.pspgemm_csr = &pspgemm_csr;
+  request.kind = LIBXS_BUILD_KIND_PSPGEMM_CSR;
+  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
+
+  return result.xgemm.gemm;
+}
+
+
 LIBXS_API libxs_xmmfunction libxs_create_packed_spxgemm_csc(const libxs_gemm_descriptor* descriptor, unsigned int packed_width,
   const unsigned int* column_ptr, const unsigned int* row_idx, const void* values)
 {
@@ -4880,6 +4924,50 @@ LIBXS_API libxs_xmmfunction libxs_create_packed_spxgemm_csc(const libxs_gemm_des
 }
 
 
+LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc_v2(
+  const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, libxs_blasint packed_width,
+  const unsigned int* column_ptr, const unsigned int* row_idx, const void* values)
+{
+  int l_gemm_flags = (int)gemm_flags;
+  libxs_pspgemm_csc_descriptor pspgemm_csc;
+  libxs_build_request request;
+  libxs_descriptor_blob blob;
+  libxs_gemm_descriptor *desc = NULL;
+  libxs_code_pointer result = { 0 };
+  LIBXS_INIT
+
+  /* @TODO some checks */
+  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
+    return NULL;
+  }
+  if ( (NULL == column_ptr) || (NULL == row_idx) || (NULL == values) ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utiliztes an arg struct */
+  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
+    gemm_shape.m, gemm_shape.n, gemm_shape.k,
+    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
+    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
+    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+
+  pspgemm_csc.gemm = desc;
+  pspgemm_csc.column_ptr = column_ptr;
+  pspgemm_csc.row_idx = row_idx;
+  pspgemm_csc.values = values;
+  pspgemm_csc.packed_width = packed_width;
+  request.descriptor.pspgemm_csc = &pspgemm_csc;
+  request.kind = LIBXS_BUILD_KIND_PSPGEMM_CSC;
+  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
+
+  return result.xgemm.gemm;
+}
+
+
 LIBXS_API libxs_xmmfunction libxs_create_packed_xgemm_ac_rm(const libxs_gemm_descriptor* descriptor, unsigned int packed_width)
 {
   libxs_code_pointer result = { 0 };
@@ -4905,6 +4993,43 @@ LIBXS_API libxs_xmmfunction libxs_create_packed_xgemm_ac_rm(const libxs_gemm_des
 }
 
 
+LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm_shape gemm_shape,
+  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, libxs_blasint packed_width )
+{
+  int l_gemm_flags = (int)gemm_flags;
+  libxs_pgemm_ac_rm_descriptor pgemmacrm;
+  libxs_build_request request;
+  libxs_descriptor_blob blob;
+  libxs_gemm_descriptor *desc = NULL;
+  libxs_code_pointer result = { 0 };
+  LIBXS_INIT
+
+  /* @TODO some checks */
+  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utiliztes an arg struct */
+  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
+    gemm_shape.m, gemm_shape.n, gemm_shape.k,
+    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
+    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
+    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+
+  pgemmacrm.gemm = desc;
+  pgemmacrm.packed_width = packed_width;
+  request.descriptor.pgemmacrm = &pgemmacrm;
+  request.kind = LIBXS_BUILD_KIND_PGEMMRMAC;
+  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
+
+  return result.xgemm.gemm;
+}
+
+
 LIBXS_API libxs_xmmfunction libxs_create_packed_xgemm_bc_rm(const libxs_gemm_descriptor* descriptor, unsigned int packed_width)
 {
   libxs_code_pointer result = { 0 };
@@ -4927,6 +5052,43 @@ LIBXS_API libxs_xmmfunction libxs_create_packed_xgemm_bc_rm(const libxs_gemm_des
     libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
   }
   return result.xgemm;
+}
+
+
+LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm_shape gemm_shape,
+  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, libxs_blasint packed_width )
+{
+  int l_gemm_flags = (int)gemm_flags;
+  libxs_pgemm_bc_rm_descriptor pgemmbcrm;
+  libxs_build_request request;
+  libxs_descriptor_blob blob;
+  libxs_gemm_descriptor *desc = NULL;
+  libxs_code_pointer result = { 0 };
+  LIBXS_INIT
+
+  /* @TODO some checks */
+  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utiliztes an arg struct */
+  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
+    gemm_shape.m, gemm_shape.n, gemm_shape.k,
+    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
+    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
+    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+
+  pgemmbcrm.gemm = desc;
+  pgemmbcrm.packed_width = packed_width;
+  request.descriptor.pgemmbcrm = &pgemmbcrm;
+  request.kind = LIBXS_BUILD_KIND_PGEMMRMBC;
+  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
+
+  return result.xgemm.gemm;
 }
 
 
@@ -4991,6 +5153,50 @@ LIBXS_API libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* d
     }
   }
   return result.xgemm.smm;
+}
+
+
+LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg_v2( const libxs_gemm_shape gemm_shape,
+  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags,
+  const libxs_blasint max_N, const unsigned int* row_ptr, const unsigned int* column_idx, const double* values )
+{
+  int l_gemm_flags = (int)gemm_flags;
+  libxs_csr_reg_descriptor sreg;
+  libxs_build_request request;
+  libxs_descriptor_blob blob;
+  libxs_gemm_descriptor *desc = NULL;
+  libxs_code_pointer result = { 0 };
+  LIBXS_INIT
+
+  /* @TODO some checks */
+  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
+    return NULL;
+  }
+  if ( (NULL == row_ptr) || (NULL == column_idx) || (NULL == values) ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utiliztes an arg struct */
+  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
+    gemm_shape.m, gemm_shape.n, gemm_shape.k,
+    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
+    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
+    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+  desc->c1 = max_N;
+
+  sreg.gemm = desc;
+  sreg.row_ptr = row_ptr;
+  sreg.column_idx = column_idx;
+  sreg.values = values;
+  request.descriptor.sreg = &sreg;
+  request.kind = LIBXS_BUILD_KIND_SREG;
+  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
+
+  return result.xgemm.gemm;
 }
 
 
