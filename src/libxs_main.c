@@ -4852,7 +4852,7 @@ LIBXS_API libxs_xmmfunction libxs_create_packed_spxgemm_csr(const libxs_gemm_des
 
 
 LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
-  const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, libxs_blasint packed_width,
+  const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width,
   const unsigned int* row_ptr, const unsigned int* column_idx, const void* values)
 {
   int l_gemm_flags = (int)gemm_flags;
@@ -4925,7 +4925,7 @@ LIBXS_API libxs_xmmfunction libxs_create_packed_spxgemm_csc(const libxs_gemm_des
 
 
 LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc_v2(
-  const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, libxs_blasint packed_width,
+  const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width,
   const unsigned int* column_ptr, const unsigned int* row_idx, const void* values)
 {
   int l_gemm_flags = (int)gemm_flags;
@@ -4994,7 +4994,7 @@ LIBXS_API libxs_xmmfunction libxs_create_packed_xgemm_ac_rm(const libxs_gemm_des
 
 
 LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm_shape gemm_shape,
-  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, libxs_blasint packed_width )
+  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
 {
   int l_gemm_flags = (int)gemm_flags;
   libxs_pgemm_ac_rm_descriptor pgemmacrm;
@@ -5056,7 +5056,7 @@ LIBXS_API libxs_xmmfunction libxs_create_packed_xgemm_bc_rm(const libxs_gemm_des
 
 
 LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm_shape gemm_shape,
-  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, libxs_blasint packed_width )
+  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
 {
   int l_gemm_flags = (int)gemm_flags;
   libxs_pgemm_bc_rm_descriptor pgemmbcrm;
