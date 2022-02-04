@@ -57,13 +57,14 @@
 
 #define LIBXS_CPUID_CHECK(VALUE, CHECK) ((CHECK) == ((CHECK) & (VALUE)))
 
+#if defined(LIBXS_PLATFORM_X86)
 LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void);
-#if defined(__linux__)
-# include <sys/syscall.h>
-# include <unistd.h>
-# if !defined(LIBXS_BUILD) || (1 >= (LIBXS_BUILD))
+# if defined(__linux__)
+#  include <sys/syscall.h>
+#  include <unistd.h>
+#  if !defined(LIBXS_BUILD) || (1 >= (LIBXS_BUILD))
 LIBXS_EXTERN long syscall(long number, ...) LIBXS_THROW;
-# endif
+#  endif
 LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void)
 {
   unsigned long bitmask = 0;
@@ -81,11 +82,12 @@ LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void)
   /* setup successfull */
   return 0;
 }
-#else
+# else
 LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void)
 {
   return -1;
 }
+# endif
 #endif
 
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
