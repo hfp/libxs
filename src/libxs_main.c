@@ -2861,7 +2861,7 @@ LIBXS_API void libxs_xrelease(const void* key, size_t key_size)
 
 
 LIBXS_API libxs_gemm_shape libxs_create_gemm_shape( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
-                                                          const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
+                                                          const libxs_blasint lda, const libxs_blasint ldb, const libxs_blasint ldc,
                                                           const libxs_datatype a_in_type, const libxs_datatype b_in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
   libxs_gemm_shape res;
@@ -2869,9 +2869,9 @@ LIBXS_API libxs_gemm_shape libxs_create_gemm_shape( const libxs_blasint m, const
   res.m = m;
   res.n = n;
   res.k = k;
-  res.lda = (libxs_blasint*)lda;
-  res.ldb = (libxs_blasint*)ldb;
-  res.ldc = (libxs_blasint*)ldc;
+  res.lda = lda;
+  res.ldb = ldb;
+  res.ldc = ldc;
   res.a_in_type = a_in_type;
   res.b_in_type = b_in_type;
   res.out_type = out_type;
@@ -2939,8 +2939,38 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
   return result;
 }
 
+
 LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
-                                                         const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config ) {
+                                                         const libxs_bitfield prefetch_flags ) {
+  int l_gemm_flags = (int)gemm_flags;
+  libxs_descriptor_blob blob;
+  libxs_xmmfunction result;
+  libxs_gemm_descriptor *desc = NULL;
+
+  /* @TODO some checks */
+  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utiliztes an arg struct */
+  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
+    gemm_shape.m, gemm_shape.n, gemm_shape.k,
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+
+  /* JIT! */
+  result = libxs_xmmdispatch(desc);
+
+  return result.gemm;
+}
+
+
+LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
+                                                           const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config ) {
   int l_gemm_flags = (int)gemm_flags;
   libxs_descriptor_blob blob;
   libxs_xmmfunction result;
@@ -2968,10 +2998,9 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape gemm
   /* build descriptor */
   desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
-    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
-    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
-      l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
 
   /* add more BRGEMM related fields */
   if ( (brgemm_config.br_type != LIBXS_GEMM_BATCH_REDUCE_NONE) && (brgemm_config.br_unroll_hint != 0) ) {
@@ -2989,9 +3018,9 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape gemm
 }
 
 
-LIBXS_API libxs_gemmfunction_ext libxs_dispatch_gemm_ext_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
-                                                                const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config,
-                                                                const libxs_gemm_ext_unary_argops unary_argops, const libxs_gemm_ext_binary_postops binary_postops ) {
+LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
+                                                                  const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config,
+                                                                  const libxs_gemm_ext_unary_argops unary_argops, const libxs_gemm_ext_binary_postops binary_postops ) {
   int l_gemm_flags = (int)gemm_flags;
   libxs_descriptor_blob blob;
   libxs_xmmfunction result;
@@ -3019,10 +3048,9 @@ LIBXS_API libxs_gemmfunction_ext libxs_dispatch_gemm_ext_v2( const libxs_gemm_sh
   /* build descriptor */
   desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
-    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
-    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
-      l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
 
   /* add more BRGEMM related fields */
   if ( (brgemm_config.br_type != LIBXS_GEMM_BATCH_REDUCE_NONE) && (brgemm_config.br_unroll_hint != 0) ) {
@@ -4672,15 +4700,15 @@ LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary(
 
 
 LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_blasint m, const libxs_blasint n,
-                                                                        const libxs_blasint* ldi, const libxs_blasint* ldo,
+                                                                        const libxs_blasint ldi, const libxs_blasint ldo,
                                                                         const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
   libxs_meltw_unary_shape res;
 
   res.m = m;
   res.n = n;
-  res.ldi = (libxs_blasint*)ldi;
-  res.ldo = (libxs_blasint*)ldo;
+  res.ldi = ldi;
+  res.ldo = ldo;
   res.in_type = in_type;
   res.out_type = out_type;
   res.comp_type = comp_type;
@@ -4690,16 +4718,16 @@ LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_bl
 
 
 LIBXS_API libxs_meltw_binary_shape libxs_create_meltw_binary_shape( const libxs_blasint m, const libxs_blasint n,
-                                                                          const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldo,
+                                                                          const libxs_blasint ldi, const libxs_blasint ldi2, const libxs_blasint ldo,
                                                                           const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
   libxs_meltw_binary_shape res;
 
   res.m = m;
   res.n = n;
-  res.ldi = (libxs_blasint*)ldi;
-  res.ldi2 = (libxs_blasint*)ldi2;
-  res.ldo = (libxs_blasint*)ldo;
+  res.ldi = ldi;
+  res.ldi2 = ldi2;
+  res.ldo = ldo;
   res.in_type = in_type;
   res.out_type = out_type;
   res.comp_type = comp_type;
@@ -4709,17 +4737,17 @@ LIBXS_API libxs_meltw_binary_shape libxs_create_meltw_binary_shape( const libxs_
 
 
 LIBXS_API libxs_meltw_ternary_shape libxs_create_meltw_ternary_shape( const libxs_blasint m, const libxs_blasint n,
-                                                                            const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldi3, const libxs_blasint* ldo,
+                                                                            const libxs_blasint ldi, const libxs_blasint ldi2, const libxs_blasint ldi3, const libxs_blasint ldo,
                                                                             const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
   libxs_meltw_ternary_shape res;
 
   res.m = m;
   res.n = n;
-  res.ldi = (libxs_blasint*)ldi;
-  res.ldi2 = (libxs_blasint*)ldi2;
-  res.ldi3 = (libxs_blasint*)ldi3;
-  res.ldo = (libxs_blasint*)ldo;
+  res.ldi = ldi;
+  res.ldi2 = ldi2;
+  res.ldi3 = ldi3;
+  res.ldo = ldo;
   res.in_type = in_type;
   res.out_type = out_type;
   res.comp_type = comp_type;
@@ -4733,8 +4761,7 @@ LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary_v2( const libxs_m
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
     unary_shape.in_type, unary_shape.comp_type, unary_shape.out_type, LIBXS_DATATYPE_UNSUPPORTED, unary_shape.m, unary_shape.n,
-    (unary_shape.ldi == NULL) ? unary_shape.m : *(unary_shape.ldi),
-    (unary_shape.ldo == NULL) ? unary_shape.m : *(unary_shape.ldo), 0, 0,
+    unary_shape.ldi, unary_shape.ldo, 0, 0,
     (unsigned short)unary_flags, (unsigned short)unary_type, LIBXS_MELTW_OPERATION_UNARY);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
@@ -4748,9 +4775,7 @@ LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary_v2( const libxs
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
     binary_shape.in_type, binary_shape.comp_type, binary_shape.out_type, LIBXS_DATATYPE_UNSUPPORTED, binary_shape.m, binary_shape.n,
-    (binary_shape.ldi == NULL) ? binary_shape.m : *(binary_shape.ldi),
-    (binary_shape.ldo == NULL) ? binary_shape.m : *(binary_shape.ldo),
-    (binary_shape.ldi2 == NULL) ? binary_shape.m : *(binary_shape.ldi2), 0,
+    binary_shape.ldi, binary_shape.ldo, binary_shape.ldi2, 0,
     (unsigned short)binary_flags, (unsigned short)binary_type, LIBXS_MELTW_OPERATION_BINARY);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
@@ -4764,10 +4789,7 @@ LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary_v2( const lib
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
     ternary_shape.in_type, ternary_shape.comp_type, ternary_shape.out_type, LIBXS_DATATYPE_UNSUPPORTED, ternary_shape.m, ternary_shape.n,
-    (ternary_shape.ldi == NULL) ? ternary_shape.m : *(ternary_shape.ldi),
-    (ternary_shape.ldo == NULL) ? ternary_shape.m : *(ternary_shape.ldo),
-    (ternary_shape.ldi2 == NULL) ? ternary_shape.m : *(ternary_shape.ldi2),
-    (ternary_shape.ldi3 == NULL) ? ternary_shape.m : *(ternary_shape.ldi3),
+    ternary_shape.ldi, ternary_shape.ldo, ternary_shape.ldi2, ternary_shape.ldi3,
     (unsigned short)ternary_flags, (unsigned short)ternary_type, LIBXS_MELTW_OPERATION_TERNARY);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
@@ -4816,7 +4838,7 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2(
   const libxs_blasint idx, const libxs_meqn_arg_shape out_shape ) {
   libxs_descriptor_blob blob;
   const libxs_meqn_descriptor *const desc = libxs_meqn_descriptor_init(&blob,
-    out_shape.type, out_shape.m, out_shape.n, (out_shape.ld == NULL) ? out_shape.m : *(out_shape.ld), (unsigned int)idx );
+    out_shape.type, out_shape.m, out_shape.n, out_shape.ld, (unsigned int)idx );
 
   return libxs_dispatch_matrix_eqn_desc( desc );
 }
@@ -4877,9 +4899,8 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
   /* build descriptor */
   desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
-    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
-    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
     l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
 
   pspgemm_csr.gemm = desc;
@@ -4950,9 +4971,8 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc_v2(
   /* build descriptor */
   desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
-    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
-    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
     l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
 
   pspgemm_csc.gemm = desc;
@@ -5015,9 +5035,8 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm
   /* build descriptor */
   desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
-    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
-    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
     l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
 
   pgemmacrm.gemm = desc;
@@ -5077,9 +5096,8 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm
   /* build descriptor */
   desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
-    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
-    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
     l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
 
   pgemmbcrm.gemm = desc;
@@ -5182,9 +5200,8 @@ LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg_v2( const libxs_gemm_s
   /* build descriptor */
   desc = libxs_gemm_descriptor_dinit2(&blob, gemm_shape.a_in_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    NULL != gemm_shape.lda ? *(gemm_shape.lda) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k),
-    NULL != gemm_shape.ldb ? *(gemm_shape.ldb) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n),
-    NULL != gemm_shape.ldc ? *(gemm_shape.ldc) : gemm_shape.m, LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    LIBXS_ALPHA, !((l_gemm_flags & LIBXS_GEMM_FLAG_BETA_0) == LIBXS_GEMM_FLAG_BETA_0),
     l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
   desc->c1 = max_N;
 
