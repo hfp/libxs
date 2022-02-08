@@ -93,7 +93,8 @@ libxs_diff_i32
 libxs_diff_i64
 libxs_diff_i8
 libxs_diff_n
-libxs_dispatch_gemm_ext_v2
+libxs_dispatch_brgemm_ext_v2
+libxs_dispatch_brgemm_v2
 libxs_dispatch_gemm_v2
 libxs_dispatch_matrix_eqn
 libxs_dispatch_matrix_eqn_desc
