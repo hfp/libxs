@@ -99,7 +99,7 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
       const libxs_blasint nBlocks = N/bn;
       int tc_flags = 0;
       int kernel_flags = LIBXS_GEMM_VNNI_FLAGS('N', 'N', 'V', 'N');
-      int stride_a, stride_b;
+      size_t stride_a, stride_b;
 
       if ((libxs_target_archid == LIBXS_X86_AVX512_SPR) && (libxs_target_archid <= LIBXS_X86_ALLFEAT)) {
         kernel_flags = ((handle->bk % 32 == 0) && (handle->bc % 32 == 0) && (handle->bn % 32 == 0)) ? LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG | LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG : 0;

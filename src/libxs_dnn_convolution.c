@@ -1244,8 +1244,8 @@ LIBXS_API_INLINE libxs_dnn_err_t libxs_dnn_convolution_setup( libxs_dnn_layer* h
     if (handle->desc.R == 1 && handle->desc.S == 1) {
       const int IFW = (handle->pack_input == 1) ? handle->ofwp : handle->ifwp;
       const int IFH = (handle->pack_input == 1) ? handle->ofhp : handle->ifhp;
-      int stride_a = handle->desc.R * handle->desc.S * handle->ifmblock * handle->ofmblock * libxs_dnn_typesize(handle->datatype_in);
-      int stride_b = IFW * IFH * handle->ifmblock * libxs_dnn_typesize(handle->datatype_in);
+      int stride_a = (int)(handle->desc.R * handle->desc.S * handle->ifmblock * handle->ofmblock * libxs_dnn_typesize(handle->datatype_in));
+      int stride_b = (int)(IFW * IFH * handle->ifmblock * libxs_dnn_typesize(handle->datatype_in));
       handle->fwd_compute_kernel_strd_f32 = libxs_smmdispatch_reducebatch_strd_unroll(handle->ofmblock, handle->fwd_gemm_pixels, handle->ifmblock, stride_a, stride_b, handle->blocksifm_blocking, &ldA, &ldx, &ldC, NULL, &beta, &l_flags, NULL);
     } else {
       const int IFW = (handle->fwd_padding_copy == 1) ? handle->ifwp + 2*handle->desc.pad_w : ( (handle->pack_input == 1) ? handle->ofwp : handle->ifwp );
