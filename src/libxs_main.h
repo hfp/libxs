@@ -229,9 +229,9 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
   /** Denotes of optional eltwise data-type */
   unsigned char meltw_datatype_aux;
   /** multipurpose 64-bit field, currently used for: a) stride_a in brgemm */
-  unsigned long long c1;
+  long long c1;
   /** multipurpose 64-bit field, currently used for: a) stride_b in brgemm */
-  unsigned long long c2;
+  long long c2;
   /** multipurpose 8-bit field, currently used for: a) unroll hint in brgemm */
   unsigned char c3;
   /** LDx, LDy, LDz,  additional meltw LDs */
