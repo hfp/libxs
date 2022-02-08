@@ -127,7 +127,7 @@ LIBXS_API libxs_gemm_shape libxs_create_gemm_shape( const libxs_blasint m, const
                                                           const libxs_blasint lda, const libxs_blasint ldb, const libxs_blasint ldc,
                                                           const libxs_datatype a_in_type, const libxs_datatype b_in_type, const libxs_datatype out_type, const libxs_datatype comp_type );
 LIBXS_API libxs_gemm_batch_reduce_config libxs_create_gemm_batch_reduce_config( const libxs_gemm_batch_reduce_type br_type,
-                                                                                      const unsigned long long br_stride_a_hint, const unsigned long long br_stride_b_hint,
+                                                                                      const libxs_blasint br_stride_a_hint, const libxs_blasint br_stride_b_hint,
                                                                                       const unsigned char br_unroll_hint );
 /** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (descriptor form). */
 LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);

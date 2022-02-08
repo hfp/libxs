@@ -2882,7 +2882,7 @@ LIBXS_API libxs_gemm_shape libxs_create_gemm_shape( const libxs_blasint m, const
 
 
 LIBXS_API libxs_gemm_batch_reduce_config libxs_create_gemm_batch_reduce_config( const libxs_gemm_batch_reduce_type br_type,
-                                                                                      const unsigned long long br_stride_a_hint, const unsigned long long br_stride_b_hint,
+                                                                                      const libxs_blasint br_stride_a_hint, const libxs_blasint br_stride_b_hint,
                                                                                       const unsigned char br_unroll_hint )
 {
   libxs_gemm_batch_reduce_config res;
