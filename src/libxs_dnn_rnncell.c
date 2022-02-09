@@ -125,7 +125,7 @@ LIBXS_API libxs_dnn_rnncell* libxs_dnn_create_rnncell(libxs_dnn_rnncell_desc rnn
       if (C == 2048 && K == 1024) {
         BF = 2;
       }
-      BF = handle->fwd_block;
+      BF = ( handle->fwd_block == 0 ) ? BF : handle->fwd_block;
 
       if (handle->desc.buffer_format == LIBXS_DNN_TENSOR_FORMAT_NCPACKED) {
         CB_BLOCKS = cBlocks/BF;
