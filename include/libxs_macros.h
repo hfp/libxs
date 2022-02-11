@@ -772,6 +772,9 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # if !defined(_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES)
 #   define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1
 # endif
+# if !defined(_CRT_INTERNAL_NONSTDC_NAMES)
+#   define _CRT_INTERNAL_NONSTDC_NAMES 1
+# endif
 # if !defined(_CRT_SECURE_NO_DEPRECATE)
 #   define _CRT_SECURE_NO_DEPRECATE 1
 # endif
