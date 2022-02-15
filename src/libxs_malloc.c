@@ -2651,13 +2651,19 @@ LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* 
 
 LIBXS_API void* libxs_pmalloc(void* pool[], size_t* i)
 {
-  LIBXS_ASSERT(NULL != pool && NULL != i && 0 < *i);
-  return pool[LIBXS_ATOMIC_SUB_FETCH(i, 1, LIBXS_ATOMIC_RELAXED)];
+  size_t idx;
+  LIBXS_ASSERT(NULL != pool && NULL != i);
+  idx = LIBXS_ATOMIC_SUB_FETCH(i, 1, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ASSERT(0 <= idx && ((size_t)-1) != idx);
+  return pool[idx];
 }
 
 
 LIBXS_API void libxs_pfree(void* pointer, void* pool[], size_t* i)
 {
+  size_t idx;
   LIBXS_ASSERT(NULL != pointer && NULL != pool && NULL != i);
-  pool[LIBXS_ATOMIC_FETCH_ADD(i, 1, LIBXS_ATOMIC_RELAXED)] = pointer;
+  idx = LIBXS_ATOMIC_FETCH_ADD(i, 1, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ASSERT(0 <= idx && ((size_t)-1) != (idx + 1));
+  pool[idx] = pointer;
 }
