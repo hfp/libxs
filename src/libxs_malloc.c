@@ -2639,3 +2639,25 @@ LIBXS_API int libxs_get_malloc(size_t* lo, size_t* hi)
   return internal_malloc_kind;
 }
 
+
+LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* storage)
+{
+  char* p = (char*)storage;
+  size_t n, i = 0;
+  LIBXS_ASSERT(0 < size && NULL != num && NULL != pool && NULL != storage);
+  for (n = *num; i < n; ++i, p += size) pool[i] = p;
+}
+
+
+LIBXS_API void* libxs_pmalloc(void* pool[], size_t* i)
+{
+  LIBXS_ASSERT(NULL != pool && NULL != i && 0 < *i);
+  return pool[LIBXS_ATOMIC_SUB_FETCH(i, 1, LIBXS_ATOMIC_RELAXED)];
+}
+
+
+LIBXS_API void libxs_pfree(void* pointer, void* pool[], size_t* i)
+{
+  LIBXS_ASSERT(NULL != pointer && NULL != pool && NULL != i);
+  pool[LIBXS_ATOMIC_ADD_FETCH(i, 1, LIBXS_ATOMIC_RELAXED)] = pointer;
+}
