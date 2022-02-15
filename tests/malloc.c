@@ -18,6 +18,9 @@
 #if !defined(CHECK_SCRATCH) && 1
 # define CHECK_SCRATCH
 #endif
+#if !defined(CHECK_PMALLOC) && 1
+# define CHECK_PMALLOC
+#endif
 
 #if defined(_DEBUG)
 # define FPRINTF(STREAM, ...) do { fprintf(STREAM, __VA_ARGS__); } while(0)
@@ -31,10 +34,29 @@ int main(void)
   const size_t size_malloc = 2507, alignment = (2U << 20);
   libxs_malloc_info malloc_info;
   int avalue, nerrors = 0, n;
-  void *p;
 #if defined(CHECK_SCRATCH)
   const size_t size_scratch = (24U << 20);
   void *q, *r;
+#endif
+  void* s;
+
+#if defined(CHECK_PMALLOC)
+  { /* check pooled malloc */
+    void* pool[1024];
+    char* storage[42*sizeof(pool)/sizeof(*pool)];
+    size_t num = sizeof(pool) / sizeof(*pool);
+    int i;
+
+    libxs_pmalloc_init(42, &num, pool, storage);
+# if defined(_OPENMP)
+#   pragma omp parallel for private(i)
+# endif
+    for (i = 0; i < (sizeof(pool) / sizeof(*pool)); ++i) {
+      void *const p = libxs_pmalloc(pool, &num);
+      libxs_pfree(p, pool, &num);
+    }
+    if (sizeof(pool) != (num * sizeof(*pool))) ++nerrors;
+  }
 #endif
 
 #if defined(CHECK_SETUP)
@@ -72,10 +94,10 @@ int main(void)
 #endif
 
   /* allocate some amount of memory */
-  p = libxs_malloc(size_malloc);
+  s = libxs_malloc(size_malloc);
 
   /* query and check the size of the buffer */
-  if (NULL != p && (EXIT_SUCCESS != libxs_get_malloc_info(p, &malloc_info) || malloc_info.size < size_malloc)) {
+  if (NULL != s && (EXIT_SUCCESS != libxs_get_malloc_info(s, &malloc_info) || malloc_info.size < size_malloc)) {
     FPRINTF(stderr, "Error: buffer info (1/4) failed!\n");
     ++nerrors;
   }
@@ -93,27 +115,27 @@ int main(void)
 #endif
 
 #if defined(CHECK_REALLOC)
-  if (NULL != p) { /* reallocate larger amount of memory */
-    unsigned char* c = (unsigned char*)p;
+  if (NULL != s) { /* reallocate larger amount of memory */
+    unsigned char* c = (unsigned char*)s;
     size_t i;
-    avalue = 1 << LIBXS_INTRINSICS_BITSCANFWD64((uintptr_t)p);
+    avalue = 1 << LIBXS_INTRINSICS_BITSCANFWD64((uintptr_t)s);
     for (i = 0; i < size_malloc; ++i) c[i] = (unsigned char)LIBXS_MOD2(i, 256);
-    p = libxs_realloc(size_malloc * 2, p);
+    s = libxs_realloc(size_malloc * 2, s);
     /* check that alignment is preserved */
-    if (0 != (((uintptr_t)p) % avalue)) {
+    if (0 != (((uintptr_t)s) % avalue)) {
       FPRINTF(stderr, "Error: buffer alignment (1/3) not preserved!\n");
       ++nerrors;
     }
-    c = (unsigned char*)p;
+    c = (unsigned char*)s;
     for (i = size_malloc; i < (size_malloc * 2); ++i) c[i] = (unsigned char)LIBXS_MOD2(i, 256);
     /* reallocate again with same size */
-    p = libxs_realloc(size_malloc * 2, p);
+    s = libxs_realloc(size_malloc * 2, s);
     /* check that alignment is preserved */
-    if (0 != (((uintptr_t)p) % avalue)) {
+    if (0 != (((uintptr_t)s) % avalue)) {
       FPRINTF(stderr, "Error: buffer alignment (2/3) not preserved!\n");
       ++nerrors;
     }
-    c = (unsigned char*)p;
+    c = (unsigned char*)s;
     for (i = n = 0; i < (size_malloc * 2); ++i) { /* check that content is preserved */
       n += (c[i] == (unsigned char)LIBXS_MOD2(i, 256) ? 0 : 1);
     }
@@ -122,13 +144,13 @@ int main(void)
       nerrors += n;
     }
     /* reallocate with smaller size */
-    p = libxs_realloc(size_malloc / 2, p);
+    s = libxs_realloc(size_malloc / 2, s);
     /* check that alignment is preserved */
-    if (0 != (((uintptr_t)p) % avalue)) {
+    if (0 != (((uintptr_t)s) % avalue)) {
       FPRINTF(stderr, "Error: buffer alignment (3/3) not preserved!\n");
       ++nerrors;
     }
-    c = (unsigned char*)p;
+    c = (unsigned char*)s;
     for (i = n = 0; i < size_malloc / 2; ++i) { /* check that content is preserved */
       n += (c[i] == (unsigned char)LIBXS_MOD2(i, 256) ? 0 : 1);
     }
@@ -138,15 +160,15 @@ int main(void)
     }
   }
   /* query and check the size of the buffer */
-  if (NULL != p && (EXIT_SUCCESS != libxs_get_malloc_info(p, &malloc_info) || malloc_info.size < (size_malloc / 2))) {
+  if (NULL != s && (EXIT_SUCCESS != libxs_get_malloc_info(s, &malloc_info) || malloc_info.size < (size_malloc / 2))) {
     FPRINTF(stderr, "Error: buffer info (2/4) failed!\n");
     ++nerrors;
   }
-  libxs_free(p); /* release buffer */
+  libxs_free(s); /* release buffer */
   /* check degenerated reallocation */
-  p = libxs_realloc(size_malloc, NULL/*allocation*/);
+  s = libxs_realloc(size_malloc, NULL/*allocation*/);
   /* query and check the size of the buffer */
-  if (NULL != p && (EXIT_SUCCESS != libxs_get_malloc_info(p, &malloc_info) || malloc_info.size < size_malloc)) {
+  if (NULL != s && (EXIT_SUCCESS != libxs_get_malloc_info(s, &malloc_info) || malloc_info.size < size_malloc)) {
     FPRINTF(stderr, "Error: buffer info (3/4) failed!\n");
     ++nerrors;
   }
@@ -162,20 +184,20 @@ int main(void)
   libxs_free(NULL);
 
   /* release buffer */
-  libxs_free(p);
+  libxs_free(s);
 
   /* allocate memory with specific alignment */
-  p = libxs_aligned_malloc(size_malloc, alignment);
+  s = libxs_aligned_malloc(size_malloc, alignment);
   /* check function that determines alignment */
-  libxs_aligned(p, NULL/*inc*/, &avalue);
+  libxs_aligned(s, NULL/*inc*/, &avalue);
 
   /* check the alignment of the allocation */
-  if (0 != (((uintptr_t)p) % alignment) || ((size_t)avalue) < alignment) {
+  if (0 != (((uintptr_t)s) % alignment) || ((size_t)avalue) < alignment) {
     FPRINTF(stderr, "Error: buffer alignment (1/3) incorrect!\n");
     ++nerrors;
   }
 
-  if (libxs_aligned(p, NULL/*inc*/, NULL/*alignment*/)) { /* pointer is SIMD-aligned */
+  if (libxs_aligned(s, NULL/*inc*/, NULL/*alignment*/)) { /* pointer is SIMD-aligned */
     if (alignment < ((size_t)4 * libxs_cpuid_vlen32(libxs_get_target_archid()))) {
       FPRINTF(stderr, "Error: buffer alignment (2/3) incorrect!\n");
       ++nerrors;
@@ -189,7 +211,7 @@ int main(void)
   }
 
   /* release memory */
-  libxs_free(p);
+  libxs_free(s);
 #if defined(CHECK_SCRATCH)
   libxs_free(q);
   libxs_free(r);

@@ -394,6 +394,9 @@ libxs_otrans_s1
 libxs_otrans_s2
 libxs_otrans_task
 libxs_otrans_task_internal
+libxs_pfree
+libxs_pmalloc
+libxs_pmalloc_init
 libxs_primes_u32
 libxs_product_limit
 libxs_ptr_b0

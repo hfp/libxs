@@ -111,6 +111,18 @@ LIBXS_API void* libxs_scratch_malloc(size_t size,
 LIBXS_API void libxs_free(const void* memory);
 
 /**
+ * Initialize the pool by drawing from the given storage a number of chunks of the given size.
+ * The capacity of the storage must be at least num x size. The num-counter must be used for
+ * subsequent pmalloc/pfree drawing from the same pool. The initialization is not thread-safe
+ * however, pmalloc/pfree are thread-safe.
+ */
+LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* storage);
+/** Allocate from the given pool by using the original num-counter (libxs_pmalloc_init). */
+LIBXS_API void* libxs_pmalloc(void* pool[], size_t* i);
+/** Bring pointer back into the pool by using original num-counter (libxs_pmalloc_init). */
+LIBXS_API void libxs_pfree(void* pointer, void* pool[], size_t* i);
+
+/**
  * Release the entire scratch memory regardless
  * of whether it is still referenced or not.
  */
