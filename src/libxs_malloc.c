@@ -2659,5 +2659,5 @@ LIBXS_API void* libxs_pmalloc(void* pool[], size_t* i)
 LIBXS_API void libxs_pfree(void* pointer, void* pool[], size_t* i)
 {
   LIBXS_ASSERT(NULL != pointer && NULL != pool && NULL != i);
-  pool[LIBXS_ATOMIC_ADD_FETCH(i, 1, LIBXS_ATOMIC_RELAXED)] = pointer;
+  pool[LIBXS_ATOMIC_FETCH_ADD(i, 1, LIBXS_ATOMIC_RELAXED)] = pointer;
 }
