@@ -11,9 +11,11 @@
 
 #include <libxs_macros.h>
 
-/* Map number of Bits to corresponding routine. */
+/** Map number of Bits to corresponding routine. */
 #define LIBXS_CRC32U(N) LIBXS_CONCATENATE(libxs_crc32_u, N)
-/* Map number of Bytes to number of bits. */
+/** Calculate CRC32-value of the given pointer. */
+#define LIBXS_CRCPTR(SEED, PTR) LIBXS_CRC32U(LIBXS_BITS)(SEED, &(PTR))
+/** Map number of Bytes to number of bits. */
 #define LIBXS_CRC32(N) LIBXS_CONCATENATE(libxs_crc32_b, N)
 #define libxs_crc32_b4 libxs_crc32_u32
 #define libxs_crc32_b8 libxs_crc32_u64
