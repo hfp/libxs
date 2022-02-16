@@ -129,6 +129,9 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #if !defined(LIBXS_MALLOC_SEED)
 # define LIBXS_MALLOC_SEED 1051981
 #endif
+#if !defined(LIBXS_MALLOC_NLOCKS)
+# define LIBXS_MALLOC_NLOCKS 16
+#endif
 
 #if !defined(LIBXS_MALLOC_HOOK_KMP) && 0
 # define LIBXS_MALLOC_HOOK_KMP
@@ -404,6 +407,7 @@ LIBXS_APIVAR_DEFINE(size_t internal_malloc_local_cur);
 LIBXS_APIVAR_DEFINE(int internal_malloc_recursive);
 /** 0: regular, 1/odd: intercept/scratch, otherwise: all/scratch */
 LIBXS_APIVAR_DEFINE(int internal_malloc_kind);
+LIBXS_APIVAR_DEFINE(volatile int internal_pmallocs[LIBXS_MALLOC_NLOCKS]);
 #if defined(LIBXS_MALLOC_HOOK) && defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)
 /* Interval of bytes that permit interception (internal_malloc_kind) */
 LIBXS_APIVAR_DEFINE(size_t internal_malloc_limit[2]);
@@ -498,7 +502,7 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
         || (2 > libxs_ninit) /* before checksum calculation */
 #if !defined(LIBXS_MALLOC_CRC_OFF) /* last check: checksum over info */
 # if defined(LIBXS_MALLOC_CRC_LIGHT)
-        || result->hash != LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &result)
+        || result->hash != LIBXS_CRCPTR(LIBXS_MALLOC_SEED, result)
 # else
         || result->hash != libxs_crc32(LIBXS_MALLOC_SEED, result,
             (const char*)&result->hash - (const char*)result)
@@ -2078,7 +2082,7 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment,
 #endif /* info must be initialized to calculate correct checksum */
 #if !defined(LIBXS_MALLOC_CRC_OFF)
 # if defined(LIBXS_MALLOC_CRC_LIGHT)
-        buffer_info->hash = LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &buffer_info);
+        buffer_info->hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, buffer_info);
 # else
         buffer_info->hash = libxs_crc32(LIBXS_MALLOC_SEED, buffer_info,
           (unsigned int)(((char*)&buffer_info->hash) - ((char*)buffer_info)));
@@ -2273,7 +2277,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
 # if !defined(LIBXS_MALLOC_CRC_OFF) /* update checksum */
 #   if defined(LIBXS_MALLOC_CRC_LIGHT)
           { const internal_malloc_info_type *const code_info = internal_malloc_info(code_ptr, 0/*no check*/);
-            info->hash = LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &code_info);
+            info->hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, code_info);
           }
 #   else
           info->hash = libxs_crc32(LIBXS_MALLOC_SEED, info,
@@ -2288,7 +2292,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
         else { /* malloc-based fallback */
 # if !defined(LIBXS_MALLOC_CRC_OFF) && defined(LIBXS_VTUNE) /* check checksum */
 #   if defined(LIBXS_MALLOC_CRC_LIGHT)
-          assert(info->hash == LIBXS_CRC32U(LIBXS_BITS)(LIBXS_MALLOC_SEED, &info)); /* !LIBXS_ASSERT */
+          assert(info->hash == LIBXS_CRCPTR(LIBXS_MALLOC_SEED, info)); /* !LIBXS_ASSERT */
 #   else
           assert(info->hash == libxs_crc32(LIBXS_MALLOC_SEED, info, /* !LIBXS_ASSERT */
             /* info size minus actual hash value */
@@ -2643,27 +2647,42 @@ LIBXS_API int libxs_get_malloc(size_t* lo, size_t* hi)
 LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* storage)
 {
   char* p = (char*)storage;
+  volatile int* lock;
   size_t n, i = 0;
   LIBXS_ASSERT(0 < size && NULL != num && NULL != pool && NULL != storage);
+  LIBXS_INIT /* CRC-facility must be initialized upfront */
+  lock = internal_pmallocs + LIBXS_MOD2(LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool), LIBXS_MALLOC_NLOCKS);
+  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED);
   for (n = *num; i < n; ++i, p += size) pool[i] = p;
+  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_RELAXED);
 }
 
 
 LIBXS_API void* libxs_pmalloc(void* pool[], size_t* i)
 {
-  size_t idx;
+  const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
+  volatile int *const lock = internal_pmallocs + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
+  void* pointer;
   LIBXS_ASSERT(NULL != pool && NULL != i);
-  idx = LIBXS_ATOMIC_SUB_FETCH(i, 1, LIBXS_ATOMIC_RELAXED);
-  LIBXS_ASSERT(0 <= idx && ((size_t)-1) != idx);
-  return pool[idx];
+  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ASSERT(0 < *i && ((size_t)-1) != *i);
+  pointer = pool[--(*i)];
+#if !defined(NDEBUG)
+  pool[*i] = NULL;
+#endif
+  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ASSERT(NULL != pointer);
+  return pointer;
 }
 
 
 LIBXS_API void libxs_pfree(void* pointer, void* pool[], size_t* i)
 {
-  size_t idx;
+  const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
+  volatile int *const lock = internal_pmallocs + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
   LIBXS_ASSERT(NULL != pointer && NULL != pool && NULL != i);
-  idx = LIBXS_ATOMIC_FETCH_ADD(i, 1, LIBXS_ATOMIC_RELAXED);
-  LIBXS_ASSERT(0 <= idx && ((size_t)-1) != (idx + 1));
-  pool[idx] = pointer;
+  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED);
+  assert(NULL == pool[*i]); /* !LIBXS_ASSERT */
+  pool[(*i)++] = pointer;
+  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_RELAXED);
 }
