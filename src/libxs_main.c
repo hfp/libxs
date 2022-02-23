@@ -288,7 +288,7 @@ LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
   LIBXS_UNUSED(alignment);
   result = malloc(size);
 #elif defined(NDEBUG)
-  posix_memalign(&result, alignment, size);
+  LIBXS_EXPECT(0 == posix_memalign(&result, alignment, size));
 #else
   if (0 != posix_memalign(&result, alignment, size)) result = NULL;
 #endif
