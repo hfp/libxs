@@ -840,6 +840,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   include <windows.h>
 # else
 #   include <pthread.h>
+#   include <unistd.h>
 # endif
 #endif
 #if !defined(LIBXS_ASSERT)
