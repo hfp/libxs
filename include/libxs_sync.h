@@ -466,7 +466,11 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_SYNC_YIELD pthread_yield_np()
 #   elif defined(_POSIX_PRIORITY_SCHEDULING) || (defined(__GLIBC__) && defined(__GLIBC_MINOR__) \
       && LIBXS_VERSION2(2, 34) <= LIBXS_VERSION2(__GLIBC__, __GLIBC_MINOR__))
-      LIBXS_EXTERN int sched_yield(void); /* sched.h */
+#     if defined(__USE_GNU) || !defined(__BSD_VISIBLE)
+      LIBXS_EXTERN int sched_yield(void) LIBXS_THROW;
+#     else
+      LIBXS_EXTERN int sched_yield(void);
+#     endif
 #     define LIBXS_SYNC_YIELD sched_yield()
 #   else
 #     if defined(__USE_GNU) || !defined(__BSD_VISIBLE)
