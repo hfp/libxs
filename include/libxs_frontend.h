@@ -133,7 +133,8 @@
 # define LIBXS_BLAS_CONST const
 #elif defined(OPENBLAS_CONST)
 # define LIBXS_BLAS_CONST OPENBLAS_CONST
-#elif defined(LIBXS_BLAS_NONCONST) || defined(__OPENBLAS) || defined(__OPENBLAS77)
+#elif (defined(LIBXS_BLAS_NONCONST) || defined(__OPENBLAS) || defined(__OPENBLAS77)) \
+   && !defined(LIBXS_BUILD)
 # define LIBXS_BLAS_CONST
 #else
 # define LIBXS_BLAS_CONST const
