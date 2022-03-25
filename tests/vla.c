@@ -33,11 +33,16 @@ int main(/*int argc, char* argv[]*/)
     for (j = 0; j < nj; ++j) {
       for (k = 0; k < nk; ++k) {
         const ELEM_TYPE gold0 = input[linear];
-        const ELEM_TYPE test0 = VLA_IJK_INDX(3, jk3, i, j, k, nj, nk);
+        const ELEM_TYPE test0a = VLA_IJK_INDX(3, jk3, i, j, k, nj, nk);
+        const void *const vjk3 = LIBXS_CONCATENATE(jk3, LIBXS_VLA_POSTFIX);
+        const ELEM_TYPE test0b = *LIBXS_ACCESS(3, ELEM_TYPE, vjk3, i, j, k, nj, nk);
         const ELEM_TYPE gold1 = VLA_IJK_INDX(3, kj3, i, k, j, nk, nj);
-        const ELEM_TYPE test1 = VLA_IKJ_INDX(3, kj3, i, j, k, nj, nk);
+        const ELEM_TYPE test1a = VLA_IKJ_INDX(3, kj3, i, j, k, nj, nk);
+        const void *const vkj3 = LIBXS_CONCATENATE(kj3, LIBXS_VLA_POSTFIX);
+        const ELEM_TYPE test1b = *LIBXS_ACCESS(3, ELEM_TYPE, vkj3, i, k, j, nk, nj);
         if (gold0 != LIBXS_VLA_ACCESS(1, in1, linear) ||
-            gold0 != test0 || gold1 != test1)
+            gold0 != test0a || gold1 != test1a ||
+            test0a != test0b || test1a != test1b)
         {
           result = EXIT_FAILURE;
           j = nj; break;
