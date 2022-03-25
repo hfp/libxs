@@ -699,10 +699,10 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
     + 0 * LIBXS_INDEX1(NDIMS, LIBXS_SELECT_TAIL(__VA_ARGS__, LIBXS_SELECT_TAIL(__VA_ARGS__, 0))) /* dummy-shift to "sink" unused arguments */
 #endif
 
+/** Address of an ARRAY of elements (of TYPESIZE) using linear index according to LIBXS_INDEX1. */
+#define LIBXS_ACCESS_RAW(NDIMS, TYPESIZE, ARRAY, ...) ((void*)(((char*)(ARRAY)) + (TYPESIZE) * LIBXS_INDEX1(NDIMS, __VA_ARGS__)))
 /** Address of an ARRAY of TYPE (can be const-qualified) using linear index according to LIBXS_INDEX1. */
 #define LIBXS_ACCESS(NDIMS, TYPE, ARRAY, ...) (((TYPE*)(ARRAY)) + LIBXS_INDEX1(NDIMS, __VA_ARGS__))
-/** Like LIBXS_ACCESS, but based on Byte-measured index/stride; returns the value (instead of address). */
-#define LIBXS_ACCESS_VALUE(NDIMS, TYPE, ARRAY, ...) (*(TYPE*)LIBXS_ACCESS(NDIMS, char, ARRAY, __VA_ARGS__))
 
 #if !defined(LIBXS_UNUSED)
 # if 0
