@@ -2206,8 +2206,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # else
     void* code_buffer_ptr = &code_buffer;
 # endif
-    const size_t total_size = (size_t)generated_code.code_size + generated_code.data_size;
+    const size_t code_size = (size_t)generated_code.code_size;
     const size_t data_size = generated_code.data_size;
+    const size_t total_size = code_size + data_size;
     LIBXS_ASSERT(NULL != generated_code.generated_code);
     LIBXS_ASSERT(total_size <= LIBXS_CODE_MAXSIZE);
     /* attempt to create executable buffer */
@@ -2238,9 +2239,10 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       result = libxs_malloc_attrib((void**)code_buffer_ptr,
         LIBXS_MALLOC_FLAG_X, jit_name, &data_size);
       if (EXIT_SUCCESS == result && 0 != data_size) { /* check for success */
-        void *const data_buffer = code_buffer + generated_code.code_size;
+        const size_t data_padding = LIBXS_UP( code_size, LIBXS_PAGE_MINSIZE ) - code_size;
+        void *const data_buffer = code_buffer + code_size + data_padding;
         /* attribute and protect constant data by setting only necessary flags */
-        result = libxs_malloc_xattrib(data_buffer, LIBXS_MALLOC_FLAG_R, data_size);
+        result = libxs_malloc_xattrib(data_buffer, LIBXS_MALLOC_FLAG_R, data_size - data_padding );
       }
       if (EXIT_SUCCESS == result) { /* check for success */
         code->ptr = code_buffer; /* commit buffer */
