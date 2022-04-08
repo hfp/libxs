@@ -129,6 +129,11 @@ LIBXS_API libxs_gemm_shape libxs_create_gemm_shape( const libxs_blasint m, const
 LIBXS_API libxs_gemm_batch_reduce_config libxs_create_gemm_batch_reduce_config( const libxs_gemm_batch_reduce_type br_type,
                                                                                       const libxs_blasint br_stride_a_hint, const libxs_blasint br_stride_b_hint,
                                                                                       const unsigned char br_unroll_hint );
+LIBXS_API libxs_gemm_ext_unary_argops libxs_create_gemm_ext_unary_argops( const libxs_blasint ldap, const libxs_meltw_unary_type ap_unary_type, const libxs_bitfield ap_unary_flags, const libxs_blasint store_ap,
+                                                                                const libxs_blasint ldbp, const libxs_meltw_unary_type bp_unary_type, const libxs_bitfield bp_unary_flags, const libxs_blasint store_bp,
+                                                                                const libxs_blasint ldcp, const libxs_meltw_unary_type cp_unary_type, const libxs_bitfield cp_unary_flags, const libxs_blasint store_cp );
+LIBXS_API libxs_gemm_ext_binary_postops libxs_create_gemm_ext_binary_postops( const libxs_blasint ldd, const libxs_datatype d_in_type, const libxs_meltw_binary_type d_binary_type, const libxs_bitfield d_binary_flags );
+
 /** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (descriptor form). */
 LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);
 /** Query or JIT-generate SMM-kernel general mixed precision options and batch reduce; returns NULL if it does not exist or if JIT is not supported */
@@ -522,13 +527,13 @@ LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary( const libxs_
                                                                           const libxs_meltw_ternary_flags flags, const libxs_meltw_ternary_type type );
 LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_blasint m, const libxs_blasint n,
                                                                         const libxs_blasint ldi, const libxs_blasint ldo,
-                                                                        const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type );
+                                                                        const libxs_datatype in0_type, const libxs_datatype out_type, const libxs_datatype comp_type );
 LIBXS_API libxs_meltw_binary_shape libxs_create_meltw_binary_shape( const libxs_blasint m, const libxs_blasint n,
                                                                           const libxs_blasint ldi, const libxs_blasint ldi2, const libxs_blasint ldo,
-                                                                          const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type );
+                                                                          const libxs_datatype in0_type, const libxs_datatype in1_type, const libxs_datatype out_type, const libxs_datatype comp_type );
 LIBXS_API libxs_meltw_ternary_shape libxs_create_meltw_ternary_shape( const libxs_blasint m, const libxs_blasint n,
                                                                             const libxs_blasint ldi, const libxs_blasint ldi2, const libxs_blasint ldi3, const libxs_blasint ldo,
-                                                                            const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type );
+                                                                            const libxs_datatype in0_type, const libxs_datatype in1_type, const libxs_datatype in2_type, const libxs_datatype out_type, const libxs_datatype comp_type );
 LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary_v2( const libxs_meltw_unary_type unary_type, const libxs_meltw_unary_shape unary_shape, const libxs_bitfield unary_flags );
 LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary_v2( const libxs_meltw_binary_type binary_type, const libxs_meltw_binary_shape binary_shape, const libxs_bitfield binary_flags );
 LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary_v2( const libxs_meltw_ternary_type ternary_type, const libxs_meltw_ternary_shape ternary_shape, const libxs_bitfield ternary_flags );
@@ -544,6 +549,7 @@ LIBXS_API int libxs_matrix_eqn_push_back_ternary_op( const libxs_blasint idx, co
 LIBXS_API libxs_meqn_arg_shape libxs_create_meqn_arg_shape( const libxs_blasint m, const libxs_blasint n, const libxs_blasint ld, const libxs_datatype type );
 LIBXS_API libxs_matrix_arg_attributes libxs_create_matrix_arg_attributes( const libxs_matrix_arg_type type, const libxs_matrix_arg_set_type set_type, const libxs_blasint set_cardinality_hint, const libxs_blasint set_stride_hint );
 LIBXS_API libxs_matrix_eqn_arg_metadata libxs_create_matrix_eqn_arg_metadata( const libxs_blasint eqn_idx, const libxs_blasint in_arg_pos );
+LIBXS_API libxs_matrix_eqn_op_metadata libxs_create_matrix_eqn_op_metadata( const libxs_blasint eqn_idx, const libxs_blasint op_arg_pos );
 LIBXS_API int libxs_matrix_eqn_push_back_arg_v2( const libxs_matrix_eqn_arg_metadata arg_metadata, const libxs_meqn_arg_shape arg_shape, libxs_matrix_arg_attributes arg_attr);
 LIBXS_API int libxs_matrix_eqn_push_back_unary_op_v2( const libxs_matrix_eqn_op_metadata op_metadata, const libxs_meltw_unary_type type, const libxs_datatype dtype, const libxs_bitfield flags);
 LIBXS_API int libxs_matrix_eqn_push_back_binary_op_v2( const libxs_matrix_eqn_op_metadata op_metadata, const libxs_meltw_binary_type type, const libxs_datatype dtype, const libxs_bitfield flags);

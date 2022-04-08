@@ -2149,9 +2149,13 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
         {
           char tsizename[4];
+          char tsizename1[4];
+          char tsizename2[4];
           internal_get_typesize_string(tsizename, sizeof(tsizename), request->descriptor.meltw->datatype);
+          internal_get_typesize_string(tsizename1, sizeof(tsizename1), request->descriptor.meltw->datatype1);
+          internal_get_typesize_string(tsizename2, sizeof(tsizename2), request->descriptor.meltw->datatype2);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%ux%u_opcode%u_flags%u_params%u.meltw", target_arch, tsizename,
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s%s%s_%ux%u_%ux%u_opcode%u_flags%u_params%u.meltw", target_arch, tsizename, tsizename1, tsizename2,
             request->descriptor.meltw->m, request->descriptor.meltw->n, request->descriptor.meltw->ldi, request->descriptor.meltw->ldo,
             (unsigned int)request->descriptor.meltw->operation, (unsigned int)request->descriptor.meltw->flags, (unsigned int)request->descriptor.meltw->param);
         }
@@ -2919,6 +2923,42 @@ LIBXS_API libxs_gemm_batch_reduce_config libxs_create_gemm_batch_reduce_config( 
 }
 
 
+LIBXS_API libxs_gemm_ext_unary_argops libxs_create_gemm_ext_unary_argops( const libxs_blasint ldap, const libxs_meltw_unary_type ap_unary_type, const libxs_bitfield ap_unary_flags, const libxs_blasint store_ap,
+                                                                                const libxs_blasint ldbp, const libxs_meltw_unary_type bp_unary_type, const libxs_bitfield bp_unary_flags, const libxs_blasint store_bp,
+                                                                                const libxs_blasint ldcp, const libxs_meltw_unary_type cp_unary_type, const libxs_bitfield cp_unary_flags, const libxs_blasint store_cp )
+{
+  libxs_gemm_ext_unary_argops res;
+
+  res.ldap = ldap;
+  res.ap_unary_type = ap_unary_type;
+  res.ap_unary_flags = ap_unary_flags;
+  res.store_ap = store_ap;
+  res.ldbp = ldbp;
+  res.bp_unary_type = bp_unary_type;
+  res.bp_unary_flags = bp_unary_flags;
+  res.store_bp = store_bp;
+  res.ldcp = ldcp;
+  res.cp_unary_type = cp_unary_type;
+  res.cp_unary_flags = cp_unary_flags;
+  res.store_cp = store_cp;
+
+  return res;
+}
+
+
+LIBXS_API libxs_gemm_ext_binary_postops libxs_create_gemm_ext_binary_postops( const libxs_blasint ldd, const libxs_datatype d_in_type, const libxs_meltw_binary_type d_binary_type, const libxs_bitfield d_binary_flags )
+{
+  libxs_gemm_ext_binary_postops res;
+
+  res.ldd = ldd;
+  res.d_in_type = d_in_type;
+  res.d_binary_type = d_binary_type;
+  res.d_binary_flags = d_binary_flags;
+
+  return res;
+}
+
+
 LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   libxs_xmmfunction result;
@@ -3089,7 +3129,7 @@ LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_
   desc->meltw_flags = (unsigned short)binary_postops.d_binary_flags;
   desc->meltw_param = (unsigned short)binary_postops.d_binary_type;
   desc->meltw_operation = ( binary_postops.d_binary_type == LIBXS_MELTW_TYPE_BINARY_NONE ) ? LIBXS_MELTW_OPERATION_NONE : LIBXS_MELTW_OPERATION_BINARY;
-  desc->meltw_ldx = (NULL != binary_postops.ldd) ? *(binary_postops.ldd) : gemm_shape.m;
+  desc->meltw_ldx = binary_postops.ldd;
   desc->meltw_ldy = 0;
   desc->meltw_ldz = 0;
 
@@ -3098,19 +3138,19 @@ LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_
   desc->eltw_ap_op = ( unary_argops.ap_unary_type == LIBXS_MELTW_TYPE_UNARY_NONE ) ? LIBXS_MELTW_OPERATION_NONE : LIBXS_MELTW_OPERATION_UNARY;
   desc->eltw_ap_flags = (unsigned short)unary_argops.ap_unary_flags;
   desc->eltw_ap_param = (unsigned short)unary_argops.ap_unary_type;
-  desc->ldap = (NULL != unary_argops.ldap) ? *(unary_argops.ldap) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? gemm_shape.m : gemm_shape.k);
+  desc->ldap = unary_argops.ldap;
   desc->internal_flags_2 |= (unary_argops.store_ap != 0) ? 0x1 : 0x0;
 
   desc->eltw_bp_op = ( unary_argops.bp_unary_type == LIBXS_MELTW_TYPE_UNARY_NONE ) ? LIBXS_MELTW_OPERATION_NONE : LIBXS_MELTW_OPERATION_UNARY;
   desc->eltw_bp_flags = (unsigned short)unary_argops.bp_unary_flags;
   desc->eltw_bp_param = (unsigned short)unary_argops.bp_unary_type;
-  desc->ldbp = (NULL != unary_argops.ldbp) ? *(unary_argops.ldbp) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? gemm_shape.k : gemm_shape.n);
+  desc->ldbp = unary_argops.ldbp;
   desc->internal_flags_2 |= (unary_argops.store_bp != 0) ? 0x2 : 0x0;
 
   desc->eltw_cp_op = ( unary_argops.cp_unary_type == LIBXS_MELTW_TYPE_UNARY_NONE ) ? LIBXS_MELTW_OPERATION_NONE : LIBXS_MELTW_OPERATION_UNARY;
   desc->eltw_cp_flags = (unsigned short)unary_argops.cp_unary_flags;
   desc->eltw_cp_param = (unsigned short)unary_argops.cp_unary_type;
-  desc->ldcp = (NULL != unary_argops.ldcp) ? *(unary_argops.ldcp) : gemm_shape.m;
+  desc->ldcp = unary_argops.ldcp;
   desc->internal_flags_2 |= (unary_argops.store_cp != 0) ? 0x4 : 0x0;
 
   /* JIT! */
@@ -4681,7 +4721,7 @@ LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary(
 {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
-    in_type, compute_type, out_type, LIBXS_DATATYPE_UNSUPPORTED, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo, 0, 0,
+    in_type, LIBXS_DATATYPE_UNSUPPORTED, LIBXS_DATATYPE_UNSUPPORTED, compute_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo, 0, 0,
     (unsigned short)flags, (unsigned short)type, LIBXS_MELTW_OPERATION_UNARY);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
@@ -4697,7 +4737,7 @@ LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary(
 {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
-    in_type, compute_type, out_type, LIBXS_DATATYPE_UNSUPPORTED, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo, (ldi2 == NULL) ? m : *ldi2, 0,
+    in_type, in_type, LIBXS_DATATYPE_UNSUPPORTED, compute_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo, (ldi2 == NULL) ? m : *ldi2, 0,
     (unsigned short)flags, (unsigned short)type, LIBXS_MELTW_OPERATION_BINARY);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
@@ -4713,7 +4753,7 @@ LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary(
 {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
-    in_type, compute_type, out_type, LIBXS_DATATYPE_UNSUPPORTED, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo, (ldi2 == NULL) ? m : *ldi2, (ldi3 == NULL) ? m : *ldi3,
+    in_type, in_type, in_type, compute_type, out_type, m, n, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo, (ldi2 == NULL) ? m : *ldi2, (ldi3 == NULL) ? m : *ldi3,
     (unsigned short)flags, (unsigned short)type, LIBXS_MELTW_OPERATION_TERNARY);
 
   libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
@@ -4724,7 +4764,7 @@ LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary(
 
 LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_blasint m, const libxs_blasint n,
                                                                         const libxs_blasint ldi, const libxs_blasint ldo,
-                                                                        const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
+                                                                        const libxs_datatype in0_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
   libxs_meltw_unary_shape res;
 
@@ -4732,7 +4772,7 @@ LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_bl
   res.n = n;
   res.ldi = ldi;
   res.ldo = ldo;
-  res.in_type = in_type;
+  res.in0_type = in0_type;
   res.out_type = out_type;
   res.comp_type = comp_type;
 
@@ -4742,7 +4782,7 @@ LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_bl
 
 LIBXS_API libxs_meltw_binary_shape libxs_create_meltw_binary_shape( const libxs_blasint m, const libxs_blasint n,
                                                                           const libxs_blasint ldi, const libxs_blasint ldi2, const libxs_blasint ldo,
-                                                                          const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
+                                                                          const libxs_datatype in0_type, const libxs_datatype in1_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
   libxs_meltw_binary_shape res;
 
@@ -4751,7 +4791,8 @@ LIBXS_API libxs_meltw_binary_shape libxs_create_meltw_binary_shape( const libxs_
   res.ldi = ldi;
   res.ldi2 = ldi2;
   res.ldo = ldo;
-  res.in_type = in_type;
+  res.in0_type = in0_type;
+  res.in1_type = in1_type;
   res.out_type = out_type;
   res.comp_type = comp_type;
 
@@ -4761,7 +4802,7 @@ LIBXS_API libxs_meltw_binary_shape libxs_create_meltw_binary_shape( const libxs_
 
 LIBXS_API libxs_meltw_ternary_shape libxs_create_meltw_ternary_shape( const libxs_blasint m, const libxs_blasint n,
                                                                             const libxs_blasint ldi, const libxs_blasint ldi2, const libxs_blasint ldi3, const libxs_blasint ldo,
-                                                                            const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
+                                                                            const libxs_datatype in0_type, const libxs_datatype in1_type, const libxs_datatype in2_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
   libxs_meltw_ternary_shape res;
 
@@ -4771,7 +4812,9 @@ LIBXS_API libxs_meltw_ternary_shape libxs_create_meltw_ternary_shape( const libx
   res.ldi2 = ldi2;
   res.ldi3 = ldi3;
   res.ldo = ldo;
-  res.in_type = in_type;
+  res.in0_type = in0_type;
+  res.in1_type = in1_type;
+  res.in2_type = in2_type;
   res.out_type = out_type;
   res.comp_type = comp_type;
 
@@ -4783,7 +4826,7 @@ LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary_v2( const libxs_m
 {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
-    unary_shape.in_type, unary_shape.comp_type, unary_shape.out_type, LIBXS_DATATYPE_UNSUPPORTED, unary_shape.m, unary_shape.n,
+    unary_shape.in0_type, LIBXS_DATATYPE_UNSUPPORTED, LIBXS_DATATYPE_UNSUPPORTED, unary_shape.comp_type, unary_shape.out_type, unary_shape.m, unary_shape.n,
     unary_shape.ldi, unary_shape.ldo, 0, 0,
     (unsigned short)unary_flags, (unsigned short)unary_type, LIBXS_MELTW_OPERATION_UNARY);
 
@@ -4797,7 +4840,7 @@ LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary_v2( const libxs
 {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
-    binary_shape.in_type, binary_shape.comp_type, binary_shape.out_type, LIBXS_DATATYPE_UNSUPPORTED, binary_shape.m, binary_shape.n,
+    binary_shape.in0_type, binary_shape.in1_type, LIBXS_DATATYPE_UNSUPPORTED, binary_shape.comp_type, binary_shape.out_type, binary_shape.m, binary_shape.n,
     binary_shape.ldi, binary_shape.ldo, binary_shape.ldi2, 0,
     (unsigned short)binary_flags, (unsigned short)binary_type, LIBXS_MELTW_OPERATION_BINARY);
 
@@ -4811,7 +4854,7 @@ LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary_v2( const lib
 {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
-    ternary_shape.in_type, ternary_shape.comp_type, ternary_shape.out_type, LIBXS_DATATYPE_UNSUPPORTED, ternary_shape.m, ternary_shape.n,
+    ternary_shape.in0_type, ternary_shape.in1_type, ternary_shape.in2_type, ternary_shape.comp_type, ternary_shape.out_type, ternary_shape.m, ternary_shape.n,
     ternary_shape.ldi, ternary_shape.ldo, ternary_shape.ldi2, ternary_shape.ldi3,
     (unsigned short)ternary_flags, (unsigned short)ternary_type, LIBXS_MELTW_OPERATION_TERNARY);
 
