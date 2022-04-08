@@ -265,6 +265,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meltw_descriptor {
   unsigned int m, n, ldi, ldo, ldi2, ldi3;
   /** Size of data element. */
   unsigned char datatype;
+  unsigned char datatype1;
   unsigned char datatype2;
   /** Set of flags */
   unsigned short flags;
@@ -691,6 +692,15 @@ LIBXS_EXTERN_C struct LIBXS_RETARGETABLE libxs_dnn_fullyconnected {
   libxs_code_pointer gemm_fwd14;   /* ability to hoist forward GEMMs */
   libxs_code_pointer gemm_fwd15;   /* ability to hoist forward GEMMs */
   libxs_code_pointer gemm_fwd16;   /* ability to hoist forward GEMMs */
+  libxs_xmmfunction sparse_gemm9;
+  libxs_xmmfunction sparse_gemm10;
+  libxs_xmmfunction sparse_gemm11;
+  libxs_xmmfunction sparse_gemm12;
+  libxs_xmmfunction sparse_gemm13;
+  libxs_xmmfunction sparse_gemm14;
+  libxs_xmmfunction sparse_gemm15;
+  libxs_xmmfunction sparse_gemm16;
+
   libxs_code_pointer gemm_bwd;     /* ability to hoist backward GEMMs */
   libxs_code_pointer gemm_bwd2;    /* ability to hoist backward GEMMs */
   libxs_code_pointer gemm_bwd3;    /* ability to hoist backward GEMMs */
