@@ -6,7 +6,6 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_sync.h>
 #include "libxs_main.h"
 #include "libxs_dnn_convolution_forward.h"
 #include "libxs_dnn_convolution_backward.h"

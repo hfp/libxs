@@ -371,7 +371,7 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   else if (LIBXS_X86_AVX <= id) {
     result = 8;
   }
-  else if (LIBXS_X86_SSE42 <= id) {
+  else if (LIBXS_X86_GENERIC <= id) {
     result = 4;
   }
   else

@@ -15,7 +15,7 @@
  * without including libxs_sync. However, libxs_sync.h shall be
  * an explicit include separate from including libxs.h.
  */
-#include "libxs_sync.h"
+#include <libxs_sync.h>
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
 #if !defined(LIBXS_CAPACITY_REGISTRY) /* must be POT */
