@@ -9,14 +9,38 @@
 ###############################################################################
 
 HERE=$(cd "$(dirname "$0")" && pwd -P)
+CPPCHECK=$(command -v cppcheck)
 MKTEMP=${HERE}/../.mktmp.sh
 MAKE=$(command -v make)
 GREP=$(command -v grep)
 SORT=$(command -v sort)
+CAT=$(command -v cat)
 CXX=$(command -v clang++)
 CC=$(command -v clang)
 CP=$(command -v cp)
 MV=$(command -v mv)
+
+if [ "${CPPCHECK}" ] && [ "${CAT}" ]; then
+  ${CPPCHECK} "${HERE}/../src" -isrc/template --file-filter="*.c*" -I"${HERE}/../include" \
+    --error-exitcode=111 --force \
+    --suppress=preprocessorErrorDirective \
+    --suppress=ConfigurationNotChecked \
+    --suppress=missingIncludeSystem \
+    --suppress=unmatchedSuppression \
+    --suppress=unusedFunction \
+    --suppress=unknownMacro \
+    -DLIBXS_PLATFORM_X86 \
+  2>.analyze.log
+  RESULT=$?
+  echo
+  if [ "0" != "$((1<RESULT))" ]; then
+    echo "================================================================================"
+    echo "Issues found by cppcheck"
+    echo "================================================================================"
+    ${CAT} .analyze.log
+    exit 1
+  fi
+fi
 
 if [ "${MKTEMP}" ] && [ "${MAKE}" ] && \
    [ "${GREP}" ] && [ "${SORT}" ] && \
@@ -30,7 +54,7 @@ then
   fi
   TMPF=$("${MKTEMP}" .tool_analyze.XXXXXX)
   ${CP} "${HERE}/../include/libxs_config.h" "${TMPF}"
-  ${MAKE} -e CXX="${CXX}" CC="${CC}" FC= FORCE_CXX=1 DBG=1 ILP64=1 EFLAGS="--analyze" ${ARG} 2> .analyze.log
+  ${MAKE} -e CXX="${CXX}" CC="${CC}" FC= FORCE_CXX=1 DBG=1 ILP64=1 EFLAGS="--analyze" ${ARG} 2>.analyze.log
   ${MV} "${TMPF}" "${HERE}/../include/libxs_config.h"
   ISSUES=$(${GREP} -e "error:" -e "warning:" .analyze.log \
     | ${GREP} -v "make:" \
@@ -38,7 +62,7 @@ then
     | ${SORT} -u)
   echo
   echo   "================================================================================"
-  if [ "" = "${ISSUES}" ]; then
+  if [ ! "${ISSUES}" ]; then
     echo "SUCCESS"
     echo "================================================================================"
   else

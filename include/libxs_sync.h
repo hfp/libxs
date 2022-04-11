@@ -729,6 +729,7 @@ typedef enum libxs_atomic_kind {
 #   endif
 # endif
 #else /* no synchronization */
+# define LIBXS_LOCK_DEFAULT int
 # define LIBXS_SYNC_YIELD LIBXS_SYNC_PAUSE
 # define LIBXS_LOCK_SPINLOCK spinlock_dummy
 # define LIBXS_LOCK_MUTEX mutex_dummy
@@ -739,7 +740,7 @@ typedef enum libxs_atomic_kind {
 # define LIBXS_LOCK_ATTR_TYPE(KIND) int
 # define LIBXS_LOCK_ATTR_INIT(KIND, ATTR) LIBXS_UNUSED(ATTR)
 # define LIBXS_LOCK_ATTR_DESTROY(KIND, ATTR) LIBXS_UNUSED(ATTR)
-# define LIBXS_LOCK_TYPE(KIND) int
+# define LIBXS_LOCK_TYPE(KIND) LIBXS_LOCK_DEFAULT
 # define LIBXS_LOCK_INIT(KIND, LOCK, ATTR) { LIBXS_UNUSED(LOCK); LIBXS_UNUSED(ATTR); }
 # define LIBXS_LOCK_DESTROY(KIND, LOCK) LIBXS_UNUSED(LOCK)
 # define LIBXS_LOCK_TRYLOCK(KIND, LOCK) LIBXS_LOCK_ACQUIRED(KIND)
