@@ -44,6 +44,9 @@ libxs_bsmmdispatch_reducebatch_strd_meltwfused
 libxs_bsmmdispatch_reducebatch_strd_meltwfused_unroll
 libxs_bsmmdispatch_reducebatch_strd_unroll
 libxs_convert_bf16_f32
+libxs_convert_bf8_f32
+libxs_convert_f16_to_f32
+libxs_convert_f32_to_f16
 libxs_cpuid
 libxs_cpuid_arm
 libxs_cpuid_name
@@ -51,9 +54,12 @@ libxs_cpuid_vlen32
 libxs_cpuid_x86
 libxs_create_dcsr_reg
 libxs_create_gemm_batch_reduce_config
+libxs_create_gemm_ext_binary_postops
+libxs_create_gemm_ext_unary_argops
 libxs_create_gemm_shape
 libxs_create_matrix_arg_attributes
 libxs_create_matrix_eqn_arg_metadata
+libxs_create_matrix_eqn_op_metadata
 libxs_create_meltw_binary_shape
 libxs_create_meltw_ternary_shape
 libxs_create_meltw_unary_shape
@@ -68,6 +74,7 @@ libxs_create_packed_xgemm_ac_rm
 libxs_create_packed_xgemm_bc_rm
 libxs_create_scsr_reg
 libxs_create_spgemm_csr_areg_v2
+libxs_dequantize_i16
 libxs_dfsspmdm_create
 libxs_dfsspmdm_destroy
 libxs_dfsspmdm_execute
@@ -133,7 +140,6 @@ libxs_dnn_create_pooling
 libxs_dnn_create_rnncell
 libxs_dnn_create_softmaxloss
 libxs_dnn_create_tensor_datalayout
-libxs_dnn_dequantize
 libxs_dnn_destroy_conv_layer
 libxs_dnn_destroy_fullyconnected
 libxs_dnn_destroy_fusedbatchnorm
@@ -202,7 +208,6 @@ libxs_dnn_pooling_get_scratch_size
 libxs_dnn_pooling_get_tensor
 libxs_dnn_pooling_release_scratch
 libxs_dnn_pooling_release_tensor
-libxs_dnn_quantize
 libxs_dnn_quantize_act
 libxs_dnn_quantize_fil
 libxs_dnn_release_scratch
@@ -429,6 +434,7 @@ libxs_ptr_w2
 libxs_ptr_z0
 libxs_ptr_z1
 libxs_ptr_z2
+libxs_quantize_i16
 libxs_realloc
 libxs_release_dmmkernel
 libxs_release_kernel
@@ -438,6 +444,7 @@ libxs_release_smmkernel
 libxs_remainder
 libxs_rnaz_convert_fp32_bf16
 libxs_rne_convert_fp32_bf16
+libxs_rne_convert_fp32_bf8
 libxs_rng_create_extstate
 libxs_rng_destroy_extstate
 libxs_rng_f32_seq
@@ -516,6 +523,7 @@ libxs_ssbimmdispatch_reducebatch_offs_unroll
 libxs_ssbimmdispatch_reducebatch_strd
 libxs_ssbimmdispatch_reducebatch_strd_unroll
 libxs_ssqrt
+libxs_stochastic_convert_fp32_bf8
 libxs_strerror
 libxs_stristr
 libxs_subimmdispatch
