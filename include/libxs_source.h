@@ -129,6 +129,7 @@
 #include "../src/libxs_gemm.c"
 #include "../src/libxs_generator.c"
 #include "../src/libxs_hash.c"
+#include "../src/libxs_lpflt_quant.c"
 #include "../src/libxs_main.c"
 #include "../src/libxs_malloc.c"
 #include "../src/libxs_math.c"
