@@ -338,6 +338,7 @@ HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$
           $(ROOTDIR)/include/libxs_dnn_softmaxloss.h \
           $(ROOTDIR)/include/libxs_dnn_optimizer.h \
           $(ROOTDIR)/include/libxs_rng.h \
+          $(ROOTDIR)/include/libxs_lpflt_quant.h \
           $(ROOTDIR)/include/libxs_frontend.h \
           $(ROOTDIR)/include/libxs_fsspmdm.h \
           $(ROOTDIR)/include/libxs_generator.h \
@@ -354,7 +355,7 @@ HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$
 SRCFILES_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_main.c libxs_mem.c libxs_malloc.c libxs_hash.c libxs_math.c \
           libxs_sync.c libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
-          libxs_gemm.c libxs_xcopy.c libxs_spmdm.c libxs_fsspmdm.c libxs_rng.c\
+          libxs_gemm.c libxs_xcopy.c libxs_spmdm.c libxs_fsspmdm.c libxs_rng.c libxs_lpflt_quant.c \
           libxs_dnn.c libxs_dnn_tensor.c libxs_dnn_convolution.c  libxs_dnn_elementwise.c \
           libxs_dnn_rnncell.c libxs_dnn_rnncell_forward.c libxs_dnn_rnncell_backward_weight_update.c \
           libxs_dnn_fusedbatchnorm.c libxs_dnn_fusedbatchnorm_forward.c libxs_dnn_fusedbatchnorm_backward.c \

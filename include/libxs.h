@@ -47,6 +47,7 @@
 #include "libxs_dnn_rnncell.h"
 #include "libxs_dnn_softmaxloss.h"
 #include "libxs_dnn_optimizer.h"
+#include "libxs_lpflt_quant.h"
 #include "libxs_generator.h"
 #include "libxs_frontend.h"
 #include "libxs_fsspmdm.h"
