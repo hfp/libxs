@@ -1052,7 +1052,6 @@ LIBXS_API_INTERN void internal_init(void)
       memset(new_cache, 0, (LIBXS_NTHREADS_MAX) * sizeof(internal_cache_type));
 #endif
       libxs_xcopy_init(libxs_target_archid);
-      libxs_dnn_init(libxs_target_archid);
       { const char *const env = getenv("LIBXS_GEMM_PREFETCH");
 #if (defined(_WIN32) || defined(__CYGWIN__))
         libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
@@ -1320,7 +1319,6 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 #endif
       libxs_xcopy_finalize();
       libxs_gemm_finalize();
-      libxs_dnn_finalize();
       /* coverity[check_return] */
       LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))

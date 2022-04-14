@@ -315,6 +315,8 @@ Please note that comparing performance results depends on whether the operands o
 
 <b>[6]&#160;</b>[http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/tech_poster_pages/post137.html](http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/tech_poster_pages/post137.html): LIBXS: A High Performance Library for Small Matrix Multiplications ([poster](http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/poster_files/post137s2-file2.pdf) and [abstract](http://sc15.supercomputing.org/sites/all/themes/SC15images/tech_poster/poster_files/post137s2-file3.pdf)). SC'15: The International Conference for High Performance Computing, Networking, Storage and Analysis, Austin (Texas).
 
+<b>[7]&#160;</b>[Tensor Processing Primitives: A Programming Abstraction for Efficiency and Portability in Deep Learning & HPC Workloads](https://arxiv.org/abs/2104.05755) SC'21: The International Conference for High Performance Computing, Networking, Storage and Analysis, St Louis.
+
 ## Articles
 
 <b>[1]&#160;</b>[https://www.nextplatform.com/2019/10/09/cloudy-supercomputers-join-the-hpc-petascale-club/](https://www.nextplatform.com/2019/10/09/cloudy-supercomputers-join-the-hpc-petascale-club/): Cloudy Supercomputers Join the HPC Petascale Club. An article written by Rob Farber, 2019. The article covers LIBXS in a separate section.
