@@ -14,7 +14,7 @@
 /** these are some quantization definitions, not sure if we want to
     move them into some main part of LIBXS */
 /* F32 masking defines */
-#define LIBXSNN_MASK_SIGN_F32      0x80000000
+#define LIBXS_MASK_SIGN_F32      0x80000000
 #define LIBXS_MASK_EXP_F32       0x7f800000
 #define LIBXS_MASK_MANT_F32      0x007fffff
 #define LIBXS_MASK_ABS_F32       0x7fffffff
@@ -24,7 +24,7 @@
 
 /* DFP16 masking defines */
 #define LIBXS_MANT_DFP16         15
-#define LIXSMMM_RES_DFP16          libxs_sexp2_i8i(-(LIBXS_MANT_DFP16))
+#define LIBXS_RES_DFP16          libxs_sexp2_i8i(-(LIBXS_MANT_DFP16))
 
 /* Quantization Rounding Defines */
 #define LIBXS_QUANT_NO_ROUND       80000

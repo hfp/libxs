@@ -39,14 +39,6 @@
  * - libxs_sync.h
  * - libxs_mhd.h
 */
-#include "libxs_dnn_convolution.h"
-#include "libxs_dnn_fullyconnected.h"
-#include "libxs_dnn_fusedbatchnorm.h"
-#include "libxs_dnn_fusedgroupnorm.h"
-#include "libxs_dnn_pooling.h"
-#include "libxs_dnn_rnncell.h"
-#include "libxs_dnn_softmaxloss.h"
-#include "libxs_dnn_optimizer.h"
 #include "libxs_lpflt_quant.h"
 #include "libxs_generator.h"
 #include "libxs_frontend.h"
