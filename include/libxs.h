@@ -148,8 +148,6 @@ LIBXS_API libxs_smmfunction libxs_smmdispatch_v2( const libxs_blasint m, const l
                                                      const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
                                                      const int* basicflags );
 
-/* @TODO: deprecate all these GEMM dispatchers
-   <---- START HERE ----> */
 /** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (double-precision). */
 LIBXS_API libxs_dmmfunction libxs_dmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
@@ -158,252 +156,7 @@ LIBXS_API libxs_dmmfunction libxs_dmmdispatch(libxs_blasint m, libxs_blasint n, 
 LIBXS_API libxs_smmfunction libxs_smmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
   const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (bf16 inputs, fp32-accumulate) */
-LIBXS_API libxs_bsmmfunction libxs_bsmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (bf16 inputs, fp32-accumulate internally, bf16 outputs) */
-LIBXS_API libxs_bmmfunction libxs_bmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (low/short-precision, int-accumulate) */
-LIBXS_API libxs_wimmfunction libxs_wimmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (low/char-precision, int-accumulate) */
-LIBXS_API libxs_ssbimmfunction libxs_ssbimmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const int* alpha, const int* beta, const int* flags, const int* prefetch);
-LIBXS_API libxs_usbimmfunction libxs_usbimmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const int* alpha, const int* beta, const int* flags, const int* prefetch);
-LIBXS_API libxs_subimmfunction libxs_subimmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const int* alpha, const int* beta, const int* flags, const int* prefetch);
-LIBXS_API libxs_uubimmfunction libxs_uubimmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const int* alpha, const int* beta, const int* flags, const int* prefetch);
 
-/** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (low/char-precision, int-accumulate, int8 outputs) */
-LIBXS_API libxs_sububmmfunction libxs_sububmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const int* alpha, const int* beta, const int* flags, const int* prefetch);
-
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (double-precision). */
-LIBXS_API libxs_dmmfunction_reducebatch_addr libxs_dmmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (single-precision). */
-LIBXS_API libxs_smmfunction_reducebatch_addr libxs_smmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate). */
-LIBXS_API libxs_bsmmfunction_reducebatch_addr libxs_bsmmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate internally, bf16 outputs). */
-LIBXS_API libxs_bmmfunction_reducebatch_addr libxs_bmmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int16 inputs, int32-accumulate). */
-LIBXS_API libxs_wimmfunction_reducebatch_addr libxs_wimmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_ssbimmfunction_reducebatch_addr libxs_ssbimmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_usbimmfunction_reducebatch_addr libxs_usbimmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_subimmfunction_reducebatch_addr libxs_subimmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_uubimmfunction_reducebatch_addr libxs_uubimmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate, int8 outputs). */
-LIBXS_API libxs_sububmmfunction_reducebatch_addr libxs_sububmmdispatch_reducebatch_addr(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (double-precision). */
-LIBXS_API libxs_dmmfunction_reducebatch_addr libxs_dmmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (single-precision). */
-LIBXS_API libxs_smmfunction_reducebatch_addr libxs_smmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/* Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate). */
-LIBXS_API libxs_bsmmfunction_reducebatch_addr libxs_bsmmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate internally, bf16 outputs). */
-LIBXS_API libxs_bmmfunction_reducebatch_addr libxs_bmmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int16 inputs, int32-accumulate). */
-LIBXS_API libxs_wimmfunction_reducebatch_addr libxs_wimmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_ssbimmfunction_reducebatch_addr libxs_ssbimmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_usbimmfunction_reducebatch_addr libxs_usbimmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_subimmfunction_reducebatch_addr libxs_subimmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_uubimmfunction_reducebatch_addr libxs_uubimmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate, int8 outputs). */
-LIBXS_API libxs_sububmmfunction_reducebatch_addr libxs_sububmmdispatch_reducebatch_addr_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (double-precision). */
-LIBXS_API libxs_dmmfunction_reducebatch_offs libxs_dmmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (single-precision). */
-LIBXS_API libxs_smmfunction_reducebatch_offs libxs_smmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate). */
-LIBXS_API libxs_bsmmfunction_reducebatch_offs libxs_bsmmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate internally, bf16 outputs). */
-LIBXS_API libxs_bmmfunction_reducebatch_offs libxs_bmmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int16 inputs, int32-accumulate). */
-LIBXS_API libxs_wimmfunction_reducebatch_offs libxs_wimmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_ssbimmfunction_reducebatch_offs libxs_ssbimmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_usbimmfunction_reducebatch_offs libxs_usbimmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_subimmfunction_reducebatch_offs libxs_subimmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_uubimmfunction_reducebatch_offs libxs_uubimmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate, int8 outputs). */
-LIBXS_API libxs_sububmmfunction_reducebatch_offs libxs_sububmmdispatch_reducebatch_offs(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (double-precision). */
-LIBXS_API libxs_dmmfunction_reducebatch_offs libxs_dmmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (single-precision). */
-LIBXS_API libxs_smmfunction_reducebatch_offs libxs_smmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate). */
-LIBXS_API libxs_bsmmfunction_reducebatch_offs libxs_bsmmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate internally, bf16 outputs). */
-LIBXS_API libxs_bmmfunction_reducebatch_offs libxs_bmmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int16 inputs, int32-accumulate). */
-LIBXS_API libxs_wimmfunction_reducebatch_offs libxs_wimmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_ssbimmfunction_reducebatch_offs libxs_ssbimmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_usbimmfunction_reducebatch_offs libxs_usbimmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_subimmfunction_reducebatch_offs libxs_subimmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_uubimmfunction_reducebatch_offs libxs_uubimmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate, int8 outputs). */
-LIBXS_API libxs_sububmmfunction_reducebatch_offs libxs_sububmmdispatch_reducebatch_offs_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (double-precision). */
-LIBXS_API libxs_dmmfunction_reducebatch_strd libxs_dmmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (single-precision). */
-LIBXS_API libxs_smmfunction_reducebatch_strd libxs_smmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate). */
-LIBXS_API libxs_bsmmfunction_reducebatch_strd libxs_bsmmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate internally, bf16 outputs). */
-LIBXS_API libxs_bmmfunction_reducebatch_strd libxs_bmmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int16 inputs, int32-accumulate). */
-LIBXS_API libxs_wimmfunction_reducebatch_strd libxs_wimmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_ssbimmfunction_reducebatch_strd libxs_ssbimmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_usbimmfunction_reducebatch_strd libxs_usbimmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_subimmfunction_reducebatch_strd libxs_subimmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_uubimmfunction_reducebatch_strd libxs_uubimmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate, int8 outputs). */
-LIBXS_API libxs_sububmmfunction_reducebatch_strd libxs_sububmmdispatch_reducebatch_strd(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (double-precision). */
-LIBXS_API libxs_dmmfunction_reducebatch_strd libxs_dmmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const double* alpha, const double* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (single-precision). */
-LIBXS_API libxs_smmfunction_reducebatch_strd libxs_smmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate). */
-LIBXS_API libxs_bsmmfunction_reducebatch_strd libxs_bsmmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate internally, bf16 outputs). */
-LIBXS_API libxs_bmmfunction_reducebatch_strd libxs_bmmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int16 inputs, int32-accumulate). */
-LIBXS_API libxs_wimmfunction_reducebatch_strd libxs_wimmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_ssbimmfunction_reducebatch_strd libxs_ssbimmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_usbimmfunction_reducebatch_strd libxs_usbimmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_subimmfunction_reducebatch_strd libxs_subimmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate). */
-LIBXS_API libxs_uubimmfunction_reducebatch_strd libxs_uubimmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (int8 inputs, int32-accumulate, int8 outputs). */
-LIBXS_API libxs_sububmmfunction_reducebatch_strd libxs_sububmmdispatch_reducebatch_strd_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const int* alpha, const int* beta, const int* flags, const int* prefetch);
-
-/* GEMM + Eltwise fused kernels */
-/**
- * Query or JIT-generate reduction kernel; returns NULL if JIT is not supported (bf16 inputs, fp32-accumulate internally, bf16 outputs).
- *
- * This kernel provides the following operation: C = \sum_i A_i * B_i + C_old + colbroadcast(bias) followed by  C_out = Act( C ), the dump of "C" is possible.
- * Also we support elementwise operations on A/B (e.g. decompression of A).
- * */
-LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reducebatch_strd_meltwfused(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
-  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param, unsigned int meltw_ldx, unsigned int meltw_ldy, unsigned int meltw_ldz);
-LIBXS_API libxs_bmmfunction_reducebatch_strd_meltwfused libxs_bmmdispatch_reducebatch_strd_meltwfused_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
-  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param, unsigned int meltw_ldx, unsigned int meltw_ldy, unsigned int meltw_ldz);
-LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_reducebatch_strd_meltwfused(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
-  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param, unsigned int meltw_ldx, unsigned int meltw_ldy, unsigned int meltw_ldz);
-LIBXS_API libxs_bsmmfunction_reducebatch_strd_meltwfused libxs_bsmmdispatch_reducebatch_strd_meltwfused_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint stride_a, libxs_blasint stride_b, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
-  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param, unsigned int meltw_ldx, unsigned int meltw_ldy, unsigned int meltw_ldz);
-
-LIBXS_API libxs_bmmfunction_reducebatch_offs_meltwfused libxs_bmmdispatch_reducebatch_offs_meltwfused(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
-  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param, unsigned int meltw_ldx, unsigned int meltw_ldy, unsigned int meltw_ldz);
-
-LIBXS_API libxs_bmmfunction_reducebatch_offs_meltwfused libxs_bmmdispatch_reducebatch_offs_meltwfused_unroll(libxs_blasint m, libxs_blasint n, libxs_blasint k, libxs_blasint unroll_hint,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc, const float* alpha, const float* beta, const int* flags, const int* prefetch,
-  libxs_meltw_operation meltw_op, libxs_datatype meltw_dt, libxs_meltw_flags meltw_flags, unsigned char meltw_param, unsigned int meltw_ldx, unsigned int meltw_ldy, unsigned int meltw_ldz);
-/* @TODO deprecation
-   <---- END HERE ----> */
 /**
  * Process a series of matrix multiplications (batch). See also libxs_gemm_batch/omp.
  * The kind of matrix operands (a, b, c) depend on index_stride:
@@ -506,18 +259,6 @@ LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw( const libxs_meltw_descripto
 LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_vecs_idx( const libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo,
                                                                                               const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype idx_type,
                                                                                               const libxs_meltw_opreduce_vecs_flags flags, const unsigned short bcast_param );
-LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary( const libxs_blasint m, const libxs_blasint n,
-                                                                      const libxs_blasint* ldi, const libxs_blasint* ldo,
-                                                                      const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type,
-                                                                      const libxs_meltw_unary_flags flags, const libxs_meltw_unary_type type );
-LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary( const libxs_blasint m, const libxs_blasint n,
-                                                                        const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldo,
-                                                                        const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type,
-                                                                        const libxs_meltw_binary_flags flags, const libxs_meltw_binary_type type );
-LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary( const libxs_blasint m, const libxs_blasint n,
-                                                                          const libxs_blasint* ldi, const libxs_blasint* ldi2, const libxs_blasint* ldi3, const libxs_blasint* ldo,
-                                                                          const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype comp_type,
-                                                                          const libxs_meltw_ternary_flags flags, const libxs_meltw_ternary_type type );
 LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_blasint m, const libxs_blasint n,
                                                                         const libxs_blasint ldi, const libxs_blasint ldo,
                                                                         const libxs_datatype in0_type, const libxs_datatype out_type, const libxs_datatype comp_type );
@@ -551,7 +292,6 @@ LIBXS_API int libxs_matrix_eqn_push_back_ternary_op_v2( const libxs_matrix_eqn_o
 LIBXS_API void libxs_matrix_eqn_tree_print( const libxs_blasint idx );
 LIBXS_API void libxs_matrix_eqn_rpn_print( const libxs_blasint idx );
 LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_meqn_descriptor* descriptor );
-LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn( const libxs_blasint m, const libxs_blasint n, const libxs_blasint* ldo, const libxs_datatype out_type, const unsigned int eqn_idx );
 LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2( const libxs_blasint idx, const libxs_meqn_arg_shape out_shape );
 
 /**
@@ -560,8 +300,6 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2( const libxs_bl
  * The result is always a SOA matrix. There is no code cache, and user code has to manage the code pointers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
-LIBXS_API libxs_xmmfunction libxs_create_packed_spxgemm_csr(const libxs_gemm_descriptor* descriptor, unsigned int packed_width,
-  const unsigned int* row_ptr, const unsigned int* column_idx, const void* values);
 LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
   const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width,
   const unsigned int* row_ptr, const unsigned int* column_idx, const void* values);
@@ -572,8 +310,6 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
  * The result is always a SOA matrix. There is no code cache, and user code has to manage the code pointers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
-LIBXS_API libxs_xmmfunction libxs_create_packed_spxgemm_csc(const libxs_gemm_descriptor* descriptor, unsigned int packed_width,
-  const unsigned int* column_ptr, const unsigned int* row_idx, const void* values);
 LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc_v2(
   const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width,
   const unsigned int* column_ptr, const unsigned int* row_idx, const void* values);
@@ -584,7 +320,6 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc_v2(
  * here is no code cache, and user code has to manage the code pointers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
-LIBXS_API libxs_xmmfunction libxs_create_packed_xgemm_ac_rm(const libxs_gemm_descriptor* descriptor, unsigned int packed_width);
 LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width );
 
@@ -594,7 +329,6 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm
  * here is no code cache, and user code has to manage the code pointers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
-LIBXS_API libxs_xmmfunction libxs_create_packed_xgemm_bc_rm(const libxs_gemm_descriptor* descriptor, unsigned int packed_width);
 LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width );
 
@@ -603,17 +337,6 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm
  * The sparse matrix "a" is kept in registers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
-LIBXS_API libxs_dmmfunction libxs_create_dcsr_reg(const libxs_gemm_descriptor* descriptor,
-  const unsigned int* row_ptr, const unsigned int* column_idx, const double* values);
-
-/**
- * Code generation routine for the CSR format which multiplies a dense matrix "b" into a dense matrix "c".
- * The sparse matrix "a" is kept in registers.
- * Call libxs_release_kernel in order to deallocate the JIT'ted code.
- */
-LIBXS_API libxs_smmfunction libxs_create_scsr_reg(const libxs_gemm_descriptor* descriptor,
-  const unsigned int* row_ptr, const unsigned int* column_idx, const float* values);
-
 LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg_v2( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags,
   const libxs_blasint max_N, const unsigned int* row_ptr, const unsigned int* column_idx, const double* values );
