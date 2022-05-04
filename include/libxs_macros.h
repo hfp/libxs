@@ -543,6 +543,7 @@
 #define LIBXS_ISNAN(A)  LIBXS_NEQ(A, A)
 #define LIBXS_NOTNAN(A) LIBXS_FEQ(A, A)
 #define LIBXS_ROUNDX(TYPE, A) ((TYPE)((long long)(0 <= (A) ? ((double)(A) + 0.5) : ((double)(A) - 0.5))))
+#define LIBXS_NEARBYINTX(TYPE, A) ((TYPE)((long long)(LIBXS_ROUNDX(TYPE,((double)(A)/2.0))*2)))
 #define LIBXS_CONST_VOID_PTR(A) *((const void**)&(A))
 
 /** Makes some functions available independent of C99 support. */
@@ -555,6 +556,8 @@
 # define LIBXS_FREXPF(A, B) frexpf(A, B)
 # define LIBXS_ROUNDF(A) roundf(A)
 # define LIBXS_ROUND(A) round(A)
+# define LIBXS_NEARBYINTF(A) nearbyintf(A)
+# define LIBXS_NEARBYINT(A) nearbyint(A)
 # define LIBXS_TANHF(A) tanhf(A)
 # define LIBXS_SQRTF(A) sqrtf(A)
 # define LIBXS_EXP2F(A) exp2f(A)
@@ -569,6 +572,8 @@
 # define LIBXS_FREXPF(A, B) ((float)frexp((float)(A), B))
 # define LIBXS_ROUNDF(A) LIBXS_ROUNDX(float, A)
 # define LIBXS_ROUND(A) LIBXS_ROUNDX(double, A)
+# define LIBXS_NEARBYINTF(A) LIBXS_NEARBYINTX(float, A)
+# define LIBXS_NEARBYINT(A) LIBXS_NEARBYINTX(double, A)
 # define LIBXS_TANHF(A) ((float)tanh((float)(A)))
 # define LIBXS_SQRTF(A) ((float)sqrt((float)(A)))
 # define LIBXS_EXP2F(A) LIBXS_POWF(2, A)
