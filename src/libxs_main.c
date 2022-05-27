@@ -255,6 +255,7 @@ LIBXS_APIVAR_DEFINE(libxs_cpuid_info internal_cpuid_info);
 LIBXS_APIVAR_DEFINE(char internal_singleton_fname[64]);
 #endif
 LIBXS_APIVAR_DEFINE(INTERNAL_SINGLETON_HANDLE internal_singleton_handle);
+LIBXS_APIVAR_DEFINE(char internal_stdio_fname[64]);
 
 /* definition of corresponding variables */
 LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_function libxs_default_malloc_fn);
@@ -783,6 +784,13 @@ LIBXS_API_INTERN void internal_finalize(void)
 #endif
   }
   LIBXS_STDIO_RELEASE(); /* synchronize I/O */
+#if !defined(_WIN32)
+  if (0 < libxs_stdio_handle) {
+    LIBXS_ASSERT('\0' != *internal_stdio_fname);
+    unlink(internal_stdio_fname);
+    close(libxs_stdio_handle - 1);
+  }
+#endif
 #if (0 != LIBXS_SYNC)
   { /* release locks */
 # if (1 < INTERNAL_REGLOCK_MAXN)
@@ -1194,18 +1202,23 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 #if defined(_WIN32)
         internal_singleton_handle = CreateMutex(NULL, TRUE, "GlobalLIBXS");
 #else
-        const int result = LIBXS_SNPRINTF(internal_singleton_fname, sizeof(internal_singleton_fname), "/tmp/.libxs.%u",
-          /*rely on user id to avoid permission issues in case of left-over files*/(unsigned int)getuid());
+        const unsigned int userid = (unsigned int)getuid();
+        const int result_sgltn = LIBXS_SNPRINTF(internal_singleton_fname, sizeof(internal_singleton_fname), "/tmp/.libxs.%u",
+          /*rely on user id to avoid permission issues in case of left-over files*/userid);
+        const int result_stdio = LIBXS_SNPRINTF(internal_stdio_fname, sizeof(internal_stdio_fname), "/tmp/.libxs.stdio.%u",
+          /*rely on user id to avoid permission issues in case of left-over files*/userid);
         struct flock singleton_flock;
-        int singleton_handle;
+        int file_handle;
         singleton_flock.l_start = 0;
         singleton_flock.l_len = 0; /* entire file */
         singleton_flock.l_type = F_WRLCK; /* exclusive across PIDs */
         singleton_flock.l_whence = SEEK_SET;
-        singleton_handle = ((0 < result && (int)sizeof(internal_singleton_fname) > result) ? open(
-          internal_singleton_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR) : -1);
-        internal_singleton_handle = fcntl(singleton_handle, F_SETLK, &singleton_flock);
-        if (0 > internal_singleton_handle && 0 <= singleton_handle) close(singleton_handle);
+        file_handle = ((0 < result_sgltn && (int)sizeof(internal_singleton_fname) > result_sgltn)
+          ? open(internal_singleton_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR) : -1);
+        internal_singleton_handle = fcntl(file_handle, F_SETLK, &singleton_flock);
+        if (0 <= file_handle && 0 > internal_singleton_handle) close(file_handle);
+        libxs_stdio_handle = ((0 < result_stdio && (int)sizeof(internal_stdio_fname) > result_stdio)
+          ? (open(internal_stdio_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR) + 1) : 0);
 #endif  /* coverity[leaked_handle] */
       }
       { /* calibrate timer */

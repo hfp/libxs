@@ -654,4 +654,3 @@ LIBXS_API unsigned int libxs_get_tid(void)
   return 0;
 #endif
 }
-

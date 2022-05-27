@@ -356,6 +356,8 @@ libxs_spmdm_get_num_compute_blocks
 libxs_spmdm_get_num_createSparseSlice_blocks
 libxs_spmdm_init
 libxs_ssqrt
+libxs_stdio_acquire
+libxs_stdio_release
 libxs_stochastic_convert_fp32_bf8
 libxs_strerror
 libxs_stristr
