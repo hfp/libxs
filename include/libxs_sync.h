@@ -770,8 +770,8 @@ typedef enum libxs_atomic_kind {
 #endif
 
 /** Synchronize console output */
-#define LIBXS_STDIO_ACQUIRE() LIBXS_FLOCK(stdout); LIBXS_FLOCK(stderr)
-#define LIBXS_STDIO_RELEASE() LIBXS_FUNLOCK(stderr); LIBXS_FUNLOCK(stdout)
+#define LIBXS_STDIO_ACQUIRE() libxs_stdio_acquire()
+#define LIBXS_STDIO_RELEASE() libxs_stdio_release()
 
 
 /** Opaque type which represents a barrier. */
@@ -823,5 +823,10 @@ LIBXS_API unsigned int libxs_get_pid(void);
  * represent the main thread. TIDs are zero-based and consecutive numbers.
  */
 LIBXS_API unsigned int libxs_get_tid(void);
+
+/** Synchronize console output (lock). */
+LIBXS_API void libxs_stdio_acquire(void);
+/** Synchronize console output (unlock). */
+LIBXS_API void libxs_stdio_release(void);
 
 #endif /*LIBXS_SYNC_H*/
