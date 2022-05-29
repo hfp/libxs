@@ -677,11 +677,11 @@ LIBXS_API_INTERN void internal_finalize(void);
 LIBXS_API_INTERN void internal_finalize(void)
 {
   libxs_finalize();
-  LIBXS_STDIO_ACQUIRE(); /* synchronize I/O */
   if (0 != libxs_verbosity) { /* print statistic on termination */
     const char *const env_target_hidden = getenv("LIBXS_TARGET_HIDDEN");
     const char *const target_arch = (NULL == env_target_hidden || 0 == atoi(env_target_hidden))
       ? libxs_cpuid_name(libxs_target_archid) : NULL/*hidden*/;
+    LIBXS_STDIO_ACQUIRE(); /* synchronize I/O */
     fprintf(stderr, "\nLIBXS_VERSION: %s%s%s (%i)", LIBXS_BRANCH, 0 != *(LIBXS_BRANCH) ? "-" : "",
       0 != *(LIBXS_VERSION) ? (LIBXS_VERSION) : "unconfigured", LIBXS_VERSION_NUMBER);
     if (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) {
@@ -783,7 +783,7 @@ LIBXS_API_INTERN void internal_finalize(void)
     close(internal_singleton_handle);
 #endif
   }
-  LIBXS_STDIO_RELEASE(); /* synchronize I/O */
+  if (0 != libxs_verbosity) LIBXS_STDIO_RELEASE(); /* synchronize I/O */
 #if !defined(_WIN32)
   if (0 < libxs_stdio_handle) {
     LIBXS_ASSERT('\0' != *internal_stdio_fname);
