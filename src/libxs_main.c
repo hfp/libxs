@@ -786,13 +786,14 @@ LIBXS_API_INTERN void internal_finalize(void)
   }
 #endif
   if (0 != libxs_verbosity) LIBXS_STDIO_RELEASE(); /* synchronize I/O */
-#if (0 != LIBXS_SYNC) && !defined(_WIN32)
+#if (0 != LIBXS_SYNC)
+# if !defined(_WIN32)
   if (0 < libxs_stdio_handle) {
     LIBXS_ASSERT('\0' != *internal_stdio_fname);
     unlink(internal_stdio_fname);
     close(libxs_stdio_handle - 1);
   }
-#endif
+# endif
   { /* release locks */
 # if (1 < INTERNAL_REGLOCK_MAXN)
     int i; for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_DESTROY(LIBXS_REGLOCK, &internal_reglock[i].state);
