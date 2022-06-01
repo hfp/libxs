@@ -2162,8 +2162,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           internal_get_typesize_string(tsizename1, sizeof(tsizename1), request->descriptor.meltw->datatype1);
           internal_get_typesize_string(tsizename2, sizeof(tsizename2), request->descriptor.meltw->datatype2);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s%s%s_%ux%u_%ux%u_opcode%u_flags%u_params%u.meltw", target_arch, tsizename, tsizename1, tsizename2,
-            request->descriptor.meltw->m, request->descriptor.meltw->n, request->descriptor.meltw->ldi, request->descriptor.meltw->ldo,
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s%s%s_%ux%u_%ux%ux%ux%u_opcode%u_flags%u_params%u.meltw", target_arch, tsizename, tsizename1, tsizename2,
+            request->descriptor.meltw->m, request->descriptor.meltw->n, request->descriptor.meltw->ldi, request->descriptor.meltw->ldo, request->descriptor.meltw->ldi2, request->descriptor.meltw->ldi3,
             (unsigned int)request->descriptor.meltw->operation, (unsigned int)request->descriptor.meltw->flags, (unsigned int)request->descriptor.meltw->param);
         }
       }
