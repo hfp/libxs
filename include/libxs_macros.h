@@ -104,7 +104,7 @@
  * out-of-range value, and hence cannot replace all casts.
  */
 #if !defined(NDEBUG) && 0
-# define LIBXS_CHECK_VALUE(VALUE, LO, HI) ((LO) <= LIBXS_CHECK_VALUE(VALUE) && LIBXS_CHECK_VALUE(VALUE) <= (HI))
+# define LIBXS_CHECK_VALUE(VALUE, LO, HI) ((LO) <= (LIBXS_UNLIMITED & (VALUE)) && (LIBXS_UNLIMITED & (VALUE)) <= (HI))
 # define LIBXS_CHECK_ULLONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_VALUE(VALUE, 0, ULLONG_MAX), "Value cannot be represented as ULLONG")
 # define LIBXS_CHECK_LLONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_VALUE(VALUE, LLONG_MIN, LLONG_MAX), "Value cannot be represented as LLONG")
 # define LIBXS_CHECK_ULONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_VALUE(VALUE, 0, ULONG_MAX), "Value cannot be represented as ULONG")
