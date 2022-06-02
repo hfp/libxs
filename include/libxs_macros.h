@@ -95,15 +95,25 @@
 #define LIBXS_ELIDE(...)
 
 /**
- * LIBXS_CAST_*:  Perform type-cast with following two advantages:
- *                  (1) Make it easy to locate/find the type-cast.
- *                  (2) Range-check to ensure fitting into type.
- * LIBXS_CHECK_*: Check given value against type-range (assertion).
+ * LIBXS_CAST:  Perform type-cast with following two advantages:
+ *                (1) Make it easy to locate/find the type-cast.
+ *                (2) Range-check to ensure fitting into type.
+ * LIBXS_CHECK: Check given value against type-range (assertion).
  *
  * Checks and casts are not suitable for intendedly clamping an
  * out-of-range value, and hence cannot replace all casts.
  */
 #if !defined(NDEBUG)
+# define LIBXS_CHECK_ULLONG(VALUE) assert((0 == (LIBXS_UNLIMITED & (VALUE)) || 0 < (VALUE)) && (VALUE) <= ULLONG_MAX)
+# define LIBXS_CHECK_LLONG(VALUE) assert(ULLONG_MIN <= (VALUE) && (VALUE) <= LLONG_MAX)
+# define LIBXS_CHECK_ULONG(VALUE) assert((0 == (LIBXS_UNLIMITED & (VALUE)) || 0 < (VALUE)) && (VALUE) <= ULONG_MAX)
+# define LIBXS_CHECK_LONG(VALUE) assert(LONG_MIN <= (VALUE) && (VALUE) <= LONG_MAX)
+# define LIBXS_CHECK_USHORT(VALUE) assert((0 == (LIBXS_UNLIMITED & (VALUE)) || 0 < (VALUE)) && (VALUE) <= USHRT_MAX)
+# define LIBXS_CHECK_SHORT(VALUE) assert(SHRT_MIN <= (VALUE) && (VALUE) <= SHRT_MAX)
+# define LIBXS_CHECK_UCHAR(VALUE) assert((0 == (LIBXS_UNLIMITED & (VALUE)) || 0 < (VALUE)) && (VALUE) <= UCHAR_MAX)
+# define LIBXS_CHECK_ICHAR(VALUE) assert(SCHAR_MIN <= (VALUE) && (VALUE) <= SCHAR_MAX)
+# define LIBXS_CHECK_UINT(VALUE) assert((0 == (LIBXS_UNLIMITED & (VALUE)) || 0 < (VALUE)) && (VALUE) <= UINT_MAX)
+# define LIBXS_CHECK_INT(VALUE) assert(INT_MIN <= (VALUE) && (VALUE) <= INT_MAX)
 # define LIBXS_CAST_ULLONG(VALUE) (LIBXS_CHECK_ULLONG(VALUE), (unsigned long long)(VALUE))
 # define LIBXS_CAST_LLONG(VALUE) (LIBXS_CHECK_LLONG(VALUE), (/*signed*/long long)(VALUE))
 # define LIBXS_CAST_ULONG(VALUE) (LIBXS_CHECK_ULONG(VALUE), (unsigned long)(VALUE))
@@ -114,16 +124,6 @@
 # define LIBXS_CAST_ICHAR(VALUE) (LIBXS_CHECK_ICHAR(VALUE), (signed char)(VALUE))
 # define LIBXS_CAST_UINT(VALUE) (LIBXS_CHECK_UINT(VALUE), (unsigned int)(VALUE))
 # define LIBXS_CAST_INT(VALUE) (LIBXS_CHECK_INT(VALUE), (/*signed*/int)(VALUE))
-# define LIBXS_CHECK_ULLONG(VALUE) assert(0 <= (VALUE) && (VALUE) <= ULLONG_MAX)
-# define LIBXS_CHECK_LLONG(VALUE) assert(ULLONG_MIN <= (VALUE) && (VALUE) <= LLONG_MAX)
-# define LIBXS_CHECK_ULONG(VALUE) assert(0 <= (VALUE) && (VALUE) <= ULONG_MAX)
-# define LIBXS_CHECK_LONG(VALUE) assert(LONG_MIN <= (VALUE) && (VALUE) <= LONG_MAX)
-# define LIBXS_CHECK_USHORT(VALUE) assert(0 <= (VALUE) && (VALUE) <= USHRT_MAX)
-# define LIBXS_CHECK_SHORT(VALUE) assert(SHRT_MIN <= (VALUE) && (VALUE) <= SHRT_MAX)
-# define LIBXS_CHECK_UCHAR(VALUE) assert(0 <= (VALUE) && (VALUE) <= UCHAR_MAX)
-# define LIBXS_CHECK_ICHAR(VALUE) assert(SCHAR_MIN <= (VALUE) && (VALUE) <= SCHAR_MAX)
-# define LIBXS_CHECK_UINT(VALUE) assert(0 <= (VALUE) && (VALUE) <= UINT_MAX)
-# define LIBXS_CHECK_INT(VALUE) assert(INT_MIN <= (VALUE) && (VALUE) <= INT_MAX)
 #else
 # define LIBXS_CAST_ULLONG(VALUE) ((unsigned long long)(VALUE))
 # define LIBXS_CAST_LLONG(VALUE) ((/*signed*/long long)(VALUE))
