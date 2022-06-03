@@ -128,15 +128,7 @@
   ((LO) == (LIBXS_UNLIMITED & (VALUE)) || (LO) < (LIBXS_UNLIMITED & (VALUE))) && \
   ((HI) == (LIBXS_UNLIMITED & (VALUE)) || (HI) > (LIBXS_UNLIMITED & (VALUE))))
 
-/**
- * LIBXS_CAST:  Perform type-cast with following two advantages:
- *                (1) Make it easy to locate/find the type-cast.
- *                (2) Range-check to ensure fitting into type.
- * LIBXS_CHECK: Check given value against type-range (assertion).
- *
- * Checks and casts are not suitable for intendedly clamping an
- * out-of-range value, and hence cannot replace all casts.
- */
+/** LIBXS_CHECK: Check given value against type-range (assertion). */
 #if !defined(NDEBUG) && 1
 # define LIBXS_CHECK_ULLONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, 0, ULLONG_MAX), "Value cannot be represented as ULLONG")
 # define LIBXS_CHECK_LLONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, LLONG_MIN, LLONG_MAX), "Value cannot be represented as LLONG")
@@ -148,27 +140,7 @@
 # define LIBXS_CHECK_ICHAR(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, SCHAR_MIN, SCHAR_MAX), "Value cannot be represented as ICHAR")
 # define LIBXS_CHECK_UINT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, 0, UINT_MAX), "Value cannot be represented as UINT")
 # define LIBXS_CHECK_INT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, INT_MIN, INT_MAX), "Value cannot be represented as INT")
-# define LIBXS_CAST_ULLONG(VALUE) ((unsigned long long)(LIBXS_CHECK_ULLONG(VALUE), VALUE))
-# define LIBXS_CAST_LLONG(VALUE) ((/*signed*/long long)(LIBXS_CHECK_LLONG(VALUE), VALUE))
-# define LIBXS_CAST_ULONG(VALUE) ((unsigned long)(LIBXS_CHECK_ULONG(VALUE), VALUE))
-# define LIBXS_CAST_LONG(VALUE) ((/*signed*/long)(LIBXS_CHECK_LONG(VALUE), VALUE))
-# define LIBXS_CAST_USHORT(VALUE) ((unsigned short)(LIBXS_CHECK_USHORT(VALUE), VALUE))
-# define LIBXS_CAST_SHORT(VALUE) ((/*signed*/short)(LIBXS_CHECK_SHORT(VALUE), VALUE))
-# define LIBXS_CAST_UCHAR(VALUE) ((unsigned char)(LIBXS_CHECK_UCHAR(VALUE), VALUE))
-# define LIBXS_CAST_ICHAR(VALUE) ((signed char)(LIBXS_CHECK_ICHAR(VALUE), VALUE))
-# define LIBXS_CAST_UINT(VALUE) ((unsigned int)(LIBXS_CHECK_UINT(VALUE), VALUE))
-# define LIBXS_CAST_INT(VALUE) ((/*signed*/int)(LIBXS_CHECK_INT(VALUE), VALUE))
 #else
-# define LIBXS_CAST_ULLONG(VALUE) ((unsigned long long)(VALUE))
-# define LIBXS_CAST_LLONG(VALUE) ((/*signed*/long long)(VALUE))
-# define LIBXS_CAST_ULONG(VALUE) ((unsigned long)(VALUE))
-# define LIBXS_CAST_LONG(VALUE) ((/*signed*/long)(VALUE))
-# define LIBXS_CAST_USHORT(VALUE) ((unsigned short)(VALUE))
-# define LIBXS_CAST_SHORT(VALUE) ((/*signed*/short)(VALUE))
-# define LIBXS_CAST_UCHAR(VALUE) ((unsigned char)(VALUE))
-# define LIBXS_CAST_ICHAR(VALUE) ((signed char)(VALUE))
-# define LIBXS_CAST_UINT(VALUE) ((unsigned int)(VALUE))
-# define LIBXS_CAST_INT(VALUE) ((/*signed*/int)(VALUE))
 # define LIBXS_CHECK_ULLONG(VALUE) 0/*dummy*/
 # define LIBXS_CHECK_LLONG(VALUE) 0/*dummy*/
 # define LIBXS_CHECK_ULONG(VALUE) 0/*dummy*/
@@ -179,6 +151,30 @@
 # define LIBXS_CHECK_ICHAR(VALUE) 0/*dummy*/
 # define LIBXS_CHECK_UINT(VALUE) 0/*dummy*/
 # define LIBXS_CHECK_INT(VALUE) 0/*dummy*/
+#endif
+
+/**
+ * LIBXS_CAST:  Perform type-cast with following two advantages:
+ *                (1) Make it easy to locate/find the type-cast.
+ *                (2) Range-check to ensure fitting into type.
+ */
+#define LIBXS_CAST_ULLONG(VALUE) ((unsigned long long)(LIBXS_CHECK_ULLONG(VALUE), VALUE))
+#define LIBXS_CAST_LLONG(VALUE) ((/*signed*/long long)(LIBXS_CHECK_LLONG(VALUE), VALUE))
+#define LIBXS_CAST_ULONG(VALUE) ((unsigned long)(LIBXS_CHECK_ULONG(VALUE), VALUE))
+#define LIBXS_CAST_LONG(VALUE) ((/*signed*/long)(LIBXS_CHECK_LONG(VALUE), VALUE))
+#define LIBXS_CAST_USHORT(VALUE) ((unsigned short)(LIBXS_CHECK_USHORT(VALUE), VALUE))
+#define LIBXS_CAST_SHORT(VALUE) ((/*signed*/short)(LIBXS_CHECK_SHORT(VALUE), VALUE))
+#define LIBXS_CAST_UCHAR(VALUE) ((unsigned char)(LIBXS_CHECK_UCHAR(VALUE), VALUE))
+#define LIBXS_CAST_ICHAR(VALUE) ((signed char)(LIBXS_CHECK_ICHAR(VALUE), VALUE))
+#define LIBXS_CAST_UINT(VALUE) ((unsigned int)(LIBXS_CHECK_UINT(VALUE), VALUE))
+#define LIBXS_CAST_INT(VALUE) ((/*signed*/int)(LIBXS_CHECK_INT(VALUE), VALUE))
+
+#if (0 != LIBXS_ILP64)
+# define LIBXS_CHECK_BLASINT(VALUE) LIBXS_CHECK_LLONG(VALUE)
+# define LIBXS_CAST_BLASINT(VALUE) LIBXS_CAST_LLONG(VALUE)
+#else /* LP64 */
+# define LIBXS_CHECK_BLASINT(VALUE) LIBXS_CHECK_INT(VALUE)
+# define LIBXS_CAST_BLASINT(VALUE) LIBXS_CAST_INT(VALUE)
 #endif
 
 #if !defined(LIBXS_UNPACKED) && (defined(_CRAYC) || defined(LIBXS_OFFLOAD_BUILD) || \
