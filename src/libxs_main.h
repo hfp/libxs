@@ -166,11 +166,7 @@
 # define LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K)
 #endif
 
-#if defined(LIBXS_UNPACKED)
-# define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE) LIBXS_MEMSET127(DST, 0, SIZE)
-#else
-# define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE)
-#endif
+#define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE) LIBXS_MEMSET127(DST, 0, SIZE)
 #define LIBXS_DESCRIPTOR_CLEAR(BLOB) \
   LIBXS_ASSERT((LIBXS_DESCRIPTOR_MAXSIZE) == sizeof(*(BLOB))); \
   LIBXS_DESCRIPTOR_CLEAR_AUX(BLOB, LIBXS_DESCRIPTOR_MAXSIZE)
@@ -183,11 +179,7 @@
   (DESCRIPTOR).datatype = (unsigned char)(DATA_TYPE); (DESCRIPTOR).prefetch = (unsigned char)(PREFETCH); \
   (DESCRIPTOR).flags = (unsigned int)((FLAGS) | (LIBXS_NEQ(0, BETA) ? 0 : LIBXS_GEMM_FLAG_BETA_0)); \
   (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
-  (DESCRIPTOR).lda = (unsigned int)(LDA); (DESCRIPTOR).ldb = (unsigned int)(LDB); (DESCRIPTOR).ldc = (unsigned int)(LDC); \
-  (DESCRIPTOR).meltw_datatype_aux = 0; (DESCRIPTOR).c1 = 0; (DESCRIPTOR).c2 = 0; (DESCRIPTOR).c3 = 0; \
-  (DESCRIPTOR).meltw_ldx = 0; (DESCRIPTOR).meltw_ldy = 0; (DESCRIPTOR).meltw_ldz = 0; \
-  (DESCRIPTOR).meltw_param = 0; (DESCRIPTOR).meltw_flags = 0; \
-  (DESCRIPTOR).meltw_operation = 0
+  (DESCRIPTOR).lda = (unsigned int)(LDA); (DESCRIPTOR).ldb = (unsigned int)(LDB); (DESCRIPTOR).ldc = (unsigned int)(LDC)
 
 /** Similar to LIBXS_GEMM_DESCRIPTOR, but separately taking the input-/output-precision. */
 #define LIBXS_GEMM_DESCRIPTOR2(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
