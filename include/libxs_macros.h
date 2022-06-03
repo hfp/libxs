@@ -124,7 +124,9 @@
   LIBXS_VERSION_CHECK(>=, MAJOR, MINOR, UPDATE, PATCH)
 
 /** Evaluate if value falls into interval [LO, HI]. */
-#define LIBXS_CHECK_INTEGER(VALUE, LO, HI) ((LO) <= (LIBXS_UNLIMITED & (VALUE)) && (LIBXS_UNLIMITED & (VALUE)) <= (HI))
+#define LIBXS_CHECK_INTEGER(VALUE, LO, HI) ( \
+  ((LO) == (LIBXS_UNLIMITED & (VALUE)) || (LO) < (LIBXS_UNLIMITED & (VALUE))) && \
+  ((HI) == (LIBXS_UNLIMITED & (VALUE)) || (HI) > (LIBXS_UNLIMITED & (VALUE))))
 
 /**
  * LIBXS_CAST:  Perform type-cast with following two advantages:
@@ -146,16 +148,16 @@
 # define LIBXS_CHECK_ICHAR(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, SCHAR_MIN, SCHAR_MAX), "Value cannot be represented as ICHAR")
 # define LIBXS_CHECK_UINT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, 0, UINT_MAX), "Value cannot be represented as UINT")
 # define LIBXS_CHECK_INT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, INT_MIN, INT_MAX), "Value cannot be represented as INT")
-# define LIBXS_CAST_ULLONG(VALUE) (LIBXS_CHECK_ULLONG(VALUE), (unsigned long long)(VALUE))
-# define LIBXS_CAST_LLONG(VALUE) (LIBXS_CHECK_LLONG(VALUE), (/*signed*/long long)(VALUE))
-# define LIBXS_CAST_ULONG(VALUE) (LIBXS_CHECK_ULONG(VALUE), (unsigned long)(VALUE))
-# define LIBXS_CAST_LONG(VALUE) (LIBXS_CHECK_LONG(VALUE), (/*signed*/long)(VALUE))
-# define LIBXS_CAST_USHORT(VALUE) (LIBXS_CHECK_USHORT(VALUE), (unsigned short)(VALUE))
-# define LIBXS_CAST_SHORT(VALUE) (LIBXS_CHECK_SHORT(VALUE), (/*signed*/short)(VALUE))
-# define LIBXS_CAST_UCHAR(VALUE) (LIBXS_CHECK_UCHAR(VALUE), (unsigned char)(VALUE))
-# define LIBXS_CAST_ICHAR(VALUE) (LIBXS_CHECK_ICHAR(VALUE), (signed char)(VALUE))
-# define LIBXS_CAST_UINT(VALUE) (LIBXS_CHECK_UINT(VALUE), (unsigned int)(VALUE))
-# define LIBXS_CAST_INT(VALUE) (LIBXS_CHECK_INT(VALUE), (/*signed*/int)(VALUE))
+# define LIBXS_CAST_ULLONG(VALUE) ((unsigned long long)(LIBXS_CHECK_ULLONG(VALUE), VALUE))
+# define LIBXS_CAST_LLONG(VALUE) ((/*signed*/long long)(LIBXS_CHECK_LLONG(VALUE), VALUE))
+# define LIBXS_CAST_ULONG(VALUE) ((unsigned long)(LIBXS_CHECK_ULONG(VALUE), VALUE))
+# define LIBXS_CAST_LONG(VALUE) ((/*signed*/long)(LIBXS_CHECK_LONG(VALUE), VALUE))
+# define LIBXS_CAST_USHORT(VALUE) ((unsigned short)(LIBXS_CHECK_USHORT(VALUE), VALUE))
+# define LIBXS_CAST_SHORT(VALUE) ((/*signed*/short)(LIBXS_CHECK_SHORT(VALUE), VALUE))
+# define LIBXS_CAST_UCHAR(VALUE) ((unsigned char)(LIBXS_CHECK_UCHAR(VALUE), VALUE))
+# define LIBXS_CAST_ICHAR(VALUE) ((signed char)(LIBXS_CHECK_ICHAR(VALUE), VALUE))
+# define LIBXS_CAST_UINT(VALUE) ((unsigned int)(LIBXS_CHECK_UINT(VALUE), VALUE))
+# define LIBXS_CAST_INT(VALUE) ((/*signed*/int)(LIBXS_CHECK_INT(VALUE), VALUE))
 #else
 # define LIBXS_CAST_ULLONG(VALUE) ((unsigned long long)(VALUE))
 # define LIBXS_CAST_LLONG(VALUE) ((/*signed*/long long)(VALUE))
@@ -867,11 +869,19 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # if defined(NDEBUG)
 #   define LIBXS_ASSERT(EXPR) LIBXS_ASSUME(EXPR)
 # else
-#   define LIBXS_ASSERT(EXPR) assert(EXPR)
+#   if defined(_MSC_VER)
+#     define LIBXS_ASSERT(EXPR) (assert(EXPR), EXPR)
+#   else
+#     define LIBXS_ASSERT(EXPR) assert(EXPR)
+#   endif
 # endif
 #endif
 #if !defined(LIBXS_ASSERT_MSG)
-# define LIBXS_ASSERT_MSG(EXPR, MSG) assert((EXPR) && *MSG)
+# if defined(_MSC_VER)
+#   define LIBXS_ASSERT_MSG(EXPR, MSG) (assert((EXPR) && *MSG), EXPR)
+# else
+#   define LIBXS_ASSERT_MSG(EXPR, MSG) assert((EXPR) && *MSG)
+# endif
 #endif
 #if !defined(LIBXS_EXPECT_ELIDE)
 # define LIBXS_EXPECT_ELIDE(EXPR) do { \
