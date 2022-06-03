@@ -94,6 +94,38 @@
 #define LIBXS_EXPAND(...) __VA_ARGS__
 #define LIBXS_ELIDE(...)
 
+/** Use LIBXS_VERSION2 instead of LIBXS_VERSION3, e.g., if __GNUC_PATCHLEVEL__ or __clang_patchlevel__ is zero (0). */
+#define LIBXS_VERSION2(MAJOR, MINOR) ((MAJOR) * 10000 + (MINOR) * 100)
+#define LIBXS_VERSION3(MAJOR, MINOR, UPDATE) (LIBXS_VERSION2(MAJOR, MINOR) + (UPDATE))
+#define LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH) \
+  (((0x7F & (MAJOR)) << 24) | ((0x1F & (MINOR)) << 19) | ((0x1F & (UPDATE)) << 14) | (0x3FFF & (PATCH)))
+#define LIBXS_VERSION41(VERSION) (((VERSION) >> 24))
+#define LIBXS_VERSION42(VERSION) (((VERSION) >> 19) & 0x1F)
+#define LIBXS_VERSION43(VERSION) (((VERSION) >> 14) & 0x1F)
+#define LIBXS_VERSION44(VERSION) (((VERSION)) & 0x3FFF)
+
+#if !defined(LIBXS_VERSION_NUMBER)
+# define LIBXS_VERSION_NUMBER LIBXS_VERSION4(LIBXS_VERSION_MAJOR, \
+    LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH)
+#endif
+
+#define LIBXS_VERSION_CHECK(COMP, MAJOR, MINOR, UPDATE, PATCH) \
+  (LIBXS_VERSION_NUMBER COMP LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH))
+
+/**
+ * Macro to check minimum version requiremnts in code, for example:
+ * #if LIBXS_VERSION_GE(1, 17, 0, 0)
+ * // code requiring version 1.17 or later
+ * #else
+ * // fallback code
+ * #endif
+*/
+#define LIBXS_VERSION_GE(MAJOR, MINOR, UPDATE, PATCH) \
+  LIBXS_VERSION_CHECK(>=, MAJOR, MINOR, UPDATE, PATCH)
+
+/** Evaluate if value falls into interval [LO, HI]. */
+#define LIBXS_CHECK_VALUE(VALUE, LO, HI) ((LO) <= (LIBXS_UNLIMITED & (VALUE)) && (LIBXS_UNLIMITED & (VALUE)) <= (HI))
+
 /**
  * LIBXS_CAST:  Perform type-cast with following two advantages:
  *                (1) Make it easy to locate/find the type-cast.
@@ -103,8 +135,7 @@
  * Checks and casts are not suitable for intendedly clamping an
  * out-of-range value, and hence cannot replace all casts.
  */
-#if !defined(NDEBUG) && 0
-# define LIBXS_CHECK_VALUE(VALUE, LO, HI) ((LO) <= (LIBXS_UNLIMITED & (VALUE)) && (LIBXS_UNLIMITED & (VALUE)) <= (HI))
+#if !defined(NDEBUG) && 1
 # define LIBXS_CHECK_ULLONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_VALUE(VALUE, 0, ULLONG_MAX), "Value cannot be represented as ULLONG")
 # define LIBXS_CHECK_LLONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_VALUE(VALUE, LLONG_MIN, LLONG_MAX), "Value cannot be represented as LLONG")
 # define LIBXS_CHECK_ULONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_VALUE(VALUE, 0, ULONG_MAX), "Value cannot be represented as ULONG")
@@ -147,35 +178,6 @@
 # define LIBXS_CHECK_UINT(VALUE) 0/*dummy*/
 # define LIBXS_CHECK_INT(VALUE) 0/*dummy*/
 #endif
-
-/** Use LIBXS_VERSION2 instead of LIBXS_VERSION3, e.g., if __GNUC_PATCHLEVEL__ or __clang_patchlevel__ is zero (0). */
-#define LIBXS_VERSION2(MAJOR, MINOR) ((MAJOR) * 10000 + (MINOR) * 100)
-#define LIBXS_VERSION3(MAJOR, MINOR, UPDATE) (LIBXS_VERSION2(MAJOR, MINOR) + (UPDATE))
-#define LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH) \
-  (((0x7F & (MAJOR)) << 24) | ((0x1F & (MINOR)) << 19) | ((0x1F & (UPDATE)) << 14) | (0x3FFF & (PATCH)))
-#define LIBXS_VERSION41(VERSION) (((VERSION) >> 24))
-#define LIBXS_VERSION42(VERSION) (((VERSION) >> 19) & 0x1F)
-#define LIBXS_VERSION43(VERSION) (((VERSION) >> 14) & 0x1F)
-#define LIBXS_VERSION44(VERSION) (((VERSION)) & 0x3FFF)
-
-#if !defined(LIBXS_VERSION_NUMBER)
-# define LIBXS_VERSION_NUMBER LIBXS_VERSION4(LIBXS_VERSION_MAJOR, \
-    LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH)
-#endif
-
-#define LIBXS_VERSION_CHECK(COMP, MAJOR, MINOR, UPDATE, PATCH) \
-  (LIBXS_VERSION_NUMBER COMP LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH))
-
-/**
- * Macro to check minimum version requiremnts in code, for example:
- * #if LIBXS_VERSION_GE(1, 17, 0, 0)
- * // code requiring version 1.17 or later
- * #else
- * // fallback code
- * #endif
-*/
-#define LIBXS_VERSION_GE(MAJOR, MINOR, UPDATE, PATCH) \
-  LIBXS_VERSION_CHECK(>=, MAJOR, MINOR, UPDATE, PATCH)
 
 #if !defined(LIBXS_UNPACKED) && (defined(_CRAYC) || defined(LIBXS_OFFLOAD_BUILD) || \
   (0 == LIBXS_SYNC)/*Windows: missing pack(pop) error*/)
