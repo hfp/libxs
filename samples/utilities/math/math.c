@@ -17,6 +17,7 @@ int main(int argc, char* argv[])
   const int niters = (2 < argc ? atoi(argv[2]) : 1);
   const size_t n = (0 >= insize ? (((size_t)2 << 30/*2 GB*/) / sizeof(float)) : ((size_t)insize));
   float *inp, *out, *gold;
+  unsigned char* low;
   size_t size, nrpt;
   int result;
 
@@ -32,8 +33,9 @@ int main(int argc, char* argv[])
   gold = (float*)(malloc(sizeof(float) * size));
   out = (float*)(malloc(sizeof(float) * size));
   inp = (float*)(malloc(sizeof(float) * size));
+  low = (unsigned char*)(malloc(size));
 
-  if (NULL != gold && NULL != out && NULL != inp) {
+  if (NULL != gold && NULL != out && NULL != inp && NULL != low) {
     libxs_timer_tickint start;
     libxs_matdiff_info diff;
     size_t i, j;
@@ -41,6 +43,9 @@ int main(int argc, char* argv[])
     /* initialize the input data */
     libxs_rng_set_seed(25071975);
     libxs_rng_f32_seq(inp, (libxs_blasint)size);
+    for (i = 0; i < size; ++i) {
+      low[i]= (unsigned char)(255.f * inp[i]);
+    }
 
     /* collect gold data for exp2 function */
     { start = libxs_timer_tick();
@@ -84,8 +89,7 @@ int main(int argc, char* argv[])
     { start = libxs_timer_tick();
       for (j = 0; j < nrpt; ++j) {
         for (i = 0; i < size; ++i) {
-          const unsigned char input = (unsigned char)(255.f * inp[i]);
-          gold[i] = (float)LIBXS_EXP2(input);
+          gold[i] = (float)LIBXS_EXP2(low[i]);
         }
       }
       printf("low-range exp2:\t%.3f s\t\tgold\n", libxs_timer_duration(start, libxs_timer_tick()));
@@ -93,8 +97,7 @@ int main(int argc, char* argv[])
     { start = libxs_timer_tick();
       for (j = 0; j < nrpt; ++j) {
         for (i = 0; i < size; ++i) {
-          const unsigned char input = (unsigned char)(255.f * inp[i]);
-          out[i] = libxs_sexp2_u8(input);
+          out[i] = libxs_sexp2_u8(low[i]);
         }
       }
       printf("libxs_sexp2:\t%.3f s", libxs_timer_duration(start, libxs_timer_tick()));
@@ -167,6 +170,7 @@ int main(int argc, char* argv[])
   free(gold);
   free(out);
   free(inp);
+  free(low);
 
   return result;
 }
