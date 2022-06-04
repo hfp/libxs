@@ -125,8 +125,8 @@
 
 /** Evaluate if value falls into interval [LO, HI]. */
 #define LIBXS_CHECK_INTEGER(VALUE, LO, HI) ( \
-  ((LO) == (LIBXS_UNLIMITED & (VALUE)) || (LO) < (LIBXS_UNLIMITED & (VALUE))) && \
-  ((HI) == (LIBXS_UNLIMITED & (VALUE)) || (HI) > (LIBXS_UNLIMITED & (VALUE))))
+  (0 == ((VALUE) - (LO)) || 0 < ((VALUE) - (LO))) && \
+  (0 == ((HI) - (VALUE)) || 0 < ((HI) - (VALUE))))
 
 /** LIBXS_CHECK: Check given value against type-range (assertion). */
 #if !defined(NDEBUG) && 1
