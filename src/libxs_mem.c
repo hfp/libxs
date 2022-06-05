@@ -437,11 +437,11 @@ LIBXS_API unsigned long long libxs_hash_string(const char string[])
   const size_t length = (NULL != string ? strlen(string) : 0);
   if (sizeof(result) < length) {
     const size_t length2 = length / 2;
-    unsigned int seed32 = 0; /* seed=0: match else-optimization */
+    unsigned int hash32, seed32 = 0; /* seed=0: match else-optimization */
     LIBXS_INIT
     seed32 = libxs_crc32(seed32, string, length2);
-    result = libxs_crc32(seed32, string + length2, length - length2);
-    result = (result << 32) | seed32;
+    hash32 = libxs_crc32(seed32, string + length2, length - length2);
+    result = hash32; result = (result << 32) | seed32;
   }
   else { /* reinterpret directly as hash value */
 #if 1
@@ -554,8 +554,8 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xclear)(void* dst, const int* size)
   static int error_once = 0;
   if (NULL != dst && NULL != size && 0 <= *size && 128 > *size)
 #endif
-  {
-    LIBXS_MEMSET127(dst, 0, *size);
+  { const int s = *size;
+    LIBXS_MEMSET127(dst, 0, s);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */

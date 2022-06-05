@@ -55,7 +55,7 @@
   SRC_TYPE s = *((const SRC_TYPE*)PSRC); \
   double s0 = 0, s1 = 0; \
   if (NULL != (PSRC_MIN) && LIBXS_NOTNAN(s)) { \
-    LIBXS_ASSERT_MSG(NULL != (PSRC_MAX) && *((const SRC_TYPE*)PSRC_MIN) <= s && s <= *((const SRC_TYPE*)PSRC_MAX), "Invalid value range"); \
+    assert(NULL != (PSRC_MAX) && *((const SRC_TYPE*)PSRC_MIN) <= s && s <= *((const SRC_TYPE*)PSRC_MAX)); \
     s0 = (double)*((const SRC_TYPE*)PSRC_MIN); s1 = (double)*((const SRC_TYPE*)PSRC_MAX); \
   } \
   if (LIBXS_MHD_ELEMTYPE_I64 <= (DST_ENUM) && s0 < s1) { /* scale */ \
@@ -85,7 +85,7 @@
   SRC_TYPE s = *((const SRC_TYPE*)PSRC); \
   double s0 = 0, s1 = 0; \
   if (NULL != (PSRC_MIN)) { \
-    LIBXS_ASSERT_MSG(NULL != (PSRC_MAX) && *((const SRC_TYPE*)PSRC_MIN) <= s && s <= *((const SRC_TYPE*)PSRC_MAX), "Invalid value range"); \
+    assert(NULL != (PSRC_MAX) && *((const SRC_TYPE*)PSRC_MIN) <= s && s <= *((const SRC_TYPE*)PSRC_MAX)); \
     s0 = (double)*((const SRC_TYPE*)PSRC_MIN); s1 = (double)*((const SRC_TYPE*)PSRC_MAX); \
   } \
   if (LIBXS_MHD_ELEMTYPE_I64 <= (DST_ENUM) && s0 < s1) { /* scale */ \
@@ -894,7 +894,7 @@ LIBXS_API int libxs_mhd_write(const char filename[],
       const size_t *const shape = (NULL != pitch ? pitch : size);
       const char *const input = ((const char*)data) + libxs_offset(offset, shape, ndims, NULL/*size*/) * ncomponents * typesize_data;
       const long file_position = ftell(file); /* determine the header size */
-      char minmax[2*(LIBXS_MHD_MAX_ELEMSIZE)];
+      char minmax[2*(LIBXS_MHD_MAX_ELEMSIZE)] = "";
 
       result = (0 <= file_position ? EXIT_SUCCESS : EXIT_FAILURE);
       if (EXIT_SUCCESS == result && type_data != elemtype) { /* conversion needed */

@@ -471,8 +471,8 @@ LIBXS_API_INLINE unsigned int internal_print_statistic(FILE* ostream,
     0 != statistic_big.ntry || 0 != statistic_big.njit || 0 != statistic_big.nsta || 0 != statistic_big.ncol ||
     0 != statistic_xxx.ntry || 0 != statistic_xxx.njit || 0 != statistic_xxx.nsta || 0 != statistic_xxx.ncol)
   {
-    char title[256], range[256], unit[4];
-    unsigned int counter[4];
+    char title[256] = "", range[256] = "", unit[4] = "";
+    unsigned int counter[4] = { 0 };
     {
       unsigned int n;
       if (NULL != target_arch && '\0' != *target_arch) {
@@ -551,7 +551,7 @@ LIBXS_API_INLINE void internal_register_static_code(
       LIBXS_CAPACITY_REGISTRY);
     libxs_code_pointer* dst_entry = registry + i;
 #if !defined(NDEBUG)
-    libxs_code_pointer code; code.xgemm = xgemm;
+    libxs_code_pointer code = { 0 }; code.xgemm = xgemm;
     LIBXS_ASSERT(NULL != code.ptr_const && NULL != registry);
     LIBXS_ASSERT(0 == (LIBXS_CODE_STATIC & code.uval));
 #endif
@@ -619,7 +619,7 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
   /* determine whether this instance is unique or not */
   if (NULL != env_dump_files && '\0' != *env_dump_files && 0 == urgent) { /* dump per-node info */
     const char* filename = strtok(env_dump_files, INTERNAL_DELIMS);
-    char buffer[1024];
+    char buffer[1024] = "";
     for (; NULL != filename; filename = strtok(NULL, INTERNAL_DELIMS)) {
       FILE* file = fopen(filename, "r");
       if (NULL != file) buffer[0] = '\0';
@@ -1149,7 +1149,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 # if defined(LIBXS_REGLOCK_TRY)
         const char *const env_trylock = getenv("LIBXS_TRYLOCK");
 # endif
-        LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK) attr_global;
+        LIBXS_LOCK_ATTR_TYPE(LIBXS_LOCK) attr_global = { 0 };
 # if (1 < INTERNAL_REGLOCK_MAXN)
         int i;
         LIBXS_LOCK_ATTR_TYPE(LIBXS_REGLOCK) attr;
@@ -1402,7 +1402,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
                 /* dump user-data just like JIT'ted code */
                 && 0 > libxs_verbosity)
               {
-                char name[16];
+                char name[16] = "";
                 int nchar;
 #if defined(LIBXS_REGUSER_HASH)
                 const size_t descsize = LIBXS_DESCRIPTOR_ISBIG(registry_keys[i].entry.kind)
@@ -1832,9 +1832,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 #if !defined(__MIC__)
   const char * /*const*/ target_arch = libxs_cpuid_name(libxs_target_archid);
   /* large enough temporary buffer for generated code */
-  char jit_buffer[LIBXS_CODE_MAXSIZE], jit_name[384] = { 0 };
-  libxs_generated_code generated_code;
-  libxs_kernel_xinfo extra;
+  char jit_buffer[LIBXS_CODE_MAXSIZE] = "", jit_name[384] = "";
+  libxs_generated_code generated_code = { 0 };
+  libxs_kernel_xinfo extra = { 0 };
 
   LIBXS_MEMZERO127(&generated_code);
   generated_code.generated_code = jit_buffer;
@@ -2318,7 +2318,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   const unsigned int tid = libxs_get_tid();
   internal_cache_type *const cache = internal_cache_buffer + tid;
 # else
-  static LIBXS_TLS internal_cache_type internal_cache_buffer;
+  static LIBXS_TLS internal_cache_type internal_cache_buffer = { 0 };
   internal_cache_type *const cache = &internal_cache_buffer;
 # endif
   unsigned char cache_index;
@@ -2413,7 +2413,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
           LIBXS_ASSERT(0 != mode || NULL == flux_entry.ptr_const/*code version does not exist*/);
           INTERNAL_FIND_CODE_LOCK(lock, i, diff, flux_entry.ptr); /* lock the registry entry */
           if (NULL == internal_registry[i].ptr_const) { /* double-check registry after acquiring the lock */
-            libxs_build_request request; /* setup the code build request */
+            libxs_build_request request = { 0 }; /* setup the code build request */
             LIBXS_ASSERT(LIBXS_KERNEL_UNREGISTERED > LIBXS_DESCRIPTOR_KIND(desc->kind));
             request.kind = (libxs_build_kind)LIBXS_DESCRIPTOR_KIND(desc->kind);
             request.descriptor.ptr = &desc->gemm.desc;
@@ -2570,9 +2570,9 @@ LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
 {
   int result;
   const libxs_kernel_xinfo* xinfo;
-  libxs_kernel_info result_info;
+  libxs_kernel_info result_info = { 0 };
   const libxs_descriptor* desc;
-  libxs_code_pointer code;
+  libxs_code_pointer code = { 0 };
   code.ptr_const = kernel;
   LIBXS_MEMZERO127(&result_info);
   xinfo = libxs_get_kernel_xinfo(code, &desc, &result_info.code_size);
@@ -2607,7 +2607,7 @@ LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
 
 LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_info* info)
 {
-  libxs_code_pointer code;
+  libxs_code_pointer code = { 0 };
   static int error_once = 0;
   int result;
   code.xgemm = kernel;
@@ -2670,7 +2670,7 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
 
 LIBXS_API int libxs_get_meltwkernel_info(libxs_xmeltwfunction kernel, libxs_meltwkernel_info* info)
 {
-  libxs_code_pointer code;
+  libxs_code_pointer code = { 0 };
   static int error_once = 0;
   int result;
   code.xmateltw = kernel;
@@ -2787,7 +2787,7 @@ LIBXS_API void* libxs_get_registry_next(const void* regentry, const void** key)
 {
   void* result = NULL;
   const libxs_descriptor* desc;
-  libxs_code_pointer entry;
+  libxs_code_pointer entry = { 0 };
   entry.ptr_const = regentry;
   if (NULL != libxs_get_kernel_xinfo(entry, &desc, NULL/*code_size*/)
     /* given regentry is indeed a registered kernel */
@@ -2808,7 +2808,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
   void* result;
   LIBXS_INIT /* verbosity */
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size) {
-    libxs_descriptor wrap;
+    libxs_descriptor wrap = { 0 };
     void* dst;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, key_size);
@@ -2863,7 +2863,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size)
 #endif
   {
-    libxs_descriptor wrap;
+    libxs_descriptor wrap = { 0 };
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, key_size);
 #endif
@@ -2898,7 +2898,7 @@ LIBXS_API libxs_gemm_shape libxs_create_gemm_shape( const libxs_blasint m, const
                                                           const libxs_blasint lda, const libxs_blasint ldb, const libxs_blasint ldc,
                                                           const libxs_datatype a_in_type, const libxs_datatype b_in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
-  libxs_gemm_shape res;
+  libxs_gemm_shape res = { 0 };
 
   res.m = m;
   res.n = n;
@@ -2919,7 +2919,7 @@ LIBXS_API libxs_gemm_batch_reduce_config libxs_create_gemm_batch_reduce_config( 
                                                                                       const libxs_blasint br_stride_a_hint, const libxs_blasint br_stride_b_hint,
                                                                                       const unsigned char br_unroll_hint )
 {
-  libxs_gemm_batch_reduce_config res;
+  libxs_gemm_batch_reduce_config res = { 0 };
 
   res.br_type = br_type;
   res.br_stride_a_hint = br_stride_a_hint;
@@ -2934,7 +2934,7 @@ LIBXS_API libxs_gemm_ext_unary_argops libxs_create_gemm_ext_unary_argops( const 
                                                                                 const libxs_blasint ldbp, const libxs_meltw_unary_type bp_unary_type, const libxs_bitfield bp_unary_flags, const libxs_blasint store_bp,
                                                                                 const libxs_blasint ldcp, const libxs_meltw_unary_type cp_unary_type, const libxs_bitfield cp_unary_flags, const libxs_blasint store_cp )
 {
-  libxs_gemm_ext_unary_argops res;
+  libxs_gemm_ext_unary_argops res = { 0 };
 
   res.ldap = ldap;
   res.ap_unary_type = ap_unary_type;
@@ -2955,7 +2955,7 @@ LIBXS_API libxs_gemm_ext_unary_argops libxs_create_gemm_ext_unary_argops( const 
 
 LIBXS_API libxs_gemm_ext_binary_postops libxs_create_gemm_ext_binary_postops( const libxs_blasint ldd, const libxs_datatype d_in_type, const libxs_meltw_binary_type d_binary_type, const libxs_bitfield d_binary_flags )
 {
-  libxs_gemm_ext_binary_postops res;
+  libxs_gemm_ext_binary_postops res = { 0 };
 
   res.ldd = ldd;
   res.d_in_type = d_in_type;
@@ -2980,7 +2980,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
       LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE |
       LIBXS_GEMM_FLAG_USE_XGEMM_ABI |
       LIBXS_GEMM_FLAG_USE_XGEMM_EXT_ABI;
-    libxs_descriptor wrap;
+    libxs_descriptor wrap = { 0 };
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
@@ -3237,7 +3237,7 @@ LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor
   LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
 #endif
   if (NULL != descriptor) {
-    libxs_descriptor wrap;
+    libxs_descriptor wrap = { 0 };
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
 #endif
@@ -3275,7 +3275,7 @@ LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_bl
                                                                         const libxs_blasint ldi, const libxs_blasint ldo,
                                                                         const libxs_datatype in0_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
-  libxs_meltw_unary_shape res;
+  libxs_meltw_unary_shape res = { 0 };
 
   res.m = m;
   res.n = n;
@@ -3293,7 +3293,7 @@ LIBXS_API libxs_meltw_binary_shape libxs_create_meltw_binary_shape( const libxs_
                                                                           const libxs_blasint ldi, const libxs_blasint ldi2, const libxs_blasint ldo,
                                                                           const libxs_datatype in0_type, const libxs_datatype in1_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
-  libxs_meltw_binary_shape res;
+  libxs_meltw_binary_shape res = { 0 };
 
   res.m = m;
   res.n = n;
@@ -3313,7 +3313,7 @@ LIBXS_API libxs_meltw_ternary_shape libxs_create_meltw_ternary_shape( const libx
                                                                             const libxs_blasint ldi, const libxs_blasint ldi2, const libxs_blasint ldi3, const libxs_blasint ldo,
                                                                             const libxs_datatype in0_type, const libxs_datatype in1_type, const libxs_datatype in2_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
-  libxs_meltw_ternary_shape res;
+  libxs_meltw_ternary_shape res = { 0 };
 
   res.m = m;
   res.n = n;
@@ -3380,7 +3380,7 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_
   LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
 #endif
   if (NULL != descriptor) {
-    libxs_descriptor wrap;
+    libxs_descriptor wrap = { 0 };
     /* check if equation is ready for JIT */
     if (0 == libxs_matrix_eqn_is_ready_for_jit( descriptor->eqn_idx)) {
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
@@ -3412,8 +3412,8 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
   const unsigned int* row_ptr, const unsigned int* column_idx, const void* values)
 {
   int l_gemm_flags = (int)gemm_flags;
-  libxs_pspgemm_csr_descriptor pspgemm_csr;
-  libxs_build_request request;
+  libxs_pspgemm_csr_descriptor pspgemm_csr = { 0 };
+  libxs_build_request request = { 0 };
   libxs_descriptor_blob blob;
   libxs_gemm_descriptor *desc = NULL;
   libxs_code_pointer result = { 0 };
@@ -3455,8 +3455,8 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc_v2(
   const unsigned int* column_ptr, const unsigned int* row_idx, const void* values)
 {
   int l_gemm_flags = (int)gemm_flags;
-  libxs_pspgemm_csc_descriptor pspgemm_csc;
-  libxs_build_request request;
+  libxs_pspgemm_csc_descriptor pspgemm_csc = { 0 };
+  libxs_build_request request = { 0 };
   libxs_descriptor_blob blob;
   libxs_gemm_descriptor *desc = NULL;
   libxs_code_pointer result = { 0 };
@@ -3497,8 +3497,8 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
 {
   int l_gemm_flags = (int)gemm_flags;
-  libxs_pgemm_ac_rm_descriptor pgemmacrm;
-  libxs_build_request request;
+  libxs_pgemm_ac_rm_descriptor pgemmacrm = { 0 };
+  libxs_build_request request = { 0 };
   libxs_descriptor_blob blob;
   libxs_gemm_descriptor *desc = NULL;
   libxs_code_pointer result = { 0 };
@@ -3533,8 +3533,8 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
 {
   int l_gemm_flags = (int)gemm_flags;
-  libxs_pgemm_bc_rm_descriptor pgemmbcrm;
-  libxs_build_request request;
+  libxs_pgemm_bc_rm_descriptor pgemmbcrm = { 0 };
+  libxs_build_request request = { 0 };
   libxs_descriptor_blob blob;
   libxs_gemm_descriptor *desc = NULL;
   libxs_code_pointer result = { 0 };
@@ -3570,8 +3570,8 @@ LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg_v2( const libxs_gemm_s
   const libxs_blasint max_N, const unsigned int* row_ptr, const unsigned int* column_idx, const double* values )
 {
   int l_gemm_flags = (int)gemm_flags;
-  libxs_csr_reg_descriptor sreg;
-  libxs_build_request request;
+  libxs_csr_reg_descriptor sreg = { 0 };
+  libxs_build_request request = { 0 };
   libxs_descriptor_blob blob;
   libxs_gemm_descriptor *desc = NULL;
   libxs_code_pointer result = { 0 };
@@ -3717,7 +3717,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn, const int* iprec,
     const libxs_gemm_descriptor* descriptor;
     libxs_gemm_prefetch_type gemm_prefetch;
     libxs_descriptor_blob blob;
-    libxs_code_pointer result;
+    libxs_code_pointer result = { 0 };
 #if !defined(NDEBUG)
     const libxs_datatype itype = (NULL != iprec ? ((libxs_datatype)*iprec) : LIBXS_DATATYPE_F64);
     const libxs_datatype otype = (NULL != oprec ? ((libxs_datatype)*oprec) : itype);
