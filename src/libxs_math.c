@@ -85,8 +85,8 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
           const libxs_mhd_elemtype type_src = (libxs_mhd_elemtype)datatype;
           const libxs_mhd_elemtype type_dst = LIBXS_MIN(LIBXS_MHD_ELEMTYPE_F32, type_src);
           const int envi = atoi(env), reshape = (1 < envi || -1 > envi);
-          size_t shape[2], size[2];
-          char filename[256];
+          size_t shape[2] = { 0 }, size[2] = { 0 };
+          char filename[256] = "";
           if (0 == reshape) {
             shape[0] = (size_t)mm; shape[1] = (size_t)nn;
             size[0] = (size_t)ldr; size[1] = (size_t)nn;
@@ -236,7 +236,7 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
 LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info)
 {
   if (NULL != info) {
-    union { int raw; float value; } inf;
+    union { int raw; float value; } inf = { 0 };
 #if defined(INFINITY) && /*overflow warning*/!defined(_CRAYC)
     inf.value = (float)(INFINITY);
 #else
@@ -464,10 +464,10 @@ LIBXS_API float libxs_sexp2(float x)
 
 LIBXS_API float libxs_sexp2_u8(unsigned char x)
 {
-  union { int i; float s; } result;
+  union { int i; float s; } result = { 0 };
   if (128 > x) {
     if (31 < x) {
-      const float r32 = 2.f * ((float)(1U << 31)); /* 2^32 */
+      static const float r32 = 2.f * ((float)(1U << 31)); /* 2^32 */
       const int n = x >> 5;
       int i;
       result.s = r32;
@@ -491,11 +491,11 @@ LIBXS_API float libxs_sexp2_u8(unsigned char x)
 
 LIBXS_API float libxs_sexp2_i8(signed char x)
 {
-  union { int i; float s; } result;
+  union { int i; float s; } result = { 0 };
   if (-128 != x) {
     const signed char ux = (signed char)LIBXS_ABS(x);
     if (31 < ux) {
-      const float r32 = 2.f * ((float)(1U << 31)); /* 2^32 */
+      static const float r32 = 2.f * ((float)(1U << 31)); /* 2^32 */
       const int n = ux >> 5;
       int i;
       result.s = r32;
