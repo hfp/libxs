@@ -43,7 +43,7 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX)
 LIBXS_ATTRIBUTE_UNUSED void internal_spmdm_init_shufmask_avx(void)
 {
 #if defined(LIBXS_SPMDM_AVX)
-  static __m256i spmdm_shufmasks_32[256], spmdm_shufmasks_16[256];
+  static __m256i spmdm_shufmasks_32[256] = { 0 }, spmdm_shufmasks_16[256] = { 0 };
   LIBXS_ALIGNED(int temp_shufmasks[8], 64);
   LIBXS_ALIGNED(uint16_t temp_shufmasks2[16], 64);
   unsigned int i, j, c, last_bit;
