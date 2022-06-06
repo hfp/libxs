@@ -468,11 +468,10 @@ LIBXS_API float libxs_sexp2_u8(unsigned char x)
   if (128 > x) {
     if (31 < x) {
       static const float r32 = 2.f * ((float)(1U << 31)); /* 2^32 */
-      const int n = x >> 5;
-      int i;
-      result.s = r32;
-      for (i = 1; i < n; ++i) result.s *= r32;
-      result.s *= (1U << (x - (n << 5)));
+      const float r33 = r32 * r32, r34 = (float)(1U << LIBXS_MOD2(x, 32));
+      result.s = r32 * r34;
+      if (95 < x) result.s *= r33;
+      else if (63 < x) result.s *= r32;
     }
     else {
       result.s = (float)(1U << x);
@@ -496,11 +495,10 @@ LIBXS_API float libxs_sexp2_i8(signed char x)
     const signed char ux = (signed char)LIBXS_ABS(x);
     if (31 < ux) {
       static const float r32 = 2.f * ((float)(1U << 31)); /* 2^32 */
-      const int n = ux >> 5;
-      int i;
+      signed char n = ux >> 5, r = ux - (n << 5), i;
       result.s = r32;
       for (i = 1; i < n; ++i) result.s *= r32;
-      result.s *= (1U << (ux - (n << 5)));
+      result.s *= (float)(1U << r);
     }
     else {
       result.s = (float)(1U << ux);
