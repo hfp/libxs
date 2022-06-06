@@ -2570,7 +2570,7 @@ LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
 {
   int result;
   const libxs_kernel_xinfo* xinfo;
-  libxs_kernel_info result_info = { 0 };
+  libxs_kernel_info result_info /*= { 0 }*/;
   const libxs_descriptor* desc;
   libxs_code_pointer code = { 0 };
   code.ptr_const = kernel;
@@ -2919,7 +2919,7 @@ LIBXS_API libxs_gemm_batch_reduce_config libxs_create_gemm_batch_reduce_config( 
                                                                                       const libxs_blasint br_stride_a_hint, const libxs_blasint br_stride_b_hint,
                                                                                       const unsigned char br_unroll_hint )
 {
-  libxs_gemm_batch_reduce_config res = { 0 };
+  libxs_gemm_batch_reduce_config res /*= { 0 }*/;
 
   res.br_type = br_type;
   res.br_stride_a_hint = br_stride_a_hint;
@@ -3623,7 +3623,7 @@ LIBXS_API void libxs_release_kernel(const void* kernel)
         libxs_xfree(kernel, 0/*no check*/);
       }
       else { /* attempt to unregister kernel */
-        libxs_kernel_info info;
+        libxs_kernel_info info /*= { 0 }*/;
 #if !defined(LIBXS_ENABLE_DEREG)
         if (EXIT_SUCCESS == libxs_get_kernel_info(kernel, &info)
           && LIBXS_KERNEL_KIND_USER == info.kind)
