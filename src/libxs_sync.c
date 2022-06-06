@@ -504,7 +504,7 @@ LIBXS_API void libxs_rwlock_destroy(const libxs_rwlock* rwlock)
 #if (0 != LIBXS_SYNC)
 LIBXS_API_INLINE int internal_rwlock_trylock(libxs_rwlock* rwlock, internal_sync_counter* prev)
 {
-  internal_sync_counter next = { 0 };
+  internal_sync_counter next /*= { 0 }*/;
   assert(0 != rwlock && 0 != prev);
   do {
     prev->bits = rwlock->requests.bits;
