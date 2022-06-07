@@ -155,7 +155,15 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
                 }
                 else feature_cpu = LIBXS_X86_AVX512; /* AVX512-Common */
               }
-              else feature_cpu = LIBXS_X86_AVX2;
+              else {
+                unsigned int edx2;
+                feature_cpu = LIBXS_X86_AVX2;
+                /* check if we are on ADL or newer */
+                LIBXS_CPUID_X86(7, 1/*ecx*/, eax, ebx, ecx2, edx2);
+                if (LIBXS_CPUID_CHECK(eax, 0x00000010)) { /* AVX_VNNI */
+                  feature_cpu = LIBXS_X86_AVX2_ADL;
+                }
+              }
             }
             else feature_cpu = LIBXS_X86_AVX;
           }
@@ -186,7 +194,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
         if (LIBXS_X86_AVX <= feature_cpu) {
           LIBXS_XGETBV(0, eax, edx);
           if (LIBXS_CPUID_CHECK(eax, 0x00000006)) { /* OS XSAVE 256-bit */
-            feature_os = LIBXS_MIN(LIBXS_X86_AVX2, feature_cpu);
+            feature_os = LIBXS_MIN(LIBXS_X86_AVX2_ADL, feature_cpu);
             if (LIBXS_CPUID_CHECK(eax, 0x000000E0)) { /* OS XSAVE 512-bit */
               feature_os = LIBXS_MIN(LIBXS_X86_AVX512_CPX, feature_cpu);
               if (LIBXS_X86_AVX512_SPR <= feature_cpu && 7 <= maxleaf
@@ -316,6 +324,9 @@ LIBXS_API const char* libxs_cpuid_name(int id)
     } break;
     case LIBXS_X86_AVX512_VL256_CPX: {
       target_arch = "avx512_vl256_cpx";
+    } break;
+    case LIBXS_X86_AVX2_ADL: {
+      target_arch = "adl";
     } break;
     case LIBXS_X86_AVX2: {
       target_arch = "hsw";

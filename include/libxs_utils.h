@@ -257,34 +257,34 @@
 #         define LIBXS_ATTRIBUTE_TARGET_1006 LIBXS_ATTRIBUTE_TARGET_1005
 #       endif
 #       if (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1007 target("avx2,fma,avx512f,avx512cd")
+#         define LIBXS_ATTRIBUTE_TARGET_1101 target("avx2,fma,avx512f,avx512cd")
 #       else
-#         define LIBXS_ATTRIBUTE_TARGET_1007 LIBXS_ATTRIBUTE_TARGET_1006
+#         define LIBXS_ATTRIBUTE_TARGET_1101 LIBXS_ATTRIBUTE_TARGET_1006
 #       endif
 #       if (LIBXS_X86_AVX512_MIC <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1010 target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er")
+#         define LIBXS_ATTRIBUTE_TARGET_1102 target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er")
 #       else /* LIBXS_X86_AVX512 */
-#         define LIBXS_ATTRIBUTE_TARGET_1010 LIBXS_ATTRIBUTE_TARGET_1007
+#         define LIBXS_ATTRIBUTE_TARGET_1102 LIBXS_ATTRIBUTE_TARGET_1101
 #       endif
 #       if (LIBXS_X86_AVX512_KNM <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1011 target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er,avx5124vnniw,avx5124fmaps")
+#         define LIBXS_ATTRIBUTE_TARGET_1103 target("avx2,fma,avx512f,avx512cd,avx512pf,avx512er,avx5124vnniw,avx5124fmaps")
 #       else /* LIBXS_X86_AVX512_MIC */
-#         define LIBXS_ATTRIBUTE_TARGET_1011 LIBXS_ATTRIBUTE_TARGET_1010
+#         define LIBXS_ATTRIBUTE_TARGET_1103 LIBXS_ATTRIBUTE_TARGET_1102
 #       endif
 #       if (LIBXS_X86_AVX512_CORE <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1020 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl")
+#         define LIBXS_ATTRIBUTE_TARGET_1104 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl")
 #       else /* LIBXS_X86_AVX512 */
-#         define LIBXS_ATTRIBUTE_TARGET_1020 LIBXS_ATTRIBUTE_TARGET_1007
+#         define LIBXS_ATTRIBUTE_TARGET_1104 LIBXS_ATTRIBUTE_TARGET_1101
 #       endif
 #       if (LIBXS_X86_AVX512_CLX <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1021 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni")
+#         define LIBXS_ATTRIBUTE_TARGET_1105 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni")
 #       else /* LIBXS_X86_AVX512_CORE */
-#         define LIBXS_ATTRIBUTE_TARGET_1021 LIBXS_ATTRIBUTE_TARGET_1020
+#         define LIBXS_ATTRIBUTE_TARGET_1105 LIBXS_ATTRIBUTE_TARGET_1104
 #       endif
 #       if (LIBXS_X86_AVX512_CPX <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1022 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni,avx512bf16")
+#         define LIBXS_ATTRIBUTE_TARGET_1106 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni,avx512bf16")
 #       else /* LIBXS_X86_AVX512_CORE */
-#         define LIBXS_ATTRIBUTE_TARGET_1022 LIBXS_ATTRIBUTE_TARGET_1021
+#         define LIBXS_ATTRIBUTE_TARGET_1106 LIBXS_ATTRIBUTE_TARGET_1104
 #       endif
 #     else
 #       define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/

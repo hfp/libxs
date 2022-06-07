@@ -25,16 +25,17 @@
 #define LIBXS_X86_SSE42             1004
 #define LIBXS_X86_AVX               1005
 #define LIBXS_X86_AVX2              1006
-#define LIBXS_X86_AVX512_VL256      1007
-#define LIBXS_X86_AVX512_VL256_CLX  1008
-#define LIBXS_X86_AVX512_VL256_CPX  1009
-#define LIBXS_X86_AVX512            1010
-#define LIBXS_X86_AVX512_MIC        1011 /* KNL */
-#define LIBXS_X86_AVX512_KNM        1012
-#define LIBXS_X86_AVX512_CORE       1020 /* SKX */
-#define LIBXS_X86_AVX512_CLX        1021
-#define LIBXS_X86_AVX512_CPX        1022
-#define LIBXS_X86_AVX512_SPR        1023
+#define LIBXS_X86_AVX2_ADL          1007
+#define LIBXS_X86_AVX512_VL256      1051
+#define LIBXS_X86_AVX512_VL256_CLX  1052
+#define LIBXS_X86_AVX512_VL256_CPX  1053
+#define LIBXS_X86_AVX512            1101
+#define LIBXS_X86_AVX512_MIC        1102 /* KNL */
+#define LIBXS_X86_AVX512_KNM        1103
+#define LIBXS_X86_AVX512_CORE       1104 /* SKX */
+#define LIBXS_X86_AVX512_CLX        1105
+#define LIBXS_X86_AVX512_CPX        1106
+#define LIBXS_X86_AVX512_SPR        1107
 #define LIBXS_X86_ALLFEAT           1999
 #define LIBXS_AARCH64_V81           2001 /* Baseline */
 #define LIBXS_AARCH64_V82           2002 /* A64FX minus SVE */
