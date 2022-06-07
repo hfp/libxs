@@ -1128,15 +1128,6 @@ LIBXS_API_INTERN void internal_init(void)
 }
 
 
-LIBXS_API_INTERN void internal_atexit(void);
-LIBXS_API_INTERN void internal_atexit(void)
-{
-  static int internal_atexit_once = 0;
-  const int once = LIBXS_ATOMIC_ADD_FETCH(&internal_atexit_once, 1, LIBXS_ATOMIC_RELAXED);
-  if (1 == once) internal_finalize();
-}
-
-
 LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)) {
@@ -1248,7 +1239,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
         }
 #endif
-        register_termination_proc = atexit(internal_atexit);
+        register_termination_proc = atexit(internal_finalize);
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
         /* set timer-scale and determine start of the "uptime" (shown at termination) */
         if (t0 < t1 && 0.0 < libxs_timer_scale) {
@@ -1311,7 +1302,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
   if (NULL != registry) {
     int i;
 #if (0 != LIBXS_SYNC)
-    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &libxs_lock_global);
+    if (LIBXS_LOCK_ACQUIRED(LIBXS_LOCK) == LIBXS_LOCK_TRYLOCK(LIBXS_LOCK, &libxs_lock_global)) {
 # if (1 < INTERNAL_REGLOCK_MAXN)
     { /* acquire locks and thereby shortcut lazy initialization later on */
       int ntry = 0, n;
@@ -1452,7 +1443,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 # elif !defined(LIBXS_UNIFY_LOCKS)
     LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, internal_reglock_ptr);
 # endif
-    LIBXS_LOCK_RELEASE(LIBXS_LOCK, &libxs_lock_global);
+    LIBXS_LOCK_RELEASE(LIBXS_LOCK, &libxs_lock_global); }
 #endif
   }
 }
