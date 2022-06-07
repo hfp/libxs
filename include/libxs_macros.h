@@ -138,6 +138,7 @@
 # define LIBXS_CHECK_SHORT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, SHRT_MIN, SHRT_MAX), "Value cannot be represented as SHORT")
 # define LIBXS_CHECK_UCHAR(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, 0, UCHAR_MAX), "Value cannot be represented as UCHAR")
 # define LIBXS_CHECK_ICHAR(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, SCHAR_MIN, SCHAR_MAX), "Value cannot be represented as ICHAR")
+# define LIBXS_CHECK_CHAR(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, CHAR_MIN, CHAR_MAX), "Value cannot be represented as CHAR")
 # define LIBXS_CHECK_UINT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, 0, UINT_MAX), "Value cannot be represented as UINT")
 # define LIBXS_CHECK_INT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, INT_MIN, INT_MAX), "Value cannot be represented as INT")
 #elif !defined(_MSC_VER)
@@ -149,6 +150,7 @@
 # define LIBXS_CHECK_SHORT(VALUE) ((void)0/*dummy*/)
 # define LIBXS_CHECK_UCHAR(VALUE) ((void)0/*dummy*/)
 # define LIBXS_CHECK_ICHAR(VALUE) ((void)0/*dummy*/)
+# define LIBXS_CHECK_CHAR(VALUE) ((void)0/*dummy*/)
 # define LIBXS_CHECK_UINT(VALUE) ((void)0/*dummy*/)
 # define LIBXS_CHECK_INT(VALUE) ((void)0/*dummy*/)
 #else
@@ -160,6 +162,7 @@
 # define LIBXS_CHECK_SHORT(VALUE) 0/*dummy*/
 # define LIBXS_CHECK_UCHAR(VALUE) 0/*dummy*/
 # define LIBXS_CHECK_ICHAR(VALUE) 0/*dummy*/
+# define LIBXS_CHECK_CHAR(VALUE) 0/*dummy*/
 # define LIBXS_CHECK_UINT(VALUE) 0/*dummy*/
 # define LIBXS_CHECK_INT(VALUE) 0/*dummy*/
 #endif
@@ -177,6 +180,7 @@
 #define LIBXS_CAST_SHORT(VALUE) ((/*signed*/short)(LIBXS_CHECK_SHORT(VALUE), VALUE))
 #define LIBXS_CAST_UCHAR(VALUE) ((unsigned char)(LIBXS_CHECK_UCHAR(VALUE), VALUE))
 #define LIBXS_CAST_ICHAR(VALUE) ((signed char)(LIBXS_CHECK_ICHAR(VALUE), VALUE))
+#define LIBXS_CAST_CHAR(VALUE) ((char)(LIBXS_CHECK_CHAR(VALUE), VALUE))
 #define LIBXS_CAST_UINT(VALUE) ((unsigned int)(LIBXS_CHECK_UINT(VALUE), VALUE))
 #define LIBXS_CAST_INT(VALUE) ((/*signed*/int)(LIBXS_CHECK_INT(VALUE), VALUE))
 
