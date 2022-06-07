@@ -1128,6 +1128,15 @@ LIBXS_API_INTERN void internal_init(void)
 }
 
 
+LIBXS_API_INTERN void internal_atexit(void);
+LIBXS_API_INTERN void internal_atexit(void)
+{
+  static int internal_atexit_once = 0;
+  const int once = LIBXS_ATOMIC_ADD_FETCH(&internal_atexit_once, 1, LIBXS_ATOMIC_RELAXED);
+  if (1 == once) internal_finalize();
+}
+
+
 LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)) {
@@ -1239,7 +1248,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
         }
 #endif
-        register_termination_proc = atexit(internal_finalize);
+        register_termination_proc = atexit(internal_atexit);
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
         /* set timer-scale and determine start of the "uptime" (shown at termination) */
         if (t0 < t1 && 0.0 < libxs_timer_scale) {
