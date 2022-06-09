@@ -1069,7 +1069,7 @@ LIBXS_API_INTERN void internal_init(void)
         libxs_gemm_auto_prefetch_default = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
           /* avoid special prefetch if static code is present, since such code uses INTERNAL_PREFETCH */
           ? (((LIBXS_X86_AVX512 >= libxs_target_archid || LIBXS_X86_AVX512_CORE <= libxs_target_archid))
-            ? LIBXS_GEMM_PREFETCH_AL2BL2_VIA_C : LIBXS_GEMM_PREFETCH_BL2_VIA_C)
+            ? LIBXS_GEMM_PREFETCH_AL2BL2_VIA_C : LIBXS_GEMM_PREFETCH_BL2_VIA_C/*KNx*/)
           : INTERNAL_PREFETCH;
 #endif
         libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
