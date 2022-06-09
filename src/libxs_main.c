@@ -676,7 +676,7 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
 LIBXS_API_INTERN void internal_finalize(void);
 LIBXS_API_INTERN void internal_finalize(void)
 {
-  const char* const env_verbose_banner = getenv("LIBXS_VERBOSE_BANNER");
+  const char *const env_verbose_banner = getenv("LIBXS_VERBOSE_BANNER");
   const int verbose_banner = ((1 < libxs_verbosity || 0 > libxs_verbosity
     || NULL == env_verbose_banner || '\0' == *env_verbose_banner
     || 0 != atoi(env_verbose_banner)) ? 1 : 0);
