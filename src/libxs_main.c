@@ -676,8 +676,12 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
 LIBXS_API_INTERN void internal_finalize(void);
 LIBXS_API_INTERN void internal_finalize(void)
 {
+  const char* const env_verbose_banner = getenv("LIBXS_VERBOSE_BANNER");
+  const int verbose_banner = ((1 < libxs_verbosity || 0 > libxs_verbosity
+    || NULL == env_verbose_banner || '\0' == *env_verbose_banner
+    || 0 != atoi(env_verbose_banner)) ? 1 : 0);
   libxs_finalize();
-  if (0 != libxs_verbosity) { /* print statistic on termination */
+  if (0 != libxs_verbosity && 0 != verbose_banner) { /* print statistic on termination */
     const char *const env_target_hidden = getenv("LIBXS_TARGET_HIDDEN");
     const char *const target_arch = (NULL == env_target_hidden || 0 == atoi(env_target_hidden))
       ? libxs_cpuid_name(libxs_target_archid) : NULL/*hidden*/;
