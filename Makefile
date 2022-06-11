@@ -324,7 +324,7 @@ SRCFILES_KERNELS := $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 KRNOBJS_HST := $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
 KRNOBJS_MIC := $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
 
-HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
+HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.h) $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
           $(ROOTDIR)/$(SRCDIR)/libxs_hash.c \
           $(ROOTDIR)/include/libxs_cpuid.h \
           $(ROOTDIR)/include/libxs_rng.h \
@@ -532,9 +532,9 @@ PREFETCH_UID := 0
 PREFETCH_TYPE := 0
 PREFETCH_SCHEME := nopf
 ifneq (Windows_NT,$(UNAME)) # TODO: full support for Windows calling convention
-  ifneq (0,$(shell echo "$$((0 <= $(PREFETCH) && $(PREFETCH) <= 6))"))
+  ifneq (0,$(shell echo "$$((0<=$(PREFETCH) && $(PREFETCH)<=6))"))
     PREFETCH_UID := $(PREFETCH)
-  else ifneq (0,$(shell echo "$$((0 > $(PREFETCH)))")) # auto
+  else ifneq (0,$(shell echo "$$((0>$(PREFETCH)))")) # auto
     PREFETCH_UID := 1
   else ifeq (pfsigonly,$(PREFETCH))
     PREFETCH_UID := 2
@@ -566,13 +566,13 @@ ifneq (Windows_NT,$(UNAME)) # TODO: full support for Windows calling convention
     PREFETCH_TYPE := 8
   else ifeq (5,$(PREFETCH_UID))
     PREFETCH_SCHEME := curAL2_BL2viaC
-    PREFETCH_TYPE := $(shell echo "$$((4 | 8))")
+    PREFETCH_TYPE := $(shell echo "$$((4|8))")
   else ifeq (6,$(PREFETCH_UID))
     PREFETCH_SCHEME := AL2
     PREFETCH_TYPE := 2
   else ifeq (7,$(PREFETCH_UID))
     PREFETCH_SCHEME := AL2_BL2viaC
-    PREFETCH_TYPE := $(shell echo "$$((4 | 2))")
+    PREFETCH_TYPE := $(shell echo "$$((4|2))")
   endif
 endif
 ifeq (,$(PREFETCH_SCHEME_MIC)) # adopt host scheme
@@ -626,11 +626,11 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make $(ROOTDIR)/$(SRCDIR)/template/libxs_co
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h \
 		$(MAKE_ILP64) $(OFFLOAD) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
 		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(shell echo "$$(($(THREADS)+$(OMP)))") \
-		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) > $@
+		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) >$@
 
 $(INCDIR)/libxs_version.h: $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h $(INCDIR)/.make \
                              $(ROOTDIR)/$(SRCDIR)/template/libxs_version.h
-	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_version.h > $@
+	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_version.h >$@
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
@@ -640,12 +640,12 @@ $(INCDIR)/libxs.h: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
                      $(INCDIR)/libxs_config.h \
                      $(HEADERS)
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_interface.py $(ROOTDIR)/$(SRCDIR)/template/libxs.h \
-		$(shell echo "$$(($(PRECISION)+($(call qnum,$(FORTRAN),2)<<2)))") $(PREFETCH_TYPE) $(INDICES) > $@
+		$(shell echo "$$(($(PRECISION)+($(call qnum,$(FORTRAN),2)<<2)))") $(PREFETCH_TYPE) $(INDICES) >$@
 
 .PHONY: cheader_only
 cheader_only: $(INCDIR)/libxs_source.h
 $(INCDIR)/libxs_source.h: $(INCDIR)/.make $(ROOTDIR)/$(SCRDIR)/libxs_source.sh $(INCDIR)/libxs.h
-	@$(ROOTDIR)/$(SCRDIR)/libxs_source.sh > $@
+	@$(ROOTDIR)/$(SCRDIR)/libxs_source.sh >$@
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
@@ -660,12 +660,12 @@ $(INCDIR)/libxs.f: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
 		$(MAKE_ILP64) $(OFFLOAD) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
 		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(shell echo "$$(($(THREADS)+$(OMP)))") \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) | \
-	sed "/ATTRIBUTES OFFLOAD:MIC/d" > $@
+	sed "/ATTRIBUTES OFFLOAD:MIC/d" >$@
 
 .PHONY: sources
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
 $(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(SRCFILES_KERNELS) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py $(DIRSTATE)/.state
-	@$(PYTHON) $(call quote,$(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py) $(call qapath,$(DIRSTATE)/.state) $(PRECISION) $(THRESHOLD) $(INDICES) > $@
+	@$(PYTHON) $(call quote,$(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py) $(call qapath,$(DIRSTATE)/.state) $(PRECISION) $(THRESHOLD) $(INDICES) >$@
 
 $(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_gemm_generator $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py $(ROOTDIR)/$(SCRDIR)/libxs_specialized.py
 ifneq (,$(strip $(SRCFILES_KERNELS)))
@@ -674,24 +674,24 @@ ifneq (,$(strip $(SRCFILES_KERNELS)))
 	$(eval KVALUE := $(shell echo $(basename $(notdir $@)) | cut -d_ -f4))
 	$(eval MNVALUE := $(MVALUE))
 	$(eval NMVALUE := $(NVALUE))
-	@echo "#include <libxs.h>" > $@
-	@echo >> $@
+	@echo "#include <libxs.h>" >$@
+	@echo >>$@
 ifeq (noarch,$(GENTARGET))
 ifneq (,$(CTARGET))
 ifneq (2,$(PRECISION))
-	@echo "#define LIBXS_GENTARGET_knl_sp" >> $@
-	@echo "#define LIBXS_GENTARGET_hsw_sp" >> $@
-	@echo "#define LIBXS_GENTARGET_snb_sp" >> $@
-	@echo "#define LIBXS_GENTARGET_wsm_sp" >> $@
+	@echo "#define LIBXS_GENTARGET_knl_sp" >>$@
+	@echo "#define LIBXS_GENTARGET_hsw_sp" >>$@
+	@echo "#define LIBXS_GENTARGET_snb_sp" >>$@
+	@echo "#define LIBXS_GENTARGET_wsm_sp" >>$@
 endif
 ifneq (1,$(PRECISION))
-	@echo "#define LIBXS_GENTARGET_knl_dp" >> $@
-	@echo "#define LIBXS_GENTARGET_hsw_dp" >> $@
-	@echo "#define LIBXS_GENTARGET_snb_dp" >> $@
-	@echo "#define LIBXS_GENTARGET_wsm_dp" >> $@
+	@echo "#define LIBXS_GENTARGET_knl_dp" >>$@
+	@echo "#define LIBXS_GENTARGET_hsw_dp" >>$@
+	@echo "#define LIBXS_GENTARGET_snb_dp" >>$@
+	@echo "#define LIBXS_GENTARGET_wsm_dp" >>$@
 endif
-	@echo >> $@
-	@echo >> $@
+	@echo >>$@
+	@echo >>$@
 ifneq (2,$(PRECISION))
 	$(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_knl $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 knl $(PREFETCH_SCHEME) SP
 	$(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_hsw $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 hsw $(PREFETCH_SCHEME) SP
@@ -707,13 +707,13 @@ endif
 endif # target
 else # noarch
 ifneq (2,$(PRECISION))
-	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_sp" >> $@
+	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_sp" >>$@
 endif
 ifneq (1,$(PRECISION))
-	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_dp" >> $@
+	@echo "#define LIBXS_GENTARGET_$(GENTARGET)_dp" >>$@
 endif
-	@echo >> $@
-	@echo >> $@
+	@echo >>$@
+	@echo >>$@
 ifneq (2,$(PRECISION))
 	$(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 $(GENTARGET) $(PREFETCH_SCHEME) SP
 endif
@@ -728,8 +728,8 @@ endif # noarch
 		-e "s/#pragma message (\".*KERNEL COMPILATION ERROR in: \" __FILE__)/  $(SUPPRESS_UNUSED_VARIABLE_WARNINGS)/" \
 		-e "/#error No kernel was compiled, lacking support for current architecture?/d" \
 		-e "/#pragma message (\".*KERNEL COMPILATION WARNING: compiling ..* code on ..* or newer architecture: \" __FILE__)/d" \
-		| tr "~" "\n" > $(TMPFILE)
-	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_specialized.py $(PRECISION) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >> $(TMPFILE)
+		| tr "~" "\n" >$(TMPFILE)
+	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_specialized.py $(PRECISION) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >>$(TMPFILE)
 	@$(MV) $(TMPFILE) $@
 endif
 
@@ -1037,208 +1037,208 @@ drytest: $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh $(ROOTDIR)/$(SPLDIR)/smm/smmf-pe
 	$(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.sh $(ROOTDIR)/$(SPLDIR)/nek/grad-perf.sh $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.sh
 
 $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/$(SPLDIR)/cp2k/.make $(ROOTDIR)/Makefile
-	@echo "#!/usr/bin/env sh" > $@
-	@echo >> $@
-	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
-	@echo "FILE=cp2k-perf.txt" >> $@
+	@echo "#!/usr/bin/env sh" >$@
+	@echo >>$@
+	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >>$@
+	@echo "FILE=cp2k-perf.txt" >>$@
 ifneq (,$(strip $(INDICES)))
-	@echo "RUNS=\"$(INDICES)\"" >> $@
+	@echo "RUNS=\"$(INDICES)\"" >>$@
 else
-	@echo "RUNS=\"23_23_23 4_6_9 13_5_7 24_3_36\"" >> $@
+	@echo "RUNS=\"23_23_23 4_6_9 13_5_7 24_3_36\"" >>$@
 endif
-	@echo >> $@
-	@echo "if [ \"\" != \"\$$1\" ]; then" >> $@
-	@echo "  FILE=\$$1" >> $@
-	@echo "  shift" >> $@
-	@echo "fi" >> $@
-	@echo "if [ \"\" != \"\$$1\" ]; then" >> $@
-	@echo "  SIZE=\$$1" >> $@
-	@echo "  shift" >> $@
-	@echo "else" >> $@
-	@echo "  SIZE=0" >> $@
-	@echo "fi" >> $@
-	@echo "cat /dev/null > \$${FILE}" >> $@
-	@echo >> $@
-	@echo "NRUN=1" >> $@
-	@echo "NMAX=\$$(echo \$${RUNS} | wc -w | tr -d ' ')" >> $@
-	@echo "for RUN in \$${RUNS}; do" >> $@
-	@echo "  MVALUE=\$$(echo \$${RUN} | cut -d_ -f1)" >> $@
-	@echo "  NVALUE=\$$(echo \$${RUN} | cut -d_ -f2)" >> $@
-	@echo "  KVALUE=\$$(echo \$${RUN} | cut -d_ -f3)" >> $@
-	@echo "  >&2 echo -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >> $@
-	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/cp2k-dbcsr.sh \$${MVALUE} \$${SIZE} 0 \$${NVALUE} \$${KVALUE} >> \$${FILE}; } 2>&1)" >> $@
-	@echo "  RESULT=\$$?" >> $@
-	@echo "  if [ 0 != \$${RESULT} ]; then" >> $@
-	@echo "    echo \"FAILED(\$${RESULT}) \$${ERROR}\"" >> $@
-	@echo "    exit 1" >> $@
-	@echo "  else" >> $@
-	@echo "    echo \"OK \$${ERROR}\"" >> $@
-	@echo "  fi" >> $@
-	@echo "  echo >> \$${FILE}" >> $@
-	@echo "  NRUN=\$$((NRUN+1))" >> $@
-	@echo "done" >> $@
-	@echo >> $@
+	@echo >>$@
+	@echo "if [ \"\" != \"\$$1\" ]; then" >>$@
+	@echo "  FILE=\$$1" >>$@
+	@echo "  shift" >>$@
+	@echo "fi" >>$@
+	@echo "if [ \"\" != \"\$$1\" ]; then" >>$@
+	@echo "  SIZE=\$$1" >>$@
+	@echo "  shift" >>$@
+	@echo "else" >>$@
+	@echo "  SIZE=0" >>$@
+	@echo "fi" >>$@
+	@echo "cat /dev/null >\$${FILE}" >>$@
+	@echo >>$@
+	@echo "NRUN=1" >>$@
+	@echo "NMAX=\$$(echo \$${RUNS} | wc -w | tr -d ' ')" >>$@
+	@echo "for RUN in \$${RUNS}; do" >>$@
+	@echo "  MVALUE=\$$(echo \$${RUN} | cut -d_ -f1)" >>$@
+	@echo "  NVALUE=\$$(echo \$${RUN} | cut -d_ -f2)" >>$@
+	@echo "  KVALUE=\$$(echo \$${RUN} | cut -d_ -f3)" >>$@
+	@echo "  >&2 echo -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >>$@
+	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/cp2k-dbcsr.sh \$${MVALUE} \$${SIZE} 0 \$${NVALUE} \$${KVALUE} >>\$${FILE}; } 2>&1)" >>$@
+	@echo "  RESULT=\$$?" >>$@
+	@echo "  if [ 0 != \$${RESULT} ]; then" >>$@
+	@echo "    echo \"FAILED(\$${RESULT}) \$${ERROR}\"" >>$@
+	@echo "    exit 1" >>$@
+	@echo "  else" >>$@
+	@echo "    echo \"OK \$${ERROR}\"" >>$@
+	@echo "  fi" >>$@
+	@echo "  echo >>\$${FILE}" >>$@
+	@echo "  NRUN=\$$((NRUN+1))" >>$@
+	@echo "done" >>$@
+	@echo >>$@
 	@chmod +x $@
 
 $(ROOTDIR)/$(SPLDIR)/smm/smmf-perf.sh: $(ROOTDIR)/$(SPLDIR)/smm/.make $(ROOTDIR)/Makefile
-	@echo "#!/usr/bin/env sh" > $@
-	@echo >> $@
-	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
-	@echo "FILE=\$${HERE}/smmf-perf.txt" >> $@
+	@echo "#!/usr/bin/env sh" >$@
+	@echo >>$@
+	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >>$@
+	@echo "FILE=\$${HERE}/smmf-perf.txt" >>$@
 ifneq (,$(strip $(INDICES)))
-	@echo "RUNS=\"$(INDICES)\"" >> $@
+	@echo "RUNS=\"$(INDICES)\"" >>$@
 else
-	@echo "RUNS=\"23_23_23 4_6_9 13_5_7 24_3_36\"" >> $@
+	@echo "RUNS=\"23_23_23 4_6_9 13_5_7 24_3_36\"" >>$@
 endif
-	@echo >> $@
-	@echo "if [ \"\" != \"\$$1\" ]; then" >> $@
-	@echo "  FILE=\$$1" >> $@
-	@echo "  shift" >> $@
-	@echo "fi" >> $@
-	@echo "cat /dev/null > \$${FILE}" >> $@
-	@echo >> $@
-	@echo "NRUN=1" >> $@
-	@echo "NMAX=\$$(echo \$${RUNS} | wc -w | tr -d ' ')" >> $@
-	@echo "for RUN in \$${RUNS}; do" >> $@
-	@echo "  MVALUE=\$$(echo \$${RUN} | cut -d_ -f1)" >> $@
-	@echo "  NVALUE=\$$(echo \$${RUN} | cut -d_ -f2)" >> $@
-	@echo "  KVALUE=\$$(echo \$${RUN} | cut -d_ -f3)" >> $@
-	@echo "  >&2 echo -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >> $@
-	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/smm.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} \$$* >> \$${FILE}; } 2>&1)" >> $@
-	@echo "  RESULT=\$$?" >> $@
-	@echo "  if [ 0 != \$${RESULT} ]; then" >> $@
-	@echo "    echo \"FAILED(\$${RESULT}) \$${ERROR}\"" >> $@
-	@echo "    exit 1" >> $@
-	@echo "  else" >> $@
-	@echo "    echo \"OK \$${ERROR}\"" >> $@
-	@echo "  fi" >> $@
-	@echo "  echo >> \$${FILE}" >> $@
-	@echo "  NRUN=\$$((NRUN+1))" >> $@
-	@echo "done" >> $@
-	@echo >> $@
+	@echo >>$@
+	@echo "if [ \"\" != \"\$$1\" ]; then" >>$@
+	@echo "  FILE=\$$1" >>$@
+	@echo "  shift" >>$@
+	@echo "fi" >>$@
+	@echo "cat /dev/null >\$${FILE}" >>$@
+	@echo >>$@
+	@echo "NRUN=1" >>$@
+	@echo "NMAX=\$$(echo \$${RUNS} | wc -w | tr -d ' ')" >>$@
+	@echo "for RUN in \$${RUNS}; do" >>$@
+	@echo "  MVALUE=\$$(echo \$${RUN} | cut -d_ -f1)" >>$@
+	@echo "  NVALUE=\$$(echo \$${RUN} | cut -d_ -f2)" >>$@
+	@echo "  KVALUE=\$$(echo \$${RUN} | cut -d_ -f3)" >>$@
+	@echo "  >&2 echo -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >>$@
+	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/smm.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} \$$* >>\$${FILE}; } 2>&1)" >>$@
+	@echo "  RESULT=\$$?" >>$@
+	@echo "  if [ 0 != \$${RESULT} ]; then" >>$@
+	@echo "    echo \"FAILED(\$${RESULT}) \$${ERROR}\"" >>$@
+	@echo "    exit 1" >>$@
+	@echo "  else" >>$@
+	@echo "    echo \"OK \$${ERROR}\"" >>$@
+	@echo "  fi" >>$@
+	@echo "  echo >>\$${FILE}" >>$@
+	@echo "  NRUN=\$$((NRUN+1))" >>$@
+	@echo "done" >>$@
+	@echo >>$@
 	@chmod +x $@
 
 $(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.sh: $(ROOTDIR)/$(SPLDIR)/nek/.make $(ROOTDIR)/Makefile
-	@echo "#!/usr/bin/env sh" > $@
-	@echo >> $@
-	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
-	@echo "FILE=\$${HERE}/axhm-perf.txt" >> $@
+	@echo "#!/usr/bin/env sh" >$@
+	@echo >>$@
+	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >>$@
+	@echo "FILE=\$${HERE}/axhm-perf.txt" >>$@
 ifneq (,$(strip $(INDICES)))
-	@echo "RUNS=\"$(INDICES)\"" >> $@
+	@echo "RUNS=\"$(INDICES)\"" >>$@
 else
-	@echo "RUNS=\"4_6_9 8_8_8 13_13_13 16_8_13\"" >> $@
+	@echo "RUNS=\"4_6_9 8_8_8 13_13_13 16_8_13\"" >>$@
 endif
-	@echo >> $@
-	@echo "if [ \"\" != \"\$$1\" ]; then" >> $@
-	@echo "  FILE=\$$1" >> $@
-	@echo "  shift" >> $@
-	@echo "fi" >> $@
-	@echo "cat /dev/null > \$${FILE}" >> $@
-	@echo >> $@
-	@echo "NRUN=1" >> $@
-	@echo "NMAX=\$$(echo \$${RUNS} | wc -w | tr -d ' ')" >> $@
-	@echo "for RUN in \$${RUNS}; do" >> $@
-	@echo "  MVALUE=\$$(echo \$${RUN} | cut -d_ -f1)" >> $@
-	@echo "  NVALUE=\$$(echo \$${RUN} | cut -d_ -f2)" >> $@
-	@echo "  KVALUE=\$$(echo \$${RUN} | cut -d_ -f3)" >> $@
-	@echo "  >&2 echo -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >> $@
-	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/axhm.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} \$$* >> \$${FILE}; } 2>&1)" >> $@
-	@echo "  RESULT=\$$?" >> $@
-	@echo "  if [ 0 != \$${RESULT} ]; then" >> $@
-	@echo "    echo \"FAILED(\$${RESULT}) \$${ERROR}\"" >> $@
-	@echo "    exit 1" >> $@
-	@echo "  else" >> $@
-	@echo "    echo \"OK \$${ERROR}\"" >> $@
-	@echo "  fi" >> $@
-	@echo "  echo >> \$${FILE}" >> $@
-	@echo "  NRUN=\$$((NRUN+1))" >> $@
-	@echo "done" >> $@
-	@echo >> $@
+	@echo >>$@
+	@echo "if [ \"\" != \"\$$1\" ]; then" >>$@
+	@echo "  FILE=\$$1" >>$@
+	@echo "  shift" >>$@
+	@echo "fi" >>$@
+	@echo "cat /dev/null >\$${FILE}" >>$@
+	@echo >>$@
+	@echo "NRUN=1" >>$@
+	@echo "NMAX=\$$(echo \$${RUNS} | wc -w | tr -d ' ')" >>$@
+	@echo "for RUN in \$${RUNS}; do" >>$@
+	@echo "  MVALUE=\$$(echo \$${RUN} | cut -d_ -f1)" >>$@
+	@echo "  NVALUE=\$$(echo \$${RUN} | cut -d_ -f2)" >>$@
+	@echo "  KVALUE=\$$(echo \$${RUN} | cut -d_ -f3)" >>$@
+	@echo "  >&2 echo -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >>$@
+	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/axhm.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} \$$* >>\$${FILE}; } 2>&1)" >>$@
+	@echo "  RESULT=\$$?" >>$@
+	@echo "  if [ 0 != \$${RESULT} ]; then" >>$@
+	@echo "    echo \"FAILED(\$${RESULT}) \$${ERROR}\"" >>$@
+	@echo "    exit 1" >>$@
+	@echo "  else" >>$@
+	@echo "    echo \"OK \$${ERROR}\"" >>$@
+	@echo "  fi" >>$@
+	@echo "  echo >>\$${FILE}" >>$@
+	@echo "  NRUN=\$$((NRUN+1))" >>$@
+	@echo "done" >>$@
+	@echo >>$@
 	@chmod +x $@
 
 $(ROOTDIR)/$(SPLDIR)/nek/grad-perf.sh: $(ROOTDIR)/$(SPLDIR)/nek/.make $(ROOTDIR)/Makefile
-	@echo "#!/usr/bin/env sh" > $@
-	@echo >> $@
-	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
-	@echo "FILE=\$${HERE}/grad-perf.txt" >> $@
+	@echo "#!/usr/bin/env sh" >$@
+	@echo >>$@
+	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >>$@
+	@echo "FILE=\$${HERE}/grad-perf.txt" >>$@
 ifneq (,$(strip $(INDICES)))
-	@echo "RUNS=\"$(INDICES)\"" >> $@
+	@echo "RUNS=\"$(INDICES)\"" >>$@
 else
-	@echo "RUNS=\"4_6_9 8_8_8 13_13_13 16_8_13\"" >> $@
+	@echo "RUNS=\"4_6_9 8_8_8 13_13_13 16_8_13\"" >>$@
 endif
-	@echo >> $@
-	@echo "if [ \"\" != \"\$$1\" ]; then" >> $@
-	@echo "  FILE=\$$1" >> $@
-	@echo "  shift" >> $@
-	@echo "fi" >> $@
-	@echo "cat /dev/null > \$${FILE}" >> $@
-	@echo >> $@
-	@echo "NRUN=1" >> $@
-	@echo "NMAX=\$$(echo \$${RUNS} | wc -w | tr -d ' ')" >> $@
-	@echo "for RUN in \$${RUNS}; do" >> $@
-	@echo "  MVALUE=\$$(echo \$${RUN} | cut -d_ -f1)" >> $@
-	@echo "  NVALUE=\$$(echo \$${RUN} | cut -d_ -f2)" >> $@
-	@echo "  KVALUE=\$$(echo \$${RUN} | cut -d_ -f3)" >> $@
-	@echo "  >&2 echo -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >> $@
-	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/grad.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} \$$* >> \$${FILE}; } 2>&1)" >> $@
-	@echo "  RESULT=\$$?" >> $@
-	@echo "  if [ 0 != \$${RESULT} ]; then" >> $@
-	@echo "    echo \"FAILED(\$${RESULT}) \$${ERROR}\"" >> $@
-	@echo "    exit 1" >> $@
-	@echo "  else" >> $@
-	@echo "    echo \"OK \$${ERROR}\"" >> $@
-	@echo "  fi" >> $@
-	@echo "  echo >> \$${FILE}" >> $@
-	@echo "  NRUN=\$$((NRUN+1))" >> $@
-	@echo "done" >> $@
-	@echo >> $@
+	@echo >>$@
+	@echo "if [ \"\" != \"\$$1\" ]; then" >>$@
+	@echo "  FILE=\$$1" >>$@
+	@echo "  shift" >>$@
+	@echo "fi" >>$@
+	@echo "cat /dev/null >\$${FILE}" >>$@
+	@echo >>$@
+	@echo "NRUN=1" >>$@
+	@echo "NMAX=\$$(echo \$${RUNS} | wc -w | tr -d ' ')" >>$@
+	@echo "for RUN in \$${RUNS}; do" >>$@
+	@echo "  MVALUE=\$$(echo \$${RUN} | cut -d_ -f1)" >>$@
+	@echo "  NVALUE=\$$(echo \$${RUN} | cut -d_ -f2)" >>$@
+	@echo "  KVALUE=\$$(echo \$${RUN} | cut -d_ -f3)" >>$@
+	@echo "  >&2 echo -n \"\$${NRUN} of \$${NMAX} (M=\$${MVALUE} N=\$${NVALUE} K=\$${KVALUE})... \"" >>$@
+	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/grad.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} \$$* >>\$${FILE}; } 2>&1)" >>$@
+	@echo "  RESULT=\$$?" >>$@
+	@echo "  if [ 0 != \$${RESULT} ]; then" >>$@
+	@echo "    echo \"FAILED(\$${RESULT}) \$${ERROR}\"" >>$@
+	@echo "    exit 1" >>$@
+	@echo "  else" >>$@
+	@echo "    echo \"OK \$${ERROR}\"" >>$@
+	@echo "  fi" >>$@
+	@echo "  echo >>\$${FILE}" >>$@
+	@echo "  NRUN=\$$((NRUN+1))" >>$@
+	@echo "done" >>$@
+	@echo >>$@
 	@chmod +x $@
 
 $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.sh: $(ROOTDIR)/$(SPLDIR)/nek/.make $(ROOTDIR)/Makefile
-	@echo "#!/usr/bin/env sh" > $@
-	@echo >> $@
-	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >> $@
-	@echo "FILE=\$${HERE}/rstr-perf.txt" >> $@
+	@echo "#!/usr/bin/env sh" >$@
+	@echo >>$@
+	@echo "HERE=\$$(cd \$$(dirname \$$0); pwd -P)" >>$@
+	@echo "FILE=\$${HERE}/rstr-perf.txt" >>$@
 ifneq (,$(strip $(INDICES)))
-	@echo "RUNS=\"$(INDICES)\"" >> $@
-	@echo "RUNT=\"$(INDICES)\"" >> $@
+	@echo "RUNS=\"$(INDICES)\"" >>$@
+	@echo "RUNT=\"$(INDICES)\"" >>$@
 else
-	@echo "RUNS=\"4_4_4 8_8_8\"" >> $@
-	@echo "RUNT=\"7_7_7 10_10_10\"" >> $@
+	@echo "RUNS=\"4_4_4 8_8_8\"" >>$@
+	@echo "RUNT=\"7_7_7 10_10_10\"" >>$@
 endif
-	@echo >> $@
-	@echo "if [ \"\" != \"\$$1\" ]; then" >> $@
-	@echo "  FILE=\$$1" >> $@
-	@echo "  shift" >> $@
-	@echo "fi" >> $@
-	@echo "cat /dev/null > \$${FILE}" >> $@
-	@echo >> $@
-	@echo "NRUN=1" >> $@
-	@echo "NRUNS=\$$(echo \$${RUNS} | wc -w | tr -d ' ')" >> $@
-	@echo "NRUNT=\$$(echo \$${RUNT} | wc -w | tr -d ' ')" >> $@
-	@echo "NMAX=\$$((NRUNS*NRUNT))" >> $@
-	@echo "for RUN1 in \$${RUNS}; do" >> $@
-	@echo "  for RUN2 in \$${RUNT}; do" >> $@
-	@echo "  MVALUE=\$$(echo \$${RUN1} | cut -d_ -f1)" >> $@
-	@echo "  NVALUE=\$$(echo \$${RUN1} | cut -d_ -f2)" >> $@
-	@echo "  KVALUE=\$$(echo \$${RUN1} | cut -d_ -f3)" >> $@
-	@echo "  MMVALUE=\$$(echo \$${RUN2} | cut -d_ -f1)" >> $@
-	@echo "  NNVALUE=\$$(echo \$${RUN2} | cut -d_ -f2)" >> $@
-	@echo "  KKVALUE=\$$(echo \$${RUN2} | cut -d_ -f3)" >> $@
-	@echo "  >&2 echo -n \"\$${NRUN} of \$${NMAX} (MNK=\$${MVALUE}x\$${NVALUE}x\$${KVALUE} MNK2=\$${MMVALUE}x\$${NNVALUE}x\$${KKVALUE})... \"" >> $@
-	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/rstr.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} \$${MMVALUE} \$${NNVALUE} \$${KKVALUE} \$$* >> \$${FILE}; } 2>&1)" >> $@
-	@echo "  RESULT=\$$?" >> $@
-	@echo "  if [ 0 != \$${RESULT} ]; then" >> $@
-	@echo "    echo \"FAILED(\$${RESULT}) \$${ERROR}\"" >> $@
-	@echo "    exit 1" >> $@
-	@echo "  else" >> $@
-	@echo "    echo \"OK \$${ERROR}\"" >> $@
-	@echo "  fi" >> $@
-	@echo "  echo >> \$${FILE}" >> $@
-	@echo "  NRUN=\$$((NRUN+1))" >> $@
-	@echo "done" >> $@
-	@echo "done" >> $@
-	@echo >> $@
+	@echo >>$@
+	@echo "if [ \"\" != \"\$$1\" ]; then" >>$@
+	@echo "  FILE=\$$1" >>$@
+	@echo "  shift" >>$@
+	@echo "fi" >>$@
+	@echo "cat /dev/null >\$${FILE}" >>$@
+	@echo >>$@
+	@echo "NRUN=1" >>$@
+	@echo "NRUNS=\$$(echo \$${RUNS} | wc -w | tr -d ' ')" >>$@
+	@echo "NRUNT=\$$(echo \$${RUNT} | wc -w | tr -d ' ')" >>$@
+	@echo "NMAX=\$$((NRUNS*NRUNT))" >>$@
+	@echo "for RUN1 in \$${RUNS}; do" >>$@
+	@echo "  for RUN2 in \$${RUNT}; do" >>$@
+	@echo "  MVALUE=\$$(echo \$${RUN1} | cut -d_ -f1)" >>$@
+	@echo "  NVALUE=\$$(echo \$${RUN1} | cut -d_ -f2)" >>$@
+	@echo "  KVALUE=\$$(echo \$${RUN1} | cut -d_ -f3)" >>$@
+	@echo "  MMVALUE=\$$(echo \$${RUN2} | cut -d_ -f1)" >>$@
+	@echo "  NNVALUE=\$$(echo \$${RUN2} | cut -d_ -f2)" >>$@
+	@echo "  KKVALUE=\$$(echo \$${RUN2} | cut -d_ -f3)" >>$@
+	@echo "  >&2 echo -n \"\$${NRUN} of \$${NMAX} (MNK=\$${MVALUE}x\$${NVALUE}x\$${KVALUE} MNK2=\$${MMVALUE}x\$${NNVALUE}x\$${KKVALUE})... \"" >>$@
+	@echo "  ERROR=\$$({ CHECK=1 \$${HERE}/rstr.sh \$${MVALUE} \$${NVALUE} \$${KVALUE} \$${MMVALUE} \$${NNVALUE} \$${KKVALUE} \$$* >>\$${FILE}; } 2>&1)" >>$@
+	@echo "  RESULT=\$$?" >>$@
+	@echo "  if [ 0 != \$${RESULT} ]; then" >>$@
+	@echo "    echo \"FAILED(\$${RESULT}) \$${ERROR}\"" >>$@
+	@echo "    exit 1" >>$@
+	@echo "  else" >>$@
+	@echo "    echo \"OK \$${ERROR}\"" >>$@
+	@echo "  fi" >>$@
+	@echo "  echo >>\$${FILE}" >>$@
+	@echo "  NRUN=\$$((NRUN+1))" >>$@
+	@echo "done" >>$@
+	@echo "done" >>$@
+	@echo >>$@
 	@chmod +x $@
 
 .PHONY: test
@@ -1269,7 +1269,7 @@ test-cpp: $(INCDIR)/libxs_source.h
 .PHONY: test-cp2k
 test-cp2k: $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-test.txt
 $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-test.txt: $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh lib_hst cp2k
-	@$(FLOCK) $(call qdir,$@) "./cp2k-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE) * 128)))"
+	@$(FLOCK) $(call qdir,$@) "./cp2k-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*128)))"
 
 .PHONY: perf-cp2k
 perf-cp2k: $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.txt
@@ -1284,7 +1284,7 @@ test-wrap: wrap
 ifneq (,$(strip $(FC)))
 test-smm: $(ROOTDIR)/$(SPLDIR)/smm/smm-test.txt
 $(ROOTDIR)/$(SPLDIR)/smm/smm-test.txt: $(ROOTDIR)/$(SPLDIR)/smm/smmf-perf.sh lib_hst smm
-	@$(FLOCK) $(call qdir,$@) "./smmf-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE) * -128)))"
+	@$(FLOCK) $(call qdir,$@) "./smmf-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*-128)))"
 endif
 
 .PHONY: perf-smm
@@ -1302,13 +1302,13 @@ test-nek: \
 	$(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.txt
 $(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.txt: $(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.sh lib_hst
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "$(MAKE) --no-print-directory DEPSTATIC=$(STATIC) axhm"
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "./axhm-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE) * -128)))"
+	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "./axhm-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*-128)))"
 $(ROOTDIR)/$(SPLDIR)/nek/grad-perf.txt: $(ROOTDIR)/$(SPLDIR)/nek/grad-perf.sh lib_hst
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "$(MAKE) --no-print-directory DEPSTATIC=$(STATIC) grad"
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "./grad-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE) * -128)))"
+	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "./grad-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*-128)))"
 $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.txt: $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.sh lib_hst
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "$(MAKE) --no-print-directory DEPSTATIC=$(STATIC) rstr"
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "./rstr-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE) * -128)))"
+	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "./rstr-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*-128)))"
 endif
 
 $(DOCDIR)/index.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
@@ -1317,19 +1317,19 @@ $(DOCDIR)/index.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
 		-e 's/\[\[..*\](..*)\]//g' \
 		-e "s/](${DOCDIR}\//](/g" \
 		-e 'N;/^\n$$/d;P;D' \
-		> $@
+		>$@
 
 $(DOCDIR)/libxs_compat.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
 	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Compatibility.md"
-	@echo >> $@
+	@echo >>$@
 
 $(DOCDIR)/libxs_valid.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
 	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Validation.md"
-	@echo >> $@
+	@echo >>$@
 
 $(DOCDIR)/libxs_qna.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
 	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Q&A.md"
-	@echo >> $@
+	@echo >>$@
 
 $(DOCDIR)/libxs.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/documentation/index.md \
 $(ROOTDIR)/documentation/libxs_mm.md $(ROOTDIR)/documentation/libxs_dl.md $(ROOTDIR)/documentation/libxs_aux.md \
@@ -1341,7 +1341,7 @@ $(ROOTDIR)/documentation/libxs_compat.md $(ROOTDIR)/documentation/libxs_valid.md
 		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
 		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
 		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
-		> $(TMPFILE)
+		>$(TMPFILE)
 	@cd $(ROOTDIR)/documentation && ( \
 		iconv -t utf-8 index.md && echo && \
 		echo "# LIBXS Domains" && \
@@ -1383,7 +1383,7 @@ $(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
 		-e 's/----*//g' \
 		-e '1s/^/# [LIBXS Samples](https:\/\/github.com\/libxs\/libxs\/raw\/master\/documentation\/libxs_samples.pdf)\n\n/' \
-		> $@
+		>$@
 
 $(DOCDIR)/libxs_samples.$(DOCEXT): $(ROOTDIR)/documentation/libxs_samples.md
 	$(eval TMPFILE = $(shell $(MKTEMP) .libxs_XXXXXX.tex))
@@ -1392,7 +1392,7 @@ $(DOCDIR)/libxs_samples.$(DOCEXT): $(ROOTDIR)/documentation/libxs_samples.md
 		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
 		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
 		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
-		> $(TMPFILE)
+		>$(TMPFILE)
 	@iconv -t utf-8 $(ROOTDIR)/documentation/libxs_samples.md \
 	| pandoc \
 		--template=$(TMPFILE) --listings \
@@ -1413,7 +1413,7 @@ $(DOCDIR)/tensorflow.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/d
 		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
 		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
 		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
-		> $(TMPFILE)
+		>$(TMPFILE)
 	@cd $(ROOTDIR)/documentation && iconv -t utf-8 tensorflow.md \
 	| sed \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
@@ -1606,7 +1606,7 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@$(CP) -v $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/$(PDOCDIR)
 	@$(CP) -v $(ROOTDIR)/SECURITY.md $(PREFIX)/$(PDOCDIR)
 	@$(CP) -v $(ROOTDIR)/version.txt $(PREFIX)/$(PDOCDIR)
-	@sed "s/^\"//;s/\\\n\"$$//;/STATIC=/d" $(DIRSTATE)/.state > $(PREFIX)/$(PDOCDIR)/build.txt 2>/dev/null || true
+	@sed "s/^\"//;s/\\\n\"$$//;/STATIC=/d" $(DIRSTATE)/.state >$(PREFIX)/$(PDOCDIR)/build.txt 2>/dev/null || true
 	@mkdir -p $(PREFIX)/$(LICFDIR)
 ifneq ($(call qapath,$(PREFIX)/$(PDOCDIR)/LICENSE.md),$(call qapath,$(PREFIX)/$(LICFDIR)/$(LICFILE)))
 	@$(MV) $(PREFIX)/$(PDOCDIR)/LICENSE.md $(PREFIX)/$(LICFDIR)/$(LICFILE)
@@ -1667,90 +1667,90 @@ ALIAS_INCLUDEDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(PINCDIR)),,\$${pr
 ALIAS_LIBDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(POUTDIR)),,\$${prefix}/),$(subst $$$$$(ALIAS_PREFIX),\$${prefix},$$$$$(POUTDIR)))
 
 $(OUTDIR)/libxs.pc: $(OUTDIR)/libxs.$(LIBEXT)
-	@echo "Name: libxs" > $@
-	@echo "Description: Matrix operations and deep learning primitives" >> $@
-	@echo "URL: https://github.com/hfp/libxs/" >> $@
-	@echo "Version: $(VERSION_STRING)" >> $@
-	@echo >> $@
-	@echo "prefix=$(ALIAS_PREFIX)" >> $@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >> $@
-	@echo "libdir=$(ALIAS_LIBDIR)" >> $@
-	@echo >> $@
-	@echo "Cflags: -I\$${includedir}" >> $@
+	@echo "Name: libxs" >$@
+	@echo "Description: Matrix operations and deep learning primitives" >>$@
+	@echo "URL: https://github.com/hfp/libxs/" >>$@
+	@echo "Version: $(VERSION_STRING)" >>$@
+	@echo >>$@
+	@echo "prefix=$(ALIAS_PREFIX)" >>$@
+	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
+	@echo >>$@
+	@echo "Cflags: -I\$${includedir}" >>$@
 ifneq (,$(ALIAS_PRIVLIBS))
 	@if [ -e $(OUTDIR)/libxs.$(DLIBEXT) ]; then \
-		echo "Libs: -L\$${libdir} -lxsmm" >> $@; \
-		echo "Libs.private: $(ALIAS_PRIVLIBS)" >> $@; \
+		echo "Libs: -L\$${libdir} -lxsmm" >>$@; \
+		echo "Libs.private: $(ALIAS_PRIVLIBS)" >>$@; \
 	else \
-		echo "Libs: -L\$${libdir} -lxsmm $(ALIAS_PRIVLIBS)" >> $@; \
+		echo "Libs: -L\$${libdir} -lxsmm $(ALIAS_PRIVLIBS)" >>$@; \
 	fi
 else # no private libraries
-	@echo "Libs: -L\$${libdir} -lxsmm" >> $@
+	@echo "Libs: -L\$${libdir} -lxsmm" >>$@
 endif
 
 $(OUTDIR)/libxsf.pc: $(OUTDIR)/libxsf.$(LIBEXT)
-	@echo "Name: libxs/f" > $@
-	@echo "Description: LIBXS for Fortran" >> $@
-	@echo "URL: https://github.com/hfp/libxs/" >> $@
-	@echo "Version: $(VERSION_STRING)" >> $@
-	@echo >> $@
-	@echo "prefix=$(ALIAS_PREFIX)" >> $@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >> $@
-	@echo "libdir=$(ALIAS_LIBDIR)" >> $@
-	@echo >> $@
-	@echo "Requires: libxs" >> $@
-	@echo "Cflags: -I\$${includedir}" >> $@
-	@echo "Libs: -L\$${libdir} -lxsmmf" >> $@
+	@echo "Name: libxs/f" >$@
+	@echo "Description: LIBXS for Fortran" >>$@
+	@echo "URL: https://github.com/hfp/libxs/" >>$@
+	@echo "Version: $(VERSION_STRING)" >>$@
+	@echo >>$@
+	@echo "prefix=$(ALIAS_PREFIX)" >>$@
+	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
+	@echo >>$@
+	@echo "Requires: libxs" >>$@
+	@echo "Cflags: -I\$${includedir}" >>$@
+	@echo "Libs: -L\$${libdir} -lxsmmf" >>$@
 
 $(OUTDIR)/libxsext.pc: $(OUTDIR)/libxsext.$(LIBEXT)
-	@echo "Name: libxs/ext" > $@
-	@echo "Description: LIBXS/multithreaded for OpenMP" >> $@
-	@echo "URL: https://github.com/hfp/libxs/" >> $@
-	@echo "Version: $(VERSION_STRING)" >> $@
-	@echo >> $@
-	@echo "prefix=$(ALIAS_PREFIX)" >> $@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >> $@
-	@echo "libdir=$(ALIAS_LIBDIR)" >> $@
-	@echo >> $@
-	@echo "Requires: libxs" >> $@
-	@echo "Cflags: -I\$${includedir}" >> $@
+	@echo "Name: libxs/ext" >$@
+	@echo "Description: LIBXS/multithreaded for OpenMP" >>$@
+	@echo "URL: https://github.com/hfp/libxs/" >>$@
+	@echo "Version: $(VERSION_STRING)" >>$@
+	@echo >>$@
+	@echo "prefix=$(ALIAS_PREFIX)" >>$@
+	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
+	@echo >>$@
+	@echo "Requires: libxs" >>$@
+	@echo "Cflags: -I\$${includedir}" >>$@
 ifneq (,$(ALIAS_PRIVLIBS_EXT))
 	@if [ -e $(OUTDIR)/libxsext.$(DLIBEXT) ]; then \
-		echo "Libs: -L\$${libdir} -lxsmmext" >> $@; \
-		echo "Libs.private: $(ALIAS_PRIVLIBS_EXT)" >> $@; \
+		echo "Libs: -L\$${libdir} -lxsmmext" >>$@; \
+		echo "Libs.private: $(ALIAS_PRIVLIBS_EXT)" >>$@; \
 	else \
-		echo "Libs: -L\$${libdir} -lxsmmext $(ALIAS_PRIVLIBS_EXT)" >> $@; \
+		echo "Libs: -L\$${libdir} -lxsmmext $(ALIAS_PRIVLIBS_EXT)" >>$@; \
 	fi
 else # no private libraries
-	@echo "Libs: -L\$${libdir} -lxsmmext" >> $@
+	@echo "Libs: -L\$${libdir} -lxsmmext" >>$@
 endif
 
 $(OUTDIR)/libxsnoblas.pc: $(OUTDIR)/libxsnoblas.$(LIBEXT)
-	@echo "Name: libxs/noblas" > $@
-	@echo "Description: LIBXS substituted LAPACK/BLAS dependency" >> $@
-	@echo "URL: https://github.com/hfp/libxs/" >> $@
-	@echo "Version: $(VERSION_STRING)" >> $@
-	@echo >> $@
-	@echo "prefix=$(ALIAS_PREFIX)" >> $@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >> $@
-	@echo "libdir=$(ALIAS_LIBDIR)" >> $@
-	@echo >> $@
-	@echo "Requires: libxs" >> $@
-	@echo "Cflags: -I\$${includedir}" >> $@
-	@echo "Libs: -L\$${libdir} -lxsmmnoblas" >> $@
+	@echo "Name: libxs/noblas" >$@
+	@echo "Description: LIBXS substituted LAPACK/BLAS dependency" >>$@
+	@echo "URL: https://github.com/hfp/libxs/" >>$@
+	@echo "Version: $(VERSION_STRING)" >>$@
+	@echo >>$@
+	@echo "prefix=$(ALIAS_PREFIX)" >>$@
+	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
+	@echo >>$@
+	@echo "Requires: libxs" >>$@
+	@echo "Cflags: -I\$${includedir}" >>$@
+	@echo "Libs: -L\$${libdir} -lxsmmnoblas" >>$@
 
 $(OUTDIR)/libxs.env: $(OUTDIR)/.make $(INCDIR)/libxs.h
-	@echo "#%Module1.0" > $@
-	@echo >> $@
-	@echo "module-whatis \"LIBXS $(VERSION_STRING)\"" >> $@
-	@echo >> $@
-	@echo "set PREFIX \"$(ALIAS_PREFIX)\"" >> $@
-	@echo "prepend-path PATH \"\$$PREFIX/bin\"" >> $@
-	@echo "prepend-path LD_LIBRARY_PATH \"\$$PREFIX/lib\"" >> $@
-	@echo >> $@
-	@echo "prepend-path PKG_CONFIG_PATH \"\$$PREFIX/lib\"" >> $@
-	@echo "prepend-path LIBRARY_PATH \"\$$PREFIX/lib\"" >> $@
-	@echo "prepend-path CPATH \"\$$PREFIX/include\"" >> $@
+	@echo "#%Module1.0" >$@
+	@echo >>$@
+	@echo "module-whatis \"LIBXS $(VERSION_STRING)\"" >>$@
+	@echo >>$@
+	@echo "set PREFIX \"$(ALIAS_PREFIX)\"" >>$@
+	@echo "prepend-path PATH \"\$$PREFIX/bin\"" >>$@
+	@echo "prepend-path LD_LIBRARY_PATH \"\$$PREFIX/lib\"" >>$@
+	@echo >>$@
+	@echo "prepend-path PKG_CONFIG_PATH \"\$$PREFIX/lib\"" >>$@
+	@echo "prepend-path LIBRARY_PATH \"\$$PREFIX/lib\"" >>$@
+	@echo "prepend-path CPATH \"\$$PREFIX/include\"" >>$@
 
 .PHONY: deb
 deb:
@@ -1778,44 +1778,44 @@ deb:
 		tar xf $${ARCHIVE_NAME}_$${VERSION_ARCHIVE}.orig.tar.gz; \
 		cd $${ARCHIVE_NAME}-$${VERSION_ARCHIVE}; \
 		mkdir -p debian/source; cd debian/source; \
-		echo "3.0 (quilt)" > format; \
+		echo "3.0 (quilt)" >format; \
 		cd ..; \
-		echo "Source: $${ARCHIVE_NAME}" > control; \
-		echo "Section: libs" >> control; \
-		echo "Homepage: https://github.com/hfp/libxs/" >> control; \
-		echo "Vcs-Git: https://github.com/hfp/libxs/libxs.git" >> control; \
-		echo "Maintainer: $${ARCHIVE_AUTHOR}" >> control; \
-		echo "Priority: optional" >> control; \
-		echo "Build-Depends: debhelper (>= 9)" >> control; \
-		echo "Standards-Version: 3.9.8" >> control; \
-		echo >> control; \
-		echo "Package: $${ARCHIVE_NAME}" >> control; \
-		echo "Section: libs" >> control; \
-		echo "Architecture: amd64" >> control; \
-		echo "Depends: \$${shlibs:Depends}, \$${misc:Depends}" >> control; \
-		echo "Description: Matrix operations and deep learning primitives" >> control; \
+		echo "Source: $${ARCHIVE_NAME}" >control; \
+		echo "Section: libs" >>control; \
+		echo "Homepage: https://github.com/hfp/libxs/" >>control; \
+		echo "Vcs-Git: https://github.com/hfp/libxs/libxs.git" >>control; \
+		echo "Maintainer: $${ARCHIVE_AUTHOR}" >>control; \
+		echo "Priority: optional" >>control; \
+		echo "Build-Depends: debhelper (>= 9)" >>control; \
+		echo "Standards-Version: 3.9.8" >>control; \
+		echo >>control; \
+		echo "Package: $${ARCHIVE_NAME}" >>control; \
+		echo "Section: libs" >>control; \
+		echo "Architecture: amd64" >>control; \
+		echo "Depends: \$${shlibs:Depends}, \$${misc:Depends}" >>control; \
+		echo "Description: Matrix operations and deep learning primitives" >>control; \
 		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/libxs/libxs/" \
 		| sed -n 's/ *\"description\": \"\(..*\)\".*/\1/p' \
-		| fold -s -w 79 | sed -e 's/^/ /' -e 's/[[:space:]][[:space:]]*$$//' >> control; \
-		echo "$${ARCHIVE_NAME} ($${VERSION_ARCHIVE}-$(VERSION_PACKAGE)) UNRELEASED; urgency=low" > changelog; \
-		echo >> changelog; \
+		| fold -s -w 79 | sed -e 's/^/ /' -e 's/[[:space:]][[:space:]]*$$//' >>control; \
+		echo "$${ARCHIVE_NAME} ($${VERSION_ARCHIVE}-$(VERSION_PACKAGE)) UNRELEASED; urgency=low" >changelog; \
+		echo >>changelog; \
 		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/libxs/libxs/releases/tags/$${VERSION_ARCHIVE}" \
 		| sed -n 's/ *\"body\": \"\(..*\)\".*/\1/p' \
 		| sed -e 's/\\r\\n/\n/g' -e 's/\\"/"/g' -e 's/\[\([^]]*\)\]([^)]*)/\1/g' \
 		| sed -n 's/^\* \(..*\)/\* \1/p' \
-		| fold -s -w 78 | sed -e 's/^/  /g' -e 's/^  \* /\* /' -e 's/^/  /' -e 's/[[:space:]][[:space:]]*$$//' >> changelog; \
-		echo >> changelog; \
-		echo " -- $${ARCHIVE_AUTHOR}  $${ARCHIVE_DATE}" >> changelog; \
-		echo "#!/usr/bin/make -f" > rules; \
-		echo "export DH_VERBOSE = 1" >> rules; \
-		echo >> rules; \
-		echo "%:" >> rules; \
-		$$(which echo) -e "\tdh \$$@" >> rules; \
-		echo >> rules; \
-		echo "override_dh_auto_install:" >> rules; \
-		$$(which echo) -e "\tdh_auto_install -- prefix=/usr" >> rules; \
-		echo >> rules; \
-		echo "9" > compat; \
+		| fold -s -w 78 | sed -e 's/^/  /g' -e 's/^  \* /\* /' -e 's/^/  /' -e 's/[[:space:]][[:space:]]*$$//' >>changelog; \
+		echo >>changelog; \
+		echo " -- $${ARCHIVE_AUTHOR}  $${ARCHIVE_DATE}" >>changelog; \
+		echo "#!/usr/bin/make -f" >rules; \
+		echo "export DH_VERBOSE = 1" >>rules; \
+		echo >>rules; \
+		echo "%:" >>rules; \
+		$$(which echo) -e "\tdh \$$@" >>rules; \
+		echo >>rules; \
+		echo "override_dh_auto_install:" >>rules; \
+		$$(which echo) -e "\tdh_auto_install -- prefix=/usr" >>rules; \
+		echo >>rules; \
+		echo "9" >compat; \
 		$(CP) ../LICENSE.md copyright; \
 		rm -f ../$(TSTDIR)/mhd_test.mhd; \
 		chmod +x rules; \

@@ -41,27 +41,27 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
     switch (datatype) {
       case LIBXS_DATATYPE_F64: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE double
-#       include "template/libxs_matdiff.tpl.c"
+#       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
       } break;
       case LIBXS_DATATYPE_F32: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE float
-#       include "template/libxs_matdiff.tpl.c"
+#       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
       } break;
       case LIBXS_DATATYPE_I32: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE int
-#       include "template/libxs_matdiff.tpl.c"
+#       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
       } break;
       case LIBXS_DATATYPE_I16: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE short
-#       include "template/libxs_matdiff.tpl.c"
+#       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
       } break;
       case LIBXS_DATATYPE_I8: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE signed char
-#       include "template/libxs_matdiff.tpl.c"
+#       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
       } break;
       default: {
