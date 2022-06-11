@@ -113,7 +113,6 @@
 #include "../src/libxs_perf.c"
 #include "../src/libxs_python.c"
 #include "../src/libxs_rng.c"
-#include "../src/libxs_spmdm.c"
 #include "../src/libxs_sync.c"
 #include "../src/libxs_timer.c"
 #include "../src/libxs_trace.c"

@@ -338,14 +338,13 @@ HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.c) $(wildcard $(ROOTDIR)/$
           $(ROOTDIR)/include/libxs_math.h \
           $(ROOTDIR)/include/libxs_mem.h \
           $(ROOTDIR)/include/libxs_mhd.h \
-          $(ROOTDIR)/include/libxs_spmdm.h \
           $(ROOTDIR)/include/libxs_sync.h \
           $(ROOTDIR)/include/libxs_timer.h \
           $(ROOTDIR)/include/libxs_typedefs.h
 SRCFILES_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_main.c libxs_mem.c libxs_malloc.c libxs_hash.c libxs_math.c \
           libxs_sync.c libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
-          libxs_gemm.c libxs_xcopy.c libxs_spmdm.c libxs_fsspmdm.c libxs_rng.c libxs_lpflt_quant.c )
+          libxs_gemm.c libxs_xcopy.c libxs_fsspmdm.c libxs_rng.c libxs_lpflt_quant.c )
 SRCFILES_GEN_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(notdir $(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c)) \
           libxs_cpuid_arm.c libxs_cpuid_x86.c libxs_generator.c libxs_trace.c libxs_matrixeqn.c)
 
