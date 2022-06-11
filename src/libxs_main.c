@@ -1540,7 +1540,11 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
 {
   const int cpuid = libxs_cpuid();
   int target_archid;
-  if (NULL != arch && '\0' != *arch) {
+  if (NULL != arch && '\0' != *arch
+    && arch != libxs_stristr(arch, "default")
+    && arch != libxs_stristr(arch, "cpuid")
+    && arch != libxs_stristr(arch, "auto"))
+  {
 #if defined(LIBXS_PLATFORM_X86)
     const int jit = atoi(arch);
 #endif
