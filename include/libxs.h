@@ -44,7 +44,6 @@
 #include "libxs_frontend.h"
 #include "libxs_fsspmdm.h"
 #include "libxs_malloc.h"
-#include "libxs_spmdm.h"
 #include "libxs_cpuid.h"
 #include "libxs_timer.h"
 #include "libxs_math.h"
