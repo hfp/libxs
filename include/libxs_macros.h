@@ -266,7 +266,7 @@
 # define LIBXS_ATTRIBUTE_UNUSED
 # define LIBXS_ATTRIBUTE_USED
 #endif
-#if !defined(__INTEL_COMPILER) && (defined(__clang__) || defined(__PGLLVM__))
+#if !defined(__INTEL_COMPILER) && (defined(__clang__) /*|| defined(__PGLLVM__)*/)
 # define LIBXS_ATTRIBUTE_NO_SANITIZE(KIND) LIBXS_ATTRIBUTE(no_sanitize(LIBXS_STRINGIFY(KIND)))
 #elif defined(__GNUC__) && LIBXS_VERSION2(4, 8) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) \
   && !defined(__INTEL_COMPILER)
