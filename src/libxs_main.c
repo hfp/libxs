@@ -2221,8 +2221,12 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
   }
 
-  if  (0 == generated_code.last_error /* no error raised */
-    && 0 != generated_code.code_size /*check (tcopy issue?)*/)
+  if  (0 == generated_code.last_error
+# if !defined(NDEBUG)
+    && 0 != generated_code.code_size /*check (tcopy issue?)*/
+    && generated_code.code_size <= generated_code.buffer_size
+# endif
+    /* no error raised */)
   {
     char* code_buffer = NULL;
 # if defined(__APPLE__) && defined(__arm64__)
