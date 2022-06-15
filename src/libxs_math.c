@@ -21,7 +21,7 @@
 
 #if 1
 # define LIBXS_MATDIFF_DIV(NOMINATOR, DENREF, DENTST) \
-    (0 < (DENREF) ? ((NOMINATOR) / (DENREF)) : (NOMINATOR))
+    ((NOMINATOR) / (0 < (DENREF) ? (DENREF) : 1))
 #else
 # define LIBXS_MATDIFF_DIV(NOMINATOR, DENREF, DENTST) \
     (0 < (DENREF) ? ((NOMINATOR) / (DENREF)) : \
