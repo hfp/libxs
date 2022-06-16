@@ -16,7 +16,7 @@
 int main(void)
 {
   int result = EXIT_SUCCESS;
-  libxs_matdiff_info da, db, dc, diff;
+  libxs_matdiff_info da, db, dc, dd, diff;
   /* http://www.netlib.org/lapack/lug/node75.html */
   const ITYPE a[] = {
     (ITYPE)1.00, (ITYPE)2.00, (ITYPE)3.00,
@@ -33,6 +33,12 @@ int main(void)
   };
   const ITYPE y[] = {
     (ITYPE)1.10, (ITYPE)99.00, (ITYPE)11.0
+  };
+  const ITYPE r[] = {
+    (ITYPE)0.00, (ITYPE)0.00, (ITYPE)0.00
+  };
+  const ITYPE t[] = {
+    (ITYPE)0.01, (ITYPE)0.02, (ITYPE)0.01
   };
 
   /* no need to clear da, db, and dc; just the accumulator (diff) */
@@ -131,6 +137,37 @@ int main(void)
   }
 
   if (EXIT_SUCCESS == result) {
+    result = libxs_matdiff(&dd, LIBXS_DATATYPE(ITYPE), 3/*m*/, 1/*n*/,
+      r/*ref*/, t/*tst*/, NULL/*ldref*/, NULL/*ldtst*/);
+  }
+  if (EXIT_SUCCESS == result) {
+    libxs_matdiff_reduce(&diff, &dd);
+    /* One-norm */
+    if (0.0000001 < LIBXS_ABS(dd.norm1_abs - 0.0400000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(dd.norm1_rel - 0.0400000)) result = EXIT_FAILURE;
+    /* Infinity-norm */
+    if (0.0000001 < LIBXS_ABS(dd.normi_abs - 0.0200000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(dd.normi_rel - 0.0200000)) result = EXIT_FAILURE;
+    /* Froebenius-norm (relative) */
+    if (0.0000001 < LIBXS_ABS(dd.normf_rel - 0.0244949)) result = EXIT_FAILURE;
+    /** L2-norm */
+    if (0.0000001 < LIBXS_ABS(dd.l2_abs - 0.0244949)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(dd.l2_rel - 0.0244949)) result = EXIT_FAILURE;
+    /** L1-norm */
+    if (0.0000001 < LIBXS_ABS(dd.l1_ref - 0.00)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(dd.l1_tst - 0.04)) result = EXIT_FAILURE;
+    /* Linf-norm */
+    if (0.0000001 < LIBXS_ABS(dd.linf_abs - 0.0200000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(dd.linf_rel - 0.0200000)) result = EXIT_FAILURE;
+    /* R-squared */
+    if (0.0000001 < LIBXS_ABS(dd.rsq - 0.9999333)) result = EXIT_FAILURE;
+    /* Location of maximum absolute error */
+    if (1 != dd.m || 0 != dd.n) result = EXIT_FAILURE;
+    if (r[3*dd.n+dd.m] != dd.v_ref) result = EXIT_FAILURE;
+    if (t[3*dd.n+dd.m] != dd.v_tst) result = EXIT_FAILURE;
+  }
+
+  if (EXIT_SUCCESS == result) {
     /* One-norm */
     if (0.0000001 < LIBXS_ABS(diff.norm1_abs - 3.1000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(diff.norm1_rel - 0.0281818)) result = EXIT_FAILURE;
@@ -144,7 +181,7 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(diff.l2_rel - 0.2438908)) result = EXIT_FAILURE;
     /** L1-norm */
     if (0.0000001 < LIBXS_ABS(diff.l1_ref - 266.00)) result = EXIT_FAILURE;
-    if (0.0000001 < LIBXS_ABS(diff.l1_tst - 267.86)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.l1_tst - 267.90)) result = EXIT_FAILURE;
     /* Linf-norm */
     if (0.0000001 < LIBXS_ABS(diff.linf_abs - 2.0000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(diff.linf_rel - 0.2222222)) result = EXIT_FAILURE;
@@ -158,4 +195,3 @@ int main(void)
 
   return result;
 }
-

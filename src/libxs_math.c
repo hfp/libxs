@@ -19,14 +19,8 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if 1
-# define LIBXS_MATDIFF_DIV(NOMINATOR, DENREF, DENTST) \
-    ((NOMINATOR) / (0 < (DENREF) ? (DENREF) : 1))
-#else
-# define LIBXS_MATDIFF_DIV(NOMINATOR, DENREF, DENTST) \
-    (0 < (DENREF) ? ((NOMINATOR) / (DENREF)) : \
-    (0 < (DENTST) ? ((NOMINATOR) / (DENTST)) : 0))
-#endif
+#define LIBXS_MATDIFF_DIV(NOMINATOR, DENREF, DENTST) \
+  (0 < (DENREF) ? ((NOMINATOR) / (DENREF)) : LIBXS_MIN(NOMINATOR, DENTST))
 
 
 LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
