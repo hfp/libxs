@@ -19,9 +19,9 @@
 # pragma offload_attribute(pop)
 #endif
 
-#define LIBXS_MATDIFF_DIV_DEN(A) (0 < (A) ? (A) : 1) /* workaround for Clang's div-by-zero */
-#define LIBXS_MATDIFF_DIV(NOMINATOR, DENREF, DENTST) \
-  (0 < (DENREF) ? ((NOMINATOR) / LIBXS_MATDIFF_DIV_DEN(DENREF)) : LIBXS_MIN(NOMINATOR, DENTST))
+#define LIBXS_MATDIFF_DIV_DEN(A) (0 < (A) ? (A) : 1) /* Clang; workaround for div-by-zero */
+#define LIBXS_MATDIFF_DIV(NOMINATOR, DENREF, DENTST) /* Clang: >= instead of < */ \
+  (0 >= (DENREF) ? LIBXS_MIN(NOMINATOR, DENTST) : ((NOMINATOR) / LIBXS_MATDIFF_DIV_DEN(DENREF)))
 
 
 LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
