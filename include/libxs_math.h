@@ -43,6 +43,8 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
   libxs_datatype datatype, libxs_blasint m, libxs_blasint n, const void* ref, const void* tst,
   const libxs_blasint* ldref, const libxs_blasint* ldtst);
 
+/** Combine absolute and relative norms into a value which can be used to check against a margin. */
+LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info* input);
 /**
  * Reduces input into output such that the difference is maintained or increased (max function).
  * The very first (initial) output should be zeroed (libxs_matdiff_clear).

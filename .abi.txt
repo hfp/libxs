@@ -190,6 +190,7 @@ libxs_matdiff
 libxs_matdiff_
 libxs_matdiff_clear
 libxs_matdiff_clear_
+libxs_matdiff_epsilon
 libxs_matdiff_reduce
 libxs_matdiff_reduce_
 libxs_matrix_eqn_create
