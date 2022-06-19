@@ -177,6 +177,19 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
 }
 
 
+LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info* input)
+{
+  double result;
+  if (NULL != input) {
+    result = (0 < input->rsq
+      ? LIBXS_MIN(input->normf_rel, input->linf_abs) / input->rsq
+      : LIBXS_MAX(input->normf_rel, input->linf_abs));
+  }
+  else result = 0;
+  return result;
+}
+
+
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input)
 {
   if (NULL != output && NULL != input) {
