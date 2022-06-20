@@ -1844,7 +1844,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 #if !defined(__MIC__)
   const char * /*const*/ target_arch = libxs_cpuid_name(libxs_target_archid);
   /* large enough temporary buffer for generated code */
-  char jit_buffer[LIBXS_CODE_MAXSIZE] = "", jit_name[384] = "";
+  char jit_buffer[LIBXS_CODE_MAXSIZE] = { 0 }, jit_name[384] = { 0 };
   libxs_generated_code generated_code /*= { 0 }*/;
   libxs_kernel_xinfo extra /*= { 0 }*/;
 
