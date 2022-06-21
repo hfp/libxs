@@ -123,72 +123,45 @@
 #define LIBXS_VERSION_GE(MAJOR, MINOR, UPDATE, PATCH) \
   LIBXS_VERSION_CHECK(>=, MAJOR, MINOR, UPDATE, PATCH)
 
-/** Evaluate if value falls into interval [LO, HI]. */
-#define LIBXS_CHECK_INTEGER(VALUE, LO, HI) ( \
-  (0 == ((VALUE) - (LO)) || 0 < ((VALUE) - (LO))) && \
-  (0 == ((HI) - (VALUE)) || 0 < ((HI) - (VALUE))))
-
-/** LIBXS_CHECK: Check given value against type-range (assertion). */
-#if !defined(NDEBUG) && 1
-# define LIBXS_CHECK_ULLONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, 0, ULLONG_MAX), "Value cannot be represented as ULLONG")
-# define LIBXS_CHECK_LLONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, LLONG_MIN, LLONG_MAX), "Value cannot be represented as LLONG")
-# define LIBXS_CHECK_ULONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, 0, ULONG_MAX), "Value cannot be represented as ULONG")
-# define LIBXS_CHECK_LONG(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, LONG_MIN, LONG_MAX), "Value cannot be represented as LONG")
-# define LIBXS_CHECK_USHORT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, 0, USHRT_MAX), "Value cannot be represented as USHORT")
-# define LIBXS_CHECK_SHORT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, SHRT_MIN, SHRT_MAX), "Value cannot be represented as SHORT")
-# define LIBXS_CHECK_UCHAR(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, 0, UCHAR_MAX), "Value cannot be represented as UCHAR")
-# define LIBXS_CHECK_ICHAR(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, SCHAR_MIN, SCHAR_MAX), "Value cannot be represented as ICHAR")
-# define LIBXS_CHECK_CHAR(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, CHAR_MIN, CHAR_MAX), "Value cannot be represented as CHAR")
-# define LIBXS_CHECK_UINT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, 0, UINT_MAX), "Value cannot be represented as UINT")
-# define LIBXS_CHECK_INT(VALUE) LIBXS_ASSERT_MSG(LIBXS_CHECK_INTEGER(VALUE, INT_MIN, INT_MAX), "Value cannot be represented as INT")
-#elif !defined(_MSC_VER)
-# define LIBXS_CHECK_ULLONG(VALUE) ((void)0/*dummy*/)
-# define LIBXS_CHECK_LLONG(VALUE) ((void)0/*dummy*/)
-# define LIBXS_CHECK_ULONG(VALUE) ((void)0/*dummy*/)
-# define LIBXS_CHECK_LONG(VALUE) ((void)0/*dummy*/)
-# define LIBXS_CHECK_USHORT(VALUE) ((void)0/*dummy*/)
-# define LIBXS_CHECK_SHORT(VALUE) ((void)0/*dummy*/)
-# define LIBXS_CHECK_UCHAR(VALUE) ((void)0/*dummy*/)
-# define LIBXS_CHECK_ICHAR(VALUE) ((void)0/*dummy*/)
-# define LIBXS_CHECK_CHAR(VALUE) ((void)0/*dummy*/)
-# define LIBXS_CHECK_UINT(VALUE) ((void)0/*dummy*/)
-# define LIBXS_CHECK_INT(VALUE) ((void)0/*dummy*/)
-#else
-# define LIBXS_CHECK_ULLONG(VALUE) 0/*dummy*/
-# define LIBXS_CHECK_LLONG(VALUE) 0/*dummy*/
-# define LIBXS_CHECK_ULONG(VALUE) 0/*dummy*/
-# define LIBXS_CHECK_LONG(VALUE) 0/*dummy*/
-# define LIBXS_CHECK_USHORT(VALUE) 0/*dummy*/
-# define LIBXS_CHECK_SHORT(VALUE) 0/*dummy*/
-# define LIBXS_CHECK_UCHAR(VALUE) 0/*dummy*/
-# define LIBXS_CHECK_ICHAR(VALUE) 0/*dummy*/
-# define LIBXS_CHECK_CHAR(VALUE) 0/*dummy*/
-# define LIBXS_CHECK_UINT(VALUE) 0/*dummy*/
-# define LIBXS_CHECK_INT(VALUE) 0/*dummy*/
-#endif
+/** Evaluates to true if the value falls into the interval [LO, HI]. */
+#define LIBXS_IS_INTEGER(VALUE, LO, HI) ( \
+  (((VALUE) == (LO)) || (LO) < (VALUE)) && \
+  (((HI) == (VALUE)) || (VALUE) < (HI)))
+/** LIBXS_IS_TYPE: check value against type-range of TYPE. */
+#define LIBXS_IS_ULLONG(VALUE) LIBXS_IS_INTEGER(VALUE, 0, ULLONG_MAX)
+#define LIBXS_IS_LLONG(VALUE) LIBXS_IS_INTEGER(VALUE, LLONG_MIN, LLONG_MAX)
+#define LIBXS_IS_ULONG(VALUE) LIBXS_IS_INTEGER(VALUE, 0, ULONG_MAX)
+#define LIBXS_IS_LONG(VALUE) LIBXS_IS_INTEGER(VALUE, LONG_MIN, LONG_MAX)
+#define LIBXS_IS_USHORT(VALUE) LIBXS_IS_INTEGER(VALUE, 0, USHRT_MAX)
+#define LIBXS_IS_SHORT(VALUE) LIBXS_IS_INTEGER(VALUE, SHRT_MIN, SHRT_MAX)
+#define LIBXS_IS_UCHAR(VALUE) LIBXS_IS_INTEGER(VALUE, 0, UCHAR_MAX)
+#define LIBXS_IS_ICHAR(VALUE) LIBXS_IS_INTEGER(VALUE, SCHAR_MIN, SCHAR_MAX)
+#define LIBXS_IS_CHAR(VALUE) LIBXS_IS_INTEGER(VALUE, CHAR_MIN, CHAR_MAX)
+#define LIBXS_IS_UINT(VALUE) LIBXS_IS_INTEGER(VALUE, 0, UINT_MAX)
+#define LIBXS_IS_INT(VALUE) LIBXS_IS_INTEGER(VALUE, INT_MIN, INT_MAX)
 
 /**
- * LIBXS_CAST:  Perform type-cast with following two advantages:
- *                (1) Make it easy to locate/find the type-cast.
- *                (2) Range-check to ensure fitting into type.
+ * LIBXS_CAST: Perform type-cast with following two advantages:
+ *               (1) Make it easy to locate/find the type-cast.
+ *               (2) Range-check to ensure fitting into type.
  */
-#define LIBXS_CAST_ULLONG(VALUE) ((unsigned long long)(LIBXS_CHECK_ULLONG(VALUE), VALUE))
-#define LIBXS_CAST_LLONG(VALUE) ((/*signed*/long long)(LIBXS_CHECK_LLONG(VALUE), VALUE))
-#define LIBXS_CAST_ULONG(VALUE) ((unsigned long)(LIBXS_CHECK_ULONG(VALUE), VALUE))
-#define LIBXS_CAST_LONG(VALUE) ((/*signed*/long)(LIBXS_CHECK_LONG(VALUE), VALUE))
-#define LIBXS_CAST_USHORT(VALUE) ((unsigned short)(LIBXS_CHECK_USHORT(VALUE), VALUE))
-#define LIBXS_CAST_SHORT(VALUE) ((/*signed*/short)(LIBXS_CHECK_SHORT(VALUE), VALUE))
-#define LIBXS_CAST_UCHAR(VALUE) ((unsigned char)(LIBXS_CHECK_UCHAR(VALUE), VALUE))
-#define LIBXS_CAST_ICHAR(VALUE) ((signed char)(LIBXS_CHECK_ICHAR(VALUE), VALUE))
-#define LIBXS_CAST_CHAR(VALUE) ((char)(LIBXS_CHECK_CHAR(VALUE), VALUE))
-#define LIBXS_CAST_UINT(VALUE) ((unsigned int)(LIBXS_CHECK_UINT(VALUE), VALUE))
-#define LIBXS_CAST_INT(VALUE) ((/*signed*/int)(LIBXS_CHECK_INT(VALUE), VALUE))
+#define LIBXS_CAST_ULLONG(VALUE) ((unsigned long long)(LIBXS_ASSERT_MSG(LIBXS_IS_ULLONG(VALUE), "Value cannot be represented as ULLONG"), VALUE))
+#define LIBXS_CAST_LLONG(VALUE) ((/*signed*/long long)(LIBXS_ASSERT_MSG(LIBXS_IS_LLONG(VALUE), "Value cannot be represented as LLONG"), VALUE))
+#define LIBXS_CAST_ULONG(VALUE) ((unsigned long)(LIBXS_ASSERT_MSG(LIBXS_IS_ULONG(VALUE), "Value cannot be represented as ULONG"), VALUE))
+#define LIBXS_CAST_LONG(VALUE) ((/*signed*/long)(LIBXS_ASSERT_MSG(LIBXS_IS_LONG(VALUE), "Value cannot be represented as LONG"), VALUE))
+#define LIBXS_CAST_USHORT(VALUE) ((unsigned short)(LIBXS_ASSERT_MSG(LIBXS_IS_USHORT(VALUE), "Value cannot be represented as USHORT"), VALUE))
+#define LIBXS_CAST_SHORT(VALUE) ((/*signed*/short)(LIBXS_ASSERT_MSG(LIBXS_IS_SHORT(VALUE), "Value cannot be represented as SHORT"), VALUE))
+#define LIBXS_CAST_UCHAR(VALUE) ((unsigned char)(LIBXS_ASSERT_MSG(LIBXS_IS_UCHAR(VALUE), "Value cannot be represented as UCHAR"), VALUE))
+#define LIBXS_CAST_ICHAR(VALUE) ((signed char)(LIBXS_ASSERT_MSG(LIBXS_IS_ICHAR(VALUE), "Value cannot be represented as ICHAR"), VALUE))
+#define LIBXS_CAST_CHAR(VALUE) ((char)(LIBXS_ASSERT_MSG(LIBXS_IS_CHAR(VALUE), "Value cannot be represented as CHAR"), VALUE))
+#define LIBXS_CAST_UINT(VALUE) ((unsigned int)(LIBXS_ASSERT_MSG(LIBXS_IS_UINT(VALUE), "Value cannot be represented as UINT"), VALUE))
+#define LIBXS_CAST_INT(VALUE) ((/*signed*/int)(LIBXS_ASSERT_MSG(LIBXS_IS_INT(VALUE), "Value cannot be represented as INT"), VALUE))
 
 #if (0 != LIBXS_ILP64)
-# define LIBXS_CHECK_BLASINT(VALUE) LIBXS_CHECK_LLONG(VALUE)
+# define LIBXS_IS_BLASINT(VALUE) LIBXS_IS_LLONG(VALUE)
 # define LIBXS_CAST_BLASINT(VALUE) LIBXS_CAST_LLONG(VALUE)
 #else /* LP64 */
-# define LIBXS_CHECK_BLASINT(VALUE) LIBXS_CHECK_INT(VALUE)
+# define LIBXS_IS_BLASINT(VALUE) LIBXS_IS_INT(VALUE)
 # define LIBXS_CAST_BLASINT(VALUE) LIBXS_CAST_INT(VALUE)
 #endif
 
