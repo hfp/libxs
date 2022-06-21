@@ -320,26 +320,11 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   libxs_matrix_eqn_function xmateqn;
 } libxs_code_pointer;
 
-struct LIBXS_RETARGETABLE libxs_dfsspmdm {
-  int M;
-  int N;
-  int K;
-  int ldb;
-  int ldc;
-  int N_chunksize;
-  double* a_dense;
+struct LIBXS_RETARGETABLE libxs_fsspmdm {
+  int M, N, K, ldb, ldc, N_chunksize;
   libxs_gemmfunction kernel;
-};
-
-struct LIBXS_RETARGETABLE libxs_sfsspmdm {
-  int M;
-  int N;
-  int K;
-  int ldb;
-  int ldc;
-  int N_chunksize;
-  float* a_dense;
-  libxs_gemmfunction kernel;
+  libxs_datatype datatype;
+  void* a_dense;
 };
 
 /** Packed structure storing the mateltw argument description. */

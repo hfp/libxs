@@ -95,6 +95,9 @@ libxs_dvalue
 libxs_finalize
 libxs_finalize_
 libxs_free
+libxs_fsspmdm_create
+libxs_fsspmdm_destroy
+libxs_fsspmdm_execute
 libxs_gcd
 libxs_gemm_batch
 libxs_gemm_batch_
