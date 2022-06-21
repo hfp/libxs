@@ -440,12 +440,12 @@
     for (libxs_matrng_i_ = 0; libxs_matrng_i_ < ((libxs_blasint)NCOLS); ++libxs_matrng_i_) { \
       for (libxs_matrng_j_ = 0; libxs_matrng_j_ < libxs_matrng_nrows_; ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        (DST)[libxs_matrng_k_] = (TYPE)(libxs_matrng_scale_ * (1.0 + \
+        ((TYPE*)(DST))[libxs_matrng_k_] = (TYPE)(libxs_matrng_scale_ * (1.0 + \
           libxs_matrng_i_ * libxs_matrng_nrows_ + libxs_matrng_j_)); \
       } \
       for (; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        (DST)[libxs_matrng_k_] = (TYPE)(SEED); \
+        ((TYPE*)(DST))[libxs_matrng_k_] = (TYPE)(SEED); \
       } \
     } \
   } \
@@ -457,7 +457,7 @@
     for (libxs_matrng_i_ = 0; libxs_matrng_i_ < ((libxs_blasint)NCOLS); ++libxs_matrng_i_) { \
       for (libxs_matrng_j_ = 0; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        (DST)[libxs_matrng_k_] = libxs_matrng_inv_ * /* normalize values to an interval of [-1, +1] */ \
+        ((TYPE*)(DST))[libxs_matrng_k_] = libxs_matrng_inv_ * /* normalize values to an interval of [-1, +1] */ \
           ((TYPE)(libxs_matrng_shuffle_ * libxs_matrng_k_ % libxs_matrng_maxval_) - libxs_matrng_maxval2_); \
       } \
     } \
