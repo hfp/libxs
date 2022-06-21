@@ -187,7 +187,7 @@ int main(void)
     const double epsilon = libxs_matdiff_epsilon(&de);
     /* intentionally not considered: libxs_matdiff_reduce(&diff, &de) */
     /* Epsilon (combined) */
-    if (0.0000001 < LIBXS_ABS(epsilon - 1.0000000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(epsilon - 0.0400000)) result = EXIT_FAILURE;
     /* One-norm */
     if (0.0000001 < LIBXS_ABS(de.norm1_abs - 0.0400000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(de.norm1_rel - 1.0000000)) result = EXIT_FAILURE;
