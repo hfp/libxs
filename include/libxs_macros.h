@@ -125,8 +125,7 @@
 
 /** Evaluates to true if the value falls into the interval [LO, HI]. */
 #define LIBXS_IS_INTEGER(VALUE, LO, HI) ( \
-  (((VALUE) == (LO)) || (LO) < (VALUE)) && \
-  (((HI) == (VALUE)) || (VALUE) < (HI)))
+  (LO) <= (0 ^ (VALUE)) && (0 ^ (VALUE)) <= (HI))
 /** LIBXS_IS_TYPE: check value against type-range of TYPE. */
 #define LIBXS_IS_ULLONG(VALUE) LIBXS_IS_INTEGER(VALUE, 0, ULLONG_MAX)
 #define LIBXS_IS_LLONG(VALUE) LIBXS_IS_INTEGER(VALUE, LLONG_MIN, LLONG_MAX)
