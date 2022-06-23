@@ -115,7 +115,7 @@
 
 #define LIBXS_MHD_ELEMENT_CONVERSION(DST_TYPE, DST_ENUM, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT) do { \
   LIBXS_ASSERT_MSG(NULL != (PDST) && NULL != (PSRC), "Invalid input or output"); \
-  switch(SRC_ENUM) { \
+  switch((int)(SRC_ENUM)) { \
     case LIBXS_MHD_ELEMTYPE_F64: { \
       LIBXS_MHD_ELEMENT_CONVERSION_F(double, DST_TYPE, DST_ENUM, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT); \
     } break; \
@@ -158,7 +158,7 @@ LIBXS_API const char* libxs_mhd_typename(libxs_mhd_elemtype type, size_t* typesi
 {
   const char *mhd_typename = NULL, *c_typename = NULL;
   size_t size = 0;
-  switch (type) {
+  switch ((int)type) {
     case LIBXS_MHD_ELEMTYPE_F64:  { size = 8; mhd_typename = "MET_DOUBLE"; c_typename = "double";             } break;
     case LIBXS_MHD_ELEMTYPE_F32:  { size = 4; mhd_typename = "MET_FLOAT";  c_typename = "float";              } break;
     case LIBXS_MHD_ELEMTYPE_BF16: { size = 2; mhd_typename = "MET_BFLOAT"; c_typename = "unsigned short";     } break;
@@ -453,7 +453,7 @@ LIBXS_API int libxs_mhd_element_conversion(
   const void* src, const void* src_min, const void* src_max)
 {
   int result = EXIT_SUCCESS;
-  switch (dst_type) {
+  switch ((int)dst_type) {
     case LIBXS_MHD_ELEMTYPE_F64: {
       LIBXS_MHD_ELEMENT_CONVERSION(double, dst_type, -1.0, 1.0, dst, src_type, src, src_min, src_max, result);
     } break;
@@ -527,7 +527,7 @@ LIBXS_API_INLINE int internal_mhd_minmax(const void* data, size_t nelements,
   int result;
   if ((NULL != data || 0 == nelements) && NULL != minval && NULL != maxval) {
     result = EXIT_SUCCESS;
-    switch (type) {
+    switch ((int)type) {
       case LIBXS_MHD_ELEMTYPE_F64: {
         LIBXS_MHD_MINMAX(double, data, nelements, minval, maxval);              } break;
       case LIBXS_MHD_ELEMTYPE_F32: {

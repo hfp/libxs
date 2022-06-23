@@ -1717,7 +1717,7 @@ LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* d
 {
   int result = EXIT_SUCCESS;
   if (NULL != value && NULL != dvalue) {
-    switch (datatype) {
+    switch ((int)datatype) {
       case LIBXS_DATATYPE_F64: *dvalue =         (*(const double   *)value); break;
       case LIBXS_DATATYPE_F32: *dvalue = (double)(*(const float    *)value); break;
       case LIBXS_DATATYPE_I64: *dvalue = (double)(*(const long long*)value); break;
@@ -1736,7 +1736,7 @@ LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* d
 
 LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype)
 {
-  switch (datatype) {
+  switch ((int)datatype) {
     case LIBXS_DATATYPE_F64:  return "f64";
     case LIBXS_DATATYPE_F32:  return "f32";
     case LIBXS_DATATYPE_BF16: return "bf16";

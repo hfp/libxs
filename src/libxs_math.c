@@ -42,7 +42,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
     if (1 == n) { mm = ldr = ldt = 1; nn = m; } /* ensure row-vector shape to standardize results */
     libxs_matdiff_clear(info);
     inf = info->min_ref;
-    switch (datatype) {
+    switch ((int)datatype) {
       case LIBXS_DATATYPE_F64: {
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE double
 #       include "template/libxs_matdiff.h"
