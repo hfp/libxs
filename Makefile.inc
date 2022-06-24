@@ -135,7 +135,7 @@ ifeq (0,$(DBG))
     DFLAGS += -DNDEBUG
   endif
 else # debugging enabled
-  ifneq (0,$(shell echo "$$((1<$(DBG) || 0>$(DBG)))"))
+  ifneq (0,$(shell echo "$$((1<$(DBG)||0>$(DBG)))"))
     DFLAGS += -D_DEBUG
   endif
   SYM := $(DBG)
@@ -542,7 +542,7 @@ ifneq (,$(strip $(FC)))
       FORTRAN ?= 1
     endif
   else ifneq (0,$(INTEL))
-    ifneq (0,$(shell echo "$$((130000>$(FC_VERSION_NUM) && 0<$(FC_VERSION_NUM)))"))
+    ifneq (0,$(shell echo "$$((130000>$(FC_VERSION_NUM)&&0<$(FC_VERSION_NUM)))"))
       override FC := $(NULL)
     endif
   endif
@@ -1040,7 +1040,7 @@ ifneq (Darwin,$(UNAME))
       solink += $(shell cd $(call qdir,$1) 2>/dev/null && \
         ln -fs $(call qndir,$1.$2.$3.$4) $(call qndir,$1.$5) 2>/dev/null)
     endif
-    ifneq (0,$(shell echo "$$((1<$(SONAMELNK) || 0>$(SONAMELNK)))"))
+    ifneq (0,$(shell echo "$$((1<$(SONAMELNK)||0>$(SONAMELNK)))"))
       solink += $(shell cd $(call qdir,$1) 2>/dev/null && \
         ln -fs $(call qndir,$1.$5) $(call qndir,$1) 2>/dev/null)
     endif
@@ -1384,7 +1384,7 @@ ifneq (0,$(INTEL))
   endif
   endif
   # workaround for certain bits introduced by GCC 7.0
-  ifneq (0,$(shell echo "$$(((180000<=$(CC_VERSION_NUM) && 180001>$(CC_VERSION_NUM)) || (170006>$(CC_VERSION_NUM) && 0!=$(CC_VERSION_NUM))))"))
+  ifneq (0,$(shell echo "$$(((180000<=$(CC_VERSION_NUM)&&180001>$(CC_VERSION_NUM))||(170006>$(CC_VERSION_NUM)&&0!=$(CC_VERSION_NUM))))"))
     CFLAGS += -D_Float128=__float128
   endif
 else # GCC assumed
@@ -1485,7 +1485,11 @@ else # GCC assumed
     else ifneq (0,$(PEDANTIC))
       ifneq (Darwin,$(UNAME))
         ifeq (,$(filter-out 0,$(FORCE_CXX)))
-          CSTD := -std=c89
+          ifneq (0,$(shell echo "$$((0==$(CLANG)||140000>$(CC_VERSION_NUM)))"))
+            CSTD := -std=c89
+          else
+            CSTD := -std=c99
+          endif
         endif
         CPEDANTIC += -Wno-long-long
         CXXFLAGS += $(CPEDANTIC)
@@ -1548,7 +1552,7 @@ else # GCC assumed
       ifneq (Darwin,$(UNAME))
         ifneq (0,$(XSMM_GCC))
           OMPFLAG_FORCE := -fopenmp
-        else ifneq (0,$(shell echo "$$((0!=$(CLANG) && 30900<=$(CC_VERSION_NUM)))"))
+        else ifneq (0,$(shell echo "$$((0!=$(CLANG)&&30900<=$(CC_VERSION_NUM)))"))
           OMPFLAG_FORCE := -fopenmp
           OMPRT := omp
         endif
@@ -1673,9 +1677,9 @@ ifeq (undefined,$(origin TARGET))
   ifeq (,$(CTARGET))
   ifneq (0,$(shell echo "$$((3>$(DBG)))"))
     ifneq (,$(filter 3,$(AVX))$(filter-out 0,$(VNNI) $(BF16)))
-    ifneq (0,$(shell echo "$$(((0!=$(XSMM_GCC) && 80000<=$(GCC_VERSION_NUM)) || \
-          (0!=$(CLANG) && (40000<=$(CC_VERSION_NUM) || 0==$(CC_VERSION_NUM))) || \
-          (0!=$(PGI) && 190000<=$(CC_VERSION_NUM))))"))
+    ifneq (0,$(shell echo "$$(((0!=$(XSMM_GCC)&&80000<=$(GCC_VERSION_NUM))|| \
+          (0!=$(CLANG)&&(40000<=$(CC_VERSION_NUM)||0==$(CC_VERSION_NUM)))|| \
+          (0!=$(PGI)&&190000<=$(CC_VERSION_NUM))))"))
     ifneq (,$(call ctest,$(CC),-mfma -mavx512f -mavx512cd))
       CTARGET := -mfma -mavx512f -mavx512cd
       ifneq (0,$(lastword $(sort 0 $(MIC)))) # MIC
@@ -1689,7 +1693,7 @@ ifeq (undefined,$(origin TARGET))
         else ifneq (,$(filter 1 2 3,$(INTEL) $(XSMM_GCC)))
           CTARGET += -mavx512dq -mavx512bw -mavx512vl
           #CTARGET += -mavx512ifma -mavx512vbmi
-        else ifneq (0,$(shell echo "$$((0!=$(CLANG) && 80100<=$(CC_VERSION_NUM)))"))
+        else ifneq (0,$(shell echo "$$((0!=$(CLANG)&&80100<=$(CC_VERSION_NUM)))"))
           CTARGET += -mavx512dq -mavx512bw -mavx512vl
         endif
         ifneq (,$(filter-out 0,$(VNNI)))
@@ -1703,7 +1707,7 @@ ifeq (undefined,$(origin TARGET))
     endif
     ifeq (,$(CTARGET)) # fallback to AVX2
     ifneq (,$(filter 2 3,$(AVX)))
-      ifneq (0,$(shell echo "$$((0!=$(INTEL) || 0!=$(CLANG) || (40800<=$(GCC_VERSION_NUM) && 0==$(PGI)) || 0==$(CC_VERSION_NUM)))"))
+      ifneq (0,$(shell echo "$$((0!=$(INTEL)||0!=$(CLANG)||(40800<=$(GCC_VERSION_NUM)&&0==$(PGI))||0==$(CC_VERSION_NUM)))"))
         CTARGET ?= -march=core-avx2
       else
         CTARGET ?= -mavx2 -mfma
@@ -1712,7 +1716,7 @@ ifeq (undefined,$(origin TARGET))
     endif
     ifeq (,$(CTARGET)) # fallback to AVX
     ifneq (,$(filter 1 2 3,$(AVX)))
-      ifneq (0,$(shell echo "$$((0!=$(INTEL) || 0!=$(CLANG) || 40400<=$(GCC_VERSION_NUM) || 0==$(CC_VERSION_NUM)))"))
+      ifneq (0,$(shell echo "$$((0!=$(INTEL)||0!=$(CLANG)||40400<=$(GCC_VERSION_NUM)||0==$(CC_VERSION_NUM)))"))
         CTARGET ?= -mavx
       endif
     endif
@@ -1873,7 +1877,7 @@ ifeq (0,$(COMPATIBLE))
         ifneq (,$(strip $(SIMD))) # explicit
         ifneq (Darwin,$(UNAME))
         ifneq (,$(CTARGET))
-        ifneq (0,$(shell echo "$$((60000<=$(CC_VERSION_NUM) && 60000<=$(CXX_VERSION_NUM)))"))
+        ifneq (0,$(shell echo "$$((60000<=$(CC_VERSION_NUM)&&60000<=$(CXX_VERSION_NUM)))"))
           DFLAGS += -DLIBXS_OPENMP_SIMD
           CXXFLAGS += -fopenmp-simd
           CFLAGS += -fopenmp-simd
@@ -2107,7 +2111,7 @@ ifneq (,$(strip $(MKLROOT)))
   ifeq (0,$(PGI))
     MKL ?= $(BLAS)
     ifneq (,$(strip $(FC)))
-      ifneq (0,$(shell echo "$$((0==$(XSMM_GCC) || 40600<=$(GCC_VERSION_NUM)))"))
+      ifneq (0,$(shell echo "$$((0==$(XSMM_GCC)||40600<=$(GCC_VERSION_NUM)))"))
         MKL_DIRECT ?= 0
       else
         MKL_DIRECT := 0
