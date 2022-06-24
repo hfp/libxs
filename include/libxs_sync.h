@@ -623,7 +623,7 @@ typedef enum libxs_atomic_kind {
 #     endif
 #     define LIBXS_LOCK_ATTR_DESTROY_rwlock(ATTR) LIBXS_UNUSED(ATTR)
 #   endif
-# elif !defined(LIBXS_SYNC_NONE) /* based on atomic primitives */
+# else /* based on atomic primitives */
 #   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
 #     define LIBXS_LOCK_ACQUIRED_spin 0
 #     define LIBXS_LOCK_TYPE_ISPOD_spin 1
@@ -671,58 +671,6 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_TRYREAD_rwlock(LOCK) LIBXS_LOCK_TRYLOCK_rwlock(LOCK)
 #     define LIBXS_LOCK_ACQREAD_rwlock(LOCK) LIBXS_LOCK_ACQUIRE_rwlock(LOCK)
 #     define LIBXS_LOCK_RELREAD_rwlock(LOCK) LIBXS_LOCK_RELEASE_rwlock(LOCK)
-#     define LIBXS_LOCK_ATTR_TYPE_rwlock int
-#     define LIBXS_LOCK_ATTR_INIT_rwlock(ATTR) LIBXS_UNUSED(ATTR)
-#     define LIBXS_LOCK_ATTR_DESTROY_rwlock(ATTR) LIBXS_UNUSED(ATTR)
-#   endif
-# else /* experimental */
-#   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
-#     define LIBXS_LOCK_ACQUIRED_spin 0
-#     define LIBXS_LOCK_TYPE_ISPOD_spin 0
-#     define LIBXS_LOCK_TYPE_ISRW_spin 0
-#     define LIBXS_LOCK_TYPE_spin libxs_spinlock*
-#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = libxs_spinlock_create()); }
-#     define LIBXS_LOCK_DESTROY_spin(LOCK) libxs_spinlock_destroy(*(LOCK))
-#     define LIBXS_LOCK_TRYLOCK_spin(LOCK) libxs_spinlock_trylock(*(LOCK))
-#     define LIBXS_LOCK_ACQUIRE_spin(LOCK) libxs_spinlock_acquire(*(LOCK))
-#     define LIBXS_LOCK_RELEASE_spin(LOCK) libxs_spinlock_release(*(LOCK))
-#     define LIBXS_LOCK_TRYREAD_spin(LOCK) LIBXS_LOCK_TRYLOCK_spin(LOCK)
-#     define LIBXS_LOCK_ACQREAD_spin(LOCK) LIBXS_LOCK_ACQUIRE_spin(LOCK)
-#     define LIBXS_LOCK_RELREAD_spin(LOCK) LIBXS_LOCK_RELEASE_spin(LOCK)
-#     define LIBXS_LOCK_ATTR_TYPE_spin int
-#     define LIBXS_LOCK_ATTR_INIT_spin(ATTR) LIBXS_UNUSED(ATTR)
-#     define LIBXS_LOCK_ATTR_DESTROY_spin(ATTR) LIBXS_UNUSED(ATTR)
-#   endif
-#   if !defined(LIBXS_LOCK_SYSTEM_MUTEX)
-#     define LIBXS_LOCK_ACQUIRED_mutex 0
-#     define LIBXS_LOCK_TYPE_ISPOD_mutex 0
-#     define LIBXS_LOCK_TYPE_ISRW_mutex 0
-#     define LIBXS_LOCK_TYPE_mutex libxs_mutex*
-#     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = libxs_mutex_create()); }
-#     define LIBXS_LOCK_DESTROY_mutex(LOCK) libxs_mutex_destroy(*(LOCK))
-#     define LIBXS_LOCK_TRYLOCK_mutex(LOCK) libxs_mutex_trylock(*(LOCK))
-#     define LIBXS_LOCK_ACQUIRE_mutex(LOCK) libxs_mutex_acquire(*(LOCK))
-#     define LIBXS_LOCK_RELEASE_mutex(LOCK) libxs_mutex_release(*(LOCK))
-#     define LIBXS_LOCK_TRYREAD_mutex(LOCK) LIBXS_LOCK_TRYLOCK_mutex(LOCK)
-#     define LIBXS_LOCK_ACQREAD_mutex(LOCK) LIBXS_LOCK_ACQUIRE_mutex(LOCK)
-#     define LIBXS_LOCK_RELREAD_mutex(LOCK) LIBXS_LOCK_RELEASE_mutex(LOCK)
-#     define LIBXS_LOCK_ATTR_TYPE_mutex int
-#     define LIBXS_LOCK_ATTR_INIT_mutex(ATTR) LIBXS_UNUSED(ATTR)
-#     define LIBXS_LOCK_ATTR_DESTROY_mutex(ATTR) LIBXS_UNUSED(ATTR)
-#   endif
-#   if !defined(LIBXS_LOCK_SYSTEM_RWLOCK)
-#     define LIBXS_LOCK_ACQUIRED_rwlock 0
-#     define LIBXS_LOCK_TYPE_ISPOD_rwlock 0
-#     define LIBXS_LOCK_TYPE_ISRW_rwlock 1
-#     define LIBXS_LOCK_TYPE_rwlock libxs_rwlock*
-#     define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = libxs_rwlock_create()); }
-#     define LIBXS_LOCK_DESTROY_rwlock(LOCK) libxs_rwlock_destroy(*(LOCK))
-#     define LIBXS_LOCK_TRYLOCK_rwlock(LOCK) libxs_rwlock_trylock(*(LOCK))
-#     define LIBXS_LOCK_ACQUIRE_rwlock(LOCK) libxs_rwlock_acquire(*(LOCK))
-#     define LIBXS_LOCK_RELEASE_rwlock(LOCK) libxs_rwlock_release(*(LOCK))
-#     define LIBXS_LOCK_TRYREAD_rwlock(LOCK) libxs_rwlock_tryread(*(LOCK))
-#     define LIBXS_LOCK_ACQREAD_rwlock(LOCK) libxs_rwlock_acqread(*(LOCK))
-#     define LIBXS_LOCK_RELREAD_rwlock(LOCK) libxs_rwlock_relread(*(LOCK))
 #     define LIBXS_LOCK_ATTR_TYPE_rwlock int
 #     define LIBXS_LOCK_ATTR_INIT_rwlock(ATTR) LIBXS_UNUSED(ATTR)
 #     define LIBXS_LOCK_ATTR_DESTROY_rwlock(ATTR) LIBXS_UNUSED(ATTR)
@@ -787,33 +735,6 @@ LIBXS_API void libxs_barrier_wait(libxs_barrier* barrier, int tid);
 LIBXS_API void libxs_barrier_destroy(const libxs_barrier* barrier);
 /** DEPRECATED: use libxs_barrier_destroy instead. */
 #define libxs_barrier_release libxs_barrier_destroy
-
-/** Spin-lock, which eventually differs from LIBXS_LOCK_TYPE(LIBXS_LOCK_SPINLOCK). */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_spinlock libxs_spinlock;
-LIBXS_API libxs_spinlock* libxs_spinlock_create(void);
-LIBXS_API void libxs_spinlock_destroy(const libxs_spinlock* spinlock);
-LIBXS_API int libxs_spinlock_trylock(libxs_spinlock* spinlock);
-LIBXS_API void libxs_spinlock_acquire(libxs_spinlock* spinlock);
-LIBXS_API void libxs_spinlock_release(libxs_spinlock* spinlock);
-
-/** Mutual-exclusive lock (Mutex), which eventually differs from LIBXS_LOCK_TYPE(LIBXS_LOCK_MUTEX). */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_mutex libxs_mutex;
-LIBXS_API libxs_mutex* libxs_mutex_create(void);
-LIBXS_API void libxs_mutex_destroy(const libxs_mutex* mutex);
-LIBXS_API int libxs_mutex_trylock(libxs_mutex* mutex);
-LIBXS_API void libxs_mutex_acquire(libxs_mutex* mutex);
-LIBXS_API void libxs_mutex_release(libxs_mutex* mutex);
-
-/** Reader-Writer lock (RW-lock), which eventually differs from LIBXS_LOCK_TYPE(LIBXS_LOCK_RWLOCK). */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_rwlock libxs_rwlock;
-LIBXS_API libxs_rwlock* libxs_rwlock_create(void);
-LIBXS_API void libxs_rwlock_destroy(const libxs_rwlock* rwlock);
-LIBXS_API int libxs_rwlock_trylock(libxs_rwlock* rwlock);
-LIBXS_API void libxs_rwlock_acquire(libxs_rwlock* rwlock);
-LIBXS_API void libxs_rwlock_release(libxs_rwlock* rwlock);
-LIBXS_API int libxs_rwlock_tryread(libxs_rwlock* rwlock);
-LIBXS_API void libxs_rwlock_acqread(libxs_rwlock* rwlock);
-LIBXS_API void libxs_rwlock_relread(libxs_rwlock* rwlock);
 
 /** Utility function to receive the process ID of the calling process. */
 LIBXS_API unsigned int libxs_get_pid(void);
