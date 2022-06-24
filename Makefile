@@ -1332,9 +1332,9 @@ $(DOCDIR)/libxs_qna.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.t
 	@echo >>$@
 
 $(DOCDIR)/libxs.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/documentation/index.md \
-$(ROOTDIR)/documentation/libxs_mm.md $(ROOTDIR)/documentation/libxs_dl.md $(ROOTDIR)/documentation/libxs_aux.md \
-$(ROOTDIR)/documentation/libxs_prof.md $(ROOTDIR)/documentation/libxs_tune.md $(ROOTDIR)/documentation/libxs_be.md \
-$(ROOTDIR)/documentation/libxs_compat.md $(ROOTDIR)/documentation/libxs_valid.md $(ROOTDIR)/documentation/libxs_qna.md
+$(ROOTDIR)/documentation/libxs_mm.md $(ROOTDIR)/documentation/libxs_aux.md $(ROOTDIR)/documentation/libxs_prof.md \
+$(ROOTDIR)/documentation/libxs_tune.md $(ROOTDIR)/documentation/libxs_be.md $(ROOTDIR)/documentation/libxs_compat.md \
+$(ROOTDIR)/documentation/libxs_valid.md $(ROOTDIR)/documentation/libxs_qna.md
 	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/documentation/.libxs_XXXXXX.tex))
 	@pandoc -D latex \
 	| sed \
@@ -1346,7 +1346,6 @@ $(ROOTDIR)/documentation/libxs_compat.md $(ROOTDIR)/documentation/libxs_valid.md
 		iconv -t utf-8 index.md && echo && \
 		echo "# LIBXS Domains" && \
 		iconv -t utf-8 libxs_mm.md && echo && \
-		iconv -t utf-8 libxs_dl.md && echo && \
 		iconv -t utf-8 libxs_aux.md && echo && \
 		iconv -t utf-8 libxs_prof.md && echo && \
 		iconv -t utf-8 libxs_tune.md && echo && \
@@ -1406,37 +1405,10 @@ $(DOCDIR)/libxs_samples.$(DOCEXT): $(ROOTDIR)/documentation/libxs_samples.md
 		-o $@
 	@rm $(TMPFILE)
 
-$(DOCDIR)/tensorflow.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/documentation/tensorflow.md
-	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/documentation/.libxs_XXXXXX.tex))
-	@pandoc -D latex \
-	| sed \
-		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
-		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
-		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
-		>$(TMPFILE)
-	@cd $(ROOTDIR)/documentation && iconv -t utf-8 tensorflow.md \
-	| sed \
-		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-		-e 's/----*//g' \
-	| pandoc \
-		--template=$(call qndir,$(TMPFILE)) --listings \
-		-f gfm+subscript+superscript \
-		-V documentclass=scrartcl \
-		-V title-meta="TensorFlow with LIBXS" \
-		-V author-meta="Hans Pabst" \
-		-V classoption=DIV=45 \
-		-V linkcolor=black \
-		-V citecolor=black \
-		-V urlcolor=black \
-		-o $(call qndir,$@)
-	@rm $(TMPFILE)
-
 .PHONY: documentation
 documentation: \
 $(DOCDIR)/libxs.$(DOCEXT) \
-$(DOCDIR)/libxs_samples.$(DOCEXT) \
-$(DOCDIR)/tensorflow.$(DOCEXT)
+$(DOCDIR)/libxs_samples.$(DOCEXT)
 
 .PHONY: mkdocs
 mkdocs: $(ROOTDIR)/documentation/index.md $(ROOTDIR)/documentation/libxs_samples.md
