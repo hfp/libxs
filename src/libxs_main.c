@@ -1849,8 +1849,15 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   libxs_kernel_xinfo extra /*= { 0 }*/;
 
   LIBXS_MEMZERO127(&generated_code);
-  generated_code.generated_code = jit_buffer;
-  generated_code.buffer_size = sizeof(jit_buffer);
+  if (LIBXS_CAPACITY_REGISTRY != regindex) {
+    generated_code.generated_code = jit_buffer;
+    generated_code.buffer_size = sizeof(jit_buffer);
+  }
+  else {
+    void *const buffer = malloc(LIBXS_MALLOC_LIMIT);
+    generated_code.generated_code = (NULL != buffer ? ((char*)buffer) : jit_buffer);
+    generated_code.buffer_size = LIBXS_MALLOC_LIMIT;
+  }
   /* setup code generation */
   generated_code.arch = libxs_target_archid;
   generated_code.code_type = 2;
@@ -2301,6 +2308,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
   }
   else {
     result = (0 != generated_code.last_error ? generated_code.last_error : EXIT_FAILURE);
+  }
+  if (jit_buffer != generated_code.generated_code) {
+    free(generated_code.generated_code);
   }
 #else /* unsupported platform */
   LIBXS_UNUSED(request); LIBXS_UNUSED(regindex); LIBXS_UNUSED(code);
