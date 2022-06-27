@@ -2244,7 +2244,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     const size_t data_size = generated_code.data_size;
     const size_t total_size = code_size + data_size;
     LIBXS_ASSERT(NULL != generated_code.generated_code);
-    LIBXS_ASSERT(total_size <= LIBXS_CODE_MAXSIZE);
     /* attempt to create executable buffer */
 # if defined(__APPLE__) && defined(__arm64__)
     /* TODO: proper buffer x-allocation provides kernel info, etc. */
