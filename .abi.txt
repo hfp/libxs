@@ -220,11 +220,7 @@ libxs_mhd_typename
 libxs_mhd_write
 libxs_mmbatch
 libxs_mmbatch_
-libxs_mmbatch_begin
-libxs_mmbatch_begin_
 libxs_mmbatch_blas
-libxs_mmbatch_end
-libxs_mmbatch_end_
 libxs_mmbatch_kernel
 libxs_offset
 libxs_original_dgemm
