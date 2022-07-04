@@ -239,20 +239,6 @@ LIBXS_APIEXT void libxs_sgemm_batch_omp(const char transa_array[], const char tr
    const float beta_array[],       float* c_array[], const libxs_blasint ldc_array[],
   const libxs_blasint* group_count, const libxs_blasint group_size[]);
 
-/**
- * This function is a no-op unless LIBXS is built to intercept GEMM calls.
- * Pointer arguments are used to filter intercepted GEMM calls such that
- * non-NULL values match. Otherwise (NULL) the respective argument is
- * considered a "free value", i.e., every value can match; libxsext required.
- */
-LIBXS_APIEXT void libxs_mmbatch_begin(libxs_datatype precision, const int* flags,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const void* alpha, const void* beta);
-
-/** Processes the batch of previously recorded matrix multiplications (libxs_mmbatch_begin); libxsext required. */
-LIBXS_APIEXT void libxs_mmbatch_end(void);
-
 /** Code generation routine for matrix-eltwise using a descriptor. */
 LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw( const libxs_meltw_descriptor* descriptor );
 LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_vecs_idx( const libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo,
