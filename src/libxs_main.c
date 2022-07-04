@@ -1096,7 +1096,7 @@ LIBXS_API_INTERN void internal_init(void)
 #if defined(LIBXS_BUILD) && !defined(LIBXS_DEFAULT_CONFIG)
 #     include <libxs_dispatch.h>
 #endif
-      libxs_gemm_init(libxs_target_archid);
+      libxs_gemm_init();
 #if defined(LIBXS_TRACE)
       { int filter_threadid = 0/*only main-thread*/, filter_mindepth = 0, filter_maxnsyms = 0;
         const int init_code = libxs_trace_init(filter_threadid, filter_mindepth, filter_maxnsyms);

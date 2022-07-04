@@ -61,7 +61,6 @@ libxs_dgemm_
 libxs_dgemm_batch
 libxs_dgemm_batch_omp
 libxs_dgemm_descriptor_init
-libxs_dgemm_omp_
 libxs_diff
 libxs_diff_16
 libxs_diff_32
@@ -110,12 +109,9 @@ libxs_gemm_descriptor_init2
 libxs_gemm_descriptor_init3
 libxs_gemm_dprint
 libxs_gemm_dprint2
-libxs_gemm_handle_get_scratch_size
-libxs_gemm_handle_init
 libxs_gemm_internal_set_batchflag
 libxs_gemm_print
 libxs_gemm_print2
-libxs_gemm_task
 libxs_gemm_xprint
 libxs_generator_gemm_directasm
 libxs_generator_gemm_inlineasm
@@ -319,7 +315,6 @@ libxs_sgemm_
 libxs_sgemm_batch
 libxs_sgemm_batch_omp
 libxs_sgemm_descriptor_init
-libxs_sgemm_omp_
 libxs_shuffle
 libxs_shuffle_
 libxs_sink
@@ -351,9 +346,6 @@ libxs_xdiff_
 libxs_xdispatch
 libxs_xdispatch_
 libxs_xfree
-libxs_xgemm
-libxs_xgemm_omp
-libxs_xgemm_omp_
 libxs_xhash_
 libxs_xmalloc
 libxs_xmmcall_
