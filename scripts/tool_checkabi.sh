@@ -51,50 +51,45 @@ then
   # determine behavior of sort command
   export LC_ALL=C IFS=$'\n'
   if [ "0" != "$(${LS} -1 "${LIBS}"/${INCLUDE}.${LIBTYPE} 2>/dev/null | ${WC} -l)" ]; then
+    if [ "${LIBARGS}" ]; then LIBARGS=${LIBARGS## }; fi
     ${CP} /dev/null ${ABINEW}
-    for LIBFILE in $(${LS} -1 "${LIBS}"/*.${LIBTYPE} 2>/dev/null); do
+    for LIBFILE in "${LIBS}"/*."${LIBTYPE}"; do
       LIB=$(${BASENAME} "${LIBFILE}" .${LIBTYPE})
-      if [ "" = "${EXCLUDE}" ] || [ "$(echo "${EXCLUDE}" | ${SED} "/\b${LIB}\b/d")" ]; then
+      if [ ! "${EXCLUDE}" ] || [ "$(echo "${EXCLUDE}" | ${SED} "/\b${LIB}\b/d")" ]; then
         echo "Checking ${LIB}..."
-        while read LINE; do
+        for LINE in $(${NM} "${LIBARGS}" "${LIBFILE}" 2>/dev/null); do
           SYMBOL=$(echo "${LINE}" | ${SED} -n "/ T /p" | ${CUT} -d" " -f3)
           if [ "${SYMBOL}" ]; then
             # cleanup compiler-specific symbols (Intel Fortran, GNU Fortran)
-            SYMBOL=$(echo ${SYMBOL} | ${SED} \
+            SYMBOL=$(echo "${SYMBOL}" | ${SED} \
               -e "s/^libxs_mp_libxs_\(..*\)_/libxs_\1/" \
               -e "s/^__libxs_MOD_libxs_/libxs_/")
-            if [ "$(echo ${SYMBOL} | ${SED} -n "/^libxs[^.]/p")" ];
-            then
-              echo "${SYMBOL}" >> ${ABINEW}
-            elif [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^__libxs_MOD___/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^__wrap_..*/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^internal_/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^libxs._/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^.gem._/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^memalign/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^realloc/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^malloc/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^free/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^_init/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^_fini/p")" ] && \
-                 [ "" = "$(echo ${SYMBOL} | ${SED} -n "/^iJIT_/p")" ];
+            if [ "$(echo "${SYMBOL}" | ${SED} -n "/^libxs[^.]/p")" ]; then
+              echo "${SYMBOL}" >>${ABINEW}
+            elif [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^__libxs_MOD___/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^__wrap_..*/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^internal_/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^libxs._/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^.gem._/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^memalign/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^realloc/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^malloc/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^free/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^_init/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^_fini/p")" ] && \
+                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^iJIT_/p")" ];
             then
               >&2 echo "Error: non-conforming function name"
               echo "${LIB} -> ${SYMBOL}"
               exit 1
             fi
-          else
-            LOCATION=$(echo "${LINE}" | ${SED} -n "/..*\.o:$/p")
-            if [ "${LOCATION}" ]; then
-              OBJECT=$(echo "${LOCATION}" | ${SED} -e "s/:$//")
-            fi
           fi
-        done < <(${NM} ${LIBARGS} "${LIBFILE}" 2>/dev/null)
+        done
       else
         echo "Excluded ${LIB}"
       fi
     done
-    ${SORT} -u ${ABINEW} > ${ABITMP}
+    ${SORT} -u ${ABINEW} >${ABITMP}
     ${MV} ${ABITMP} ${ABINEW}
     if [ "so" != "${LIBTYPE}" ]; then
       echo "Note: LIBXS must be built with \"make STATIC=0 SYM|DBG=1\"!"
