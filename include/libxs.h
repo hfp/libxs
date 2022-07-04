@@ -375,32 +375,6 @@ LIBXS_APIEXT void libxs_itrans_batch_omp(void* inout, unsigned int typesize,
   libxs_blasint index_base, libxs_blasint index_stride,
   const libxs_blasint stride[], libxs_blasint batchsize);
 
-/** Initialize GEMM-handle; allows to better amortize setup overhead. */
-LIBXS_API libxs_gemm_handle* libxs_gemm_handle_init(libxs_gemm_blob* blob,
-  libxs_datatype iprec, libxs_datatype oprec, const char* transa, const char* transb,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const void* alpha, const void* beta, int flags, /*unsigned*/int ntasks);
-
-/** Calculate required scratch buffer size needed to perform libxs_gemm_task. */
-LIBXS_API size_t libxs_gemm_handle_get_scratch_size(const libxs_gemm_handle* handle);
-
-/** Low-level type-agnostic GEMM suitable for external threads or tasks. */
-LIBXS_API void libxs_gemm_task(const libxs_gemm_handle* handle, void* scratch,
-  const void* a, const void* b, void* c, /*unsigned*/int tid, /*unsigned*/int ntasks);
-
-/** General dense matrix multiplication (sequential). */
-LIBXS_API void libxs_xgemm(libxs_datatype iprec, libxs_datatype oprec,
-  const char* transa, const char* transb, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const void* alpha, const void* a, const libxs_blasint* lda, const void* b, const libxs_blasint* ldb,
-  const void* beta, void* c, const libxs_blasint* ldc);
-
-/** General dense matrix multiplication (libxsext); available as xgemm (generic), dgemm (DP), and sgemm (SP). */
-LIBXS_APIEXT void libxs_xgemm_omp(libxs_datatype iprec, libxs_datatype oprec,
-  const char* transa, const char* transb, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const void* alpha, const void* a, const libxs_blasint* lda, const void* b, const libxs_blasint* ldb,
-  const void* beta, void* c, const libxs_blasint* ldc);
-
 /** Dispatched general dense matrix multiplication (double-precision). */
 LIBXS_API void libxs_dgemm(const char* transa, const char* transb,
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,

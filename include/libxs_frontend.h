@@ -98,7 +98,6 @@
 #define LIBXS_MMDISPATCH_SYMBOL(TYPE) LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, mmdispatch_v2))
 #define LIBXS_XBLAS_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_blas_, LIBXS_TPREFIX(TYPE, gemm))
 #define LIBXS_XGEMM_SYMBOL(TYPE)      LIBXS_CONCATENATE(libxs_, LIBXS_TPREFIX(TYPE, gemm))
-#define LIBXS_YGEMM_SYMBOL(TYPE)      LIBXS_USEOMP(LIBXS_XGEMM_SYMBOL(TYPE))
 #define LIBXS_BLAS_SYMBOL(TYPE, KIND) LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, KIND))
 #define LIBXS_CBLAS_SYMBOL            LIBXS_TPREFIX
 
@@ -558,13 +557,6 @@ LIBXS_API void libxs_blas_xgemm(libxs_datatype iprec, libxs_datatype oprec,
     TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #define libxs_blas_sgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
   libxs_blas_xgemm(LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, \
-    TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-
-#define libxs_dgemm_omp(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  libxs_xgemm_omp(LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, \
-    TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
-#define libxs_sgemm_omp(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  libxs_xgemm_omp(LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, \
     TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
 /** Translates GEMM prefetch request into prefetch-enumeration (incl. FE's auto-prefetch). */
