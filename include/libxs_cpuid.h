@@ -83,4 +83,11 @@ LIBXS_API const char* libxs_cpuid_name(int id);
  */
 LIBXS_API int libxs_cpuid_vlen32(int id);
 
+/**
+ * SIMD vector length (VLEN) measured in Bytes.
+ * Do not use libxs_cpuid() to match the current CPU!
+ * Use libxs_get_target_archid() instead.
+ */
+#define libxs_cpuid_vlen(ID) (4 * libxs_cpuid_vlen32(ID))
+
 #endif /*LIBXS_CPUID_H*/

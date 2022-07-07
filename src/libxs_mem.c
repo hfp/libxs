@@ -486,7 +486,7 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[])
 
 LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment)
 {
-  const int minalign = 4 * libxs_cpuid_vlen32(libxs_target_archid);
+  const int minalign = libxs_cpuid_vlen(libxs_target_archid);
   const uintptr_t address = (uintptr_t)ptr;
   int ptr_is_aligned;
   LIBXS_ASSERT(LIBXS_ISPOT(minalign));
