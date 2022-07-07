@@ -216,13 +216,13 @@ int main(void)
   }
 
   if (libxs_aligned(s, NULL/*inc*/, NULL/*alignment*/)) { /* pointer is SIMD-aligned */
-    if (alignment < ((size_t)4 * libxs_cpuid_vlen32(libxs_get_target_archid()))) {
+    if (alignment < ((size_t)libxs_cpuid_vlen(libxs_get_target_archid()))) {
       FPRINTF(stderr, "Error: buffer alignment (2/3) incorrect!\n");
       ++nerrors;
     }
   }
   else { /* pointer is not SIMD-aligned */
-    if (((size_t)4 * libxs_cpuid_vlen32(libxs_get_target_archid())) <= alignment) {
+    if (((size_t)libxs_cpuid_vlen(libxs_get_target_archid())) <= alignment) {
       FPRINTF(stderr, "Error: buffer alignment (3/3) incorrect!\n");
       ++nerrors;
     }
