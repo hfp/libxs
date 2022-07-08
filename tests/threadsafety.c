@@ -87,7 +87,7 @@ int test(libxs_blasint m, libxs_blasint n, libxs_blasint k)
 
 int main(void)
 {
-  union { libxs_xmmfunction x; void* p; } f[MAX_NKERNELS];
+  libxs_xmmfunction f[MAX_NKERNELS];
   const OTYPE alpha = LIBXS_ALPHA, beta = LIBXS_BETA;
   const int prefetch = LIBXS_PREFETCH_NONE;
   libxs_registry_info registry_info;
@@ -170,7 +170,7 @@ int main(void)
       const libxs_blasint m = r[3*i+0] % max_shape + 1;
       const libxs_blasint n = r[3*i+1] % max_shape + 1;
       const libxs_blasint k = r[3*i+2] % max_shape + 1;
-      f[i].x.LIBXS_TPREFIX2(ITYPE,OTYPE,mm) = LIBXS_MMDISPATCH_SYMBOL2(ITYPE,OTYPE)(
+      f[i].LIBXS_TPREFIX2(ITYPE,OTYPE,mm) = LIBXS_MMDISPATCH_SYMBOL2(ITYPE,OTYPE)(
         m, n, k, &m/*lda*/, &k/*ldb*/, &m/*ldc*/, &flags);
     }
   }
@@ -183,21 +183,21 @@ int main(void)
       const libxs_blasint m = r[3*i+0] % max_shape + 1;
       const libxs_blasint n = r[3*i+1] % max_shape + 1;
       const libxs_blasint k = r[3*i+2] % max_shape + 1;
-      union { libxs_xmmfunction x; void* p; } fi;
+      libxs_xmmfunction fi;
       libxs_descriptor_blob blob;
       const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init(&blob, LIBXS_DATATYPE2(ITYPE,OTYPE),
         m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/, &alpha, &beta, flags, prefetch);
 
-      fi.x = libxs_xmmdispatch(desc);
-      if (NULL != fi.p && NULL != f[i].p) {
-        if (fi.p != f[i].p) {
+      fi = libxs_xmmdispatch(desc);
+      if (NULL != fi.ptr_const && NULL != f[i].ptr_const) {
+        if (fi.ptr_const != f[i].ptr_const) {
           libxs_kernel_info a_info, b_info;
-          const int ra = libxs_get_kernel_info(f[i].p, &a_info);
-          const int rb = libxs_get_kernel_info(fi.p, &b_info);
+          const int ra = libxs_get_kernel_info(f[i].ptr_const, &a_info);
+          const int rb = libxs_get_kernel_info(fi.ptr_const, &b_info);
 
           /* perform deeper check based on another code generation (used as reference) */
           if (EXIT_SUCCESS == ra && EXIT_SUCCESS == rb && (a_info.code_size != b_info.code_size ||
-            0 != memcmp(f[i].p, fi.p, a_info.code_size)))
+            0 != memcmp(f[i].ptr_const, fi.ptr_const, a_info.code_size)))
           {
 #if defined(_DEBUG) || defined(USE_VERBOSE)
             fprintf(stderr, "Error: the %" PRIuPTR "x%" PRIuPTR "x%" PRIuPTR "-kernel does not match!\n",
@@ -250,9 +250,9 @@ int main(void)
       int j = i + 1;
       /* avoid to double-release kernels */
       for (; j < nkernels; ++j) {
-        if (f[i].p == f[j].p) f[j].p = NULL;
+        if (f[i].ptr_const == f[j].ptr_const) f[j].ptr_const = NULL;
       }
-      libxs_release_kernel(f[i].p);
+      libxs_release_kernel(f[i].ptr_const);
     }
   }
 
