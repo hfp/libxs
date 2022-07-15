@@ -428,7 +428,7 @@
 
 /** Helper macro to setup a matrix with some initial values. */
 #define LIBXS_MATRNG_AUX(OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) do { \
-  /*const*/ double libxs_matrng_seed_ = (double)(SEED); /* avoid constant conditional */ \
+  /*const*/ libxs_blasint libxs_matrng_seed_ = SEED; /* avoid constant conditional */ \
   const double libxs_matrng_scale_ = (SCALE) * libxs_matrng_seed_ + (SCALE); \
   const libxs_blasint libxs_matrng_nrows_ = (libxs_blasint)NROWS; \
   const libxs_blasint libxs_matrng_ld_ = (libxs_blasint)LD; \
@@ -440,17 +440,18 @@
       for (libxs_matrng_j_ = 0; libxs_matrng_j_ < libxs_matrng_nrows_; ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
         ((TYPE*)(DST))[libxs_matrng_k_] = (TYPE)(libxs_matrng_scale_ * (1.0 + \
-          libxs_matrng_i_ * libxs_matrng_nrows_ + libxs_matrng_j_)); \
+          (double)libxs_matrng_i_ * libxs_matrng_nrows_ + libxs_matrng_j_)); \
       } \
       for (; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
         const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        ((TYPE*)(DST))[libxs_matrng_k_] = (TYPE)(SEED); \
+        ((TYPE*)(DST))[libxs_matrng_k_] = (TYPE)libxs_matrng_seed_; \
       } \
     } \
   } \
   else { /* shuffle based initialization */ \
     const unsigned int libxs_matrng_maxval_ = ((unsigned int)NCOLS) * ((unsigned int)libxs_matrng_ld_); \
-    const TYPE libxs_matrng_maxval2_ = (TYPE)(libxs_matrng_maxval_ / 2), libxs_matrng_inv_ = (TYPE)((SCALE) / libxs_matrng_maxval2_); \
+    const TYPE libxs_matrng_maxval2_ = (TYPE)LIBXS_UPDIV(libxs_matrng_maxval_, 2); /* non-zero */ \
+    const TYPE libxs_matrng_inv_ = (TYPE)((SCALE) / libxs_matrng_maxval2_); \
     const size_t libxs_matrng_shuffle_ = libxs_shuffle(libxs_matrng_maxval_); \
     OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
     for (libxs_matrng_i_ = 0; libxs_matrng_i_ < ((libxs_blasint)NCOLS); ++libxs_matrng_i_) { \
