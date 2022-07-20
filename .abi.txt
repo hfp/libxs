@@ -58,8 +58,6 @@ libxs_dgemm1
 libxs_dgemm2
 libxs_dgemm3
 libxs_dgemm_
-libxs_dgemm_batch
-libxs_dgemm_batch_omp
 libxs_dgemm_descriptor_init
 libxs_diff
 libxs_diff_16
@@ -112,6 +110,8 @@ libxs_gemm_dprint
 libxs_gemm_dprint2
 libxs_gemm_print
 libxs_gemm_print2
+libxs_gemm_xbatch
+libxs_gemm_xbatch_omp
 libxs_gemm_xprint
 libxs_generator_gemm_directasm
 libxs_generator_gemm_inlineasm
@@ -312,8 +312,6 @@ libxs_sgemm1
 libxs_sgemm2
 libxs_sgemm3
 libxs_sgemm_
-libxs_sgemm_batch
-libxs_sgemm_batch_omp
 libxs_sgemm_descriptor_init
 libxs_shuffle
 libxs_shuffle_
