@@ -192,7 +192,7 @@ LIBXS_API void libxs_gemm_batch(libxs_datatype iprec, libxs_datatype oprec,
   const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const void* alpha, const void* a, const libxs_blasint* lda,
                      const void* b, const libxs_blasint* ldb,
-   const void* beta,       void* c, const libxs_blasint* ldc,
+  const void* beta,        void* c, const libxs_blasint* ldc,
   libxs_blasint index_base, libxs_blasint index_stride,
   const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
   libxs_blasint batchsize);
@@ -202,41 +202,27 @@ LIBXS_APIEXT void libxs_gemm_batch_omp(libxs_datatype iprec, libxs_datatype opre
   const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const void* alpha, const void* a, const libxs_blasint* lda,
                      const void* b, const libxs_blasint* ldb,
-   const void* beta,       void* c, const libxs_blasint* ldc,
+  const void* beta,        void* c, const libxs_blasint* ldc,
   libxs_blasint index_base, libxs_blasint index_stride,
   const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
   libxs_blasint batchsize);
 
-/** Unlike libxs_gemm_batch, groups of homogeneous batches are possible (double-precision). */
-LIBXS_API void libxs_dgemm_batch(const char transa_array[], const char transb_array[],
+/** Like libxs_gemm_batch, but groups of homogeneous batches are possible. */
+LIBXS_API void libxs_gemm_xbatch(
+  libxs_datatype iprec, libxs_datatype oprec, const char transa_array[], const char transb_array[],
   const libxs_blasint m_array[], const libxs_blasint n_array[], const libxs_blasint k_array[],
-  const double alpha_array[], const double* a_array[], const libxs_blasint lda_array[],
-                              const double* b_array[], const libxs_blasint ldb_array[],
-   const double beta_array[],       double* c_array[], const libxs_blasint ldc_array[],
+  const void* alpha_array, const void* a_array[], const libxs_blasint lda_array[],
+                           const void* b_array[], const libxs_blasint ldb_array[],
+  const void* beta_array,        void* c_array[], const libxs_blasint ldc_array[],
   const libxs_blasint* group_count, const libxs_blasint group_size[]);
 
-/** Unlike libxs_gemm_batch, groups of homogeneous batches are possible (single-precision). */
-LIBXS_API void libxs_sgemm_batch(const char transa_array[], const char transb_array[],
+/** Like libxs_gemm_batch, but groups of homogeneous batches are possible. */
+LIBXS_APIEXT void libxs_gemm_xbatch_omp(
+  libxs_datatype iprec, libxs_datatype oprec, const char transa_array[], const char transb_array[],
   const libxs_blasint m_array[], const libxs_blasint n_array[], const libxs_blasint k_array[],
-  const float alpha_array[], const float* a_array[], const libxs_blasint lda_array[],
-                             const float* b_array[], const libxs_blasint ldb_array[],
-   const float beta_array[],       float* c_array[], const libxs_blasint ldc_array[],
-  const libxs_blasint* group_count, const libxs_blasint group_size[]);
-
-/** Unlike libxs_gemm_batch, groups of homogeneous batches are possible (double-precision). */
-LIBXS_APIEXT void libxs_dgemm_batch_omp(const char transa_array[], const char transb_array[],
-  const libxs_blasint m_array[], const libxs_blasint n_array[], const libxs_blasint k_array[],
-  const double alpha_array[], const double* a_array[], const libxs_blasint lda_array[],
-                              const double* b_array[], const libxs_blasint ldb_array[],
-   const double beta_array[],       double* c_array[], const libxs_blasint ldc_array[],
-  const libxs_blasint* group_count, const libxs_blasint group_size[]);
-
-/** Unlike libxs_gemm_batch, groups of homogeneous batches are possible (single-precision). */
-LIBXS_APIEXT void libxs_sgemm_batch_omp(const char transa_array[], const char transb_array[],
-  const libxs_blasint m_array[], const libxs_blasint n_array[], const libxs_blasint k_array[],
-  const float alpha_array[], const float* a_array[], const libxs_blasint lda_array[],
-                             const float* b_array[], const libxs_blasint ldb_array[],
-   const float beta_array[],       float* c_array[], const libxs_blasint ldc_array[],
+  const void* alpha_array, const void* a_array[], const libxs_blasint lda_array[],
+                           const void* b_array[], const libxs_blasint ldb_array[],
+  const void* beta_array,        void* c_array[], const libxs_blasint ldc_array[],
   const libxs_blasint* group_count, const libxs_blasint group_size[]);
 
 /** Code generation routine for matrix-eltwise using a descriptor. */
@@ -607,7 +593,7 @@ inline LIBXS_RETARGETABLE void libxs_gemm(const char* transa, const char* transb
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
                        const double* b, const libxs_blasint* ldb,
-   const double* beta,       double* c, const libxs_blasint* ldc)
+  const double* beta,        double* c, const libxs_blasint* ldc)
 {
   libxs_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
@@ -615,7 +601,7 @@ inline LIBXS_RETARGETABLE void libxs_gemm(const char* transa, const char* transb
   /* by-value */ libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const double* alpha, const double* a, const libxs_blasint* lda,
                        const double* b, const libxs_blasint* ldb,
-   const double* beta,       double* c, const libxs_blasint* ldc)
+  const double* beta,        double* c, const libxs_blasint* ldc)
 {
   libxs_dgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
@@ -625,7 +611,7 @@ inline LIBXS_RETARGETABLE void libxs_gemm(const char* transa, const char* transb
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
                       const float* b, const libxs_blasint* ldb,
-   const float* beta,       float* c, const libxs_blasint* ldc)
+  const float* beta,        float* c, const libxs_blasint* ldc)
 {
   libxs_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
@@ -633,7 +619,7 @@ inline LIBXS_RETARGETABLE void libxs_gemm(const char* transa, const char* transb
   /* by-value */ libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const float* alpha, const float* a, const libxs_blasint* lda,
                       const float* b, const libxs_blasint* ldb,
-   const float* beta,       float* c, const libxs_blasint* ldc)
+  const float* beta,        float* c, const libxs_blasint* ldc)
 {
   libxs_sgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
@@ -643,7 +629,7 @@ inline LIBXS_RETARGETABLE void libxs_blas_gemm(const char* transa, const char* t
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const double* alpha, const double* a, const libxs_blasint* lda,
                        const double* b, const libxs_blasint* ldb,
-   const double* beta,       double* c, const libxs_blasint* ldc)
+  const double* beta,        double* c, const libxs_blasint* ldc)
 {
   libxs_blas_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
@@ -651,7 +637,7 @@ inline LIBXS_RETARGETABLE void libxs_blas_gemm(const char* transa, const char* t
   /* by-value */ libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const double* alpha, const double* a, const libxs_blasint* lda,
                        const double* b, const libxs_blasint* ldb,
-   const double* beta,       double* c, const libxs_blasint* ldc)
+  const double* beta,        double* c, const libxs_blasint* ldc)
 {
   libxs_blas_dgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
@@ -661,7 +647,7 @@ inline LIBXS_RETARGETABLE void libxs_blas_gemm(const char* transa, const char* t
   const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
   const float* alpha, const float* a, const libxs_blasint* lda,
                       const float* b, const libxs_blasint* ldb,
-   const float* beta,       float* c, const libxs_blasint* ldc)
+  const float* beta,        float* c, const libxs_blasint* ldc)
 {
   libxs_blas_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
@@ -669,7 +655,7 @@ inline LIBXS_RETARGETABLE void libxs_blas_gemm(const char* transa, const char* t
   /* by-value */ libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const float* alpha, const float* a, const libxs_blasint* lda,
                       const float* b, const libxs_blasint* ldb,
-   const float* beta,       float* c, const libxs_blasint* ldc)
+  const float* beta,        float* c, const libxs_blasint* ldc)
 {
   libxs_blas_sgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
