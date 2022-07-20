@@ -100,6 +100,7 @@ libxs_fsspmdm_execute
 libxs_gcd
 libxs_gemm_batch
 libxs_gemm_batch_
+libxs_gemm_batch_flags
 libxs_gemm_batch_omp
 libxs_gemm_batch_omp_
 libxs_gemm_descriptor_dinit
@@ -109,7 +110,6 @@ libxs_gemm_descriptor_init2
 libxs_gemm_descriptor_init3
 libxs_gemm_dprint
 libxs_gemm_dprint2
-libxs_gemm_internal_set_batchflag
 libxs_gemm_print
 libxs_gemm_print2
 libxs_gemm_xprint
