@@ -208,7 +208,7 @@ LIBXS_APIEXT void libxs_gemm_batch_omp(libxs_datatype iprec, libxs_datatype opre
   libxs_blasint batchsize);
 
 /** Like libxs_gemm_batch, but groups of homogeneous batches are possible. */
-LIBXS_API void libxs_gemm_xbatch(
+LIBXS_API void libxs_gemm_groups(
   libxs_datatype iprec, libxs_datatype oprec, const char transa_array[], const char transb_array[],
   const libxs_blasint m_array[], const libxs_blasint n_array[], const libxs_blasint k_array[],
   const void* alpha_array, const void* a_array[], const libxs_blasint lda_array[],
@@ -217,7 +217,7 @@ LIBXS_API void libxs_gemm_xbatch(
   const libxs_blasint* group_count, const libxs_blasint group_size[]);
 
 /** Like libxs_gemm_batch, but groups of homogeneous batches are possible. */
-LIBXS_APIEXT void libxs_gemm_xbatch_omp(
+LIBXS_APIEXT void libxs_gemm_groups_omp(
   libxs_datatype iprec, libxs_datatype oprec, const char transa_array[], const char transb_array[],
   const libxs_blasint m_array[], const libxs_blasint n_array[], const libxs_blasint k_array[],
   const void* alpha_array, const void* a_array[], const libxs_blasint lda_array[],
