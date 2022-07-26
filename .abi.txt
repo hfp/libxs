@@ -108,10 +108,10 @@ libxs_gemm_descriptor_init2
 libxs_gemm_descriptor_init3
 libxs_gemm_dprint
 libxs_gemm_dprint2
+libxs_gemm_groups
+libxs_gemm_groups_omp
 libxs_gemm_print
 libxs_gemm_print2
-libxs_gemm_xbatch
-libxs_gemm_xbatch_omp
 libxs_gemm_xprint
 libxs_generator_gemm_directasm
 libxs_generator_gemm_inlineasm
