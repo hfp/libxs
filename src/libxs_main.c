@@ -1890,7 +1890,11 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
            (16 >= (m * k) || 16 >= (k * n) || 16 >= (m * n)))
         {
           /* TODO: shall we update variable "target_arch" (name)? */
-          generated_code.arch = LIBXS_X86_AVX512_VL256;
+          if ( libxs_target_archid >= LIBXS_X86_AVX512_CORE ) {
+            generated_code.arch = LIBXS_X86_AVX512_VL256;
+          } else {
+            generated_code.arch = LIBXS_X86_AVX2;
+          }
         }
 # endif
         LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_kernel, &generated_code, request->descriptor.gemm);
