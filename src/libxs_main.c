@@ -2999,12 +2999,6 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
   LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
 #endif
   if (NULL != descriptor) {
-    const int batch_reduce =
-      LIBXS_GEMM_FLAG_BATCH_REDUCE_ADDRESS |
-      LIBXS_GEMM_FLAG_BATCH_REDUCE_OFFSET |
-      LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE |
-      LIBXS_GEMM_FLAG_USE_XGEMM_ABI |
-      LIBXS_GEMM_FLAG_USE_XGEMM_EXT_ABI;
     libxs_descriptor wrap /*= { 0 }*/;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMSET127(&wrap, 0, sizeof(*descriptor));
@@ -3012,7 +3006,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     LIBXS_ASSIGN127(&wrap.gemm.desc, descriptor);
     /* @TODO fix this code for the 3 kernel types we have
      * right now XGEMM ABI and BRGEMM go to 96 byte */
-    wrap.kind = (libxs_descriptor_kind)(0 == (batch_reduce & descriptor->flags)
+    wrap.kind = (libxs_descriptor_kind)(descriptor->flags < LIBXS_GEMM_FLAG_DESC_ISBIG
       ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_MATMUL)
       : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MATMUL));
     if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
