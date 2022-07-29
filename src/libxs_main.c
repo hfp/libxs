@@ -3101,12 +3101,15 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm_v2( const libxs_gemm_shape ge
     l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
 
   /* add more BRGEMM related fields */
-  if ( (brgemm_config.br_type != LIBXS_GEMM_BATCH_REDUCE_NONE) && (brgemm_config.br_unroll_hint != 0) ) {
-    desc->c3 = (unsigned char)(((brgemm_config.br_unroll_hint < 255) && (brgemm_config.br_unroll_hint > 0)) ? brgemm_config.br_unroll_hint : 0);
-  }
-  if ( brgemm_config.br_type == LIBXS_GEMM_BATCH_REDUCE_STRIDE ) {
-    desc->c1 = (long long)brgemm_config.br_stride_a_hint;
-    desc->c2 = (long long)brgemm_config.br_stride_b_hint;
+  if ( (brgemm_config.br_type != LIBXS_GEMM_BATCH_REDUCE_NONE) ) {
+    if ( brgemm_config.br_type == LIBXS_GEMM_BATCH_REDUCE_STRIDE ) {
+      desc->c1 = (long long)brgemm_config.br_stride_a_hint;
+      desc->c2 = (long long)brgemm_config.br_stride_b_hint;
+    }
+    if (brgemm_config.br_unroll_hint != 0)
+      desc->c3 = (unsigned char)(((brgemm_config.br_unroll_hint < 255) && (brgemm_config.br_unroll_hint > 0)) ? brgemm_config.br_unroll_hint : 0);
+    else
+      desc->c3 = 0;
   }
 
   /* JIT! */
@@ -3151,12 +3154,15 @@ LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_
     l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
 
   /* add more BRGEMM related fields */
-  if ( (brgemm_config.br_type != LIBXS_GEMM_BATCH_REDUCE_NONE) && (brgemm_config.br_unroll_hint != 0) ) {
-    desc->c3 = (unsigned char)(((brgemm_config.br_unroll_hint < 255) && (brgemm_config.br_unroll_hint > 0)) ? brgemm_config.br_unroll_hint : 0);
-  }
-  if ( brgemm_config.br_type == LIBXS_GEMM_BATCH_REDUCE_STRIDE ) {
-    desc->c1 = (long long)brgemm_config.br_stride_a_hint;
-    desc->c2 = (long long)brgemm_config.br_stride_b_hint;
+  if ( (brgemm_config.br_type != LIBXS_GEMM_BATCH_REDUCE_NONE) ) {
+    if ( brgemm_config.br_type == LIBXS_GEMM_BATCH_REDUCE_STRIDE ) {
+      desc->c1 = (long long)brgemm_config.br_stride_a_hint;
+      desc->c2 = (long long)brgemm_config.br_stride_b_hint;
+    }
+    if (brgemm_config.br_unroll_hint != 0)
+      desc->c3 = (unsigned char)(((brgemm_config.br_unroll_hint < 255) && (brgemm_config.br_unroll_hint > 0)) ? brgemm_config.br_unroll_hint : 0);
+    else
+      desc->c3 = 0;
   }
 
   /* setting binary post-op eltwise fields */
