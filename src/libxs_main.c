@@ -1741,6 +1741,7 @@ LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype)
     case LIBXS_DATATYPE_F32:  return "f32";
     case LIBXS_DATATYPE_BF16: return "bf16";
     case LIBXS_DATATYPE_F16:  return "f16";
+    case LIBXS_DATATYPE_BF8:  return "bf8";
     case LIBXS_DATATYPE_I64:  return "i64";
     case LIBXS_DATATYPE_I32:  return "i32";
     case LIBXS_DATATYPE_I16:  return "i16";
@@ -1765,6 +1766,11 @@ LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype)
                LIBXS_DATATYPE_F32 == LIBXS_GETENUM_OUT(datatype))
       {
         return "bf16f32";
+      }
+      else if (LIBXS_DATATYPE_BF8 == LIBXS_GETENUM_INP(datatype) &&
+               LIBXS_DATATYPE_F32 == LIBXS_GETENUM_OUT(datatype))
+      {
+        return "bf8f32";
       }
       else {
         return "void";
