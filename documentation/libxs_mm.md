@@ -81,7 +81,7 @@ To process a batch of matrix multiplications and to prefetch the operands of the
 
 ```C
 /** Batched matrix multiplications (explicit data representation). */
-int libxs_mmbatch(libxs_datatype iprec, libxs_datatype oprec,
+int libxs_gemm_batch_task(libxs_datatype iprec, libxs_datatype oprec,
   const char* transa, const char* transb,
   libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const void* alpha, const void* a, const libxs_blasint* lda,
@@ -95,7 +95,7 @@ int libxs_mmbatch(libxs_datatype iprec, libxs_datatype oprec,
   int tid, int ntasks);
 ```
 
-To further simplify the multiplication of matrices in a batch, LIBXS's batch interface can help to extract the necessary input from a variety of existing structures (integer indexes, array of pointers both with Byte sized strides). An expert interface (see above) can employ a user-defined threading runtime (`tid` and `ntasks`). In case of OpenMP, `libxs_mmbatch_omp` is ready-to-use and hosted by the extension library (libxsext). Of course, `libxs_mmbatch_omp` does not take `tid` and `ntasks` since both arguments are given by OpenMP. Similarly, a sequential version (shown below) is available per `libxs_gemm_batch` (libxs).
+To further simplify the multiplication of matrices in a batch, LIBXS's batch interface can help to extract the necessary input from a variety of existing structures (integer indexes, array of pointers both with Byte sized strides). An expert interface (see above) can employ a user-defined threading runtime (`tid` and `ntasks`). In case of OpenMP, `libxs_gemm_batch_omp` is ready-to-use and hosted by the extension library (libxsext). Of course, `libxs_gemm_batch_omp` does not take `tid` and `ntasks` since both arguments are given by OpenMP. Similarly, a sequential version (shown below) is available per `libxs_gemm_batch` (libxs).
 
 Please note that an explicit data representation should exist and reused rather than created only to call the explicit batch-interface. Creating such a data structure only for this matter can introduce an overhead which is hard to amortize (speedup). If no explicit data structure exists, a "chain" of multiplications can be often algorithmically described (see [self-hosted batch loop](#implicit-batches)).
 
