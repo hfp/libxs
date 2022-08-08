@@ -98,9 +98,13 @@ libxs_fsspmdm_execute
 libxs_gcd
 libxs_gemm_batch
 libxs_gemm_batch_
+libxs_gemm_batch_blas
 libxs_gemm_batch_flags
+libxs_gemm_batch_kernel
 libxs_gemm_batch_omp
 libxs_gemm_batch_omp_
+libxs_gemm_batch_task
+libxs_gemm_batch_task_
 libxs_gemm_descriptor_dinit
 libxs_gemm_descriptor_dinit2
 libxs_gemm_descriptor_init
@@ -214,10 +218,6 @@ libxs_mhd_read_header
 libxs_mhd_typeinfo
 libxs_mhd_typename
 libxs_mhd_write
-libxs_mmbatch
-libxs_mmbatch_
-libxs_mmbatch_blas
-libxs_mmbatch_kernel
 libxs_offset
 libxs_original_dgemm
 libxs_original_dgemm_batch

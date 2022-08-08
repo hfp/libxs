@@ -162,7 +162,7 @@ LIBXS_API libxs_smmfunction libxs_smmdispatch(libxs_blasint m, libxs_blasint n, 
  * index_stride==0: pointers to pointers of elements, e.g., double** for the C matrices.
  * index_stride!=0: pointer to elements, e.g., const double* for the A and B matrices.
  */
-LIBXS_API void libxs_mmbatch(libxs_datatype iprec, libxs_datatype oprec,
+LIBXS_API void libxs_gemm_batch_task(libxs_datatype iprec, libxs_datatype oprec,
   const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const void* alpha, const void* a, const libxs_blasint* lda, const void* b, const libxs_blasint* ldb,
   const void* beta, void* c, const libxs_blasint* ldc,
@@ -187,7 +187,7 @@ LIBXS_API void libxs_mmbatch(libxs_datatype iprec, libxs_datatype oprec,
   /** Thread-ID (TID), and number of threads. */
   /*unsigned*/int tid, /*unsigned*/int ntasks);
 
-/** Process a series of matrix multiplications (batch). See also libxs_mmbatch. */
+/** Process a series of matrix multiplications (batch). See also libxs_gemm_batch_task. */
 LIBXS_API void libxs_gemm_batch(libxs_datatype iprec, libxs_datatype oprec,
   const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const void* alpha, const void* a, const libxs_blasint* lda,
@@ -197,7 +197,7 @@ LIBXS_API void libxs_gemm_batch(libxs_datatype iprec, libxs_datatype oprec,
   const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
   libxs_blasint batchsize);
 
-/** Process a series of matrix multiplications (batch) with OpenMP (libxsext). See also libxs_mmbatch. */
+/** Process a series of matrix multiplications (batch) with OpenMP (libxsext). See also libxs_gemm_batch_task. */
 LIBXS_APIEXT void libxs_gemm_batch_omp(libxs_datatype iprec, libxs_datatype oprec,
   const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
   const void* alpha, const void* a, const libxs_blasint* lda,
@@ -348,7 +348,7 @@ LIBXS_APIEXT void libxs_otrans_omp(void* out, const void* in, unsigned int types
 LIBXS_API void libxs_itrans(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo);
 
-/** Series/batch of matrix transpositions; in-place. See also libxs_mmbatch. */
+/** Series/batch of matrix transpositions; in-place. See also libxs_gemm_batch_task. */
 LIBXS_API void libxs_itrans_batch(void* inout, unsigned int typesize,
   libxs_blasint m, libxs_blasint n, libxs_blasint ldi, libxs_blasint ldo,
   libxs_blasint index_base, libxs_blasint index_stride,
