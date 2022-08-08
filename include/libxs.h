@@ -170,13 +170,16 @@ LIBXS_API void libxs_gemm_batch_task(libxs_datatype iprec, libxs_datatype oprec,
   libxs_blasint index_base,
   /**
    * Stride used to walk stride_a, stride_b, and stride_c; zero turns stride_* into scalar values.
-   * The index_stride is measured in Bytes (sizeof(libxs_blasint) determines packed indexes).
+   * The index_stride is measured in Bytes (sizeof libxs_blasint determines packed indexes, and
+   * smaller strides than sizeof libxs_blasint are invalid).
    */
   libxs_blasint index_stride,
   /**
    * Depending on index_stride, the meaning of stride_a, stride_b, and stride_c is different.
-   * index_stride==0: stride_a, stride_b, and stride_c are pointers to scalar values.
-   * index_stride!=0: stride_* are indexes determining the position of a, b, and c operands.
+   * index_stride==0: stride_* are each scalar strides used to walk the corresponding a, b, or c operand
+   *                  with a, b, and c each being a pointer to pointers of the respective matrices.
+   * index_stride!=0: stride_* are indexes determining the start of the corresponding a, b, or c operand
+   *                  with a, b, and c each being a pointer to the respective matrix-data.
    */
   const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
   /**
