@@ -386,7 +386,9 @@
  * LIBXS_XGEMM_FALLBACK1: above LIBXS_MAX_MNK
  */
 #define LIBXS_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) do { \
-  const int libxs_xgemm_flags_ = LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, LIBXS_FLAGS) | LIBXS_GEMM_XFLAGS(ITYPE, OTYPE) | ( NULL != (BETA) ? ((*(BETA) == 0) ? LIBXS_GEMM_FLAG_BETA_0 : 0) : 0 ); \
+  const OTYPE libxs_xgemm_beta_ = (NULL != ((void*)(BETA)) ? (*(const OTYPE*)(BETA)) : ((OTYPE)LIBXS_BETA)); \
+  const int libxs_xgemm_flags_ = LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, LIBXS_FLAGS) | \
+    LIBXS_GEMM_XFLAGS(ITYPE, OTYPE) | (LIBXS_NEQ(0, libxs_xgemm_beta_) ? 0 : LIBXS_GEMM_FLAG_BETA_0); \
   const libxs_blasint *const libxs_xgemm_k_ = (NULL != (K) ? (K) : (M)); \
   const libxs_blasint *const libxs_xgemm_n_ = (NULL != (N) ? (N) : libxs_xgemm_k_); \
   const libxs_blasint libxs_xgemm_lda_ = LIBXS_MAX(NULL != ((void*)(LDA)) ? *(LDA) : \
@@ -406,7 +408,6 @@
       const char libxs_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & libxs_xgemm_flags_) ? 'n' : 't'); \
       const char libxs_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & libxs_xgemm_flags_) ? 'n' : 't'); \
       const OTYPE libxs_xgemm_alpha_ = (NULL != ((void*)(ALPHA)) ? (*(const OTYPE*)(ALPHA)) : ((OTYPE)LIBXS_ALPHA)); \
-      const OTYPE libxs_xgemm_beta_  = (NULL != ((void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
       LIBXS_XGEMM_FALLBACK0(ITYPE, OTYPE, &libxs_xgemm_transa_, &libxs_xgemm_transb_, \
         M, libxs_xgemm_n_, libxs_xgemm_k_, \
         &libxs_xgemm_alpha_, A, &libxs_xgemm_lda_, \
@@ -418,7 +419,6 @@
     const char libxs_xgemm_transa_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & libxs_xgemm_flags_) ? 'n' : 't'); \
     const char libxs_xgemm_transb_ = (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & libxs_xgemm_flags_) ? 'n' : 't'); \
     const OTYPE libxs_xgemm_alpha_ = (NULL != ((void*)(ALPHA)) ? (*(const OTYPE*)(ALPHA)) : ((OTYPE)LIBXS_ALPHA)); \
-    const OTYPE libxs_xgemm_beta_  = (NULL != ((void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
     LIBXS_XGEMM_FALLBACK1(ITYPE, OTYPE, &libxs_xgemm_transa_, &libxs_xgemm_transb_, \
       M, libxs_xgemm_n_, libxs_xgemm_k_, \
       &libxs_xgemm_alpha_, A, &libxs_xgemm_lda_, \
