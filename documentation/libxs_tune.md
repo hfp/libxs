@@ -120,7 +120,7 @@ make PREFETCH=8
 
 The prefetch interface is extending the signature of all kernels by three arguments (pa, pb, and pc). These additional arguments are specifying the locations of the operands of the next multiplication (the next a, b, and c matrices). Providing unnecessary arguments in case of the three-argument kernels is not big a problem (beside of some additional call-overhead), however running a 3-argument kernel with more than three arguments and thereby picking up garbage data is misleading or disabling the hardware prefetcher (due to software prefetches). In this case, a misleading prefetch location is given plus an eventual page fault due to an out-of-bounds (garbage-)location.
 
-Further, a generated configuration ([template](https://github.com/hfp/libxs/blob/master/include/libxs_config.h)) of the library encodes the parameters for which the library was built for (static information). This helps optimizing client code related to the library's functionality. For example, the LIBXS_MAX_\* and LIBXS_AVG_\* information can be used with the LIBXS_PRAGMA_LOOP_COUNT macro to hint loop trip counts when handling matrices related to the problem domain of LIBXS.
+Further, a generated configuration ([template](https://github.com/hfp/libxs/blob/main/include/libxs_config.h)) of the library encodes the parameters for which the library was built for (static information). This helps optimizing client code related to the library's functionality. For example, the LIBXS_MAX_\* and LIBXS_AVG_\* information can be used with the LIBXS_PRAGMA_LOOP_COUNT macro to hint loop trip counts when handling matrices related to the problem domain of LIBXS.
 
 ### Auto-dispatch
 
