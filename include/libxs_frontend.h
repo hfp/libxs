@@ -565,7 +565,7 @@ LIBXS_API void libxs_blas_xgemm(libxs_datatype iprec, libxs_datatype oprec,
 LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_xprefetch(const int* prefetch);
 LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_prefetch(int prefetch);
 
-/** Determines the given value in double-precision based on the given type. */
+/** Determines the given value in double-precision (EXIT_SUCCESS if value is NULL). */
 LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
 
 #endif /*LIBXS_FRONTEND_H*/
