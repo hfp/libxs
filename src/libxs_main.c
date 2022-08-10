@@ -1539,26 +1539,15 @@ LIBXS_API const char* libxsf_get_target_arch(int* length)
 LIBXS_API void libxs_set_target_arch(const char* arch)
 {
   const int cpuid = libxs_cpuid();
-  int target_archid;
+  int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
   if (NULL != arch && '\0' != *arch
     && arch != libxs_stristr(arch, "default")
     && arch != libxs_stristr(arch, "cpuid")
     && arch != libxs_stristr(arch, "auto"))
   {
-#if defined(LIBXS_PLATFORM_X86)
     const int jit = atoi(arch);
-#endif
-    if (0 == strcmp("0", arch)) {
-#if defined(LIBXS_PLATFORM_X86)
-      target_archid = LIBXS_X86_GENERIC;
-#elif defined(LIBXS_PLATFORM_AARCH64)
-      target_archid = LIBXS_AARCH64_V81;
-#else
-      target_archid = LIBXS_TARGET_ARCH_GENERIC;
-#endif
-    }
-#if defined(LIBXS_PLATFORM_X86)
-    else if (0 < jit) {
+#if defined(LIBXS_PLATFORM_X86) || defined(LIBXS_PLATFORM_FORCE)
+    if (0 < jit) {
       target_archid = LIBXS_X86_GENERIC + jit;
     }
     else if (arch == libxs_stristr(arch, "avx512_vl256_cpx")) {
@@ -1614,38 +1603,47 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     {
       target_archid = LIBXS_X86_GENERIC;
     }
-#elif defined(LIBXS_PLATFORM_AARCH64)
-    else if (arch == libxs_stristr(arch, "arm") || arch == libxs_stristr(arch, "arm64")
-          || arch == libxs_stristr(arch, "arm_v81")
-          || arch == libxs_stristr(arch, "aarch64"))
-    {
-      target_archid = LIBXS_AARCH64_V81;
-    }
-    else if (arch == libxs_stristr(arch, "arm_v82")) {
-      target_archid = LIBXS_AARCH64_V82;
-    }
-    else if (arch == libxs_stristr(arch, "a64fx")) {
-      target_archid = LIBXS_AARCH64_A64FX;
-    }
-    else if (arch == libxs_stristr(arch, "appl_m1")) {
-      target_archid = LIBXS_AARCH64_APPL_M1;
+#endif
+#if defined(LIBXS_PLATFORM_AARCH64) || defined(LIBXS_PLATFORM_FORCE)
+    if (LIBXS_TARGET_ARCH_UNKNOWN == target_archid) {
+      if (0 < jit) {
+        target_archid = LIBXS_AARCH64_V81 + jit;
+      }
+      else if (arch == libxs_stristr(arch, "arm") || arch == libxs_stristr(arch, "arm64")
+            || arch == libxs_stristr(arch, "arm_v81")
+            || arch == libxs_stristr(arch, "aarch64"))
+      {
+        target_archid = LIBXS_AARCH64_V81;
+      }
+      else if (arch == libxs_stristr(arch, "arm_v82")) {
+        target_archid = LIBXS_AARCH64_V82;
+      }
+      else if (arch == libxs_stristr(arch, "a64fx")) {
+        target_archid = LIBXS_AARCH64_A64FX;
+      }
+      else if (arch == libxs_stristr(arch, "appl_m1")) {
+        target_archid = LIBXS_AARCH64_APPL_M1;
+      }
     }
 #endif
-    else if (arch == libxs_stristr(arch, "generic")) {
+    if (LIBXS_TARGET_ARCH_UNKNOWN == target_archid) {
+      if (0 == strcmp("0", arch) || arch == libxs_stristr(arch, "generic")) {
 #if defined(LIBXS_PLATFORM_X86)
-      target_archid = LIBXS_X86_GENERIC;
+        target_archid = LIBXS_X86_GENERIC;
 #elif defined(LIBXS_PLATFORM_AARCH64)
-      target_archid = LIBXS_AARCH64_V81;
+        target_archid = LIBXS_AARCH64_V81;
 #else
-      target_archid = LIBXS_TARGET_ARCH_GENERIC;
+        target_archid = LIBXS_TARGET_ARCH_GENERIC;
 #endif
+      }
+      else if (arch == libxs_stristr(arch, "none")) {
+        target_archid = LIBXS_TARGET_ARCH_GENERIC;
+      }
+      else {
+        target_archid = cpuid;
+      }
     }
-    else if (arch == libxs_stristr(arch, "none")) {
-      target_archid = LIBXS_TARGET_ARCH_GENERIC;
-    }
-    else {
-      target_archid = cpuid;
-    }
+
   }
   else {
     target_archid = cpuid;
