@@ -178,18 +178,26 @@
 #endif
 #define LIBXS_BLAS_NOEXCEPT(KIND) LIBXS_CONCATENATE(LIBXS_BLAS_NOEXCEPT_, KIND)
 #if defined(LIBXS_MKL_VERSION3) && (LIBXS_VERSION3(2020, 0, 2) <= LIBXS_MKL_VERSION3)
+# define LIBXS_BLAS_NOEXCEPT_gemm_batch_strided LIBXS_BLAS_NOTHROW
 # define LIBXS_BLAS_NOEXCEPT_gemm_batch LIBXS_BLAS_NOTHROW
 #else
+# define LIBXS_BLAS_NOEXCEPT_gemm_batch_strided
 # define LIBXS_BLAS_NOEXCEPT_gemm_batch
 #endif
 #define LIBXS_BLAS_NOEXCEPT_gemm LIBXS_BLAS_NOTHROW
 #define LIBXS_BLAS_NOEXCEPT_gemv LIBXS_BLAS_NOTHROW
 
-#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm_batch(CONST_STAR, STAR, TYPE) char CONST_STAR, char CONST_STAR, \
+#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm_batch_strided(CONST_STAR, STAR, TYPE) char CONST_STAR /*transa*/, char CONST_STAR /*transb*/, \
+  libxs_blasint CONST_STAR /*m*/, libxs_blasint CONST_STAR /*n*/, libxs_blasint CONST_STAR /*k*/, \
+  TYPE CONST_STAR /*alpha*/, TYPE CONST_STAR /*a*/, libxs_blasint CONST_STAR /*lda*/, libxs_blasint CONST_STAR /*stride_a*/, \
+                             TYPE CONST_STAR /*b*/, libxs_blasint CONST_STAR /*ldb*/, libxs_blasint CONST_STAR /*stride_b*/, \
+  TYPE CONST_STAR /*beta*/,  TYPE       STAR /*c*/, libxs_blasint CONST_STAR /*ldc*/, libxs_blasint CONST_STAR /*stride_c*/, \
+  libxs_blasint CONST_STAR /*batchsize*/
+#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm_batch(CONST_STAR, STAR, TYPE) char CONST_STAR /*transa*/, char CONST_STAR /*transb*/, \
   libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, \
   TYPE CONST_STAR, TYPE CONST_STAR STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR STAR, libxs_blasint CONST_STAR, \
   TYPE CONST_STAR, TYPE STAR STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR
-#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm(CONST_STAR, STAR, TYPE) char CONST_STAR, char CONST_STAR, \
+#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm(CONST_STAR, STAR, TYPE) char CONST_STAR /*transa*/, char CONST_STAR /*transb*/, \
   libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, \
   TYPE CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, TYPE STAR, libxs_blasint CONST_STAR
 #define LIBXS_BLAS_SYMBOL_SIGNATURE_gemv(CONST_STAR, STAR, TYPE) char CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, \
@@ -277,6 +285,8 @@
 #define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
 #if (0 != LIBXS_BLAS) /* Helper macro to eventually (if defined) call libxs_init */
 # if defined(LIBXS_INIT_COMPLETED)
+#   define LIBXS_BLAS_FUNCTION_dgemm_batch_strided libxs_original_dgemm_batch_strided_function
+#   define LIBXS_BLAS_FUNCTION_sgemm_batch_strided libxs_original_sgemm_batch_strided_function
 #   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch_function
 #   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch_function
 #   define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm_function
@@ -284,6 +294,8 @@
 #   define LIBXS_BLAS_FUNCTION_dgemv libxs_original_dgemv_function
 #   define LIBXS_BLAS_FUNCTION_sgemv libxs_original_sgemv_function
 # else
+#   define LIBXS_BLAS_FUNCTION_dgemm_batch_strided libxs_original_dgemm_batch_strided()
+#   define LIBXS_BLAS_FUNCTION_sgemm_batch_strided libxs_original_sgemm_batch_strided()
 #   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch()
 #   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch()
 #   define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm()
@@ -292,6 +304,8 @@
 #   define LIBXS_BLAS_FUNCTION_sgemv libxs_original_sgemv()
 # endif
 #else /* no BLAS */
+# define LIBXS_BLAS_FUNCTION_dgemm_batch_strided libxs_blas_error("dgemm_batch_strided")
+# define LIBXS_BLAS_FUNCTION_sgemm_batch_strided libxs_blas_error("sgemm_batch_strided")
 # define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_blas_error("dgemm_batch")
 # define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_blas_error("sgemm_batch")
 # define LIBXS_BLAS_FUNCTION_dgemm libxs_blas_error("dgemm")
@@ -307,6 +321,7 @@
 
 /** Short-cut macros to construct desired BLAS function symbol. */
 #define LIBXS_BLAS_FUNCTION1(TYPE, FUNCTION) LIBXS_BLAS_FUNCTION(TYPE, TYPE, FUNCTION)
+#define LIBXS_GEMM_BATCH_STRIDED_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION1(TYPE, gemm_batch_strided)
 #define LIBXS_GEMM_BATCH_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION1(TYPE, gemm_batch)
 #define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION1(TYPE, gemm)
 #define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION1(TYPE, gemv)
@@ -515,6 +530,9 @@ LIBXS_API void libxs_gemm_dprint2(void* ostream,
 LIBXS_API void libxs_gemm_xprint(void* ostream,
   libxs_xmmfunction kernel, const void* a, const void* b, void* c);
 
+/** GEMM_BATCH_STRIDED: fallback prototype functions served by any compliant LAPACK/BLAS. */
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_batch_strided_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch_strided));
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_batch_strided_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch_strided));
 /** GEMM_BATCH: fallback prototype functions served by any compliant LAPACK/BLAS. */
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch));
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch));
@@ -528,12 +546,16 @@ LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemv_function)(LIBXS_BLA
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sink_function)(LIBXS_VARIADIC);
 
 /** The original BLAS functions. */
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_batch_strided_function libxs_original_dgemm_batch_strided_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_batch_strided_function libxs_original_sgemm_batch_strided_function);
 LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_batch_function libxs_original_dgemm_batch_function);
 LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_batch_function libxs_original_sgemm_batch_function);
 LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_function libxs_original_dgemm_function);
 LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_function libxs_original_sgemm_function);
 LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemv_function libxs_original_dgemv_function);
 LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemv_function libxs_original_sgemv_function);
+LIBXS_API libxs_dgemm_batch_strided_function libxs_original_dgemm_batch_strided(void);
+LIBXS_API libxs_sgemm_batch_strided_function libxs_original_sgemm_batch_strided(void);
 LIBXS_API libxs_dgemm_batch_function libxs_original_dgemm_batch(void);
 LIBXS_API libxs_sgemm_batch_function libxs_original_sgemm_batch(void);
 LIBXS_API libxs_dgemm_function libxs_original_dgemm(void);
