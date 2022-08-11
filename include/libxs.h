@@ -175,8 +175,12 @@ LIBXS_API void libxs_gemm_batch_task(libxs_datatype iprec, libxs_datatype oprec,
    * Depending on index_stride, the meaning of stride_a, stride_b, and stride_c is different.
    * index_stride==0: stride_* are each scalar strides used to walk the corresponding a, b, or c
    *                  with each being an array of pointers to the respective matrices.
+   * index_stride <0: stride_* are each scalar strides used to walk the corresponding a, b, or c
+   *                  with each being a pointer to the respective matrix-data.
+   *                  The index_stride is otherwise not used.
    * index_stride!=0: stride_* are indexes determining the start of the corresponding a, b, or c
    *                  with each being a pointer to the respective matrix-data.
+   *                  The index_stride is used to walk stride_*.
    */
   libxs_blasint index_stride,
   /** Determines index-base (0 for zero-based indexes, and 1 for one-based indexes). */
@@ -209,7 +213,7 @@ LIBXS_APIEXT void libxs_gemm_batch_omp(libxs_datatype iprec, libxs_datatype opre
   const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
   libxs_blasint batchsize);
 
-/** Like libxs_gemm_batch, but groups of homogeneous batches are possible. */
+/** Process groups of homogeneous batches. */
 LIBXS_API void libxs_gemm_groups(
   libxs_datatype iprec, libxs_datatype oprec, const char transa_array[], const char transb_array[],
   const libxs_blasint m_array[], const libxs_blasint n_array[], const libxs_blasint k_array[],
@@ -218,7 +222,7 @@ LIBXS_API void libxs_gemm_groups(
   const void* beta_array,        void* c_array[], const libxs_blasint ldc_array[],
   const libxs_blasint* group_count, const libxs_blasint group_size[]);
 
-/** Like libxs_gemm_batch, but groups of homogeneous batches are possible. */
+/** Process groups of homogeneous batches with OpenMP (libxsext). */
 LIBXS_APIEXT void libxs_gemm_groups_omp(
   libxs_datatype iprec, libxs_datatype oprec, const char transa_array[], const char transb_array[],
   const libxs_blasint m_array[], const libxs_blasint n_array[], const libxs_blasint k_array[],
