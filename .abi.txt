@@ -221,9 +221,11 @@ libxs_mhd_write
 libxs_offset
 libxs_original_dgemm
 libxs_original_dgemm_batch
+libxs_original_dgemm_batch_strided
 libxs_original_dgemv
 libxs_original_sgemm
 libxs_original_sgemm_batch
+libxs_original_sgemm_batch_strided
 libxs_original_sgemv
 libxs_otrans
 libxs_otrans_
