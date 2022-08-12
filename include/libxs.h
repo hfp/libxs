@@ -380,6 +380,18 @@ LIBXS_API void libxs_sgemm(const char* transa, const char* transb,
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc);
 
+/**
+ * General dense matrix multiplication, which re-exposes LAPACK/BLAS
+ * but allows to rely on LIBXS's defaults (libxs_config.h)
+ * when supplying NULL-arguments in certain places.
+ */
+LIBXS_API void libxs_blas_gemm(
+  libxs_datatype iprec, libxs_datatype oprec, const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const void* alpha, const void* a, const libxs_blasint* lda,
+  const void* b, const libxs_blasint* ldb,
+  const void* beta, void* c, const libxs_blasint* ldc);
+
 #if !defined(LIBXS_DEFAULT_CONFIG) && !defined(LIBXS_SOURCE_H)
 
 #endif /*!defined(LIBXS_DEFAULT_CONFIG)*/

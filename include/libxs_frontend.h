@@ -565,22 +565,11 @@ LIBXS_API libxs_sgemv_function libxs_original_sgemv(void);
 LIBXS_API libxs_sink_function libxs_blas_error(const char* symbol);
 LIBXS_API void libxs_sink(LIBXS_VARIADIC);
 
-/**
- * General dense matrix multiplication, which re-exposes LAPACK/BLAS
- * but allows to rely on LIBXS's defaults (libxs_config.h)
- * when supplying NULL-arguments in certain places.
- */
-LIBXS_API void libxs_blas_xgemm(libxs_datatype iprec, libxs_datatype oprec,
-  const char* transa, const char* transb, const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const void* alpha, const void* a, const libxs_blasint* lda,
-  const void* b, const libxs_blasint* ldb,
-  const void* beta, void* c, const libxs_blasint* ldc);
-
 #define libxs_blas_dgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  libxs_blas_xgemm(LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, \
+  libxs_blas_gemm(LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, \
     TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 #define libxs_blas_sgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-  libxs_blas_xgemm(LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, \
+  libxs_blas_gemm(LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, \
     TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
 /** Translates GEMM prefetch request into prefetch-enumeration (incl. FE's auto-prefetch). */
