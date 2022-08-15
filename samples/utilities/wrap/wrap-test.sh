@@ -11,7 +11,7 @@
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 DEPDIR=${HERE}/../../..
 
-TMPF=$(${DEPDIR}/.mktmp.sh /tmp/.libxs_XXXXXX.out)
+TMPF=$("${DEPDIR}/.mktmp.sh" /tmp/.libxs_XXXXXX.out)
 UNAME=$(command -v uname)
 GREP=$(command -v grep)
 SORT=$(command -v sort)
@@ -30,23 +30,23 @@ else
   TEST=dgemm
 fi
 
-if [ -e ${HERE}/${TEST}-blas ]; then
-  NAME=$(echo ${TEST} | ${TR} [:lower:] [:upper:])
+if [ -e "${HERE}/${TEST}-blas" ]; then
+  NAME=$(echo ${TEST} | ${TR} [[:lower:]] [[:upper:]])
   echo "============================="
   echo "Running ${NAME} (ORIGINAL BLAS)"
   echo "============================="
-  { time ${HERE}/${TEST}-blas.sh "$@" 2>${TMPF}; } 2>&1 | ${GREP} real
+  { time "${HERE}/${TEST}-blas.sh" "$@" 2>"${TMPF}"; } 2>&1 | ${GREP} real
   RESULT=$?
   if [ 0 != ${RESULT} ]; then
-    echo -n "FAILED(${RESULT}) "; ${SORT} -u ${TMPF}
-    ${RM} -f ${TMPF}
+    echo -n "FAILED(${RESULT}) "; ${SORT} -u "${TMPF}"
+    ${RM} -f "${TMPF}"
     exit ${RESULT}
   else
-    echo -n "OK "; ${SORT} -u ${TMPF}
+    echo -n "OK "; ${SORT} -u "${TMPF}"
   fi
   echo
 
-  if [ -e ${DEPDIR}/lib/libxsext.${LIBEXT} ]; then
+  if [ -e "${DEPDIR}/lib/libxsext.${LIBEXT}" ]; then
     echo
     echo "============================="
     echo "Running ${NAME} (LD_PRELOAD)"
@@ -54,37 +54,37 @@ if [ -e ${HERE}/${TEST}-blas ]; then
     { time \
       LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${DEPDIR}/lib/libxsext.${LIBEXT} \
       DYLD_LIBRARY_PATH=${DEPDIR}/lib:${DYLD_LIBRARY_PATH} DYLD_INSERT_LIBRARIES=${DEPDIR}/lib/libxsext.${LIBEXT} \
-      ${HERE}/${TEST}-blas.sh "$@" 2>${TMPF}; } 2>&1 | ${GREP} real
+      "${HERE}/${TEST}-blas.sh" "$@" 2>"${TMPF}"; } 2>&1 | ${GREP} real
     RESULT=$?
     if [ 0 != ${RESULT} ]; then
-      echo -n "FAILED(${RESULT}) "; ${SORT} -u ${TMPF}
-      ${RM} -f ${TMPF}
+      echo -n "FAILED(${RESULT}) "; ${SORT} -u "${TMPF}"
+      ${RM} -f "${TMPF}"
       exit ${RESULT}
     else
-      echo -n "OK "; ${SORT} -u ${TMPF}
+      echo -n "OK "; ${SORT} -u "${TMPF}"
     fi
     echo
   fi
 fi
 
-if [ -e ${HERE}/${TEST}-wrap ] && [ -e .state ] && \
+if [ -e "${HERE}/${TEST}-wrap" ] && [ -e .state ] && \
    [ "" = "$(${GREP} 'BLAS=0' .state)" ];
 then
   echo
   echo "============================="
   echo "Running ${NAME} (STATIC WRAP)"
   echo "============================="
-  { time ${HERE}/${TEST}-wrap.sh "$@" 2>${TMPF}; } 2>&1 | ${GREP} real
+  { time "${HERE}/${TEST}-wrap.sh" "$@" 2>"${TMPF}"; } 2>&1 | ${GREP} real
   RESULT=$?
   if [ 0 != ${RESULT} ]; then
-    echo -n "FAILED(${RESULT}) "; ${SORT} -u ${TMPF}
-    ${RM} -f ${TMPF}
+    echo -n "FAILED(${RESULT}) "; ${SORT} -u "${TMPF}"
+    ${RM} -f "${TMPF}"
     exit ${RESULT}
   else
-    echo -n "OK "; ${SORT} -u ${TMPF}
+    echo -n "OK "; ${SORT} -u "${TMPF}"
   fi
   echo
 fi
 
-${RM} -f ${TMPF}
+${RM} -f "${TMPF}"
 
