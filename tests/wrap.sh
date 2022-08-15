@@ -7,6 +7,7 @@
 # Further information: https://github.com/hfp/libxs/                          #
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
+set -eo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 
