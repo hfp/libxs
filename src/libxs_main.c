@@ -1606,12 +1606,15 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
 #endif
 #if defined(LIBXS_PLATFORM_AARCH64) || defined(LIBXS_PLATFORM_FORCE)
     if (LIBXS_TARGET_ARCH_UNKNOWN == target_archid) {
+# if !defined(LIBXS_PLATFORM_FORCE)
       if (0 < jit) {
         target_archid = LIBXS_AARCH64_V81 + jit;
       }
-      else if (arch == libxs_stristr(arch, "arm") || arch == libxs_stristr(arch, "arm64")
-            || arch == libxs_stristr(arch, "arm_v81")
-            || arch == libxs_stristr(arch, "aarch64"))
+      else
+# endif
+      if  (arch == libxs_stristr(arch, "arm") || arch == libxs_stristr(arch, "arm64")
+        || arch == libxs_stristr(arch, "arm_v81")
+        || arch == libxs_stristr(arch, "aarch64"))
       {
         target_archid = LIBXS_AARCH64_V81;
       }
