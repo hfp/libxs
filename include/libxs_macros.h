@@ -853,11 +853,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # if defined(NDEBUG)
 #   define LIBXS_ASSERT(EXPR) LIBXS_ASSUME(EXPR)
 # else
-#   if defined(_MSC_VER)
-#     define LIBXS_ASSERT(EXPR) (assert(EXPR), EXPR)
-#   else
-#     define LIBXS_ASSERT(EXPR) assert(EXPR)
-#   endif
+#   define LIBXS_ASSERT(EXPR) assert(EXPR)
 # endif
 #endif
 #if !defined(LIBXS_ASSERT_MSG)
