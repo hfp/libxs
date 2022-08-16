@@ -306,7 +306,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_d
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_xcopykernel {
   libxs_meltwfunction_unary function;
-  const void* ptr;
+  const void *ptr_const, *ptr;
 } libxs_xcopykernel;
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
@@ -372,7 +372,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_descriptor {
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
   union {
-    const void* ptr; /* raw content */
+    const void *ptr_const, *ptr; /* raw content */
     LIBXS_REGDESC(LIBXS_REGDESC_DEFAULT, const*);
     const libxs_pspgemm_csr_descriptor* pspgemm_csr;
     const libxs_pspgemm_csc_descriptor* pspgemm_csc;
