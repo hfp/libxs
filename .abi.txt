@@ -116,6 +116,8 @@ libxs_gemm_groups
 libxs_gemm_groups_omp
 libxs_gemm_print
 libxs_gemm_print2
+libxs_gemm_strided
+libxs_gemm_strided_omp
 libxs_gemm_xprint
 libxs_generator_gemm_directasm
 libxs_generator_gemm_inlineasm
