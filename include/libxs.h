@@ -196,21 +196,19 @@ LIBXS_API void libxs_gemm_batch_task(libxs_datatype iprec, libxs_datatype oprec,
 /** Process a series of SMMs (batch). See also libxs_gemm_batch_task. */
 LIBXS_API void libxs_gemm_batch(libxs_datatype iprec, libxs_datatype oprec,
   const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const void* alpha, const void* a, const libxs_blasint* lda,
-                     const void* b, const libxs_blasint* ldb,
-  const void* beta,        void* c, const libxs_blasint* ldc,
-  libxs_blasint index_base, libxs_blasint index_stride,
-  const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
+  const void* alpha, const void* a, const libxs_blasint* lda, const libxs_blasint stride_a[],
+                     const void* b, const libxs_blasint* ldb, const libxs_blasint stride_b[],
+  const void* beta,        void* c, const libxs_blasint* ldc, const libxs_blasint stride_c[],
+  libxs_blasint index_stride, libxs_blasint index_base,
   libxs_blasint batchsize);
 
 /** Process a series of SMMs (batch) with OpenMP (libxsext). See also libxs_gemm_batch_task. */
 LIBXS_APIEXT void libxs_gemm_batch_omp(libxs_datatype iprec, libxs_datatype oprec,
   const char* transa, const char* transb, libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const void* alpha, const void* a, const libxs_blasint* lda,
-                     const void* b, const libxs_blasint* ldb,
-  const void* beta,        void* c, const libxs_blasint* ldc,
-  libxs_blasint index_base, libxs_blasint index_stride,
-  const libxs_blasint stride_a[], const libxs_blasint stride_b[], const libxs_blasint stride_c[],
+  const void* alpha, const void* a, const libxs_blasint* lda, const libxs_blasint stride_a[],
+                     const void* b, const libxs_blasint* ldb, const libxs_blasint stride_b[],
+  const void* beta,        void* c, const libxs_blasint* ldc, const libxs_blasint stride_c[],
+  libxs_blasint index_stride, libxs_blasint index_base,
   libxs_blasint batchsize);
 
 /** Process a series of SMMs (batch) like gemm_batch_strided (LAPACK/BLAS). */
