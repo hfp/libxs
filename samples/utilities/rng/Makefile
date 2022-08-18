@@ -101,4 +101,3 @@ ifneq (,$(wildcard $(OUTDIR))) # still exists
 	@-rm -f $(OUTDIR)/libxs.$(DLIBEXT) $(OUTDIR)/*.stackdump
 	@-rm -f $(XFILES) $(MODULES)
 endif
-
