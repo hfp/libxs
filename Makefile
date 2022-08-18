@@ -1640,7 +1640,7 @@ $(OUTDIR)/libxsf.pc: $(OUTDIR)/libxsf.$(LIBEXT)
 	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
 	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
 	@echo >>$@
-	@echo "Requires: libxs" >>$@
+	@echo "Requires: libxsext" >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
 	@echo "Libs: -L\$${libdir} -lxsmmf" >>$@
 
