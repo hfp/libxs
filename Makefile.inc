@@ -1154,7 +1154,7 @@ LIBC := $(call ldclib,$(LD),$(SLDFLAGS),c)
 
 # (default) runtime library dependencies
 ifneq (0,$(FORCE_CXX)) # incl. undefined
-  FCLDFLAGS += $(XLIB_BEGIN) $(call ldflib,$(FLD),$(SLDFLAGS),stdc++) $(XLIB_END)
+  FCLDFLAGS += $(XLIB_BEGIN) $(call ldflib,$(FLD),$(SLDFLAGS),$(LIBCPP)) $(XLIB_END)
   CLDFLAGS += $(XLIB_BEGIN) $(LIBCPP) $(XLIB_END)
 endif
 FCLDFLAGS += $(XLIB_BEGIN) $(call ldflib,$(FLD),$(SLDFLAGS),c) $(XLIB_END)
@@ -2402,6 +2402,7 @@ endif
 ifneq (0,$(MKL))
   LDFLAGS := $(call uniqadd,LDFLAGS,LIBM,$(XLIB_BEGIN) $(LIBM) $(XLIB_END))
 endif
+FLDFLAGS := $(call uniqadd,FLDFLAGS,LIBDL,$(XLIB_BEGIN) $(LIBDL) $(XLIB_END))
 LDFLAGS := $(call uniqadd,LDFLAGS,LIBRT,$(XLIB_BEGIN) $(LIBRT) $(XLIB_END))
 LDFLAGS := $(call uniqadd,LDFLAGS,LIBDL,$(XLIB_BEGIN) $(LIBDL) $(XLIB_END))
 
