@@ -64,6 +64,11 @@ LIBXS_API int libxs_get_target_archid(void);
 LIBXS_API void libxs_set_target_archid(int id);
 
 /**
+ * get typename string
+ */
+LIBXS_API const char* libxs_get_typename(libxs_datatype datatype);
+
+/**
  * Returns the name of the target architecture as determined by the CPUID flags, as set by the
  * libxs_get_target_arch* functions, or as set by the LIBXS_TARGET environment variable.
  */

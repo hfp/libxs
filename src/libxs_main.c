@@ -2928,6 +2928,12 @@ LIBXS_API void libxs_xrelease(const void* key, size_t key_size)
 }
 
 
+LIBXS_API const char* libxs_get_typename(libxs_datatype datatype)
+{
+  return libxs_typename( datatype );
+}
+
+
 LIBXS_API libxs_gemm_shape libxs_create_gemm_shape( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
                                                           const libxs_blasint lda, const libxs_blasint ldb, const libxs_blasint ldc,
                                                           const libxs_datatype a_in_type, const libxs_datatype b_in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
