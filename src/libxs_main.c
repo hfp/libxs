@@ -2648,7 +2648,9 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
   if (NULL != info) {
 #if defined(__APPLE__) && defined(__arm64__)
     /* TODO: proper buffer x-allocation provides kernel info, etc. */
-    if (libxs_verbosity < 0) {
+    if ( 0 != libxs_verbosity /* library code is expected to be mute */
+      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+    {
       fprintf(stderr, "LIBXS WARNING: libxs_get_mmkernel_info is not implemented on MacOS aarch64!\n");
     }
     info->iprecision = LIBXS_DATATYPE_F32;
