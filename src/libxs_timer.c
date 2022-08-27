@@ -26,6 +26,11 @@
 # include <sys/platform/ppc.h>
 #endif
 
+#if !defined(LIBXS_TIMER_VERBOSE) && !defined(NDEBUG)
+# if !defined(LIBXS_PLATFORM_AARCH64) || !defined(__APPLE__)
+#   define LIBXS_TIMER_VERBOSE
+# endif
+#endif
 #if !defined(LIBXS_TIMER_TSC)
 # define LIBXS_TIMER_TSC
 #endif
@@ -136,7 +141,7 @@ LIBXS_API int libxs_get_timer_info(libxs_timer_info* info)
     result = EXIT_SUCCESS;
   }
   else {
-#if !defined(NDEBUG)
+#if defined(LIBXS_TIMER_VERBOSE)
     static int error_once = 0;
     if (0 != libxs_verbosity /* library code is expected to be mute */
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
@@ -207,7 +212,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_timer_ncycles)(libxs_timer_tickint* ncycles, 
   {
     *ncycles = libxs_timer_ncycles(*tick0, *tick1);
   }
-#if !defined(NDEBUG)
+#if defined(LIBXS_TIMER_VERBOSE)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
