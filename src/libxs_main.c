@@ -1390,17 +1390,11 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             }
           }
           if (0 == (LIBXS_CODE_STATIC & code.uval)) { /* check for allocated/generated JIT-code */
-# if defined(__APPLE__) && defined(__arm64__)
-# else
             void* buffer = NULL;
             size_t size = 0;
-# endif
 #if defined(LIBXS_HASH_COLLISION)
             code.uval &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 #endif
-# if defined(__APPLE__) && defined(__arm64__)
-            ++internal_registry_nleaks;
-#else
             if (EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, &size, NULL/*flags*/, &buffer)) {
               if (LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(registry_keys[i].entry.kind)
                 /* dump user-data just like JIT'ted code */
@@ -1430,7 +1424,6 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
               internal_registry_nbytes += LIBXS_UP2(size + (((char*)code.ptr_const) - (char*)buffer), LIBXS_PAGE_MINSIZE);
             }
             else ++internal_registry_nleaks;
-#endif
           }
         }
       }
@@ -2245,38 +2238,19 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     /* no error raised */)
   {
     char* code_buffer = NULL;
-# if defined(__APPLE__) && defined(__arm64__)
-# else
     void* code_buffer_ptr = &code_buffer;
-# endif
     const size_t code_size = (size_t)generated_code.code_size;
     const size_t data_size = generated_code.data_size;
     const size_t total_size = code_size + data_size;
     LIBXS_ASSERT(NULL != generated_code.generated_code);
     /* attempt to create executable buffer */
-# if defined(__APPLE__) && defined(__arm64__)
-    /* TODO: proper buffer x-allocation provides kernel info, etc. */
-    code_buffer = (char*)mmap(0, total_size, PROT_WRITE | PROT_EXEC | PROT_READ,
-      MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT, -1, 0);
-    result = ((0 <= (long long)code_buffer) ? EXIT_SUCCESS : EXIT_FAILURE);
-# else
     result = libxs_xmalloc((void**)code_buffer_ptr, total_size, 0/*auto*/,
       /* flag must be a superset of what's populated by libxs_malloc_attrib */
       LIBXS_MALLOC_FLAG_RWX, &extra, sizeof(extra));
-# endif
     if (EXIT_SUCCESS == result) { /* check for success */
       LIBXS_ASSERT(NULL != code_buffer);
-# if defined(__APPLE__) && defined(__arm64__)
-      pthread_jit_write_protect_np(0/*false*/);
-# endif
       /* copy temporary buffer into the prepared executable buffer */
       memcpy(code_buffer, generated_code.generated_code, total_size);
-# if defined(__APPLE__) && defined(__arm64__)
-      code->ptr = code_buffer; /* commit buffer */
-      LIBXS_ASSERT(NULL != code->ptr && 0 == (LIBXS_CODE_STATIC & code->uval));
-      pthread_jit_write_protect_np(1/*true*/);
-      sys_icache_invalidate(code_buffer, total_size);
-# else
       /* attribute and protect code-buffer by setting only necessary flags */
       result = libxs_malloc_attrib((void**)code_buffer_ptr,
         LIBXS_MALLOC_FLAG_X, jit_name, &data_size);
@@ -2289,7 +2263,9 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       if (EXIT_SUCCESS == result) { /* check for success */
         code->ptr = code_buffer; /* commit buffer */
         LIBXS_ASSERT(NULL != code->ptr && 0 == (LIBXS_CODE_STATIC & code->uval));
-#   if defined(__aarch64__)
+#   if defined(__APPLE__) && defined(__arm64__)
+        sys_icache_invalidate(code_buffer, total_size);
+#   elif defined(__aarch64__)
 #     if defined(__clang__)
         __clear_cache(code_buffer, code_buffer + total_size);
 #     else
@@ -2300,7 +2276,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       else { /* release buffer */
         libxs_xfree(code_buffer, 0/*no check*/);
       }
-# endif
     }
   }
   else if (request->kind == LIBXS_BUILD_KIND_USER && NULL != request->descriptor.ptr) { /* user-data */
@@ -2646,21 +2621,6 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
   int result;
   code.xgemm = kernel;
   if (NULL != info) {
-#if defined(__APPLE__) && defined(__arm64__)
-    /* TODO: proper buffer x-allocation provides kernel info, etc. */
-    if ( 0 != libxs_verbosity /* library code is expected to be mute */
-      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-    {
-      fprintf(stderr, "LIBXS WARNING: libxs_get_mmkernel_info is not implemented on MacOS aarch64!\n");
-    }
-    info->iprecision = LIBXS_DATATYPE_F32;
-    info->oprecision = LIBXS_DATATYPE_F32;
-    info->prefetch = LIBXS_GEMM_PREFETCH_NONE;
-    info->flags = LIBXS_GEMM_FLAG_NONE;
-    info->lda = info->ldb = info->ldc = 1;
-    info->m = info->n = info->k = 1;
-    result = EXIT_SUCCESS;
-#else
     const libxs_descriptor* desc;
     if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
         NULL != desc && LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind))
@@ -2690,7 +2650,6 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
       }
       result = EXIT_FAILURE;
     }
-#endif
   }
   else {
     if (0 != libxs_verbosity /* library code is expected to be mute */
