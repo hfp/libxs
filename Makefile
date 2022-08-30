@@ -1473,9 +1473,9 @@ endif
 .PHONY: install-minimal
 install-minimal: libxs
 ifneq ($(PREFIX),$(ABSDIR))
-	@mkdir -p $(PREFIX)/$(POUTDIR) $(PREFIX)/$(PBINDIR) $(PREFIX)/$(PINCDIR) $(PREFIX)/$(PSRCDIR)
 	@echo
 	@echo "LIBXS installing libraries..."
+	@mkdir -p $(PREFIX)/$(POUTDIR)
 	@$(CP) -va $(OUTDIR)/libxsnoblas.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsnoblas.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -va $(OUTDIR)/libxsgen.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
@@ -1527,15 +1527,22 @@ ifneq ($(PREFIX),$(ABSDIR))
 		$(CP) -v $(OUTDIR)/libxs.env $(PREFIX)/$(PMODDIR) 2>/dev/null || true; \
 	fi
 	@echo
+	@echo "LIBXS installing utilities..."
+	@mkdir -p $(PREFIX)/$(POUTDIR)
+	@$(CP) -v $(ROOTDIR)/Makefile.inc $(PREFIX)/$(POUTDIR) 2>/dev/null || true
+	@echo
 	@echo "LIBXS installing stand-alone generators..."
+	@mkdir -p $(PREFIX)/$(PBINDIR)
 	@$(CP) -v $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing interface..."
+	@mkdir -p $(PREFIX)/$(PINCDIR)
 	@$(CP) -v $(INCDIR)/libxs*.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@$(CP) -v $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@$(CP) -v $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing header-only..."
+	@mkdir -p $(PREFIX)/$(PSRCDIR)
 	@$(CP) -r $(ROOTDIR)/$(SRCDIR)/* $(PREFIX)/$(PSRCDIR) >/dev/null 2>/dev/null || true
 endif
 
