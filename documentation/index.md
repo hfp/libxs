@@ -90,16 +90,16 @@ More information about the JIT-backend and the code generator can be found in a 
 
 # Overview
 
-The main interface file is *generated*, and it is therefore **not** stored in the code repository. Instead, one may have a look at the code generation template files for [C/C++](https://github.com/hfp/libxs/blob/main/src/template/libxs.h#L36) and [FORTRAN](https://github.com/hfp/libxs/blob/main/src/template/libxs.f#L32). There are two ways prepared to build and use LIBXS:
+The main interface file is *generated*, and it is therefore **not** stored in the code repository. To inspect the interface for [C/C++](https://github.com/hfp/libxs/blob/main/src/template/libxs.h) and [FORTRAN](https://github.com/hfp/libxs/blob/main/src/template/libxs.f), one can take a look at the template files used to generate the actual interface. There are two general ways to build and use LIBXS:
 
 * [Classic Library (ABI)](#classic-library-abi) and [Link Instructions](#link-instructions) (C/C++ and FORTRAN)
 * [Header-Only](#header-only) (C and C++)
 
-**Note**: LIBXS is available as prebuilt package for Fedora/RedHat/CentOS, Ubuntu, and FreeBSD. Further, LIBXS can be installed with the [Spack Package Manager](https://computing.llnl.gov/projects/spack-hpc-package-manager) or per [EasyBuild+EasyConfig](https://github.com/easybuilders).
+**Note**: LIBXS is available as prebuilt package for Fedora/RedHat/CentOS, Debian/Ubuntu, FreeBSD, and others. Further, LIBXS can be installed with the [Spack Package Manager](https://computing.llnl.gov/projects/spack-hpc-package-manager) or per [EasyBuild+EasyConfig](https://github.com/easybuilders).
 
 ### Classic Library (ABI)
 
-The build system relies on <span>GNU&#160;Make</span> (typically associated with the `make` command, but e.g. FreeBSD is calling it `gmake`). The build can be customized by using <span>key&#8209;value</span> pairs. <span>Key&#8209;value</span> pairs can be supplied in two ways: <span>(1)&#160;after</span> the "make" command, or <span>(2)&#160;prior</span> to the "make" command (`env`) which is effectively the same as exporting the <span>key&#8209;value</span> pair as an environment variable (`export`, or `setenv`). Both methods can be mixed (the second method may require make's `-e` flag).
+There are two ways to rely on prebuilt code for a given project: <span>(1)&#160;using</span> LIBXS's Makefile based build system, <span>(2)&#160;or</span> using another build system and writing own [rules for building LIBXS](#rules-for-building-libxs). The Makefile based build system relies on <span>GNU&#160;Make</span> (typically associated with the `make` command, but e.g. FreeBSD is calling it `gmake`). The build can be customized by using <span>key&#8209;value</span> pairs. <span>Key&#8209;value</span> pairs can be supplied in two ways: <span>(1)&#160;after</span> the "make" command, or <span>(2)&#160;prior</span> to the "make" command (`env`) which is effectively the same as exporting the <span>key&#8209;value</span> pair as an environment variable (`export`, or `setenv`). Both methods can be mixed (the second method may require make's `-e` flag).
 
 <a name="zero-config-abi"></a>In contrast to [header-only](#zero-config) which does not require configuration by default, 3rd-party build systems can compile and link LIBXS's sources but still avoid configuring the library (per `libxs_config.py`). The prerequisite to omit configuration is to opt-in by defining LIBXS_DEFAULT_CONFIG (`-D`). The zero-config feature is not available for LIBXS's Fortran interface.
 
@@ -145,11 +145,13 @@ make realclean
 
 <a name="fortran"></a>FORTRAN code can make use of LIBXS:
 
-* By using the module and linking with `libxsf`, `libxs`, and (optionally) `libxsext`,
-* <a name="header-only-fortran"></a>By including `libxs.f` and linking with `libxs`, and (optionally) `libxsext`, or
-* By (implicitly) calling a SUBROUTINE and linking with `libxs`, and (optionally) `libxsext`.
+* By using the module and linking with `libxsf`, `libxs`, and `libxsext`,
+* <a name="header-only-fortran"></a>By including `libxs.f` and linking with `libxs`, and `libxsext`, or
+* By (implicitly) calling a SUBROUTINE and linking with `libxs`, and `libxsext`.
 
-**Note**: Using the Fortran module or including the interface, requires at least a <span>Fortran&#160;2003</span> compiler (F2K3). <span>FORTRAN&#160;77</span> compatibility is only implicitly available (no interface), and the available subset of routines is documented in `libxs.f` and marked with [comments](https://github.com/hfp/libxs/search?q=implementation+provided+for+Fortran+77+compatibility) (part of the implementation).
+**Note**: `libxsf` requires `libxsext` (starting with LIBXS&#160;2.0), and thereby requires to link with the OpenMP runtime as well.
+
+Using the Fortran module (or including the interface), requires at least a <span>Fortran&#160;2003</span> compiler (F2K3). <span>FORTRAN&#160;77</span> compatibility is only implicitly available (no interface), and the available subset of routines is documented in `libxs.f` and marked with [comments](https://github.com/hfp/libxs/search?q=implementation+provided+for+Fortran+77+compatibility) (part of the implementation).
 
 ### Header-Only
 
@@ -158,6 +160,39 @@ make realclean
 <a name="zero-config"></a>The header-only form depends on `libxs_source.h` which is *generated* according to the content of the source folder (`src`). <span>LIBXS&#160;1.16</span> (and later) provides header-only support without invoking a make-target (zero configuration) for any given checkout of LIBXS. To use configured header-only (non-default), LIBXS_CONFIGURED must be defined (`-D`). Previously, it was necessary to invoke `make header-only` (v1.6.2 or later), `make cheader` (prior to v1.6.2), or any target building the library (`make`). The zero-config feature allows 3rd-party build systems an easier integration of LIBXS, which also holds true if the system builds LIBXS from source (see [classic ABI](#zero-config-abi)). Fortran code may [include](#header-only-fortran) `libxs.f` but still requires that interface to be generated.
 
 **Note**: building an application applies the same build settings to LIBXS! For instance, to omit debug code inside of LIBXS `NDEBUG` must be defined (`-DNDEBUG`).
+
+## Rules for building LIBXS
+
+LIBXS can be used as header-only library, i.e., no source code must be (pre-)built. However, it can be desirable to build LIBXS as an intermediate library using a custom setup or build system. The latter can still implement custom build rules to configure LIBXS's interface before building the code. More likely, building LIBXS from source in a custom fashion can still be omitting to configure the interface and rely on "(zero-config)[#zero-config-abi]", i.e., defining LIBXS_DEFAULT_CONFIG (`-DLIBXS_DEFAULT_CONFIG`). For example, a CMake module for LIBXS can look like:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+  xsmm
+  URL https://github.com/chelini/libxs/archive/<your-preferred-revision>.tar.gz
+  URL_HASH SHA256=<sha256sum-corresponding-to-above-revision>
+)
+FetchContent_GetProperties(xsmm)
+if(NOT xsmm_POPULATED)
+  FetchContent_Populate(xsmm)
+endif()
+
+set(LIBXSROOT ${xsmm_SOURCE_DIR})
+file(GLOB _GLOB_XSMM_SRCS LIST_DIRECTORIES false CONFIGURE_DEPENDS ${LIBXSROOT}/src/*.c)
+list(REMOVE_ITEM _GLOB_XSMM_SRCS ${LIBXSROOT}/src/libxs_generator_gemm_driver.c)
+set(XSMM_INCLUDE_DIRS ${LIBXSROOT}/include)
+
+add_library(xsmm STATIC ${_GLOB_XSMM_SRCS})
+target_include_directories(xsmm PUBLIC ${XSMM_INCLUDE_DIRS})
+target_compile_definitions(xsmm PUBLIC
+  LIBXS_DEFAULT_CONFIG
+)
+target_compile_definitions(xsmm PRIVATE
+  __BLAS=0
+)
+```
+
+Above, LIBXS_DEFAULT_CONFIG is propagated to dependent code (`PUBLIC`) and further, LIBXS is configured to not require a LAPACK/BLAS library/fallback (`-D__BLAS=0`).
 
 ## Link Instructions
 
