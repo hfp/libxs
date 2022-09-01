@@ -153,6 +153,7 @@ libxs_get_target_arch
 libxs_get_target_archid
 libxs_get_tid
 libxs_get_timer_info
+libxs_get_typename
 libxs_get_verbosity
 libxs_hash
 libxs_hash_char
