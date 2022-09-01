@@ -36,7 +36,7 @@ if [ -e "${HERE}/${TEST}-blas" ]; then
   echo "-----------------------------------"
   echo "${NAME} (ORIGINAL BLAS)"
   echo "args    $@"
-  { time "${HERE}/${TEST}-blas.sh" "$@" 2>"${TMPF}"; } 2>&1 | ${GREP} real
+  { time "${HERE}/${TEST}-blas" "$@" 2>"${TMPF}"; } 2>&1 | ${GREP} real
   RESULT=$?
   if [ 0 != ${RESULT} ]; then
     echo -n "FAILED(${RESULT}) "; ${SORT} -u "${TMPF}"
@@ -54,7 +54,7 @@ if [ -e "${HERE}/${TEST}-blas" ]; then
     { time \
       LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${DEPDIR}/lib/libxsext.${LIBEXT} \
       DYLD_LIBRARY_PATH=${DEPDIR}/lib:${DYLD_LIBRARY_PATH} DYLD_INSERT_LIBRARIES=${DEPDIR}/lib/libxsext.${LIBEXT} \
-      "${HERE}/${TEST}-blas.sh" "$@" 2>"${TMPF}"; } 2>&1 | ${GREP} real
+      "${HERE}/${TEST}-blas" "$@" 2>"${TMPF}"; } 2>&1 | ${GREP} real
     RESULT=$?
     if [ 0 != ${RESULT} ]; then
       echo -n "FAILED(${RESULT}) "; ${SORT} -u "${TMPF}"
@@ -73,7 +73,7 @@ then
   echo "-----------------------------------"
   echo "${NAME} (STATIC WRAP)"
   echo "args    $@"
-  { time "${HERE}/${TEST}-wrap.sh" "$@" 2>"${TMPF}"; } 2>&1 | ${GREP} real
+  { time "${HERE}/${TEST}-wrap" "$@" 2>"${TMPF}"; } 2>&1 | ${GREP} real
   RESULT=$?
   if [ 0 != ${RESULT} ]; then
     echo -n "FAILED(${RESULT}) "; ${SORT} -u "${TMPF}"
