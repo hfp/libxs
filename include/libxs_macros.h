@@ -543,6 +543,7 @@
 #define LIBXS_ROUNDX(TYPE, A) ((TYPE)((long long)(0 <= (A) ? ((double)(A) + 0.5) : ((double)(A) - 0.5))))
 #define LIBXS_NEARBYINTX(TYPE, A) ((TYPE)((long long)(LIBXS_ROUNDX(TYPE,((double)(A)/2.0))*2)))
 #define LIBXS_CONST_VOID_PTR(A) *((const void**)&(A))
+#define LIBXS_EOR(ENUM_TYPE, ENUM, FLAG) ((ENUM_TYPE)(((int)(ENUM)) | ((int)(FLAG))))
 
 /** Makes some functions available independent of C99 support. */
 #if defined(__STDC_VERSION__) && (199901L/*C99*/ <= __STDC_VERSION__)
@@ -997,7 +998,18 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
   && !defined(_WIN32) /* error including dfp754.h */
 #   include <mathimf.h>
 # endif
+# if defined(__STRICT_ANSI__)
+#   define LIBXS_STRICT_ANSI __STRICT_ANSI__
+#   undef __STRICT_ANSI__
+# endif
 # include <math.h>
+# if defined(LIBXS_STRICT_ANSI)
+#   define __STRICT_ANSI__ LIBXS_STRICT_ANSI
+#   undef LIBXS_STRICT_ANSI
+# endif
+#endif
+#if !defined(M_PI)
+# define M_PI 3.14159265358979323846
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
