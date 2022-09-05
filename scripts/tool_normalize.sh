@@ -115,7 +115,7 @@ then
     # remove or comment the following line to enable reformat (do not set REFORMAT=1)
     REFORMAT=0
     if [ "0" != "${REFORMAT}" ]; then
-      if [ "0" = "$(${FMTBIN} --style=file ${FILE} > ${TMPF}; echo $?)" ] && \
+      if [ "0" = "$(${FMTBIN} --style=file ${FILE} >${TMPF}; echo $?)" ] && \
          [ "1" = "$(${DIFF} ${FILE} ${TMPF} >/dev/null; echo $?)" ];
       then
         ${CP} ${TMPF} ${FILE}
@@ -135,7 +135,7 @@ then
       echo " : white space leads '#' (malformed preprocessor command)"
       exit 1
     elif [ "$(${SED} -n "s/\([^[:space:]]\)\t/\1 /gp" ${FILE})" ]; then
-      ${SED} -e "s/\([^[:space:]]\)\t/\1 /g" ${FILE} > ${TMPF}
+      ${SED} -e "s/\([^[:space:]]\)\t/\1 /g" ${FILE} >${TMPF}
       ${CP} ${TMPF} ${FILE}
       echo -n " : removed tabs"
       REFORMAT=1
@@ -151,7 +151,7 @@ then
     # Check and fix for trailing spaces.
     #
     if [ "$(${SED} -n "${PATSPC}x/p" ${FILE})" ]; then
-      ${SED} -e "${PATSPC}/" ${FILE} > ${TMPF}
+      ${SED} -e "${PATSPC}/" ${FILE} >${TMPF}
       ${CP} ${TMPF} ${FILE}
       echo -n " : removed trailing spaces"
       REFORMAT=1
