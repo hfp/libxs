@@ -985,12 +985,8 @@ endif
 
 # use dir not qdir to avoid quotes; also $(ROOTDIR)/$(SPLDIR) is relative
 DIRS_SAMPLES := $(dir $(shell find $(ROOTDIR)/$(SPLDIR) -type f -name Makefile \
-	| grep -v /deeplearning/embbag_distri/ \
-	| grep -v /deeplearning/sparse_training/fairseq/docs/ \
-	| grep -v /deeplearning/sparse_adagrad_fused/ \
-	| grep -v /deeplearning/tvm_cnnlayer/ \
-	| grep -v /deeplearning/tf_lstm_ops/ \
-	| grep -v /deeplearning/gxm/ \
+	| grep -v /deeplearning/samples/embbag_distri/ \
+	| grep -v /deeplearning/samples/sparse_adagrad_fused/ \
 	| grep -v /edge/repro/ \
 	| grep -v /encoder/ \
 	$(NULL)))
@@ -1340,12 +1336,12 @@ $(ROOTDIR)/documentation/libxs_valid.md $(ROOTDIR)/documentation/libxs_qna.md
 		-o $(call qndir,$@)
 	@rm $(TMPFILE)
 
-$(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md $(ROOTDIR)/$(SPLDIR)/deeplearning/*/README.md $(ROOTDIR)/$(UTLDIR)/*/README.md
+$(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md $(ROOTDIR)/$(UTLDIR)/*/README.md
 	@cd $(ROOTDIR)
 	@if [ "$$(command -v git)" ] && [ "$$(git ls-files version.txt)" ]; then \
-		git ls-files $(SPLDIR)/*/README.md $(SPLDIR)/deeplearning/*/README.md $(UTLDIR)/*/README.md | xargs -I {} cat {}; \
+		git ls-files $(SPLDIR)/*/README.md $(UTLDIR)/*/README.md | xargs -I {} cat {}; \
 	else \
-		cat $(SPLDIR)/*/README.md $(SPLDIR)/deeplearning/*/README.md $(UTLDIR)/*/README.md; \
+		cat $(SPLDIR)/*/README.md $(UTLDIR)/*/README.md; \
 	fi \
 	| sed \
 		-e 's/^#/##/' \
@@ -1617,7 +1613,7 @@ ALIAS_LIBDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(POUTDIR)),,\$${prefix
 
 $(OUTDIR)/libxs.pc: $(OUTDIR)/libxs.$(LIBEXT)
 	@echo "Name: libxs" >$@
-	@echo "Description: Matrix operations and deep learning primitives" >>$@
+	@echo "Description: Specialized tensor operations" >>$@
 	@echo "URL: https://github.com/hfp/libxs/" >>$@
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
@@ -1742,7 +1738,7 @@ deb:
 		echo "Section: libs" >>control; \
 		echo "Architecture: amd64" >>control; \
 		echo "Depends: \$${shlibs:Depends}, \$${misc:Depends}" >>control; \
-		echo "Description: Matrix operations and deep learning primitives" >>control; \
+		echo "Description: Specialized tensor operations" >>control; \
 		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/libxs/libxs/" \
 		| sed -n 's/ *\"description\": \"\(..*\)\".*/\1/p' \
 		| fold -s -w 79 | sed -e 's/^/ /' -e 's/[[:space:]][[:space:]]*$$//' >>control; \
