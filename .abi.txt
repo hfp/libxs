@@ -245,6 +245,7 @@ libxs_pfree
 libxs_pmalloc
 libxs_pmalloc_init
 libxs_primes_u32
+libxs_print_cmdline
 libxs_product_limit
 libxs_ptr_b0
 libxs_ptr_b1

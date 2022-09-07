@@ -760,6 +760,7 @@ LIBXS_API_INTERN void internal_finalize(void)
         }
       }
       if (LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) {
+        libxs_print_cmdline(stderr, "Command: ", "\n");
         fprintf(stderr, "Uptime: %f s", libxs_timer_duration(internal_timer_start, libxs_timer_tick()));
         if (1 < libxs_thread_count && INT_MAX == libxs_verbosity) {
           fprintf(stderr, " (nthreads=%u)", libxs_thread_count);

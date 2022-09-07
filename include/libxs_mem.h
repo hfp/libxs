@@ -51,6 +51,12 @@
 
 
 /**
+ * Check if pointer is SIMD-aligned and optionally consider the next access (increment in Bytes).
+ * Optionally calculates the alignment of the given pointer in Bytes.
+ */
+LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment);
+
+/**
  * Calculates if there is a difference between two (short) buffers.
  * Returns zero if there is no difference; otherwise non-zero.
  */
@@ -76,9 +82,10 @@ LIBXS_API unsigned long long libxs_hash_string(const char string[]);
 LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
 
 /**
- * Check if pointer is SIMD-aligned and optionally consider the next access (increment in Bytes).
- * Optionally calculates the alignment of the given pointer in Bytes.
+ * Print the command line arguments of the current process, and get the number of written
+ * characters including the prefix, the postfix, but not the terminating NULL character.
+ * If zero is returned, nothing was printed (no prefix, no postfix).
  */
-LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment);
+LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* postfix);
 
 #endif /*LIBXS_MEM_H*/
