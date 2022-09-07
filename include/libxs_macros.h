@@ -590,7 +590,7 @@
 # define LIBXS_LOGF(A) logf(A)
 #else
 # if !defined(_WIN32)
-LIBXS_EXTERN double erf(double) LIBXS_THROW;
+LIBXS_EXTERN double erf(double) LIBXS_NOEXCEPT;
 # endif
 # define LIBXS_POWF(A, B) ((float)pow((float)(A), (float)(B)))
 # define LIBXS_FREXPF(A, B) ((float)frexp((float)(A), B))
